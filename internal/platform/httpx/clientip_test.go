@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"testing"
@@ -27,7 +28,7 @@ func TestClientIP(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			r := httptest.NewRequest("GET", "/", nil)
+			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			r.RemoteAddr = c.remote
 			for _, v := range c.xff {
 				r.Header.Add("X-Forwarded-For", v)

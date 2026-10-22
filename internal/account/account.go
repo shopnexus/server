@@ -44,17 +44,17 @@ func New(id uuid.UUID, displayName string, now time.Time) (Account, error) {
 	return Account{id: id, displayName: name, status: StatusActive, writeID: id, createdAt: now, updatedAt: now}, nil
 }
 
-func (a Account) ID() uuid.UUID              { return a.id }
-func (a Account) DisplayName() string        { return a.displayName }
-func (a Account) SuspendReason() string      { return a.suspendReason }
-func (a Account) SuspendedUntil() *time.Time { return a.suspendedUntil }
-func (a Account) CreatedAt() time.Time       { return a.createdAt }
-func (a Account) UpdatedAt() time.Time       { return a.updatedAt }
-func (a Account) WriteID() uuid.UUID         { return a.writeID }
+func (a *Account) ID() uuid.UUID              { return a.id }
+func (a *Account) DisplayName() string        { return a.displayName }
+func (a *Account) SuspendReason() string      { return a.suspendReason }
+func (a *Account) SuspendedUntil() *time.Time { return a.suspendedUntil }
+func (a *Account) CreatedAt() time.Time       { return a.createdAt }
+func (a *Account) UpdatedAt() time.Time       { return a.updatedAt }
+func (a *Account) WriteID() uuid.UUID         { return a.writeID }
 
 // Status reports the status in force at now. A suspension whose end has
 // passed reads as active even though the stored row still says suspended.
-func (a Account) Status(now time.Time) Status {
+func (a *Account) Status(now time.Time) Status {
 	if a.status == StatusSuspended && a.suspendedUntil != nil && !now.Before(*a.suspendedUntil) {
 		return StatusActive
 	}
@@ -65,7 +65,7 @@ func (a Account) Status(now time.Time) Status {
 // case that writes loads the account and calls it; access tokens stay valid
 // for up to 15 minutes after a suspension, so this is what stops writes at
 // once.
-func (a Account) CanWrite(now time.Time) error {
+func (a *Account) CanWrite(now time.Time) error {
 	if a.Status(now) == StatusSuspended {
 		return ErrSuspended
 	}

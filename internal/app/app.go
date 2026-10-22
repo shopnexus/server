@@ -82,7 +82,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL}
 	defer func() {
 		if err != nil {
-			a.Close(context.Background())
+			err = errors.Join(err, a.Close(context.Background()))
 		}
 	}()
 
@@ -98,7 +98,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		return nil, err
 	}
 
-	a.router.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+	a.router.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.Respond(w, http.StatusOK, status{"ok"})
 	})
 	a.router.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
@@ -171,8 +171,7 @@ func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logge
 		url = ep.URL()
 	}
 	if err := register(ctx, cfg.AdminURL, url, log); err != nil {
-		ep.Close(context.Background())
-		return nil, err
+		return nil, errors.Join(err, ep.Close(context.Background()))
 	}
 	return ep, nil
 }
@@ -203,9 +202,10 @@ func (a *App) ready(ctx context.Context) error {
 
 // Close stops the Restate endpoint and closes the pool.
 func (a *App) Close(ctx context.Context) error {
+	var err error
 	if a.endpoint != nil {
-		a.endpoint.Close(ctx)
+		err = a.endpoint.Close(ctx)
 	}
 	a.pool.Close()
-	return nil
+	return err
 }

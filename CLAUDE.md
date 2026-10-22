@@ -27,7 +27,9 @@ new decisions there, not in Claude's memory.
 
 - `make run`: start the development stack and the server. The first run
   writes `.env` with fresh keys; migrations apply every run.
-- `make test`: every test, `go vet` and `gofmt`, against the test stack,
-  which it starts. After one `make test` the stack stays up, so
-  `go test ./internal/auth/` runs a single package.
+- `make test`: every test against the test stack, which it starts, then
+  `golangci-lint run` (config in `.golangci.yml`; it includes `go vet` and
+  gofumpt). After one `make test` the stack stays up, so
+  `go test ./internal/auth/` runs a single package. `golangci-lint fmt`
+  applies gofumpt.
 - `make down`: stop both stacks.

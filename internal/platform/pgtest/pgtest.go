@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -85,7 +86,7 @@ func Empty(t testing.TB) *pgxpool.Pool {
 	return pool
 }
 
-// NewForMain is New for TestMain, where no testing.TB exists.
+// NewForMain is New for TestMain, where no [testing.TB] exists.
 func NewForMain(adminURL string) (*pgxpool.Pool, func(), error) {
 	tpl, err := template(adminURL)
 	if err != nil {
@@ -162,16 +163,19 @@ func create(adminURL, tpl string) (*pgxpool.Pool, func(), error) {
 	}
 	drop := func() {
 		pool.Close()
-		withAdmin(adminURL, func(ctx context.Context, conn *pgx.Conn) error {
+		err := withAdmin(adminURL, func(ctx context.Context, conn *pgx.Conn) error {
 			_, err := conn.Exec(ctx, "DROP DATABASE IF EXISTS "+name+" WITH (FORCE)")
 			return err
 		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "pgtest: drop %s: %v\n", name, err)
+		}
 	}
 	return pool, drop, nil
 }
 
 // withAdmin runs fn on one admin connection holding cloneLock.
-func withAdmin(adminURL string, fn func(context.Context, *pgx.Conn) error) error {
+func withAdmin(adminURL string, fn func(context.Context, *pgx.Conn) error) (err error) {
 	if err := guard(adminURL); err != nil {
 		return err
 	}
@@ -180,11 +184,14 @@ func withAdmin(adminURL string, fn func(context.Context, *pgx.Conn) error) error
 	if err != nil {
 		return err
 	}
-	defer conn.Close(ctx)
+	defer func() { err = errors.Join(err, conn.Close(ctx)) }()
 	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock(@lock)", pgx.StrictNamedArgs{"lock": cloneLock}); err != nil {
 		return err
 	}
-	defer conn.Exec(ctx, "SELECT pg_advisory_unlock(@lock)", pgx.StrictNamedArgs{"lock": cloneLock})
+	defer func() {
+		_, uerr := conn.Exec(ctx, "SELECT pg_advisory_unlock(@lock)", pgx.StrictNamedArgs{"lock": cloneLock})
+		err = errors.Join(err, uerr)
+	}()
 	return fn(ctx, conn)
 }
 

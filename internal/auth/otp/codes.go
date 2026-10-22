@@ -30,6 +30,6 @@ func (c Codes) For(challengeID uuid.UUID) string {
 // equal codes for different people hash differently.
 func (c Codes) Hash(dest contact.Address, code string) []byte {
 	m := hmac.New(sha256.New, c.key)
-	fmt.Fprintf(m, "otp-hash:%s:%s:%s", dest.Kind(), dest.Value(), code)
+	m.Write(fmt.Appendf(nil, "otp-hash:%s:%s:%s", dest.Kind(), dest.Value(), code))
 	return m.Sum(nil)
 }

@@ -47,25 +47,27 @@ type Session struct {
 // token's hash is kept. The first write ID is the session ID.
 func New(id, accountID uuid.UUID, deviceName string, authTime, now time.Time) (Session, string) {
 	token, hash := NewRefreshToken()
-	return Session{id: id, accountID: accountID, refreshHash: hash, deviceName: deviceName, authTime: authTime,
-		createdAt: now, lastUsedAt: now, expiresAt: now.Add(MaxAge), writeID: id}, token
+	return Session{
+		id: id, accountID: accountID, refreshHash: hash, deviceName: deviceName, authTime: authTime,
+		createdAt: now, lastUsedAt: now, expiresAt: now.Add(MaxAge), writeID: id,
+	}, token
 }
 
-func (s Session) ID() uuid.UUID           { return s.id }
-func (s Session) AccountID() uuid.UUID    { return s.accountID }
-func (s Session) RefreshHash() []byte     { return s.refreshHash }
-func (s Session) PrevRefreshHash() []byte { return s.prevRefreshHash }
-func (s Session) DeviceName() string      { return s.deviceName }
-func (s Session) AuthTime() time.Time     { return s.authTime }
-func (s Session) CreatedAt() time.Time    { return s.createdAt }
-func (s Session) LastUsedAt() time.Time   { return s.lastUsedAt }
-func (s Session) ExpiresAt() time.Time    { return s.expiresAt }
-func (s Session) RevokedAt() *time.Time   { return s.revokedAt }
-func (s Session) WriteID() uuid.UUID      { return s.writeID }
+func (s *Session) ID() uuid.UUID           { return s.id }
+func (s *Session) AccountID() uuid.UUID    { return s.accountID }
+func (s *Session) RefreshHash() []byte     { return s.refreshHash }
+func (s *Session) PrevRefreshHash() []byte { return s.prevRefreshHash }
+func (s *Session) DeviceName() string      { return s.deviceName }
+func (s *Session) AuthTime() time.Time     { return s.authTime }
+func (s *Session) CreatedAt() time.Time    { return s.createdAt }
+func (s *Session) LastUsedAt() time.Time   { return s.lastUsedAt }
+func (s *Session) ExpiresAt() time.Time    { return s.expiresAt }
+func (s *Session) RevokedAt() *time.Time   { return s.revokedAt }
+func (s *Session) WriteID() uuid.UUID      { return s.writeID }
 
 // Usable returns nil while the session may refresh: not revoked, younger than
 // MaxAge, and used within IdleLimit.
-func (s Session) Usable(now time.Time) error {
+func (s *Session) Usable(now time.Time) error {
 	if s.revokedAt != nil {
 		return ErrRevoked
 	}

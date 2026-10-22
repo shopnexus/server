@@ -33,8 +33,10 @@ func startSignIn(t *testing.T, changes ...func(*auth.SignIn)) *signInEnv {
 	db := pgtest.New(t)
 	clock := newClock()
 	challenges := otp.NewChallengePGStore(db)
-	svc := auth.SignIn{Prefix: restatetest.Prefix(), Challenges: challenges, Credentials: credentials.NewPGStore(db),
-		Accounts: account.Client{Store: account.NewPGStore(db), Now: time.Now}, Now: clock.Now}
+	svc := auth.SignIn{
+		Prefix: restatetest.Prefix(), Challenges: challenges, Credentials: credentials.NewPGStore(db),
+		Accounts: account.Client{Store: account.NewPGStore(db), Now: time.Now}, Now: clock.Now,
+	}
 	for _, change := range changes {
 		change(&svc)
 	}
@@ -64,8 +66,11 @@ func (e *signInEnv) signIn(t *testing.T, raw string) auth.SignInResult {
 }
 
 func (e *signInEnv) count(t *testing.T, table string) int {
+	t.Helper()
 	var n int
-	e.db.QueryRow(context.Background(), `SELECT count(*) FROM `+table).Scan(&n)
+	if err := e.db.QueryRow(context.Background(), `SELECT count(*) FROM `+table).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
 	return n
 }
 

@@ -40,21 +40,15 @@ func upsertIdentities(ctx context.Context, tx pgx.Tx, accountID uuid.UUID, ids [
 }
 
 func (s pgStore) Create(ctx context.Context, c Credentials) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-	if _, err := tx.Exec(ctx, `
+	return pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `
 INSERT INTO credentials (account_id, write_id, updated_at) VALUES (@account_id, @write_id, @updated_at)
 ON CONFLICT (account_id) DO NOTHING`,
-		pgx.StrictNamedArgs{"account_id": c.accountID, "write_id": c.writeID, "updated_at": c.updatedAt}); err != nil {
-		return err
-	}
-	if err := upsertIdentities(ctx, tx, c.accountID, c.identities); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+			pgx.StrictNamedArgs{"account_id": c.accountID, "write_id": c.writeID, "updated_at": c.updatedAt}); err != nil {
+			return err
+		}
+		return upsertIdentities(ctx, tx, c.accountID, c.identities)
+	})
 }
 
 func (s pgStore) Get(ctx context.Context, accountID uuid.UUID) (Credentials, error) {
@@ -97,34 +91,29 @@ func (s pgStore) FindIdentity(ctx context.Context, kind Kind, value string) (Ide
 }
 
 func (s pgStore) Save(ctx context.Context, c *Credentials, writeID uuid.UUID) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-	tag, err := tx.Exec(ctx, `
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `
 UPDATE credentials SET write_id = @write_id, updated_at = @updated_at
 WHERE account_id = @account_id AND (write_id = @read_write_id OR write_id = @write_id)`, pgx.StrictNamedArgs{
-		"account_id": c.accountID, "read_write_id": c.writeID, "write_id": writeID, "updated_at": c.updatedAt,
+			"account_id": c.accountID, "read_write_id": c.writeID, "write_id": writeID, "updated_at": c.updatedAt,
+		})
+		if err != nil {
+			return err
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrConflict
+		}
+		keep := make([]uuid.UUID, len(c.identities))
+		for n, i := range c.identities {
+			keep[n] = i.id
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM identities WHERE account_id = @account_id AND NOT (id = ANY(@keep))`,
+			pgx.StrictNamedArgs{"account_id": c.accountID, "keep": keep}); err != nil {
+			return err
+		}
+		return upsertIdentities(ctx, tx, c.accountID, c.identities)
 	})
 	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrConflict
-	}
-	keep := make([]uuid.UUID, len(c.identities))
-	for n, i := range c.identities {
-		keep[n] = i.id
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM identities WHERE account_id = @account_id AND NOT (id = ANY(@keep))`,
-		pgx.StrictNamedArgs{"account_id": c.accountID, "keep": keep}); err != nil {
-		return err
-	}
-	if err := upsertIdentities(ctx, tx, c.accountID, c.identities); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
 		return err
 	}
 	c.writeID = writeID

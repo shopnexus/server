@@ -43,8 +43,7 @@ var ErrTryAgain = New(KindConflict, "try_again", "the request collided with anot
 // From returns the *Error in err's chain. Any other error becomes a
 // KindInternal Error, which the HTTP layer answers with a 500.
 func From(err error) *Error {
-	var e *Error
-	if errors.As(err, &e) {
+	if e, ok := errors.AsType[*Error](err); ok {
 		return e
 	}
 	return &Error{Kind: KindInternal, Code: "internal", Message: err.Error()}

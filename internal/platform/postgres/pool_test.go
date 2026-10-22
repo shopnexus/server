@@ -10,7 +10,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
-// Postgres generates the ID; the stdlib uuid.UUID scans it and binds it back.
+// Postgres generates the ID; the stdlib [uuid.UUID] scans it and binds it back.
 func TestScanUUIDv7(t *testing.T) {
 	pool := pgtest.Empty(t)
 	ctx := context.Background()

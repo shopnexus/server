@@ -48,9 +48,9 @@ func (q *Quota) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (q Quota) Key() string         { return q.key }
-func (q Quota) SentAt() []time.Time { return slices.Clone(q.sentAt) }
-func (q Quota) WriteID() uuid.UUID  { return q.writeID }
+func (q *Quota) Key() string         { return q.key }
+func (q *Quota) SentAt() []time.Time { return slices.Clone(q.sentAt) }
+func (q *Quota) WriteID() uuid.UUID  { return q.writeID }
 
 // Admit records a send at now when every rule allows it. Otherwise it records
 // nothing and returns the rule that refused and how long until that rule

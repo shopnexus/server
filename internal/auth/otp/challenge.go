@@ -51,15 +51,20 @@ type Challenge struct {
 // New starts a challenge that expires CodeTTL after now. Its first write ID is
 // its id.
 func New(id uuid.UUID, purpose Purpose, dest contact.Address, ip netip.Addr, codeHash []byte, now time.Time) Challenge {
-	return Challenge{id: id, purpose: purpose, dest: dest, ip: ip, codeHash: codeHash,
-		createdAt: now, expiresAt: now.Add(CodeTTL), writeID: id}
+	return Challenge{
+		id: id, purpose: purpose, dest: dest, ip: ip, codeHash: codeHash,
+		createdAt: now, expiresAt: now.Add(CodeTTL), writeID: id,
+	}
 }
 
 // Restore rebuilds a stored challenge. Stores only.
 func Restore(id uuid.UUID, purpose Purpose, dest contact.Address, accountID *uuid.UUID, codeHash []byte, attempts int,
-	ip netip.Addr, expiresAt, createdAt time.Time, consumedAt *time.Time, writeID uuid.UUID) Challenge {
-	return Challenge{id: id, purpose: purpose, dest: dest, accountID: accountID, codeHash: codeHash, attempts: attempts,
-		ip: ip, expiresAt: expiresAt, createdAt: createdAt, consumedAt: consumedAt, writeID: writeID}
+	ip netip.Addr, expiresAt, createdAt time.Time, consumedAt *time.Time, writeID uuid.UUID,
+) Challenge {
+	return Challenge{
+		id: id, purpose: purpose, dest: dest, accountID: accountID, codeHash: codeHash, attempts: attempts,
+		ip: ip, expiresAt: expiresAt, createdAt: createdAt, consumedAt: consumedAt, writeID: writeID,
+	}
 }
 
 // challengeJSON is how a Restate step journals a challenge it loaded.
@@ -78,8 +83,10 @@ type challengeJSON struct {
 }
 
 func (c Challenge) MarshalJSON() ([]byte, error) {
-	return json.Marshal(challengeJSON{c.id, c.purpose, c.dest, c.accountID, c.codeHash, c.attempts, c.ip,
-		c.expiresAt, c.createdAt, c.consumedAt, c.writeID})
+	return json.Marshal(challengeJSON{
+		c.id, c.purpose, c.dest, c.accountID, c.codeHash, c.attempts, c.ip,
+		c.expiresAt, c.createdAt, c.consumedAt, c.writeID,
+	})
 }
 
 func (c *Challenge) UnmarshalJSON(b []byte) error {
@@ -92,21 +99,21 @@ func (c *Challenge) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (c Challenge) ID() uuid.UUID                { return c.id }
-func (c Challenge) Purpose() Purpose             { return c.purpose }
-func (c Challenge) Destination() contact.Address { return c.dest }
-func (c Challenge) AccountID() *uuid.UUID        { return c.accountID }
-func (c Challenge) CodeHash() []byte             { return c.codeHash }
-func (c Challenge) Attempts() int                { return c.attempts }
-func (c Challenge) IP() netip.Addr               { return c.ip }
-func (c Challenge) ExpiresAt() time.Time         { return c.expiresAt }
-func (c Challenge) CreatedAt() time.Time         { return c.createdAt }
-func (c Challenge) ConsumedAt() *time.Time       { return c.consumedAt }
-func (c Challenge) WriteID() uuid.UUID           { return c.writeID }
+func (c *Challenge) ID() uuid.UUID                { return c.id }
+func (c *Challenge) Purpose() Purpose             { return c.purpose }
+func (c *Challenge) Destination() contact.Address { return c.dest }
+func (c *Challenge) AccountID() *uuid.UUID        { return c.accountID }
+func (c *Challenge) CodeHash() []byte             { return c.codeHash }
+func (c *Challenge) Attempts() int                { return c.attempts }
+func (c *Challenge) IP() netip.Addr               { return c.ip }
+func (c *Challenge) ExpiresAt() time.Time         { return c.expiresAt }
+func (c *Challenge) CreatedAt() time.Time         { return c.createdAt }
+func (c *Challenge) ConsumedAt() *time.Time       { return c.consumedAt }
+func (c *Challenge) WriteID() uuid.UUID           { return c.writeID }
 
 // Open returns nil while c accepts a guess at now: not used, not expired and
 // not locked.
-func (c Challenge) Open(now time.Time) error {
+func (c *Challenge) Open(now time.Time) error {
 	switch {
 	case c.consumedAt != nil, !now.Before(c.expiresAt):
 		return ErrCodeExpired
@@ -132,7 +139,7 @@ func (c *Challenge) Verify(codeHash []byte, now time.Time) error {
 }
 
 // verdict is what the last counted guess decided: nil when it consumed c.
-func (c Challenge) verdict() error {
+func (c *Challenge) verdict() error {
 	switch {
 	case c.consumedAt != nil:
 		return nil

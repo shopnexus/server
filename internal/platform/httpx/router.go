@@ -11,7 +11,7 @@ type Route struct {
 	Method, Path string
 }
 
-// Router is an http.ServeMux that remembers what was registered.
+// Router is an [http.ServeMux] that remembers what was registered.
 type Router struct {
 	mux    *http.ServeMux
 	routes []Route

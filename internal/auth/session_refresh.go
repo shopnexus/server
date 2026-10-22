@@ -99,7 +99,7 @@ type RefreshRequest struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-// POST /v1/auth/refresh
+// RefreshHandler serves POST /v1/auth/refresh.
 func RefreshHandler(sessions session.Store, accounts AccountPort, signer session.Signer, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		in, err := httpx.Decode[RefreshRequest](r)

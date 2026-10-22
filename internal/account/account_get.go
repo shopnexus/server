@@ -31,7 +31,7 @@ func Get(ctx context.Context, accounts Store, id uuid.UUID, now time.Time) (View
 	return viewOf(a, now), nil
 }
 
-// GET /v1/accounts/me
+// GetHandler serves GET /v1/accounts/me.
 func GetHandler(accounts Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, ok := httpx.Caller(w, r, log)

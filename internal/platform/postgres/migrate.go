@@ -78,7 +78,7 @@ const createTable = `CREATE TABLE IF NOT EXISTS schema_migrations (
 // Migrate applies the pending migrations in fsys, each in its own transaction,
 // and returns the ones it applied. It stops with ErrChecksumMismatch when an
 // applied file changed.
-func Migrate(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) ([]Migration, error) {
+func Migrate(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) (_ []Migration, err error) {
 	migs, err := LoadMigrations(fsys)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,10 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, fsys fs.FS) ([]Migration, 
 	if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock(@lock)", pgx.StrictNamedArgs{"lock": migrateLock}); err != nil {
 		return nil, err
 	}
-	defer conn.Exec(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock(@lock)", pgx.StrictNamedArgs{"lock": migrateLock})
+	defer func() {
+		_, uerr := conn.Exec(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock(@lock)", pgx.StrictNamedArgs{"lock": migrateLock})
+		err = errors.Join(err, uerr)
+	}()
 
 	if _, err := conn.Exec(ctx, createTable); err != nil {
 		return nil, err

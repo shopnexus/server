@@ -126,7 +126,7 @@ func Load(getenv func(string) string) (Config, error) {
 	// oneOf has checked the value, so it parses.
 	_ = cfg.LogLevel.UnmarshalText([]byte(oneOf("LOG_LEVEL", "info", "debug", "info", "warn", "error")))
 
-	for _, s := range strings.Split(getenv("TRUSTED_PROXIES"), ",") {
+	for s := range strings.SplitSeq(getenv("TRUSTED_PROXIES"), ",") {
 		if s = strings.TrimSpace(s); s == "" {
 			continue
 		}

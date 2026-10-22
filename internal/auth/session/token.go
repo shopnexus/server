@@ -55,10 +55,8 @@ func (s Signer) Tokens(x Session, refresh string, now time.Time) (Tokens, error)
 func (s Signer) Sign(x Session, now time.Time) (string, time.Time, error) {
 	exp := now.Add(AccessTTL)
 	t := jwt.NewWithClaims(jwt.SigningMethodEdDSA, Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer: s.issuer, Audience: jwt.ClaimStrings{s.audience}, Subject: x.accountID.String(),
-			IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(exp),
-		},
+		Issuer: s.issuer, Audience: jwt.ClaimStrings{s.audience}, Subject: x.accountID.String(),
+		IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(exp),
 		SessionID: x.id.String(),
 		AuthTime:  x.authTime.Unix(),
 	})
@@ -76,7 +74,7 @@ type Verifier struct {
 }
 
 func NewVerifier(cfg config.AuthConfig) Verifier {
-	keys := map[string]ed25519.PublicKey{cfg.JWTKeyID: cfg.JWTKey.Public().(ed25519.PublicKey)}
+	keys := map[string]ed25519.PublicKey{cfg.JWTKeyID: cfg.JWTKey.Public().(ed25519.PublicKey)} //nolint:errcheck // An ed25519.PrivateKey always returns an ed25519.PublicKey.
 	if cfg.JWTPrevKeyID != "" {
 		keys[cfg.JWTPrevKeyID] = cfg.JWTPrevKey
 	}

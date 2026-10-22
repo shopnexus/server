@@ -36,7 +36,7 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-// Unwrap lets http.ResponseController reach Flush and deadlines.
+// Unwrap lets [http.ResponseController] reach Flush and deadlines.
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func (w *statusWriter) code() int {

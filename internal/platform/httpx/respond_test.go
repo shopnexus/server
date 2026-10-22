@@ -45,7 +45,7 @@ func failWith(t *testing.T, err error) (*httptest.ResponseRecorder, *bytes.Buffe
 	h := Trace(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, log, err)
 	}))
-	return serve(h, httptest.NewRequest("POST", "/x", nil)), &logs
+	return serve(h, httptest.NewRequest(http.MethodPost, "/x", nil)), &logs
 }
 
 func TestWriteErrorMapsKinds(t *testing.T) {
@@ -112,7 +112,7 @@ func TestRecoverTurnsPanicInto500(t *testing.T) {
 	h := Trace(Recover(log)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("kaboom")
 	})))
-	rec := serve(h, httptest.NewRequest("GET", "/", nil))
+	rec := serve(h, httptest.NewRequest(http.MethodGet, "/", nil))
 
 	if b := decodeError(t, rec); rec.Code != 500 || b.Error.Code != "internal" {
 		t.Fatalf("%d %+v", rec.Code, b)
@@ -134,7 +134,7 @@ func TestRouterRecordsRoutes(t *testing.T) {
 		t.Fatalf("routes %v", got)
 	}
 	rec := httptest.NewRecorder()
-	r.ServeHTTP(rec, httptest.NewRequest("POST", "/b", nil))
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/b", nil))
 	if rec.Code != 200 {
 		t.Fatalf("dispatch %d", rec.Code)
 	}

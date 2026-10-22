@@ -39,7 +39,7 @@ func TestTracerRecordsQuerySpan(t *testing.T) {
 		}
 		attrs := map[attribute.Key]string{}
 		for _, a := range s.Attributes() {
-			attrs[a.Key] = a.Value.Emit()
+			attrs[a.Key] = a.Value.String()
 		}
 		if attrs["db.query.text"] != "select 1" {
 			continue

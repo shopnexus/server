@@ -57,8 +57,7 @@ func ValidateRequests(doc *openapi3.T, log *slog.Logger) (func(http.Handler) htt
 			if r.Body != nil {
 				body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
 				if err != nil {
-					var tooLarge *http.MaxBytesError
-					if errors.As(err, &tooLarge) {
+					if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 						WriteError(w, r, log, errBodyTooLarge)
 						return
 					}
@@ -103,8 +102,7 @@ func toAppError(err error) error {
 			add("request", "invalid")
 			continue
 		}
-		var parseErr *openapi3filter.ParseError
-		if errors.As(reqErr.Err, &parseErr) {
+		if _, ok := errors.AsType[*openapi3filter.ParseError](reqErr.Err); ok {
 			return ErrMalformedJSON
 		}
 		field := "body"

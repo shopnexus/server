@@ -16,7 +16,8 @@ run:
 	go run ./cmd/migrate
 	go run ./cmd/server
 
-# Runs every test, go vet and gofmt against the test stack. Restate is
+# Runs every test against the test stack, then golangci-lint, which also
+# runs go vet and checks gofumpt formatting. Restate is
 # recreated each time: its journal lives in tmpfs and grows with every run.
 test:
 	@go run ./cmd/keygen -restate $(IDENTITY) >/dev/null
@@ -24,8 +25,7 @@ test:
 	$(TEST_STACK) up -d --wait --force-recreate restate
 	@until curl -sf http://127.0.0.1:56571/health >/dev/null; do sleep 0.5; done
 	go test -race ./...
-	go vet ./...
-	@out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "gofmt needed:"; echo "$$out"; exit 1; fi
+	golangci-lint run ./...
 
 # Stops both stacks. The development database is kept; the test stack's is
 # in tmpfs and goes.

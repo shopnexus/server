@@ -73,7 +73,7 @@ type OTPSendResponse struct {
 	ResendAfter int       `json:"resend_after"`
 }
 
-// POST /v1/auth/otp
+// OTPSendHandler serves POST /v1/auth/otp.
 func OTPSendHandler(rs Restate, trusted []netip.Prefix, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		in, err := httpx.Decode[OTPSendRequest](r)

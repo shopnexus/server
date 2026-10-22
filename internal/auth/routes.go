@@ -40,10 +40,14 @@ type Keys struct {
 // Services returns auth's Restate services with prefixed names.
 func Services(prefix string, p Ports, k Keys) []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
-		restate.Reflect(OTP{Prefix: prefix, Quotas: p.Quotas, Challenges: p.Challenges, Codes: k.Codes, SMS: p.SMS, Email: p.Email,
-			Now: time.Now}),
-		restate.Reflect(SignIn{Prefix: prefix, Challenges: p.Challenges, Credentials: p.Credentials, Accounts: p.Accounts,
-			Now: time.Now}),
+		restate.Reflect(OTP{
+			Prefix: prefix, Quotas: p.Quotas, Challenges: p.Challenges, Codes: k.Codes, SMS: p.SMS, Email: p.Email,
+			Now: time.Now,
+		}),
+		restate.Reflect(SignIn{
+			Prefix: prefix, Challenges: p.Challenges, Credentials: p.Credentials, Accounts: p.Accounts,
+			Now: time.Now,
+		}),
 	}
 }
 

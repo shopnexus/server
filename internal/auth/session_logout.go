@@ -54,17 +54,17 @@ func RemoveSession(ctx context.Context, sessions session.Store, p authn.Principa
 	return revoke(ctx, sessions, id, now)
 }
 
-// POST /v1/auth/logout
+// LogoutHandler serves POST /v1/auth/logout.
 func LogoutHandler(sessions session.Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return noContent(log, func(r *http.Request, p authn.Principal) error { return Logout(r.Context(), sessions, p, now()) })
 }
 
-// POST /v1/auth/logout-all
+// LogoutAllHandler serves POST /v1/auth/logout-all.
 func LogoutAllHandler(sessions session.Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return noContent(log, func(r *http.Request, p authn.Principal) error { return LogoutAll(r.Context(), sessions, p, now()) })
 }
 
-// DELETE /v1/auth/sessions/{id}
+// RemoveSessionHandler serves DELETE /v1/auth/sessions/{id}.
 func RemoveSessionHandler(sessions session.Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return noContent(log, func(r *http.Request, p authn.Principal) error {
 		id, err := uuid.Parse(r.PathValue("id"))

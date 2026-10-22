@@ -2,6 +2,7 @@ package config
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -12,16 +13,15 @@ import (
 // LoadDotEnv sets the variables in the file at path that the environment does
 // not already have. A missing file is not an error; production has none.
 func LoadDotEnv(path string) error {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	sc := bufio.NewScanner(f)
+	sc := bufio.NewScanner(bytes.NewReader(data))
 	for n := 1; sc.Scan(); n++ {
 		line := strings.TrimSpace(sc.Text())
 		if line == "" || strings.HasPrefix(line, "#") {

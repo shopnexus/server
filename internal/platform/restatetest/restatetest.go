@@ -21,7 +21,7 @@ import (
 
 // URLs returns TEST_RESTATE_INGRESS_URL and TEST_RESTATE_ADMIN_URL, or the
 // test stack's when they are unset.
-func URLs() (string, string) {
+func URLs() (ingressURL, adminURL string) {
 	return getenv("TEST_RESTATE_INGRESS_URL", "http://127.0.0.1:56581"), getenv("TEST_RESTATE_ADMIN_URL", "http://127.0.0.1:56571")
 }
 
@@ -47,8 +47,10 @@ func ConfigForMain() (config.RestateConfig, error) {
 		return config.RestateConfig{}, fmt.Errorf("restate identity key: %w; make test writes it", err)
 	}
 	ingressURL, adminURL := URLs()
-	return config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0",
-		ServicePrefix: Prefix(), IdentityKey: key}, nil
+	return config.RestateConfig{
+		IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0",
+		ServicePrefix: Prefix(), IdentityKey: key,
+	}, nil
 }
 
 // Config is ConfigForMain for one test, which it skips under -short.
@@ -82,7 +84,11 @@ func Start(t testing.TB, defs ...restate.ServiceDefinition) *ingress.Client {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { ep.Close(context.Background()) })
+	t.Cleanup(func() {
+		if err := ep.Close(context.Background()); err != nil {
+			t.Error(err)
+		}
+	})
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	if err := restatex.Register(ctx, cfg.AdminURL, ep.URL()); err != nil {

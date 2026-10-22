@@ -23,8 +23,10 @@ func TestParsePhone(t *testing.T) {
 }
 
 func TestParsePhoneRejects(t *testing.T) {
-	for _, in := range []string{"", "0201234567", "090123456", "09012345678", "+14155550100", "+84901234567x", "+84 1234", "phone",
-		"+8400901234567", "((090)) 123 4567x"} {
+	for _, in := range []string{
+		"", "0201234567", "090123456", "09012345678", "+14155550100", "+84901234567x", "+84 1234", "phone",
+		"+8400901234567", "((090)) 123 4567x",
+	} {
 		if _, err := contact.ParsePhone(in); !errors.Is(err, contact.ErrInvalidPhone) {
 			t.Errorf("%q: %v", in, err)
 		}

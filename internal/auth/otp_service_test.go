@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -34,8 +35,10 @@ func startOTP(t *testing.T, changes ...func(*auth.OTP)) *otpEnv {
 	t.Helper()
 	db := pgtest.New(t)
 	b, clock := &inbox{}, newClock()
-	svc := auth.OTP{Prefix: restatetest.Prefix(), Quotas: otp.NewQuotaPGStore(db), Challenges: otp.NewChallengePGStore(db),
-		Codes: codes(), SMS: b, Email: emailInbox{b}, Now: clock.Now}
+	svc := auth.OTP{
+		Prefix: restatetest.Prefix(), Quotas: otp.NewQuotaPGStore(db), Challenges: otp.NewChallengePGStore(db),
+		Codes: codes(), SMS: b, Email: emailInbox{b}, Now: clock.Now,
+	}
 	for _, change := range changes {
 		change(&svc)
 	}
@@ -68,15 +71,23 @@ func refusedWith(t *testing.T, res auth.OTPSendResult, code string) {
 }
 
 func (e *otpEnv) rows(t *testing.T) int {
+	t.Helper()
 	var n int
-	e.db.QueryRow(context.Background(), `SELECT count(*) FROM otp_challenges`).Scan(&n)
+	if err := e.db.QueryRow(context.Background(), `SELECT count(*) FROM otp_challenges`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
 	return n
 }
 
+// sends counts the sends recorded for key; a key with no quota row has none.
 func (e *otpEnv) sends(t *testing.T, key string) int {
+	t.Helper()
 	var n int
-	e.db.QueryRow(context.Background(), `SELECT cardinality(sent_at) FROM otp_quotas WHERE key = @key`,
+	err := e.db.QueryRow(context.Background(), `SELECT cardinality(sent_at) FROM otp_quotas WHERE key = @key`,
 		pgx.StrictNamedArgs{"key": key}).Scan(&n)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatal(err)
+	}
 	return n
 }
 

@@ -41,13 +41,15 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("telemetry: %w", err)
 	}
+	log := telemetry.NewLogger(os.Stdout, cfg.LogFormat, cfg.LogLevel)
+	slog.SetDefault(log)
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		shutdownTelemetry(ctx)
+		if err := shutdownTelemetry(ctx); err != nil {
+			log.Error("telemetry shutdown", "err", err)
+		}
 	}()
-	log := telemetry.NewLogger(os.Stdout, cfg.LogFormat, cfg.LogLevel)
-	slog.SetDefault(log)
 
 	a, err := app.New(ctx, cfg, log)
 	if err != nil {
@@ -72,8 +74,7 @@ func run() error {
 	select {
 	case err := <-serveErr:
 		if !errors.Is(err, http.ErrServerClosed) {
-			a.Close(context.Background())
-			return err
+			return errors.Join(err, a.Close(context.Background()))
 		}
 	case <-ctx.Done():
 		log.Info("shutting down")

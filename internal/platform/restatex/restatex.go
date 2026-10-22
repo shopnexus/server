@@ -43,7 +43,9 @@ func Serve(addr, identityKey string, defs ...restate.ServiceDefinition) (*Endpoi
 		return nil, err
 	}
 	e := &Endpoint{srv: &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second}, ln: ln}
-	go e.srv.Serve(ln)
+	// Serve returns http.ErrServerClosed after Close. A listener failure
+	// stops the endpoint, and Restate's calls to it fail.
+	go func() { _ = e.srv.Serve(ln) }()
 	return e, nil
 }
 
@@ -69,7 +71,7 @@ func Register(ctx context.Context, adminURL, endpointURL string) error {
 	if err != nil {
 		return fmt.Errorf("register restate endpoint: %w", err)
 	}
-	defer res.Body.Close()
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode/100 != 2 {
 		msg, _ := io.ReadAll(io.LimitReader(res.Body, 4<<10))
 		return fmt.Errorf("register restate endpoint: %s: %s", res.Status, msg)
@@ -87,7 +89,7 @@ func Healthy(ctx context.Context, adminURL string) error {
 	if err != nil {
 		return err
 	}
-	res.Body.Close()
+	_ = res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("restate admin health: %s", res.Status)
 	}

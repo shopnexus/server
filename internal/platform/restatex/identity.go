@@ -61,5 +61,5 @@ func IdentityKey(path string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("%s: not an Ed25519 key", path)
 	}
-	return "publickeyv1_" + base58.Encode(priv.Public().(ed25519.PublicKey)), nil
+	return "publickeyv1_" + base58.Encode(priv.Public().(ed25519.PublicKey)), nil //nolint:errcheck // An ed25519.PrivateKey always returns an ed25519.PublicKey.
 }

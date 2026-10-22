@@ -62,7 +62,7 @@ func thingsServer(t *testing.T) http.Handler {
 
 func post(t *testing.T, h http.Handler, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest("POST", "/things", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/things", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	return serve(h, req)
 }
@@ -113,7 +113,7 @@ func TestBodyOverOneMegabyte(t *testing.T) {
 }
 
 func TestPathOutsideSpecPassesThrough(t *testing.T) {
-	rec := serve(thingsServer(t), httptest.NewRequest("GET", "/elsewhere", nil))
+	rec := serve(thingsServer(t), httptest.NewRequest(http.MethodGet, "/elsewhere", nil))
 	body, _ := io.ReadAll(rec.Body)
 	if rec.Code != 404 {
 		t.Fatalf("%d %s", rec.Code, body)
@@ -171,18 +171,18 @@ func TestFormatsAreValidated(t *testing.T) {
 	}
 	validate, _ := ValidateRequests(doc, slog.New(slog.DiscardHandler))
 	r := NewRouter()
-	r.HandleFunc("GET /items/{id}", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(200) })
-	r.HandleFunc("POST /contacts", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(201) })
+	r.HandleFunc("GET /items/{id}", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	r.HandleFunc("POST /contacts", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusCreated) })
 	h := Trace(validate(r))
 
-	if rec := serve(h, httptest.NewRequest("GET", "/items/not-a-uuid", nil)); rec.Code != 400 {
+	if rec := serve(h, httptest.NewRequest(http.MethodGet, "/items/not-a-uuid", nil)); rec.Code != 400 {
 		t.Errorf("bad uuid: %d", rec.Code)
 	}
-	if rec := serve(h, httptest.NewRequest("GET", "/items/01928c3e-7b5a-7c1e-8a2b-3c4d5e6f7a8b", nil)); rec.Code != 200 {
+	if rec := serve(h, httptest.NewRequest(http.MethodGet, "/items/01928c3e-7b5a-7c1e-8a2b-3c4d5e6f7a8b", nil)); rec.Code != 200 {
 		t.Errorf("good uuid: %d", rec.Code)
 	}
 	for body, want := range map[string]int{`{"email":"not-an-email"}`: 400, `{"email":"linh@example.com"}`: 201} {
-		req := httptest.NewRequest("POST", "/contacts", strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/contacts", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		if rec := serve(h, req); rec.Code != want {
 			t.Errorf("%s: %d, want %d", body, rec.Code, want)

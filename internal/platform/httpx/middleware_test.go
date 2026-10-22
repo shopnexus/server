@@ -62,7 +62,7 @@ func attr(attrs []attribute.KeyValue, key string) (attribute.Value, bool) {
 
 func TestTraceNamesSpanByRoutePattern(t *testing.T) {
 	rec := useRecorder(t)
-	serve(Trace(testMux()), httptest.NewRequest("GET", "/items/42", nil))
+	serve(Trace(testMux()), httptest.NewRequest(http.MethodGet, "/items/42", nil))
 
 	spans := rec.Ended()
 	if len(spans) != 1 {
@@ -82,7 +82,7 @@ func TestTraceNamesSpanByRoutePattern(t *testing.T) {
 
 func TestTraceRecordsHandlerStatus(t *testing.T) {
 	rec := useRecorder(t)
-	serve(Trace(testMux()), httptest.NewRequest("GET", "/items/missing", nil))
+	serve(Trace(testMux()), httptest.NewRequest(http.MethodGet, "/items/missing", nil))
 
 	if v, _ := attr(rec.Ended()[0].Attributes(), "http.response.status_code"); v.AsInt64() != 404 {
 		t.Fatalf("status = %v", v)
@@ -91,7 +91,7 @@ func TestTraceRecordsHandlerStatus(t *testing.T) {
 
 func TestTraceContinuesIncomingTrace(t *testing.T) {
 	rec := useRecorder(t)
-	req := httptest.NewRequest("GET", "/items/42", nil)
+	req := httptest.NewRequest(http.MethodGet, "/items/42", nil)
 	req.Header.Set("traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
 	serve(Trace(testMux()), req)
 
@@ -106,7 +106,7 @@ func TestTraceContinuesIncomingTrace(t *testing.T) {
 
 func TestTraceUnknownPathHasNoPattern(t *testing.T) {
 	rec := useRecorder(t)
-	serve(Trace(testMux()), httptest.NewRequest("GET", "/nope", nil))
+	serve(Trace(testMux()), httptest.NewRequest(http.MethodGet, "/nope", nil))
 
 	s := rec.Ended()[0]
 	if s.Name() != "GET" {
@@ -119,7 +119,7 @@ func TestTraceUnknownPathHasNoPattern(t *testing.T) {
 
 func TestTraceSetsTraceIDHeader(t *testing.T) {
 	rec := useRecorder(t)
-	resp := serve(Trace(testMux()), httptest.NewRequest("GET", "/items/42", nil))
+	resp := serve(Trace(testMux()), httptest.NewRequest(http.MethodGet, "/items/42", nil))
 
 	if got := resp.Header().Get("Trace-Id"); got != rec.Ended()[0].SpanContext().TraceID().String() {
 		t.Fatalf("Trace-Id %q", got)
@@ -130,7 +130,7 @@ func TestAccessLogLine(t *testing.T) {
 	rec := useRecorder(t)
 	var buf bytes.Buffer
 	log := telemetry.NewLogger(&buf, "json", slog.LevelInfo)
-	serve(Trace(AccessLog(log)(testMux())), httptest.NewRequest("GET", "/items/42", nil))
+	serve(Trace(AccessLog(log)(testMux())), httptest.NewRequest(http.MethodGet, "/items/42", nil))
 
 	var m map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {

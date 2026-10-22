@@ -17,7 +17,8 @@ import (
 func Respond(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
+	// The status is already sent; a failed write means the client left.
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 var statusOf = map[apperr.Kind]int{
@@ -79,7 +80,7 @@ func Recover(log *slog.Logger) func(http.Handler) http.Handler {
 				if v == nil {
 					return
 				}
-				if v == http.ErrAbortHandler {
+				if v == http.ErrAbortHandler { //nolint:errorlint // v is the panic value; net/http compares it the same way.
 					panic(v)
 				}
 				log.ErrorContext(r.Context(), "panic", "value", fmt.Sprint(v), "stack", string(debug.Stack()))

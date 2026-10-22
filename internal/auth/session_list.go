@@ -48,13 +48,15 @@ func ListSessions(ctx context.Context, sessions session.Store, p authn.Principal
 		page.NextCursor = &next
 	}
 	for _, v := range rows {
-		page.Items = append(page.Items, SessionItem{ID: v.ID, DeviceName: v.DeviceName, CreatedAt: v.CreatedAt,
-			LastUsedAt: v.LastUsedAt, Current: v.ID == p.SessionID})
+		page.Items = append(page.Items, SessionItem{
+			ID: v.ID, DeviceName: v.DeviceName, CreatedAt: v.CreatedAt,
+			LastUsedAt: v.LastUsedAt, Current: v.ID == p.SessionID,
+		})
 	}
 	return page, nil
 }
 
-// GET /v1/auth/sessions
+// ListSessionsHandler serves GET /v1/auth/sessions.
 func ListSessionsHandler(sessions session.Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, ok := httpx.Caller(w, r, log)

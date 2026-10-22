@@ -33,7 +33,7 @@ type SignInResponse struct {
 	Account SignedInAccount `json:"account"`
 }
 
-// POST /v1/auth/otp/verify
+// SignInHandler serves POST /v1/auth/otp/verify.
 func SignInHandler(rs Restate, challenges otp.ChallengeStore, codes otp.Codes, sessions session.Store, signer session.Signer, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		res, err := signIn(r, rs, challenges, codes, sessions, signer, now)

@@ -1,0 +1,160 @@
+# Linter choices and settings partly taken from
+# https://github.com/maratori/golangci-lint-config (MIT, Marat Reimers).
+version: "2"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  default: standard
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - copyloopvar
+    - depguard
+    - dupl
+    - durationcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - exptostd
+    - fatcontext
+    - funcorder
+    - gocheckcompilerdirectives
+    - gochecksumtype
+    - gocritic
+    - godoclint
+    - godot
+    - gomoddirectives
+    - goprintffuncname
+    - gosec
+    - iface
+    - intrange
+    - iotamixing
+    - makezero
+    - mirror
+    - misspell
+    - modernize
+    - musttag
+    - nakedret
+    - nilerr
+    - nilnesserr
+    - nilnil
+    - nolintlint
+    - nosprintfhostport
+    - predeclared
+    - reassign
+    - recvcheck
+    - revive
+    - rowserrcheck
+    - sloglint
+    - sqlclosecheck
+    - tparallel
+    - unconvert
+    - unparam
+    - unqueryvet
+    - usestdlibvars
+    - usetesting
+    - wastedassign
+    - whitespace
+  settings:
+    depguard:
+      rules:
+        non-test files:
+          files:
+            - "!$test"
+          deny:
+            - pkg: math/rand$
+              desc: Use math/rand/v2.
+        non-main files:
+          files:
+            - "!**/main.go"
+          deny:
+            - pkg: log$
+              desc: Use log/slog.
+    errcheck:
+      check-type-assertions: true
+    funcorder:
+      struct-method: false
+    gocritic:
+      settings:
+        captLocal:
+          paramsOnly: false
+        underef:
+          skipRecvDeref: false
+    godoclint:
+      enable:
+        - no-unused-link
+        - require-stdlib-doclink
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+        # Flags every err redeclared in an inner scope.
+        - shadow
+    nakedret:
+      max-func-lines: 0
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    reassign:
+      patterns:
+        - ".*"
+    recvcheck:
+      # json.Marshal skips a pointer-receiver MarshalJSON when given a value.
+      exclusions:
+        - "*.MarshalJSON"
+    revive:
+      enable-default-rules: true
+      rules:
+        # Exported names carry a doc comment only when the name alone does
+        # not say enough.
+        - name: exported
+          disabled: true
+        - name: bool-literal-in-expr
+        - name: confusing-results
+        - name: constant-logical-expr
+        - name: datarace
+        - name: deep-exit
+        - name: defer
+        - name: early-return
+        - name: identical-branches
+        - name: modifies-value-receiver
+        - name: redundant-import-alias
+        - name: string-of-int
+        - name: unconditional-recursion
+        - name: unnecessary-stmt
+        - name: unused-receiver
+        - name: use-any
+        - name: use-errors-new
+        - name: useless-break
+        - name: waitgroup-by-value
+    sloglint:
+      no-global: all
+      context: scope
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -ST1016
+        - -QF1008
+    usetesting:
+      os-temp-dir: true
+  exclusions:
+    warn-unused: true
+    presets:
+      - common-false-positives
+    rules:
+      # Tests may ignore Close and Shutdown errors.
+      - path: _test\.go
+        linters:
+          - dupl
+          - errcheck
+          - gosec
+
+formatters:
+  enable:
+    - gofumpt

@@ -38,7 +38,7 @@ type RenameRequest struct {
 	DisplayName string `json:"display_name"`
 }
 
-// PATCH /v1/accounts/me
+// RenameHandler serves PATCH /v1/accounts/me.
 func RenameHandler(accounts Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, ok := httpx.Caller(w, r, log)

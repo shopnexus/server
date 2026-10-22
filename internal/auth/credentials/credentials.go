@@ -70,10 +70,10 @@ func New(accountID uuid.UUID, first Identity, now time.Time) Credentials {
 	return Credentials{accountID: accountID, identities: []Identity{first}, writeID: accountID, updatedAt: now}
 }
 
-func (c Credentials) AccountID() uuid.UUID   { return c.accountID }
-func (c Credentials) Identities() []Identity { return slices.Clone(c.identities) }
-func (c Credentials) WriteID() uuid.UUID     { return c.writeID }
-func (c Credentials) UpdatedAt() time.Time   { return c.updatedAt }
+func (c *Credentials) AccountID() uuid.UUID   { return c.accountID }
+func (c *Credentials) Identities() []Identity { return slices.Clone(c.identities) }
+func (c *Credentials) WriteID() uuid.UUID     { return c.writeID }
+func (c *Credentials) UpdatedAt() time.Time   { return c.updatedAt }
 
 // MarkUsed records a sign-in with the identity at now.
 func (c *Credentials) MarkUsed(identityID uuid.UUID, now time.Time) error {

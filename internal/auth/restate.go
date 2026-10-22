@@ -54,14 +54,17 @@ func ignore(err, target error) error {
 // deterministic generator, so a replay mints the same ID, and IDs still sort
 // by creation time as the spec's cursors assume. restate.UUID gives version 4.
 func newID(ctx restate.Context, at time.Time) uuid.UUID {
-	var id uuid.UUID
-	ms := uint64(at.UnixMilli())
-	for i := range 6 {
-		id[i] = byte(ms >> (40 - 8*i))
-	}
 	r := restate.Rand(ctx)
-	binary.BigEndian.PutUint64(id[6:14], r.Uint64())
-	binary.BigEndian.PutUint16(id[14:16], uint16(r.Uint64()))
+	var b [24]byte
+	binary.BigEndian.PutUint64(b[0:8], uint64(at.UnixMilli()))
+	binary.BigEndian.PutUint64(b[8:16], r.Uint64())
+	binary.BigEndian.PutUint64(b[16:24], r.Uint64())
+	// 48-bit millisecond time, then 80 random bits: all of the first draw and
+	// the low two bytes of the second.
+	var id uuid.UUID
+	copy(id[0:6], b[2:8])
+	copy(id[6:14], b[8:16])
+	copy(id[14:16], b[22:24])
 	id[6] = 0x70 | id[6]&0x0f
 	id[8] = 0x80 | id[8]&0x3f
 	return id

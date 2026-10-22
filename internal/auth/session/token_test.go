@@ -40,10 +40,8 @@ func TestVerifyRejects(t *testing.T) {
 	signer, verifier := session.NewSigner(k), session.NewVerifier(k)
 	good, _, _ := signer.Sign(anySession(), now)
 	claims := session.Claims{
-		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer: k.Issuer, Audience: jwt.ClaimStrings{k.Audience}, Subject: uuid.NewV7().String(),
-			IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(session.AccessTTL)),
-		},
+		Issuer: k.Issuer, Audience: jwt.ClaimStrings{k.Audience}, Subject: uuid.NewV7().String(),
+		IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(session.AccessTTL)),
 		SessionID: uuid.NewV7().String(), AuthTime: now.Unix(),
 	}
 	none := jwt.NewWithClaims(jwt.SigningMethodNone, claims)

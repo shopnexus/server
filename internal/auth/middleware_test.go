@@ -39,7 +39,7 @@ func TestRequireAuth(t *testing.T) {
 		{"BEARER " + valid, 204, ""},
 		{"Bearer" + valid, 401, "unauthenticated"},
 	} {
-		r := httptest.NewRequest("GET", "/x", nil)
+		r := httptest.NewRequest(http.MethodGet, "/x", nil)
 		if c.header != "" {
 			r.Header.Set("Authorization", c.header)
 		}

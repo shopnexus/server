@@ -109,7 +109,7 @@ func suspend(t *testing.T, accountID string) {
 
 // requestCode forgets earlier sends to a phone typed any way, sends it a code
 // and returns the challenge and the code.
-func requestCode(t *testing.T, typed string) (string, string) {
+func requestCode(t *testing.T, typed string) (challengeID, code string) {
 	t.Helper()
 	p, err := contact.ParsePhone(typed)
 	if err != nil {
@@ -136,7 +136,7 @@ func verifyCode(t *testing.T, challengeID, code string, headers ...[2]string) Re
 // call does, and skips response validation, so its caller checks statuses.
 func verifyCodeStatus(challengeID, code string) int {
 	body, _ := json.Marshal(map[string]string{"challenge_id": challengeID, "code": code})
-	req, _ := http.NewRequest("POST", server+"/v1/auth/otp/verify", bytes.NewReader(body))
+	req, _ := http.NewRequest(http.MethodPost, server+"/v1/auth/otp/verify", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", uuid.NewV7().String())
 	res, err := http.DefaultClient.Do(req)
