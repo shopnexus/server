@@ -35,8 +35,11 @@ services:
       RESTATE_ADMIN__BIND_ADDRESS: 127.0.0.1:56570
       RESTATE_BIND_ADDRESS: 127.0.0.1:56560
       RESTATE_ADVERTISED_ADDRESS: http://127.0.0.1:56560
+      # Signs every request to the server's endpoint; make run writes the key.
+      RESTATE_WORKER__INVOKER__REQUEST_IDENTITY_PRIVATE_KEY_PEM_FILE: /identity.pem
     volumes:
       - restate:/restate-data
+      - ./.restate/identity.pem:/identity.pem:ro
 
   otel-lgtm:
     image: grafana/otel-lgtm:0.37.0

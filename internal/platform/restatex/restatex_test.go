@@ -2,6 +2,8 @@ package restatex_test
 
 import (
 	"context"
+	"net/http"
+	"path/filepath"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -58,5 +60,31 @@ func TestHealthy(t *testing.T) {
 	}
 	if err := restatex.Healthy(context.Background(), "http://127.0.0.1:1"); err == nil {
 		t.Fatal("a closed port reported healthy")
+	}
+}
+
+// The endpoint runs only requests the Restate server signed with the key
+// whose public half it holds.
+func TestServeRejectsUnsignedRequests(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "identity.pem")
+	key, err := restatex.EnsureIdentity(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again, err := restatex.EnsureIdentity(path); err != nil || again != key {
+		t.Fatalf("a second call made another key: %v", err)
+	}
+	ep, err := restatex.Serve("127.0.0.1:0", key, restate.Reflect(counter{prefix: "t", runs: &atomic.Int32{}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ep.Close(context.Background()) })
+	res, err := http.Get(ep.URL() + "/discover")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unsigned discovery: %d", res.StatusCode)
 	}
 }

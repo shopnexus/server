@@ -69,6 +69,12 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	for _, opt := range opts {
 		opt(&o)
 	}
+	// A log sender writes every OTP code to the log.
+	_, smsLogs := o.sms.(sms.LogSender)
+	_, emailLogs := o.email.(email.LogSender)
+	if cfg.Env == "prod" && (smsLogs || emailLogs) {
+		return nil, errors.New("APP_ENV=prod with a log sender for SMS or email; configure real senders")
+	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, err
@@ -156,7 +162,7 @@ func routeModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o
 
 // startRestate serves defs and registers them with Restate.
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {
-	ep, err := restatex.Serve(cfg.ListenAddr, defs...)
+	ep, err := restatex.Serve(cfg.ListenAddr, cfg.IdentityKey, defs...)
 	if err != nil {
 		return nil, fmt.Errorf("restate endpoint: %w", err)
 	}

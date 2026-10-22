@@ -91,3 +91,14 @@ func TestNewRefusesMissingKeys(t *testing.T) {
 		t.Fatalf("err %v", err)
 	}
 }
+
+// The log senders write OTP codes to the log, so production must name real
+// senders.
+func TestNewRefusesLogSendersInProd(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Env = "prod"
+	_, err := New(context.Background(), cfg, discard())
+	if err == nil || !strings.Contains(err.Error(), "log sender") {
+		t.Fatalf("err %v", err)
+	}
+}

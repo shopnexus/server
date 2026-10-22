@@ -2,11 +2,16 @@
 
 TEST_STACK := docker compose -f docker-compose.test.yml
 
+IDENTITY := .restate/identity.pem
+
 # Starts the development stack and the server. On first use it copies
-# .env.example to .env and adds fresh keys; migrations apply every time.
+# .env.example to .env and adds fresh keys, including the key Restate signs
+# requests with; migrations apply every time.
 run:
 	@test -f .env || cp .env.example .env
 	@grep -q '^OTP_KEY=' .env || go run ./cmd/keygen >> .env
+	@{ test -f $(IDENTITY) && grep -q '^RESTATE_IDENTITY_KEY=' .env; } || \
+		{ sed -i '/^RESTATE_IDENTITY_KEY=/d' .env; go run ./cmd/keygen -restate $(IDENTITY) >> .env; }
 	docker compose up -d --wait
 	go run ./cmd/migrate
 	go run ./cmd/server
@@ -14,6 +19,7 @@ run:
 # Runs every test, go vet and gofmt against the test stack. Restate is
 # recreated each time: its journal lives in tmpfs and grows with every run.
 test:
+	@go run ./cmd/keygen -restate $(IDENTITY) >/dev/null
 	$(TEST_STACK) up -d --wait
 	$(TEST_STACK) up -d --wait --force-recreate restate
 	@until curl -sf http://127.0.0.1:56571/health >/dev/null; do sleep 0.5; done

@@ -39,6 +39,10 @@ services:
       RESTATE_ADVERTISED_ADDRESS: http://127.0.0.1:56561
       # The tmpfs counts toward mem_limit; RocksDB sizes itself for a server.
       RESTATE_ROCKSDB_TOTAL_MEMORY_SIZE: 256MB
+      # Signs every request to the test endpoints; make test writes the key.
+      RESTATE_WORKER__INVOKER__REQUEST_IDENTITY_PRIVATE_KEY_PEM_FILE: /identity.pem
+    volumes:
+      - ./.restate/identity.pem:/identity.pem:ro
     tmpfs:
       - /restate-data:size=512m
     mem_limit: 1536m

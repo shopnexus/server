@@ -47,10 +47,19 @@ func Refresh(ctx context.Context, sessions session.Store, accounts AccountPort, 
 	}
 	next := s.Rotate(now)
 	if err := sessions.Save(ctx, &s, uuid.NewV7()); err != nil {
-		if errors.Is(err, session.ErrConflict) {
-			return session.Tokens{}, reused(ctx, sessions, s.ID(), now, "concurrent refresh", log)
+		if !errors.Is(err, session.ErrConflict) {
+			return session.Tokens{}, err
 		}
-		return session.Tokens{}, err
+		// The write that won is a concurrent refresh with the same token, or a
+		// sign-out. Only the first means two parties hold the token.
+		cur, err := sessions.Get(ctx, s.ID())
+		if err != nil {
+			return session.Tokens{}, err
+		}
+		if cur.RevokedAt() != nil {
+			return session.Tokens{}, session.ErrRevoked
+		}
+		return session.Tokens{}, reused(ctx, sessions, s.ID(), now, "concurrent refresh", log)
 	}
 	return signer.Tokens(s, next, now)
 }

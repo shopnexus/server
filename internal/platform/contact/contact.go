@@ -55,16 +55,19 @@ func (a *Address) UnmarshalJSON(b []byte) error {
 // countries arrive in a later phase.
 var vnMobile = regexp.MustCompile(`^\+84[35789][0-9]{8}$`)
 
-// ParsePhone accepts 0901234567, 84901234567 and +84 90 123 4567, ignoring
-// spaces, dots and dashes, and returns +84901234567.
+// ParsePhone accepts 0901234567, 84901234567, +84 90 123 4567 and the
+// country code before the trunk 0 (+84 090 123 4567), ignoring spaces, dots,
+// dashes and parentheses, and returns +84901234567.
 func ParsePhone(raw string) (Address, error) {
 	s := strings.Map(func(r rune) rune {
-		if r == ' ' || r == '.' || r == '-' {
+		if r == ' ' || r == '.' || r == '-' || r == '(' || r == ')' {
 			return -1
 		}
 		return r
 	}, strings.TrimSpace(raw))
 	switch {
+	case strings.HasPrefix(s, "+840"):
+		s = "+84" + s[4:]
 	case strings.HasPrefix(s, "+"):
 	case strings.HasPrefix(s, "84") && len(s) == 11:
 		s = "+" + s

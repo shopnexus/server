@@ -50,6 +50,10 @@ type RestateConfig struct {
 	// ServicePrefix (RESTATE_SERVICE_PREFIX) goes before every service name,
 	// so servers sharing one Restate server, as tests do, keep apart.
 	ServicePrefix string
+	// IdentityKey (RESTATE_IDENTITY_KEY, "publickeyv1_...") is the public key
+	// the Restate server signs requests with; the endpoint refuses unsigned
+	// ones. Required with APP_ENV=prod; make run writes it to .env.
+	IdentityKey string
 }
 
 // Load builds a Config from getenv. It reports every missing or invalid
@@ -106,6 +110,7 @@ func Load(getenv func(string) string) (Config, error) {
 			ListenAddr:    get("RESTATE_LISTEN_ADDR", "127.0.0.1:9080"),
 			EndpointURL:   get("RESTATE_ENDPOINT_URL", ""),
 			ServicePrefix: get("RESTATE_SERVICE_PREFIX", ""),
+			IdentityKey:   get("RESTATE_IDENTITY_KEY", ""),
 		},
 		Auth: AuthConfig{
 			OTPKey:       decodeKey("OTP_KEY", 32, false),
@@ -145,6 +150,13 @@ func Load(getenv func(string) string) (Config, error) {
 		errs = append(errs, errors.New("JWT_PREVIOUS_KEY_ID must differ from JWT_KEY_ID"))
 	default:
 		cfg.Auth.JWTPrevKey = decodeKey("JWT_PREVIOUS_PUBLIC_KEY", ed25519.PublicKeySize, true)
+	}
+
+	switch key := cfg.Restate.IdentityKey; {
+	case key == "" && cfg.Env == "prod":
+		errs = append(errs, errors.New("RESTATE_IDENTITY_KEY is required with APP_ENV=prod; make run adds it to .env"))
+	case key != "" && !strings.HasPrefix(key, "publickeyv1_"):
+		errs = append(errs, errors.New("RESTATE_IDENTITY_KEY must start with publickeyv1_"))
 	}
 
 	return cfg, errors.Join(errs...)

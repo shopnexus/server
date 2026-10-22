@@ -35,6 +35,9 @@ func TestRequireAuth(t *testing.T) {
 		{"Bearer junk", 401, "invalid_token"},
 		{"Bearer " + expired, 401, "invalid_token"},
 		{"Bearer " + valid, 204, ""},
+		{"bearer " + valid, 204, ""}, // the scheme is case-insensitive (RFC 9110)
+		{"BEARER " + valid, 204, ""},
+		{"Bearer" + valid, 401, "unauthenticated"},
 	} {
 		r := httptest.NewRequest("GET", "/x", nil)
 		if c.header != "" {

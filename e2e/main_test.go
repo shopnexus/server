@@ -51,9 +51,14 @@ func run(m *testing.M) int {
 	defer drop()
 	db = pool
 
+	restateCfg, err := restatetest.ConfigForMain()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "e2e:", err)
+		return 1
+	}
 	cfg := config.Config{
 		DatabaseURL: pool.Config().ConnString(),
-		Restate:     restatetest.ConfigForMain(),
+		Restate:     restateCfg,
 		Auth:        keys,
 		// Tests set X-Forwarded-For, so each gets its own per-address quota.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},

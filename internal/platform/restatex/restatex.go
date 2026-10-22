@@ -24,8 +24,13 @@ type Endpoint struct {
 }
 
 // Serve binds defs and serves them on addr; "127.0.0.1:0" picks a free port.
-func Serve(addr string, defs ...restate.ServiceDefinition) (*Endpoint, error) {
+// With an identityKey from IdentityKey, it runs only requests the Restate
+// server signed.
+func Serve(addr, identityKey string, defs ...restate.ServiceDefinition) (*Endpoint, error) {
 	r := server.NewRestate().Bidirectional(false)
+	if identityKey != "" {
+		r = r.WithIdentityV1(identityKey)
+	}
 	for _, d := range defs {
 		r = r.Bind(d)
 	}

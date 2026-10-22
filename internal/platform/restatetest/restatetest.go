@@ -5,7 +5,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -29,12 +32,23 @@ func getenv(key, def string) string {
 	return def
 }
 
+// identityFile is the key make test writes and mounts into the test stack's
+// Restate, which signs every request with it.
+func identityFile() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "..", "..", "..", ".restate", "identity.pem")
+}
+
 // ConfigForMain returns the test stack's Restate config with a fresh service
-// prefix and a free local port for the endpoint.
-func ConfigForMain() config.RestateConfig {
+// prefix, a free local port for the endpoint and the stack's identity key.
+func ConfigForMain() (config.RestateConfig, error) {
+	key, err := restatex.IdentityKey(identityFile())
+	if err != nil {
+		return config.RestateConfig{}, fmt.Errorf("restate identity key: %w; make test writes it", err)
+	}
 	ingressURL, adminURL := URLs()
 	return config.RestateConfig{IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0",
-		ServicePrefix: Prefix()}
+		ServicePrefix: Prefix(), IdentityKey: key}, nil
 }
 
 // Config is ConfigForMain for one test, which it skips under -short.
@@ -43,7 +57,11 @@ func Config(t testing.TB) config.RestateConfig {
 	if testing.Short() {
 		t.Skip("needs Restate")
 	}
-	return ConfigForMain()
+	cfg, err := ConfigForMain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg
 }
 
 // Prefix returns a fresh service-name prefix. Test packages run in parallel
@@ -59,19 +77,16 @@ func Prefix() string {
 // stack's Restate and returns an ingress client.
 func Start(t testing.TB, defs ...restate.ServiceDefinition) *ingress.Client {
 	t.Helper()
-	if testing.Short() {
-		t.Skip("needs Restate")
-	}
-	ingressURL, adminURL := URLs()
-	ep, err := restatex.Serve("127.0.0.1:0", defs...)
+	cfg := Config(t)
+	ep, err := restatex.Serve(cfg.ListenAddr, cfg.IdentityKey, defs...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { ep.Close(context.Background()) })
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := restatex.Register(ctx, adminURL, ep.URL()); err != nil {
+	if err := restatex.Register(ctx, cfg.AdminURL, ep.URL()); err != nil {
 		t.Fatal(err)
 	}
-	return ingress.NewClient(ingressURL)
+	return ingress.NewClient(cfg.IngressURL)
 }

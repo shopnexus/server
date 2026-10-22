@@ -90,10 +90,11 @@ func admit(ctx restate.Context, quotas otp.QuotaStore, key string, at time.Time,
 		}
 		rule, wait, ok := q.Admit(at, rules...)
 		if !ok {
+			refused := ErrOTPLimit
 			if rule == resend {
-				return ErrOTPTooSoon.WithDetail("retry_after", int(math.Ceil(wait.Seconds()))), nil
+				refused = ErrOTPTooSoon
 			}
-			return ErrOTPLimit, nil
+			return refused.WithDetail("retry_after", int(math.Ceil(wait.Seconds()))), nil
 		}
 		w := newID(ctx, at)
 		lost, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
@@ -105,5 +106,6 @@ func admit(ctx restate.Context, quotas otp.QuotaStore, key string, at time.Time,
 			return nil, err
 		}
 	}
-	return ErrOTPLimit, nil
+	// The racing sends finish within a second.
+	return ErrOTPLimit.WithDetail("retry_after", 1), nil
 }

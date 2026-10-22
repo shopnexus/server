@@ -28,6 +28,8 @@ func required() map[string]string {
 		"OTP_KEY":             b64(testKeys.OTPKey),
 		"JWT_KEY_ID":          testKeys.JWTKeyID,
 		"JWT_PRIVATE_KEY":     b64(testKeys.JWTKey.Seed()),
+		// APP_ENV defaults to prod, which needs the key Restate signs with.
+		"RESTATE_IDENTITY_KEY": "publickeyv1_test",
 	}
 }
 
@@ -61,7 +63,7 @@ func TestLoadAllSet(t *testing.T) {
 		DatabaseURL: "postgres://db",
 		Restate: RestateConfig{
 			IngressURL: "http://restate:8080", AdminURL: "http://restate:9070",
-			ListenAddr: "127.0.0.1:9999", EndpointURL: "http://host:9999",
+			ListenAddr: "127.0.0.1:9999", EndpointURL: "http://host:9999", IdentityKey: "publickeyv1_test",
 		},
 		OTLPEndpoint: "http://otel:4318",
 		ServiceName:  "svc",
@@ -174,5 +176,21 @@ func TestNewAuthKeysRoundTrip(t *testing.T) {
 	}
 	if !bytes.Equal(got.Auth.OTPKey, keys.OTPKey) || !got.Auth.JWTKey.Equal(keys.JWTKey) || got.Auth.JWTKeyID != keys.JWTKeyID {
 		t.Fatalf("got %+v", got.Auth)
+	}
+}
+
+// Production refuses unsigned Restate requests, so it needs the key.
+func TestLoadProdNeedsTheRestateIdentityKey(t *testing.T) {
+	for _, key := range []string{"", "not-a-key"} {
+		env := required()
+		env["RESTATE_IDENTITY_KEY"] = key
+		if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "RESTATE_IDENTITY_KEY") {
+			t.Fatalf("%q: %v", key, err)
+		}
+	}
+	env := required()
+	env["APP_ENV"], env["RESTATE_IDENTITY_KEY"] = "dev", ""
+	if _, err := Load(lookup(env)); err != nil {
+		t.Fatalf("dev without the key: %v", err)
 	}
 }

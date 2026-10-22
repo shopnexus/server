@@ -176,8 +176,10 @@ Service `OTP`, handler `Send`, run once per `Idempotency-Key`:
    destination per 45 s, five per destination per hour, twenty per address per
    hour. Each quota is read in one step, judged by `Admit` between steps and
    saved in the next step. Parallel requests conflict on `write_id` and read
-   again; after three lost races the request gets 429. A quota that admitted
-   a request stays spent even when a later step fails.
+   again; after three lost races the request gets 429. Every 429 carries
+   `retry_after` in seconds: `otp_too_soon` for the 45 s rule, `otp_limit`
+   for an hourly rule or three lost races. A quota that admitted a request
+   stays spent even when a later step fails.
 2. `restate.Run`: create the `Challenge`.
 3. `restate.Run`: send the SMS or email through `sms.Sender` or `email.Sender`.
 4. Return `challenge_id`; the HTTP handler waits for it.
@@ -227,9 +229,10 @@ Refresh:
    return `invalid_refresh_token`.
 2. `s.Usable(now)`, then the account status through the account port. A
    suspended account gets its session revoked and `account_suspended`.
-3. `token := s.Rotate(now)`, `Save`. `ErrConflict` means a concurrent refresh
-   with the same token won, so the use case reloads, revokes and returns
-   `session_revoked`.
+3. `token := s.Rotate(now)`, `Save`. On `ErrConflict` the use case reloads
+   the session. Revoked means a sign-out won the race, and the answer is
+   `session_revoked`. Otherwise a concurrent refresh with the same token won:
+   the use case revokes, logs the reuse and returns `session_revoked`.
 4. Sign the access token with the session's `auth_time`.
 
 Logout and removing one device load the session, check that the caller owns
@@ -283,6 +286,14 @@ Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.
 - At start the server serves its services on `RESTATE_LISTEN_ADDR` and
   registers `RESTATE_ENDPOINT_URL` through the admin API with
   `use_http_11`, because the endpoint is a standard library HTTP/1.1 server.
+- The Restate server signs every request to the endpoint with the Ed25519
+  key in `.restate/identity.pem`
+  (`worker.invoker.request-identity-private-key-pem-file`), and the endpoint
+  runs only requests signed with it: its public half is
+  `RESTATE_IDENTITY_KEY`, required with `APP_ENV=prod`. `make run` and
+  `make test` create the key file, and tests read the public key from it.
+- With `APP_ENV=prod` the server refuses to start while SMS or email goes
+  through a log sender, which would write every OTP code to the log.
 - An OTP code is `HMAC(OTP_KEY, "otp-code:" ‖ challenge_id) mod 10^6`. The
   send step recomputes it on a retry, and it is never stored or journaled.
   The verify handler loads the challenge and sends `SignIn` the code's hash.

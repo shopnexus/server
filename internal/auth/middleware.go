@@ -17,8 +17,9 @@ import (
 func RequireAuth(v session.Verifier, now func() time.Time, log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-			if !ok || token == "" {
+			// The scheme is case-insensitive (RFC 9110).
+			scheme, token, _ := strings.Cut(r.Header.Get("Authorization"), " ")
+			if !strings.EqualFold(scheme, "Bearer") || token == "" {
 				httpx.WriteError(w, r, log, authn.ErrUnauthenticated)
 				return
 			}

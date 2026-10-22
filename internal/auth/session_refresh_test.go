@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log/slog"
+	"strings"
 	"testing"
 	"time"
 	"uuid"
@@ -104,5 +106,28 @@ func TestRefreshThatLosesARaceRevokes(t *testing.T) {
 	_, err := auth.Refresh(context.Background(), losingSave{e.sessions}, e.accounts, session.NewSigner(testKeys), e.token, now, discard)
 	if !errors.Is(err, session.ErrRevoked) || !e.revoked(t) {
 		t.Fatalf("%v, revoked %v", err, e.revoked(t))
+	}
+}
+
+// logoutAllFirst behaves as if the account signed out everywhere just before
+// the refresh saved.
+type logoutAllFirst struct{ session.Store }
+
+func (l logoutAllFirst) Save(ctx context.Context, s *session.Session, w uuid.UUID) error {
+	if err := l.Store.RevokeAll(ctx, s.AccountID(), now); err != nil {
+		return err
+	}
+	return l.Store.Save(ctx, s, w)
+}
+
+// A refresh that loses to logout-all is a signed-out session, not a token two
+// parties hold: no security event is logged.
+func TestRefreshThatLosesToLogoutAllIsNotReuse(t *testing.T) {
+	e := newRefreshEnv(t)
+	var logs bytes.Buffer
+	log := slog.New(slog.NewTextHandler(&logs, nil))
+	_, err := auth.Refresh(context.Background(), logoutAllFirst{e.sessions}, e.accounts, session.NewSigner(testKeys), e.token, now, log)
+	if !errors.Is(err, session.ErrRevoked) || strings.Contains(logs.String(), "reuse") {
+		t.Fatalf("%v, logs %q", err, logs.String())
 	}
 }

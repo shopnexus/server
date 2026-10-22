@@ -115,7 +115,12 @@ func TestOTPSendSpacingAndHourlyCap(t *testing.T) {
 		}
 		e.clock.Add(time.Second)
 	}
-	refusedWith(t, e.send(t, "0901234567", "203.0.113.7"), "otp_limit")
+	// The first send leaves the hour 3600 s after it, 225 s from now.
+	res := e.send(t, "0901234567", "203.0.113.7")
+	refusedWith(t, res, "otp_limit")
+	if res.Refused.Details["retry_after"] != float64(3600-225) {
+		t.Fatalf("retry_after %v", res.Refused.Details["retry_after"])
+	}
 }
 
 // TestOTPSendCapsOneAddress is the SMS-pumping test: 40 parallel sends from
