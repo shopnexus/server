@@ -159,3 +159,38 @@ func TestBindPanicsOnAWrongRequestType(t *testing.T) {
 		})
 	}
 }
+
+type pageQuery struct {
+	Cursor uuid.UUID `json:"-" query:"cursor"`
+	Limit  int       `json:"-" query:"limit"`
+}
+
+func TestBindReadsEmbeddedStructs(t *testing.T) {
+	t.Parallel()
+	type filtered struct {
+		pageQuery
+
+		Status string `json:"-" query:"status"`
+	}
+	c := uuid.New()
+	var got filtered
+	if err := Bind(request(t, "GET", "/things?limit=5&status=open&cursor="+c.String(), ""), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Cursor != c || got.Limit != 5 || got.Status != "open" {
+		t.Fatalf("got %+v", got)
+	}
+
+	type withBody struct {
+		pageQuery
+
+		Name string `json:"name"`
+	}
+	var b withBody
+	if err := Bind(request(t, "POST", "/things?limit=3", `{"name":"a"}`), &b); err != nil {
+		t.Fatal(err)
+	}
+	if b.Limit != 3 || b.Name != "a" {
+		t.Fatalf("got %+v", b)
+	}
+}

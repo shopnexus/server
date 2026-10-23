@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/shopnexus/server2/internal/auth/session"
+	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
@@ -132,14 +133,15 @@ func TestPGStore(t *testing.T) {
 		last, _ := create(t, s, acc, now)
 		create(t, s, other, now)
 
-		all, err := s.ListActive(ctx, acc, now, uuid.UUID{}, 10)
+		all, err := s.ListActive(ctx, acc, now, page.Request{Limit: 10})
 		if err != nil || len(all) != 2 || all[0].ID != last.ID() || all[1].ID != first.ID() || all[0].DeviceName != "Pixel 9" {
 			t.Fatalf("list %+v %v", all, err)
 		}
-		page, _ := s.ListActive(ctx, acc, now, uuid.UUID{}, 1)
-		next, _ := s.ListActive(ctx, acc, now, page[0].ID, 1)
-		if len(page) != 1 || page[0].ID != last.ID() || len(next) != 1 || next[0].ID != first.ID() {
-			t.Fatalf("pages %+v %+v", page, next)
+		// A page of one reads two rows: the page and the row that says more follow.
+		one, _ := s.ListActive(ctx, acc, now, page.Request{Limit: 1})
+		next, _ := s.ListActive(ctx, acc, now, page.Request{Cursor: one[0].ID, Limit: 1})
+		if len(one) != 2 || one[0].ID != last.ID() || len(next) != 1 || next[0].ID != first.ID() {
+			t.Fatalf("pages %+v %+v", one, next)
 		}
 	})
 }

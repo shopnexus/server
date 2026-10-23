@@ -6,3 +6,19 @@ IdempotencyKey:
   schema:
     type: string
     format: uuid
+Cursor:
+  name: cursor
+  in: query
+  description: The next_cursor of the previous page; absent for the first page.
+  schema:
+    type: string
+    format: uuid
+Limit:
+  name: limit
+  in: query
+  description: Page size.
+  schema:
+    type: integer
+    minimum: 1
+    maximum: 100
+    default: 20

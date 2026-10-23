@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 	"uuid"
+
+	"github.com/shopnexus/server2/internal/platform/page"
 )
 
 // View is one row of the device list.
@@ -29,6 +31,6 @@ type Store interface {
 	// and gives each a new write ID, so a refresh racing it conflicts.
 	RevokeAll(ctx context.Context, accountID uuid.UUID, now time.Time) error
 	// ListActive is a query: the account's usable sessions at now, newest
-	// first, with ids below before (zero starts at the newest), at most limit.
-	ListActive(ctx context.Context, accountID uuid.UUID, now time.Time, before uuid.UUID, limit int) ([]View, error)
+	// first, below p.Before(), at most p.Fetch().
+	ListActive(ctx context.Context, accountID uuid.UUID, now time.Time, p page.Request) ([]View, error)
 }

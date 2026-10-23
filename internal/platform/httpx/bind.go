@@ -56,7 +56,7 @@ func Bind[T any](r *http.Request, dst *T) error {
 		if raw == "" {
 			continue
 		}
-		if err := f.parse(rv.Field(f.index), raw); err != nil {
+		if err := f.parse(rv.FieldByIndex(f.index), raw); err != nil {
 			e := *errInvalidRequest.WithField(f.name, "invalid")
 			e.Err = err
 			return &e
@@ -86,7 +86,7 @@ type plan struct {
 type field struct {
 	parse  func(v reflect.Value, raw string) error
 	name   string
-	index  int
+	index  []int // for reflect.Value.FieldByIndex
 	source source
 }
 
@@ -107,8 +107,9 @@ func planOf(t reflect.Type) *plan {
 	return p
 }
 
-// newPlan panics on a tag or field type it does not support. Every route has
-// an e2e test, which then fails on the route's first request.
+// newPlan reads an embedded struct without a json tag, such as page.Request,
+// as part of t. It panics on a tag or field type it does not support. Every
+// route has an e2e test, which then fails on the route's first request.
 func newPlan(t reflect.Type) *plan {
 	if t.Kind() != reflect.Struct {
 		panic(fmt.Sprintf("httpx: Bind needs a struct, got %s", t))
@@ -116,7 +117,7 @@ func newPlan(t reflect.Type) *plan {
 	p := &plan{fields: nil, body: false}
 	for i := range t.NumField() {
 		sf := t.Field(i)
-		f := field{parse: nil, name: "", index: i, source: 0}
+		f := field{parse: nil, name: "", index: []int{i}, source: 0}
 		found := 0
 		for src, key := range sourceTags {
 			if name, ok := sf.Tag.Lookup(key); ok {
@@ -125,6 +126,13 @@ func newPlan(t reflect.Type) *plan {
 			}
 		}
 		switch {
+		case found == 0 && sf.Anonymous && sf.Type.Kind() == reflect.Struct && sf.Tag.Get("json") == "":
+			inner := newPlan(sf.Type)
+			for _, g := range inner.fields {
+				g.index = append([]int{i}, g.index...)
+				p.fields = append(p.fields, g)
+			}
+			p.body = p.body || inner.body
 		case found == 0:
 			if sf.IsExported() && sf.Tag.Get("json") != "-" {
 				p.body = true

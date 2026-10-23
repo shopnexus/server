@@ -52,6 +52,16 @@ value and filled in query defaults, so `Bind` converts strings to Go types
 repeats no shape rule. `Bind` reads the tags of a type once and keeps the
 result in a `sync.Map`.
 
+### Pagination
+
+A list endpoint pages by keyset over UUIDv7 IDs, newest first. Its handler
+binds `page.Request` (the spec's shared `Cursor` and `Limit` parameters),
+alone or embedded in its request struct, and passes it to the use case and
+the store. The store lists rows below `req.Before()`, which is `uuid.Max()`
+on the first page, and reads `req.Fetch()` rows, one more than the page
+holds. The use case cuts the extra row with `page.Cut` and returns
+`page.Page[T]`, whose `next_cursor` is the ID of the last item.
+
 ### Transactions and concurrency
 
 A transaction lives inside an adapter method and covers one aggregate.

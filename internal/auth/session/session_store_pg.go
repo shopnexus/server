@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/shopnexus/server2/internal/platform/page"
 )
 
 type pgStore struct{ db *pgxpool.Pool }
@@ -95,17 +96,13 @@ const listActive = `
 SELECT id, coalesce(device_name, ''), created_at, last_used_at
 FROM sessions
 WHERE account_id = @account_id AND revoked_at IS NULL AND expires_at > @now AND last_used_at > @idle_since
-  AND (@before::uuid IS NULL OR id < @before)
+  AND id < @before
 ORDER BY id DESC
 LIMIT @limit`
 
-func (s pgStore) ListActive(ctx context.Context, accountID uuid.UUID, now time.Time, before uuid.UUID, limit int) ([]View, error) {
-	var cursor any
-	if before != (uuid.UUID{}) {
-		cursor = before
-	}
+func (s pgStore) ListActive(ctx context.Context, accountID uuid.UUID, now time.Time, p page.Request) ([]View, error) {
 	rows, err := s.db.Query(ctx, listActive, pgx.StrictNamedArgs{
-		"account_id": accountID, "now": now, "idle_since": now.Add(-IdleLimit), "before": cursor, "limit": limit,
+		"account_id": accountID, "now": now, "idle_since": now.Add(-IdleLimit), "before": p.Before(), "limit": p.Fetch(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("select active sessions: %w", err)
