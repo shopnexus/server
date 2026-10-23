@@ -16,6 +16,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/sms"
 )
@@ -99,7 +100,7 @@ func OTPSendHandler(rs Restate, trusted []netip.Prefix, log *slog.Logger) http.H
 			httpx.WriteError(w, r, log, errors.New("otp send: no client address"))
 			return
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), restateTimeout)
+		ctx, cancel := context.WithTimeout(r.Context(), restatex.CallTimeout)
 		defer cancel()
 		res, err := rs.OTP().Request(ctx,
 			OTPSendInput{Kind: dest.Kind(), Destination: dest.Value(), Purpose: in.Purpose, IP: ip},

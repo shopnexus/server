@@ -12,6 +12,7 @@ import (
 	"github.com/shopnexus/server2/internal/auth/credentials"
 	"github.com/shopnexus/server2/internal/auth/otp"
 	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server2/internal/platform/restatex"
 )
 
 // SignInInput carries the code's HMAC, never the code, because Restate keeps
@@ -64,7 +65,7 @@ type foundIdentity struct {
 }
 
 func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
-	at, err := clock(ctx, s.Now)
+	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
 		return SignInResult{}, err
 	}
@@ -98,11 +99,11 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 		return SignInResult{Refused: apperr.From(err)}, nil
 	}
 	verdict := c.Verify(in.CodeHash, at)
-	verifyWrite := newID(ctx, at)
+	verifyWrite := restatex.NewID(ctx, at)
 	lost, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 		c := c // Save sets the write ID on its copy; c outside stays as journaled
 		stepErr := s.Challenges.Save(rc, &c, verifyWrite)
-		return errors.Is(stepErr, otp.ErrConflict), ignore(stepErr, otp.ErrConflict)
+		return restatex.Outcome(stepErr, otp.ErrConflict)
 	})
 	if err != nil {
 		return SignInResult{}, fmt.Errorf("save guess: %w", err)
@@ -128,7 +129,7 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 	if err != nil {
 		return SignInResult{}, fmt.Errorf("look up identity: %w", err)
 	}
-	sessionID := newID(ctx, at)
+	sessionID := restatex.NewID(ctx, at)
 
 	if f.Found {
 		// Only a person who just proved they hold the identity gets here, so
@@ -144,30 +145,30 @@ func (s SignIn) Run(ctx restate.Context, in SignInInput) (SignInResult, error) {
 		}
 		// last_used_at is a hint for the dormant check. A lost race or an
 		// identity removed meanwhile costs nothing, so the step ignores both.
-		markWrite := newID(ctx, at)
+		markWrite := restatex.NewID(ctx, at)
 		if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
 			c, stepErr := s.Credentials.Get(rc, f.Ref.AccountID)
 			if stepErr == nil {
 				stepErr = c.MarkUsed(f.Ref.IdentityID, at)
 			}
 			if stepErr == nil {
-				stepErr = ignore(s.Credentials.Save(rc, &c, markWrite), credentials.ErrConflict)
+				stepErr = restatex.Ignore(s.Credentials.Save(rc, &c, markWrite), credentials.ErrConflict)
 			}
-			return ignore(stepErr, credentials.ErrNotFound)
+			return restatex.Ignore(stepErr, credentials.ErrNotFound)
 		}); err != nil {
 			return SignInResult{}, fmt.Errorf("mark identity used: %w", err)
 		}
 		return SignInResult{ChallengeID: in.ChallengeID, AccountID: f.Ref.AccountID, SessionID: sessionID}, nil
 	}
 
-	accountID, identityID := newID(ctx, at), newID(ctx, at)
+	accountID, identityID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Accounts.Create(rc, accountID, "") }); err != nil {
 		return SignInResult{}, fmt.Errorf("create account: %w", err)
 	}
 	taken, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 		c := credentials.New(accountID, credentials.NewIdentity(identityID, dest, at), at)
 		stepErr := s.Credentials.Create(rc, c)
-		return errors.Is(stepErr, credentials.ErrTaken), ignore(stepErr, credentials.ErrTaken)
+		return restatex.Outcome(stepErr, credentials.ErrTaken)
 	})
 	if err != nil {
 		return SignInResult{}, fmt.Errorf("create credentials: %w", err)

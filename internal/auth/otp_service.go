@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"net/netip"
@@ -15,6 +14,7 @@ import (
 	"github.com/shopnexus/server2/internal/auth/otp"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/sms"
 )
@@ -53,7 +53,7 @@ func (s OTP) ServiceName() string { return s.Prefix + otpService }
 
 func (s OTP) Send(ctx restate.Context, in OTPSendInput) (OTPSendResult, error) {
 	dest := contact.Restore(in.Kind, in.Destination)
-	at, err := clock(ctx, s.Now)
+	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
 		return OTPSendResult{}, err
 	}
@@ -68,7 +68,7 @@ func (s OTP) Send(ctx restate.Context, in OTPSendInput) (OTPSendResult, error) {
 		return OTPSendResult{Refused: refused}, err
 	}
 
-	c := NewChallenge(s.Codes, newID(ctx, at), in.Purpose, dest, in.IP, at)
+	c := NewChallenge(s.Codes, restatex.NewID(ctx, at), in.Purpose, dest, in.IP, at)
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Challenges.Create(rc, c) }); err != nil {
 		return OTPSendResult{}, fmt.Errorf("create challenge: %w", err)
 	}
@@ -102,11 +102,11 @@ func admit(ctx restate.Context, quotas otp.QuotaStore, key string, at time.Time,
 			}
 			return refused.WithDetail("retry_after", int(math.Ceil(wait.Seconds()))), nil
 		}
-		w := newID(ctx, at)
+		w := restatex.NewID(ctx, at)
 		lost, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 			q := q // Save sets the write ID on its copy; q outside stays as journaled
 			err := quotas.Save(rc, &q, w)
-			return errors.Is(err, otp.ErrConflict), ignore(err, otp.ErrConflict)
+			return restatex.Outcome(err, otp.ErrConflict)
 		})
 		if err != nil {
 			return nil, fmt.Errorf("save quota: %w", err)

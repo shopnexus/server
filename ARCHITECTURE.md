@@ -94,8 +94,12 @@ refresh keep working when Restate is down.
 - A business refusal leaves the service as data, `Refused *apperr.Error` in
   the result. Restate retries an error, and its ingress keeps only the code
   and message of a terminal one, which would lose `code` and `details`.
+- A step that can lose a race or find an identity taken returns that as
+  data: `restatex.Outcome(err, otp.ErrConflict)` gives `(true, nil)` for the
+  conflict, and the service decides between steps. `restatex.Ignore` drops an
+  outcome that changes nothing, such as a lost race on `last_used_at`.
 - A service takes `Now func() time.Time`, read once per invocation through a
-  journaled step (`clock`), so tests move time by hand.
+  journaled step (`restatex.Now`), so tests move time by hand.
 - Sign-up touches two aggregates, `Account` and then `Credentials`, so
   service `SignIn` runs it as a saga. When `Credentials.Create` returns
   `ErrTaken`, because another sign-up took the identity between the lookup
@@ -103,9 +107,9 @@ refresh keep working when Restate is down.
   `try_again`. Restate retries every other failure, so no step ends the
   saga with a terminal error.
 - Every step inside `restate.Run` is idempotent. IDs are minted before the
-  step by `newID(ctx, at)`, a UUIDv7 built from the journaled clock and the
-  invocation's deterministic random generator (`restate.UUID` gives version
-  4, which would break the spec's time-ordered cursors). Inserts use
+  step by `restatex.NewID(ctx, at)`, a UUIDv7 built from the journaled clock
+  and the invocation's deterministic random generator (`restate.UUID` gives
+  version 4, which would break the spec's time-ordered cursors). Inserts use
   `ON CONFLICT (id) DO NOTHING`. The same ID is the idempotency key sent to a
   payment provider.
 - A Restate service lives in a `*_service.go` file of its module, and is the
@@ -141,14 +145,15 @@ ingress and wait for its result. Module account offers an adapter
 | `Session` | `sessions` | adds `write_id` and `auth_time` |
 | `Challenge` | `otp_challenges` | adds `write_id` |
 
-IDs are chosen by the caller before the insert: `newID(ctx, at)` inside a
-Restate service, `uuid.NewV7()` in a direct use case. Only `accounts.id` keeps
-`uuidv7()` as a column default. `Create` inserts with
+IDs are chosen by the caller before the insert: `restatex.NewID(ctx, at)`
+inside a Restate service, `uuid.NewV7()` in a direct use case. Only
+`accounts.id` keeps `uuidv7()` as a column default. `Create` inserts with
 `ON CONFLICT (id) DO NOTHING`.
 
 `write_id` is the ID of the last write to an aggregate and replaces a version
 counter. `Get` returns it as T. `Save` picks a new ID N (from
-`newID(ctx, at)` in a Restate service, so a retry sends the same N) and runs:
+`restatex.NewID(ctx, at)` in a Restate service, so a retry sends the same N)
+and runs:
 
 ```sql
 UPDATE ... SET ..., write_id = @write_id
@@ -218,9 +223,10 @@ Service `SignIn`, handler `Run`, returns the challenge ID, the account ID,
 2. A step finds the identity in `Credentials`.
    - Found: a step reads the account status (suspended ends the run), and
      the next step marks the identity used, ignoring a lost race.
-   - Not found: create the `Account` with `accountID := newID(ctx, at)`, then
-     the `Credentials` with the identity. `ErrTaken` from the second step
-     deletes the account (see Durable flows).
+   - Not found: create the `Account` with
+     `accountID := restatex.NewID(ctx, at)`, then the `Credentials` with the
+     identity. `ErrTaken` from the second step deletes the account (see
+     Durable flows).
 
 Tokens never enter Restate: its journal and invocation results are stored and
 readable through the Restate admin API. The HTTP handler issues the session

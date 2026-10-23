@@ -1,5 +1,13 @@
-// Package restatex serves this process's Restate services and registers them
-// with the Restate server.
+// Package restatex serves this process's Restate services, registers them
+// with the Restate server, and holds what every service uses inside a
+// handler.
+//
+// Every service follows one rule. A restate.Run step only reads or writes a
+// store, so any error it returns is a fault Restate retries. Every business
+// decision is taken between steps, on values a step returned and the journal
+// kept, and code outside a step uses only those values. A replay therefore
+// takes the same decisions, and a retried write lands the same row: Save
+// accepts a row that already carries its write ID.
 package restatex
 
 import (

@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server2/internal/auth/otp"
 	"github.com/shopnexus/server2/internal/auth/session"
 	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server2/internal/platform/restatex"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
@@ -65,7 +66,7 @@ func signIn(r *http.Request, rs Restate, challenges otp.ChallengeStore, codes ot
 	if err != nil {
 		return SignInResponse{}, fmt.Errorf("get challenge: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), restateTimeout)
+	ctx, cancel := context.WithTimeout(r.Context(), restatex.CallTimeout)
 	defer cancel()
 	hash := codes.Hash(c.Destination(), in.Code)
 	res, err := rs.SignIn().Request(ctx, SignInInput{ChallengeID: in.ChallengeID, CodeHash: hash},

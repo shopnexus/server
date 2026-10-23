@@ -188,6 +188,8 @@ linters:
         - .WithDetail(
         - .WithField(
         - httpx.Bind[
+        # Wraps its own error as "read clock"; a caller has nothing to add.
+        - restatex.Now(
         # Called from MarshalJSON and UnmarshalJSON. encoding/json names the
         # type itself and adds field context only to errors it can see.
         - encoding/json.Marshal(
