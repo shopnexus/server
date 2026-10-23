@@ -23,7 +23,7 @@ type signInEnv struct {
 	rs         auth.Restate
 	db         *pgxpool.Pool
 	challenges otp.ChallengeStore // unwrapped, for the test's own reads and writes
-	clock      *testClock
+	clock      *restatetest.Clock
 }
 
 // startSignIn serves the SignIn service on Postgres stores; each change may
@@ -31,7 +31,7 @@ type signInEnv struct {
 func startSignIn(t *testing.T, changes ...func(*auth.SignIn)) *signInEnv {
 	t.Helper()
 	db := pgtest.New(t)
-	clock := newClock()
+	clock := restatetest.NewClock(now)
 	challenges := otp.NewChallengePGStore(db)
 	svc := auth.SignIn{
 		Prefix: restatetest.Prefix(), Challenges: challenges, Credentials: credentials.NewPGStore(db),
@@ -244,11 +244,11 @@ func TestSignInMarksTheIdentityUsed(t *testing.T) {
 
 type accountCommitThenFail struct {
 	auth.AccountPort
-	commitThenFail
+	restatetest.CommitThenFail
 }
 
 func (a *accountCommitThenFail) Create(ctx context.Context, id uuid.UUID, name string) error {
-	return a.after(a.AccountPort.Create(ctx, id, name))
+	return a.After(a.AccountPort.Create(ctx, id, name))
 }
 
 func TestSignInSurvivesCommitThenFail(t *testing.T) {
@@ -262,11 +262,11 @@ func TestSignInSurvivesCommitThenFail(t *testing.T) {
 
 type verifyCommitThenFail struct {
 	otp.ChallengeStore
-	commitThenFail
+	restatetest.CommitThenFail
 }
 
 func (v *verifyCommitThenFail) Save(ctx context.Context, c *otp.Challenge, w uuid.UUID) error {
-	return v.after(v.ChallengeStore.Save(ctx, c, w))
+	return v.After(v.ChallengeStore.Save(ctx, c, w))
 }
 
 // A verify save that committed and then failed runs again. The verdict was

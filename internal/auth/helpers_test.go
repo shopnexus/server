@@ -2,11 +2,9 @@ package auth_test
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net/netip"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 	"uuid"
@@ -84,26 +82,6 @@ func suspendAccount(t *testing.T, db *pgxpool.Pool, id uuid.UUID) {
 	}
 }
 
-// testClock is a service's Now that a test moves by hand.
-type testClock struct {
-	mu sync.Mutex
-	t  time.Time
-}
-
-func newClock() *testClock { return &testClock{t: now} }
-
-func (c *testClock) Now() time.Time {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.t
-}
-
-func (c *testClock) Add(d time.Duration) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.t = c.t.Add(d)
-}
-
 func phone(t *testing.T, raw string) contact.Address {
 	t.Helper()
 	a, err := contact.ParsePhone(raw)
@@ -131,15 +109,4 @@ func wrong(code string) string {
 		return "000001"
 	}
 	return "000000"
-}
-
-// commitThenFail reports a retryable error once after fn committed, as when
-// the process dies before Restate journals the step.
-type commitThenFail struct{ failed atomic.Bool }
-
-func (c *commitThenFail) after(err error) error {
-	if err == nil && !c.failed.Swap(true) {
-		return errors.New("connection reset after commit")
-	}
-	return err
 }

@@ -26,7 +26,7 @@ type otpEnv struct {
 	rs    auth.Restate
 	db    *pgxpool.Pool
 	box   *inbox
-	clock *testClock
+	clock *restatetest.Clock
 }
 
 // startOTP serves the OTP service on Postgres stores; each change may wrap a
@@ -34,7 +34,7 @@ type otpEnv struct {
 func startOTP(t *testing.T, changes ...func(*auth.OTP)) *otpEnv {
 	t.Helper()
 	db := pgtest.New(t)
-	b, clock := &inbox{}, newClock()
+	b, clock := &inbox{}, restatetest.NewClock(now)
 	svc := auth.OTP{
 		Prefix: restatetest.Prefix(), Quotas: otp.NewQuotaPGStore(db), Challenges: otp.NewChallengePGStore(db),
 		Codes: codes(), SMS: b, Email: emailInbox{b}, Now: clock.Now,
@@ -226,11 +226,11 @@ func TestOTPSendRetriesLostRaces(t *testing.T) {
 
 type challengeCommitThenFail struct {
 	otp.ChallengeStore
-	commitThenFail
+	restatetest.CommitThenFail
 }
 
 func (c *challengeCommitThenFail) Create(ctx context.Context, ch otp.Challenge) error {
-	return c.after(c.ChallengeStore.Create(ctx, ch))
+	return c.After(c.ChallengeStore.Create(ctx, ch))
 }
 
 func TestOTPSendSurvivesCommitThenFail(t *testing.T) {
@@ -244,11 +244,11 @@ func TestOTPSendSurvivesCommitThenFail(t *testing.T) {
 
 type quotaCommitThenFail struct {
 	otp.QuotaStore
-	commitThenFail
+	restatetest.CommitThenFail
 }
 
 func (q *quotaCommitThenFail) Save(ctx context.Context, quota *otp.Quota, w uuid.UUID) error {
-	return q.after(q.QuotaStore.Save(ctx, quota, w))
+	return q.After(q.QuotaStore.Save(ctx, quota, w))
 }
 
 // A quota save that committed and then failed runs again; the send is still

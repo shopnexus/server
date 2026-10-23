@@ -294,15 +294,18 @@ prove the copy. `go test -short` runs only what needs no database.
 - Use cases: tests on Postgres. A test passes only the ports its use case
   takes, and wraps an adapter when it needs a conflict or a failure.
 - Restate services: integration tests against a Restate server from the test
-  stack, with the endpoint served in-process and a hand-moved clock. They
-  hold the flow's business rules, since the flow lives in the handler. Tests
-  make a store commit and then fail once with a retryable error; Restate
-  retries the step, and the test checks that no row is duplicated, no send
-  is counted twice and the compensation ran at most once.
+  stack, with the endpoint served in-process (`restatetest.Start`) and a
+  hand-moved clock (`restatetest.Clock`). They hold the flow's business
+  rules, since the flow lives in the handler. A store wrapper that embeds
+  `restatetest.CommitThenFail` makes a store commit and then fail once with
+  a retryable error; Restate retries the step, and the test checks that no
+  row is duplicated, no send is counted twice and the compensation ran at
+  most once.
 - E2E: the server in-process (HTTP and Restate endpoint), Restate and Postgres
   from the test stack, the deployment registered in `TestMain`, SMS and email
   captured by a fake sender. The four OpenAPI conformance tests from plan 1
-  run unchanged on top of it.
+  run unchanged on top of it. `e2e/helpers_test.go` holds the HTTP helpers
+  every module's tests use; `auth_helpers_test.go` signs a test account in.
 
 Every test and subtest calls `t.Parallel()`; paralleltest enforces it. A test
 that sets process environment variables or installs the global OTel tracer

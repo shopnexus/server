@@ -30,31 +30,6 @@ func newIP() [2]string {
 	return [2]string{"X-Forwarded-For", fmt.Sprintf("198.%d.%d.%d", 18+n>>16&1, n>>8&255, n&255)}
 }
 
-// newKey returns a fresh Idempotency-Key header.
-func newKey() [2]string { return [2]string{"Idempotency-Key", uuid.NewV7().String()} }
-
-func decode[T any](t *testing.T, res Response) T {
-	t.Helper()
-	var v T
-	if err := json.Unmarshal(res.Body, &v); err != nil {
-		t.Fatalf("decode %s: %v", res.Body, err)
-	}
-	return v
-}
-
-type apiError struct {
-	Code    string            `json:"code"`
-	Fields  map[string]string `json:"fields"`
-	Details map[string]any    `json:"details"`
-}
-
-func errorOf(t *testing.T, res Response) apiError {
-	t.Helper()
-	return decode[struct {
-		Error apiError `json:"error"`
-	}](t, res).Error
-}
-
 type challenge struct {
 	ChallengeID string `json:"challenge_id"`
 	ResendAfter int    `json:"resend_after"`
@@ -77,8 +52,6 @@ type signIn struct {
 		IsNew bool   `json:"is_new"`
 	} `json:"account"`
 }
-
-func bearer(token string) [2]string { return [2]string{"Authorization", "Bearer " + token} }
 
 func wrongCode(code string) string {
 	if code == "000000" {
