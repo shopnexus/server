@@ -40,6 +40,18 @@ SDK binds a struct.
 A flow that runs as a Restate service is written in the service handler
 itself (see Durable flows), so it is not a separate use case.
 
+### HTTP handlers
+
+A handler runs in one order: `httpx.Caller` on a signed-in route, `httpx.Bind`
+for the request, the use case, then `httpx.Respond` or `httpx.WriteError`.
+`httpx.Bind(r, &in)` fills a request struct. A field tagged `path`, `query` or
+`header` takes that request value and also carries `json:"-"`; the other
+fields come from the JSON body. The spec middleware has already checked every
+value and filled in query defaults, so `Bind` converts strings to Go types
+(`string`, `int`, `bool` and any `encoding.TextUnmarshaler`) and a handler
+repeats no shape rule. `Bind` reads the tags of a type once and keeps the
+result in a `sync.Map`.
+
 ### Transactions and concurrency
 
 A transaction lives inside an adapter method and covers one aggregate.

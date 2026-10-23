@@ -19,9 +19,10 @@ import (
 )
 
 type SignInRequest struct {
-	ChallengeID uuid.UUID `json:"challenge_id"`
-	Code        string    `json:"code"`
-	DeviceName  string    `json:"device_name"`
+	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
+	ChallengeID    uuid.UUID `json:"challenge_id"`
+	Code           string    `json:"code"`
+	DeviceName     string    `json:"device_name"`
 }
 
 type SignedInAccount struct {
@@ -53,8 +54,8 @@ func SignInHandler(rs Restate, challenges otp.ChallengeStore, codes otp.Codes, s
 }
 
 func signIn(r *http.Request, rs Restate, challenges otp.ChallengeStore, codes otp.Codes, sessions session.Store, signer session.Signer, now func() time.Time) (SignInResponse, error) {
-	in, err := httpx.Decode[SignInRequest](r)
-	if err != nil {
+	var in SignInRequest
+	if err := httpx.Bind(r, &in); err != nil {
 		return SignInResponse{}, err
 	}
 	c, err := challenges.Get(r.Context(), in.ChallengeID)
@@ -68,7 +69,7 @@ func signIn(r *http.Request, rs Restate, challenges otp.ChallengeStore, codes ot
 	defer cancel()
 	hash := codes.Hash(c.Destination(), in.Code)
 	res, err := rs.SignIn().Request(ctx, SignInInput{ChallengeID: in.ChallengeID, CodeHash: hash},
-		restate.WithIdempotencyKey(r.Header.Get("Idempotency-Key")))
+		restate.WithIdempotencyKey(in.IdempotencyKey))
 	if err != nil {
 		return SignInResponse{}, fmt.Errorf("call SignIn service: %w", err)
 	}

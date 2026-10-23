@@ -5,19 +5,15 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/auth/session"
-	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
 
 const defaultPageSize = 20
-
-var errBadPage = apperr.New(apperr.KindBadRequest, "invalid_request", "cursor or limit is not valid")
 
 type SessionItem struct {
 	ID         uuid.UUID `json:"id"`
@@ -57,6 +53,11 @@ func ListSessions(ctx context.Context, sessions session.Store, p authn.Principal
 	return page, nil
 }
 
+type ListSessionsRequest struct {
+	Cursor uuid.UUID `json:"-" query:"cursor"`
+	Limit  int       `json:"-" query:"limit"`
+}
+
 // ListSessionsHandler serves GET /v1/auth/sessions.
 func ListSessionsHandler(sessions session.Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,26 +65,12 @@ func ListSessionsHandler(sessions session.Store, now func() time.Time, log *slog
 		if !ok {
 			return
 		}
-		var cursor uuid.UUID
-		var limit int
-		q := r.URL.Query()
-		if c := q.Get("cursor"); c != "" {
-			id, err := uuid.Parse(c)
-			if err != nil {
-				httpx.WriteError(w, r, log, errBadPage)
-				return
-			}
-			cursor = id
+		var in ListSessionsRequest
+		if err := httpx.Bind(r, &in); err != nil {
+			httpx.WriteError(w, r, log, err)
+			return
 		}
-		if l := q.Get("limit"); l != "" {
-			n, err := strconv.Atoi(l)
-			if err != nil || n < 1 || n > 100 {
-				httpx.WriteError(w, r, log, errBadPage)
-				return
-			}
-			limit = n
-		}
-		page, err := ListSessions(r.Context(), sessions, p, cursor, limit, now())
+		page, err := ListSessions(r.Context(), sessions, p, in.Cursor, in.Limit, now())
 		if err != nil {
 			httpx.WriteError(w, r, log, err)
 			return

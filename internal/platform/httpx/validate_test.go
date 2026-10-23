@@ -47,10 +47,10 @@ func thingsServer(t *testing.T) http.Handler {
 	}
 	r := NewRouter()
 	r.HandleFunc("POST /things", func(w http.ResponseWriter, req *http.Request) {
-		in, err := Decode[struct {
+		var in struct {
 			Name string `json:"name"`
-		}](req)
-		if err != nil {
+		}
+		if err := Bind(req, &in); err != nil {
 			WriteError(w, req, log, err)
 			return
 		}

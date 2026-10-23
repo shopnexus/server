@@ -70,9 +70,10 @@ func SendCode(ctx context.Context, smsSender sms.Sender, emailSender email.Sende
 }
 
 type OTPSendRequest struct {
-	Kind        contact.Kind `json:"kind"`
-	Destination string       `json:"destination"`
-	Purpose     otp.Purpose  `json:"purpose"`
+	IdempotencyKey string       `header:"Idempotency-Key" json:"-"`
+	Kind           contact.Kind `json:"kind"`
+	Destination    string       `json:"destination"`
+	Purpose        otp.Purpose  `json:"purpose"`
 }
 
 type OTPSendResponse struct {
@@ -83,8 +84,8 @@ type OTPSendResponse struct {
 // OTPSendHandler serves POST /v1/auth/otp.
 func OTPSendHandler(rs Restate, trusted []netip.Prefix, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		in, err := httpx.Decode[OTPSendRequest](r)
-		if err != nil {
+		var in OTPSendRequest
+		if err := httpx.Bind(r, &in); err != nil {
 			httpx.WriteError(w, r, log, err)
 			return
 		}
@@ -102,7 +103,7 @@ func OTPSendHandler(rs Restate, trusted []netip.Prefix, log *slog.Logger) http.H
 		defer cancel()
 		res, err := rs.OTP().Request(ctx,
 			OTPSendInput{Kind: dest.Kind(), Destination: dest.Value(), Purpose: in.Purpose, IP: ip},
-			restate.WithIdempotencyKey(r.Header.Get("Idempotency-Key")))
+			restate.WithIdempotencyKey(in.IdempotencyKey))
 		if err != nil {
 			httpx.WriteError(w, r, log, err)
 			return

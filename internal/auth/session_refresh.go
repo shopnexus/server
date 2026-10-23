@@ -111,8 +111,8 @@ type RefreshRequest struct {
 // RefreshHandler serves POST /v1/auth/refresh.
 func RefreshHandler(sessions session.Store, accounts AccountPort, signer session.Signer, now func() time.Time, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		in, err := httpx.Decode[RefreshRequest](r)
-		if err != nil {
+		var in RefreshRequest
+		if err := httpx.Bind(r, &in); err != nil {
 			httpx.WriteError(w, r, log, err)
 			return
 		}

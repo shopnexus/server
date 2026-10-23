@@ -187,6 +187,7 @@ linters:
         - apperr.New(
         - .WithDetail(
         - .WithField(
+        - httpx.Bind[
         # Called from MarshalJSON and UnmarshalJSON. encoding/json names the
         # type itself and adds field context only to errors it can see.
         - encoding/json.Marshal(

@@ -68,14 +68,18 @@ func LogoutAllHandler(sessions session.Store, now func() time.Time, log *slog.Lo
 	return noContent(log, func(r *http.Request, p authn.Principal) error { return LogoutAll(r.Context(), sessions, p, now()) })
 }
 
+type RemoveSessionRequest struct {
+	ID uuid.UUID `json:"-" path:"id"`
+}
+
 // RemoveSessionHandler serves DELETE /v1/auth/sessions/{id}.
 func RemoveSessionHandler(sessions session.Store, now func() time.Time, log *slog.Logger) http.Handler {
 	return noContent(log, func(r *http.Request, p authn.Principal) error {
-		id, err := uuid.Parse(r.PathValue("id"))
-		if err != nil {
-			return ErrSessionNotFound
+		var in RemoveSessionRequest
+		if err := httpx.Bind(r, &in); err != nil {
+			return err
 		}
-		return RemoveSession(r.Context(), sessions, p, id, now())
+		return RemoveSession(r.Context(), sessions, p, in.ID, now())
 	})
 }
 

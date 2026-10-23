@@ -46,8 +46,8 @@ func RenameHandler(accounts Store, now func() time.Time, log *slog.Logger) http.
 		if !ok {
 			return
 		}
-		in, err := httpx.Decode[RenameRequest](r)
-		if err != nil {
+		var in RenameRequest
+		if err := httpx.Bind(r, &in); err != nil {
 			httpx.WriteError(w, r, log, err)
 			return
 		}
