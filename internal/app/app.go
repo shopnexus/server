@@ -19,11 +19,9 @@ import (
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/auth"
-	"github.com/shopnexus/server2/internal/auth/credentials"
-	"github.com/shopnexus/server2/internal/auth/otp"
-	"github.com/shopnexus/server2/internal/auth/session"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server2/internal/platform/module"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/provider/email"
@@ -109,7 +107,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		}
 		httpx.Respond(w, http.StatusOK, status{"ok"})
 	})
-	defs := routeModules(a.router, pool, cfg, o, log)
+	defs := mountModules(a.router, pool, cfg, o, log)
 	if a.endpoint, err = startRestate(ctx, cfg.Restate, log, defs); err != nil {
 		return nil, err
 	}
@@ -138,32 +136,20 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	return fmt.Errorf("migrations pending: %s; run go run ./cmd/migrate or make run", strings.Join(names, ", "))
 }
 
-// routeModules builds the modules' adapters, registers their routes and
-// returns their Restate services.
-func routeModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o options, log *slog.Logger) []restate.ServiceDefinition {
-	accounts := account.NewPGStore(pool)
-	ports := auth.Ports{
-		Accounts:    account.Client{Store: accounts, Now: time.Now},
-		Challenges:  otp.NewChallengePGStore(pool),
-		Quotas:      otp.NewQuotaPGStore(pool),
-		Credentials: credentials.NewPGStore(pool),
-		Sessions:    session.NewPGStore(pool),
-		SMS:         o.sms,
-		Email:       o.email,
+// mountModules mounts every module and returns their Restate services. A
+// module mounts after the modules whose ports it takes; protect comes first
+// because it needs only the auth keys.
+func mountModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o options, log *slog.Logger) []restate.ServiceDefinition {
+	d := module.Deps{
+		Router: router, Pool: pool,
+		Ingress: ingress.NewClient(cfg.Restate.IngressURL), ServicePrefix: cfg.Restate.ServicePrefix,
+		Now: time.Now, Log: log,
 	}
-	keys := auth.Keys{
-		Codes:    otp.NewCodes(cfg.Auth.OTPKey),
-		Signer:   session.NewSigner(cfg.Auth),
-		Verifier: session.NewVerifier(cfg.Auth),
-	}
-	prefix := cfg.Restate.ServicePrefix
-	rs := auth.Restate{Client: ingress.NewClient(cfg.Restate.IngressURL), Prefix: prefix}
-	auth.Routes(router, ports, keys, rs, cfg.TrustedProxies, time.Now, log)
-	account.Routes(router, accounts, time.Now, log, auth.RequireAuth(keys.Verifier, time.Now, log))
-	return auth.Services(prefix, ports, keys)
+	protect := auth.Protect(d, cfg.Auth)
+	accounts := account.Mount(d, protect)
+	return auth.Mount(d, auth.Settings{Keys: cfg.Auth, TrustedProxies: cfg.TrustedProxies, SMS: o.sms, Email: o.email}, accounts)
 }
 
-// startRestate serves defs and registers them with Restate.
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {
 	ep, err := restatex.Serve(ctx, cfg.ListenAddr, cfg.IdentityKey, defs...)
 	if err != nil {

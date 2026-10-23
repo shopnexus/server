@@ -136,7 +136,7 @@ internal/account/
                           methods in the port's order (Create, Get, Find..., Save, Delete)
   account_store_pg_test.go
   account_rename.go       use case and its HTTP handler
-  routes.go               binds adapters to handlers
+  mount.go                Mount: builds the stores, registers the routes
 ```
 
 Every aggregate's files follow this layout.
@@ -145,6 +145,16 @@ One binary serves the HTTP API on `:8080` and the Restate endpoint on `:9080`.
 HTTP handlers either call a use case or call a Restate service through the
 ingress and wait for its result. Module account offers an adapter
 (`account.Client`) that implements the ports other modules declare.
+
+A module's `mount.go` holds its `Mount` function. `Mount` takes `module.Deps`
+(router, pool, Restate ingress and service prefix, clock, logger), the
+module's own settings and the ports it needs from other modules. It builds the
+module's stores and keys, registers its routes, and returns what app and other
+modules need: `account.Mount` returns `account.Client`, `auth.Mount` returns
+its Restate services. `app.mountModules` calls each `Mount` in dependency
+order and imports no package inside a module. `auth.Protect`, the sign-in
+middleware, needs only the auth keys, so app builds it first and hands it to
+every module with signed-in routes.
 
 ### Tables and aggregates
 

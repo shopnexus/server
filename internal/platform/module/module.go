@@ -1,0 +1,26 @@
+// Package module holds what app hands every module's Mount. A module's Mount
+// takes Deps, its own settings and the ports it needs from other modules,
+// builds its stores, registers its routes, and returns what app and other
+// modules need from it: a client, a middleware or Restate services.
+package module
+
+import (
+	"log/slog"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/restatedev/sdk-go/ingress"
+
+	"github.com/shopnexus/server2/internal/platform/httpx"
+)
+
+// Deps is shared by every module.
+type Deps struct {
+	Router *httpx.Router
+	Pool   *pgxpool.Pool
+	// Ingress and ServicePrefix reach this process's Restate services.
+	Ingress       *ingress.Client
+	ServicePrefix string
+	Now           func() time.Time
+	Log           *slog.Logger
+}
