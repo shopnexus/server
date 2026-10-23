@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopnexus/server2/internal/platform/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -60,11 +61,11 @@ func route(r *http.Request) string {
 // names the span by the matched route pattern and records request duration.
 func Trace(next http.Handler) http.Handler {
 	tracer := otel.Tracer("github.com/shopnexus/server2/internal/platform/httpx")
-	duration, _ := otel.Meter("github.com/shopnexus/server2/internal/platform/httpx").Float64Histogram(
+	duration := telemetry.Must(otel.Meter("github.com/shopnexus/server2/internal/platform/httpx").Float64Histogram(
 		"http.server.request.duration",
 		metric.WithUnit("s"),
 		metric.WithDescription("Duration of HTTP server requests."),
-	)
+	))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()

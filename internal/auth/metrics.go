@@ -3,6 +3,8 @@ package auth
 import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/shopnexus/server2/internal/platform/telemetry"
 )
 
 var meter = otel.Meter("github.com/shopnexus/server2/internal/auth")
@@ -10,15 +12,7 @@ var meter = otel.Meter("github.com/shopnexus/server2/internal/auth")
 // The spec's auth counters. Instruments from the global meter bind to the
 // provider telemetry.Setup installs, even when they were created first.
 var (
-	otpSent      = counter("otp_sent_total", "OTP codes sent")
-	logins       = counter("login_total", "sign-in attempts by method and result")
-	refreshReuse = counter("refresh_reuse_total", "refresh tokens presented after they were rotated")
+	otpSent      = telemetry.Must(meter.Int64Counter("otp_sent_total", metric.WithDescription("OTP codes sent")))
+	logins       = telemetry.Must(meter.Int64Counter("login_total", metric.WithDescription("sign-in attempts by method and result")))
+	refreshReuse = telemetry.Must(meter.Int64Counter("refresh_reuse_total", metric.WithDescription("refresh tokens presented after they were rotated")))
 )
-
-func counter(name, description string) metric.Int64Counter {
-	c, err := meter.Int64Counter(name, metric.WithDescription(description))
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
