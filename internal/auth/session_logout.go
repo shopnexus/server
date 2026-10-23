@@ -60,12 +60,32 @@ func RemoveSession(ctx context.Context, sessions session.Store, p authn.Principa
 
 // LogoutHandler serves POST /v1/auth/logout.
 func LogoutHandler(sessions session.Store, now func() time.Time, log *slog.Logger) http.Handler {
-	return noContent(log, func(r *http.Request, p authn.Principal) error { return Logout(r.Context(), sessions, p, now()) })
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p, ok := httpx.Caller(w, r, log)
+		if !ok {
+			return
+		}
+		if err := Logout(r.Context(), sessions, p, now()); err != nil {
+			httpx.WriteError(w, r, log, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 }
 
 // LogoutAllHandler serves POST /v1/auth/logout-all.
 func LogoutAllHandler(sessions session.Store, now func() time.Time, log *slog.Logger) http.Handler {
-	return noContent(log, func(r *http.Request, p authn.Principal) error { return LogoutAll(r.Context(), sessions, p, now()) })
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p, ok := httpx.Caller(w, r, log)
+		if !ok {
+			return
+		}
+		if err := LogoutAll(r.Context(), sessions, p, now()); err != nil {
+			httpx.WriteError(w, r, log, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	})
 }
 
 type RemoveSessionRequest struct {
@@ -74,24 +94,17 @@ type RemoveSessionRequest struct {
 
 // RemoveSessionHandler serves DELETE /v1/auth/sessions/{id}.
 func RemoveSessionHandler(sessions session.Store, now func() time.Time, log *slog.Logger) http.Handler {
-	return noContent(log, func(r *http.Request, p authn.Principal) error {
-		var in RemoveSessionRequest
-		if err := httpx.Bind(r, &in); err != nil {
-			return err
-		}
-		return RemoveSession(r.Context(), sessions, p, in.ID, now())
-	})
-}
-
-// noContent runs a signed-in action and answers 204. It takes a function
-// because it is HTTP plumbing; the use cases above take none.
-func noContent(log *slog.Logger, do func(*http.Request, authn.Principal) error) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, ok := httpx.Caller(w, r, log)
 		if !ok {
 			return
 		}
-		if err := do(r, p); err != nil {
+		var in RemoveSessionRequest
+		if err := httpx.Bind(r, &in); err != nil {
+			httpx.WriteError(w, r, log, err)
+			return
+		}
+		if err := RemoveSession(r.Context(), sessions, p, in.ID, now()); err != nil {
 			httpx.WriteError(w, r, log, err)
 			return
 		}
