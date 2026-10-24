@@ -97,3 +97,25 @@ func TestGrantFollowsTheMember(t *testing.T) {
 		t.Fatalf("another member's session: %v", err)
 	}
 }
+
+func TestMoveVersion(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	st := session.NewPGStore(db)
+	ctx := context.Background()
+	staffID := newMember(t, db)
+	s, _ := session.New(uuid.NewV7(), staffID, 1, clientIP, "", now)
+	if err := st.CreateAudited(ctx, s, login(staffID, s.ID())); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.MoveVersion(ctx, s.ID(), 2, 3); !errors.Is(err, session.ErrRevoked) {
+		t.Fatalf("from a version it is not at: %v", err)
+	}
+	if err := st.MoveVersion(ctx, s.ID(), 1, 2); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := st.Get(ctx, s.ID())
+	if got.CredentialsVersion() != 2 {
+		t.Fatalf("version %d", got.CredentialsVersion())
+	}
+}

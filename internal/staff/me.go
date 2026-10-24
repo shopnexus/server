@@ -33,11 +33,19 @@ func GetMe(ctx context.Context, members member.Store, caller authn.Staff) (Me, e
 
 // ChangePassword replaces the caller's password. The credentials version
 // moves, which ends the member's other sessions; the caller's own session
-// moves to the new version and stays.
+// moves with it, but only while it is still at the member's version, so a
+// disable or reset that landed after staff.Require stays in force.
 func ChangePassword(ctx context.Context, st Stores, k Keys, caller authn.Staff, current, next string, now time.Time) error {
 	m, err := st.Members.Get(ctx, caller.StaffID)
 	if err != nil {
 		return fmt.Errorf("get staff member: %w", err)
+	}
+	s, err := st.Sessions.Get(ctx, caller.SessionID)
+	if err != nil {
+		return fmt.Errorf("get staff session: %w", err)
+	}
+	if m.Status() != member.StatusActive || s.RevokedAt() != nil || s.CredentialsVersion() != m.CredentialsVersion() {
+		return session.ErrRevoked
 	}
 	if !member.VerifyPassword(m.PasswordHash(), current) {
 		return member.ErrInvalidCredentials
@@ -48,6 +56,7 @@ func ChangePassword(ctx context.Context, st Stores, k Keys, caller authn.Staff, 
 	if member.VerifyPassword(m.PasswordHash(), next) {
 		return member.ErrPasswordTooWeak
 	}
+	from := m.CredentialsVersion()
 	m.SetPassword(k.Hasher.Hash(next), now)
 	err = st.Members.SaveAudited(ctx, &m, uuid.NewV7(), audit.Entry{
 		Actor: audit.ByStaff(caller), Action: "staff.password_change", Target: audit.Staff(m.ID()),
@@ -59,17 +68,7 @@ func ChangePassword(ctx context.Context, st Stores, k Keys, caller authn.Staff, 
 	if err != nil {
 		return fmt.Errorf("save staff member: %w", err)
 	}
-	for range 2 {
-		var s session.Session
-		if s, err = st.Sessions.Get(ctx, caller.SessionID); err != nil {
-			return fmt.Errorf("get staff session: %w", err)
-		}
-		s.SetVersion(m.CredentialsVersion())
-		if err = st.Sessions.Save(ctx, &s, uuid.NewV7()); !errors.Is(err, session.ErrConflict) {
-			break
-		}
-	}
-	if err != nil {
+	if err = st.Sessions.MoveVersion(ctx, caller.SessionID, from, m.CredentialsVersion()); err != nil {
 		return fmt.Errorf("move staff session to the new password: %w", err)
 	}
 	return nil

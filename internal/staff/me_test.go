@@ -5,7 +5,9 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"uuid"
 
+	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/staff"
 	"github.com/shopnexus/server2/internal/staff/member"
 	"github.com/shopnexus/server2/internal/staff/session"
@@ -59,5 +61,43 @@ func TestLogout(t *testing.T) {
 	me, err := staff.GetMe(ctx, e.stores.Members, e.callerOf(t, in))
 	if err != nil || me.Email != "mod@example.com" {
 		t.Fatalf("%+v %v", me, err)
+	}
+}
+
+// A disable or a TOTP reset that lands after staff.Require let the request
+// in ends the session; ChangePassword must not carry it onto a new version.
+func TestChangePasswordRefusesAnEndedSession(t *testing.T) {
+	t.Parallel()
+	for name, end := range map[string]func(staff.Stores, uuid.UUID) error{
+		"totp reset": func(st staff.Stores, id uuid.UUID) error {
+			_, err := staff.ResetMemberTOTP(context.Background(), st, id, audit.ByCLI("root"), now)
+			return err
+		},
+		"disable": func(st staff.Stores, id uuid.UUID) error {
+			_, err := staff.DisableMember(context.Background(), st, id, audit.ByCLI("root"), now)
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			ctx := context.Background()
+			password, _, in := e.enrolled(t, "mod@example.com")
+			caller := e.callerOf(t, in)
+			if err := end(e.stores, caller.StaffID); err != nil {
+				t.Fatal(err)
+			}
+			if err := staff.ChangePassword(ctx, e.stores, e.keys, caller, password, "another long password", now); !errors.Is(err, session.ErrRevoked) {
+				t.Fatalf("change password: %v", err)
+			}
+			if name == "disable" {
+				if _, err := staff.EnableMember(ctx, e.stores, caller.StaffID, audit.ByCLI("root"), now); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if w := get(t, guarded(e, member.RoleModerator, now), in.SignIn.AccessToken); w.Code != 401 {
+				t.Fatalf("the session came back: %d", w.Code)
+			}
+		})
 	}
 }

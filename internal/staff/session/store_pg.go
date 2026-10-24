@@ -137,3 +137,17 @@ func (st pgStore) Grant(ctx context.Context, id, staffID uuid.UUID) (Grant, erro
 	}
 	return g, nil
 }
+
+func (st pgStore) MoveVersion(ctx context.Context, id uuid.UUID, from, to int) error {
+	tag, err := st.db.Exec(ctx, `
+UPDATE staff_sessions SET credentials_version = @to, write_id = @write_id
+WHERE id = @id AND credentials_version = @from AND revoked_at IS NULL`,
+		pgx.StrictNamedArgs{"id": id, "from": from, "to": to, "write_id": uuid.NewV7()})
+	if err != nil {
+		return fmt.Errorf("move staff session version: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrRevoked
+	}
+	return nil
+}

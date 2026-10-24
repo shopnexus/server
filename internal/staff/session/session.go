@@ -93,10 +93,6 @@ func (s *Session) Revoke(now time.Time) {
 	}
 }
 
-// SetVersion moves the session to the member's new credentials version,
-// which keeps it alive through its own member's password change.
-func (s *Session) SetVersion(v int) { s.credentialsVersion = v }
-
 // Grant is what staff.Require reads about a session and its member.
 type Grant struct {
 	Role      member.Role
