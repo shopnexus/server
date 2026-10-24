@@ -7,7 +7,11 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/shopnexus/server2/internal/account"
+	"github.com/shopnexus/server2/internal/platform/audit"
+	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/pgtest"
 )
 
 // TestPGStore checks that the Postgres store behaves as account.Store
@@ -116,4 +120,48 @@ func TestPGStore(t *testing.T) {
 			t.Fatalf("after delete: %v", err)
 		}
 	})
+}
+
+func TestSaveAuditedWritesBothOrNeither(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := account.NewPGStore(db)
+	ctx := context.Background()
+	id := seed(t, s)
+	entry := audit.Entry{Actor: audit.ByCLI("test"), Action: "account.suspend", Target: audit.Account(id), Diff: nil, At: now}
+	count := func() int {
+		var n int
+		if err := db.QueryRow(ctx, `SELECT count(*) FROM staff_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+
+	a, _ := s.Get(ctx, id)
+	stale := a
+	if err := a.Suspend("spam", nil, now); err != nil {
+		t.Fatal(err)
+	}
+	w := uuid.NewV7()
+	if err := s.SaveAudited(ctx, &a, w, entry); err != nil || a.WriteID() != w || count() != 1 {
+		t.Fatalf("%v, write id %v, rows %d", err, a.WriteID(), count())
+	}
+	if err := s.SaveAudited(ctx, &stale, uuid.NewV7(), entry); !errors.Is(err, account.ErrConflict) || count() != 1 {
+		t.Fatalf("stale save: %v, rows %d", err, count())
+	}
+}
+
+func TestListNewestFirst(t *testing.T) {
+	t.Parallel()
+	s := account.NewPGStore(pgtest.New(t))
+	ctx := context.Background()
+	first, second := seed(t, s), seed(t, s)
+	all, err := s.List(ctx, page.Request{Limit: 10})
+	if err != nil || len(all) != 2 || all[0].ID() != second || all[1].ID() != first {
+		t.Fatalf("%v %v", all, err)
+	}
+	rest, _ := s.List(ctx, page.Request{Cursor: second, Limit: 10})
+	if len(rest) != 1 || rest[0].ID() != first {
+		t.Fatalf("after the cursor: %v", rest)
+	}
 }
