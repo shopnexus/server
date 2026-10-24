@@ -29,19 +29,21 @@ func TestFetchReadsOneMore(t *testing.T) {
 	}
 }
 
-func TestCut(t *testing.T) {
+func TestOf(t *testing.T) {
 	t.Parallel()
+	ids := []uuid.UUID{uuid.NewV7(), uuid.NewV7(), uuid.NewV7()}
+	id := func(u uuid.UUID) uuid.UUID { return u }
 	r := page.Request{Limit: 2}
-	kept, more := page.Cut([]int{1, 2, 3}, r)
-	if !slices.Equal(kept, []int{1, 2}) || !more {
-		t.Fatalf("a full page and one more: got %v %v", kept, more)
+	p := page.Of(ids, r, id)
+	if !slices.Equal(p.Items, ids[:2]) || p.NextCursor == nil || *p.NextCursor != ids[1] {
+		t.Fatalf("a full page and one more: %+v", p)
 	}
-	kept, more = page.Cut([]int{1, 2}, r)
-	if !slices.Equal(kept, []int{1, 2}) || more {
-		t.Fatalf("exactly a page: got %v %v", kept, more)
+	p = page.Of(ids[:2], r, id)
+	if !slices.Equal(p.Items, ids[:2]) || p.NextCursor != nil {
+		t.Fatalf("exactly a page: %+v", p)
 	}
-	kept, more = page.Cut([]int{}, r)
-	if len(kept) != 0 || more {
-		t.Fatalf("no rows: got %v %v", kept, more)
+	p = page.Of(nil, r, id)
+	if p.Items == nil || len(p.Items) != 0 || p.NextCursor != nil {
+		t.Fatalf("no rows: %+v", p)
 	}
 }

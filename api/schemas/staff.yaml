@@ -12,41 +12,31 @@ LoginRequest:
       type: string
       minLength: 1
       maxLength: 1024
-LoginStep:
-  type: object
-  additionalProperties: false
-  required: [ticket, next, ticket_expires_at]
-  properties:
-    ticket:
-      type: string
-      description: Pass it to the next sign-in call within five minutes.
-    next:
-      type: string
-      enum: [change_password, enroll_totp, totp]
-    ticket_expires_at:
-      type: string
-      format: date-time
-LoginPasswordRequest:
-  type: object
-  additionalProperties: false
-  required: [ticket, new_password]
-  properties:
-    ticket:
-      type: string
-      minLength: 1
     new_password:
       type: string
       minLength: 1
       maxLength: 1024
-      description: 12 to 128 characters, not the email and not the current password.
-TicketRequest:
+      description: |
+        Replaces the temporary password at the first sign-in; ignored
+        afterwards. 12 to 128 characters, not the email and not the current
+        password. Later calls send it as password.
+    code:
+      type: string
+      pattern: "^[0-9]{6}$"
+      description: The TOTP code, once the member has started or finished enrollment.
+EnrollmentRequest:
   type: object
   additionalProperties: false
-  required: [ticket]
+  required: [email, password]
   properties:
-    ticket:
+    email:
       type: string
       minLength: 1
+      maxLength: 254
+    password:
+      type: string
+      minLength: 1
+      maxLength: 1024
 TOTPEnrollment:
   type: object
   additionalProperties: false
@@ -58,17 +48,6 @@ TOTPEnrollment:
     otpauth_uri:
       type: string
       description: For a QR code.
-LoginTOTPRequest:
-  type: object
-  additionalProperties: false
-  required: [ticket, code]
-  properties:
-    ticket:
-      type: string
-      minLength: 1
-    code:
-      type: string
-      pattern: "^[0-9]{6}$"
 Me:
   type: object
   additionalProperties: false
@@ -84,34 +63,6 @@ Me:
     role:
       type: string
       enum: [moderator, admin]
-StaffSignIn:
-  type: object
-  additionalProperties: false
-  required: [access_token, access_token_expires_at, token_type, staff]
-  properties:
-    access_token:
-      type: string
-    access_token_expires_at:
-      type: string
-      format: date-time
-    token_type:
-      type: string
-      enum: [Bearer]
-    staff:
-      $ref: "#/Me"
-StaffAccess:
-  type: object
-  additionalProperties: false
-  required: [access_token, access_token_expires_at, token_type]
-  properties:
-    access_token:
-      type: string
-    access_token_expires_at:
-      type: string
-      format: date-time
-    token_type:
-      type: string
-      enum: [Bearer]
 ChangePasswordRequest:
   type: object
   additionalProperties: false
@@ -269,7 +220,7 @@ SuspendRequest:
 Action:
   type: object
   additionalProperties: false
-  required: [id, at, actor, action, diff]
+  required: [id, at, actor, action, details]
   properties:
     id:
       type: string
@@ -284,7 +235,7 @@ Action:
       properties:
         kind:
           type: string
-          enum: [staff, cli, anonymous]
+          enum: [staff, cli]
         staff_id:
           type: string
           format: uuid
@@ -306,9 +257,9 @@ Action:
         id:
           type: string
           format: uuid
-    diff:
+    details:
       type: object
-      description: Changed fields as [before, after]; secrets appear only as "changed" or "reset".
+      description: What the action needs beyond its name, such as a suspension's reason and end. Never a secret.
 ActionList:
   type: object
   additionalProperties: false

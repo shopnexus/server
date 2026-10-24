@@ -7,49 +7,29 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
-	"time"
 
 	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/token"
 	"github.com/shopnexus/server2/internal/staff/member"
 )
 
-const (
-	AudienceStaff = "shopnexus-staff"
-	AudienceLogin = "shopnexus-staff-login"
-	TicketTTL     = 5 * time.Minute
-)
-
-// Hasher is member.Hasher, so app and tests pick one without importing
-// package member.
-type Hasher = member.Hasher
-
-var (
-	ProductionHasher = member.Production
-	FastHasher       = member.Fast
-)
-
-// Keys is what staff signs, seals and hashes with.
+// Keys is what staff seals and hashes with.
 type Keys struct {
-	Secrets  cipher.AEAD // seals TOTP secrets at rest
-	Quota    []byte      // the HMAC key of login quota keys
-	Hasher   Hasher
-	Signer   token.Signer
-	Verifier token.Verifier
-	dummy    string // a hash no password matches, verified for unknown emails
+	Secrets cipher.AEAD // seals TOTP secrets at rest
+	Locks   []byte      // the HMAC key of sign-in lock keys
+	Hasher  member.Hasher
+	dummy   string // a hash no password matches, verified for unknown emails
 }
 
-// NewKeys derives the TOTP sealing key and the quota HMAC key from
-// STAFF_KEY with HKDF, under different labels, and signs with the auth JWT
-// key under the staff audiences.
-func NewKeys(staffCfg config.StaffConfig, authCfg config.AuthConfig, h Hasher) (Keys, error) {
-	sealKey, err := hkdf.Key(sha256.New, staffCfg.Key, nil, "shopnexus staff totp secrets", 32)
+// NewKeys derives the TOTP sealing key and the lock HMAC key from STAFF_KEY
+// with HKDF, under different labels.
+func NewKeys(cfg config.StaffConfig, h member.Hasher) (Keys, error) {
+	sealKey, err := hkdf.Key(sha256.New, cfg.Key, nil, "shopnexus staff totp secrets", 32)
 	if err != nil {
 		return Keys{}, fmt.Errorf("derive the totp key: %w", err)
 	}
-	quotaKey, err := hkdf.Key(sha256.New, staffCfg.Key, nil, "shopnexus staff login quota", 32)
+	lockKey, err := hkdf.Key(sha256.New, cfg.Key, nil, "shopnexus staff login lock", 32)
 	if err != nil {
-		return Keys{}, fmt.Errorf("derive the quota key: %w", err)
+		return Keys{}, fmt.Errorf("derive the lock key: %w", err)
 	}
 	block, err := aes.NewCipher(sealKey)
 	if err != nil {
@@ -59,8 +39,5 @@ func NewKeys(staffCfg config.StaffConfig, authCfg config.AuthConfig, h Hasher) (
 	if err != nil {
 		return Keys{}, fmt.Errorf("totp cipher: %w", err)
 	}
-	return Keys{
-		Secrets: aead, Quota: quotaKey, Hasher: h,
-		Signer: token.NewSigner(authCfg), Verifier: token.NewVerifier(authCfg), dummy: h.Hash(rand.Text()),
-	}, nil
+	return Keys{Secrets: aead, Locks: lockKey, Hasher: h, dummy: h.Hash(rand.Text())}, nil
 }

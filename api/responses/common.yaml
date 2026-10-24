@@ -5,7 +5,7 @@ BadRequest:
       schema:
         $ref: "../schemas/error.yaml#/Error"
 Unauthorized:
-  description: "No valid credentials (unauthenticated, invalid_token, or a refresh code)."
+  description: "No valid credentials (unauthenticated, invalid_token, a refresh or session code, invalid_credentials, invalid_totp_code)."
   content:
     application/json:
       schema:
@@ -35,7 +35,7 @@ Unprocessable:
       schema:
         $ref: "../schemas/error.yaml#/Error"
 PreconditionRequired:
-  description: "The caller must prove who they are again first (reauth_required)."
+  description: "The caller must do something first: sign in again (reauth_required), or at a staff sign-in replace the temporary password (password_change_required), enroll TOTP (totp_enrollment_required) or send a code (totp_required)."
   content:
     application/json:
       schema:

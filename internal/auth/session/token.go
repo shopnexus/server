@@ -42,7 +42,7 @@ func (s Signer) Tokens(x Session, refresh string, now time.Time) (Tokens, error)
 // Sign returns an access token for x valid AccessTTL from now, and its expiry.
 func (s Signer) Sign(x Session, now time.Time) (string, time.Time, error) {
 	signed, exp, err := s.t.Sign(token.Claims{
-		Subject: x.accountID, SessionID: x.id, AuthTime: x.authTime, Version: 0, Audience: s.audience, ExpiresAt: time.Time{},
+		Subject: x.accountID, SessionID: x.id, AuthTime: x.authTime, Audience: s.audience,
 	}, AccessTTL, now)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("sign access token: %w", err)

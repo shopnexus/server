@@ -24,11 +24,11 @@ func TestStaffCORSPreflight(t *testing.T) {
 		_ = res.Body.Close()
 		return res.StatusCode, res.Header
 	}
-	if status, h := preflight("/v1/staff/session/refresh", "http://console.e2e"); status != http.StatusNoContent ||
+	if status, h := preflight("/v1/staff/login", "http://console.e2e"); status != http.StatusNoContent ||
 		h.Get("Access-Control-Allow-Origin") != "http://console.e2e" || h.Get("Access-Control-Allow-Credentials") != "true" {
 		t.Fatalf("the console: %d %v", status, h)
 	}
-	if _, h := preflight("/v1/staff/session/refresh", "http://evil.e2e"); h.Get("Access-Control-Allow-Origin") != "" {
+	if _, h := preflight("/v1/staff/login", "http://evil.e2e"); h.Get("Access-Control-Allow-Origin") != "" {
 		t.Fatalf("another origin: %v", h)
 	}
 	if _, h := preflight("/v1/accounts/me", "http://console.e2e"); h.Get("Access-Control-Allow-Origin") != "" {

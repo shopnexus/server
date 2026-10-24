@@ -13,6 +13,8 @@ import (
 	"github.com/shopnexus/server2/internal/staff/member"
 )
 
+const staffPassword = "a long e2e staff password"
+
 func newStaffEmail() string { return fmt.Sprintf("staff-%d@example.com", seq.Add(1)) }
 
 // newStaff creates a member the way cmd/staff does and returns its email and
@@ -20,84 +22,67 @@ func newStaffEmail() string { return fmt.Sprintf("staff-%d@example.com", seq.Add
 func newStaff(t *testing.T, role member.Role) (id, email, temp string) {
 	t.Helper()
 	email = newStaffEmail()
-	v, temp, err := staff.CreateMember(context.Background(), staffStores.Members, staff.FastHasher, email, "E2E Staff", role, audit.ByCLI("e2e"), time.Now())
+	v, temp, err := staff.CreateMember(context.Background(), staffStores.Members, member.Fast, email, "E2E Staff", role, audit.ByCLI("e2e"), time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
 	return v.ID.String(), email, temp
 }
 
+// staffSession is a signed-in member; the zero value is a caller with no
+// session.
 type staffSession struct {
-	ID       string
-	Email    string
-	Password string
-	Secret   []byte
-	Access   string
-	Refresh  string // the staff_refresh cookie's value
+	ID     string
+	Email  string
+	Secret []byte
+	Token  string // the staff_session cookie's value
 }
 
-type loginStep struct {
-	Ticket string `json:"ticket"`
-	Next   string `json:"next"`
-}
-
-type staffSignIn struct {
-	AccessToken string `json:"access_token"`
-	Staff       struct {
-		ID    string `json:"id"`
-		Email string `json:"email"`
-		Role  string `json:"role"`
-	} `json:"staff"`
-}
-
-func staffLogin(t *testing.T, email, password string) Response {
+// staffCall calls the staff API the way the console does: with its header
+// and, for a signed-in session, the cookie.
+func staffCall(t *testing.T, s staffSession, method, path string, body any, headers ...[2]string) Response {
 	t.Helper()
-	return call(t, server, "POST", "/v1/staff/login", map[string]string{"email": email, "password": password})
+	h := append([][2]string{{"X-Requested-With", "shopnexus-console"}}, headers...)
+	if s.Token != "" {
+		h = append(h, [2]string{"Cookie", "staff_session=" + s.Token})
+	}
+	return call(t, server, method, path, body, h...)
+}
+
+func staffLogin(t *testing.T, body map[string]string, headers ...[2]string) Response {
+	t.Helper()
+	return staffCall(t, staffSession{}, "POST", "/v1/staff/login", body, headers...)
 }
 
 // signInStaff creates a member and takes it through the first sign-in.
 func signInStaff(t *testing.T, role member.Role) staffSession {
 	t.Helper()
 	id, email, temp := newStaff(t, role)
-	res := staffLogin(t, email, temp)
-	if res.Status != 200 {
-		t.Fatalf("login: %d %s", res.Status, res.Body)
+	if res := staffLogin(t, map[string]string{"email": email, "password": temp, "new_password": staffPassword}); res.Status != 428 {
+		t.Fatalf("new password: %d %s", res.Status, res.Body)
 	}
-	step := decode[loginStep](t, res)
-	password := "a long e2e staff password"
-	res = call(t, server, "POST", "/v1/staff/login/password", map[string]string{"ticket": step.Ticket, "new_password": password})
-	if res.Status != 200 {
-		t.Fatalf("password: %d %s", res.Status, res.Body)
-	}
-	step = decode[loginStep](t, res)
-	res = call(t, server, "POST", "/v1/staff/login/totp-enrollment", map[string]string{"ticket": step.Ticket})
+	res := staffCall(t, staffSession{}, "POST", "/v1/staff/login/totp-enrollment", map[string]string{"email": email, "password": staffPassword})
 	if res.Status != 200 {
 		t.Fatalf("enrollment: %d %s", res.Status, res.Body)
 	}
-	secret, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(decode[struct {
+	secret := decodeBase32(t, decode[struct {
 		Secret string `json:"secret"`
 	}](t, res).Secret)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res = call(t, server, "POST", "/v1/staff/login/totp", map[string]string{"ticket": step.Ticket, "code": member.Code(secret, time.Now())})
+	res = staffLogin(t, map[string]string{"email": email, "password": staffPassword, "code": member.Code(secret, time.Now())})
 	if res.Status != 200 {
-		t.Fatalf("totp: %d %s", res.Status, res.Body)
+		t.Fatalf("code: %d %s", res.Status, res.Body)
 	}
-	return staffSession{
-		ID: id, Email: email, Password: password, Secret: secret,
-		Access: decode[staffSignIn](t, res).AccessToken, Refresh: refreshCookieOf(t, res).Value,
-	}
+	return staffSession{ID: id, Email: email, Secret: secret, Token: sessionCookieOf(t, res).Value}
 }
 
-func refreshCookieOf(t *testing.T, res Response) *http.Cookie {
+func sessionCookieOf(t *testing.T, res Response) *http.Cookie {
 	t.Helper()
 	for _, c := range (&http.Response{Header: res.Header}).Cookies() {
-		if c.Name == "staff_refresh" {
+		if c.Name == "staff_session" {
 			return c
 		}
 	}
-	t.Fatalf("no staff_refresh cookie in %v", res.Header)
+	t.Fatalf("no staff_session cookie in %v", res.Header)
 	return nil
 }
 
@@ -109,13 +94,3 @@ func decodeBase32(t *testing.T, s string) []byte {
 	}
 	return b
 }
-
-func staffBearer(s staffSession) [2]string { return bearer(s.Access) }
-
-func refreshWith(t *testing.T, cookie string, headers ...[2]string) Response {
-	t.Helper()
-	h := append([][2]string{{"Cookie", "staff_refresh=" + cookie}}, headers...)
-	return call(t, server, "POST", "/v1/staff/session/refresh", nil, h...)
-}
-
-var csrf = [2]string{"X-Requested-With", "shopnexus-console"}

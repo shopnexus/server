@@ -16,8 +16,8 @@ import (
 // ErrMalformedJSON is a body that does not parse as the expected JSON.
 var ErrMalformedJSON = apperr.New(apperr.KindBadRequest, "malformed_json", "request body is not valid JSON")
 
-// Bind reads the request into dst. A field tagged `path`, `query`, `header`
-// or `cookie` takes the request value of that name and must also be tagged
+// Bind reads the request into dst. A field tagged `path`, `query` or
+// `header` takes the request value of that name and must also be tagged
 // `json:"-"`. The other fields come from the JSON body, which is read only
 // when T has such a field.
 //
@@ -50,10 +50,6 @@ func Bind[T any](r *http.Request, dst *T) error {
 			raw = query.Get(f.name)
 		case sourceHeader:
 			raw = r.Header.Get(f.name)
-		case sourceCookie:
-			if c, err := r.Cookie(f.name); err == nil {
-				raw = c.Value
-			}
 		default:
 			panic(fmt.Sprintf("httpx: unknown source %d", f.source))
 		}
@@ -75,11 +71,10 @@ const (
 	sourcePath source = iota
 	sourceQuery
 	sourceHeader
-	sourceCookie
 )
 
 // sourceTags is the struct tag for each source.
-var sourceTags = [...]string{sourcePath: "path", sourceQuery: "query", sourceHeader: "header", sourceCookie: "cookie"}
+var sourceTags = [...]string{sourcePath: "path", sourceQuery: "query", sourceHeader: "header"}
 
 // plan is what Bind needs to know about a request type, worked out from its
 // struct tags on the first request.
@@ -119,10 +114,10 @@ func newPlan(t reflect.Type) *plan {
 	if t.Kind() != reflect.Struct {
 		panic(fmt.Sprintf("httpx: Bind needs a struct, got %s", t))
 	}
-	p := &plan{fields: nil, body: false}
+	p := &plan{}
 	for i := range t.NumField() {
 		sf := t.Field(i)
-		f := field{parse: nil, name: "", index: []int{i}, source: 0}
+		f := field{index: []int{i}}
 		found := 0
 		for src, key := range sourceTags {
 			if name, ok := sf.Tag.Lookup(key); ok {
@@ -143,7 +138,7 @@ func newPlan(t reflect.Type) *plan {
 				p.body = true
 			}
 		case found > 1:
-			panic(fmt.Sprintf("httpx: %s.%s has more than one of path, query, header and cookie", t, sf.Name))
+			panic(fmt.Sprintf("httpx: %s.%s has more than one of path, query and header", t, sf.Name))
 		case sf.Tag.Get("json") != "-":
 			panic(fmt.Sprintf("httpx: %s.%s comes from the URL, a header or a cookie and needs json:\"-\"", t, sf.Name))
 		default:

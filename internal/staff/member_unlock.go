@@ -2,38 +2,26 @@ package staff
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/staff/quota"
+	"github.com/shopnexus/server2/internal/staff/member"
 )
 
 // UnlockMember clears the failed sign-ins and the lock on a member's email.
-func UnlockMember(ctx context.Context, st Stores, k Keys, id uuid.UUID, by audit.Actor, now time.Time) (MemberView, error) {
-	m, err := loadManaged(ctx, st.Members, id, by)
+func UnlockMember(ctx context.Context, members member.Store, locks LockStore, k Keys, id uuid.UUID, by audit.Actor, now time.Time) (MemberView, error) {
+	m, err := loadManaged(ctx, members, id, by)
 	if err != nil {
 		return MemberView{}, err
 	}
-	q, err := st.Quotas.Get(ctx, quota.Key(k.Quota, m.Email()))
+	err = locks.Unlock(ctx, lockKey(k.Locks, m.Email()), now, audit.Entry{Actor: by, Action: "staff.unlock", Target: audit.Staff(id), At: now})
 	if err != nil {
-		return MemberView{}, fmt.Errorf("get login quota: %w", err)
-	}
-	q.Clear(now)
-	err = st.Quotas.SaveAudited(ctx, &q, uuid.NewV7(), audit.Entry{
-		Actor: by, Action: "staff.unlock", Target: audit.Staff(id), Diff: nil, At: now,
-	})
-	if errors.Is(err, quota.ErrConflict) {
-		return MemberView{}, apperr.ErrTryAgain
-	}
-	if err != nil {
-		return MemberView{}, fmt.Errorf("save login quota: %w", err)
+		return MemberView{}, fmt.Errorf("unlock staff member: %w", err)
 	}
 	return viewOf(m, nil), nil
 }
@@ -50,7 +38,7 @@ func UnlockMemberHandler(st Stores, k Keys, now func() time.Time, log *slog.Logg
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		v, err := UnlockMember(r.Context(), st, k, in.ID, audit.ByStaff(caller), now())
+		v, err := UnlockMember(r.Context(), st.Members, st.Locks, k, in.ID, audit.ByStaff(caller), now())
 		if err != nil {
 			httpx.WriteError(w, r, log, err)
 			return

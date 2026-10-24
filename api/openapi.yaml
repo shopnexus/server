@@ -31,16 +31,10 @@ paths:
     $ref: "paths/account.yaml#/me"
   /v1/staff/login:
     $ref: "paths/staff.yaml#/login"
-  /v1/staff/login/password:
-    $ref: "paths/staff.yaml#/loginPassword"
   /v1/staff/login/totp-enrollment:
     $ref: "paths/staff.yaml#/loginTotpEnrollment"
-  /v1/staff/login/totp:
-    $ref: "paths/staff.yaml#/loginTotp"
-  /v1/staff/session/refresh:
-    $ref: "paths/staff.yaml#/sessionRefresh"
-  /v1/staff/session/logout:
-    $ref: "paths/staff.yaml#/sessionLogout"
+  /v1/staff/logout:
+    $ref: "paths/staff.yaml#/logout"
   /v1/staff/me:
     $ref: "paths/staff.yaml#/me"
   /v1/staff/me/password:
@@ -74,7 +68,10 @@ components:
       scheme: bearer
       bearerFormat: JWT
     staffAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      description: A staff access token (audience shopnexus-staff). Customer tokens fail here.
+      type: apiKey
+      in: cookie
+      name: staff_session
+      description: |
+        The session cookie a staff sign-in sets: HttpOnly, Secure,
+        SameSite=Strict, path /v1/staff, eight hours. The server checks the
+        session and the member on every request.

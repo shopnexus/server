@@ -24,6 +24,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/staff"
 	"github.com/shopnexus/server2/internal/staff/member"
@@ -79,7 +80,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return fmt.Errorf("connect to postgres: %w", err)
 	}
 	defer pool.Close()
-	keys, err := staff.NewKeys(cfg.Staff, cfg.Auth, staff.ProductionHasher)
+	keys, err := staff.NewKeys(cfg.Staff, member.Production)
 	if err != nil {
 		return fmt.Errorf("staff keys: %w", err)
 	}
@@ -96,7 +97,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		}
 		return nil
 	}
-	m, err := st.Members.FindByEmail(ctx, member.NormalizeEmail(*email))
+	m, err := st.Members.FindByEmail(ctx, contact.NormalizeEmail(*email))
 	if errors.Is(err, member.ErrNotFound) {
 		return fmt.Errorf("no staff member has the email %s", *email)
 	}
@@ -105,18 +106,18 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	}
 	switch cmd {
 	case "disable":
-		_, err = staff.DisableMember(ctx, st, m.ID(), by, now)
+		_, err = staff.DisableMember(ctx, st.Members, m.ID(), by, now)
 	case "enable":
-		_, err = staff.EnableMember(ctx, st, m.ID(), by, now)
+		_, err = staff.EnableMember(ctx, st.Members, m.ID(), by, now)
 	case "unlock":
-		_, err = staff.UnlockMember(ctx, st, keys, m.ID(), by, now)
+		_, err = staff.UnlockMember(ctx, st.Members, st.Locks, keys, m.ID(), by, now)
 	case "reset-password":
 		var temp string
-		if temp, err = staff.ResetMemberPassword(ctx, st, keys, m.ID(), by, now); err == nil {
+		if temp, err = staff.ResetMemberPassword(ctx, st.Members, keys.Hasher, m.ID(), by, now); err == nil {
 			_, err = fmt.Fprintf(out, "temporary password: %s\n", temp)
 		}
 	default: // reset-totp
-		_, err = staff.ResetMemberTOTP(ctx, st, m.ID(), by, now)
+		_, err = staff.ResetMemberTOTP(ctx, st.Members, m.ID(), by, now)
 	}
 	if err != nil {
 		return fmt.Errorf("%s: %w", cmd, err)

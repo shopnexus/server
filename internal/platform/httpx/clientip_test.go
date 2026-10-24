@@ -35,7 +35,11 @@ func TestClientIP(t *testing.T) {
 			for _, v := range c.xff {
 				r.Header.Add("X-Forwarded-For", v)
 			}
-			if got := ClientIP(r, c.trusted); got.String() != c.want {
+			var got netip.Addr
+			ResolveClientIP(c.trusted)(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+				got = ClientIP(r)
+			})).ServeHTTP(httptest.NewRecorder(), r)
+			if got.String() != c.want {
 				t.Fatalf("got %s, want %s", got, c.want)
 			}
 		})

@@ -25,8 +25,6 @@ type SignInInput struct {
 // SignInResult names the account and the session the handler issues tokens
 // for. Tokens never enter Restate. A refusal travels as data, as in
 // OTPSendResult.
-//
-//exhaustruct:optional
 type SignInResult struct {
 	ChallengeID uuid.UUID     `json:"challenge_id"`
 	AccountID   uuid.UUID     `json:"account_id"`

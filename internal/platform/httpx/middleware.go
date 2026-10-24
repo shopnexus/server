@@ -74,7 +74,7 @@ func Trace(next http.Handler) http.Handler {
 		defer span.End()
 
 		w.Header().Set("Trace-Id", span.SpanContext().TraceID().String())
-		sw := &statusWriter{ResponseWriter: w, status: 0}
+		sw := &statusWriter{ResponseWriter: w}
 		// The mux writes Pattern on the request it receives, so read it from r2.
 		r2 := r.WithContext(ctx)
 		next.ServeHTTP(sw, r2)
@@ -101,7 +101,7 @@ func AccessLog(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
-			sw := &statusWriter{ResponseWriter: w, status: 0}
+			sw := &statusWriter{ResponseWriter: w}
 			next.ServeHTTP(sw, r)
 			log.InfoContext(r.Context(), "request",
 				"method", r.Method,

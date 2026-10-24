@@ -28,18 +28,14 @@ func ListSessions(ctx context.Context, sessions session.Store, p authn.Principal
 	if err != nil {
 		return page.Page[SessionItem]{}, fmt.Errorf("list sessions: %w", err)
 	}
-	rows, more := page.Cut(rows, req)
-	out := page.Page[SessionItem]{Items: make([]SessionItem, 0, len(rows))}
-	if more {
-		out.NextCursor = new(rows[len(rows)-1].ID)
-	}
+	items := make([]SessionItem, 0, len(rows))
 	for _, v := range rows {
-		out.Items = append(out.Items, SessionItem{
+		items = append(items, SessionItem{
 			ID: v.ID, DeviceName: v.DeviceName, CreatedAt: v.CreatedAt,
 			LastUsedAt: v.LastUsedAt, Current: v.ID == p.SessionID,
 		})
 	}
-	return out, nil
+	return page.Of(items, req, func(s SessionItem) uuid.UUID { return s.ID }), nil
 }
 
 // ListSessionsHandler serves GET /v1/auth/sessions.

@@ -98,8 +98,10 @@ linters:
       check-type-assertions: true
     exhaustruct_v5:
       explicit-mode: true
+      # Only configuration, where a forgotten field is a real bug; elsewhere
+      # a struct literal names the fields it sets.
       enforce-patterns:
-        - ^github\.com/shopnexus/server2/.+
+        - ^github\.com/shopnexus/server2/internal/platform/config\..+
       allow-empty-returns: true
     funcorder:
       struct-method: false

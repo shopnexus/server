@@ -6,27 +6,23 @@ import (
 )
 
 const (
-	refreshCookie = "staff_refresh"
-	// The browser sends the cookie to the refresh and logout endpoints only.
-	cookiePath = "/v1/staff/session"
+	sessionCookie = "staff_session"
+	cookiePath    = "/v1/staff"
 )
 
-// issued is a refresh token and the end of its session, for the cookie.
-type issued struct {
-	refresh   string
-	expiresAt time.Time
-}
-
-func setRefreshCookie(w http.ResponseWriter, i issued, now time.Time) {
+// setSessionCookie keeps the session token where the console's scripts
+// cannot read it. SameSite=Strict keeps other sites' requests from carrying
+// it, and FromConsole refuses any staff call without the console's header.
+func setSessionCookie(w http.ResponseWriter, tok string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{
-		Name: refreshCookie, Value: i.refresh, Path: cookiePath, MaxAge: int(i.expiresAt.Sub(now).Seconds()),
+		Name: sessionCookie, Value: tok, Path: cookiePath, MaxAge: int(ttl.Seconds()),
 		Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode,
 	})
 }
 
-func clearRefreshCookie(w http.ResponseWriter) {
+func clearSessionCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name: refreshCookie, Value: "", Path: cookiePath, MaxAge: -1,
+		Name: sessionCookie, Value: "", Path: cookiePath, MaxAge: -1,
 		Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode,
 	})
 }

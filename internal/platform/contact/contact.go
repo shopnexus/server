@@ -82,10 +82,14 @@ func ParsePhone(raw string) (Address, error) {
 	return Address{Phone, s}, nil
 }
 
+// NormalizeEmail is the form ParseEmail stores: trimmed and lower-cased. A
+// lookup by an email as someone typed it uses it without the format check.
+func NormalizeEmail(raw string) string { return strings.ToLower(strings.TrimSpace(raw)) }
+
 // ParseEmail lower-cases the address and rejects display names and domains
 // without a dot.
 func ParseEmail(raw string) (Address, error) {
-	s := strings.ToLower(strings.TrimSpace(raw))
+	s := NormalizeEmail(raw)
 	a, err := mail.ParseAddress(s)
 	if err != nil || a.Name != "" || a.Address != s || len(s) > 254 {
 		return Address{}, ErrInvalidEmail

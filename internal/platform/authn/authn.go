@@ -38,11 +38,10 @@ func From(ctx context.Context) (Principal, bool) {
 
 // Staff is the signed-in staff member. It is a different type from
 // Principal, so a customer handler never receives a staff caller or the
-// other way round. Role is the member's role as staff.Require read it.
+// other way round.
 type Staff struct {
 	StaffID   uuid.UUID
 	SessionID uuid.UUID
-	Role      string
 	IP        netip.Addr
 }
 

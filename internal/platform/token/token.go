@@ -1,6 +1,7 @@
-// Package token signs and verifies the EdDSA access tokens of every module
-// and makes the random refresh tokens they rotate. The caller names the
-// audience on both sides, so one module's tokens fail in another's verifier.
+// Package token signs and verifies EdDSA access tokens and makes random
+// opaque tokens, such as refresh tokens and session cookies, that a store
+// keeps only as a hash. The caller names the audience on both sides, so a
+// token for one audience fails in another's verifier.
 package token
 
 import (
@@ -22,13 +23,12 @@ import (
 // ErrInvalid is every verification failure; the cause is kept for the log.
 var ErrInvalid = apperr.New(apperr.KindUnauthenticated, "invalid_token", "the access token is not valid")
 
-// Claims is what a token says. SessionID, AuthTime and Version are zero
-// when a token does not carry them.
+// Claims is what a token says. SessionID and AuthTime are zero when a
+// token does not carry them.
 type Claims struct {
 	Subject   uuid.UUID
 	SessionID uuid.UUID
 	AuthTime  time.Time
-	Version   int // the staff credentials version a login ticket was issued at
 	Audience  string
 	ExpiresAt time.Time // set by Verify
 }
@@ -40,7 +40,6 @@ type jwtClaims struct {
 
 	SessionID string `json:"sid,omitempty"`
 	AuthTime  int64  `json:"auth_time,omitempty"`
-	Version   int    `json:"cv,omitempty"`
 }
 
 // Signer signs with the current Ed25519 key.
@@ -59,8 +58,7 @@ func (s Signer) Sign(c Claims, ttl time.Duration, now time.Time) (string, time.T
 	exp := now.Add(ttl)
 	wire := jwtClaims{
 		Issuer: s.issuer, Audience: jwt.ClaimStrings{c.Audience}, Subject: c.Subject.String(),
-		IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(exp), NotBefore: nil, ID: "",
-		SessionID: "", AuthTime: 0, Version: c.Version,
+		IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(exp),
 	}
 	if c.SessionID != (uuid.UUID{}) {
 		wire.SessionID = c.SessionID.String()
@@ -122,7 +120,7 @@ func (v Verifier) Verify(tok, audience string, now time.Time) (Claims, error) {
 	if err != nil {
 		return Claims{}, invalid(errors.New("sub is not a UUID"))
 	}
-	out := Claims{Subject: sub, SessionID: uuid.UUID{}, AuthTime: time.Time{}, Version: c.Version, Audience: audience, ExpiresAt: c.ExpiresAt.UTC()}
+	out := Claims{Subject: sub, Audience: audience, ExpiresAt: c.ExpiresAt.UTC()}
 	if c.SessionID != "" {
 		if out.SessionID, err = uuid.Parse(c.SessionID); err != nil {
 			return Claims{}, invalid(errors.New("sid is not a UUID"))
@@ -140,17 +138,18 @@ func invalid(cause error) error {
 	return &e
 }
 
-// NewRefresh returns rt_ plus 32 random bytes in base64url, and its hash.
-func NewRefresh() (token string, hash []byte) {
+// NewOpaque returns prefix plus 32 random bytes in base64url, and its hash.
+// The prefix says what the token is, such as rt_ for a refresh token.
+func NewOpaque(prefix string) (token string, hash []byte) {
 	b := make([]byte, 32)
 	rand.Read(b)
-	token = "rt_" + base64.RawURLEncoding.EncodeToString(b)
-	return token, HashRefresh(token)
+	token = prefix + base64.RawURLEncoding.EncodeToString(b)
+	return token, Hash(token)
 }
 
-// HashRefresh is plain SHA-256: the token carries 256 random bits, so a slow
+// Hash is plain SHA-256: an opaque token carries 256 random bits, so a slow
 // hash would add nothing.
-func HashRefresh(token string) []byte {
+func Hash(token string) []byte {
 	h := sha256.Sum256([]byte(token))
 	return h[:]
 }

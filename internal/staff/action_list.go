@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"uuid"
 
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/httpx"
@@ -22,13 +23,7 @@ func ListActions(ctx context.Context, actions audit.Store, f audit.Filter, p pag
 	if err != nil {
 		return page.Page[audit.Action]{}, fmt.Errorf("list staff actions: %w", err)
 	}
-	rows, more := page.Cut(rows, p)
-	out := page.Page[audit.Action]{Items: make([]audit.Action, 0, len(rows))}
-	out.Items = append(out.Items, rows...)
-	if more {
-		out.NextCursor = new(rows[len(rows)-1].ID)
-	}
-	return out, nil
+	return page.Of(rows, p, func(a audit.Action) uuid.UUID { return a.ID }), nil
 }
 
 // ListActionsHandler serves GET /v1/staff/actions.

@@ -22,10 +22,7 @@ type Record struct {
 }
 
 func recordOf(a Account, now time.Time) Record {
-	r := Record{
-		ID: a.ID(), DisplayName: a.DisplayName(), Status: a.Status(now), SuspendedUntil: nil, SuspendReason: "",
-		CreatedAt: a.CreatedAt(),
-	}
+	r := Record{ID: a.ID(), DisplayName: a.DisplayName(), Status: a.Status(now), CreatedAt: a.CreatedAt()}
 	if r.Status == StatusSuspended {
 		r.SuspendedUntil, r.SuspendReason = a.SuspendedUntil(), a.SuspendReason()
 	}

@@ -12,62 +12,73 @@ import (
 func TestStaffFirstSignIn(t *testing.T) {
 	t.Parallel()
 	_, email, temp := newStaff(t, member.RoleModerator)
-	step := decode[loginStep](t, staffLogin(t, email, temp))
-	if step.Next != "change_password" {
-		t.Fatalf("first step %q", step.Next)
+	enroll := func(password string) Response {
+		return staffCall(t, staffSession{}, "POST", "/v1/staff/login/totp-enrollment", map[string]string{"email": email, "password": password})
 	}
-	res := call(t, server, "POST", "/v1/staff/login/password", map[string]string{"ticket": step.Ticket, "new_password": "a long e2e staff password"})
-	step = decode[loginStep](t, res)
-	if step.Next != "enroll_totp" {
-		t.Fatalf("second step %q", step.Next)
+	steps := []struct {
+		name string
+		res  Response
+		want string
+	}{
+		{"temporary password", staffLogin(t, map[string]string{"email": email, "password": temp}), "password_change_required"},
+		{"enrollment first", enroll(temp), "password_change_required"},
+		{"weak password", staffLogin(t, map[string]string{"email": email, "password": temp, "new_password": "short"}), "password_too_weak"},
+		{"new password", staffLogin(t, map[string]string{"email": email, "password": temp, "new_password": staffPassword}), "totp_enrollment_required"},
+		{"temporary again", enroll(temp), "invalid_credentials"},
 	}
-	res = call(t, server, "POST", "/v1/staff/login/totp-enrollment", map[string]string{"ticket": step.Ticket})
+	for _, s := range steps {
+		if got := errorOf(t, s.res).Code; got != s.want {
+			t.Fatalf("%s: %d %s, want %s", s.name, s.res.Status, s.res.Body, s.want)
+		}
+	}
+	res := enroll(staffPassword)
 	enr := decode[struct {
 		Secret string `json:"secret"`
 		URI    string `json:"otpauth_uri"`
 	}](t, res)
-	if enr.Secret == "" || enr.URI == "" {
-		t.Fatalf("%+v", enr)
+	if res.Status != 200 || enr.Secret == "" || enr.URI == "" {
+		t.Fatalf("enrollment: %d %s", res.Status, res.Body)
 	}
-	s := signInStaff(t, member.RoleAdmin)
-	if s.Access == "" || s.Refresh == "" {
-		t.Fatalf("%+v", s)
+	if res = staffLogin(t, map[string]string{"email": email, "password": staffPassword}); errorOf(t, res).Code != "totp_required" {
+		t.Fatalf("no code: %d %s", res.Status, res.Body)
 	}
-}
-
-func TestStaffRefreshCookieAttributes(t *testing.T) {
-	t.Parallel()
-	_, email, temp := newStaff(t, member.RoleModerator)
-	step := decode[loginStep](t, staffLogin(t, email, temp))
-	step = decode[loginStep](t, call(t, server, "POST", "/v1/staff/login/password", map[string]string{"ticket": step.Ticket, "new_password": "a long e2e staff password"}))
-	res := call(t, server, "POST", "/v1/staff/login/totp-enrollment", map[string]string{"ticket": step.Ticket})
-	secret := decodeBase32(t, decode[struct {
-		Secret string `json:"secret"`
-	}](t, res).Secret)
-	res = call(t, server, "POST", "/v1/staff/login/totp", map[string]string{"ticket": step.Ticket, "code": member.Code(secret, time.Now())}, [2]string{"User-Agent", "e2e-browser"})
-	c := refreshCookieOf(t, res)
-	if !c.HttpOnly || !c.Secure || c.SameSite != http.SameSiteStrictMode || c.Path != "/v1/staff/session" ||
+	code := member.Code(decodeBase32(t, enr.Secret), time.Now())
+	res = staffLogin(t, map[string]string{"email": email, "password": staffPassword, "code": code}, [2]string{"User-Agent", "e2e-browser"})
+	if res.Status != 200 || decode[struct {
+		Email string `json:"email"`
+	}](t, res).Email != email {
+		t.Fatalf("code: %d %s", res.Status, res.Body)
+	}
+	c := sessionCookieOf(t, res)
+	if !c.HttpOnly || !c.Secure || c.SameSite != http.SameSiteStrictMode || c.Path != "/v1/staff" ||
 		c.MaxAge < int((8*time.Hour-time.Minute).Seconds()) || c.MaxAge > int((8*time.Hour).Seconds()) {
-		t.Fatalf("%+v", c)
+		t.Fatalf("cookie: %+v", c)
+	}
+	if res = enroll(staffPassword); res.Status != 409 || errorOf(t, res).Code != "totp_already_enrolled" {
+		t.Fatalf("enrolling again: %d %s", res.Status, res.Body)
 	}
 }
 
 func TestStaffLoginRefusals(t *testing.T) {
 	t.Parallel()
 	_, email, temp := newStaff(t, member.RoleModerator)
-	if res := call(t, server, "POST", "/v1/staff/login", map[string]string{"email": email}); res.Status != 400 {
+	if res := staffLogin(t, map[string]string{"email": email}); res.Status != 400 {
 		t.Fatalf("no password: %d", res.Status)
 	}
+	noHeader := call(t, server, "POST", "/v1/staff/login", map[string]string{"email": email, "password": temp})
+	if noHeader.Status != 400 {
+		t.Fatalf("without X-Requested-With: %d %s", noHeader.Status, noHeader.Body)
+	}
 	for _, try := range [][2]string{{newStaffEmail(), temp}, {email, temp + "x"}} {
-		if res := staffLogin(t, try[0], try[1]); res.Status != 401 || errorOf(t, res).Code != "invalid_credentials" {
+		if res := staffLogin(t, map[string]string{"email": try[0], "password": try[1]}); res.Status != 401 || errorOf(t, res).Code != "invalid_credentials" {
 			t.Fatalf("%v: %d %s", try, res.Status, res.Body)
 		}
 	}
 	for _, target := range []string{email, newStaffEmail()} {
 		for range 5 {
-			staffLogin(t, target, "wrong password")
+			staffLogin(t, map[string]string{"email": target, "password": "wrong password"})
 		}
-		res := staffLogin(t, target, temp)
+		res := staffLogin(t, map[string]string{"email": target, "password": temp})
 		e := errorOf(t, res)
 		if res.Status != 429 || e.Code != "login_locked" || e.Details["retry_after"] == nil {
 			t.Fatalf("%s: %d %s", target, res.Status, res.Body)
@@ -75,33 +86,18 @@ func TestStaffLoginRefusals(t *testing.T) {
 	}
 }
 
-func TestStaffLoginStepRefusals(t *testing.T) {
-	t.Parallel()
-	_, email, temp := newStaff(t, member.RoleModerator)
-	step := decode[loginStep](t, staffLogin(t, email, temp))
-	if res := call(t, server, "POST", "/v1/staff/login/password", map[string]string{"ticket": "garbage", "new_password": "a long e2e staff password"}); res.Status != 401 || errorOf(t, res).Code != "invalid_login_ticket" {
-		t.Fatalf("bad ticket: %d %s", res.Status, res.Body)
-	}
-	if res := call(t, server, "POST", "/v1/staff/login/password", map[string]string{"ticket": step.Ticket, "new_password": "short"}); res.Status != 422 || errorOf(t, res).Code != "password_too_weak" {
-		t.Fatalf("weak: %d %s", res.Status, res.Body)
-	}
-	if res := call(t, server, "POST", "/v1/staff/login/totp-enrollment", map[string]string{"ticket": step.Ticket}); res.Status != 401 {
-		t.Fatalf("enrollment before the password: %d %s", res.Status, res.Body)
-	}
-}
-
 func TestStaffWrongCodesLock(t *testing.T) {
 	t.Parallel()
 	s := signInStaff(t, member.RoleModerator)
-	step := decode[loginStep](t, staffLogin(t, s.Email, s.Password))
 	good := member.Code(s.Secret, time.Now().Add(30*time.Second))
 	bad := good[:5] + string(rune('0'+(good[5]-'0'+1)%10))
 	for range 5 {
-		if res := call(t, server, "POST", "/v1/staff/login/totp", map[string]string{"ticket": step.Ticket, "code": bad}); res.Status != 401 || errorOf(t, res).Code != "invalid_totp_code" {
+		res := staffLogin(t, map[string]string{"email": s.Email, "password": staffPassword, "code": bad})
+		if res.Status != 401 || errorOf(t, res).Code != "invalid_totp_code" {
 			t.Fatalf("wrong code: %d %s", res.Status, res.Body)
 		}
 	}
-	if res := call(t, server, "POST", "/v1/staff/login/totp", map[string]string{"ticket": step.Ticket, "code": good}); res.Status != 429 {
+	if res := staffLogin(t, map[string]string{"email": s.Email, "password": staffPassword, "code": good}); res.Status != 429 {
 		t.Fatalf("after five wrong codes: %d %s", res.Status, res.Body)
 	}
 }
@@ -111,7 +107,8 @@ func TestStaffWrongCodesLock(t *testing.T) {
 func TestStaffLoginNormalisesTheEmail(t *testing.T) {
 	t.Parallel()
 	_, email, temp := newStaff(t, member.RoleModerator)
-	if res := staffLogin(t, "  "+strings.ToUpper(email)+" ", temp); res.Status != 200 {
+	res := staffLogin(t, map[string]string{"email": "  " + strings.ToUpper(email) + " ", "password": temp})
+	if errorOf(t, res).Code != "password_change_required" {
 		t.Fatalf("a padded, upper-case email: %d %s", res.Status, res.Body)
 	}
 }

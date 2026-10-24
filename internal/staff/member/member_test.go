@@ -72,6 +72,19 @@ func TestNextFollowsTheMember(t *testing.T) {
 	}
 }
 
+func TestCheckNewPassword(t *testing.T) {
+	t.Parallel()
+	m := newMember(t, member.RoleModerator)
+	for _, weak := range []string{"short", "temporary-pass", "MOD@example.com"} {
+		if err := m.CheckNewPassword(weak); !errors.Is(err, member.ErrPasswordTooWeak) {
+			t.Errorf("%q: %v", weak, err)
+		}
+	}
+	if err := m.CheckNewPassword("a-long-new-password"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestAcceptCode(t *testing.T) {
 	t.Parallel()
 	m := newMember(t, member.RoleModerator)

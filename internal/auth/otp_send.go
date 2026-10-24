@@ -83,7 +83,7 @@ type OTPSendResponse struct {
 }
 
 // OTPSendHandler serves POST /v1/auth/otp.
-func OTPSendHandler(rs Restate, trusted []netip.Prefix, log *slog.Logger) http.Handler {
+func OTPSendHandler(rs Restate, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var in OTPSendRequest
 		if err := httpx.Bind(r, &in); err != nil {
@@ -95,7 +95,7 @@ func OTPSendHandler(rs Restate, trusted []netip.Prefix, log *slog.Logger) http.H
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		ip := httpx.ClientIP(r, trusted)
+		ip := httpx.ClientIP(r)
 		if !ip.IsValid() {
 			httpx.WriteError(w, r, log, errors.New("otp send: no client address"))
 			return

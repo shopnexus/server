@@ -23,19 +23,14 @@ type ListAccountsRequest struct {
 // names by ID, phone number or email. A q that names nothing gives an empty
 // page.
 func ListAccounts(ctx context.Context, accounts AccountPort, identities IdentityPort, q string, p page.Request) (page.Page[account.Record], error) {
-	out := page.Page[account.Record]{Items: []account.Record{}}
 	if q == "" {
 		rows, err := accounts.Records(ctx, p)
 		if err != nil {
 			return page.Page[account.Record]{}, fmt.Errorf("list accounts: %w", err)
 		}
-		rows, more := page.Cut(rows, p)
-		out.Items = append(out.Items, rows...)
-		if more {
-			out.NextCursor = new(rows[len(rows)-1].ID)
-		}
-		return out, nil
+		return page.Of(rows, p, func(r account.Record) uuid.UUID { return r.ID }), nil
 	}
+	out := page.Page[account.Record]{Items: []account.Record{}}
 	id, parseErr := uuid.Parse(q)
 	if parseErr != nil {
 		found, ok, err := identities.FindAccount(ctx, q)

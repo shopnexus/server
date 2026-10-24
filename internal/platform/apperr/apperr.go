@@ -31,9 +31,9 @@ type Error struct {
 	Kind    Kind              `json:"kind"`
 	Code    string            `json:"code"`
 	Message string            `json:"message"`
-	Fields  map[string]string `json:"fields,omitempty"`  //exhaustruct:optional
-	Details map[string]any    `json:"details,omitempty"` //exhaustruct:optional values the client acts on: attempts_left, retry_after
-	Err     error             `json:"-"`                 //exhaustruct:optional
+	Fields  map[string]string `json:"fields,omitempty"`
+	Details map[string]any    `json:"details,omitempty"` // values the client acts on: attempts_left, retry_after
+	Err     error             `json:"-"`
 }
 
 // ErrTryAgain answers a write that lost a race with another write to the

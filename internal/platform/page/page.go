@@ -1,7 +1,7 @@
 // Package page is keyset pagination over UUIDv7 IDs, newest first. A page's
 // cursor is the ID of its last item, and the next page lists the IDs below
 // it. A store reads one row more than the page holds; that row says whether
-// a next page exists and is cut before the response.
+// a next page exists, and Of drops it.
 package page
 
 import "uuid"
@@ -40,15 +40,19 @@ func (r Request) size() int {
 // Page is one page of a list response.
 type Page[T any] struct {
 	Items      []T        `json:"items"`
-	NextCursor *uuid.UUID `json:"next_cursor,omitempty"` //exhaustruct:optional
+	NextCursor *uuid.UUID `json:"next_cursor,omitempty"`
 }
 
-// Cut trims rows, read with r.Fetch(), to the page size and reports whether
-// more rows follow. The caller sets NextCursor to the ID of the last row it
-// keeps when more is true.
-func Cut[T any](rows []T, r Request) (kept []T, more bool) {
+// Of is the page of rows, read with r.Fetch(). It drops the extra row and,
+// when there was one, sets NextCursor to the ID of the last item kept.
+func Of[T any](rows []T, r Request, id func(T) uuid.UUID) Page[T] {
+	p := Page[T]{Items: rows}
 	if len(rows) > r.size() {
-		return rows[:r.size()], true
+		p.Items = rows[:r.size()]
+		p.NextCursor = new(id(p.Items[len(p.Items)-1]))
 	}
-	return rows, false
+	if p.Items == nil {
+		p.Items = []T{}
+	}
+	return p
 }

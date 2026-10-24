@@ -42,7 +42,7 @@ func newStore(t *testing.T) (member.Store, *pgxpool.Pool) {
 
 func created(t *testing.T, s member.Store, m member.Member) {
 	t.Helper()
-	e := audit.Entry{Actor: audit.ByCLI("test"), Action: "staff.create", Target: audit.Staff(m.ID()), Diff: nil, At: now}
+	e := audit.Entry{Actor: audit.ByCLI("test"), Action: "staff.create", Target: audit.Staff(m.ID()), At: now}
 	if err := s.CreateAudited(context.Background(), m, e); err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +64,7 @@ func TestCreateGetFind(t *testing.T) {
 	ctx := context.Background()
 	m := newMember(t, member.RoleModerator)
 	created(t, s, m)
-	if err := s.CreateAudited(ctx, m, audit.Entry{Actor: audit.ByCLI("test"), Action: "staff.create", Target: audit.Staff(m.ID()), Diff: nil, At: now}); err != nil {
+	if err := s.CreateAudited(ctx, m, audit.Entry{Actor: audit.ByCLI("test"), Action: "staff.create", Target: audit.Staff(m.ID()), At: now}); err != nil {
 		t.Fatalf("creating the same id again: %v", err)
 	}
 	if actions(t, db, m.ID()) != 1 {
@@ -90,7 +90,7 @@ func TestEmailTaken(t *testing.T) {
 	s, _ := newStore(t)
 	created(t, s, newMember(t, member.RoleModerator))
 	other := newMember(t, member.RoleAdmin)
-	err := s.CreateAudited(context.Background(), other, audit.Entry{Actor: audit.ByCLI("test"), Action: "staff.create", Target: audit.Staff(other.ID()), Diff: nil, At: now})
+	err := s.CreateAudited(context.Background(), other, audit.Entry{Actor: audit.ByCLI("test"), Action: "staff.create", Target: audit.Staff(other.ID()), At: now})
 	if !errors.Is(err, member.ErrEmailTaken) {
 		t.Fatalf("got %v", err)
 	}
@@ -128,7 +128,7 @@ func TestSaveAuditedConflictWritesNoAudit(t *testing.T) {
 	created(t, s, m)
 	stale := m
 	m.Disable(now)
-	e := audit.Entry{Actor: audit.ByCLI("test"), Action: "staff.disable", Target: audit.Staff(m.ID()), Diff: nil, At: now}
+	e := audit.Entry{Actor: audit.ByCLI("test"), Action: "staff.disable", Target: audit.Staff(m.ID()), At: now}
 	if err := s.SaveAudited(ctx, &m, uuid.NewV7(), e); err != nil {
 		t.Fatal(err)
 	}

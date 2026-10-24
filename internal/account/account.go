@@ -41,10 +41,7 @@ func New(id uuid.UUID, displayName string, now time.Time) (Account, error) {
 	if err != nil {
 		return Account{}, err
 	}
-	return Account{
-		id: id, displayName: name, status: StatusActive, suspendedUntil: nil, suspendReason: "",
-		writeID: id, createdAt: now, updatedAt: now,
-	}, nil
+	return Account{id: id, displayName: name, status: StatusActive, writeID: id, createdAt: now, updatedAt: now}, nil
 }
 
 func (a *Account) ID() uuid.UUID              { return a.id }

@@ -52,8 +52,8 @@ type Challenge struct {
 // its id.
 func New(id uuid.UUID, purpose Purpose, dest contact.Address, ip netip.Addr, codeHash []byte, now time.Time) Challenge {
 	return Challenge{
-		id: id, purpose: purpose, dest: dest, accountID: nil, codeHash: codeHash, attempts: 0, ip: ip,
-		expiresAt: now.Add(CodeTTL), createdAt: now, consumedAt: nil, writeID: id,
+		id: id, purpose: purpose, dest: dest, codeHash: codeHash, ip: ip,
+		expiresAt: now.Add(CodeTTL), createdAt: now, writeID: id,
 	}
 }
 

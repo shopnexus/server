@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account"
@@ -40,16 +39,13 @@ func GetAccount(ctx context.Context, accounts AccountPort, identities IdentityPo
 	if err != nil {
 		return AccountDetail{}, fmt.Errorf("list identities: %w", err)
 	}
-	history := page.Request{Cursor: uuid.UUID{}, Limit: historyLength}
-	acts, err := actions.List(ctx, audit.Filter{StaffID: uuid.UUID{}, Action: "", TargetID: id, Since: time.Time{}, Until: time.Time{}}, history)
+	history := page.Request{Limit: historyLength}
+	acts, err := actions.List(ctx, audit.Filter{TargetID: id}, history)
 	if err != nil {
 		return AccountDetail{}, fmt.Errorf("list staff actions: %w", err)
 	}
-	acts, _ = page.Cut(acts, history)
-	if acts == nil {
-		acts = []audit.Action{}
-	}
-	return AccountDetail{Account: r, Identities: ids, Actions: acts}, nil
+	latest := page.Of(acts, history, func(a audit.Action) uuid.UUID { return a.ID })
+	return AccountDetail{Account: r, Identities: ids, Actions: latest.Items}, nil
 }
 
 // GetAccountHandler serves GET /v1/staff/accounts/{id}.

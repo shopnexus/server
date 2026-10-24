@@ -83,13 +83,9 @@ func New(id uuid.UUID, email, displayName string, role Role, passwordHash string
 	}
 	return Member{
 		id: id, email: addr.Value(), displayName: name, role: role, status: StatusActive, passwordHash: passwordHash,
-		mustChangePassword: true, credentialsVersion: 1, totpSecret: nil, totpPending: nil, totpLastStep: 0,
-		createdAt: now, updatedAt: now, writeID: id,
+		mustChangePassword: true, credentialsVersion: 1, createdAt: now, updatedAt: now, writeID: id,
 	}, nil
 }
-
-// NormalizeEmail is the form emails are stored and looked up in.
-func NormalizeEmail(raw string) string { return strings.ToLower(strings.TrimSpace(raw)) }
 
 func (m *Member) ID() uuid.UUID           { return m.id }
 func (m *Member) Email() string           { return m.email }
@@ -103,7 +99,7 @@ func (m *Member) Enrolling() bool         { return m.totpPending != nil }
 func (m *Member) CreatedAt() time.Time    { return m.createdAt }
 func (m *Member) WriteID() uuid.UUID      { return m.writeID }
 
-// Next is computed from the member, never taken from a ticket, so a client
+// Next is computed from the member, never taken from the request, so a client
 // cannot skip a step.
 func (m *Member) Next() Step {
 	switch {
@@ -114,6 +110,18 @@ func (m *Member) Next() Step {
 	default:
 		return StepTOTP
 	}
+}
+
+// CheckNewPassword refuses a password that breaks CheckPolicy or is the
+// current one.
+func (m *Member) CheckNewPassword(password string) error {
+	if err := CheckPolicy(password, m.email); err != nil {
+		return err
+	}
+	if VerifyPassword(m.passwordHash, password) {
+		return ErrPasswordTooWeak
+	}
+	return nil
 }
 
 // SetPassword stores a password the member chose.

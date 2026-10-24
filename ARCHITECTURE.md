@@ -51,6 +51,8 @@ value and filled in query defaults, so `Bind` converts strings to Go types
 (`string`, `int`, `bool` and any `encoding.TextUnmarshaler`) and a handler
 repeats no shape rule. `Bind` reads the tags of a type once and keeps the
 result in a `sync.Map`.
+`httpx.ClientIP(r)` is the caller's address, which the `ResolveClientIP`
+middleware works out once per request from `TRUSTED_PROXIES`.
 
 ### Pagination
 
@@ -59,8 +61,8 @@ binds `page.Request` (the spec's shared `Cursor` and `Limit` parameters),
 alone or embedded in its request struct, and passes it to the use case and
 the store. The store lists rows below `req.Before()`, which is `uuid.Max()`
 on the first page, and reads `req.Fetch()` rows, one more than the page
-holds. The use case cuts the extra row with `page.Cut` and returns
-`page.Page[T]`, whose `next_cursor` is the ID of the last item.
+holds. The use case returns `page.Of(rows, req, id)`, which drops the extra
+row and sets `next_cursor` to the ID of the last item kept.
 
 ### Transactions and concurrency
 
@@ -155,8 +157,11 @@ its Restate services. `app.mountModules` calls each `Mount` in dependency
 order and imports no package inside a module. `auth.Protect`, the sign-in
 middleware, needs only the auth keys, so app builds it first and hands it to
 every module with signed-in routes.
-`staff.Mount` takes the `AccountPort` and `IdentityPort` it reads customers
-through, after account and auth have mounted.
+`staff.Mount` takes its keys and the `AccountPort` and `IdentityPort` it
+reads customers through, after account and auth have mounted. Staff's
+sessions and sign-in locks are plain stores in package `staff`
+(`session_store.go`, `lock_store.go`); only the member is an entity, in
+`staff/member`.
 
 ### Tables and aggregates
 
@@ -295,39 +300,50 @@ no database.
 ### Staff and authorization
 
 Moderators and admins run the web console on staff accounts of their own
-(module `staff`), never on a customer account with a role.
+(module `staff`), separate from customer accounts.
 `~/shopnexus/specs/2026-10-24-server2-staff-authorization-design.md` holds
 the decisions and the API.
 
-- Sign-in takes an email and password, then up to two more calls with a
-  five-minute ticket (audience `shopnexus-staff-login`): replace the
-  temporary password, enroll TOTP, enter a code. The server computes the
-  next step from the member. An unknown email, a wrong password and a
-  disabled member all get `invalid_credentials`, and five failures on one
-  email lock it for 15 minutes whether or not the email is a member's. The
-  lock is keyed by an HMAC of the email (`staff_login_quotas`), and only a
-  finished sign-in clears the count.
-- A session lasts 8 hours. Its refresh token lives in an `HttpOnly; Secure;
-  SameSite=Strict` cookie on `/v1/staff/session`, and the refresh call needs
-  `X-Requested-With: shopnexus-console`. Access tokens (audience
-  `shopnexus-staff`) last 5 minutes and carry no role.
-- `staff.Require(..., floor)` reads the session and the member on every
-  request. A session lives while it is unrevoked, younger than 8 hours,
-  its member is active, and its credentials version equals the member's.
-  A password change or reset, a TOTP reset and a disable raise the version,
-  which ends every session without touching `staff_sessions`; enabling a
-  member brings none back.
+- Every sign-in call is `POST /v1/staff/login` with the email and the
+  password. The server reads the member and answers 428 with what the call
+  lacks: `password_change_required` (send `new_password`),
+  `totp_enrollment_required` (call `/v1/staff/login/totp-enrollment`, which
+  takes the email and password too, then send the first code) or
+  `totp_required` (send `code`). An unknown email, a wrong password and a
+  disabled member all get `invalid_credentials`.
+- Each call is charged to the email's lock in `staff_login_locks` before
+  anything is checked, in one statement, so concurrent guesses cannot pass
+  the check together. A wrong password or code keeps the charge; any other
+  answer refunds it. Five kept charges lock the email for 15 minutes,
+  whether or not the email is a member's. The lock is keyed by an HMAC of
+  the email, and a finished sign-in clears the count.
+- A finished sign-in sets the `staff_session` cookie: a random token,
+  `HttpOnly; Secure; SameSite=Strict`, path `/v1/staff`, 8 hours, never
+  extended. `staff_sessions` holds its SHA-256. There is no access token and
+  no refresh, so the console's tabs share one cookie.
+- Every staff route requires `X-Requested-With: shopnexus-console`, which a
+  form or link on another site cannot set. The spec declares it and
+  `staff.FromConsole` checks it again. With SameSite=Strict, the console and
+  the API must be on the same site (`console.x.vn` and `api.x.vn`).
+- `staff.Require(..., floor)` reads the session joined with its member on
+  every request. A session lives while it is unrevoked, younger than 8
+  hours, its member is active, and its credentials version equals the
+  member's. A password change, a password or TOTP reset and a disable raise
+  the version, which ends every session of the member, the caller's
+  included; enabling a member brings none back.
 - Admins exist only through `cmd/staff`. The API manages moderators, and
   `Member.ManagedBy` refuses an admin target to anyone but the CLI.
   `cmd/staff unlock` clears the sign-in lock on an admin's email, which
   anyone can set by sending five wrong passwords.
-- Every staff write and sign-in event is a row in `staff_actions`, written
-  by `audit.Insert` inside the adapter transaction of the change
-  (`SaveAudited`, `CreateAudited`). `audit.Diff` takes view structs, so no
-  hash or secret reaches a row.
+- Every staff write on an account or on another member is a row in
+  `staff_actions`, written by `audit.Insert` inside the adapter transaction
+  of the change (`SaveAudited`, `CreateAudited`, `Unlock`). `details` holds
+  what the action name does not say, such as a suspension's reason and end.
+  Refused sign-ins go to the log as `security: staff sign-in refused` with
+  the email and IP; finished ones are rows in `staff_sessions`.
 - TOTP secrets are sealed with AES-GCM under a key HKDF derives from
   `STAFF_KEY`, bound to the member's id. Passwords are argon2id
-  (64 MiB, 3 passes, 4 lanes) in PHC form.
+  (64 MiB, 3 passes, 4 lanes) in PHC form, at most four runs at once.
 - Staff reaches customer data through ports it declares: `AccountPort`
   (`account.Client`) and `IdentityPort` (`auth.Client`). CORS allows
   `STAFF_CONSOLE_ORIGIN` on `/v1/staff/` and nothing else.
@@ -375,11 +391,10 @@ formatting. The rules that shape the code:
   error with the step's name. Code that builds an `*apperr.Error` and
   `MarshalJSON`/`UnmarshalJSON` methods return errors as they are; so do
   `http.ResponseWriter` and `slog.Handler` wrappers, with a `nolint` comment.
-- exhaustruct, for this module's types outside tests: a struct literal names
-  every field, zero values included, so a new field shows every constructor
-  that must set it. A field that is legitimately absent carries
-  `//exhaustruct:optional`; `OTPSendResult` and `SignInResult` carry it on
-  the type, since they hold either `Refused` or the other fields.
+- exhaustruct, for `config` types only: a `config.Config` literal names
+  every field, so a new variable shows every place that builds one. A field
+  that may stay empty carries `//exhaustruct:optional`. Other struct
+  literals name only the fields they set.
 - govet shadow: no `err` hides another `err` in scope. Inside a Restate step
   closure the error is `stepErr`.
 - recvcheck: a type with one pointer-receiver method has only pointer

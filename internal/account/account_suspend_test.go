@@ -27,13 +27,13 @@ func TestSuspendRecordsTheChange(t *testing.T) {
 		t.Fatalf("%+v %v", r, err)
 	}
 	var action string
-	var diff map[string]any
-	if scanErr := db.QueryRow(ctx, `SELECT action, diff FROM staff_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": id}).
-		Scan(&action, &diff); scanErr != nil {
+	var details map[string]any
+	if scanErr := db.QueryRow(ctx, `SELECT action, details FROM staff_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": id}).
+		Scan(&action, &details); scanErr != nil {
 		t.Fatal(scanErr)
 	}
-	if action != "account.suspend" || diff["status"] == nil || diff["suspend_reason"] == nil || diff["display_name"] != nil {
-		t.Fatalf("%s %v", action, diff)
+	if action != "account.suspend" || details["reason"] != "spam" || details["until"] != until.Format(time.RFC3339) {
+		t.Fatalf("%s %v", action, details)
 	}
 
 	r, err = account.Reinstate(ctx, s, id, audit.ByCLI("test"), now)

@@ -19,13 +19,16 @@ func Suspend(ctx context.Context, accounts Store, id uuid.UUID, reason string, u
 	if err != nil {
 		return Record{}, fmt.Errorf("get account: %w", err)
 	}
-	before := recordOf(a, now)
 	if suspendErr := a.Suspend(reason, until, now); suspendErr != nil {
 		return Record{}, suspendErr
 	}
-	after := recordOf(a, now)
+	r := recordOf(a, now)
+	details := map[string]any{"reason": r.SuspendReason}
+	if r.SuspendedUntil != nil {
+		details["until"] = *r.SuspendedUntil
+	}
 	err = accounts.SaveAudited(ctx, &a, uuid.NewV7(), audit.Entry{
-		Actor: by, Action: "account.suspend", Target: audit.Account(id), Diff: audit.Diff(before, after), At: now,
+		Actor: by, Action: "account.suspend", Target: audit.Account(id), Details: details, At: now,
 	})
 	if errors.Is(err, ErrConflict) {
 		return Record{}, apperr.ErrTryAgain
@@ -33,7 +36,7 @@ func Suspend(ctx context.Context, accounts Store, id uuid.UUID, reason string, u
 	if err != nil {
 		return Record{}, fmt.Errorf("save account: %w", err)
 	}
-	return after, nil
+	return r, nil
 }
 
 // Reinstate lifts a suspension and records account.unsuspend for by.
@@ -42,11 +45,9 @@ func Reinstate(ctx context.Context, accounts Store, id uuid.UUID, by audit.Actor
 	if err != nil {
 		return Record{}, fmt.Errorf("get account: %w", err)
 	}
-	before := recordOf(a, now)
 	a.Reinstate(now)
-	after := recordOf(a, now)
 	err = accounts.SaveAudited(ctx, &a, uuid.NewV7(), audit.Entry{
-		Actor: by, Action: "account.unsuspend", Target: audit.Account(id), Diff: audit.Diff(before, after), At: now,
+		Actor: by, Action: "account.unsuspend", Target: audit.Account(id), At: now,
 	})
 	if errors.Is(err, ErrConflict) {
 		return Record{}, apperr.ErrTryAgain
@@ -54,5 +55,5 @@ func Reinstate(ctx context.Context, accounts Store, id uuid.UUID, by audit.Actor
 	if err != nil {
 		return Record{}, fmt.Errorf("save account: %w", err)
 	}
-	return after, nil
+	return recordOf(a, now), nil
 }

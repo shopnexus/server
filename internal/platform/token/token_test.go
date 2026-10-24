@@ -24,7 +24,7 @@ func keys(kid string) config.AuthConfig {
 }
 
 func claims() Claims {
-	return Claims{Subject: uuid.NewV7(), SessionID: uuid.NewV7(), AuthTime: now.Add(-time.Hour), Version: 3, Audience: "aud-a", ExpiresAt: time.Time{}}
+	return Claims{Subject: uuid.NewV7(), SessionID: uuid.NewV7(), AuthTime: now.Add(-time.Hour), Audience: "aud-a"}
 }
 
 func TestSignThenVerify(t *testing.T) {
@@ -49,9 +49,9 @@ func TestOptionalClaimsStayZero(t *testing.T) {
 	t.Parallel()
 	k := keys("current")
 	sub := uuid.NewV7()
-	tok, _, _ := NewSigner(k).Sign(Claims{Subject: sub, SessionID: uuid.UUID{}, AuthTime: time.Time{}, Version: 0, Audience: "aud-a", ExpiresAt: time.Time{}}, time.Minute, now)
+	tok, _, _ := NewSigner(k).Sign(Claims{Subject: sub, Audience: "aud-a"}, time.Minute, now)
 	got, err := NewVerifier(k).Verify(tok, "aud-a", now)
-	if err != nil || got.Subject != sub || got.SessionID != (uuid.UUID{}) || !got.AuthTime.IsZero() || got.Version != 0 {
+	if err != nil || got.Subject != sub || got.SessionID != (uuid.UUID{}) || !got.AuthTime.IsZero() {
 		t.Fatalf("%+v %v", got, err)
 	}
 }
@@ -65,7 +65,7 @@ func TestVerifyRejects(t *testing.T) {
 		Issuer: k.Issuer, Audience: jwt.ClaimStrings{"aud-a"}, Subject: uuid.NewV7().String(),
 		IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(5 * time.Minute)),
 		NotBefore: nil, ID: "",
-		SessionID: uuid.NewV7().String(), AuthTime: now.Unix(), Version: 0,
+		SessionID: uuid.NewV7().String(), AuthTime: now.Unix(),
 	}
 	none := jwt.NewWithClaims(jwt.SigningMethodNone, raw)
 	none.Header["kid"] = k.JWTKeyID
@@ -121,11 +121,11 @@ func TestVerifierKeyRotation(t *testing.T) {
 	}
 }
 
-func TestNewRefresh(t *testing.T) {
+func TestNewOpaque(t *testing.T) {
 	t.Parallel()
-	tok, hash := NewRefresh()
-	again, _ := NewRefresh()
-	if !strings.HasPrefix(tok, "rt_") || len(tok) != 3+43 || !bytes.Equal(hash, HashRefresh(tok)) || again == tok {
+	tok, hash := NewOpaque("rt_")
+	again, _ := NewOpaque("rt_")
+	if !strings.HasPrefix(tok, "rt_") || len(tok) != 3+43 || !bytes.Equal(hash, Hash(tok)) || again == tok {
 		t.Fatalf("%q", tok)
 	}
 }

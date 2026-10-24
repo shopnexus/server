@@ -48,40 +48,34 @@ func TestListFiltersAndPages(t *testing.T) {
 	acc := uuid.NewV7()
 	ip := netip.MustParseAddr("203.0.113.9")
 
-	insert(t, db, audit.Entry{Actor: audit.Anonymous(ip), Action: "staff.login_failed", Target: audit.Target{Kind: "", ID: uuid.UUID{}}, Diff: nil, At: at})
-	insert(t, db, audit.Entry{Actor: audit.ByCLI("root"), Action: "staff.create", Target: audit.Staff(mod), Diff: map[string]any{"role": []any{nil, "moderator"}}, At: at.Add(time.Second)})
+	insert(t, db, audit.Entry{Actor: audit.ByCLI("root"), Action: "staff.create", Target: audit.Staff(mod), At: at})
 	insert(t, db, audit.Entry{
-		Actor:  audit.Actor{Kind: audit.ActorStaff, StaffID: mod, SessionID: uuid.UUID{}, Name: "", IP: ip},
-		Action: "account.suspend", Target: audit.Account(acc), Diff: map[string]any{"status": []any{"active", "suspended"}}, At: at.Add(2 * time.Second),
+		Actor:  audit.Actor{Kind: audit.ActorStaff, StaffID: mod, IP: ip},
+		Action: "account.suspend", Target: audit.Account(acc), Details: map[string]any{"reason": "spam"}, At: at.Add(time.Second),
 	})
 
 	all, err := s.List(ctx, audit.Filter{}, page.Request{Limit: 10})
-	if err != nil || len(all) != 3 {
+	if err != nil || len(all) != 2 {
 		t.Fatalf("%+v %v", all, err)
 	}
 	if all[0].Action != "account.suspend" || all[0].Actor.DisplayName != "Mod One" || all[0].IP != "203.0.113.9" ||
-		all[0].Target == nil || all[0].Target.ID != acc || all[0].Diff["status"] == nil {
+		all[0].Target.ID != acc || all[0].Details["reason"] != "spam" {
 		t.Fatalf("newest first, with the member's name: %+v", all[0])
 	}
-	if all[1].Actor.Kind != audit.ActorCLI || all[1].Actor.DisplayName != "root" || all[1].IP != "" {
+	if all[1].Actor.Kind != audit.ActorCLI || all[1].Actor.DisplayName != "root" || all[1].IP != "" ||
+		all[1].Actor.StaffID != nil || len(all[1].Details) != 0 {
 		t.Fatalf("cli row: %+v", all[1])
-	}
-	if all[2].Target != nil || all[2].Actor.StaffID != nil || len(all[2].Diff) != 0 {
-		t.Fatalf("anonymous row: %+v", all[2])
 	}
 
 	byTarget, _ := s.List(ctx, audit.Filter{TargetID: acc}, page.Request{Limit: 10})
-	byAction, _ := s.List(ctx, audit.Filter{Action: "staff.create"}, page.Request{Limit: 10})
 	byStaff, _ := s.List(ctx, audit.Filter{StaffID: mod}, page.Request{Limit: 10})
-	since, _ := s.List(ctx, audit.Filter{Since: at.Add(time.Second)}, page.Request{Limit: 10})
-	until, _ := s.List(ctx, audit.Filter{Until: at.Add(time.Second)}, page.Request{Limit: 10})
-	if len(byTarget) != 1 || len(byAction) != 1 || len(byStaff) != 1 || len(since) != 2 || len(until) != 1 {
-		t.Fatalf("filters: %d %d %d %d %d", len(byTarget), len(byAction), len(byStaff), len(since), len(until))
+	if len(byTarget) != 1 || len(byStaff) != 1 {
+		t.Fatalf("filters: %d %d", len(byTarget), len(byStaff))
 	}
 
 	first, _ := s.List(ctx, audit.Filter{}, page.Request{Limit: 1})
 	rest, _ := s.List(ctx, audit.Filter{}, page.Request{Cursor: first[0].ID, Limit: 5})
-	if len(first) != 2 || len(rest) != 2 || rest[0].ID == first[0].ID {
+	if len(first) != 2 || len(rest) != 1 || rest[0].ID == first[0].ID {
 		t.Fatalf("pages: %d then %d", len(first), len(rest))
 	}
 }

@@ -5,7 +5,6 @@ package auth
 
 import (
 	"net/http"
-	"net/netip"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -20,10 +19,9 @@ import (
 
 // Settings is what auth's Mount takes beyond module.Deps.
 type Settings struct {
-	Keys           config.AuthConfig
-	TrustedProxies []netip.Prefix
-	SMS            sms.Sender
-	Email          email.Sender
+	Keys  config.AuthConfig
+	SMS   sms.Sender
+	Email email.Sender
 }
 
 // Protect returns the middleware that requires a signed-in caller. It needs
@@ -50,7 +48,7 @@ func Mount(d module.Deps, s Settings, accounts AccountPort) Mounted {
 	rs := Restate{Client: d.Ingress, Prefix: d.ServicePrefix}
 
 	r, now, log := d.Router, d.Now, d.Log
-	r.Handle("POST /v1/auth/otp", OTPSendHandler(rs, s.TrustedProxies, log))
+	r.Handle("POST /v1/auth/otp", OTPSendHandler(rs, log))
 	r.Handle("POST /v1/auth/otp/verify", SignInHandler(rs, challenges, codes, sessions, signer, now, log))
 	r.Handle("POST /v1/auth/refresh", RefreshHandler(sessions, accounts, signer, now, log))
 	protect := Protect(d, s.Keys)

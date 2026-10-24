@@ -27,6 +27,7 @@ import (
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/sms"
 	"github.com/shopnexus/server2/internal/staff"
+	"github.com/shopnexus/server2/internal/staff/member"
 	"github.com/shopnexus/server2/migrations"
 )
 
@@ -45,7 +46,7 @@ type Option func(*options)
 type options struct {
 	sms    sms.Sender
 	email  email.Sender
-	hasher staff.Hasher
+	hasher member.Hasher
 }
 
 // WithSMSSender replaces the log sender; E2E tests read codes from theirs.
@@ -55,8 +56,8 @@ func WithSMSSender(s sms.Sender) Option { return func(o *options) { o.sms = s } 
 func WithEmailSender(s email.Sender) Option { return func(o *options) { o.email = s } }
 
 // WithPasswordHasher sets the argon2id parameters of new staff passwords;
-// tests pass staff.FastHasher.
-func WithPasswordHasher(h staff.Hasher) Option { return func(o *options) { o.hasher = h } }
+// tests pass member.Fast.
+func WithPasswordHasher(h member.Hasher) Option { return func(o *options) { o.hasher = h } }
 
 // Routes lists every registered route, for the route-versus-spec test.
 func (a *App) Routes() []httpx.Route { return a.router.Routes() }
@@ -72,7 +73,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if len(cfg.Staff.Key) < 32 || cfg.Staff.ConsoleOrigin == "" {
 		return nil, errors.New("staff key or console origin missing from config; run make run, which adds the key to .env")
 	}
-	o := options{sms: sms.LogSender{Log: log}, email: email.LogSender{Log: log}, hasher: staff.ProductionHasher}
+	o := options{sms: sms.LogSender{Log: log}, email: email.LogSender{Log: log}, hasher: member.Production}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -86,7 +87,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if err != nil {
 		return nil, fmt.Errorf("connect to postgres: %w", err)
 	}
-	a := &App{Handler: nil, router: httpx.NewRouter(), pool: pool, endpoint: nil, adminURL: cfg.Restate.AdminURL}
+	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, a.Close(context.Background()))
@@ -126,7 +127,8 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 
 	// Trace is outermost so a panic's 500 still carries a trace id.
 	cors := httpx.CORS(cfg.Staff.ConsoleOrigin, "/v1/staff/")
-	a.Handler = httpx.Trace(httpx.Recover(log)(httpx.AccessLog(log)(cors(validate(a.router)))))
+	clientIP := httpx.ResolveClientIP(cfg.TrustedProxies)
+	a.Handler = httpx.Trace(httpx.Recover(log)(httpx.AccessLog(log)(clientIP(cors(validate(a.router))))))
 	return a, nil
 }
 
@@ -160,12 +162,12 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o
 	}
 	protect := auth.Protect(d, cfg.Auth)
 	accounts := account.Mount(d, protect)
-	authm := auth.Mount(d, auth.Settings{Keys: cfg.Auth, TrustedProxies: cfg.TrustedProxies, SMS: o.sms, Email: o.email}, accounts)
-	staffKeys, err := staff.NewKeys(cfg.Staff, cfg.Auth, o.hasher)
+	authm := auth.Mount(d, auth.Settings{Keys: cfg.Auth, SMS: o.sms, Email: o.email}, accounts)
+	staffKeys, err := staff.NewKeys(cfg.Staff, o.hasher)
 	if err != nil {
 		return nil, fmt.Errorf("staff keys: %w", err)
 	}
-	staff.Mount(d, staff.Settings{Keys: staffKeys, TrustedProxies: cfg.TrustedProxies}, accounts, authm.Client)
+	staff.Mount(d, staffKeys, accounts, authm.Client)
 	return authm.Services, nil
 }
 

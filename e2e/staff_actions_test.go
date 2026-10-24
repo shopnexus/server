@@ -12,7 +12,7 @@ func TestStaffActions(t *testing.T) {
 	admin := signInStaff(t, member.RoleAdmin)
 	mod := signInStaff(t, member.RoleModerator)
 	customer, _ := newAccount(t)
-	if res := call(t, server, "POST", "/v1/staff/accounts/"+customer.Account.ID+"/suspend", map[string]string{"reason": "spam"}, staffBearer(mod)); res.Status != 200 {
+	if res := staffCall(t, mod, "POST", "/v1/staff/accounts/"+customer.Account.ID+"/suspend", map[string]string{"reason": "spam"}); res.Status != 200 {
 		t.Fatalf("suspend: %d %s", res.Status, res.Body)
 	}
 	type actionList struct {
@@ -25,16 +25,16 @@ func TestStaffActions(t *testing.T) {
 		} `json:"items"`
 	}
 	q := url.Values{"target_id": {customer.Account.ID}}
-	res := call(t, server, "GET", "/v1/staff/actions?"+q.Encode(), nil, staffBearer(admin))
+	res := staffCall(t, admin, "GET", "/v1/staff/actions?"+q.Encode(), nil)
 	got := decode[actionList](t, res)
 	if res.Status != 200 || len(got.Items) != 1 || got.Items[0].Action != "account.suspend" || got.Items[0].Actor.DisplayName != "E2E Staff" {
 		t.Fatalf("by target: %d %s", res.Status, res.Body)
 	}
-	q = url.Values{"staff_id": {mod.ID}, "action": {"staff.login"}}
-	if got := decode[actionList](t, call(t, server, "GET", "/v1/staff/actions?"+q.Encode(), nil, staffBearer(admin))); len(got.Items) != 1 {
-		t.Fatalf("the moderator's sign-in: %+v", got)
+	q = url.Values{"staff_id": {mod.ID}}
+	if got := decode[actionList](t, staffCall(t, admin, "GET", "/v1/staff/actions?"+q.Encode(), nil)); len(got.Items) != 1 {
+		t.Fatalf("the moderator's actions: %+v", got)
 	}
-	if res := call(t, server, "GET", "/v1/staff/actions", nil, staffBearer(mod)); res.Status != 403 {
+	if res := staffCall(t, mod, "GET", "/v1/staff/actions", nil); res.Status != 403 {
 		t.Fatalf("a moderator reading the log: %d", res.Status)
 	}
 }

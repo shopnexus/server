@@ -6,7 +6,7 @@ import (
 )
 
 // CORS answers cross-origin requests from origin to paths under prefix, with
-// credentials so the staff refresh cookie travels. Other origins and other
+// credentials so the staff session cookie travels. Other origins and other
 // paths get no CORS headers, so the browser refuses them; the customer API
 // is called from the app, not a browser.
 func CORS(origin, prefix string) func(http.Handler) http.Handler {
@@ -22,7 +22,7 @@ func CORS(origin, prefix string) func(http.Handler) http.Handler {
 			h.Add("Vary", "Origin")
 			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
 				h.Set("Access-Control-Allow-Methods", "GET, POST, PUT")
-				h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Requested-With")
+				h.Set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With")
 				h.Set("Access-Control-Max-Age", "600")
 				w.WriteHeader(http.StatusNoContent)
 				return

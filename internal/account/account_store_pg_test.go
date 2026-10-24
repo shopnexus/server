@@ -128,7 +128,7 @@ func TestSaveAuditedWritesBothOrNeither(t *testing.T) {
 	s := account.NewPGStore(db)
 	ctx := context.Background()
 	id := seed(t, s)
-	entry := audit.Entry{Actor: audit.ByCLI("test"), Action: "account.suspend", Target: audit.Account(id), Diff: nil, At: now}
+	entry := audit.Entry{Actor: audit.ByCLI("test"), Action: "account.suspend", Target: audit.Account(id), At: now}
 	count := func() int {
 		var n int
 		if err := db.QueryRow(ctx, `SELECT count(*) FROM staff_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&n); err != nil {

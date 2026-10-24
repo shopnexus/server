@@ -46,8 +46,8 @@ type Session struct {
 func New(id, accountID uuid.UUID, deviceName string, authTime, now time.Time) (s Session, refreshToken string) {
 	refresh, hash := NewRefreshToken()
 	return Session{
-		id: id, accountID: accountID, refreshHash: hash, prevRefreshHash: nil, deviceName: deviceName, authTime: authTime,
-		createdAt: now, lastUsedAt: now, expiresAt: now.Add(MaxAge), revokedAt: nil, writeID: id,
+		id: id, accountID: accountID, refreshHash: hash, deviceName: deviceName, authTime: authTime,
+		createdAt: now, lastUsedAt: now, expiresAt: now.Add(MaxAge), writeID: id,
 	}, refresh
 }
 
@@ -91,7 +91,7 @@ func (s *Session) Revoke(now time.Time) {
 }
 
 // NewRefreshToken returns a fresh refresh token and its hash.
-func NewRefreshToken() (refresh string, hash []byte) { return token.NewRefresh() }
+func NewRefreshToken() (refresh string, hash []byte) { return token.NewOpaque("rt_") }
 
 // HashRefresh hashes a refresh token for lookup.
-func HashRefresh(t string) []byte { return token.HashRefresh(t) }
+func HashRefresh(t string) []byte { return token.Hash(t) }

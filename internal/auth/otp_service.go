@@ -28,8 +28,6 @@ type OTPSendInput struct {
 
 // OTPSendResult carries a refusal as data: Restate retries an error, and its
 // ingress keeps only a message of a terminal one.
-//
-//exhaustruct:optional
 type OTPSendResult struct {
 	ChallengeID uuid.UUID     `json:"challenge_id"`
 	Refused     *apperr.Error `json:"refused,omitempty"`
