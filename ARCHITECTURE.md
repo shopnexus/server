@@ -155,6 +155,8 @@ its Restate services. `app.mountModules` calls each `Mount` in dependency
 order and imports no package inside a module. `auth.Protect`, the sign-in
 middleware, needs only the auth keys, so app builds it first and hands it to
 every module with signed-in routes.
+`staff.Mount` takes the `AccountPort` and `IdentityPort` it reads customers
+through, after account and auth have mounted.
 
 ### Tables and aggregates
 
@@ -289,6 +291,44 @@ Two kinds of call skip the aggregate:
 
 The access token is checked by signature and expiry only; the middleware reads
 no database.
+
+### Staff and authorization
+
+Moderators and admins run the web console on staff accounts of their own
+(module `staff`), never on a customer account with a role.
+`~/shopnexus/specs/2026-10-24-server2-staff-authorization-design.md` holds
+the decisions and the API.
+
+- Sign-in takes an email and password, then up to two more calls with a
+  five-minute ticket (audience `shopnexus-staff-login`): replace the
+  temporary password, enroll TOTP, enter a code. The server computes the
+  next step from the member. An unknown email, a wrong password and a
+  disabled member all get `invalid_credentials`, and five failures on one
+  email lock it for 15 minutes whether or not the email is a member's. The
+  lock is keyed by an HMAC of the email (`staff_login_quotas`), and only a
+  finished sign-in clears the count.
+- A session lasts 8 hours. Its refresh token lives in an `HttpOnly; Secure;
+  SameSite=Strict` cookie on `/v1/staff/session`, and the refresh call needs
+  `X-Requested-With: shopnexus-console`. Access tokens (audience
+  `shopnexus-staff`) last 5 minutes and carry no role.
+- `staff.Require(..., floor)` reads the session and the member on every
+  request. A session lives while it is unrevoked, younger than 8 hours,
+  its member is active, and its credentials version equals the member's.
+  A password change or reset, a TOTP reset and a disable raise the version,
+  which ends every session without touching `staff_sessions`; enabling a
+  member brings none back.
+- Admins exist only through `cmd/staff`. The API manages moderators, and
+  `Member.ManagedBy` refuses an admin target to anyone but the CLI.
+- Every staff write and sign-in event is a row in `staff_actions`, written
+  by `audit.Insert` inside the adapter transaction of the change
+  (`SaveAudited`, `CreateAudited`). `audit.Diff` takes view structs, so no
+  hash or secret reaches a row.
+- TOTP secrets are sealed with AES-GCM under a key HKDF derives from
+  `STAFF_KEY`, bound to the member's id. Passwords are argon2id
+  (64 MiB, 3 passes, 4 lanes) in PHC form.
+- Staff reaches customer data through ports it declares: `AccountPort`
+  (`account.Client`) and `IdentityPort` (`auth.Client`). CORS allows
+  `STAFF_CONSOLE_ORIGIN` on `/v1/staff/` and nothing else.
 
 ### Testing
 
