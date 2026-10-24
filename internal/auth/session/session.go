@@ -3,14 +3,12 @@
 package session
 
 import (
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"errors"
 	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server2/internal/platform/token"
 )
 
 const (
@@ -25,7 +23,7 @@ var (
 	ErrInvalidRefresh = apperr.New(apperr.KindUnauthenticated, "invalid_refresh_token", "the refresh token is not valid")
 	ErrRevoked        = apperr.New(apperr.KindUnauthenticated, "session_revoked", "the session was signed out")
 	ErrExpired        = apperr.New(apperr.KindUnauthenticated, "session_expired", "the session has expired; sign in again")
-	ErrInvalidToken   = apperr.New(apperr.KindUnauthenticated, "invalid_token", "the access token is not valid")
+	ErrInvalidToken   = token.ErrInvalid
 )
 
 // Session is one signed-in device.
@@ -46,11 +44,11 @@ type Session struct {
 // New starts a session and returns it with its refresh token; only the
 // token's hash is kept. The first write ID is the session ID.
 func New(id, accountID uuid.UUID, deviceName string, authTime, now time.Time) (s Session, refreshToken string) {
-	token, hash := NewRefreshToken()
+	refresh, hash := NewRefreshToken()
 	return Session{
 		id: id, accountID: accountID, refreshHash: hash, prevRefreshHash: nil, deviceName: deviceName, authTime: authTime,
 		createdAt: now, lastUsedAt: now, expiresAt: now.Add(MaxAge), revokedAt: nil, writeID: id,
-	}, token
+	}, refresh
 }
 
 func (s *Session) ID() uuid.UUID           { return s.id }
@@ -80,9 +78,9 @@ func (s *Session) Usable(now time.Time) error {
 // Rotate replaces the refresh token, keeps the old hash to recognise a
 // replay, and returns the new token.
 func (s *Session) Rotate(now time.Time) string {
-	token, hash := NewRefreshToken()
+	refresh, hash := NewRefreshToken()
 	s.prevRefreshHash, s.refreshHash, s.lastUsedAt = s.refreshHash, hash, now
-	return token
+	return refresh
 }
 
 // Revoke signs the session out; a second call keeps the first time.
@@ -92,17 +90,8 @@ func (s *Session) Revoke(now time.Time) {
 	}
 }
 
-// NewRefreshToken returns rt_ plus 32 random bytes in base64url, and its hash.
-func NewRefreshToken() (token string, hash []byte) {
-	b := make([]byte, 32)
-	rand.Read(b)
-	token = "rt_" + base64.RawURLEncoding.EncodeToString(b)
-	return token, HashRefresh(token)
-}
+// NewRefreshToken returns a fresh refresh token and its hash.
+func NewRefreshToken() (refresh string, hash []byte) { return token.NewRefresh() }
 
-// HashRefresh is plain SHA-256: the token carries 256 random bits, so a slow
-// hash would add nothing.
-func HashRefresh(token string) []byte {
-	h := sha256.Sum256([]byte(token))
-	return h[:]
-}
+// HashRefresh hashes a refresh token for lookup.
+func HashRefresh(t string) []byte { return token.HashRefresh(t) }
