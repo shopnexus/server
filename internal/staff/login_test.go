@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 	"uuid"
@@ -157,5 +158,67 @@ func TestWrongCodesLock(t *testing.T) {
 	}
 	if _, err := staff.VerifyTOTP(ctx, e.stores, e.keys, step.Ticket, good, clientIP, "test", later); !errors.Is(err, staff.ErrLoginLocked) {
 		t.Fatalf("the right code while locked: %v", err)
+	}
+}
+
+// burst runs n attempts at once and counts the ones that were evaluated
+// (want) and the ones the lock refused before any check.
+func burst(t *testing.T, n int, attempt func() error, want error) (evaluated, refused int32) {
+	t.Helper()
+	var ev, rf atomic.Int32
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range n {
+		wg.Go(func() {
+			<-start
+			switch err := attempt(); {
+			case errors.Is(err, want):
+				ev.Add(1)
+			case errors.Is(err, staff.ErrLoginLocked):
+				rf.Add(1)
+			default:
+				t.Errorf("unexpected: %v", err)
+			}
+		})
+	}
+	close(start)
+	wg.Wait()
+	return ev.Load(), rf.Load()
+}
+
+func TestLoginRefusesBeyondTheBudget(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	evaluated, refused := burst(t, 30, func() error {
+		_, err := staff.Login(ctx, e.stores.Members, e.stores.Quotas, e.keys, "burst@example.com", "wrong password", clientIP, now)
+		return err
+	}, member.ErrInvalidCredentials)
+	if evaluated > quota.MaxFailures || evaluated+refused != 30 {
+		t.Fatalf("evaluated %d, refused %d", evaluated, refused)
+	}
+	if _, err := staff.Login(ctx, e.stores.Members, e.stores.Quotas, e.keys, "burst@example.com", "wrong password", clientIP, now); !errors.Is(err, staff.ErrLoginLocked) {
+		t.Fatalf("after the burst: %v", err)
+	}
+}
+
+func TestWrongCodesBeyondTheBudget(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	password, secret, _ := e.enrolled(t, "codes@example.com")
+	later := now.Add(time.Minute)
+	step, err := staff.Login(ctx, e.stores.Members, e.stores.Quotas, e.keys, "codes@example.com", password, clientIP, later)
+	if err != nil {
+		t.Fatal(err)
+	}
+	good := member.Code(secret, later)
+	bad := good[:5] + string(rune('0'+(good[5]-'0'+1)%10))
+	evaluated, refused := burst(t, 30, func() error {
+		_, err := staff.VerifyTOTP(ctx, e.stores, e.keys, step.Ticket, bad, clientIP, "test", later)
+		return err
+	}, member.ErrInvalidTOTPCode)
+	if evaluated > quota.MaxFailures || evaluated+refused != 30 {
+		t.Fatalf("evaluated %d, refused %d", evaluated, refused)
 	}
 }

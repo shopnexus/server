@@ -10,7 +10,6 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	"github.com/shopnexus/server2/internal/staff/member"
@@ -25,54 +24,48 @@ type LoginRequest struct {
 // Login checks an email and password and returns the next sign-in step. An
 // unknown email, a wrong password and a disabled member fail alike, and an
 // unknown email still costs one argon2 verification, so the response time
-// does not tell them apart either. A correct password does not clear the
-// failure count; only a finished sign-in does.
+// does not tell them apart either. Every attempt is charged to the email's
+// quota before the password is checked; a correct password takes back only
+// its own charge, and only a finished sign-in clears the count.
 func Login(ctx context.Context, members member.Store, quotas quota.Store, k Keys, email, password string, ip netip.Addr, now time.Time) (LoginStep, error) {
 	email = member.NormalizeEmail(email)
 	key := quota.Key(k.Quota, email)
-	q, err := quotas.Get(ctx, key)
+	adm, err := quotas.Charge(ctx, key, now)
 	if err != nil {
-		return LoginStep{}, fmt.Errorf("get login quota: %w", err)
+		return LoginStep{}, fmt.Errorf("charge login quota: %w", err)
 	}
-	if wait, isLocked := q.Locked(now); isLocked {
-		return LoginStep{}, locked(wait)
+	if !adm.Admitted {
+		return LoginStep{}, locked(adm.RetryAfter)
 	}
 	m, err := members.FindByEmail(ctx, email)
 	if errors.Is(err, member.ErrNotFound) {
 		member.VerifyPassword(k.dummy, password)
-		return LoginStep{}, fail(ctx, quotas, key, audit.Anonymous(ip), audit.Target{Kind: "", ID: uuid.UUID{}}, member.ErrInvalidCredentials, now)
+		return LoginStep{}, fail(ctx, quotas, key, adm.Charged, audit.Anonymous(ip), audit.Target{Kind: "", ID: uuid.UUID{}}, member.ErrInvalidCredentials, now)
 	}
 	if err != nil {
 		return LoginStep{}, fmt.Errorf("find staff member: %w", err)
 	}
 	if !member.VerifyPassword(m.PasswordHash(), password) || m.Status() != member.StatusActive {
-		return LoginStep{}, fail(ctx, quotas, key, audit.Anonymous(ip), audit.Staff(m.ID()), member.ErrInvalidCredentials, now)
+		return LoginStep{}, fail(ctx, quotas, key, adm.Charged, audit.Anonymous(ip), audit.Staff(m.ID()), member.ErrInvalidCredentials, now)
+	}
+	if err = quotas.Refund(ctx, key, now); err != nil {
+		return LoginStep{}, fmt.Errorf("refund login quota: %w", err)
 	}
 	return issueTicket(k, &m, now)
 }
 
-// fail counts a failed sign-in on key, records staff.login_failed, or
-// staff.login_locked for the failure that locks, and returns refusal. A save
-// that loses a race reads the quota again, so concurrent failures all count.
-func fail(ctx context.Context, quotas quota.Store, key []byte, by audit.Actor, target audit.Target, refusal error, now time.Time) error {
-	for range 5 {
-		q, err := quotas.Get(ctx, key)
-		if err != nil {
-			return fmt.Errorf("get login quota: %w", err)
-		}
-		action := "staff.login_failed"
-		if q.Fail(now) {
-			action = "staff.login_locked"
-		}
-		err = quotas.SaveAudited(ctx, &q, uuid.NewV7(), audit.Entry{Actor: by, Action: action, Target: target, Diff: nil, At: now})
-		if err == nil {
-			return refusal
-		}
-		if !errors.Is(err, quota.ErrConflict) {
-			return fmt.Errorf("save login quota: %w", err)
-		}
+// fail records a charged attempt that failed as staff.login_failed, or as
+// staff.login_locked for the attempt that locks the email, and returns
+// refusal.
+func fail(ctx context.Context, quotas quota.Store, key []byte, charged int, by audit.Actor, target audit.Target, refusal error, now time.Time) error {
+	action := "staff.login_failed"
+	if charged >= quota.MaxFailures {
+		action = "staff.login_locked"
 	}
-	return apperr.ErrTryAgain
+	if err := quotas.Fail(ctx, key, charged, now, audit.Entry{Actor: by, Action: action, Target: target, Diff: nil, At: now}); err != nil {
+		return fmt.Errorf("record failed sign-in: %w", err)
+	}
+	return refusal
 }
 
 // LoginHandler serves POST /v1/staff/login.

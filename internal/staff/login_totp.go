@@ -73,16 +73,16 @@ func VerifyTOTP(ctx context.Context, st Stores, k Keys, ticket, code string, ip 
 		return SignedIn{}, ErrInvalidLoginTicket
 	}
 	key := quota.Key(k.Quota, m.Email())
-	q, err := st.Quotas.Get(ctx, key)
+	adm, err := st.Quotas.Charge(ctx, key, now)
 	if err != nil {
-		return SignedIn{}, fmt.Errorf("get login quota: %w", err)
+		return SignedIn{}, fmt.Errorf("charge login quota: %w", err)
 	}
-	if wait, isLocked := q.Locked(now); isLocked {
-		return SignedIn{}, locked(wait)
+	if !adm.Admitted {
+		return SignedIn{}, locked(adm.RetryAfter)
 	}
 	enrolling := !m.Enrolled()
 	if codeErr := m.AcceptCode(code, now); codeErr != nil {
-		return SignedIn{}, fail(ctx, st.Quotas, key, audit.BySignIn(m.ID(), ip), audit.Staff(m.ID()), member.ErrInvalidTOTPCode, now)
+		return SignedIn{}, fail(ctx, st.Quotas, key, adm.Charged, audit.BySignIn(m.ID(), ip), audit.Staff(m.ID()), member.ErrInvalidTOTPCode, now)
 	}
 	// Saving the accepted step is what stops the code working twice.
 	if enrolling {
@@ -99,11 +99,8 @@ func VerifyTOTP(ctx context.Context, st Stores, k Keys, ticket, code string, ip 
 	if err != nil {
 		return SignedIn{}, fmt.Errorf("save staff member: %w", err)
 	}
-	if q.Failures() > 0 {
-		q.Clear(now)
-		if clearErr := st.Quotas.Save(ctx, &q, uuid.NewV7()); clearErr != nil && !errors.Is(clearErr, quota.ErrConflict) {
-			return SignedIn{}, fmt.Errorf("clear login quota: %w", clearErr)
-		}
+	if err = st.Quotas.Clear(ctx, key, now); err != nil {
+		return SignedIn{}, fmt.Errorf("clear login quota: %w", err)
 	}
 	s, refresh := session.New(uuid.NewV7(), m.ID(), m.CredentialsVersion(), ip, userAgent, now)
 	err = st.Sessions.CreateAudited(ctx, s, audit.Entry{

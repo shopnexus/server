@@ -18,6 +18,13 @@ const (
 
 var ErrConflict = errors.New("staff login quota: changed meanwhile")
 
+// Admission is Store.Charge's answer for one sign-in attempt.
+type Admission struct {
+	Admitted   bool
+	Charged    int           // the attempt's place in the count, from 1
+	RetryAfter time.Duration // how long to wait, when not admitted
+}
+
 // Quota counts failed sign-ins on one email.
 type Quota struct {
 	key         []byte
@@ -48,19 +55,6 @@ func (q *Quota) Locked(now time.Time) (time.Duration, bool) {
 		return q.lockedUntil.Sub(now), true
 	}
 	return 0, false
-}
-
-// Fail counts a failure. The fifth locks the email for LockFor and starts
-// the count again; Fail reports whether it locked.
-func (q *Quota) Fail(now time.Time) bool {
-	q.failures++
-	q.updatedAt = now
-	if q.failures < MaxFailures {
-		return false
-	}
-	until := now.Add(LockFor)
-	q.lockedUntil, q.failures = &until, 0
-	return true
 }
 
 // Clear forgets the failures and any lock.
