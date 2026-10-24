@@ -1,12 +1,14 @@
 // Command staff manages staff members from a host with database access. It
-// is the only way to create, disable, enable or reset an admin; it manages
-// moderators too.
+// is the only way to create, disable, enable, unlock or reset an admin; it
+// manages moderators too.
 //
 //	go run ./cmd/staff create-admin --email a@example.com --name "An Nguyen"
 //	go run ./cmd/staff disable --email a@example.com
 //
-// The commands are create-admin, disable, enable, reset-password and
-// reset-totp. create-admin and reset-password print the temporary password.
+// The commands are create-admin, disable, enable, unlock, reset-password and
+// reset-totp. unlock clears the sign-in lock on the email, which anyone can
+// set with five wrong passwords. create-admin and reset-password print the
+// temporary password.
 package main
 
 import (
@@ -28,11 +30,11 @@ import (
 )
 
 const usage = "usage: staff create-admin --email <email> --name <name>\n" +
-	"       staff disable|enable|reset-password|reset-totp --email <email>"
+	"       staff disable|enable|unlock|reset-password|reset-totp --email <email>"
 
 const createAdmin = "create-admin"
 
-var commands = []string{createAdmin, "disable", "enable", "reset-password", "reset-totp"}
+var commands = []string{createAdmin, "disable", "enable", "unlock", "reset-password", "reset-totp"}
 
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Stdout); err != nil {
@@ -106,6 +108,8 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		_, err = staff.DisableMember(ctx, st, m.ID(), by, now)
 	case "enable":
 		_, err = staff.EnableMember(ctx, st, m.ID(), by, now)
+	case "unlock":
+		_, err = staff.UnlockMember(ctx, st, keys, m.ID(), by, now)
 	case "reset-password":
 		var temp string
 		if temp, err = staff.ResetMemberPassword(ctx, st, keys, m.ID(), by, now); err == nil {

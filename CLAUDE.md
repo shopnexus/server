@@ -45,5 +45,5 @@ new decisions there, not in Claude's memory.
 - `make down`: stop both stacks.
 - `go run ./cmd/staff create-admin --email <email> --name <name>`: create a
   staff admin and print its temporary password. `disable`, `enable`,
-  `reset-password` and `reset-totp` take `--email`. The API has no way to
-  create or change an admin.
+  `unlock`, `reset-password` and `reset-totp` take `--email`. The API has no
+  way to create or change an admin.

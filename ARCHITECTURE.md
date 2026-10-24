@@ -319,6 +319,8 @@ the decisions and the API.
   member brings none back.
 - Admins exist only through `cmd/staff`. The API manages moderators, and
   `Member.ManagedBy` refuses an admin target to anyone but the CLI.
+  `cmd/staff unlock` clears the sign-in lock on an admin's email, which
+  anyone can set by sending five wrong passwords.
 - Every staff write and sign-in event is a row in `staff_actions`, written
   by `audit.Insert` inside the adapter transaction of the change
   (`SaveAudited`, `CreateAudited`). `audit.Diff` takes view structs, so no

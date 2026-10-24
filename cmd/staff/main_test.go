@@ -28,4 +28,7 @@ func TestRunRefusesBadArguments(t *testing.T) {
 	if err := run(context.Background(), []string{"promote", "--email", "a@example.com"}, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "usage") {
 		t.Errorf("an unknown command: %v", err)
 	}
+	if err := run(context.Background(), []string{"unlock"}, &bytes.Buffer{}); err == nil || err.Error() != "--email is required" {
+		t.Errorf("unlock is a command and needs --email: %v", err)
+	}
 }
