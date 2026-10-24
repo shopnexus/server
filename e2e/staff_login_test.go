@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,8 +55,8 @@ func TestStaffRefreshCookieAttributes(t *testing.T) {
 func TestStaffLoginRefusals(t *testing.T) {
 	t.Parallel()
 	_, email, temp := newStaff(t, member.RoleModerator)
-	if res := staffLogin(t, "not an email", temp); res.Status != 400 {
-		t.Fatalf("malformed email: %d", res.Status)
+	if res := call(t, server, "POST", "/v1/staff/login", map[string]string{"email": email}); res.Status != 400 {
+		t.Fatalf("no password: %d", res.Status)
 	}
 	for _, try := range [][2]string{{newStaffEmail(), temp}, {email, temp + "x"}} {
 		if res := staffLogin(t, try[0], try[1]); res.Status != 401 || errorOf(t, res).Code != "invalid_credentials" {
@@ -102,5 +103,15 @@ func TestStaffWrongCodesLock(t *testing.T) {
 	}
 	if res := call(t, server, "POST", "/v1/staff/login/totp", map[string]string{"ticket": step.Ticket, "code": good}); res.Status != 429 {
 		t.Fatalf("after five wrong codes: %d %s", res.Status, res.Body)
+	}
+}
+
+// The console may send the email as typed; the server trims and lower-cases
+// it, so the spec must not refuse it first.
+func TestStaffLoginNormalisesTheEmail(t *testing.T) {
+	t.Parallel()
+	_, email, temp := newStaff(t, member.RoleModerator)
+	if res := staffLogin(t, "  "+strings.ToUpper(email)+" ", temp); res.Status != 200 {
+		t.Fatalf("a padded, upper-case email: %d %s", res.Status, res.Body)
 	}
 }

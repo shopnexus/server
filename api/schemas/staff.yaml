@@ -5,8 +5,9 @@ LoginRequest:
   properties:
     email:
       type: string
-      format: email
+      minLength: 1
       maxLength: 254
+      description: As typed; the server trims and lower-cases it, so this has no email format check.
     password:
       type: string
       minLength: 1
