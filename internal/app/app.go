@@ -26,6 +26,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/sms"
+	"github.com/shopnexus/server2/internal/staff"
 	"github.com/shopnexus/server2/migrations"
 )
 
@@ -42,8 +43,9 @@ type App struct {
 type Option func(*options)
 
 type options struct {
-	sms   sms.Sender
-	email email.Sender
+	sms    sms.Sender
+	email  email.Sender
+	hasher staff.Hasher
 }
 
 // WithSMSSender replaces the log sender; E2E tests read codes from theirs.
@@ -51,6 +53,10 @@ func WithSMSSender(s sms.Sender) Option { return func(o *options) { o.sms = s } 
 
 // WithEmailSender replaces the log sender.
 func WithEmailSender(s email.Sender) Option { return func(o *options) { o.email = s } }
+
+// WithPasswordHasher sets the argon2id parameters of new staff passwords;
+// tests pass staff.FastHasher.
+func WithPasswordHasher(h staff.Hasher) Option { return func(o *options) { o.hasher = h } }
 
 // Routes lists every registered route, for the route-versus-spec test.
 func (a *App) Routes() []httpx.Route { return a.router.Routes() }
@@ -66,7 +72,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if len(cfg.Staff.Key) < 32 || cfg.Staff.ConsoleOrigin == "" {
 		return nil, errors.New("staff key or console origin missing from config; run make run, which adds the key to .env")
 	}
-	o := options{sms: sms.LogSender{Log: log}, email: email.LogSender{Log: log}}
+	o := options{sms: sms.LogSender{Log: log}, email: email.LogSender{Log: log}, hasher: staff.ProductionHasher}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -110,7 +116,10 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		}
 		httpx.Respond(w, http.StatusOK, status{"ok"})
 	})
-	defs := mountModules(a.router, pool, cfg, o, log)
+	defs, err := mountModules(a.router, pool, cfg, o, log)
+	if err != nil {
+		return nil, err
+	}
 	if a.endpoint, err = startRestate(ctx, cfg.Restate, log, defs); err != nil {
 		return nil, err
 	}
@@ -142,7 +151,7 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 // mountModules mounts every module and returns their Restate services. A
 // module mounts after the modules whose ports it takes; protect comes first
 // because it needs only the auth keys.
-func mountModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o options, log *slog.Logger) []restate.ServiceDefinition {
+func mountModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o options, log *slog.Logger) ([]restate.ServiceDefinition, error) {
 	d := module.Deps{
 		Router: router, Pool: pool,
 		Ingress: ingress.NewClient(cfg.Restate.IngressURL), ServicePrefix: cfg.Restate.ServicePrefix,
@@ -150,7 +159,13 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o
 	}
 	protect := auth.Protect(d, cfg.Auth)
 	accounts := account.Mount(d, protect)
-	return auth.Mount(d, auth.Settings{Keys: cfg.Auth, TrustedProxies: cfg.TrustedProxies, SMS: o.sms, Email: o.email}, accounts)
+	services := auth.Mount(d, auth.Settings{Keys: cfg.Auth, TrustedProxies: cfg.TrustedProxies, SMS: o.sms, Email: o.email}, accounts)
+	staffKeys, err := staff.NewKeys(cfg.Staff, cfg.Auth, o.hasher)
+	if err != nil {
+		return nil, fmt.Errorf("staff keys: %w", err)
+	}
+	staff.Mount(d, staff.Settings{Keys: staffKeys, TrustedProxies: cfg.TrustedProxies})
+	return services, nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

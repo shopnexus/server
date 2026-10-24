@@ -22,6 +22,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatetest"
+	"github.com/shopnexus/server2/internal/staff"
 )
 
 var (
@@ -34,7 +35,9 @@ var (
 		k.Issuer, k.Audience = "server2-e2e", "shopnexus-app-e2e"
 		return k
 	}()
-	box = newInbox() // every SMS and email the server sends
+	box         = newInbox() // every SMS and email the server sends
+	staffKeys   staff.Keys   // the server's staff keys, so tests create members directly
+	staffStores staff.Stores // on the e2e database
 )
 
 func TestMain(m *testing.M) {
@@ -73,8 +76,13 @@ func run(m *testing.M) int {
 		// Tests set X-Forwarded-For, so each gets its own per-address quota.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}
+	if staffKeys, err = staff.NewKeys(cfg.Staff, cfg.Auth, staff.FastHasher); err != nil {
+		fmt.Fprintln(os.Stderr, "e2e:", err)
+		return 1
+	}
+	staffStores = staff.NewStores(pool, staffKeys)
 	a, err := app.New(context.Background(), cfg, discard,
-		app.WithSMSSender(box.sms()), app.WithEmailSender(box.email()))
+		app.WithSMSSender(box.sms()), app.WithEmailSender(box.email()), app.WithPasswordHasher(staff.FastHasher))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
