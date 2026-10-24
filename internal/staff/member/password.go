@@ -35,11 +35,16 @@ const (
 
 var b64 = base64.RawStdEncoding
 
+// argonSlots bounds concurrent argon2 runs. A production run takes 64 MiB,
+// and the sign-in endpoints are open to anyone, so without a bound a burst of
+// requests would take the process's memory.
+var argonSlots = make(chan struct{}, 4)
+
 // Hash returns password as a PHC string with a fresh salt.
 func (h Hasher) Hash(password string) string {
 	salt := make([]byte, saltLen)
 	rand.Read(salt)
-	key := argon2.IDKey([]byte(password), salt, h.Time, h.MemoryKiB, h.Threads, keyLen)
+	key := idKey([]byte(password), salt, h.Time, h.MemoryKiB, h.Threads, keyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", argon2.Version, h.MemoryKiB, h.Time, h.Threads,
 		b64.EncodeToString(salt), b64.EncodeToString(key))
 }
@@ -60,7 +65,7 @@ func VerifyPassword(phc, password string) bool {
 	if err1 != nil || err2 != nil || len(want) == 0 || h.Threads == 0 {
 		return false
 	}
-	got := argon2.IDKey([]byte(password), salt, h.Time, h.MemoryKiB, h.Threads, uint32(len(want))) //nolint:gosec // len(want) is a decoded hash of a few dozen bytes.
+	got := idKey([]byte(password), salt, h.Time, h.MemoryKiB, h.Threads, uint32(len(want))) //nolint:gosec // len(want) is a decoded hash of a few dozen bytes.
 	return subtle.ConstantTimeCompare(got, want) == 1
 }
 
@@ -76,3 +81,10 @@ func CheckPolicy(password, email string) error {
 
 // TemporaryPassword is 16 characters of base32, 80 random bits.
 func TemporaryPassword() string { return rand.Text()[:16] }
+
+// idKey is argon2.IDKey run in one of argonSlots; a run waits for a slot.
+func idKey(password, salt []byte, passes, memoryKiB uint32, threads uint8, keyLen uint32) []byte {
+	argonSlots <- struct{}{}
+	defer func() { <-argonSlots }()
+	return argon2.IDKey(password, salt, passes, memoryKiB, threads, keyLen)
+}
