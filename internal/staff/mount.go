@@ -29,4 +29,12 @@ func Mount(d module.Deps, s Settings) {
 	r.Handle("POST /v1/staff/session/logout", mod(LogoutHandler(st.Sessions, now, log)))
 	r.Handle("GET /v1/staff/me", mod(GetMeHandler(st.Members, log)))
 	r.Handle("PUT /v1/staff/me/password", mod(ChangePasswordHandler(st, k, now, log)))
+	admin := Require(st.Sessions, k, trusted, now, log, member.RoleAdmin)
+	r.Handle("GET /v1/staff/members", admin(ListMembersHandler(st, k, now, log)))
+	r.Handle("POST /v1/staff/members", admin(CreateMemberHandler(st, k, now, log)))
+	r.Handle("POST /v1/staff/members/{id}/disable", admin(DisableMemberHandler(st, now, log)))
+	r.Handle("POST /v1/staff/members/{id}/enable", admin(EnableMemberHandler(st, now, log)))
+	r.Handle("POST /v1/staff/members/{id}/unlock", admin(UnlockMemberHandler(st, k, now, log)))
+	r.Handle("POST /v1/staff/members/{id}/reset-password", admin(ResetMemberPasswordHandler(st, k, now, log)))
+	r.Handle("POST /v1/staff/members/{id}/reset-totp", admin(ResetMemberTOTPHandler(st, now, log)))
 }

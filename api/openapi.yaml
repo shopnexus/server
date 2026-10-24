@@ -45,6 +45,18 @@ paths:
     $ref: "paths/staff.yaml#/me"
   /v1/staff/me/password:
     $ref: "paths/staff.yaml#/mePassword"
+  /v1/staff/members:
+    $ref: "paths/staff.yaml#/members"
+  /v1/staff/members/{id}/disable:
+    $ref: "paths/staff.yaml#/memberDisable"
+  /v1/staff/members/{id}/enable:
+    $ref: "paths/staff.yaml#/memberEnable"
+  /v1/staff/members/{id}/unlock:
+    $ref: "paths/staff.yaml#/memberUnlock"
+  /v1/staff/members/{id}/reset-password:
+    $ref: "paths/staff.yaml#/memberResetPassword"
+  /v1/staff/members/{id}/reset-totp:
+    $ref: "paths/staff.yaml#/memberResetTotp"
 components:
   securitySchemes:
     bearerAuth:

@@ -10,6 +10,7 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/token"
 	"github.com/shopnexus/server2/internal/staff"
@@ -71,5 +72,25 @@ func TestRequireRefusesOtherTokens(t *testing.T) {
 		if w := get(t, guarded(e, member.RoleModerator, now), tok); w.Code != 401 {
 			t.Errorf("%s: %d", name, w.Code)
 		}
+	}
+}
+
+func TestRequireEndsWithDisable(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	_, _, in := e.enrolled(t, "mod@example.com")
+	id := in.SignIn.Staff.ID
+	if _, err := staff.DisableMember(ctx, e.stores, id, audit.ByCLI("test"), now); err != nil {
+		t.Fatal(err)
+	}
+	if w := get(t, guarded(e, member.RoleModerator, now), in.SignIn.AccessToken); w.Code != 401 {
+		t.Fatalf("after the disable: %d", w.Code)
+	}
+	if _, err := staff.EnableMember(ctx, e.stores, id, audit.ByCLI("test"), now); err != nil {
+		t.Fatal(err)
+	}
+	if w := get(t, guarded(e, member.RoleModerator, now), in.SignIn.AccessToken); w.Code != 401 {
+		t.Fatalf("after enabling again: %d", w.Code)
 	}
 }
