@@ -23,3 +23,10 @@ func setRefreshCookie(w http.ResponseWriter, i issued, now time.Time) {
 		Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode,
 	})
 }
+
+func clearRefreshCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name: refreshCookie, Value: "", Path: cookiePath, MaxAge: -1,
+		Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode,
+	})
+}

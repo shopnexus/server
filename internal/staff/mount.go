@@ -7,6 +7,7 @@ import (
 	"net/netip"
 
 	"github.com/shopnexus/server2/internal/platform/module"
+	"github.com/shopnexus/server2/internal/staff/member"
 )
 
 // Settings is what staff's Mount takes beyond module.Deps.
@@ -23,4 +24,9 @@ func Mount(d module.Deps, s Settings) {
 	r.Handle("POST /v1/staff/login/password", ChangeTemporaryPasswordHandler(st.Members, k, trusted, now, log))
 	r.Handle("POST /v1/staff/login/totp-enrollment", EnrollTOTPHandler(st.Members, k, now, log))
 	r.Handle("POST /v1/staff/login/totp", VerifyTOTPHandler(st, k, trusted, now, log))
+	mod := Require(st.Sessions, k, trusted, now, log, member.RoleModerator)
+	r.Handle("POST /v1/staff/session/refresh", RefreshHandler(st, k, trusted, now, log))
+	r.Handle("POST /v1/staff/session/logout", mod(LogoutHandler(st.Sessions, now, log)))
+	r.Handle("GET /v1/staff/me", mod(GetMeHandler(st.Members, log)))
+	r.Handle("PUT /v1/staff/me/password", mod(ChangePasswordHandler(st, k, now, log)))
 }

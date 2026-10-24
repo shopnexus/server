@@ -6,13 +6,16 @@ import (
 	"net/netip"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopnexus/server2/internal/platform/audit"
+	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/pgtest"
 	"github.com/shopnexus/server2/internal/staff"
 	"github.com/shopnexus/server2/internal/staff/member"
+	"github.com/shopnexus/server2/internal/staff/session"
 )
 
 var (
@@ -38,6 +41,23 @@ func newEnv(t *testing.T) env {
 	return env{db: db, keys: k, stores: staff.NewStores(db, k)}
 }
 
+// sessionOf reads the session ID from a sign-in's access token.
+func (e env) sessionOf(t *testing.T, in staff.SignedIn) uuid.UUID {
+	t.Helper()
+	issuedAt := in.SignIn.AccessTokenExpiresAt.Add(-session.AccessTTL)
+	c, err := e.keys.Verifier.Verify(in.SignIn.AccessToken, staff.AudienceStaff, issuedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c.SessionID
+}
+
+// callerOf is the authn.Staff that staff.Require would put in the context.
+func (e env) callerOf(t *testing.T, in staff.SignedIn) authn.Staff {
+	t.Helper()
+	return authn.Staff{StaffID: in.SignIn.Staff.ID, SessionID: e.sessionOf(t, in), Role: string(in.SignIn.Staff.Role), IP: clientIP}
+}
+
 // create makes a member and returns its view and temporary password.
 func (e env) create(t *testing.T, email string, role member.Role) (v staff.MemberView, temp string) {
 	t.Helper()
@@ -48,12 +68,12 @@ func (e env) create(t *testing.T, email string, role member.Role) (v staff.Membe
 	return v, temp
 }
 
-// enrolled makes a member that has changed its password, enrolled TOTP and
-// signed in at now, and returns the password, the secret and the sign-in.
-func (e env) enrolled(t *testing.T, email string, role member.Role) (password string, secret []byte, in staff.SignedIn) {
+// enrolled makes a moderator that has changed its password, enrolled TOTP
+// and signed in at now, and returns the password, the secret and the sign-in.
+func (e env) enrolled(t *testing.T, email string) (password string, secret []byte, in staff.SignedIn) {
 	t.Helper()
 	ctx := context.Background()
-	_, temp := e.create(t, email, role)
+	_, temp := e.create(t, email, member.RoleModerator)
 	step, err := staff.Login(ctx, e.stores.Members, e.stores.Quotas, e.keys, email, temp, clientIP, now)
 	if err != nil {
 		t.Fatal(err)

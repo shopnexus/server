@@ -109,3 +109,13 @@ func decodeBase32(t *testing.T, s string) []byte {
 	}
 	return b
 }
+
+func staffBearer(s staffSession) [2]string { return bearer(s.Access) }
+
+func refreshWith(t *testing.T, cookie string, headers ...[2]string) Response {
+	t.Helper()
+	h := append([][2]string{{"Cookie", "staff_refresh=" + cookie}}, headers...)
+	return call(t, server, "POST", "/v1/staff/session/refresh", nil, h...)
+}
+
+var csrf = [2]string{"X-Requested-With", "shopnexus-console"}

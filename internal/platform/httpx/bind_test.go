@@ -194,3 +194,21 @@ func TestBindReadsEmbeddedStructs(t *testing.T) {
 		t.Fatalf("got %+v", b)
 	}
 }
+
+func TestBindReadsACookie(t *testing.T) {
+	t.Parallel()
+	var got struct {
+		Refresh string `cookie:"staff_refresh" json:"-"`
+	}
+	r := request(t, "POST", "/", "")
+	r.AddCookie(&http.Cookie{Name: "staff_refresh", Value: "rt_abc"})
+	if err := Bind(r, &got); err != nil || got.Refresh != "rt_abc" {
+		t.Fatalf("%+v %v", got, err)
+	}
+	var none struct {
+		Refresh string `cookie:"staff_refresh" json:"-"`
+	}
+	if err := Bind(request(t, "POST", "/", ""), &none); err != nil || none.Refresh != "" {
+		t.Fatalf("no cookie: %+v %v", none, err)
+	}
+}

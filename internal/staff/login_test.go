@@ -142,7 +142,7 @@ func TestWrongCodesLock(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	password, secret, _ := e.enrolled(t, "codes@example.com", member.RoleModerator)
+	password, secret, _ := e.enrolled(t, "codes@example.com")
 	later := now.Add(time.Minute)
 	step, err := staff.Login(ctx, e.stores.Members, e.stores.Quotas, e.keys, "codes@example.com", password, clientIP, later)
 	if err != nil || step.Next != member.StepTOTP {

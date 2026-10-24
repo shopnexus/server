@@ -37,6 +37,14 @@ paths:
     $ref: "paths/staff.yaml#/loginTotpEnrollment"
   /v1/staff/login/totp:
     $ref: "paths/staff.yaml#/loginTotp"
+  /v1/staff/session/refresh:
+    $ref: "paths/staff.yaml#/sessionRefresh"
+  /v1/staff/session/logout:
+    $ref: "paths/staff.yaml#/sessionLogout"
+  /v1/staff/me:
+    $ref: "paths/staff.yaml#/me"
+  /v1/staff/me/password:
+    $ref: "paths/staff.yaml#/mePassword"
 components:
   securitySchemes:
     bearerAuth:

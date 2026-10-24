@@ -16,3 +16,13 @@ func Caller(w http.ResponseWriter, r *http.Request, log *slog.Logger) (authn.Pri
 	}
 	return p, ok
 }
+
+// StaffCaller returns the staff member of a route behind staff.Require, or
+// writes 401 and reports false.
+func StaffCaller(w http.ResponseWriter, r *http.Request, log *slog.Logger) (authn.Staff, bool) {
+	s, ok := authn.StaffFrom(r.Context())
+	if !ok {
+		WriteError(w, r, log, authn.ErrUnauthenticated)
+	}
+	return s, ok
+}
