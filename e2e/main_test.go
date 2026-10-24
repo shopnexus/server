@@ -69,6 +69,7 @@ func run(m *testing.M) int {
 		DatabaseURL: pool.Config().ConnString(),
 		Restate:     restateCfg,
 		Auth:        keys,
+		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.e2e"},
 		// Tests set X-Forwarded-For, so each gets its own per-address quota.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}

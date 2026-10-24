@@ -14,6 +14,8 @@ import (
 
 var testKeys = NewAuthKeys()
 
+var testStaffKey = NewStaffKey()
+
 func b64(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
 
 func lookup(env map[string]string) func(string) (string, bool) {
@@ -48,6 +50,8 @@ func required() map[string]string {
 		"JWT_PREVIOUS_PUBLIC_KEY":     "",
 		"JWT_ISSUER":                  "server2",
 		"JWT_AUDIENCE":                "shopnexus-app",
+		"STAFF_KEY":                   b64(testStaffKey),
+		"STAFF_CONSOLE_ORIGIN":        "http://console.test",
 	}
 }
 
@@ -98,6 +102,7 @@ func TestLoadAllSet(t *testing.T) {
 			Issuer:       "iss",
 			Audience:     "aud",
 		},
+		Staff: StaffConfig{Key: testStaffKey, ConsoleOrigin: "http://console.test"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
@@ -139,7 +144,7 @@ func TestLoadNamesEveryUnsetVariable(t *testing.T) {
 
 func TestLoadRejectsEmptyRequired(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"HTTP_ADDR", "DATABASE_URL", "SERVICE_NAME", "RESTATE_LISTEN_ADDR", "JWT_ISSUER", "JWT_AUDIENCE"} {
+	for _, name := range []string{"HTTP_ADDR", "DATABASE_URL", "SERVICE_NAME", "RESTATE_LISTEN_ADDR", "JWT_ISSUER", "JWT_AUDIENCE", "STAFF_CONSOLE_ORIGIN"} {
 		env := required()
 		env[name] = ""
 		if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), name+" is empty") {
@@ -192,6 +197,7 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 			"JWT_PREVIOUS_KEY_ID": testKeys.JWTKeyID, "JWT_PREVIOUS_PUBLIC_KEY": b64(make([]byte, 32)),
 		}, "must differ"},
 		{"bad proxy", map[string]string{"TRUSTED_PROXIES": "10.0.0.0/8,nope"}, "TRUSTED_PROXIES"},
+		{"short staff key", map[string]string{"STAFF_KEY": b64(make([]byte, 16))}, "STAFF_KEY"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

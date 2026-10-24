@@ -24,6 +24,7 @@ func testConfig(t *testing.T) config.Config {
 		DatabaseURL: pgtest.New(t).Config().ConnString(),
 		Restate:     restatetest.Config(t),
 		Auth:        keys,
+		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.test"},
 	}
 }
 

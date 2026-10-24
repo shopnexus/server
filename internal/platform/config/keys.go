@@ -31,3 +31,10 @@ func (a AuthConfig) Env() string {
 	enc := base64.StdEncoding.EncodeToString
 	return fmt.Sprintf("OTP_KEY=%s\nJWT_KEY_ID=%s\nJWT_PRIVATE_KEY=%s\n", enc(a.OTPKey), a.JWTKeyID, enc(a.JWTKey.Seed()))
 }
+
+// NewStaffKey returns a fresh STAFF_KEY. `make run` adds it to .env.
+func NewStaffKey() []byte {
+	k := make([]byte, 32)
+	rand.Read(k)
+	return k
+}

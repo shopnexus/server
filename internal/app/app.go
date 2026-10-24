@@ -63,6 +63,9 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if len(cfg.Auth.JWTKey) != ed25519.PrivateKeySize || len(cfg.Auth.OTPKey) < 32 {
 		return nil, errors.New("auth keys missing from config; run make run, which adds them to .env")
 	}
+	if len(cfg.Staff.Key) < 32 || cfg.Staff.ConsoleOrigin == "" {
+		return nil, errors.New("staff key or console origin missing from config; run make run, which adds the key to .env")
+	}
 	o := options{sms: sms.LogSender{Log: log}, email: email.LogSender{Log: log}}
 	for _, opt := range opts {
 		opt(&o)

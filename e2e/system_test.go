@@ -31,6 +31,7 @@ func TestReadyzDown(t *testing.T) {
 		DatabaseURL: pgtest.New(t).Config().ConnString(),
 		Restate:     restatetest.Config(t),
 		Auth:        keys,
+		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.e2e"},
 	}
 	a, err := app.New(context.Background(), cfg, discard)
 	if err != nil {

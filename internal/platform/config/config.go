@@ -27,6 +27,7 @@ type Config struct {
 	Restate        RestateConfig
 	TrustedProxies []netip.Prefix // TRUSTED_PROXIES: CIDRs whose X-Forwarded-For is believed
 	Auth           AuthConfig
+	Staff          StaffConfig
 }
 
 // AuthConfig holds the auth module's keys and token settings. No key is ever
@@ -39,6 +40,13 @@ type AuthConfig struct {
 	JWTPrevKey   ed25519.PublicKey  //exhaustruct:optional JWT_PREVIOUS_PUBLIC_KEY: base64, empty with the ID
 	Issuer       string             // JWT_ISSUER
 	Audience     string             // JWT_AUDIENCE
+}
+
+// StaffConfig holds the staff module's key and the console's origin. The key
+// is never logged.
+type StaffConfig struct {
+	Key           []byte // STAFF_KEY: base64, at least 32 bytes; the staff subkeys derive from it
+	ConsoleOrigin string // STAFF_CONSOLE_ORIGIN: the web console's origin, the only one CORS allows
 }
 
 // RestateConfig says where the Restate server is and how it reaches this
@@ -153,6 +161,10 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			JWTPrevKeyID: set("JWT_PREVIOUS_KEY_ID"),
 			Issuer:       need("JWT_ISSUER"),
 			Audience:     need("JWT_AUDIENCE"),
+		},
+		Staff: StaffConfig{
+			Key:           decodeKey("STAFF_KEY", 32, false),
+			ConsoleOrigin: need("STAFF_CONSOLE_ORIGIN"),
 		},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),
