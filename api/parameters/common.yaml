@@ -22,3 +22,32 @@ Limit:
     minimum: 1
     maximum: 100
     default: 20
+StaffCSRF:
+  name: X-Requested-With
+  in: header
+  required: true
+  description: Must be shopnexus-console. A form on another site cannot set it, which stops a cross-site refresh.
+  schema:
+    type: string
+    enum: [shopnexus-console]
+StaffRefreshCookie:
+  name: staff_refresh
+  in: cookie
+  required: true
+  schema:
+    type: string
+    minLength: 1
+StaffMemberID:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: string
+    format: uuid
+StaffAccountID:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: string
+    format: uuid

@@ -35,3 +35,8 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    staffAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: A staff access token (audience shopnexus-staff). Customer tokens fail here.

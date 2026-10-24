@@ -46,3 +46,9 @@ TooManyRequests:
     application/json:
       schema:
         $ref: "../schemas/error.yaml#/Error"
+StaffForbidden:
+  description: "The caller's role is too low (staff_forbidden), or the target is an admin (admin_managed_by_cli)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"

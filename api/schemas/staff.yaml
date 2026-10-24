@@ -1,0 +1,322 @@
+LoginRequest:
+  type: object
+  additionalProperties: false
+  required: [email, password]
+  properties:
+    email:
+      type: string
+      format: email
+      maxLength: 254
+    password:
+      type: string
+      minLength: 1
+      maxLength: 1024
+LoginStep:
+  type: object
+  additionalProperties: false
+  required: [ticket, next, ticket_expires_at]
+  properties:
+    ticket:
+      type: string
+      description: Pass it to the next sign-in call within five minutes.
+    next:
+      type: string
+      enum: [change_password, enroll_totp, totp]
+    ticket_expires_at:
+      type: string
+      format: date-time
+LoginPasswordRequest:
+  type: object
+  additionalProperties: false
+  required: [ticket, new_password]
+  properties:
+    ticket:
+      type: string
+      minLength: 1
+    new_password:
+      type: string
+      minLength: 1
+      maxLength: 1024
+      description: 12 to 128 characters, not the email and not the current password.
+TicketRequest:
+  type: object
+  additionalProperties: false
+  required: [ticket]
+  properties:
+    ticket:
+      type: string
+      minLength: 1
+TOTPEnrollment:
+  type: object
+  additionalProperties: false
+  required: [secret, otpauth_uri]
+  properties:
+    secret:
+      type: string
+      description: Base32, for typing into an authenticator by hand.
+    otpauth_uri:
+      type: string
+      description: For a QR code.
+LoginTOTPRequest:
+  type: object
+  additionalProperties: false
+  required: [ticket, code]
+  properties:
+    ticket:
+      type: string
+      minLength: 1
+    code:
+      type: string
+      pattern: "^[0-9]{6}$"
+Me:
+  type: object
+  additionalProperties: false
+  required: [id, email, display_name, role]
+  properties:
+    id:
+      type: string
+      format: uuid
+    email:
+      type: string
+    display_name:
+      type: string
+    role:
+      type: string
+      enum: [moderator, admin]
+StaffSignIn:
+  type: object
+  additionalProperties: false
+  required: [access_token, access_token_expires_at, token_type, staff]
+  properties:
+    access_token:
+      type: string
+    access_token_expires_at:
+      type: string
+      format: date-time
+    token_type:
+      type: string
+      enum: [Bearer]
+    staff:
+      $ref: "#/Me"
+StaffAccess:
+  type: object
+  additionalProperties: false
+  required: [access_token, access_token_expires_at, token_type]
+  properties:
+    access_token:
+      type: string
+    access_token_expires_at:
+      type: string
+      format: date-time
+    token_type:
+      type: string
+      enum: [Bearer]
+ChangePasswordRequest:
+  type: object
+  additionalProperties: false
+  required: [current_password, new_password]
+  properties:
+    current_password:
+      type: string
+      minLength: 1
+      maxLength: 1024
+    new_password:
+      type: string
+      minLength: 1
+      maxLength: 1024
+Member:
+  type: object
+  additionalProperties: false
+  required: [id, email, display_name, role, status, totp_enrolled, created_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    email:
+      type: string
+    display_name:
+      type: string
+    role:
+      type: string
+      enum: [moderator, admin]
+    status:
+      type: string
+      enum: [active, disabled]
+    totp_enrolled:
+      type: boolean
+    locked_until:
+      type: string
+      format: date-time
+      description: Present while failed sign-ins lock the member's email.
+    created_at:
+      type: string
+      format: date-time
+MemberList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Member"
+    next_cursor:
+      type: string
+      format: uuid
+CreateMemberRequest:
+  type: object
+  additionalProperties: false
+  required: [email, display_name]
+  properties:
+    email:
+      type: string
+      format: email
+      maxLength: 254
+    display_name:
+      type: string
+      minLength: 1
+      maxLength: 100
+CreatedMember:
+  type: object
+  additionalProperties: false
+  required: [member, temporary_password]
+  properties:
+    member:
+      $ref: "#/Member"
+    temporary_password:
+      type: string
+      description: Shown once; the member must replace it at the first sign-in.
+TemporaryPassword:
+  type: object
+  additionalProperties: false
+  required: [temporary_password]
+  properties:
+    temporary_password:
+      type: string
+StaffAccount:
+  type: object
+  additionalProperties: false
+  required: [id, display_name, status, created_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+    status:
+      type: string
+      enum: [active, suspended]
+    suspended_until:
+      type: string
+      format: date-time
+    suspend_reason:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+StaffAccountList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/StaffAccount"
+    next_cursor:
+      type: string
+      format: uuid
+Identity:
+  type: object
+  additionalProperties: false
+  required: [kind, value]
+  properties:
+    kind:
+      type: string
+      enum: [phone, email, google]
+    value:
+      type: string
+StaffAccountDetail:
+  type: object
+  additionalProperties: false
+  required: [account, identities, actions]
+  properties:
+    account:
+      $ref: "#/StaffAccount"
+    identities:
+      type: array
+      items:
+        $ref: "#/Identity"
+    actions:
+      type: array
+      description: The 20 latest staff actions on the account, newest first.
+      items:
+        $ref: "#/Action"
+SuspendRequest:
+  type: object
+  additionalProperties: false
+  required: [reason]
+  properties:
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 500
+    until:
+      type: string
+      format: date-time
+      description: Absent for a suspension without an end.
+Action:
+  type: object
+  additionalProperties: false
+  required: [id, at, actor, action, diff]
+  properties:
+    id:
+      type: string
+      format: uuid
+    at:
+      type: string
+      format: date-time
+    actor:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [staff, cli, anonymous]
+        staff_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          description: The staff member's name, or the OS user for the CLI.
+    ip:
+      type: string
+    action:
+      type: string
+    target:
+      type: object
+      additionalProperties: false
+      required: [kind, id]
+      properties:
+        kind:
+          type: string
+          enum: [account, staff]
+        id:
+          type: string
+          format: uuid
+    diff:
+      type: object
+      description: Changed fields as [before, after]; secrets appear only as "changed" or "reset".
+ActionList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Action"
+    next_cursor:
+      type: string
+      format: uuid

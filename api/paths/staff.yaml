@@ -1,0 +1,449 @@
+login:
+  post:
+    operationId: staffLogin
+    summary: Check a staff member's email and password.
+    description: |
+      An unknown email, a wrong password and a disabled member all get
+      invalid_credentials. Five failures on one email lock it for 15 minutes,
+      whether or not a member has the email.
+    tags: [staff]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/staff.yaml#/LoginRequest"
+    responses:
+      "200":
+        description: The next sign-in step and its ticket.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/LoginStep"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "429":
+        $ref: "../responses/common.yaml#/TooManyRequests"
+loginPassword:
+  post:
+    operationId: staffLoginPassword
+    summary: Replace the temporary password during sign-in.
+    tags: [staff]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/staff.yaml#/LoginPasswordRequest"
+    responses:
+      "200":
+        description: The next sign-in step and a new ticket.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/LoginStep"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "422":
+        $ref: "../responses/common.yaml#/Unprocessable"
+loginTotpEnrollment:
+  post:
+    operationId: staffLoginTotpEnrollment
+    summary: Start TOTP enrollment during sign-in.
+    description: A second call replaces the secret of the first.
+    tags: [staff]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/staff.yaml#/TicketRequest"
+    responses:
+      "200":
+        description: The secret to load into an authenticator.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/TOTPEnrollment"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+loginTotp:
+  post:
+    operationId: staffLoginTotp
+    summary: Finish sign-in with a TOTP code.
+    description: |
+      The first correct code after enrollment confirms it. A wrong code counts
+      toward the email's lock. Success sets the staff_refresh cookie.
+    tags: [staff]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/staff.yaml#/LoginTOTPRequest"
+    responses:
+      "200":
+        description: Signed in.
+        headers:
+          Set-Cookie:
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/StaffSignIn"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "429":
+        $ref: "../responses/common.yaml#/TooManyRequests"
+sessionRefresh:
+  post:
+    operationId: staffSessionRefresh
+    summary: Get a new access token with the refresh cookie.
+    tags: [staff]
+    parameters:
+      - $ref: "../parameters/common.yaml#/StaffCSRF"
+      - $ref: "../parameters/common.yaml#/StaffRefreshCookie"
+    responses:
+      "200":
+        description: A new access token; the cookie is rotated.
+        headers:
+          Set-Cookie:
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/StaffAccess"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+sessionLogout:
+  post:
+    operationId: staffSessionLogout
+    summary: Sign this session out and clear the cookie.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    responses:
+      "204":
+        description: Signed out.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+me:
+  get:
+    operationId: getStaffMe
+    summary: The signed-in staff member.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    responses:
+      "200":
+        description: The member.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/Me"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+mePassword:
+  put:
+    operationId: changeStaffPassword
+    summary: Change the password; the member's other sessions end.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/staff.yaml#/ChangePasswordRequest"
+    responses:
+      "204":
+        description: Changed.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "422":
+        $ref: "../responses/common.yaml#/Unprocessable"
+members:
+  get:
+    operationId: listStaffMembers
+    summary: Staff members, newest first. Admins only.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of members.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/MemberList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/StaffForbidden"
+  post:
+    operationId: createStaffMember
+    summary: Create a moderator with a temporary password. Admins only.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/staff.yaml#/CreateMemberRequest"
+    responses:
+      "201":
+        description: Created.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/CreatedMember"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "403":
+        $ref: "../responses/common.yaml#/StaffForbidden"
+      "409":
+        $ref: "../responses/common.yaml#/Conflict"
+memberDisable:
+  post:
+    operationId: disableStaffMember
+    summary: Disable a moderator and end their sessions. Admins only.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/StaffMemberID"
+    responses:
+      "200":
+        description: The member.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/Member"
+      "403":
+        $ref: "../responses/common.yaml#/StaffForbidden"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
+memberEnable:
+  post:
+    operationId: enableStaffMember
+    summary: Enable a disabled moderator. Admins only.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/StaffMemberID"
+    responses:
+      "200":
+        description: The member.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/Member"
+      "403":
+        $ref: "../responses/common.yaml#/StaffForbidden"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
+memberUnlock:
+  post:
+    operationId: unlockStaffMember
+    summary: Clear the sign-in lock on a moderator's email. Admins only.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/StaffMemberID"
+    responses:
+      "200":
+        description: The member.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/Member"
+      "403":
+        $ref: "../responses/common.yaml#/StaffForbidden"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
+memberResetPassword:
+  post:
+    operationId: resetStaffMemberPassword
+    summary: Give a moderator a temporary password and end their sessions. Admins only.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/StaffMemberID"
+    responses:
+      "200":
+        description: The temporary password, shown once.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/TemporaryPassword"
+      "403":
+        $ref: "../responses/common.yaml#/StaffForbidden"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
+memberResetTotp:
+  post:
+    operationId: resetStaffMemberTotp
+    summary: Remove a moderator's TOTP and end their sessions. Admins only.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/StaffMemberID"
+    responses:
+      "200":
+        description: The member, who enrolls again at the next sign-in.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/Member"
+      "403":
+        $ref: "../responses/common.yaml#/StaffForbidden"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
+accounts:
+  get:
+    operationId: listStaffAccounts
+    summary: Customer accounts, newest first, or the one q names.
+    description: q matches an account ID, a phone number in any common form, or an email, exactly.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - name: q
+        in: query
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 254
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of accounts.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/StaffAccountList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+account:
+  get:
+    operationId: getStaffAccount
+    summary: One customer account with its identities and staff history.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/StaffAccountID"
+    responses:
+      "200":
+        description: The account.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/StaffAccountDetail"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
+accountSuspend:
+  post:
+    operationId: suspendStaffAccount
+    summary: Suspend a customer account.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/StaffAccountID"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/staff.yaml#/SuspendRequest"
+    responses:
+      "200":
+        description: The account.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/StaffAccount"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
+      "422":
+        $ref: "../responses/common.yaml#/Unprocessable"
+accountUnsuspend:
+  post:
+    operationId: unsuspendStaffAccount
+    summary: Lift a customer account's suspension.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/StaffAccountID"
+    responses:
+      "200":
+        description: The account.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/StaffAccount"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
+actions:
+  get:
+    operationId: listStaffActions
+    summary: The audit log, newest first. Admins only.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    parameters:
+      - name: staff_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: action
+        in: query
+        schema:
+          type: string
+          maxLength: 64
+      - name: target_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+      - name: since
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - name: until
+        in: query
+        schema:
+          type: string
+          format: date-time
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of actions.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/ActionList"
+      "403":
+        $ref: "../responses/common.yaml#/StaffForbidden"
