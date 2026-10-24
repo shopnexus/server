@@ -65,6 +65,8 @@ paths:
     $ref: "paths/staff.yaml#/accountSuspend"
   /v1/staff/accounts/{id}/unsuspend:
     $ref: "paths/staff.yaml#/accountUnsuspend"
+  /v1/staff/actions:
+    $ref: "paths/staff.yaml#/actions"
 components:
   securitySchemes:
     bearerAuth:

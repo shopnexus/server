@@ -42,4 +42,5 @@ func Mount(d module.Deps, s Settings, accounts AccountPort, identities IdentityP
 	r.Handle("GET /v1/staff/accounts/{id}", mod(GetAccountHandler(accounts, identities, st.Actions, log)))
 	r.Handle("POST /v1/staff/accounts/{id}/suspend", mod(SuspendAccountHandler(accounts, log)))
 	r.Handle("POST /v1/staff/accounts/{id}/unsuspend", mod(UnsuspendAccountHandler(accounts, log)))
+	r.Handle("GET /v1/staff/actions", admin(ListActionsHandler(st.Actions, log)))
 }
