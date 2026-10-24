@@ -12,6 +12,16 @@ new decisions there, not in Claude's memory.
 - Rename modules, entities, tables, functions and any other name, or
   restructure, whenever a better name or shape exists. Report the change;
   refactor effort, call sites included, is not a reason to keep a worse name.
+- A feature's design starts with its OpenAPI spec in `api/`: endpoints,
+  request and response schemas, errors. The data model and the code follow
+  from the spec. When the API shows patches (a field added to fit one
+  caller, two endpoints that overlap, names that disagree), redesign the
+  affected part of the spec in one change and refactor the code to it.
+- Configuration has no defaults, in Go, Docker Compose, the Makefile or test
+  helpers. Every variable must be set, and a missing one stops the process
+  with its name. A variable whose empty value means something (no OTLP
+  export, no previous JWT key) is still set, to the empty string, in
+  `.env.example` and every environment.
 - Design decisions go to the user one question at a time, with a check
   question at choices that touch security or data. Implementation of an
   approved plan runs without stopping to ask.

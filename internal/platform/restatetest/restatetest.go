@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -17,19 +16,19 @@ import (
 
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
-// URLs returns TEST_RESTATE_INGRESS_URL and TEST_RESTATE_ADMIN_URL, or the
-// test stack's when they are unset.
-func URLs() (ingressURL, adminURL string) {
-	return getenv("TEST_RESTATE_INGRESS_URL", "http://127.0.0.1:56581"), getenv("TEST_RESTATE_ADMIN_URL", "http://127.0.0.1:56571")
-}
-
-func getenv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
+// URLs returns TEST_RESTATE_INGRESS_URL and TEST_RESTATE_ADMIN_URL, from the
+// environment or .env.test.
+func URLs() (ingressURL, adminURL string, err error) {
+	if ingressURL, err = testenv.Get("TEST_RESTATE_INGRESS_URL"); err != nil {
+		return "", "", fmt.Errorf("test restate: %w", err)
 	}
-	return def
+	if adminURL, err = testenv.Get("TEST_RESTATE_ADMIN_URL"); err != nil {
+		return "", "", fmt.Errorf("test restate: %w", err)
+	}
+	return ingressURL, adminURL, nil
 }
 
 // identityFile is the key make test writes and mounts into the test stack's
@@ -46,7 +45,10 @@ func ConfigForMain() (config.RestateConfig, error) {
 	if err != nil {
 		return config.RestateConfig{}, fmt.Errorf("restate identity key: %w; make test writes it", err)
 	}
-	ingressURL, adminURL := URLs()
+	ingressURL, adminURL, err := URLs()
+	if err != nil {
+		return config.RestateConfig{}, err
+	}
 	return config.RestateConfig{
 		IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0", EndpointURL: "",
 		ServicePrefix: Prefix(), IdentityKey: key,

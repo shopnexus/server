@@ -8,13 +8,8 @@ import (
 	"time"
 )
 
-const (
-	defaultIssuer   = "server2"
-	defaultAudience = "shopnexus-app"
-)
-
-// NewAuthKeys returns fresh random keys. `make run` adds them to .env;
-// tests use them directly.
+// NewAuthKeys returns fresh random keys with no issuer or audience. `make run`
+// adds them to .env; a test sets Issuer and Audience itself.
 func NewAuthKeys() AuthConfig {
 	otpKey := make([]byte, 32)
 	rand.Read(otpKey)
@@ -26,8 +21,8 @@ func NewAuthKeys() AuthConfig {
 		OTPKey:   otpKey,
 		JWTKeyID: "k" + time.Now().UTC().Format("20060102150405"),
 		JWTKey:   priv,
-		Issuer:   defaultIssuer,
-		Audience: defaultAudience,
+		Issuer:   "",
+		Audience: "",
 	}
 }
 

@@ -35,8 +35,8 @@ type AuthConfig struct {
 	OTPKey       []byte             // OTP_KEY: base64, at least 32 bytes
 	JWTKeyID     string             // JWT_KEY_ID: the kid of JWTKey
 	JWTKey       ed25519.PrivateKey // JWT_PRIVATE_KEY: base64 of the 32-byte seed
-	JWTPrevKeyID string             //exhaustruct:optional JWT_PREVIOUS_KEY_ID: set during a key change
-	JWTPrevKey   ed25519.PublicKey  //exhaustruct:optional JWT_PREVIOUS_PUBLIC_KEY: base64
+	JWTPrevKeyID string             //exhaustruct:optional JWT_PREVIOUS_KEY_ID: empty outside a key change
+	JWTPrevKey   ed25519.PublicKey  //exhaustruct:optional JWT_PREVIOUS_PUBLIC_KEY: base64, empty with the ID
 	Issuer       string             // JWT_ISSUER
 	Audience     string             // JWT_AUDIENCE
 }
@@ -53,39 +53,49 @@ type RestateConfig struct {
 	ServicePrefix string
 	// IdentityKey (RESTATE_IDENTITY_KEY, "publickeyv1_...") is the public key
 	// the Restate server signs requests with; the endpoint refuses unsigned
-	// ones. Required with APP_ENV=prod; make run writes it to .env.
+	// ones. It may be empty outside APP_ENV=prod; make run writes it to .env.
 	IdentityKey string
 }
 
-// Load builds a Config from getenv. It reports every missing or invalid
-// variable in one error.
-func Load(getenv func(string) string) (Config, error) {
+// Load builds a Config from lookup, which is [os.LookupEnv] outside tests.
+// Every variable must be set; none has a default. A variable documented as
+// allowing empty may be set to the empty string. Load reports every missing
+// or invalid variable in one error.
+func Load(lookup func(string) (string, bool)) (Config, error) {
 	var errs []error
-	get := func(key, def string) string {
-		if v := getenv(key); v != "" {
-			return v
-		}
-		return def
-	}
-	need := func(key string) string {
-		v := getenv(key)
-		if v == "" {
-			errs = append(errs, fmt.Errorf("%s is required", key))
+	// set returns a variable that may be empty.
+	set := func(key string) string {
+		v, ok := lookup(key)
+		if !ok {
+			errs = append(errs, fmt.Errorf("%s is not set", key))
 		}
 		return v
 	}
-	oneOf := func(key, def string, allowed ...string) string {
-		v := get(key, def)
-		if !slices.Contains(allowed, v) {
+	need := func(key string) string {
+		v, ok := lookup(key)
+		switch {
+		case !ok:
+			errs = append(errs, fmt.Errorf("%s is not set", key))
+		case v == "":
+			errs = append(errs, fmt.Errorf("%s is empty", key))
+		default:
+		}
+		return v
+	}
+	oneOf := func(key string, allowed ...string) string {
+		v, ok := lookup(key)
+		if !ok {
+			errs = append(errs, fmt.Errorf("%s is not set", key))
+		} else if !slices.Contains(allowed, v) {
 			errs = append(errs, fmt.Errorf("%s=%q: want one of %v", key, v, allowed))
 		}
 		return v
 	}
 
 	decodeKey := func(key string, size int, exact bool) []byte {
-		v := getenv(key)
-		if v == "" {
-			errs = append(errs, fmt.Errorf("%s is required; make run adds it to .env", key))
+		v, ok := lookup(key)
+		if !ok || v == "" {
+			errs = append(errs, fmt.Errorf("%s is not set; make run adds it to .env", key))
 			return nil
 		}
 		b, err := base64.StdEncoding.DecodeString(v)
@@ -102,10 +112,10 @@ func Load(getenv func(string) string) (Config, error) {
 
 	var logLevel slog.Level
 	// oneOf has checked the value, so it parses.
-	_ = logLevel.UnmarshalText([]byte(oneOf("LOG_LEVEL", "info", "debug", "info", "warn", "error")))
+	_ = logLevel.UnmarshalText([]byte(oneOf("LOG_LEVEL", "debug", "info", "warn", "error")))
 
 	var proxies []netip.Prefix
-	for s := range strings.SplitSeq(getenv("TRUSTED_PROXIES"), ",") {
+	for s := range strings.SplitSeq(set("TRUSTED_PROXIES"), ",") {
 		if s = strings.TrimSpace(s); s == "" {
 			continue
 		}
@@ -123,33 +133,33 @@ func Load(getenv func(string) string) (Config, error) {
 	}
 
 	cfg := Config{
-		Env:         oneOf("APP_ENV", "prod", "dev", "test", "prod"),
-		HTTPAddr:    get("HTTP_ADDR", ":8080"),
+		Env:         oneOf("APP_ENV", "dev", "test", "prod"),
+		HTTPAddr:    need("HTTP_ADDR"),
 		LogLevel:    logLevel,
-		LogFormat:   oneOf("LOG_FORMAT", "json", "text", "json"),
+		LogFormat:   oneOf("LOG_FORMAT", "text", "json"),
 		DatabaseURL: need("DATABASE_URL"),
 		Restate: RestateConfig{
 			IngressURL:    need("RESTATE_INGRESS_URL"),
 			AdminURL:      need("RESTATE_ADMIN_URL"),
-			ListenAddr:    get("RESTATE_LISTEN_ADDR", "127.0.0.1:9080"),
-			EndpointURL:   get("RESTATE_ENDPOINT_URL", ""),
-			ServicePrefix: get("RESTATE_SERVICE_PREFIX", ""),
-			IdentityKey:   get("RESTATE_IDENTITY_KEY", ""),
+			ListenAddr:    need("RESTATE_LISTEN_ADDR"),
+			EndpointURL:   set("RESTATE_ENDPOINT_URL"),
+			ServicePrefix: set("RESTATE_SERVICE_PREFIX"),
+			IdentityKey:   set("RESTATE_IDENTITY_KEY"),
 		},
 		Auth: AuthConfig{
 			OTPKey:       decodeKey("OTP_KEY", 32, false),
 			JWTKeyID:     need("JWT_KEY_ID"),
 			JWTKey:       jwtKey,
-			JWTPrevKeyID: getenv("JWT_PREVIOUS_KEY_ID"),
-			Issuer:       get("JWT_ISSUER", defaultIssuer),
-			Audience:     get("JWT_AUDIENCE", defaultAudience),
+			JWTPrevKeyID: set("JWT_PREVIOUS_KEY_ID"),
+			Issuer:       need("JWT_ISSUER"),
+			Audience:     need("JWT_AUDIENCE"),
 		},
-		OTLPEndpoint:   get("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
-		ServiceName:    get("SERVICE_NAME", "server2"),
+		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		ServiceName:    need("SERVICE_NAME"),
 		TrustedProxies: proxies,
 	}
 
-	prevKey := getenv("JWT_PREVIOUS_PUBLIC_KEY")
+	prevKey := set("JWT_PREVIOUS_PUBLIC_KEY")
 	switch {
 	case prevKey == "" && cfg.Auth.JWTPrevKeyID == "":
 	case prevKey == "" || cfg.Auth.JWTPrevKeyID == "":

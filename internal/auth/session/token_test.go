@@ -17,7 +17,7 @@ import (
 
 func keys(kid string) config.AuthConfig {
 	k := config.NewAuthKeys()
-	k.JWTKeyID = kid
+	k.JWTKeyID, k.Issuer, k.Audience = kid, "server2-test", "shopnexus-app-test"
 	return k
 }
 

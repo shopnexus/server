@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/platform/postgres"
+	"github.com/shopnexus/server2/internal/platform/testenv"
 	"github.com/shopnexus/server2/migrations"
 )
 
@@ -45,13 +46,13 @@ func guard(adminURL string) error {
 	return nil
 }
 
-// AdminURL is TEST_DATABASE_URL, or the test stack's Postgres when it is
-// unset.
-func AdminURL() string {
-	if u := os.Getenv("TEST_DATABASE_URL"); u != "" {
-		return u
+// AdminURL is TEST_DATABASE_URL, from the environment or .env.test.
+func AdminURL() (string, error) {
+	u, err := testenv.Get("TEST_DATABASE_URL")
+	if err != nil {
+		return "", fmt.Errorf("test database: %w", err)
 	}
-	return "postgres://server2:server2@localhost:" + testPort + "/" + testName + "?sslmode=disable"
+	return u, nil
 }
 
 // URL returns AdminURL, and skips the test under -short.
@@ -60,7 +61,11 @@ func URL(tb testing.TB) string {
 	if testing.Short() {
 		tb.Skip("needs Postgres; skipped under -short")
 	}
-	return AdminURL()
+	u, err := AdminURL()
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return u
 }
 
 // New returns a pool on a fresh database with every migration applied. The

@@ -16,20 +16,38 @@ var testKeys = NewAuthKeys()
 
 func b64(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
 
-func lookup(env map[string]string) func(string) string {
-	return func(k string) string { return env[k] }
+func lookup(env map[string]string) func(string) (string, bool) {
+	return func(k string) (string, bool) {
+		v, ok := env[k]
+		return v, ok
+	}
 }
 
+// required sets every variable, the ones that may be empty to the empty
+// string, for APP_ENV=prod.
 func required() map[string]string {
 	return map[string]string{
-		"DATABASE_URL":        "postgres://db",
-		"RESTATE_INGRESS_URL": "http://restate:8080",
-		"RESTATE_ADMIN_URL":   "http://restate:9070",
-		"OTP_KEY":             b64(testKeys.OTPKey),
-		"JWT_KEY_ID":          testKeys.JWTKeyID,
-		"JWT_PRIVATE_KEY":     b64(testKeys.JWTKey.Seed()),
-		// APP_ENV defaults to prod, which needs the key Restate signs with.
-		"RESTATE_IDENTITY_KEY": "publickeyv1_test",
+		"APP_ENV":                     "prod",
+		"HTTP_ADDR":                   ":8080",
+		"LOG_LEVEL":                   "info",
+		"LOG_FORMAT":                  "json",
+		"DATABASE_URL":                "postgres://db",
+		"OTEL_EXPORTER_OTLP_ENDPOINT": "",
+		"SERVICE_NAME":                "server2",
+		"TRUSTED_PROXIES":             "",
+		"RESTATE_INGRESS_URL":         "http://restate:8080",
+		"RESTATE_ADMIN_URL":           "http://restate:9070",
+		"RESTATE_LISTEN_ADDR":         "127.0.0.1:9080",
+		"RESTATE_ENDPOINT_URL":        "",
+		"RESTATE_SERVICE_PREFIX":      "",
+		"RESTATE_IDENTITY_KEY":        "publickeyv1_test",
+		"OTP_KEY":                     b64(testKeys.OTPKey),
+		"JWT_KEY_ID":                  testKeys.JWTKeyID,
+		"JWT_PRIVATE_KEY":             b64(testKeys.JWTKey.Seed()),
+		"JWT_PREVIOUS_KEY_ID":         "",
+		"JWT_PREVIOUS_PUBLIC_KEY":     "",
+		"JWT_ISSUER":                  "server2",
+		"JWT_AUDIENCE":                "shopnexus-app",
 	}
 }
 
@@ -86,29 +104,46 @@ func TestLoadAllSet(t *testing.T) {
 	}
 }
 
-func TestLoadDefaults(t *testing.T) {
+func TestLoadAcceptsExplicitEmpty(t *testing.T) {
 	t.Parallel()
 	got, err := Load(lookup(required()))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.HTTPAddr != ":8080" || got.LogLevel != slog.LevelInfo || got.LogFormat != "json" ||
-		got.ServiceName != "server2" || got.Env != "prod" || got.OTLPEndpoint != "" ||
-		got.Restate.ListenAddr != "127.0.0.1:9080" || got.Restate.EndpointURL != "" ||
-		got.Auth.Issuer != "server2" || got.Auth.Audience != "shopnexus-app" || got.TrustedProxies != nil {
-		t.Fatalf("defaults: %+v", got)
+	if got.OTLPEndpoint != "" || got.TrustedProxies != nil || got.Restate.EndpointURL != "" ||
+		got.Restate.ServicePrefix != "" || got.Auth.JWTPrevKeyID != "" || got.Auth.JWTPrevKey != nil {
+		t.Fatalf("empty variables: %+v", got)
 	}
 }
 
-func TestLoadListsEveryMissingVariable(t *testing.T) {
+// No variable has a default: leaving any one out names it.
+func TestLoadNamesEveryUnsetVariable(t *testing.T) {
 	t.Parallel()
 	_, err := Load(lookup(nil))
 	if err == nil {
 		t.Fatal("want error")
 	}
-	for _, name := range []string{"DATABASE_URL", "RESTATE_INGRESS_URL", "RESTATE_ADMIN_URL", "OTP_KEY", "JWT_KEY_ID", "JWT_PRIVATE_KEY"} {
+	for name := range required() {
 		if !strings.Contains(err.Error(), name) {
 			t.Errorf("error %q does not name %s", err, name)
+		}
+	}
+	for name := range required() {
+		env := required()
+		delete(env, name)
+		if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), name+" is not set") {
+			t.Errorf("without %s: %v", name, err)
+		}
+	}
+}
+
+func TestLoadRejectsEmptyRequired(t *testing.T) {
+	t.Parallel()
+	for _, name := range []string{"HTTP_ADDR", "DATABASE_URL", "SERVICE_NAME", "RESTATE_LISTEN_ADDR", "JWT_ISSUER", "JWT_AUDIENCE"} {
+		env := required()
+		env[name] = ""
+		if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), name+" is empty") {
+			t.Errorf("empty %s: %v", name, err)
 		}
 	}
 }

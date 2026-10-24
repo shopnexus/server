@@ -20,7 +20,11 @@ import (
 
 var (
 	now      = time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
-	testKeys = config.NewAuthKeys()
+	testKeys = func() config.AuthConfig {
+		k := config.NewAuthKeys()
+		k.Issuer, k.Audience = "server2-test", "shopnexus-app-test"
+		return k
+	}()
 	clientIP = netip.MustParseAddr("203.0.113.7")
 	discard  = slog.New(slog.DiscardHandler)
 )

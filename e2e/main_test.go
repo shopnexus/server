@@ -28,9 +28,13 @@ var (
 	// server is the base URL of the app every test shares.
 	server  string
 	discard = slog.New(slog.DiscardHandler)
-	db      *pgxpool.Pool          // the e2e database, for setup a test cannot do over HTTP
-	keys    = config.NewAuthKeys() // the server's keys, so tests can mint tokens
-	box     = newInbox()           // every SMS and email the server sends
+	db      *pgxpool.Pool                // the e2e database, for setup a test cannot do over HTTP
+	keys    = func() config.AuthConfig { // the server's keys, so tests can mint tokens
+		k := config.NewAuthKeys()
+		k.Issuer, k.Audience = "server2-e2e", "shopnexus-app-e2e"
+		return k
+	}()
+	box = newInbox() // every SMS and email the server sends
 )
 
 func TestMain(m *testing.M) {
@@ -43,7 +47,12 @@ func TestMain(m *testing.M) {
 }
 
 func run(m *testing.M) int {
-	pool, drop, err := pgtest.NewForMain(pgtest.AdminURL())
+	adminURL, err := pgtest.AdminURL()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "e2e:", err)
+		return 1
+	}
+	pool, drop, err := pgtest.NewForMain(adminURL)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1

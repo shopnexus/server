@@ -18,10 +18,12 @@ func discard() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func testConfig(t *testing.T) config.Config {
 	t.Helper()
+	keys := config.NewAuthKeys()
+	keys.Issuer, keys.Audience = "server2-test", "shopnexus-app-test"
 	return config.Config{
 		DatabaseURL: pgtest.New(t).Config().ConnString(),
 		Restate:     restatetest.Config(t),
-		Auth:        config.NewAuthKeys(),
+		Auth:        keys,
 	}
 }
 

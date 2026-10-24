@@ -29,7 +29,7 @@ func run() error {
 	if err := config.LoadDotEnv(".env"); err != nil {
 		return fmt.Errorf("load .env: %w", err)
 	}
-	cfg, err := config.Load(os.Getenv)
+	cfg, err := config.Load(os.LookupEnv)
 	if err != nil {
 		return fmt.Errorf("config:\n%w", err)
 	}
