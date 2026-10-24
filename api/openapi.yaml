@@ -57,6 +57,14 @@ paths:
     $ref: "paths/staff.yaml#/memberResetPassword"
   /v1/staff/members/{id}/reset-totp:
     $ref: "paths/staff.yaml#/memberResetTotp"
+  /v1/staff/accounts:
+    $ref: "paths/staff.yaml#/accounts"
+  /v1/staff/accounts/{id}:
+    $ref: "paths/staff.yaml#/account"
+  /v1/staff/accounts/{id}/suspend:
+    $ref: "paths/staff.yaml#/accountSuspend"
+  /v1/staff/accounts/{id}/unsuspend:
+    $ref: "paths/staff.yaml#/accountUnsuspend"
 components:
   securitySchemes:
     bearerAuth:

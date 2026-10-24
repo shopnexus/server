@@ -16,8 +16,9 @@ type Settings struct {
 	TrustedProxies []netip.Prefix
 }
 
-// Mount registers the staff endpoints.
-func Mount(d module.Deps, s Settings) {
+// Mount registers the staff endpoints. accounts and identities reach the
+// customer data of modules account and auth.
+func Mount(d module.Deps, s Settings, accounts AccountPort, identities IdentityPort) {
 	st := NewStores(d.Pool, s.Keys)
 	r, k, trusted, now, log := d.Router, s.Keys, s.TrustedProxies, d.Now, d.Log
 	r.Handle("POST /v1/staff/login", LoginHandler(st.Members, st.Quotas, k, trusted, now, log))
@@ -37,4 +38,8 @@ func Mount(d module.Deps, s Settings) {
 	r.Handle("POST /v1/staff/members/{id}/unlock", admin(UnlockMemberHandler(st, k, now, log)))
 	r.Handle("POST /v1/staff/members/{id}/reset-password", admin(ResetMemberPasswordHandler(st, k, now, log)))
 	r.Handle("POST /v1/staff/members/{id}/reset-totp", admin(ResetMemberTOTPHandler(st, now, log)))
+	r.Handle("GET /v1/staff/accounts", mod(ListAccountsHandler(accounts, identities, log)))
+	r.Handle("GET /v1/staff/accounts/{id}", mod(GetAccountHandler(accounts, identities, st.Actions, log)))
+	r.Handle("POST /v1/staff/accounts/{id}/suspend", mod(SuspendAccountHandler(accounts, log)))
+	r.Handle("POST /v1/staff/accounts/{id}/unsuspend", mod(UnsuspendAccountHandler(accounts, log)))
 }

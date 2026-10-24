@@ -159,13 +159,13 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o
 	}
 	protect := auth.Protect(d, cfg.Auth)
 	accounts := account.Mount(d, protect)
-	services := auth.Mount(d, auth.Settings{Keys: cfg.Auth, TrustedProxies: cfg.TrustedProxies, SMS: o.sms, Email: o.email}, accounts)
+	authm := auth.Mount(d, auth.Settings{Keys: cfg.Auth, TrustedProxies: cfg.TrustedProxies, SMS: o.sms, Email: o.email}, accounts)
 	staffKeys, err := staff.NewKeys(cfg.Staff, cfg.Auth, o.hasher)
 	if err != nil {
 		return nil, fmt.Errorf("staff keys: %w", err)
 	}
-	staff.Mount(d, staff.Settings{Keys: staffKeys, TrustedProxies: cfg.TrustedProxies})
-	return services, nil
+	staff.Mount(d, staff.Settings{Keys: staffKeys, TrustedProxies: cfg.TrustedProxies}, accounts, authm.Client)
+	return authm.Services, nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

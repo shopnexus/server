@@ -32,9 +32,15 @@ func Protect(d module.Deps, keys config.AuthConfig) func(http.Handler) http.Hand
 	return RequireAuth(session.NewVerifier(keys), d.Now, d.Log)
 }
 
-// Mount registers auth's HTTP handlers and returns its Restate services with
-// prefixed names.
-func Mount(d module.Deps, s Settings, accounts AccountPort) []restate.ServiceDefinition {
+// Mounted is what auth's Mount gives app and other modules.
+type Mounted struct {
+	Services []restate.ServiceDefinition
+	Client   Client
+}
+
+// Mount registers auth's HTTP handlers and returns its Restate services, with
+// prefixed names, and the client other modules read identities through.
+func Mount(d module.Deps, s Settings, accounts AccountPort) Mounted {
 	challenges := otp.NewChallengePGStore(d.Pool)
 	quotas := otp.NewQuotaPGStore(d.Pool)
 	creds := credentials.NewPGStore(d.Pool)
@@ -53,14 +59,17 @@ func Mount(d module.Deps, s Settings, accounts AccountPort) []restate.ServiceDef
 	r.Handle("GET /v1/auth/sessions", protect(ListSessionsHandler(sessions, now, log)))
 	r.Handle("DELETE /v1/auth/sessions/{id}", protect(RemoveSessionHandler(sessions, now, log)))
 
-	return []restate.ServiceDefinition{
-		restate.Reflect(OTP{
-			Prefix: d.ServicePrefix, Quotas: quotas, Challenges: challenges, Codes: codes, SMS: s.SMS, Email: s.Email,
-			Now: now,
-		}),
-		restate.Reflect(SignIn{
-			Prefix: d.ServicePrefix, Challenges: challenges, Credentials: creds, Accounts: accounts,
-			Now: now,
-		}),
+	return Mounted{
+		Services: []restate.ServiceDefinition{
+			restate.Reflect(OTP{
+				Prefix: d.ServicePrefix, Quotas: quotas, Challenges: challenges, Codes: codes, SMS: s.SMS, Email: s.Email,
+				Now: now,
+			}),
+			restate.Reflect(SignIn{
+				Prefix: d.ServicePrefix, Challenges: challenges, Credentials: creds, Accounts: accounts,
+				Now: now,
+			}),
+		},
+		Client: Client{Credentials: creds},
 	}
 }
