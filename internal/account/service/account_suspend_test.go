@@ -13,7 +13,7 @@ import (
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 func TestSuspendRecordsTheChange(t *testing.T) {
@@ -34,7 +34,7 @@ func TestSuspendRecordsTheChange(t *testing.T) {
 		Scan(&action, &details); scanErr != nil {
 		t.Fatal(scanErr)
 	}
-	if action != "account.suspend" || details["reason"] != "spam" || details["until"] != until.Format(time.RFC3339) {
+	if action != string(audit.AccountSuspend) || details["reason"] != "spam" || details["until"] != until.Format(time.RFC3339) {
 		t.Fatalf("%s %v", action, details)
 	}
 

@@ -18,7 +18,7 @@ func (s *Staff) ResetMemberPassword(ctx context.Context, id uuid.UUID, by audit.
 	now := s.now()
 	temp := domain.TemporaryPassword()
 	m.ResetPassword(s.keys.Hasher.Hash(temp), now)
-	if _, err = s.saveManaged(ctx, &m, by, "staff.reset_password", now); err != nil {
+	if _, err = s.saveManaged(ctx, &m, by, audit.StaffResetPassword, now); err != nil {
 		return "", err
 	}
 	return temp, nil
@@ -33,5 +33,5 @@ func (s *Staff) ResetMemberTOTP(ctx context.Context, id uuid.UUID, by audit.Acto
 	}
 	now := s.now()
 	m.ResetTOTP(now)
-	return s.saveManaged(ctx, &m, by, "staff.reset_totp", now)
+	return s.saveManaged(ctx, &m, by, audit.StaffResetTOTP, now)
 }

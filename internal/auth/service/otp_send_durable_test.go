@@ -20,8 +20,8 @@ import (
 	"github.com/shopnexus/server2/internal/auth/repository"
 	"github.com/shopnexus/server2/internal/auth/service"
 	"github.com/shopnexus/server2/internal/platform/contact"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
-	"github.com/shopnexus/server2/internal/platform/restatetest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 )
 
 type otpEnv struct {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 var now = time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)

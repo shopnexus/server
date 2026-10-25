@@ -7,8 +7,8 @@ import (
 
 	"github.com/shopnexus/server2/internal/app"
 	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
-	"github.com/shopnexus/server2/internal/platform/restatetest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 )
 
 func TestHealthz(t *testing.T) {

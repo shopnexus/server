@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/platform/pgtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 func files(m map[string]string) fstest.MapFS {

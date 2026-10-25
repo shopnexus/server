@@ -356,9 +356,12 @@ the decisions and the API.
   `cmd/staff unlock` clears the sign-in lock on an admin's email, which
   anyone can set by sending five wrong passwords.
 - Every staff write on an account or on another member is a row in
-  `staff_actions`, written by `audit.Insert` inside the adapter transaction
-  of the change (`SaveAudited`, `CreateAudited`, `Unlock`). `details` holds
-  what the action name does not say, such as a suspension's reason and end.
+  `staff_actions`, written by `audit.Insert` inside the repository
+  transaction of the change (`SaveAudited`, `CreateAudited`, `Unlock`). Its
+  action is an `audit.ActionKind` constant (`audit.AccountSuspend`,
+  `audit.StaffDisable`, ...), the list the `Action` schema's enum names; a
+  new action adds both. `details` holds what the action does not say, such
+  as a suspension's reason and end.
   Refused sign-ins go to the log as `security: staff sign-in refused` with
   the email and IP; finished ones are rows in `staff_sessions`.
 - TOTP secrets are sealed with AES-GCM under a key HKDF derives from

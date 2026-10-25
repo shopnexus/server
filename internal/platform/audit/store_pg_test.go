@@ -12,7 +12,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 var at = time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
@@ -48,17 +48,17 @@ func TestListFiltersAndPages(t *testing.T) {
 	acc := uuid.NewV7()
 	ip := netip.MustParseAddr("203.0.113.9")
 
-	insert(t, db, audit.Entry{Actor: audit.ByCLI("root"), Action: "staff.create", Target: audit.Staff(mod), At: at})
+	insert(t, db, audit.Entry{Actor: audit.ByCLI("root"), Action: audit.StaffCreate, Target: audit.Staff(mod), At: at})
 	insert(t, db, audit.Entry{
 		Actor:  audit.Actor{Kind: audit.ActorStaff, StaffID: mod, IP: ip},
-		Action: "account.suspend", Target: audit.Account(acc), Details: map[string]any{"reason": "spam"}, At: at.Add(time.Second),
+		Action: audit.AccountSuspend, Target: audit.Account(acc), Details: map[string]any{"reason": "spam"}, At: at.Add(time.Second),
 	})
 
 	all, err := s.List(ctx, audit.Filter{}, page.Request{Limit: 10})
 	if err != nil || len(all) != 2 {
 		t.Fatalf("%+v %v", all, err)
 	}
-	if all[0].Action != "account.suspend" || all[0].Actor.DisplayName != "Mod One" || all[0].IP != "203.0.113.9" ||
+	if all[0].Action != audit.AccountSuspend || all[0].Actor.DisplayName != "Mod One" || all[0].IP != "203.0.113.9" ||
 		all[0].Target.ID != acc || all[0].Details["reason"] != "spam" {
 		t.Fatalf("newest first, with the member's name: %+v", all[0])
 	}

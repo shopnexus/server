@@ -25,7 +25,7 @@ type Action struct {
 	At      time.Time      `json:"at"`
 	Actor   ActionActor    `json:"actor"`
 	IP      string         `json:"ip,omitempty"`
-	Action  string         `json:"action"`
+	Action  ActionKind     `json:"action"`
 	Target  ActionTarget   `json:"target"`
 	Details map[string]any `json:"details"`
 }
@@ -37,8 +37,8 @@ type ActionActor struct {
 }
 
 type ActionTarget struct {
-	Kind string    `json:"kind"`
-	ID   uuid.UUID `json:"id"`
+	Kind TargetKind `json:"kind"`
+	ID   uuid.UUID  `json:"id"`
 }
 
 // Store reads the audit log.

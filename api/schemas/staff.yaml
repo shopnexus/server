@@ -246,6 +246,15 @@ Action:
       type: string
     action:
       type: string
+      enum:
+        - account.suspend
+        - account.unsuspend
+        - staff.create
+        - staff.disable
+        - staff.enable
+        - staff.reset_password
+        - staff.reset_totp
+        - staff.unlock
     target:
       type: object
       additionalProperties: false

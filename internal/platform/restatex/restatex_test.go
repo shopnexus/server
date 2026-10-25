@@ -11,8 +11,8 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/platform/restatetest"
 	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 )
 
 // counter counts how many times its step body really ran.

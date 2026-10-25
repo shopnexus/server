@@ -21,7 +21,7 @@ func (s *Staff) DisableMember(ctx context.Context, id uuid.UUID, by audit.Actor)
 	}
 	now := s.now()
 	m.Disable(now)
-	return s.saveManaged(ctx, &m, by, "staff.disable", now)
+	return s.saveManaged(ctx, &m, by, audit.StaffDisable, now)
 }
 
 // EnableMember lets a disabled member sign in again.
@@ -32,7 +32,7 @@ func (s *Staff) EnableMember(ctx context.Context, id uuid.UUID, by audit.Actor) 
 	}
 	now := s.now()
 	m.Enable(now)
-	return s.saveManaged(ctx, &m, by, "staff.enable", now)
+	return s.saveManaged(ctx, &m, by, audit.StaffEnable, now)
 }
 
 // loadManaged reads the member an admin or the CLI acts on, refusing an
@@ -52,7 +52,7 @@ func (s *Staff) loadManaged(ctx context.Context, id uuid.UUID, by audit.Actor) (
 }
 
 // saveManaged saves a changed member with an audit row of action.
-func (s *Staff) saveManaged(ctx context.Context, m *domain.Member, by audit.Actor, action string, now time.Time) (MemberView, error) {
+func (s *Staff) saveManaged(ctx context.Context, m *domain.Member, by audit.Actor, action audit.ActionKind, now time.Time) (MemberView, error) {
 	err := s.members.SaveAudited(ctx, m, uuid.NewV7(), audit.Entry{Actor: by, Action: action, Target: audit.Staff(m.ID()), At: now})
 	if err != nil {
 		return MemberView{}, saveFailed(err)

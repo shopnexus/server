@@ -12,7 +12,7 @@ import (
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 var now = time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
@@ -165,7 +165,7 @@ func TestSaveAuditedWritesBothOrNeither(t *testing.T) {
 	s := repository.NewAccounts(db)
 	ctx := context.Background()
 	id := seed(t, s)
-	entry := audit.Entry{Actor: audit.ByCLI("test"), Action: "account.suspend", Target: audit.Account(id), At: now}
+	entry := audit.Entry{Actor: audit.ByCLI("test"), Action: audit.AccountSuspend, Target: audit.Account(id), At: now}
 	count := func() int {
 		var n int
 		if err := db.QueryRow(ctx, `SELECT count(*) FROM staff_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&n); err != nil {

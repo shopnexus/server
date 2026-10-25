@@ -35,7 +35,7 @@ func URLs() (ingressURL, adminURL string, err error) {
 // Restate, which signs every request with it.
 func identityFile() string {
 	_, file, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(file), "..", "..", "..", ".restate", "identity.pem")
+	return filepath.Join(filepath.Dir(file), "..", "..", "..", "..", ".restate", "identity.pem")
 }
 
 // ConfigForMain returns the test stack's Restate config with a fresh service

@@ -8,8 +8,8 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/restatetest"
 	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 )
 
 // gate admits "ok" and refuses anything else, as a service refuses a send.

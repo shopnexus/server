@@ -12,7 +12,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 func newKey() []byte { return []byte(uuid.NewV7().String()) }
@@ -95,7 +95,7 @@ func TestRefundAndUnlock(t *testing.T) {
 		_ = s.Fail(ctx, key, now)
 	}
 	target := uuid.NewV7()
-	if err := s.Unlock(ctx, key, now, audit.Entry{Actor: audit.ByCLI("root"), Action: "staff.unlock", Target: audit.Staff(target), At: now}); err != nil {
+	if err := s.Unlock(ctx, key, now, audit.Entry{Actor: audit.ByCLI("root"), Action: audit.StaffUnlock, Target: audit.Staff(target), At: now}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Charge(ctx, key, now); err != nil {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/auth/domain"
 	"github.com/shopnexus/server2/internal/auth/repository"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 func TestIssueSessionCreatesThenRotates(t *testing.T) {

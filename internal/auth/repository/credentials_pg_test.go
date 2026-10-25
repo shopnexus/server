@@ -11,7 +11,7 @@ import (
 	"github.com/shopnexus/server2/internal/auth/domain"
 	"github.com/shopnexus/server2/internal/auth/repository"
 	"github.com/shopnexus/server2/internal/platform/contact"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 // TestPGCredentials checks that the Postgres store behaves as repository.Credentials

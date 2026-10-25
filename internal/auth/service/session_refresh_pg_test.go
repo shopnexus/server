@@ -12,7 +12,7 @@ import (
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/auth/domain"
 	"github.com/shopnexus/server2/internal/auth/repository"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 // TestParallelRefreshRevokes is the spec's parallel-refresh attack: one token

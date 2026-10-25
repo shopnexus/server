@@ -20,7 +20,7 @@ func (s *Staff) CreateMember(ctx context.Context, in CreateMemberInput) (MemberV
 		return MemberView{}, "", fmt.Errorf("new staff member: %w", err)
 	}
 	err = s.members.CreateAudited(ctx, m, audit.Entry{
-		Actor: in.By, Action: "staff.create", Target: audit.Staff(m.ID()), Details: map[string]any{"role": in.Role}, At: now,
+		Actor: in.By, Action: audit.StaffCreate, Target: audit.Staff(m.ID()), Details: map[string]any{"role": in.Role}, At: now,
 	})
 	if err != nil {
 		return MemberView{}, "", fmt.Errorf("create staff member: %w", err)

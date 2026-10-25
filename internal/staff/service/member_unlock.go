@@ -16,7 +16,7 @@ func (s *Staff) UnlockMember(ctx context.Context, id uuid.UUID, by audit.Actor) 
 		return MemberView{}, err
 	}
 	now := s.now()
-	err = s.locks.Unlock(ctx, domain.LockKey(s.keys.Locks, m.Email()), now, audit.Entry{Actor: by, Action: "staff.unlock", Target: audit.Staff(id), At: now})
+	err = s.locks.Unlock(ctx, domain.LockKey(s.keys.Locks, m.Email()), now, audit.Entry{Actor: by, Action: audit.StaffUnlock, Target: audit.Staff(id), At: now})
 	if err != nil {
 		return MemberView{}, fmt.Errorf("unlock staff member: %w", err)
 	}

@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
-	"github.com/shopnexus/server2/internal/platform/restatetest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 )
 
 func discard() *slog.Logger { return slog.New(slog.DiscardHandler) }

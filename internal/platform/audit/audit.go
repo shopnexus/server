@@ -41,20 +41,41 @@ func ByStaff(s authn.Staff) Actor {
 // ByCLI is cmd/staff run by osUser.
 func ByCLI(osUser string) Actor { return Actor{Kind: ActorCLI, Name: osUser} }
 
+// ActionKind is what was done: the action of the Action schema.
+type ActionKind string
+
+const (
+	AccountSuspend     ActionKind = "account.suspend"
+	AccountUnsuspend   ActionKind = "account.unsuspend"
+	StaffCreate        ActionKind = "staff.create"
+	StaffDisable       ActionKind = "staff.disable"
+	StaffEnable        ActionKind = "staff.enable"
+	StaffResetPassword ActionKind = "staff.reset_password"
+	StaffResetTOTP     ActionKind = "staff.reset_totp"
+	StaffUnlock        ActionKind = "staff.unlock"
+)
+
+type TargetKind string
+
+const (
+	TargetAccount TargetKind = "account"
+	TargetStaff   TargetKind = "staff"
+)
+
 // Target is what an action changed.
 type Target struct {
-	Kind string
+	Kind TargetKind
 	ID   uuid.UUID
 }
 
-func Account(id uuid.UUID) Target { return Target{Kind: "account", ID: id} }
-func Staff(id uuid.UUID) Target   { return Target{Kind: "staff", ID: id} }
+func Account(id uuid.UUID) Target { return Target{Kind: TargetAccount, ID: id} }
+func Staff(id uuid.UUID) Target   { return Target{Kind: TargetStaff, ID: id} }
 
-// Entry is one row of staff_actions. Details holds what the action name
+// Entry is one row of staff_actions. Details holds what the action kind
 // does not say, such as a suspension's reason; never a hash or a secret.
 type Entry struct {
 	Actor   Actor
-	Action  string // "account.suspend", "staff.disable", ...
+	Action  ActionKind
 	Target  Target
 	Details map[string]any
 	At      time.Time

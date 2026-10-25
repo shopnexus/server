@@ -12,8 +12,8 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/platform/restatetest"
 	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 )
 
 // attempt is what one run of the handler saw before its failing step.

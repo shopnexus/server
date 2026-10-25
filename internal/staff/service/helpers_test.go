@@ -12,7 +12,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/staff"
 	"github.com/shopnexus/server2/internal/staff/domain"
 	"github.com/shopnexus/server2/internal/staff/service"

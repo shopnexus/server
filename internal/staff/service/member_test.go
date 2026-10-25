@@ -73,7 +73,7 @@ func TestUnlockAndList(t *testing.T) {
 		t.Fatalf("after unlock: %v", err)
 	}
 	acts, err := audit.NewPGStore(e.db).List(ctx, audit.Filter{TargetID: v.ID}, page.Request{Limit: 10})
-	if err != nil || len(acts) != 2 || acts[0].Action != "staff.unlock" || acts[1].Action != "staff.create" || acts[1].Details["role"] != "moderator" {
+	if err != nil || len(acts) != 2 || acts[0].Action != audit.StaffUnlock || acts[1].Action != audit.StaffCreate || acts[1].Details["role"] != "moderator" {
 		t.Fatalf("%+v %v", acts, err)
 	}
 }

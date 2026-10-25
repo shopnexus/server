@@ -9,8 +9,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
-	"github.com/shopnexus/server2/internal/platform/pgtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 //nolint:paralleltest // The test installs the global tracer provider.

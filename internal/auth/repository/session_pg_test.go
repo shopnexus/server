@@ -12,7 +12,7 @@ import (
 	"github.com/shopnexus/server2/internal/auth/domain"
 	"github.com/shopnexus/server2/internal/auth/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/platform/pgtest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 // TestPGSessions checks that the Postgres store behaves as repository.Sessions

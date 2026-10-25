@@ -29,7 +29,7 @@ func (s *Account) Suspend(ctx context.Context, in SuspendInput) (Record, error) 
 		details["until"] = *r.SuspendedUntil
 	}
 	err = s.accounts.SaveAudited(ctx, &a, uuid.NewV7(), audit.Entry{
-		Actor: in.By, Action: "account.suspend", Target: audit.Account(in.ID), Details: details, At: now,
+		Actor: in.By, Action: audit.AccountSuspend, Target: audit.Account(in.ID), Details: details, At: now,
 	})
 	if errors.Is(err, repository.ErrConflict) {
 		return Record{}, apperr.ErrTryAgain
@@ -49,7 +49,7 @@ func (s *Account) Reinstate(ctx context.Context, id uuid.UUID, by audit.Actor) (
 	}
 	a.Reinstate(now)
 	err = s.accounts.SaveAudited(ctx, &a, uuid.NewV7(), audit.Entry{
-		Actor: by, Action: "account.unsuspend", Target: audit.Account(id), At: now,
+		Actor: by, Action: audit.AccountUnsuspend, Target: audit.Account(id), At: now,
 	})
 	if errors.Is(err, repository.ErrConflict) {
 		return Record{}, apperr.ErrTryAgain
