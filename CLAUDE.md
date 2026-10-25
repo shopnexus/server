@@ -26,9 +26,10 @@ new decisions there, not in Claude's memory.
   question at choices that touch security or data. Implementation of an
   approved plan runs without stopping to ask.
 - Scratch files, logs and test output go in `tmp/` (git-ignored), never `/tmp`.
-- A use case, Restate handler or HTTP handler stays one function that reads
-  top to bottom. Do not split it into phase methods or small helpers called
-  once: each hop is one more place a reader has to trace. The old
+- A use case (a method of a module's service), a Restate handler or an
+  HTTP handler reads top to bottom. Do not split it into phase methods or
+  small helpers called once: each hop is one more place a reader has to
+  trace. The old
   `origin/cleancode` branch did this (`price()`, `reserve()`, `persist()` on a
   per-run struct), and the user did not like it there either. A helper is
   fine when several places call it.

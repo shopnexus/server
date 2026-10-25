@@ -4,14 +4,14 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/staff/member"
+	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
 )
 
 var memberOps = []string{"disable", "enable", "unlock", "reset-password", "reset-totp"}
 
 func TestStaffManagesModerators(t *testing.T) {
 	t.Parallel()
-	admin := signInStaff(t, member.RoleAdmin)
+	admin := signInStaff(t, staffdomain.RoleAdmin)
 	email := newStaffEmail()
 	res := staffCall(t, admin, "POST", "/v1/staff/members", map[string]string{"email": email, "display_name": "New Mod"})
 	created := decode[struct {
@@ -37,7 +37,7 @@ func TestStaffManagesModerators(t *testing.T) {
 		t.Fatalf("list without a cookie: %d", got.Status)
 	}
 
-	mod := signInStaff(t, member.RoleModerator)
+	mod := signInStaff(t, staffdomain.RoleModerator)
 	path := "/v1/staff/members/" + mod.ID + "/"
 	if got := staffCall(t, admin, "POST", path+"disable", nil); got.Status != 200 {
 		t.Fatalf("disable: %d %s", got.Status, got.Body)
@@ -76,9 +76,9 @@ func TestStaffManagesModerators(t *testing.T) {
 
 func TestStaffMemberOpsForbidden(t *testing.T) {
 	t.Parallel()
-	admin := signInStaff(t, member.RoleAdmin)
-	mod := signInStaff(t, member.RoleModerator)
-	otherAdmin, _, _ := newStaff(t, member.RoleAdmin)
+	admin := signInStaff(t, staffdomain.RoleAdmin)
+	mod := signInStaff(t, staffdomain.RoleModerator)
+	otherAdmin, _, _ := newStaff(t, staffdomain.RoleAdmin)
 	if got := staffCall(t, mod, "GET", "/v1/staff/members", nil); got.Status != 403 || errorOf(t, got).Code != "staff_forbidden" {
 		t.Fatalf("a moderator listing: %d %s", got.Status, got.Body)
 	}

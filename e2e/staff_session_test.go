@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/staff/member"
+	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
 )
 
 func TestStaffMeAndLogout(t *testing.T) {
 	t.Parallel()
-	s := signInStaff(t, member.RoleAdmin)
+	s := signInStaff(t, staffdomain.RoleAdmin)
 	res := staffCall(t, s, "GET", "/v1/staff/me", nil)
 	if res.Status != 200 || decode[struct {
 		Role string `json:"role"`
@@ -33,7 +33,7 @@ func TestStaffMeAndLogout(t *testing.T) {
 
 func TestStaffChangePassword(t *testing.T) {
 	t.Parallel()
-	s := signInStaff(t, member.RoleModerator)
+	s := signInStaff(t, staffdomain.RoleModerator)
 	body := func(current, next string) map[string]string {
 		return map[string]string{"current_password": current, "new_password": next}
 	}
@@ -49,7 +49,7 @@ func TestStaffChangePassword(t *testing.T) {
 	if res := staffCall(t, s, "GET", "/v1/staff/me", nil); res.Status != 401 {
 		t.Fatalf("this session after the change: %d", res.Status)
 	}
-	code := member.Code(s.Secret, time.Now().Add(30*time.Second))
+	code := staffdomain.Code(s.Secret, time.Now().Add(30*time.Second))
 	if res := staffLogin(t, map[string]string{"email": s.Email, "password": "another long password", "code": code}); res.Status != 200 {
 		t.Fatalf("signing in with the new password: %d %s", res.Status, res.Body)
 	}
@@ -60,7 +60,7 @@ func TestStaffChangePassword(t *testing.T) {
 func TestCredentialsStayInTheirAPI(t *testing.T) {
 	t.Parallel()
 	customer, _ := newAccount(t)
-	s := signInStaff(t, member.RoleModerator)
+	s := signInStaff(t, staffdomain.RoleModerator)
 	if res := staffCall(t, staffSession{}, "GET", "/v1/staff/me", nil, bearer(customer.AccessToken)); res.Status != 401 {
 		t.Fatalf("a customer token on the staff API: %d", res.Status)
 	}

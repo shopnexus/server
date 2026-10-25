@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/staff/member"
+	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
 )
 
 func TestStaffFirstSignIn(t *testing.T) {
 	t.Parallel()
-	_, email, temp := newStaff(t, member.RoleModerator)
+	_, email, temp := newStaff(t, staffdomain.RoleModerator)
 	enroll := func(password string) Response {
 		return staffCall(t, staffSession{}, "POST", "/v1/staff/login/totp-enrollment", map[string]string{"email": email, "password": password})
 	}
@@ -42,7 +42,7 @@ func TestStaffFirstSignIn(t *testing.T) {
 	if res = staffLogin(t, map[string]string{"email": email, "password": staffPassword}); errorOf(t, res).Code != "totp_required" {
 		t.Fatalf("no code: %d %s", res.Status, res.Body)
 	}
-	code := member.Code(decodeBase32(t, enr.Secret), time.Now())
+	code := staffdomain.Code(decodeBase32(t, enr.Secret), time.Now())
 	res = staffLogin(t, map[string]string{"email": email, "password": staffPassword, "code": code}, [2]string{"User-Agent", "e2e-browser"})
 	if res.Status != 200 || decode[struct {
 		Email string `json:"email"`
@@ -61,7 +61,7 @@ func TestStaffFirstSignIn(t *testing.T) {
 
 func TestStaffLoginRefusals(t *testing.T) {
 	t.Parallel()
-	_, email, temp := newStaff(t, member.RoleModerator)
+	_, email, temp := newStaff(t, staffdomain.RoleModerator)
 	if res := staffLogin(t, map[string]string{"email": email}); res.Status != 400 {
 		t.Fatalf("no password: %d", res.Status)
 	}
@@ -88,8 +88,8 @@ func TestStaffLoginRefusals(t *testing.T) {
 
 func TestStaffWrongCodesLock(t *testing.T) {
 	t.Parallel()
-	s := signInStaff(t, member.RoleModerator)
-	good := member.Code(s.Secret, time.Now().Add(30*time.Second))
+	s := signInStaff(t, staffdomain.RoleModerator)
+	good := staffdomain.Code(s.Secret, time.Now().Add(30*time.Second))
 	bad := good[:5] + string(rune('0'+(good[5]-'0'+1)%10))
 	for range 5 {
 		res := staffLogin(t, map[string]string{"email": s.Email, "password": staffPassword, "code": bad})
@@ -106,7 +106,7 @@ func TestStaffWrongCodesLock(t *testing.T) {
 // it, so the spec must not refuse it first.
 func TestStaffLoginNormalisesTheEmail(t *testing.T) {
 	t.Parallel()
-	_, email, temp := newStaff(t, member.RoleModerator)
+	_, email, temp := newStaff(t, staffdomain.RoleModerator)
 	res := staffLogin(t, map[string]string{"email": "  " + strings.ToUpper(email) + " ", "password": temp})
 	if errorOf(t, res).Code != "password_change_required" {
 		t.Fatalf("a padded, upper-case email: %d %s", res.Status, res.Body)

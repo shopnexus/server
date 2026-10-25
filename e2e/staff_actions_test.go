@@ -4,13 +4,13 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/staff/member"
+	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
 )
 
 func TestStaffActions(t *testing.T) {
 	t.Parallel()
-	admin := signInStaff(t, member.RoleAdmin)
-	mod := signInStaff(t, member.RoleModerator)
+	admin := signInStaff(t, staffdomain.RoleAdmin)
+	mod := signInStaff(t, staffdomain.RoleModerator)
 	customer, _ := newAccount(t)
 	if res := staffCall(t, mod, "POST", "/v1/staff/accounts/"+customer.Account.ID+"/suspend", map[string]string{"reason": "spam"}); res.Status != 200 {
 		t.Fatalf("suspend: %d %s", res.Status, res.Body)

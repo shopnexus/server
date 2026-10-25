@@ -1,7 +1,8 @@
 // Package module holds what app hands every module's Mount. A module's Mount
-// takes Deps, its own settings and the ports it needs from other modules,
-// builds its stores, registers its routes, and returns what app and other
-// modules need from it: a client, a middleware or Restate services.
+// takes Deps, its own settings and the services of the modules it calls,
+// builds its repositories, service and handler, registers its routes, and
+// returns what app and other modules need from it: its service or Restate
+// services.
 package module
 
 import (

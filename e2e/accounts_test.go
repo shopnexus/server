@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/auth/session"
+	authdomain "github.com/shopnexus/server2/internal/auth/domain"
 )
 
 type accountView struct {
@@ -39,8 +39,8 @@ func TestAccountMeNeedsAToken(t *testing.T) {
 // gets 404 on both methods.
 func TestAccountMeUnknownAccount(t *testing.T) {
 	t.Parallel()
-	s, _ := session.New(uuid.NewV7(), uuid.NewV7(), "", time.Now(), time.Now())
-	token, _, _ := session.NewSigner(keys).Sign(s, time.Now())
+	s, _ := authdomain.NewSession(uuid.NewV7(), uuid.NewV7(), "", time.Now(), time.Now())
+	token, _, _ := authdomain.NewSigner(keys).Sign(s, time.Now())
 	if res := call(t, server, "GET", "/v1/accounts/me", nil, bearer(token)); res.Status != 404 || errorOf(t, res).Code != "account_not_found" {
 		t.Fatalf("get: %d %s", res.Status, res.Body)
 	}

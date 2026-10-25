@@ -24,10 +24,10 @@ import (
 
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/staff"
-	"github.com/shopnexus/server2/internal/staff/member"
+	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
+	staffsvc "github.com/shopnexus/server2/internal/staff/service"
 )
 
 const usage = "usage: staff create-admin --email <email> --name <name>\n" +
@@ -80,15 +80,15 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return fmt.Errorf("connect to postgres: %w", err)
 	}
 	defer pool.Close()
-	keys, err := staff.NewKeys(cfg.Staff, member.Production)
+	keys, err := staffsvc.NewKeys(cfg.Staff, staffdomain.Production)
 	if err != nil {
 		return fmt.Errorf("staff keys: %w", err)
 	}
-	st := staff.NewStores(pool, keys)
-	by, now := audit.ByCLI(osUser.Username), time.Now()
+	svc := staff.NewService(pool, keys, nil, nil, time.Now)
+	by := audit.ByCLI(osUser.Username)
 
 	if cmd == createAdmin {
-		v, temp, createErr := staff.CreateMember(ctx, st.Members, keys.Hasher, *email, *name, member.RoleAdmin, by, now)
+		v, temp, createErr := svc.CreateMember(ctx, staffsvc.CreateMemberInput{Email: *email, DisplayName: *name, Role: staffdomain.RoleAdmin, By: by})
 		if createErr != nil {
 			return fmt.Errorf("create admin: %w", createErr)
 		}
@@ -97,8 +97,8 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		}
 		return nil
 	}
-	m, err := st.Members.FindByEmail(ctx, contact.NormalizeEmail(*email))
-	if errors.Is(err, member.ErrNotFound) {
+	m, err := svc.FindMember(ctx, *email)
+	if errors.Is(err, staffdomain.ErrMemberNotFound) {
 		return fmt.Errorf("no staff member has the email %s", *email)
 	}
 	if err != nil {
@@ -106,23 +106,23 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	}
 	switch cmd {
 	case "disable":
-		_, err = staff.DisableMember(ctx, st.Members, m.ID(), by, now)
+		_, err = svc.DisableMember(ctx, m.ID, by)
 	case "enable":
-		_, err = staff.EnableMember(ctx, st.Members, m.ID(), by, now)
+		_, err = svc.EnableMember(ctx, m.ID, by)
 	case "unlock":
-		_, err = staff.UnlockMember(ctx, st.Members, st.Locks, keys, m.ID(), by, now)
+		_, err = svc.UnlockMember(ctx, m.ID, by)
 	case "reset-password":
 		var temp string
-		if temp, err = staff.ResetMemberPassword(ctx, st.Members, keys.Hasher, m.ID(), by, now); err == nil {
+		if temp, err = svc.ResetMemberPassword(ctx, m.ID, by); err == nil {
 			_, err = fmt.Fprintf(out, "temporary password: %s\n", temp)
 		}
 	default: // reset-totp
-		_, err = staff.ResetMemberTOTP(ctx, st.Members, m.ID(), by, now)
+		_, err = svc.ResetMemberTOTP(ctx, m.ID, by)
 	}
 	if err != nil {
 		return fmt.Errorf("%s: %w", cmd, err)
 	}
-	if _, err = fmt.Fprintf(out, "%s %s: done\n", cmd, m.Email()); err != nil {
+	if _, err = fmt.Fprintf(out, "%s %s: done\n", cmd, m.Email); err != nil {
 		return fmt.Errorf("print the result: %w", err)
 	}
 	return nil

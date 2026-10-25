@@ -6,7 +6,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/staff/member"
+	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
 )
 
 type staffAccount struct {
@@ -21,7 +21,7 @@ type staffAccountList struct {
 
 func TestStaffFindsAccounts(t *testing.T) {
 	t.Parallel()
-	mod := signInStaff(t, member.RoleModerator)
+	mod := signInStaff(t, staffdomain.RoleModerator)
 	customer, phone := newAccount(t)
 	for _, q := range []string{phone, customer.Account.ID} {
 		// A phone starts with +, which a raw query string reads as a space.
@@ -44,7 +44,7 @@ func TestStaffFindsAccounts(t *testing.T) {
 
 func TestStaffSuspendsAnAccount(t *testing.T) {
 	t.Parallel()
-	mod := signInStaff(t, member.RoleModerator)
+	mod := signInStaff(t, staffdomain.RoleModerator)
 	customer, _ := newAccount(t)
 	path := "/v1/staff/accounts/" + customer.Account.ID
 

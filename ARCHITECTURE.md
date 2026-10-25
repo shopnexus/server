@@ -25,25 +25,27 @@ Restate admin health endpoint.
 
 ### Use cases
 
-A use case is a plain function that takes ports and parameters:
-`func Rename(ctx context.Context, accounts Store, id uuid.UUID, name string, now time.Time) (View, error)`
-in package account.
-A port is an interface, implemented by the Postgres adapter; a test wraps
-that adapter to inject a fault. Another module's use case reaches a caller
-through a port the caller declares. Business code takes no functions as
-arguments: no update callbacks, no transaction closures.
+A use case is a method of the module's service, in its own file:
+`func (s *Account) Rename(ctx context.Context, id uuid.UUID, name string) (AccountView, error)`
+in `account/service/account_rename.go`. `service.Account` holds the module's
+repositories and clock, `service.New` builds it, and it implements
+`service.Service`, the module's contract. The module's handlers and every
+other module call `Service`. A method reads the clock once, `now := s.now()`.
+A repository is an interface with a Postgres implementation; a test wraps it
+to inject a fault. Business code takes no functions as arguments: no update
+callbacks, no transaction closures.
 
-Code is a function by default: a use case, an HTTP handler, an entity
-method. A type with methods exists only where something needs one: an
-adapter, because a port is an interface, and a Restate service, because the
-SDK binds a struct.
 A flow that runs as a Restate service is written in the service handler
-itself (see Durable flows), so it is not a separate use case.
+itself (see Durable flows). The `Service` method in front of it calls it
+through `restatex.Caller`.
 
 ### HTTP handlers
 
-A handler runs in one order: `httpx.Caller` on a signed-in route, `httpx.Bind`
-for the request, the use case, then `httpx.Respond` or `httpx.WriteError`.
+A handler is a method of the module's `handler.Handler` and runs in one
+order: `httpx.Caller` on a signed-in route, `httpx.Bind` for the request, one
+`Service` method, then `httpx.Respond` or `httpx.WriteError`. Its request
+struct is unexported and lives in its file; the response is the view the
+service returns.
 `httpx.Bind(r, &in)` fills a request struct. A field tagged `path`, `query` or
 `header` takes that request value and also carries `json:"-"`; the other
 fields come from the JSON body. The spec middleware has already checked every
@@ -58,15 +60,15 @@ middleware works out once per request from `TRUSTED_PROXIES`.
 
 A list endpoint pages by keyset over UUIDv7 IDs, newest first. Its handler
 binds `page.Request` (the spec's shared `Cursor` and `Limit` parameters),
-alone or embedded in its request struct, and passes it to the use case and
-the store. The store lists rows below `req.Before()`, which is `uuid.Max()`
-on the first page, and reads `req.Fetch()` rows, one more than the page
-holds. The use case returns `page.Of(rows, req, id)`, which drops the extra
+alone or embedded in its request struct, and passes it to the service and
+the repository. The repository lists rows below `req.Before()`, which is
+`uuid.Max()` on the first page, and reads `req.Fetch()` rows, one more than
+the page holds. The service returns `page.Of(rows, req, id)`, which drops the extra
 row and sets `next_cursor` to the ID of the last item kept.
 
 ### Transactions and concurrency
 
-A transaction lives inside an adapter method and covers one aggregate.
+A transaction lives inside a repository method and covers one aggregate.
 Concurrent writes are caught optimistically: `Save` fails with `ErrConflict`
 when the aggregate changed since it was read, and `write_id` (below) is the
 column that detects it. A use case that loses the race answers
@@ -105,9 +107,13 @@ refresh keep working when Restate is down.
   write ID. Entities that a step returns have `MarshalJSON` for the journal.
 - A business refusal leaves the service as data, `Refused *apperr.Error` in
   the result. Restate retries an error, and its ingress keeps only the code
-  and message of a terminal one, which would lose `code` and `details`.
+  and message of a terminal one, which would lose `code` and `details`. The
+  result type has `Refusal()`, and `restatex.Caller` returns that refusal as
+  the error, so the handler gets the same `*apperr.Error` a plain method
+  returns. Each service names its own result type, because Restate derives
+  a JSON schema ID from the type's name and refuses a generic one.
 - A step that can lose a race or find an identity taken returns that as
-  data: `restatex.Outcome(err, otp.ErrConflict)` gives `(true, nil)` for the
+  data: `restatex.Outcome(err, repository.ErrConflict)` gives `(true, nil)` for the
   conflict, and the service decides between steps. `restatex.Ignore` drops an
   outcome that changes nothing, such as a lost race on `last_used_at`.
 - A service takes `Now func() time.Time`, read once per invocation through a
@@ -124,44 +130,58 @@ refresh keep working when Restate is down.
   version 4, which would break the spec's time-ordered cursors). Inserts use
   `ON CONFLICT (id) DO NOTHING`. The same ID is the idempotency key sent to a
   payment provider.
-- A Restate service lives in a `*_service.go` file of its module, and is the
-  only code that passes closures, to `restate.Run`. The HTTP handler that
-  invokes it sits in the matching file (`otp_send.go`, `sign_in.go`).
+- The two Restate services live in `auth/service`: `OTP` in
+  `otp_send_durable.go` and `SignIn` in `sign_in_durable.go`. They are the
+  only code that passes closures, to `restate.Run`. `Auth.SendOTP` and
+  `Auth.SignIn` call them through `restatex.Caller`. `Auth.Durable` returns
+  their definitions for `auth.Mount`.
 
 ### Module layout
 
 ```
 internal/account/
-  account.go              entity: rules, write_id
-  account_store.go        port
-  account_store_pg.go     adapter: hand-written SQL, one transaction per method,
-                          methods in the port's order (Create, Get, Find..., Save, Delete)
-  account_store_pg_test.go
-  account_rename.go       use case and its HTTP handler
-  mount.go                Mount: builds the stores, registers the routes
+  domain/            entity and its rules, business errors
+    account.go
+  repository/        one interface per aggregate, its Postgres version and tests
+    account.go         interface Accounts, ErrNotFound, ErrConflict
+    account_pg.go      hand-written SQL, one transaction per method
+    account_pg_test.go
+  service/           the module's contract and use cases
+    service.go         interface Service, type Account, New
+    views.go           response views and inputs
+    account_rename.go  one use case per file, a method of Account
+  handler/           HTTP: request structs, one method per endpoint
+    handler.go         type Handler, Register
+    account_rename.go
+  account.go         Mount: builds the layers, returns service.Service
 ```
 
-Every aggregate's files follow this layout.
+Modules auth and staff have the same four packages. Imports run one way,
+`handler` → `service` → `repository` → `domain`, and depguard rules in
+`.golangci.yml` refuse an import against it.
+
+An entity keeps its fields unexported, so a repository in another package
+rebuilds one through `Restore…` (`RestoreAccount`, `RestoreChallenge`; a
+member through `domain.MemberState`) and records a write with
+`Saved(writeID)`; only repositories call either.
 
 One binary serves the HTTP API on `:8080` and the Restate endpoint on `:9080`.
-HTTP handlers either call a use case or call a Restate service through the
-ingress and wait for its result. Module account offers an adapter
-(`account.Client`) that implements the ports other modules declare.
+A module's `Mount` takes `module.Deps` (router, pool, Restate ingress and
+service prefix, clock, logger), the module's own settings and the services
+of the modules it calls. It builds the repositories, the service and the
+handler, registers the routes, and returns what app and other modules need:
+`account.Mount` returns `accountsvc.Service`, `auth.Mount` returns its
+`Service` and its Restate services. `app.mountModules` calls each `Mount` in
+dependency order and imports no package inside a module. `auth.Protect`, the
+sign-in middleware, needs only the auth keys, so app builds it first and
+hands it to every module with signed-in routes. `staff.NewService` builds the
+staff service on a pool; `staff.Mount`, `cmd/staff` and the e2e tests share
+it, and `cmd/staff` passes no account or auth service.
 
-A module's `mount.go` holds its `Mount` function. `Mount` takes `module.Deps`
-(router, pool, Restate ingress and service prefix, clock, logger), the
-module's own settings and the ports it needs from other modules. It builds the
-module's stores and keys, registers its routes, and returns what app and other
-modules need: `account.Mount` returns `account.Client`, `auth.Mount` returns
-its Restate services. `app.mountModules` calls each `Mount` in dependency
-order and imports no package inside a module. `auth.Protect`, the sign-in
-middleware, needs only the auth keys, so app builds it first and hands it to
-every module with signed-in routes.
-`staff.Mount` takes its keys and the `AccountPort` and `IdentityPort` it
-reads customers through, after account and auth have mounted. Staff's
-sessions and sign-in locks are plain stores in package `staff`
-(`session_store.go`, `lock_store.go`); only the member is an entity, in
-`staff/member`.
+To run a module in its own process, a client implements that module's
+`Service` over the network and app passes it where it passes the module's
+`Mount` result. The data split, its tables out of the shared database, is
+separate work.
 
 ### Tables and aggregates
 
@@ -263,7 +283,7 @@ rotates its refresh token and returns new tokens for the same session.
 
 ### Session use cases
 
-Refresh, logout and the device list run as plain use cases against the
+Refresh, logout and the device list are plain `Auth` methods against the
 `Session` aggregate; none of them goes through Restate.
 
 Refresh:
@@ -323,14 +343,14 @@ the decisions and the API.
   no refresh, so the console's tabs share one cookie.
 - Every staff route requires `X-Requested-With: shopnexus-console`, which a
   form or link on another site cannot set. The spec declares it and
-  `staff.FromConsole` checks it again. With SameSite=Strict, the console and
-  the API must be on the same site (`console.x.vn` and `api.x.vn`).
-- `staff.Require(..., floor)` reads the session joined with its member on
-  every request. A session lives while it is unrevoked, younger than 8
-  hours, its member is active, and its credentials version equals the
-  member's. A password change, a password or TOTP reset and a disable raise
-  the version, which ends every session of the member, the caller's
-  included; enabling a member brings none back.
+  `handler.FromConsole` checks it again. With SameSite=Strict, the console
+  and the API must be on the same site (`console.x.vn` and `api.x.vn`).
+- `handler.Require(..., floor)` calls `Staff.Authenticate`, which reads the
+  session joined with its member on every request. A session lives while
+  it is unrevoked, younger than 8 hours, its member is active, and its
+  credentials version equals the member's. A password change, a password
+  or TOTP reset and a disable raise the version, which ends every session
+  of the member, the caller's included; enabling a member brings none back.
 - Admins exist only through `cmd/staff`. The API manages moderators, and
   `Member.ManagedBy` refuses an admin target to anyone but the CLI.
   `cmd/staff unlock` clears the sign-in lock on an admin's email, which
@@ -344,8 +364,8 @@ the decisions and the API.
 - TOTP secrets are sealed with AES-GCM under a key HKDF derives from
   `STAFF_KEY`, bound to the member's id. Passwords are argon2id
   (64 MiB, 3 passes, 4 lanes) in PHC form, at most four runs at once.
-- Staff reaches customer data through ports it declares: `AccountPort`
-  (`account.Client`) and `IdentityPort` (`auth.Client`). CORS allows
+- Staff reaches customer data through `accountsvc.Service` and
+  `authsvc.Service`. CORS allows
   `STAFF_CONSOLE_ORIGIN` on `/v1/staff/` and nothing else.
 
 ### Testing
@@ -357,10 +377,13 @@ rule, `ON CONFLICT`, `UNIQUE (kind, value)`) and need a contract suite to
 prove the copy. `go test -short` runs only what needs no database.
 
 - Entities: unit tests, no database. The business rules live here.
-- Adapters: tests on Postgres, including `write_id`: a stale T conflicts,
-  and a second `Save` with the same N succeeds.
-- Use cases: tests on Postgres. A test passes only the ports its use case
-  takes, and wraps an adapter when it needs a conflict or a failure.
+- Repositories: tests on Postgres, including `write_id`: a stale T
+  conflicts, a second `Save` with the same N succeeds, and two `Save`s in a
+  row with new IDs both succeed.
+- Services: tests on Postgres, through the module's service built on real
+  repositories with a stopped clock. A test sets only the dependencies its
+  method uses, and wraps a repository when it needs a conflict or a failure.
+- Handlers: middleware tests with `httptest`; the endpoints run in e2e.
 - Restate services: integration tests against a Restate server from the test
   stack, with the endpoint served in-process (`restatetest.Start`) and a
   hand-moved clock (`restatetest.Clock`). They hold the flow's business
@@ -401,6 +424,10 @@ formatting. The rules that shape the code:
   receivers, except `MarshalJSON`, which `json.Marshal` skips on a value
   otherwise.
 - nolintlint: every `//nolint` names the linter and gives the reason.
+- depguard: a module's domain, repository and service import no layer above
+  them, a handler imports no repository, and production code reaches
+  another module only through its `service`. An error a client sees, such
+  as `account_not_found`, lives in `domain` for that reason.
 
 ### Restate in practice
 

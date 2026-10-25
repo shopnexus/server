@@ -94,6 +94,109 @@ linters:
           deny:
             - pkg: log$
               desc: Use log/slog.
+        # A module's layers import downward only: handler, service,
+        # repository, domain. depguard matches package prefixes, so each
+        # module is listed.
+        # A module reaches another only through its service, so the other
+        # module can move to its own process. Tests may wire another
+        # module's repositories.
+        module account:
+          files:
+            - "**/internal/account/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/shopnexus/server2/internal/auth/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/auth/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/staff/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/staff/handler
+              desc: another module is reached through its service.
+        module auth:
+          files:
+            - "**/internal/auth/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/account/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/staff/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/staff/handler
+              desc: another module is reached through its service.
+        module staff:
+          files:
+            - "**/internal/staff/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/account/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/auth/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/auth/handler
+              desc: another module is reached through its service.
+        domain layer:
+          files:
+            - "**/internal/*/domain/**"
+          deny:
+            - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/account/service
+              desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/account/handler
+              desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/auth/repository
+              desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/auth/service
+              desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/auth/handler
+              desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/staff/repository
+              desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/staff/service
+              desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/staff/handler
+              desc: domain imports no layer above it.
+        repository layer:
+          files:
+            - "**/internal/*/repository/**"
+          deny:
+            - pkg: github.com/shopnexus/server2/internal/account/service
+              desc: repository imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/account/handler
+              desc: repository imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/auth/service
+              desc: repository imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/auth/handler
+              desc: repository imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/staff/service
+              desc: repository imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/staff/handler
+              desc: repository imports no layer above it.
+        service layer:
+          files:
+            - "**/internal/*/service/**"
+          deny:
+            - pkg: github.com/shopnexus/server2/internal/account/handler
+              desc: service imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/auth/handler
+              desc: service imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/staff/handler
+              desc: service imports no layer above it.
+        handler layer:
+          files:
+            - "**/internal/*/handler/**"
+          deny:
+            - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: handler reaches data through service.
+            - pkg: github.com/shopnexus/server2/internal/auth/repository
+              desc: handler reaches data through service.
+            - pkg: github.com/shopnexus/server2/internal/staff/repository
+              desc: handler reaches data through service.
     errcheck:
       check-type-assertions: true
     exhaustruct_v5:
@@ -184,6 +287,10 @@ linters:
         - -ST1016
         - -QF1008
     wrapcheck:
+      # A module's domain returns business errors, *apperr.Error, that reach
+      # the client as they are.
+      ignore-package-globs:
+        - github.com/shopnexus/server2/internal/*/domain
       extra-ignore-sigs:
         # These build an *apperr.Error; there is nothing below it to wrap.
         - apperr.New(
@@ -192,6 +299,10 @@ linters:
         - httpx.Bind[
         # Wraps its own error as "read clock"; a caller has nothing to add.
         - restatex.Now(
+        # The *apperr.Error a Restate service refused with; the client gets it
+        # as the service built it. Caller.Call wraps a transport error itself.
+        - .Refusal()
+        - restatex.Caller[
         # Called from MarshalJSON and UnmarshalJSON. encoding/json names the
         # type itself and adds field context only to errors it can see.
         - encoding/json.Marshal(

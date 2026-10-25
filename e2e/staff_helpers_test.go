@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/staff"
-	"github.com/shopnexus/server2/internal/staff/member"
+	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
+	staffsvc "github.com/shopnexus/server2/internal/staff/service"
 )
 
 const staffPassword = "a long e2e staff password"
@@ -19,10 +19,12 @@ func newStaffEmail() string { return fmt.Sprintf("staff-%d@example.com", seq.Add
 
 // newStaff creates a member the way cmd/staff does and returns its email and
 // temporary password.
-func newStaff(t *testing.T, role member.Role) (id, email, temp string) {
+func newStaff(t *testing.T, role staffdomain.Role) (id, email, temp string) {
 	t.Helper()
 	email = newStaffEmail()
-	v, temp, err := staff.CreateMember(context.Background(), staffStores.Members, member.Fast, email, "E2E Staff", role, audit.ByCLI("e2e"), time.Now())
+	v, temp, err := staffSvc.CreateMember(context.Background(), staffsvc.CreateMemberInput{
+		Email: email, DisplayName: "E2E Staff", Role: role, By: audit.ByCLI("e2e"),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +57,7 @@ func staffLogin(t *testing.T, body map[string]string, headers ...[2]string) Resp
 }
 
 // signInStaff creates a member and takes it through the first sign-in.
-func signInStaff(t *testing.T, role member.Role) staffSession {
+func signInStaff(t *testing.T, role staffdomain.Role) staffSession {
 	t.Helper()
 	id, email, temp := newStaff(t, role)
 	if res := staffLogin(t, map[string]string{"email": email, "password": temp, "new_password": staffPassword}); res.Status != 428 {
@@ -68,7 +70,7 @@ func signInStaff(t *testing.T, role member.Role) staffSession {
 	secret := decodeBase32(t, decode[struct {
 		Secret string `json:"secret"`
 	}](t, res).Secret)
-	res = staffLogin(t, map[string]string{"email": email, "password": staffPassword, "code": member.Code(secret, time.Now())})
+	res = staffLogin(t, map[string]string{"email": email, "password": staffPassword, "code": staffdomain.Code(secret, time.Now())})
 	if res.Status != 200 {
 		t.Fatalf("code: %d %s", res.Status, res.Body)
 	}
