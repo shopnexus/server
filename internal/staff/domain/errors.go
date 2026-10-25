@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"math"
 	"time"
 
 	"github.com/shopnexus/server2/internal/platform/apperr"
@@ -28,5 +27,5 @@ var (
 
 // Locked is ErrLoginLocked with the seconds to wait.
 func Locked(wait time.Duration) error {
-	return ErrLoginLocked.WithDetail("retry_after", int(math.Ceil(wait.Seconds())))
+	return ErrLoginLocked.WithRetryAfter(wait)
 }

@@ -295,6 +295,7 @@ linters:
         # These build an *apperr.Error; there is nothing below it to wrap.
         - apperr.New(
         - .WithDetail(
+        - .WithRetryAfter(
         - .WithField(
         - httpx.Bind[
         # Wraps its own error as "read clock"; a caller has nothing to add.

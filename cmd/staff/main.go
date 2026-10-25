@@ -33,9 +33,16 @@ import (
 const usage = "usage: staff create-admin --email <email> --name <name>\n" +
 	"       staff disable|enable|unlock|reset-password|reset-totp --email <email>"
 
-const createAdmin = "create-admin"
+const (
+	cmdCreateAdmin   = "create-admin"
+	cmdDisable       = "disable"
+	cmdEnable        = "enable"
+	cmdUnlock        = "unlock"
+	cmdResetPassword = "reset-password"
+	cmdResetTOTP     = "reset-totp"
+)
 
-var commands = []string{createAdmin, "disable", "enable", "unlock", "reset-password", "reset-totp"}
+var commands = []string{cmdCreateAdmin, cmdDisable, cmdEnable, cmdUnlock, cmdResetPassword, cmdResetTOTP}
 
 func main() {
 	if err := run(context.Background(), os.Args[1:], os.Stdout); err != nil {
@@ -59,7 +66,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	switch {
 	case *email == "":
 		return errors.New("--email is required")
-	case cmd == createAdmin && *name == "":
+	case cmd == cmdCreateAdmin && *name == "":
 		return errors.New("--name is required for create-admin")
 	default:
 	}
@@ -87,7 +94,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	svc := staff.NewService(pool, keys, nil, nil, time.Now)
 	by := audit.ByCLI(osUser.Username)
 
-	if cmd == createAdmin {
+	if cmd == cmdCreateAdmin {
 		v, temp, createErr := svc.CreateMember(ctx, staffsvc.CreateMemberInput{Email: *email, DisplayName: *name, Role: staffdomain.RoleAdmin, By: by})
 		if createErr != nil {
 			return fmt.Errorf("create admin: %w", createErr)
@@ -105,18 +112,18 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 		return fmt.Errorf("find staff member: %w", err)
 	}
 	switch cmd {
-	case "disable":
+	case cmdDisable:
 		_, err = svc.DisableMember(ctx, m.ID, by)
-	case "enable":
+	case cmdEnable:
 		_, err = svc.EnableMember(ctx, m.ID, by)
-	case "unlock":
+	case cmdUnlock:
 		_, err = svc.UnlockMember(ctx, m.ID, by)
-	case "reset-password":
+	case cmdResetPassword:
 		var temp string
 		if temp, err = svc.ResetMemberPassword(ctx, m.ID, by); err == nil {
 			_, err = fmt.Fprintf(out, "temporary password: %s\n", temp)
 		}
-	default: // reset-totp
+	default: // cmdResetTOTP
 		_, err = svc.ResetMemberTOTP(ctx, m.ID, by)
 	}
 	if err != nil {

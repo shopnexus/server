@@ -6,6 +6,8 @@ package apperr
 import (
 	"errors"
 	"maps"
+	"math"
+	"time"
 )
 
 // Kind classifies an error by what the caller can do about it.
@@ -80,6 +82,12 @@ func (e *Error) WithField(name, problem string) *Error {
 	}
 	c.Fields[name] = problem
 	return &c
+}
+
+// WithRetryAfter returns a copy of e whose retry_after detail is wait in
+// whole seconds, rounded up, so a client that waits it is not refused again.
+func (e *Error) WithRetryAfter(wait time.Duration) *Error {
+	return e.WithDetail("retry_after", int(math.Ceil(wait.Seconds())))
 }
 
 // WithDetail returns a copy of e with one more detail.

@@ -81,7 +81,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	// A log sender writes every OTP code to the log.
 	_, smsLogs := o.sms.(sms.LogSender)
 	_, emailLogs := o.email.(email.LogSender)
-	if cfg.Env == "prod" && (smsLogs || emailLogs) {
+	if cfg.Env == config.EnvProd && (smsLogs || emailLogs) {
 		return nil, errors.New("APP_ENV=prod with a log sender for SMS or email; configure real senders")
 	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)

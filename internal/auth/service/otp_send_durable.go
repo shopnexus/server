@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"math"
 	"net/netip"
 	"time"
 	"uuid"
@@ -101,7 +100,7 @@ func admit(ctx restate.Context, quotas repository.Quotas, key string, at time.Ti
 			if rule == resend {
 				refused = domain.ErrOTPTooSoon
 			}
-			return refused.WithDetail("retry_after", int(math.Ceil(wait.Seconds()))), nil
+			return refused.WithRetryAfter(wait), nil
 		}
 		w := restatex.NewID(ctx, at)
 		lost, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
@@ -117,7 +116,7 @@ func admit(ctx restate.Context, quotas repository.Quotas, key string, at time.Ti
 		}
 	}
 	// The racing sends finish within a second.
-	return domain.ErrOTPLimit.WithDetail("retry_after", 1), nil
+	return domain.ErrOTPLimit.WithRetryAfter(time.Second), nil
 }
 
 var (

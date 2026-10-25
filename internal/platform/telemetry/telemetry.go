@@ -30,7 +30,7 @@ func Setup(ctx context.Context, cfg config.Config, version string) (shutdown fun
 	res := resource.NewSchemaless(
 		semconv.ServiceName(cfg.ServiceName),
 		semconv.ServiceVersion(version),
-		semconv.DeploymentEnvironmentName(cfg.Env),
+		semconv.DeploymentEnvironmentName(string(cfg.Env)),
 	)
 	if cfg.OTLPEndpoint == "" {
 		// No exporter, but a real provider: spans still get ids, so logs,

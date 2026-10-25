@@ -14,16 +14,33 @@ import (
 	"strings"
 )
 
+// Env is APP_ENV.
+type Env string
+
+const (
+	EnvDev  Env = "dev"
+	EnvTest Env = "test"
+	EnvProd Env = "prod"
+)
+
+// LogFormat is LOG_FORMAT.
+type LogFormat string
+
+const (
+	LogText LogFormat = "text"
+	LogJSON LogFormat = "json"
+)
+
 // Config holds every setting the server reads. Modules receive the parts they
 // need through their constructors and never read the environment themselves.
 type Config struct {
-	Env            string     // APP_ENV: dev | test | prod
+	Env            Env
 	HTTPAddr       string     // HTTP_ADDR
 	LogLevel       slog.Level // LOG_LEVEL: debug | info | warn | error
-	LogFormat      string     // LOG_FORMAT: text | json
-	DatabaseURL    string     // DATABASE_URL
-	OTLPEndpoint   string     // OTEL_EXPORTER_OTLP_ENDPOINT; empty disables export
-	ServiceName    string     // SERVICE_NAME
+	LogFormat      LogFormat
+	DatabaseURL    string // DATABASE_URL
+	OTLPEndpoint   string // OTEL_EXPORTER_OTLP_ENDPOINT; empty disables export
+	ServiceName    string // SERVICE_NAME
 	Restate        RestateConfig
 	TrustedProxies []netip.Prefix // TRUSTED_PROXIES: CIDRs whose X-Forwarded-For is believed
 	Auth           AuthConfig
@@ -141,10 +158,10 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 
 	cfg := Config{
-		Env:         oneOf("APP_ENV", "dev", "test", "prod"),
+		Env:         Env(oneOf("APP_ENV", string(EnvDev), string(EnvTest), string(EnvProd))),
 		HTTPAddr:    need("HTTP_ADDR"),
 		LogLevel:    logLevel,
-		LogFormat:   oneOf("LOG_FORMAT", "text", "json"),
+		LogFormat:   LogFormat(oneOf("LOG_FORMAT", string(LogText), string(LogJSON))),
 		DatabaseURL: need("DATABASE_URL"),
 		Restate: RestateConfig{
 			IngressURL:    need("RESTATE_INGRESS_URL"),
@@ -183,7 +200,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 
 	switch key := cfg.Restate.IdentityKey; {
-	case key == "" && cfg.Env == "prod":
+	case key == "" && cfg.Env == EnvProd:
 		errs = append(errs, errors.New("RESTATE_IDENTITY_KEY is required with APP_ENV=prod; make run adds it to .env"))
 	case key != "" && !strings.HasPrefix(key, "publickeyv1_"):
 		errs = append(errs, errors.New("RESTATE_IDENTITY_KEY must start with publickeyv1_"))

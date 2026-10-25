@@ -7,15 +7,17 @@ import (
 
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel/trace"
+
+	"github.com/shopnexus/server2/internal/platform/config"
 )
 
 // NewLogger writes text or JSON records to w at level and above, adds trace_id
 // and span_id from the context, and sends each record to the global OTel
 // logger provider as well. Before Setup installs one, that provider is a no-op.
-func NewLogger(w io.Writer, format string, level slog.Level) *slog.Logger {
+func NewLogger(w io.Writer, format config.LogFormat, level slog.Level) *slog.Logger {
 	opts := &slog.HandlerOptions{Level: level}
 	var local slog.Handler = slog.NewJSONHandler(w, opts)
-	if format == "text" {
+	if format == config.LogText {
 		local = slog.NewTextHandler(w, opts)
 	}
 	return slog.New(&contextHandler{

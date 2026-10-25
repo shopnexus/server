@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/shopnexus/server2/internal/platform/apperr"
 )
@@ -64,5 +65,20 @@ func TestWithDetailCopies(t *testing.T) {
 	}
 	if again := got.WithDetail("retry_after", 9); len(got.Details) != 1 || len(again.Details) != 2 {
 		t.Fatalf("got %v, again %v", got.Details, again.Details)
+	}
+}
+
+// A part second rounds up, so a client that waits retry_after is not
+// refused again.
+func TestWithRetryAfterRoundsUp(t *testing.T) {
+	t.Parallel()
+	base := apperr.New(apperr.KindRateLimited, "otp_limit", "too many")
+	for wait, want := range map[time.Duration]int{time.Second: 1, 1500 * time.Millisecond: 2, 44*time.Second + time.Millisecond: 45} {
+		if got := base.WithRetryAfter(wait).Details["retry_after"]; got != want {
+			t.Errorf("%s: %v, want %d", wait, got, want)
+		}
+	}
+	if base.Details != nil {
+		t.Fatalf("the sentinel changed: %v", base.Details)
 	}
 }
