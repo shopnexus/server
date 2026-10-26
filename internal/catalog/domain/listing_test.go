@@ -75,6 +75,14 @@ func TestNewListingRules(t *testing.T) {
 	if _, err := domain.NewListing(uuid.NewV7(), uuid.NewV7(), d, known, now); !errors.Is(err, domain.ErrInvalidListing) {
 		t.Error("no photo accepted")
 	}
+	for price, ok := range map[int64]bool{1_000_000_000: true, 1_000_000_001: false} {
+		d = draft()
+		d.Price = price
+		_, err := domain.NewListing(uuid.NewV7(), uuid.NewV7(), d, known, now)
+		if e, isErr := errors.AsType[*apperr.Error](err); (err == nil) != ok || (!ok && (!isErr || e.Fields["price"] == "")) {
+			t.Errorf("price %d: %v", price, err)
+		}
+	}
 	_, err := domain.NewListing(uuid.NewV7(), uuid.NewV7(), draft(), domain.Refs{}, now)
 	if e, ok := errors.AsType[*apperr.Error](err); !ok || e.Fields["category_code"] == "" || e.Fields["commune_code"] == "" {
 		t.Errorf("unknown category and commune: %v", err)

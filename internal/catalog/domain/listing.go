@@ -15,6 +15,7 @@ const (
 	// MaxOnSale is how many listings a seller may have on sale or hidden.
 	MaxOnSale      = 20
 	MinPrice       = 10_000
+	MaxPrice       = 1_000_000_000
 	MaxTitle       = 70
 	MaxDescription = 1500
 	MaxPhotos      = 10
@@ -150,8 +151,8 @@ func (l *Listing) apply(d Draft, refs Refs, now time.Time) error {
 	if n := utf8.RuneCountInString(title); n < 1 || n > MaxTitle {
 		e = e.WithField("title", "1 to 70 characters")
 	}
-	if d.Price < MinPrice {
-		e = e.WithField("price", "at least 10,000 đồng")
+	if d.Price < MinPrice || d.Price > MaxPrice {
+		e = e.WithField("price", "10,000 to 1,000,000,000 đồng")
 	}
 	description := strings.TrimSpace(d.Description)
 	if utf8.RuneCountInString(description) > MaxDescription {

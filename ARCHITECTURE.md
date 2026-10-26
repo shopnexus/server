@@ -491,6 +491,11 @@ Module `catalog` holds listings, categories and regions. A listing is one
 item at one price, C2C, cash on delivery. Drafts stay on the device; the
 server receives a complete listing.
 
+- A price is whole đồng, 10,000 to 1,000,000,000. The ceiling (decided
+  2026-10-26) refuses a price typed with extra zeros and keeps a deal's
+  amount arithmetic far from int64 overflow; migration 0009 adds it to the
+  table's check.
+
 - Status: processing → active or rejected; active ⇄ hidden; active or
   hidden → sold → active; any status → deleted. Only active is public. An
   edit that adds an upload, or an edit of a rejected listing, returns the
