@@ -22,16 +22,16 @@ var discard = slog.New(slog.DiscardHandler)
 
 // inbox is a subscriber that counts the events it handled.
 type inbox struct {
-	prefix string
-	mu     *sync.Mutex
-	got    map[uuid.UUID]int
+	name string // with the prefix
+	mu   *sync.Mutex
+	got  map[uuid.UUID]int
 }
 
-func newInbox() inbox {
-	return inbox{prefix: restatetest.Prefix(), mu: &sync.Mutex{}, got: map[uuid.UUID]int{}}
+func newInbox(prefix, name string) inbox {
+	return inbox{name: prefix + name, mu: &sync.Mutex{}, got: map[uuid.UUID]int{}}
 }
 
-func (i inbox) ServiceName() string { return i.prefix + "Inbox" }
+func (i inbox) ServiceName() string { return i.name }
 
 func (i inbox) Handle(ctx restate.Context, e events.Event) error {
 	return restate.RunVoid(ctx, func(restate.RunContext) error {
@@ -57,6 +57,30 @@ func eventually(t *testing.T, ok func() bool) {
 		}
 	}
 	t.Fatal("not within 10s")
+}
+
+// ingressClient reaches the test stack's Restate.
+func ingressClient(t *testing.T) *ingress.Client {
+	t.Helper()
+	url, _, err := restatetest.URLs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ingress.NewClient(url)
+}
+
+// newBus is a bus on prefix p whose Events service is served, with the
+// subscribers given, by an endpoint of the test stack.
+func newBus(t *testing.T, db *pgxpool.Pool, p string, subscribers ...inbox) *events.Bus {
+	t.Helper()
+	bus := events.NewBus(db, ingressClient(t), p, time.Now, discard)
+	defs := make([]restate.ServiceDefinition, 0, 1+len(subscribers))
+	defs = append(defs, bus.Definition())
+	for _, i := range subscribers {
+		defs = append(defs, restate.Reflect(i))
+	}
+	restatetest.Start(t, defs...)
+	return bus
 }
 
 // run starts b until the test ends.
@@ -90,9 +114,9 @@ func dispatched(t *testing.T, db *pgxpool.Pool, id uuid.UUID) bool {
 func TestEverySubscriberGetsTheEventOnce(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	a, b := newInbox(), newInbox()
-	in := restatetest.Start(t, restate.Reflect(a), restate.Reflect(b))
-	bus := events.NewBus(db, in, time.Now, discard)
+	p := restatetest.Prefix()
+	a, b := newInbox(p, "A"), newInbox(p, "B")
+	bus := newBus(t, db, p, a, b)
 	bus.Subscribe(events.AccountSuspended, a.ServiceName(), "Handle")
 	bus.Subscribe(events.AccountSuspended, b.ServiceName(), "Handle")
 	run(t, bus)
@@ -107,10 +131,11 @@ func TestEverySubscriberGetsTheEventOnce(t *testing.T) {
 func TestTwoBusesDeliverEachEventOnce(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	a := newInbox()
-	in := restatetest.Start(t, restate.Reflect(a))
-	for range 2 {
-		bus := events.NewBus(db, in, time.Now, discard)
+	p := restatetest.Prefix()
+	a := newInbox(p, "A")
+	first := newBus(t, db, p, a)
+	second := events.NewBus(db, ingressClient(t), p, time.Now, discard)
+	for _, bus := range []*events.Bus{first, second} {
 		bus.Subscribe(events.AccountRenamed, a.ServiceName(), "Handle")
 		run(t, bus)
 	}
@@ -136,8 +161,7 @@ func TestTwoBusesDeliverEachEventOnce(t *testing.T) {
 func TestEventWithoutSubscriberIsMarked(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	bus := events.NewBus(db, restatetest.Start(t), time.Now, discard)
-	run(t, bus)
+	run(t, events.NewBus(db, ingressClient(t), restatetest.Prefix(), time.Now, discard))
 	e := publish(t, db, events.AccountUnsuspended)
 	eventually(t, func() bool { return dispatched(t, db, e.ID) })
 }
@@ -146,9 +170,9 @@ func TestEventWithoutSubscriberIsMarked(t *testing.T) {
 func TestDeliversWithoutNotify(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	a := newInbox()
-	in := restatetest.Start(t, restate.Reflect(a))
-	bus := events.NewBus(db, in, time.Now, discard)
+	p := restatetest.Prefix()
+	a := newInbox(p, "A")
+	bus := newBus(t, db, p, a)
 	bus.Subscribe(events.AccountRenamed, a.ServiceName(), "Handle")
 	id := uuid.NewV7()
 	if _, err := db.Exec(context.Background(),
@@ -165,9 +189,9 @@ func TestDeliversWithoutNotify(t *testing.T) {
 func TestDeliversAfterRestateReturns(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	a := newInbox()
-	in := restatetest.Start(t, restate.Reflect(a))
-	down := events.NewBus(db, ingress.NewClient("http://127.0.0.1:1"), time.Now, discard)
+	p := restatetest.Prefix()
+	a := newInbox(p, "A")
+	down := events.NewBus(db, ingress.NewClient("http://127.0.0.1:1"), p, time.Now, discard)
 	down.Subscribe(events.AccountRenamed, a.ServiceName(), "Handle")
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -179,7 +203,7 @@ func TestDeliversAfterRestateReturns(t *testing.T) {
 	if dispatched(t, db, e.ID) {
 		t.Fatal("marked while Restate was down")
 	}
-	up := events.NewBus(db, in, time.Now, discard)
+	up := newBus(t, db, p, a)
 	up.Subscribe(events.AccountRenamed, a.ServiceName(), "Handle")
 	run(t, up)
 	eventually(t, func() bool { return a.count(e.ID) == 1 && dispatched(t, db, e.ID) })
@@ -197,7 +221,7 @@ func TestOldDispatchedEventsAreDeleted(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	run(t, events.NewBus(db, restatetest.Start(t), func() time.Time { return now }, discard))
+	run(t, events.NewBus(db, ingressClient(t), restatetest.Prefix(), func() time.Time { return now }, discard))
 	count := func(id uuid.UUID) int {
 		var n int
 		_ = db.QueryRow(context.Background(), `SELECT count(*) FROM events WHERE id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&n)
@@ -211,7 +235,7 @@ func TestOldDispatchedEventsAreDeleted(t *testing.T) {
 
 func TestRunStopsWithItsContext(t *testing.T) {
 	t.Parallel()
-	bus := events.NewBus(pgtest.New(t), restatetest.Start(t), time.Now, discard)
+	bus := events.NewBus(pgtest.New(t), ingressClient(t), restatetest.Prefix(), time.Now, discard)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- bus.Run(ctx) }()
@@ -229,7 +253,7 @@ func TestRunStopsWithItsContext(t *testing.T) {
 
 func TestSubscribeAfterRunPanics(t *testing.T) {
 	t.Parallel()
-	bus := events.NewBus(pgtest.New(t), restatetest.Start(t), time.Now, discard)
+	bus := events.NewBus(pgtest.New(t), ingressClient(t), restatetest.Prefix(), time.Now, discard)
 	run(t, bus)
 	time.Sleep(100 * time.Millisecond)
 	defer func() {
@@ -245,7 +269,7 @@ func TestSubscribeAfterRunPanics(t *testing.T) {
 func TestPoolClosesWhileRunning(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	run(t, events.NewBus(db, restatetest.Start(t), time.Now, discard))
+	run(t, events.NewBus(db, ingressClient(t), restatetest.Prefix(), time.Now, discard))
 	time.Sleep(200 * time.Millisecond) // listening by now
 	closed := make(chan struct{})
 	go func() { db.Close(); close(closed) }()
@@ -256,42 +280,42 @@ func TestPoolClosesWhileRunning(t *testing.T) {
 	}
 }
 
-// A subscription Restate refuses (a misspelled service) leaves its event
-// pending and delivers every other event.
-func TestUndeliverableEventBlocksNoOther(t *testing.T) {
+// A subscriber Restate does not know delays only the events sent to it:
+// Restate retries that Deliver, and every other event is delivered.
+func TestUnknownSubscriberDelaysOnlyItsEvents(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	a := newInbox()
-	in := restatetest.Start(t, restate.Reflect(a))
-	bus := events.NewBus(db, in, time.Now, discard)
-	bus.Subscribe(events.AccountRenamed, a.prefix+"NoSuchService", "Handle")
+	p := restatetest.Prefix()
+	a := newInbox(p, "A")
+	bus := newBus(t, db, p, a)
+	bus.Subscribe(events.AccountRenamed, p+"NoSuchService", "Handle")
 	bus.Subscribe(events.AccountSuspended, a.ServiceName(), "Handle")
-	stuck := publish(t, db, events.AccountRenamed)
+	publish(t, db, events.AccountRenamed)
 	later := publish(t, db, events.AccountSuspended)
 	run(t, bus)
 	eventually(t, func() bool { return a.count(later.ID) == 1 })
-	if dispatched(t, db, stuck.ID) {
-		t.Fatal("an undelivered event was marked")
-	}
 }
 
 func TestCheckRefusesUnknownSubscriptions(t *testing.T) {
 	t.Parallel()
-	a := newInbox()
-	defs := []restate.ServiceDefinition{restate.Reflect(a)}
+	p := restatetest.Prefix()
+	a := newInbox(p, "A")
 	for name, sub := range map[string][2]string{
-		"unknown service": {a.prefix + "NoSuchService", "Handle"},
+		"unknown service": {p + "NoSuchService", "Handle"},
 		"unknown handler": {a.ServiceName(), "NoSuchHandler"},
 	} {
-		bus := events.NewBus(nil, nil, time.Now, discard)
+		bus := events.NewBus(nil, nil, p, time.Now, discard)
 		bus.Subscribe(events.AccountRenamed, sub[0], sub[1])
-		if err := bus.Check(defs); err == nil {
+		if err := bus.Check([]restate.ServiceDefinition{bus.Definition(), restate.Reflect(a)}); err == nil {
 			t.Errorf("%s: no error", name)
 		}
 	}
-	ok := events.NewBus(nil, nil, time.Now, discard)
+	ok := events.NewBus(nil, nil, p, time.Now, discard)
 	ok.Subscribe(events.AccountRenamed, a.ServiceName(), "Handle")
-	if err := ok.Check(defs); err != nil {
+	if err := ok.Check([]restate.ServiceDefinition{restate.Reflect(a)}); err == nil {
+		t.Error("no error without the bus's own Events service")
+	}
+	if err := ok.Check([]restate.ServiceDefinition{ok.Definition(), restate.Reflect(a)}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -300,7 +324,7 @@ func TestCheckRefusesUnknownSubscriptions(t *testing.T) {
 func TestRunClosesItsListenConnection(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	bus := events.NewBus(db, restatetest.Start(t), time.Now, discard)
+	bus := events.NewBus(db, ingressClient(t), restatetest.Prefix(), time.Now, discard)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = bus.Run(ctx); close(done) }()
@@ -317,4 +341,29 @@ SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND que
 	<-done
 	// Postgres drops the backend a moment after the client closes it.
 	eventually(t, func() bool { return listening() == 0 })
+}
+
+// Of two subscribers of a kind, the first gets the event once while the
+// second is not registered yet, and still once after the second is: the
+// retried Deliver does not send to the first again.
+func TestLateSubscriberDoesNotRepeatTheFirst(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	p := restatetest.Prefix()
+	first, late := newInbox(p, "First"), newInbox(p, "Late")
+	bus := newBus(t, db, p, first)
+	bus.Subscribe(events.AccountRenamed, first.ServiceName(), "Handle")
+	bus.Subscribe(events.AccountRenamed, late.ServiceName(), "Handle")
+	run(t, bus)
+	e := publish(t, db, events.AccountRenamed)
+	eventually(t, func() bool { return first.count(e.ID) == 1 })
+	time.Sleep(5 * time.Second) // Restate retries Deliver meanwhile
+	restatetest.Start(t, restate.Reflect(late))
+	deadline := time.Now().Add(90 * time.Second) // Restate's backoff grows past a minute
+	for late.count(e.ID) == 0 && time.Now().Before(deadline) {
+		time.Sleep(200 * time.Millisecond)
+	}
+	if late.count(e.ID) != 1 || first.count(e.ID) != 1 {
+		t.Fatalf("first %d, late %d", first.count(e.ID), late.count(e.ID))
+	}
 }

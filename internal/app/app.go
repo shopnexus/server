@@ -123,11 +123,12 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		httpx.Respond(w, http.StatusOK, status{"ok"})
 	})
 	in := ingress.NewClient(cfg.Restate.IngressURL)
-	bus := events.NewBus(pool, in, time.Now, log)
+	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
 	defs, err := mountModules(a.router, pool, in, bus, cfg, o, log)
 	if err != nil {
 		return nil, err
 	}
+	defs = append(defs, bus.Definition())
 	if err = bus.Check(defs); err != nil {
 		return nil, fmt.Errorf("check event subscriptions: %w", err)
 	}

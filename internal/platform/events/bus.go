@@ -35,15 +35,14 @@ type Subscription struct {
 	Handler string
 }
 
-// key is the idempotency key of one delivery; Restate drops a repeat.
-func (s Subscription) key(e Event) string { return e.ID.String() + "/" + s.Service + "/" + s.Handler }
-
-// Bus delivers events to the handlers subscribed to their kind. Each event
-// to each subscriber is its own Restate invocation, so a failing handler
-// blocks no other event.
+// Bus delivers events to the handlers subscribed to their kind. It sends
+// each event once to its Restate service Events, whose Deliver hands it to
+// every subscriber; each subscriber then runs as an invocation of its own,
+// so a failing handler blocks no other.
 type Bus struct {
 	db      *pgxpool.Pool
 	ingress *ingress.Client
+	prefix  string
 	now     func() time.Time
 	log     *slog.Logger
 	mu      sync.Mutex
@@ -51,8 +50,23 @@ type Bus struct {
 	running bool
 }
 
-func NewBus(db *pgxpool.Pool, in *ingress.Client, now func() time.Time, log *slog.Logger) *Bus {
-	return &Bus{db: db, ingress: in, now: now, log: log, subs: map[Kind][]Subscription{}}
+// NewBus builds a bus whose Events service carries prefix, the process's
+// Restate service prefix.
+func NewBus(db *pgxpool.Pool, in *ingress.Client, prefix string, now func() time.Time, log *slog.Logger) *Bus {
+	return &Bus{db: db, ingress: in, prefix: prefix, now: now, log: log, subs: map[Kind][]Subscription{}}
+}
+
+// Definition is the bus's Restate service, Events, which app serves with
+// the modules' services.
+func (b *Bus) Definition() restate.ServiceDefinition { return restate.Reflect(deliverer{bus: b}) }
+
+func (b *Bus) service() string { return b.prefix + deliverService }
+
+// subscribers returns the subscriptions of kind.
+func (b *Bus) subscribers(kind Kind) []Subscription {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.subs[kind]
 }
 
 // Subscribe hands every event of kind to service's handler, a Restate
@@ -69,8 +83,8 @@ func (b *Bus) Subscribe(kind Kind, service, handler string) {
 }
 
 // Check reports a subscription to a service or handler that defs, the
-// Restate services this process serves, do not have; Restate would refuse
-// every delivery to it.
+// Restate services this process serves, do not have, and defs without the
+// bus's own Events service. Deliver would retry such a send forever.
 func (b *Bus) Check(defs []restate.ServiceDefinition) error {
 	handlers := map[string]map[string]bool{}
 	for _, d := range defs {
@@ -83,6 +97,9 @@ func (b *Bus) Check(defs []restate.ServiceDefinition) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	var errs []error
+	if !handlers[b.service()][deliverHandler] {
+		errs = append(errs, fmt.Errorf("events: %s/%s is not served; add Bus.Definition to the Restate services", b.service(), deliverHandler))
+	}
 	for _, subs := range b.subs {
 		for _, s := range subs {
 			if !handlers[s.Service][s.Handler] {
@@ -198,15 +215,23 @@ func (b *Bus) waitNotifications(ctx context.Context, wake chan<- struct{}) error
 
 const selectPending = `
 SELECT id, kind, subject_id, data, at FROM events
-WHERE dispatched_at IS NULL ORDER BY id LIMIT @limit
+WHERE dispatched_at IS NULL AND (next_attempt_at IS NULL OR next_attempt_at <= @now)
+ORDER BY id LIMIT @limit
 FOR UPDATE SKIP LOCKED`
 
-// dispatch sends one batch and marks what it sent, in one transaction, so
-// two buses never hold the same event, and returns how many it marked.
-// Restate refusing one delivery (4xx: a service or handler it does not
-// know) leaves that event pending and goes on with the next. Any other
-// failed send (Restate unreachable, silent past sendTimeout, 5xx) ends the
-// batch. Events not marked are sent again next round under the same keys.
+// backOff makes refused events wait 1 s, 2 s, 4 s and so on, up to an hour.
+const backOff = `
+UPDATE events SET attempts = attempts + 1,
+       next_attempt_at = @now::timestamptz + least(interval '1 second' * power(2, attempts), interval '1 hour')
+WHERE id = ANY(@ids)`
+
+// dispatch sends one batch to Events.Deliver, one send per event, and
+// marks what Restate took, in one transaction, so two buses never hold the
+// same event; it returns how many it marked. An event whose kind has no
+// subscriber is marked without a send. When the ingress refuses an event
+// (4xx), the event backs off and the batch goes on. Any other failed send
+// (Restate unreachable, silent past sendTimeout, 5xx) ends the batch.
+// Events not marked are sent again later under the same key.
 func (b *Bus) dispatch(ctx context.Context) (int, error) {
 	b.mu.Lock()
 	subs := b.subs
@@ -216,7 +241,7 @@ func (b *Bus) dispatch(ctx context.Context) (int, error) {
 		sendErr error
 	)
 	err := pgx.BeginFunc(ctx, b.db, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, selectPending, pgx.StrictNamedArgs{"limit": batchSize})
+		rows, err := tx.Query(ctx, selectPending, pgx.StrictNamedArgs{"now": b.now(), "limit": batchSize})
 		if err != nil {
 			return fmt.Errorf("select pending events: %w", err)
 		}
@@ -225,28 +250,31 @@ func (b *Bus) dispatch(ctx context.Context) (int, error) {
 			return fmt.Errorf("read pending events: %w", err)
 		}
 		sent := make([]uuid.UUID, 0, len(pending))
-	batch:
+		var refused []uuid.UUID
 		for _, e := range pending {
-			refused := false
-			for _, s := range subs[e.Kind] {
-				sendCtx, cancel := context.WithTimeout(ctx, sendTimeout)
-				_, err = ingress.ServiceSend[Event](b.ingress, s.Service, s.Handler).
-					Send(sendCtx, e, restate.WithIdempotencyKey(s.key(e)))
-				cancel()
-				if ie, ok := errors.AsType[ingress.Error](err); ok && ie.Code() >= 400 && ie.Code() < 500 {
-					b.log.ErrorContext(ctx, "events: Restate refused a delivery", "event_id", e.ID, "kind", e.Kind,
-						"service", s.Service, "handler", s.Handler, "err", err)
-					refused = true
-					continue
-				}
-				if err != nil {
-					sendErr = err
-					break batch
-				}
-				dispatched.Add(ctx, 1, metric.WithAttributes(attribute.String("kind", string(e.Kind))))
-			}
-			if !refused {
+			if len(subs[e.Kind]) == 0 {
 				sent = append(sent, e.ID)
+				continue
+			}
+			sendCtx, cancel := context.WithTimeout(ctx, sendTimeout)
+			_, err = ingress.ServiceSend[Event](b.ingress, b.service(), deliverHandler).
+				Send(sendCtx, e, restate.WithIdempotencyKey(e.ID.String()))
+			cancel()
+			if ie, ok := errors.AsType[ingress.Error](err); ok && ie.Code() >= 400 && ie.Code() < 500 {
+				b.log.ErrorContext(ctx, "events: Restate refused an event", "event_id", e.ID, "kind", e.Kind, "err", err)
+				refused = append(refused, e.ID)
+				continue
+			}
+			if err != nil {
+				sendErr = err
+				break
+			}
+			dispatched.Add(ctx, 1, metric.WithAttributes(attribute.String("kind", string(e.Kind))))
+			sent = append(sent, e.ID)
+		}
+		if len(refused) > 0 {
+			if _, err = tx.Exec(ctx, backOff, pgx.StrictNamedArgs{"now": b.now(), "ids": refused}); err != nil {
+				return fmt.Errorf("back off refused events: %w", err)
 			}
 		}
 		if len(sent) == 0 {

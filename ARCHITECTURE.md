@@ -155,28 +155,37 @@ reacts. Every subscriber is a module of server2, so there is no broker.
   exists already is not written again, so a durable step that retries its
   save with the event IDs from its journal writes one event. `Insert` also
   runs `pg_notify('events', '')`, which Postgres delivers on commit.
-- A subscriber module's `Mount` calls `d.Events.Subscribe(kind, service,
-  handler)` for a handler of one of its Restate services, with the
-  signature `func(restate.Context, events.Event) error`. `Subscribe` after
-  the bus has started panics, and `app.New` refuses to start when a
-  subscription names a service or handler this process does not serve.
+- A module that reacts to events has a `worker` package next to
+  `handler`: a Restate service with one handler per event kind, of the
+  signature `func(restate.Context, events.Event) error`, that calls the
+  module's `Service`. The module's `Mount` adds the worker to its Restate
+  services and calls `d.Events.Subscribe(kind, service, handler)`.
+  `Subscribe` after the bus has started panics, and `app.New` refuses to
+  start when a subscription names a service or handler this process does
+  not serve.
 - `events.Bus.Run`, started by `app.New` and stopped by `App.Close`,
   repeats a round: in one transaction it takes up to 100 pending rows
-  `FOR UPDATE SKIP LOCKED`, sends each to every subscription through
-  `ingress.ServiceSend` with the idempotency key
-  `<event id>/<service>/<handler>`, and sets `dispatched_at` on what it
-  sent. Each send gives up after 5 seconds. When Restate refuses one
-  delivery (4xx), the bus logs it at ERROR, leaves that event pending and
-  goes on; any other failure ends the round, and the next round sends the
-  rest again. Restate drops a repeated key for 24 hours. Once an hour, and
-  at start, the bus deletes rows dispatched more than 7 days ago, 10,000 at
-  a time.
+  `FOR UPDATE SKIP LOCKED`, sends each once to the bus's own Restate
+  service, `Events.Deliver`, with the event ID as idempotency key, and sets
+  `dispatched_at` on what Restate took. An event whose kind has no
+  subscriber is marked without a send. Each send gives up after 5 seconds.
+  When the ingress refuses an event (4xx), the bus logs it at ERROR and the
+  event waits 1 s, 2 s, 4 s and so on, up to an hour (`attempts`,
+  `next_attempt_at`); any other failure ends the round, and the next round
+  sends the rest again. Restate drops a repeated key for 24 hours. Once an
+  hour, and at start, the bus deletes rows dispatched more than 7 days
+  ago, 10,000 at a time.
+- `Events.Deliver` sends the event to every subscriber with
+  `restate.ServiceSend`. Each send is journaled, so a retried `Deliver`
+  sends nothing twice. A send to a service Restate does not know yet, as
+  during a rolling deploy, fails `Deliver` with RT0018, and Restate retries
+  it with growing backoff until the service is registered.
 - The bus listens on channel `events` on a connection of its own, outside
   the pool, and also runs a round every second. A pooled connection would
   hold a slot for good, and `Pool.Close` would wait for it.
 - Each event to each subscriber is its own Restate invocation, which
-  Restate retries until the handler succeeds; one failing event blocks no
-  other. While Restate is down, events wait in the table and the API keeps
+  Restate retries alone until the handler succeeds; one failing subscriber
+  blocks no other subscriber and no other event. While Restate is down, events wait in the table and the API keeps
   working.
 - Nothing replays history. A subscriber that needs its data rebuilt reads
   the current tables with a job of its own.
@@ -198,12 +207,15 @@ internal/account/
   handler/           HTTP: request structs, one method per endpoint
     handler.go         type Handler, Register
     account_rename.go
+  worker/            Restate handlers for the events the module reacts to
+                     (account has none yet)
   account.go         Mount: builds the layers, returns service.Service
 ```
 
-Modules auth and staff have the same four packages. Imports run one way,
-`handler` → `service` → `repository` → `domain`, and depguard rules in
-`.golangci.yml` refuse an import against it.
+Modules auth and staff have the same four packages; a module that reacts
+to events adds `worker`. Imports run one way, `handler` and `worker` →
+`service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
+refuse an import against it.
 
 An entity keeps its fields unexported, so a repository in another package
 rebuilds one through `Restore…` (`RestoreAccount`, `RestoreChallenge`; a
@@ -473,8 +485,9 @@ formatting. The rules that shape the code:
   otherwise.
 - nolintlint: every `//nolint` names the linter and gives the reason.
 - depguard: a module's domain, repository and service import no layer above
-  them, a handler imports no repository, and production code reaches
-  another module only through its `service`. An error a client sees, such
+  them, a handler or worker imports no repository, nothing imports a
+  worker, and production code reaches another module only through its
+  `service`. An error a client sees, such
   as `account_not_found`, lives in `domain` for that reason.
 
 ### Restate in practice

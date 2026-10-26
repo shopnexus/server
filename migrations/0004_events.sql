@@ -1,6 +1,7 @@
 -- Events: the outbox. A repository writes a row in the transaction of the
--- change it announces, and events.Bus hands it to the Restate handlers
--- subscribed to its kind. A row is thin; a subscriber rereads its subject.
+-- change it announces, and events.Bus sends it to the Restate service
+-- Events, which hands it to every subscriber of its kind. A row is thin; a
+-- subscriber rereads its subject.
 
 CREATE TABLE events (
     id            uuid PRIMARY KEY,
@@ -8,7 +9,10 @@ CREATE TABLE events (
     subject_id    uuid NOT NULL,
     data          jsonb NOT NULL,
     at            timestamptz NOT NULL,
-    -- Set when every subscriber has the event; deleted 7 days later.
+    -- Sends the ingress refused, and when the bus may try again.
+    attempts        integer NOT NULL DEFAULT 0,
+    next_attempt_at timestamptz,
+    -- Set when Restate has the event; deleted 7 days later.
     dispatched_at timestamptz
 );
 

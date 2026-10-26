@@ -19,12 +19,12 @@ import (
 
 // counter is a subscriber that counts how often its handler ran per event.
 type counter struct {
-	prefix string
-	mu     *sync.Mutex
-	runs   map[uuid.UUID]int
+	name string // with the prefix
+	mu   *sync.Mutex
+	runs map[uuid.UUID]int
 }
 
-func (c counter) ServiceName() string { return c.prefix + "Counter" }
+func (c counter) ServiceName() string { return c.name }
 
 func (c counter) Handle(ctx restate.Context, e Event) error {
 	return restate.RunVoid(ctx, func(restate.RunContext) error {
@@ -47,17 +47,22 @@ func TestResendAfterACrashDeliversOnce(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	db := pgtest.New(t)
-	c := counter{prefix: restatetest.Prefix(), mu: &sync.Mutex{}, runs: map[uuid.UUID]int{}}
-	in := restatetest.Start(t, restate.Reflect(c))
-	bus := NewBus(db, in, time.Now, slog.New(slog.DiscardHandler))
+	p := restatetest.Prefix()
+	c := counter{name: p + "Counter", mu: &sync.Mutex{}, runs: map[uuid.UUID]int{}}
+	url, _, err := restatetest.URLs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := ingress.NewClient(url)
+	bus := NewBus(db, in, p, time.Now, slog.New(slog.DiscardHandler))
 	bus.Subscribe(AccountRenamed, c.ServiceName(), "Handle")
+	restatetest.Start(t, bus.Definition(), restate.Reflect(c))
 	e := Event{ID: uuid.NewV7(), Kind: AccountRenamed, SubjectID: uuid.NewV7(), Data: map[string]any{}, At: time.Now().UTC().Truncate(time.Microsecond)}
 	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { return Insert(ctx, tx, e) }); err != nil {
 		t.Fatal(err)
 	}
-	sub := bus.subs[AccountRenamed][0]
-	if _, err := ingress.ServiceSend[Event](in, sub.Service, sub.Handler).
-		Send(ctx, e, restate.WithIdempotencyKey(sub.key(e))); err != nil {
+	if _, err := ingress.ServiceSend[Event](in, bus.service(), deliverHandler).
+		Send(ctx, e, restate.WithIdempotencyKey(e.ID.String())); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := bus.dispatch(ctx); err != nil {
@@ -93,7 +98,7 @@ func TestSendTimesOut(t *testing.T) {
 			t.Cleanup(func() { _ = c.Close() })
 		}
 	}()
-	bus := NewBus(db, ingress.NewClient("http://"+ln.Addr().String()), time.Now, slog.New(slog.DiscardHandler))
+	bus := NewBus(db, ingress.NewClient("http://"+ln.Addr().String()), "silent_", time.Now, slog.New(slog.DiscardHandler))
 	bus.Subscribe(AccountRenamed, "Silent", "Handle")
 	e := Event{ID: uuid.NewV7(), Kind: AccountRenamed, SubjectID: uuid.NewV7(), At: time.Now()}
 	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { return Insert(ctx, tx, e) }); err != nil {
@@ -108,5 +113,48 @@ func TestSendTimesOut(t *testing.T) {
 		}
 	case <-time.After(sendTimeout + 5*time.Second):
 		t.Fatal("dispatch hangs on a silent Restate")
+	}
+}
+
+// When the ingress refuses the event itself (4xx), the event waits before
+// the next try, longer each time, and other events go on meanwhile.
+func TestRefusedEventBacksOff(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	url, _, err := restatetest.URLs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Nobody serves this bus's Events service, so the ingress answers 404.
+	bus := NewBus(db, ingress.NewClient(url), restatetest.Prefix(), time.Now, slog.New(slog.DiscardHandler))
+	bus.Subscribe(AccountRenamed, "Anyone", "Handle")
+	e := Event{ID: uuid.NewV7(), Kind: AccountRenamed, SubjectID: uuid.NewV7(), At: time.Now()}
+	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { return Insert(ctx, tx, e) }); err != nil {
+		t.Fatal(err)
+	}
+	state := func() (attempts int, waits bool) {
+		if err := db.QueryRow(ctx, `SELECT attempts, next_attempt_at > now() FROM events WHERE id = @id`,
+			pgx.StrictNamedArgs{"id": e.ID}).Scan(&attempts, &waits); err != nil {
+			t.Fatal(err)
+		}
+		return attempts, waits
+	}
+	for range 2 { // the second round finds the event waiting and skips it
+		if _, err := bus.dispatch(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if attempts, waits := state(); attempts != 1 || !waits {
+		t.Fatalf("after a refusal: %d attempts, waiting %v", attempts, waits)
+	}
+	if _, err := db.Exec(ctx, `UPDATE events SET next_attempt_at = now() - interval '1 second'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := bus.dispatch(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if attempts, waits := state(); attempts != 2 || !waits {
+		t.Fatalf("after a second refusal: %d attempts, waiting %v", attempts, waits)
 	}
 }
