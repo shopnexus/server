@@ -13,6 +13,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/platform/audit"
+	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -92,25 +93,45 @@ func update(ctx context.Context, q execer, a *domain.Account, writeID uuid.UUID)
 	return nil
 }
 
-func (s pgAccounts) Save(ctx context.Context, a *domain.Account, writeID uuid.UUID) error {
-	if err := update(ctx, s.db, a, writeID); err != nil {
-		return err
+func (s pgAccounts) Save(ctx context.Context, a *domain.Account, writeID uuid.UUID, evs ...events.Event) error {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		if err := update(ctx, tx, a, writeID); err != nil {
+			return err
+		}
+		return insertEvents(ctx, tx, evs)
+	})
+	if err != nil {
+		return fmt.Errorf("save account: %w", err)
 	}
 	a.Saved(writeID)
 	return nil
 }
 
-func (s pgAccounts) SaveAudited(ctx context.Context, a *domain.Account, writeID uuid.UUID, e audit.Entry) error {
+func (s pgAccounts) SaveAudited(ctx context.Context, a *domain.Account, writeID uuid.UUID, e audit.Entry, evs ...events.Event) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		if err := update(ctx, tx, a, writeID); err != nil {
 			return err
 		}
-		return audit.Insert(ctx, tx, e)
+		if err := audit.Insert(ctx, tx, e); err != nil {
+			return err
+		}
+		return insertEvents(ctx, tx, evs)
 	})
 	if err != nil {
 		return fmt.Errorf("save account with audit: %w", err)
 	}
 	a.Saved(writeID)
+	return nil
+}
+
+// insertEvents writes evs in tx, the transaction of the change they
+// announce.
+func insertEvents(ctx context.Context, tx pgx.Tx, evs []events.Event) error {
+	for _, e := range evs {
+		if err := events.Insert(ctx, tx, e); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

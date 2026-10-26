@@ -20,6 +20,7 @@ import (
 	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/auth"
 	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	"github.com/shopnexus/server2/internal/platform/module"
 	"github.com/shopnexus/server2/internal/platform/postgres"
@@ -39,6 +40,9 @@ type App struct {
 	pool     *pgxpool.Pool
 	endpoint *restatex.Endpoint
 	adminURL string
+	// stopEvents cancels the event bus; eventsDone closes when it returned.
+	stopEvents context.CancelFunc
+	eventsDone chan struct{}
 }
 
 // Option changes how New builds the app.
@@ -118,13 +122,26 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		}
 		httpx.Respond(w, http.StatusOK, status{"ok"})
 	})
-	defs, err := mountModules(a.router, pool, cfg, o, log)
+	in := ingress.NewClient(cfg.Restate.IngressURL)
+	bus := events.NewBus(pool, in, time.Now, log)
+	defs, err := mountModules(a.router, pool, in, bus, cfg, o, log)
 	if err != nil {
 		return nil, err
+	}
+	if err = bus.Check(defs); err != nil {
+		return nil, fmt.Errorf("check event subscriptions: %w", err)
 	}
 	if a.endpoint, err = startRestate(ctx, cfg.Restate, log, defs); err != nil {
 		return nil, err
 	}
+	runCtx, stop := context.WithCancel(context.Background())
+	a.stopEvents, a.eventsDone = stop, make(chan struct{})
+	go func() {
+		if err := bus.Run(runCtx); err != nil {
+			log.ErrorContext(runCtx, "event bus stopped", "err", err)
+		}
+		close(a.eventsDone)
+	}()
 
 	// Trace is outermost so a panic's 500 still carries a trace id.
 	cors := httpx.CORS(cfg.Staff.ConsoleOrigin, "/v1/staff/")
@@ -155,11 +172,10 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 // mountModules mounts every module and returns their Restate services. A
 // module mounts after the modules whose services it takes; protect comes first
 // because it needs only the auth keys.
-func mountModules(router *httpx.Router, pool *pgxpool.Pool, cfg config.Config, o options, log *slog.Logger) ([]restate.ServiceDefinition, error) {
+func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, cfg config.Config, o options, log *slog.Logger) ([]restate.ServiceDefinition, error) {
 	d := module.Deps{
-		Router: router, Pool: pool,
-		Ingress: ingress.NewClient(cfg.Restate.IngressURL), ServicePrefix: cfg.Restate.ServicePrefix,
-		Now: time.Now, Log: log,
+		Router: router, Pool: pool, Ingress: in, ServicePrefix: cfg.Restate.ServicePrefix,
+		Events: bus, Now: time.Now, Log: log,
 	}
 	protect := auth.Protect(d, cfg.Auth)
 	accounts := account.Mount(d, protect)
@@ -214,8 +230,12 @@ func (a *App) ready(ctx context.Context) error {
 	return nil
 }
 
-// Close stops the Restate endpoint and closes the pool.
+// Close stops the event bus and the Restate endpoint, then closes the pool.
 func (a *App) Close(ctx context.Context) error {
+	if a.stopEvents != nil {
+		a.stopEvents()
+		<-a.eventsDone
+	}
 	var err error
 	if a.endpoint != nil {
 		if cerr := a.endpoint.Close(ctx); cerr != nil {

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
@@ -109,5 +110,26 @@ func TestNewRefusesLogSendersInProd(t *testing.T) {
 	_, err := New(context.Background(), cfg, discard())
 	if err == nil || !strings.Contains(err.Error(), "log sender") {
 		t.Fatalf("err %v", err)
+	}
+}
+
+// New runs the event bus and Close stops it before closing the pool.
+func TestCloseStopsTheEventBus(t *testing.T) {
+	t.Parallel()
+	a := newApp(t)
+	closed := make(chan error, 1)
+	go func() { closed <- a.Close(context.Background()) }()
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Close did not return")
+	}
+	select {
+	case <-a.eventsDone:
+	default:
+		t.Fatal("the event bus still runs")
 	}
 }

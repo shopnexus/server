@@ -20,8 +20,9 @@ until the user approves them.
 ### Infrastructure
 
 Postgres and Restate (server 1.8.0, Go SDK v1.1.0). Restate replaced the
-outbox, the relay, JetStream and NATS. `/readyz` checks Postgres and the
-Restate admin health endpoint.
+relay, JetStream and NATS. The outbox is a table, `events`, that a bus
+drains into Restate (see Events). `/readyz` checks Postgres and the Restate
+admin health endpoint.
 
 ### Use cases
 
@@ -135,6 +136,50 @@ refresh keep working when Restate is down.
   only code that passes closures, to `restate.Run`. `Auth.SendOTP` and
   `Auth.SignIn` call them through `restatex.Caller`. `Auth.Durable` returns
   their definitions for `auth.Mount`.
+
+### Events
+
+A module announces a change with an event, and modules that react
+subscribe to its kind; the module that changed data never lists who
+reacts. Every subscriber is a module of server2, so there is no broker.
+
+- `events.Event` is thin: a `Kind` constant in the form
+  `aggregate.past_tense` (`account.renamed`, `account.suspended`,
+  `account.unsuspended`), the `SubjectID` of the aggregate, and a `Data`
+  map that only a business event fills. A subscriber reads the subject's
+  current state through its module's `Service`, so order, delay and
+  duplicates do not change the result.
+- A repository writes the events of a change with `events.Insert` in the
+  change's transaction, as it writes an audit entry: `Save(ctx, a, writeID,
+  evs...)`. A conflicting write leaves no event. An event with an ID that
+  exists already is not written again, so a durable step that retries its
+  save with the event IDs from its journal writes one event. `Insert` also
+  runs `pg_notify('events', '')`, which Postgres delivers on commit.
+- A subscriber module's `Mount` calls `d.Events.Subscribe(kind, service,
+  handler)` for a handler of one of its Restate services, with the
+  signature `func(restate.Context, events.Event) error`. `Subscribe` after
+  the bus has started panics, and `app.New` refuses to start when a
+  subscription names a service or handler this process does not serve.
+- `events.Bus.Run`, started by `app.New` and stopped by `App.Close`,
+  repeats a round: in one transaction it takes up to 100 pending rows
+  `FOR UPDATE SKIP LOCKED`, sends each to every subscription through
+  `ingress.ServiceSend` with the idempotency key
+  `<event id>/<service>/<handler>`, and sets `dispatched_at` on what it
+  sent. Each send gives up after 5 seconds. When Restate refuses one
+  delivery (4xx), the bus logs it at ERROR, leaves that event pending and
+  goes on; any other failure ends the round, and the next round sends the
+  rest again. Restate drops a repeated key for 24 hours. Once an hour, and
+  at start, the bus deletes rows dispatched more than 7 days ago, 10,000 at
+  a time.
+- The bus listens on channel `events` on a connection of its own, outside
+  the pool, and also runs a round every second. A pooled connection would
+  hold a slot for good, and `Pool.Close` would wait for it.
+- Each event to each subscriber is its own Restate invocation, which
+  Restate retries until the handler succeeds; one failing event blocks no
+  other. While Restate is down, events wait in the table and the API keeps
+  working.
+- Nothing replays history. A subscriber that needs its data rebuilt reads
+  the current tables with a job of its own.
 
 ### Module layout
 

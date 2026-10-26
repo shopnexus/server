@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/restatedev/sdk-go/ingress"
 
+	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
 
@@ -22,6 +23,9 @@ type Deps struct {
 	// Ingress and ServicePrefix reach this process's Restate services.
 	Ingress       *ingress.Client
 	ServicePrefix string
-	Now           func() time.Time
-	Log           *slog.Logger
+	// Events is the bus a module subscribes its Restate handlers to in
+	// Mount.
+	Events *events.Bus
+	Now    func() time.Time
+	Log    *slog.Logger
 }

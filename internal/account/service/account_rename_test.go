@@ -9,6 +9,7 @@ import (
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server2/internal/platform/events"
 )
 
 func TestRename(t *testing.T) {
@@ -35,7 +36,7 @@ func TestRenameRefusedWhileSuspended(t *testing.T) {
 // conflicting is a store whose Save always loses a race.
 type conflicting struct{ repository.Accounts }
 
-func (conflicting) Save(context.Context, *domain.Account, uuid.UUID) error {
+func (conflicting) Save(context.Context, *domain.Account, uuid.UUID, ...events.Event) error {
 	return repository.ErrConflict
 }
 

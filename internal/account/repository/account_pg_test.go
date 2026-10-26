@@ -3,14 +3,17 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/platform/audit"
+	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
@@ -200,5 +203,52 @@ func TestListNewestFirst(t *testing.T) {
 	rest, _ := s.List(ctx, page.Request{Cursor: second, Limit: 10})
 	if len(rest) != 1 || rest[0].ID() != first {
 		t.Fatalf("after the cursor: %v", rest)
+	}
+}
+
+func eventsOf(t *testing.T, db *pgxpool.Pool, subject uuid.UUID) []string {
+	t.Helper()
+	rows, err := db.Query(context.Background(), `SELECT kind FROM events WHERE subject_id = @id ORDER BY id`, pgx.StrictNamedArgs{"id": subject})
+	if err != nil {
+		t.Fatal(err)
+	}
+	kinds, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return kinds
+}
+
+// Save and SaveAudited write their events with the change; a stale write
+// writes none.
+func TestSaveWritesItsEvents(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewAccounts(db)
+	ctx := context.Background()
+	id := seed(t, s)
+	a, _ := s.Get(ctx, id)
+	stale := a
+	ev := func(k events.Kind) events.Event {
+		return events.Event{ID: uuid.NewV7(), Kind: k, SubjectID: id, At: now}
+	}
+	if err := a.SetDisplayName("Minh", now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(ctx, &a, uuid.NewV7(), ev(events.AccountRenamed)); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Suspend("spam", nil, now); err != nil {
+		t.Fatal(err)
+	}
+	entry := audit.Entry{Actor: audit.ByCLI("test"), Action: audit.AccountSuspend, Target: audit.Account(id), At: now}
+	if err := s.SaveAudited(ctx, &a, uuid.NewV7(), entry, ev(events.AccountSuspended)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(ctx, &stale, uuid.NewV7(), ev(events.AccountRenamed)); !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("stale save: %v", err)
+	}
+	if got := eventsOf(t, db, id); !slices.Equal(got, []string{"account.renamed", "account.suspended"}) {
+		t.Fatalf("%v", got)
 	}
 }

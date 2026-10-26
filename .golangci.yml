@@ -298,8 +298,11 @@ linters:
         - .WithRetryAfter(
         - .WithField(
         - httpx.Bind[
-        # Wraps its own error as "read clock"; a caller has nothing to add.
+        # These wrap their own errors ("read clock", "insert event",
+        # "insert staff action"); a caller has nothing to add.
         - restatex.Now(
+        - events.Insert(
+        - audit.Insert(
         # The *apperr.Error a Restate service refused with; the client gets it
         # as the service built it. Caller.Call wraps a transport error itself.
         - .Refusal()
