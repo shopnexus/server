@@ -71,12 +71,14 @@ Condition:
   enum: [new, like_new, used]
 ListingStatus:
   type: string
-  enum: [processing, active, hidden, rejected, sold]
+  enum: [processing, active, hidden, rejected, reserved, sold]
   description: |
-    processing: the photos are being processed. active: on sale, the only
-    public status. hidden: taken down by the seller. rejected: a photo was
-    refused; the photo says why, and an edit tries again. sold: sold off the
-    app.
+    processing: the photos are being processed. active: on sale. hidden:
+    taken down by the seller. rejected: a photo was refused; the photo says
+    why, and an edit tries again. reserved: held while an order's parcel
+    travels; anyone may read it, and the seller cannot change it. sold: sold
+    off the app or through an order. Only active and reserved listings are
+    public.
 Listing:
   type: object
   additionalProperties: false

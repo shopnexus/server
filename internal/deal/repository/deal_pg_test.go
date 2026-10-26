@@ -3,6 +3,8 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 	"uuid"
@@ -216,5 +218,182 @@ func TestListByPartyAndOfListing(t *testing.T) {
 	got, err = s.OfListing(ctx, listing1)
 	if err != nil || len(got) != 2 || got[0].ID() != a.ID() || got[1].ID() != b.ID() {
 		t.Fatalf("of listing: %v %v", ids(got), err)
+	}
+}
+
+// requestedDeal stores a deal on a new listing of seller's, agreed and with
+// a requested order.
+func requestedDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, seller uuid.UUID) domain.Deal {
+	t.Helper()
+	d := inserted(t, s, newListing(t, db, seller), buyer, seller)
+	if err := d.Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.RequestCod(domain.Buyer, recipientOf(t), onSale, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(context.Background(), &d, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+func recipientOf(t *testing.T) domain.Recipient {
+	t.Helper()
+	r, err := domain.NewRecipient("Hân", "0912345678", "12 Lý Thường Kiệt", "00004", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func TestOrderRoundTrip(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewDeals(db)
+	ctx := context.Background()
+	seller, buyer := newAccount(t, db), newAccount(t, db)
+	d := requestedDeal(t, db, s, buyer, seller)
+	got, err := s.Get(ctx, d.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	o := got.Order()
+	if o == nil || o.Status != domain.OrderRequested || !strings.HasPrefix(o.Code, "SN-") || o.Recipient.Name != "Hân" ||
+		o.Price != 1_500_000 || o.RequestedAt.IsZero() {
+		t.Fatalf("%+v", o)
+	}
+	w, err := domain.NewWaybill(domain.CarrierOther, "Ahamove", "AH1", 30_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = got.Ship(domain.Seller, w, onSale, now); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = s.Get(ctx, d.ID()); err != nil || got.Order().Waybill == nil || *got.Order().Waybill != w ||
+		got.Order().ShippedAt == nil || got.Order().Code != o.Code {
+		t.Fatalf("%+v %v", got.Order(), err)
+	}
+	for _, c := range []struct {
+		account uuid.UUID
+		as      domain.Party
+	}{{buyer, domain.Buyer}, {seller, domain.Seller}} {
+		rows, listErr := s.ListOrders(ctx, c.account, c.as, page.Request{})
+		if listErr != nil || len(rows) != 1 || rows[0].DealID != d.ID() || rows[0].ListingID != d.ListingID() ||
+			rows[0].Order.Status != domain.OrderShipped {
+			t.Fatalf("%s: %+v %v", c.as, rows, listErr)
+		}
+	}
+	if err = got.Deliver(domain.Seller, now); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = s.Get(ctx, d.ID()); err != nil || got.Status() != domain.StatusSold || got.AgreedPrice() != 1_500_000 {
+		t.Fatalf("%+v %v", got.State(), err)
+	}
+}
+
+func TestSaveTwiceWritesOnce(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewDeals(db)
+	ctx := context.Background()
+	seller, buyer := newAccount(t, db), newAccount(t, db)
+	d := inserted(t, s, newListing(t, db, seller), buyer, seller)
+	before := d.State()
+	writeID := uuid.NewV7()
+	for range 2 {
+		again := domain.RestoreDeal(before)
+		if err := again.Offer(domain.Buyer, 1_000_000, onSale, now); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Save(ctx, &again, writeID, moved(d.ID())); err != nil {
+			t.Fatal(err)
+		}
+	}
+	moves, err := s.Moves(ctx, []uuid.UUID{d.ID()})
+	if err != nil || len(moves[d.ID()]) != 1 {
+		t.Fatalf("%+v %v", moves, err)
+	}
+	var n int
+	if err = db.QueryRow(ctx, `SELECT count(*) FROM events WHERE subject_id = @id`, pgx.StrictNamedArgs{"id": d.ID()}).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("events: %d %v", n, err)
+	}
+}
+
+func TestCodLimitHoldsUnderRace(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewDeals(db)
+	ctx := context.Background()
+	seller, buyer := newAccount(t, db), newAccount(t, db)
+	for range domain.MaxOpenOrders - 1 {
+		requestedDeal(t, db, s, buyer, seller)
+	}
+	race := func() []error {
+		ds := make([]domain.Deal, 2)
+		for i := range ds {
+			ds[i] = inserted(t, s, newListing(t, db, seller), buyer, seller)
+			if err := ds[i].Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
+				t.Fatal(err)
+			}
+			if err := ds[i].RequestCod(domain.Buyer, recipientOf(t), onSale, now); err != nil {
+				t.Fatal(err)
+			}
+		}
+		errs := make([]error, 2)
+		var wg sync.WaitGroup
+		for i := range ds {
+			wg.Go(func() { errs[i] = s.Save(ctx, &ds[i], uuid.NewV7()) })
+		}
+		wg.Wait()
+		return errs
+	}
+	errs := race()
+	if ok := (errs[0] == nil) != (errs[1] == nil); !ok {
+		t.Fatalf("at 2 open orders, two requests: %v", errs)
+	}
+	for _, err := range race() {
+		if !errors.Is(err, domain.ErrCodLimit) {
+			t.Fatalf("at 3 open orders: %v", err)
+		}
+	}
+}
+
+func TestOneShippedOrderPerListing(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewDeals(db)
+	ctx := context.Background()
+	seller := newAccount(t, db)
+	listing := newListing(t, db, seller)
+	w, err := domain.NewWaybill(domain.CarrierGHN, "", "GHN1", 20_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := make([]error, 0, 2)
+	for range 2 {
+		d := inserted(t, s, listing, newAccount(t, db), seller)
+		if err = d.Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
+			t.Fatal(err)
+		}
+		if err = d.RequestCod(domain.Buyer, recipientOf(t), onSale, now); err != nil {
+			t.Fatal(err)
+		}
+		if err = s.Save(ctx, &d, uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+		if err = d.Ship(domain.Seller, w, onSale, now); err != nil {
+			t.Fatal(err)
+		}
+		results = append(results, s.Save(ctx, &d, uuid.NewV7()))
+	}
+	if results[0] != nil || results[1] == nil {
+		t.Fatalf("%v", results)
 	}
 }

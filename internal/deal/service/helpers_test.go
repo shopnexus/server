@@ -43,8 +43,8 @@ type env struct {
 }
 
 // newEnv builds the deal service on a database, with the account, auth and
-// catalog services it calls. deps lets a test build a second service with
-// one dependency replaced.
+// catalog services it calls, and serves its flows on the test stack. deps
+// lets a test build a second service with one dependency replaced.
 func newEnv(t *testing.T) env {
 	t.Helper()
 	db := pgtest.New(t)
@@ -64,8 +64,18 @@ func newEnv(t *testing.T) env {
 		Accounts: accounts, Auth: auth, Media: media, Ingress: in, Prefix: p, Now: time.Now,
 	})
 	repo := repository.NewDeals(db)
-	deps := service.Deps{Deals: repo, Accounts: accounts, Auth: auth, Catalog: c, Now: time.Now}
-	return env{db: db, accounts: accounts, catalog: c, listings: listings, repo: repo, deps: deps, deals: service.New(deps)}
+	deps := service.Deps{Deals: repo, Accounts: accounts, Auth: auth, Catalog: c, Ingress: in, Now: time.Now}
+	return env{db: db, accounts: accounts, catalog: c, listings: listings, repo: repo, deps: deps, deals: start(t, deps)}
+}
+
+// start builds a deal service on deps under a prefix of its own and serves
+// its flows.
+func start(t *testing.T, deps service.Deps) *service.Deals {
+	t.Helper()
+	deps.Prefix = restatetest.Prefix()
+	d := service.New(deps)
+	restatetest.Start(t, d.Durable()...)
+	return d
 }
 
 // person creates an account with a verified phone number.

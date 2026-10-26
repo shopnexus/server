@@ -272,7 +272,7 @@ dealWithdraw:
 dealCancel:
   post:
     operationId: cancelDeal
-    summary: Drop the agreed price; the deal negotiates again.
+    summary: Drop the agreed price, and a requested order with it; the deal negotiates again.
     description: |
       Works in any state of the listing and for a suspended account.
     tags: [deal]
@@ -332,6 +332,227 @@ myDeals:
           application/json:
             schema:
               $ref: "../schemas/deal.yaml#/DealList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+dealCod:
+  post:
+    operationId: requestCod
+    summary: Ask for cash on delivery on an agreed deal.
+    description: |
+      The buyer of an agreed deal with no open order, on a listing on sale,
+      with fewer than 3 open orders. The order starts requested; either side
+      may cancel it until the seller ships.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/deal.yaml#/CodRequest"
+    responses:
+      "200":
+        description: The deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such deal of the caller's (deal_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The deal is not agreed or has an open order, or the caller is the seller (move_not_allowed); the listing is not on sale (listing_unavailable); the buyer has 3 open orders (cod_limit_reached); or the deal changed meanwhile (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The recipient breaks a rule (invalid_recipient, with fields)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+dealShip:
+  post:
+    operationId: shipOrder
+    summary: Record the waybill of a requested order.
+    description: |
+      The seller, once the parcel is with the carrier. The listing is
+      reserved for the order, and other buyers' requested orders on it are
+      cancelled with sent_to_another shortly after.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/deal.yaml#/WaybillDraft"
+    responses:
+      "200":
+        description: The deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such deal of the caller's (deal_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The order is not requested or the caller is the buyer (move_not_allowed), the listing is not on sale (listing_unavailable), or the deal changed meanwhile (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The waybill breaks a rule (invalid_waybill, with fields)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+dealDelivered:
+  post:
+    operationId: deliverOrder
+    summary: Report a shipped order delivered.
+    description: |
+      The seller. The deal is sold and the listing sold.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    responses:
+      "200":
+        description: The deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such deal of the caller's (deal_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The order is not shipped or the caller is the buyer (move_not_allowed), or the deal changed meanwhile (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+dealReturned:
+  post:
+    operationId: returnOrder
+    summary: Report a shipped order returned.
+    description: |
+      The seller. The deal negotiates again and the listing is back on sale.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    responses:
+      "200":
+        description: The deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such deal of the caller's (deal_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The order is not shipped or the caller is the buyer (move_not_allowed), or the deal changed meanwhile (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+myOrders:
+  get:
+    operationId: listMyOrders
+    summary: List the caller's orders on one side, newest first.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: role
+        in: query
+        required: true
+        description: buying lists the orders where the caller is the buyer; selling, the seller.
+        schema:
+          type: string
+          enum: [buying, selling]
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of orders.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/OrderList"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":

@@ -301,3 +301,82 @@ func TestSummariesReadEveryStatus(t *testing.T) {
 		t.Fatalf("%+v %v", got, err)
 	}
 }
+
+func TestReserveFlow(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := e.seller(t)
+	l := e.active(t, seller)
+	order, other := uuid.NewV7(), uuid.NewV7()
+	for range 2 {
+		if err := e.catalog.Reserve(ctx, l.ID, order); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if v, err := e.catalog.Get(ctx, nil, l.ID); err != nil || v.Status != domain.StatusReserved {
+		t.Fatalf("a stranger reads: %+v %v", v, err)
+	}
+	if got, err := e.catalog.Summaries(ctx, []uuid.UUID{l.ID}); err != nil || got[l.ID].ReservedFor != order {
+		t.Fatalf("summary: %+v %v", got, err)
+	}
+	if _, err := e.catalog.Hide(ctx, seller, l.ID); !errors.Is(err, domain.ErrStateConflict) {
+		t.Fatalf("hide: %v", err)
+	}
+	if err := e.catalog.Release(ctx, l.ID, other); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := e.catalog.Get(ctx, &seller, l.ID); v.Status != domain.StatusReserved {
+		t.Fatalf("released for another order: %s", v.Status)
+	}
+	if err := e.catalog.Release(ctx, l.ID, order); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := e.catalog.Get(ctx, &seller, l.ID); v.Status != domain.StatusActive {
+		t.Fatalf("release: %s", v.Status)
+	}
+	if err := e.catalog.Reserve(ctx, l.ID, order); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := e.catalog.SellTo(ctx, l.ID, order); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if v, _ := e.catalog.Get(ctx, &seller, l.ID); v.Status != domain.StatusSold || v.SoldAt == nil {
+		t.Fatalf("sell: %+v", v)
+	}
+	k := kindsOf(t, e.db, l.ID)
+	if want := []string{"listing.published", "listing.reserved", "listing.released", "listing.reserved", "listing.sold"}; !slices.Equal(k, want) {
+		t.Fatalf("events %v", k)
+	}
+}
+
+func TestReserveRefuses(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := e.seller(t)
+	l := e.active(t, seller)
+	if _, err := e.catalog.Hide(ctx, seller, l.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.catalog.Reserve(ctx, l.ID, uuid.NewV7()); !errors.Is(err, domain.ErrStateConflict) {
+		t.Fatalf("hidden: %v", err)
+	}
+	if err := e.catalog.Reserve(ctx, uuid.NewV7(), uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unknown: %v", err)
+	}
+}
+
+func TestPlace(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	p, err := e.catalog.Place(context.Background(), "00004")
+	if err != nil || p.Commune.DisplayName == "" || p.Province.DisplayName == "" || p.Commune.Code != "00004" {
+		t.Fatalf("%+v %v", p, err)
+	}
+	if _, err = e.catalog.Place(context.Background(), "nope"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unknown: %v", err)
+	}
+}

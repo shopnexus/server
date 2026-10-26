@@ -32,13 +32,15 @@ const (
 	StatusActive     Status = "active"
 	StatusHidden     Status = "hidden"
 	StatusRejected   Status = "rejected"
-	StatusSold       Status = "sold"
-	StatusDeleted    Status = "deleted"
+	// StatusReserved is a listing held while an order's parcel travels.
+	StatusReserved Status = "reserved"
+	StatusSold     Status = "sold"
+	StatusDeleted  Status = "deleted"
 )
 
 // OnSale are the statuses that count toward a seller's cap and show in the
 // on-sale pane.
-var OnSale = []Status{StatusProcessing, StatusActive, StatusHidden, StatusRejected}
+var OnSale = []Status{StatusProcessing, StatusActive, StatusHidden, StatusRejected, StatusReserved}
 
 type Condition string
 
@@ -125,6 +127,7 @@ type Listing struct {
 	specs        []Spec
 	status       Status
 	rejection    map[uuid.UUID]string
+	reservedFor  uuid.UUID
 	writeID      uuid.UUID
 	createdAt    time.Time
 	updatedAt    time.Time
@@ -262,6 +265,7 @@ func (l *Listing) Marks() []Mark                   { return append([]Mark{}, l.m
 func (l *Listing) Specs() []Spec                   { return append([]Spec{}, l.specs...) }
 func (l *Listing) Status() Status                  { return l.status }
 func (l *Listing) Rejection() map[uuid.UUID]string { return l.rejection }
+func (l *Listing) ReservedFor() uuid.UUID          { return l.reservedFor }
 func (l *Listing) WriteID() uuid.UUID              { return l.writeID }
 func (l *Listing) CreatedAt() time.Time            { return l.createdAt }
 func (l *Listing) UpdatedAt() time.Time            { return l.updatedAt }
@@ -294,7 +298,7 @@ func (l *Listing) PendingUploads() []uuid.UUID {
 // or an edit of a rejected listing, sends the listing back through
 // processing. Sold and deleted listings cannot be edited.
 func (l *Listing) Edit(d Draft, refs Refs, now time.Time) error {
-	if l.status == StatusSold || l.status == StatusDeleted {
+	if l.status == StatusSold || l.status == StatusDeleted || l.status == StatusReserved {
 		return ErrStateConflict
 	}
 	if err := l.apply(d, refs, now); err != nil {
@@ -356,11 +360,43 @@ func (l *Listing) UnmarkSold(now time.Time) error {
 
 // Delete removes the listing from every view but the database.
 func (l *Listing) Delete(now time.Time) error {
-	if l.status == StatusDeleted {
+	if l.status == StatusDeleted || l.status == StatusReserved {
 		return ErrStateConflict
 	}
 	l.status, l.deletedAt, l.updatedAt = StatusDeleted, &now, now
 	return nil
+}
+
+// Reserve holds an active listing for an order. Holding it again for the
+// same order changes nothing and reports false.
+func (l *Listing) Reserve(order uuid.UUID, now time.Time) (bool, error) {
+	if l.status == StatusReserved && l.reservedFor == order {
+		return false, nil
+	}
+	if l.status != StatusActive {
+		return false, ErrStateConflict
+	}
+	l.status, l.reservedFor, l.updatedAt = StatusReserved, order, now
+	return true, nil
+}
+
+// Release puts a listing held for order back on sale and reports whether
+// it did; a listing held for another order, or not held, stays as it is.
+func (l *Listing) Release(order uuid.UUID, now time.Time) bool {
+	if l.status != StatusReserved || l.reservedFor != order {
+		return false
+	}
+	l.status, l.reservedFor, l.updatedAt = StatusActive, uuid.UUID{}, now
+	return true
+}
+
+// SellTo marks a listing held for order sold and reports whether it did.
+func (l *Listing) SellTo(order uuid.UUID, now time.Time) bool {
+	if l.status != StatusReserved || l.reservedFor != order {
+		return false
+	}
+	l.status, l.reservedFor, l.soldAt, l.updatedAt = StatusSold, uuid.UUID{}, &now, now
+	return true
 }
 
 func (l *Listing) move(from, to Status, now time.Time) error {
@@ -387,6 +423,7 @@ type ListingState struct {
 	Specs        []Spec               `json:"specs"`
 	Status       Status               `json:"status"`
 	Rejection    map[uuid.UUID]string `json:"rejection,omitempty"`
+	ReservedFor  uuid.UUID            `json:"reserved_for"`
 	WriteID      uuid.UUID            `json:"write_id"`
 	CreatedAt    time.Time            `json:"created_at"`
 	UpdatedAt    time.Time            `json:"updated_at"`
@@ -400,7 +437,7 @@ func RestoreListing(st ListingState) Listing {
 	return Listing{
 		id: st.ID, sellerID: st.SellerID, title: st.Title, price: st.Price, description: st.Description,
 		categoryCode: st.CategoryCode, condition: st.Condition, allowOffers: st.AllowOffers, communeCode: st.CommuneCode,
-		photos: st.Photos, marks: st.Marks, specs: st.Specs, status: st.Status, rejection: st.Rejection,
+		photos: st.Photos, marks: st.Marks, specs: st.Specs, status: st.Status, rejection: st.Rejection, reservedFor: st.ReservedFor,
 		writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
 		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt,
 	}
@@ -412,7 +449,7 @@ func (l *Listing) State() ListingState {
 		ID: l.id, SellerID: l.sellerID, Title: l.title, Price: l.price, Description: l.description,
 		CategoryCode: l.categoryCode, Condition: l.condition, AllowOffers: l.allowOffers, CommuneCode: l.communeCode,
 		Photos: l.photos, Marks: l.marks, Specs: l.specs, Status: l.status, Rejection: l.rejection,
-		WriteID: l.writeID, CreatedAt: l.createdAt, UpdatedAt: l.updatedAt,
+		ReservedFor: l.reservedFor, WriteID: l.writeID, CreatedAt: l.createdAt, UpdatedAt: l.updatedAt,
 		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt,
 	}
 }

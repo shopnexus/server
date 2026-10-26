@@ -15,6 +15,8 @@ type Status string
 const (
 	StatusNegotiating Status = "negotiating"
 	StatusAgreed      Status = "agreed"
+	// StatusSold is a deal whose order was delivered; it takes no move.
+	StatusSold Status = "sold"
 )
 
 // Party is who made a move. System is the server, following a change of
@@ -30,19 +32,25 @@ const (
 type MoveKind string
 
 const (
-	MoveOffer         MoveKind = "offer"
-	MoveCounter       MoveKind = "counter"
-	MoveAccept        MoveKind = "accept"
-	MoveDecline       MoveKind = "decline"
-	MoveWithdraw      MoveKind = "withdraw"
-	MoveCancel        MoveKind = "cancel"
-	MovePriceChanged  MoveKind = "price_changed"
-	MoveOffersClosed  MoveKind = "offers_closed"
-	MoveListingClosed MoveKind = "listing_closed"
+	MoveOffer          MoveKind = "offer"
+	MoveCounter        MoveKind = "counter"
+	MoveAccept         MoveKind = "accept"
+	MoveDecline        MoveKind = "decline"
+	MoveWithdraw       MoveKind = "withdraw"
+	MoveCancel         MoveKind = "cancel"
+	MovePriceChanged   MoveKind = "price_changed"
+	MoveOffersClosed   MoveKind = "offers_closed"
+	MoveListingClosed  MoveKind = "listing_closed"
+	MoveCodRequested   MoveKind = "cod_requested"
+	MoveShipped        MoveKind = "shipped"
+	MoveDelivered      MoveKind = "delivered"
+	MoveReturned       MoveKind = "returned"
+	MoveOrderCancelled MoveKind = "order_cancelled"
 )
 
 // Move is one step of a deal's thread. Amount is 0 on a move without one;
-// on price_changed it is the new listed price.
+// on price_changed it is the new listed price, on cod_requested the price,
+// on shipped the fee.
 type Move struct {
 	ID     uuid.UUID
 	Kind   MoveKind
@@ -67,6 +75,9 @@ const (
 	// of its photos. It is not closed, and takes no new price.
 	ListingPaused ListingStatus = "paused"
 	ListingHidden ListingStatus = "hidden"
+	// ListingReserved is a listing held for the order ReservedFor. It takes
+	// no new price and keeps the open ones.
+	ListingReserved ListingStatus = "reserved"
 	// ListingGone is a listing sold or deleted.
 	ListingGone ListingStatus = "gone"
 )
@@ -76,6 +87,7 @@ type Listing struct {
 	Price       int64
 	AllowOffers bool
 	Status      ListingStatus
+	ReservedFor uuid.UUID
 }
 
 // Range is the amounts an offer may take, both ends included.
@@ -96,6 +108,7 @@ type Deal struct {
 	listedPrice int64
 	agreedPrice int64
 	agreedAt    *time.Time
+	order       *Order
 	writeID     uuid.UUID
 	createdAt   time.Time
 	updatedAt   time.Time
@@ -218,22 +231,100 @@ func (d *Deal) Withdraw(by Party, now time.Time) error {
 	return nil
 }
 
-// Cancel drops the agreed price; the deal negotiates again.
+// Cancel drops the agreed price, and a requested order with it; the deal
+// negotiates again. A shipped order cannot be cancelled.
 func (d *Deal) Cancel(by Party, now time.Time) error {
 	if d.status != StatusAgreed {
 		return ErrMoveNotAllowed
+	}
+	if o := d.openOrder(); o != nil {
+		if o.Status != OrderRequested {
+			return ErrMoveNotAllowed
+		}
+		reason := CancelByBuyer
+		if by == Seller {
+			reason = CancelBySeller
+		}
+		d.cancelOrder(by, reason, now)
+		return nil
 	}
 	d.status, d.agreedPrice, d.agreedAt = StatusNegotiating, 0, nil
 	d.record(MoveCancel, by, 0, now)
 	return nil
 }
 
+// RequestCod asks for cash on delivery to r at the agreed price.
+func (d *Deal) RequestCod(by Party, r Recipient, l Listing, now time.Time) error {
+	if by != Buyer || d.status != StatusAgreed || d.openOrder() != nil {
+		return ErrMoveNotAllowed
+	}
+	if l.Status != ListingActive {
+		return ErrListingUnavailable
+	}
+	d.order = &Order{ID: uuid.NewV7(), Status: OrderRequested, Price: d.agreedPrice, Recipient: r, RequestedAt: now}
+	d.record(MoveCodRequested, by, d.agreedPrice, now)
+	return nil
+}
+
+// Ship records the waybill of a requested order: the parcel is with the
+// carrier.
+func (d *Deal) Ship(by Party, w Waybill, l Listing, now time.Time) error {
+	o := d.openOrder()
+	if by != Seller || o == nil || o.Status != OrderRequested {
+		return ErrMoveNotAllowed
+	}
+	if l.Status != ListingActive {
+		return ErrListingUnavailable
+	}
+	o.Status, o.Waybill, o.ShippedAt = OrderShipped, &w, &now
+	d.record(MoveShipped, by, w.Fee, now)
+	return nil
+}
+
+// Deliver ends a shipped order delivered; the deal is sold.
+func (d *Deal) Deliver(by Party, now time.Time) error {
+	o := d.openOrder()
+	if by != Seller || o == nil || o.Status != OrderShipped {
+		return ErrMoveNotAllowed
+	}
+	o.Status, o.ClosedAt, d.status = OrderDelivered, &now, StatusSold
+	d.record(MoveDelivered, by, 0, now)
+	return nil
+}
+
+// Return ends a shipped order returned; the deal negotiates again.
+func (d *Deal) Return(by Party, now time.Time) error {
+	o := d.openOrder()
+	if by != Seller || o == nil || o.Status != OrderShipped {
+		return ErrMoveNotAllowed
+	}
+	o.Status, o.ClosedAt = OrderReturned, &now
+	d.status, d.agreedPrice, d.agreedAt = StatusNegotiating, 0, nil
+	d.record(MoveReturned, by, 0, now)
+	return nil
+}
+
 // ListingChanged brings the deal in line with its listing and reports
-// whether it changed. A hidden or gone listing takes the open price back,
-// a gone one the agreement too; a new listed price, or offers turned off,
-// takes the open price back. A second call with the same listing changes
-// nothing.
+// whether it changed. A requested order ends when the listing is hidden,
+// gone or reserved for another order; a shipped one stays. Otherwise a
+// hidden or gone listing takes the open price back, a gone one the
+// agreement too; a new listed price, or offers turned off, takes the open
+// price back. A second call with the same listing changes nothing.
 func (d *Deal) ListingChanged(l Listing, now time.Time) bool {
+	if o := d.openOrder(); o != nil {
+		if o.Status != OrderRequested {
+			return false
+		}
+		switch {
+		case l.Status == ListingHidden || l.Status == ListingGone:
+			d.cancelOrder(System, CancelListingClosed, now)
+		case l.Status == ListingReserved && l.ReservedFor != o.ID:
+			d.cancelOrder(System, CancelSentToAnother, now)
+		default:
+			return false
+		}
+		return true
+	}
 	if d.status == StatusAgreed {
 		if l.Status != ListingGone {
 			return false
@@ -264,6 +355,21 @@ func (d *Deal) ListingChanged(l Listing, now time.Time) bool {
 	return true
 }
 
+// openOrder is the deal's order while requested or shipped, nil otherwise.
+func (d *Deal) openOrder() *Order {
+	if d.order != nil && d.order.Open() {
+		return d.order
+	}
+	return nil
+}
+
+// cancelOrder ends the requested order and drops the agreement.
+func (d *Deal) cancelOrder(by Party, reason CancelReason, now time.Time) {
+	d.order.Status, d.order.CancelledBy, d.order.CancelReason, d.order.ClosedAt = OrderCancelled, by, reason, &now
+	d.status, d.agreedPrice, d.agreedAt = StatusNegotiating, 0, nil
+	d.record(MoveOrderCancelled, by, 0, now)
+}
+
 // record adds a move to the ones the next save writes.
 func (d *Deal) record(kind MoveKind, by Party, amount int64, now time.Time) {
 	d.pending = append(d.pending, Move{ID: uuid.NewV7(), Kind: kind, By: by, Amount: amount, At: now})
@@ -287,6 +393,14 @@ func (d *Deal) WriteID() uuid.UUID   { return d.writeID }
 func (d *Deal) CreatedAt() time.Time { return d.createdAt }
 func (d *Deal) UpdatedAt() time.Time { return d.updatedAt }
 
+// Order returns a copy of the deal's latest order, nil before the first.
+func (d *Deal) Order() *Order {
+	if d.order == nil {
+		return nil
+	}
+	return new(*d.order)
+}
+
 // Open returns a copy of the open price, nil when none is open.
 func (d *Deal) Open() *OpenPrice {
 	if d.open == nil {
@@ -298,20 +412,22 @@ func (d *Deal) Open() *OpenPrice {
 // Pending returns the moves made since the deal was loaded. Stores only.
 func (d *Deal) Pending() []Move { return append([]Move{}, d.pending...) }
 
-// DealState is every stored field of a deal. Stores only.
+// DealState is every stored field of a deal, with its latest order. Stores
+// and the flows that journal a deal only.
 type DealState struct {
-	ID          uuid.UUID
-	ListingID   uuid.UUID
-	BuyerID     uuid.UUID
-	SellerID    uuid.UUID
-	Status      Status
-	Open        *OpenPrice
-	ListedPrice int64
-	AgreedPrice int64
-	AgreedAt    *time.Time
-	WriteID     uuid.UUID
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          uuid.UUID  `json:"id"`
+	ListingID   uuid.UUID  `json:"listing_id"`
+	BuyerID     uuid.UUID  `json:"buyer_id"`
+	SellerID    uuid.UUID  `json:"seller_id"`
+	Status      Status     `json:"status"`
+	Open        *OpenPrice `json:"open,omitempty"`
+	ListedPrice int64      `json:"listed_price"`
+	AgreedPrice int64      `json:"agreed_price"`
+	AgreedAt    *time.Time `json:"agreed_at,omitempty"`
+	Order       *Order     `json:"order,omitempty"`
+	WriteID     uuid.UUID  `json:"write_id"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // RestoreDeal rebuilds a stored deal. Stores only.
@@ -319,7 +435,7 @@ func RestoreDeal(st DealState) Deal {
 	return Deal{
 		id: st.ID, listingID: st.ListingID, buyerID: st.BuyerID, sellerID: st.SellerID, status: st.Status,
 		open: st.Open, listedPrice: st.ListedPrice, agreedPrice: st.AgreedPrice, agreedAt: st.AgreedAt,
-		writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
+		order: st.Order, writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
 	}
 }
 
@@ -328,7 +444,7 @@ func (d *Deal) State() DealState {
 	return DealState{
 		ID: d.id, ListingID: d.listingID, BuyerID: d.buyerID, SellerID: d.sellerID, Status: d.status,
 		Open: d.Open(), ListedPrice: d.listedPrice, AgreedPrice: d.agreedPrice, AgreedAt: d.agreedAt,
-		WriteID: d.writeID, CreatedAt: d.createdAt, UpdatedAt: d.updatedAt,
+		Order: d.Order(), WriteID: d.writeID, CreatedAt: d.createdAt, UpdatedAt: d.updatedAt,
 	}
 }
 

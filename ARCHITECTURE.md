@@ -495,12 +495,19 @@ server receives a complete listing.
   2026-10-26) refuses a price typed with extra zeros and keeps a deal's
   amount arithmetic far from int64 overflow; migration 0009 adds it to the
   table's check.
-
 - Status: processing → active or rejected; active ⇄ hidden; active or
-  hidden → sold → active; any status → deleted. Only active is public. An
-  edit that adds an upload, or an edit of a rejected listing, returns the
-  listing to processing; an edit of a sold or deleted listing is
-  `listing_state_conflict`.
+  hidden → sold → active; any status → deleted; active ⇄ reserved →
+  sold. Active and reserved are public. An edit that adds an upload, or an
+  edit of a rejected listing, returns the listing to processing; an edit
+  of a sold, deleted or reserved listing is `listing_state_conflict`.
+- A listing is reserved while an order's parcel travels, and
+  `reserved_for` names the order (migration 0010). `Service.Reserve`,
+  `Release` and `SellTo` take the listing and the order, so module deal's
+  flows can repeat them: reserving again for the same order, releasing for
+  another order and selling an already sold listing change nothing. They
+  write `listing.reserved`, `listing.released` and `listing.sold`. A
+  reserved listing counts toward the cap and shows in the `on_sale` pane;
+  the seller cannot hide, edit, mark sold or delete it.
 - Posting and editing run as Restate services, `ListingPost` and
   `ListingEdit`, through `restatex.Caller`. `POST /v1/listings` and
   `PUT /v1/listings/{id}` take an `Idempotency-Key`, and the invocation's
@@ -601,6 +608,57 @@ listing. Spec: `~/shopnexus/specs/2026-10-26-server2-deal-design.md`.
   repeated or late event changes nothing.
 - Chat, a later module, is one conversation per buyer and seller holding
   the deals of that pair (decided 2026-10-26).
+
+Orders, cash on delivery, live in module `deal` (spec:
+`~/shopnexus/specs/2026-10-26-server2-order-design.md`).
+
+- No carrier is integrated (decided 2026-10-26). The seller ships on the
+  carrier's own app and records the waybill; the waybill keeps `source`
+  (`self`) for an integration later. The COD setup module, with carrier
+  accounts and pickup addresses, was dropped with the integration, and
+  ShopNexus stores nothing about the seller's payout account.
+- An order is `requested` → `shipped` → `delivered` or `returned`, or
+  `requested` → `cancelled`. Nothing sits between requested and shipped,
+  so a buyer cannot cancel on a seller who already packed the parcel
+  (decided 2026-10-26). Either side cancels a requested order with the
+  deal's `cancel`, which then needs no Restate. A delivered order makes the
+  deal `sold`, its final status; a return or a cancel makes it negotiate
+  again.
+- The `Deal` aggregate holds its latest order; `orders` keeps the earlier
+  ones (migration 0011, with an index on `(deal_id, id)` for the latest
+  order every deal read joins). `Deals.Save` writes deal, order, moves and
+  `deal.moved` in one transaction. Each order step is a move:
+  `cod_requested`, `shipped`, `delivered`, `returned`, `order_cancelled`.
+  The order's code `SN-100001` comes from the sequence `order_codes`, so a
+  use case reads the deal back after its save.
+- A buyer has at most 3 orders requested or shipped; `Save` counts them
+  under `pg_advisory_xact_lock` on the buyer and refuses the fourth with
+  `cod_limit_reached`.
+- A suspended account cannot ask for COD; ship, delivered, returned and
+  cancel finish or take back an order already under way, and refuse no
+  one for a suspension.
+- Ship, delivered and returned change the listing, so they run as Restate
+  flows, `DealShip` and `DealFinish` (one service for both endings, with
+  the outcome in its input), with the invocation key `<caller
+  id>/<Idempotency-Key>`. `DealShip` reserves the listing first, so a
+  listing no longer on sale refuses before anything is written, then saves
+  the order, and releases the listing when that save loses a race.
+  `DealFinish` saves, then sells or releases the listing.
+- A flow journals the deal it loaded and replays the domain move, which
+  mints new move IDs. `Save` therefore treats a row that already has the
+  write ID as an earlier try that committed and writes nothing more, where
+  catalog's `Save` accepts either write ID.
+- `DealShip` keeps the listing when its save loses to another try that
+  shipped the same order (a second tap with a key of its own), and
+  releases it otherwise. Once shipped, it calls `ListingChanged`, which
+  cancels the listing's other requested orders with `sent_to_another`.
+  `ListingChanged` reads a listing reserved for an order that is not
+  shipped yet as paused, so a ship that loses to a cancel ends no other
+  buyer's request. The deal worker cancels requested orders whose listing
+  is hidden, sold off the app or deleted (`listing_closed`).
+- The buyer always reads the recipient in full; the seller reads it in
+  full except on a cancelled order, which keeps only the name and the
+  commune.
 
 ### Testing
 

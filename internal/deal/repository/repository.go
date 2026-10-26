@@ -26,16 +26,32 @@ type Deals interface {
 	Get(ctx context.Context, id uuid.UUID) (domain.Deal, error)
 	// Find returns the buyer's deal on a listing, or ErrNotFound.
 	Find(ctx context.Context, listingID, buyer uuid.UUID) (domain.Deal, error)
-	// Save writes d, its pending moves and evs when its row still has
-	// d.WriteID() or already has writeID, then sets its write ID.
-	// Otherwise ErrConflict and nothing is written.
+	// Save writes d, its latest order, its pending moves and evs when its
+	// row still has d.WriteID(), then sets its write ID. A row that already
+	// has writeID was written by an earlier try of this save: Save writes
+	// nothing more and returns nil. Otherwise ErrConflict and nothing is
+	// written. A requested order beyond the buyer's domain.MaxOpenOrders is
+	// domain.ErrCodLimit; concurrent saves for one buyer count one at a
+	// time.
 	Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error
 	// OfListing returns every deal on a listing, oldest first.
 	OfListing(ctx context.Context, listingID uuid.UUID) ([]domain.Deal, error)
 	// ListByParty is a query: account's deals on side as (buyer or
 	// seller) with IDs below p.Before(), newest first, at most p.Fetch().
 	ListByParty(ctx context.Context, account uuid.UUID, as domain.Party, p page.Request) ([]domain.Deal, error)
+	// ListOrders is a query: account's orders on side as with IDs below
+	// p.Before(), newest first, at most p.Fetch().
+	ListOrders(ctx context.Context, account uuid.UUID, as domain.Party, p page.Request) ([]OrderRow, error)
 	// Moves returns each deal's moves, oldest first; a deal without moves
 	// is absent.
 	Moves(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]domain.Move, error)
+}
+
+// OrderRow is an order with the deal it belongs to.
+type OrderRow struct {
+	DealID    uuid.UUID
+	ListingID uuid.UUID
+	BuyerID   uuid.UUID
+	SellerID  uuid.UUID
+	Order     domain.Order
 }

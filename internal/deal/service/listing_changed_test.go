@@ -17,8 +17,8 @@ func (e env) changed(t *testing.T, listing uuid.UUID) {
 	}
 }
 
-// count counts the moves of kind in v.
-func count(v []domain.MoveKind, kind domain.MoveKind) int {
+// countMoves counts the moves of kind in v.
+func countMoves(v []domain.MoveKind, kind domain.MoveKind) int {
 	n := 0
 	for _, k := range v {
 		if k == kind {
@@ -42,7 +42,7 @@ func TestListingChanged(t *testing.T) {
 	e.changed(t, listing)
 	e.changed(t, listing)
 	va := e.get(t, a, da.ID)
-	if va.OpenPrice != nil || count(moveKinds(va), domain.MovePriceChanged) != 1 {
+	if va.OpenPrice != nil || countMoves(moveKinds(va), domain.MovePriceChanged) != 1 {
 		t.Fatalf("%+v", va)
 	}
 	if m := va.Moves[len(va.Moves)-1]; m.By != domain.System || m.Amount == nil || *m.Amount != 1_400_000 {

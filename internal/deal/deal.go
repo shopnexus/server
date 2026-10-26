@@ -23,12 +23,13 @@ func Mount(d module.Deps, protect func(http.Handler) http.Handler, accounts acco
 	auth authsvc.Service, catalog catalogsvc.Service,
 ) []restate.ServiceDefinition {
 	svc := service.New(service.Deps{
-		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Auth: auth, Catalog: catalog, Now: d.Now,
+		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Auth: auth, Catalog: catalog,
+		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, protect)
 	watch := worker.ListingWatch{Prefix: d.ServicePrefix, Deals: svc}
 	for _, k := range []events.Kind{events.ListingUpdated, events.ListingHidden, events.ListingSold, events.ListingDeleted} {
 		d.Events.Subscribe(k, watch.ServiceName(), "Changed")
 	}
-	return []restate.ServiceDefinition{restate.Reflect(watch)}
+	return append(svc.Durable(), restate.Reflect(watch))
 }

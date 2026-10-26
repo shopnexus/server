@@ -67,6 +67,16 @@ paths:
     $ref: "paths/deal.yaml#/dealCancel"
   /v1/me/deals:
     $ref: "paths/deal.yaml#/myDeals"
+  /v1/deals/{id}/cod:
+    $ref: "paths/deal.yaml#/dealCod"
+  /v1/deals/{id}/ship:
+    $ref: "paths/deal.yaml#/dealShip"
+  /v1/deals/{id}/delivered:
+    $ref: "paths/deal.yaml#/dealDelivered"
+  /v1/deals/{id}/returned:
+    $ref: "paths/deal.yaml#/dealReturned"
+  /v1/me/orders:
+    $ref: "paths/deal.yaml#/myOrders"
   /v1/staff/login:
     $ref: "paths/staff.yaml#/login"
   /v1/staff/login/totp-enrollment:

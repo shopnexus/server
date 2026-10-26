@@ -198,3 +198,60 @@ func TestUploads(t *testing.T) {
 		t.Fatalf("listing: %v, want %v", got, want)
 	}
 }
+
+func TestReserveReleaseSell(t *testing.T) {
+	t.Parallel()
+	l := published(t)
+	o, other := uuid.NewV7(), uuid.NewV7()
+	if changed, err := l.Reserve(o, now); !changed || err != nil || l.Status() != domain.StatusReserved || l.ReservedFor() != o {
+		t.Fatalf("reserve: %v %v %+v", changed, err, l.State())
+	}
+	if changed, err := l.Reserve(o, now); changed || err != nil {
+		t.Fatalf("reserve again: %v %v", changed, err)
+	}
+	if _, err := l.Reserve(other, now); !errors.Is(err, domain.ErrStateConflict) {
+		t.Fatalf("reserve for another: %v", err)
+	}
+	if l.Release(other, now) || l.Status() != domain.StatusReserved {
+		t.Fatal("released for another order")
+	}
+	if !l.Release(o, now) || l.Status() != domain.StatusActive || l.ReservedFor() != (uuid.UUID{}) {
+		t.Fatalf("release: %+v", l.State())
+	}
+	if _, err := l.Reserve(o, now); err != nil {
+		t.Fatal(err)
+	}
+	if !l.SellTo(o, now) || l.Status() != domain.StatusSold || l.SoldAt() == nil || l.ReservedFor() != (uuid.UUID{}) {
+		t.Fatalf("sell: %+v", l.State())
+	}
+	if l.SellTo(o, now) {
+		t.Fatal("sold twice")
+	}
+}
+
+func TestReservedRefuses(t *testing.T) {
+	t.Parallel()
+	l := published(t)
+	if _, err := l.Reserve(uuid.NewV7(), now); err != nil {
+		t.Fatal(err)
+	}
+	for name, change := range map[string]func() error{
+		"hide":      func() error { return l.Hide(now) },
+		"mark sold": func() error { return l.MarkSold(now) },
+		"delete":    func() error { return l.Delete(now) },
+		"edit":      func() error { return l.Edit(draft(), known, now) },
+	} {
+		if err := change(); !errors.Is(err, domain.ErrStateConflict) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	hidden := published(t)
+	if err := hidden.Hide(now); err != nil {
+		t.Fatal(err)
+	}
+	for name, x := range map[string]domain.Listing{"hidden": hidden, "processing": newListing(t)} {
+		if _, err := x.Reserve(uuid.NewV7(), now); !errors.Is(err, domain.ErrStateConflict) {
+			t.Errorf("reserve %s: %v", name, err)
+		}
+	}
+}

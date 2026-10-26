@@ -43,14 +43,17 @@ type ListingView struct {
 
 // Summary is what another module reads of a listing, in any status.
 // CoverThumbURL is empty until the cover is processed.
+// ReservedFor is the order a reserved listing is held for. A flow of
+// module deal journals a Summary, hence the JSON tags.
 type Summary struct {
-	ID            uuid.UUID
-	SellerID      uuid.UUID
-	Title         string
-	Price         int64
-	AllowOffers   bool
-	Status        domain.Status
-	CoverThumbURL string
+	ID            uuid.UUID     `json:"id"`
+	SellerID      uuid.UUID     `json:"seller_id"`
+	Title         string        `json:"title"`
+	Price         int64         `json:"price"`
+	AllowOffers   bool          `json:"allow_offers"`
+	Status        domain.Status `json:"status"`
+	CoverThumbURL string        `json:"cover_thumb_url"`
+	ReservedFor   uuid.UUID     `json:"reserved_for"`
 }
 
 // Location is the listing's commune and province, with a point inside the

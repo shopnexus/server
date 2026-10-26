@@ -10,6 +10,9 @@ import (
 	"time"
 	"uuid"
 
+	restate "github.com/restatedev/sdk-go"
+	"github.com/restatedev/sdk-go/ingress"
+
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	authsvc "github.com/shopnexus/server2/internal/auth/service"
@@ -19,9 +22,12 @@ import (
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/restatex"
 )
 
 // Service is module deal's contract.
+//
+//nolint:interfacebloat // One method per use case of deals and their orders; splitting it would split the module.
 type Service interface {
 	// Open returns the buyer's deal on a listing, starting one when there is
 	// none; created reports a new deal.
@@ -35,6 +41,16 @@ type Service interface {
 	Decline(ctx context.Context, caller, id uuid.UUID) (DealView, error)
 	Withdraw(ctx context.Context, caller, id uuid.UUID) (DealView, error)
 	Cancel(ctx context.Context, caller, id uuid.UUID) (DealView, error)
+	// RequestCod asks for cash on delivery on the buyer's agreed deal.
+	RequestCod(ctx context.Context, caller, id uuid.UUID, r RecipientInput) (DealView, error)
+	// Ship records the waybill of a requested order, which holds the
+	// listing; Deliver and Return end a shipped one. A repeated
+	// idempotencyKey of the same caller runs nothing more.
+	Ship(ctx context.Context, caller, id uuid.UUID, idempotencyKey string, w WaybillInput) (DealView, error)
+	Deliver(ctx context.Context, caller, id uuid.UUID, idempotencyKey string) (DealView, error)
+	Return(ctx context.Context, caller, id uuid.UUID, idempotencyKey string) (DealView, error)
+	// ListOrders lists viewer's orders on side as, newest first.
+	ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[OrderItem], error)
 	// ListingChanged brings a listing's deals in line with its current
 	// state; the worker calls it for every change of the listing.
 	ListingChanged(ctx context.Context, listingID uuid.UUID) error
@@ -46,7 +62,10 @@ type Deps struct {
 	Accounts accountsvc.Service
 	Auth     authsvc.Service
 	Catalog  catalogsvc.Service
-	Now      func() time.Time
+	// Ingress and Prefix reach this process's Restate services.
+	Ingress *ingress.Client
+	Prefix  string
+	Now     func() time.Time
 }
 
 // Deals implements Service in this process.
@@ -55,13 +74,27 @@ type Deals struct {
 	accounts accountsvc.Service
 	auth     authsvc.Service
 	catalog  catalogsvc.Service
+	prefix   string
 	now      func() time.Time
+	ship     restatex.Caller[FlowInput, FlowResult]
+	finish   restatex.Caller[FlowInput, FlowResult]
 }
 
 var _ Service = (*Deals)(nil)
 
 func New(d Deps) *Deals {
-	return &Deals{deals: d.Deals, accounts: d.Accounts, auth: d.Auth, catalog: d.Catalog, now: d.Now}
+	return &Deals{
+		deals: d.Deals, accounts: d.Accounts, auth: d.Auth, catalog: d.Catalog, prefix: d.Prefix, now: d.Now,
+		ship:   restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: "Run"},
+		finish: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealFinish, Handler: "Run"},
+	}
+}
+
+// Durable returns module deal's Restate services, for Mount to bind.
+func (s *Deals) Durable() []restate.ServiceDefinition {
+	return []restate.ServiceDefinition{
+		restate.Reflect(DealShip{Deals: s}), restate.Reflect(DealFinish{Deals: s}),
+	}
 }
 
 // refuseSuspended returns accountdomain.ErrSuspended for a suspended

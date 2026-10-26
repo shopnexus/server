@@ -26,6 +26,8 @@ const (
 	ListingSold        Kind = "listing.sold"
 	ListingUnsold      Kind = "listing.unsold"
 	ListingDeleted     Kind = "listing.deleted"
+	ListingReserved    Kind = "listing.reserved"
+	ListingReleased    Kind = "listing.released"
 	DealMoved          Kind = "deal.moved"
 )
 

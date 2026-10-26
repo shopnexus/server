@@ -26,4 +26,9 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("POST /v1/deals/{id}/withdraw", protect(http.HandlerFunc(h.Withdraw)))
 	r.Handle("POST /v1/deals/{id}/cancel", protect(http.HandlerFunc(h.Cancel)))
 	r.Handle("GET /v1/me/deals", protect(http.HandlerFunc(h.ListMine)))
+	r.Handle("POST /v1/deals/{id}/cod", protect(http.HandlerFunc(h.RequestCod)))
+	r.Handle("POST /v1/deals/{id}/ship", protect(http.HandlerFunc(h.Ship)))
+	r.Handle("POST /v1/deals/{id}/delivered", protect(http.HandlerFunc(h.Deliver)))
+	r.Handle("POST /v1/deals/{id}/returned", protect(http.HandlerFunc(h.Return)))
+	r.Handle("GET /v1/me/orders", protect(http.HandlerFunc(h.ListOrders)))
 }

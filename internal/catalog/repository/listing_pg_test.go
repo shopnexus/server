@@ -230,3 +230,33 @@ func TestGetMany(t *testing.T) {
 		t.Fatalf("%d %v", len(got), err)
 	}
 }
+
+func TestReservedRoundTrip(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewListings(db)
+	ctx := context.Background()
+	l := listing(t, newAccount(t, db))
+	if err := s.Insert(ctx, l); err != nil {
+		t.Fatal(err)
+	}
+	l.Published(map[uuid.UUID]domain.PhotoKeys{}, now)
+	order := uuid.NewV7()
+	if _, err := l.Reserve(order, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(ctx, &l, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Get(ctx, l.ID())
+	if err != nil || got.Status() != domain.StatusReserved || got.ReservedFor() != order {
+		t.Fatalf("%+v %v", got.State(), err)
+	}
+	got.Release(order, now)
+	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = s.Get(ctx, l.ID()); err != nil || got.ReservedFor() != (uuid.UUID{}) {
+		t.Fatalf("%+v %v", got.State(), err)
+	}
+}

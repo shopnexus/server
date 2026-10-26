@@ -74,6 +74,58 @@ func (c *Catalog) Delete(ctx context.Context, seller, id uuid.UUID) error {
 	return err
 }
 
+func (c *Catalog) Reserve(ctx context.Context, listingID, orderID uuid.UUID) error {
+	l, err := c.listing(ctx, listingID)
+	if err != nil {
+		return err
+	}
+	now := c.now()
+	changed, err := l.Reserve(orderID, now)
+	if err != nil || !changed {
+		return err
+	}
+	_, err = c.save(ctx, l, events.ListingReserved, now)
+	return err
+}
+
+func (c *Catalog) Release(ctx context.Context, listingID, orderID uuid.UUID) error {
+	l, err := c.listing(ctx, listingID)
+	if err != nil {
+		return err
+	}
+	now := c.now()
+	if !l.Release(orderID, now) {
+		return nil
+	}
+	_, err = c.save(ctx, l, events.ListingReleased, now)
+	return err
+}
+
+func (c *Catalog) SellTo(ctx context.Context, listingID, orderID uuid.UUID) error {
+	l, err := c.listing(ctx, listingID)
+	if err != nil {
+		return err
+	}
+	now := c.now()
+	if !l.SellTo(orderID, now) {
+		return nil
+	}
+	_, err = c.save(ctx, l, events.ListingSold, now)
+	return err
+}
+
+// listing loads any listing by ID, for the calls of other modules.
+func (c *Catalog) listing(ctx context.Context, id uuid.UUID) (domain.Listing, error) {
+	l, err := c.listings.Get(ctx, id)
+	if errors.Is(err, repository.ErrNotFound) {
+		return domain.Listing{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.Listing{}, fmt.Errorf("get listing: %w", err)
+	}
+	return l, nil
+}
+
 // save writes a status change of l with the event of that kind and returns
 // the listing's view. A listing written meanwhile is apperr.ErrTryAgain.
 func (c *Catalog) save(ctx context.Context, l domain.Listing, kind events.Kind, now time.Time) (ListingView, error) {

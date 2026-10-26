@@ -11,8 +11,8 @@ import (
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
-// Get reads a listing. Anyone sees an active listing; its seller also sees
-// it in any other state but deleted.
+// Get reads a listing. Anyone sees an active or reserved listing; its seller
+// also sees it in any other state but deleted.
 func (c *Catalog) Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error) {
 	l, err := c.listings.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
@@ -22,7 +22,8 @@ func (c *Catalog) Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (Lis
 		return ListingView{}, fmt.Errorf("get listing: %w", err)
 	}
 	owner := viewer != nil && *viewer == l.SellerID()
-	if l.Status() == domain.StatusDeleted || (l.Status() != domain.StatusActive && !owner) {
+	public := l.Status() == domain.StatusActive || l.Status() == domain.StatusReserved
+	if l.Status() == domain.StatusDeleted || (!public && !owner) {
 		return ListingView{}, domain.ErrNotFound
 	}
 	return c.view(ctx, l)
@@ -61,7 +62,7 @@ func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID
 		l := &rows[i]
 		s := Summary{
 			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), AllowOffers: l.AllowOffers(),
-			Status: l.Status(),
+			Status: l.Status(), ReservedFor: l.ReservedFor(),
 		}
 		if p := l.Photos(); len(p) > 0 && p[0].Keys.Thumb != "" {
 			s.CoverThumbURL = c.media.URL(p[0].Keys.Thumb)
@@ -69,4 +70,20 @@ func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID
 		out[l.ID()] = s
 	}
 	return out, nil
+}
+
+// Place reads a commune with its province.
+func (c *Catalog) Place(ctx context.Context, communeCode string) (Location, error) {
+	commune, province, err := c.regions.Commune(ctx, communeCode)
+	if errors.Is(err, repository.ErrNotFound) {
+		return Location{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return Location{}, fmt.Errorf("get commune: %w", err)
+	}
+	return Location{
+		Commune:  Region{Code: commune.Code, DisplayName: commune.DisplayName},
+		Province: Region{Code: commune.ProvinceCode, DisplayName: province},
+		Lat:      commune.Lat, Lng: commune.Lng,
+	}, nil
 }

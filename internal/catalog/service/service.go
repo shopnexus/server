@@ -45,6 +45,18 @@ type Service interface {
 	// Summaries reads listings in any status for other modules; an unknown
 	// ID is left out of the map.
 	Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Summary, error)
+	// Reserve holds an active listing for an order; holding it again for the
+	// same order changes nothing. Another status is domain.ErrStateConflict.
+	Reserve(ctx context.Context, listingID, orderID uuid.UUID) error
+	// Release puts a listing held for the order back on sale; a listing held
+	// for another order, or not held, stays as it is.
+	Release(ctx context.Context, listingID, orderID uuid.UUID) error
+	// SellTo marks a listing held for the order sold; a listing already sold
+	// for it stays as it is.
+	SellTo(ctx context.Context, listingID, orderID uuid.UUID) error
+	// Place reads a commune with its province; an unknown code is
+	// domain.ErrNotFound.
+	Place(ctx context.Context, communeCode string) (Location, error)
 	Categories(ctx context.Context) ([]domain.Category, error)
 	Provinces(ctx context.Context) ([]domain.Province, error)
 	Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error)

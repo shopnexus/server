@@ -98,7 +98,8 @@ func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (mov
 }
 
 // save writes the moved deal with deal.moved and returns it as the caller
-// sees it. A deal the other side moved meanwhile is domain.ErrChanged.
+// sees it, read back, since the store sets a new order's code. A deal the
+// other side moved meanwhile is domain.ErrChanged.
 func (s *Deals) save(ctx context.Context, caller uuid.UUID, m moving) (DealView, error) {
 	err := s.deals.Save(ctx, &m.deal, uuid.NewV7(), moved(m.deal.ID(), m.now))
 	if errors.Is(err, repository.ErrConflict) {
@@ -107,5 +108,9 @@ func (s *Deals) save(ctx context.Context, caller uuid.UUID, m moving) (DealView,
 	if err != nil {
 		return DealView{}, fmt.Errorf("save deal: %w", err)
 	}
-	return s.read(ctx, caller, m.deal, m.listing)
+	d, err := s.deals.Get(ctx, m.deal.ID())
+	if err != nil {
+		return DealView{}, fmt.Errorf("read the saved deal: %w", err)
+	}
+	return s.read(ctx, caller, d, m.listing)
 }

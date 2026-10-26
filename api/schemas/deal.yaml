@@ -33,8 +33,10 @@ Party:
   enum: [buyer, seller]
 DealStatus:
   type: string
-  enum: [negotiating, agreed]
-  description: Agreeing reserves nothing; several buyers may agree a price on one listing.
+  enum: [negotiating, agreed, sold]
+  description: |
+    Agreeing reserves nothing; several buyers may agree a price on one
+    listing. sold: the deal's order was delivered; the deal takes no move.
 DealListing:
   type: object
   additionalProperties: false
@@ -55,7 +57,7 @@ DealListing:
       description: Absent until the cover photo is processed.
     status:
       type: string
-      enum: [processing, active, hidden, rejected, sold, deleted]
+      enum: [processing, active, hidden, rejected, reserved, sold, deleted]
 OpenPrice:
   type: object
   additionalProperties: false
@@ -91,7 +93,21 @@ Move:
   properties:
     kind:
       type: string
-      enum: [offer, counter, accept, decline, withdraw, cancel, price_changed, offers_closed, listing_closed]
+      enum:
+        - offer
+        - counter
+        - accept
+        - decline
+        - withdraw
+        - cancel
+        - price_changed
+        - offers_closed
+        - listing_closed
+        - cod_requested
+        - shipped
+        - delivered
+        - returned
+        - order_cancelled
     by:
       type: string
       enum: [buyer, seller, system]
@@ -99,7 +115,9 @@ Move:
     amount:
       type: integer
       format: int64
-      description: The offered or agreed price, or the new listed price on price_changed.
+      description: |
+        The offered or agreed price, the new listed price on price_changed,
+        the order's price on cod_requested, the fee on shipped.
     at:
       type: string
       format: date-time
@@ -135,6 +153,8 @@ Deal:
       format: date-time
     offer_range:
       $ref: "#/OfferRange"
+    order:
+      $ref: "#/Order"
     moves:
       type: array
       description: Every move, oldest first.
@@ -153,3 +173,182 @@ DealList:
       type: string
       format: uuid
       description: Present when more deals follow; pass it as cursor.
+CodRequest:
+  type: object
+  additionalProperties: false
+  required: [recipient]
+  properties:
+    recipient:
+      $ref: "#/RecipientDraft"
+RecipientDraft:
+  type: object
+  additionalProperties: false
+  required: [name, phone, street, commune_code]
+  description: Where the parcel goes. The rules are business rules; breaking one is 422 invalid_recipient.
+  properties:
+    name:
+      type: string
+      description: 1 to 50 characters after trimming.
+    phone:
+      type: string
+      description: A Vietnamese mobile number, in any common form.
+    street:
+      type: string
+      description: 1 to 200 characters after trimming.
+    commune_code:
+      type: string
+      description: A commune code from GET /v1/regions/{province_code}/communes.
+WaybillDraft:
+  type: object
+  additionalProperties: false
+  required: [carrier, tracking_code, fee]
+  description: The waybill the seller made on the carrier's own app. Breaking a rule is 422 invalid_waybill.
+  properties:
+    carrier:
+      type: string
+      description: ghtk, ghn, spx, jt, viettel_post or other.
+    carrier_name:
+      type: string
+      description: 1 to 50 characters, with carrier other and only then.
+    tracking_code:
+      type: string
+      description: 1 to 50 characters.
+    fee:
+      type: integer
+      format: int64
+      description: The shipping fee the buyer pays at the door, whole đồng from 0 to 5,000,000.
+Recipient:
+  type: object
+  additionalProperties: false
+  required: [name, commune_code, commune, province]
+  properties:
+    name:
+      type: string
+    phone:
+      type: string
+      description: In the +84 form. Absent for the seller on an order cancelled before shipping.
+    street:
+      type: string
+      description: Absent for the seller on an order cancelled before shipping.
+    commune_code:
+      type: string
+    commune:
+      type: string
+    province:
+      type: string
+Waybill:
+  type: object
+  additionalProperties: false
+  required: [source, carrier, tracking_code, fee]
+  properties:
+    source:
+      type: string
+      enum: [self]
+      description: self is a waybill the seller made on the carrier's own app.
+    carrier:
+      type: string
+      enum: [ghtk, ghn, spx, jt, viettel_post, other]
+    carrier_name:
+      type: string
+    tracking_code:
+      type: string
+    fee:
+      type: integer
+      format: int64
+OrderStatus:
+  type: string
+  enum: [requested, shipped, delivered, returned, cancelled]
+  description: |
+    requested: the buyer asked for COD; either side may cancel. shipped: the
+    seller recorded the waybill; the listing is reserved. delivered and
+    returned: as the seller reported. cancelled: before shipping.
+Order:
+  type: object
+  additionalProperties: false
+  required: [id, code, status, price, recipient, requested_at]
+  description: A buyer's request for cash on delivery at the agreed price.
+  properties:
+    id:
+      type: string
+      format: uuid
+    code:
+      type: string
+      description: The order number, such as SN-100001.
+    status:
+      $ref: "#/OrderStatus"
+    price:
+      type: integer
+      format: int64
+    recipient:
+      $ref: "#/Recipient"
+    waybill:
+      $ref: "#/Waybill"
+    cancelled_by:
+      type: string
+      enum: [buyer, seller, system]
+    cancel_reason:
+      type: string
+      enum: [buyer, seller, sent_to_another, listing_closed]
+      description: sent_to_another is a request whose listing the seller shipped to another buyer; listing_closed, one whose listing was hidden, sold off the app or deleted.
+    requested_at:
+      type: string
+      format: date-time
+    shipped_at:
+      type: string
+      format: date-time
+    closed_at:
+      type: string
+      format: date-time
+OrderItem:
+  type: object
+  additionalProperties: false
+  description: An order with its deal and its listing as it is now.
+  required: [id, code, status, price, recipient, requested_at, deal_id, listing]
+  properties:
+    id:
+      type: string
+      format: uuid
+    code:
+      type: string
+    status:
+      $ref: "#/OrderStatus"
+    price:
+      type: integer
+      format: int64
+    recipient:
+      $ref: "#/Recipient"
+    waybill:
+      $ref: "#/Waybill"
+    cancelled_by:
+      type: string
+      enum: [buyer, seller, system]
+    cancel_reason:
+      type: string
+      enum: [buyer, seller, sent_to_another, listing_closed]
+    requested_at:
+      type: string
+      format: date-time
+    shipped_at:
+      type: string
+      format: date-time
+    closed_at:
+      type: string
+      format: date-time
+    deal_id:
+      type: string
+      format: uuid
+    listing:
+      $ref: "#/DealListing"
+OrderList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/OrderItem"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more orders follow; pass it as cursor.
