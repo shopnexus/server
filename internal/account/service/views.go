@@ -48,3 +48,11 @@ type SuspendInput struct {
 	Until  *time.Time
 	By     audit.Actor
 }
+
+// BlockView is the Block schema in api/schemas/account.yaml.
+type BlockView struct {
+	ID          uuid.UUID `json:"id"`
+	AccountID   uuid.UUID `json:"account_id"`
+	DisplayName string    `json:"display_name"`
+	At          time.Time `json:"at"`
+}

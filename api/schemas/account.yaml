@@ -24,3 +24,41 @@ AccountUpdate:
       type: string
       minLength: 1
       maxLength: 50
+BlockCreate:
+  type: object
+  additionalProperties: false
+  required: [account_id]
+  properties:
+    account_id:
+      type: string
+      format: uuid
+Block:
+  type: object
+  additionalProperties: false
+  required: [id, account_id, display_name, at]
+  description: An account the caller blocks. Neither may message the other, open a conversation with them or open a deal on their listings.
+  properties:
+    id:
+      type: string
+      format: uuid
+    account_id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+    at:
+      type: string
+      format: date-time
+BlockList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Block"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more blocks follow; pass it as cursor.

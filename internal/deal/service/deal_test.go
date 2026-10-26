@@ -241,3 +241,40 @@ func TestMoveThatLostARace(t *testing.T) {
 		t.Fatalf("%+v", got)
 	}
 }
+
+func TestOpenRefusesABlock(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := e.person(t)
+	listing := e.listing(t, seller)
+	for _, c := range []struct{ name string }{{"seller blocks"}, {"buyer blocks"}} {
+		buyer := e.person(t)
+		blocker, blocked := seller, buyer
+		if c.name == "buyer blocks" {
+			blocker, blocked = buyer, seller
+		}
+		if err := e.accounts.Block(ctx, blocker, blocked); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := e.deals.Open(ctx, buyer, listing); !errors.Is(err, accountdomain.ErrBlocked) {
+			t.Errorf("%s: %v", c.name, err)
+		}
+	}
+}
+
+func TestBetween(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	a, b, c := e.person(t), e.person(t), e.person(t)
+	fromA := e.open(t, b, e.listing(t, a))
+	fromB := e.open(t, a, e.listing(t, b))
+	e.open(t, c, e.listing(t, a))
+	got, err := e.deals.Between(context.Background(), a, b)
+	if err != nil || len(got) != 2 || got[0].ID != fromB.ID || got[1].ID != fromA.ID {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if got[0].Role != domain.Buyer || got[1].Role != domain.Seller {
+		t.Fatalf("roles %s %s", got[0].Role, got[1].Role)
+	}
+}

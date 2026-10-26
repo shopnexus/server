@@ -4,6 +4,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account/domain"
@@ -39,4 +40,21 @@ type Accounts interface {
 	// Delete removes the account; deleting a missing one does nothing. Only
 	// the sign-up compensation calls it.
 	Delete(ctx context.Context, id uuid.UUID) error
+	// Block records that blocker blocks blocked, as id; blocking again
+	// changes nothing.
+	Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error
+	// Unblock lifts the block; an absent one is fine.
+	Unblock(ctx context.Context, blocker, blocked uuid.UUID) error
+	// Blocked reports a block between a and b, in either direction.
+	Blocked(ctx context.Context, a, b uuid.UUID) (bool, error)
+	// ListBlocks is a query: blocker's blocks with IDs below p.Before(),
+	// newest first, at most p.Fetch().
+	ListBlocks(ctx context.Context, blocker uuid.UUID, p page.Request) ([]Block, error)
+}
+
+// Block is one account a blocker blocks.
+type Block struct {
+	ID        uuid.UUID
+	AccountID uuid.UUID
+	At        time.Time
 }

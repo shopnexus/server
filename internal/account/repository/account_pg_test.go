@@ -252,3 +252,36 @@ func TestSaveWritesItsEvents(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 }
+
+func TestBlocks(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+	ctx := context.Background()
+	a, b, c := seed(t, s), seed(t, s), seed(t, s)
+	for range 2 {
+		if err := s.Block(ctx, uuid.NewV7(), a, b, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.Block(ctx, uuid.NewV7(), a, c, now); err != nil {
+		t.Fatal(err)
+	}
+	for _, pair := range [][2]uuid.UUID{{a, b}, {b, a}} {
+		if blocked, err := s.Blocked(ctx, pair[0], pair[1]); err != nil || !blocked {
+			t.Fatalf("%v: %v %v", pair, blocked, err)
+		}
+	}
+	if blocked, err := s.Blocked(ctx, b, c); err != nil || blocked {
+		t.Fatalf("b, c: %v %v", blocked, err)
+	}
+	got, err := s.ListBlocks(ctx, a, page.Request{})
+	if err != nil || len(got) != 2 || got[0].AccountID != c || got[1].AccountID != b {
+		t.Fatalf("list: %+v %v", got, err)
+	}
+	if err = s.Unblock(ctx, a, b); err != nil {
+		t.Fatal(err)
+	}
+	if blocked, _ := s.Blocked(ctx, b, a); blocked {
+		t.Fatal("still blocked")
+	}
+}

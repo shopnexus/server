@@ -1,0 +1,303 @@
+conversations:
+  post:
+    operationId: openConversation
+    summary: Open the conversation with a listing's seller, or reuse the pair's, and send the first message.
+    description: |
+      One conversation per pair of people, whatever their roles. Checks, in
+      order: account_suspended, the listing exists, phone_required,
+      own_listing, listing_unavailable, blocked, then the message.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/chat.yaml#/ConversationOpen"
+    responses:
+      "201":
+        description: The conversation.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chat.yaml#/Conversation"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended), has no verified phone number (phone_required), or a block stands between the two (blocked)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such listing (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is the caller's (own_listing) or not on sale (listing_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The message breaks a rule (invalid_message, with fields), or a photo is not the caller's, not uploaded or already used (invalid_upload)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  get:
+    operationId: listConversations
+    summary: List the caller's conversations, newest message first.
+    description: |
+      A conversation without a sent message, or with someone the caller
+      blocks, is left out.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: archived
+        in: query
+        description: true lists the archived conversations; false or absent, the others.
+        schema:
+          type: boolean
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of conversations.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chat.yaml#/ConversationList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+conversation:
+  get:
+    operationId: getConversation
+    summary: Read a conversation with the deals of its two members.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The conversation.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chat.yaml#/Conversation"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such conversation of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+conversationMessages:
+  get:
+    operationId: listMessages
+    summary: List a conversation's messages, newest first.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of messages.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chat.yaml#/MessageList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such conversation of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  post:
+    operationId: sendMessage
+    summary: Send a message.
+    description: |
+      A photo message is processing until its photos are processed; only
+      the sender sees it until it is sent.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/chat.yaml#/MessageDraft"
+    responses:
+      "201":
+        description: The message.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chat.yaml#/Message"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended), or a block stands between the two (blocked)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such conversation of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The message breaks a rule (invalid_message, with fields), or a photo is not the caller's, not uploaded or already used (invalid_upload)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+conversationRead:
+  post:
+    operationId: readConversation
+    summary: Mark the conversation read up to a message.
+    description: |
+      A message older than the caller's marker changes nothing.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/chat.yaml#/ReadMark"
+    responses:
+      "204":
+        description: Marked.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such conversation, or message in it, of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+conversationArchive:
+  post:
+    operationId: archiveConversation
+    summary: Archive a conversation; the next message brings it back.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Archived.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such conversation of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+conversationUnarchive:
+  post:
+    operationId: unarchiveConversation
+    summary: Unarchive a conversation.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Unarchived.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such conversation of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+unread:
+  get:
+    operationId: getUnread
+    summary: Count the caller's unread messages over unarchived conversations.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The count.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chat.yaml#/Unread"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

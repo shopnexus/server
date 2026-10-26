@@ -33,7 +33,7 @@ deals:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
-        description: "The account is suspended (account_suspended) or has no verified phone number (phone_required)."
+        description: "The account is suspended (account_suspended), has no verified phone number (phone_required), or a block stands between the buyer and the seller (blocked)."
         content:
           application/json:
             schema:

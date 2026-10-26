@@ -14,6 +14,8 @@ import (
 )
 
 // Service is module account's contract.
+//
+//nolint:interfacebloat // One method per use case of accounts, suspensions and blocks.
 type Service interface {
 	// Get reads an account.
 	Get(ctx context.Context, id uuid.UUID) (AccountView, error)
@@ -35,6 +37,14 @@ type Service interface {
 	Suspend(ctx context.Context, in SuspendInput) (Record, error)
 	// Reinstate lifts a suspension and records account.unsuspend.
 	Reinstate(ctx context.Context, id uuid.UUID, by audit.Actor) (Record, error)
+	// Block stops blocked and blocker from reaching each other; blocking
+	// again changes nothing.
+	Block(ctx context.Context, blocker, blocked uuid.UUID) error
+	Unblock(ctx context.Context, blocker, blocked uuid.UUID) error
+	// Blocked reports a block between a and b, in either direction.
+	Blocked(ctx context.Context, a, b uuid.UUID) (bool, error)
+	// Blocks lists the accounts blocker blocks, newest block first.
+	Blocks(ctx context.Context, blocker uuid.UUID, p page.Request) (page.Page[BlockView], error)
 }
 
 // Account implements Service in this process.

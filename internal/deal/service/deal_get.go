@@ -21,34 +21,51 @@ func (s *Deals) Get(ctx context.Context, viewer, id uuid.UUID) (DealView, error)
 	return s.read(ctx, viewer, d, l)
 }
 
-// ListMine reads one page of the viewer's deals with their listings and
-// moves in three queries.
+// ListMine reads one page of the viewer's deals.
 func (s *Deals) ListMine(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[DealView], error) {
 	rows, err := s.deals.ListByParty(ctx, viewer, as, p)
 	if err != nil {
 		return page.Page[DealView]{}, fmt.Errorf("list deals: %w", err)
 	}
-	listingIDs, dealIDs := make([]uuid.UUID, 0, len(rows)), make([]uuid.UUID, 0, len(rows))
-	for i := range rows {
-		listingIDs, dealIDs = append(listingIDs, rows[i].ListingID()), append(dealIDs, rows[i].ID())
+	items, err := s.views(ctx, viewer, rows)
+	if err != nil {
+		return page.Page[DealView]{}, err
+	}
+	return page.Of(items, p, func(v DealView) uuid.UUID { return v.ID }), nil
+}
+
+func (s *Deals) Between(ctx context.Context, viewer, other uuid.UUID) ([]DealView, error) {
+	rows, err := s.deals.Between(ctx, viewer, other)
+	if err != nil {
+		return nil, fmt.Errorf("list deals: %w", err)
+	}
+	return s.views(ctx, viewer, rows)
+}
+
+// views builds the views of deals for viewer, reading their listings and
+// moves in two queries and each order's place.
+func (s *Deals) views(ctx context.Context, viewer uuid.UUID, deals []domain.Deal) ([]DealView, error) {
+	listingIDs, dealIDs := make([]uuid.UUID, 0, len(deals)), make([]uuid.UUID, 0, len(deals))
+	for i := range deals {
+		listingIDs, dealIDs = append(listingIDs, deals[i].ListingID()), append(dealIDs, deals[i].ID())
 	}
 	listings, err := s.catalog.Summaries(ctx, listingIDs)
 	if err != nil {
-		return page.Page[DealView]{}, fmt.Errorf("read listings: %w", err)
+		return nil, fmt.Errorf("read listings: %w", err)
 	}
 	moves, err := s.deals.Moves(ctx, dealIDs)
 	if err != nil {
-		return page.Page[DealView]{}, fmt.Errorf("read moves: %w", err)
+		return nil, fmt.Errorf("read moves: %w", err)
 	}
-	items := make([]DealView, 0, len(rows))
-	for i := range rows {
-		place, placeErr := s.placeOf(ctx, rows[i].Order())
+	items := make([]DealView, 0, len(deals))
+	for i := range deals {
+		place, placeErr := s.placeOf(ctx, deals[i].Order())
 		if placeErr != nil {
-			return page.Page[DealView]{}, placeErr
+			return nil, placeErr
 		}
-		items = append(items, view(viewer, rows[i], listings[rows[i].ListingID()], moves[rows[i].ID()], place))
+		items = append(items, view(viewer, deals[i], listings[deals[i].ListingID()], moves[deals[i].ID()], place))
 	}
-	return page.Of(items, p, func(v DealView) uuid.UUID { return v.ID }), nil
+	return items, nil
 }
 
 // ListOrders reads one page of the viewer's orders with their listings.

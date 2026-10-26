@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -21,6 +22,7 @@ import (
 	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/auth"
 	"github.com/shopnexus/server2/internal/catalog"
+	"github.com/shopnexus/server2/internal/chat"
 	"github.com/shopnexus/server2/internal/deal"
 	"github.com/shopnexus/server2/internal/media"
 	"github.com/shopnexus/server2/internal/platform/config"
@@ -30,6 +32,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server2/internal/platform/stream"
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/sms"
 	"github.com/shopnexus/server2/internal/staff"
@@ -45,9 +48,11 @@ type App struct {
 	pool     *pgxpool.Pool
 	endpoint *restatex.Endpoint
 	adminURL string
-	// stopEvents cancels the event bus; eventsDone closes when it returned.
+	// stopEvents cancels the event bus and the stream hub; eventsDone
+	// closes when both returned.
 	stopEvents context.CancelFunc
 	eventsDone chan struct{}
+	hub        *stream.Hub
 }
 
 // Option changes how New builds the app.
@@ -129,7 +134,9 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	})
 	in := ingress.NewClient(cfg.Restate.IngressURL)
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	defs, err := mountModules(a.router, pool, in, bus, cfg, o, log)
+	hub := stream.NewHub(pool, log)
+	a.hub = hub
+	defs, err := mountModules(a.router, pool, in, bus, hub, cfg, o, log)
 	if err != nil {
 		return nil, err
 	}
@@ -143,9 +150,18 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	runCtx, stop := context.WithCancel(context.Background())
 	a.stopEvents, a.eventsDone = stop, make(chan struct{})
 	go func() {
-		if err := bus.Run(runCtx); err != nil {
-			log.ErrorContext(runCtx, "event bus stopped", "err", err)
-		}
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			if err := bus.Run(runCtx); err != nil {
+				log.ErrorContext(runCtx, "event bus stopped", "err", err)
+			}
+		})
+		wg.Go(func() {
+			if err := hub.Run(runCtx); err != nil {
+				log.ErrorContext(runCtx, "stream hub stopped", "err", err)
+			}
+		})
+		wg.Wait()
 		close(a.eventsDone)
 	}()
 
@@ -178,12 +194,15 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 // mountModules mounts every module and returns their Restate services. A
 // module mounts after the modules whose services it takes; protect comes first
 // because it needs only the auth keys.
-func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, cfg config.Config, o options, log *slog.Logger) ([]restate.ServiceDefinition, error) {
+func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub,
+	cfg config.Config, o options, log *slog.Logger,
+) ([]restate.ServiceDefinition, error) {
 	d := module.Deps{
 		Router: router, Pool: pool, Ingress: in, ServicePrefix: cfg.Restate.ServicePrefix,
 		Events: bus, Now: time.Now, Log: log,
 	}
 	protect := auth.Protect(d, cfg.Auth)
+	router.Handle("GET /v1/stream", protect(hub.Handler(log)))
 	accounts := account.Mount(d, protect)
 	authm := auth.Mount(d, auth.Settings{Keys: cfg.Auth, SMS: o.sms, Email: o.email}, accounts)
 	staffKeys, err := staffsvc.NewKeys(cfg.Staff, o.hasher)
@@ -198,8 +217,9 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	mediam := media.Mount(d, store, protect)
 	catalogm := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
 		accounts, authm.Service, mediam.Service)
-	dealServices := deal.Mount(d, protect, accounts, authm.Service, catalogm.Service)
-	return slices.Concat(authm.Services, mediam.Services, catalogm.Services, dealServices), nil
+	dealm := deal.Mount(d, protect, accounts, authm.Service, catalogm.Service)
+	chatServices := chat.Mount(d, protect, accounts, authm.Service, catalogm.Service, mediam.Service, dealm.Service)
+	return slices.Concat(authm.Services, mediam.Services, catalogm.Services, dealm.Services, chatServices), nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {
@@ -244,8 +264,18 @@ func (a *App) ready(ctx context.Context) error {
 	return nil
 }
 
-// Close stops the event bus and the Restate endpoint, then closes the pool.
+// CloseStreams ends every open /v1/stream, so a server shutdown does not
+// wait for them; the server's RegisterOnShutdown calls it.
+func (a *App) CloseStreams() {
+	if a.hub != nil {
+		a.hub.Close()
+	}
+}
+
+// Close ends the streams, stops the event bus, the stream hub and the
+// Restate endpoint, then closes the pool.
 func (a *App) Close(ctx context.Context) error {
+	a.CloseStreams()
 	if a.stopEvents != nil {
 		a.stopEvents()
 		<-a.eventsDone

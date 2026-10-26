@@ -17,11 +17,18 @@ import (
 	"github.com/shopnexus/server2/internal/platform/module"
 )
 
+// Mounted is what deal's Mount gives app and other modules.
+type Mounted struct {
+	Services []restate.ServiceDefinition
+	Service  service.Service
+}
+
 // Mount registers the deal endpoints behind protect, subscribes the
-// listing watch to the listing events and returns deal's Restate services.
+// listing watch to the listing events, and returns deal's Restate services
+// and the Service chat reads a pair's deals through.
 func Mount(d module.Deps, protect func(http.Handler) http.Handler, accounts accountsvc.Service,
 	auth authsvc.Service, catalog catalogsvc.Service,
-) []restate.ServiceDefinition {
+) Mounted {
 	svc := service.New(service.Deps{
 		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Auth: auth, Catalog: catalog,
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
@@ -31,5 +38,5 @@ func Mount(d module.Deps, protect func(http.Handler) http.Handler, accounts acco
 	for _, k := range []events.Kind{events.ListingUpdated, events.ListingHidden, events.ListingSold, events.ListingDeleted} {
 		d.Events.Subscribe(k, watch.ServiceName(), "Changed")
 	}
-	return append(svc.Durable(), restate.Reflect(watch))
+	return Mounted{Services: append(svc.Durable(), restate.Reflect(watch)), Service: svc}
 }

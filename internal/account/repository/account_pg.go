@@ -165,3 +165,52 @@ func (s pgAccounts) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	return nil
 }
+
+func (s pgAccounts) Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error {
+	if _, err := s.db.Exec(ctx, `INSERT INTO account_blocks (id, blocker_id, blocked_id, created_at)
+VALUES (@id, @blocker, @blocked, @at) ON CONFLICT (blocker_id, blocked_id) DO NOTHING`,
+		pgx.StrictNamedArgs{"id": id, "blocker": blocker, "blocked": blocked, "at": at}); err != nil {
+		return fmt.Errorf("insert block: %w", err)
+	}
+	return nil
+}
+
+func (s pgAccounts) Unblock(ctx context.Context, blocker, blocked uuid.UUID) error {
+	if _, err := s.db.Exec(ctx, `DELETE FROM account_blocks WHERE blocker_id = @blocker AND blocked_id = @blocked`,
+		pgx.StrictNamedArgs{"blocker": blocker, "blocked": blocked}); err != nil {
+		return fmt.Errorf("delete block: %w", err)
+	}
+	return nil
+}
+
+func (s pgAccounts) Blocked(ctx context.Context, a, b uuid.UUID) (bool, error) {
+	var blocked bool
+	if err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM account_blocks
+WHERE (blocker_id = @a AND blocked_id = @b) OR (blocker_id = @b AND blocked_id = @a))`,
+		pgx.StrictNamedArgs{"a": a, "b": b}).Scan(&blocked); err != nil {
+		return false, fmt.Errorf("check block: %w", err)
+	}
+	return blocked, nil
+}
+
+func (s pgAccounts) ListBlocks(ctx context.Context, blocker uuid.UUID, p page.Request) ([]Block, error) {
+	rows, err := s.db.Query(ctx, `SELECT id, blocked_id, created_at FROM account_blocks
+WHERE blocker_id = @blocker AND id < @before ORDER BY id DESC LIMIT @limit`,
+		pgx.StrictNamedArgs{"blocker": blocker, "before": p.Before(), "limit": p.Fetch()})
+	if err != nil {
+		return nil, fmt.Errorf("select blocks: %w", err)
+	}
+	defer rows.Close()
+	var out []Block
+	for rows.Next() {
+		var b Block
+		if err = rows.Scan(&b.ID, &b.AccountID, &b.At); err != nil {
+			return nil, fmt.Errorf("scan block: %w", err)
+		}
+		out = append(out, b)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("read blocks: %w", err)
+	}
+	return out, nil
+}

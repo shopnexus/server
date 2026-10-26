@@ -49,6 +49,9 @@ type Service interface {
 	Ship(ctx context.Context, caller, id uuid.UUID, idempotencyKey string, w WaybillInput) (DealView, error)
 	Deliver(ctx context.Context, caller, id uuid.UUID, idempotencyKey string) (DealView, error)
 	Return(ctx context.Context, caller, id uuid.UUID, idempotencyKey string) (DealView, error)
+	// Between lists the deals of viewer and other on either side, newest
+	// first, as viewer sees them.
+	Between(ctx context.Context, viewer, other uuid.UUID) ([]DealView, error)
 	// ListOrders lists viewer's orders on side as, newest first.
 	ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[OrderItem], error)
 	// ListingChanged brings a listing's deals in line with its current

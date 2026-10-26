@@ -64,6 +64,9 @@ func run() error {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
+	// Shutdown waits for every request; an open event stream never ends on
+	// its own.
+	srv.RegisterOnShutdown(a.CloseStreams)
 
 	serveErr := make(chan error, 1)
 	go func() {

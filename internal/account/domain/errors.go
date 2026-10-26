@@ -8,4 +8,6 @@ var (
 	ErrInvalidName     = apperr.New(apperr.KindInvalid, "invalid_display_name", "display name must be 1 to 50 characters")
 	ErrSuspendReason   = apperr.New(apperr.KindInvalid, "suspend_reason_required", "a suspension needs a reason")
 	ErrSuspendUntil    = apperr.New(apperr.KindInvalid, "suspend_until_in_past", "a suspension cannot end in the past")
+	ErrBlocked         = apperr.New(apperr.KindForbidden, "blocked", "a block stands between the two accounts")
+	ErrSelfBlock       = apperr.New(apperr.KindInvalid, "invalid_block", "an account cannot block itself")
 )

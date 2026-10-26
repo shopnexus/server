@@ -47,3 +47,80 @@ me:
         $ref: "../responses/common.yaml#/Conflict"
       "422":
         $ref: "../responses/common.yaml#/Unprocessable"
+blocks:
+  post:
+    operationId: blockAccount
+    summary: Block an account.
+    description: |
+      Neither the caller nor the account may then message the other, open a
+      conversation with them or open a deal on their listings. Blocking
+      again changes nothing; running deals and orders stay as they are.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/account.yaml#/BlockCreate"
+    responses:
+      "204":
+        description: Blocked.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such account (account_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The caller named themselves (invalid_block)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  get:
+    operationId: listBlocks
+    summary: List the accounts the caller blocks, newest block first.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of blocks.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/account.yaml#/BlockList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+block:
+  delete:
+    operationId: unblockAccount
+    summary: Lift a block; an absent one is fine.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Unblocked.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

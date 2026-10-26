@@ -29,6 +29,10 @@ paths:
     $ref: "paths/auth.yaml#/session"
   /v1/accounts/me:
     $ref: "paths/account.yaml#/me"
+  /v1/blocks:
+    $ref: "paths/account.yaml#/blocks"
+  /v1/blocks/{account_id}:
+    $ref: "paths/account.yaml#/block"
   /v1/uploads:
     $ref: "paths/media.yaml#/uploads"
   /v1/listings:
@@ -77,6 +81,22 @@ paths:
     $ref: "paths/deal.yaml#/dealReturned"
   /v1/me/orders:
     $ref: "paths/deal.yaml#/myOrders"
+  /v1/stream:
+    $ref: "paths/stream.yaml#/stream"
+  /v1/conversations:
+    $ref: "paths/chat.yaml#/conversations"
+  /v1/conversations/{id}:
+    $ref: "paths/chat.yaml#/conversation"
+  /v1/conversations/{id}/messages:
+    $ref: "paths/chat.yaml#/conversationMessages"
+  /v1/conversations/{id}/read:
+    $ref: "paths/chat.yaml#/conversationRead"
+  /v1/conversations/{id}/archive:
+    $ref: "paths/chat.yaml#/conversationArchive"
+  /v1/conversations/{id}/unarchive:
+    $ref: "paths/chat.yaml#/conversationUnarchive"
+  /v1/me/unread:
+    $ref: "paths/chat.yaml#/unread"
   /v1/staff/login:
     $ref: "paths/staff.yaml#/login"
   /v1/staff/login/totp-enrollment:

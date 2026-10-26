@@ -212,8 +212,9 @@ internal/account/
   account.go         Mount: builds the layers, returns service.Service
 ```
 
-Modules auth, staff, media, catalog and deal have the same four packages; a
-module that reacts to events adds `worker`, and deal is the first that does. Imports run one way, `handler` and `worker` →
+Modules auth, staff, media, catalog, deal and chat have the same four
+packages; a module that reacts to events adds `worker`, and deal is the
+first that does. Imports run one way, `handler` and `worker` →
 `service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
 refuse an import against it.
 
@@ -659,6 +660,74 @@ Orders, cash on delivery, live in module `deal` (spec:
 - The buyer always reads the recipient in full; the seller reads it in
   full except on a cancelled order, which keeps only the name and the
   commune.
+
+### Stream
+
+`GET /v1/stream` tells an open app what changed for the caller, as
+server-sent events (decided 2026-10-26).
+
+- An event carries IDs only: `message {conversation_id, message_id}`,
+  `read {conversation_id}`, `deal {deal_id}`, after `ready` on connect. The
+  app reloads what it shows, and reloads everything after a reconnect, so
+  nothing is stored for replay and the stream needs no `Last-Event-ID`.
+- A repository calls `stream.Notify(ctx, tx, accounts, hint)` in the
+  transaction of the change. It runs `pg_notify('stream', …)`, which
+  Postgres delivers on commit and drops on rollback, so every instance
+  hears every hint. The deal repository notifies the buyer and the seller
+  on each save; the chat repository notifies the members a message is
+  visible to, and the other member on a read.
+- `stream.Hub` listens on channel `stream` on a connection of its own, as
+  the events bus does, and hands each hint to the open streams of its
+  accounts, 16 waiting at most per stream; more are dropped. App runs it
+  beside the bus and stops both on close.
+- The handler clears its request's write deadline through
+  `http.ResponseController`, since the server's `WriteTimeout` of 30
+  seconds would end the stream, and writes a comment every 25 seconds.
+- `http.Server.Shutdown` waits for every request, and a stream never ends
+  on its own, so the server registers `App.CloseStreams` with
+  `RegisterOnShutdown`. `Hub.Close` closes every subscriber's channel, the
+  handlers return, and the apps reconnect to another instance and reload.
+
+### Blocks
+
+Blocks live in module `account`, since both `chat` and `deal` check them
+and `chat` already calls `deal`. A block stands either way: neither person
+may message the other, open a conversation with them or open a deal on
+their listings (403 `blocked`). The blocker's inbox leaves the conversation
+out. Running deals and orders stay as they are. Each block has a UUIDv7
+`id`, so `GET /v1/blocks` pages like every list.
+
+### Chat
+
+Module `chat` holds conversations (spec:
+`~/shopnexus/specs/2026-10-26-server2-chat-design.md`).
+
+- One conversation per pair of people, whatever their roles, stored as
+  `(account_a, account_b)` with `account_a < account_b`; it shows every
+  deal between the two, both ways, through `dealsvc.Service.Between`.
+- A buyer opens it from someone else's active listing, with a verified
+  phone and no block, and the first message names the listing. A pair that
+  has a conversation reuses it.
+- A message has text of 1 to 1,000 characters, up to 4 photos, or both,
+  and may name a listing of either member. Messages cannot be edited or
+  deleted.
+- Every send runs as the Restate flow `MessageSend` with the key `<sender
+  id>/<Idempotency-Key>`, text messages included, so a retried tap sends
+  one message. One step reads what the send depends on (status, listing,
+  phone, conversation, block) and the flow decides between steps; then
+  steps open the pair's conversation, add the message and attach its
+  photos to it in media (holder: the message), deleting the message again
+  when media refuses the attach; a photo message then sends
+  `MessagePublish`.
+- A photo message is `processing` until `MessagePublish` has its photos
+  through `MediaProcess`, then `sent` or `failed`. Only its sender sees it
+  until it is sent.
+- Each member has a read marker, which only a newer message moves, and an
+  archive, each written by a statement of its own (`MarkRead` updates only
+  when the message is newer), so two devices never undo each other. The next sent message clears both members' archives, so
+  archived means `archived_at` is set. Unread counts the other member's
+  sent messages after the marker. The inbox pages by the conversation's
+  last sent message ID.
 
 ### Testing
 

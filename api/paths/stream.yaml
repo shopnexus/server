@@ -1,0 +1,22 @@
+stream:
+  get:
+    operationId: openStream
+    summary: Server-sent events telling the open app what changed for the caller.
+    description: |
+      An event ready on connect, then one event per change: message with
+      conversation_id and message_id, read with conversation_id, deal with
+      deal_id. A comment comes every 25 seconds. Events carry IDs only; the
+      app reloads what it shows, and reloads everything after a reconnect,
+      since nothing is replayed.
+    tags: [stream]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The event stream, open until the app leaves.
+        content:
+          text/event-stream:
+            schema:
+              type: string
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

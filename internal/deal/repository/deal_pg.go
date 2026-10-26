@@ -13,6 +13,7 @@ import (
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/stream"
 )
 
 type pgDeals struct{ db *pgxpool.Pool }
@@ -269,13 +270,18 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 				return err
 			}
 		}
-		return nil
+		return stream.Notify(ctx, tx, []uuid.UUID{st.BuyerID, st.SellerID}, stream.Hint{Kind: stream.KindDeal, DealID: &st.ID})
 	})
 	if err != nil && !errors.Is(err, errSaved) {
 		return fmt.Errorf("save deal: %w", err)
 	}
 	d.Saved(writeID)
 	return nil
+}
+
+func (s pgDeals) Between(ctx context.Context, a, b uuid.UUID) ([]domain.Deal, error) {
+	return s.many(ctx, selectDeal+`WHERE (d.buyer_id = @a AND d.seller_id = @b) OR (d.buyer_id = @b AND d.seller_id = @a)
+ORDER BY d.id DESC`, pgx.StrictNamedArgs{"a": a, "b": b})
 }
 
 func (s pgDeals) OfListing(ctx context.Context, listingID uuid.UUID) ([]domain.Deal, error) {
