@@ -14,40 +14,70 @@ import (
 )
 
 func (c *Catalog) Hide(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
-	return c.move(ctx, seller, id, (*domain.Listing).Hide, events.ListingHidden)
-}
-
-func (c *Catalog) Unhide(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
-	return c.move(ctx, seller, id, (*domain.Listing).Unhide, events.ListingUnhidden)
-}
-
-func (c *Catalog) MarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
-	return c.move(ctx, seller, id, (*domain.Listing).MarkSold, events.ListingSold)
-}
-
-func (c *Catalog) UnmarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
-	return c.move(ctx, seller, id, (*domain.Listing).UnmarkSold, events.ListingUnsold)
-}
-
-func (c *Catalog) Delete(ctx context.Context, seller, id uuid.UUID) error {
-	_, err := c.move(ctx, seller, id, (*domain.Listing).Delete, events.ListingDeleted)
-	return err
-}
-
-// move applies a status change to the seller's listing and saves it with
-// the event of that kind.
-func (c *Catalog) move(ctx context.Context, seller, id uuid.UUID, change func(*domain.Listing, time.Time) error,
-	kind events.Kind,
-) (ListingView, error) {
-	now := c.now()
 	l, err := c.own(ctx, seller, id)
 	if err != nil {
 		return ListingView{}, err
 	}
-	if err = change(&l, now); err != nil {
+	now := c.now()
+	if err = l.Hide(now); err != nil {
 		return ListingView{}, err
 	}
-	err = c.listings.Save(ctx, &l, uuid.NewV7(), events.Event{ID: uuid.NewV7(), Kind: kind, SubjectID: id, OccurredAt: now})
+	return c.save(ctx, l, events.ListingHidden, now)
+}
+
+func (c *Catalog) Unhide(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
+	l, err := c.own(ctx, seller, id)
+	if err != nil {
+		return ListingView{}, err
+	}
+	now := c.now()
+	if err = l.Unhide(now); err != nil {
+		return ListingView{}, err
+	}
+	return c.save(ctx, l, events.ListingUnhidden, now)
+}
+
+func (c *Catalog) MarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
+	l, err := c.own(ctx, seller, id)
+	if err != nil {
+		return ListingView{}, err
+	}
+	now := c.now()
+	if err = l.MarkSold(now); err != nil {
+		return ListingView{}, err
+	}
+	return c.save(ctx, l, events.ListingSold, now)
+}
+
+func (c *Catalog) UnmarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
+	l, err := c.own(ctx, seller, id)
+	if err != nil {
+		return ListingView{}, err
+	}
+	now := c.now()
+	if err = l.UnmarkSold(now); err != nil {
+		return ListingView{}, err
+	}
+	return c.save(ctx, l, events.ListingUnsold, now)
+}
+
+func (c *Catalog) Delete(ctx context.Context, seller, id uuid.UUID) error {
+	l, err := c.own(ctx, seller, id)
+	if err != nil {
+		return err
+	}
+	now := c.now()
+	if err = l.Delete(now); err != nil {
+		return err
+	}
+	_, err = c.save(ctx, l, events.ListingDeleted, now)
+	return err
+}
+
+// save writes a status change of l with the event of that kind and returns
+// the listing's view. A listing written meanwhile is apperr.ErrTryAgain.
+func (c *Catalog) save(ctx context.Context, l domain.Listing, kind events.Kind, now time.Time) (ListingView, error) {
+	err := c.listings.Save(ctx, &l, uuid.NewV7(), events.Event{ID: uuid.NewV7(), Kind: kind, SubjectID: l.ID(), OccurredAt: now})
 	if errors.Is(err, repository.ErrConflict) {
 		return ListingView{}, apperr.ErrTryAgain
 	}
