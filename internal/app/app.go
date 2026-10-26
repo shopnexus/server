@@ -21,6 +21,7 @@ import (
 	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/auth"
 	"github.com/shopnexus/server2/internal/catalog"
+	"github.com/shopnexus/server2/internal/deal"
 	"github.com/shopnexus/server2/internal/media"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/events"
@@ -195,9 +196,10 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		return nil, fmt.Errorf("object store: %w", err)
 	}
 	mediam := media.Mount(d, store, protect)
-	catalogServices := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
+	catalogm := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
 		accounts, authm.Service, mediam.Service)
-	return slices.Concat(authm.Services, mediam.Services, catalogServices), nil
+	dealServices := deal.Mount(d, protect, accounts, authm.Service, catalogm.Service)
+	return slices.Concat(authm.Services, mediam.Services, catalogm.Services, dealServices), nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

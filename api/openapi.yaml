@@ -51,6 +51,22 @@ paths:
     $ref: "paths/catalog.yaml#/regions"
   /v1/regions/{province_code}/communes:
     $ref: "paths/catalog.yaml#/regionCommunes"
+  /v1/deals:
+    $ref: "paths/deal.yaml#/deals"
+  /v1/deals/{id}:
+    $ref: "paths/deal.yaml#/deal"
+  /v1/deals/{id}/offer:
+    $ref: "paths/deal.yaml#/dealOffer"
+  /v1/deals/{id}/accept:
+    $ref: "paths/deal.yaml#/dealAccept"
+  /v1/deals/{id}/decline:
+    $ref: "paths/deal.yaml#/dealDecline"
+  /v1/deals/{id}/withdraw:
+    $ref: "paths/deal.yaml#/dealWithdraw"
+  /v1/deals/{id}/cancel:
+    $ref: "paths/deal.yaml#/dealCancel"
+  /v1/me/deals:
+    $ref: "paths/deal.yaml#/myDeals"
   /v1/staff/login:
     $ref: "paths/staff.yaml#/login"
   /v1/staff/login/totp-enrollment:

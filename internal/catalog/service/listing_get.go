@@ -48,3 +48,25 @@ func (c *Catalog) ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p p
 	}
 	return page.Of(items, p, func(v ListingView) uuid.UUID { return v.ID }), nil
 }
+
+// Summaries reads listings in any status, deleted included, for other
+// modules.
+func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Summary, error) {
+	rows, err := c.listings.GetMany(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get listings: %w", err)
+	}
+	out := make(map[uuid.UUID]Summary, len(rows))
+	for i := range rows {
+		l := &rows[i]
+		s := Summary{
+			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), AllowOffers: l.AllowOffers(),
+			Status: l.Status(),
+		}
+		if p := l.Photos(); len(p) > 0 && p[0].Keys.Thumb != "" {
+			s.CoverThumbURL = c.media.URL(p[0].Keys.Thumb)
+		}
+		out[l.ID()] = s
+	}
+	return out, nil
+}

@@ -42,6 +42,9 @@ type Service interface {
 	Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error)
 	// ListMine lists one of the seller's panes, newest first.
 	ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p page.Request) (page.Page[ListingView], error)
+	// Summaries reads listings in any status for other modules; an unknown
+	// ID is left out of the map.
+	Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Summary, error)
 	Categories(ctx context.Context) ([]domain.Category, error)
 	Provinces(ctx context.Context) ([]domain.Province, error)
 	Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error)

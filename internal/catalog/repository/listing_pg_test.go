@@ -212,3 +212,21 @@ func TestDiscard(t *testing.T) {
 		t.Fatalf("still there: %v", err)
 	}
 }
+
+func TestGetMany(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewListings(db)
+	ctx := context.Background()
+	seller := newAccount(t, db)
+	a, b := listing(t, seller), listing(t, seller)
+	for _, l := range []domain.Listing{a, b} {
+		if err := s.Insert(ctx, l); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := s.GetMany(ctx, []uuid.UUID{a.ID(), b.ID(), uuid.NewV7()})
+	if err != nil || len(got) != 2 {
+		t.Fatalf("%d %v", len(got), err)
+	}
+}

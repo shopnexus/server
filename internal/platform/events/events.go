@@ -26,6 +26,7 @@ const (
 	ListingSold        Kind = "listing.sold"
 	ListingUnsold      Kind = "listing.unsold"
 	ListingDeleted     Kind = "listing.deleted"
+	DealMoved          Kind = "deal.moved"
 )
 
 // Event is what happened to which aggregate. It is thin: a subscriber reads

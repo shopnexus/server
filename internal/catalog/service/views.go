@@ -41,6 +41,18 @@ type ListingView struct {
 	SoldAt       *time.Time       `json:"sold_at,omitempty"`
 }
 
+// Summary is what another module reads of a listing, in any status.
+// CoverThumbURL is empty until the cover is processed.
+type Summary struct {
+	ID            uuid.UUID
+	SellerID      uuid.UUID
+	Title         string
+	Price         int64
+	AllowOffers   bool
+	Status        domain.Status
+	CoverThumbURL string
+}
+
 // Location is the listing's commune and province, with a point inside the
 // commune rather than where the seller is.
 type Location struct {

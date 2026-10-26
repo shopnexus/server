@@ -145,7 +145,7 @@ reacts. Every subscriber is a module of server2, so there is no broker.
 
 - `events.Event` is thin: a `Kind` constant in the form
   `aggregate.past_tense` (`account.renamed`, `account.suspended`,
-  `account.unsuspended`), the `SubjectID` of the aggregate, and a `Data`
+  `account.unsuspended`), the `SubjectID` of the aggregate, and a `Payload`
   map that only a business event fills. A subscriber reads the subject's
   current state through its module's `Service`, so order, delay and
   duplicates do not change the result.
@@ -212,8 +212,8 @@ internal/account/
   account.go         Mount: builds the layers, returns service.Service
 ```
 
-Modules auth, staff, media and catalog have the same four packages; a module that reacts
-to events adds `worker`. Imports run one way, `handler` and `worker` →
+Modules auth, staff, media, catalog and deal have the same four packages; a
+module that reacts to events adds `worker`, and deal is the first that does. Imports run one way, `handler` and `worker` →
 `service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
 refuse an import against it.
 
@@ -551,6 +551,51 @@ server receives a complete listing.
   `ST_PointOnSurface` of its boundary rounded to 4 decimals, computed once
   in a throwaway PostGIS container. The listing stores the commune; the
   seller's position is never stored.
+
+### Deal
+
+Module `deal` holds deals: a buyer and a seller agreeing a price on one
+listing. Spec: `~/shopnexus/specs/2026-10-26-server2-deal-design.md`.
+
+- One deal per buyer and listing, unique on `(listing_id, buyer_id)`.
+  `POST /v1/deals` returns the caller's deal on the listing with 200, or
+  starts one with 201. Starting needs an account that is not suspended and
+  has a verified phone, on someone else's active listing.
+- A deal is `negotiating` or `agreed`. While negotiating it holds at most
+  one open price, the buyer's offer or the seller's counter. Several buyers
+  may agree a price on one listing; agreeing reserves nothing, and an open
+  price has no expiry (decided 2026-10-26).
+- Moves: the buyer offers with nothing open or under the seller's counter;
+  the seller counters the buyer's open offer; the side facing an open price
+  accepts or declines it; its maker withdraws it; the buyer accepts the
+  listed price at any time while negotiating; either side cancels an
+  agreement, and the deal negotiates again (decided 2026-10-26).
+- Amounts are whole đồng in multiples of 1,000. An offer is at least half
+  the listed price rounded up to 1,000 and below the counter or the listed
+  price; a counter is above the offer and below the listed price. The view
+  carries `offer_range`, the amounts the viewer's next offer may take, so
+  the rule lives only in the server. `accept` carries the price the person
+  saw; another price is `price_changed`.
+- `offer` and `accept` need an active listing and refuse a suspended
+  account. `decline`, `withdraw` and `cancel` take a price back and work in
+  any state of the listing and for a suspended account.
+- A save that loses a race is `deal_changed`, where other modules answer
+  `try_again`: after the other side moved, the same move may mean something
+  else, so the app reads the deal again instead of retrying.
+- Each save writes the new moves to `deal_moves` and a `deal.moved` event in
+  its transaction. The view lists every move, oldest first, for the thread.
+- `worker.ListingWatch` subscribes to `listing.updated`, `listing.hidden`,
+  `listing.sold` and `listing.deleted` and calls `ListingChanged`, which
+  reads the listing through `catalogsvc.Service.Summaries` (any status) and
+  each deal on it. A hidden, sold or deleted listing drops the open price;
+  a sold or deleted one also ends an agreement. A new listed price, or
+  offers turned off, drops the open price. Each change is a system move
+  (`listing_closed`, `price_changed`, `offers_closed`). A listing in
+  processing or rejected after a photo edit is not closed. The deal stores
+  the listed price at its open price's time to see a price change, so a
+  repeated or late event changes nothing.
+- Chat, a later module, is one conversation per buyer and seller holding
+  the deals of that pair (decided 2026-10-26).
 
 ### Testing
 

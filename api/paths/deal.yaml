@@ -1,0 +1,338 @@
+deals:
+  post:
+    operationId: openDeal
+    summary: Open the caller's deal on a listing.
+    description: |
+      Returns the caller's existing deal on the listing, or starts one.
+      Checks, in order: the caller's deal exists (200); the listing exists;
+      account_suspended; phone_required; own_listing; listing_unavailable.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/deal.yaml#/DealOpen"
+    responses:
+      "200":
+        description: The caller's existing deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "201":
+        description: A new deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended) or has no verified phone number (phone_required)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such listing (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is the caller's (own_listing) or not on sale (listing_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+deal:
+  get:
+    operationId: getDeal
+    summary: Read a deal, as its buyer or its seller.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such deal of the caller's (deal_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+dealOffer:
+  post:
+    operationId: offerDeal
+    summary: Make an offer, or a counter to the buyer's offer.
+    description: |
+      The buyer offers; the seller counters the buyer's open offer. The
+      amount must lie inside the deal's offer_range.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/deal.yaml#/Offer"
+    responses:
+      "200":
+        description: The deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such deal of the caller's (deal_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The deal's state or the caller's side does not allow an offer (move_not_allowed), the listing is not on sale (listing_unavailable), or the other side moved first (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The amount is not a multiple of 1,000 or is outside the offer range (invalid_amount; field amount: step or out_of_range)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+dealAccept:
+  post:
+    operationId: acceptDeal
+    summary: Agree the deal at a price.
+    description: |
+      The side facing an open price accepts it; the buyer may also accept
+      the listed price at any time while negotiating.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/deal.yaml#/Accept"
+    responses:
+      "200":
+        description: The deal, agreed.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such deal of the caller's (deal_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "Nothing to accept (move_not_allowed), the listing is not on sale (listing_unavailable), the price has changed (price_changed), or the other side moved first (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+dealDecline:
+  post:
+    operationId: declineDeal
+    summary: Turn down the other side's open price.
+    description: |
+      Works in any state of the listing and for a suspended account.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such deal of the caller's (deal_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "No open price of the other side (move_not_allowed), or the other side moved first (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+dealWithdraw:
+  post:
+    operationId: withdrawDeal
+    summary: Take back the caller's own open price.
+    description: |
+      Works in any state of the listing and for a suspended account.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such deal of the caller's (deal_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "No open price of the caller's (move_not_allowed), or the other side moved first (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+dealCancel:
+  post:
+    operationId: cancelDeal
+    summary: Drop the agreed price; the deal negotiates again.
+    description: |
+      Works in any state of the listing and for a suspended account.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such deal of the caller's (deal_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The deal is not agreed (move_not_allowed), or the other side moved first (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+myDeals:
+  get:
+    operationId: listMyDeals
+    summary: List the caller's deals on one side, newest first.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: role
+        in: query
+        required: true
+        description: buying lists the deals where the caller is the buyer; selling, the seller.
+        schema:
+          type: string
+          enum: [buying, selling]
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of deals.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/DealList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

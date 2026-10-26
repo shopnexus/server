@@ -31,6 +31,9 @@ type Listings interface {
 	CountOnSale(ctx context.Context, seller uuid.UUID) (int, error)
 	// Get returns ErrNotFound for an unknown id.
 	Get(ctx context.Context, id uuid.UUID) (domain.Listing, error)
+	// GetMany returns the listings among ids in any status and order; an
+	// unknown ID is left out.
+	GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Listing, error)
 	// Save writes l and evs when its row still has l.WriteID() or already
 	// has writeID, then sets its write ID. Otherwise ErrConflict and nothing
 	// is written. A listing coming back on sale, from sold, is

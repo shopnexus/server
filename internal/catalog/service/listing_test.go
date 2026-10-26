@@ -270,3 +270,34 @@ func TestCategoriesAndRegions(t *testing.T) {
 		t.Fatalf("%d %v", len(communes), err)
 	}
 }
+
+func TestSummariesReadEveryStatus(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	seller := e.seller(t)
+	l := e.active(t, seller)
+	ctx := context.Background()
+	if _, err := e.catalog.Hide(ctx, seller, l.ID); err != nil {
+		t.Fatal(err)
+	}
+	unknown := uuid.NewV7()
+	got, err := e.catalog.Summaries(ctx, []uuid.UUID{l.ID, unknown})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, ok := got[l.ID]
+	if !ok || s.Status != domain.StatusHidden || s.SellerID != seller || s.Price != 9_500_000 || !s.AllowOffers ||
+		s.CoverThumbURL == "" {
+		t.Fatalf("%+v", got)
+	}
+	if _, ok := got[unknown]; ok {
+		t.Fatal("an unknown id is in the map")
+	}
+	if err = e.catalog.Delete(ctx, seller, l.ID); err != nil {
+		t.Fatal(err)
+	}
+	got, err = e.catalog.Summaries(ctx, []uuid.UUID{l.ID})
+	if err != nil || got[l.ID].Status != domain.StatusDeleted {
+		t.Fatalf("%+v %v", got, err)
+	}
+}

@@ -1,0 +1,155 @@
+DealOpen:
+  type: object
+  additionalProperties: false
+  required: [listing_id]
+  properties:
+    listing_id:
+      type: string
+      format: uuid
+Offer:
+  type: object
+  additionalProperties: false
+  required: [amount]
+  properties:
+    amount:
+      type: integer
+      format: int64
+      description: |
+        Whole đồng in multiples of 1,000, inside the deal's offer_range. The
+        range is a business rule, so an amount outside it is 422.
+Accept:
+  type: object
+  additionalProperties: false
+  required: [price]
+  properties:
+    price:
+      type: integer
+      format: int64
+      description: |
+        The price the person saw: the other side's open price or, for the
+        buyer, the listed price. Another price is 409 price_changed.
+Party:
+  type: string
+  enum: [buyer, seller]
+DealStatus:
+  type: string
+  enum: [negotiating, agreed]
+  description: Agreeing reserves nothing; several buyers may agree a price on one listing.
+DealListing:
+  type: object
+  additionalProperties: false
+  required: [id, title, price, status]
+  description: The deal's listing as it is now.
+  properties:
+    id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    price:
+      type: integer
+      format: int64
+    cover_thumb_url:
+      type: string
+      format: uri
+      description: Absent until the cover photo is processed.
+    status:
+      type: string
+      enum: [processing, active, hidden, rejected, sold, deleted]
+OpenPrice:
+  type: object
+  additionalProperties: false
+  required: [by, amount, at]
+  description: The offer or counter waiting for the other side.
+  properties:
+    by:
+      $ref: "#/Party"
+    amount:
+      type: integer
+      format: int64
+    at:
+      type: string
+      format: date-time
+OfferRange:
+  type: object
+  additionalProperties: false
+  required: [min, max]
+  description: |
+    The amounts the viewer's next offer may take, both included. Absent when
+    the viewer may not offer now; the app bounds its input with it.
+  properties:
+    min:
+      type: integer
+      format: int64
+    max:
+      type: integer
+      format: int64
+Move:
+  type: object
+  additionalProperties: false
+  required: [kind, by, at]
+  properties:
+    kind:
+      type: string
+      enum: [offer, counter, accept, decline, withdraw, cancel, price_changed, offers_closed, listing_closed]
+    by:
+      type: string
+      enum: [buyer, seller, system]
+      description: system is the server, following a change of the listing.
+    amount:
+      type: integer
+      format: int64
+      description: The offered or agreed price, or the new listed price on price_changed.
+    at:
+      type: string
+      format: date-time
+Deal:
+  type: object
+  additionalProperties: false
+  required: [id, buyer_id, seller_id, listing, role, status, moves]
+  description: A buyer's negotiation with a seller over one listing; one per buyer and listing.
+  properties:
+    id:
+      type: string
+      format: uuid
+    buyer_id:
+      type: string
+      format: uuid
+    seller_id:
+      type: string
+      format: uuid
+    listing:
+      $ref: "#/DealListing"
+    role:
+      $ref: "#/Party"
+    status:
+      $ref: "#/DealStatus"
+    open_price:
+      $ref: "#/OpenPrice"
+    agreed_price:
+      type: integer
+      format: int64
+      description: Present while agreed.
+    agreed_at:
+      type: string
+      format: date-time
+    offer_range:
+      $ref: "#/OfferRange"
+    moves:
+      type: array
+      description: Every move, oldest first.
+      items:
+        $ref: "#/Move"
+DealList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Deal"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more deals follow; pass it as cursor.

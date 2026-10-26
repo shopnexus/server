@@ -205,6 +205,19 @@ WHERE seller_id = @seller AND status = ANY(@statuses) AND id < @before ORDER BY 
 	if err != nil {
 		return nil, fmt.Errorf("select listings: %w", err)
 	}
+	return collect(rows)
+}
+
+func (s pgListings) GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Listing, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+listingColumns+` FROM listings WHERE id = ANY(@ids)`, pgx.StrictNamedArgs{"ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("select listings: %w", err)
+	}
+	return collect(rows)
+}
+
+// collect scans every row of a listings query.
+func collect(rows pgx.Rows) ([]domain.Listing, error) {
 	defer rows.Close()
 	var out []domain.Listing
 	for rows.Next() {
