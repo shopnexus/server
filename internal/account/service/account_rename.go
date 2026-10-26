@@ -26,7 +26,7 @@ func (s *Account) Rename(ctx context.Context, id uuid.UUID, name string) (Accoun
 		return AccountView{}, err
 	}
 	err = s.accounts.Save(ctx, &a, uuid.NewV7(), events.Event{
-		ID: uuid.NewV7(), Kind: events.AccountRenamed, SubjectID: id, At: now,
+		ID: uuid.NewV7(), Kind: events.AccountRenamed, SubjectID: id, OccurredAt: now,
 	})
 	if err != nil {
 		if errors.Is(err, repository.ErrConflict) {

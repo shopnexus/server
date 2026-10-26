@@ -30,7 +30,7 @@ func TestSuspendRecordsTheChange(t *testing.T) {
 	}
 	var action string
 	var details map[string]any
-	if scanErr := db.QueryRow(ctx, `SELECT action, details FROM staff_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": id}).
+	if scanErr := db.QueryRow(ctx, `SELECT action_kind, details FROM staff_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": id}).
 		Scan(&action, &details); scanErr != nil {
 		t.Fatal(scanErr)
 	}

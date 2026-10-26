@@ -19,24 +19,31 @@ const (
 	AccountRenamed     Kind = "account.renamed"
 	AccountSuspended   Kind = "account.suspended"
 	AccountUnsuspended Kind = "account.unsuspended"
+	ListingPublished   Kind = "listing.published"
+	ListingUpdated     Kind = "listing.updated"
+	ListingHidden      Kind = "listing.hidden"
+	ListingUnhidden    Kind = "listing.unhidden"
+	ListingSold        Kind = "listing.sold"
+	ListingUnsold      Kind = "listing.unsold"
+	ListingDeleted     Kind = "listing.deleted"
 )
 
 // Event is what happened to which aggregate. It is thin: a subscriber reads
 // the subject's current state through its module's Service, so order, delay
-// and duplicates do not change the result. Data carries the few fields a
+// and duplicates do not change the result. Payload carries the few fields a
 // business event's subscribers need and is usually empty. The field order
 // matches the columns Bus selects.
 type Event struct {
-	ID        uuid.UUID      `json:"id"`
-	Kind      Kind           `json:"kind"`
-	SubjectID uuid.UUID      `json:"subject_id"`
-	Data      map[string]any `json:"data"`
-	At        time.Time      `json:"at"`
+	ID         uuid.UUID      `json:"id"`
+	Kind       Kind           `json:"kind"`
+	SubjectID  uuid.UUID      `json:"subject_id"`
+	Payload    map[string]any `json:"payload"`
+	OccurredAt time.Time      `json:"occurred_at"`
 }
 
 const insertEvent = `
-INSERT INTO events (id, kind, subject_id, data, at)
-VALUES (@id, @kind, @subject_id, @data, @at)
+INSERT INTO events (id, kind, subject_id, payload, occurred_at)
+VALUES (@id, @kind, @subject_id, @payload, @occurred_at)
 ON CONFLICT (id) DO NOTHING`
 
 // Insert writes e in tx, the transaction of the change, and notifies Bus;
@@ -45,12 +52,12 @@ ON CONFLICT (id) DO NOTHING`
 // that retries its save, with the event ID it took from the journal, stays
 // at one event.
 func Insert(ctx context.Context, tx pgx.Tx, e Event) error {
-	data := e.Data
-	if data == nil {
-		data = map[string]any{}
+	payload := e.Payload
+	if payload == nil {
+		payload = map[string]any{}
 	}
 	if _, err := tx.Exec(ctx, insertEvent, pgx.StrictNamedArgs{
-		"id": e.ID, "kind": e.Kind, "subject_id": e.SubjectID, "data": data, "at": e.At,
+		"id": e.ID, "kind": e.Kind, "subject_id": e.SubjectID, "payload": payload, "occurred_at": e.OccurredAt,
 	}); err != nil {
 		return fmt.Errorf("insert event: %w", err)
 	}

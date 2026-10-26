@@ -7,7 +7,7 @@ CREATE TABLE staff_members (
     -- Stored lower-cased, so the unique index is case-insensitive.
     email                text NOT NULL CHECK (email = lower(email) AND char_length(email) <= 254),
     display_name         text NOT NULL CHECK (char_length(display_name) BETWEEN 1 AND 100),
-    role                 text NOT NULL CHECK (role IN ('moderator', 'admin')),
+    staff_role           text NOT NULL CHECK (staff_role IN ('moderator', 'admin')),
     status               text NOT NULL CHECK (status IN ('active', 'disabled')),
     -- argon2id in PHC string form; the parameters travel with the hash.
     password_hash        text NOT NULL,
@@ -39,12 +39,12 @@ CREATE TABLE staff_sessions (
 );
 CREATE INDEX staff_sessions_staff_id ON staff_sessions (staff_id);
 
--- Failed sign-ins per email. key is HMAC-SHA256 of the lower-cased email
+-- Failed sign-ins per email. email_hash is HMAC-SHA256 of the lower-cased email
 -- under a key derived from STAFF_KEY, so the table holds no address anyone
 -- typed. Unknown emails get rows too, which keeps a lock from telling which
 -- emails are staff.
 CREATE TABLE staff_login_locks (
-    key          bytea PRIMARY KEY,
+    email_hash   bytea PRIMARY KEY,
     failures     integer NOT NULL,
     locked_until timestamptz,
     updated_at   timestamptz NOT NULL
@@ -59,11 +59,11 @@ CREATE TABLE staff_actions (
     actor_name  text,
     session_id  uuid REFERENCES staff_sessions,
     ip          inet,
-    action      text NOT NULL,
+    action_kind text NOT NULL,
     target_kind text NOT NULL CHECK (target_kind IN ('account', 'staff')),
     target_id   uuid NOT NULL,
     details     jsonb NOT NULL,
-    at          timestamptz NOT NULL,
+    acted_at    timestamptz NOT NULL,
     CHECK ((actor_kind = 'staff') = (staff_id IS NOT NULL)),
     CHECK ((actor_kind = 'cli') = (actor_name IS NOT NULL))
 );

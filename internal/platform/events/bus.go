@@ -214,7 +214,7 @@ func (b *Bus) waitNotifications(ctx context.Context, wake chan<- struct{}) error
 }
 
 const selectPending = `
-SELECT id, kind, subject_id, data, at FROM events
+SELECT id, kind, subject_id, payload, occurred_at FROM events
 WHERE dispatched_at IS NULL AND (next_attempt_at IS NULL OR next_attempt_at <= @now)
 ORDER BY id LIMIT @limit
 FOR UPDATE SKIP LOCKED`

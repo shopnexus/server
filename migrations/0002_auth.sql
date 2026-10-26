@@ -15,10 +15,10 @@ CREATE TABLE identities (
     id           uuid PRIMARY KEY,
     account_id   uuid NOT NULL REFERENCES credentials ON DELETE CASCADE,
     kind         text NOT NULL CHECK (kind IN ('phone', 'email', 'google')),
-    value        text NOT NULL,
+    identifier   text NOT NULL,
     last_used_at timestamptz,
     created_at   timestamptz NOT NULL DEFAULT now(),
-    UNIQUE (kind, value)
+    UNIQUE (kind, identifier)
 );
 CREATE INDEX identities_account_id ON identities (account_id);
 
@@ -57,9 +57,9 @@ CREATE TABLE otp_challenges (
 );
 CREATE INDEX otp_challenges_destination ON otp_challenges (destination, purpose, created_at);
 
--- Sends inside the longest window, one row per "dest:..." or "ip:..." key.
+-- Sends inside the longest window, one row per subject, "dest:..." or "ip:...".
 CREATE TABLE otp_quotas (
-    key      text PRIMARY KEY,
+    subject  text PRIMARY KEY,
     sent_at  timestamptz[] NOT NULL,
     write_id uuid NOT NULL
 );

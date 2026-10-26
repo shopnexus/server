@@ -82,8 +82,8 @@ type Entry struct {
 }
 
 const insertAction = `
-INSERT INTO staff_actions (id, actor_kind, staff_id, actor_name, session_id, ip, action, target_kind, target_id, details, at)
-VALUES (@id, @actor_kind, @staff_id, @actor_name, @session_id, @ip, @action, @target_kind, @target_id, @details, @at)`
+INSERT INTO staff_actions (id, actor_kind, staff_id, actor_name, session_id, ip, action_kind, target_kind, target_id, details, acted_at)
+VALUES (@id, @actor_kind, @staff_id, @actor_name, @session_id, @ip, @action_kind, @target_kind, @target_id, @details, @acted_at)`
 
 // Insert writes e in tx, the transaction of the change it records.
 func Insert(ctx context.Context, tx pgx.Tx, e Entry) error {
@@ -94,7 +94,7 @@ func Insert(ctx context.Context, tx pgx.Tx, e Entry) error {
 	_, err := tx.Exec(ctx, insertAction, pgx.StrictNamedArgs{
 		"id": uuid.NewV7(), "actor_kind": e.Actor.Kind, "staff_id": nullID(e.Actor.StaffID),
 		"actor_name": nullText(e.Actor.Name), "session_id": nullID(e.Actor.SessionID), "ip": nullIP(e.Actor.IP),
-		"action": e.Action, "target_kind": e.Target.Kind, "target_id": e.Target.ID, "details": details, "at": e.At,
+		"action_kind": e.Action, "target_kind": e.Target.Kind, "target_id": e.Target.ID, "details": details, "acted_at": e.At,
 	})
 	if err != nil {
 		return fmt.Errorf("insert staff action: %w", err)

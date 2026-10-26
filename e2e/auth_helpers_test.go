@@ -64,8 +64,8 @@ func wrongCode(code string) string {
 // can ask for another code without waiting 45 s.
 func forgetSends(t *testing.T, dest string) {
 	t.Helper()
-	if _, err := db.Exec(context.Background(), `UPDATE otp_quotas SET sent_at = '{}' WHERE key = @key`,
-		pgx.StrictNamedArgs{"key": "dest:" + dest}); err != nil {
+	if _, err := db.Exec(context.Background(), `UPDATE otp_quotas SET sent_at = '{}' WHERE subject = @subject`,
+		pgx.StrictNamedArgs{"subject": "dest:" + dest}); err != nil {
 		t.Fatal(err)
 	}
 }

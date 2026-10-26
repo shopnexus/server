@@ -230,7 +230,7 @@ func TestSaveWritesItsEvents(t *testing.T) {
 	a, _ := s.Get(ctx, id)
 	stale := a
 	ev := func(k events.Kind) events.Event {
-		return events.Event{ID: uuid.NewV7(), Kind: k, SubjectID: id, At: now}
+		return events.Event{ID: uuid.NewV7(), Kind: k, SubjectID: id, OccurredAt: now}
 	}
 	if err := a.SetDisplayName("Minh", now); err != nil {
 		t.Fatal(err)

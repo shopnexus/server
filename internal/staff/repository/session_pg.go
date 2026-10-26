@@ -31,7 +31,7 @@ VALUES (@id, @staff_id, @token_hash, @credentials_version, @ip, @user_agent, @cr
 }
 
 const liveSession = `
-SELECT s.id, s.staff_id, m.role
+SELECT s.id, s.staff_id, m.staff_role
 FROM staff_sessions s
 JOIN staff_members m ON m.id = s.staff_id
 WHERE s.token_hash = @token_hash AND s.revoked_at IS NULL AND s.expires_at > @now

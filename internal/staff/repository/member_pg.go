@@ -26,7 +26,7 @@ type pgMembers struct {
 
 func NewMembers(db *pgxpool.Pool, seal cipher.AEAD) Members { return pgMembers{db: db, seal: seal} }
 
-const columns = `id, email, display_name, role, status, password_hash, must_change_password, credentials_version,
+const columns = `id, email, display_name, staff_role, status, password_hash, must_change_password, credentials_version,
        totp_secret, totp_pending_secret, totp_last_step, created_at, updated_at, write_id`
 
 func (s pgMembers) sealed(id uuid.UUID, plain []byte) []byte {
@@ -77,7 +77,7 @@ func (s pgMembers) scan(row pgx.Row) (domain.Member, error) {
 
 const insertMember = `
 INSERT INTO staff_members (` + columns + `)
-VALUES (@id, @email, @display_name, @role, @status, @password_hash, @must_change_password, @credentials_version,
+VALUES (@id, @email, @display_name, @staff_role, @status, @password_hash, @must_change_password, @credentials_version,
         @totp_secret, @totp_pending_secret, @totp_last_step, @created_at, @updated_at, @write_id)
 ON CONFLICT (id) DO NOTHING`
 
@@ -85,7 +85,7 @@ func (s pgMembers) CreateAudited(ctx context.Context, m domain.Member, e audit.E
 	st := m.State()
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, insertMember, pgx.StrictNamedArgs{
-			"id": st.ID, "email": st.Email, "display_name": st.DisplayName, "role": st.Role, "status": st.Status,
+			"id": st.ID, "email": st.Email, "display_name": st.DisplayName, "staff_role": st.Role, "status": st.Status,
 			"password_hash": st.PasswordHash, "must_change_password": st.MustChangePassword,
 			"credentials_version": st.CredentialsVersion, "totp_secret": s.sealed(st.ID, st.TOTPSecret),
 			"totp_pending_secret": s.sealed(st.ID, st.TOTPPending), "totp_last_step": st.TOTPLastStep,
@@ -139,7 +139,7 @@ func (s pgMembers) List(ctx context.Context, p page.Request) ([]domain.Member, e
 
 const saveMember = `
 UPDATE staff_members
-SET display_name = @display_name, role = @role, status = @status, password_hash = @password_hash,
+SET display_name = @display_name, staff_role = @staff_role, status = @status, password_hash = @password_hash,
     must_change_password = @must_change_password, credentials_version = @credentials_version,
     totp_secret = @totp_secret, totp_pending_secret = @totp_pending_secret, totp_last_step = @totp_last_step,
     updated_at = @updated_at, write_id = @write_id
@@ -152,7 +152,7 @@ type execer interface {
 func (s pgMembers) update(ctx context.Context, q execer, m *domain.Member, writeID uuid.UUID) error {
 	st := m.State()
 	tag, err := q.Exec(ctx, saveMember, pgx.StrictNamedArgs{
-		"id": st.ID, "read_write_id": st.WriteID, "write_id": writeID, "display_name": st.DisplayName, "role": st.Role,
+		"id": st.ID, "read_write_id": st.WriteID, "write_id": writeID, "display_name": st.DisplayName, "staff_role": st.Role,
 		"status": st.Status, "password_hash": st.PasswordHash, "must_change_password": st.MustChangePassword,
 		"credentials_version": st.CredentialsVersion, "totp_secret": s.sealed(st.ID, st.TOTPSecret),
 		"totp_pending_secret": s.sealed(st.ID, st.TOTPPending), "totp_last_step": st.TOTPLastStep, "updated_at": st.UpdatedAt,

@@ -22,7 +22,7 @@ func newMember(t *testing.T, db *pgxpool.Pool, name string) uuid.UUID {
 	t.Helper()
 	id := uuid.NewV7()
 	_, err := db.Exec(context.Background(), `
-INSERT INTO staff_members (id, email, display_name, role, status, password_hash, must_change_password,
+INSERT INTO staff_members (id, email, display_name, staff_role, status, password_hash, must_change_password,
                            credentials_version, totp_last_step, created_at, updated_at, write_id)
 VALUES (@id, @email, @name, 'moderator', 'active', 'x', false, 1, 0, @at, @at, @id)`,
 		pgx.StrictNamedArgs{"id": id, "email": id.String() + "@staff.test", "name": name, "at": at})

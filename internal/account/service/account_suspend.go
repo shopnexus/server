@@ -31,7 +31,7 @@ func (s *Account) Suspend(ctx context.Context, in SuspendInput) (Record, error) 
 	}
 	err = s.accounts.SaveAudited(ctx, &a, uuid.NewV7(), audit.Entry{
 		Actor: in.By, Action: audit.AccountSuspend, Target: audit.Account(in.ID), Details: details, At: now,
-	}, events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: in.ID, At: now})
+	}, events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: in.ID, OccurredAt: now})
 	if errors.Is(err, repository.ErrConflict) {
 		return Record{}, apperr.ErrTryAgain
 	}
@@ -51,7 +51,7 @@ func (s *Account) Reinstate(ctx context.Context, id uuid.UUID, by audit.Actor) (
 	a.Reinstate(now)
 	err = s.accounts.SaveAudited(ctx, &a, uuid.NewV7(), audit.Entry{
 		Actor: by, Action: audit.AccountUnsuspend, Target: audit.Account(id), At: now,
-	}, events.Event{ID: uuid.NewV7(), Kind: events.AccountUnsuspended, SubjectID: id, At: now})
+	}, events.Event{ID: uuid.NewV7(), Kind: events.AccountUnsuspended, SubjectID: id, OccurredAt: now})
 	if errors.Is(err, repository.ErrConflict) {
 		return Record{}, apperr.ErrTryAgain
 	}

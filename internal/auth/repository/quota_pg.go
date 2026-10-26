@@ -22,7 +22,7 @@ func (s pgQuotas) Get(ctx context.Context, key string) (domain.Quota, error) {
 		sentAt  []time.Time
 		writeID uuid.UUID
 	)
-	err := s.db.QueryRow(ctx, `SELECT sent_at, write_id FROM otp_quotas WHERE key = @key`, pgx.StrictNamedArgs{"key": key}).Scan(&sentAt, &writeID)
+	err := s.db.QueryRow(ctx, `SELECT sent_at, write_id FROM otp_quotas WHERE subject = @subject`, pgx.StrictNamedArgs{"subject": key}).Scan(&sentAt, &writeID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.NewQuota(key), nil
 	}
@@ -36,8 +36,8 @@ func (s pgQuotas) Get(ctx context.Context, key string) (domain.Quota, error) {
 // never saved carries the zero UUID, which no row holds, so two first saves
 // of one key conflict.
 const saveQuota = `
-INSERT INTO otp_quotas (key, sent_at, write_id) VALUES (@key, @sent_at, @write_id)
-ON CONFLICT (key) DO UPDATE SET sent_at = EXCLUDED.sent_at, write_id = EXCLUDED.write_id
+INSERT INTO otp_quotas (subject, sent_at, write_id) VALUES (@subject, @sent_at, @write_id)
+ON CONFLICT (subject) DO UPDATE SET sent_at = EXCLUDED.sent_at, write_id = EXCLUDED.write_id
 WHERE otp_quotas.write_id = @read_write_id OR otp_quotas.write_id = @write_id`
 
 func (s pgQuotas) Save(ctx context.Context, q *domain.Quota, writeID uuid.UUID) error {
@@ -46,7 +46,7 @@ func (s pgQuotas) Save(ctx context.Context, q *domain.Quota, writeID uuid.UUID) 
 		sentAt = []time.Time{}
 	}
 	tag, err := s.db.Exec(ctx, saveQuota, pgx.StrictNamedArgs{
-		"key": q.Key(), "sent_at": sentAt, "read_write_id": q.WriteID(), "write_id": writeID,
+		"subject": q.Key(), "sent_at": sentAt, "read_write_id": q.WriteID(), "write_id": writeID,
 	})
 	if err != nil {
 		return fmt.Errorf("upsert quota: %w", err)

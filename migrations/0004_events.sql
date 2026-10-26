@@ -4,16 +4,16 @@
 -- subscriber rereads its subject.
 
 CREATE TABLE events (
-    id            uuid PRIMARY KEY,
-    kind          text NOT NULL,
-    subject_id    uuid NOT NULL,
-    data          jsonb NOT NULL,
-    at            timestamptz NOT NULL,
+    id              uuid PRIMARY KEY,
+    kind            text NOT NULL,
+    subject_id      uuid NOT NULL,
+    payload         jsonb NOT NULL,
+    occurred_at     timestamptz NOT NULL,
     -- Sends the ingress refused, and when the bus may try again.
     attempts        integer NOT NULL DEFAULT 0,
     next_attempt_at timestamptz,
     -- Set when Restate has the event; deleted 7 days later.
-    dispatched_at timestamptz
+    dispatched_at   timestamptz
 );
 
 CREATE INDEX events_pending ON events (id) WHERE dispatched_at IS NULL;

@@ -85,8 +85,8 @@ func (e *otpEnv) rows(t *testing.T) int {
 func (e *otpEnv) sends(t *testing.T, key string) int {
 	t.Helper()
 	var n int
-	err := e.db.QueryRow(context.Background(), `SELECT cardinality(sent_at) FROM otp_quotas WHERE key = @key`,
-		pgx.StrictNamedArgs{"key": key}).Scan(&n)
+	err := e.db.QueryRow(context.Background(), `SELECT cardinality(sent_at) FROM otp_quotas WHERE subject = @subject`,
+		pgx.StrictNamedArgs{"subject": key}).Scan(&n)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatal(err)
 	}

@@ -94,7 +94,7 @@ func run(t *testing.T, b *events.Bus) {
 
 func publish(t *testing.T, db *pgxpool.Pool, kind events.Kind) events.Event {
 	t.Helper()
-	e := events.Event{ID: uuid.NewV7(), Kind: kind, SubjectID: uuid.NewV7(), At: time.Now()}
+	e := events.Event{ID: uuid.NewV7(), Kind: kind, SubjectID: uuid.NewV7(), OccurredAt: time.Now()}
 	if err := insert(t, db, e); err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +176,7 @@ func TestDeliversWithoutNotify(t *testing.T) {
 	bus.Subscribe(events.AccountRenamed, a.ServiceName(), "Handle")
 	id := uuid.NewV7()
 	if _, err := db.Exec(context.Background(),
-		`INSERT INTO events (id, kind, subject_id, data, at) VALUES (@id, 'account.renamed', @id, '{}', now())`,
+		`INSERT INTO events (id, kind, subject_id, payload, occurred_at) VALUES (@id, 'account.renamed', @id, '{}', now())`,
 		pgx.StrictNamedArgs{"id": id}); err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +216,7 @@ func TestOldDispatchedEventsAreDeleted(t *testing.T) {
 	old, recent := uuid.NewV7(), uuid.NewV7()
 	for id, at := range map[uuid.UUID]time.Time{old: now.Add(-8 * 24 * time.Hour), recent: now.Add(-6 * 24 * time.Hour)} {
 		if _, err := db.Exec(context.Background(),
-			`INSERT INTO events (id, kind, subject_id, data, at, dispatched_at) VALUES (@id, 'account.renamed', @id, '{}', @at, @at)`,
+			`INSERT INTO events (id, kind, subject_id, payload, occurred_at, dispatched_at) VALUES (@id, 'account.renamed', @id, '{}', @at, @at)`,
 			pgx.StrictNamedArgs{"id": id, "at": at}); err != nil {
 			t.Fatal(err)
 		}

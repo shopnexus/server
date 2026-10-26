@@ -20,9 +20,9 @@ func NewCredentials(db *pgxpool.Pool) Credentials { return pgCredentials{db} }
 // upsertIdentity inserts an identity or refreshes its last_used_at. The WHERE
 // keeps another account's identity untouched, and then no row comes back.
 const upsertIdentity = `
-INSERT INTO identities (id, account_id, kind, value, last_used_at, created_at)
-VALUES (@id, @account_id, @kind, @value, @last_used_at, @created_at)
-ON CONFLICT (kind, value) DO UPDATE SET last_used_at = EXCLUDED.last_used_at
+INSERT INTO identities (id, account_id, kind, identifier, last_used_at, created_at)
+VALUES (@id, @account_id, @kind, @identifier, @last_used_at, @created_at)
+ON CONFLICT (kind, identifier) DO UPDATE SET last_used_at = EXCLUDED.last_used_at
 WHERE identities.account_id = EXCLUDED.account_id
 RETURNING account_id`
 
@@ -30,7 +30,7 @@ func upsertIdentities(ctx context.Context, tx pgx.Tx, accountID uuid.UUID, ids [
 	for _, i := range ids {
 		var owner uuid.UUID
 		err := tx.QueryRow(ctx, upsertIdentity, pgx.StrictNamedArgs{
-			"id": i.ID(), "account_id": accountID, "kind": i.Kind(), "value": i.Value(),
+			"id": i.ID(), "account_id": accountID, "kind": i.Kind(), "identifier": i.Value(),
 			"last_used_at": i.LastUsedAt(), "created_at": i.CreatedAt(),
 		}).Scan(&owner)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -74,7 +74,7 @@ func (s pgCredentials) Get(ctx context.Context, accountID uuid.UUID) (domain.Cre
 		return domain.Credentials{}, fmt.Errorf("select credentials: %w", err)
 	}
 	rows, err := s.db.Query(ctx, `
-SELECT id, kind, value, last_used_at, created_at FROM identities WHERE account_id = @account_id ORDER BY created_at, id`,
+SELECT id, kind, identifier, last_used_at, created_at FROM identities WHERE account_id = @account_id ORDER BY created_at, id`,
 		pgx.StrictNamedArgs{"account_id": accountID})
 	if err != nil {
 		return domain.Credentials{}, fmt.Errorf("select identities: %w", err)
@@ -102,8 +102,8 @@ SELECT id, kind, value, last_used_at, created_at FROM identities WHERE account_i
 
 func (s pgCredentials) FindIdentity(ctx context.Context, kind domain.Kind, value string) (domain.IdentityRef, error) {
 	var ref domain.IdentityRef
-	err := s.db.QueryRow(ctx, `SELECT account_id, id FROM identities WHERE kind = @kind AND value = @value`,
-		pgx.StrictNamedArgs{"kind": kind, "value": value}).
+	err := s.db.QueryRow(ctx, `SELECT account_id, id FROM identities WHERE kind = @kind AND identifier = @identifier`,
+		pgx.StrictNamedArgs{"kind": kind, "identifier": value}).
 		Scan(&ref.AccountID, &ref.IdentityID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.IdentityRef{}, ErrNotFound

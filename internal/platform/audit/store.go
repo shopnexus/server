@@ -53,8 +53,8 @@ type pgStore struct{ db *pgxpool.Pool }
 func NewPGStore(db *pgxpool.Pool) Store { return pgStore{db} }
 
 const listActions = `
-SELECT a.id, a.at, a.actor_kind, a.staff_id, coalesce(m.display_name, a.actor_name), coalesce(host(a.ip), ''),
-       a.action, a.target_kind, a.target_id, a.details
+SELECT a.id, a.acted_at, a.actor_kind, a.staff_id, coalesce(m.display_name, a.actor_name), coalesce(host(a.ip), ''),
+       a.action_kind, a.target_kind, a.target_id, a.details
 FROM staff_actions a
 LEFT JOIN staff_members m ON m.id = a.staff_id
 WHERE a.id < @before

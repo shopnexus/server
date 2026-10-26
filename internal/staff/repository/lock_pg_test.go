@@ -102,7 +102,7 @@ func TestRefundAndUnlock(t *testing.T) {
 		t.Fatalf("still locked after Unlock: %v", err)
 	}
 	var n int
-	if err := db.QueryRow(ctx, `SELECT count(*) FROM staff_actions WHERE action = 'staff.unlock'`).Scan(&n); err != nil || n != 1 {
+	if err := db.QueryRow(ctx, `SELECT count(*) FROM staff_actions WHERE action_kind = 'staff.unlock'`).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("audit rows %d: %v", n, err)
 	}
 }
