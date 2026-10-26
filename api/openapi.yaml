@@ -29,6 +29,28 @@ paths:
     $ref: "paths/auth.yaml#/session"
   /v1/accounts/me:
     $ref: "paths/account.yaml#/me"
+  /v1/uploads:
+    $ref: "paths/media.yaml#/uploads"
+  /v1/listings:
+    $ref: "paths/catalog.yaml#/listings"
+  /v1/listings/{id}:
+    $ref: "paths/catalog.yaml#/listing"
+  /v1/listings/{id}/hide:
+    $ref: "paths/catalog.yaml#/listingHide"
+  /v1/listings/{id}/unhide:
+    $ref: "paths/catalog.yaml#/listingUnhide"
+  /v1/listings/{id}/mark-sold:
+    $ref: "paths/catalog.yaml#/listingMarkSold"
+  /v1/listings/{id}/unmark-sold:
+    $ref: "paths/catalog.yaml#/listingUnmarkSold"
+  /v1/me/listings:
+    $ref: "paths/catalog.yaml#/myListings"
+  /v1/categories:
+    $ref: "paths/catalog.yaml#/categories"
+  /v1/regions:
+    $ref: "paths/catalog.yaml#/regions"
+  /v1/regions/{province_code}/communes:
+    $ref: "paths/catalog.yaml#/regionCommunes"
   /v1/staff/login:
     $ref: "paths/staff.yaml#/login"
   /v1/staff/login/totp-enrollment:

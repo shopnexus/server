@@ -19,9 +19,12 @@ services:
     # Data on tmpfs: fast, and `down` really resets it. Postgres 19 keeps its
     # data directory under /var/lib/postgresql/19/docker, inside this mount.
     # Sized explicitly; an uncapped tmpfs defaults to half the host's RAM.
+    # go test runs a package per CPU, each test on a cloned database of about
+    # 8.5 MB, and 1 GB filled up once catalog and media joined. The tmpfs
+    # counts toward mem_limit.
     tmpfs:
-      - /var/lib/postgresql:size=1g
-    mem_limit: 768m
+      - /var/lib/postgresql:size=2g
+    mem_limit: 2560m
     # Test packages run their tests in parallel, each test on its own
     # database and pool of up to 4 connections.
     command: postgres -c max_connections=200
@@ -49,3 +52,23 @@ services:
     tmpfs:
       - /restate-data:size=512m
     mem_limit: 1536m
+
+  # Object store on tmpfs; each test writes under keys of its own.
+  rustfs:
+    image: rustfs/rustfs:1.0.4
+    environment:
+      RUSTFS_ACCESS_KEY: server2rustfs
+      RUSTFS_SECRET_KEY: server2rustfs-secret
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ENABLE: "false"
+    ports:
+      - "127.0.0.1:56491:9000"
+    tmpfs:
+      - /data:size=512m,uid=10001,gid=10001
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

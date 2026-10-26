@@ -1,0 +1,34 @@
+UploadRequest:
+  type: object
+  additionalProperties: false
+  required: [content_type, size]
+  properties:
+    content_type:
+      type: string
+      enum: [image/jpeg, image/png, image/webp]
+      description: HEIC is converted to JPEG by the app before uploading.
+    size:
+      type: integer
+      format: int64
+      minimum: 1
+      maximum: 15728640
+      description: Bytes; at most 15 MB.
+UploadTicket:
+  type: object
+  additionalProperties: false
+  required: [upload_id, url, headers, expires_at]
+  properties:
+    upload_id:
+      type: string
+      format: uuid
+    url:
+      type: string
+      format: uri
+    headers:
+      type: object
+      additionalProperties:
+        type: string
+      description: Headers the PUT must carry, as signed.
+    expires_at:
+      type: string
+      format: date-time

@@ -6,7 +6,8 @@ IDENTITY := .restate/identity.pem
 
 # Starts the development stack and the server. On first use it copies
 # .env.example to .env and adds fresh keys, including the key Restate signs
-# requests with; migrations apply every time.
+# requests with; migrations apply and the object store bucket is prepared
+# every time.
 run:
 	@test -f .env || cp .env.example .env
 	@grep -q '^OTP_KEY=' .env || go run ./cmd/keygen >> .env
@@ -15,6 +16,7 @@ run:
 		{ sed -i '/^RESTATE_IDENTITY_KEY=/d' .env; go run ./cmd/keygen -restate $(IDENTITY) >> .env; }
 	docker compose up -d --wait
 	go run ./cmd/migrate
+	go run ./cmd/objectstore-init
 	go run ./cmd/server
 
 # Runs every test against the test stack, then golangci-lint, which also

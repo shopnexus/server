@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 )
@@ -26,7 +27,19 @@ func testConfig(t *testing.T) config.Config {
 		Restate:     restatetest.Config(t),
 		Auth:        keys,
 		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.test"},
+		ObjectStore: objectStore(t),
 	}
+}
+
+// objectStore is the test stack's object store, its bucket prepared.
+func objectStore(t *testing.T) config.ObjectStoreConfig {
+	t.Helper()
+	objectstoretest.New(t)
+	cfg, err := objectstoretest.Config()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg
 }
 
 func newApp(t *testing.T) *App {

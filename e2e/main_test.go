@@ -21,6 +21,8 @@ import (
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/app"
 	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server2/internal/platform/objectstore"
+	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 	"github.com/shopnexus/server2/internal/staff"
@@ -70,8 +72,23 @@ func run(m *testing.M) int {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
 	}
+	objectStoreCfg, err := objectstoretest.Config()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "e2e:", err)
+		return 1
+	}
+	store, err := objectstore.New(objectStoreCfg)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "e2e:", err)
+		return 1
+	}
+	if err = store.Prepare(context.Background()); err != nil {
+		fmt.Fprintln(os.Stderr, "e2e:", err)
+		return 1
+	}
 	cfg := config.Config{
 		DatabaseURL: pool.Config().ConnString(),
+		ObjectStore: objectStoreCfg,
 		Restate:     restateCfg,
 		Auth:        keys,
 		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.e2e"},

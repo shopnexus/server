@@ -1,0 +1,3 @@
+# Generated data: 3,321 communes in 200 KB, past the parser's node limit.
+# tmp/regions/gen.py writes it; its CREATE TABLE statements follow the rules.
+migrations/0005_regions.sql

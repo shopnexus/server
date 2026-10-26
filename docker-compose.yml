@@ -41,6 +41,26 @@ services:
       - restate:/restate-data
       - ./.restate/identity.pem:/identity.pem:ro
 
+  # S3-compatible object store for uploads and media. make run creates the
+  # bucket and opens media/ for reading.
+  rustfs:
+    image: rustfs/rustfs:1.0.4
+    environment:
+      RUSTFS_ACCESS_KEY: server2rustfs
+      RUSTFS_SECRET_KEY: server2rustfs-secret
+      RUSTFS_VOLUMES: /data
+      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_CONSOLE_ENABLE: "false"
+    ports:
+      - "127.0.0.1:56490:9000"
+    volumes:
+      - rustfs:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
   otel-lgtm:
     image: grafana/otel-lgtm:0.37.0
     profiles: [obs]
@@ -54,4 +74,5 @@ services:
 volumes:
   postgres:
   restate:
+  rustfs:
   lgtm:

@@ -72,3 +72,39 @@ func TestProtect(t *testing.T) {
 		t.Fatalf("principal %+v", seen)
 	}
 }
+
+// Identify lets a request without credentials through signed out, and
+// holds one with credentials to Protect's rules.
+func TestIdentify(t *testing.T) {
+	t.Parallel()
+	acc, sid := uuid.NewV7(), uuid.NewV7()
+	s, _ := domain.NewSession(sid, acc, "", now, now)
+	valid, _, _ := domain.NewSigner(testKeys).Sign(s, now)
+	var signedIn bool
+	h := handler.Identify(domain.NewVerifier(testKeys), func() time.Time { return now }, discard)(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, signedIn = authn.From(r.Context())
+			w.WriteHeader(http.StatusNoContent)
+		}))
+	for _, c := range []struct {
+		header   string
+		status   int
+		signedIn bool
+	}{
+		{"", 204, false},
+		{"Bearer " + valid, 204, true},
+		{"Bearer junk", 401, false},
+		{"Basic dXNlcjpwYXNz", 401, false},
+	} {
+		signedIn = false
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/x", http.NoBody)
+		if c.header != "" {
+			r.Header.Set("Authorization", c.header)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, r)
+		if rec.Code != c.status || signedIn != c.signedIn {
+			t.Errorf("%q: %d signed in %v", c.header, rec.Code, signedIn)
+		}
+	}
+}

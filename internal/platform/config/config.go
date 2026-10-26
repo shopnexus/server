@@ -45,6 +45,7 @@ type Config struct {
 	TrustedProxies []netip.Prefix // TRUSTED_PROXIES: CIDRs whose X-Forwarded-For is believed
 	Auth           AuthConfig
 	Staff          StaffConfig
+	ObjectStore    ObjectStoreConfig
 }
 
 // AuthConfig holds the auth module's keys and token settings. No key is ever
@@ -64,6 +65,20 @@ type AuthConfig struct {
 type StaffConfig struct {
 	Key           []byte // STAFF_KEY: base64, at least 32 bytes; the staff subkeys derive from it
 	ConsoleOrigin string // STAFF_CONSOLE_ORIGIN: the web console's origin, the only one CORS allows
+}
+
+// ObjectStoreConfig says where the S3-compatible object store (RustFS) is
+// and where clients read public objects. The keys are never logged.
+type ObjectStoreConfig struct {
+	Endpoint string // OBJECT_STORE_ENDPOINT: its S3 API, http:// or https://
+	// PublicEndpoint is OBJECT_STORE_PUBLIC_ENDPOINT, the same API as clients
+	// reach it; presigned URLs sign its host.
+	PublicEndpoint string
+	Region         string // OBJECT_STORE_REGION
+	AccessKey      string // OBJECT_STORE_ACCESS_KEY
+	SecretKey      string // OBJECT_STORE_SECRET_KEY
+	Bucket         string // OBJECT_STORE_BUCKET
+	PublicURL      string // MEDIA_PUBLIC_URL: the base URL clients read media/ objects under
 }
 
 // RestateConfig says where the Restate server is and how it reaches this
@@ -182,6 +197,15 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		Staff: StaffConfig{
 			Key:           decodeKey("STAFF_KEY", 32, false),
 			ConsoleOrigin: need("STAFF_CONSOLE_ORIGIN"),
+		},
+		ObjectStore: ObjectStoreConfig{
+			Endpoint:       need("OBJECT_STORE_ENDPOINT"),
+			PublicEndpoint: need("OBJECT_STORE_PUBLIC_ENDPOINT"),
+			Region:         need("OBJECT_STORE_REGION"),
+			AccessKey:      need("OBJECT_STORE_ACCESS_KEY"),
+			SecretKey:      need("OBJECT_STORE_SECRET_KEY"),
+			Bucket:         need("OBJECT_STORE_BUCKET"),
+			PublicURL:      need("MEDIA_PUBLIC_URL"),
 		},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),

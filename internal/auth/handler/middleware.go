@@ -15,8 +15,23 @@ import (
 // context. It reads no database: a signed-out session's access token works
 // until it expires, and write use cases check the account themselves.
 func Protect(v domain.Verifier, now func() time.Time, log *slog.Logger) func(http.Handler) http.Handler {
+	return guard(v, now, log, true)
+}
+
+// Identify is Protect for a route anyone may call: a request without an
+// Authorization header goes on signed out, and one with it must carry a
+// valid token.
+func Identify(v domain.Verifier, now func() time.Time, log *slog.Logger) func(http.Handler) http.Handler {
+	return guard(v, now, log, false)
+}
+
+func guard(v domain.Verifier, now func() time.Time, log *slog.Logger, required bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !required && r.Header.Get("Authorization") == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
 			// The scheme is case-insensitive (RFC 9110).
 			scheme, token, _ := strings.Cut(r.Header.Get("Authorization"), " ")
 			if !strings.EqualFold(scheme, "Bearer") || token == "" {

@@ -1,0 +1,28 @@
+uploads:
+  post:
+    operationId: createUpload
+    summary: Get a presigned URL to upload one photo to.
+    description: |
+      The app PUTs the photo to `url` with `headers` before `expires_at`;
+      the URL fixes the content type and length. Attach the upload to a
+      listing within 24 hours, or it is deleted.
+    tags: [media]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/media.yaml#/UploadRequest"
+    responses:
+      "201":
+        description: Where to PUT the photo.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/media.yaml#/UploadTicket"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

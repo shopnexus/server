@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,10 +20,13 @@ import (
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/auth"
+	"github.com/shopnexus/server2/internal/catalog"
+	"github.com/shopnexus/server2/internal/media"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	"github.com/shopnexus/server2/internal/platform/module"
+	"github.com/shopnexus/server2/internal/platform/objectstore"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/provider/email"
@@ -186,7 +190,14 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		return nil, fmt.Errorf("staff keys: %w", err)
 	}
 	staff.Mount(d, staffKeys, accounts, authm.Service)
-	return authm.Services, nil
+	store, err := objectstore.New(cfg.ObjectStore)
+	if err != nil {
+		return nil, fmt.Errorf("object store: %w", err)
+	}
+	mediam := media.Mount(d, store, protect)
+	catalogServices := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
+		accounts, authm.Service, mediam.Service)
+	return slices.Concat(authm.Services, mediam.Services, catalogServices), nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

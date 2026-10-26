@@ -1,0 +1,102 @@
+// Package service holds module catalog's use cases: a seller's listings
+// from posting to sale, what anyone may read of them, and the category and
+// region lists. Posting and editing run on Restate, in
+// listing_post_durable.go and listing_edit_durable.go, and publishing waits
+// there for the photos, in listing_publish_durable.go.
+package service
+
+import (
+	"context"
+	"time"
+	"uuid"
+
+	restate "github.com/restatedev/sdk-go"
+	"github.com/restatedev/sdk-go/ingress"
+
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	authsvc "github.com/shopnexus/server2/internal/auth/service"
+	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server2/internal/catalog/repository"
+	mediasvc "github.com/shopnexus/server2/internal/media/service"
+	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/restatex"
+)
+
+// Service is module catalog's contract.
+//
+//nolint:interfacebloat // One method per use case of the listing core; splitting it would split the module.
+type Service interface {
+	// Post puts a complete listing up for processing. A repeated
+	// idempotencyKey returns the listing it posted.
+	Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.Draft) (ListingView, error)
+	// Edit replaces a listing's content; a repeated idempotencyKey edits
+	// nothing more.
+	Edit(ctx context.Context, seller, id uuid.UUID, idempotencyKey string, d domain.Draft) (ListingView, error)
+	Hide(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
+	Unhide(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
+	// MarkSold records a sale made off the app; UnmarkSold undoes it.
+	MarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
+	UnmarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
+	Delete(ctx context.Context, seller, id uuid.UUID) error
+	// Get reads a listing as viewer, nil when signed out, sees it.
+	Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error)
+	// ListMine lists one of the seller's panes, newest first.
+	ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p page.Request) (page.Page[ListingView], error)
+	Categories(ctx context.Context) ([]domain.Category, error)
+	Provinces(ctx context.Context) ([]domain.Province, error)
+	Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error)
+}
+
+// Deps is what New builds Catalog from.
+type Deps struct {
+	Listings   repository.Listings
+	Categories repository.Categories
+	Regions    repository.Regions
+	Accounts   accountsvc.Service
+	Auth       authsvc.Service
+	Media      mediasvc.Service
+	// Ingress and Prefix reach this process's Restate services.
+	Ingress *ingress.Client
+	Prefix  string
+	Now     func() time.Time
+}
+
+// Catalog implements Service in this process.
+type Catalog struct {
+	listings   repository.Listings
+	categories repository.Categories
+	regions    repository.Regions
+	accounts   accountsvc.Service
+	auth       authsvc.Service
+	media      mediasvc.Service
+	prefix     string
+	now        func() time.Time
+	post       restatex.Caller[PostInput, PostResult]
+	edit       restatex.Caller[EditInput, EditResult]
+}
+
+var _ Service = (*Catalog)(nil)
+
+func New(d Deps) *Catalog {
+	return &Catalog{
+		listings: d.Listings, categories: d.Categories, regions: d.Regions,
+		accounts: d.Accounts, auth: d.Auth, media: d.Media, prefix: d.Prefix, now: d.Now,
+		post: restatex.Caller[PostInput, PostResult]{Ingress: d.Ingress, Service: d.Prefix + listingPost, Handler: "Run"},
+		edit: restatex.Caller[EditInput, EditResult]{Ingress: d.Ingress, Service: d.Prefix + listingEdit, Handler: "Run"},
+	}
+}
+
+// Durable returns module catalog's Restate services, for Mount to bind.
+func (c *Catalog) Durable() []restate.ServiceDefinition {
+	return []restate.ServiceDefinition{
+		restate.Reflect(ListingPost{
+			Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Regions: c.regions,
+			Accounts: c.accounts, Auth: c.auth, Media: c.media, Now: c.now,
+		}),
+		restate.Reflect(ListingEdit{
+			Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Regions: c.regions,
+			Accounts: c.accounts, Media: c.media, Now: c.now,
+		}),
+		restate.Reflect(ListingPublish{Prefix: c.prefix, Listings: c.listings, Now: c.now}),
+	}
+}

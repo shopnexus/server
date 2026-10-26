@@ -19,10 +19,10 @@ until the user approves them.
 
 ### Infrastructure
 
-Postgres and Restate (server 1.8.0, Go SDK v1.1.0). Restate replaced the
-relay, JetStream and NATS. The outbox is a table, `events`, that a bus
-drains into Restate (see Events). `/readyz` checks Postgres and the Restate
-admin health endpoint.
+Postgres, Restate (server 1.8.0, Go SDK v1.1.0) and RustFS for photos (see
+Object store). Restate replaced the relay, JetStream and NATS. The outbox is
+a table, `events`, that a bus drains into Restate (see Events). `/readyz`
+checks Postgres and the Restate admin health endpoint.
 
 ### Use cases
 
@@ -212,7 +212,7 @@ internal/account/
   account.go         Mount: builds the layers, returns service.Service
 ```
 
-Modules auth and staff have the same four packages; a module that reacts
+Modules auth, staff, media and catalog have the same four packages; a module that reacts
 to events adds `worker`. Imports run one way, `handler` and `worker` →
 `service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
 refuse an import against it.
@@ -248,6 +248,17 @@ separate work.
 | `Credentials` | `credentials` (root: `account_id` PK, `write_id`, later `password_hash`), `identities` (children) | `Save` changes the root's `write_id` and rewrites the account's identities in one transaction; the planned `passwords` table folds into the root |
 | `Session` | `sessions` | adds `write_id` and `auth_time` |
 | `Challenge` | `otp_challenges` | adds `write_id` |
+| `Upload` | `uploads` | module media; status, content type, size, the processed keys |
+| `Listing` | `listings` | module catalog; photos, marks and specs are `jsonb` columns, read and written with the row |
+
+No column is named after an SQL keyword (sqlfluff RF04, run with
+`sqlfluff lint migrations/`): `events.occurred_at` and `payload`,
+`staff_actions.action_kind` and `acted_at`, `identities.identifier`,
+`otp_quotas.subject`, `staff_login_locks.email_hash`,
+`staff_members.staff_role`, and `display_name` for categories, provinces and
+communes. Go fields and JSON keep their own names where an API already
+published them (`role`, `value`, `action`, `at`). `.sqlfluffignore` skips
+the generated `0005_regions.sql`, which is past the parser's node limit.
 
 IDs are chosen by the caller before the insert: `restatex.NewID(ctx, at)`
 inside a Restate service, `uuid.NewV7()` in a direct use case. Only
@@ -290,7 +301,7 @@ invocation so Restate runs it once.
 Service `OTP`, handler `Send`, run once per `Idempotency-Key`:
 
 1. Admit the request against two `Quota` aggregates, `ip:<address>` first
-   and then `dest:<destination>`, in table `otp_quotas(key PK, write_id,
+   and then `dest:<destination>`, in table `otp_quotas(subject PK, write_id,
    sent_at timestamptz[])`. An IPv6 address is keyed by its /64. The address
    goes first so an address over its limit cannot spend the quota of the
    numbers it names. `Quota.Admit(now, rule)` holds the limits: one code per
@@ -427,6 +438,119 @@ the decisions and the API.
 - Staff reaches customer data through `accountsvc.Service` and
   `authsvc.Service`. CORS allows
   `STAFF_CONSOLE_ORIGIN` on `/v1/staff/` and nothing else.
+
+### Object store
+
+RustFS 1.0.4 through its S3 API, reached with minio-go
+(`internal/platform/objectstore`). One bucket, `OBJECT_STORE_BUCKET`:
+`uploads/<id>` is private and written only through presigned PUTs;
+`media/` is public-read and holds processed photos. `Store.Prepare` creates
+the bucket and the `media/*` read policy; `make run` calls it through
+`cmd/objectstore-init`, and `objectstoretest.New` calls it once per test
+process. The server reaches the store at `OBJECT_STORE_ENDPOINT` and signs
+presigned URLs for `OBJECT_STORE_PUBLIC_ENDPOINT`, the address phones reach;
+the signature covers the host, so a proxy cannot rewrite it. Configuration:
+`OBJECT_STORE_ENDPOINT`, `OBJECT_STORE_PUBLIC_ENDPOINT`, `OBJECT_STORE_REGION`,
+`OBJECT_STORE_ACCESS_KEY`, `OBJECT_STORE_SECRET_KEY`, `OBJECT_STORE_BUCKET`
+and `MEDIA_PUBLIC_URL`, the base a public URL is built on. RustFS listens on
+127.0.0.1:56490 in development and 56491 in tests; the test container keeps
+`/data` on a tmpfs owned by uid 10001, the user the image runs as.
+
+### Media
+
+Module `media` owns uploads; catalog uses them now, and chat, KYC and
+avatars will. An `Upload` moves waiting → attached → ready or failed, or
+waiting → expired.
+
+- `CreateUpload` (`POST /v1/uploads`) takes a content type (JPEG, PNG or
+  WebP; the app converts HEIC) and a size up to 15 MB, and returns a PUT URL
+  valid for 15 minutes that signs both. Before inserting the row it sends
+  `MediaExpire.Run(upload_id)` with a 24-hour delay, keyed by the upload ID.
+  `MediaExpire` deletes an upload still waiting, and its object.
+- `Attach(owner, holder, ids)` gives the uploads to a holder, such as a
+  listing, all or none: each must be the owner's and either held by that
+  holder already or waiting and present in the store with the declared type
+  and size. Otherwise `invalid_upload`. An upload the holder already holds
+  passes, so a retried attach succeeds; `uploads.holder_id` records it.
+- `MediaProcess.Run(upload_id)` processes an attached upload in one step:
+  it checks the magic bytes against the type, reads the dimensions from the
+  header and refuses more than 40 megapixels, or more than 160 MB of decoded
+  pixels (20 megapixels at 16 bits a channel), before decoding. A box filter
+  then bilinear scaling make a JPEG at most 1600 px on its long side, turned
+  upright by the JPEG's EXIF Orientation, and the 400 px thumbnail is made
+  from that photo; neither keeps more than its output in memory. Both go
+  under `media/`. Re-encoding drops EXIF, GPS included. Two photos decode
+  at once in the process (`processSlots`); the others wait for a slot. The photo's bytes never
+  enter the journal; the step returns the keys. A later step saves the
+  upload ready or failed with the reason and deletes the original. A second
+  run returns the first run's result.
+
+### Catalog
+
+Module `catalog` holds listings, categories and regions. A listing is one
+item at one price, C2C, cash on delivery. Drafts stay on the device; the
+server receives a complete listing.
+
+- Status: processing → active or rejected; active ⇄ hidden; active or
+  hidden → sold → active; any status → deleted. Only active is public. An
+  edit that adds an upload, or an edit of a rejected listing, returns the
+  listing to processing; an edit of a sold or deleted listing is
+  `listing_state_conflict`.
+- Posting and editing run as Restate services, `ListingPost` and
+  `ListingEdit`, through `restatex.Caller`. `POST /v1/listings` and
+  `PUT /v1/listings/{id}` take an `Idempotency-Key`, and the invocation's
+  key is `<seller id>/<Idempotency-Key>`: Restate scopes a key to the
+  service, so the seller in it keeps two sellers' keys apart.
+- `ListingPost` checks, in order: account suspended, no verified phone (an
+  identity of kind phone from `authsvc.Service.Identities`), 20 listings in
+  processing, active, hidden or rejected, then the fields. The category and
+  commune lookups reach the domain as `domain.Refs`, so one
+  `invalid_listing` lists every field. It inserts the row under
+  `pg_advisory_xact_lock(hashtext(seller_id))`, which holds the cap when
+  posts race, then attaches the uploads, marks' photos included, to the
+  listing. A cap reached at the insert refuses before any upload is taken;
+  an attach that refuses deletes the row again (`Listings.Discard`). The
+  last step sends `ListingPublish`, journaled like the rest.
+- `ListingEdit` loads the seller's listing, edits it, attaches the uploads
+  the edit adds and saves it with `listing.updated`. A save that loses a
+  race is `try_again`; the uploads stay with the listing, so the next try
+  attaches them again.
+- Unmarking a sale counts toward the cap: `Listings.Save` takes the seller's
+  lock and refuses a listing coming back on sale with `listing_cap_reached`.
+- `ListingPublish.Run(listing_id)` starts after every write that leaves the
+  listing in processing, with idempotency key `<listing id>/<write id>`. It
+  loads the listing, calls `MediaProcess` for each unprocessed upload with
+  the upload ID as idempotency key, so two runs share one processing, and
+  waits for all. All ready: active, the photo keys recorded and
+  `listing.published` written. One failed: rejected, the reason kept on the
+  photo. The save ignores `ErrConflict`: a listing changed meanwhile has a
+  run of its own.
+- The listing stores object keys; views build URLs from `MEDIA_PUBLIC_URL`
+  at read time.
+- Another seller's listing is `listing_not_found`. `GET /v1/listings/{id}`
+  sits behind `auth.Identify`, which lets a request without an
+  `Authorization` header through signed out and holds one with it to
+  `auth.Protect`'s rules; the seller sees every status but deleted, anyone
+  else only active. Post and edit refuse a suspended account; hide, unhide,
+  mark sold, unmark sold and delete do not.
+- `PUT /v1/listings/{id}` replaces the whole listing with the body. The
+  catalog spec named `PATCH`; the user chose `PUT` on 2026-10-26, since the
+  app sends the whole form.
+- Each change writes its event in its transaction: `listing.published`,
+  `listing.updated`, `listing.hidden`, `listing.unhidden`, `listing.sold`,
+  `listing.unsold`, `listing.deleted`; search and recommendations will
+  subscribe to them.
+- `categories(code, parent_code, display_name, sort_order)` is loaded by
+  migration 0007: 9 roots, each with subcategories coded `<root>.<slug>` and
+  ending with `<root>.other` ("Khác"). A listing's `category_code` must name
+  a subcategory, a row with a parent.
+- `provinces` and `communes` (migration 0005) hold the 34 provinces and
+  3,321 communes after the 2025 merger, from
+  thanglequoc/vietnamese-provinces-database v5.2.0 (commit 8b78ba511871,
+  MIT), display names as its `full_name`. A commune's `lat` and `lng` are
+  `ST_PointOnSurface` of its boundary rounded to 4 decimals, computed once
+  in a throwaway PostGIS container. The listing stores the commune; the
+  seller's position is never stored.
 
 ### Testing
 

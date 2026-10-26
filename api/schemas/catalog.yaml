@@ -1,0 +1,276 @@
+ListingDraft:
+  type: object
+  additionalProperties: false
+  required: [title, price, category_code, condition, allow_offers, commune_code, photos]
+  description: |
+    A complete listing, to post or to replace one. The rules below are
+    business rules: breaking one answers 422 invalid_listing with an entry
+    per field.
+  properties:
+    title:
+      type: string
+      description: 1 to 70 characters after trimming.
+    price:
+      type: integer
+      format: int64
+      description: Whole đồng, at least 10,000.
+    description:
+      type: string
+      description: At most 1,500 characters; may be empty.
+    category_code:
+      type: string
+      description: A subcategory code from GET /v1/categories, such as phones.iphone.
+    condition:
+      $ref: "#/Condition"
+    allow_offers:
+      type: boolean
+    commune_code:
+      type: string
+      description: A commune code from GET /v1/regions/{province_code}/communes.
+    photos:
+      type: array
+      items:
+        type: string
+        format: uuid
+      description: 1 to 10 upload IDs, in order; the first is the cover.
+    marks:
+      type: array
+      items:
+        $ref: "#/MarkDraft"
+      description: Up to 10 declared flaws.
+    specs:
+      type: array
+      items:
+        $ref: "#/Spec"
+      description: Up to 20 label and value pairs.
+MarkDraft:
+  type: object
+  additionalProperties: false
+  required: [text]
+  properties:
+    text:
+      type: string
+      description: 1 to 200 characters.
+    upload_id:
+      type: string
+      format: uuid
+      description: An optional close-up of the flaw.
+Spec:
+  type: object
+  additionalProperties: false
+  required: [label, value]
+  properties:
+    label:
+      type: string
+      description: 1 to 50 characters.
+    value:
+      type: string
+      description: 1 to 50 characters.
+Condition:
+  type: string
+  enum: [new, like_new, used]
+ListingStatus:
+  type: string
+  enum: [processing, active, hidden, rejected, sold]
+  description: |
+    processing: the photos are being processed. active: on sale, the only
+    public status. hidden: taken down by the seller. rejected: a photo was
+    refused; the photo says why, and an edit tries again. sold: sold off the
+    app.
+Listing:
+  type: object
+  additionalProperties: false
+  required:
+    - id
+    - seller_id
+    - title
+    - price
+    - description
+    - category_code
+    - condition
+    - allow_offers
+    - location
+    - photos
+    - marks
+    - specs
+    - status
+    - created_at
+    - updated_at
+  properties:
+    id:
+      type: string
+      format: uuid
+    seller_id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    price:
+      type: integer
+      format: int64
+    description:
+      type: string
+    category_code:
+      type: string
+    condition:
+      $ref: "#/Condition"
+    allow_offers:
+      type: boolean
+    location:
+      $ref: "#/Location"
+    photos:
+      type: array
+      items:
+        $ref: "#/Photo"
+    marks:
+      type: array
+      items:
+        $ref: "#/Mark"
+    specs:
+      type: array
+      items:
+        $ref: "#/Spec"
+    status:
+      $ref: "#/ListingStatus"
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time
+    published_at:
+      type: string
+      format: date-time
+      description: When the listing first went on sale.
+    sold_at:
+      type: string
+      format: date-time
+ListingList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Listing"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more listings follow; pass it as cursor.
+Photo:
+  type: object
+  additionalProperties: false
+  required: [upload_id]
+  properties:
+    upload_id:
+      type: string
+      format: uuid
+    url:
+      type: string
+      format: uri
+      description: The photo, at most 1600 px on its long side; set once processed.
+    thumb_url:
+      type: string
+      format: uri
+      description: A 400 px thumbnail; set once processed.
+    failure:
+      type: string
+      description: Why processing refused the photo, on a rejected listing.
+Mark:
+  type: object
+  additionalProperties: false
+  required: [text]
+  properties:
+    text:
+      type: string
+    photo:
+      $ref: "#/Photo"
+Location:
+  type: object
+  additionalProperties: false
+  required: [commune, province, lat, lng]
+  description: The listing's commune and province, with a point inside the commune rather than where the seller is.
+  properties:
+    commune:
+      $ref: "#/Region"
+    province:
+      $ref: "#/Region"
+    lat:
+      type: number
+    lng:
+      type: number
+Region:
+  type: object
+  additionalProperties: false
+  required: [code, display_name]
+  properties:
+    code:
+      type: string
+    display_name:
+      type: string
+Category:
+  type: object
+  additionalProperties: false
+  required: [code, display_name]
+  properties:
+    code:
+      type: string
+    parent_code:
+      type: string
+      description: Absent on a root. A listing takes a category with a parent.
+    display_name:
+      type: string
+CategoryList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      description: The roots in order, then each root's subcategories in order.
+      items:
+        $ref: "#/Category"
+Province:
+  type: object
+  additionalProperties: false
+  required: [code, display_name]
+  properties:
+    code:
+      type: string
+    display_name:
+      type: string
+ProvinceList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Province"
+Commune:
+  type: object
+  additionalProperties: false
+  required: [code, province_code, display_name, lat, lng]
+  properties:
+    code:
+      type: string
+    province_code:
+      type: string
+    display_name:
+      type: string
+    lat:
+      type: number
+    lng:
+      type: number
+CommuneList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      description: By display name; empty for an unknown province.
+      items:
+        $ref: "#/Commune"

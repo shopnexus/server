@@ -1,0 +1,392 @@
+listings:
+  post:
+    operationId: createListing
+    summary: Post a listing.
+    description: |
+      The listing starts in processing while its photos are processed, then
+      turns active, or rejected when a photo is refused. Checks, in order:
+      account_suspended, phone_required, listing_cap_reached (20 listings in
+      processing, active, hidden or rejected), invalid_listing, invalid_upload.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/catalog.yaml#/ListingDraft"
+    responses:
+      "201":
+        description: The listing, in processing.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/Listing"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended) or has no verified phone number (phone_required)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The seller has 20 listings on sale or hidden (listing_cap_reached)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "A field breaks a rule (invalid_listing, with fields), or an upload is not the caller's, not uploaded yet, or already used (invalid_upload)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+listing:
+  get:
+    operationId: getListing
+    summary: Read a listing.
+    description: |
+      Anyone may read an active listing. Its seller, signed in, also reads it
+      in any other status; anyone else gets 404.
+    tags: [catalog]
+    security:
+      - {}
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The listing.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/Listing"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing for this caller (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  put:
+    operationId: updateListing
+    summary: Replace a listing's content.
+    description: |
+      The body is the whole listing, as when posting. Photos not in the
+      listing yet take it back to processing until they are processed; an
+      edit of a rejected listing does too. Sold listings cannot be edited.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/catalog.yaml#/ListingDraft"
+    responses:
+      "200":
+        description: The listing.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/Listing"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/Forbidden"
+      "404":
+        description: "No such listing of the caller's (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is sold or deleted (listing_state_conflict), or changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "A field breaks a rule (invalid_listing, with fields), or an added upload is not the caller's, not uploaded yet, or already used (invalid_upload)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: deleteListing
+    summary: Delete a listing.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Deleted.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing of the caller's (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is already deleted (listing_state_conflict), or changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+listingHide:
+  post:
+    operationId: hideListing
+    summary: Take an active listing off sale.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The listing.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/Listing"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing of the caller's (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is not active (listing_state_conflict), or changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+listingUnhide:
+  post:
+    operationId: unhideListing
+    summary: Put a hidden listing back on sale.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The listing.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/Listing"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing of the caller's (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is not hidden (listing_state_conflict), or changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+listingMarkSold:
+  post:
+    operationId: markListingSold
+    summary: Record a sale made off the app.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The listing.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/Listing"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing of the caller's (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is not active or hidden (listing_state_conflict), or changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+listingUnmarkSold:
+  post:
+    operationId: unmarkListingSold
+    summary: Undo marking a listing sold; it goes back on sale.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The listing.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/Listing"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing of the caller's (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is not sold (listing_state_conflict), the seller has 20 listings on sale or hidden (listing_cap_reached), or it changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+myListings:
+  get:
+    operationId: listMyListings
+    summary: List the caller's listings, newest first.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: pane
+        in: query
+        required: true
+        description: on_sale holds listings in processing, active, hidden and rejected; sold holds sold ones.
+        schema:
+          type: string
+          enum: [on_sale, sold]
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of listings.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/ListingList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+categories:
+  get:
+    operationId: listCategories
+    summary: The category tree.
+    tags: [catalog]
+    responses:
+      "200":
+        description: Every category.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/CategoryList"
+regions:
+  get:
+    operationId: listProvinces
+    summary: The provinces, after the 2025 merger.
+    tags: [catalog]
+    responses:
+      "200":
+        description: Every province.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/ProvinceList"
+regionCommunes:
+  get:
+    operationId: listCommunes
+    summary: The communes of a province.
+    tags: [catalog]
+    parameters:
+      - name: province_code
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^[0-9]{2}$"
+    responses:
+      "200":
+        description: The province's communes.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/CommuneList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"

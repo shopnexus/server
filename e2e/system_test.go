@@ -7,6 +7,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/app"
 	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 )
@@ -33,6 +34,11 @@ func TestReadyzDown(t *testing.T) {
 		Auth:        keys,
 		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.e2e"},
 	}
+	objectStore, err := objectstoretest.Config()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ObjectStore = objectStore
 	a, err := app.New(context.Background(), cfg, discard)
 	if err != nil {
 		t.Fatal(err)
