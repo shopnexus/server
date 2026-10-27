@@ -112,6 +112,16 @@ func TestSearch(t *testing.T) {
 	if err != nil || len(counts) != 1 || counts[0].Code != "vehicles.bicycle" || counts[0].Count != 2 {
 		t.Fatalf("counts under a root: %v %v", counts, err)
 	}
+	boosted, err := s.Counts(ctx, domain.Search{
+		Phrases: text, Filters: domain.Filters{CategoryRoot: "vehicles"},
+		Boosts: []domain.Boost{{Kind: domain.BoostCategory, Code: "vehicles.bicycle", Weight: 1.5}},
+	}, domain.CountCode)
+	if err != nil || len(boosted) != 1 || boosted[0].Count != 2 {
+		t.Fatalf("counts leave the boosts out: %v %v", boosted, err)
+	}
+	if got = ids(domain.Search{Phrases: []domain.Phrase{{Text: "xe đạp", Weight: 1}, {Text: "đèn", Weight: -2}}, Sort: domain.SortRelevance}); len(got) != 3 || got[2] != lamp {
+		t.Fatalf("a demoted phrase puts the lamp last: %v", got)
+	}
 	roots, err := s.Counts(ctx, domain.Search{}, domain.CountRoot)
 	if err != nil || !slices.Contains(roots, domain.CategoryCount{Code: "vehicles", Count: 2}) {
 		t.Fatalf("counts by root: %v %v", roots, err)

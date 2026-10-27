@@ -164,7 +164,12 @@ func (q *query) should(s domain.Search) []string {
 // change no membership.
 func (q *query) where(s domain.Search, boosts bool) string {
 	sql := `id @@@ paradedb.boolean(must => ` + array(q.must(s))
-	if should := q.should(s); boosts && len(should) > 0 {
+	if !boosts {
+		// Building the boosts would add their parameters, which strict
+		// named args refuse when the SQL does not use them.
+		return sql + `)`
+	}
+	if should := q.should(s); len(should) > 0 {
 		sql += `, should => ` + array(should)
 	}
 	return sql + `)`

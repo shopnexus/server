@@ -156,7 +156,7 @@ search:
             schema:
               $ref: "../schemas/discovery.yaml#/SearchView"
       "400":
-        description: "A malformed parameter, position_required, invalid_position or invalid_cursor."
+        description: "A malformed parameter, position_required, invalid_position, invalid_cursor or invalid_price_range."
         content:
           application/json:
             schema:

@@ -15,5 +15,6 @@ var (
 		"this sort, radius or feed needs near_lat and near_lng, or near_commune")
 	ErrInvalidPosition = apperr.New(apperr.KindBadRequest, "invalid_position",
 		"near_lat and near_lng go together, within -90..90 and -180..180, or near_commune names a commune")
-	ErrInvalidCursor = apperr.New(apperr.KindBadRequest, "invalid_cursor", "cursor is a next_cursor this endpoint gave")
+	ErrInvalidCursor     = apperr.New(apperr.KindBadRequest, "invalid_cursor", "cursor is a next_cursor this endpoint gave")
+	ErrInvalidPriceRange = apperr.New(apperr.KindBadRequest, "invalid_price_range", "price_min is at most price_max")
 )

@@ -127,6 +127,7 @@ func TestSearchRefusals(t *testing.T) {
 		"an unknown commune":          {service.SearchInput{Near: service.Near{Commune: "nope"}}, domain.ErrInvalidPosition},
 		"a word for a cursor":         {service.SearchInput{Cursor: "x"}, domain.ErrInvalidCursor},
 		"a cursor past the end":       {service.SearchInput{Cursor: "600"}, domain.ErrInvalidCursor},
+		"a minimum above the maximum": {service.SearchInput{PriceMin: 5_000_000, PriceMax: 1_000_000}, domain.ErrInvalidPriceRange},
 	} {
 		if _, err := e.discovery.Search(ctx, nil, c.in); !errors.Is(err, c.want) {
 			t.Errorf("%s: %v", name, err)

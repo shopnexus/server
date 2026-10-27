@@ -117,6 +117,13 @@ func TestSearchCategory(t *testing.T) {
 	if len(v.Items) != 1 || len(v.Counts) != 1 || v.Counts[0].Category != "vehicles.bicycle" || v.Counts[0].Count != 1 {
 		t.Fatalf("%+v", v)
 	}
+	res, v := search(t, url.Values{
+		"q": {"xe dap di lam duoi 3tr"}, "category": {"vehicles"},
+		"price_min": {strconv.FormatInt(lo, 10)}, "price_max": {strconv.FormatInt(hi, 10)},
+	})
+	if res.Status != http.StatusOK || len(v.Counts) != 1 || len(v.Chips) == 0 {
+		t.Fatalf("text on a root category page: %d %s", res.Status, res.Body)
+	}
 }
 
 func TestSearchRefusals(t *testing.T) {
@@ -134,6 +141,7 @@ func TestSearchRefusals(t *testing.T) {
 	expect("an unknown commune", url.Values{"near_commune": {"nope"}}, "invalid_position")
 	expect("a word for a cursor", url.Values{"cursor": {"x"}}, "invalid_cursor")
 	expect("an unknown sort", url.Values{"sort": {"cheapest"}}, "")
+	expect("a minimum above the maximum", url.Values{"price_min": {"5000000"}, "price_max": {"1000000"}}, "invalid_price_range")
 	if res, v := search(t, url.Values{"q": {"?"}}); res.Status != http.StatusOK || len(v.Items) != 0 {
 		t.Errorf("punctuation: %d %s", res.Status, res.Body)
 	}

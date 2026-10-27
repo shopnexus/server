@@ -74,6 +74,9 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	if err != nil {
 		return SearchView{}, err
 	}
+	if in.PriceMin > 0 && in.PriceMax > 0 && in.PriceMin > in.PriceMax {
+		return SearchView{}, domain.ErrInvalidPriceRange
+	}
 	q := strings.TrimSpace(in.Query)
 	sort := in.Sort
 	if sort == "" {
