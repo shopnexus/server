@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -76,6 +77,35 @@ FROM communes c JOIN provinces p ON p.code = c.province_code WHERE c.code = ANY(
 	out, err := pgx.CollectRows(rows, pgx.RowToStructByPos[Place])
 	if err != nil {
 		return nil, fmt.Errorf("read communes: %w", err)
+	}
+	return out, nil
+}
+
+func (s pgRegions) FindPlace(ctx context.Context, name string) ([]domain.Point, error) {
+	rows, err := s.db.Query(ctx, `
+SELECT avg(c.lat), avg(c.lng) FROM provinces p JOIN communes c ON c.province_code = p.code
+WHERE lower(p.display_name) = lower(@name)
+   OR lower(regexp_replace(p.display_name, '^(Thành phố|Tỉnh) ', '')) = lower(@name)
+GROUP BY p.code
+UNION ALL
+SELECT lat, lng FROM communes
+WHERE lower(display_name) = lower(@name)
+   OR lower(regexp_replace(display_name, '^(Phường|Xã|Đặc khu) ', '')) = lower(@name)`,
+		pgx.StrictNamedArgs{"name": strings.TrimSpace(name)})
+	if err != nil {
+		return nil, fmt.Errorf("find place: %w", err)
+	}
+	defer rows.Close()
+	var out []domain.Point
+	for rows.Next() {
+		var p domain.Point
+		if err = rows.Scan(&p.Lat, &p.Lng); err != nil {
+			return nil, fmt.Errorf("scan place: %w", err)
+		}
+		out = append(out, p)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("place rows: %w", err)
 	}
 	return out, nil
 }

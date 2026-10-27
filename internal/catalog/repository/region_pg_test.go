@@ -23,6 +23,12 @@ func TestRegions(t *testing.T) {
 	if places, _ := s.Places(ctx, []string{"00004", "99999"}); len(places) != 1 || places[0].Code != "00004" {
 		t.Errorf("Ba Đình alone: %+v", places)
 	}
+	if points, err := s.FindPlace(ctx, "Hà Nội"); err != nil || len(points) != 1 || points[0].Lat < 20 || points[0].Lat > 22 {
+		t.Errorf("Hà Nội: %v %v", points, err)
+	}
+	if points, _ := s.FindPlace(ctx, "Không có nơi này"); len(points) != 0 {
+		t.Errorf("an unknown place: %v", points)
+	}
 }
 
 func TestPlaces(t *testing.T) {

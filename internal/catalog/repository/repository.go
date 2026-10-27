@@ -64,6 +64,20 @@ type Regions interface {
 	// Places returns the communes among codes with their provinces' display
 	// names, in any order; an unknown code is left out.
 	Places(ctx context.Context, codes []string) ([]Place, error)
+	// FindPlace returns the points of the provinces and communes whose
+	// display name, with or without its type ("Thành phố", "Tỉnh", "Phường",
+	// "Xã", "Đặc khu"), is name, ignoring case. A province's point is the
+	// mean of its communes'.
+	FindPlace(ctx context.Context, name string) ([]domain.Point, error)
+}
+
+// Searches runs searches over the listings' ParadeDB index.
+type Searches interface {
+	// Search returns a page of the listings s finds, in its order.
+	Search(ctx context.Context, s domain.Search) ([]domain.Hit, error)
+	// Counts counts the listings s matches, boosts aside, by category or
+	// root, largest first.
+	Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error)
 }
 
 // Place is a commune with its province's display name.
