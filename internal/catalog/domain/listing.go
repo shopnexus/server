@@ -217,10 +217,9 @@ func (l *Listing) apply(d Draft, refs Refs, now time.Time) error {
 	for i, id := range d.Photos {
 		photos[i] = Photo{UploadID: id, Keys: l.keysOf(id)}
 	}
-	switch {
-	case d.Spot != nil:
+	if d.Spot != nil {
 		l.point = *d.Spot
-	case l.point == (Point{}) || l.communeCode != d.CommuneCode:
+	} else if l.point == (Point{}) || l.communeCode != d.CommuneCode {
 		l.point = refs.CommunePoint
 	}
 	l.title, l.price, l.description = title, d.Price, description

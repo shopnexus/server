@@ -425,8 +425,8 @@ func TestListingGPS(t *testing.T) {
 		t.Fatalf("near: %d %s", res.Status, res.Body)
 	}
 	got := decode[map[string]any](t, res)
-	location, _ := got["location"].(map[string]any)
-	if _, ok := got["lat"]; ok || got["lng"] != nil || got["gps"] != nil || location["lat"] == 21.03 {
+	location, ok := got["location"].(map[string]any)
+	if _, leaked := got["lat"]; leaked || !ok || got["lng"] != nil || got["gps"] != nil || location["lat"] == 21.03 {
 		t.Fatalf("the point leaked: %s", res.Body)
 	}
 }

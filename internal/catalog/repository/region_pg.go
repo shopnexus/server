@@ -79,4 +79,3 @@ FROM communes c JOIN provinces p ON p.code = c.province_code WHERE c.code = ANY(
 	}
 	return out, nil
 }
-
