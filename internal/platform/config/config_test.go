@@ -59,6 +59,9 @@ func required() map[string]string {
 		"OBJECT_STORE_SECRET_KEY":      "secret",
 		"OBJECT_STORE_BUCKET":          "server2",
 		"MEDIA_PUBLIC_URL":             "http://rustfs:9000/server2",
+		"LLM_BASE_URL":                 "https://llm.example.test/v1",
+		"LLM_API_KEY":                  "llm-key",
+		"LLM_MODEL":                    "a-model",
 	}
 }
 
@@ -114,6 +117,7 @@ func TestLoadAllSet(t *testing.T) {
 			Endpoint: "http://rustfs:9000", PublicEndpoint: "https://photos.example.test", Region: "us-east-1",
 			AccessKey: "access", SecretKey: "secret", Bucket: "server2", PublicURL: "http://rustfs:9000/server2",
 		},
+		LLM: LLMConfig{BaseURL: "https://llm.example.test/v1", APIKey: "llm-key", Model: "a-model"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)

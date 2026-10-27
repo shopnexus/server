@@ -46,6 +46,15 @@ type Config struct {
 	Auth           AuthConfig
 	Staff          StaffConfig
 	ObjectStore    ObjectStoreConfig
+	LLM            LLMConfig
+}
+
+// LLMConfig says where the model that reads search queries is. The key is
+// never logged.
+type LLMConfig struct {
+	BaseURL string // LLM_BASE_URL: an OpenAI-compatible API, such as https://proxy/v1
+	APIKey  string // LLM_API_KEY
+	Model   string // LLM_MODEL
 }
 
 // AuthConfig holds the auth module's keys and token settings. No key is ever
@@ -207,6 +216,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Bucket:         need("OBJECT_STORE_BUCKET"),
 			PublicURL:      need("MEDIA_PUBLIC_URL"),
 		},
+		LLM:            LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),
 		TrustedProxies: proxies,
