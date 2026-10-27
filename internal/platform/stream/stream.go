@@ -19,6 +19,8 @@ const (
 	KindMessage = "message"
 	KindRead    = "read"
 	KindDeal    = "deal"
+	// KindNotification is a new or changed notice of the account's.
+	KindNotification = "notification"
 )
 
 // channel is the Postgres channel the hints travel on.
@@ -30,6 +32,7 @@ type Hint struct {
 	ConversationID *uuid.UUID `json:"conversation_id,omitempty"`
 	MessageID      *uuid.UUID `json:"message_id,omitempty"`
 	DealID         *uuid.UUID `json:"deal_id,omitempty"`
+	NotificationID *uuid.UUID `json:"notification_id,omitempty"`
 }
 
 // notification is a hint and its accounts, as they travel on the channel.
