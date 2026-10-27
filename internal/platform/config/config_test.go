@@ -62,6 +62,8 @@ func required() map[string]string {
 		"LLM_BASE_URL":                 "https://llm.example.test/v1",
 		"LLM_API_KEY":                  "llm-key",
 		"LLM_MODEL":                    "a-model",
+		"FCM_CREDENTIALS":              "",
+		"FCM_PROJECT_ID":               "",
 	}
 }
 
@@ -257,5 +259,24 @@ func TestLoadProdNeedsTheRestateIdentityKey(t *testing.T) {
 	env["APP_ENV"], env["RESTATE_IDENTITY_KEY"] = "dev", ""
 	if _, err := Load(lookup(env)); err != nil {
 		t.Fatalf("dev without the key: %v", err)
+	}
+}
+
+// Push credentials need their project; empty both means the log sender.
+func TestLoadPush(t *testing.T) {
+	t.Parallel()
+	env := required()
+	env["FCM_CREDENTIALS"] = b64([]byte(`{"type":"service_account"}`))
+	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "FCM_PROJECT_ID") {
+		t.Fatalf("credentials without a project: %v", err)
+	}
+	env["FCM_PROJECT_ID"] = "shopnexus"
+	got, err := Load(lookup(env))
+	if err != nil || string(got.Push.Credentials) != `{"type":"service_account"}` || got.Push.ProjectID != "shopnexus" {
+		t.Fatalf("%+v %v", got.Push, err)
+	}
+	env["FCM_CREDENTIALS"] = "%%%"
+	if _, err = Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "FCM_CREDENTIALS") {
+		t.Fatalf("not base64: %v", err)
 	}
 }

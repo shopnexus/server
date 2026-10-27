@@ -47,6 +47,14 @@ type Config struct {
 	Staff          StaffConfig
 	ObjectStore    ObjectStoreConfig
 	LLM            LLMConfig
+	Push           PushConfig
+}
+
+// PushConfig says how pushes reach phones. Empty credentials mean the log
+// sender. The credentials are never logged.
+type PushConfig struct {
+	Credentials []byte //exhaustruct:optional FCM_CREDENTIALS: a service account's JSON in base64, or empty
+	ProjectID   string //exhaustruct:optional FCM_PROJECT_ID: the Firebase project, set with the credentials
 }
 
 // LLMConfig says where the model that reads search queries is. The key is
@@ -181,6 +189,17 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		jwtKey = ed25519.NewKeyFromSeed(seed)
 	}
 
+	var push PushConfig
+	if raw := set("FCM_CREDENTIALS"); raw != "" {
+		b, err := base64.StdEncoding.DecodeString(raw)
+		if err != nil {
+			errs = append(errs, errors.New("FCM_CREDENTIALS: want base64 of a service account's JSON"))
+		}
+		push = PushConfig{Credentials: b, ProjectID: need("FCM_PROJECT_ID")}
+	} else {
+		push.ProjectID = set("FCM_PROJECT_ID")
+	}
+
 	cfg := Config{
 		Env:         Env(oneOf("APP_ENV", string(EnvDev), string(EnvTest), string(EnvProd))),
 		HTTPAddr:    need("HTTP_ADDR"),
@@ -216,6 +235,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Bucket:         need("OBJECT_STORE_BUCKET"),
 			PublicURL:      need("MEDIA_PUBLIC_URL"),
 		},
+		Push:           push,
 		LLM:            LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),
