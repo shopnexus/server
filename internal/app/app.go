@@ -24,6 +24,7 @@ import (
 	"github.com/shopnexus/server2/internal/catalog"
 	"github.com/shopnexus/server2/internal/chat"
 	"github.com/shopnexus/server2/internal/deal"
+	"github.com/shopnexus/server2/internal/discovery"
 	"github.com/shopnexus/server2/internal/media"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/events"
@@ -38,6 +39,7 @@ import (
 	"github.com/shopnexus/server2/internal/staff"
 	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
 	staffsvc "github.com/shopnexus/server2/internal/staff/service"
+	"github.com/shopnexus/server2/internal/trust"
 	"github.com/shopnexus/server2/migrations"
 )
 
@@ -218,6 +220,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	catalogm := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
 		accounts, authm.Service, mediam.Service)
 	dealm := deal.Mount(d, protect, accounts, authm.Service, catalogm.Service)
+	trust.Mount(d, protect, accounts, catalogm.Service, dealm.Service)
+	discovery.Mount(d, protect, catalogm.Service)
 	chatServices := chat.Mount(d, protect, accounts, authm.Service, catalogm.Service, mediam.Service, dealm.Service)
 	return slices.Concat(authm.Services, mediam.Services, catalogm.Services, dealm.Services, chatServices), nil
 }

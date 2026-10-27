@@ -1,0 +1,120 @@
+review:
+  put:
+    operationId: putReview
+    summary: Review the seller of an order the caller bought, or edit the review.
+    description: |
+      The order is shipped, delivered or returned. A review changes, and a
+      deleted one is posted again, only within 7 days of its first
+      submission.
+    tags: [trust]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/trust.yaml#/ReviewDraft"
+    responses:
+      "200":
+        description: The review.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/trust.yaml#/Review"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such order of the caller's (order_not_found), or, on delete, no review of it (review_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The order is not shipped yet (order_not_shipped), 7 days have passed since the first submission (review_locked), or another write of the review came first (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "Stars or text break a rule (invalid_review, with fields)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: deleteReview
+    summary: Delete the caller's review of an order within its 7 days.
+    tags: [trust]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Deleted.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such order of the caller's (order_not_found), or, on delete, no review of it (review_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "7 days have passed since the first submission (review_locked), or another write of the review came first (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+sellerReviews:
+  get:
+    operationId: listSellerReviews
+    summary: A seller's reviews, newest first, with the average and the count.
+    tags: [trust]
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of reviews.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/trust.yaml#/SellerReviews"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "404":
+        description: "No such account (account_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

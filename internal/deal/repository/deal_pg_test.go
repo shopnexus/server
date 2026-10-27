@@ -397,3 +397,19 @@ func TestOneShippedOrderPerListing(t *testing.T) {
 		t.Fatalf("%v", results)
 	}
 }
+
+func TestOrderByID(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewDeals(db)
+	ctx := context.Background()
+	seller, buyer := newAccount(t, db), newAccount(t, db)
+	d := requestedDeal(t, db, s, buyer, seller)
+	row, err := s.Order(ctx, d.Order().ID)
+	if err != nil || row.DealID != d.ID() || row.BuyerID != buyer || row.SellerID != seller || row.Order.Status != domain.OrderRequested {
+		t.Fatalf("%+v %v", row, err)
+	}
+	if _, err = s.Order(ctx, uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("unknown: %v", err)
+	}
+}

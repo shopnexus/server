@@ -177,3 +177,13 @@ func (s *Deals) placeOf(ctx context.Context, o *domain.Order) (catalogsvc.Locati
 	}
 	return place, nil
 }
+
+// OrderFacts is what another module reads of an order.
+type OrderFacts struct {
+	ID        uuid.UUID
+	DealID    uuid.UUID
+	BuyerID   uuid.UUID
+	SellerID  uuid.UUID
+	ListingID uuid.UUID
+	Status    domain.OrderStatus
+}

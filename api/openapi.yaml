@@ -97,6 +97,14 @@ paths:
     $ref: "paths/chat.yaml#/conversationUnarchive"
   /v1/me/unread:
     $ref: "paths/chat.yaml#/unread"
+  /v1/orders/{order_id}/review:
+    $ref: "paths/trust.yaml#/review"
+  /v1/sellers/{id}/reviews:
+    $ref: "paths/trust.yaml#/sellerReviews"
+  /v1/saved:
+    $ref: "paths/discovery.yaml#/saved"
+  /v1/saved/{listing_id}:
+    $ref: "paths/discovery.yaml#/savedListing"
   /v1/staff/login:
     $ref: "paths/staff.yaml#/login"
   /v1/staff/login/totp-enrollment:

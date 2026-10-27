@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/deal/domain"
+	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -94,4 +96,18 @@ func (s *Deals) ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Part
 		})
 	}
 	return page.Of(items, p, func(o OrderItem) uuid.UUID { return o.ID }), nil
+}
+
+func (s *Deals) Order(ctx context.Context, id uuid.UUID) (OrderFacts, error) {
+	r, err := s.deals.Order(ctx, id)
+	if errors.Is(err, repository.ErrNotFound) {
+		return OrderFacts{}, domain.ErrOrderNotFound
+	}
+	if err != nil {
+		return OrderFacts{}, fmt.Errorf("get order: %w", err)
+	}
+	return OrderFacts{
+		ID: r.Order.ID, DealID: r.DealID, BuyerID: r.BuyerID, SellerID: r.SellerID, ListingID: r.ListingID,
+		Status: r.Order.Status,
+	}, nil
 }

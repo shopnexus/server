@@ -49,6 +49,9 @@ type Service interface {
 	Ship(ctx context.Context, caller, id uuid.UUID, idempotencyKey string, w WaybillInput) (DealView, error)
 	Deliver(ctx context.Context, caller, id uuid.UUID, idempotencyKey string) (DealView, error)
 	Return(ctx context.Context, caller, id uuid.UUID, idempotencyKey string) (DealView, error)
+	// Order reads one order for another module: its deal, its two sides,
+	// its listing and its status; an unknown one is domain.ErrOrderNotFound.
+	Order(ctx context.Context, id uuid.UUID) (OrderFacts, error)
 	// Between lists the deals of viewer and other on either side, newest
 	// first, as viewer sees them.
 	Between(ctx context.Context, viewer, other uuid.UUID) ([]DealView, error)

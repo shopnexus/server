@@ -176,3 +176,19 @@ func TestHidingCancelsRequests(t *testing.T) {
 		t.Fatalf("%+v", got.Order)
 	}
 }
+
+func TestOrderFacts(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	seller, buyer := e.person(t), e.person(t)
+	listing := e.listing(t, seller)
+	v := e.requested(t, buyer, listing)
+	f, err := e.deals.Order(context.Background(), v.Order.ID)
+	if err != nil || f.DealID != v.ID || f.BuyerID != buyer || f.SellerID != seller || f.ListingID != listing ||
+		f.Status != domain.OrderRequested {
+		t.Fatalf("%+v %v", f, err)
+	}
+	if _, err = e.deals.Order(context.Background(), uuid.NewV7()); !errors.Is(err, domain.ErrOrderNotFound) {
+		t.Fatalf("unknown: %v", err)
+	}
+}

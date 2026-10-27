@@ -212,9 +212,18 @@ internal/account/
   account.go         Mount: builds the layers, returns service.Service
 ```
 
-Modules auth, staff, media, catalog, deal and chat have the same four
-packages; a module that reacts to events adds `worker`, and deal is the
-first that does. Imports run one way, `handler` and `worker` →
+Modules auth, staff, media, catalog, deal, chat, trust and discovery have
+the same four packages; a module that reacts to events adds `worker`, and
+deal is the first that does.
+
+The modules follow the product model in `app2/mohinh.md`, not the old
+server's split (decided 2026-10-26). There is no finance module: ShopNexus
+holds no money, so there is no wallet and no payment session. Planned
+next: `notification` (the in-app list and push, subscribing to the events
+of deal, chat and catalog), `kyc` (card checks, replacing the phone rule
+for posting) and `billing` (boosts and seller plans). Reports, incident
+records and reputation will join `trust`; search, the feed, followed
+searches and price alerts will join `discovery`. Imports run one way, `handler` and `worker` →
 `service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
 refuse an import against it.
 
@@ -728,6 +737,38 @@ Module `chat` holds conversations (spec:
   archived means `archived_at` is set. Unread counts the other member's
   sent messages after the marker. The inbox pages by the conversation's
   last sent message ID.
+
+### Trust
+
+Module `trust` holds reviews (spec:
+`~/shopnexus/specs/2026-10-26-server2-reviews-saved-design.md`).
+
+- The buyer of an order reviews its seller once the order is `shipped`,
+  `delivered` or `returned`: 1 to 5 stars and up to 500 characters of
+  text. One review per order, since a deal can hold several orders.
+- The buyer edits, deletes or posts it again within 7 days of the first
+  submission (`created_at`); after that it is `review_locked`. A delete
+  keeps the row with `deleted_at` and no text, so posting again cannot
+  restart the 7 days (decided 2026-10-27). A suspended account cannot
+  write one.
+- Review writes follow the `write_id` rule: `Insert` refuses an order that
+  has a review and `Save` a stale row, both `try_again`.
+- `trust` reads the order through `dealsvc.Service.Order`; someone else's
+  order is `order_not_found`. `GET /v1/sellers/{id}/reviews` is public and
+  carries the seller's average and count over all reviews.
+
+### Discovery
+
+Module `discovery` holds saved listings.
+
+- A person saves someone else's listing that is active or reserved, at
+  most 500; the save keeps the price at that moment. Saving again changes
+  nothing.
+- `GET /v1/saved` lists the saves newest first with each listing as it is
+  now. A listing hidden or deleted after the save shows its status alone,
+  since its seller took it down.
+- Each save has a UUIDv7 `id`, so the list pages by it. The 500-save cap
+  is counted under `pg_advisory_xact_lock` on the account.
 
 ### Testing
 

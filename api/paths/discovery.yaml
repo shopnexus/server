@@ -1,0 +1,74 @@
+saved:
+  get:
+    operationId: listSaved
+    summary: List the caller's saved listings, newest save first.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of saves.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/discovery.yaml#/SavedList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+savedListing:
+  put:
+    operationId: saveListing
+    summary: Save someone else's listing on sale or being shipped; saving again changes nothing.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: listing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Saved.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is the caller's (own_listing), not on sale (listing_unavailable), or the caller has 500 saves (saved_limit_reached)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: unsaveListing
+    summary: Forget a saved listing; an absent one is fine.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: listing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Forgotten.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

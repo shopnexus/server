@@ -1,0 +1,68 @@
+ReviewDraft:
+  type: object
+  additionalProperties: false
+  required: [stars]
+  properties:
+    stars:
+      type: integer
+      description: 1 to 5; a business rule, so another number is 422.
+    text:
+      type: string
+      description: At most 500 characters after trimming; may be empty.
+Review:
+  type: object
+  additionalProperties: false
+  required: [id, stars, text, buyer, listing, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    stars:
+      type: integer
+    text:
+      type: string
+    buyer:
+      type: object
+      additionalProperties: false
+      required: [id, display_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+    listing:
+      type: object
+      additionalProperties: false
+      required: [id, title]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+    created_at:
+      type: string
+      format: date-time
+      description: The first submission; the review changes only for 7 days after it.
+    updated_at:
+      type: string
+      format: date-time
+SellerReviews:
+  type: object
+  additionalProperties: false
+  required: [average, count, items]
+  properties:
+    average:
+      type: number
+      description: The average stars over every review of the seller; 0 without reviews.
+    count:
+      type: integer
+    items:
+      type: array
+      items:
+        $ref: "#/Review"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more reviews follow; pass it as cursor.

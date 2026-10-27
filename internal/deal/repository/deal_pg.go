@@ -384,3 +384,21 @@ func (s pgDeals) ListOrders(ctx context.Context, account uuid.UUID, as domain.Pa
 	}
 	return out, nil
 }
+
+func (s pgDeals) Order(ctx context.Context, id uuid.UUID) (OrderRow, error) {
+	var (
+		r OrderRow
+		o orderScan
+	)
+	err := s.db.QueryRow(ctx, `SELECT o.deal_id, o.listing_id, o.buyer_id, o.seller_id, `+orderColumns+`
+FROM orders o WHERE o.id = @id`, pgx.StrictNamedArgs{"id": id}).
+		Scan(append([]any{&r.DealID, &r.ListingID, &r.BuyerID, &r.SellerID}, o.dest()...)...)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return OrderRow{}, ErrNotFound
+	}
+	if err != nil {
+		return OrderRow{}, fmt.Errorf("select order: %w", err)
+	}
+	r.Order = *o.order()
+	return r, nil
+}

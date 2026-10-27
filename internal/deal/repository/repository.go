@@ -39,6 +39,8 @@ type Deals interface {
 	// ListByParty is a query: account's deals on side as (buyer or
 	// seller) with IDs below p.Before(), newest first, at most p.Fetch().
 	ListByParty(ctx context.Context, account uuid.UUID, as domain.Party, p page.Request) ([]domain.Deal, error)
+	// Order returns one order with its deal, or ErrNotFound.
+	Order(ctx context.Context, id uuid.UUID) (OrderRow, error)
 	// Between returns the deals of a and b on either side, newest first.
 	Between(ctx context.Context, a, b uuid.UUID) ([]domain.Deal, error)
 	// ListOrders is a query: account's orders on side as with IDs below

@@ -1,0 +1,48 @@
+SavedListing:
+  type: object
+  additionalProperties: false
+  required: [id, listing_id, saved_price, saved_at, listing]
+  properties:
+    id:
+      type: string
+      format: uuid
+    listing_id:
+      type: string
+      format: uuid
+    saved_price:
+      type: integer
+      format: int64
+      description: The listing's price when it was saved.
+    saved_at:
+      type: string
+      format: date-time
+    listing:
+      type: object
+      additionalProperties: false
+      required: [status]
+      description: The listing as it is now. A hidden or deleted listing shows its status alone.
+      properties:
+        title:
+          type: string
+        price:
+          type: integer
+          format: int64
+        cover_thumb_url:
+          type: string
+          format: uri
+        status:
+          type: string
+          enum: [processing, active, hidden, rejected, reserved, sold, deleted]
+SavedList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/SavedListing"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more saves follow; pass it as cursor.
