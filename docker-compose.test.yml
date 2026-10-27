@@ -9,15 +9,15 @@ name: shopnexus-server2-test
 
 services:
   postgres:
-    image: postgres:19rc1
+    image: paradedb/paradedb:0.26.3-pg18
     environment:
       POSTGRES_USER: server2
       POSTGRES_PASSWORD: server2
       POSTGRES_DB: server2_test
     ports:
       - "56433:5432"
-    # Data on tmpfs: fast, and `down` really resets it. Postgres 19 keeps its
-    # data directory under /var/lib/postgresql/19/docker, inside this mount.
+    # Data on tmpfs: fast, and `down` really resets it. Postgres 18 keeps its
+    # data directory under /var/lib/postgresql/18/docker, inside this mount.
     # Sized explicitly; an uncapped tmpfs defaults to half the host's RAM.
     # go test runs a package per CPU, each test on a cloned database of about
     # 8.5 MB, and 1 GB filled up once catalog and media joined. The tmpfs

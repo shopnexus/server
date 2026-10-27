@@ -7,15 +7,16 @@ name: shopnexus-server2
 
 services:
   postgres:
-    image: postgres:19rc1
+    image: paradedb/paradedb:0.26.3-pg18
     environment:
       POSTGRES_USER: server2
       POSTGRES_PASSWORD: server2
       POSTGRES_DB: server2
     ports:
       - "56432:5432"
-    # Postgres 18 and later keep data under /var/lib/postgresql/<major>/docker
-    # and declare the volume one level up.
+    # ParadeDB is Postgres 18 with pg_search preloaded. Postgres 18 keeps
+    # data under /var/lib/postgresql/18/docker and declares the volume one
+    # level up; a volume made by 19rc1 starts an empty 18 directory beside it.
     volumes:
       - postgres:/var/lib/postgresql
     healthcheck:
