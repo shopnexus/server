@@ -17,6 +17,9 @@ import (
 
 // Service is module screen's contract.
 type Service interface {
+	// Home reads the Home view around near; reader is nil for a signed-out
+	// reader.
+	Home(ctx context.Context, reader *uuid.UUID, near discoverysvc.Near) (HomeScreen, error)
 	// Listing reads the listing view of a listing on sale; reader is nil
 	// for a signed-out reader.
 	Listing(ctx context.Context, reader *uuid.UUID, id uuid.UUID) (ListingScreen, error)

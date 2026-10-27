@@ -105,6 +105,8 @@ paths:
     $ref: "paths/screen_inbox.yaml#/screenInbox"
   /v1/screens/chat/{conversation_id}:
     $ref: "paths/screen_inbox.yaml#/screenChat"
+  /v1/screens/home:
+    $ref: "paths/screen_home.yaml#/screenHome"
   /v1/screens/listing/{id}:
     $ref: "paths/screen_listing.yaml#/screenListing"
   /v1/screens/seller/{id}:

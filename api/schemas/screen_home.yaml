@@ -1,0 +1,28 @@
+HomeCategory:
+  type: object
+  additionalProperties: false
+  required: [code, display_name, count, children]
+  description: A root of the category tree.
+  properties:
+    code:
+      type: string
+    display_name:
+      type: string
+    count:
+      type: integer
+      description: Active listings under the root.
+    children:
+      type: array
+      items:
+        $ref: "catalog.yaml#/Category"
+HomeScreen:
+  type: object
+  additionalProperties: false
+  required: [categories, nearby]
+  properties:
+    categories:
+      type: array
+      items:
+        $ref: "#/HomeCategory"
+    nearby:
+      $ref: "discovery.yaml#/SearchView"

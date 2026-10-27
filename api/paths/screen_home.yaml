@@ -1,0 +1,27 @@
+screenHome:
+  get:
+    operationId: getHomeScreen
+    summary: The Home view, the category tree with counts and the first page of the nearby feed.
+    tags: [screen]
+    security:
+      - {}
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/discovery.yaml#/NearLat"
+      - $ref: "../parameters/discovery.yaml#/NearLng"
+      - $ref: "../parameters/discovery.yaml#/NearCommune"
+    responses:
+      "200":
+        description: The Home view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_home.yaml#/HomeScreen"
+      "400":
+        description: "A malformed parameter, position_required or invalid_position."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

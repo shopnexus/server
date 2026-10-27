@@ -19,6 +19,7 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 // Register adds the screen endpoints. protect requires a signed-in caller;
 // identify reads one when the request carries it.
 func (h *Handler) Register(r *httpx.Router, protect, identify func(http.Handler) http.Handler) {
+	r.Handle("GET /v1/screens/home", identify(http.HandlerFunc(h.Home)))
 	r.Handle("GET /v1/screens/listing/{id}", identify(http.HandlerFunc(h.Listing)))
 	r.Handle("GET /v1/screens/seller/{id}", identify(http.HandlerFunc(h.Seller)))
 	r.Handle("GET /v1/screens/inbox", protect(http.HandlerFunc(h.Inbox)))
