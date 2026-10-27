@@ -40,8 +40,8 @@ func (c *Catalog) Search(ctx context.Context, s domain.Search) ([]SearchCard, er
 		return nil, err
 	}
 	byID := make(map[uuid.UUID]ListingView, len(vs))
-	for _, v := range vs {
-		byID[v.ID] = v
+	for i := range vs {
+		byID[vs[i].ID] = vs[i]
 	}
 	out := make([]SearchCard, 0, len(hits))
 	for _, h := range hits {

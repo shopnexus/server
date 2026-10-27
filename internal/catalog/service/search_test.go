@@ -47,14 +47,14 @@ func TestSearchCards(t *testing.T) {
 	if err != nil || len(plain) != 2 || plain[0].DistanceKm != nil {
 		t.Fatalf("no origin, no distance: %+v %v", plain, err)
 	}
-	if _, ok, err := e.catalog.Place(ctx, "Hà Nội"); err != nil || !ok {
-		t.Fatalf("Hà Nội: %v %v", ok, err)
+	if _, ok, placeErr := e.catalog.Place(ctx, "Hà Nội"); placeErr != nil || !ok {
+		t.Fatalf("Hà Nội: %v %v", ok, placeErr)
 	}
-	if _, ok, err := e.catalog.CommunePoint(ctx, "nope"); err != nil || ok {
-		t.Fatalf("an unknown commune: %v %v", ok, err)
+	if _, ok, pointErr := e.catalog.CommunePoint(ctx, "nope"); pointErr != nil || ok {
+		t.Fatalf("an unknown commune: %v %v", ok, pointErr)
 	}
-	if p, ok, err := e.catalog.CommunePoint(ctx, "00004"); err != nil || !ok || p.Lat == 0 {
-		t.Fatalf("Ba Đình: %v %v %v", p, ok, err)
+	if p, ok, pointErr := e.catalog.CommunePoint(ctx, "00004"); pointErr != nil || !ok || p.Lat == 0 {
+		t.Fatalf("Ba Đình: %v %v %v", p, ok, pointErr)
 	}
 	counts, err := e.catalog.Counts(ctx, domain.Search{}, domain.CountRoot)
 	if err != nil || len(counts) != 1 || counts[0].Count != 2 {
