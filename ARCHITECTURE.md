@@ -19,8 +19,11 @@ until the user approves them.
 
 ### Infrastructure
 
-Postgres, Restate (server 1.8.0, Go SDK v1.1.0) and RustFS for photos (see
-Object store). Restate replaced the relay, JetStream and NATS. The outbox is
+Postgres 18 as ParadeDB 0.26.3 (`paradedb/paradedb:0.26.3-pg18`, with
+`pg_search` and `vector`), Restate (server 1.8.0, Go SDK v1.1.0) and RustFS
+for photos (see Object store). Postgres went down from 19rc1 to 18 for
+search, since pg_search builds for 15 to 18; it goes back to 19 when
+ParadeDB supports it (decided 2026-10-27). Restate replaced the relay, JetStream and NATS. The outbox is
 a table, `events`, that a bus drains into Restate (see Events). `/readyz`
 checks Postgres and the Restate admin health endpoint.
 
@@ -227,8 +230,9 @@ of deal, chat and catalog) and `billing` (boosts and seller plans). There
 is no `kyc` module: posting needs a verified phone alone, since a carrier
 checks a seller's identity when it opens their account (decided
 2026-10-27). Reports, incident
-records and reputation will join `trust`; search, the feed, followed
-searches and price alerts will join `discovery`. Imports run one way, `handler` and `worker` →
+records and reputation will join `trust`; followed searches, price alerts,
+"Dành cho bạn" and vector search will join `discovery`, beside search and
+the nearby feed. Imports run one way, `handler` and `worker` →
 `service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
 refuse an import against it.
 
@@ -586,8 +590,8 @@ server receives a complete listing.
   thanglequoc/vietnamese-provinces-database v5.2.0 (commit 8b78ba511871,
   MIT), display names as its `full_name`. A commune's `lat` and `lng` are
   `ST_PointOnSurface` of its boundary rounded to 4 decimals, computed once
-  in a throwaway PostGIS container. The listing stores the commune; the
-  seller's position is never stored.
+  in a throwaway PostGIS container. The listing stores the commune and a
+  point distance is measured from; see Search.
 - `GET /v1/sellers/{id}/listings` is public: the seller's active and
   reserved listings, newest first. `SellerCounts` gives screen and trust a
   seller's listings on sale (active or reserved) and sold; "Đã bán" counts
@@ -801,6 +805,9 @@ app reads a view in one call, and after a stream hint it reloads the view
 it shows in one call. Mobile and desktop read the same views; a desktop
 page that shows two views calls both at once.
 
+- `GET /v1/screens/home` (signed in or not, with a position): the category
+  tree with each root's active listings counted, and the first page of the
+  nearby feed.
 - Screen owns no table. Each view is one method of its service that reads
   the other modules' services top to bottom; depguard forbids every other
   module to import it, so it adds no dependency between the others.
@@ -857,9 +864,60 @@ Module `trust` holds reviews (spec:
   they joined, rating, and catalog's on-sale and sold counts. Screen reads
   it; it has no endpoint of its own.
 
+### Search
+
+Search and the nearby feed (decided 2026-10-27, spec:
+`~/shopnexus/specs/2026-10-27-server2-search-design.md`).
+
+- Catalog owns `listings` and its one ParadeDB index (`listings_search`,
+  migration 0019: title, description, `specs_text`, and the fields
+  category code and root, price, condition, offers, status, `published_at`,
+  `lat`, `lng`). It serves a structured `domain.Search`: the person's
+  filters as `must`, phrases of which one must match, constant-score
+  boosts, and a sort. The index is transactional, so a listing is
+  searchable once its write commits. Only `active` listings show.
+- Discovery owns the understanding. With `q` it asks the model, through
+  `internal/provider/llm` (an OpenAI-compatible chat completions call with
+  a strict JSON schema, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`), for
+  boosts and demotes: phrase, category, price, condition, place, near_me,
+  fresh, offers, each with up to three values in priority order. The model
+  never writes a weight. Every value is resolved against real rows (the
+  category tree, `provinces` and `communes` by name) or dropped, and one
+  log line holds what the model asked for and what ran.
+- The raw query is always a phrase at weight 0.5 unless the model named
+  it, so a model that errs or takes longer than 4 seconds leaves the raw
+  words to search, with no chips.
+- Weights are starting values in BM25 points (a matching short title
+  scores about 1 to 7): category and price 1.5, condition and offers 0.75,
+  freshness 1.0 (published within 3 days) and 0.5 (within 7), distance
+  rings of 2, 5 and 15 km at 1.25, 0.75 and 0.4. A signal's second and third
+  values count 0.5 and 0.33. A set of sample queries is what would measure
+  them. A phrase matches the title at twice its weight, description and
+  specs at its weight, and the title's words of 5 letters or more with one
+  edit at half.
+- Distance and freshness score inside the index as range boxes on `lat`,
+  `lng` and `published_at`. The nearby feed is the same query with no
+  phrase: within 50 km, scored by the rings and freshness alone.
+- The answer is cached in `search_understandings` by the lowercased query
+  and the prompt version for 7 days; the write of a new answer deletes the
+  expired rows. The table stores no account. A chip the person turns off
+  (`off=<id>`) reuses the cached answer.
+- A listing's point is the seller's GPS blurred, or the commune's point.
+  The handler blurs it (a random offset of up to 500 m, then a 0.01° grid),
+  so the exact point reaches no journal, row or log. A point farther than
+  30 km from the commune's point is refused, since the communes table holds
+  points and no boundaries. An edit without GPS keeps the point, a new
+  commune replaces it, and no view or search item carries it.
+- The searcher sends `near_lat` and `near_lng`, or `near_commune`; neither
+  is stored or logged. `distance_km` is whole kilometres, truncated, 0
+  meaning under 1 km. Results page by an offset cursor and stop at 500.
+- ParadeDB clones are about 13 MB, so the test database's tmpfs is 4 GB,
+  and the slower index writes need `max_connections=400` in the test stack.
+
 ### Discovery
 
-Module `discovery` holds saved listings.
+Module `discovery` holds saved listings, search and the nearby feed (see
+Search).
 
 - A person saves someone else's listing that is active or reserved, at
   most 500; the save keeps the price at that moment. Saving again changes
