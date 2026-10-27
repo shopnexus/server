@@ -37,7 +37,7 @@ func Mount(d module.Deps, g Guards, accounts accountsvc.Service, auth authsvc.Se
 ) Mounted {
 	svc := service.New(service.Deps{
 		Listings: repository.NewListings(d.Pool), Categories: repository.NewCategories(d.Pool),
-		Regions: repository.NewRegions(d.Pool), Accounts: accounts, Auth: auth, Media: media,
+		Regions: repository.NewRegions(d.Pool), Searches: repository.NewSearches(d.Pool), Accounts: accounts, Auth: auth, Media: media,
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, g.Protect, g.Identify)

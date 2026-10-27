@@ -58,6 +58,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 	listings := repository.NewListings(db)
 	deps := service.Deps{
 		Listings: listings, Categories: repository.NewCategories(db), Regions: repository.NewRegions(db),
+		Searches: repository.NewSearches(db),
 		Accounts: accounts, Auth: authsvc.New(authsvc.Deps{Credentials: authrepo.NewCredentials(db)}), Media: m,
 		Ingress: in, Prefix: p, Now: time.Now,
 	}

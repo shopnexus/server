@@ -63,6 +63,15 @@ type Service interface {
 	// code; an unknown code is left out.
 	Places(ctx context.Context, codes []string) (map[string]Location, error)
 	Categories(ctx context.Context) ([]domain.Category, error)
+	// Search runs s and returns its listings as cards, in order.
+	Search(ctx context.Context, s domain.Search) ([]SearchCard, error)
+	// Counts counts the listings s matches by category or root.
+	Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error)
+	// CommunePoint is a commune's point; false for an unknown code.
+	CommunePoint(ctx context.Context, code string) (domain.Point, bool, error)
+	// Place resolves a province or commune name to one point; false when no
+	// place or more than one has the name.
+	Place(ctx context.Context, name string) (domain.Point, bool, error)
 	Provinces(ctx context.Context) ([]domain.Province, error)
 	Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error)
 }
@@ -72,6 +81,7 @@ type Deps struct {
 	Listings   repository.Listings
 	Categories repository.Categories
 	Regions    repository.Regions
+	Searches   repository.Searches
 	Accounts   accountsvc.Service
 	Auth       authsvc.Service
 	Media      mediasvc.Service
@@ -86,6 +96,7 @@ type Catalog struct {
 	listings   repository.Listings
 	categories repository.Categories
 	regions    repository.Regions
+	searches   repository.Searches
 	accounts   accountsvc.Service
 	auth       authsvc.Service
 	media      mediasvc.Service
@@ -99,7 +110,7 @@ var _ Service = (*Catalog)(nil)
 
 func New(d Deps) *Catalog {
 	return &Catalog{
-		listings: d.Listings, categories: d.Categories, regions: d.Regions,
+		listings: d.Listings, categories: d.Categories, regions: d.Regions, searches: d.Searches,
 		accounts: d.Accounts, auth: d.Auth, media: d.Media, prefix: d.Prefix, now: d.Now,
 		post: restatex.Caller[PostInput, PostResult]{Ingress: d.Ingress, Service: d.Prefix + listingPost, Handler: "Run"},
 		edit: restatex.Caller[EditInput, EditResult]{Ingress: d.Ingress, Service: d.Prefix + listingEdit, Handler: "Run"},
