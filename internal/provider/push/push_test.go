@@ -13,7 +13,17 @@ import (
 
 func TestFCMSend(t *testing.T) {
 	t.Parallel()
-	var got map[string]any
+	var got struct {
+		Message struct {
+			Token   string `json:"token"`
+			Android struct {
+				CollapseKey  string `json:"collapse_key"`
+				Notification struct {
+					Tag string `json:"tag"`
+				} `json:"notification"`
+			} `json:"android"`
+		} `json:"message"`
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/projects/p/messages:send" || json.NewDecoder(r.Body).Decode(&got) != nil {
 			http.Error(w, "bad", http.StatusBadRequest)
@@ -27,11 +37,8 @@ func TestFCMSend(t *testing.T) {
 	if err := f.Send(context.Background(), "tok", m); err != nil {
 		t.Fatal(err)
 	}
-	msg, _ := got["message"].(map[string]any)
-	android, _ := msg["android"].(map[string]any)
-	note, _ := android["notification"].(map[string]any)
-	if msg["token"] != "tok" || android["collapse_key"] != "deal:1" || note["tag"] != "deal:1" {
-		t.Fatalf("%v", got)
+	if got.Message.Token != "tok" || got.Message.Android.CollapseKey != "deal:1" || got.Message.Android.Notification.Tag != "deal:1" {
+		t.Fatalf("%+v", got)
 	}
 }
 

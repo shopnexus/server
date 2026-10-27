@@ -62,7 +62,9 @@ type FCM struct {
 
 // NewFCM signs requests with the service account in credentialsJSON.
 func NewFCM(ctx context.Context, credentialsJSON []byte, projectID string) (*FCM, error) {
-	creds, err := google.CredentialsFromJSON(ctx, credentialsJSON, "https://www.googleapis.com/auth/firebase.messaging")
+	// The type check refuses any credential other than a service account.
+	creds, err := google.CredentialsFromJSONWithType(ctx, credentialsJSON, google.ServiceAccount,
+		"https://www.googleapis.com/auth/firebase.messaging")
 	if err != nil {
 		return nil, fmt.Errorf("read FCM credentials: %w", err)
 	}
@@ -106,7 +108,7 @@ func (f *FCM) Send(ctx context.Context, token string, m Message) error {
 		Error struct {
 			Status  string `json:"status"`
 			Details []struct {
-				ErrorCode string `json:"errorCode"`
+				ErrorCode string `json:"errorCode"` //nolint:tagliatelle // FCM's field name
 			} `json:"details"`
 		} `json:"error"`
 	}
