@@ -28,13 +28,21 @@ type Service interface {
 	// DeleteToken forgets it.
 	DeleteToken(ctx context.Context, p authn.Principal) error
 
-	// Record writes a notice the worker decided, for event, and returns its
-	// ID; see repository.Notices.Add.
-	Record(ctx context.Context, event uuid.UUID, n domain.Notice) (uuid.UUID, error)
+	// Record writes a notice the worker decided, for event; see
+	// repository.Notices.Add.
+	Record(ctx context.Context, event uuid.UUID, n domain.Notice) (Recorded, error)
 	// Tokens lists the account's push tokens by session.
 	Tokens(ctx context.Context, account uuid.UUID) ([]Token, error)
 	// ForgetToken deletes a session's token, ended or dead.
 	ForgetToken(ctx context.Context, session uuid.UUID) error
+}
+
+// Recorded is the notice Record wrote. Late means a newer notice with the
+// same key was there already: nothing was written, ID is the newer one's,
+// and there is nothing to push.
+type Recorded struct {
+	ID   uuid.UUID `json:"id"`
+	Late bool      `json:"late"`
 }
 
 // Token is a session's push token.

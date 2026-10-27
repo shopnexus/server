@@ -128,6 +128,26 @@ func TestNewRefusesLogSendersInProd(t *testing.T) {
 	}
 }
 
+type quietSMS struct{}
+
+func (quietSMS) Send(context.Context, string, string) error { return nil }
+
+type quietEmail struct{}
+
+func (quietEmail) Send(context.Context, string, string, string) error { return nil }
+
+// Without FCM credentials pushes go to the log, which production must not
+// do in silence.
+func TestNewRefusesLogPushInProd(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Env = "prod"
+	_, err := New(context.Background(), cfg, discard(), WithSMSSender(quietSMS{}), WithEmailSender(quietEmail{}))
+	if err == nil || !strings.Contains(err.Error(), "FCM_CREDENTIALS") {
+		t.Fatalf("err %v", err)
+	}
+}
+
 // New runs the event bus and Close stops it before closing the pool.
 func TestCloseStopsTheEventBus(t *testing.T) {
 	t.Parallel()

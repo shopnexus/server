@@ -950,13 +950,19 @@ calls it except screen, for Home's unread count; depguard holds that.
   text when it lists and when it pushes. Deal and order notices collapse on
   `deal:<id>`, listing notices on `listing:<id>`: a new one replaces the
   recipient's unread notice of the key and moves it up, and a notice
-  already read stays as it is. A late event cannot overwrite a newer
-  unread notice (the upsert's guard on `bumped_at`), and a redelivered
-  event writes nothing (the row records its `event_id`). A recipient's
+  already read stays as it is. An event older than the recipient's newest
+  notice of the key, read or unread, writes nothing and pushes nothing, so
+  a late delivery can neither replace newer text nor come back as a new
+  unread notice; the upsert's guard on `bumped_at` covers the race between
+  two events of one key. A redelivered event writes nothing (the row
+  records its `event_id`). A recipient's
   notices older than 90 days are deleted when they get a new one.
 - Chat messages are pushed and never listed, collapsing on
   `conversation:<id>`, with the sender's name and the first 100 characters.
 - A push token belongs to a sign-in session (`push_tokens.session_id`).
+  Putting a token takes it from every other session that had it, so a
+  phone signed in to a second account stops getting the first account's
+  pushes.
   Before a push the worker asks auth which of the recipient's sessions are
   active and deletes the others' tokens, which covers logout, revocation,
   refresh reuse and expiry with one read. Each token is sent in a step of
@@ -967,7 +973,8 @@ calls it except screen, for Home's unread count; depguard holds that.
 - `internal/provider/push` holds `Sender`: FCM HTTP v1, signed by a
   service account (`FCM_CREDENTIALS` in base64, `FCM_PROJECT_ID`) through
   `golang.org/x/oauth2/google`, or a log sender when `FCM_CREDENTIALS` is
-  empty.
+  empty. With `APP_ENV=prod` the server refuses to start on the log
+  sender, as it does for SMS and email.
 - A suspended account still gets notices, so it learns of the suspension.
 
 ### Testing

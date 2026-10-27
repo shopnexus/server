@@ -30,8 +30,9 @@ DO UPDATE SET notice_type = excluded.notice_type, params = excluded.params, even
 WHERE notifications.bumped_at <= excluded.bumped_at
 RETURNING id`
 
-func (s pgNotices) Add(ctx context.Context, event uuid.UUID, n domain.Notice, expired time.Time) (uuid.UUID, error) {
+func (s pgNotices) Add(ctx context.Context, event uuid.UUID, n domain.Notice, expired time.Time) (uuid.UUID, bool, error) {
 	var id uuid.UUID
+	late := false
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		err := tx.QueryRow(ctx, `SELECT id FROM notifications WHERE account_id = @account AND event_id = @event`,
 			pgx.StrictNamedArgs{"account": n.Recipient, "event": event}).Scan(&id)
@@ -56,10 +57,24 @@ VALUES (@id, @account, @type, @key, @params, @event, @at, @at) RETURNING id`, ar
 				return fmt.Errorf("insert notice: %w", err)
 			}
 		} else {
+			// A newer notice with the key, read or unread, already told the
+			// recipient more than this one would.
+			var newest time.Time
+			err = tx.QueryRow(ctx, `SELECT id, bumped_at FROM notifications
+WHERE account_id = @account AND collapse_key = @key ORDER BY bumped_at DESC LIMIT 1`,
+				pgx.StrictNamedArgs{"account": n.Recipient, "key": n.CollapseKey}).Scan(&id, &newest)
+			switch {
+			case err == nil && newest.After(n.At):
+				late = true
+				return nil
+			case err != nil && !errors.Is(err, pgx.ErrNoRows):
+				return fmt.Errorf("read the newest notice with the key: %w", err)
+			}
 			args["key"] = n.CollapseKey
 			err = tx.QueryRow(ctx, collapse, args).Scan(&id)
 			if errors.Is(err, pgx.ErrNoRows) {
-				// The unread notice is newer and stays as it is.
+				// A newer notice landed after the read above and stays as it is.
+				late = true
 				err = tx.QueryRow(ctx, `SELECT id FROM notifications
 WHERE account_id = @account AND collapse_key = @key AND read_at IS NULL`,
 					pgx.StrictNamedArgs{"account": n.Recipient, "key": n.CollapseKey}).Scan(&id)
@@ -71,9 +86,9 @@ WHERE account_id = @account AND collapse_key = @key AND read_at IS NULL`,
 		return stream.Notify(ctx, tx, []uuid.UUID{n.Recipient}, stream.Hint{Kind: stream.KindNotification, NotificationID: &id})
 	})
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("add notice: %w", err)
+		return uuid.UUID{}, false, fmt.Errorf("add notice: %w", err)
 	}
-	return id, nil
+	return id, late, nil
 }
 
 func (s pgNotices) List(ctx context.Context, account uuid.UUID, p page.Request) ([]Row, error) {
@@ -133,10 +148,22 @@ func (s pgNotices) ReadAll(ctx context.Context, account uuid.UUID, at time.Time)
 }
 
 func (s pgNotices) PutToken(ctx context.Context, session, account uuid.UUID, token string, at time.Time) error {
-	if _, err := s.db.Exec(ctx, `INSERT INTO push_tokens (session_id, account_id, token, updated_at)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		// The phone signed in again, maybe to another account; the old
+		// session no longer reaches it.
+		if _, err := tx.Exec(ctx, `DELETE FROM push_tokens WHERE token = @token AND session_id <> @session`,
+			pgx.StrictNamedArgs{"token": token, "session": session}); err != nil {
+			return fmt.Errorf("take the token from other sessions: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO push_tokens (session_id, account_id, token, updated_at)
 VALUES (@session, @account, @token, @at)
 ON CONFLICT (session_id) DO UPDATE SET token = excluded.token, updated_at = excluded.updated_at`,
-		pgx.StrictNamedArgs{"session": session, "account": account, "token": token, "at": at}); err != nil {
+			pgx.StrictNamedArgs{"session": session, "account": account, "token": token, "at": at}); err != nil {
+			return fmt.Errorf("upsert token: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
 		return fmt.Errorf("put token: %w", err)
 	}
 	return nil

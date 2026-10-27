@@ -77,12 +77,12 @@ func (s *Notification) DeleteToken(ctx context.Context, p authn.Principal) error
 	return nil
 }
 
-func (s *Notification) Record(ctx context.Context, event uuid.UUID, n domain.Notice) (uuid.UUID, error) {
-	id, err := s.notices.Add(ctx, event, n, n.At.Add(-domain.Retention))
+func (s *Notification) Record(ctx context.Context, event uuid.UUID, n domain.Notice) (Recorded, error) {
+	id, late, err := s.notices.Add(ctx, event, n, n.At.Add(-domain.Retention))
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("record notice: %w", err)
+		return Recorded{}, fmt.Errorf("record notice: %w", err)
 	}
-	return id, nil
+	return Recorded{ID: id, Late: late}, nil
 }
 
 func (s *Notification) Tokens(ctx context.Context, account uuid.UUID) ([]Token, error) {

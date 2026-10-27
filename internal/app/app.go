@@ -109,6 +109,9 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if cfg.Env == config.EnvProd && (smsLogs || emailLogs) {
 		return nil, errors.New("APP_ENV=prod with a log sender for SMS or email; configure real senders")
 	}
+	if _, pushLogs := o.push.(push.LogSender); cfg.Env == config.EnvProd && (pushLogs || o.push == nil && len(cfg.Push.Credentials) == 0) {
+		return nil, errors.New("APP_ENV=prod with FCM_CREDENTIALS empty; pushes would only be logged")
+	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("connect to postgres: %w", err)

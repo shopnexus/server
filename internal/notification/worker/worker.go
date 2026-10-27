@@ -173,15 +173,20 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 	})
 }
 
-// tell writes each notice, then pushes it to its recipient.
+// tell writes each notice, then pushes it to its recipient. A notice a
+// newer one with its key outran is neither written nor pushed.
 func (w Worker) tell(ctx restate.Context, e events.Event, notices []domain.Notice) error {
 	for _, n := range notices {
-		id, err := restate.Run(ctx, func(rc restate.RunContext) (uuid.UUID, error) {
+		rec, err := restate.Run(ctx, func(rc restate.RunContext) (service.Recorded, error) {
 			return w.Notices.Record(rc, e.ID, n)
 		})
 		if err != nil {
 			return fmt.Errorf("write a notice: %w", err)
 		}
+		if rec.Late {
+			continue
+		}
+		id := rec.ID
 		tag := n.CollapseKey
 		if tag == "" {
 			tag = "notification:" + id.String()

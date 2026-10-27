@@ -190,6 +190,49 @@ func TestDealMoved(t *testing.T) {
 	}
 }
 
+// A move delivered after a newer one on the same deal neither replaces the
+// newer notice nor pushes, read or unread.
+func TestLateMoveTellsNothing(t *testing.T) {
+	t.Parallel()
+	older, newer, oldest := uuid.NewV7(), uuid.NewV7(), uuid.NewV7()
+	f := dealsvc.MoveFacts{
+		DealID: uuid.NewV7(), ListingID: uuid.NewV7(), ListingTitle: "Xe đạp Asama", BuyerName: "Đức Huy", SellerName: "Hoàng Nam",
+		Moves: []dealsvc.MoveFact{
+			{ID: oldest, Kind: dealdomain.MoveOffer, By: dealdomain.Buyer, Amount: 1_000_000},
+			{ID: older, Kind: dealdomain.MoveOffer, By: dealdomain.Buyer, Amount: 1_200_000},
+			{ID: newer, Kind: dealdomain.MoveOffer, By: dealdomain.Buyer, Amount: 1_300_000},
+		},
+	}
+	e := newEnv(t, nil, nil)
+	f.BuyerID, f.SellerID = e.account(t), e.account(t)
+	e.worker.Deals = deals{facts: f}
+	e.start(t)
+	ctx := context.Background()
+	if err := e.notices.PutToken(ctx, authn.Principal{AccountID: f.SellerID, SessionID: uuid.NewV7()}, "seller-phone"); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Now()
+	move := func(id uuid.UUID, occurred time.Time) {
+		e.deliver(t, "DealMoved", events.Event{
+			ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: f.DealID, OccurredAt: occurred,
+			Payload: map[string]any{"moves": []any{id.String()}},
+		})
+	}
+	move(newer, at)
+	move(older, at.Add(-time.Minute))
+	if n := e.push.count("seller-phone"); n != 1 || e.push.body["seller-phone"] != "Đức Huy trả 1,3 tr cho Xe đạp Asama" {
+		t.Fatalf("the late move pushed: %d %q", n, e.push.body["seller-phone"])
+	}
+	if err := e.notices.ReadAll(ctx, f.SellerID); err != nil {
+		t.Fatal(err)
+	}
+	move(oldest, at.Add(-2*time.Minute))
+	l, err := e.notices.List(ctx, f.SellerID, page.Request{})
+	if err != nil || len(l.Items) != 1 || l.Unread != 0 || e.push.count("seller-phone") != 1 {
+		t.Fatalf("a move older than a read notice: %+v %v, %d pushes", l, err, e.push.count("seller-phone"))
+	}
+}
+
 func TestMessageSentPushesOnly(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, nil, nil)

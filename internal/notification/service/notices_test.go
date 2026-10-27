@@ -31,7 +31,7 @@ func TestNotices(t *testing.T) {
 		}
 	}
 	deal := uuid.NewV7()
-	id, err := store.Add(ctx, uuid.NewV7(), domain.Notice{
+	id, _, err := store.Add(ctx, uuid.NewV7(), domain.Notice{
 		Recipient: me, Type: domain.TypeOffer, CollapseKey: "deal:" + deal.String(), At: time.Now(),
 		Params: map[string]any{"deal_id": deal.String(), "actor": "Đức Huy", "amount": 1_200_000, "title": "Xe đạp Asama"},
 	}, time.Now().Add(-domain.Retention))
