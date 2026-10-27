@@ -115,6 +115,10 @@ paths:
     $ref: "paths/trust.yaml#/sellerReviews"
   /v1/sellers/{id}/listings:
     $ref: "paths/catalog.yaml#/sellerListings"
+  /v1/search:
+    $ref: "paths/discovery.yaml#/search"
+  /v1/feed/nearby:
+    $ref: "paths/discovery.yaml#/nearbyFeed"
   /v1/saved:
     $ref: "paths/discovery.yaml#/saved"
   /v1/saved/{listing_id}:

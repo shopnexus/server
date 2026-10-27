@@ -1,0 +1,28 @@
+NearLat:
+  name: near_lat
+  in: query
+  description: The caller's latitude, with near_lng. Used for this request only; never stored or logged.
+  schema:
+    type: number
+    minimum: -90
+    maximum: 90
+NearLng:
+  name: near_lng
+  in: query
+  description: The caller's longitude, with near_lat.
+  schema:
+    type: number
+    minimum: -180
+    maximum: 180
+NearCommune:
+  name: near_commune
+  in: query
+  description: A commune code, when the app has no GPS; distance is from its point.
+  schema:
+    type: string
+SearchCursor:
+  name: cursor
+  in: query
+  description: The next_cursor of the previous page.
+  schema:
+    type: string

@@ -28,6 +28,8 @@ func testConfig(t *testing.T) config.Config {
 		Auth:        keys,
 		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.test"},
 		ObjectStore: objectStore(t),
+		// No model answers here; a search falls back to the raw words.
+		LLM: config.LLMConfig{BaseURL: "http://127.0.0.1:1", APIKey: "none", Model: "none"},
 	}
 }
 

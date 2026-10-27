@@ -46,3 +46,79 @@ SavedList:
       type: string
       format: uuid
       description: Present when more saves follow; pass it as cursor.
+SearchItem:
+  type: object
+  additionalProperties: false
+  required: [id, title, price, condition, allow_offers, commune, saved]
+  description: A listing of a search page. It carries no point of the listing.
+  properties:
+    id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    price:
+      type: integer
+      format: int64
+    cover_thumb_url:
+      type: string
+      format: uri
+    condition:
+      $ref: "catalog.yaml#/Condition"
+    allow_offers:
+      type: boolean
+    commune:
+      type: string
+    distance_km:
+      type: integer
+      minimum: 0
+      description: Whole kilometres from the caller's position, 0 under 1 km; absent without a position.
+    saved:
+      type: boolean
+      description: False when signed out.
+Chip:
+  type: object
+  additionalProperties: false
+  required: [id, kind, label]
+  description: A signal the model read from the query; off=<id> leaves it out.
+  properties:
+    id:
+      type: string
+    kind:
+      type: string
+      enum: [phrase, category, price, condition, place, near_me, fresh, offers]
+    label:
+      type: string
+CategoryCount:
+  type: object
+  additionalProperties: false
+  required: [category, count]
+  properties:
+    category:
+      type: string
+    count:
+      type: integer
+SearchView:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/SearchItem"
+    next_cursor:
+      type: string
+      description: Present when more listings follow, up to the 500th.
+    understood:
+      type: string
+      description: The model's sentence of what was searched.
+    chips:
+      type: array
+      items:
+        $ref: "#/Chip"
+    counts:
+      type: array
+      description: With a root category filter, the matches per subcategory.
+      items:
+        $ref: "#/CategoryCount"

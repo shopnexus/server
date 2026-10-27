@@ -1,9 +1,11 @@
-// Package repository stores module discovery's saved listings in Postgres.
-// Each method is its own transaction.
+// Package repository stores module discovery's saved listings and the
+// cache of what the model understood of a query, in Postgres. Each method
+// is its own transaction.
 package repository
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 	"uuid"
 
@@ -20,6 +22,8 @@ type Saves interface {
 	Remove(ctx context.Context, account, listing uuid.UUID) error
 	// Has reports whether account saved listing.
 	Has(ctx context.Context, account, listing uuid.UUID) (bool, error)
+	// SavedAmong returns which of ids account saved.
+	SavedAmong(ctx context.Context, account uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]bool, error)
 	// List is a query: account's saves with IDs below p.Before(), newest
 	// first, at most p.Fetch().
 	List(ctx context.Context, account uuid.UUID, p page.Request) ([]Save, error)
@@ -31,4 +35,14 @@ type Save struct {
 	ListingID uuid.UUID
 	Price     int64
 	At        time.Time
+}
+
+// Understandings caches the model's answers by normalized query and prompt
+// version. It records no account.
+type Understandings interface {
+	// Get returns the answer stored for key and version at or after since.
+	Get(ctx context.Context, key string, version int, since time.Time) (json.RawMessage, bool, error)
+	// Put stores answer for key and version at at, replacing any, and
+	// deletes the answers stored before expired, in one transaction.
+	Put(ctx context.Context, key string, version int, answer json.RawMessage, at, expired time.Time) error
 }

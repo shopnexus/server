@@ -90,3 +90,24 @@ WHERE account_id = @account AND id < @before ORDER BY id DESC LIMIT @limit`,
 	}
 	return out, nil
 }
+
+func (s pgSaves) SavedAmong(ctx context.Context, account uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+	rows, err := s.db.Query(ctx, `SELECT listing_id FROM saved_listings WHERE account_id = @account AND listing_id = ANY(@ids)`,
+		pgx.StrictNamedArgs{"account": account, "ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("read saves: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID]bool, len(ids))
+	for rows.Next() {
+		var id uuid.UUID
+		if err = rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan save: %w", err)
+		}
+		out[id] = true
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("save rows: %w", err)
+	}
+	return out, nil
+}

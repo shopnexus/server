@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"testing"
 	"time"
 	"uuid"
@@ -34,6 +35,7 @@ type env struct {
 	listings  catalogrepo.Listings
 	catalog   *catalogsvc.Catalog
 	discovery *service.Discovery
+	model     *fakeModel
 }
 
 func newEnv(t *testing.T) env {
@@ -52,10 +54,15 @@ func newEnv(t *testing.T) env {
 	listings := catalogrepo.NewListings(db)
 	c := catalogsvc.New(catalogsvc.Deps{
 		Listings: listings, Categories: catalogrepo.NewCategories(db), Regions: catalogrepo.NewRegions(db),
+		Searches: catalogrepo.NewSearches(db),
 		Accounts: accounts, Auth: auth, Media: media, Ingress: in, Prefix: p, Now: time.Now,
 	})
-	d := service.New(service.Deps{Saves: repository.NewSaves(db), Catalog: c, Now: time.Now})
-	return env{db: db, listings: listings, catalog: c, discovery: d}
+	model := &fakeModel{answers: map[string]string{}}
+	d := service.New(service.Deps{
+		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db), Catalog: c, LLM: model,
+		ModelTimeout: 200 * time.Millisecond, Log: slog.New(slog.DiscardHandler), Now: time.Now,
+	})
+	return env{db: db, listings: listings, catalog: c, discovery: d, model: model}
 }
 
 func (e env) account(t *testing.T) uuid.UUID {

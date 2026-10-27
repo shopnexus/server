@@ -41,6 +41,7 @@ var (
 		return k
 	}()
 	box      = newInbox()    // every SMS and email the server sends
+	model    = newModel()    // the model that reads search queries
 	staffSvc *staffsvc.Staff // on the server's keys and database, so tests create members directly
 )
 
@@ -92,6 +93,7 @@ func run(m *testing.M) int {
 		Restate:     restateCfg,
 		Auth:        keys,
 		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.e2e"},
+		LLM:         config.LLMConfig{BaseURL: model.url(), APIKey: "e2e", Model: "e2e"},
 		// Tests set X-Forwarded-For, so each gets its own per-address quota.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}

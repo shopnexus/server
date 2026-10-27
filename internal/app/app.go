@@ -35,6 +35,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/platform/stream"
 	"github.com/shopnexus/server2/internal/provider/email"
+	"github.com/shopnexus/server2/internal/provider/llm"
 	"github.com/shopnexus/server2/internal/provider/sms"
 	"github.com/shopnexus/server2/internal/screen"
 	"github.com/shopnexus/server2/internal/staff"
@@ -222,7 +223,9 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		accounts, authm.Service, mediam.Service)
 	dealm := deal.Mount(d, protect, accounts, authm.Service, catalogm.Service)
 	trustm := trust.Mount(d, protect, accounts, catalogm.Service, dealm.Service)
-	saves := discovery.Mount(d, protect, catalogm.Service)
+	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
+	saves := discovery.Mount(d, discovery.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
+		catalogm.Service, model)
 	chatm := chat.Mount(d, protect, accounts, authm.Service, catalogm.Service, mediam.Service)
 	screen.Mount(d, screen.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
 		accounts, catalogm.Service, dealm.Service, trustm, saves, chatm.Service)

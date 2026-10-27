@@ -72,3 +72,119 @@ savedListing:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+search:
+  get:
+    operationId: search
+    summary: Search active listings; without q, browse them.
+    description: |
+      With q a model reads the query into boosts, which order the listings
+      that match the query's words; the person's own filters decide which
+      listings show. Without q the call browses, newest first by default,
+      and category alone is the category page. A model that fails leaves the
+      raw words to search, with no understood and no chips.
+    tags: [discovery]
+    security:
+      - {}
+      - bearerAuth: []
+    parameters:
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 200
+      - name: category
+        in: query
+        description: A root or subcategory code from GET /v1/categories.
+        schema:
+          type: string
+      - name: price_min
+        in: query
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+      - name: price_max
+        in: query
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+      - name: condition
+        in: query
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            $ref: "../schemas/catalog.yaml#/Condition"
+      - name: radius_km
+        in: query
+        description: Needs a position.
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 200
+      - name: offers_only
+        in: query
+        schema:
+          type: boolean
+      - name: sort
+        in: query
+        description: relevance by default with q, newest without; nearest needs a position and bounds itself to 50 km without radius_km.
+        schema:
+          type: string
+          enum: [relevance, newest, nearest, price_asc, price_desc]
+      - name: "off"
+        in: query
+        description: Chip IDs to leave out; the cached understanding is reused.
+        style: form
+        explode: true
+        schema:
+          type: array
+          items:
+            type: string
+      - $ref: "../parameters/discovery.yaml#/NearLat"
+      - $ref: "../parameters/discovery.yaml#/NearLng"
+      - $ref: "../parameters/discovery.yaml#/NearCommune"
+      - $ref: "../parameters/discovery.yaml#/SearchCursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of listings.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/discovery.yaml#/SearchView"
+      "400":
+        description: "A malformed parameter, position_required, invalid_position or invalid_cursor."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+nearbyFeed:
+  get:
+    operationId: nearbyFeed
+    summary: The "Gần bạn" feed, active listings within 50 km by distance and age.
+    tags: [discovery]
+    security:
+      - {}
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/discovery.yaml#/NearLat"
+      - $ref: "../parameters/discovery.yaml#/NearLng"
+      - $ref: "../parameters/discovery.yaml#/NearCommune"
+      - $ref: "../parameters/discovery.yaml#/SearchCursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of the feed.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/discovery.yaml#/SearchView"
+      "400":
+        description: "A malformed parameter, position_required, invalid_position or invalid_cursor."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
