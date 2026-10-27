@@ -20,11 +20,11 @@ services:
     # data directory under /var/lib/postgresql/18/docker, inside this mount.
     # Sized explicitly; an uncapped tmpfs defaults to half the host's RAM.
     # go test runs a package per CPU, each test on a cloned database of about
-    # 8.5 MB, and 1 GB filled up once catalog and media joined. The tmpfs
-    # counts toward mem_limit.
+    # 13 MB with ParadeDB's extensions and index, and 2 GB filled up once
+    # search joined. The tmpfs counts toward mem_limit.
     tmpfs:
-      - /var/lib/postgresql:size=2g
-    mem_limit: 2560m
+      - /var/lib/postgresql:size=4g
+    mem_limit: 4608m
     # Test packages run their tests in parallel, each test on its own
     # database and pool of up to 4 connections.
     command: postgres -c max_connections=200
