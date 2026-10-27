@@ -406,3 +406,27 @@ func TestCategoriesAndRegions(t *testing.T) {
 		t.Fatalf("a bad code: %d", res.Status)
 	}
 }
+
+// A GPS point far from the commune is refused, a near one is taken, and no
+// response shows the point.
+func TestListingGPS(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	body := draftWith(upload(t, seller.AccessToken, photoWithGPS(t)))
+	body["gps"] = map[string]any{"lat": 10.77, "lng": 106.70} // TP.HCM; commune 00004 is in Hà Nội
+	res := call(t, server, "POST", "/v1/listings", body, bearer(seller.AccessToken), newKey())
+	if e := errorOf(t, res); res.Status != 422 || e.Code != "invalid_listing" || e.Fields["gps"] == "" {
+		t.Fatalf("far: %d %s", res.Status, res.Body)
+	}
+	body = draftWith(upload(t, seller.AccessToken, photoWithGPS(t)))
+	body["gps"] = map[string]any{"lat": 21.0333, "lng": 105.8222}
+	res = call(t, server, "POST", "/v1/listings", body, bearer(seller.AccessToken), newKey())
+	if res.Status != http.StatusCreated {
+		t.Fatalf("near: %d %s", res.Status, res.Body)
+	}
+	got := decode[map[string]any](t, res)
+	location, _ := got["location"].(map[string]any)
+	if _, ok := got["lat"]; ok || got["lng"] != nil || got["gps"] != nil || location["lat"] == 21.03 {
+		t.Fatalf("the point leaked: %s", res.Body)
+	}
+}

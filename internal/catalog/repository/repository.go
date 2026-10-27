@@ -61,7 +61,6 @@ type Regions interface {
 	Provinces(ctx context.Context) ([]domain.Province, error)
 	// Communes returns a province's communes by display name.
 	Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error)
-	CommuneExists(ctx context.Context, code string) (bool, error)
 	// Places returns the communes among codes with their provinces' display
 	// names, in any order; an unknown code is left out.
 	Places(ctx context.Context, codes []string) ([]Place, error)

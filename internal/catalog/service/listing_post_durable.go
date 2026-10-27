@@ -149,11 +149,16 @@ func lookUpRefs(ctx restate.Context, categories repository.Categories, regions r
 		if stepErr != nil {
 			return domain.Refs{}, fmt.Errorf("read category: %w", stepErr)
 		}
-		exists, stepErr := regions.CommuneExists(rc, d.CommuneCode)
+		places, stepErr := regions.Places(rc, []string{d.CommuneCode})
 		if stepErr != nil {
 			return domain.Refs{}, fmt.Errorf("read commune: %w", stepErr)
 		}
-		return domain.Refs{CategoryIsLeaf: leaf, CommuneExists: exists}, nil
+		refs := domain.Refs{CategoryIsLeaf: leaf}
+		if len(places) == 1 {
+			refs.CommuneExists = true
+			refs.CommunePoint = domain.Point{Lat: places[0].Lat, Lng: places[0].Lng}
+		}
+		return refs, nil
 	})
 	if err != nil {
 		return domain.Refs{}, fmt.Errorf("look up category and commune: %w", err)

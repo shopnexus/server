@@ -255,3 +255,38 @@ func TestReservedRefuses(t *testing.T) {
 		}
 	}
 }
+
+// A listing measures distance from the seller's point when they gave one,
+// keeps it through edits without one, and takes the commune's point
+// otherwise or when the commune changes.
+func TestListingPoint(t *testing.T) {
+	t.Parallel()
+	commune := domain.Point{Lat: 21.03, Lng: 105.85}
+	refs := domain.Refs{CategoryIsLeaf: true, CommuneExists: true, CommunePoint: commune}
+	d := draft()
+	l, err := domain.NewListing(uuid.NewV7(), uuid.NewV7(), d, refs, now)
+	if err != nil || l.Point() != commune {
+		t.Fatalf("no gps: %v %v", l.Point(), err)
+	}
+	spot := domain.Point{Lat: 21.04, Lng: 105.86}
+	d.Spot = &spot
+	if err = l.Edit(d, refs, now); err != nil || l.Point() != spot {
+		t.Fatalf("gps: %v %v", l.Point(), err)
+	}
+	d.Spot = nil
+	if err = l.Edit(d, refs, now); err != nil || l.Point() != spot {
+		t.Fatalf("an edit without gps kept %v, %v", l.Point(), err)
+	}
+	other := domain.Point{Lat: 10.77, Lng: 106.70}
+	d.CommuneCode = "26734"
+	if err = l.Edit(d, domain.Refs{CategoryIsLeaf: true, CommuneExists: true, CommunePoint: other}, now); err != nil || l.Point() != other {
+		t.Fatalf("a new commune: %v %v", l.Point(), err)
+	}
+	far := domain.Point{Lat: 21.5, Lng: 105.85}
+	d = draft()
+	d.Spot = &far
+	_, err = domain.NewListing(uuid.NewV7(), uuid.NewV7(), d, refs, now)
+	if e, ok := errors.AsType[*apperr.Error](err); !ok || e.Fields["gps"] == "" {
+		t.Fatalf("a point 52 km away: %v", err)
+	}
+}

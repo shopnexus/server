@@ -80,10 +80,3 @@ FROM communes c JOIN provinces p ON p.code = c.province_code WHERE c.code = ANY(
 	return out, nil
 }
 
-func (s pgRegions) CommuneExists(ctx context.Context, code string) (bool, error) {
-	var ok bool
-	if err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM communes WHERE code = @code)`, pgx.StrictNamedArgs{"code": code}).Scan(&ok); err != nil {
-		return false, fmt.Errorf("check commune: %w", err)
-	}
-	return ok, nil
-}

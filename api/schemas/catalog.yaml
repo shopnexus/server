@@ -43,6 +43,24 @@ ListingDraft:
       items:
         $ref: "#/Spec"
       description: Up to 20 label and value pairs.
+    gps:
+      type: object
+      additionalProperties: false
+      required: [lat, lng]
+      description: |
+        The seller's position, sent only with their permission. The server
+        blurs it to about 1 km before storing it and never returns it. A
+        point farther than 30 km from the commune is 422 invalid_listing on
+        field gps.
+      properties:
+        lat:
+          type: number
+          minimum: -90
+          maximum: 90
+        lng:
+          type: number
+          minimum: -180
+          maximum: 180
 MarkDraft:
   type: object
   additionalProperties: false

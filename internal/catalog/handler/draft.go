@@ -18,6 +18,14 @@ type draftBody struct {
 	Photos       []uuid.UUID      `json:"photos"`
 	Marks        []markBody       `json:"marks"`
 	Specs        []domain.Spec    `json:"specs"`
+	GPS          *gpsBody         `json:"gps"`
+}
+
+// gpsBody is the seller's position. The handler blurs it at once, so the
+// exact point goes no further than this request.
+type gpsBody struct {
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
 }
 
 type markBody struct {
@@ -30,9 +38,13 @@ func (b *draftBody) draft() domain.Draft {
 	for _, m := range b.Marks {
 		marks = append(marks, domain.MarkDraft{Text: m.Text, Photo: m.UploadID})
 	}
+	var spot *domain.Point
+	if b.GPS != nil {
+		spot = new(domain.Blur(domain.Point{Lat: b.GPS.Lat, Lng: b.GPS.Lng}))
+	}
 	return domain.Draft{
 		Title: b.Title, Price: b.Price, Description: b.Description, CategoryCode: b.CategoryCode,
 		Condition: b.Condition, AllowOffers: b.AllowOffers, CommuneCode: b.CommuneCode,
-		Photos: b.Photos, Marks: marks, Specs: b.Specs,
+		Photos: b.Photos, Marks: marks, Specs: b.Specs, Spot: spot,
 	}
 }

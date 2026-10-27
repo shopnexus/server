@@ -94,6 +94,9 @@ type Draft struct {
 	Photos       []uuid.UUID
 	Marks        []MarkDraft
 	Specs        []Spec
+	// Spot is the seller's GPS point, already blurred; nil keeps the stored
+	// one.
+	Spot *Point
 }
 
 // Uploads returns the draft's photos, then its marks' photos.
@@ -112,6 +115,7 @@ func (d Draft) Uploads() []uuid.UUID {
 type Refs struct {
 	CategoryIsLeaf bool
 	CommuneExists  bool
+	CommunePoint   Point // the chosen commune's point
 }
 
 // Listing is one item on sale.
@@ -125,6 +129,7 @@ type Listing struct {
 	condition    Condition
 	allowOffers  bool
 	communeCode  string
+	point        Point
 	photos       []Photo
 	marks        []Mark
 	specs        []Spec
@@ -202,12 +207,21 @@ func (l *Listing) apply(d Draft, refs Refs, now time.Time) error {
 		}
 		specs = append(specs, Spec{Label: label, Value: value})
 	}
+	if d.Spot != nil && Distance(*d.Spot, refs.CommunePoint) > MaxGPSKm {
+		e = e.WithField("gps", "within 30 km of the commune")
+	}
 	if len(e.Fields) > 0 {
 		return e
 	}
 	photos := make([]Photo, len(d.Photos))
 	for i, id := range d.Photos {
 		photos[i] = Photo{UploadID: id, Keys: l.keysOf(id)}
+	}
+	switch {
+	case d.Spot != nil:
+		l.point = *d.Spot
+	case l.point == (Point{}) || l.communeCode != d.CommuneCode:
+		l.point = refs.CommunePoint
 	}
 	l.title, l.price, l.description = title, d.Price, description
 	l.categoryCode, l.condition, l.allowOffers, l.communeCode = d.CategoryCode, d.Condition, d.AllowOffers, d.CommuneCode
@@ -254,15 +268,18 @@ func (l *Listing) allPhotos() []Photo {
 	return out
 }
 
-func (l *Listing) ID() uuid.UUID                   { return l.id }
-func (l *Listing) SellerID() uuid.UUID             { return l.sellerID }
-func (l *Listing) Title() string                   { return l.title }
-func (l *Listing) Price() int64                    { return l.price }
-func (l *Listing) Description() string             { return l.description }
-func (l *Listing) CategoryCode() string            { return l.categoryCode }
-func (l *Listing) Condition() Condition            { return l.condition }
-func (l *Listing) AllowOffers() bool               { return l.allowOffers }
-func (l *Listing) CommuneCode() string             { return l.communeCode }
+func (l *Listing) ID() uuid.UUID        { return l.id }
+func (l *Listing) SellerID() uuid.UUID  { return l.sellerID }
+func (l *Listing) Title() string        { return l.title }
+func (l *Listing) Price() int64         { return l.price }
+func (l *Listing) Description() string  { return l.description }
+func (l *Listing) CategoryCode() string { return l.categoryCode }
+func (l *Listing) Condition() Condition { return l.condition }
+func (l *Listing) AllowOffers() bool    { return l.allowOffers }
+func (l *Listing) CommuneCode() string  { return l.communeCode }
+
+// Point is where distance is measured from. Server only: no view carries it.
+func (l *Listing) Point() Point                    { return l.point }
 func (l *Listing) Photos() []Photo                 { return append([]Photo{}, l.photos...) }
 func (l *Listing) Marks() []Mark                   { return append([]Mark{}, l.marks...) }
 func (l *Listing) Specs() []Spec                   { return append([]Spec{}, l.specs...) }
@@ -433,6 +450,8 @@ type ListingState struct {
 	PublishedAt  *time.Time           `json:"published_at,omitempty"`
 	SoldAt       *time.Time           `json:"sold_at,omitempty"`
 	DeletedAt    *time.Time           `json:"deleted_at,omitempty"`
+	Lat          float64              `json:"lat"`
+	Lng          float64              `json:"lng"`
 }
 
 // RestoreListing rebuilds a stored listing. Stores only.
@@ -442,7 +461,7 @@ func RestoreListing(st ListingState) Listing {
 		categoryCode: st.CategoryCode, condition: st.Condition, allowOffers: st.AllowOffers, communeCode: st.CommuneCode,
 		photos: st.Photos, marks: st.Marks, specs: st.Specs, status: st.Status, rejection: st.Rejection, reservedFor: st.ReservedFor,
 		writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
-		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt,
+		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt, point: Point{Lat: st.Lat, Lng: st.Lng},
 	}
 }
 
@@ -453,7 +472,7 @@ func (l *Listing) State() ListingState {
 		CategoryCode: l.categoryCode, Condition: l.condition, AllowOffers: l.allowOffers, CommuneCode: l.communeCode,
 		Photos: l.photos, Marks: l.marks, Specs: l.specs, Status: l.status, Rejection: l.rejection,
 		ReservedFor: l.reservedFor, WriteID: l.writeID, CreatedAt: l.createdAt, UpdatedAt: l.updatedAt,
-		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt,
+		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt, Lat: l.point.Lat, Lng: l.point.Lng,
 	}
 }
 

@@ -20,11 +20,8 @@ func TestRegions(t *testing.T) {
 	if err != nil || len(communes) < 100 || communes[0].ProvinceCode != "01" || communes[0].Lat == 0 {
 		t.Fatalf("%d communes of Hà Nội, %v", len(communes), err)
 	}
-	if ok, _ := s.CommuneExists(ctx, "00004"); !ok {
-		t.Error("Ba Đình is missing")
-	}
-	if ok, _ := s.CommuneExists(ctx, "99999"); ok {
-		t.Error("an unknown commune exists")
+	if places, _ := s.Places(ctx, []string{"00004", "99999"}); len(places) != 1 || places[0].Code != "00004" {
+		t.Errorf("Ba Đình alone: %+v", places)
 	}
 }
 
