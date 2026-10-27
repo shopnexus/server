@@ -29,7 +29,7 @@ type HomeScreen struct {
 func (s *Screen) Home(ctx context.Context, reader *uuid.UUID, near discoverysvc.Near) (HomeScreen, error) {
 	nearby, err := s.saves.Nearby(ctx, reader, near, "", 0)
 	if err != nil {
-		return HomeScreen{}, err
+		return HomeScreen{}, fmt.Errorf("read the nearby feed: %w", err)
 	}
 	tree, err := s.catalog.Categories(ctx)
 	if err != nil {
