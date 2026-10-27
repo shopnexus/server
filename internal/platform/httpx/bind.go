@@ -39,27 +39,32 @@ func Bind[T any](r *http.Request, dst *T) error {
 	rv := reflect.ValueOf(dst).Elem()
 	var query url.Values
 	for _, f := range p.fields {
-		var raw string
+		var raws []string
 		switch f.source {
 		case sourcePath:
-			raw = r.PathValue(f.name)
+			raws = []string{r.PathValue(f.name)}
 		case sourceQuery:
 			if query == nil {
 				query = r.URL.Query()
 			}
-			raw = query.Get(f.name)
+			raws = query[f.name]
 		case sourceHeader:
-			raw = r.Header.Get(f.name)
+			raws = r.Header.Values(f.name)
 		default:
 			panic(fmt.Sprintf("httpx: unknown source %d", f.source))
 		}
-		if raw == "" {
-			continue
+		if !f.repeated && len(raws) > 1 {
+			raws = raws[:1]
 		}
-		if err := f.parse(rv.FieldByIndex(f.index), raw); err != nil {
-			e := *errInvalidRequest.WithField(f.name, "invalid")
-			e.Err = err
-			return &e
+		for _, raw := range raws {
+			if raw == "" {
+				continue
+			}
+			if err := f.parse(rv.FieldByIndex(f.index), raw); err != nil {
+				e := *errInvalidRequest.WithField(f.name, "invalid")
+				e.Err = err
+				return &e
+			}
 		}
 	}
 	return nil
@@ -88,6 +93,9 @@ type field struct {
 	name   string
 	index  []int // for reflect.Value.FieldByIndex
 	source source
+	// repeated is a []string field, which takes every value of its query
+	// key or header rather than the first.
+	repeated bool
 }
 
 // plans maps a [reflect.Type] to its *plan.
@@ -143,6 +151,7 @@ func newPlan(t reflect.Type) *plan {
 			panic(fmt.Sprintf("httpx: %s.%s comes from the URL, a header or a cookie and needs json:\"-\"", t, sf.Name))
 		default:
 			f.parse = parserFor(t, sf)
+			f.repeated = sf.Type.Kind() == reflect.Slice
 			p.fields = append(p.fields, f)
 		}
 	}
@@ -165,7 +174,8 @@ func parserFor(t reflect.Type, sf reflect.StructField) func(reflect.Value, strin
 			return nil
 		}
 	}
-	// Bind reads four of the 27 kinds; the rest panic.
+	// Bind reads six of the 27 kinds, a slice being of strings; the rest
+	// panic.
 	//
 	//exhaustive:ignore
 	switch ft.Kind() {
@@ -181,6 +191,23 @@ func parserFor(t reflect.Type, sf reflect.StructField) func(reflect.Value, strin
 				return fmt.Errorf("parse int: %w", err)
 			}
 			v.SetInt(n)
+			return nil
+		}
+	case reflect.Float32, reflect.Float64:
+		return func(v reflect.Value, raw string) error {
+			f, err := strconv.ParseFloat(raw, ft.Bits())
+			if err != nil {
+				return fmt.Errorf("parse float: %w", err)
+			}
+			v.SetFloat(f)
+			return nil
+		}
+	case reflect.Slice:
+		if ft.Elem().Kind() != reflect.String {
+			panic(fmt.Sprintf("httpx: %s.%s is a slice of %s; Bind reads slices of strings", t, sf.Name, ft.Elem()))
+		}
+		return func(v reflect.Value, raw string) error {
+			v.Set(reflect.Append(v, reflect.ValueOf(raw)))
 			return nil
 		}
 	case reflect.Bool:

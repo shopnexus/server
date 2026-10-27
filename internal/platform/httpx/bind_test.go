@@ -142,7 +142,7 @@ func TestBindPanicsOnAWrongRequestType(t *testing.T) {
 		},
 		"unsupported type": func(r *http.Request) {
 			var v struct {
-				Tags []string `json:"-" query:"tags"`
+				Tags []int `json:"-" query:"tags"`
 			}
 			_ = Bind(r, &v)
 		},
@@ -192,5 +192,20 @@ func TestBindReadsEmbeddedStructs(t *testing.T) {
 	}
 	if b.Limit != 3 || b.Name != "a" {
 		t.Fatalf("got %+v", b)
+	}
+}
+
+func TestBindFloatAndRepeated(t *testing.T) {
+	t.Parallel()
+	var in struct {
+		Lat  float64  `json:"-" query:"near_lat"`
+		Cond []string `json:"-" query:"condition"`
+	}
+	if err := Bind(request(t, "GET", "/x?near_lat=10.75&condition=new&condition=used", ""), &in); err != nil ||
+		in.Lat != 10.75 || len(in.Cond) != 2 || in.Cond[1] != "used" {
+		t.Fatalf("%+v %v", in, err)
+	}
+	if err := Bind(request(t, "GET", "/x?near_lat=north", ""), &in); err == nil {
+		t.Fatal("a word bound as a float")
 	}
 }
