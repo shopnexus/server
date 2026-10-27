@@ -21,6 +21,8 @@ type Reviews interface {
 	// ByOrder returns the review of an order, deleted or not, or
 	// ErrNotFound.
 	ByOrder(ctx context.Context, order uuid.UUID) (domain.Review, error)
+	// Get returns a review by its ID, or ErrNotFound.
+	Get(ctx context.Context, id uuid.UUID) (domain.Review, error)
 	// Insert adds the order's first review; an order that has one is
 	// ErrConflict.
 	Insert(ctx context.Context, r domain.Review) error

@@ -122,3 +122,24 @@ func (s pgSessions) ListActive(ctx context.Context, accountID uuid.UUID, now tim
 	}
 	return views, nil
 }
+
+func (s pgSessions) ActiveAmong(ctx context.Context, ids []uuid.UUID, now time.Time) (map[uuid.UUID]bool, error) {
+	rows, err := s.db.Query(ctx, `SELECT id FROM sessions WHERE id = ANY(@ids) AND revoked_at IS NULL AND expires_at > @now`,
+		pgx.StrictNamedArgs{"ids": ids, "now": now})
+	if err != nil {
+		return nil, fmt.Errorf("read active sessions: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID]bool, len(ids))
+	for rows.Next() {
+		var id uuid.UUID
+		if err = rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan session: %w", err)
+		}
+		out[id] = true
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("session rows: %w", err)
+	}
+	return out, nil
+}

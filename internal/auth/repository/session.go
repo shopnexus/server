@@ -31,6 +31,9 @@ type Sessions interface {
 	// RevokeAll revokes every open session of the account in one statement
 	// and gives each a new write ID, so a refresh racing it conflicts.
 	RevokeAll(ctx context.Context, accountID uuid.UUID, now time.Time) error
+	// ActiveAmong returns which of ids are neither revoked nor expired at
+	// now.
+	ActiveAmong(ctx context.Context, ids []uuid.UUID, now time.Time) (map[uuid.UUID]bool, error)
 	// ListActive is a query: the account's usable sessions at now, newest
 	// first, below p.Before(), at most p.Fetch().
 	ListActive(ctx context.Context, accountID uuid.UUID, now time.Time, p page.Request) ([]ActiveSession, error)

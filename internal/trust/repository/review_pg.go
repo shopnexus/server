@@ -30,6 +30,14 @@ func scanReview(row pgx.Row) (domain.Review, error) {
 	return domain.RestoreReview(st), nil
 }
 
+func (s pgReviews) Get(ctx context.Context, id uuid.UUID) (domain.Review, error) {
+	r, err := scanReview(s.db.QueryRow(ctx, `SELECT `+reviewColumns+` FROM reviews WHERE id = @id`, pgx.StrictNamedArgs{"id": id}))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Review{}, ErrNotFound
+	}
+	return r, err
+}
+
 func (s pgReviews) ByOrder(ctx context.Context, order uuid.UUID) (domain.Review, error) {
 	r, err := scanReview(s.db.QueryRow(ctx, `SELECT `+reviewColumns+` FROM reviews WHERE order_id = @order`,
 		pgx.StrictNamedArgs{"order": order}))

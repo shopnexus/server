@@ -37,6 +37,10 @@ type Service interface {
 	// BuyerSummary returns buyer's deal on a listing at a glance; false
 	// when there is none.
 	BuyerSummary(ctx context.Context, buyer, listingID uuid.UUID) (DealSummary, bool, error)
+	// Moves reads the moves of ids on a deal, with its people, listing and
+	// latest order, for notifications; an ID the deal lacks is left out,
+	// and an unknown deal answers false.
+	Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (MoveFacts, bool, error)
 	// ListMine lists viewer's deals on side as, newest first.
 	ListMine(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[DealView], error)
 	Offer(ctx context.Context, caller, id uuid.UUID, amount int64) (DealView, error)

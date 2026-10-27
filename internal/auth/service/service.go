@@ -40,6 +40,9 @@ type Service interface {
 	RemoveSession(ctx context.Context, p authn.Principal, id uuid.UUID) error
 	// ListSessions lists the caller's devices, newest first.
 	ListSessions(ctx context.Context, p authn.Principal, req page.Request) (page.Page[SessionItem], error)
+	// ActiveSessions returns which of ids are neither revoked nor expired;
+	// notification pushes only to their tokens.
+	ActiveSessions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error)
 	// FindAccount returns the account holding the phone number or email q.
 	FindAccount(ctx context.Context, q string) (uuid.UUID, bool, error)
 	// Identities lists an account's sign-in methods.

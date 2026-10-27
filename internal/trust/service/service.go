@@ -22,6 +22,9 @@ type Service interface {
 	PutReview(ctx context.Context, buyer, order uuid.UUID, stars int, text string) (ReviewView, error)
 	// DeleteReview removes the buyer's review of an order within its 7 days.
 	DeleteReview(ctx context.Context, buyer, order uuid.UUID) error
+	// ReviewFacts reads a review for its notification; false for an
+	// unknown one.
+	ReviewFacts(ctx context.Context, id uuid.UUID) (ReviewFacts, bool, error)
 	// SellerReviews reads a seller's average, count and reviews, newest first.
 	SellerReviews(ctx context.Context, seller uuid.UUID, p page.Request) (SellerReviews, error)
 	// Seller reads a seller's public profile with the rating and the

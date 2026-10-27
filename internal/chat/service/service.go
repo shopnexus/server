@@ -26,6 +26,8 @@ import (
 )
 
 // Service is module chat's contract.
+//
+//nolint:interfacebloat // A module's contract lists all its use cases.
 type Service interface {
 	// Open starts the buyer's conversation with a listing's seller, or
 	// reuses the pair's, and sends the first message about the listing. A
@@ -48,6 +50,8 @@ type Service interface {
 	ConversationWith(ctx context.Context, account, other uuid.UUID) (uuid.UUID, error)
 	// Messages lists what account may read of a conversation, newest first.
 	Messages(ctx context.Context, account, conversation uuid.UUID, p page.Request) (page.Page[MessageView], error)
+	// MessageFacts reads a message for its push; false for an unknown one.
+	MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bool, error)
 	// Unread counts account's unread messages over unarchived conversations.
 	Unread(ctx context.Context, account uuid.UUID) (int, error)
 }
