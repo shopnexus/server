@@ -19,8 +19,6 @@ const (
 	MaxTitle       = 70
 	MaxDescription = 1500
 	MaxPhotos      = 10
-	MaxMarks       = 10
-	MaxMarkText    = 200
 	MaxSpecs       = 20
 	MaxSpecText    = 50
 )
@@ -65,21 +63,9 @@ type Photo struct {
 	Keys     PhotoKeys `json:"keys"`
 }
 
-// Mark is a flaw the seller declared, with an optional close-up.
-type Mark struct {
-	Text  string `json:"text"`
-	Photo *Photo `json:"photo,omitempty"`
-}
-
 type Spec struct {
 	Label string `json:"label"`
 	Value string `json:"value"`
-}
-
-// MarkDraft is a mark as the seller sends it.
-type MarkDraft struct {
-	Text  string
-	Photo *uuid.UUID
 }
 
 // Draft is a listing as the seller sends it, to post or to edit.
@@ -92,22 +78,10 @@ type Draft struct {
 	AllowOffers  bool
 	CommuneCode  string
 	Photos       []uuid.UUID
-	Marks        []MarkDraft
 	Specs        []Spec
 	// Spot is the seller's GPS point, already blurred; nil keeps the stored
 	// one.
 	Spot *Point
-}
-
-// Uploads returns the draft's photos, then its marks' photos.
-func (d Draft) Uploads() []uuid.UUID {
-	out := append([]uuid.UUID{}, d.Photos...)
-	for _, m := range d.Marks {
-		if m.Photo != nil {
-			out = append(out, *m.Photo)
-		}
-	}
-	return out
 }
 
 // Refs is what the service found in the category and region tables for a
@@ -131,7 +105,6 @@ type Listing struct {
 	communeCode  string
 	point        Point
 	photos       []Photo
-	marks        []Mark
 	specs        []Spec
 	status       Status
 	rejection    map[uuid.UUID]string
@@ -181,21 +154,6 @@ func (l *Listing) apply(d Draft, refs Refs, now time.Time) error {
 	if len(d.Photos) < 1 || len(d.Photos) > MaxPhotos || duplicates(d) {
 		e = e.WithField("photos", "1 to 10 distinct photos")
 	}
-	if len(d.Marks) > MaxMarks {
-		e = e.WithField("marks", "at most 10")
-	}
-	marks := make([]Mark, 0, len(d.Marks))
-	for _, m := range d.Marks {
-		text := strings.TrimSpace(m.Text)
-		if n := utf8.RuneCountInString(text); n < 1 || n > MaxMarkText {
-			e = e.WithField("marks", "each 1 to 200 characters")
-		}
-		mark := Mark{Text: text}
-		if m.Photo != nil {
-			mark.Photo = &Photo{UploadID: *m.Photo, Keys: l.keysOf(*m.Photo)}
-		}
-		marks = append(marks, mark)
-	}
 	if len(d.Specs) > MaxSpecs {
 		e = e.WithField("specs", "at most 20")
 	}
@@ -224,7 +182,7 @@ func (l *Listing) apply(d Draft, refs Refs, now time.Time) error {
 	}
 	l.title, l.price, l.description = title, d.Price, description
 	l.categoryCode, l.condition, l.allowOffers, l.communeCode = d.CategoryCode, d.Condition, d.AllowOffers, d.CommuneCode
-	l.photos, l.marks, l.specs, l.updatedAt = photos, marks, specs, now
+	l.photos, l.specs, l.updatedAt = photos, specs, now
 	return nil
 }
 
@@ -236,7 +194,7 @@ func within(s string, maxRunes int) bool {
 // duplicates reports an upload used twice in d.
 func duplicates(d Draft) bool {
 	seen := map[uuid.UUID]bool{}
-	for _, id := range d.Uploads() {
+	for _, id := range d.Photos {
 		if seen[id] {
 			return true
 		}
@@ -248,23 +206,12 @@ func duplicates(d Draft) bool {
 // keysOf returns the keys of upload id when the listing already holds it
 // processed.
 func (l *Listing) keysOf(id uuid.UUID) PhotoKeys {
-	for _, p := range l.allPhotos() {
+	for _, p := range l.photos {
 		if p.UploadID == id {
 			return p.Keys
 		}
 	}
 	return PhotoKeys{}
-}
-
-// allPhotos returns the listing's photos and its marks' photos.
-func (l *Listing) allPhotos() []Photo {
-	out := append([]Photo{}, l.photos...)
-	for _, m := range l.marks {
-		if m.Photo != nil {
-			out = append(out, *m.Photo)
-		}
-	}
-	return out
 }
 
 func (l *Listing) ID() uuid.UUID        { return l.id }
@@ -280,7 +227,6 @@ func (l *Listing) CommuneCode() string  { return l.communeCode }
 // Point is where distance is measured from. Server only: no view carries it.
 func (l *Listing) Point() Point                    { return l.point }
 func (l *Listing) Photos() []Photo                 { return append([]Photo{}, l.photos...) }
-func (l *Listing) Marks() []Mark                   { return append([]Mark{}, l.marks...) }
 func (l *Listing) Specs() []Spec                   { return append([]Spec{}, l.specs...) }
 func (l *Listing) Status() Status                  { return l.status }
 func (l *Listing) Rejection() map[uuid.UUID]string { return l.rejection }
@@ -291,21 +237,19 @@ func (l *Listing) UpdatedAt() time.Time            { return l.updatedAt }
 func (l *Listing) PublishedAt() *time.Time         { return l.publishedAt }
 func (l *Listing) SoldAt() *time.Time              { return l.soldAt }
 
-// Uploads returns the listing's photos, then its marks' photos.
+// Uploads returns the upload IDs of the listing's photos.
 func (l *Listing) Uploads() []uuid.UUID {
-	all := l.allPhotos()
-	out := make([]uuid.UUID, len(all))
-	for i, p := range all {
+	out := make([]uuid.UUID, len(l.photos))
+	for i, p := range l.photos {
 		out[i] = p.UploadID
 	}
 	return out
 }
 
-// PendingUploads returns the uploads, photos and marks' photos, not
-// processed yet.
+// PendingUploads returns the uploads of the photos not processed yet.
 func (l *Listing) PendingUploads() []uuid.UUID {
 	var out []uuid.UUID
-	for _, p := range l.allPhotos() {
+	for _, p := range l.photos {
 		if p.Keys.Photo == "" {
 			out = append(out, p.UploadID)
 		}
@@ -335,13 +279,6 @@ func (l *Listing) Published(keys map[uuid.UUID]PhotoKeys, now time.Time) {
 	for i := range l.photos {
 		if k, ok := keys[l.photos[i].UploadID]; ok {
 			l.photos[i].Keys = k
-		}
-	}
-	for i := range l.marks {
-		if p := l.marks[i].Photo; p != nil {
-			if k, ok := keys[p.UploadID]; ok {
-				p.Keys = k
-			}
 		}
 	}
 	l.status, l.rejection, l.updatedAt = StatusActive, nil, now
@@ -438,7 +375,6 @@ type ListingState struct {
 	AllowOffers  bool                 `json:"allow_offers"`
 	CommuneCode  string               `json:"commune_code"`
 	Photos       []Photo              `json:"photos"`
-	Marks        []Mark               `json:"marks"`
 	Specs        []Spec               `json:"specs"`
 	Status       Status               `json:"status"`
 	Rejection    map[uuid.UUID]string `json:"rejection,omitempty"`
@@ -458,7 +394,7 @@ func RestoreListing(st ListingState) Listing {
 	return Listing{
 		id: st.ID, sellerID: st.SellerID, title: st.Title, price: st.Price, description: st.Description,
 		categoryCode: st.CategoryCode, condition: st.Condition, allowOffers: st.AllowOffers, communeCode: st.CommuneCode,
-		photos: st.Photos, marks: st.Marks, specs: st.Specs, status: st.Status, rejection: st.Rejection, reservedFor: st.ReservedFor,
+		photos: st.Photos, specs: st.Specs, status: st.Status, rejection: st.Rejection, reservedFor: st.ReservedFor,
 		writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
 		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt, point: Point{Lat: st.Lat, Lng: st.Lng},
 	}
@@ -469,7 +405,7 @@ func (l *Listing) State() ListingState {
 	return ListingState{
 		ID: l.id, SellerID: l.sellerID, Title: l.title, Price: l.price, Description: l.description,
 		CategoryCode: l.categoryCode, Condition: l.condition, AllowOffers: l.allowOffers, CommuneCode: l.communeCode,
-		Photos: l.photos, Marks: l.marks, Specs: l.specs, Status: l.status, Rejection: l.rejection,
+		Photos: l.photos, Specs: l.specs, Status: l.status, Rejection: l.rejection,
 		ReservedFor: l.reservedFor, WriteID: l.writeID, CreatedAt: l.createdAt, UpdatedAt: l.updatedAt,
 		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt, Lat: l.point.Lat, Lng: l.point.Lng,
 	}

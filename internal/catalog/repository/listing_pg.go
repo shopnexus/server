@@ -21,17 +21,17 @@ type pgListings struct{ db *pgxpool.Pool }
 func NewListings(db *pgxpool.Pool) Listings { return pgListings{db} }
 
 const listingColumns = `id, seller_id, title, price, description, category_code, condition, allow_offers, commune_code,
-       photos, marks, specs, status, rejection, reserved_for, write_id, created_at, updated_at, published_at, sold_at,
+       photos, specs, status, rejection, reserved_for, write_id, created_at, updated_at, published_at, sold_at,
        deleted_at, lat, lng`
 
 func scanListing(row pgx.Row) (domain.Listing, error) {
 	var (
-		st                          domain.ListingState
-		photos, marks, specs, rejec []byte
-		reservedFor                 *uuid.UUID
+		st                   domain.ListingState
+		photos, specs, rejec []byte
+		reservedFor          *uuid.UUID
 	)
 	if err := row.Scan(&st.ID, &st.SellerID, &st.Title, &st.Price, &st.Description, &st.CategoryCode, &st.Condition,
-		&st.AllowOffers, &st.CommuneCode, &photos, &marks, &specs, &st.Status, &rejec, &reservedFor, &st.WriteID, &st.CreatedAt,
+		&st.AllowOffers, &st.CommuneCode, &photos, &specs, &st.Status, &rejec, &reservedFor, &st.WriteID, &st.CreatedAt,
 		&st.UpdatedAt, &st.PublishedAt, &st.SoldAt, &st.DeletedAt, &st.Lat, &st.Lng); err != nil {
 		return domain.Listing{}, fmt.Errorf("scan listing: %w", err)
 	}
@@ -41,7 +41,7 @@ func scanListing(row pgx.Row) (domain.Listing, error) {
 	for _, f := range []struct {
 		raw []byte
 		dst any
-	}{{photos, &st.Photos}, {marks, &st.Marks}, {specs, &st.Specs}, {rejec, &st.Rejection}} {
+	}{{photos, &st.Photos}, {specs, &st.Specs}, {rejec, &st.Rejection}} {
 		if f.raw == nil {
 			continue
 		}
@@ -62,17 +62,14 @@ func args(st domain.ListingState) pgx.StrictNamedArgs {
 	if st.ReservedFor != (uuid.UUID{}) {
 		reservedFor = st.ReservedFor
 	}
-	marks, specs := st.Marks, st.Specs
-	if marks == nil {
-		marks = []domain.Mark{}
-	}
+	specs := st.Specs
 	if specs == nil {
 		specs = []domain.Spec{}
 	}
 	return pgx.StrictNamedArgs{
 		"id": st.ID, "seller_id": st.SellerID, "title": st.Title, "price": st.Price, "description": st.Description,
 		"category_code": st.CategoryCode, "condition": st.Condition, "allow_offers": st.AllowOffers,
-		"commune_code": st.CommuneCode, "photos": st.Photos, "marks": marks, "specs": specs, "status": st.Status,
+		"commune_code": st.CommuneCode, "photos": st.Photos, "specs": specs, "status": st.Status,
 		"rejection": rejection, "reserved_for": reservedFor, "write_id": st.WriteID, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
 		"published_at": st.PublishedAt, "sold_at": st.SoldAt, "deleted_at": st.DeletedAt, "lat": st.Lat, "lng": st.Lng,
 	}
@@ -92,7 +89,7 @@ func lockSeller(ctx context.Context, tx pgx.Tx, seller uuid.UUID) error {
 const insertListing = `
 INSERT INTO listings (` + listingColumns + `)
 SELECT @id, @seller_id, @title, @price, @description, @category_code, @condition, @allow_offers, @commune_code,
-       @photos, @marks, @specs, @status, @rejection, @reserved_for, @write_id, @created_at, @updated_at, @published_at, @sold_at,
+       @photos, @specs, @status, @rejection, @reserved_for, @write_id, @created_at, @updated_at, @published_at, @sold_at,
        @deleted_at, @lat, @lng
 WHERE (SELECT count(*) FROM listings WHERE seller_id = @seller_id AND status = ANY(@on_sale)) < @limit
 ON CONFLICT (id) DO NOTHING`
@@ -157,7 +154,7 @@ const saveListing = `
 UPDATE listings
 SET title = @title, price = @price, description = @description, category_code = @category_code,
     condition = @condition, allow_offers = @allow_offers, commune_code = @commune_code, photos = @photos,
-    marks = @marks, specs = @specs, status = @status, rejection = @rejection, reserved_for = @reserved_for,
+    specs = @specs, status = @status, rejection = @rejection, reserved_for = @reserved_for,
     updated_at = @updated_at, lat = @lat, lng = @lng,
     published_at = @published_at, sold_at = @sold_at, deleted_at = @deleted_at, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)

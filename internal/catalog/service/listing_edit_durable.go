@@ -86,7 +86,7 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 	if err = l.Edit(in.Draft, refs, at); err != nil {
 		return EditResult{Refused: apperr.From(err)}, nil
 	}
-	if added := slices.DeleteFunc(in.Draft.Uploads(), func(u uuid.UUID) bool { return slices.Contains(before, u) }); len(added) > 0 {
+	if added := slices.DeleteFunc(slices.Clone(in.Draft.Photos), func(u uuid.UUID) bool { return slices.Contains(before, u) }); len(added) > 0 {
 		var refused *apperr.Error
 		refused, err = attach(ctx, s.Media, in.Seller, in.ID, added)
 		if err != nil || refused != nil {

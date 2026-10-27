@@ -138,7 +138,8 @@ func TestListingGoesOnSale(t *testing.T) {
 	}
 	buyer, _ := newAccount(t)
 	for _, h := range [][][2]string{nil, {bearer(buyer.AccessToken)}} {
-		if res := call(t, server, "GET", "/v1/listings/"+posted.ID, nil, h...); res.Status != http.StatusOK {
+		if res := call(t, server, "GET", "/v1/listings/"+posted.ID, nil, h...); res.Status != http.StatusOK ||
+			bytes.Contains(res.Body, []byte(`"marks"`)) {
 			t.Fatalf("a buyer: %d %s", res.Status, res.Body)
 		}
 	}
@@ -180,6 +181,9 @@ func TestPostListingRefusals(t *testing.T) {
 	expect("signed out", post(draftWith(upload(t, token, photo))), 401, "unauthenticated")
 	bad := draftWith("not-a-uuid")
 	expect("a bad photo id", post(bad, bearer(token)), 400, "invalid_request")
+	marked := draftWith(upload(t, token, photo))
+	marked["marks"] = []any{map[string]any{"text": "Trầy góc"}}
+	expect("declared marks", post(marked, bearer(token)), 400, "invalid_request")
 
 	suspended, _ := newAccount(t)
 	suspend(t, suspended.Account.ID)
@@ -208,9 +212,9 @@ func TestPostListingRefusals(t *testing.T) {
 	first := postListing(t, full.AccessToken)
 	if _, err := db.Exec(context.Background(), `
 INSERT INTO listings (id, seller_id, title, price, description, category_code, condition, allow_offers, commune_code,
-                      photos, marks, specs, status, rejection, write_id, created_at, updated_at, lat, lng)
+                      photos, specs, status, rejection, write_id, created_at, updated_at, lat, lng)
 SELECT gen_random_uuid(), seller_id, title, price, description, category_code, condition, allow_offers, commune_code,
-       photos, marks, specs, 'hidden', rejection, gen_random_uuid(), created_at, updated_at, lat, lng
+       photos, specs, 'hidden', rejection, gen_random_uuid(), created_at, updated_at, lat, lng
 FROM listings, generate_series(1, 19) n WHERE id = @id`, pgx.StrictNamedArgs{"id": first.ID}); err != nil {
 		t.Fatal(err)
 	}

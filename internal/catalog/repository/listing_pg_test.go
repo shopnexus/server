@@ -34,7 +34,7 @@ func listing(t *testing.T, seller uuid.UUID) domain.Listing {
 	l, err := domain.NewListing(uuid.NewV7(), seller, domain.Draft{
 		Title: "Xe đạp", Price: 1_500_000, CategoryCode: "vehicles.bicycle", Condition: domain.ConditionUsed,
 		CommuneCode: "00004", Photos: []uuid.UUID{uuid.NewV7()},
-		Marks: []domain.MarkDraft{{Text: "Tróc sơn"}}, Specs: []domain.Spec{{Label: "Size", Value: "M"}},
+		Specs: []domain.Spec{{Label: "Size", Value: "M"}},
 	}, domain.Refs{CategoryIsLeaf: true, CommuneExists: true}, now)
 	if err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func TestInsertGetSave(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := s.Get(ctx, l.ID())
-	if err != nil || got.Title() != "Xe đạp" || got.Marks()[0].Text != "Tróc sơn" || got.Status() != domain.StatusProcessing {
+	if err != nil || got.Title() != "Xe đạp" || got.Specs()[0].Value != "M" || got.Status() != domain.StatusProcessing {
 		t.Fatalf("%+v %v", got.State(), err)
 	}
 	if _, err := s.Get(ctx, uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {

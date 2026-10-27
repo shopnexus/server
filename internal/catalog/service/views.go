@@ -32,7 +32,6 @@ type ListingView struct {
 	AllowOffers  bool             `json:"allow_offers"`
 	Location     Location         `json:"location"`
 	Photos       []PhotoView      `json:"photos"`
-	Marks        []MarkView       `json:"marks"`
 	Specs        []domain.Spec    `json:"specs"`
 	Status       domain.Status    `json:"status"`
 	CreatedAt    time.Time        `json:"created_at"`
@@ -80,11 +79,6 @@ type PhotoView struct {
 	Failure  string    `json:"failure,omitempty"`
 }
 
-type MarkView struct {
-	Text  string     `json:"text"`
-	Photo *PhotoView `json:"photo,omitempty"`
-}
-
 // view builds the ListingView of l.
 func (c *Catalog) view(ctx context.Context, l domain.Listing) (ListingView, error) {
 	views, err := c.views(ctx, []domain.Listing{l})
@@ -107,30 +101,19 @@ func (c *Catalog) views(ctx context.Context, ls []domain.Listing) ([]ListingView
 	out := make([]ListingView, 0, len(ls))
 	for i := range ls {
 		l := &ls[i]
-		photo := func(p domain.Photo) PhotoView {
+		photos := make([]PhotoView, 0, len(l.Photos()))
+		for _, p := range l.Photos() {
 			v := PhotoView{UploadID: p.UploadID, Failure: l.Rejection()[p.UploadID]}
 			if p.Keys.Photo != "" {
 				v.URL, v.ThumbURL = c.media.URL(p.Keys.Photo), c.media.URL(p.Keys.Thumb)
 			}
-			return v
-		}
-		photos := make([]PhotoView, 0, len(l.Photos()))
-		for _, p := range l.Photos() {
-			photos = append(photos, photo(p))
-		}
-		marks := make([]MarkView, 0, len(l.Marks()))
-		for _, m := range l.Marks() {
-			mv := MarkView{Text: m.Text}
-			if m.Photo != nil {
-				mv.Photo = new(photo(*m.Photo))
-			}
-			marks = append(marks, mv)
+			photos = append(photos, v)
 		}
 		out = append(out, ListingView{
 			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), Description: l.Description(),
 			CategoryCode: l.CategoryCode(), Condition: l.Condition(), AllowOffers: l.AllowOffers(),
 			Location: places[l.CommuneCode()],
-			Photos:   photos, Marks: marks, Specs: l.Specs(), Status: l.Status(),
+			Photos:   photos, Specs: l.Specs(), Status: l.Status(),
 			CreatedAt: l.CreatedAt(), UpdatedAt: l.UpdatedAt(), PublishedAt: l.PublishedAt(), SoldAt: l.SoldAt(),
 		})
 	}

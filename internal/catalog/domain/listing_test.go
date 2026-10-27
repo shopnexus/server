@@ -22,7 +22,6 @@ func draft() domain.Draft {
 		Title: "  iPhone 13 128GB  ", Price: 9_500_000, Description: "Máy zin", CategoryCode: "phones.iphone",
 		Condition: domain.ConditionLikeNew, AllowOffers: true, CommuneCode: "00004",
 		Photos: []uuid.UUID{uuid.NewV7(), uuid.NewV7()},
-		Marks:  []domain.MarkDraft{{Text: "Trầy góc", Photo: new(uuid.NewV7())}},
 		Specs:  []domain.Spec{{Label: "Dung lượng", Value: "128GB"}},
 	}
 }
@@ -39,7 +38,7 @@ func newListing(t *testing.T) domain.Listing {
 func TestNewListingTrimsAndStartsProcessing(t *testing.T) {
 	t.Parallel()
 	l := newListing(t)
-	if l.Title() != "iPhone 13 128GB" || l.Status() != domain.StatusProcessing || len(l.PendingUploads()) != 3 {
+	if l.Title() != "iPhone 13 128GB" || l.Status() != domain.StatusProcessing || len(l.PendingUploads()) != 2 {
 		t.Fatalf("%+v", l.State())
 	}
 }
@@ -59,7 +58,6 @@ func TestNewListingRules(t *testing.T) {
 		"description": func(d *domain.Draft) { d.Description = strings.Repeat("a", 1501) },
 		"condition":   func(d *domain.Draft) { d.Condition = "broken" },
 		"photos":      func(d *domain.Draft) { d.Photos = photos(11) },
-		"marks":       func(d *domain.Draft) { d.Marks = []domain.MarkDraft{{Text: ""}} },
 		"specs":       func(d *domain.Draft) { d.Specs = []domain.Spec{{Label: "x", Value: strings.Repeat("v", 51)}} },
 	} {
 		d := draft()
@@ -163,7 +161,6 @@ func TestEditOfAnActiveListing(t *testing.T) {
 	l := published(t)
 	same := draft()
 	same.Photos = photoUploads(l)
-	same.Marks = nil
 	same.Title = "iPhone 13"
 	if err := l.Edit(same, known, now); err != nil || l.Status() != domain.StatusActive || l.Title() != "iPhone 13" {
 		t.Fatalf("%v %s", err, l.Status())
@@ -186,15 +183,11 @@ func photoUploads(l domain.Listing) []uuid.UUID {
 func TestUploads(t *testing.T) {
 	t.Parallel()
 	d := draft()
-	want := append(append([]uuid.UUID{}, d.Photos...), *d.Marks[0].Photo)
-	if got := d.Uploads(); !slices.Equal(got, want) {
-		t.Fatalf("draft: %v, want %v", got, want)
-	}
 	l, err := domain.NewListing(uuid.NewV7(), uuid.NewV7(), d, known, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := l.Uploads(); !slices.Equal(got, want) {
+	if got, want := l.Uploads(), d.Photos; !slices.Equal(got, want) {
 		t.Fatalf("listing: %v, want %v", got, want)
 	}
 }

@@ -268,7 +268,7 @@ separate work.
 | `Session` | `sessions` | adds `write_id` and `auth_time` |
 | `Challenge` | `otp_challenges` | adds `write_id` |
 | `Upload` | `uploads` | module media; status, content type, size, the processed keys |
-| `Listing` | `listings` | module catalog; photos, marks and specs are `jsonb` columns, read and written with the row |
+| `Listing` | `listings` | module catalog; photos and specs are `jsonb` columns, read and written with the row |
 | `Address` | `addresses` | module account; one row per address, `write_id`; `recipient_name` keeps the keyword `name` out of the columns |
 
 No column is named after an SQL keyword (sqlfluff RF04, run with
@@ -520,6 +520,13 @@ Module `catalog` holds listings, categories and regions. A listing is one
 item at one price, C2C, cash on delivery. Drafts stay on the device; the
 server receives a complete listing.
 
+- A listing declares no marks (decided 2026-10-27, spec:
+  `~/shopnexus/specs/2026-10-27-remove-declared-marks-design.md`). People
+  judge wear on used goods differently, so a declared mark is not a
+  reliable fact, and the buyer looks at the item at the door before
+  paying. The condition (new, like new, used), the specs and the photos
+  describe the item. Migration 0021 drops the `marks` column, and a draft
+  that still sends `marks` is 400 `invalid_request`.
 - A price is whole đồng, 10,000 to 1,000,000,000. The ceiling (decided
   2026-10-26) refuses a price typed with extra zeros and keeps a deal's
   amount arithmetic far from int64 overflow; migration 0009 adds it to the
@@ -548,8 +555,7 @@ server receives a complete listing.
   commune lookups reach the domain as `domain.Refs`, so one
   `invalid_listing` lists every field. It inserts the row under
   `pg_advisory_xact_lock(hashtext(seller_id))`, which holds the cap when
-  posts race, then attaches the uploads, marks' photos included, to the
-  listing. A cap reached at the insert refuses before any upload is taken;
+  posts race, then attaches the uploads to the listing. A cap reached at the insert refuses before any upload is taken;
   an attach that refuses deletes the row again (`Listings.Discard`). The
   last step sends `ListingPublish`, journaled like the rest.
 - `ListingEdit` loads the seller's listing, edits it, attaches the uploads

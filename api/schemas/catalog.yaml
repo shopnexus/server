@@ -33,11 +33,6 @@ ListingDraft:
         type: string
         format: uuid
       description: 1 to 10 upload IDs, in order; the first is the cover.
-    marks:
-      type: array
-      items:
-        $ref: "#/MarkDraft"
-      description: Up to 10 declared flaws.
     specs:
       type: array
       items:
@@ -61,18 +56,6 @@ ListingDraft:
           type: number
           minimum: -180
           maximum: 180
-MarkDraft:
-  type: object
-  additionalProperties: false
-  required: [text]
-  properties:
-    text:
-      type: string
-      description: 1 to 200 characters.
-    upload_id:
-      type: string
-      format: uuid
-      description: An optional close-up of the flaw.
 Spec:
   type: object
   additionalProperties: false
@@ -111,7 +94,6 @@ Listing:
     - allow_offers
     - location
     - photos
-    - marks
     - specs
     - status
     - created_at
@@ -142,10 +124,6 @@ Listing:
       type: array
       items:
         $ref: "#/Photo"
-    marks:
-      type: array
-      items:
-        $ref: "#/Mark"
     specs:
       type: array
       items:
@@ -197,15 +175,6 @@ Photo:
     failure:
       type: string
       description: Why processing refused the photo, on a rejected listing.
-Mark:
-  type: object
-  additionalProperties: false
-  required: [text]
-  properties:
-    text:
-      type: string
-    photo:
-      $ref: "#/Photo"
 Location:
   type: object
   additionalProperties: false

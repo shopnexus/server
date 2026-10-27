@@ -104,7 +104,7 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	if capped {
 		return PostResult{Refused: domain.ErrCapReached}, nil
 	}
-	refused, err := attach(ctx, s.Media, in.Seller, id, in.Draft.Uploads())
+	refused, err := attach(ctx, s.Media, in.Seller, id, in.Draft.Photos)
 	if err != nil {
 		return PostResult{}, err
 	}

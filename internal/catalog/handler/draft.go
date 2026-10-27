@@ -16,7 +16,6 @@ type draftBody struct {
 	AllowOffers  bool             `json:"allow_offers"`
 	CommuneCode  string           `json:"commune_code"`
 	Photos       []uuid.UUID      `json:"photos"`
-	Marks        []markBody       `json:"marks"`
 	Specs        []domain.Spec    `json:"specs"`
 	GPS          *gpsBody         `json:"gps"`
 }
@@ -28,16 +27,7 @@ type gpsBody struct {
 	Lng float64 `json:"lng"`
 }
 
-type markBody struct {
-	Text     string     `json:"text"`
-	UploadID *uuid.UUID `json:"upload_id"`
-}
-
 func (b *draftBody) draft() domain.Draft {
-	marks := make([]domain.MarkDraft, 0, len(b.Marks))
-	for _, m := range b.Marks {
-		marks = append(marks, domain.MarkDraft{Text: m.Text, Photo: m.UploadID})
-	}
 	var spot *domain.Point
 	if b.GPS != nil {
 		spot = new(domain.Blur(domain.Point{Lat: b.GPS.Lat, Lng: b.GPS.Lng}))
@@ -45,6 +35,6 @@ func (b *draftBody) draft() domain.Draft {
 	return domain.Draft{
 		Title: b.Title, Price: b.Price, Description: b.Description, CategoryCode: b.CategoryCode,
 		Condition: b.Condition, AllowOffers: b.AllowOffers, CommuneCode: b.CommuneCode,
-		Photos: b.Photos, Marks: marks, Specs: b.Specs, Spot: spot,
+		Photos: b.Photos, Specs: b.Specs, Spot: spot,
 	}
 }

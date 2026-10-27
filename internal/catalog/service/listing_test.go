@@ -77,8 +77,6 @@ func TestPostPublishes(t *testing.T) {
 	ctx := context.Background()
 	seller := e.seller(t)
 	d := draft(e.upload(t, seller, jpegBytes(t)))
-	mark := e.upload(t, seller, jpegBytes(t))
-	d.Marks = []domain.MarkDraft{{Text: "Trầy góc", Photo: &mark}}
 	key := uuid.NewV7().String()
 	posted, err := e.catalog.Post(ctx, seller, key, d)
 	if err != nil || posted.Status != domain.StatusProcessing || posted.Location.Province.DisplayName == "" {
@@ -89,8 +87,7 @@ func TestPostPublishes(t *testing.T) {
 		t.Fatalf("repeat: %+v %v", again, err)
 	}
 	v := e.settle(t, seller, posted.ID)
-	if v.Status != domain.StatusActive || v.PublishedAt == nil || v.Photos[0].URL == "" || v.Photos[0].ThumbURL == "" ||
-		v.Marks[0].Photo == nil || v.Marks[0].Photo.URL == "" {
+	if v.Status != domain.StatusActive || v.PublishedAt == nil || v.Photos[0].URL == "" || v.Photos[0].ThumbURL == "" {
 		t.Fatalf("%+v", v)
 	}
 	if got := kindsOf(t, e.db, posted.ID); !slices.Equal(got, []string{"listing.published"}) {
