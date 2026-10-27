@@ -37,19 +37,24 @@ func (s *Account) Blocked(ctx context.Context, a, b uuid.UUID) (bool, error) {
 	return blocked, nil
 }
 
-// Blocks lists the accounts blocker blocks with their display names.
+// Blocks lists the accounts blocker blocks with their display names, read
+// in one query.
 func (s *Account) Blocks(ctx context.Context, blocker uuid.UUID, p page.Request) (page.Page[BlockView], error) {
 	rows, err := s.accounts.ListBlocks(ctx, blocker, p)
 	if err != nil {
 		return page.Page[BlockView]{}, fmt.Errorf("list blocks: %w", err)
 	}
+	ids := make([]uuid.UUID, 0, len(rows))
+	for _, b := range rows {
+		ids = append(ids, b.AccountID)
+	}
+	accounts, err := s.GetMany(ctx, ids)
+	if err != nil {
+		return page.Page[BlockView]{}, err
+	}
 	items := make([]BlockView, 0, len(rows))
 	for _, b := range rows {
-		a, getErr := s.Get(ctx, b.AccountID)
-		if getErr != nil {
-			return page.Page[BlockView]{}, getErr
-		}
-		items = append(items, BlockView{ID: b.ID, AccountID: b.AccountID, DisplayName: a.DisplayName, At: b.At})
+		items = append(items, BlockView{ID: b.ID, AccountID: b.AccountID, DisplayName: accounts[b.AccountID].DisplayName, At: b.At})
 	}
 	return page.Of(items, p, func(v BlockView) uuid.UUID { return v.ID }), nil
 }

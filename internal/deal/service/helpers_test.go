@@ -53,7 +53,7 @@ func newEnv(t *testing.T) env {
 		t.Fatal(err)
 	}
 	in, p := ingress.NewClient(url), restatetest.Prefix()
-	accounts := accountsvc.New(accountrepo.NewAccounts(db), time.Now)
+	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
 	auth := authsvc.New(authsvc.Deps{Credentials: authrepo.NewCredentials(db)})
 	media := mediasvc.New(mediasvc.Deps{
 		Uploads: mediarepo.NewUploads(db), Store: objectstoretest.New(t), Ingress: in, Prefix: p, Now: time.Now,

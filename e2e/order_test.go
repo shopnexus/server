@@ -15,6 +15,7 @@ type orderDeal struct {
 		Status       string `json:"status"`
 		CancelReason string `json:"cancel_reason"`
 		Recipient    struct {
+			Name   string `json:"name"`
 			Phone  string `json:"phone"`
 			Street string `json:"street"`
 		} `json:"recipient"`
@@ -27,21 +28,18 @@ type orderList struct {
 	} `json:"items"`
 }
 
-func codBody() map[string]any {
-	return map[string]any{"recipient": map[string]any{
-		"name": "Hân", "phone": "0912345678", "street": "12 Lý Thường Kiệt", "commune_code": "00004",
-	}}
-}
+// codBody asks for COD to address.
+func codBody(address string) map[string]any { return map[string]any{"address_id": address} }
 
 var waybillBody = map[string]any{"carrier": "spx", "tracking_code": "SPXVN0123", "fee": 22_000}
 
 // requestedOrder opens buyer's deal on listing, agrees the listed price and
-// asks for COD.
+// asks for COD to buyer's default address.
 func requestedOrder(t *testing.T, buyer, listing string) orderDeal {
 	t.Helper()
 	d := openDeal(t, buyer, listing, http.StatusCreated)
 	moved(t, buyer, d.ID, "accept", map[string]any{"price": 1_500_000})
-	res := dealCall(t, buyer, d.ID, "cod", codBody())
+	res := dealCall(t, buyer, d.ID, "cod", codBody(deliveryAddress(t, buyer)))
 	if res.Status != http.StatusOK {
 		t.Fatalf("cod: %d %s", res.Status, res.Body)
 	}
@@ -161,24 +159,31 @@ func TestOrderRefusals(t *testing.T) {
 	stranger, _ := newAccount(t)
 	d := requestedOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken).ID)
 
+	home := deliveryAddress(t, buyer.AccessToken)
 	open := openDeal(t, buyer.AccessToken, activeListing(t, seller.AccessToken).ID, http.StatusCreated)
-	expect("cod signed out", dealCall(t, "", open.ID, "cod", codBody()), 401, "unauthenticated")
-	expect("cod a bad id", dealCall(t, buyer.AccessToken, "not-a-uuid", "cod", codBody()), 400, "")
-	expect("cod as a stranger", dealCall(t, stranger.AccessToken, open.ID, "cod", codBody()), 404, "deal_not_found")
-	expect("cod not agreed", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody()), 409, "move_not_allowed")
+	expect("cod signed out", dealCall(t, "", open.ID, "cod", codBody(home)), 401, "unauthenticated")
+	expect("cod a bad id", dealCall(t, buyer.AccessToken, "not-a-uuid", "cod", codBody(home)), 400, "")
+	expect("cod a bad address id", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody("not-a-uuid")), 400, "")
+	expect("cod as a stranger", dealCall(t, stranger.AccessToken, open.ID, "cod", codBody(home)), 404, "deal_not_found")
+	expect("cod not agreed", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(home)), 409, "move_not_allowed")
 	moved(t, buyer.AccessToken, open.ID, "accept", map[string]any{"price": 1_500_000})
-	bad := codBody()
-	bad["recipient"].(map[string]any)["phone"] = "123"
-	expect("cod a bad phone", dealCall(t, buyer.AccessToken, open.ID, "cod", bad), 422, "invalid_recipient")
+	expect("cod to someone else's address", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(newAddress(t, stranger.AccessToken).ID)),
+		404, "address_not_found")
+	gone := newAddress(t, buyer.AccessToken).ID
+	if res := call(t, server, "DELETE", "/v1/addresses/"+gone, nil, bearer(buyer.AccessToken)); res.Status != http.StatusNoContent {
+		t.Fatalf("delete address: %d %s", res.Status, res.Body)
+	}
+	expect("cod to a deleted address", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(gone)), 404, "address_not_found")
 	late, _ := newAccount(t)
 	ld := openDeal(t, late.AccessToken, activeListing(t, seller.AccessToken).ID, http.StatusCreated)
 	moved(t, late.AccessToken, ld.ID, "accept", map[string]any{"price": 1_500_000})
+	lateHome := deliveryAddress(t, late.AccessToken)
 	suspend(t, late.Account.ID)
-	expect("cod suspended", dealCall(t, late.AccessToken, ld.ID, "cod", codBody()), 403, "account_suspended")
+	expect("cod suspended", dealCall(t, late.AccessToken, ld.ID, "cod", codBody(lateHome)), 403, "account_suspended")
 	for range 2 {
 		requestedOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken).ID)
 	}
-	expect("a fourth order", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody()), 409, "cod_limit_reached")
+	expect("a fourth order", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(home)), 409, "cod_limit_reached")
 
 	expect("ship signed out", call(t, server, "POST", "/v1/deals/"+d.ID+"/ship", waybillBody, newKey()), 401, "unauthenticated")
 	expect("ship without a key", call(t, server, "POST", "/v1/deals/"+d.ID+"/ship", waybillBody, bearer(seller.AccessToken)), 400, "")

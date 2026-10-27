@@ -85,42 +85,56 @@ type MarkView struct {
 	Photo *PhotoView `json:"photo,omitempty"`
 }
 
-// view builds the ListingView of l, reading its commune.
+// view builds the ListingView of l.
 func (c *Catalog) view(ctx context.Context, l domain.Listing) (ListingView, error) {
-	commune, province, err := c.regions.Commune(ctx, l.CommuneCode())
-	if err != nil && !errors.Is(err, repository.ErrNotFound) {
-		return ListingView{}, fmt.Errorf("get commune: %w", err)
+	views, err := c.views(ctx, []domain.Listing{l})
+	if err != nil {
+		return ListingView{}, err
 	}
-	photo := func(p domain.Photo) PhotoView {
-		v := PhotoView{UploadID: p.UploadID, Failure: l.Rejection()[p.UploadID]}
-		if p.Keys.Photo != "" {
-			v.URL, v.ThumbURL = c.media.URL(p.Keys.Photo), c.media.URL(p.Keys.Thumb)
+	return views[0], nil
+}
+
+// views builds the ListingViews of ls, reading their communes in one query.
+func (c *Catalog) views(ctx context.Context, ls []domain.Listing) ([]ListingView, error) {
+	codes := make([]string, 0, len(ls))
+	for i := range ls {
+		codes = append(codes, ls[i].CommuneCode())
+	}
+	places, err := c.Places(ctx, codes)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ListingView, 0, len(ls))
+	for i := range ls {
+		l := &ls[i]
+		photo := func(p domain.Photo) PhotoView {
+			v := PhotoView{UploadID: p.UploadID, Failure: l.Rejection()[p.UploadID]}
+			if p.Keys.Photo != "" {
+				v.URL, v.ThumbURL = c.media.URL(p.Keys.Photo), c.media.URL(p.Keys.Thumb)
+			}
+			return v
 		}
-		return v
-	}
-	photos := make([]PhotoView, 0, len(l.Photos()))
-	for _, p := range l.Photos() {
-		photos = append(photos, photo(p))
-	}
-	marks := make([]MarkView, 0, len(l.Marks()))
-	for _, m := range l.Marks() {
-		mv := MarkView{Text: m.Text}
-		if m.Photo != nil {
-			mv.Photo = new(photo(*m.Photo))
+		photos := make([]PhotoView, 0, len(l.Photos()))
+		for _, p := range l.Photos() {
+			photos = append(photos, photo(p))
 		}
-		marks = append(marks, mv)
+		marks := make([]MarkView, 0, len(l.Marks()))
+		for _, m := range l.Marks() {
+			mv := MarkView{Text: m.Text}
+			if m.Photo != nil {
+				mv.Photo = new(photo(*m.Photo))
+			}
+			marks = append(marks, mv)
+		}
+		out = append(out, ListingView{
+			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), Description: l.Description(),
+			CategoryCode: l.CategoryCode(), Condition: l.Condition(), AllowOffers: l.AllowOffers(),
+			Location: places[l.CommuneCode()],
+			Photos:   photos, Marks: marks, Specs: l.Specs(), Status: l.Status(),
+			CreatedAt: l.CreatedAt(), UpdatedAt: l.UpdatedAt(), PublishedAt: l.PublishedAt(), SoldAt: l.SoldAt(),
+		})
 	}
-	return ListingView{
-		ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), Description: l.Description(),
-		CategoryCode: l.CategoryCode(), Condition: l.Condition(), AllowOffers: l.AllowOffers(),
-		Location: Location{
-			Commune:  Region{Code: l.CommuneCode(), DisplayName: commune.DisplayName},
-			Province: Region{Code: commune.ProvinceCode, DisplayName: province},
-			Lat:      commune.Lat, Lng: commune.Lng,
-		},
-		Photos: photos, Marks: marks, Specs: l.Specs(), Status: l.Status(),
-		CreatedAt: l.CreatedAt(), UpdatedAt: l.UpdatedAt(), PublishedAt: l.PublishedAt(), SoldAt: l.SoldAt(),
-	}, nil
+	return out, nil
 }
 
 // own loads the seller's listing id. Another seller's listing is

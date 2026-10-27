@@ -16,7 +16,21 @@ func (s *Account) Get(ctx context.Context, id uuid.UUID) (AccountView, error) {
 	if err != nil {
 		return AccountView{}, err
 	}
-	return viewOf(a, s.now()), nil
+	return s.view(a, s.now()), nil
+}
+
+// GetMany reads the accounts among ids in one query.
+func (s *Account) GetMany(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]AccountView, error) {
+	rows, err := s.accounts.GetMany(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get accounts: %w", err)
+	}
+	now := s.now()
+	out := make(map[uuid.UUID]AccountView, len(rows))
+	for i := range rows {
+		out[rows[i].ID()] = s.view(rows[i], now)
+	}
+	return out, nil
 }
 
 // Status returns the status in force now.

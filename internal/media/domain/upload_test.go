@@ -40,22 +40,38 @@ func TestAttachOnlyByTheOwnerWhileWaiting(t *testing.T) {
 	t.Parallel()
 	owner, holder := uuid.NewV7(), uuid.NewV7()
 	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
-	if _, err := u.Attach(uuid.NewV7(), holder, now); !errors.Is(err, domain.ErrInvalidUpload) {
+	if _, err := u.Attach(uuid.NewV7(), holder, domain.ShapePhoto, now); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("another owner: %v", err)
 	}
-	if changed, err := u.Attach(owner, holder, now); err != nil || !changed || u.Status() != domain.StatusAttached ||
-		u.HolderID() != holder {
+	if changed, err := u.Attach(owner, holder, domain.ShapePhoto, now); err != nil || !changed || u.Status() != domain.StatusAttached ||
+		u.HolderID() != holder || u.Shape() != domain.ShapePhoto {
 		t.Fatalf("owner: %v %v %s", changed, err, u.Status())
 	}
-	if changed, err := u.Attach(owner, holder, now); err != nil || changed {
+	if changed, err := u.Attach(owner, holder, domain.ShapePhoto, now); err != nil || changed {
 		t.Fatalf("again to the same holder: %v %v", changed, err)
 	}
 	u.Processed("media/a.jpg", "media/a_thumb.jpg", now)
-	if changed, err := u.Attach(owner, holder, now); err != nil || changed || u.Status() != domain.StatusReady {
+	if changed, err := u.Attach(owner, holder, domain.ShapePhoto, now); err != nil || changed || u.Status() != domain.StatusReady {
 		t.Fatalf("processed, same holder: %v %v %s", changed, err, u.Status())
 	}
-	if _, err := u.Attach(owner, uuid.NewV7(), now); !errors.Is(err, domain.ErrInvalidUpload) {
+	if _, err := u.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("another holder: %v", err)
+	}
+}
+
+// An upload made a photo for a holder is not made a square for it too.
+func TestAttachKeepsItsShape(t *testing.T) {
+	t.Parallel()
+	owner, holder := uuid.NewV7(), uuid.NewV7()
+	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	if _, err := u.Attach(owner, holder, domain.ShapeSquare, now); err != nil || u.Shape() != domain.ShapeSquare {
+		t.Fatalf("square: %v %s", err, u.Shape())
+	}
+	if changed, err := u.Attach(owner, holder, domain.ShapeSquare, now); err != nil || changed {
+		t.Fatalf("square again: %v %v", changed, err)
+	}
+	if _, err := u.Attach(owner, holder, domain.ShapePhoto, now); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("as a photo: %v", err)
 	}
 }
 
@@ -67,7 +83,7 @@ func TestExpireOnlyWhileWaiting(t *testing.T) {
 		t.Fatalf("waiting: %s", waiting.Status())
 	}
 	attached, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
-	_, _ = attached.Attach(owner, uuid.NewV7(), now)
+	_, _ = attached.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
 	if attached.Expire(now) || attached.Status() != domain.StatusAttached {
 		t.Fatalf("attached: %s", attached.Status())
 	}
@@ -77,13 +93,13 @@ func TestProcessedAndFailed(t *testing.T) {
 	t.Parallel()
 	owner := uuid.NewV7()
 	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
-	_, _ = u.Attach(owner, uuid.NewV7(), now)
+	_, _ = u.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
 	u.Processed("media/a.jpg", "media/a_thumb.jpg", now)
 	if u.Status() != domain.StatusReady || u.PhotoKey() != "media/a.jpg" || u.ThumbKey() != "media/a_thumb.jpg" {
 		t.Fatalf("%+v", u.State())
 	}
 	f, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
-	_, _ = f.Attach(owner, uuid.NewV7(), now)
+	_, _ = f.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
 	f.Failed("not an image", now)
 	if f.Status() != domain.StatusFailed || f.Failure() != "not an image" {
 		t.Fatalf("%+v", f.State())
@@ -93,7 +109,9 @@ func TestProcessedAndFailed(t *testing.T) {
 // A Restate step returns an Upload; it survives the journal.
 func TestUploadJSONRoundTrip(t *testing.T) {
 	t.Parallel()
-	u, _ := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), "image/png", 42, now)
+	owner := uuid.NewV7()
+	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/png", 42, now)
+	_, _ = u.Attach(owner, uuid.NewV7(), domain.ShapeSquare, now)
 	b, err := json.Marshal(u)
 	if err != nil {
 		t.Fatal(err)

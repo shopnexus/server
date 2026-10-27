@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"uuid"
 
+	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
@@ -21,6 +22,21 @@ func (s *Deals) Get(ctx context.Context, viewer, id uuid.UUID) (DealView, error)
 		return DealView{}, err
 	}
 	return s.read(ctx, viewer, d, l)
+}
+
+func (s *Deals) BuyerSummary(ctx context.Context, buyer, listingID uuid.UUID) (DealSummary, bool, error) {
+	d, err := s.deals.Find(ctx, listingID, buyer)
+	if errors.Is(err, repository.ErrNotFound) {
+		return DealSummary{}, false, nil
+	}
+	if err != nil {
+		return DealSummary{}, false, fmt.Errorf("find deal: %w", err)
+	}
+	l, err := s.listing(ctx, listingID)
+	if err != nil {
+		return DealSummary{}, false, err
+	}
+	return summary(buyer, &d, l), true, nil
 }
 
 // ListMine reads one page of the viewer's deals.
@@ -44,12 +60,16 @@ func (s *Deals) Between(ctx context.Context, viewer, other uuid.UUID) ([]DealVie
 	return s.views(ctx, viewer, rows)
 }
 
-// views builds the views of deals for viewer, reading their listings and
-// moves in two queries and each order's place.
+// views builds the views of deals for viewer, reading their listings, their
+// moves and their orders' places in three queries.
 func (s *Deals) views(ctx context.Context, viewer uuid.UUID, deals []domain.Deal) ([]DealView, error) {
 	listingIDs, dealIDs := make([]uuid.UUID, 0, len(deals)), make([]uuid.UUID, 0, len(deals))
+	var codes []string
 	for i := range deals {
 		listingIDs, dealIDs = append(listingIDs, deals[i].ListingID()), append(dealIDs, deals[i].ID())
+		if o := deals[i].Order(); o != nil {
+			codes = append(codes, o.Recipient.CommuneCode)
+		}
 	}
 	listings, err := s.catalog.Summaries(ctx, listingIDs)
 	if err != nil {
@@ -59,39 +79,44 @@ func (s *Deals) views(ctx context.Context, viewer uuid.UUID, deals []domain.Deal
 	if err != nil {
 		return nil, fmt.Errorf("read moves: %w", err)
 	}
+	places, err := s.catalog.Places(ctx, codes)
+	if err != nil {
+		return nil, fmt.Errorf("read the recipients' communes: %w", err)
+	}
 	items := make([]DealView, 0, len(deals))
 	for i := range deals {
-		place, placeErr := s.placeOf(ctx, deals[i].Order())
-		if placeErr != nil {
-			return nil, placeErr
+		var place catalogsvc.Location
+		if o := deals[i].Order(); o != nil {
+			place = places[o.Recipient.CommuneCode]
 		}
 		items = append(items, view(viewer, deals[i], listings[deals[i].ListingID()], moves[deals[i].ID()], place))
 	}
 	return items, nil
 }
 
-// ListOrders reads one page of the viewer's orders with their listings.
+// ListOrders reads one page of the viewer's orders with their listings and
+// places.
 func (s *Deals) ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[OrderItem], error) {
 	rows, err := s.deals.ListOrders(ctx, viewer, as, p)
 	if err != nil {
 		return page.Page[OrderItem]{}, fmt.Errorf("list orders: %w", err)
 	}
-	ids := make([]uuid.UUID, 0, len(rows))
+	ids, codes := make([]uuid.UUID, 0, len(rows)), make([]string, 0, len(rows))
 	for i := range rows {
-		ids = append(ids, rows[i].ListingID)
+		ids, codes = append(ids, rows[i].ListingID), append(codes, rows[i].Order.Recipient.CommuneCode)
 	}
 	listings, err := s.catalog.Summaries(ctx, ids)
 	if err != nil {
 		return page.Page[OrderItem]{}, fmt.Errorf("read listings: %w", err)
 	}
+	places, err := s.catalog.Places(ctx, codes)
+	if err != nil {
+		return page.Page[OrderItem]{}, fmt.Errorf("read the recipients' communes: %w", err)
+	}
 	items := make([]OrderItem, 0, len(rows))
 	for i := range rows {
-		place, placeErr := s.placeOf(ctx, &rows[i].Order)
-		if placeErr != nil {
-			return page.Page[OrderItem]{}, placeErr
-		}
 		items = append(items, OrderItem{
-			OrderView: orderView(rows[i].Order, as, place), DealID: rows[i].DealID,
+			OrderView: orderView(rows[i].Order, as, places[rows[i].Order.Recipient.CommuneCode]), DealID: rows[i].DealID,
 			Listing: listingRef(listings[rows[i].ListingID]),
 		})
 	}

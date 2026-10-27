@@ -37,7 +37,7 @@ func startSignIn(t *testing.T, changes ...func(*service.SignIn)) *signInEnv {
 	challenges := repository.NewChallenges(db)
 	svc := service.SignIn{
 		Prefix: restatetest.Prefix(), Challenges: challenges, Credentials: repository.NewCredentials(db),
-		Accounts: accountsvc.New(accountrepo.NewAccounts(db), time.Now), Now: clock.Now,
+		Accounts: accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now), Now: clock.Now,
 	}
 	for _, change := range changes {
 		change(&svc)

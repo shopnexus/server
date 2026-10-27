@@ -284,6 +284,25 @@ func (s pgDeals) Between(ctx context.Context, a, b uuid.UUID) ([]domain.Deal, er
 ORDER BY d.id DESC`, pgx.StrictNamedArgs{"a": a, "b": b})
 }
 
+// dealsOfPairs ranks each pair's deals by last move, a UUIDv7 as the deal
+// ID is, and keeps the active ones and the newest.
+const dealsOfPairs = selectDeal + `JOIN (
+    SELECT id, status, last_move, row_number() OVER (PARTITION BY other ORDER BY last_move DESC) AS nth
+    FROM (
+        SELECT d.id, d.status, CASE WHEN d.buyer_id = @viewer THEN d.seller_id ELSE d.buyer_id END AS other,
+               coalesce((SELECT m.id FROM deal_moves m WHERE m.deal_id = d.id ORDER BY m.id DESC LIMIT 1), d.id)
+                   AS last_move
+        FROM deals d
+        WHERE (d.buyer_id = @viewer AND d.seller_id = ANY(@others))
+           OR (d.seller_id = @viewer AND d.buyer_id = ANY(@others))
+    ) pair
+) ranked ON ranked.id = d.id AND (ranked.status IN ('negotiating', 'agreed') OR ranked.nth = 1)
+ORDER BY ranked.last_move DESC`
+
+func (s pgDeals) OfPairs(ctx context.Context, viewer uuid.UUID, others []uuid.UUID) ([]domain.Deal, error) {
+	return s.many(ctx, dealsOfPairs, pgx.StrictNamedArgs{"viewer": viewer, "others": others})
+}
+
 func (s pgDeals) OfListing(ctx context.Context, listingID uuid.UUID) ([]domain.Deal, error) {
 	return s.many(ctx, selectDeal+`WHERE d.listing_id = @listing_id ORDER BY d.id`, pgx.StrictNamedArgs{"listing_id": listingID})
 }

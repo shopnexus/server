@@ -33,6 +33,12 @@ paths:
     $ref: "paths/account.yaml#/blocks"
   /v1/blocks/{account_id}:
     $ref: "paths/account.yaml#/block"
+  /v1/addresses:
+    $ref: "paths/address.yaml#/addresses"
+  /v1/addresses/{id}:
+    $ref: "paths/address.yaml#/address"
+  /v1/addresses/{id}/default:
+    $ref: "paths/address.yaml#/addressDefault"
   /v1/uploads:
     $ref: "paths/media.yaml#/uploads"
   /v1/listings:
@@ -85,8 +91,6 @@ paths:
     $ref: "paths/stream.yaml#/stream"
   /v1/conversations:
     $ref: "paths/chat.yaml#/conversations"
-  /v1/conversations/{id}:
-    $ref: "paths/chat.yaml#/conversation"
   /v1/conversations/{id}/messages:
     $ref: "paths/chat.yaml#/conversationMessages"
   /v1/conversations/{id}/read:
@@ -97,10 +101,20 @@ paths:
     $ref: "paths/chat.yaml#/conversationUnarchive"
   /v1/me/unread:
     $ref: "paths/chat.yaml#/unread"
+  /v1/screens/inbox:
+    $ref: "paths/screen_inbox.yaml#/screenInbox"
+  /v1/screens/chat/{conversation_id}:
+    $ref: "paths/screen_inbox.yaml#/screenChat"
+  /v1/screens/listing/{id}:
+    $ref: "paths/screen_listing.yaml#/screenListing"
+  /v1/screens/seller/{id}:
+    $ref: "paths/screen_listing.yaml#/screenSeller"
   /v1/orders/{order_id}/review:
     $ref: "paths/trust.yaml#/review"
   /v1/sellers/{id}/reviews:
     $ref: "paths/trust.yaml#/sellerReviews"
+  /v1/sellers/{id}/listings:
+    $ref: "paths/catalog.yaml#/sellerListings"
   /v1/saved:
     $ref: "paths/discovery.yaml#/saved"
   /v1/saved/{listing_id}:

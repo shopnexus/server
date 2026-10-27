@@ -5,8 +5,6 @@ import (
 	"time"
 	"unicode/utf8"
 	"uuid"
-
-	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
 const (
@@ -14,8 +12,6 @@ const (
 	// shipped at once.
 	MaxOpenOrders   = 3
 	MaxFee          = 5_000_000
-	maxName         = 50
-	maxStreet       = 200
 	maxCarrierName  = 50
 	maxTrackingCode = 50
 	// SourceSelf is a waybill the seller made on the carrier's own app.
@@ -88,30 +84,6 @@ type Order struct {
 	RequestedAt  time.Time    `json:"requested_at"`
 	ShippedAt    *time.Time   `json:"shipped_at,omitempty"`
 	ClosedAt     *time.Time   `json:"closed_at,omitempty"`
-}
-
-// NewRecipient checks a recipient as the buyer typed it. communeExists is
-// what the service found in the administrative list.
-func NewRecipient(name, phone, street, communeCode string, communeExists bool) (Recipient, error) {
-	e := ErrInvalidRecipient
-	name, street = strings.TrimSpace(name), strings.TrimSpace(street)
-	if n := utf8.RuneCountInString(name); n < 1 || n > maxName {
-		e = e.WithField("name", "1 to 50 characters")
-	}
-	p, err := contact.ParsePhone(phone)
-	if err != nil {
-		e = e.WithField("phone", "a Vietnamese mobile number")
-	}
-	if n := utf8.RuneCountInString(street); n < 1 || n > maxStreet {
-		e = e.WithField("street", "1 to 200 characters")
-	}
-	if !communeExists {
-		e = e.WithField("commune_code", "a commune code from the administrative list")
-	}
-	if len(e.Fields) > 0 {
-		return Recipient{}, e
-	}
-	return Recipient{Name: name, Phone: p.Value(), Street: street, CommuneCode: communeCode}, nil
 }
 
 // NewWaybill checks a waybill as the seller typed it. carrierName names a

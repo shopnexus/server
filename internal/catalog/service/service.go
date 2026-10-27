@@ -42,6 +42,11 @@ type Service interface {
 	Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error)
 	// ListMine lists one of the seller's panes, newest first.
 	ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p page.Request) (page.Page[ListingView], error)
+	// SellerListings lists what anyone sees of a seller's listings, newest
+	// first.
+	SellerListings(ctx context.Context, seller uuid.UUID, p page.Request) (page.Page[ListingView], error)
+	// SellerCounts counts a seller's sold listings and those on sale.
+	SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCounts, error)
 	// Summaries reads listings in any status for other modules; an unknown
 	// ID is left out of the map.
 	Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Summary, error)
@@ -54,9 +59,9 @@ type Service interface {
 	// SellTo marks a listing held for the order sold; a listing already sold
 	// for it stays as it is.
 	SellTo(ctx context.Context, listingID, orderID uuid.UUID) error
-	// Place reads a commune with its province; an unknown code is
-	// domain.ErrNotFound.
-	Place(ctx context.Context, communeCode string) (Location, error)
+	// Places reads the communes among codes with their provinces, keyed by
+	// code; an unknown code is left out.
+	Places(ctx context.Context, codes []string) (map[string]Location, error)
 	Categories(ctx context.Context) ([]domain.Category, error)
 	Provinces(ctx context.Context) ([]domain.Province, error)
 	Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error)

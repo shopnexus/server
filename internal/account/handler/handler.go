@@ -20,8 +20,13 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 // signed-in caller.
 func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
 	r.Handle("GET /v1/accounts/me", protect(http.HandlerFunc(h.GetMe)))
-	r.Handle("PATCH /v1/accounts/me", protect(http.HandlerFunc(h.Rename)))
+	r.Handle("PATCH /v1/accounts/me", protect(http.HandlerFunc(h.Update)))
 	r.Handle("POST /v1/blocks", protect(http.HandlerFunc(h.Block)))
 	r.Handle("GET /v1/blocks", protect(http.HandlerFunc(h.Blocks)))
 	r.Handle("DELETE /v1/blocks/{account_id}", protect(http.HandlerFunc(h.Unblock)))
+	r.Handle("GET /v1/addresses", protect(http.HandlerFunc(h.Addresses)))
+	r.Handle("POST /v1/addresses", protect(http.HandlerFunc(h.CreateAddress)))
+	r.Handle("PUT /v1/addresses/{id}", protect(http.HandlerFunc(h.UpdateAddress)))
+	r.Handle("DELETE /v1/addresses/{id}", protect(http.HandlerFunc(h.DeleteAddress)))
+	r.Handle("POST /v1/addresses/{id}/default", protect(http.HandlerFunc(h.SetDefaultAddress)))
 }

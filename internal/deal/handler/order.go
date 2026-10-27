@@ -10,16 +10,9 @@ import (
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
 
-type recipientBody struct {
-	Name        string `json:"name"`
-	Phone       string `json:"phone"`
-	Street      string `json:"street"`
-	CommuneCode string `json:"commune_code"`
-}
-
 type codRequest struct {
-	ID        uuid.UUID     `json:"-"         path:"id"`
-	Recipient recipientBody `json:"recipient"`
+	ID        uuid.UUID `json:"-"          path:"id"`
+	AddressID uuid.UUID `json:"address_id"`
 }
 
 type shipRequest struct {
@@ -39,10 +32,7 @@ type finishRequest struct {
 // RequestCod serves POST /v1/deals/{id}/cod.
 func (h *Handler) RequestCod(w http.ResponseWriter, r *http.Request) {
 	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in codRequest) (service.DealView, error) {
-		return h.svc.RequestCod(ctx, caller, in.ID, service.RecipientInput{
-			Name: in.Recipient.Name, Phone: in.Recipient.Phone, Street: in.Recipient.Street,
-			CommuneCode: in.Recipient.CommuneCode,
-		})
+		return h.svc.RequestCod(ctx, caller, in.ID, in.AddressID)
 	})
 }
 

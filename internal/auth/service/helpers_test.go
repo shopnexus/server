@@ -65,7 +65,7 @@ func (e emailInbox) Send(ctx context.Context, to, _, body string) error {
 
 // accountsOn is module account's adapter on db, reading statuses at now.
 func accountsOn(db *pgxpool.Pool) accountsvc.Service {
-	return accountsvc.New(accountrepo.NewAccounts(db), func() time.Time { return now })
+	return accountsvc.New(accountrepo.NewAccounts(db), nil, func() time.Time { return now })
 }
 
 // newAccount creates an active account in db and returns its ID.

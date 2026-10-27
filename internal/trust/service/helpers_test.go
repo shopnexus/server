@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/restatedev/sdk-go/ingress"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	accountrepo "github.com/shopnexus/server2/internal/account/repository"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	authdomain "github.com/shopnexus/server2/internal/auth/domain"
@@ -50,7 +51,7 @@ func newEnv(t *testing.T) env {
 		t.Fatal(err)
 	}
 	in, p := ingress.NewClient(url), restatetest.Prefix()
-	accounts := accountsvc.New(accountrepo.NewAccounts(db), time.Now)
+	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
 	auth := authsvc.New(authsvc.Deps{Credentials: authrepo.NewCredentials(db)})
 	media := mediasvc.New(mediasvc.Deps{
 		Uploads: mediarepo.NewUploads(db), Store: objectstoretest.New(t), Ingress: in, Prefix: p, Now: time.Now,
@@ -118,9 +119,13 @@ func (e env) requested(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.
 	if _, err = e.deals.Accept(ctx, buyer, d.ID, 1_500_000); err != nil {
 		t.Fatal(err)
 	}
-	v, err := e.deals.RequestCod(ctx, buyer, d.ID, dealsvc.RecipientInput{
+	a, err := e.accounts.CreateAddress(ctx, buyer, uuid.NewV7(), accountdomain.AddressDraft{
 		Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004",
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, err := e.deals.RequestCod(ctx, buyer, d.ID, a.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

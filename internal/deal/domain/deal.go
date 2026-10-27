@@ -355,6 +355,29 @@ func (d *Deal) ListingChanged(l Listing, now time.Time) bool {
 	return true
 }
 
+// Active reports a deal still negotiating or agreed.
+func (d *Deal) Active() bool { return d.status == StatusNegotiating || d.status == StatusAgreed }
+
+// TurnOf reports whether by has to act: the deal negotiates and the open
+// price l still stands behind is the other side's, or the deal is agreed
+// and waits for the buyer's COD request on a listing still on sale or, on
+// an order requested or shipped, for the seller.
+func (d *Deal) TurnOf(by Party, l Listing) bool {
+	switch d.status {
+	case StatusNegotiating:
+		open := d.live(l)
+		return open != nil && open.By != by
+	case StatusAgreed:
+		if by == Seller {
+			return d.openOrder() != nil
+		}
+		return d.openOrder() == nil && l.Status == ListingActive
+	case StatusSold:
+		return false
+	}
+	return false
+}
+
 // openOrder is the deal's order while requested or shipped, nil otherwise.
 func (d *Deal) openOrder() *Order {
 	if d.order != nil && d.order.Open() {

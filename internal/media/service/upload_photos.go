@@ -27,7 +27,10 @@ func (m *Media) Photos(ctx context.Context, ids []uuid.UUID) ([]Photo, error) {
 		}
 		p := Photo{UploadID: id, Status: u.Status(), Failure: u.Failure()}
 		if u.Status() == domain.StatusReady {
-			p.URL, p.ThumbURL = m.store.PublicURL(u.PhotoKey()), m.store.PublicURL(u.ThumbKey())
+			p.URL = m.store.PublicURL(u.PhotoKey())
+		}
+		if u.ThumbKey() != "" {
+			p.ThumbURL = m.store.PublicURL(u.ThumbKey())
 		}
 		out = append(out, p)
 	}

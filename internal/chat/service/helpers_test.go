@@ -27,8 +27,6 @@ import (
 	"github.com/shopnexus/server2/internal/chat/domain"
 	"github.com/shopnexus/server2/internal/chat/repository"
 	"github.com/shopnexus/server2/internal/chat/service"
-	dealrepo "github.com/shopnexus/server2/internal/deal/repository"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	mediarepo "github.com/shopnexus/server2/internal/media/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/audit"
@@ -45,7 +43,6 @@ type env struct {
 	catalog  *catalogsvc.Catalog
 	listings catalogrepo.Listings
 	media    *mediasvc.Media
-	deals    *dealsvc.Deals
 	deps     service.Deps
 	chat     *service.Chat
 }
@@ -60,7 +57,7 @@ func newEnv(t *testing.T) env {
 		t.Fatal(err)
 	}
 	in, p := ingress.NewClient(url), restatetest.Prefix()
-	accounts := accountsvc.New(accountrepo.NewAccounts(db), time.Now)
+	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
 	auth := authsvc.New(authsvc.Deps{Credentials: authrepo.NewCredentials(db)})
 	media := mediasvc.New(mediasvc.Deps{
 		Uploads: mediarepo.NewUploads(db), Store: objectstoretest.New(t), Ingress: in, Prefix: p, Now: time.Now,
@@ -70,16 +67,13 @@ func newEnv(t *testing.T) env {
 		Listings: listings, Categories: catalogrepo.NewCategories(db), Regions: catalogrepo.NewRegions(db),
 		Accounts: accounts, Auth: auth, Media: media, Ingress: in, Prefix: p, Now: time.Now,
 	})
-	deals := dealsvc.New(dealsvc.Deps{
-		Deals: dealrepo.NewDeals(db), Accounts: accounts, Auth: auth, Catalog: c, Ingress: in, Prefix: p, Now: time.Now,
-	})
 	deps := service.Deps{
-		Chats: repository.NewChats(db), Accounts: accounts, Auth: auth, Catalog: c, Media: media, Deals: deals,
+		Chats: repository.NewChats(db), Accounts: accounts, Auth: auth, Catalog: c, Media: media,
 		Ingress: in, Prefix: p, Now: time.Now,
 	}
 	chat := service.New(deps)
 	restatetest.Start(t, append(media.Durable(), chat.Durable()...)...)
-	return env{db: db, accounts: accounts, catalog: c, listings: listings, media: media, deals: deals, deps: deps, chat: chat}
+	return env{db: db, accounts: accounts, catalog: c, listings: listings, media: media, deps: deps, chat: chat}
 }
 
 // person creates an account with a verified phone number.

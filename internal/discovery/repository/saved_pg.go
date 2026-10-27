@@ -60,6 +60,15 @@ func (s pgSaves) Remove(ctx context.Context, account, listing uuid.UUID) error {
 	return nil
 }
 
+func (s pgSaves) Has(ctx context.Context, account, listing uuid.UUID) (bool, error) {
+	var has bool
+	if err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM saved_listings WHERE account_id = @account AND listing_id = @listing)`,
+		pgx.StrictNamedArgs{"account": account, "listing": listing}).Scan(&has); err != nil {
+		return false, fmt.Errorf("select save: %w", err)
+	}
+	return has, nil
+}
+
 func (s pgSaves) List(ctx context.Context, account uuid.UUID, p page.Request) ([]Save, error) {
 	rows, err := s.db.Query(ctx, `SELECT id, listing_id, saved_price, created_at FROM saved_listings
 WHERE account_id = @account AND id < @before ORDER BY id DESC LIMIT @limit`,

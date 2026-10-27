@@ -34,12 +34,6 @@ type readRequest struct {
 	MessageID uuid.UUID `json:"message_id"`
 }
 
-type inboxRequest struct {
-	page.Request
-
-	Archived bool `json:"-" query:"archived"`
-}
-
 type messagesRequest struct {
 	page.Request
 
@@ -93,26 +87,6 @@ func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 		ListingID: in.ListingID, Text: in.Text, Photos: in.Photos,
 	})
 	answer(h, w, r, http.StatusCreated, v, err)
-}
-
-// Inbox serves GET /v1/conversations.
-func (h *Handler) Inbox(w http.ResponseWriter, r *http.Request) {
-	caller, in, ok := bind[inboxRequest](h, w, r)
-	if !ok {
-		return
-	}
-	v, err := h.svc.Inbox(r.Context(), caller, in.Archived, in.Request)
-	answer(h, w, r, http.StatusOK, v, err)
-}
-
-// Get serves GET /v1/conversations/{id}.
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-	caller, in, ok := bind[conversationRequest](h, w, r)
-	if !ok {
-		return
-	}
-	v, err := h.svc.Get(r.Context(), caller, in.ID)
-	answer(h, w, r, http.StatusOK, v, err)
 }
 
 // Messages serves GET /v1/conversations/{id}/messages.

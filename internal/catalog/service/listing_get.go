@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/catalog/domain"
@@ -22,7 +23,7 @@ func (c *Catalog) Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (Lis
 		return ListingView{}, fmt.Errorf("get listing: %w", err)
 	}
 	owner := viewer != nil && *viewer == l.SellerID()
-	public := l.Status() == domain.StatusActive || l.Status() == domain.StatusReserved
+	public := slices.Contains(domain.Public, l.Status())
 	if l.Status() == domain.StatusDeleted || (!public && !owner) {
 		return ListingView{}, domain.ErrNotFound
 	}
@@ -39,13 +40,9 @@ func (c *Catalog) ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p p
 	if err != nil {
 		return page.Page[ListingView]{}, fmt.Errorf("list listings: %w", err)
 	}
-	items := make([]ListingView, 0, len(rows))
-	for i := range rows {
-		v, viewErr := c.view(ctx, rows[i])
-		if viewErr != nil {
-			return page.Page[ListingView]{}, viewErr
-		}
-		items = append(items, v)
+	items, err := c.views(ctx, rows)
+	if err != nil {
+		return page.Page[ListingView]{}, err
 	}
 	return page.Of(items, p, func(v ListingView) uuid.UUID { return v.ID }), nil
 }
@@ -72,18 +69,19 @@ func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID
 	return out, nil
 }
 
-// Place reads a commune with its province.
-func (c *Catalog) Place(ctx context.Context, communeCode string) (Location, error) {
-	commune, province, err := c.regions.Commune(ctx, communeCode)
-	if errors.Is(err, repository.ErrNotFound) {
-		return Location{}, domain.ErrNotFound
-	}
+// Places reads the communes among codes with their provinces in one query.
+func (c *Catalog) Places(ctx context.Context, codes []string) (map[string]Location, error) {
+	rows, err := c.regions.Places(ctx, codes)
 	if err != nil {
-		return Location{}, fmt.Errorf("get commune: %w", err)
+		return nil, fmt.Errorf("get communes: %w", err)
 	}
-	return Location{
-		Commune:  Region{Code: commune.Code, DisplayName: commune.DisplayName},
-		Province: Region{Code: commune.ProvinceCode, DisplayName: province},
-		Lat:      commune.Lat, Lng: commune.Lng,
-	}, nil
+	out := make(map[string]Location, len(rows))
+	for _, p := range rows {
+		out[p.Code] = Location{
+			Commune:  Region{Code: p.Code, DisplayName: p.DisplayName},
+			Province: Region{Code: p.ProvinceCode, DisplayName: p.Province},
+			Lat:      p.Lat, Lng: p.Lng,
+		}
+	}
+	return out, nil
 }

@@ -1,13 +1,10 @@
 package service
 
 import (
-	"context"
-	"fmt"
 	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/chat/domain"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 )
 
 // OpenInput is the first message of a conversation, about a listing.
@@ -28,6 +25,7 @@ type SendInput struct {
 type PersonView struct {
 	ID          uuid.UUID `json:"id"`
 	DisplayName string    `json:"display_name"`
+	AvatarURL   string    `json:"avatar_url,omitempty"`
 }
 
 // PhotoView is a photo of a message; the URLs are set once it is processed.
@@ -51,10 +49,9 @@ type MessageView struct {
 
 // ConversationView is the Conversation schema in api/schemas/chat.yaml.
 type ConversationView struct {
-	ID       uuid.UUID          `json:"id"`
-	Other    PersonView         `json:"other"`
-	Deals    []dealsvc.DealView `json:"deals"`
-	Archived bool               `json:"archived"`
+	ID       uuid.UUID  `json:"id"`
+	Other    PersonView `json:"other"`
+	Archived bool       `json:"archived"`
 }
 
 // InboxItem is a conversation in the inbox.
@@ -80,13 +77,4 @@ func (c *Chat) messageView(m domain.Message) MessageView {
 		ID: m.ID(), SenderID: m.SenderID(), Text: m.Body(), Photos: photos, ListingID: m.ListingID(),
 		Status: m.Status(), Failure: m.Failure(), CreatedAt: m.CreatedAt(),
 	}
-}
-
-// person reads the display name of account.
-func (c *Chat) person(ctx context.Context, account uuid.UUID) (PersonView, error) {
-	a, err := c.accounts.Get(ctx, account)
-	if err != nil {
-		return PersonView{}, fmt.Errorf("read the other member: %w", err)
-	}
-	return PersonView{ID: account, DisplayName: a.DisplayName}, nil
 }

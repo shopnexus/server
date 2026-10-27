@@ -27,8 +27,8 @@ checks Postgres and the Restate admin health endpoint.
 ### Use cases
 
 A use case is a method of the module's service, in its own file:
-`func (s *Account) Rename(ctx context.Context, id uuid.UUID, name string) (AccountView, error)`
-in `account/service/account_rename.go`. `service.Account` holds the module's
+`func (s *Account) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (AccountView, error)`
+in `account/service/account_update.go`. `service.Account` holds the module's
 repositories and clock, `service.New` builds it, and it implements
 `service.Service`, the module's contract. The module's handlers and every
 other module call `Service`. A method reads the clock once, `now := s.now()`.
@@ -78,7 +78,9 @@ OTP guess must not reveal whether the guess was right.
 
 ### Aggregates in auth and account
 
-- `Account` (module account): display name, status, suspension.
+- `Account` (module account): display name, bio, avatar, status,
+  suspension.
+- `Address` (module account): one address of an account's address book.
 - `Credentials` (module auth): every identity of one account, later its
   password. It holds the rule that an account keeps at least one identity.
 - `Session` (module auth): one signed-in device. It is separate because sessions
@@ -144,7 +146,7 @@ subscribe to its kind; the module that changed data never lists who
 reacts. Every subscriber is a module of server2, so there is no broker.
 
 - `events.Event` is thin: a `Kind` constant in the form
-  `aggregate.past_tense` (`account.renamed`, `account.suspended`,
+  `aggregate.past_tense` (`account.updated`, `account.suspended`,
   `account.unsuspended`), the `SubjectID` of the aggregate, and a `Payload`
   map that only a business event fills. A subscriber reads the subject's
   current state through its module's `Service`, so order, delay and
@@ -203,10 +205,10 @@ internal/account/
   service/           the module's contract and use cases
     service.go         interface Service, type Account, New
     views.go           response views and inputs
-    account_rename.go  one use case per file, a method of Account
+    account_update.go  one use case per file, a method of Account
   handler/           HTTP: request structs, one method per endpoint
     handler.go         type Handler, Register
-    account_rename.go
+    account_update.go
   worker/            Restate handlers for the events the module reacts to
                      (account has none yet)
   account.go         Mount: builds the layers, returns service.Service
@@ -214,14 +216,17 @@ internal/account/
 
 Modules auth, staff, media, catalog, deal, chat, trust and discovery have
 the same four packages; a module that reacts to events adds `worker`, and
-deal is the first that does.
+deal is the first that does. Module `screen` has no `repository` or
+`domain`: it only reads the other modules' services (see Screen).
 
 The modules follow the product model in `app2/mohinh.md`, not the old
 server's split (decided 2026-10-26). There is no finance module: ShopNexus
 holds no money, so there is no wallet and no payment session. Planned
 next: `notification` (the in-app list and push, subscribing to the events
-of deal, chat and catalog), `kyc` (card checks, replacing the phone rule
-for posting) and `billing` (boosts and seller plans). Reports, incident
+of deal, chat and catalog) and `billing` (boosts and seller plans). There
+is no `kyc` module: posting needs a verified phone alone, since a carrier
+checks a seller's identity when it opens their account (decided
+2026-10-27). Reports, incident
 records and reputation will join `trust`; search, the feed, followed
 searches and price alerts will join `discovery`. Imports run one way, `handler` and `worker` →
 `service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
@@ -260,6 +265,7 @@ separate work.
 | `Challenge` | `otp_challenges` | adds `write_id` |
 | `Upload` | `uploads` | module media; status, content type, size, the processed keys |
 | `Listing` | `listings` | module catalog; photos, marks and specs are `jsonb` columns, read and written with the row |
+| `Address` | `addresses` | module account; one row per address, `write_id`; `recipient_name` keeps the keyword `name` out of the columns |
 
 No column is named after an SQL keyword (sqlfluff RF04, run with
 `sqlfluff lint migrations/`): `events.occurred_at` and `payload`,
@@ -331,7 +337,9 @@ Service `OTP`, handler `Send`, run once per `Idempotency-Key`:
 Every endpoint that invokes a Restate service requires an `Idempotency-Key`
 header (a UUID) and passes it as the invocation's idempotency key. A repeated
 key attaches to the first run and returns its result, so a retried tap gets
-the same answer.
+the same answer. `PATCH /v1/accounts/me` with an avatar is the exception: it
+calls `MediaProcess` keyed by the upload ID, which already makes a repeat
+attach to the first run.
 
 ### OTP verify and sign-up
 
@@ -468,8 +476,8 @@ and `MEDIA_PUBLIC_URL`, the base a public URL is built on. RustFS listens on
 
 ### Media
 
-Module `media` owns uploads; catalog uses them now, and chat, KYC and
-avatars will. An `Upload` moves waiting → attached → ready or failed, or
+Module `media` owns uploads; catalog, chat and account (avatars) use
+them. An `Upload` moves waiting → attached → ready or failed, or
 waiting → expired.
 
 - `CreateUpload` (`POST /v1/uploads`) takes a content type (JPEG, PNG or
@@ -494,6 +502,13 @@ waiting → expired.
   enter the journal; the step returns the keys. A later step saves the
   upload ready or failed with the reason and deletes the original. A second
   run returns the first run's result.
+- An upload has a `shape`, recorded when it is attached: `photo` for the
+  above, `square` for an avatar (decided 2026-10-27). A square is the
+  middle of the upright image, at most 400 px a side and never scaled up,
+  with no thumbnail. `Service.Square` attaches the upload and waits on
+  `MediaProcess`, keyed by the upload ID, so the caller answers once the
+  square exists; a refused photo is `invalid_upload`. A replaced avatar's
+  objects stay in the store.
 
 ### Catalog
 
@@ -573,6 +588,11 @@ server receives a complete listing.
   `ST_PointOnSurface` of its boundary rounded to 4 decimals, computed once
   in a throwaway PostGIS container. The listing stores the commune; the
   seller's position is never stored.
+- `GET /v1/sellers/{id}/listings` is public: the seller's active and
+  reserved listings, newest first. `SellerCounts` gives screen and trust a
+  seller's listings on sale (active or reserved) and sold; "Đã bán" counts
+  every sold listing, sold through an order or marked by hand (decided
+  2026-10-27).
 
 ### Deal
 
@@ -669,6 +689,13 @@ Orders, cash on delivery, live in module `deal` (spec:
 - The buyer always reads the recipient in full; the seller reads it in
   full except on a cancelled order, which keeps only the name and the
   commune.
+- `POST /v1/deals/{id}/cod` takes an `address_id` from the buyer's address
+  book, never a free-form recipient, so the app sends only addresses the
+  book checked (decided 2026-10-27). The order copies the address, so
+  editing or deleting it later leaves the order as it was. Someone else's
+  address is `address_not_found`. The request reads the deal (party,
+  suspension), then the address, then applies the move's rules, so a
+  missing address answers before `move_not_allowed`.
 
 ### Stream
 
@@ -699,12 +726,38 @@ server-sent events (decided 2026-10-26).
 
 ### Blocks
 
-Blocks live in module `account`, since both `chat` and `deal` check them
-and `chat` already calls `deal`. A block stands either way: neither person
+Blocks live in module `account`, since both `chat` and `deal` check them. A block stands either way: neither person
 may message the other, open a conversation with them or open a deal on
 their listings (403 `blocked`). The blocker's inbox leaves the conversation
 out. Running deals and orders stay as they are. Each block has a UUIDv7
 `id`, so `GET /v1/blocks` pages like every list.
+
+### Account profile and addresses
+
+Decided 2026-10-27 (spec:
+`~/shopnexus/specs/2026-10-27-server2-app-alignment-design.md`).
+
+- `PATCH /v1/accounts/me` takes any of `display_name`, `bio` (0 to 200
+  characters, public, no content filter) and `avatar_upload_id` (`null`
+  removes the avatar). It writes `account.updated`. A text rule broken is
+  `invalid_account` with a field per rule.
+- The address book holds up to 10 addresses per account (name, a
+  Vietnamese mobile, street, commune), one of them the default: the first
+  address becomes it, and deleting it makes the newest remaining one the
+  default. A delete removes the row. Only the owner reads or changes an
+  address; anyone else gets `address_not_found`.
+- `POST /v1/addresses` requires an `Idempotency-Key` without running
+  Restate (decided 2026-10-27): the row keeps it as `request_key`, unique
+  per account, and a repeated key returns the address its first request
+  added, at the cap too. A retry after that address was deleted adds it
+  again.
+- Insert, set-default and delete run under `pg_advisory_xact_lock` on the
+  account, which keeps the cap and the single default; a partial unique
+  index on `(account_id) WHERE is_default` backs the second. An edit checks
+  `write_id` and is `try_again` after a race.
+- The account repository checks the commune and reads its names from
+  `communes` and `provinces` in SQL: catalog imports account, so account
+  cannot call catalog.
 
 ### Chat
 
@@ -712,8 +765,10 @@ Module `chat` holds conversations (spec:
 `~/shopnexus/specs/2026-10-26-server2-chat-design.md`).
 
 - One conversation per pair of people, whatever their roles, stored as
-  `(account_a, account_b)` with `account_a < account_b`; it shows every
-  deal between the two, both ways, through `dealsvc.Service.Between`.
+  `(account_a, account_b)` with `account_a < account_b`. Screen's chat
+  view shows every deal between the two, both ways, through
+  `dealsvc.Service.Between`; chat itself does not call deal (decided
+  2026-10-27).
 - A buyer opens it from someone else's active listing, with a verified
   phone and no block, and the first message names the listing. A pair that
   has a conversation reuses it.
@@ -738,6 +793,48 @@ Module `chat` holds conversations (spec:
   sent messages after the marker. The inbox pages by the conversation's
   last sent message ID.
 
+### Screen
+
+Module `screen` serves one `GET` per view of the app (decided 2026-10-27,
+spec: `~/shopnexus/specs/2026-10-27-server2-app-alignment-design.md`). The
+app reads a view in one call, and after a stream hint it reloads the view
+it shows in one call. Mobile and desktop read the same views; a desktop
+page that shows two views calls both at once.
+
+- Screen owns no table. Each view is one method of its service that reads
+  the other modules' services top to bottom; depguard forbids every other
+  module to import it, so it adds no dependency between the others.
+- `GET /v1/screens/listing/{id}` (signed in or not): the public listing,
+  the seller's summary and, for a signed-in reader who is not the seller,
+  `viewer {saved, deal, conversation_id}`, where `deal` is deal's
+  `DealSummary` of the reader's deal. A listing that is not public is 404
+  for everyone; its seller reads it through `GET /v1/listings/{id}`.
+- `GET /v1/screens/seller/{id}` (signed in or not): trust's seller
+  profile, the first page of the seller's public listings and of their
+  reviews, and `viewer {blocked, conversation_id}`; `blocked` holds either
+  way.
+- `GET /v1/screens/inbox?archived=&cursor=&limit=`: chat's inbox page,
+  each row with the pair's deal from `PairSummaries` and
+  `other_active_deals`, and the caller's unread total. The row's deal is
+  the newest of the caller's turn, else the newest active (negotiating or
+  agreed), else the newest, where newest means the newest move (a deal
+  without moves counts from its opening); deal's domain holds the turn
+  rule (`TurnOf`). The buyer's turn on an agreed deal needs the listing
+  still active, since `RequestCod` refuses a hidden or reserved one. The
+  chat view lists the pair's deals by when they opened, newest first. Its `cursor` pages the inbox, since a row of the next page
+  needs the same deal fields.
+- `GET /v1/screens/chat/{conversation_id}`: the conversation, the pair's
+  deals and the first page of messages; anyone but a member gets
+  `conversation_not_found`.
+- "Load more" uses the list endpoints, which return the same item shapes:
+  `/v1/sellers/{id}/listings`, `/v1/sellers/{id}/reviews`,
+  `/v1/conversations/{id}/messages`.
+- Each piece of data has one read path: `GET /v1/conversations`,
+  `GET /v1/conversations/{id}` and `GET /v1/sellers/{id}` were removed
+  when the views came, and no resource carries fields for one screen.
+- A view makes a fixed number of service calls per page, and the services
+  read a page's people, communes and listings in one query each.
+
 ### Trust
 
 Module `trust` holds reviews (spec:
@@ -756,6 +853,9 @@ Module `trust` holds reviews (spec:
 - `trust` reads the order through `dealsvc.Service.Order`; someone else's
   order is `order_not_found`. `GET /v1/sellers/{id}/reviews` is public and
   carries the seller's average and count over all reviews.
+- `Service.Seller` is a seller's public profile: name, avatar, bio, when
+  they joined, rating, and catalog's on-sale and sold counts. Screen reads
+  it; it has no endpoint of its own.
 
 ### Discovery
 

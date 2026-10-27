@@ -91,13 +91,27 @@ func TestPGStore(t *testing.T) {
 		t.Parallel()
 		s := newStore(t)
 		a := fresh(t, s)
-		a.SetDisplayName("Minh", pgNow)
+		if err := a.Edit(new("Minh"), new("Đồ cũ còn tốt"), pgNow); err != nil {
+			t.Fatal(err)
+		}
+		a.SetAvatar("media/a.jpg", pgNow)
 		w := uuid.NewV7()
 		if err := s.Save(ctx, &a, w); err != nil || a.WriteID() != w {
 			t.Fatalf("save: %v, write id %s", err, a.WriteID())
 		}
-		if got, _ := s.Get(ctx, a.ID()); got.DisplayName() != "Minh" || got.WriteID() != w {
+		got, _ := s.Get(ctx, a.ID())
+		if got.DisplayName() != "Minh" || got.Bio() != "Đồ cũ còn tốt" || got.AvatarKey() != "media/a.jpg" || got.WriteID() != w {
 			t.Fatalf("got %+v", got)
+		}
+		if err := a.Edit(nil, new(""), pgNow); err != nil {
+			t.Fatal(err)
+		}
+		a.SetAvatar("", pgNow)
+		if err := s.Save(ctx, &a, uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+		if got, _ = s.Get(ctx, a.ID()); got.Bio() != "" || got.AvatarKey() != "" {
+			t.Fatalf("not cleared: %+v", got)
 		}
 	})
 
@@ -108,7 +122,7 @@ func TestPGStore(t *testing.T) {
 		s := newStore(t)
 		a := fresh(t, s)
 		for _, name := range []string{"One", "Two"} {
-			if err := a.SetDisplayName(name, pgNow); err != nil {
+			if err := a.Edit(&name, nil, pgNow); err != nil {
 				t.Fatal(err)
 			}
 			if err := s.Save(ctx, &a, uuid.NewV7()); err != nil {
@@ -122,11 +136,11 @@ func TestPGStore(t *testing.T) {
 		s := newStore(t)
 		a := fresh(t, s)
 		b, _ := s.Get(ctx, a.ID())
-		a.SetDisplayName("First", pgNow)
+		a.Edit(new("First"), nil, pgNow)
 		if err := s.Save(ctx, &a, uuid.NewV7()); err != nil {
 			t.Fatal(err)
 		}
-		b.SetDisplayName("Second", pgNow)
+		b.Edit(new("Second"), nil, pgNow)
 		if err := s.Save(ctx, &b, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
 			t.Fatalf("stale save: %v", err)
 		}
@@ -136,7 +150,7 @@ func TestPGStore(t *testing.T) {
 		t.Parallel()
 		s := newStore(t)
 		a := fresh(t, s)
-		a.SetDisplayName("Minh", pgNow)
+		a.Edit(new("Minh"), nil, pgNow)
 		retry := a
 		w := uuid.NewV7()
 		if err := s.Save(ctx, &a, w); err != nil {
@@ -206,6 +220,22 @@ func TestListNewestFirst(t *testing.T) {
 	}
 }
 
+// GetMany returns the accounts it finds and leaves an unknown ID out.
+func TestGetMany(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+	ctx := context.Background()
+	a, b := seed(t, s), seed(t, s)
+	got, err := s.GetMany(ctx, []uuid.UUID{a, b, uuid.NewV7()})
+	if err != nil || len(got) != 2 {
+		t.Fatalf("%v %v", got, err)
+	}
+	ids := []uuid.UUID{got[0].ID(), got[1].ID()}
+	if !slices.Contains(ids, a) || !slices.Contains(ids, b) || got[0].DisplayName() != "Linh" {
+		t.Fatalf("%v", got)
+	}
+}
+
 func eventsOf(t *testing.T, db *pgxpool.Pool, subject uuid.UUID) []string {
 	t.Helper()
 	rows, err := db.Query(context.Background(), `SELECT kind FROM events WHERE subject_id = @id ORDER BY id`, pgx.StrictNamedArgs{"id": subject})
@@ -232,10 +262,10 @@ func TestSaveWritesItsEvents(t *testing.T) {
 	ev := func(k events.Kind) events.Event {
 		return events.Event{ID: uuid.NewV7(), Kind: k, SubjectID: id, OccurredAt: now}
 	}
-	if err := a.SetDisplayName("Minh", now); err != nil {
+	if err := a.Edit(new("Minh"), nil, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &a, uuid.NewV7(), ev(events.AccountRenamed)); err != nil {
+	if err := s.Save(ctx, &a, uuid.NewV7(), ev(events.AccountUpdated)); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.Suspend("spam", nil, now); err != nil {
@@ -245,10 +275,10 @@ func TestSaveWritesItsEvents(t *testing.T) {
 	if err := s.SaveAudited(ctx, &a, uuid.NewV7(), entry, ev(events.AccountSuspended)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &stale, uuid.NewV7(), ev(events.AccountRenamed)); !errors.Is(err, repository.ErrConflict) {
+	if err := s.Save(ctx, &stale, uuid.NewV7(), ev(events.AccountUpdated)); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("stale save: %v", err)
 	}
-	if got := eventsOf(t, db, id); !slices.Equal(got, []string{"account.renamed", "account.suspended"}) {
+	if got := eventsOf(t, db, id); !slices.Equal(got, []string{"account.updated", "account.suspended"}) {
 		t.Fatalf("%v", got)
 	}
 }

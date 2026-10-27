@@ -22,7 +22,7 @@ func TestParallelRefreshRevokes(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	db := pgtest.New(t)
-	accounts := accountsvc.New(accountrepo.NewAccounts(db), time.Now)
+	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
 	sessions := repository.NewSessions(db)
 	acc := uuid.NewV7()
 	accounts.Create(ctx, acc, "")

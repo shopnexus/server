@@ -18,6 +18,8 @@ var (
 )
 
 // Deals persists deals and their moves.
+//
+//nolint:interfacebloat // One store for deals with their orders and moves, read and written together.
 type Deals interface {
 	// Insert adds d and reports true, or false when the buyer already has
 	// a deal on the listing; then nothing is written.
@@ -43,6 +45,10 @@ type Deals interface {
 	Order(ctx context.Context, id uuid.UUID) (OrderRow, error)
 	// Between returns the deals of a and b on either side, newest first.
 	Between(ctx context.Context, a, b uuid.UUID) ([]domain.Deal, error)
+	// OfPairs returns, for viewer and each of others, the pair's deals on
+	// either side that are negotiating or agreed, and its newest deal; the
+	// newest last move first, a deal without moves at its creation.
+	OfPairs(ctx context.Context, viewer uuid.UUID, others []uuid.UUID) ([]domain.Deal, error)
 	// ListOrders is a query: account's orders on side as with IDs below
 	// p.Before(), newest first, at most p.Fetch().
 	ListOrders(ctx context.Context, account uuid.UUID, as domain.Party, p page.Request) ([]OrderRow, error)

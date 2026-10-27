@@ -30,7 +30,8 @@ type ProcessResult struct {
 
 func (ProcessResult) Refusal() *apperr.Error { return nil }
 
-// MediaProcess turns an attached upload into a public photo and thumbnail.
+// MediaProcess turns an attached upload into a public photo and thumbnail,
+// or a square.
 // The photo's bytes never enter the journal: the processing step writes
 // both objects itself and returns their keys.
 type MediaProcess struct {
@@ -94,17 +95,21 @@ func (s MediaProcess) Run(ctx restate.Context, id uuid.UUID) (ProcessResult, err
 			return processed{}, fmt.Errorf("read the upload: %w", stepErr)
 		}
 		defer func() { _ = r.Close() }() // a read-only object; nothing to flush
-		photo, thumb, stepErr := process(r, u.ContentType())
+		photo, thumb, stepErr := process(r, u.ContentType(), u.Shape())
 		if reason := refusal(stepErr); reason != "" {
 			return processed{Failure: reason}, nil
 		}
 		if stepErr != nil {
 			return processed{}, stepErr
 		}
-		photoKey, thumbKey := "media/"+id.String()+".jpg", "media/"+id.String()+"_thumb.jpg"
+		photoKey := "media/" + id.String() + ".jpg"
 		if stepErr = s.Store.Put(rc, photoKey, "image/jpeg", bytes.NewReader(photo), int64(len(photo))); stepErr != nil {
 			return processed{}, fmt.Errorf("write the photo: %w", stepErr)
 		}
+		if thumb == nil { // a square has no thumbnail
+			return processed{PhotoKey: photoKey}, nil
+		}
+		thumbKey := "media/" + id.String() + "_thumb.jpg"
 		if stepErr = s.Store.Put(rc, thumbKey, "image/jpeg", bytes.NewReader(thumb), int64(len(thumb))); stepErr != nil {
 			return processed{}, fmt.Errorf("write the thumbnail: %w", stepErr)
 		}

@@ -12,8 +12,16 @@ import (
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
-func recipient() service.RecipientInput {
-	return service.RecipientInput{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
+var home = accountdomain.AddressDraft{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
+
+// address adds an address to owner's book and returns its ID.
+func (e env) address(t *testing.T, owner uuid.UUID) uuid.UUID {
+	t.Helper()
+	a, err := e.accounts.CreateAddress(context.Background(), owner, uuid.NewV7(), home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a.ID
 }
 
 // agreed opens buyer's deal on listing and accepts the listed price.
@@ -28,7 +36,7 @@ func (e env) agreed(t *testing.T, buyer, listing uuid.UUID) service.DealView {
 func (e env) requested(t *testing.T, buyer, listing uuid.UUID) service.DealView {
 	t.Helper()
 	v := e.agreed(t, buyer, listing)
-	r, err := e.deals.RequestCod(context.Background(), buyer, v.ID, recipient())
+	r, err := e.deals.RequestCod(context.Background(), buyer, v.ID, e.address(t, buyer))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,6 +62,30 @@ func TestRequestCod(t *testing.T) {
 	}
 }
 
+// The order holds a copy of the address: editing or deleting the address
+// afterwards leaves the order's recipient as it was.
+func TestOrderKeepsItsRecipient(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	address := e.address(t, buyer)
+	v := e.agreed(t, buyer, e.listing(t, seller))
+	must(t)(e.deals.RequestCod(ctx, buyer, v.ID, address))
+	if _, err := e.accounts.UpdateAddress(ctx, buyer, address, accountdomain.AddressDraft{
+		Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.accounts.DeleteAddress(ctx, buyer, address); err != nil {
+		t.Fatal(err)
+	}
+	r := e.get(t, buyer, v.ID).Order.Recipient
+	if r.Name != "Hân" || r.Phone != "+84912345678" || r.Street != "12 Lý Thường Kiệt" || r.CommuneCode != "00004" || r.Commune == "" {
+		t.Fatalf("%+v", r)
+	}
+}
+
 func TestRequestCodRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -63,19 +95,21 @@ func TestRequestCodRefusals(t *testing.T) {
 	suspended := e.person(t)
 	sv := e.agreed(t, suspended, e.listing(t, seller))
 	e.suspend(t, suspended)
-	if _, err := e.deals.RequestCod(ctx, suspended, sv.ID, recipient()); !errors.Is(err, accountdomain.ErrSuspended) {
+	if _, err := e.deals.RequestCod(ctx, suspended, sv.ID, e.address(t, suspended)); !errors.Is(err, accountdomain.ErrSuspended) {
 		t.Errorf("suspended: %v", err)
 	}
 
 	buyer := e.person(t)
+	mine := e.address(t, buyer)
 	v := e.agreed(t, buyer, e.listing(t, seller))
-	bad := recipient()
-	bad.CommuneCode = "nope"
-	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, bad); !errors.Is(err, domain.ErrInvalidRecipient) {
-		t.Errorf("unknown commune: %v", err)
+	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, e.address(t, seller)); !errors.Is(err, accountdomain.ErrAddressNotFound) {
+		t.Errorf("someone else's address: %v", err)
+	}
+	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, uuid.NewV7()); !errors.Is(err, accountdomain.ErrAddressNotFound) {
+		t.Errorf("an unknown address: %v", err)
 	}
 	open := e.open(t, buyer, e.listing(t, seller))
-	if _, err := e.deals.RequestCod(ctx, buyer, open.ID, recipient()); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if _, err := e.deals.RequestCod(ctx, buyer, open.ID, mine); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Errorf("not agreed: %v", err)
 	}
 	hidden := e.listing(t, seller)
@@ -83,14 +117,14 @@ func TestRequestCodRefusals(t *testing.T) {
 	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.deals.RequestCod(ctx, buyer, hv.ID, recipient()); !errors.Is(err, domain.ErrListingUnavailable) {
+	if _, err := e.deals.RequestCod(ctx, buyer, hv.ID, mine); !errors.Is(err, domain.ErrListingUnavailable) {
 		t.Errorf("hidden listing: %v", err)
 	}
 	for range domain.MaxOpenOrders {
 		e.requested(t, buyer, e.listing(t, seller))
 	}
 	fourth := e.agreed(t, buyer, e.listing(t, seller))
-	if _, err := e.deals.RequestCod(ctx, buyer, fourth.ID, recipient()); !errors.Is(err, domain.ErrCodLimit) {
+	if _, err := e.deals.RequestCod(ctx, buyer, fourth.ID, mine); !errors.Is(err, domain.ErrCodLimit) {
 		t.Errorf("fourth order: %v", err)
 	}
 }

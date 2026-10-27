@@ -18,7 +18,9 @@ me:
         $ref: "../responses/common.yaml#/NotFound"
   patch:
     operationId: updateMyAccount
-    summary: Change the display name.
+    summary: Change the display name, the bio or the avatar.
+    description: |
+      A new avatar is processed before the reply, which carries its URL.
     tags: [account]
     security:
       - bearerAuth: []
@@ -46,7 +48,11 @@ me:
       "409":
         $ref: "../responses/common.yaml#/Conflict"
       "422":
-        $ref: "../responses/common.yaml#/Unprocessable"
+        description: "The name or the bio breaks a rule (invalid_account, with fields), or the avatar upload is not the caller's or not a photo media can process (invalid_upload)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 blocks:
   post:
     operationId: blockAccount

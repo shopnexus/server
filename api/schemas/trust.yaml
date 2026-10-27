@@ -31,6 +31,10 @@ Review:
           format: uuid
         display_name:
           type: string
+        avatar_url:
+          type: string
+          format: uri
+          description: A public 400 px square; absent without an avatar.
     listing:
       type: object
       additionalProperties: false
@@ -66,3 +70,41 @@ SellerReviews:
       type: string
       format: uuid
       description: Present when more reviews follow; pass it as cursor.
+Seller:
+  type: object
+  additionalProperties: false
+  required: [id, display_name, bio, joined_at, rating, sold, on_sale]
+  properties:
+    id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+    avatar_url:
+      type: string
+      format: uri
+      description: A public 400 px square; absent without an avatar.
+    bio:
+      type: string
+      description: May be empty.
+    joined_at:
+      type: string
+      format: date-time
+    rating:
+      $ref: "#/Rating"
+    sold:
+      type: integer
+      description: Listings sold, through an order or marked by hand.
+    on_sale:
+      type: integer
+      description: Listings active or reserved for an order on its way.
+Rating:
+  type: object
+  additionalProperties: false
+  required: [average, count]
+  properties:
+    average:
+      type: number
+      description: The average stars over every review of the seller; 0 without reviews.
+    count:
+      type: integer

@@ -25,7 +25,7 @@ func newStore(t *testing.T) repository.Accounts {
 
 // at is the service on s with its clock stopped at t.
 func at(s repository.Accounts, t time.Time) *service.Account {
-	return service.New(s, func() time.Time { return t })
+	return service.New(s, nil, func() time.Time { return t })
 }
 
 // seed creates an active account named Linh.
@@ -52,14 +52,14 @@ func kindsOf(t *testing.T, db *pgxpool.Pool, subject uuid.UUID) []string {
 	return kinds
 }
 
-// Rename, Suspend and Reinstate each announce their change.
+// Update, Suspend and Reinstate each announce their change.
 func TestUseCasesPublish(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	s := repository.NewAccounts(db)
 	ctx := context.Background()
 	id := seed(t, s)
-	if _, err := at(s, now).Rename(ctx, id, "Minh"); err != nil {
+	if _, err := at(s, now).Update(ctx, id, service.UpdateInput{DisplayName: new("Minh")}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := at(s, now).Suspend(ctx, service.SuspendInput{ID: id, Reason: "spam", By: audit.ByCLI("test")}); err != nil {
@@ -68,7 +68,7 @@ func TestUseCasesPublish(t *testing.T) {
 	if _, err := at(s, now).Reinstate(ctx, id, audit.ByCLI("test")); err != nil {
 		t.Fatal(err)
 	}
-	if got := kindsOf(t, db, id); !slices.Equal(got, []string{"account.renamed", "account.suspended", "account.unsuspended"}) {
+	if got := kindsOf(t, db, id); !slices.Equal(got, []string{"account.updated", "account.suspended", "account.unsuspended"}) {
 		t.Fatalf("%v", got)
 	}
 }

@@ -101,3 +101,21 @@ func TestSaveLimit(t *testing.T) {
 		t.Fatalf("saving one of the 500 again: %v", err)
 	}
 }
+
+func TestHas(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewSaves(db)
+	ctx := context.Background()
+	me, other := newAccount(t, db), newAccount(t, db)
+	ls := listings(t, db, 1)
+	if err := s.Save(ctx, uuid.NewV7(), me, ls[0], 1_500_000, now); err != nil {
+		t.Fatal(err)
+	}
+	if has, err := s.Has(ctx, me, ls[0]); err != nil || !has {
+		t.Fatalf("mine: %v %v", has, err)
+	}
+	if has, err := s.Has(ctx, other, ls[0]); err != nil || has {
+		t.Fatalf("someone else's: %v %v", has, err)
+	}
+}

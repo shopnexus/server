@@ -17,14 +17,7 @@ var (
 	gone     = domain.Listing{Price: 1_500_000, AllowOffers: true, Status: domain.ListingGone}
 )
 
-func recipient(t *testing.T) domain.Recipient {
-	t.Helper()
-	r, err := domain.NewRecipient(" Hân ", "0912345678", " 12 Lý Thường Kiệt ", "00004", true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return r
-}
+var recipient = domain.Recipient{Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
 
 func waybill(t *testing.T) domain.Waybill {
 	t.Helper()
@@ -47,7 +40,7 @@ func agreed(t *testing.T) domain.Deal {
 func requested(t *testing.T) domain.Deal {
 	t.Helper()
 	d := agreed(t)
-	must(t, d.RequestCod(domain.Buyer, recipient(t), onSale, now))
+	must(t, d.RequestCod(domain.Buyer, recipient, onSale, now))
 	return d
 }
 
@@ -65,31 +58,6 @@ func field(err error, name string) string {
 		return e.Fields[name]
 	}
 	return ""
-}
-
-func TestNewRecipient(t *testing.T) {
-	t.Parallel()
-	r := recipient(t)
-	if r.Name != "Hân" || r.Street != "12 Lý Thường Kiệt" || r.Phone == "" || r.CommuneCode != "00004" {
-		t.Fatalf("%+v", r)
-	}
-	for name, c := range map[string]struct {
-		name, phone, street string
-		exists              bool
-	}{
-		"name":         {"  ", "0912345678", "12 Lý", true},
-		"phone":        {"Hân", "12345", "12 Lý", true},
-		"street":       {"Hân", "0912345678", strings.Repeat("a", 201), true},
-		"commune_code": {"Hân", "0912345678", "12 Lý", false},
-	} {
-		_, err := domain.NewRecipient(c.name, c.phone, c.street, "00004", c.exists)
-		if !errors.Is(err, domain.ErrInvalidRecipient) || field(err, name) == "" {
-			t.Errorf("%s: %v", name, err)
-		}
-	}
-	if _, err := domain.NewRecipient(strings.Repeat("a", 51), "0912345678", "12 Lý", "00004", true); field(err, "name") == "" {
-		t.Errorf("a long name: %v", err)
-	}
 }
 
 func TestNewWaybill(t *testing.T) {
@@ -127,15 +95,15 @@ func TestNewWaybill(t *testing.T) {
 func TestOrderLifecycle(t *testing.T) {
 	t.Parallel()
 	d := agreed(t)
-	if err := d.RequestCod(domain.Seller, recipient(t), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if err := d.RequestCod(domain.Seller, recipient, onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("seller requests: %v", err)
 	}
-	must(t, d.RequestCod(domain.Buyer, recipient(t), onSale, now))
+	must(t, d.RequestCod(domain.Buyer, recipient, onSale, now))
 	o := d.Order()
 	if o == nil || o.Status != domain.OrderRequested || o.Price != 1_500_000 || !o.Open() {
 		t.Fatalf("%+v", o)
 	}
-	if err := d.RequestCod(domain.Buyer, recipient(t), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if err := d.RequestCod(domain.Buyer, recipient, onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("second request: %v", err)
 	}
 	if err := d.Ship(domain.Buyer, waybill(t), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
@@ -167,7 +135,7 @@ func TestOrderLifecycle(t *testing.T) {
 		"offer":   func() error { return d.Offer(domain.Buyer, 1_000_000, onSale, now) },
 		"accept":  func() error { return d.Accept(domain.Buyer, 1_500_000, onSale, now) },
 		"cancel":  func() error { return d.Cancel(domain.Buyer, now) },
-		"request": func() error { return d.RequestCod(domain.Buyer, recipient(t), onSale, now) },
+		"request": func() error { return d.RequestCod(domain.Buyer, recipient, onSale, now) },
 	} {
 		if err := move(); !errors.Is(err, domain.ErrMoveNotAllowed) {
 			t.Errorf("%s after delivery: %v", name, err)
@@ -184,7 +152,7 @@ func TestReturnNegotiatesAgain(t *testing.T) {
 		t.Fatalf("%+v %s", d.Order(), d.Status())
 	}
 	must(t, d.Accept(domain.Buyer, 1_500_000, onSale, now))
-	must(t, d.RequestCod(domain.Buyer, recipient(t), onSale, now))
+	must(t, d.RequestCod(domain.Buyer, recipient, onSale, now))
 	if d.Order().ID == first || d.Order().Status != domain.OrderRequested {
 		t.Fatalf("%+v", d.Order())
 	}
@@ -215,7 +183,7 @@ func TestRequestNeedsAnActiveListing(t *testing.T) {
 	t.Parallel()
 	for name, l := range map[string]domain.Listing{"reserved": reserved, "hidden": hidden, "paused": paused} {
 		d := agreed(t)
-		if err := d.RequestCod(domain.Buyer, recipient(t), l, now); !errors.Is(err, domain.ErrListingUnavailable) {
+		if err := d.RequestCod(domain.Buyer, recipient, l, now); !errors.Is(err, domain.ErrListingUnavailable) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}

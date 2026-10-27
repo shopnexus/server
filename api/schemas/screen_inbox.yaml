@@ -1,0 +1,61 @@
+InboxScreen:
+  type: object
+  additionalProperties: false
+  required: [items, unread]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/InboxItem"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more conversations follow; pass it as cursor.
+    unread:
+      type: integer
+      description: The caller's unread messages over unarchived conversations, as GET /v1/me/unread counts them.
+InboxItem:
+  type: object
+  additionalProperties: false
+  required: [id, other, last_message, unread, archived, other_active_deals]
+  description: |
+    deal is the pair's deal the row is about, absent when the two have none:
+    the newest, by last move, of those where it is the caller's turn, else
+    the newest negotiating or agreed one, else the newest. order_status is
+    that of the deal's newest order.
+  properties:
+    id:
+      type: string
+      format: uuid
+    other:
+      $ref: "chat.yaml#/Person"
+    last_message:
+      $ref: "chat.yaml#/Message"
+    unread:
+      type: integer
+    archived:
+      type: boolean
+    deal:
+      $ref: "deal.yaml#/DealSummary"
+    other_active_deals:
+      type: integer
+      description: The pair's negotiating or agreed deals besides deal.
+ChatScreen:
+  type: object
+  additionalProperties: false
+  required: [id, other, archived, deals, messages]
+  properties:
+    id:
+      type: string
+      format: uuid
+    other:
+      $ref: "chat.yaml#/Person"
+    archived:
+      type: boolean
+    deals:
+      type: array
+      description: The deals of the two people on either side, newest first, as the caller sees them.
+      items:
+        $ref: "deal.yaml#/Deal"
+    messages:
+      $ref: "chat.yaml#/MessageList"

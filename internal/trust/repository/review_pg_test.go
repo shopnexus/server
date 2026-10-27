@@ -52,10 +52,7 @@ func order(t *testing.T, db *pgxpool.Pool, buyer, seller uuid.UUID) (orderID, li
 		t.Fatal(err)
 	}
 	onSale := dealdomain.Listing{Price: 1_500_000, Status: dealdomain.ListingActive}
-	r, err := dealdomain.NewRecipient("Hân", "0912345678", "12 Lý Thường Kiệt", "00004", true)
-	if err != nil {
-		t.Fatal(err)
-	}
+	r := dealdomain.Recipient{Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
 	if err = d.Accept(dealdomain.Buyer, 1_500_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}

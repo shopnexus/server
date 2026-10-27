@@ -57,6 +57,14 @@ func (d *Discovery) Unsave(ctx context.Context, account, listing uuid.UUID) erro
 	return nil
 }
 
+func (d *Discovery) IsSaved(ctx context.Context, account, listing uuid.UUID) (bool, error) {
+	saved, err := d.saves.Has(ctx, account, listing)
+	if err != nil {
+		return false, fmt.Errorf("read save: %w", err)
+	}
+	return saved, nil
+}
+
 // Saved reads one page of saves and their listings in one call.
 func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request) (page.Page[SavedView], error) {
 	rows, err := d.saves.List(ctx, account, p)

@@ -50,8 +50,8 @@ services:
     volumes:
       - ./.restate/identity.pem:/identity.pem:ro
     tmpfs:
-      - /restate-data:size=512m
-    mem_limit: 1536m
+      - /restate-data:size=1g
+    mem_limit: 2048m
 
   # Object store on tmpfs; each test writes under keys of its own.
   rustfs:

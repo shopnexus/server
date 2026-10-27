@@ -31,11 +31,22 @@ const (
 	StatusExpired  Status = "expired"
 )
 
+// Shape is what processing makes of an upload: a photo at most 1600 px on
+// its long side with a thumbnail, or a square of at most 400 px, such as an
+// avatar.
+type Shape string
+
+const (
+	ShapePhoto  Shape = "photo"
+	ShapeSquare Shape = "square"
+)
+
 // Upload is one photo a client puts to uploads/<id>.
 type Upload struct {
 	id          uuid.UUID
 	ownerID     uuid.UUID
 	holderID    uuid.UUID // what the upload is attached to; zero while waiting
+	shape       Shape     // set with the holder
 	contentType string
 	size        int64
 	status      Status
@@ -62,6 +73,7 @@ func NewUpload(id, owner uuid.UUID, contentType string, size int64, now time.Tim
 func (u *Upload) ID() uuid.UUID       { return u.id }
 func (u *Upload) OwnerID() uuid.UUID  { return u.ownerID }
 func (u *Upload) HolderID() uuid.UUID { return u.holderID }
+func (u *Upload) Shape() Shape        { return u.shape }
 func (u *Upload) ContentType() string { return u.contentType }
 func (u *Upload) Size() int64         { return u.size }
 func (u *Upload) Status() Status      { return u.status }
@@ -73,18 +85,19 @@ func (u *Upload) WriteID() uuid.UUID  { return u.writeID }
 // Key is where the client puts the original.
 func (u *Upload) Key() string { return "uploads/" + u.id.String() }
 
-// Attach gives a waiting upload of owner to holder, such as a listing, and
-// reports whether it changed the upload. An upload holder already holds
-// stays as it is, so a retried attach succeeds.
-func (u *Upload) Attach(owner, holder uuid.UUID, now time.Time) (bool, error) {
+// Attach gives a waiting upload of owner to holder, such as a listing, to
+// be processed into shape, and reports whether it changed the upload. An
+// upload holder already holds in that shape stays as it is, so a retried
+// attach succeeds.
+func (u *Upload) Attach(owner, holder uuid.UUID, shape Shape, now time.Time) (bool, error) {
 	if owner != u.ownerID {
 		return false, ErrInvalidUpload
 	}
 	if u.status == StatusWaiting {
-		u.status, u.holderID, u.updatedAt = StatusAttached, holder, now
+		u.status, u.holderID, u.shape, u.updatedAt = StatusAttached, holder, shape, now
 		return true, nil
 	}
-	if u.status != StatusExpired && u.holderID == holder {
+	if u.status != StatusExpired && u.holderID == holder && u.shape == shape {
 		return false, nil
 	}
 	return false, ErrInvalidUpload
@@ -115,6 +128,7 @@ type UploadState struct {
 	ID          uuid.UUID `json:"id"`
 	OwnerID     uuid.UUID `json:"owner_id"`
 	HolderID    uuid.UUID `json:"holder_id"`
+	Shape       Shape     `json:"shape"`
 	ContentType string    `json:"content_type"`
 	Size        int64     `json:"size"`
 	Status      Status    `json:"status"`
@@ -129,7 +143,7 @@ type UploadState struct {
 // RestoreUpload rebuilds a stored upload. Stores only.
 func RestoreUpload(st UploadState) Upload {
 	return Upload{
-		id: st.ID, ownerID: st.OwnerID, holderID: st.HolderID, contentType: st.ContentType, size: st.Size, status: st.Status,
+		id: st.ID, ownerID: st.OwnerID, holderID: st.HolderID, shape: st.Shape, contentType: st.ContentType, size: st.Size, status: st.Status,
 		photoKey: st.PhotoKey, thumbKey: st.ThumbKey, failure: st.Failure, writeID: st.WriteID,
 		createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
 	}
@@ -138,7 +152,7 @@ func RestoreUpload(st UploadState) Upload {
 // State returns every stored field. Stores only.
 func (u *Upload) State() UploadState {
 	return UploadState{
-		ID: u.id, OwnerID: u.ownerID, HolderID: u.holderID, ContentType: u.contentType, Size: u.size, Status: u.status,
+		ID: u.id, OwnerID: u.ownerID, HolderID: u.holderID, Shape: u.shape, ContentType: u.contentType, Size: u.size, Status: u.status,
 		PhotoKey: u.photoKey, ThumbKey: u.thumbKey, Failure: u.failure, WriteID: u.writeID,
 		CreatedAt: u.createdAt, UpdatedAt: u.updatedAt,
 	}

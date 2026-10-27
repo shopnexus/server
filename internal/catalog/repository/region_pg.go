@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -68,21 +67,17 @@ WHERE province_code = @province ORDER BY display_name`, pgx.StrictNamedArgs{"pro
 	return out, nil
 }
 
-func (s pgRegions) Commune(ctx context.Context, code string) (domain.Commune, string, error) {
-	var (
-		c        domain.Commune
-		province string
-	)
-	err := s.db.QueryRow(ctx, `SELECT c.code, c.province_code, c.display_name, c.lat, c.lng, p.display_name
-FROM communes c JOIN provinces p ON p.code = c.province_code WHERE c.code = @code`, pgx.StrictNamedArgs{"code": code}).
-		Scan(&c.Code, &c.ProvinceCode, &c.DisplayName, &c.Lat, &c.Lng, &province)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Commune{}, "", ErrNotFound
-	}
+func (s pgRegions) Places(ctx context.Context, codes []string) ([]Place, error) {
+	rows, err := s.db.Query(ctx, `SELECT c.code, c.province_code, c.display_name, c.lat, c.lng, p.display_name
+FROM communes c JOIN provinces p ON p.code = c.province_code WHERE c.code = ANY(@codes)`, pgx.StrictNamedArgs{"codes": codes})
 	if err != nil {
-		return domain.Commune{}, "", fmt.Errorf("select commune: %w", err)
+		return nil, fmt.Errorf("select communes: %w", err)
 	}
-	return c, province, nil
+	out, err := pgx.CollectRows(rows, pgx.RowToStructByPos[Place])
+	if err != nil {
+		return nil, fmt.Errorf("read communes: %w", err)
+	}
+	return out, nil
 }
 
 func (s pgRegions) CommuneExists(ctx context.Context, code string) (bool, error) {

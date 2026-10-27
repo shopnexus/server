@@ -1,7 +1,7 @@
 Account:
   type: object
   additionalProperties: false
-  required: [id, display_name, status, created_at]
+  required: [id, display_name, bio, status, created_at]
   properties:
     id:
       type: string
@@ -9,6 +9,13 @@ Account:
     display_name:
       type: string
       description: Empty until the person completes their profile.
+    bio:
+      type: string
+      description: Public; may be empty.
+    avatar_url:
+      type: string
+      format: uri
+      description: A public 400 px square; absent without an avatar.
     status:
       type: string
       enum: [active, suspended]
@@ -18,12 +25,23 @@ Account:
 AccountUpdate:
   type: object
   additionalProperties: false
-  required: [display_name]
+  minProperties: 1
+  description: |
+    The fields to change; at least one. The text rules are business rules:
+    breaking one answers 422 invalid_account with an entry per field.
   properties:
     display_name:
       type: string
-      minLength: 1
-      maxLength: 50
+      description: 1 to 50 characters after trimming.
+    bio:
+      type: string
+      description: At most 200 characters after trimming; may be empty.
+    avatar_upload_id:
+      type: [string, "null"]
+      format: uuid
+      description: |
+        An upload of the caller's, which becomes the avatar once processed
+        into a square; null removes the avatar.
 BlockCreate:
   type: object
   additionalProperties: false

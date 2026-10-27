@@ -32,7 +32,7 @@ func same(a, b domain.UploadState) bool {
 	return a.CreatedAt.Equal(b.CreatedAt) && a.UpdatedAt.Equal(b.UpdatedAt) &&
 		a.ID == b.ID && a.OwnerID == b.OwnerID && a.ContentType == b.ContentType && a.Size == b.Size &&
 		a.Status == b.Status && a.PhotoKey == b.PhotoKey && a.ThumbKey == b.ThumbKey && a.Failure == b.Failure &&
-		a.WriteID == b.WriteID
+		a.Shape == b.Shape && a.WriteID == b.WriteID
 }
 
 func created(t *testing.T, s repository.Uploads, owner uuid.UUID) domain.Upload {
@@ -63,7 +63,7 @@ func TestCreateGetSave(t *testing.T) {
 	}
 	// Save leaves the upload carrying the write ID it wrote, so saving it
 	// again succeeds.
-	_, _ = got.Attach(owner, holder, now)
+	_, _ = got.Attach(owner, holder, domain.ShapeSquare, now)
 	if err := s.Save(ctx, &got, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,8 @@ func TestCreateGetSave(t *testing.T) {
 	if err := s.Save(ctx, &got, uuid.NewV7()); err != nil {
 		t.Fatalf("second save: %v", err)
 	}
-	if again, _ := s.Get(ctx, u.ID()); again.HolderID() != holder || again.Status() != domain.StatusReady {
+	if again, _ := s.Get(ctx, u.ID()); again.HolderID() != holder || again.Shape() != domain.ShapeSquare ||
+		again.Status() != domain.StatusReady {
 		t.Fatalf("holder not stored: %+v", again.State())
 	}
 	stale := u
@@ -94,10 +95,10 @@ func TestGetManyAndSaveAll(t *testing.T) {
 	}
 	stale := got[1]
 	for i := range got {
-		_, _ = got[i].Attach(owner, holder, now)
+		_, _ = got[i].Attach(owner, holder, domain.ShapePhoto, now)
 	}
 	staleCopy := stale
-	_, _ = staleCopy.Attach(owner, holder, now)
+	_, _ = staleCopy.Attach(owner, holder, domain.ShapePhoto, now)
 	if err := s.Save(ctx, &stale, uuid.NewV7()); err != nil { // moves b's write ID
 		t.Fatal(err)
 	}

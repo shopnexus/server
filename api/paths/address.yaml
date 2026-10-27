@@ -1,0 +1,161 @@
+addresses:
+  get:
+    operationId: listAddresses
+    summary: List the caller's addresses, the default first, then the newest.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: Every address of the caller's, at most 10.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/address.yaml#/AddressList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+  post:
+    operationId: createAddress
+    summary: Add an address; the first becomes the default.
+    description: A repeated Idempotency-Key returns the address its first request added, and adds nothing.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/address.yaml#/AddressDraft"
+    responses:
+      "201":
+        description: The address.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/address.yaml#/Address"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "409":
+        description: "The caller has 10 addresses (address_limit_reached)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The address breaks a rule (invalid_address, with fields)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+address:
+  put:
+    operationId: updateAddress
+    summary: Replace an address of the caller's.
+    description: |
+      Orders already requested to the address keep the copy they took.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/address.yaml#/AddressDraft"
+    responses:
+      "200":
+        description: The address.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/address.yaml#/Address"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such address of the caller's (address_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The address changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The address breaks a rule (invalid_address, with fields)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: deleteAddress
+    summary: Delete an address of the caller's.
+    description: |
+      When it was the default, the newest remaining address becomes the
+      default. Orders already requested to it keep the copy they took.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Deleted.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such address of the caller's (address_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+addressDefault:
+  post:
+    operationId: setDefaultAddress
+    summary: Make an address of the caller's the default.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: The address is the default.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such address of the caller's (address_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

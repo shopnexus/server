@@ -13,10 +13,15 @@ import (
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 )
 
-// Attach gives owner's uploads to holder, all or none. Each must be owner's
-// and either held by holder already or waiting and put to the store with
-// the type and size it declared.
+// Attach gives owner's uploads to holder as photos, all or none.
 func (m *Media) Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID) error {
+	return m.attachAs(ctx, owner, holder, domain.ShapePhoto, ids)
+}
+
+// attachAs gives owner's uploads to holder in shape, all or none. Each must
+// be owner's and either held by holder in shape already or waiting and put
+// to the store with the type and size it declared.
+func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape domain.Shape, ids []uuid.UUID) error {
 	now := m.now()
 	ids = slices.Clone(ids)
 	slices.SortFunc(ids, uuid.UUID.Compare)
@@ -32,7 +37,7 @@ func (m *Media) Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.
 	for i := range found {
 		u := &found[i]
 		if u.Status() != domain.StatusWaiting {
-			if _, err = u.Attach(owner, holder, now); err != nil {
+			if _, err = u.Attach(owner, holder, shape, now); err != nil {
 				return err
 			}
 			continue
@@ -47,7 +52,7 @@ func (m *Media) Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.
 		if size != u.Size() || contentType != u.ContentType() {
 			return domain.ErrInvalidUpload
 		}
-		if _, err = u.Attach(owner, holder, now); err != nil {
+		if _, err = u.Attach(owner, holder, shape, now); err != nil {
 			return err
 		}
 		ups = append(ups, u)

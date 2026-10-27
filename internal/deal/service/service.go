@@ -34,6 +34,9 @@ type Service interface {
 	Open(ctx context.Context, buyer, listingID uuid.UUID) (v DealView, created bool, err error)
 	// Get reads a deal for one of its two sides.
 	Get(ctx context.Context, viewer, id uuid.UUID) (DealView, error)
+	// BuyerSummary returns buyer's deal on a listing at a glance; false
+	// when there is none.
+	BuyerSummary(ctx context.Context, buyer, listingID uuid.UUID) (DealSummary, bool, error)
 	// ListMine lists viewer's deals on side as, newest first.
 	ListMine(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[DealView], error)
 	Offer(ctx context.Context, caller, id uuid.UUID, amount int64) (DealView, error)
@@ -41,8 +44,9 @@ type Service interface {
 	Decline(ctx context.Context, caller, id uuid.UUID) (DealView, error)
 	Withdraw(ctx context.Context, caller, id uuid.UUID) (DealView, error)
 	Cancel(ctx context.Context, caller, id uuid.UUID) (DealView, error)
-	// RequestCod asks for cash on delivery on the buyer's agreed deal.
-	RequestCod(ctx context.Context, caller, id uuid.UUID, r RecipientInput) (DealView, error)
+	// RequestCod asks for cash on delivery on the buyer's agreed deal, to
+	// a copy of one of the buyer's addresses.
+	RequestCod(ctx context.Context, caller, id, addressID uuid.UUID) (DealView, error)
 	// Ship records the waybill of a requested order, which holds the
 	// listing; Deliver and Return end a shipped one. A repeated
 	// idempotencyKey of the same caller runs nothing more.
@@ -55,6 +59,11 @@ type Service interface {
 	// Between lists the deals of viewer and other on either side, newest
 	// first, as viewer sees them.
 	Between(ctx context.Context, viewer, other uuid.UUID) ([]DealView, error)
+	// PairSummaries picks, for viewer and each of others, the deal of the
+	// pair an inbox row shows: the newest by last move of those where it
+	// is viewer's turn, else the newest active one, else the newest. A
+	// pair without a deal is absent.
+	PairSummaries(ctx context.Context, viewer uuid.UUID, others []uuid.UUID) (map[uuid.UUID]PairSummary, error)
 	// ListOrders lists viewer's orders on side as, newest first.
 	ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[OrderItem], error)
 	// ListingChanged brings a listing's deals in line with its current

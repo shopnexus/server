@@ -42,6 +42,9 @@ const (
 // on-sale pane.
 var OnSale = []Status{StatusProcessing, StatusActive, StatusHidden, StatusRejected, StatusReserved}
 
+// Public are the statuses anyone sees, on the seller's public page too.
+var Public = []Status{StatusActive, StatusReserved}
+
 type Condition string
 
 const (

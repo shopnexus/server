@@ -1,5 +1,5 @@
 // Package trust is what people can rely on about each other: for now the
-// reviews buyers give sellers.
+// reviews buyers give sellers and a seller's public profile.
 package trust
 
 import (
@@ -14,12 +14,14 @@ import (
 	"github.com/shopnexus/server2/internal/trust/service"
 )
 
-// Mount registers the trust endpoints, the writing ones behind protect.
+// Mount registers the trust endpoints, the writing ones behind protect,
+// and returns the Service screen reads profiles and reviews through.
 func Mount(d module.Deps, protect func(http.Handler) http.Handler, accounts accountsvc.Service,
 	catalog catalogsvc.Service, deals dealsvc.Service,
-) {
+) service.Service {
 	svc := service.New(service.Deps{
 		Reviews: repository.NewReviews(d.Pool), Accounts: accounts, Catalog: catalog, Deals: deals, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, protect)
+	return svc
 }

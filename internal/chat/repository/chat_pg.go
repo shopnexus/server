@@ -83,6 +83,20 @@ func (s pgChats) Get(ctx context.Context, id uuid.UUID) (domain.Conversation, er
 	return c, nil
 }
 
+func (s pgChats) FindPair(ctx context.Context, one, other uuid.UUID) (domain.Conversation, error) {
+	var c domain.Conversation
+	err := s.db.QueryRow(ctx, `SELECT id, account_a, account_b, created_at FROM conversations
+WHERE account_a = LEAST(@one::uuid, @other::uuid) AND account_b = GREATEST(@one::uuid, @other::uuid)`,
+		pgx.StrictNamedArgs{"one": one, "other": other}).Scan(&c.ID, &c.AccountA, &c.AccountB, &c.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Conversation{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.Conversation{}, fmt.Errorf("select conversation: %w", err)
+	}
+	return c, nil
+}
+
 // moveLast makes a sent message the conversation's last one when it is the
 // newest.
 const moveLast = `

@@ -55,9 +55,9 @@ func TestResendAfterACrashDeliversOnce(t *testing.T) {
 	}
 	in := ingress.NewClient(url)
 	bus := NewBus(db, in, p, time.Now, slog.New(slog.DiscardHandler))
-	bus.Subscribe(AccountRenamed, c.ServiceName(), "Handle")
+	bus.Subscribe(AccountUpdated, c.ServiceName(), "Handle")
 	restatetest.Start(t, bus.Definition(), restate.Reflect(c))
-	e := Event{ID: uuid.NewV7(), Kind: AccountRenamed, SubjectID: uuid.NewV7(), Payload: map[string]any{}, OccurredAt: time.Now().UTC().Truncate(time.Microsecond)}
+	e := Event{ID: uuid.NewV7(), Kind: AccountUpdated, SubjectID: uuid.NewV7(), Payload: map[string]any{}, OccurredAt: time.Now().UTC().Truncate(time.Microsecond)}
 	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { return Insert(ctx, tx, e) }); err != nil {
 		t.Fatal(err)
 	}
@@ -99,8 +99,8 @@ func TestSendTimesOut(t *testing.T) {
 		}
 	}()
 	bus := NewBus(db, ingress.NewClient("http://"+ln.Addr().String()), "silent_", time.Now, slog.New(slog.DiscardHandler))
-	bus.Subscribe(AccountRenamed, "Silent", "Handle")
-	e := Event{ID: uuid.NewV7(), Kind: AccountRenamed, SubjectID: uuid.NewV7(), OccurredAt: time.Now()}
+	bus.Subscribe(AccountUpdated, "Silent", "Handle")
+	e := Event{ID: uuid.NewV7(), Kind: AccountUpdated, SubjectID: uuid.NewV7(), OccurredAt: time.Now()}
 	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { return Insert(ctx, tx, e) }); err != nil {
 		t.Fatal(err)
 	}
@@ -128,8 +128,8 @@ func TestRefusedEventBacksOff(t *testing.T) {
 	}
 	// Nobody serves this bus's Events service, so the ingress answers 404.
 	bus := NewBus(db, ingress.NewClient(url), restatetest.Prefix(), time.Now, slog.New(slog.DiscardHandler))
-	bus.Subscribe(AccountRenamed, "Anyone", "Handle")
-	e := Event{ID: uuid.NewV7(), Kind: AccountRenamed, SubjectID: uuid.NewV7(), OccurredAt: time.Now()}
+	bus.Subscribe(AccountUpdated, "Anyone", "Handle")
+	e := Event{ID: uuid.NewV7(), Kind: AccountUpdated, SubjectID: uuid.NewV7(), OccurredAt: time.Now()}
 	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { return Insert(ctx, tx, e) }); err != nil {
 		t.Fatal(err)
 	}

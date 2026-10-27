@@ -62,14 +62,6 @@ type OrderItem struct {
 	Listing ListingRef `json:"listing"`
 }
 
-// RecipientInput is a recipient as the buyer types it.
-type RecipientInput struct {
-	Name        string
-	Phone       string
-	Street      string
-	CommuneCode string
-}
-
 // ListingRef is the deal's listing as it is now.
 type ListingRef struct {
 	ID            uuid.UUID            `json:"id"`
@@ -158,24 +150,15 @@ func (s *Deals) read(ctx context.Context, viewer uuid.UUID, d domain.Deal, l cat
 	if err != nil {
 		return DealView{}, fmt.Errorf("read moves: %w", err)
 	}
-	place, err := s.placeOf(ctx, d.Order())
-	if err != nil {
-		return DealView{}, err
+	var place catalogsvc.Location
+	if o := d.Order(); o != nil {
+		places, placeErr := s.catalog.Places(ctx, []string{o.Recipient.CommuneCode})
+		if placeErr != nil {
+			return DealView{}, fmt.Errorf("read the recipient's commune: %w", placeErr)
+		}
+		place = places[o.Recipient.CommuneCode]
 	}
 	return view(viewer, d, l, moves[d.ID()], place), nil
-}
-
-// placeOf reads the commune and province of o's recipient; no order has no
-// place.
-func (s *Deals) placeOf(ctx context.Context, o *domain.Order) (catalogsvc.Location, error) {
-	if o == nil {
-		return catalogsvc.Location{}, nil
-	}
-	place, err := s.catalog.Place(ctx, o.Recipient.CommuneCode)
-	if err != nil {
-		return catalogsvc.Location{}, fmt.Errorf("read the recipient's commune: %w", err)
-	}
-	return place, nil
 }
 
 // OrderFacts is what another module reads of an order.
@@ -186,4 +169,39 @@ type OrderFacts struct {
 	SellerID  uuid.UUID
 	ListingID uuid.UUID
 	Status    domain.OrderStatus
+}
+
+// DealSummary is the DealSummary schema in api/schemas/deal.yaml.
+type DealSummary struct {
+	ID          uuid.UUID          `json:"id"`
+	Role        domain.Party       `json:"role"`
+	Listing     ListingRef         `json:"listing"`
+	Status      domain.Status      `json:"status"`
+	OpenPrice   *domain.OpenPrice  `json:"open_price,omitempty"`
+	AgreedPrice *int64             `json:"agreed_price,omitempty"`
+	OrderStatus domain.OrderStatus `json:"order_status,omitempty"`
+	YourTurn    bool               `json:"your_turn"`
+}
+
+// summary is d at a glance for viewer, one of its sides, with its listing.
+func summary(viewer uuid.UUID, d *domain.Deal, l catalogsvc.Summary) DealSummary {
+	by, _ := d.PartyOf(viewer)
+	v := DealSummary{
+		ID: d.ID(), Role: by, Listing: listingRef(l), Status: d.Status(), OpenPrice: d.OpenFor(facts(l)),
+		YourTurn: d.TurnOf(by, facts(l)),
+	}
+	if d.Status() == domain.StatusAgreed || d.Status() == domain.StatusSold {
+		v.AgreedPrice = new(d.AgreedPrice())
+	}
+	if o := d.Order(); o != nil {
+		v.OrderStatus = o.Status
+	}
+	return v
+}
+
+// PairSummary is the deal an inbox row shows and how many other deals of
+// the pair are active.
+type PairSummary struct {
+	Deal        DealSummary
+	OtherActive int
 }

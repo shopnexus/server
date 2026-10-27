@@ -12,8 +12,7 @@ type conversationBody struct {
 	Other struct {
 		ID string `json:"id"`
 	} `json:"other"`
-	Deals    []dealBody `json:"deals"`
-	Archived bool       `json:"archived"`
+	Archived bool `json:"archived"`
 }
 
 type messageBody struct {
@@ -27,13 +26,6 @@ type messageBody struct {
 
 type messageList struct {
 	Items []messageBody `json:"items"`
-}
-
-type inboxList struct {
-	Items []struct {
-		ID     string `json:"id"`
-		Unread int    `json:"unread"`
-	} `json:"items"`
 }
 
 // openChat has token open a conversation from listing with text.
@@ -78,11 +70,10 @@ func TestChat(t *testing.T) {
 	waitEvent(t, events, "message", c.ID)
 
 	reply := sendChat(t, seller.AccessToken, c.ID, map[string]any{"text": "Còn bạn ơi"})
-	res := call(t, server, "GET", "/v1/conversations", nil, bearer(buyer.AccessToken))
-	if list := decode[inboxList](t, res); res.Status != http.StatusOK || len(list.Items) != 1 || list.Items[0].Unread != 1 {
-		t.Fatalf("inbox: %d %s", res.Status, res.Body)
+	if inbox := inboxView(t, buyer.AccessToken, ""); len(inbox.Items) != 1 || inbox.Items[0].Unread != 1 || inbox.Unread != 1 {
+		t.Fatalf("inbox: %+v", inbox)
 	}
-	res = call(t, server, "GET", "/v1/me/unread", nil, bearer(buyer.AccessToken))
+	res := call(t, server, "GET", "/v1/me/unread", nil, bearer(buyer.AccessToken))
 	if res.Status != http.StatusOK || decode[map[string]int](t, res)["unread"] != 1 {
 		t.Fatalf("unread: %d %s", res.Status, res.Body)
 	}
@@ -113,18 +104,17 @@ func TestChat(t *testing.T) {
 	if res = call(t, server, "POST", "/v1/conversations/"+c.ID+"/archive", nil, bearer(seller.AccessToken)); res.Status != http.StatusNoContent {
 		t.Fatalf("archive: %d %s", res.Status, res.Body)
 	}
-	res = call(t, server, "GET", "/v1/conversations?archived=true", nil, bearer(seller.AccessToken))
-	if list := decode[inboxList](t, res); len(list.Items) != 1 {
-		t.Fatalf("archived: %s", res.Body)
+	if archived := inboxView(t, seller.AccessToken, "archived=true"); len(archived.Items) != 1 || !archived.Items[0].Archived {
+		t.Fatalf("archived: %+v", archived)
 	}
 	if res = call(t, server, "POST", "/v1/conversations/"+c.ID+"/unarchive", nil, bearer(seller.AccessToken)); res.Status != http.StatusNoContent {
 		t.Fatalf("unarchive: %d %s", res.Status, res.Body)
 	}
 
 	d := openDeal(t, buyer.AccessToken, l.ID, http.StatusCreated)
-	res = call(t, server, "GET", "/v1/conversations/"+c.ID, nil, bearer(seller.AccessToken))
-	if got := decode[conversationBody](t, res); res.Status != http.StatusOK || len(got.Deals) != 1 || got.Deals[0].ID != d.ID {
-		t.Fatalf("conversation: %d %s", res.Status, res.Body)
+	res = call(t, server, "GET", "/v1/screens/chat/"+c.ID, nil, bearer(seller.AccessToken))
+	if got := decode[chatScreen](t, res); res.Status != http.StatusOK || len(got.Deals) != 1 || got.Deals[0].ID != d.ID {
+		t.Fatalf("chat: %d %s", res.Status, res.Body)
 	}
 }
 
@@ -159,11 +149,6 @@ func TestChatRefusals(t *testing.T) {
 	expect("open without text", open(stranger.AccessToken, map[string]any{"listing_id": l.ID, "text": " "}), 422, "invalid_message")
 	expect("open with another's photo", open(stranger.AccessToken, map[string]any{"listing_id": l.ID, "photos": []string{upload(t, seller.AccessToken, photoWithGPS(t))}}), 422, "invalid_upload")
 
-	expect("list signed out", call(t, server, "GET", "/v1/conversations", nil), 401, "unauthenticated")
-	expect("list a bad flag", call(t, server, "GET", "/v1/conversations?archived=maybe", nil, bearer(buyer.AccessToken)), 400, "")
-	expect("get signed out", call(t, server, "GET", "/v1/conversations/"+c.ID, nil), 401, "unauthenticated")
-	expect("get a bad id", call(t, server, "GET", "/v1/conversations/x", nil, bearer(buyer.AccessToken)), 400, "")
-	expect("get as a stranger", call(t, server, "GET", "/v1/conversations/"+c.ID, nil, bearer(stranger.AccessToken)), 404, "conversation_not_found")
 	expect("messages signed out", call(t, server, "GET", "/v1/conversations/"+c.ID+"/messages", nil), 401, "unauthenticated")
 	expect("messages a bad id", call(t, server, "GET", "/v1/conversations/x/messages", nil, bearer(buyer.AccessToken)), 400, "")
 	expect("messages as a stranger", call(t, server, "GET", "/v1/conversations/"+c.ID+"/messages", nil, bearer(stranger.AccessToken)), 404, "conversation_not_found")

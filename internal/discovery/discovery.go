@@ -12,8 +12,10 @@ import (
 	"github.com/shopnexus/server2/internal/platform/module"
 )
 
-// Mount registers the discovery endpoints behind protect.
-func Mount(d module.Deps, protect func(http.Handler) http.Handler, catalog catalogsvc.Service) {
+// Mount registers the discovery endpoints behind protect and returns the
+// Service screen reads saves through.
+func Mount(d module.Deps, protect func(http.Handler) http.Handler, catalog catalogsvc.Service) service.Service {
 	svc := service.New(service.Deps{Saves: repository.NewSaves(d.Pool), Catalog: catalog, Now: d.Now})
 	handler.New(svc, d.Log).Register(d.Router, protect)
+	return svc
 }

@@ -1,0 +1,79 @@
+ListingScreen:
+  type: object
+  additionalProperties: false
+  required: [listing, seller]
+  properties:
+    listing:
+      $ref: "catalog.yaml#/Listing"
+    seller:
+      $ref: "#/SellerSummary"
+    viewer:
+      $ref: "#/ListingViewer"
+SellerSummary:
+  type: object
+  additionalProperties: false
+  required: [id, display_name, joined_at, rating, sold]
+  description: The seller of a listing, as the listing view shows them.
+  properties:
+    id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+    avatar_url:
+      type: string
+      format: uri
+      description: A public 400 px square; absent without an avatar.
+    joined_at:
+      type: string
+      format: date-time
+    rating:
+      $ref: "trust.yaml#/Rating"
+    sold:
+      type: integer
+      description: Listings sold, through an order or marked by hand.
+ListingViewer:
+  type: object
+  additionalProperties: false
+  required: [saved]
+  description: |
+    The reader's own ties to the listing, sent when the reader is signed in
+    and is not the seller.
+  properties:
+    saved:
+      type: boolean
+      description: Whether the reader saved the listing.
+    deal:
+      $ref: "deal.yaml#/DealSummary"
+    conversation_id:
+      type: string
+      format: uuid
+      description: The reader's conversation with the seller; absent when there is none.
+SellerScreen:
+  type: object
+  additionalProperties: false
+  required: [seller, listings, reviews]
+  properties:
+    seller:
+      $ref: "trust.yaml#/Seller"
+    listings:
+      $ref: "catalog.yaml#/ListingList"
+    reviews:
+      $ref: "trust.yaml#/SellerReviews"
+    viewer:
+      $ref: "#/SellerViewer"
+SellerViewer:
+  type: object
+  additionalProperties: false
+  required: [blocked]
+  description: |
+    The reader's ties to the seller, sent when the reader is signed in and
+    is not the seller.
+  properties:
+    blocked:
+      type: boolean
+      description: Whether either of the two blocks the other.
+    conversation_id:
+      type: string
+      format: uuid
+      description: The reader's conversation with the seller; absent when there is none.

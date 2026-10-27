@@ -390,3 +390,32 @@ regionCommunes:
               $ref: "../schemas/catalog.yaml#/CommuneList"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
+sellerListings:
+  get:
+    operationId: listSellerListings
+    summary: A seller's listings that anyone sees, active and reserved, newest first.
+    tags: [catalog]
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of listings.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/ListingList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "404":
+        description: "No such account (account_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

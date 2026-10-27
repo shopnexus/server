@@ -25,7 +25,7 @@ func TestInsertCommitsWithItsTransaction(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	ctx := context.Background()
-	e := events.Event{ID: uuid.NewV7(), Kind: events.AccountRenamed, SubjectID: uuid.NewV7(), OccurredAt: at}
+	e := events.Event{ID: uuid.NewV7(), Kind: events.AccountUpdated, SubjectID: uuid.NewV7(), OccurredAt: at}
 	rollback := errors.New("roll back")
 	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error {
 		if err := events.Insert(ctx, tx, e); err != nil {
@@ -57,7 +57,7 @@ func TestInsertCommitsWithItsTransaction(t *testing.T) {
 	}
 	var kind string
 	if err = db.QueryRow(ctx, `SELECT kind FROM events WHERE id = @id AND dispatched_at IS NULL`,
-		pgx.StrictNamedArgs{"id": e.ID}).Scan(&kind); err != nil || kind != "account.renamed" {
+		pgx.StrictNamedArgs{"id": e.ID}).Scan(&kind); err != nil || kind != "account.updated" {
 		t.Fatalf("%q %v", kind, err)
 	}
 }
@@ -81,7 +81,7 @@ func TestInsertStoresEmptyData(t *testing.T) {
 func TestInsertTwiceKeepsOne(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	e := events.Event{ID: uuid.NewV7(), Kind: events.AccountRenamed, SubjectID: uuid.NewV7(), OccurredAt: at}
+	e := events.Event{ID: uuid.NewV7(), Kind: events.AccountUpdated, SubjectID: uuid.NewV7(), OccurredAt: at}
 	for range 2 {
 		if err := insert(t, db, e); err != nil {
 			t.Fatal(err)

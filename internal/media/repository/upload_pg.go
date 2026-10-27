@@ -17,12 +17,12 @@ type pgUploads struct{ db *pgxpool.Pool }
 
 func NewUploads(db *pgxpool.Pool) Uploads { return pgUploads{db} }
 
-const uploadColumns = `id, owner_id, coalesce(holder_id, '00000000-0000-0000-0000-000000000000'), content_type, size, status, coalesce(photo_key, ''), coalesce(thumb_key, ''),
+const uploadColumns = `id, owner_id, coalesce(holder_id, '00000000-0000-0000-0000-000000000000'), coalesce(shape, ''), content_type, size, status, coalesce(photo_key, ''), coalesce(thumb_key, ''),
        coalesce(failure, ''), write_id, created_at, updated_at`
 
 func scanUpload(row pgx.Row) (domain.Upload, error) {
 	var st domain.UploadState
-	if err := row.Scan(&st.ID, &st.OwnerID, &st.HolderID, &st.ContentType, &st.Size, &st.Status, &st.PhotoKey, &st.ThumbKey,
+	if err := row.Scan(&st.ID, &st.OwnerID, &st.HolderID, &st.Shape, &st.ContentType, &st.Size, &st.Status, &st.PhotoKey, &st.ThumbKey,
 		&st.Failure, &st.WriteID, &st.CreatedAt, &st.UpdatedAt); err != nil {
 		return domain.Upload{}, fmt.Errorf("scan upload: %w", err)
 	}
@@ -77,6 +77,7 @@ func (s pgUploads) GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Uploa
 
 const saveUpload = `
 UPDATE uploads SET status = @status, holder_id = NULLIF(@holder_id, '00000000-0000-0000-0000-000000000000'::uuid),
+       shape = NULLIF(@shape, ''),
        photo_key = NULLIF(@photo_key, ''), thumb_key = NULLIF(@thumb_key, ''),
        failure = NULLIF(@failure, ''), updated_at = @updated_at, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
@@ -90,7 +91,7 @@ func update(ctx context.Context, q execer, u *domain.Upload, writeID uuid.UUID) 
 	st := u.State()
 	tag, err := q.Exec(ctx, saveUpload, pgx.StrictNamedArgs{
 		"id": st.ID, "read_write_id": st.WriteID, "write_id": writeID, "status": st.Status, "holder_id": st.HolderID,
-		"photo_key": st.PhotoKey, "thumb_key": st.ThumbKey, "failure": st.Failure, "updated_at": st.UpdatedAt,
+		"shape": st.Shape, "photo_key": st.PhotoKey, "thumb_key": st.ThumbKey, "failure": st.Failure, "updated_at": st.UpdatedAt,
 	})
 	if err != nil {
 		return fmt.Errorf("update upload: %w", err)

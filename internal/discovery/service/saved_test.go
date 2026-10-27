@@ -44,7 +44,7 @@ func newEnv(t *testing.T) env {
 		t.Fatal(err)
 	}
 	in, p := ingress.NewClient(url), restatetest.Prefix()
-	accounts := accountsvc.New(accountrepo.NewAccounts(db), time.Now)
+	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
 	auth := authsvc.New(authsvc.Deps{Credentials: authrepo.NewCredentials(db)})
 	media := mediasvc.New(mediasvc.Deps{
 		Uploads: mediarepo.NewUploads(db), Store: objectstoretest.New(t), Ingress: in, Prefix: p, Now: time.Now,
@@ -155,5 +155,28 @@ func TestHiddenSaveShowsStatusOnly(t *testing.T) {
 	l := p.Items[0].Listing
 	if l.Status != catalogdomain.StatusHidden || l.Title != "" || l.Price != nil || l.CoverThumbURL != "" {
 		t.Fatalf("%+v", l)
+	}
+}
+
+func TestIsSaved(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, me := e.account(t), e.account(t)
+	listing := e.listing(t, seller, 1_500_000)
+	if saved, err := e.discovery.IsSaved(ctx, me, listing); err != nil || saved {
+		t.Fatalf("before: %v %v", saved, err)
+	}
+	if err := e.discovery.Save(ctx, me, listing); err != nil {
+		t.Fatal(err)
+	}
+	if saved, err := e.discovery.IsSaved(ctx, me, listing); err != nil || !saved {
+		t.Fatalf("after: %v %v", saved, err)
+	}
+	if err := e.discovery.Unsave(ctx, me, listing); err != nil {
+		t.Fatal(err)
+	}
+	if saved, err := e.discovery.IsSaved(ctx, me, listing); err != nil || saved {
+		t.Fatalf("after unsave: %v %v", saved, err)
 	}
 }

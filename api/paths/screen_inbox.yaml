@@ -1,0 +1,63 @@
+screenInbox:
+  get:
+    operationId: getInboxScreen
+    summary: The inbox view, one page of conversations with the deal each is about.
+    description: |
+      A conversation without a sent message, or with someone the caller
+      blocks, is left out. Later pages come from this view with cursor.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: archived
+        in: query
+        description: true lists the archived conversations; false or absent, the others.
+        schema:
+          type: boolean
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of the inbox.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_inbox.yaml#/InboxScreen"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+screenChat:
+  get:
+    operationId: getChatScreen
+    summary: The chat view, a conversation with the pair's deals and its newest messages.
+    description: |
+      Older messages come from GET /v1/conversations/{id}/messages with the
+      view's next_cursor.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: conversation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The chat.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_inbox.yaml#/ChatScreen"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such conversation of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

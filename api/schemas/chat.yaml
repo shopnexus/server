@@ -51,6 +51,10 @@ Person:
       format: uuid
     display_name:
       type: string
+    avatar_url:
+      type: string
+      format: uri
+      description: A public 400 px square; absent without an avatar.
 MessagePhoto:
   type: object
   additionalProperties: false
@@ -99,49 +103,15 @@ Message:
 Conversation:
   type: object
   additionalProperties: false
-  required: [id, other, deals, archived]
+  required: [id, other, archived]
   properties:
     id:
       type: string
       format: uuid
     other:
       $ref: "#/Person"
-    deals:
-      type: array
-      description: The deals of the two people on either side, newest first, as the caller sees them.
-      items:
-        $ref: "deal.yaml#/Deal"
     archived:
       type: boolean
-InboxItem:
-  type: object
-  additionalProperties: false
-  required: [id, other, last_message, unread, archived]
-  properties:
-    id:
-      type: string
-      format: uuid
-    other:
-      $ref: "#/Person"
-    last_message:
-      $ref: "#/Message"
-    unread:
-      type: integer
-    archived:
-      type: boolean
-ConversationList:
-  type: object
-  additionalProperties: false
-  required: [items]
-  properties:
-    items:
-      type: array
-      items:
-        $ref: "#/InboxItem"
-    next_cursor:
-      type: string
-      format: uuid
-      description: Present when more conversations follow; pass it as cursor.
 MessageList:
   type: object
   additionalProperties: false

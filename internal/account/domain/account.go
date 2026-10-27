@@ -16,13 +16,18 @@ const (
 	StatusSuspended Status = "suspended"
 )
 
-const maxNameRunes = 50
+const (
+	maxNameRunes = 50
+	maxBioRunes  = 200
+)
 
 // Account is one person. Fields are unexported so every change goes through
 // a method that keeps the rules.
 type Account struct {
 	id             uuid.UUID
 	displayName    string
+	bio            string
+	avatarKey      string // the object key of the avatar; empty without one
 	status         Status
 	suspendedUntil *time.Time
 	suspendReason  string
@@ -35,25 +40,27 @@ type Account struct {
 // be empty until the person completes their profile. The first write ID is
 // the id.
 func New(id uuid.UUID, displayName string, now time.Time) (Account, error) {
-	name, err := cleanName(displayName, true)
-	if err != nil {
-		return Account{}, err
+	name := strings.TrimSpace(displayName)
+	if utf8.RuneCountInString(name) > maxNameRunes {
+		return Account{}, ErrInvalidAccount.WithField("display_name", "at most 50 characters")
 	}
 	return Account{id: id, displayName: name, status: StatusActive, writeID: id, createdAt: now, updatedAt: now}, nil
 }
 
 // RestoreAccount rebuilds a stored account. Stores only.
-func RestoreAccount(id uuid.UUID, displayName string, status Status, suspendedUntil *time.Time, suspendReason string,
-	writeID uuid.UUID, createdAt, updatedAt time.Time,
+func RestoreAccount(id uuid.UUID, displayName, bio, avatarKey string, status Status, suspendedUntil *time.Time,
+	suspendReason string, writeID uuid.UUID, createdAt, updatedAt time.Time,
 ) Account {
 	return Account{
-		id: id, displayName: displayName, status: status, suspendedUntil: suspendedUntil, suspendReason: suspendReason,
-		writeID: writeID, createdAt: createdAt, updatedAt: updatedAt,
+		id: id, displayName: displayName, bio: bio, avatarKey: avatarKey, status: status,
+		suspendedUntil: suspendedUntil, suspendReason: suspendReason, writeID: writeID, createdAt: createdAt, updatedAt: updatedAt,
 	}
 }
 
 func (a *Account) ID() uuid.UUID              { return a.id }
 func (a *Account) DisplayName() string        { return a.displayName }
+func (a *Account) Bio() string                { return a.bio }
+func (a *Account) AvatarKey() string          { return a.avatarKey }
 func (a *Account) SuspendReason() string      { return a.suspendReason }
 func (a *Account) SuspendedUntil() *time.Time { return a.suspendedUntil }
 func (a *Account) CreatedAt() time.Time       { return a.createdAt }
@@ -87,16 +94,34 @@ func (a *Account) CanWrite(now time.Time) error {
 	return nil
 }
 
-// SetDisplayName replaces the name. Unlike New, it does not accept an empty
-// one.
-func (a *Account) SetDisplayName(name string, now time.Time) error {
-	clean, err := cleanName(name, false)
-	if err != nil {
-		return err
+// Edit sets the display name and the bio, each when not nil. Unlike New,
+// it does not accept an empty name; the bio may be empty. A field that
+// breaks its rule is named in ErrInvalidAccount and nothing changes.
+func (a *Account) Edit(displayName, bio *string, now time.Time) error {
+	e := ErrInvalidAccount
+	name, about := a.displayName, a.bio
+	if displayName != nil {
+		name = strings.TrimSpace(*displayName)
+		if n := utf8.RuneCountInString(name); n < 1 || n > maxNameRunes {
+			e = e.WithField("display_name", "1 to 50 characters")
+		}
 	}
-	a.displayName = clean
-	a.updatedAt = now
+	if bio != nil {
+		about = strings.TrimSpace(*bio)
+		if utf8.RuneCountInString(about) > maxBioRunes {
+			e = e.WithField("bio", "at most 200 characters")
+		}
+	}
+	if len(e.Fields) > 0 {
+		return e
+	}
+	a.displayName, a.bio, a.updatedAt = name, about, now
 	return nil
+}
+
+// SetAvatar sets the object key of the avatar; an empty key removes it.
+func (a *Account) SetAvatar(key string, now time.Time) {
+	a.avatarKey, a.updatedAt = key, now
 }
 
 // Suspend stops the account from writing, until the given time or, with a
@@ -122,13 +147,4 @@ func (a *Account) Reinstate(now time.Time) {
 	a.suspendReason = ""
 	a.suspendedUntil = nil
 	a.updatedAt = now
-}
-
-func cleanName(name string, allowEmpty bool) (string, error) {
-	name = strings.TrimSpace(name)
-	n := utf8.RuneCountInString(name)
-	if n > maxNameRunes || (n == 0 && !allowEmpty) {
-		return "", ErrInvalidName
-	}
-	return name, nil
 }

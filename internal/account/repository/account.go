@@ -19,13 +19,21 @@ var (
 	ErrConflict = errors.New("account: changed meanwhile")
 )
 
-// Accounts persists accounts. Each method is its own transaction.
+// Accounts persists accounts, their blocks and their address books. Each
+// method is its own transaction.
+//
+//nolint:interfacebloat // One method per store operation of accounts and blocks; Addresses adds the address book's.
 type Accounts interface {
+	Addresses
+
 	// Create inserts a; inserting the same id again does nothing, so a retried
 	// step is safe.
 	Create(ctx context.Context, a domain.Account) error
 	// Get returns ErrNotFound for an unknown id.
 	Get(ctx context.Context, id uuid.UUID) (domain.Account, error)
+	// GetMany returns the accounts among ids in any order; an unknown ID is
+	// left out.
+	GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Account, error)
 	// Save writes a when its row still has a.WriteID() or already has
 	// writeID, then sets a's write ID to writeID. Otherwise ErrConflict. It
 	// writes evs in the same transaction; a conflict writes none. A durable

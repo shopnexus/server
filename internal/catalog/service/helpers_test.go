@@ -53,7 +53,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 		t.Fatal(err)
 	}
 	in, p := ingress.NewClient(url), restatetest.Prefix()
-	accounts := accountsvc.New(accountrepo.NewAccounts(db), time.Now)
+	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
 	m := mediasvc.New(mediasvc.Deps{Uploads: mediarepo.NewUploads(db), Store: store, Ingress: in, Prefix: p, Now: time.Now})
 	listings := repository.NewListings(db)
 	deps := service.Deps{

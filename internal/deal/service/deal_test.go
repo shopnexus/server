@@ -278,3 +278,24 @@ func TestBetween(t *testing.T) {
 		t.Fatalf("roles %s %s", got[0].Role, got[1].Role)
 	}
 }
+
+func TestBuyerSummary(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	l := e.listing(t, seller)
+	if _, ok, err := e.deals.BuyerSummary(ctx, buyer, l); err != nil || ok {
+		t.Fatalf("before: %v %v", ok, err)
+	}
+	v := e.open(t, buyer, l)
+	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
+	got, ok, err := e.deals.BuyerSummary(ctx, buyer, l)
+	if err != nil || !ok || got.ID != v.ID || got.Role != domain.Buyer || got.Status != domain.StatusNegotiating ||
+		got.YourTurn || got.OpenPrice == nil || got.OpenPrice.Amount != 1_000_000 || got.Listing.ID != l {
+		t.Fatalf("buyer: %+v %v %v", got, ok, err)
+	}
+	if _, ok, err = e.deals.BuyerSummary(ctx, seller, l); err != nil || ok {
+		t.Fatalf("the seller is no buyer: %v %v", ok, err)
+	}
+}

@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,6 +14,8 @@ import (
 type accountView struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"display_name"`
+	Bio         string `json:"bio"`
+	AvatarURL   string `json:"avatar_url"`
 	Status      string `json:"status"`
 }
 
@@ -52,7 +55,7 @@ func TestAccountMeUnknownAccount(t *testing.T) {
 
 // Parallel renames of one account race on its write_id. Each gets 200 or
 // 409 try_again, and at least one wins.
-func TestAccountRenameRace(t *testing.T) {
+func TestAccountUpdateRace(t *testing.T) {
 	t.Parallel()
 	acc, _ := newAccount(t)
 	statuses := make(chan int, 30)
@@ -82,11 +85,11 @@ func TestAccountRenameRace(t *testing.T) {
 	}
 }
 
-func TestAccountRename(t *testing.T) {
+func TestAccountUpdate(t *testing.T) {
 	t.Parallel()
 	acc, _ := newAccount(t)
-	res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "  Linh  "}, bearer(acc.AccessToken))
-	if res.Status != 200 || decode[accountView](t, res).DisplayName != "Linh" {
+	res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "  Linh  ", "bio": " Đồ cũ còn tốt "}, bearer(acc.AccessToken))
+	if v := decode[accountView](t, res); res.Status != 200 || v.DisplayName != "Linh" || v.Bio != "Đồ cũ còn tốt" {
 		t.Fatalf("status %d: %s", res.Status, res.Body)
 	}
 	for _, c := range []struct {
@@ -94,8 +97,10 @@ func TestAccountRename(t *testing.T) {
 		status int
 		code   string
 	}{
-		{map[string]string{"display_name": "   "}, 422, "invalid_display_name"},
+		{map[string]string{"display_name": "   "}, 422, "invalid_account"},
+		{map[string]string{"bio": strings.Repeat("ữ", 201)}, 422, "invalid_account"},
 		{map[string]string{"display_name": "Linh", "status": "active"}, 400, "invalid_request"},
+		{map[string]string{}, 400, "invalid_request"},
 	} {
 		if res := call(t, server, "PATCH", "/v1/accounts/me", c.body, bearer(acc.AccessToken)); res.Status != c.status || errorOf(t, res).Code != c.code {
 			t.Fatalf("%v: %d %s", c.body, res.Status, res.Body)
@@ -108,7 +113,7 @@ func TestAccountRename(t *testing.T) {
 
 // A suspended person keeps read access until the access token expires;
 // writes stop at once.
-func TestAccountRenameWhileSuspended(t *testing.T) {
+func TestAccountUpdateWhileSuspended(t *testing.T) {
 	t.Parallel()
 	acc, _ := newAccount(t)
 	suspend(t, acc.Account.ID)

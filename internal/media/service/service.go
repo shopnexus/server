@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/media/repository"
 	"github.com/shopnexus/server2/internal/platform/objectstore"
+	"github.com/shopnexus/server2/internal/platform/restatex"
 )
 
 // Service is module media's contract.
@@ -23,6 +24,10 @@ type Service interface {
 	// Attach gives owner's uploads to holder, such as a listing: all of them
 	// or none. Uploads holder already holds pass, so a retry succeeds.
 	Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID) error
+	// Square gives one of owner's uploads to holder, such as an account for
+	// its avatar, waits until it is processed into a square and returns the
+	// square's object key. A retry returns the same key.
+	Square(ctx context.Context, owner, holder, id uuid.UUID) (string, error)
 	// Photos reports each upload's processing, with URLs once ready.
 	Photos(ctx context.Context, ids []uuid.UUID) ([]Photo, error)
 	// URL is where a client reads the processed object key.
@@ -47,6 +52,7 @@ type Media struct {
 	prefix  string
 	now     func() time.Time
 	slots   chan struct{}
+	process restatex.Caller[uuid.UUID, ProcessResult]
 }
 
 var _ Service = (*Media)(nil)
@@ -54,7 +60,8 @@ var _ Service = (*Media)(nil)
 func New(d Deps) *Media {
 	return &Media{
 		uploads: d.Uploads, store: d.Store, ingress: d.Ingress, prefix: d.Prefix, now: d.Now,
-		slots: make(chan struct{}, processSlots),
+		slots:   make(chan struct{}, processSlots),
+		process: restatex.Caller[uuid.UUID, ProcessResult]{Ingress: d.Ingress, Service: d.Prefix + mediaProcess, Handler: "Run"},
 	}
 }
 

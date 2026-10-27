@@ -120,20 +120,17 @@ func TestSendRefusals(t *testing.T) {
 	}
 }
 
-func TestConversationShowsDeals(t *testing.T) {
+func TestGet(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	a, b := e.person(t), e.person(t)
-	c := e.open(t, b, e.listing(t, a), "Còn không?")
-	if _, _, err := e.deals.Open(ctx, b, e.listing(t, a)); err != nil {
+	seller, buyer := e.person(t), e.person(t)
+	c := e.open(t, buyer, e.listing(t, seller), "Còn không?")
+	if err := e.chat.Archive(ctx, seller, c.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := e.deals.Open(ctx, a, e.listing(t, b)); err != nil {
-		t.Fatal(err)
-	}
-	got, err := e.chat.Get(ctx, a, c.ID)
-	if err != nil || len(got.Deals) != 2 {
+	got, err := e.chat.Get(ctx, seller, c.ID)
+	if err != nil || got.ID != c.ID || got.Other.ID != buyer || !got.Archived {
 		t.Fatalf("%+v %v", got, err)
 	}
 	if _, err = e.chat.Get(ctx, e.person(t), c.ID); !errors.Is(err, domain.ErrNotFound) {
@@ -167,5 +164,21 @@ func TestArchive(t *testing.T) {
 	}
 	if p, _ := e.chat.Inbox(ctx, seller, false, page.Request{}); len(p.Items) != 1 {
 		t.Fatalf("unarchive: %+v", p.Items)
+	}
+}
+
+func TestConversationWith(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
+	c := e.open(t, buyer, e.listing(t, seller), "Còn không?")
+	for _, p := range [][2]uuid.UUID{{buyer, seller}, {seller, buyer}} {
+		if id, err := e.chat.ConversationWith(ctx, p[0], p[1]); err != nil || id != c.ID {
+			t.Fatalf("%v: %v %v", p, id, err)
+		}
+	}
+	if id, err := e.chat.ConversationWith(ctx, stranger, seller); err != nil || id != (uuid.UUID{}) {
+		t.Fatalf("no conversation: %v %v", id, err)
 	}
 }

@@ -52,65 +52,6 @@ conversations:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-  get:
-    operationId: listConversations
-    summary: List the caller's conversations, newest message first.
-    description: |
-      A conversation without a sent message, or with someone the caller
-      blocks, is left out.
-    tags: [chat]
-    security:
-      - bearerAuth: []
-    parameters:
-      - name: archived
-        in: query
-        description: true lists the archived conversations; false or absent, the others.
-        schema:
-          type: boolean
-      - $ref: "../parameters/common.yaml#/Cursor"
-      - $ref: "../parameters/common.yaml#/Limit"
-    responses:
-      "200":
-        description: One page of conversations.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/chat.yaml#/ConversationList"
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-conversation:
-  get:
-    operationId: getConversation
-    summary: Read a conversation with the deals of its two members.
-    tags: [chat]
-    security:
-      - bearerAuth: []
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    responses:
-      "200":
-        description: The conversation.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/chat.yaml#/Conversation"
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "404":
-        description: "No such conversation of the caller's (conversation_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
 conversationMessages:
   get:
     operationId: listMessages

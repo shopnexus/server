@@ -24,6 +24,9 @@ type Chats interface {
 	OpenPair(ctx context.Context, c domain.Conversation) (domain.Conversation, error)
 	// Get returns ErrNotFound for an unknown id.
 	Get(ctx context.Context, id uuid.UUID) (domain.Conversation, error)
+	// FindPair returns the conversation of one and other, in either order,
+	// or ErrNotFound.
+	FindPair(ctx context.Context, one, other uuid.UUID) (domain.Conversation, error)
 	// AddMessage inserts m and notifies the members m is visible to. A sent
 	// m becomes the conversation's last message and takes the conversation
 	// out of both members' archives. Adding the same ID again does nothing.

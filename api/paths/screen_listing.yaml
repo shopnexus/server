@@ -1,0 +1,73 @@
+screenListing:
+  get:
+    operationId: getListingScreen
+    summary: The listing view, a listing on sale with its seller and the reader's ties to it.
+    description: |
+      Only an active or reserved listing has the view; its seller reads it
+      in another status through GET /v1/listings/{id}. A signed-in reader
+      who is not the seller also gets `viewer`.
+    tags: [screen]
+    security:
+      - {}
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The listing view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_listing.yaml#/ListingScreen"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing on sale (listing_not_found), for its seller too."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+screenSeller:
+  get:
+    operationId: getSellerScreen
+    summary: The seller view, a seller's profile with the first page of their listings and reviews.
+    description: |
+      More listings come from GET /v1/sellers/{id}/listings and more
+      reviews from GET /v1/sellers/{id}/reviews, with the view's
+      next_cursor. A signed-in reader who is not the seller also gets
+      `viewer`.
+    tags: [screen]
+    security:
+      - {}
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The seller view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_listing.yaml#/SellerScreen"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such account (account_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

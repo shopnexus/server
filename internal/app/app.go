@@ -36,6 +36,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/stream"
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/sms"
+	"github.com/shopnexus/server2/internal/screen"
 	"github.com/shopnexus/server2/internal/staff"
 	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
 	staffsvc "github.com/shopnexus/server2/internal/staff/service"
@@ -205,25 +206,27 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}
 	protect := auth.Protect(d, cfg.Auth)
 	router.Handle("GET /v1/stream", protect(hub.Handler(log)))
-	accounts := account.Mount(d, protect)
+	store, err := objectstore.New(cfg.ObjectStore)
+	if err != nil {
+		return nil, fmt.Errorf("object store: %w", err)
+	}
+	mediam := media.Mount(d, store, protect)
+	accounts := account.Mount(d, protect, mediam.Service)
 	authm := auth.Mount(d, auth.Settings{Keys: cfg.Auth, SMS: o.sms, Email: o.email}, accounts)
 	staffKeys, err := staffsvc.NewKeys(cfg.Staff, o.hasher)
 	if err != nil {
 		return nil, fmt.Errorf("staff keys: %w", err)
 	}
 	staff.Mount(d, staffKeys, accounts, authm.Service)
-	store, err := objectstore.New(cfg.ObjectStore)
-	if err != nil {
-		return nil, fmt.Errorf("object store: %w", err)
-	}
-	mediam := media.Mount(d, store, protect)
 	catalogm := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
 		accounts, authm.Service, mediam.Service)
 	dealm := deal.Mount(d, protect, accounts, authm.Service, catalogm.Service)
-	trust.Mount(d, protect, accounts, catalogm.Service, dealm.Service)
-	discovery.Mount(d, protect, catalogm.Service)
-	chatServices := chat.Mount(d, protect, accounts, authm.Service, catalogm.Service, mediam.Service, dealm.Service)
-	return slices.Concat(authm.Services, mediam.Services, catalogm.Services, dealm.Services, chatServices), nil
+	trustm := trust.Mount(d, protect, accounts, catalogm.Service, dealm.Service)
+	saves := discovery.Mount(d, protect, catalogm.Service)
+	chatm := chat.Mount(d, protect, accounts, authm.Service, catalogm.Service, mediam.Service)
+	screen.Mount(d, screen.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
+		accounts, catalogm.Service, dealm.Service, trustm, saves, chatm.Service)
+	return slices.Concat(authm.Services, mediam.Services, catalogm.Services, dealm.Services, chatm.Services), nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

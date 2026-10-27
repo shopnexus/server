@@ -28,6 +28,20 @@ func TestRegions(t *testing.T) {
 	}
 }
 
+func TestPlaces(t *testing.T) {
+	t.Parallel()
+	s := repository.NewRegions(pgtest.New(t))
+	got, err := s.Places(context.Background(), []string{"00004", "26704", "99999"})
+	if err != nil || len(got) != 2 {
+		t.Fatalf("%+v %v", got, err)
+	}
+	for _, p := range got {
+		if p.DisplayName == "" || p.Province == "" || p.ProvinceCode == "" || p.Lat == 0 {
+			t.Errorf("%+v", p)
+		}
+	}
+}
+
 func TestCategories(t *testing.T) {
 	t.Parallel()
 	s := repository.NewCategories(pgtest.New(t))

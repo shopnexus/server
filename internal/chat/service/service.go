@@ -1,7 +1,7 @@
 // Package service holds module chat's use cases: a buyer opens a
 // conversation from a listing, the two people message each other with text
-// and photos, read, archive, and see their deals there. Every send runs on
-// Restate, in message_send_durable.go, and a photo message finishes in
+// and photos, read and archive. Every send runs on Restate, in
+// message_send_durable.go, and a photo message finishes in
 // message_publish_durable.go.
 package service
 
@@ -20,7 +20,6 @@ import (
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/chat/domain"
 	"github.com/shopnexus/server2/internal/chat/repository"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/restatex"
@@ -42,8 +41,11 @@ type Service interface {
 	// Inbox lists account's conversations, archived or not, newest message
 	// first.
 	Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request) (page.Page[InboxItem], error)
-	// Get reads a conversation of account's with the pair's deals.
+	// Get reads a conversation of account's.
 	Get(ctx context.Context, account, conversation uuid.UUID) (ConversationView, error)
+	// ConversationWith returns the ID of account's conversation with other;
+	// the zero ID when the two have none.
+	ConversationWith(ctx context.Context, account, other uuid.UUID) (uuid.UUID, error)
 	// Messages lists what account may read of a conversation, newest first.
 	Messages(ctx context.Context, account, conversation uuid.UUID, p page.Request) (page.Page[MessageView], error)
 	// Unread counts account's unread messages over unarchived conversations.
@@ -57,7 +59,6 @@ type Deps struct {
 	Auth     authsvc.Service
 	Catalog  catalogsvc.Service
 	Media    mediasvc.Service
-	Deals    dealsvc.Service
 	// Ingress and Prefix reach this process's Restate services; media's
 	// MediaProcess runs under the same prefix.
 	Ingress *ingress.Client
@@ -72,7 +73,6 @@ type Chat struct {
 	auth     authsvc.Service
 	catalog  catalogsvc.Service
 	media    mediasvc.Service
-	deals    dealsvc.Service
 	prefix   string
 	now      func() time.Time
 	send     restatex.Caller[SendFlowInput, SendResult]
@@ -82,7 +82,7 @@ var _ Service = (*Chat)(nil)
 
 func New(d Deps) *Chat {
 	return &Chat{
-		chats: d.Chats, accounts: d.Accounts, auth: d.Auth, catalog: d.Catalog, media: d.Media, deals: d.Deals,
+		chats: d.Chats, accounts: d.Accounts, auth: d.Auth, catalog: d.Catalog, media: d.Media,
 		prefix: d.Prefix, now: d.Now,
 		send: restatex.Caller[SendFlowInput, SendResult]{Ingress: d.Ingress, Service: d.Prefix + messageSend, Handler: "Run"},
 	}

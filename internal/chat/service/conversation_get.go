@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/chat/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -13,36 +15,50 @@ func (c *Chat) Inbox(ctx context.Context, account uuid.UUID, archived bool, p pa
 	if err != nil {
 		return page.Page[InboxItem]{}, fmt.Errorf("read inbox: %w", err)
 	}
+	ids := make([]uuid.UUID, 0, len(rows))
+	for i := range rows {
+		ids = append(ids, rows[i].Other)
+	}
+	others, err := c.accounts.GetMany(ctx, ids)
+	if err != nil {
+		return page.Page[InboxItem]{}, fmt.Errorf("read the other members: %w", err)
+	}
 	items := make([]InboxItem, 0, len(rows))
 	for i := range rows {
-		other, personErr := c.person(ctx, rows[i].Other)
-		if personErr != nil {
-			return page.Page[InboxItem]{}, personErr
-		}
+		other := others[rows[i].Other]
 		items = append(items, InboxItem{
-			ID: rows[i].Conversation.ID, Other: other, LastMessage: c.messageView(rows[i].Last),
-			Unread: rows[i].Unread, Archived: archived,
+			ID: rows[i].Conversation.ID, Other: PersonView{ID: rows[i].Other, DisplayName: other.DisplayName, AvatarURL: other.AvatarURL},
+			LastMessage: c.messageView(rows[i].Last), Unread: rows[i].Unread, Archived: archived,
 		})
 	}
 	return page.Of(items, p, func(it InboxItem) uuid.UUID { return it.LastMessage.ID }), nil
 }
 
-// Get reads the conversation with the deals of its two members, as account
-// sees them.
 func (c *Chat) Get(ctx context.Context, account, conversation uuid.UUID) (ConversationView, error) {
 	conv, m, err := c.member(ctx, account, conversation)
 	if err != nil {
 		return ConversationView{}, err
 	}
-	other, err := c.person(ctx, conv.Other(account))
+	id := conv.Other(account)
+	other, err := c.accounts.Get(ctx, id)
 	if err != nil {
-		return ConversationView{}, err
+		return ConversationView{}, fmt.Errorf("read the other member: %w", err)
 	}
-	deals, err := c.deals.Between(ctx, account, other.ID)
+	return ConversationView{
+		ID: conv.ID, Other: PersonView{ID: id, DisplayName: other.DisplayName, AvatarURL: other.AvatarURL},
+		Archived: m.ArchivedAt != nil,
+	}, nil
+}
+
+func (c *Chat) ConversationWith(ctx context.Context, account, other uuid.UUID) (uuid.UUID, error) {
+	conv, err := c.chats.FindPair(ctx, account, other)
+	if errors.Is(err, repository.ErrNotFound) {
+		return uuid.UUID{}, nil
+	}
 	if err != nil {
-		return ConversationView{}, fmt.Errorf("read deals: %w", err)
+		return uuid.UUID{}, fmt.Errorf("find conversation: %w", err)
 	}
-	return ConversationView{ID: conv.ID, Other: other, Deals: deals, Archived: m.ArchivedAt != nil}, nil
+	return conv.ID, nil
 }
 
 func (c *Chat) Messages(ctx context.Context, account, conversation uuid.UUID, p page.Request) (page.Page[MessageView], error) {

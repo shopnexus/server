@@ -18,6 +18,8 @@ type Service interface {
 	// price; saving it again changes nothing.
 	Save(ctx context.Context, account, listing uuid.UUID) error
 	Unsave(ctx context.Context, account, listing uuid.UUID) error
+	// IsSaved reports whether account saved listing.
+	IsSaved(ctx context.Context, account, listing uuid.UUID) (bool, error)
 	// Saved lists the account's saves, newest first.
 	Saved(ctx context.Context, account uuid.UUID, p page.Request) (page.Page[SavedView], error)
 }

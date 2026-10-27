@@ -29,6 +29,9 @@ type Listings interface {
 	Discard(ctx context.Context, id uuid.UUID) error
 	// CountOnSale counts seller's listings on sale or hidden.
 	CountOnSale(ctx context.Context, seller uuid.UUID) (int, error)
+	// CountByStatus is a query: how many listings seller has in each
+	// status; a status without one is left out.
+	CountByStatus(ctx context.Context, seller uuid.UUID) (map[domain.Status]int, error)
 	// Get returns ErrNotFound for an unknown id.
 	Get(ctx context.Context, id uuid.UUID) (domain.Listing, error)
 	// GetMany returns the listings among ids in any status and order; an
@@ -59,6 +62,14 @@ type Regions interface {
 	// Communes returns a province's communes by display name.
 	Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error)
 	CommuneExists(ctx context.Context, code string) (bool, error)
-	// Commune returns a commune with its province's display name, or ErrNotFound.
-	Commune(ctx context.Context, code string) (domain.Commune, string, error)
+	// Places returns the communes among codes with their provinces' display
+	// names, in any order; an unknown code is left out.
+	Places(ctx context.Context, codes []string) ([]Place, error)
+}
+
+// Place is a commune with its province's display name.
+type Place struct {
+	domain.Commune
+
+	Province string
 }

@@ -369,14 +369,12 @@ func TestReserveRefuses(t *testing.T) {
 	}
 }
 
-func TestPlace(t *testing.T) {
+func TestPlaces(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	p, err := e.catalog.Place(context.Background(), "00004")
-	if err != nil || p.Commune.DisplayName == "" || p.Province.DisplayName == "" || p.Commune.Code != "00004" {
-		t.Fatalf("%+v %v", p, err)
-	}
-	if _, err = e.catalog.Place(context.Background(), "nope"); !errors.Is(err, domain.ErrNotFound) {
-		t.Fatalf("unknown: %v", err)
+	got, err := e.catalog.Places(context.Background(), []string{"00004", "nope"})
+	p := got["00004"]
+	if err != nil || len(got) != 1 || p.Commune.DisplayName == "" || p.Province.DisplayName == "" || p.Commune.Code != "00004" {
+		t.Fatalf("%+v %v", got, err)
 	}
 }

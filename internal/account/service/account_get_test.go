@@ -30,3 +30,14 @@ func TestStatusFollowsTheClock(t *testing.T) {
 		}
 	}
 }
+
+// GetMany reads the views of the accounts it finds, keyed by ID.
+func TestGetMany(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+	a, b := seed(t, s), seed(t, s)
+	got, err := at(s, now).GetMany(context.Background(), []uuid.UUID{a, b, uuid.NewV7()})
+	if err != nil || len(got) != 2 || got[a].ID != a || got[b].DisplayName != "Linh" || got[b].Status != domain.StatusActive {
+		t.Fatalf("%+v %v", got, err)
+	}
+}

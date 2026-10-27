@@ -25,7 +25,7 @@ func TestCreateIsIdempotent(t *testing.T) {
 func TestCreateRejectsLongName(t *testing.T) {
 	t.Parallel()
 	err := at(newStore(t), now).Create(context.Background(), uuid.NewV7(), strings.Repeat("a", 51))
-	if !errors.Is(err, domain.ErrInvalidName) {
+	if !errors.Is(err, domain.ErrInvalidAccount) {
 		t.Fatalf("err %v", err)
 	}
 }

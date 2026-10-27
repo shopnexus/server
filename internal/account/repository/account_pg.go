@@ -37,23 +37,25 @@ func (s pgAccounts) Create(ctx context.Context, a domain.Account) error {
 	return nil
 }
 
-const getAccount = `
-SELECT id, coalesce(display_name, ''), status, suspended_until, coalesce(suspend_reason, ''), write_id, created_at, updated_at
-FROM accounts WHERE id = @id`
+// accountColumns are the columns scanAccount reads.
+const accountColumns = `id, coalesce(display_name, ''), coalesce(bio, ''), coalesce(avatar_key, ''), status, suspended_until,
+       coalesce(suspend_reason, ''), write_id, created_at, updated_at`
 
-// scanAccount reads the columns of getAccount and listAccounts.
+const getAccount = `SELECT ` + accountColumns + ` FROM accounts WHERE id = @id`
+
+// scanAccount reads accountColumns.
 func scanAccount(row pgx.Row) (domain.Account, error) {
 	var (
-		id, writeID          uuid.UUID
-		name, reason         string
-		status               domain.Status
-		until                *time.Time
-		createdAt, updatedAt time.Time
+		id, writeID                  uuid.UUID
+		name, bio, avatarKey, reason string
+		status                       domain.Status
+		until                        *time.Time
+		createdAt, updatedAt         time.Time
 	)
-	if err := row.Scan(&id, &name, &status, &until, &reason, &writeID, &createdAt, &updatedAt); err != nil {
+	if err := row.Scan(&id, &name, &bio, &avatarKey, &status, &until, &reason, &writeID, &createdAt, &updatedAt); err != nil {
 		return domain.Account{}, fmt.Errorf("scan account: %w", err)
 	}
-	return domain.RestoreAccount(id, name, status, until, reason, writeID, createdAt, updatedAt), nil
+	return domain.RestoreAccount(id, name, bio, avatarKey, status, until, reason, writeID, createdAt, updatedAt), nil
 }
 
 func (s pgAccounts) Get(ctx context.Context, id uuid.UUID) (domain.Account, error) {
@@ -69,7 +71,7 @@ func (s pgAccounts) Get(ctx context.Context, id uuid.UUID) (domain.Account, erro
 
 const saveAccount = `
 UPDATE accounts
-SET display_name = NULLIF(@display_name, ''), status = @status, suspended_until = @suspended_until,
+SET display_name = NULLIF(@display_name, ''), bio = NULLIF(@bio, ''), avatar_key = NULLIF(@avatar_key, ''), status = @status, suspended_until = @suspended_until,
     suspend_reason = NULLIF(@suspend_reason, ''), updated_at = @updated_at, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
@@ -81,7 +83,7 @@ type execer interface {
 func update(ctx context.Context, q execer, a *domain.Account, writeID uuid.UUID) error {
 	tag, err := q.Exec(ctx, saveAccount, pgx.StrictNamedArgs{
 		"id": a.ID(), "read_write_id": a.WriteID(), "write_id": writeID,
-		"display_name": a.DisplayName(), "status": a.StoredStatus(), "suspended_until": a.SuspendedUntil(),
+		"display_name": a.DisplayName(), "bio": a.Bio(), "avatar_key": a.AvatarKey(), "status": a.StoredStatus(), "suspended_until": a.SuspendedUntil(),
 		"suspend_reason": a.SuspendReason(), "updated_at": a.UpdatedAt(),
 	})
 	if err != nil {
@@ -135,15 +137,26 @@ func insertEvents(ctx context.Context, tx pgx.Tx, evs []events.Event) error {
 	return nil
 }
 
-const listAccounts = `
-SELECT id, coalesce(display_name, ''), status, suspended_until, coalesce(suspend_reason, ''), write_id, created_at, updated_at
-FROM accounts WHERE id < @before ORDER BY id DESC LIMIT @limit`
+func (s pgAccounts) GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Account, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+accountColumns+` FROM accounts WHERE id = ANY(@ids)`, pgx.StrictNamedArgs{"ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("select accounts: %w", err)
+	}
+	return collect(rows)
+}
+
+const listAccounts = `SELECT ` + accountColumns + ` FROM accounts WHERE id < @before ORDER BY id DESC LIMIT @limit`
 
 func (s pgAccounts) List(ctx context.Context, p page.Request) ([]domain.Account, error) {
 	rows, err := s.db.Query(ctx, listAccounts, pgx.StrictNamedArgs{"before": p.Before(), "limit": p.Fetch()})
 	if err != nil {
 		return nil, fmt.Errorf("select accounts: %w", err)
 	}
+	return collect(rows)
+}
+
+// collect scans every row of an accounts query.
+func collect(rows pgx.Rows) ([]domain.Account, error) {
 	defer rows.Close()
 	var out []domain.Account
 	for rows.Next() {

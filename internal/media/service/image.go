@@ -52,12 +52,13 @@ func matchesType(head []byte, contentType string) bool {
 	}
 }
 
-// process decodes an uploaded photo and encodes it again as a JPEG at most
-// photoSide on its long side, turned upright by its EXIF orientation, and a
-// thumbnail at most thumbSide made from that photo. Encoding from pixels
-// drops every EXIF field, GPS included. A photo it refuses is a
-// refusedError.
-func process(r io.Reader, contentType string) (photo, thumb []byte, err error) {
+// process decodes an uploaded photo and encodes it again as a JPEG, turned
+// upright by its EXIF orientation. As domain.ShapePhoto it is at most
+// photoSide on its long side, with a thumbnail at most thumbSide made from
+// it; as domain.ShapeSquare it is the middle square, at most thumbSide a
+// side, and has no thumbnail. Encoding from pixels drops every EXIF field,
+// GPS included. A photo it refuses is a refusedError.
+func process(r io.Reader, contentType string, shape domain.Shape) (photo, thumb []byte, err error) {
 	raw, err := io.ReadAll(io.LimitReader(r, domain.MaxSize+1))
 	if err != nil {
 		return nil, nil, fmt.Errorf("read the upload: %w", err)
@@ -90,6 +91,22 @@ func process(r io.Reader, contentType string) (photo, thumb []byte, err error) {
 	if err != nil {
 		return nil, nil, refusedError{"the image cannot be read"}
 	}
+	if shape == domain.ShapeSquare {
+		// The middle square of the stored pixels, turned, is the middle
+		// square of the upright photo.
+		sub, ok := img.(cropper)
+		if !ok {
+			return nil, nil, fmt.Errorf("crop a %T", img)
+		}
+		b := img.Bounds()
+		side := min(b.Dx(), b.Dy())
+		x, y := b.Min.X+(b.Dx()-side)/2, b.Min.Y+(b.Dy()-side)/2
+		square := sub.SubImage(image.Rect(x, y, x+side, y+side))
+		if photo, err = encodeJPEG(orient(shrink(square, thumbSide), orientation(raw, contentType))); err != nil {
+			return nil, nil, err
+		}
+		return photo, nil, nil
+	}
 	small := orient(shrink(img, photoSide), orientation(raw, contentType))
 	if photo, err = encodeJPEG(small); err != nil {
 		return nil, nil, err
@@ -98,6 +115,12 @@ func process(r io.Reader, contentType string) (photo, thumb []byte, err error) {
 		return nil, nil, err
 	}
 	return photo, thumb, nil
+}
+
+// cropper is an image a part of which is taken without copying pixels;
+// every image the decoders return is one.
+type cropper interface {
+	SubImage(r image.Rectangle) image.Image
 }
 
 // bytesPerPixel is what a decoder of model allocates for one pixel.

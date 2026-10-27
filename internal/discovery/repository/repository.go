@@ -18,6 +18,8 @@ type Saves interface {
 	Save(ctx context.Context, id, account, listing uuid.UUID, price int64, at time.Time) error
 	// Remove forgets a save; an absent one is fine.
 	Remove(ctx context.Context, account, listing uuid.UUID) error
+	// Has reports whether account saved listing.
+	Has(ctx context.Context, account, listing uuid.UUID) (bool, error)
 	// List is a query: account's saves with IDs below p.Before(), newest
 	// first, at most p.Fetch().
 	List(ctx context.Context, account uuid.UUID, p page.Request) ([]Save, error)

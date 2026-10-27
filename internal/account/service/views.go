@@ -12,12 +12,29 @@ import (
 type AccountView struct {
 	ID          uuid.UUID     `json:"id"`
 	DisplayName string        `json:"display_name"`
+	Bio         string        `json:"bio"`
+	AvatarURL   string        `json:"avatar_url,omitempty"`
 	Status      domain.Status `json:"status"`
 	CreatedAt   time.Time     `json:"created_at"`
 }
 
-func viewOf(a domain.Account, now time.Time) AccountView {
-	return AccountView{ID: a.ID(), DisplayName: a.DisplayName(), Status: a.Status(now), CreatedAt: a.CreatedAt()}
+// view is a's AccountView, the avatar's URL built from its key.
+func (s *Account) view(a domain.Account, now time.Time) AccountView {
+	v := AccountView{ID: a.ID(), DisplayName: a.DisplayName(), Bio: a.Bio(), Status: a.Status(now), CreatedAt: a.CreatedAt()}
+	if a.AvatarKey() != "" {
+		v.AvatarURL = s.media.URL(a.AvatarKey())
+	}
+	return v
+}
+
+// UpdateInput is what Update changes; a nil field stays as it is.
+type UpdateInput struct {
+	DisplayName *string
+	Bio         *string
+	// Avatar is an upload of the account's own, to be its avatar.
+	Avatar *uuid.UUID
+	// RemoveAvatar takes the avatar away; Avatar is then nil.
+	RemoveAvatar bool
 }
 
 // Record is an account as staff see it: the StaffAccount schema in

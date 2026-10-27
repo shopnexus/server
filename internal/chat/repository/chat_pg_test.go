@@ -205,3 +205,19 @@ func TestReadKeepsTheArchive(t *testing.T) {
 		t.Fatalf("unarchive: %+v", got)
 	}
 }
+
+func TestFindPair(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewChats(db)
+	ctx := context.Background()
+	c, a, b := pair(t, db, s)
+	for _, p := range [][2]uuid.UUID{{a, b}, {b, a}} {
+		if got, err := s.FindPair(ctx, p[0], p[1]); err != nil || got.ID != c.ID {
+			t.Fatalf("%v: %v %v", p, got.ID, err)
+		}
+	}
+	if _, err := s.FindPair(ctx, a, newAccount(t, db)); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("no conversation: %v", err)
+	}
+}

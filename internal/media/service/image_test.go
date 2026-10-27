@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/shopnexus/server2/internal/media/domain"
 )
 
 // jpegOf encodes a w×h image, red in its top-left quarter and blue
@@ -68,7 +70,7 @@ func reddish(c color.Color) bool {
 // (rotate 90° clockwise); the output is portrait, its red quarter top right.
 func TestProcessAppliesOrientation(t *testing.T) {
 	t.Parallel()
-	photo, thumb, err := process(bytes.NewReader(withOrientation(jpegOf(t, 800, 600), 6)), "image/jpeg")
+	photo, thumb, err := process(bytes.NewReader(withOrientation(jpegOf(t, 800, 600), 6)), "image/jpeg", domain.ShapePhoto)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,9 +85,32 @@ func TestProcessAppliesOrientation(t *testing.T) {
 		}
 	}
 	for o := uint16(1); o <= 8; o++ {
-		if _, _, err := process(bytes.NewReader(withOrientation(jpegOf(t, 80, 60), o)), "image/jpeg"); err != nil {
+		if _, _, err := process(bytes.NewReader(withOrientation(jpegOf(t, 80, 60), o)), "image/jpeg", domain.ShapePhoto); err != nil {
 			t.Errorf("orientation %d: %v", o, err)
 		}
+	}
+}
+
+// A square is the middle of the upright photo, 400 px a side, with no
+// thumbnail; a smaller photo is not scaled up.
+func TestProcessSquare(t *testing.T) {
+	t.Parallel()
+	square, thumb, err := process(bytes.NewReader(withOrientation(jpegOf(t, 800, 600), 6)), "image/jpeg", domain.ShapeSquare)
+	if err != nil || thumb != nil {
+		t.Fatalf("%v, thumbnail %d bytes", err, len(thumb))
+	}
+	img := decoded(t, square)
+	if r := img.Bounds(); r.Dx() != 400 || r.Dy() != 400 {
+		t.Fatalf("%dx%d", r.Dx(), r.Dy())
+	}
+	// Upright, the photo is 600×800 with its red quarter top right; the
+	// middle square keeps the red in its top right quarter.
+	if !reddish(img.At(395, 5)) || reddish(img.At(5, 5)) || reddish(img.At(395, 395)) {
+		t.Error("the square is not the middle of the upright photo")
+	}
+	small, _, err := process(bytes.NewReader(jpegOf(t, 100, 60)), "image/jpeg", domain.ShapeSquare)
+	if r := decoded(t, small).Bounds(); err != nil || r.Dx() != 60 || r.Dy() != 60 {
+		t.Fatalf("small: %v %v", err, r)
 	}
 }
 
@@ -96,7 +121,7 @@ func TestProcessMemory(t *testing.T) { //nolint:paralleltest // Measures the pro
 	var before, after runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&before)
-	if _, _, err := process(bytes.NewReader(jpg), "image/jpeg"); err != nil {
+	if _, _, err := process(bytes.NewReader(jpg), "image/jpeg", domain.ShapePhoto); err != nil {
 		t.Fatal(err)
 	}
 	runtime.ReadMemStats(&after)
@@ -123,11 +148,11 @@ func pngHeaderOf(w, h uint32, depth byte) []byte {
 // refused though 30 megapixels at 8 bits is not.
 func TestProcessRefusesDeepImages(t *testing.T) {
 	t.Parallel()
-	_, _, err := process(bytes.NewReader(pngHeaderOf(6000, 5000, 16)), "image/png")
+	_, _, err := process(bytes.NewReader(pngHeaderOf(6000, 5000, 16)), "image/png", domain.ShapePhoto)
 	if !strings.Contains(refusal(err), "too large") {
 		t.Fatalf("16-bit: %v", err)
 	}
-	_, _, err = process(bytes.NewReader(pngHeaderOf(6000, 5000, 8)), "image/png")
+	_, _, err = process(bytes.NewReader(pngHeaderOf(6000, 5000, 8)), "image/png", domain.ShapePhoto)
 	if r := refusal(err); r == "" || strings.Contains(r, "too large") {
 		t.Fatalf("8-bit header only: want a read failure, got %v", err)
 	}

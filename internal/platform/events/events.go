@@ -16,7 +16,7 @@ import (
 type Kind string
 
 const (
-	AccountRenamed     Kind = "account.renamed"
+	AccountUpdated     Kind = "account.updated"
 	AccountSuspended   Kind = "account.suspended"
 	AccountUnsuspended Kind = "account.unsuspended"
 	ListingPublished   Kind = "listing.published"

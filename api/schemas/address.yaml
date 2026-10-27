@@ -1,0 +1,57 @@
+AddressDraft:
+  type: object
+  additionalProperties: false
+  required: [name, phone, street, commune_code]
+  description: An address as the person types it. The rules are business rules; breaking one is 422 invalid_address.
+  properties:
+    name:
+      type: string
+      description: The recipient's name, 1 to 50 characters after trimming.
+    phone:
+      type: string
+      description: A Vietnamese mobile number, in any common form.
+    street:
+      type: string
+      description: 1 to 200 characters after trimming.
+    commune_code:
+      type: string
+      description: A commune code from GET /v1/regions/{province_code}/communes.
+Address:
+  type: object
+  additionalProperties: false
+  required: [id, name, phone, street, commune_code, commune, province, is_default, created_at]
+  description: Where the caller's parcels go. A COD request copies it into the order, so a later edit or delete leaves the order as it was.
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    phone:
+      type: string
+      description: In the +84 form.
+    street:
+      type: string
+    commune_code:
+      type: string
+    commune:
+      type: string
+    province:
+      type: string
+    is_default:
+      type: boolean
+      description: Exactly one address of an account with any is the default.
+    created_at:
+      type: string
+      format: date-time
+AddressList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      maxItems: 10
+      description: The default first, then the newest.
+      items:
+        $ref: "#/Address"

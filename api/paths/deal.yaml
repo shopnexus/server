@@ -342,8 +342,9 @@ dealCod:
     summary: Ask for cash on delivery on an agreed deal.
     description: |
       The buyer of an agreed deal with no open order, on a listing on sale,
-      with fewer than 3 open orders. The order starts requested; either side
-      may cancel it until the seller ships.
+      with fewer than 3 open orders, to one of the buyer's addresses. The
+      order keeps a copy of the address as its recipient. It starts
+      requested; either side may cancel it until the seller ships.
     tags: [deal]
     security:
       - bearerAuth: []
@@ -378,19 +379,13 @@ dealCod:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "404":
-        description: "No such deal of the caller's (deal_not_found)."
+        description: "No such deal of the caller's (deal_not_found), or no such address of the caller's (address_not_found)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
         description: "The deal is not agreed or has an open order, or the caller is the seller (move_not_allowed); the listing is not on sale (listing_unavailable); the buyer has 3 open orders (cod_limit_reached); or the deal changed meanwhile (deal_changed)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "422":
-        description: "The recipient breaks a rule (invalid_recipient, with fields)."
         content:
           application/json:
             schema:

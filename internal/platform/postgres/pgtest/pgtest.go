@@ -102,7 +102,8 @@ func NewForMain(adminURL string) (*pgxpool.Pool, func(), error) {
 
 // template returns the name of a template database holding the current
 // migrations, building it when it does not exist. The name carries a hash of
-// the migrations, so adding one produces a new template.
+// each migration's file name and content, so adding, changing or renumbering
+// one produces a new template.
 func template(adminURL string) (string, error) {
 	migs, loadErr := postgres.LoadMigrations(migrations.FS)
 	if loadErr != nil {
@@ -110,6 +111,7 @@ func template(adminURL string) (string, error) {
 	}
 	h := sha256.New()
 	for _, m := range migs {
+		h.Write([]byte(m.File()))
 		h.Write(m.Checksum[:])
 	}
 	name := "server2_tpl_" + hex.EncodeToString(h.Sum(nil))[:12]

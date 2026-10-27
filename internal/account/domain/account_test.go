@@ -8,6 +8,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
 var now = time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
@@ -33,23 +34,60 @@ func TestNameLengthCountsRunes(t *testing.T) {
 	if _, err := domain.New(uuid.NewV7(), strings.Repeat("ữ", 50), now); err != nil {
 		t.Fatalf("50 Vietnamese characters rejected: %v", err)
 	}
-	if _, err := domain.New(uuid.NewV7(), strings.Repeat("a", 51), now); !errors.Is(err, domain.ErrInvalidName) {
+	_, err := domain.New(uuid.NewV7(), strings.Repeat("a", 51), now)
+	if e, ok := errors.AsType[*apperr.Error](err); !ok || e.Code != "invalid_account" || e.Fields["display_name"] == "" {
 		t.Fatalf("51 characters: %v", err)
 	}
 }
 
-func TestSetDisplayName(t *testing.T) {
+func TestEditNameAndBio(t *testing.T) {
 	t.Parallel()
 	a, _ := domain.New(uuid.NewV7(), "", now)
 	later := now.Add(time.Hour)
-	if err := a.SetDisplayName("Khánh Linh", later); err != nil {
+	name, bio := " Khánh Linh ", "  Đồ cũ còn tốt  "
+	if err := a.Edit(&name, &bio, later); err != nil {
 		t.Fatal(err)
 	}
-	if a.DisplayName() != "Khánh Linh" || !a.UpdatedAt().Equal(later) {
-		t.Fatalf("%q %v", a.DisplayName(), a.UpdatedAt())
+	if a.DisplayName() != "Khánh Linh" || a.Bio() != "Đồ cũ còn tốt" || !a.UpdatedAt().Equal(later) {
+		t.Fatalf("%q %q %v", a.DisplayName(), a.Bio(), a.UpdatedAt())
 	}
-	if err := a.SetDisplayName("   ", later); !errors.Is(err, domain.ErrInvalidName) {
-		t.Fatalf("blank name: %v", err)
+	empty := " "
+	if err := a.Edit(nil, &empty, later); err != nil || a.Bio() != "" || a.DisplayName() != "Khánh Linh" {
+		t.Fatalf("empty bio: %v %q %q", err, a.Bio(), a.DisplayName())
+	}
+}
+
+// One invalid_account names every field that breaks a rule and changes
+// nothing.
+func TestEditRefusesEveryBrokenField(t *testing.T) {
+	t.Parallel()
+	a, _ := domain.New(uuid.NewV7(), "Linh", now)
+	blank, long := "   ", strings.Repeat("ữ", 201)
+	err := a.Edit(&blank, &long, now)
+	e, ok := errors.AsType[*apperr.Error](err)
+	if !ok || !errors.Is(err, domain.ErrInvalidAccount) || e.Fields["display_name"] == "" || e.Fields["bio"] == "" {
+		t.Fatalf("%v", err)
+	}
+	if a.DisplayName() != "Linh" || a.Bio() != "" {
+		t.Fatalf("changed: %q %q", a.DisplayName(), a.Bio())
+	}
+	fits := strings.Repeat("ữ", 200)
+	if err = a.Edit(nil, &fits, now); err != nil {
+		t.Fatalf("200 characters: %v", err)
+	}
+}
+
+func TestSetAvatar(t *testing.T) {
+	t.Parallel()
+	a, _ := domain.New(uuid.NewV7(), "Linh", now)
+	later := now.Add(time.Hour)
+	a.SetAvatar("media/a.jpg", later)
+	if a.AvatarKey() != "media/a.jpg" || !a.UpdatedAt().Equal(later) {
+		t.Fatalf("%q %v", a.AvatarKey(), a.UpdatedAt())
+	}
+	a.SetAvatar("", later)
+	if a.AvatarKey() != "" {
+		t.Fatalf("not removed: %q", a.AvatarKey())
 	}
 }
 

@@ -72,6 +72,37 @@ OpenPrice:
     at:
       type: string
       format: date-time
+DealSummary:
+  type: object
+  additionalProperties: false
+  required: [id, role, listing, status, your_turn]
+  description: A deal at a glance, as the caller sees it.
+  properties:
+    id:
+      type: string
+      format: uuid
+    role:
+      $ref: "#/Party"
+    listing:
+      $ref: "#/DealListing"
+    status:
+      $ref: "#/DealStatus"
+    open_price:
+      $ref: "#/OpenPrice"
+    agreed_price:
+      type: integer
+      format: int64
+      description: Present while agreed or sold.
+    order_status:
+      $ref: "#/OrderStatus"
+    your_turn:
+      type: boolean
+      description: |
+        The caller has to act: the deal is negotiating and the open price is
+        the other side's; or the caller is the buyer of an agreed deal
+        without a requested or shipped order, on a listing still active; or
+        the caller is the seller
+        and the deal's newest order is requested or shipped.
 OfferRange:
   type: object
   additionalProperties: false
@@ -176,28 +207,12 @@ DealList:
 CodRequest:
   type: object
   additionalProperties: false
-  required: [recipient]
+  required: [address_id]
   properties:
-    recipient:
-      $ref: "#/RecipientDraft"
-RecipientDraft:
-  type: object
-  additionalProperties: false
-  required: [name, phone, street, commune_code]
-  description: Where the parcel goes. The rules are business rules; breaking one is 422 invalid_recipient.
-  properties:
-    name:
+    address_id:
       type: string
-      description: 1 to 50 characters after trimming.
-    phone:
-      type: string
-      description: A Vietnamese mobile number, in any common form.
-    street:
-      type: string
-      description: 1 to 200 characters after trimming.
-    commune_code:
-      type: string
-      description: A commune code from GET /v1/regions/{province_code}/communes.
+      format: uuid
+      description: An address of the caller's from GET /v1/addresses. The order keeps a copy, so a later edit or delete of the address leaves it as it was.
 WaybillDraft:
   type: object
   additionalProperties: false
