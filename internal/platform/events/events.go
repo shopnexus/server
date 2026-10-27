@@ -29,6 +29,12 @@ const (
 	ListingReserved    Kind = "listing.reserved"
 	ListingReleased    Kind = "listing.released"
 	DealMoved          Kind = "deal.moved"
+	// MessageSent is a chat message its recipient can now read.
+	MessageSent Kind = "message.sent"
+	// ListingRejected is a listing processing refused a photo of.
+	ListingRejected Kind = "listing.rejected"
+	// ReviewPosted is a review's first submission.
+	ReviewPosted Kind = "review.posted"
 )
 
 // Event is what happened to which aggregate. It is thin: a subscriber reads

@@ -37,6 +37,11 @@ func TestSuspendRecordsTheChange(t *testing.T) {
 	if action != string(audit.AccountSuspend) || details["reason"] != "spam" || details["until"] != until.Format(time.RFC3339) {
 		t.Fatalf("%s %v", action, details)
 	}
+	var carried string
+	if scanErr := db.QueryRow(ctx, `SELECT payload->>'until' FROM events WHERE subject_id = @id AND kind = 'account.suspended'`,
+		pgx.StrictNamedArgs{"id": id}).Scan(&carried); scanErr != nil || carried != until.Format(time.RFC3339) {
+		t.Fatalf("account.suspended carries until: %q %v", carried, scanErr)
+	}
 
 	r, err = at(s, now).Reinstate(ctx, id, audit.ByCLI("test"))
 	if err != nil || r.Status != domain.StatusActive || r.SuspendReason != "" || r.SuspendedUntil != nil {

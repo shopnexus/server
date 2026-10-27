@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account/repository"
@@ -26,12 +27,14 @@ func (s *Account) Suspend(ctx context.Context, in SuspendInput) (Record, error) 
 	}
 	r := recordOf(a, now)
 	details := map[string]any{"reason": r.SuspendReason}
+	ev := events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: in.ID, OccurredAt: now}
 	if r.SuspendedUntil != nil {
 		details["until"] = *r.SuspendedUntil
+		ev.Payload = map[string]any{"until": r.SuspendedUntil.Format(time.RFC3339)}
 	}
 	err = s.accounts.SaveAudited(ctx, &a, uuid.NewV7(), audit.Entry{
 		Actor: in.By, Action: audit.AccountSuspend, Target: audit.Account(in.ID), Details: details, At: now,
-	}, events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: in.ID, OccurredAt: now})
+	}, ev)
 	if errors.Is(err, repository.ErrConflict) {
 		return Record{}, apperr.ErrTryAgain
 	}

@@ -87,6 +87,11 @@ func TestReviews(t *testing.T) {
 	o2, l2 := order(t, db, two, seller)
 	r1 := review(t, s, o1, seller, one, l1, 4)
 	r2 := review(t, s, o2, seller, two, l2, 2)
+	var posted int
+	if err := db.QueryRow(ctx, `SELECT count(*) FROM events WHERE kind = 'review.posted' AND id = ANY(@ids)`,
+		pgx.StrictNamedArgs{"ids": []uuid.UUID{r1.ID(), r2.ID()}}).Scan(&posted); err != nil || posted != 2 {
+		t.Fatalf("one review.posted per review: %d %v", posted, err)
+	}
 	if avg, n, err := s.Summary(ctx, seller); err != nil || n != 2 || avg != 3 {
 		t.Fatalf("summary %v %d %v", avg, n, err)
 	}

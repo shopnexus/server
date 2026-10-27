@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/trust/domain"
 )
@@ -43,18 +44,27 @@ func (s pgReviews) ByOrder(ctx context.Context, order uuid.UUID) (domain.Review,
 
 func (s pgReviews) Insert(ctx context.Context, r domain.Review) error {
 	st := r.State()
-	tag, err := s.db.Exec(ctx, `INSERT INTO reviews (`+reviewColumns+`)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `INSERT INTO reviews (`+reviewColumns+`)
 VALUES (@id, @order, @seller, @buyer, @listing, @stars, @body, @deleted_at, @write_id, @created_at, @updated_at)
 ON CONFLICT (order_id) DO NOTHING`, pgx.StrictNamedArgs{
-		"id": st.ID, "order": st.OrderID, "seller": st.SellerID, "buyer": st.BuyerID, "listing": st.ListingID,
-		"stars": st.Stars, "body": st.Text, "deleted_at": st.DeletedAt, "write_id": st.WriteID,
-		"created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
+			"id": st.ID, "order": st.OrderID, "seller": st.SellerID, "buyer": st.BuyerID, "listing": st.ListingID,
+			"stars": st.Stars, "body": st.Text, "deleted_at": st.DeletedAt, "write_id": st.WriteID,
+			"created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
+		})
+		if err != nil {
+			return fmt.Errorf("insert review: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrConflict
+		}
+		return events.Insert(ctx, tx, events.Event{ID: st.ID, Kind: events.ReviewPosted, SubjectID: st.ID, OccurredAt: st.CreatedAt})
 	})
-	if err != nil {
-		return fmt.Errorf("insert review: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
+	if errors.Is(err, ErrConflict) {
 		return ErrConflict
+	}
+	if err != nil {
+		return fmt.Errorf("add review: %w", err)
 	}
 	return nil
 }

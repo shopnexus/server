@@ -266,6 +266,15 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 			}
 		}
 		for _, e := range evs {
+			// The moves' IDs ride on deal.moved, so a subscriber reads
+			// exactly the moves of this save.
+			if e.Kind == events.DealMoved {
+				ids := make([]string, 0, len(d.Pending()))
+				for _, m := range d.Pending() {
+					ids = append(ids, m.ID.String())
+				}
+				e.Payload = map[string]any{"moves": ids}
+			}
 			if err = events.Insert(ctx, tx, e); err != nil {
 				return err
 			}

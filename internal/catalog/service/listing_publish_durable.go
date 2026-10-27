@@ -85,6 +85,7 @@ func (s ListingPublish) Run(ctx restate.Context, id uuid.UUID) error {
 	var evs []events.Event
 	if len(reasons) > 0 {
 		l.Rejected(reasons, at)
+		evs = append(evs, events.Event{ID: restatex.NewID(ctx, at), Kind: events.ListingRejected, SubjectID: id, OccurredAt: at})
 	} else {
 		l.Published(keys, at)
 		evs = append(evs, events.Event{ID: restatex.NewID(ctx, at), Kind: events.ListingPublished, SubjectID: id, OccurredAt: at})

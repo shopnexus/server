@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/chat/domain"
+	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/stream"
 )
@@ -122,6 +123,13 @@ func written(ctx context.Context, tx pgx.Tx, m domain.Message) error {
 		if _, err := tx.Exec(ctx, `UPDATE conversation_members SET archived_at = NULL WHERE conversation_id = @id`,
 			pgx.StrictNamedArgs{"id": m.ConversationID()}); err != nil {
 			return fmt.Errorf("unarchive: %w", err)
+		}
+		// The message's ID is the event's, so writing it sent again inserts
+		// no second event.
+		if err := events.Insert(ctx, tx, events.Event{
+			ID: m.ID(), Kind: events.MessageSent, SubjectID: m.ID(), OccurredAt: m.CreatedAt(),
+		}); err != nil {
+			return fmt.Errorf("insert message.sent: %w", err)
 		}
 	} else {
 		accounts = []uuid.UUID{m.SenderID()}

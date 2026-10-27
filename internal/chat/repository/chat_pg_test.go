@@ -119,6 +119,14 @@ func TestMessagesAndInbox(t *testing.T) {
 	if n, _ := s.Unread(ctx, a); n != 0 {
 		t.Fatalf("unread after reading: %d", n)
 	}
+	if err := s.SaveMessage(ctx, photo); err != nil {
+		t.Fatal(err)
+	}
+	var sent int
+	if err := db.QueryRow(ctx, `SELECT count(*) FROM events WHERE kind = 'message.sent' AND id = ANY(@ids)`,
+		pgx.StrictNamedArgs{"ids": []uuid.UUID{first.ID(), photo.ID()}}).Scan(&sent); err != nil || sent != 2 {
+		t.Fatalf("one message.sent per sent message: %d %v", sent, err)
+	}
 	got, err := s.GetMessage(ctx, photo.ID())
 	if err != nil || got.Status() != domain.StatusSent || got.Photos()[0].PhotoKey != "media/p.jpg" {
 		t.Fatalf("%+v %v", got.State(), err)

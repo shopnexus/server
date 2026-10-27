@@ -102,8 +102,15 @@ func TestSaveWritesMovesAndEvent(t *testing.T) {
 	if err := d.Offer(domain.Buyer, 1_000_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
+	offer := d.Pending()[0].ID
 	if err := s.Save(ctx, &d, uuid.NewV7(), moved(d.ID())); err != nil {
 		t.Fatal(err)
+	}
+	var carried []string
+	if err := db.QueryRow(ctx, `SELECT ARRAY(SELECT jsonb_array_elements_text(payload->'moves')) FROM events
+WHERE subject_id = @id AND kind = 'deal.moved'`, pgx.StrictNamedArgs{"id": d.ID()}).Scan(&carried); err != nil ||
+		len(carried) != 1 || carried[0] != offer.String() {
+		t.Fatalf("deal.moved carries the moves: %v %v", carried, err)
 	}
 	got, err := s.Get(ctx, d.ID())
 	if err != nil {

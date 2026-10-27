@@ -8,8 +8,10 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
+
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/service"
 	mediadomain "github.com/shopnexus/server2/internal/media/domain"
@@ -114,6 +116,11 @@ func TestPublishRejects(t *testing.T) {
 	v := e.settle(t, seller, posted.ID)
 	if v.Status != domain.StatusRejected || v.Photos[1].Failure == "" || v.Photos[0].Failure != "" {
 		t.Fatalf("%+v", v)
+	}
+	var rejected int
+	if err = e.db.QueryRow(ctx, `SELECT count(*) FROM events WHERE kind = 'listing.rejected' AND subject_id = @id`,
+		pgx.StrictNamedArgs{"id": posted.ID}).Scan(&rejected); err != nil || rejected != 1 {
+		t.Fatalf("listing.rejected: %d %v", rejected, err)
 	}
 	if _, err = e.catalog.Get(ctx, nil, posted.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("a buyer sees a rejected listing: %v", err)
