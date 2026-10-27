@@ -1,0 +1,97 @@
+notifications:
+  get:
+    operationId: listNotifications
+    summary: The caller's notices, newest first, with the unread count.
+    tags: [notification]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of notices.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/notification.yaml#/NotificationList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+readAll:
+  post:
+    operationId: readAllNotifications
+    summary: Mark every notice of the caller's read.
+    tags: [notification]
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Read.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+read:
+  post:
+    operationId: readNotification
+    summary: Mark one notice read.
+    tags: [notification]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Read.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such notice of the caller's (notification_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+pushToken:
+  put:
+    operationId: putPushToken
+    summary: Give the FCM token of the caller's session; it goes when the session ends.
+    tags: [notification]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/notification.yaml#/PushToken"
+    responses:
+      "204":
+        description: Stored.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "422":
+        description: "The token is empty or longer than 4096 characters (invalid_push_token)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: deletePushToken
+    summary: Forget the push token of the caller's session; absent is fine.
+    tags: [notification]
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Forgotten.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

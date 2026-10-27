@@ -1,4 +1,4 @@
-package worker_test
+package notification_test
 
 import (
 	"context"
@@ -19,7 +19,9 @@ import (
 	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/notification/repository"
+	"github.com/shopnexus/server2/internal/notification/service"
 	"github.com/shopnexus/server2/internal/notification/worker"
+	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
@@ -107,7 +109,7 @@ func (s *sender) count(token string) int {
 
 type env struct {
 	db      *pgxpool.Pool
-	notices repository.Notices
+	notices service.Service
 	push    *sender
 	worker  worker.Worker
 	client  *ingress.Client
@@ -118,7 +120,7 @@ type env struct {
 func newEnv(t *testing.T, revoked map[uuid.UUID]bool, once map[string]error) env {
 	t.Helper()
 	db := pgtest.New(t)
-	notices := repository.NewNotices(db)
+	notices := service.New(service.Deps{Notices: repository.NewNotices(db), Now: time.Now})
 	s := &sender{sent: map[string]int{}, body: map[string]string{}, once: once}
 	w := worker.Worker{
 		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{},
@@ -163,7 +165,7 @@ func TestDealMoved(t *testing.T) {
 	e.worker.Deals = deals{facts: f}
 	e.start(t)
 	session := uuid.NewV7()
-	if err := e.notices.PutToken(context.Background(), session, f.SellerID, "seller-phone", time.Now()); err != nil {
+	if err := e.notices.PutToken(context.Background(), authn.Principal{AccountID: f.SellerID, SessionID: session}, "seller-phone"); err != nil {
 		t.Fatal(err)
 	}
 	ev := events.Event{
@@ -172,9 +174,9 @@ func TestDealMoved(t *testing.T) {
 	}
 	e.deliver(t, "DealMoved", ev)
 	e.deliver(t, "DealMoved", ev)
-	rows, err := e.notices.List(context.Background(), f.SellerID, page.Request{})
-	if err != nil || len(rows) != 1 || rows[0].Type != "offer" {
-		t.Fatalf("one notice: %+v %v", rows, err)
+	l, err := e.notices.List(context.Background(), f.SellerID, page.Request{})
+	if err != nil || len(l.Items) != 1 || l.Items[0].Type != "offer" {
+		t.Fatalf("one notice: %+v %v", l, err)
 	}
 	if n := e.push.count("seller-phone"); n != 1 || e.push.body["seller-phone"] != "Đức Huy trả 1,2 tr cho Xe đạp Asama" {
 		t.Fatalf("one push: %d %q", n, e.push.body["seller-phone"])
@@ -183,8 +185,8 @@ func TestDealMoved(t *testing.T) {
 		ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: f.DealID, OccurredAt: time.Now(),
 		Payload: map[string]any{"moves": []any{uuid.NewV7().String()}},
 	})
-	if rows, _ = e.notices.List(context.Background(), f.SellerID, page.Request{}); len(rows) != 1 {
-		t.Fatalf("a move the deal lacks tells no one: %+v", rows)
+	if l, _ = e.notices.List(context.Background(), f.SellerID, page.Request{}); len(l.Items) != 1 {
+		t.Fatalf("a move the deal lacks tells no one: %+v", l)
 	}
 }
 
@@ -197,15 +199,15 @@ func TestMessageSentPushesOnly(t *testing.T) {
 		ID: uuid.NewV7(), ConversationID: conv, SenderID: uuid.NewV7(), RecipientID: recipient, SenderName: "Hoàng Nam", Text: "Còn không bạn?",
 	}}
 	e.start(t)
-	if err := e.notices.PutToken(context.Background(), uuid.NewV7(), recipient, "phone", time.Now()); err != nil {
+	if err := e.notices.PutToken(context.Background(), authn.Principal{AccountID: recipient, SessionID: uuid.NewV7()}, "phone"); err != nil {
 		t.Fatal(err)
 	}
 	e.deliver(t, "MessageSent", events.Event{ID: uuid.NewV7(), Kind: events.MessageSent, SubjectID: uuid.NewV7(), OccurredAt: time.Now()})
 	if e.push.count("phone") != 1 || e.push.body["phone"] != "Hoàng Nam: Còn không bạn?" {
 		t.Fatalf("push: %d %q", e.push.count("phone"), e.push.body["phone"])
 	}
-	if rows, _ := e.notices.List(context.Background(), recipient, page.Request{}); len(rows) != 0 {
-		t.Fatalf("a message lists nothing: %+v", rows)
+	if l, _ := e.notices.List(context.Background(), recipient, page.Request{}); len(l.Items) != 0 {
+		t.Fatalf("a message lists nothing: %+v", l)
 	}
 }
 
@@ -217,7 +219,7 @@ func TestDeliverDropsEndedAndDeadTokens(t *testing.T) {
 	me := e.account(t)
 	ctx := context.Background()
 	for session, token := range map[uuid.UUID]string{revoked: "revoked", dead: "dead", retried: "flaky", uuid.NewV7(): "fine"} {
-		if err := e.notices.PutToken(ctx, session, me, token, time.Now()); err != nil {
+		if err := e.notices.PutToken(ctx, authn.Principal{AccountID: me, SessionID: session}, token); err != nil {
 			t.Fatal(err)
 		}
 	}

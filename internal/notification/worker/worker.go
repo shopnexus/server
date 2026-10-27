@@ -17,7 +17,7 @@ import (
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/notification/domain"
-	"github.com/shopnexus/server2/internal/notification/repository"
+	"github.com/shopnexus/server2/internal/notification/service"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/provider/push"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
@@ -27,7 +27,7 @@ import (
 // handler to the event kind it is named after.
 type Worker struct {
 	Prefix   string
-	Notices  repository.Notices
+	Notices  service.Service
 	Deals    dealsvc.Service
 	Chats    chatsvc.Service
 	Catalog  catalogsvc.Service
@@ -177,7 +177,7 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 func (w Worker) tell(ctx restate.Context, e events.Event, notices []domain.Notice) error {
 	for _, n := range notices {
 		id, err := restate.Run(ctx, func(rc restate.RunContext) (uuid.UUID, error) {
-			return w.Notices.Add(rc, e.ID, n, n.At.Add(-domain.Retention))
+			return w.Notices.Record(rc, e.ID, n)
 		})
 		if err != nil {
 			return fmt.Errorf("write a notice: %w", err)
@@ -203,7 +203,7 @@ func (w Worker) tell(ctx restate.Context, e events.Event, notices []domain.Notic
 // active, one step per token, so a retried send repeats no other. The
 // tokens of ended sessions, and those FCM reports dead, are deleted.
 func (w Worker) deliver(ctx restate.Context, account uuid.UUID, m push.Message) error {
-	tokens, err := restate.Run(ctx, func(rc restate.RunContext) ([]repository.Token, error) {
+	tokens, err := restate.Run(ctx, func(rc restate.RunContext) ([]service.Token, error) {
 		all, stepErr := w.Notices.Tokens(rc, account)
 		if stepErr != nil {
 			return nil, fmt.Errorf("read tokens: %w", stepErr)
@@ -219,13 +219,13 @@ func (w Worker) deliver(ctx restate.Context, account uuid.UUID, m push.Message) 
 		if stepErr != nil {
 			return nil, fmt.Errorf("read sessions: %w", stepErr)
 		}
-		var out []repository.Token
+		var out []service.Token
 		for _, t := range all {
 			if active[t.Session] {
 				out = append(out, t)
 				continue
 			}
-			if stepErr = w.Notices.DeleteToken(rc, t.Session); stepErr != nil {
+			if stepErr = w.Notices.ForgetToken(rc, t.Session); stepErr != nil {
 				return nil, fmt.Errorf("delete an ended session's token: %w", stepErr)
 			}
 		}
@@ -241,7 +241,7 @@ func (w Worker) deliver(ctx restate.Context, account uuid.UUID, m push.Message) 
 			case err == nil:
 				return nil
 			case errors.Is(err, push.ErrDeadToken):
-				if err = w.Notices.DeleteToken(rc, t.Session); err != nil {
+				if err = w.Notices.ForgetToken(rc, t.Session); err != nil {
 					return fmt.Errorf("delete a dead token: %w", err)
 				}
 				return nil

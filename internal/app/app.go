@@ -26,6 +26,7 @@ import (
 	"github.com/shopnexus/server2/internal/deal"
 	"github.com/shopnexus/server2/internal/discovery"
 	"github.com/shopnexus/server2/internal/media"
+	"github.com/shopnexus/server2/internal/notification"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/httpx"
@@ -36,6 +37,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/stream"
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/llm"
+	"github.com/shopnexus/server2/internal/provider/push"
 	"github.com/shopnexus/server2/internal/provider/sms"
 	"github.com/shopnexus/server2/internal/screen"
 	"github.com/shopnexus/server2/internal/staff"
@@ -65,11 +67,16 @@ type Option func(*options)
 type options struct {
 	sms    sms.Sender
 	email  email.Sender
+	push   push.Sender
 	hasher staffdomain.Hasher
 }
 
 // WithSMSSender replaces the log sender; E2E tests read codes from theirs.
 func WithSMSSender(s sms.Sender) Option { return func(o *options) { o.sms = s } }
+
+// WithPushSender replaces the sender the configuration picks; e2e tests
+// read pushes from theirs.
+func WithPushSender(s push.Sender) Option { return func(o *options) { o.push = s } }
 
 // WithEmailSender replaces the log sender.
 func WithEmailSender(s email.Sender) Option { return func(o *options) { o.email = s } }
@@ -227,9 +234,24 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	saves := discovery.Mount(d, discovery.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
 		catalogm.Service, model)
 	chatm := chat.Mount(d, protect, accounts, authm.Service, catalogm.Service, mediam.Service)
+	sender := o.push
+	if sender == nil {
+		sender = push.LogSender{Log: log}
+		if len(cfg.Push.Credentials) > 0 {
+			fcm, fcmErr := push.NewFCM(context.Background(), cfg.Push.Credentials, cfg.Push.ProjectID)
+			if fcmErr != nil {
+				return nil, fmt.Errorf("push: %w", fcmErr)
+			}
+			sender = fcm
+		}
+	}
+	notificationm := notification.Mount(d, protect, notification.Sources{
+		Accounts: accounts, Auth: authm.Service, Catalog: catalogm.Service, Deals: dealm.Service, Chats: chatm.Service, Trust: trustm,
+	}, sender)
 	screen.Mount(d, screen.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
 		accounts, catalogm.Service, dealm.Service, trustm, saves, chatm.Service)
-	return slices.Concat(authm.Services, mediam.Services, catalogm.Services, dealm.Services, chatm.Services), nil
+	return slices.Concat(authm.Services, mediam.Services, catalogm.Services, dealm.Services, chatm.Services,
+		notificationm.Services), nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

@@ -1,0 +1,57 @@
+Target:
+  type: object
+  additionalProperties: false
+  required: [kind, id]
+  description: The screen a notice opens.
+  properties:
+    kind:
+      type: string
+      enum: [deal, order, listing, seller_reviews, account]
+    id:
+      type: string
+      description: The deal, listing or seller; empty for the account.
+Notification:
+  type: object
+  additionalProperties: false
+  required: [id, type, text, target, unread, at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    type:
+      type: string
+      enum: [offer, counter, agreed, declined, agreement_cancelled, offer_voided, cod_requested, shipped, delivered,
+        returned, order_cancelled, listing_live, listing_rejected, review, suspended, unsuspended]
+    text:
+      type: string
+      description: What the notice says, in Vietnamese.
+    target:
+      $ref: "#/Target"
+    unread:
+      type: boolean
+    at:
+      type: string
+      format: date-time
+      description: When it last changed; a newer move on the same deal moves an unread notice up.
+NotificationList:
+  type: object
+  additionalProperties: false
+  required: [items, unread]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Notification"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more notices follow; pass it as cursor.
+    unread:
+      type: integer
+PushToken:
+  type: object
+  additionalProperties: false
+  required: [token]
+  properties:
+    token:
+      type: string

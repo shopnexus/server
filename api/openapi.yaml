@@ -87,6 +87,14 @@ paths:
     $ref: "paths/deal.yaml#/dealReturned"
   /v1/me/orders:
     $ref: "paths/deal.yaml#/myOrders"
+  /v1/notifications:
+    $ref: "paths/notification.yaml#/notifications"
+  /v1/notifications/read-all:
+    $ref: "paths/notification.yaml#/readAll"
+  /v1/notifications/{id}/read:
+    $ref: "paths/notification.yaml#/read"
+  /v1/me/push-token:
+    $ref: "paths/notification.yaml#/pushToken"
   /v1/stream:
     $ref: "paths/stream.yaml#/stream"
   /v1/conversations:
