@@ -11,6 +11,7 @@ import (
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
+	notificationsvc "github.com/shopnexus/server2/internal/notification/service"
 	"github.com/shopnexus/server2/internal/platform/module"
 	"github.com/shopnexus/server2/internal/screen/handler"
 	"github.com/shopnexus/server2/internal/screen/service"
@@ -26,9 +27,11 @@ type Guards struct {
 // Mount registers the screen endpoints.
 func Mount(d module.Deps, g Guards, accounts accountsvc.Service, catalog catalogsvc.Service,
 	deals dealsvc.Service, trust trustsvc.Service, saves discoverysvc.Service, chats chatsvc.Service,
+	notifications notificationsvc.Service,
 ) {
 	svc := service.New(service.Deps{
 		Accounts: accounts, Catalog: catalog, Deals: deals, Trust: trust, Saves: saves, Chats: chats,
+		Notifications: notifications,
 	})
 	handler.New(svc, d.Log).Register(d.Router, g.Protect, g.Identify)
 }

@@ -22,6 +22,8 @@ type HomeCategory struct {
 type HomeScreen struct {
 	Categories []HomeCategory          `json:"categories"`
 	Nearby     discoverysvc.SearchView `json:"nearby"`
+	// NotificationsUnread is the reader's unread notices, 0 signed out.
+	NotificationsUnread int `json:"notifications_unread"`
 }
 
 // Home reads the category tree, the active listings under each root, and
@@ -44,6 +46,11 @@ func (s *Screen) Home(ctx context.Context, reader *uuid.UUID, near discoverysvc.
 		byRoot[c.Code] = c.Count
 	}
 	out := HomeScreen{Nearby: nearby}
+	if reader != nil {
+		if out.NotificationsUnread, err = s.notices.Unread(ctx, *reader); err != nil {
+			return HomeScreen{}, fmt.Errorf("count unread notices: %w", err)
+		}
+	}
 	index := map[string]int{}
 	for _, c := range tree {
 		if c.ParentCode == "" {

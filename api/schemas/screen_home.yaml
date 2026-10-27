@@ -18,8 +18,11 @@ HomeCategory:
 HomeScreen:
   type: object
   additionalProperties: false
-  required: [categories, nearby]
+  required: [categories, nearby, notifications_unread]
   properties:
+    notifications_unread:
+      type: integer
+      description: The reader's unread notices; 0 when signed out.
     categories:
       type: array
       items:

@@ -42,6 +42,7 @@ var (
 	}()
 	box      = newInbox()    // every SMS and email the server sends
 	model    = newModel()    // the model that reads search queries
+	phones   = newPhones()   // every push the server sends
 	staffSvc *staffsvc.Staff // on the server's keys and database, so tests create members directly
 )
 
@@ -104,7 +105,8 @@ func run(m *testing.M) int {
 	}
 	staffSvc = staff.NewService(pool, staffKeys, nil, nil, time.Now)
 	a, err := app.New(context.Background(), cfg, discard,
-		app.WithSMSSender(box.sms()), app.WithEmailSender(box.email()), app.WithPasswordHasher(staffdomain.Fast))
+		app.WithSMSSender(box.sms()), app.WithEmailSender(box.email()), app.WithPushSender(phones),
+		app.WithPasswordHasher(staffdomain.Fast))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1

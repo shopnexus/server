@@ -249,7 +249,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Accounts: accounts, Auth: authm.Service, Catalog: catalogm.Service, Deals: dealm.Service, Chats: chatm.Service, Trust: trustm,
 	}, sender)
 	screen.Mount(d, screen.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
-		accounts, catalogm.Service, dealm.Service, trustm, saves, chatm.Service)
+		accounts, catalogm.Service, dealm.Service, trustm, saves, chatm.Service, notificationm.Service)
 	return slices.Concat(authm.Services, mediam.Services, catalogm.Services, dealm.Services, chatm.Services,
 		notificationm.Services), nil
 }

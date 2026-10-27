@@ -11,6 +11,7 @@ import (
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
+	notificationsvc "github.com/shopnexus/server2/internal/notification/service"
 	"github.com/shopnexus/server2/internal/platform/page"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
@@ -39,6 +40,8 @@ type Deps struct {
 	Trust    trustsvc.Service
 	Saves    discoverysvc.Service
 	Chats    chatsvc.Service
+	// Notifications gives Home its unread count.
+	Notifications notificationsvc.Service
 }
 
 // Screen implements Service in this process.
@@ -49,12 +52,13 @@ type Screen struct {
 	trust    trustsvc.Service
 	saves    discoverysvc.Service
 	chats    chatsvc.Service
+	notices  notificationsvc.Service
 }
 
 var _ Service = (*Screen)(nil)
 
 func New(d Deps) *Screen {
 	return &Screen{
-		accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, trust: d.Trust, saves: d.Saves, chats: d.Chats,
+		accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, trust: d.Trust, saves: d.Saves, chats: d.Chats, notices: d.Notifications,
 	}
 }

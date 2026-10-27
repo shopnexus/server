@@ -225,8 +225,8 @@ deal is the first that does. Module `screen` has no `repository` or
 The modules follow the product model in `app2/mohinh.md`, not the old
 server's split (decided 2026-10-26). There is no finance module: ShopNexus
 holds no money, so there is no wallet and no payment session. Planned
-next: `notification` (the in-app list and push, subscribing to the events
-of deal, chat and catalog) and `billing` (boosts and seller plans). There
+next: `billing` (boosts and seller plans); `notification` holds the
+in-app list and push (see Notifications). There
 is no `kyc` module: posting needs a verified phone alone, since a carrier
 checks a seller's identity when it opens their account (decided
 2026-10-27). Reports, incident
@@ -927,6 +927,48 @@ Search).
   since its seller took it down.
 - Each save has a UUIDv7 `id`, so the list pages by it. The 500-save cap
   is counted under `pg_advisory_xact_lock` on the account.
+
+### Notifications
+
+Module `notification` tells people of their deals, orders, listings,
+reviews and account, in a list and by push (decided 2026-10-27, spec:
+`~/shopnexus/specs/2026-10-27-server2-notification-design.md`). No module
+calls it except screen, for Home's unread count; depguard holds that.
+
+- It hears events: `deal.moved` (whose payload now lists the IDs of the
+  moves the save wrote), `message.sent` (event ID = message ID, so a
+  repeated write adds none), `listing.published`, `listing.rejected`,
+  `review.posted` (event ID = review ID, first submission only),
+  `account.suspended` (payload `until`) and `account.unsuspended`.
+- The Restate service `NotificationWorker` has a handler per kind. Each
+  reads the facts through the source module's service in one step
+  (`dealsvc.Moves`, `chatsvc.MessageFacts`, `trustsvc.ReviewFacts`,
+  catalog's summaries), decides in notification's domain who hears what,
+  writes each notice in one step, then pushes. A move the deal lacks, as
+  when a replayed save minted other IDs, tells no one.
+- A notice stores its type and params; the server writes the Vietnamese
+  text when it lists and when it pushes. Deal and order notices collapse on
+  `deal:<id>`, listing notices on `listing:<id>`: a new one replaces the
+  recipient's unread notice of the key and moves it up, and a notice
+  already read stays as it is. A late event cannot overwrite a newer
+  unread notice (the upsert's guard on `bumped_at`), and a redelivered
+  event writes nothing (the row records its `event_id`). A recipient's
+  notices older than 90 days are deleted when they get a new one.
+- Chat messages are pushed and never listed, collapsing on
+  `conversation:<id>`, with the sender's name and the first 100 characters.
+- A push token belongs to a sign-in session (`push_tokens.session_id`).
+  Before a push the worker asks auth which of the recipient's sessions are
+  active and deletes the others' tokens, which covers logout, revocation,
+  refresh reuse and expiry with one read. Each token is sent in a step of
+  its own, so a retried send repeats no other: FCM's `UNREGISTERED` or
+  `INVALID_ARGUMENT` deletes the token, 429, 5xx and transport errors retry
+  for up to an hour, and another error is logged and dropped. The bus
+  delivers an event once per ID, so a notice pushes once.
+- `internal/provider/push` holds `Sender`: FCM HTTP v1, signed by a
+  service account (`FCM_CREDENTIALS` in base64, `FCM_PROJECT_ID`) through
+  `golang.org/x/oauth2/google`, or a log sender when `FCM_CREDENTIALS` is
+  empty.
+- A suspended account still gets notices, so it learns of the suspension.
 
 ### Testing
 
