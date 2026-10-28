@@ -21,7 +21,6 @@ import (
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	authdomain "github.com/shopnexus/server2/internal/auth/domain"
 	authrepo "github.com/shopnexus/server2/internal/auth/repository"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/catalog/service"
@@ -59,7 +58,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 	deps := service.Deps{
 		Listings: listings, Categories: repository.NewCategories(db), Regions: repository.NewRegions(db),
 		Searches: repository.NewSearches(db),
-		Accounts: accounts, Auth: authsvc.New(authsvc.Deps{Credentials: authrepo.NewCredentials(db)}), Media: m,
+		Accounts: accounts, Media: m,
 		Ingress: in, Prefix: p, Now: time.Now,
 	}
 	for _, o := range opts {

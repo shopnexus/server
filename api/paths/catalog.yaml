@@ -5,7 +5,7 @@ listings:
     description: |
       The listing starts in processing while its photos are processed, then
       turns active, or rejected when a photo is refused. Checks, in order:
-      account_suspended, phone_required, listing_cap_reached (20 listings in
+      account_suspended, listing_cap_reached (20 listings in
       processing, active, hidden or rejected), invalid_listing, invalid_upload.
     tags: [catalog]
     security:
@@ -30,7 +30,7 @@ listings:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
-        description: "The account is suspended (account_suspended) or has no verified phone number (phone_required)."
+        description: "The account is suspended (account_suspended)."
         content:
           application/json:
             schema:

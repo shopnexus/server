@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"time"
 	"uuid"
 
@@ -11,8 +10,6 @@ import (
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authdomain "github.com/shopnexus/server2/internal/auth/domain"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
@@ -45,15 +42,14 @@ type ListingPost struct {
 	Categories repository.Categories
 	Regions    repository.Regions
 	Accounts   accountsvc.Service
-	Auth       authsvc.Service
 	Media      mediasvc.Service
 	Now        func() time.Time
 }
 
 func (s ListingPost) ServiceName() string { return s.Prefix + listingPost }
 
-// Run checks, in order, that the seller is not suspended, has a verified
-// phone number and is under the cap, then the draft. The row goes in before
+// Run checks, in order, that the seller is not suspended and is under the
+// cap, then the draft. The row goes in before
 // the uploads are attached: a cap that a racing post filled refuses before
 // any upload is taken, and an attach that refuses deletes the row again.
 func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) {
@@ -64,19 +60,6 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	suspended, err := isSuspended(ctx, s.Accounts, in.Seller)
 	if err != nil || suspended {
 		return PostResult{Refused: refusedIf(suspended, accountdomain.ErrSuspended)}, err
-	}
-	hasPhone, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
-		ids, stepErr := s.Auth.Identities(rc, in.Seller)
-		if stepErr != nil {
-			return false, fmt.Errorf("read identities: %w", stepErr)
-		}
-		return slices.ContainsFunc(ids, func(i authsvc.Identity) bool { return i.Kind == authdomain.KindPhone }), nil
-	})
-	if err != nil {
-		return PostResult{}, fmt.Errorf("check the phone: %w", err)
-	}
-	if !hasPhone {
-		return PostResult{Refused: domain.ErrPhoneRequired}, nil
 	}
 	n, err := restate.Run(ctx, func(rc restate.RunContext) (int, error) { return s.Listings.CountOnSale(rc, in.Seller) })
 	if err != nil {

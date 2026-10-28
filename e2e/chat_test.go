@@ -144,7 +144,6 @@ func TestChatRefusals(t *testing.T) {
 	expect("open signed out", open("", msg), 401, "unauthenticated")
 	expect("open a bad id", open(buyer.AccessToken, map[string]any{"listing_id": "x"}), 400, "")
 	expect("open an unknown listing", open(buyer.AccessToken, map[string]any{"listing_id": uuid.NewV7().String(), "text": "Hi"}), 404, "listing_not_found")
-	expect("open without a phone", open(emailAccount(t).AccessToken, msg), 403, "phone_required")
 	expect("open own listing", open(seller.AccessToken, msg), 409, "own_listing")
 	expect("open without text", open(stranger.AccessToken, map[string]any{"listing_id": l.ID, "text": " "}), 422, "invalid_message")
 	expect("open with another's photo", open(stranger.AccessToken, map[string]any{"listing_id": l.ID, "photos": []string{upload(t, seller.AccessToken, photoWithGPS(t))}}), 422, "invalid_upload")

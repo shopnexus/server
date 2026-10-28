@@ -7,7 +7,6 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/deal/handler"
 	"github.com/shopnexus/server2/internal/deal/repository"
@@ -27,10 +26,10 @@ type Mounted struct {
 // listing watch to the listing events, and returns deal's Restate services
 // and the Service chat reads a pair's deals through.
 func Mount(d module.Deps, protect func(http.Handler) http.Handler, accounts accountsvc.Service,
-	auth authsvc.Service, catalog catalogsvc.Service,
+	catalog catalogsvc.Service,
 ) Mounted {
 	svc := service.New(service.Deps{
-		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Auth: auth, Catalog: catalog,
+		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Catalog: catalog,
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, protect)

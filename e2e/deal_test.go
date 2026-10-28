@@ -163,7 +163,6 @@ func TestDealRefusals(t *testing.T) {
 	suspended, _ := newAccount(t)
 	suspend(t, suspended.Account.ID)
 	expect("open suspended", open(suspended.AccessToken, l.ID), 403, "account_suspended")
-	expect("open without a phone", open(emailAccount(t).AccessToken, l.ID), 403, "phone_required")
 	expect("open own listing", open(seller.AccessToken, l.ID), 409, "own_listing")
 	hidden := activeListing(t, seller.AccessToken)
 	if res := call(t, server, "POST", "/v1/listings/"+hidden.ID+"/hide", nil, bearer(seller.AccessToken)); res.Status != http.StatusOK {

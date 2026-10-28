@@ -20,7 +20,6 @@ import (
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	authdomain "github.com/shopnexus/server2/internal/auth/domain"
 	authrepo "github.com/shopnexus/server2/internal/auth/repository"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogrepo "github.com/shopnexus/server2/internal/catalog/repository"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
@@ -58,17 +57,16 @@ func newEnv(t *testing.T) env {
 	}
 	in, p := ingress.NewClient(url), restatetest.Prefix()
 	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
-	auth := authsvc.New(authsvc.Deps{Credentials: authrepo.NewCredentials(db)})
 	media := mediasvc.New(mediasvc.Deps{
 		Uploads: mediarepo.NewUploads(db), Store: objectstoretest.New(t), Ingress: in, Prefix: p, Now: time.Now,
 	})
 	listings := catalogrepo.NewListings(db)
 	c := catalogsvc.New(catalogsvc.Deps{
 		Listings: listings, Categories: catalogrepo.NewCategories(db), Regions: catalogrepo.NewRegions(db),
-		Accounts: accounts, Auth: auth, Media: media, Ingress: in, Prefix: p, Now: time.Now,
+		Accounts: accounts, Media: media, Ingress: in, Prefix: p, Now: time.Now,
 	})
 	deps := service.Deps{
-		Chats: repository.NewChats(db), Accounts: accounts, Auth: auth, Catalog: c, Media: media,
+		Chats: repository.NewChats(db), Accounts: accounts, Catalog: c, Media: media,
 		Ingress: in, Prefix: p, Now: time.Now,
 	}
 	chat := service.New(deps)
@@ -79,7 +77,7 @@ func newEnv(t *testing.T) env {
 // person creates an account with a verified phone number.
 func (e env) person(t *testing.T) uuid.UUID {
 	t.Helper()
-	id := e.emailOnly(t)
+	id := e.phoneless(t)
 	phone, err := contact.ParsePhone(fmt.Sprintf("09%08d", rand.IntN(100_000_000)))
 	if err != nil {
 		t.Fatal(err)
@@ -92,8 +90,8 @@ func (e env) person(t *testing.T) uuid.UUID {
 	return id
 }
 
-// emailOnly creates an account with no phone number.
-func (e env) emailOnly(t *testing.T) uuid.UUID {
+// phoneless creates an account with no identity.
+func (e env) phoneless(t *testing.T) uuid.UUID {
 	t.Helper()
 	id := uuid.NewV7()
 	if err := e.accounts.Create(context.Background(), id, "Linh"); err != nil {

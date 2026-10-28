@@ -37,8 +37,8 @@ func TestPostChecksInOrder(t *testing.T) {
 	if _, err := e.catalog.Post(ctx, suspended, uuid.NewV7().String(), bad); !errors.Is(err, accountdomain.ErrSuspended) {
 		t.Fatalf("suspended: %v", err)
 	}
-	if _, err := e.catalog.Post(ctx, e.account(t), uuid.NewV7().String(), bad); !errors.Is(err, domain.ErrPhoneRequired) {
-		t.Fatalf("no phone: %v", err)
+	if _, err := e.catalog.Post(ctx, e.account(t), uuid.NewV7().String(), bad); !errors.Is(err, domain.ErrInvalidListing) {
+		t.Fatalf("an account without a phone reaches the draft's checks: %v", err)
 	}
 
 	full := e.seller(t)

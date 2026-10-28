@@ -16,7 +16,6 @@ import (
 	"github.com/restatedev/sdk-go/ingress"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/chat/domain"
 	"github.com/shopnexus/server2/internal/chat/repository"
@@ -60,7 +59,6 @@ type Service interface {
 type Deps struct {
 	Chats    repository.Chats
 	Accounts accountsvc.Service
-	Auth     authsvc.Service
 	Catalog  catalogsvc.Service
 	Media    mediasvc.Service
 	// Ingress and Prefix reach this process's Restate services; media's
@@ -74,7 +72,6 @@ type Deps struct {
 type Chat struct {
 	chats    repository.Chats
 	accounts accountsvc.Service
-	auth     authsvc.Service
 	catalog  catalogsvc.Service
 	media    mediasvc.Service
 	prefix   string
@@ -86,7 +83,7 @@ var _ Service = (*Chat)(nil)
 
 func New(d Deps) *Chat {
 	return &Chat{
-		chats: d.Chats, accounts: d.Accounts, auth: d.Auth, catalog: d.Catalog, media: d.Media,
+		chats: d.Chats, accounts: d.Accounts, catalog: d.Catalog, media: d.Media,
 		prefix: d.Prefix, now: d.Now,
 		send: restatex.Caller[SendFlowInput, SendResult]{Ingress: d.Ingress, Service: d.Prefix + messageSend, Handler: "Run"},
 	}

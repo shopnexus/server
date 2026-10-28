@@ -4,21 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"uuid"
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	authdomain "github.com/shopnexus/server2/internal/auth/domain"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/repository"
 )
 
 // Open returns the buyer's deal on the listing or starts one. Starting
-// needs an account that is not suspended and has a verified phone, on
-// someone else's active listing, with no block between the two. Two opens
-// at once start one deal.
+// needs an account that is not suspended, on someone else's active
+// listing, with no block between the two. Two opens at once start one deal.
 func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView, bool, error) {
 	l, err := s.listing(ctx, listingID)
 	if err != nil {
@@ -34,13 +30,6 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 	}
 	if err = s.refuseSuspended(ctx, buyer); err != nil {
 		return DealView{}, false, err
-	}
-	ids, err := s.auth.Identities(ctx, buyer)
-	if err != nil {
-		return DealView{}, false, fmt.Errorf("read identities: %w", err)
-	}
-	if !slices.ContainsFunc(ids, func(i authsvc.Identity) bool { return i.Kind == authdomain.KindPhone }) {
-		return DealView{}, false, domain.ErrPhoneRequired
 	}
 	if l.SellerID == buyer {
 		return DealView{}, false, domain.ErrOwnListing

@@ -77,7 +77,6 @@ func TestOpenRefusals(t *testing.T) {
 		listing uuid.UUID
 		want    error
 	}{
-		{"no phone", e.emailOnly(t), listing, domain.ErrPhoneRequired},
 		{"suspended", suspended, listing, accountdomain.ErrSuspended},
 		{"own listing", seller, listing, domain.ErrOwnListing},
 		{"hidden listing", e.person(t), hidden, domain.ErrListingUnavailable},
@@ -88,6 +87,9 @@ func TestOpenRefusals(t *testing.T) {
 		if _, err := e.chat.Open(ctx, c.buyer, key(), service.OpenInput{ListingID: c.listing, Text: "Còn không?"}); !errors.Is(err, c.want) {
 			t.Errorf("%s: %v", c.name, err)
 		}
+	}
+	if _, err := e.chat.Open(ctx, e.phoneless(t), key(), service.OpenInput{ListingID: listing, Text: "Còn không?"}); err != nil {
+		t.Fatalf("an account without a phone opens a chat: %v", err)
 	}
 }
 

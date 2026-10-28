@@ -5,7 +5,7 @@ deals:
     description: |
       Returns the caller's existing deal on the listing, or starts one.
       Checks, in order: the caller's deal exists (200); the listing exists;
-      account_suspended; phone_required; own_listing; listing_unavailable.
+      account_suspended; own_listing; listing_unavailable.
     tags: [deal]
     security:
       - bearerAuth: []
@@ -33,7 +33,7 @@ deals:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
-        description: "The account is suspended (account_suspended), has no verified phone number (phone_required), or a block stands between the buyer and the seller (blocked)."
+        description: "The account is suspended (account_suspended), or a block stands between the buyer and the seller (blocked)."
         content:
           application/json:
             schema:

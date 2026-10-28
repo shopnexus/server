@@ -8,7 +8,6 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	"github.com/shopnexus/server2/internal/catalog/handler"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/catalog/service"
@@ -32,12 +31,10 @@ type Mounted struct {
 
 // Mount registers the catalog endpoints and returns catalog's Restate
 // services and the Service other modules read listings through.
-func Mount(d module.Deps, g Guards, accounts accountsvc.Service, auth authsvc.Service,
-	media mediasvc.Service,
-) Mounted {
+func Mount(d module.Deps, g Guards, accounts accountsvc.Service, media mediasvc.Service) Mounted {
 	svc := service.New(service.Deps{
 		Listings: repository.NewListings(d.Pool), Categories: repository.NewCategories(d.Pool),
-		Regions: repository.NewRegions(d.Pool), Searches: repository.NewSearches(d.Pool), Accounts: accounts, Auth: auth, Media: media,
+		Regions: repository.NewRegions(d.Pool), Searches: repository.NewSearches(d.Pool), Accounts: accounts, Media: media,
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, g.Protect, g.Identify)

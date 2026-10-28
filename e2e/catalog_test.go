@@ -106,22 +106,6 @@ func activeListing(t *testing.T, token string) listing {
 	return l
 }
 
-// emailAccount signs up with an email address, so the account has no
-// phone number.
-func emailAccount(t *testing.T) signIn {
-	t.Helper()
-	addr := newEmail()
-	res := sendOTP(t, "email", addr)
-	if res.Status != http.StatusOK {
-		t.Fatalf("send: %d %s", res.Status, res.Body)
-	}
-	res = verifyCode(t, decode[challenge](t, res).ChallengeID, box.code(t, addr, 1))
-	if res.Status != http.StatusOK {
-		t.Fatalf("verify: %d %s", res.Status, res.Body)
-	}
-	return decode[signIn](t, res)
-}
-
 func TestListingGoesOnSale(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
@@ -189,9 +173,6 @@ func TestPostListingRefusals(t *testing.T) {
 	suspend(t, suspended.Account.ID)
 	expect("suspended", post(draftWith(upload(t, suspended.AccessToken, photo)), bearer(suspended.AccessToken)),
 		403, "account_suspended")
-	noPhone := emailAccount(t)
-	expect("no phone", post(draftWith(upload(t, noPhone.AccessToken, photo)), bearer(noPhone.AccessToken)),
-		403, "phone_required")
 
 	cheap := draftWith(upload(t, token, photo))
 	cheap["price"] = 9_999

@@ -16,7 +16,6 @@ import (
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	authdomain "github.com/shopnexus/server2/internal/auth/domain"
 	authrepo "github.com/shopnexus/server2/internal/auth/repository"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogrepo "github.com/shopnexus/server2/internal/catalog/repository"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
@@ -42,7 +41,7 @@ type env struct {
 	deals    *service.Deals
 }
 
-// newEnv builds the deal service on a database, with the account, auth and
+// newEnv builds the deal service on a database, with the account and
 // catalog services it calls, and serves its flows on the test stack. deps
 // lets a test build a second service with one dependency replaced.
 func newEnv(t *testing.T) env {
@@ -54,17 +53,16 @@ func newEnv(t *testing.T) env {
 	}
 	in, p := ingress.NewClient(url), restatetest.Prefix()
 	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
-	auth := authsvc.New(authsvc.Deps{Credentials: authrepo.NewCredentials(db)})
 	media := mediasvc.New(mediasvc.Deps{
 		Uploads: mediarepo.NewUploads(db), Store: objectstoretest.New(t), Ingress: in, Prefix: p, Now: time.Now,
 	})
 	listings := catalogrepo.NewListings(db)
 	c := catalogsvc.New(catalogsvc.Deps{
 		Listings: listings, Categories: catalogrepo.NewCategories(db), Regions: catalogrepo.NewRegions(db),
-		Accounts: accounts, Auth: auth, Media: media, Ingress: in, Prefix: p, Now: time.Now,
+		Accounts: accounts, Media: media, Ingress: in, Prefix: p, Now: time.Now,
 	})
 	repo := repository.NewDeals(db)
-	deps := service.Deps{Deals: repo, Accounts: accounts, Auth: auth, Catalog: c, Ingress: in, Now: time.Now}
+	deps := service.Deps{Deals: repo, Accounts: accounts, Catalog: c, Ingress: in, Now: time.Now}
 	return env{db: db, accounts: accounts, catalog: c, listings: listings, repo: repo, deps: deps, deals: start(t, deps)}
 }
 
@@ -81,7 +79,7 @@ func start(t *testing.T, deps service.Deps) *service.Deals {
 // person creates an account with a verified phone number.
 func (e env) person(t *testing.T) uuid.UUID {
 	t.Helper()
-	id := e.emailOnly(t)
+	id := e.phoneless(t)
 	phone, err := contact.ParsePhone(fmt.Sprintf("09%08d", rand.IntN(100_000_000)))
 	if err != nil {
 		t.Fatal(err)
@@ -94,8 +92,8 @@ func (e env) person(t *testing.T) uuid.UUID {
 	return id
 }
 
-// emailOnly creates an account with no phone number.
-func (e env) emailOnly(t *testing.T) uuid.UUID {
+// phoneless creates an account with no identity.
+func (e env) phoneless(t *testing.T) uuid.UUID {
 	t.Helper()
 	id := uuid.NewV7()
 	if err := e.accounts.Create(context.Background(), id, "Linh"); err != nil {

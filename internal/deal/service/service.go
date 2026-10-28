@@ -15,7 +15,6 @@ import (
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/deal/domain"
@@ -79,7 +78,6 @@ type Service interface {
 type Deps struct {
 	Deals    repository.Deals
 	Accounts accountsvc.Service
-	Auth     authsvc.Service
 	Catalog  catalogsvc.Service
 	// Ingress and Prefix reach this process's Restate services.
 	Ingress *ingress.Client
@@ -91,7 +89,6 @@ type Deps struct {
 type Deals struct {
 	deals    repository.Deals
 	accounts accountsvc.Service
-	auth     authsvc.Service
 	catalog  catalogsvc.Service
 	prefix   string
 	now      func() time.Time
@@ -103,7 +100,7 @@ var _ Service = (*Deals)(nil)
 
 func New(d Deps) *Deals {
 	return &Deals{
-		deals: d.Deals, accounts: d.Accounts, auth: d.Auth, catalog: d.Catalog, prefix: d.Prefix, now: d.Now,
+		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, prefix: d.Prefix, now: d.Now,
 		ship:   restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: "Run"},
 		finish: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealFinish, Handler: "Run"},
 	}

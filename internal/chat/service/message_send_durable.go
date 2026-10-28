@@ -3,14 +3,11 @@ package service
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	authdomain "github.com/shopnexus/server2/internal/auth/domain"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/chat/domain"
@@ -46,7 +43,6 @@ func (r SendResult) Refusal() *apperr.Error { return r.Refused }
 // facts is what the read step found for a send, for the flow to decide on.
 type facts struct {
 	Suspended    bool                 `json:"suspended"`
-	HasPhone     bool                 `json:"has_phone"`
 	Listing      *catalogsvc.Summary  `json:"listing,omitempty"`
 	Conversation *domain.Conversation `json:"conversation,omitempty"`
 	Blocked      bool                 `json:"blocked"`
@@ -90,11 +86,6 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 		}
 		other := uuid.UUID{}
 		if in.Opening {
-			ids, readErr := s.Chat.auth.Identities(rc, in.Sender)
-			if readErr != nil {
-				return facts{}, fmt.Errorf("read identities: %w", readErr)
-			}
-			out.HasPhone = slices.ContainsFunc(ids, func(i authsvc.Identity) bool { return i.Kind == authdomain.KindPhone })
 			if out.Listing != nil {
 				other = out.Listing.SellerID
 			}
@@ -123,8 +114,6 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 		refused = accountdomain.ErrSuspended
 	case in.Opening && f.Listing == nil:
 		refused = catalogdomain.ErrNotFound
-	case in.Opening && !f.HasPhone:
-		refused = domain.ErrPhoneRequired
 	case in.Opening && f.Listing.SellerID == in.Sender:
 		refused = domain.ErrOwnListing
 	case in.Opening && f.Listing.Status != catalogdomain.StatusActive:

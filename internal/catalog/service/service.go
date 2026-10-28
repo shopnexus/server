@@ -14,7 +14,6 @@ import (
 	"github.com/restatedev/sdk-go/ingress"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
@@ -83,7 +82,6 @@ type Deps struct {
 	Regions    repository.Regions
 	Searches   repository.Searches
 	Accounts   accountsvc.Service
-	Auth       authsvc.Service
 	Media      mediasvc.Service
 	// Ingress and Prefix reach this process's Restate services.
 	Ingress *ingress.Client
@@ -98,7 +96,6 @@ type Catalog struct {
 	regions    repository.Regions
 	searches   repository.Searches
 	accounts   accountsvc.Service
-	auth       authsvc.Service
 	media      mediasvc.Service
 	prefix     string
 	now        func() time.Time
@@ -111,7 +108,7 @@ var _ Service = (*Catalog)(nil)
 func New(d Deps) *Catalog {
 	return &Catalog{
 		listings: d.Listings, categories: d.Categories, regions: d.Regions, searches: d.Searches,
-		accounts: d.Accounts, auth: d.Auth, media: d.Media, prefix: d.Prefix, now: d.Now,
+		accounts: d.Accounts, media: d.Media, prefix: d.Prefix, now: d.Now,
 		post: restatex.Caller[PostInput, PostResult]{Ingress: d.Ingress, Service: d.Prefix + listingPost, Handler: "Run"},
 		edit: restatex.Caller[EditInput, EditResult]{Ingress: d.Ingress, Service: d.Prefix + listingEdit, Handler: "Run"},
 	}
@@ -122,7 +119,7 @@ func (c *Catalog) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
 		restate.Reflect(ListingPost{
 			Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Regions: c.regions,
-			Accounts: c.accounts, Auth: c.auth, Media: c.media, Now: c.now,
+			Accounts: c.accounts, Media: c.media, Now: c.now,
 		}),
 		restate.Reflect(ListingEdit{
 			Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Regions: c.regions,

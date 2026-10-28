@@ -230,13 +230,13 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}
 	staff.Mount(d, staffKeys, accounts, authm.Service)
 	catalogm := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
-		accounts, authm.Service, mediam.Service)
-	dealm := deal.Mount(d, protect, accounts, authm.Service, catalogm.Service)
+		accounts, mediam.Service)
+	dealm := deal.Mount(d, protect, accounts, catalogm.Service)
 	trustm := trust.Mount(d, protect, accounts, catalogm.Service, dealm.Service)
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
 	saves := discovery.Mount(d, discovery.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
 		catalogm.Service, model)
-	chatm := chat.Mount(d, protect, accounts, authm.Service, catalogm.Service, mediam.Service)
+	chatm := chat.Mount(d, protect, accounts, catalogm.Service, mediam.Service)
 	sender := o.push
 	if sender == nil {
 		sender = push.LogSender{Log: log}

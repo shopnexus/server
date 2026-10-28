@@ -4,8 +4,8 @@ conversations:
     summary: Open the conversation with a listing's seller, or reuse the pair's, and send the first message.
     description: |
       One conversation per pair of people, whatever their roles. Checks, in
-      order: account_suspended, the listing exists, phone_required,
-      own_listing, listing_unavailable, blocked, then the message.
+      order: account_suspended, the listing exists, own_listing,
+      listing_unavailable, blocked, then the message.
     tags: [chat]
     security:
       - bearerAuth: []
@@ -29,7 +29,7 @@ conversations:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
-        description: "The account is suspended (account_suspended), has no verified phone number (phone_required), or a block stands between the two (blocked)."
+        description: "The account is suspended (account_suspended), or a block stands between the two (blocked)."
         content:
           application/json:
             schema:

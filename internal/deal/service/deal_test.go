@@ -112,7 +112,6 @@ func TestOpenRefusals(t *testing.T) {
 		listing uuid.UUID
 		want    error
 	}{
-		{"no phone", e.emailOnly(t), listing, domain.ErrPhoneRequired},
 		{"own listing", seller, listing, domain.ErrOwnListing},
 		{"suspended", suspended, listing, accountdomain.ErrSuspended},
 		{"hidden listing", e.person(t), hidden, domain.ErrListingUnavailable},
@@ -121,6 +120,9 @@ func TestOpenRefusals(t *testing.T) {
 		if _, _, err := e.deals.Open(ctx, c.buyer, c.listing); !errors.Is(err, c.want) {
 			t.Errorf("%s: %v", c.name, err)
 		}
+	}
+	if _, created, err := e.deals.Open(ctx, e.phoneless(t), listing); err != nil || !created {
+		t.Fatalf("an account without a phone opens a deal: %v %v", created, err)
 	}
 	v, created, err := e.deals.Open(ctx, early, hidden)
 	if err != nil || created || v.ID != opened.ID {
