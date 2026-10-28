@@ -241,7 +241,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if sender == nil {
 		sender = push.LogSender{Log: log}
 		if len(cfg.Push.Credentials) > 0 {
-			fcm, fcmErr := push.NewFCM(context.Background(), cfg.Push.Credentials, cfg.Push.ProjectID)
+			fcm, fcmErr := push.NewFCM(context.Background(), cfg.Push.Credentials, cfg.Firebase.ProjectID)
 			if fcmErr != nil {
 				return nil, fmt.Errorf("push: %w", fcmErr)
 			}

@@ -48,13 +48,23 @@ type Config struct {
 	ObjectStore    ObjectStoreConfig
 	LLM            LLMConfig
 	Push           PushConfig
+	Firebase       FirebaseConfig
 }
 
 // PushConfig says how pushes reach phones. Empty credentials mean the log
 // sender. The credentials are never logged.
 type PushConfig struct {
 	Credentials []byte //exhaustruct:optional FCM_CREDENTIALS: a service account's JSON in base64, or empty
-	ProjectID   string //exhaustruct:optional FCM_PROJECT_ID: the Firebase project, set with the credentials
+}
+
+// FirebaseConfig names the Firebase project that pushes go through and phone
+// tokens come from, and where the keys that sign those tokens are published.
+type FirebaseConfig struct {
+	ProjectID     string // FIREBASE_PROJECT_ID
+	ProjectNumber string // FIREBASE_PROJECT_NUMBER: builds the issuer of PNV tokens
+	AuthJWKSURL   string // FIREBASE_AUTH_JWKS_URL: the keys of Firebase Authentication's ID tokens
+	PNVJWKSURL    string // PNV_JWKS_URL: the keys of Phone Number Verification tokens
+	TestNumbers   bool   // PNV_TEST_NUMBERS: accept the test numbers of PNV's test mode; never in prod
 }
 
 // LLMConfig says where the model that reads search queries is. The key is
@@ -195,9 +205,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		if err != nil {
 			errs = append(errs, errors.New("FCM_CREDENTIALS: want base64 of a service account's JSON"))
 		}
-		push = PushConfig{Credentials: b, ProjectID: need("FCM_PROJECT_ID")}
-	} else {
-		push.ProjectID = set("FCM_PROJECT_ID")
+		push.Credentials = b
 	}
 
 	cfg := Config{
@@ -235,7 +243,14 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Bucket:         need("OBJECT_STORE_BUCKET"),
 			PublicURL:      need("MEDIA_PUBLIC_URL"),
 		},
-		Push:           push,
+		Push: push,
+		Firebase: FirebaseConfig{
+			ProjectID:     need("FIREBASE_PROJECT_ID"),
+			ProjectNumber: need("FIREBASE_PROJECT_NUMBER"),
+			AuthJWKSURL:   need("FIREBASE_AUTH_JWKS_URL"),
+			PNVJWKSURL:    need("PNV_JWKS_URL"),
+			TestNumbers:   oneOf("PNV_TEST_NUMBERS", "true", "false") == "true",
+		},
 		LLM:            LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),

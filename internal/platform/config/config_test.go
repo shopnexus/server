@@ -63,7 +63,11 @@ func required() map[string]string {
 		"LLM_API_KEY":                  "llm-key",
 		"LLM_MODEL":                    "a-model",
 		"FCM_CREDENTIALS":              "",
-		"FCM_PROJECT_ID":               "",
+		"FIREBASE_PROJECT_ID":          "shopnexus-test",
+		"FIREBASE_PROJECT_NUMBER":      "123456789",
+		"FIREBASE_AUTH_JWKS_URL":       "https://keys.example.test/auth",
+		"PNV_JWKS_URL":                 "https://keys.example.test/pnv",
+		"PNV_TEST_NUMBERS":             "false",
 	}
 }
 
@@ -85,6 +89,7 @@ func TestLoadAllSet(t *testing.T) {
 		"RESTATE_ENDPOINT_URL":        "http://host:9999",
 		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel:4318",
 		"SERVICE_NAME":                "svc",
+		"PNV_TEST_NUMBERS":            "true",
 	})
 	got, err := Load(lookup(env))
 	if err != nil {
@@ -120,6 +125,10 @@ func TestLoadAllSet(t *testing.T) {
 			AccessKey: "access", SecretKey: "secret", Bucket: "server2", PublicURL: "http://rustfs:9000/server2",
 		},
 		LLM: LLMConfig{BaseURL: "https://llm.example.test/v1", APIKey: "llm-key", Model: "a-model"},
+		Firebase: FirebaseConfig{
+			ProjectID: "shopnexus-test", ProjectNumber: "123456789",
+			AuthJWKSURL: "https://keys.example.test/auth", PNVJWKSURL: "https://keys.example.test/pnv", TestNumbers: true,
+		},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
@@ -161,7 +170,7 @@ func TestLoadNamesEveryUnsetVariable(t *testing.T) {
 
 func TestLoadRejectsEmptyRequired(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"HTTP_ADDR", "DATABASE_URL", "SERVICE_NAME", "RESTATE_LISTEN_ADDR", "JWT_ISSUER", "JWT_AUDIENCE", "STAFF_CONSOLE_ORIGIN"} {
+	for _, name := range []string{"HTTP_ADDR", "DATABASE_URL", "SERVICE_NAME", "RESTATE_LISTEN_ADDR", "JWT_ISSUER", "JWT_AUDIENCE", "STAFF_CONSOLE_ORIGIN", "FIREBASE_PROJECT_ID", "FIREBASE_PROJECT_NUMBER", "FIREBASE_AUTH_JWKS_URL", "PNV_JWKS_URL"} {
 		env := required()
 		env[name] = ""
 		if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), name+" is empty") {
@@ -177,6 +186,7 @@ func TestLoadRejectsBadValues(t *testing.T) {
 		mentions   []string
 	}{
 		{"LOG_LEVEL", "loud", []string{"LOG_LEVEL", "debug", "info", "warn", "error"}},
+		{"PNV_TEST_NUMBERS", "yes", []string{"PNV_TEST_NUMBERS", "true", "false"}},
 		{"LOG_FORMAT", "xml", []string{"LOG_FORMAT"}},
 		{"APP_ENV", "staging", []string{"APP_ENV"}},
 	}
@@ -262,17 +272,13 @@ func TestLoadProdNeedsTheRestateIdentityKey(t *testing.T) {
 	}
 }
 
-// Push credentials need their project; empty both means the log sender.
+// Empty push credentials mean the log sender; the project is Firebase's.
 func TestLoadPush(t *testing.T) {
 	t.Parallel()
 	env := required()
 	env["FCM_CREDENTIALS"] = b64([]byte(`{"type":"service_account"}`))
-	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "FCM_PROJECT_ID") {
-		t.Fatalf("credentials without a project: %v", err)
-	}
-	env["FCM_PROJECT_ID"] = "shopnexus"
 	got, err := Load(lookup(env))
-	if err != nil || string(got.Push.Credentials) != `{"type":"service_account"}` || got.Push.ProjectID != "shopnexus" {
+	if err != nil || string(got.Push.Credentials) != `{"type":"service_account"}` || got.Firebase.ProjectID != "shopnexus-test" {
 		t.Fatalf("%+v %v", got.Push, err)
 	}
 	env["FCM_CREDENTIALS"] = "%%%"
