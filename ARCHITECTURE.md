@@ -4,7 +4,8 @@
 endpoints, auth flows, security rules and the testing matrix, and points here
 for code shape, transactions and durability. Where the two disagree, this file
 wins. Plan 2 (`~/shopnexus/plans/2026-10-20-server2-plan2-redesign-otp.md`)
-built the OTP sign-in and sessions on this design.
+built the sessions on this design; sign-in moved to Firebase on 2026-10-28
+(see Phone sign-in).
 
 The code takes from two branches of the old `server` repository.
 `origin/microservice-ready` reads top to bottom with few layers.
@@ -76,19 +77,17 @@ A transaction lives inside a repository method and covers one aggregate.
 Concurrent writes are caught optimistically: `Save` fails with `ErrConflict`
 when the aggregate changed since it was read, and `write_id` (below) is the
 column that detects it. A use case that loses the race answers
-`apperr.ErrTryAgain` (409 `try_again`) in every module. A conflict reply to an
-OTP guess must not reveal whether the guess was right.
+`apperr.ErrTryAgain` (409 `try_again`) in every module.
 
 ### Aggregates in auth and account
 
 - `Account` (module account): display name, bio, avatar, status,
   suspension.
 - `Address` (module account): one address of an account's address book.
-- `Credentials` (module auth): every identity of one account, later its
-  password. It holds the rule that an account keeps at least one identity.
+- `Credentials` (module auth): every phone identity of one account, later
+  its password. It holds the rule that an account keeps at least one identity.
 - `Session` (module auth): one signed-in device. It is separate because sessions
   are unbounded and every refresh writes one.
-- `Challenge` (module auth): one OTP code.
 
 `UNIQUE (kind, value)` on identities spans accounts, so the database
 constraint holds it.
@@ -101,8 +100,6 @@ refresh keep working when Restate is down.
 
 - The client's `Idempotency-Key` is the idempotency key of the invocation. A
   repeated key returns the first result and runs no step again.
-- OTP send is service `OTP`. It admits the send against the quotas, stores
-  the challenge and sends the SMS or email.
 - A `restate.Run` step only reads or writes a store, so any error it returns
   is a fault that Restate retries. Every business decision is taken in the
   handler between steps, on values a step returned and the journal kept.
@@ -136,11 +133,10 @@ refresh keep working when Restate is down.
   version 4, which would break the spec's time-ordered cursors). Inserts use
   `ON CONFLICT (id) DO NOTHING`. The same ID is the idempotency key sent to a
   payment provider.
-- The two Restate services live in `auth/service`: `OTP` in
-  `otp_send_durable.go` and `SignIn` in `sign_in_durable.go`. They are the
-  only code that passes closures, to `restate.Run`. `Auth.SendOTP` and
-  `Auth.SignIn` call them through `restatex.Caller`. `Auth.Durable` returns
-  their definitions for `auth.Mount`.
+- Module auth's Restate service, `SignIn`, lives in
+  `auth/service/sign_in_durable.go`. `Auth.SignIn` calls it through
+  `restatex.Caller`, and `Auth.Durable` returns its definition for
+  `auth.Mount`.
 
 ### Events
 
@@ -227,8 +223,8 @@ server's split (decided 2026-10-26). There is no finance module: ShopNexus
 holds no money, so there is no wallet and no payment session. Planned
 next: `billing` (boosts and seller plans); `notification` holds the
 in-app list and push (see Notifications). There
-is no `kyc` module: posting needs a verified phone alone, since a carrier
-checks a seller's identity when it opens their account (decided
+is no `kyc` module: an account's verified phone number is enough, since a
+carrier checks a seller's identity when it opens their account (decided
 2026-10-27). Reports, incident
 records and reputation will join `trust`; followed searches, price alerts,
 "Dành cho bạn" and vector search will join `discovery`, beside search and
@@ -237,7 +233,7 @@ the nearby feed. Imports run one way, `handler` and `worker` →
 refuse an import against it.
 
 An entity keeps its fields unexported, so a repository in another package
-rebuilds one through `Restore…` (`RestoreAccount`, `RestoreChallenge`; a
+rebuilds one through `Restore…` (`RestoreAccount`, `RestoreCredentials`; a
 member through `domain.MemberState`) and records a write with
 `Saved(writeID)`; only repositories call either.
 
@@ -266,7 +262,6 @@ separate work.
 | `Account` | `accounts` | adds `write_id` |
 | `Credentials` | `credentials` (root: `account_id` PK, `write_id`, later `password_hash`), `identities` (children) | `Save` changes the root's `write_id` and rewrites the account's identities in one transaction; the planned `passwords` table folds into the root |
 | `Session` | `sessions` | adds `write_id` and `auth_time` |
-| `Challenge` | `otp_challenges` | adds `write_id` |
 | `Upload` | `uploads` | module media; status, content type, size, the processed keys |
 | `Listing` | `listings` | module catalog; photos and specs are `jsonb` columns, read and written with the row |
 | `Address` | `addresses` | module account; one row per address, `write_id`; `recipient_name` keeps the keyword `name` out of the columns |
@@ -274,7 +269,7 @@ separate work.
 No column is named after an SQL keyword (sqlfluff RF04, run with
 `sqlfluff lint migrations/`): `events.occurred_at` and `payload`,
 `staff_actions.action_kind` and `acted_at`, `identities.identifier`,
-`otp_quotas.subject`, `staff_login_locks.email_hash`,
+`staff_login_locks.email_hash`,
 `staff_members.staff_role`, and `display_name` for categories, provinces and
 communes. Go fields and JSON keep their own names where an API already
 published them (`role`, `value`, `action`, `at`). `.sqlfluffignore` skips
@@ -316,26 +311,6 @@ conflict: read again and decide.
 `write_id` differs from the client's `Idempotency-Key`, which names a whole
 invocation so Restate runs it once.
 
-### OTP send
-
-Service `OTP`, handler `Send`, run once per `Idempotency-Key`:
-
-1. Admit the request against two `Quota` aggregates, `ip:<address>` first
-   and then `dest:<destination>`, in table `otp_quotas(subject PK, write_id,
-   sent_at timestamptz[])`. An IPv6 address is keyed by its /64. The address
-   goes first so an address over its limit cannot spend the quota of the
-   numbers it names. `Quota.Admit(now, rule)` holds the limits: one code per
-   destination per 45 s, five per destination per hour, twenty per address per
-   hour. Each quota is read in one step, judged by `Admit` between steps and
-   saved in the next step. Parallel requests conflict on `write_id` and read
-   again; after three lost races the request gets 429. Every 429 carries
-   `retry_after` in seconds: `otp_too_soon` for the 45 s rule, `otp_limit`
-   for an hourly rule or three lost races. A quota that admitted a request
-   stays spent even when a later step fails.
-2. `restate.Run`: create the `Challenge`.
-3. `restate.Run`: send the SMS or email through `sms.Sender` or `email.Sender`.
-4. Return `challenge_id`; the HTTP handler waits for it.
-
 ### Idempotency-Key
 
 Every endpoint that invokes a Restate service requires an `Idempotency-Key`
@@ -343,33 +318,72 @@ header (a UUID) and passes it as the invocation's idempotency key. A repeated
 key attaches to the first run and returns its result, so a retried tap gets
 the same answer. `PATCH /v1/accounts/me` with an avatar is the exception: it
 calls `MediaProcess` keyed by the upload ID, which already makes a repeat
-attach to the first run.
+attach to the first run. Sign-in puts the verified number in the key and
+listing posts put the seller, so a key sent with another number's token or
+by another seller runs apart.
 
-### OTP verify and sign-up
+### Phone sign-in
 
-Service `SignIn`, handler `Run`, returns the challenge ID, the account ID,
-`is_new` and a session ID:
+The app verifies a phone number through Firebase and sends the token
+Firebase returns to `POST /v1/auth/sign-in {phone_token, device_name}`
+(decided 2026-10-28, spec:
+`~/shopnexus/specs/2026-10-28-server2-firebase-sign-in-design.md`). The
+token is an ID token of Firebase Authentication after an SMS code, or a
+Phone Number Verification (PNV) token from the SIM. Server2 sends no codes:
+email sign-in, OTP challenges and their quotas are gone, and every account
+has a phone number.
 
-1. A step loads the challenge and whether it is the newest for its
-   destination. Between steps: an unknown, replaced or non-login challenge
-   is `code_expired`, and when `Open` refuses it (used, expired or locked)
-   the run ends with that refusal and saves nothing. Otherwise `Verify`
-   counts the guess, the next step saves it, and a wrong code ends the run
-   with `invalid_code`. A save that loses a race gets `try_again` for a
-   right and a wrong code alike.
-2. A step finds the identity in `Credentials`.
+1. The HTTP handler checks the token with `provider/firebase.PhoneVerifier`
+   and gets the number in the +84 form. The token stays out of Restate,
+   whose journal and invocation results the admin API can read.
+2. It calls service `SignIn`, handler `Run`, with the number only, under the
+   invocation key `<phone>/<Idempotency-Key>`. A repeated key attaches only
+   to a run for the same number, so a key without a valid token for that
+   number gets no session.
+3. A step finds the phone identity in `Credentials`.
    - Found: a step reads the account status (suspended ends the run), and
      the next step marks the identity used, ignoring a lost race.
    - Not found: create the `Account` with
      `accountID := restatex.NewID(ctx, at)`, then the `Credentials` with the
      identity. `ErrTaken` from the second step deletes the account (see
      Durable flows).
+4. The handler issues the session after the service returns, with the
+   session ID the service chose. When the same key comes back with a token
+   for the same number, that session exists, so the handler rotates its
+   refresh token and returns new tokens for it; a session signed out since
+   answers `session_revoked`.
 
-Tokens never enter Restate: its journal and invocation results are stored and
-readable through the Restate admin API. The HTTP handler issues the session
-after the service returns, with the session ID the service chose. When the
-same `Idempotency-Key` comes back, that session already exists, so the handler
-rotates its refresh token and returns new tokens for the same session.
+The token checks live in `internal/provider/firebase`:
+
+- `iss`, read before the signature, picks the key set, and the token must
+  then carry that issuer's algorithm and audience. Firebase Authentication:
+  RS256, `iss` `https://securetoken.google.com/<project id>`, `aud` the
+  project ID, `firebase.sign_in_provider` `phone`, the number in
+  `phone_number`. PNV: ES256 with `typ` `JWT`,
+  `iss` `https://fpnv.googleapis.com/projects/<project number>`, `aud`
+  holding `https://fpnv.googleapis.com/projects/<project id>`, the number in
+  `sub`.
+- `exp` is required, and the verification must be at most 5 minutes old:
+  `auth_time` for Firebase Authentication, which a refreshed token keeps,
+  and `iat` for PNV. Clocks may differ by 30 seconds. Within those limits a
+  token signs in again; the user chose that over single use on 2026-10-28.
+- A failed check is 401 `invalid_phone_token`, and the log names the
+  check. A number outside Vietnam is 422 `invalid_phone`.
+- PNV test numbers (`test_number: true`, the country code and zeros) pass
+  only with `PNV_TEST_NUMBERS=true` and are stored as they come.
+  `APP_ENV=prod` refuses to start with `PNV_TEST_NUMBERS=true`.
+- Each issuer's keys come from its JWKS URL (`FIREBASE_AUTH_JWKS_URL`,
+  `PNV_JWKS_URL`) and are cached for the response's `max-age`. An unknown
+  `kid`, an expired cache or no keys fetch again, at most once a minute,
+  under one mutex. A failed fetch keeps the keys held; with none ever
+  fetched the endpoint answers 503 `unavailable`, so the app retries
+  instead of asking for a new code.
+- The endpoint has no quota: Firebase limits code requests, and this
+  endpoint checks a signature. Firebase Authentication keeps a user record
+  per SMS sign-in; server2 leaves it, and the app signs out of Firebase once
+  it has the token.
+- `FIREBASE_PROJECT_ID` and `FIREBASE_PROJECT_NUMBER` name the project;
+  push uses the same project ID. `OTP_KEY` and `FCM_PROJECT_ID` are gone.
 
 ### Session use cases
 
@@ -549,8 +563,7 @@ server receives a complete listing.
   `PUT /v1/listings/{id}` take an `Idempotency-Key`, and the invocation's
   key is `<seller id>/<Idempotency-Key>`: Restate scopes a key to the
   service, so the seller in it keeps two sellers' keys apart.
-- `ListingPost` checks, in order: account suspended, no verified phone (an
-  identity of kind phone from `authsvc.Service.Identities`), 20 listings in
+- `ListingPost` checks, in order: account suspended, 20 listings in
   processing, active, hidden or rejected, then the fields. The category and
   commune lookups reach the domain as `domain.Refs`, so one
   `invalid_listing` lists every field. It inserts the row under
@@ -611,8 +624,8 @@ listing. Spec: `~/shopnexus/specs/2026-10-26-server2-deal-design.md`.
 
 - One deal per buyer and listing, unique on `(listing_id, buyer_id)`.
   `POST /v1/deals` returns the caller's deal on the listing with 200, or
-  starts one with 201. Starting needs an account that is not suspended and
-  has a verified phone, on someone else's active listing.
+  starts one with 201. Starting needs an account that is not suspended, on
+  someone else's active listing.
 - A deal is `negotiating` or `agreed`. While negotiating it holds at most
   one open price, the buyer's offer or the seller's counter. Several buyers
   may agree a price on one listing; agreeing reserves nothing, and an open
@@ -977,10 +990,10 @@ calls it except screen, for Home's unread count; depguard holds that.
   for up to an hour, and another error is logged and dropped. The bus
   delivers an event once per ID, so a notice pushes once.
 - `internal/provider/push` holds `Sender`: FCM HTTP v1, signed by a
-  service account (`FCM_CREDENTIALS` in base64, `FCM_PROJECT_ID`) through
+  service account (`FCM_CREDENTIALS` in base64, `FIREBASE_PROJECT_ID`) through
   `golang.org/x/oauth2/google`, or a log sender when `FCM_CREDENTIALS` is
   empty. With `APP_ENV=prod` the server refuses to start on the log
-  sender, as it does for SMS and email.
+  sender.
 - A suspended account still gets notices, so it learns of the suspension.
 
 ### Testing
@@ -1008,8 +1021,9 @@ prove the copy. `go test -short` runs only what needs no database.
   row is duplicated, no send is counted twice and the compensation ran at
   most once.
 - E2E: the server in-process (HTTP and Restate endpoint), Restate and Postgres
-  from the test stack, the deployment registered in `TestMain`, SMS and email
-  captured by a fake sender. The four OpenAPI conformance tests from plan 1
+  from the test stack, the deployment registered in `TestMain`, phone tokens
+  signed by `firebasetest` and pushes captured by a fake sender. PNV's keys
+  stay down for the run, so a PNV token there sees the 503. The four OpenAPI conformance tests from plan 1
   run unchanged on top of it. `e2e/helpers_test.go` holds the HTTP helpers
   every module's tests use; `auth_helpers_test.go` signs a test account in.
 
@@ -1061,26 +1075,15 @@ Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.
   runs only requests signed with it: its public half is
   `RESTATE_IDENTITY_KEY`, required with `APP_ENV=prod`. `make run` and
   `make test` create the key file, and tests read the public key from it.
-- With `APP_ENV=prod` the server refuses to start while SMS or email goes
-  through a log sender, which would write every OTP code to the log.
-- An OTP code is `HMAC(OTP_KEY, "otp-code:" ‖ challenge_id) mod 10^6`. The
-  send step recomputes it on a retry, and it is never stored or journaled.
-  The verify handler loads the challenge and sends `SignIn` the code's hash.
-  A check of the journal after a manual sign-in on 2026-10-20 found the phone
-  number and the code hash, and no code or token.
 - `RESTATE_SERVICE_PREFIX` (`config.RestateConfig.ServicePrefix`) goes before
   every service name. Test packages share one Restate server and a name
   routes to one endpoint, so `restatetest.Config` gives every registration a
   fresh prefix.
-- Plan 2 first judged inside a step. A retried step then applied its change
-  again (finding I1 of the plan 2 review: a spurious `otp_too_soon` or
-  `code_expired`). The fix had each step look for its own write ID and
-  rebuild the verdict, and that check reported an expired code as
-  `invalid_code` and a wrong code on a used challenge as a success. The read,
-  decide, save split replaced both on 2026-10-21.
+- Plan 2 first judged inside a step, and a retried step then applied its
+  change again (finding I1 of the plan 2 review). The read, decide, save
+  split of Durable flows replaced that on 2026-10-21.
 - Restate answers a repeated `Idempotency-Key` with the first result,
-  whatever the new request carries. The verify handler therefore issues tokens
-  only when the result names the request's challenge and the request's code
-  hashes to the challenge's `code_hash`, and a replay never revives a session
-  that was signed out since.
+  whatever the new request carries. Sign-in therefore puts the verified
+  number in the key, and a replay never revives a session that was signed
+  out since.
 
