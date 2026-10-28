@@ -196,7 +196,7 @@ func TestKeySetBadBodyKeepsTheKeys(t *testing.T) {
 	if _, err := s.key(context.Background(), "ec"); err != nil {
 		t.Fatal(err)
 	}
-	for i, body := range []string{"<html>", `{"keys": [` + strings.Repeat(`{"kty":"EC"},`, 1<<17) + `{}]}`} {
+	for i, body := range []string{"<html>", `{"keys": [` + strings.Repeat(`{"kty":"EC"},`, 1<<17) + `{}]}`, `{}`, `{"keys": []}`, `null`} {
 		srv.set(http.StatusOK, body, "")
 		at = start.Add(time.Duration(i+2) * time.Minute)
 		if _, err := s.key(context.Background(), "ec"); err != nil {
@@ -239,5 +239,46 @@ func TestKeySetParallelLookupsFetchOnce(t *testing.T) {
 	wg.Wait()
 	if n := srv.hits.Load(); n != 1 {
 		t.Fatalf("parallel lookups fetched %d times", n)
+	}
+}
+
+// A caller that hangs up during the first fetch must not leave the key set
+// empty for the minute that follows.
+func TestKeySetCancelledCallerStillFetches(t *testing.T) {
+	t.Parallel()
+	ec, _ := ecJWK(t, "ec")
+	srv := &server{}
+	srv.set(http.StatusOK, doc(t, ec), "max-age=60")
+	at := start
+	s := newSet(t, srv, &at)
+	gone, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _ = s.key(gone, "ec")
+	if _, err := s.key(context.Background(), "ec"); err != nil {
+		t.Fatalf("after a cancelled caller: %v", err)
+	}
+}
+
+// While the key URL is down, a kid the held keys lack may be a key Google
+// rotated in, so it is unavailable, not invalid.
+func TestKeySetUnknownKidWhileDownIsUnavailable(t *testing.T) {
+	t.Parallel()
+	ec, _ := ecJWK(t, "ec")
+	srv := &server{}
+	srv.set(http.StatusOK, doc(t, ec), "max-age=60")
+	at := start
+	s := newSet(t, srv, &at)
+	if _, err := s.key(context.Background(), "ec"); err != nil {
+		t.Fatal(err)
+	}
+	srv.set(http.StatusServiceUnavailable, "down", "")
+	at = start.Add(2 * time.Minute)
+	for _, kid := range []string{"rotated", "rotated"} {
+		if _, err := s.key(context.Background(), kid); !errors.Is(err, ErrUnavailable) {
+			t.Fatalf("%s while down: %v", kid, err)
+		}
+	}
+	if _, err := s.key(context.Background(), "ec"); err != nil {
+		t.Fatalf("a held key while down: %v", err)
 	}
 }

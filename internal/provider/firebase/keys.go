@@ -51,11 +51,13 @@ type keySet struct {
 	keys      map[string]crypto.PublicKey // nil until a fetch succeeds
 	freshTill time.Time                   // zero when the response gave no max-age
 	tried     time.Time                   // the last fetch, successful or not
+	failed    bool                        // whether that fetch failed
 }
 
 // key returns the key named kid. It fetches when no keys are held, when
 // max-age has passed or when kid is unknown, at most once a minute. A failed
-// fetch keeps the keys held.
+// fetch keeps the keys held, and an unknown kid is then unavailable: it may
+// be a key published since.
 func (s *keySet) key(ctx context.Context, kid string) (crypto.PublicKey, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -65,6 +67,7 @@ func (s *keySet) key(ctx context.Context, kid string) (crypto.PublicKey, error) 
 	if (!held || expired) && (s.tried.IsZero() || now.Sub(s.tried) >= refetchGap) {
 		s.tried = now
 		keys, freshTill, err := s.fetch(ctx)
+		s.failed = err != nil
 		if err != nil {
 			s.log.WarnContext(ctx, "fetch phone token keys", "url", s.url, "err", err)
 		} else {
@@ -73,7 +76,7 @@ func (s *keySet) key(ctx context.Context, kid string) (crypto.PublicKey, error) 
 		}
 	}
 	switch {
-	case s.keys == nil:
+	case s.keys == nil, !held && s.failed:
 		return nil, ErrUnavailable
 	case !held:
 		return nil, errUnknownKey
@@ -82,9 +85,10 @@ func (s *keySet) key(ctx context.Context, kid string) (crypto.PublicKey, error) 
 	}
 }
 
-// fetch reads the JWKS document and the time its keys stay fresh until.
+// fetch reads the JWKS document and the time its keys stay fresh until. A
+// caller that hangs up does not cancel it: the keys serve every caller.
 func (s *keySet) fetch(ctx context.Context) (map[string]crypto.PublicKey, time.Time, error) {
-	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), fetchTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.url, http.NoBody)
 	if err != nil {
@@ -109,6 +113,9 @@ func (s *keySet) fetch(ctx context.Context) (map[string]crypto.PublicKey, time.T
 		if pub := doc.Keys[i].public(); pub != nil && doc.Keys[i].Kid != "" {
 			keys[doc.Keys[i].Kid] = pub
 		}
+	}
+	if len(keys) == 0 {
+		return nil, time.Time{}, errors.New("no usable keys")
 	}
 	var freshTill time.Time
 	for d := range strings.SplitSeq(res.Header.Get("Cache-Control"), ",") {
