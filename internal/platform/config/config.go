@@ -78,7 +78,6 @@ type LLMConfig struct {
 // AuthConfig holds the auth module's keys and token settings. No key is ever
 // logged.
 type AuthConfig struct {
-	OTPKey       []byte             // OTP_KEY: base64, at least 32 bytes
 	JWTKeyID     string             // JWT_KEY_ID: the kid of JWTKey
 	JWTKey       ed25519.PrivateKey // JWT_PRIVATE_KEY: base64 of the 32-byte seed
 	JWTPrevKeyID string             //exhaustruct:optional JWT_PREVIOUS_KEY_ID: empty outside a key change
@@ -223,7 +222,6 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			IdentityKey:   set("RESTATE_IDENTITY_KEY"),
 		},
 		Auth: AuthConfig{
-			OTPKey:       decodeKey("OTP_KEY", 32, false),
 			JWTKeyID:     need("JWT_KEY_ID"),
 			JWTKey:       jwtKey,
 			JWTPrevKeyID: set("JWT_PREVIOUS_KEY_ID"),

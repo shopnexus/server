@@ -4,7 +4,7 @@ package telemetry
 // came with it. Instruments are created once at startup, where the only
 // error is a malformed name or option: a mistake in the code.
 //
-//	otpSent = telemetry.Must(meter.Int64Counter("otp_sent_total", metric.WithDescription("OTP codes sent")))
+//	logins = telemetry.Must(meter.Int64Counter("login_total", metric.WithDescription("sign-in attempts")))
 func Must[T any](instrument T, err error) T {
 	if err != nil {
 		panic(err)

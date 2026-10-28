@@ -1,41 +1,13 @@
-OTPSendRequest:
+SignInRequest:
   type: object
   additionalProperties: false
-  required: [kind, destination, purpose]
+  required: [phone_token]
   properties:
-    kind:
-      type: string
-      enum: [phone, email]
-    destination:
+    phone_token:
       type: string
       minLength: 1
-      maxLength: 254
-      description: A Vietnamese mobile number in any common format, or an email address.
-    purpose:
-      type: string
-      enum: [login]
-OTPChallenge:
-  type: object
-  additionalProperties: false
-  required: [challenge_id, resend_after]
-  properties:
-    challenge_id:
-      type: string
-      format: uuid
-    resend_after:
-      type: integer
-      description: Seconds before another code may be requested for this destination.
-OTPVerifyRequest:
-  type: object
-  additionalProperties: false
-  required: [challenge_id, code]
-  properties:
-    challenge_id:
-      type: string
-      format: uuid
-    code:
-      type: string
-      pattern: "^[0-9]{6}$"
+      maxLength: 8192
+      description: The token Firebase returned for the verified number.
     device_name:
       type: string
       maxLength: 100

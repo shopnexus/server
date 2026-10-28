@@ -19,7 +19,7 @@ type Router struct {
 
 func NewRouter() *Router { return &Router{mux: http.NewServeMux()} }
 
-// Handle registers h for a pattern of the form "POST /v1/auth/otp".
+// Handle registers h for a pattern of the form "POST /v1/auth/sign-in".
 func (r *Router) Handle(pattern string, h http.Handler) {
 	method, path, ok := strings.Cut(pattern, " ")
 	if !ok {

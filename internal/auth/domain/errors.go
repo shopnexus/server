@@ -8,13 +8,6 @@ import (
 )
 
 var (
-	ErrInvalidCode = apperr.New(apperr.KindInvalid, "invalid_code", "the code does not match")
-	ErrCodeExpired = apperr.New(apperr.KindInvalid, "code_expired", "the code has expired or was replaced; request a new one")
-	ErrCodeLocked  = apperr.New(apperr.KindInvalid, "code_locked", "too many wrong codes; request a new one")
-
-	ErrOTPTooSoon = apperr.New(apperr.KindRateLimited, "otp_too_soon", "wait before requesting another code")
-	ErrOTPLimit   = apperr.New(apperr.KindRateLimited, "otp_limit", "too many codes requested; try again later")
-
 	ErrTaken           = apperr.New(apperr.KindConflict, "identity_taken", "this sign-in method belongs to another account")
 	ErrUnknownIdentity = errors.New("credentials: no such identity")
 

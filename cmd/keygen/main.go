@@ -1,4 +1,4 @@
-// Command keygen prints fresh OTP and JWT keys as .env lines. With -staff
+// Command keygen prints a fresh JWT key as .env lines. With -staff
 // it prints a STAFF_KEY line. With -restate it makes sure the Restate
 // request identity key exists at that path, and prints its public key as a
 // .env line.

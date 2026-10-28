@@ -1,11 +1,13 @@
-otp:
+signIn:
   post:
-    operationId: sendOtp
-    summary: Send a one-time code to a phone or email.
+    operationId: signIn
+    summary: Sign in, or sign up on first use, with a phone number Firebase verified.
     description: |
-      The reply is the same whether or not an account uses the destination.
-      Limits: one code per destination per 45 seconds, five per destination
-      per hour, twenty per client address per hour.
+      phone_token is what Firebase returned for the number: the ID token of
+      Firebase Authentication after an SMS code, or the Phone Number
+      Verification token of the SIM. The verification must be at most 5
+      minutes old. A repeated Idempotency-Key with a token for the same
+      number returns the first sign-in's session with a new refresh token.
     tags: [auth]
     parameters:
       - $ref: "../parameters/common.yaml#/IdempotencyKey"
@@ -14,33 +16,7 @@ otp:
       content:
         application/json:
           schema:
-            $ref: "../schemas/auth.yaml#/OTPSendRequest"
-    responses:
-      "200":
-        description: The code is on its way.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/auth.yaml#/OTPChallenge"
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "422":
-        $ref: "../responses/common.yaml#/Unprocessable"
-      "429":
-        $ref: "../responses/common.yaml#/TooManyRequests"
-otpVerify:
-  post:
-    operationId: verifyOtp
-    summary: Sign in, or sign up on first use, with a code.
-    tags: [auth]
-    parameters:
-      - $ref: "../parameters/common.yaml#/IdempotencyKey"
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: "../schemas/auth.yaml#/OTPVerifyRequest"
+            $ref: "../schemas/auth.yaml#/SignInRequest"
     responses:
       "200":
         description: Signed in.
@@ -51,7 +27,7 @@ otpVerify:
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
-        description: A replayed Idempotency-Key whose session was signed out since (session_revoked, session_expired).
+        description: The token failed a check (invalid_phone_token), or a repeated Idempotency-Key's session was signed out since (session_revoked, session_expired).
         content:
           application/json:
             schema:
@@ -61,7 +37,13 @@ otpVerify:
       "409":
         $ref: "../responses/common.yaml#/Conflict"
       "422":
-        description: invalid_code (details.attempts_left), code_expired or code_locked.
+        description: The verified number is not a Vietnamese mobile number (invalid_phone).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: The keys that sign phone tokens could not be fetched yet (unavailable); try again.
         content:
           application/json:
             schema:

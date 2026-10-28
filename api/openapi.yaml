@@ -13,10 +13,8 @@ paths:
     $ref: "paths/system.yaml#/healthz"
   /readyz:
     $ref: "paths/system.yaml#/readyz"
-  /v1/auth/otp:
-    $ref: "paths/auth.yaml#/otp"
-  /v1/auth/otp/verify:
-    $ref: "paths/auth.yaml#/otpVerify"
+  /v1/auth/sign-in:
+    $ref: "paths/auth.yaml#/signIn"
   /v1/auth/refresh:
     $ref: "paths/auth.yaml#/refresh"
   /v1/auth/logout:

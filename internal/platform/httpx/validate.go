@@ -87,7 +87,7 @@ func ValidateRequests(doc *openapi3.T, log *slog.Logger) (func(http.Handler) htt
 // (minLength, required, additionalProperties, ...).
 //
 // The kin-openapi error is not kept as the cause: it embeds the request value,
-// which may be a password or an OTP code, and causes are logged.
+// which may be a password, a token or a TOTP code, and causes are logged.
 func toAppError(err error) error {
 	out := *errInvalidRequest
 	add := func(name, problem string) {

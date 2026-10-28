@@ -1,35 +1,17 @@
 package service
 
 import (
-	"net/netip"
 	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/auth/domain"
-	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
-// SendOTPInput asks for a code to Destination. A repeated IdempotencyKey gets
-// the first request's challenge.
-type SendOTPInput struct {
-	IdempotencyKey string
-	Destination    contact.Address
-	Purpose        domain.Purpose
-	IP             netip.Addr
-}
-
-// OTPSent is the OTPChallenge schema in api/schemas/auth.yaml.
-type OTPSent struct {
-	ChallengeID uuid.UUID `json:"challenge_id"`
-	ResendAfter int       `json:"resend_after"`
-}
-
-// SignInInput is a code typed for a challenge. A repeated IdempotencyKey
-// gets the first request's account.
+// SignInInput is a phone token from Firebase. A repeated IdempotencyKey with
+// a token for the same number gets the first request's account.
 type SignInInput struct {
 	IdempotencyKey string
-	ChallengeID    uuid.UUID
-	Code           string
+	PhoneToken     string
 	DeviceName     string
 }
 

@@ -10,6 +10,8 @@ import (
 	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
+var now = time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)
+
 func TestNewCredentials(t *testing.T) {
 	t.Parallel()
 	acc, idID := uuid.NewV7(), uuid.NewV7()

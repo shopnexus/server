@@ -1,11 +1,10 @@
-// Package contact normalises phone numbers and email addresses. Identity and
-// OTP rows store the normalised form, so UNIQUE (kind, value) sees one value
-// per number however a person typed it.
+// Package contact normalises phone numbers and email addresses. Identity
+// rows store the normalised form, so UNIQUE (kind, value) sees one value per
+// number however a person typed it.
 package contact
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/mail"
 	"regexp"
@@ -99,17 +98,6 @@ func ParseEmail(raw string) (Address, error) {
 		return Address{}, ErrInvalidEmail
 	}
 	return Address{Email, s}, nil
-}
-
-// Parse dispatches on kind.
-func Parse(kind Kind, raw string) (Address, error) {
-	switch kind {
-	case Phone:
-		return ParsePhone(raw)
-	case Email:
-		return ParseEmail(raw)
-	}
-	return Address{}, fmt.Errorf("contact: unknown kind %q", kind)
 }
 
 // Restore rebuilds an address that was parsed before it was stored or sent.

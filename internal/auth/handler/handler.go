@@ -18,8 +18,7 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 
 // Register adds the auth endpoints; protect requires a signed-in caller.
 func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
-	r.Handle("POST /v1/auth/otp", http.HandlerFunc(h.SendOTP))
-	r.Handle("POST /v1/auth/otp/verify", http.HandlerFunc(h.SignIn))
+	r.Handle("POST /v1/auth/sign-in", http.HandlerFunc(h.SignIn))
 	r.Handle("POST /v1/auth/refresh", http.HandlerFunc(h.Refresh))
 	r.Handle("POST /v1/auth/logout", protect(http.HandlerFunc(h.Logout)))
 	r.Handle("POST /v1/auth/logout-all", protect(http.HandlerFunc(h.LogoutAll)))

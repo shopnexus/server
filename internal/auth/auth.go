@@ -1,4 +1,5 @@
-// Package auth proves who a person is: OTP sign-in, sessions and tokens.
+// Package auth proves who a person is: sign-in with a phone number Firebase
+// verified, sessions and tokens.
 package auth
 
 import (
@@ -13,15 +14,12 @@ import (
 	"github.com/shopnexus/server2/internal/auth/service"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/module"
-	"github.com/shopnexus/server2/internal/provider/email"
-	"github.com/shopnexus/server2/internal/provider/sms"
 )
 
 // Settings is what auth's Mount takes beyond module.Deps.
 type Settings struct {
-	Keys  config.AuthConfig
-	SMS   sms.Sender
-	Email email.Sender
+	Keys   config.AuthConfig
+	Phones service.PhoneVerifier
 }
 
 // Protect returns the middleware that requires a signed-in caller. It needs
@@ -46,10 +44,9 @@ type Mounted struct {
 // prefixed names, and the Service other modules read identities through.
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service) Mounted {
 	svc := service.New(service.Deps{
-		Challenges: repository.NewChallenges(d.Pool), Quotas: repository.NewQuotas(d.Pool),
 		Credentials: repository.NewCredentials(d.Pool), Sessions: repository.NewSessions(d.Pool),
-		Codes: domain.NewCodes(s.Keys.OTPKey), Signer: domain.NewSigner(s.Keys), Accounts: accounts,
-		SMS: s.SMS, Email: s.Email, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
+		Signer: domain.NewSigner(s.Keys), Accounts: accounts, Phones: s.Phones,
+		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, Protect(d, s.Keys))
 	return Mounted{Services: svc.Durable(), Service: svc}

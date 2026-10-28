@@ -11,37 +11,14 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
-// seq numbers the phones, emails and addresses tests make up, so no two
-// tests share a quota. The database is new each run.
+// seq numbers the phones and addresses tests make up, so no two tests share
+// one. The database is new each run.
 var seq atomic.Int64
 
 // newPhone returns a fresh mobile number.
 func newPhone() string { return fmt.Sprintf("+8499%07d", seq.Add(1)) }
-
-func newEmail() string { return fmt.Sprintf("e2e-%d@example.com", seq.Add(1)) }
-
-// newIP returns an X-Forwarded-For header with a fresh address in
-// 198.18.0.0/15.
-func newIP() [2]string {
-	n := seq.Add(1)
-	return [2]string{"X-Forwarded-For", fmt.Sprintf("198.%d.%d.%d", 18+n>>16&1, n>>8&255, n&255)}
-}
-
-type challenge struct {
-	ChallengeID string `json:"challenge_id"`
-	ResendAfter int    `json:"resend_after"`
-}
-
-// sendOTP sends with a fresh address and key unless headers override them.
-func sendOTP(t *testing.T, kind, dest string, headers ...[2]string) Response {
-	t.Helper()
-	return call(t, server, "POST", "/v1/auth/otp",
-		map[string]string{"kind": kind, "destination": dest, "purpose": "login"},
-		append([][2]string{newIP(), newKey()}, headers...)...)
-}
 
 type signIn struct {
 	AccessToken  string `json:"access_token"`
@@ -51,23 +28,6 @@ type signIn struct {
 		ID    string `json:"id"`
 		IsNew bool   `json:"is_new"`
 	} `json:"account"`
-}
-
-func wrongCode(code string) string {
-	if code == "000000" {
-		return "000001"
-	}
-	return "000000"
-}
-
-// forgetSends empties the send quota of a normalised destination, so a test
-// can ask for another code without waiting 45 s.
-func forgetSends(t *testing.T, dest string) {
-	t.Helper()
-	if _, err := db.Exec(context.Background(), `UPDATE otp_quotas SET sent_at = '{}' WHERE subject = @subject`,
-		pgx.StrictNamedArgs{"subject": "dest:" + dest}); err != nil {
-		t.Fatal(err)
-	}
 }
 
 // suspend marks an account suspended, as an admin would.
@@ -80,36 +40,20 @@ func suspend(t *testing.T, accountID string) {
 	}
 }
 
-// requestCode forgets earlier sends to a phone typed any way, sends it a code
-// and returns the challenge and the code.
-func requestCode(t *testing.T, typed string) (challengeID, code string) {
+// signInCall signs in with a phone token and a fresh key unless headers
+// carry one.
+func signInCall(t *testing.T, token string, headers ...[2]string) Response {
 	t.Helper()
-	p, err := contact.ParsePhone(typed)
-	if err != nil {
-		t.Fatal(err)
-	}
-	forgetSends(t, p.Value())
-	n := box.count(p.Value())
-	res := sendOTP(t, "phone", typed)
-	if res.Status != 200 {
-		t.Fatalf("send: %d %s", res.Status, res.Body)
-	}
-	return decode[challenge](t, res).ChallengeID, box.code(t, p.Value(), n+1)
+	return call(t, server, "POST", "/v1/auth/sign-in",
+		map[string]string{"phone_token": token, "device_name": "e2e"}, append([][2]string{newKey()}, headers...)...)
 }
 
-func verifyCode(t *testing.T, challengeID, code string, headers ...[2]string) Response {
-	t.Helper()
-	return call(t, server, "POST", "/v1/auth/otp/verify",
-		map[string]string{"challenge_id": challengeID, "code": code, "device_name": "e2e"},
-		append([][2]string{newKey()}, headers...)...)
-}
-
-// verifyCodeStatus posts one guess and returns the status without touching t,
-// so goroutines can call it. It records the status for the coverage check as
-// call does, and skips response validation, so its caller checks statuses.
-func verifyCodeStatus(challengeID, code string) int {
-	body, _ := json.Marshal(map[string]string{"challenge_id": challengeID, "code": code})
-	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server+"/v1/auth/otp/verify", bytes.NewReader(body))
+// signInStatus signs in and returns the status without touching t, so
+// goroutines can call it. It records the status for the coverage check as
+// call does and skips response validation, so its caller checks statuses.
+func signInStatus(token string) int {
+	body, _ := json.Marshal(map[string]string{"phone_token": token})
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server+"/v1/auth/sign-in", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", uuid.NewV7().String())
 	res, err := http.DefaultClient.Do(req)
@@ -117,16 +61,15 @@ func verifyCodeStatus(challengeID, code string) int {
 		return 0
 	}
 	res.Body.Close()
-	record("verifyOtp", res.StatusCode)
+	record("signIn", res.StatusCode)
 	return res.StatusCode
 }
 
-func signInWith(t *testing.T, typed string) signIn {
+func signInWith(t *testing.T, phone string) signIn {
 	t.Helper()
-	id, code := requestCode(t, typed)
-	res := verifyCode(t, id, code)
-	if res.Status != 200 {
-		t.Fatalf("verify: %d %s", res.Status, res.Body)
+	res := signInCall(t, issuer.SMSToken(phone))
+	if res.Status != http.StatusOK {
+		t.Fatalf("sign in: %d %s", res.Status, res.Body)
 	}
 	return decode[signIn](t, res)
 }

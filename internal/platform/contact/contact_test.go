@@ -50,16 +50,6 @@ func TestParseEmail(t *testing.T) {
 	}
 }
 
-func TestParseByKind(t *testing.T) {
-	t.Parallel()
-	if a, err := contact.Parse(contact.Email, "A@B.co"); err != nil || a.Value() != "a@b.co" {
-		t.Fatalf("%q %v", a.Value(), err)
-	}
-	if _, err := contact.Parse("fax", "1"); err == nil {
-		t.Fatal("unknown kind accepted")
-	}
-}
-
 func TestMaskingAndLogs(t *testing.T) {
 	t.Parallel()
 	phone, _ := contact.ParsePhone("0901234567")

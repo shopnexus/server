@@ -25,6 +25,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
 	"github.com/shopnexus/server2/internal/staff"
 	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
 	staffsvc "github.com/shopnexus/server2/internal/staff/service"
@@ -40,10 +41,10 @@ var (
 		k.Issuer, k.Audience = "server2-e2e", "shopnexus-app-e2e"
 		return k
 	}()
-	box      = newInbox()    // every SMS and email the server sends
-	model    = newModel()    // the model that reads search queries
-	phones   = newPhones()   // every push the server sends
-	staffSvc *staffsvc.Staff // on the server's keys and database, so tests create members directly
+	issuer   *firebasetest.Issuer // signs the phone tokens; the server's key URLs point at it
+	model    = newModel()         // the model that reads search queries
+	phones   = newPhones()        // every push the server sends
+	staffSvc *staffsvc.Staff      // on the server's keys and database, so tests create members directly
 )
 
 func TestMain(m *testing.M) {
@@ -88,6 +89,16 @@ func run(m *testing.M) int {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
 	}
+	signer, stopSigner, err := firebasetest.NewForMain()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "e2e:", err)
+		return 1
+	}
+	defer stopSigner()
+	issuer = signer
+	// PNV's keys stay down for the whole run, so a PNV token observes the
+	// 503 the spec declares; the firebase tests check PNV tokens.
+	issuer.SetPNVDown(true)
 	cfg := config.Config{
 		DatabaseURL: pool.Config().ConnString(),
 		ObjectStore: objectStoreCfg,
@@ -95,7 +106,8 @@ func run(m *testing.M) int {
 		Auth:        keys,
 		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.e2e"},
 		LLM:         config.LLMConfig{BaseURL: model.url(), APIKey: "e2e", Model: "e2e"},
-		// Tests set X-Forwarded-For, so each gets its own per-address quota.
+		Firebase:    issuer.Config(false),
+		// Tests may set X-Forwarded-For.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}
 	staffKeys, err := staffsvc.NewKeys(cfg.Staff, staffdomain.Fast)
@@ -105,7 +117,7 @@ func run(m *testing.M) int {
 	}
 	staffSvc = staff.NewService(pool, staffKeys, nil, nil, time.Now)
 	a, err := app.New(context.Background(), cfg, discard,
-		app.WithSMSSender(box.sms()), app.WithEmailSender(box.email()), app.WithPushSender(phones),
+		app.WithPushSender(phones),
 		app.WithPasswordHasher(staffdomain.Fast))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)

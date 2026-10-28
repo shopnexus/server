@@ -120,7 +120,7 @@ func Header(name string, value any) Option {
 	return func(t *Token) { t.Header[name] = value }
 }
 
-// SignedWith signs with another method and key, keeping the kid.
+// SignedWith signs with another method and key; the kid stays.
 func SignedWith(method jwt.SigningMethod, key any) Option {
 	return func(t *Token) { t.Method, t.Key = method, key }
 }

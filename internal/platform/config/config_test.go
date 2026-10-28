@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"crypto/ed25519"
 	"encoding/base64"
 	"log/slog"
@@ -43,7 +42,6 @@ func required() map[string]string {
 		"RESTATE_ENDPOINT_URL":         "",
 		"RESTATE_SERVICE_PREFIX":       "",
 		"RESTATE_IDENTITY_KEY":         "publickeyv1_test",
-		"OTP_KEY":                      b64(testKeys.OTPKey),
 		"JWT_KEY_ID":                   testKeys.JWTKeyID,
 		"JWT_PRIVATE_KEY":              b64(testKeys.JWTKey.Seed()),
 		"JWT_PREVIOUS_KEY_ID":          "",
@@ -111,7 +109,6 @@ func TestLoadAllSet(t *testing.T) {
 			netip.MustParsePrefix("10.0.0.0/8"), netip.MustParsePrefix("192.168.1.7/32"),
 		},
 		Auth: AuthConfig{
-			OTPKey:       testKeys.OTPKey,
 			JWTKeyID:     testKeys.JWTKeyID,
 			JWTKey:       testKeys.JWTKey,
 			JWTPrevKeyID: "old",
@@ -215,8 +212,6 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 		set     map[string]string
 		mention string
 	}{
-		{"short otp key", map[string]string{"OTP_KEY": b64(make([]byte, 16))}, "OTP_KEY"},
-		{"otp key not base64", map[string]string{"OTP_KEY": "%%%"}, "OTP_KEY"},
 		{"seed of the wrong size", map[string]string{"JWT_PRIVATE_KEY": b64(make([]byte, 31))}, "JWT_PRIVATE_KEY"},
 		{"previous id without key", map[string]string{"JWT_PREVIOUS_KEY_ID": "old"}, "JWT_PREVIOUS_PUBLIC_KEY"},
 		{"previous key without id", map[string]string{"JWT_PREVIOUS_PUBLIC_KEY": b64(make([]byte, 32))}, "JWT_PREVIOUS_KEY_ID"},
@@ -250,7 +245,7 @@ func TestNewAuthKeysRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(got.Auth.OTPKey, keys.OTPKey) || !got.Auth.JWTKey.Equal(keys.JWTKey) || got.Auth.JWTKeyID != keys.JWTKeyID {
+	if !got.Auth.JWTKey.Equal(keys.JWTKey) || got.Auth.JWTKeyID != keys.JWTKeyID {
 		t.Fatalf("got %+v", got.Auth)
 	}
 }

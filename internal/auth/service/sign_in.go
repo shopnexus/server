@@ -2,34 +2,21 @@ package service
 
 import (
 	"context"
-	"crypto/hmac"
-	"errors"
 	"fmt"
-
-	"github.com/shopnexus/server2/internal/auth/domain"
-	"github.com/shopnexus/server2/internal/auth/repository"
 )
 
-// SignIn verifies a code through the SignIn service, which finds or creates
-// the account, then starts the session it named.
+// SignIn checks the phone token, has the SignIn service find or create the
+// account, then starts the session it named.
 func (a *Auth) SignIn(ctx context.Context, in SignInInput) (SignedIn, error) {
-	c, err := a.challenges.Get(ctx, in.ChallengeID)
-	if errors.Is(err, repository.ErrNotFound) {
-		return SignedIn{}, domain.ErrCodeExpired
-	}
+	phone, err := a.phones.Verify(ctx, in.PhoneToken)
 	if err != nil {
-		return SignedIn{}, fmt.Errorf("get challenge: %w", err)
+		return SignedIn{}, fmt.Errorf("verify phone token: %w", err)
 	}
-	hash := a.codes.Hash(c.Destination(), in.Code)
-	res, err := a.signIn.Call(ctx, in.IdempotencyKey, VerifyInput{ChallengeID: in.ChallengeID, CodeHash: hash})
+	// Restate answers a repeated key with the first run's result. The number
+	// in the key sends another number's token to a run of its own.
+	res, err := a.signIn.Call(ctx, phone.Value()+"/"+in.IdempotencyKey, PhoneSignIn{Phone: phone})
 	if err != nil {
 		return SignedIn{}, err
-	}
-	// Restate answers a repeated Idempotency-Key with the first result,
-	// whatever this request carries. Only the request that matches it, the
-	// same challenge and its code, gets the session.
-	if res.ChallengeID != in.ChallengeID || !hmac.Equal(hash, c.CodeHash()) {
-		return SignedIn{}, domain.ErrCodeExpired
 	}
 	tokens, err := a.IssueSession(ctx, res.SessionID, res.AccountID, in.DeviceName)
 	if err != nil {

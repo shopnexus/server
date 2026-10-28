@@ -35,10 +35,9 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/platform/stream"
-	"github.com/shopnexus/server2/internal/provider/email"
+	"github.com/shopnexus/server2/internal/provider/firebase"
 	"github.com/shopnexus/server2/internal/provider/llm"
 	"github.com/shopnexus/server2/internal/provider/push"
-	"github.com/shopnexus/server2/internal/provider/sms"
 	"github.com/shopnexus/server2/internal/screen"
 	"github.com/shopnexus/server2/internal/staff"
 	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
@@ -65,21 +64,13 @@ type App struct {
 type Option func(*options)
 
 type options struct {
-	sms    sms.Sender
-	email  email.Sender
 	push   push.Sender
 	hasher staffdomain.Hasher
 }
 
-// WithSMSSender replaces the log sender; E2E tests read codes from theirs.
-func WithSMSSender(s sms.Sender) Option { return func(o *options) { o.sms = s } }
-
 // WithPushSender replaces the sender the configuration picks; e2e tests
 // read pushes from theirs.
 func WithPushSender(s push.Sender) Option { return func(o *options) { o.push = s } }
-
-// WithEmailSender replaces the log sender.
-func WithEmailSender(s email.Sender) Option { return func(o *options) { o.email = s } }
 
 // WithPasswordHasher sets the argon2id parameters of new staff passwords;
 // tests pass staffdomain.Fast.
@@ -93,24 +84,21 @@ func (a *App) Routes() []httpx.Route { return a.router.Routes() }
 // older schema.
 func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Option) (_ *App, err error) {
 	// config.Load checks the keys too; this catches a Config built by hand.
-	if len(cfg.Auth.JWTKey) != ed25519.PrivateKeySize || len(cfg.Auth.OTPKey) < 32 {
+	if len(cfg.Auth.JWTKey) != ed25519.PrivateKeySize {
 		return nil, errors.New("auth keys missing from config; run make run, which adds them to .env")
 	}
 	if len(cfg.Staff.Key) < 32 || cfg.Staff.ConsoleOrigin == "" {
 		return nil, errors.New("staff key or console origin missing from config; run make run, which adds the key to .env")
 	}
-	o := options{sms: sms.LogSender{Log: log}, email: email.LogSender{Log: log}, hasher: staffdomain.Production}
+	o := options{hasher: staffdomain.Production}
 	for _, opt := range opts {
 		opt(&o)
 	}
-	// A log sender writes every OTP code to the log.
-	_, smsLogs := o.sms.(sms.LogSender)
-	_, emailLogs := o.email.(email.LogSender)
-	if cfg.Env == config.EnvProd && (smsLogs || emailLogs) {
-		return nil, errors.New("APP_ENV=prod with a log sender for SMS or email; configure real senders")
-	}
 	if _, pushLogs := o.push.(push.LogSender); cfg.Env == config.EnvProd && (pushLogs || o.push == nil && len(cfg.Push.Credentials) == 0) {
 		return nil, errors.New("APP_ENV=prod with FCM_CREDENTIALS empty; pushes would only be logged")
+	}
+	if cfg.Env == config.EnvProd && cfg.Firebase.TestNumbers {
+		return nil, errors.New("APP_ENV=prod with PNV_TEST_NUMBERS=true; test numbers would sign in")
 	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -223,7 +211,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}
 	mediam := media.Mount(d, store, protect)
 	accounts := account.Mount(d, protect, mediam.Service)
-	authm := auth.Mount(d, auth.Settings{Keys: cfg.Auth, SMS: o.sms, Email: o.email}, accounts)
+	authm := auth.Mount(d, auth.Settings{Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log)}, accounts)
 	staffKeys, err := staffsvc.NewKeys(cfg.Staff, o.hasher)
 	if err != nil {
 		return nil, fmt.Errorf("staff keys: %w", err)

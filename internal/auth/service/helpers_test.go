@@ -3,8 +3,6 @@ package service_test
 import (
 	"context"
 	"log/slog"
-	"net/netip"
-	"sync"
 	"testing"
 	"time"
 	"uuid"
@@ -27,41 +25,8 @@ var (
 		k.Issuer, k.Audience = "server2-test", "shopnexus-app-test"
 		return k
 	}()
-	clientIP = netip.MustParseAddr("203.0.113.7")
-	discard  = slog.New(slog.DiscardHandler)
+	discard = slog.New(slog.DiscardHandler)
 )
-
-func codes() domain.Codes { return domain.NewCodes(testKeys.OTPKey) }
-
-func netipOf(s string) netip.Addr { return netip.MustParseAddr(s) }
-
-type message struct{ To, Text string }
-
-// inbox records what the SMS and email senders were asked to send.
-type inbox struct {
-	mu   sync.Mutex
-	msgs []message
-}
-
-func (b *inbox) Send(_ context.Context, to, text string) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.msgs = append(b.msgs, message{to, text})
-	return nil
-}
-
-func (b *inbox) all() []message {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return append([]message(nil), b.msgs...)
-}
-
-// emailInbox adapts inbox to email.Sender.
-type emailInbox struct{ *inbox }
-
-func (e emailInbox) Send(ctx context.Context, to, _, body string) error {
-	return e.inbox.Send(ctx, to, body)
-}
 
 // accountsOn is module account's adapter on db, reading statuses at now.
 func accountsOn(db *pgxpool.Pool) accountsvc.Service {
@@ -95,26 +60,6 @@ func phone(t *testing.T, raw string) contact.Address {
 		t.Fatal(err)
 	}
 	return a
-}
-
-// stored creates a login challenge in s and returns it with its code.
-func stored(t *testing.T, s repository.Challenges, raw string, at time.Time) (c domain.Challenge, code string) {
-	t.Helper()
-	c = service.NewChallenge(codes(), uuid.NewV7(), domain.PurposeLogin, phone(t, raw), clientIP, at)
-	if err := s.Create(context.Background(), c); err != nil {
-		t.Fatal(err)
-	}
-	return c, codes().For(c.ID())
-}
-
-func hashOf(c domain.Challenge, code string) []byte { return codes().Hash(c.Destination(), code) }
-
-// wrong returns a six-digit code that is not code.
-func wrong(code string) string {
-	if code == "000000" {
-		return "000001"
-	}
-	return "000000"
 }
 
 // authWith is Auth on sessions and accounts, signing with testKeys, its log

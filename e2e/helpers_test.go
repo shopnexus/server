@@ -7,7 +7,7 @@ import (
 )
 
 // The helpers in this file serve every module's tests; auth_helpers_test.go
-// holds the OTP and sign-in steps.
+// holds the sign-in steps.
 
 // decode fails the test unless the response body is JSON for a T.
 func decode[T any](t *testing.T, res Response) T {

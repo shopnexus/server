@@ -14,6 +14,8 @@ import (
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
+	"github.com/shopnexus/server2/internal/provider/push"
 )
 
 func discard() *slog.Logger { return slog.New(slog.DiscardHandler) }
@@ -29,7 +31,8 @@ func testConfig(t *testing.T) config.Config {
 		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.test"},
 		ObjectStore: objectStore(t),
 		// No model answers here; a search falls back to the raw words.
-		LLM: config.LLMConfig{BaseURL: "http://127.0.0.1:1", APIKey: "none", Model: "none"},
+		LLM:      config.LLMConfig{BaseURL: "http://127.0.0.1:1", APIKey: "none", Model: "none"},
+		Firebase: firebasetest.New(t).Config(false),
 	}
 }
 
@@ -116,34 +119,30 @@ func TestNewRefusesMissingKeys(t *testing.T) {
 	}
 }
 
-// The log senders write OTP codes to the log, so production must name real
-// senders.
-func TestNewRefusesLogSendersInProd(t *testing.T) {
-	t.Parallel()
-	cfg := testConfig(t)
-	cfg.Env = "prod"
-	_, err := New(context.Background(), cfg, discard())
-	if err == nil || !strings.Contains(err.Error(), "log sender") {
-		t.Fatalf("err %v", err)
-	}
-}
-
-type quietSMS struct{}
-
-func (quietSMS) Send(context.Context, string, string) error { return nil }
-
-type quietEmail struct{}
-
-func (quietEmail) Send(context.Context, string, string, string) error { return nil }
-
 // Without FCM credentials pushes go to the log, which production must not
 // do in silence.
 func TestNewRefusesLogPushInProd(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Env = "prod"
-	_, err := New(context.Background(), cfg, discard(), WithSMSSender(quietSMS{}), WithEmailSender(quietEmail{}))
+	_, err := New(context.Background(), cfg, discard())
 	if err == nil || !strings.Contains(err.Error(), "FCM_CREDENTIALS") {
+		t.Fatalf("err %v", err)
+	}
+}
+
+type quietPush struct{}
+
+func (quietPush) Send(context.Context, string, push.Message) error { return nil }
+
+// Test numbers of PNV sign anyone in as the zero number, so production
+// refuses them.
+func TestNewRefusesPNVTestNumbersInProd(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Env, cfg.Firebase.TestNumbers = "prod", true
+	_, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}))
+	if err == nil || !strings.Contains(err.Error(), "PNV_TEST_NUMBERS") {
 		t.Fatalf("err %v", err)
 	}
 }

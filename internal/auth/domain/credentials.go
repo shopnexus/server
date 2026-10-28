@@ -1,3 +1,6 @@
+// Package domain holds module auth's entities: an account's credentials,
+// and sessions with the tokens signed for them. It sends nothing and stores
+// nothing.
 package domain
 
 import (
