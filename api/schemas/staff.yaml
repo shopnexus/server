@@ -185,7 +185,7 @@ Identity:
   properties:
     kind:
       type: string
-      enum: [phone, email, google]
+      enum: [phone]
     value:
       type: string
 StaffAccountDetail:

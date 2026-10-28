@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/auth/domain"
@@ -12,23 +11,15 @@ import (
 	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
-// FindAccount returns the account holding the phone number or email q, in
-// any form a person types. A q that is neither, or that no account holds,
-// reports false.
+// FindAccount returns the account holding the phone number q, in any form a
+// person types. A q that is no Vietnamese mobile number, or that no account
+// holds, reports false.
 func (a *Auth) FindAccount(ctx context.Context, q string) (uuid.UUID, bool, error) {
-	var (
-		addr contact.Address
-		err  error
-	)
-	if strings.Contains(q, "@") {
-		addr, err = contact.ParseEmail(q)
-	} else {
-		addr, err = contact.ParsePhone(q)
-	}
+	addr, err := contact.ParsePhone(q)
 	if err != nil {
-		return uuid.UUID{}, false, nil //nolint:nilerr // A q that is no phone or email matches no account.
+		return uuid.UUID{}, false, nil //nolint:nilerr // A q that is no phone number matches no account.
 	}
-	ref, err := a.credentials.FindIdentity(ctx, domain.KindOf(addr), addr.Value())
+	ref, err := a.credentials.FindIdentity(ctx, domain.KindPhone, addr.Value())
 	if errors.Is(err, repository.ErrNotFound) {
 		return uuid.UUID{}, false, nil
 	}

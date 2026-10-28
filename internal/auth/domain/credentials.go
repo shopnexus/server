@@ -14,11 +14,7 @@ import (
 // Kind is the kind of an identity.
 type Kind string
 
-const (
-	KindPhone  Kind = "phone"
-	KindEmail  Kind = "email"
-	KindGoogle Kind = "google"
-)
+const KindPhone Kind = "phone"
 
 // KindOf maps a contact kind to the identity kind of the same name.
 func KindOf(a contact.Address) Kind { return Kind(a.Kind()) }
@@ -38,8 +34,8 @@ type Identity struct {
 	createdAt  time.Time
 }
 
-// NewIdentity builds the identity for a phone or email whose code was just
-// verified; it counts as used at now.
+// NewIdentity builds the identity of a phone number Firebase just verified;
+// it counts as used at now.
 func NewIdentity(id uuid.UUID, a contact.Address, now time.Time) Identity {
 	return Identity{id: id, kind: KindOf(a), value: a.Value(), lastUsedAt: &now, createdAt: now}
 }
