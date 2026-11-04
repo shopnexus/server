@@ -1,7 +1,7 @@
 # server2
 
 Read `ARCHITECTURE.md` before changing code. It records design decisions and
-overrides the older spec in `~/shopnexus/specs/` where they disagree. Record
+overrides the older spec in `~/shopnexus/docs/superpowers/specs/` where they disagree. Record
 new decisions there, not in Claude's memory.
 
 ## Working rules

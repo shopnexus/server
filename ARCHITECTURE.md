@@ -1,9 +1,9 @@
 # server2 architecture
 
-`~/shopnexus/specs/2026-10-19-server2-foundation-design.md` holds scope,
+`~/shopnexus/docs/superpowers/specs/2026-10-19-server2-foundation-design.md` holds scope,
 endpoints, auth flows, security rules and the testing matrix, and points here
 for code shape, transactions and durability. Where the two disagree, this file
-wins. Plan 2 (`~/shopnexus/plans/2026-10-20-server2-plan2-redesign-otp.md`)
+wins. Plan 2 (`~/shopnexus/docs/superpowers/plans/2026-10-20-server2-plan2-redesign-otp.md`)
 built the sessions on this design; sign-in moved to Firebase on 2026-10-28
 (see Phone sign-in).
 
@@ -327,7 +327,7 @@ by another seller runs apart.
 The app verifies a phone number through Firebase and sends the token
 Firebase returns to `POST /v1/auth/sign-in {phone_token, device_name}`
 (decided 2026-10-28, spec:
-`~/shopnexus/specs/2026-10-28-server2-firebase-sign-in-design.md`). The
+`~/shopnexus/docs/superpowers/specs/2026-10-28-server2-firebase-sign-in-design.md`). The
 token is an ID token of Firebase Authentication after an SMS code, or a
 Phone Number Verification (PNV) token from the SIM. Server2 sends no codes:
 email sign-in, OTP challenges and their quotas are gone, and every account
@@ -425,7 +425,7 @@ no database.
 
 Moderators and admins run the web console on staff accounts of their own
 (module `staff`), separate from customer accounts.
-`~/shopnexus/specs/2026-10-24-server2-staff-authorization-design.md` holds
+`~/shopnexus/docs/superpowers/specs/2026-10-24-server2-staff-authorization-design.md` holds
 the decisions and the API.
 
 - Every sign-in call is `POST /v1/staff/login` with the email and the
@@ -535,7 +535,7 @@ item at one price, C2C, cash on delivery. Drafts stay on the device; the
 server receives a complete listing.
 
 - A listing declares no marks (decided 2026-10-27, spec:
-  `~/shopnexus/specs/2026-10-27-remove-declared-marks-design.md`). People
+  `~/shopnexus/docs/superpowers/specs/2026-10-27-remove-declared-marks-design.md`). People
   judge wear on used goods differently, so a declared mark is not a
   reliable fact, and the buyer looks at the item at the door before
   paying. The condition (new, like new, used), the specs and the photos
@@ -620,7 +620,7 @@ server receives a complete listing.
 ### Deal
 
 Module `deal` holds deals: a buyer and a seller agreeing a price on one
-listing. Spec: `~/shopnexus/specs/2026-10-26-server2-deal-design.md`.
+listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server2-deal-design.md`.
 
 - One deal per buyer and listing, unique on `(listing_id, buyer_id)`.
   `POST /v1/deals` returns the caller's deal on the listing with 200, or
@@ -663,7 +663,7 @@ listing. Spec: `~/shopnexus/specs/2026-10-26-server2-deal-design.md`.
   the deals of that pair (decided 2026-10-26).
 
 Orders, cash on delivery, live in module `deal` (spec:
-`~/shopnexus/specs/2026-10-26-server2-order-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-10-26-server2-order-design.md`).
 
 - No carrier is integrated (decided 2026-10-26). The seller ships on the
   carrier's own app and records the waybill; the waybill keeps `source`
@@ -758,7 +758,7 @@ out. Running deals and orders stay as they are. Each block has a UUIDv7
 ### Account profile and addresses
 
 Decided 2026-10-27 (spec:
-`~/shopnexus/specs/2026-10-27-server2-app-alignment-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-10-27-server2-app-alignment-design.md`).
 
 - `PATCH /v1/accounts/me` takes any of `display_name`, `bio` (0 to 200
   characters, public, no content filter) and `avatar_upload_id` (`null`
@@ -785,7 +785,7 @@ Decided 2026-10-27 (spec:
 ### Chat
 
 Module `chat` holds conversations (spec:
-`~/shopnexus/specs/2026-10-26-server2-chat-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-10-26-server2-chat-design.md`).
 
 - One conversation per pair of people, whatever their roles, stored as
   `(account_a, account_b)` with `account_a < account_b`. Screen's chat
@@ -819,7 +819,7 @@ Module `chat` holds conversations (spec:
 ### Screen
 
 Module `screen` serves one `GET` per view of the app (decided 2026-10-27,
-spec: `~/shopnexus/specs/2026-10-27-server2-app-alignment-design.md`). The
+spec: `~/shopnexus/docs/superpowers/specs/2026-10-27-server2-app-alignment-design.md`). The
 app reads a view in one call, and after a stream hint it reloads the view
 it shows in one call. Mobile and desktop read the same views; a desktop
 page that shows two views calls both at once.
@@ -864,7 +864,7 @@ page that shows two views calls both at once.
 ### Trust
 
 Module `trust` holds reviews (spec:
-`~/shopnexus/specs/2026-10-26-server2-reviews-saved-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-10-26-server2-reviews-saved-design.md`).
 
 - The buyer of an order reviews its seller once the order is `shipped`,
   `delivered` or `returned`: 1 to 5 stars and up to 500 characters of
@@ -886,7 +886,7 @@ Module `trust` holds reviews (spec:
 ### Search
 
 Search and the nearby feed (decided 2026-10-27, spec:
-`~/shopnexus/specs/2026-10-27-server2-search-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-10-27-server2-search-design.md`).
 
 - Catalog owns `listings` and its one ParadeDB index (`listings_search`,
   migration 0019: title, description, `specs_text`, and the fields
@@ -951,7 +951,7 @@ Search).
 
 Module `notification` tells people of their deals, orders, listings,
 reviews and account, in a list and by push (decided 2026-10-27, spec:
-`~/shopnexus/specs/2026-10-27-server2-notification-design.md`). No module
+`~/shopnexus/docs/superpowers/specs/2026-10-27-server2-notification-design.md`). No module
 calls it except screen, for Home's unread count; depguard holds that.
 
 - It hears events: `deal.moved` (whose payload now lists the IDs of the
