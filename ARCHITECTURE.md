@@ -1069,6 +1069,12 @@ Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.
 - At start the server serves its services on `RESTATE_LISTEN_ADDR` and
   registers `RESTATE_ENDPOINT_URL` through the admin API with
   `use_http_11`, because the endpoint is a standard library HTTP/1.1 server.
+- `RESTATE_REGISTER` says whether the server registers itself. `make run`
+  and the tests set `true`. The k3d cluster in the umbrella's `infra/` sets
+  `false`: there restate-operator's `RestateDeployment` runs the server,
+  gives each version its own Service, registers it, and keeps an old version
+  until its invocations finish, so an invocation never replays on other
+  code. Decided 2026-11-04.
 - The Restate server signs every request to the endpoint with the Ed25519
   key in `.restate/identity.pem`
   (`worker.invoker.request-identity-private-key-pem-file`), and the endpoint

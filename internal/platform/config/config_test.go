@@ -42,6 +42,7 @@ func required() map[string]string {
 		"RESTATE_ENDPOINT_URL":         "",
 		"RESTATE_SERVICE_PREFIX":       "",
 		"RESTATE_IDENTITY_KEY":         "publickeyv1_test",
+		"RESTATE_REGISTER":             "true",
 		"JWT_KEY_ID":                   testKeys.JWTKeyID,
 		"JWT_PRIVATE_KEY":              b64(testKeys.JWTKey.Seed()),
 		"JWT_PREVIOUS_KEY_ID":          "",
@@ -85,6 +86,7 @@ func TestLoadAllSet(t *testing.T) {
 		"JWT_AUDIENCE":                "aud",
 		"RESTATE_LISTEN_ADDR":         "127.0.0.1:9999",
 		"RESTATE_ENDPOINT_URL":        "http://host:9999",
+		"RESTATE_REGISTER":            "false",
 		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel:4318",
 		"SERVICE_NAME":                "svc",
 		"PNV_TEST_NUMBERS":            "true",
@@ -102,6 +104,7 @@ func TestLoadAllSet(t *testing.T) {
 		Restate: RestateConfig{
 			IngressURL: "http://restate:8080", AdminURL: "http://restate:9070",
 			ListenAddr: "127.0.0.1:9999", EndpointURL: "http://host:9999", IdentityKey: "publickeyv1_test",
+			Register: false,
 		},
 		OTLPEndpoint: "http://otel:4318",
 		ServiceName:  "svc",
@@ -279,5 +282,26 @@ func TestLoadPush(t *testing.T) {
 	env["FCM_CREDENTIALS"] = "%%%"
 	if _, err = Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "FCM_CREDENTIALS") {
 		t.Fatalf("not base64: %v", err)
+	}
+}
+
+// RESTATE_REGISTER takes true or false and nothing else.
+func TestLoadRestateRegister(t *testing.T) {
+	t.Parallel()
+	for value, want := range map[string]bool{"true": true, "false": false} {
+		env := required()
+		env["RESTATE_REGISTER"] = value
+		got, err := Load(lookup(env))
+		if err != nil {
+			t.Fatalf("RESTATE_REGISTER=%s: %v", value, err)
+		}
+		if got.Restate.Register != want {
+			t.Errorf("RESTATE_REGISTER=%s: Register = %v", value, got.Restate.Register)
+		}
+	}
+	env := required()
+	env["RESTATE_REGISTER"] = "yes"
+	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), `RESTATE_REGISTER="yes"`) {
+		t.Fatalf("RESTATE_REGISTER=yes: %v", err)
 	}
 }

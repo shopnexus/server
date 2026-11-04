@@ -51,7 +51,7 @@ func ConfigForMain() (config.RestateConfig, error) {
 	}
 	return config.RestateConfig{
 		IngressURL: ingressURL, AdminURL: adminURL, ListenAddr: "127.0.0.1:0", EndpointURL: "",
-		ServicePrefix: Prefix(), IdentityKey: key,
+		ServicePrefix: Prefix(), IdentityKey: key, Register: true,
 	}, nil
 }
 

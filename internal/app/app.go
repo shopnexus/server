@@ -250,6 +250,10 @@ func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logge
 	if err != nil {
 		return nil, fmt.Errorf("restate endpoint: %w", err)
 	}
+	if !cfg.Register {
+		log.InfoContext(ctx, "restate endpoint served; registration is left to restate-operator", "addr", cfg.ListenAddr)
+		return ep, nil
+	}
 	url := cfg.EndpointURL
 	if url == "" {
 		url = ep.URL()

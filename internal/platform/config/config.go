@@ -121,6 +121,11 @@ type RestateConfig struct {
 	// the Restate server signs requests with; the endpoint refuses unsigned
 	// ones. It may be empty outside APP_ENV=prod; make run writes it to .env.
 	IdentityKey string
+	// Register (RESTATE_REGISTER) is true when this process registers its
+	// endpoint with the Restate admin API at start, as make run does, and
+	// false when something else registers it, as restate-operator does in
+	// the cluster.
+	Register bool
 }
 
 // Load builds a Config from lookup, which is [os.LookupEnv] outside tests.
@@ -220,6 +225,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			EndpointURL:   set("RESTATE_ENDPOINT_URL"),
 			ServicePrefix: set("RESTATE_SERVICE_PREFIX"),
 			IdentityKey:   set("RESTATE_IDENTITY_KEY"),
+			Register:      oneOf("RESTATE_REGISTER", "true", "false") == "true",
 		},
 		Auth: AuthConfig{
 			JWTKeyID:     need("JWT_KEY_ID"),

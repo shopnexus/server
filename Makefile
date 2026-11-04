@@ -12,6 +12,7 @@ run:
 	@test -f .env || cp .env.example .env
 	@grep -q '^JWT_KEY_ID=' .env || go run ./cmd/keygen >> .env
 	@grep -q '^STAFF_KEY=' .env || go run ./cmd/keygen -staff >> .env
+	@grep -q '^RESTATE_REGISTER=' .env || echo 'RESTATE_REGISTER=true' >> .env
 	@{ test -f $(IDENTITY) && grep -q '^RESTATE_IDENTITY_KEY=' .env; } || \
 		{ sed -i '/^RESTATE_IDENTITY_KEY=/d' .env; go run ./cmd/keygen -restate $(IDENTITY) >> .env; }
 	docker compose up -d --wait
