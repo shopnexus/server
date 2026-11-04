@@ -1,8 +1,0 @@
-{{/* To the buyer. Params: order_id, total, currency. */}}
-{{define "subject"}}Order confirmed · {{.Params.order_id}}{{end}}
-{{define "preheader"}}{{money .Params.total .Params.currency}} is held in escrow. The seller confirms next, then ships.{{end}}
-{{define "badge"}}Paid{{end}}
-{{define "title"}}Your order is confirmed{{end}}
-{{define "lead"}}We have your payment and are holding it until the parcel reaches you. The seller confirms the order next, then hands it to the carrier.{{end}}
-{{define "escrow_state"}}Held until you receive the parcel{{end}}
-{{define "action"}}View order{{end}}

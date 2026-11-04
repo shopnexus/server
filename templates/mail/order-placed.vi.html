@@ -1,9 +1,0 @@
-{{/* To the buyer. Params: order_id, total, currency.
-     The old "extra" table is gone: the frame shows the reference and the sum. */}}
-{{define "subject"}}Đặt hàng thành công · {{.Params.order_id}}{{end}}
-{{define "preheader"}}{{money .Params.total .Params.currency}} đang được tạm giữ. Người bán sẽ xác nhận rồi gửi hàng.{{end}}
-{{define "badge"}}Đã thanh toán{{end}}
-{{define "title"}}Đặt hàng thành công{{end}}
-{{define "lead"}}Chúng tôi đã nhận tiền và giữ lại cho tới khi bạn nhận hàng. Người bán sẽ xác nhận đơn rồi giao cho đơn vị vận chuyển.{{end}}
-{{define "escrow_state"}}Đang giữ cho tới khi bạn nhận hàng{{end}}
-{{define "action"}}Xem đơn hàng{{end}}
