@@ -1,20 +1,19 @@
-.PHONY: run test down
+.PHONY: env run test down
 
 TEST_STACK := docker compose -f docker-compose.test.yml
 
 IDENTITY := .restate/identity.pem
 
-# Starts the development stack and the server. On first use it copies
-# .env.example to .env and adds fresh keys, including the key Restate signs
-# requests with; migrations apply and the object store bucket is prepared
-# every time.
-run:
-	@test -f .env || cp .env.example .env
-	@grep -q '^JWT_KEY_ID=' .env || go run ./cmd/keygen >> .env
-	@grep -q '^STAFF_KEY=' .env || go run ./cmd/keygen -staff >> .env
-	@grep -q '^RESTATE_REGISTER=' .env || echo 'RESTATE_REGISTER=true' >> .env
-	@{ test -f $(IDENTITY) && grep -q '^RESTATE_IDENTITY_KEY=' .env; } || \
-		{ sed -i '/^RESTATE_IDENTITY_KEY=/d' .env; go run ./cmd/keygen -restate $(IDENTITY) >> .env; }
+# Writes .env from .env.example on first use and later adds the variables
+# the example gained, then fills in the keys: JWT, STAFF_KEY and the Restate
+# request identity key, whose private half is $(IDENTITY). Keys already set
+# stay.
+env:
+	@go run ./cmd/envgen -env .env -example .env.example -restate $(IDENTITY)
+
+# Starts the development stack and the server. Migrations apply and the
+# object store bucket is prepared every time.
+run: env
 	docker compose up -d --wait
 	go run ./cmd/migrate
 	go run ./cmd/objectstore-init
@@ -23,8 +22,7 @@ run:
 # Runs every test against the test stack, then golangci-lint, which also
 # runs go vet and checks gofumpt formatting. Restate is
 # recreated each time: its journal lives in tmpfs and grows with every run.
-test:
-	@go run ./cmd/keygen -restate $(IDENTITY) >/dev/null
+test: env
 	$(TEST_STACK) up -d --wait
 	$(TEST_STACK) up -d --wait --force-recreate restate
 	@until curl -sf http://127.0.0.1:56571/health >/dev/null; do sleep 0.5; done
