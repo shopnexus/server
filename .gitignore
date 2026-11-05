@@ -1,3 +1,32 @@
+# Everything at the top of the repository is ignored unless listed here, so
+# a stray file there is never committed by accident. A new top-level file or
+# directory needs its own line.
+/*
+!/.dockerignore
+!/.env.example
+!/.env.test
+!/.github/
+!/.gitignore
+!/.golangci.yml
+!/.sqlfluff
+!/.sqlfluffignore
+!/ARCHITECTURE.md
+!/CLAUDE.md
+!/Dockerfile
+!/LICENSE
+!/Makefile
+!/README.md
+!/api/
+!/cmd/
+!/docker-compose.test.yml
+!/docker-compose.yml
+!/e2e/
+!/go.mod
+!/go.sum
+!/internal/
+!/migrations/
+
+# Inside the directories above:
 .env
 tmp/
 bin/
