@@ -413,3 +413,151 @@ actions:
               $ref: "../schemas/staff.yaml#/ActionList"
       "403":
         $ref: "../responses/common.yaml#/StaffForbidden"
+dashboardTickets:
+  parameters:
+    - $ref: "../parameters/common.yaml#/StaffCSRF"
+  post:
+    operationId: createStaffDashboardTicket
+    summary: A one-time ticket that opens an ops dashboard on its own host.
+    description: |
+      The console asks for a ticket, then sends the browser to callback_url,
+      where the server turns the ticket into the dashboard's cookie. A
+      ticket opens the dashboard once, within 60 seconds, and only while
+      this session lives. Grafana takes a moderator; the other dashboards
+      take an admin. A dashboard that DASHBOARD_HOSTS gives no host is
+      dashboard_not_configured.
+    tags: [staff]
+    security:
+      - staffAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/staff.yaml#/DashboardTicketRequest"
+    responses:
+      "200":
+        description: The ticket.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/staff.yaml#/DashboardTicket"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/StaffForbidden"
+      "422":
+        $ref: "../responses/common.yaml#/Unprocessable"
+dashboardAuth:
+  get:
+    operationId: authorizeStaffDashboard
+    summary: Traefik's forwardAuth check in front of every ops dashboard.
+    description: |
+      Traefik calls it with the dashboard request's Cookie and its
+      X-Forwarded-* headers; no console header. X-Forwarded-Host names the
+      dashboard through DASHBOARD_HOSTS, and the staff_dashboard cookie
+      must belong to that dashboard and to a staff session that still
+      lives, of a member whose role opens the dashboard. Without such a
+      cookie a GET is sent to the console, which asks for a ticket; any
+      other method gets 401. Traefik copies X-Staff-Email and X-Staff-Role
+      onto the request it lets through and drops a client's own.
+    tags: [staff]
+    security:
+      - {}
+      - dashboardAuth: []
+    parameters:
+      - name: X-Forwarded-Host
+        in: header
+        description: The dashboard's host; a port is ignored.
+        schema:
+          type: string
+      - name: X-Forwarded-Uri
+        in: header
+        description: The path and query the browser asked the dashboard for.
+        schema:
+          type: string
+      - name: X-Forwarded-Method
+        in: header
+        description: The dashboard request's method; absent counts as GET.
+        schema:
+          type: string
+    responses:
+      "200":
+        description: Let through.
+        headers:
+          X-Staff-Email:
+            description: The member's email.
+            schema:
+              type: string
+          X-Staff-Role:
+            description: Admin or Viewer for Grafana, whose auth proxy reads its own role names; the staff role (admin, moderator) for the others.
+            schema:
+              type: string
+      "302":
+        description: No cookie for this dashboard. Location is the console's /dashboards/open?app=<app>&rd=<X-Forwarded-Uri>.
+        headers:
+          Location:
+            schema:
+              type: string
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The member's role does not open this dashboard (staff_forbidden), or DASHBOARD_HOSTS does not name the host (dashboard_host_unknown)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+dashboardCallback:
+  get:
+    operationId: openStaffDashboard
+    summary: Turn a dashboard ticket into the dashboard's cookie.
+    description: |
+      Served on each dashboard's own host, where the Ingress routes
+      /_dashboard to the server without forwardAuth. The request's Host
+      names the dashboard. The ticket must be unused, unexpired, for this
+      dashboard and of a staff session that still lives; it is spent here.
+      The answer sets staff_dashboard (Secure, HttpOnly, SameSite=Lax,
+      Path=/, no Domain, so only this host gets it) for as long as the
+      staff session has left, and redirects to rd when rd is a path on
+      this host, to / otherwise.
+    tags: [staff]
+    parameters:
+      - name: ticket
+        in: query
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+      - name: rd
+        in: query
+        description: Where to go on this host afterwards, a path such as /d/abc?from=now-1h.
+        schema:
+          type: string
+          maxLength: 4096
+    responses:
+      "302":
+        description: Opened; Location is rd or /.
+        headers:
+          Location:
+            schema:
+              type: string
+          Set-Cookie:
+            schema:
+              type: string
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        description: "The ticket is unknown, used, expired, for another dashboard, or its staff session has ended (invalid_dashboard_ticket)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "403":
+        description: "DASHBOARD_HOSTS does not name this host (dashboard_host_unknown)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

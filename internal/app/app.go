@@ -216,7 +216,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if err != nil {
 		return nil, fmt.Errorf("staff keys: %w", err)
 	}
-	staff.Mount(d, staffKeys, accounts, authm.Service)
+	staff.Mount(d, staffKeys, cfg.Staff, accounts, authm.Service)
 	catalogm := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
 		accounts, mediam.Service)
 	dealm := deal.Mount(d, protect, accounts, catalogm.Service)

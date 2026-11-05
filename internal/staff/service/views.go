@@ -80,3 +80,34 @@ type AccountDetail struct {
 	Identities []authsvc.Identity `json:"identities"`
 	Actions    []audit.Action     `json:"actions"`
 }
+
+// DashboardTicket is the DashboardTicket schema.
+type DashboardTicket struct {
+	Ticket      string `json:"ticket"`
+	CallbackURL string `json:"callback_url"`
+}
+
+// DashboardOpened is a spent ticket: the dashboard cookie's token and how
+// long the cookie lasts, which is what its staff session has left.
+type DashboardOpened struct {
+	Token string
+	TTL   time.Duration
+}
+
+// DashboardCheck is one forwardAuth call: the dashboard's host, the path and
+// query asked for, and the staff_dashboard cookie's value.
+type DashboardCheck struct {
+	Host  string
+	URI   string
+	Token string
+}
+
+// DashboardAccess answers a DashboardCheck. Granted carries the member's
+// email and the role the dashboard reads; otherwise OpenURL is the
+// console's page that asks for a ticket and comes back to the URI.
+type DashboardAccess struct {
+	Granted bool
+	Email   string
+	Role    string
+	OpenURL string
+}

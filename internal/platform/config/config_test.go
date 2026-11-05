@@ -51,6 +51,7 @@ func required() map[string]string {
 		"JWT_AUDIENCE":                 "shopnexus-app",
 		"STAFF_KEY":                    b64(testStaffKey),
 		"STAFF_CONSOLE_ORIGIN":         "http://console.test",
+		"DASHBOARD_HOSTS":              "",
 		"OBJECT_STORE_ENDPOINT":        "http://rustfs:9000",
 		"OBJECT_STORE_PUBLIC_ENDPOINT": "https://photos.example.test",
 		"OBJECT_STORE_REGION":          "us-east-1",
@@ -90,6 +91,7 @@ func TestLoadAllSet(t *testing.T) {
 		"OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel:4318",
 		"SERVICE_NAME":                "svc",
 		"PNV_TEST_NUMBERS":            "true",
+		"DASHBOARD_HOSTS":             " grafana=Grafana.Dev.Example.test, restate=restate.dev.example.test ,",
 	})
 	got, err := Load(lookup(env))
 	if err != nil {
@@ -119,7 +121,10 @@ func TestLoadAllSet(t *testing.T) {
 			Issuer:       "iss",
 			Audience:     "aud",
 		},
-		Staff: StaffConfig{Key: testStaffKey, ConsoleOrigin: "http://console.test"},
+		Staff: StaffConfig{
+			Key: testStaffKey, ConsoleOrigin: "http://console.test",
+			DashboardHosts: map[string]string{"grafana": "grafana.dev.example.test", "restate": "restate.dev.example.test"},
+		},
 		ObjectStore: ObjectStoreConfig{
 			Endpoint: "http://rustfs:9000", PublicEndpoint: "https://photos.example.test", Region: "us-east-1",
 			AccessKey: "access", SecretKey: "secret", Bucket: "server2", PublicURL: "http://rustfs:9000/server2",
@@ -142,7 +147,8 @@ func TestLoadAcceptsExplicitEmpty(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 	if got.OTLPEndpoint != "" || got.TrustedProxies != nil || got.Restate.EndpointURL != "" ||
-		got.Restate.ServicePrefix != "" || got.Auth.JWTPrevKeyID != "" || got.Auth.JWTPrevKey != nil {
+		got.Restate.ServicePrefix != "" || got.Auth.JWTPrevKeyID != "" || got.Auth.JWTPrevKey != nil ||
+		got.Staff.DashboardHosts != nil {
 		t.Fatalf("empty variables: %+v", got)
 	}
 }
@@ -303,5 +309,36 @@ func TestLoadRestateRegister(t *testing.T) {
 	env["RESTATE_REGISTER"] = "yes"
 	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), `RESTATE_REGISTER="yes"`) {
 		t.Fatalf("RESTATE_REGISTER=yes: %v", err)
+	}
+}
+
+// DASHBOARD_HOSTS pairs a known dashboard with one host name, each named
+// once.
+func TestLoadRejectsBadDashboardHosts(t *testing.T) {
+	t.Parallel()
+	for _, value := range []string{
+		"grafana",
+		"=grafana.example.test",
+		"kibana=kibana.example.test",
+		"grafana=",
+		"grafana=https://grafana.example.test",
+		"grafana=grafana.example.test:443",
+		"grafana=grafana.example.test/x",
+		"grafana=-grafana.example.test",
+		"grafana=grafana..example.test",
+		"grafana=a.example.test,grafana=b.example.test",
+		"grafana=same.example.test,restate=same.example.test",
+	} {
+		env := required()
+		env["DASHBOARD_HOSTS"] = value
+		if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "DASHBOARD_HOSTS") {
+			t.Errorf("%q: %v", value, err)
+		}
+	}
+	env := required()
+	env["DASHBOARD_HOSTS"] = "grafana=grafana.localhost,restate=restate.localhost,litellm=litellm.localhost,s3=s3.localhost,argocd=argocd.localhost"
+	got, err := Load(lookup(env))
+	if err != nil || len(got.Staff.DashboardHosts) != len(DashboardApps) {
+		t.Fatalf("every dashboard: %v %v", got.Staff.DashboardHosts, err)
 	}
 }

@@ -30,12 +30,18 @@ VALUES (@id, @staff_id, @token_hash, @credentials_version, @ip, @user_agent, @cr
 	return nil
 }
 
+// sessionLives holds a staff session s, joined with its member m, to the
+// rules of a live session at @now: unrevoked, unexpired, and its member
+// active at the credentials version it was issued at. Dashboard sessions
+// use it too, so they end with their staff session.
+const sessionLives = `s.revoked_at IS NULL AND s.expires_at > @now
+  AND m.status = 'active' AND m.credentials_version = s.credentials_version`
+
 const liveSession = `
 SELECT s.id, s.staff_id, m.staff_role
 FROM staff_sessions s
 JOIN staff_members m ON m.id = s.staff_id
-WHERE s.token_hash = @token_hash AND s.revoked_at IS NULL AND s.expires_at > @now
-  AND m.status = 'active' AND m.credentials_version = s.credentials_version`
+WHERE s.token_hash = @token_hash AND ` + sessionLives
 
 func (st pgSessions) Live(ctx context.Context, tokenHash []byte, now time.Time) (domain.Grant, error) {
 	var g domain.Grant

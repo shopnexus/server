@@ -91,7 +91,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("staff keys: %w", err)
 	}
-	svc := staff.NewService(pool, keys, nil, nil, time.Now)
+	svc := staff.NewService(pool, keys, cfg.Staff, nil, nil, time.Now)
 	by := audit.ByCLI(osUser.Username)
 
 	if cmd == cmdCreateAdmin {

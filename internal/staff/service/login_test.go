@@ -144,7 +144,7 @@ func TestLoginCountsConcurrentFailures(t *testing.T) {
 func TestWrongCodesLock(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	secret, _ := e.enrolled(t, "codes@example.com")
+	secret, _ := e.enrolled(t, "codes@example.com", domain.RoleModerator)
 	later := now.Add(time.Minute)
 	good := domain.Code(secret, later)
 	for range domain.MaxFailures {
@@ -200,7 +200,7 @@ func TestLoginRefusesBeyondTheBudget(t *testing.T) {
 func TestWrongCodesBeyondTheBudget(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	secret, _ := e.enrolled(t, "codes@example.com")
+	secret, _ := e.enrolled(t, "codes@example.com", domain.RoleModerator)
 	later := now.Add(time.Minute)
 	bad := wrong(domain.Code(secret, later))
 	evaluated, refused := burst(t, 30, func() error {

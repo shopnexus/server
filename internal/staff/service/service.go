@@ -53,6 +53,15 @@ type Service interface {
 	UnsuspendAccount(ctx context.Context, id uuid.UUID, by audit.Actor) (accountsvc.Record, error)
 	// ListActions lists the audit log newest first.
 	ListActions(ctx context.Context, f audit.Filter, p page.Request) (page.Page[audit.Action], error)
+	// CreateDashboardTicket gives the caller's session a ticket that opens
+	// app once.
+	CreateDashboardTicket(ctx context.Context, caller authn.Staff, app domain.App) (DashboardTicket, error)
+	// OpenDashboard spends a ticket at the dashboard's host and starts the
+	// session its cookie holds.
+	OpenDashboard(ctx context.Context, host, ticket string) (DashboardOpened, error)
+	// AuthorizeDashboard checks a request to a dashboard, for Traefik's
+	// forwardAuth.
+	AuthorizeDashboard(ctx context.Context, in DashboardCheck) (DashboardAccess, error)
 }
 
 // Deps is what New builds Staff from.
@@ -62,6 +71,12 @@ type Deps struct {
 	Sessions repository.Sessions
 	Actions  audit.Store
 	Keys     Keys
+	// Dashboards keeps the ops dashboards' tickets and sessions;
+	// DashboardHosts maps each dashboard to its host (DASHBOARD_HOSTS) and
+	// ConsoleOrigin is where a dashboard sends a reader without a session.
+	Dashboards     repository.Dashboards
+	DashboardHosts map[string]string
+	ConsoleOrigin  string
 	// Accounts and Auth reach customer data; cmd/staff, which manages only
 	// members, leaves them nil.
 	Accounts accountsvc.Service
@@ -79,6 +94,10 @@ type Staff struct {
 	accounts accountsvc.Service
 	auth     authsvc.Service
 	now      func() time.Time
+
+	dashboards     repository.Dashboards
+	dashboardHosts map[string]string
+	consoleOrigin  string
 }
 
 var _ Service = (*Staff)(nil)
@@ -87,5 +106,6 @@ func New(d Deps) *Staff {
 	return &Staff{
 		members: d.Members, locks: d.Locks, sessions: d.Sessions, actions: d.Actions, keys: d.Keys,
 		accounts: d.Accounts, auth: d.Auth, now: d.Now,
+		dashboards: d.Dashboards, dashboardHosts: d.DashboardHosts, consoleOrigin: d.ConsoleOrigin,
 	}
 }

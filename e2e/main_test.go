@@ -104,9 +104,12 @@ func run(m *testing.M) int {
 		ObjectStore: objectStoreCfg,
 		Restate:     restateCfg,
 		Auth:        keys,
-		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.e2e"},
-		LLM:         config.LLMConfig{BaseURL: model.url(), APIKey: "e2e", Model: "e2e"},
-		Firebase:    issuer.Config(false),
+		Staff: config.StaffConfig{
+			Key: config.NewStaffKey(), ConsoleOrigin: "http://console.e2e",
+			DashboardHosts: map[string]string{"grafana": "grafana.e2e.test", "restate": "restate.e2e.test"},
+		},
+		LLM:      config.LLMConfig{BaseURL: model.url(), APIKey: "e2e", Model: "e2e"},
+		Firebase: issuer.Config(false),
 		// Tests may set X-Forwarded-For.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}
@@ -115,7 +118,7 @@ func run(m *testing.M) int {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
 	}
-	staffSvc = staff.NewService(pool, staffKeys, nil, nil, time.Now)
+	staffSvc = staff.NewService(pool, staffKeys, cfg.Staff, nil, nil, time.Now)
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones),
 		app.WithPasswordHasher(staffdomain.Fast))

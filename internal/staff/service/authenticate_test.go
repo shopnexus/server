@@ -14,7 +14,7 @@ func TestAuthenticateFindsALiveSession(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	_, in := e.enrolled(t, "mod@example.com")
+	_, in := e.enrolled(t, "mod@example.com", domain.RoleModerator)
 	g, err := e.at(now).Authenticate(ctx, in.Token)
 	if err != nil || g.StaffID != in.Me.ID || g.Role != domain.RoleModerator {
 		t.Fatalf("%+v %v", g, err)
@@ -31,7 +31,7 @@ func TestAuthenticateEndsWithDisable(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	_, in := e.enrolled(t, "mod@example.com")
+	_, in := e.enrolled(t, "mod@example.com", domain.RoleModerator)
 	if _, err := e.at(now).DisableMember(ctx, in.Me.ID, audit.ByCLI("test")); err != nil {
 		t.Fatal(err)
 	}

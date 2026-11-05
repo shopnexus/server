@@ -475,6 +475,39 @@ the decisions and the API.
   `authsvc.Service`. CORS allows
   `STAFF_CONSOLE_ORIGIN` on `/v1/staff/` and nothing else.
 
+### Ops dashboards
+
+Grafana, Restate's UI, LiteLLM's UI, RustFS's console and Argo CD open
+from the console on hosts of their own (decided 2026-11-05, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-05-ops-dashboards-design.md`).
+Grafana takes a moderator; the others take an admin.
+
+- `POST /v1/staff/dashboard-tickets {app}` gives the console's session a
+  ticket (`dt_` and 32 random bytes) that opens the app once within 60
+  seconds, with `callback_url` on the app's host.
+- `GET /_dashboard/callback?ticket=&rd=` runs on the app's host, which
+  `DASHBOARD_HOSTS` (`grafana=grafana.x.vn,...`) maps to the app. One
+  statement marks the ticket used and inserts the dashboard session, so a
+  second callback with the same ticket finds it used. The cookie
+  `staff_dashboard` is host-only (`Path=/`, no `Domain`), `SameSite=Lax`
+  so the redirect from the console carries it, and lasts what the staff
+  session has left. The redirect follows `rd` only when it starts with one
+  `/` and holds no backslash or control character; otherwise it goes to `/`.
+- `GET /v1/staff/dashboard-auth` is Traefik's forwardAuth target. It reads
+  the app from `X-Forwarded-Host` and answers 200 with `X-Staff-Email` and
+  `X-Staff-Role` (Grafana's `Admin` or `Viewer` there), 302 to the console's
+  `/dashboards/open` for a GET without a session, 401 for other methods and
+  403 below the app's floor or on a host `DASHBOARD_HOSTS` does not name.
+- `staff_dashboard_tickets` and `staff_dashboard_sessions` hold token
+  hashes and the staff session's ID, with `ON DELETE CASCADE`. A sign-out
+  revokes the staff session and deletes nothing, so every dashboard check
+  joins the staff session and its member with the same rules as
+  `Authenticate` (`sessionLives` in `session_pg.go`). A new ticket deletes
+  its session's expired tickets.
+- `DASHBOARD_HOSTS` is required and may be empty, which refuses every
+  dashboard. `config.DashboardApps` lists the apps it may name, and
+  `domain.App.Floor` gives each its role.
+
 ### Object store
 
 RustFS 1.0.4 through its S3 API, reached with minio-go

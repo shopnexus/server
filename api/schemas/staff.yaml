@@ -281,3 +281,23 @@ ActionList:
     next_cursor:
       type: string
       format: uuid
+DashboardTicketRequest:
+  type: object
+  additionalProperties: false
+  required: [app]
+  properties:
+    app:
+      type: string
+      enum: [grafana, restate, litellm, s3, argocd]
+      description: Grafana opens for moderators and admins; the others for admins.
+DashboardTicket:
+  type: object
+  additionalProperties: false
+  required: [ticket, callback_url]
+  properties:
+    ticket:
+      type: string
+      description: Opaque; opens the dashboard once within 60 seconds.
+    callback_url:
+      type: string
+      description: https://<the dashboard's host>/_dashboard/callback?ticket=<ticket>. The console adds rd and sends the browser there.

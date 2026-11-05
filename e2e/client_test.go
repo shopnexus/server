@@ -49,6 +49,10 @@ func observed(op string, status int) bool {
 	return seen[op][status]
 }
 
+// client returns redirects as they are, so a test reads their status and
+// Location.
+var client = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+
 // Response is what a call returned.
 type Response struct {
 	Status int
@@ -58,7 +62,8 @@ type Response struct {
 
 // call sends a request to base+path, fails the test when the response does
 // not match the operation in the spec (status included), and records the
-// status for the coverage check in TestMain.
+// status for the coverage check in TestMain. A "Host" header sets the
+// request's host.
 func call(t *testing.T, base, method, path string, body any, headers ...[2]string) Response {
 	t.Helper()
 	var reqBody []byte
@@ -76,10 +81,14 @@ func call(t *testing.T, base, method, path string, body any, headers ...[2]strin
 		req.Header.Set("Content-Type", "application/json")
 	}
 	for _, h := range headers {
+		if h[0] == "Host" {
+			req.Host = h[1]
+			continue
+		}
 		req.Header.Set(h[0], h[1])
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}

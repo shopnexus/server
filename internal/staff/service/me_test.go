@@ -16,7 +16,7 @@ func TestChangePasswordEndsEverySession(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	secret, first := e.enrolled(t, "mod@example.com")
+	secret, first := e.enrolled(t, "mod@example.com", domain.RoleModerator)
 	later := now.Add(time.Minute)
 	second, err := e.login("mod@example.com", password, "", domain.Code(secret, later), later)
 	if err != nil {
@@ -45,7 +45,7 @@ func TestChangePasswordRefusesADisabledMember(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	_, in := e.enrolled(t, "mod@example.com")
+	_, in := e.enrolled(t, "mod@example.com", domain.RoleModerator)
 	caller := e.callerOf(t, in)
 	if _, err := e.at(now).DisableMember(ctx, caller.StaffID, audit.ByCLI("root")); err != nil {
 		t.Fatal(err)
@@ -59,7 +59,7 @@ func TestLogout(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	_, in := e.enrolled(t, "mod@example.com")
+	_, in := e.enrolled(t, "mod@example.com", domain.RoleModerator)
 	caller := e.callerOf(t, in)
 	if err := e.at(now).Logout(ctx, caller); err != nil {
 		t.Fatal(err)

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -86,12 +87,20 @@ type AuthConfig struct {
 	Audience     string             // JWT_AUDIENCE
 }
 
-// StaffConfig holds the staff module's key and the console's origin. The key
-// is never logged.
+// StaffConfig holds the staff module's key, the console's origin and the
+// hosts of the ops dashboards. The key is never logged.
 type StaffConfig struct {
 	Key           []byte // STAFF_KEY: base64, at least 32 bytes; the staff subkeys derive from it
 	ConsoleOrigin string // STAFF_CONSOLE_ORIGIN: the web console's origin, the only one CORS allows
+	// DashboardHosts is DASHBOARD_HOSTS, "grafana=grafana.x.vn,restate=...":
+	// the host each ops dashboard is served at, keyed by one of
+	// DashboardApps, host names lower-cased. Empty refuses every dashboard.
+	DashboardHosts map[string]string //exhaustruct:optional
 }
+
+// DashboardApps are the ops dashboards DASHBOARD_HOSTS may name. Module
+// staff gives each the role that opens it.
+var DashboardApps = []string{"grafana", "restate", "litellm", "s3", "argocd"}
 
 // ObjectStoreConfig says where the S3-compatible object store (RustFS) is
 // and where clients read public objects. The keys are never logged.
@@ -198,6 +207,30 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		proxies = append(proxies, p.Masked())
 	}
 
+	var dashboardHosts map[string]string
+	for pair := range strings.SplitSeq(set("DASHBOARD_HOSTS"), ",") {
+		if pair = strings.TrimSpace(pair); pair == "" {
+			continue
+		}
+		app, host, _ := strings.Cut(pair, "=")
+		app, host = strings.TrimSpace(app), strings.ToLower(strings.TrimSpace(host))
+		switch {
+		case !slices.Contains(DashboardApps, app):
+			errs = append(errs, fmt.Errorf("DASHBOARD_HOSTS: %q: want app=host, the app one of %v", pair, DashboardApps))
+		case !isHostName(host):
+			errs = append(errs, fmt.Errorf("DASHBOARD_HOSTS: %q: %q is not a host name", pair, host))
+		case dashboardHosts[app] != "":
+			errs = append(errs, fmt.Errorf("DASHBOARD_HOSTS names %s twice", app))
+		case slices.Contains(slices.Collect(maps.Values(dashboardHosts)), host):
+			errs = append(errs, fmt.Errorf("DASHBOARD_HOSTS gives %s to two dashboards", host))
+		default:
+			if dashboardHosts == nil {
+				dashboardHosts = map[string]string{}
+			}
+			dashboardHosts[app] = host
+		}
+	}
+
 	var jwtKey ed25519.PrivateKey
 	if seed := decodeKey("JWT_PRIVATE_KEY", ed25519.SeedSize, true); seed != nil {
 		jwtKey = ed25519.NewKeyFromSeed(seed)
@@ -235,8 +268,9 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Audience:     need("JWT_AUDIENCE"),
 		},
 		Staff: StaffConfig{
-			Key:           decodeKey("STAFF_KEY", 32, false),
-			ConsoleOrigin: need("STAFF_CONSOLE_ORIGIN"),
+			Key:            decodeKey("STAFF_KEY", 32, false),
+			ConsoleOrigin:  need("STAFF_CONSOLE_ORIGIN"),
+			DashboardHosts: dashboardHosts,
 		},
 		ObjectStore: ObjectStoreConfig{
 			Endpoint:       need("OBJECT_STORE_ENDPOINT"),
@@ -282,4 +316,24 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 
 	return cfg, errors.Join(errs...)
+}
+
+// isHostName reports whether s is a DNS host name: dot-separated labels of
+// 1 to 63 letters, digits and inner hyphens, at most 253 characters, with no
+// scheme, port or path.
+func isHostName(s string) bool {
+	if s == "" || len(s) > 253 {
+		return false
+	}
+	for label := range strings.SplitSeq(s, ".") {
+		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, c := range label {
+			if (c < 'a' || c > 'z') && (c < '0' || c > '9') && c != '-' {
+				return false
+			}
+		}
+	}
+	return true
 }

@@ -163,6 +163,12 @@ paths:
     $ref: "paths/staff.yaml#/accountUnsuspend"
   /v1/staff/actions:
     $ref: "paths/staff.yaml#/actions"
+  /v1/staff/dashboard-tickets:
+    $ref: "paths/staff.yaml#/dashboardTickets"
+  /v1/staff/dashboard-auth:
+    $ref: "paths/staff.yaml#/dashboardAuth"
+  /_dashboard/callback:
+    $ref: "paths/staff.yaml#/dashboardCallback"
 components:
   securitySchemes:
     bearerAuth:
@@ -177,3 +183,12 @@ components:
         The session cookie a staff sign-in sets: HttpOnly, Secure,
         SameSite=Strict, path /v1/staff, eight hours. The server checks the
         session and the member on every request.
+    dashboardAuth:
+      type: apiKey
+      in: cookie
+      name: staff_dashboard
+      description: |
+        The cookie of one ops dashboard's host, set by /_dashboard/callback:
+        HttpOnly, Secure, SameSite=Lax, path /, no Domain. It lives as long
+        as the staff session it came from, and the server checks that
+        session and its member on every request.

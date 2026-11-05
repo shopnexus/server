@@ -37,7 +37,7 @@ func TestResetsEndSessionsAndStartOver(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	_, in := e.enrolled(t, "mod@example.com")
+	_, in := e.enrolled(t, "mod@example.com", domain.RoleModerator)
 	temp, err := e.at(now).ResetMemberPassword(ctx, in.Me.ID, audit.ByCLI("root"))
 	if err != nil || len(temp) != 16 {
 		t.Fatalf("%q %v", temp, err)

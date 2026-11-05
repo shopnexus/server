@@ -27,21 +27,28 @@ const password = "a long staff password"
 
 type env struct {
 	db   *pgxpool.Pool
+	cfg  config.StaffConfig
 	keys service.Keys
 }
 
+// newEnv serves grafana and restate at grafana.test and restate.test; the
+// other dashboards have no host.
 func newEnv(t *testing.T) env {
 	t.Helper()
-	k, err := service.NewKeys(config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.test"}, domain.Fast)
+	cfg := config.StaffConfig{
+		Key: config.NewStaffKey(), ConsoleOrigin: "https://console.test",
+		DashboardHosts: map[string]string{"grafana": "grafana.test", "restate": "restate.test"},
+	}
+	k, err := service.NewKeys(cfg, domain.Fast)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return env{db: pgtest.New(t), keys: k}
+	return env{db: pgtest.New(t), cfg: cfg, keys: k}
 }
 
 // at is Staff on the env's database with its clock stopped at t.
 func (e env) at(t time.Time) *service.Staff {
-	return staff.NewService(e.db, e.keys, nil, nil, func() time.Time { return t })
+	return staff.NewService(e.db, e.keys, e.cfg, nil, nil, func() time.Time { return t })
 }
 
 func (e env) login(email, pw, newPassword, code string, at time.Time) (service.SignedIn, error) {
@@ -76,12 +83,12 @@ func (e env) create(t *testing.T, email string, role domain.Role) (v service.Mem
 	return v, temp
 }
 
-// enrolled makes a moderator that has replaced its temporary password with
-// password, enrolled TOTP and signed in at now, and returns the secret and
-// the sign-in.
-func (e env) enrolled(t *testing.T, email string) (secret []byte, in service.SignedIn) {
+// enrolled makes a member of role that has replaced its temporary password
+// with password, enrolled TOTP and signed in at now, and returns the secret
+// and the sign-in.
+func (e env) enrolled(t *testing.T, email string, role domain.Role) (secret []byte, in service.SignedIn) {
 	t.Helper()
-	_, temp := e.create(t, email, domain.RoleModerator)
+	_, temp := e.create(t, email, role)
 	if _, err := e.login(email, temp, password, "", now); err == nil {
 		t.Fatal("a first sign-in finished without TOTP")
 	}
