@@ -1,8 +1,8 @@
 # Development stack: postgres, restate, and otel-lgtm (profile obs, on via
 # .env). `make run` starts it and runs the server on the host.
 #
-# Ports sit in the 564xx-565xx range so this stack runs beside ai-portal and
-# the old shopnexus server.
+# Ports sit in the 564xx-565xx range, away from the usual ones, so the stack
+# runs beside other projects on the same machine.
 name: shopnexus-server2
 
 services:
