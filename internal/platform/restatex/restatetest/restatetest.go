@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -31,9 +32,12 @@ func URLs() (ingressURL, adminURL string, err error) {
 	return ingressURL, adminURL, nil
 }
 
-// identityFile is the key make test writes and mounts into the test stack's
-// Restate, which signs every request with it.
+// identityFile is the key the test stack's Restate signs every request with:
+// TEST_RESTATE_IDENTITY_FILE, or the one make test writes and mounts.
 func identityFile() string {
+	if path := os.Getenv("TEST_RESTATE_IDENTITY_FILE"); path != "" {
+		return path
+	}
 	_, file, _, _ := runtime.Caller(0)
 	return filepath.Join(filepath.Dir(file), "..", "..", "..", "..", ".restate", "identity.pem")
 }
