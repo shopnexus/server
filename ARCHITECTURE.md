@@ -1109,7 +1109,18 @@ formatting. The rules that shape the code:
   them, a handler or worker imports no repository, nothing imports a
   worker, and production code reaches another module only through its
   `service`. An error a client sees, such
-  as `account_not_found`, lives in `domain` for that reason.
+  as `account_not_found`, lives in `domain` for that reason. A worker's
+  tests may build its module's repositories.
+- The module and layer rules of depguard sit between the
+  `# BEGIN depguardgen` and `# END depguardgen` lines of `.golangci.yml`.
+  `make depguard` (`go run ./cmd/depguardgen -root .`) writes them from the
+  modules and layer packages under `internal/`, naming only packages that
+  exist; the policy itself is in `cmd/depguardgen/main.go`. Run it after
+  adding a module or a layer package: the test in `cmd/depguardgen` fails
+  while the rules are stale, so `make test` catches it.
+- interfacebloat skips a module's `Service` in `service/service.go` and the
+  store in `repository/repository.go`: a `Service` lists every use case, and
+  a module that keeps its tables in one store lists every query there.
 
 ### Restate in practice
 

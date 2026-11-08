@@ -16,8 +16,6 @@ var ErrNotFound = errors.New("chat: not found")
 
 // Chats persists conversations and their messages, and notifies the open
 // streams of the members a change concerns.
-//
-//nolint:interfacebloat // One store for one module's three tables, read and written together.
 type Chats interface {
 	// OpenPair inserts c with both members unless the pair has a
 	// conversation, and returns the pair's conversation.

@@ -22,8 +22,6 @@ import (
 )
 
 // Service is module catalog's contract.
-//
-//nolint:interfacebloat // One method per use case of the listing core; splitting it would split the module.
 type Service interface {
 	// Post puts a complete listing up for processing. A repeated
 	// idempotencyKey returns the listing it posted.

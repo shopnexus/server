@@ -18,8 +18,6 @@ var (
 )
 
 // Deals persists deals and their moves.
-//
-//nolint:interfacebloat // One store for deals with their orders and moves, read and written together.
 type Deals interface {
 	// Insert adds d and reports true, or false when the buyer already has
 	// a deal on the listing; then nothing is written.

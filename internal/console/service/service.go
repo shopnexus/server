@@ -18,8 +18,6 @@ import (
 
 // Service is module console's contract: one method per use case of the
 // console.
-//
-//nolint:interfacebloat // A module's contract lists all its use cases.
 type Service interface {
 	// Login signs a member in and starts a session.
 	Login(ctx context.Context, in LoginInput) (SignedIn, error)

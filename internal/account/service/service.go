@@ -25,8 +25,6 @@ import (
 )
 
 // Service is module account's contract.
-//
-//nolint:interfacebloat // One method per use case of accounts, suspensions, blocks and identities; AddressBook and Sessions add theirs.
 type Service interface {
 	AddressBook
 	Sessions

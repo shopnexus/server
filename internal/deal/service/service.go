@@ -25,8 +25,6 @@ import (
 )
 
 // Service is module deal's contract.
-//
-//nolint:interfacebloat // One method per use case of deals and their orders; splitting it would split the module.
 type Service interface {
 	// Open returns the buyer's deal on a listing, starting one when there is
 	// none; created reports a new deal.

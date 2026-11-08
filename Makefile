@@ -1,4 +1,4 @@
-.PHONY: env run test down
+.PHONY: env run test down depguard
 
 TEST_STACK := docker compose -f docker-compose.test.yml
 
@@ -34,3 +34,9 @@ test: env
 down:
 	docker compose down
 	$(TEST_STACK) down
+
+# Rewrites the depguard rules in .golangci.yml from the modules and layers
+# under internal/. Run it after adding a module or a layer package; a test
+# in cmd/depguardgen fails while the rules are stale.
+depguard:
+	go run ./cmd/depguardgen -root .
