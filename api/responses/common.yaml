@@ -35,7 +35,7 @@ Unprocessable:
       schema:
         $ref: "../schemas/error.yaml#/Error"
 PreconditionRequired:
-  description: "The caller must do something first: sign in again (reauth_required), or at a staff sign-in replace the temporary password (password_change_required), enroll TOTP (totp_enrollment_required) or send a code (totp_required)."
+  description: "The caller must do something first: sign in again (reauth_required), or at a console sign-in replace the temporary password (password_change_required), enroll TOTP (totp_enrollment_required) or send a code (totp_required)."
   content:
     application/json:
       schema:
@@ -46,8 +46,8 @@ TooManyRequests:
     application/json:
       schema:
         $ref: "../schemas/error.yaml#/Error"
-StaffForbidden:
-  description: "The caller's role is too low (staff_forbidden), or the target is an admin (admin_managed_by_cli)."
+ConsoleForbidden:
+  description: "The caller's role is too low (console_forbidden), or the target is an admin (admin_managed_by_cli)."
   content:
     application/json:
       schema:

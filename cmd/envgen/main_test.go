@@ -38,7 +38,7 @@ func TestEnsureEnvCreatesEveryKey(t *testing.T) {
 	}
 
 	got := read(t, env)
-	for _, k := range []string{"JWT_KEY_ID", "JWT_PRIVATE_KEY", "STAFF_KEY", "RESTATE_IDENTITY_KEY"} {
+	for _, k := range []string{"JWT_KEY_ID", "JWT_PRIVATE_KEY", "CONSOLE_KEY", "RESTATE_IDENTITY_KEY"} {
 		if value(got, k) == "" {
 			t.Errorf("%s is empty in\n%s", k, got)
 		}
@@ -81,7 +81,7 @@ func TestEnsureEnvFillsEmptyLinesAndKeepsOthers(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
 	env, pem := filepath.Join(dir, ".env"), filepath.Join(dir, "identity.pem")
-	if err := os.WriteFile(env, []byte("# a comment\nAPP_ENV=dev\nSTAFF_KEY=\n"), 0o644); err != nil {
+	if err := os.WriteFile(env, []byte("# a comment\nAPP_ENV=dev\nCONSOLE_KEY=\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -90,14 +90,14 @@ func TestEnsureEnvFillsEmptyLinesAndKeepsOthers(t *testing.T) {
 	}
 
 	got := read(t, env)
-	if !strings.HasPrefix(got, "# a comment\nAPP_ENV=dev\nSTAFF_KEY=") {
+	if !strings.HasPrefix(got, "# a comment\nAPP_ENV=dev\nCONSOLE_KEY=") {
 		t.Errorf("the existing lines moved:\n%s", got)
 	}
-	if n := strings.Count(got, "STAFF_KEY="); n != 1 {
-		t.Errorf("STAFF_KEY appears %d times:\n%s", n, got)
+	if n := strings.Count(got, "CONSOLE_KEY="); n != 1 {
+		t.Errorf("CONSOLE_KEY appears %d times:\n%s", n, got)
 	}
-	if value(got, "STAFF_KEY") == "" {
-		t.Errorf("STAFF_KEY stayed empty:\n%s", got)
+	if value(got, "CONSOLE_KEY") == "" {
+		t.Errorf("CONSOLE_KEY stayed empty:\n%s", got)
 	}
 	info, err := os.Stat(env)
 	if err != nil {

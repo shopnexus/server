@@ -5,7 +5,7 @@ TEST_STACK := docker compose -f docker-compose.test.yml
 IDENTITY := .restate/identity.pem
 
 # Writes .env from .env.example on first use and later adds the variables
-# the example gained, then fills in the keys: JWT, STAFF_KEY and the Restate
+# the example gained, then fills in the keys: JWT, CONSOLE_KEY and the Restate
 # request identity key, whose private half is $(IDENTITY). Keys already set
 # stay.
 env:

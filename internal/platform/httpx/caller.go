@@ -17,10 +17,10 @@ func Caller(w http.ResponseWriter, r *http.Request, log *slog.Logger) (authn.Pri
 	return p, ok
 }
 
-// StaffCaller returns the staff member of a route behind staff's
+// ConsoleCaller returns the console member of a route behind the console's
 // handler.Require, or writes 401 and reports false.
-func StaffCaller(w http.ResponseWriter, r *http.Request, log *slog.Logger) (authn.Staff, bool) {
-	s, ok := authn.StaffFrom(r.Context())
+func ConsoleCaller(w http.ResponseWriter, r *http.Request, log *slog.Logger) (authn.ConsoleMember, bool) {
+	s, ok := authn.ConsoleMemberFrom(r.Context())
 	if !ok {
 		WriteError(w, r, log, authn.ErrUnauthenticated)
 	}

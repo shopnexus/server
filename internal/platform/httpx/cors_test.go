@@ -9,7 +9,7 @@ import (
 func TestCORS(t *testing.T) {
 	t.Parallel()
 	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
-	h := CORS("http://console.test", "/v1/staff/")(next)
+	h := CORS("http://console.test", "/v1/console/")(next)
 	serve := func(method, path, origin string, preflight bool) *httptest.ResponseRecorder {
 		r := httptest.NewRequestWithContext(t.Context(), method, path, http.NoBody)
 		if origin != "" {
@@ -23,19 +23,19 @@ func TestCORS(t *testing.T) {
 		return w
 	}
 
-	w := serve(http.MethodOptions, "/v1/staff/login", "http://console.test", true)
+	w := serve(http.MethodOptions, "/v1/console/login", "http://console.test", true)
 	if w.Code != http.StatusNoContent || w.Header().Get("Access-Control-Allow-Origin") != "http://console.test" ||
 		w.Header().Get("Access-Control-Allow-Credentials") != "true" ||
 		w.Header().Get("Access-Control-Allow-Headers") != "Content-Type, X-Requested-With" {
 		t.Fatalf("preflight: %d %v", w.Code, w.Header())
 	}
-	if w := serve(http.MethodGet, "/v1/staff/me", "http://console.test", false); w.Code != http.StatusTeapot || w.Header().Get("Access-Control-Allow-Origin") != "http://console.test" {
+	if w := serve(http.MethodGet, "/v1/console/me", "http://console.test", false); w.Code != http.StatusTeapot || w.Header().Get("Access-Control-Allow-Origin") != "http://console.test" {
 		t.Fatalf("a request from the console: %d %v", w.Code, w.Header())
 	}
 	for name, w := range map[string]*httptest.ResponseRecorder{
-		"another origin":   serve(http.MethodOptions, "/v1/staff/me", "http://evil.test", true),
+		"another origin":   serve(http.MethodOptions, "/v1/console/me", "http://evil.test", true),
 		"the customer API": serve(http.MethodOptions, "/v1/accounts/me", "http://console.test", true),
-		"no origin":        serve(http.MethodGet, "/v1/staff/me", "", false),
+		"no origin":        serve(http.MethodGet, "/v1/console/me", "", false),
 	} {
 		if w.Header().Get("Access-Control-Allow-Origin") != "" || w.Code != http.StatusTeapot {
 			t.Errorf("%s: %d %v", name, w.Code, w.Header())

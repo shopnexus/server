@@ -44,7 +44,7 @@ new decisions there, not in Claude's memory.
   `go test ./internal/account/...` runs a single module. `golangci-lint fmt`
   applies gofumpt.
 - `make down`: stop both stacks.
-- `go run ./cmd/staff create-admin --email <email> --name <name>`: create a
-  staff admin and print its temporary password. `disable`, `enable`,
+- `go run ./cmd/console create-admin --email <email> --name <name>`: create a
+  console admin and print its temporary password. `disable`, `enable`,
   `unlock`, `reset-password` and `reset-totp` take `--email`. The API has no
   way to create or change an admin.

@@ -13,7 +13,7 @@ import (
 
 var testKeys = NewAuthKeys()
 
-var testStaffKey = NewStaffKey()
+var testConsoleKey = NewConsoleKey()
 
 func b64(b []byte) string { return base64.StdEncoding.EncodeToString(b) }
 
@@ -49,8 +49,8 @@ func required() map[string]string {
 		"JWT_PREVIOUS_PUBLIC_KEY":      "",
 		"JWT_ISSUER":                   "server2",
 		"JWT_AUDIENCE":                 "shopnexus-app",
-		"STAFF_KEY":                    b64(testStaffKey),
-		"STAFF_CONSOLE_ORIGIN":         "http://console.test",
+		"CONSOLE_KEY":                  b64(testConsoleKey),
+		"CONSOLE_ORIGIN":               "http://console.test",
 		"DASHBOARD_HOSTS":              "",
 		"OBJECT_STORE_ENDPOINT":        "http://rustfs:9000",
 		"OBJECT_STORE_PUBLIC_ENDPOINT": "https://photos.example.test",
@@ -121,8 +121,8 @@ func TestLoadAllSet(t *testing.T) {
 			Issuer:       "iss",
 			Audience:     "aud",
 		},
-		Staff: StaffConfig{
-			Key: testStaffKey, ConsoleOrigin: "http://console.test",
+		Console: ConsoleConfig{
+			Key: testConsoleKey, Origin: "http://console.test",
 			DashboardHosts: map[string]string{"grafana": "grafana.dev.example.test", "restate": "restate.dev.example.test"},
 		},
 		ObjectStore: ObjectStoreConfig{
@@ -148,7 +148,7 @@ func TestLoadAcceptsExplicitEmpty(t *testing.T) {
 	}
 	if got.OTLPEndpoint != "" || got.TrustedProxies != nil || got.Restate.EndpointURL != "" ||
 		got.Restate.ServicePrefix != "" || got.Auth.JWTPrevKeyID != "" || got.Auth.JWTPrevKey != nil ||
-		got.Staff.DashboardHosts != nil {
+		got.Console.DashboardHosts != nil {
 		t.Fatalf("empty variables: %+v", got)
 	}
 }
@@ -176,7 +176,7 @@ func TestLoadNamesEveryUnsetVariable(t *testing.T) {
 
 func TestLoadRejectsEmptyRequired(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"HTTP_ADDR", "DATABASE_URL", "SERVICE_NAME", "RESTATE_LISTEN_ADDR", "JWT_ISSUER", "JWT_AUDIENCE", "STAFF_CONSOLE_ORIGIN", "FIREBASE_PROJECT_ID", "FIREBASE_PROJECT_NUMBER", "FIREBASE_AUTH_JWKS_URL", "PNV_JWKS_URL"} {
+	for _, name := range []string{"HTTP_ADDR", "DATABASE_URL", "SERVICE_NAME", "RESTATE_LISTEN_ADDR", "JWT_ISSUER", "JWT_AUDIENCE", "CONSOLE_ORIGIN", "FIREBASE_PROJECT_ID", "FIREBASE_PROJECT_NUMBER", "FIREBASE_AUTH_JWKS_URL", "PNV_JWKS_URL"} {
 		env := required()
 		env[name] = ""
 		if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), name+" is empty") {
@@ -228,7 +228,7 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 			"JWT_PREVIOUS_KEY_ID": testKeys.JWTKeyID, "JWT_PREVIOUS_PUBLIC_KEY": b64(make([]byte, 32)),
 		}, "must differ"},
 		{"bad proxy", map[string]string{"TRUSTED_PROXIES": "10.0.0.0/8,nope"}, "TRUSTED_PROXIES"},
-		{"short staff key", map[string]string{"STAFF_KEY": b64(make([]byte, 16))}, "STAFF_KEY"},
+		{"short console key", map[string]string{"CONSOLE_KEY": b64(make([]byte, 16))}, "CONSOLE_KEY"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -338,7 +338,7 @@ func TestLoadRejectsBadDashboardHosts(t *testing.T) {
 	env := required()
 	env["DASHBOARD_HOSTS"] = "grafana=grafana.localhost,restate=restate.localhost,litellm=litellm.localhost,s3=s3.localhost,argocd=argocd.localhost"
 	got, err := Load(lookup(env))
-	if err != nil || len(got.Staff.DashboardHosts) != len(DashboardApps) {
-		t.Fatalf("every dashboard: %v %v", got.Staff.DashboardHosts, err)
+	if err != nil || len(got.Console.DashboardHosts) != len(DashboardApps) {
+		t.Fatalf("every dashboard: %v %v", got.Console.DashboardHosts, err)
 	}
 }

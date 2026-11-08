@@ -1,0 +1,112 @@
+package service
+
+import (
+	"net/netip"
+	"time"
+	"uuid"
+
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	"github.com/shopnexus/server2/internal/console/domain"
+	"github.com/shopnexus/server2/internal/platform/audit"
+)
+
+// Me is the Me schema in api/schemas/console.yaml.
+type Me struct {
+	ID          uuid.UUID   `json:"id"`
+	Email       string      `json:"email"`
+	DisplayName string      `json:"display_name"`
+	Role        domain.Role `json:"role"`
+}
+
+func meOf(m domain.Member) Me {
+	return Me{ID: m.ID(), Email: m.Email(), DisplayName: m.DisplayName(), Role: m.Role()}
+}
+
+// MemberView is the Member schema.
+type MemberView struct {
+	ID           uuid.UUID     `json:"id"`
+	Email        string        `json:"email"`
+	DisplayName  string        `json:"display_name"`
+	Role         domain.Role   `json:"role"`
+	Status       domain.Status `json:"status"`
+	TOTPEnrolled bool          `json:"totp_enrolled"`
+	LockedUntil  *time.Time    `json:"locked_until,omitempty"`
+	CreatedAt    time.Time     `json:"created_at"`
+}
+
+func viewOf(m domain.Member, lockedUntil *time.Time) MemberView {
+	return MemberView{
+		ID: m.ID(), Email: m.Email(), DisplayName: m.DisplayName(), Role: m.Role(), Status: m.Status(),
+		TOTPEnrolled: m.Enrolled(), LockedUntil: lockedUntil, CreatedAt: m.CreatedAt(),
+	}
+}
+
+// Enrollment is the TOTPEnrollment schema.
+type Enrollment struct {
+	Secret     string `json:"secret"`
+	OTPAuthURI string `json:"otpauth_uri"`
+}
+
+// LoginInput is one call to /v1/console/login, from IP.
+type LoginInput struct {
+	Email       string
+	Password    string
+	NewPassword string
+	Code        string
+	UserAgent   string
+	IP          netip.Addr
+}
+
+// SignedIn is a finished sign-in: the member, and the token and end of the
+// session for the cookie.
+type SignedIn struct {
+	Me        Me
+	Token     string
+	ExpiresAt time.Time
+}
+
+// CreateMemberInput creates a member with Role, recorded for By.
+type CreateMemberInput struct {
+	Email       string
+	DisplayName string
+	Role        domain.Role
+	By          audit.Actor
+}
+
+// AccountDetail is the ConsoleAccountDetail schema.
+type AccountDetail struct {
+	Account    accountsvc.Record     `json:"account"`
+	Identities []accountsvc.Identity `json:"identities"`
+	Actions    []audit.Action        `json:"actions"`
+}
+
+// DashboardTicket is the DashboardTicket schema.
+type DashboardTicket struct {
+	Ticket      string `json:"ticket"`
+	CallbackURL string `json:"callback_url"`
+}
+
+// DashboardOpened is a spent ticket: the dashboard cookie's token and how
+// long the cookie lasts, which is what its console session has left.
+type DashboardOpened struct {
+	Token string
+	TTL   time.Duration
+}
+
+// DashboardCheck is one forwardAuth call: the dashboard's host, the path and
+// query asked for, and the console_dashboard cookie's value.
+type DashboardCheck struct {
+	Host  string
+	URI   string
+	Token string
+}
+
+// DashboardAccess answers a DashboardCheck. Granted carries the member's
+// email and the role the dashboard reads; otherwise OpenURL is the
+// console's page that asks for a ticket and comes back to the URI.
+type DashboardAccess struct {
+	Granted bool
+	Email   string
+	Role    string
+	OpenURL string
+}

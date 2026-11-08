@@ -17,15 +17,15 @@ import (
 
 var at = time.Date(2026, 10, 24, 9, 0, 0, 0, time.UTC)
 
-// newMember inserts a staff_members row so a staff actor can reference it.
+// newMember inserts a console_members row so a member actor can reference it.
 func newMember(t *testing.T, db *pgxpool.Pool, name string) uuid.UUID {
 	t.Helper()
 	id := uuid.NewV7()
 	_, err := db.Exec(context.Background(), `
-INSERT INTO staff_members (id, email, display_name, staff_role, status, password_hash, must_change_password,
+INSERT INTO console_members (id, email, display_name, console_role, status, password_hash, must_change_password,
                            credentials_version, totp_last_step, created_at, updated_at, write_id)
 VALUES (@id, @email, @name, 'moderator', 'active', 'x', false, 1, 0, @at, @at, @id)`,
-		pgx.StrictNamedArgs{"id": id, "email": id.String() + "@staff.test", "name": name, "at": at})
+		pgx.StrictNamedArgs{"id": id, "email": id.String() + "@console.test", "name": name, "at": at})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,9 +48,9 @@ func TestListFiltersAndPages(t *testing.T) {
 	acc := uuid.NewV7()
 	ip := netip.MustParseAddr("203.0.113.9")
 
-	insert(t, db, audit.Entry{Actor: audit.ByCLI("root"), Action: audit.StaffCreate, Target: audit.Staff(mod), At: at})
+	insert(t, db, audit.Entry{Actor: audit.ByCLI("root"), Action: audit.MemberCreate, Target: audit.Member(mod), At: at})
 	insert(t, db, audit.Entry{
-		Actor:  audit.Actor{Kind: audit.ActorStaff, StaffID: mod, IP: ip},
+		Actor:  audit.Actor{Kind: audit.ActorMember, MemberID: mod, IP: ip},
 		Action: audit.AccountSuspend, Target: audit.Account(acc), Details: map[string]any{"reason": "spam"}, At: at.Add(time.Second),
 	})
 
@@ -63,14 +63,14 @@ func TestListFiltersAndPages(t *testing.T) {
 		t.Fatalf("newest first, with the member's name: %+v", all[0])
 	}
 	if all[1].Actor.Kind != audit.ActorCLI || all[1].Actor.DisplayName != "root" || all[1].IP != "" ||
-		all[1].Actor.StaffID != nil || len(all[1].Details) != 0 {
+		all[1].Actor.MemberID != nil || len(all[1].Details) != 0 {
 		t.Fatalf("cli row: %+v", all[1])
 	}
 
 	byTarget, _ := s.List(ctx, audit.Filter{TargetID: acc}, page.Request{Limit: 10})
-	byStaff, _ := s.List(ctx, audit.Filter{StaffID: mod}, page.Request{Limit: 10})
-	if len(byTarget) != 1 || len(byStaff) != 1 {
-		t.Fatalf("filters: %d %d", len(byTarget), len(byStaff))
+	byMember, _ := s.List(ctx, audit.Filter{MemberID: mod}, page.Request{Limit: 10})
+	if len(byTarget) != 1 || len(byMember) != 1 {
+		t.Fatalf("filters: %d %d", len(byTarget), len(byMember))
 	}
 
 	first, _ := s.List(ctx, audit.Filter{}, page.Request{Limit: 1})

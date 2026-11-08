@@ -22,25 +22,25 @@ Limit:
     minimum: 1
     maximum: 100
     default: 20
-StaffCSRF:
+ConsoleCSRF:
   name: X-Requested-With
   in: header
   required: true
   description: |
-    Must be shopnexus-console on every staff call. A form or link on another
+    Must be shopnexus-console on every console call. A form or link on another
     site cannot set it, which stops cross-site requests riding the session
     cookie, sign-in included.
   schema:
     type: string
     enum: [shopnexus-console]
-StaffMemberID:
+ConsoleMemberID:
   name: id
   in: path
   required: true
   schema:
     type: string
     format: uuid
-StaffAccountID:
+ConsoleAccountID:
   name: id
   in: path
   required: true

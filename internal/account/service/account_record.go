@@ -8,7 +8,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
-// Record reads one account as staff see it.
+// Record reads one account as console members see it.
 func (s *Account) Record(ctx context.Context, id uuid.UUID) (Record, error) {
 	a, err := s.load(ctx, id)
 	if err != nil {

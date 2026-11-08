@@ -41,7 +41,7 @@ type Service interface {
 	Update(ctx context.Context, id uuid.UUID, in UpdateInput) (AccountView, error)
 	// Status is the status in force now.
 	Status(ctx context.Context, id uuid.UUID) (domain.Status, error)
-	// Record reads one account as staff see it.
+	// Record reads one account as console members see it.
 	Record(ctx context.Context, id uuid.UUID) (Record, error)
 	// Records lists accounts newest first: the p.Fetch() rows read, for the
 	// caller to cut into a page.

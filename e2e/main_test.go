@@ -20,15 +20,15 @@ import (
 
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/app"
+	"github.com/shopnexus/server2/internal/console"
+	consoledomain "github.com/shopnexus/server2/internal/console/domain"
+	consolesvc "github.com/shopnexus/server2/internal/console/service"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
-	"github.com/shopnexus/server2/internal/staff"
-	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
-	staffsvc "github.com/shopnexus/server2/internal/staff/service"
 )
 
 var (
@@ -41,10 +41,10 @@ var (
 		k.Issuer, k.Audience = "server2-e2e", "shopnexus-app-e2e"
 		return k
 	}()
-	issuer   *firebasetest.Issuer // signs the phone tokens; the server's key URLs point at it
-	model    = newModel()         // the model that reads search queries
-	phones   = newPhones()        // every push the server sends
-	staffSvc *staffsvc.Staff      // on the server's keys and database, so tests create members directly
+	issuer     *firebasetest.Issuer // signs the phone tokens; the server's key URLs point at it
+	model      = newModel()         // the model that reads search queries
+	phones     = newPhones()        // every push the server sends
+	consoleSvc *consolesvc.Console  // on the server's keys and database, so tests create members directly
 )
 
 func TestMain(m *testing.M) {
@@ -104,8 +104,8 @@ func run(m *testing.M) int {
 		ObjectStore: objectStoreCfg,
 		Restate:     restateCfg,
 		Auth:        keys,
-		Staff: config.StaffConfig{
-			Key: config.NewStaffKey(), ConsoleOrigin: "http://console.e2e",
+		Console: config.ConsoleConfig{
+			Key: config.NewConsoleKey(), Origin: "http://console.e2e",
 			DashboardHosts: map[string]string{"grafana": "grafana.e2e.test", "restate": "restate.e2e.test"},
 		},
 		LLM:      config.LLMConfig{BaseURL: model.url(), APIKey: "e2e", Model: "e2e"},
@@ -113,15 +113,15 @@ func run(m *testing.M) int {
 		// Tests may set X-Forwarded-For.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}
-	staffKeys, err := staffsvc.NewKeys(cfg.Staff, staffdomain.Fast)
+	consoleKeys, err := consolesvc.NewKeys(cfg.Console, consoledomain.Fast)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
 	}
-	staffSvc = staff.NewService(pool, staffKeys, cfg.Staff, nil, time.Now)
+	consoleSvc = console.NewService(pool, consoleKeys, cfg.Console, nil, time.Now)
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones),
-		app.WithPasswordHasher(staffdomain.Fast))
+		app.WithPasswordHasher(consoledomain.Fast))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1

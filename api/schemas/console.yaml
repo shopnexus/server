@@ -1,0 +1,303 @@
+LoginRequest:
+  type: object
+  additionalProperties: false
+  required: [email, password]
+  properties:
+    email:
+      type: string
+      minLength: 1
+      maxLength: 254
+      description: As typed; the server trims and lower-cases it, so this has no email format check.
+    password:
+      type: string
+      minLength: 1
+      maxLength: 1024
+    new_password:
+      type: string
+      minLength: 1
+      maxLength: 1024
+      description: |
+        Replaces the temporary password at the first sign-in; ignored
+        afterwards. 12 to 128 characters, not the email and not the current
+        password. Later calls send it as password.
+    code:
+      type: string
+      pattern: "^[0-9]{6}$"
+      description: The TOTP code, once the member has started or finished enrollment.
+EnrollmentRequest:
+  type: object
+  additionalProperties: false
+  required: [email, password]
+  properties:
+    email:
+      type: string
+      minLength: 1
+      maxLength: 254
+    password:
+      type: string
+      minLength: 1
+      maxLength: 1024
+TOTPEnrollment:
+  type: object
+  additionalProperties: false
+  required: [secret, otpauth_uri]
+  properties:
+    secret:
+      type: string
+      description: Base32, for typing into an authenticator by hand.
+    otpauth_uri:
+      type: string
+      description: For a QR code.
+Me:
+  type: object
+  additionalProperties: false
+  required: [id, email, display_name, role]
+  properties:
+    id:
+      type: string
+      format: uuid
+    email:
+      type: string
+    display_name:
+      type: string
+    role:
+      type: string
+      enum: [moderator, admin]
+ChangePasswordRequest:
+  type: object
+  additionalProperties: false
+  required: [current_password, new_password]
+  properties:
+    current_password:
+      type: string
+      minLength: 1
+      maxLength: 1024
+    new_password:
+      type: string
+      minLength: 1
+      maxLength: 1024
+Member:
+  type: object
+  additionalProperties: false
+  required: [id, email, display_name, role, status, totp_enrolled, created_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    email:
+      type: string
+    display_name:
+      type: string
+    role:
+      type: string
+      enum: [moderator, admin]
+    status:
+      type: string
+      enum: [active, disabled]
+    totp_enrolled:
+      type: boolean
+    locked_until:
+      type: string
+      format: date-time
+      description: Present while failed sign-ins lock the member's email.
+    created_at:
+      type: string
+      format: date-time
+MemberList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Member"
+    next_cursor:
+      type: string
+      format: uuid
+CreateMemberRequest:
+  type: object
+  additionalProperties: false
+  required: [email, display_name]
+  properties:
+    email:
+      type: string
+      format: email
+      maxLength: 254
+    display_name:
+      type: string
+      minLength: 1
+      maxLength: 100
+CreatedMember:
+  type: object
+  additionalProperties: false
+  required: [member, temporary_password]
+  properties:
+    member:
+      $ref: "#/Member"
+    temporary_password:
+      type: string
+      description: Shown once; the member must replace it at the first sign-in.
+TemporaryPassword:
+  type: object
+  additionalProperties: false
+  required: [temporary_password]
+  properties:
+    temporary_password:
+      type: string
+ConsoleAccount:
+  type: object
+  additionalProperties: false
+  required: [id, display_name, status, created_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+    status:
+      type: string
+      enum: [active, suspended]
+    suspended_until:
+      type: string
+      format: date-time
+    suspend_reason:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+ConsoleAccountList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/ConsoleAccount"
+    next_cursor:
+      type: string
+      format: uuid
+Identity:
+  type: object
+  additionalProperties: false
+  required: [kind, value]
+  properties:
+    kind:
+      type: string
+      enum: [phone]
+    value:
+      type: string
+ConsoleAccountDetail:
+  type: object
+  additionalProperties: false
+  required: [account, identities, actions]
+  properties:
+    account:
+      $ref: "#/ConsoleAccount"
+    identities:
+      type: array
+      items:
+        $ref: "#/Identity"
+    actions:
+      type: array
+      description: The 20 latest console actions on the account, newest first.
+      items:
+        $ref: "#/Action"
+SuspendRequest:
+  type: object
+  additionalProperties: false
+  required: [reason]
+  properties:
+    reason:
+      type: string
+      minLength: 1
+      maxLength: 500
+    until:
+      type: string
+      format: date-time
+      description: Absent for a suspension without an end.
+Action:
+  type: object
+  additionalProperties: false
+  required: [id, at, actor, action, details]
+  properties:
+    id:
+      type: string
+      format: uuid
+    at:
+      type: string
+      format: date-time
+    actor:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      properties:
+        kind:
+          type: string
+          enum: [member, cli]
+        member_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          description: The console member's name, or the OS user for the CLI.
+    ip:
+      type: string
+    action:
+      type: string
+      enum:
+        - account.suspend
+        - account.unsuspend
+        - member.create
+        - member.disable
+        - member.enable
+        - member.reset_password
+        - member.reset_totp
+        - member.unlock
+    target:
+      type: object
+      additionalProperties: false
+      required: [kind, id]
+      properties:
+        kind:
+          type: string
+          enum: [account, member]
+        id:
+          type: string
+          format: uuid
+    details:
+      type: object
+      description: What the action needs beyond its name, such as a suspension's reason and end. Never a secret.
+ActionList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Action"
+    next_cursor:
+      type: string
+      format: uuid
+DashboardTicketRequest:
+  type: object
+  additionalProperties: false
+  required: [app]
+  properties:
+    app:
+      type: string
+      enum: [grafana, restate, litellm, s3, argocd]
+      description: Grafana opens for moderators and admins; the others for admins.
+DashboardTicket:
+  type: object
+  additionalProperties: false
+  required: [ticket, callback_url]
+  properties:
+    ticket:
+      type: string
+      description: Opaque; opens the dashboard once within 60 seconds.
+    callback_url:
+      type: string
+      description: https://<the dashboard's host>/_dashboard/callback?ticket=<ticket>. The console adds rd and sends the browser there.

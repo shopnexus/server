@@ -171,7 +171,7 @@ func TestSaveAuditedWritesBothOrNeither(t *testing.T) {
 	entry := audit.Entry{Actor: audit.ByCLI("test"), Action: audit.AccountSuspend, Target: audit.Account(id), At: now}
 	count := func() int {
 		var n int
-		if err := db.QueryRow(ctx, `SELECT count(*) FROM staff_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&n); err != nil {
+		if err := db.QueryRow(ctx, `SELECT count(*) FROM console_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&n); err != nil {
 			t.Fatal(err)
 		}
 		return n

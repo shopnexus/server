@@ -36,24 +36,24 @@ func From(ctx context.Context) (Principal, bool) {
 	return p, ok
 }
 
-// Staff is the signed-in staff member. It is a different type from
-// Principal, so a customer handler never receives a staff caller or the
+// ConsoleMember is the signed-in console member. It is a different type from
+// Principal, so a customer handler never receives a console caller or the
 // other way round.
-type Staff struct {
-	StaffID   uuid.UUID
+type ConsoleMember struct {
+	MemberID  uuid.UUID
 	SessionID uuid.UUID
 	IP        netip.Addr
 }
 
-type staffKey struct{}
+type consoleMemberKey struct{}
 
-// WithStaff returns ctx carrying s.
-func WithStaff(ctx context.Context, s Staff) context.Context {
-	return context.WithValue(ctx, staffKey{}, s)
+// WithConsoleMember returns ctx carrying s.
+func WithConsoleMember(ctx context.Context, s ConsoleMember) context.Context {
+	return context.WithValue(ctx, consoleMemberKey{}, s)
 }
 
-// StaffFrom returns the staff caller in ctx, if any.
-func StaffFrom(ctx context.Context) (Staff, bool) {
-	s, ok := ctx.Value(staffKey{}).(Staff)
+// ConsoleMemberFrom returns the console caller in ctx, if any.
+func ConsoleMemberFrom(ctx context.Context) (ConsoleMember, bool) {
+	s, ok := ctx.Value(consoleMemberKey{}).(ConsoleMember)
 	return s, ok
 }

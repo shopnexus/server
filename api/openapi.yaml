@@ -131,64 +131,64 @@ paths:
     $ref: "paths/discovery.yaml#/saved"
   /v1/saved/{listing_id}:
     $ref: "paths/discovery.yaml#/savedListing"
-  /v1/staff/login:
-    $ref: "paths/staff.yaml#/login"
-  /v1/staff/login/totp-enrollment:
-    $ref: "paths/staff.yaml#/loginTotpEnrollment"
-  /v1/staff/logout:
-    $ref: "paths/staff.yaml#/logout"
-  /v1/staff/me:
-    $ref: "paths/staff.yaml#/me"
-  /v1/staff/me/password:
-    $ref: "paths/staff.yaml#/mePassword"
-  /v1/staff/members:
-    $ref: "paths/staff.yaml#/members"
-  /v1/staff/members/{id}/disable:
-    $ref: "paths/staff.yaml#/memberDisable"
-  /v1/staff/members/{id}/enable:
-    $ref: "paths/staff.yaml#/memberEnable"
-  /v1/staff/members/{id}/unlock:
-    $ref: "paths/staff.yaml#/memberUnlock"
-  /v1/staff/members/{id}/reset-password:
-    $ref: "paths/staff.yaml#/memberResetPassword"
-  /v1/staff/members/{id}/reset-totp:
-    $ref: "paths/staff.yaml#/memberResetTotp"
-  /v1/staff/accounts:
-    $ref: "paths/staff.yaml#/accounts"
-  /v1/staff/accounts/{id}:
-    $ref: "paths/staff.yaml#/account"
-  /v1/staff/accounts/{id}/suspend:
-    $ref: "paths/staff.yaml#/accountSuspend"
-  /v1/staff/accounts/{id}/unsuspend:
-    $ref: "paths/staff.yaml#/accountUnsuspend"
-  /v1/staff/actions:
-    $ref: "paths/staff.yaml#/actions"
-  /v1/staff/dashboard-tickets:
-    $ref: "paths/staff.yaml#/dashboardTickets"
-  /v1/staff/dashboard-auth:
-    $ref: "paths/staff.yaml#/dashboardAuth"
+  /v1/console/login:
+    $ref: "paths/console.yaml#/login"
+  /v1/console/login/totp-enrollment:
+    $ref: "paths/console.yaml#/loginTotpEnrollment"
+  /v1/console/logout:
+    $ref: "paths/console.yaml#/logout"
+  /v1/console/me:
+    $ref: "paths/console.yaml#/me"
+  /v1/console/me/password:
+    $ref: "paths/console.yaml#/mePassword"
+  /v1/console/members:
+    $ref: "paths/console.yaml#/members"
+  /v1/console/members/{id}/disable:
+    $ref: "paths/console.yaml#/memberDisable"
+  /v1/console/members/{id}/enable:
+    $ref: "paths/console.yaml#/memberEnable"
+  /v1/console/members/{id}/unlock:
+    $ref: "paths/console.yaml#/memberUnlock"
+  /v1/console/members/{id}/reset-password:
+    $ref: "paths/console.yaml#/memberResetPassword"
+  /v1/console/members/{id}/reset-totp:
+    $ref: "paths/console.yaml#/memberResetTotp"
+  /v1/console/accounts:
+    $ref: "paths/console.yaml#/accounts"
+  /v1/console/accounts/{id}:
+    $ref: "paths/console.yaml#/account"
+  /v1/console/accounts/{id}/suspend:
+    $ref: "paths/console.yaml#/accountSuspend"
+  /v1/console/accounts/{id}/unsuspend:
+    $ref: "paths/console.yaml#/accountUnsuspend"
+  /v1/console/actions:
+    $ref: "paths/console.yaml#/actions"
+  /v1/console/dashboard-tickets:
+    $ref: "paths/console.yaml#/dashboardTickets"
+  /v1/console/dashboard-auth:
+    $ref: "paths/console.yaml#/dashboardAuth"
   /_dashboard/callback:
-    $ref: "paths/staff.yaml#/dashboardCallback"
+    $ref: "paths/console.yaml#/dashboardCallback"
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-    staffAuth:
+    consoleAuth:
       type: apiKey
       in: cookie
-      name: staff_session
+      name: console_session
       description: |
-        The session cookie a staff sign-in sets: HttpOnly, Secure,
-        SameSite=Strict, path /v1/staff, eight hours. The server checks the
+        The session cookie a console sign-in sets: HttpOnly, Secure,
+        SameSite=Strict, path /v1/console, eight hours. The server checks the
         session and the member on every request.
     dashboardAuth:
       type: apiKey
       in: cookie
-      name: staff_dashboard
+      name: console_dashboard
       description: |
         The cookie of one ops dashboard's host, set by /_dashboard/callback:
         HttpOnly, Secure, SameSite=Lax, path /, no Domain. It lives as long
-        as the staff session it came from, and the server checks that
+        as the console session it came from, and the server checks that
         session and its member on every request.

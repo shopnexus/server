@@ -37,8 +37,8 @@ type UpdateInput struct {
 	RemoveAvatar bool
 }
 
-// Record is an account as staff see it: the StaffAccount schema in
-// api/schemas/staff.yaml. A suspension that has lapsed reads as active, with
+// Record is an account as console members see it: the ConsoleAccount schema in
+// api/schemas/console.yaml. A suspension that has lapsed reads as active, with
 // no reason or end.
 type Record struct {
 	ID             uuid.UUID     `json:"id"`
@@ -104,8 +104,8 @@ type SessionItem struct {
 	Current    bool      `json:"current"`
 }
 
-// Identity is a sign-in method as staff see it: the Identity schema in
-// api/schemas/staff.yaml.
+// Identity is a sign-in method as console members see it: the Identity schema in
+// api/schemas/console.yaml.
 type Identity struct {
 	Kind  domain.Kind `json:"kind"`
 	Value string      `json:"value"`

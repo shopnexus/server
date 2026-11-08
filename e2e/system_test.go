@@ -32,7 +32,7 @@ func TestReadyzDown(t *testing.T) {
 		DatabaseURL: pgtest.New(t).Config().ConnString(),
 		Restate:     restatetest.Config(t),
 		Auth:        keys,
-		Staff:       config.StaffConfig{Key: config.NewStaffKey(), ConsoleOrigin: "http://console.e2e"},
+		Console:     config.ConsoleConfig{Key: config.NewConsoleKey(), Origin: "http://console.e2e"},
 	}
 	objectStore, err := objectstoretest.Config()
 	if err != nil {

@@ -45,7 +45,7 @@ type Config struct {
 	Restate        RestateConfig
 	TrustedProxies []netip.Prefix // TRUSTED_PROXIES: CIDRs whose X-Forwarded-For is believed
 	Auth           AuthConfig
-	Staff          StaffConfig
+	Console        ConsoleConfig
 	ObjectStore    ObjectStoreConfig
 	LLM            LLMConfig
 	Push           PushConfig
@@ -87,11 +87,11 @@ type AuthConfig struct {
 	Audience     string             // JWT_AUDIENCE
 }
 
-// StaffConfig holds the staff module's key, the console's origin and the
+// ConsoleConfig holds module console's key, the console's origin and the
 // hosts of the ops dashboards. The key is never logged.
-type StaffConfig struct {
-	Key           []byte // STAFF_KEY: base64, at least 32 bytes; the staff subkeys derive from it
-	ConsoleOrigin string // STAFF_CONSOLE_ORIGIN: the web console's origin, the only one CORS allows
+type ConsoleConfig struct {
+	Key    []byte // CONSOLE_KEY: base64, at least 32 bytes; the console subkeys derive from it
+	Origin string // CONSOLE_ORIGIN: the web console's origin, the only one CORS allows
 	// DashboardHosts is DASHBOARD_HOSTS, "grafana=grafana.x.vn,restate=...":
 	// the host each ops dashboard is served at, keyed by one of
 	// DashboardApps, host names lower-cased. Empty refuses every dashboard.
@@ -99,7 +99,7 @@ type StaffConfig struct {
 }
 
 // DashboardApps are the ops dashboards DASHBOARD_HOSTS may name. Module
-// staff gives each the role that opens it.
+// console gives each the role that opens it.
 var DashboardApps = []string{"grafana", "restate", "litellm", "s3", "argocd"}
 
 // ObjectStoreConfig says where the S3-compatible object store (RustFS) is
@@ -267,9 +267,9 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Issuer:       need("JWT_ISSUER"),
 			Audience:     need("JWT_AUDIENCE"),
 		},
-		Staff: StaffConfig{
-			Key:            decodeKey("STAFF_KEY", 32, false),
-			ConsoleOrigin:  need("STAFF_CONSOLE_ORIGIN"),
+		Console: ConsoleConfig{
+			Key:            decodeKey("CONSOLE_KEY", 32, false),
+			Origin:         need("CONSOLE_ORIGIN"),
 			DashboardHosts: dashboardHosts,
 		},
 		ObjectStore: ObjectStoreConfig{

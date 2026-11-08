@@ -37,7 +37,7 @@ func TestVerifyRefusesAnotherAudience(t *testing.T) {
 	k := keys("current")
 	good, _, _ := domain.NewSigner(k).Sign(anySession(), now)
 	other := k
-	other.Audience = "shopnexus-staff"
+	other.Audience = "shopnexus-console"
 	if _, err := domain.NewVerifier(other).Verify(good, now); !errors.Is(err, domain.ErrInvalidToken) {
 		t.Fatalf("a customer token passed another audience: %v", err)
 	}

@@ -29,8 +29,8 @@ func (a AuthConfig) Env() string {
 	return fmt.Sprintf("JWT_KEY_ID=%s\nJWT_PRIVATE_KEY=%s\n", a.JWTKeyID, enc(a.JWTKey.Seed()))
 }
 
-// NewStaffKey returns a fresh STAFF_KEY. `make run` adds it to .env.
-func NewStaffKey() []byte {
+// NewConsoleKey returns a fresh CONSOLE_KEY. `make run` adds it to .env.
+func NewConsoleKey() []byte {
 	k := make([]byte, 32)
 	rand.Read(k)
 	return k

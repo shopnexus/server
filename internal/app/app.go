@@ -22,6 +22,9 @@ import (
 	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/catalog"
 	"github.com/shopnexus/server2/internal/chat"
+	"github.com/shopnexus/server2/internal/console"
+	consoledomain "github.com/shopnexus/server2/internal/console/domain"
+	consolesvc "github.com/shopnexus/server2/internal/console/service"
 	"github.com/shopnexus/server2/internal/deal"
 	"github.com/shopnexus/server2/internal/discovery"
 	"github.com/shopnexus/server2/internal/media"
@@ -38,9 +41,6 @@ import (
 	"github.com/shopnexus/server2/internal/provider/llm"
 	"github.com/shopnexus/server2/internal/provider/push"
 	"github.com/shopnexus/server2/internal/screen"
-	"github.com/shopnexus/server2/internal/staff"
-	staffdomain "github.com/shopnexus/server2/internal/staff/domain"
-	staffsvc "github.com/shopnexus/server2/internal/staff/service"
 	"github.com/shopnexus/server2/internal/trust"
 	"github.com/shopnexus/server2/migrations"
 )
@@ -64,16 +64,16 @@ type Option func(*options)
 
 type options struct {
 	push   push.Sender
-	hasher staffdomain.Hasher
+	hasher consoledomain.Hasher
 }
 
 // WithPushSender replaces the sender the configuration picks; e2e tests
 // read pushes from theirs.
 func WithPushSender(s push.Sender) Option { return func(o *options) { o.push = s } }
 
-// WithPasswordHasher sets the argon2id parameters of new staff passwords;
-// tests pass staffdomain.Fast.
-func WithPasswordHasher(h staffdomain.Hasher) Option { return func(o *options) { o.hasher = h } }
+// WithPasswordHasher sets the argon2id parameters of new member passwords;
+// tests pass consoledomain.Fast.
+func WithPasswordHasher(h consoledomain.Hasher) Option { return func(o *options) { o.hasher = h } }
 
 // Routes lists every registered route, for the route-versus-spec test.
 func (a *App) Routes() []httpx.Route { return a.router.Routes() }
@@ -86,10 +86,10 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if len(cfg.Auth.JWTKey) != ed25519.PrivateKeySize {
 		return nil, errors.New("auth keys missing from config; run make run, which adds them to .env")
 	}
-	if len(cfg.Staff.Key) < 32 || cfg.Staff.ConsoleOrigin == "" {
-		return nil, errors.New("staff key or console origin missing from config; run make run, which adds the key to .env")
+	if len(cfg.Console.Key) < 32 || cfg.Console.Origin == "" {
+		return nil, errors.New("console key or console origin missing from config; run make run, which adds the key to .env")
 	}
-	o := options{hasher: staffdomain.Production}
+	o := options{hasher: consoledomain.Production}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -167,7 +167,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	}()
 
 	// Trace is outermost so a panic's 500 still carries a trace id.
-	cors := httpx.CORS(cfg.Staff.ConsoleOrigin, "/v1/staff/")
+	cors := httpx.CORS(cfg.Console.Origin, "/v1/console/")
 	clientIP := httpx.ResolveClientIP(cfg.TrustedProxies)
 	a.Handler = httpx.Trace(httpx.Recover(log)(httpx.AccessLog(log)(clientIP(cors(validate(a.router))))))
 	return a, nil
@@ -212,11 +212,11 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	accountm := account.Mount(d, protect,
 		account.Settings{Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log)}, mediam.Service)
 	accounts := accountm.Service
-	staffKeys, err := staffsvc.NewKeys(cfg.Staff, o.hasher)
+	consoleKeys, err := consolesvc.NewKeys(cfg.Console, o.hasher)
 	if err != nil {
-		return nil, fmt.Errorf("staff keys: %w", err)
+		return nil, fmt.Errorf("console keys: %w", err)
 	}
-	staff.Mount(d, staffKeys, cfg.Staff, accounts)
+	console.Mount(d, consoleKeys, cfg.Console, accounts)
 	catalogm := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: account.Identify(d, cfg.Auth)},
 		accounts, mediam.Service)
 	dealm := deal.Mount(d, protect, accounts, catalogm.Service)

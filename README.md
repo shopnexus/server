@@ -35,7 +35,7 @@ A feature starts as its OpenAPI spec in `api/`. Middleware checks every request 
 |---|---|
 | `account` | Profiles, suspension, the address book, blocks |
 | `auth` | Phone sign-in through Firebase and per-device sessions |
-| `staff` | Moderator and admin accounts for the web console |
+| `console` | Moderator and admin accounts for the web console |
 | `catalog` | Listings, categories, provinces and communes |
 | `deal` | Price negotiation and COD orders |
 | `chat` | One conversation per buyer and seller |
@@ -63,4 +63,4 @@ make test   # every test against the test stack, then golangci-lint
 make down   # stop both stacks
 ```
 
-Configuration has no defaults: a missing variable stops the process with its name. Staff admins are created from the command line with `go run ./cmd/staff create-admin`; the API cannot create one.
+Configuration has no defaults: a missing variable stops the process with its name. Console admins are created from the command line with `go run ./cmd/console create-admin`; the API cannot create one.

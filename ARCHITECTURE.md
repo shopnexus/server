@@ -219,7 +219,7 @@ internal/account/
   account.go         Mount: builds the layers, returns service.Service
 ```
 
-Modules staff, media, catalog, deal, chat, trust and discovery have
+Modules console, media, catalog, deal, chat, trust and discovery have
 the same four packages; a module that reacts to events adds `worker`, and
 deal is the first that does. Module `screen` has no `repository` or
 `domain`: it only reads the other modules' services (see Screen).
@@ -252,8 +252,8 @@ handler, registers the routes, and returns what app and other modules need:
 `app.mountModules` calls each `Mount` in dependency order and imports no
 package inside a module. `account.Protect`, the sign-in middleware, needs
 only the auth keys, so app builds it first and hands it to every module with
-signed-in routes. `staff.NewService` builds the staff service on a pool;
-`staff.Mount`, `cmd/staff` and the e2e tests share it, and `cmd/staff`
+signed-in routes. `console.NewService` builds the console service on a pool;
+`console.Mount`, `cmd/console` and the e2e tests share it, and `cmd/console`
 passes no account service.
 
 Tests of other modules create accounts through `internal/account/accounttest`
@@ -277,9 +277,9 @@ separate work.
 
 No column is named after an SQL keyword (sqlfluff RF04, run with
 `sqlfluff lint migrations/`): `events.occurred_at` and `payload`,
-`staff_actions.action_kind` and `acted_at`, `identities.identifier`,
-`staff_login_locks.email_hash`,
-`staff_members.staff_role`, and `display_name` for categories, provinces and
+`console_actions.action_kind` and `acted_at`, `identities.identifier`,
+`console_login_locks.email_hash`,
+`console_members.console_role`, and `display_name` for categories, provinces and
 communes. Go fields and JSON keep their own names where an API already
 published them (`role`, `value`, `action`, `at`). `.sqlfluffignore` skips
 the generated `0005_regions.sql`, which is past the parser's node limit.
@@ -430,58 +430,64 @@ Two kinds of call skip the aggregate:
 The access token is checked by signature and expiry only; the middleware reads
 no database.
 
-### Staff and authorization
+### Console and authorization
 
-Moderators and admins run the web console on staff accounts of their own
-(module `staff`), separate from customer accounts.
+Moderators and admins run the web console as console members, on accounts
+of their own (module `console`), separate from customer accounts.
 `~/shopnexus/docs/superpowers/specs/2026-10-24-server2-staff-authorization-design.md` holds
 the decisions and the API.
 
-- Every sign-in call is `POST /v1/staff/login` with the email and the
+- Module `console` was module `staff` until 2026-11-08 (spec:
+  `~/shopnexus/docs/superpowers/specs/2026-11-08-console-rename-design.md`).
+  The tool is "console" and the person signed in to it is a "member", in
+  routes, tables, cookies, configuration and audit kinds. Migrations 0003
+  and 0023 were edited in place; every database was dropped once.
+
+- Every sign-in call is `POST /v1/console/login` with the email and the
   password. The server reads the member and answers 428 with what the call
   lacks: `password_change_required` (send `new_password`),
-  `totp_enrollment_required` (call `/v1/staff/login/totp-enrollment`, which
+  `totp_enrollment_required` (call `/v1/console/login/totp-enrollment`, which
   takes the email and password too, then send the first code) or
   `totp_required` (send `code`). An unknown email, a wrong password and a
   disabled member all get `invalid_credentials`.
-- Each call is charged to the email's lock in `staff_login_locks` before
+- Each call is charged to the email's lock in `console_login_locks` before
   anything is checked, in one statement, so concurrent guesses cannot pass
   the check together. A wrong password or code keeps the charge; any other
   answer refunds it. Five kept charges lock the email for 15 minutes,
   whether or not the email is a member's. The lock is keyed by an HMAC of
   the email, and a finished sign-in clears the count.
-- A finished sign-in sets the `staff_session` cookie: a random token,
-  `HttpOnly; Secure; SameSite=Strict`, path `/v1/staff`, 8 hours, never
-  extended. `staff_sessions` holds its SHA-256. There is no access token and
+- A finished sign-in sets the `console_session` cookie: a random token,
+  `HttpOnly; Secure; SameSite=Strict`, path `/v1/console`, 8 hours, never
+  extended. `console_sessions` holds its SHA-256. There is no access token and
   no refresh, so the console's tabs share one cookie.
-- Every staff route requires `X-Requested-With: shopnexus-console`, which a
+- Every console route requires `X-Requested-With: shopnexus-console`, which a
   form or link on another site cannot set. The spec declares it and
   `handler.FromConsole` checks it again. With SameSite=Strict, the console
   and the API must be on the same site (`console.x.vn` and `api.x.vn`).
-- `handler.Require(..., floor)` calls `Staff.Authenticate`, which reads the
+- `handler.Require(..., floor)` calls `Console.Authenticate`, which reads the
   session joined with its member on every request. A session lives while
   it is unrevoked, younger than 8 hours, its member is active, and its
   credentials version equals the member's. A password change, a password
   or TOTP reset and a disable raise the version, which ends every session
   of the member, the caller's included; enabling a member brings none back.
-- Admins exist only through `cmd/staff`. The API manages moderators, and
+- Admins exist only through `cmd/console`. The API manages moderators, and
   `Member.ManagedBy` refuses an admin target to anyone but the CLI.
-  `cmd/staff unlock` clears the sign-in lock on an admin's email, which
+  `cmd/console unlock` clears the sign-in lock on an admin's email, which
   anyone can set by sending five wrong passwords.
-- Every staff write on an account or on another member is a row in
-  `staff_actions`, written by `audit.Insert` inside the repository
+- Every member's write on an account or on another member is a row in
+  `console_actions`, written by `audit.Insert` inside the repository
   transaction of the change (`SaveAudited`, `CreateAudited`, `Unlock`). Its
   action is an `audit.ActionKind` constant (`audit.AccountSuspend`,
-  `audit.StaffDisable`, ...), the list the `Action` schema's enum names; a
+  `audit.MemberDisable`, ...), the list the `Action` schema's enum names; a
   new action adds both. `details` holds what the action does not say, such
   as a suspension's reason and end.
-  Refused sign-ins go to the log as `security: staff sign-in refused` with
-  the email and IP; finished ones are rows in `staff_sessions`.
+  Refused sign-ins go to the log as `security: console sign-in refused` with
+  the email and IP; finished ones are rows in `console_sessions`.
 - TOTP secrets are sealed with AES-GCM under a key HKDF derives from
-  `STAFF_KEY`, bound to the member's id. Passwords are argon2id
+  `CONSOLE_KEY`, bound to the member's id. Passwords are argon2id
   (64 MiB, 3 passes, 4 lanes) in PHC form, at most four runs at once.
-- Staff reaches customer data through `accountsvc.Service`. CORS allows
-  `STAFF_CONSOLE_ORIGIN` on `/v1/staff/` and nothing else.
+- Module console reaches customer data through `accountsvc.Service`. CORS allows
+  `CONSOLE_ORIGIN` on `/v1/console/` and nothing else.
 
 ### Ops dashboards
 
@@ -490,26 +496,26 @@ from the console on hosts of their own (decided 2026-11-05, spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-05-ops-dashboards-design.md`).
 Grafana takes a moderator; the others take an admin.
 
-- `POST /v1/staff/dashboard-tickets {app}` gives the console's session a
+- `POST /v1/console/dashboard-tickets {app}` gives the console's session a
   ticket (`dt_` and 32 random bytes) that opens the app once within 60
   seconds, with `callback_url` on the app's host.
 - `GET /_dashboard/callback?ticket=&rd=` runs on the app's host, which
   `DASHBOARD_HOSTS` (`grafana=grafana.x.vn,...`) maps to the app. One
   statement marks the ticket used and inserts the dashboard session, so a
   second callback with the same ticket finds it used. The cookie
-  `staff_dashboard` is host-only (`Path=/`, no `Domain`), `SameSite=Lax`
-  so the redirect from the console carries it, and lasts what the staff
+  `console_dashboard` is host-only (`Path=/`, no `Domain`), `SameSite=Lax`
+  so the redirect from the console carries it, and lasts what the console
   session has left. The redirect follows `rd` only when it starts with one
   `/` and holds no backslash or control character; otherwise it goes to `/`.
-- `GET /v1/staff/dashboard-auth` is Traefik's forwardAuth target. It reads
-  the app from `X-Forwarded-Host` and answers 200 with `X-Staff-Email` and
-  `X-Staff-Role` (Grafana's `Admin` or `Viewer` there), 302 to the console's
+- `GET /v1/console/dashboard-auth` is Traefik's forwardAuth target. It reads
+  the app from `X-Forwarded-Host` and answers 200 with `X-Console-Email` and
+  `X-Console-Role` (Grafana's `Admin` or `Viewer` there), 302 to the console's
   `/dashboards/open` for a GET without a session, 401 for other methods and
   403 below the app's floor or on a host `DASHBOARD_HOSTS` does not name.
-- `staff_dashboard_tickets` and `staff_dashboard_sessions` hold token
-  hashes and the staff session's ID, with `ON DELETE CASCADE`. A sign-out
-  revokes the staff session and deletes nothing, so every dashboard check
-  joins the staff session and its member with the same rules as
+- `console_dashboard_tickets` and `console_dashboard_sessions` hold token
+  hashes and the console session's ID, with `ON DELETE CASCADE`. A sign-out
+  revokes the console session and deletes nothing, so every dashboard check
+  joins the console session and its member with the same rules as
   `Authenticate` (`sessionLives` in `session_pg.go`). A new ticket deletes
   its session's expired tickets.
 - `DASHBOARD_HOSTS` is required and may be empty, which refuses every
