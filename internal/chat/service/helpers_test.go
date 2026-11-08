@@ -3,11 +3,9 @@ package service_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
-	"math/rand/v2"
 	"net/http"
 	"testing"
 	"time"
@@ -16,10 +14,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/restatedev/sdk-go/ingress"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountrepo "github.com/shopnexus/server2/internal/account/repository"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authdomain "github.com/shopnexus/server2/internal/auth/domain"
-	authrepo "github.com/shopnexus/server2/internal/auth/repository"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogrepo "github.com/shopnexus/server2/internal/catalog/repository"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
@@ -29,7 +26,6 @@ import (
 	mediarepo "github.com/shopnexus/server2/internal/media/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
@@ -56,7 +52,7 @@ func newEnv(t *testing.T) env {
 		t.Fatal(err)
 	}
 	in, p := ingress.NewClient(url), restatetest.Prefix()
-	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
+	accounts := accountsvc.New(accountsvc.Deps{Accounts: accountrepo.NewAccounts(db), Now: time.Now})
 	media := mediasvc.New(mediasvc.Deps{
 		Uploads: mediarepo.NewUploads(db), Store: objectstoretest.New(t), Ingress: in, Prefix: p, Now: time.Now,
 	})
@@ -77,27 +73,7 @@ func newEnv(t *testing.T) env {
 // person creates an account with a verified phone number.
 func (e env) person(t *testing.T) uuid.UUID {
 	t.Helper()
-	id := e.phoneless(t)
-	phone, err := contact.ParsePhone(fmt.Sprintf("09%08d", rand.IntN(100_000_000)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	now := time.Now()
-	creds := authdomain.NewCredentials(id, authdomain.NewIdentity(uuid.NewV7(), phone, now), now)
-	if err = authrepo.NewCredentials(e.db).Create(context.Background(), creds); err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
-
-// phoneless creates an account with no identity.
-func (e env) phoneless(t *testing.T) uuid.UUID {
-	t.Helper()
-	id := uuid.NewV7()
-	if err := e.accounts.Create(context.Background(), id, "Linh"); err != nil {
-		t.Fatal(err)
-	}
-	return id
+	return accounttest.WithPhone(t, e.db)
 }
 
 func (e env) suspend(t *testing.T, id uuid.UUID) {

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/chat/domain"
@@ -88,7 +89,7 @@ func TestOpenRefusals(t *testing.T) {
 			t.Errorf("%s: %v", c.name, err)
 		}
 	}
-	if _, err := e.chat.Open(ctx, e.phoneless(t), key(), service.OpenInput{ListingID: listing, Text: "Còn không?"}); err != nil {
+	if _, err := e.chat.Open(ctx, accounttest.New(t, e.db), key(), service.OpenInput{ListingID: listing, Text: "Còn không?"}); err != nil {
 		t.Fatalf("an account without a phone opens a chat: %v", err)
 	}
 }

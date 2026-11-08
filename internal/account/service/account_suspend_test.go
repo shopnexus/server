@@ -24,7 +24,7 @@ func TestSuspendRecordsTheChange(t *testing.T) {
 	id := seed(t, s)
 	until := now.Add(24 * time.Hour)
 
-	r, err := at(s, now).Suspend(ctx, service.SuspendInput{ID: id, Reason: "  spam  ", Until: &until, By: audit.ByCLI("test")})
+	r, err := at(s, nil, now).Suspend(ctx, service.SuspendInput{ID: id, Reason: "  spam  ", Until: &until, By: audit.ByCLI("test")})
 	if err != nil || r.Status != domain.StatusSuspended || r.SuspendReason != "spam" || !r.SuspendedUntil.Equal(until) {
 		t.Fatalf("%+v %v", r, err)
 	}
@@ -43,7 +43,7 @@ func TestSuspendRecordsTheChange(t *testing.T) {
 		t.Fatalf("account.suspended carries until: %q %v", carried, scanErr)
 	}
 
-	r, err = at(s, now).Reinstate(ctx, id, audit.ByCLI("test"))
+	r, err = at(s, nil, now).Reinstate(ctx, id, audit.ByCLI("test"))
 	if err != nil || r.Status != domain.StatusActive || r.SuspendReason != "" || r.SuspendedUntil != nil {
 		t.Fatalf("%+v %v", r, err)
 	}
@@ -55,13 +55,13 @@ func TestSuspendRefusals(t *testing.T) {
 	ctx := context.Background()
 	id := seed(t, s)
 	past := now.Add(-time.Hour)
-	if _, err := at(s, now).Suspend(ctx, service.SuspendInput{ID: id, Reason: "   ", By: audit.ByCLI("test")}); !errors.Is(err, domain.ErrSuspendReason) {
+	if _, err := at(s, nil, now).Suspend(ctx, service.SuspendInput{ID: id, Reason: "   ", By: audit.ByCLI("test")}); !errors.Is(err, domain.ErrSuspendReason) {
 		t.Fatalf("blank reason: %v", err)
 	}
-	if _, err := at(s, now).Suspend(ctx, service.SuspendInput{ID: id, Reason: "spam", Until: &past, By: audit.ByCLI("test")}); !errors.Is(err, domain.ErrSuspendUntil) {
+	if _, err := at(s, nil, now).Suspend(ctx, service.SuspendInput{ID: id, Reason: "spam", Until: &past, By: audit.ByCLI("test")}); !errors.Is(err, domain.ErrSuspendUntil) {
 		t.Fatalf("end in the past: %v", err)
 	}
-	if _, err := at(s, now).Suspend(ctx, service.SuspendInput{ID: uuid.NewV7(), Reason: "spam", By: audit.ByCLI("test")}); !errors.Is(err, domain.ErrAccountNotFound) {
+	if _, err := at(s, nil, now).Suspend(ctx, service.SuspendInput{ID: uuid.NewV7(), Reason: "spam", By: audit.ByCLI("test")}); !errors.Is(err, domain.ErrAccountNotFound) {
 		t.Fatalf("unknown account: %v", err)
 	}
 }
@@ -72,10 +72,10 @@ func TestRecordsHideALapsedSuspension(t *testing.T) {
 	ctx := context.Background()
 	id := seed(t, s)
 	until := now.Add(time.Hour)
-	if _, err := at(s, now).Suspend(ctx, service.SuspendInput{ID: id, Reason: "spam", Until: &until, By: audit.ByCLI("test")}); err != nil {
+	if _, err := at(s, nil, now).Suspend(ctx, service.SuspendInput{ID: id, Reason: "spam", Until: &until, By: audit.ByCLI("test")}); err != nil {
 		t.Fatal(err)
 	}
-	r, err := at(s, now.Add(2*time.Hour)).Record(ctx, id)
+	r, err := at(s, nil, now.Add(2*time.Hour)).Record(ctx, id)
 	if err != nil || r.Status != domain.StatusActive || r.SuspendReason != "" || r.SuspendedUntil != nil {
 		t.Fatalf("%+v %v", r, err)
 	}

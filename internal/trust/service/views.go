@@ -33,27 +33,8 @@ type ReviewView struct {
 	UpdatedAt time.Time  `json:"updated_at"`
 }
 
-// SellerReviews is the SellerReviews schema in api/schemas/trust.yaml.
-type SellerReviews struct {
-	Average    float64      `json:"average"`
-	Count      int          `json:"count"`
-	Items      []ReviewView `json:"items"`
-	NextCursor *uuid.UUID   `json:"next_cursor,omitempty"`
-}
-
-// SellerView is the Seller schema in api/schemas/trust.yaml.
-type SellerView struct {
-	ID          uuid.UUID `json:"id"`
-	DisplayName string    `json:"display_name"`
-	AvatarURL   string    `json:"avatar_url,omitempty"`
-	Bio         string    `json:"bio"`
-	JoinedAt    time.Time `json:"joined_at"`
-	Rating      Rating    `json:"rating"`
-	Sold        int       `json:"sold"`
-	OnSale      int       `json:"on_sale"`
-}
-
-// Rating is the average stars and the count over a seller's reviews.
+// Rating is the Rating schema in api/schemas/trust.yaml: the average stars
+// and the count over a seller's reviews.
 type Rating struct {
 	Average float64 `json:"average"`
 	Count   int     `json:"count"`

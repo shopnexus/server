@@ -51,6 +51,14 @@ func TestListingScreen(t *testing.T) {
 	if res := call(t, server, "POST", "/v1/listings/"+sold+"/mark-sold", nil, bearer(seller.AccessToken)); res.Status != http.StatusOK {
 		t.Fatalf("mark sold: %d", res.Status)
 	}
+	reviewer, _ := newAccount(t)
+	reviewed := requestedOrder(t, reviewer.AccessToken, activeListing(t, seller.AccessToken).ID)
+	if res := orderCall(t, seller.AccessToken, reviewed.ID, "ship", waybillBody); res.Status != http.StatusOK {
+		t.Fatalf("ship: %d %s", res.Status, res.Body)
+	}
+	if res := call(t, server, "PUT", "/v1/orders/"+reviewed.Order.ID+"/review", map[string]any{"stars": 4}, bearer(reviewer.AccessToken)); res.Status != http.StatusOK {
+		t.Fatalf("review: %d %s", res.Status, res.Body)
+	}
 	l := activeListing(t, seller.AccessToken)
 	path := "/v1/screens/listing/" + l.ID
 	get := func(name string, headers ...[2]string) listingScreen {
@@ -64,7 +72,8 @@ func TestListingScreen(t *testing.T) {
 
 	got := get("signed out")
 	if got.Listing.ID != l.ID || got.Seller.ID != seller.Account.ID || got.Seller.DisplayName != "Linh" ||
-		got.Seller.AvatarURL != avatar || got.Seller.JoinedAt == "" || got.Seller.Sold != 1 || got.Seller.Rating.Count != 0 {
+		got.Seller.AvatarURL != avatar || got.Seller.JoinedAt == "" || got.Seller.Sold != 1 ||
+		got.Seller.Rating.Average != 4 || got.Seller.Rating.Count != 1 {
 		t.Fatalf("signed out: %+v", got)
 	}
 	if got.Viewer != nil {

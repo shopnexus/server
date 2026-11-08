@@ -19,7 +19,7 @@ func (s *Staff) GetAccount(ctx context.Context, id uuid.UUID) (AccountDetail, er
 	if err != nil {
 		return AccountDetail{}, fmt.Errorf("get account: %w", err)
 	}
-	ids, err := s.auth.Identities(ctx, id)
+	ids, err := s.accounts.Identities(ctx, id)
 	if err != nil {
 		return AccountDetail{}, fmt.Errorf("list identities: %w", err)
 	}

@@ -3,11 +3,9 @@ package service_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
-	"math/rand/v2"
 	"net/http"
 	"testing"
 	"time"
@@ -17,16 +15,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/restatedev/sdk-go/ingress"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountrepo "github.com/shopnexus/server2/internal/account/repository"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authdomain "github.com/shopnexus/server2/internal/auth/domain"
-	authrepo "github.com/shopnexus/server2/internal/auth/repository"
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/catalog/service"
 	mediarepo "github.com/shopnexus/server2/internal/media/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
-	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
@@ -52,7 +48,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 		t.Fatal(err)
 	}
 	in, p := ingress.NewClient(url), restatetest.Prefix()
-	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
+	accounts := accountsvc.New(accountsvc.Deps{Accounts: accountrepo.NewAccounts(db), Now: time.Now})
 	m := mediasvc.New(mediasvc.Deps{Uploads: mediarepo.NewUploads(db), Store: store, Ingress: in, Prefix: p, Now: time.Now})
 	listings := repository.NewListings(db)
 	deps := service.Deps{
@@ -72,27 +68,13 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 // seller creates an account with a verified phone number.
 func (e env) seller(t *testing.T) uuid.UUID {
 	t.Helper()
-	id := e.account(t)
-	phone, err := contact.ParsePhone(fmt.Sprintf("09%08d", rand.IntN(100_000_000)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	now := time.Now()
-	creds := authdomain.NewCredentials(id, authdomain.NewIdentity(uuid.NewV7(), phone, now), now)
-	if err = authrepo.NewCredentials(e.db).Create(context.Background(), creds); err != nil {
-		t.Fatal(err)
-	}
-	return id
+	return accounttest.WithPhone(t, e.db)
 }
 
 // account creates an account with no sign-in method.
 func (e env) account(t *testing.T) uuid.UUID {
 	t.Helper()
-	id := uuid.NewV7()
-	if err := e.accounts.Create(context.Background(), id, "Linh"); err != nil {
-		t.Fatal(err)
-	}
-	return id
+	return accounttest.New(t, e.db)
 }
 
 func jpegBytes(t *testing.T) []byte {

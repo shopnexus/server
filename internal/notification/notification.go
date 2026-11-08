@@ -9,7 +9,6 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
@@ -32,7 +31,6 @@ type Mounted struct {
 // Sources are the modules whose changes notification tells of.
 type Sources struct {
 	Accounts accountsvc.Service
-	Auth     authsvc.Service
 	Catalog  catalogsvc.Service
 	Deals    dealsvc.Service
 	Chats    chatsvc.Service
@@ -47,7 +45,7 @@ func Mount(d module.Deps, protect func(http.Handler) http.Handler, src Sources, 
 	handler.New(svc, d.Log).Register(d.Router, protect)
 	w := worker.Worker{
 		Prefix: d.ServicePrefix, Notices: svc, Deals: src.Deals, Chats: src.Chats, Catalog: src.Catalog,
-		Trust: src.Trust, Accounts: src.Accounts, Auth: src.Auth, Push: sender, Log: d.Log,
+		Trust: src.Trust, Accounts: src.Accounts, Push: sender, Log: d.Log,
 	}
 	for kind, h := range map[events.Kind]string{
 		events.DealMoved: "DealMoved", events.MessageSent: "MessageSent", events.ListingPublished: "ListingPublished",

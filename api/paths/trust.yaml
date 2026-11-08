@@ -92,7 +92,7 @@ review:
 sellerReviews:
   get:
     operationId: listSellerReviews
-    summary: A seller's reviews, newest first, with the average and the count.
+    summary: A seller's reviews, newest first.
     tags: [trust]
     parameters:
       - name: id
@@ -109,7 +109,7 @@ sellerReviews:
         content:
           application/json:
             schema:
-              $ref: "../schemas/trust.yaml#/SellerReviews"
+              $ref: "../schemas/trust.yaml#/ReviewList"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "404":

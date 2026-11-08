@@ -14,7 +14,7 @@ func TestBlock(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
 	ctx := context.Background()
-	svc := at(s, now)
+	svc := at(s, nil, now)
 	a, b := seed(t, s), seed(t, s)
 	if err := svc.Block(ctx, a, a); !errors.Is(err, domain.ErrSelfBlock) {
 		t.Fatalf("self: %v", err)

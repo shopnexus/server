@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	authdomain "github.com/shopnexus/server2/internal/auth/domain"
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 )
 
 type tokens struct {
@@ -67,7 +67,7 @@ type sessionPage struct {
 
 func sessionOf(t *testing.T, accessToken string) string {
 	t.Helper()
-	p, err := authdomain.NewVerifier(keys).Verify(accessToken, time.Now())
+	p, err := accountdomain.NewVerifier(keys).Verify(accessToken, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,9 +95,9 @@ func TestLogoutAll(t *testing.T) {
 	t.Parallel()
 	first, phone := newAccount(t)
 	second := signInWith(t, phone)
-	p, _ := authdomain.NewVerifier(keys).Verify(second.AccessToken, time.Now())
-	s, _ := authdomain.NewSession(p.SessionID, p.AccountID, "", time.Now().Add(-20*time.Minute), time.Now())
-	stale, _, _ := authdomain.NewSigner(keys).Sign(s, time.Now())
+	p, _ := accountdomain.NewVerifier(keys).Verify(second.AccessToken, time.Now())
+	s, _ := accountdomain.NewSession(p.SessionID, p.AccountID, "", time.Now().Add(-20*time.Minute), time.Now())
+	stale, _, _ := accountdomain.NewSigner(keys).Sign(s, time.Now())
 	if res := call(t, server, "POST", "/v1/auth/logout-all", nil, bearer(stale)); res.Status != 428 || errorOf(t, res).Code != "reauth_required" {
 		t.Fatalf("stale sign-in: %d %s", res.Status, res.Body)
 	}

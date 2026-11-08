@@ -38,9 +38,9 @@ func seed(t *testing.T, s repository.Accounts) uuid.UUID {
 	return a.ID()
 }
 
-// TestPGStore checks that the Postgres store behaves as repository.Accounts
+// TestPGAccounts checks that the Postgres store behaves as repository.Accounts
 // promises.
-func TestPGStore(t *testing.T) {
+func TestPGAccounts(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	pgNow := time.Now().UTC().Truncate(time.Microsecond)
@@ -158,20 +158,6 @@ func TestPGStore(t *testing.T) {
 		}
 		if err := s.Save(ctx, &retry, w); err != nil {
 			t.Fatalf("retry: %v", err)
-		}
-	})
-
-	t.Run("delete is idempotent", func(t *testing.T) {
-		t.Parallel()
-		s := newStore(t)
-		a := fresh(t, s)
-		for range 2 {
-			if err := s.Delete(ctx, a.ID()); err != nil {
-				t.Fatal(err)
-			}
-		}
-		if _, err := s.Get(ctx, a.ID()); !errors.Is(err, repository.ErrNotFound) {
-			t.Fatalf("after delete: %v", err)
 		}
 	})
 }

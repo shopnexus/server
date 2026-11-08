@@ -41,7 +41,7 @@ new decisions there, not in Claude's memory.
 - `make test`: every test against the test stack, which it starts, then
   `golangci-lint run` (config in `.golangci.yml`; it includes `go vet` and
   gofumpt). After one `make test` the stack stays up, so
-  `go test ./internal/auth/` runs a single package. `golangci-lint fmt`
+  `go test ./internal/account/...` runs a single module. `golangci-lint fmt`
   applies gofumpt.
 - `make down`: stop both stacks.
 - `go run ./cmd/staff create-admin --email <email> --name <name>`: create a

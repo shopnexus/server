@@ -25,7 +25,7 @@ func (s *Staff) ListAccounts(ctx context.Context, q string, p page.Request) (pag
 	out := page.Page[accountsvc.Record]{Items: []accountsvc.Record{}}
 	id, parseErr := uuid.Parse(q)
 	if parseErr != nil {
-		found, ok, err := s.auth.FindAccount(ctx, q)
+		found, ok, err := s.accounts.FindByPhone(ctx, q)
 		if err != nil {
 			return page.Page[accountsvc.Record]{}, fmt.Errorf("find account: %w", err)
 		}

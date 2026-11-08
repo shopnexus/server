@@ -55,13 +55,42 @@ SellerScreen:
   required: [seller, listings, reviews]
   properties:
     seller:
-      $ref: "trust.yaml#/Seller"
+      $ref: "#/SellerProfile"
     listings:
       $ref: "catalog.yaml#/ListingList"
     reviews:
-      $ref: "trust.yaml#/SellerReviews"
+      $ref: "trust.yaml#/ReviewList"
     viewer:
       $ref: "#/SellerViewer"
+SellerProfile:
+  type: object
+  additionalProperties: false
+  required: [id, display_name, bio, joined_at, rating, sold, on_sale]
+  description: The seller as the seller view shows them.
+  properties:
+    id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+    avatar_url:
+      type: string
+      format: uri
+      description: A public 400 px square; absent without an avatar.
+    bio:
+      type: string
+      description: May be empty.
+    joined_at:
+      type: string
+      format: date-time
+    rating:
+      $ref: "trust.yaml#/Rating"
+    sold:
+      type: integer
+      description: Listings sold, through an order or marked by hand.
+    on_sale:
+      type: integer
+      description: Listings active or reserved for an order on its way.
 SellerViewer:
   type: object
   additionalProperties: false

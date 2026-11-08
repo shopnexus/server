@@ -29,9 +29,7 @@ type sellerScreen struct {
 	} `json:"seller"`
 	Listings pageOfListings `json:"listings"`
 	Reviews  struct {
-		Average float64 `json:"average"`
-		Count   int     `json:"count"`
-		Items   []struct {
+		Items []struct {
 			Stars int `json:"stars"`
 			Buyer struct {
 				AvatarURL string `json:"avatar_url"`
@@ -99,7 +97,7 @@ func TestSellerScreen(t *testing.T) {
 	if ls := got.Listings; len(ls.Items) != 2 || ls.Items[0].ID != reserved || ls.Items[1].ID != active || ls.NextCursor != "" {
 		t.Fatalf("listings: %+v", ls)
 	}
-	if r := got.Reviews; r.Average != 4 || r.Count != 1 || len(r.Items) != 1 || r.Items[0].Stars != 4 ||
+	if r := got.Reviews; len(r.Items) != 1 || r.Items[0].Stars != 4 ||
 		r.Items[0].Buyer.AvatarURL != buyerAvatar || r.NextCursor != "" {
 		t.Fatalf("reviews: %+v", r)
 	}

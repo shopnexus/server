@@ -1,5 +1,5 @@
 // Package service holds module trust's use cases: for now a buyer reviews
-// the seller of a shipped order, and anyone reads a seller's profile and
+// the seller of a shipped order, and anyone reads a seller's rating and
 // reviews.
 package service
 
@@ -25,11 +25,11 @@ type Service interface {
 	// ReviewFacts reads a review for its notification; false for an
 	// unknown one.
 	ReviewFacts(ctx context.Context, id uuid.UUID) (ReviewFacts, bool, error)
-	// SellerReviews reads a seller's average, count and reviews, newest first.
-	SellerReviews(ctx context.Context, seller uuid.UUID, p page.Request) (SellerReviews, error)
-	// Seller reads a seller's public profile with the rating and the
-	// listing counts.
-	Seller(ctx context.Context, id uuid.UUID) (SellerView, error)
+	// SellerReviews reads a page of a seller's reviews, newest first: the
+	// ReviewList schema in api/schemas/trust.yaml.
+	SellerReviews(ctx context.Context, seller uuid.UUID, p page.Request) (page.Page[ReviewView], error)
+	// Rating reads the average and count over a seller's reviews.
+	Rating(ctx context.Context, seller uuid.UUID) (Rating, error)
 }
 
 // Deps is what New builds Trust from.

@@ -13,7 +13,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
@@ -66,14 +66,14 @@ type catalog struct{ catalogsvc.Service }
 
 type trust struct{ trustsvc.Service }
 
-// auth answers that every session but the revoked ones is active.
-type auth struct {
-	authsvc.Service
+// accounts answers that every session but the revoked ones is active.
+type accounts struct {
+	accountsvc.Service
 
 	revoked map[uuid.UUID]bool
 }
 
-func (a auth) ActiveSessions(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
+func (a accounts) ActiveSessions(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
 	out := map[uuid.UUID]bool{}
 	for _, id := range ids {
 		out[id] = !a.revoked[id]
@@ -124,7 +124,7 @@ func newEnv(t *testing.T, revoked map[uuid.UUID]bool, once map[string]error) env
 	s := &sender{sent: map[string]int{}, body: map[string]string{}, once: once}
 	w := worker.Worker{
 		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{},
-		Auth: auth{revoked: revoked}, Push: s, Log: slog.New(slog.DiscardHandler),
+		Accounts: accounts{revoked: revoked}, Push: s, Log: slog.New(slog.DiscardHandler),
 	}
 	return env{db: db, notices: notices, push: s, worker: w}
 }

@@ -9,7 +9,6 @@ import (
 	"uuid"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/page"
@@ -77,10 +76,9 @@ type Deps struct {
 	Dashboards     repository.Dashboards
 	DashboardHosts map[string]string
 	ConsoleOrigin  string
-	// Accounts and Auth reach customer data; cmd/staff, which manages only
-	// members, leaves them nil.
+	// Accounts reaches customer data; cmd/staff, which manages only members,
+	// leaves it nil.
 	Accounts accountsvc.Service
-	Auth     authsvc.Service
 	Now      func() time.Time
 }
 
@@ -92,7 +90,6 @@ type Staff struct {
 	actions  audit.Store
 	keys     Keys
 	accounts accountsvc.Service
-	auth     authsvc.Service
 	now      func() time.Time
 
 	dashboards     repository.Dashboards
@@ -105,7 +102,7 @@ var _ Service = (*Staff)(nil)
 func New(d Deps) *Staff {
 	return &Staff{
 		members: d.Members, locks: d.Locks, sessions: d.Sessions, actions: d.Actions, keys: d.Keys,
-		accounts: d.Accounts, auth: d.Auth, now: d.Now,
+		accounts: d.Accounts, now: d.Now,
 		dashboards: d.Dashboards, dashboardHosts: d.DashboardHosts, consoleOrigin: d.ConsoleOrigin,
 	}
 }

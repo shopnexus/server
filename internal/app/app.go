@@ -20,7 +20,6 @@ import (
 
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/account"
-	"github.com/shopnexus/server2/internal/auth"
 	"github.com/shopnexus/server2/internal/catalog"
 	"github.com/shopnexus/server2/internal/chat"
 	"github.com/shopnexus/server2/internal/deal"
@@ -203,26 +202,27 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Router: router, Pool: pool, Ingress: in, ServicePrefix: cfg.Restate.ServicePrefix,
 		Events: bus, Now: time.Now, Log: log,
 	}
-	protect := auth.Protect(d, cfg.Auth)
+	protect := account.Protect(d, cfg.Auth)
 	router.Handle("GET /v1/stream", protect(hub.Handler(log)))
 	store, err := objectstore.New(cfg.ObjectStore)
 	if err != nil {
 		return nil, fmt.Errorf("object store: %w", err)
 	}
 	mediam := media.Mount(d, store, protect)
-	accounts := account.Mount(d, protect, mediam.Service)
-	authm := auth.Mount(d, auth.Settings{Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log)}, accounts)
+	accountm := account.Mount(d, protect,
+		account.Settings{Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log)}, mediam.Service)
+	accounts := accountm.Service
 	staffKeys, err := staffsvc.NewKeys(cfg.Staff, o.hasher)
 	if err != nil {
 		return nil, fmt.Errorf("staff keys: %w", err)
 	}
-	staff.Mount(d, staffKeys, cfg.Staff, accounts, authm.Service)
-	catalogm := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
+	staff.Mount(d, staffKeys, cfg.Staff, accounts)
+	catalogm := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: account.Identify(d, cfg.Auth)},
 		accounts, mediam.Service)
 	dealm := deal.Mount(d, protect, accounts, catalogm.Service)
 	trustm := trust.Mount(d, protect, accounts, catalogm.Service, dealm.Service)
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
-	saves := discovery.Mount(d, discovery.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
+	saves := discovery.Mount(d, discovery.Guards{Protect: protect, Identify: account.Identify(d, cfg.Auth)},
 		catalogm.Service, model)
 	chatm := chat.Mount(d, protect, accounts, catalogm.Service, mediam.Service)
 	sender := o.push
@@ -237,11 +237,11 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		}
 	}
 	notificationm := notification.Mount(d, protect, notification.Sources{
-		Accounts: accounts, Auth: authm.Service, Catalog: catalogm.Service, Deals: dealm.Service, Chats: chatm.Service, Trust: trustm,
+		Accounts: accounts, Catalog: catalogm.Service, Deals: dealm.Service, Chats: chatm.Service, Trust: trustm,
 	}, sender)
-	screen.Mount(d, screen.Guards{Protect: protect, Identify: auth.Identify(d, cfg.Auth)},
+	screen.Mount(d, screen.Guards{Protect: protect, Identify: account.Identify(d, cfg.Auth)},
 		accounts, catalogm.Service, dealm.Service, trustm, saves, chatm.Service, notificationm.Service)
-	return slices.Concat(authm.Services, mediam.Services, catalogm.Services, dealm.Services, chatm.Services,
+	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, dealm.Services, chatm.Services,
 		notificationm.Services), nil
 }
 

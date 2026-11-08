@@ -1,4 +1,6 @@
-// Package domain holds the account entity and its rules.
+// Package domain holds module account's entities and their rules: the
+// account, its addresses, its credentials, and sessions with the tokens
+// signed for them. It sends nothing and stores nothing.
 package domain
 
 import (

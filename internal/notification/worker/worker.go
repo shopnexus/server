@@ -12,7 +12,6 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
@@ -33,7 +32,6 @@ type Worker struct {
 	Catalog  catalogsvc.Service
 	Trust    trustsvc.Service
 	Accounts accountsvc.Service
-	Auth     authsvc.Service
 	Push     push.Sender
 	Log      *slog.Logger
 }
@@ -220,7 +218,7 @@ func (w Worker) deliver(ctx restate.Context, account uuid.UUID, m push.Message) 
 		for i, t := range all {
 			sessions[i] = t.Session
 		}
-		active, stepErr := w.Auth.ActiveSessions(rc, sessions)
+		active, stepErr := w.Accounts.ActiveSessions(rc, sessions)
 		if stepErr != nil {
 			return nil, fmt.Errorf("read sessions: %w", stepErr)
 		}

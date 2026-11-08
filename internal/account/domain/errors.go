@@ -1,6 +1,11 @@
 package domain
 
-import "github.com/shopnexus/server2/internal/platform/apperr"
+import (
+	"errors"
+
+	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server2/internal/platform/token"
+)
 
 var (
 	ErrAccountNotFound = apperr.New(apperr.KindNotFound, "account_not_found", "account not found")
@@ -13,4 +18,16 @@ var (
 	ErrAddressNotFound = apperr.New(apperr.KindNotFound, "address_not_found", "no such address of the caller's")
 	ErrAddressLimit    = apperr.New(apperr.KindConflict, "address_limit_reached", "at most 10 addresses")
 	ErrInvalidAddress  = apperr.New(apperr.KindInvalid, "invalid_address", "the address breaks a rule; see fields")
+
+	ErrIdentityTaken   = apperr.New(apperr.KindConflict, "identity_taken", "this sign-in method belongs to another account")
+	ErrUnknownIdentity = errors.New("credentials: no such identity")
+
+	ErrInvalidRefreshToken = apperr.New(apperr.KindUnauthenticated, "invalid_refresh_token", "the refresh token is not valid")
+	ErrSessionRevoked      = apperr.New(apperr.KindUnauthenticated, "session_revoked", "the session was signed out")
+	ErrSessionExpired      = apperr.New(apperr.KindUnauthenticated, "session_expired", "the session has expired; sign in again")
+	ErrInvalidToken        = token.ErrInvalid
+	ErrReauthRequired      = apperr.New(apperr.KindPreconditionRequired, "reauth_required", "sign in again to do this")
+	// ErrSessionNotFound also answers for another account's session: a
+	// resource the caller may not see is 404, never 403.
+	ErrSessionNotFound = apperr.New(apperr.KindNotFound, "session_not_found", "no such session")
 )

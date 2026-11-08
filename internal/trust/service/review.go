@@ -92,26 +92,21 @@ func (s *Trust) DeleteReview(ctx context.Context, buyer, order uuid.UUID) error 
 	return nil
 }
 
-// SellerReviews reads one page of a seller's reviews with the average and
-// count over all of them.
-func (s *Trust) SellerReviews(ctx context.Context, seller uuid.UUID, p page.Request) (SellerReviews, error) {
+// SellerReviews reads one page of a seller's reviews, newest first. An
+// unknown seller is accountdomain.ErrAccountNotFound.
+func (s *Trust) SellerReviews(ctx context.Context, seller uuid.UUID, p page.Request) (page.Page[ReviewView], error) {
 	if _, err := s.accounts.Get(ctx, seller); err != nil {
-		return SellerReviews{}, fmt.Errorf("read the seller: %w", err)
-	}
-	average, count, err := s.reviews.Summary(ctx, seller)
-	if err != nil {
-		return SellerReviews{}, fmt.Errorf("summarize reviews: %w", err)
+		return page.Page[ReviewView]{}, fmt.Errorf("read the seller: %w", err)
 	}
 	rows, err := s.reviews.OfSeller(ctx, seller, p)
 	if err != nil {
-		return SellerReviews{}, fmt.Errorf("list reviews: %w", err)
+		return page.Page[ReviewView]{}, fmt.Errorf("list reviews: %w", err)
 	}
 	views, err := s.views(ctx, rows)
 	if err != nil {
-		return SellerReviews{}, err
+		return page.Page[ReviewView]{}, err
 	}
-	pg := page.Of(views, p, func(v ReviewView) uuid.UUID { return v.ID })
-	return SellerReviews{Average: average, Count: count, Items: pg.Items, NextCursor: pg.NextCursor}, nil
+	return page.Of(views, p, func(v ReviewView) uuid.UUID { return v.ID }), nil
 }
 
 // buyersOrder reads an order the caller bought; any other is

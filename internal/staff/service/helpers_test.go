@@ -48,7 +48,7 @@ func newEnv(t *testing.T) env {
 
 // at is Staff on the env's database with its clock stopped at t.
 func (e env) at(t time.Time) *service.Staff {
-	return staff.NewService(e.db, e.keys, e.cfg, nil, nil, func() time.Time { return t })
+	return staff.NewService(e.db, e.keys, e.cfg, nil, func() time.Time { return t })
 }
 
 func (e env) login(email, pw, newPassword, code string, at time.Time) (service.SignedIn, error) {

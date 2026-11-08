@@ -1,9 +1,7 @@
-// Package repository stores module account's accounts in Postgres.
 package repository
 
 import (
 	"context"
-	"errors"
 	"time"
 	"uuid"
 
@@ -14,20 +12,14 @@ import (
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
-var (
-	ErrNotFound = errors.New("account: not found")
-	ErrConflict = errors.New("account: changed meanwhile")
-)
-
-// Accounts persists accounts, their blocks and their address books. Each
-// method is its own transaction.
+// Accounts persists accounts, their blocks and their address books.
 //
 //nolint:interfacebloat // One method per store operation of accounts and blocks; Addresses adds the address book's.
 type Accounts interface {
 	Addresses
 
-	// Create inserts a; inserting the same id again does nothing, so a retried
-	// step is safe.
+	// Create inserts a without credentials; inserting the same id again does
+	// nothing. Sign-up goes through Credentials.SignUp instead.
 	Create(ctx context.Context, a domain.Account) error
 	// Get returns ErrNotFound for an unknown id.
 	Get(ctx context.Context, id uuid.UUID) (domain.Account, error)
@@ -45,9 +37,6 @@ type Accounts interface {
 	// List is a query: accounts with IDs below p.Before(), newest first, at
 	// most p.Fetch().
 	List(ctx context.Context, p page.Request) ([]domain.Account, error)
-	// Delete removes the account; deleting a missing one does nothing. Only
-	// the sign-up compensation calls it.
-	Delete(ctx context.Context, id uuid.UUID) error
 	// Block records that blocker blocks blocked, as id; blocking again
 	// changes nothing.
 	Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error

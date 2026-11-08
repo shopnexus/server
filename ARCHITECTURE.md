@@ -74,20 +74,25 @@ row and sets `next_cursor` to the ID of the last item kept.
 ### Transactions and concurrency
 
 A transaction lives inside a repository method and covers one aggregate.
-Concurrent writes are caught optimistically: `Save` fails with `ErrConflict`
+The one exception is sign-up: `Credentials.SignUp` inserts a new `Account`
+and its `Credentials` together, so a sign-up that loses the phone number
+writes neither. Concurrent writes are caught optimistically: `Save` fails with `ErrConflict`
 when the aggregate changed since it was read, and `write_id` (below) is the
 column that detects it. A use case that loses the race answers
 `apperr.ErrTryAgain` (409 `try_again`) in every module.
 
-### Aggregates in auth and account
+### Aggregates in account
 
-- `Account` (module account): display name, bio, avatar, status,
-  suspension.
-- `Address` (module account): one address of an account's address book.
-- `Credentials` (module auth): every phone identity of one account, later
-  its password. It holds the rule that an account keeps at least one identity.
-- `Session` (module auth): one signed-in device. It is separate because sessions
-  are unbounded and every refresh writes one.
+Module account holds who a person is and how they sign in. Module auth was
+merged into it on 2026-11-08, so a sign-up writes the account and its
+credentials in one transaction.
+
+- `Account`: display name, bio, avatar, status, suspension.
+- `Address`: one address of an account's address book.
+- `Credentials`: every phone identity of one account, later its password.
+  It holds the rule that an account keeps at least one identity.
+- `Session`: one signed-in device. It is separate because sessions are
+  unbounded and every refresh writes one.
 
 `UNIQUE (kind, value)` on identities spans accounts, so the database
 constraint holds it.
@@ -121,22 +126,22 @@ refresh keep working when Restate is down.
   outcome that changes nothing, such as a lost race on `last_used_at`.
 - A service takes `Now func() time.Time`, read once per invocation through a
   journaled step (`restatex.Now`), so tests move time by hand.
-- Sign-up touches two aggregates, `Account` and then `Credentials`, so
-  service `SignIn` runs it as a saga. When `Credentials.Create` returns
-  `ErrTaken`, because another sign-up took the identity between the lookup
-  and the insert, a step deletes the account and the client gets
-  `try_again`. Restate retries every other failure, so no step ends the
-  saga with a terminal error.
+- Sign-up writes two aggregates, `Account` and `Credentials`, in one step:
+  `Credentials.SignUp` inserts both in one transaction. When it returns
+  `ErrIdentityTaken`, because another sign-up took the identity between the lookup
+  and the insert, nothing was written and the client gets `try_again`.
+  Restate retries every other failure, so no step ends the run with a
+  terminal error.
 - Every step inside `restate.Run` is idempotent. IDs are minted before the
   step by `restatex.NewID(ctx, at)`, a UUIDv7 built from the journaled clock
   and the invocation's deterministic random generator (`restate.UUID` gives
   version 4, which would break the spec's time-ordered cursors). Inserts use
   `ON CONFLICT (id) DO NOTHING`. The same ID is the idempotency key sent to a
   payment provider.
-- Module auth's Restate service, `SignIn`, lives in
-  `auth/service/sign_in_durable.go`. `Auth.SignIn` calls it through
-  `restatex.Caller`, and `Auth.Durable` returns its definition for
-  `auth.Mount`.
+- Module account's Restate service, `SignIn`, lives in
+  `account/service/sign_in_durable.go`. `Account.SignIn` calls it through
+  `restatex.Caller`, and `Account.Durable` returns its definition for
+  `account.Mount`.
 
 ### Events
 
@@ -198,7 +203,8 @@ internal/account/
   domain/            entity and its rules, business errors
     account.go
   repository/        one interface per aggregate, its Postgres version and tests
-    account.go         interface Accounts, ErrNotFound, ErrConflict
+    repository.go      package doc, ErrNotFound, ErrConflict
+    account.go         interface Accounts
     account_pg.go      hand-written SQL, one transaction per method
     account_pg_test.go
   service/           the module's contract and use cases
@@ -213,7 +219,7 @@ internal/account/
   account.go         Mount: builds the layers, returns service.Service
 ```
 
-Modules auth, staff, media, catalog, deal, chat, trust and discovery have
+Modules staff, media, catalog, deal, chat, trust and discovery have
 the same four packages; a module that reacts to events adds `worker`, and
 deal is the first that does. Module `screen` has no `repository` or
 `domain`: it only reads the other modules' services (see Screen).
@@ -242,13 +248,16 @@ A module's `Mount` takes `module.Deps` (router, pool, Restate ingress and
 service prefix, clock, logger), the module's own settings and the services
 of the modules it calls. It builds the repositories, the service and the
 handler, registers the routes, and returns what app and other modules need:
-`account.Mount` returns `accountsvc.Service`, `auth.Mount` returns its
-`Service` and its Restate services. `app.mountModules` calls each `Mount` in
-dependency order and imports no package inside a module. `auth.Protect`, the
-sign-in middleware, needs only the auth keys, so app builds it first and
-hands it to every module with signed-in routes. `staff.NewService` builds the
-staff service on a pool; `staff.Mount`, `cmd/staff` and the e2e tests share
-it, and `cmd/staff` passes no account or auth service.
+`account.Mount` returns its `Service` and its Restate services.
+`app.mountModules` calls each `Mount` in dependency order and imports no
+package inside a module. `account.Protect`, the sign-in middleware, needs
+only the auth keys, so app builds it first and hands it to every module with
+signed-in routes. `staff.NewService` builds the staff service on a pool;
+`staff.Mount`, `cmd/staff` and the e2e tests share it, and `cmd/staff`
+passes no account service.
+
+Tests of other modules create accounts through `internal/account/accounttest`
+(`New`, `WithPhone`), beside `pgtest` and `restatetest`.
 
 To run a module in its own process, a client implements that module's
 `Service` over the network and app passes it where it passes the module's
@@ -345,8 +354,8 @@ has a phone number.
      the next step marks the identity used, ignoring a lost race.
    - Not found: create the `Account` with
      `accountID := restatex.NewID(ctx, at)`, then the `Credentials` with the
-     identity. `ErrTaken` from the second step deletes the account (see
-     Durable flows).
+     identity, in one step and one transaction. `ErrIdentityTaken` writes nothing
+     (see Durable flows).
 4. The handler issues the session after the service returns, with the
    session ID the service chose. When the same key comes back with a token
    for the same number, that session exists, so the handler rotates its
@@ -387,7 +396,7 @@ The token checks live in `internal/provider/firebase`:
 
 ### Session use cases
 
-Refresh, logout and the device list are plain `Auth` methods against the
+Refresh, logout and the device list are plain `Account` methods against the
 `Session` aggregate; none of them goes through Restate.
 
 Refresh:
@@ -396,7 +405,7 @@ Refresh:
    its current hash but one has it as the previous hash, the token was
    replayed: `Revoke`, `Save`, return `session_revoked`. When nothing matches,
    return `invalid_refresh_token`.
-2. `s.Usable(now)`, then the account status through the account port. A
+2. `s.Usable(now)`, then the account's status at `now`. A
    suspended account gets its session revoked and `account_suspended`.
 3. `token := s.Rotate(now)`, `Save`. On `ErrConflict` the use case reloads
    the session. Revoked means a sign-out won the race, and the answer is
@@ -471,8 +480,7 @@ the decisions and the API.
 - TOTP secrets are sealed with AES-GCM under a key HKDF derives from
   `STAFF_KEY`, bound to the member's id. Passwords are argon2id
   (64 MiB, 3 passes, 4 lanes) in PHC form, at most four runs at once.
-- Staff reaches customer data through `accountsvc.Service` and
-  `authsvc.Service`. CORS allows
+- Staff reaches customer data through `accountsvc.Service`. CORS allows
   `STAFF_CONSOLE_ORIGIN` on `/v1/staff/` and nothing else.
 
 ### Ops dashboards
@@ -621,9 +629,9 @@ server receives a complete listing.
 - The listing stores object keys; views build URLs from `MEDIA_PUBLIC_URL`
   at read time.
 - Another seller's listing is `listing_not_found`. `GET /v1/listings/{id}`
-  sits behind `auth.Identify`, which lets a request without an
+  sits behind `account.Identify`, which lets a request without an
   `Authorization` header through signed out and holds one with it to
-  `auth.Protect`'s rules; the seller sees every status but deleted, anyone
+  `account.Protect`'s rules; the seller sees every status but deleted, anyone
   else only active. Post and edit refuse a suspended account; hide, unhide,
   mark sold, unmark sold and delete do not.
 - `PUT /v1/listings/{id}` replaces the whole listing with the body. The
@@ -868,8 +876,9 @@ page that shows two views calls both at once.
   `viewer {saved, deal, conversation_id}`, where `deal` is deal's
   `DealSummary` of the reader's deal. A listing that is not public is 404
   for everyone; its seller reads it through `GET /v1/listings/{id}`.
-- `GET /v1/screens/seller/{id}` (signed in or not): trust's seller
-  profile, the first page of the seller's public listings and of their
+- `GET /v1/screens/seller/{id}` (signed in or not): the seller's profile
+  (account's public fields, catalog's counts, and the rating of the reviews
+  page), the first page of the seller's public listings and of their
   reviews, and `viewer {blocked, conversation_id}`; `blocked` holds either
   way.
 - `GET /v1/screens/inbox?archived=&cursor=&limit=`: chat's inbox page,
@@ -911,10 +920,14 @@ Module `trust` holds reviews (spec:
   has a review and `Save` a stale row, both `try_again`.
 - `trust` reads the order through `dealsvc.Service.Order`; someone else's
   order is `order_not_found`. `GET /v1/sellers/{id}/reviews` is public and
-  carries the seller's average and count over all reviews.
-- `Service.Seller` is a seller's public profile: name, avatar, bio, when
-  they joined, rating, and catalog's on-sale and sold counts. Screen reads
-  it; it has no endpoint of its own.
+  returns a `ReviewList`, a page of reviews without a summary; the rating
+  comes from `Service.Rating` (decided 2026-11-08, so a view no longer gets
+  the average twice).
+- `Service.Rating` is a seller's average and count over all reviews; the
+  listing view reads it. The seller's public profile (name, avatar, bio,
+  when they joined, rating, catalog's on-sale and sold counts) is screen's
+  `SellerProfile`, which screen builds from account, catalog and trust
+  (moved from trust on 2026-11-08).
 
 ### Search
 
@@ -1015,7 +1028,7 @@ calls it except screen, for Home's unread count; depguard holds that.
   Putting a token takes it from every other session that had it, so a
   phone signed in to a second account stops getting the first account's
   pushes.
-  Before a push the worker asks auth which of the recipient's sessions are
+  Before a push the worker asks account which of the recipient's sessions are
   active and deletes the others' tokens, which covers logout, revocation,
   refresh reuse and expiry with one read. Each token is sent in a step of
   its own, so a retried send repeats no other: FCM's `UNREGISTERED` or

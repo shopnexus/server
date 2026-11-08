@@ -1,5 +1,5 @@
 // Package trust is what people can rely on about each other: for now the
-// reviews buyers give sellers and a seller's public profile.
+// reviews buyers give sellers and the rating they add up to.
 package trust
 
 import (
@@ -15,7 +15,7 @@ import (
 )
 
 // Mount registers the trust endpoints, the writing ones behind protect,
-// and returns the Service screen reads profiles and reviews through.
+// and returns the Service screen reads ratings and reviews through.
 func Mount(d module.Deps, protect func(http.Handler) http.Handler, accounts accountsvc.Service,
 	catalog catalogsvc.Service, deals dealsvc.Service,
 ) service.Service {

@@ -46,13 +46,21 @@ func (s *Screen) Listing(ctx context.Context, reader *uuid.UUID, id uuid.UUID) (
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the listing: %w", err)
 	}
-	seller, err := s.trust.Seller(ctx, l.SellerID)
+	seller, err := s.accounts.Get(ctx, l.SellerID)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the seller: %w", err)
 	}
+	rating, err := s.trust.Rating(ctx, l.SellerID)
+	if err != nil {
+		return ListingScreen{}, fmt.Errorf("read the rating: %w", err)
+	}
+	counts, err := s.catalog.SellerCounts(ctx, l.SellerID)
+	if err != nil {
+		return ListingScreen{}, fmt.Errorf("count the listings: %w", err)
+	}
 	out := ListingScreen{Listing: l, Seller: SellerSummary{
-		ID: seller.ID, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, JoinedAt: seller.JoinedAt,
-		Rating: seller.Rating, Sold: seller.Sold,
+		ID: l.SellerID, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, JoinedAt: seller.CreatedAt,
+		Rating: rating, Sold: counts.Sold,
 	}}
 	if reader == nil || *reader == l.SellerID {
 		return out, nil

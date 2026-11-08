@@ -9,10 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type sellerReviews struct {
-	Average float64 `json:"average"`
-	Count   int     `json:"count"`
-	Items   []struct {
+type reviewList struct {
+	Items []struct {
 		Stars int    `json:"stars"`
 		Text  string `json:"text"`
 	} `json:"items"`
@@ -46,7 +44,7 @@ func TestReviews(t *testing.T) {
 	expect("review", put(buyer.AccessToken, path, map[string]any{"stars": 5, "text": "Đúng mô tả"}), 200, "")
 	expect("edit", put(buyer.AccessToken, path, map[string]any{"stars": 4, "text": "Hơi trầy"}), 200, "")
 	res := call(t, server, "GET", "/v1/sellers/"+seller.Account.ID+"/reviews", nil)
-	if got := decode[sellerReviews](t, res); res.Status != http.StatusOK || got.Count != 1 || got.Average != 4 || got.Items[0].Text != "Hơi trầy" {
+	if got := decode[reviewList](t, res); res.Status != http.StatusOK || len(got.Items) != 1 || got.Items[0].Text != "Hơi trầy" {
 		t.Fatalf("seller reviews: %d %s", res.Status, res.Body)
 	}
 	expect("reviews a bad id", call(t, server, "GET", "/v1/sellers/x/reviews", nil), 400, "")

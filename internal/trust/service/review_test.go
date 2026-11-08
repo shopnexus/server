@@ -9,6 +9,7 @@ import (
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/trust/domain"
+	"github.com/shopnexus/server2/internal/trust/service"
 )
 
 func TestPutReview(t *testing.T) {
@@ -25,8 +26,11 @@ func TestPutReview(t *testing.T) {
 		t.Fatalf("edit: %+v %v", v, err)
 	}
 	got, err := e.trust.SellerReviews(ctx, seller, page.Request{})
-	if err != nil || got.Count != 1 || got.Average != 4 || len(got.Items) != 1 || got.Items[0].Text != "Hơi trầy" {
+	if err != nil || len(got.Items) != 1 || got.Items[0].Text != "Hơi trầy" {
 		t.Fatalf("%+v %v", got, err)
+	}
+	if r, rErr := e.trust.Rating(ctx, seller); rErr != nil || r != (service.Rating{Average: 4, Count: 1}) {
+		t.Fatalf("rating: %+v %v", r, rErr)
 	}
 	if err = e.trust.DeleteReview(ctx, buyer, order); err != nil {
 		t.Fatal(err)
@@ -37,8 +41,8 @@ func TestPutReview(t *testing.T) {
 	if v, err = e.trust.PutReview(ctx, buyer, order, 3, "Đăng lại"); err != nil || v.Stars != 3 {
 		t.Fatalf("post again: %+v %v", v, err)
 	}
-	if got, _ = e.trust.SellerReviews(ctx, seller, page.Request{}); got.Count != 1 || got.Average != 3 {
-		t.Fatalf("after posting again: %+v", got)
+	if r, _ := e.trust.Rating(ctx, seller); r != (service.Rating{Average: 3, Count: 1}) {
+		t.Fatalf("after posting again: %+v", r)
 	}
 }
 

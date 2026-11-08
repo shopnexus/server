@@ -118,7 +118,7 @@ func run(m *testing.M) int {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
 	}
-	staffSvc = staff.NewService(pool, staffKeys, cfg.Staff, nil, nil, time.Now)
+	staffSvc = staff.NewService(pool, staffKeys, cfg.Staff, nil, time.Now)
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones),
 		app.WithPasswordHasher(staffdomain.Fast))

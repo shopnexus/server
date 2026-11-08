@@ -17,7 +17,7 @@ func TestAddressBook(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
 	ctx := context.Background()
-	svc := at(s, now)
+	svc := at(s, nil, now)
 	me, other := seed(t, s), seed(t, s)
 
 	first, err := svc.CreateAddress(ctx, me, uuid.NewV7(), home)
@@ -79,7 +79,7 @@ func TestAddressRefusals(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
 	ctx := context.Background()
-	svc := at(s, now)
+	svc := at(s, nil, now)
 	me := seed(t, s)
 	bad := home
 	bad.CommuneCode = "nope"
@@ -122,7 +122,7 @@ func TestUpdateAddressLosesARace(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()
 	me := seed(t, s)
-	a, err := at(s, now).CreateAddress(ctx, me, uuid.NewV7(), home)
+	a, err := at(s, nil, now).CreateAddress(ctx, me, uuid.NewV7(), home)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,10 +130,10 @@ func TestUpdateAddressLosesARace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = at(s, now).UpdateAddress(ctx, me, a.ID, home); err != nil {
+	if _, err = at(s, nil, now).UpdateAddress(ctx, me, a.ID, home); err != nil {
 		t.Fatal(err)
 	}
-	_, err = at(staleAddress{Accounts: s, stale: stale}, now).UpdateAddress(ctx, me, a.ID, home)
+	_, err = at(staleAddress{Accounts: s, stale: stale}, nil, now).UpdateAddress(ctx, me, a.ID, home)
 	if !errors.Is(err, apperr.ErrTryAgain) {
 		t.Fatalf("%v", err)
 	}

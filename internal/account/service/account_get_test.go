@@ -25,7 +25,7 @@ func TestStatusFollowsTheClock(t *testing.T) {
 		at   time.Time
 		want domain.Status
 	}{{now, domain.StatusSuspended}, {until.Add(time.Second), domain.StatusActive}} {
-		if st, err := at(s, c.at).Status(context.Background(), id); err != nil || st != c.want {
+		if st, err := at(s, nil, c.at).Status(context.Background(), id); err != nil || st != c.want {
 			t.Fatalf("at %s: %s %v", c.at, st, err)
 		}
 	}
@@ -36,7 +36,7 @@ func TestGetMany(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
 	a, b := seed(t, s), seed(t, s)
-	got, err := at(s, now).GetMany(context.Background(), []uuid.UUID{a, b, uuid.NewV7()})
+	got, err := at(s, nil, now).GetMany(context.Background(), []uuid.UUID{a, b, uuid.NewV7()})
 	if err != nil || len(got) != 2 || got[a].ID != a || got[b].DisplayName != "Linh" || got[b].Status != domain.StatusActive {
 		t.Fatalf("%+v %v", got, err)
 	}

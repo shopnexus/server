@@ -25,8 +25,8 @@ import (
 )
 
 // withMedia is the account service on a database with module media and
-// its flows on the test stack.
-func withMedia(t *testing.T) (*service.Account, *mediasvc.Media) {
+// its flows on the test stack, with the store it reads.
+func withMedia(t *testing.T) (*service.Account, repository.Accounts, *mediasvc.Media) {
 	t.Helper()
 	db := pgtest.New(t)
 	url, _, err := restatetest.URLs()
@@ -38,7 +38,8 @@ func withMedia(t *testing.T) (*service.Account, *mediasvc.Media) {
 		Prefix: restatetest.Prefix(), Now: time.Now,
 	})
 	restatetest.Start(t, media.Durable()...)
-	return service.New(repository.NewAccounts(db), media, time.Now), media
+	store := repository.NewAccounts(db)
+	return service.New(service.Deps{Accounts: store, Media: media, Now: time.Now}), store, media
 }
 
 // put uploads body as a JPEG of owner's.
@@ -74,12 +75,9 @@ func photoBytes(t *testing.T) []byte {
 // later update removes it.
 func TestUpdateAvatar(t *testing.T) {
 	t.Parallel()
-	accounts, media := withMedia(t)
+	accounts, store, media := withMedia(t)
 	ctx := context.Background()
-	id := uuid.NewV7()
-	if err := accounts.Create(ctx, id, "Linh"); err != nil {
-		t.Fatal(err)
-	}
+	id := seed(t, store)
 	upload := put(t, media, id, photoBytes(t))
 	v, err := accounts.Update(ctx, id, service.UpdateInput{Avatar: &upload})
 	if err != nil || !strings.HasSuffix(v.AvatarURL, "media/"+upload.String()+".jpg") {
@@ -97,14 +95,9 @@ func TestUpdateAvatar(t *testing.T) {
 // leaves the account as it was.
 func TestUpdateAvatarRefusals(t *testing.T) {
 	t.Parallel()
-	accounts, media := withMedia(t)
+	accounts, store, media := withMedia(t)
 	ctx := context.Background()
-	id, other := uuid.NewV7(), uuid.NewV7()
-	for _, a := range []uuid.UUID{id, other} {
-		if err := accounts.Create(ctx, a, "Linh"); err != nil {
-			t.Fatal(err)
-		}
-	}
+	id, other := seed(t, store), seed(t, store)
 	for name, upload := range map[string]uuid.UUID{
 		"not a photo":     put(t, media, id, []byte("hello, not a photo")),
 		"another owner's": put(t, media, other, photoBytes(t)),

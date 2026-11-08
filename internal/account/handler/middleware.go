@@ -1,0 +1,49 @@
+package handler
+
+import (
+	"log/slog"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server2/internal/platform/httpx"
+)
+
+// Protect checks the bearer token and puts the principal in the request
+// context. It reads no database: a signed-out session's access token works
+// until it expires, and write use cases check the account themselves.
+func Protect(v domain.Verifier, now func() time.Time, log *slog.Logger) func(http.Handler) http.Handler {
+	return guard(v, now, log, true)
+}
+
+// Identify is Protect for a route anyone may call: a request without an
+// Authorization header goes on signed out, and one with it must carry a
+// valid token.
+func Identify(v domain.Verifier, now func() time.Time, log *slog.Logger) func(http.Handler) http.Handler {
+	return guard(v, now, log, false)
+}
+
+func guard(v domain.Verifier, now func() time.Time, log *slog.Logger, required bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !required && r.Header.Get("Authorization") == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			// The scheme is case-insensitive (RFC 9110).
+			scheme, token, _ := strings.Cut(r.Header.Get("Authorization"), " ")
+			if !strings.EqualFold(scheme, "Bearer") || token == "" {
+				httpx.WriteError(w, r, log, authn.ErrUnauthenticated)
+				return
+			}
+			p, err := v.Verify(token, now())
+			if err != nil {
+				httpx.WriteError(w, r, log, err)
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(authn.With(r.Context(), p)))
+		})
+	}
+}

@@ -22,13 +22,17 @@ type pgAccounts struct{ db *pgxpool.Pool }
 // NewAccounts returns the Postgres Accounts.
 func NewAccounts(db *pgxpool.Pool) Accounts { return pgAccounts{db} }
 
-const createAccount = `
+func (s pgAccounts) Create(ctx context.Context, a domain.Account) error {
+	return insertAccount(ctx, s.db, a)
+}
+
+// insertAccount inserts a; the same id again does nothing. Create and
+// Credentials.SignUp call it.
+func insertAccount(ctx context.Context, q execer, a domain.Account) error {
+	_, err := q.Exec(ctx, `
 INSERT INTO accounts (id, display_name, status, write_id, created_at, updated_at)
 VALUES (@id, NULLIF(@display_name, ''), @status, @write_id, @now, @now)
-ON CONFLICT (id) DO NOTHING`
-
-func (s pgAccounts) Create(ctx context.Context, a domain.Account) error {
-	_, err := s.db.Exec(ctx, createAccount, pgx.StrictNamedArgs{
+ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 		"id": a.ID(), "display_name": a.DisplayName(), "status": a.StoredStatus(), "write_id": a.WriteID(), "now": a.CreatedAt(),
 	})
 	if err != nil {
@@ -170,13 +174,6 @@ func collect(rows pgx.Rows) ([]domain.Account, error) {
 		return nil, fmt.Errorf("read accounts: %w", err)
 	}
 	return out, nil
-}
-
-func (s pgAccounts) Delete(ctx context.Context, id uuid.UUID) error {
-	if _, err := s.db.Exec(ctx, `DELETE FROM accounts WHERE id = @id`, pgx.StrictNamedArgs{"id": id}); err != nil {
-		return fmt.Errorf("delete account: %w", err)
-	}
-	return nil
 }
 
 func (s pgAccounts) Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error {

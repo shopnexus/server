@@ -6,7 +6,6 @@ import (
 	"uuid"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authsvc "github.com/shopnexus/server2/internal/auth/service"
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/staff/domain"
 )
@@ -76,9 +75,9 @@ type CreateMemberInput struct {
 
 // AccountDetail is the StaffAccountDetail schema.
 type AccountDetail struct {
-	Account    accountsvc.Record  `json:"account"`
-	Identities []authsvc.Identity `json:"identities"`
-	Actions    []audit.Action     `json:"actions"`
+	Account    accountsvc.Record     `json:"account"`
+	Identities []accountsvc.Identity `json:"identities"`
+	Actions    []audit.Action        `json:"actions"`
 }
 
 // DashboardTicket is the DashboardTicket schema.

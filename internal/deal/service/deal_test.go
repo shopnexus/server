@@ -7,6 +7,7 @@ import (
 	"testing"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/deal/domain"
@@ -121,7 +122,7 @@ func TestOpenRefusals(t *testing.T) {
 			t.Errorf("%s: %v", c.name, err)
 		}
 	}
-	if _, created, err := e.deals.Open(ctx, e.phoneless(t), listing); err != nil || !created {
+	if _, created, err := e.deals.Open(ctx, accounttest.New(t, e.db), listing); err != nil || !created {
 		t.Fatalf("an account without a phone opens a deal: %v %v", created, err)
 	}
 	v, created, err := e.deals.Open(ctx, early, hidden)

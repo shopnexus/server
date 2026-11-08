@@ -2,8 +2,6 @@ package service_test
 
 import (
 	"context"
-	"fmt"
-	"math/rand/v2"
 	"testing"
 	"time"
 	"uuid"
@@ -11,11 +9,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/restatedev/sdk-go/ingress"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	accountrepo "github.com/shopnexus/server2/internal/account/repository"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	authdomain "github.com/shopnexus/server2/internal/auth/domain"
-	authrepo "github.com/shopnexus/server2/internal/auth/repository"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogrepo "github.com/shopnexus/server2/internal/catalog/repository"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
@@ -24,7 +21,6 @@ import (
 	mediarepo "github.com/shopnexus/server2/internal/media/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
@@ -50,7 +46,7 @@ func newEnv(t *testing.T) env {
 		t.Fatal(err)
 	}
 	in, p := ingress.NewClient(url), restatetest.Prefix()
-	accounts := accountsvc.New(accountrepo.NewAccounts(db), nil, time.Now)
+	accounts := accountsvc.New(accountsvc.Deps{Accounts: accountrepo.NewAccounts(db), Now: time.Now})
 	media := mediasvc.New(mediasvc.Deps{
 		Uploads: mediarepo.NewUploads(db), Store: objectstoretest.New(t), Ingress: in, Prefix: p, Now: time.Now,
 	})
@@ -70,25 +66,14 @@ func newEnv(t *testing.T) env {
 // person creates an account with a verified phone number.
 func (e env) person(t *testing.T) uuid.UUID {
 	t.Helper()
-	id := uuid.NewV7()
-	if err := e.accounts.Create(context.Background(), id, "Linh"); err != nil {
-		t.Fatal(err)
-	}
-	phone, err := contact.ParsePhone(fmt.Sprintf("09%08d", rand.IntN(100_000_000)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	now := time.Now()
-	creds := authdomain.NewCredentials(id, authdomain.NewIdentity(uuid.NewV7(), phone, now), now)
-	if err = authrepo.NewCredentials(e.db).Create(context.Background(), creds); err != nil {
-		t.Fatal(err)
-	}
-	return id
+	return accounttest.WithPhone(t, e.db)
 }
 
-// listing puts a listing of seller's on sale and returns its ID.
-func (e env) listing(t *testing.T, seller uuid.UUID) uuid.UUID {
+// requested puts a listing of seller's on sale, agrees a deal on it between
+// buyer and seller and asks for COD, returning the deal and its order.
+func (e env) requested(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
 	t.Helper()
+	ctx := context.Background()
 	photo := uuid.NewV7()
 	now := time.Now()
 	l, err := catalogdomain.NewListing(uuid.NewV7(), seller, catalogdomain.Draft{
@@ -99,18 +84,10 @@ func (e env) listing(t *testing.T, seller uuid.UUID) uuid.UUID {
 		t.Fatal(err)
 	}
 	l.Published(map[uuid.UUID]catalogdomain.PhotoKeys{photo: {Photo: "media/a.jpg", Thumb: "media/a_thumb.jpg"}}, now)
-	if err = e.listings.Insert(context.Background(), l); err != nil {
+	if err = e.listings.Insert(ctx, l); err != nil {
 		t.Fatal(err)
 	}
-	return l.ID()
-}
-
-// requested agrees a deal between buyer and seller and asks for COD,
-// returning the deal and its order.
-func (e env) requested(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
-	t.Helper()
-	ctx := context.Background()
-	d, _, err := e.deals.Open(ctx, buyer, e.listing(t, seller))
+	d, _, err := e.deals.Open(ctx, buyer, l.ID())
 	if err != nil {
 		t.Fatal(err)
 	}
