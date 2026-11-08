@@ -152,3 +152,24 @@ func TestAccessLogLine(t *testing.T) {
 		t.Fatalf("trace_id %v", m["trace_id"])
 	}
 }
+
+// A handler that panics still gets an access line, with the 500 that
+// Recover wrote.
+func TestAccessLogLineAfterPanic(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	log := telemetry.NewLogger(&buf, "json", slog.LevelInfo)
+	panics := http.HandlerFunc(func(http.ResponseWriter, *http.Request) { panic("boom") })
+	serve(AccessLog(log)(Recover(log)(panics)), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/boom", http.NoBody))
+
+	var access map[string]any
+	for line := range bytes.Lines(buf.Bytes()) {
+		var m map[string]any
+		if err := json.Unmarshal(line, &m); err == nil && m["duration_ms"] != nil {
+			access = m
+		}
+	}
+	if access == nil || access["status"] != float64(500) {
+		t.Fatalf("no access line with status 500 in %q", buf.String())
+	}
+}

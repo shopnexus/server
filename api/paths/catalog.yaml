@@ -328,7 +328,7 @@ myListings:
       - name: pane
         in: query
         required: true
-        description: on_sale holds listings in processing, active, hidden and rejected; sold holds sold ones.
+        description: on_sale holds listings in processing, active, hidden, rejected and reserved; sold holds sold ones.
         schema:
           type: string
           enum: [on_sale, sold]

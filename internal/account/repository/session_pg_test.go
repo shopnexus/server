@@ -150,4 +150,24 @@ func TestPGSessions(t *testing.T) {
 			t.Fatalf("pages %+v %+v", one, next)
 		}
 	})
+
+	// A session idle past domain.SessionIdleLimit gets no pushes, as it
+	// cannot refresh either.
+	t.Run("active among", func(t *testing.T) {
+		t.Parallel()
+		s, newAccount := newSessions(t)
+		acc := newAccount()
+		live, _ := create(t, s, acc, now)
+		revoked, _ := create(t, s, acc, now)
+		revoked.Revoke(now)
+		if err := s.Save(ctx, &revoked, uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+		expired, _ := create(t, s, acc, now.Add(-domain.SessionMaxAge-time.Hour))
+		idle, _ := create(t, s, acc, now.Add(-domain.SessionIdleLimit-time.Hour))
+		got, err := s.ActiveAmong(ctx, []uuid.UUID{live.ID(), revoked.ID(), expired.ID(), idle.ID(), uuid.NewV7()}, now)
+		if err != nil || len(got) != 1 || !got[live.ID()] {
+			t.Fatalf("%v %v", got, err)
+		}
+	})
 }

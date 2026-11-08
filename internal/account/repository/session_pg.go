@@ -124,8 +124,10 @@ func (s pgSessions) ListActive(ctx context.Context, accountID uuid.UUID, now tim
 }
 
 func (s pgSessions) ActiveAmong(ctx context.Context, ids []uuid.UUID, now time.Time) (map[uuid.UUID]bool, error) {
-	rows, err := s.db.Query(ctx, `SELECT id FROM sessions WHERE id = ANY(@ids) AND revoked_at IS NULL AND expires_at > @now`,
-		pgx.StrictNamedArgs{"ids": ids, "now": now})
+	rows, err := s.db.Query(ctx, `
+SELECT id FROM sessions
+WHERE id = ANY(@ids) AND revoked_at IS NULL AND expires_at > @now AND last_used_at > @idle_since`,
+		pgx.StrictNamedArgs{"ids": ids, "now": now, "idle_since": now.Add(-domain.SessionIdleLimit)})
 	if err != nil {
 		return nil, fmt.Errorf("read active sessions: %w", err)
 	}

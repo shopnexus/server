@@ -56,8 +56,7 @@ DealListing:
       format: uri
       description: Absent until the cover photo is processed.
     status:
-      type: string
-      enum: [processing, active, hidden, rejected, reserved, sold, deleted]
+      $ref: "catalog.yaml#/ListingStatus"
 OpenPrice:
   type: object
   additionalProperties: false
@@ -178,7 +177,7 @@ Deal:
     agreed_price:
       type: integer
       format: int64
-      description: Present while agreed.
+      description: Present while agreed or sold.
     agreed_at:
       type: string
       format: date-time

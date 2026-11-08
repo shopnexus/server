@@ -31,8 +31,7 @@ SavedListing:
           type: string
           format: uri
         status:
-          type: string
-          enum: [processing, active, hidden, rejected, reserved, sold, deleted]
+          $ref: "catalog.yaml#/ListingStatus"
 SavedList:
   type: object
   additionalProperties: false
