@@ -9,7 +9,6 @@ import (
 
 	"github.com/shopnexus/server2/internal/notification/domain"
 	"github.com/shopnexus/server2/internal/notification/repository"
-	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -23,7 +22,8 @@ func (s *Notification) List(ctx context.Context, account uuid.UUID, p page.Reque
 		return List{}, fmt.Errorf("count unread: %w", err)
 	}
 	items := make([]Item, len(rows))
-	for i, r := range rows {
+	for i := range rows {
+		r := &rows[i]
 		items[i] = Item{
 			ID: r.ID, Type: r.Type, Text: domain.Text(r.Type, r.Params), Target: domain.TargetOf(r.Type, r.Params),
 			Unread: !r.Read, At: r.BumpedAt,
@@ -59,20 +59,13 @@ func (s *Notification) ReadAll(ctx context.Context, account uuid.UUID) error {
 	return nil
 }
 
-func (s *Notification) PutToken(ctx context.Context, p authn.Principal, token string) error {
+func (s *Notification) PutToken(ctx context.Context, session, account uuid.UUID, token string) error {
 	token = strings.TrimSpace(token)
 	if token == "" || len(token) > domain.MaxToken {
 		return domain.ErrInvalidToken
 	}
-	if err := s.notices.PutToken(ctx, p.SessionID, p.AccountID, token, s.now()); err != nil {
+	if err := s.notices.PutToken(ctx, session, account, token, s.now()); err != nil {
 		return fmt.Errorf("store token: %w", err)
-	}
-	return nil
-}
-
-func (s *Notification) DeleteToken(ctx context.Context, p authn.Principal) error {
-	if err := s.notices.DeleteToken(ctx, p.SessionID); err != nil {
-		return fmt.Errorf("forget token: %w", err)
 	}
 	return nil
 }
@@ -91,15 +84,16 @@ func (s *Notification) Tokens(ctx context.Context, account uuid.UUID) ([]Token, 
 		return nil, fmt.Errorf("read tokens: %w", err)
 	}
 	out := make([]Token, len(rows))
-	for i, r := range rows {
+	for i := range rows {
+		r := &rows[i]
 		out[i] = Token{Session: r.Session, Token: r.Token}
 	}
 	return out, nil
 }
 
-func (s *Notification) ForgetToken(ctx context.Context, session uuid.UUID) error {
+func (s *Notification) DeleteToken(ctx context.Context, session uuid.UUID) error {
 	if err := s.notices.DeleteToken(ctx, session); err != nil {
-		return fmt.Errorf("forget token: %w", err)
+		return fmt.Errorf("delete token: %w", err)
 	}
 	return nil
 }

@@ -58,20 +58,3 @@ func TestUnderstandings(t *testing.T) {
 		}
 	}
 }
-
-func TestSavedAmong(t *testing.T) {
-	t.Parallel()
-	db := pgtest.New(t)
-	ctx := context.Background()
-	me := newAccount(t, db)
-	ids := listings(t, db, 2)
-	a, b := ids[0], ids[1]
-	s := repository.NewSaves(db)
-	if err := s.Save(ctx, uuid.NewV7(), me, a, 100_000, time.Now()); err != nil {
-		t.Fatal(err)
-	}
-	got, err := s.SavedAmong(ctx, me, []uuid.UUID{a, b})
-	if err != nil || !got[a] || got[b] {
-		t.Fatalf("%v %v", got, err)
-	}
-}

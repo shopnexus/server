@@ -48,8 +48,8 @@ type errorPayload struct {
 func WriteError(w http.ResponseWriter, r *http.Request, log *slog.Logger, err error) {
 	traceID := trace.SpanContextFromContext(r.Context()).TraceID().String()
 
-	var ae *apperr.Error
-	status, ok := http.StatusInternalServerError, errors.As(err, &ae)
+	status := http.StatusInternalServerError
+	ae, ok := errors.AsType[*apperr.Error](err)
 	if ok {
 		status, ok = statusOf[ae.Kind]
 	}

@@ -82,9 +82,7 @@ SELECT id, kind, identifier, last_used_at, created_at FROM identities WHERE acco
 	if err != nil {
 		return domain.Credentials{}, fmt.Errorf("select identities: %w", err)
 	}
-	defer rows.Close()
-	var identities []domain.Identity
-	for rows.Next() {
+	identities, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Identity, error) {
 		var (
 			id        uuid.UUID
 			kind      domain.Kind
@@ -92,12 +90,12 @@ SELECT id, kind, identifier, last_used_at, created_at FROM identities WHERE acco
 			lastUsed  *time.Time
 			createdAt time.Time
 		)
-		if err := rows.Scan(&id, &kind, &value, &lastUsed, &createdAt); err != nil {
-			return domain.Credentials{}, fmt.Errorf("scan identity: %w", err)
+		if scanErr := row.Scan(&id, &kind, &value, &lastUsed, &createdAt); scanErr != nil {
+			return domain.Identity{}, fmt.Errorf("scan identity: %w", scanErr)
 		}
-		identities = append(identities, domain.RestoreIdentity(id, kind, value, lastUsed, createdAt))
-	}
-	if err := rows.Err(); err != nil {
+		return domain.RestoreIdentity(id, kind, value, lastUsed, createdAt), nil
+	})
+	if err != nil {
 		return domain.Credentials{}, fmt.Errorf("read identities: %w", err)
 	}
 	return domain.RestoreCredentials(accountID, identities, writeID, updatedAt), nil

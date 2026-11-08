@@ -55,20 +55,25 @@ INSERT INTO events (id, kind, subject_id, payload, occurred_at)
 VALUES (@id, @kind, @subject_id, @payload, @occurred_at)
 ON CONFLICT (id) DO NOTHING`
 
-// Insert writes e in tx, the transaction of the change, and notifies Bus;
-// Postgres delivers the notification on commit and drops it on rollback.
-// Writing an event with the same ID again does nothing, so a durable step
-// that retries its save, with the event ID it took from the journal, stays
-// at one event.
-func Insert(ctx context.Context, tx pgx.Tx, e Event) error {
-	payload := e.Payload
-	if payload == nil {
-		payload = map[string]any{}
+// Insert writes evs in tx, the transaction of the change, and notifies Bus
+// once; Postgres delivers the notification on commit and drops it on
+// rollback. Writing an event with the same ID again does nothing, so a
+// durable step that retries its save, with the event IDs it took from the
+// journal, stays at one event each. No events writes nothing.
+func Insert(ctx context.Context, tx pgx.Tx, evs ...Event) error {
+	if len(evs) == 0 {
+		return nil
 	}
-	if _, err := tx.Exec(ctx, insertEvent, pgx.StrictNamedArgs{
-		"id": e.ID, "kind": e.Kind, "subject_id": e.SubjectID, "payload": payload, "occurred_at": e.OccurredAt,
-	}); err != nil {
-		return fmt.Errorf("insert event: %w", err)
+	for _, e := range evs {
+		payload := e.Payload
+		if payload == nil {
+			payload = map[string]any{}
+		}
+		if _, err := tx.Exec(ctx, insertEvent, pgx.StrictNamedArgs{
+			"id": e.ID, "kind": e.Kind, "subject_id": e.SubjectID, "payload": payload, "occurred_at": e.OccurredAt,
+		}); err != nil {
+			return fmt.Errorf("insert event: %w", err)
+		}
 	}
 	if _, err := tx.Exec(ctx, `SELECT pg_notify('events', '')`); err != nil {
 		return fmt.Errorf("notify events: %w", err)

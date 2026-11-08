@@ -6,6 +6,7 @@ import (
 	"testing"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/trust/domain"
@@ -73,7 +74,7 @@ func TestPutReviewRefusals(t *testing.T) {
 	if _, err := e.trust.PutReview(ctx, buyer, shipped, 9, ""); !errors.Is(err, domain.ErrInvalidReview) {
 		t.Errorf("nine stars: %v", err)
 	}
-	e.suspend(t, buyer)
+	accounttest.Suspend(t, e.accounts, buyer)
 	if _, err := e.trust.PutReview(ctx, buyer, shipped, 5, ""); !errors.Is(err, accountdomain.ErrSuspended) {
 		t.Errorf("suspended: %v", err)
 	}

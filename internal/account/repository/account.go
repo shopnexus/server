@@ -12,12 +12,8 @@ import (
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
-// Accounts persists accounts, their blocks and their address books.
-//
-//nolint:interfacebloat // One method per store operation of accounts and blocks; Addresses adds the address book's.
+// Accounts persists accounts and their blocks.
 type Accounts interface {
-	Addresses
-
 	// Create inserts a without credentials; inserting the same id again does
 	// nothing. Sign-up goes through Credentials.SignUp instead.
 	Create(ctx context.Context, a domain.Account) error
@@ -28,12 +24,11 @@ type Accounts interface {
 	GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Account, error)
 	// Save writes a when its row still has a.WriteID() or already has
 	// writeID, then sets a's write ID to writeID. Otherwise ErrConflict. It
-	// writes evs in the same transaction; a conflict writes none. A durable
-	// step that retries a save passes the event IDs it took from the
-	// journal with the writeID, and the retry writes no second event.
-	Save(ctx context.Context, a *domain.Account, writeID uuid.UUID, evs ...events.Event) error
-	// SaveAudited is Save that also writes e in the same transaction.
-	SaveAudited(ctx context.Context, a *domain.Account, writeID uuid.UUID, e audit.Entry, evs ...events.Event) error
+	// writes entry, when not nil, and evs in the same transaction; a
+	// conflict writes neither. A durable step that retries a save passes the
+	// event IDs it took from the journal with the writeID, and the retry
+	// writes no second event.
+	Save(ctx context.Context, a *domain.Account, writeID uuid.UUID, entry *audit.Entry, evs ...events.Event) error
 	// List is a query: accounts with IDs below p.Before(), newest first, at
 	// most p.Fetch().
 	List(ctx context.Context, p page.Request) ([]domain.Account, error)

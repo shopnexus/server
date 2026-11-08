@@ -178,11 +178,8 @@ func (c Conversation) Other(account uuid.UUID) uuid.UUID {
 	return c.AccountA
 }
 
-// Member is one person's place in a conversation: the message they read up
-// to and when they archived it. The store moves the marker forward only.
+// Member is one person's place in a conversation: when they archived it,
+// nil while it is not archived.
 type Member struct {
-	ConversationID uuid.UUID
-	AccountID      uuid.UUID
-	LastRead       uuid.UUID
-	ArchivedAt     *time.Time
+	ArchivedAt *time.Time
 }

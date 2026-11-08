@@ -92,3 +92,23 @@ func TestInsertTwiceKeepsOne(t *testing.T) {
 		t.Fatalf("%d %v", n, err)
 	}
 }
+
+// One call writes every event it gets.
+func TestInsertWritesEveryEvent(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	subject := uuid.NewV7()
+	err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error {
+		return events.Insert(ctx, tx,
+			events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: subject, OccurredAt: at},
+			events.Event{ID: uuid.NewV7(), Kind: events.AccountUpdated, SubjectID: subject, OccurredAt: at})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var n int
+	if err = db.QueryRow(ctx, `SELECT count(*) FROM events WHERE subject_id = @id`, pgx.StrictNamedArgs{"id": subject}).Scan(&n); err != nil || n != 2 {
+		t.Fatalf("%d %v", n, err)
+	}
+}

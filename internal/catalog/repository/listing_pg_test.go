@@ -3,14 +3,15 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"sync"
 	"testing"
 	"time"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/platform/events"
@@ -19,15 +20,6 @@ import (
 )
 
 var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
-
-func newAccount(t *testing.T, db *pgxpool.Pool) uuid.UUID {
-	t.Helper()
-	id := uuid.NewV7()
-	if _, err := db.Exec(context.Background(), `INSERT INTO accounts (id, write_id) VALUES (@id, @id)`, pgx.StrictNamedArgs{"id": id}); err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
 
 func listing(t *testing.T, seller uuid.UUID) domain.Listing {
 	t.Helper()
@@ -47,7 +39,7 @@ func TestInsertGetSave(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewListings(db)
 	ctx := context.Background()
-	l := listing(t, newAccount(t, db))
+	l := listing(t, accounttest.New(t, db))
 	if err := s.Insert(ctx, l); err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +83,7 @@ func TestCapHoldsUnderRace(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	s := repository.NewListings(db)
-	seller := newAccount(t, db)
+	seller := accounttest.New(t, db)
 	var (
 		wg       sync.WaitGroup
 		mu       sync.Mutex
@@ -123,7 +115,7 @@ func TestListBySeller(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewListings(db)
 	ctx := context.Background()
-	seller := newAccount(t, db)
+	seller := accounttest.New(t, db)
 	ids := make([]uuid.UUID, 0, 3)
 	for range 3 {
 		l := listing(t, seller)
@@ -132,7 +124,7 @@ func TestListBySeller(t *testing.T) {
 		}
 		ids = append(ids, l.ID())
 	}
-	if err := s.Insert(ctx, listing(t, newAccount(t, db))); err != nil {
+	if err := s.Insert(ctx, listing(t, accounttest.New(t, db))); err != nil {
 		t.Fatal(err)
 	}
 	first, err := s.ListBySeller(ctx, seller, domain.OnSale, page.Request{Limit: 2})
@@ -155,7 +147,7 @@ func TestSaveBackOnSaleHoldsTheCap(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewListings(db)
 	ctx := context.Background()
-	seller := newAccount(t, db)
+	seller := accounttest.New(t, db)
 	sold := listing(t, seller)
 	if err := s.Insert(ctx, sold); err != nil {
 		t.Fatal(err)
@@ -199,7 +191,7 @@ func TestDiscard(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewListings(db)
 	ctx := context.Background()
-	l := listing(t, newAccount(t, db))
+	l := listing(t, accounttest.New(t, db))
 	if err := s.Insert(ctx, l); err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +210,7 @@ func TestGetMany(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewListings(db)
 	ctx := context.Background()
-	seller := newAccount(t, db)
+	seller := accounttest.New(t, db)
 	a, b := listing(t, seller), listing(t, seller)
 	for _, l := range []domain.Listing{a, b} {
 		if err := s.Insert(ctx, l); err != nil {
@@ -236,7 +228,7 @@ func TestReservedRoundTrip(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewListings(db)
 	ctx := context.Background()
-	l := listing(t, newAccount(t, db))
+	l := listing(t, accounttest.New(t, db))
 	if err := s.Insert(ctx, l); err != nil {
 		t.Fatal(err)
 	}
@@ -258,5 +250,44 @@ func TestReservedRoundTrip(t *testing.T) {
 	}
 	if got, err = s.Get(ctx, l.ID()); err != nil || got.ReservedFor() != (uuid.UUID{}) {
 		t.Fatalf("%+v %v", got.State(), err)
+	}
+}
+
+// CountByStatus counts the seller's listings in each status and no one
+// else's.
+func TestCountByStatus(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewListings(db)
+	ctx := context.Background()
+	seller, other := accounttest.New(t, db), accounttest.New(t, db)
+	put := func(seller uuid.UUID, change func(l *domain.Listing)) {
+		t.Helper()
+		l := listing(t, seller)
+		if err := s.Insert(ctx, l); err != nil {
+			t.Fatal(err)
+		}
+		if change == nil {
+			return
+		}
+		l.Published(map[uuid.UUID]domain.PhotoKeys{}, now)
+		change(&l)
+		if err := s.Save(ctx, &l, uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	put(seller, nil)
+	put(seller, func(*domain.Listing) {})
+	put(seller, func(l *domain.Listing) { _, _ = l.Reserve(uuid.NewV7(), now) })
+	put(seller, func(l *domain.Listing) { _ = l.MarkSold(now) })
+	put(seller, func(l *domain.Listing) { _ = l.MarkSold(now) })
+	put(other, func(*domain.Listing) {})
+	got, err := s.CountByStatus(ctx, seller)
+	want := map[domain.Status]int{domain.StatusProcessing: 1, domain.StatusActive: 1, domain.StatusReserved: 1, domain.StatusSold: 2}
+	if err != nil || !maps.Equal(got, want) {
+		t.Fatalf("%v %v", got, err)
+	}
+	if got, err = s.CountByStatus(ctx, uuid.NewV7()); err != nil || len(got) != 0 {
+		t.Fatalf("no listings: %v %v", got, err)
 	}
 }

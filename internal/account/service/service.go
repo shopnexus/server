@@ -26,7 +26,6 @@ import (
 
 // Service is module account's contract.
 type Service interface {
-	AddressBook
 	Sessions
 
 	// Get reads an account.
@@ -37,17 +36,19 @@ type Service interface {
 	// Update changes the display name, bio and avatar of an account that
 	// may write.
 	Update(ctx context.Context, id uuid.UUID, in UpdateInput) (AccountView, error)
-	// Status is the status in force now.
-	Status(ctx context.Context, id uuid.UUID) (domain.Status, error)
-	// Record reads one account as console members see it.
-	Record(ctx context.Context, id uuid.UUID) (Record, error)
-	// Records lists accounts newest first: the p.Fetch() rows read, for the
-	// caller to cut into a page.
-	Records(ctx context.Context, p page.Request) ([]Record, error)
+	// Suspended reports whether a suspension of the account is in force
+	// now. Another module that refuses a suspended caller answers
+	// domain.ErrSuspended when it is; a Restate step returns the bool, so
+	// the flow can return the refusal as data.
+	Suspended(ctx context.Context, id uuid.UUID) (bool, error)
+	// ConsoleAccount reads one account as console members see it.
+	ConsoleAccount(ctx context.Context, id uuid.UUID) (ConsoleAccount, error)
+	// ConsoleAccounts lists accounts as console members see them, newest first.
+	ConsoleAccounts(ctx context.Context, p page.Request) (page.Page[ConsoleAccount], error)
 	// Suspend stops an account from writing and records account.suspend.
-	Suspend(ctx context.Context, in SuspendInput) (Record, error)
-	// Reinstate lifts a suspension and records account.unsuspend.
-	Reinstate(ctx context.Context, id uuid.UUID, by audit.Actor) (Record, error)
+	Suspend(ctx context.Context, in SuspendInput) (ConsoleAccount, error)
+	// Unsuspend lifts a suspension and records account.unsuspend.
+	Unsuspend(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleAccount, error)
 	// Block stops blocked and blocker from reaching each other; blocking
 	// again changes nothing.
 	Block(ctx context.Context, blocker, blocked uuid.UUID) error
@@ -60,6 +61,27 @@ type Service interface {
 	FindByPhone(ctx context.Context, q string) (uuid.UUID, bool, error)
 	// Identities lists an account's sign-in methods.
 	Identities(ctx context.Context, accountID uuid.UUID) ([]Identity, error)
+
+	// The address book: only the owner reads or changes an address; any
+	// other caller gets domain.ErrAddressNotFound.
+
+	// Addresses lists owner's addresses, the default first, then the
+	// newest.
+	Addresses(ctx context.Context, owner uuid.UUID) ([]AddressView, error)
+	// Address reads one of owner's addresses; module deal copies it into
+	// an order.
+	Address(ctx context.Context, owner, id uuid.UUID) (AddressView, error)
+	// CreateAddress adds an address under the request's key; the first
+	// becomes the default. A key owner used already returns the address
+	// that request added. An account at domain.MaxAddresses is
+	// domain.ErrAddressLimit.
+	CreateAddress(ctx context.Context, owner, key uuid.UUID, d domain.AddressDraft) (AddressView, error)
+	// UpdateAddress replaces an address with d.
+	UpdateAddress(ctx context.Context, owner, id uuid.UUID, d domain.AddressDraft) (AddressView, error)
+	SetDefaultAddress(ctx context.Context, owner, id uuid.UUID) error
+	// DeleteAddress removes an address; when it was the default, the newest
+	// remaining one becomes the default.
+	DeleteAddress(ctx context.Context, owner, id uuid.UUID) error
 }
 
 // Sessions is the part of Service that signs people in and keeps their
@@ -92,6 +114,7 @@ type PhoneVerifier interface {
 // Deps is what New builds Account from. Media makes avatars and their URLs.
 type Deps struct {
 	Accounts    repository.Accounts
+	Addresses   repository.Addresses
 	Credentials repository.Credentials
 	Sessions    repository.Sessions
 	Signer      domain.Signer
@@ -107,6 +130,7 @@ type Deps struct {
 // Account implements Service in this process.
 type Account struct {
 	accounts    repository.Accounts
+	addresses   repository.Addresses
 	credentials repository.Credentials
 	sessions    repository.Sessions
 	signer      domain.Signer
@@ -123,7 +147,7 @@ var _ Service = (*Account)(nil)
 // New builds Account from d.
 func New(d Deps) *Account {
 	return &Account{
-		accounts: d.Accounts, credentials: d.Credentials, sessions: d.Sessions, signer: d.Signer, phones: d.Phones,
+		accounts: d.Accounts, addresses: d.Addresses, credentials: d.Credentials, sessions: d.Sessions, signer: d.Signer, phones: d.Phones,
 		media: d.Media, prefix: d.Prefix, now: d.Now, log: d.Log,
 		signIn: restatex.Caller[PhoneSignIn, SignInResult]{Ingress: d.Ingress, Service: d.Prefix + signInService, Handler: "Run"},
 	}

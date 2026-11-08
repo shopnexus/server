@@ -5,8 +5,10 @@ import (
 	"testing"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/deal/domain"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 // changed calls ListingChanged for listing.
@@ -33,7 +35,7 @@ func TestListingChanged(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, a, b := e.person(t), e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	da, db := e.open(t, a, listing), e.open(t, b, listing)
 	must(t)(e.deals.Offer(ctx, a, da.ID, 1_000_000))
 	must(t)(e.deals.Accept(ctx, b, db.ID, 1_500_000))
@@ -58,7 +60,15 @@ func TestListingChanged(t *testing.T) {
 		t.Fatalf("a late event took the new offer: %+v", va)
 	}
 
-	before := len(kindsOf(t, e.db, db.ID))
+	e.edit(t, listing, func(d *catalogdomain.Draft) { d.AllowOffers = false })
+	e.changed(t, listing)
+	if va = e.get(t, a, da.ID); va.OpenPrice != nil || moveKinds(va)[len(va.Moves)-1] != domain.MoveOffersClosed {
+		t.Fatalf("offers off: %+v", va)
+	}
+	e.edit(t, listing, func(d *catalogdomain.Draft) { d.AllowOffers = true })
+	must(t)(e.deals.Offer(ctx, a, da.ID, 900_000))
+
+	before := len(pgtest.EventKinds(t, e.db, db.ID))
 	if _, err := e.catalog.MarkSold(ctx, seller, listing); err != nil {
 		t.Fatal(err)
 	}
@@ -71,22 +81,8 @@ func TestListingChanged(t *testing.T) {
 		m.By != domain.System {
 		t.Fatalf("%+v", vb)
 	}
-	if after := len(kindsOf(t, e.db, db.ID)); after != before+1 {
+	if after := len(pgtest.EventKinds(t, e.db, db.ID)); after != before+1 {
 		t.Fatalf("events %d → %d", before, after)
-	}
-}
-
-func TestListingChangedOffersOff(t *testing.T) {
-	t.Parallel()
-	e := newEnv(t)
-	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
-	v := e.open(t, buyer, listing)
-	must(t)(e.deals.Offer(context.Background(), buyer, v.ID, 1_000_000))
-	e.edit(t, listing, func(d *catalogdomain.Draft) { d.AllowOffers = false })
-	e.changed(t, listing)
-	if v = e.get(t, buyer, v.ID); v.OpenPrice != nil || moveKinds(v)[len(v.Moves)-1] != domain.MoveOffersClosed {
-		t.Fatalf("%+v", v)
 	}
 }
 
@@ -95,7 +91,7 @@ func TestListingChangedHidden(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.open(t, buyer, listing)
 	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
 	if _, err := e.catalog.Hide(ctx, seller, listing); err != nil {

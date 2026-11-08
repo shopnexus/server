@@ -10,7 +10,6 @@ import (
 
 	"github.com/shopnexus/server2/internal/notification/domain"
 	"github.com/shopnexus/server2/internal/notification/repository"
-	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -23,18 +22,17 @@ type Service interface {
 	// otherwise.
 	Read(ctx context.Context, account, id uuid.UUID) error
 	ReadAll(ctx context.Context, account uuid.UUID) error
-	// PutToken stores the push token of the caller's session.
-	PutToken(ctx context.Context, p authn.Principal, token string) error
-	// DeleteToken forgets it.
-	DeleteToken(ctx context.Context, p authn.Principal) error
+	// PutToken stores the push token of the account's session.
+	PutToken(ctx context.Context, session, account uuid.UUID, token string) error
+	// DeleteToken deletes a session's token; the handler calls it for the
+	// caller's session, the worker for an ended session or a dead token.
+	DeleteToken(ctx context.Context, session uuid.UUID) error
 
 	// Record writes a notice the worker decided, for event; see
 	// repository.Notices.Add.
 	Record(ctx context.Context, event uuid.UUID, n domain.Notice) (Recorded, error)
 	// Tokens lists the account's push tokens by session.
 	Tokens(ctx context.Context, account uuid.UUID) ([]Token, error)
-	// ForgetToken deletes a session's token, ended or dead.
-	ForgetToken(ctx context.Context, session uuid.UUID) error
 }
 
 // Recorded is the notice Record wrote. Late means a newer notice with the

@@ -9,15 +9,11 @@ import (
 	"github.com/shopnexus/server2/internal/chat/repository"
 )
 
-// pushRunes is how much of a message a push shows.
-const pushRunes = 100
-
 // MessageFacts is a message as its push reads it.
 type MessageFacts struct {
-	ID, ConversationID, SenderID, RecipientID uuid.UUID
-	SenderName                                string
-	Text                                      string // the first pushRunes runes of the body
-	Photos                                    int
+	ID, ConversationID, RecipientID uuid.UUID
+	SenderName, Text                string
+	Photos                          int
 }
 
 func (c *Chat) MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bool, error) {
@@ -36,12 +32,8 @@ func (c *Chat) MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bo
 	if err != nil {
 		return MessageFacts{}, false, fmt.Errorf("read sender: %w", err)
 	}
-	text := []rune(m.Body())
-	if len(text) > pushRunes {
-		text = text[:pushRunes]
-	}
 	return MessageFacts{
-		ID: id, ConversationID: m.ConversationID(), SenderID: m.SenderID(), RecipientID: conv.Other(m.SenderID()),
-		SenderName: sender.DisplayName, Text: string(text), Photos: len(m.Photos()),
+		ID: id, ConversationID: m.ConversationID(), RecipientID: conv.Other(m.SenderID()),
+		SenderName: sender.DisplayName, Text: m.Body(), Photos: len(m.Photos()),
 	}, true, nil
 }

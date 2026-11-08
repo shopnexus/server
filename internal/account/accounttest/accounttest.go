@@ -1,5 +1,5 @@
-// Package accounttest creates accounts in a test database for the tests of
-// modules that need someone to act.
+// Package accounttest creates accounts in a test database and builds the
+// account service for the tests of modules that need someone to act.
 package accounttest
 
 import (
@@ -14,6 +14,8 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
+	"github.com/shopnexus/server2/internal/account/service"
+	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
@@ -43,6 +45,20 @@ func WithPhone(t *testing.T, db *pgxpool.Pool) uuid.UUID {
 		t.Fatal(err)
 	}
 	return a.ID()
+}
+
+// Service is the account service on db with the accounts and addresses
+// stores, as the modules that call it need.
+func Service(db *pgxpool.Pool) *service.Account {
+	return service.New(service.Deps{Accounts: repository.NewAccounts(db), Addresses: repository.NewAddresses(db), Now: time.Now})
+}
+
+// Suspend suspends account id for spam, as the CLI does.
+func Suspend(t *testing.T, accounts service.Service, id uuid.UUID) {
+	t.Helper()
+	if _, err := accounts.Suspend(context.Background(), service.SuspendInput{ID: id, Reason: "spam", By: audit.ByCLI("test")}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func account(t *testing.T) domain.Account {

@@ -20,14 +20,12 @@ func TestRegions(t *testing.T) {
 	if err != nil || len(communes) < 100 || communes[0].ProvinceCode != "01" || communes[0].Lat == 0 {
 		t.Fatalf("%d communes of Hà Nội, %v", len(communes), err)
 	}
-	if places, _ := s.Places(ctx, []string{"00004", "99999"}); len(places) != 1 || places[0].Code != "00004" {
-		t.Errorf("Ba Đình alone: %+v", places)
+	found, err := s.FindPlaces(ctx, []string{"Hà Nội", "hà nội", "Hà Nội", "Không có nơi này"})
+	if hn := found["Hà Nội"]; err != nil || len(hn) != 1 || hn[0].Lat < 20 || hn[0].Lat > 22 {
+		t.Errorf("Hà Nội: %v %v", found, err)
 	}
-	if points, err := s.FindPlace(ctx, "Hà Nội"); err != nil || len(points) != 1 || points[0].Lat < 20 || points[0].Lat > 22 {
-		t.Errorf("Hà Nội: %v %v", points, err)
-	}
-	if points, _ := s.FindPlace(ctx, "Không có nơi này"); len(points) != 0 {
-		t.Errorf("an unknown place: %v", points)
+	if len(found["hà nội"]) != 1 || len(found) != 2 {
+		t.Errorf("by name as asked, case aside, an unknown place left out: %v", found)
 	}
 }
 

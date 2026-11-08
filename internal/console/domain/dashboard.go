@@ -56,16 +56,6 @@ type DashboardTicket struct {
 	ExpiresAt time.Time
 }
 
-// DashboardSession is the cookie of one dashboard's host. It lives while its
-// console session lives, and ExpiresAt is that session's end.
-type DashboardSession struct {
-	TokenHash []byte
-	SessionID uuid.UUID
-	App       App
-	CreatedAt time.Time
-	ExpiresAt time.Time
-}
-
 // DashboardGrant is the member behind a live dashboard session.
 type DashboardGrant struct {
 	Email string

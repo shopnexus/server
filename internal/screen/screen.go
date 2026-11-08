@@ -4,8 +4,6 @@
 package screen
 
 import (
-	"net/http"
-
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
@@ -18,20 +16,14 @@ import (
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
-// Guards are the two ways a view reads its caller: protect requires one,
-// identify reads one when the request carries it.
-type Guards struct {
-	Protect, Identify func(http.Handler) http.Handler
-}
-
 // Mount registers the screen endpoints.
-func Mount(d module.Deps, g Guards, accounts accountsvc.Service, catalog catalogsvc.Service,
-	deals dealsvc.Service, trust trustsvc.Service, saves discoverysvc.Service, chats chatsvc.Service,
+func Mount(d module.Deps, accounts accountsvc.Service, catalog catalogsvc.Service,
+	deals dealsvc.Service, trust trustsvc.Service, discovery discoverysvc.Service, chats chatsvc.Service,
 	notifications notificationsvc.Service,
 ) {
 	svc := service.New(service.Deps{
-		Accounts: accounts, Catalog: catalog, Deals: deals, Trust: trust, Saves: saves, Chats: chats,
+		Accounts: accounts, Catalog: catalog, Deals: deals, Trust: trust, Discovery: discovery, Chats: chats,
 		Notifications: notifications,
 	})
-	handler.New(svc, d.Log).Register(d.Router, g.Protect, g.Identify)
+	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
 }

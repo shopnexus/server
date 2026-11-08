@@ -39,9 +39,9 @@ type ListingViewer struct {
 
 // Listing reads the listing signed out, so its seller too gets
 // catalogdomain.ErrNotFound for one that is not active or reserved. A
-// reader who is not the seller also gets their save, deal and
+// viewer who is not the seller also gets their save, deal and
 // conversation with the seller.
-func (s *Screen) Listing(ctx context.Context, reader *uuid.UUID, id uuid.UUID) (ListingScreen, error) {
+func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingScreen, error) {
 	l, err := s.catalog.Get(ctx, nil, id)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the listing: %w", err)
@@ -62,18 +62,18 @@ func (s *Screen) Listing(ctx context.Context, reader *uuid.UUID, id uuid.UUID) (
 		ID: l.SellerID, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, JoinedAt: seller.CreatedAt,
 		Rating: rating, Sold: counts.Sold,
 	}}
-	if reader == nil || *reader == l.SellerID {
+	if viewer == nil || *viewer == l.SellerID {
 		return out, nil
 	}
-	saved, err := s.saves.IsSaved(ctx, *reader, id)
+	saved, err := s.discovery.IsSaved(ctx, *viewer, id)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the save: %w", err)
 	}
-	deal, hasDeal, err := s.deals.BuyerSummary(ctx, *reader, id)
+	deal, hasDeal, err := s.deals.BuyerSummary(ctx, *viewer, id)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the deal: %w", err)
 	}
-	conversation, err := s.chats.ConversationWith(ctx, *reader, l.SellerID)
+	conversation, err := s.chats.ConversationWith(ctx, *viewer, l.SellerID)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the conversation: %w", err)
 	}

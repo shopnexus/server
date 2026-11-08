@@ -43,11 +43,11 @@ type Service interface {
 	ResetMemberPassword(ctx context.Context, id uuid.UUID, by audit.Actor) (string, error)
 	ResetMemberTOTP(ctx context.Context, id uuid.UUID, by audit.Actor) (MemberView, error)
 	// ListAccounts lists customer accounts, or the one q names.
-	ListAccounts(ctx context.Context, q string, p page.Request) (page.Page[accountsvc.Record], error)
+	ListAccounts(ctx context.Context, q string, p page.Request) (page.Page[accountsvc.ConsoleAccount], error)
 	// GetAccount reads a customer account with its identities and history.
 	GetAccount(ctx context.Context, id uuid.UUID) (AccountDetail, error)
-	SuspendAccount(ctx context.Context, in accountsvc.SuspendInput) (accountsvc.Record, error)
-	UnsuspendAccount(ctx context.Context, id uuid.UUID, by audit.Actor) (accountsvc.Record, error)
+	SuspendAccount(ctx context.Context, in accountsvc.SuspendInput) (accountsvc.ConsoleAccount, error)
+	UnsuspendAccount(ctx context.Context, id uuid.UUID, by audit.Actor) (accountsvc.ConsoleAccount, error)
 	// ListActions lists the audit log newest first.
 	ListActions(ctx context.Context, f audit.Filter, p page.Request) (page.Page[audit.Action], error)
 	// CreateDashboardTicket gives the caller's session a ticket that opens

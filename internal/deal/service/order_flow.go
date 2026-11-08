@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/events"
+	"github.com/shopnexus/server2/internal/platform/restatex"
 )
 
 // FlowInput names the deal a flow moves and the caller, with the waybill of
@@ -49,11 +50,6 @@ type loaded struct {
 	Refused *apperr.Error      `json:"refused,omitempty"`
 }
 
-// refusal is what a step decided: a refusal, or none.
-type refusal struct {
-	Refused *apperr.Error `json:"refused,omitempty"`
-}
-
 // loadStep reads the caller's deal and its listing in one journaled step.
 func loadStep(ctx restate.Context, s *Deals, caller, id uuid.UUID) (loaded, error) {
 	out, err := restate.Run(ctx, func(rc restate.RunContext) (loaded, error) {
@@ -80,39 +76,39 @@ func loadStep(ctx restate.Context, s *Deals, caller, id uuid.UUID) (loaded, erro
 // journaled step. A deal changed meanwhile is domain.ErrChanged, as data;
 // a retry of a save that committed writes nothing more.
 func saveStep(ctx restate.Context, deals repository.Deals, d *domain.Deal, writeID, eventID uuid.UUID, at time.Time) (*apperr.Error, error) {
-	out, err := restate.Run(ctx, func(rc restate.RunContext) (refusal, error) {
+	out, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
 		stepErr := deals.Save(rc, d, writeID, events.Event{ID: eventID, Kind: events.DealMoved, SubjectID: d.ID(), OccurredAt: at})
 		if errors.Is(stepErr, repository.ErrConflict) {
-			return refusal{Refused: domain.ErrChanged}, nil
+			return restatex.Refused{Refusal: domain.ErrChanged}, nil
 		}
 		if stepErr != nil {
-			return refusal{}, fmt.Errorf("save deal: %w", stepErr)
+			return restatex.Refused{}, fmt.Errorf("save deal: %w", stepErr)
 		}
-		return refusal{}, nil
+		return restatex.Refused{}, nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("save the deal: %w", err)
 	}
-	return out.Refused, nil
+	return out.Refusal, nil
 }
 
 // reserveStep holds the listing for the order in one journaled step; a
 // listing that is not on sale is domain.ErrListingUnavailable, as data.
 func reserveStep(ctx restate.Context, catalog catalogsvc.Service, listing, order uuid.UUID) (*apperr.Error, error) {
-	out, err := restate.Run(ctx, func(rc restate.RunContext) (refusal, error) {
+	out, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
 		stepErr := catalog.Reserve(rc, listing, order)
 		if errors.Is(stepErr, catalogdomain.ErrStateConflict) {
-			return refusal{Refused: domain.ErrListingUnavailable}, nil
+			return restatex.Refused{Refusal: domain.ErrListingUnavailable}, nil
 		}
 		if stepErr != nil {
-			return refusal{}, fmt.Errorf("reserve: %w", stepErr)
+			return restatex.Refused{}, fmt.Errorf("reserve: %w", stepErr)
 		}
-		return refusal{}, nil
+		return restatex.Refused{}, nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("reserve the listing: %w", err)
 	}
-	return out.Refused, nil
+	return out.Refusal, nil
 }
 
 // releaseStep puts the listing held for the order back on sale in one

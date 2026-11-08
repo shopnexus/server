@@ -44,9 +44,10 @@ func ticketFor(t *testing.T, st repository.Dashboards, s domain.Session, app dom
 	return hash
 }
 
-func newDashboardSession(app domain.App) domain.DashboardSession {
+// cookieHash is the hash of a fresh dashboard cookie's token.
+func cookieHash() []byte {
 	_, hash := token.NewOpaque("ds_")
-	return domain.DashboardSession{TokenHash: hash, App: app, CreatedAt: now}
+	return hash
 }
 
 func TestRedeemTakesATicketOnce(t *testing.T) {
@@ -56,22 +57,22 @@ func TestRedeemTakesATicketOnce(t *testing.T) {
 	ctx := context.Background()
 	ticket := ticketFor(t, st, s, domain.AppGrafana)
 
-	if _, err := st.Redeem(ctx, ticket, newDashboardSession(domain.AppRestate)); !errors.Is(err, repository.ErrNotFound) {
+	if _, err := st.Redeem(ctx, ticket, cookieHash(), domain.AppRestate, now); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("another app's host: %v", err)
 	}
-	ds := newDashboardSession(domain.AppGrafana)
-	got, err := st.Redeem(ctx, ticket, ds)
-	if err != nil || got.SessionID != s.ID || !got.ExpiresAt.Equal(s.ExpiresAt) || got.App != domain.AppGrafana {
-		t.Fatalf("%+v %v", got, err)
+	hash := cookieHash()
+	expiresAt, err := st.Redeem(ctx, ticket, hash, domain.AppGrafana, now)
+	if err != nil || !expiresAt.Equal(s.ExpiresAt) {
+		t.Fatalf("%v %v", expiresAt, err)
 	}
-	if _, err = st.Redeem(ctx, ticket, newDashboardSession(domain.AppGrafana)); !errors.Is(err, repository.ErrNotFound) {
+	if _, err = st.Redeem(ctx, ticket, cookieHash(), domain.AppGrafana, now); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("a used ticket: %v", err)
 	}
-	g, err := st.Live(ctx, ds.TokenHash, domain.AppGrafana, now)
+	g, err := st.Live(ctx, hash, domain.AppGrafana, now)
 	if err != nil || g.Email != m.Email() || g.Role != domain.RoleModerator {
 		t.Fatalf("%+v %v", g, err)
 	}
-	if _, err = st.Live(ctx, ds.TokenHash, domain.AppRestate, now); !errors.Is(err, repository.ErrNotFound) {
+	if _, err = st.Live(ctx, hash, domain.AppRestate, now); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("on another app: %v", err)
 	}
 }
@@ -81,9 +82,8 @@ func TestRedeemRefusesAnExpiredTicket(t *testing.T) {
 	_, s, db := consoleSession(t, domain.RoleModerator)
 	st := repository.NewDashboards(db)
 	ticket := ticketFor(t, st, s, domain.AppGrafana)
-	late := newDashboardSession(domain.AppGrafana)
-	late.CreatedAt = now.Add(domain.DashboardTicketTTL)
-	if _, err := st.Redeem(context.Background(), ticket, late); !errors.Is(err, repository.ErrNotFound) {
+	late := now.Add(domain.DashboardTicketTTL)
+	if _, err := st.Redeem(context.Background(), ticket, cookieHash(), domain.AppGrafana, late); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("at its expiry: %v", err)
 	}
 }
@@ -97,7 +97,7 @@ func TestRedeemRace(t *testing.T) {
 	var wg sync.WaitGroup
 	errs := make([]error, 8)
 	for i := range errs {
-		wg.Go(func() { _, errs[i] = st.Redeem(context.Background(), ticket, newDashboardSession(domain.AppGrafana)) })
+		wg.Go(func() { _, errs[i] = st.Redeem(context.Background(), ticket, cookieHash(), domain.AppGrafana, now) })
 	}
 	wg.Wait()
 	won := 0
@@ -123,18 +123,18 @@ func TestDashboardSessionFollowsTheConsoleSession(t *testing.T) {
 	m, s, db := consoleSession(t, domain.RoleAdmin)
 	st := repository.NewDashboards(db)
 	ctx := context.Background()
-	ds := newDashboardSession(domain.AppRestate)
-	if _, err := st.Redeem(ctx, ticketFor(t, st, s, domain.AppRestate), ds); err != nil {
+	hash := cookieHash()
+	if _, err := st.Redeem(ctx, ticketFor(t, st, s, domain.AppRestate), hash, domain.AppRestate, now); err != nil {
 		t.Fatal(err)
 	}
 	live := func() error {
-		_, err := st.Live(ctx, ds.TokenHash, domain.AppRestate, now)
+		_, err := st.Live(ctx, hash, domain.AppRestate, now)
 		return err
 	}
 	if err := live(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.Live(ctx, ds.TokenHash, domain.AppRestate, s.ExpiresAt); !errors.Is(err, repository.ErrNotFound) {
+	if _, err := st.Live(ctx, hash, domain.AppRestate, s.ExpiresAt); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("at the console session's end: %v", err)
 	}
 	for name, q := range map[string][2]string{
@@ -161,7 +161,7 @@ func TestDashboardSessionFollowsTheConsoleSession(t *testing.T) {
 	if err := live(); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("after a sign-out: %v", err)
 	}
-	if _, err := st.Redeem(ctx, pending, newDashboardSession(domain.AppRestate)); !errors.Is(err, repository.ErrNotFound) {
+	if _, err := st.Redeem(ctx, pending, cookieHash(), domain.AppRestate, now); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("a ticket after a sign-out: %v", err)
 	}
 	if _, err := db.Exec(ctx, `DELETE FROM console_sessions WHERE id = @id`, pgx.StrictNamedArgs{"id": s.ID}); err != nil {

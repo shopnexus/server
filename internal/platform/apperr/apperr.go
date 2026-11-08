@@ -74,14 +74,17 @@ func (e *Error) Is(target error) bool {
 	return ok && t.Code == e.Code
 }
 
+// WithCause returns a copy of e whose cause is err.
+func (e *Error) WithCause(err error) *Error {
+	c := *e
+	c.Err = err
+	return &c
+}
+
 // WithField returns a copy of e with one more field problem.
 func (e *Error) WithField(name, problem string) *Error {
 	c := *e
-	c.Fields = maps.Clone(e.Fields)
-	if c.Fields == nil {
-		c.Fields = map[string]string{}
-	}
-	c.Fields[name] = problem
+	c.Fields = withKey(e.Fields, name, problem)
 	return &c
 }
 
@@ -94,10 +97,17 @@ func (e *Error) WithRetryAfter(wait time.Duration) *Error {
 // WithDetail returns a copy of e with one more detail.
 func (e *Error) WithDetail(name string, value any) *Error {
 	c := *e
-	c.Details = maps.Clone(e.Details)
-	if c.Details == nil {
-		c.Details = map[string]any{}
-	}
-	c.Details[name] = value
+	c.Details = withKey(e.Details, name, value)
 	return &c
+}
+
+// withKey returns a copy of m with k set to v, so the Error a copy came
+// from keeps its map.
+func withKey[V any](m map[string]V, k string, v V) map[string]V {
+	c := maps.Clone(m)
+	if c == nil {
+		c = map[string]V{}
+	}
+	c[k] = v
+	return c
 }

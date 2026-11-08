@@ -60,15 +60,6 @@ func (s pgSaves) Remove(ctx context.Context, account, listing uuid.UUID) error {
 	return nil
 }
 
-func (s pgSaves) Has(ctx context.Context, account, listing uuid.UUID) (bool, error) {
-	var has bool
-	if err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM saved_listings WHERE account_id = @account AND listing_id = @listing)`,
-		pgx.StrictNamedArgs{"account": account, "listing": listing}).Scan(&has); err != nil {
-		return false, fmt.Errorf("select save: %w", err)
-	}
-	return has, nil
-}
-
 func (s pgSaves) List(ctx context.Context, account uuid.UUID, p page.Request) ([]Save, error) {
 	rows, err := s.db.Query(ctx, `SELECT id, listing_id, saved_price, created_at FROM saved_listings
 WHERE account_id = @account AND id < @before ORDER BY id DESC LIMIT @limit`,
@@ -76,19 +67,11 @@ WHERE account_id = @account AND id < @before ORDER BY id DESC LIMIT @limit`,
 	if err != nil {
 		return nil, fmt.Errorf("select saves: %w", err)
 	}
-	defer rows.Close()
-	var out []Save
-	for rows.Next() {
-		var v Save
-		if err = rows.Scan(&v.ID, &v.ListingID, &v.Price, &v.At); err != nil {
-			return nil, fmt.Errorf("scan save: %w", err)
-		}
-		out = append(out, v)
-	}
-	if err = rows.Err(); err != nil {
+	saves, err := pgx.CollectRows(rows, pgx.RowToStructByPos[Save])
+	if err != nil {
 		return nil, fmt.Errorf("read saves: %w", err)
 	}
-	return out, nil
+	return saves, nil
 }
 
 func (s pgSaves) SavedAmong(ctx context.Context, account uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
@@ -97,17 +80,13 @@ func (s pgSaves) SavedAmong(ctx context.Context, account uuid.UUID, ids []uuid.U
 	if err != nil {
 		return nil, fmt.Errorf("read saves: %w", err)
 	}
-	defer rows.Close()
-	out := make(map[uuid.UUID]bool, len(ids))
-	for rows.Next() {
-		var id uuid.UUID
-		if err = rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("scan save: %w", err)
-		}
-		out[id] = true
+	saved, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return nil, fmt.Errorf("read saves: %w", err)
 	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("save rows: %w", err)
+	out := make(map[uuid.UUID]bool, len(saved))
+	for _, id := range saved {
+		out[id] = true
 	}
 	return out, nil
 }

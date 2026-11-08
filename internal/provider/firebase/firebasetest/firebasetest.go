@@ -24,8 +24,8 @@ import (
 )
 
 const (
-	ProjectID     = "shopnexus-test"
-	ProjectNumber = "123456789"
+	projectID     = "shopnexus-test"
+	projectNumber = "123456789"
 	rsaKid        = "rsa-1"
 	ecKid         = "ec-1"
 )
@@ -96,7 +96,7 @@ func serve(down func() bool, key map[string]string) http.Handler {
 // Config points a server at these keys.
 func (i *Issuer) Config(testNumbers bool) config.FirebaseConfig {
 	return config.FirebaseConfig{
-		ProjectID: ProjectID, ProjectNumber: ProjectNumber, AuthJWKSURL: i.auth.URL, PNVJWKSURL: i.pnv.URL,
+		ProjectID: projectID, ProjectNumber: projectNumber, AuthJWKSURL: i.auth.URL, PNVJWKSURL: i.pnv.URL,
 		TestNumbers: testNumbers,
 	}
 }
@@ -104,34 +104,34 @@ func (i *Issuer) Config(testNumbers bool) config.FirebaseConfig {
 // SetPNVDown makes the PNV key URL answer 503.
 func (i *Issuer) SetPNVDown(down bool) { i.pnvDown.Store(down) }
 
-// Token is what SMSToken and PNVToken sign; each Option changes it first.
-type Token struct {
-	Method jwt.SigningMethod
-	Key    any
-	Header map[string]any
-	Claims jwt.MapClaims
+// token is what SMSToken and PNVToken sign; each Option changes it first.
+type token struct {
+	method jwt.SigningMethod
+	key    any
+	header map[string]any
+	claims jwt.MapClaims
 }
 
-type Option func(*Token)
+type Option func(*token)
 
-func Claim(name string, value any) Option { return func(t *Token) { t.Claims[name] = value } }
-func Drop(name string) Option             { return func(t *Token) { delete(t.Claims, name) } }
+func Claim(name string, value any) Option { return func(t *token) { t.claims[name] = value } }
+func Drop(name string) Option             { return func(t *token) { delete(t.claims, name) } }
 func Header(name string, value any) Option {
-	return func(t *Token) { t.Header[name] = value }
+	return func(t *token) { t.header[name] = value }
 }
 
 // SignedWith signs with another method and key; the kid stays.
 func SignedWith(method jwt.SigningMethod, key any) Option {
-	return func(t *Token) { t.Method, t.Key = method, key }
+	return func(t *token) { t.method, t.key = method, key }
 }
 
 // SMSToken is a Firebase Authentication ID token for phone, verified now.
 func (i *Issuer) SMSToken(phone string, opts ...Option) string {
 	now := i.Now()
-	return sign(Token{
-		Method: jwt.SigningMethodRS256, Key: i.rsa, Header: map[string]any{"kid": rsaKid},
-		Claims: jwt.MapClaims{
-			"iss": "https://securetoken.google.com/" + ProjectID, "aud": ProjectID, "sub": "uid-" + phone,
+	return sign(token{
+		method: jwt.SigningMethodRS256, key: i.rsa, header: map[string]any{"kid": rsaKid},
+		claims: jwt.MapClaims{
+			"iss": "https://securetoken.google.com/" + projectID, "aud": projectID, "sub": "uid-" + phone,
 			"iat": now.Unix(), "exp": now.Add(time.Hour).Unix(), "auth_time": now.Unix(), "phone_number": phone,
 			"firebase": map[string]any{"sign_in_provider": "phone", "identities": map[string]any{"phone": []string{phone}}},
 		},
@@ -141,25 +141,25 @@ func (i *Issuer) SMSToken(phone string, opts ...Option) string {
 // PNVToken is a Phone Number Verification token for phone, issued now.
 func (i *Issuer) PNVToken(phone string, opts ...Option) string {
 	now := i.Now()
-	return sign(Token{
-		Method: jwt.SigningMethodES256, Key: i.ec, Header: map[string]any{"kid": ecKid, "typ": "JWT"},
-		Claims: jwt.MapClaims{
-			"iss": "https://fpnv.googleapis.com/projects/" + ProjectNumber,
+	return sign(token{
+		method: jwt.SigningMethodES256, key: i.ec, header: map[string]any{"kid": ecKid, "typ": "JWT"},
+		claims: jwt.MapClaims{
+			"iss": "https://fpnv.googleapis.com/projects/" + projectNumber,
 			"aud": []string{
-				"https://fpnv.googleapis.com/projects/" + ProjectNumber, "https://fpnv.googleapis.com/projects/" + ProjectID,
+				"https://fpnv.googleapis.com/projects/" + projectNumber, "https://fpnv.googleapis.com/projects/" + projectID,
 			},
 			"sub": phone, "iat": now.Unix(), "exp": now.Add(time.Hour).Unix(),
 		},
 	}, opts)
 }
 
-func sign(t Token, opts []Option) string {
+func sign(t token, opts []Option) string {
 	for _, o := range opts {
 		o(&t)
 	}
-	tok := jwt.NewWithClaims(t.Method, t.Claims)
-	maps.Copy(tok.Header, t.Header)
-	s, err := tok.SignedString(t.Key)
+	tok := jwt.NewWithClaims(t.method, t.claims)
+	maps.Copy(tok.Header, t.header)
+	s, err := tok.SignedString(t.key)
 	if err != nil {
 		panic(fmt.Sprintf("firebasetest: sign: %v", err)) // an option built a token no key signs: a test bug
 	}

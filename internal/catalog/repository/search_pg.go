@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"math"
 	"strings"
 	"unicode/utf8"
 
@@ -36,16 +35,12 @@ func array(items []string) string {
 	return "ARRAY[" + strings.Join(items, ", ") + "]::paradedb.searchqueryinput[]"
 }
 
-// kmPerDegree is the length of a degree of latitude.
-const kmPerDegree = 111.32
-
-// box is the lat and lng ranges around p that hold a circle of radius km.
+// box matches the points in domain.Box around p.
 func (q *query) box(p domain.Point, km float64) string {
-	dLat := km / kmPerDegree
-	dLng := km / (kmPerDegree * math.Cos(p.Lat*math.Pi/180))
+	lo, hi := domain.Box(p, km)
 	return `paradedb.boolean(must => ` + array([]string{
-		`paradedb.range('lat', numrange(` + q.arg(p.Lat-dLat, "numeric") + `, ` + q.arg(p.Lat+dLat, "numeric") + `, '[]'))`,
-		`paradedb.range('lng', numrange(` + q.arg(p.Lng-dLng, "numeric") + `, ` + q.arg(p.Lng+dLng, "numeric") + `, '[]'))`,
+		`paradedb.range('lat', numrange(` + q.arg(lo.Lat, "numeric") + `, ` + q.arg(hi.Lat, "numeric") + `, '[]'))`,
+		`paradedb.range('lng', numrange(` + q.arg(lo.Lng, "numeric") + `, ` + q.arg(hi.Lng, "numeric") + `, '[]'))`,
 	}) + `)`
 }
 
@@ -189,7 +184,7 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 			sql += ` AND ` + distanceSQL + ` <= @radius`
 		}
 	}
-	switch in.Sort {
+	switch in.Sort { //nolint:exhaustive // relevance is the default order
 	case domain.SortNewest:
 		sql += ` ORDER BY published_at DESC, id DESC`
 	case domain.SortPriceAsc:
@@ -198,8 +193,6 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 		sql += ` ORDER BY price DESC, id`
 	case domain.SortNearest:
 		sql += ` ORDER BY ` + distanceSQL + `, id`
-	case domain.SortRelevance:
-		sql += ` ORDER BY paradedb.score(id) DESC, id`
 	default:
 		sql += ` ORDER BY paradedb.score(id) DESC, id`
 	}
@@ -207,19 +200,14 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
-	defer rows.Close()
-	var out []domain.Hit
-	for rows.Next() {
+	hits, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Hit, error) {
 		var h domain.Hit
-		if err = rows.Scan(&h.ID, &h.Point.Lat, &h.Point.Lng); err != nil {
-			return nil, fmt.Errorf("scan hit: %w", err)
-		}
-		out = append(out, h)
+		return h, row.Scan(&h.ID, &h.Point.Lat, &h.Point.Lng)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read hits: %w", err)
 	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("search rows: %w", err)
-	}
-	return out, nil
+	return hits, nil
 }
 
 func (s pgSearches) Counts(ctx context.Context, in domain.Search, by domain.CountField) ([]domain.CategoryCount, error) {
@@ -233,17 +221,9 @@ func (s pgSearches) Counts(ctx context.Context, in domain.Search, by domain.Coun
 	if err != nil {
 		return nil, fmt.Errorf("count: %w", err)
 	}
-	defer rows.Close()
-	var out []domain.CategoryCount
-	for rows.Next() {
-		var c domain.CategoryCount
-		if err = rows.Scan(&c.Code, &c.Count); err != nil {
-			return nil, fmt.Errorf("scan count: %w", err)
-		}
-		out = append(out, c)
+	counts, err := pgx.CollectRows(rows, pgx.RowToStructByPos[domain.CategoryCount])
+	if err != nil {
+		return nil, fmt.Errorf("read counts: %w", err)
 	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("count rows: %w", err)
-	}
-	return out, nil
+	return counts, nil
 }

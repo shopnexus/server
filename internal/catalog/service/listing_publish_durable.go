@@ -63,22 +63,17 @@ func (s ListingPublish) Run(ctx restate.Context, id uuid.UUID) error {
 	}
 
 	pending := l.PendingUploads()
-	futures := make([]restate.ResponseFuture[mediasvc.ProcessResult], len(pending))
-	for i, u := range pending {
-		futures[i] = restate.Service[mediasvc.ProcessResult](ctx, s.Prefix+mediasvc.MediaProcessService, "Run").
-			RequestFuture(u, restate.WithIdempotencyKey(u.String()))
+	results, err := mediasvc.ProcessAll(ctx, s.Prefix, pending)
+	if err != nil {
+		return fmt.Errorf("process uploads: %w", err)
 	}
 	keys := make(map[uuid.UUID]domain.PhotoKeys, len(pending))
 	reasons := map[uuid.UUID]string{}
-	for i, f := range futures {
-		r, waitErr := f.Response()
-		if waitErr != nil {
-			return fmt.Errorf("process upload %s: %w", pending[i], waitErr)
-		}
-		if r.Status == mediadomain.StatusReady {
-			keys[pending[i]] = domain.PhotoKeys{Photo: r.PhotoKey, Thumb: r.ThumbKey}
+	for _, u := range pending {
+		if r := results[u]; r.Status == mediadomain.StatusReady {
+			keys[u] = domain.PhotoKeys{Photo: r.PhotoKey, Thumb: r.ThumbKey}
 		} else {
-			reasons[pending[i]] = r.Failure
+			reasons[u] = r.Failure
 		}
 	}
 

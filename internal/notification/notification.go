@@ -1,11 +1,9 @@
 // Package notification tells people what happened to their deals, orders,
 // listings, reviews and account, in a list and by push, from the events of
-// the other modules. No module calls it.
+// the other modules. Only screen calls it, for Home's unread count.
 package notification
 
 import (
-	"net/http"
-
 	restate "github.com/restatedev/sdk-go"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
@@ -22,30 +20,23 @@ import (
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
-// Mounted is what notification's Mount gives app.
-type Mounted struct {
-	Services []restate.ServiceDefinition
-	Service  service.Service
+// Settings is what notification's Mount takes beyond module.Deps.
+type Settings struct {
+	// Push delivers the pushes.
+	Push push.Sender
 }
 
-// Sources are the modules whose changes notification tells of.
-type Sources struct {
-	Accounts accountsvc.Service
-	Catalog  catalogsvc.Service
-	Deals    dealsvc.Service
-	Chats    chatsvc.Service
-	Trust    trustsvc.Service
-}
-
-// Mount registers the notification endpoints behind protect and subscribes
-// the worker to the events it tells of; sender delivers the pushes.
-func Mount(d module.Deps, protect func(http.Handler) http.Handler, src Sources, sender push.Sender) Mounted {
-	notices := repository.NewNotices(d.Pool)
-	svc := service.New(service.Deps{Notices: notices, Now: d.Now})
-	handler.New(svc, d.Log).Register(d.Router, protect)
+// Mount registers the notification endpoints and subscribes the worker to
+// the events it tells of, which it reads through the other modules'
+// services.
+func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service,
+	deals dealsvc.Service, trust trustsvc.Service, chats chatsvc.Service,
+) module.Mounted[service.Service] {
+	svc := service.New(service.Deps{Notices: repository.NewNotices(d.Pool), Now: d.Now})
+	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	w := worker.Worker{
-		Prefix: d.ServicePrefix, Notices: svc, Deals: src.Deals, Chats: src.Chats, Catalog: src.Catalog,
-		Trust: src.Trust, Accounts: src.Accounts, Push: sender, Log: d.Log,
+		Prefix: d.ServicePrefix, Notices: svc, Deals: deals, Chats: chats, Catalog: catalog,
+		Trust: trust, Accounts: accounts, Push: s.Push, Log: d.Log,
 	}
 	for kind, h := range map[events.Kind]string{
 		events.DealMoved: "DealMoved", events.MessageSent: "MessageSent", events.ListingPublished: "ListingPublished",
@@ -54,5 +45,5 @@ func Mount(d module.Deps, protect func(http.Handler) http.Handler, src Sources, 
 	} {
 		d.Events.Subscribe(kind, w.ServiceName(), h)
 	}
-	return Mounted{Services: []restate.ServiceDefinition{restate.Reflect(w)}, Service: svc}
+	return module.Mounted[service.Service]{Services: []restate.ServiceDefinition{restate.Reflect(w)}, Service: svc}
 }

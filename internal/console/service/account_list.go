@@ -12,34 +12,33 @@ import (
 )
 
 // ListAccounts lists accounts newest first or, with q, the one account q
-// names by ID, phone number or email. A q that names nothing gives an empty
-// page.
-func (s *Console) ListAccounts(ctx context.Context, q string, p page.Request) (page.Page[accountsvc.Record], error) {
+// names by ID or phone number. A q that names nothing gives an empty page.
+func (s *Console) ListAccounts(ctx context.Context, q string, p page.Request) (page.Page[accountsvc.ConsoleAccount], error) {
 	if q == "" {
-		rows, err := s.accounts.Records(ctx, p)
+		list, err := s.accounts.ConsoleAccounts(ctx, p)
 		if err != nil {
-			return page.Page[accountsvc.Record]{}, fmt.Errorf("list accounts: %w", err)
+			return page.Page[accountsvc.ConsoleAccount]{}, fmt.Errorf("list accounts: %w", err)
 		}
-		return page.Of(rows, p, func(r accountsvc.Record) uuid.UUID { return r.ID }), nil
+		return list, nil
 	}
-	out := page.Page[accountsvc.Record]{Items: []accountsvc.Record{}}
+	out := page.Page[accountsvc.ConsoleAccount]{Items: []accountsvc.ConsoleAccount{}}
 	id, parseErr := uuid.Parse(q)
 	if parseErr != nil {
 		found, ok, err := s.accounts.FindByPhone(ctx, q)
 		if err != nil {
-			return page.Page[accountsvc.Record]{}, fmt.Errorf("find account: %w", err)
+			return page.Page[accountsvc.ConsoleAccount]{}, fmt.Errorf("find account: %w", err)
 		}
 		if !ok {
 			return out, nil
 		}
 		id = found
 	}
-	r, err := s.accounts.Record(ctx, id)
+	r, err := s.accounts.ConsoleAccount(ctx, id)
 	if errors.Is(err, accountdomain.ErrAccountNotFound) {
 		return out, nil
 	}
 	if err != nil {
-		return page.Page[accountsvc.Record]{}, fmt.Errorf("get account: %w", err)
+		return page.Page[accountsvc.ConsoleAccount]{}, fmt.Errorf("get account: %w", err)
 	}
 	out.Items = append(out.Items, r)
 	return out, nil

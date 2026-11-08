@@ -3,8 +3,6 @@
 package discovery
 
 import (
-	"net/http"
-
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/discovery/domain"
 	"github.com/shopnexus/server2/internal/discovery/handler"
@@ -14,19 +12,19 @@ import (
 	"github.com/shopnexus/server2/internal/provider/llm"
 )
 
-// Guards are the two ways an endpoint reads its caller: protect requires
-// one, identify reads one when the request carries it.
-type Guards struct {
-	Protect, Identify func(http.Handler) http.Handler
+// Settings is what discovery's Mount takes beyond module.Deps.
+type Settings struct {
+	// Model reads search queries.
+	Model llm.Client
 }
 
 // Mount registers the discovery endpoints and returns the Service screen
-// reads saves and the nearby feed through. model reads search queries.
-func Mount(d module.Deps, g Guards, catalog catalogsvc.Service, model llm.Client) service.Service {
+// reads saves and the nearby feed through.
+func Mount(d module.Deps, s Settings, catalog catalogsvc.Service) service.Service {
 	svc := service.New(service.Deps{
 		Saves: repository.NewSaves(d.Pool), Understandings: repository.NewUnderstandings(d.Pool), Catalog: catalog,
-		LLM: model, ModelTimeout: domain.ModelTimeout, Log: d.Log, Now: d.Now,
+		LLM: s.Model, ModelTimeout: domain.ModelTimeout, Log: d.Log, Now: d.Now,
 	})
-	handler.New(svc, d.Log).Register(d.Router, g.Protect, g.Identify)
+	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
 	return svc
 }

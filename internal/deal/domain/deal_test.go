@@ -42,7 +42,7 @@ func TestOfferCounterAccept(t *testing.T) {
 	must(t, d.Offer(domain.Buyer, 1_000_000, onSale, now))
 	must(t, d.Offer(domain.Seller, 1_300_000, onSale, now))
 	must(t, d.Accept(domain.Buyer, 1_300_000, onSale, now))
-	if d.Status() != domain.StatusAgreed || d.AgreedPrice() != 1_300_000 || d.AgreedAt() == nil || d.Open() != nil {
+	if d.Status() != domain.StatusAgreed || d.AgreedPrice() != 1_300_000 || d.AgreedAt() == nil || d.OpenPrice() != nil {
 		t.Fatalf("%+v", d.State())
 	}
 	want := []domain.MoveKind{domain.MoveOffer, domain.MoveCounter, domain.MoveAccept}
@@ -130,7 +130,7 @@ func TestAllowedMoves(t *testing.T) {
 	// The buyer takes the listed price over their own open offer.
 	must(t, d.Accept(domain.Buyer, 1_500_000, onSale, now))
 	must(t, d.Cancel(domain.Seller, now))
-	if d.Status() != domain.StatusNegotiating || d.AgreedPrice() != 0 || d.AgreedAt() != nil || d.Open() != nil {
+	if d.Status() != domain.StatusNegotiating || d.AgreedPrice() != 0 || d.AgreedAt() != nil || d.OpenPrice() != nil {
 		t.Fatalf("%+v", d.State())
 	}
 	fixed := newDeal()
@@ -242,13 +242,13 @@ func TestListingChanged(t *testing.T) {
 				t.Fatalf("changed %v", changed)
 			}
 			if !changed {
-				if d.Open() == nil {
+				if d.OpenPrice() == nil {
 					t.Fatal("the open price went")
 				}
 				return
 			}
 			p := d.Pending()
-			if d.Open() != nil || len(p) != 1 || p[0].Kind != c.want || p[0].By != domain.System {
+			if d.OpenPrice() != nil || len(p) != 1 || p[0].Kind != c.want || p[0].By != domain.System {
 				t.Fatalf("%+v %+v", d.State(), p)
 			}
 			if c.want == domain.MovePriceChanged && p[0].Amount != c.l.Price {

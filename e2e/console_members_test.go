@@ -24,39 +24,21 @@ func TestConsoleManagesModerators(t *testing.T) {
 	if res.Status != 201 || created.Member.Role != "moderator" || len(created.Temporary) != 16 {
 		t.Fatalf("create: %d %s", res.Status, res.Body)
 	}
-	if got := consoleCall(t, admin, "POST", "/v1/console/members", map[string]string{"email": email, "display_name": "Again"}); got.Status != 409 {
-		t.Fatalf("the same email: %d %s", got.Status, got.Body)
-	}
-	if got := consoleCall(t, admin, "POST", "/v1/console/members", map[string]string{"email": "nope", "display_name": "Bad"}); got.Status != 400 {
-		t.Fatalf("a bad email: %d %s", got.Status, got.Body)
-	}
-	if got := consoleCall(t, admin, "GET", "/v1/console/members?limit=100", nil); got.Status != 200 {
-		t.Fatalf("list: %d %s", got.Status, got.Body)
-	}
-	if got := consoleCall(t, consoleSession{}, "GET", "/v1/console/members", nil); got.Status != 401 {
-		t.Fatalf("list without a cookie: %d", got.Status)
-	}
+	expectStatus(t, consoleCall(t, admin, "POST", "/v1/console/members", map[string]string{"email": email, "display_name": "Again"}), 409) // the same email
+	expectStatus(t, consoleCall(t, admin, "POST", "/v1/console/members", map[string]string{"email": "nope", "display_name": "Bad"}), 400)  // a bad email
+	expectStatus(t, consoleCall(t, admin, "GET", "/v1/console/members?limit=100", nil), 200)
+	expectStatus(t, consoleCall(t, consoleSession{}, "GET", "/v1/console/members", nil), 401)
 
 	mod := signInMember(t, consoledomain.RoleModerator)
 	path := "/v1/console/members/" + mod.ID + "/"
-	if got := consoleCall(t, admin, "POST", path+"disable", nil); got.Status != 200 {
-		t.Fatalf("disable: %d %s", got.Status, got.Body)
-	}
-	if got := consoleCall(t, mod, "GET", "/v1/console/me", nil); got.Status != 401 {
-		t.Fatalf("the disabled moderator's cookie: %d", got.Status)
-	}
-	if got := consoleCall(t, admin, "POST", path+"enable", nil); got.Status != 200 {
-		t.Fatalf("enable: %d %s", got.Status, got.Body)
-	}
+	expectStatus(t, consoleCall(t, admin, "POST", path+"disable", nil), 200)
+	expectStatus(t, consoleCall(t, mod, "GET", "/v1/console/me", nil), 401) // the disabled moderator's cookie
+	expectStatus(t, consoleCall(t, admin, "POST", path+"enable", nil), 200)
 	for range 5 {
 		consoleLogin(t, map[string]string{"email": mod.Email, "password": "wrong password"})
 	}
-	if got := consoleLogin(t, map[string]string{"email": mod.Email, "password": memberPassword}); got.Status != 429 {
-		t.Fatalf("locked: %d", got.Status)
-	}
-	if got := consoleCall(t, admin, "POST", path+"unlock", nil); got.Status != 200 {
-		t.Fatalf("unlock: %d %s", got.Status, got.Body)
-	}
+	expectStatus(t, consoleLogin(t, map[string]string{"email": mod.Email, "password": memberPassword}), 429) // locked
+	expectStatus(t, consoleCall(t, admin, "POST", path+"unlock", nil), 200)
 	if got := consoleLogin(t, map[string]string{"email": mod.Email, "password": memberPassword}); errorOf(t, got).Code != "totp_required" {
 		t.Fatalf("after unlock: %d %s", got.Status, got.Body)
 	}
@@ -82,9 +64,7 @@ func TestConsoleMemberOpsForbidden(t *testing.T) {
 	if got := consoleCall(t, mod, "GET", "/v1/console/members", nil); got.Status != 403 || errorOf(t, got).Code != "console_forbidden" {
 		t.Fatalf("a moderator listing: %d %s", got.Status, got.Body)
 	}
-	if got := consoleCall(t, mod, "POST", "/v1/console/members", map[string]string{"email": newMemberEmail(), "display_name": "X"}); got.Status != 403 {
-		t.Fatalf("a moderator creating: %d", got.Status)
-	}
+	expectStatus(t, consoleCall(t, mod, "POST", "/v1/console/members", map[string]string{"email": newMemberEmail(), "display_name": "X"}), 403) // a moderator creating
 	for _, op := range memberOps {
 		path := "/v1/console/members/" + otherAdmin + "/" + op
 		if got := consoleCall(t, mod, "POST", path, nil); got.Status != 403 || errorOf(t, got).Code != "console_forbidden" {

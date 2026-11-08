@@ -90,6 +90,10 @@ linters:
               desc: Use math/rand/v2.
             - pkg: github.com/shopnexus/server2/internal/account/accounttest
               desc: test support; only tests import it.
+            - pkg: github.com/shopnexus/server2/internal/catalog/catalogtest
+              desc: test support; only tests import it.
+            - pkg: github.com/shopnexus/server2/internal/media/mediatest
+              desc: test support; only tests import it.
             - pkg: github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest
               desc: test support; only tests import it.
             - pkg: github.com/shopnexus/server2/internal/platform/postgres/pgtest
@@ -886,9 +890,11 @@ linters:
         - .WithDetail(
         - .WithRetryAfter(
         - .WithField(
+        - .WithCause(
         - httpx.Bind[
         # These wrap their own errors ("read clock", "insert event",
-        # "insert console action"); a caller has nothing to add.
+        # "insert console action", "config"); a caller has nothing to add.
+        - config.FromDotEnv(
         - restatex.Now(
         - events.Insert(
         - stream.Notify(

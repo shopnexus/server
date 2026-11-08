@@ -2,8 +2,9 @@ package events_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
-	"sync"
 	"testing"
 	"time"
 	"uuid"
@@ -16,64 +17,16 @@ import (
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
 var discard = slog.New(slog.DiscardHandler)
 
-// inbox is a subscriber that counts the events it handled.
-type inbox struct {
-	name string // with the prefix
-	mu   *sync.Mutex
-	got  map[uuid.UUID]int
-}
-
-func newInbox(prefix, name string) inbox {
-	return inbox{name: prefix + name, mu: &sync.Mutex{}, got: map[uuid.UUID]int{}}
-}
-
-func (i inbox) ServiceName() string { return i.name }
-
-func (i inbox) Handle(ctx restate.Context, e events.Event) error {
-	return restate.RunVoid(ctx, func(restate.RunContext) error {
-		i.mu.Lock()
-		defer i.mu.Unlock()
-		i.got[e.ID]++
-		return nil
-	})
-}
-
-func (i inbox) count(id uuid.UUID) int {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return i.got[id]
-}
-
-// eventually fails t unless ok turns true within ten seconds.
-func eventually(t *testing.T, ok func() bool) {
-	t.Helper()
-	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
-		if ok() {
-			return
-		}
-	}
-	t.Fatal("not within 10s")
-}
-
-// ingressClient reaches the test stack's Restate.
-func ingressClient(t *testing.T) *ingress.Client {
-	t.Helper()
-	url, _, err := restatetest.URLs()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return ingress.NewClient(url)
-}
-
 // newBus is a bus on prefix p whose Events service is served, with the
 // subscribers given, by an endpoint of the test stack.
-func newBus(t *testing.T, db *pgxpool.Pool, p string, subscribers ...inbox) *events.Bus {
+func newBus(t *testing.T, db *pgxpool.Pool, p string, subscribers ...events.Inbox) *events.Bus {
 	t.Helper()
-	bus := events.NewBus(db, ingressClient(t), p, time.Now, discard)
+	bus := events.NewBus(db, restatetest.Ingress(t), p, time.Now, discard)
 	defs := make([]restate.ServiceDefinition, 0, 1+len(subscribers))
 	defs = append(defs, bus.Definition())
 	for _, i := range subscribers {
@@ -115,16 +68,21 @@ func TestEverySubscriberGetsTheEventOnce(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	p := restatetest.Prefix()
-	a, b := newInbox(p, "A"), newInbox(p, "B")
+	a, b := events.NewInbox(p, "A"), events.NewInbox(p, "B")
 	bus := newBus(t, db, p, a, b)
 	bus.Subscribe(events.AccountSuspended, a.ServiceName(), "Handle")
 	bus.Subscribe(events.AccountSuspended, b.ServiceName(), "Handle")
 	run(t, bus)
 	e := publish(t, db, events.AccountSuspended)
-	eventually(t, func() bool { return a.count(e.ID) == 1 && b.count(e.ID) == 1 && dispatched(t, db, e.ID) })
+	testenv.Eventually(t, 10*time.Second, func() error {
+		if na, nb, d := a.Count(e.ID), b.Count(e.ID), dispatched(t, db, e.ID); na != 1 || nb != 1 || !d {
+			return fmt.Errorf("delivered %d and %d times, dispatched %t", na, nb, d)
+		}
+		return nil
+	})
 	time.Sleep(1500 * time.Millisecond) // one more poll round
-	if a.count(e.ID) != 1 || b.count(e.ID) != 1 {
-		t.Fatalf("delivered %d and %d times", a.count(e.ID), b.count(e.ID))
+	if a.Count(e.ID) != 1 || b.Count(e.ID) != 1 {
+		t.Fatalf("delivered %d and %d times", a.Count(e.ID), b.Count(e.ID))
 	}
 }
 
@@ -132,9 +90,9 @@ func TestTwoBusesDeliverEachEventOnce(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	p := restatetest.Prefix()
-	a := newInbox(p, "A")
+	a := events.NewInbox(p, "A")
 	first := newBus(t, db, p, a)
-	second := events.NewBus(db, ingressClient(t), p, time.Now, discard)
+	second := events.NewBus(db, restatetest.Ingress(t), p, time.Now, discard)
 	for _, bus := range []*events.Bus{first, second} {
 		bus.Subscribe(events.AccountUpdated, a.ServiceName(), "Handle")
 		run(t, bus)
@@ -143,16 +101,16 @@ func TestTwoBusesDeliverEachEventOnce(t *testing.T) {
 	for range 50 {
 		sent = append(sent, publish(t, db, events.AccountUpdated))
 	}
-	eventually(t, func() bool {
-		for _, e := range sent {
-			if a.count(e.ID) == 0 {
-				return false
+	testenv.Eventually(t, 10*time.Second, func() error {
+		for i, e := range sent {
+			if a.Count(e.ID) == 0 {
+				return fmt.Errorf("event %d of %d not delivered", i+1, len(sent))
 			}
 		}
-		return true
+		return nil
 	})
 	for _, e := range sent {
-		if n := a.count(e.ID); n != 1 {
+		if n := a.Count(e.ID); n != 1 {
 			t.Fatalf("%s delivered %d times", e.ID, n)
 		}
 	}
@@ -161,9 +119,14 @@ func TestTwoBusesDeliverEachEventOnce(t *testing.T) {
 func TestEventWithoutSubscriberIsMarked(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	run(t, events.NewBus(db, ingressClient(t), restatetest.Prefix(), time.Now, discard))
+	run(t, events.NewBus(db, restatetest.Ingress(t), restatetest.Prefix(), time.Now, discard))
 	e := publish(t, db, events.AccountUnsuspended)
-	eventually(t, func() bool { return dispatched(t, db, e.ID) })
+	testenv.Eventually(t, 10*time.Second, func() error {
+		if !dispatched(t, db, e.ID) {
+			return errors.New("not marked dispatched")
+		}
+		return nil
+	})
 }
 
 // With no notification, the one-second poll still delivers.
@@ -171,7 +134,7 @@ func TestDeliversWithoutNotify(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	p := restatetest.Prefix()
-	a := newInbox(p, "A")
+	a := events.NewInbox(p, "A")
 	bus := newBus(t, db, p, a)
 	bus.Subscribe(events.AccountUpdated, a.ServiceName(), "Handle")
 	id := uuid.NewV7()
@@ -181,7 +144,12 @@ func TestDeliversWithoutNotify(t *testing.T) {
 		t.Fatal(err)
 	}
 	run(t, bus)
-	eventually(t, func() bool { return a.count(id) == 1 })
+	testenv.Eventually(t, 10*time.Second, func() error {
+		if n := a.Count(id); n != 1 {
+			return fmt.Errorf("delivered %d times, want 1", n)
+		}
+		return nil
+	})
 }
 
 // While Restate cannot be reached, events stay pending; a bus that can
@@ -190,7 +158,7 @@ func TestDeliversAfterRestateReturns(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	p := restatetest.Prefix()
-	a := newInbox(p, "A")
+	a := events.NewInbox(p, "A")
 	down := events.NewBus(db, ingress.NewClient("http://127.0.0.1:1"), p, time.Now, discard)
 	down.Subscribe(events.AccountUpdated, a.ServiceName(), "Handle")
 	ctx, cancel := context.WithCancel(context.Background())
@@ -206,7 +174,12 @@ func TestDeliversAfterRestateReturns(t *testing.T) {
 	up := newBus(t, db, p, a)
 	up.Subscribe(events.AccountUpdated, a.ServiceName(), "Handle")
 	run(t, up)
-	eventually(t, func() bool { return a.count(e.ID) == 1 && dispatched(t, db, e.ID) })
+	testenv.Eventually(t, 10*time.Second, func() error {
+		if n, d := a.Count(e.ID), dispatched(t, db, e.ID); n != 1 || !d {
+			return fmt.Errorf("delivered %d times, dispatched %t", n, d)
+		}
+		return nil
+	})
 }
 
 func TestOldDispatchedEventsAreDeleted(t *testing.T) {
@@ -221,13 +194,18 @@ func TestOldDispatchedEventsAreDeleted(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	run(t, events.NewBus(db, ingressClient(t), restatetest.Prefix(), func() time.Time { return now }, discard))
+	run(t, events.NewBus(db, restatetest.Ingress(t), restatetest.Prefix(), func() time.Time { return now }, discard))
 	count := func(id uuid.UUID) int {
 		var n int
 		_ = db.QueryRow(context.Background(), `SELECT count(*) FROM events WHERE id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&n)
 		return n
 	}
-	eventually(t, func() bool { return count(old) == 0 })
+	testenv.Eventually(t, 10*time.Second, func() error {
+		if count(old) != 0 {
+			return errors.New("the old event is still there")
+		}
+		return nil
+	})
 	if count(recent) != 1 {
 		t.Fatal("a recent event was deleted")
 	}
@@ -235,7 +213,7 @@ func TestOldDispatchedEventsAreDeleted(t *testing.T) {
 
 func TestRunStopsWithItsContext(t *testing.T) {
 	t.Parallel()
-	bus := events.NewBus(pgtest.New(t), ingressClient(t), restatetest.Prefix(), time.Now, discard)
+	bus := events.NewBus(pgtest.New(t), restatetest.Ingress(t), restatetest.Prefix(), time.Now, discard)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- bus.Run(ctx) }()
@@ -253,7 +231,7 @@ func TestRunStopsWithItsContext(t *testing.T) {
 
 func TestSubscribeAfterRunPanics(t *testing.T) {
 	t.Parallel()
-	bus := events.NewBus(pgtest.New(t), ingressClient(t), restatetest.Prefix(), time.Now, discard)
+	bus := events.NewBus(pgtest.New(t), restatetest.Ingress(t), restatetest.Prefix(), time.Now, discard)
 	run(t, bus)
 	time.Sleep(100 * time.Millisecond)
 	defer func() {
@@ -269,7 +247,7 @@ func TestSubscribeAfterRunPanics(t *testing.T) {
 func TestPoolClosesWhileRunning(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	run(t, events.NewBus(db, ingressClient(t), restatetest.Prefix(), time.Now, discard))
+	run(t, events.NewBus(db, restatetest.Ingress(t), restatetest.Prefix(), time.Now, discard))
 	time.Sleep(200 * time.Millisecond) // listening by now
 	closed := make(chan struct{})
 	go func() { db.Close(); close(closed) }()
@@ -286,20 +264,25 @@ func TestUnknownSubscriberDelaysOnlyItsEvents(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	p := restatetest.Prefix()
-	a := newInbox(p, "A")
+	a := events.NewInbox(p, "A")
 	bus := newBus(t, db, p, a)
 	bus.Subscribe(events.AccountUpdated, p+"NoSuchService", "Handle")
 	bus.Subscribe(events.AccountSuspended, a.ServiceName(), "Handle")
 	publish(t, db, events.AccountUpdated)
 	later := publish(t, db, events.AccountSuspended)
 	run(t, bus)
-	eventually(t, func() bool { return a.count(later.ID) == 1 })
+	testenv.Eventually(t, 10*time.Second, func() error {
+		if n := a.Count(later.ID); n != 1 {
+			return fmt.Errorf("delivered %d times, want 1", n)
+		}
+		return nil
+	})
 }
 
 func TestCheckRefusesUnknownSubscriptions(t *testing.T) {
 	t.Parallel()
 	p := restatetest.Prefix()
-	a := newInbox(p, "A")
+	a := events.NewInbox(p, "A")
 	for name, sub := range map[string][2]string{
 		"unknown service": {p + "NoSuchService", "Handle"},
 		"unknown handler": {a.ServiceName(), "NoSuchHandler"},
@@ -324,7 +307,7 @@ func TestCheckRefusesUnknownSubscriptions(t *testing.T) {
 func TestRunClosesItsListenConnection(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	bus := events.NewBus(db, ingressClient(t), restatetest.Prefix(), time.Now, discard)
+	bus := events.NewBus(db, restatetest.Ingress(t), restatetest.Prefix(), time.Now, discard)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = bus.Run(ctx); close(done) }()
@@ -336,11 +319,21 @@ SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND que
 		}
 		return n
 	}
-	eventually(t, func() bool { return listening() == 1 })
+	testenv.Eventually(t, 10*time.Second, func() error {
+		if n := listening(); n != 1 {
+			return fmt.Errorf("%d listen connections, want 1", n)
+		}
+		return nil
+	})
 	cancel()
 	<-done
 	// Postgres drops the backend a moment after the client closes it.
-	eventually(t, func() bool { return listening() == 0 })
+	testenv.Eventually(t, 10*time.Second, func() error {
+		if n := listening(); n != 0 {
+			return fmt.Errorf("%d listen connections, want 0", n)
+		}
+		return nil
+	})
 }
 
 // Of two subscribers of a kind, the first gets the event once while the
@@ -350,20 +343,28 @@ func TestLateSubscriberDoesNotRepeatTheFirst(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	p := restatetest.Prefix()
-	first, late := newInbox(p, "First"), newInbox(p, "Late")
+	first, late := events.NewInbox(p, "First"), events.NewInbox(p, "Late")
 	bus := newBus(t, db, p, first)
 	bus.Subscribe(events.AccountUpdated, first.ServiceName(), "Handle")
 	bus.Subscribe(events.AccountUpdated, late.ServiceName(), "Handle")
 	run(t, bus)
 	e := publish(t, db, events.AccountUpdated)
-	eventually(t, func() bool { return first.count(e.ID) == 1 })
+	testenv.Eventually(t, 10*time.Second, func() error {
+		if n := first.Count(e.ID); n != 1 {
+			return fmt.Errorf("first got it %d times, want 1", n)
+		}
+		return nil
+	})
 	time.Sleep(5 * time.Second) // Restate retries Deliver meanwhile
 	restatetest.Start(t, restate.Reflect(late))
-	deadline := time.Now().Add(90 * time.Second) // Restate's backoff grows past a minute
-	for late.count(e.ID) == 0 && time.Now().Before(deadline) {
-		time.Sleep(200 * time.Millisecond)
-	}
-	if late.count(e.ID) != 1 || first.count(e.ID) != 1 {
-		t.Fatalf("first %d, late %d", first.count(e.ID), late.count(e.ID))
+	// Restate's backoff grows past a minute.
+	testenv.Eventually(t, 90*time.Second, func() error {
+		if late.Count(e.ID) == 0 {
+			return errors.New("late got nothing")
+		}
+		return nil
+	})
+	if late.Count(e.ID) != 1 || first.Count(e.ID) != 1 {
+		t.Fatalf("first %d, late %d", first.Count(e.ID), late.Count(e.ID))
 	}
 }

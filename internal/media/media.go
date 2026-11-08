@@ -4,10 +4,6 @@
 package media
 
 import (
-	"net/http"
-
-	restate "github.com/restatedev/sdk-go"
-
 	"github.com/shopnexus/server2/internal/media/handler"
 	"github.com/shopnexus/server2/internal/media/repository"
 	"github.com/shopnexus/server2/internal/media/service"
@@ -15,18 +11,18 @@ import (
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 )
 
-// Mounted is what media's Mount gives app and other modules.
-type Mounted struct {
-	Services []restate.ServiceDefinition
-	Service  service.Service
+// Settings is what media's Mount takes beyond module.Deps.
+type Settings struct {
+	// Store holds the uploads and the processed photos.
+	Store *objectstore.Store
 }
 
-// Mount registers the media endpoints behind protect and returns media's
-// Restate services and the Service other modules attach uploads through.
-func Mount(d module.Deps, store *objectstore.Store, protect func(http.Handler) http.Handler) Mounted {
+// Mount registers the media endpoints and returns media's Restate services
+// and the Service other modules attach uploads through.
+func Mount(d module.Deps, s Settings) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		Uploads: repository.NewUploads(d.Pool), Store: store, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
+		Uploads: repository.NewUploads(d.Pool), Store: s.Store, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
-	handler.New(svc, d.Log).Register(d.Router, protect)
-	return Mounted{Services: svc.Durable(), Service: svc}
+	handler.New(svc, d.Log).Register(d.Router, d.Protect)
+	return module.Mounted[service.Service]{Services: svc.Durable(), Service: svc}
 }

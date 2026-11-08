@@ -96,7 +96,7 @@ func (h *Handler) PutToken(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	if err := h.svc.PutToken(r.Context(), p, in.Token); err != nil {
+	if err := h.svc.PutToken(r.Context(), p.SessionID, p.AccountID, in.Token); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
@@ -109,7 +109,7 @@ func (h *Handler) DeleteToken(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := h.svc.DeleteToken(r.Context(), p); err != nil {
+	if err := h.svc.DeleteToken(r.Context(), p.SessionID); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}

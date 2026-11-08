@@ -53,7 +53,9 @@ type Understanding struct {
 // Vocabulary resolves what the model named against real rows.
 type Vocabulary struct {
 	Categories map[string]string // code → display name, roots and subcategories
-	Place      func(name string) (catalogdomain.Point, bool)
+	// Places are the points of the place names in the understanding, as
+	// PlaceNames gives them; a name with no single place is missing.
+	Places map[string]catalogdomain.Point
 }
 
 // Chip is a signal shown to the person, who may turn it off by its ID.
@@ -113,16 +115,24 @@ func Compile(u Understanding, raw string, v Vocabulary, origin *catalogdomain.Po
 		signals []Signal
 		sign    float64
 	}{{u.Boosts, 1}, {u.Demotes, -1}} {
+		mark := "+"
+		if group.sign < 0 {
+			mark = "-"
+		}
 		for _, s := range group.signals {
-			for i, value := range s.Values {
+			values := s.Values
+			if len(values) == 0 && flag(s.Attr) {
+				values = []string{""}
+			}
+			for i, value := range values {
 				if i >= len(position) {
 					break
 				}
-				mark := "+"
-				if group.sign < 0 {
-					mark = "-"
+				term := mark + string(s.Attr)
+				if value != "" {
+					term += "=" + value
 				}
-				c.Asked = append(c.Asked, mark+string(s.Attr)+"="+value)
+				c.Asked = append(c.Asked, term)
 				id := fmt.Sprintf("%s-%d", s.Attr, i)
 				if group.sign > 0 && slices.Contains(off, id) {
 					continue
@@ -132,21 +142,9 @@ func Compile(u Understanding, raw string, v Vocabulary, origin *catalogdomain.Po
 				if !ok {
 					continue
 				}
-				c.Ran = append(c.Ran, fmt.Sprintf("%s%s=%s w=%+.2f", mark, s.Attr, value, w))
+				c.Ran = append(c.Ran, fmt.Sprintf("%s w=%+.2f", term, w))
 				if group.sign > 0 {
 					c.Chips = append(c.Chips, Chip{ID: id, Kind: s.Attr, Label: label})
-				}
-			}
-			if len(s.Values) == 0 && flag(s.Attr) {
-				id := fmt.Sprintf("%s-0", s.Attr)
-				if group.sign > 0 && slices.Contains(off, id) {
-					continue
-				}
-				if label, ok := c.add(s.Attr, "", group.sign, v, origin, now); ok {
-					c.Ran = append(c.Ran, fmt.Sprintf("%s w=%+.0f", s.Attr, group.sign))
-					if group.sign > 0 {
-						c.Chips = append(c.Chips, Chip{ID: id, Kind: s.Attr, Label: label})
-					}
 				}
 			}
 		}
@@ -158,6 +156,23 @@ func Compile(u Understanding, raw string, v Vocabulary, origin *catalogdomain.Po
 		c.Phrases = append(c.Phrases, catalogdomain.Phrase{Text: strings.TrimSpace(raw), Weight: RawWeight})
 	}
 	return c
+}
+
+// PlaceNames are the place values of u that Compile looks up in
+// Vocabulary.Places.
+func PlaceNames(u Understanding) []string {
+	var out []string
+	for _, s := range slices.Concat(u.Boosts, u.Demotes) {
+		if s.Attr != AttrPlace {
+			continue
+		}
+		for _, value := range s.Values[:min(len(s.Values), len(position))] {
+			if name := strings.TrimSpace(value); name != "" {
+				out = append(out, name)
+			}
+		}
+	}
+	return out
 }
 
 // flag reports an attribute that takes no value.
@@ -204,10 +219,7 @@ func (c *Compiled) add(a Attr, value string, w float64, v Vocabulary, origin *ca
 		})
 		return label, true
 	case AttrPlace:
-		if v.Place == nil {
-			return "", false
-		}
-		p, ok := v.Place(value)
+		p, ok := v.Places[value]
 		if !ok {
 			return "", false
 		}

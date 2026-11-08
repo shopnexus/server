@@ -19,11 +19,13 @@ type pgNotices struct{ db *pgxpool.Pool }
 
 func NewNotices(db *pgxpool.Pool) Notices { return pgNotices{db} }
 
-// collapse updates the recipient's unread notice with the key unless it is
-// newer, so an event delivered late cannot overwrite a newer one.
-const collapse = `
+// insertNotice adds a notice, or updates the recipient's unread notice with
+// the key unless it is newer, so an event delivered late cannot overwrite a
+// newer one. A notice without a key has a NULL one, which the partial
+// unique index leaves out, so it is always inserted.
+const insertNotice = `
 INSERT INTO notifications (id, account_id, notice_type, collapse_key, params, event_id, created_at, bumped_at)
-VALUES (@id, @account, @type, @key, @params, @event, @at, @at)
+VALUES (@id, @account, @type, nullif(@key, ''), @params, @event, @at, @at)
 ON CONFLICT (account_id, collapse_key) WHERE read_at IS NULL AND collapse_key IS NOT NULL
 DO UPDATE SET notice_type = excluded.notice_type, params = excluded.params, event_id = excluded.event_id,
               bumped_at = excluded.bumped_at
@@ -46,17 +48,7 @@ func (s pgNotices) Add(ctx context.Context, event uuid.UUID, n domain.Notice, ex
 			pgx.StrictNamedArgs{"account": n.Recipient, "expired": expired}); err != nil {
 			return fmt.Errorf("delete old notices: %w", err)
 		}
-		args := pgx.StrictNamedArgs{
-			"id": uuid.NewV7(), "account": n.Recipient, "type": n.Type, "params": n.Params, "event": event, "at": n.At,
-		}
-		if n.CollapseKey == "" {
-			args["key"] = nil
-			if err = tx.QueryRow(ctx, `INSERT INTO notifications
-    (id, account_id, notice_type, collapse_key, params, event_id, created_at, bumped_at)
-VALUES (@id, @account, @type, @key, @params, @event, @at, @at) RETURNING id`, args).Scan(&id); err != nil {
-				return fmt.Errorf("insert notice: %w", err)
-			}
-		} else {
+		if n.CollapseKey != "" {
 			// A newer notice with the key, read or unread, already told the
 			// recipient more than this one would.
 			var newest time.Time
@@ -70,18 +62,21 @@ WHERE account_id = @account AND collapse_key = @key ORDER BY bumped_at DESC LIMI
 			case err != nil && !errors.Is(err, pgx.ErrNoRows):
 				return fmt.Errorf("read the newest notice with the key: %w", err)
 			}
-			args["key"] = n.CollapseKey
-			err = tx.QueryRow(ctx, collapse, args).Scan(&id)
-			if errors.Is(err, pgx.ErrNoRows) {
-				// A newer notice landed after the read above and stays as it is.
-				late = true
-				err = tx.QueryRow(ctx, `SELECT id FROM notifications
+		}
+		err = tx.QueryRow(ctx, insertNotice, pgx.StrictNamedArgs{
+			"id": uuid.NewV7(), "account": n.Recipient, "type": n.Type, "key": n.CollapseKey, "params": n.Params,
+			"event": event, "at": n.At,
+		}).Scan(&id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			// A newer notice with the key landed after the read above and
+			// stays as it is.
+			late = true
+			err = tx.QueryRow(ctx, `SELECT id FROM notifications
 WHERE account_id = @account AND collapse_key = @key AND read_at IS NULL`,
-					pgx.StrictNamedArgs{"account": n.Recipient, "key": n.CollapseKey}).Scan(&id)
-			}
-			if err != nil {
-				return fmt.Errorf("upsert notice: %w", err)
-			}
+				pgx.StrictNamedArgs{"account": n.Recipient, "key": n.CollapseKey}).Scan(&id)
+		}
+		if err != nil {
+			return fmt.Errorf("upsert notice: %w", err)
 		}
 		return stream.Notify(ctx, tx, []uuid.UUID{n.Recipient}, stream.Hint{Kind: stream.KindNotification, NotificationID: &id})
 	})
@@ -103,17 +98,9 @@ WHERE account_id = @account`+below+` ORDER BY bumped_at DESC, id DESC LIMIT @fet
 	if err != nil {
 		return nil, fmt.Errorf("list notices: %w", err)
 	}
-	defer rows.Close()
-	var out []Row
-	for rows.Next() {
-		var r Row
-		if err = rows.Scan(&r.ID, &r.Type, &r.Params, &r.Read, &r.BumpedAt); err != nil {
-			return nil, fmt.Errorf("scan notice: %w", err)
-		}
-		out = append(out, r)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("notice rows: %w", err)
+	out, err := pgx.CollectRows(rows, pgx.RowToStructByPos[Row])
+	if err != nil {
+		return nil, fmt.Errorf("scan notices: %w", err)
 	}
 	return out, nil
 }
@@ -183,17 +170,9 @@ func (s pgNotices) Tokens(ctx context.Context, account uuid.UUID) ([]Token, erro
 	if err != nil {
 		return nil, fmt.Errorf("read tokens: %w", err)
 	}
-	defer rows.Close()
-	var out []Token
-	for rows.Next() {
-		var t Token
-		if err = rows.Scan(&t.Session, &t.Token); err != nil {
-			return nil, fmt.Errorf("scan token: %w", err)
-		}
-		out = append(out, t)
-	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("token rows: %w", err)
+	out, err := pgx.CollectRows(rows, pgx.RowToStructByPos[Token])
+	if err != nil {
+		return nil, fmt.Errorf("scan tokens: %w", err)
 	}
 	return out, nil
 }

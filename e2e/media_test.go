@@ -16,11 +16,8 @@ type uploadTicket struct {
 // it.
 func upload(t *testing.T, token string, body []byte) string {
 	t.Helper()
-	res := call(t, server, "POST", "/v1/uploads", map[string]any{"content_type": "image/jpeg", "size": len(body)}, bearer(token))
-	if res.Status != http.StatusCreated {
-		t.Fatalf("upload: %d %s", res.Status, res.Body)
-	}
-	ticket := decode[uploadTicket](t, res)
+	res := call(t, "POST", "/v1/uploads", map[string]any{"content_type": "image/jpeg", "size": len(body)}, bearer(token))
+	ticket := expect[uploadTicket](t, res, http.StatusCreated)
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPut, ticket.URL, bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -50,11 +47,9 @@ func TestCreateUpload(t *testing.T) {
 		"heic":      {"content_type": "image/heic", "size": 10},
 		"too large": {"content_type": "image/jpeg", "size": 15728641},
 	} {
-		if res := call(t, server, "POST", "/v1/uploads", body, bearer(acc.AccessToken)); res.Status != http.StatusBadRequest {
+		if res := call(t, "POST", "/v1/uploads", body, bearer(acc.AccessToken)); res.Status != http.StatusBadRequest {
 			t.Errorf("%s: %d %s", name, res.Status, res.Body)
 		}
 	}
-	if res := call(t, server, "POST", "/v1/uploads", map[string]any{"content_type": "image/png", "size": 1}); res.Status != http.StatusUnauthorized {
-		t.Fatalf("signed out: %d", res.Status)
-	}
+	expectStatus(t, call(t, "POST", "/v1/uploads", map[string]any{"content_type": "image/png", "size": 1}), http.StatusUnauthorized)
 }

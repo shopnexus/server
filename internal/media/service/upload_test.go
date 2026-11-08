@@ -7,6 +7,7 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/media/repository"
 	"github.com/shopnexus/server2/internal/platform/objectstore"
@@ -15,7 +16,7 @@ import (
 func TestCreateUploadIsWaitingWithAPresignedPut(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	owner := e.account(t)
+	owner := accounttest.New(t, e.db)
 	ticket, err := e.media.CreateUpload(context.Background(), owner, "image/png", 12)
 	if err != nil || ticket.Headers["Content-Type"] != "image/png" || ticket.ExpiresAt.Before(time.Now()) {
 		t.Fatalf("%+v %v", ticket, err)
@@ -33,7 +34,7 @@ func TestAttachRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	owner, other, holder := e.account(t), e.account(t), uuid.NewV7()
+	owner, other, holder := accounttest.New(t, e.db), accounttest.New(t, e.db), uuid.NewV7()
 	mine := e.upload(t, owner, []byte("jpeg bytes"))
 	theirs := e.upload(t, other, []byte("jpeg bytes"))
 	notPut, err := e.media.CreateUpload(ctx, owner, "image/jpeg", 10)
@@ -67,7 +68,7 @@ func TestExpireDeletesAWaitingUpload(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	id := e.upload(t, e.account(t), []byte("jpeg bytes"))
+	id := e.upload(t, accounttest.New(t, e.db), []byte("jpeg bytes"))
 	e.expire(t, id)
 	u, _ := repository.NewUploads(e.db).Get(ctx, id)
 	if u.Status() != domain.StatusExpired {
@@ -82,7 +83,7 @@ func TestExpireLeavesAttachedUploads(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	owner := e.account(t)
+	owner := accounttest.New(t, e.db)
 	id := e.upload(t, owner, []byte("jpeg bytes"))
 	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{id}); err != nil {
 		t.Fatal(err)

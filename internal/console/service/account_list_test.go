@@ -15,8 +15,8 @@ import (
 // client would answer.
 type noAccounts struct{ accountsvc.Service }
 
-func (noAccounts) Record(context.Context, uuid.UUID) (accountsvc.Record, error) {
-	return accountsvc.Record{}, accountdomain.ErrAccountNotFound
+func (noAccounts) ConsoleAccount(context.Context, uuid.UUID) (accountsvc.ConsoleAccount, error) {
+	return accountsvc.ConsoleAccount{}, accountdomain.ErrAccountNotFound
 }
 
 // An ID that names no account gives an empty page, whatever implements

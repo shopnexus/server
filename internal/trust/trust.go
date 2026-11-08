@@ -3,8 +3,6 @@
 package trust
 
 import (
-	"net/http"
-
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
@@ -14,14 +12,12 @@ import (
 	"github.com/shopnexus/server2/internal/trust/service"
 )
 
-// Mount registers the trust endpoints, the writing ones behind protect,
-// and returns the Service screen reads ratings and reviews through.
-func Mount(d module.Deps, protect func(http.Handler) http.Handler, accounts accountsvc.Service,
-	catalog catalogsvc.Service, deals dealsvc.Service,
-) service.Service {
+// Mount registers the trust endpoints and returns the Service screen reads
+// ratings and reviews through.
+func Mount(d module.Deps, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service) service.Service {
 	svc := service.New(service.Deps{
 		Reviews: repository.NewReviews(d.Pool), Accounts: accounts, Catalog: catalog, Deals: deals, Now: d.Now,
 	})
-	handler.New(svc, d.Log).Register(d.Router, protect)
+	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	return svc
 }

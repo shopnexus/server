@@ -53,18 +53,16 @@ func (s pgMembers) open(id uuid.UUID, sealed []byte) ([]byte, error) {
 	return plain, nil
 }
 
-func (s pgMembers) scan(row pgx.Row) (domain.Member, error) {
+// scan reads columns and opens the TOTP secrets.
+func (s pgMembers) scan(row pgx.CollectableRow) (domain.Member, error) {
 	var (
 		st              domain.MemberState
 		secret, pending []byte
 	)
 	err := row.Scan(&st.ID, &st.Email, &st.DisplayName, &st.Role, &st.Status, &st.PasswordHash, &st.MustChangePassword,
 		&st.CredentialsVersion, &secret, &pending, &st.TOTPLastStep, &st.CreatedAt, &st.UpdatedAt, &st.WriteID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Member{}, ErrNotFound
-	}
 	if err != nil {
-		return domain.Member{}, fmt.Errorf("select console member: %w", err)
+		return domain.Member{}, fmt.Errorf("scan console member: %w", err)
 	}
 	if st.TOTPSecret, err = s.open(st.ID, secret); err != nil {
 		return domain.Member{}, err
@@ -81,7 +79,7 @@ VALUES (@id, @email, @display_name, @console_role, @status, @password_hash, @mus
         @totp_secret, @totp_pending_secret, @totp_last_step, @created_at, @updated_at, @write_id)
 ON CONFLICT (id) DO NOTHING`
 
-func (s pgMembers) CreateAudited(ctx context.Context, m domain.Member, e audit.Entry) error {
+func (s pgMembers) Create(ctx context.Context, m domain.Member, entry audit.Entry) error {
 	st := m.State()
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, insertMember, pgx.StrictNamedArgs{
@@ -100,7 +98,7 @@ func (s pgMembers) CreateAudited(ctx context.Context, m domain.Member, e audit.E
 		if tag.RowsAffected() == 0 {
 			return nil // the same id again
 		}
-		return audit.Insert(ctx, tx, e)
+		return audit.Insert(ctx, tx, entry)
 	})
 	if err != nil {
 		return fmt.Errorf("create console member: %w", err)
@@ -109,11 +107,26 @@ func (s pgMembers) CreateAudited(ctx context.Context, m domain.Member, e audit.E
 }
 
 func (s pgMembers) Get(ctx context.Context, id uuid.UUID) (domain.Member, error) {
-	return s.scan(s.db.QueryRow(ctx, `SELECT `+columns+` FROM console_members WHERE id = @id`, pgx.StrictNamedArgs{"id": id}))
+	return s.one(s.db.Query(ctx, `SELECT `+columns+` FROM console_members WHERE id = @id`, pgx.StrictNamedArgs{"id": id}))
 }
 
 func (s pgMembers) FindByEmail(ctx context.Context, email string) (domain.Member, error) {
-	return s.scan(s.db.QueryRow(ctx, `SELECT `+columns+` FROM console_members WHERE email = @email`, pgx.StrictNamedArgs{"email": email}))
+	return s.one(s.db.Query(ctx, `SELECT `+columns+` FROM console_members WHERE email = @email`, pgx.StrictNamedArgs{"email": email}))
+}
+
+// one reads the member of a query that selects one at most, or ErrNotFound.
+func (s pgMembers) one(rows pgx.Rows, err error) (domain.Member, error) {
+	if err != nil {
+		return domain.Member{}, fmt.Errorf("select console member: %w", err)
+	}
+	m, err := pgx.CollectExactlyOneRow(rows, s.scan)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Member{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.Member{}, fmt.Errorf("select console member: %w", err)
+	}
+	return m, nil
 }
 
 func (s pgMembers) List(ctx context.Context, p page.Request) ([]domain.Member, error) {
@@ -122,19 +135,11 @@ func (s pgMembers) List(ctx context.Context, p page.Request) ([]domain.Member, e
 	if err != nil {
 		return nil, fmt.Errorf("select console members: %w", err)
 	}
-	defer rows.Close()
-	var out []domain.Member
-	for rows.Next() {
-		m, err := s.scan(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, m)
-	}
-	if err := rows.Err(); err != nil {
+	members, err := pgx.CollectRows(rows, s.scan)
+	if err != nil {
 		return nil, fmt.Errorf("read console members: %w", err)
 	}
-	return out, nil
+	return members, nil
 }
 
 const saveMember = `
@@ -145,44 +150,28 @@ SET display_name = @display_name, console_role = @console_role, status = @status
     updated_at = @updated_at, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
-type execer interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-}
-
-func (s pgMembers) update(ctx context.Context, q execer, m *domain.Member, writeID uuid.UUID) error {
+func (s pgMembers) Save(ctx context.Context, m *domain.Member, writeID uuid.UUID, entry *audit.Entry) error {
 	st := m.State()
-	tag, err := q.Exec(ctx, saveMember, pgx.StrictNamedArgs{
-		"id": st.ID, "read_write_id": st.WriteID, "write_id": writeID, "display_name": st.DisplayName, "console_role": st.Role,
-		"status": st.Status, "password_hash": st.PasswordHash, "must_change_password": st.MustChangePassword,
-		"credentials_version": st.CredentialsVersion, "totp_secret": s.sealed(st.ID, st.TOTPSecret),
-		"totp_pending_secret": s.sealed(st.ID, st.TOTPPending), "totp_last_step": st.TOTPLastStep, "updated_at": st.UpdatedAt,
-	})
-	if err != nil {
-		return fmt.Errorf("update console member: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrConflict
-	}
-	return nil
-}
-
-func (s pgMembers) Save(ctx context.Context, m *domain.Member, writeID uuid.UUID) error {
-	if err := s.update(ctx, s.db, m, writeID); err != nil {
-		return err
-	}
-	m.Saved(writeID)
-	return nil
-}
-
-func (s pgMembers) SaveAudited(ctx context.Context, m *domain.Member, writeID uuid.UUID, e audit.Entry) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := s.update(ctx, tx, m, writeID); err != nil {
-			return err
+		tag, err := tx.Exec(ctx, saveMember, pgx.StrictNamedArgs{
+			"id": st.ID, "read_write_id": st.WriteID, "write_id": writeID, "display_name": st.DisplayName, "console_role": st.Role,
+			"status": st.Status, "password_hash": st.PasswordHash, "must_change_password": st.MustChangePassword,
+			"credentials_version": st.CredentialsVersion, "totp_secret": s.sealed(st.ID, st.TOTPSecret),
+			"totp_pending_secret": s.sealed(st.ID, st.TOTPPending), "totp_last_step": st.TOTPLastStep, "updated_at": st.UpdatedAt,
+		})
+		if err != nil {
+			return fmt.Errorf("update console member: %w", err)
 		}
-		return audit.Insert(ctx, tx, e)
+		if tag.RowsAffected() == 0 {
+			return ErrConflict
+		}
+		if entry == nil {
+			return nil
+		}
+		return audit.Insert(ctx, tx, *entry)
 	})
 	if err != nil {
-		return fmt.Errorf("save console member with audit: %w", err)
+		return fmt.Errorf("save console member: %w", err)
 	}
 	m.Saved(writeID)
 	return nil

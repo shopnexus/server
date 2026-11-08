@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	catalogrepo "github.com/shopnexus/server2/internal/catalog/repository"
+	"github.com/shopnexus/server2/internal/account/accounttest"
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealrepo "github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
@@ -22,47 +22,29 @@ import (
 
 var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 
-func newAccount(t *testing.T, db *pgxpool.Pool) uuid.UUID {
-	t.Helper()
-	id := uuid.NewV7()
-	if _, err := db.Exec(context.Background(), `INSERT INTO accounts (id, write_id) VALUES (@id, @id)`, pgx.StrictNamedArgs{"id": id}); err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
-
 // order stores a requested order of buyer's on a new listing of seller's
 // and returns the order and the listing.
 func order(t *testing.T, db *pgxpool.Pool, buyer, seller uuid.UUID) (orderID, listingID uuid.UUID) {
 	t.Helper()
 	ctx := context.Background()
-	l, err := catalogdomain.NewListing(uuid.NewV7(), seller, catalogdomain.Draft{
-		Title: "Xe đạp", Price: 1_500_000, CategoryCode: "vehicles.bicycle", Condition: catalogdomain.ConditionUsed,
-		CommuneCode: "00004", Photos: []uuid.UUID{uuid.NewV7()},
-	}, catalogdomain.Refs{CategoryIsLeaf: true, CommuneExists: true}, now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = catalogrepo.NewListings(db).Insert(ctx, l); err != nil {
-		t.Fatal(err)
-	}
+	listing := catalogtest.Listing(t, db, seller)
 	deals := dealrepo.NewDeals(db)
-	d := dealdomain.Open(uuid.NewV7(), l.ID(), buyer, seller, now)
-	if _, err = deals.Insert(ctx, d); err != nil {
+	d := dealdomain.Open(uuid.NewV7(), listing, buyer, seller, now)
+	if _, err := deals.Insert(ctx, d); err != nil {
 		t.Fatal(err)
 	}
 	onSale := dealdomain.Listing{Price: 1_500_000, Status: dealdomain.ListingActive}
 	r := dealdomain.Recipient{Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
-	if err = d.Accept(dealdomain.Buyer, 1_500_000, onSale, now); err != nil {
+	if err := d.Accept(dealdomain.Buyer, 1_500_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = d.RequestCod(dealdomain.Buyer, r, onSale, now); err != nil {
+	if err := d.RequestCod(dealdomain.Buyer, r, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = deals.Save(ctx, &d, uuid.NewV7()); err != nil {
+	if err := deals.Save(ctx, &d, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
-	return d.Order().ID, l.ID()
+	return d.Order().ID, listing
 }
 
 func review(t *testing.T, s repository.Reviews, o, seller, buyer, listing uuid.UUID, stars int) domain.Review {
@@ -82,7 +64,7 @@ func TestReviews(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewReviews(db)
 	ctx := context.Background()
-	seller, one, two := newAccount(t, db), newAccount(t, db), newAccount(t, db)
+	seller, one, two := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
 	o1, l1 := order(t, db, one, seller)
 	o2, l2 := order(t, db, two, seller)
 	r1 := review(t, s, o1, seller, one, l1, 4)
@@ -124,7 +106,7 @@ func TestReviews(t *testing.T) {
 	if got, err = s.ByOrder(ctx, o2); err != nil || !got.Deleted() || got.Text() != "" {
 		t.Fatalf("deleted: %+v %v", got.State(), err)
 	}
-	if avg, n, err := s.Summary(ctx, newAccount(t, db)); err != nil || n != 0 || avg != 0 {
+	if avg, n, err := s.Summary(ctx, accounttest.New(t, db)); err != nil || n != 0 || avg != 0 {
 		t.Fatalf("no reviews: %v %d %v", avg, n, err)
 	}
 }
@@ -134,7 +116,7 @@ func TestReviewWritesConflict(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewReviews(db)
 	ctx := context.Background()
-	seller, buyer := newAccount(t, db), newAccount(t, db)
+	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	o, l := order(t, db, buyer, seller)
 	first := review(t, s, o, seller, buyer, l, 5)
 	second, err := domain.NewReview(uuid.NewV7(), o, seller, buyer, l, 1, "Lần hai", now.Add(time.Hour))

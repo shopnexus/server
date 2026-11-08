@@ -12,6 +12,7 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/catalog/service"
 	mediadomain "github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server2/internal/media/mediatest"
 	mediarepo "github.com/shopnexus/server2/internal/media/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/apperr"
@@ -47,7 +48,9 @@ func TestPostSurvivesAFailedAttach(t *testing.T) {
 // raced another past the count sees.
 type countsNothing struct{ repository.Listings }
 
-func (countsNothing) CountOnSale(context.Context, uuid.UUID) (int, error) { return 0, nil }
+func (countsNothing) CountByStatus(context.Context, uuid.UUID) (map[domain.Status]int, error) {
+	return map[domain.Status]int{}, nil
+}
 
 // A post that the insert finds at the cap takes no upload: the photo is
 // still waiting, for the seller's next post.
@@ -65,7 +68,7 @@ func TestPostAtTheCapKeepsTheUploads(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	photo := e.upload(t, seller, jpegBytes(t))
+	photo := e.upload(t, seller, mediatest.JPEG(t, 64, 48))
 	if _, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(photo)); !errors.Is(err, domain.ErrCapReached) {
 		t.Fatalf("at the cap: %v", err)
 	}
@@ -80,7 +83,7 @@ func TestRefusedAttachUndoesTheListing(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller := e.seller(t)
-	theirs := e.upload(t, e.seller(t), jpegBytes(t))
+	theirs := e.upload(t, e.seller(t), mediatest.JPEG(t, 64, 48))
 	if _, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(theirs)); !errors.Is(err, mediadomain.ErrInvalidUpload) {
 		t.Fatalf("%v", err)
 	}
@@ -112,7 +115,7 @@ func TestEditAfterALostRace(t *testing.T) {
 	ctx := context.Background()
 	seller := e.seller(t)
 	v := e.active(t, seller)
-	d := draft(v.Photos[0].UploadID, e.upload(t, seller, jpegBytes(t)))
+	d := draft(v.Photos[0].UploadID, e.upload(t, seller, mediatest.JPEG(t, 64, 48)))
 	if _, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d); !errors.Is(err, apperr.ErrTryAgain) {
 		t.Fatalf("first try: %v", err)
 	}
@@ -155,11 +158,11 @@ func TestIdempotencyKeysAreTheSellers(t *testing.T) {
 	ctx := context.Background()
 	key := uuid.NewV7().String()
 	a, b := e.seller(t), e.seller(t)
-	va, err := e.catalog.Post(ctx, a, key, draft(e.upload(t, a, jpegBytes(t))))
+	va, err := e.catalog.Post(ctx, a, key, draft(e.upload(t, a, mediatest.JPEG(t, 64, 48))))
 	if err != nil {
 		t.Fatal(err)
 	}
-	vb, err := e.catalog.Post(ctx, b, key, draft(e.upload(t, b, jpegBytes(t))))
+	vb, err := e.catalog.Post(ctx, b, key, draft(e.upload(t, b, mediatest.JPEG(t, 64, 48))))
 	if err != nil || vb.ID == va.ID || vb.SellerID != b {
 		t.Fatalf("%+v %v", vb, err)
 	}

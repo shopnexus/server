@@ -39,7 +39,7 @@ func (s *Account) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Acc
 		a.SetAvatar(key, now)
 	default: // the avatar stays as it is
 	}
-	err = s.accounts.Save(ctx, &a, uuid.NewV7(), events.Event{
+	err = s.accounts.Save(ctx, &a, uuid.NewV7(), nil, events.Event{
 		ID: uuid.NewV7(), Kind: events.AccountUpdated, SubjectID: id, OccurredAt: now,
 	})
 	if err != nil {

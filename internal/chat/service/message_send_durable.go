@@ -48,11 +48,6 @@ type facts struct {
 	Blocked      bool                 `json:"blocked"`
 }
 
-// refusal is what a writing step refused with, or none.
-type refusal struct {
-	Refused *apperr.Error `json:"refused,omitempty"`
-}
-
 // MessageSend sends a message: one step reads what the send depends on and
 // the flow decides on it between steps; then it opens the pair's
 // conversation from a listing, adds the message and attaches its photos,
@@ -70,17 +65,16 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	newConversation := restatex.NewID(ctx, at)
 	f, err := restate.Run(ctx, func(rc restate.RunContext) (facts, error) {
 		var out facts
-		st, stepErr := s.Chat.accounts.Status(rc, in.Sender)
-		if stepErr != nil {
+		var stepErr error
+		if out.Suspended, stepErr = s.Chat.accounts.Suspended(rc, in.Sender); stepErr != nil {
 			return facts{}, fmt.Errorf("read account status: %w", stepErr)
 		}
-		out.Suspended = st == accountdomain.StatusSuspended
 		if in.ListingID != nil {
-			got, readErr := s.Chat.catalog.Summaries(rc, []uuid.UUID{*in.ListingID})
+			l, ok, readErr := s.Chat.catalog.Summary(rc, *in.ListingID)
 			if readErr != nil {
 				return facts{}, fmt.Errorf("read listing: %w", readErr)
 			}
-			if l, ok := got[*in.ListingID]; ok {
+			if ok {
 				out.Listing = &l
 			}
 		}
@@ -147,24 +141,17 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 		return SendResult{}, fmt.Errorf("add message: %w", err)
 	}
 	if len(in.Photos) > 0 {
-		attached, attachErr := restate.Run(ctx, func(rc restate.RunContext) (refusal, error) {
-			stepErr := s.Chat.media.Attach(rc, in.Sender, msg.ID(), in.Photos)
-			if e, ok := errors.AsType[*apperr.Error](stepErr); ok && e.Kind != apperr.KindInternal {
-				return refusal{Refused: e}, nil
-			}
-			if stepErr != nil {
-				return refusal{}, fmt.Errorf("attach: %w", stepErr)
-			}
-			return refusal{}, nil
+		attached, attachErr := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
+			return restatex.AsRefusal(s.Chat.media.Attach(rc, in.Sender, msg.ID(), in.Photos))
 		})
 		if attachErr != nil {
 			return SendResult{}, fmt.Errorf("attach photos: %w", attachErr)
 		}
-		if attached.Refused != nil {
+		if attached.Refusal != nil {
 			if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Chat.chats.DeleteMessage(rc, msg.ID()) }); err != nil {
 				return SendResult{}, fmt.Errorf("delete message: %w", err)
 			}
-			return SendResult{Refused: attached.Refused}, nil
+			return SendResult{Refused: attached.Refusal}, nil
 		}
 		restate.ServiceSend(ctx, s.Chat.prefix+messagePublish, "Run").
 			Send(msg.ID(), restate.WithIdempotencyKey(msg.ID().String()))

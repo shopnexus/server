@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,6 +44,9 @@ func TestEnsureEnvCreatesEveryKey(t *testing.T) {
 		if value(got, k) == "" {
 			t.Errorf("%s is empty in\n%s", k, got)
 		}
+	}
+	if seed, err := base64.StdEncoding.DecodeString(value(got, "JWT_PRIVATE_KEY")); err != nil || len(seed) != ed25519.SeedSize {
+		t.Errorf("JWT_PRIVATE_KEY is not base64 of an Ed25519 seed: %d bytes, %v", len(seed), err)
 	}
 	public, err := restatex.IdentityKey(pem)
 	if err != nil {

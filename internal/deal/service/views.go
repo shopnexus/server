@@ -163,8 +163,6 @@ func (s *Deals) read(ctx context.Context, viewer uuid.UUID, d domain.Deal, l cat
 
 // OrderFacts is what another module reads of an order.
 type OrderFacts struct {
-	ID        uuid.UUID
-	DealID    uuid.UUID
 	BuyerID   uuid.UUID
 	SellerID  uuid.UUID
 	ListingID uuid.UUID

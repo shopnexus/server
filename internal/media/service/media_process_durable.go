@@ -46,6 +46,27 @@ type MediaProcess struct {
 
 func (s MediaProcess) ServiceName() string { return s.Prefix + mediaProcess }
 
+// ProcessAll calls MediaProcess for each upload from another Restate flow
+// and returns once every upload has a result. The calls go out together,
+// keyed by the upload ID, so two flows that hold the same upload share one
+// processing. prefix is the calling flow's service prefix.
+func ProcessAll(ctx restate.Context, prefix string, ids []uuid.UUID) (map[uuid.UUID]ProcessResult, error) {
+	futures := make([]restate.ResponseFuture[ProcessResult], len(ids))
+	for i, id := range ids {
+		futures[i] = restate.Service[ProcessResult](ctx, prefix+mediaProcess, "Run").
+			RequestFuture(id, restate.WithIdempotencyKey(id.String()))
+	}
+	out := make(map[uuid.UUID]ProcessResult, len(ids))
+	for i, f := range futures {
+		r, err := f.Response()
+		if err != nil {
+			return nil, fmt.Errorf("process upload %s: %w", ids[i], err)
+		}
+		out[ids[i]] = r
+	}
+	return out, nil
+}
+
 // processed is what the processing step decided.
 type processed struct {
 	PhotoKey string `json:"photo_key"`

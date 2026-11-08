@@ -48,7 +48,7 @@ func consoleCall(t *testing.T, s consoleSession, method, path string, body any, 
 	if s.Token != "" {
 		h = append(h, [2]string{"Cookie", "console_session=" + s.Token})
 	}
-	return call(t, server, method, path, body, h...)
+	return call(t, method, path, body, h...)
 }
 
 func consoleLogin(t *testing.T, body map[string]string, headers ...[2]string) Response {
@@ -60,20 +60,13 @@ func consoleLogin(t *testing.T, body map[string]string, headers ...[2]string) Re
 func signInMember(t *testing.T, role consoledomain.Role) consoleSession {
 	t.Helper()
 	id, email, temp := newMember(t, role)
-	if res := consoleLogin(t, map[string]string{"email": email, "password": temp, "new_password": memberPassword}); res.Status != 428 {
-		t.Fatalf("new password: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, consoleLogin(t, map[string]string{"email": email, "password": temp, "new_password": memberPassword}), 428)
 	res := consoleCall(t, consoleSession{}, "POST", "/v1/console/login/totp-enrollment", map[string]string{"email": email, "password": memberPassword})
-	if res.Status != 200 {
-		t.Fatalf("enrollment: %d %s", res.Status, res.Body)
-	}
-	secret := decodeBase32(t, decode[struct {
+	secret := decodeBase32(t, expect[struct {
 		Secret string `json:"secret"`
-	}](t, res).Secret)
+	}](t, res, 200).Secret)
 	res = consoleLogin(t, map[string]string{"email": email, "password": memberPassword, "code": consoledomain.Code(secret, time.Now())})
-	if res.Status != 200 {
-		t.Fatalf("code: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, res, 200)
 	return consoleSession{ID: id, Email: email, Secret: secret, Token: sessionCookieOf(t, res).Value}
 }
 

@@ -19,7 +19,7 @@ func (s *Console) CreateMember(ctx context.Context, in CreateMemberInput) (Membe
 	if err != nil {
 		return MemberView{}, "", fmt.Errorf("new console member: %w", err)
 	}
-	err = s.members.CreateAudited(ctx, m, audit.Entry{
+	err = s.members.Create(ctx, m, audit.Entry{
 		Actor: in.By, Action: audit.MemberCreate, Target: audit.Member(m.ID()), Details: map[string]any{"role": in.Role}, At: now,
 	})
 	if err != nil {

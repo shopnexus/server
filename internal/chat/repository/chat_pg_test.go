@@ -10,25 +10,17 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/chat/domain"
 	"github.com/shopnexus/server2/internal/chat/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
-func newAccount(t *testing.T, db *pgxpool.Pool) uuid.UUID {
-	t.Helper()
-	id := uuid.NewV7()
-	if _, err := db.Exec(context.Background(), `INSERT INTO accounts (id, write_id) VALUES (@id, @id)`, pgx.StrictNamedArgs{"id": id}); err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
-
 // pair opens the conversation of two new accounts.
 func pair(t *testing.T, db *pgxpool.Pool, s repository.Chats) (c domain.Conversation, a, b uuid.UUID) {
 	t.Helper()
-	a, b = newAccount(t, db), newAccount(t, db)
+	a, b = accounttest.New(t, db), accounttest.New(t, db)
 	c, err := s.OpenPair(context.Background(), domain.NewConversation(uuid.NewV7(), a, b, time.Now()))
 	if err != nil {
 		t.Fatal(err)
@@ -47,6 +39,17 @@ func send(t *testing.T, s repository.Chats, c domain.Conversation, sender uuid.U
 		t.Fatal(err)
 	}
 	return m
+}
+
+// marker reads account's read marker in conversation c.
+func marker(t *testing.T, db *pgxpool.Pool, c, account uuid.UUID) uuid.UUID {
+	t.Helper()
+	var id uuid.UUID
+	if err := db.QueryRow(context.Background(), `SELECT last_read_message_id FROM conversation_members
+WHERE conversation_id = @c AND account_id = @account`, pgx.StrictNamedArgs{"c": c, "account": account}).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	return id
 }
 
 func inbox(t *testing.T, s repository.Chats, viewer uuid.UUID, archived bool) []repository.InboxRow {
@@ -69,8 +72,8 @@ func TestOpenPairOnce(t *testing.T) {
 		t.Fatalf("%v %v", again.ID, err)
 	}
 	for _, who := range []uuid.UUID{a, b} {
-		if m, memberErr := s.Member(ctx, c.ID, who); memberErr != nil || m.AccountID != who {
-			t.Fatalf("member: %+v %v", m, memberErr)
+		if _, memberErr := s.Member(ctx, c.ID, who); memberErr != nil {
+			t.Fatalf("member: %v", memberErr)
 		}
 	}
 	if _, err = s.Get(ctx, uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {
@@ -113,7 +116,7 @@ func TestMessagesAndInbox(t *testing.T) {
 	if n, err := s.Unread(ctx, a); err != nil || n != 1 {
 		t.Fatalf("unread %d %v", n, err)
 	}
-	if _, err := s.MarkRead(ctx, c.ID, a, photo.ID(), b); err != nil {
+	if err := s.MarkRead(ctx, c.ID, a, photo.ID(), b); err != nil {
 		t.Fatal(err)
 	}
 	if n, _ := s.Unread(ctx, a); n != 0 {
@@ -179,14 +182,14 @@ func TestMarkReadNeverGoesBack(t *testing.T) {
 	ctx := context.Background()
 	c, a, b := pair(t, db, s)
 	older, newer := send(t, s, c, b, "Một"), send(t, s, c, b, "Hai")
-	if moved, err := s.MarkRead(ctx, c.ID, a, newer.ID(), b); err != nil || !moved {
-		t.Fatalf("newer: %v %v", moved, err)
+	if err := s.MarkRead(ctx, c.ID, a, newer.ID(), b); err != nil {
+		t.Fatal(err)
 	}
-	if moved, err := s.MarkRead(ctx, c.ID, a, older.ID(), b); err != nil || moved {
-		t.Fatalf("older: %v %v", moved, err)
+	if err := s.MarkRead(ctx, c.ID, a, older.ID(), b); err != nil {
+		t.Fatal(err)
 	}
-	if m, err := s.Member(ctx, c.ID, a); err != nil || m.LastRead != newer.ID() {
-		t.Fatalf("marker %v %v", m.LastRead, err)
+	if got := marker(t, db, c.ID, a); got != newer.ID() {
+		t.Fatalf("marker %v", got)
 	}
 }
 
@@ -200,16 +203,16 @@ func TestReadKeepsTheArchive(t *testing.T) {
 	if err := s.SetArchived(ctx, c.ID, a, new(time.Now())); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.MarkRead(ctx, c.ID, a, m.ID(), b); err != nil {
+	if err := s.MarkRead(ctx, c.ID, a, m.ID(), b); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := s.Member(ctx, c.ID, a); err != nil || got.ArchivedAt == nil || got.LastRead != m.ID() {
+	if got, err := s.Member(ctx, c.ID, a); err != nil || got.ArchivedAt == nil || marker(t, db, c.ID, a) != m.ID() {
 		t.Fatalf("%+v %v", got, err)
 	}
 	if err := s.SetArchived(ctx, c.ID, a, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := s.Member(ctx, c.ID, a); got.ArchivedAt != nil || got.LastRead != m.ID() {
+	if got, _ := s.Member(ctx, c.ID, a); got.ArchivedAt != nil || marker(t, db, c.ID, a) != m.ID() {
 		t.Fatalf("unarchive: %+v", got)
 	}
 }
@@ -225,7 +228,7 @@ func TestFindPair(t *testing.T) {
 			t.Fatalf("%v: %v %v", p, got.ID, err)
 		}
 	}
-	if _, err := s.FindPair(ctx, a, newAccount(t, db)); !errors.Is(err, repository.ErrNotFound) {
+	if _, err := s.FindPair(ctx, a, accounttest.New(t, db)); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("no conversation: %v", err)
 	}
 }

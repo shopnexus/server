@@ -53,7 +53,7 @@ func (s *Console) loadManaged(ctx context.Context, id uuid.UUID, by audit.Actor)
 
 // saveManaged saves a changed member with an audit row of action.
 func (s *Console) saveManaged(ctx context.Context, m *domain.Member, by audit.Actor, action audit.ActionKind, now time.Time) (MemberView, error) {
-	err := s.members.SaveAudited(ctx, m, uuid.NewV7(), audit.Entry{Actor: by, Action: action, Target: audit.Member(m.ID()), At: now})
+	err := s.members.Save(ctx, m, uuid.NewV7(), &audit.Entry{Actor: by, Action: action, Target: audit.Member(m.ID()), At: now})
 	if err != nil {
 		return MemberView{}, saveFailed(err)
 	}

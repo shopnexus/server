@@ -85,12 +85,15 @@ func (a *Account) Status(now time.Time) Status {
 	return a.status
 }
 
+// Suspended reports whether a suspension is in force at now.
+func (a *Account) Suspended(now time.Time) bool { return a.Status(now) == StatusSuspended }
+
 // CanWrite returns ErrSuspended while a suspension is in force. Every use
 // case that writes loads the account and calls it; access tokens stay valid
 // for up to 15 minutes after a suspension, so this is what stops writes at
 // once.
 func (a *Account) CanWrite(now time.Time) error {
-	if a.Status(now) == StatusSuspended {
+	if a.Suspended(now) {
 		return ErrSuspended
 	}
 	return nil
@@ -127,7 +130,7 @@ func (a *Account) SetAvatar(key string, now time.Time) {
 }
 
 // Suspend stops the account from writing, until the given time or, with a
-// nil until, until Reinstate.
+// nil until, until Unsuspend.
 func (a *Account) Suspend(reason string, until *time.Time, now time.Time) error {
 	reason = strings.TrimSpace(reason)
 	if reason == "" {
@@ -143,8 +146,8 @@ func (a *Account) Suspend(reason string, until *time.Time, now time.Time) error 
 	return nil
 }
 
-// Reinstate lifts a suspension.
-func (a *Account) Reinstate(now time.Time) {
+// Unsuspend lifts a suspension.
+func (a *Account) Unsuspend(now time.Time) {
 	a.status = StatusActive
 	a.suspendReason = ""
 	a.suspendedUntil = nil

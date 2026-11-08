@@ -145,13 +145,13 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		for _, c := range categories {
 			names[c.Code] = c.DisplayName
 		}
-		vocab := domain.Vocabulary{Categories: names, Place: func(name string) (catalogdomain.Point, bool) {
-			p, ok, placeErr := d.catalog.Place(ctx, name)
-			if placeErr != nil {
-				d.log.WarnContext(ctx, "resolve a place", "err", placeErr)
+		vocab := domain.Vocabulary{Categories: names}
+		if placeNames := domain.PlaceNames(u); len(placeNames) > 0 {
+			var placeErr error
+			if vocab.Places, placeErr = d.catalog.FindPlaces(ctx, placeNames); placeErr != nil {
+				d.log.WarnContext(ctx, "resolve the places", "err", placeErr)
 			}
-			return p, ok
-		}}
+		}
 		c := domain.Compile(u, q, vocab, origin, now, in.Off)
 		d.log.InfoContext(ctx, "search terms", "query", q, "asked", c.Asked, "ran", c.Ran)
 		search.Phrases, search.Boosts, view.Chips = c.Phrases, c.Boosts, c.Chips
@@ -215,14 +215,15 @@ func (d *Discovery) origin(ctx context.Context, near Near) (*catalogdomain.Point
 		}
 		return &catalogdomain.Point{Lat: near.Lat, Lng: near.Lng}, nil
 	case near.Commune != "":
-		p, ok, err := d.catalog.CommunePoint(ctx, near.Commune)
+		places, err := d.catalog.Places(ctx, []string{near.Commune})
 		if err != nil {
 			return nil, fmt.Errorf("read the commune: %w", err)
 		}
+		loc, ok := places[near.Commune]
 		if !ok {
 			return nil, domain.ErrInvalidPosition
 		}
-		return &p, nil
+		return &catalogdomain.Point{Lat: loc.Lat, Lng: loc.Lng}, nil
 	default:
 		return nil, nil //nolint:nilnil // no position is a valid answer, not a missing one
 	}

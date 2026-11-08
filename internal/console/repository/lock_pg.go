@@ -11,6 +11,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/console/domain"
 	"github.com/shopnexus/server2/internal/platform/audit"
+	"github.com/shopnexus/server2/internal/platform/postgres"
 )
 
 type pgLocks struct{ db *pgxpool.Pool }
@@ -74,7 +75,7 @@ WHERE email_hash = @email_hash AND locked_until IS NULL AND failures >= @max`,
 	return nil
 }
 
-func clearLock(ctx context.Context, q execer, key []byte, now time.Time) error {
+func clearLock(ctx context.Context, q postgres.Execer, key []byte, now time.Time) error {
 	_, err := q.Exec(ctx, `UPDATE console_login_locks SET failures = 0, locked_until = NULL, updated_at = @now WHERE email_hash = @email_hash`,
 		pgx.StrictNamedArgs{"email_hash": key, "now": now})
 	if err != nil {
@@ -106,20 +107,17 @@ func (s pgLocks) LockedUntil(ctx context.Context, keys [][]byte, now time.Time) 
 	if err != nil {
 		return nil, fmt.Errorf("select console login locks: %w", err)
 	}
-	defer rows.Close()
-	out := map[string]time.Time{}
-	for rows.Next() {
-		var (
-			key   []byte
-			until time.Time
-		)
-		if err := rows.Scan(&key, &until); err != nil {
-			return nil, fmt.Errorf("read console login lock: %w", err)
-		}
-		out[string(key)] = until
+	type lock struct {
+		Key   []byte
+		Until time.Time
 	}
-	if err := rows.Err(); err != nil {
+	locks, err := pgx.CollectRows(rows, pgx.RowToStructByPos[lock])
+	if err != nil {
 		return nil, fmt.Errorf("read console login locks: %w", err)
+	}
+	out := make(map[string]time.Time, len(locks))
+	for _, l := range locks {
+		out[string(l.Key)] = l.Until
 	}
 	return out, nil
 }

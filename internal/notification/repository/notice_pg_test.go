@@ -7,9 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/notification/domain"
 	"github.com/shopnexus/server2/internal/notification/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
@@ -18,17 +16,8 @@ import (
 
 var now = time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
 
-func account(t *testing.T, db *pgxpool.Pool) uuid.UUID {
-	t.Helper()
-	id := uuid.NewV7()
-	if _, err := db.Exec(context.Background(), `INSERT INTO accounts (id, write_id) VALUES (@id, @id)`, pgx.StrictNamedArgs{"id": id}); err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
-
 func notice(to uuid.UUID, key string, amount int64, at time.Time) domain.Notice {
-	return domain.Notice{Recipient: to, Type: domain.TypeOffer, CollapseKey: key, Params: map[string]any{"amount": amount}, At: at}
+	return domain.Notice{Recipient: to, Type: domain.TypeOffer, CollapseKey: key, Params: domain.Params{Amount: amount}, At: at}
 }
 
 func TestCollapse(t *testing.T) {
@@ -36,7 +25,7 @@ func TestCollapse(t *testing.T) {
 	db := pgtest.New(t)
 	ctx := context.Background()
 	s := repository.NewNotices(db)
-	me := account(t, db)
+	me := accounttest.New(t, db)
 	expired := now.Add(-domain.Retention)
 	first, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 100, now), expired)
 	if err != nil {
@@ -51,7 +40,7 @@ func TestCollapse(t *testing.T) {
 		t.Fatalf("an older event is late: %v %v", late, err)
 	}
 	rows, err := s.List(ctx, me, page.Request{})
-	if err != nil || len(rows) != 1 || rows[0].Params["amount"] != float64(200) {
+	if err != nil || len(rows) != 1 || rows[0].Params.Amount != 200 {
 		t.Fatalf("an older event keeps the newer content: %+v %v", rows, err)
 	}
 	if err = s.Read(ctx, me, first, now); err != nil {
@@ -80,9 +69,9 @@ func TestAddOnceAndPrune(t *testing.T) {
 	db := pgtest.New(t)
 	ctx := context.Background()
 	s := repository.NewNotices(db)
-	me, other := account(t, db), account(t, db)
+	me, other := accounttest.New(t, db), accounttest.New(t, db)
 	event := uuid.NewV7()
-	review := domain.Notice{Recipient: me, Type: domain.TypeReview, Params: map[string]any{}, At: now}
+	review := domain.Notice{Recipient: me, Type: domain.TypeReview, At: now}
 	a, _, err := s.Add(ctx, event, review, now.Add(-domain.Retention))
 	if err != nil {
 		t.Fatal(err)
@@ -92,7 +81,7 @@ func TestAddOnceAndPrune(t *testing.T) {
 	}
 	old := now.Add(-100 * 24 * time.Hour)
 	for _, who := range []uuid.UUID{me, other} {
-		if _, _, err = s.Add(ctx, uuid.NewV7(), domain.Notice{Recipient: who, Type: domain.TypeReview, Params: map[string]any{}, At: old},
+		if _, _, err = s.Add(ctx, uuid.NewV7(), domain.Notice{Recipient: who, Type: domain.TypeReview, At: old},
 			old.Add(-domain.Retention)); err != nil {
 			t.Fatal(err)
 		}
@@ -112,7 +101,7 @@ func TestReadAndList(t *testing.T) {
 	db := pgtest.New(t)
 	ctx := context.Background()
 	s := repository.NewNotices(db)
-	me, stranger := account(t, db), account(t, db)
+	me, stranger := accounttest.New(t, db), accounttest.New(t, db)
 	ids := make([]uuid.UUID, 0, 3)
 	for i := range 3 {
 		id, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "", int64(i), now.Add(time.Duration(i)*time.Minute)), now.Add(-domain.Retention))
@@ -145,7 +134,7 @@ func TestTokens(t *testing.T) {
 	db := pgtest.New(t)
 	ctx := context.Background()
 	s := repository.NewNotices(db)
-	me := account(t, db)
+	me := accounttest.New(t, db)
 	session := uuid.NewV7()
 	for _, tok := range []string{"a", "b"} {
 		if err := s.PutToken(ctx, session, me, tok, now); err != nil {
@@ -174,7 +163,7 @@ func TestTokenMovesToTheNewSession(t *testing.T) {
 	db := pgtest.New(t)
 	ctx := context.Background()
 	s := repository.NewNotices(db)
-	first, second := account(t, db), account(t, db)
+	first, second := accounttest.New(t, db), accounttest.New(t, db)
 	if err := s.PutToken(ctx, uuid.NewV7(), first, "phone", now); err != nil {
 		t.Fatal(err)
 	}

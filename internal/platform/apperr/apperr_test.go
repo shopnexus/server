@@ -68,6 +68,16 @@ func TestWithDetailCopies(t *testing.T) {
 	}
 }
 
+func TestWithCauseCopies(t *testing.T) {
+	t.Parallel()
+	cause := errors.New("db down")
+	base := apperr.New(apperr.KindInternal, "internal", "x").WithField("id", "unknown")
+	got := base.WithCause(cause)
+	if base.Err != nil || !errors.Is(got, cause) || !errors.Is(got, base) || got.Fields["id"] != "unknown" {
+		t.Fatalf("got %+v, base %+v", got, base)
+	}
+}
+
 // A part second rounds up, so a client that waits retry_after is not
 // refused again.
 func TestWithRetryAfterRoundsUp(t *testing.T) {

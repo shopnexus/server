@@ -13,7 +13,7 @@ func (s *Account) Block(ctx context.Context, blocker, blocked uuid.UUID) error {
 	if blocker == blocked {
 		return domain.ErrSelfBlock
 	}
-	if _, err := s.Get(ctx, blocked); err != nil {
+	if _, err := s.load(ctx, blocked); err != nil {
 		return err
 	}
 	if err := s.accounts.Block(ctx, uuid.NewV7(), blocker, blocked, s.now()); err != nil {

@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"time"
 	"uuid"
@@ -33,10 +32,8 @@ type PostResult struct {
 
 func (r PostResult) Refusal() *apperr.Error { return r.Refused }
 
-// ListingPost posts a listing: it inserts the row, attaches its uploads and
-// starts ListingPublish, each a step, so a retry goes on from the step it
-// reached and a lost connection strands nothing.
-type ListingPost struct {
+// flowDeps is what ListingPost and ListingEdit are built from.
+type flowDeps struct {
 	Prefix     string
 	Listings   repository.Listings
 	Categories repository.Categories
@@ -45,6 +42,11 @@ type ListingPost struct {
 	Media      mediasvc.Service
 	Now        func() time.Time
 }
+
+// ListingPost posts a listing: it inserts the row, attaches its uploads and
+// starts ListingPublish, each a step, so a retry goes on from the step it
+// reached and a lost connection strands nothing.
+type ListingPost struct{ flowDeps }
 
 func (s ListingPost) ServiceName() string { return s.Prefix + listingPost }
 
@@ -57,11 +59,26 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	if err != nil {
 		return PostResult{}, err
 	}
-	suspended, err := isSuspended(ctx, s.Accounts, in.Seller)
-	if err != nil || suspended {
-		return PostResult{Refused: refusedIf(suspended, accountdomain.ErrSuspended)}, err
+	suspended, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
+		return s.Accounts.Suspended(rc, in.Seller)
+	})
+	if err != nil {
+		return PostResult{}, fmt.Errorf("read account status: %w", err)
 	}
-	n, err := restate.Run(ctx, func(rc restate.RunContext) (int, error) { return s.Listings.CountOnSale(rc, in.Seller) })
+	if suspended {
+		return PostResult{Refused: accountdomain.ErrSuspended}, nil
+	}
+	n, err := restate.Run(ctx, func(rc restate.RunContext) (int, error) {
+		counts, stepErr := s.Listings.CountByStatus(rc, in.Seller)
+		if stepErr != nil {
+			return 0, fmt.Errorf("count by status: %w", stepErr)
+		}
+		n := 0
+		for _, st := range domain.OnSale {
+			n += counts[st]
+		}
+		return n, nil
+	})
 	if err != nil {
 		return PostResult{}, fmt.Errorf("count listings: %w", err)
 	}
@@ -101,30 +118,6 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	return PostResult{ListingID: id}, nil
 }
 
-// isSuspended reports whether the seller's account is suspended.
-func isSuspended(ctx restate.Context, accounts accountsvc.Service, seller uuid.UUID) (bool, error) {
-	st, err := restate.Run(ctx, func(rc restate.RunContext) (accountdomain.Status, error) {
-		return accounts.Status(rc, seller)
-	})
-	if err != nil {
-		return false, fmt.Errorf("read account status: %w", err)
-	}
-	return st == accountdomain.StatusSuspended, nil
-}
-
-// refusedIf is e when refused is true, else no refusal.
-func refusedIf(refused bool, e *apperr.Error) *apperr.Error {
-	if refused {
-		return e
-	}
-	return nil
-}
-
-// attached is what the attach step decided: media's refusal, or none.
-type attached struct {
-	Refused *apperr.Error `json:"refused,omitempty"`
-}
-
 // lookUpRefs reads the draft's category and commune.
 func lookUpRefs(ctx restate.Context, categories repository.Categories, regions repository.Regions, d domain.Draft) (domain.Refs, error) {
 	refs, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Refs, error) {
@@ -153,20 +146,13 @@ func lookUpRefs(ctx restate.Context, categories repository.Categories, regions r
 // refusal, invalid_upload or try_again, as data. A retried attach passes,
 // since holder already holds them.
 func attach(ctx restate.Context, media mediasvc.Service, seller, holder uuid.UUID, ids []uuid.UUID) (*apperr.Error, error) {
-	out, err := restate.Run(ctx, func(rc restate.RunContext) (attached, error) {
-		stepErr := media.Attach(rc, seller, holder, ids)
-		if e, ok := errors.AsType[*apperr.Error](stepErr); ok && e.Kind != apperr.KindInternal {
-			return attached{Refused: e}, nil
-		}
-		if stepErr != nil {
-			return attached{}, fmt.Errorf("attach: %w", stepErr)
-		}
-		return attached{}, nil
+	out, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
+		return restatex.AsRefusal(media.Attach(rc, seller, holder, ids))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("attach uploads: %w", err)
 	}
-	return out.Refused, nil
+	return out.Refusal, nil
 }
 
 // startPublish sends ListingPublish for the listing as written under

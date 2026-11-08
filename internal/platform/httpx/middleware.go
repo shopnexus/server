@@ -58,8 +58,10 @@ func route(r *http.Request) string {
 }
 
 // Trace opens a server span per request, continues an incoming traceparent,
-// names the span by the matched route pattern and records request duration.
-func Trace(next http.Handler) http.Handler {
+// names the span by the matched route pattern, records request duration and
+// writes one access log line after the request finishes. It is the outermost
+// middleware, so a request that panicked logs the 500 Recover wrote.
+func Trace(log *slog.Logger) func(http.Handler) http.Handler {
 	tracer := otel.Tracer("github.com/shopnexus/server2/internal/platform/httpx")
 	duration := telemetry.Must(otel.Meter("github.com/shopnexus/server2/internal/platform/httpx").Float64Histogram(
 		"http.server.request.duration",
@@ -67,47 +69,38 @@ func Trace(next http.Handler) http.Handler {
 		metric.WithDescription("Duration of HTTP server requests."),
 	))
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		ctx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
-		ctx, span := tracer.Start(ctx, r.Method, trace.WithSpanKind(trace.SpanKindServer))
-		defer span.End()
-
-		w.Header().Set("Trace-Id", span.SpanContext().TraceID().String())
-		sw := &statusWriter{ResponseWriter: w}
-		// The mux writes Pattern on the request it receives, so read it from r2.
-		r2 := r.WithContext(ctx)
-		next.ServeHTTP(sw, r2)
-
-		status := sw.code()
-		attrs := []attribute.KeyValue{
-			attribute.String("http.request.method", r.Method),
-			attribute.Int("http.response.status_code", status),
-		}
-		if rt := route(r2); rt != "" {
-			span.SetName(r.Method + " " + rt)
-			attrs = append(attrs, attribute.String("http.route", rt))
-		}
-		span.SetAttributes(attrs...)
-		if status >= 500 {
-			span.SetStatus(codes.Error, http.StatusText(status))
-		}
-		duration.Record(ctx, time.Since(start).Seconds(), metric.WithAttributes(attrs...))
-	})
-}
-
-// AccessLog writes one line per request after it finishes.
-func AccessLog(log *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
+			ctx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+			ctx, span := tracer.Start(ctx, r.Method, trace.WithSpanKind(trace.SpanKindServer))
+			defer span.End()
+
+			w.Header().Set("Trace-Id", span.SpanContext().TraceID().String())
 			sw := &statusWriter{ResponseWriter: w}
-			next.ServeHTTP(sw, r)
-			log.InfoContext(r.Context(), "request",
+			// The mux writes Pattern on the request it receives, so read it from r2.
+			r2 := r.WithContext(ctx)
+			next.ServeHTTP(sw, r2)
+
+			status, rt, took := sw.code(), route(r2), time.Since(start)
+			attrs := []attribute.KeyValue{
+				attribute.String("http.request.method", r.Method),
+				attribute.Int("http.response.status_code", status),
+			}
+			if rt != "" {
+				span.SetName(r.Method + " " + rt)
+				attrs = append(attrs, attribute.String("http.route", rt))
+			}
+			span.SetAttributes(attrs...)
+			if status >= 500 {
+				span.SetStatus(codes.Error, http.StatusText(status))
+			}
+			duration.Record(ctx, took.Seconds(), metric.WithAttributes(attrs...))
+			log.InfoContext(ctx, "request",
 				"method", r.Method,
-				"route", route(r),
-				"status", sw.code(),
-				"duration_ms", float64(time.Since(start).Microseconds())/1000,
+				"route", rt,
+				"status", status,
+				"duration_ms", float64(took.Microseconds())/1000,
 			)
 		})
 	}

@@ -25,7 +25,7 @@ func (s *Console) EnrollTOTP(ctx context.Context, email, password string) (Enrol
 	}
 	secret := domain.NewTOTPSecret()
 	m.StartEnrollment(secret, now)
-	if err = s.members.Save(ctx, &m, uuid.NewV7()); err != nil {
+	if err = s.members.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
 		return Enrollment{}, saveFailed(err)
 	}
 	if err = s.refund(ctx, key, now, nil); err != nil {

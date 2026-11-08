@@ -56,7 +56,7 @@ func thingsServer(t *testing.T) http.Handler {
 		}
 		Respond(w, http.StatusCreated, in)
 	})
-	return Trace(validate(r))
+	return Trace(discard())(validate(r))
 }
 
 func post(t *testing.T, h http.Handler, body string) *httptest.ResponseRecorder {
@@ -132,7 +132,7 @@ func TestValidationNeverLogsTheBody(t *testing.T) {
 	var logs bytes.Buffer
 	log := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	validate, _ := ValidateRequests(doc, log)
-	h := Trace(validate(NewRouter()))
+	h := Trace(discard())(validate(NewRouter()))
 
 	rec := post(t, h, `{"name":"ab","extra":"hunter2-otp-583920"}`)
 	if rec.Code != 400 {
@@ -179,7 +179,7 @@ func TestFormatsAreValidated(t *testing.T) {
 	r := NewRouter()
 	r.HandleFunc("GET /items/{id}", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	r.HandleFunc("POST /contacts", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusCreated) })
-	h := Trace(validate(r))
+	h := Trace(discard())(validate(r))
 
 	if rec := serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/not-a-uuid", http.NoBody)); rec.Code != 400 {
 		t.Errorf("bad uuid: %d", rec.Code)

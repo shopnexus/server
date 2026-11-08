@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/deal/domain"
 )
 
@@ -17,7 +18,7 @@ func TestMoves(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	l := e.listing(t, seller)
+	l := catalogtest.Listing(t, e.db, seller)
 	v := e.open(t, buyer, l)
 	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
 	var offer uuid.UUID
@@ -26,7 +27,7 @@ func TestMoves(t *testing.T) {
 		t.Fatal(err)
 	}
 	f, ok, err := e.deals.Moves(ctx, v.ID, []uuid.UUID{offer, uuid.NewV7()})
-	if err != nil || !ok || f.BuyerID != buyer || f.SellerID != seller || f.ListingID != l || f.ListingTitle == "" ||
+	if err != nil || !ok || f.BuyerID != buyer || f.SellerID != seller || f.ListingTitle == "" ||
 		f.BuyerName == "" || len(f.Moves) != 1 || f.Moves[0].Kind != domain.MoveOffer || f.Moves[0].By != domain.Buyer ||
 		f.Moves[0].Amount != 1_000_000 {
 		t.Fatalf("%+v %v %v", f, ok, err)

@@ -2,20 +2,18 @@ package service
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/catalog/repository"
 )
 
 // Pane is one of the seller's lists of their own listings.
 type Pane string
 
 const (
-	// PaneOnSale holds listings in processing, active, hidden and rejected.
+	// PaneOnSale holds listings in processing, active, hidden, rejected and
+	// reserved: domain.OnSale.
 	PaneOnSale Pane = "on_sale"
 	PaneSold   Pane = "sold"
 )
@@ -124,12 +122,9 @@ func (c *Catalog) views(ctx context.Context, ls []domain.Listing) ([]ListingView
 // domain.ErrNotFound, so a listing's existence does not leak; a deleted one
 // is the seller's still, and the domain refuses to change it.
 func (c *Catalog) own(ctx context.Context, seller, id uuid.UUID) (domain.Listing, error) {
-	l, err := c.listings.Get(ctx, id)
-	if errors.Is(err, repository.ErrNotFound) {
-		return domain.Listing{}, domain.ErrNotFound
-	}
+	l, err := c.listing(ctx, id)
 	if err != nil {
-		return domain.Listing{}, fmt.Errorf("get listing: %w", err)
+		return domain.Listing{}, err
 	}
 	if l.SellerID() != seller {
 		return domain.Listing{}, domain.ErrNotFound

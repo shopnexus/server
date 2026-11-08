@@ -1,31 +1,26 @@
 package service_test
 
 import (
-	"bytes"
 	"context"
-	"image"
-	"image/color"
-	"image/jpeg"
-	"net/http"
+	"fmt"
 	"testing"
 	"time"
 	"uuid"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/restatedev/sdk-go/ingress"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
-	accountrepo "github.com/shopnexus/server2/internal/account/repository"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/catalog/service"
-	mediarepo "github.com/shopnexus/server2/internal/media/repository"
+	"github.com/shopnexus/server2/internal/media/mediatest"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
 type env struct {
@@ -42,27 +37,12 @@ type env struct {
 func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 	t.Helper()
 	db := pgtest.New(t)
-	store := objectstoretest.New(t)
-	url, _, err := restatetest.URLs()
-	if err != nil {
-		t.Fatal(err)
-	}
-	in, p := ingress.NewClient(url), restatetest.Prefix()
-	accounts := accountsvc.New(accountsvc.Deps{Accounts: accountrepo.NewAccounts(db), Now: time.Now})
-	m := mediasvc.New(mediasvc.Deps{Uploads: mediarepo.NewUploads(db), Store: store, Ingress: in, Prefix: p, Now: time.Now})
-	listings := repository.NewListings(db)
-	deps := service.Deps{
-		Listings: listings, Categories: repository.NewCategories(db), Regions: repository.NewRegions(db),
-		Searches: repository.NewSearches(db),
-		Accounts: accounts, Media: m,
-		Ingress: in, Prefix: p, Now: time.Now,
-	}
-	for _, o := range opts {
-		o(&deps)
-	}
-	c := service.New(deps)
+	in, p := restatetest.Ingress(t), restatetest.Prefix()
+	accounts := accounttest.Service(db)
+	m := mediatest.Service(db, objectstoretest.New(t), in, p)
+	c := catalogtest.Service(db, accounts, m, in, p, opts...)
 	restatetest.Start(t, append(m.Durable(), c.Durable()...)...)
-	return env{db: db, accounts: accounts, media: m, catalog: c, listings: listings}
+	return env{db: db, accounts: accounts, media: m, catalog: c, listings: repository.NewListings(db)}
 }
 
 // seller creates an account with a verified phone number.
@@ -77,42 +57,10 @@ func (e env) account(t *testing.T) uuid.UUID {
 	return accounttest.New(t, e.db)
 }
 
-func jpegBytes(t *testing.T) []byte {
-	t.Helper()
-	m := image.NewRGBA(image.Rect(0, 0, 64, 48))
-	for y := range 48 {
-		for x := range 64 {
-			m.Set(x, y, color.RGBA{uint8(x * 4), uint8(y * 5), 90, 255})
-		}
-	}
-	var b bytes.Buffer
-	if err := jpeg.Encode(&b, m, nil); err != nil {
-		t.Fatal(err)
-	}
-	return b.Bytes()
-}
-
 // upload creates a JPEG upload for owner and PUTs body to it.
 func (e env) upload(t *testing.T, owner uuid.UUID, body []byte) uuid.UUID {
 	t.Helper()
-	ticket, err := e.media.CreateUpload(context.Background(), owner, "image/jpeg", int64(len(body)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPut, ticket.URL, bytes.NewReader(body))
-	for k, v := range ticket.Headers {
-		req.Header.Set(k, v)
-	}
-	req.ContentLength = int64(len(body))
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("put: %d", res.StatusCode)
-	}
-	return ticket.UploadID
+	return mediatest.Upload(t, e.media, owner, "image/jpeg", body)
 }
 
 // draft is a valid listing with the given photos.
@@ -126,7 +74,7 @@ func draft(photos ...uuid.UUID) domain.Draft {
 // post posts a listing with one fresh photo for seller.
 func (e env) post(t *testing.T, seller uuid.UUID) service.ListingView {
 	t.Helper()
-	v, err := e.catalog.Post(context.Background(), seller, uuid.NewV7().String(), draft(e.upload(t, seller, jpegBytes(t))))
+	v, err := e.catalog.Post(context.Background(), seller, uuid.NewV7().String(), draft(e.upload(t, seller, mediatest.JPEG(t, 64, 48))))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,20 +85,18 @@ func (e env) post(t *testing.T, seller uuid.UUID) service.ListingView {
 // seller sees it.
 func (e env) settle(t *testing.T, seller, id uuid.UUID) service.ListingView {
 	t.Helper()
-	deadline := time.Now().Add(30 * time.Second)
-	for {
-		v, err := e.catalog.Get(context.Background(), &seller, id)
-		if err != nil {
+	var v service.ListingView
+	testenv.Eventually(t, 30*time.Second, func() error {
+		var err error
+		if v, err = e.catalog.Get(context.Background(), &seller, id); err != nil {
 			t.Fatal(err)
 		}
-		if v.Status != domain.StatusProcessing {
-			return v
+		if v.Status == domain.StatusProcessing {
+			return fmt.Errorf("listing %s still processing", id)
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("listing %s still processing", id)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+		return nil
+	})
+	return v
 }
 
 // active posts a listing and waits until it is on sale.
@@ -161,18 +107,4 @@ func (e env) active(t *testing.T, seller uuid.UUID) service.ListingView {
 		t.Fatalf("%+v", v)
 	}
 	return v
-}
-
-// kindsOf lists the kinds of the events about subject, oldest first.
-func kindsOf(t *testing.T, db *pgxpool.Pool, subject uuid.UUID) []string {
-	t.Helper()
-	rows, err := db.Query(context.Background(), `SELECT kind FROM events WHERE subject_id = @id ORDER BY id`, pgx.StrictNamedArgs{"id": subject})
-	if err != nil {
-		t.Fatal(err)
-	}
-	kinds, err := pgx.CollectRows(rows, pgx.RowTo[string])
-	if err != nil {
-		t.Fatal(err)
-	}
-	return kinds
 }

@@ -11,7 +11,6 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/media/repository"
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 	"github.com/shopnexus/server2/internal/platform/restatex"
@@ -28,8 +27,6 @@ type Service interface {
 	// its avatar, waits until it is processed into a square and returns the
 	// square's object key. A retry returns the same key.
 	Square(ctx context.Context, owner, holder, id uuid.UUID) (string, error)
-	// Photos reports each upload's processing, with URLs once ready.
-	Photos(ctx context.Context, ids []uuid.UUID) ([]Photo, error)
 	// URL is where a client reads the processed object key.
 	URL(key string) string
 }
@@ -75,24 +72,10 @@ func (m *Media) Durable() []restate.ServiceDefinition {
 
 func (m *Media) URL(key string) string { return m.store.PublicURL(key) }
 
-// MediaProcessService is the name, without the prefix, of the Restate
-// service that processes an attached upload: handler Run, input the upload
-// ID, output ProcessResult.
-const MediaProcessService = mediaProcess
-
 // UploadTicket is the UploadTicket schema in api/schemas/media.yaml.
 type UploadTicket struct {
 	UploadID  uuid.UUID         `json:"upload_id"`
 	URL       string            `json:"url"`
 	Headers   map[string]string `json:"headers"`
 	ExpiresAt time.Time         `json:"expires_at"`
-}
-
-// Photo is an upload as its user shows it.
-type Photo struct {
-	UploadID uuid.UUID
-	Status   domain.Status
-	URL      string // set when ready
-	ThumbURL string // set when ready
-	Failure  string // set when failed
 }

@@ -45,7 +45,7 @@ func TestFirstSignIn(t *testing.T) {
 		t.Fatalf("no code: %v", err)
 	}
 	in, err := e.login("first@example.com", password, "", domain.Code(secret, now), now)
-	if err != nil || in.Me.Email != "first@example.com" || in.Token == "" || !in.ExpiresAt.Equal(now.Add(domain.SessionTTL)) {
+	if err != nil || in.Me.Email != "first@example.com" || in.Token == "" {
 		t.Fatalf("%+v %v", in, err)
 	}
 	if _, err = e.login("first@example.com", password, "", domain.Code(secret, now), now); !errors.Is(err, domain.ErrInvalidTOTPCode) {

@@ -119,10 +119,13 @@ type ObjectStoreConfig struct {
 // RestateConfig says where the Restate server is and how it reaches this
 // process.
 type RestateConfig struct {
-	IngressURL  string // RESTATE_INGRESS_URL
-	AdminURL    string // RESTATE_ADMIN_URL
-	ListenAddr  string // RESTATE_LISTEN_ADDR: where this process serves its Restate endpoint
-	EndpointURL string // RESTATE_ENDPOINT_URL: how Restate reaches it; empty means http://ListenAddr
+	IngressURL string // RESTATE_INGRESS_URL
+	AdminURL   string // RESTATE_ADMIN_URL
+	ListenAddr string // RESTATE_LISTEN_ADDR: where this process serves its Restate endpoint
+	// EndpointURL (RESTATE_ENDPOINT_URL) is how Restate reaches the endpoint,
+	// the URL registered at start. Empty registers http:// and the address
+	// the endpoint is bound to, a ListenAddr port of 0 resolved.
+	EndpointURL string
 	// ServicePrefix (RESTATE_SERVICE_PREFIX) goes before every service name,
 	// so servers sharing one Restate server, as tests do, keep apart.
 	ServicePrefix string

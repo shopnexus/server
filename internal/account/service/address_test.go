@@ -4,20 +4,35 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
+	"github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 var home = domain.AddressDraft{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
 
+// newBook is the accounts and the address books of one fresh database.
+func newBook(t *testing.T) (repository.Accounts, repository.Addresses) {
+	t.Helper()
+	db := pgtest.New(t)
+	return repository.NewAccounts(db), repository.NewAddresses(db)
+}
+
+// onBook is the service on addresses, with its clock stopped at now.
+func onBook(addresses repository.Addresses) *service.Account {
+	return service.New(service.Deps{Addresses: addresses, Now: func() time.Time { return now }, Log: discard})
+}
+
 func TestAddressBook(t *testing.T) {
 	t.Parallel()
-	s := newStore(t)
+	s, book := newBook(t)
 	ctx := context.Background()
-	svc := at(s, nil, now)
+	svc := onBook(book)
 	me, other := seed(t, s), seed(t, s)
 
 	first, err := svc.CreateAddress(ctx, me, uuid.NewV7(), home)
@@ -77,9 +92,9 @@ func TestAddressBook(t *testing.T) {
 
 func TestAddressRefusals(t *testing.T) {
 	t.Parallel()
-	s := newStore(t)
+	s, book := newBook(t)
 	ctx := context.Background()
-	svc := at(s, nil, now)
+	svc := onBook(book)
 	me := seed(t, s)
 	bad := home
 	bad.CommuneCode = "nope"
@@ -105,35 +120,35 @@ func TestAddressRefusals(t *testing.T) {
 	}
 }
 
-// staleAddress is a store whose GetAddress returns an address read before
-// another write.
+// staleAddress is a store whose Get returns an address read before another
+// write.
 type staleAddress struct {
-	repository.Accounts
+	repository.Addresses
 
 	stale domain.Address
 }
 
-func (s staleAddress) GetAddress(context.Context, uuid.UUID, uuid.UUID) (domain.Address, error) {
+func (s staleAddress) Get(context.Context, uuid.UUID, uuid.UUID) (domain.Address, error) {
 	return s.stale, nil
 }
 
 func TestUpdateAddressLosesARace(t *testing.T) {
 	t.Parallel()
-	s := newStore(t)
+	s, book := newBook(t)
 	ctx := context.Background()
 	me := seed(t, s)
-	a, err := at(s, nil, now).CreateAddress(ctx, me, uuid.NewV7(), home)
+	a, err := onBook(book).CreateAddress(ctx, me, uuid.NewV7(), home)
 	if err != nil {
 		t.Fatal(err)
 	}
-	stale, err := s.GetAddress(ctx, me, a.ID)
+	stale, err := book.Get(ctx, me, a.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = at(s, nil, now).UpdateAddress(ctx, me, a.ID, home); err != nil {
+	if _, err = onBook(book).UpdateAddress(ctx, me, a.ID, home); err != nil {
 		t.Fatal(err)
 	}
-	_, err = at(staleAddress{Accounts: s, stale: stale}, nil, now).UpdateAddress(ctx, me, a.ID, home)
+	_, err = onBook(staleAddress{Addresses: book, stale: stale}).UpdateAddress(ctx, me, a.ID, home)
 	if !errors.Is(err, apperr.ErrTryAgain) {
 		t.Fatalf("%v", err)
 	}

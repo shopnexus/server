@@ -11,9 +11,11 @@ import (
 	"github.com/shopnexus/server2/internal/chat/repository"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/chat/domain"
 	"github.com/shopnexus/server2/internal/chat/service"
 	mediadomain "github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server2/internal/media/mediatest"
 )
 
 func TestPhotoMessage(t *testing.T) {
@@ -21,8 +23,8 @@ func TestPhotoMessage(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	c := e.open(t, buyer, e.listing(t, seller), "Còn không?")
-	m, err := e.chat.Send(ctx, buyer, c.ID, key(), service.SendInput{Text: "Vết này", Photos: []uuid.UUID{e.upload(t, buyer, jpegBytes(t))}})
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
+	m, err := e.chat.Send(ctx, buyer, c.ID, key(), service.SendInput{Text: "Vết này", Photos: []uuid.UUID{e.upload(t, buyer, mediatest.JPEG(t, 64, 48))}})
 	if err != nil || m.Status != domain.StatusProcessing {
 		t.Fatalf("%+v %v", m, err)
 	}
@@ -43,7 +45,7 @@ func TestFailedPhoto(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	c := e.open(t, buyer, e.listing(t, seller), "Còn không?")
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
 	m, err := e.chat.Send(ctx, buyer, c.ID, key(), service.SendInput{Photos: []uuid.UUID{e.upload(t, buyer, []byte("not a jpeg at all"))}})
 	if err != nil {
 		t.Fatal(err)
@@ -61,8 +63,8 @@ func TestRefusedAttachLeavesNoMessage(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	c := e.open(t, buyer, e.listing(t, seller), "Còn không?")
-	theirs := e.upload(t, seller, jpegBytes(t))
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
+	theirs := e.upload(t, seller, mediatest.JPEG(t, 64, 48))
 	if _, err := e.chat.Send(ctx, buyer, c.ID, key(), service.SendInput{Photos: []uuid.UUID{theirs}}); !errors.Is(err, mediadomain.ErrInvalidUpload) {
 		t.Fatalf("%v", err)
 	}
@@ -76,7 +78,7 @@ func TestRepeatedKeySendsOnce(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	c := e.open(t, buyer, e.listing(t, seller), "Còn không?")
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
 	k := key()
 	for range 2 {
 		if _, err := e.chat.Send(ctx, buyer, c.ID, k, service.SendInput{Text: "Một lần thôi"}); err != nil {
@@ -114,7 +116,7 @@ func TestOpenRetriedAfterItsWrite(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	deps := e.deps
 	deps.Prefix = restatetest.Prefix()
 	deps.Chats = blockAfterOpen{Chats: e.deps.Chats, accounts: e.accounts, seller: seller, buyer: buyer, fired: &atomic.Bool{}}

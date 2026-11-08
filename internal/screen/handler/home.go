@@ -2,14 +2,12 @@ package handler
 
 import (
 	"net/http"
-	"uuid"
 
 	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
-	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
 
-// homeScreenRequest is where the reader is. It reaches the service and no
+// homeScreenRequest is where the viewer is. It reaches the service and no
 // log.
 type homeScreenRequest struct {
 	NearLat     float64 `json:"-" query:"near_lat"`
@@ -24,11 +22,7 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	var reader *uuid.UUID
-	if p, ok := authn.From(r.Context()); ok {
-		reader = &p.AccountID
-	}
-	out, err := h.svc.Home(r.Context(), reader, discoverysvc.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune})
+	out, err := h.svc.Home(r.Context(), httpx.Viewer(r), discoverysvc.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

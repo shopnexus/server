@@ -12,10 +12,21 @@ import (
 	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
-var prepared struct {
-	once sync.Once
-	err  error
-}
+// prepare readies the test stack's bucket once per process.
+var prepare = sync.OnceValue(func() error {
+	cfg, err := Config()
+	if err != nil {
+		return err
+	}
+	s, err := objectstore.New(cfg)
+	if err != nil {
+		return fmt.Errorf("test object store: %w", err)
+	}
+	if err = s.Prepare(context.Background()); err != nil {
+		return fmt.Errorf("prepare test bucket: %w", err)
+	}
+	return nil
+})
 
 // Config returns the test stack's object store settings, from the
 // environment or .env.test.
@@ -54,9 +65,8 @@ func New(tb testing.TB) *objectstore.Store {
 	if err != nil {
 		tb.Fatal(err)
 	}
-	prepared.once.Do(func() { prepared.err = s.Prepare(context.Background()) })
-	if prepared.err != nil {
-		tb.Fatal(prepared.err)
+	if err := prepare(); err != nil {
+		tb.Fatal(err)
 	}
 	return s
 }

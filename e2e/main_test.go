@@ -57,44 +57,64 @@ func TestMain(m *testing.M) {
 }
 
 func run(m *testing.M) int {
-	adminURL, err := pgtest.AdminURL()
-	if err != nil {
+	var closers []func()
+	defer func() {
+		for _, c := range slices.Backward(closers) {
+			c()
+		}
+	}()
+	if err := setup(&closers); err != nil {
 		fmt.Fprintln(os.Stderr, "e2e:", err)
 		return 1
+	}
+
+	code := m.Run()
+	if code == 0 {
+		if missing := uncovered(); len(missing) > 0 {
+			fmt.Fprintln(os.Stderr, "e2e: declared responses no test observed:")
+			for _, s := range missing {
+				fmt.Fprintln(os.Stderr, "  ", s)
+			}
+			code = 1
+		}
+	}
+	return code
+}
+
+// setup starts what the tests share and the server on it, and appends
+// what stops each part to closers, in start order.
+func setup(closers *[]func()) error {
+	adminURL, err := pgtest.AdminURL()
+	if err != nil {
+		return err
 	}
 	pool, drop, err := pgtest.NewForMain(adminURL)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "e2e:", err)
-		return 1
+		return err
 	}
-	defer drop()
+	*closers = append(*closers, drop)
 	db = pool
 
 	restateCfg, err := restatetest.ConfigForMain()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "e2e:", err)
-		return 1
+		return err
 	}
 	objectStoreCfg, err := objectstoretest.Config()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "e2e:", err)
-		return 1
+		return err
 	}
 	store, err := objectstore.New(objectStoreCfg)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "e2e:", err)
-		return 1
+		return err
 	}
 	if err = store.Prepare(context.Background()); err != nil {
-		fmt.Fprintln(os.Stderr, "e2e:", err)
-		return 1
+		return err
 	}
 	signer, stopSigner, err := firebasetest.NewForMain()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "e2e:", err)
-		return 1
+		return err
 	}
-	defer stopSigner()
+	*closers = append(*closers, stopSigner)
 	issuer = signer
 	// PNV's keys stay down for the whole run, so a PNV token observes the
 	// 503 the spec declares; the firebase tests check PNV tokens.
@@ -115,38 +135,21 @@ func run(m *testing.M) int {
 	}
 	consoleKeys, err := consolesvc.NewKeys(cfg.Console, consoledomain.Fast)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "e2e:", err)
-		return 1
+		return err
 	}
-	consoleSvc = console.NewService(pool, consoleKeys, cfg.Console, nil, time.Now)
+	consoleSvc = console.NewService(pool, console.Settings{Keys: consoleKeys, Config: cfg.Console}, nil, time.Now)
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones),
 		app.WithPasswordHasher(consoledomain.Fast))
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "e2e:", err)
-		return 1
+		return err
 	}
-	defer a.Close(context.Background())
+	*closers = append(*closers, func() { _ = a.Close(context.Background()) })
 	srv := httptest.NewServer(a.Handler)
-	defer srv.Close()
+	*closers = append(*closers, srv.Close)
 	server = srv.URL
 
-	if err := loadSpec(); err != nil {
-		fmt.Fprintln(os.Stderr, "e2e:", err)
-		return 1
-	}
-
-	code := m.Run()
-	if code == 0 {
-		if missing := uncovered(); len(missing) > 0 {
-			fmt.Fprintln(os.Stderr, "e2e: declared responses no test observed:")
-			for _, s := range missing {
-				fmt.Fprintln(os.Stderr, "  ", s)
-			}
-			code = 1
-		}
-	}
-	return code
+	return loadSpec()
 }
 
 // uncovered lists "operationId status" for every numeric response code in the

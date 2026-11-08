@@ -22,14 +22,14 @@ type HomeCategory struct {
 type HomeScreen struct {
 	Categories []HomeCategory          `json:"categories"`
 	Nearby     discoverysvc.SearchView `json:"nearby"`
-	// NotificationsUnread is the reader's unread notices, 0 signed out.
+	// NotificationsUnread is the viewer's unread notices, 0 signed out.
 	NotificationsUnread int `json:"notifications_unread"`
 }
 
 // Home reads the category tree, the active listings under each root, and
 // the first page of the nearby feed around near.
-func (s *Screen) Home(ctx context.Context, reader *uuid.UUID, near discoverysvc.Near) (HomeScreen, error) {
-	nearby, err := s.saves.Nearby(ctx, reader, near, "", 0)
+func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near discoverysvc.Near) (HomeScreen, error) {
+	nearby, err := s.discovery.Nearby(ctx, viewer, near, "", 0)
 	if err != nil {
 		return HomeScreen{}, fmt.Errorf("read the nearby feed: %w", err)
 	}
@@ -46,8 +46,8 @@ func (s *Screen) Home(ctx context.Context, reader *uuid.UUID, near discoverysvc.
 		byRoot[c.Code] = c.Count
 	}
 	out := HomeScreen{Nearby: nearby}
-	if reader != nil {
-		if out.NotificationsUnread, err = s.notices.Unread(ctx, *reader); err != nil {
+	if viewer != nil {
+		if out.NotificationsUnread, err = s.notices.Unread(ctx, *viewer); err != nil {
 			return HomeScreen{}, fmt.Errorf("count unread notices: %w", err)
 		}
 	}

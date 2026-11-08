@@ -13,7 +13,6 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
@@ -54,9 +53,9 @@ type Service interface {
 	Ship(ctx context.Context, caller, id uuid.UUID, idempotencyKey string, w WaybillInput) (DealView, error)
 	Deliver(ctx context.Context, caller, id uuid.UUID, idempotencyKey string) (DealView, error)
 	Return(ctx context.Context, caller, id uuid.UUID, idempotencyKey string) (DealView, error)
-	// Order reads one order for another module: its deal, its two sides,
-	// its listing and its status; an unknown one is domain.ErrOrderNotFound.
-	Order(ctx context.Context, id uuid.UUID) (OrderFacts, error)
+	// Order reads one order for another module: its two sides, its
+	// listing and its status; false for an unknown one.
+	Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, error)
 	// Between lists the deals of viewer and other on either side, newest
 	// first, as viewer sees them.
 	Between(ctx context.Context, viewer, other uuid.UUID) ([]DealView, error)
@@ -111,27 +110,13 @@ func (s *Deals) Durable() []restate.ServiceDefinition {
 	}
 }
 
-// refuseSuspended returns accountdomain.ErrSuspended for a suspended
-// account.
-func (s *Deals) refuseSuspended(ctx context.Context, id uuid.UUID) error {
-	st, err := s.accounts.Status(ctx, id)
-	if err != nil {
-		return fmt.Errorf("read account status: %w", err)
-	}
-	if st == accountdomain.StatusSuspended {
-		return accountdomain.ErrSuspended
-	}
-	return nil
-}
-
 // listing reads one listing through catalog, in any status; an unknown
 // one is catalogdomain.ErrNotFound.
 func (s *Deals) listing(ctx context.Context, id uuid.UUID) (catalogsvc.Summary, error) {
-	got, err := s.catalog.Summaries(ctx, []uuid.UUID{id})
+	l, ok, err := s.catalog.Summary(ctx, id)
 	if err != nil {
 		return catalogsvc.Summary{}, fmt.Errorf("read listing: %w", err)
 	}
-	l, ok := got[id]
 	if !ok {
 		return catalogsvc.Summary{}, catalogdomain.ErrNotFound
 	}

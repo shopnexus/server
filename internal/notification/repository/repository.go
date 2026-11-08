@@ -43,7 +43,7 @@ type Notices interface {
 type Row struct {
 	ID       uuid.UUID
 	Type     domain.Type
-	Params   map[string]any
+	Params   domain.Params
 	Read     bool
 	BumpedAt time.Time
 }

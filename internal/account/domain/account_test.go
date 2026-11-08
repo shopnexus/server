@@ -135,11 +135,11 @@ func TestSuspendEndInThePastRejected(t *testing.T) {
 	}
 }
 
-func TestReinstate(t *testing.T) {
+func TestUnsuspend(t *testing.T) {
 	t.Parallel()
 	a, _ := domain.New(uuid.NewV7(), "Linh", now)
 	a.Suspend("scam", nil, now)
-	a.Reinstate(now)
+	a.Unsuspend(now)
 	if a.CanWrite(now) != nil || a.SuspendReason() != "" || a.SuspendedUntil() != nil {
 		t.Fatalf("%+v", a)
 	}

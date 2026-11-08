@@ -8,11 +8,13 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/platform/events"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 var spx = service.WaybillInput{Carrier: "spx", TrackingCode: "SPXVN0123", Fee: 22_000}
@@ -22,11 +24,11 @@ func key() string { return uuid.NewV7().String() }
 // summary reads listing through catalog.
 func (e env) summary(t *testing.T, listing uuid.UUID) (catalogdomain.Status, uuid.UUID) {
 	t.Helper()
-	got, err := e.catalog.Summaries(context.Background(), []uuid.UUID{listing})
+	l, _, err := e.catalog.Summary(context.Background(), listing)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return got[listing].Status, got[listing].ReservedFor
+	return l.Status, l.ReservedFor
 }
 
 func count(kinds []string, kind string) int {
@@ -44,7 +46,7 @@ func TestShipDeliver(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.requested(t, buyer, listing)
 	k := key()
 	for range 2 {
@@ -56,7 +58,7 @@ func TestShipDeliver(t *testing.T) {
 	if st, held := e.summary(t, listing); st != catalogdomain.StatusReserved || held != v.Order.ID {
 		t.Fatalf("listing %s for %s", st, held)
 	}
-	if n := count(kindsOf(t, e.db, listing), "listing.reserved"); n != 1 {
+	if n := count(pgtest.EventKinds(t, e.db, listing), "listing.reserved"); n != 1 {
 		t.Fatalf("listing.reserved %d times", n)
 	}
 	if n := countMoves(moveKinds(e.get(t, buyer, v.ID)), domain.MoveShipped); n != 1 {
@@ -76,7 +78,7 @@ func TestShipReturn(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.requested(t, buyer, listing)
 	must(t)(e.deals.Ship(ctx, seller, v.ID, key(), spx))
 	r, err := e.deals.Return(ctx, seller, v.ID, key())
@@ -93,7 +95,7 @@ func TestShipRefusesAHiddenListing(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.requested(t, buyer, listing)
 	if _, err := e.catalog.Hide(ctx, seller, listing); err != nil {
 		t.Fatal(err)
@@ -135,7 +137,7 @@ func TestShipLosesToACancel(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.requested(t, buyer, listing)
 	deps := e.deps
 	deps.Deals = cancelFirst{Deals: e.repo, fired: &atomic.Bool{}}
@@ -148,7 +150,7 @@ func TestShipLosesToACancel(t *testing.T) {
 	if st, _ := e.summary(t, listing); st != catalogdomain.StatusActive {
 		t.Fatalf("listing %s", st)
 	}
-	if k := kindsOf(t, e.db, listing); count(k, "listing.reserved") != 1 || k[len(k)-1] != "listing.released" {
+	if k := pgtest.EventKinds(t, e.db, listing); count(k, "listing.reserved") != 1 || k[len(k)-1] != "listing.released" {
 		t.Fatalf("events %v", k)
 	}
 }
@@ -158,7 +160,7 @@ func TestShipRefusals(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
-	v := e.requested(t, buyer, e.listing(t, seller))
+	v := e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := e.deals.Ship(ctx, buyer, v.ID, key(), spx); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Errorf("buyer ships: %v", err)
 	}
@@ -214,7 +216,7 @@ func TestShipTwiceKeepsTheListing(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.requested(t, buyer, listing)
 	deps := e.deps
 	deps.Deals = shipFirst{Deals: e.repo, fired: &atomic.Bool{}}

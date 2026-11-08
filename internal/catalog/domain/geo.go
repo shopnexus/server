@@ -32,6 +32,14 @@ func Distance(a, b Point) float64 {
 	return 2 * earthKm * math.Asin(math.Sqrt(h))
 }
 
+// Box is the corners of the latitude and longitude ranges around p that
+// hold a circle of radius km.
+func Box(p Point, km float64) (lo, hi Point) {
+	dLat := km / kmPerDegree
+	dLng := km / (kmPerDegree * math.Cos(p.Lat*math.Pi/180))
+	return Point{Lat: p.Lat - dLat, Lng: p.Lng - dLng}, Point{Lat: p.Lat + dLat, Lng: p.Lng + dLng}
+}
+
 // Blur moves p by up to 500 m in a random direction, then rounds it to a
 // 0.01° grid (about 1.1 km), so the stored point says which cell the seller
 // is near and no more.

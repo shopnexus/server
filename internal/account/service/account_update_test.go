@@ -11,6 +11,7 @@ import (
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/events"
 )
 
@@ -44,7 +45,7 @@ func TestUpdateRefusedWhileSuspended(t *testing.T) {
 	id := seed(t, s)
 	a, _ := s.Get(context.Background(), id)
 	a.Suspend("spam", nil, now)
-	s.Save(context.Background(), &a, uuid.NewV7())
+	s.Save(context.Background(), &a, uuid.NewV7(), nil)
 	if _, err := at(s, nil, now).Update(context.Background(), id, service.UpdateInput{DisplayName: new("Minh")}); !errors.Is(err, domain.ErrSuspended) {
 		t.Fatalf("err %v", err)
 	}
@@ -53,7 +54,7 @@ func TestUpdateRefusedWhileSuspended(t *testing.T) {
 // conflicting is a store whose Save always loses a race.
 type conflicting struct{ repository.Accounts }
 
-func (conflicting) Save(context.Context, *domain.Account, uuid.UUID, ...events.Event) error {
+func (conflicting) Save(context.Context, *domain.Account, uuid.UUID, *audit.Entry, ...events.Event) error {
 	return repository.ErrConflict
 }
 

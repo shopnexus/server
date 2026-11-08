@@ -25,8 +25,8 @@ var defineFormats = sync.OnceFunc(func() {
 	openapi3.DefineStringFormatValidator("email", openapi3.NewRegexpFormatValidator(openapi3.FormatOfStringForEmail))
 })
 
-// MaxBodyBytes caps every request body.
-const MaxBodyBytes = 1 << 20
+// maxBodyBytes caps every request body.
+const maxBodyBytes = 1 << 20
 
 var (
 	errInvalidRequest = apperr.New(apperr.KindBadRequest, "invalid_request", "request does not match the API description")
@@ -59,7 +59,7 @@ func ValidateRequests(doc *openapi3.T, log *slog.Logger) (func(http.Handler) htt
 			}
 
 			if r.Body != nil {
-				body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxBodyBytes))
+				body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBodyBytes))
 				if err != nil {
 					if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 						WriteError(w, r, log, errBodyTooLarge)
@@ -89,41 +89,25 @@ func ValidateRequests(doc *openapi3.T, log *slog.Logger) (func(http.Handler) htt
 // The kin-openapi error is not kept as the cause: it embeds the request value,
 // which may be a password, a token or a TOTP code, and causes are logged.
 func toAppError(err error) error {
-	out := *errInvalidRequest
-	add := func(name, problem string) {
-		out = *out.WithField(name, problem)
-	}
-
-	var all []error
-	if me := (openapi3.MultiError{}); errors.As(err, &me) {
-		all = me
-	} else {
-		all = []error{err}
-	}
-	for _, e := range all {
-		var reqErr *openapi3filter.RequestError
-		if !errors.As(e, &reqErr) {
-			add("request", "invalid")
+	fields := map[string]string{}
+	for _, e := range multiErrors(err) {
+		reqErr, ok := errors.AsType[*openapi3filter.RequestError](e)
+		if !ok {
+			fields["request"] = "invalid"
 			continue
 		}
-		if _, ok := errors.AsType[*openapi3filter.ParseError](reqErr.Err); ok {
+		if _, ok = errors.AsType[*openapi3filter.ParseError](reqErr.Err); ok {
 			return ErrMalformedJSON
 		}
 		field := "body"
 		if reqErr.Parameter != nil {
 			field = reqErr.Parameter.Name
 		}
-		var schemaErrs []error
-		if me := (openapi3.MultiError{}); errors.As(reqErr.Err, &me) {
-			schemaErrs = me
-		} else {
-			schemaErrs = []error{reqErr.Err}
-		}
-		for _, se := range schemaErrs {
-			var schemaErr *openapi3.SchemaError
-			if !errors.As(se, &schemaErr) {
+		for _, se := range multiErrors(reqErr.Err) {
+			schemaErr, isSchema := errors.AsType[*openapi3.SchemaError](se)
+			if !isSchema {
 				// A missing required body or parameter.
-				add(field, "required")
+				fields[field] = "required"
 				continue
 			}
 			name := field
@@ -133,10 +117,21 @@ func toAppError(err error) error {
 			if schemaErr.SchemaField == "additionalProperties" {
 				name = quotedName(schemaErr.Reason, name)
 			}
-			add(name, schemaErr.SchemaField)
+			fields[name] = schemaErr.SchemaField
 		}
 	}
+	out := *errInvalidRequest
+	out.Fields = fields
 	return &out
+}
+
+// multiErrors returns the errors of the openapi3.MultiError in err's chain,
+// or err alone when there is none.
+func multiErrors(err error) []error {
+	if me, ok := errors.AsType[openapi3.MultiError](err); ok {
+		return me
+	}
+	return []error{err}
 }
 
 // quotedName pulls the property out of kin-openapi's

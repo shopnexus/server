@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
@@ -33,7 +34,7 @@ func put(t *testing.T, db *pgxpool.Pool, it item) uuid.UUID {
 	at := time.Now().Add(-it.age)
 	id := uuid.NewV7()
 	l := domain.RestoreListing(domain.ListingState{
-		ID: id, SellerID: newAccount(t, db), Title: it.title, Price: it.price, CategoryCode: it.cat,
+		ID: id, SellerID: accounttest.New(t, db), Title: it.title, Price: it.price, CategoryCode: it.cat,
 		Condition: domain.ConditionUsed, AllowOffers: true, CommuneCode: "00004",
 		Photos: []domain.Photo{{UploadID: uuid.NewV7()}}, Status: status, WriteID: id,
 		CreatedAt: at, UpdatedAt: at, PublishedAt: &at, Lat: it.point.Lat, Lng: it.point.Lng,

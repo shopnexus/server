@@ -34,36 +34,21 @@ type listingScreen struct {
 
 func TestListingScreen(t *testing.T) {
 	t.Parallel()
-	expect := func(name string, res Response, status int, code string) {
-		t.Helper()
-		if res.Status != status || (code != "" && errorOf(t, res).Code != code) {
-			t.Errorf("%s: %d %s", name, res.Status, res.Body)
-		}
-	}
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
 	reader, _ := newAccount(t)
-	if res := call(t, server, "PATCH", "/v1/accounts/me", map[string]any{"display_name": "Linh"}, bearer(seller.AccessToken)); res.Status != http.StatusOK {
-		t.Fatalf("profile: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "PATCH", "/v1/accounts/me", map[string]any{"display_name": "Linh"}, bearer(seller.AccessToken)), http.StatusOK)
 	avatar := setAvatar(t, seller.AccessToken)
-	sold := activeListing(t, seller.AccessToken).ID
-	if res := call(t, server, "POST", "/v1/listings/"+sold+"/mark-sold", nil, bearer(seller.AccessToken)); res.Status != http.StatusOK {
-		t.Fatalf("mark sold: %d", res.Status)
-	}
+	sold := activeListing(t, seller.AccessToken, nil).ID
+	expectStatus(t, call(t, "POST", "/v1/listings/"+sold+"/mark-sold", nil, bearer(seller.AccessToken)), http.StatusOK)
 	reviewer, _ := newAccount(t)
-	reviewed := requestedOrder(t, reviewer.AccessToken, activeListing(t, seller.AccessToken).ID)
-	if res := orderCall(t, seller.AccessToken, reviewed.ID, "ship", waybillBody); res.Status != http.StatusOK {
-		t.Fatalf("ship: %d %s", res.Status, res.Body)
-	}
-	if res := call(t, server, "PUT", "/v1/orders/"+reviewed.Order.ID+"/review", map[string]any{"stars": 4}, bearer(reviewer.AccessToken)); res.Status != http.StatusOK {
-		t.Fatalf("review: %d %s", res.Status, res.Body)
-	}
-	l := activeListing(t, seller.AccessToken)
+	reviewed := shippedOrder(t, seller.AccessToken, reviewer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
+	expectStatus(t, call(t, "PUT", "/v1/orders/"+reviewed.Order.ID+"/review", map[string]any{"stars": 4}, bearer(reviewer.AccessToken)), http.StatusOK)
+	l := activeListing(t, seller.AccessToken, nil)
 	path := "/v1/screens/listing/" + l.ID
 	get := func(name string, headers ...[2]string) listingScreen {
 		t.Helper()
-		res := call(t, server, "GET", path, nil, headers...)
+		res := call(t, "GET", path, nil, headers...)
 		if res.Status != http.StatusOK {
 			t.Fatalf("%s: %d %s", name, res.Status, res.Body)
 		}
@@ -86,9 +71,7 @@ func TestListingScreen(t *testing.T) {
 		t.Fatalf("nothing yet: %+v", got.Viewer)
 	}
 
-	if res := call(t, server, "PUT", "/v1/saved/"+l.ID, nil, bearer(buyer.AccessToken)); res.Status != http.StatusNoContent {
-		t.Fatalf("save: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "PUT", "/v1/saved/"+l.ID, nil, bearer(buyer.AccessToken)), http.StatusNoContent)
 	deal := openDeal(t, buyer.AccessToken, l.ID, http.StatusCreated)
 	moved(t, buyer.AccessToken, deal.ID, "offer", map[string]any{"amount": 1_000_000})
 	conversation := openChat(t, buyer.AccessToken, l.ID, "Còn không bạn?")
@@ -102,13 +85,11 @@ func TestListingScreen(t *testing.T) {
 	}
 
 	// The view shows only a public listing, to its seller too.
-	if res := call(t, server, "POST", "/v1/listings/"+l.ID+"/hide", nil, bearer(seller.AccessToken)); res.Status != http.StatusOK {
-		t.Fatalf("hide: %d", res.Status)
-	}
-	expect("hidden, to the seller", call(t, server, "GET", path, nil, bearer(seller.AccessToken)), 404, "listing_not_found")
-	expect("hidden, signed out", call(t, server, "GET", path, nil), 404, "listing_not_found")
-	expect("sold", call(t, server, "GET", "/v1/screens/listing/"+sold, nil), 404, "listing_not_found")
-	expect("unknown", call(t, server, "GET", "/v1/screens/listing/"+uuid.NewV7().String(), nil), 404, "listing_not_found")
-	expect("a bad id", call(t, server, "GET", "/v1/screens/listing/x", nil), 400, "")
-	expect("a bad token", call(t, server, "GET", path, nil, bearer("x")), 401, "")
+	expectStatus(t, call(t, "POST", "/v1/listings/"+l.ID+"/hide", nil, bearer(seller.AccessToken)), http.StatusOK)
+	check(t, "hidden, to the seller", call(t, "GET", path, nil, bearer(seller.AccessToken)), 404, "listing_not_found")
+	check(t, "hidden, signed out", call(t, "GET", path, nil), 404, "listing_not_found")
+	check(t, "sold", call(t, "GET", "/v1/screens/listing/"+sold, nil), 404, "listing_not_found")
+	check(t, "unknown", call(t, "GET", "/v1/screens/listing/"+uuid.NewV7().String(), nil), 404, "listing_not_found")
+	check(t, "a bad id", call(t, "GET", "/v1/screens/listing/x", nil), 400, "")
+	check(t, "a bad token", call(t, "GET", path, nil, bearer("x")), 401, "")
 }

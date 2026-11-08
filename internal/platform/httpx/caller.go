@@ -3,6 +3,7 @@ package httpx
 import (
 	"log/slog"
 	"net/http"
+	"uuid"
 
 	"github.com/shopnexus/server2/internal/platform/authn"
 )
@@ -15,6 +16,15 @@ func Caller(w http.ResponseWriter, r *http.Request, log *slog.Logger) (authn.Pri
 		WriteError(w, r, log, authn.ErrUnauthenticated)
 	}
 	return p, ok
+}
+
+// Viewer returns the signed-in caller of a route behind account's Identify,
+// or nil when the request is signed out.
+func Viewer(r *http.Request) *uuid.UUID {
+	if p, ok := authn.From(r.Context()); ok {
+		return &p.AccountID
+	}
+	return nil
 }
 
 // ConsoleCaller returns the console member of a route behind the console's

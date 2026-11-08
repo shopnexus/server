@@ -30,11 +30,10 @@ type SavedListing struct {
 }
 
 func (d *Discovery) Save(ctx context.Context, account, listing uuid.UUID) error {
-	got, err := d.catalog.Summaries(ctx, []uuid.UUID{listing})
+	l, ok, err := d.catalog.Summary(ctx, listing)
 	if err != nil {
 		return fmt.Errorf("read listing: %w", err)
 	}
-	l, ok := got[listing]
 	switch {
 	case !ok:
 		return catalogdomain.ErrNotFound
@@ -58,11 +57,11 @@ func (d *Discovery) Unsave(ctx context.Context, account, listing uuid.UUID) erro
 }
 
 func (d *Discovery) IsSaved(ctx context.Context, account, listing uuid.UUID) (bool, error) {
-	saved, err := d.saves.Has(ctx, account, listing)
+	saved, err := d.saves.SavedAmong(ctx, account, []uuid.UUID{listing})
 	if err != nil {
 		return false, fmt.Errorf("read save: %w", err)
 	}
-	return saved, nil
+	return saved[listing], nil
 }
 
 // Saved reads one page of saves and their listings in one call.

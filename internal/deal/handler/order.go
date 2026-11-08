@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"net/http"
 	"uuid"
 
@@ -31,32 +30,80 @@ type finishRequest struct {
 
 // RequestCod serves POST /v1/deals/{id}/cod.
 func (h *Handler) RequestCod(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in codRequest) (service.DealView, error) {
-		return h.svc.RequestCod(ctx, caller, in.ID, in.AddressID)
-	})
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in codRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.RequestCod(r.Context(), p.AccountID, in.ID, in.AddressID)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
 }
 
 // Ship serves POST /v1/deals/{id}/ship.
 func (h *Handler) Ship(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in shipRequest) (service.DealView, error) {
-		return h.svc.Ship(ctx, caller, in.ID, in.IdempotencyKey, service.WaybillInput{
-			Carrier: in.Carrier, CarrierName: in.CarrierName, TrackingCode: in.TrackingCode, Fee: in.Fee,
-		})
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in shipRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.Ship(r.Context(), p.AccountID, in.ID, in.IdempotencyKey, service.WaybillInput{
+		Carrier: in.Carrier, CarrierName: in.CarrierName, TrackingCode: in.TrackingCode, Fee: in.Fee,
 	})
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
 }
 
 // Deliver serves POST /v1/deals/{id}/delivered.
 func (h *Handler) Deliver(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in finishRequest) (service.DealView, error) {
-		return h.svc.Deliver(ctx, caller, in.ID, in.IdempotencyKey)
-	})
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in finishRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.Deliver(r.Context(), p.AccountID, in.ID, in.IdempotencyKey)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
 }
 
 // Return serves POST /v1/deals/{id}/returned.
 func (h *Handler) Return(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in finishRequest) (service.DealView, error) {
-		return h.svc.Return(ctx, caller, in.ID, in.IdempotencyKey)
-	})
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in finishRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.Return(r.Context(), p.AccountID, in.ID, in.IdempotencyKey)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
 }
 
 // ListOrders serves GET /v1/me/orders.

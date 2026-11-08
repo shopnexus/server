@@ -102,16 +102,8 @@ WHERE seller_id = @seller AND deleted_at IS NULL AND id < @before ORDER BY id DE
 	if err != nil {
 		return nil, fmt.Errorf("select reviews: %w", err)
 	}
-	defer rows.Close()
-	var out []domain.Review
-	for rows.Next() {
-		r, scanErr := scanReview(rows)
-		if scanErr != nil {
-			return nil, scanErr
-		}
-		out = append(out, r)
-	}
-	if err = rows.Err(); err != nil {
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Review, error) { return scanReview(row) })
+	if err != nil {
 		return nil, fmt.Errorf("read reviews: %w", err)
 	}
 	return out, nil

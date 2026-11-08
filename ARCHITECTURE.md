@@ -55,11 +55,20 @@ service returns.
 `header` takes that request value and also carries `json:"-"`; the other
 fields come from the JSON body. The spec middleware has already checked every
 value and filled in query defaults, so `Bind` converts strings to Go types
-(`string`, `int`, `bool` and any `encoding.TextUnmarshaler`) and a handler
-repeats no shape rule. `Bind` reads the tags of a type once and keeps the
-result in a `sync.Map`.
+(`string`, `int`, `float64`, `bool`, any `encoding.TextUnmarshaler`, and
+named string types and slices of them, such as `[]catalogdomain.Condition`)
+and a handler repeats no shape rule or conversion. `Bind` reads the tags of
+a type once and keeps the result in a `sync.Map`.
 `httpx.ClientIP(r)` is the caller's address, which the `ResolveClientIP`
-middleware works out once per request from `TRUSTED_PROXIES`.
+middleware works out once per request from `TRUSTED_PROXIES`. On a route
+anyone may call, `httpx.Viewer(r)` is the signed-in caller's account ID, or
+nil signed out.
+
+Every request passes `Trace`, `Recover`, `ResolveClientIP`, CORS and the
+spec validator, in that order, before the router. `Trace` is outermost: it
+opens the span, records the duration and writes the access log line after
+the request, so a request that panicked logs the 500 `Recover` wrote, with
+its trace ID.
 
 ### Pagination
 
@@ -123,7 +132,13 @@ refresh keep working when Restate is down.
 - A step that can lose a race or find an identity taken returns that as
   data: `restatex.Outcome(err, repository.ErrConflict)` gives `(true, nil)` for the
   conflict, and the service decides between steps. `restatex.Ignore` drops an
-  outcome that changes nothing, such as a lost race on `last_used_at`.
+  outcome that changes nothing, such as a lost race on `last_used_at`. A
+  step that calls another module's service, such as media's `Attach`,
+  returns `restatex.AsRefusal(err)`: a `restatex.Refused` holding any
+  `*apperr.Error` but an internal one, and every other error to retry. A
+  step that checks the caller's account returns
+  `accountsvc.Service.Suspended`, a bool, and the flow refuses with
+  `account_suspended` between steps.
 - A service takes `Now func() time.Time`, read once per invocation through a
   journaled step (`restatex.Now`), so tests move time by hand.
 - Sign-up writes two aggregates, `Account` and `Credentials`, in one step:
@@ -155,12 +170,15 @@ reacts. Every subscriber is a module of server2, so there is no broker.
   map that only a business event fills. A subscriber reads the subject's
   current state through its module's `Service`, so order, delay and
   duplicates do not change the result.
-- A repository writes the events of a change with `events.Insert` in the
-  change's transaction, as it writes an audit entry: `Save(ctx, a, writeID,
-  evs...)`. A conflicting write leaves no event. An event with an ID that
-  exists already is not written again, so a durable step that retries its
-  save with the event IDs from its journal writes one event. `Insert` also
-  runs `pg_notify('events', '')`, which Postgres delivers on commit.
+- A repository writes the events of a change with `events.Insert(ctx, tx,
+  evs...)` in the change's transaction, as it writes an audit entry:
+  `Save(ctx, a, writeID, entry, evs...)`, where `entry` is a
+  `*audit.Entry` or nil. A conflicting write leaves no event. An event with
+  an ID that exists already is not written again, so a durable step that
+  retries its save with the event IDs from its journal writes one event.
+  `Insert` also runs `pg_notify('events', '')` once per call, which
+  Postgres delivers on commit; one notification wakes the bus for every
+  event of the call.
 - A module that reacts to events has a `worker` package next to
   `handler`: a Restate service with one handler per event kind, of the
   signature `func(restate.Context, events.Event) error`, that calls the
@@ -245,19 +263,38 @@ member through `domain.MemberState`) and records a write with
 
 One binary serves the HTTP API on `:8080` and the Restate endpoint on `:9080`.
 A module's `Mount` takes `module.Deps` (router, pool, Restate ingress and
-service prefix, clock, logger), the module's own settings and the services
-of the modules it calls. It builds the repositories, the service and the
-handler, registers the routes, and returns what app and other modules need:
-`account.Mount` returns its `Service` and its Restate services.
+service prefix, event bus, clock, logger, and the `Protect` and `Identify`
+middlewares), then the module's `Settings` struct when it has settings of
+its own (account, console, media, discovery, notification), then the
+services of the modules it calls, one argument each. It builds the
+repositories, the service and the handler, registers the routes, and
+returns what app and other modules need: a module with Restate services
+returns `module.Mounted[service.Service]`, its `Service` and those services;
+trust and discovery return their `Service`; console and screen return nothing.
 `app.mountModules` calls each `Mount` in dependency order and imports no
-package inside a module. `account.Protect`, the sign-in middleware, needs
-only the auth keys, so app builds it first and hands it to every module with
-signed-in routes. `console.NewService` builds the console service on a pool;
-`console.Mount`, `cmd/console` and the e2e tests share it, and `cmd/console`
-passes no account service.
+package inside a module. `account.Guards` builds `Protect`, which requires
+a signed-in caller, and `Identify`, which lets a signed-out request through,
+from the auth keys alone, so app builds them once, before any module, and
+puts them in `module.Deps`. `console.NewService` builds the console service
+on a pool; `console.Mount`, `cmd/console` and the e2e tests share it, and
+`cmd/console` passes no account service. The commands that need the whole
+configuration read it with `config.FromDotEnv(".env")`.
+
+`app.New` picks the push sender once: the one a test passes, FCM when
+`FCM_CREDENTIALS` is set, else the log sender, which `APP_ENV=prod` refuses.
+The event bus and the stream hub run on the app's `sync.WaitGroup`;
+`App.Close` cancels them and waits for both.
 
 Tests of other modules create accounts through `internal/account/accounttest`
-(`New`, `WithPhone`), beside `pgtest` and `restatetest`.
+(`New`, `WithPhone`), beside `pgtest` and `restatetest`. `accounttest.Service`
+builds the account service and `accounttest.Suspend` suspends an account.
+`internal/catalog/catalogtest` builds the catalog service (`Service`) and puts
+the standard listing, a used bicycle on sale, in the database (`Listing`).
+`internal/media/mediatest` builds the media service (`Service`), encodes a
+JPEG (`JPEG`) and uploads it (`Upload`). `pgtest.EventKinds` lists the kinds
+of the events about a subject, `restatetest.Ingress` is a client of the test
+Restate's ingress, and `testenv.Eventually` polls a check until it returns
+nil and fails the test with its last error.
 
 To run a module in its own process, a client implements that module's
 `Service` over the network and app passes it where it passes the module's
@@ -342,10 +379,11 @@ Phone Number Verification (PNV) token from the SIM. Server2 sends no codes:
 email sign-in, OTP challenges and their quotas are gone, and every account
 has a phone number.
 
-1. The HTTP handler checks the token with `provider/firebase.PhoneVerifier`
-   and gets the number in the +84 form. The token stays out of Restate,
-   whose journal and invocation results the admin API can read.
-2. It calls service `SignIn`, handler `Run`, with the number only, under the
+1. `Account.SignIn`, the use case behind the HTTP handler, checks the token
+   with `provider/firebase.PhoneVerifier` and gets the number in the +84
+   form. The token stays out of Restate, whose journal and invocation
+   results the admin API can read.
+2. It calls Restate service `SignIn`, handler `Run`, with the number only, under the
    invocation key `<phone>/<Idempotency-Key>`. A repeated key attaches only
    to a run for the same number, so a key without a valid token for that
    number gets no session.
@@ -356,11 +394,11 @@ has a phone number.
      `accountID := restatex.NewID(ctx, at)`, then the `Credentials` with the
      identity, in one step and one transaction. `ErrIdentityTaken` writes nothing
      (see Durable flows).
-4. The handler issues the session after the service returns, with the
-   session ID the service chose. When the same key comes back with a token
-   for the same number, that session exists, so the handler rotates its
-   refresh token and returns new tokens for it; a session signed out since
-   answers `session_revoked`.
+4. `Account.SignIn` issues the session after the Restate service returns,
+   with the session ID the service chose. When the same key comes back with
+   a token for the same number, that session exists, so `SignIn` rotates
+   its refresh token and returns new tokens for it; a session signed out
+   since answers `session_revoked`.
 
 The token checks live in `internal/provider/firebase`:
 
@@ -428,7 +466,9 @@ Two kinds of call skip the aggregate:
   would cost one transaction per device and protect no rule.
 
 The access token is checked by signature and expiry only; the middleware reads
-no database.
+no database. `account/domain` signs and verifies it (EdDSA, `kid` header,
+the previous key accepted during a key change) and requires `sid` and
+`auth_time`; `platform/token` only makes opaque tokens and their hashes.
 
 ### Console and authorization
 
@@ -476,7 +516,7 @@ the decisions and the API.
   anyone can set by sending five wrong passwords.
 - Every member's write on an account or on another member is a row in
   `console_actions`, written by `audit.Insert` inside the repository
-  transaction of the change (`SaveAudited`, `CreateAudited`, `Unlock`). Its
+  transaction of the change (`Save` with an entry, `Create`, `Unlock`). Its
   action is an `audit.ActionKind` constant (`audit.AccountSuspend`,
   `audit.MemberDisable`, ...), the list the `Action` schema's enum names; a
   new action adds both. `details` holds what the action does not say, such
@@ -574,6 +614,10 @@ waiting → expired.
   `MediaProcess`, keyed by the upload ID, so the caller answers once the
   square exists; a refused photo is `invalid_upload`. A replaced avatar's
   objects stay in the store.
+- Another module's Restate flow processes its uploads with
+  `mediasvc.ProcessAll(ctx, prefix, ids)`: one `MediaProcess` call per
+  upload, keyed by the upload ID, all sent before it waits for the
+  results. Catalog's `ListingPublish` and chat's `MessagePublish` use it.
 
 ### Catalog
 
@@ -626,18 +670,18 @@ server receives a complete listing.
   lock and refuses a listing coming back on sale with `listing_cap_reached`.
 - `ListingPublish.Run(listing_id)` starts after every write that leaves the
   listing in processing, with idempotency key `<listing id>/<write id>`. It
-  loads the listing, calls `MediaProcess` for each unprocessed upload with
-  the upload ID as idempotency key, so two runs share one processing, and
-  waits for all. All ready: active, the photo keys recorded and
+  loads the listing and calls `mediasvc.ProcessAll`, which calls
+  `MediaProcess` for each unprocessed upload with the upload ID as
+  idempotency key, so two runs share one processing, and waits for all. All ready: active, the photo keys recorded and
   `listing.published` written. One failed: rejected, the reason kept on the
   photo. The save ignores `ErrConflict`: a listing changed meanwhile has a
   run of its own.
 - The listing stores object keys; views build URLs from `MEDIA_PUBLIC_URL`
   at read time.
 - Another seller's listing is `listing_not_found`. `GET /v1/listings/{id}`
-  sits behind `account.Identify`, which lets a request without an
+  sits behind `Identify`, which lets a request without an
   `Authorization` header through signed out and holds one with it to
-  `account.Protect`'s rules; the seller sees every status but deleted, anyone
+  `Protect`'s rules; the seller sees every status but deleted, anyone
   else only active. Post and edit refuse a suspended account; hide, unhide,
   mark sold, unmark sold and delete do not.
 - `PUT /v1/listings/{id}` replaces the whole listing with the body. The
@@ -698,7 +742,7 @@ listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server2-deal-desig
   its transaction. The view lists every move, oldest first, for the thread.
 - `worker.ListingWatch` subscribes to `listing.updated`, `listing.hidden`,
   `listing.sold` and `listing.deleted` and calls `ListingChanged`, which
-  reads the listing through `catalogsvc.Service.Summaries` (any status) and
+  reads the listing through `catalogsvc.Service.Summary` (any status) and
   each deal on it. A hidden, sold or deleted listing drops the open price;
   a sold or deleted one also ends an agreement. A new listed price, or
   offers turned off, drops the open price. Each change is a system move
@@ -825,9 +869,10 @@ Decided 2026-10-27 (spec:
   account, which keeps the cap and the single default; a partial unique
   index on `(account_id) WHERE is_default` backs the second. An edit checks
   `write_id` and is `try_again` after a race.
-- The account repository checks the commune and reads its names from
-  `communes` and `provinces` in SQL: catalog imports account, so account
-  cannot call catalog.
+- The address book has its own repository, `repository.Addresses`, beside
+  `Accounts`. It checks the commune and reads its names from `communes`
+  and `provinces` in SQL: catalog imports account, so account cannot call
+  catalog.
 
 ### Chat
 
@@ -878,9 +923,9 @@ page that shows two views calls both at once.
   the other modules' services top to bottom; depguard forbids every other
   module to import it, so it adds no dependency between the others.
 - `GET /v1/screens/listing/{id}` (signed in or not): the public listing,
-  the seller's summary and, for a signed-in reader who is not the seller,
+  the seller's summary and, for a signed-in viewer who is not the seller,
   `viewer {saved, deal, conversation_id}`, where `deal` is deal's
-  `DealSummary` of the reader's deal. A listing that is not public is 404
+  `DealSummary` of the viewer's deal. A listing that is not public is 404
   for everyone; its seller reads it through `GET /v1/listings/{id}`.
 - `GET /v1/screens/seller/{id}` (signed in or not): the seller's profile
   (account's public fields, catalog's counts, and the rating of the reviews
@@ -924,8 +969,9 @@ Module `trust` holds reviews (spec:
   write one.
 - Review writes follow the `write_id` rule: `Insert` refuses an order that
   has a review and `Save` a stale row, both `try_again`.
-- `trust` reads the order through `dealsvc.Service.Order`; someone else's
-  order is `order_not_found`. `GET /v1/sellers/{id}/reviews` is public and
+- `trust` reads the order through `dealsvc.Service.Order`, which answers
+  false for an unknown order like the other facts reads; an unknown order
+  or someone else's is trust's `order_not_found`. `GET /v1/sellers/{id}/reviews` is public and
   returns a `ReviewList`, a page of reviews without a summary; the rating
   comes from `Service.Rating` (decided 2026-11-08, so a view no longer gets
   the average twice).
@@ -1014,11 +1060,14 @@ calls it except screen, for Home's unread count; depguard holds that.
 - The Restate service `NotificationWorker` has a handler per kind. Each
   reads the facts through the source module's service in one step
   (`dealsvc.Moves`, `chatsvc.MessageFacts`, `trustsvc.ReviewFacts`,
-  catalog's summaries), decides in notification's domain who hears what,
+  catalog's `Summary`), decides in notification's domain who hears what,
   writes each notice in one step, then pushes. A move the deal lacks, as
-  when a replayed save minted other IDs, tells no one.
-- A notice stores its type and params; the server writes the Vietnamese
-  text when it lists and when it pushes. Deal and order notices collapse on
+  when a replayed save minted other IDs, tells no one. A step returns zero
+  facts when the source answers not found, and the handler tells no one
+  when the facts' ID is zero.
+- A notice stores its type and `domain.Params`, JSON with only the keys
+  its type reads; the server writes the Vietnamese text, carrier labels
+  included, when it lists and when it pushes. Deal and order notices collapse on
   `deal:<id>`, listing notices on `listing:<id>`: a new one replaces the
   recipient's unread notice of the key and moves it up, and a notice
   already read stays as it is. An event older than the recipient's newest
@@ -1029,14 +1078,15 @@ calls it except screen, for Home's unread count; depguard holds that.
   records its `event_id`). A recipient's
   notices older than 90 days are deleted when they get a new one.
 - Chat messages are pushed and never listed, collapsing on
-  `conversation:<id>`, with the sender's name and the first 100 characters.
+  `conversation:<id>`, with the sender's name and the first 100 characters
+  (chat's `MessageFacts` gives the whole text; notification cuts it).
 - A push token belongs to a sign-in session (`push_tokens.session_id`).
   Putting a token takes it from every other session that had it, so a
   phone signed in to a second account stops getting the first account's
   pushes.
   Before a push the worker asks account which of the recipient's sessions are
   active and deletes the others' tokens, which covers logout, revocation,
-  refresh reuse and expiry with one read. Each token is sent in a step of
+  refresh reuse, expiry and 30 days idle with one read. Each token is sent in a step of
   its own, so a retried send repeats no other: FCM's `UNREGISTERED` or
   `INVALID_ARGUMENT` deletes the token, 429, 5xx and transport errors retry
   for up to an hour, and another error is logged and dropped. The bus

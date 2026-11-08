@@ -24,7 +24,7 @@ const listingColumns = `id, seller_id, title, price, description, category_code,
        photos, specs, status, rejection, reserved_for, write_id, created_at, updated_at, published_at, sold_at,
        deleted_at, lat, lng`
 
-func scanListing(row pgx.Row) (domain.Listing, error) {
+func scanListing(row pgx.CollectableRow) (domain.Listing, error) {
 	var (
 		st                   domain.ListingState
 		photos, specs, rejec []byte
@@ -130,17 +130,32 @@ func (s pgListings) Discard(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (s pgListings) CountOnSale(ctx context.Context, seller uuid.UUID) (int, error) {
-	var n int
-	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM listings WHERE seller_id = @seller AND status = ANY(@on_sale)`,
-		pgx.StrictNamedArgs{"seller": seller, "on_sale": domain.OnSale}).Scan(&n); err != nil {
-		return 0, fmt.Errorf("count listings: %w", err)
+func (s pgListings) CountByStatus(ctx context.Context, seller uuid.UUID) (map[domain.Status]int, error) {
+	rows, err := s.db.Query(ctx, `SELECT status, count(*) FROM listings WHERE seller_id = @seller GROUP BY status`,
+		pgx.StrictNamedArgs{"seller": seller})
+	if err != nil {
+		return nil, fmt.Errorf("count listings: %w", err)
 	}
-	return n, nil
+	counts, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct {
+		Status domain.Status
+		N      int
+	}])
+	if err != nil {
+		return nil, fmt.Errorf("read counts: %w", err)
+	}
+	out := make(map[domain.Status]int, len(counts))
+	for _, c := range counts {
+		out[c.Status] = c.N
+	}
+	return out, nil
 }
 
 func (s pgListings) Get(ctx context.Context, id uuid.UUID) (domain.Listing, error) {
-	l, err := scanListing(s.db.QueryRow(ctx, `SELECT `+listingColumns+` FROM listings WHERE id = @id`, pgx.StrictNamedArgs{"id": id}))
+	rows, err := s.db.Query(ctx, `SELECT `+listingColumns+` FROM listings WHERE id = @id`, pgx.StrictNamedArgs{"id": id})
+	if err != nil {
+		return domain.Listing{}, fmt.Errorf("select listing: %w", err)
+	}
+	l, err := pgx.CollectExactlyOneRow(rows, scanListing)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Listing{}, ErrNotFound
 	}
@@ -191,12 +206,7 @@ WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id))`,
 			}
 			return ErrConflict
 		}
-		for _, e := range evs {
-			if err := events.Insert(ctx, tx, e); err != nil {
-				return err
-			}
-		}
-		return nil
+		return events.Insert(ctx, tx, evs...)
 	})
 	if err != nil {
 		return fmt.Errorf("save listing: %w", err)
@@ -212,7 +222,11 @@ WHERE seller_id = @seller AND status = ANY(@statuses) AND id < @before ORDER BY 
 	if err != nil {
 		return nil, fmt.Errorf("select listings: %w", err)
 	}
-	return collect(rows)
+	ls, err := pgx.CollectRows(rows, scanListing)
+	if err != nil {
+		return nil, fmt.Errorf("read listings: %w", err)
+	}
+	return ls, nil
 }
 
 func (s pgListings) GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Listing, error) {
@@ -220,22 +234,9 @@ func (s pgListings) GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.List
 	if err != nil {
 		return nil, fmt.Errorf("select listings: %w", err)
 	}
-	return collect(rows)
-}
-
-// collect scans every row of a listings query.
-func collect(rows pgx.Rows) ([]domain.Listing, error) {
-	defer rows.Close()
-	var out []domain.Listing
-	for rows.Next() {
-		l, err := scanListing(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, l)
-	}
-	if err := rows.Err(); err != nil {
+	ls, err := pgx.CollectRows(rows, scanListing)
+	if err != nil {
 		return nil, fmt.Errorf("read listings: %w", err)
 	}
-	return out, nil
+	return ls, nil
 }

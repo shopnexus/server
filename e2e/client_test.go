@@ -53,18 +53,26 @@ func observed(op string, status int) bool {
 // Location.
 var client = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 
-// Response is what a call returned.
+// Response is what a call returned, with the request it answered.
 type Response struct {
+	Method string
+	Path   string
 	Status int
 	Header http.Header
 	Body   []byte
 }
 
-// call sends a request to base+path, fails the test when the response does
-// not match the operation in the spec (status included), and records the
-// status for the coverage check in TestMain. A "Host" header sets the
-// request's host.
-func call(t *testing.T, base, method, path string, body any, headers ...[2]string) Response {
+// call sends a request to the shared server; see callAt.
+func call(t *testing.T, method, path string, body any, headers ...[2]string) Response {
+	t.Helper()
+	return callAt(t, server, method, path, body, headers...)
+}
+
+// callAt sends a request to base+path, fails the test when the response
+// does not match the operation in the spec (status included), and records
+// the status for the coverage check in TestMain. A "Host" header sets the
+// request's host, and a header with no name is left out.
+func callAt(t *testing.T, base, method, path string, body any, headers ...[2]string) Response {
 	t.Helper()
 	var reqBody []byte
 	if body != nil {
@@ -81,11 +89,13 @@ func call(t *testing.T, base, method, path string, body any, headers ...[2]strin
 		req.Header.Set("Content-Type", "application/json")
 	}
 	for _, h := range headers {
-		if h[0] == "Host" {
+		switch h[0] {
+		case "": // bearer("") for a call signed out
+		case "Host":
 			req.Host = h[1]
-			continue
+		default:
+			req.Header.Set(h[0], h[1])
 		}
-		req.Header.Set(h[0], h[1])
 	}
 
 	resp, err := client.Do(req)
@@ -118,5 +128,5 @@ func call(t *testing.T, base, method, path string, body any, headers ...[2]strin
 
 	record(route.Operation.OperationID, resp.StatusCode)
 
-	return Response{Status: resp.StatusCode, Header: resp.Header, Body: respBody}
+	return Response{Method: method, Path: path, Status: resp.StatusCode, Header: resp.Header, Body: respBody}
 }

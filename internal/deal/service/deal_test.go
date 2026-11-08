@@ -9,10 +9,12 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 func TestNegotiateToAgreement(t *testing.T) {
@@ -20,7 +22,7 @@ func TestNegotiateToAgreement(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 
 	v, created, err := e.deals.Open(ctx, buyer, listing)
 	if err != nil || !created {
@@ -51,7 +53,7 @@ func TestNegotiateToAgreement(t *testing.T) {
 		agreed.OfferRange != nil || !slices.Equal(moveKinds(agreed), want) {
 		t.Fatalf("%+v", agreed)
 	}
-	if k := kindsOf(t, e.db, v.ID); len(k) != 3 || k[0] != "deal.moved" {
+	if k := pgtest.EventKinds(t, e.db, v.ID); len(k) != 3 || k[0] != "deal.moved" {
 		t.Fatalf("events %v", k)
 	}
 
@@ -83,7 +85,7 @@ func TestTwoBuyersDealApart(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, one, two := e.person(t), e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	first, second := e.open(t, one, listing), e.open(t, two, listing)
 	must(t)(e.deals.Accept(ctx, one, first.ID, 1_500_000))
 	if v := e.get(t, two, second.ID); v.Status != domain.StatusNegotiating {
@@ -97,15 +99,15 @@ func TestOpenRefusals(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller := e.person(t)
-	listing := e.listing(t, seller)
-	hidden := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
+	hidden := catalogtest.Listing(t, e.db, seller)
 	early := e.person(t)
 	opened := e.open(t, early, hidden)
 	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
 		t.Fatal(err)
 	}
 	suspended := e.person(t)
-	e.suspend(t, suspended)
+	accounttest.Suspend(t, e.accounts, suspended)
 
 	for _, c := range []struct {
 		name    string
@@ -136,7 +138,7 @@ func TestStrangerSeesNoDeal(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
-	v := e.open(t, buyer, e.listing(t, seller))
+	v := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
 	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
 	for _, id := range []uuid.UUID{v.ID, uuid.NewV7()} {
 		calls := map[string]func() error{
@@ -166,7 +168,7 @@ func TestAcceptAfterThePriceChanged(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.open(t, buyer, listing)
 	e.edit(t, listing, func(d *catalogdomain.Draft) { d.Price = 1_400_000 })
 	if _, err := e.deals.Accept(ctx, buyer, v.ID, 1_500_000); !errors.Is(err, domain.ErrPriceChanged) {
@@ -183,7 +185,7 @@ func TestTakeBackOnAHiddenListing(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer, other := e.person(t), e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	v, agreed := e.open(t, buyer, listing), e.open(t, other, listing)
 	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
 	must(t)(e.deals.Accept(ctx, other, agreed.ID, 1_500_000))
@@ -209,9 +211,9 @@ func TestSuspendedCallerTakesBackOnly(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	v := e.open(t, buyer, e.listing(t, seller))
+	v := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
 	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
-	e.suspend(t, buyer)
+	accounttest.Suspend(t, e.accounts, buyer)
 	if _, err := e.deals.Offer(ctx, buyer, v.ID, 1_100_000); !errors.Is(err, accountdomain.ErrSuspended) {
 		t.Fatalf("offer: %v", err)
 	}
@@ -228,7 +230,7 @@ func TestMoveThatLostARace(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	v := e.open(t, buyer, e.listing(t, seller))
+	v := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
 	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
 	stale, err := e.repo.Get(ctx, v.ID)
 	if err != nil {
@@ -250,7 +252,7 @@ func TestOpenRefusesABlock(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller := e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	for _, c := range []struct{ name string }{{"seller blocks"}, {"buyer blocks"}} {
 		buyer := e.person(t)
 		blocker, blocked := seller, buyer
@@ -270,9 +272,9 @@ func TestBetween(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	a, b, c := e.person(t), e.person(t), e.person(t)
-	fromA := e.open(t, b, e.listing(t, a))
-	fromB := e.open(t, a, e.listing(t, b))
-	e.open(t, c, e.listing(t, a))
+	fromA := e.open(t, b, catalogtest.Listing(t, e.db, a))
+	fromB := e.open(t, a, catalogtest.Listing(t, e.db, b))
+	e.open(t, c, catalogtest.Listing(t, e.db, a))
 	got, err := e.deals.Between(context.Background(), a, b)
 	if err != nil || len(got) != 2 || got[0].ID != fromB.ID || got[1].ID != fromA.ID {
 		t.Fatalf("%+v %v", got, err)
@@ -287,7 +289,7 @@ func TestBuyerSummary(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	l := e.listing(t, seller)
+	l := catalogtest.Listing(t, e.db, seller)
 	if _, ok, err := e.deals.BuyerSummary(ctx, buyer, l); err != nil || ok {
 		t.Fatalf("before: %v %v", ok, err)
 	}

@@ -23,16 +23,12 @@ func (s *Console) CreateDashboardTicket(ctx context.Context, caller authn.Consol
 	if !known || !configured {
 		return DashboardTicket{}, domain.ErrDashboardNotConfigured
 	}
-	m, err := s.members.Get(ctx, caller.MemberID)
-	if err != nil {
-		return DashboardTicket{}, fmt.Errorf("get console member: %w", err)
-	}
-	if !m.Role().AtLeast(floor) {
+	if !domain.Role(caller.Role).AtLeast(floor) {
 		return DashboardTicket{}, domain.ErrConsoleForbidden
 	}
 	now := s.now()
 	tok, hash := token.NewOpaque("dt_")
-	err = s.dashboards.CreateTicket(ctx, domain.DashboardTicket{
+	err := s.dashboards.CreateTicket(ctx, domain.DashboardTicket{
 		TokenHash: hash, SessionID: caller.SessionID, App: app,
 		CreatedAt: now, ExpiresAt: now.Add(domain.DashboardTicketTTL),
 	})
@@ -54,14 +50,14 @@ func (s *Console) OpenDashboard(ctx context.Context, host, ticket string) (Dashb
 	}
 	now := s.now()
 	tok, hash := token.NewOpaque("ds_")
-	ds, err := s.dashboards.Redeem(ctx, token.Hash(ticket), domain.DashboardSession{TokenHash: hash, App: app, CreatedAt: now})
+	expiresAt, err := s.dashboards.Redeem(ctx, token.Hash(ticket), hash, app, now)
 	if errors.Is(err, repository.ErrNotFound) {
 		return DashboardOpened{}, domain.ErrInvalidDashboardTicket
 	}
 	if err != nil {
 		return DashboardOpened{}, fmt.Errorf("redeem dashboard ticket: %w", err)
 	}
-	return DashboardOpened{Token: tok, TTL: ds.ExpiresAt.Sub(now)}, nil
+	return DashboardOpened{Token: tok, TTL: expiresAt.Sub(now)}, nil
 }
 
 // AuthorizeDashboard checks a dashboard request on every call: the cookie's

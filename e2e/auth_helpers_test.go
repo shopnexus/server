@@ -44,7 +44,7 @@ func suspend(t *testing.T, accountID string) {
 // carry one.
 func signInCall(t *testing.T, token string, headers ...[2]string) Response {
 	t.Helper()
-	return call(t, server, "POST", "/v1/auth/sign-in",
+	return call(t, "POST", "/v1/auth/sign-in",
 		map[string]string{"phone_token": token, "device_name": "e2e"}, append([][2]string{newKey()}, headers...)...)
 }
 
@@ -67,11 +67,7 @@ func signInStatus(token string) int {
 
 func signInWith(t *testing.T, phone string) signIn {
 	t.Helper()
-	res := signInCall(t, issuer.SMSToken(phone))
-	if res.Status != http.StatusOK {
-		t.Fatalf("sign in: %d %s", res.Status, res.Body)
-	}
-	return decode[signIn](t, res)
+	return expect[signIn](t, signInCall(t, issuer.SMSToken(phone)), http.StatusOK)
 }
 
 func newAccount(t *testing.T) (account signIn, phone string) {

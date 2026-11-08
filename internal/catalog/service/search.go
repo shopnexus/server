@@ -72,24 +72,16 @@ func (c *Catalog) Counts(ctx context.Context, s domain.Search, by domain.CountFi
 	return counts, nil
 }
 
-func (c *Catalog) CommunePoint(ctx context.Context, code string) (domain.Point, bool, error) {
-	places, err := c.regions.Places(ctx, []string{code})
+func (c *Catalog) FindPlaces(ctx context.Context, names []string) (map[string]domain.Point, error) {
+	found, err := c.regions.FindPlaces(ctx, names)
 	if err != nil {
-		return domain.Point{}, false, fmt.Errorf("read commune: %w", err)
+		return nil, fmt.Errorf("find places: %w", err)
 	}
-	if len(places) != 1 {
-		return domain.Point{}, false, nil
+	out := make(map[string]domain.Point, len(found))
+	for name, points := range found {
+		if len(points) == 1 {
+			out[name] = points[0]
+		}
 	}
-	return domain.Point{Lat: places[0].Lat, Lng: places[0].Lng}, true, nil
-}
-
-func (c *Catalog) Place(ctx context.Context, name string) (domain.Point, bool, error) {
-	points, err := c.regions.FindPlace(ctx, name)
-	if err != nil {
-		return domain.Point{}, false, fmt.Errorf("find place: %w", err)
-	}
-	if len(points) != 1 {
-		return domain.Point{}, false, nil
-	}
-	return points[0], true, nil
+	return out, nil
 }

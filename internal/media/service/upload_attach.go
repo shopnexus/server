@@ -36,10 +36,11 @@ func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape dom
 	ups := make([]*domain.Upload, 0, len(found))
 	for i := range found {
 		u := &found[i]
-		if u.Status() != domain.StatusWaiting {
-			if _, err = u.Attach(owner, holder, shape, now); err != nil {
-				return err
-			}
+		changed, attachErr := u.Attach(owner, holder, shape, now)
+		if attachErr != nil {
+			return attachErr
+		}
+		if !changed {
 			continue
 		}
 		size, contentType, statErr := m.store.Stat(ctx, u.Key())
@@ -51,9 +52,6 @@ func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape dom
 		}
 		if size != u.Size() || contentType != u.ContentType() {
 			return domain.ErrInvalidUpload
-		}
-		if _, err = u.Attach(owner, holder, shape, now); err != nil {
-			return err
 		}
 		ups = append(ups, u)
 	}

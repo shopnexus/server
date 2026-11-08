@@ -7,9 +7,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/discovery/domain"
 	"github.com/shopnexus/server2/internal/discovery/service"
@@ -52,23 +53,13 @@ func (m *fakeModel) count() int {
 
 var baDinh = catalogdomain.Point{Lat: 21.03, Lng: 105.82}
 
-// put posts an active listing at a point.
+// put puts a listing of a new seller's on sale, titled title in category,
+// its commune at p.
 func (e env) put(t *testing.T, title, category string, p catalogdomain.Point) uuid.UUID {
 	t.Helper()
-	photo := uuid.NewV7()
-	now := time.Now()
-	l, err := catalogdomain.NewListing(uuid.NewV7(), e.account(t), catalogdomain.Draft{
-		Title: title, Price: 1_500_000, CategoryCode: category, Condition: catalogdomain.ConditionUsed,
-		CommuneCode: "00004", Photos: []uuid.UUID{photo},
-	}, catalogdomain.Refs{CategoryIsLeaf: true, CommuneExists: true, CommunePoint: p}, now)
-	if err != nil {
-		t.Fatal(err)
-	}
-	l.Published(map[uuid.UUID]catalogdomain.PhotoKeys{photo: {Photo: "media/a.jpg", Thumb: "media/a_thumb.jpg"}}, now)
-	if err = e.listings.Insert(context.Background(), l); err != nil {
-		t.Fatal(err)
-	}
-	return l.ID()
+	return catalogtest.Listing(t, e.db, accounttest.New(t, e.db), func(d *catalogdomain.Draft, r *catalogdomain.Refs) {
+		d.Title, d.CategoryCode, r.CommunePoint = title, category, p
+	})
 }
 
 func TestSearchUnderstands(t *testing.T) {
@@ -90,6 +81,11 @@ func TestSearchUnderstands(t *testing.T) {
 	v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Off: []string{"category-0"}})
 	if err != nil || e.model.count() != 1 || len(v.Chips) != 1 {
 		t.Fatalf("off: %d %+v %v", e.model.count(), v.Chips, err)
+	}
+	e.model.answers["xe dap ha noi"] = `{"understood":"Xe đạp ở Hà Nội","boosts":[{"attr":"place","values":[" Hà Nội ","Atlantis"]}],"demotes":[]}`
+	v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap ha noi"})
+	if err != nil || len(v.Chips) != 1 || v.Chips[0].ID != "place-0" || v.Chips[0].Label != "Hà Nội" {
+		t.Fatalf("place: %+v %v", v.Chips, err)
 	}
 }
 
@@ -154,7 +150,7 @@ func TestSearchPagesCountsAndSaves(t *testing.T) {
 		len(v.Items) != 1 || v.NextCursor != "" {
 		t.Fatalf("second page: %+v %v", v, err)
 	}
-	me := e.account(t)
+	me := accounttest.New(t, e.db)
 	if err = e.discovery.Save(ctx, me, bikes[0]); err != nil {
 		t.Fatal(err)
 	}
@@ -188,5 +184,8 @@ func TestNearby(t *testing.T) {
 	}
 	if !strings.Contains(v.Items[0].Commune, "Ba Đình") && v.Items[0].Commune == "" {
 		t.Fatalf("commune: %+v", v.Items[0])
+	}
+	if v, err = e.discovery.Nearby(ctx, nil, service.Near{Commune: "00004"}, "", 0); err != nil || len(v.Items) != 2 || v.Items[0].ID != closeBy {
+		t.Fatalf("from a commune: %+v %v", v, err)
 	}
 }

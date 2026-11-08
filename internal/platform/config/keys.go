@@ -3,8 +3,6 @@ package config
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/base64"
-	"fmt"
 	"time"
 )
 
@@ -21,12 +19,6 @@ func NewAuthKeys() AuthConfig {
 		Issuer:   "",
 		Audience: "",
 	}
-}
-
-// Env renders the keys as .env lines that Load reads back.
-func (a AuthConfig) Env() string {
-	enc := base64.StdEncoding.EncodeToString
-	return fmt.Sprintf("JWT_KEY_ID=%s\nJWT_PRIVATE_KEY=%s\n", a.JWTKeyID, enc(a.JWTKey.Seed()))
 }
 
 // NewConsoleKey returns a fresh CONSOLE_KEY. `make run` adds it to .env.

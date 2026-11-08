@@ -5,6 +5,7 @@ import (
 	"testing"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/deal/domain"
 )
 
@@ -16,16 +17,16 @@ func TestPairSummaries(t *testing.T) {
 
 	// With a: the viewer's offer waits for a; a's offer waits for the
 	// viewer; a newer deal has nothing open.
-	waiting := e.open(t, viewer, e.listing(t, a))
+	waiting := e.open(t, viewer, catalogtest.Listing(t, e.db, a))
 	must(t)(e.deals.Offer(ctx, viewer, waiting.ID, 1_000_000))
-	facing := e.open(t, a, e.listing(t, viewer))
+	facing := e.open(t, a, catalogtest.Listing(t, e.db, viewer))
 	must(t)(e.deals.Offer(ctx, a, facing.ID, 1_100_000))
-	e.open(t, viewer, e.listing(t, a))
+	e.open(t, viewer, catalogtest.Listing(t, e.db, a))
 	// With c: an idle deal, then a requested order the seller has to ship.
-	e.open(t, viewer, e.listing(t, c))
-	requested := e.requested(t, viewer, e.listing(t, c))
+	e.open(t, viewer, catalogtest.Listing(t, e.db, c))
+	requested := e.requested(t, viewer, catalogtest.Listing(t, e.db, c))
 	// With d: an agreement waiting for the viewer's COD request.
-	agreed := e.agreed(t, viewer, e.listing(t, d))
+	agreed := e.agreed(t, viewer, catalogtest.Listing(t, e.db, d))
 
 	got, err := e.deals.PairSummaries(ctx, viewer, []uuid.UUID{a, b, c, d})
 	if err != nil {

@@ -18,7 +18,7 @@ func (s *Account) SignIn(ctx context.Context, in SignInInput) (SignedIn, error) 
 	if err != nil {
 		return SignedIn{}, err
 	}
-	tokens, err := s.IssueSession(ctx, res.SessionID, res.AccountID, in.DeviceName)
+	tokens, err := s.issueSession(ctx, res.SessionID, res.AccountID, in.DeviceName)
 	if err != nil {
 		return SignedIn{}, err
 	}

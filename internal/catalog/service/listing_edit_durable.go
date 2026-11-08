@@ -4,16 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"time"
 	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
-	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/restatex"
@@ -37,15 +34,7 @@ func (r EditResult) Refusal() *apperr.Error { return r.Refused }
 
 // ListingEdit replaces a listing's content, attaches the uploads the edit
 // adds and, when the listing is left in processing, starts ListingPublish.
-type ListingEdit struct {
-	Prefix     string
-	Listings   repository.Listings
-	Categories repository.Categories
-	Regions    repository.Regions
-	Accounts   accountsvc.Service
-	Media      mediasvc.Service
-	Now        func() time.Time
-}
+type ListingEdit struct{ flowDeps }
 
 func (s ListingEdit) ServiceName() string { return s.Prefix + listingEdit }
 
@@ -57,9 +46,14 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 	if err != nil {
 		return EditResult{}, err
 	}
-	suspended, err := isSuspended(ctx, s.Accounts, in.Seller)
-	if err != nil || suspended {
-		return EditResult{Refused: refusedIf(suspended, accountdomain.ErrSuspended)}, err
+	suspended, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
+		return s.Accounts.Suspended(rc, in.Seller)
+	})
+	if err != nil {
+		return EditResult{}, fmt.Errorf("read account status: %w", err)
+	}
+	if suspended {
+		return EditResult{Refused: accountdomain.ErrSuspended}, nil
 	}
 	ld, err := restate.Run(ctx, func(rc restate.RunContext) (loadedListing, error) {
 		l, stepErr := s.Listings.Get(rc, in.ID)
@@ -87,10 +81,9 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 		return EditResult{Refused: apperr.From(err)}, nil
 	}
 	if added := slices.DeleteFunc(slices.Clone(in.Draft.Photos), func(u uuid.UUID) bool { return slices.Contains(before, u) }); len(added) > 0 {
-		var refused *apperr.Error
-		refused, err = attach(ctx, s.Media, in.Seller, in.ID, added)
-		if err != nil || refused != nil {
-			return EditResult{Refused: refused}, err
+		refused, attachErr := attach(ctx, s.Media, in.Seller, in.ID, added)
+		if attachErr != nil || refused != nil {
+			return EditResult{Refused: refused}, attachErr
 		}
 	}
 	w, evID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)

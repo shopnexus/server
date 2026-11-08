@@ -17,9 +17,7 @@ var (
 	origin = catalogdomain.Point{Lat: 10.77, Lng: 106.70}
 	vocab  = domain.Vocabulary{
 		Categories: map[string]string{"vehicles": "Xe cộ", "vehicles.bicycle": "Xe đạp", "sports": "Thể thao"},
-		Place: func(name string) (catalogdomain.Point, bool) {
-			return hanoi, name == "Hà Nội"
-		},
+		Places:     map[string]catalogdomain.Point{"Hà Nội": hanoi},
 	}
 )
 
@@ -190,5 +188,19 @@ func TestSchemaIsJSON(t *testing.T) {
 	var v map[string]any
 	if err := json.Unmarshal(domain.Schema(), &v); err != nil || v["type"] != "object" {
 		t.Fatalf("%v %v", v, err)
+	}
+}
+
+func TestPlaceNames(t *testing.T) {
+	t.Parallel()
+	u := domain.Understanding{
+		Boosts: []domain.Signal{
+			{Attr: domain.AttrPlace, Values: []string{" Hà Nội ", "", "Huế", "Đà Nẵng"}},
+			{Attr: domain.AttrPhrase, Values: []string{"xe đạp"}},
+		},
+		Demotes: []domain.Signal{{Attr: domain.AttrPlace, Values: []string{"Cần Thơ"}}},
+	}
+	if got := domain.PlaceNames(u); !slices.Equal(got, []string{"Hà Nội", "Huế", "Cần Thơ"}) {
+		t.Fatalf("%q", got)
 	}
 }

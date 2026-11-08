@@ -6,7 +6,9 @@ import (
 	"testing"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/platform/page"
@@ -47,7 +49,7 @@ func TestRequestCod(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
-	v := e.requested(t, buyer, e.listing(t, seller))
+	v := e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
 	o := v.Order
 	if o == nil || o.Status != domain.OrderRequested || o.Code == "" || o.Price != 1_500_000 ||
 		o.Recipient.Commune == "" || o.Recipient.Province == "" || o.Recipient.Phone != "+84912345678" {
@@ -70,7 +72,7 @@ func TestOrderKeepsItsRecipient(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	address := e.address(t, buyer)
-	v := e.agreed(t, buyer, e.listing(t, seller))
+	v := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
 	must(t)(e.deals.RequestCod(ctx, buyer, v.ID, address))
 	if _, err := e.accounts.UpdateAddress(ctx, buyer, address, accountdomain.AddressDraft{
 		Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004",
@@ -93,26 +95,26 @@ func TestRequestCodRefusals(t *testing.T) {
 	seller := e.person(t)
 
 	suspended := e.person(t)
-	sv := e.agreed(t, suspended, e.listing(t, seller))
-	e.suspend(t, suspended)
+	sv := e.agreed(t, suspended, catalogtest.Listing(t, e.db, seller))
+	accounttest.Suspend(t, e.accounts, suspended)
 	if _, err := e.deals.RequestCod(ctx, suspended, sv.ID, e.address(t, suspended)); !errors.Is(err, accountdomain.ErrSuspended) {
 		t.Errorf("suspended: %v", err)
 	}
 
 	buyer := e.person(t)
 	mine := e.address(t, buyer)
-	v := e.agreed(t, buyer, e.listing(t, seller))
+	v := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, e.address(t, seller)); !errors.Is(err, accountdomain.ErrAddressNotFound) {
 		t.Errorf("someone else's address: %v", err)
 	}
 	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, uuid.NewV7()); !errors.Is(err, accountdomain.ErrAddressNotFound) {
 		t.Errorf("an unknown address: %v", err)
 	}
-	open := e.open(t, buyer, e.listing(t, seller))
+	open := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := e.deals.RequestCod(ctx, buyer, open.ID, mine); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Errorf("not agreed: %v", err)
 	}
-	hidden := e.listing(t, seller)
+	hidden := catalogtest.Listing(t, e.db, seller)
 	hv := e.agreed(t, buyer, hidden)
 	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
 		t.Fatal(err)
@@ -121,9 +123,9 @@ func TestRequestCodRefusals(t *testing.T) {
 		t.Errorf("hidden listing: %v", err)
 	}
 	for range domain.MaxOpenOrders {
-		e.requested(t, buyer, e.listing(t, seller))
+		e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
 	}
-	fourth := e.agreed(t, buyer, e.listing(t, seller))
+	fourth := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := e.deals.RequestCod(ctx, buyer, fourth.ID, mine); !errors.Is(err, domain.ErrCodLimit) {
 		t.Errorf("fourth order: %v", err)
 	}
@@ -133,7 +135,7 @@ func TestCancelARequestedOrder(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
-	v := e.requested(t, buyer, e.listing(t, seller))
+	v := e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
 	c, err := e.deals.Cancel(context.Background(), buyer, v.ID)
 	if err != nil || c.Status != domain.StatusNegotiating || c.Order.Status != domain.OrderCancelled ||
 		c.Order.CancelReason != domain.CancelByBuyer {
@@ -149,7 +151,7 @@ func TestReservationAloneCancelsNothing(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, one, two := e.person(t), e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	first, second := e.requested(t, one, listing), e.requested(t, two, listing)
 	// A ship flow reserved the listing and has not saved the order yet.
 	if err := e.catalog.Reserve(ctx, listing, first.Order.ID); err != nil {
@@ -166,7 +168,7 @@ func TestShipCancelsOtherRequests(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, one, two := e.person(t), e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	first, second := e.requested(t, one, listing), e.requested(t, two, listing)
 	must(t)(e.deals.Ship(ctx, seller, first.ID, key(), spx))
 	if v := e.get(t, two, second.ID); v.Order.Status != domain.OrderCancelled || v.Order.CancelReason != domain.CancelSentToAnother ||
@@ -183,7 +185,7 @@ func TestListOrders(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	v := e.requested(t, buyer, e.listing(t, seller))
+	v := e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
 	for _, c := range []struct {
 		viewer uuid.UUID
 		as     domain.Party
@@ -200,7 +202,7 @@ func TestHidingCancelsRequests(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.requested(t, buyer, listing)
 	if _, err := e.catalog.Hide(context.Background(), seller, listing); err != nil {
 		t.Fatal(err)
@@ -215,14 +217,14 @@ func TestOrderFacts(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
-	listing := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.requested(t, buyer, listing)
-	f, err := e.deals.Order(context.Background(), v.Order.ID)
-	if err != nil || f.DealID != v.ID || f.BuyerID != buyer || f.SellerID != seller || f.ListingID != listing ||
+	f, ok, err := e.deals.Order(context.Background(), v.Order.ID)
+	if err != nil || !ok || f.BuyerID != buyer || f.SellerID != seller || f.ListingID != listing ||
 		f.Status != domain.OrderRequested {
-		t.Fatalf("%+v %v", f, err)
+		t.Fatalf("%+v %v %v", f, ok, err)
 	}
-	if _, err = e.deals.Order(context.Background(), uuid.NewV7()); !errors.Is(err, domain.ErrOrderNotFound) {
-		t.Fatalf("unknown: %v", err)
+	if _, ok, err = e.deals.Order(context.Background(), uuid.NewV7()); err != nil || ok {
+		t.Fatalf("unknown: %v %v", ok, err)
 	}
 }

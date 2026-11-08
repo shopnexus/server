@@ -3,6 +3,8 @@ package stream_test
 import (
 	"bufio"
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +18,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/stream"
+	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
 var discard = slog.New(slog.DiscardHandler)
@@ -66,17 +69,17 @@ func dealHint() stream.Hint {
 // time after it starts.
 func receive(t *testing.T, db *pgxpool.Pool, ch <-chan stream.Hint, accounts []uuid.UUID, h stream.Hint) stream.Hint {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
+	var got stream.Hint
+	testenv.Eventually(t, 5*time.Second, func() error {
 		notify(t, db, accounts, h, true)
 		select {
-		case got := <-ch:
-			return got
+		case got = <-ch:
+			return nil
 		case <-time.After(200 * time.Millisecond):
+			return errors.New("no hint")
 		}
-	}
-	t.Fatal("no hint within 5s")
-	return stream.Hint{}
+	})
+	return got
 }
 
 func quiet(t *testing.T, ch <-chan stream.Hint) {
@@ -166,7 +169,7 @@ func TestHandlerStreams(t *testing.T) {
 	time.Sleep(1500 * time.Millisecond) // past the server's write timeout
 	want := dealHint()
 	ctx := context.Background()
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+	testenv.Eventually(t, 5*time.Second, func() error {
 		tx, txErr := db.Begin(ctx)
 		if txErr != nil {
 			t.Fatal(txErr)
@@ -183,14 +186,13 @@ func TestHandlerStreams(t *testing.T) {
 				if d := next(); !strings.Contains(d, want.DealID.String()) {
 					t.Fatalf("data %q", d)
 				}
-				return
+				return nil
 			}
 			if l == "" || strings.HasPrefix(l, "data:") {
-				break
+				return fmt.Errorf("line %q before any deal event", l)
 			}
 		}
-	}
-	t.Fatal("no deal event")
+	})
 }
 
 func TestCloseEndsStreams(t *testing.T) {

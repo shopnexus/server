@@ -8,9 +8,33 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/account/domain"
 )
+
+type pgAddresses struct{ db *pgxpool.Pool }
+
+// NewAddresses returns the Postgres Addresses.
+func NewAddresses(db *pgxpool.Pool) Addresses { return pgAddresses{db} }
+
+// addressColumns are the columns scanAddress reads, of addresses a.
+const addressColumns = `a.id, a.account_id, a.recipient_name, a.phone, a.street, a.commune_code, a.is_default, a.write_id, a.created_at`
+
+// scanAddress reads addressColumns, then into extra the columns that follow.
+func scanAddress(row pgx.Row, extra ...any) (domain.Address, error) {
+	var (
+		id, owner, writeID uuid.UUID
+		d                  domain.AddressDraft
+		isDefault          bool
+		createdAt          time.Time
+	)
+	dest := append([]any{&id, &owner, &d.Name, &d.Phone, &d.Street, &d.CommuneCode, &isDefault, &writeID, &createdAt}, extra...)
+	if err := row.Scan(dest...); err != nil {
+		return domain.Address{}, fmt.Errorf("scan address: %w", err)
+	}
+	return domain.RestoreAddress(id, owner, d, isDefault, writeID, createdAt), nil
+}
 
 // lockBook takes owner's advisory lock until tx ends.
 func lockBook(ctx context.Context, tx pgx.Tx, owner uuid.UUID) error {
@@ -21,7 +45,7 @@ func lockBook(ctx context.Context, tx pgx.Tx, owner uuid.UUID) error {
 	return nil
 }
 
-func (s pgAccounts) InsertAddress(ctx context.Context, key uuid.UUID, a *domain.Address) error {
+func (s pgAddresses) Insert(ctx context.Context, key uuid.UUID, a *domain.Address) error {
 	var (
 		first  bool
 		stored *domain.Address
@@ -30,18 +54,11 @@ func (s pgAccounts) InsertAddress(ctx context.Context, key uuid.UUID, a *domain.
 		if err := lockBook(ctx, tx, a.AccountID()); err != nil {
 			return err
 		}
-		var (
-			id, writeID uuid.UUID
-			d           domain.AddressDraft
-			isDefault   bool
-			createdAt   time.Time
-		)
-		err := tx.QueryRow(ctx, `SELECT id, recipient_name, phone, street, commune_code, is_default, write_id, created_at
-FROM addresses WHERE account_id = @account AND request_key = @key`,
-			pgx.StrictNamedArgs{"account": a.AccountID(), "key": key}).
-			Scan(&id, &d.Name, &d.Phone, &d.Street, &d.CommuneCode, &isDefault, &writeID, &createdAt)
+		got, err := scanAddress(tx.QueryRow(ctx, `SELECT `+addressColumns+`
+FROM addresses a WHERE a.account_id = @account AND a.request_key = @key`,
+			pgx.StrictNamedArgs{"account": a.AccountID(), "key": key}))
 		if err == nil {
-			stored = new(domain.RestoreAddress(id, a.AccountID(), d, isDefault, writeID, createdAt))
+			stored = &got
 			return nil
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -81,26 +98,19 @@ VALUES (@id, @account, @name, @phone, @street, @commune_code, @is_default, @key,
 	return nil
 }
 
-func (s pgAccounts) GetAddress(ctx context.Context, owner, id uuid.UUID) (domain.Address, error) {
-	var (
-		d         domain.AddressDraft
-		isDefault bool
-		writeID   uuid.UUID
-		createdAt time.Time
-	)
-	err := s.db.QueryRow(ctx, `SELECT recipient_name, phone, street, commune_code, is_default, write_id, created_at
-FROM addresses WHERE id = @id AND account_id = @account`, pgx.StrictNamedArgs{"id": id, "account": owner}).
-		Scan(&d.Name, &d.Phone, &d.Street, &d.CommuneCode, &isDefault, &writeID, &createdAt)
+func (s pgAddresses) Get(ctx context.Context, owner, id uuid.UUID) (domain.Address, error) {
+	a, err := scanAddress(s.db.QueryRow(ctx, `SELECT `+addressColumns+`
+FROM addresses a WHERE a.id = @id AND a.account_id = @account`, pgx.StrictNamedArgs{"id": id, "account": owner}))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Address{}, ErrNotFound
 	}
 	if err != nil {
 		return domain.Address{}, fmt.Errorf("select address: %w", err)
 	}
-	return domain.RestoreAddress(id, owner, d, isDefault, writeID, createdAt), nil
+	return a, nil
 }
 
-func (s pgAccounts) SaveAddress(ctx context.Context, a *domain.Address, writeID uuid.UUID) error {
+func (s pgAddresses) Save(ctx context.Context, a *domain.Address, writeID uuid.UUID) error {
 	tag, err := s.db.Exec(ctx, `UPDATE addresses
 SET recipient_name = @name, phone = @phone, street = @street, commune_code = @commune_code, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, pgx.StrictNamedArgs{
@@ -117,7 +127,7 @@ WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, pgx.Str
 	return nil
 }
 
-func (s pgAccounts) SetDefaultAddress(ctx context.Context, owner, id uuid.UUID) error {
+func (s pgAddresses) SetDefault(ctx context.Context, owner, id uuid.UUID) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		if err := lockBook(ctx, tx, owner); err != nil {
 			return err
@@ -152,7 +162,7 @@ WHERE account_id = @account AND is_default`, pgx.StrictNamedArgs{"account": owne
 	return nil
 }
 
-func (s pgAccounts) DeleteAddress(ctx context.Context, owner, id uuid.UUID) error {
+func (s pgAddresses) Delete(ctx context.Context, owner, id uuid.UUID) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		if err := lockBook(ctx, tx, owner); err != nil {
 			return err
@@ -182,31 +192,25 @@ WHERE id = (SELECT id FROM addresses WHERE account_id = @account ORDER BY id DES
 	return nil
 }
 
-func (s pgAccounts) ListAddresses(ctx context.Context, owner uuid.UUID) ([]AddressRow, error) {
-	rows, err := s.db.Query(ctx, `SELECT a.id, a.recipient_name, a.phone, a.street, a.commune_code, c.display_name,
-       p.display_name, a.is_default, a.created_at
+func (s pgAddresses) List(ctx context.Context, owner uuid.UUID) ([]PlacedAddress, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+addressColumns+`, c.display_name, p.display_name
 FROM addresses a JOIN communes c ON c.code = a.commune_code JOIN provinces p ON p.code = c.province_code
 WHERE a.account_id = @account ORDER BY a.is_default DESC, a.id DESC`, pgx.StrictNamedArgs{"account": owner})
 	if err != nil {
 		return nil, fmt.Errorf("select addresses: %w", err)
 	}
-	defer rows.Close()
-	var out []AddressRow
-	for rows.Next() {
-		var r AddressRow
-		if err = rows.Scan(&r.ID, &r.Name, &r.Phone, &r.Street, &r.CommuneCode, &r.Commune, &r.Province,
-			&r.IsDefault, &r.CreatedAt); err != nil {
-			return nil, fmt.Errorf("scan address: %w", err)
-		}
-		out = append(out, r)
-	}
-	if err = rows.Err(); err != nil {
+	list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (PlacedAddress, error) {
+		var p Place
+		a, scanErr := scanAddress(row, &p.Commune, &p.Province)
+		return PlacedAddress{Address: a, Place: p}, scanErr
+	})
+	if err != nil {
 		return nil, fmt.Errorf("read addresses: %w", err)
 	}
-	return out, nil
+	return list, nil
 }
 
-func (s pgAccounts) Commune(ctx context.Context, code string) (Place, error) {
+func (s pgAddresses) Commune(ctx context.Context, code string) (Place, error) {
 	var p Place
 	err := s.db.QueryRow(ctx, `SELECT c.display_name, p.display_name
 FROM communes c JOIN provinces p ON p.code = c.province_code WHERE c.code = @code`, pgx.StrictNamedArgs{"code": code}).

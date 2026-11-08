@@ -242,23 +242,6 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 	}
 }
 
-func TestNewAuthKeysRoundTrip(t *testing.T) {
-	t.Parallel()
-	keys := NewAuthKeys()
-	env := required()
-	for line := range strings.Lines(keys.Env()) {
-		k, v, _ := strings.Cut(strings.TrimSpace(line), "=")
-		env[k] = v
-	}
-	got, err := Load(lookup(env))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !got.Auth.JWTKey.Equal(keys.JWTKey) || got.Auth.JWTKeyID != keys.JWTKeyID {
-		t.Fatalf("got %+v", got.Auth)
-	}
-}
-
 // Production refuses unsigned Restate requests, so it needs the key.
 func TestLoadProdNeedsTheRestateIdentityKey(t *testing.T) {
 	t.Parallel()

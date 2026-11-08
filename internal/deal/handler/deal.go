@@ -1,12 +1,10 @@
 package handler
 
 import (
-	"context"
 	"net/http"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
@@ -84,61 +82,111 @@ func (h *Handler) ListMine(w http.ResponseWriter, r *http.Request) {
 
 // Get serves GET /v1/deals/{id}.
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in dealRequest) (service.DealView, error) {
-		return h.svc.Get(ctx, caller, in.ID)
-	})
-}
-
-// Offer serves POST /v1/deals/{id}/offer.
-func (h *Handler) Offer(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in offerRequest) (service.DealView, error) {
-		return h.svc.Offer(ctx, caller, in.ID, in.Amount)
-	})
-}
-
-// Accept serves POST /v1/deals/{id}/accept.
-func (h *Handler) Accept(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in acceptRequest) (service.DealView, error) {
-		return h.svc.Accept(ctx, caller, in.ID, in.Price)
-	})
-}
-
-// Decline serves POST /v1/deals/{id}/decline.
-func (h *Handler) Decline(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in dealRequest) (service.DealView, error) {
-		return h.svc.Decline(ctx, caller, in.ID)
-	})
-}
-
-// Withdraw serves POST /v1/deals/{id}/withdraw.
-func (h *Handler) Withdraw(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in dealRequest) (service.DealView, error) {
-		return h.svc.Withdraw(ctx, caller, in.ID)
-	})
-}
-
-// Cancel serves POST /v1/deals/{id}/cancel.
-func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, func(ctx context.Context, caller uuid.UUID, in dealRequest) (service.DealView, error) {
-		return h.svc.Cancel(ctx, caller, in.ID)
-	})
-}
-
-// serve binds the request of a call on one deal, applies it as the caller
-// and answers 200 with the deal.
-func serve[T any](h *Handler, w http.ResponseWriter, r *http.Request,
-	apply func(ctx context.Context, caller uuid.UUID, in T) (service.DealView, error),
-) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
 		return
 	}
-	var in T
+	var in dealRequest
 	if err := httpx.Bind(r, &in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := apply(r.Context(), p.AccountID, in)
+	v, err := h.svc.Get(r.Context(), p.AccountID, in.ID)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
+}
+
+// Offer serves POST /v1/deals/{id}/offer.
+func (h *Handler) Offer(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in offerRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.Offer(r.Context(), p.AccountID, in.ID, in.Amount)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
+}
+
+// Accept serves POST /v1/deals/{id}/accept.
+func (h *Handler) Accept(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in acceptRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.Accept(r.Context(), p.AccountID, in.ID, in.Price)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
+}
+
+// Decline serves POST /v1/deals/{id}/decline.
+func (h *Handler) Decline(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in dealRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.Decline(r.Context(), p.AccountID, in.ID)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
+}
+
+// Withdraw serves POST /v1/deals/{id}/withdraw.
+func (h *Handler) Withdraw(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in dealRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.Withdraw(r.Context(), p.AccountID, in.ID)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
+}
+
+// Cancel serves POST /v1/deals/{id}/cancel.
+func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in dealRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.Cancel(r.Context(), p.AccountID, in.ID)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

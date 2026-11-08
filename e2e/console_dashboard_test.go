@@ -20,14 +20,11 @@ type dashboardTicket struct {
 func openDashboard(t *testing.T, s consoleSession, app, host string) *http.Cookie {
 	t.Helper()
 	res := consoleCall(t, s, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": app})
-	if res.Status != 200 {
-		t.Fatalf("ticket: %d %s", res.Status, res.Body)
-	}
-	tk := decode[dashboardTicket](t, res)
+	tk := expect[dashboardTicket](t, res, 200)
 	if tk.CallbackURL != "https://"+host+"/_dashboard/callback?ticket="+url.QueryEscape(tk.Ticket) {
 		t.Fatalf("callback_url %q", tk.CallbackURL)
 	}
-	res = call(t, server, "GET", "/_dashboard/callback?ticket="+url.QueryEscape(tk.Ticket)+"&rd=%2Fd%2Fabc%3Ffrom%3Dnow-1h", nil, [2]string{"Host", host})
+	res = call(t, "GET", "/_dashboard/callback?ticket="+url.QueryEscape(tk.Ticket)+"&rd=%2Fd%2Fabc%3Ffrom%3Dnow-1h", nil, [2]string{"Host", host})
 	if res.Status != 302 || res.Header.Get("Location") != "/d/abc?from=now-1h" {
 		t.Fatalf("callback: %d %v %s", res.Status, res.Header, res.Body)
 	}
@@ -48,7 +45,7 @@ func dashboardAuth(t *testing.T, host, method, cookie string) Response {
 	if cookie != "" {
 		h = append(h, [2]string{"Cookie", "console_dashboard=" + cookie})
 	}
-	return call(t, server, "GET", "/v1/console/dashboard-auth", nil, h...)
+	return call(t, "GET", "/v1/console/dashboard-auth", nil, h...)
 }
 
 func TestConsoleOpensGrafana(t *testing.T) {
@@ -68,22 +65,14 @@ func TestConsoleOpensGrafana(t *testing.T) {
 	if res.Status != 302 || res.Header.Get("Location") != "http://console.e2e/dashboards/open?app=grafana&rd=%2Fd%2Fabc%3Fx%3D1" {
 		t.Fatalf("no cookie, GET: %d %v", res.Status, res.Header)
 	}
-	if res = dashboardAuth(t, "grafana.e2e.test", "POST", ""); res.Status != 401 {
-		t.Fatalf("no cookie, POST: %d", res.Status)
-	}
-	if res = dashboardAuth(t, "restate.e2e.test", "GET", c.Value); res.Status != 302 {
-		t.Fatalf("grafana's cookie on restate: %d", res.Status)
-	}
+	expectStatus(t, dashboardAuth(t, "grafana.e2e.test", "POST", ""), 401)     // no cookie, POST
+	expectStatus(t, dashboardAuth(t, "restate.e2e.test", "GET", c.Value), 302) // grafana's cookie on restate
 	if res = dashboardAuth(t, "kibana.e2e.test", "GET", c.Value); res.Status != 403 || errorOf(t, res).Code != "dashboard_host_unknown" {
 		t.Fatalf("an unknown host: %d %s", res.Status, res.Body)
 	}
 
-	if res = consoleCall(t, s, "POST", "/v1/console/logout", nil); res.Status != 204 {
-		t.Fatalf("logout: %d", res.Status)
-	}
-	if res = dashboardAuth(t, "grafana.e2e.test", "GET", c.Value); res.Status != 302 {
-		t.Fatalf("the cookie after logout: %d", res.Status)
-	}
+	expectStatus(t, consoleCall(t, s, "POST", "/v1/console/logout", nil), 204)
+	expectStatus(t, dashboardAuth(t, "grafana.e2e.test", "GET", c.Value), 302) // the cookie after logout
 }
 
 func TestConsoleOpensRestateAsAdmin(t *testing.T) {
@@ -106,16 +95,12 @@ func TestConsoleDashboardTicketRefusals(t *testing.T) {
 	if res := consoleCall(t, mod, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "restate"}); res.Status != 403 || errorOf(t, res).Code != "console_forbidden" {
 		t.Fatalf("a moderator for restate: %d %s", res.Status, res.Body)
 	}
-	if res := consoleCall(t, mod, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "kibana"}); res.Status != 400 {
-		t.Fatalf("an unknown app: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, consoleCall(t, mod, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "kibana"}), 400) // an unknown app
 	admin := signInMember(t, consoledomain.RoleAdmin)
 	if res := consoleCall(t, admin, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "litellm"}); res.Status != 422 || errorOf(t, res).Code != "dashboard_not_configured" {
 		t.Fatalf("a dashboard without a host: %d %s", res.Status, res.Body)
 	}
-	if res := consoleCall(t, consoleSession{}, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "grafana"}); res.Status != 401 {
-		t.Fatalf("no session: %d", res.Status)
-	}
+	expectStatus(t, consoleCall(t, consoleSession{}, "POST", "/v1/console/dashboard-tickets", map[string]string{"app": "grafana"}), 401)
 }
 
 func TestConsoleDashboardCallbackRefusals(t *testing.T) {
@@ -125,21 +110,15 @@ func TestConsoleDashboardCallbackRefusals(t *testing.T) {
 	tk := decode[dashboardTicket](t, res)
 	path := "/_dashboard/callback?ticket=" + url.QueryEscape(tk.Ticket) + "&rd=" + url.QueryEscape("//evil.test/")
 
-	if res = call(t, server, "GET", path, nil, [2]string{"Host", "kibana.e2e.test"}); res.Status != 403 {
-		t.Fatalf("an unknown host: %d %s", res.Status, res.Body)
-	}
-	if res = call(t, server, "GET", path, nil, [2]string{"Host", "restate.e2e.test"}); res.Status != 401 {
-		t.Fatalf("another dashboard's host: %d %s", res.Status, res.Body)
-	}
-	res = call(t, server, "GET", path, nil, [2]string{"Host", "grafana.e2e.test"})
+	expectStatus(t, call(t, "GET", path, nil, [2]string{"Host", "kibana.e2e.test"}), 403)  // an unknown host
+	expectStatus(t, call(t, "GET", path, nil, [2]string{"Host", "restate.e2e.test"}), 401) // another dashboard's host
+	res = call(t, "GET", path, nil, [2]string{"Host", "grafana.e2e.test"})
 	if res.Status != 302 || res.Header.Get("Location") != "/" {
 		t.Fatalf("callback: %d %v", res.Status, res.Header)
 	}
-	res = call(t, server, "GET", path, nil, [2]string{"Host", "grafana.e2e.test"})
+	res = call(t, "GET", path, nil, [2]string{"Host", "grafana.e2e.test"})
 	if res.Status != 401 || errorOf(t, res).Code != "invalid_dashboard_ticket" || strings.Contains(res.Header.Get("Set-Cookie"), "console_dashboard") {
 		t.Fatalf("a used ticket: %d %v %s", res.Status, res.Header, res.Body)
 	}
-	if res = call(t, server, "GET", "/_dashboard/callback", nil, [2]string{"Host", "grafana.e2e.test"}); res.Status != 400 {
-		t.Fatalf("no ticket: %d", res.Status)
-	}
+	expectStatus(t, call(t, "GET", "/_dashboard/callback", nil, [2]string{"Host", "grafana.e2e.test"}), 400) // no ticket
 }

@@ -18,14 +18,13 @@ import (
 
 // Service is module screen's contract.
 type Service interface {
-	// Home reads the Home view around near; reader is nil for a signed-out
-	// reader.
-	Home(ctx context.Context, reader *uuid.UUID, near discoverysvc.Near) (HomeScreen, error)
-	// Listing reads the listing view of a listing on sale; reader is nil
-	// for a signed-out reader.
-	Listing(ctx context.Context, reader *uuid.UUID, id uuid.UUID) (ListingScreen, error)
-	// Seller reads the seller view; reader is nil for a signed-out reader.
-	Seller(ctx context.Context, reader *uuid.UUID, id uuid.UUID) (SellerScreen, error)
+	// Home reads the Home view around near; viewer is nil when signed out.
+	Home(ctx context.Context, viewer *uuid.UUID, near discoverysvc.Near) (HomeScreen, error)
+	// Listing reads the listing view of a listing on sale; viewer is nil
+	// when signed out.
+	Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingScreen, error)
+	// Seller reads the seller view; viewer is nil when signed out.
+	Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (SellerScreen, error)
 	// Inbox reads a page of account's inbox view, archived or not.
 	Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request) (InboxScreen, error)
 	// Chat reads the chat view of a conversation of account's.
@@ -38,27 +37,28 @@ type Deps struct {
 	Catalog  catalogsvc.Service
 	Deals    dealsvc.Service
 	Trust    trustsvc.Service
-	Saves    discoverysvc.Service
 	Chats    chatsvc.Service
+	// Discovery gives the save on the listing view and Home's nearby feed.
+	Discovery discoverysvc.Service
 	// Notifications gives Home its unread count.
 	Notifications notificationsvc.Service
 }
 
 // Screen implements Service in this process.
 type Screen struct {
-	accounts accountsvc.Service
-	catalog  catalogsvc.Service
-	deals    dealsvc.Service
-	trust    trustsvc.Service
-	saves    discoverysvc.Service
-	chats    chatsvc.Service
-	notices  notificationsvc.Service
+	accounts  accountsvc.Service
+	catalog   catalogsvc.Service
+	deals     dealsvc.Service
+	trust     trustsvc.Service
+	chats     chatsvc.Service
+	discovery discoverysvc.Service
+	notices   notificationsvc.Service
 }
 
 var _ Service = (*Screen)(nil)
 
 func New(d Deps) *Screen {
 	return &Screen{
-		accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, trust: d.Trust, saves: d.Saves, chats: d.Chats, notices: d.Notifications,
+		accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, trust: d.Trust, discovery: d.Discovery, chats: d.Chats, notices: d.Notifications,
 	}
 }

@@ -6,8 +6,6 @@ package account
 import (
 	"net/http"
 
-	restate "github.com/restatedev/sdk-go"
-
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/handler"
 	"github.com/shopnexus/server2/internal/account/repository"
@@ -23,33 +21,22 @@ type Settings struct {
 	Phones service.PhoneVerifier
 }
 
-// Protect returns the middleware that requires a signed-in caller. It needs
-// only the keys, so app builds it before the modules that use it.
-func Protect(d module.Deps, keys config.AuthConfig) func(http.Handler) http.Handler {
-	return handler.Protect(domain.NewVerifier(keys), d.Now, d.Log)
+// Guards returns the middlewares app puts in module.Deps: protect requires a
+// signed-in caller, identify lets anyone through and tells the handler who
+// signed in. They need only the keys, so app builds them before any module.
+func Guards(d module.Deps, keys config.AuthConfig) (protect, identify func(http.Handler) http.Handler) {
+	v := domain.NewVerifier(keys)
+	return handler.Protect(v, d.Now, d.Log), handler.Identify(v, d.Now, d.Log)
 }
 
-// Identify returns the middleware for a route anyone may call: a caller
-// who sends a token must send a valid one, and the handler sees them.
-func Identify(d module.Deps, keys config.AuthConfig) func(http.Handler) http.Handler {
-	return handler.Identify(domain.NewVerifier(keys), d.Now, d.Log)
-}
-
-// Mounted is what account's Mount gives app and other modules.
-type Mounted struct {
-	Services []restate.ServiceDefinition
-	Service  service.Service
-}
-
-// Mount registers account's HTTP handlers, the signed-in ones behind
-// protect, and returns its Restate services, with prefixed names, and the
-// Service other modules call. media makes avatars.
-func Mount(d module.Deps, protect func(http.Handler) http.Handler, s Settings, media mediasvc.Service) Mounted {
+// Mount registers account's HTTP handlers and returns its Restate services
+// and the Service other modules call. media makes avatars.
+func Mount(d module.Deps, s Settings, media mediasvc.Service) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		Accounts: repository.NewAccounts(d.Pool), Credentials: repository.NewCredentials(d.Pool),
+		Accounts: repository.NewAccounts(d.Pool), Addresses: repository.NewAddresses(d.Pool), Credentials: repository.NewCredentials(d.Pool),
 		Sessions: repository.NewSessions(d.Pool), Signer: domain.NewSigner(s.Keys), Phones: s.Phones, Media: media,
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})
-	handler.New(svc, d.Log).Register(d.Router, protect)
-	return Mounted{Services: svc.Durable(), Service: svc}
+	handler.New(svc, d.Log).Register(d.Router, d.Protect)
+	return module.Mounted[service.Service]{Services: svc.Durable(), Service: svc}
 }

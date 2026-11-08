@@ -31,9 +31,7 @@ func Bind[T any](r *http.Request, dst *T) error {
 		dec := json.NewDecoder(r.Body)
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(dst); err != nil {
-			e := *ErrMalformedJSON
-			e.Err = err
-			return &e
+			return ErrMalformedJSON.WithCause(err)
 		}
 	}
 	rv := reflect.ValueOf(dst).Elem()
@@ -61,9 +59,7 @@ func Bind[T any](r *http.Request, dst *T) error {
 				continue
 			}
 			if err := f.parse(rv.FieldByIndex(f.index), raw); err != nil {
-				e := *errInvalidRequest.WithField(f.name, "invalid")
-				e.Err = err
-				return &e
+				return errInvalidRequest.WithField(f.name, "invalid").WithCause(err)
 			}
 		}
 	}
@@ -93,8 +89,8 @@ type field struct {
 	name   string
 	index  []int // for reflect.Value.FieldByIndex
 	source source
-	// repeated is a []string field, which takes every value of its query
-	// key or header rather than the first.
+	// repeated is a slice field, which takes every value of its query key
+	// or header rather than the first.
 	repeated bool
 }
 
@@ -148,7 +144,7 @@ func newPlan(t reflect.Type) *plan {
 		case found > 1:
 			panic(fmt.Sprintf("httpx: %s.%s has more than one of path, query and header", t, sf.Name))
 		case sf.Tag.Get("json") != "-":
-			panic(fmt.Sprintf("httpx: %s.%s comes from the URL, a header or a cookie and needs json:\"-\"", t, sf.Name))
+			panic(fmt.Sprintf("httpx: %s.%s comes from the path, the query or a header and needs json:\"-\"", t, sf.Name))
 		default:
 			f.parse = parserFor(t, sf)
 			f.repeated = sf.Type.Kind() == reflect.Slice
@@ -206,8 +202,10 @@ func parserFor(t reflect.Type, sf reflect.StructField) func(reflect.Value, strin
 		if ft.Elem().Kind() != reflect.String {
 			panic(fmt.Sprintf("httpx: %s.%s is a slice of %s; Bind reads slices of strings", t, sf.Name, ft.Elem()))
 		}
+		// Convert lets a slice of a named string type take the value too.
+		elem := ft.Elem()
 		return func(v reflect.Value, raw string) error {
-			v.Set(reflect.Append(v, reflect.ValueOf(raw)))
+			v.Set(reflect.Append(v, reflect.ValueOf(raw).Convert(elem)))
 			return nil
 		}
 	case reflect.Bool:

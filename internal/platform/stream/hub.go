@@ -3,23 +3,18 @@ package stream
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"sync"
-	"time"
 	"uuid"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/shopnexus/server2/internal/platform/postgres"
 )
 
-const (
-	// buffer is how many hints wait for a slow stream; more are dropped,
-	// and the app catches up on the next hint or reconnect.
-	buffer = 16
-	// retryEvery is the pause before listening again on a lost connection.
-	retryEvery = time.Second
-)
+// buffer is how many hints wait for a slow stream; more are dropped, and
+// the app catches up on the next hint or reconnect.
+const buffer = 16
 
 // Hub hands the hints it hears to the streams of their accounts.
 type Hub struct {
@@ -79,50 +74,19 @@ func (h *Hub) Close() {
 	h.subs = map[uuid.UUID]map[chan Hint]struct{}{}
 }
 
-// Run listens until ctx is done, then returns nil. A lost connection is
-// listened again after a pause; hints sent meanwhile are lost, and the apps
-// reload on their next hint.
+// Run listens until ctx is done, then returns nil. Hints sent while the
+// connection is lost are lost too, and the apps reload on their next hint.
 func (h *Hub) Run(ctx context.Context) error {
-	for ctx.Err() == nil {
-		if err := h.listen(ctx); err != nil && ctx.Err() == nil {
-			h.log.WarnContext(ctx, "stream: listen", "err", err)
-			select {
-			case <-ctx.Done():
-			case <-time.After(retryEvery):
-			}
-		}
-	}
-	return nil
-}
-
-// listen holds a connection of its own, outside the pool, as events.Bus
-// does: a pooled one would hold a slot for good.
-func (h *Hub) listen(ctx context.Context) error {
-	conn, err := pgx.ConnectConfig(ctx, h.db.Config().ConnConfig.Copy())
-	if err != nil {
-		return fmt.Errorf("connect: %w", err)
-	}
-	defer func() {
-		closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
-		defer cancel()
-		_ = conn.Close(closeCtx)
-	}()
-	if _, err = conn.Exec(ctx, "LISTEN "+channel); err != nil {
-		return fmt.Errorf("listen: %w", err)
-	}
-	for {
-		n, waitErr := conn.WaitForNotification(ctx)
-		if waitErr != nil {
-			return fmt.Errorf("wait for notification: %w", waitErr)
-		}
+	postgres.Listen(ctx, h.db, channel, h.log, func(payload string) {
 		var msg notification
-		if err = json.Unmarshal([]byte(n.Payload), &msg); err != nil {
+		if err := json.Unmarshal([]byte(payload), &msg); err != nil {
 			h.log.WarnContext(ctx, "stream: bad notification", "err", err)
-			continue
+			return
 		}
 		msg.Hint.Kind = msg.Kind
 		h.deliver(msg)
-	}
+	})
+	return nil
 }
 
 // deliver hands the hint to every stream of its accounts without waiting.

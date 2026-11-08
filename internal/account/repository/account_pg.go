@@ -8,13 +8,13 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/postgres"
 )
 
 type pgAccounts struct{ db *pgxpool.Pool }
@@ -28,7 +28,7 @@ func (s pgAccounts) Create(ctx context.Context, a domain.Account) error {
 
 // insertAccount inserts a; the same id again does nothing. Create and
 // Credentials.SignUp call it.
-func insertAccount(ctx context.Context, q execer, a domain.Account) error {
+func insertAccount(ctx context.Context, q postgres.Execer, a domain.Account) error {
 	_, err := q.Exec(ctx, `
 INSERT INTO accounts (id, display_name, status, write_id, created_at, updated_at)
 VALUES (@id, NULLIF(@display_name, ''), @status, @write_id, @now, @now)
@@ -45,10 +45,8 @@ ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 const accountColumns = `id, coalesce(display_name, ''), coalesce(bio, ''), coalesce(avatar_key, ''), status, suspended_until,
        coalesce(suspend_reason, ''), write_id, created_at, updated_at`
 
-const getAccount = `SELECT ` + accountColumns + ` FROM accounts WHERE id = @id`
-
 // scanAccount reads accountColumns.
-func scanAccount(row pgx.Row) (domain.Account, error) {
+func scanAccount(row pgx.CollectableRow) (domain.Account, error) {
 	var (
 		id, writeID                  uuid.UUID
 		name, bio, avatarKey, reason string
@@ -63,7 +61,11 @@ func scanAccount(row pgx.Row) (domain.Account, error) {
 }
 
 func (s pgAccounts) Get(ctx context.Context, id uuid.UUID) (domain.Account, error) {
-	a, err := scanAccount(s.db.QueryRow(ctx, getAccount, pgx.StrictNamedArgs{"id": id}))
+	rows, err := s.db.Query(ctx, `SELECT `+accountColumns+` FROM accounts WHERE id = @id`, pgx.StrictNamedArgs{"id": id})
+	if err != nil {
+		return domain.Account{}, fmt.Errorf("select account: %w", err)
+	}
+	a, err := pgx.CollectExactlyOneRow(rows, scanAccount)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Account{}, ErrNotFound
 	}
@@ -79,32 +81,25 @@ SET display_name = NULLIF(@display_name, ''), bio = NULLIF(@bio, ''), avatar_key
     suspend_reason = NULLIF(@suspend_reason, ''), updated_at = @updated_at, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
-// execer is a pool or a transaction.
-type execer interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-}
-
-func update(ctx context.Context, q execer, a *domain.Account, writeID uuid.UUID) error {
-	tag, err := q.Exec(ctx, saveAccount, pgx.StrictNamedArgs{
-		"id": a.ID(), "read_write_id": a.WriteID(), "write_id": writeID,
-		"display_name": a.DisplayName(), "bio": a.Bio(), "avatar_key": a.AvatarKey(), "status": a.StoredStatus(), "suspended_until": a.SuspendedUntil(),
-		"suspend_reason": a.SuspendReason(), "updated_at": a.UpdatedAt(),
-	})
-	if err != nil {
-		return fmt.Errorf("update account: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrConflict
-	}
-	return nil
-}
-
-func (s pgAccounts) Save(ctx context.Context, a *domain.Account, writeID uuid.UUID, evs ...events.Event) error {
+func (s pgAccounts) Save(ctx context.Context, a *domain.Account, writeID uuid.UUID, entry *audit.Entry, evs ...events.Event) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := update(ctx, tx, a, writeID); err != nil {
-			return err
+		tag, err := tx.Exec(ctx, saveAccount, pgx.StrictNamedArgs{
+			"id": a.ID(), "read_write_id": a.WriteID(), "write_id": writeID,
+			"display_name": a.DisplayName(), "bio": a.Bio(), "avatar_key": a.AvatarKey(), "status": a.StoredStatus(),
+			"suspended_until": a.SuspendedUntil(), "suspend_reason": a.SuspendReason(), "updated_at": a.UpdatedAt(),
+		})
+		if err != nil {
+			return fmt.Errorf("update account: %w", err)
 		}
-		return insertEvents(ctx, tx, evs)
+		if tag.RowsAffected() == 0 {
+			return ErrConflict
+		}
+		if entry != nil {
+			if err := audit.Insert(ctx, tx, *entry); err != nil {
+				return err
+			}
+		}
+		return events.Insert(ctx, tx, evs...)
 	})
 	if err != nil {
 		return fmt.Errorf("save account: %w", err)
@@ -113,40 +108,16 @@ func (s pgAccounts) Save(ctx context.Context, a *domain.Account, writeID uuid.UU
 	return nil
 }
 
-func (s pgAccounts) SaveAudited(ctx context.Context, a *domain.Account, writeID uuid.UUID, e audit.Entry, evs ...events.Event) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := update(ctx, tx, a, writeID); err != nil {
-			return err
-		}
-		if err := audit.Insert(ctx, tx, e); err != nil {
-			return err
-		}
-		return insertEvents(ctx, tx, evs)
-	})
-	if err != nil {
-		return fmt.Errorf("save account with audit: %w", err)
-	}
-	a.Saved(writeID)
-	return nil
-}
-
-// insertEvents writes evs in tx, the transaction of the change they
-// announce.
-func insertEvents(ctx context.Context, tx pgx.Tx, evs []events.Event) error {
-	for _, e := range evs {
-		if err := events.Insert(ctx, tx, e); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (s pgAccounts) GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Account, error) {
 	rows, err := s.db.Query(ctx, `SELECT `+accountColumns+` FROM accounts WHERE id = ANY(@ids)`, pgx.StrictNamedArgs{"ids": ids})
 	if err != nil {
 		return nil, fmt.Errorf("select accounts: %w", err)
 	}
-	return collect(rows)
+	accounts, err := pgx.CollectRows(rows, scanAccount)
+	if err != nil {
+		return nil, fmt.Errorf("read accounts: %w", err)
+	}
+	return accounts, nil
 }
 
 const listAccounts = `SELECT ` + accountColumns + ` FROM accounts WHERE id < @before ORDER BY id DESC LIMIT @limit`
@@ -156,24 +127,11 @@ func (s pgAccounts) List(ctx context.Context, p page.Request) ([]domain.Account,
 	if err != nil {
 		return nil, fmt.Errorf("select accounts: %w", err)
 	}
-	return collect(rows)
-}
-
-// collect scans every row of an accounts query.
-func collect(rows pgx.Rows) ([]domain.Account, error) {
-	defer rows.Close()
-	var out []domain.Account
-	for rows.Next() {
-		a, err := scanAccount(rows)
-		if err != nil {
-			return nil, fmt.Errorf("read account: %w", err)
-		}
-		out = append(out, a)
-	}
-	if err := rows.Err(); err != nil {
+	accounts, err := pgx.CollectRows(rows, scanAccount)
+	if err != nil {
 		return nil, fmt.Errorf("read accounts: %w", err)
 	}
-	return out, nil
+	return accounts, nil
 }
 
 func (s pgAccounts) Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error {
@@ -210,17 +168,9 @@ WHERE blocker_id = @blocker AND id < @before ORDER BY id DESC LIMIT @limit`,
 	if err != nil {
 		return nil, fmt.Errorf("select blocks: %w", err)
 	}
-	defer rows.Close()
-	var out []Block
-	for rows.Next() {
-		var b Block
-		if err = rows.Scan(&b.ID, &b.AccountID, &b.At); err != nil {
-			return nil, fmt.Errorf("scan block: %w", err)
-		}
-		out = append(out, b)
-	}
-	if err = rows.Err(); err != nil {
+	blocks, err := pgx.CollectRows(rows, pgx.RowToStructByPos[Block])
+	if err != nil {
 		return nil, fmt.Errorf("read blocks: %w", err)
 	}
-	return out, nil
+	return blocks, nil
 }

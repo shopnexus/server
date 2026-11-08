@@ -50,20 +50,15 @@ func (s MessagePublish) Run(ctx restate.Context, id uuid.UUID) error {
 	}
 	m := domain.RestoreMessage(ld.Message)
 	uploads := m.UploadIDs()
-	futures := make([]restate.ResponseFuture[mediasvc.ProcessResult], len(uploads))
-	for i, u := range uploads {
-		futures[i] = restate.Service[mediasvc.ProcessResult](ctx, s.Chat.prefix+mediasvc.MediaProcessService, "Run").
-			RequestFuture(u, restate.WithIdempotencyKey(u.String()))
+	results, procErr := mediasvc.ProcessAll(ctx, s.Chat.prefix, uploads)
+	if procErr != nil {
+		return fmt.Errorf("process uploads: %w", procErr)
 	}
 	keys := make(map[uuid.UUID]domain.Photo, len(uploads))
 	failure := ""
-	for i, f := range futures {
-		r, waitErr := f.Response()
-		if waitErr != nil {
-			return fmt.Errorf("process upload %s: %w", uploads[i], waitErr)
-		}
-		if r.Status == mediadomain.StatusReady {
-			keys[uploads[i]] = domain.Photo{PhotoKey: r.PhotoKey, ThumbKey: r.ThumbKey}
+	for _, u := range uploads {
+		if r := results[u]; r.Status == mediadomain.StatusReady {
+			keys[u] = domain.Photo{PhotoKey: r.PhotoKey, ThumbKey: r.ThumbKey}
 		} else if failure == "" {
 			failure = r.Failure
 		}

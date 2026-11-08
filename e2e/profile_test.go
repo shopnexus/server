@@ -12,7 +12,7 @@ import (
 // avatar, returning the avatar's URL.
 func setAvatar(t *testing.T, token string) string {
 	t.Helper()
-	res := call(t, server, "PATCH", "/v1/accounts/me", map[string]any{"avatar_upload_id": upload(t, token, photoWithGPS(t))}, bearer(token))
+	res := call(t, "PATCH", "/v1/accounts/me", map[string]any{"avatar_upload_id": upload(t, token, photoWithGPS(t))}, bearer(token))
 	v := decode[accountView](t, res)
 	if res.Status != http.StatusOK || v.AvatarURL == "" {
 		t.Fatalf("avatar: %d %s", res.Status, res.Body)
@@ -23,16 +23,10 @@ func setAvatar(t *testing.T, token string) string {
 // The PATCH answers with the processed avatar: a square JPEG without EXIF.
 func TestAvatar(t *testing.T) {
 	t.Parallel()
-	expect := func(name string, res Response, status int, code string) {
-		t.Helper()
-		if res.Status != status || (code != "" && errorOf(t, res).Code != code) {
-			t.Errorf("%s: %d %s", name, res.Status, res.Body)
-		}
-	}
 	acc, _ := newAccount(t)
 	patch := func(body any) Response {
 		t.Helper()
-		return call(t, server, "PATCH", "/v1/accounts/me", body, bearer(acc.AccessToken))
+		return call(t, "PATCH", "/v1/accounts/me", body, bearer(acc.AccessToken))
 	}
 	url := setAvatar(t, acc.AccessToken)
 	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, url, http.NoBody)
@@ -46,14 +40,14 @@ func TestAvatar(t *testing.T) {
 	if res.StatusCode != http.StatusOK || err != nil || cfg.Width != cfg.Height || hasExif(b) {
 		t.Fatalf("%s: %d %dx%d exif %v %v", url, res.StatusCode, cfg.Width, cfg.Height, hasExif(b), err)
 	}
-	if v := decode[accountView](t, call(t, server, "GET", "/v1/accounts/me", nil, bearer(acc.AccessToken))); v.AvatarURL != url {
+	if v := decode[accountView](t, call(t, "GET", "/v1/accounts/me", nil, bearer(acc.AccessToken))); v.AvatarURL != url {
 		t.Fatalf("read back %q", v.AvatarURL)
 	}
 
 	other, _ := newAccount(t)
-	expect("someone else's upload", patch(map[string]any{"avatar_upload_id": upload(t, other.AccessToken, photoWithGPS(t))}), 422, "invalid_upload")
-	expect("not a photo", patch(map[string]any{"avatar_upload_id": upload(t, acc.AccessToken, []byte("hello, not a photo"))}), 422, "invalid_upload")
-	expect("a bad id", patch(map[string]any{"avatar_upload_id": "x"}), 400, "")
+	check(t, "someone else's upload", patch(map[string]any{"avatar_upload_id": upload(t, other.AccessToken, photoWithGPS(t))}), 422, "invalid_upload")
+	check(t, "not a photo", patch(map[string]any{"avatar_upload_id": upload(t, acc.AccessToken, []byte("hello, not a photo"))}), 422, "invalid_upload")
+	check(t, "a bad id", patch(map[string]any{"avatar_upload_id": "x"}), 400, "")
 
 	res2 := patch(map[string]any{"avatar_upload_id": nil})
 	if v := decode[accountView](t, res2); res2.Status != http.StatusOK || v.AvatarURL != "" {
@@ -67,14 +61,12 @@ func TestInboxAvatar(t *testing.T) {
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
 	avatar := setAvatar(t, seller.AccessToken)
-	openChat(t, buyer.AccessToken, activeListing(t, seller.AccessToken).ID, "Còn không bạn?")
-	inbox := decode[struct {
-		Items []struct {
-			Other struct {
-				AvatarURL string `json:"avatar_url"`
-			} `json:"other"`
-		} `json:"items"`
-	}](t, call(t, server, "GET", "/v1/screens/inbox", nil, bearer(buyer.AccessToken)))
+	openChat(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID, "Còn không bạn?")
+	inbox := decode[page[struct {
+		Other struct {
+			AvatarURL string `json:"avatar_url"`
+		} `json:"other"`
+	}]](t, call(t, "GET", "/v1/screens/inbox", nil, bearer(buyer.AccessToken)))
 	if len(inbox.Items) != 1 || inbox.Items[0].Other.AvatarURL != avatar {
 		t.Errorf("inbox: %+v", inbox)
 	}

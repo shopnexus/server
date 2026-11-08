@@ -48,7 +48,7 @@ func newEnv(t *testing.T) env {
 
 // at is Console on the env's database with its clock stopped at t.
 func (e env) at(t time.Time) *service.Console {
-	return console.NewService(e.db, e.keys, e.cfg, nil, func() time.Time { return t })
+	return console.NewService(e.db, console.Settings{Keys: e.keys, Config: e.cfg}, nil, func() time.Time { return t })
 }
 
 func (e env) login(email, pw, newPassword, code string, at time.Time) (service.SignedIn, error) {
@@ -68,7 +68,7 @@ func (e env) callerOf(t *testing.T, in service.SignedIn) authn.ConsoleMember {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return authn.ConsoleMember{MemberID: g.MemberID, SessionID: g.SessionID, IP: clientIP}
+	return authn.ConsoleMember{MemberID: g.MemberID, SessionID: g.SessionID, Role: string(g.Role), IP: clientIP}
 }
 
 // create makes a member and returns its view and temporary password.

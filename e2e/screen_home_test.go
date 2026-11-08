@@ -8,8 +8,8 @@ import (
 func TestHomeScreen(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
-	postActive(t, seller.AccessToken, nil)
-	res := call(t, server, "GET", "/v1/screens/home?near_commune=00004", nil)
+	activeListing(t, seller.AccessToken, nil)
+	res := call(t, "GET", "/v1/screens/home?near_commune=00004", nil)
 	v := decode[struct {
 		Categories []struct {
 			Code     string `json:"code"`
@@ -42,7 +42,7 @@ func TestHomeScreen(t *testing.T) {
 		"an unknown commune": {"/v1/screens/home?near_commune=nope", nil, 400, "invalid_position"},
 		"a bad token":        {"/v1/screens/home?near_commune=00004", [][2]string{{"Authorization", "Bearer nope"}}, 401, ""},
 	} {
-		res := call(t, server, "GET", c.path, nil, c.headers...)
+		res := call(t, "GET", c.path, nil, c.headers...)
 		if res.Status != c.status || (c.code != "" && errorOf(t, res).Code != c.code) {
 			t.Errorf("%s: %d %s", name, res.Status, res.Body)
 		}

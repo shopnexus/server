@@ -41,7 +41,7 @@ func failWith(t *testing.T, err error) (*httptest.ResponseRecorder, *bytes.Buffe
 	t.Helper()
 	var logs bytes.Buffer
 	log := telemetry.NewLogger(&logs, "json", slog.LevelInfo)
-	h := Trace(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	h := Trace(slog.New(slog.DiscardHandler))(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, log, err)
 	}))
 	return serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/x", http.NoBody)), &logs
@@ -112,7 +112,7 @@ func TestRecoverTurnsPanicInto500(t *testing.T) {
 	t.Parallel()
 	var logs bytes.Buffer
 	log := slog.New(slog.NewJSONHandler(&logs, nil))
-	h := Trace(Recover(log)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+	h := Trace(log)(Recover(log)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("kaboom")
 	})))
 	rec := serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody))
@@ -123,8 +123,14 @@ func TestRecoverTurnsPanicInto500(t *testing.T) {
 	if !strings.Contains(logs.String(), "kaboom") || !strings.Contains(logs.String(), "goroutine") {
 		t.Fatalf("log lacks panic value or stack: %s", logs.String())
 	}
-	if n := strings.Count(logs.String(), "\n"); n != 1 {
-		t.Fatalf("the panic was logged %d times: %s", n, logs.String())
+	// One line for the panic, then the access line with the 500.
+	lines := strings.Split(strings.TrimSpace(logs.String()), "\n")
+	if len(lines) != 2 || strings.Count(logs.String(), "kaboom") != 1 {
+		t.Fatalf("want the panic once and an access line: %s", logs.String())
+	}
+	var access map[string]any
+	if err := json.Unmarshal([]byte(lines[1]), &access); err != nil || access["msg"] != "request" || access["status"] != float64(500) {
+		t.Fatalf("access line %q: %v", lines[1], err)
 	}
 }
 

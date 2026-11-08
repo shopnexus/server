@@ -95,10 +95,10 @@ func ensureEnv(envPath, examplePath, pemPath string) error {
 	}
 
 	if get("JWT_KEY_ID") == "" || get("JWT_PRIVATE_KEY") == "" {
-		for l := range strings.SplitSeq(strings.TrimSpace(config.NewAuthKeys().Env()), "\n") {
-			k, v, _ := strings.Cut(l, "=")
-			set(k, v)
-		}
+		keys := config.NewAuthKeys()
+		set("JWT_KEY_ID", keys.JWTKeyID)
+		// Load reads JWT_PRIVATE_KEY as base64 of the 32-byte seed.
+		set("JWT_PRIVATE_KEY", base64.StdEncoding.EncodeToString(keys.JWTKey.Seed()))
 	}
 	if get("CONSOLE_KEY") == "" {
 		set("CONSOLE_KEY", base64.StdEncoding.EncodeToString(config.NewConsoleKey()))

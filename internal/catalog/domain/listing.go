@@ -1,6 +1,6 @@
 // Package domain holds module catalog's entities: the listing, one item a
-// seller offers at one price, with its photos, declared flaws and specs,
-// and the categories and regions it is filed under.
+// seller offers at one price, with its photos and specs, and the categories
+// and regions it is filed under.
 package domain
 
 import (
@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	// MaxOnSale is how many listings a seller may have on sale or hidden.
+	// MaxOnSale is how many listings a seller may have in an OnSale status.
 	MaxOnSale      = 20
 	MinPrice       = 10_000
 	MaxPrice       = 1_000_000_000
@@ -259,7 +259,7 @@ func (l *Listing) PendingUploads() []uuid.UUID {
 
 // Edit replaces the listing's content with d. An upload not processed yet,
 // or an edit of a rejected listing, sends the listing back through
-// processing. Sold and deleted listings cannot be edited.
+// processing. Sold, deleted and reserved listings cannot be edited.
 func (l *Listing) Edit(d Draft, refs Refs, now time.Time) error {
 	if l.status == StatusSold || l.status == StatusDeleted || l.status == StatusReserved {
 		return ErrStateConflict

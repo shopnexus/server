@@ -14,11 +14,11 @@ type Dashboards interface {
 	// session.
 	CreateTicket(ctx context.Context, t domain.DashboardTicket) error
 	// Redeem marks the ticket whose token hashes to ticketHash used and
-	// stores s for the ticket's console session, ending with it. It returns s
-	// with SessionID and ExpiresAt set, or ErrNotFound unless at
-	// s.CreatedAt the ticket is unused, unexpired, for s.App, and its console
-	// session lives.
-	Redeem(ctx context.Context, ticketHash []byte, s domain.DashboardSession) (domain.DashboardSession, error)
+	// stores a dashboard session for app, whose cookie's token hashes to
+	// tokenHash, on the ticket's console session. It returns the session's
+	// end, the console session's, or ErrNotFound unless at now the ticket is
+	// unused, unexpired, for app, and its console session lives.
+	Redeem(ctx context.Context, ticketHash, tokenHash []byte, app domain.App, now time.Time) (expiresAt time.Time, err error)
 	// Live is a query joining the dashboard session whose token hashes to
 	// tokenHash with its console session and member. It returns ErrNotFound
 	// unless the session is for app and its console session lives at now.

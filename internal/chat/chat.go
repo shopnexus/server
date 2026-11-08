@@ -3,10 +3,6 @@
 package chat
 
 import (
-	"net/http"
-
-	restate "github.com/restatedev/sdk-go"
-
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/chat/handler"
@@ -16,22 +12,16 @@ import (
 	"github.com/shopnexus/server2/internal/platform/module"
 )
 
-// Mounted is what chat's Mount gives app.
-type Mounted struct {
-	Services []restate.ServiceDefinition
-	Service  service.Service
-}
-
-// Mount registers the chat endpoints behind protect and returns chat's
+// Mount registers the chat endpoints and returns chat's
 // Restate services and its Service, which screen reads conversations
 // through.
-func Mount(d module.Deps, protect func(http.Handler) http.Handler, accounts accountsvc.Service,
-	catalog catalogsvc.Service, media mediasvc.Service,
-) Mounted {
+func Mount(d module.Deps, accounts accountsvc.Service, catalog catalogsvc.Service,
+	media mediasvc.Service,
+) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
 		Chats: repository.NewChats(d.Pool), Accounts: accounts, Catalog: catalog, Media: media,
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
-	handler.New(svc, d.Log).Register(d.Router, protect)
-	return Mounted{Services: svc.Durable(), Service: svc}
+	handler.New(svc, d.Log).Register(d.Router, d.Protect)
+	return module.Mounted[service.Service]{Services: svc.Durable(), Service: svc}
 }

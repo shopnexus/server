@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
 
@@ -19,11 +18,7 @@ func (h *Handler) Listing(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	var reader *uuid.UUID
-	if p, ok := authn.From(r.Context()); ok {
-		reader = &p.AccountID
-	}
-	out, err := h.svc.Listing(r.Context(), reader, in.ID)
+	out, err := h.svc.Listing(r.Context(), httpx.Viewer(r), in.ID)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

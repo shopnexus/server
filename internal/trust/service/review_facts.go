@@ -11,7 +11,7 @@ import (
 
 // ReviewFacts is a review as its notification reads it.
 type ReviewFacts struct {
-	ID, SellerID, ListingID uuid.UUID
+	ID, SellerID            uuid.UUID
 	BuyerName, ListingTitle string
 	Stars                   int
 }
@@ -28,12 +28,12 @@ func (s *Trust) ReviewFacts(ctx context.Context, id uuid.UUID) (ReviewFacts, boo
 	if err != nil {
 		return ReviewFacts{}, false, fmt.Errorf("read buyer: %w", err)
 	}
-	listings, err := s.catalog.Summaries(ctx, []uuid.UUID{r.ListingID()})
+	listing, _, err := s.catalog.Summary(ctx, r.ListingID())
 	if err != nil {
 		return ReviewFacts{}, false, fmt.Errorf("read listing: %w", err)
 	}
 	return ReviewFacts{
-		ID: id, SellerID: r.SellerID(), ListingID: r.ListingID(), BuyerName: buyer.DisplayName,
-		ListingTitle: listings[r.ListingID()].Title, Stars: r.Stars(),
+		ID: id, SellerID: r.SellerID(), BuyerName: buyer.DisplayName,
+		ListingTitle: listing.Title, Stars: r.Stars(),
 	}, true, nil
 }

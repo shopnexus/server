@@ -292,7 +292,7 @@ accounts:
   get:
     operationId: listConsoleAccounts
     summary: Customer accounts, newest first, or the one q names.
-    description: q matches an account ID, a phone number in any common form, or an email, exactly.
+    description: q matches an account ID or a phone number in any common form, exactly.
     tags: [console]
     security:
       - consoleAuth: []
@@ -302,7 +302,7 @@ accounts:
         schema:
           type: string
           minLength: 1
-          maxLength: 254
+          maxLength: 64
       - $ref: "../parameters/common.yaml#/Cursor"
       - $ref: "../parameters/common.yaml#/Limit"
     responses:

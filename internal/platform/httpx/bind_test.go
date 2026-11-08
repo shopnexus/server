@@ -209,3 +209,15 @@ func TestBindFloatAndRepeated(t *testing.T) {
 		t.Fatal("a word bound as a float")
 	}
 }
+
+func TestBindRepeatedNamedString(t *testing.T) {
+	t.Parallel()
+	type condition string
+	var in struct {
+		Cond []condition `json:"-" query:"condition"`
+	}
+	if err := Bind(request(t, "GET", "/x?condition=new&condition=used", ""), &in); err != nil ||
+		!reflect.DeepEqual(in.Cond, []condition{"new", "used"}) {
+		t.Fatalf("%+v %v", in, err)
+	}
+}

@@ -39,9 +39,8 @@ type Chats interface {
 	// Member returns ErrNotFound for an account outside the conversation.
 	Member(ctx context.Context, conversation, account uuid.UUID) (domain.Member, error)
 	// MarkRead moves account's marker to message when message is newer than
-	// the marker, in one conditional update, and reports whether it moved;
-	// a move notifies other.
-	MarkRead(ctx context.Context, conversation, account, message, other uuid.UUID) (bool, error)
+	// the marker, in one conditional update; a move notifies other.
+	MarkRead(ctx context.Context, conversation, account, message, other uuid.UUID) error
 	// SetArchived archives the conversation for account at at, or
 	// unarchives it for nil, touching nothing else.
 	SetArchived(ctx context.Context, conversation, account uuid.UUID, at *time.Time) error

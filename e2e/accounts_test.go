@@ -22,7 +22,7 @@ type accountView struct {
 func TestAccountMe(t *testing.T) {
 	t.Parallel()
 	acc, _ := newAccount(t)
-	res := call(t, server, "GET", "/v1/accounts/me", nil, bearer(acc.AccessToken))
+	res := call(t, "GET", "/v1/accounts/me", nil, bearer(acc.AccessToken))
 	if v := decode[accountView](t, res); res.Status != 200 || v.ID != acc.Account.ID || v.DisplayName != "" || v.Status != "active" {
 		t.Fatalf("status %d: %s", res.Status, res.Body)
 	}
@@ -30,10 +30,10 @@ func TestAccountMe(t *testing.T) {
 
 func TestAccountMeNeedsAToken(t *testing.T) {
 	t.Parallel()
-	if res := call(t, server, "GET", "/v1/accounts/me", nil); res.Status != 401 || errorOf(t, res).Code != "unauthenticated" {
+	if res := call(t, "GET", "/v1/accounts/me", nil); res.Status != 401 || errorOf(t, res).Code != "unauthenticated" {
 		t.Fatalf("no token: %d %s", res.Status, res.Body)
 	}
-	if res := call(t, server, "GET", "/v1/accounts/me", nil, bearer("junk")); res.Status != 401 || errorOf(t, res).Code != "invalid_token" {
+	if res := call(t, "GET", "/v1/accounts/me", nil, bearer("junk")); res.Status != 401 || errorOf(t, res).Code != "invalid_token" {
 		t.Fatalf("junk token: %d %s", res.Status, res.Body)
 	}
 }
@@ -44,10 +44,10 @@ func TestAccountMeUnknownAccount(t *testing.T) {
 	t.Parallel()
 	s, _ := accountdomain.NewSession(uuid.NewV7(), uuid.NewV7(), "", time.Now(), time.Now())
 	token, _, _ := accountdomain.NewSigner(keys).Sign(s, time.Now())
-	if res := call(t, server, "GET", "/v1/accounts/me", nil, bearer(token)); res.Status != 404 || errorOf(t, res).Code != "account_not_found" {
+	if res := call(t, "GET", "/v1/accounts/me", nil, bearer(token)); res.Status != 404 || errorOf(t, res).Code != "account_not_found" {
 		t.Fatalf("get: %d %s", res.Status, res.Body)
 	}
-	res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "Linh"}, bearer(token))
+	res := call(t, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "Linh"}, bearer(token))
 	if res.Status != 404 || errorOf(t, res).Code != "account_not_found" {
 		t.Fatalf("patch: %d %s", res.Status, res.Body)
 	}
@@ -62,7 +62,7 @@ func TestAccountUpdateRace(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := range 30 {
 		wg.Go(func() {
-			res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": fmt.Sprint("Linh ", i)}, bearer(acc.AccessToken))
+			res := call(t, "PATCH", "/v1/accounts/me", map[string]string{"display_name": fmt.Sprint("Linh ", i)}, bearer(acc.AccessToken))
 			if res.Status == 409 && errorOf(t, res).Code != "try_again" {
 				t.Errorf("409 with %s", res.Body)
 			}
@@ -88,7 +88,7 @@ func TestAccountUpdateRace(t *testing.T) {
 func TestAccountUpdate(t *testing.T) {
 	t.Parallel()
 	acc, _ := newAccount(t)
-	res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "  Linh  ", "bio": " Đồ cũ còn tốt "}, bearer(acc.AccessToken))
+	res := call(t, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "  Linh  ", "bio": " Đồ cũ còn tốt "}, bearer(acc.AccessToken))
 	if v := decode[accountView](t, res); res.Status != 200 || v.DisplayName != "Linh" || v.Bio != "Đồ cũ còn tốt" {
 		t.Fatalf("status %d: %s", res.Status, res.Body)
 	}
@@ -102,13 +102,11 @@ func TestAccountUpdate(t *testing.T) {
 		{map[string]string{"display_name": "Linh", "status": "active"}, 400, "invalid_request"},
 		{map[string]string{}, 400, "invalid_request"},
 	} {
-		if res := call(t, server, "PATCH", "/v1/accounts/me", c.body, bearer(acc.AccessToken)); res.Status != c.status || errorOf(t, res).Code != c.code {
+		if res := call(t, "PATCH", "/v1/accounts/me", c.body, bearer(acc.AccessToken)); res.Status != c.status || errorOf(t, res).Code != c.code {
 			t.Fatalf("%v: %d %s", c.body, res.Status, res.Body)
 		}
 	}
-	if res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "Linh"}); res.Status != 401 {
-		t.Fatalf("no token: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "Linh"}), 401)
 }
 
 // A suspended person keeps read access until the access token expires;
@@ -117,10 +115,6 @@ func TestAccountUpdateWhileSuspended(t *testing.T) {
 	t.Parallel()
 	acc, _ := newAccount(t)
 	suspend(t, acc.Account.ID)
-	if res := call(t, server, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "Linh"}, bearer(acc.AccessToken)); res.Status != 403 {
-		t.Fatalf("rename: %d %s", res.Status, res.Body)
-	}
-	if res := call(t, server, "GET", "/v1/accounts/me", nil, bearer(acc.AccessToken)); res.Status != 200 {
-		t.Fatalf("read: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "PATCH", "/v1/accounts/me", map[string]string{"display_name": "Linh"}, bearer(acc.AccessToken)), 403)
+	expectStatus(t, call(t, "GET", "/v1/accounts/me", nil, bearer(acc.AccessToken)), 200)
 }

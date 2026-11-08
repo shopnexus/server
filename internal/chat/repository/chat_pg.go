@@ -24,26 +24,37 @@ func NewChats(db *pgxpool.Pool) Chats { return pgChats{db} }
 const messageColumns = `m.id, m.conversation_id, m.sender_id, m.body, m.photos, m.listing_id, m.status, m.failure,
        m.created_at`
 
-func scanMessage(row pgx.Row, extra ...any) (domain.Message, error) {
-	var (
-		st      domain.MessageState
-		photos  []byte
-		failure *string
-	)
-	dest := append([]any{
-		&st.ID, &st.ConversationID, &st.SenderID, &st.Body, &photos, &st.ListingID, &st.Status,
-		&failure, &st.CreatedAt,
-	}, extra...)
-	if err := row.Scan(dest...); err != nil {
-		return domain.Message{}, fmt.Errorf("scan message: %w", err)
+// messageScan holds a message's columns while a row is scanned.
+type messageScan struct {
+	st      domain.MessageState
+	photos  []byte
+	failure *string
+}
+
+func (m *messageScan) dest() []any {
+	return []any{
+		&m.st.ID, &m.st.ConversationID, &m.st.SenderID, &m.st.Body, &m.photos, &m.st.ListingID, &m.st.Status,
+		&m.failure, &m.st.CreatedAt,
 	}
-	if err := json.Unmarshal(photos, &st.Photos); err != nil {
+}
+
+// message is the scanned message.
+func (m *messageScan) message() (domain.Message, error) {
+	if err := json.Unmarshal(m.photos, &m.st.Photos); err != nil {
 		return domain.Message{}, fmt.Errorf("decode photos: %w", err)
 	}
-	if failure != nil {
-		st.Failure = *failure
+	if m.failure != nil {
+		m.st.Failure = *m.failure
 	}
-	return domain.RestoreMessage(st), nil
+	return domain.RestoreMessage(m.st), nil
+}
+
+func scanMessage(row pgx.CollectableRow) (domain.Message, error) {
+	var m messageScan
+	if err := row.Scan(m.dest()...); err != nil {
+		return domain.Message{}, fmt.Errorf("scan message: %w", err)
+	}
+	return m.message()
 }
 
 func (s pgChats) OpenPair(ctx context.Context, c domain.Conversation) (domain.Conversation, error) {
@@ -178,13 +189,16 @@ func (s pgChats) DeleteMessage(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s pgChats) GetMessage(ctx context.Context, id uuid.UUID) (domain.Message, error) {
-	m, err := scanMessage(s.db.QueryRow(ctx, `SELECT `+messageColumns+` FROM messages m WHERE m.id = @id`,
-		pgx.StrictNamedArgs{"id": id}))
+	rows, err := s.db.Query(ctx, `SELECT `+messageColumns+` FROM messages m WHERE m.id = @id`, pgx.StrictNamedArgs{"id": id})
+	if err != nil {
+		return domain.Message{}, fmt.Errorf("select message: %w", err)
+	}
+	m, err := pgx.CollectOneRow(rows, scanMessage)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Message{}, ErrNotFound
 	}
 	if err != nil {
-		return domain.Message{}, err
+		return domain.Message{}, fmt.Errorf("read message: %w", err)
 	}
 	return m, nil
 }
@@ -209,25 +223,20 @@ func (s pgChats) SaveMessage(ctx context.Context, m domain.Message) error {
 }
 
 func (s pgChats) Member(ctx context.Context, conversation, account uuid.UUID) (domain.Member, error) {
-	m := domain.Member{ConversationID: conversation, AccountID: account}
-	var lastRead *uuid.UUID
-	err := s.db.QueryRow(ctx, `SELECT last_read_message_id, archived_at FROM conversation_members
+	var m domain.Member
+	err := s.db.QueryRow(ctx, `SELECT archived_at FROM conversation_members
 WHERE conversation_id = @conversation AND account_id = @account`,
-		pgx.StrictNamedArgs{"conversation": conversation, "account": account}).Scan(&lastRead, &m.ArchivedAt)
+		pgx.StrictNamedArgs{"conversation": conversation, "account": account}).Scan(&m.ArchivedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Member{}, ErrNotFound
 	}
 	if err != nil {
 		return domain.Member{}, fmt.Errorf("select member: %w", err)
 	}
-	if lastRead != nil {
-		m.LastRead = *lastRead
-	}
 	return m, nil
 }
 
-func (s pgChats) MarkRead(ctx context.Context, conversation, account, message, other uuid.UUID) (bool, error) {
-	moved := false
+func (s pgChats) MarkRead(ctx context.Context, conversation, account, message, other uuid.UUID) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `UPDATE conversation_members SET last_read_message_id = @message
 WHERE conversation_id = @conversation AND account_id = @account
@@ -236,15 +245,15 @@ WHERE conversation_id = @conversation AND account_id = @account
 		if err != nil {
 			return fmt.Errorf("update marker: %w", err)
 		}
-		if moved = tag.RowsAffected() == 1; !moved {
+		if tag.RowsAffected() == 0 {
 			return nil
 		}
 		return stream.Notify(ctx, tx, []uuid.UUID{other}, stream.Hint{Kind: stream.KindRead, ConversationID: &conversation})
 	})
 	if err != nil {
-		return false, fmt.Errorf("mark read: %w", err)
+		return fmt.Errorf("mark read: %w", err)
 	}
-	return moved, nil
+	return nil
 }
 
 func (s pgChats) SetArchived(ctx context.Context, conversation, account uuid.UUID, at *time.Time) error {
@@ -265,16 +274,8 @@ ORDER BY m.id DESC LIMIT @limit`, pgx.StrictNamedArgs{
 	if err != nil {
 		return nil, fmt.Errorf("select messages: %w", err)
 	}
-	defer rows.Close()
-	var out []domain.Message
-	for rows.Next() {
-		m, scanErr := scanMessage(rows)
-		if scanErr != nil {
-			return nil, scanErr
-		}
-		out = append(out, m)
-	}
-	if err = rows.Err(); err != nil {
+	out, err := pgx.CollectRows(rows, scanMessage)
+	if err != nil {
 		return nil, fmt.Errorf("read messages: %w", err)
 	}
 	return out, nil
@@ -329,19 +330,21 @@ func (s pgChats) Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p p
 	if err != nil {
 		return nil, fmt.Errorf("select inbox: %w", err)
 	}
-	defer rows.Close()
-	var out []InboxRow
-	for rows.Next() {
-		var r InboxRow
-		r.Last, err = scanMessage(rows, &r.Conversation.ID, &r.Conversation.AccountA, &r.Conversation.AccountB,
-			&r.Conversation.CreatedAt, &r.Unread)
-		if err != nil {
-			return nil, err
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (InboxRow, error) {
+		var (
+			r InboxRow
+			m messageScan
+		)
+		if scanErr := row.Scan(append(m.dest(), &r.Conversation.ID, &r.Conversation.AccountA, &r.Conversation.AccountB,
+			&r.Conversation.CreatedAt, &r.Unread)...); scanErr != nil {
+			return InboxRow{}, fmt.Errorf("scan inbox row: %w", scanErr)
 		}
 		r.Other = r.Conversation.Other(viewer)
-		out = append(out, r)
-	}
-	if err = rows.Err(); err != nil {
+		last, msgErr := m.message()
+		r.Last = last
+		return r, msgErr
+	})
+	if err != nil {
 		return nil, fmt.Errorf("read inbox: %w", err)
 	}
 	return out, nil

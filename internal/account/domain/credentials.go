@@ -13,9 +13,6 @@ type Kind string
 
 const KindPhone Kind = "phone"
 
-// KindOf maps a contact kind to the identity kind of the same name.
-func KindOf(a contact.Address) Kind { return Kind(a.Kind()) }
-
 // IdentityRef names an identity and the account holding it.
 type IdentityRef struct {
 	AccountID  uuid.UUID `json:"account_id"`
@@ -32,9 +29,9 @@ type Identity struct {
 }
 
 // NewIdentity builds the identity of a phone number Firebase just verified;
-// it counts as used at now.
+// it counts as used at now. Its kind is the contact kind of the same name.
 func NewIdentity(id uuid.UUID, a contact.Address, now time.Time) Identity {
-	return Identity{id: id, kind: KindOf(a), value: a.Value(), lastUsedAt: &now, createdAt: now}
+	return Identity{id: id, kind: Kind(a.Kind()), value: a.Value(), lastUsedAt: &now, createdAt: now}
 }
 
 func (i Identity) ID() uuid.UUID          { return i.id }

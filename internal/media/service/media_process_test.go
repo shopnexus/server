@@ -4,14 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/binary"
-	"hash/crc32"
 	"image"
 	"image/color"
-	"image/jpeg"
 	"image/png"
 	"io"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -20,32 +16,14 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server2/internal/media/mediatest"
 	"github.com/shopnexus/server2/internal/media/repository"
 	"github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 )
-
-// photo is a w×h image with a gradient, so the encoder has work to do.
-func photo(w, h int) *image.RGBA {
-	m := image.NewRGBA(image.Rect(0, 0, w, h))
-	for y := range h {
-		for x := range w {
-			m.Set(x, y, color.RGBA{uint8(x), uint8(y), 128, 255})
-		}
-	}
-	return m
-}
-
-func jpegBytes(t *testing.T, w, h int) []byte {
-	t.Helper()
-	var b bytes.Buffer
-	if err := jpeg.Encode(&b, photo(w, h), nil); err != nil {
-		t.Fatal(err)
-	}
-	return b.Bytes()
-}
 
 // exifMarker is an APP1 segment holding EXIF.
 var exifMarker = []byte{0xFF, 0xE1}
@@ -55,43 +33,20 @@ func hasExif(b []byte) bool {
 	return i >= 0 && bytes.HasPrefix(b[i+4:], []byte("Exif\x00\x00"))
 }
 
-// withExif puts an APP1 EXIF segment, as a phone writes with GPS, right
-// after a JPEG's SOI marker.
-func withExif(t *testing.T, jpg []byte) []byte {
-	t.Helper()
-	tiff := []byte("II*\x00\x08\x00\x00\x00\x00\x00") // little-endian header, an empty IFD
-	payload := append([]byte("Exif\x00\x00"), tiff...)
-	seg := append([]byte{0xFF, 0xE1, 0, 0}, payload...)
-	binary.BigEndian.PutUint16(seg[2:], uint16(len(payload)+2))
-	out := append([]byte{}, jpg[:2]...)
-	out = append(out, seg...)
-	out = append(out, jpg[2:]...)
-	if !hasExif(out) {
-		t.Fatal("the fixture has no EXIF")
-	}
-	return out
-}
-
+// pngBytes is a w×h PNG with a gradient, so the encoder has work to do.
 func pngBytes(t *testing.T, w, h int) []byte {
 	t.Helper()
+	m := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := range h {
+		for x := range w {
+			m.Set(x, y, color.RGBA{uint8(x), uint8(y), 128, 255})
+		}
+	}
 	var b bytes.Buffer
-	if err := png.Encode(&b, photo(w, h)); err != nil {
+	if err := png.Encode(&b, m); err != nil {
 		t.Fatal(err)
 	}
 	return b.Bytes()
-}
-
-// pngHeader is a PNG that declares w×h and holds no pixels: decoding the
-// header alone must refuse it.
-func pngHeader(w, h uint32) []byte {
-	ihdr := make([]byte, 13)
-	binary.BigEndian.PutUint32(ihdr[0:], w)
-	binary.BigEndian.PutUint32(ihdr[4:], h)
-	ihdr[8], ihdr[9] = 8, 2 // 8-bit RGB
-	chunk := append([]byte("IHDR"), ihdr...)
-	out := append([]byte("\x89PNG\r\n\x1a\n"), 0, 0, 0, 13)
-	out = append(out, chunk...)
-	return binary.BigEndian.AppendUint32(out, crc32.ChecksumIEEE(chunk))
 }
 
 // webpBytes is a 1×1 lossless WebP.
@@ -107,25 +62,12 @@ func webpBytes(t *testing.T) []byte {
 // uploadAs creates an attached upload of contentType holding body.
 func (e env) uploadAs(t *testing.T, contentType string, body []byte) uuid.UUID {
 	t.Helper()
-	owner := e.account(t)
-	ticket, err := e.media.CreateUpload(context.Background(), owner, contentType, int64(len(body)))
-	if err != nil {
+	owner := accounttest.New(t, e.db)
+	id := mediatest.Upload(t, e.media, owner, contentType, body)
+	if err := e.media.Attach(context.Background(), owner, uuid.NewV7(), []uuid.UUID{id}); err != nil {
 		t.Fatal(err)
 	}
-	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPut, ticket.URL, bytes.NewReader(body))
-	for k, v := range ticket.Headers {
-		req.Header.Set(k, v)
-	}
-	req.ContentLength = int64(len(body))
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = res.Body.Close()
-	if err := e.media.Attach(context.Background(), owner, uuid.NewV7(), []uuid.UUID{ticket.UploadID}); err != nil {
-		t.Fatal(err)
-	}
-	return ticket.UploadID
+	return id
 }
 
 func (e env) process(t *testing.T, id uuid.UUID) service.ProcessResult {
@@ -169,7 +111,7 @@ func TestProcessJPEGPNGWebP(t *testing.T) {
 		body        []byte
 		long        int
 	}{
-		"jpeg": {"image/jpeg", jpegBytes(t, 2400, 1800), 1600},
+		"jpeg": {"image/jpeg", mediatest.JPEG(t, 2400, 1800), 1600},
 		"png":  {"image/png", pngBytes(t, 900, 1200), 1200},
 		"webp": {"image/webp", webpBytes(t), 1},
 	} {
@@ -196,7 +138,7 @@ func TestProcessJPEGPNGWebP(t *testing.T) {
 func TestProcessDropsExif(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	id := e.uploadAs(t, "image/jpeg", withExif(t, jpegBytes(t, 800, 600)))
+	id := e.uploadAs(t, "image/jpeg", withOrientation(mediatest.JPEG(t, 800, 600), 1))
 	if res := e.process(t, id); res.Status != domain.StatusReady {
 		t.Fatalf("%+v", res)
 	}
@@ -211,7 +153,7 @@ func TestProcessDropsExif(t *testing.T) {
 func TestProcessRefusesHugeImages(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	id := e.uploadAs(t, "image/png", pngHeader(10000, 10000))
+	id := e.uploadAs(t, "image/png", pngHeaderOf(10000, 10000, 8))
 	res := e.process(t, id)
 	if res.Status != domain.StatusFailed || !strings.Contains(res.Failure, "too large") {
 		t.Fatalf("%+v", res)
@@ -239,7 +181,7 @@ func TestProcessRefusesWrongContent(t *testing.T) {
 func TestProcessTwiceIsTheSame(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	id := e.uploadAs(t, "image/jpeg", jpegBytes(t, 100, 100))
+	id := e.uploadAs(t, "image/jpeg", mediatest.JPEG(t, 100, 100))
 	first, second := e.process(t, id), e.process(t, id)
 	if first.Status != domain.StatusReady || second != first {
 		t.Fatalf("%+v %+v", first, second)
@@ -251,7 +193,7 @@ func TestProcessTwiceIsTheSame(t *testing.T) {
 func TestProcessWaitsForASlot(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	id := e.uploadAs(t, "image/jpeg", jpegBytes(t, 64, 48))
+	id := e.uploadAs(t, "image/jpeg", mediatest.JPEG(t, 64, 48))
 	slots := make(chan struct{}, 1)
 	slots <- struct{}{}
 	p := restatetest.Prefix()

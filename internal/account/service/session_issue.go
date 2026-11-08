@@ -11,11 +11,11 @@ import (
 	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
-// IssueSession starts session id and signs its first access token. When the
+// issueSession starts session id and signs its first access token. When the
 // session exists already, because the client replayed an Idempotency-Key, it
 // rotates the refresh token instead, so the replay also gets working tokens.
 // SignIn calls it after the SignIn service.
-func (s *Account) IssueSession(ctx context.Context, id, accountID uuid.UUID, deviceName string) (domain.Tokens, error) {
+func (s *Account) issueSession(ctx context.Context, id, accountID uuid.UUID, deviceName string) (domain.Tokens, error) {
 	now := s.now()
 	sess, refresh := domain.NewSession(id, accountID, deviceName, now, now)
 	created, err := s.sessions.Create(ctx, sess)

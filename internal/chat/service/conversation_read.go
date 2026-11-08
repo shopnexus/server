@@ -25,7 +25,7 @@ func (c *Chat) Read(ctx context.Context, account, conversation, message uuid.UUI
 	if err != nil {
 		return fmt.Errorf("get message: %w", err)
 	}
-	if _, err = c.chats.MarkRead(ctx, conversation, account, message, conv.Other(account)); err != nil {
+	if err = c.chats.MarkRead(ctx, conversation, account, message, conv.Other(account)); err != nil {
 		return fmt.Errorf("mark read: %w", err)
 	}
 	return nil

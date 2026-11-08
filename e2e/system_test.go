@@ -14,16 +14,12 @@ import (
 
 func TestHealthz(t *testing.T) {
 	t.Parallel()
-	if res := call(t, server, "GET", "/healthz", nil); res.Status != 200 {
-		t.Fatalf("status %d: %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "GET", "/healthz", nil), 200)
 }
 
 func TestReadyz(t *testing.T) {
 	t.Parallel()
-	if res := call(t, server, "GET", "/readyz", nil); res.Status != 200 {
-		t.Fatalf("status %d: %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "GET", "/readyz", nil), 200)
 }
 
 func TestReadyzDown(t *testing.T) {
@@ -47,7 +43,5 @@ func TestReadyzDown(t *testing.T) {
 	t.Cleanup(srv.Close)
 	a.Close(context.Background()) // the pool is gone; readiness must say so
 
-	if res := call(t, srv.URL, "GET", "/readyz", nil); res.Status != 503 {
-		t.Fatalf("status %d: %s", res.Status, res.Body)
-	}
+	expectStatus(t, callAt(t, srv.URL, "GET", "/readyz", nil), 503)
 }

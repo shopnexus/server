@@ -44,7 +44,7 @@ func newStore(t *testing.T) (repository.Members, *pgxpool.Pool) {
 func created(t *testing.T, s repository.Members, m domain.Member) {
 	t.Helper()
 	e := audit.Entry{Actor: audit.ByCLI("test"), Action: audit.MemberCreate, Target: audit.Member(m.ID()), At: now}
-	if err := s.CreateAudited(context.Background(), m, e); err != nil {
+	if err := s.Create(context.Background(), m, e); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -65,7 +65,7 @@ func TestCreateGetFind(t *testing.T) {
 	ctx := context.Background()
 	m := newMember(t, domain.RoleModerator)
 	created(t, s, m)
-	if err := s.CreateAudited(ctx, m, audit.Entry{Actor: audit.ByCLI("test"), Action: audit.MemberCreate, Target: audit.Member(m.ID()), At: now}); err != nil {
+	if err := s.Create(ctx, m, audit.Entry{Actor: audit.ByCLI("test"), Action: audit.MemberCreate, Target: audit.Member(m.ID()), At: now}); err != nil {
 		t.Fatalf("creating the same id again: %v", err)
 	}
 	if actions(t, db, m.ID()) != 1 {
@@ -91,7 +91,7 @@ func TestEmailTaken(t *testing.T) {
 	s, _ := newStore(t)
 	created(t, s, newMember(t, domain.RoleModerator))
 	other := newMember(t, domain.RoleAdmin)
-	err := s.CreateAudited(context.Background(), other, audit.Entry{Actor: audit.ByCLI("test"), Action: audit.MemberCreate, Target: audit.Member(other.ID()), At: now})
+	err := s.Create(context.Background(), other, audit.Entry{Actor: audit.ByCLI("test"), Action: audit.MemberCreate, Target: audit.Member(other.ID()), At: now})
 	if !errors.Is(err, domain.ErrEmailTaken) {
 		t.Fatalf("got %v", err)
 	}
@@ -105,7 +105,7 @@ func TestSecretsAreSealed(t *testing.T) {
 	created(t, s, m)
 	secret := domain.NewTOTPSecret()
 	m.StartEnrollment(secret, now)
-	if err := s.Save(ctx, &m, uuid.NewV7()); err != nil {
+	if err := s.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
 		t.Fatal(err)
 	}
 	var raw []byte
@@ -121,7 +121,7 @@ func TestSecretsAreSealed(t *testing.T) {
 	}
 }
 
-func TestSaveAuditedConflictWritesNoAudit(t *testing.T) {
+func TestSaveConflictWritesNoAudit(t *testing.T) {
 	t.Parallel()
 	s, db := newStore(t)
 	ctx := context.Background()
@@ -130,11 +130,11 @@ func TestSaveAuditedConflictWritesNoAudit(t *testing.T) {
 	stale := m
 	m.Disable(now)
 	e := audit.Entry{Actor: audit.ByCLI("test"), Action: audit.MemberDisable, Target: audit.Member(m.ID()), At: now}
-	if err := s.SaveAudited(ctx, &m, uuid.NewV7(), e); err != nil {
+	if err := s.Save(ctx, &m, uuid.NewV7(), &e); err != nil {
 		t.Fatal(err)
 	}
 	stale.Enable(now)
-	if err := s.SaveAudited(ctx, &stale, uuid.NewV7(), e); !errors.Is(err, repository.ErrConflict) {
+	if err := s.Save(ctx, &stale, uuid.NewV7(), &e); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("stale save: %v", err)
 	}
 	if actions(t, db, m.ID()) != 2 {
@@ -163,11 +163,11 @@ func TestSaveTwice(t *testing.T) {
 	m := newMember(t, domain.RoleModerator)
 	created(t, s, m)
 	m.Disable(now)
-	if err := s.Save(context.Background(), &m, uuid.NewV7()); err != nil {
+	if err := s.Save(context.Background(), &m, uuid.NewV7(), nil); err != nil {
 		t.Fatal(err)
 	}
 	m.Enable(now)
-	if err := s.Save(context.Background(), &m, uuid.NewV7()); err != nil {
+	if err := s.Save(context.Background(), &m, uuid.NewV7(), nil); err != nil {
 		t.Fatalf("second save: %v", err)
 	}
 }

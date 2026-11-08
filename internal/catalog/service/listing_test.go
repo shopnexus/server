@@ -15,9 +15,11 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/service"
 	mediadomain "github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server2/internal/media/mediatest"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 // Posting refuses a suspended account, then an account with no phone, then
@@ -56,14 +58,14 @@ func TestPostChecksInOrder(t *testing.T) {
 	}
 
 	seller := e.seller(t)
-	bad.Photos = []uuid.UUID{e.upload(t, seller, jpegBytes(t))}
+	bad.Photos = []uuid.UUID{e.upload(t, seller, mediatest.JPEG(t, 64, 48))}
 	bad.CommuneCode = "99999"
 	_, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), bad)
 	if ae, ok := errors.AsType[*apperr.Error](err); !ok || !errors.Is(err, domain.ErrInvalidListing) ||
 		ae.Fields["category_code"] == "" || ae.Fields["commune_code"] == "" {
 		t.Fatalf("bad draft: %v", err)
 	}
-	theirs := e.upload(t, e.seller(t), jpegBytes(t))
+	theirs := e.upload(t, e.seller(t), mediatest.JPEG(t, 64, 48))
 	if _, err = e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(theirs)); !errors.Is(err, mediadomain.ErrInvalidUpload) {
 		t.Fatalf("someone else's upload: %v", err)
 	}
@@ -76,7 +78,7 @@ func TestPostPublishes(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller := e.seller(t)
-	d := draft(e.upload(t, seller, jpegBytes(t)))
+	d := draft(e.upload(t, seller, mediatest.JPEG(t, 64, 48)))
 	key := uuid.NewV7().String()
 	posted, err := e.catalog.Post(ctx, seller, key, d)
 	if err != nil || posted.Status != domain.StatusProcessing || posted.Location.Province.DisplayName == "" {
@@ -90,7 +92,7 @@ func TestPostPublishes(t *testing.T) {
 	if v.Status != domain.StatusActive || v.PublishedAt == nil || v.Photos[0].URL == "" || v.Photos[0].ThumbURL == "" {
 		t.Fatalf("%+v", v)
 	}
-	if got := kindsOf(t, e.db, posted.ID); !slices.Equal(got, []string{"listing.published"}) {
+	if got := pgtest.EventKinds(t, e.db, posted.ID); !slices.Equal(got, []string{"listing.published"}) {
 		t.Fatalf("events %v", got)
 	}
 	if _, err = e.catalog.Get(ctx, nil, posted.ID); err != nil {
@@ -105,7 +107,7 @@ func TestPublishRejects(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller := e.seller(t)
-	good, broken := e.upload(t, seller, jpegBytes(t)), e.upload(t, seller, []byte("not a jpeg at all"))
+	good, broken := e.upload(t, seller, mediatest.JPEG(t, 64, 48)), e.upload(t, seller, []byte("not a jpeg at all"))
 	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(good, broken))
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +146,7 @@ func TestEdit(t *testing.T) {
 	if err != nil || edited.Status != domain.StatusActive || edited.Title != "iPhone 13 zin" {
 		t.Fatalf("%+v %v", edited, err)
 	}
-	d.Photos = append(d.Photos, e.upload(t, seller, jpegBytes(t)))
+	d.Photos = append(d.Photos, e.upload(t, seller, mediatest.JPEG(t, 64, 48)))
 	if edited, err = e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d); err != nil || edited.Status != domain.StatusProcessing {
 		t.Fatalf("%+v %v", edited, err)
 	}
@@ -152,7 +154,7 @@ func TestEdit(t *testing.T) {
 		t.Fatalf("%+v", v)
 	}
 	want := []string{"listing.published", "listing.updated", "listing.updated", "listing.published"}
-	if got := kindsOf(t, e.db, v.ID); !slices.Equal(got, want) {
+	if got := pgtest.EventKinds(t, e.db, v.ID); !slices.Equal(got, want) {
 		t.Fatalf("events %v, want %v", got, want)
 	}
 	if _, err = e.catalog.Edit(ctx, e.seller(t), v.ID, uuid.NewV7().String(), d); !errors.Is(err, domain.ErrNotFound) {
@@ -199,7 +201,7 @@ func TestTransitions(t *testing.T) {
 	want := []string{
 		"listing.published", "listing.hidden", "listing.unhidden", "listing.sold", "listing.unsold", "listing.deleted",
 	}
-	if got := kindsOf(t, e.db, id); !slices.Equal(got, want) {
+	if got := pgtest.EventKinds(t, e.db, id); !slices.Equal(got, want) {
 		t.Fatalf("events %v, want %v", got, want)
 	}
 }
@@ -350,7 +352,7 @@ func TestReserveFlow(t *testing.T) {
 	if v, _ := e.catalog.Get(ctx, &seller, l.ID); v.Status != domain.StatusSold || v.SoldAt == nil {
 		t.Fatalf("sell: %+v", v)
 	}
-	k := kindsOf(t, e.db, l.ID)
+	k := pgtest.EventKinds(t, e.db, l.ID)
 	if want := []string{"listing.published", "listing.reserved", "listing.released", "listing.reserved", "listing.sold"}; !slices.Equal(k, want) {
 		t.Fatalf("events %v", k)
 	}

@@ -7,9 +7,9 @@ import (
 )
 
 type inboxScreen struct {
-	Items      []inboxRow `json:"items"`
-	NextCursor string     `json:"next_cursor"`
-	Unread     int        `json:"unread"`
+	page[inboxRow]
+
+	Unread int `json:"unread"`
 }
 
 type inboxRow struct {
@@ -39,23 +39,16 @@ type chatScreen struct {
 	Other struct {
 		ID string `json:"id"`
 	} `json:"other"`
-	Archived bool       `json:"archived"`
-	Deals    []dealBody `json:"deals"`
-	Messages struct {
-		Items      []messageBody `json:"items"`
-		NextCursor string        `json:"next_cursor"`
-	} `json:"messages"`
+	Archived bool              `json:"archived"`
+	Deals    []dealView        `json:"deals"`
+	Messages page[messageBody] `json:"messages"`
 }
 
 // inboxView reads a page of token's inbox view; query is the query string
 // without its "?".
 func inboxView(t *testing.T, token, query string) inboxScreen {
 	t.Helper()
-	res := call(t, server, "GET", "/v1/screens/inbox?"+query, nil, bearer(token))
-	if res.Status != http.StatusOK {
-		t.Fatalf("inbox: %d %s", res.Status, res.Body)
-	}
-	return decode[inboxScreen](t, res)
+	return expect[inboxScreen](t, call(t, "GET", "/v1/screens/inbox?"+query, nil, bearer(token)), http.StatusOK)
 }
 
 // inboxRows reads the first page of token's inbox view by the other
@@ -74,7 +67,7 @@ func TestInboxDeal(t *testing.T) {
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
 	asker, _ := newAccount(t)
-	bike, lamp := activeListing(t, seller.AccessToken), activeListing(t, seller.AccessToken)
+	bike, lamp := activeListing(t, seller.AccessToken, nil), activeListing(t, seller.AccessToken, nil)
 
 	openChat(t, buyer.AccessToken, bike.ID, "Bớt không bạn?")
 	offered := openDeal(t, buyer.AccessToken, bike.ID, http.StatusCreated)
@@ -101,14 +94,8 @@ func TestInboxDeal(t *testing.T) {
 // the caller's whole unread count.
 func TestInboxScreenPages(t *testing.T) {
 	t.Parallel()
-	expect := func(name string, res Response, status int, code string) {
-		t.Helper()
-		if res.Status != status || (code != "" && errorOf(t, res).Code != code) {
-			t.Errorf("%s: %d %s", name, res.Status, res.Body)
-		}
-	}
 	seller, _ := newAccount(t)
-	l := activeListing(t, seller.AccessToken)
+	l := activeListing(t, seller.AccessToken, nil)
 	buyers := make([]signIn, 0, 3)
 	deals := map[string]string{} // buyer → deal
 	for range 3 {
@@ -136,48 +123,40 @@ func TestInboxScreenPages(t *testing.T) {
 		t.Errorf("archived: %+v", archived)
 	}
 
-	expect("signed out", call(t, server, "GET", "/v1/screens/inbox", nil), 401, "unauthenticated")
-	expect("a bad flag", call(t, server, "GET", "/v1/screens/inbox?archived=maybe", nil, bearer(seller.AccessToken)), 400, "")
-	expect("a bad cursor", call(t, server, "GET", "/v1/screens/inbox?cursor=x", nil, bearer(seller.AccessToken)), 400, "")
+	check(t, "signed out", call(t, "GET", "/v1/screens/inbox", nil), 401, "unauthenticated")
+	check(t, "a bad flag", call(t, "GET", "/v1/screens/inbox?archived=maybe", nil, bearer(seller.AccessToken)), 400, "")
+	check(t, "a bad cursor", call(t, "GET", "/v1/screens/inbox?cursor=x", nil, bearer(seller.AccessToken)), 400, "")
 }
 
 // The chat view shows the pair's deals both ways, newest first, with the
 // newest messages, and only to the two members.
 func TestChatScreen(t *testing.T) {
 	t.Parallel()
-	expect := func(name string, res Response, status int, code string) {
-		t.Helper()
-		if res.Status != status || (code != "" && errorOf(t, res).Code != code) {
-			t.Errorf("%s: %d %s", name, res.Status, res.Body)
-		}
-	}
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
 	stranger, _ := newAccount(t)
-	c := openChat(t, buyer.AccessToken, activeListing(t, seller.AccessToken).ID, "Còn không bạn?")
-	sold := openDeal(t, buyer.AccessToken, activeListing(t, seller.AccessToken).ID, http.StatusCreated)
-	bought := openDeal(t, seller.AccessToken, activeListing(t, buyer.AccessToken).ID, http.StatusCreated)
+	c := openChat(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID, "Còn không bạn?")
+	sold := openDeal(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID, http.StatusCreated)
+	bought := openDeal(t, seller.AccessToken, activeListing(t, buyer.AccessToken, nil).ID, http.StatusCreated)
 	reply := sendChat(t, seller.AccessToken, c.ID, map[string]any{"text": "Còn bạn ơi"})
-	if res := call(t, server, "POST", "/v1/conversations/"+c.ID+"/archive", nil, bearer(seller.AccessToken)); res.Status != http.StatusNoContent {
-		t.Fatalf("archive: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "POST", "/v1/conversations/"+c.ID+"/archive", nil, bearer(seller.AccessToken)), http.StatusNoContent)
 
 	path := "/v1/screens/chat/" + c.ID
-	res := call(t, server, "GET", path, nil, bearer(seller.AccessToken))
+	res := call(t, "GET", path, nil, bearer(seller.AccessToken))
 	got := decode[chatScreen](t, res)
 	if res.Status != http.StatusOK || got.ID != c.ID || got.Other.ID != buyer.Account.ID || !got.Archived ||
 		len(got.Deals) != 2 || got.Deals[0].ID != bought.ID || got.Deals[0].Role != "buyer" || got.Deals[1].ID != sold.ID ||
 		len(got.Messages.Items) != 2 || got.Messages.Items[0].ID != reply.ID || got.Messages.NextCursor != "" {
 		t.Fatalf("seller's view: %d %s", res.Status, res.Body)
 	}
-	res = call(t, server, "GET", path, nil, bearer(buyer.AccessToken))
+	res = call(t, "GET", path, nil, bearer(buyer.AccessToken))
 	if got = decode[chatScreen](t, res); res.Status != http.StatusOK || got.Other.ID != seller.Account.ID || got.Archived ||
 		len(got.Deals) != 2 || got.Deals[0].Role != "seller" {
 		t.Fatalf("buyer's view: %d %s", res.Status, res.Body)
 	}
 
-	expect("signed out", call(t, server, "GET", path, nil), 401, "unauthenticated")
-	expect("a bad id", call(t, server, "GET", "/v1/screens/chat/x", nil, bearer(buyer.AccessToken)), 400, "")
-	expect("a stranger", call(t, server, "GET", path, nil, bearer(stranger.AccessToken)), 404, "conversation_not_found")
-	expect("an unknown conversation", call(t, server, "GET", "/v1/screens/chat/"+uuid.NewV7().String(), nil, bearer(buyer.AccessToken)), 404, "conversation_not_found")
+	check(t, "signed out", call(t, "GET", path, nil), 401, "unauthenticated")
+	check(t, "a bad id", call(t, "GET", "/v1/screens/chat/x", nil, bearer(buyer.AccessToken)), 400, "")
+	check(t, "a stranger", call(t, "GET", path, nil, bearer(stranger.AccessToken)), 404, "conversation_not_found")
+	check(t, "an unknown conversation", call(t, "GET", "/v1/screens/chat/"+uuid.NewV7().String(), nil, bearer(buyer.AccessToken)), 404, "conversation_not_found")
 }

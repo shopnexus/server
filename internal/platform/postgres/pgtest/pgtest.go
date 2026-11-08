@@ -15,6 +15,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"uuid"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -89,6 +90,20 @@ func Empty(tb testing.TB) *pgxpool.Pool {
 	}
 	tb.Cleanup(drop)
 	return pool
+}
+
+// EventKinds lists the kinds of the events about subject, oldest first.
+func EventKinds(tb testing.TB, db *pgxpool.Pool, subject uuid.UUID) []string {
+	tb.Helper()
+	rows, err := db.Query(context.Background(), `SELECT kind FROM events WHERE subject_id = @id ORDER BY id`, pgx.StrictNamedArgs{"id": subject})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	kinds, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return kinds
 }
 
 // NewForMain is New for TestMain, where no [testing.TB] exists.

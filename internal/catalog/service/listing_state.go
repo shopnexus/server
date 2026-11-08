@@ -114,7 +114,7 @@ func (c *Catalog) SellTo(ctx context.Context, listingID, orderID uuid.UUID) erro
 	return err
 }
 
-// listing loads any listing by ID, for the calls of other modules.
+// listing loads any listing by ID; an unknown one is domain.ErrNotFound.
 func (c *Catalog) listing(ctx context.Context, id uuid.UUID) (domain.Listing, error) {
 	l, err := c.listings.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {

@@ -39,7 +39,7 @@ func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
 			return SignedIn{}, s.refund(ctx, key, now, policyErr)
 		}
 		m.SetPassword(s.keys.Hasher.Hash(in.NewPassword), now)
-		if err = s.members.Save(ctx, &m, uuid.NewV7()); err != nil {
+		if err = s.members.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
 			return SignedIn{}, saveFailed(err)
 		}
 	}
@@ -56,7 +56,7 @@ func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
 		return SignedIn{}, domain.ErrInvalidTOTPCode
 	}
 	// Saving the accepted step is what stops the code working twice.
-	if err = s.members.Save(ctx, &m, uuid.NewV7()); err != nil {
+	if err = s.members.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
 		return SignedIn{}, saveFailed(err)
 	}
 	if err = s.locks.Clear(ctx, key, now); err != nil {
@@ -73,7 +73,7 @@ func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
 	if err = s.sessions.Create(ctx, sess); err != nil {
 		return SignedIn{}, fmt.Errorf("create console session: %w", err)
 	}
-	return SignedIn{Me: meOf(m), Token: tok, ExpiresAt: sess.ExpiresAt}, nil
+	return SignedIn{Me: meOf(m), Token: tok}, nil
 }
 
 // checkPassword charges a sign-in attempt to the email's lock, then checks

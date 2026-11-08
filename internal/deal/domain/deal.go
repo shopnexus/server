@@ -90,6 +90,9 @@ type Listing struct {
 	ReservedFor uuid.UUID
 }
 
+// Closed reports a listing hidden or gone.
+func (l Listing) Closed() bool { return l.Status == ListingHidden || l.Status == ListingGone }
+
 // Range is the amounts an offer may take, both ends included.
 type Range struct {
 	Min int64 `json:"min"`
@@ -248,7 +251,7 @@ func (d *Deal) Cancel(by Party, now time.Time) error {
 		d.cancelOrder(by, reason, now)
 		return nil
 	}
-	d.status, d.agreedPrice, d.agreedAt = StatusNegotiating, 0, nil
+	d.reopen()
 	d.record(MoveCancel, by, 0, now)
 	return nil
 }
@@ -299,7 +302,7 @@ func (d *Deal) Return(by Party, now time.Time) error {
 		return ErrMoveNotAllowed
 	}
 	o.Status, o.ClosedAt = OrderReturned, &now
-	d.status, d.agreedPrice, d.agreedAt = StatusNegotiating, 0, nil
+	d.reopen()
 	d.record(MoveReturned, by, 0, now)
 	return nil
 }
@@ -316,7 +319,7 @@ func (d *Deal) ListingChanged(l Listing, now time.Time) bool {
 			return false
 		}
 		switch {
-		case l.Status == ListingHidden || l.Status == ListingGone:
+		case l.Closed():
 			d.cancelOrder(System, CancelListingClosed, now)
 		case l.Status == ListingReserved && l.ReservedFor != o.ID:
 			d.cancelOrder(System, CancelSentToAnother, now)
@@ -329,7 +332,7 @@ func (d *Deal) ListingChanged(l Listing, now time.Time) bool {
 		if l.Status != ListingGone {
 			return false
 		}
-		d.status, d.agreedPrice, d.agreedAt = StatusNegotiating, 0, nil
+		d.reopen()
 		d.record(MoveListingClosed, System, 0, now)
 		return true
 	}
@@ -341,7 +344,7 @@ func (d *Deal) ListingChanged(l Listing, now time.Time) bool {
 		amount int64
 	)
 	switch {
-	case l.Status == ListingHidden || l.Status == ListingGone:
+	case l.Closed():
 		kind = MoveListingClosed
 	case l.Price != d.listedPrice:
 		kind, amount = MovePriceChanged, l.Price
@@ -389,9 +392,12 @@ func (d *Deal) openOrder() *Order {
 // cancelOrder ends the requested order and drops the agreement.
 func (d *Deal) cancelOrder(by Party, reason CancelReason, now time.Time) {
 	d.order.Status, d.order.CancelledBy, d.order.CancelReason, d.order.ClosedAt = OrderCancelled, by, reason, &now
-	d.status, d.agreedPrice, d.agreedAt = StatusNegotiating, 0, nil
+	d.reopen()
 	d.record(MoveOrderCancelled, by, 0, now)
 }
+
+// reopen drops the agreement; the deal negotiates again.
+func (d *Deal) reopen() { d.status, d.agreedPrice, d.agreedAt = StatusNegotiating, 0, nil }
 
 // record adds a move to the ones the next save writes.
 func (d *Deal) record(kind MoveKind, by Party, amount int64, now time.Time) {
@@ -412,9 +418,6 @@ func (d *Deal) SellerID() uuid.UUID  { return d.sellerID }
 func (d *Deal) Status() Status       { return d.status }
 func (d *Deal) AgreedPrice() int64   { return d.agreedPrice }
 func (d *Deal) AgreedAt() *time.Time { return d.agreedAt }
-func (d *Deal) WriteID() uuid.UUID   { return d.writeID }
-func (d *Deal) CreatedAt() time.Time { return d.createdAt }
-func (d *Deal) UpdatedAt() time.Time { return d.updatedAt }
 
 // Order returns a copy of the deal's latest order, nil before the first.
 func (d *Deal) Order() *Order {
@@ -424,8 +427,8 @@ func (d *Deal) Order() *Order {
 	return new(*d.order)
 }
 
-// Open returns a copy of the open price, nil when none is open.
-func (d *Deal) Open() *OpenPrice {
+// OpenPrice returns a copy of the open price, nil when none is open.
+func (d *Deal) OpenPrice() *OpenPrice {
 	if d.open == nil {
 		return nil
 	}
@@ -466,7 +469,7 @@ func RestoreDeal(st DealState) Deal {
 func (d *Deal) State() DealState {
 	return DealState{
 		ID: d.id, ListingID: d.listingID, BuyerID: d.buyerID, SellerID: d.sellerID, Status: d.status,
-		Open: d.Open(), ListedPrice: d.listedPrice, AgreedPrice: d.agreedPrice, AgreedAt: d.agreedAt,
+		Open: d.OpenPrice(), ListedPrice: d.listedPrice, AgreedPrice: d.agreedPrice, AgreedAt: d.agreedAt,
 		Order: d.Order(), WriteID: d.writeID, CreatedAt: d.createdAt, UpdatedAt: d.updatedAt,
 	}
 }
@@ -488,8 +491,7 @@ func (d *Deal) OpenFor(l Listing) *OpenPrice {
 // turned off, or a listing hidden or gone voids it at once; ListingChanged
 // records that later.
 func (d *Deal) live(l Listing) *OpenPrice {
-	if d.open == nil || l.Price != d.listedPrice || !l.AllowOffers || l.Status == ListingHidden ||
-		l.Status == ListingGone {
+	if d.open == nil || l.Price != d.listedPrice || !l.AllowOffers || l.Closed() {
 		return nil
 	}
 	return d.open

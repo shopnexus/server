@@ -14,52 +14,52 @@ import (
 )
 
 // Suspend stops an account from writing, until in.Until or, with a nil
-// Until, until Reinstate. It records account.suspend for in.By in the same
+// Until, until Unsuspend. It records account.suspend for in.By in the same
 // transaction.
-func (s *Account) Suspend(ctx context.Context, in SuspendInput) (Record, error) {
+func (s *Account) Suspend(ctx context.Context, in SuspendInput) (ConsoleAccount, error) {
 	now := s.now()
 	a, err := s.load(ctx, in.ID)
 	if err != nil {
-		return Record{}, err
+		return ConsoleAccount{}, err
 	}
 	if suspendErr := a.Suspend(in.Reason, in.Until, now); suspendErr != nil {
-		return Record{}, suspendErr
+		return ConsoleAccount{}, suspendErr
 	}
-	r := recordOf(a, now)
+	r := consoleAccountOf(a, now)
 	details := map[string]any{"reason": r.SuspendReason}
 	ev := events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: in.ID, OccurredAt: now}
 	if r.SuspendedUntil != nil {
 		details["until"] = *r.SuspendedUntil
 		ev.Payload = map[string]any{"until": r.SuspendedUntil.Format(time.RFC3339)}
 	}
-	err = s.accounts.SaveAudited(ctx, &a, uuid.NewV7(), audit.Entry{
+	err = s.accounts.Save(ctx, &a, uuid.NewV7(), &audit.Entry{
 		Actor: in.By, Action: audit.AccountSuspend, Target: audit.Account(in.ID), Details: details, At: now,
 	}, ev)
 	if errors.Is(err, repository.ErrConflict) {
-		return Record{}, apperr.ErrTryAgain
+		return ConsoleAccount{}, apperr.ErrTryAgain
 	}
 	if err != nil {
-		return Record{}, fmt.Errorf("save account: %w", err)
+		return ConsoleAccount{}, fmt.Errorf("save account: %w", err)
 	}
 	return r, nil
 }
 
-// Reinstate lifts a suspension and records account.unsuspend for by.
-func (s *Account) Reinstate(ctx context.Context, id uuid.UUID, by audit.Actor) (Record, error) {
+// Unsuspend lifts a suspension and records account.unsuspend for by.
+func (s *Account) Unsuspend(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleAccount, error) {
 	now := s.now()
 	a, err := s.load(ctx, id)
 	if err != nil {
-		return Record{}, err
+		return ConsoleAccount{}, err
 	}
-	a.Reinstate(now)
-	err = s.accounts.SaveAudited(ctx, &a, uuid.NewV7(), audit.Entry{
+	a.Unsuspend(now)
+	err = s.accounts.Save(ctx, &a, uuid.NewV7(), &audit.Entry{
 		Actor: by, Action: audit.AccountUnsuspend, Target: audit.Account(id), At: now,
 	}, events.Event{ID: uuid.NewV7(), Kind: events.AccountUnsuspended, SubjectID: id, OccurredAt: now})
 	if errors.Is(err, repository.ErrConflict) {
-		return Record{}, apperr.ErrTryAgain
+		return ConsoleAccount{}, apperr.ErrTryAgain
 	}
 	if err != nil {
-		return Record{}, fmt.Errorf("save account: %w", err)
+		return ConsoleAccount{}, fmt.Errorf("save account: %w", err)
 	}
-	return recordOf(a, now), nil
+	return consoleAccountOf(a, now), nil
 }

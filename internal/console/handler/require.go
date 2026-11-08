@@ -46,7 +46,7 @@ func Require(svc service.Service, log *slog.Logger, floor domain.Role) func(http
 				httpx.WriteError(w, r, log, domain.ErrConsoleForbidden)
 				return
 			}
-			caller := authn.ConsoleMember{MemberID: g.MemberID, SessionID: g.SessionID, IP: httpx.ClientIP(r)}
+			caller := authn.ConsoleMember{MemberID: g.MemberID, SessionID: g.SessionID, Role: string(g.Role), IP: httpx.ClientIP(r)}
 			next.ServeHTTP(w, r.WithContext(authn.WithConsoleMember(r.Context(), caller)))
 		})
 	}

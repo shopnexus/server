@@ -48,3 +48,16 @@ func LoadDotEnv(path string) error {
 	}
 	return nil
 }
+
+// FromDotEnv loads the file at path with LoadDotEnv, then the Config from the
+// environment. The commands that need the whole configuration start here.
+func FromDotEnv(path string) (Config, error) {
+	if err := LoadDotEnv(path); err != nil {
+		return Config{}, fmt.Errorf("load %s: %w", path, err)
+	}
+	cfg, err := Load(os.LookupEnv)
+	if err != nil {
+		return Config{}, fmt.Errorf("config:\n%w", err)
+	}
+	return cfg, nil
+}

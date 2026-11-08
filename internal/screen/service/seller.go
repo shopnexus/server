@@ -42,9 +42,9 @@ type SellerViewer struct {
 
 // Seller reads the seller's profile and the first page, of the default
 // size, of their public listings and of their reviews. An unknown account is
-// accountdomain.ErrAccountNotFound. A reader who is not the seller also
+// accountdomain.ErrAccountNotFound. A viewer who is not the seller also
 // gets whether a block stands between the two and their conversation.
-func (s *Screen) Seller(ctx context.Context, reader *uuid.UUID, id uuid.UUID) (SellerScreen, error) {
+func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (SellerScreen, error) {
 	seller, err := s.accounts.Get(ctx, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the seller: %w", err)
@@ -72,14 +72,14 @@ func (s *Screen) Seller(ctx context.Context, reader *uuid.UUID, id uuid.UUID) (S
 		},
 		Listings: listings, Reviews: reviews,
 	}
-	if reader == nil || *reader == id {
+	if viewer == nil || *viewer == id {
 		return out, nil
 	}
-	blocked, err := s.accounts.Blocked(ctx, *reader, id)
+	blocked, err := s.accounts.Blocked(ctx, *viewer, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the blocks: %w", err)
 	}
-	conversation, err := s.chats.ConversationWith(ctx, *reader, id)
+	conversation, err := s.chats.ConversationWith(ctx, *viewer, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the conversation: %w", err)
 	}

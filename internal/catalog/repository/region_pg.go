@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -81,31 +80,33 @@ FROM communes c JOIN provinces p ON p.code = c.province_code WHERE c.code = ANY(
 	return out, nil
 }
 
-func (s pgRegions) FindPlace(ctx context.Context, name string) ([]domain.Point, error) {
+func (s pgRegions) FindPlaces(ctx context.Context, names []string) (map[string][]domain.Point, error) {
 	rows, err := s.db.Query(ctx, `
-SELECT avg(c.lat), avg(c.lng) FROM provinces p JOIN communes c ON c.province_code = p.code
-WHERE lower(p.display_name) = lower(@name)
-   OR lower(regexp_replace(p.display_name, '^(Thành phố|Tỉnh) ', '')) = lower(@name)
-GROUP BY p.code
+WITH asked AS (SELECT DISTINCT unnest(@names::text[]) AS place_name)
+SELECT avg(c.lat), avg(c.lng), a.place_name FROM asked a
+JOIN provinces p ON lower(p.display_name) = lower(a.place_name)
+   OR lower(regexp_replace(p.display_name, '^(Thành phố|Tỉnh) ', '')) = lower(a.place_name)
+JOIN communes c ON c.province_code = p.code
+GROUP BY a.place_name, p.code
 UNION ALL
-SELECT lat, lng FROM communes
-WHERE lower(display_name) = lower(@name)
-   OR lower(regexp_replace(display_name, '^(Phường|Xã|Đặc khu) ', '')) = lower(@name)`,
-		pgx.StrictNamedArgs{"name": strings.TrimSpace(name)})
+SELECT c.lat, c.lng, a.place_name FROM asked a
+JOIN communes c ON lower(c.display_name) = lower(a.place_name)
+   OR lower(regexp_replace(c.display_name, '^(Phường|Xã|Đặc khu) ', '')) = lower(a.place_name)`,
+		pgx.StrictNamedArgs{"names": names})
 	if err != nil {
-		return nil, fmt.Errorf("find place: %w", err)
+		return nil, fmt.Errorf("find places: %w", err)
 	}
-	defer rows.Close()
-	var out []domain.Point
-	for rows.Next() {
-		var p domain.Point
-		if err = rows.Scan(&p.Lat, &p.Lng); err != nil {
-			return nil, fmt.Errorf("scan place: %w", err)
-		}
-		out = append(out, p)
+	found, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct {
+		domain.Point
+
+		Name string
+	}])
+	if err != nil {
+		return nil, fmt.Errorf("read places: %w", err)
 	}
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("place rows: %w", err)
+	out := make(map[string][]domain.Point, len(names))
+	for _, f := range found {
+		out[f.Name] = append(out[f.Name], f.Point)
 	}
 	return out, nil
 }

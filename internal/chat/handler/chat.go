@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"net/http"
 	"uuid"
 
@@ -44,99 +43,119 @@ type unread struct {
 	Unread int `json:"unread"`
 }
 
-// bind reads the caller and the request into in, answering the failure
-// itself.
-func bind[T any](h *Handler, w http.ResponseWriter, r *http.Request) (uuid.UUID, T, bool) {
-	var in T
+// Open serves POST /v1/conversations.
+func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
-		return uuid.UUID{}, in, false
+		return
 	}
+	var in openRequest
 	if err := httpx.Bind(r, &in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
-		return uuid.UUID{}, in, false
+		return
 	}
-	return p.AccountID, in, true
-}
-
-// answer writes v with status, or err.
-func answer[T any](h *Handler, w http.ResponseWriter, r *http.Request, status int, v T, err error) {
+	v, err := h.svc.Open(r.Context(), p.AccountID, in.IdempotencyKey, service.OpenInput{
+		ListingID: in.ListingID, Text: in.Text, Photos: in.Photos,
+	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	httpx.Respond(w, status, v)
+	httpx.Respond(w, http.StatusCreated, v)
 }
 
-// done writes 204, or err.
-func (h *Handler) done(w http.ResponseWriter, r *http.Request, err error) {
+// Messages serves GET /v1/conversations/{id}/messages.
+func (h *Handler) Messages(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in messagesRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.Messages(r.Context(), p.AccountID, in.ID, in.Request)
 	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
+}
+
+// Send serves POST /v1/conversations/{id}/messages.
+func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in sendRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.Send(r.Context(), p.AccountID, in.ID, in.IdempotencyKey, service.SendInput{
+		Text: in.Text, Photos: in.Photos, ListingID: in.ListingID,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusCreated, v)
+}
+
+// Read serves POST /v1/conversations/{id}/read.
+func (h *Handler) Read(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in readRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	if err := h.svc.Read(r.Context(), p.AccountID, in.ID, in.MessageID); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// Open serves POST /v1/conversations.
-func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
-	caller, in, ok := bind[openRequest](h, w, r)
-	if !ok {
-		return
-	}
-	v, err := h.svc.Open(r.Context(), caller, in.IdempotencyKey, service.OpenInput{
-		ListingID: in.ListingID, Text: in.Text, Photos: in.Photos,
-	})
-	answer(h, w, r, http.StatusCreated, v, err)
-}
-
-// Messages serves GET /v1/conversations/{id}/messages.
-func (h *Handler) Messages(w http.ResponseWriter, r *http.Request) {
-	caller, in, ok := bind[messagesRequest](h, w, r)
-	if !ok {
-		return
-	}
-	v, err := h.svc.Messages(r.Context(), caller, in.ID, in.Request)
-	answer(h, w, r, http.StatusOK, v, err)
-}
-
-// Send serves POST /v1/conversations/{id}/messages.
-func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
-	caller, in, ok := bind[sendRequest](h, w, r)
-	if !ok {
-		return
-	}
-	v, err := h.svc.Send(r.Context(), caller, in.ID, in.IdempotencyKey, service.SendInput{
-		Text: in.Text, Photos: in.Photos, ListingID: in.ListingID,
-	})
-	answer(h, w, r, http.StatusCreated, v, err)
-}
-
-// Read serves POST /v1/conversations/{id}/read.
-func (h *Handler) Read(w http.ResponseWriter, r *http.Request) {
-	caller, in, ok := bind[readRequest](h, w, r)
-	if !ok {
-		return
-	}
-	h.done(w, r, h.svc.Read(r.Context(), caller, in.ID, in.MessageID))
-}
-
 // Archive serves POST /v1/conversations/{id}/archive.
 func (h *Handler) Archive(w http.ResponseWriter, r *http.Request) {
-	h.state(w, r, h.svc.Archive)
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in conversationRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	if err := h.svc.Archive(r.Context(), p.AccountID, in.ID); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Unarchive serves POST /v1/conversations/{id}/unarchive.
 func (h *Handler) Unarchive(w http.ResponseWriter, r *http.Request) {
-	h.state(w, r, h.svc.Unarchive)
-}
-
-// state serves archive and unarchive.
-func (h *Handler) state(w http.ResponseWriter, r *http.Request, change func(context.Context, uuid.UUID, uuid.UUID) error) {
-	caller, in, ok := bind[conversationRequest](h, w, r)
+	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
 		return
 	}
-	h.done(w, r, change(r.Context(), caller, in.ID))
+	var in conversationRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	if err := h.svc.Unarchive(r.Context(), p.AccountID, in.ID); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Unread serves GET /v1/me/unread.
@@ -146,5 +165,9 @@ func (h *Handler) Unread(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n, err := h.svc.Unread(r.Context(), p.AccountID)
-	answer(h, w, r, http.StatusOK, unread{Unread: n}, err)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, unread{Unread: n})
 }

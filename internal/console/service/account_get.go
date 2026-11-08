@@ -15,7 +15,7 @@ const historyLength = 20
 // GetAccount reads an account with its identities and the latest console
 // actions on it.
 func (s *Console) GetAccount(ctx context.Context, id uuid.UUID) (AccountDetail, error) {
-	r, err := s.accounts.Record(ctx, id)
+	r, err := s.accounts.ConsoleAccount(ctx, id)
 	if err != nil {
 		return AccountDetail{}, fmt.Errorf("get account: %w", err)
 	}
@@ -23,11 +23,12 @@ func (s *Console) GetAccount(ctx context.Context, id uuid.UUID) (AccountDetail, 
 	if err != nil {
 		return AccountDetail{}, fmt.Errorf("list identities: %w", err)
 	}
-	history := page.Request{Limit: historyLength}
-	acts, err := s.actions.List(ctx, audit.Filter{TargetID: id}, history)
+	acts, err := s.actions.List(ctx, audit.Filter{TargetID: id}, page.Request{Limit: historyLength})
 	if err != nil {
 		return AccountDetail{}, fmt.Errorf("list console actions: %w", err)
 	}
-	latest := page.Of(acts, history, func(a audit.Action) uuid.UUID { return a.ID })
-	return AccountDetail{Account: r, Identities: ids, Actions: latest.Items}, nil
+	// The list read one more than it needs; the copy is never nil, so the
+	// JSON is an array.
+	latest := append([]audit.Action{}, acts[:min(len(acts), historyLength)]...)
+	return AccountDetail{Account: r, Identities: ids, Actions: latest}, nil
 }

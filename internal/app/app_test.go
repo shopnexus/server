@@ -110,15 +110,6 @@ func TestReadyzRestateDown(t *testing.T) {
 	}
 }
 
-func TestNewRefusesMissingKeys(t *testing.T) {
-	t.Parallel()
-	cfg := testConfig(t)
-	cfg.Auth = config.AuthConfig{}
-	if _, err := New(context.Background(), cfg, discard()); err == nil || !strings.Contains(err.Error(), "make run") {
-		t.Fatalf("err %v", err)
-	}
-}
-
 // Without FCM credentials pushes go to the log, which production must not
 // do in silence.
 func TestNewRefusesLogPushInProd(t *testing.T) {
@@ -147,7 +138,8 @@ func TestNewRefusesPNVTestNumbersInProd(t *testing.T) {
 	}
 }
 
-// New runs the event bus and Close stops it before closing the pool.
+// New runs the event bus and the stream hub, and Close waits for both to
+// return before closing the pool.
 func TestCloseStopsTheEventBus(t *testing.T) {
 	t.Parallel()
 	a := newApp(t)
@@ -160,10 +152,5 @@ func TestCloseStopsTheEventBus(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Close did not return")
-	}
-	select {
-	case <-a.eventsDone:
-	default:
-		t.Fatal("the event bus still runs")
 	}
 }

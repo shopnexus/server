@@ -59,10 +59,5 @@ func clientIPOf(r *http.Request, trusted []netip.Prefix) netip.Addr {
 }
 
 func isTrusted(a netip.Addr, trusted []netip.Prefix) bool {
-	for _, p := range trusted {
-		if p.Contains(a) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(trusted, func(p netip.Prefix) bool { return p.Contains(a) })
 }

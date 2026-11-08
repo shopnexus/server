@@ -4,7 +4,6 @@ package restatetest
 import (
 	"context"
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,9 +19,9 @@ import (
 	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
-// URLs returns TEST_RESTATE_INGRESS_URL and TEST_RESTATE_ADMIN_URL, from the
+// urls returns TEST_RESTATE_INGRESS_URL and TEST_RESTATE_ADMIN_URL, from the
 // environment or .env.test.
-func URLs() (ingressURL, adminURL string, err error) {
+func urls() (ingressURL, adminURL string, err error) {
 	if ingressURL, err = testenv.Get("TEST_RESTATE_INGRESS_URL"); err != nil {
 		return "", "", fmt.Errorf("test restate: %w", err)
 	}
@@ -49,7 +48,7 @@ func ConfigForMain() (config.RestateConfig, error) {
 	if err != nil {
 		return config.RestateConfig{}, fmt.Errorf("restate identity key: %w; make test writes it", err)
 	}
-	ingressURL, adminURL, err := URLs()
+	ingressURL, adminURL, err := urls()
 	if err != nil {
 		return config.RestateConfig{}, err
 	}
@@ -72,13 +71,25 @@ func Config(tb testing.TB) config.RestateConfig {
 	return cfg
 }
 
+// Ingress is a client of the test stack's Restate ingress. It skips the
+// test under -short, as Config does.
+func Ingress(tb testing.TB) *ingress.Client {
+	tb.Helper()
+	if testing.Short() {
+		tb.Skip("needs Restate")
+	}
+	ingressURL, _, err := urls()
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return ingress.NewClient(ingressURL)
+}
+
 // Prefix returns a fresh service-name prefix. Test packages run in parallel
 // against one Restate server, and a service name routes to one endpoint, so
 // every registration needs names of its own.
 func Prefix() string {
-	b := make([]byte, 4)
-	rand.Read(b)
-	return "t" + hex.EncodeToString(b) + "_"
+	return "t" + rand.Text()[:8] + "_"
 }
 
 // Start serves defs on a free local port, registers them with the test

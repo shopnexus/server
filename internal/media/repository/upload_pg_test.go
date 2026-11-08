@@ -7,24 +7,13 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
+	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/media/repository"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
 var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
-
-func newAccount(t *testing.T, db *pgxpool.Pool) uuid.UUID {
-	t.Helper()
-	id := uuid.NewV7()
-	if _, err := db.Exec(context.Background(), `INSERT INTO accounts (id, write_id) VALUES (@id, @id)`, pgx.StrictNamedArgs{"id": id}); err != nil {
-		t.Fatal(err)
-	}
-	return id
-}
 
 // same compares stored states, times by instant: Postgres returns them in
 // the session's time zone.
@@ -52,7 +41,7 @@ func TestCreateGetSave(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewUploads(db)
 	ctx := context.Background()
-	owner, holder := newAccount(t, db), uuid.NewV7()
+	owner, holder := accounttest.New(t, db), uuid.NewV7()
 	u := created(t, s, owner)
 	got, err := s.Get(ctx, u.ID())
 	if err != nil || !same(got.State(), u.State()) {
@@ -87,7 +76,7 @@ func TestGetManyAndSaveAll(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewUploads(db)
 	ctx := context.Background()
-	owner, holder := newAccount(t, db), uuid.NewV7()
+	owner, holder := accounttest.New(t, db), uuid.NewV7()
 	a, b := created(t, s, owner), created(t, s, owner)
 	got, err := s.GetMany(ctx, []uuid.UUID{a.ID(), b.ID(), uuid.NewV7()})
 	if err != nil || len(got) != 2 {

@@ -1,23 +1,17 @@
 package service_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"image"
-	"image/jpeg"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
 	"uuid"
 
-	"github.com/restatedev/sdk-go/ingress"
-
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/account/service"
 	mediadomain "github.com/shopnexus/server2/internal/media/domain"
-	mediarepo "github.com/shopnexus/server2/internal/media/repository"
+	"github.com/shopnexus/server2/internal/media/mediatest"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
@@ -29,46 +23,10 @@ import (
 func withMedia(t *testing.T) (*service.Account, repository.Accounts, *mediasvc.Media) {
 	t.Helper()
 	db := pgtest.New(t)
-	url, _, err := restatetest.URLs()
-	if err != nil {
-		t.Fatal(err)
-	}
-	media := mediasvc.New(mediasvc.Deps{
-		Uploads: mediarepo.NewUploads(db), Store: objectstoretest.New(t), Ingress: ingress.NewClient(url),
-		Prefix: restatetest.Prefix(), Now: time.Now,
-	})
+	media := mediatest.Service(db, objectstoretest.New(t), restatetest.Ingress(t), restatetest.Prefix())
 	restatetest.Start(t, media.Durable()...)
 	store := repository.NewAccounts(db)
 	return service.New(service.Deps{Accounts: store, Media: media, Now: time.Now}), store, media
-}
-
-// put uploads body as a JPEG of owner's.
-func put(t *testing.T, media *mediasvc.Media, owner uuid.UUID, body []byte) uuid.UUID {
-	t.Helper()
-	ticket, err := media.CreateUpload(context.Background(), owner, "image/jpeg", int64(len(body)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	req, _ := http.NewRequestWithContext(t.Context(), http.MethodPut, ticket.URL, bytes.NewReader(body))
-	for k, v := range ticket.Headers {
-		req.Header.Set(k, v)
-	}
-	req.ContentLength = int64(len(body))
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_ = res.Body.Close()
-	return ticket.UploadID
-}
-
-func photoBytes(t *testing.T) []byte {
-	t.Helper()
-	var b bytes.Buffer
-	if err := jpeg.Encode(&b, image.NewRGBA(image.Rect(0, 0, 600, 450)), nil); err != nil {
-		t.Fatal(err)
-	}
-	return b.Bytes()
 }
 
 // The reply to an avatar change already carries the processed square; a
@@ -78,7 +36,7 @@ func TestUpdateAvatar(t *testing.T) {
 	accounts, store, media := withMedia(t)
 	ctx := context.Background()
 	id := seed(t, store)
-	upload := put(t, media, id, photoBytes(t))
+	upload := mediatest.Upload(t, media, id, "image/jpeg", mediatest.JPEG(t, 600, 450))
 	v, err := accounts.Update(ctx, id, service.UpdateInput{Avatar: &upload})
 	if err != nil || !strings.HasSuffix(v.AvatarURL, "media/"+upload.String()+".jpg") {
 		t.Fatalf("%+v %v", v, err)
@@ -99,8 +57,8 @@ func TestUpdateAvatarRefusals(t *testing.T) {
 	ctx := context.Background()
 	id, other := seed(t, store), seed(t, store)
 	for name, upload := range map[string]uuid.UUID{
-		"not a photo":     put(t, media, id, []byte("hello, not a photo")),
-		"another owner's": put(t, media, other, photoBytes(t)),
+		"not a photo":     mediatest.Upload(t, media, id, "image/jpeg", []byte("hello, not a photo")),
+		"another owner's": mediatest.Upload(t, media, other, "image/jpeg", mediatest.JPEG(t, 600, 450)),
 	} {
 		_, err := accounts.Update(ctx, id, service.UpdateInput{DisplayName: new("Minh"), Avatar: &upload})
 		if !errors.Is(err, mediadomain.ErrInvalidUpload) {

@@ -78,17 +78,17 @@ func (s SignIn) Run(ctx restate.Context, in PhoneSignIn) (SignInResult, error) {
 	if f.Found {
 		// Only a person who just proved they hold the identity gets here, so
 		// account_suspended is safe to reveal.
-		st, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Status, error) {
+		suspended, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 			a, stepErr := s.Accounts.Get(rc, f.Ref.AccountID)
 			if stepErr != nil {
-				return "", fmt.Errorf("get account: %w", stepErr)
+				return false, fmt.Errorf("get account: %w", stepErr)
 			}
-			return a.Status(at), nil
+			return a.Suspended(at), nil
 		})
 		if err != nil {
 			return SignInResult{}, fmt.Errorf("get account status: %w", err)
 		}
-		if st == domain.StatusSuspended {
+		if suspended {
 			return SignInResult{Refused: domain.ErrSuspended}, nil
 		}
 		// last_used_at is a hint for the dormant check. A lost race or an

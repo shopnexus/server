@@ -47,6 +47,9 @@ type Service interface {
 	// Summaries reads listings in any status for other modules; an unknown
 	// ID is left out of the map.
 	Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Summary, error)
+	// Summary reads one listing in any status for other modules; ok is false
+	// for an unknown ID.
+	Summary(ctx context.Context, id uuid.UUID) (s Summary, ok bool, err error)
 	// Reserve holds an active listing for an order; holding it again for the
 	// same order changes nothing. Another status is domain.ErrStateConflict.
 	Reserve(ctx context.Context, listingID, orderID uuid.UUID) error
@@ -64,11 +67,10 @@ type Service interface {
 	Search(ctx context.Context, s domain.Search) ([]SearchCard, error)
 	// Counts counts the listings s matches by category or root.
 	Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error)
-	// CommunePoint is a commune's point; false for an unknown code.
-	CommunePoint(ctx context.Context, code string) (domain.Point, bool, error)
-	// Place resolves a province or commune name to one point; false when no
-	// place or more than one has the name.
-	Place(ctx context.Context, name string) (domain.Point, bool, error)
+	// FindPlaces resolves province and commune names to points, keyed by
+	// the name as given; a name that no place or more than one has is left
+	// out.
+	FindPlaces(ctx context.Context, names []string) (map[string]domain.Point, error)
 	Provinces(ctx context.Context) ([]domain.Province, error)
 	Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error)
 }
@@ -114,15 +116,13 @@ func New(d Deps) *Catalog {
 
 // Durable returns module catalog's Restate services, for Mount to bind.
 func (c *Catalog) Durable() []restate.ServiceDefinition {
+	deps := flowDeps{
+		Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Regions: c.regions,
+		Accounts: c.accounts, Media: c.media, Now: c.now,
+	}
 	return []restate.ServiceDefinition{
-		restate.Reflect(ListingPost{
-			Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Regions: c.regions,
-			Accounts: c.accounts, Media: c.media, Now: c.now,
-		}),
-		restate.Reflect(ListingEdit{
-			Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Regions: c.regions,
-			Accounts: c.accounts, Media: c.media, Now: c.now,
-		}),
+		restate.Reflect(ListingPost{deps}),
+		restate.Reflect(ListingEdit{deps}),
 		restate.Reflect(ListingPublish{Prefix: c.prefix, Listings: c.listings, Now: c.now}),
 	}
 }

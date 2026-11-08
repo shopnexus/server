@@ -51,8 +51,31 @@ type Notice struct {
 	Recipient   uuid.UUID
 	Type        Type
 	CollapseKey string
-	Params      map[string]any
+	Params      Params
 	At          time.Time
+}
+
+// Params are what a notice's text and target are written from, stored as
+// JSON. A notice sets only the ones its type reads.
+type Params struct {
+	DealID    uuid.UUID `json:"deal_id,omitzero"`
+	ListingID uuid.UUID `json:"listing_id,omitzero"`
+	SellerID  uuid.UUID `json:"seller_id,omitzero"`
+	Title     string    `json:"title,omitempty"`
+	// Actor is the person who made the change.
+	Actor  string `json:"actor,omitempty"`
+	Seller string `json:"seller,omitempty"`
+	Amount int64  `json:"amount,omitempty"`
+	// Move is the deal move that voided an offer.
+	Move string `json:"move,omitempty"`
+	// Carrier is a carrier code, or the name the seller typed for another
+	// carrier; Code is the tracking code.
+	Carrier string `json:"carrier,omitempty"`
+	Code    string `json:"code,omitempty"`
+	Reason  string `json:"reason,omitempty"`
+	Stars   int    `json:"stars,omitempty"`
+	// Until is the end of a suspension in RFC 3339, empty for none.
+	Until string `json:"until,omitempty"`
 }
 
 // Move is a deal move as notification reads it.
@@ -64,9 +87,9 @@ type Move struct {
 
 // DealFacts is what a deal's new moves tell.
 type DealFacts struct {
-	DealID, ListingID, BuyerID, SellerID uuid.UUID
-	Title, BuyerName, SellerName         string
-	Moves                                []Move
+	DealID, BuyerID, SellerID    uuid.UUID
+	Title, BuyerName, SellerName string
+	Moves                        []Move
 	// Carrier and TrackingCode are the latest order's waybill; Carrier is
 	// a carrier code, or the name the seller typed for another carrier.
 	Carrier, TrackingCode, CancelReason string
@@ -81,6 +104,7 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 		if m.By != "buyer" {
 			to, actor = f.BuyerID, f.SellerName
 		}
+		p := Params{DealID: f.DealID, Title: f.Title, Actor: actor, Amount: m.Amount}
 		var t Type
 		switch m.Kind {
 		case "offer":
@@ -94,28 +118,21 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 		case "cancel":
 			t = TypeAgreementCancelled
 		case "price_changed", "offers_closed", "listing_closed":
-			t, to = TypeOfferVoided, f.BuyerID
+			t, to, p.Move = TypeOfferVoided, f.BuyerID, m.Kind
 		case "cod_requested":
 			t = TypeCodRequested
 		case "shipped":
-			t = TypeShipped
+			t, p.Carrier, p.Code = TypeShipped, f.Carrier, f.TrackingCode
 		case "delivered":
-			t = TypeDelivered
+			t, p.Seller = TypeDelivered, f.SellerName
 		case "returned":
-			t = TypeReturned
+			t, p.Seller = TypeReturned, f.SellerName
 		case "order_cancelled":
-			t = TypeOrderCancelled
+			t, p.Reason = TypeOrderCancelled, f.CancelReason
 		default:
 			continue
 		}
-		out = append(out, Notice{
-			Recipient: to, Type: t, CollapseKey: "deal:" + f.DealID.String(), At: at,
-			Params: map[string]any{
-				"deal_id": f.DealID.String(), "title": f.Title, "actor": actor, "seller": f.SellerName,
-				"amount": m.Amount, "move": m.Kind, "by": m.By, "carrier": carrierLabel(f.Carrier),
-				"code": f.TrackingCode, "reason": f.CancelReason,
-			},
-		})
+		out = append(out, Notice{Recipient: to, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: p, At: at})
 	}
 	return out
 }
@@ -128,62 +145,142 @@ func ListingNotice(seller, listing uuid.UUID, title string, live bool, at time.T
 	}
 	return Notice{
 		Recipient: seller, Type: t, CollapseKey: "listing:" + listing.String(), At: at,
-		Params: map[string]any{"listing_id": listing.String(), "title": title},
+		Params: Params{ListingID: listing, Title: title},
 	}
 }
 
 // Reviewed tells a seller a buyer reviewed them.
-func Reviewed(seller, review uuid.UUID, buyerName, title string, stars int, at time.Time) Notice {
+func Reviewed(seller uuid.UUID, buyerName, title string, stars int, at time.Time) Notice {
 	return Notice{
 		Recipient: seller, Type: TypeReview, At: at,
-		Params: map[string]any{
-			"review_id": review.String(), "seller_id": seller.String(), "actor": buyerName, "title": title, "stars": stars,
-		},
+		Params: Params{SellerID: seller, Actor: buyerName, Title: title, Stars: stars},
 	}
 }
 
 // Suspended tells an account it is suspended, until a time in RFC 3339
 // when until is not empty.
 func Suspended(account uuid.UUID, until string, at time.Time) Notice {
-	return Notice{Recipient: account, Type: TypeSuspended, At: at, Params: map[string]any{"until": until}}
+	return Notice{Recipient: account, Type: TypeSuspended, At: at, Params: Params{Until: until}}
 }
 
 // Unsuspended tells an account it may write again.
 func Unsuspended(account uuid.UUID, at time.Time) Notice {
-	return Notice{Recipient: account, Type: TypeUnsuspended, At: at, Params: map[string]any{}}
+	return Notice{Recipient: account, Type: TypeUnsuspended, At: at}
 }
 
+// Target is the screen a notice opens.
+type Target struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+}
+
+// group is what notices of a kind share: the push's title, the screen they
+// open and which param names it.
+type group struct {
+	title, screen string
+	id            func(Params) uuid.UUID
+}
+
+var (
+	haggling = group{"Trả giá", "deal", func(p Params) uuid.UUID { return p.DealID }}
+	orders   = group{"Đơn hàng", "order", func(p Params) uuid.UUID { return p.DealID }}
+	listings = group{"Tin đăng", "listing", func(p Params) uuid.UUID { return p.ListingID }}
+	reviews  = group{"Đánh giá", "seller_reviews", func(p Params) uuid.UUID { return p.SellerID }}
+	accounts = group{"Tài khoản", "account", func(Params) uuid.UUID { return uuid.UUID{} }}
+)
+
+// types describes each notice type: its group and its Vietnamese text.
+var types = map[Type]struct {
+	group
+
+	text func(Params) string
+}{
+	TypeOffer: {haggling, func(p Params) string { return p.Actor + " trả " + money(p.Amount) + " cho " + p.Title }},
+	TypeCounter: {haggling, func(p Params) string {
+		return p.Actor + " trả lại " + money(p.Amount) + " cho " + p.Title
+	}},
+	TypeAgreed: {haggling, func(p Params) string { return "Chốt " + money(p.Amount) + " " + p.Title + " với " + p.Actor }},
+	TypeDeclined: {haggling, func(p Params) string {
+		return p.Actor + " không đồng ý giá bạn đề nghị cho " + p.Title
+	}},
+	TypeAgreementCancelled: {haggling, func(p Params) string { return p.Actor + " huỷ giá đã chốt " + p.Title }},
+	TypeOfferVoided: {haggling, func(p Params) string {
+		if p.Move == "listing_closed" {
+			return p.Title + " không còn bán, giá bạn đề nghị hết hiệu lực"
+		}
+		return p.Title + " đã đổi, giá bạn đề nghị hết hiệu lực"
+	}},
+	TypeCodRequested: {orders, func(p Params) string { return p.Actor + " yêu cầu COD " + p.Title }},
+	TypeShipped: {orders, func(p Params) string {
+		carrier, ok := carrierLabels[p.Carrier]
+		if !ok {
+			carrier = p.Carrier
+		}
+		return p.Actor + " đã gửi " + p.Title + " · " + carrier + " " + p.Code
+	}},
+	TypeDelivered: {orders, func(p Params) string { return p.Title + " đã giao. Đánh giá " + p.Seller }},
+	TypeReturned:  {orders, func(p Params) string { return p.Title + " bị hoàn về " + p.Seller }},
+	TypeOrderCancelled: {orders, func(p Params) string {
+		switch p.Reason {
+		case "sent_to_another":
+			return p.Title + " đã gửi cho người khác, đơn của bạn đã huỷ"
+		case "listing_closed":
+			return p.Title + " không còn bán, đơn của bạn đã huỷ"
+		default:
+			return p.Actor + " huỷ đơn " + p.Title
+		}
+	}},
+	TypeListingLive:     {listings, func(p Params) string { return p.Title + " đã lên" }},
+	TypeListingRejected: {listings, func(p Params) string { return p.Title + " chưa lên được: một ảnh bị từ chối" }},
+	TypeReview: {reviews, func(p Params) string {
+		return p.Actor + " chấm " + strconv.Itoa(p.Stars) + " sao cho " + p.Title
+	}},
+	TypeSuspended: {accounts, func(p Params) string {
+		until, err := time.Parse(time.RFC3339, p.Until)
+		if err != nil {
+			return "Tài khoản của bạn bị khoá"
+		}
+		return "Tài khoản của bạn bị khoá đến " + until.In(vietnam).Format("2/1")
+	}},
+	TypeUnsuspended: {accounts, func(Params) string { return "Tài khoản của bạn đã được mở khoá" }},
+}
+
+// carrierLabels name the carriers by their codes; a notice written before
+// the label moved here stores the label, which reads as itself.
 var carrierLabels = map[string]string{
 	"ghtk": "GHTK", "ghn": "GHN", "spx": "SPX", "jt": "J&T", "viettel_post": "Viettel Post",
 }
 
-func carrierLabel(c string) string {
-	if label, ok := carrierLabels[c]; ok {
-		return label
-	}
-	return c
-}
+// vietnam is the time zone dates are written in.
+var vietnam = time.FixedZone("ICT", 7*60*60)
 
-func str(p map[string]any, key string) string {
-	if s, ok := p[key].(string); ok {
-		return s
+// Text writes a notice in Vietnamese; an unknown type has no text.
+func Text(t Type, p Params) string {
+	if d, ok := types[t]; ok {
+		return d.text(p)
 	}
 	return ""
 }
 
-// number reads a JSON number back: an int64 before storing, a float64
-// after.
-func number(p map[string]any, key string) int64 {
-	switch v := p[key].(type) {
-	case int64:
-		return v
-	case int:
-		return int64(v)
-	case float64:
-		return int64(v)
-	default:
-		return 0
+// Title is a push's title, by the notice's group.
+func Title(t Type) string {
+	if d, ok := types[t]; ok {
+		return d.title
 	}
+	return "ShopNexus"
+}
+
+// TargetOf is the screen a notice of type t opens.
+func TargetOf(t Type, p Params) Target {
+	d, ok := types[t]
+	if !ok {
+		return Target{}
+	}
+	id := ""
+	if v := d.id(p); v != (uuid.UUID{}) {
+		id = v.String()
+	}
+	return Target{Kind: d.screen, ID: id}
 }
 
 // money writes an amount the way the app does: "1,2 tr" from a million,
@@ -203,116 +300,16 @@ func money(n int64) string {
 	return b.String() + " ₫"
 }
 
-var texts = map[Type]func(p map[string]any) string{
-	TypeOffer: func(p map[string]any) string {
-		return str(p, "actor") + " trả " + money(number(p, "amount")) + " cho " + str(p, "title")
-	},
-	TypeCounter: func(p map[string]any) string {
-		return str(p, "actor") + " trả lại " + money(number(p, "amount")) + " cho " + str(p, "title")
-	},
-	TypeAgreed: func(p map[string]any) string {
-		return "Chốt " + money(number(p, "amount")) + " " + str(p, "title") + " với " + str(p, "actor")
-	},
-	TypeDeclined: func(p map[string]any) string {
-		return str(p, "actor") + " không đồng ý giá bạn đề nghị cho " + str(p, "title")
-	},
-	TypeAgreementCancelled: func(p map[string]any) string { return str(p, "actor") + " huỷ giá đã chốt " + str(p, "title") },
-	TypeOfferVoided: func(p map[string]any) string {
-		if str(p, "move") == "listing_closed" {
-			return str(p, "title") + " không còn bán, giá bạn đề nghị hết hiệu lực"
-		}
-		return str(p, "title") + " đã đổi, giá bạn đề nghị hết hiệu lực"
-	},
-	TypeCodRequested: func(p map[string]any) string { return str(p, "actor") + " yêu cầu COD " + str(p, "title") },
-	TypeShipped: func(p map[string]any) string {
-		return str(p, "actor") + " đã gửi " + str(p, "title") + " · " + str(p, "carrier") + " " + str(p, "code")
-	},
-	TypeDelivered: func(p map[string]any) string { return str(p, "title") + " đã giao. Đánh giá " + str(p, "seller") },
-	TypeReturned:  func(p map[string]any) string { return str(p, "title") + " bị hoàn về " + str(p, "seller") },
-	TypeOrderCancelled: func(p map[string]any) string {
-		switch str(p, "reason") {
-		case "sent_to_another":
-			return str(p, "title") + " đã gửi cho người khác, đơn của bạn đã huỷ"
-		case "listing_closed":
-			return str(p, "title") + " không còn bán, đơn của bạn đã huỷ"
-		default:
-			return str(p, "actor") + " huỷ đơn " + str(p, "title")
-		}
-	},
-	TypeListingLive: func(p map[string]any) string { return str(p, "title") + " đã lên" },
-	TypeListingRejected: func(p map[string]any) string {
-		return str(p, "title") + " chưa lên được: một ảnh bị từ chối"
-	},
-	TypeReview: func(p map[string]any) string {
-		return str(p, "actor") + " chấm " + strconv.FormatInt(number(p, "stars"), 10) + " sao cho " + str(p, "title")
-	},
-	TypeSuspended: func(p map[string]any) string {
-		until, err := time.Parse(time.RFC3339, str(p, "until"))
-		if err != nil {
-			return "Tài khoản của bạn bị khoá"
-		}
-		return "Tài khoản của bạn bị khoá đến " + until.In(vietnam).Format("2/1")
-	},
-	TypeUnsuspended: func(map[string]any) string { return "Tài khoản của bạn đã được mở khoá" },
-}
+// chatRunes is how much of a message a chat push shows.
+const chatRunes = 100
 
-// vietnam is the time zone dates are written in.
-var vietnam = time.FixedZone("ICT", 7*60*60)
-
-// Text writes a notice in Vietnamese.
-func Text(t Type, p map[string]any) string {
-	if write, ok := texts[t]; ok {
-		return write(p)
-	}
-	return ""
-}
-
-// Title is a push's title, by the notice's group.
-func Title(t Type) string {
-	switch t {
-	case TypeOffer, TypeCounter, TypeAgreed, TypeDeclined, TypeAgreementCancelled, TypeOfferVoided:
-		return "Trả giá"
-	case TypeCodRequested, TypeShipped, TypeDelivered, TypeReturned, TypeOrderCancelled:
-		return "Đơn hàng"
-	case TypeListingLive, TypeListingRejected:
-		return "Tin đăng"
-	case TypeReview:
-		return "Đánh giá"
-	case TypeSuspended, TypeUnsuspended:
-		return "Tài khoản"
-	default:
-		return "ShopNexus"
-	}
-}
-
-// Target is the screen a notice opens.
-type Target struct {
-	Kind string `json:"kind"`
-	ID   string `json:"id"`
-}
-
-// TargetOf is the screen a notice of type t opens.
-func TargetOf(t Type, p map[string]any) Target {
-	switch t {
-	case TypeOffer, TypeCounter, TypeAgreed, TypeDeclined, TypeAgreementCancelled, TypeOfferVoided:
-		return Target{Kind: "deal", ID: str(p, "deal_id")}
-	case TypeCodRequested, TypeShipped, TypeDelivered, TypeReturned, TypeOrderCancelled:
-		return Target{Kind: "order", ID: str(p, "deal_id")}
-	case TypeListingLive, TypeListingRejected:
-		return Target{Kind: "listing", ID: str(p, "listing_id")}
-	case TypeReview:
-		return Target{Kind: "seller_reviews", ID: str(p, "seller_id")}
-	case TypeSuspended, TypeUnsuspended:
-		return Target{Kind: "account"}
-	default:
-		return Target{}
-	}
-}
-
-// ChatBody is a chat push's body: the sender and the start of the text, or
-// the photos they sent.
+// ChatBody is a chat push's body: the sender and the first 100 characters
+// of the text, or the photos they sent.
 func ChatBody(sender, text string, photos int) string {
 	if text != "" {
+		if r := []rune(text); len(r) > chatRunes {
+			text = string(r[:chatRunes])
+		}
 		return sender + ": " + text
 	}
 	return sender + " gửi " + strconv.Itoa(photos) + " ảnh"

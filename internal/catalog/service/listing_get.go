@@ -2,25 +2,20 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
 // Get reads a listing. Anyone sees an active or reserved listing; its seller
 // also sees it in any other state but deleted.
 func (c *Catalog) Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error) {
-	l, err := c.listings.Get(ctx, id)
-	if errors.Is(err, repository.ErrNotFound) {
-		return ListingView{}, domain.ErrNotFound
-	}
+	l, err := c.listing(ctx, id)
 	if err != nil {
-		return ListingView{}, fmt.Errorf("get listing: %w", err)
+		return ListingView{}, err
 	}
 	owner := viewer != nil && *viewer == l.SellerID()
 	public := slices.Contains(domain.Public, l.Status())
@@ -67,6 +62,15 @@ func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID
 		out[l.ID()] = s
 	}
 	return out, nil
+}
+
+func (c *Catalog) Summary(ctx context.Context, id uuid.UUID) (Summary, bool, error) {
+	got, err := c.Summaries(ctx, []uuid.UUID{id})
+	if err != nil {
+		return Summary{}, false, err
+	}
+	s, ok := got[id]
+	return s, ok, nil
 }
 
 // Places reads the communes among codes with their provinces in one query.

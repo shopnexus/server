@@ -2,10 +2,13 @@ package e2e
 
 import (
 	"bufio"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
 // streamEvent is one server-sent event.
@@ -72,28 +75,26 @@ func nextEvent(t *testing.T, events <-chan streamEvent) streamEvent {
 	return streamEvent{}
 }
 
-// waitEvent reads events until one named name whose data contains id.
+// waitEvent reads events for up to 5 s until one named name whose data
+// contains id.
 func waitEvent(t *testing.T, events <-chan streamEvent, name, id string) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if ev := nextEvent(t, events); ev.Name == name && strings.Contains(ev.Data, id) {
-			return
+	testenv.Eventually(t, 5*time.Second, func() error {
+		if ev := nextEvent(t, events); ev.Name != name || !strings.Contains(ev.Data, id) {
+			return fmt.Errorf("event %s %s, want %s for %s", ev.Name, ev.Data, name, id)
 		}
-	}
-	t.Fatalf("no %s event for %s", name, id)
+		return nil
+	})
 }
 
 func TestStreamGetsADealHint(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
-	l := activeListing(t, seller.AccessToken)
+	l := activeListing(t, seller.AccessToken, nil)
 	events := openStream(t, seller.AccessToken)
 	d := openDeal(t, buyer.AccessToken, l.ID, http.StatusCreated)
 	moved(t, buyer.AccessToken, d.ID, "offer", map[string]any{"amount": 1_000_000})
 	waitEvent(t, events, "deal", d.ID)
-	if res := call(t, server, "GET", "/v1/stream", nil); res.Status != http.StatusUnauthorized {
-		t.Fatalf("signed out: %d", res.Status)
-	}
+	expectStatus(t, call(t, "GET", "/v1/stream", nil), http.StatusUnauthorized)
 }

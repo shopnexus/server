@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 	"uuid"
 
@@ -79,7 +80,7 @@ func (o *orderScan) order() *domain.Order {
 	return out
 }
 
-func scanDeal(row pgx.Row) (domain.Deal, error) {
+func scanDeal(row pgx.CollectableRow) (domain.Deal, error) {
 	var (
 		st         domain.DealState
 		openBy     *domain.Party
@@ -148,7 +149,11 @@ func (s pgDeals) Find(ctx context.Context, listingID, buyer uuid.UUID) (domain.D
 
 // one reads the deal query q finds, or ErrNotFound.
 func (s pgDeals) one(ctx context.Context, q string, a pgx.StrictNamedArgs) (domain.Deal, error) {
-	d, err := scanDeal(s.db.QueryRow(ctx, q, a))
+	rows, err := s.db.Query(ctx, q, a)
+	if err != nil {
+		return domain.Deal{}, fmt.Errorf("select deal: %w", err)
+	}
+	d, err := pgx.CollectOneRow(rows, scanDeal)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Deal{}, ErrNotFound
 	}
@@ -265,19 +270,20 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 				return fmt.Errorf("insert move: %w", err)
 			}
 		}
-		for _, e := range evs {
-			// The moves' IDs ride on deal.moved, so a subscriber reads
-			// exactly the moves of this save.
-			if e.Kind == events.DealMoved {
+		// The moves' IDs ride on deal.moved, so a subscriber reads exactly
+		// the moves of this save. The copy leaves the caller's events alone.
+		out := slices.Clone(evs)
+		for i := range out {
+			if out[i].Kind == events.DealMoved {
 				ids := make([]string, 0, len(d.Pending()))
 				for _, m := range d.Pending() {
 					ids = append(ids, m.ID.String())
 				}
-				e.Payload = map[string]any{"moves": ids}
+				out[i].Payload = map[string]any{"moves": ids}
 			}
-			if err = events.Insert(ctx, tx, e); err != nil {
-				return err
-			}
+		}
+		if err = events.Insert(ctx, tx, out...); err != nil {
+			return err
 		}
 		return stream.Notify(ctx, tx, []uuid.UUID{st.BuyerID, st.SellerID}, stream.Hint{Kind: stream.KindDeal, DealID: &st.ID})
 	})
@@ -335,55 +341,58 @@ func (s pgDeals) many(ctx context.Context, q string, a pgx.StrictNamedArgs) ([]d
 	if err != nil {
 		return nil, fmt.Errorf("select deals: %w", err)
 	}
-	defer rows.Close()
-	var out []domain.Deal
-	for rows.Next() {
-		d, err := scanDeal(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, d)
-	}
-	if err := rows.Err(); err != nil {
+	out, err := pgx.CollectRows(rows, scanDeal)
+	if err != nil {
 		return nil, fmt.Errorf("read deals: %w", err)
 	}
 	return out, nil
 }
 
+// dealMove is a move with its deal, as Moves scans it.
+type dealMove struct {
+	domain.Move
+
+	DealID uuid.UUID
+}
+
 func (s pgDeals) Moves(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]domain.Move, error) {
-	rows, err := s.db.Query(ctx, `SELECT deal_id, id, kind, by_party, amount, moved_at FROM deal_moves
+	rows, err := s.db.Query(ctx, `SELECT id, kind, by_party, coalesce(amount, 0), moved_at, deal_id FROM deal_moves
 WHERE deal_id = ANY(@ids) ORDER BY id`, pgx.StrictNamedArgs{"ids": ids})
 	if err != nil {
 		return nil, fmt.Errorf("select moves: %w", err)
 	}
-	defer rows.Close()
-	out := map[uuid.UUID][]domain.Move{}
-	for rows.Next() {
-		var (
-			deal   uuid.UUID
-			m      domain.Move
-			amount *int64
-		)
-		if err := rows.Scan(&deal, &m.ID, &m.Kind, &m.By, &amount, &m.At); err != nil {
-			return nil, fmt.Errorf("scan move: %w", err)
-		}
-		if amount != nil {
-			m.Amount = *amount
-		}
-		out[deal] = append(out[deal], m)
-	}
-	if err := rows.Err(); err != nil {
+	moves, err := pgx.CollectRows(rows, pgx.RowToStructByPos[dealMove])
+	if err != nil {
 		return nil, fmt.Errorf("read moves: %w", err)
+	}
+	out := map[uuid.UUID][]domain.Move{}
+	for _, m := range moves {
+		out[m.DealID] = append(out[m.DealID], m.Move)
 	}
 	return out, nil
 }
 
+// selectOrder reads orders as o with their deals.
+const selectOrder = `SELECT o.deal_id, o.listing_id, o.buyer_id, o.seller_id, ` + orderColumns + `
+FROM orders o
+`
+
 const (
-	ordersOfBuyer = `SELECT o.deal_id, o.listing_id, o.buyer_id, o.seller_id, ` + orderColumns + `
-FROM orders o WHERE o.buyer_id = @account AND o.id < @before ORDER BY o.id DESC LIMIT @limit`
-	ordersOfSeller = `SELECT o.deal_id, o.listing_id, o.buyer_id, o.seller_id, ` + orderColumns + `
-FROM orders o WHERE o.seller_id = @account AND o.id < @before ORDER BY o.id DESC LIMIT @limit`
+	ordersOfBuyer  = selectOrder + `WHERE o.buyer_id = @account AND o.id < @before ORDER BY o.id DESC LIMIT @limit`
+	ordersOfSeller = selectOrder + `WHERE o.seller_id = @account AND o.id < @before ORDER BY o.id DESC LIMIT @limit`
 )
+
+func scanOrder(row pgx.CollectableRow) (OrderRow, error) {
+	var (
+		r OrderRow
+		o orderScan
+	)
+	if err := row.Scan(append([]any{&r.DealID, &r.ListingID, &r.BuyerID, &r.SellerID}, o.dest()...)...); err != nil {
+		return OrderRow{}, fmt.Errorf("scan order: %w", err)
+	}
+	r.Order = *o.order()
+	return r, nil
+}
 
 func (s pgDeals) ListOrders(ctx context.Context, account uuid.UUID, as domain.Party, p page.Request) ([]OrderRow, error) {
 	q := ordersOfBuyer
@@ -394,39 +403,24 @@ func (s pgDeals) ListOrders(ctx context.Context, account uuid.UUID, as domain.Pa
 	if err != nil {
 		return nil, fmt.Errorf("select orders: %w", err)
 	}
-	defer rows.Close()
-	var out []OrderRow
-	for rows.Next() {
-		var (
-			r OrderRow
-			o orderScan
-		)
-		if err = rows.Scan(append([]any{&r.DealID, &r.ListingID, &r.BuyerID, &r.SellerID}, o.dest()...)...); err != nil {
-			return nil, fmt.Errorf("scan order: %w", err)
-		}
-		r.Order = *o.order()
-		out = append(out, r)
-	}
-	if err = rows.Err(); err != nil {
+	out, err := pgx.CollectRows(rows, scanOrder)
+	if err != nil {
 		return nil, fmt.Errorf("read orders: %w", err)
 	}
 	return out, nil
 }
 
 func (s pgDeals) Order(ctx context.Context, id uuid.UUID) (OrderRow, error) {
-	var (
-		r OrderRow
-		o orderScan
-	)
-	err := s.db.QueryRow(ctx, `SELECT o.deal_id, o.listing_id, o.buyer_id, o.seller_id, `+orderColumns+`
-FROM orders o WHERE o.id = @id`, pgx.StrictNamedArgs{"id": id}).
-		Scan(append([]any{&r.DealID, &r.ListingID, &r.BuyerID, &r.SellerID}, o.dest()...)...)
+	rows, err := s.db.Query(ctx, selectOrder+`WHERE o.id = @id`, pgx.StrictNamedArgs{"id": id})
+	if err != nil {
+		return OrderRow{}, fmt.Errorf("select order: %w", err)
+	}
+	r, err := pgx.CollectOneRow(rows, scanOrder)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return OrderRow{}, ErrNotFound
 	}
 	if err != nil {
-		return OrderRow{}, fmt.Errorf("select order: %w", err)
+		return OrderRow{}, fmt.Errorf("read order: %w", err)
 	}
-	r.Order = *o.order()
 	return r, nil
 }

@@ -35,7 +35,7 @@ func (s *Console) ChangePassword(ctx context.Context, caller authn.ConsoleMember
 		return fmt.Errorf("new password: %w", err)
 	}
 	m.SetPassword(s.keys.Hasher.Hash(next), s.now())
-	if err = s.members.Save(ctx, &m, uuid.NewV7()); err != nil {
+	if err = s.members.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
 		return saveFailed(err)
 	}
 	return nil

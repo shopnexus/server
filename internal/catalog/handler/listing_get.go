@@ -2,10 +2,8 @@ package handler
 
 import (
 	"net/http"
-	"uuid"
 
 	"github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
@@ -17,11 +15,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	var viewer *uuid.UUID
-	if p, ok := authn.From(r.Context()); ok {
-		viewer = &p.AccountID
-	}
-	v, err := h.svc.Get(r.Context(), viewer, in.ID)
+	v, err := h.svc.Get(r.Context(), httpx.Viewer(r), in.ID)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
@@ -32,7 +26,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 type listMineRequest struct {
 	page.Request
 
-	Pane string `json:"-" query:"pane"`
+	Pane service.Pane `json:"-" query:"pane"`
 }
 
 // ListMine serves GET /v1/me/listings.
@@ -46,7 +40,7 @@ func (h *Handler) ListMine(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, err := h.svc.ListMine(r.Context(), p.AccountID, service.Pane(in.Pane), in.Request)
+	out, err := h.svc.ListMine(r.Context(), p.AccountID, in.Pane, in.Request)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

@@ -38,7 +38,7 @@ func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, err
 	if err != nil {
 		return domain.Tokens{}, err
 	}
-	if a.Status(now) == domain.StatusSuspended {
+	if a.Suspended(now) {
 		if err = s.revoke(ctx, sess.ID(), now); err != nil {
 			return domain.Tokens{}, err
 		}

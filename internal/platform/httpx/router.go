@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 )
 
@@ -32,6 +33,6 @@ func (r *Router) Handle(pattern string, h http.Handler) {
 func (r *Router) HandleFunc(pattern string, h http.HandlerFunc) { r.Handle(pattern, h) }
 
 // Routes returns the registered routes in registration order.
-func (r *Router) Routes() []Route { return append([]Route(nil), r.routes...) }
+func (r *Router) Routes() []Route { return slices.Clone(r.routes) }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) { r.mux.ServeHTTP(w, req) }

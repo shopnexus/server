@@ -20,8 +20,6 @@ type Saves interface {
 	Save(ctx context.Context, id, account, listing uuid.UUID, price int64, at time.Time) error
 	// Remove forgets a save; an absent one is fine.
 	Remove(ctx context.Context, account, listing uuid.UUID) error
-	// Has reports whether account saved listing.
-	Has(ctx context.Context, account, listing uuid.UUID) (bool, error)
 	// SavedAmong returns which of ids account saved.
 	SavedAmong(ctx context.Context, account uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]bool, error)
 	// List is a query: account's saves with IDs below p.Before(), newest

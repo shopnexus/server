@@ -35,7 +35,8 @@ VALUES (@token_hash, @session_id, @app, @created_at, @expires_at)`, pgx.StrictNa
 
 // Redeem's UPDATE takes the ticket's row lock, so a second callback with
 // the same ticket waits, finds used_at set and matches nothing.
-func (st pgDashboards) Redeem(ctx context.Context, ticketHash []byte, s domain.DashboardSession) (domain.DashboardSession, error) {
+func (st pgDashboards) Redeem(ctx context.Context, ticketHash, tokenHash []byte, app domain.App, now time.Time) (time.Time, error) {
+	var expiresAt time.Time
 	err := st.db.QueryRow(ctx, `
 WITH ticket AS (
     UPDATE console_dashboard_tickets t SET used_at = @now
@@ -47,16 +48,16 @@ WITH ticket AS (
 )
 INSERT INTO console_dashboard_sessions (token_hash, session_id, app, created_at, expires_at)
 SELECT @token_hash, ticket.session_id, @app, @now, ticket.expires_at FROM ticket
-RETURNING session_id, expires_at`, pgx.StrictNamedArgs{
-		"ticket_hash": ticketHash, "token_hash": s.TokenHash, "app": s.App, "now": s.CreatedAt,
-	}).Scan(&s.SessionID, &s.ExpiresAt)
+RETURNING expires_at`, pgx.StrictNamedArgs{
+		"ticket_hash": ticketHash, "token_hash": tokenHash, "app": app, "now": now,
+	}).Scan(&expiresAt)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.DashboardSession{}, ErrNotFound
+		return time.Time{}, ErrNotFound
 	}
 	if err != nil {
-		return domain.DashboardSession{}, fmt.Errorf("redeem dashboard ticket: %w", err)
+		return time.Time{}, fmt.Errorf("redeem dashboard ticket: %w", err)
 	}
-	return s, nil
+	return expiresAt, nil
 }
 
 func (st pgDashboards) Live(ctx context.Context, tokenHash []byte, app domain.App, now time.Time) (domain.DashboardGrant, error) {

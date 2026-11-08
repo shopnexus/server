@@ -4,7 +4,6 @@ package app
 
 import (
 	"context"
-	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -52,11 +51,10 @@ type App struct {
 	pool     *pgxpool.Pool
 	endpoint *restatex.Endpoint
 	adminURL string
-	// stopEvents cancels the event bus and the stream hub; eventsDone
-	// closes when both returned.
-	stopEvents context.CancelFunc
-	eventsDone chan struct{}
-	hub        *stream.Hub
+	hub      *stream.Hub
+	// stop cancels the event bus and the stream hub, which run in bg.
+	stop context.CancelFunc
+	bg   sync.WaitGroup
 }
 
 // Option changes how New builds the app.
@@ -82,28 +80,34 @@ func (a *App) Routes() []httpx.Route { return a.router.Routes() }
 // start while migrations are pending, so the server never runs against an
 // older schema.
 func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Option) (_ *App, err error) {
-	// config.Load checks the keys too; this catches a Config built by hand.
-	if len(cfg.Auth.JWTKey) != ed25519.PrivateKeySize {
-		return nil, errors.New("auth keys missing from config; run make run, which adds them to .env")
-	}
-	if len(cfg.Console.Key) < 32 || cfg.Console.Origin == "" {
-		return nil, errors.New("console key or console origin missing from config; run make run, which adds the key to .env")
-	}
 	o := options{hasher: consoledomain.Production}
 	for _, opt := range opts {
 		opt(&o)
 	}
-	if _, pushLogs := o.push.(push.LogSender); cfg.Env == config.EnvProd && (pushLogs || o.push == nil && len(cfg.Push.Credentials) == 0) {
-		return nil, errors.New("APP_ENV=prod with FCM_CREDENTIALS empty; pushes would only be logged")
-	}
 	if cfg.Env == config.EnvProd && cfg.Firebase.TestNumbers {
 		return nil, errors.New("APP_ENV=prod with PNV_TEST_NUMBERS=true; test numbers would sign in")
+	}
+	sender := o.push
+	switch {
+	case sender != nil:
+	case len(cfg.Push.Credentials) > 0:
+		// The sender keeps this context to refresh its token, so it is not ctx.
+		fcm, fcmErr := push.NewFCM(context.Background(), cfg.Push.Credentials, cfg.Firebase.ProjectID)
+		if fcmErr != nil {
+			return nil, fmt.Errorf("push: %w", fcmErr)
+		}
+		sender = fcm
+	case cfg.Env == config.EnvProd:
+		return nil, errors.New("APP_ENV=prod with FCM_CREDENTIALS empty; pushes would only be logged")
+	default:
+		sender = push.LogSender{Log: log}
 	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("connect to postgres: %w", err)
 	}
-	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL}
+	runCtx, stop := context.WithCancel(context.Background())
+	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL, hub: stream.NewHub(pool, log), stop: stop}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, a.Close(context.Background()))
@@ -135,9 +139,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	})
 	in := ingress.NewClient(cfg.Restate.IngressURL)
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	hub := stream.NewHub(pool, log)
-	a.hub = hub
-	defs, err := mountModules(a.router, pool, in, bus, hub, cfg, o, log)
+	defs, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, log)
 	if err != nil {
 		return nil, err
 	}
@@ -148,29 +150,22 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if a.endpoint, err = startRestate(ctx, cfg.Restate, log, defs); err != nil {
 		return nil, err
 	}
-	runCtx, stop := context.WithCancel(context.Background())
-	a.stopEvents, a.eventsDone = stop, make(chan struct{})
-	go func() {
-		var wg sync.WaitGroup
-		wg.Go(func() {
-			if err := bus.Run(runCtx); err != nil {
-				log.ErrorContext(runCtx, "event bus stopped", "err", err)
-			}
-		})
-		wg.Go(func() {
-			if err := hub.Run(runCtx); err != nil {
-				log.ErrorContext(runCtx, "stream hub stopped", "err", err)
-			}
-		})
-		wg.Wait()
-		close(a.eventsDone)
-	}()
+	a.bg.Go(func() {
+		if err := bus.Run(runCtx); err != nil {
+			log.ErrorContext(runCtx, "event bus stopped", "err", err)
+		}
+	})
+	a.bg.Go(func() {
+		if err := a.hub.Run(runCtx); err != nil {
+			log.ErrorContext(runCtx, "stream hub stopped", "err", err)
+		}
+	})
 
-	// Trace is outermost so a panic's 500 still carries a trace id, and
-	// AccessLog sits outside Recover so that 500 gets a log line.
+	// Trace is outermost, so a panic's 500 carries a trace id and gets its
+	// access log line.
 	cors := httpx.CORS(cfg.Console.Origin, "/v1/console/")
 	clientIP := httpx.ResolveClientIP(cfg.TrustedProxies)
-	a.Handler = httpx.Trace(httpx.AccessLog(log)(httpx.Recover(log)(clientIP(cors(validate(a.router))))))
+	a.Handler = httpx.Trace(log)(httpx.Recover(log)(clientIP(cors(validate(a.router)))))
 	return a, nil
 }
 
@@ -194,54 +189,39 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 }
 
 // mountModules mounts every module and returns their Restate services. A
-// module mounts after the modules whose services it takes; protect comes first
-// because it needs only the auth keys.
+// module mounts after the modules whose services it takes; account's guards
+// come first because they need only the auth keys.
 func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub,
-	cfg config.Config, o options, log *slog.Logger,
+	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, log *slog.Logger,
 ) ([]restate.ServiceDefinition, error) {
 	d := module.Deps{
 		Router: router, Pool: pool, Ingress: in, ServicePrefix: cfg.Restate.ServicePrefix,
 		Events: bus, Now: time.Now, Log: log,
 	}
-	protect := account.Protect(d, cfg.Auth)
-	router.Handle("GET /v1/stream", protect(hub.Handler(log)))
+	d.Protect, d.Identify = account.Guards(d, cfg.Auth)
+	router.Handle("GET /v1/stream", d.Protect(hub.Handler(log)))
 	store, err := objectstore.New(cfg.ObjectStore)
 	if err != nil {
 		return nil, fmt.Errorf("object store: %w", err)
 	}
-	mediam := media.Mount(d, store, protect)
-	accountm := account.Mount(d, protect,
+	mediam := media.Mount(d, media.Settings{Store: store})
+	accountm := account.Mount(d,
 		account.Settings{Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log)}, mediam.Service)
 	accounts := accountm.Service
-	consoleKeys, err := consolesvc.NewKeys(cfg.Console, o.hasher)
+	consoleKeys, err := consolesvc.NewKeys(cfg.Console, hasher)
 	if err != nil {
 		return nil, fmt.Errorf("console keys: %w", err)
 	}
-	console.Mount(d, consoleKeys, cfg.Console, accounts)
-	catalogm := catalog.Mount(d, catalog.Guards{Protect: protect, Identify: account.Identify(d, cfg.Auth)},
-		accounts, mediam.Service)
-	dealm := deal.Mount(d, protect, accounts, catalogm.Service)
-	trustm := trust.Mount(d, protect, accounts, catalogm.Service, dealm.Service)
+	console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts)
+	catalogm := catalog.Mount(d, accounts, mediam.Service)
+	dealm := deal.Mount(d, accounts, catalogm.Service)
+	trustm := trust.Mount(d, accounts, catalogm.Service, dealm.Service)
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
-	saves := discovery.Mount(d, discovery.Guards{Protect: protect, Identify: account.Identify(d, cfg.Auth)},
-		catalogm.Service, model)
-	chatm := chat.Mount(d, protect, accounts, catalogm.Service, mediam.Service)
-	sender := o.push
-	if sender == nil {
-		sender = push.LogSender{Log: log}
-		if len(cfg.Push.Credentials) > 0 {
-			fcm, fcmErr := push.NewFCM(context.Background(), cfg.Push.Credentials, cfg.Firebase.ProjectID)
-			if fcmErr != nil {
-				return nil, fmt.Errorf("push: %w", fcmErr)
-			}
-			sender = fcm
-		}
-	}
-	notificationm := notification.Mount(d, protect, notification.Sources{
-		Accounts: accounts, Catalog: catalogm.Service, Deals: dealm.Service, Chats: chatm.Service, Trust: trustm,
-	}, sender)
-	screen.Mount(d, screen.Guards{Protect: protect, Identify: account.Identify(d, cfg.Auth)},
-		accounts, catalogm.Service, dealm.Service, trustm, saves, chatm.Service, notificationm.Service)
+	discoverym := discovery.Mount(d, discovery.Settings{Model: model}, catalogm.Service)
+	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
+	notificationm := notification.Mount(d, notification.Settings{Push: sender},
+		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service)
+	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm, discoverym, chatm.Service, notificationm.Service)
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, dealm.Services, chatm.Services,
 		notificationm.Services), nil
 }
@@ -294,20 +274,14 @@ func (a *App) ready(ctx context.Context) error {
 
 // CloseStreams ends every open /v1/stream, so a server shutdown does not
 // wait for them; the server's RegisterOnShutdown calls it.
-func (a *App) CloseStreams() {
-	if a.hub != nil {
-		a.hub.Close()
-	}
-}
+func (a *App) CloseStreams() { a.hub.Close() }
 
 // Close ends the streams, stops the event bus, the stream hub and the
 // Restate endpoint, then closes the pool.
 func (a *App) Close(ctx context.Context) error {
 	a.CloseStreams()
-	if a.stopEvents != nil {
-		a.stopEvents()
-		<-a.eventsDone
-	}
+	a.stop()
+	a.bg.Wait()
 	var err error
 	if a.endpoint != nil {
 		if cerr := a.endpoint.Close(ctx); cerr != nil {

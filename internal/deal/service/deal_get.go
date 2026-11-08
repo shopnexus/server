@@ -123,16 +123,13 @@ func (s *Deals) ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Part
 	return page.Of(items, p, func(o OrderItem) uuid.UUID { return o.ID }), nil
 }
 
-func (s *Deals) Order(ctx context.Context, id uuid.UUID) (OrderFacts, error) {
+func (s *Deals) Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, error) {
 	r, err := s.deals.Order(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
-		return OrderFacts{}, domain.ErrOrderNotFound
+		return OrderFacts{}, false, nil
 	}
 	if err != nil {
-		return OrderFacts{}, fmt.Errorf("get order: %w", err)
+		return OrderFacts{}, false, fmt.Errorf("get order: %w", err)
 	}
-	return OrderFacts{
-		ID: r.Order.ID, DealID: r.DealID, BuyerID: r.BuyerID, SellerID: r.SellerID, ListingID: r.ListingID,
-		Status: r.Order.Status,
-	}, nil
+	return OrderFacts{BuyerID: r.BuyerID, SellerID: r.SellerID, ListingID: r.ListingID, Status: r.Order.Status}, true, nil
 }

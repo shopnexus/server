@@ -28,8 +28,12 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 	if !errors.Is(err, repository.ErrNotFound) {
 		return DealView{}, false, fmt.Errorf("find deal: %w", err)
 	}
-	if err = s.refuseSuspended(ctx, buyer); err != nil {
-		return DealView{}, false, err
+	suspended, err := s.accounts.Suspended(ctx, buyer)
+	if err != nil {
+		return DealView{}, false, fmt.Errorf("read account status: %w", err)
+	}
+	if suspended {
+		return DealView{}, false, accountdomain.ErrSuspended
 	}
 	if l.SellerID == buyer {
 		return DealView{}, false, domain.ErrOwnListing

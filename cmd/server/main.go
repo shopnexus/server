@@ -26,12 +26,9 @@ func main() {
 }
 
 func run() error {
-	if err := config.LoadDotEnv(".env"); err != nil {
-		return fmt.Errorf("load .env: %w", err)
-	}
-	cfg, err := config.Load(os.LookupEnv)
+	cfg, err := config.FromDotEnv(".env")
 	if err != nil {
-		return fmt.Errorf("config:\n%w", err)
+		return err
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

@@ -75,12 +75,9 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("current OS user: %w", err)
 	}
-	if err = config.LoadDotEnv(".env"); err != nil {
-		return fmt.Errorf("load .env: %w", err)
-	}
-	cfg, err := config.Load(os.LookupEnv)
+	cfg, err := config.FromDotEnv(".env")
 	if err != nil {
-		return fmt.Errorf("config:\n%w", err)
+		return err
 	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -91,7 +88,7 @@ func run(ctx context.Context, args []string, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("console keys: %w", err)
 	}
-	svc := console.NewService(pool, keys, cfg.Console, nil, time.Now)
+	svc := console.NewService(pool, console.Settings{Keys: keys, Config: cfg.Console}, nil, time.Now)
 	by := audit.ByCLI(osUser.Username)
 
 	if cmd == cmdCreateAdmin {

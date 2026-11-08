@@ -57,12 +57,11 @@ type LoginInput struct {
 	IP          netip.Addr
 }
 
-// SignedIn is a finished sign-in: the member, and the token and end of the
-// session for the cookie.
+// SignedIn is a finished sign-in: the member, and the session's token for
+// the cookie, which lasts domain.SessionTTL.
 type SignedIn struct {
-	Me        Me
-	Token     string
-	ExpiresAt time.Time
+	Me    Me
+	Token string
 }
 
 // CreateMemberInput creates a member with Role, recorded for By.
@@ -75,9 +74,9 @@ type CreateMemberInput struct {
 
 // AccountDetail is the ConsoleAccountDetail schema.
 type AccountDetail struct {
-	Account    accountsvc.Record     `json:"account"`
-	Identities []accountsvc.Identity `json:"identities"`
-	Actions    []audit.Action        `json:"actions"`
+	Account    accountsvc.ConsoleAccount `json:"account"`
+	Identities []accountsvc.Identity     `json:"identities"`
+	Actions    []audit.Action            `json:"actions"`
 }
 
 // DashboardTicket is the DashboardTicket schema.

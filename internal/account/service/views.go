@@ -37,10 +37,10 @@ type UpdateInput struct {
 	RemoveAvatar bool
 }
 
-// Record is an account as console members see it: the ConsoleAccount schema in
-// api/schemas/console.yaml. A suspension that has lapsed reads as active, with
+// ConsoleAccount is an account as console members see it: the ConsoleAccount
+// schema in api/schemas/console.yaml. A suspension that has lapsed reads as active, with
 // no reason or end.
-type Record struct {
+type ConsoleAccount struct {
 	ID             uuid.UUID     `json:"id"`
 	DisplayName    string        `json:"display_name"`
 	Status         domain.Status `json:"status"`
@@ -49,8 +49,8 @@ type Record struct {
 	CreatedAt      time.Time     `json:"created_at"`
 }
 
-func recordOf(a domain.Account, now time.Time) Record {
-	r := Record{ID: a.ID(), DisplayName: a.DisplayName(), Status: a.Status(now), CreatedAt: a.CreatedAt()}
+func consoleAccountOf(a domain.Account, now time.Time) ConsoleAccount {
+	r := ConsoleAccount{ID: a.ID(), DisplayName: a.DisplayName(), Status: a.Status(now), CreatedAt: a.CreatedAt()}
 	if r.Status == domain.StatusSuspended {
 		r.SuspendedUntil, r.SuspendReason = a.SuspendedUntil(), a.SuspendReason()
 	}
@@ -58,7 +58,7 @@ func recordOf(a domain.Account, now time.Time) Record {
 }
 
 // SuspendInput suspends account ID until Until or, with a nil Until, until
-// Reinstate. By is recorded as the actor.
+// Unsuspend. By is recorded as the actor.
 type SuspendInput struct {
 	ID     uuid.UUID
 	Reason string

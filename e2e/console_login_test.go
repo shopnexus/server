@@ -62,10 +62,8 @@ func TestConsoleFirstSignIn(t *testing.T) {
 func TestConsoleLoginRefusals(t *testing.T) {
 	t.Parallel()
 	_, email, temp := newMember(t, consoledomain.RoleModerator)
-	if res := consoleLogin(t, map[string]string{"email": email}); res.Status != 400 {
-		t.Fatalf("no password: %d", res.Status)
-	}
-	noHeader := call(t, server, "POST", "/v1/console/login", map[string]string{"email": email, "password": temp})
+	expectStatus(t, consoleLogin(t, map[string]string{"email": email}), 400) // no password
+	noHeader := call(t, "POST", "/v1/console/login", map[string]string{"email": email, "password": temp})
 	if noHeader.Status != 400 {
 		t.Fatalf("without X-Requested-With: %d %s", noHeader.Status, noHeader.Body)
 	}
@@ -97,9 +95,7 @@ func TestConsoleWrongCodesLock(t *testing.T) {
 			t.Fatalf("wrong code: %d %s", res.Status, res.Body)
 		}
 	}
-	if res := consoleLogin(t, map[string]string{"email": s.Email, "password": memberPassword, "code": good}); res.Status != 429 {
-		t.Fatalf("after five wrong codes: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, consoleLogin(t, map[string]string{"email": s.Email, "password": memberPassword, "code": good}), 429) // after five wrong codes
 }
 
 // The console may send the email as typed; the server trims and lower-cases

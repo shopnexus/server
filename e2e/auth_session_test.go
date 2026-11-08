@@ -14,7 +14,7 @@ type tokens struct {
 
 func refresh(t *testing.T, token string) Response {
 	t.Helper()
-	return call(t, server, "POST", "/v1/auth/refresh", map[string]string{"refresh_token": token})
+	return call(t, "POST", "/v1/auth/refresh", map[string]string{"refresh_token": token})
 }
 
 func TestRefreshRotates(t *testing.T) {
@@ -25,9 +25,7 @@ func TestRefreshRotates(t *testing.T) {
 	if res.Status != 200 || next.RefreshToken == acc.RefreshToken {
 		t.Fatalf("status %d: %s", res.Status, res.Body)
 	}
-	if res := call(t, server, "GET", "/v1/accounts/me", nil, bearer(next.AccessToken)); res.Status != 200 {
-		t.Fatalf("new access token: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "GET", "/v1/accounts/me", nil, bearer(next.AccessToken)), 200) // the new access token works
 }
 
 // TestRefreshReplayRevokesTheSession is the spec's replay attack test.
@@ -47,9 +45,7 @@ func TestRefreshRefusals(t *testing.T) {
 	if res := refresh(t, "rt_nope"); res.Status != 401 || errorOf(t, res).Code != "invalid_refresh_token" {
 		t.Fatalf("unknown: %d %s", res.Status, res.Body)
 	}
-	if res := call(t, server, "POST", "/v1/auth/refresh", map[string]string{}); res.Status != 400 {
-		t.Fatalf("empty body: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "POST", "/v1/auth/refresh", map[string]string{}), 400)
 	acc, _ := newAccount(t)
 	suspend(t, acc.Account.ID)
 	if res := refresh(t, acc.RefreshToken); res.Status != 403 || errorOf(t, res).Code != "account_suspended" {
@@ -57,12 +53,9 @@ func TestRefreshRefusals(t *testing.T) {
 	}
 }
 
-type sessionPage struct {
-	Items []struct {
-		ID      string `json:"id"`
-		Current bool   `json:"current"`
-	} `json:"items"`
-	NextCursor string `json:"next_cursor"`
+type sessionView struct {
+	ID      string `json:"id"`
+	Current bool   `json:"current"`
 }
 
 func sessionOf(t *testing.T, accessToken string) string {
@@ -77,18 +70,12 @@ func sessionOf(t *testing.T, accessToken string) string {
 func TestLogoutRevokesRefresh(t *testing.T) {
 	t.Parallel()
 	acc, _ := newAccount(t)
-	if res := call(t, server, "POST", "/v1/auth/logout", nil, bearer(acc.AccessToken)); res.Status != 204 {
-		t.Fatalf("logout: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "POST", "/v1/auth/logout", nil, bearer(acc.AccessToken)), 204)
 	if res := refresh(t, acc.RefreshToken); res.Status != 401 || errorOf(t, res).Code != "session_revoked" {
 		t.Fatalf("refresh after logout: %d %s", res.Status, res.Body)
 	}
-	if res := call(t, server, "GET", "/v1/accounts/me", nil, bearer(acc.AccessToken)); res.Status != 200 {
-		t.Fatalf("the access token lives until it expires: %d %s", res.Status, res.Body)
-	}
-	if res := call(t, server, "POST", "/v1/auth/logout", nil); res.Status != 401 {
-		t.Fatalf("no token: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "GET", "/v1/accounts/me", nil, bearer(acc.AccessToken)), 200) // the access token lives until it expires
+	expectStatus(t, call(t, "POST", "/v1/auth/logout", nil), 401)
 }
 
 func TestLogoutAll(t *testing.T) {
@@ -98,54 +85,35 @@ func TestLogoutAll(t *testing.T) {
 	p, _ := accountdomain.NewVerifier(keys).Verify(second.AccessToken, time.Now())
 	s, _ := accountdomain.NewSession(p.SessionID, p.AccountID, "", time.Now().Add(-20*time.Minute), time.Now())
 	stale, _, _ := accountdomain.NewSigner(keys).Sign(s, time.Now())
-	if res := call(t, server, "POST", "/v1/auth/logout-all", nil, bearer(stale)); res.Status != 428 || errorOf(t, res).Code != "reauth_required" {
+	if res := call(t, "POST", "/v1/auth/logout-all", nil, bearer(stale)); res.Status != 428 || errorOf(t, res).Code != "reauth_required" {
 		t.Fatalf("stale sign-in: %d %s", res.Status, res.Body)
 	}
-	if res := call(t, server, "POST", "/v1/auth/logout-all", nil, bearer(second.AccessToken)); res.Status != 204 {
-		t.Fatalf("status %d: %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "POST", "/v1/auth/logout-all", nil, bearer(second.AccessToken)), 204)
 	for _, token := range []string{first.RefreshToken, second.RefreshToken} {
-		if res := refresh(t, token); res.Status != 401 {
-			t.Fatalf("refresh after logout-all: %d %s", res.Status, res.Body)
-		}
+		expectStatus(t, refresh(t, token), 401) // refresh after logout-all
 	}
-	if res := call(t, server, "POST", "/v1/auth/logout-all", nil); res.Status != 401 {
-		t.Fatalf("no token: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "POST", "/v1/auth/logout-all", nil), 401)
 }
 
 func TestSessionsListAndRemove(t *testing.T) {
 	t.Parallel()
 	first, phone := newAccount(t)
 	second := signInWith(t, phone)
-	res := call(t, server, "GET", "/v1/auth/sessions", nil, bearer(second.AccessToken))
-	page := decode[sessionPage](t, res)
-	if res.Status != 200 || len(page.Items) != 2 || page.Items[0].ID != sessionOf(t, second.AccessToken) || !page.Items[0].Current {
-		t.Fatalf("status %d: %s", res.Status, res.Body)
+	all := expect[page[sessionView]](t, call(t, "GET", "/v1/auth/sessions", nil, bearer(second.AccessToken)), 200)
+	if len(all.Items) != 2 || all.Items[0].ID != sessionOf(t, second.AccessToken) || !all.Items[0].Current {
+		t.Fatalf("%+v", all)
 	}
-	one := decode[sessionPage](t, call(t, server, "GET", "/v1/auth/sessions?limit=1", nil, bearer(second.AccessToken)))
-	rest := decode[sessionPage](t, call(t, server, "GET", "/v1/auth/sessions?limit=1&cursor="+one.NextCursor, nil, bearer(second.AccessToken)))
+	one := decode[page[sessionView]](t, call(t, "GET", "/v1/auth/sessions?limit=1", nil, bearer(second.AccessToken)))
+	rest := decode[page[sessionView]](t, call(t, "GET", "/v1/auth/sessions?limit=1&cursor="+one.NextCursor, nil, bearer(second.AccessToken)))
 	if len(rest.Items) != 1 || rest.Items[0].ID != sessionOf(t, first.AccessToken) {
 		t.Fatalf("pages %+v, %+v", one, rest)
 	}
-	if res := call(t, server, "GET", "/v1/auth/sessions?limit=0", nil, bearer(second.AccessToken)); res.Status != 400 {
-		t.Fatalf("limit 0: %d %s", res.Status, res.Body)
-	}
-	if res := call(t, server, "GET", "/v1/auth/sessions", nil); res.Status != 401 {
-		t.Fatalf("no token: %d", res.Status)
-	}
-	if res := call(t, server, "DELETE", "/v1/auth/sessions/"+sessionOf(t, first.AccessToken), nil, bearer(second.AccessToken)); res.Status != 204 {
-		t.Fatalf("remove: %d %s", res.Status, res.Body)
-	}
-	if res := refresh(t, first.RefreshToken); res.Status != 401 {
-		t.Fatalf("removed device refreshes: %d", res.Status)
-	}
-	if res := call(t, server, "DELETE", "/v1/auth/sessions/not-a-uuid", nil, bearer(second.AccessToken)); res.Status != 400 {
-		t.Fatalf("bad id: %d %s", res.Status, res.Body)
-	}
-	if res := call(t, server, "DELETE", "/v1/auth/sessions/"+sessionOf(t, second.AccessToken), nil); res.Status != 401 {
-		t.Fatalf("no token: %d", res.Status)
-	}
+	expectStatus(t, call(t, "GET", "/v1/auth/sessions?limit=0", nil, bearer(second.AccessToken)), 400)
+	expectStatus(t, call(t, "GET", "/v1/auth/sessions", nil), 401)
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/"+sessionOf(t, first.AccessToken), nil, bearer(second.AccessToken)), 204)
+	expectStatus(t, refresh(t, first.RefreshToken), 401) // the removed device can no longer refresh
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/not-a-uuid", nil, bearer(second.AccessToken)), 400)
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/"+sessionOf(t, second.AccessToken), nil), 401)
 }
 
 // TestSessionsOfAnotherAccount is the spec's ownership attack test.
@@ -154,15 +122,13 @@ func TestSessionsOfAnotherAccount(t *testing.T) {
 	a, _ := newAccount(t)
 	b, _ := newAccount(t)
 	aSession := sessionOf(t, a.AccessToken)
-	for _, s := range decode[sessionPage](t, call(t, server, "GET", "/v1/auth/sessions", nil, bearer(b.AccessToken))).Items {
+	for _, s := range decode[page[sessionView]](t, call(t, "GET", "/v1/auth/sessions", nil, bearer(b.AccessToken))).Items {
 		if s.ID == aSession {
 			t.Fatal("B sees A's session")
 		}
 	}
-	if res := call(t, server, "DELETE", "/v1/auth/sessions/"+aSession, nil, bearer(b.AccessToken)); res.Status != 404 || errorOf(t, res).Code != "session_not_found" {
+	if res := call(t, "DELETE", "/v1/auth/sessions/"+aSession, nil, bearer(b.AccessToken)); res.Status != 404 || errorOf(t, res).Code != "session_not_found" {
 		t.Fatalf("status %d: %s", res.Status, res.Body)
 	}
-	if res := refresh(t, a.RefreshToken); res.Status != 200 {
-		t.Fatalf("A's session after B's attempt: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, refresh(t, a.RefreshToken), 200) // A's session survives B's attempt
 }

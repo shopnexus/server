@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server2/internal/account/accounttest"
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
@@ -39,14 +41,14 @@ func TestOfPairs(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewDeals(db)
 	ctx := context.Background()
-	viewer, a, b, c, stranger := newAccount(t, db), newAccount(t, db), newAccount(t, db), newAccount(t, db), newAccount(t, db)
-	idle := inserted(t, s, newListing(t, db, viewer), a, viewer)
+	viewer, a, b, c, stranger := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
+	idle := inserted(t, s, catalogtest.Listing(t, db, viewer), a, viewer)
 	soldDeal(t, db, s, viewer, b)
 	soldDeal(t, db, s, a, viewer)
-	open := inserted(t, s, newListing(t, db, a), viewer, a)
+	open := inserted(t, s, catalogtest.Listing(t, db, a), viewer, a)
 	soldDeal(t, db, s, viewer, a)
 	soldB := soldDeal(t, db, s, viewer, b)
-	inserted(t, s, newListing(t, db, viewer), stranger, viewer)
+	inserted(t, s, catalogtest.Listing(t, db, viewer), stranger, viewer)
 	if err := open.Offer(domain.Buyer, 1_000_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}

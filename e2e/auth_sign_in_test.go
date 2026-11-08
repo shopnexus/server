@@ -34,9 +34,7 @@ func TestSignInReplayedKeyGetsTheSameSession(t *testing.T) {
 	if a.Status != 200 || b.Status != 200 || sa.Account != sb.Account || sb.RefreshToken == sa.RefreshToken {
 		t.Fatalf("a %d %s, b %d %s", a.Status, a.Body, b.Status, b.Body)
 	}
-	if res := refresh(t, sb.RefreshToken); res.Status != 200 {
-		t.Fatalf("the replay's refresh token: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, refresh(t, sb.RefreshToken), 200) // the replay's refresh token
 }
 
 // A key someone else used, sent with a token for another number, runs on
@@ -56,9 +54,7 @@ func TestSignInReplayAfterLogoutIsRefused(t *testing.T) {
 	t.Parallel()
 	token, key := issuer.SMSToken(newPhone()), newKey()
 	first := decode[signIn](t, signInCall(t, token, key))
-	if res := call(t, server, "POST", "/v1/auth/logout", nil, bearer(first.AccessToken)); res.Status != 204 {
-		t.Fatalf("logout %d", res.Status)
-	}
+	expectStatus(t, call(t, "POST", "/v1/auth/logout", nil, bearer(first.AccessToken)), 204)
 	if res := signInCall(t, token, key); res.Status != 401 || errorOf(t, res).Code != "session_revoked" {
 		t.Fatalf("%d %s", res.Status, res.Body)
 	}
@@ -92,13 +88,11 @@ func TestSignInRefusals(t *testing.T) {
 		"empty token":    {map[string]string{"phone_token": ""}, 400, "invalid_request"},
 		"unknown field":  {map[string]string{"phone_token": "x", "code": "123456"}, 400, "invalid_request"},
 	} {
-		if res := call(t, server, "POST", "/v1/auth/sign-in", c.body, newKey()); res.Status != c.status || errorOf(t, res).Code != c.code {
+		if res := call(t, "POST", "/v1/auth/sign-in", c.body, newKey()); res.Status != c.status || errorOf(t, res).Code != c.code {
 			t.Errorf("%s: %d %s", name, res.Status, res.Body)
 		}
 	}
-	if res := call(t, server, "POST", "/v1/auth/sign-in", map[string]string{"phone_token": issuer.SMSToken(phone)}); res.Status != 400 {
-		t.Errorf("no Idempotency-Key: %d %s", res.Status, res.Body)
-	}
+	check(t, "no Idempotency-Key", call(t, "POST", "/v1/auth/sign-in", map[string]string{"phone_token": issuer.SMSToken(phone)}), 400, "")
 }
 
 // Parallel first sign-ins of one number race to create its account: one

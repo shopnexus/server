@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/token"
 )
 
 var (
@@ -25,7 +24,7 @@ var (
 	ErrInvalidRefreshToken = apperr.New(apperr.KindUnauthenticated, "invalid_refresh_token", "the refresh token is not valid")
 	ErrSessionRevoked      = apperr.New(apperr.KindUnauthenticated, "session_revoked", "the session was signed out")
 	ErrSessionExpired      = apperr.New(apperr.KindUnauthenticated, "session_expired", "the session has expired; sign in again")
-	ErrInvalidToken        = token.ErrInvalid
+	ErrInvalidToken        = apperr.New(apperr.KindUnauthenticated, "invalid_token", "the access token is not valid")
 	ErrReauthRequired      = apperr.New(apperr.KindPreconditionRequired, "reauth_required", "sign in again to do this")
 	// ErrSessionNotFound also answers for another account's session: a
 	// resource the caller may not see is 404, never 403.

@@ -15,6 +15,8 @@ import (
 	"github.com/restatedev/sdk-go/ingress"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/shopnexus/server2/internal/platform/postgres"
 )
 
 const (
@@ -28,8 +30,8 @@ const (
 	deleteBatch = 10_000
 )
 
-// Subscription hands every event of Kind to a Restate handler.
-type Subscription struct {
+// subscription hands every event of Kind to a Restate handler.
+type subscription struct {
 	Kind    Kind
 	Service string // with the service prefix
 	Handler string
@@ -46,14 +48,14 @@ type Bus struct {
 	now     func() time.Time
 	log     *slog.Logger
 	mu      sync.Mutex
-	subs    map[Kind][]Subscription
+	subs    map[Kind][]subscription
 	running bool
 }
 
 // NewBus builds a bus whose Events service carries prefix, the process's
 // Restate service prefix.
 func NewBus(db *pgxpool.Pool, in *ingress.Client, prefix string, now func() time.Time, log *slog.Logger) *Bus {
-	return &Bus{db: db, ingress: in, prefix: prefix, now: now, log: log, subs: map[Kind][]Subscription{}}
+	return &Bus{db: db, ingress: in, prefix: prefix, now: now, log: log, subs: map[Kind][]subscription{}}
 }
 
 // Definition is the bus's Restate service, Events, which app serves with
@@ -63,7 +65,7 @@ func (b *Bus) Definition() restate.ServiceDefinition { return restate.Reflect(de
 func (b *Bus) service() string { return b.prefix + deliverService }
 
 // subscribers returns the subscriptions of kind.
-func (b *Bus) subscribers(kind Kind) []Subscription {
+func (b *Bus) subscribers(kind Kind) []subscription {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.subs[kind]
@@ -79,7 +81,7 @@ func (b *Bus) Subscribe(kind Kind, service, handler string) {
 	if b.running {
 		panic("events: Subscribe after Run")
 	}
-	b.subs[kind] = append(b.subs[kind], Subscription{Kind: kind, Service: service, Handler: handler})
+	b.subs[kind] = append(b.subs[kind], subscription{Kind: kind, Service: service, Handler: handler})
 }
 
 // Check reports a subscription to a service or handler that defs, the
@@ -120,7 +122,15 @@ func (b *Bus) Run(ctx context.Context) error {
 	b.mu.Unlock()
 	wake := make(chan struct{}, 1)
 	var listening sync.WaitGroup
-	listening.Go(func() { b.listen(ctx, wake) })
+	// A lost listen connection costs nothing: the poll covers the gap.
+	listening.Go(func() {
+		postgres.Listen(ctx, b.db, "events", b.log, func(string) {
+			select {
+			case wake <- struct{}{}:
+			default:
+			}
+		})
+	})
 	defer listening.Wait()
 	tick := time.NewTicker(pollEvery)
 	defer tick.Stop()
@@ -167,48 +177,6 @@ DELETE FROM events WHERE id IN (
 		}
 		if tag.RowsAffected() < deleteBatch {
 			return
-		}
-	}
-}
-
-// listen wakes Run on every notification. A lost connection is listened
-// again after a pause; the poll covers the gap.
-func (b *Bus) listen(ctx context.Context, wake chan<- struct{}) {
-	for ctx.Err() == nil {
-		if err := b.waitNotifications(ctx, wake); err != nil && ctx.Err() == nil {
-			b.log.WarnContext(ctx, "events: listen", "err", err)
-			select {
-			case <-ctx.Done():
-			case <-time.After(pollEvery):
-			}
-		}
-	}
-}
-
-// waitNotifications listens on a connection of its own, outside the pool:
-// a pooled one would hold a slot for good, and Pool.Close would wait for it.
-func (b *Bus) waitNotifications(ctx context.Context, wake chan<- struct{}) error {
-	conn, err := pgx.ConnectConfig(ctx, b.db.Config().ConnConfig.Copy())
-	if err != nil {
-		return fmt.Errorf("connect: %w", err)
-	}
-	defer func() {
-		// Closing a listen connection that already failed reports that
-		// failure again; listen has it from WaitForNotification.
-		closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
-		defer cancel()
-		_ = conn.Close(closeCtx)
-	}()
-	if _, err = conn.Exec(ctx, "LISTEN events"); err != nil {
-		return fmt.Errorf("listen: %w", err)
-	}
-	for {
-		if _, err = conn.WaitForNotification(ctx); err != nil {
-			return fmt.Errorf("wait for notification: %w", err)
-		}
-		select {
-		case wake <- struct{}{}:
-		default:
 		}
 	}
 }

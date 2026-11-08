@@ -11,21 +11,13 @@ import (
 	"github.com/shopnexus/server2/internal/deal/repository"
 )
 
-// MoveFact is one move as notification reads it.
-type MoveFact struct {
-	ID     uuid.UUID
-	Kind   domain.MoveKind
-	By     domain.Party
-	Amount int64
-}
-
 // MoveFacts is what a deal's new moves tell: who, on which listing, and the
 // deal's latest order.
 type MoveFacts struct {
-	DealID, ListingID, BuyerID, SellerID uuid.UUID
-	ListingTitle, BuyerName, SellerName  string
-	Moves                                []MoveFact
-	Order                                *domain.Order
+	DealID, BuyerID, SellerID           uuid.UUID
+	ListingTitle, BuyerName, SellerName string
+	Moves                               []domain.Move
+	Order                               *domain.Order
 }
 
 func (s *Deals) Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (MoveFacts, bool, error) {
@@ -45,18 +37,18 @@ func (s *Deals) Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (M
 	if err != nil {
 		return MoveFacts{}, false, fmt.Errorf("read people: %w", err)
 	}
-	listings, err := s.catalog.Summaries(ctx, []uuid.UUID{st.ListingID})
+	listing, _, err := s.catalog.Summary(ctx, st.ListingID)
 	if err != nil {
 		return MoveFacts{}, false, fmt.Errorf("read listing: %w", err)
 	}
 	f := MoveFacts{
-		DealID: dealID, ListingID: st.ListingID, BuyerID: st.BuyerID, SellerID: st.SellerID,
-		ListingTitle: listings[st.ListingID].Title, BuyerName: people[st.BuyerID].DisplayName,
+		DealID: dealID, BuyerID: st.BuyerID, SellerID: st.SellerID,
+		ListingTitle: listing.Title, BuyerName: people[st.BuyerID].DisplayName,
 		SellerName: people[st.SellerID].DisplayName, Order: d.Order(),
 	}
 	for _, m := range moves[dealID] {
 		if slices.Contains(ids, m.ID) {
-			f.Moves = append(f.Moves, MoveFact{ID: m.ID, Kind: m.Kind, By: m.By, Amount: m.Amount})
+			f.Moves = append(f.Moves, m)
 		}
 	}
 	return f, true, nil

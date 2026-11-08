@@ -1,4 +1,4 @@
-package service
+package service_test
 
 import (
 	"bytes"
@@ -12,28 +12,9 @@ import (
 	"testing"
 
 	"github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server2/internal/media/mediatest"
+	"github.com/shopnexus/server2/internal/media/service"
 )
-
-// jpegOf encodes a w×h image, red in its top-left quarter and blue
-// elsewhere.
-func jpegOf(t *testing.T, w, h int) []byte {
-	t.Helper()
-	m := image.NewRGBA(image.Rect(0, 0, w, h))
-	for y := range h {
-		for x := range w {
-			c := color.RGBA{0, 0, 255, 255}
-			if x < w/2 && y < h/2 {
-				c = color.RGBA{255, 0, 0, 255}
-			}
-			m.SetRGBA(x, y, c)
-		}
-	}
-	var b bytes.Buffer
-	if err := jpeg.Encode(&b, m, &jpeg.Options{Quality: 90}); err != nil {
-		t.Fatal(err)
-	}
-	return b.Bytes()
-}
 
 // withOrientation puts an APP1 EXIF segment whose IFD0 holds only the
 // Orientation tag right after a JPEG's SOI marker.
@@ -70,7 +51,7 @@ func reddish(c color.Color) bool {
 // (rotate 90° clockwise); the output is portrait, its red quarter top right.
 func TestProcessAppliesOrientation(t *testing.T) {
 	t.Parallel()
-	photo, thumb, err := process(bytes.NewReader(withOrientation(jpegOf(t, 800, 600), 6)), "image/jpeg", domain.ShapePhoto)
+	photo, thumb, err := service.Process(bytes.NewReader(withOrientation(mediatest.JPEG(t, 800, 600), 6)), "image/jpeg", domain.ShapePhoto)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +66,7 @@ func TestProcessAppliesOrientation(t *testing.T) {
 		}
 	}
 	for o := uint16(1); o <= 8; o++ {
-		if _, _, err := process(bytes.NewReader(withOrientation(jpegOf(t, 80, 60), o)), "image/jpeg", domain.ShapePhoto); err != nil {
+		if _, _, err := service.Process(bytes.NewReader(withOrientation(mediatest.JPEG(t, 80, 60), o)), "image/jpeg", domain.ShapePhoto); err != nil {
 			t.Errorf("orientation %d: %v", o, err)
 		}
 	}
@@ -95,7 +76,7 @@ func TestProcessAppliesOrientation(t *testing.T) {
 // thumbnail; a smaller photo is not scaled up.
 func TestProcessSquare(t *testing.T) {
 	t.Parallel()
-	square, thumb, err := process(bytes.NewReader(withOrientation(jpegOf(t, 800, 600), 6)), "image/jpeg", domain.ShapeSquare)
+	square, thumb, err := service.Process(bytes.NewReader(withOrientation(mediatest.JPEG(t, 800, 600), 6)), "image/jpeg", domain.ShapeSquare)
 	if err != nil || thumb != nil {
 		t.Fatalf("%v, thumbnail %d bytes", err, len(thumb))
 	}
@@ -108,7 +89,7 @@ func TestProcessSquare(t *testing.T) {
 	if !reddish(img.At(395, 5)) || reddish(img.At(5, 5)) || reddish(img.At(395, 395)) {
 		t.Error("the square is not the middle of the upright photo")
 	}
-	small, _, err := process(bytes.NewReader(jpegOf(t, 100, 60)), "image/jpeg", domain.ShapeSquare)
+	small, _, err := service.Process(bytes.NewReader(mediatest.JPEG(t, 100, 60)), "image/jpeg", domain.ShapeSquare)
 	if r := decoded(t, small).Bounds(); err != nil || r.Dx() != 60 || r.Dy() != 60 {
 		t.Fatalf("small: %v %v", err, r)
 	}
@@ -117,11 +98,11 @@ func TestProcessSquare(t *testing.T) {
 // Processing a 12-megapixel phone photo allocates little beyond its decoded
 // pixels, so a few run at once without exhausting memory.
 func TestProcessMemory(t *testing.T) { //nolint:paralleltest // Measures the process's allocations, which other tests would add to.
-	jpg := jpegOf(t, 4000, 3000)
+	jpg := mediatest.JPEG(t, 4000, 3000)
 	var before, after runtime.MemStats
 	runtime.GC()
 	runtime.ReadMemStats(&before)
-	if _, _, err := process(bytes.NewReader(jpg), "image/jpeg", domain.ShapePhoto); err != nil {
+	if _, _, err := service.Process(bytes.NewReader(jpg), "image/jpeg", domain.ShapePhoto); err != nil {
 		t.Fatal(err)
 	}
 	runtime.ReadMemStats(&after)
@@ -148,12 +129,12 @@ func pngHeaderOf(w, h uint32, depth byte) []byte {
 // refused though 30 megapixels at 8 bits is not.
 func TestProcessRefusesDeepImages(t *testing.T) {
 	t.Parallel()
-	_, _, err := process(bytes.NewReader(pngHeaderOf(6000, 5000, 16)), "image/png", domain.ShapePhoto)
-	if !strings.Contains(refusal(err), "too large") {
+	_, _, err := service.Process(bytes.NewReader(pngHeaderOf(6000, 5000, 16)), "image/png", domain.ShapePhoto)
+	if !strings.Contains(service.Refusal(err), "too large") {
 		t.Fatalf("16-bit: %v", err)
 	}
-	_, _, err = process(bytes.NewReader(pngHeaderOf(6000, 5000, 8)), "image/png", domain.ShapePhoto)
-	if r := refusal(err); r == "" || strings.Contains(r, "too large") {
+	_, _, err = service.Process(bytes.NewReader(pngHeaderOf(6000, 5000, 8)), "image/png", domain.ShapePhoto)
+	if r := service.Refusal(err); r == "" || strings.Contains(r, "too large") {
 		t.Fatalf("8-bit header only: want a read failure, got %v", err)
 	}
 }

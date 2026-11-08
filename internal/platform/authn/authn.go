@@ -42,7 +42,10 @@ func From(ctx context.Context) (Principal, bool) {
 type ConsoleMember struct {
 	MemberID  uuid.UUID
 	SessionID uuid.UUID
-	IP        netip.Addr
+	// Role is the member's role as module console names it, read with the
+	// session on this request.
+	Role string
+	IP   netip.Addr
 }
 
 type consoleMemberKey struct{}

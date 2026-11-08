@@ -6,11 +6,6 @@ import (
 	"uuid"
 )
 
-type pageOfListings struct {
-	Items      []listing `json:"items"`
-	NextCursor string    `json:"next_cursor"`
-}
-
 // sellerScreen is GET /v1/screens/seller/{id}; a nil pointer is an absent
 // key.
 type sellerScreen struct {
@@ -27,16 +22,13 @@ type sellerScreen struct {
 		Sold   int `json:"sold"`
 		OnSale int `json:"on_sale"`
 	} `json:"seller"`
-	Listings pageOfListings `json:"listings"`
-	Reviews  struct {
-		Items []struct {
-			Stars int `json:"stars"`
-			Buyer struct {
-				AvatarURL string `json:"avatar_url"`
-			} `json:"buyer"`
-		} `json:"items"`
-		NextCursor string `json:"next_cursor"`
-	} `json:"reviews"`
+	Listings page[listing] `json:"listings"`
+	Reviews  page[struct {
+		Stars int `json:"stars"`
+		Buyer struct {
+			AvatarURL string `json:"avatar_url"`
+		} `json:"buyer"`
+	}] `json:"reviews"`
 	Viewer *struct {
 		Blocked        bool    `json:"blocked"`
 		ConversationID *string `json:"conversation_id"`
@@ -48,40 +40,22 @@ type sellerScreen struct {
 // and of the reviewing buyer.
 func TestSellerScreen(t *testing.T) {
 	t.Parallel()
-	expect := func(name string, res Response, status int, code string) {
-		t.Helper()
-		if res.Status != status || (code != "" && errorOf(t, res).Code != code) {
-			t.Errorf("%s: %d %s", name, res.Status, res.Body)
-		}
-	}
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
 	token := seller.AccessToken
-	if res := call(t, server, "PATCH", "/v1/accounts/me", map[string]any{"display_name": "Linh", "bio": "Đồ cũ còn tốt"}, bearer(token)); res.Status != http.StatusOK {
-		t.Fatalf("profile: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "PATCH", "/v1/accounts/me", map[string]any{"display_name": "Linh", "bio": "Đồ cũ còn tốt"}, bearer(token)), http.StatusOK)
 	avatar, buyerAvatar := setAvatar(t, token), setAvatar(t, buyer.AccessToken)
-	sold := activeListing(t, token).ID
-	if res := call(t, server, "POST", "/v1/listings/"+sold+"/mark-sold", nil, bearer(token)); res.Status != http.StatusOK {
-		t.Fatalf("mark sold: %d", res.Status)
-	}
-	hidden := activeListing(t, token).ID
-	if res := call(t, server, "POST", "/v1/listings/"+hidden+"/hide", nil, bearer(token)); res.Status != http.StatusOK {
-		t.Fatalf("hide: %d", res.Status)
-	}
-	active := activeListing(t, token).ID
-	reserved := activeListing(t, token).ID
-	order := requestedOrder(t, buyer.AccessToken, reserved)
-	if res := orderCall(t, token, order.ID, "ship", waybillBody); res.Status != http.StatusOK {
-		t.Fatalf("ship: %d %s", res.Status, res.Body)
-	}
-	if res := call(t, server, "PUT", "/v1/orders/"+order.Order.ID+"/review", map[string]any{"stars": 4}, bearer(buyer.AccessToken)); res.Status != http.StatusOK {
-		t.Fatalf("review: %d %s", res.Status, res.Body)
-	}
+	sold := activeListing(t, token, nil).ID
+	expectStatus(t, call(t, "POST", "/v1/listings/"+sold+"/mark-sold", nil, bearer(token)), http.StatusOK)
+	activeHidden(t, token)
+	active := activeListing(t, token, nil).ID
+	reserved := activeListing(t, token, nil).ID
+	order := shippedOrder(t, token, buyer.AccessToken, reserved)
+	expectStatus(t, call(t, "PUT", "/v1/orders/"+order.Order.ID+"/review", map[string]any{"stars": 4}, bearer(buyer.AccessToken)), http.StatusOK)
 	path := "/v1/screens/seller/" + seller.Account.ID
 	get := func(name, path string, headers ...[2]string) sellerScreen {
 		t.Helper()
-		res := call(t, server, "GET", path, nil, headers...)
+		res := call(t, "GET", path, nil, headers...)
 		if res.Status != http.StatusOK {
 			t.Fatalf("%s: %d %s", name, res.Status, res.Body)
 		}
@@ -117,9 +91,7 @@ func TestSellerScreen(t *testing.T) {
 	}
 
 	// A block shows to both of the two.
-	if res := call(t, server, "POST", "/v1/blocks", map[string]any{"account_id": buyer.Account.ID}, bearer(token)); res.Status != http.StatusNoContent {
-		t.Fatalf("block: %d %s", res.Status, res.Body)
-	}
+	expectStatus(t, call(t, "POST", "/v1/blocks", map[string]any{"account_id": buyer.Account.ID}, bearer(token)), http.StatusNoContent)
 	if got = get("blocked by the seller", path, bearer(buyer.AccessToken)); got.Viewer == nil || !got.Viewer.Blocked {
 		t.Fatalf("blocked by the seller: %+v", got.Viewer)
 	}
@@ -129,20 +101,20 @@ func TestSellerScreen(t *testing.T) {
 
 	// Load more goes through the list endpoints.
 	listings := "/v1/sellers/" + seller.Account.ID + "/listings"
-	res := call(t, server, "GET", listings+"?limit=1", nil)
-	first := decode[pageOfListings](t, res)
+	res := call(t, "GET", listings+"?limit=1", nil)
+	first := decode[page[listing]](t, res)
 	if res.Status != http.StatusOK || len(first.Items) != 1 || first.Items[0].ID != reserved || first.NextCursor == "" {
 		t.Fatalf("first page: %d %s", res.Status, res.Body)
 	}
-	res = call(t, server, "GET", listings+"?limit=1&cursor="+first.NextCursor, nil, bearer(buyer.AccessToken))
-	if rest := decode[pageOfListings](t, res); res.Status != http.StatusOK || len(rest.Items) != 1 || rest.Items[0].ID != active || rest.NextCursor != "" {
+	res = call(t, "GET", listings+"?limit=1&cursor="+first.NextCursor, nil, bearer(buyer.AccessToken))
+	if rest := decode[page[listing]](t, res); res.Status != http.StatusOK || len(rest.Items) != 1 || rest.Items[0].ID != active || rest.NextCursor != "" {
 		t.Fatalf("second page: %d %s", res.Status, res.Body)
 	}
-	expect("listings of a bad id", call(t, server, "GET", "/v1/sellers/x/listings", nil), 400, "")
-	expect("listings with a bad cursor", call(t, server, "GET", listings+"?cursor=x", nil), 400, "")
-	expect("listings of an unknown seller", call(t, server, "GET", "/v1/sellers/"+uuid.NewV7().String()+"/listings", nil), 404, "account_not_found")
+	check(t, "listings of a bad id", call(t, "GET", "/v1/sellers/x/listings", nil), 400, "")
+	check(t, "listings with a bad cursor", call(t, "GET", listings+"?cursor=x", nil), 400, "")
+	check(t, "listings of an unknown seller", call(t, "GET", "/v1/sellers/"+uuid.NewV7().String()+"/listings", nil), 404, "account_not_found")
 
-	expect("an unknown seller", call(t, server, "GET", "/v1/screens/seller/"+uuid.NewV7().String(), nil), 404, "account_not_found")
-	expect("a bad id", call(t, server, "GET", "/v1/screens/seller/x", nil), 400, "")
-	expect("a bad token", call(t, server, "GET", path, nil, bearer("x")), 401, "")
+	check(t, "an unknown seller", call(t, "GET", "/v1/screens/seller/"+uuid.NewV7().String(), nil), 404, "account_not_found")
+	check(t, "a bad id", call(t, "GET", "/v1/screens/seller/x", nil), 400, "")
+	check(t, "a bad token", call(t, "GET", path, nil, bearer("x")), 401, "")
 }

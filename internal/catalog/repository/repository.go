@@ -20,15 +20,13 @@ var (
 // Listings persists listings.
 type Listings interface {
 	// Insert adds l unless its seller already has domain.MaxOnSale listings
-	// on sale or hidden (domain.OnSale), which is domain.ErrCapReached.
+	// in a domain.OnSale status, which is domain.ErrCapReached.
 	// Inserting the same ID again does nothing. Concurrent inserts and
 	// saves for one seller run one at a time, so the cap holds.
 	Insert(ctx context.Context, l domain.Listing) error
 	// Discard deletes the row of a listing the post flow inserted and could
 	// not finish; only that compensation calls it. An absent row is fine.
 	Discard(ctx context.Context, id uuid.UUID) error
-	// CountOnSale counts seller's listings on sale or hidden.
-	CountOnSale(ctx context.Context, seller uuid.UUID) (int, error)
 	// CountByStatus is a query: how many listings seller has in each
 	// status; a status without one is left out.
 	CountByStatus(ctx context.Context, seller uuid.UUID) (map[domain.Status]int, error)
@@ -64,11 +62,12 @@ type Regions interface {
 	// Places returns the communes among codes with their provinces' display
 	// names, in any order; an unknown code is left out.
 	Places(ctx context.Context, codes []string) ([]Place, error)
-	// FindPlace returns the points of the provinces and communes whose
-	// display name, with or without its type ("Thành phố", "Tỉnh", "Phường",
-	// "Xã", "Đặc khu"), is name, ignoring case. A province's point is the
-	// mean of its communes'.
-	FindPlace(ctx context.Context, name string) ([]domain.Point, error)
+	// FindPlaces returns, for each of names, the points of the provinces
+	// and communes whose display name, with or without its type ("Thành
+	// phố", "Tỉnh", "Phường", "Xã", "Đặc khu"), is that name, ignoring case.
+	// A province's point is the mean of its communes'. A name that matches
+	// nothing is left out.
+	FindPlaces(ctx context.Context, names []string) (map[string][]domain.Point, error)
 }
 
 // Searches runs searches over the listings' ParadeDB index.

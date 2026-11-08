@@ -23,7 +23,9 @@ import (
 )
 
 // Worker turns events into notices and pushes. Mount subscribes each
-// handler to the event kind it is named after.
+// handler to the event kind it is named after. A handler reads its facts in
+// one step, which returns the zero facts for a subject that is gone; a zero
+// ID then tells no one.
 type Worker struct {
 	Prefix   string
 	Notices  service.Service
@@ -62,7 +64,7 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 			return domain.DealFacts{}, nil
 		}
 		out := domain.DealFacts{
-			DealID: facts.DealID, ListingID: facts.ListingID, BuyerID: facts.BuyerID, SellerID: facts.SellerID,
+			DealID: facts.DealID, BuyerID: facts.BuyerID, SellerID: facts.SellerID,
 			Title: facts.ListingTitle, BuyerName: facts.BuyerName, SellerName: facts.SellerName,
 		}
 		for _, m := range facts.Moves {
@@ -82,14 +84,10 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 	if err != nil {
 		return fmt.Errorf("read the deal's moves: %w", err)
 	}
+	if f.DealID == (uuid.UUID{}) {
+		return nil
+	}
 	return w.tell(ctx, e, domain.FromMoves(f, e.OccurredAt))
-}
-
-// listingFacts is a listing as its notice reads it.
-type listingFacts struct {
-	Seller uuid.UUID `json:"seller"`
-	Title  string    `json:"title"`
-	Found  bool      `json:"found"`
 }
 
 // ListingPublished tells the seller the listing is on sale.
@@ -103,31 +101,33 @@ func (w Worker) ListingRejected(ctx restate.Context, e events.Event) error {
 }
 
 func (w Worker) listing(ctx restate.Context, e events.Event, live bool) error {
-	f, err := restate.Run(ctx, func(rc restate.RunContext) (listingFacts, error) {
-		got, stepErr := w.Catalog.Summaries(rc, []uuid.UUID{e.SubjectID})
+	f, err := restate.Run(ctx, func(rc restate.RunContext) (catalogsvc.Summary, error) {
+		l, _, stepErr := w.Catalog.Summary(rc, e.SubjectID)
 		if stepErr != nil {
-			return listingFacts{}, fmt.Errorf("read listing: %w", stepErr)
+			return catalogsvc.Summary{}, fmt.Errorf("read listing: %w", stepErr)
 		}
-		s, ok := got[e.SubjectID]
-		return listingFacts{Seller: s.SellerID, Title: s.Title, Found: ok}, nil
+		return l, nil // zero for an unknown listing
 	})
 	if err != nil {
 		return fmt.Errorf("read the listing: %w", err)
 	}
-	if !f.Found {
+	if f.ID == (uuid.UUID{}) {
 		return nil
 	}
-	return w.tell(ctx, e, []domain.Notice{domain.ListingNotice(f.Seller, e.SubjectID, f.Title, live, e.OccurredAt)})
+	return w.tell(ctx, e, []domain.Notice{domain.ListingNotice(f.SellerID, f.ID, f.Title, live, e.OccurredAt)})
 }
 
 // ReviewPosted tells the seller a buyer reviewed them.
 func (w Worker) ReviewPosted(ctx restate.Context, e events.Event) error {
 	f, err := restate.Run(ctx, func(rc restate.RunContext) (trustsvc.ReviewFacts, error) {
-		facts, _, stepErr := w.Trust.ReviewFacts(rc, e.SubjectID)
+		facts, found, stepErr := w.Trust.ReviewFacts(rc, e.SubjectID)
 		if stepErr != nil {
 			return trustsvc.ReviewFacts{}, fmt.Errorf("read review: %w", stepErr)
 		}
-		return facts, nil // an unknown review gives the zero facts
+		if !found {
+			return trustsvc.ReviewFacts{}, nil
+		}
+		return facts, nil
 	})
 	if err != nil {
 		return fmt.Errorf("read the review: %w", err)
@@ -135,7 +135,7 @@ func (w Worker) ReviewPosted(ctx restate.Context, e events.Event) error {
 	if f.ID == (uuid.UUID{}) {
 		return nil
 	}
-	return w.tell(ctx, e, []domain.Notice{domain.Reviewed(f.SellerID, f.ID, f.BuyerName, f.ListingTitle, f.Stars, e.OccurredAt)})
+	return w.tell(ctx, e, []domain.Notice{domain.Reviewed(f.SellerID, f.BuyerName, f.ListingTitle, f.Stars, e.OccurredAt)})
 }
 
 // AccountSuspended tells the account it is suspended.
@@ -153,11 +153,14 @@ func (w Worker) AccountUnsuspended(ctx restate.Context, e events.Event) error {
 // so no notice is written.
 func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 	f, err := restate.Run(ctx, func(rc restate.RunContext) (chatsvc.MessageFacts, error) {
-		facts, _, stepErr := w.Chats.MessageFacts(rc, e.SubjectID)
+		facts, found, stepErr := w.Chats.MessageFacts(rc, e.SubjectID)
 		if stepErr != nil {
 			return chatsvc.MessageFacts{}, fmt.Errorf("read message: %w", stepErr)
 		}
-		return facts, nil // an unknown message gives the zero facts
+		if !found {
+			return chatsvc.MessageFacts{}, nil
+		}
+		return facts, nil
 	})
 	if err != nil {
 		return fmt.Errorf("read the message: %w", err)
@@ -174,9 +177,10 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 // tell writes each notice, then pushes it to its recipient. A notice a
 // newer one with its key outran is neither written nor pushed.
 func (w Worker) tell(ctx restate.Context, e events.Event, notices []domain.Notice) error {
-	for _, n := range notices {
+	for i := range notices {
+		n := &notices[i]
 		rec, err := restate.Run(ctx, func(rc restate.RunContext) (service.Recorded, error) {
-			return w.Notices.Record(rc, e.ID, n)
+			return w.Notices.Record(rc, e.ID, *n)
 		})
 		if err != nil {
 			return fmt.Errorf("write a notice: %w", err)
@@ -228,7 +232,7 @@ func (w Worker) deliver(ctx restate.Context, account uuid.UUID, m push.Message) 
 				out = append(out, t)
 				continue
 			}
-			if stepErr = w.Notices.ForgetToken(rc, t.Session); stepErr != nil {
+			if stepErr = w.Notices.DeleteToken(rc, t.Session); stepErr != nil {
 				return nil, fmt.Errorf("delete an ended session's token: %w", stepErr)
 			}
 		}
@@ -244,7 +248,7 @@ func (w Worker) deliver(ctx restate.Context, account uuid.UUID, m push.Message) 
 			case err == nil:
 				return nil
 			case errors.Is(err, push.ErrDeadToken):
-				if err = w.Notices.ForgetToken(rc, t.Session); err != nil {
+				if err = w.Notices.DeleteToken(rc, t.Session); err != nil {
 					return fmt.Errorf("delete a dead token: %w", err)
 				}
 				return nil

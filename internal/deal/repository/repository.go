@@ -27,12 +27,12 @@ type Deals interface {
 	// Find returns the buyer's deal on a listing, or ErrNotFound.
 	Find(ctx context.Context, listingID, buyer uuid.UUID) (domain.Deal, error)
 	// Save writes d, its latest order, its pending moves and evs when its
-	// row still has d.WriteID(), then sets its write ID. A row that already
-	// has writeID was written by an earlier try of this save: Save writes
-	// nothing more and returns nil. Otherwise ErrConflict and nothing is
-	// written. A requested order beyond the buyer's domain.MaxOpenOrders is
-	// domain.ErrCodLimit; concurrent saves for one buyer count one at a
-	// time.
+	// row still has the write ID d was read with, then sets its write ID. A
+	// row that already has writeID was written by an earlier try of this
+	// save: Save writes nothing more and returns nil. Otherwise ErrConflict
+	// and nothing is written. A requested order beyond the buyer's
+	// domain.MaxOpenOrders is domain.ErrCodLimit; concurrent saves for one
+	// buyer count one at a time.
 	Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error
 	// OfListing returns every deal on a listing, oldest first.
 	OfListing(ctx context.Context, listingID uuid.UUID) ([]domain.Deal, error)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/chat/domain"
 	"github.com/shopnexus/server2/internal/chat/service"
@@ -19,7 +20,7 @@ func TestOpenAndSend(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	first, second := e.listing(t, seller), e.listing(t, seller)
+	first, second := catalogtest.Listing(t, e.db, seller), catalogtest.Listing(t, e.db, seller)
 	c := e.open(t, buyer, first, "Còn không bạn?")
 	if c.Other.ID != seller || c.Other.DisplayName == "" {
 		t.Fatalf("%+v", c)
@@ -57,13 +58,13 @@ func TestOpenRefusals(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller := e.person(t)
-	listing := e.listing(t, seller)
-	hidden := e.listing(t, seller)
+	listing := catalogtest.Listing(t, e.db, seller)
+	hidden := catalogtest.Listing(t, e.db, seller)
 	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
 		t.Fatal(err)
 	}
 	suspended := e.person(t)
-	e.suspend(t, suspended)
+	accounttest.Suspend(t, e.accounts, suspended)
 	blocked := e.person(t)
 	if err := e.accounts.Block(ctx, seller, blocked); err != nil {
 		t.Fatal(err)
@@ -99,14 +100,14 @@ func TestSendRefusals(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
-	c := e.open(t, buyer, e.listing(t, seller), "Còn không?")
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
 	if _, err := e.chat.Send(ctx, stranger, c.ID, key(), service.SendInput{Text: "Hi"}); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("stranger: %v", err)
 	}
 	if _, err := e.chat.Send(ctx, buyer, c.ID, key(), service.SendInput{Text: "   "}); !errors.Is(err, domain.ErrInvalidMessage) {
 		t.Errorf("empty: %v", err)
 	}
-	strangers := e.listing(t, stranger)
+	strangers := catalogtest.Listing(t, e.db, stranger)
 	if _, err := e.chat.Send(ctx, buyer, c.ID, key(), service.SendInput{Text: "Món này?", ListingID: &strangers}); !errors.Is(err, domain.ErrInvalidMessage) {
 		t.Errorf("a listing of neither member: %v", err)
 	}
@@ -128,7 +129,7 @@ func TestGet(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	c := e.open(t, buyer, e.listing(t, seller), "Còn không?")
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
 	if err := e.chat.Archive(ctx, seller, c.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +147,7 @@ func TestArchive(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	c := e.open(t, buyer, e.listing(t, seller), "Còn không?")
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
 	if err := e.chat.Archive(ctx, seller, c.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +176,7 @@ func TestConversationWith(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
-	c := e.open(t, buyer, e.listing(t, seller), "Còn không?")
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
 	for _, p := range [][2]uuid.UUID{{buyer, seller}, {seller, buyer}} {
 		if id, err := e.chat.ConversationWith(ctx, p[0], p[1]); err != nil || id != c.ID {
 			t.Fatalf("%v: %v %v", p, id, err)

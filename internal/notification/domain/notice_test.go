@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 	"uuid"
@@ -16,7 +17,7 @@ var (
 
 func facts(moves ...domain.Move) domain.DealFacts {
 	return domain.DealFacts{
-		DealID: uuid.NewV7(), ListingID: uuid.NewV7(), BuyerID: buyer, SellerID: seller,
+		DealID: uuid.NewV7(), BuyerID: buyer, SellerID: seller,
 		Title: "Xe đạp Asama", BuyerName: "Đức Huy", SellerName: "Hoàng Nam", Moves: moves,
 		Carrier: "ghn", TrackingCode: "8A2K9",
 	}
@@ -69,17 +70,30 @@ func TestText(t *testing.T) {
 		"Đức Huy trả 350.000 ₫ cho Xe đạp Asama":    domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 350_000}), at)[0],
 		"Tài khoản của bạn bị khoá đến 3/11":        domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
 		"Tài khoản của bạn bị khoá":                 domain.Suspended(buyer, "", at),
-		"Đức Huy chấm 5 sao cho Xe đạp Asama":       domain.Reviewed(seller, uuid.NewV7(), "Đức Huy", "Xe đạp Asama", 5, at),
+		"Đức Huy chấm 5 sao cho Xe đạp Asama":       domain.Reviewed(seller, "Đức Huy", "Xe đạp Asama", 5, at),
 	} {
 		if got := domain.Text(n.Type, n.Params); got != want {
 			t.Errorf("%s: %q", want, got)
 		}
 	}
-	if got := domain.TargetOf(offer.Type, offer.Params); got.Kind != "deal" || got.ID == "" {
+	if offer.Params.Carrier != "" || offer.Params.Code != "" {
+		t.Errorf("an offer stores the waybill: %+v", offer.Params)
+	}
+	if got := domain.TargetOf(offer.Type, offer.Params); got.Kind != "deal" || got.ID != offer.Params.DealID.String() {
 		t.Errorf("target: %+v", got)
+	}
+	if got := domain.Title(offer.Type); got != "Trả giá" {
+		t.Errorf("title: %q", got)
+	}
+	suspended := domain.Suspended(buyer, "", at)
+	if got := domain.TargetOf(suspended.Type, suspended.Params); got.Kind != "account" || got.ID != "" {
+		t.Errorf("account target: %+v", got)
 	}
 	if got := domain.ChatBody("Hoàng Nam", "Còn không bạn?", 0); got != "Hoàng Nam: Còn không bạn?" {
 		t.Errorf("chat: %q", got)
+	}
+	if got := domain.ChatBody("Hoàng Nam", strings.Repeat("ạ", 150), 0); got != "Hoàng Nam: "+strings.Repeat("ạ", 100) {
+		t.Errorf("a long text: %q", got)
 	}
 	if got := domain.ChatBody("Hoàng Nam", "", 2); got != "Hoàng Nam gửi 2 ảnh" {
 		t.Errorf("photos: %q", got)

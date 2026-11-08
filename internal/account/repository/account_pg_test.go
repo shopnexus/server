@@ -9,7 +9,6 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/platform/audit"
@@ -96,7 +95,7 @@ func TestPGAccounts(t *testing.T) {
 		}
 		a.SetAvatar("media/a.jpg", pgNow)
 		w := uuid.NewV7()
-		if err := s.Save(ctx, &a, w); err != nil || a.WriteID() != w {
+		if err := s.Save(ctx, &a, w, nil); err != nil || a.WriteID() != w {
 			t.Fatalf("save: %v, write id %s", err, a.WriteID())
 		}
 		got, _ := s.Get(ctx, a.ID())
@@ -107,7 +106,7 @@ func TestPGAccounts(t *testing.T) {
 			t.Fatal(err)
 		}
 		a.SetAvatar("", pgNow)
-		if err := s.Save(ctx, &a, uuid.NewV7()); err != nil {
+		if err := s.Save(ctx, &a, uuid.NewV7(), nil); err != nil {
 			t.Fatal(err)
 		}
 		if got, _ = s.Get(ctx, a.ID()); got.Bio() != "" || got.AvatarKey() != "" {
@@ -125,7 +124,7 @@ func TestPGAccounts(t *testing.T) {
 			if err := a.Edit(&name, nil, pgNow); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.Save(ctx, &a, uuid.NewV7()); err != nil {
+			if err := s.Save(ctx, &a, uuid.NewV7(), nil); err != nil {
 				t.Fatalf("save %s: %v", name, err)
 			}
 		}
@@ -137,11 +136,11 @@ func TestPGAccounts(t *testing.T) {
 		a := fresh(t, s)
 		b, _ := s.Get(ctx, a.ID())
 		a.Edit(new("First"), nil, pgNow)
-		if err := s.Save(ctx, &a, uuid.NewV7()); err != nil {
+		if err := s.Save(ctx, &a, uuid.NewV7(), nil); err != nil {
 			t.Fatal(err)
 		}
 		b.Edit(new("Second"), nil, pgNow)
-		if err := s.Save(ctx, &b, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
+		if err := s.Save(ctx, &b, uuid.NewV7(), nil); !errors.Is(err, repository.ErrConflict) {
 			t.Fatalf("stale save: %v", err)
 		}
 	})
@@ -153,16 +152,16 @@ func TestPGAccounts(t *testing.T) {
 		a.Edit(new("Minh"), nil, pgNow)
 		retry := a
 		w := uuid.NewV7()
-		if err := s.Save(ctx, &a, w); err != nil {
+		if err := s.Save(ctx, &a, w, nil); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.Save(ctx, &retry, w); err != nil {
+		if err := s.Save(ctx, &retry, w, nil); err != nil {
 			t.Fatalf("retry: %v", err)
 		}
 	})
 }
 
-func TestSaveAuditedWritesBothOrNeither(t *testing.T) {
+func TestSaveWritesItsAuditEntryOrNothing(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	s := repository.NewAccounts(db)
@@ -183,10 +182,10 @@ func TestSaveAuditedWritesBothOrNeither(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := uuid.NewV7()
-	if err := s.SaveAudited(ctx, &a, w, entry); err != nil || a.WriteID() != w || count() != 1 {
+	if err := s.Save(ctx, &a, w, &entry); err != nil || a.WriteID() != w || count() != 1 {
 		t.Fatalf("%v, write id %v, rows %d", err, a.WriteID(), count())
 	}
-	if err := s.SaveAudited(ctx, &stale, uuid.NewV7(), entry); !errors.Is(err, repository.ErrConflict) || count() != 1 {
+	if err := s.Save(ctx, &stale, uuid.NewV7(), &entry); !errors.Is(err, repository.ErrConflict) || count() != 1 {
 		t.Fatalf("stale save: %v, rows %d", err, count())
 	}
 }
@@ -222,21 +221,7 @@ func TestGetMany(t *testing.T) {
 	}
 }
 
-func eventsOf(t *testing.T, db *pgxpool.Pool, subject uuid.UUID) []string {
-	t.Helper()
-	rows, err := db.Query(context.Background(), `SELECT kind FROM events WHERE subject_id = @id ORDER BY id`, pgx.StrictNamedArgs{"id": subject})
-	if err != nil {
-		t.Fatal(err)
-	}
-	kinds, err := pgx.CollectRows(rows, pgx.RowTo[string])
-	if err != nil {
-		t.Fatal(err)
-	}
-	return kinds
-}
-
-// Save and SaveAudited write their events with the change; a stale write
-// writes none.
+// Save writes its events with the change; a stale write writes none.
 func TestSaveWritesItsEvents(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -251,20 +236,20 @@ func TestSaveWritesItsEvents(t *testing.T) {
 	if err := a.Edit(new("Minh"), nil, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &a, uuid.NewV7(), ev(events.AccountUpdated)); err != nil {
+	if err := s.Save(ctx, &a, uuid.NewV7(), nil, ev(events.AccountUpdated)); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.Suspend("spam", nil, now); err != nil {
 		t.Fatal(err)
 	}
 	entry := audit.Entry{Actor: audit.ByCLI("test"), Action: audit.AccountSuspend, Target: audit.Account(id), At: now}
-	if err := s.SaveAudited(ctx, &a, uuid.NewV7(), entry, ev(events.AccountSuspended)); err != nil {
+	if err := s.Save(ctx, &a, uuid.NewV7(), &entry, ev(events.AccountSuspended)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &stale, uuid.NewV7(), ev(events.AccountUpdated)); !errors.Is(err, repository.ErrConflict) {
+	if err := s.Save(ctx, &stale, uuid.NewV7(), nil, ev(events.AccountUpdated)); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("stale save: %v", err)
 	}
-	if got := eventsOf(t, db, id); !slices.Equal(got, []string{"account.updated", "account.suspended"}) {
+	if got := pgtest.EventKinds(t, db, id); !slices.Equal(got, []string{"account.updated", "account.suspended"}) {
 		t.Fatalf("%v", got)
 	}
 }

@@ -23,11 +23,11 @@ var reviewable = []dealdomain.OrderStatus{dealdomain.OrderShipped, dealdomain.Or
 // PutReview checks that the caller may write, bought the order and the
 // order is shipped, then creates the review or edits it within 7 days.
 func (s *Trust) PutReview(ctx context.Context, buyer, order uuid.UUID, stars int, text string) (ReviewView, error) {
-	st, err := s.accounts.Status(ctx, buyer)
+	suspended, err := s.accounts.Suspended(ctx, buyer)
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("read account status: %w", err)
 	}
-	if st == accountdomain.StatusSuspended {
+	if suspended {
 		return ReviewView{}, accountdomain.ErrSuspended
 	}
 	o, err := s.buyersOrder(ctx, buyer, order)
@@ -112,14 +112,11 @@ func (s *Trust) SellerReviews(ctx context.Context, seller uuid.UUID, p page.Requ
 // buyersOrder reads an order the caller bought; any other is
 // domain.ErrOrderNotFound, so an order's existence does not leak.
 func (s *Trust) buyersOrder(ctx context.Context, buyer, order uuid.UUID) (dealsvc.OrderFacts, error) {
-	o, err := s.deals.Order(ctx, order)
-	if errors.Is(err, dealdomain.ErrOrderNotFound) {
-		return dealsvc.OrderFacts{}, domain.ErrOrderNotFound
-	}
+	o, found, err := s.deals.Order(ctx, order)
 	if err != nil {
 		return dealsvc.OrderFacts{}, fmt.Errorf("get order: %w", err)
 	}
-	if o.BuyerID != buyer {
+	if !found || o.BuyerID != buyer {
 		return dealsvc.OrderFacts{}, domain.ErrOrderNotFound
 	}
 	return o, nil
