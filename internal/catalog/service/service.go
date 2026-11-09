@@ -7,6 +7,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"time"
 	"uuid"
 
@@ -19,6 +20,7 @@ import (
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server2/internal/provider/embed"
 )
 
 // Service is module catalog's contract.
@@ -87,20 +89,34 @@ type Deps struct {
 	Ingress *ingress.Client
 	Prefix  string
 	Now     func() time.Time
+	Vectors repository.Vectors
+	// Text and Image embed with the index key; TextVersion and ImageVersion
+	// name the models behind them and go into every vector row.
+	Text, Image               embed.Model
+	TextVersion, ImageVersion string
+	// EmbedSlots is how many embeddings ListingEmbed runs at once in this
+	// process.
+	EmbedSlots int
+	Log        *slog.Logger
 }
 
 // Catalog implements Service in this process.
 type Catalog struct {
-	listings   repository.Listings
-	categories repository.Categories
-	regions    repository.Regions
-	searches   repository.Searches
-	accounts   accountsvc.Service
-	media      mediasvc.Service
-	prefix     string
-	now        func() time.Time
-	post       restatex.Caller[PostInput, PostResult]
-	edit       restatex.Caller[EditInput, EditResult]
+	listings                  repository.Listings
+	categories                repository.Categories
+	regions                   repository.Regions
+	searches                  repository.Searches
+	accounts                  accountsvc.Service
+	media                     mediasvc.Service
+	prefix                    string
+	now                       func() time.Time
+	post                      restatex.Caller[PostInput, PostResult]
+	edit                      restatex.Caller[EditInput, EditResult]
+	vectors                   repository.Vectors
+	text, image               embed.Model
+	textVersion, imageVersion string
+	embedSlots                chan struct{}
+	log                       *slog.Logger
 }
 
 var _ Service = (*Catalog)(nil)
@@ -109,6 +125,8 @@ func New(d Deps) *Catalog {
 	return &Catalog{
 		listings: d.Listings, categories: d.Categories, regions: d.Regions, searches: d.Searches,
 		accounts: d.Accounts, media: d.Media, prefix: d.Prefix, now: d.Now,
+		vectors: d.Vectors, text: d.Text, image: d.Image, textVersion: d.TextVersion, imageVersion: d.ImageVersion,
+		embedSlots: make(chan struct{}, d.EmbedSlots), log: d.Log,
 		post: restatex.Caller[PostInput, PostResult]{Ingress: d.Ingress, Service: d.Prefix + listingPost, Handler: "Run"},
 		edit: restatex.Caller[EditInput, EditResult]{Ingress: d.Ingress, Service: d.Prefix + listingEdit, Handler: "Run"},
 	}
@@ -124,5 +142,10 @@ func (c *Catalog) Durable() []restate.ServiceDefinition {
 		restate.Reflect(ListingPost{deps}),
 		restate.Reflect(ListingEdit{deps}),
 		restate.Reflect(ListingPublish{Prefix: c.prefix, Listings: c.listings, Now: c.now}),
+		restate.Reflect(ListingEmbed{
+			Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Vectors: c.vectors, Media: c.media,
+			Text: c.text, Image: c.image, TextVersion: c.textVersion, ImageVersion: c.imageVersion,
+			Slots: c.embedSlots, Log: c.log, Now: c.now,
+		}),
 	}
 }

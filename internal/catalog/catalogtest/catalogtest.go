@@ -4,6 +4,7 @@ package catalogtest
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 	"uuid"
@@ -16,6 +17,7 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/catalog/service"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
+	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
 )
 
 // Service is module catalog on db with the account and media services it
@@ -29,6 +31,8 @@ func Service(
 		Listings: repository.NewListings(db), Categories: repository.NewCategories(db), Regions: repository.NewRegions(db),
 		Searches: repository.NewSearches(db), Accounts: accounts, Media: media,
 		Ingress: in, Prefix: prefix, Now: time.Now,
+		Vectors: repository.NewVectors(db), Text: embedtest.New(domain.TextDims), Image: embedtest.New(domain.PhotoDims),
+		TextVersion: "text-test", ImageVersion: "image-test", EmbedSlots: 2, Log: slog.New(slog.DiscardHandler),
 	}
 	for _, c := range change {
 		c(&deps)

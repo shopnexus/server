@@ -43,6 +43,7 @@ var (
 	}()
 	issuer     *firebasetest.Issuer // signs the phone tokens; the server's key URLs point at it
 	model      = newModel()         // the model that reads search queries
+	embedder   = newEmbed()         // the embedding aliases, embed-text and embed-image
 	phones     = newPhones()        // every push the server sends
 	consoleSvc *consolesvc.Console  // on the server's keys and database, so tests create members directly
 )
@@ -130,7 +131,7 @@ func setup(closers *[]func()) error {
 		},
 		LLM: config.LLMConfig{BaseURL: model.url(), APIKey: "e2e", Model: "e2e"},
 		Embed: config.EmbedConfig{
-			TextBaseURL: "http://127.0.0.1:1", ImageBaseURL: "http://127.0.0.1:1",
+			TextBaseURL: embedder.url(), ImageBaseURL: embedder.url(),
 			TextModel: "embed-text", ImageModel: "embed-image", TextVersion: "text-test", ImageVersion: "image-test",
 			IndexAPIKey: "", SearchAPIKey: "", Timeout: time.Second, Slots: 1,
 			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,

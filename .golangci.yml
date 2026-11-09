@@ -85,6 +85,8 @@ linters:
         non-test files:
           files:
             - "!$test"
+            # Test support may build on other test support.
+            - "!**/internal/**/*test/*.go"
           deny:
             - pkg: math/rand$
               desc: Use math/rand/v2.

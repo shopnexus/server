@@ -162,3 +162,9 @@ func startPublish(ctx restate.Context, prefix string, id, writeID uuid.UUID) {
 	restate.ServiceSend(ctx, prefix+listingPublish, "Run").
 		Send(id, restate.WithIdempotencyKey(id.String()+"/"+writeID.String()))
 }
+
+// startEmbed asks ListingEmbed to bring the listing's vectors in line. A send
+// to an object queues behind the listing's run in progress.
+func startEmbed(ctx restate.Context, prefix string, id uuid.UUID) {
+	restate.ObjectSend(ctx, prefix+ListingEmbedName, id.String(), "Refresh").Send(restate.Void{})
+}

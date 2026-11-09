@@ -92,5 +92,8 @@ func (s ListingPublish) Run(ctx restate.Context, id uuid.UUID) error {
 	}); err != nil {
 		return fmt.Errorf("save listing: %w", err)
 	}
+	if len(reasons) == 0 {
+		startEmbed(ctx, s.Prefix, id)
+	}
 	return nil
 }

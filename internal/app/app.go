@@ -20,6 +20,7 @@ import (
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/catalog"
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/chat"
 	"github.com/shopnexus/server2/internal/console"
 	consoledomain "github.com/shopnexus/server2/internal/console/domain"
@@ -36,6 +37,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/platform/stream"
+	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/firebase"
 	"github.com/shopnexus/server2/internal/provider/llm"
 	"github.com/shopnexus/server2/internal/provider/push"
@@ -213,7 +215,14 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		return nil, fmt.Errorf("console keys: %w", err)
 	}
 	console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts)
-	catalogm := catalog.Mount(d, accounts, mediam.Service)
+	embedder := func(base, model, key string, dims int) embed.OpenAI {
+		return embed.OpenAI{BaseURL: base, APIKey: key, Model: model, Dims: dims, HTTP: &http.Client{Timeout: cfg.Embed.Timeout}}
+	}
+	catalogm := catalog.Mount(d, catalog.Settings{
+		Text:        embedder(cfg.Embed.TextBaseURL, cfg.Embed.TextModel, cfg.Embed.IndexAPIKey, catalogdomain.TextDims),
+		Image:       embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.IndexAPIKey, catalogdomain.PhotoDims),
+		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion, EmbedSlots: cfg.Embed.Slots,
+	}, accounts, mediam.Service)
 	dealm := deal.Mount(d, accounts, catalogm.Service)
 	trustm := trust.Mount(d, accounts, catalogm.Service, dealm.Service)
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}

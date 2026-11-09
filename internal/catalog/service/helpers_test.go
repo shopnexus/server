@@ -7,6 +7,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/restatedev/sdk-go/ingress"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
@@ -29,6 +31,8 @@ type env struct {
 	media    *mediasvc.Media
 	catalog  *service.Catalog
 	listings repository.Listings
+	ingress  *ingress.Client
+	prefix   string
 }
 
 // newEnv serves modules media and catalog on the test stack, on a database
@@ -42,7 +46,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 	m := mediatest.Service(db, objectstoretest.New(t), in, p)
 	c := catalogtest.Service(db, accounts, m, in, p, opts...)
 	restatetest.Start(t, append(m.Durable(), c.Durable()...)...)
-	return env{db: db, accounts: accounts, media: m, catalog: c, listings: repository.NewListings(db)}
+	return env{db: db, accounts: accounts, media: m, catalog: c, listings: repository.NewListings(db), ingress: in, prefix: p}
 }
 
 // seller creates an account with a verified phone number.

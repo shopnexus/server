@@ -100,6 +100,8 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 	}
 	if l.Status() == domain.StatusProcessing {
 		startPublish(ctx, s.Prefix, in.ID, w)
+	} else {
+		startEmbed(ctx, s.Prefix, in.ID)
 	}
 	return EditResult{}, nil
 }
