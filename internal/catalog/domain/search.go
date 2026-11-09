@@ -74,7 +74,22 @@ type Search struct {
 	Boosts        []Boost
 	Sort          SortOrder
 	Offset, Limit int
+	// Vectors and Weights make the search hybrid: each list (BM25 on the
+	// phrases, text vectors, photo vectors, boosts) takes at most MaxResults
+	// listings under the filters, and RRF fuses them. Sorts other than
+	// relevance order the fused listings.
+	Vectors Vectors
+	Weights Weights
+	// Like is the source of a similar-listings search, zero for none: the
+	// service reads its vectors into Vectors, and the search leaves it out.
+	Like uuid.UUID
+	// ExcludeSeller leaves out one seller's listings, zero for none: the
+	// viewer's own in a similar-listings search.
+	ExcludeSeller uuid.UUID
 }
+
+// Hybrid reports whether s fuses lists; otherwise it is one BM25 query.
+func (s Search) Hybrid() bool { return s.Weights != Weights{} }
 
 // Hit is a listing a search found, with its point for the distance.
 type Hit struct {
@@ -94,4 +109,25 @@ const (
 type CategoryCount struct {
 	Code  string `json:"category"`
 	Count int    `json:"count"`
+}
+
+// RRFK is the k of reciprocal rank fusion: a list's share for the listing at
+// rank r is its weight / (RRFK + r).
+const RRFK = 60
+
+// Vectors are the query vectors of a hybrid search. A nil vector leaves its
+// list out. A listing joins the text list at TextMin cosine or more, and the
+// photo list when its closest photo is at PhotoMin or more; only vectors of
+// the configured versions are read.
+type Vectors struct {
+	Text, Photo               []float32
+	TextVersion, PhotoVersion string
+	TextMin, PhotoMin         float64
+}
+
+// Weights are each list's weight in the fusion; a zero leaves the list out.
+// Boost is the list that ranks the other lists' listings by boost points
+// alone, so a boost moves listings a vector list found.
+type Weights struct {
+	BM25, Text, Photo, Boost float64
 }
