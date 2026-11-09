@@ -79,6 +79,9 @@ func TestPresignedPutThenReadAndDelete(t *testing.T) {
 	if _, _, err := s.Stat(ctx, key); !errors.Is(err, objectstore.ErrNotFound) {
 		t.Fatalf("stat after delete: %v", err)
 	}
+	if _, err := s.Get(ctx, key); !errors.Is(err, objectstore.ErrNotFound) {
+		t.Fatalf("get after delete: %v", err)
+	}
 }
 
 // The presigned request fixes the length: a PUT of other bytes is refused.

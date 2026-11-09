@@ -111,10 +111,19 @@ func (s *Store) Stat(ctx context.Context, key string) (size int64, contentType s
 	return info.Size, info.ContentType, nil
 }
 
-// Get opens key for reading; the caller closes it.
+// Get opens key for reading, or returns ErrNotFound; the caller closes it.
+// minio's GetObject sends nothing until the first read, so Stat on the object
+// makes the request and surfaces a missing key here.
 func (s *Store) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	obj, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
+		return nil, fmt.Errorf("get %s: %w", key, err)
+	}
+	if _, err = obj.Stat(); err != nil {
+		_ = obj.Close()
+		if notFound(err) {
+			return nil, ErrNotFound
+		}
 		return nil, fmt.Errorf("get %s: %w", key, err)
 	}
 	return obj, nil

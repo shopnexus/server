@@ -29,6 +29,16 @@ type Service interface {
 	Square(ctx context.Context, owner, holder, id uuid.UUID) (string, error)
 	// URL is where a client reads the processed object key.
 	URL(key string) string
+	// QueryUpload checks that id is a photo owner uploaded to search with:
+	// theirs, waiting, before its expiry and in the store as declared.
+	// Anything else is domain.ErrInvalidUpload.
+	QueryUpload(ctx context.Context, owner, id uuid.UUID) (QueryUpload, error)
+	// QueryImage reads such an upload as a JPEG at most 768 px on its long
+	// side, upright and without EXIF. Nothing is stored or published.
+	QueryImage(ctx context.Context, owner, id uuid.UUID) ([]byte, error)
+	// ReadPhoto reads a processed object under media/, such as a listing's
+	// photo; an absent one is objectstore.ErrNotFound.
+	ReadPhoto(ctx context.Context, key string) ([]byte, error)
 }
 
 // Deps is what New builds Media from.

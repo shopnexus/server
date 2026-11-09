@@ -15,8 +15,6 @@ import (
 const (
 	// putTTL is how long a presigned PUT stays valid.
 	putTTL = 15 * time.Minute
-	// expireAfter is how long an upload may wait for an attach.
-	expireAfter = 24 * time.Hour
 )
 
 // CreateUpload starts an upload and returns a presigned PUT for it. The
@@ -29,7 +27,7 @@ func (m *Media) CreateUpload(ctx context.Context, owner uuid.UUID, contentType s
 		return UploadTicket{}, err
 	}
 	if _, err = ingress.ServiceSend[uuid.UUID](m.ingress, m.prefix+mediaExpire, "Run").
-		Send(ctx, u.ID(), restate.WithDelay(expireAfter), restate.WithIdempotencyKey(u.ID().String())); err != nil {
+		Send(ctx, u.ID(), restate.WithDelay(domain.ExpireAfter), restate.WithIdempotencyKey(u.ID().String())); err != nil {
 		return UploadTicket{}, fmt.Errorf("schedule the upload's expiry: %w", err)
 	}
 	if err = m.uploads.Create(ctx, u); err != nil {

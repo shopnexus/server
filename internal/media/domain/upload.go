@@ -39,6 +39,8 @@ type Shape string
 const (
 	ShapePhoto  Shape = "photo"
 	ShapeSquare Shape = "square"
+	// ShapeQuery is a search's photo: at most 768 px on its long side, never stored.
+	ShapeQuery Shape = "query"
 )
 
 // Upload is one photo a client puts to uploads/<id>.
@@ -171,4 +173,16 @@ func (u *Upload) UnmarshalJSON(b []byte) error {
 	}
 	*u = RestoreUpload(st)
 	return nil
+}
+
+// ExpireAfter is how long an upload may wait for an attach.
+const ExpireAfter = 24 * time.Hour
+
+// ExpiresAt is when a waiting upload is deleted.
+func (u *Upload) ExpiresAt() time.Time { return u.createdAt.Add(ExpireAfter) }
+
+// Queryable reports whether owner may search with u now: it is theirs, still
+// waiting and before its expiry.
+func (u *Upload) Queryable(owner uuid.UUID, now time.Time) bool {
+	return u.ownerID == owner && u.status == StatusWaiting && now.Before(u.ExpiresAt())
 }

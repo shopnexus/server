@@ -28,6 +28,7 @@ const (
 	processSlots = 2
 	photoSide    = 1600
 	thumbSide    = 400
+	querySide    = 768
 	quality      = 85
 )
 
@@ -56,7 +57,8 @@ func matchesType(head []byte, contentType string) bool {
 // upright by its EXIF orientation. As domain.ShapePhoto it is at most
 // photoSide on its long side, with a thumbnail at most thumbSide made from
 // it; as domain.ShapeSquare it is the middle square, at most thumbSide a
-// side, and has no thumbnail. Encoding from pixels drops every EXIF field,
+// side, and has no thumbnail. As domain.ShapeQuery it is at most querySide on
+// its long side, with no thumbnail. Encoding from pixels drops every EXIF field,
 // GPS included. A photo it refuses is a refusedError.
 func process(r io.Reader, contentType string, shape domain.Shape) (photo, thumb []byte, err error) {
 	raw, err := io.ReadAll(io.LimitReader(r, domain.MaxSize+1))
@@ -103,6 +105,12 @@ func process(r io.Reader, contentType string, shape domain.Shape) (photo, thumb 
 		x, y := b.Min.X+(b.Dx()-side)/2, b.Min.Y+(b.Dy()-side)/2
 		square := sub.SubImage(image.Rect(x, y, x+side, y+side))
 		if photo, err = encodeJPEG(orient(shrink(square, thumbSide), orientation(raw, contentType))); err != nil {
+			return nil, nil, err
+		}
+		return photo, nil, nil
+	}
+	if shape == domain.ShapeQuery {
+		if photo, err = encodeJPEG(orient(shrink(img, querySide), orientation(raw, contentType))); err != nil {
 			return nil, nil, err
 		}
 		return photo, nil, nil
