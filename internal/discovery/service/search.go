@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"uuid"
 
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
@@ -225,10 +226,16 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			if understood && strings.TrimSpace(u.Rewritten) != "" {
 				text = u.Rewritten
 			}
-			search.Vectors.Text = d.queryVector(ctx, d.text, d.textVersion, text)
+			// Both embeds run at once under the model timeout, so a hung
+			// alias costs the search that much and its list is left out.
+			ectx, cancel := context.WithTimeout(ctx, d.modelTimeout)
+			var wg sync.WaitGroup
+			wg.Go(func() { search.Vectors.Text = d.queryVector(ectx, d.text, d.textVersion, text) })
 			if understood && strings.TrimSpace(u.Visual) != "" {
-				search.Vectors.Photo = d.queryVector(ctx, d.image, d.imageVersion, u.Visual)
+				wg.Go(func() { search.Vectors.Photo = d.queryVector(ectx, d.image, d.imageVersion, u.Visual) })
 			}
+			wg.Wait()
+			cancel()
 			if search.Vectors.Text != nil || search.Vectors.Photo != nil {
 				search.Weights = domain.FuseQuery
 			}

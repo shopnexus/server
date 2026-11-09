@@ -11,6 +11,7 @@ import (
 	"math"
 	"math/rand/v2"
 	"sync"
+	"time"
 )
 
 // Model counts its calls and inputs and fails while a failure is set.
@@ -21,6 +22,7 @@ type Model struct {
 	calls  int
 	inputs []string
 	fail   error
+	slow   time.Duration
 }
 
 func New(dims int) *Model { return &Model{dims: dims, fixed: map[string][]float32{}} }
@@ -39,6 +41,14 @@ func (m *Model) SetFail(err error) {
 	m.fail = err
 }
 
+// SetSlow makes each call wait d, or until its context ends, before it
+// answers: a model that hangs.
+func (m *Model) SetSlow(d time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.slow = d
+}
+
 func (m *Model) Calls() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -52,6 +62,16 @@ func (m *Model) Inputs() []string {
 }
 
 func (m *Model) Embed(ctx context.Context, inputs []string) ([][]float32, error) {
+	m.mu.Lock()
+	slow := m.slow
+	m.mu.Unlock()
+	if slow > 0 {
+		select {
+		case <-time.After(slow):
+		case <-ctx.Done():
+			return nil, fmt.Errorf("embedtest: %w", ctx.Err())
+		}
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.calls++

@@ -262,6 +262,25 @@ func TestSearchModelDownEmbedsTheRawQuery(t *testing.T) {
 	}
 }
 
+// A hung embedding model costs a search the model timeout, not the HTTP
+// client's: both query embeds run at once under it, and BM25 answers.
+func TestSearchHungEmbeddingsFallBackQuickly(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.put(t, "Ghế gỗ sồi", "furniture.other", baDinh)
+	e.model.answers["ghế gỗ"] = `{"understood":"Ghế gỗ","rewritten":"ghế gỗ","visual":"a wooden chair","boosts":[],"demotes":[]}`
+	e.text.SetSlow(time.Minute)
+	e.image.SetSlow(time.Minute)
+	start := time.Now()
+	v, err := e.discovery.Search(context.Background(), nil, service.SearchInput{Query: "ghế gỗ"})
+	if err != nil || len(v.Items) != 1 {
+		t.Fatalf("%+v %v", v, err)
+	}
+	if took := time.Since(start); took > 2*time.Second {
+		t.Fatalf("a hung model held the search %v", took)
+	}
+}
+
 func TestSearchByPhoto(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
