@@ -1,6 +1,6 @@
 // Package repository stores module discovery's saved listings and the
-// cache of what the model understood of a query, in Postgres. Each method
-// is its own transaction.
+// caches of what the model understood of a query and of the vectors a
+// search embedded, in Postgres. Each method is its own transaction.
 package repository
 
 import (
@@ -43,4 +43,16 @@ type Understandings interface {
 	// Put stores answer for key and version at at, replacing any, and
 	// deletes the answers stored before expired, in one transaction.
 	Put(ctx context.Context, key string, version int, answer json.RawMessage, at, expired time.Time) error
+}
+
+// QueryVectors caches the vectors of texts a search embedded. It records no account.
+type QueryVectors interface {
+	Get(ctx context.Context, key string, promptVersion int, model string, since time.Time) ([]float32, bool, error)
+	Put(ctx context.Context, key string, promptVersion int, model string, v []float32, at, expired time.Time) error
+}
+
+// PhotoVectors caches the vector of a search photo until its upload expires.
+type PhotoVectors interface {
+	Get(ctx context.Context, upload uuid.UUID, model string, now time.Time) ([]float32, bool, error)
+	Put(ctx context.Context, upload uuid.UUID, model string, v []float32, expires, now time.Time) error
 }
