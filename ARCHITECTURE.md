@@ -28,6 +28,17 @@ ParadeDB supports it (decided 2026-10-27). Restate replaced the relay, JetStream
 a table, `events`, that a bus drains into Restate (see Events). `/readyz`
 checks Postgres and the Restate admin health endpoint.
 
+The embedding models of search run behind the stack's LiteLLM: the alias
+`embed-text` is TEI serving `BAAI/bge-m3`, and `embed-image` is the `ai`
+service's SigLIP 2 (decided 2026-11-09, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-09-server2-photo-similar-search-design.md`).
+The server reaches them at `EMBED_TEXT_BASE_URL` and `EMBED_IMAGE_BASE_URL`.
+Locally it calls TEI and ai directly, on 127.0.0.1:56800 and 56810, which
+this repo's `docker-compose.yml` runs under the profile `models`
+(`docker compose --profile models up -d tei ai`). `make run` does not start
+them, and search runs on BM25 alone until they answer. `/readyz` does not
+check them.
+
 ### Use cases
 
 A use case is a method of the module's service, in its own file:
@@ -158,6 +169,19 @@ refresh keep working when Restate is down.
   `restatex.Caller`, and `Account.Durable` returns its definition for
   `account.Mount`.
 
+`ListingEmbed` is the repo's first Virtual Object, keyed by listing ID, with
+one exclusive handler, `Refresh`, which takes no input. Restate runs one
+`Refresh` per listing at a time, and a send queues behind the run in
+progress, so a burst of edits gives runs that each read the listing as it is
+then: the first embeds the newest content and the others find their hashes
+and photo keys in line. A run has a step that plans, a step for the text
+vector when its hash moved, one step per photo without a vector, and a step
+that drops the vectors of removed photos. No step returns a vector to the
+journal. `ListingPublish` sends `Refresh` once a listing goes on sale, and
+`ListingEdit` sends it after an edit that keeps the listing out of
+processing. A refusal from the model (`embed.ErrRefused`) is logged and
+skipped; any other error is retried by Restate.
+
 ### Events
 
 A module announces a change with an event, and modules that react
@@ -265,7 +289,7 @@ One binary serves the HTTP API on `:8080` and the Restate endpoint on `:9080`.
 A module's `Mount` takes `module.Deps` (router, pool, Restate ingress and
 service prefix, event bus, clock, logger, and the `Protect` and `Identify`
 middlewares), then the module's `Settings` struct when it has settings of
-its own (account, console, media, discovery, notification), then the
+its own (account, catalog, console, media, discovery, notification), then the
 services of the modules it calls, one argument each. It builds the
 repositories, the service and the handler, registers the routes, and
 returns what app and other modules need: a module with Restate services
@@ -579,6 +603,10 @@ and `MEDIA_PUBLIC_URL`, the base a public URL is built on. RustFS listens on
 127.0.0.1:56490 in development and 56491 in tests; the test container keeps
 `/data` on a tmpfs owned by uid 10001, the user the image runs as.
 
+`Store.Get` stats the object before it returns the reader: minio's
+`GetObject` sends nothing until the first read, so without the stat a
+missing key surfaced only then. A missing key is `ErrNotFound`.
+
 ### Media
 
 Module `media` owns uploads; catalog, chat and account (avatars) use
@@ -618,6 +646,17 @@ waiting → expired.
   `mediasvc.ProcessAll(ctx, prefix, ids)`: one `MediaProcess` call per
   upload, keyed by the upload ID, all sent before it waits for the
   results. Catalog's `ListingPublish` and chat's `MessagePublish` use it.
+
+Search reads photos through three more use cases (decided 2026-11-09):
+
+- `QueryUpload(owner, id)` checks that an upload is the owner's, still
+  waiting and before its expiry (`domain.ExpireAfter`, 24 hours); anything
+  else is `invalid_upload`, 422.
+- `QueryImage(owner, id)` reads such an upload in the shape `ShapeQuery`: at
+  most 768 px on its long side, upright, a JPEG without EXIF. It takes a
+  processing slot, and nothing is stored or published.
+- `ReadPhoto(key)` reads a processed photo under `media/`, for
+  `ListingEmbed`.
 
 ### Catalog
 
@@ -707,6 +746,25 @@ server receives a complete listing.
   seller's listings on sale (active or reserved) and sold; "Đã bán" counts
   every sold listing, sold through an order or marked by hand (decided
   2026-10-27).
+
+Search vectors (decided 2026-11-09, migration 0024):
+
+- `listing_text_vectors` holds one 1024-dimension `halfvec` per listing, from
+  `Listing.EmbeddingText`: the title, the category's name, the condition,
+  each spec as "label: value" and the description, one per line, cut at
+  2,000 characters. `text_hash` is a hash of the version and the text.
+- `listing_photo_vectors` holds one 1152-dimension `halfvec` per processed
+  photo, keyed by the photo's object key.
+- `model_version` holds `EMBED_TEXT_VERSION` or `EMBED_IMAGE_VERSION`. A row
+  of another version counts as missing, so a new version embeds again.
+- Active, reserved, hidden and sold listings are embedded; processing,
+  rejected and deleted ones are not. Vectors stay while a listing is hidden
+  or sold, and stay when it is deleted, since deletion is a status and the
+  row stays; the search's status filter leaves them out.
+- `Summary` carries `CategoryCode` and `Condition`, which a
+  similar-listings search boosts.
+- `go run ./cmd/search-reindex` sends `Refresh` for every listing that should
+  have vectors, the backfill and the way to a new version.
 
 ### Deal
 
@@ -1031,6 +1089,36 @@ Search and the nearby feed (decided 2026-10-27, spec:
 - ParadeDB clones are about 13 MB, so the test database's tmpfs is 4 GB,
   and the slower index writes need `max_connections=400` in the test stack.
 
+Hybrid search (decided 2026-11-09, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-09-server2-photo-similar-search-design.md`):
+
+- `GET /v1/search` takes `photo` (a waiting upload of the caller's) and
+  `like` (a listing on sale or reserved). `photo` goes alone and needs a
+  signed-in caller; `like` goes with `q`. Errors: `search_conflict` 400 for
+  `photo` with `q` or `like`, `unauthenticated` 401, `listing_not_found` 404,
+  `invalid_upload` 422 as media returns it, and `search_unavailable` 503 when
+  the photo cannot be embedded.
+- A hybrid search fuses lists by weighted RRF with k = 60: BM25 on the
+  phrases, the text vectors, the photo vectors (a listing at its closest
+  photo), and a boost list that ranks the other lists' listings by boost
+  points alone. Each list takes at most 500 listings under the person's
+  filters. Weights: `q` 1.0, 1.0, 0.5, 0.75; `like` 0.5, 1.0, 1.0, 0.5;
+  `photo` the photo list alone at 1.0.
+- A listing joins a vector list at `EMBED_TEXT_MIN_SIMILARITY` or
+  `EMBED_PHOTO_MIN_SIMILARITY` cosine or more. Sorts other than relevance
+  order the fused listings.
+- One SQL statement holds the lists as CTEs (`bm25`, `txt`, `img`, `boost`,
+  then `fused`). Its transaction sets `hnsw.iterative_scan = relaxed_order`,
+  so a narrow filter still fills a vector list.
+- `like` reads the source's text vector and the normalized mean of its photo
+  vectors, its title as a phrase, and boosts for its subcategory and a price
+  band of ±30 %; it leaves out the source and the viewer's own listings.
+- The understanding gains `rewritten`, the query in correct Vietnamese for
+  the text vector, and `visual`, at most about 12 English words for the
+  photo vectors; `PromptVersion` is 2. A model that fails sends the raw
+  query to the text vector and leaves the photo list out. An embedding model
+  that fails leaves its list out; `q` then runs on BM25.
+
 ### Discovery
 
 Module `discovery` holds saved listings, search and the nearby feed (see
@@ -1044,6 +1132,15 @@ Search).
   since its seller took it down.
 - Each save has a UUIDv7 `id`, so the list pages by it. The 500-save cap
   is counted under `pg_advisory_xact_lock` on the account.
+
+- `search_query_vectors` caches the vector of a text the search embedded,
+  for 7 days, keyed by the normalized text (the rewrite, the raw query when
+  the model failed, or the visual description), the prompt version and the
+  model version.
+- `search_photo_vectors` caches a search photo's vector until its upload
+  expires; each write deletes the expired rows, and each read checks the
+  upload again.
+- No search photo or vector reaches a log or the journal.
 
 ### Notifications
 
@@ -1155,6 +1252,11 @@ formatting. The rules that shape the code:
   receivers, except `MarshalJSON`, which `json.Marshal` skips on a value
   otherwise.
 - nolintlint: every `//nolint` names the linter and gives the reason.
+- depguard: a test-support package (`accounttest`, `catalogtest`,
+  `mediatest`, `objectstoretest`, `pgtest`, `embedtest`) is imported only by
+  tests and by other test-support packages, whose files match
+  `**/internal/**/*test/*.go`. `catalogtest` builds catalog on `embedtest`'s
+  fakes.
 - depguard: a module's domain, repository and service import no layer above
   them, a handler or worker imports no repository, nothing imports a
   worker, and production code reaches another module only through its
