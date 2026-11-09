@@ -98,6 +98,8 @@ linters:
               desc: test support; only tests import it.
             - pkg: github.com/shopnexus/server2/internal/platform/postgres/pgtest
               desc: test support; only tests import it.
+            - pkg: github.com/shopnexus/server2/internal/provider/embed/embedtest
+              desc: test support; only tests import it.
             - pkg: github.com/shopnexus/server2/internal/platform/restatex/restatetest
               desc: test support; only tests import it.
             - pkg: github.com/shopnexus/server2/internal/provider/firebase/firebasetest
