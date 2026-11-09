@@ -31,7 +31,13 @@ func testConfig(t *testing.T) config.Config {
 		Console:     config.ConsoleConfig{Key: config.NewConsoleKey(), Origin: "http://console.test"},
 		ObjectStore: objectStore(t),
 		// No model answers here; a search falls back to the raw words.
-		LLM:      config.LLMConfig{BaseURL: "http://127.0.0.1:1", APIKey: "none", Model: "none"},
+		LLM: config.LLMConfig{BaseURL: "http://127.0.0.1:1", APIKey: "none", Model: "none"},
+		Embed: config.EmbedConfig{
+			TextBaseURL: "http://127.0.0.1:1", ImageBaseURL: "http://127.0.0.1:1",
+			TextModel: "embed-text", ImageModel: "embed-image", TextVersion: "text-test", ImageVersion: "image-test",
+			IndexAPIKey: "", SearchAPIKey: "", Timeout: time.Second, Slots: 1,
+			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,
+		},
 		Firebase: firebasetest.New(t).Config(false),
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 var testKeys = NewAuthKeys()
@@ -62,6 +63,18 @@ func required() map[string]string {
 		"LLM_BASE_URL":                 "https://llm.example.test/v1",
 		"LLM_API_KEY":                  "llm-key",
 		"LLM_MODEL":                    "a-model",
+		"EMBED_TEXT_BASE_URL":          "http://tei.example.test/v1",
+		"EMBED_IMAGE_BASE_URL":         "http://ai.example.test/v1",
+		"EMBED_TEXT_MODEL":             "embed-text",
+		"EMBED_IMAGE_MODEL":            "embed-image",
+		"EMBED_TEXT_VERSION":           "bge-m3@5617a9f6",
+		"EMBED_IMAGE_VERSION":          "siglip2-so400m-patch16-384-fp32@29f74e67",
+		"EMBED_INDEX_API_KEY":          "",
+		"EMBED_SEARCH_API_KEY":         "search-key",
+		"EMBED_TIMEOUT":                "10s",
+		"EMBED_SLOTS":                  "2",
+		"EMBED_TEXT_MIN_SIMILARITY":    "0.45",
+		"EMBED_PHOTO_MIN_SIMILARITY":   "0.6",
 		"FCM_CREDENTIALS":              "",
 		"FIREBASE_PROJECT_ID":          "shopnexus-test",
 		"FIREBASE_PROJECT_NUMBER":      "123456789",
@@ -130,6 +143,13 @@ func TestLoadAllSet(t *testing.T) {
 			AccessKey: "access", SecretKey: "secret", Bucket: "server2", PublicURL: "http://rustfs:9000/server2",
 		},
 		LLM: LLMConfig{BaseURL: "https://llm.example.test/v1", APIKey: "llm-key", Model: "a-model"},
+		Embed: EmbedConfig{
+			TextBaseURL: "http://tei.example.test/v1", ImageBaseURL: "http://ai.example.test/v1",
+			TextModel: "embed-text", ImageModel: "embed-image",
+			TextVersion: "bge-m3@5617a9f6", ImageVersion: "siglip2-so400m-patch16-384-fp32@29f74e67",
+			IndexAPIKey: "", SearchAPIKey: "search-key", Timeout: 10 * time.Second, Slots: 2,
+			TextMinSimilarity: 0.45, PhotoMinSimilarity: 0.6,
+		},
 		Firebase: FirebaseConfig{
 			ProjectID: "shopnexus-test", ProjectNumber: "123456789",
 			AuthJWKSURL: "https://keys.example.test/auth", PNVJWKSURL: "https://keys.example.test/pnv", TestNumbers: true,
@@ -323,5 +343,30 @@ func TestLoadRejectsBadDashboardHosts(t *testing.T) {
 	got, err := Load(lookup(env))
 	if err != nil || len(got.Console.DashboardHosts) != len(DashboardApps) {
 		t.Fatalf("every dashboard: %v %v", got.Console.DashboardHosts, err)
+	}
+}
+
+func TestEmbedValuesAreChecked(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct{ key, value, want string }{
+		"timeout":   {"EMBED_TIMEOUT", "soon", "EMBED_TIMEOUT"},
+		"slots":     {"EMBED_SLOTS", "0", "EMBED_SLOTS"},
+		"floor":     {"EMBED_TEXT_MIN_SIMILARITY", "1.5", "EMBED_TEXT_MIN_SIMILARITY"},
+		"no floor":  {"EMBED_PHOTO_MIN_SIMILARITY", "", "EMBED_PHOTO_MIN_SIMILARITY"},
+		"no search": {"EMBED_SEARCH_API_KEY", "\x00unset", "EMBED_SEARCH_API_KEY is not set"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			env := required()
+			if tc.value == "\x00unset" {
+				delete(env, tc.key)
+			} else {
+				env[tc.key] = tc.value
+			}
+			_, err := Load(lookup(env))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want it to name %s", err, tc.want)
+			}
+		})
 	}
 }

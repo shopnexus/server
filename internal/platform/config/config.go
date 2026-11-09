@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Env is APP_ENV.
@@ -48,6 +49,7 @@ type Config struct {
 	Console        ConsoleConfig
 	ObjectStore    ObjectStoreConfig
 	LLM            LLMConfig
+	Embed          EmbedConfig
 	Push           PushConfig
 	Firebase       FirebaseConfig
 }
@@ -74,6 +76,28 @@ type LLMConfig struct {
 	BaseURL string // LLM_BASE_URL: an OpenAI-compatible API, such as https://proxy/v1
 	APIKey  string // LLM_API_KEY
 	Model   string // LLM_MODEL
+}
+
+// EmbedConfig says where the embedding models are and how search uses them.
+// In the cluster both base URLs are the stack's LiteLLM and the models are
+// its aliases; locally they are TEI and ai, which take no key.
+type EmbedConfig struct {
+	TextBaseURL  string // EMBED_TEXT_BASE_URL: POST {base}/embeddings for text
+	ImageBaseURL string // EMBED_IMAGE_BASE_URL: the same for photos and visual text
+	TextModel    string // EMBED_TEXT_MODEL, the alias embed-text
+	ImageModel   string // EMBED_IMAGE_MODEL, the alias embed-image
+	// TextVersion and ImageVersion name the model behind each alias. Every
+	// vector row stores its version; a new version embeds again.
+	TextVersion  string        // EMBED_TEXT_VERSION
+	ImageVersion string        // EMBED_IMAGE_VERSION
+	IndexAPIKey  string        // EMBED_INDEX_API_KEY: ListingEmbed's key; empty locally
+	SearchAPIKey string        // EMBED_SEARCH_API_KEY: the search's key; empty locally
+	Timeout      time.Duration // EMBED_TIMEOUT: one embedding call
+	Slots        int           // EMBED_SLOTS: embeddings ListingEmbed runs at once in this process
+	// TextMinSimilarity and PhotoMinSimilarity are the cosine a listing needs
+	// to join a vector list.
+	TextMinSimilarity  float64 // EMBED_TEXT_MIN_SIMILARITY, in (0, 1)
+	PhotoMinSimilarity float64 // EMBED_PHOTO_MIN_SIMILARITY, in (0, 1)
 }
 
 // AuthConfig holds the auth module's keys and token settings. No key is ever
@@ -173,6 +197,30 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			errs = append(errs, fmt.Errorf("%s=%q: want one of %v", key, v, allowed))
 		}
 		return v
+	}
+	positive := func(key string) int {
+		v := need(key)
+		n, err := strconv.Atoi(v)
+		if v != "" && (err != nil || n < 1) {
+			errs = append(errs, fmt.Errorf("%s=%q: want a positive integer", key, v))
+		}
+		return n
+	}
+	duration := func(key string) time.Duration {
+		v := need(key)
+		d, err := time.ParseDuration(v)
+		if v != "" && (err != nil || d <= 0) {
+			errs = append(errs, fmt.Errorf("%s=%q: want a positive duration such as 10s", key, v))
+		}
+		return d
+	}
+	fraction := func(key string) float64 {
+		v := need(key)
+		f, err := strconv.ParseFloat(v, 64)
+		if v != "" && (err != nil || f <= 0 || f >= 1) {
+			errs = append(errs, fmt.Errorf("%s=%q: want a number between 0 and 1", key, v))
+		}
+		return f
 	}
 
 	decodeKey := func(key string, size int, exact bool) []byte {
@@ -292,7 +340,15 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			PNVJWKSURL:    need("PNV_JWKS_URL"),
 			TestNumbers:   oneOf("PNV_TEST_NUMBERS", "true", "false") == "true",
 		},
-		LLM:            LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
+		LLM: LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
+		Embed: EmbedConfig{
+			TextBaseURL: need("EMBED_TEXT_BASE_URL"), ImageBaseURL: need("EMBED_IMAGE_BASE_URL"),
+			TextModel: need("EMBED_TEXT_MODEL"), ImageModel: need("EMBED_IMAGE_MODEL"),
+			TextVersion: need("EMBED_TEXT_VERSION"), ImageVersion: need("EMBED_IMAGE_VERSION"),
+			IndexAPIKey: set("EMBED_INDEX_API_KEY"), SearchAPIKey: set("EMBED_SEARCH_API_KEY"),
+			Timeout: duration("EMBED_TIMEOUT"), Slots: positive("EMBED_SLOTS"),
+			TextMinSimilarity: fraction("EMBED_TEXT_MIN_SIMILARITY"), PhotoMinSimilarity: fraction("EMBED_PHOTO_MIN_SIMILARITY"),
+		},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),
 		TrustedProxies: proxies,

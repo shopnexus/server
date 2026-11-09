@@ -72,8 +72,43 @@ services:
     volumes:
       - lgtm:/data
 
+  # The embedding models (see ARCHITECTURE.md, Search), the same TEI and ai as
+  # the umbrella's compose. Heavy: about 6 GB of images and 2.2 GB of TEI
+  # weights. Start them with
+  #   docker compose --profile models up -d tei ai
+  # Without them search runs on BM25 alone and ListingEmbed retries.
+  tei:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
+    profiles: [models]
+    command: [--model-id, BAAI/bge-m3, --revision, 5617a9f61b028005a4858fdac845db406aefb181, --port, "80", --auto-truncate, --max-client-batch-size, "16", --max-batch-tokens, "2048"]
+    environment:
+      HUGGINGFACE_HUB_CACHE: /data
+    ports:
+      - "127.0.0.1:56800:80"
+    volumes:
+      - tei:/data
+
+  ai:
+    image: ghcr.io/shopnexus/ai:main
+    profiles: [models]
+    environment:
+      AI_ADDR: ":8000"
+      AI_STT_MODELS: gipformer-1.5=/models/gipformer-1.5
+      AI_VAD_MODEL: /models/silero_vad.onnx
+      AI_NUM_THREADS: "4"
+      AI_MAX_CONCURRENT: "2"
+      AI_MAX_UPLOAD_MB: "100"
+      AI_MAX_AUDIO_SECONDS: "300"
+      AI_EMBED_MODELS: siglip2-so400m-patch16-384=/models/siglip2-so400m-patch16-384
+      AI_EMBED_MAX_INPUTS: "16"
+      AI_EMBED_MAX_CONCURRENT: "2"
+      AI_EMBED_MAX_IMAGE_MB: "10"
+    ports:
+      - "127.0.0.1:56810:8000"
+
 volumes:
   postgres:
   restate:
   rustfs:
   lgtm:
+  tei:

@@ -128,7 +128,13 @@ func setup(closers *[]func()) error {
 			Key: config.NewConsoleKey(), Origin: "http://console.e2e",
 			DashboardHosts: map[string]string{"grafana": "grafana.e2e.test", "restate": "restate.e2e.test"},
 		},
-		LLM:      config.LLMConfig{BaseURL: model.url(), APIKey: "e2e", Model: "e2e"},
+		LLM: config.LLMConfig{BaseURL: model.url(), APIKey: "e2e", Model: "e2e"},
+		Embed: config.EmbedConfig{
+			TextBaseURL: "http://127.0.0.1:1", ImageBaseURL: "http://127.0.0.1:1",
+			TextModel: "embed-text", ImageModel: "embed-image", TextVersion: "text-test", ImageVersion: "image-test",
+			IndexAPIKey: "", SearchAPIKey: "", Timeout: time.Second, Slots: 1,
+			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,
+		},
 		Firebase: issuer.Config(false),
 		// Tests may set X-Forwarded-For.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
