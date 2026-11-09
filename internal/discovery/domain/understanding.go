@@ -13,7 +13,8 @@ import (
 
 // PromptVersion names the prompt and schema below; a change to either bumps
 // it, so cached answers of the old prompt are no longer read.
-const PromptVersion = 1
+// 2 added rewritten and visual (2026-11-09).
+const PromptVersion = 2
 
 const (
 	// ModelTimeout is how long a search waits for the model before it
@@ -45,9 +46,14 @@ type Signal struct {
 
 // Understanding is the model's whole answer.
 type Understanding struct {
-	Understood string   `json:"understood"`
-	Boosts     []Signal `json:"boosts"`
-	Demotes    []Signal `json:"demotes"`
+	Understood string `json:"understood"`
+	// Rewritten is the query in correct Vietnamese, for the text vectors.
+	Rewritten string `json:"rewritten"`
+	// Visual is how the item looks, in short English, for the photo
+	// vectors; empty when the query says nothing about looks.
+	Visual  string   `json:"visual"`
+	Boosts  []Signal `json:"boosts"`
+	Demotes []Signal `json:"demotes"`
 }
 
 // Vocabulary resolves what the model named against real rows.
@@ -326,8 +332,8 @@ func QueryKey(q string) string { return strings.ToLower(strings.Join(strings.Fie
 // Schema is the JSON schema the model's answer must fit, in strict mode:
 // every property required and no other allowed.
 func Schema() json.RawMessage {
-	return json.RawMessage(`{"type":"object","additionalProperties":false,"required":["understood","boosts","demotes"],
-"properties":{"understood":{"type":"string"},
+	return json.RawMessage(`{"type":"object","additionalProperties":false,"required":["understood","rewritten","visual","boosts","demotes"],
+"properties":{"understood":{"type":"string"},"rewritten":{"type":"string"},"visual":{"type":"string"},
 "boosts":{"type":"array","maxItems":8,"items":{"$ref":"#/$defs/signal"}},
 "demotes":{"type":"array","maxItems":4,"items":{"$ref":"#/$defs/signal"}}},
 "$defs":{"signal":{"type":"object","additionalProperties":false,"required":["attr","values"],
@@ -353,6 +359,10 @@ at most three. Attributes:
 - offers: the person wants to bargain ("thương lượng", "trả giá"); no values.
 Put an accessory or a related item in demotes when the person is clearly looking for the main item, and the other way
 round. Never write a weight or a score. understood is one short Vietnamese sentence of what will be searched.
+rewritten is the whole query in correct Vietnamese with diacritics, typos fixed and abbreviations spelled out
+("ip13 pm xanh" is "iPhone 13 Pro Max màu xanh"). visual describes in English, in at most 12 words, how the item
+the person wants looks ("iPhone 13 Pro Max smartphone, blue"); leave it empty when the query only names a price, a
+place, a condition or a time.
 
 Categories:
 `)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -202,5 +203,23 @@ func TestPlaceNames(t *testing.T) {
 	}
 	if got := domain.PlaceNames(u); !slices.Equal(got, []string{"Hà Nội", "Huế", "Cần Thơ"}) {
 		t.Fatalf("%q", got)
+	}
+}
+
+func TestSchemaAsksForRewriteAndVisual(t *testing.T) {
+	t.Parallel()
+	var s struct {
+		Required   []string                   `json:"required"`
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(domain.Schema(), &s); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(s.Required, "rewritten") || !slices.Contains(s.Required, "visual") ||
+		s.Properties["visual"] == nil || domain.PromptVersion != 2 {
+		t.Fatalf("%+v v%d", s.Required, domain.PromptVersion)
+	}
+	if p := domain.SystemPrompt(nil, time.Now()); !strings.Contains(p, "rewritten") || !strings.Contains(p, "visual") {
+		t.Fatal("the prompt does not explain the new fields")
 	}
 }
