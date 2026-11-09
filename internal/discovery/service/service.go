@@ -10,7 +10,9 @@ import (
 
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/discovery/repository"
+	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/llm"
 )
 
@@ -37,6 +39,15 @@ type Deps struct {
 	Understandings repository.Understandings
 	Catalog        catalogsvc.Service
 	LLM            llm.Client
+	// Media reads a search photo; Text and Image embed with the search key,
+	// under TextVersion and ImageVersion. TextMin and PhotoMin are the
+	// floors of the vector lists.
+	Media                     mediasvc.Service
+	QueryVectors              repository.QueryVectors
+	PhotoVectors              repository.PhotoVectors
+	Text, Image               embed.Model
+	TextVersion, ImageVersion string
+	TextMin, PhotoMin         float64
 	// ModelTimeout is domain.ModelTimeout in production; tests shorten it.
 	ModelTimeout time.Duration
 	Log          *slog.Logger
@@ -45,13 +56,19 @@ type Deps struct {
 
 // Discovery implements Service in this process.
 type Discovery struct {
-	saves          repository.Saves
-	understandings repository.Understandings
-	catalog        catalogsvc.Service
-	llm            llm.Client
-	modelTimeout   time.Duration
-	log            *slog.Logger
-	now            func() time.Time
+	saves                     repository.Saves
+	understandings            repository.Understandings
+	catalog                   catalogsvc.Service
+	llm                       llm.Client
+	media                     mediasvc.Service
+	queryVectors              repository.QueryVectors
+	photoVectors              repository.PhotoVectors
+	text, image               embed.Model
+	textVersion, imageVersion string
+	textMin, photoMin         float64
+	modelTimeout              time.Duration
+	log                       *slog.Logger
+	now                       func() time.Time
 }
 
 var _ Service = (*Discovery)(nil)
@@ -59,6 +76,8 @@ var _ Service = (*Discovery)(nil)
 func New(d Deps) *Discovery {
 	return &Discovery{
 		saves: d.Saves, understandings: d.Understandings, catalog: d.Catalog, llm: d.LLM,
+		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,
+		textVersion: d.TextVersion, imageVersion: d.ImageVersion, textMin: d.TextMin, photoMin: d.PhotoMin,
 		modelTimeout: d.ModelTimeout, log: d.Log, now: d.Now,
 	}
 }

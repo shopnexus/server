@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"uuid"
 
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/discovery/service"
@@ -34,6 +35,8 @@ type searchRequest struct {
 	Off        []string                  `json:"-" query:"off"`
 	Cursor     string                    `json:"-" query:"cursor"`
 	Limit      int                       `json:"-" query:"limit"`
+	Photo      uuid.UUID                 `json:"-" query:"photo"`
+	Like       uuid.UUID                 `json:"-" query:"like"`
 }
 
 type nearbyRequest struct {
@@ -53,7 +56,7 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	out, err := h.svc.Search(r.Context(), httpx.Viewer(r), service.SearchInput{
 		Query: in.Query, Category: in.Category, PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions,
 		RadiusKm: in.RadiusKm, OffersOnly: in.OffersOnly, Sort: in.Sort, Off: in.Off,
-		Near: in.near(), Cursor: in.Cursor, Limit: in.Limit,
+		Near: in.near(), Cursor: in.Cursor, Limit: in.Limit, Photo: in.Photo, Like: in.Like,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

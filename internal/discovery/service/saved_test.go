@@ -18,30 +18,40 @@ import (
 	"github.com/shopnexus/server2/internal/discovery/repository"
 	"github.com/shopnexus/server2/internal/discovery/service"
 	"github.com/shopnexus/server2/internal/media/mediatest"
+	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
 )
 
 type env struct {
-	db        *pgxpool.Pool
-	catalog   *catalogsvc.Catalog
-	discovery *service.Discovery
-	model     *fakeModel
+	db          *pgxpool.Pool
+	catalog     *catalogsvc.Catalog
+	media       *mediasvc.Media
+	discovery   *service.Discovery
+	model       *fakeModel
+	text, image *embedtest.Model
 }
 
 func newEnv(t *testing.T) env {
 	t.Helper()
 	db := pgtest.New(t)
 	in, p := restatetest.Ingress(t), restatetest.Prefix()
-	c := catalogtest.Service(db, accounttest.Service(db), mediatest.Service(db, objectstoretest.New(t), in, p), in, p)
 	model := &fakeModel{answers: map[string]string{}}
+	m := mediatest.Service(db, objectstoretest.New(t), in, p)
+	restatetest.Start(t, m.Durable()...)
+	c := catalogtest.Service(db, accounttest.Service(db), m, in, p)
+	text, image := embedtest.New(catalogdomain.TextDims), embedtest.New(catalogdomain.PhotoDims)
 	d := service.New(service.Deps{
-		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db), Catalog: c, LLM: model,
+		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db),
+		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db),
+		Catalog: c, Media: m, LLM: model, Text: text, Image: image, TextVersion: "text-test", ImageVersion: "image-test",
+		TextMin: 0.5, PhotoMin: 0.5,
 		ModelTimeout: 200 * time.Millisecond, Log: slog.New(slog.DiscardHandler), Now: time.Now,
 	})
-	return env{db: db, catalog: c, discovery: d, model: model}
+	return env{db: db, catalog: c, media: m, discovery: d, model: model, text: text, image: image}
 }
 
 func TestSaveAndList(t *testing.T) {

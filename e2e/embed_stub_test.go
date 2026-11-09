@@ -5,11 +5,14 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"image"
+	"image/color"
 	"image/jpeg"
 	"net/http"
 	"net/http/httptest"
 	"slices"
 	"strings"
+	"testing"
 
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
@@ -74,4 +77,20 @@ func unavailable(input string) bool {
 	b := img.Bounds()
 	r, g, bl, _ := img.At(b.Min.X+b.Dx()/2, b.Min.Y+b.Dy()/2).RGBA()
 	return r>>8 > 200 && g>>8 < 60 && bl>>8 > 200
+}
+
+// magentaPhoto is a JPEG the stub's image alias answers 503 for.
+func magentaPhoto(t *testing.T) []byte {
+	t.Helper()
+	m := image.NewRGBA(image.Rect(0, 0, 64, 64))
+	for y := range 64 {
+		for x := range 64 {
+			m.Set(x, y, color.RGBA{255, 0, 255, 255})
+		}
+	}
+	var b bytes.Buffer
+	if err := jpeg.Encode(&b, m, nil); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
 }

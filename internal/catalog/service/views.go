@@ -51,6 +51,10 @@ type Summary struct {
 	Status        domain.Status `json:"status"`
 	CoverThumbURL string        `json:"cover_thumb_url"`
 	ReservedFor   uuid.UUID     `json:"reserved_for"`
+	// CategoryCode and Condition let a similar-listings search boost the
+	// source's kind.
+	CategoryCode string           `json:"category_code"`
+	Condition    domain.Condition `json:"condition"`
 }
 
 // Location is the listing's commune and province, with a point inside the

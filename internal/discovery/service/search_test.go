@@ -7,13 +7,20 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	catalogrepo "github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/discovery/domain"
 	"github.com/shopnexus/server2/internal/discovery/service"
+	mediadomain "github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server2/internal/media/mediatest"
+	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server2/internal/provider/embed"
+	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
 	"github.com/shopnexus/server2/internal/provider/llm"
 )
 
@@ -187,5 +194,150 @@ func TestNearby(t *testing.T) {
 	}
 	if v, err = e.discovery.Nearby(ctx, nil, service.Near{Commune: "00004"}, "", 0); err != nil || len(v.Items) != 2 || v.Items[0].ID != closeBy {
 		t.Fatalf("from a commune: %+v %v", v, err)
+	}
+}
+
+// vec gives listing a text vector and a photo vector, as ListingEmbed would.
+func (e env) vec(t *testing.T, id uuid.UUID, text, photo []float32) {
+	t.Helper()
+	vs := catalogrepo.NewVectors(e.db)
+	if text != nil {
+		if err := vs.PutText(context.Background(), id, "text-test", []byte{1}, text, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if photo != nil {
+		if err := vs.PutPhoto(context.Background(), id, "media/a.jpg", "image-test", photo, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestSearchFindsByMeaning(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	kid := e.put(t, "Xe cho bé 4 tuổi", "vehicles.bicycle", baDinh)
+	pot := e.put(t, "Nồi cơm điện", "home.kitchen", baDinh)
+	e.vec(t, kid, embedtest.Axis(catalogdomain.TextDims, 0), nil)
+	e.vec(t, pot, embedtest.Axis(catalogdomain.TextDims, 1), nil)
+	e.model.answers["xe dap tre em"] = `{"understood":"Xe đạp trẻ em","rewritten":"xe đạp trẻ em","visual":"",` +
+		`"boosts":[{"attr":"phrase","values":["xe đạp trẻ em"]}],"demotes":[]}`
+	e.text.Set("xe đạp trẻ em", embedtest.Axis(catalogdomain.TextDims, 0))
+	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap tre em"})
+	if err != nil || len(v.Items) != 1 || v.Items[0].ID != kid {
+		t.Fatalf("no shared word, found by its text vector: %+v %v", v, err)
+	}
+	if e.image.Calls() != 0 {
+		t.Fatal("an empty visual embeds nothing")
+	}
+	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap tre em", Cursor: "1"}); err != nil || e.text.Calls() != 1 {
+		t.Fatalf("page 2 embeds again: %d %v", e.text.Calls(), err)
+	}
+}
+
+func TestSearchWithoutEmbeddingsFallsBackToWords(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	bike := e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
+	e.text.SetFail(errors.New("down"))
+	e.image.SetFail(errors.New("down"))
+	e.model.answers["xe dap"] = `{"understood":"Xe đạp","rewritten":"xe đạp","visual":"a bicycle",` +
+		`"boosts":[{"attr":"phrase","values":["xe đạp"]}],"demotes":[]}`
+	v, err := e.discovery.Search(context.Background(), nil, service.SearchInput{Query: "xe dap"})
+	if err != nil || len(v.Items) != 1 || v.Items[0].ID != bike {
+		t.Fatalf("%+v %v", v, err)
+	}
+}
+
+func TestSearchModelDownEmbedsTheRawQuery(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.model.fail = true
+	if _, err := e.discovery.Search(context.Background(), nil, service.SearchInput{Query: "ip13 pm"}); err != nil {
+		t.Fatal(err)
+	}
+	if in := e.text.Inputs(); len(in) != 1 || in[0] != "ip13 pm" || e.image.Calls() != 0 {
+		t.Fatalf("text %v, image %d", in, e.image.Calls())
+	}
+}
+
+func TestSearchByPhoto(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	me := accounttest.New(t, e.db)
+	chair := e.put(t, "Ghế gỗ", "furniture.other", baDinh)
+	e.vec(t, chair, nil, embedtest.Axis(catalogdomain.PhotoDims, 0))
+	photo := mediatest.Upload(t, e.media, me, "image/jpeg", mediatest.JPEG(t, 1200, 900))
+	e.image.SetFail(nil)
+	// The fake hashes the data URL; make that input land on axis 0.
+	img, err := e.media.QueryImage(ctx, me, photo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.image.Set(embed.ImageInput(img), embedtest.Axis(catalogdomain.PhotoDims, 0))
+
+	v, err := e.discovery.Search(ctx, &me, service.SearchInput{Photo: photo})
+	if err != nil || len(v.Items) != 1 || v.Items[0].ID != chair || v.Understood != "" || len(v.Chips) != 0 {
+		t.Fatalf("%+v %v", v, err)
+	}
+	if _, err = e.discovery.Search(ctx, &me, service.SearchInput{Photo: photo, Cursor: "1"}); err != nil || e.image.Calls() != 1 {
+		t.Fatalf("page 2 embeds the photo again: %d %v", e.image.Calls(), err)
+	}
+}
+
+func TestSearchByPhotoRefuses(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	me, other := accounttest.New(t, e.db), accounttest.New(t, e.db)
+	photo := mediatest.Upload(t, e.media, me, "image/jpeg", mediatest.JPEG(t, 64, 48))
+	for name, tc := range map[string]struct {
+		viewer *uuid.UUID
+		in     service.SearchInput
+		want   error
+	}{
+		"with q":         {&me, service.SearchInput{Photo: photo, Query: "ghế"}, domain.ErrSearchConflict},
+		"with like":      {&me, service.SearchInput{Photo: photo, Like: uuid.NewV7()}, domain.ErrSearchConflict},
+		"signed out":     {nil, service.SearchInput{Photo: photo}, authn.ErrUnauthenticated},
+		"someone else's": {&other, service.SearchInput{Photo: photo}, mediadomain.ErrInvalidUpload},
+	} {
+		if _, err := e.discovery.Search(ctx, tc.viewer, tc.in); !errors.Is(err, tc.want) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if e.image.Calls() != 0 {
+		t.Fatalf("a refused photo was embedded: %d", e.image.Calls())
+	}
+	e.image.SetFail(errors.New("down"))
+	if _, err := e.discovery.Search(ctx, &me, service.SearchInput{Photo: photo}); !errors.Is(err, domain.ErrSearchUnavailable) {
+		t.Fatal(err)
+	}
+}
+
+func TestSearchLike(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	me := accounttest.New(t, e.db)
+	source := e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
+	twin := e.put(t, "Xe đạp Asama 26 inch", "vehicles.bicycle", baDinh)
+	mine := catalogtest.Listing(t, e.db, me) // also "Xe đạp Asama"
+	v, err := e.discovery.Search(ctx, &me, service.SearchInput{Like: source})
+	if err != nil || len(v.Items) != 1 || v.Items[0].ID != twin {
+		t.Fatalf("no vectors yet, BM25 and boosts answer; the source and mine stay out: %+v %v (mine %v)", v, err, mine)
+	}
+	e.vec(t, source, embedtest.Axis(catalogdomain.TextDims, 0), embedtest.Axis(catalogdomain.PhotoDims, 0))
+	look := e.put(t, "Xe trẻ em", "vehicles.bicycle", baDinh)
+	e.vec(t, look, nil, embedtest.Axis(catalogdomain.PhotoDims, 0))
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Like: source}); err != nil || len(v.Items) != 3 {
+		t.Fatalf("signed out: the twin, mine and the look-alike: %+v %v", v, err)
+	}
+	if e.text.Calls() != 0 || e.image.Calls() != 0 {
+		t.Fatal("like embeds nothing at search time")
+	}
+	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Like: uuid.NewV7()}); !errors.Is(err, catalogdomain.ErrNotFound) {
+		t.Fatal(err)
 	}
 }

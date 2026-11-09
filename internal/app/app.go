@@ -226,7 +226,13 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	dealm := deal.Mount(d, accounts, catalogm.Service)
 	trustm := trust.Mount(d, accounts, catalogm.Service, dealm.Service)
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
-	discoverym := discovery.Mount(d, discovery.Settings{Model: model}, catalogm.Service)
+	discoverym := discovery.Mount(d, discovery.Settings{
+		Model:       model,
+		Text:        embedder(cfg.Embed.TextBaseURL, cfg.Embed.TextModel, cfg.Embed.SearchAPIKey, catalogdomain.TextDims),
+		Image:       embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.SearchAPIKey, catalogdomain.PhotoDims),
+		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
+		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
+	}, catalogm.Service, mediam.Service)
 	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
 		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service)

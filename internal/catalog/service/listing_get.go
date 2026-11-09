@@ -54,7 +54,7 @@ func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID
 		l := &rows[i]
 		s := Summary{
 			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), AllowOffers: l.AllowOffers(),
-			Status: l.Status(), ReservedFor: l.ReservedFor(),
+			Status: l.Status(), ReservedFor: l.ReservedFor(), CategoryCode: l.CategoryCode(), Condition: l.Condition(),
 		}
 		if p := l.Photos(); len(p) > 0 && p[0].Keys.Thumb != "" {
 			s.CoverThumbURL = c.media.URL(p[0].Keys.Thumb)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"uuid"
@@ -11,7 +12,9 @@ import (
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/discovery/domain"
+	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/llm"
 )
 
@@ -42,6 +45,7 @@ type SearchInput struct {
 	Near               Near
 	Cursor             string
 	Limit              int
+	Photo, Like        uuid.UUID // zero for none
 }
 
 // SearchItem is a listing of a search page, and whether the viewer saved
@@ -63,9 +67,20 @@ type SearchView struct {
 
 // Search reads the query through the model, from the cache when it read the
 // same query within domain.CacheTTL, and searches catalog with the person's
-// filters and the boosts the model's answer resolves to. A model that errs
-// or takes longer than the timeout leaves the raw words to search alone.
+// filters and the boosts the model's answer resolves to. With vectors it
+// fuses BM25, the query's text vector and its visual description by RRF;
+// photo searches by a photo of the viewer's alone, and like by a listing. A
+// model that errs or takes longer than the timeout leaves out the lists it
+// feeds: q then searches its raw words.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
+	q := strings.TrimSpace(in.Query)
+	photo, like := in.Photo != uuid.Nil(), in.Like != uuid.Nil()
+	if photo && (q != "" || like) {
+		return SearchView{}, domain.ErrSearchConflict
+	}
+	if photo && viewer == nil {
+		return SearchView{}, authn.ErrUnauthenticated
+	}
 	origin, err := d.origin(ctx, in.Near)
 	if err != nil {
 		return SearchView{}, err
@@ -77,11 +92,10 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	if in.PriceMin > 0 && in.PriceMax > 0 && in.PriceMin > in.PriceMax {
 		return SearchView{}, domain.ErrInvalidPriceRange
 	}
-	q := strings.TrimSpace(in.Query)
 	sort := in.Sort
 	if sort == "" {
 		sort = catalogdomain.SortNewest
-		if q != "" {
+		if q != "" || photo || like {
 			sort = catalogdomain.SortRelevance
 		}
 	}
@@ -102,7 +116,51 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		filters.CategoryRoot = in.Category
 	}
 	search := catalogdomain.Search{Filters: filters, Sort: sort, Offset: offset, Limit: limit + 1}
+	search.Vectors.TextMin, search.Vectors.PhotoMin = d.textMin, d.photoMin
 	var view SearchView
+
+	if photo {
+		now := d.now()
+		up, upErr := d.media.QueryUpload(ctx, *viewer, in.Photo)
+		if upErr != nil {
+			return SearchView{}, fmt.Errorf("check the search photo: %w", upErr)
+		}
+		vec, found, cacheErr := d.photoVectors.Get(ctx, in.Photo, d.imageVersion, now)
+		if cacheErr != nil {
+			d.log.WarnContext(ctx, "read the cached photo vector", "err", cacheErr)
+		}
+		if !found {
+			img, imgErr := d.media.QueryImage(ctx, *viewer, in.Photo)
+			if imgErr != nil {
+				return SearchView{}, fmt.Errorf("read the search photo: %w", imgErr)
+			}
+			vs, embedErr := d.image.Embed(ctx, []string{embed.ImageInput(img)})
+			if embedErr != nil {
+				d.log.WarnContext(ctx, "embed the search photo", "err", embedErr)
+				return SearchView{}, domain.ErrSearchUnavailable
+			}
+			vec = vs[0]
+			if putErr := d.photoVectors.Put(ctx, in.Photo, d.imageVersion, vec, up.ExpiresAt, now); putErr != nil {
+				d.log.WarnContext(ctx, "cache the photo vector", "err", putErr)
+			}
+		}
+		search.Vectors.Photo, search.Weights = vec, domain.FusePhoto
+	}
+
+	if like {
+		src, ok, srcErr := d.catalog.Summary(ctx, in.Like)
+		if srcErr != nil {
+			return SearchView{}, fmt.Errorf("read the source listing: %w", srcErr)
+		}
+		if !ok || !slices.Contains(catalogdomain.Public, src.Status) {
+			return SearchView{}, catalogdomain.ErrNotFound
+		}
+		search.Phrases, search.Boosts = domain.LikeTerms(src.Title, src.CategoryCode, src.Price)
+		search.Like, search.Weights = in.Like, domain.FuseLike
+		if viewer != nil {
+			search.ExcludeSeller = *viewer
+		}
+	}
 
 	if q != "" {
 		now := d.now()
@@ -153,11 +211,29 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			}
 		}
 		c := domain.Compile(u, q, vocab, origin, now, in.Off)
-		d.log.InfoContext(ctx, "search terms", "query", q, "asked", c.Asked, "ran", c.Ran)
-		search.Phrases, search.Boosts, view.Chips = c.Phrases, c.Boosts, c.Chips
+		search.Phrases = append(search.Phrases, c.Phrases...)
+		search.Boosts = append(search.Boosts, c.Boosts...)
+		view.Chips = c.Chips
 		if understood {
 			view.Understood = u.Understood
 		}
+		if !like {
+			// The text vector reads the rewrite, or the raw words when the
+			// model did not answer; the photo list needs the English
+			// description, which only the model gives.
+			text := q
+			if understood && strings.TrimSpace(u.Rewritten) != "" {
+				text = u.Rewritten
+			}
+			search.Vectors.Text = d.queryVector(ctx, d.text, d.textVersion, text)
+			if understood && strings.TrimSpace(u.Visual) != "" {
+				search.Vectors.Photo = d.queryVector(ctx, d.image, d.imageVersion, u.Visual)
+			}
+			if search.Vectors.Text != nil || search.Vectors.Photo != nil {
+				search.Weights = domain.FuseQuery
+			}
+		}
+		d.log.InfoContext(ctx, "search terms", "query", q, "asked", c.Asked, "ran", c.Ran, "lists", search.Weights)
 	}
 
 	cards, err := d.catalog.Search(ctx, search)
@@ -174,6 +250,30 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		return SearchView{}, err
 	}
 	return view, nil
+}
+
+// queryVector embeds a search text with m, from the cache when the same text
+// was embedded under version within domain.CacheTTL. A model that fails
+// gives nil, and the search runs without that list.
+func (d *Discovery) queryVector(ctx context.Context, m embed.Model, version, text string) []float32 {
+	now := d.now()
+	key := domain.QueryKey(text)
+	v, found, err := d.queryVectors.Get(ctx, key, domain.PromptVersion, version, now.Add(-domain.CacheTTL))
+	if err != nil {
+		d.log.WarnContext(ctx, "read the cached query vector", "err", err)
+	}
+	if found {
+		return v
+	}
+	vs, err := m.Embed(ctx, []string{text})
+	if err != nil {
+		d.log.WarnContext(ctx, "embed the query", "version", version, "err", err)
+		return nil
+	}
+	if err = d.queryVectors.Put(ctx, key, domain.PromptVersion, version, vs[0], now, now.Add(-domain.CacheTTL)); err != nil {
+		d.log.WarnContext(ctx, "cache the query vector", "err", err)
+	}
+	return vs[0]
 }
 
 // Nearby reads the nearby feed: active listings within nearbyRadiusKm,
