@@ -83,6 +83,9 @@ func TestBurstOfEditsEmbedsEachPhotoOnce(t *testing.T) {
 	e, _, image := embedEnv(t)
 	seller := e.seller(t)
 	v := e.post(t, seller)
+	// The burst edits a listing on sale; an edit while it processes would
+	// race ListingPublish's save.
+	e.settle(t, seller, v.ID)
 	for i := range 5 {
 		d := draft(v.Photos[0].UploadID)
 		d.Description = fmt.Sprintf("lần %d", i)
