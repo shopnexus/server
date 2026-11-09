@@ -3,13 +3,16 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
+	"uuid"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server2/internal/platform/pgvec"
 )
 
 type pgSearches struct{ db *pgxpool.Pool }
@@ -174,7 +177,179 @@ func (q *query) where(s domain.Search, boosts bool) string {
 const distanceSQL = `(12742 * asin(sqrt(power(sin(radians(lat - @olat) / 2), 2)
        + cos(radians(@olat)) * cos(radians(lat)) * power(sin(radians(lng - @olng) / 2), 2))))`
 
+// photoScan is how many photo rows the photo list reads before it groups
+// them by listing: about four photos a listing.
+const photoScan = 4 * domain.MaxResults
+
+// filters is the person's filters and the exclusions as plain SQL on the
+// listings alias l, for the vector lists and the boost list. The BM25 list
+// gets the same filters through must.
+func (q *query) filters(s domain.Search) string {
+	f := s.Filters
+	out := []string{`l.status = ` + q.arg(string(domain.StatusActive), "text")}
+	if f.CategoryRoot != "" {
+		out = append(out, `l.category_root = `+q.arg(f.CategoryRoot, "text"))
+	}
+	if f.CategoryCode != "" {
+		out = append(out, `l.category_code = `+q.arg(f.CategoryCode, "text"))
+	}
+	if f.PriceMin > 0 {
+		out = append(out, `l.price >= `+q.arg(f.PriceMin, "bigint"))
+	}
+	if f.PriceMax > 0 {
+		out = append(out, `l.price <= `+q.arg(f.PriceMax, "bigint"))
+	}
+	if len(f.Conditions) > 0 {
+		conds := make([]string, len(f.Conditions))
+		for i, c := range f.Conditions {
+			conds[i] = string(c)
+		}
+		out = append(out, `l.condition = ANY(`+q.arg(conds, "text[]")+`)`)
+	}
+	if f.OffersOnly {
+		out = append(out, `l.allow_offers`)
+	}
+	if f.Origin != nil && f.RadiusKm > 0 {
+		out = append(out, distanceSQL+` <= @radius`)
+	}
+	return strings.Join(append(out, q.exclusions(s, "l.")...), " AND ")
+}
+
+// exclusions leave out a similar-listings search's source and one seller.
+func (q *query) exclusions(s domain.Search, alias string) []string {
+	var out []string
+	if s.Like != (uuid.UUID{}) {
+		out = append(out, alias+`id <> `+q.arg(s.Like, "uuid"))
+	}
+	if s.ExcludeSeller != (uuid.UUID{}) {
+		out = append(out, alias+`seller_id <> `+q.arg(s.ExcludeSeller, "uuid"))
+	}
+	return out
+}
+
+// points is a listing's boost points as plain SQL on l: each boost's
+// weight when it matches.
+func (q *query) points(boosts []domain.Boost) string {
+	terms := make([]string, 1, 1+len(boosts))
+	terms[0] = "0"
+	for _, b := range boosts {
+		var cond string
+		switch b.Kind {
+		case domain.BoostCategory:
+			cond = `l.category_code = ` + q.arg(b.Code, "text")
+		case domain.BoostCategoryRoot:
+			cond = `l.category_root = ` + q.arg(b.Code, "text")
+		case domain.BoostPrice:
+			var c []string
+			if b.PriceMin > 0 {
+				c = append(c, `l.price >= `+q.arg(b.PriceMin, "bigint"))
+			}
+			if b.PriceMax > 0 {
+				c = append(c, `l.price <= `+q.arg(b.PriceMax, "bigint"))
+			}
+			if len(c) == 0 {
+				continue
+			}
+			cond = strings.Join(c, " AND ")
+		case domain.BoostCondition:
+			cond = `l.condition = ` + q.arg(string(b.Condition), "text")
+		case domain.BoostOffers:
+			cond = `l.allow_offers`
+		case domain.BoostNear:
+			lo, hi := domain.Box(b.Near, b.RadiusKm)
+			cond = `l.lat BETWEEN ` + q.arg(lo.Lat, "float8") + ` AND ` + q.arg(hi.Lat, "float8") +
+				` AND l.lng BETWEEN ` + q.arg(lo.Lng, "float8") + ` AND ` + q.arg(hi.Lng, "float8")
+		case domain.BoostFresh:
+			cond = `l.published_at >= ` + q.arg(b.Since, "timestamptz")
+		default:
+			continue
+		}
+		terms = append(terms, `CASE WHEN `+cond+` THEN `+q.arg(b.Weight, "float8")+` ELSE 0 END`)
+	}
+	return strings.Join(terms, " + ")
+}
+
+// hybrid is the WITH clause of a hybrid search: one CTE per list, each at
+// most MaxResults listings ranked from 1, and fused, the weighted RRF score
+// of every listing a list found.
+func (q *query) hybrid(s domain.Search) string {
+	// Strict named args refuse a parameter the SQL does not use: the origin
+	// goes in only with a radius or the nearest sort, the list size only
+	// with a list.
+	if o := s.Filters.Origin; o != nil && (s.Filters.RadiusKm > 0 || s.Sort == domain.SortNearest) {
+		q.args["olat"], q.args["olng"] = o.Lat, o.Lng
+		if s.Filters.RadiusKm > 0 {
+			q.args["radius"] = s.Filters.RadiusKm
+		}
+	}
+	var ctes, lists []string
+	share := func(name string, w float64) {
+		q.args["list"] = domain.MaxResults
+		lists = append(lists, name)
+		ctes = append(ctes, name+`_share AS (SELECT id, `+q.arg(w, "float8")+` / (`+
+			strconv.Itoa(domain.RRFK)+` + rank) AS share FROM `+name+`)`)
+	}
+	if s.Weights.BM25 > 0 && len(s.Phrases) > 0 {
+		where := q.where(s, true)
+		if ex := q.exclusions(s, ""); len(ex) > 0 {
+			where += ` AND ` + strings.Join(ex, " AND ")
+		}
+		if s.Filters.Origin != nil && s.Filters.RadiusKm > 0 {
+			where += ` AND ` + distanceSQL + ` <= @radius`
+		}
+		ctes = append(ctes, `bm25 AS (SELECT id, row_number() OVER (ORDER BY score DESC, id) AS rank FROM (
+SELECT id, paradedb.score(id) AS score FROM listings WHERE `+where+` ORDER BY score DESC, id LIMIT @list) b)`)
+		share("bm25", s.Weights.BM25)
+	}
+	if s.Weights.Text > 0 && s.Vectors.Text != nil {
+		q.args["tq"], q.args["tv"], q.args["tmax"] = pgvec.Format(s.Vectors.Text), s.Vectors.TextVersion, 1-s.Vectors.TextMin
+		ctes = append(ctes, `txt AS (SELECT id, row_number() OVER (ORDER BY d, id) AS rank FROM (
+SELECT t.listing_id AS id, t.embedding <=> @tq::halfvec(1024) AS d
+FROM listing_text_vectors AS t JOIN listings AS l ON l.id = t.listing_id
+WHERE t.model_version = @tv AND `+q.filters(s)+` AND t.embedding <=> @tq::halfvec(1024) <= @tmax
+ORDER BY t.embedding <=> @tq::halfvec(1024) LIMIT @list) v)`)
+		share("txt", s.Weights.Text)
+	}
+	if s.Weights.Photo > 0 && s.Vectors.Photo != nil {
+		q.args["pq"], q.args["pv"], q.args["pmax"], q.args["scan"] =
+			pgvec.Format(s.Vectors.Photo), s.Vectors.PhotoVersion, 1-s.Vectors.PhotoMin, photoScan
+		ctes = append(ctes, `img AS (SELECT id, row_number() OVER (ORDER BY d, id) AS rank FROM (
+SELECT id, min(d) AS d FROM (
+    SELECT p.listing_id AS id, p.embedding <=> @pq::halfvec(1152) AS d
+    FROM listing_photo_vectors AS p JOIN listings AS l ON l.id = p.listing_id
+    WHERE p.model_version = @pv AND `+q.filters(s)+` AND p.embedding <=> @pq::halfvec(1152) <= @pmax
+    ORDER BY p.embedding <=> @pq::halfvec(1152) LIMIT @scan) x
+GROUP BY id ORDER BY d, id LIMIT @list) v)`)
+		share("img", s.Weights.Photo)
+	}
+	if s.Weights.Boost > 0 && len(s.Boosts) > 0 && len(lists) > 0 {
+		pool := make([]string, len(lists))
+		for i, l := range lists {
+			pool[i] = `SELECT id FROM ` + l
+		}
+		ctes = append(ctes, `boost AS (SELECT id, row_number() OVER (ORDER BY points DESC, id) AS rank FROM (
+SELECT l.id, `+q.points(s.Boosts)+` AS points FROM listings AS l JOIN (`+strings.Join(pool, " UNION ")+`) AS c ON c.id = l.id) p
+WHERE points > 0)`)
+		share("boost", s.Weights.Boost)
+	}
+	if len(lists) == 0 {
+		// Nothing to fuse, such as a photo search whose list was left out:
+		// an empty page rather than every listing.
+		ctes = append(ctes, `fused AS (SELECT NULL::uuid AS id, 0::float8 AS score WHERE false)`)
+		return `WITH ` + strings.Join(ctes, ",\n")
+	}
+	shares := make([]string, len(lists))
+	for i, l := range lists {
+		shares[i] = `SELECT id, share FROM ` + l + `_share`
+	}
+	ctes = append(ctes, `fused AS (SELECT id, sum(share) AS score FROM (`+strings.Join(shares, " UNION ALL ")+`) s GROUP BY id)`)
+	return `WITH ` + strings.Join(ctes, ",\n")
+}
+
 func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit, error) {
+	if in.Hybrid() {
+		return s.hybridSearch(ctx, in)
+	}
 	q := query{args: pgx.StrictNamedArgs{"limit": in.Limit, "offset": in.Offset}}
 	sql := `SELECT id, lat, lng FROM listings WHERE ` + q.where(in, true)
 	if o := in.Filters.Origin; o != nil && (in.Filters.RadiusKm > 0 || in.Sort == domain.SortNearest) {
@@ -211,6 +386,32 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 }
 
 func (s pgSearches) Counts(ctx context.Context, in domain.Search, by domain.CountField) ([]domain.CategoryCount, error) {
+	if in.Hybrid() {
+		q := query{args: pgx.StrictNamedArgs{}}
+		column := "l.category_code"
+		if by == domain.CountRoot {
+			column = "l.category_root"
+		}
+		var counts []domain.CategoryCount
+		err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, `SET LOCAL hnsw.iterative_scan = relaxed_order`); err != nil {
+				return fmt.Errorf("set iterative scan: %w", err)
+			}
+			rows, err := tx.Query(ctx, q.hybrid(in)+`
+SELECT `+column+`, count(*) FROM fused AS f JOIN listings AS l ON l.id = f.id GROUP BY 1 ORDER BY 2 DESC, 1`, q.args)
+			if err != nil {
+				return fmt.Errorf("hybrid counts: %w", err)
+			}
+			if counts, err = pgx.CollectRows(rows, pgx.RowToStructByPos[domain.CategoryCount]); err != nil {
+				return fmt.Errorf("read counts: %w", err)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("count: %w", err)
+		}
+		return counts, nil
+	}
 	q := query{args: pgx.StrictNamedArgs{}}
 	column := "category_code"
 	if by == domain.CountRoot {
@@ -226,4 +427,45 @@ func (s pgSearches) Counts(ctx context.Context, in domain.Search, by domain.Coun
 		return nil, fmt.Errorf("read counts: %w", err)
 	}
 	return counts, nil
+}
+
+func (s pgSearches) hybridSearch(ctx context.Context, in domain.Search) ([]domain.Hit, error) {
+	q := query{args: pgx.StrictNamedArgs{"limit": in.Limit, "offset": in.Offset}}
+	sql := q.hybrid(in) + `
+SELECT l.id, l.lat, l.lng FROM fused AS f JOIN listings AS l ON l.id = f.id`
+	switch in.Sort { //nolint:exhaustive // relevance is the default order
+	case domain.SortNewest:
+		sql += ` ORDER BY l.published_at DESC, l.id DESC`
+	case domain.SortPriceAsc:
+		sql += ` ORDER BY l.price ASC, l.id`
+	case domain.SortPriceDesc:
+		sql += ` ORDER BY l.price DESC, l.id`
+	case domain.SortNearest:
+		sql += ` ORDER BY ` + distanceSQL + `, l.id`
+	default:
+		sql += ` ORDER BY f.score DESC, l.id`
+	}
+	var hits []domain.Hit
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		// The vector lists filter after the index; iterative scans keep
+		// reading the index until a list is full or max_scan_tuples is read.
+		if _, err := tx.Exec(ctx, `SET LOCAL hnsw.iterative_scan = relaxed_order`); err != nil {
+			return fmt.Errorf("set iterative scan: %w", err)
+		}
+		rows, err := tx.Query(ctx, sql+` LIMIT @limit OFFSET @offset`, q.args)
+		if err != nil {
+			return fmt.Errorf("hybrid search: %w", err)
+		}
+		if hits, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Hit, error) {
+			var h domain.Hit
+			return h, row.Scan(&h.ID, &h.Point.Lat, &h.Point.Lng)
+		}); err != nil {
+			return fmt.Errorf("read hits: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("search: %w", err)
+	}
+	return hits, nil
 }

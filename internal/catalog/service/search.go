@@ -23,6 +23,10 @@ type SearchCard struct {
 }
 
 func (c *Catalog) Search(ctx context.Context, s domain.Search) ([]SearchCard, error) {
+	s, err := c.withVectors(ctx, s)
+	if err != nil {
+		return nil, err
+	}
 	hits, err := c.searches.Search(ctx, s)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
@@ -65,6 +69,10 @@ func (c *Catalog) Search(ctx context.Context, s domain.Search) ([]SearchCard, er
 }
 
 func (c *Catalog) Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error) {
+	s, err := c.withVectors(ctx, s)
+	if err != nil {
+		return nil, err
+	}
 	counts, err := c.searches.Counts(ctx, s, by)
 	if err != nil {
 		return nil, fmt.Errorf("count listings: %w", err)
@@ -84,4 +92,21 @@ func (c *Catalog) FindPlaces(ctx context.Context, names []string) (map[string]do
 		}
 	}
 	return out, nil
+}
+
+// withVectors sets the vector versions of a hybrid search, and for a
+// similar-listings search the source's vectors. A source with no vectors yet
+// leaves its lists out, and BM25 and the boosts answer.
+func (c *Catalog) withVectors(ctx context.Context, s domain.Search) (domain.Search, error) {
+	if s.Hybrid() {
+		s.Vectors.TextVersion, s.Vectors.PhotoVersion = c.textVersion, c.imageVersion
+	}
+	if s.Like != (uuid.UUID{}) {
+		text, photo, err := c.vectors.Source(ctx, s.Like, c.textVersion, c.imageVersion)
+		if err != nil {
+			return s, fmt.Errorf("read the source's vectors: %w", err)
+		}
+		s.Vectors.Text, s.Vectors.Photo = text, photo
+	}
+	return s, nil
 }
