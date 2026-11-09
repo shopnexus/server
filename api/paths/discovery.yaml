@@ -77,11 +77,14 @@ search:
     operationId: search
     summary: Search active listings; without q, browse them.
     description: |
-      With q a model reads the query into boosts, which order the listings
-      that match the query's words; the person's own filters decide which
-      listings show. Without q the call browses, newest first by default,
-      and category alone is the category page. A model that fails leaves the
-      raw words to search, with no understood and no chips.
+      Three ways to search, all under the person's filters and sorts. With q a
+      model reads the query; BM25 on its words, its Vietnamese rewrite against
+      listing text vectors and its English description against listing photos
+      are fused by weighted RRF. With photo, the photo against listing photos
+      alone. With like, the listing's title, text vector and photos. Without
+      any, the call browses, newest first by default, and category alone is the
+      category page. A model that fails leaves the lists it feeds out; q then
+      searches its raw words, with no understood and no chips.
     tags: [discovery]
     security:
       - {}
@@ -130,7 +133,7 @@ search:
           type: boolean
       - name: sort
         in: query
-        description: relevance by default with q, newest without; nearest needs a position and bounds itself to 50 km without radius_km.
+        description: relevance by default with q, photo or like, newest without; other sorts order the listings the search found; nearest needs a position and bounds itself to 50 km without radius_km.
         schema:
           type: string
           enum: [relevance, newest, nearest, price_asc, price_desc]
@@ -146,6 +149,8 @@ search:
       - $ref: "../parameters/discovery.yaml#/NearLat"
       - $ref: "../parameters/discovery.yaml#/NearLng"
       - $ref: "../parameters/discovery.yaml#/NearCommune"
+      - $ref: "../parameters/discovery.yaml#/SearchPhoto"
+      - $ref: "../parameters/discovery.yaml#/SearchLike"
       - $ref: "../parameters/discovery.yaml#/SearchCursor"
       - $ref: "../parameters/common.yaml#/Limit"
     responses:
@@ -156,7 +161,27 @@ search:
             schema:
               $ref: "../schemas/discovery.yaml#/SearchView"
       "400":
-        description: "A malformed parameter, position_required, invalid_position, invalid_cursor or invalid_price_range."
+        description: "A malformed parameter, position_required, invalid_position, invalid_cursor, invalid_price_range, or search_conflict: photo with q or like."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "listing_not_found: like names a listing that is not on sale or reserved."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "invalid_upload: photo is not a waiting upload of the caller's, or not a readable image."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: "search_unavailable: the photo could not be embedded; try again."
         content:
           application/json:
             schema:

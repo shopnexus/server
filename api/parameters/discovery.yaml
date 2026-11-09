@@ -26,3 +26,22 @@ SearchCursor:
   description: The next_cursor of the previous page.
   schema:
     type: string
+SearchPhoto:
+  name: photo
+  in: query
+  description: |
+    An upload of the caller's from POST /v1/uploads, still waiting (attached to
+    nothing): search by this photo alone. Needs a signed-in caller; goes without
+    q and like. The photo is never published and goes when the upload expires.
+  schema:
+    type: string
+    format: uuid
+SearchLike:
+  name: like
+  in: query
+  description: |
+    A listing on sale or reserved: listings similar to it, leaving out that
+    listing and the caller's own. Goes with q and the filters, not with photo.
+  schema:
+    type: string
+    format: uuid
