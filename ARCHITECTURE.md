@@ -1118,6 +1118,23 @@ Hybrid search (decided 2026-11-09, spec:
   photo vectors; `PromptVersion` is 2. A model that fails sends the raw
   query to the text vector and leaves the photo list out. An embedding model
   that fails leaves its list out; `q` then runs on BM25.
+- `make search-eval` runs the sample set in `internal/discovery/eval` (42
+  listings with generated photos, 46 queries: 30 `q`, 10 `photo`, 6 `like`)
+  against TEI, ai and the LLM in `.env`. The baseline of 2026-11-10, with the
+  starting weights, floors 0.45 (text) and 0.6 (photo),
+  `bge-m3@5617a9f6` and `siglip2-so400m-patch16-384-fp32@29f74e67`:
+
+  | Kind | Queries | recall@10 | nDCG@10 |
+  |---|---|---|---|
+  | `q` | 30 | 1.000 | 0.946 |
+  | `photo` | 10 | 1.000 | 1.000 |
+  | `like` | 6 | 1.000 | 1.000 |
+  | all | 46 | 1.000 | 0.965 |
+
+  The set is small, so recall@10 is easy to reach. The photo and `like`
+  pages also list unrelated listings after the expected ones (a photo of
+  white sneakers brings headphones and a washer), which the two metrics do
+  not count; a precision measure and higher floors are the next step.
 
 ### Discovery
 
