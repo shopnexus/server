@@ -84,12 +84,12 @@ func (s pgVectors) Source(ctx context.Context, listing uuid.UUID, textVersion, p
 	}
 	if t != nil {
 		if text, err = pgvec.Parse(*t); err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("read the source text vector: %w", err)
 		}
 	}
 	if p != nil {
 		if photo, err = pgvec.Parse(*p); err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("read the source photo vector: %w", err)
 		}
 	}
 	return text, photo, nil
