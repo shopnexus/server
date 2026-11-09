@@ -763,8 +763,10 @@ Search vectors (decided 2026-11-09, migration 0024):
   row stays; the search's status filter leaves them out.
 - `Summary` carries `CategoryCode` and `Condition`, which a
   similar-listings search boosts.
-- `go run ./cmd/search-reindex` sends `Refresh` for every listing that should
-  have vectors, the backfill and the way to a new version.
+- `go run ./cmd/search-reindex -every 2s` sends `Refresh` for every listing
+  that should have vectors, the backfill and the way to a new version.
+  Listing i starts i × `-every` from now, so a backfill does not start every
+  listing at once; `-every` has no default.
 
 ### Deal
 
