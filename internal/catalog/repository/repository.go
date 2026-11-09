@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/catalog/domain"
@@ -77,6 +78,34 @@ type Searches interface {
 	// Counts counts the listings s matches, boosts aside, by category or
 	// root, largest first.
 	Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error)
+}
+
+// Vectors persists the search vectors of listings: one text vector and one
+// vector per processed photo, each under a model version.
+type Vectors interface {
+	// State is what listing has under the versions: its text hash, nil for
+	// none, and the photo keys that have a vector.
+	State(ctx context.Context, listing uuid.UUID, textVersion, photoVersion string) (VectorState, error)
+	// PutText writes listing's text vector, replacing any.
+	PutText(ctx context.Context, listing uuid.UUID, version string, hash []byte, v []float32, at time.Time) error
+	// PutPhoto writes the vector of one processed photo, replacing any.
+	PutPhoto(ctx context.Context, listing uuid.UUID, key, version string, v []float32, at time.Time) error
+	// DropPhotosExcept deletes listing's photo vectors whose key is not in
+	// keys, of any version.
+	DropPhotosExcept(ctx context.Context, listing uuid.UUID, keys []string) error
+	// Source reads a similar-listings search's query vectors: listing's text
+	// vector and the normalized mean of its photo vectors; nil for what it
+	// does not have.
+	Source(ctx context.Context, listing uuid.UUID, textVersion, photoVersion string) (text, photo []float32, err error)
+	// Embeddable lists the listings that should have vectors: every one not
+	// deleted, processing or rejected.
+	Embeddable(ctx context.Context) ([]uuid.UUID, error)
+}
+
+// VectorState is what vectors a listing has.
+type VectorState struct {
+	TextHash []byte
+	Photos   []string
 }
 
 // Place is a commune with its province's display name.
