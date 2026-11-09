@@ -36,6 +36,9 @@ type OpenAI struct {
 	HTTP    *http.Client
 }
 
+// maxHalf is the largest magnitude halfvec stores.
+const maxHalf = 65504
+
 // maxReply caps how much of a reply is read: 16 inputs of 1152 floats as
 // JSON are about 400 KB.
 const maxReply = 8 << 20
@@ -87,8 +90,10 @@ func (c OpenAI) Embed(ctx context.Context, inputs []string) ([][]float32, error)
 		}
 		v := make([]float32, c.Dims)
 		for i, x := range d.Embedding {
-			if math.IsNaN(x) || math.IsInf(x, 0) {
-				return nil, fmt.Errorf("%s gave a value that is not finite", c.Model)
+			// halfvec holds ±65504; a value past it, or past float32, would
+			// make Postgres refuse the vector, so it is refused here.
+			if math.IsNaN(x) || math.Abs(x) > maxHalf {
+				return nil, fmt.Errorf("%s gave a value outside ±%v", c.Model, maxHalf)
 			}
 			v[i] = float32(x)
 		}

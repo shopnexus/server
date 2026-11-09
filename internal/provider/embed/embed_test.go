@@ -67,14 +67,16 @@ func TestEmbedRefusesBadReplies(t *testing.T) {
 		reply   string
 		refused bool
 	}{
-		"too few":     {200, `{"data":[{"index":0,"embedding":[1,0]}]}`, false},
-		"wrong dims":  {200, `{"data":[{"index":0,"embedding":[1,0,0]},{"index":1,"embedding":[1,0]}]}`, false},
-		"index twice": {200, `{"data":[{"index":0,"embedding":[1,0]},{"index":0,"embedding":[1,0]}]}`, false},
-		"nan":         {200, `{"data":[{"index":0,"embedding":[1,"NaN"]},{"index":1,"embedding":[1,0]}]}`, false},
-		"not json":    {200, `<html>`, false},
-		"rate":        {429, `{"error":{"message":"slow down"}}`, false},
-		"down":        {503, ``, false},
-		"bad input":   {400, `{"error":{"message":"image under 32 px"}}`, true},
+		"too few":      {200, `{"data":[{"index":0,"embedding":[1,0]}]}`, false},
+		"wrong dims":   {200, `{"data":[{"index":0,"embedding":[1,0,0]},{"index":1,"embedding":[1,0]}]}`, false},
+		"index twice":  {200, `{"data":[{"index":0,"embedding":[1,0]},{"index":0,"embedding":[1,0]}]}`, false},
+		"nan":          {200, `{"data":[{"index":0,"embedding":[1,"NaN"]},{"index":1,"embedding":[1,0]}]}`, false},
+		"over halfvec": {200, `{"data":[{"index":0,"embedding":[1,70000]},{"index":1,"embedding":[1,0]}]}`, false},
+		"overflows":    {200, `{"data":[{"index":0,"embedding":[1,1e39]},{"index":1,"embedding":[1,0]}]}`, false},
+		"not json":     {200, `<html>`, false},
+		"rate":         {429, `{"error":{"message":"slow down"}}`, false},
+		"down":         {503, ``, false},
+		"bad input":    {400, `{"error":{"message":"image under 32 px"}}`, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
