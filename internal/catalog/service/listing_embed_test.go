@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 	"uuid"
+
+	mediasvc "github.com/shopnexus/server2/internal/media/service"
 
 	"github.com/jackc/pgx/v5"
 	restate "github.com/restatedev/sdk-go"
@@ -153,5 +156,56 @@ func TestRefreshReembedsAnotherVersion(t *testing.T) {
 	vectors(t, e, v.ID, len(st.Photos))
 	if image.Calls() != 2 {
 		t.Fatalf("image %d", image.Calls())
+	}
+}
+
+// countingMedia counts ReadPhoto calls.
+type countingMedia struct {
+	mediasvc.Service
+
+	reads atomic.Int32
+}
+
+func (m *countingMedia) ReadPhoto(ctx context.Context, key string) ([]byte, error) {
+	m.reads.Add(1)
+	return m.Service.ReadPhoto(ctx, key)
+}
+
+// A photo step waits for its slot before it reads the photo, so a backfill
+// of many listings holds one photo per slot, not one per waiting listing.
+func TestPhotoStepReadsUnderTheSlot(t *testing.T) {
+	t.Parallel()
+	text, image := embedtest.New(domain.TextDims), embedtest.New(domain.PhotoDims)
+	media := &countingMedia{}
+	e := newEnv(t, func(d *service.Deps) {
+		d.Text, d.Image, d.EmbedSlots = text, image, 1
+		media.Service = d.Media
+		d.Media = media
+	})
+	// b is embedded, then loses its photo vector: its next Refresh skips the
+	// text and goes straight to the photo step.
+	b := e.post(t, e.seller(t))
+	vectors(t, e, b.ID, 1)
+	if _, err := e.db.Exec(context.Background(), `DELETE FROM listing_photo_vectors WHERE listing_id = @id`,
+		pgx.StrictNamedArgs{"id": b.ID}); err != nil {
+		t.Fatal(err)
+	}
+	reads := media.reads.Load()
+	// a holds the only slot in a slow photo embed.
+	image.SetSlow(15 * time.Second)
+	a := e.post(t, e.seller(t))
+	testenv.Eventually(t, 20*time.Second, func() error {
+		if media.reads.Load() < reads+1 {
+			return errors.New("a has not read its photo")
+		}
+		return nil
+	})
+	if _, err := ingress.ObjectSend[restate.Void](e.ingress, e.prefix+service.ListingEmbedName, b.ID.String(), "Refresh").
+		Send(context.Background(), restate.Void{}); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(2 * time.Second)
+	if got := media.reads.Load(); got != reads+1 {
+		t.Fatalf("%d photos read while one slot was taken; want only a's (listing %s)", got-reads, a.ID)
 	}
 }

@@ -136,6 +136,12 @@ func (s ListingEmbed) Refresh(ctx restate.ObjectContext) error {
 	}
 	for _, key := range p.Missing {
 		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
+			// The slot comes first, so a backfill holds one photo per slot.
+			release, slotErr := s.slot(rc)
+			if slotErr != nil {
+				return slotErr
+			}
+			defer release()
 			photo, readErr := s.Media.ReadPhoto(rc, key)
 			if errors.Is(readErr, objectstore.ErrNotFound) {
 				return nil // the photo went with an edit; the drop step clears it
@@ -143,11 +149,6 @@ func (s ListingEmbed) Refresh(ctx restate.ObjectContext) error {
 			if readErr != nil {
 				return fmt.Errorf("read photo: %w", readErr)
 			}
-			release, slotErr := s.slot(rc)
-			if slotErr != nil {
-				return slotErr
-			}
-			defer release()
 			vs, embedErr := s.Image.Embed(rc, []string{embed.ImageInput(photo)})
 			if errors.Is(embedErr, embed.ErrRefused) {
 				s.Log.WarnContext(rc, "the image model refused a photo", "listing", id, "photo", key, "err", embedErr)
