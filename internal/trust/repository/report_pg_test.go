@@ -8,6 +8,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
@@ -25,7 +27,7 @@ func TestReports(t *testing.T) {
 	at := time.Now().UTC().Truncate(time.Microsecond)
 	report := func(listing uuid.UUID, reason domain.Reason, note string, at time.Time) domain.Report {
 		t.Helper()
-		r, err := domain.NewReport(uuid.NewV7(), reporter, seller, listing, reason, note, at)
+		r, err := domain.NewReport(uuid.NewV7(), reporter, seller, listing, uuid.UUID{}, reason, note, at)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -77,7 +79,7 @@ func TestReportsAtOnce(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := range ids {
 		wg.Go(func() {
-			r, err := domain.NewReport(uuid.NewV7(), reporter, seller, listing, domain.ReasonFake, "", time.Now())
+			r, err := domain.NewReport(uuid.NewV7(), reporter, seller, listing, uuid.UUID{}, domain.ReasonFake, "", time.Now())
 			if err != nil {
 				t.Error(err)
 				return
@@ -93,5 +95,43 @@ func TestReportsAtOnce(t *testing.T) {
 	wg.Wait()
 	if ids[0] != ids[1] {
 		t.Fatalf("two rows: %v", ids)
+	}
+}
+
+// An account report keeps its conversation; reporting again replaces it,
+// and leaving it out clears it.
+func TestReportConversation(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewReports(db)
+	reporter, seller := accounttest.New(t, db), accounttest.New(t, db)
+	lo, hi := min(reporter.String(), seller.String()), max(reporter.String(), seller.String())
+	conversation := uuid.NewV7()
+	if _, err := db.Exec(ctx, `INSERT INTO conversations (id, account_a, account_b, created_at) VALUES (@id, @a, @b, now())`,
+		pgx.StrictNamedArgs{"id": conversation, "a": lo, "b": hi}); err != nil {
+		t.Fatal(err)
+	}
+	open := func(c uuid.UUID) domain.Report {
+		t.Helper()
+		r, err := domain.NewReport(uuid.NewV7(), reporter, seller, uuid.UUID{}, c, domain.ReasonScam, "", time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, _, err := s.Open(ctx, r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	if got := open(conversation); got.ConversationID() != conversation {
+		t.Fatalf("open: %+v", got.State())
+	}
+	again := open(conversation)
+	if got, _ := s.Get(ctx, again.ID()); got.ConversationID() != conversation {
+		t.Fatalf("get: %+v", got.State())
+	}
+	if got := open(uuid.UUID{}); got.ConversationID() != (uuid.UUID{}) {
+		t.Fatalf("again without one: %+v", got.State())
 	}
 }

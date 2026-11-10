@@ -17,22 +17,27 @@ type pgReports struct{ db *pgxpool.Pool }
 
 func NewReports(db *pgxpool.Pool) Reports { return pgReports{db} }
 
-const reportColumns = `id, reporter_id, account_id, listing_id, reason, note, created_at, updated_at, withdrawn_at`
+const reportColumns = `id, reporter_id, account_id, listing_id, conversation_id, reason, note, created_at, updated_at,
+       withdrawn_at`
 
 // scanReport reads reportColumns, then any more destinations.
 func scanReport(row pgx.Row, more ...any) (domain.Report, error) {
 	var (
-		st      domain.ReportState
-		listing *uuid.UUID
+		st                    domain.ReportState
+		listing, conversation *uuid.UUID
 	)
 	dest := append([]any{
-		&st.ID, &st.ReporterID, &st.AccountID, &listing, &st.Reason, &st.Note, &st.CreatedAt, &st.UpdatedAt, &st.WithdrawnAt,
+		&st.ID, &st.ReporterID, &st.AccountID, &listing, &conversation, &st.Reason, &st.Note, &st.CreatedAt, &st.UpdatedAt,
+		&st.WithdrawnAt,
 	}, more...)
 	if err := row.Scan(dest...); err != nil {
 		return domain.Report{}, fmt.Errorf("scan report: %w", err)
 	}
 	if listing != nil {
 		st.ListingID = *listing
+	}
+	if conversation != nil {
+		st.ConversationID = *conversation
 	}
 	return domain.RestoreReport(st), nil
 }
@@ -45,13 +50,18 @@ func (s pgReports) Open(ctx context.Context, r domain.Report) (domain.Report, bo
 	if st.ListingID != (uuid.UUID{}) {
 		target, listing = `(reporter_id, listing_id) WHERE withdrawn_at IS NULL AND listing_id IS NOT NULL`, &st.ListingID
 	}
+	var conversation *uuid.UUID
+	if st.ConversationID != (uuid.UUID{}) {
+		conversation = &st.ConversationID
+	}
 	var added bool
 	got, err := scanReport(s.db.QueryRow(ctx, `INSERT INTO reports (`+reportColumns+`)
-VALUES (@id, @reporter, @account, @listing, @reason, @note, @created_at, @updated_at, NULL)
+VALUES (@id, @reporter, @account, @listing, @conversation, @reason, @note, @created_at, @updated_at, NULL)
 ON CONFLICT `+target+` DO UPDATE
-SET reason = EXCLUDED.reason, note = EXCLUDED.note, updated_at = EXCLUDED.updated_at
+SET reason = EXCLUDED.reason, note = EXCLUDED.note, conversation_id = EXCLUDED.conversation_id,
+    updated_at = EXCLUDED.updated_at
 RETURNING `+reportColumns+`, xmax = 0`, pgx.StrictNamedArgs{
-		"id": st.ID, "reporter": st.ReporterID, "account": st.AccountID, "listing": listing, "reason": st.Reason,
+		"id": st.ID, "reporter": st.ReporterID, "account": st.AccountID, "listing": listing, "conversation": conversation, "reason": st.Reason,
 		"note": st.Note, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
 	}), &added)
 	if err != nil {

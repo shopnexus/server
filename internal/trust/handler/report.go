@@ -10,10 +10,11 @@ import (
 )
 
 type reportRequest struct {
-	ListingID uuid.UUID `json:"listing_id"`
-	AccountID uuid.UUID `json:"account_id"`
-	Reason    string    `json:"reason"`
-	Note      string    `json:"note"`
+	ListingID      uuid.UUID `json:"listing_id"`
+	AccountID      uuid.UUID `json:"account_id"`
+	ConversationID uuid.UUID `json:"conversation_id"`
+	Reason         string    `json:"reason"`
+	Note           string    `json:"note"`
 }
 
 type reportIDRequest struct {
@@ -33,7 +34,7 @@ func (h *Handler) Report(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, added, err := h.svc.Report(r.Context(), p.AccountID, service.ReportInput{
-		ListingID: in.ListingID, AccountID: in.AccountID, Reason: domain.Reason(in.Reason), Note: in.Note,
+		ListingID: in.ListingID, AccountID: in.AccountID, ConversationID: in.ConversationID, Reason: domain.Reason(in.Reason), Note: in.Note,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

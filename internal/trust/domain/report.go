@@ -26,22 +26,26 @@ const MaxNote = 500
 
 // Report is a person telling ShopNexus that a listing or an account breaks
 // the rules. AccountID is the account reported, the seller for a listing;
-// ListingID is zero for an account report.
+// ListingID is zero for an account report. ConversationID, on an account
+// report only, is the reporter's conversation with the account; zero when
+// none was named.
 type Report struct {
-	id          uuid.UUID
-	reporterID  uuid.UUID
-	accountID   uuid.UUID
-	listingID   uuid.UUID
-	reason      Reason
-	note        string
-	createdAt   time.Time
-	updatedAt   time.Time
-	withdrawnAt *time.Time
+	id             uuid.UUID
+	reporterID     uuid.UUID
+	accountID      uuid.UUID
+	listingID      uuid.UUID
+	conversationID uuid.UUID
+	reason         Reason
+	note           string
+	createdAt      time.Time
+	updatedAt      time.Time
+	withdrawnAt    *time.Time
 }
 
-// NewReport checks a report: not of the reporter, a known reason, and a
-// note of at most 500 characters after trimming.
-func NewReport(id, reporter, account, listing uuid.UUID, reason Reason, note string, now time.Time) (Report, error) {
+// NewReport checks a report: not of the reporter, a known reason, a note of
+// at most 500 characters after trimming, and a conversation only beside an
+// account report.
+func NewReport(id, reporter, account, listing, conversation uuid.UUID, reason Reason, note string, now time.Time) (Report, error) {
 	if reporter == account {
 		return Report{}, ErrSelfReport
 	}
@@ -53,50 +57,55 @@ func NewReport(id, reporter, account, listing uuid.UUID, reason Reason, note str
 	if utf8.RuneCountInString(note) > MaxNote {
 		e = e.WithField("note", "at most 500 characters")
 	}
+	if conversation != (uuid.UUID{}) && listing != (uuid.UUID{}) {
+		e = e.WithField("conversation_id", "only with account_id")
+	}
 	if len(e.Fields) > 0 {
 		return Report{}, e
 	}
 	return Report{
-		id: id, reporterID: reporter, accountID: account, listingID: listing, reason: reason, note: note,
-		createdAt: now, updatedAt: now,
+		id: id, reporterID: reporter, accountID: account, listingID: listing, conversationID: conversation,
+		reason: reason, note: note, createdAt: now, updatedAt: now,
 	}, nil
 }
 
-func (r *Report) ID() uuid.UUID           { return r.id }
-func (r *Report) ReporterID() uuid.UUID   { return r.reporterID }
-func (r *Report) AccountID() uuid.UUID    { return r.accountID }
-func (r *Report) ListingID() uuid.UUID    { return r.listingID }
-func (r *Report) Reason() Reason          { return r.reason }
-func (r *Report) Note() string            { return r.note }
-func (r *Report) CreatedAt() time.Time    { return r.createdAt }
-func (r *Report) UpdatedAt() time.Time    { return r.updatedAt }
-func (r *Report) WithdrawnAt() *time.Time { return r.withdrawnAt }
+func (r *Report) ID() uuid.UUID             { return r.id }
+func (r *Report) ReporterID() uuid.UUID     { return r.reporterID }
+func (r *Report) AccountID() uuid.UUID      { return r.accountID }
+func (r *Report) ListingID() uuid.UUID      { return r.listingID }
+func (r *Report) ConversationID() uuid.UUID { return r.conversationID }
+func (r *Report) Reason() Reason            { return r.reason }
+func (r *Report) Note() string              { return r.note }
+func (r *Report) CreatedAt() time.Time      { return r.createdAt }
+func (r *Report) UpdatedAt() time.Time      { return r.updatedAt }
+func (r *Report) WithdrawnAt() *time.Time   { return r.withdrawnAt }
 
 // ReportState is every stored field of a report. Stores only.
 type ReportState struct {
-	ID          uuid.UUID
-	ReporterID  uuid.UUID
-	AccountID   uuid.UUID
-	ListingID   uuid.UUID
-	Reason      Reason
-	Note        string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	WithdrawnAt *time.Time
+	ID             uuid.UUID
+	ReporterID     uuid.UUID
+	AccountID      uuid.UUID
+	ListingID      uuid.UUID
+	ConversationID uuid.UUID
+	Reason         Reason
+	Note           string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	WithdrawnAt    *time.Time
 }
 
 // RestoreReport rebuilds a stored report. Stores only.
 func RestoreReport(st ReportState) Report {
 	return Report{
-		id: st.ID, reporterID: st.ReporterID, accountID: st.AccountID, listingID: st.ListingID, reason: st.Reason,
-		note: st.Note, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt, withdrawnAt: st.WithdrawnAt,
+		id: st.ID, reporterID: st.ReporterID, accountID: st.AccountID, listingID: st.ListingID,
+		conversationID: st.ConversationID, reason: st.Reason, note: st.Note, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt, withdrawnAt: st.WithdrawnAt,
 	}
 }
 
 // State returns every stored field. Stores only.
 func (r *Report) State() ReportState {
 	return ReportState{
-		ID: r.id, ReporterID: r.reporterID, AccountID: r.accountID, ListingID: r.listingID, Reason: r.reason,
-		Note: r.note, CreatedAt: r.createdAt, UpdatedAt: r.updatedAt, WithdrawnAt: r.withdrawnAt,
+		ID: r.id, ReporterID: r.reporterID, AccountID: r.accountID, ListingID: r.listingID,
+		ConversationID: r.conversationID, Reason: r.reason, Note: r.note, CreatedAt: r.createdAt, UpdatedAt: r.updatedAt, WithdrawnAt: r.withdrawnAt,
 	}
 }

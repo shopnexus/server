@@ -162,7 +162,7 @@ reports:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "A rule is broken (invalid_report, with fields), or the caller named themselves or their own listing (self_report)."
+        description: "A rule is broken (invalid_report, with fields), conversation_id included: it goes with account_id only and must be the caller's conversation with that account. Or the caller named themselves or their own listing (self_report)."
         content:
           application/json:
             schema:

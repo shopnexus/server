@@ -12,8 +12,9 @@ import (
 )
 
 // Report checks that the reporter may write and names one target that
-// exists, takes a listing's seller as the account reported, then opens the
-// report or updates the open one.
+// exists, takes a listing's seller as the account reported, checks that a
+// named conversation is the pair's, then opens the report or updates the
+// open one.
 func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) (ReportView, bool, error) {
 	status, err := s.accounts.Status(ctx, reporter)
 	if err != nil {
@@ -38,7 +39,16 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 	} else if _, err = s.accounts.Get(ctx, account); err != nil {
 		return ReportView{}, false, fmt.Errorf("read account: %w", err)
 	}
-	r, err := domain.NewReport(uuid.NewV7(), reporter, account, in.ListingID, in.Reason, in.Note, s.now())
+	if in.ConversationID != (uuid.UUID{}) && in.ListingID == (uuid.UUID{}) {
+		pair, cerr := s.chats.ConversationWith(ctx, reporter, account)
+		if cerr != nil {
+			return ReportView{}, false, fmt.Errorf("find the pair's conversation: %w", cerr)
+		}
+		if pair != in.ConversationID {
+			return ReportView{}, false, domain.ErrInvalidReport.WithField("conversation_id", "the reporter's conversation with the account")
+		}
+	}
+	r, err := domain.NewReport(uuid.NewV7(), reporter, account, in.ListingID, in.ConversationID, in.Reason, in.Note, s.now())
 	if err != nil {
 		return ReportView{}, false, err
 	}
@@ -47,7 +57,7 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 		return ReportView{}, false, fmt.Errorf("open report: %w", err)
 	}
 	return ReportView{
-		ID: r.ID(), ListingID: r.ListingID(), AccountID: r.AccountID(), Reason: r.Reason(), Note: r.Note(),
+		ID: r.ID(), ListingID: r.ListingID(), AccountID: r.AccountID(), ConversationID: r.ConversationID(), Reason: r.Reason(), Note: r.Note(),
 		CreatedAt: r.CreatedAt(), UpdatedAt: r.UpdatedAt(),
 	}, added, nil
 }

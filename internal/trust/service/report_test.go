@@ -94,3 +94,35 @@ func TestReportListingStates(t *testing.T) {
 		t.Fatalf("deleted: %v", err)
 	}
 }
+
+// A report of an account may name the pair's conversation, also after the
+// reporter blocked the account; another pair's conversation or one beside a
+// listing is invalid_report.
+func TestReportFromAConversation(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t)
+	reporter, seller, other := e.person(t), e.person(t), e.person(t)
+	c := e.conversation(t, reporter, seller)
+	theirs := e.conversation(t, other, seller)
+	if err := e.accounts.Block(ctx, reporter, seller); err != nil {
+		t.Fatal(err)
+	}
+	v, added, err := e.trust.Report(ctx, reporter, service.ReportInput{AccountID: seller, ConversationID: c, Reason: domain.ReasonScam})
+	if err != nil || !added || v.ConversationID != c {
+		t.Fatalf("report: %+v %v %v", v, added, err)
+	}
+	for name, in := range map[string]service.ReportInput{
+		"another pair's":   {AccountID: seller, ConversationID: theirs, Reason: domain.ReasonScam},
+		"an unknown one":   {AccountID: seller, ConversationID: uuid.NewV7(), Reason: domain.ReasonScam},
+		"beside a listing": {ListingID: catalogtest.Listing(t, e.db, seller), ConversationID: c, Reason: domain.ReasonScam},
+	} {
+		if _, _, cerr := e.trust.Report(ctx, reporter, in); !errors.Is(cerr, domain.ErrInvalidReport) {
+			t.Errorf("%s: %v", name, cerr)
+		}
+	}
+	again, _, err := e.trust.Report(ctx, reporter, service.ReportInput{AccountID: seller, Reason: domain.ReasonScam})
+	if err != nil || again.ID != v.ID || again.ConversationID != (uuid.UUID{}) {
+		t.Fatalf("again without one: %+v %v", again, err)
+	}
+}

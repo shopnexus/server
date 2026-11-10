@@ -227,7 +227,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}, accounts, mediam.Service)
 	dealm := deal.Mount(d, accounts, catalogm.Service)
 	erasure.Mount(d, accounts, dealm.Service)
-	trustm := trust.Mount(d, accounts, catalogm.Service, dealm.Service)
+	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
+	trustm := trust.Mount(d, accounts, catalogm.Service, dealm.Service, chatm.Service)
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
 	discoverym := discovery.Mount(d, discovery.Settings{
 		Model:       model,
@@ -236,7 +237,6 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, catalogm.Service, mediam.Service)
-	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
 	updates := stream.PGLog{DB: pool}
 	router.Handle("GET /v1/ws", d.Protect(stream.Socket{
 		Hub: hub, Updates: updates, Access: socketAccess{accounts: accounts, chats: chatm.Service},
