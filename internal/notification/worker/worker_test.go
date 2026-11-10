@@ -259,6 +259,43 @@ func TestRepublishTellsNoFollower(t *testing.T) {
 	}
 }
 
+// TellFollower run twice for one event and follower, under two idempotency
+// keys so Restate runs both, leaves one notice even when the follower read
+// it in between, so the collapse key no longer holds it: the store keeps one
+// notice per recipient and event. The second run pushes again, as a step
+// retried after its notice committed must; the key <event id>/<follower id>
+// that ListingPublished sends with is what keeps the push to one.
+func TestTellFollowerTwiceWritesOneNotice(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t, nil, nil)
+	_, listing, followers := e.followed(t, 1, catalogdomain.StatusActive)
+	e.start(t)
+	if err := e.notices.PutToken(ctx, uuid.NewV7(), followers[0], "follower-phone"); err != nil {
+		t.Fatal(err)
+	}
+	in := worker.FollowerNotice{EventID: uuid.NewV7(), Follower: followers[0], ListingID: listing, SellerName: "Hoàng Nam", At: time.Now()}
+	tell := func() {
+		t.Helper()
+		if _, err := ingress.Service[worker.FollowerNotice, restate.Void](e.client, e.worker.ServiceName(), "TellFollower").
+			Request(ctx, in, restate.WithIdempotencyKey(uuid.NewV7().String())); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tell()
+	if err := e.notices.ReadAll(ctx, followers[0]); err != nil {
+		t.Fatal(err)
+	}
+	tell()
+	l, err := e.notices.List(ctx, followers[0], page.Request{})
+	if err != nil || len(l.Items) != 1 || l.Unread != 0 || l.Items[0].Type != domain.TypeFollowedListing {
+		t.Fatalf("two runs, one notice: %+v %v", l, err)
+	}
+	if n := e.push.count("follower-phone"); n != 2 {
+		t.Fatalf("each run pushes: %d", n)
+	}
+}
+
 // TellFollower tells no one of a listing gone off sale, and two listings of
 // one seller leave one unread notice, of the newer.
 func TestTellFollower(t *testing.T) {
