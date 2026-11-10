@@ -161,3 +161,23 @@ type EmailCodeView struct {
 	ExpiresAt   time.Time `json:"expires_at"`
 	ResendAt    time.Time `json:"resend_at"`
 }
+
+// AddIdentityInput is a proof of the kind the account lacks.
+type AddIdentityInput struct {
+	IdempotencyKey string
+	AccountID      uuid.UUID
+	Proof          Proof
+}
+
+// IdentitiesView is the Identities schema in api/schemas/account.yaml.
+type IdentitiesView struct {
+	Identities []Identity `json:"identities"`
+}
+
+// MeView is the MyAccount schema: the account and its sign-in methods,
+// which only its owner reads.
+type MeView struct {
+	AccountView
+
+	Identities []Identity `json:"identities"`
+}

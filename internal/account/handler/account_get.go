@@ -12,7 +12,7 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v, err := h.svc.Get(r.Context(), p.AccountID)
+	v, err := h.svc.Me(r.Context(), p.AccountID)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

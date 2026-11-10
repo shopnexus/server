@@ -83,6 +83,10 @@ type Service interface {
 	FindByPhone(ctx context.Context, q string) (uuid.UUID, bool, error)
 	// Identities lists an account's sign-in methods.
 	Identities(ctx context.Context, accountID uuid.UUID) ([]Identity, error)
+	// Me reads the caller's own account with its identities.
+	Me(ctx context.Context, id uuid.UUID) (MeView, error)
+	// AddIdentity adds the identity kind an account lacks, from a proof.
+	AddIdentity(ctx context.Context, in AddIdentityInput) (IdentitiesView, error)
 	// SendEmailCode mails a six-digit code to an address: a sign-in code,
 	// or with AccountID one that adds the address to that account.
 	SendEmailCode(ctx context.Context, in SendEmailCodeInput) (EmailCodeView, error)
@@ -180,9 +184,13 @@ type Account struct {
 
 	signIn        restatex.Caller[ProvenSignIn, SignInResult]
 	emailCodeSend restatex.Caller[EmailCodeInput, EmailCodeResult]
+	addIdentity   restatex.Caller[AddIdentityRun, AddIdentityResult]
 }
 
 var _ Service = (*Account)(nil)
+
+// runHandler is the handler of each of account's Restate services.
+const runHandler = "Run"
 
 // New builds Account from d.
 func New(d Deps) *Account {
@@ -190,9 +198,12 @@ func New(d Deps) *Account {
 		accounts: d.Accounts, follows: d.Follows, addresses: d.Addresses, credentials: d.Credentials, sessions: d.Sessions, signer: d.Signer, phones: d.Phones,
 		google: d.Google, challenges: d.Challenges, quotas: d.Quotas, codes: d.Codes, email: d.Email,
 		media: d.Media, prefix: d.Prefix, now: d.Now, log: d.Log,
-		signIn: restatex.Caller[ProvenSignIn, SignInResult]{Ingress: d.Ingress, Service: d.Prefix + signInService, Handler: "Run"},
+		signIn: restatex.Caller[ProvenSignIn, SignInResult]{Ingress: d.Ingress, Service: d.Prefix + signInService, Handler: runHandler},
 		emailCodeSend: restatex.Caller[EmailCodeInput, EmailCodeResult]{
-			Ingress: d.Ingress, Service: d.Prefix + emailCodeSendService, Handler: "Run",
+			Ingress: d.Ingress, Service: d.Prefix + emailCodeSendService, Handler: runHandler,
+		},
+		addIdentity: restatex.Caller[AddIdentityRun, AddIdentityResult]{
+			Ingress: d.Ingress, Service: d.Prefix + addIdentityService, Handler: runHandler,
 		},
 	}
 }
@@ -204,5 +215,6 @@ func (s *Account) Durable() []restate.ServiceDefinition {
 		restate.Reflect(EmailCodeSend{
 			Prefix: s.prefix, Quotas: s.quotas, Challenges: s.challenges, Codes: s.codes, Email: s.email, Now: s.now,
 		}),
+		restate.Reflect(AddIdentity{Prefix: s.prefix, Challenges: s.challenges, Credentials: s.credentials, Now: s.now}),
 	}
 }

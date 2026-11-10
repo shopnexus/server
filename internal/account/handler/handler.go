@@ -31,6 +31,7 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("GET /v1/accounts/me", protect(http.HandlerFunc(h.GetMe)))
 	r.Handle("PATCH /v1/accounts/me", protect(http.HandlerFunc(h.Update)))
 	r.Handle("POST /v1/accounts/me/email-codes", protect(http.HandlerFunc(h.SendMyEmailCode)))
+	r.Handle("POST /v1/accounts/me/identities", protect(http.HandlerFunc(h.AddIdentity)))
 	r.Handle("POST /v1/blocks", protect(tie[accountBody](h, h.svc.Block)))
 	r.Handle("GET /v1/blocks", protect(ties(h, h.svc.Blocks)))
 	r.Handle("DELETE /v1/blocks/{account_id}", protect(tie[accountPath](h, h.svc.Unblock)))

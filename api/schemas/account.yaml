@@ -23,6 +23,77 @@ Account:
     created_at:
       type: string
       format: date-time
+MyAccount:
+  type: object
+  additionalProperties: false
+  required: [id, display_name, bio, status, created_at, identities]
+  description: The caller's own account, with how it signs in.
+  properties:
+    id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+      description: Empty until the person completes their profile.
+    bio:
+      type: string
+      description: Public; may be empty.
+    avatar_url:
+      type: string
+      format: uri
+      description: A public 400 px square; absent without an avatar.
+    status:
+      type: string
+      enum: [active, suspended]
+    created_at:
+      type: string
+      format: date-time
+    identities:
+      type: array
+      minItems: 1
+      maxItems: 2
+      items:
+        $ref: "#/Identity"
+      description: How the account signs in. Posting, opening a deal and opening a chat need a phone.
+Identity:
+  type: object
+  additionalProperties: false
+  required: [kind, value]
+  properties:
+    kind:
+      type: string
+      enum: [phone, email]
+    value:
+      type: string
+      description: The number in the +84 form, or the address lower-cased.
+Identities:
+  type: object
+  additionalProperties: false
+  required: [identities]
+  properties:
+    identities:
+      type: array
+      items:
+        $ref: "#/Identity"
+AddIdentityRequest:
+  type: object
+  additionalProperties: false
+  description: Exactly one proof, of the kind the account lacks.
+  oneOf:
+    - required: [phone_token]
+    - required: [google_token]
+    - required: [email_code]
+  properties:
+    phone_token:
+      type: string
+      minLength: 1
+      maxLength: 8192
+    google_token:
+      type: string
+      minLength: 1
+      maxLength: 8192
+    email_code:
+      $ref: "auth.yaml#/EmailCodeProof"
 AccountUpdate:
   type: object
   additionalProperties: false

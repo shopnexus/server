@@ -1,0 +1,64 @@
+package e2e
+
+import (
+	"testing"
+
+	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
+)
+
+type myAccount struct {
+	ID         string `json:"id"`
+	Identities []struct {
+		Kind  string `json:"kind"`
+		Value string `json:"value"`
+	} `json:"identities"`
+}
+
+func TestAddAPhoneToAnEmailAccount(t *testing.T) {
+	t.Parallel()
+	me, addr := newEmailAccount(t)
+	before := expect[myAccount](t, call(t, "GET", "/v1/accounts/me", nil, bearer(me.AccessToken)), 200)
+	if len(before.Identities) != 1 || before.Identities[0].Kind != "email" || before.Identities[0].Value != addr {
+		t.Fatalf("%+v", before)
+	}
+	phone := newPhone()
+	expectStatus(t, call(t, "POST", "/v1/accounts/me/identities", map[string]string{"phone_token": issuer.SMSToken(phone)}, newKey(), bearer(me.AccessToken)), 200)
+	after := expect[myAccount](t, call(t, "GET", "/v1/accounts/me", nil, bearer(me.AccessToken)), 200)
+	if len(after.Identities) != 2 {
+		t.Fatalf("%+v", after)
+	}
+	if byPhone := signInWith(t, phone); byPhone.Account.ID != me.Account.ID {
+		t.Fatalf("the phone signs in to %s", byPhone.Account.ID)
+	}
+}
+
+func TestAddAnEmailToAPhoneAccount(t *testing.T) {
+	t.Parallel()
+	me, _ := newAccount(t)
+	addr := newEmail()
+	c := expect[emailCode](t, call(t, "POST", "/v1/accounts/me/email-codes", map[string]string{"email": addr},
+		newKey(), newClient(), bearer(me.AccessToken)), 200)
+	expectStatus(t, call(t, "POST", "/v1/accounts/me/identities",
+		map[string]any{"email_code": map[string]string{"challenge_id": c.ChallengeID, "code": mails.code(t, addr, 1)}},
+		newKey(), bearer(me.AccessToken)), 200)
+	byGoogle := expect[signIn](t, call(t, "POST", "/v1/auth/sign-in", map[string]string{"google_token": google.Token(addr)}, newKey()), 200)
+	if byGoogle.Account.ID != me.Account.ID {
+		t.Fatalf("google signs in to %s", byGoogle.Account.ID)
+	}
+}
+
+func TestAddIdentityRefusals(t *testing.T) {
+	t.Parallel()
+	me, _ := newEmailAccount(t)
+	_, takenPhone := newAccount(t)
+	add := func(body any, headers ...[2]string) Response {
+		return call(t, "POST", "/v1/accounts/me/identities", body, headers...)
+	}
+	auth := bearer(me.AccessToken)
+	check(t, "taken phone", add(map[string]string{"phone_token": issuer.SMSToken(takenPhone)}, newKey(), auth), 409, "identity_taken")
+	check(t, "a second email", add(map[string]string{"google_token": google.Token(newEmail())}, newKey(), auth), 409, "identity_kind_taken")
+	check(t, "foreign number", add(map[string]string{"phone_token": issuer.SMSToken("+14155550100")}, newKey(), auth), 422, "invalid_phone")
+	check(t, "forged token", add(map[string]string{"phone_token": issuer.SMSToken(newPhone(), firebasetest.Claim("aud", "other"))}, newKey(), auth), 401, "invalid_phone_token")
+	check(t, "no key", add(map[string]string{"phone_token": issuer.SMSToken(newPhone())}, auth), 400, "")
+	check(t, "signed out", add(map[string]string{"phone_token": issuer.SMSToken(newPhone())}, newKey()), 401, "")
+}

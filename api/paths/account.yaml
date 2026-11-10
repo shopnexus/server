@@ -11,7 +11,7 @@ me:
         content:
           application/json:
             schema:
-              $ref: "../schemas/account.yaml#/Account"
+              $ref: "../schemas/account.yaml#/MyAccount"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
@@ -82,6 +82,52 @@ me:
               $ref: "../schemas/error.yaml#/Error"
       "428":
         $ref: "../responses/common.yaml#/PreconditionRequired"
+myIdentities:
+  post:
+    operationId: addMyIdentity
+    summary: Add the phone or email the caller's account lacks.
+    description: |
+      A phone_token adds a phone to an account that has only an email;
+      google_token or email_code (from sendMyEmailCode) adds an email to an
+      account that has only a phone.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/account.yaml#/AddIdentityRequest"
+    responses:
+      "200":
+        description: The account's identities after the add.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/account.yaml#/Identities"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        description: Not signed in, or a token failed a check (invalid_phone_token, invalid_google_token).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: The account has this kind already (identity_kind_taken), another account signs in with this value (identity_taken), or a race (try_again).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: invalid_phone, invalid_code (details.attempts_left), code_expired or code_locked.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 myEmailCodes:
   post:
     operationId: sendMyEmailCode

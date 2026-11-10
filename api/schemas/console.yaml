@@ -216,16 +216,6 @@ ConsoleFeedbackList:
     next_cursor:
       type: string
       format: uuid
-Identity:
-  type: object
-  additionalProperties: false
-  required: [kind, value]
-  properties:
-    kind:
-      type: string
-      enum: [phone]
-    value:
-      type: string
 ConsoleAccountDetail:
   type: object
   additionalProperties: false
@@ -236,7 +226,7 @@ ConsoleAccountDetail:
     identities:
       type: array
       items:
-        $ref: "#/Identity"
+        $ref: "account.yaml#/Identity"
     actions:
       type: array
       description: The 20 latest console actions on the account, newest first.
