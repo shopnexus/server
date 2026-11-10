@@ -115,3 +115,25 @@ func TestText(t *testing.T) {
 		t.Errorf("photos: %q", got)
 	}
 }
+
+func TestWatchAndPriceTexts(t *testing.T) {
+	t.Parallel()
+	watch, listing := uuid.NewV7(), uuid.NewV7()
+	w := domain.WatchMatched(uuid.NewV7(), watch, "xe đạp", 3, time.Now())
+	if got := domain.Text(w.Type, w.Params); got != "Có 3 tin mới cho “xe đạp”" {
+		t.Fatal(got)
+	}
+	if w.CollapseKey != "watch:"+watch.String() || domain.TargetOf(w.Type, w.Params) != (domain.Target{Kind: "search_watch", ID: watch.String()}) {
+		t.Fatalf("%+v", w)
+	}
+	if m := domain.WatchMatched(uuid.NewV7(), watch, "xe đạp", 99, time.Now()); domain.Text(m.Type, m.Params) != "Có 99+ tin mới cho “xe đạp”" {
+		t.Fatal(domain.Text(m.Type, m.Params))
+	}
+	p := domain.PriceDropped(uuid.NewV7(), listing, "Xe đạp Asama", 1_400_000, 1_500_000, time.Now())
+	if got := domain.Text(p.Type, p.Params); got != "Xe đạp Asama giảm còn 1,4 tr, lúc lưu 1,5 tr" {
+		t.Fatal(got)
+	}
+	if p.CollapseKey != "saved:"+listing.String() || domain.TargetOf(p.Type, p.Params).Kind != "listing" || domain.Title(p.Type) != "Đã lưu" {
+		t.Fatalf("%+v", p)
+	}
+}

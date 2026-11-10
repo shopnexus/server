@@ -6,10 +6,10 @@ Target:
   properties:
     kind:
       type: string
-      enum: [deal, order, listing, seller_reviews, account]
+      enum: [deal, order, listing, seller_reviews, account, search_watch]
     id:
       type: string
-      description: The deal, listing or seller; empty for the account.
+      description: The deal, listing, seller or search watch; empty for the account.
 Notification:
   type: object
   additionalProperties: false
@@ -21,7 +21,8 @@ Notification:
     type:
       type: string
       enum: [offer, counter, agreed, declined, agreement_cancelled, offer_voided, cod_requested, shipped, delivered,
-        returned, order_cancelled, listing_live, listing_rejected, followed_listing, review, suspended, unsuspended]
+        returned, order_cancelled, listing_live, listing_rejected, followed_listing, review, suspended, unsuspended,
+        watch_matched, price_dropped]
     text:
       type: string
       description: What the notice says, in Vietnamese.

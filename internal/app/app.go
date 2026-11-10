@@ -283,7 +283,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}))
 	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
-		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service)
+		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service, discoverym.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm, discoverym.Service, chatm.Service, notificationm.Service)
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, dealm.Services, discoverym.Services,
 		chatm.Services, notificationm.Services, assistm.Services), nil
