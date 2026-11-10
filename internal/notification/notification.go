@@ -1,6 +1,7 @@
 // Package notification tells people what happened to their deals, orders,
 // listings, reviews and account, and of new listings by the sellers they
-// follow, in a list and by push, from the events of the other modules. Only screen calls it, for Home's unread count.
+// follow, in a list and by push, from the events of the other modules.
+// Only screen calls it, for Home's unread count.
 package notification
 
 import (
