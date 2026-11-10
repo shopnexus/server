@@ -24,13 +24,16 @@ Review:
     buyer:
       type: object
       additionalProperties: false
-      required: [id, display_name]
+      required: [id, display_name, deleted]
       properties:
         id:
           type: string
           format: uuid
         display_name:
           type: string
+        deleted:
+          type: boolean
+          description: The buyer deleted their account; display_name is empty and there is no avatar.
         avatar_url:
           type: string
           format: uri

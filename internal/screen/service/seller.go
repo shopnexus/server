@@ -6,6 +6,8 @@ import (
 	"time"
 	"uuid"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/platform/page"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
@@ -52,6 +54,9 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (S
 	seller, err := s.accounts.Get(ctx, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the seller: %w", err)
+	}
+	if seller.Status == accountdomain.StatusDeleted {
+		return SellerScreen{}, accountdomain.ErrAccountNotFound
 	}
 	counts, err := s.catalog.SellerCounts(ctx, id)
 	if err != nil {

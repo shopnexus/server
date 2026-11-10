@@ -53,3 +53,23 @@ func TestDeletedSellersListingsGo(t *testing.T) {
 		return nil
 	})
 }
+
+func TestDeletedAccountInOthersViews(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	buyer, _ := newAccount(t)
+	l := activeListing(t, seller.AccessToken, nil)
+	conv := openChat(t, buyer.AccessToken, l.ID, "Còn hàng không?")
+
+	check(t, "delete", call(t, "DELETE", "/v1/accounts/me", nil, bearer(seller.AccessToken)), 204, "")
+	check(t, "reply to a deleted account",
+		call(t, "POST", "/v1/conversations/"+conv.ID+"/messages", map[string]any{"text": "Alo?"}, bearer(buyer.AccessToken), newKey()),
+		409, "account_deleted")
+	check(t, "follow a deleted account", call(t, "POST", "/v1/follows", map[string]any{"account_id": seller.Account.ID}, bearer(buyer.AccessToken)), 409, "account_deleted")
+	check(t, "the deleted seller's page", call(t, "GET", "/v1/screens/seller/"+seller.Account.ID, nil), 404, "account_not_found")
+	check(t, "a write with the deleted account's token",
+		call(t, "POST", "/v1/feedback", map[string]any{"body": "x"}, bearer(seller.AccessToken), newKey()), 401, "session_revoked")
+	if row, ok := inboxRows(t, buyer.AccessToken)[seller.Account.ID]; !ok || !row.Other.Deleted {
+		t.Fatalf("inbox row: %+v", row)
+	}
+}

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"uuid"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+
 	"github.com/shopnexus/server2/internal/chat/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
@@ -27,7 +29,10 @@ func (c *Chat) Inbox(ctx context.Context, account uuid.UUID, archived bool, p pa
 	for i := range rows {
 		other := others[rows[i].Other]
 		items = append(items, InboxItem{
-			ID: rows[i].Conversation.ID, Other: PersonView{ID: rows[i].Other, DisplayName: other.DisplayName, AvatarURL: other.AvatarURL, LastActiveAt: other.LastActiveAt},
+			ID: rows[i].Conversation.ID, Other: PersonView{
+				ID: rows[i].Other, DisplayName: other.DisplayName, AvatarURL: other.AvatarURL, LastActiveAt: other.LastActiveAt,
+				Deleted: other.Status == accountdomain.StatusDeleted,
+			},
 			LastMessage: c.messageView(rows[i].Last), Unread: rows[i].Unread, Archived: archived,
 		})
 	}
@@ -45,7 +50,10 @@ func (c *Chat) Get(ctx context.Context, account, conversation uuid.UUID) (Conver
 		return ConversationView{}, fmt.Errorf("read the other member: %w", err)
 	}
 	return ConversationView{
-		ID: conv.ID, Other: PersonView{ID: id, DisplayName: other.DisplayName, AvatarURL: other.AvatarURL, LastActiveAt: other.LastActiveAt},
+		ID: conv.ID, Other: PersonView{
+			ID: id, DisplayName: other.DisplayName, AvatarURL: other.AvatarURL, LastActiveAt: other.LastActiveAt,
+			Deleted: other.Status == accountdomain.StatusDeleted,
+		},
 		Archived: m.ArchivedAt != nil,
 	}, nil
 }

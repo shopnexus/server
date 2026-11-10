@@ -27,6 +27,8 @@ type PersonView struct {
 	DisplayName  string     `json:"display_name"`
 	AvatarURL    string     `json:"avatar_url,omitempty"`
 	LastActiveAt *time.Time `json:"last_active_at,omitempty"`
+	// Deleted is a person who deleted their account; the name is empty.
+	Deleted bool `json:"deleted"`
 }
 
 // PhotoView is a photo of a message; the URLs are set once it is processed.

@@ -131,6 +131,12 @@ conversationMessages:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The other person deleted their account (account_deleted)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
       "422":
         description: "The message breaks a rule (invalid_message, with fields), or a photo is not the caller's, not uploaded or already used (invalid_upload)."
         content:

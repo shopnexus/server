@@ -15,7 +15,8 @@ type inboxScreen struct {
 type inboxRow struct {
 	ID    string `json:"id"`
 	Other struct {
-		ID string `json:"id"`
+		ID      string `json:"id"`
+		Deleted bool   `json:"deleted"`
 	} `json:"other"`
 	Unread   int  `json:"unread"`
 	Archived bool `json:"archived"`

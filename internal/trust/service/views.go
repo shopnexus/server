@@ -6,6 +6,8 @@ import (
 	"time"
 	"uuid"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+
 	"github.com/shopnexus/server2/internal/trust/domain"
 )
 
@@ -35,6 +37,8 @@ type Person struct {
 	ID          uuid.UUID `json:"id"`
 	DisplayName string    `json:"display_name"`
 	AvatarURL   string    `json:"avatar_url,omitempty"`
+	// Deleted is a buyer who deleted their account; the name is empty.
+	Deleted bool `json:"deleted"`
 }
 
 // ListingRef is the listing a review's order bought.
@@ -82,7 +86,10 @@ func (s *Trust) views(ctx context.Context, reviews []domain.Review) ([]ReviewVie
 		buyer := buyers[r.BuyerID()]
 		out = append(out, ReviewView{
 			ID: r.ID(), Stars: r.Stars(), Text: r.Text(),
-			Buyer:     Person{ID: r.BuyerID(), DisplayName: buyer.DisplayName, AvatarURL: buyer.AvatarURL},
+			Buyer: Person{
+				ID: r.BuyerID(), DisplayName: buyer.DisplayName, AvatarURL: buyer.AvatarURL,
+				Deleted: buyer.Status == accountdomain.StatusDeleted,
+			},
 			Listing:   ListingRef{ID: r.ListingID(), Title: listings[r.ListingID()].Title},
 			CreatedAt: r.CreatedAt(), UpdatedAt: r.UpdatedAt(),
 		})

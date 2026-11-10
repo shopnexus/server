@@ -46,6 +46,7 @@ type facts struct {
 	Listing      *catalogsvc.Summary  `json:"listing,omitempty"`
 	Conversation *domain.Conversation `json:"conversation,omitempty"`
 	Blocked      bool                 `json:"blocked"`
+	OtherDeleted bool                 `json:"other_deleted"`
 }
 
 // MessageSend sends a message: one step reads what the send depends on and
@@ -96,6 +97,11 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 			if out.Blocked, stepErr = s.Chat.accounts.Blocked(rc, in.Sender, other); stepErr != nil {
 				return facts{}, fmt.Errorf("check block: %w", stepErr)
 			}
+			otherStatus, statusErr := s.Chat.accounts.Status(rc, other)
+			if statusErr != nil {
+				return facts{}, fmt.Errorf("read the other's status: %w", statusErr)
+			}
+			out.OtherDeleted = otherStatus == accountdomain.StatusDeleted
 		}
 		return out, nil
 	})
@@ -118,6 +124,8 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 		refused = domain.ErrInvalidMessage.WithField("listing_id", "a listing of either member")
 	case f.Blocked:
 		refused = accountdomain.ErrBlocked
+	case f.OtherDeleted:
+		refused = accountdomain.ErrAccountDeleted
 	default:
 	}
 	if refused != nil {

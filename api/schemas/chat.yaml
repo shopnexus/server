@@ -44,7 +44,7 @@ ReadMark:
 Person:
   type: object
   additionalProperties: false
-  required: [id, display_name]
+  required: [id, display_name, deleted]
   properties:
     id:
       type: string
@@ -62,6 +62,9 @@ Person:
         When the person last had the app open, to the 30 seconds; absent
         before the first time. The app shows "Đang hoạt động" under 5
         minutes, otherwise how long ago.
+    deleted:
+      type: boolean
+      description: The person deleted their account; display_name is empty and there is no avatar.
 MessagePhoto:
   type: object
   additionalProperties: false
