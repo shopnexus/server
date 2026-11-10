@@ -8,8 +8,6 @@ package stream
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
@@ -23,35 +21,21 @@ const (
 	KindNotification = "notification"
 )
 
-// channel is the Postgres channel the hints travel on.
-const channel = "stream"
-
-// Hint names what changed: Kind is the event name, the IDs its data.
+// Hint names what changed: Kind and the IDs that go with it.
 type Hint struct {
-	Kind           string     `json:"-"`
+	Kind           string     `json:"kind"`
 	ConversationID *uuid.UUID `json:"conversation_id,omitempty"`
 	MessageID      *uuid.UUID `json:"message_id,omitempty"`
 	DealID         *uuid.UUID `json:"deal_id,omitempty"`
 	NotificationID *uuid.UUID `json:"notification_id,omitempty"`
 }
 
-// notification is a hint and its accounts, as they travel on the channel.
-type notification struct {
-	Accounts []uuid.UUID `json:"accounts"`
-	Kind     string      `json:"kind"`
-	Hint     Hint        `json:"hint"`
-}
-
 // Notify sends h to the streams of accounts. Postgres delivers it when tx
 // commits and drops it on rollback.
 func Notify(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h Hint) error {
-	payload, err := json.Marshal(notification{Accounts: accounts, Kind: h.Kind, Hint: h})
-	if err != nil {
-		return fmt.Errorf("encode hint: %w", err)
+	targets := make([]Target, 0, len(accounts))
+	for _, a := range accounts {
+		targets = append(targets, Target{Account: a})
 	}
-	if _, err = tx.Exec(ctx, `SELECT pg_notify(@channel, @payload)`,
-		pgx.StrictNamedArgs{"channel": channel, "payload": string(payload)}); err != nil {
-		return fmt.Errorf("notify stream: %w", err)
-	}
-	return nil
+	return PGBell{}.Ring(ctx, tx, targets, h)
 }

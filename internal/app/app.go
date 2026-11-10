@@ -109,7 +109,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		return nil, fmt.Errorf("connect to postgres: %w", err)
 	}
 	runCtx, stop := context.WithCancel(context.Background())
-	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL, hub: stream.NewHub(pool, log), stop: stop}
+	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL, hub: stream.NewHub(stream.PGBell{DB: pool, Log: log}, log), stop: stop}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, a.Close(context.Background()))

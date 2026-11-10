@@ -2,14 +2,9 @@ package stream
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"sync"
 	"uuid"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/shopnexus/server2/internal/platform/postgres"
 )
 
 // buffer is how many hints wait for a slow stream; more are dropped, and
@@ -18,15 +13,15 @@ const buffer = 16
 
 // Hub hands the hints it hears to the streams of their accounts.
 type Hub struct {
-	db     *pgxpool.Pool
+	bell   Bell
 	log    *slog.Logger
 	mu     sync.Mutex
 	subs   map[uuid.UUID]map[chan Hint]struct{}
 	closed bool
 }
 
-func NewHub(db *pgxpool.Pool, log *slog.Logger) *Hub {
-	return &Hub{db: db, log: log, subs: map[uuid.UUID]map[chan Hint]struct{}{}}
+func NewHub(bell Bell, log *slog.Logger) *Hub {
+	return &Hub{bell: bell, log: log, subs: map[uuid.UUID]map[chan Hint]struct{}{}}
 }
 
 // Subscribe returns the hints for account until stop is called, or until
@@ -77,26 +72,18 @@ func (h *Hub) Close() {
 // Run listens until ctx is done, then returns nil. Hints sent while the
 // connection is lost are lost too, and the apps reload on their next hint.
 func (h *Hub) Run(ctx context.Context) error {
-	postgres.Listen(ctx, h.db, channel, h.log, func(payload string) {
-		var msg notification
-		if err := json.Unmarshal([]byte(payload), &msg); err != nil {
-			h.log.WarnContext(ctx, "stream: bad notification", "err", err)
-			return
-		}
-		msg.Hint.Kind = msg.Kind
-		h.deliver(msg)
-	})
+	h.bell.Listen(ctx, h.deliver, func() {})
 	return nil
 }
 
-// deliver hands the hint to every stream of its accounts without waiting.
-func (h *Hub) deliver(msg notification) {
+// deliver hands the hint to every stream of its targets without waiting.
+func (h *Hub) deliver(targets []Target, hint Hint) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	for _, a := range msg.Accounts {
-		for ch := range h.subs[a] {
+	for _, t := range targets {
+		for ch := range h.subs[t.Account] {
 			select {
-			case ch <- msg.Hint:
+			case ch <- hint:
 			default:
 			}
 		}

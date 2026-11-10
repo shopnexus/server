@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,12 +20,10 @@ import (
 	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
-var discard = slog.New(slog.DiscardHandler)
-
 // running starts a hub on db until the test ends.
 func running(t *testing.T, db *pgxpool.Pool) *stream.Hub {
 	t.Helper()
-	h := stream.NewHub(db, discard)
+	h := stream.NewHub(stream.PGBell{DB: db, Log: discard}, discard)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {

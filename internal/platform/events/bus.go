@@ -124,7 +124,7 @@ func (b *Bus) Run(ctx context.Context) error {
 	var listening sync.WaitGroup
 	// A lost listen connection costs nothing: the poll covers the gap.
 	listening.Go(func() {
-		postgres.Listen(ctx, b.db, "events", b.log, func(string) {
+		postgres.Listen(ctx, b.db, "events", b.log, func() {}, func(string) {
 			select {
 			case wake <- struct{}{}:
 			default:
