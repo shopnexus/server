@@ -4,8 +4,8 @@
 endpoints, auth flows, security rules and the testing matrix, and points here
 for code shape, transactions and durability. Where the two disagree, this file
 wins. Plan 2 (`~/shopnexus/docs/superpowers/plans/2026-10-20-server2-plan2-redesign-otp.md`)
-built the sessions on this design; sign-in moved to Firebase on 2026-10-28
-(see Phone sign-in).
+built the sessions on this design; sign-in moved to Firebase on 2026-10-28,
+and email codes and Google came back on 2026-11-10 (see Sign-in).
 
 The code takes from two branches of the old `server` repository.
 `origin/microservice-ready` reads top to bottom with few layers.
@@ -112,8 +112,9 @@ credentials in one transaction.
 
 - `Account`: display name, bio, avatar, status, suspension.
 - `Address`: one address of an account's address book.
-- `Credentials`: every phone identity of one account, later its password.
-  It holds the rule that an account keeps at least one identity.
+- `Credentials`: the phone and email identities of one account. It holds
+  the rules that an account keeps at least one identity and at most one of
+  each kind.
 - `Session`: one signed-in device. It is separate because sessions are
   unbounded and every refresh writes one.
 
@@ -167,10 +168,10 @@ refresh keep working when Restate is down.
   version 4, which would break the spec's time-ordered cursors). Inserts use
   `ON CONFLICT (id) DO NOTHING`. The same ID is the idempotency key sent to a
   payment provider.
-- Module account's Restate service, `SignIn`, lives in
-  `account/service/sign_in_durable.go`. `Account.SignIn` calls it through
-  `restatex.Caller`, and `Account.Durable` returns its definition for
-  `account.Mount`.
+- Module account's Restate services, `SignIn`, `EmailCodeSend` and
+  `AddIdentity`, live in `account/service/*_durable.go`. The `Account`
+  methods in front of them call them through `restatex.Caller`, and
+  `Account.Durable` returns their definitions for `account.Mount`.
 
 `ListingEmbed` is the repo's first Virtual Object, keyed by listing ID, with
 one exclusive handler, `Refresh`, which takes no input. Restate runs one
@@ -276,7 +277,7 @@ server's split (decided 2026-10-26). There is no finance module: ShopNexus
 holds no money, so there is no wallet and no payment session. Planned
 next: `billing` (boosts and seller plans); `notification` holds the
 in-app list and push (see Notifications). There
-is no `kyc` module: an account's verified phone number is enough, since a
+is no `kyc` module: a seller's verified phone number is enough, since a
 carrier checks a seller's identity when it opens their account (decided
 2026-10-27). Reports are in `trust` (see Trust); incident records and
 reputation will join it; followed searches, price alerts,
@@ -399,39 +400,57 @@ attach to the first run. Sign-in puts the verified number in the key and
 listing posts put the seller, so a key sent with another number's token or
 by another seller runs apart.
 
-### Phone sign-in
+### Sign-in
 
-The app verifies a phone number through Firebase and sends the token
-Firebase returns to `POST /v1/auth/sign-in {phone_token, device_name}`
-(decided 2026-10-28, spec:
-`~/shopnexus/docs/superpowers/specs/2026-10-28-server2-firebase-sign-in-design.md`). The
-token is an ID token of Firebase Authentication after an SMS code, or a
-Phone Number Verification (PNV) token from the SIM. Server2 sends no codes:
-email sign-in, OTP challenges and their quotas are gone, and every account
-has a phone number.
+A person signs in, or signs up on first use, with one of three proofs sent
+to `POST /v1/auth/sign-in` (decided 2026-11-10, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-10-sign-in-email-google-design.md`,
+which reverses the email removal of the 2026-10-28 spec):
 
-1. `Account.SignIn`, the use case behind the HTTP handler, checks the token
-   with `provider/firebase.PhoneVerifier` and gets the number in the +84
-   form. The token stays out of Restate, whose journal and invocation
-   results the admin API can read.
-2. It calls Restate service `SignIn`, handler `Run`, with the number only, under the
-   invocation key `<phone>/<Idempotency-Key>`. A repeated key attaches only
-   to a run for the same number, so a key without a valid token for that
-   number gets no session.
-3. A step finds the phone identity in `Credentials`.
+- `phone_token`, which proves a phone number: an ID token of Firebase
+  Authentication after an SMS code, or a Phone Number Verification (PNV)
+  token from the SIM.
+- `google_token`, which proves an email address: a Google ID token the app
+  gets from Android Credential Manager.
+- `email_code`, which proves an email address: a challenge ID and the
+  six-digit code server2 mailed to it.
+
+The OpenAPI `oneOf` admits exactly one of them. An account holds a phone,
+an email or both, one identity of each kind, and a value belongs to one
+account. Google is no kind of its own: a Google token for an address that
+is an email identity signs in to that account.
+
+1. `Account.SignIn`, the use case behind the HTTP handler, resolves the
+   proof outside Restate, whose journal and invocation results the admin
+   API can read. A token goes through `provider/firebase.PhoneVerifier` or
+   `provider/google.Verifier` and becomes a proven address. An email code
+   becomes a `CodeGuess`: the challenge ID and `HMAC(OTP_KEY, address,
+   code)`, never the code.
+2. It calls Restate service `SignIn`, handler `Run`, with `ProvenSignIn`.
+   The invocation key is `<kind>:<value>/<Idempotency-Key>` for a token
+   and `<challenge_id>/<Idempotency-Key>` for a code, so a key sent again
+   with another person's proof runs apart.
+3. For a code, `judgeGuess` reads the challenge in one step and saves the
+   counted guess in the next. A challenge that is unknown, not the newest
+   for its address and purpose, of purpose `add_identity`, expired or out
+   of guesses refuses; a lost race on the save is `try_again`.
+4. A step finds the identity by kind and value.
    - Found: a step reads the account status (suspended ends the run), and
      the next step marks the identity used, ignoring a lost race.
    - Not found: create the `Account` with
      `accountID := restatex.NewID(ctx, at)`, then the `Credentials` with the
-     identity, in one step and one transaction. `ErrIdentityTaken` writes nothing
-     (see Durable flows).
-4. `Account.SignIn` issues the session after the Restate service returns,
-   with the session ID the service chose. When the same key comes back with
-   a token for the same number, that session exists, so `SignIn` rotates
-   its refresh token and returns new tokens for it; a session signed out
-   since answers `session_revoked`.
+     identity, in one step and one transaction. `ErrIdentityTaken` writes
+     nothing (see Durable flows).
+5. `Account.SignIn` issues the session after the Restate service returns,
+   with the session ID the service chose. Restate answers a repeated key
+   with the first result whatever the request carries, so for a code the
+   use case also compares the request's hash with the challenge's and
+   answers `code_expired` when they differ. When the same key comes back
+   with a valid proof, that session exists, so `SignIn` rotates its
+   refresh token and returns new tokens for it; a session signed out since
+   answers `session_revoked`.
 
-The token checks live in `internal/provider/firebase`:
+The phone token checks live in `internal/provider/firebase`:
 
 - `iss`, read before the signature, picks the key set, and the token must
   then carry that issuer's algorithm and audience. Firebase Authentication:
@@ -450,18 +469,65 @@ The token checks live in `internal/provider/firebase`:
 - PNV test numbers (`test_number: true`, the country code and zeros) pass
   only with `PNV_TEST_NUMBERS=true` and are stored as they come.
   `APP_ENV=prod` refuses to start with `PNV_TEST_NUMBERS=true`.
-- Each issuer's keys come from its JWKS URL (`FIREBASE_AUTH_JWKS_URL`,
-  `PNV_JWKS_URL`) and are cached for the response's `max-age`. An unknown
-  `kid`, an expired cache or no keys fetch again, at most once a minute,
-  under one mutex. A failed fetch keeps the keys held; with none ever
-  fetched the endpoint answers 503 `unavailable`, so the app retries
-  instead of asking for a new code.
-- The endpoint has no quota: Firebase limits code requests, and this
-  endpoint checks a signature. Firebase Authentication keeps a user record
-  per SMS sign-in; server2 leaves it, and the app signs out of Firebase once
-  it has the token.
+- Firebase Authentication keeps a user record per SMS sign-in; server2
+  leaves it, and the app signs out of Firebase once it has the token.
 - `FIREBASE_PROJECT_ID` and `FIREBASE_PROJECT_NUMBER` name the project;
-  push uses the same project ID. `OTP_KEY` and `FCM_PROJECT_ID` are gone.
+  push uses the same project ID.
+
+The Google token checks live in `internal/provider/google`: RS256, `iss`
+`accounts.google.com` with or without `https://`, `aud` `GOOGLE_CLIENT_ID`
+(the Web client the app passes to Credential Manager), `exp` required,
+`iat` at most 5 minutes old, `email_verified` true, and `email` through
+`contact.ParseEmail`. A failed check is 401 `invalid_google_token`. An
+empty `GOOGLE_CLIENT_ID` turns Google sign-in off: every token is refused.
+
+Both providers fetch keys through `internal/provider/jwks`, one `Set` per
+URL (`FIREBASE_AUTH_JWKS_URL`, `PNV_JWKS_URL`, `GOOGLE_JWKS_URL`). Keys are
+cached for the response's `max-age`. An unknown `kid`, an expired cache or
+no keys fetch again, at most once a minute, under one mutex. A failed fetch
+keeps the keys held; with none ever fetched the endpoint answers 503
+`unavailable`, so the app retries instead of asking for a new code.
+
+Email codes:
+
+- `POST /v1/auth/email-codes {email}` mails a sign-in code;
+  `POST /v1/accounts/me/email-codes {email}`, signed in, mails an
+  `add_identity` code bound to the caller's account. Both answer
+  `{challenge_id, expires_at, resend_at}`, the same whether or not an
+  account holds the address.
+- Restate service `EmailCodeSend` admits the client's quota (twenty an
+  hour, an IPv6 client by its /64), then the address's (one per 45 seconds,
+  five an hour), creates the challenge and mails the code in a step. The
+  code is derived from the challenge ID with `OTP_KEY`, so a retried send
+  step mails the same code and no code is stored.
+- A code lasts 5 minutes and takes 5 guesses: `invalid_code` with
+  `attempts_left`, then `code_locked`; `code_expired` once it expires or a
+  newer code to the same address replaces it.
+- `EMAIL_SENDER` is `log` or `resend` (`RESEND_API_KEY`, `EMAIL_FROM`).
+  `APP_ENV=prod` refuses the log sender.
+- `login_total{method}` counts `phone`, `google` and `email`;
+  `otp_sent_total` counts mailed codes.
+
+### Adding an identity
+
+`POST /v1/accounts/me/identities` takes a proof of the kind the account
+lacks: a phone token for an email-only account, a Google token or an
+`add_identity` code for a phone-only one. Restate service `AddIdentity`,
+key `<account_id>/<Idempotency-Key>`, judges a code with `judgeGuess`
+(the challenge must be of this account), reads the `Credentials` in a step,
+`Add`s the identity between steps and saves it in the next. A kind the
+account holds is 409 `identity_kind_taken`; a value another account holds
+is 409 `identity_taken`; a lost race is `try_again`. Accounts are never
+merged, and no endpoint changes or removes an identity.
+`GET /v1/accounts/me` answers `MyAccount`, the account with its
+`identities`; `Account`, the public view other modules return, has none.
+
+Posting a listing, opening a deal and opening a chat need a phone identity:
+`accountsvc.Service.HasPhone`, read by `ListingPost` in a step after the
+suspension check, by `Deals.Open` and by `MessageSend`'s facts step when
+it opens, refuses with 403 `phone_required`. Replying in a conversation,
+`RequestCod` and everything else need none. An address's phone is not an
+identity and is not verified.
 
 ### Session use cases
 
@@ -1051,8 +1117,8 @@ Module `chat` holds conversations (spec:
   deleted.
 - Every send runs as the Restate flow `MessageSend` with the key `<sender
   id>/<Idempotency-Key>`, text messages included, so a retried tap sends
-  one message. One step reads what the send depends on (status, listing,
-  phone, conversation, block) and the flow decides between steps; then
+  one message. One step reads what the send depends on (status, a phone
+  when opening, listing, conversation, block) and the flow decides between steps; then
   steps open the pair's conversation, add the message and attach its
   photos to it in media (holder: the message), deleting the message again
   when media refuses the attach; a photo message then sends
@@ -1521,7 +1587,8 @@ prove the copy. `go test -short` runs only what needs no database.
   most once.
 - E2E: the server in-process (HTTP and Restate endpoint), Restate and Postgres
   from the test stack, the deployment registered in `TestMain`, phone tokens
-  signed by `firebasetest` and pushes captured by a fake sender. PNV's keys
+  signed by `firebasetest`, Google tokens signed by `googletest`, mails
+  read from an inbox sender and pushes captured by a fake sender. PNV's keys
   stay down for the run, so a PNV token there sees the 503. The four OpenAPI conformance tests from plan 1
   run unchanged on top of it. `e2e/helpers_test.go` holds the HTTP helpers
   every module's tests use; `auth_helpers_test.go` signs a test account in.
