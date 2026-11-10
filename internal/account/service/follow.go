@@ -9,21 +9,26 @@ import (
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
-// Follow checks that the follower may write and the account exists, then
+// Follow checks that the follower may write and the account exists and is
+// not deleted, then
 // records the follow; the store refuses it across a block and at the cap.
 func (s *Account) Follow(ctx context.Context, follower, followed uuid.UUID) error {
 	if follower == followed {
 		return domain.ErrSelfFollow
 	}
-	suspended, err := s.Suspended(ctx, follower)
+	status, err := s.Status(ctx, follower)
 	if err != nil {
 		return err
 	}
-	if suspended {
-		return domain.ErrSuspended
+	if r := status.Refusal(); r != nil {
+		return r
 	}
-	if _, err = s.load(ctx, followed); err != nil {
+	other, err := s.load(ctx, followed)
+	if err != nil {
 		return err
+	}
+	if other.StoredStatus() == domain.StatusDeleted {
+		return domain.ErrAccountDeleted
 	}
 	if err = s.follows.Follow(ctx, uuid.NewV7(), follower, followed, s.now()); err != nil {
 		return fmt.Errorf("follow: %w", err)

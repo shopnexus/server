@@ -18,7 +18,8 @@ Account:
       description: A public 400 px square; absent without an avatar.
     status:
       type: string
-      enum: [active, suspended]
+      enum: [active, suspended, deleted]
+      description: deleted is an account its person deleted; its name and bio are empty and it has no avatar.
     created_at:
       type: string
       format: date-time

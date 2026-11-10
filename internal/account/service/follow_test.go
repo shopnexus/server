@@ -72,3 +72,21 @@ func TestFollow(t *testing.T) {
 		t.Fatalf("suspended: %v", err)
 	}
 }
+
+func TestFollowADeletedAccount(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	accounts := repository.NewAccounts(db)
+	svc := service.New(service.Deps{Accounts: accounts, Follows: repository.NewFollows(db), Now: func() time.Time { return now }, Log: discard})
+	me, gone := seed(t, accounts), seed(t, accounts)
+	if err := svc.Erase(ctx, gone); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Follow(ctx, me, gone); !errors.Is(err, domain.ErrAccountDeleted) {
+		t.Fatalf("follow a deleted account: %v", err)
+	}
+	if err := svc.Follow(ctx, gone, me); !errors.Is(err, domain.ErrSessionRevoked) {
+		t.Fatalf("a deleted account follows: %v", err)
+	}
+}

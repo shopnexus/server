@@ -7,7 +7,6 @@ import (
 	"slices"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/platform/apperr"
@@ -23,12 +22,12 @@ var reviewable = []dealdomain.OrderStatus{dealdomain.OrderShipped, dealdomain.Or
 // PutReview checks that the caller may write, bought the order and the
 // order is shipped, then creates the review or edits it within 7 days.
 func (s *Trust) PutReview(ctx context.Context, buyer, order uuid.UUID, stars int, text string) (ReviewView, error) {
-	suspended, err := s.accounts.Suspended(ctx, buyer)
+	status, err := s.accounts.Status(ctx, buyer)
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("read account status: %w", err)
 	}
-	if suspended {
-		return ReviewView{}, accountdomain.ErrSuspended
+	if r := status.Refusal(); r != nil {
+		return ReviewView{}, r
 	}
 	o, err := s.buyersOrder(ctx, buyer, order)
 	if err != nil {

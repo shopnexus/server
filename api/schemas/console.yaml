@@ -157,7 +157,7 @@ ConsoleAccount:
       type: string
     status:
       type: string
-      enum: [active, suspended]
+      enum: [active, suspended, deleted]
     suspended_until:
       type: string
       format: date-time

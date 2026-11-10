@@ -7,7 +7,6 @@ import (
 	"time"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/repository"
@@ -87,12 +86,12 @@ func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (mov
 		return moving{}, err
 	}
 	if binds {
-		suspended, readErr := s.accounts.Suspended(ctx, caller)
+		status, readErr := s.accounts.Status(ctx, caller)
 		if readErr != nil {
 			return moving{}, fmt.Errorf("read account status: %w", readErr)
 		}
-		if suspended {
-			return moving{}, accountdomain.ErrSuspended
+		if r := status.Refusal(); r != nil {
+			return moving{}, r
 		}
 	}
 	l, err := s.listing(ctx, d.ListingID())

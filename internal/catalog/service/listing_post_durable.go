@@ -59,14 +59,14 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	if err != nil {
 		return PostResult{}, err
 	}
-	suspended, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
-		return s.Accounts.Suspended(rc, in.Seller)
+	status, err := restate.Run(ctx, func(rc restate.RunContext) (accountdomain.Status, error) {
+		return s.Accounts.Status(rc, in.Seller)
 	})
 	if err != nil {
 		return PostResult{}, fmt.Errorf("read account status: %w", err)
 	}
-	if suspended {
-		return PostResult{Refused: accountdomain.ErrSuspended}, nil
+	if r := status.Refusal(); r != nil {
+		return PostResult{Refused: r}, nil
 	}
 	n, err := restate.Run(ctx, func(rc restate.RunContext) (int, error) {
 		counts, stepErr := s.Listings.CountByStatus(rc, in.Seller)

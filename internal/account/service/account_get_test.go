@@ -9,7 +9,7 @@ import (
 	"github.com/shopnexus/server2/internal/account/domain"
 )
 
-func TestSuspendedFollowsTheClock(t *testing.T) {
+func TestStatusFollowsTheClock(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)
 	id := seed(t, s)
@@ -23,10 +23,10 @@ func TestSuspendedFollowsTheClock(t *testing.T) {
 	}
 	for _, c := range []struct {
 		at   time.Time
-		want bool
-	}{{now, true}, {until.Add(time.Second), false}} {
-		if got, err := at(s, nil, c.at).Suspended(context.Background(), id); err != nil || got != c.want {
-			t.Fatalf("at %s: %t %v", c.at, got, err)
+		want domain.Status
+	}{{now, domain.StatusSuspended}, {until.Add(time.Second), domain.StatusActive}} {
+		if got, err := at(s, nil, c.at).Status(context.Background(), id); err != nil || got != c.want {
+			t.Fatalf("at %s: %s %v", c.at, got, err)
 		}
 	}
 }

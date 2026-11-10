@@ -46,14 +46,14 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 	if err != nil {
 		return EditResult{}, err
 	}
-	suspended, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
-		return s.Accounts.Suspended(rc, in.Seller)
+	status, err := restate.Run(ctx, func(rc restate.RunContext) (accountdomain.Status, error) {
+		return s.Accounts.Status(rc, in.Seller)
 	})
 	if err != nil {
 		return EditResult{}, fmt.Errorf("read account status: %w", err)
 	}
-	if suspended {
-		return EditResult{Refused: accountdomain.ErrSuspended}, nil
+	if r := status.Refusal(); r != nil {
+		return EditResult{Refused: r}, nil
 	}
 	ld, err := restate.Run(ctx, func(rc restate.RunContext) (loadedListing, error) {
 		l, stepErr := s.Listings.Get(rc, in.ID)

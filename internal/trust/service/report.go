@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/trust/domain"
 	"github.com/shopnexus/server2/internal/trust/repository"
@@ -16,12 +15,12 @@ import (
 // exists, takes a listing's seller as the account reported, then opens the
 // report or updates the open one.
 func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) (ReportView, bool, error) {
-	suspended, err := s.accounts.Suspended(ctx, reporter)
+	status, err := s.accounts.Status(ctx, reporter)
 	if err != nil {
 		return ReportView{}, false, fmt.Errorf("read account status: %w", err)
 	}
-	if suspended {
-		return ReportView{}, false, accountdomain.ErrSuspended
+	if r := status.Refusal(); r != nil {
+		return ReportView{}, false, r
 	}
 	if (in.ListingID == uuid.UUID{}) == (in.AccountID == uuid.UUID{}) {
 		return ReportView{}, false, domain.ErrInvalidReport.WithField("target", "exactly one of listing_id and account_id")

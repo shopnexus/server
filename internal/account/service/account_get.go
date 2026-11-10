@@ -33,12 +33,12 @@ func (s *Account) GetMany(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]A
 	return out, nil
 }
 
-func (s *Account) Suspended(ctx context.Context, id uuid.UUID) (bool, error) {
+func (s *Account) Status(ctx context.Context, id uuid.UUID) (domain.Status, error) {
 	a, err := s.load(ctx, id)
 	if err != nil {
-		return false, err
+		return "", err
 	}
-	return a.Suspended(s.now()), nil
+	return a.Status(s.now()), nil
 }
 
 // load reads an account; an unknown id is domain.ErrAccountNotFound, which

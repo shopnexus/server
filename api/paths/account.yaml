@@ -167,7 +167,7 @@ follows:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The caller follows 1,000 accounts (follow_limit_reached)."
+        description: "The caller follows 1,000 accounts (follow_limit_reached), or the account was deleted (account_deleted)."
         content:
           application/json:
             schema:

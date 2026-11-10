@@ -36,11 +36,16 @@ type Service interface {
 	// Update changes the display name, bio and avatar of an account that
 	// may write.
 	Update(ctx context.Context, id uuid.UUID, in UpdateInput) (AccountView, error)
-	// Suspended reports whether a suspension of the account is in force
-	// now. Another module that refuses a suspended caller answers
-	// domain.ErrSuspended when it is; a Restate step returns the bool, so
+	// Status is the account's status in force now: active, suspended (a
+	// suspension that has not lapsed) or deleted. A module that refuses a
+	// write answers status.Refusal(); a Restate step returns the status, so
 	// the flow can return the refusal as data.
-	Suspended(ctx context.Context, id uuid.UUID) (bool, error)
+	Status(ctx context.Context, id uuid.UUID) (domain.Status, error)
+	// Erase deletes the account: the row stays without a name, bio or
+	// avatar, its credentials, addresses, blocks and follows go, its
+	// sessions are revoked and account.deleted is written. A suspension in
+	// force is domain.ErrSuspended; a deleted account changes nothing.
+	Erase(ctx context.Context, id uuid.UUID) error
 	// Touch records that the person has the app open now.
 	Touch(ctx context.Context, id uuid.UUID) error
 	// ConsoleAccount reads one account as console members see it.
