@@ -1450,12 +1450,15 @@ Spam and scam detection is moderation and goes to trust; the two share
 - `POST /v1/video-reads {video}` takes one of the caller's video uploads
   and an `Idempotency-Key`, and answers 202 with the read. Restate service
   `VideoRead.Start`, key `<account id>/<Idempotency-Key>`, refuses a
-  suspended account, then inserts the row. The insert's transaction takes
+  suspended account and one without a phone (`phone_required`, as a listing
+  post does: a read exists to post a listing, and accounts made of an email
+  alone would otherwise reach the model), then inserts the row. The insert's transaction takes
   a share lock on the caller's `accounts` row (a tombstone is
   `session_revoked`) and `pg_advisory_xact_lock` on the account, and counts
   the reads of the last 24 hours; 30 is `read_limit_reached` 429. `Start`
   then holds the video (another holder is `invalid_upload`, and the row is
-  deleted again) and sends `Expire` with a 24-hour delay and `Run` one way,
+  deleted again; a hold that loses a race to another start's save runs
+  again and then sees that holder) and sends `Expire` with a 24-hour delay and `Run` one way,
   both keyed by the read's ID.
 - `Run` has three model steps, and each saves the row and notifies the
   account with `video_read`. Frames: the video goes to `ai`'s
@@ -1483,11 +1486,14 @@ Spam and scam detection is moderation and goes to trust; the two share
   `source: model`; without that, none. An embedding failure falls back to
   the model's range.
 - A 4xx from `ai` fails the read: `unreadable_video`, `video_too_short`
-  (under 3 s) or `video_too_long` (over 35 s). A 4xx from speech to text is
-  `unreadable_video`, and one from the LLM (`llm.ErrRefused`, any 4xx but
-  429) is `unavailable` at once. The run has a 2-minute deadline from
+  (under 3 s) or `video_too_long` (over 35 s); any other 4xx from `ai` is the request's fault,
+  `unavailable`, and logged. A 4xx from speech to text (a key, a budget, an
+  error code the gateway rewrote) reads the video without speech, since the
+  frames step already read it, and is logged. One from the LLM
+  (`llm.ErrRefused`, any 4xx but 429) is `unavailable` at once. The run has a 2-minute deadline from
   `created_at`. Each model step runs with `restate.WithMaxRetryDuration` set
-  to the time left; a frames or fill step that runs out, or would start
+  to the time left and at most 3 attempts, since the SDK retries a step
+  every 2 s at most; a frames or fill step that runs out, or would start
   after the deadline, saves `failed` with `unavailable`. The estimate step
   never fails a read: past the deadline or after a failure the read ends
   `done` with the model's range. Every end consumes the video before it
@@ -1496,8 +1502,10 @@ Spam and scam detection is moderation and goes to trust; the two share
   `expires_at`; any other read is `video_read_not_found` 404. Frame URLs
   are presigned GETs valid for an hour; a frame posted in a listing loses
   its original under `uploads/` when the listing's photos are processed, so
-  its URL stops working. `Expire` consumes the video of a run that never
-  ended and deletes the row after 24 hours; frames not posted expire with
+  its URL stops working. `Expire`, sent with the read's ID and its video's,
+  consumes the video of a run that never ended, or of a read whose row is
+  already gone (an account deleted between `Start` and `Run`), and deletes
+  the row after 24 hours; frames not posted expire with
   their uploads.
 - The transcript is never stored, logged or returned. The fill's log line
   holds the prompt version, the frame count, the transcript's length in

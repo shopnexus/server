@@ -31,7 +31,11 @@ videoReads:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
-        $ref: "../responses/common.yaml#/Forbidden"
+        description: "The account is suspended (account_suspended), or has no phone to sign in with (phone_required)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
       "422":
         description: "The upload is not the caller's, not a video, not uploaded yet, expired or already read (invalid_upload)."
         content:

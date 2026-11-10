@@ -15,11 +15,15 @@ import (
 	"github.com/restatedev/sdk-go/ingress"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/assist/domain"
+	"github.com/shopnexus/server2/internal/assist/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	mediadomain "github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/media/mediatest"
+	mediarepo "github.com/shopnexus/server2/internal/media/repository"
+	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/provider/frames"
 	"github.com/shopnexus/server2/internal/provider/llm"
@@ -31,7 +35,7 @@ import (
 func TestReadFillsADraft(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	seller := accounttest.New(t, e.db)
+	seller := accounttest.WithPhone(t, e.db)
 	started := e.start(t, seller)
 	if started.Status != domain.StatusReading || started.Draft != nil || started.Estimate != nil {
 		t.Fatalf("started: %+v", started)
@@ -83,18 +87,17 @@ func TestReadFailures(t *testing.T) {
 		frames  int
 	}{
 		{"unreadable", func(e *env) { e.cut.err = frames.ErrUnreadable }, domain.FailUnreadable, 2, 0},
-		{"refused by ai", func(e *env) { e.cut.err = frames.ErrRefused }, domain.FailUnreadable, 2, 0},
+		{"refused by ai", func(e *env) { e.cut.err = frames.ErrRefused }, domain.FailUnavailable, 2, 0},
 		{"too short", func(e *env) { e.cut.err = frames.ErrTooShort }, domain.FailTooShort, 2, 0},
 		{"too long", func(e *env) { e.cut.err = frames.ErrTooLong }, domain.FailTooLong, 2, 0},
 		{"no frames", func(e *env) { e.cut.frames = 0 }, domain.FailUnreadable, 2, 0},
 		{"no item", func(e *env) { e.model.answer = noItem }, domain.FailNoItem, 3, 3},
-		{"stt refused", func(e *env) { e.stt.err = stt.ErrRefused }, domain.FailUnreadable, 3, 3},
 		{"model refused", func(e *env) { e.model.err = fmt.Errorf("model answered 400: %w", llm.ErrRefused) }, domain.FailUnavailable, 3, 3},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			e := newEnv(t, c.opt)
-			seller := accounttest.New(t, e.db)
+			seller := accounttest.WithPhone(t, e.db)
 			v := e.end(t, seller, e.start(t, seller).ID)
 			if v.Status != domain.StatusFailed || v.Failure != c.failure || v.Draft != nil || v.Estimate != nil || len(v.Frames) != c.frames {
 				t.Fatalf("%+v", v)
@@ -113,7 +116,7 @@ func TestReadFailures(t *testing.T) {
 func TestReadWithoutSound(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(e *env) { e.stt.err = stt.ErrNoAudio })
-	seller := accounttest.New(t, e.db)
+	seller := accounttest.WithPhone(t, e.db)
 	v := e.end(t, seller, e.start(t, seller).ID)
 	if v.Status != domain.StatusDone || v.Draft == nil {
 		t.Fatalf("%+v", v)
@@ -128,7 +131,7 @@ func TestReadWithoutSound(t *testing.T) {
 func TestReadPastTheDeadline(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(x *env) { x.cut.onCall = func() { x.clock.Add(3 * time.Minute) } })
-	seller := accounttest.New(t, e.db)
+	seller := accounttest.WithPhone(t, e.db)
 	v := e.end(t, seller, e.start(t, seller).ID)
 	if v.Status != domain.StatusFailed || v.Failure != domain.FailUnavailable || len(v.Frames) != 3 {
 		t.Fatalf("%+v", v)
@@ -152,7 +155,7 @@ func TestReadModelKeepsFailing(t *testing.T) {
 		x.cut.onCall = func() { x.clock.Add(domain.Deadline - 2*time.Second) }
 		x.model.err = errors.New("the model is down")
 	})
-	seller := accounttest.New(t, e.db)
+	seller := accounttest.WithPhone(t, e.db)
 	v := e.end(t, seller, e.start(t, seller).ID)
 	if v.Status != domain.StatusFailed || v.Failure != domain.FailUnavailable {
 		t.Fatalf("%+v", v)
@@ -193,7 +196,7 @@ func TestReadMarketEstimate(t *testing.T) {
 		}
 		x.deps.Catalog = cat
 	})
-	seller := accounttest.New(t, e.db)
+	seller := accounttest.WithPhone(t, e.db)
 	v := e.end(t, seller, e.start(t, seller).ID)
 	if v.Estimate == nil || *v.Estimate == nil {
 		t.Fatalf("%+v", v)
@@ -221,7 +224,7 @@ func (failingEmbed) Embed(context.Context, []string) ([][]float32, error) {
 func TestReadEstimateWithoutEmbeddings(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(x *env) { x.deps.Text, x.deps.Image = failingEmbed{}, failingEmbed{} })
-	seller := accounttest.New(t, e.db)
+	seller := accounttest.WithPhone(t, e.db)
 	v := e.end(t, seller, e.start(t, seller).ID)
 	if v.Status != domain.StatusDone || v.Estimate == nil || *v.Estimate == nil || (*v.Estimate).Source != domain.SourceModel {
 		t.Fatalf("%+v", v)
@@ -232,7 +235,7 @@ func TestStartReadRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	me, other := accounttest.New(t, e.db), accounttest.New(t, e.db)
+	me, other := accounttest.WithPhone(t, e.db), accounttest.WithPhone(t, e.db)
 
 	reads := func(account uuid.UUID) int {
 		var n int
@@ -265,7 +268,7 @@ func TestStartReadRefusals(t *testing.T) {
 		t.Fatalf("a video read twice: %v", err)
 	}
 
-	busy := accounttest.New(t, e.db)
+	busy := accounttest.WithPhone(t, e.db)
 	for range domain.ReadLimit {
 		if err := e.reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now())); err != nil {
 			t.Fatal(err)
@@ -275,7 +278,12 @@ func TestStartReadRefusals(t *testing.T) {
 		t.Fatalf("at the cap: %v", err)
 	}
 
-	suspended := accounttest.New(t, e.db)
+	noPhone := accounttest.New(t, e.db)
+	if err := start(noPhone, e.video(t, noPhone)); !errors.Is(err, accountdomain.ErrPhoneRequired) {
+		t.Fatalf("no phone: %v", err)
+	}
+
+	suspended := accounttest.WithPhone(t, e.db)
 	v := e.video(t, suspended)
 	accounttest.Suspend(t, e.accounts, suspended)
 	if err := start(suspended, v); err == nil || apperr.From(err).Code != "account_suspended" {
@@ -289,7 +297,7 @@ func TestStartReadRace(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	me := accounttest.New(t, e.db)
+	me := accounttest.WithPhone(t, e.db)
 	video := e.video(t, me)
 	errs := make(chan error, 2)
 	for range 2 {
@@ -324,7 +332,7 @@ func TestStartReadTwice(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	me := accounttest.New(t, e.db)
+	me := accounttest.WithPhone(t, e.db)
 	key, video := uuid.NewV7().String(), e.video(t, me)
 	first, err := e.assist.StartRead(ctx, me, key, video)
 	if err != nil {
@@ -346,7 +354,7 @@ func TestGetRead(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	me, other := accounttest.New(t, e.db), accounttest.New(t, e.db)
+	me, other := accounttest.WithPhone(t, e.db), accounttest.WithPhone(t, e.db)
 	v := e.end(t, me, e.start(t, me).ID)
 	if _, err := e.assist.GetRead(ctx, other, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another account: %v", err)
@@ -366,12 +374,17 @@ func TestExpireDeletesTheRead(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	me := accounttest.New(t, e.db)
+	me := accounttest.WithPhone(t, e.db)
 	v := e.end(t, me, e.start(t, me).ID)
 	status := e.videoOf(t, v.ID)
+	r, err := e.reads.Get(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := service.ExpireInput{Read: v.ID, Video: r.VideoID()}
 	for range 2 {
-		if _, err := ingress.Service[uuid.UUID, restate.Void](e.ingress, e.prefix+"VideoRead", "Expire").
-			Request(ctx, v.ID, restate.WithIdempotencyKey(uuid.NewV7().String())); err != nil {
+		if _, err = ingress.Service[service.ExpireInput, restate.Void](e.ingress, e.prefix+"VideoRead", "Expire").
+			Request(ctx, in, restate.WithIdempotencyKey(uuid.NewV7().String())); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -387,7 +400,7 @@ func TestDeleteAccount(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	me := accounttest.New(t, e.db)
+	me := accounttest.WithPhone(t, e.db)
 	v := e.end(t, me, e.start(t, me).ID)
 	for range 2 {
 		if err := e.assist.DeleteAccount(ctx, me); err != nil {
@@ -396,5 +409,90 @@ func TestDeleteAccount(t *testing.T) {
 	}
 	if _, err := e.reads.Get(ctx, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("read still there: %v", err)
+	}
+}
+
+// A refusal from speech to text (a bad key, a spent budget, an error code
+// the gateway rewrote) is not the seller's video: the frames step already
+// read it, so the read goes on without the speech.
+func TestReadWhenSpeechToTextRefuses(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, func(x *env) { x.stt.err = stt.ErrRefused })
+	seller := accounttest.WithPhone(t, e.db)
+	v := e.end(t, seller, e.start(t, seller).ID)
+	if v.Status != domain.StatusDone || v.Draft == nil {
+		t.Fatalf("%+v", v)
+	}
+	if _, _, user := e.model.asked(); strings.Contains(user, transcript) {
+		t.Fatalf("the model got a transcript: %q", user)
+	}
+}
+
+// A fill step that keeps failing stops after three attempts, so an outage
+// of the model does not transcribe one video and ask the model again every
+// two seconds until the deadline.
+func TestReadFillTriesThreeTimes(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, func(x *env) { x.model.err = errors.New("the model is down") })
+	seller := accounttest.WithPhone(t, e.db)
+	v := e.end(t, seller, e.start(t, seller).ID)
+	if v.Status != domain.StatusFailed || v.Failure != domain.FailUnavailable {
+		t.Fatalf("%+v", v)
+	}
+	if calls, _, _ := e.model.asked(); calls != 3 {
+		t.Fatalf("the model was asked %d times, want 3", calls)
+	}
+}
+
+// flakyHold loses the hold's first save to a race, as a second start of the
+// same video does when its hold overlaps this one.
+type flakyHold struct {
+	mediasvc.Service
+
+	mu    sync.Mutex
+	calls int
+}
+
+func (f *flakyHold) HoldVideo(ctx context.Context, owner, holder, id uuid.UUID) error {
+	f.mu.Lock()
+	f.calls++
+	first := f.calls == 1
+	f.mu.Unlock()
+	if first {
+		return apperr.ErrTryAgain
+	}
+	return f.Service.HoldVideo(ctx, owner, holder, id)
+}
+
+// A hold that lost a race runs again: the start answers the read, never
+// try_again, which Restate would keep under the Idempotency-Key.
+func TestStartReadRetriesALostHold(t *testing.T) {
+	t.Parallel()
+	hold := &flakyHold{}
+	e := newEnv(t, func(x *env) { hold.Service = x.media; x.deps.Media = hold })
+	me := accounttest.WithPhone(t, e.db)
+	if _, err := e.assist.StartRead(context.Background(), me, uuid.NewV7().String(), e.video(t, me)); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+}
+
+// Expire consumes the video even when the read's row is gone, as after the
+// account's deletion between Start and Run.
+func TestExpireConsumesTheVideoOfAGoneRead(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	me, read := accounttest.WithPhone(t, e.db), uuid.NewV7()
+	video := e.video(t, me)
+	if err := e.media.HoldVideo(ctx, me, read, video); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ingress.Service[service.ExpireInput, restate.Void](e.ingress, e.prefix+"VideoRead", "Expire").
+		Request(ctx, service.ExpireInput{Read: read, Video: video}, restate.WithIdempotencyKey(uuid.NewV7().String())); err != nil {
+		t.Fatal(err)
+	}
+	u, err := mediarepo.NewUploads(e.db).Get(ctx, video)
+	if err != nil || u.Status() != mediadomain.StatusConsumed {
+		t.Fatalf("video %s %v", u.Status(), err)
 	}
 }

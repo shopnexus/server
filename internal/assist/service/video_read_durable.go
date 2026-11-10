@@ -37,6 +37,18 @@ type StartInput struct {
 	Video   uuid.UUID `json:"video"`
 }
 
+// modelAttempts bounds each model step: SDK v1.1.0 retries a step every
+// 2 s at most, so a step bounded only by the deadline would transcribe the
+// video and ask the model again some 40 times during an outage.
+const modelAttempts = 3
+
+// ExpireInput names the read Expire deletes and the video it holds, so a
+// read whose row is already gone still has its video consumed.
+type ExpireInput struct {
+	Read  uuid.UUID `json:"read"`
+	Video uuid.UUID `json:"video"`
+}
+
 // StartResult names the read started, or carries the refusal.
 type StartResult struct {
 	ReadID  uuid.UUID     `json:"read_id"`
@@ -98,6 +110,17 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 	if r := status.Refusal(); r != nil {
 		return StartResult{Refused: r}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
 	}
+	// A read exists to post a listing, and posting needs a phone; asking
+	// for it here keeps accounts made of an email alone off the model.
+	hasPhone, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
+		return s.Accounts.HasPhone(rc, in.Account)
+	})
+	if err != nil {
+		return StartResult{}, fmt.Errorf("read the account's phone: %w", err)
+	}
+	if !hasPhone {
+		return StartResult{Refused: accountdomain.ErrPhoneRequired}, nil
+	}
 	id := restatex.NewID(ctx, at)
 	read := domain.NewVideoRead(id, in.Account, in.Video, at)
 	inserted, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
@@ -110,7 +133,13 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 		return StartResult{Refused: inserted.Refusal}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
 	}
 	held, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		return restatex.AsRefusal(s.Media.HoldVideo(rc, in.Account, id, in.Video))
+		holdErr := s.Media.HoldVideo(rc, in.Account, id, in.Video)
+		if errors.Is(holdErr, apperr.ErrTryAgain) {
+			// Another start's hold saved first; the retry sees its holder
+			// and refuses with invalid_upload.
+			return restatex.Refused{}, fmt.Errorf("hold video: %w", holdErr)
+		}
+		return restatex.AsRefusal(holdErr)
 	})
 	if err != nil {
 		return StartResult{}, fmt.Errorf("hold video: %w", err)
@@ -122,7 +151,7 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 		return StartResult{Refused: held.Refusal}, nil
 	}
 	restate.ServiceSend(ctx, s.Prefix+videoRead, "Expire").
-		Send(id, restate.WithDelay(domain.KeepFor), restate.WithIdempotencyKey(id.String()))
+		Send(ExpireInput{Read: id, Video: in.Video}, restate.WithDelay(domain.KeepFor), restate.WithIdempotencyKey(id.String()))
 	restate.ServiceSend(ctx, s.Prefix+videoRead, "Run").Send(id, restate.WithIdempotencyKey(id.String()))
 	return StartResult{ReadID: id}, nil
 }
@@ -217,8 +246,12 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		defer cancel()
 		res, cutErr := s.Frames.Extract(callCtx, video, size)
 		switch {
-		case errors.Is(cutErr, frames.ErrUnreadable), errors.Is(cutErr, frames.ErrRefused):
+		case errors.Is(cutErr, frames.ErrUnreadable):
 			return cutFrames{Failure: domain.FailUnreadable}, nil
+		case errors.Is(cutErr, frames.ErrRefused):
+			// ai refused the request itself, not the video.
+			s.Log.WarnContext(rc, "ai refused the frames request", "read", id, "err", cutErr)
+			return cutFrames{Failure: domain.FailUnavailable}, nil
 		case errors.Is(cutErr, frames.ErrTooShort):
 			return cutFrames{Failure: domain.FailTooShort}, nil
 		case errors.Is(cutErr, frames.ErrTooLong):
@@ -243,7 +276,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 			}
 		}
 		return out, nil
-	}, restate.WithMaxRetryDuration(deadline.Sub(at)))
+	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
 		return fail(at, domain.FailUnavailable)
 	}
@@ -280,7 +313,10 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		case errors.Is(sttErr, stt.ErrNoAudio):
 			transcript = ""
 		case errors.Is(sttErr, stt.ErrRefused):
-			return filled{Failure: domain.FailUnreadable}, nil
+			// The frames step read the video, so a refusal is the gateway's
+			// (a key, a budget, a rewritten error code): read without speech.
+			s.Log.WarnContext(rc, "speech to text refused; the read goes on without speech", "read", id, "err", sttErr)
+			transcript = ""
 		case sttErr != nil:
 			return filled{}, fmt.Errorf("transcribe: %w", sttErr)
 		default:
@@ -327,7 +363,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 			return filled{}, fmt.Errorf("clean the answer: %w", cleanErr)
 		}
 		return filled{Draft: d, Range: rng}, nil
-	}, restate.WithMaxRetryDuration(deadline.Sub(at)))
+	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
 		return fail(at, domain.FailUnavailable)
 	}
@@ -405,7 +441,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 				ss[i] = domain.Sample{Price: x.Price, Sold: x.Sold}
 			}
 			return domain.MarketEstimate(ss), nil
-		}, restate.WithMaxRetryDuration(deadline.Sub(at)))
+		}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 		if marketErr == nil {
 			market = m
 		}
@@ -425,8 +461,9 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 }
 
 // Expire deletes a read a day after it started. It consumes the video
-// first, for a run that never ended.
-func (s VideoRead) Expire(ctx restate.Context, id uuid.UUID) error {
+// first, for a run that never ended or a read whose row is already gone.
+func (s VideoRead) Expire(ctx restate.Context, in ExpireInput) error {
+	id := in.Read
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
 		r, stepErr := s.Reads.Get(rc, id)
 		if errors.Is(stepErr, domain.ErrNotFound) {
@@ -440,13 +477,19 @@ func (s VideoRead) Expire(ctx restate.Context, id uuid.UUID) error {
 	if err != nil {
 		return fmt.Errorf("load read: %w", err)
 	}
-	if !loaded.Found {
-		return nil
+	// A row gone before its run (the account deleted between Start and
+	// Run) still leaves its video held; Start named it in the input.
+	video := in.Video
+	if loaded.Found {
+		video = loaded.Read.VideoID()
 	}
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		return s.Media.Consume(rc, loaded.Read.VideoID())
+		return s.Media.Consume(rc, video)
 	}); err != nil {
 		return fmt.Errorf("consume video: %w", err)
+	}
+	if !loaded.Found {
+		return nil
 	}
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Reads.Delete(rc, id) }); err != nil {
 		return fmt.Errorf("delete read: %w", err)
