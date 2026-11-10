@@ -17,6 +17,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/provider/firebase"
 	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
+	"github.com/shopnexus/server2/internal/provider/jwks"
 )
 
 var at = time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)
@@ -127,7 +128,7 @@ func TestVerifyWithoutKeysIsUnavailable(t *testing.T) {
 	t.Parallel()
 	i := newIssuer(t)
 	i.SetPNVDown(true)
-	if _, err := verifier(i, false).Verify(context.Background(), i.PNVToken(phone)); !errors.Is(err, firebase.ErrUnavailable) {
+	if _, err := verifier(i, false).Verify(context.Background(), i.PNVToken(phone)); !errors.Is(err, jwks.ErrUnavailable) {
 		t.Fatalf("%v", err)
 	}
 }

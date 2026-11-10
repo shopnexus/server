@@ -1,4 +1,4 @@
-package firebase
+package jwks
 
 import (
 	"context"
@@ -85,11 +85,11 @@ func doc(t *testing.T, keys ...map[string]string) string {
 }
 
 // newSet is a key set on srv with its clock at *at.
-func newSet(t *testing.T, srv *server, at *time.Time) *keySet {
+func newSet(t *testing.T, srv *server, at *time.Time) *Set {
 	t.Helper()
 	ts := httptest.NewServer(srv)
 	t.Cleanup(ts.Close)
-	return &keySet{url: ts.URL, http: ts.Client(), now: func() time.Time { return *at }, log: slog.New(slog.DiscardHandler)}
+	return New(ts.URL, func() time.Time { return *at }, slog.New(slog.DiscardHandler))
 }
 
 func TestKeySetReadsECAndRSAKeys(t *testing.T) {
@@ -106,14 +106,14 @@ func TestKeySetReadsECAndRSAKeys(t *testing.T) {
 	at := start
 	s := newSet(t, srv, &at)
 	ctx := context.Background()
-	if k, err := s.key(ctx, "ec"); err != nil || !k.(*ecdsa.PublicKey).Equal(ecPub) {
+	if k, err := s.Key(ctx, "ec"); err != nil || !k.(*ecdsa.PublicKey).Equal(ecPub) {
 		t.Fatalf("ec: %v", err)
 	}
-	if k, err := s.key(ctx, "rsa"); err != nil || !k.(*rsa.PublicKey).Equal(rsaPub) {
+	if k, err := s.Key(ctx, "rsa"); err != nil || !k.(*rsa.PublicKey).Equal(rsaPub) {
 		t.Fatalf("rsa: %v", err)
 	}
 	for _, kid := range []string{"small", "enc", "off", "oct"} {
-		if _, err := s.key(ctx, kid); !errors.Is(err, errUnknownKey) {
+		if _, err := s.Key(ctx, kid); !errors.Is(err, ErrUnknownKey) {
 			t.Errorf("%s is held: %v", kid, err)
 		}
 	}
@@ -127,7 +127,7 @@ func TestKeySetCachesForMaxAge(t *testing.T) {
 	at := start
 	s := newSet(t, srv, &at)
 	for range 3 {
-		if _, err := s.key(context.Background(), "ec"); err != nil {
+		if _, err := s.Key(context.Background(), "ec"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -135,7 +135,7 @@ func TestKeySetCachesForMaxAge(t *testing.T) {
 		t.Fatalf("fetches within max-age: %d", n)
 	}
 	at = start.Add(time.Hour)
-	if _, err := s.key(context.Background(), "ec"); err != nil || srv.hits.Load() != 2 {
+	if _, err := s.Key(context.Background(), "ec"); err != nil || srv.hits.Load() != 2 {
 		t.Fatalf("after max-age: %v, %d fetches", err, srv.hits.Load())
 	}
 }
@@ -150,11 +150,11 @@ func TestKeySetUnknownKidFetchesOnceAMinute(t *testing.T) {
 	at := start
 	s := newSet(t, srv, &at)
 	ctx := context.Background()
-	if _, err := s.key(ctx, "ec"); err != nil {
+	if _, err := s.Key(ctx, "ec"); err != nil {
 		t.Fatal(err)
 	}
 	for _, kid := range []string{"forged-1", "forged-2"} {
-		if _, err := s.key(ctx, kid); !errors.Is(err, errUnknownKey) {
+		if _, err := s.Key(ctx, kid); !errors.Is(err, ErrUnknownKey) {
 			t.Fatalf("%s: %v", kid, err)
 		}
 	}
@@ -164,7 +164,7 @@ func TestKeySetUnknownKidFetchesOnceAMinute(t *testing.T) {
 	rotated, _ := ecJWK(t, "rotated")
 	srv.set(http.StatusOK, doc(t, ec, rotated), "")
 	at = start.Add(time.Minute)
-	if _, err := s.key(ctx, "rotated"); err != nil || srv.hits.Load() != 2 {
+	if _, err := s.Key(ctx, "rotated"); err != nil || srv.hits.Load() != 2 {
 		t.Fatalf("a key published since: %v, %d fetches", err, srv.hits.Load())
 	}
 }
@@ -176,12 +176,12 @@ func TestKeySetFailedFetchKeepsTheKeys(t *testing.T) {
 	srv.set(http.StatusOK, doc(t, ec), "max-age=60")
 	at := start
 	s := newSet(t, srv, &at)
-	if _, err := s.key(context.Background(), "ec"); err != nil {
+	if _, err := s.Key(context.Background(), "ec"); err != nil {
 		t.Fatal(err)
 	}
 	srv.set(http.StatusServiceUnavailable, "down", "")
 	at = start.Add(2 * time.Minute)
-	if _, err := s.key(context.Background(), "ec"); err != nil || srv.hits.Load() != 2 {
+	if _, err := s.Key(context.Background(), "ec"); err != nil || srv.hits.Load() != 2 {
 		t.Fatalf("a failed refresh: %v, %d fetches", err, srv.hits.Load())
 	}
 }
@@ -193,13 +193,13 @@ func TestKeySetBadBodyKeepsTheKeys(t *testing.T) {
 	srv.set(http.StatusOK, doc(t, ec), "max-age=60")
 	at := start
 	s := newSet(t, srv, &at)
-	if _, err := s.key(context.Background(), "ec"); err != nil {
+	if _, err := s.Key(context.Background(), "ec"); err != nil {
 		t.Fatal(err)
 	}
 	for i, body := range []string{"<html>", `{"keys": [` + strings.Repeat(`{"kty":"EC"},`, 1<<17) + `{}]}`, `{}`, `{"keys": []}`, `null`} {
 		srv.set(http.StatusOK, body, "")
 		at = start.Add(time.Duration(i+2) * time.Minute)
-		if _, err := s.key(context.Background(), "ec"); err != nil {
+		if _, err := s.Key(context.Background(), "ec"); err != nil {
 			t.Fatalf("body %d replaced the keys: %v", i, err)
 		}
 	}
@@ -212,7 +212,7 @@ func TestKeySetWithoutKeysIsUnavailable(t *testing.T) {
 	at := start
 	s := newSet(t, srv, &at)
 	for range 2 {
-		if _, err := s.key(context.Background(), "ec"); !errors.Is(err, ErrUnavailable) {
+		if _, err := s.Key(context.Background(), "ec"); !errors.Is(err, ErrUnavailable) {
 			t.Fatalf("%v", err)
 		}
 	}
@@ -231,7 +231,7 @@ func TestKeySetParallelLookupsFetchOnce(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 20 {
 		wg.Go(func() {
-			if _, err := s.key(context.Background(), "ec"); err != nil {
+			if _, err := s.Key(context.Background(), "ec"); err != nil {
 				t.Error(err)
 			}
 		})
@@ -253,8 +253,8 @@ func TestKeySetCancelledCallerStillFetches(t *testing.T) {
 	s := newSet(t, srv, &at)
 	gone, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, _ = s.key(gone, "ec")
-	if _, err := s.key(context.Background(), "ec"); err != nil {
+	_, _ = s.Key(gone, "ec")
+	if _, err := s.Key(context.Background(), "ec"); err != nil {
 		t.Fatalf("after a cancelled caller: %v", err)
 	}
 }
@@ -268,17 +268,17 @@ func TestKeySetUnknownKidWhileDownIsUnavailable(t *testing.T) {
 	srv.set(http.StatusOK, doc(t, ec), "max-age=60")
 	at := start
 	s := newSet(t, srv, &at)
-	if _, err := s.key(context.Background(), "ec"); err != nil {
+	if _, err := s.Key(context.Background(), "ec"); err != nil {
 		t.Fatal(err)
 	}
 	srv.set(http.StatusServiceUnavailable, "down", "")
 	at = start.Add(2 * time.Minute)
 	for _, kid := range []string{"rotated", "rotated"} {
-		if _, err := s.key(context.Background(), kid); !errors.Is(err, ErrUnavailable) {
+		if _, err := s.Key(context.Background(), kid); !errors.Is(err, ErrUnavailable) {
 			t.Fatalf("%s while down: %v", kid, err)
 		}
 	}
-	if _, err := s.key(context.Background(), "ec"); err != nil {
+	if _, err := s.Key(context.Background(), "ec"); err != nil {
 		t.Fatalf("a held key while down: %v", err)
 	}
 }

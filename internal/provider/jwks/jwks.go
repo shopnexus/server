@@ -1,7 +1,6 @@
-// Package firebase checks the phone tokens Firebase issues: ID tokens of
-// Firebase Authentication after an SMS code, and Phone Number Verification
-// tokens from the SIM.
-package firebase
+// Package jwks fetches and caches the public keys a JWKS URL publishes, for
+// the token checks of provider/firebase and provider/google.
+package jwks
 
 import (
 	"context"
@@ -35,13 +34,14 @@ const (
 
 // ErrUnavailable is a token whose keys could not be fetched yet. The app
 // tries again instead of asking for a new code.
-var ErrUnavailable = apperr.New(apperr.KindUnavailable, "unavailable", "phone tokens cannot be checked right now; try again")
+var ErrUnavailable = apperr.New(apperr.KindUnavailable, "unavailable", "sign-in tokens cannot be checked right now; try again")
 
-var errUnknownKey = errors.New("firebase: no key with this kid")
+// ErrUnknownKey is a kid the key set does not hold.
+var ErrUnknownKey = errors.New("jwks: no key with this kid")
 
-// keySet holds the public keys published at one JWKS URL. Lookups share one
+// Set holds the public keys published at one JWKS URL. Lookups share one
 // mutex, so requests that arrive during a fetch wait for it.
-type keySet struct {
+type Set struct {
 	url  string
 	http *http.Client
 	now  func() time.Time
@@ -54,11 +54,16 @@ type keySet struct {
 	failed    bool                        // whether that fetch failed
 }
 
-// key returns the key named kid. It fetches when no keys are held, when
+// New is the key set at url; its HTTP client times out after 5 seconds.
+func New(url string, now func() time.Time, log *slog.Logger) *Set {
+	return &Set{url: url, http: &http.Client{Timeout: fetchTimeout}, now: now, log: log}
+}
+
+// Key returns the key named kid. It fetches when no keys are held, when
 // max-age has passed or when kid is unknown, at most once a minute. A failed
 // fetch keeps the keys held, and an unknown kid is then unavailable: it may
 // be a key published since.
-func (s *keySet) key(ctx context.Context, kid string) (crypto.PublicKey, error) {
+func (s *Set) Key(ctx context.Context, kid string) (crypto.PublicKey, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := s.now()
@@ -69,7 +74,7 @@ func (s *keySet) key(ctx context.Context, kid string) (crypto.PublicKey, error) 
 		keys, freshTill, err := s.fetch(ctx)
 		s.failed = err != nil
 		if err != nil {
-			s.log.WarnContext(ctx, "fetch phone token keys", "url", s.url, "err", err)
+			s.log.WarnContext(ctx, "fetch sign-in token keys", "url", s.url, "err", err)
 		} else {
 			s.keys, s.freshTill = keys, freshTill
 			k, held = s.keys[kid]
@@ -79,7 +84,7 @@ func (s *keySet) key(ctx context.Context, kid string) (crypto.PublicKey, error) 
 	case s.keys == nil, !held && s.failed:
 		return nil, ErrUnavailable
 	case !held:
-		return nil, errUnknownKey
+		return nil, ErrUnknownKey
 	default:
 		return k, nil
 	}
@@ -87,7 +92,7 @@ func (s *keySet) key(ctx context.Context, kid string) (crypto.PublicKey, error) 
 
 // fetch reads the JWKS document and the time its keys stay fresh until. A
 // caller that hangs up does not cancel it: the keys serve every caller.
-func (s *keySet) fetch(ctx context.Context) (map[string]crypto.PublicKey, time.Time, error) {
+func (s *Set) fetch(ctx context.Context) (map[string]crypto.PublicKey, time.Time, error) {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), fetchTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.url, http.NoBody)

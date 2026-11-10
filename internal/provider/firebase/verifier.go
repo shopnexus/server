@@ -1,3 +1,6 @@
+// Package firebase checks the phone tokens Firebase issues: ID tokens of
+// Firebase Authentication after an SMS code, and Phone Number Verification
+// tokens from the SIM.
 package firebase
 
 import (
@@ -5,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -13,6 +15,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server2/internal/provider/jwks"
 )
 
 const (
@@ -28,18 +31,17 @@ var ErrInvalidToken = apperr.New(apperr.KindUnauthenticated, "invalid_phone_toke
 // PhoneVerifier checks phone tokens of one Firebase project.
 type PhoneVerifier struct {
 	cfg  config.FirebaseConfig
-	auth *keySet
-	pnv  *keySet
+	auth *jwks.Set
+	pnv  *jwks.Set
 	now  func() time.Time
 	log  *slog.Logger
 }
 
 func NewPhoneVerifier(cfg config.FirebaseConfig, now func() time.Time, log *slog.Logger) *PhoneVerifier {
-	client := &http.Client{Timeout: fetchTimeout}
 	return &PhoneVerifier{
 		cfg: cfg, now: now, log: log,
-		auth: &keySet{url: cfg.AuthJWKSURL, http: client, now: now, log: log},
-		pnv:  &keySet{url: cfg.PNVJWKSURL, http: client, now: now, log: log},
+		auth: jwks.New(cfg.AuthJWKSURL, now, log),
+		pnv:  jwks.New(cfg.PNVJWKSURL, now, log),
 	}
 }
 
@@ -68,8 +70,8 @@ type simClaims struct {
 // Vietnam is contact.ErrInvalidPhone.
 func (v *PhoneVerifier) Verify(ctx context.Context, token string) (contact.Address, error) {
 	refuse := func(why string, err error) (contact.Address, error) {
-		if errors.Is(err, ErrUnavailable) {
-			return contact.Address{}, ErrUnavailable
+		if errors.Is(err, jwks.ErrUnavailable) {
+			return contact.Address{}, jwks.ErrUnavailable
 		}
 		v.log.InfoContext(ctx, "phone token refused", "why", why, "err", err)
 		return contact.Address{}, ErrInvalidToken
@@ -79,10 +81,10 @@ func (v *PhoneVerifier) Verify(ctx context.Context, token string) (contact.Addre
 		return refuse("malformed", err)
 	}
 	now := v.now()
-	keyIn := func(set *keySet) jwt.Keyfunc {
+	keyIn := func(set *jwks.Set) jwt.Keyfunc {
 		return func(t *jwt.Token) (any, error) {
 			kid, _ := t.Header["kid"].(string) //nolint:revive // a token without a kid finds no key
-			return set.key(ctx, kid)
+			return set.Key(ctx, kid)
 		}
 	}
 	parser := func(alg, aud string) *jwt.Parser {
