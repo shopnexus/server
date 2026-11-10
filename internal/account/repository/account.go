@@ -51,6 +51,9 @@ type Accounts interface {
 	TouchActive(ctx context.Context, id uuid.UUID, at time.Time) error
 	// Blocked reports a block between a and b, in either direction.
 	Blocked(ctx context.Context, a, b uuid.UUID) (bool, error)
+	// BlockedWith lists the accounts that block account or that account
+	// blocks.
+	BlockedWith(ctx context.Context, account uuid.UUID) ([]uuid.UUID, error)
 	// ListBlocks is a query: blocker's blocks with IDs below p.Before(),
 	// newest first, at most p.Fetch().
 	ListBlocks(ctx context.Context, blocker uuid.UUID, p page.Request) ([]Block, error)

@@ -256,6 +256,19 @@ WHERE (blocker_id = @a AND blocked_id = @b) OR (blocker_id = @b AND blocked_id =
 	return blocked, nil
 }
 
+func (s pgAccounts) BlockedWith(ctx context.Context, account uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := s.db.Query(ctx, `SELECT blocked_id FROM account_blocks WHERE blocker_id = @a
+UNION SELECT blocker_id FROM account_blocks WHERE blocked_id = @a`, pgx.StrictNamedArgs{"a": account})
+	if err != nil {
+		return nil, fmt.Errorf("select blocks: %w", err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return nil, fmt.Errorf("read blocks: %w", err)
+	}
+	return ids, nil
+}
+
 func (s pgAccounts) ListBlocks(ctx context.Context, blocker uuid.UUID, p page.Request) ([]Block, error) {
 	rows, err := s.db.Query(ctx, `SELECT id, blocked_id, created_at FROM account_blocks
 WHERE blocker_id = @blocker AND id < @before ORDER BY id DESC LIMIT @limit`,

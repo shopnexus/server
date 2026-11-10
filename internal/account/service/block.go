@@ -37,6 +37,14 @@ func (s *Account) Blocked(ctx context.Context, a, b uuid.UUID) (bool, error) {
 	return blocked, nil
 }
 
+func (s *Account) BlockedWith(ctx context.Context, account uuid.UUID) ([]uuid.UUID, error) {
+	ids, err := s.accounts.BlockedWith(ctx, account)
+	if err != nil {
+		return nil, fmt.Errorf("read blocks: %w", err)
+	}
+	return ids, nil
+}
+
 // Blocks lists the accounts blocker blocks with their display names, read
 // in one query.
 func (s *Account) Blocks(ctx context.Context, blocker uuid.UUID, p page.Request) (page.Page[BlockView], error) {
