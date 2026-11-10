@@ -100,12 +100,32 @@ type Vectors interface {
 	// Embeddable lists the listings that should have vectors: every one not
 	// deleted, processing or rejected.
 	Embeddable(ctx context.Context) ([]uuid.UUID, error)
+	// PriceSample returns the prices of the listings like f's vectors, most
+	// similar first, at most f.Limit; nil when f has no vector.
+	PriceSample(ctx context.Context, f PriceFilter) ([]domain.PriceSample, error)
 }
 
 // VectorState is what vectors a listing has.
 type VectorState struct {
 	TextHash []byte
 	Photos   []string
+}
+
+// PriceFilter is what a price sample draws from: listings of CategoryCode
+// in Condition, not Exclude's, sold since SoldSince or active or reserved
+// and published since OnSaleSince. A listing joins when its text vector, or
+// its closest photo vector, under the version given is at cosine TextMin or
+// PhotoMin or more; its similarity is the better of the two. A nil Text or
+// Photo leaves that side out.
+type PriceFilter struct {
+	Exclude                   uuid.UUID
+	CategoryCode              string
+	Condition                 domain.Condition
+	Text, Photo               []float32
+	TextVersion, PhotoVersion string
+	TextMin, PhotoMin         float64
+	SoldSince, OnSaleSince    time.Time
+	Limit                     int
 }
 
 // Place is a commune with its province's display name.

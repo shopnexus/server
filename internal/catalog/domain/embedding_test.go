@@ -68,3 +68,20 @@ func TestHybrid(t *testing.T) {
 		t.Fatal("Hybrid follows the weights")
 	}
 }
+
+// A draft embeds to the text the listing posted from it embeds to, with the
+// same trimming.
+func TestDraftEmbeddingText(t *testing.T) {
+	t.Parallel()
+	l := listing(t, nil)
+	d := domain.Draft{
+		Title: "  iPhone 13 128GB ", Description: " Máy zin, pin 89% ", Condition: domain.ConditionLikeNew,
+		Specs: []domain.Spec{{Label: " Màu ", Value: "Xanh "}},
+	}
+	if got, want := d.EmbeddingText("iPhone"), l.EmbeddingText("iPhone"); got != want {
+		t.Fatalf("%q, want %q", got, want)
+	}
+	if got := (domain.Draft{Title: "Xe đạp", Condition: domain.ConditionUsed}).EmbeddingText("Xe đạp"); got != "Xe đạp\nXe đạp\nĐã dùng" {
+		t.Fatalf("no specs, no description: %q", got)
+	}
+}

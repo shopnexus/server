@@ -22,15 +22,29 @@ var conditionWords = map[Condition]string{ConditionNew: "Mới", ConditionLikeNe
 // the category's name, the condition, each spec as "label: value" and the
 // description, one per line, cut at EmbeddingTextMax characters.
 func (l *Listing) EmbeddingText(category string) string {
+	return embeddingText(l.title, category, l.condition, l.specs, l.description)
+}
+
+// EmbeddingText is the text a listing posted from d would be embedded from,
+// trimmed as NewListing trims it; a price sample embeds a draft with it.
+func (d Draft) EmbeddingText(category string) string {
+	specs := make([]Spec, len(d.Specs))
+	for i, s := range d.Specs {
+		specs[i] = Spec{Label: strings.TrimSpace(s.Label), Value: strings.TrimSpace(s.Value)}
+	}
+	return embeddingText(strings.TrimSpace(d.Title), category, d.Condition, specs, strings.TrimSpace(d.Description))
+}
+
+func embeddingText(title, category string, condition Condition, specs []Spec, description string) string {
 	var b strings.Builder
-	b.WriteString(l.title)
+	b.WriteString(title)
 	b.WriteString("\n" + category)
-	b.WriteString("\n" + conditionWords[l.condition])
-	for _, s := range l.specs {
+	b.WriteString("\n" + conditionWords[condition])
+	for _, s := range specs {
 		b.WriteString("\n" + s.Label + ": " + s.Value)
 	}
-	if l.description != "" {
-		b.WriteString("\n" + l.description)
+	if description != "" {
+		b.WriteString("\n" + description)
 	}
 	text := []rune(b.String())
 	if len(text) > EmbeddingTextMax {

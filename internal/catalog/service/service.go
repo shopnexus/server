@@ -69,6 +69,12 @@ type Service interface {
 	Search(ctx context.Context, s domain.Search) ([]SearchCard, error)
 	// Counts counts the listings s matches by category or root.
 	Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error)
+	// EmbeddingText is the text a listing posted from d would be embedded
+	// from, with its category's display name.
+	EmbeddingText(ctx context.Context, d domain.Draft) (string, error)
+	// PriceSample returns the prices of listings like q's vectors, most
+	// similar first, at most domain.PriceSampleSize; nil without a vector.
+	PriceSample(ctx context.Context, q PriceQuery) ([]PriceSample, error)
 	// FindPlaces resolves province and commune names to points, keyed by
 	// the name as given; a name that no place or more than one has is left
 	// out.
