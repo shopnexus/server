@@ -121,3 +121,38 @@ SearchView:
       description: With a root category filter, the matches per subcategory.
       items:
         $ref: "#/CategoryCount"
+SearchHistory:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      maxItems: 10
+      items:
+        $ref: "#/SearchHistoryItem"
+SearchHistoryItem:
+  type: object
+  additionalProperties: false
+  required: [id, query, title, searched_at]
+  description: A text search the caller made.
+  properties:
+    id:
+      type: string
+      format: uuid
+    query:
+      type: string
+      description: The words as the caller typed them.
+    title:
+      type: string
+      description: The query with its first letter upper-cased.
+    category:
+      type: string
+      description: The category the search understood; absent when none.
+    photo_url:
+      type: string
+      format: uri
+      description: The first result's photo; absent when the search found nothing.
+    searched_at:
+      type: string
+      format: date-time

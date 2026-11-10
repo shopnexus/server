@@ -3,12 +3,16 @@
 package discovery
 
 import (
+	restate "github.com/restatedev/sdk-go"
+
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/discovery/domain"
 	"github.com/shopnexus/server2/internal/discovery/handler"
 	"github.com/shopnexus/server2/internal/discovery/repository"
 	"github.com/shopnexus/server2/internal/discovery/service"
+	"github.com/shopnexus/server2/internal/discovery/worker"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
+	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/module"
 	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/llm"
@@ -25,16 +29,19 @@ type Settings struct {
 	TextMin, PhotoMin         float64
 }
 
-// Mount registers the discovery endpoints and returns the Service screen
-// reads saves and Home's nearby feed through.
-func Mount(d module.Deps, s Settings, catalog catalogsvc.Service, media mediasvc.Service) service.Service {
+// Mount registers the discovery endpoints, subscribes the account watch to
+// account.deleted, and returns discovery's Restate services and the
+// Service screen reads saves and Home's nearby feed through.
+func Mount(d module.Deps, s Settings, catalog catalogsvc.Service, media mediasvc.Service) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		Saves: repository.NewSaves(d.Pool), Understandings: repository.NewUnderstandings(d.Pool),
+		Saves: repository.NewSaves(d.Pool), Understandings: repository.NewUnderstandings(d.Pool), History: repository.NewHistory(d.Pool),
 		QueryVectors: repository.NewQueryVectors(d.Pool), PhotoVectors: repository.NewPhotoVectors(d.Pool),
 		Catalog: catalog, Media: media, LLM: s.Model, Text: s.Text, Image: s.Image,
 		TextVersion: s.TextVersion, ImageVersion: s.ImageVersion, TextMin: s.TextMin, PhotoMin: s.PhotoMin,
 		ModelTimeout: domain.ModelTimeout, Log: d.Log, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
-	return svc
+	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Discovery: svc}
+	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
+	return module.Mounted[service.Service]{Services: []restate.ServiceDefinition{restate.Reflect(watch)}, Service: svc}
 }

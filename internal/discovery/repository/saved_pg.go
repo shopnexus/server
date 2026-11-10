@@ -90,3 +90,11 @@ func (s pgSaves) SavedAmong(ctx context.Context, account uuid.UUID, ids []uuid.U
 	}
 	return out, nil
 }
+
+func (s pgSaves) Clear(ctx context.Context, account uuid.UUID) error {
+	if _, err := s.db.Exec(ctx, `DELETE FROM saved_listings WHERE account_id = @account`,
+		pgx.StrictNamedArgs{"account": account}); err != nil {
+		return fmt.Errorf("clear saves: %w", err)
+	}
+	return nil
+}

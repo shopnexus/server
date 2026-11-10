@@ -13,6 +13,7 @@ import (
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/discovery/domain"
+	"github.com/shopnexus/server2/internal/discovery/repository"
 	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/provider/embed"
@@ -75,7 +76,8 @@ type SearchView struct {
 // photo searches by a photo of the viewer's alone, and like by a listing.
 // SortNearby browses by distance and age. A model that errs or takes longer
 // than the timeout leaves out the lists it feeds: q then searches its raw
-// words.
+// words. A signed-in viewer's first page with q is kept in the history; a
+// failed write is logged and the search still answers.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
 	q := strings.TrimSpace(in.Query)
 	photo, like := in.Photo != uuid.Nil(), in.Like != uuid.Nil()
@@ -265,6 +267,21 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	}
 	if view.Items, err = d.withSaved(ctx, viewer, cards); err != nil {
 		return SearchView{}, err
+	}
+	if viewer != nil && q != "" && in.Cursor == "" {
+		entry := repository.HistoryEntry{Query: q, SearchedAt: d.now()}
+		for _, c := range view.Chips {
+			if c.Kind == domain.AttrCategory {
+				entry.Category = c.Label
+				break
+			}
+		}
+		if len(view.Items) > 0 {
+			entry.PhotoURL = view.Items[0].CoverThumbURL
+		}
+		if err = d.history.Remember(ctx, *viewer, entry); err != nil {
+			d.log.WarnContext(ctx, "remember the search", "err", err)
+		}
 	}
 	return view, nil
 }

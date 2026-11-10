@@ -243,9 +243,9 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
 		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service)
-	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm, discoverym, chatm.Service, notificationm.Service)
-	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, dealm.Services, chatm.Services,
-		notificationm.Services), nil
+	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm, discoverym.Service, chatm.Service, notificationm.Service)
+	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, dealm.Services, discoverym.Services,
+		chatm.Services, notificationm.Services), nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

@@ -85,7 +85,8 @@ search:
       any, the call browses, newest first by default, and category alone is the
       category page. sort=nearby is the "Gần bạn" feed, which Home's first page
       comes from. A model that fails leaves the lists it feeds out; q then
-      searches its raw words, with no understood and no chips.
+      searches its raw words, with no understood and no chips. A signed-in
+      caller's first page with q is kept in the search history.
     tags: [discovery]
     security:
       - {}
@@ -187,3 +188,51 @@ search:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+searchHistory:
+  get:
+    operationId: getSearchHistory
+    summary: The caller's last 10 text searches, newest first.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The history.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/discovery.yaml#/SearchHistory"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+  delete:
+    operationId: clearSearchHistory
+    summary: Empty the caller's search history.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Emptied.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+searchHistoryItem:
+  delete:
+    operationId: deleteSearchHistoryItem
+    summary: Forget one search; an unknown one is fine.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Forgotten.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

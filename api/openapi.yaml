@@ -133,6 +133,10 @@ paths:
     $ref: "paths/catalog.yaml#/sellerListings"
   /v1/search:
     $ref: "paths/discovery.yaml#/search"
+  /v1/search/history:
+    $ref: "paths/discovery.yaml#/searchHistory"
+  /v1/search/history/{id}:
+    $ref: "paths/discovery.yaml#/searchHistoryItem"
   /v1/saved:
     $ref: "paths/discovery.yaml#/saved"
   /v1/saved/{listing_id}:

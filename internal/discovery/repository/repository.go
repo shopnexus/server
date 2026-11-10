@@ -25,6 +25,31 @@ type Saves interface {
 	// List is a query: account's saves with IDs below p.Before(), newest
 	// first, at most p.Fetch().
 	List(ctx context.Context, account uuid.UUID, p page.Request) ([]Save, error)
+	// Clear deletes every save of the account.
+	Clear(ctx context.Context, account uuid.UUID) error
+}
+
+// History keeps a person's last domain.MaxHistory text searches.
+type History interface {
+	// Remember puts e at the top: the same words (domain.HistoryKey) again
+	// take a new ID and e's fields, and the entries past
+	// domain.MaxHistory go, in one transaction.
+	Remember(ctx context.Context, account uuid.UUID, e HistoryEntry) error
+	// List is the history, newest first.
+	List(ctx context.Context, account uuid.UUID) ([]HistoryEntry, error)
+	// Forget deletes one entry of the account's; an unknown one is fine.
+	Forget(ctx context.Context, account, id uuid.UUID) error
+	// Clear deletes the account's history.
+	Clear(ctx context.Context, account uuid.UUID) error
+}
+
+// HistoryEntry is one search of a person's history.
+type HistoryEntry struct {
+	ID         uuid.UUID
+	Query      string
+	Category   string // empty when the search understood none
+	PhotoURL   string // empty when the search found nothing
+	SearchedAt time.Time
 }
 
 // Save is one saved listing with the price it had when saved.

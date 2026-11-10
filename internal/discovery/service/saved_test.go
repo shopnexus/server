@@ -35,7 +35,9 @@ type env struct {
 	text, image *embedtest.Model
 }
 
-func newEnv(t *testing.T) env {
+// newEnv builds discovery on a database; each option changes its
+// dependencies, to put a faulty store in.
+func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 	t.Helper()
 	db := pgtest.New(t)
 	in, p := restatetest.Ingress(t), restatetest.Prefix()
@@ -44,13 +46,17 @@ func newEnv(t *testing.T) env {
 	restatetest.Start(t, m.Durable()...)
 	c := catalogtest.Service(db, accounttest.Service(db), m, in, p)
 	text, image := embedtest.New(catalogdomain.TextDims), embedtest.New(catalogdomain.PhotoDims)
-	d := service.New(service.Deps{
-		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db),
+	deps := service.Deps{
+		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db), History: repository.NewHistory(db),
 		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db),
 		Catalog: c, Media: m, LLM: model, Text: text, Image: image, TextVersion: "text-test", ImageVersion: "image-test",
 		TextMin: 0.5, PhotoMin: 0.5,
 		ModelTimeout: 200 * time.Millisecond, Log: slog.New(slog.DiscardHandler), Now: time.Now,
-	})
+	}
+	for _, o := range opts {
+		o(&deps)
+	}
+	d := service.New(deps)
 	return env{db: db, catalog: c, media: m, discovery: d, model: model, text: text, image: image}
 }
 

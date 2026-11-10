@@ -294,7 +294,7 @@ services of the modules it calls, one argument each. It builds the
 repositories, the service and the handler, registers the routes, and
 returns what app and other modules need: a module with Restate services
 returns `module.Mounted[service.Service]`, its `Service` and those services;
-trust and discovery return their `Service`; console, erasure and screen return nothing.
+trust returns its `Service`; console, erasure and screen return nothing.
 `app.mountModules` calls each `Mount` in dependency order and imports no
 package inside a module. `account.Guards` builds `Protect`, which requires
 a signed-in caller, and `Identify`, which lets a signed-out request through,

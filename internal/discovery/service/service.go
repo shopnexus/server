@@ -29,12 +29,24 @@ type Service interface {
 	// Search finds active listings; viewer, nil when signed out, sees which
 	// they saved.
 	Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error)
+	// History is the account's last domain.MaxHistory text searches,
+	// newest first.
+	History(ctx context.Context, account uuid.UUID) (HistoryView, error)
+	// ForgetSearch deletes one entry of the account's history; an unknown
+	// one is fine.
+	ForgetSearch(ctx context.Context, account, id uuid.UUID) error
+	// ClearHistory empties the account's history.
+	ClearHistory(ctx context.Context, account uuid.UUID) error
+	// AccountDeleted deletes a deleted account's saves and history; the
+	// worker calls it on account.deleted.
+	AccountDeleted(ctx context.Context, account uuid.UUID) error
 }
 
 // Deps is what New builds Discovery from.
 type Deps struct {
 	Saves          repository.Saves
 	Understandings repository.Understandings
+	History        repository.History
 	Catalog        catalogsvc.Service
 	LLM            llm.Client
 	// Media reads a search photo; Text and Image embed with the search key,
@@ -56,6 +68,7 @@ type Deps struct {
 type Discovery struct {
 	saves                     repository.Saves
 	understandings            repository.Understandings
+	history                   repository.History
 	catalog                   catalogsvc.Service
 	llm                       llm.Client
 	media                     mediasvc.Service
@@ -73,7 +86,7 @@ var _ Service = (*Discovery)(nil)
 
 func New(d Deps) *Discovery {
 	return &Discovery{
-		saves: d.Saves, understandings: d.Understandings, catalog: d.Catalog, llm: d.LLM,
+		saves: d.Saves, understandings: d.Understandings, history: d.History, catalog: d.Catalog, llm: d.LLM,
 		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,
 		textVersion: d.TextVersion, imageVersion: d.ImageVersion, textMin: d.TextMin, photoMin: d.PhotoMin,
 		modelTimeout: d.ModelTimeout, log: d.Log, now: d.Now,
