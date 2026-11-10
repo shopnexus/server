@@ -65,7 +65,7 @@ SellerScreen:
 SellerProfile:
   type: object
   additionalProperties: false
-  required: [id, display_name, bio, joined_at, rating, sold, on_sale]
+  required: [id, display_name, bio, joined_at, rating, sold, on_sale, followers]
   description: The seller as the seller view shows them.
   properties:
     id:
@@ -91,10 +91,13 @@ SellerProfile:
     on_sale:
       type: integer
       description: Listings active or reserved for an order on its way.
+    followers:
+      type: integer
+      description: How many accounts follow the seller.
 SellerViewer:
   type: object
   additionalProperties: false
-  required: [blocked]
+  required: [blocked, following]
   description: |
     The reader's ties to the seller, sent when the reader is signed in and
     is not the seller.
@@ -102,6 +105,9 @@ SellerViewer:
     blocked:
       type: boolean
       description: Whether either of the two blocks the other.
+    following:
+      type: boolean
+      description: Whether the reader follows the seller.
     conversation_id:
       type: string
       format: uuid

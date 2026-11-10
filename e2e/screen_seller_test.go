@@ -19,8 +19,9 @@ type sellerScreen struct {
 			Average float64 `json:"average"`
 			Count   int     `json:"count"`
 		} `json:"rating"`
-		Sold   int `json:"sold"`
-		OnSale int `json:"on_sale"`
+		Sold      int `json:"sold"`
+		OnSale    int `json:"on_sale"`
+		Followers int `json:"followers"`
 	} `json:"seller"`
 	Listings page[listing] `json:"listings"`
 	Reviews  page[struct {
@@ -31,6 +32,7 @@ type sellerScreen struct {
 	}] `json:"reviews"`
 	Viewer *struct {
 		Blocked        bool    `json:"blocked"`
+		Following      bool    `json:"following"`
 		ConversationID *string `json:"conversation_id"`
 	} `json:"viewer"`
 }
@@ -84,6 +86,16 @@ func TestSellerScreen(t *testing.T) {
 	if got = get("before chatting", path, bearer(buyer.AccessToken)); got.Viewer == nil || got.Viewer.Blocked || got.Viewer.ConversationID != nil {
 		t.Fatalf("before chatting: %+v", got.Viewer)
 	}
+	if got.Seller.Followers != 0 || got.Viewer.Following {
+		t.Fatalf("before following: %d %+v", got.Seller.Followers, got.Viewer)
+	}
+	expectStatus(t, call(t, "POST", "/v1/follows", map[string]any{"account_id": seller.Account.ID}, bearer(buyer.AccessToken)), http.StatusNoContent)
+	if got = get("following", path, bearer(buyer.AccessToken)); got.Seller.Followers != 1 || got.Viewer == nil || !got.Viewer.Following {
+		t.Fatalf("following: %d %+v", got.Seller.Followers, got.Viewer)
+	}
+	if got = get("signed out, following", path); got.Seller.Followers != 1 {
+		t.Fatalf("the count is public: %d", got.Seller.Followers)
+	}
 	conversation := openChat(t, buyer.AccessToken, active, "Còn không bạn?")
 	if got = get("after chatting", path, bearer(buyer.AccessToken)); got.Viewer == nil || got.Viewer.Blocked ||
 		got.Viewer.ConversationID == nil || *got.Viewer.ConversationID != conversation.ID {
@@ -94,6 +106,9 @@ func TestSellerScreen(t *testing.T) {
 	expectStatus(t, call(t, "POST", "/v1/blocks", map[string]any{"account_id": buyer.Account.ID}, bearer(token)), http.StatusNoContent)
 	if got = get("blocked by the seller", path, bearer(buyer.AccessToken)); got.Viewer == nil || !got.Viewer.Blocked {
 		t.Fatalf("blocked by the seller: %+v", got.Viewer)
+	}
+	if got.Viewer.Following || got.Seller.Followers != 0 {
+		t.Fatalf("the block left the follow: %d %+v", got.Seller.Followers, got.Viewer)
 	}
 	if got = get("the blocker", "/v1/screens/seller/"+buyer.Account.ID, bearer(token)); got.Viewer == nil || !got.Viewer.Blocked {
 		t.Fatalf("the blocker: %+v", got.Viewer)

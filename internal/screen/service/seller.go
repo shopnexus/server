@@ -30,6 +30,7 @@ type SellerProfile struct {
 	Rating      trustsvc.Rating `json:"rating"`
 	Sold        int             `json:"sold"`
 	OnSale      int             `json:"on_sale"`
+	Followers   int             `json:"followers"`
 }
 
 // SellerViewer is the SellerViewer schema in
@@ -37,13 +38,15 @@ type SellerProfile struct {
 // none.
 type SellerViewer struct {
 	Blocked        bool      `json:"blocked"`
+	Following      bool      `json:"following"`
 	ConversationID uuid.UUID `json:"conversation_id,omitzero"`
 }
 
 // Seller reads the seller's profile and the first page, of the default
 // size, of their public listings and of their reviews. An unknown account is
 // accountdomain.ErrAccountNotFound. A viewer who is not the seller also
-// gets whether a block stands between the two and their conversation.
+// gets whether a block stands between the two, whether they follow the
+// seller, and their conversation.
 func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (SellerScreen, error) {
 	seller, err := s.accounts.Get(ctx, id)
 	if err != nil {
@@ -57,6 +60,10 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (S
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the rating: %w", err)
 	}
+	followers, err := s.accounts.FollowerCount(ctx, id)
+	if err != nil {
+		return SellerScreen{}, fmt.Errorf("count the followers: %w", err)
+	}
 	listings, err := s.catalog.SellerListings(ctx, id, page.Request{})
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("list the listings: %w", err)
@@ -68,7 +75,7 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (S
 	out := SellerScreen{
 		Seller: SellerProfile{
 			ID: id, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, Bio: seller.Bio, JoinedAt: seller.CreatedAt,
-			Rating: rating, Sold: counts.Sold, OnSale: counts.OnSale,
+			Rating: rating, Sold: counts.Sold, OnSale: counts.OnSale, Followers: followers,
 		},
 		Listings: listings, Reviews: reviews,
 	}
@@ -79,10 +86,14 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (S
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the blocks: %w", err)
 	}
+	following, err := s.accounts.Following(ctx, *viewer, id)
+	if err != nil {
+		return SellerScreen{}, fmt.Errorf("read the follow: %w", err)
+	}
 	conversation, err := s.chats.ConversationWith(ctx, *viewer, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the conversation: %w", err)
 	}
-	out.Viewer = &SellerViewer{Blocked: blocked, ConversationID: conversation}
+	out.Viewer = &SellerViewer{Blocked: blocked, Following: following, ConversationID: conversation}
 	return out, nil
 }
