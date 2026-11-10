@@ -925,7 +925,9 @@ everything after each reconnect and deploy).
   queues each ring for the connections of its accounts, 16 at most. A full
   queue, or a `LISTEN` connection opened again after a loss, marks a
   connection behind, and the connection reads the log from the last seq it
-  sent. The hub prunes updates older than 30 days every hour, 10,000 at a
+  sent. Each connection also reads the log every minute, so a ring lost
+  without a sign (a `LISTEN` connection that died in silence and has not
+  failed yet) costs at most a minute. The hub prunes updates older than 30 days every hour, 10,000 at a
   time; `account_update_seqs` is never pruned.
 - On connect, `GET /v1/ws?since=` sends the log after `since` in pages of
   500, or `reset` with the current seq when the log no longer holds what
@@ -942,7 +944,13 @@ everything after each reconnect and deploy).
   a newer one of the same account; a suspended account closes with 4003 at
   connect and at each `auth`. A frame that is not JSON text closes with
   1008; one over 4 KB with 1009, which the WebSocket library sends itself.
-  The server pings every 25 seconds and closes when a pong takes 10.
+  A connection may send 10 frames at once and one a second after that;
+  past it, it closes with 1008, so a client cannot turn typing frames into
+  database queries. The reader hands frames to the main loop through a
+  queue of 16 and drops a frame when the queue is full, so it keeps reading
+  while the main loop waits on the database. It starts before the first
+  catch-up. The server pings every 25 seconds and closes when a pong takes
+  10.
 - The handler clears its request's read and write deadlines through
   `http.ResponseController` before the upgrade, since the server's
   timeouts would end the connection.
@@ -952,7 +960,7 @@ everything after each reconnect and deploy).
   and the apps reconnect to another instance with their seq and lose
   nothing.
 - `accounts.last_active_at` is written by the socket at connect, at close
-  and every minute, and not when it is under 30 seconds old; it leaves
+  and every minute (the same tick that reads the log), and not when it is under 30 seconds old; it leaves
   `write_id` alone. The chat views and the seller page show it.
 - `platform/stream` reaches the modules through `stream.Access`, which
   `app` adapts from account and chat.

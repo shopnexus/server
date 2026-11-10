@@ -236,7 +236,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	updates := stream.PGLog{DB: pool}
 	router.Handle("GET /v1/ws", d.Protect(stream.Socket{
 		Hub: hub, Updates: updates, Access: socketAccess{accounts: accounts, chats: chatm.Service},
-		Verify: account.TokenVerifier(cfg.Auth), Now: time.Now, Log: log,
+		Verify: account.TokenVerifier(cfg.Auth), Tick: time.Minute, Now: time.Now, Log: log,
 	}))
 	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},

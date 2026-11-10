@@ -20,8 +20,9 @@ ws:
       Close codes: 1001 server shutting down (reconnect at once); 4001 token
       expired, invalid or another account's (refresh, then reconnect); 4003
       account suspended (do not reconnect); 1008 a frame that is not JSON
-      text or has an unknown type; 1009 a frame over 4 KB. The server pings
-      every 25 seconds.
+      text or has an unknown type, or more frames than 10 at once and one a
+      second after that; 1009 a frame over 4 KB. The server pings every 25
+      seconds.
     tags: [stream]
     security:
       - bearerAuth: []

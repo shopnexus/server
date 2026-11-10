@@ -26,13 +26,21 @@ const (
 	// not reconnect.
 	CloseSuspended websocket.StatusCode = 4003
 
-	frameLimit  = 4 << 10
+	frameLimit = 4 << 10
+	// A connection may send frameBurst frames at once and frameRate a
+	// second after that; past it, it is closed with 1008.
+	frameBurst = 10
+	frameRate  = 1
+	// frameQueue frames wait for a busy main loop; more are dropped, so the
+	// reader never stops reading and pongs keep coming.
+	frameQueue  = 16
 	pageSize    = 500
 	pingEvery   = 25 * time.Second
 	pongWithin  = 10 * time.Second
-	touchEvery  = time.Minute
 	typingEvery = 3 * time.Second
 	peerFor     = 30 * time.Second
+	// maxPeers bounds the typing caches of one connection.
+	maxPeers = 64
 )
 
 // Access is what a connection asks the modules; app adapts account and
@@ -54,8 +62,11 @@ type Socket struct {
 	// Verify checks the tokens a connection renews itself with, as the auth
 	// middleware checked the first.
 	Verify func(token string, now time.Time) (authn.Principal, error)
-	Now    func() time.Time
-	Log    *slog.Logger
+	// Tick is how often a connection records that the person is active and
+	// reads the log, in case a ring was lost.
+	Tick time.Duration
+	Now  func() time.Time
+	Log  *slog.Logger
 }
 
 type (
@@ -143,6 +154,57 @@ func (s Socket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return c.Write(ctx, websocket.MessageText, b) == nil
 	}
+	// The reader and the pinger run from here on, a catch-up included: a
+	// connection that stops reading stops answering pings.
+	frames := make(chan clientFrame, frameQueue)
+	workers.Go(func() {
+		defer cancel()
+		allowance, refilled := float64(frameBurst), s.Now()
+		for {
+			typ, b, readErr := c.Read(ctx)
+			if readErr != nil {
+				return
+			}
+			var f clientFrame
+			if typ != websocket.MessageText || json.Unmarshal(b, &f) != nil {
+				_ = c.Close(websocket.StatusPolicyViolation, "a frame is a JSON text message")
+				return
+			}
+			now := s.Now()
+			allowance = min(frameBurst, allowance+now.Sub(refilled).Seconds()*frameRate)
+			refilled = now
+			if allowance < 1 {
+				_ = c.Close(websocket.StatusPolicyViolation, "too many frames")
+				return
+			}
+			allowance--
+			select {
+			case frames <- f:
+			default:
+				// The main loop is busy: a typing or auth frame is lost, never
+				// a pong.
+			}
+		}
+	})
+	workers.Go(func() {
+		tick := time.NewTicker(pingEvery)
+		defer tick.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+				pingCtx, done := context.WithTimeout(ctx, pongWithin)
+				pingErr := c.Ping(pingCtx)
+				done()
+				if pingErr != nil {
+					cancel()
+					return
+				}
+			}
+		}
+	})
+
 	last := since
 	// catchUp sends the log after last, page by page, or reset with the
 	// current seq when the log no longer holds what follows last.
@@ -182,45 +244,6 @@ func (s Socket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	frames := make(chan clientFrame)
-	workers.Go(func() {
-		defer cancel()
-		for {
-			typ, b, readErr := c.Read(ctx)
-			if readErr != nil {
-				return
-			}
-			var f clientFrame
-			if typ != websocket.MessageText || json.Unmarshal(b, &f) != nil {
-				_ = c.Close(websocket.StatusPolicyViolation, "a frame is a JSON text message")
-				return
-			}
-			select {
-			case frames <- f:
-			case <-ctx.Done():
-				return
-			}
-		}
-	})
-	workers.Go(func() {
-		tick := time.NewTicker(pingEvery)
-		defer tick.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-tick.C:
-				pingCtx, done := context.WithTimeout(ctx, pongWithin)
-				pingErr := c.Ping(pingCtx)
-				done()
-				if pingErr != nil {
-					cancel()
-					return
-				}
-			}
-		}
-	})
-
 	if err = s.Access.Touch(ctx, p.AccountID); err != nil {
 		s.Log.WarnContext(ctx, "stream: touch", "err", err)
 	}
@@ -233,8 +256,8 @@ func (s Socket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 	expiry := time.NewTimer(p.ExpiresAt.Sub(s.Now()))
 	defer expiry.Stop()
-	touch := time.NewTicker(touchEvery)
-	defer touch.Stop()
+	tick := time.NewTicker(s.Tick)
+	defer tick.Stop()
 	typed := map[uuid.UUID]time.Time{}
 	peers := map[uuid.UUID]peer{}
 	for {
@@ -247,9 +270,14 @@ func (s Socket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-expiry.C:
 			_ = c.Close(CloseToken, "token_expired")
 			return
-		case <-touch.C:
+		case <-tick.C:
 			if err = s.Access.Touch(ctx, p.AccountID); err != nil && ctx.Err() == nil {
 				s.Log.WarnContext(ctx, "stream: touch", "err", err)
+			}
+			// A ring lost without a sign, as on a LISTEN connection that died
+			// in silence, costs at most one tick.
+			if !catchUp() {
+				return
 			}
 		case <-sub.Behind():
 			if !catchUp() {
@@ -282,6 +310,10 @@ func (s Socket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 				conv := *f.ConversationID
+				if len(typed) >= maxPeers || len(peers) >= maxPeers {
+					clear(typed)
+					clear(peers)
+				}
 				typed[conv] = now
 				pr, cached := peers[conv]
 				if !cached || now.Sub(pr.at) >= peerFor {

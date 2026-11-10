@@ -26,6 +26,8 @@ type fakeAccess struct {
 	suspended map[uuid.UUID]bool
 	peers     map[uuid.UUID]uuid.UUID // conversation → whom typing there reaches
 	touched   map[uuid.UUID]int
+	peerCalls int
+	peerDelay time.Duration // how long Peer keeps the connection's main loop busy
 }
 
 func (f *fakeAccess) Suspended(_ context.Context, account uuid.UUID) (bool, error) {
@@ -36,9 +38,18 @@ func (f *fakeAccess) Suspended(_ context.Context, account uuid.UUID) (bool, erro
 
 func (f *fakeAccess) Peer(_ context.Context, _, conversation uuid.UUID) (uuid.UUID, bool, error) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
+	f.peerCalls++
+	delay := f.peerDelay
 	to, ok := f.peers[conversation]
+	f.mu.Unlock()
+	time.Sleep(delay)
 	return to, ok, nil
+}
+
+func (f *fakeAccess) peerCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.peerCalls
 }
 
 func (f *fakeAccess) Touch(_ context.Context, account uuid.UUID) error {
@@ -71,7 +82,9 @@ type socketEnv struct {
 	tokens map[string]authn.Principal
 }
 
-func newSocketEnv(t *testing.T) *socketEnv {
+// newSocketEnv starts the socket with a 300 ms tick; opts change it before
+// it serves.
+func newSocketEnv(t *testing.T, opts ...func(*stream.Socket)) *socketEnv {
 	t.Helper()
 	db := pgtest.New(t)
 	e := &socketEnv{
@@ -94,7 +107,13 @@ func newSocketEnv(t *testing.T) *socketEnv {
 		}
 		return p, nil
 	}
-	socket := stream.Socket{Hub: e.hub, Updates: stream.PGLog{DB: db}, Access: e.access, Verify: verify, Now: time.Now, Log: discard}
+	socket := stream.Socket{
+		Hub: e.hub, Updates: stream.PGLog{DB: db}, Access: e.access, Verify: verify,
+		Tick: 300 * time.Millisecond, Now: time.Now, Log: discard,
+	}
+	for _, opt := range opts {
+		opt(&socket)
+	}
 	updates := stream.UpdatesHandler(stream.PGLog{DB: db}, discard)
 	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, err := verify(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), time.Now())
@@ -488,4 +507,91 @@ func TestUpdatesHandler(t *testing.T) {
 	if res.StatusCode != http.StatusOK || len(p.Updates) != 2 || p.Updates[0].Seq != 2 || p.Seq != 3 || p.Reset || p.HasMore {
 		t.Fatalf("%d %+v", res.StatusCode, p)
 	}
+}
+
+// slowLog is the update log behind a pause, as on a slow database.
+type slowLog struct {
+	stream.PGLog
+
+	delay time.Duration
+}
+
+func (l slowLog) Since(ctx context.Context, account uuid.UUID, since int64, limit int) (stream.Page, error) {
+	time.Sleep(l.delay)
+	return l.PGLog.Since(ctx, account, since, limit)
+}
+
+// A client that floods frames is closed before it floods the database.
+func TestFrameFloodCloses1008(t *testing.T) {
+	t.Parallel()
+	e := newSocketEnv(t)
+	cl := e.dial(t, e.token(uuid.NewV7(), time.Hour), "")
+	expectFrame(t, cl.next(t), "ready", 0)
+	for range 30 {
+		b, _ := json.Marshal(map[string]any{"type": "typing", "conversation_id": uuid.NewV7()})
+		if err := cl.conn.Write(context.Background(), websocket.MessageText, b); err != nil {
+			break // closed already
+		}
+	}
+	if code := cl.closedWith(t); code != websocket.StatusPolicyViolation {
+		t.Fatalf("%d", code)
+	}
+	if n := e.access.peerCount(); n > 11 {
+		t.Fatalf("%d peer lookups", n)
+	}
+}
+
+// An update whose ring was lost reaches the app at the next tick.
+func TestSocketRechecksTheLogWithoutARing(t *testing.T) {
+	t.Parallel()
+	e := newSocketEnv(t)
+	a := uuid.NewV7()
+	cl := e.dial(t, e.token(a, time.Hour), "")
+	expectFrame(t, cl.next(t), "ready", 0)
+	if _, err := e.db.Exec(context.Background(), `
+WITH next AS (
+    INSERT INTO account_update_seqs (account_id, seq) VALUES (@a, 1)
+    ON CONFLICT (account_id) DO UPDATE SET seq = account_update_seqs.seq + 1
+    RETURNING seq)
+INSERT INTO account_updates (account_id, seq, kind) SELECT @a, seq, 'deal' FROM next`,
+		pgx.StrictNamedArgs{"a": a}); err != nil {
+		t.Fatal(err)
+	}
+	expectFrame(t, cl.next(t), "update", 1)
+}
+
+// The socket answers pings while its main loop waits on the database.
+func TestPongWhileTheMainLoopIsBusy(t *testing.T) {
+	t.Parallel()
+	e := newSocketEnv(t)
+	e.access.mu.Lock()
+	e.access.peerDelay = 3 * time.Second
+	e.access.mu.Unlock()
+	cl := e.dial(t, e.token(uuid.NewV7(), time.Hour), "")
+	expectFrame(t, cl.next(t), "ready", 0)
+	cl.send(t, map[string]any{"type": "typing", "conversation_id": uuid.NewV7()})
+	cl.send(t, map[string]any{"type": "typing", "conversation_id": uuid.NewV7()})
+	time.Sleep(200 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := cl.conn.Ping(ctx); err != nil {
+		t.Fatalf("no pong while the main loop is busy: %v", err)
+	}
+}
+
+// The socket answers pings while it catches up.
+func TestPongDuringCatchUp(t *testing.T) {
+	t.Parallel()
+	e := newSocketEnv(t, func(s *stream.Socket) {
+		s.Updates = slowLog{DB: s.Updates.(stream.PGLog).DB, delay: 3 * time.Second}
+	})
+	a := uuid.NewV7()
+	e.notify(t, a, 1)
+	cl := e.dial(t, e.token(a, time.Hour), "?since=0")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := cl.conn.Ping(ctx); err != nil {
+		t.Fatalf("no pong during catch-up: %v", err)
+	}
+	expectFrame(t, cl.next(t), "update", 1)
 }
