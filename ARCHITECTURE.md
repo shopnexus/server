@@ -1487,6 +1487,8 @@ calls it except screen, for Home's unread count; depguard holds that.
 - `POST /v1/notifications/read-all` returns the IDs it marked read, and
   `POST /v1/notifications/unread {ids}` (1 to 500) makes read notices unread
   again, for one notice and for the undo of read-all (decided 2026-11-10).
+  Read-all returns every ID it changed, so an undo of more than 500 is
+  sent in chunks.
   Of the read notices that share a collapse key only the newest becomes
   unread, and none when the key has an unread notice, since the unique
   index allows one. A notice of the key that turns unread between the

@@ -75,7 +75,10 @@ ReadAllResult:
   properties:
     ids:
       type: array
-      description: The notices this call marked read; pass them to POST /v1/notifications/unread to undo it.
+      description: |
+        The notices this call marked read, as many as there were (the 90-day
+        retention bounds them). To undo it, pass them to POST
+        /v1/notifications/unread in chunks of at most 500.
       items:
         type: string
         format: uuid
