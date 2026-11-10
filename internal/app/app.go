@@ -38,6 +38,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/platform/stream"
+	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/firebase"
 	"github.com/shopnexus/server2/internal/provider/llm"
@@ -66,12 +67,17 @@ type Option func(*options)
 
 type options struct {
 	push   push.Sender
+	email  email.Sender
 	hasher consoledomain.Hasher
 }
 
 // WithPushSender replaces the sender the configuration picks; e2e tests
 // read pushes from theirs.
 func WithPushSender(s push.Sender) Option { return func(o *options) { o.push = s } }
+
+// WithEmailSender replaces the sender EMAIL_SENDER picks; e2e tests read
+// codes from theirs.
+func WithEmailSender(s email.Sender) Option { return func(o *options) { o.email = s } }
 
 // WithPasswordHasher sets the argon2id parameters of new member passwords;
 // tests pass consoledomain.Fast.
@@ -87,6 +93,10 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	o := options{hasher: consoledomain.Production}
 	for _, opt := range opts {
 		opt(&o)
+	}
+	// config.Load checks the key too; this catches a Config built by hand.
+	if len(cfg.Auth.OTPKey) < 32 {
+		return nil, errors.New("OTP_KEY missing from config; make run adds it to .env")
 	}
 	if cfg.Env == config.EnvProd && cfg.Firebase.TestNumbers {
 		return nil, errors.New("APP_ENV=prod with PNV_TEST_NUMBERS=true; test numbers would sign in")
@@ -105,6 +115,16 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		return nil, errors.New("APP_ENV=prod with FCM_CREDENTIALS empty; pushes would only be logged")
 	default:
 		sender = push.LogSender{Log: log}
+	}
+	mailer := o.email
+	switch {
+	case mailer != nil:
+	case cfg.Email.Sender == "resend":
+		mailer = email.NewResend(cfg.Email.ResendAPIKey, cfg.Email.From)
+	case cfg.Env == config.EnvProd:
+		return nil, errors.New("APP_ENV=prod with EMAIL_SENDER=log; codes would only be logged")
+	default:
+		mailer = email.LogSender{Log: log}
 	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -143,7 +163,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	})
 	in := ingress.NewClient(cfg.Restate.IngressURL)
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	defs, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, log)
+	defs, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, mailer, log)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +216,7 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 // module mounts after the modules whose services it takes; account's guards
 // come first because they need only the auth keys.
 func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub,
-	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, log *slog.Logger,
+	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, mailer email.Sender, log *slog.Logger,
 ) ([]restate.ServiceDefinition, error) {
 	d := module.Deps{
 		Router: router, Pool: pool, Ingress: in, ServicePrefix: cfg.Restate.ServicePrefix,
@@ -209,7 +229,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}
 	mediam := media.Mount(d, media.Settings{Store: store})
 	accountm := account.Mount(d,
-		account.Settings{Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log)}, mediam.Service)
+		account.Settings{Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log), Email: mailer}, mediam.Service)
 	accounts := accountm.Service
 	consoleKeys, err := consolesvc.NewKeys(cfg.Console, hasher)
 	if err != nil {

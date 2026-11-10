@@ -5,8 +5,8 @@
 // With -example, a missing .env starts as a copy of the example, and an
 // existing one gets every variable the example has and it lacks, with the
 // example's value. Then it adds the keys: JWT_KEY_ID and JWT_PRIVATE_KEY,
-// CONSOLE_KEY, and RESTATE_IDENTITY_KEY, the public half of the Restate request
-// identity key at -restate, which it creates when missing. A variable already
+// CONSOLE_KEY, OTP_KEY, and RESTATE_IDENTITY_KEY, the public half of the
+// Restate request identity key at -restate, which it creates when missing. A variable already
 // set stays, so a second run changes nothing. make run, make test,
 // infra/cluster/seal.sh and the root docker-compose.yml call it.
 package main
@@ -102,6 +102,10 @@ func ensureEnv(envPath, examplePath, pemPath string) error {
 	}
 	if get("CONSOLE_KEY") == "" {
 		set("CONSOLE_KEY", base64.StdEncoding.EncodeToString(config.NewConsoleKey()))
+	}
+	// Load reads OTP_KEY as base64 of at least 32 bytes.
+	if get("OTP_KEY") == "" {
+		set("OTP_KEY", base64.StdEncoding.EncodeToString(config.NewConsoleKey()))
 	}
 
 	// A new pem next to a public key in .env would sign Restate's requests

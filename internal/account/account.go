@@ -15,12 +15,15 @@ import (
 	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/module"
+	"github.com/shopnexus/server2/internal/provider/email"
 )
 
 // Settings is what account's Mount takes beyond module.Deps.
 type Settings struct {
 	Keys   config.AuthConfig
 	Phones service.PhoneVerifier
+	// Email mails sign-in codes.
+	Email email.Sender
 }
 
 // Guards returns the middlewares app puts in module.Deps: protect requires a

@@ -6,14 +6,16 @@ import (
 	"time"
 )
 
-// NewAuthKeys returns fresh random keys with no issuer or audience. `make run`
-// adds them to .env; a test sets Issuer and Audience itself.
+// NewAuthKeys returns fresh random keys, the OTP key included, with no
+// issuer or audience. `make run` adds them to .env; a test sets Issuer and
+// Audience itself.
 func NewAuthKeys() AuthConfig {
 	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		panic(err) // crypto/rand does not fail on supported platforms
 	}
 	return AuthConfig{
+		OTPKey:   NewConsoleKey(),
 		JWTKeyID: "k" + time.Now().UTC().Format("20060102150405"),
 		JWTKey:   priv,
 		Issuer:   "",

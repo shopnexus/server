@@ -52,6 +52,7 @@ type Config struct {
 	Embed          EmbedConfig
 	Push           PushConfig
 	Firebase       FirebaseConfig
+	Email          EmailConfig
 }
 
 // PushConfig says how pushes reach phones. Empty credentials mean the log
@@ -68,6 +69,13 @@ type FirebaseConfig struct {
 	AuthJWKSURL   string // FIREBASE_AUTH_JWKS_URL: the keys of Firebase Authentication's ID tokens
 	PNVJWKSURL    string // PNV_JWKS_URL: the keys of Phone Number Verification tokens
 	TestNumbers   bool   // PNV_TEST_NUMBERS: accept the test numbers of PNV's test mode; never in prod
+}
+
+// EmailConfig picks how the server mails sign-in codes.
+type EmailConfig struct {
+	Sender       string // EMAIL_SENDER: log or resend; APP_ENV=prod refuses log
+	ResendAPIKey string // RESEND_API_KEY: required with EMAIL_SENDER=resend, may be empty otherwise
+	From         string // EMAIL_FROM: the sender, an address of a domain verified at Resend
 }
 
 // LLMConfig says where the model that reads search queries is. The key is
@@ -103,6 +111,7 @@ type EmbedConfig struct {
 // AuthConfig holds the auth module's keys and token settings. No key is ever
 // logged.
 type AuthConfig struct {
+	OTPKey       []byte             // OTP_KEY: base64, at least 32 bytes; hashes and derives email codes
 	JWTKeyID     string             // JWT_KEY_ID: the kid of JWTKey
 	JWTKey       ed25519.PrivateKey // JWT_PRIVATE_KEY: base64 of the 32-byte seed
 	JWTPrevKeyID string             //exhaustruct:optional JWT_PREVIOUS_KEY_ID: empty outside a key change
@@ -312,6 +321,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Register:      oneOf("RESTATE_REGISTER", "true", "false") == "true",
 		},
 		Auth: AuthConfig{
+			OTPKey:       decodeKey("OTP_KEY", 32, false),
 			JWTKeyID:     need("JWT_KEY_ID"),
 			JWTKey:       jwtKey,
 			JWTPrevKeyID: set("JWT_PREVIOUS_KEY_ID"),
@@ -339,6 +349,11 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			AuthJWKSURL:   need("FIREBASE_AUTH_JWKS_URL"),
 			PNVJWKSURL:    need("PNV_JWKS_URL"),
 			TestNumbers:   oneOf("PNV_TEST_NUMBERS", "true", "false") == "true",
+		},
+		Email: EmailConfig{
+			Sender:       oneOf("EMAIL_SENDER", "log", "resend"),
+			ResendAPIKey: set("RESEND_API_KEY"),
+			From:         need("EMAIL_FROM"),
 		},
 		LLM: LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
 		Embed: EmbedConfig{
@@ -372,6 +387,10 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		errs = append(errs, errors.New("RESTATE_IDENTITY_KEY must start with publickeyv1_"))
 	default:
 		// Unset outside prod, or set and well formed.
+	}
+
+	if cfg.Email.Sender == "resend" && cfg.Email.ResendAPIKey == "" {
+		errs = append(errs, errors.New("RESEND_API_KEY is required with EMAIL_SENDER=resend"))
 	}
 
 	return cfg, errors.Join(errs...)

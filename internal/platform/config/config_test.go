@@ -81,6 +81,10 @@ func required() map[string]string {
 		"FIREBASE_AUTH_JWKS_URL":       "https://keys.example.test/auth",
 		"PNV_JWKS_URL":                 "https://keys.example.test/pnv",
 		"PNV_TEST_NUMBERS":             "false",
+		"OTP_KEY":                      b64(testKeys.OTPKey),
+		"EMAIL_SENDER":                 "resend",
+		"RESEND_API_KEY":               "re_test",
+		"EMAIL_FROM":                   "ShopNexus <no-reply@shopnexus.test>",
 	}
 }
 
@@ -127,6 +131,7 @@ func TestLoadAllSet(t *testing.T) {
 			netip.MustParsePrefix("10.0.0.0/8"), netip.MustParsePrefix("192.168.1.7/32"),
 		},
 		Auth: AuthConfig{
+			OTPKey:       testKeys.OTPKey,
 			JWTKeyID:     testKeys.JWTKeyID,
 			JWTKey:       testKeys.JWTKey,
 			JWTPrevKeyID: "old",
@@ -154,6 +159,7 @@ func TestLoadAllSet(t *testing.T) {
 			ProjectID: "shopnexus-test", ProjectNumber: "123456789",
 			AuthJWKSURL: "https://keys.example.test/auth", PNVJWKSURL: "https://keys.example.test/pnv", TestNumbers: true,
 		},
+		Email: EmailConfig{Sender: "resend", ResendAPIKey: "re_test", From: "ShopNexus <no-reply@shopnexus.test>"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
@@ -241,6 +247,8 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 		set     map[string]string
 		mention string
 	}{
+		{"short otp key", map[string]string{"OTP_KEY": b64(make([]byte, 16))}, "OTP_KEY"},
+		{"otp key not base64", map[string]string{"OTP_KEY": "%%%"}, "OTP_KEY"},
 		{"seed of the wrong size", map[string]string{"JWT_PRIVATE_KEY": b64(make([]byte, 31))}, "JWT_PRIVATE_KEY"},
 		{"previous id without key", map[string]string{"JWT_PREVIOUS_KEY_ID": "old"}, "JWT_PREVIOUS_PUBLIC_KEY"},
 		{"previous key without id", map[string]string{"JWT_PREVIOUS_PUBLIC_KEY": b64(make([]byte, 32))}, "JWT_PREVIOUS_KEY_ID"},
@@ -368,5 +376,29 @@ func TestEmbedValuesAreChecked(t *testing.T) {
 				t.Fatalf("err = %v, want it to name %s", err, tc.want)
 			}
 		})
+	}
+}
+
+func TestLoadEmailSender(t *testing.T) {
+	t.Parallel()
+	for name, c := range map[string]struct {
+		set     map[string]string
+		mention string
+	}{
+		"unknown sender":       {map[string]string{"EMAIL_SENDER": "smtp"}, "EMAIL_SENDER"},
+		"resend without a key": {map[string]string{"RESEND_API_KEY": ""}, "RESEND_API_KEY"},
+		"no from":              {map[string]string{"EMAIL_FROM": ""}, "EMAIL_FROM"},
+	} {
+		env := required()
+		maps.Copy(env, c.set)
+		_, err := Load(lookup(env))
+		if err == nil || !strings.Contains(err.Error(), c.mention) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	env := required()
+	env["EMAIL_SENDER"], env["RESEND_API_KEY"] = "log", ""
+	if cfg, err := Load(lookup(env)); err != nil || cfg.Email.Sender != "log" {
+		t.Fatalf("log sender without a key: %v", err)
 	}
 }

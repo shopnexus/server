@@ -45,6 +45,7 @@ var (
 	model      = newModel()         // the model that reads search queries
 	embedder   = newEmbed()         // the embedding aliases, embed-text and embed-image
 	phones     = newPhones()        // every push the server sends
+	mails      = newInbox()         // every mail the server sends
 	consoleSvc *consolesvc.Console  // on the server's keys and database, so tests create members directly
 )
 
@@ -137,6 +138,7 @@ func setup(closers *[]func()) error {
 			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,
 		},
 		Firebase: issuer.Config(false),
+		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
 		// Tests may set X-Forwarded-For.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}
@@ -147,6 +149,7 @@ func setup(closers *[]func()) error {
 	consoleSvc = console.NewService(pool, console.Settings{Keys: consoleKeys, Config: cfg.Console}, nil, time.Now)
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones),
+		app.WithEmailSender(mails),
 		app.WithPasswordHasher(consoledomain.Fast))
 	if err != nil {
 		return err

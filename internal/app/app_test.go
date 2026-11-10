@@ -39,6 +39,7 @@ func testConfig(t *testing.T) config.Config {
 			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,
 		},
 		Firebase: firebasetest.New(t).Config(false),
+		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},
 	}
 }
 
@@ -140,6 +141,29 @@ func TestNewRefusesPNVTestNumbersInProd(t *testing.T) {
 	cfg.Env, cfg.Firebase.TestNumbers = "prod", true
 	_, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}))
 	if err == nil || !strings.Contains(err.Error(), "PNV_TEST_NUMBERS") {
+		t.Fatalf("err %v", err)
+	}
+}
+
+// The log sender writes every code to the log, so production must name a
+// real one.
+func TestNewRefusesLogEmailInProd(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Env = "prod"
+	_, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}))
+	if err == nil || !strings.Contains(err.Error(), "EMAIL_SENDER") {
+		t.Fatalf("err %v", err)
+	}
+}
+
+// A Config built by hand without OTP_KEY would hash every code with no key.
+func TestNewRefusesAMissingOTPKey(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Auth.OTPKey = nil
+	_, err := New(context.Background(), cfg, discard())
+	if err == nil || !strings.Contains(err.Error(), "OTP_KEY") {
 		t.Fatalf("err %v", err)
 	}
 }
