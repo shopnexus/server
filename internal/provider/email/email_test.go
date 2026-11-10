@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -63,7 +64,23 @@ func TestResendReportsARefusal(t *testing.T) {
 	s := email.NewResend("re_test", "a@b.test")
 	s.URL = srv.URL
 	err := s.Send(context.Background(), "linh@example.com", "s", "b")
-	if err == nil || !strings.Contains(err.Error(), "403") || !strings.Contains(err.Error(), "domain not verified") {
+	if !errors.Is(err, email.ErrRefused) || !strings.Contains(err.Error(), "403") || !strings.Contains(err.Error(), "domain not verified") {
 		t.Fatalf("%v", err)
+	}
+}
+
+// A 429 or a 5xx passes; a retry may succeed.
+func TestResendRetryableFailures(t *testing.T) {
+	t.Parallel()
+	for _, status := range []int{http.StatusTooManyRequests, http.StatusInternalServerError} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "later", status)
+		}))
+		s := email.NewResend("re_test", "a@b.test")
+		s.URL = srv.URL
+		if err := s.Send(context.Background(), "linh@example.com", "s", "b"); err == nil || errors.Is(err, email.ErrRefused) {
+			t.Errorf("%d: %v", status, err)
+		}
+		srv.Close()
 	}
 }

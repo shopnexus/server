@@ -217,7 +217,7 @@ func (s *Account) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
 		restate.Reflect(SignIn{Prefix: s.prefix, Accounts: s.accounts, Credentials: s.credentials, Challenges: s.challenges, Now: s.now}),
 		restate.Reflect(EmailCodeSend{
-			Prefix: s.prefix, Quotas: s.quotas, Challenges: s.challenges, Codes: s.codes, Email: s.email, Now: s.now,
+			Prefix: s.prefix, Quotas: s.quotas, Challenges: s.challenges, Codes: s.codes, Email: s.email, Now: s.now, Log: s.log,
 		}),
 		restate.Reflect(AddIdentity{Prefix: s.prefix, Challenges: s.challenges, Credentials: s.credentials, Now: s.now}),
 	}

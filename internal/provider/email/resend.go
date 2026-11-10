@@ -43,7 +43,13 @@ func (s *Resend) Send(ctx context.Context, to, subject, body string) error {
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode/100 != 2 {
 		msg, _ := io.ReadAll(io.LimitReader(res.Body, 1024))
-		return fmt.Errorf("resend answered %d: %s", res.StatusCode, strings.TrimSpace(string(msg)))
+		err := fmt.Errorf("resend answered %d: %s", res.StatusCode, strings.TrimSpace(string(msg)))
+		// A 4xx other than 429 refuses the message itself: sending it again
+		// fails again.
+		if res.StatusCode/100 == 4 && res.StatusCode != http.StatusTooManyRequests {
+			return fmt.Errorf("%w: %w", ErrRefused, err)
+		}
+		return err
 	}
 	return nil
 }

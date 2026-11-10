@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,12 +14,15 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	emailprovider "github.com/shopnexus/server2/internal/provider/email"
 )
 
 var testCodes = domain.NewCodes(make([]byte, 32))
@@ -32,13 +36,24 @@ type mailbox struct {
 	mu        sync.Mutex
 	sent      []sentMail
 	failFirst bool
+	// refuse fails every send as a provider does for an address it will
+	// never deliver to.
+	refuse bool
+	// onFail runs when failFirst fails a send.
+	onFail func()
 }
 
 func (m *mailbox) Send(_ context.Context, to, subject, body string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.refuse {
+		return fmt.Errorf("%w: resend answered 422", emailprovider.ErrRefused)
+	}
 	if m.failFirst {
 		m.failFirst = false
+		if m.onFail != nil {
+			m.onFail()
+		}
 		return errors.New("provider timed out")
 	}
 	m.sent = append(m.sent, sentMail{to, subject, body})
@@ -52,6 +67,7 @@ func (m *mailbox) all() []sentMail {
 }
 
 type emailCodeEnv struct {
+	db    *pgxpool.Pool
 	run   ingress.Requester[service.EmailCodeInput, service.EmailCodeResult]
 	mail  *mailbox
 	clock *restatetest.Clock
@@ -63,10 +79,11 @@ func startEmailCodeSend(t *testing.T, mail *mailbox) *emailCodeEnv {
 	clock := restatetest.NewClock(now)
 	svc := service.EmailCodeSend{
 		Prefix: restatetest.Prefix(), Quotas: repository.NewQuotas(db), Challenges: repository.NewChallenges(db),
-		Codes: testCodes, Email: mail, Now: clock.Now,
+		Codes: testCodes, Email: mail, Now: clock.Now, Log: discard,
 	}
 	client := restatetest.Start(t, restate.Reflect(svc))
 	return &emailCodeEnv{
+		db:   db,
 		run:  ingress.Service[service.EmailCodeInput, service.EmailCodeResult](client, svc.ServiceName(), "Run"),
 		mail: mail, clock: clock,
 	}
@@ -143,5 +160,44 @@ func TestEmailCodeSendRetriesTheSameCode(t *testing.T) {
 	got := e.mail.all()
 	if res.Refused != nil || len(got) != 1 || got[0].subject != "Mã xác minh ShopNexus: "+testCodes.For(res.ChallengeID) {
 		t.Fatalf("%+v, mails %+v", res, got)
+	}
+}
+
+// An address the provider refuses for good ends the send with invalid_email
+// instead of a retry that never ends.
+func TestEmailCodeSendStopsOnARefusedAddress(t *testing.T) {
+	t.Parallel()
+	e := startEmailCodeSend(t, &mailbox{refuse: true})
+	if res := e.send(t, "linh@example.com", "203.0.113.1"); res.Refused == nil || res.Refused.Code != "invalid_email" {
+		t.Fatalf("%+v", res)
+	}
+}
+
+// A retry that runs after the code expired mails nothing: the code would
+// only be refused.
+func TestEmailCodeSendSkipsAnExpiredCode(t *testing.T) {
+	t.Parallel()
+	mail := &mailbox{failFirst: true}
+	e := startEmailCodeSend(t, mail)
+	mail.onFail = func() { e.clock.Add(domain.CodeTTL) }
+	res := e.send(t, "linh@example.com", "203.0.113.1")
+	if res.Refused != nil || len(mail.all()) != 0 {
+		t.Fatalf("%+v, mails %+v", res, mail.all())
+	}
+}
+
+// A code that adds an address to an account says so, so nobody reads it out
+// believing it signs them in.
+func TestEmailCodeSendNamesAnAddIdentityCode(t *testing.T) {
+	t.Parallel()
+	e := startEmailCodeSend(t, &mailbox{})
+	acc := seed(t, repository.NewAccounts(e.db))
+	res, err := e.run.Request(context.Background(), service.EmailCodeInput{
+		Email: email(t, "linh@example.com"), Purpose: domain.PurposeAddIdentity, AccountID: &acc, IP: netip.MustParseAddr("203.0.113.1"),
+	}, restate.WithIdempotencyKey(uuid.NewV7().String()))
+	got := e.mail.all()
+	if err != nil || res.Refused != nil || len(got) != 1 || !strings.Contains(got[0].body, "thêm địa chỉ email này vào một tài khoản") ||
+		strings.HasPrefix(got[0].subject, "Mã xác minh ShopNexus") {
+		t.Fatalf("%+v %v, mails %+v", res, err, got)
 	}
 }

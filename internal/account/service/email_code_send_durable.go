@@ -1,7 +1,9 @@
 package service
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/netip"
 	"time"
 	"uuid"
@@ -45,7 +47,17 @@ type EmailCodeSend struct {
 	Codes      domain.Codes
 	Email      email.Sender
 	Now        func() time.Time
+	Log        *slog.Logger
 }
+
+// mailOutcome is how the mail step ended.
+type mailOutcome string
+
+const (
+	mailSent    mailOutcome = "sent"
+	mailExpired mailOutcome = "expired"
+	mailRefused mailOutcome = "refused"
+)
 
 // emailCodeSendService is the EmailCodeSend service's name without the prefix.
 const emailCodeSendService = "EmailCodeSend"
@@ -60,11 +72,11 @@ func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeRes
 	// The client address goes first, so an address over its limit cannot
 	// spend the quota of the mailboxes it names. A quota that admitted the
 	// send stays spent even when a later step fails.
-	if refused, err := admit(ctx, s.Quotas, addressKey(in.IP), at, addressRules); err != nil || refused != nil {
-		return EmailCodeResult{Refused: refused}, err
+	if refused, admitErr := admit(ctx, s.Quotas, addressKey(in.IP), at, addressRules); admitErr != nil || refused != nil {
+		return EmailCodeResult{Refused: refused}, admitErr
 	}
-	if refused, err := admit(ctx, s.Quotas, "dest:"+in.Email.Value(), at, destinationRules); err != nil || refused != nil {
-		return EmailCodeResult{Refused: refused}, err
+	if refused, admitErr := admit(ctx, s.Quotas, "dest:"+in.Email.Value(), at, destinationRules); admitErr != nil || refused != nil {
+		return EmailCodeResult{Refused: refused}, admitErr
 	}
 	// The code is derived from the challenge ID, so a retried send step
 	// mails the same code, and the code is never stored or journaled.
@@ -73,16 +85,36 @@ func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeRes
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Challenges.Create(rc, c) }); err != nil {
 		return EmailCodeResult{}, fmt.Errorf("create challenge: %w", err)
 	}
-	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
+	// A retry after the code expired mails nothing, and a provider that
+	// refuses the message for good ends the send: retrying would never stop.
+	mailed, err := restate.Run(ctx, func(rc restate.RunContext) (mailOutcome, error) {
+		if !s.Now().Before(c.ExpiresAt()) {
+			return mailExpired, nil
+		}
 		code := s.Codes.For(id)
+		subject := "Mã xác minh ShopNexus: " + code
 		body := "Mã xác minh ShopNexus của bạn là " + code + ". Mã hết hạn sau 5 phút. Không chia sẻ mã này với ai."
-		if stepErr := s.Email.Send(rc, in.Email.Value(), "Mã xác minh ShopNexus: "+code, body); stepErr != nil {
-			return fmt.Errorf("mail the code: %w", stepErr)
+		if in.Purpose == domain.PurposeAddIdentity {
+			subject = "Mã thêm email vào tài khoản ShopNexus: " + code
+			body = "Mã " + code + " dùng để thêm địa chỉ email này vào một tài khoản ShopNexus đang đăng nhập. " +
+				"Nếu bạn không yêu cầu, đừng đưa mã cho ai: người có mã sẽ đăng nhập được bằng email của bạn. Mã hết hạn sau 5 phút."
+		}
+		stepErr := s.Email.Send(rc, in.Email.Value(), subject, body)
+		if errors.Is(stepErr, email.ErrRefused) {
+			s.Log.WarnContext(rc, "mail refused", "to", in.Email, "err", stepErr)
+			return mailRefused, nil
+		}
+		if stepErr != nil {
+			return "", fmt.Errorf("mail the code: %w", stepErr)
 		}
 		codesSent.Add(rc, 1)
-		return nil
-	}); err != nil {
+		return mailSent, nil
+	})
+	if err != nil {
 		return EmailCodeResult{}, fmt.Errorf("send code: %w", err)
+	}
+	if mailed == mailRefused {
+		return EmailCodeResult{Refused: contact.ErrInvalidEmail}, nil
 	}
 	return EmailCodeResult{ChallengeID: id, ExpiresAt: c.ExpiresAt(), ResendAt: at.Add(resend.Window)}, nil
 }

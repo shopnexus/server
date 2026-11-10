@@ -3,8 +3,13 @@ package email
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 )
+
+// ErrRefused is a message the provider will never deliver, such as to an
+// address it rejects; sending it again fails again.
+var ErrRefused = errors.New("email: refused")
 
 // Sender delivers one message.
 type Sender interface {
