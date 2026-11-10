@@ -13,7 +13,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
-// After 0027 an account holds a phone, an email or both, one of each kind,
+// After 0029 an account holds a phone, an email or both, one of each kind,
 // and a code challenge is an email's.
 func TestEmailIdentities(t *testing.T) {
 	t.Parallel()
