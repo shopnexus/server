@@ -21,6 +21,12 @@ var (
 	ErrAddressLimit    = apperr.New(apperr.KindConflict, "address_limit_reached", "at most 10 addresses")
 	ErrInvalidAddress  = apperr.New(apperr.KindInvalid, "invalid_address", "the address breaks a rule; see fields")
 
+	ErrInvalidCode = apperr.New(apperr.KindInvalid, "invalid_code", "the code does not match")
+	ErrCodeExpired = apperr.New(apperr.KindInvalid, "code_expired", "the code has expired or was replaced; request a new one")
+	ErrCodeLocked  = apperr.New(apperr.KindInvalid, "code_locked", "too many wrong codes; request a new one")
+	ErrOTPTooSoon  = apperr.New(apperr.KindRateLimited, "otp_too_soon", "wait before requesting another code")
+	ErrOTPLimit    = apperr.New(apperr.KindRateLimited, "otp_limit", "too many codes requested; try again later")
+
 	ErrIdentityTaken     = apperr.New(apperr.KindConflict, "identity_taken", "this sign-in method belongs to another account")
 	ErrIdentityKindTaken = apperr.New(apperr.KindConflict, "identity_kind_taken", "the account has a sign-in method of this kind already")
 	ErrUnknownIdentity   = errors.New("credentials: no such identity")
