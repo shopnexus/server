@@ -94,9 +94,12 @@ row and sets `next_cursor` to the ID of the last item kept.
 ### Transactions and concurrency
 
 A transaction lives inside a repository method and covers one aggregate.
-The one exception is sign-up: `Credentials.SignUp` inserts a new `Account`
-and its `Credentials` together, so a sign-up that loses the phone number
-writes neither. Concurrent writes are caught optimistically: `Save` fails with `ErrConflict`
+There are two exceptions. Sign-up: `Credentials.SignUp` inserts a new
+`Account` and its `Credentials` together, so a sign-up that loses the phone
+number writes neither. Erasure: `Accounts.Erase` saves the deleted account
+and, in the same transaction, deletes its `Credentials`, addresses, blocks
+and follows and revokes its sessions, so a deletion that loses a race
+leaves the account whole (see Erasure). Concurrent writes are caught optimistically: `Save` fails with `ErrConflict`
 when the aggregate changed since it was read, and `write_id` (below) is the
 column that detects it. A use case that loses the race answers
 `apperr.ErrTryAgain` (409 `try_again`) in every module.
@@ -261,10 +264,12 @@ internal/account/
   account.go         Mount: builds the layers, returns service.Service
 ```
 
-Modules console, media, catalog, deal, chat, trust and discovery have
-the same four packages; a module that reacts to events adds `worker`, and
-deal is the first that does. Module `screen` has no `repository` or
-`domain`: it only reads the other modules' services (see Screen).
+Modules console, media, catalog, deal, chat, trust, discovery and support
+have the same four packages; a module that reacts to events adds `worker`,
+as catalog, deal, discovery and notification do. Module `screen` has no
+`repository` or `domain`: it only reads the other modules' services (see
+Screen). Module `erasure` has only `service` and `handler`: it calls
+account and deal to delete an account (see Erasure).
 
 The modules follow the product model in `app2/mohinh.md`, not the old
 server's split (decided 2026-10-26). There is no finance module: ShopNexus
@@ -335,6 +340,8 @@ separate work.
 | `Upload` | `uploads` | module media; status, content type, size, the processed keys |
 | `Listing` | `listings` | module catalog; photos and specs are `jsonb` columns, read and written with the row |
 | `Address` | `addresses` | module account; one row per address, `write_id`; `recipient_name` keeps the keyword `name` out of the columns |
+| feedback | `feedback` | module support; one row per feedback, `request_key` unique per account; no aggregate, no `write_id` |
+| search history | `search_history` | module discovery; one row per folded query of an account, at most 10; no aggregate, no `write_id` |
 
 No column is named after an SQL keyword (sqlfluff RF04, run with
 `sqlfluff lint migrations/`): `events.occurred_at` and `payload`,
@@ -1280,6 +1287,94 @@ Search).
   expires; each write deletes the expired rows, and each read checks the
   upload again.
 - No search photo or vector reaches a log or the journal.
+
+Search history (decided 2026-11-10, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-10-server2-account-erasure-feedback-search-history-design.md`):
+
+- `Search` keeps the first page (no `cursor`) of a signed-in person's
+  search with `q`, after the search has answered. A search with `photo` or
+  `like`, a later page and a signed-out search keep nothing. A failed write
+  is logged at WARN and the search still answers 200.
+- An entry holds the query as typed (trimmed), the label of the first
+  category chip and the first card's `cover_thumb_url`, both as text.
+  `domain.HistoryKey` folds case, spaces and Vietnamese marks (đ as d), so
+  "Xe Đạp" and "xe dap" are one entry. Searching it again gives the row a
+  new UUIDv7 `id`, which moves it to the top; the same transaction deletes
+  the rows past the 10 newest.
+- `GET /v1/search/history` lists the 10 newest; `DELETE
+  /v1/search/history` empties it and `DELETE /v1/search/history/{id}`
+  forgets one, an unknown ID included; no endpoint restores either.
+
+### Support
+
+Module `support` keeps the feedback people send (decided 2026-11-10, same
+spec as Erasure).
+
+- `POST /v1/feedback {body}` takes 1 to 1000 characters after trimming
+  (422 `invalid_feedback`) from an account that may write. It requires an
+  `Idempotency-Key` without running Restate, as `POST /v1/addresses` does:
+  the row keeps it as `request_key`, and a repeated key returns the first
+  feedback, also at the limit.
+- An account sends at most 10 in 24 hours (429 `feedback_limit_reached`),
+  counted under `pg_advisory_xact_lock` on the account.
+- Console members read it at `GET /v1/console/feedback`, newest first, with
+  the sender's name and `deleted`. The route is console's, since `Require`
+  is; console's handler calls `supportsvc.Service.Feedback`. Support mounts
+  after account and before console.
+- Feedback stays when its account is deleted; the tombstone names no one.
+
+### Erasure
+
+A person deletes their account with `DELETE /v1/accounts/me` (decided
+2026-11-10, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-10-server2-account-erasure-feedback-search-history-design.md`).
+
+- Module `erasure` serves the route because deal imports account: account
+  cannot ask deal about orders. Its one use case checks the sign-in's age
+  (428 `reauth_required` after 15 minutes, `domain.RecentAuth`), then asks
+  `dealsvc.Service.OpenOrders` (409 `orders_open` while an order of the
+  caller's, either side, is requested or shipped), then calls
+  `accountsvc.Service.Erase`. A suspension in force refuses it (403
+  `account_suspended`), so a deletion cannot shed a suspension. Depguard
+  forbids every other module to import erasure.
+- `Erase` keeps the `accounts` row as a tombstone, since orders, reviews,
+  messages, conversations and reports point to it: `status = 'deleted'`,
+  `deleted_at` set, no name, bio or avatar (a CHECK holds it). In the same
+  transaction it deletes the credentials with their identities, the
+  addresses, the blocks and follows either way, revokes every session and
+  writes `account.deleted`. A phone of the account then signs up as a new
+  account. A conflict reads again once, then `try_again`.
+- Each module clears its own rows from a worker on `account.deleted`, and
+  each handler does nothing the second time: catalog deletes the listings
+  that are not sold (a processing one too; its publish flow stops on a
+  listing that left processing); deal ends the account's deals with
+  `PartyLeft` (a requested order cancelled by the system with
+  `listing_closed`, an agreement dropped, an open price taken back);
+  discovery deletes the saves and the search history; notification deletes
+  the notices and push tokens. Media does nothing: a waiting upload expires
+  within a day anyway, and the avatar object stays in the store, as a
+  removed avatar does.
+- Deal's `DealAccountWatch.Deleted` also sends `Scrub` with a delay of 365
+  days (`domain.KeepRecipientsFor`), which blanks the recipient name, phone
+  and street of every order the account bought; the commune stays. Every
+  order of a deleted account is closed by then, so each closed at least a
+  year earlier, as the app's text promises.
+- Accepted race: a buyer requests COD between the open-order check and the
+  erase. Deal's worker cancels that order on `account.deleted`, and the
+  buyer is told as for any cancellation. A shipped order cannot appear in
+  the window, since only the seller ships.
+- `accountsvc.Service.Status` replaced `Suspended`: the status in force now,
+  `active`, `suspended` or `deleted`. Every write answers
+  `status.Refusal()`, so a deleted caller's access token, valid for up to 15
+  minutes, gets 401 `session_revoked`, the answer its revoked session gives
+  at refresh. 409 `account_deleted` is about the other person only: a reply
+  in a conversation with a deleted account, and a follow of one. A deal or
+  COD request to a deleted seller needs no check, since the seller's
+  listings are deleted.
+- Others see a deleted person as `status: deleted` on `Account` and the
+  console account, and as `deleted: true` on chat's `Person` and a review's
+  `buyer`; the reviews it wrote still count toward the seller's rating.
+  `GET /v1/screens/seller/{id}` is 404 `account_not_found`.
 
 ### Notifications
 
