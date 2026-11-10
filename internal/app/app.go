@@ -19,6 +19,7 @@ import (
 
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/account"
+	"github.com/shopnexus/server2/internal/assist"
 	"github.com/shopnexus/server2/internal/catalog"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/chat"
@@ -41,9 +42,11 @@ import (
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/firebase"
+	"github.com/shopnexus/server2/internal/provider/frames"
 	"github.com/shopnexus/server2/internal/provider/google"
 	"github.com/shopnexus/server2/internal/provider/llm"
 	"github.com/shopnexus/server2/internal/provider/push"
+	"github.com/shopnexus/server2/internal/provider/stt"
 	"github.com/shopnexus/server2/internal/screen"
 	"github.com/shopnexus/server2/internal/support"
 	"github.com/shopnexus/server2/internal/trust"
@@ -261,6 +264,18 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, catalogm.Service, mediam.Service)
+	assistm := assist.Mount(d, assist.Settings{
+		Frames: frames.Client{BaseURL: cfg.Assist.FramesBaseURL, HTTP: &http.Client{}},
+		STT: stt.OpenAI{
+			BaseURL: cfg.Assist.STTBaseURL, APIKey: cfg.Assist.STTAPIKey, Model: cfg.Assist.STTModel, HTTP: &http.Client{},
+		},
+		Model: llm.OpenAI{
+			BaseURL: cfg.Assist.LLMBaseURL, APIKey: cfg.Assist.LLMAPIKey, Model: cfg.Assist.LLMModel, HTTP: &http.Client{},
+		},
+		Text:    embedder(cfg.Embed.TextBaseURL, cfg.Embed.TextModel, cfg.Embed.SearchAPIKey, catalogdomain.TextDims),
+		Image:   embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.SearchAPIKey, catalogdomain.PhotoDims),
+		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, CallTimeout: cfg.Assist.CallTimeout,
+	}, accounts, mediam.Service, catalogm.Service)
 	updates := stream.PGLog{DB: pool}
 	router.Handle("GET /v1/ws", d.Protect(stream.Socket{
 		Hub: hub, Updates: updates, Access: socketAccess{accounts: accounts, chats: chatm.Service},
@@ -271,7 +286,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm, discoverym.Service, chatm.Service, notificationm.Service)
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, dealm.Services, discoverym.Services,
-		chatm.Services, notificationm.Services), nil
+		chatm.Services, notificationm.Services, assistm.Services), nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

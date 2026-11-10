@@ -47,6 +47,10 @@ paths:
     $ref: "paths/address.yaml#/addressDefault"
   /v1/uploads:
     $ref: "paths/media.yaml#/uploads"
+  /v1/video-reads:
+    $ref: "paths/assist.yaml#/videoReads"
+  /v1/video-reads/{id}:
+    $ref: "paths/assist.yaml#/videoRead"
   /v1/listings:
     $ref: "paths/catalog.yaml#/listings"
   /v1/listings/{id}:

@@ -10,7 +10,7 @@ Update:
       minimum: 1
     kind:
       type: string
-      enum: [message, read, deal, notification]
+      enum: [message, read, deal, notification, video_read]
     conversation_id:
       type: string
       format: uuid
@@ -21,6 +21,9 @@ Update:
       type: string
       format: uuid
     notification_id:
+      type: string
+      format: uuid
+    video_read_id:
       type: string
       format: uuid
 UpdatePage:

@@ -46,6 +46,7 @@ var (
 	google     *googletest.Issuer   // signs Google ID tokens; the server's key URL points at it
 	model      = newModel()         // the model that reads search queries
 	embedder   = newEmbed()         // the embedding aliases, embed-text and embed-image
+	assistStub = newAssist()        // ai's frames, the stt alias and the video-read model
 	phones     = newPhones()        // every push the server sends
 	mails      = newInbox()         // every mail the server sends
 	consoleSvc *consolesvc.Console  // on the server's keys and database, so tests create members directly
@@ -146,8 +147,8 @@ func setup(closers *[]func()) error {
 			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,
 		},
 		Assist: config.AssistConfig{
-			FramesBaseURL: "http://127.0.0.1:1/v1", STTBaseURL: "http://127.0.0.1:1/v1", STTAPIKey: "", STTModel: "none",
-			LLMBaseURL: "http://127.0.0.1:1", LLMAPIKey: "none", LLMModel: "none", CallTimeout: time.Second,
+			FramesBaseURL: assistStub.url(), STTBaseURL: assistStub.url(), STTAPIKey: "e2e", STTModel: "gipformer-1.5",
+			LLMBaseURL: assistStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second,
 		},
 		Firebase: issuer.Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},

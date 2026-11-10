@@ -3,6 +3,7 @@ package e2e
 import (
 	"bytes"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -19,6 +20,31 @@ func upload(t *testing.T, token string, body []byte) string {
 	res := call(t, "POST", "/v1/uploads", map[string]any{"content_type": "image/jpeg", "size": len(body)}, bearer(token))
 	ticket := expect[uploadTicket](t, res, http.StatusCreated)
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPut, ticket.URL, bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for k, v := range ticket.Headers {
+		req.Header.Set(k, v)
+	}
+	req.ContentLength = int64(len(body))
+	put, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = put.Body.Close()
+	if put.StatusCode != http.StatusOK {
+		t.Fatalf("put to the presigned URL: %d", put.StatusCode)
+	}
+	return ticket.UploadID
+}
+
+// uploadVideo asks for an mp4 ticket as the account with token and PUTs
+// body to it.
+func uploadVideo(t *testing.T, token, body string) string {
+	t.Helper()
+	res := call(t, "POST", "/v1/uploads", map[string]any{"content_type": "video/mp4", "size": len(body)}, bearer(token))
+	ticket := expect[uploadTicket](t, res, http.StatusCreated)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPut, ticket.URL, strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}

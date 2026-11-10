@@ -1,0 +1,128 @@
+VideoReadRequest:
+  type: object
+  additionalProperties: false
+  required: [video]
+  properties:
+    video:
+      type: string
+      format: uuid
+      description: A video upload of the caller's (video/mp4 or video/quicktime), uploaded and not read yet.
+VideoRead:
+  type: object
+  additionalProperties: false
+  required: [id, status, expires_at]
+  description: |
+    A read of a seller's video. Fields fill in as its steps finish: frames
+    after the frames step, draft after the fill step, estimate when the read
+    is done. A field not reached yet is absent. The video is deleted when
+    the read ends, done or failed; the read is kept 24 hours.
+  properties:
+    id:
+      type: string
+      format: uuid
+    status:
+      type: string
+      enum: [reading, done, failed]
+    failure:
+      type: string
+      enum: [unreadable_video, video_too_short, video_too_long, no_item, unavailable]
+      description: |
+        Only when status is failed. unreadable_video: no picture could be
+        read; video_too_short and video_too_long: under 3 s or over 35 s;
+        no_item: the video shows no single item for sale; unavailable: the
+        models did not answer in time, try again with a new upload.
+    frames:
+      type: array
+      maxItems: 8
+      description: The clearest frames, in time order.
+      items:
+        $ref: "#/VideoReadFrame"
+    draft:
+      $ref: "#/VideoReadDraft"
+    estimate:
+      description: Only when status is done; null when neither the market nor the model gave a range.
+      anyOf:
+        - $ref: "#/PriceEstimate"
+        - type: "null"
+    expires_at:
+      type: string
+      format: date-time
+VideoReadFrame:
+  type: object
+  additionalProperties: false
+  required: [upload_id, url, at_seconds]
+  properties:
+    upload_id:
+      type: string
+      format: uuid
+      description: A photo upload of the caller's; post it in a listing's photos.
+    url:
+      type: string
+      format: uri
+      description: Where to read the JPEG, for one hour after this response.
+    at_seconds:
+      type: number
+      minimum: 0
+VideoReadDraft:
+  type: object
+  additionalProperties: false
+  required: [title, category_code, condition, specs, description, price, allow_offers, photos]
+  description: |
+    ListingDraft's fields as the AI filled them. Add commune_code (and gps
+    when allowed) and post it to POST /v1/listings. A field with a value is
+    one the AI filled.
+  properties:
+    title:
+      type: string
+      maxLength: 70
+    category_code:
+      type: string
+      description: A subcategory code, or empty when none was found.
+    condition:
+      $ref: "catalog.yaml#/Condition"
+    specs:
+      type: array
+      maxItems: 20
+      items:
+        $ref: "catalog.yaml#/Spec"
+    description:
+      type: string
+      maxLength: 1500
+      description: The seller's own words, restated; empty when they said nothing.
+    price:
+      type: [integer, "null"]
+      format: int64
+      description: Whole đồng the seller said; null when they named no price.
+    allow_offers:
+      type: boolean
+      description: True when the seller said the price is negotiable.
+    photos:
+      type: array
+      minItems: 1
+      maxItems: 6
+      description: Upload IDs of the kept frames, the cover first.
+      items:
+        type: string
+        format: uuid
+PriceEstimate:
+  type: object
+  additionalProperties: false
+  required: [low, median, high, source, sample_size]
+  properties:
+    low:
+      type: integer
+      format: int64
+    median:
+      type: integer
+      format: int64
+    high:
+      type: integer
+      format: int64
+    source:
+      type: string
+      enum: [market, model]
+      description: market is similar listings on the platform; model is the AI's own guess.
+    sample_size:
+      type: integer
+      minimum: 0
+      description: Listings behind a market range; 0 for model.
