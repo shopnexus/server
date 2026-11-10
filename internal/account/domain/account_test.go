@@ -153,3 +153,65 @@ func TestNewStartsWithItsIDAsWriteID(t *testing.T) {
 		t.Fatalf("%+v", a)
 	}
 }
+
+func TestDeleteClearsTheProfile(t *testing.T) {
+	t.Parallel()
+	a, err := domain.New(uuid.NewV7(), "Linh", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bio := "Bán đồ cũ"
+	if err = a.Edit(nil, &bio, now); err != nil {
+		t.Fatal(err)
+	}
+	a.SetAvatar("avatars/a.jpg", now)
+	changed, err := a.Delete(now)
+	if err != nil || !changed {
+		t.Fatalf("delete: %v %v", changed, err)
+	}
+	if a.Status(now) != domain.StatusDeleted || a.DisplayName() != "" || a.Bio() != "" || a.AvatarKey() != "" ||
+		a.DeletedAt() == nil || !a.DeletedAt().Equal(now) {
+		t.Fatalf("after delete: %+v", a)
+	}
+	if changed, err = a.Delete(now.Add(time.Hour)); err != nil || changed {
+		t.Fatalf("delete again: %v %v", changed, err)
+	}
+	if err = a.CanWrite(now); !errors.Is(err, domain.ErrSessionRevoked) {
+		t.Fatalf("a deleted account writes: %v", err)
+	}
+	if err = a.Suspend("spam", nil, now); !errors.Is(err, domain.ErrAccountNotFound) {
+		t.Fatalf("suspend a deleted account: %v", err)
+	}
+}
+
+func TestDeleteRefusesASuspension(t *testing.T) {
+	t.Parallel()
+	a, _ := domain.New(uuid.NewV7(), "Linh", now)
+	if err := a.Suspend("spam", nil, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Delete(now); !errors.Is(err, domain.ErrSuspended) {
+		t.Fatalf("delete while suspended: %v", err)
+	}
+	until := now.Add(time.Hour)
+	b, _ := domain.New(uuid.NewV7(), "Lan", now)
+	if err := b.Suspend("spam", &until, now); err != nil {
+		t.Fatal(err)
+	}
+	if changed, err := b.Delete(until); err != nil || !changed {
+		t.Fatalf("delete after the suspension lapsed: %v %v", changed, err)
+	}
+}
+
+func TestStatusRefusal(t *testing.T) {
+	t.Parallel()
+	if domain.StatusActive.Refusal() != nil {
+		t.Fatal("active refuses")
+	}
+	if !errors.Is(domain.StatusSuspended.Refusal(), domain.ErrSuspended) {
+		t.Fatal("suspended")
+	}
+	if !errors.Is(domain.StatusDeleted.Refusal(), domain.ErrSessionRevoked) {
+		t.Fatal("deleted")
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/platform/audit"
@@ -314,5 +315,77 @@ func TestTouchActive(t *testing.T) {
 		if a.WriteID() != before.WriteID() {
 			t.Fatal("TouchActive changed write_id")
 		}
+	}
+}
+
+// count is how many rows q finds for id.
+func count(t *testing.T, db *pgxpool.Pool, q string, id uuid.UUID) int {
+	t.Helper()
+	var n int
+	if err := db.QueryRow(context.Background(), q, pgx.StrictNamedArgs{"id": id}).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+func TestErase(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewAccounts(db)
+	me, other := seed(t, s), seed(t, s)
+	for _, q := range []string{
+		`INSERT INTO credentials (account_id, write_id) VALUES (@id, @id)`,
+		`INSERT INTO identities (id, account_id, kind, identifier) VALUES (uuidv7(), @id::uuid, 'phone', '+8499' || substr(md5(@id::text), 1, 7))`,
+		`INSERT INTO addresses (id, account_id, recipient_name, phone, street, commune_code, is_default, request_key, write_id, created_at)
+VALUES (uuidv7(), @id, 'Linh', '0912345678', '1 Lê Lợi', (SELECT code FROM communes ORDER BY code LIMIT 1), true, uuidv7(), uuidv7(), now())`,
+		`INSERT INTO sessions (id, account_id, refresh_hash, auth_time, created_at, last_used_at, expires_at, write_id)
+VALUES (uuidv7(), @id, decode(md5(random()::text), 'hex'), now(), now(), now(), now() + interval '30 days', uuidv7())`,
+	} {
+		if _, err := db.Exec(ctx, q, pgx.StrictNamedArgs{"id": me}); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	if err := s.Block(ctx, uuid.NewV7(), other, me, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(ctx, `INSERT INTO account_follows (id, follower_id, followed_id, created_at) VALUES (uuidv7(), @id, @other, now())`,
+		pgx.StrictNamedArgs{"id": me, "other": other}); err != nil {
+		t.Fatal(err)
+	}
+
+	a, err := s.Get(ctx, me)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = a.Delete(now); err != nil {
+		t.Fatal(err)
+	}
+	ev := events.Event{ID: uuid.NewV7(), Kind: events.AccountDeleted, SubjectID: me, OccurredAt: now}
+	if err = s.Erase(ctx, &a, uuid.NewV7(), ev); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Get(ctx, me)
+	if err != nil || got.StoredStatus() != domain.StatusDeleted || got.DeletedAt() == nil || got.DisplayName() != "" {
+		t.Fatalf("stored: %+v %v", got, err)
+	}
+	for q, want := range map[string]int{
+		`SELECT count(*) FROM credentials WHERE account_id = @id`:                           0,
+		`SELECT count(*) FROM identities WHERE account_id = @id`:                            0,
+		`SELECT count(*) FROM addresses WHERE account_id = @id`:                             0,
+		`SELECT count(*) FROM account_blocks WHERE blocker_id = @id OR blocked_id = @id`:    0,
+		`SELECT count(*) FROM account_follows WHERE follower_id = @id OR followed_id = @id`: 0,
+		`SELECT count(*) FROM sessions WHERE account_id = @id AND revoked_at IS NULL`:       0,
+		`SELECT count(*) FROM events WHERE subject_id = @id AND kind = 'account.deleted'`:   1,
+	} {
+		if n := count(t, db, q, me); n != want {
+			t.Errorf("%s: %d, want %d", q, n, want)
+		}
+	}
+
+	stale := got
+	stale.Saved(uuid.NewV7())
+	if err = s.Erase(ctx, &stale, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("a stale erase: %v", err)
 	}
 }

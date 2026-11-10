@@ -43,7 +43,7 @@ ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 
 // accountColumns are the columns scanAccount reads.
 const accountColumns = `id, coalesce(display_name, ''), coalesce(bio, ''), coalesce(avatar_key, ''), status, suspended_until,
-       coalesce(suspend_reason, ''), write_id, created_at, updated_at, last_active_at`
+       coalesce(suspend_reason, ''), write_id, created_at, updated_at, last_active_at, deleted_at`
 
 // scanAccount reads accountColumns.
 func scanAccount(row pgx.CollectableRow) (domain.Account, error) {
@@ -51,13 +51,13 @@ func scanAccount(row pgx.CollectableRow) (domain.Account, error) {
 		id, writeID                  uuid.UUID
 		name, bio, avatarKey, reason string
 		status                       domain.Status
-		until, lastActive            *time.Time
+		until, lastActive, deletedAt *time.Time
 		createdAt, updatedAt         time.Time
 	)
-	if err := row.Scan(&id, &name, &bio, &avatarKey, &status, &until, &reason, &writeID, &createdAt, &updatedAt, &lastActive); err != nil {
+	if err := row.Scan(&id, &name, &bio, &avatarKey, &status, &until, &reason, &writeID, &createdAt, &updatedAt, &lastActive, &deletedAt); err != nil {
 		return domain.Account{}, fmt.Errorf("scan account: %w", err)
 	}
-	return domain.RestoreAccount(id, name, bio, avatarKey, status, until, reason, writeID, createdAt, updatedAt, lastActive), nil
+	return domain.RestoreAccount(id, name, bio, avatarKey, status, until, reason, writeID, createdAt, updatedAt, lastActive, deletedAt), nil
 }
 
 func (s pgAccounts) Get(ctx context.Context, id uuid.UUID) (domain.Account, error) {
@@ -78,7 +78,7 @@ func (s pgAccounts) Get(ctx context.Context, id uuid.UUID) (domain.Account, erro
 const saveAccount = `
 UPDATE accounts
 SET display_name = NULLIF(@display_name, ''), bio = NULLIF(@bio, ''), avatar_key = NULLIF(@avatar_key, ''), status = @status, suspended_until = @suspended_until,
-    suspend_reason = NULLIF(@suspend_reason, ''), updated_at = @updated_at, write_id = @write_id
+    suspend_reason = NULLIF(@suspend_reason, ''), updated_at = @updated_at, deleted_at = @deleted_at, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
 func (s pgAccounts) Save(ctx context.Context, a *domain.Account, writeID uuid.UUID, entry *audit.Entry, evs ...events.Event) error {
@@ -87,6 +87,7 @@ func (s pgAccounts) Save(ctx context.Context, a *domain.Account, writeID uuid.UU
 			"id": a.ID(), "read_write_id": a.WriteID(), "write_id": writeID,
 			"display_name": a.DisplayName(), "bio": a.Bio(), "avatar_key": a.AvatarKey(), "status": a.StoredStatus(),
 			"suspended_until": a.SuspendedUntil(), "suspend_reason": a.SuspendReason(), "updated_at": a.UpdatedAt(),
+			"deleted_at": a.DeletedAt(),
 		})
 		if err != nil {
 			return fmt.Errorf("update account: %w", err)
@@ -103,6 +104,47 @@ func (s pgAccounts) Save(ctx context.Context, a *domain.Account, writeID uuid.UU
 	})
 	if err != nil {
 		return fmt.Errorf("save account: %w", err)
+	}
+	a.Saved(writeID)
+	return nil
+}
+
+// eraseAccount is what Erase deletes beside the row, in order; identities
+// go with their credentials (ON DELETE CASCADE).
+var eraseAccount = []string{
+	`DELETE FROM credentials WHERE account_id = @id`,
+	`DELETE FROM addresses WHERE account_id = @id`,
+	`DELETE FROM account_blocks WHERE blocker_id = @id OR blocked_id = @id`,
+	`DELETE FROM account_follows WHERE follower_id = @id OR followed_id = @id`,
+}
+
+func (s pgAccounts) Erase(ctx context.Context, a *domain.Account, writeID uuid.UUID, evs ...events.Event) error {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, saveAccount, pgx.StrictNamedArgs{
+			"id": a.ID(), "read_write_id": a.WriteID(), "write_id": writeID,
+			"display_name": a.DisplayName(), "bio": a.Bio(), "avatar_key": a.AvatarKey(), "status": a.StoredStatus(),
+			"suspended_until": a.SuspendedUntil(), "suspend_reason": a.SuspendReason(), "updated_at": a.UpdatedAt(),
+			"deleted_at": a.DeletedAt(),
+		})
+		if err != nil {
+			return fmt.Errorf("update account: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrConflict
+		}
+		for _, q := range eraseAccount {
+			if _, err = tx.Exec(ctx, q, pgx.StrictNamedArgs{"id": a.ID()}); err != nil {
+				return fmt.Errorf("erase: %w", err)
+			}
+		}
+		if _, err = tx.Exec(ctx, `UPDATE sessions SET revoked_at = @now, write_id = uuidv7()
+WHERE account_id = @id AND revoked_at IS NULL`, pgx.StrictNamedArgs{"id": a.ID(), "now": a.UpdatedAt()}); err != nil {
+			return fmt.Errorf("revoke sessions: %w", err)
+		}
+		return events.Insert(ctx, tx, evs...)
+	})
+	if err != nil {
+		return fmt.Errorf("erase account: %w", err)
 	}
 	a.Saved(writeID)
 	return nil

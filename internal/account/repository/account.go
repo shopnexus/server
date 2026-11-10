@@ -29,6 +29,12 @@ type Accounts interface {
 	// event IDs it took from the journal with the writeID, and the retry
 	// writes no second event.
 	Save(ctx context.Context, a *domain.Account, writeID uuid.UUID, entry *audit.Entry, evs ...events.Event) error
+	// Erase saves a deleted account as Save does and, in the same
+	// transaction, deletes its credentials with their identities, its
+	// addresses, the blocks and follows either way, and revokes its
+	// sessions, then writes evs. A stale write is ErrConflict and writes
+	// none of it.
+	Erase(ctx context.Context, a *domain.Account, writeID uuid.UUID, evs ...events.Event) error
 	// List is a query: accounts with IDs below p.Before(), newest first, at
 	// most p.Fetch().
 	List(ctx context.Context, p page.Request) ([]domain.Account, error)

@@ -8,6 +8,8 @@ import (
 	"time"
 	"unicode/utf8"
 	"uuid"
+
+	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
 // Status is whether an account may act.
@@ -16,7 +18,14 @@ type Status string
 const (
 	StatusActive    Status = "active"
 	StatusSuspended Status = "suspended"
+	// StatusDeleted is an account its person deleted: the row stays, without
+	// a name, bio or avatar, for the orders and messages that point to it.
+	StatusDeleted Status = "deleted"
 )
+
+// RecentAuth is how long after a sign-in the sensitive actions stay open:
+// signing out everywhere and deleting the account.
+const RecentAuth = 15 * time.Minute
 
 const (
 	maxNameRunes = 50
@@ -39,6 +48,8 @@ type Account struct {
 	// lastActiveAt is when the person last had the app open; nil before the
 	// first time. Only the WebSocket writes it, outside the aggregate's saves.
 	lastActiveAt *time.Time
+	// deletedAt is when the person deleted the account; nil while it lives.
+	deletedAt *time.Time
 }
 
 // New builds an active account with the caller's id. The display name may
@@ -54,12 +65,12 @@ func New(id uuid.UUID, displayName string, now time.Time) (Account, error) {
 
 // RestoreAccount rebuilds a stored account. Stores only.
 func RestoreAccount(id uuid.UUID, displayName, bio, avatarKey string, status Status, suspendedUntil *time.Time,
-	suspendReason string, writeID uuid.UUID, createdAt, updatedAt time.Time, lastActiveAt *time.Time,
+	suspendReason string, writeID uuid.UUID, createdAt, updatedAt time.Time, lastActiveAt, deletedAt *time.Time,
 ) Account {
 	return Account{
 		id: id, displayName: displayName, bio: bio, avatarKey: avatarKey, status: status,
 		suspendedUntil: suspendedUntil, suspendReason: suspendReason, writeID: writeID, createdAt: createdAt, updatedAt: updatedAt,
-		lastActiveAt: lastActiveAt,
+		lastActiveAt: lastActiveAt, deletedAt: deletedAt,
 	}
 }
 
@@ -73,6 +84,7 @@ func (a *Account) CreatedAt() time.Time       { return a.createdAt }
 func (a *Account) UpdatedAt() time.Time       { return a.updatedAt }
 func (a *Account) LastActiveAt() *time.Time   { return a.lastActiveAt }
 func (a *Account) WriteID() uuid.UUID         { return a.writeID }
+func (a *Account) DeletedAt() *time.Time      { return a.deletedAt }
 
 // StoredStatus is the status as stored, which Status may read as active once
 // a suspension has lapsed. Stores only.
@@ -93,13 +105,29 @@ func (a *Account) Status(now time.Time) Status {
 // Suspended reports whether a suspension is in force at now.
 func (a *Account) Suspended(now time.Time) bool { return a.Status(now) == StatusSuspended }
 
-// CanWrite returns ErrSuspended while a suspension is in force. Every use
-// case that writes loads the account and calls it; access tokens stay valid
-// for up to 15 minutes after a suspension, so this is what stops writes at
-// once.
-func (a *Account) CanWrite(now time.Time) error {
-	if a.Suspended(now) {
+// Refusal is the error a write by an account in this status answers: nil
+// while active, ErrSuspended while suspended, and ErrSessionRevoked once
+// deleted, since a deleted account's sessions are revoked and only an
+// access token that has not expired yet can still call.
+func (s Status) Refusal() *apperr.Error {
+	switch s {
+	case StatusSuspended:
 		return ErrSuspended
+	case StatusDeleted:
+		return ErrSessionRevoked
+	default:
+		return nil
+	}
+}
+
+// CanWrite returns the refusal of the status in force: ErrSuspended while a
+// suspension is, ErrSessionRevoked once deleted. Every use case that writes
+// loads the account and calls it; access tokens stay valid for up to 15
+// minutes after a suspension or a deletion, so this is what stops writes
+// at once.
+func (a *Account) CanWrite(now time.Time) error {
+	if r := a.Status(now).Refusal(); r != nil {
+		return r
 	}
 	return nil
 }
@@ -137,6 +165,9 @@ func (a *Account) SetAvatar(key string, now time.Time) {
 // Suspend stops the account from writing, until the given time or, with a
 // nil until, until Unsuspend.
 func (a *Account) Suspend(reason string, until *time.Time, now time.Time) error {
+	if a.status == StatusDeleted {
+		return ErrAccountNotFound
+	}
 	reason = strings.TrimSpace(reason)
 	if reason == "" {
 		return ErrSuspendReason
@@ -157,4 +188,20 @@ func (a *Account) Unsuspend(now time.Time) {
 	a.suspendReason = ""
 	a.suspendedUntil = nil
 	a.updatedAt = now
+}
+
+// Delete ends the account: its name, bio and avatar go and it writes no
+// more. A suspension in force refuses it, so deleting cannot shed one.
+// Deleting a deleted account changes nothing and reports false.
+func (a *Account) Delete(now time.Time) (bool, error) {
+	if a.status == StatusDeleted {
+		return false, nil
+	}
+	if a.Suspended(now) {
+		return false, ErrSuspended
+	}
+	a.status, a.deletedAt, a.updatedAt = StatusDeleted, &now, now
+	a.displayName, a.bio, a.avatarKey = "", "", ""
+	a.suspendReason, a.suspendedUntil = "", nil
+	return true, nil
 }

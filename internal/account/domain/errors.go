@@ -9,6 +9,7 @@ import (
 var (
 	ErrAccountNotFound = apperr.New(apperr.KindNotFound, "account_not_found", "account not found")
 	ErrSuspended       = apperr.New(apperr.KindForbidden, "account_suspended", "account is suspended")
+	ErrAccountDeleted  = apperr.New(apperr.KindConflict, "account_deleted", "the other account was deleted")
 	ErrInvalidAccount  = apperr.New(apperr.KindInvalid, "invalid_account", "the account breaks a rule; see fields")
 	ErrSuspendReason   = apperr.New(apperr.KindInvalid, "suspend_reason_required", "a suspension needs a reason")
 	ErrSuspendUntil    = apperr.New(apperr.KindInvalid, "suspend_until_in_past", "a suspension cannot end in the past")

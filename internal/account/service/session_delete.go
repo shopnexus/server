@@ -4,16 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/platform/authn"
 )
-
-// recentAuth is how long after a sign-in the sensitive actions stay open.
-const recentAuth = 15 * time.Minute
 
 // DeleteCurrentSession revokes the caller's session. Its access token keeps working until
 // it expires; the app discards it.
@@ -25,7 +21,7 @@ func (s *Account) DeleteCurrentSession(ctx context.Context, p authn.Principal) e
 // sign-in.
 func (s *Account) DeleteAllSessions(ctx context.Context, p authn.Principal) error {
 	now := s.now()
-	if now.Sub(p.AuthTime) > recentAuth {
+	if now.Sub(p.AuthTime) > domain.RecentAuth {
 		return domain.ErrReauthRequired
 	}
 	if err := s.sessions.RevokeAll(ctx, p.AccountID, now); err != nil {
