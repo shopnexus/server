@@ -1276,8 +1276,11 @@ calls it except screen, for Home's unread count; depguard holds that.
   before, reads the seller's name, then reads the followers 500 per step
   (`accountsvc.Followers`) and sends `NotificationWorker.TellFollower` once
   per follower with the idempotency key `<event id>/<follower id>`. Each
-  follower's notice is an invocation of its own, so no journal grows with
-  the follower count. `TellFollower` reads the listing again and tells no
+  follower's notice is an invocation of its own with a short journal, but
+  `ListingPublished` journals one send per follower and one step per page:
+  a seller with 30,000 followers gives it about 30,000 entries, all replayed
+  on a retry. A chain of page invocations would bound it when sellers get
+  that large. `TellFollower` reads the listing again and tells no
   one when it is no longer `active`; otherwise it writes `followed_listing`
   ("{seller} vừa đăng tin mới: {title}", opening the listing) collapsing on
   `seller:<id>`, so a run of listings leaves one unread notice, and pushes

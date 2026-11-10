@@ -29,8 +29,8 @@ import (
 // handler to the event kind it is named after. A handler reads its facts in
 // one step, which returns the zero facts for a subject that is gone; a zero
 // ID then tells no one. A first publication sends each of the seller's
-// followers to TellFollower, one invocation per follower, so each journal
-// stays short.
+// followers to TellFollower, one invocation per follower; ListingPublished
+// journals one send per follower.
 type Worker struct {
 	Prefix   string
 	Notices  service.Service
