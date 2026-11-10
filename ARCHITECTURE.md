@@ -850,6 +850,16 @@ Orders, cash on delivery, live in module `deal` (spec:
   `cod_requested`, `shipped`, `delivered`, `returned`, `order_cancelled`.
   The order's code `SN-100001` comes from the sequence `order_codes`, so a
   use case reads the deal back after its save.
+- Ship, deliver and return take the order's ID:
+  `POST /v1/orders/{order_id}/ship|deliver|return`, each answering with the
+  order's deal (decided 2026-11-10; they were under `/v1/deals/{id}/` and
+  moved the deal's latest order). The domain move refuses an order that is
+  not the deal's open one with `move_not_allowed`. A seller whose screen
+  still shows an order that was returned, while the deal's next order is
+  shipped, gets 409 for that order, and the shipped one stays as it was. An
+  unknown order, or one the caller is neither side of, is
+  `order_not_found` 404. `POST /v1/deals/{id}/cod` stays on the deal: it
+  creates the order.
 - A buyer has at most 3 orders requested or shipped; `Save` counts them
   under `pg_advisory_xact_lock` on the buyer and refuses the fourth with
   `cod_limit_reached`.

@@ -24,10 +24,10 @@ func soldDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, seller 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = d.Ship(domain.Seller, w, onSale, now); err != nil {
+	if err = d.Ship(domain.Seller, d.Order().ID, w, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = d.Deliver(domain.Seller, now); err != nil {
+	if err = d.Deliver(domain.Seller, d.Order().ID, now); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(context.Background(), &d, uuid.NewV7()); err != nil {

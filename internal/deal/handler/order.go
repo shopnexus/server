@@ -15,7 +15,7 @@ type codRequest struct {
 }
 
 type shipRequest struct {
-	ID             uuid.UUID `json:"-"                 path:"id"`
+	OrderID        uuid.UUID `json:"-"                 path:"order_id"`
 	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
 	Carrier        string    `json:"carrier"`
 	CarrierName    string    `json:"carrier_name"`
@@ -24,7 +24,7 @@ type shipRequest struct {
 }
 
 type finishRequest struct {
-	ID             uuid.UUID `json:"-"                 path:"id"`
+	OrderID        uuid.UUID `json:"-"                 path:"order_id"`
 	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
 }
 
@@ -47,7 +47,7 @@ func (h *Handler) RequestCod(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, v)
 }
 
-// Ship serves POST /v1/deals/{id}/ship.
+// Ship serves POST /v1/orders/{order_id}/ship.
 func (h *Handler) Ship(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
@@ -58,7 +58,7 @@ func (h *Handler) Ship(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Ship(r.Context(), p.AccountID, in.ID, in.IdempotencyKey, service.WaybillInput{
+	v, err := h.svc.Ship(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey, service.WaybillInput{
 		Carrier: in.Carrier, CarrierName: in.CarrierName, TrackingCode: in.TrackingCode, Fee: in.Fee,
 	})
 	if err != nil {
@@ -68,7 +68,7 @@ func (h *Handler) Ship(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, v)
 }
 
-// Deliver serves POST /v1/deals/{id}/deliver.
+// Deliver serves POST /v1/orders/{order_id}/deliver.
 func (h *Handler) Deliver(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
@@ -79,7 +79,7 @@ func (h *Handler) Deliver(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Deliver(r.Context(), p.AccountID, in.ID, in.IdempotencyKey)
+	v, err := h.svc.Deliver(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
@@ -87,7 +87,7 @@ func (h *Handler) Deliver(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, v)
 }
 
-// Return serves POST /v1/deals/{id}/return.
+// Return serves POST /v1/orders/{order_id}/return.
 func (h *Handler) Return(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
@@ -98,7 +98,7 @@ func (h *Handler) Return(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Return(r.Context(), p.AccountID, in.ID, in.IdempotencyKey)
+	v, err := h.svc.Return(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

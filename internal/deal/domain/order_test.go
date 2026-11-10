@@ -48,7 +48,7 @@ func requested(t *testing.T) domain.Deal {
 func shipped(t *testing.T) domain.Deal {
 	t.Helper()
 	d := requested(t)
-	must(t, d.Ship(domain.Seller, waybill(t), onSale, now))
+	must(t, d.Ship(domain.Seller, d.Order().ID, waybill(t), onSale, now))
 	return d
 }
 
@@ -106,13 +106,13 @@ func TestOrderLifecycle(t *testing.T) {
 	if err := d.RequestCod(domain.Buyer, recipient, onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("second request: %v", err)
 	}
-	if err := d.Ship(domain.Buyer, waybill(t), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if err := d.Ship(domain.Buyer, d.Order().ID, waybill(t), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("buyer ships: %v", err)
 	}
-	if err := d.Ship(domain.Seller, waybill(t), reserved, now); !errors.Is(err, domain.ErrListingUnavailable) {
+	if err := d.Ship(domain.Seller, d.Order().ID, waybill(t), reserved, now); !errors.Is(err, domain.ErrListingUnavailable) {
 		t.Fatalf("ship a reserved listing: %v", err)
 	}
-	must(t, d.Ship(domain.Seller, waybill(t), onSale, now))
+	must(t, d.Ship(domain.Seller, d.Order().ID, waybill(t), onSale, now))
 	if o = d.Order(); o.Status != domain.OrderShipped || o.Waybill == nil || o.ShippedAt == nil {
 		t.Fatalf("%+v", o)
 	}
@@ -124,10 +124,10 @@ func TestOrderLifecycle(t *testing.T) {
 			t.Fatalf("%s cancels a shipped order: %v", by, err)
 		}
 	}
-	if err := d.Return(domain.Buyer, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if err := d.Return(domain.Buyer, d.Order().ID, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("buyer returns: %v", err)
 	}
-	must(t, d.Deliver(domain.Seller, now))
+	must(t, d.Deliver(domain.Seller, d.Order().ID, now))
 	if o = d.Order(); o.Status != domain.OrderDelivered || o.ClosedAt == nil || d.Status() != domain.StatusSold || o.Open() {
 		t.Fatalf("%+v %s", o, d.Status())
 	}
@@ -147,7 +147,7 @@ func TestReturnNegotiatesAgain(t *testing.T) {
 	t.Parallel()
 	d := shipped(t)
 	first := d.Order().ID
-	must(t, d.Return(domain.Seller, now))
+	must(t, d.Return(domain.Seller, d.Order().ID, now))
 	if d.Order().Status != domain.OrderReturned || d.Status() != domain.StatusNegotiating || d.AgreedPrice() != 0 {
 		t.Fatalf("%+v %s", d.Order(), d.Status())
 	}
@@ -155,6 +155,21 @@ func TestReturnNegotiatesAgain(t *testing.T) {
 	must(t, d.RequestCod(domain.Buyer, recipient, onSale, now))
 	if d.Order().ID == first || d.Order().Status != domain.OrderRequested {
 		t.Fatalf("%+v", d.Order())
+	}
+	if err := d.Ship(domain.Seller, first, waybill(t), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Fatalf("ship the returned order: %v", err)
+	}
+	must(t, d.Ship(domain.Seller, d.Order().ID, waybill(t), onSale, now))
+	for name, move := range map[string]func() error{
+		"deliver": func() error { return d.Deliver(domain.Seller, first, now) },
+		"return":  func() error { return d.Return(domain.Seller, first, now) },
+	} {
+		if err := move(); !errors.Is(err, domain.ErrMoveNotAllowed) {
+			t.Errorf("%s the returned order: %v", name, err)
+		}
+	}
+	if d.Order().Status != domain.OrderShipped {
+		t.Fatalf("the second order moved: %+v", d.Order())
 	}
 }
 

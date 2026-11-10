@@ -48,11 +48,12 @@ type Service interface {
 	// a copy of one of the buyer's addresses.
 	RequestCod(ctx context.Context, caller, id, addressID uuid.UUID) (DealView, error)
 	// Ship records the waybill of a requested order, which holds the
-	// listing; Deliver and Return end a shipped one. A repeated
-	// idempotencyKey of the same caller runs nothing more.
-	Ship(ctx context.Context, caller, id uuid.UUID, idempotencyKey string, w WaybillInput) (DealView, error)
-	Deliver(ctx context.Context, caller, id uuid.UUID, idempotencyKey string) (DealView, error)
-	Return(ctx context.Context, caller, id uuid.UUID, idempotencyKey string) (DealView, error)
+	// listing; Deliver and Return end a shipped one. Each returns the
+	// order's deal and refuses an order that is no longer the deal's open
+	// one. A repeated idempotencyKey of the same caller runs nothing more.
+	Ship(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, w WaybillInput) (DealView, error)
+	Deliver(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
+	Return(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
 	// Order reads one order for another module: its two sides, its
 	// listing and its status; false for an unknown one.
 	Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, error)

@@ -80,7 +80,7 @@ func (e env) requested(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.
 func (e env) shipped(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
 	t.Helper()
 	deal, order = e.requested(t, buyer, seller)
-	if _, err := e.deals.Ship(context.Background(), seller, deal, uuid.NewV7().String(), dealsvc.WaybillInput{
+	if _, err := e.deals.Ship(context.Background(), seller, order, uuid.NewV7().String(), dealsvc.WaybillInput{
 		Carrier: "spx", TrackingCode: "SPX1", Fee: 22_000,
 	}); err != nil {
 		t.Fatal(err)

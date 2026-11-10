@@ -85,8 +85,8 @@ func TestReturnedOrderIsReviewed(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	deal, order := e.shipped(t, buyer, seller)
-	if _, err := e.deals.Return(ctx, seller, deal, uuid.NewV7().String()); err != nil {
+	_, order := e.shipped(t, buyer, seller)
+	if _, err := e.deals.Return(ctx, seller, order, uuid.NewV7().String()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.trust.PutReview(ctx, buyer, order, 1, "Không đúng mô tả"); err != nil {

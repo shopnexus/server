@@ -32,7 +32,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		return FlowResult{Refused: m.Refused}, err
 	}
 	d := domain.RestoreDeal(m.Deal)
-	if err = d.Ship(m.By, *in.Waybill, facts(m.Listing), at); err != nil {
+	if err = d.Ship(m.By, in.OrderID, *in.Waybill, facts(m.Listing), at); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
 	order := d.Order().ID

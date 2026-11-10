@@ -4,6 +4,7 @@ import "github.com/shopnexus/server2/internal/platform/apperr"
 
 var (
 	ErrNotFound           = apperr.New(apperr.KindNotFound, "deal_not_found", "no such deal of the caller's")
+	ErrOrderNotFound      = apperr.New(apperr.KindNotFound, "order_not_found", "no such order of the caller's")
 	ErrMoveNotAllowed     = apperr.New(apperr.KindConflict, "move_not_allowed", "the deal's state or the caller's side does not allow this move")
 	ErrListingUnavailable = apperr.New(apperr.KindConflict, "listing_unavailable", "the listing is not on sale")
 	ErrPriceChanged       = apperr.New(apperr.KindConflict, "price_changed", "the price to accept has changed")

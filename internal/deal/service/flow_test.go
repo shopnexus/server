@@ -50,7 +50,7 @@ func TestShipDeliver(t *testing.T) {
 	v := e.requested(t, buyer, listing)
 	k := key()
 	for range 2 {
-		s, err := e.deals.Ship(ctx, seller, v.ID, k, spx)
+		s, err := e.deals.Ship(ctx, seller, v.Order.ID, k, spx)
 		if err != nil || s.Order.Status != domain.OrderShipped || s.Order.Waybill == nil || s.Order.Waybill.Fee != 22_000 {
 			t.Fatalf("ship: %+v %v", s.Order, err)
 		}
@@ -64,7 +64,7 @@ func TestShipDeliver(t *testing.T) {
 	if n := countMoves(moveKinds(e.get(t, buyer, v.ID)), domain.MoveShipped); n != 1 {
 		t.Fatalf("shipped %d times", n)
 	}
-	d, err := e.deals.Deliver(ctx, seller, v.ID, key())
+	d, err := e.deals.Deliver(ctx, seller, v.Order.ID, key())
 	if err != nil || d.Status != domain.StatusSold || d.Order.Status != domain.OrderDelivered {
 		t.Fatalf("deliver: %+v %v", d, err)
 	}
@@ -80,12 +80,45 @@ func TestShipReturn(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.requested(t, buyer, listing)
-	must(t)(e.deals.Ship(ctx, seller, v.ID, key(), spx))
-	r, err := e.deals.Return(ctx, seller, v.ID, key())
+	must(t)(e.deals.Ship(ctx, seller, v.Order.ID, key(), spx))
+	r, err := e.deals.Return(ctx, seller, v.Order.ID, key())
 	if err != nil || r.Status != domain.StatusNegotiating || r.Order.Status != domain.OrderReturned {
 		t.Fatalf("return: %+v %v", r, err)
 	}
 	if st, held := e.summary(t, listing); st != catalogdomain.StatusActive || held != (uuid.UUID{}) {
+		t.Fatalf("listing %s for %s", st, held)
+	}
+}
+
+func TestFinishRefusesAnEarlierOrder(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	listing := catalogtest.Listing(t, e.db, seller)
+	first := e.requested(t, buyer, listing)
+	must(t)(e.deals.Ship(ctx, seller, first.Order.ID, key(), spx))
+	must(t)(e.deals.Return(ctx, seller, first.Order.ID, key()))
+	second := e.requested(t, buyer, listing)
+	if second.ID != first.ID || second.Order.ID == first.Order.ID {
+		t.Fatalf("second order: %+v", second)
+	}
+	if _, err := e.deals.Ship(ctx, seller, first.Order.ID, key(), spx); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Fatalf("ship the returned order: %v", err)
+	}
+	must(t)(e.deals.Ship(ctx, seller, second.Order.ID, key(), spx))
+	for name, call := range map[string]func() error{
+		"deliver": func() error { _, err := e.deals.Deliver(ctx, seller, first.Order.ID, key()); return err },
+		"return":  func() error { _, err := e.deals.Return(ctx, seller, first.Order.ID, key()); return err },
+	} {
+		if err := call(); !errors.Is(err, domain.ErrMoveNotAllowed) {
+			t.Errorf("%s the returned order: %v", name, err)
+		}
+	}
+	if v := e.get(t, buyer, first.ID); v.Order.ID != second.Order.ID || v.Order.Status != domain.OrderShipped || v.Status != domain.StatusAgreed {
+		t.Fatalf("the second order moved: %+v %s", v.Order, v.Status)
+	}
+	if st, held := e.summary(t, listing); st != catalogdomain.StatusReserved || held != second.Order.ID {
 		t.Fatalf("listing %s for %s", st, held)
 	}
 }
@@ -100,7 +133,7 @@ func TestShipRefusesAHiddenListing(t *testing.T) {
 	if _, err := e.catalog.Hide(ctx, seller, listing); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.deals.Ship(ctx, seller, v.ID, key(), spx); !errors.Is(err, domain.ErrListingUnavailable) {
+	if _, err := e.deals.Ship(ctx, seller, v.Order.ID, key(), spx); !errors.Is(err, domain.ErrListingUnavailable) {
 		t.Fatalf("ship: %v", err)
 	}
 	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderRequested {
@@ -141,7 +174,7 @@ func TestShipLosesToACancel(t *testing.T) {
 	v := e.requested(t, buyer, listing)
 	deps := e.deps
 	deps.Deals = cancelFirst{Deals: e.repo, fired: &atomic.Bool{}}
-	if _, err := start(t, deps).Ship(ctx, seller, v.ID, key(), spx); !errors.Is(err, domain.ErrChanged) {
+	if _, err := start(t, deps).Ship(ctx, seller, v.Order.ID, key(), spx); !errors.Is(err, domain.ErrChanged) {
 		t.Fatalf("ship: %v", err)
 	}
 	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderCancelled || got.Order.CancelReason != domain.CancelByBuyer {
@@ -161,20 +194,20 @@ func TestShipRefusals(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
 	v := e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
-	if _, err := e.deals.Ship(ctx, buyer, v.ID, key(), spx); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if _, err := e.deals.Ship(ctx, buyer, v.Order.ID, key(), spx); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Errorf("buyer ships: %v", err)
 	}
-	if _, err := e.deals.Ship(ctx, stranger, v.ID, key(), spx); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.deals.Ship(ctx, stranger, v.Order.ID, key(), spx); !errors.Is(err, domain.ErrOrderNotFound) {
 		t.Errorf("stranger ships: %v", err)
 	}
 	bad := spx
 	bad.Fee = -1
-	if _, err := e.deals.Ship(ctx, seller, v.ID, key(), bad); !errors.Is(err, domain.ErrInvalidWaybill) {
+	if _, err := e.deals.Ship(ctx, seller, v.Order.ID, key(), bad); !errors.Is(err, domain.ErrInvalidWaybill) {
 		t.Errorf("bad waybill: %v", err)
 	}
 	for name, call := range map[string]func() error{
-		"deliver": func() error { _, err := e.deals.Deliver(ctx, seller, v.ID, key()); return err },
-		"return":  func() error { _, err := e.deals.Return(ctx, seller, v.ID, key()); return err },
+		"deliver": func() error { _, err := e.deals.Deliver(ctx, seller, v.Order.ID, key()); return err },
+		"return":  func() error { _, err := e.deals.Return(ctx, seller, v.Order.ID, key()); return err },
 	} {
 		if err := call(); !errors.Is(err, domain.ErrMoveNotAllowed) {
 			t.Errorf("%s a requested order: %v", name, err)
@@ -201,7 +234,7 @@ func (c shipFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, 
 			return err
 		}
 		listing := domain.Listing{Price: 1_500_000, AllowOffers: true, Status: domain.ListingActive}
-		if err = cur.Ship(domain.Seller, w, listing, time.Now()); err != nil {
+		if err = cur.Ship(domain.Seller, cur.Order().ID, w, listing, time.Now()); err != nil {
 			return err
 		}
 		if err = c.Deals.Save(ctx, &cur, uuid.NewV7()); err != nil {
@@ -220,7 +253,7 @@ func TestShipTwiceKeepsTheListing(t *testing.T) {
 	v := e.requested(t, buyer, listing)
 	deps := e.deps
 	deps.Deals = shipFirst{Deals: e.repo, fired: &atomic.Bool{}}
-	s, err := start(t, deps).Ship(ctx, seller, v.ID, key(), spx)
+	s, err := start(t, deps).Ship(ctx, seller, v.Order.ID, key(), spx)
 	if err != nil || s.Order.Status != domain.OrderShipped {
 		t.Fatalf("ship: %+v %v", s.Order, err)
 	}

@@ -49,10 +49,10 @@ func openDeal(t *testing.T, token, listing string, status int) dealView {
 }
 
 // dealCall posts to /v1/deals/{id}/{action} as token, signed out when it is
-// empty, with a fresh Idempotency-Key, which the order steps need.
+// empty.
 func dealCall(t *testing.T, token, id, action string, body any) Response {
 	t.Helper()
-	return call(t, "POST", "/v1/deals/"+id+"/"+action, body, bearer(token), newKey())
+	return call(t, "POST", "/v1/deals/"+id+"/"+action, body, bearer(token))
 }
 
 // moved posts a move that must succeed and returns the deal.

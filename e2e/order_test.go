@@ -23,10 +23,23 @@ func requestedOrder(t *testing.T, buyer, listing string) dealView {
 	return moved(t, buyer, d.ID, "cod", codBody(deliveryAddress(t, buyer)))
 }
 
+// orderCall posts to /v1/orders/{id}/{action} as token, signed out when it
+// is empty, with the fresh Idempotency-Key the order steps need.
+func orderCall(t *testing.T, token, id, action string, body any) Response {
+	t.Helper()
+	return call(t, "POST", "/v1/orders/"+id+"/"+action, body, bearer(token), newKey())
+}
+
+// orderMoved posts an order step that must succeed and returns the deal.
+func orderMoved(t *testing.T, token, id, action string, body any) dealView {
+	t.Helper()
+	return expect[dealView](t, orderCall(t, token, id, action, body), http.StatusOK)
+}
+
 // shippedOrder is requestedOrder shipped by the seller with token.
 func shippedOrder(t *testing.T, seller, buyer, listing string) dealView {
 	t.Helper()
-	return moved(t, seller, requestedOrder(t, buyer, listing).ID, "ship", waybillBody)
+	return orderMoved(t, seller, requestedOrder(t, buyer, listing).Order.ID, "ship", waybillBody)
 }
 
 func listingStatus(t *testing.T, token, id string) string {
@@ -46,7 +59,7 @@ func TestOrderShipDeliver(t *testing.T) {
 		t.Fatalf("%+v", first.Order)
 	}
 
-	if shipped := moved(t, seller.AccessToken, first.ID, "ship", waybillBody); shipped.Order.Status != "shipped" {
+	if shipped := orderMoved(t, seller.AccessToken, first.Order.ID, "ship", waybillBody); shipped.Order.Status != "shipped" {
 		t.Fatalf("ship: %+v", shipped.Order)
 	}
 	if st := listingStatus(t, "", l.ID); st != "reserved" {
@@ -67,7 +80,7 @@ func TestOrderShipDeliver(t *testing.T) {
 		t.Fatalf("the seller reads a cancelled request: %+v", r)
 	}
 
-	if got = moved(t, seller.AccessToken, first.ID, "deliver", nil); got.Status != "sold" || got.Order.Status != "delivered" {
+	if got = orderMoved(t, seller.AccessToken, first.Order.ID, "deliver", nil); got.Status != "sold" || got.Order.Status != "delivered" {
 		t.Fatalf("deliver: %+v", got)
 	}
 	if st := listingStatus(t, seller.AccessToken, l.ID); st != "sold" {
@@ -92,11 +105,29 @@ func TestOrderReturn(t *testing.T) {
 	buyer, _ := newAccount(t)
 	l := activeListing(t, seller.AccessToken, nil)
 	d := shippedOrder(t, seller.AccessToken, buyer.AccessToken, l.ID)
-	if got := moved(t, seller.AccessToken, d.ID, "return", nil); got.Status != "negotiating" || got.Order.Status != "returned" {
+	if got := orderMoved(t, seller.AccessToken, d.Order.ID, "return", nil); got.Status != "negotiating" || got.Order.Status != "returned" {
 		t.Fatalf("return: %+v", got)
 	}
 	if st := listingStatus(t, seller.AccessToken, l.ID); st != "active" {
 		t.Fatalf("listing %s", st)
+	}
+}
+
+func TestOrderEarlierRefused(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	buyer, _ := newAccount(t)
+	l := activeListing(t, seller.AccessToken, nil)
+	first := shippedOrder(t, seller.AccessToken, buyer.AccessToken, l.ID)
+	orderMoved(t, seller.AccessToken, first.Order.ID, "return", nil)
+	moved(t, buyer.AccessToken, first.ID, "accept", map[string]any{"price": 1_500_000})
+	second := moved(t, buyer.AccessToken, first.ID, "cod", codBody(deliveryAddress(t, buyer.AccessToken)))
+	orderMoved(t, seller.AccessToken, second.Order.ID, "ship", waybillBody)
+	for _, action := range []string{"deliver", "return"} {
+		check(t, action+" the returned order", orderCall(t, seller.AccessToken, first.Order.ID, action, nil), 409, "move_not_allowed")
+	}
+	if got := getDeal(t, buyer.AccessToken, first.ID); got.Order.ID != second.Order.ID || got.Order.Status != "shipped" {
+		t.Fatalf("the second order moved: %+v", got.Order)
 	}
 }
 
@@ -131,17 +162,19 @@ func TestOrderRefusals(t *testing.T) {
 	}
 	check(t, "a fourth order", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(home)), 409, "cod_limit_reached")
 
-	check(t, "ship signed out", dealCall(t, "", d.ID, "ship", waybillBody), 401, "unauthenticated")
-	check(t, "ship without a key", call(t, "POST", "/v1/deals/"+d.ID+"/ship", waybillBody, bearer(seller.AccessToken)), 400, "")
-	check(t, "ship as a stranger", dealCall(t, stranger.AccessToken, d.ID, "ship", waybillBody), 404, "deal_not_found")
-	check(t, "buyer ships", dealCall(t, buyer.AccessToken, d.ID, "ship", waybillBody), 409, "move_not_allowed")
-	check(t, "ship a bad fee", dealCall(t, seller.AccessToken, d.ID, "ship", map[string]any{"carrier": "spx", "tracking_code": "X", "fee": -1}), 422, "invalid_waybill")
+	o := d.Order.ID
+	check(t, "ship signed out", orderCall(t, "", o, "ship", waybillBody), 401, "unauthenticated")
+	check(t, "ship without a key", call(t, "POST", "/v1/orders/"+o+"/ship", waybillBody, bearer(seller.AccessToken)), 400, "")
+	check(t, "ship as a stranger", orderCall(t, stranger.AccessToken, o, "ship", waybillBody), 404, "order_not_found")
+	check(t, "ship a deal's id", orderCall(t, seller.AccessToken, d.ID, "ship", waybillBody), 404, "order_not_found")
+	check(t, "buyer ships", orderCall(t, buyer.AccessToken, o, "ship", waybillBody), 409, "move_not_allowed")
+	check(t, "ship a bad fee", orderCall(t, seller.AccessToken, o, "ship", map[string]any{"carrier": "spx", "tracking_code": "X", "fee": -1}), 422, "invalid_waybill")
 
 	for _, action := range []string{"deliver", "return"} {
-		check(t, action+" signed out", dealCall(t, "", d.ID, action, nil), 401, "unauthenticated")
-		check(t, action+" a bad id", dealCall(t, seller.AccessToken, "not-a-uuid", action, nil), 400, "")
-		check(t, action+" as a stranger", dealCall(t, stranger.AccessToken, d.ID, action, nil), 404, "deal_not_found")
-		check(t, action+" a requested order", dealCall(t, seller.AccessToken, d.ID, action, nil), 409, "move_not_allowed")
+		check(t, action+" signed out", orderCall(t, "", o, action, nil), 401, "unauthenticated")
+		check(t, action+" a bad id", orderCall(t, seller.AccessToken, "not-a-uuid", action, nil), 400, "")
+		check(t, action+" as a stranger", orderCall(t, stranger.AccessToken, o, action, nil), 404, "order_not_found")
+		check(t, action+" a requested order", orderCall(t, seller.AccessToken, o, action, nil), 409, "move_not_allowed")
 	}
 
 	check(t, "orders signed out", call(t, "GET", "/v1/me/orders?role=buying", nil), 401, "unauthenticated")

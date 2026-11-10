@@ -242,7 +242,7 @@ func TestOrderRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = got.Ship(domain.Seller, w, onSale, now); err != nil {
+	if err = got.Ship(domain.Seller, got.Order().ID, w, onSale, now); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
@@ -262,7 +262,7 @@ func TestOrderRoundTrip(t *testing.T) {
 			t.Fatalf("%s: %+v %v", c.as, rows, listErr)
 		}
 	}
-	if err = got.Deliver(domain.Seller, now); err != nil {
+	if err = got.Deliver(domain.Seller, got.Order().ID, now); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
@@ -363,7 +363,7 @@ func TestOneShippedOrderPerListing(t *testing.T) {
 		if err = s.Save(ctx, &d, uuid.NewV7()); err != nil {
 			t.Fatal(err)
 		}
-		if err = d.Ship(domain.Seller, w, onSale, now); err != nil {
+		if err = d.Ship(domain.Seller, d.Order().ID, w, onSale, now); err != nil {
 			t.Fatal(err)
 		}
 		results = append(results, s.Save(ctx, &d, uuid.NewV7()))

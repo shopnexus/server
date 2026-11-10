@@ -390,7 +390,7 @@ dealCod:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-dealShip:
+orderShip:
   post:
     operationId: shipOrder
     summary: Record the waybill of a requested order.
@@ -402,7 +402,7 @@ dealShip:
     security:
       - bearerAuth: []
     parameters:
-      - name: id
+      - name: order_id
         in: path
         required: true
         schema:
@@ -417,7 +417,7 @@ dealShip:
             $ref: "../schemas/deal.yaml#/WaybillDraft"
     responses:
       "200":
-        description: The deal.
+        description: The order's deal.
         content:
           application/json:
             schema:
@@ -427,13 +427,13 @@ dealShip:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
-        description: "No such deal of the caller's (deal_not_found)."
+        description: "No such order of the caller's (order_not_found)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not requested or the caller is the buyer (move_not_allowed), the listing is not on sale (listing_unavailable), or the deal changed meanwhile (deal_changed)."
+        description: "The order is not the deal's open one or not requested, or the caller is the buyer (move_not_allowed), the listing is not on sale (listing_unavailable), or the deal changed meanwhile (deal_changed)."
         content:
           application/json:
             schema:
@@ -444,7 +444,7 @@ dealShip:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-dealDeliver:
+orderDeliver:
   post:
     operationId: deliverOrder
     summary: Report a shipped order delivered.
@@ -454,7 +454,7 @@ dealDeliver:
     security:
       - bearerAuth: []
     parameters:
-      - name: id
+      - name: order_id
         in: path
         required: true
         schema:
@@ -463,7 +463,7 @@ dealDeliver:
       - $ref: "../parameters/common.yaml#/IdempotencyKey"
     responses:
       "200":
-        description: The deal.
+        description: The order's deal.
         content:
           application/json:
             schema:
@@ -473,18 +473,18 @@ dealDeliver:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
-        description: "No such deal of the caller's (deal_not_found)."
+        description: "No such order of the caller's (order_not_found)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not shipped or the caller is the buyer (move_not_allowed), or the deal changed meanwhile (deal_changed)."
+        description: "The order is not the deal's open one or not shipped, or the caller is the buyer (move_not_allowed), or the deal changed meanwhile (deal_changed)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-dealReturn:
+orderReturn:
   post:
     operationId: returnOrder
     summary: Report a shipped order returned.
@@ -494,7 +494,7 @@ dealReturn:
     security:
       - bearerAuth: []
     parameters:
-      - name: id
+      - name: order_id
         in: path
         required: true
         schema:
@@ -503,7 +503,7 @@ dealReturn:
       - $ref: "../parameters/common.yaml#/IdempotencyKey"
     responses:
       "200":
-        description: The deal.
+        description: The order's deal.
         content:
           application/json:
             schema:
@@ -513,13 +513,13 @@ dealReturn:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
-        description: "No such deal of the caller's (deal_not_found)."
+        description: "No such order of the caller's (order_not_found)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not shipped or the caller is the buyer (move_not_allowed), or the deal changed meanwhile (deal_changed)."
+        description: "The order is not the deal's open one or not shipped, or the caller is the buyer (move_not_allowed), or the deal changed meanwhile (deal_changed)."
         content:
           application/json:
             schema:

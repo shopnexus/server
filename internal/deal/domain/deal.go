@@ -269,11 +269,11 @@ func (d *Deal) RequestCod(by Party, r Recipient, l Listing, now time.Time) error
 	return nil
 }
 
-// Ship records the waybill of a requested order: the parcel is with the
-// carrier.
-func (d *Deal) Ship(by Party, w Waybill, l Listing, now time.Time) error {
+// Ship records the waybill of the requested order: the parcel is with the
+// carrier. An order that is not the deal's open one is ErrMoveNotAllowed.
+func (d *Deal) Ship(by Party, order uuid.UUID, w Waybill, l Listing, now time.Time) error {
 	o := d.openOrder()
-	if by != Seller || o == nil || o.Status != OrderRequested {
+	if by != Seller || o == nil || o.ID != order || o.Status != OrderRequested {
 		return ErrMoveNotAllowed
 	}
 	if l.Status != ListingActive {
@@ -284,10 +284,10 @@ func (d *Deal) Ship(by Party, w Waybill, l Listing, now time.Time) error {
 	return nil
 }
 
-// Deliver ends a shipped order delivered; the deal is sold.
-func (d *Deal) Deliver(by Party, now time.Time) error {
+// Deliver ends the shipped order delivered; the deal is sold.
+func (d *Deal) Deliver(by Party, order uuid.UUID, now time.Time) error {
 	o := d.openOrder()
-	if by != Seller || o == nil || o.Status != OrderShipped {
+	if by != Seller || o == nil || o.ID != order || o.Status != OrderShipped {
 		return ErrMoveNotAllowed
 	}
 	o.Status, o.ClosedAt, d.status = OrderDelivered, &now, StatusSold
@@ -295,10 +295,10 @@ func (d *Deal) Deliver(by Party, now time.Time) error {
 	return nil
 }
 
-// Return ends a shipped order returned; the deal negotiates again.
-func (d *Deal) Return(by Party, now time.Time) error {
+// Return ends the shipped order returned; the deal negotiates again.
+func (d *Deal) Return(by Party, order uuid.UUID, now time.Time) error {
 	o := d.openOrder()
-	if by != Seller || o == nil || o.Status != OrderShipped {
+	if by != Seller || o == nil || o.ID != order || o.Status != OrderShipped {
 		return ErrMoveNotAllowed
 	}
 	o.Status, o.ClosedAt = OrderReturned, &now

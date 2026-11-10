@@ -17,11 +17,12 @@ import (
 	"github.com/shopnexus/server2/internal/platform/restatex"
 )
 
-// FlowInput names the deal a flow moves and the caller, with the waybill of
-// a shipment or the outcome, delivered or returned, of a finish.
+// FlowInput names the order a flow moves, its deal and the caller, with the
+// waybill of a shipment or the outcome, delivered or returned, of a finish.
 type FlowInput struct {
 	Caller  uuid.UUID          `json:"caller"`
 	DealID  uuid.UUID          `json:"deal_id"`
+	OrderID uuid.UUID          `json:"order_id"`
 	Waybill *domain.Waybill    `json:"waybill,omitempty"`
 	Outcome domain.OrderStatus `json:"outcome,omitempty"`
 }

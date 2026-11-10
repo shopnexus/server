@@ -170,7 +170,7 @@ func TestShipCancelsOtherRequests(t *testing.T) {
 	seller, one, two := e.person(t), e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	first, second := e.requested(t, one, listing), e.requested(t, two, listing)
-	must(t)(e.deals.Ship(ctx, seller, first.ID, key(), spx))
+	must(t)(e.deals.Ship(ctx, seller, first.Order.ID, key(), spx))
 	if v := e.get(t, two, second.ID); v.Order.Status != domain.OrderCancelled || v.Order.CancelReason != domain.CancelSentToAnother ||
 		v.Status != domain.StatusNegotiating {
 		t.Fatalf("other buyer: %+v %s", v.Order, v.Status)

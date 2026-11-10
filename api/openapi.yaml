@@ -75,12 +75,12 @@ paths:
     $ref: "paths/deal.yaml#/myDeals"
   /v1/deals/{id}/cod:
     $ref: "paths/deal.yaml#/dealCod"
-  /v1/deals/{id}/ship:
-    $ref: "paths/deal.yaml#/dealShip"
-  /v1/deals/{id}/deliver:
-    $ref: "paths/deal.yaml#/dealDeliver"
-  /v1/deals/{id}/return:
-    $ref: "paths/deal.yaml#/dealReturn"
+  /v1/orders/{order_id}/ship:
+    $ref: "paths/deal.yaml#/orderShip"
+  /v1/orders/{order_id}/deliver:
+    $ref: "paths/deal.yaml#/orderDeliver"
+  /v1/orders/{order_id}/return:
+    $ref: "paths/deal.yaml#/orderReturn"
   /v1/me/orders:
     $ref: "paths/deal.yaml#/myOrders"
   /v1/notifications:

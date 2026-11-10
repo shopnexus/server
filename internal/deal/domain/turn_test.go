@@ -50,14 +50,14 @@ func TestTurnOf(t *testing.T) {
 		{"agreed again after a return", func(t *testing.T) domain.Deal {
 			t.Helper()
 			d := shipped(t)
-			must(t, d.Return(domain.Seller, now))
+			must(t, d.Return(domain.Seller, d.Order().ID, now))
 			must(t, d.Accept(domain.Buyer, 1_500_000, onSale, now))
 			return d
 		}, onSale, true, false, true},
 		{"sold", func(t *testing.T) domain.Deal {
 			t.Helper()
 			d := shipped(t)
-			must(t, d.Deliver(domain.Seller, now))
+			must(t, d.Deliver(domain.Seller, d.Order().ID, now))
 			return d
 		}, gone, false, false, false},
 	}

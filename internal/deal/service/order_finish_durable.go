@@ -29,9 +29,9 @@ func (s DealFinish) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	}
 	d := domain.RestoreDeal(m.Deal)
 	if in.Outcome == domain.OrderDelivered {
-		err = d.Deliver(m.By, at)
+		err = d.Deliver(m.By, in.OrderID, at)
 	} else {
-		err = d.Return(m.By, at)
+		err = d.Return(m.By, in.OrderID, at)
 	}
 	if err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
