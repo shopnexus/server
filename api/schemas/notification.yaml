@@ -55,3 +55,27 @@ PushToken:
   properties:
     token:
       type: string
+NotificationIDs:
+  type: object
+  additionalProperties: false
+  required: [ids]
+  properties:
+    ids:
+      type: array
+      minItems: 1
+      maxItems: 500
+      uniqueItems: true
+      items:
+        type: string
+        format: uuid
+ReadAllResult:
+  type: object
+  additionalProperties: false
+  required: [ids]
+  properties:
+    ids:
+      type: array
+      description: The notices this call marked read; pass them to POST /v1/notifications/unread to undo it.
+      items:
+        type: string
+        format: uuid

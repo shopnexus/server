@@ -30,7 +30,13 @@ type Notices interface {
 	Unread(ctx context.Context, account uuid.UUID) (int, error)
 	// Read marks one of the account's notices read; ErrNotFound otherwise.
 	Read(ctx context.Context, account, id uuid.UUID, at time.Time) error
-	ReadAll(ctx context.Context, account uuid.UUID, at time.Time) error
+	// ReadAll marks the account's unread notices read and returns their IDs,
+	// an empty slice when there were none.
+	ReadAll(ctx context.Context, account uuid.UUID, at time.Time) ([]uuid.UUID, error)
+	// MarkUnread makes the account's read notices among ids unread: per
+	// collapse key only the newest, and none for a key with an unread
+	// notice. Other IDs are skipped.
+	MarkUnread(ctx context.Context, account uuid.UUID, ids []uuid.UUID) error
 	// PutToken stores the push token of a session, replacing any, and takes
 	// the token from every other session.
 	PutToken(ctx context.Context, session, account uuid.UUID, token string, at time.Time) error

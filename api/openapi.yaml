@@ -91,6 +91,8 @@ paths:
     $ref: "paths/notification.yaml#/notifications"
   /v1/notifications/read-all:
     $ref: "paths/notification.yaml#/readAll"
+  /v1/notifications/unread:
+    $ref: "paths/notification.yaml#/unread"
   /v1/notifications/{id}/read:
     $ref: "paths/notification.yaml#/read"
   /v1/me/push-token:

@@ -8,6 +8,7 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/notification/domain"
@@ -126,10 +127,49 @@ func (s pgNotices) Read(ctx context.Context, account, id uuid.UUID, at time.Time
 	return nil
 }
 
-func (s pgNotices) ReadAll(ctx context.Context, account uuid.UUID, at time.Time) error {
-	if _, err := s.db.Exec(ctx, `UPDATE notifications SET read_at = @at WHERE account_id = @account AND read_at IS NULL`,
-		pgx.StrictNamedArgs{"account": account, "at": at}); err != nil {
-		return fmt.Errorf("read all: %w", err)
+func (s pgNotices) ReadAll(ctx context.Context, account uuid.UUID, at time.Time) ([]uuid.UUID, error) {
+	rows, err := s.db.Query(ctx, `UPDATE notifications SET read_at = @at
+WHERE account_id = @account AND read_at IS NULL RETURNING id`, pgx.StrictNamedArgs{"account": account, "at": at})
+	if err != nil {
+		return nil, fmt.Errorf("read all: %w", err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return nil, fmt.Errorf("read all: %w", err)
+	}
+	if ids == nil {
+		ids = []uuid.UUID{}
+	}
+	return ids, nil
+}
+
+// markUnread picks, per collapse key, the newest of the account's read
+// notices among the IDs, and clears its read_at unless the key has an
+// unread notice; notices without a key are each their own group.
+const markUnread = `
+WITH picked AS (
+    SELECT DISTINCT ON (coalesce(collapse_key, id::text)) id, collapse_key
+    FROM notifications
+    WHERE account_id = @account AND id = ANY(@ids) AND read_at IS NOT NULL
+    ORDER BY coalesce(collapse_key, id::text), bumped_at DESC, id DESC
+)
+UPDATE notifications n SET read_at = NULL
+FROM picked p
+WHERE n.id = p.id
+  AND (p.collapse_key IS NULL OR NOT EXISTS (
+      SELECT 1 FROM notifications u
+      WHERE u.account_id = @account AND u.collapse_key = p.collapse_key AND u.read_at IS NULL))`
+
+func (s pgNotices) MarkUnread(ctx context.Context, account uuid.UUID, ids []uuid.UUID) error {
+	args := pgx.StrictNamedArgs{"account": account, "ids": ids}
+	_, err := s.db.Exec(ctx, markUnread, args)
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
+		// A notice of a picked key became unread between the check and the
+		// write; the second run sees it and leaves the key alone.
+		_, err = s.db.Exec(ctx, markUnread, args)
+	}
+	if err != nil {
+		return fmt.Errorf("mark unread: %w", err)
 	}
 	return nil
 }
