@@ -3,8 +3,15 @@ package handler
 import (
 	"net/http"
 
+	"github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
+
+// errPhotoTooLarge answers a photo over domain.MaxPhotoBytes: the schema's
+// maximum is the video's, so the handler holds the photo's.
+var errPhotoTooLarge = apperr.New(apperr.KindBadRequest, "invalid_request", "a photo is at most 15 MB").
+	WithField("size", "maximum")
 
 type createUploadRequest struct {
 	ContentType string `json:"content_type"`
@@ -20,6 +27,10 @@ func (h *Handler) CreateUpload(w http.ResponseWriter, r *http.Request) {
 	var in createUploadRequest
 	if err := httpx.Bind(r, &in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	if !domain.IsVideo(in.ContentType) && in.Size > domain.MaxPhotoBytes {
+		httpx.WriteError(w, r, h.log, errPhotoTooLarge)
 		return
 	}
 	ticket, err := h.svc.CreateUpload(r.Context(), p.AccountID, in.ContentType, in.Size)

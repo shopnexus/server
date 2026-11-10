@@ -61,11 +61,11 @@ func matchesType(head []byte, contentType string) bool {
 // its long side, with no thumbnail. Encoding from pixels drops every EXIF field,
 // GPS included. A photo it refuses is a refusedError.
 func process(r io.Reader, contentType string, shape domain.Shape) (photo, thumb []byte, err error) {
-	raw, err := io.ReadAll(io.LimitReader(r, domain.MaxSize+1))
+	raw, err := io.ReadAll(io.LimitReader(r, domain.MaxPhotoBytes+1))
 	if err != nil {
 		return nil, nil, fmt.Errorf("read the upload: %w", err)
 	}
-	if len(raw) > domain.MaxSize {
+	if int64(len(raw)) > domain.MaxPhotoBytes {
 		return nil, nil, refusedError{"the file is larger than 15 MB"}
 	}
 	if !matchesType(raw, contentType) {

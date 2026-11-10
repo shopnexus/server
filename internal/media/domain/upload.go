@@ -10,17 +10,34 @@ import (
 	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
-// MaxSize is the largest upload, in bytes.
-const MaxSize = 15 << 20
+const (
+	// MaxPhotoBytes is the largest photo upload, MaxVideoBytes the largest
+	// video.
+	MaxPhotoBytes int64 = 15 << 20
+	MaxVideoBytes int64 = 50 << 20
+
+	ContentTypeMP4       = "video/mp4"
+	ContentTypeQuickTime = "video/quicktime"
+)
 
 var ErrInvalidUpload = apperr.New(apperr.KindInvalid, "invalid_upload",
-	"an upload must be the caller's, waiting, put to the store, and a JPEG, PNG or WebP of at most 15 MB")
+	"an upload must be the caller's, waiting, put to the store, and a JPEG, PNG or WebP of at most 15 MB "+
+		"or an MP4 or QuickTime video of at most 50 MB")
 
-var contentTypes = map[string]bool{"image/jpeg": true, "image/png": true, "image/webp": true}
+var contentTypes = map[string]bool{
+	"image/jpeg": true, "image/png": true, "image/webp": true, ContentTypeMP4: true, ContentTypeQuickTime: true,
+}
+
+// IsVideo reports whether contentType is one of the video types an upload
+// may have.
+func IsVideo(contentType string) bool {
+	return contentType == ContentTypeMP4 || contentType == ContentTypeQuickTime
+}
 
 // Status is where an upload is: waiting for its PUT and an attach, attached
-// to a listing and being processed, ready or failed when processed, or
-// expired when nothing attached it in time.
+// to a listing and being processed, ready or failed when processed, expired
+// when nothing attached it in time, or consumed when it was a video and the
+// read that held it ended.
 type Status string
 
 const (
@@ -29,6 +46,7 @@ const (
 	StatusReady    Status = "ready"
 	StatusFailed   Status = "failed"
 	StatusExpired  Status = "expired"
+	StatusConsumed Status = "consumed"
 )
 
 // Shape is what processing makes of an upload: a photo at most 1600 px on
@@ -41,9 +59,12 @@ const (
 	ShapeSquare Shape = "square"
 	// ShapeQuery is a search's photo: at most 768 px on its long side, never stored.
 	ShapeQuery Shape = "query"
+	// ShapeVideo is a video a read holds; it is never processed, and its
+	// object is deleted when the read ends.
+	ShapeVideo Shape = "video"
 )
 
-// Upload is one photo a client puts to uploads/<id>.
+// Upload is one photo or video a client puts to uploads/<id>.
 type Upload struct {
 	id          uuid.UUID
 	ownerID     uuid.UUID
@@ -60,10 +81,12 @@ type Upload struct {
 	updatedAt   time.Time
 }
 
-// NewUpload starts an upload waiting for its PUT. The first write ID is the
-// id.
 func NewUpload(id, owner uuid.UUID, contentType string, size int64, now time.Time) (Upload, error) {
-	if !contentTypes[contentType] || size < 1 || size > MaxSize {
+	limit := MaxPhotoBytes
+	if IsVideo(contentType) {
+		limit = MaxVideoBytes
+	}
+	if !contentTypes[contentType] || size < 1 || size > limit {
 		return Upload{}, ErrInvalidUpload
 	}
 	return Upload{
@@ -88,18 +111,23 @@ func (u *Upload) WriteID() uuid.UUID  { return u.writeID }
 func (u *Upload) Key() string { return "uploads/" + u.id.String() }
 
 // Attach gives a waiting upload of owner to holder, such as a listing, to
-// be processed into shape, and reports whether it changed the upload. An
-// upload holder already holds in that shape stays as it is, so a retried
-// attach succeeds.
+// be processed into shape, and reports whether it changed the upload. A
+// video goes only in shape video and a photo never does; a video past its
+// expiry is refused even while it still waits. An upload holder already
+// holds in that shape stays as it is, so a retried attach succeeds; an
+// expired or consumed upload is never held again.
 func (u *Upload) Attach(owner, holder uuid.UUID, shape Shape, now time.Time) (bool, error) {
-	if owner != u.ownerID {
+	if owner != u.ownerID || IsVideo(u.contentType) != (shape == ShapeVideo) {
 		return false, ErrInvalidUpload
 	}
 	if u.status == StatusWaiting {
+		if shape == ShapeVideo && !now.Before(u.ExpiresAt()) {
+			return false, ErrInvalidUpload
+		}
 		u.status, u.holderID, u.shape, u.updatedAt = StatusAttached, holder, shape, now
 		return true, nil
 	}
-	if u.status != StatusExpired && u.holderID == holder && u.shape == shape {
+	if u.status != StatusExpired && u.status != StatusConsumed && u.holderID == holder && u.shape == shape {
 		return false, nil
 	}
 	return false, ErrInvalidUpload

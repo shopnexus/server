@@ -99,3 +99,37 @@ func TestGetManyAndSaveAll(t *testing.T) {
 		t.Fatalf("a was saved without b: %s", first.Status())
 	}
 }
+
+// The table takes a 50 MB video, held in shape video, and its consumed
+// status.
+func TestStoreAVideo(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewUploads(db)
+	ctx := context.Background()
+	owner := accounttest.New(t, db)
+	u, err := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, domain.MaxVideoBytes, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Create(ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = u.Attach(owner, uuid.NewV7(), domain.ShapeVideo, now); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Save(ctx, &u, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Get(ctx, u.ID())
+	if err != nil || !same(got.State(), u.State()) {
+		t.Fatalf("%+v %v", got.State(), err)
+	}
+	if _, err = db.Exec(ctx, `UPDATE uploads SET status = 'consumed' WHERE id = $1`, u.ID()); err != nil {
+		t.Fatalf("consumed: %v", err)
+	}
+	if _, err = db.Exec(ctx, `UPDATE uploads SET size = 15728641, content_type = 'image/jpeg', shape = 'photo' WHERE id = $1`,
+		u.ID()); err == nil {
+		t.Fatal("a photo over 15 MB was stored")
+	}
+}

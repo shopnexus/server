@@ -5,14 +5,18 @@ UploadRequest:
   properties:
     content_type:
       type: string
-      enum: [image/jpeg, image/png, image/webp]
-      description: HEIC is converted to JPEG by the app before uploading.
+      enum: [image/jpeg, image/png, image/webp, video/mp4, video/quicktime]
+      description: |
+        A photo, or a product video for POST /v1/video-reads. HEIC is
+        converted to JPEG by the app before uploading.
     size:
       type: integer
       format: int64
       minimum: 1
-      maximum: 15728640
-      description: Bytes; at most 15 MB.
+      maximum: 52428800
+      description: |
+        Bytes: a video at most 50 MB, a photo at most 15 MB. A photo over
+        15 MB is 400 invalid_request on field size.
 UploadTicket:
   type: object
   additionalProperties: false

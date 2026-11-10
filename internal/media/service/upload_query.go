@@ -26,7 +26,7 @@ func (m *Media) QueryUpload(ctx context.Context, owner, id uuid.UUID) (QueryUplo
 	if err != nil {
 		return QueryUpload{}, fmt.Errorf("get upload: %w", err)
 	}
-	if !u.Queryable(owner, m.now()) {
+	if !u.Queryable(owner, m.now()) || domain.IsVideo(u.ContentType()) {
 		return QueryUpload{}, domain.ErrInvalidUpload
 	}
 	size, contentType, err := m.store.Stat(ctx, u.Key())
@@ -79,7 +79,7 @@ func (m *Media) ReadPhoto(ctx context.Context, key string) ([]byte, error) {
 		return nil, fmt.Errorf("read %s: %w", key, err)
 	}
 	defer func() { _ = r.Close() }()
-	b, err := io.ReadAll(io.LimitReader(r, domain.MaxSize))
+	b, err := io.ReadAll(io.LimitReader(r, domain.MaxPhotoBytes))
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", key, err)
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server2/internal/media/mediatest"
 	"github.com/shopnexus/server2/internal/media/repository"
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 )
@@ -97,4 +98,36 @@ func TestExpireLeavesAttachedUploads(t *testing.T) {
 		t.Fatalf("object: %v", err)
 	}
 	e.expire(t, uuid.NewV7()) // an unknown upload is nothing to do
+}
+
+// A video is an upload like a photo, and nothing takes it as a photo: not a
+// listing, not an avatar, not a search.
+func TestVideoIsNoPhoto(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	owner := accounttest.New(t, e.db)
+	ticket, err := e.media.CreateUpload(ctx, owner, domain.ContentTypeMP4, domain.MaxVideoBytes)
+	if err != nil || ticket.Headers["Content-Type"] != domain.ContentTypeMP4 {
+		t.Fatalf("a 50 MB video: %+v %v", ticket, err)
+	}
+	if _, err = e.media.CreateUpload(ctx, owner, "image/jpeg", domain.MaxPhotoBytes+1); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("a photo over 15 MB: %v", err)
+	}
+	video := mediatest.Upload(t, e.media, owner, domain.ContentTypeQuickTime, []byte("not really a mov"))
+	if err = e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{video}); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("a video as a listing photo: %v", err)
+	}
+	if _, err = e.media.Square(ctx, owner, owner, video); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("a video as an avatar: %v", err)
+	}
+	if _, err = e.media.QueryUpload(ctx, owner, video); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("a video as a search photo: %v", err)
+	}
+	if _, err = e.media.QueryImage(ctx, owner, video); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("a video read as a search photo: %v", err)
+	}
+	if u, _ := repository.NewUploads(e.db).Get(ctx, video); u.Status() != domain.StatusWaiting {
+		t.Fatalf("a refused video changed: %s", u.Status())
+	}
 }

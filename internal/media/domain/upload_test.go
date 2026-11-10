@@ -19,17 +19,57 @@ func TestNewUploadLimits(t *testing.T) {
 		size        int64
 		ok          bool
 	}{
-		"jpeg":        {"image/jpeg", 1, true},
-		"png at 15MB": {"image/png", domain.MaxSize, true},
-		"webp":        {"image/webp", 10, true},
-		"heic":        {"image/heic", 10, false},
-		"empty":       {"image/jpeg", 0, false},
-		"over 15MB":   {"image/jpeg", domain.MaxSize + 1, false},
+		"jpeg":            {"image/jpeg", 1, true},
+		"png at 15MB":     {"image/png", domain.MaxPhotoBytes, true},
+		"webp":            {"image/webp", 10, true},
+		"heic":            {"image/heic", 10, false},
+		"empty":           {"image/jpeg", 0, false},
+		"photo over 15MB": {"image/jpeg", domain.MaxPhotoBytes + 1, false},
+		"mp4 at 50MB":     {"video/mp4", domain.MaxVideoBytes, true},
+		"quicktime":       {"video/quicktime", 20 << 20, true},
+		"mp4 over 50MB":   {"video/mp4", domain.MaxVideoBytes + 1, false},
+		"webm":            {"video/webm", 10, false},
 	} {
 		_, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), c.contentType, c.size, now)
 		if (err == nil) != c.ok || (err != nil && !errors.Is(err, domain.ErrInvalidUpload)) {
 			t.Errorf("%s: %v", name, err)
 		}
+	}
+}
+
+// A video is held only as a video, and a photo never as one.
+func TestAttachMatchesTheType(t *testing.T) {
+	t.Parallel()
+	owner, holder := uuid.NewV7(), uuid.NewV7()
+	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, now)
+	for _, shape := range []domain.Shape{domain.ShapePhoto, domain.ShapeSquare} {
+		if _, err := video.Attach(owner, holder, shape, now); !errors.Is(err, domain.ErrInvalidUpload) {
+			t.Fatalf("a video as %s: %v", shape, err)
+		}
+	}
+	photo, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	if _, err := photo.Attach(owner, holder, domain.ShapeVideo, now); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("a photo as a video: %v", err)
+	}
+	if changed, err := video.Attach(owner, holder, domain.ShapeVideo, now); err != nil || !changed ||
+		video.Status() != domain.StatusAttached || video.Shape() != domain.ShapeVideo {
+		t.Fatalf("a video as a video: %v %v %+v", changed, err, video.State())
+	}
+	if changed, err := video.Attach(owner, holder, domain.ShapeVideo, now); err != nil || changed {
+		t.Fatalf("held again by the same holder: %v %v", changed, err)
+	}
+	if !domain.IsVideo(domain.ContentTypeQuickTime) || domain.IsVideo("image/png") {
+		t.Fatal("IsVideo")
+	}
+}
+
+// A video waiting past its expiry is not held, even before MediaExpire runs.
+func TestAttachRefusesAnExpiredVideo(t *testing.T) {
+	t.Parallel()
+	owner := uuid.NewV7()
+	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, now)
+	if _, err := video.Attach(owner, uuid.NewV7(), domain.ShapeVideo, now.Add(domain.ExpireAfter)); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("held at its expiry: %v", err)
 	}
 }
 
