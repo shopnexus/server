@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 	"uuid"
@@ -11,6 +12,7 @@ import (
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/discovery/domain"
+	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -69,7 +71,7 @@ func (s pgSaves) Remove(ctx context.Context, account, listing uuid.UUID) error {
 }
 
 func (s pgSaves) List(ctx context.Context, account uuid.UUID, p page.Request) ([]Save, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, listing_id, saved_price, created_at FROM saved_listings
+	rows, err := s.db.Query(ctx, `SELECT id, listing_id, saved_price, created_at, alert_below, account_id FROM saved_listings
 WHERE account_id = @account AND id < @before ORDER BY id DESC LIMIT @limit`,
 		pgx.StrictNamedArgs{"account": account, "before": p.Before(), "limit": p.Fetch()})
 	if err != nil {
@@ -105,4 +107,70 @@ func (s pgSaves) Clear(ctx context.Context, account uuid.UUID) error {
 		return fmt.Errorf("clear saves: %w", err)
 	}
 	return nil
+}
+
+func (s pgSaves) Get(ctx context.Context, id uuid.UUID) (Save, bool, error) {
+	rows, err := s.db.Query(ctx, `SELECT id, listing_id, saved_price, created_at, alert_below, account_id
+FROM saved_listings WHERE id = @id`, pgx.StrictNamedArgs{"id": id})
+	if err != nil {
+		return Save{}, false, fmt.Errorf("select save: %w", err)
+	}
+	save, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByPos[Save])
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Save{}, false, nil
+	}
+	if err != nil {
+		return Save{}, false, fmt.Errorf("read save: %w", err)
+	}
+	return save, true, nil
+}
+
+func (s pgSaves) SetAlert(ctx context.Context, account, listing uuid.UUID, below *int64) (bool, error) {
+	tag, err := s.db.Exec(ctx, `UPDATE saved_listings SET alert_below = @below, alerted_price = NULL
+WHERE account_id = @account AND listing_id = @listing`,
+		pgx.StrictNamedArgs{"account": account, "listing": listing, "below": below})
+	if err != nil {
+		return false, fmt.Errorf("set alert: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+// alertLevel is domain.AlertLevel on saved_listings s, NULL for none. It is
+// a correlated subquery, not a CTE, so an UPDATE that waited for another
+// re-reads it on the row's newest version.
+const alertLevel = `COALESCE(s.alert_below, CASE WHEN COALESCE(
+    (SELECT st.price_cut_alerts FROM saved_settings st WHERE st.account_id = s.account_id), true) THEN s.saved_price END)`
+
+func (s pgSaves) PriceMoved(ctx context.Context, listing uuid.UUID, price int64, at time.Time) (int, error) {
+	var told []uuid.UUID
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		args := pgx.StrictNamedArgs{"listing": listing, "price": price}
+		if _, err := tx.Exec(ctx, `UPDATE saved_listings s SET alerted_price = NULL
+WHERE s.listing_id = @listing AND s.alerted_price IS NOT NULL
+  AND (`+alertLevel+` IS NULL OR `+alertLevel+` <= @price)`, args); err != nil {
+			return fmt.Errorf("reset alerts: %w", err)
+		}
+		rows, err := tx.Query(ctx, `UPDATE saved_listings s SET alerted_price = @price
+WHERE s.listing_id = @listing AND `+alertLevel+` > @price
+  AND (s.alerted_price IS NULL OR s.alerted_price > @price)
+RETURNING s.id`, args)
+		if err != nil {
+			return fmt.Errorf("tell alerts: %w", err)
+		}
+		if told, err = pgx.CollectRows(rows, pgx.RowTo[uuid.UUID]); err != nil {
+			return fmt.Errorf("read alerts: %w", err)
+		}
+		evs := make([]events.Event, len(told))
+		for i, id := range told {
+			evs[i] = events.Event{
+				ID: uuid.NewV7(), Kind: events.SavedPriceDropped, SubjectID: id,
+				Payload: map[string]any{"price": price}, OccurredAt: at,
+			}
+		}
+		return events.Insert(ctx, tx, evs...)
+	})
+	if err != nil {
+		return 0, fmt.Errorf("price moved: %w", err)
+	}
+	return len(told), nil
 }

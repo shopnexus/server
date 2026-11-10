@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 	"uuid"
@@ -99,5 +100,65 @@ func TestSavedAmong(t *testing.T) {
 	}
 	if got, err = s.SavedAmong(ctx, other, []uuid.UUID{a, b}); err != nil || len(got) != 0 {
 		t.Fatalf("someone else's: %v %v", got, err)
+	}
+}
+
+// PriceMoved runs PriceStep over the same prices: level 5 tr tells at 4.8,
+// 4.5 and 4.9, and a repeated price writes no second event.
+func TestPriceMoved(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewSaves(db)
+	ctx := context.Background()
+	me, other := accounttest.New(t, db), accounttest.New(t, db)
+	l := listings(t, db, 1)[0]
+	if err := s.Save(ctx, uuid.NewV7(), me, l, 6_000_000, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(ctx, uuid.NewV7(), other, l, 6_000_000, now); err != nil { // the switch alone, at the saved price
+		t.Fatal(err)
+	}
+	if found, err := s.SetAlert(ctx, me, l, new(int64(5_000_000))); err != nil || !found {
+		t.Fatalf("%v %v", found, err)
+	}
+	var told []int
+	for _, price := range []int64{6_000_000, 4_800_000, 4_800_000, 4_500_000, 5_500_000, 4_900_000} {
+		n, err := s.PriceMoved(ctx, l, price, now)
+		if err != nil {
+			t.Fatal(err)
+		}
+		told = append(told, n)
+	}
+	// me: -, 4.8, -, 4.5, reset, 4.9; other (level 6 tr): -, 4.8, -, 4.5, -, -.
+	if want := []int{0, 2, 0, 2, 0, 1}; !slices.Equal(told, want) {
+		t.Fatalf("told %v, want %v", told, want)
+	}
+	var events int
+	if err := db.QueryRow(ctx, `SELECT count(*) FROM events WHERE kind = 'saved.price_dropped'`).Scan(&events); err != nil || events != 5 {
+		t.Fatalf("%d events %v", events, err)
+	}
+	set := repository.NewSettings(db)
+	if on, err := set.PriceCutAlerts(ctx, other); err != nil || !on {
+		t.Fatalf("on by default: %v %v", on, err)
+	}
+	if err := set.SetPriceCutAlerts(ctx, other, false); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.PriceMoved(ctx, l, 4_000_000, now); err != nil || n != 1 { // me alone now
+		t.Fatalf("switch off: %d %v", n, err)
+	}
+	got, err := s.List(ctx, me, page.Request{})
+	if err != nil || got[0].AlertBelow == nil || *got[0].AlertBelow != 5_000_000 || got[0].Account != me {
+		t.Fatalf("%+v %v", got, err)
+	}
+	one, found, err := s.Get(ctx, got[0].ID)
+	if err != nil || !found || one.Account != me || one.ListingID != l {
+		t.Fatalf("%+v %v %v", one, found, err)
+	}
+	if found, err = s.SetAlert(ctx, me, l, nil); err != nil || !found {
+		t.Fatal(err)
+	}
+	if found, _ = s.SetAlert(ctx, me, uuid.NewV7(), nil); found {
+		t.Fatal("no save: not found")
 	}
 }

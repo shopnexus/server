@@ -51,7 +51,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 	text, image := embedtest.New(catalogdomain.TextDims), embedtest.New(catalogdomain.PhotoDims)
 	deps := service.Deps{
 		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db), History: repository.NewHistory(db),
-		Hidden: repository.NewHidden(db), Accounts: acc,
+		Hidden: repository.NewHidden(db), Accounts: acc, Settings: repository.NewSettings(db),
 		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db),
 		Catalog: c, Media: m, LLM: model, Text: text, Image: image, TextVersion: "text-test", ImageVersion: "image-test",
 		TextMin: 0.5, PhotoMin: 0.5,

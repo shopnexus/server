@@ -27,6 +27,25 @@ type Saves interface {
 	List(ctx context.Context, account uuid.UUID, p page.Request) ([]Save, error)
 	// Clear deletes every save of the account.
 	Clear(ctx context.Context, account uuid.UUID) error
+	// Get reads one save by its ID.
+	Get(ctx context.Context, id uuid.UUID) (Save, bool, error)
+	// SetAlert sets the level of account's save of listing, nil to clear
+	// it, and forgets the price it last told; found is false without the
+	// save.
+	SetAlert(ctx context.Context, account, listing uuid.UUID, below *int64) (found bool, err error)
+	// PriceMoved applies domain.PriceStep to every save of listing at price,
+	// and writes events.SavedPriceDropped for each save it tells, in one
+	// transaction. It returns how many it told.
+	PriceMoved(ctx context.Context, listing uuid.UUID, price int64, at time.Time) (int, error)
+}
+
+// Settings keeps a person's discovery settings: the switch that alerts on
+// a drop below the saved price of every save without its own level.
+type Settings interface {
+	// PriceCutAlerts is the switch; an account that never set it reads on.
+	PriceCutAlerts(ctx context.Context, account uuid.UUID) (bool, error)
+	SetPriceCutAlerts(ctx context.Context, account uuid.UUID, on bool) error
+	Clear(ctx context.Context, account uuid.UUID) error
 }
 
 // Hidden keeps the listings a person hid from their searches.
@@ -65,12 +84,15 @@ type HistoryEntry struct {
 	SearchedAt time.Time
 }
 
-// Save is one saved listing with the price it had when saved.
+// Save is one saved listing with the price it had when saved and its own
+// alert level, nil for none.
 type Save struct {
-	ID        uuid.UUID
-	ListingID uuid.UUID
-	Price     int64
-	At        time.Time
+	ID         uuid.UUID
+	ListingID  uuid.UUID
+	Price      int64
+	At         time.Time
+	AlertBelow *int64
+	Account    uuid.UUID
 }
 
 // Understandings caches the model's answers by normalized query and prompt

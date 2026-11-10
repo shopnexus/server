@@ -292,3 +292,98 @@ hiddenListing:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+savedAlert:
+  put:
+    operationId: setSavedAlert
+    summary: Hear when the listing's price falls below a level; a listing not saved is saved first.
+    description: The caller hears at each new low below the level. A price back at or above it starts over, and setting a level forgets the price last told.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: listing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/discovery.yaml#/SavedAlert"
+    responses:
+      "204":
+        description: Set.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is the caller's (own_listing), not on sale (listing_unavailable), the caller has 500 saves (saved_limit_reached), or the save went meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: clearSavedAlert
+    summary: Remove the save's own level; the save stays, and a listing not saved is fine.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: listing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Removed.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+priceCutAlerts:
+  get:
+    operationId: getPriceCutAlerts
+    summary: Whether a saved listing without its own level alerts below its saved price; on until set off.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The switch.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/discovery.yaml#/PriceCutAlerts"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+  put:
+    operationId: setPriceCutAlerts
+    summary: Turn the switch on or off.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/discovery.yaml#/PriceCutAlerts"
+    responses:
+      "204":
+        description: Set.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

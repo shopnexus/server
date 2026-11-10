@@ -18,6 +18,8 @@ type SavedView struct {
 	SavedPrice int64        `json:"saved_price"`
 	SavedAt    time.Time    `json:"saved_at"`
 	Listing    SavedListing `json:"listing"`
+	// AlertBelow is the save's own alert level, absent for none.
+	AlertBelow *int64 `json:"alert_below,omitempty"`
 }
 
 // SavedListing is the saved listing as it is now; a hidden or deleted one
@@ -85,7 +87,7 @@ func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request
 		if l.Status != catalogdomain.StatusHidden && l.Status != catalogdomain.StatusDeleted {
 			shown.Title, shown.Price, shown.CoverThumbURL = l.Title, new(l.Price), l.CoverThumbURL
 		}
-		items = append(items, SavedView{ID: r.ID, ListingID: r.ListingID, SavedPrice: r.Price, SavedAt: r.At, Listing: shown})
+		items = append(items, SavedView{ID: r.ID, ListingID: r.ListingID, SavedPrice: r.Price, SavedAt: r.At, Listing: shown, AlertBelow: r.AlertBelow})
 	}
 	return page.Of(items, p, func(v SavedView) uuid.UUID { return v.ID }), nil
 }

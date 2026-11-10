@@ -38,6 +38,19 @@ type Service interface {
 	ForgetSearch(ctx context.Context, account, id uuid.UUID) error
 	// ClearHistory empties the account's history.
 	ClearHistory(ctx context.Context, account uuid.UUID) error
+	// SetAlert sets the price below which account hears of listing, saving
+	// it first when it is not saved, with Save's refusals.
+	SetAlert(ctx context.Context, account, listing uuid.UUID, below int64) error
+	// ClearAlert removes the save's own level; the save stays.
+	ClearAlert(ctx context.Context, account, listing uuid.UUID) error
+	// PriceCutAlerts is "Báo khi tin đã lưu giảm giá", on until set off.
+	PriceCutAlerts(ctx context.Context, account uuid.UUID) (PriceCutAlertsView, error)
+	SetPriceCutAlerts(ctx context.Context, account uuid.UUID, on bool) error
+	// PriceMoved weighs every save of listing against its current price;
+	// the worker calls it on listing.updated and listing.published.
+	PriceMoved(ctx context.Context, listing uuid.UUID) error
+	// PriceDropFacts is what notification tells of a save's price drop.
+	PriceDropFacts(ctx context.Context, id uuid.UUID) (PriceDropFacts, bool, error)
 	// Hide leaves someone else's listing out of account's searches;
 	// hiding it again makes it the newest hide.
 	Hide(ctx context.Context, account, listing uuid.UUID) error
@@ -55,6 +68,7 @@ type Deps struct {
 	Understandings repository.Understandings
 	History        repository.History
 	Hidden         repository.Hidden
+	Settings       repository.Settings
 	Catalog        catalogsvc.Service
 	// Accounts gives the blocks a search leaves out.
 	Accounts accountsvc.Service
@@ -80,6 +94,7 @@ type Discovery struct {
 	understandings            repository.Understandings
 	history                   repository.History
 	hidden                    repository.Hidden
+	settings                  repository.Settings
 	catalog                   catalogsvc.Service
 	accounts                  accountsvc.Service
 	llm                       llm.Client
@@ -98,7 +113,7 @@ var _ Service = (*Discovery)(nil)
 
 func New(d Deps) *Discovery {
 	return &Discovery{
-		saves: d.Saves, understandings: d.Understandings, history: d.History, hidden: d.Hidden, catalog: d.Catalog,
+		saves: d.Saves, understandings: d.Understandings, history: d.History, hidden: d.Hidden, settings: d.Settings, catalog: d.Catalog,
 		accounts: d.Accounts, llm: d.LLM,
 		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,
 		textVersion: d.TextVersion, imageVersion: d.ImageVersion, textMin: d.TextMin, photoMin: d.PhotoMin,

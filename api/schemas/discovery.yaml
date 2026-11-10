@@ -16,6 +16,10 @@ SavedListing:
     saved_at:
       type: string
       format: date-time
+    alert_below:
+      type: integer
+      format: int64
+      description: The save's own alert level; absent when it has none.
     listing:
       type: object
       additionalProperties: false
@@ -156,3 +160,21 @@ SearchHistoryItem:
     searched_at:
       type: string
       format: date-time
+SavedAlert:
+  type: object
+  additionalProperties: false
+  required: [below]
+  properties:
+    below:
+      type: integer
+      format: int64
+      minimum: 10000
+      maximum: 1000000000
+      description: Tell when the price falls below this.
+PriceCutAlerts:
+  type: object
+  additionalProperties: false
+  required: ["on"]
+  properties:
+    "on":
+      type: boolean
