@@ -3,7 +3,9 @@
 package httpx
 
 import (
+	"bufio"
 	"log/slog"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -40,6 +42,12 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 
 // Unwrap lets [http.ResponseController] reach Flush and deadlines.
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+// Hijack hands the connection to a WebSocket, for a library that asserts
+// [http.Hijacker] instead of going through [http.ResponseController].
+func (w *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(w.ResponseWriter).Hijack() //nolint:wrapcheck // A ResponseWriter wrapper returns the hijack error as it is.
+}
 
 func (w *statusWriter) code() int {
 	if w.status == 0 {
