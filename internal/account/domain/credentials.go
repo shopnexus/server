@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"slices"
 	"time"
 	"uuid"
@@ -11,7 +12,10 @@ import (
 // Kind is the kind of an identity.
 type Kind string
 
-const KindPhone Kind = "phone"
+const (
+	KindPhone Kind = "phone"
+	KindEmail Kind = "email"
+)
 
 // IdentityRef names an identity and the account holding it.
 type IdentityRef struct {
@@ -19,7 +23,8 @@ type IdentityRef struct {
 	IdentityID uuid.UUID `json:"identity_id"`
 }
 
-// Identity is one verified way to sign in.
+// Identity is one verified way to sign in: a phone number or an email
+// address.
 type Identity struct {
 	id         uuid.UUID
 	kind       Kind
@@ -28,8 +33,9 @@ type Identity struct {
 	createdAt  time.Time
 }
 
-// NewIdentity builds the identity of a phone number Firebase just verified;
-// it counts as used at now. Its kind is the contact kind of the same name.
+// NewIdentity builds the identity of an address just proven: a phone number
+// Firebase verified, an email a code or Google proved. It counts as used at
+// now. Its kind is the contact kind of the same name.
 func NewIdentity(id uuid.UUID, a contact.Address, now time.Time) Identity {
 	return Identity{id: id, kind: Kind(a.Kind()), value: a.Value(), lastUsedAt: &now, createdAt: now}
 }
@@ -45,8 +51,8 @@ func RestoreIdentity(id uuid.UUID, kind Kind, value string, lastUsedAt *time.Tim
 	return Identity{id: id, kind: kind, value: value, lastUsedAt: lastUsedAt, createdAt: createdAt}
 }
 
-// Credentials is the aggregate of an account's sign-in methods: its verified
-// identities and, from plan 3, its password.
+// Credentials is the aggregate of an account's sign-in methods: at least one
+// identity, at most one of each kind.
 type Credentials struct {
 	accountID  uuid.UUID
 	identities []Identity
@@ -85,4 +91,59 @@ func (c *Credentials) MarkUsed(identityID uuid.UUID, now time.Time) error {
 		}
 	}
 	return ErrUnknownIdentity
+}
+
+// Has reports whether c holds an identity of kind k.
+func (c *Credentials) Has(k Kind) bool {
+	return slices.ContainsFunc(c.identities, func(i Identity) bool { return i.kind == k })
+}
+
+// Add gives c the identity i, of a kind c lacks; a kind c holds is
+// ErrIdentityKindTaken and changes nothing. A value another account holds
+// surfaces from the store's Save as ErrIdentityTaken.
+func (c *Credentials) Add(i Identity) error {
+	if c.Has(i.kind) {
+		return ErrIdentityKindTaken
+	}
+	c.identities = append(slices.Clone(c.identities), i)
+	c.updatedAt = i.createdAt
+	return nil
+}
+
+// identityJSON and credentialsJSON are how a Restate step journals
+// credentials it loaded.
+type identityJSON struct {
+	ID         uuid.UUID  `json:"id"`
+	Kind       Kind       `json:"kind"`
+	Value      string     `json:"value"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+}
+
+type credentialsJSON struct {
+	AccountID  uuid.UUID      `json:"account_id"`
+	Identities []identityJSON `json:"identities"`
+	WriteID    uuid.UUID      `json:"write_id"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+}
+
+func (c Credentials) MarshalJSON() ([]byte, error) {
+	j := credentialsJSON{AccountID: c.accountID, Identities: make([]identityJSON, 0, len(c.identities)), WriteID: c.writeID, UpdatedAt: c.updatedAt}
+	for _, i := range c.identities {
+		j.Identities = append(j.Identities, identityJSON{i.id, i.kind, i.value, i.lastUsedAt, i.createdAt})
+	}
+	return json.Marshal(j)
+}
+
+func (c *Credentials) UnmarshalJSON(b []byte) error {
+	var j credentialsJSON
+	if err := json.Unmarshal(b, &j); err != nil {
+		return err
+	}
+	ids := make([]Identity, 0, len(j.Identities))
+	for _, i := range j.Identities {
+		ids = append(ids, RestoreIdentity(i.ID, i.Kind, i.Value, i.LastUsedAt, i.CreatedAt))
+	}
+	*c = RestoreCredentials(j.AccountID, ids, j.WriteID, j.UpdatedAt)
+	return nil
 }

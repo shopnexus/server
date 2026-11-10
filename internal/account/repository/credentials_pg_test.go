@@ -7,9 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/platform/contact"
@@ -45,6 +43,43 @@ func TestPGCredentials(t *testing.T) {
 		}
 		return c
 	}
+
+	email, _ := contact.ParseEmail("linh@example.com")
+
+	// Save writes an identity Add gave the credentials.
+	t.Run("save adds an email", func(t *testing.T) {
+		t.Parallel()
+		s, _ := newCredentials(t)
+		c := fresh(t, s, phone)
+		if err := c.Add(domain.NewIdentity(uuid.NewV7(), email, now)); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Save(ctx, &c, uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+		ref, err := s.FindIdentity(ctx, domain.KindEmail, "linh@example.com")
+		if err != nil || ref.AccountID != c.AccountID() {
+			t.Fatalf("%+v %v", ref, err)
+		}
+	})
+
+	// An email another account holds is ErrIdentityTaken and writes nothing.
+	t.Run("save an email another account holds", func(t *testing.T) {
+		t.Parallel()
+		s, _ := newCredentials(t)
+		fresh(t, s, email)
+		c := fresh(t, s, phone)
+		if err := c.Add(domain.NewIdentity(uuid.NewV7(), email, now)); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Save(ctx, &c, uuid.NewV7()); !errors.Is(err, domain.ErrIdentityTaken) {
+			t.Fatalf("%v", err)
+		}
+		back, err := s.Get(ctx, c.AccountID())
+		if err != nil || len(back.Identities()) != 1 {
+			t.Fatalf("%+v %v", back.Identities(), err)
+		}
+	})
 
 	// Save leaves the credentials carrying the write ID they wrote, so saving
 	// them again succeeds.
@@ -144,26 +179,4 @@ func TestPGCredentials(t *testing.T) {
 			t.Fatalf("err %v", err)
 		}
 	})
-}
-
-// Sign-in proves phone numbers only, so the table holds nothing else.
-func TestIdentitiesArePhones(t *testing.T) {
-	t.Parallel()
-	db := pgtest.New(t)
-	ctx := context.Background()
-	acc := accounttest.New(t, db)
-	if _, err := db.Exec(ctx, `INSERT INTO credentials (account_id, write_id) VALUES (@id, @id)`, pgx.StrictNamedArgs{"id": acc}); err != nil {
-		t.Fatal(err)
-	}
-	for _, tables := range []string{"otp_challenges", "otp_quotas"} {
-		var exists bool
-		if err := db.QueryRow(ctx, `SELECT to_regclass(@t) IS NOT NULL`, pgx.StrictNamedArgs{"t": tables}).Scan(&exists); err != nil || exists {
-			t.Errorf("%s still exists: %v", tables, err)
-		}
-	}
-	_, err := db.Exec(ctx, `INSERT INTO identities (id, account_id, kind, identifier) VALUES (@id, @acc, 'email', 'linh@gmail.com')`,
-		pgx.StrictNamedArgs{"id": uuid.NewV7(), "acc": acc})
-	if err == nil {
-		t.Fatal("an email identity was stored")
-	}
 }

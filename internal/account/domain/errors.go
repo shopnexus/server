@@ -21,8 +21,9 @@ var (
 	ErrAddressLimit    = apperr.New(apperr.KindConflict, "address_limit_reached", "at most 10 addresses")
 	ErrInvalidAddress  = apperr.New(apperr.KindInvalid, "invalid_address", "the address breaks a rule; see fields")
 
-	ErrIdentityTaken   = apperr.New(apperr.KindConflict, "identity_taken", "this sign-in method belongs to another account")
-	ErrUnknownIdentity = errors.New("credentials: no such identity")
+	ErrIdentityTaken     = apperr.New(apperr.KindConflict, "identity_taken", "this sign-in method belongs to another account")
+	ErrIdentityKindTaken = apperr.New(apperr.KindConflict, "identity_kind_taken", "the account has a sign-in method of this kind already")
+	ErrUnknownIdentity   = errors.New("credentials: no such identity")
 
 	ErrInvalidRefreshToken = apperr.New(apperr.KindUnauthenticated, "invalid_refresh_token", "the refresh token is not valid")
 	ErrSessionRevoked      = apperr.New(apperr.KindUnauthenticated, "session_revoked", "the session was signed out")
