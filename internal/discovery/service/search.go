@@ -171,7 +171,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		search.Phrases, search.Boosts = domain.LikeTerms(src.Title, src.CategoryCode, src.Price)
 		search.Like, search.Weights = in.Like, domain.FuseLike
 		if viewer != nil {
-			search.ExcludeSeller = *viewer
+			search.ExcludeSellers = append(search.ExcludeSellers, *viewer)
 		}
 	}
 

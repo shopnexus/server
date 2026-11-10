@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
@@ -55,5 +56,19 @@ func TestCategories(t *testing.T) {
 		if got, _ := s.IsLeaf(ctx, key); got != want {
 			t.Errorf("%s: %v", key, got)
 		}
+	}
+}
+
+func TestNearestCommune(t *testing.T) {
+	t.Parallel()
+	r := repository.NewRegions(pgtest.New(t))
+	ctx := context.Background()
+	places, err := r.Places(ctx, []string{"00004"})
+	if err != nil || len(places) != 1 {
+		t.Fatalf("%v %v", places, err)
+	}
+	p, err := r.Nearest(ctx, domain.Point{Lat: places[0].Lat + 0.001, Lng: places[0].Lng})
+	if err != nil || p.Code != "00004" || p.Province == "" {
+		t.Fatalf("%+v %v", p, err)
 	}
 }

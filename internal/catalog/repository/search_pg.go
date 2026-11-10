@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 	"uuid"
 
@@ -88,8 +89,12 @@ func (q *query) must(s domain.Search) []string {
 	if len(s.Phrases) > 0 {
 		var phrases []string
 		for _, p := range s.Phrases {
-			if p.Weight > 0 {
+			switch {
+			case p.Weight > 0 && p.AllWords:
+				phrases = append(phrases, q.allWords(p))
+			case p.Weight > 0:
 				phrases = append(phrases, q.phrase(p)...)
+			default:
 			}
 		}
 		if len(phrases) == 0 {
@@ -125,6 +130,25 @@ func (q *query) phrase(p domain.Phrase) []string {
 	return out
 }
 
+// allWords matches a listing holding every word of p, each in its title,
+// description or specs. A word is a run of letters and digits; a phrase of
+// none matches nothing.
+func (q *query) allWords(p domain.Phrase) string {
+	var words []string
+	for _, w := range strings.FieldsFunc(p.Text, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }) {
+		text := q.arg(w, "text")
+		words = append(words, `paradedb.boolean(should => `+array([]string{
+			`paradedb.match('title', `+text+`)`,
+			`paradedb.match('description', `+text+`)`,
+			`paradedb.match('specs_text', `+text+`)`,
+		})+`)`)
+	}
+	if len(words) == 0 {
+		return `paradedb.empty()`
+	}
+	return `paradedb.boolean(must => ` + array(words) + `)`
+}
+
 // should is the boosts as constant scores, and the demoted phrases.
 func (q *query) should(s domain.Search) []string {
 	var out []string
@@ -158,19 +182,22 @@ func (q *query) should(s domain.Search) []string {
 	return out
 }
 
-// where is the search's condition; counts leave the boosts out, since they
-// change no membership.
+// where is the search's condition with its exclusions; counts leave the
+// boosts out, since they change no membership.
 func (q *query) where(s domain.Search, boosts bool) string {
 	sql := `id @@@ paradedb.boolean(must => ` + array(q.must(s))
-	if !boosts {
-		// Building the boosts would add their parameters, which strict
-		// named args refuse when the SQL does not use them.
-		return sql + `)`
+	// Building the boosts adds their parameters, which strict named args
+	// refuse when the SQL does not use them, so counts never build them.
+	if boosts {
+		if should := q.should(s); len(should) > 0 {
+			sql += `, should => ` + array(should)
+		}
 	}
-	if should := q.should(s); len(should) > 0 {
-		sql += `, should => ` + array(should)
+	sql += `)`
+	if ex := q.exclusions(s, ""); len(ex) > 0 {
+		sql += ` AND ` + strings.Join(ex, " AND ")
 	}
-	return sql + `)`
+	return sql
 }
 
 // distanceSQL is the great-circle distance in km from the origin parameters.
@@ -215,14 +242,22 @@ func (q *query) filters(s domain.Search) string {
 	return strings.Join(append(out, q.exclusions(s, "l.")...), " AND ")
 }
 
-// exclusions leave out a similar-listings search's source and one seller.
+// exclusions are the plain SQL conditions on the listings alias: the
+// similar-listings source, the IDs filter and the listings and sellers left
+// out.
 func (q *query) exclusions(s domain.Search, alias string) []string {
 	var out []string
 	if s.Like != (uuid.UUID{}) {
 		out = append(out, alias+`id <> `+q.arg(s.Like, "uuid"))
 	}
-	if s.ExcludeSeller != (uuid.UUID{}) {
-		out = append(out, alias+`seller_id <> `+q.arg(s.ExcludeSeller, "uuid"))
+	if len(s.Filters.IDs) > 0 {
+		out = append(out, alias+`id = ANY(`+q.arg(s.Filters.IDs, "uuid[]")+`)`)
+	}
+	if len(s.ExcludeListings) > 0 {
+		out = append(out, alias+`id <> ALL(`+q.arg(s.ExcludeListings, "uuid[]")+`)`)
+	}
+	if len(s.ExcludeSellers) > 0 {
+		out = append(out, alias+`seller_id <> ALL(`+q.arg(s.ExcludeSellers, "uuid[]")+`)`)
 	}
 	return out
 }
@@ -291,9 +326,6 @@ func (q *query) hybrid(s domain.Search) string {
 	}
 	if s.Weights.BM25 > 0 && len(s.Phrases) > 0 {
 		where := q.where(s, true)
-		if ex := q.exclusions(s, ""); len(ex) > 0 {
-			where += ` AND ` + strings.Join(ex, " AND ")
-		}
 		if s.Filters.Origin != nil && s.Filters.RadiusKm > 0 {
 			where += ` AND ` + distanceSQL + ` <= @radius`
 		}
