@@ -32,8 +32,8 @@ type Accounts interface {
 	// List is a query: accounts with IDs below p.Before(), newest first, at
 	// most p.Fetch().
 	List(ctx context.Context, p page.Request) ([]domain.Account, error)
-	// Block records that blocker blocks blocked, as id; blocking again
-	// changes nothing.
+	// Block records that blocker blocks blocked, as id, and deletes the
+	// follows between the two, both ways; blocking again changes nothing.
 	Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error
 	// Unblock lifts the block; an absent one is fine.
 	Unblock(ctx context.Context, blocker, blocked uuid.UUID) error

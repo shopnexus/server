@@ -134,11 +134,36 @@ func (s pgAccounts) List(ctx context.Context, p page.Request) ([]domain.Account,
 	return accounts, nil
 }
 
+// lockPair serialises the follows and blocks between a and b, in either
+// order, so a follow written beside a block cannot outlive it.
+func lockPair(ctx context.Context, tx pgx.Tx, a, b uuid.UUID) error {
+	lo, hi := min(a.String(), b.String()), max(a.String(), b.String())
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('pair:' || @pair))`,
+		pgx.StrictNamedArgs{"pair": lo + "/" + hi}); err != nil {
+		return fmt.Errorf("lock pair: %w", err)
+	}
+	return nil
+}
+
 func (s pgAccounts) Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error {
-	if _, err := s.db.Exec(ctx, `INSERT INTO account_blocks (id, blocker_id, blocked_id, created_at)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		if err := lockPair(ctx, tx, blocker, blocked); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO account_blocks (id, blocker_id, blocked_id, created_at)
 VALUES (@id, @blocker, @blocked, @at) ON CONFLICT (blocker_id, blocked_id) DO NOTHING`,
-		pgx.StrictNamedArgs{"id": id, "blocker": blocker, "blocked": blocked, "at": at}); err != nil {
-		return fmt.Errorf("insert block: %w", err)
+			pgx.StrictNamedArgs{"id": id, "blocker": blocker, "blocked": blocked, "at": at}); err != nil {
+			return fmt.Errorf("insert block: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM account_follows
+WHERE (follower_id = @blocker AND followed_id = @blocked) OR (follower_id = @blocked AND followed_id = @blocker)`,
+			pgx.StrictNamedArgs{"blocker": blocker, "blocked": blocked}); err != nil {
+			return fmt.Errorf("delete follows: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("block: %w", err)
 	}
 	return nil
 }
