@@ -177,3 +177,33 @@ func TestTokenMovesToTheNewSession(t *testing.T) {
 		t.Fatalf("the second account: %+v %v", got, err)
 	}
 }
+
+func TestForget(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewNotices(db)
+	me, other := accounttest.New(t, db), accounttest.New(t, db)
+	for _, to := range []uuid.UUID{me, other} {
+		if _, _, err := s.Add(ctx, uuid.NewV7(), notice(to, "", 1, now), now.Add(-domain.Retention)); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.PutToken(ctx, uuid.NewV7(), to, "token-"+to.String(), now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for range 2 {
+		if err := s.Forget(ctx, me); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if rows, _ := s.List(ctx, me, page.Request{}); len(rows) != 0 {
+		t.Fatalf("notices left: %d", len(rows))
+	}
+	if tokens, _ := s.Tokens(ctx, me); len(tokens) != 0 {
+		t.Fatalf("tokens left: %d", len(tokens))
+	}
+	if rows, _ := s.List(ctx, other, page.Request{}); len(rows) != 1 {
+		t.Fatalf("the other account's notices: %d", len(rows))
+	}
+}

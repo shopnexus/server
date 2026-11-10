@@ -27,6 +27,9 @@ type Service interface {
 	// DeleteToken deletes a session's token; the handler calls it for the
 	// caller's session, the worker for an ended session or a dead token.
 	DeleteToken(ctx context.Context, session uuid.UUID) error
+	// Forget deletes a deleted account's notices and push tokens; the
+	// worker calls it on account.deleted.
+	Forget(ctx context.Context, account uuid.UUID) error
 
 	// Record writes a notice the worker decided, for event; see
 	// repository.Notices.Add.

@@ -53,7 +53,7 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 		return EditResult{}, fmt.Errorf("read account status: %w", err)
 	}
 	if r := status.Refusal(); r != nil {
-		return EditResult{Refused: r}, nil
+		return EditResult{Refused: r}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
 	}
 	ld, err := restate.Run(ctx, func(rc restate.RunContext) (loadedListing, error) {
 		l, stepErr := s.Listings.Get(rc, in.ID)

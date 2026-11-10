@@ -3,11 +3,15 @@
 package catalog
 
 import (
+	restate "github.com/restatedev/sdk-go"
+
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/catalog/handler"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/catalog/service"
+	"github.com/shopnexus/server2/internal/catalog/worker"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
+	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/module"
 	"github.com/shopnexus/server2/internal/provider/embed"
 )
@@ -20,8 +24,9 @@ type Settings struct {
 	EmbedSlots                int
 }
 
-// Mount registers the catalog endpoints and returns catalog's Restate
-// services and the Service other modules read listings through.
+// Mount registers the catalog endpoints, subscribes the account watch to
+// account.deleted, and returns catalog's Restate services and the Service
+// other modules read listings through.
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasvc.Service) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
 		Listings: repository.NewListings(d.Pool), Categories: repository.NewCategories(d.Pool),
@@ -30,5 +35,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasv
 		EmbedSlots: s.EmbedSlots, Log: d.Log, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
-	return module.Mounted[service.Service]{Services: svc.Durable(), Service: svc}
+	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Listings: svc}
+	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
+	return module.Mounted[service.Service]{Services: append(svc.Durable(), restate.Reflect(watch)), Service: svc}
 }

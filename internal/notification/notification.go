@@ -46,6 +46,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 		events.DealMoved: "DealMoved", events.MessageSent: "MessageSent", events.ListingPublished: "ListingPublished",
 		events.ListingRejected: "ListingRejected", events.ReviewPosted: "ReviewPosted",
 		events.AccountSuspended: "AccountSuspended", events.AccountUnsuspended: "AccountUnsuspended",
+		events.AccountDeleted: "AccountDeleted",
 	} {
 		d.Events.Subscribe(kind, w.ServiceName(), h)
 	}

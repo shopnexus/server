@@ -1,10 +1,13 @@
 package e2e
 
 import (
+	"fmt"
+	"net/http"
 	"testing"
 	"time"
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
 func TestDeleteMyAccount(t *testing.T) {
@@ -36,4 +39,17 @@ func TestDeleteMyAccountRefusals(t *testing.T) {
 	suspended, _ := newAccount(t)
 	suspend(t, suspended.Account.ID)
 	check(t, "suspended", call(t, "DELETE", "/v1/accounts/me", nil, bearer(suspended.AccessToken)), 403, "account_suspended")
+}
+
+func TestDeletedSellersListingsGo(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	l := activeListing(t, seller.AccessToken, nil)
+	check(t, "delete", call(t, "DELETE", "/v1/accounts/me", nil, bearer(seller.AccessToken)), 204, "")
+	testenv.Eventually(t, 30*time.Second, func() error {
+		if res := call(t, "GET", "/v1/screens/listing/"+l.ID, nil); res.Status != http.StatusNotFound {
+			return fmt.Errorf("listing page: %d", res.Status)
+		}
+		return nil
+	})
 }

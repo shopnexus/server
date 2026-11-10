@@ -115,9 +115,10 @@ func (s Status) Refusal() *apperr.Error {
 		return ErrSuspended
 	case StatusDeleted:
 		return ErrSessionRevoked
-	default:
-		return nil
+	case StatusActive:
+	default: // the CHECK on accounts.status allows no other status
 	}
+	return nil
 }
 
 // CanWrite returns the refusal of the status in force: ErrSuspended while a

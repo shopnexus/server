@@ -457,3 +457,29 @@ func TestDeliverDropsEndedAndDeadTokens(t *testing.T) {
 		t.Fatalf("the revoked and dead tokens are gone: %+v %v", tokens, err)
 	}
 }
+
+// A deleted account loses its notices and push tokens, and a second
+// account.deleted finds nothing left.
+func TestAccountDeletedForgetsTheAccount(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, nil, nil)
+	e.start(t)
+	ctx := context.Background()
+	gone := accounttest.New(t, e.db)
+	if _, err := e.notices.Record(ctx, uuid.NewV7(), domain.Suspended(gone, "", time.Now())); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.notices.PutToken(ctx, uuid.NewV7(), gone, "phone"); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		id := uuid.NewV7()
+		e.deliver(t, "AccountDeleted", events.Event{ID: id, Kind: events.AccountDeleted, SubjectID: gone, OccurredAt: time.Now()})
+	}
+	if l, _ := e.notices.List(ctx, gone, page.Request{}); len(l.Items) != 0 {
+		t.Fatalf("notices left: %+v", l)
+	}
+	if tokens, _ := e.notices.Tokens(ctx, gone); len(tokens) != 0 {
+		t.Fatalf("tokens left: %+v", tokens)
+	}
+}

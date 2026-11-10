@@ -66,7 +66,7 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 		return PostResult{}, fmt.Errorf("read account status: %w", err)
 	}
 	if r := status.Refusal(); r != nil {
-		return PostResult{Refused: r}, nil
+		return PostResult{Refused: r}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
 	}
 	n, err := restate.Run(ctx, func(rc restate.RunContext) (int, error) {
 		counts, stepErr := s.Listings.CountByStatus(rc, in.Seller)

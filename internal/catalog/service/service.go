@@ -75,6 +75,10 @@ type Service interface {
 	FindPlaces(ctx context.Context, names []string) (map[string]domain.Point, error)
 	Provinces(ctx context.Context) ([]domain.Province, error)
 	Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error)
+	// SellerLeft deletes every listing of a deleted seller that is not sold
+	// or deleted, each with listing.deleted; the worker calls it on
+	// account.deleted, and a repeated call finds nothing left.
+	SellerLeft(ctx context.Context, seller uuid.UUID) error
 }
 
 // Deps is what New builds Catalog from.

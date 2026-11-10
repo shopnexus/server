@@ -13,6 +13,8 @@ import (
 )
 
 // Accounts persists accounts and their blocks.
+//
+//nolint:interfacebloat // Erase is the account's own write, beside Save; it takes the rows that go with the account.
 type Accounts interface {
 	// Create inserts a without credentials; inserting the same id again does
 	// nothing. Sign-up goes through Credentials.SignUp instead.

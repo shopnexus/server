@@ -338,9 +338,9 @@ func TestErase(t *testing.T) {
 		`INSERT INTO credentials (account_id, write_id) VALUES (@id, @id)`,
 		`INSERT INTO identities (id, account_id, kind, identifier) VALUES (uuidv7(), @id::uuid, 'phone', '+8499' || substr(md5(@id::text), 1, 7))`,
 		`INSERT INTO addresses (id, account_id, recipient_name, phone, street, commune_code, is_default, request_key, write_id, created_at)
-VALUES (uuidv7(), @id, 'Linh', '0912345678', '1 Lê Lợi', (SELECT code FROM communes ORDER BY code LIMIT 1), true, uuidv7(), uuidv7(), now())`,
+VALUES (uuidv7(), @id, 'Linh', '0912345678', '1 Lê Lợi', (SELECT code FROM communes ORDER BY code LIMIT 1), true, gen_random_uuid(), uuidv7(), now())`,
 		`INSERT INTO sessions (id, account_id, refresh_hash, auth_time, created_at, last_used_at, expires_at, write_id)
-VALUES (uuidv7(), @id, decode(md5(random()::text), 'hex'), now(), now(), now(), now() + interval '30 days', uuidv7())`,
+VALUES (uuidv7(), @id, decode(md5(random()::text), 'hex'), now(), current_timestamp, transaction_timestamp(), now() + interval '30 days', uuidv7())`,
 	} {
 		if _, err := db.Exec(ctx, q, pgx.StrictNamedArgs{"id": me}); err != nil {
 			t.Fatalf("%s: %v", q, err)

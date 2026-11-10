@@ -164,6 +164,24 @@ func (s pgNotices) DeleteToken(ctx context.Context, session uuid.UUID) error {
 	return nil
 }
 
+func (s pgNotices) Forget(ctx context.Context, account uuid.UUID) error {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		for _, q := range []string{
+			`DELETE FROM notifications WHERE account_id = @account`,
+			`DELETE FROM push_tokens WHERE account_id = @account`,
+		} {
+			if _, err := tx.Exec(ctx, q, pgx.StrictNamedArgs{"account": account}); err != nil {
+				return fmt.Errorf("forget: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("forget account: %w", err)
+	}
+	return nil
+}
+
 func (s pgNotices) Tokens(ctx context.Context, account uuid.UUID) ([]Token, error) {
 	rows, err := s.db.Query(ctx, `SELECT session_id, token FROM push_tokens WHERE account_id = @account`,
 		pgx.StrictNamedArgs{"account": account})

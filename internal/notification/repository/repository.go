@@ -36,6 +36,8 @@ type Notices interface {
 	PutToken(ctx context.Context, session, account uuid.UUID, token string, at time.Time) error
 	// DeleteToken forgets a session's token; an absent one is fine.
 	DeleteToken(ctx context.Context, session uuid.UUID) error
+	// Forget deletes the account's notices and push tokens.
+	Forget(ctx context.Context, account uuid.UUID) error
 	Tokens(ctx context.Context, account uuid.UUID) ([]Token, error)
 }
 

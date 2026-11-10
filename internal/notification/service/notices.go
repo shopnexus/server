@@ -97,3 +97,10 @@ func (s *Notification) DeleteToken(ctx context.Context, session uuid.UUID) error
 	}
 	return nil
 }
+
+func (s *Notification) Forget(ctx context.Context, account uuid.UUID) error {
+	if err := s.notices.Forget(ctx, account); err != nil {
+		return fmt.Errorf("forget: %w", err)
+	}
+	return nil
+}

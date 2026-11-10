@@ -228,6 +228,18 @@ func (w Worker) AccountSuspended(ctx restate.Context, e events.Event) error {
 	return w.tell(ctx, e.ID, []domain.Notice{domain.Suspended(e.SubjectID, until, e.OccurredAt)})
 }
 
+// AccountDeleted deletes the deleted account's notices and push tokens. A
+// notice of a later event about the account's deals can still be written;
+// nobody reads it.
+func (w Worker) AccountDeleted(ctx restate.Context, e events.Event) error {
+	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
+		return w.Notices.Forget(rc, e.SubjectID)
+	}); err != nil {
+		return fmt.Errorf("forget %s: %w", e.SubjectID, err)
+	}
+	return nil
+}
+
 // AccountUnsuspended tells the account it may write again.
 func (w Worker) AccountUnsuspended(ctx restate.Context, e events.Event) error {
 	return w.tell(ctx, e.ID, []domain.Notice{domain.Unsuspended(e.SubjectID, e.OccurredAt)})
