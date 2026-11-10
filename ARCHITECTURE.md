@@ -39,6 +39,15 @@ this repo's `docker-compose.yml` runs under the profile `models`
 them, and search runs on BM25 alone until they answer. `/readyz` does not
 check them.
 
+A video read (see Assist) calls three more models. The server calls `ai`'s
+`POST /v1/video/frames` itself at `AI_FRAMES_BASE_URL`, in the cluster too,
+since LiteLLM routes only OpenAI's API. Speech to text is at
+`STT_BASE_URL`: LiteLLM's alias `stt` in the cluster, `ai` with
+`gipformer-1.5` locally. The vision model is at `ASSIST_LLM_BASE_URL`:
+LiteLLM's alias `video-read` in the cluster, the LLM in `.env` locally.
+Locally `ai` answers on 127.0.0.1:56810 under the profile `models`, as for
+the embeddings.
+
 ### Use cases
 
 A use case is a method of the module's service, in its own file:
@@ -705,11 +714,11 @@ missing key surfaced only then. A missing key is `ErrNotFound`.
 
 Module `media` owns uploads; catalog, chat and account (avatars) use
 them. An `Upload` moves waiting → attached → ready or failed, or
-waiting → expired.
+waiting → expired; a video moves waiting → attached → consumed.
 
-- `CreateUpload` (`POST /v1/uploads`) takes a content type (JPEG, PNG or
-  WebP; the app converts HEIC) and a size up to 15 MB, and returns a PUT URL
-  valid for 15 minutes that signs both. Before inserting the row it sends
+- `CreateUpload` (`POST /v1/uploads`) takes a content type and a size: JPEG,
+  PNG or WebP up to 15 MB (the app converts HEIC), or MP4 or QuickTime video
+  up to 50 MB. It returns a PUT URL valid for 15 minutes that signs both. Before inserting the row it sends
   `MediaExpire.Run(upload_id)` with a 24-hour delay, keyed by the upload ID.
   `MediaExpire` deletes an upload still waiting, and its object.
 - `Attach(owner, holder, ids)` gives the uploads to a holder, such as a
@@ -751,6 +760,25 @@ Search reads photos through three more use cases (decided 2026-11-09):
   processing slot, and nothing is stored or published.
 - `ReadPhoto(key)` reads a processed photo under `media/`, for
   `ListingEmbed`.
+
+Video reads use four more (decided 2026-11-10, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-10-video-read-design.md`):
+
+- A video upload serves a video read only: `Attach`, `Square`,
+  `QueryUpload` and `QueryImage` refuse it with `invalid_upload`.
+  `HoldVideo(owner, holder, id)` gives it to a read: the owner's, waiting
+  or already the holder's, before its expiry, in the store as declared. It
+  records `shape = video`. `OpenVideo` reads the object for the read's
+  flow. `Consume` deletes the object and sets status `consumed`; a second
+  call changes nothing.
+- `SaveFrame(owner, id, jpeg)` writes a frame the server made to
+  `uploads/<id>` and inserts a waiting `image/jpeg` upload of the owner,
+  with its 24-hour `MediaExpire`. A listing attaches and processes it like
+  a photo the app uploaded. The caller mints the ID before its step, so a
+  retry writes the same object and inserts nothing.
+- `PresignFrame(id)` signs a GET of `uploads/<id>` valid for an hour
+  (`Store.PresignGet`, for `OBJECT_STORE_PUBLIC_ENDPOINT`), for the read's
+  view.
 
 ### Catalog
 
@@ -996,8 +1024,9 @@ everything after each reconnect and deploy).
   notifies the buyer and the seller on each save; the chat repository the
   members a message is visible to, and the other member on a read; the
   notification repository the recipient.
-- An update carries IDs only (`message`, `read`, `deal`, `notification`);
-  the app reloads what it shows.
+- An update carries IDs only (`message`, `read`, `deal`, `notification`,
+  `video_read`); the app reloads what it shows. Assist's repository
+  notifies the reader's account at each save of a video read.
 - `Notify` then rings a `Bell`. `PGBell` runs `pg_notify('stream', …)` in
   the same transaction, which Postgres delivers on commit to every
   instance. The log is the truth and the ring only says something new is
@@ -1410,6 +1439,77 @@ Search history (decided 2026-11-10, spec:
   /v1/search/history` empties it and `DELETE /v1/search/history/{id}`
   forgets one, an unknown ID included; no endpoint restores either.
 
+### Assist
+
+Module `assist` holds what AI does for the person using the app. Its first
+use case reads a seller's video into a listing draft (decided 2026-11-10,
+spec: `~/shopnexus/docs/superpowers/specs/2026-11-10-video-read-design.md`).
+Spam and scam detection is moderation and goes to trust; the two share
+`provider/llm`.
+
+- `POST /v1/video-reads {video}` takes one of the caller's video uploads
+  and an `Idempotency-Key`, and answers 202 with the read. Restate service
+  `VideoRead.Start`, key `<account id>/<Idempotency-Key>`, refuses a
+  suspended account, then inserts the row. The insert's transaction takes
+  a share lock on the caller's `accounts` row (a tombstone is
+  `session_revoked`) and `pg_advisory_xact_lock` on the account, and counts
+  the reads of the last 24 hours; 30 is `read_limit_reached` 429. `Start`
+  then holds the video (another holder is `invalid_upload`, and the row is
+  deleted again) and sends `Expire` with a 24-hour delay and `Run` one way,
+  both keyed by the read's ID.
+- `Run` has three model steps, and each saves the row and notifies the
+  account with `video_read`. Frames: the video goes to `ai`'s
+  `POST /v1/video/frames`, and each frame it keeps becomes a waiting photo
+  upload of the seller (`SaveFrame`), so the draft posts with
+  `POST /v1/listings` like photos the app uploaded. Fill: speech to text
+  and the LLM in one step, so the transcript never reaches the journal; the
+  LLM gets the frames at 768 px, the transcript and the subcategories, and
+  answers a strict schema. Estimate: catalog's `PriceSample` with the
+  draft's text vector and the mean of the kept frames' vectors.
+- The LLM's answer is cleaned like search's understanding. An unknown
+  subcategory becomes its root's `.other`, or nothing when the root is
+  unknown too. The title is cut at 70 characters and the description at
+  1,500, specs at 20, a spoken price outside 10,000 to 1,000,000,000 đồng
+  is dropped, and a kept frame number outside the frames is dropped; none
+  left gives the sharpest frame. `is_item = false` or an empty title fails
+  the read with `no_item`. The description restates the seller's words
+  only, and the prompt forbids naming a mark the seller did not name
+  (`app/mohinh.md`, section 1). `PromptVersion` is 1.
+- The price range comes from the 30 listings most like the draft in its
+  subcategory and condition: sold in the last 180 days at weight 2, active
+  or reserved and published in the last 90 at weight 1, the seller's own
+  left out. With 5 or more it is their weighted p25, median and p75 rounded
+  to 10,000, `source: market`; with fewer it is the model's range,
+  `source: model`; without that, none. An embedding failure falls back to
+  the model's range.
+- A 4xx from `ai` fails the read: `unreadable_video`, `video_too_short`
+  (under 3 s) or `video_too_long` (over 35 s). A 4xx from speech to text is
+  `unreadable_video`, and one from the LLM (`llm.ErrRefused`, any 4xx but
+  429) is `unavailable` at once. The run has a 2-minute deadline from
+  `created_at`. Each model step runs with `restate.WithMaxRetryDuration` set
+  to the time left; a frames or fill step that runs out, or would start
+  after the deadline, saves `failed` with `unavailable`. The estimate step
+  never fails a read: past the deadline or after a failure the read ends
+  `done` with the model's range. Every end consumes the video before it
+  saves the end, so a read that shows it ended holds no video.
+- `GET /v1/video-reads/{id}` returns the read to its account until
+  `expires_at`; any other read is `video_read_not_found` 404. Frame URLs
+  are presigned GETs valid for an hour; a frame posted in a listing loses
+  its original under `uploads/` when the listing's photos are processed, so
+  its URL stops working. `Expire` consumes the video of a run that never
+  ended and deletes the row after 24 hours; frames not posted expire with
+  their uploads.
+- The transcript is never stored, logged or returned. The fill's log line
+  holds the prompt version, the frame count, the transcript's length in
+  characters, the category asked for and the one kept, the condition, the
+  counts of specs and kept frames, whether there is a description, the
+  prices and the range, and the time taken.
+- Configuration: `AI_FRAMES_BASE_URL`, `STT_BASE_URL`, `STT_API_KEY`,
+  `STT_MODEL`, `ASSIST_LLM_BASE_URL`, `ASSIST_LLM_API_KEY`,
+  `ASSIST_LLM_MODEL`, and `ASSIST_CALL_TIMEOUT` for one call. In the
+  cluster the keys are LiteLLM's `server-stt` and `server-assist`. The
+  estimate embeds with the search key, `EMBED_SEARCH_API_KEY`.
+
 ### Support
 
 Module `support` keeps the feedback people send (decided 2026-11-10, same
@@ -1457,9 +1557,10 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   `PartyLeft` (a requested order cancelled by the system with
   `listing_closed`, an agreement dropped, an open price taken back);
   discovery deletes the saves and the search history; notification deletes
-  the notices and push tokens. Media does nothing: a waiting upload expires
-  within a day anyway, and the avatar object stays in the store, as a
-  removed avatar does.
+  the notices and push tokens; assist deletes the video reads. Media does
+  nothing: a waiting upload, a video read's frames among them, expires
+  within a day anyway, a read's video is consumed when the read ends, and
+  the avatar object stays in the store, as a removed avatar does.
 - Deal's `DealAccountWatch.Deleted` also sends `Scrub` with a delay of 365
   days (`domain.KeepRecipientsFor`), which blanks the recipient name, phone
   and street of every order the account bought; the commune stays. Every
