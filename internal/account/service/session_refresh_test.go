@@ -11,6 +11,7 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/account/domain"
@@ -183,5 +184,23 @@ func TestParallelRefreshRevokes(t *testing.T) {
 	}
 	if !e.revoked(t) {
 		t.Fatal("the session survived the race")
+	}
+}
+
+// A session a sign-in issued while Erase ran, which Erase never saw, does
+// not refresh: it is revoked.
+func TestRefreshRevokesASessionOfADeletedAccount(t *testing.T) {
+	t.Parallel()
+	e := newRefreshEnv(t)
+	if _, err := e.db.Exec(context.Background(), `UPDATE accounts
+SET status = 'deleted', deleted_at = now(), display_name = NULL, bio = NULL, avatar_key = NULL WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": e.acc}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.refresh(e.token, now); !errors.Is(err, domain.ErrSessionRevoked) {
+		t.Fatalf("refresh: %v", err)
+	}
+	if !e.revoked(t) {
+		t.Fatal("the session lives")
 	}
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"uuid"
 
@@ -12,6 +13,20 @@ import (
 )
 
 type pgHistory struct{ db *pgxpool.Pool }
+
+// living takes a share lock on account's row and reports whether the
+// account still lives. A write that commits after Erase waits for it and
+// then sees the tombstone, so discovery's worker, which ran after Erase,
+// leaves nothing behind.
+func living(ctx context.Context, tx pgx.Tx, account uuid.UUID) (bool, error) {
+	var deleted bool
+	err := tx.QueryRow(ctx, `SELECT status = 'deleted' FROM accounts WHERE id = @id FOR SHARE`,
+		pgx.StrictNamedArgs{"id": account}).Scan(&deleted)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return false, fmt.Errorf("lock account: %w", err)
+	}
+	return !deleted, nil
+}
 
 func NewHistory(db *pgxpool.Pool) History { return pgHistory{db} }
 
@@ -30,6 +45,10 @@ DELETE FROM search_history WHERE account_id = @account AND id NOT IN (
 
 func (s pgHistory) Remember(ctx context.Context, account uuid.UUID, e HistoryEntry) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		alive, err := living(ctx, tx, account)
+		if err != nil || !alive {
+			return err
+		}
 		if _, err := tx.Exec(ctx, rememberSearch, pgx.StrictNamedArgs{
 			"id": uuid.NewV7(), "account": account, "key": domain.HistoryKey(e.Query), "query": e.Query,
 			"category": e.Category, "photo_url": e.PhotoURL, "at": e.SearchedAt,

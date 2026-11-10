@@ -1371,6 +1371,15 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   in a conversation with a deleted account, and a follow of one. A deal or
   COD request to a deleted seller needs no check, since the seller's
   listings are deleted.
+- Writes that keep rows of the caller (an address, a block, a save, a
+  search history entry) take a share lock on the caller's `accounts` row in
+  their transaction and refuse a tombstone (`session_revoked`; a history
+  entry is skipped). A write that passed its checks before `Erase` and
+  commits after it waits for `Erase` and then sees the tombstone, so no new
+  row outlives the deletion or discovery's worker. Refresh revokes a
+  deleted account's session with `session_revoked`, and a sign-in that
+  found the identity before `Erase` deleted it answers `try_again`; the
+  retry finds no identity and signs up a new account.
 - Others see a deleted person as `status: deleted` on `Account` and the
   console account, and as `deleted: true` on chat's `Person` and a review's
   `buyer`; the reviews it wrote still count toward the seller's rating.

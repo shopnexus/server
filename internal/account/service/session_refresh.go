@@ -38,11 +38,14 @@ func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, err
 	if err != nil {
 		return domain.Tokens{}, err
 	}
-	if a.Suspended(now) {
+	// A suspended account's session ends with account_suspended; a deleted
+	// one's, which a sign-in racing Erase may have issued, with
+	// session_revoked.
+	if r := a.Status(now).Refusal(); r != nil {
 		if err = s.revoke(ctx, sess.ID(), now); err != nil {
 			return domain.Tokens{}, err
 		}
-		return domain.Tokens{}, domain.ErrSuspended
+		return domain.Tokens{}, r
 	}
 	next := sess.Rotate(now)
 	if err = s.sessions.Save(ctx, &sess, uuid.NewV7()); err != nil {

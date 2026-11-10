@@ -1,0 +1,50 @@
+package repository_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"uuid"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server2/internal/account/repository"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+)
+
+// markDeleted turns id into a tombstone, as Erase leaves it.
+func markDeleted(t *testing.T, db *pgxpool.Pool, id uuid.UUID) {
+	t.Helper()
+	if _, err := db.Exec(context.Background(), `UPDATE accounts
+SET status = 'deleted', deleted_at = now(), display_name = NULL, bio = NULL, avatar_key = NULL WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": id}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A write that passed its checks before the account was deleted, and
+// commits after, writes nothing on the tombstone.
+func TestDeletedAccountKeepsNoNewRows(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	accounts, book := repository.NewAccounts(db), repository.NewAddresses(db)
+	gone, other := seed(t, accounts), seed(t, accounts)
+	markDeleted(t, db, gone)
+
+	a, err := domain.NewAddress(uuid.NewV7(), gone, domain.AddressDraft{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}, true, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = book.Insert(ctx, uuid.NewV7(), &a); !errors.Is(err, domain.ErrSessionRevoked) {
+		t.Fatalf("an address of a deleted account: %v", err)
+	}
+	if err = accounts.Block(ctx, uuid.NewV7(), gone, other, now); !errors.Is(err, domain.ErrSessionRevoked) {
+		t.Fatalf("a block by a deleted account: %v", err)
+	}
+	if n := count(t, db, `SELECT (SELECT count(*) FROM addresses WHERE account_id = @id) + (SELECT count(*) FROM account_blocks WHERE blocker_id = @id)`, gone); n != 0 {
+		t.Fatalf("rows on the tombstone: %d", n)
+	}
+}

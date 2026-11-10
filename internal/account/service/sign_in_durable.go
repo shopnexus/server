@@ -78,18 +78,25 @@ func (s SignIn) Run(ctx restate.Context, in PhoneSignIn) (SignInResult, error) {
 	if f.Found {
 		// Only a person who just proved they hold the identity gets here, so
 		// account_suspended is safe to reveal.
-		suspended, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
+		status, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Status, error) {
 			a, stepErr := s.Accounts.Get(rc, f.Ref.AccountID)
 			if stepErr != nil {
-				return false, fmt.Errorf("get account: %w", stepErr)
+				return "", fmt.Errorf("get account status: %w", stepErr)
 			}
-			return a.Suspended(at), nil
+			return a.Status(at), nil
 		})
 		if err != nil {
 			return SignInResult{}, fmt.Errorf("get account status: %w", err)
 		}
-		if suspended {
+		switch status {
+		case domain.StatusSuspended:
 			return SignInResult{Refused: domain.ErrSuspended}, nil
+		case domain.StatusDeleted:
+			// The identity was found before Erase deleted it with the
+			// account; the person's retry finds no identity and signs up.
+			return SignInResult{Refused: apperr.ErrTryAgain}, nil
+		case domain.StatusActive:
+		default: // the CHECK on accounts.status allows no other status
 		}
 		// last_used_at is a hint for the dormant check. A lost race or an
 		// identity removed meanwhile costs nothing, so the step ignores both.

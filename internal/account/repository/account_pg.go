@@ -176,6 +176,26 @@ func (s pgAccounts) List(ctx context.Context, p page.Request) ([]domain.Account,
 	return accounts, nil
 }
 
+// lockLiving takes a share lock on account's row and refuses a deleted
+// account with domain.ErrSessionRevoked. A write that checked the account
+// before Erase and commits after it waits for Erase and then sees the
+// tombstone, so no new row of the account outlives the deletion. An unknown
+// account passes; the foreign keys answer for it.
+func lockLiving(ctx context.Context, tx pgx.Tx, account uuid.UUID) error {
+	var status domain.Status
+	err := tx.QueryRow(ctx, `SELECT status FROM accounts WHERE id = @id FOR SHARE`, pgx.StrictNamedArgs{"id": account}).Scan(&status)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("lock account: %w", err)
+	}
+	if status == domain.StatusDeleted {
+		return domain.ErrSessionRevoked
+	}
+	return nil
+}
+
 // lockPair serialises the follows and blocks between a and b, in either
 // order, so a follow written beside a block cannot outlive it.
 func lockPair(ctx context.Context, tx pgx.Tx, a, b uuid.UUID) error {
@@ -189,6 +209,9 @@ func lockPair(ctx context.Context, tx pgx.Tx, a, b uuid.UUID) error {
 
 func (s pgAccounts) Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		if err := lockLiving(ctx, tx, blocker); err != nil {
+			return err
+		}
 		if err := lockPair(ctx, tx, blocker, blocked); err != nil {
 			return err
 		}

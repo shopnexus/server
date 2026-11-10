@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/discovery/domain"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
@@ -19,6 +20,13 @@ func NewSaves(db *pgxpool.Pool) Saves { return pgSaves{db} }
 
 func (s pgSaves) Save(ctx context.Context, id, account, listing uuid.UUID, price int64, at time.Time) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		alive, err := living(ctx, tx, account)
+		if err != nil {
+			return err
+		}
+		if !alive {
+			return accountdomain.ErrSessionRevoked
+		}
 		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext(@account::text))`,
 			pgx.StrictNamedArgs{"account": account}); err != nil {
 			return fmt.Errorf("lock account: %w", err)

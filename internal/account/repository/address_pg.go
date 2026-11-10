@@ -51,6 +51,9 @@ func (s pgAddresses) Insert(ctx context.Context, key uuid.UUID, a *domain.Addres
 		stored *domain.Address
 	)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		if err := lockLiving(ctx, tx, a.AccountID()); err != nil {
+			return err
+		}
 		if err := lockBook(ctx, tx, a.AccountID()); err != nil {
 			return err
 		}

@@ -162,3 +162,17 @@ func TestSignInMintsV7IDs(t *testing.T) {
 		t.Fatal("a later session sorts first")
 	}
 }
+
+// A sign-in that found the identity before Erase deleted the account gets
+// try_again, and the retry signs up a new account.
+func TestSignInRacingADeletionTriesAgain(t *testing.T) {
+	t.Parallel()
+	e := startSignIn(t)
+	first := e.signIn(t, "0901234567")
+	if _, err := e.db.Exec(context.Background(), `UPDATE accounts
+SET status = 'deleted', deleted_at = now(), display_name = NULL, bio = NULL, avatar_key = NULL WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": first.AccountID}); err != nil {
+		t.Fatal(err)
+	}
+	refused(t, e.signIn(t, "0901234567"), "try_again")
+}
