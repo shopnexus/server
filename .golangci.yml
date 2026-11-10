@@ -127,6 +127,8 @@ linters:
             - "**/internal/account/**"
             - "!$test"
           deny:
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/chat/repository
@@ -181,12 +183,77 @@ linters:
               desc: only screen calls notification; it hears the others through events.
             - pkg: github.com/shopnexus/server2/internal/screen/service
               desc: no module calls screen; it reads the others.
+        module assist:
+          files:
+            - "**/internal/assist/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/catalog/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/chat/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/console/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/deal/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/discovery/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/media/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/notification/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/support/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/account/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/catalog/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/chat/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/console/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/deal/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/discovery/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/erasure/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/media/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/notification/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/screen/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/support/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/catalog/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/deal/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/discovery/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/notification/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/erasure/service
+              desc: no module calls erasure; it calls account and deal.
+            - pkg: github.com/shopnexus/server2/internal/notification/service
+              desc: only screen calls notification; it hears the others through events.
+            - pkg: github.com/shopnexus/server2/internal/screen/service
+              desc: no module calls screen; it reads the others.
         module catalog:
           files:
             - "**/internal/catalog/**"
             - "!$test"
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/chat/repository
               desc: another module is reached through its service.
@@ -244,6 +311,8 @@ linters:
             - "!$test"
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
@@ -304,6 +373,8 @@ linters:
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/chat/repository
@@ -363,6 +434,8 @@ linters:
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/chat/repository
@@ -420,6 +493,8 @@ linters:
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/chat/repository
@@ -476,6 +551,8 @@ linters:
             - "!$test"
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
@@ -536,6 +613,8 @@ linters:
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/chat/repository
@@ -595,6 +674,8 @@ linters:
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/chat/repository
@@ -649,6 +730,8 @@ linters:
             - "!$test"
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
@@ -706,6 +789,8 @@ linters:
             - "!$test"
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
@@ -766,6 +851,8 @@ linters:
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/chat/repository
@@ -823,6 +910,8 @@ linters:
             - "**/internal/*/domain/**"
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
               desc: domain imports no layer above it.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: domain imports no layer above it.
@@ -1000,6 +1089,8 @@ linters:
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
               desc: handler reaches data through service.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
+              desc: handler reaches data through service.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: handler reaches data through service.
             - pkg: github.com/shopnexus/server2/internal/chat/repository
@@ -1032,6 +1123,8 @@ linters:
             - "!$test"
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/repository
+              desc: worker reaches data through service, as a handler does.
+            - pkg: github.com/shopnexus/server2/internal/assist/repository
               desc: worker reaches data through service, as a handler does.
             - pkg: github.com/shopnexus/server2/internal/catalog/repository
               desc: worker reaches data through service, as a handler does.
