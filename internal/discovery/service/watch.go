@@ -127,7 +127,7 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 	}
 	id := uuid.NewV7()
 	if err = d.sweeps.Schedule(ctx, id); err != nil {
-		return WatchView{}, false, err
+		return WatchView{}, false, fmt.Errorf("start the sweeps: %w", err)
 	}
 	w, created, err := d.watches.Put(ctx, repository.Watch{
 		ID: id, Account: account, Query: q, Phrases: phrases, Category: in.Category, PriceMin: in.PriceMin,
@@ -258,9 +258,9 @@ func (d *Discovery) Sweep(ctx context.Context, id uuid.UUID) (Swept, error) {
 // call it.
 func (d *Discovery) watchViews(ctx context.Context, ws []repository.Watch) ([]WatchView, error) {
 	var codes []string
-	for _, w := range ws {
-		if w.Commune != "" {
-			codes = append(codes, w.Commune)
+	for i := range ws {
+		if ws[i].Commune != "" {
+			codes = append(codes, ws[i].Commune)
 		}
 	}
 	places, err := d.catalog.Places(ctx, codes)
@@ -268,7 +268,8 @@ func (d *Discovery) watchViews(ctx context.Context, ws []repository.Watch) ([]Wa
 		return nil, fmt.Errorf("read communes: %w", err)
 	}
 	out := make([]WatchView, len(ws))
-	for i, w := range ws {
+	for i := range ws {
+		w := &ws[i]
 		v := WatchView{
 			ID: w.ID, Query: w.Query, RadiusKm: w.RadiusKm, NewCount: w.NewCount, Alert: w.Alert, CreatedAt: w.CreatedAt,
 			Filters: WatchFilters{Category: w.Category, PriceMin: w.PriceMin, PriceMax: w.PriceMax, OffersOnly: w.OffersOnly},

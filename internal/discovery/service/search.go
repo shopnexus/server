@@ -283,10 +283,10 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		}
 	}
 	if viewer != nil && q != "" {
-		id, found, err := d.watches.ByKey(ctx, *viewer, domain.HistoryKey(q))
+		id, found, keyErr := d.watches.ByKey(ctx, *viewer, domain.HistoryKey(q))
 		switch {
-		case err != nil:
-			d.log.WarnContext(ctx, "read the watch of the query", "err", err)
+		case keyErr != nil:
+			d.log.WarnContext(ctx, "read the watch of the query", "err", keyErr)
 		case found:
 			view.WatchID = &id
 		default:

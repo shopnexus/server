@@ -517,14 +517,22 @@ func TestWatchAndPriceNotices(t *testing.T) {
 	}
 	e.start(t)
 	at := time.Now()
-	e.deliver(t, "SearchWatchMatched", events.Event{ID: uuid.NewV7(), Kind: events.SearchWatchMatched, SubjectID: watch,
-		Payload: map[string]any{"count": 2}, OccurredAt: at})
-	e.deliver(t, "SearchWatchMatched", events.Event{ID: uuid.NewV7(), Kind: events.SearchWatchMatched, SubjectID: watch,
-		Payload: map[string]any{"count": 5}, OccurredAt: at.Add(time.Minute)})
-	e.deliver(t, "SearchWatchMatched", events.Event{ID: uuid.NewV7(), Kind: events.SearchWatchMatched, SubjectID: uuid.NewV7(),
-		Payload: map[string]any{"count": 1}, OccurredAt: at})
-	e.deliver(t, "SavedPriceDropped", events.Event{ID: uuid.NewV7(), Kind: events.SavedPriceDropped, SubjectID: save,
-		Payload: map[string]any{"price": 1_400_000}, OccurredAt: at.Add(2 * time.Minute)})
+	e.deliver(t, "SearchWatchMatched", events.Event{
+		ID: uuid.NewV7(), Kind: events.SearchWatchMatched, SubjectID: watch,
+		Payload: map[string]any{"count": 2}, OccurredAt: at,
+	})
+	e.deliver(t, "SearchWatchMatched", events.Event{
+		ID: uuid.NewV7(), Kind: events.SearchWatchMatched, SubjectID: watch,
+		Payload: map[string]any{"count": 5}, OccurredAt: at.Add(time.Minute),
+	})
+	e.deliver(t, "SearchWatchMatched", events.Event{
+		ID: uuid.NewV7(), Kind: events.SearchWatchMatched, SubjectID: uuid.NewV7(),
+		Payload: map[string]any{"count": 1}, OccurredAt: at,
+	})
+	e.deliver(t, "SavedPriceDropped", events.Event{
+		ID: uuid.NewV7(), Kind: events.SavedPriceDropped, SubjectID: save,
+		Payload: map[string]any{"price": 1_400_000}, OccurredAt: at.Add(2 * time.Minute),
+	})
 	items := e.noticesOf(t, me, 2)
 	if items[0].Type != domain.TypePriceDropped || items[0].Text != "Xe đạp Asama giảm còn 1,4 tr, lúc lưu 1,5 tr" {
 		t.Fatalf("%+v", items[0])

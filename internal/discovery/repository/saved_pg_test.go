@@ -121,7 +121,7 @@ func TestPriceMoved(t *testing.T) {
 	if found, err := s.SetAlert(ctx, me, l, new(int64(5_000_000))); err != nil || !found {
 		t.Fatalf("%v %v", found, err)
 	}
-	var told []int
+	told := make([]int, 0, 6)
 	for _, price := range []int64{6_000_000, 4_800_000, 4_800_000, 4_500_000, 5_500_000, 4_900_000} {
 		n, err := s.PriceMoved(ctx, l, price, now)
 		if err != nil {

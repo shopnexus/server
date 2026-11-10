@@ -46,9 +46,9 @@ func TestHideAndBlockLeaveSearch(t *testing.T) {
 		{Category: "vehicles.bicycle"},
 		{Sort: service.SortNearby, Near: service.Near{Lat: baDinh.Lat, Lng: baDinh.Lng}},
 	} {
-		v, err := e.discovery.Search(ctx, &me, in)
-		if err != nil {
-			t.Fatal(err)
+		v, searchErr := e.discovery.Search(ctx, &me, in)
+		if searchErr != nil {
+			t.Fatal(searchErr)
 		}
 		got := ids(v)
 		if slices.Contains(got, hidden) || slices.Contains(got, blocked) || !slices.Contains(got, kept) {

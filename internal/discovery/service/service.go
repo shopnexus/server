@@ -93,10 +93,10 @@ type Deps struct {
 	// in production; tests shorten them.
 	ArrivalLag time.Duration
 	SweepBatch int
-	Catalog        catalogsvc.Service
+	Catalog    catalogsvc.Service
 	// Accounts gives the blocks a search leaves out.
 	Accounts accountsvc.Service
-	LLM            llm.Client
+	LLM      llm.Client
 	// Media reads a search photo; Text and Image embed with the search key,
 	// under TextVersion and ImageVersion. TextMin and PhotoMin are the
 	// floors of the vector lists.

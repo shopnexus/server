@@ -90,7 +90,7 @@ func (c *Catalog) Places(ctx context.Context, codes []string) (map[string]Locati
 	return out, nil
 }
 
-func (c *Catalog) NearestCommune(ctx context.Context, p domain.Point) (string, float64, error) {
+func (c *Catalog) NearestCommune(ctx context.Context, p domain.Point) (code string, km float64, err error) {
 	place, err := c.regions.Nearest(ctx, p)
 	if err != nil {
 		return "", 0, fmt.Errorf("find the commune: %w", err)

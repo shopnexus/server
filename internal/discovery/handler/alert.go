@@ -8,7 +8,7 @@ import (
 )
 
 type alertRequest struct {
-	ListingID uuid.UUID `json:"-" path:"listing_id"`
+	ListingID uuid.UUID `json:"-"     path:"listing_id"`
 	Below     int64     `json:"below"`
 }
 

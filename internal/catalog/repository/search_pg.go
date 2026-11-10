@@ -134,13 +134,14 @@ func (q *query) phrase(p domain.Phrase) []string {
 // description or specs. A word is a run of letters and digits; a phrase of
 // none matches nothing.
 func (q *query) allWords(p domain.Phrase) string {
-	var words []string
-	for _, w := range strings.FieldsFunc(p.Text, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) }) {
+	fields := strings.FieldsFunc(p.Text, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) })
+	words := make([]string, 0, len(fields))
+	for _, w := range fields {
 		text := q.arg(w, "text")
 		words = append(words, `paradedb.boolean(should => `+array([]string{
-			`paradedb.match('title', `+text+`)`,
-			`paradedb.match('description', `+text+`)`,
-			`paradedb.match('specs_text', `+text+`)`,
+			`paradedb.match('title', ` + text + `)`,
+			`paradedb.match('description', ` + text + `)`,
+			`paradedb.match('specs_text', ` + text + `)`,
 		})+`)`)
 	}
 	if len(words) == 0 {

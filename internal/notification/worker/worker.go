@@ -42,8 +42,8 @@ type Worker struct {
 	Accounts accountsvc.Service
 	// Discovery gives the facts of search watches and price drops.
 	Discovery discoverysvc.Service
-	Push     push.Sender
-	Log      *slog.Logger
+	Push      push.Sender
+	Log       *slog.Logger
 	// FollowerPage is how many followers one step reads when a listing
 	// first goes on sale.
 	FollowerPage int
