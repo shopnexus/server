@@ -41,6 +41,7 @@ import (
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/firebase"
+	"github.com/shopnexus/server2/internal/provider/google"
 	"github.com/shopnexus/server2/internal/provider/llm"
 	"github.com/shopnexus/server2/internal/provider/push"
 	"github.com/shopnexus/server2/internal/screen"
@@ -229,7 +230,10 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}
 	mediam := media.Mount(d, media.Settings{Store: store})
 	accountm := account.Mount(d,
-		account.Settings{Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log), Email: mailer}, mediam.Service)
+		account.Settings{
+			Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log),
+			Google: google.NewVerifier(cfg.Google, time.Now, log), Email: mailer,
+		}, mediam.Service)
 	accounts := accountm.Service
 	consoleKeys, err := consolesvc.NewKeys(cfg.Console, hasher)
 	if err != nil {

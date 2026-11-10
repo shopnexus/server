@@ -22,7 +22,8 @@ import (
 // Settings is what account's Mount takes beyond module.Deps.
 type Settings struct {
 	Keys   config.AuthConfig
-	Phones service.PhoneVerifier
+	Phones service.TokenVerifier
+	Google service.TokenVerifier
 	// Email mails sign-in codes.
 	Email email.Sender
 }
@@ -46,7 +47,7 @@ func TokenVerifier(keys config.AuthConfig) func(token string, now time.Time) (au
 func Mount(d module.Deps, s Settings, media mediasvc.Service) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
 		Accounts: repository.NewAccounts(d.Pool), Follows: repository.NewFollows(d.Pool), Addresses: repository.NewAddresses(d.Pool), Credentials: repository.NewCredentials(d.Pool),
-		Sessions: repository.NewSessions(d.Pool), Signer: domain.NewSigner(s.Keys), Phones: s.Phones, Media: media,
+		Sessions: repository.NewSessions(d.Pool), Signer: domain.NewSigner(s.Keys), Phones: s.Phones, Google: s.Google, Media: media,
 		Challenges: repository.NewChallenges(d.Pool), Quotas: repository.NewQuotas(d.Pool), Codes: domain.NewCodes(s.Keys.OTPKey), Email: s.Email,
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})

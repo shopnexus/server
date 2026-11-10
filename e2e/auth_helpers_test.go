@@ -75,3 +75,26 @@ func newAccount(t *testing.T) (account signIn, phone string) {
 	phone = newPhone()
 	return signInWith(t, phone), phone
 }
+
+// signInByEmail mails a code to addr and signs in with it.
+func signInByEmail(t *testing.T, addr string) signIn {
+	t.Helper()
+	id, code := sendEmailCode(t, addr)
+	return expect[signIn](t, call(t, "POST", "/v1/auth/sign-in",
+		map[string]any{"email_code": map[string]string{"challenge_id": id, "code": code}, "device_name": "e2e"}, newKey()), 200)
+}
+
+// newEmailAccount signs up with a fresh address and no phone.
+func newEmailAccount(t *testing.T) (account signIn, addr string) {
+	t.Helper()
+	addr = newEmail()
+	return signInByEmail(t, addr), addr
+}
+
+// wrongCode is a six-digit code other than code.
+func wrongCode(code string) string {
+	if code == "000000" {
+		return "111111"
+	}
+	return "000000"
+}

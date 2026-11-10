@@ -15,10 +15,12 @@ import (
 	"github.com/shopnexus/server2/internal/platform/restatex"
 )
 
-// PhoneSignIn is a number Firebase proved. The token that proved it stays
-// out of Restate, whose journal the admin API can read.
-type PhoneSignIn struct {
-	Phone contact.Address `json:"phone"`
+// ProvenSignIn is an address a token proved outside Restate, or a guess at
+// an email code for the flow to judge. Neither the token nor the code
+// enters Restate, whose journal the admin API can read.
+type ProvenSignIn struct {
+	Address *contact.Address `json:"address,omitempty"`
+	Guess   *CodeGuess       `json:"guess,omitempty"`
 }
 
 // SignInResult names the account and the session Account.SignIn issues tokens
@@ -32,7 +34,8 @@ type SignInResult struct {
 
 func (r SignInResult) Refusal() *apperr.Error { return r.Refused }
 
-// SignIn finds or creates the account of a proven number. A new account and
+// SignIn finds or creates the account of a proven phone number or email
+// address. A new account and
 // its credentials are written in one transaction, so a sign-up that loses the
 // number to another one in between writes nothing. Any other failure is
 // retried.
@@ -40,6 +43,7 @@ type SignIn struct {
 	Prefix      string
 	Accounts    repository.Accounts
 	Credentials repository.Credentials
+	Challenges  repository.Challenges
 	Now         func() time.Time
 }
 
@@ -54,14 +58,24 @@ type foundIdentity struct {
 	Found bool               `json:"found"`
 }
 
-func (s SignIn) Run(ctx restate.Context, in PhoneSignIn) (SignInResult, error) {
+func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
 		return SignInResult{}, err
 	}
+	var addr contact.Address
+	if in.Guess != nil {
+		proved, refused, judgeErr := judgeGuess(ctx, s.Challenges, *in.Guess, domain.PurposeSignIn, nil, at)
+		if judgeErr != nil || refused != nil {
+			return SignInResult{Refused: refused}, judgeErr
+		}
+		addr = proved
+	} else {
+		addr = *in.Address
+	}
 
 	f, err := restate.Run(ctx, func(rc restate.RunContext) (foundIdentity, error) {
-		ref, stepErr := s.Credentials.FindIdentity(rc, domain.KindPhone, in.Phone.Value())
+		ref, stepErr := s.Credentials.FindIdentity(rc, domain.Kind(addr.Kind()), addr.Value())
 		if errors.Is(stepErr, repository.ErrNotFound) {
 			return foundIdentity{}, nil
 		}
@@ -122,7 +136,7 @@ func (s SignIn) Run(ctx restate.Context, in PhoneSignIn) (SignInResult, error) {
 	if err != nil {
 		return SignInResult{}, fmt.Errorf("new account: %w", err)
 	}
-	c := domain.NewCredentials(accountID, domain.NewIdentity(identityID, in.Phone, at), at)
+	c := domain.NewCredentials(accountID, domain.NewIdentity(identityID, addr, at), at)
 	taken, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 		return restatex.Outcome(s.Credentials.SignUp(rc, a, c), domain.ErrIdentityTaken)
 	})

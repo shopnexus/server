@@ -94,11 +94,26 @@ type Follower struct {
 	AccountID uuid.UUID `json:"account_id"`
 }
 
-// SignInInput is a phone token from Firebase. A repeated IdempotencyKey with
-// a token for the same number gets the first request's account.
+// Proof is what a person shows to sign in or add an identity: exactly one
+// of a phone token, a Google ID token and an email code. The spec's oneOf
+// holds that rule.
+type Proof struct {
+	PhoneToken  string
+	GoogleToken string
+	EmailCode   *EmailCode
+}
+
+// EmailCode is the code a person typed and the challenge it was mailed with.
+type EmailCode struct {
+	ChallengeID uuid.UUID
+	Code        string
+}
+
+// SignInInput is a proof. A repeated IdempotencyKey with a proof of the same
+// address gets the first request's account and session.
 type SignInInput struct {
 	IdempotencyKey string
-	PhoneToken     string
+	Proof          Proof
 	DeviceName     string
 }
 

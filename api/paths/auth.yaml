@@ -1,13 +1,16 @@
 signIn:
   post:
     operationId: signIn
-    summary: Sign in, or sign up on first use, with a phone number Firebase verified.
+    summary: Sign in, or sign up on first use, with a phone number Firebase verified, a Google account or an email code.
     description: |
       phone_token is what Firebase returned for the number: the ID token of
       Firebase Authentication after an SMS code, or the Phone Number
-      Verification token of the SIM. The verification must be at most 5
-      minutes old. A repeated Idempotency-Key with a token for the same
-      number returns the first sign-in's session with a new refresh token.
+      Verification token of the SIM. google_token is the Google ID token
+      Credential Manager returned; it proves the account's email, and an
+      email identity with that address is the same account. email_code is
+      the code sendEmailCode mailed. A token must be at most 5 minutes old.
+      A repeated Idempotency-Key with a proof of the same address returns
+      the first sign-in's session with a new refresh token.
     tags: [auth]
     parameters:
       - $ref: "../parameters/common.yaml#/IdempotencyKey"
@@ -27,7 +30,7 @@ signIn:
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
-        description: The token failed a check (invalid_phone_token), or a repeated Idempotency-Key's session was signed out since (session_revoked, session_expired).
+        description: A token failed a check (invalid_phone_token, invalid_google_token), or a repeated Idempotency-Key's session was signed out since (session_revoked, session_expired).
         content:
           application/json:
             schema:
@@ -37,13 +40,13 @@ signIn:
       "409":
         $ref: "../responses/common.yaml#/Conflict"
       "422":
-        description: The verified number is not a Vietnamese mobile number (invalid_phone).
+        description: The verified number is not a Vietnamese mobile number (invalid_phone), or the code is wrong (invalid_code, details.attempts_left), expired or replaced (code_expired) or out of guesses (code_locked).
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "503":
-        description: The keys that sign phone tokens could not be fetched yet (unavailable); try again.
+        description: The keys that sign phone or Google tokens could not be fetched yet (unavailable); try again.
         content:
           application/json:
             schema:

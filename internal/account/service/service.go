@@ -112,8 +112,8 @@ type Service interface {
 // Sessions is the part of Service that signs people in and keeps their
 // sessions.
 type Sessions interface {
-	// SignIn checks a phone token, finds or creates the account and starts
-	// a session.
+	// SignIn checks a proof, finds or creates the account and starts a
+	// session.
 	SignIn(ctx context.Context, in SignInInput) (SignedIn, error)
 	// Refresh rotates a refresh token.
 	Refresh(ctx context.Context, refreshToken string) (domain.Tokens, error)
@@ -130,9 +130,10 @@ type Sessions interface {
 	ActiveSessions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error)
 }
 
-// PhoneVerifier checks a token from Firebase and returns the phone number it
-// proves: provider/firebase in the app, a fake in tests.
-type PhoneVerifier interface {
+// TokenVerifier checks a sign-in token and returns the address it proves:
+// provider/firebase for phone tokens and provider/google for Google ID
+// tokens in the app.
+type TokenVerifier interface {
 	Verify(ctx context.Context, token string) (contact.Address, error)
 }
 
@@ -144,7 +145,8 @@ type Deps struct {
 	Credentials repository.Credentials
 	Sessions    repository.Sessions
 	Signer      domain.Signer
-	Phones      PhoneVerifier
+	Phones      TokenVerifier
+	Google      TokenVerifier
 	Challenges  repository.Challenges
 	Quotas      repository.Quotas
 	Codes       domain.Codes
@@ -165,7 +167,8 @@ type Account struct {
 	credentials repository.Credentials
 	sessions    repository.Sessions
 	signer      domain.Signer
-	phones      PhoneVerifier
+	phones      TokenVerifier
+	google      TokenVerifier
 	challenges  repository.Challenges
 	quotas      repository.Quotas
 	codes       domain.Codes
@@ -175,7 +178,7 @@ type Account struct {
 	now         func() time.Time
 	log         *slog.Logger
 
-	signIn        restatex.Caller[PhoneSignIn, SignInResult]
+	signIn        restatex.Caller[ProvenSignIn, SignInResult]
 	emailCodeSend restatex.Caller[EmailCodeInput, EmailCodeResult]
 }
 
@@ -185,9 +188,9 @@ var _ Service = (*Account)(nil)
 func New(d Deps) *Account {
 	return &Account{
 		accounts: d.Accounts, follows: d.Follows, addresses: d.Addresses, credentials: d.Credentials, sessions: d.Sessions, signer: d.Signer, phones: d.Phones,
-		challenges: d.Challenges, quotas: d.Quotas, codes: d.Codes, email: d.Email,
+		google: d.Google, challenges: d.Challenges, quotas: d.Quotas, codes: d.Codes, email: d.Email,
 		media: d.Media, prefix: d.Prefix, now: d.Now, log: d.Log,
-		signIn: restatex.Caller[PhoneSignIn, SignInResult]{Ingress: d.Ingress, Service: d.Prefix + signInService, Handler: "Run"},
+		signIn: restatex.Caller[ProvenSignIn, SignInResult]{Ingress: d.Ingress, Service: d.Prefix + signInService, Handler: "Run"},
 		emailCodeSend: restatex.Caller[EmailCodeInput, EmailCodeResult]{
 			Ingress: d.Ingress, Service: d.Prefix + emailCodeSendService, Handler: "Run",
 		},
@@ -197,7 +200,7 @@ func New(d Deps) *Account {
 // Durable returns the Restate services Account calls, for Mount to bind.
 func (s *Account) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
-		restate.Reflect(SignIn{Prefix: s.prefix, Accounts: s.accounts, Credentials: s.credentials, Now: s.now}),
+		restate.Reflect(SignIn{Prefix: s.prefix, Accounts: s.accounts, Credentials: s.credentials, Challenges: s.challenges, Now: s.now}),
 		restate.Reflect(EmailCodeSend{
 			Prefix: s.prefix, Quotas: s.quotas, Challenges: s.challenges, Codes: s.codes, Email: s.email, Now: s.now,
 		}),

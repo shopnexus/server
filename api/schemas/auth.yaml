@@ -1,17 +1,39 @@
 SignInRequest:
   type: object
   additionalProperties: false
-  required: [phone_token]
+  description: Exactly one proof, phone_token, google_token or email_code, and the device's name.
+  oneOf:
+    - required: [phone_token]
+    - required: [google_token]
+    - required: [email_code]
   properties:
     phone_token:
       type: string
       minLength: 1
       maxLength: 8192
       description: The token Firebase returned for the verified number.
+    google_token:
+      type: string
+      minLength: 1
+      maxLength: 8192
+      description: The ID token Credential Manager returned for the Google account; it proves the account's email.
+    email_code:
+      $ref: "#/EmailCodeProof"
     device_name:
       type: string
       maxLength: 100
       description: Shown in the list of signed-in devices.
+EmailCodeProof:
+  type: object
+  additionalProperties: false
+  required: [challenge_id, code]
+  properties:
+    challenge_id:
+      type: string
+      format: uuid
+    code:
+      type: string
+      pattern: "^[0-9]{6}$"
 Tokens:
   type: object
   additionalProperties: false

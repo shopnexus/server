@@ -72,3 +72,12 @@ func phone(t *testing.T, raw string) contact.Address {
 	}
 	return a
 }
+
+func email(t *testing.T, raw string) contact.Address {
+	t.Helper()
+	a, err := contact.ParseEmail(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a
+}
