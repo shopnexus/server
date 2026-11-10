@@ -53,6 +53,35 @@ me:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: deleteMyAccount
+    summary: Delete the caller's account.
+    description: |
+      Needs a sign-in within 15 minutes. The account's listings, profile,
+      sign-in methods, addresses, saves, search history, blocks, follows and
+      notifications go, and its sessions end. The row stays without a name,
+      bio or avatar for the orders, reviews and messages that name it, where
+      other people see the account as deleted. A phone of the account signs
+      up again as a new account. The recipients of the orders it bought are
+      blanked a year later.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Deleted.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/Forbidden"
+      "409":
+        description: "An order of the caller is requested or shipped (orders_open), or the account changed twice during the call (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "428":
+        $ref: "../responses/common.yaml#/PreconditionRequired"
 blocks:
   post:
     operationId: blockAccount

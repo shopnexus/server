@@ -74,6 +74,7 @@ var serviceCallers = map[string]struct {
 	callers []string
 	desc    string
 }{
+	"erasure":      {desc: "no module calls erasure; it calls account and deal."},
 	"screen":       {desc: "no module calls screen; it reads the others."},
 	"notification": {callers: []string{"screen"}, desc: "only screen calls notification; it hears the others through events."},
 }

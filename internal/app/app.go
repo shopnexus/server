@@ -27,6 +27,7 @@ import (
 	consolesvc "github.com/shopnexus/server2/internal/console/service"
 	"github.com/shopnexus/server2/internal/deal"
 	"github.com/shopnexus/server2/internal/discovery"
+	"github.com/shopnexus/server2/internal/erasure"
 	"github.com/shopnexus/server2/internal/media"
 	"github.com/shopnexus/server2/internal/notification"
 	"github.com/shopnexus/server2/internal/platform/config"
@@ -223,6 +224,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion, EmbedSlots: cfg.Embed.Slots,
 	}, accounts, mediam.Service)
 	dealm := deal.Mount(d, accounts, catalogm.Service)
+	erasure.Mount(d, accounts, dealm.Service)
 	trustm := trust.Mount(d, accounts, catalogm.Service, dealm.Service)
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
 	discoverym := discovery.Mount(d, discovery.Settings{
