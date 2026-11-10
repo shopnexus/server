@@ -6,6 +6,7 @@ package llm
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,13 +15,19 @@ import (
 	"strings"
 )
 
-// Request is one question: the instructions, the text to read, and the
-// JSON schema the answer must fit.
+// Request is one question: the instructions, the text to read, the photos
+// to look at, and the JSON schema the answer must fit.
 type Request struct {
 	System, User string
-	SchemaName   string
-	Schema       json.RawMessage
+	// Images are JPEGs sent after User, in order, as data URLs.
+	Images     [][]byte
+	SchemaName string
+	Schema     json.RawMessage
 }
+
+// ErrRefused is a 4xx answer other than 429: the same request would be
+// refused again, so a caller should not retry it.
+var ErrRefused = errors.New("model refused the request")
 
 // Client asks a model.
 type Client interface {
@@ -39,11 +46,23 @@ type OpenAI struct {
 const maxReply = 1 << 20
 
 func (c OpenAI) Complete(ctx context.Context, r Request, out any) error {
+	var user any = r.User
+	if len(r.Images) > 0 {
+		parts := make([]map[string]any, 0, len(r.Images)+1)
+		parts = append(parts, map[string]any{"type": "text", "text": r.User})
+		for _, img := range r.Images {
+			parts = append(parts, map[string]any{
+				"type":      "image_url",
+				"image_url": map[string]string{"url": "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(img)},
+			})
+		}
+		user = parts
+	}
 	body, err := json.Marshal(map[string]any{
 		"model": c.Model,
-		"messages": []map[string]string{
+		"messages": []map[string]any{
 			{"role": "system", "content": r.System},
-			{"role": "user", "content": r.User},
+			{"role": "user", "content": user},
 		},
 		"temperature": 0,
 		"response_format": map[string]any{
@@ -67,6 +86,9 @@ func (c OpenAI) Complete(ctx context.Context, r Request, out any) error {
 	}
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
+		if res.StatusCode >= 400 && res.StatusCode < 500 && res.StatusCode != http.StatusTooManyRequests {
+			return fmt.Errorf("model answered %d: %w", res.StatusCode, ErrRefused)
+		}
 		return fmt.Errorf("model answered %d", res.StatusCode)
 	}
 	var reply struct {
