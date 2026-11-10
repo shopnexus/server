@@ -21,6 +21,8 @@ const (
 	KindDeal    = "deal"
 	// KindNotification is a new or changed notice of the account's.
 	KindNotification = "notification"
+	// KindVideoRead is a step of a video read of the account's finishing.
+	KindVideoRead = "video_read"
 	// KindTyping is the other member typing in a conversation. It is rung
 	// with no update in the log.
 	KindTyping = "typing"
@@ -33,6 +35,7 @@ type Hint struct {
 	MessageID      *uuid.UUID `json:"message_id,omitempty"`
 	DealID         *uuid.UUID `json:"deal_id,omitempty"`
 	NotificationID *uuid.UUID `json:"notification_id,omitempty"`
+	VideoReadID    *uuid.UUID `json:"video_read_id,omitempty"`
 }
 
 // Update is a hint in an account's log, at its seq.
@@ -49,8 +52,8 @@ WITH next AS (
     INSERT INTO account_update_seqs (account_id, seq) VALUES (@account, 1)
     ON CONFLICT (account_id) DO UPDATE SET seq = account_update_seqs.seq + 1
     RETURNING seq)
-INSERT INTO account_updates (account_id, seq, kind, conversation_id, message_id, deal_id, notification_id)
-SELECT @account, seq, @kind, @conversation, @message, @deal, @notification FROM next
+INSERT INTO account_updates (account_id, seq, kind, conversation_id, message_id, deal_id, notification_id, video_read_id)
+SELECT @account, seq, @kind, @conversation, @message, @deal, @notification, @video_read FROM next
 RETURNING seq`
 
 // Notify appends h to the log of each of accounts and rings the bell, in
@@ -66,7 +69,7 @@ func Notify(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h Hint) error 
 		var seq int64
 		if err := tx.QueryRow(ctx, appendUpdate, pgx.StrictNamedArgs{
 			"account": a, "kind": h.Kind, "conversation": h.ConversationID, "message": h.MessageID,
-			"deal": h.DealID, "notification": h.NotificationID,
+			"deal": h.DealID, "notification": h.NotificationID, "video_read": h.VideoReadID,
 		}).Scan(&seq); err != nil {
 			return fmt.Errorf("append update: %w", err)
 		}
