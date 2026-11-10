@@ -68,7 +68,7 @@ func (h *Handler) Ship(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, v)
 }
 
-// Deliver serves POST /v1/deals/{id}/delivered.
+// Deliver serves POST /v1/deals/{id}/deliver.
 func (h *Handler) Deliver(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
@@ -87,7 +87,7 @@ func (h *Handler) Deliver(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, v)
 }
 
-// Return serves POST /v1/deals/{id}/returned.
+// Return serves POST /v1/deals/{id}/return.
 func (h *Handler) Return(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {

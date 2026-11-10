@@ -67,8 +67,8 @@ func TestOrderShipDeliver(t *testing.T) {
 		t.Fatalf("the seller reads a cancelled request: %+v", r)
 	}
 
-	if got = moved(t, seller.AccessToken, first.ID, "delivered", nil); got.Status != "sold" || got.Order.Status != "delivered" {
-		t.Fatalf("delivered: %+v", got)
+	if got = moved(t, seller.AccessToken, first.ID, "deliver", nil); got.Status != "sold" || got.Order.Status != "delivered" {
+		t.Fatalf("deliver: %+v", got)
 	}
 	if st := listingStatus(t, seller.AccessToken, l.ID); st != "sold" {
 		t.Fatalf("listing %s", st)
@@ -92,8 +92,8 @@ func TestOrderReturn(t *testing.T) {
 	buyer, _ := newAccount(t)
 	l := activeListing(t, seller.AccessToken, nil)
 	d := shippedOrder(t, seller.AccessToken, buyer.AccessToken, l.ID)
-	if got := moved(t, seller.AccessToken, d.ID, "returned", nil); got.Status != "negotiating" || got.Order.Status != "returned" {
-		t.Fatalf("returned: %+v", got)
+	if got := moved(t, seller.AccessToken, d.ID, "return", nil); got.Status != "negotiating" || got.Order.Status != "returned" {
+		t.Fatalf("return: %+v", got)
 	}
 	if st := listingStatus(t, seller.AccessToken, l.ID); st != "active" {
 		t.Fatalf("listing %s", st)
@@ -137,7 +137,7 @@ func TestOrderRefusals(t *testing.T) {
 	check(t, "buyer ships", dealCall(t, buyer.AccessToken, d.ID, "ship", waybillBody), 409, "move_not_allowed")
 	check(t, "ship a bad fee", dealCall(t, seller.AccessToken, d.ID, "ship", map[string]any{"carrier": "spx", "tracking_code": "X", "fee": -1}), 422, "invalid_waybill")
 
-	for _, action := range []string{"delivered", "returned"} {
+	for _, action := range []string{"deliver", "return"} {
 		check(t, action+" signed out", dealCall(t, "", d.ID, action, nil), 401, "unauthenticated")
 		check(t, action+" a bad id", dealCall(t, seller.AccessToken, "not-a-uuid", action, nil), 400, "")
 		check(t, action+" as a stranger", dealCall(t, stranger.AccessToken, d.ID, action, nil), 404, "deal_not_found")

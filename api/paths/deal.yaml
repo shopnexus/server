@@ -444,7 +444,7 @@ dealShip:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-dealDelivered:
+dealDeliver:
   post:
     operationId: deliverOrder
     summary: Report a shipped order delivered.
@@ -484,7 +484,7 @@ dealDelivered:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-dealReturned:
+dealReturn:
   post:
     operationId: returnOrder
     summary: Report a shipped order returned.

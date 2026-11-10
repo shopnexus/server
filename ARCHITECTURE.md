@@ -838,10 +838,10 @@ Orders, cash on delivery, live in module `deal` (spec:
 - A buyer has at most 3 orders requested or shipped; `Save` counts them
   under `pg_advisory_xact_lock` on the buyer and refuses the fourth with
   `cod_limit_reached`.
-- A suspended account cannot ask for COD; ship, delivered, returned and
+- A suspended account cannot ask for COD; ship, deliver, return and
   cancel finish or take back an order already under way, and refuse no
   one for a suspension.
-- Ship, delivered and returned change the listing, so they run as Restate
+- Ship, deliver and return change the listing, so they run as Restate
   flows, `DealShip` and `DealFinish` (one service for both endings, with
   the outcome in its input), with the invocation key `<caller
   id>/<Idempotency-Key>`. `DealShip` reserves the listing first, so a
