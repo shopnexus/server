@@ -60,7 +60,7 @@ func TestNotifications(t *testing.T) {
 		t.Fatalf("the listing going live: %+v", live)
 	}
 	phones.wait(t, sellerPhone, 1)
-	expectStatus(t, call(t, "POST", "/v1/notifications/read-all", nil, bearer(seller.AccessToken)), http.StatusNoContent)
+	expect[readAllResult](t, call(t, "POST", "/v1/notifications/read-all", nil, bearer(seller.AccessToken)), http.StatusOK)
 	d := openDeal(t, buyer.AccessToken, l.ID, http.StatusCreated)
 
 	moved(t, buyer.AccessToken, d.ID, "offer", map[string]any{"amount": 1_000_000})
@@ -88,9 +88,22 @@ func TestNotifications(t *testing.T) {
 		t.Fatalf("a stranger reads it: %d %s", res.Status, res.Body)
 	}
 	expectStatus(t, call(t, "POST", path, nil, bearer(seller.AccessToken)), http.StatusNoContent)
-	expectStatus(t, call(t, "POST", "/v1/notifications/read-all", nil, bearer(seller.AccessToken)), http.StatusNoContent)
+	expect[readAllResult](t, call(t, "POST", "/v1/notifications/read-all", nil, bearer(seller.AccessToken)), http.StatusOK)
 	if got = notices(t, seller.AccessToken, 2); got.Unread != 0 || got.Items[0].Unread {
 		t.Fatalf("after reading: %+v", got)
+	}
+	marked := got.Items[0].ID
+	expectStatus(t, call(t, "POST", "/v1/notifications/unread", map[string]any{"ids": []string{marked}}, bearer(seller.AccessToken)), http.StatusNoContent)
+	if got = notices(t, seller.AccessToken, 2); got.Unread != 1 || !got.Items[0].Unread {
+		t.Fatalf("after marking one unread: %+v", got)
+	}
+	undo := expect[readAllResult](t, call(t, "POST", "/v1/notifications/read-all", nil, bearer(seller.AccessToken)), http.StatusOK)
+	if len(undo.IDs) != 1 || undo.IDs[0] != marked {
+		t.Fatalf("read-all's IDs: %+v", undo)
+	}
+	expectStatus(t, call(t, "POST", "/v1/notifications/unread", map[string]any{"ids": undo.IDs}, bearer(seller.AccessToken)), http.StatusNoContent)
+	if got = notices(t, seller.AccessToken, 2); got.Unread != 1 {
+		t.Fatalf("after the undo: %+v", got)
 	}
 
 	c := openChat(t, buyer.AccessToken, l.ID, "Còn không bạn?")
@@ -115,6 +128,19 @@ func TestNotifications(t *testing.T) {
 	}
 }
 
+type readAllResult struct {
+	IDs []string `json:"ids"`
+}
+
+// manyIDs is n new IDs.
+func manyIDs(n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = uuid.NewV7().String()
+	}
+	return out
+}
+
 func TestNotificationRefusals(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
@@ -129,6 +155,10 @@ func TestNotificationRefusals(t *testing.T) {
 		"read signed out":        {"POST", "/v1/notifications/" + uuid.NewV7().String() + "/read", nil, "", 401},
 		"read a bad id":          {"POST", "/v1/notifications/x/read", nil, me.AccessToken, 400},
 		"read all signed out":    {"POST", "/v1/notifications/read-all", nil, "", 401},
+		"unread signed out":      {"POST", "/v1/notifications/unread", map[string]any{"ids": []string{uuid.NewV7().String()}}, "", 401},
+		"unread no IDs":          {"POST", "/v1/notifications/unread", map[string]any{"ids": []string{}}, me.AccessToken, 400},
+		"unread 501 IDs":         {"POST", "/v1/notifications/unread", map[string]any{"ids": manyIDs(501)}, me.AccessToken, 400},
+		"unread a bad ID":        {"POST", "/v1/notifications/unread", map[string]any{"ids": []string{"x"}}, me.AccessToken, 400},
 		"put signed out":         {"PUT", "/v1/me/push-token", map[string]any{"token": "t"}, "", 401},
 		"put an empty token":     {"PUT", "/v1/me/push-token", map[string]any{"token": " "}, me.AccessToken, 422},
 		"put an unknown field":   {"PUT", "/v1/me/push-token", map[string]any{"token": "t", "x": 1}, me.AccessToken, 400},

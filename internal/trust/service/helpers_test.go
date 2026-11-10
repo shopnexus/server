@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 	"uuid"
@@ -12,6 +13,8 @@ import (
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
+	chatrepo "github.com/shopnexus/server2/internal/chat/repository"
+	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealrepo "github.com/shopnexus/server2/internal/deal/repository"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/media/mediatest"
@@ -26,6 +29,7 @@ type env struct {
 	db       *pgxpool.Pool
 	accounts accountsvc.Service
 	deals    *dealsvc.Deals
+	chats    *chatsvc.Chat
 	trust    *service.Trust
 }
 
@@ -36,13 +40,20 @@ func newEnv(t *testing.T) env {
 	db := pgtest.New(t)
 	in, p := restatetest.Ingress(t), restatetest.Prefix()
 	accounts := accounttest.Service(db)
-	c := catalogtest.Service(db, accounts, mediatest.Service(db, objectstoretest.New(t), in, p), in, p)
+	media := mediatest.Service(db, objectstoretest.New(t), in, p)
+	c := catalogtest.Service(db, accounts, media, in, p)
 	deals := dealsvc.New(dealsvc.Deps{
 		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Ingress: in, Prefix: p, Now: time.Now,
 	})
-	restatetest.Start(t, deals.Durable()...)
-	trust := service.New(service.Deps{Reviews: repository.NewReviews(db), Reports: repository.NewReports(db), Accounts: accounts, Catalog: c, Deals: deals, Now: time.Now})
-	return env{db: db, accounts: accounts, deals: deals, trust: trust}
+	chats := chatsvc.New(chatsvc.Deps{
+		Chats: chatrepo.NewChats(db), Accounts: accounts, Catalog: c, Media: media, Ingress: in, Prefix: p, Now: time.Now,
+	})
+	restatetest.Start(t, slices.Concat(deals.Durable(), media.Durable(), chats.Durable())...)
+	trust := service.New(service.Deps{
+		Reviews: repository.NewReviews(db), Reports: repository.NewReports(db), Accounts: accounts, Catalog: c, Deals: deals,
+		Chats: chats, Now: time.Now,
+	})
+	return env{db: db, accounts: accounts, deals: deals, chats: chats, trust: trust}
 }
 
 // person creates an account with a verified phone number.
@@ -86,4 +97,16 @@ func (e env) shipped(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UU
 		t.Fatal(err)
 	}
 	return deal, order
+}
+
+// conversation has buyer open a conversation on a listing of seller's.
+func (e env) conversation(t *testing.T, buyer, seller uuid.UUID) uuid.UUID {
+	t.Helper()
+	v, err := e.chats.Open(context.Background(), buyer, uuid.NewV7().String(), chatsvc.OpenInput{
+		ListingID: catalogtest.Listing(t, e.db, seller), Text: "Còn không bạn?",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v.ID
 }

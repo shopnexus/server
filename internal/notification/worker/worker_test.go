@@ -283,7 +283,7 @@ func TestTellFollowerTwiceWritesOneNotice(t *testing.T) {
 		}
 	}
 	tell()
-	if err := e.notices.ReadAll(ctx, followers[0]); err != nil {
+	if _, err := e.notices.ReadAll(ctx, followers[0]); err != nil {
 		t.Fatal(err)
 	}
 	tell()
@@ -398,7 +398,7 @@ func TestLateMoveTellsNothing(t *testing.T) {
 	if n := e.push.count("seller-phone"); n != 1 || e.push.body["seller-phone"] != "Đức Huy trả 1,3 tr cho Xe đạp Asama" {
 		t.Fatalf("the late move pushed: %d %q", n, e.push.body["seller-phone"])
 	}
-	if err := e.notices.ReadAll(ctx, f.SellerID); err != nil {
+	if _, err := e.notices.ReadAll(ctx, f.SellerID); err != nil {
 		t.Fatal(err)
 	}
 	move(oldest, at.Add(-2*time.Minute))

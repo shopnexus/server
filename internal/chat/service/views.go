@@ -4,7 +4,10 @@ import (
 	"time"
 	"uuid"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/chat/domain"
+	"github.com/shopnexus/server2/internal/platform/page"
 )
 
 // OpenInput is the first message of a conversation, about a listing.
@@ -64,6 +67,29 @@ type InboxItem struct {
 	LastMessage MessageView `json:"last_message"`
 	Unread      int         `json:"unread"`
 	Archived    bool        `json:"archived"`
+}
+
+// MessageHit is a message an inbox search found, with its conversation's
+// other member.
+type MessageHit struct {
+	ConversationID uuid.UUID   `json:"conversation_id"`
+	Other          PersonView  `json:"other"`
+	Message        MessageView `json:"message"`
+}
+
+// SearchResult is an inbox search: the matching conversations, on the first
+// page only, and a page of matching messages.
+type SearchResult struct {
+	Threads  []InboxItem
+	Messages page.Page[MessageHit]
+}
+
+// personView shows account a as the other member id.
+func personView(id uuid.UUID, a accountsvc.AccountView) PersonView {
+	return PersonView{
+		ID: id, DisplayName: a.DisplayName, AvatarURL: a.AvatarURL, LastActiveAt: a.LastActiveAt,
+		Deleted: a.Status == accountdomain.StatusDeleted,
+	}
 }
 
 // messageView shows m with its photos' URLs.

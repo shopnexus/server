@@ -39,8 +39,11 @@ type Chats interface {
 	// Member returns ErrNotFound for an account outside the conversation.
 	Member(ctx context.Context, conversation, account uuid.UUID) (domain.Member, error)
 	// MarkRead moves account's marker to message when message is newer than
-	// the marker, in one conditional update; a move notifies other.
+	// the marker and clears account's unread mark, in one update; a move
+	// notifies other, a cleared mark notifies account.
 	MarkRead(ctx context.Context, conversation, account, message, other uuid.UUID) error
+	// MarkUnread sets account's unread mark; setting it notifies account.
+	MarkUnread(ctx context.Context, conversation, account uuid.UUID) error
 	// SetArchived archives the conversation for account at at, or
 	// unarchives it for nil, touching nothing else.
 	SetArchived(ctx context.Context, conversation, account uuid.UUID, at *time.Time) error
@@ -52,8 +55,20 @@ type Chats interface {
 	// below p.Before(), newest first, at most p.Fetch().
 	Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p page.Request) ([]InboxRow, error)
 	// Unread counts viewer's unread messages over unarchived conversations
-	// the inbox lists.
+	// the inbox lists, a conversation marked unread counting at least 1.
 	Unread(ctx context.Context, viewer uuid.UUID) (int, error)
+	// Tokens splits q with the search index's tokenizer: lowercase, accents
+	// folded, split on anything but letters and digits.
+	Tokens(ctx context.Context, q string) ([]string, error)
+	// SearchThreads lists viewer's conversations with a sent message,
+	// archived or not, without those whose other member viewer blocks,
+	// where t matches the other member's name or the title of a listing a
+	// message names; newest last message first, at most limit.
+	SearchThreads(ctx context.Context, viewer uuid.UUID, t Terms, limit int) ([]InboxRow, error)
+	// SearchMessages lists the sent messages matching t in the
+	// conversations SearchThreads would consider, IDs below p.Before(),
+	// newest first, at most p.Fetch().
+	SearchMessages(ctx context.Context, viewer uuid.UUID, t Terms, p page.Request) ([]MessageHitRow, error)
 }
 
 // InboxRow is a conversation in viewer's inbox.
@@ -62,4 +77,20 @@ type InboxRow struct {
 	Other        uuid.UUID
 	Last         domain.Message
 	Unread       int
+	// Archived is whether viewer archived it.
+	Archived bool
+}
+
+// Terms is a search's tokens: each of Whole matches a whole word, Prefix
+// the start of one.
+type Terms struct {
+	Whole  []string
+	Prefix string
+}
+
+// MessageHitRow is a message a search found and the other member of its
+// conversation.
+type MessageHitRow struct {
+	Message domain.Message
+	Other   uuid.UUID
 }

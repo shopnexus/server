@@ -6,6 +6,7 @@ package trust
 import (
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/platform/module"
 	"github.com/shopnexus/server2/internal/trust/handler"
@@ -15,9 +16,10 @@ import (
 
 // Mount registers the trust endpoints and returns the Service screen reads
 // ratings and reviews through.
-func Mount(d module.Deps, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service) service.Service {
+func Mount(d module.Deps, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service, chats chatsvc.Service) service.Service {
 	svc := service.New(service.Deps{
-		Reviews: repository.NewReviews(d.Pool), Reports: repository.NewReports(d.Pool), Accounts: accounts, Catalog: catalog, Deals: deals, Now: d.Now,
+		Reviews: repository.NewReviews(d.Pool), Reports: repository.NewReports(d.Pool), Accounts: accounts, Catalog: catalog,
+		Deals: deals, Chats: chats, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	return svc

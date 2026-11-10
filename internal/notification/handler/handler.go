@@ -22,6 +22,7 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
 	r.Handle("GET /v1/notifications", protect(http.HandlerFunc(h.List)))
 	r.Handle("POST /v1/notifications/read-all", protect(http.HandlerFunc(h.ReadAll)))
+	r.Handle("POST /v1/notifications/unread", protect(http.HandlerFunc(h.MarkUnread)))
 	r.Handle("POST /v1/notifications/{id}/read", protect(http.HandlerFunc(h.Read)))
 	r.Handle("PUT /v1/me/push-token", protect(http.HandlerFunc(h.PutToken)))
 	r.Handle("DELETE /v1/me/push-token", protect(http.HandlerFunc(h.DeleteToken)))
@@ -68,13 +69,40 @@ func (h *Handler) Read(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type readAllResponse struct {
+	IDs []uuid.UUID `json:"ids"`
+}
+
 // ReadAll serves POST /v1/notifications/read-all.
 func (h *Handler) ReadAll(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
 		return
 	}
-	if err := h.svc.ReadAll(r.Context(), p.AccountID); err != nil {
+	ids, err := h.svc.ReadAll(r.Context(), p.AccountID)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, readAllResponse{IDs: ids})
+}
+
+type unreadRequest struct {
+	IDs []uuid.UUID `json:"ids"`
+}
+
+// MarkUnread serves POST /v1/notifications/unread.
+func (h *Handler) MarkUnread(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in unreadRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	if err := h.svc.MarkUnread(r.Context(), p.AccountID, in.IDs); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}

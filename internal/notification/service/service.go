@@ -21,7 +21,12 @@ type Service interface {
 	// Read marks one of the account's notices read; domain.ErrNotFound
 	// otherwise.
 	Read(ctx context.Context, account, id uuid.UUID) error
-	ReadAll(ctx context.Context, account uuid.UUID) error
+	// ReadAll marks every unread notice of the account's read and returns
+	// their IDs, for an undo through MarkUnread.
+	ReadAll(ctx context.Context, account uuid.UUID) ([]uuid.UUID, error)
+	// MarkUnread makes the account's notices among ids unread; see
+	// repository.Notices.MarkUnread.
+	MarkUnread(ctx context.Context, account uuid.UUID, ids []uuid.UUID) error
 	// PutToken stores the push token of the account's session.
 	PutToken(ctx context.Context, session, account uuid.UUID, token string) error
 	// DeleteToken deletes a session's token; the handler calls it for the

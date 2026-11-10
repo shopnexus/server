@@ -232,3 +232,83 @@ func TestFindPair(t *testing.T) {
 		t.Fatalf("no conversation: %v", err)
 	}
 }
+
+// updates lists the kinds of account's stream updates about conversation c.
+func updates(t *testing.T, db *pgxpool.Pool, account, c uuid.UUID) []string {
+	t.Helper()
+	rows, err := db.Query(context.Background(), `SELECT kind FROM account_updates
+WHERE account_id = @account AND conversation_id = @c ORDER BY seq`, pgx.StrictNamedArgs{"account": account, "c": c})
+	if err != nil {
+		t.Fatal(err)
+	}
+	kinds, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		t.Fatal(err)
+	}
+	return kinds
+}
+
+// A conversation marked unread counts 1 with nothing new and n with n new;
+// a read clears the flag without moving the marker, and each change tells
+// the member's own stream.
+func TestMarkUnread(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewChats(db)
+	ctx := context.Background()
+	c, a, b := pair(t, db, s)
+	last := send(t, s, c, b, "Còn không?")
+	if err := s.MarkRead(ctx, c.ID, a, last.ID(), b); err != nil {
+		t.Fatal(err)
+	}
+	before := len(updates(t, db, a, c.ID))
+	for range 2 {
+		if err := s.MarkUnread(ctx, c.ID, a); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := updates(t, db, a, c.ID); len(got) != before+1 || got[len(got)-1] != "read" {
+		t.Fatalf("one update for the mark: %v", got)
+	}
+	if n, _ := s.Unread(ctx, a); n != 1 || inbox(t, s, a, false)[0].Unread != 1 {
+		t.Fatalf("marked, nothing new: %d", n)
+	}
+	send(t, s, c, b, "Alo?")
+	send(t, s, c, b, "Bạn ơi?")
+	if n, _ := s.Unread(ctx, a); n != 2 || inbox(t, s, a, false)[0].Unread != 2 {
+		t.Fatalf("marked, two new: %d", n)
+	}
+	toA, toB := len(updates(t, db, a, c.ID)), len(updates(t, db, b, c.ID))
+	if err := s.MarkRead(ctx, c.ID, a, last.ID(), b); err != nil {
+		t.Fatal(err)
+	}
+	if marker(t, db, c.ID, a) != last.ID() {
+		t.Fatal("the marker moved")
+	}
+	if n, _ := s.Unread(ctx, a); n != 2 {
+		t.Fatalf("the flag is cleared, two remain: %d", n)
+	}
+	if got := updates(t, db, b, c.ID); len(got) != toB {
+		t.Fatalf("a read that moves no marker tells the other nothing: %v", got)
+	}
+	if got := updates(t, db, a, c.ID); len(got) != toA+1 || got[len(got)-1] != "read" {
+		t.Fatalf("clearing the flag tells the member: %v", got)
+	}
+	if err := s.MarkRead(ctx, c.ID, a, last.ID(), b); err != nil {
+		t.Fatal(err)
+	}
+	if got := updates(t, db, a, c.ID); len(got) != toA+1 {
+		t.Fatalf("a read that changes nothing tells nobody: %v", got)
+	}
+}
+
+// pairWith opens the conversation of viewer and a new account.
+func pairWith(t *testing.T, db *pgxpool.Pool, s repository.Chats, viewer uuid.UUID) (domain.Conversation, uuid.UUID) {
+	t.Helper()
+	other := accounttest.New(t, db)
+	c, err := s.OpenPair(context.Background(), domain.NewConversation(uuid.NewV7(), viewer, other, time.Now()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c, other
+}

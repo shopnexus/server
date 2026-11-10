@@ -53,7 +53,7 @@ func TestCollapse(t *testing.T) {
 	if n, _ := s.Unread(ctx, me); n != 1 {
 		t.Fatalf("unread %d", n)
 	}
-	if err = s.ReadAll(ctx, me, now); err != nil {
+	if _, err = s.ReadAll(ctx, me, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, late, err = s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 250, now.Add(time.Minute)), expired); err != nil || !late {
@@ -121,7 +121,7 @@ func TestReadAndList(t *testing.T) {
 	if err = s.Read(ctx, stranger, ids[0], now); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("someone else's: %v", err)
 	}
-	if err = s.ReadAll(ctx, me, now); err != nil {
+	if _, err = s.ReadAll(ctx, me, now); err != nil {
 		t.Fatal(err)
 	}
 	if n, _ := s.Unread(ctx, me); n != 0 {
@@ -205,5 +205,87 @@ func TestForget(t *testing.T) {
 	}
 	if rows, _ := s.List(ctx, other, page.Request{}); len(rows) != 1 {
 		t.Fatalf("the other account's notices: %d", len(rows))
+	}
+}
+
+// ReadAll returns exactly the notices it marked read.
+func TestReadAllReturnsItsIDs(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewNotices(db)
+	me := accounttest.New(t, db)
+	expired := now.Add(-domain.Retention)
+	read, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 100, now), expired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Read(ctx, me, read, now); err != nil {
+		t.Fatal(err)
+	}
+	unread, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "deal:2", 100, now), expired)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, err := s.ReadAll(ctx, me, now)
+	if err != nil || len(ids) != 1 || ids[0] != unread {
+		t.Fatalf("read all: %v %v", ids, err)
+	}
+	if ids, err = s.ReadAll(ctx, me, now); err != nil || len(ids) != 0 || ids == nil {
+		t.Fatalf("again: %#v %v", ids, err)
+	}
+}
+
+// MarkUnread makes the caller's read notices unread, one per collapse key:
+// the newest, and none for a key that has an unread notice.
+func TestMarkUnreadCollapse(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewNotices(db)
+	me, other := accounttest.New(t, db), accounttest.New(t, db)
+	expired := now.Add(-domain.Retention)
+	add := func(to uuid.UUID, key string, at time.Time) uuid.UUID {
+		t.Helper()
+		id, _, err := s.Add(ctx, uuid.NewV7(), notice(to, key, 100, at), expired)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = s.Read(ctx, to, id, at); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	older, newer := add(me, "deal:1", now), add(me, "deal:1", now.Add(time.Minute))
+	keyless := add(me, "", now)
+	covered := add(me, "deal:2", now)
+	if _, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "deal:2", 200, now.Add(time.Minute)), expired); err != nil {
+		t.Fatal(err)
+	}
+	theirs := add(other, "", now)
+	if err := s.MarkUnread(ctx, me, []uuid.UUID{older, newer, keyless, covered, theirs, uuid.NewV7()}); err != nil {
+		t.Fatal(err)
+	}
+	unread := func(account uuid.UUID) map[uuid.UUID]bool {
+		t.Helper()
+		rows, err := s.List(ctx, account, page.Request{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := map[uuid.UUID]bool{}
+		for _, r := range rows {
+			out[r.ID] = !r.Read
+		}
+		return out
+	}
+	got := unread(me)
+	if got[older] || !got[newer] || !got[keyless] || got[covered] {
+		t.Fatalf("me: %v", got)
+	}
+	if unread(other)[theirs] {
+		t.Fatal("someone else's notice changed")
+	}
+	if err := s.MarkUnread(ctx, me, []uuid.UUID{newer}); err != nil {
+		t.Fatalf("an unread notice again: %v", err)
 	}
 }

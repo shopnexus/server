@@ -238,20 +238,54 @@ WHERE conversation_id = @conversation AND account_id = @account`,
 
 func (s pgChats) MarkRead(ctx context.Context, conversation, account, message, other uuid.UUID) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `UPDATE conversation_members SET last_read_message_id = @message
+		var moved, cleared bool
+		err := tx.QueryRow(ctx, `UPDATE conversation_members
+SET last_read_message_id = CASE
+        WHEN last_read_message_id IS NULL OR last_read_message_id < @message THEN @message
+        ELSE last_read_message_id END,
+    marked_unread = false
 WHERE conversation_id = @conversation AND account_id = @account
-  AND (last_read_message_id IS NULL OR last_read_message_id < @message)`,
-			pgx.StrictNamedArgs{"message": message, "conversation": conversation, "account": account})
+RETURNING old.last_read_message_id IS DISTINCT FROM new.last_read_message_id, old.marked_unread`,
+			pgx.StrictNamedArgs{"message": message, "conversation": conversation, "account": account}).Scan(&moved, &cleared)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("update marker: %w", err)
+		}
+		var to []uuid.UUID
+		if moved {
+			to = append(to, other)
+		}
+		if cleared {
+			to = append(to, account)
+		}
+		if len(to) == 0 {
+			return nil
+		}
+		return stream.Notify(ctx, tx, to, stream.Hint{Kind: stream.KindRead, ConversationID: &conversation})
+	})
+	if err != nil {
+		return fmt.Errorf("mark read: %w", err)
+	}
+	return nil
+}
+
+func (s pgChats) MarkUnread(ctx context.Context, conversation, account uuid.UUID) error {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		tag, err := tx.Exec(ctx, `UPDATE conversation_members SET marked_unread = true
+WHERE conversation_id = @conversation AND account_id = @account AND NOT marked_unread`,
+			pgx.StrictNamedArgs{"conversation": conversation, "account": account})
+		if err != nil {
+			return fmt.Errorf("set the mark: %w", err)
 		}
 		if tag.RowsAffected() == 0 {
 			return nil
 		}
-		return stream.Notify(ctx, tx, []uuid.UUID{other}, stream.Hint{Kind: stream.KindRead, ConversationID: &conversation})
+		return stream.Notify(ctx, tx, []uuid.UUID{account}, stream.Hint{Kind: stream.KindRead, ConversationID: &conversation})
 	})
 	if err != nil {
-		return fmt.Errorf("mark read: %w", err)
+		return fmt.Errorf("mark unread: %w", err)
 	}
 	return nil
 }
@@ -287,7 +321,11 @@ ORDER BY m.id DESC LIMIT @limit`, pgx.StrictNamedArgs{
 const listed = `
 cm.account_id = @viewer AND c.last_message_id IS NOT NULL
   AND @archived = (cm.archived_at IS NOT NULL)
-  AND NOT EXISTS (
+  AND ` + notBlocked
+
+// notBlocked holds for a conversation c of the viewer's when the viewer
+// does not block its other member.
+const notBlocked = `NOT EXISTS (
       SELECT 1 FROM account_blocks b
       WHERE b.blocker_id = @viewer
         AND b.blocked_id = CASE WHEN c.account_a = @viewer THEN c.account_b ELSE c.account_a END
@@ -303,12 +341,17 @@ CROSS JOIN LATERAL (
       AND u.status = 'sent' AND u.sender_id <> @viewer
 ) unread`
 
+// rowUnread is a row's unread count: the messages after the marker, and at
+// least 1 while the member's unread mark is set. It reads marked from the
+// query's member row.
+const rowUnread = `greatest(unread.n, marked::int)`
+
 // selectInbox picks the page first, then reads each row's last message and
 // unread count.
 const selectInbox = `
-SELECT ` + messageColumns + `, c.id, c.account_a, c.account_b, c.created_at, unread.n
+SELECT ` + messageColumns + `, c.id, c.account_a, c.account_b, c.created_at, ` + rowUnread + `
 FROM (
-    SELECT c.id, cm.last_read_message_id AS last_read
+    SELECT c.id, cm.last_read_message_id AS last_read, cm.marked_unread AS marked
     FROM conversation_members cm JOIN conversations c ON c.id = cm.conversation_id
     WHERE ` + listed + ` AND c.last_message_id < @before
     ORDER BY c.last_message_id DESC LIMIT @limit
@@ -318,9 +361,9 @@ JOIN messages m ON m.id = c.last_message_id` + unreadAfter + `
 ORDER BY c.last_message_id DESC`
 
 const countUnread = `
-SELECT coalesce(sum(unread.n), 0)
+SELECT coalesce(sum(` + rowUnread + `), 0)
 FROM conversation_members cm JOIN conversations c ON c.id = cm.conversation_id
-CROSS JOIN LATERAL (SELECT cm.last_read_message_id) marker (last_read)` + unreadAfter + `
+CROSS JOIN LATERAL (SELECT cm.last_read_message_id, cm.marked_unread) marker (last_read, marked)` + unreadAfter + `
 WHERE ` + listed
 
 func (s pgChats) Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p page.Request) ([]InboxRow, error) {
@@ -339,7 +382,7 @@ func (s pgChats) Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p p
 			&r.Conversation.CreatedAt, &r.Unread)...); scanErr != nil {
 			return InboxRow{}, fmt.Errorf("scan inbox row: %w", scanErr)
 		}
-		r.Other = r.Conversation.Other(viewer)
+		r.Other, r.Archived = r.Conversation.Other(viewer), archived
 		last, msgErr := m.message()
 		r.Last = last
 		return r, msgErr

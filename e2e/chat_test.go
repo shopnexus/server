@@ -150,3 +150,24 @@ func TestChatRefusals(t *testing.T) {
 	hidden := activeHidden(t, seller.AccessToken)
 	check(t, "open a hidden listing", open(stranger.AccessToken, map[string]any{"listing_id": hidden, "text": "Hi"}), 409, "listing_unavailable")
 }
+
+func TestMarkConversationUnread(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	buyer, _ := newAccount(t)
+	c := openChat(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID, "Còn không bạn?")
+	path := "/v1/conversations/" + c.ID + "/unread"
+	check(t, "mark", call(t, "POST", path, nil, bearer(buyer.AccessToken)), 204, "")
+	if got := expect[map[string]int](t, call(t, "GET", "/v1/me/unread", nil, bearer(buyer.AccessToken)), http.StatusOK); got["unread"] != 1 {
+		t.Fatalf("unread after the mark: %v", got)
+	}
+	last := chatMessages(t, buyer.AccessToken, c.ID)[0]
+	expectStatus(t, call(t, "POST", "/v1/conversations/"+c.ID+"/read", map[string]any{"message_id": last.ID}, bearer(buyer.AccessToken)), http.StatusNoContent)
+	if got := expect[map[string]int](t, call(t, "GET", "/v1/me/unread", nil, bearer(buyer.AccessToken)), http.StatusOK); got["unread"] != 0 {
+		t.Fatalf("unread after reading: %v", got)
+	}
+	check(t, "mark signed out", call(t, "POST", path, nil), 401, "unauthenticated")
+	check(t, "mark a bad id", call(t, "POST", "/v1/conversations/x/unread", nil, bearer(buyer.AccessToken)), 400, "")
+	stranger, _ := newAccount(t)
+	check(t, "mark someone else's", call(t, "POST", path, nil, bearer(stranger.AccessToken)), 404, "conversation_not_found")
+}

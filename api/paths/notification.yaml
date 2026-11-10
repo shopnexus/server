@@ -27,8 +27,37 @@ readAll:
     security:
       - bearerAuth: []
     responses:
+      "200":
+        description: Read; the IDs it changed.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/notification.yaml#/ReadAllResult"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+unread:
+  post:
+    operationId: markNotificationsUnread
+    summary: Mark some of the caller's notices unread.
+    description: |
+      Serves one notice and the undo of read-all. IDs that are unknown or
+      someone else's are skipped. Of the read notices that share a collapse
+      key only the newest becomes unread, and none when the key already has
+      an unread notice: that notice stands for the key.
+    tags: [notification]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/notification.yaml#/NotificationIDs"
+    responses:
       "204":
-        description: Read.
+        description: Done.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
 read:

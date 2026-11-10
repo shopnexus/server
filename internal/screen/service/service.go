@@ -27,6 +27,10 @@ type Service interface {
 	Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (SellerScreen, error)
 	// Inbox reads a page of account's inbox view, archived or not.
 	Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request) (InboxScreen, error)
+	// InboxSearch reads the inbox search view: the conversations matching q
+	// with their pairs' deals, on the first page only, and a page of
+	// matching messages.
+	InboxSearch(ctx context.Context, account uuid.UUID, q string, p page.Request) (InboxSearchScreen, error)
 	// Chat reads the chat view of a conversation of account's.
 	Chat(ctx context.Context, account, conversation uuid.UUID) (ChatScreen, error)
 }

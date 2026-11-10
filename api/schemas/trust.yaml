@@ -89,6 +89,10 @@ ReportCreate:
     account_id:
       type: string
       format: uuid
+    conversation_id:
+      type: string
+      format: uuid
+      description: With account_id only, the caller's conversation with that account; another one is 422 invalid_report.
     reason:
       type: string
       description: banned, fake, scam or other; a business rule, so another value is 422.
@@ -111,6 +115,10 @@ Report:
       type: string
       format: uuid
       description: The account reported, the seller for a listing.
+    conversation_id:
+      type: string
+      format: uuid
+      description: The caller's conversation with the account the report came from; absent when none was named.
     reason:
       type: string
       enum: [banned, fake, scam, other]

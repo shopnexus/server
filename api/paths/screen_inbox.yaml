@@ -27,6 +27,48 @@ screenInbox:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+screenInboxSearch:
+  get:
+    operationId: searchInbox
+    summary: Search the caller's conversations and messages.
+    description: |
+      q is split into words, lowercase with accents folded (đ as d); every
+      word but the last matches a whole word, the last the start of one.
+      threads are the conversations whose other member's name, or the title
+      of a listing a message names, holds every word: up to 20, newest
+      message first, on the first page only (an empty array on later
+      pages). messages are the sent messages whose text holds every word,
+      newest first; cursor and next_cursor page them. Archived
+      conversations are searched; conversations with someone the caller
+      blocks are not.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: The matches.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_inbox.yaml#/InboxSearch"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "422":
+        description: "q holds no letter or digit, or more than 100 characters after trimming (invalid_query)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 screenChat:
   get:
     operationId: getChatScreen

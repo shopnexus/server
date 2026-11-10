@@ -33,6 +33,7 @@ InboxItem:
       $ref: "chat.yaml#/Message"
     unread:
       type: integer
+      description: The other member's sent messages after the caller's read marker; at least 1 while the caller's unread mark is set.
     archived:
       type: boolean
     deal:
@@ -40,6 +41,35 @@ InboxItem:
     other_active_deals:
       type: integer
       description: The pair's negotiating or agreed deals besides deal.
+InboxSearch:
+  type: object
+  additionalProperties: false
+  required: [threads, messages]
+  properties:
+    threads:
+      type: array
+      items:
+        $ref: "#/InboxItem"
+    messages:
+      type: array
+      items:
+        $ref: "#/MessageHit"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more messages follow; pass it as cursor.
+MessageHit:
+  type: object
+  additionalProperties: false
+  required: [conversation_id, other, message]
+  properties:
+    conversation_id:
+      type: string
+      format: uuid
+    other:
+      $ref: "chat.yaml#/Person"
+    message:
+      $ref: "chat.yaml#/Message"
 ChatScreen:
   type: object
   additionalProperties: false

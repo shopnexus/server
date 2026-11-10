@@ -1061,11 +1061,34 @@ Module `chat` holds conversations (spec:
   through `MediaProcess`, then `sent` or `failed`. Only its sender sees it
   until it is sent.
 - Each member has a read marker, which only a newer message moves, and an
-  archive, each written by a statement of its own (`MarkRead` updates only
-  when the message is newer), so two devices never undo each other. The next sent message clears both members' archives, so
+  archive, each written by a statement of its own (`MarkRead` moves the
+  marker only when the message is newer), so two devices never undo each other. The next sent message clears both members' archives, so
   archived means `archived_at` is set. Unread counts the other member's
   sent messages after the marker. The inbox pages by the conversation's
   last sent message ID.
+- A member can mark a conversation unread (decided 2026-11-10, spec:
+  `~/shopnexus/docs/superpowers/specs/2026-11-10-server2-inbox-search-unread-design.md`).
+  `POST /v1/conversations/{id}/unread` sets `conversation_members.marked_unread`,
+  and the conversation then counts at least 1 in the inbox row's `unread`
+  and in `/v1/me/unread`. Every read clears the flag in the same `UPDATE`
+  that moves the marker (`RETURNING old.…, new.…`, Postgres 18), so the
+  marker and the other member's "Đã xem" never move back. Setting or
+  clearing the flag notifies the member's own stream with kind `read`, for
+  their other devices; a marker move notifies the other member as before.
+- Inbox search (same spec) is chat's `Search`, served by screen at
+  `GET /v1/screens/inbox/search`. `q` is split by
+  `pdb.simple('ascii_folding=true')`, so case and accents fold, đ to d.
+  Every word but the last matches a whole word and the last matches the
+  start of one. Threads match when the other member's name, or the title
+  of a listing a message names, holds every word. That runs in SQL over
+  the viewer's conversations without an index, at most 20, on the first
+  page only. Messages use the ParadeDB index `messages_search` (migration
+  0031) with one `pdb.regex` clause per word: `&&&` with an empty string
+  matches nothing, and `pdb.phrase_prefix` stops at 50 expanded terms.
+  The status filter, the viewer's conversations, the cursor and
+  `ORDER BY id DESC` all run inside the index as a top-K scan. Archived
+  conversations are searched; a conversation with someone the viewer
+  blocks is not.
 
 ### Screen
 
@@ -1161,6 +1184,14 @@ Reports are trust's too (decided 2026-11-10, spec:
 - A suspended account cannot report. A deleted listing is
   `listing_not_found`; a hidden, reserved, sold or rejected one can be
   reported.
+- An account report may carry `conversation_id` (decided 2026-11-10, spec:
+  `~/shopnexus/docs/superpowers/specs/2026-11-10-server2-inbox-search-unread-design.md`),
+  the reporter's conversation with that account, which trust checks through
+  `chatsvc.ConversationWith`; another one, or one beside `listing_id`, is
+  `invalid_report`. A block keeps the conversation, so the app blocks
+  first and reports second. Reporting the account again replaces the
+  conversation or clears it. Trust takes chat's service, so `app.go`
+  mounts chat before trust.
 - Nobody reads reports yet: the console queue is a later item.
 
 ### Search
@@ -1168,13 +1199,15 @@ Reports are trust's too (decided 2026-11-10, spec:
 Search and the nearby feed (decided 2026-10-27, spec:
 `~/shopnexus/docs/superpowers/specs/2026-10-27-server2-search-design.md`).
 
-- Catalog owns `listings` and its one ParadeDB index (`listings_search`,
+- Catalog owns `listings` and its ParadeDB index (`listings_search`,
   migration 0019: title, description, `specs_text`, and the fields
   category code and root, price, condition, offers, status, `published_at`,
   `lat`, `lng`). It serves a structured `domain.Search`: the person's
   filters as `must`, phrases of which one must match, constant-score
   boosts, and a sort. The index is transactional, so a listing is
   searchable once its write commits. Only `active` listings show.
+- Chat owns the second ParadeDB index, `messages_search`, for inbox search
+  (see Chat).
 - Discovery owns the understanding. With `q` it asks the model, through
   `internal/provider/llm` (an OpenAI-compatible chat completions call with
   a strict JSON schema, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`), for
@@ -1451,6 +1484,16 @@ calls it except screen, for Home's unread count; depguard holds that.
   empty. With `APP_ENV=prod` the server refuses to start on the log
   sender.
 - A suspended account still gets notices, so it learns of the suspension.
+- `POST /v1/notifications/read-all` returns the IDs it marked read, and
+  `POST /v1/notifications/unread {ids}` (1 to 500) makes read notices unread
+  again, for one notice and for the undo of read-all (decided 2026-11-10).
+  Read-all returns every ID it changed, so an undo of more than 500 is
+  sent in chunks.
+  Of the read notices that share a collapse key only the newest becomes
+  unread, and none when the key has an unread notice, since the unique
+  index allows one. A notice of the key that turns unread between the
+  check and the write raises a unique violation, and the statement runs
+  once more.
 
 ### Testing
 

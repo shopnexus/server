@@ -8,11 +8,12 @@ import (
 )
 
 type report struct {
-	ID        string `json:"id"`
-	ListingID string `json:"listing_id"`
-	AccountID string `json:"account_id"`
-	Reason    string `json:"reason"`
-	Note      string `json:"note"`
+	ID             string `json:"id"`
+	ListingID      string `json:"listing_id"`
+	AccountID      string `json:"account_id"`
+	ConversationID string `json:"conversation_id"`
+	Reason         string `json:"reason"`
+	Note           string `json:"note"`
 }
 
 func TestReports(t *testing.T) {
@@ -66,4 +67,29 @@ func TestReports(t *testing.T) {
 	suspended, _ := newAccount(t)
 	suspend(t, suspended.Account.ID)
 	check(t, "a suspended reporter", send(suspended.AccessToken, map[string]any{"account_id": seller.Account.ID, "reason": "scam"}), 403, "account_suspended")
+}
+
+// The app blocks, then reports with the conversation; another pair's
+// conversation is refused.
+func TestReportFromAConversation(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	reporter, _ := newAccount(t)
+	other, _ := newAccount(t)
+	l := activeListing(t, seller.AccessToken, nil)
+	c := openChat(t, reporter.AccessToken, l.ID, "Chuyển khoản trước nhé?")
+	theirs := openChat(t, other.AccessToken, l.ID, "Còn không bạn?")
+	expectStatus(t, call(t, "POST", "/v1/blocks", map[string]any{"account_id": seller.Account.ID}, bearer(reporter.AccessToken)), http.StatusNoContent)
+	got := expect[report](t, call(t, "POST", "/v1/reports", map[string]any{
+		"account_id": seller.Account.ID, "reason": "scam", "conversation_id": c.ID,
+	}, bearer(reporter.AccessToken)), http.StatusCreated)
+	if got.ConversationID != c.ID {
+		t.Fatalf("report: %+v", got)
+	}
+	check(t, "another pair's conversation", call(t, "POST", "/v1/reports", map[string]any{
+		"account_id": seller.Account.ID, "reason": "scam", "conversation_id": theirs.ID,
+	}, bearer(reporter.AccessToken)), 422, "invalid_report")
+	check(t, "a conversation beside a listing", call(t, "POST", "/v1/reports", map[string]any{
+		"listing_id": l.ID, "reason": "scam", "conversation_id": c.ID,
+	}, bearer(reporter.AccessToken)), 422, "invalid_report")
 }

@@ -52,9 +52,17 @@ func (s *Notification) Read(ctx context.Context, account, id uuid.UUID) error {
 	return nil
 }
 
-func (s *Notification) ReadAll(ctx context.Context, account uuid.UUID) error {
-	if err := s.notices.ReadAll(ctx, account, s.now()); err != nil {
-		return fmt.Errorf("read all: %w", err)
+func (s *Notification) ReadAll(ctx context.Context, account uuid.UUID) ([]uuid.UUID, error) {
+	ids, err := s.notices.ReadAll(ctx, account, s.now())
+	if err != nil {
+		return nil, fmt.Errorf("read all: %w", err)
+	}
+	return ids, nil
+}
+
+func (s *Notification) MarkUnread(ctx context.Context, account uuid.UUID, ids []uuid.UUID) error {
+	if err := s.notices.MarkUnread(ctx, account, ids); err != nil {
+		return fmt.Errorf("mark unread: %w", err)
 	}
 	return nil
 }

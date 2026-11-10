@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"net/http"
+	"net/url"
 	"testing"
 	"uuid"
 )
@@ -160,4 +161,51 @@ func TestChatScreen(t *testing.T) {
 	check(t, "a bad id", call(t, "GET", "/v1/screens/chat/x", nil, bearer(buyer.AccessToken)), 400, "")
 	check(t, "a stranger", call(t, "GET", path, nil, bearer(stranger.AccessToken)), 404, "conversation_not_found")
 	check(t, "an unknown conversation", call(t, "GET", "/v1/screens/chat/"+uuid.NewV7().String(), nil, bearer(buyer.AccessToken)), 404, "conversation_not_found")
+}
+
+type inboxSearch struct {
+	Threads  []inboxRow `json:"threads"`
+	Messages []struct {
+		ConversationID string `json:"conversation_id"`
+		Other          struct {
+			ID string `json:"id"`
+		} `json:"other"`
+		Message messageBody `json:"message"`
+	} `json:"messages"`
+	NextCursor string `json:"next_cursor"`
+}
+
+func TestInboxSearch(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	buyer, _ := newAccount(t)
+	l := activeListing(t, seller.AccessToken, map[string]any{"title": "Giày Nike Air cũ"})
+	c := openChat(t, buyer.AccessToken, l.ID, "Giày còn SHIP nhanh không bạn?")
+	openDeal(t, buyer.AccessToken, l.ID, http.StatusCreated)
+	sendChat(t, seller.AccessToken, c.ID, map[string]any{"text": "Ship được nhé"})
+	search := func(token, query string) Response {
+		t.Helper()
+		return call(t, "GET", "/v1/screens/inbox/search?"+query, nil, bearer(token))
+	}
+
+	first := expect[inboxSearch](t, search(seller.AccessToken, "q=ship&limit=1"), http.StatusOK)
+	if len(first.Messages) != 1 || first.Messages[0].Message.Text != "Ship được nhé" || first.Messages[0].ConversationID != c.ID ||
+		first.Messages[0].Other.ID != buyer.Account.ID || first.NextCursor == "" {
+		t.Fatalf("first page: %+v", first)
+	}
+	rest := expect[inboxSearch](t, search(seller.AccessToken, "q=ship&limit=1&cursor="+first.NextCursor), http.StatusOK)
+	if len(rest.Messages) != 1 || rest.Messages[0].Message.Text != "Giày còn SHIP nhanh không bạn?" || rest.NextCursor != "" ||
+		rest.Threads == nil || len(rest.Threads) != 0 {
+		t.Fatalf("second page: %+v", rest)
+	}
+	// The listing's title names the thread; it comes with the pair's deal.
+	byTitle := expect[inboxSearch](t, search(buyer.AccessToken, "q="+url.QueryEscape("NIKE ai")), http.StatusOK)
+	if len(byTitle.Threads) != 1 || byTitle.Threads[0].ID != c.ID || byTitle.Threads[0].Deal == nil {
+		t.Fatalf("by title: %+v", byTitle)
+	}
+
+	check(t, "signed out", call(t, "GET", "/v1/screens/inbox/search?q=ship", nil), 401, "unauthenticated")
+	check(t, "no query", search(seller.AccessToken, ""), 400, "")
+	check(t, "a bad cursor", search(seller.AccessToken, "q=ship&cursor=x"), 400, "")
+	check(t, "only punctuation", search(seller.AccessToken, "q="+url.QueryEscape("!!!")), 422, "invalid_query")
 }

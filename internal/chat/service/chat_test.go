@@ -231,3 +231,23 @@ func TestPeer(t *testing.T) {
 		t.Fatalf("blocked: %v %v", ok, err)
 	}
 }
+
+func TestMarkUnread(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t)
+	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không bạn?")
+	if err := e.chat.MarkUnread(ctx, buyer, c.ID); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := e.chat.Unread(ctx, buyer); n != 1 {
+		t.Fatalf("buyer's unread: %d", n)
+	}
+	if err := e.chat.MarkUnread(ctx, stranger, c.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("a stranger: %v", err)
+	}
+	if err := e.chat.MarkUnread(ctx, buyer, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unknown: %v", err)
+	}
+}
