@@ -51,6 +51,9 @@ func (d *Discovery) ClearHistory(ctx context.Context, account uuid.UUID) error {
 	if err := d.history.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear history: %w", err)
 	}
+	if err := d.hidden.Clear(ctx, account); err != nil {
+		return fmt.Errorf("clear hides: %w", err)
+	}
 	return nil
 }
 

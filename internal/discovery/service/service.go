@@ -8,6 +8,7 @@ import (
 	"time"
 	"uuid"
 
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/discovery/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
@@ -37,8 +38,14 @@ type Service interface {
 	ForgetSearch(ctx context.Context, account, id uuid.UUID) error
 	// ClearHistory empties the account's history.
 	ClearHistory(ctx context.Context, account uuid.UUID) error
-	// AccountDeleted deletes a deleted account's saves and history; the
-	// worker calls it on account.deleted.
+	// Hide leaves someone else's listing out of account's searches;
+	// hiding it again makes it the newest hide.
+	Hide(ctx context.Context, account, listing uuid.UUID) error
+	// Unhide shows it again; a listing not hidden is fine.
+	Unhide(ctx context.Context, account, listing uuid.UUID) error
+	// AccountDeleted deletes what discovery keeps of a deleted account: its
+	// saves, history, hides, watches and settings. The worker calls it on
+	// account.deleted.
 	AccountDeleted(ctx context.Context, account uuid.UUID) error
 }
 
@@ -47,7 +54,10 @@ type Deps struct {
 	Saves          repository.Saves
 	Understandings repository.Understandings
 	History        repository.History
+	Hidden         repository.Hidden
 	Catalog        catalogsvc.Service
+	// Accounts gives the blocks a search leaves out.
+	Accounts accountsvc.Service
 	LLM            llm.Client
 	// Media reads a search photo; Text and Image embed with the search key,
 	// under TextVersion and ImageVersion. TextMin and PhotoMin are the
@@ -69,7 +79,9 @@ type Discovery struct {
 	saves                     repository.Saves
 	understandings            repository.Understandings
 	history                   repository.History
+	hidden                    repository.Hidden
 	catalog                   catalogsvc.Service
+	accounts                  accountsvc.Service
 	llm                       llm.Client
 	media                     mediasvc.Service
 	queryVectors              repository.QueryVectors
@@ -86,7 +98,8 @@ var _ Service = (*Discovery)(nil)
 
 func New(d Deps) *Discovery {
 	return &Discovery{
-		saves: d.Saves, understandings: d.Understandings, history: d.History, catalog: d.Catalog, llm: d.LLM,
+		saves: d.Saves, understandings: d.Understandings, history: d.History, hidden: d.Hidden, catalog: d.Catalog,
+		accounts: d.Accounts, llm: d.LLM,
 		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,
 		textVersion: d.TextVersion, imageVersion: d.ImageVersion, textMin: d.TextMin, photoMin: d.PhotoMin,
 		modelTimeout: d.ModelTimeout, log: d.Log, now: d.Now,

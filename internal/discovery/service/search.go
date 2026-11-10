@@ -130,6 +130,11 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		search.Sort, search.Boosts = catalogdomain.SortRelevance, domain.NearbyBoosts(*origin, d.now())
 	}
 	search.Vectors.TextMin, search.Vectors.PhotoMin = d.textMin, d.photoMin
+	if viewer != nil {
+		if search.ExcludeListings, search.ExcludeSellers, err = d.exclusions(ctx, *viewer); err != nil {
+			return SearchView{}, err
+		}
+	}
 	var view SearchView
 
 	if photo {

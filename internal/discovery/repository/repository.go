@@ -29,6 +29,19 @@ type Saves interface {
 	Clear(ctx context.Context, account uuid.UUID) error
 }
 
+// Hidden keeps the listings a person hid from their searches.
+type Hidden interface {
+	// Hide hides listing from account's searches as the newest hide, again
+	// too, and drops the hides past domain.MaxHidden, in one transaction.
+	Hide(ctx context.Context, account, listing uuid.UUID) error
+	// Unhide shows it again; a listing not hidden is fine.
+	Unhide(ctx context.Context, account, listing uuid.UUID) error
+	// List is the hidden listings, newest hide first.
+	List(ctx context.Context, account uuid.UUID) ([]uuid.UUID, error)
+	// Clear deletes every hide of the account.
+	Clear(ctx context.Context, account uuid.UUID) error
+}
+
 // History keeps a person's last domain.MaxHistory text searches.
 type History interface {
 	// Remember puts e at the top: the same words (domain.HistoryKey) again

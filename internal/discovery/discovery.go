@@ -5,6 +5,7 @@ package discovery
 import (
 	restate "github.com/restatedev/sdk-go"
 
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/discovery/domain"
 	"github.com/shopnexus/server2/internal/discovery/handler"
@@ -32,9 +33,12 @@ type Settings struct {
 // Mount registers the discovery endpoints, subscribes the account watch to
 // account.deleted, and returns discovery's Restate services and the
 // Service screen reads saves and Home's nearby feed through.
-func Mount(d module.Deps, s Settings, catalog catalogsvc.Service, media mediasvc.Service) module.Mounted[service.Service] {
+func Mount(
+	d module.Deps, s Settings, catalog catalogsvc.Service, media mediasvc.Service, accounts accountsvc.Service,
+) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
 		Saves: repository.NewSaves(d.Pool), Understandings: repository.NewUnderstandings(d.Pool), History: repository.NewHistory(d.Pool),
+		Hidden: repository.NewHidden(d.Pool), Accounts: accounts,
 		QueryVectors: repository.NewQueryVectors(d.Pool), PhotoVectors: repository.NewPhotoVectors(d.Pool),
 		Catalog: catalog, Media: media, LLM: s.Model, Text: s.Text, Image: s.Image,
 		TextVersion: s.TextVersion, ImageVersion: s.ImageVersion, TextMin: s.TextMin, PhotoMin: s.PhotoMin,

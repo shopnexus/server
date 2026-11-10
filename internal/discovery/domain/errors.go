@@ -7,6 +7,10 @@ import "github.com/shopnexus/server2/internal/platform/apperr"
 // MaxSaved is how many listings one person may save.
 const MaxSaved = 500
 
+// MaxHidden is how many hidden listings one person keeps; hiding one more
+// shows the oldest again.
+const MaxHidden = 1000
+
 var (
 	ErrLimit              = apperr.New(apperr.KindConflict, "saved_limit_reached", "at most 500 saved listings")
 	ErrOwnListing         = apperr.New(apperr.KindConflict, "own_listing", "a seller cannot save their own listing")

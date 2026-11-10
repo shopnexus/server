@@ -263,7 +263,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Image:       embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.SearchAPIKey, catalogdomain.PhotoDims),
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
-	}, catalogm.Service, mediam.Service)
+	}, catalogm.Service, mediam.Service, accounts)
 	assistm := assist.Mount(d, assist.Settings{
 		Frames: frames.Client{BaseURL: cfg.Assist.FramesBaseURL, HTTP: &http.Client{}},
 		STT: stt.OpenAI{

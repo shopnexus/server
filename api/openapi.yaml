@@ -157,6 +157,8 @@ paths:
     $ref: "paths/discovery.yaml#/saved"
   /v1/saved/{listing_id}:
     $ref: "paths/discovery.yaml#/savedListing"
+  /v1/hidden/{listing_id}:
+    $ref: "paths/discovery.yaml#/hiddenListing"
   /v1/feedback:
     $ref: "paths/support.yaml#/feedback"
   /v1/console/login:

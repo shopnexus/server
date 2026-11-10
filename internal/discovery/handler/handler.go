@@ -29,6 +29,8 @@ func (h *Handler) Register(r *httpx.Router, protect, identify func(http.Handler)
 	r.Handle("GET /v1/saved", protect(http.HandlerFunc(h.Saved)))
 	r.Handle("PUT /v1/saved/{listing_id}", protect(http.HandlerFunc(h.Save)))
 	r.Handle("DELETE /v1/saved/{listing_id}", protect(http.HandlerFunc(h.Unsave)))
+	r.Handle("PUT /v1/hidden/{listing_id}", protect(http.HandlerFunc(h.Hide)))
+	r.Handle("DELETE /v1/hidden/{listing_id}", protect(http.HandlerFunc(h.Unhide)))
 }
 
 type listingRequest struct {
