@@ -2,6 +2,7 @@ package worker_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 	"sync"
@@ -15,10 +16,12 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
+	"github.com/shopnexus/server2/internal/notification/domain"
 	"github.com/shopnexus/server2/internal/notification/repository"
 	"github.com/shopnexus/server2/internal/notification/service"
 	"github.com/shopnexus/server2/internal/notification/worker"
@@ -26,6 +29,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server2/internal/platform/testenv"
 	"github.com/shopnexus/server2/internal/provider/push"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
@@ -65,15 +69,40 @@ func (c chats) MessageFacts(_ context.Context, id uuid.UUID) (chatsvc.MessageFac
 	return c.facts, true, nil
 }
 
-type catalog struct{ catalogsvc.Service }
+type catalog struct {
+	catalogsvc.Service
+
+	listings map[uuid.UUID]catalogsvc.Summary
+}
+
+func (c catalog) Summary(_ context.Context, id uuid.UUID) (catalogsvc.Summary, bool, error) {
+	s, ok := c.listings[id]
+	return s, ok, nil
+}
 
 type trust struct{ trustsvc.Service }
 
-// accounts answers that every session but the revoked ones is active.
+// accounts answers that every session but the revoked ones is active, names
+// every account Hoàng Nam, and pages followers, the newest follow first.
 type accounts struct {
 	accountsvc.Service
 
-	revoked map[uuid.UUID]bool
+	revoked   map[uuid.UUID]bool
+	followers []accountsvc.Follower // oldest follow first
+}
+
+func (accounts) Get(_ context.Context, id uuid.UUID) (accountsvc.AccountView, error) {
+	return accountsvc.AccountView{ID: id, DisplayName: "Hoàng Nam"}, nil
+}
+
+func (a accounts) Followers(_ context.Context, _ uuid.UUID, p page.Request) (page.Page[accountsvc.Follower], error) {
+	var rows []accountsvc.Follower
+	for i := len(a.followers) - 1; i >= 0 && len(rows) < p.Fetch(); i-- {
+		if f := a.followers[i]; f.ID.String() < p.Before().String() {
+			rows = append(rows, f)
+		}
+	}
+	return page.Of(rows, p, func(f accountsvc.Follower) uuid.UUID { return f.ID }), nil
 }
 
 func (a accounts) ActiveSessions(_ context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error) {
@@ -127,7 +156,7 @@ func newEnv(t *testing.T, revoked map[uuid.UUID]bool, once map[string]error) env
 	s := &sender{sent: map[string]int{}, body: map[string]string{}, once: once}
 	w := worker.Worker{
 		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{},
-		Accounts: accounts{revoked: revoked}, Push: s, Log: slog.New(slog.DiscardHandler),
+		Accounts: accounts{revoked: revoked}, Push: s, Log: slog.New(slog.DiscardHandler), FollowerPage: 2,
 	}
 	return env{db: db, notices: notices, push: s, worker: w}
 }
@@ -144,6 +173,121 @@ func (e *env) deliver(t *testing.T, handler string, ev events.Event) {
 	if _, err := ingress.Service[events.Event, restate.Void](e.client, e.worker.ServiceName(), handler).
 		Request(context.Background(), ev, restate.WithIdempotencyKey(ev.ID.String())); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// followed makes n follower accounts of a seller and a listing of the
+// seller's in the fakes, and returns them.
+func (e *env) followed(t *testing.T, n int, status catalogdomain.Status) (seller, listing uuid.UUID, followers []uuid.UUID) {
+	t.Helper()
+	seller, listing = accounttest.New(t, e.db), uuid.NewV7()
+	fs := make([]accountsvc.Follower, 0, n)
+	for range n {
+		f := accounttest.New(t, e.db)
+		followers = append(followers, f)
+		fs = append(fs, accountsvc.Follower{ID: uuid.NewV7(), AccountID: f})
+	}
+	e.worker.Accounts = accounts{followers: fs}
+	e.worker.Catalog = catalog{listings: map[uuid.UUID]catalogsvc.Summary{
+		listing: {ID: listing, SellerID: seller, Title: "Xe đạp Asama", Status: status},
+	}}
+	return seller, listing, followers
+}
+
+// noticesOf polls account's list until it holds n notices.
+func (e *env) noticesOf(t *testing.T, account uuid.UUID, n int) []service.Item {
+	t.Helper()
+	var items []service.Item
+	testenv.Eventually(t, 30*time.Second, func() error {
+		l, err := e.notices.List(context.Background(), account, page.Request{})
+		if err != nil {
+			return err
+		}
+		if items = l.Items; len(items) != n {
+			return fmt.Errorf("%d notices, want %d", len(items), n)
+		}
+		return nil
+	})
+	return items
+}
+
+// A first publication tells the seller and every follower, across pages of
+// two, once even when the event comes again.
+func TestListingPublishedTellsFollowers(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, nil, nil)
+	seller, listing, followers := e.followed(t, 5, catalogdomain.StatusActive)
+	e.start(t)
+	if err := e.notices.PutToken(context.Background(), uuid.NewV7(), followers[0], "follower-phone"); err != nil {
+		t.Fatal(err)
+	}
+	ev := events.Event{
+		ID: uuid.NewV7(), Kind: events.ListingPublished, SubjectID: listing, OccurredAt: time.Now(),
+		Payload: map[string]any{"first": true},
+	}
+	e.deliver(t, "ListingPublished", ev)
+	e.deliver(t, "ListingPublished", ev)
+	for _, f := range followers {
+		items := e.noticesOf(t, f, 1)
+		if items[0].Type != domain.TypeFollowedListing || items[0].Text != "Hoàng Nam vừa đăng tin mới: Xe đạp Asama" {
+			t.Fatalf("follower %s: %+v", f, items[0])
+		}
+	}
+	if items := e.noticesOf(t, seller, 1); items[0].Type != domain.TypeListingLive {
+		t.Fatalf("seller: %+v", items[0])
+	}
+	testenv.Eventually(t, 30*time.Second, func() error {
+		if n := e.push.count("follower-phone"); n != 1 {
+			return fmt.Errorf("%d pushes", n)
+		}
+		return nil
+	})
+}
+
+// A publication that is not the first tells the seller only.
+func TestRepublishTellsNoFollower(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, nil, nil)
+	seller, listing, followers := e.followed(t, 1, catalogdomain.StatusActive)
+	e.start(t)
+	e.deliver(t, "ListingPublished", events.Event{ID: uuid.NewV7(), Kind: events.ListingPublished, SubjectID: listing, OccurredAt: time.Now()})
+	e.noticesOf(t, seller, 1)
+	// ListingPublished sent nothing when the request returned, so nothing can
+	// arrive later.
+	if l, _ := e.notices.List(context.Background(), followers[0], page.Request{}); len(l.Items) != 0 {
+		t.Fatalf("a republish told a follower: %+v", l)
+	}
+}
+
+// TellFollower tells no one of a listing gone off sale, and two listings of
+// one seller leave one unread notice, of the newer.
+func TestTellFollower(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, nil, nil)
+	seller, hidden, followers := e.followed(t, 1, catalogdomain.StatusHidden)
+	older, newer := uuid.NewV7(), uuid.NewV7()
+	listings := e.worker.Catalog.(catalog).listings
+	listings[older] = catalogsvc.Summary{ID: older, SellerID: seller, Title: "Xe đạp Asama", Status: catalogdomain.StatusActive}
+	listings[newer] = catalogsvc.Summary{ID: newer, SellerID: seller, Title: "Đàn guitar Yamaha", Status: catalogdomain.StatusActive}
+	e.start(t)
+	tell := func(listing uuid.UUID, at time.Time) {
+		t.Helper()
+		in := worker.FollowerNotice{EventID: uuid.NewV7(), Follower: followers[0], ListingID: listing, SellerName: "Hoàng Nam", At: at}
+		if _, err := ingress.Service[worker.FollowerNotice, restate.Void](e.client, e.worker.ServiceName(), "TellFollower").
+			Request(context.Background(), in, restate.WithIdempotencyKey(in.EventID.String())); err != nil {
+			t.Fatal(err)
+		}
+	}
+	at := time.Now()
+	tell(hidden, at)
+	if l, _ := e.notices.List(context.Background(), followers[0], page.Request{}); len(l.Items) != 0 {
+		t.Fatalf("a hidden listing told: %+v", l)
+	}
+	tell(older, at.Add(time.Second))
+	tell(newer, at.Add(2*time.Second))
+	l, err := e.notices.List(context.Background(), followers[0], page.Request{})
+	if err != nil || len(l.Items) != 1 || l.Unread != 1 || l.Items[0].Text != "Hoàng Nam vừa đăng tin mới: Đàn guitar Yamaha" {
+		t.Fatalf("collapse: %+v %v", l, err)
 	}
 }
 

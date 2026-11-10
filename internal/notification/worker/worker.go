@@ -11,13 +11,16 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/notification/domain"
 	"github.com/shopnexus/server2/internal/notification/service"
 	"github.com/shopnexus/server2/internal/platform/events"
+	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/provider/push"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
@@ -25,7 +28,9 @@ import (
 // Worker turns events into notices and pushes. Mount subscribes each
 // handler to the event kind it is named after. A handler reads its facts in
 // one step, which returns the zero facts for a subject that is gone; a zero
-// ID then tells no one.
+// ID then tells no one. A first publication sends each of the seller's
+// followers to TellFollower, one invocation per follower, so each journal
+// stays short.
 type Worker struct {
 	Prefix   string
 	Notices  service.Service
@@ -36,6 +41,9 @@ type Worker struct {
 	Accounts accountsvc.Service
 	Push     push.Sender
 	Log      *slog.Logger
+	// FollowerPage is how many followers one step reads when a listing
+	// first goes on sale.
+	FollowerPage int
 }
 
 func (w Worker) ServiceName() string { return w.Prefix + "NotificationWorker" }
@@ -87,20 +95,75 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 	if f.DealID == (uuid.UUID{}) {
 		return nil
 	}
-	return w.tell(ctx, e, domain.FromMoves(f, e.OccurredAt))
+	return w.tell(ctx, e.ID, domain.FromMoves(f, e.OccurredAt))
 }
 
-// ListingPublished tells the seller the listing is on sale.
+// FollowerNotice is what TellFollower needs: the event the listing went on
+// sale in, the follower to tell and the seller's name.
+type FollowerNotice struct {
+	EventID    uuid.UUID `json:"event_id"`
+	Follower   uuid.UUID `json:"follower"`
+	ListingID  uuid.UUID `json:"listing_id"`
+	SellerName string    `json:"seller_name"`
+	At         time.Time `json:"at"`
+}
+
+// ListingPublished tells the seller the listing is on sale. On its first
+// publication it also sends each of the seller's followers, a page per
+// step, to TellFollower; the idempotency key names the event and the
+// follower, so a replay sends nobody a second invocation.
 func (w Worker) ListingPublished(ctx restate.Context, e events.Event) error {
-	return w.listing(ctx, e, true)
+	l, err := w.listing(ctx, e, true)
+	if err != nil {
+		return err
+	}
+	first, _ := e.Payload["first"].(bool) //nolint:revive // an event without the flag is not a first publication
+	if l.ID == (uuid.UUID{}) || !first {
+		return nil
+	}
+	name, err := restate.Run(ctx, func(rc restate.RunContext) (string, error) {
+		a, stepErr := w.Accounts.Get(rc, l.SellerID)
+		if errors.Is(stepErr, accountdomain.ErrAccountNotFound) {
+			return "", nil
+		}
+		if stepErr != nil {
+			return "", fmt.Errorf("read seller: %w", stepErr)
+		}
+		return a.DisplayName, nil
+	})
+	if err != nil {
+		return fmt.Errorf("read the seller: %w", err)
+	}
+	var cursor uuid.UUID
+	for {
+		p, err := restate.Run(ctx, func(rc restate.RunContext) (page.Page[accountsvc.Follower], error) {
+			return w.Accounts.Followers(rc, l.SellerID, page.Request{Cursor: cursor, Limit: w.FollowerPage})
+		})
+		if err != nil {
+			return fmt.Errorf("read the followers: %w", err)
+		}
+		for _, f := range p.Items {
+			restate.ServiceSend(ctx, w.ServiceName(), "TellFollower").Send(
+				FollowerNotice{EventID: e.ID, Follower: f.AccountID, ListingID: l.ID, SellerName: name, At: e.OccurredAt},
+				restate.WithIdempotencyKey(e.ID.String()+"/"+f.AccountID.String()))
+		}
+		if p.NextCursor == nil {
+			return nil
+		}
+		cursor = *p.NextCursor
+	}
 }
 
 // ListingRejected tells the seller processing refused a photo.
 func (w Worker) ListingRejected(ctx restate.Context, e events.Event) error {
-	return w.listing(ctx, e, false)
+	_, err := w.listing(ctx, e, false)
+	return err
 }
 
-func (w Worker) listing(ctx restate.Context, e events.Event, live bool) error {
+// listing tells the seller of the event's listing and returns the listing
+// it read, zero for an unknown one; ListingPublished and ListingRejected
+// call it.
+func (w Worker) listing(ctx restate.Context, e events.Event, live bool) (catalogsvc.Summary, error) {
 	f, err := restate.Run(ctx, func(rc restate.RunContext) (catalogsvc.Summary, error) {
 		l, _, stepErr := w.Catalog.Summary(rc, e.SubjectID)
 		if stepErr != nil {
@@ -109,12 +172,33 @@ func (w Worker) listing(ctx restate.Context, e events.Event, live bool) error {
 		return l, nil // zero for an unknown listing
 	})
 	if err != nil {
-		return fmt.Errorf("read the listing: %w", err)
+		return catalogsvc.Summary{}, fmt.Errorf("read the listing: %w", err)
 	}
 	if f.ID == (uuid.UUID{}) {
+		return f, nil
+	}
+	return f, w.tell(ctx, e.ID, []domain.Notice{domain.ListingNotice(f.SellerID, f.ID, f.Title, live, e.OccurredAt)})
+}
+
+// TellFollower tells one follower of a listing that first went on sale,
+// unless it is no longer on sale when this runs.
+func (w Worker) TellFollower(ctx restate.Context, in FollowerNotice) error {
+	l, err := restate.Run(ctx, func(rc restate.RunContext) (catalogsvc.Summary, error) {
+		s, _, stepErr := w.Catalog.Summary(rc, in.ListingID)
+		if stepErr != nil {
+			return catalogsvc.Summary{}, fmt.Errorf("read listing: %w", stepErr)
+		}
+		return s, nil
+	})
+	if err != nil {
+		return fmt.Errorf("read the listing: %w", err)
+	}
+	if l.Status != catalogdomain.StatusActive {
 		return nil
 	}
-	return w.tell(ctx, e, []domain.Notice{domain.ListingNotice(f.SellerID, f.ID, f.Title, live, e.OccurredAt)})
+	return w.tell(ctx, in.EventID, []domain.Notice{
+		domain.FollowedListing(in.Follower, l.SellerID, in.SellerName, l.ID, l.Title, in.At),
+	})
 }
 
 // ReviewPosted tells the seller a buyer reviewed them.
@@ -135,18 +219,18 @@ func (w Worker) ReviewPosted(ctx restate.Context, e events.Event) error {
 	if f.ID == (uuid.UUID{}) {
 		return nil
 	}
-	return w.tell(ctx, e, []domain.Notice{domain.Reviewed(f.SellerID, f.BuyerName, f.ListingTitle, f.Stars, e.OccurredAt)})
+	return w.tell(ctx, e.ID, []domain.Notice{domain.Reviewed(f.SellerID, f.BuyerName, f.ListingTitle, f.Stars, e.OccurredAt)})
 }
 
 // AccountSuspended tells the account it is suspended.
 func (w Worker) AccountSuspended(ctx restate.Context, e events.Event) error {
 	until, _ := e.Payload["until"].(string) //nolint:revive // no until is a suspension without end
-	return w.tell(ctx, e, []domain.Notice{domain.Suspended(e.SubjectID, until, e.OccurredAt)})
+	return w.tell(ctx, e.ID, []domain.Notice{domain.Suspended(e.SubjectID, until, e.OccurredAt)})
 }
 
 // AccountUnsuspended tells the account it may write again.
 func (w Worker) AccountUnsuspended(ctx restate.Context, e events.Event) error {
-	return w.tell(ctx, e, []domain.Notice{domain.Unsuspended(e.SubjectID, e.OccurredAt)})
+	return w.tell(ctx, e.ID, []domain.Notice{domain.Unsuspended(e.SubjectID, e.OccurredAt)})
 }
 
 // MessageSent pushes a chat message to its recipient; the inbox lists it,
@@ -176,11 +260,11 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 
 // tell writes each notice, then pushes it to its recipient. A notice a
 // newer one with its key outran is neither written nor pushed.
-func (w Worker) tell(ctx restate.Context, e events.Event, notices []domain.Notice) error {
+func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Notice) error {
 	for i := range notices {
 		n := &notices[i]
 		rec, err := restate.Run(ctx, func(rc restate.RunContext) (service.Recorded, error) {
-			return w.Notices.Record(rc, e.ID, *n)
+			return w.Notices.Record(rc, event, *n)
 		})
 		if err != nil {
 			return fmt.Errorf("write a notice: %w", err)

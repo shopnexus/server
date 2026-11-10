@@ -61,6 +61,21 @@ func TestFromMoves(t *testing.T) {
 	}
 }
 
+func TestFollowedListing(t *testing.T) {
+	t.Parallel()
+	listing := uuid.NewV7()
+	n := domain.FollowedListing(buyer, seller, "Hoàng Nam", listing, "Xe đạp Asama", at)
+	if n.Recipient != buyer || n.Type != domain.TypeFollowedListing || n.CollapseKey != "seller:"+seller.String() {
+		t.Fatalf("%+v", n)
+	}
+	if got := domain.TargetOf(n.Type, n.Params); got.Kind != "listing" || got.ID != listing.String() {
+		t.Fatalf("target %+v", got)
+	}
+	if domain.Title(n.Type) != "Tin đăng" {
+		t.Fatalf("title %q", domain.Title(n.Type))
+	}
+}
+
 func TestText(t *testing.T) {
 	t.Parallel()
 	offer := domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 1_200_000}), at)[0]
@@ -71,6 +86,7 @@ func TestText(t *testing.T) {
 		"Tài khoản của bạn bị khoá đến 3/11":        domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
 		"Tài khoản của bạn bị khoá":                 domain.Suspended(buyer, "", at),
 		"Đức Huy chấm 5 sao cho Xe đạp Asama":       domain.Reviewed(seller, "Đức Huy", "Xe đạp Asama", 5, at),
+		"Hoàng Nam vừa đăng tin mới: Xe đạp Asama":  domain.FollowedListing(buyer, seller, "Hoàng Nam", uuid.NewV7(), "Xe đạp Asama", at),
 	} {
 		if got := domain.Text(n.Type, n.Params); got != want {
 			t.Errorf("%s: %q", want, got)

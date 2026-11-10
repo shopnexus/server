@@ -1,6 +1,6 @@
 // Package notification tells people what happened to their deals, orders,
-// listings, reviews and account, in a list and by push, from the events of
-// the other modules. Only screen calls it, for Home's unread count.
+// listings, reviews and account, and of new listings by the sellers they
+// follow, in a list and by push, from the events of the other modules. Only screen calls it, for Home's unread count.
 package notification
 
 import (
@@ -20,6 +20,9 @@ import (
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
+// followerPage is how many followers one step of ListingPublished reads.
+const followerPage = 500
+
 // Settings is what notification's Mount takes beyond module.Deps.
 type Settings struct {
 	// Push delivers the pushes.
@@ -36,7 +39,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	w := worker.Worker{
 		Prefix: d.ServicePrefix, Notices: svc, Deals: deals, Chats: chats, Catalog: catalog,
-		Trust: trust, Accounts: accounts, Push: s.Push, Log: d.Log,
+		Trust: trust, Accounts: accounts, Push: s.Push, Log: d.Log, FollowerPage: followerPage,
 	}
 	for kind, h := range map[events.Kind]string{
 		events.DealMoved: "DealMoved", events.MessageSent: "MessageSent", events.ListingPublished: "ListingPublished",

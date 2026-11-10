@@ -55,6 +55,19 @@ func TestFollows(t *testing.T) {
 	}
 }
 
+// A follower hears when the seller first puts a listing on sale.
+func TestFollowerHearsOfANewListing(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	follower, _ := newAccount(t)
+	expectStatus(t, call(t, "POST", "/v1/follows", map[string]any{"account_id": seller.Account.ID}, bearer(follower.AccessToken)), http.StatusNoContent)
+	l := activeListing(t, seller.AccessToken, nil)
+	got := notices(t, follower.AccessToken, 1)
+	if n := got.Items[0]; n.Type != "followed_listing" || n.Target.Kind != "listing" || n.Target.ID != l.ID || !n.Unread {
+		t.Fatalf("%+v", n)
+	}
+}
+
 func TestFollowRefusals(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)

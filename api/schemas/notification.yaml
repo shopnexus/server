@@ -21,7 +21,7 @@ Notification:
     type:
       type: string
       enum: [offer, counter, agreed, declined, agreement_cancelled, offer_voided, cod_requested, shipped, delivered,
-        returned, order_cancelled, listing_live, listing_rejected, review, suspended, unsuspended]
+        returned, order_cancelled, listing_live, listing_rejected, followed_listing, review, suspended, unsuspended]
     text:
       type: string
       description: What the notice says, in Vietnamese.

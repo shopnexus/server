@@ -39,6 +39,7 @@ const (
 	TypeOrderCancelled     Type = "order_cancelled"
 	TypeListingLive        Type = "listing_live"
 	TypeListingRejected    Type = "listing_rejected"
+	TypeFollowedListing    Type = "followed_listing"
 	TypeReview             Type = "review"
 	TypeSuspended          Type = "suspended"
 	TypeUnsuspended        Type = "unsuspended"
@@ -149,6 +150,16 @@ func ListingNotice(seller, listing uuid.UUID, title string, live bool, at time.T
 	}
 }
 
+// FollowedListing tells a follower that a seller they follow put a new
+// listing on sale. It collapses per seller, so a run of listings leaves one
+// unread notice, of the newest.
+func FollowedListing(follower, seller uuid.UUID, sellerName string, listing uuid.UUID, title string, at time.Time) Notice {
+	return Notice{
+		Recipient: follower, Type: TypeFollowedListing, CollapseKey: "seller:" + seller.String(), At: at,
+		Params: Params{ListingID: listing, SellerID: seller, Seller: sellerName, Title: title},
+	}
+}
+
 // Reviewed tells a seller a buyer reviewed them.
 func Reviewed(seller uuid.UUID, buyerName, title string, stars int, at time.Time) Notice {
 	return Notice{
@@ -232,6 +243,7 @@ var types = map[Type]struct {
 	}},
 	TypeListingLive:     {listings, func(p Params) string { return p.Title + " đã lên" }},
 	TypeListingRejected: {listings, func(p Params) string { return p.Title + " chưa lên được: một ảnh bị từ chối" }},
+	TypeFollowedListing: {listings, func(p Params) string { return p.Seller + " vừa đăng tin mới: " + p.Title }},
 	TypeReview: {reviews, func(p Params) string {
 		return p.Actor + " chấm " + strconv.Itoa(p.Stars) + " sao cho " + p.Title
 	}},
