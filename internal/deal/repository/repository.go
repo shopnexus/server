@@ -36,6 +36,15 @@ type Deals interface {
 	Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error
 	// OfListing returns every deal on a listing, oldest first.
 	OfListing(ctx context.Context, listingID uuid.UUID) ([]domain.Deal, error)
+	// OpenOrders reports an order of account's, as buyer or seller, that is
+	// requested or shipped.
+	OpenOrders(ctx context.Context, account uuid.UUID) (bool, error)
+	// ActiveOf lists the deals, negotiating or agreed, where account is
+	// either side, oldest first.
+	ActiveOf(ctx context.Context, account uuid.UUID) ([]domain.Deal, error)
+	// ScrubRecipients blanks the recipient's name, phone and street of every
+	// order buyer bought; the commune stays.
+	ScrubRecipients(ctx context.Context, buyer uuid.UUID) error
 	// ListByParty is a query: account's deals on side as (buyer or
 	// seller) with IDs below p.Before(), newest first, at most p.Fetch().
 	ListByParty(ctx context.Context, account uuid.UUID, as domain.Party, p page.Request) ([]domain.Deal, error)
