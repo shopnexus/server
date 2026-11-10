@@ -15,15 +15,15 @@ import (
 // recentAuth is how long after a sign-in the sensitive actions stay open.
 const recentAuth = 15 * time.Minute
 
-// Logout revokes the caller's session. Its access token keeps working until
+// DeleteCurrentSession revokes the caller's session. Its access token keeps working until
 // it expires; the app discards it.
-func (s *Account) Logout(ctx context.Context, p authn.Principal) error {
+func (s *Account) DeleteCurrentSession(ctx context.Context, p authn.Principal) error {
 	return s.revoke(ctx, p.SessionID, s.now())
 }
 
-// LogoutAll revokes every session of the caller's account after a recent
+// DeleteAllSessions revokes every session of the caller's account after a recent
 // sign-in.
-func (s *Account) LogoutAll(ctx context.Context, p authn.Principal) error {
+func (s *Account) DeleteAllSessions(ctx context.Context, p authn.Principal) error {
 	now := s.now()
 	if now.Sub(p.AuthTime) > recentAuth {
 		return domain.ErrReauthRequired
@@ -34,8 +34,8 @@ func (s *Account) LogoutAll(ctx context.Context, p authn.Principal) error {
 	return nil
 }
 
-// RemoveSession signs one of the caller's devices out.
-func (s *Account) RemoveSession(ctx context.Context, p authn.Principal, id uuid.UUID) error {
+// DeleteSession signs one of the caller's devices out.
+func (s *Account) DeleteSession(ctx context.Context, p authn.Principal, id uuid.UUID) error {
 	sess, err := s.sessions.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrSessionNotFound

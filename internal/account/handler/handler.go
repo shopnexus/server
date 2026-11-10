@@ -21,10 +21,12 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
 	r.Handle("POST /v1/auth/sign-in", http.HandlerFunc(h.SignIn))
 	r.Handle("POST /v1/auth/refresh", http.HandlerFunc(h.Refresh))
-	r.Handle("POST /v1/auth/logout", protect(http.HandlerFunc(h.Logout)))
-	r.Handle("POST /v1/auth/logout-all", protect(http.HandlerFunc(h.LogoutAll)))
 	r.Handle("GET /v1/auth/sessions", protect(http.HandlerFunc(h.ListSessions)))
-	r.Handle("DELETE /v1/auth/sessions/{id}", protect(http.HandlerFunc(h.RemoveSession)))
+	r.Handle("DELETE /v1/auth/sessions", protect(http.HandlerFunc(h.DeleteAllSessions)))
+	// "current" is more specific than {id}: ServeMux and the request
+	// validator's router both match it first (TestCurrentSessionRoute).
+	r.Handle("DELETE /v1/auth/sessions/current", protect(http.HandlerFunc(h.DeleteCurrentSession)))
+	r.Handle("DELETE /v1/auth/sessions/{id}", protect(http.HandlerFunc(h.DeleteSession)))
 	r.Handle("GET /v1/accounts/me", protect(http.HandlerFunc(h.GetMe)))
 	r.Handle("PATCH /v1/accounts/me", protect(http.HandlerFunc(h.Update)))
 	r.Handle("POST /v1/blocks", protect(http.HandlerFunc(h.Block)))

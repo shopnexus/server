@@ -67,32 +67,32 @@ func sessionOf(t *testing.T, accessToken string) string {
 	return p.SessionID.String()
 }
 
-func TestLogoutRevokesRefresh(t *testing.T) {
+func TestDeleteCurrentSessionRevokesRefresh(t *testing.T) {
 	t.Parallel()
 	acc, _ := newAccount(t)
-	expectStatus(t, call(t, "POST", "/v1/auth/logout", nil, bearer(acc.AccessToken)), 204)
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/current", nil, bearer(acc.AccessToken)), 204)
 	if res := refresh(t, acc.RefreshToken); res.Status != 401 || errorOf(t, res).Code != "session_revoked" {
-		t.Fatalf("refresh after logout: %d %s", res.Status, res.Body)
+		t.Fatalf("refresh after a sign-out: %d %s", res.Status, res.Body)
 	}
 	expectStatus(t, call(t, "GET", "/v1/accounts/me", nil, bearer(acc.AccessToken)), 200) // the access token lives until it expires
-	expectStatus(t, call(t, "POST", "/v1/auth/logout", nil), 401)
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/current", nil), 401)
 }
 
-func TestLogoutAll(t *testing.T) {
+func TestDeleteAllSessions(t *testing.T) {
 	t.Parallel()
 	first, phone := newAccount(t)
 	second := signInWith(t, phone)
 	p, _ := accountdomain.NewVerifier(keys).Verify(second.AccessToken, time.Now())
 	s, _ := accountdomain.NewSession(p.SessionID, p.AccountID, "", time.Now().Add(-20*time.Minute), time.Now())
 	stale, _, _ := accountdomain.NewSigner(keys).Sign(s, time.Now())
-	if res := call(t, "POST", "/v1/auth/logout-all", nil, bearer(stale)); res.Status != 428 || errorOf(t, res).Code != "reauth_required" {
+	if res := call(t, "DELETE", "/v1/auth/sessions", nil, bearer(stale)); res.Status != 428 || errorOf(t, res).Code != "reauth_required" {
 		t.Fatalf("stale sign-in: %d %s", res.Status, res.Body)
 	}
-	expectStatus(t, call(t, "POST", "/v1/auth/logout-all", nil, bearer(second.AccessToken)), 204)
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions", nil, bearer(second.AccessToken)), 204)
 	for _, token := range []string{first.RefreshToken, second.RefreshToken} {
-		expectStatus(t, refresh(t, token), 401) // refresh after logout-all
+		expectStatus(t, refresh(t, token), 401) // refresh after signing every session out
 	}
-	expectStatus(t, call(t, "POST", "/v1/auth/logout-all", nil), 401)
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions", nil), 401)
 }
 
 func TestSessionsListAndRemove(t *testing.T) {

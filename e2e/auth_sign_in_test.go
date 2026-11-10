@@ -50,11 +50,11 @@ func TestSignInKeyIsBoundToTheNumber(t *testing.T) {
 }
 
 // Replaying the sign-in of a signed-out session must not bring it back.
-func TestSignInReplayAfterLogoutIsRefused(t *testing.T) {
+func TestSignInReplayAfterSignOutIsRefused(t *testing.T) {
 	t.Parallel()
 	token, key := issuer.SMSToken(newPhone()), newKey()
 	first := decode[signIn](t, signInCall(t, token, key))
-	expectStatus(t, call(t, "POST", "/v1/auth/logout", nil, bearer(first.AccessToken)), 204)
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/current", nil, bearer(first.AccessToken)), 204)
 	if res := signInCall(t, token, key); res.Status != 401 || errorOf(t, res).Code != "session_revoked" {
 		t.Fatalf("%d %s", res.Status, res.Body)
 	}

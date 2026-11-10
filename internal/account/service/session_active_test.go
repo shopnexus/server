@@ -19,7 +19,7 @@ func TestActiveSessions(t *testing.T) {
 	ps := devices(t, s, accounttest.New(t, db), 2, now)
 	old := devices(t, s, accounttest.New(t, db), 1, now.Add(-365*24*time.Hour))
 	a := at(nil, s, now)
-	if err := a.Logout(context.Background(), ps[1]); err != nil {
+	if err := a.DeleteCurrentSession(context.Background(), ps[1]); err != nil {
 		t.Fatal(err)
 	}
 	got, err := a.ActiveSessions(context.Background(), []uuid.UUID{ps[0].SessionID, ps[1].SessionID, old[0].SessionID})

@@ -458,8 +458,23 @@ The token checks live in `internal/provider/firebase`:
 
 ### Session use cases
 
-Refresh, logout and the device list are plain `Account` methods against the
+Refresh, sign-out and the device list are plain `Account` methods against the
 `Session` aggregate; none of them goes through Restate.
+
+The device list and the sign-outs are one resource, `/v1/auth/sessions`:
+
+| Endpoint | Method | Signs out |
+|---|---|---|
+| `GET /v1/auth/sessions` | `ListSessions` | nothing; lists the devices |
+| `DELETE /v1/auth/sessions` | `DeleteAllSessions` | every session; needs a sign-in within 15 minutes (428 `reauth_required`) |
+| `DELETE /v1/auth/sessions/current` | `DeleteCurrentSession` | the session of the access token |
+| `DELETE /v1/auth/sessions/{id}` | `DeleteSession` | one device |
+
+The two deletes without an ID replaced `POST /v1/auth/logout` and
+`POST /v1/auth/logout-all` on 2026-11-10, with the same auth, status codes
+and effects. `current` is a fixed segment. ServeMux and kin-openapi's router,
+which the request validator uses, both match a fixed segment before `{id}`;
+`TestCurrentSessionRoute` in `account/handler` holds both to it.
 
 Refresh:
 
@@ -475,16 +490,16 @@ Refresh:
    the use case revokes, logs the reuse and returns `session_revoked`.
 4. Sign the access token with the session's `auth_time`.
 
-Logout and removing one device load the session, check that the caller owns
-it (another account's session is 404), `Revoke` and `Save`, retrying once on
-`ErrConflict`.
+`DeleteCurrentSession` and `DeleteSession` load the session, `Revoke` and
+`Save`, retrying once on `ErrConflict`. `DeleteSession` first checks that the
+caller owns the session (another account's session is 404).
 
 Two kinds of call skip the aggregate:
 
 - A read returns view structs from a query and never loads an entity. The
   device list is `sessions.ListActive(accountID, now, cursor, limit)`.
 - A bulk change that only moves a one-way flag may run as one set-based
-  statement that also changes each row's `write_id`. `logout-all` is
+  statement that also changes each row's `write_id`. `DeleteAllSessions` is
   `UPDATE sessions SET revoked_at = @now, write_id = uuidv7() WHERE
   account_id = @account_id AND revoked_at IS NULL`. Loading and saving each session
   would cost one transaction per device and protect no rule.
@@ -1206,7 +1221,7 @@ calls it except screen, for Home's unread count; depguard holds that.
   phone signed in to a second account stops getting the first account's
   pushes.
   Before a push the worker asks account which of the recipient's sessions are
-  active and deletes the others' tokens, which covers logout, revocation,
+  active and deletes the others' tokens, which covers sign-out, revocation,
   refresh reuse, expiry and 30 days idle with one read. Each token is sent in a step of
   its own, so a retried send repeats no other: FCM's `UNREGISTERED` or
   `INVALID_ARGUMENT` deletes the token, 429, 5xx and transport errors retry

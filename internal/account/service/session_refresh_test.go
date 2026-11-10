@@ -116,26 +116,26 @@ func TestRefreshThatLosesARaceRevokes(t *testing.T) {
 	}
 }
 
-// logoutAllFirst behaves as if the account signed out everywhere just before
+// revokeAllFirst behaves as if the account signed out everywhere just before
 // the refresh saved.
-type logoutAllFirst struct{ repository.Sessions }
+type revokeAllFirst struct{ repository.Sessions }
 
-func (l logoutAllFirst) Save(ctx context.Context, s *domain.Session, w uuid.UUID) error {
+func (l revokeAllFirst) Save(ctx context.Context, s *domain.Session, w uuid.UUID) error {
 	if err := l.Sessions.RevokeAll(ctx, s.AccountID(), now); err != nil {
 		return err
 	}
 	return l.Sessions.Save(ctx, s, w)
 }
 
-// A refresh that loses to logout-all is a signed-out session, not a token two
-// parties hold: no security event is logged.
-func TestRefreshThatLosesToLogoutAllIsNotReuse(t *testing.T) {
+// A refresh that loses to DeleteAllSessions is a signed-out session, not a
+// token two parties hold: no security event is logged.
+func TestRefreshThatLosesToDeleteAllSessionsIsNotReuse(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
 	var logs bytes.Buffer
 	log := slog.New(slog.NewTextHandler(&logs, nil))
 	svc := service.New(service.Deps{
-		Accounts: e.accounts, Sessions: logoutAllFirst{e.sessions}, Signer: domain.NewSigner(testKeys), Now: func() time.Time { return now }, Log: log,
+		Accounts: e.accounts, Sessions: revokeAllFirst{e.sessions}, Signer: domain.NewSigner(testKeys), Now: func() time.Time { return now }, Log: log,
 	})
 	_, err := svc.Refresh(context.Background(), e.token)
 	if !errors.Is(err, domain.ErrSessionRevoked) || strings.Contains(logs.String(), "reuse") {

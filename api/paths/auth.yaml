@@ -73,34 +73,6 @@ refresh:
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
         $ref: "../responses/common.yaml#/Forbidden"
-logout:
-  post:
-    operationId: logout
-    summary: Sign out the session this request was made with.
-    description: The access token keeps working until it expires, at most 15 minutes; the app discards it.
-    tags: [auth]
-    security:
-      - bearerAuth: []
-    responses:
-      "204":
-        description: Signed out.
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-logoutAll:
-  post:
-    operationId: logoutAll
-    summary: Sign out every session of the account.
-    description: Needs a sign-in within the last 15 minutes.
-    tags: [auth]
-    security:
-      - bearerAuth: []
-    responses:
-      "204":
-        description: Every session is signed out.
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "428":
-        $ref: "../responses/common.yaml#/PreconditionRequired"
 sessions:
   get:
     operationId: listSessions
@@ -120,6 +92,33 @@ sessions:
               $ref: "../schemas/auth.yaml#/SessionList"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+  delete:
+    operationId: deleteAllSessions
+    summary: Sign out every session of the account.
+    description: Needs a sign-in within the last 15 minutes.
+    tags: [auth]
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Every session is signed out.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "428":
+        $ref: "../responses/common.yaml#/PreconditionRequired"
+currentSession:
+  delete:
+    operationId: deleteCurrentSession
+    summary: Sign out the session this request was made with.
+    description: The access token keeps working until it expires, at most 15 minutes; the app discards it.
+    tags: [auth]
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Signed out.
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
 session:

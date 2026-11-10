@@ -106,12 +106,12 @@ func TestNotifications(t *testing.T) {
 		t.Fatalf("home: %d %s", res.Status, res.Body)
 	}
 
-	expectStatus(t, call(t, "POST", "/v1/auth/logout", nil, bearer(seller.AccessToken)), http.StatusNoContent)
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/current", nil, bearer(seller.AccessToken)), http.StatusNoContent)
 	before := phones.count(sellerPhone)
 	sendChat(t, buyer.AccessToken, c.ID, map[string]any{"text": "Bạn ơi?"})
 	time.Sleep(2 * time.Second)
 	if phones.count(sellerPhone) != before {
-		t.Fatalf("a logged-out session still gets pushes: %d → %d", before, phones.count(sellerPhone))
+		t.Fatalf("a signed-out session still gets pushes: %d → %d", before, phones.count(sellerPhone))
 	}
 }
 

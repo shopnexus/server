@@ -92,12 +92,12 @@ type Sessions interface {
 	SignIn(ctx context.Context, in SignInInput) (SignedIn, error)
 	// Refresh rotates a refresh token.
 	Refresh(ctx context.Context, refreshToken string) (domain.Tokens, error)
-	// Logout revokes the caller's session.
-	Logout(ctx context.Context, p authn.Principal) error
-	// LogoutAll revokes every session of the caller's account.
-	LogoutAll(ctx context.Context, p authn.Principal) error
-	// RemoveSession signs one of the caller's devices out.
-	RemoveSession(ctx context.Context, p authn.Principal, id uuid.UUID) error
+	// DeleteCurrentSession revokes the caller's session.
+	DeleteCurrentSession(ctx context.Context, p authn.Principal) error
+	// DeleteAllSessions revokes every session of the caller's account.
+	DeleteAllSessions(ctx context.Context, p authn.Principal) error
+	// DeleteSession signs one of the caller's devices out.
+	DeleteSession(ctx context.Context, p authn.Principal, id uuid.UUID) error
 	// ListSessions lists the caller's devices, newest first.
 	ListSessions(ctx context.Context, p authn.Principal, req page.Request) (page.Page[SessionItem], error)
 	// ActiveSessions returns which of ids are neither revoked nor expired;
