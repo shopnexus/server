@@ -51,6 +51,23 @@ type Service interface {
 	PriceMoved(ctx context.Context, listing uuid.UUID) error
 	// PriceDropFacts is what notification tells of a save's price drop.
 	PriceDropFacts(ctx context.Context, id uuid.UUID) (PriceDropFacts, bool, error)
+	// Watch follows a text search with its filters from a commune: a new
+	// key is a new watch and starts its sweeps; a key the account watches
+	// takes the new filters. created reports a new watch.
+	Watch(ctx context.Context, account uuid.UUID, in WatchInput) (v WatchView, created bool, err error)
+	// Watches lists the account's watches, newest first.
+	Watches(ctx context.Context, account uuid.UUID) (WatchList, error)
+	// SetWatchAlert mutes or unmutes a watch of the account's.
+	SetWatchAlert(ctx context.Context, account, id uuid.UUID, on bool) error
+	// Unwatch forgets a watch; an unknown one is fine.
+	Unwatch(ctx context.Context, account, id uuid.UUID) error
+	// Sweep weighs the listings that arrived since the watch's last sweep;
+	// the worker calls it.
+	Sweep(ctx context.Context, id uuid.UUID) (Swept, error)
+	// ListingArrived records a listing's first publication for the sweeps.
+	ListingArrived(ctx context.Context, listing uuid.UUID) error
+	// WatchFacts is what notification tells of a watch's new listings.
+	WatchFacts(ctx context.Context, id uuid.UUID) (WatchFacts, bool, error)
 	// Hide leaves someone else's listing out of account's searches;
 	// hiding it again makes it the newest hide.
 	Hide(ctx context.Context, account, listing uuid.UUID) error
@@ -69,6 +86,13 @@ type Deps struct {
 	History        repository.History
 	Hidden         repository.Hidden
 	Settings       repository.Settings
+	Watches        repository.Watches
+	// Sweeps starts a new watch's sweeps.
+	Sweeps Sweeper
+	// ArrivalLag and SweepBatch are domain.ArrivalLag and domain.SweepBatch
+	// in production; tests shorten them.
+	ArrivalLag time.Duration
+	SweepBatch int
 	Catalog        catalogsvc.Service
 	// Accounts gives the blocks a search leaves out.
 	Accounts accountsvc.Service
@@ -95,6 +119,10 @@ type Discovery struct {
 	history                   repository.History
 	hidden                    repository.Hidden
 	settings                  repository.Settings
+	watches                   repository.Watches
+	sweeps                    Sweeper
+	arrivalLag                time.Duration
+	sweepBatch                int
 	catalog                   catalogsvc.Service
 	accounts                  accountsvc.Service
 	llm                       llm.Client
@@ -113,7 +141,8 @@ var _ Service = (*Discovery)(nil)
 
 func New(d Deps) *Discovery {
 	return &Discovery{
-		saves: d.Saves, understandings: d.Understandings, history: d.History, hidden: d.Hidden, settings: d.Settings, catalog: d.Catalog,
+		saves: d.Saves, understandings: d.Understandings, history: d.History, hidden: d.Hidden, settings: d.Settings, watches: d.Watches,
+		sweeps: d.Sweeps, arrivalLag: d.ArrivalLag, sweepBatch: d.SweepBatch, catalog: d.Catalog,
 		accounts: d.Accounts, llm: d.LLM,
 		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,
 		textVersion: d.TextVersion, imageVersion: d.ImageVersion, textMin: d.TextMin, photoMin: d.PhotoMin,

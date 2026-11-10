@@ -35,6 +35,7 @@ type env struct {
 	model       *fakeModel
 	text, image *embedtest.Model
 	accounts    *accountsvc.Account
+	sweeps      *sweeps
 }
 
 // newEnv builds discovery on a database; each option changes its
@@ -46,12 +47,13 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 	model := &fakeModel{answers: map[string]string{}}
 	m := mediatest.Service(db, objectstoretest.New(t), in, p)
 	restatetest.Start(t, m.Durable()...)
-	acc := accounttest.Service(db)
+	acc, sw := accounttest.Service(db), &sweeps{}
 	c := catalogtest.Service(db, acc, m, in, p)
 	text, image := embedtest.New(catalogdomain.TextDims), embedtest.New(catalogdomain.PhotoDims)
 	deps := service.Deps{
 		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db), History: repository.NewHistory(db),
 		Hidden: repository.NewHidden(db), Accounts: acc, Settings: repository.NewSettings(db),
+		Watches: repository.NewWatches(db), Sweeps: sw, ArrivalLag: 0, SweepBatch: domain.SweepBatch,
 		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db),
 		Catalog: c, Media: m, LLM: model, Text: text, Image: image, TextVersion: "text-test", ImageVersion: "image-test",
 		TextMin: 0.5, PhotoMin: 0.5,
@@ -61,7 +63,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 		o(&deps)
 	}
 	d := service.New(deps)
-	return env{db: db, catalog: c, media: m, discovery: d, model: model, text: text, image: image, accounts: acc}
+	return env{db: db, catalog: c, media: m, discovery: d, model: model, text: text, image: image, accounts: acc, sweeps: sw}
 }
 
 func TestSaveAndList(t *testing.T) {

@@ -29,6 +29,7 @@ type searchRequest struct {
 	Limit      int                       `json:"-" query:"limit"`
 	Photo      uuid.UUID                 `json:"-" query:"photo"`
 	Like       uuid.UUID                 `json:"-" query:"like"`
+	Watch      uuid.UUID                 `json:"-" query:"watch"`
 }
 
 // Search serves GET /v1/search, signed in or not.
@@ -41,7 +42,7 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	out, err := h.svc.Search(r.Context(), httpx.Viewer(r), service.SearchInput{
 		Query: in.Query, Category: in.Category, PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions,
 		RadiusKm: in.RadiusKm, OffersOnly: in.OffersOnly, Sort: in.Sort, Off: in.Off,
-		Near: service.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune}, Cursor: in.Cursor, Limit: in.Limit, Photo: in.Photo, Like: in.Like,
+		Near: service.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune}, Cursor: in.Cursor, Limit: in.Limit, Photo: in.Photo, Like: in.Like, Watch: in.Watch,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

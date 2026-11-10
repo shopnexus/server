@@ -153,6 +153,14 @@ paths:
     $ref: "paths/discovery.yaml#/searchHistory"
   /v1/search/history/{id}:
     $ref: "paths/discovery.yaml#/searchHistoryItem"
+  /v1/search/watches:
+    $ref: "paths/discovery.yaml#/searchWatches"
+  /v1/search/watches/{id}:
+    $ref: "paths/discovery.yaml#/searchWatch"
+  /v1/search/watches/{id}/mute:
+    $ref: "paths/discovery.yaml#/searchWatchMute"
+  /v1/search/watches/{id}/unmute:
+    $ref: "paths/discovery.yaml#/searchWatchUnmute"
   /v1/saved:
     $ref: "paths/discovery.yaml#/saved"
   /v1/saved/{listing_id}:

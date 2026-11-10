@@ -120,6 +120,10 @@ SearchView:
       type: array
       items:
         $ref: "#/Chip"
+    watch_id:
+      type: string
+      format: uuid
+      description: The caller's watch of this query; absent signed out or when there is none.
     counts:
       type: array
       description: With a root category filter, the matches per subcategory.
@@ -178,3 +182,110 @@ PriceCutAlerts:
   properties:
     "on":
       type: boolean
+SearchWatchInput:
+  type: object
+  additionalProperties: false
+  required: [q]
+  properties:
+    q:
+      type: string
+      minLength: 1
+      maxLength: 200
+      pattern: '\S'
+    category:
+      type: string
+      description: A root or subcategory code from GET /v1/categories.
+    price_min:
+      type: integer
+      format: int64
+      minimum: 0
+    price_max:
+      type: integer
+      format: int64
+      minimum: 0
+    condition:
+      type: array
+      items:
+        $ref: "catalog.yaml#/Condition"
+    offers_only:
+      type: boolean
+    near_commune:
+      type: string
+    near_lat:
+      type: number
+      minimum: -90
+      maximum: 90
+      description: With near_lng; turned into its nearest commune and not kept.
+    near_lng:
+      type: number
+      minimum: -180
+      maximum: 180
+    radius_km:
+      type: integer
+      minimum: 1
+      maximum: 200
+      description: Needs a place.
+SearchWatchFilters:
+  type: object
+  additionalProperties: false
+  properties:
+    category:
+      type: string
+    price_min:
+      type: integer
+      format: int64
+    price_max:
+      type: integer
+      format: int64
+    conditions:
+      type: array
+      items:
+        $ref: "catalog.yaml#/Condition"
+    offers_only:
+      type: boolean
+SearchWatch:
+  type: object
+  additionalProperties: false
+  required: [id, query, filters, new_count, alert, created_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    query:
+      type: string
+      description: The words as the caller typed them, trimmed.
+    filters:
+      $ref: "#/SearchWatchFilters"
+    area:
+      type: object
+      additionalProperties: false
+      required: [commune_code, name]
+      description: The commune the watch searches from; absent without a place.
+      properties:
+        commune_code:
+          type: string
+        name:
+          type: string
+    radius_km:
+      type: integer
+    new_count:
+      type: integer
+      minimum: 0
+      maximum: 99
+      description: New listings since the caller last opened the watch; 99 means 99 or more.
+    alert:
+      type: boolean
+      description: False when muted.
+    created_at:
+      type: string
+      format: date-time
+SearchWatchList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      maxItems: 20
+      items:
+        $ref: "#/SearchWatch"
