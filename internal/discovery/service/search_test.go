@@ -176,24 +176,41 @@ func TestSearchPagesCountsAndSaves(t *testing.T) {
 	}
 }
 
-func TestNearby(t *testing.T) {
+func TestSearchNearby(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
 	far := e.put(t, "Bàn gỗ", "furniture.table", catalogdomain.Point{Lat: 21.20, Lng: 105.82})
 	closeBy := e.put(t, "Ghế gỗ", "furniture.table", baDinh)
-	if _, err := e.discovery.Nearby(ctx, nil, service.Near{}, "", 0); !errors.Is(err, domain.ErrPositionRequired) {
+	e.put(t, "Bàn xa", "furniture.table", catalogdomain.Point{Lat: 10.78, Lng: 106.70})
+	nearby := func(in service.SearchInput) (service.SearchView, error) {
+		in.Sort = service.SortNearby
+		return e.discovery.Search(ctx, nil, in)
+	}
+	if _, err := nearby(service.SearchInput{}); !errors.Is(err, domain.ErrPositionRequired) {
 		t.Fatalf("no position: %v", err)
 	}
-	v, err := e.discovery.Nearby(ctx, nil, service.Near{Lat: baDinh.Lat, Lng: baDinh.Lng}, "", 0)
+	if _, err := nearby(service.SearchInput{Query: "ghế", Near: service.Near{Commune: "00004"}}); !errors.Is(err, domain.ErrSearchConflict) {
+		t.Fatalf("with q: %v", err)
+	}
+	if _, err := nearby(service.SearchInput{Like: closeBy, Near: service.Near{Commune: "00004"}}); !errors.Is(err, domain.ErrSearchConflict) {
+		t.Fatalf("with like: %v", err)
+	}
+	v, err := nearby(service.SearchInput{Near: service.Near{Lat: baDinh.Lat, Lng: baDinh.Lng}})
 	if err != nil || len(v.Items) != 2 || v.Items[0].ID != closeBy || v.Items[1].ID != far || *v.Items[1].DistanceKm != 18 {
 		t.Fatalf("%+v %v", v, err)
 	}
 	if !strings.Contains(v.Items[0].Commune, "Ba Đình") && v.Items[0].Commune == "" {
 		t.Fatalf("commune: %+v", v.Items[0])
 	}
-	if v, err = e.discovery.Nearby(ctx, nil, service.Near{Commune: "00004"}, "", 0); err != nil || len(v.Items) != 2 || v.Items[0].ID != closeBy {
+	if v, err = nearby(service.SearchInput{Near: service.Near{Commune: "00004"}}); err != nil || len(v.Items) != 2 || v.Items[0].ID != closeBy {
 		t.Fatalf("from a commune: %+v %v", v, err)
+	}
+	if v, err = nearby(service.SearchInput{Near: service.Near{Commune: "00004"}, Limit: 1}); err != nil || len(v.Items) != 1 || v.Items[0].ID != closeBy || v.NextCursor == "" {
+		t.Fatalf("page 1: %+v %v", v, err)
+	}
+	if v, err = nearby(service.SearchInput{Near: service.Near{Commune: "00004"}, Cursor: v.NextCursor, Limit: 1}); err != nil || len(v.Items) != 1 || v.Items[0].ID != far {
+		t.Fatalf("page 2: %+v %v", v, err)
 	}
 }
 

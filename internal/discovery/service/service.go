@@ -1,5 +1,5 @@
 // Package service holds module discovery's use cases: a person saves
-// listings and reads them back, searches, and reads the nearby feed.
+// listings and reads them back, and searches.
 package service
 
 import (
@@ -29,8 +29,6 @@ type Service interface {
 	// Search finds active listings; viewer, nil when signed out, sees which
 	// they saved.
 	Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error)
-	// Nearby is the nearby feed around near.
-	Nearby(ctx context.Context, viewer *uuid.UUID, near Near, cursor string, limit int) (SearchView, error)
 }
 
 // Deps is what New builds Discovery from.

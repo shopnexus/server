@@ -977,8 +977,8 @@ it shows in one call. Mobile and desktop read the same views; a desktop
 page that shows two views calls both at once.
 
 - `GET /v1/screens/home` (signed in or not, with a position): the category
-  tree with each root's active listings counted, and the first page of the
-  nearby feed.
+  tree with each root's active listings counted, and the first page of
+  `GET /v1/search?sort=nearby`.
 - Screen owns no table. Each view is one method of its service that reads
   the other modules' services top to bottom; depguard forbids every other
   module to import it, so it adds no dependency between the others.
@@ -1075,6 +1075,11 @@ Search and the nearby feed (decided 2026-10-27, spec:
 - Distance and freshness score inside the index as range boxes on `lat`,
   `lng` and `published_at`. The nearby feed is the same query with no
   phrase: within 50 km, scored by the rings and freshness alone.
+- The nearby feed is `GET /v1/search?sort=nearby` (decided 2026-11-10; it
+  was `GET /v1/feed/nearby`, which ran the same query on its own path). It
+  takes the person's filters and `radius_km`, and with `q`, `photo` or
+  `like` it is `search_conflict` 400. Home's `nearby` is its first page, so
+  Home's `next_cursor` pages on through search.
 - The answer is cached in `search_understandings` by the lowercased query
   and the prompt version for 7 days; the write of a new answer deletes the
   expired rows. The table stores no account. A chip the person turns off

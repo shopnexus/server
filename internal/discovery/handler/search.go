@@ -9,20 +9,12 @@ import (
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
 
-// nearRequest is where the caller searches from. It reaches the service and
-// no log.
-type nearRequest struct {
+// searchRequest is a search as the query string gives it. The position
+// reaches the service and no log.
+type searchRequest struct {
 	NearLat     float64 `json:"-" query:"near_lat"`
 	NearLng     float64 `json:"-" query:"near_lng"`
 	NearCommune string  `json:"-" query:"near_commune"`
-}
-
-func (n nearRequest) near() service.Near {
-	return service.Near{Lat: n.NearLat, Lng: n.NearLng, Commune: n.NearCommune}
-}
-
-type searchRequest struct {
-	nearRequest
 
 	Query      string                    `json:"-" query:"q"`
 	Category   string                    `json:"-" query:"category"`
@@ -39,13 +31,6 @@ type searchRequest struct {
 	Like       uuid.UUID                 `json:"-" query:"like"`
 }
 
-type nearbyRequest struct {
-	nearRequest
-
-	Cursor string `json:"-" query:"cursor"`
-	Limit  int    `json:"-" query:"limit"`
-}
-
 // Search serves GET /v1/search, signed in or not.
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	var in searchRequest
@@ -56,23 +41,8 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	out, err := h.svc.Search(r.Context(), httpx.Viewer(r), service.SearchInput{
 		Query: in.Query, Category: in.Category, PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions,
 		RadiusKm: in.RadiusKm, OffersOnly: in.OffersOnly, Sort: in.Sort, Off: in.Off,
-		Near: in.near(), Cursor: in.Cursor, Limit: in.Limit, Photo: in.Photo, Like: in.Like,
+		Near: service.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune}, Cursor: in.Cursor, Limit: in.Limit, Photo: in.Photo, Like: in.Like,
 	})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
-}
-
-// Nearby serves GET /v1/feed/nearby, signed in or not.
-func (h *Handler) Nearby(w http.ResponseWriter, r *http.Request) {
-	var in nearbyRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.Nearby(r.Context(), httpx.Viewer(r), in.near(), in.Cursor, in.Limit)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

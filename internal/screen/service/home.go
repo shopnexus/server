@@ -27,9 +27,9 @@ type HomeScreen struct {
 }
 
 // Home reads the category tree, the active listings under each root, and
-// the first page of the nearby feed around near.
+// the first page of the search sorted SortNearby around near.
 func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near discoverysvc.Near) (HomeScreen, error) {
-	nearby, err := s.discovery.Nearby(ctx, viewer, near, "", 0)
+	nearby, err := s.discovery.Search(ctx, viewer, discoverysvc.SearchInput{Near: near, Sort: discoverysvc.SortNearby})
 	if err != nil {
 		return HomeScreen{}, fmt.Errorf("read the nearby feed: %w", err)
 	}

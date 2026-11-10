@@ -2,6 +2,7 @@ screenHome:
   get:
     operationId: getHomeScreen
     summary: The Home view, the category tree with counts and the first page of the nearby feed.
+    description: nearby is the first page of GET /v1/search with sort=nearby and the same position; its next_cursor pages on there.
     tags: [screen]
     security:
       - {}

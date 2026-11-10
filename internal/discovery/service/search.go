@@ -20,10 +20,12 @@ import (
 )
 
 const (
-	// nearestRadiusKm bounds a nearest-first search that names no radius.
-	nearestRadiusKm = 50
-	// nearbyRadiusKm bounds the nearby feed.
-	nearbyRadiusKm = 50
+	// SortNearby is the nearby feed, a sort search adds to catalog's: the
+	// distance rings and freshness score the listings, with no q, photo or
+	// like.
+	SortNearby catalogdomain.SortOrder = "nearby"
+	// nearRadiusKm bounds a nearest or nearby search that names no radius.
+	nearRadiusKm = 50
 )
 
 // Near is where the person searches from: a GPS point, or a commune. It is
@@ -41,7 +43,7 @@ type SearchInput struct {
 	Conditions         []catalogdomain.Condition
 	RadiusKm           int
 	OffersOnly         bool
-	Sort               catalogdomain.SortOrder // empty picks relevance with a query, newest without
+	Sort               catalogdomain.SortOrder // empty picks relevance with a query, newest without; or SortNearby
 	Off                []string
 	Near               Near
 	Cursor             string
@@ -57,7 +59,7 @@ type SearchItem struct {
 	Saved bool `json:"saved"`
 }
 
-// SearchView is a page of a search or of the nearby feed.
+// SearchView is a page of a search.
 type SearchView struct {
 	Items      []SearchItem                  `json:"items"`
 	NextCursor string                        `json:"next_cursor,omitempty"`
@@ -70,13 +72,17 @@ type SearchView struct {
 // same query within domain.CacheTTL, and searches catalog with the person's
 // filters and the boosts the model's answer resolves to. With vectors it
 // fuses BM25, the query's text vector and its visual description by RRF;
-// photo searches by a photo of the viewer's alone, and like by a listing. A
-// model that errs or takes longer than the timeout leaves out the lists it
-// feeds: q then searches its raw words.
+// photo searches by a photo of the viewer's alone, and like by a listing.
+// SortNearby browses by distance and age. A model that errs or takes longer
+// than the timeout leaves out the lists it feeds: q then searches its raw
+// words.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
 	q := strings.TrimSpace(in.Query)
 	photo, like := in.Photo != uuid.Nil(), in.Like != uuid.Nil()
 	if photo && (q != "" || like) {
+		return SearchView{}, domain.ErrSearchConflict
+	}
+	if in.Sort == SortNearby && (q != "" || photo || like) {
 		return SearchView{}, domain.ErrSearchConflict
 	}
 	if photo && viewer == nil {
@@ -100,12 +106,13 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			sort = catalogdomain.SortRelevance
 		}
 	}
+	near := sort == catalogdomain.SortNearest || sort == SortNearby
 	radius := in.RadiusKm
-	if (sort == catalogdomain.SortNearest || radius > 0) && origin == nil {
+	if (near || radius > 0) && origin == nil {
 		return SearchView{}, domain.ErrPositionRequired
 	}
-	if sort == catalogdomain.SortNearest && radius == 0 {
-		radius = nearestRadiusKm
+	if near && radius == 0 {
+		radius = nearRadiusKm
 	}
 	filters := catalogdomain.Filters{
 		PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions, OffersOnly: in.OffersOnly,
@@ -117,6 +124,9 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		filters.CategoryRoot = in.Category
 	}
 	search := catalogdomain.Search{Filters: filters, Sort: sort, Offset: offset, Limit: limit + 1}
+	if sort == SortNearby {
+		search.Sort, search.Boosts = catalogdomain.SortRelevance, domain.NearbyBoosts(*origin, d.now())
+	}
 	search.Vectors.TextMin, search.Vectors.PhotoMin = d.textMin, d.photoMin
 	var view SearchView
 
@@ -281,36 +291,6 @@ func (d *Discovery) queryVector(ctx context.Context, m embed.Model, version, tex
 		d.log.WarnContext(ctx, "cache the query vector", "err", err)
 	}
 	return vs[0]
-}
-
-// Nearby reads the nearby feed: active listings within nearbyRadiusKm,
-// scored by distance and age alone.
-func (d *Discovery) Nearby(ctx context.Context, viewer *uuid.UUID, near Near, cursor string, limit int) (SearchView, error) {
-	origin, err := d.origin(ctx, near)
-	if err != nil {
-		return SearchView{}, err
-	}
-	if origin == nil {
-		return SearchView{}, domain.ErrPositionRequired
-	}
-	offset, limit, err := window(cursor, limit)
-	if err != nil {
-		return SearchView{}, err
-	}
-	cards, err := d.catalog.Search(ctx, catalogdomain.Search{
-		Filters: catalogdomain.Filters{Origin: origin, RadiusKm: nearbyRadiusKm},
-		Boosts:  domain.NearbyBoosts(*origin, d.now()), Sort: catalogdomain.SortRelevance,
-		Offset: offset, Limit: limit + 1,
-	})
-	if err != nil {
-		return SearchView{}, fmt.Errorf("read the nearby feed: %w", err)
-	}
-	var view SearchView
-	cards, view.NextCursor = cut(cards, offset, limit)
-	if view.Items, err = d.withSaved(ctx, viewer, cards); err != nil {
-		return SearchView{}, err
-	}
-	return view, nil
 }
 
 // origin is the point near names, or nil when it names none.

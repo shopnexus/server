@@ -1,5 +1,5 @@
-// Package discovery is how people find and keep listings: search, the
-// nearby feed, and the listings they save.
+// Package discovery is how people find and keep listings: search, with the
+// nearby feed as one of its sorts, and the listings they save.
 package discovery
 
 import (
@@ -26,7 +26,7 @@ type Settings struct {
 }
 
 // Mount registers the discovery endpoints and returns the Service screen
-// reads saves and the nearby feed through.
+// reads saves and Home's nearby feed through.
 func Mount(d module.Deps, s Settings, catalog catalogsvc.Service, media mediasvc.Service) service.Service {
 	svc := service.New(service.Deps{
 		Saves: repository.NewSaves(d.Pool), Understandings: repository.NewUnderstandings(d.Pool),

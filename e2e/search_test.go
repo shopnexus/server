@@ -126,14 +126,17 @@ func TestSearchRefusals(t *testing.T) {
 	}
 }
 
-func TestNearbyFeed(t *testing.T) {
+func TestSearchNearby(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
 	activeListing(t, seller.AccessToken, nil)
-	if res := call(t, "GET", "/v1/feed/nearby", nil); res.Status != http.StatusBadRequest || errorOf(t, res).Code != "position_required" {
+	if res := call(t, "GET", "/v1/search?sort=nearby", nil); res.Status != http.StatusBadRequest || errorOf(t, res).Code != "position_required" {
 		t.Fatalf("no position: %d %s", res.Status, res.Body)
 	}
-	res := call(t, "GET", "/v1/feed/nearby?near_commune=00004", nil)
+	if res := call(t, "GET", "/v1/search?sort=nearby&near_commune=00004&q=gh%E1%BA%BF", nil); res.Status != http.StatusBadRequest || errorOf(t, res).Code != "search_conflict" {
+		t.Fatalf("with q: %d %s", res.Status, res.Body)
+	}
+	res := call(t, "GET", "/v1/search?sort=nearby&near_commune=00004", nil)
 	v := decode[searchView](t, res)
 	if res.Status != http.StatusOK || len(v.Items) == 0 || v.Items[0].DistanceKm == nil {
 		t.Fatalf("%d %s", res.Status, res.Body)
