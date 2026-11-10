@@ -33,8 +33,12 @@ type Service interface {
 	// Send sends a message in a conversation of the sender's; a repeated
 	// idempotencyKey of the same sender sends nothing more.
 	Send(ctx context.Context, sender, conversation uuid.UUID, idempotencyKey string, in SendInput) (MessageView, error)
-	// Read moves account's read marker to message when message is newer.
+	// Read moves account's read marker to message when message is newer,
+	// and clears account's unread mark.
 	Read(ctx context.Context, account, conversation, message uuid.UUID) error
+	// MarkUnread marks a conversation of account's unread until account
+	// reads it; the read marker stays.
+	MarkUnread(ctx context.Context, account, conversation uuid.UUID) error
 	Archive(ctx context.Context, account, conversation uuid.UUID) error
 	Unarchive(ctx context.Context, account, conversation uuid.UUID) error
 	// Inbox lists account's conversations, archived or not, newest message

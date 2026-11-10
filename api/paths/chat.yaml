@@ -148,7 +148,8 @@ conversationRead:
     operationId: readConversation
     summary: Mark the conversation read up to a message.
     description: |
-      A message older than the caller's marker changes nothing.
+      A message older than the caller's marker moves nothing. Every read
+      clears the caller's unread mark (POST /v1/conversations/{id}/unread).
     tags: [chat]
     security:
       - bearerAuth: []
@@ -174,6 +175,37 @@ conversationRead:
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
         description: "No such conversation, or message in it, of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+conversationUnread:
+  post:
+    operationId: markConversationUnread
+    summary: Mark a conversation unread until the caller reads it.
+    description: |
+      The conversation counts at least 1 in the inbox row's unread and in
+      GET /v1/me/unread. POST /v1/conversations/{id}/read clears the mark.
+      The read marker, and what the other member sees as read, stay.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Marked.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such conversation of the caller's (conversation_not_found)."
         content:
           application/json:
             schema:

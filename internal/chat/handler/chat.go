@@ -122,6 +122,24 @@ func (h *Handler) Read(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// MarkUnread serves POST /v1/conversations/{id}/unread.
+func (h *Handler) MarkUnread(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in conversationRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	if err := h.svc.MarkUnread(r.Context(), p.AccountID, in.ID); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // Archive serves POST /v1/conversations/{id}/archive.
 func (h *Handler) Archive(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)

@@ -33,6 +33,7 @@ InboxItem:
       $ref: "chat.yaml#/Message"
     unread:
       type: integer
+      description: The other member's sent messages after the caller's read marker; at least 1 while the caller's unread mark is set.
     archived:
       type: boolean
     deal:

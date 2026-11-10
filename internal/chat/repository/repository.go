@@ -39,8 +39,11 @@ type Chats interface {
 	// Member returns ErrNotFound for an account outside the conversation.
 	Member(ctx context.Context, conversation, account uuid.UUID) (domain.Member, error)
 	// MarkRead moves account's marker to message when message is newer than
-	// the marker, in one conditional update; a move notifies other.
+	// the marker and clears account's unread mark, in one update; a move
+	// notifies other, a cleared mark notifies account.
 	MarkRead(ctx context.Context, conversation, account, message, other uuid.UUID) error
+	// MarkUnread sets account's unread mark; setting it notifies account.
+	MarkUnread(ctx context.Context, conversation, account uuid.UUID) error
 	// SetArchived archives the conversation for account at at, or
 	// unarchives it for nil, touching nothing else.
 	SetArchived(ctx context.Context, conversation, account uuid.UUID, at *time.Time) error
@@ -52,7 +55,7 @@ type Chats interface {
 	// below p.Before(), newest first, at most p.Fetch().
 	Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p page.Request) ([]InboxRow, error)
 	// Unread counts viewer's unread messages over unarchived conversations
-	// the inbox lists.
+	// the inbox lists, a conversation marked unread counting at least 1.
 	Unread(ctx context.Context, viewer uuid.UUID) (int, error)
 }
 

@@ -105,6 +105,8 @@ paths:
     $ref: "paths/chat.yaml#/conversationMessages"
   /v1/conversations/{id}/read:
     $ref: "paths/chat.yaml#/conversationRead"
+  /v1/conversations/{id}/unread:
+    $ref: "paths/chat.yaml#/conversationUnread"
   /v1/conversations/{id}/archive:
     $ref: "paths/chat.yaml#/conversationArchive"
   /v1/conversations/{id}/unarchive:
