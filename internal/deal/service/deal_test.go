@@ -124,8 +124,8 @@ func TestOpenRefusals(t *testing.T) {
 			t.Errorf("%s: %v", c.name, err)
 		}
 	}
-	if _, created, err := e.deals.Open(ctx, accounttest.New(t, e.db), listing); err != nil || !created {
-		t.Fatalf("an account without a phone opens a deal: %v %v", created, err)
+	if _, _, err := e.deals.Open(ctx, accounttest.New(t, e.db), listing); !errors.Is(err, accountdomain.ErrPhoneRequired) {
+		t.Fatalf("an account without a phone opens a deal: %v", err)
 	}
 	v, created, err := e.deals.Open(ctx, early, hidden)
 	if err != nil || created || v.ID != opened.ID {

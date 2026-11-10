@@ -47,11 +47,12 @@ func WithPhone(t *testing.T, db *pgxpool.Pool) uuid.UUID {
 	return a.ID()
 }
 
-// Service is the account service on db with the accounts and addresses
-// stores, as the modules that call it need.
+// Service is the account service on db with the accounts, follows,
+// addresses and credentials stores, as the modules that call it need.
 func Service(db *pgxpool.Pool) *service.Account {
 	return service.New(service.Deps{
-		Accounts: repository.NewAccounts(db), Follows: repository.NewFollows(db), Addresses: repository.NewAddresses(db), Now: time.Now,
+		Accounts: repository.NewAccounts(db), Follows: repository.NewFollows(db), Addresses: repository.NewAddresses(db),
+		Credentials: repository.NewCredentials(db), Now: time.Now,
 	})
 }
 

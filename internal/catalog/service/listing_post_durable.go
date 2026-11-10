@@ -50,8 +50,8 @@ type ListingPost struct{ flowDeps }
 
 func (s ListingPost) ServiceName() string { return s.Prefix + listingPost }
 
-// Run checks, in order, that the seller is not suspended and is under the
-// cap, then the draft. The row goes in before
+// Run checks, in order, that the seller is not suspended, has a phone and
+// is under the cap, then the draft. The row goes in before
 // the uploads are attached: a cap that a racing post filled refuses before
 // any upload is taken, and an attach that refuses deletes the row again.
 func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) {
@@ -67,6 +67,15 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	}
 	if r := status.Refusal(); r != nil {
 		return PostResult{Refused: r}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
+	}
+	hasPhone, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
+		return s.Accounts.HasPhone(rc, in.Seller)
+	})
+	if err != nil {
+		return PostResult{}, fmt.Errorf("read the seller's phone: %w", err)
+	}
+	if !hasPhone {
+		return PostResult{Refused: accountdomain.ErrPhoneRequired}, nil
 	}
 	n, err := restate.Run(ctx, func(rc restate.RunContext) (int, error) {
 		counts, stepErr := s.Listings.CountByStatus(rc, in.Seller)

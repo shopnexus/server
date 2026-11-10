@@ -43,6 +43,7 @@ func (r SendResult) Refusal() *apperr.Error { return r.Refused }
 // facts is what the read step found for a send, for the flow to decide on.
 type facts struct {
 	Status       accountdomain.Status `json:"status"`
+	HasPhone     bool                 `json:"has_phone"`
 	Listing      *catalogsvc.Summary  `json:"listing,omitempty"`
 	Conversation *domain.Conversation `json:"conversation,omitempty"`
 	Blocked      bool                 `json:"blocked"`
@@ -69,6 +70,11 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 		var stepErr error
 		if out.Status, stepErr = s.Chat.accounts.Status(rc, in.Sender); stepErr != nil {
 			return facts{}, fmt.Errorf("read account status: %w", stepErr)
+		}
+		if in.Opening {
+			if out.HasPhone, stepErr = s.Chat.accounts.HasPhone(rc, in.Sender); stepErr != nil {
+				return facts{}, fmt.Errorf("read the sender's phone: %w", stepErr)
+			}
 		}
 		if in.ListingID != nil {
 			l, ok, readErr := s.Chat.catalog.Summary(rc, *in.ListingID)
@@ -112,6 +118,8 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	switch {
 	case f.Status.Refusal() != nil:
 		refused = f.Status.Refusal()
+	case in.Opening && !f.HasPhone:
+		refused = accountdomain.ErrPhoneRequired
 	case in.Opening && f.Listing == nil:
 		refused = catalogdomain.ErrNotFound
 	case in.Opening && f.Listing.SellerID == in.Sender:

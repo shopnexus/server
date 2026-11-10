@@ -79,6 +79,10 @@ type Service interface {
 	// Followers lists the accounts that follow followed, newest follow
 	// first.
 	Followers(ctx context.Context, followed uuid.UUID, p page.Request) (page.Page[Follower], error)
+	// HasPhone reports whether the account has a phone identity. Another
+	// module that requires one answers domain.ErrPhoneRequired when it has
+	// not; a Restate step returns the bool, so the flow refuses as data.
+	HasPhone(ctx context.Context, id uuid.UUID) (bool, error)
 	// FindByPhone returns the account holding the phone number q.
 	FindByPhone(ctx context.Context, q string) (uuid.UUID, bool, error)
 	// Identities lists an account's sign-in methods.

@@ -46,3 +46,17 @@ func (s *Account) Identities(ctx context.Context, accountID uuid.UUID) ([]Identi
 	}
 	return out, nil
 }
+
+// HasPhone reports whether the account signs in with a phone number, which
+// posting, opening a deal and opening a chat need. An account without
+// credentials has none.
+func (s *Account) HasPhone(ctx context.Context, id uuid.UUID) (bool, error) {
+	cr, err := s.credentials.Get(ctx, id)
+	if errors.Is(err, repository.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("get credentials: %w", err)
+	}
+	return cr.Has(domain.KindPhone), nil
+}

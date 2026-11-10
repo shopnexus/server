@@ -30,7 +30,7 @@ listings:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
-        description: "The account is suspended (account_suspended)."
+        description: "The account is suspended (account_suspended), or has no phone to sign in with (phone_required)."
         content:
           application/json:
             schema:

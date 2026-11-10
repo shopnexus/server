@@ -13,7 +13,7 @@ import (
 )
 
 // Open returns the buyer's deal on the listing or starts one. Starting
-// needs an account that is not suspended, on someone else's active
+// needs an account that is not suspended and has a phone, on someone else's active
 // listing, with no block between the two. Two opens at once start one deal.
 func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView, bool, error) {
 	l, err := s.listing(ctx, listingID)
@@ -34,6 +34,13 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 	}
 	if r := status.Refusal(); r != nil {
 		return DealView{}, false, r
+	}
+	hasPhone, err := s.accounts.HasPhone(ctx, buyer)
+	if err != nil {
+		return DealView{}, false, fmt.Errorf("read the buyer's phone: %w", err)
+	}
+	if !hasPhone {
+		return DealView{}, false, accountdomain.ErrPhoneRequired
 	}
 	if l.SellerID == buyer {
 		return DealView{}, false, domain.ErrOwnListing

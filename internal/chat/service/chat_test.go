@@ -90,7 +90,7 @@ func TestOpenRefusals(t *testing.T) {
 			t.Errorf("%s: %v", c.name, err)
 		}
 	}
-	if _, err := e.chat.Open(ctx, accounttest.New(t, e.db), key(), service.OpenInput{ListingID: listing, Text: "Còn không?"}); err != nil {
+	if _, err := e.chat.Open(ctx, accounttest.New(t, e.db), key(), service.OpenInput{ListingID: listing, Text: "Còn không?"}); !errors.Is(err, accountdomain.ErrPhoneRequired) {
 		t.Fatalf("an account without a phone opens a chat: %v", err)
 	}
 }
@@ -249,5 +249,18 @@ func TestMarkUnread(t *testing.T) {
 	}
 	if err := e.chat.MarkUnread(ctx, buyer, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("unknown: %v", err)
+	}
+}
+
+// Only opening needs a phone: a seller without one replies in a chat a
+// buyer with a phone opened on its listing.
+func TestPhoneRequiredOnlyToOpen(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	phoneless := accounttest.New(t, e.db)
+	c := e.open(t, e.person(t), catalogtest.Listing(t, e.db, phoneless), "Còn không?")
+	if _, err := e.chat.Send(ctx, phoneless, c.ID, key(), service.SendInput{Text: "Còn bạn"}); err != nil {
+		t.Fatalf("a reply without a phone: %v", err)
 	}
 }
