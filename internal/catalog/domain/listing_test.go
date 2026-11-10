@@ -283,3 +283,35 @@ func TestListingPoint(t *testing.T) {
 		t.Fatalf("a point 52 km away: %v", err)
 	}
 }
+
+// Only the first publication is first: not one after a rejection, nor one
+// after an edit that added a photo.
+func TestPublishedTellsTheFirst(t *testing.T) {
+	t.Parallel()
+	l := newListing(t)
+	keys := func() map[uuid.UUID]domain.PhotoKeys {
+		k := map[uuid.UUID]domain.PhotoKeys{}
+		for _, id := range l.PendingUploads() {
+			k[id] = domain.PhotoKeys{Photo: "media/" + id.String() + ".jpg", Thumb: "media/" + id.String() + "_thumb.jpg"}
+		}
+		return k
+	}
+	if !l.Published(keys(), now) {
+		t.Fatal("the first publication is not first")
+	}
+	d := draft()
+	d.Photos = append(l.Uploads(), uuid.NewV7())
+	if err := l.Edit(d, known, now.Add(time.Hour)); err != nil || l.Status() != domain.StatusProcessing {
+		t.Fatalf("edit: %v %s", err, l.Status())
+	}
+	l.Rejected(map[uuid.UUID]string{d.Photos[len(d.Photos)-1]: "nsfw"}, now.Add(time.Hour))
+	if err := l.Edit(d, known, now.Add(2*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if l.Published(keys(), now.Add(2*time.Hour)) {
+		t.Fatal("a publication after a rejection is first")
+	}
+	if !l.PublishedAt().Equal(now) {
+		t.Fatalf("published_at moved: %v", l.PublishedAt())
+	}
+}

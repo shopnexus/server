@@ -274,8 +274,8 @@ func (l *Listing) Edit(d Draft, refs Refs, now time.Time) error {
 }
 
 // Published records the keys of the processed uploads and puts the listing
-// on sale.
-func (l *Listing) Published(keys map[uuid.UUID]PhotoKeys, now time.Time) {
+// on sale. It reports whether this is the listing's first publication.
+func (l *Listing) Published(keys map[uuid.UUID]PhotoKeys, now time.Time) (first bool) {
 	for i := range l.photos {
 		if k, ok := keys[l.photos[i].UploadID]; ok {
 			l.photos[i].Keys = k
@@ -284,7 +284,9 @@ func (l *Listing) Published(keys map[uuid.UUID]PhotoKeys, now time.Time) {
 	l.status, l.rejection, l.updatedAt = StatusActive, nil, now
 	if l.publishedAt == nil {
 		l.publishedAt = &now
+		return true
 	}
+	return false
 }
 
 // Rejected records why processing refused uploads; the seller edits the

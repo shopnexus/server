@@ -157,6 +157,15 @@ func TestEdit(t *testing.T) {
 	if got := pgtest.EventKinds(t, e.db, v.ID); !slices.Equal(got, want) {
 		t.Fatalf("events %v, want %v", got, want)
 	}
+	rows, err := e.db.Query(ctx, `SELECT coalesce((payload->>'first')::bool, false) FROM events
+WHERE subject_id = @id AND kind = 'listing.published' ORDER BY id`, pgx.StrictNamedArgs{"id": v.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firsts, err := pgx.CollectRows(rows, pgx.RowTo[bool])
+	if err != nil || !slices.Equal(firsts, []bool{true, false}) {
+		t.Fatalf("first flags %v %v, want [true false]", firsts, err)
+	}
 	if _, err = e.catalog.Edit(ctx, e.seller(t), v.ID, uuid.NewV7().String(), d); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another seller: %v", err)
 	}

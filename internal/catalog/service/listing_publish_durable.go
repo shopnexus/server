@@ -82,8 +82,12 @@ func (s ListingPublish) Run(ctx restate.Context, id uuid.UUID) error {
 		l.Rejected(reasons, at)
 		evs = append(evs, events.Event{ID: restatex.NewID(ctx, at), Kind: events.ListingRejected, SubjectID: id, OccurredAt: at})
 	} else {
-		l.Published(keys, at)
-		evs = append(evs, events.Event{ID: restatex.NewID(ctx, at), Kind: events.ListingPublished, SubjectID: id, OccurredAt: at})
+		ev := events.Event{ID: restatex.NewID(ctx, at), Kind: events.ListingPublished, SubjectID: id, OccurredAt: at}
+		// Followers hear of a listing once, when it first goes on sale.
+		if l.Published(keys, at) {
+			ev.Payload = map[string]any{"first": true}
+		}
+		evs = append(evs, ev)
 	}
 	w := restatex.NewID(ctx, at)
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
