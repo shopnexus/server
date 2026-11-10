@@ -186,3 +186,25 @@ func TestConversationWith(t *testing.T) {
 		t.Fatalf("no conversation: %v %v", id, err)
 	}
 }
+
+func TestGetShowsWhenTheOtherWasActive(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
+	got, err := e.chat.Get(ctx, seller, c.ID)
+	if err != nil || got.Other.LastActiveAt != nil {
+		t.Fatalf("before: %+v %v", got.Other, err)
+	}
+	if err = e.accounts.Touch(ctx, buyer); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = e.chat.Get(ctx, seller, c.ID); err != nil || got.Other.LastActiveAt == nil {
+		t.Fatalf("after: %+v %v", got.Other, err)
+	}
+	inbox, err := e.chat.Inbox(ctx, seller, false, page.Request{})
+	if err != nil || len(inbox.Items) != 1 || inbox.Items[0].Other.LastActiveAt == nil {
+		t.Fatalf("inbox: %+v %v", inbox, err)
+	}
+}

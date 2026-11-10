@@ -91,6 +91,13 @@ SellerProfile:
     on_sale:
       type: integer
       description: Listings active or reserved for an order on its way.
+    last_active_at:
+      type: string
+      format: date-time
+      description: |
+        When the person last had the app open, to the 30 seconds; absent
+        before the first time. The app shows "Đang hoạt động" under 5
+        minutes, otherwise how long ago.
 SellerViewer:
   type: object
   additionalProperties: false

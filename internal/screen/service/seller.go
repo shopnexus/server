@@ -22,14 +22,15 @@ type SellerScreen struct {
 // SellerProfile is the SellerProfile schema in
 // api/schemas/screen_listing.yaml.
 type SellerProfile struct {
-	ID          uuid.UUID       `json:"id"`
-	DisplayName string          `json:"display_name"`
-	AvatarURL   string          `json:"avatar_url,omitempty"`
-	Bio         string          `json:"bio"`
-	JoinedAt    time.Time       `json:"joined_at"`
-	Rating      trustsvc.Rating `json:"rating"`
-	Sold        int             `json:"sold"`
-	OnSale      int             `json:"on_sale"`
+	ID           uuid.UUID       `json:"id"`
+	DisplayName  string          `json:"display_name"`
+	AvatarURL    string          `json:"avatar_url,omitempty"`
+	Bio          string          `json:"bio"`
+	JoinedAt     time.Time       `json:"joined_at"`
+	LastActiveAt *time.Time      `json:"last_active_at,omitempty"`
+	Rating       trustsvc.Rating `json:"rating"`
+	Sold         int             `json:"sold"`
+	OnSale       int             `json:"on_sale"`
 }
 
 // SellerViewer is the SellerViewer schema in
@@ -67,7 +68,7 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (S
 	}
 	out := SellerScreen{
 		Seller: SellerProfile{
-			ID: id, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, Bio: seller.Bio, JoinedAt: seller.CreatedAt,
+			ID: id, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, Bio: seller.Bio, JoinedAt: seller.CreatedAt, LastActiveAt: seller.LastActiveAt,
 			Rating: rating, Sold: counts.Sold, OnSale: counts.OnSale,
 		},
 		Listings: listings, Reviews: reviews,

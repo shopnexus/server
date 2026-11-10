@@ -43,7 +43,7 @@ ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 
 // accountColumns are the columns scanAccount reads.
 const accountColumns = `id, coalesce(display_name, ''), coalesce(bio, ''), coalesce(avatar_key, ''), status, suspended_until,
-       coalesce(suspend_reason, ''), write_id, created_at, updated_at`
+       coalesce(suspend_reason, ''), write_id, created_at, updated_at, last_active_at`
 
 // scanAccount reads accountColumns.
 func scanAccount(row pgx.CollectableRow) (domain.Account, error) {
@@ -51,13 +51,13 @@ func scanAccount(row pgx.CollectableRow) (domain.Account, error) {
 		id, writeID                  uuid.UUID
 		name, bio, avatarKey, reason string
 		status                       domain.Status
-		until                        *time.Time
+		until, lastActive            *time.Time
 		createdAt, updatedAt         time.Time
 	)
-	if err := row.Scan(&id, &name, &bio, &avatarKey, &status, &until, &reason, &writeID, &createdAt, &updatedAt); err != nil {
+	if err := row.Scan(&id, &name, &bio, &avatarKey, &status, &until, &reason, &writeID, &createdAt, &updatedAt, &lastActive); err != nil {
 		return domain.Account{}, fmt.Errorf("scan account: %w", err)
 	}
-	return domain.RestoreAccount(id, name, bio, avatarKey, status, until, reason, writeID, createdAt, updatedAt), nil
+	return domain.RestoreAccount(id, name, bio, avatarKey, status, until, reason, writeID, createdAt, updatedAt, lastActive), nil
 }
 
 func (s pgAccounts) Get(ctx context.Context, id uuid.UUID) (domain.Account, error) {
@@ -173,4 +173,14 @@ WHERE blocker_id = @blocker AND id < @before ORDER BY id DESC LIMIT @limit`,
 		return nil, fmt.Errorf("read blocks: %w", err)
 	}
 	return blocks, nil
+}
+
+func (s pgAccounts) TouchActive(ctx context.Context, id uuid.UUID, at time.Time) error {
+	if _, err := s.db.Exec(ctx, `
+UPDATE accounts SET last_active_at = @at
+WHERE id = @id AND (last_active_at IS NULL OR last_active_at < @at::timestamptz - interval '30 seconds')`,
+		pgx.StrictNamedArgs{"id": id, "at": at}); err != nil {
+		return fmt.Errorf("touch account: %w", err)
+	}
+	return nil
 }

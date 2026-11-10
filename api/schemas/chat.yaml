@@ -55,6 +55,13 @@ Person:
       type: string
       format: uri
       description: A public 400 px square; absent without an avatar.
+    last_active_at:
+      type: string
+      format: date-time
+      description: |
+        When the person last had the app open, to the 30 seconds; absent
+        before the first time. The app shows "Đang hoạt động" under 5
+        minutes, otherwise how long ago.
 MessagePhoto:
   type: object
   additionalProperties: false

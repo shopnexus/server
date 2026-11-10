@@ -286,3 +286,33 @@ func TestBlocks(t *testing.T) {
 		t.Fatal("still blocked")
 	}
 }
+
+func TestTouchActive(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+	ctx := context.Background()
+	id := seed(t, s)
+	before, err := s.Get(ctx, id)
+	if err != nil || before.LastActiveAt() != nil {
+		t.Fatalf("%v %v", before.LastActiveAt(), err)
+	}
+	at := now.Add(time.Hour)
+	for _, c := range []struct {
+		touch, want time.Time
+	}{
+		{at, at},
+		{at.Add(10 * time.Second), at}, // under 30 s later: not written
+		{at.Add(31 * time.Second), at.Add(31 * time.Second)},
+	} {
+		if err = s.TouchActive(ctx, id, c.touch); err != nil {
+			t.Fatal(err)
+		}
+		a, getErr := s.Get(ctx, id)
+		if getErr != nil || a.LastActiveAt() == nil || !a.LastActiveAt().Equal(c.want) {
+			t.Fatalf("touch %s: %v %v", c.touch, a.LastActiveAt(), getErr)
+		}
+		if a.WriteID() != before.WriteID() {
+			t.Fatal("TouchActive changed write_id")
+		}
+	}
+}

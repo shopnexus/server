@@ -23,9 +23,10 @@ type SendInput struct {
 
 // PersonView is the other member of a conversation.
 type PersonView struct {
-	ID          uuid.UUID `json:"id"`
-	DisplayName string    `json:"display_name"`
-	AvatarURL   string    `json:"avatar_url,omitempty"`
+	ID           uuid.UUID  `json:"id"`
+	DisplayName  string     `json:"display_name"`
+	AvatarURL    string     `json:"avatar_url,omitempty"`
+	LastActiveAt *time.Time `json:"last_active_at,omitempty"`
 }
 
 // PhotoView is a photo of a message; the URLs are set once it is processed.
