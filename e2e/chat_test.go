@@ -50,13 +50,11 @@ func TestChat(t *testing.T) {
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
 	l := activeListing(t, seller.AccessToken, nil)
-	events := openStream(t, seller.AccessToken)
 
 	c := openChat(t, buyer.AccessToken, l.ID, "Còn không bạn?")
 	if c.Other.ID != seller.Account.ID {
 		t.Fatalf("%+v", c)
 	}
-	waitEvent(t, events, "message", c.ID)
 
 	reply := sendChat(t, seller.AccessToken, c.ID, map[string]any{"text": "Còn bạn ơi"})
 	if inbox := inboxView(t, buyer.AccessToken, ""); len(inbox.Items) != 1 || inbox.Items[0].Unread != 1 || inbox.Unread != 1 {

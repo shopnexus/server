@@ -91,8 +91,6 @@ paths:
     $ref: "paths/notification.yaml#/read"
   /v1/me/push-token:
     $ref: "paths/notification.yaml#/pushToken"
-  /v1/stream:
-    $ref: "paths/stream.yaml#/stream"
   /v1/conversations:
     $ref: "paths/chat.yaml#/conversations"
   /v1/conversations/{id}/messages:
