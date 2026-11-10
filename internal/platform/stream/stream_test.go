@@ -37,31 +37,6 @@ func running(t *testing.T, db *pgxpool.Pool) *stream.Hub {
 	return h
 }
 
-func notify(t *testing.T, db *pgxpool.Pool, accounts []uuid.UUID, h stream.Hint, commit bool) {
-	t.Helper()
-	ctx := context.Background()
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = stream.Notify(ctx, tx, accounts, h); err != nil {
-		t.Fatal(err)
-	}
-	if commit {
-		err = tx.Commit(ctx)
-	} else {
-		err = tx.Rollback(ctx)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func dealHint() stream.Hint {
-	id := uuid.NewV7()
-	return stream.Hint{Kind: stream.KindDeal, DealID: &id}
-}
-
 // receive notifies until a hint arrives on ch: the hub listens only some
 // time after it starts.
 func receive(t *testing.T, db *pgxpool.Pool, ch <-chan stream.Hint, accounts []uuid.UUID, h stream.Hint) stream.Hint {
