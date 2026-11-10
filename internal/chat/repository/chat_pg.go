@@ -321,7 +321,11 @@ ORDER BY m.id DESC LIMIT @limit`, pgx.StrictNamedArgs{
 const listed = `
 cm.account_id = @viewer AND c.last_message_id IS NOT NULL
   AND @archived = (cm.archived_at IS NOT NULL)
-  AND NOT EXISTS (
+  AND ` + notBlocked
+
+// notBlocked holds for a conversation c of the viewer's when the viewer
+// does not block its other member.
+const notBlocked = `NOT EXISTS (
       SELECT 1 FROM account_blocks b
       WHERE b.blocker_id = @viewer
         AND b.blocked_id = CASE WHEN c.account_a = @viewer THEN c.account_b ELSE c.account_a END
@@ -378,7 +382,7 @@ func (s pgChats) Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p p
 			&r.Conversation.CreatedAt, &r.Unread)...); scanErr != nil {
 			return InboxRow{}, fmt.Errorf("scan inbox row: %w", scanErr)
 		}
-		r.Other = r.Conversation.Other(viewer)
+		r.Other, r.Archived = r.Conversation.Other(viewer), archived
 		last, msgErr := m.message()
 		r.Last = last
 		return r, msgErr

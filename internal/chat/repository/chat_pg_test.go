@@ -301,3 +301,14 @@ func TestMarkUnread(t *testing.T) {
 		t.Fatalf("a read that changes nothing tells nobody: %v", got)
 	}
 }
+
+// pairWith opens the conversation of viewer and a new account.
+func pairWith(t *testing.T, db *pgxpool.Pool, s repository.Chats, viewer uuid.UUID) (domain.Conversation, uuid.UUID) {
+	t.Helper()
+	other := accounttest.New(t, db)
+	c, err := s.OpenPair(context.Background(), domain.NewConversation(uuid.NewV7(), viewer, other, time.Now()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c, other
+}

@@ -15,6 +15,8 @@ import (
 const (
 	MaxText   = 1000
 	MaxPhotos = 4
+	// MaxQuery caps an inbox search, counted after trimming.
+	MaxQuery = 100
 )
 
 type MessageStatus string

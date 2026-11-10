@@ -59,6 +59,10 @@ type Service interface {
 	MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bool, error)
 	// Unread counts account's unread messages over unarchived conversations.
 	Unread(ctx context.Context, account uuid.UUID) (int, error)
+	// Search finds account's conversations by the other member's name or a
+	// listing's title, on the first page only, and a page of their messages
+	// by text; archived conversations are searched too.
+	Search(ctx context.Context, account uuid.UUID, q string, p page.Request) (SearchResult, error)
 }
 
 // Deps is what New builds Chat from.
