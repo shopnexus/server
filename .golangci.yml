@@ -933,6 +933,8 @@ linters:
               desc: domain imports no layer above it.
             - pkg: github.com/shopnexus/server2/internal/account/service
               desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/assist/service
+              desc: domain imports no layer above it.
             - pkg: github.com/shopnexus/server2/internal/catalog/service
               desc: domain imports no layer above it.
             - pkg: github.com/shopnexus/server2/internal/chat/service
@@ -992,6 +994,8 @@ linters:
             - "**/internal/*/repository/**"
           deny:
             - pkg: github.com/shopnexus/server2/internal/account/service
+              desc: repository imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/assist/service
               desc: repository imports no layer above it.
             - pkg: github.com/shopnexus/server2/internal/catalog/service
               desc: repository imports no layer above it.

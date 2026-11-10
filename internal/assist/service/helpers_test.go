@@ -1,0 +1,238 @@
+package service_test
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log/slog"
+	"slices"
+	"sync"
+	"testing"
+	"time"
+	"uuid"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/restatedev/sdk-go/ingress"
+
+	"github.com/shopnexus/server2/internal/account/accounttest"
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	"github.com/shopnexus/server2/internal/assist/domain"
+	"github.com/shopnexus/server2/internal/assist/repository"
+	"github.com/shopnexus/server2/internal/assist/service"
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	mediadomain "github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server2/internal/media/mediatest"
+	mediarepo "github.com/shopnexus/server2/internal/media/repository"
+	mediasvc "github.com/shopnexus/server2/internal/media/service"
+	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server2/internal/platform/testenv"
+	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
+	"github.com/shopnexus/server2/internal/provider/frames"
+	"github.com/shopnexus/server2/internal/provider/llm"
+)
+
+// transcript is what the fake STT hears in a seller's video.
+const transcript = "mình bán xe đạp asama giá một triệu hai có thương lượng"
+
+type env struct {
+	db       *pgxpool.Pool
+	accounts accountsvc.Service
+	media    *mediasvc.Media
+	assist   *service.Assist
+	reads    repository.VideoReads
+	clock    *restatetest.Clock
+	ingress  *ingress.Client
+	prefix   string
+	cut      *fakeCutter
+	stt      *fakeSTT
+	model    *fakeModel
+	deps     service.Deps
+}
+
+// newEnv serves modules media, catalog and assist on the test stack, with
+// fakes for ai's frames, STT and the model, and a hand-moved clock. Each
+// option changes the fakes or the dependencies before assist is built.
+func newEnv(t *testing.T, opts ...func(*env)) env {
+	t.Helper()
+	db := pgtest.New(t)
+	in, p := restatetest.Ingress(t), restatetest.Prefix()
+	accounts := accounttest.Service(db)
+	m := mediatest.Service(db, objectstoretest.New(t), in, p)
+	c := catalogtest.Service(db, accounts, m, in, p)
+	e := env{
+		db: db, accounts: accounts, media: m, reads: repository.NewVideoReads(db),
+		clock: restatetest.NewClock(time.Now()), ingress: in, prefix: p,
+		cut:   &fakeCutter{frames: 3, jpeg: mediatest.JPEG(t, 96, 64)},
+		stt:   &fakeSTT{text: transcript},
+		model: &fakeModel{answer: bicycle()},
+	}
+	e.deps = service.Deps{
+		Reads: e.reads, Accounts: accounts, Media: m, Catalog: c,
+		Frames: e.cut, STT: e.stt, Model: e.model,
+		Text: embedtest.New(catalogdomain.TextDims), Image: embedtest.New(catalogdomain.PhotoDims),
+		TextMin: 0.5, PhotoMin: 0.5, CallTimeout: 5 * time.Second,
+		Log: slog.New(slog.DiscardHandler), Ingress: in, Prefix: p, Now: e.clock.Now,
+	}
+	for _, o := range opts {
+		o(&e)
+	}
+	e.assist = service.New(e.deps)
+	restatetest.Start(t, slices.Concat(m.Durable(), c.Durable(), e.assist.Durable())...)
+	return e
+}
+
+// video uploads a short mp4 for owner and returns its upload ID.
+func (e env) video(t *testing.T, owner uuid.UUID) uuid.UUID {
+	t.Helper()
+	return mediatest.Upload(t, e.media, owner, "video/mp4", []byte("a phone video of a bicycle"))
+}
+
+// start starts a read of a fresh video of owner's.
+func (e env) start(t *testing.T, owner uuid.UUID) service.VideoReadView {
+	t.Helper()
+	v, err := e.assist.StartRead(context.Background(), owner, uuid.NewV7().String(), e.video(t, owner))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+// end waits until the read leaves reading and returns it.
+func (e env) end(t *testing.T, owner, id uuid.UUID) service.VideoReadView {
+	t.Helper()
+	var v service.VideoReadView
+	testenv.Eventually(t, 30*time.Second, func() error {
+		var err error
+		if v, err = e.assist.GetRead(context.Background(), owner, id); err != nil {
+			t.Fatal(err)
+		}
+		if v.Status == domain.StatusReading {
+			return fmt.Errorf("read %s still reading", id)
+		}
+		return nil
+	})
+	return v
+}
+
+// updates counts the video_read updates of the read in owner's log.
+func (e env) updates(t *testing.T, owner, id uuid.UUID) int {
+	t.Helper()
+	var n int
+	if err := e.db.QueryRow(context.Background(), `SELECT count(*) FROM account_updates
+WHERE account_id = @account AND kind = 'video_read' AND video_read_id = @read`,
+		pgx.StrictNamedArgs{"account": owner, "read": id}).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// videoOf is the upload the read started from.
+func (e env) videoOf(t *testing.T, id uuid.UUID) mediadomain.Status {
+	t.Helper()
+	r, err := e.reads.Get(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, err := mediarepo.NewUploads(e.db).Get(context.Background(), r.VideoID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u.Status()
+}
+
+// fakeCutter answers as ai's frames endpoint: frames copies of jpeg with
+// rising sharpness, or err. onCall runs before each answer.
+type fakeCutter struct {
+	mu     sync.Mutex
+	frames int
+	jpeg   []byte
+	err    error
+	onCall func()
+}
+
+func (f *fakeCutter) Extract(_ context.Context, video io.Reader, _ int64) (frames.Result, error) {
+	if _, err := io.Copy(io.Discard, video); err != nil {
+		return frames.Result{}, err
+	}
+	f.mu.Lock()
+	n, jpeg, err, onCall := f.frames, f.jpeg, f.err, f.onCall
+	f.mu.Unlock()
+	if onCall != nil {
+		onCall()
+	}
+	if err != nil {
+		return frames.Result{}, err
+	}
+	res := frames.Result{Duration: 12}
+	for i := range n {
+		res.Frames = append(res.Frames, frames.Frame{AtSeconds: float64(i) * 1.5, Sharpness: float64(100 + i), JPEG: jpeg})
+	}
+	return res, nil
+}
+
+// fakeSTT hears text, or fails with err.
+type fakeSTT struct {
+	mu   sync.Mutex
+	text string
+	err  error
+}
+
+func (f *fakeSTT) Transcribe(_ context.Context, audio io.Reader, _ int64) (string, error) {
+	if _, err := io.Copy(io.Discard, audio); err != nil {
+		return "", err
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.text, f.err
+}
+
+// fakeModel answers every request with answer, or fails with err, and
+// keeps what it was asked.
+type fakeModel struct {
+	mu     sync.Mutex
+	answer domain.Answer
+	err    error
+	calls  int
+	images int
+	user   string
+}
+
+func (m *fakeModel) Complete(_ context.Context, r llm.Request, out any) error {
+	m.mu.Lock()
+	m.calls++
+	m.images, m.user = len(r.Images), r.User
+	answer, err := m.answer, m.err
+	m.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	b, err := json.Marshal(answer)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, out)
+}
+
+func (m *fakeModel) asked() (calls, images int, user string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.calls, m.images, m.user
+}
+
+// bicycle is the model's answer for the seller's bicycle: frames 2 and 0
+// kept, the price spoken, a range of its own.
+func bicycle() domain.Answer {
+	price := int64(1_200_000)
+	return domain.Answer{
+		IsItem: true, Title: "Xe đạp Asama xanh", CategoryCode: "vehicles.bicycle", Condition: "used",
+		Specs:       []catalogdomain.Spec{{Label: "Màu", Value: "Xanh"}},
+		Description: "Xe đi ít, giá một triệu hai, có thương lượng.",
+		SpokenPrice: &price, Negotiable: true, Kept: []int{2, 0},
+		Estimate: &domain.Range{Low: 1_000_000, Median: 1_200_000, High: 1_400_000},
+	}
+}
