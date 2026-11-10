@@ -31,8 +31,10 @@ type Settings struct {
 }
 
 // Mount registers the discovery endpoints, subscribes the account watch to
-// account.deleted, and returns discovery's Restate services and the
-// Service screen reads saves and Home's nearby feed through.
+// account.deleted and the listing watch to listing.published and
+// listing.updated, and returns discovery's Restate services, the sweep of
+// the search watches among them, and the Service screen reads saves and
+// Home's nearby feed through.
 func Mount(
 	d module.Deps, s Settings, catalog catalogsvc.Service, media mediasvc.Service, accounts accountsvc.Service,
 ) module.Mounted[service.Service] {
@@ -49,5 +51,12 @@ func Mount(
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Discovery: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
-	return module.Mounted[service.Service]{Services: []restate.ServiceDefinition{restate.Reflect(watch)}, Service: svc}
+	listings := worker.ListingWatch{Prefix: d.ServicePrefix, Discovery: svc}
+	d.Events.Subscribe(events.ListingPublished, listings.ServiceName(), "Published")
+	d.Events.Subscribe(events.ListingUpdated, listings.ServiceName(), "Updated")
+	sweep := worker.SearchWatchSweep{Prefix: d.ServicePrefix, Discovery: svc, Every: domain.SweepEvery}
+	return module.Mounted[service.Service]{
+		Services: []restate.ServiceDefinition{restate.Reflect(watch), restate.Reflect(listings), restate.Reflect(sweep)},
+		Service:  svc,
+	}
 }
