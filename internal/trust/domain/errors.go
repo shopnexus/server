@@ -8,4 +8,8 @@ var (
 	ErrNotFound      = apperr.New(apperr.KindNotFound, "review_not_found", "no review of this order")
 	ErrOrderNotFound = apperr.New(apperr.KindNotFound, "order_not_found", "no such order of the caller's")
 	ErrNotShipped    = apperr.New(apperr.KindConflict, "order_not_shipped", "an order is reviewed once it is shipped")
+
+	ErrInvalidReport  = apperr.New(apperr.KindInvalid, "invalid_report", "the report breaks a rule; see fields")
+	ErrSelfReport     = apperr.New(apperr.KindInvalid, "self_report", "nobody reports themselves or their own listing")
+	ErrReportNotFound = apperr.New(apperr.KindNotFound, "report_not_found", "no such report of the caller's")
 )

@@ -1,5 +1,6 @@
-// Package domain holds module trust's entities: for now the review a buyer
-// gives the seller of a shipped order.
+// Package domain holds module trust's entities: the review a buyer gives
+// the seller of a shipped order, and the reports people make of listings
+// and accounts.
 package domain
 
 import (
