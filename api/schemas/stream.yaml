@@ -1,0 +1,45 @@
+Update:
+  type: object
+  additionalProperties: false
+  required: [seq, kind]
+  description: A change for the caller, in their update log; IDs only.
+  properties:
+    seq:
+      type: integer
+      format: int64
+      minimum: 1
+    kind:
+      type: string
+      enum: [message, read, deal, notification]
+    conversation_id:
+      type: string
+      format: uuid
+    message_id:
+      type: string
+      format: uuid
+    deal_id:
+      type: string
+      format: uuid
+    notification_id:
+      type: string
+      format: uuid
+UpdatePage:
+  type: object
+  additionalProperties: false
+  required: [updates, seq, reset, has_more]
+  properties:
+    updates:
+      type: array
+      maxItems: 500
+      items:
+        $ref: "#/Update"
+    seq:
+      type: integer
+      format: int64
+      minimum: 0
+      description: The caller's current seq.
+    reset:
+      type: boolean
+    has_more:
+      type: boolean
+      description: More updates follow the last one; ask again from its seq.

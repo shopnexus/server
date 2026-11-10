@@ -141,7 +141,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	})
 	in := ingress.NewClient(cfg.Restate.IngressURL)
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	defs, err := mountModules(a.router, pool, in, bus, cfg, o.hasher, sender, log)
+	defs, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, log)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 // mountModules mounts every module and returns their Restate services. A
 // module mounts after the modules whose services it takes; account's guards
 // come first because they need only the auth keys.
-func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus,
+func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub,
 	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, log *slog.Logger,
 ) ([]restate.ServiceDefinition, error) {
 	d := module.Deps{
@@ -233,6 +233,12 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, catalogm.Service, mediam.Service)
 	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
+	updates := stream.PGLog{DB: pool}
+	router.Handle("GET /v1/ws", d.Protect(stream.Socket{
+		Hub: hub, Updates: updates, Access: socketAccess{accounts: accounts, chats: chatm.Service},
+		Verify: account.TokenVerifier(cfg.Auth), Now: time.Now, Log: log,
+	}))
+	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
 		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm, discoverym, chatm.Service, notificationm.Service)

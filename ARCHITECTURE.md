@@ -898,30 +898,64 @@ Orders, cash on delivery, live in module `deal` (spec:
 
 ### Stream
 
-`GET /v1/stream` tells an open app what changed for the caller, as
-server-sent events (decided 2026-10-26).
+`GET /v1/ws` tells an open app what changed for the caller, over a
+WebSocket (decided 2026-11-10; it replaced the server-sent events of
+2026-10-26, which lost every hint sent across a gap and made the app reload
+everything after each reconnect and deploy).
 
-- An event carries IDs only: `message {conversation_id, message_id}`,
-  `read {conversation_id}`, `deal {deal_id}`, after `ready` on connect. The
-  app reloads what it shows, and reloads everything after a reconnect, so
-  nothing is stored for replay and the stream needs no `Last-Event-ID`.
-- A repository calls `stream.Notify(ctx, tx, accounts, hint)` in the
-  transaction of the change. It runs `pg_notify('stream', …)`, which
-  Postgres delivers on commit and drops on rollback, so every instance
-  hears every hint. The deal repository notifies the buyer and the seller
-  on each save; the chat repository notifies the members a message is
-  visible to, and the other member on a read.
-- `stream.Hub` listens on channel `stream` on a connection of its own, as
-  the events bus does, and hands each hint to the open streams of its
-  accounts, 16 waiting at most per stream; more are dropped. App runs it
-  beside the bus and stops both on close.
-- The handler clears its request's write deadline through
-  `http.ResponseController`, since the server's `WriteTimeout` of 30
-  seconds would end the stream, and writes a comment every 25 seconds.
-- `http.Server.Shutdown` waits for every request, and a stream never ends
+- Each account has an update log, `account_updates`, with a `seq` that
+  runs 1, 2, 3 with no hole. A repository calls `stream.Notify(ctx, tx,
+  accounts, hint)` in the transaction of the change: for each account, in
+  UUID order so two transactions cannot deadlock, it bumps the counter in
+  `account_update_seqs` and inserts the update. The counter row stays
+  locked until commit and rolls back with the transaction, so a rollback
+  leaves no hole and seqs become visible in order: a reader of `seq >
+  since` never skips one that is still committing. The deal repository
+  notifies the buyer and the seller on each save; the chat repository the
+  members a message is visible to, and the other member on a read; the
+  notification repository the recipient.
+- An update carries IDs only (`message`, `read`, `deal`, `notification`);
+  the app reloads what it shows.
+- `Notify` then rings a `Bell`. `PGBell` runs `pg_notify('stream', …)` in
+  the same transaction, which Postgres delivers on commit to every
+  instance. The log is the truth and the ring only says something new is
+  there, so a Valkey or NATS bell can replace `PGBell` without touching the
+  log, the protocol or the hub.
+- `stream.Hub` listens through the bell on a connection of its own and
+  queues each ring for the connections of its accounts, 16 at most. A full
+  queue, or a `LISTEN` connection opened again after a loss, marks a
+  connection behind, and the connection reads the log from the last seq it
+  sent. The hub prunes updates older than 30 days every hour, 10,000 at a
+  time; `account_update_seqs` is never pruned.
+- On connect, `GET /v1/ws?since=` sends the log after `since` in pages of
+  500, or `reset` with the current seq when the log no longer holds what
+  follows `since` or `since` is ahead of it, then `ready`. Without `since`
+  it starts at the current seq. `GET /v1/updates?since=` reads the same log
+  over REST for an app with no socket open.
+- Typing comes up the socket, at most once per 3 seconds per connection and
+  conversation. The connection asks chat's `Peer` (member, no block,
+  cached 30 seconds) and rings the other member through the bell outside
+  any transaction, with no update in the log. A refused frame is dropped
+  in silence, so typing does not reveal a block.
+- The access token lives 15 minutes. The connection closes with 4001 at
+  the token's expiry unless the app sends `{"type":"auth","token":…}` with
+  a newer one of the same account; a suspended account closes with 4003 at
+  connect and at each `auth`. A frame that is not JSON text closes with
+  1008; one over 4 KB with 1009, which the WebSocket library sends itself.
+  The server pings every 25 seconds and closes when a pong takes 10.
+- The handler clears its request's read and write deadlines through
+  `http.ResponseController` before the upgrade, since the server's
+  timeouts would end the connection.
+- `http.Server.Shutdown` waits for every request, and a socket never ends
   on its own, so the server registers `App.CloseStreams` with
-  `RegisterOnShutdown`. `Hub.Close` closes every subscriber's channel, the
-  handlers return, and the apps reconnect to another instance and reload.
+  `RegisterOnShutdown`. `Hub.Close` makes every connection close with 1001,
+  and the apps reconnect to another instance with their seq and lose
+  nothing.
+- `accounts.last_active_at` is written by the socket at connect, at close
+  and every minute, and not when it is under 30 seconds old; it leaves
+  `write_id` alone. The chat views and the seller page show it.
+- `platform/stream` reaches the modules through `stream.Access`, which
+  `app` adapts from account and chat.
 
 ### Blocks
 
@@ -997,7 +1031,7 @@ Module `chat` holds conversations (spec:
 
 Module `screen` serves one `GET` per view of the app (decided 2026-10-27,
 spec: `~/shopnexus/docs/superpowers/specs/2026-10-27-server2-app-alignment-design.md`). The
-app reads a view in one call, and after a stream hint it reloads the view
+app reads a view in one call, and after a socket update it reloads the view
 it shows in one call. Mobile and desktop read the same views; a desktop
 page that shows two views calls both at once.
 
