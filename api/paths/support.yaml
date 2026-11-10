@@ -1,0 +1,43 @@
+feedback:
+  post:
+    operationId: sendFeedback
+    summary: Send feedback to ShopNexus.
+    description: |
+      At most 10 per account in 24 hours. A repeated Idempotency-Key returns
+      the feedback its first request added, also at the limit.
+    tags: [support]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/support.yaml#/FeedbackCreate"
+    responses:
+      "201":
+        description: Sent.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/support.yaml#/Feedback"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/Forbidden"
+      "422":
+        description: "Empty after trimming or over 1000 characters (invalid_feedback)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "429":
+        description: "10 feedbacks in the last 24 hours (feedback_limit_reached)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

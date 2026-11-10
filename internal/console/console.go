@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/module"
+	supportsvc "github.com/shopnexus/server2/internal/support/service"
 )
 
 // Settings is what console's Mount takes beyond module.Deps.
@@ -35,7 +36,8 @@ func NewService(db *pgxpool.Pool, s Settings, accounts accountsvc.Service, now f
 }
 
 // Mount registers the console endpoints and the ops dashboards' callback.
-// accounts reaches the customer data of module account.
-func Mount(d module.Deps, s Settings, accounts accountsvc.Service) {
-	handler.New(NewService(d.Pool, s, accounts, d.Now), d.Log).Register(d.Router)
+// accounts reaches the customer data of module account, and feedback the
+// feedback module support keeps.
+func Mount(d module.Deps, s Settings, accounts accountsvc.Service, feedback supportsvc.Service) {
+	handler.New(NewService(d.Pool, s, accounts, d.Now), feedback, d.Log).Register(d.Router)
 }

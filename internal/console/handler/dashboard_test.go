@@ -38,7 +38,7 @@ func (dashboards) AuthorizeDashboard(_ context.Context, in service.DashboardChec
 
 func dashboardRouter() *httpx.Router {
 	r := httpx.NewRouter()
-	handler.New(dashboards{}, discard).Register(r)
+	handler.New(dashboards{}, nil, discard).Register(r)
 	return r
 }
 

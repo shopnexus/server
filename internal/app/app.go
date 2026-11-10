@@ -43,6 +43,7 @@ import (
 	"github.com/shopnexus/server2/internal/provider/llm"
 	"github.com/shopnexus/server2/internal/provider/push"
 	"github.com/shopnexus/server2/internal/screen"
+	"github.com/shopnexus/server2/internal/support"
 	"github.com/shopnexus/server2/internal/trust"
 	"github.com/shopnexus/server2/migrations"
 )
@@ -214,7 +215,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if err != nil {
 		return nil, fmt.Errorf("console keys: %w", err)
 	}
-	console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts)
+	feedback := support.Mount(d, accounts)
+	console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, feedback)
 	embedder := func(base, model, key string, dims int) embed.OpenAI {
 		return embed.OpenAI{BaseURL: base, APIKey: key, Model: model, Dims: dims, HTTP: &http.Client{Timeout: cfg.Embed.Timeout}}
 	}

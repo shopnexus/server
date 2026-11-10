@@ -1,0 +1,21 @@
+FeedbackCreate:
+  type: object
+  additionalProperties: false
+  required: [body]
+  properties:
+    body:
+      type: string
+      description: 1 to 1000 characters after trimming; a business rule (invalid_feedback).
+Feedback:
+  type: object
+  additionalProperties: false
+  required: [id, body, created_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    body:
+      type: string
+    created_at:
+      type: string
+      format: date-time

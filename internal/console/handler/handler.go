@@ -9,14 +9,19 @@ import (
 	"github.com/shopnexus/server2/internal/console/domain"
 	"github.com/shopnexus/server2/internal/console/service"
 	"github.com/shopnexus/server2/internal/platform/httpx"
+	supportsvc "github.com/shopnexus/server2/internal/support/service"
 )
 
 type Handler struct {
 	svc service.Service
-	log *slog.Logger
+	// feedback reads the feedback module support keeps.
+	feedback supportsvc.Service
+	log      *slog.Logger
 }
 
-func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: svc, log: log} }
+func New(svc service.Service, feedback supportsvc.Service, log *slog.Logger) *Handler {
+	return &Handler{svc: svc, feedback: feedback, log: log}
+}
 
 // Register adds the console endpoints. Every one under /v1/console but
 // dashboard-auth needs the console's header, and all but sign-in need a
@@ -45,6 +50,7 @@ func (h *Handler) Register(r *httpx.Router) {
 
 	handle("GET /v1/console/accounts", mod(http.HandlerFunc(h.ListAccounts)))
 	handle("GET /v1/console/accounts/{id}", mod(http.HandlerFunc(h.GetAccount)))
+	handle("GET /v1/console/feedback", mod(http.HandlerFunc(h.ListFeedback)))
 	handle("POST /v1/console/accounts/{id}/suspend", mod(http.HandlerFunc(h.SuspendAccount)))
 	handle("POST /v1/console/accounts/{id}/unsuspend", mod(http.HandlerFunc(h.UnsuspendAccount)))
 	handle("GET /v1/console/actions", admin(http.HandlerFunc(h.ListActions)))

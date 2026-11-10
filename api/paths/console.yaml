@@ -314,6 +314,27 @@ accounts:
               $ref: "../schemas/console.yaml#/ConsoleAccountList"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+feedback:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listConsoleFeedback
+    summary: Feedback people sent, newest first.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of feedback.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleFeedbackList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
 account:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"

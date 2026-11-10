@@ -178,6 +178,44 @@ ConsoleAccountList:
     next_cursor:
       type: string
       format: uuid
+ConsoleFeedback:
+  type: object
+  additionalProperties: false
+  required: [id, body, created_at, account]
+  properties:
+    id:
+      type: string
+      format: uuid
+    body:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+    account:
+      type: object
+      additionalProperties: false
+      required: [id, display_name, deleted]
+      description: Who sent it; a deleted account has an empty name.
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        deleted:
+          type: boolean
+ConsoleFeedbackList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/ConsoleFeedback"
+    next_cursor:
+      type: string
+      format: uuid
 Identity:
   type: object
   additionalProperties: false

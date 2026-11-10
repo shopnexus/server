@@ -141,6 +141,8 @@ paths:
     $ref: "paths/discovery.yaml#/saved"
   /v1/saved/{listing_id}:
     $ref: "paths/discovery.yaml#/savedListing"
+  /v1/feedback:
+    $ref: "paths/support.yaml#/feedback"
   /v1/console/login:
     $ref: "paths/console.yaml#/login"
   /v1/console/login/totp-enrollment:
@@ -165,6 +167,8 @@ paths:
     $ref: "paths/console.yaml#/memberResetTotp"
   /v1/console/accounts:
     $ref: "paths/console.yaml#/accounts"
+  /v1/console/feedback:
+    $ref: "paths/console.yaml#/feedback"
   /v1/console/accounts/{id}:
     $ref: "paths/console.yaml#/account"
   /v1/console/accounts/{id}/suspend:
