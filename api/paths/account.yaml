@@ -130,3 +130,92 @@ block:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+follows:
+  post:
+    operationId: followAccount
+    summary: Follow an account.
+    description: |
+      The caller hears when the account first publishes a listing.
+      Following again changes nothing. A block between the two, either way,
+      refuses a follow, and blocking deletes the follows between them.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/account.yaml#/FollowCreate"
+    responses:
+      "204":
+        description: Following.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The caller is suspended (account_suspended), or a block stands between the two (blocked)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such account (account_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The caller follows 1,000 accounts (follow_limit_reached)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The caller named themselves (invalid_follow)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  get:
+    operationId: listFollows
+    summary: List the accounts the caller follows, newest follow first.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of follows.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/account.yaml#/FollowList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+follow:
+  delete:
+    operationId: unfollowAccount
+    summary: Stop following an account; an absent follow is fine.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Not following.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

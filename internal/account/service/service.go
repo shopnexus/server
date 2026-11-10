@@ -1,5 +1,5 @@
 // Package service holds module account's use cases: accounts, suspensions,
-// blocks and addresses, and signing in with a phone number Firebase verified,
+// blocks, follows and addresses, and signing in with a phone number Firebase verified,
 // with the sessions and tokens it starts. Signing in runs on Restate, in
 // sign_in_durable.go; Account reaches it through restatex.Caller. Its
 // handlers and the modules that call account use Service.
@@ -49,14 +49,27 @@ type Service interface {
 	Suspend(ctx context.Context, in SuspendInput) (ConsoleAccount, error)
 	// Unsuspend lifts a suspension and records account.unsuspend.
 	Unsuspend(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleAccount, error)
-	// Block stops blocked and blocker from reaching each other; blocking
-	// again changes nothing.
+	// Block stops blocked and blocker from reaching each other and deletes
+	// the follows between them; blocking again changes nothing.
 	Block(ctx context.Context, blocker, blocked uuid.UUID) error
 	Unblock(ctx context.Context, blocker, blocked uuid.UUID) error
 	// Blocked reports a block between a and b, in either direction.
 	Blocked(ctx context.Context, a, b uuid.UUID) (bool, error)
 	// Blocks lists the accounts blocker blocks, newest block first.
 	Blocks(ctx context.Context, blocker uuid.UUID, p page.Request) (page.Page[BlockView], error)
+	// Follow makes follower follow followed; following again changes
+	// nothing. A block either way is domain.ErrBlocked.
+	Follow(ctx context.Context, follower, followed uuid.UUID) error
+	Unfollow(ctx context.Context, follower, followed uuid.UUID) error
+	// Following reports whether follower follows followed.
+	Following(ctx context.Context, follower, followed uuid.UUID) (bool, error)
+	// FollowerCount is how many accounts follow followed.
+	FollowerCount(ctx context.Context, followed uuid.UUID) (int, error)
+	// Follows lists the accounts follower follows, newest follow first.
+	Follows(ctx context.Context, follower uuid.UUID, p page.Request) (page.Page[FollowView], error)
+	// Followers lists the accounts that follow followed, newest follow
+	// first.
+	Followers(ctx context.Context, followed uuid.UUID, p page.Request) (page.Page[Follower], error)
 	// FindByPhone returns the account holding the phone number q.
 	FindByPhone(ctx context.Context, q string) (uuid.UUID, bool, error)
 	// Identities lists an account's sign-in methods.
@@ -114,6 +127,7 @@ type PhoneVerifier interface {
 // Deps is what New builds Account from. Media makes avatars and their URLs.
 type Deps struct {
 	Accounts    repository.Accounts
+	Follows     repository.Follows
 	Addresses   repository.Addresses
 	Credentials repository.Credentials
 	Sessions    repository.Sessions
@@ -130,6 +144,7 @@ type Deps struct {
 // Account implements Service in this process.
 type Account struct {
 	accounts    repository.Accounts
+	follows     repository.Follows
 	addresses   repository.Addresses
 	credentials repository.Credentials
 	sessions    repository.Sessions
@@ -147,7 +162,7 @@ var _ Service = (*Account)(nil)
 // New builds Account from d.
 func New(d Deps) *Account {
 	return &Account{
-		accounts: d.Accounts, addresses: d.Addresses, credentials: d.Credentials, sessions: d.Sessions, signer: d.Signer, phones: d.Phones,
+		accounts: d.Accounts, follows: d.Follows, addresses: d.Addresses, credentials: d.Credentials, sessions: d.Sessions, signer: d.Signer, phones: d.Phones,
 		media: d.Media, prefix: d.Prefix, now: d.Now, log: d.Log,
 		signIn: restatex.Caller[PhoneSignIn, SignInResult]{Ingress: d.Ingress, Service: d.Prefix + signInService, Handler: "Run"},
 	}

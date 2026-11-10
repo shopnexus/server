@@ -50,7 +50,9 @@ func WithPhone(t *testing.T, db *pgxpool.Pool) uuid.UUID {
 // Service is the account service on db with the accounts and addresses
 // stores, as the modules that call it need.
 func Service(db *pgxpool.Pool) *service.Account {
-	return service.New(service.Deps{Accounts: repository.NewAccounts(db), Addresses: repository.NewAddresses(db), Now: time.Now})
+	return service.New(service.Deps{
+		Accounts: repository.NewAccounts(db), Follows: repository.NewFollows(db), Addresses: repository.NewAddresses(db), Now: time.Now,
+	})
 }
 
 // Suspend suspends account id for spam, as the CLI does.

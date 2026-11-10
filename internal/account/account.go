@@ -33,7 +33,7 @@ func Guards(d module.Deps, keys config.AuthConfig) (protect, identify func(http.
 // and the Service other modules call. media makes avatars.
 func Mount(d module.Deps, s Settings, media mediasvc.Service) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		Accounts: repository.NewAccounts(d.Pool), Addresses: repository.NewAddresses(d.Pool), Credentials: repository.NewCredentials(d.Pool),
+		Accounts: repository.NewAccounts(d.Pool), Follows: repository.NewFollows(d.Pool), Addresses: repository.NewAddresses(d.Pool), Credentials: repository.NewCredentials(d.Pool),
 		Sessions: repository.NewSessions(d.Pool), Signer: domain.NewSigner(s.Keys), Phones: s.Phones, Media: media,
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})

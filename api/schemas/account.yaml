@@ -80,3 +80,45 @@ BlockList:
       type: string
       format: uuid
       description: Present when more blocks follow; pass it as cursor.
+FollowCreate:
+  type: object
+  additionalProperties: false
+  required: [account_id]
+  properties:
+    account_id:
+      type: string
+      format: uuid
+Follow:
+  type: object
+  additionalProperties: false
+  required: [id, account_id, display_name, at]
+  description: An account the caller follows.
+  properties:
+    id:
+      type: string
+      format: uuid
+    account_id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+    avatar_url:
+      type: string
+      format: uri
+      description: A public 400 px square; absent without an avatar.
+    at:
+      type: string
+      format: date-time
+FollowList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Follow"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more follows follow; pass it as cursor.

@@ -1,0 +1,90 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"uuid"
+
+	"github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server2/internal/platform/page"
+)
+
+// Follow checks that the follower may write and the account exists, then
+// records the follow; the store refuses it across a block and at the cap.
+func (s *Account) Follow(ctx context.Context, follower, followed uuid.UUID) error {
+	if follower == followed {
+		return domain.ErrSelfFollow
+	}
+	suspended, err := s.Suspended(ctx, follower)
+	if err != nil {
+		return err
+	}
+	if suspended {
+		return domain.ErrSuspended
+	}
+	if _, err = s.load(ctx, followed); err != nil {
+		return err
+	}
+	if err = s.follows.Follow(ctx, uuid.NewV7(), follower, followed, s.now()); err != nil {
+		return fmt.Errorf("follow: %w", err)
+	}
+	return nil
+}
+
+func (s *Account) Unfollow(ctx context.Context, follower, followed uuid.UUID) error {
+	if err := s.follows.Unfollow(ctx, follower, followed); err != nil {
+		return fmt.Errorf("unfollow: %w", err)
+	}
+	return nil
+}
+
+func (s *Account) Following(ctx context.Context, follower, followed uuid.UUID) (bool, error) {
+	following, err := s.follows.Following(ctx, follower, followed)
+	if err != nil {
+		return false, fmt.Errorf("check follow: %w", err)
+	}
+	return following, nil
+}
+
+func (s *Account) FollowerCount(ctx context.Context, followed uuid.UUID) (int, error) {
+	n, err := s.follows.FollowerCount(ctx, followed)
+	if err != nil {
+		return 0, fmt.Errorf("count followers: %w", err)
+	}
+	return n, nil
+}
+
+// Follows lists the accounts follower follows with their names and avatars,
+// read in one query.
+func (s *Account) Follows(ctx context.Context, follower uuid.UUID, p page.Request) (page.Page[FollowView], error) {
+	rows, err := s.follows.ListFollows(ctx, follower, p)
+	if err != nil {
+		return page.Page[FollowView]{}, fmt.Errorf("list follows: %w", err)
+	}
+	ids := make([]uuid.UUID, 0, len(rows))
+	for _, f := range rows {
+		ids = append(ids, f.AccountID)
+	}
+	accounts, err := s.GetMany(ctx, ids)
+	if err != nil {
+		return page.Page[FollowView]{}, err
+	}
+	items := make([]FollowView, 0, len(rows))
+	for _, f := range rows {
+		a := accounts[f.AccountID]
+		items = append(items, FollowView{ID: f.ID, AccountID: f.AccountID, DisplayName: a.DisplayName, AvatarURL: a.AvatarURL, At: f.At})
+	}
+	return page.Of(items, p, func(v FollowView) uuid.UUID { return v.ID }), nil
+}
+
+func (s *Account) Followers(ctx context.Context, followed uuid.UUID, p page.Request) (page.Page[Follower], error) {
+	rows, err := s.follows.ListFollowers(ctx, followed, p)
+	if err != nil {
+		return page.Page[Follower]{}, fmt.Errorf("list followers: %w", err)
+	}
+	items := make([]Follower, 0, len(rows))
+	for _, f := range rows {
+		items = append(items, Follower{ID: f.ID, AccountID: f.AccountID})
+	}
+	return page.Of(items, p, func(v Follower) uuid.UUID { return v.ID }), nil
+}

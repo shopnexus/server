@@ -74,6 +74,22 @@ type BlockView struct {
 	At          time.Time `json:"at"`
 }
 
+// FollowView is the Follow schema in api/schemas/account.yaml.
+type FollowView struct {
+	ID          uuid.UUID `json:"id"`
+	AccountID   uuid.UUID `json:"account_id"`
+	DisplayName string    `json:"display_name"`
+	AvatarURL   string    `json:"avatar_url,omitempty"`
+	At          time.Time `json:"at"`
+}
+
+// Follower is one follow of an account: the follow's ID, which pages, and
+// the follower. Notification reads them to tell of a new listing.
+type Follower struct {
+	ID        uuid.UUID `json:"id"`
+	AccountID uuid.UUID `json:"account_id"`
+}
+
 // SignInInput is a phone token from Firebase. A repeated IdempotencyKey with
 // a token for the same number gets the first request's account.
 type SignInInput struct {

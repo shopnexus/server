@@ -29,6 +29,10 @@ paths:
     $ref: "paths/account.yaml#/blocks"
   /v1/blocks/{account_id}:
     $ref: "paths/account.yaml#/block"
+  /v1/follows:
+    $ref: "paths/account.yaml#/follows"
+  /v1/follows/{account_id}:
+    $ref: "paths/account.yaml#/follow"
   /v1/addresses:
     $ref: "paths/address.yaml#/addresses"
   /v1/addresses/{id}:
