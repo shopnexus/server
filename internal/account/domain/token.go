@@ -122,5 +122,7 @@ func (v Verifier) Verify(tok string, now time.Time) (authn.Principal, error) {
 	if c.AuthTime == 0 {
 		return authn.Principal{}, ErrInvalidToken.WithCause(errors.New("auth_time missing"))
 	}
-	return authn.Principal{AccountID: sub, SessionID: sid, AuthTime: time.Unix(c.AuthTime, 0).UTC()}, nil
+	return authn.Principal{
+		AccountID: sub, SessionID: sid, AuthTime: time.Unix(c.AuthTime, 0).UTC(), ExpiresAt: c.ExpiresAt.UTC(),
+	}, nil
 }

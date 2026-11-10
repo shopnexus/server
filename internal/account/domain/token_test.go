@@ -31,7 +31,7 @@ func TestSignThenVerify(t *testing.T) {
 		t.Fatalf("%v %v", exp, err)
 	}
 	p, err := domain.NewVerifier(k).Verify(token, now.Add(time.Minute))
-	if err != nil || p.AccountID != acc || p.SessionID != sid || !p.AuthTime.Equal(authTime) {
+	if err != nil || p.AccountID != acc || p.SessionID != sid || !p.AuthTime.Equal(authTime) || !p.ExpiresAt.Equal(exp) {
 		t.Fatalf("%+v %v", p, err)
 	}
 }

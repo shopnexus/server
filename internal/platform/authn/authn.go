@@ -21,6 +21,9 @@ type Principal struct {
 	AccountID uuid.UUID
 	SessionID uuid.UUID
 	AuthTime  time.Time // when the person last proved who they are
+	// ExpiresAt is when the access token stops being valid; a WebSocket
+	// closes then unless the app sends a newer token.
+	ExpiresAt time.Time
 }
 
 type key struct{}

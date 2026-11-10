@@ -208,3 +208,26 @@ func TestGetShowsWhenTheOtherWasActive(t *testing.T) {
 		t.Fatalf("inbox: %+v %v", inbox, err)
 	}
 }
+
+func TestPeer(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller), "Còn không?")
+	if other, ok, err := e.chat.Peer(ctx, seller, c.ID); err != nil || !ok || other != buyer {
+		t.Fatalf("member: %s %v %v", other, ok, err)
+	}
+	if _, ok, err := e.chat.Peer(ctx, e.person(t), c.ID); err != nil || ok {
+		t.Fatalf("stranger: %v %v", ok, err)
+	}
+	if _, ok, err := e.chat.Peer(ctx, seller, uuid.NewV7()); err != nil || ok {
+		t.Fatalf("unknown conversation: %v %v", ok, err)
+	}
+	if err := e.accounts.Block(ctx, seller, buyer); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, err := e.chat.Peer(ctx, buyer, c.ID); err != nil || ok {
+		t.Fatalf("blocked: %v %v", ok, err)
+	}
+}

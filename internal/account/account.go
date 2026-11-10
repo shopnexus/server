@@ -5,12 +5,14 @@ package account
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/handler"
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/account/service"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
+	"github.com/shopnexus/server2/internal/platform/authn"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/module"
 )
@@ -27,6 +29,12 @@ type Settings struct {
 func Guards(d module.Deps, keys config.AuthConfig) (protect, identify func(http.Handler) http.Handler) {
 	v := domain.NewVerifier(keys)
 	return handler.Protect(v, d.Now, d.Log), handler.Identify(v, d.Now, d.Log)
+}
+
+// TokenVerifier checks a customer access token as Protect does. The
+// WebSocket checks with it the tokens a connection renews itself with.
+func TokenVerifier(keys config.AuthConfig) func(token string, now time.Time) (authn.Principal, error) {
+	return domain.NewVerifier(keys).Verify
 }
 
 // Mount registers account's HTTP handlers and returns its Restate services
