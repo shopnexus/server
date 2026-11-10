@@ -75,6 +75,14 @@ func required() map[string]string {
 		"EMBED_SLOTS":                  "2",
 		"EMBED_TEXT_MIN_SIMILARITY":    "0.45",
 		"EMBED_PHOTO_MIN_SIMILARITY":   "0.6",
+		"AI_FRAMES_BASE_URL":           "http://ai.example.test/v1",
+		"STT_BASE_URL":                 "http://litellm.example.test/v1",
+		"STT_API_KEY":                  "",
+		"STT_MODEL":                    "stt",
+		"ASSIST_LLM_BASE_URL":          "http://litellm.example.test/v1",
+		"ASSIST_LLM_API_KEY":           "assist-key",
+		"ASSIST_LLM_MODEL":             "video-read",
+		"ASSIST_CALL_TIMEOUT":          "30s",
 		"FCM_CREDENTIALS":              "",
 		"FIREBASE_PROJECT_ID":          "shopnexus-test",
 		"FIREBASE_PROJECT_NUMBER":      "123456789",
@@ -157,6 +165,12 @@ func TestLoadAllSet(t *testing.T) {
 			IndexAPIKey: "", SearchAPIKey: "search-key", Timeout: 10 * time.Second, Slots: 2,
 			TextMinSimilarity: 0.45, PhotoMinSimilarity: 0.6,
 		},
+		Assist: AssistConfig{
+			FramesBaseURL: "http://ai.example.test/v1",
+			STTBaseURL:    "http://litellm.example.test/v1", STTAPIKey: "", STTModel: "stt",
+			LLMBaseURL: "http://litellm.example.test/v1", LLMAPIKey: "assist-key", LLMModel: "video-read",
+			CallTimeout: 30 * time.Second,
+		},
 		Firebase: FirebaseConfig{
 			ProjectID: "shopnexus-test", ProjectNumber: "123456789",
 			AuthJWKSURL: "https://keys.example.test/auth", PNVJWKSURL: "https://keys.example.test/pnv", TestNumbers: true,
@@ -177,7 +191,7 @@ func TestLoadAcceptsExplicitEmpty(t *testing.T) {
 	}
 	if got.OTLPEndpoint != "" || got.TrustedProxies != nil || got.Restate.EndpointURL != "" ||
 		got.Restate.ServicePrefix != "" || got.Auth.JWTPrevKeyID != "" || got.Auth.JWTPrevKey != nil ||
-		got.Console.DashboardHosts != nil {
+		got.Console.DashboardHosts != nil || got.Assist.STTAPIKey != "" {
 		t.Fatalf("empty variables: %+v", got)
 	}
 }

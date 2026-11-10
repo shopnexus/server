@@ -39,6 +39,10 @@ func testConfig(t *testing.T) config.Config {
 			IndexAPIKey: "", SearchAPIKey: "", Timeout: time.Second, Slots: 1,
 			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,
 		},
+		Assist: config.AssistConfig{
+			FramesBaseURL: "http://127.0.0.1:1/v1", STTBaseURL: "http://127.0.0.1:1/v1", STTAPIKey: "", STTModel: "none",
+			LLMBaseURL: "http://127.0.0.1:1", LLMAPIKey: "none", LLMModel: "none", CallTimeout: time.Second,
+		},
 		Firebase: firebasetest.New(t).Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},
 		Google:   googletest.New(t).Config(),

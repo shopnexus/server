@@ -50,6 +50,7 @@ type Config struct {
 	ObjectStore    ObjectStoreConfig
 	LLM            LLMConfig
 	Embed          EmbedConfig
+	Assist         AssistConfig
 	Push           PushConfig
 	Firebase       FirebaseConfig
 	Email          EmailConfig
@@ -113,6 +114,21 @@ type EmbedConfig struct {
 	// to join a vector list.
 	TextMinSimilarity  float64 // EMBED_TEXT_MIN_SIMILARITY, in (0, 1)
 	PhotoMinSimilarity float64 // EMBED_PHOTO_MIN_SIMILARITY, in (0, 1)
+}
+
+// AssistConfig says where module assist's models are: ai's frame cutter,
+// speech to text, and the model that fills a listing from frames and
+// speech. Locally frames and speech are ai itself, which takes no key; in
+// the cluster speech is LiteLLM's alias stt. The keys are never logged.
+type AssistConfig struct {
+	FramesBaseURL string        // AI_FRAMES_BASE_URL: ai's API; POST {base}/video/frames
+	STTBaseURL    string        // STT_BASE_URL: POST {base}/audio/transcriptions
+	STTAPIKey     string        // STT_API_KEY: server-stt's key; empty locally
+	STTModel      string        // STT_MODEL: the alias stt, or gipformer-1.5 locally
+	LLMBaseURL    string        // ASSIST_LLM_BASE_URL: an OpenAI-compatible API whose model reads images
+	LLMAPIKey     string        // ASSIST_LLM_API_KEY: server-assist's key
+	LLMModel      string        // ASSIST_LLM_MODEL: the alias video-read
+	CallTimeout   time.Duration // ASSIST_CALL_TIMEOUT: one call to ai, STT or the model
 }
 
 // AuthConfig holds the auth module's keys and token settings. No key is ever
@@ -371,6 +387,12 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			IndexAPIKey: set("EMBED_INDEX_API_KEY"), SearchAPIKey: set("EMBED_SEARCH_API_KEY"),
 			Timeout: duration("EMBED_TIMEOUT"), Slots: positive("EMBED_SLOTS"),
 			TextMinSimilarity: fraction("EMBED_TEXT_MIN_SIMILARITY"), PhotoMinSimilarity: fraction("EMBED_PHOTO_MIN_SIMILARITY"),
+		},
+		Assist: AssistConfig{
+			FramesBaseURL: need("AI_FRAMES_BASE_URL"),
+			STTBaseURL:    need("STT_BASE_URL"), STTAPIKey: set("STT_API_KEY"), STTModel: need("STT_MODEL"),
+			LLMBaseURL: need("ASSIST_LLM_BASE_URL"), LLMAPIKey: need("ASSIST_LLM_API_KEY"), LLMModel: need("ASSIST_LLM_MODEL"),
+			CallTimeout: duration("ASSIST_CALL_TIMEOUT"),
 		},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),
