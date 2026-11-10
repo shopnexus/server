@@ -45,6 +45,10 @@ type Service interface {
 	// ConversationWith returns the ID of account's conversation with other;
 	// the zero ID when the two have none.
 	ConversationWith(ctx context.Context, account, other uuid.UUID) (uuid.UUID, error)
+	// Peer returns the other member of conversation when account is a
+	// member and neither blocks the other; ok is false otherwise, and for an
+	// unknown conversation.
+	Peer(ctx context.Context, account, conversation uuid.UUID) (other uuid.UUID, ok bool, err error)
 	// Messages lists what account may read of a conversation, newest first.
 	Messages(ctx context.Context, account, conversation uuid.UUID, p page.Request) (page.Page[MessageView], error)
 	// MessageFacts reads a message for its push; false for an unknown one.

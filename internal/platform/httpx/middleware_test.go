@@ -154,3 +154,32 @@ func TestAccessLogLine(t *testing.T) {
 		t.Fatalf("trace_id %v", m["trace_id"])
 	}
 }
+
+// A WebSocket library asserts [http.Hijacker] on the writer it gets.
+func TestTraceWriterHijacks(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(Trace(discard())(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		conn, rw, err := hj.Hijack()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		_, _ = rw.WriteString("HTTP/1.1 204 No Content\r\n\r\n")
+		_ = rw.Flush()
+	})))
+	defer srv.Close()
+	req, _ := http.NewRequestWithContext(t.Context(), http.MethodGet, srv.URL, http.NoBody)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("%d", res.StatusCode)
+	}
+}

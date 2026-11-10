@@ -37,6 +37,10 @@ type Accounts interface {
 	Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error
 	// Unblock lifts the block; an absent one is fine.
 	Unblock(ctx context.Context, blocker, blocked uuid.UUID) error
+	// TouchActive sets last_active_at to at unless it is less than 30
+	// seconds older, so devices of one account do not pile up writes. It
+	// leaves write_id alone: it is no change of the aggregate's.
+	TouchActive(ctx context.Context, id uuid.UUID, at time.Time) error
 	// Blocked reports a block between a and b, in either direction.
 	Blocked(ctx context.Context, a, b uuid.UUID) (bool, error)
 	// ListBlocks is a query: blocker's blocks with IDs below p.Before(),

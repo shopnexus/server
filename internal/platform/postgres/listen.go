@@ -14,14 +14,16 @@ import (
 const retryListen = time.Second
 
 // Listen calls on with the payload of every notification on channel until
-// ctx is done. It holds a connection of its own, outside the pool: a pooled
-// one would hold a slot for good, and Pool.Close would wait for it. A lost
-// connection is logged and opened again after a pause; notifications sent
-// meanwhile are lost. channel goes into the SQL unquoted, so it must be a
-// constant of the caller.
-func Listen(ctx context.Context, pool *pgxpool.Pool, channel string, log *slog.Logger, on func(payload string)) {
+// ctx is done, and listening each time it starts to listen, the first time
+// included: notifications sent while it was not listening are lost, and the
+// caller may want to catch up. It holds a connection of its own, outside
+// the pool: a pooled one would hold a slot for good, and Pool.Close would
+// wait for it. A lost connection is logged and opened again after a pause.
+// channel goes into the SQL unquoted, so it must be a constant of the
+// caller.
+func Listen(ctx context.Context, pool *pgxpool.Pool, channel string, log *slog.Logger, listening func(), on func(payload string)) {
 	for ctx.Err() == nil {
-		if err := listenOnce(ctx, pool, channel, on); err != nil && ctx.Err() == nil {
+		if err := listenOnce(ctx, pool, channel, listening, on); err != nil && ctx.Err() == nil {
 			log.WarnContext(ctx, "postgres: listen", "channel", channel, "err", err)
 			select {
 			case <-ctx.Done():
@@ -31,7 +33,7 @@ func Listen(ctx context.Context, pool *pgxpool.Pool, channel string, log *slog.L
 	}
 }
 
-func listenOnce(ctx context.Context, pool *pgxpool.Pool, channel string, on func(payload string)) error {
+func listenOnce(ctx context.Context, pool *pgxpool.Pool, channel string, listening func(), on func(payload string)) error {
 	conn, err := pgx.ConnectConfig(ctx, pool.Config().ConnConfig.Copy())
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -46,6 +48,7 @@ func listenOnce(ctx context.Context, pool *pgxpool.Pool, channel string, on func
 	if _, err = conn.Exec(ctx, "LISTEN "+channel); err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}
+	listening()
 	for {
 		n, waitErr := conn.WaitForNotification(ctx)
 		if waitErr != nil {

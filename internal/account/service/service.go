@@ -41,6 +41,8 @@ type Service interface {
 	// domain.ErrSuspended when it is; a Restate step returns the bool, so
 	// the flow can return the refusal as data.
 	Suspended(ctx context.Context, id uuid.UUID) (bool, error)
+	// Touch records that the person has the app open now.
+	Touch(ctx context.Context, id uuid.UUID) error
 	// ConsoleAccount reads one account as console members see it.
 	ConsoleAccount(ctx context.Context, id uuid.UUID) (ConsoleAccount, error)
 	// ConsoleAccounts lists accounts as console members see them, newest first.

@@ -1,23 +1,71 @@
-stream:
+ws:
   get:
-    operationId: openStream
-    summary: Server-sent events telling the open app what changed for the caller.
+    operationId: openSocket
+    summary: The WebSocket that tells the open app what changed for the caller.
     description: |
-      An event ready on connect, then one event per change: message with
-      conversation_id and message_id, read with conversation_id, deal with
-      deal_id, notification with notification_id. A comment comes every 25
-      seconds. Events carry IDs only; the
-      app reloads what it shows, and reloads everything after a reconnect,
-      since nothing is replayed.
+      Frames are JSON text messages of at most 4 KB. On connect the server
+      sends the caller's updates after `since` (none without it), or
+      `{"type":"reset","seq":N}` when the log no longer holds them, then
+      `{"type":"ready","seq":N}`. After that it sends each update as
+      `{"type":"update","seq":N,"kind":…,…ids}` (kinds message, read, deal,
+      notification, with the IDs of the Update schema) in seq order, with
+      no duplicate and no hole, and `{"type":"typing","conversation_id":…}`
+      when the other member types. The app keeps the last seq and passes it
+      as `since` on its next connect; after `reset` it reloads everything.
+
+      The app sends `{"type":"typing","conversation_id":…}` (at most one in
+      3 seconds per conversation reaches the other member) and, before its
+      access token expires, `{"type":"auth","token":…}` with the new one.
+
+      Close codes: 1001 server shutting down (reconnect at once); 4001 token
+      expired, invalid or another account's (refresh, then reconnect); 4003
+      account suspended (do not reconnect); 1008 a frame that is not JSON
+      text or has an unknown type, or more frames than 10 at once and one a
+      second after that; 1009 a frame over 4 KB. The server pings every 25
+      seconds.
     tags: [stream]
     security:
       - bearerAuth: []
+    parameters:
+      - name: since
+        in: query
+        required: false
+        description: The last seq the app holds. Absent means from now on.
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
+    responses:
+      "101":
+        description: Switched to the WebSocket protocol.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+updates:
+  get:
+    operationId: listUpdates
+    summary: The caller's updates after a seq, for an app with no socket open.
+    description: |
+      At most 500 updates after `since` in seq order. `reset` means the log
+      no longer holds what follows `since`, or `since` is ahead of it: the
+      app reloads everything and keeps `seq`.
+    tags: [stream]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: since
+        in: query
+        required: false
+        description: The last seq the app holds; absent means 0.
+        schema:
+          type: integer
+          format: int64
+          minimum: 0
     responses:
       "200":
-        description: The event stream, open until the app leaves.
+        description: The updates.
         content:
-          text/event-stream:
+          application/json:
             schema:
-              type: string
+              $ref: "../schemas/stream.yaml#/UpdatePage"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"

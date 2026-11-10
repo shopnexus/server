@@ -16,11 +16,14 @@ type AccountView struct {
 	AvatarURL   string        `json:"avatar_url,omitempty"`
 	Status      domain.Status `json:"status"`
 	CreatedAt   time.Time     `json:"created_at"`
+	// LastActiveAt is not in the Account schema; views that show whether a
+	// person is around copy it.
+	LastActiveAt *time.Time `json:"-"`
 }
 
 // view is a's AccountView, the avatar's URL built from its key.
 func (s *Account) view(a domain.Account, now time.Time) AccountView {
-	v := AccountView{ID: a.ID(), DisplayName: a.DisplayName(), Bio: a.Bio(), Status: a.Status(now), CreatedAt: a.CreatedAt()}
+	v := AccountView{ID: a.ID(), DisplayName: a.DisplayName(), Bio: a.Bio(), Status: a.Status(now), CreatedAt: a.CreatedAt(), LastActiveAt: a.LastActiveAt()}
 	if a.AvatarKey() != "" {
 		v.AvatarURL = s.media.URL(a.AvatarKey())
 	}

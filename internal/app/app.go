@@ -109,7 +109,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		return nil, fmt.Errorf("connect to postgres: %w", err)
 	}
 	runCtx, stop := context.WithCancel(context.Background())
-	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL, hub: stream.NewHub(pool, log), stop: stop}
+	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL, hub: stream.NewHub(stream.PGBell{DB: pool, Log: log}, stream.PGLog{DB: pool}, time.Now, log), stop: stop}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, a.Close(context.Background()))
@@ -201,7 +201,6 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Events: bus, Now: time.Now, Log: log,
 	}
 	d.Protect, d.Identify = account.Guards(d, cfg.Auth)
-	router.Handle("GET /v1/stream", d.Protect(hub.Handler(log)))
 	store, err := objectstore.New(cfg.ObjectStore)
 	if err != nil {
 		return nil, fmt.Errorf("object store: %w", err)
@@ -234,6 +233,12 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, catalogm.Service, mediam.Service)
 	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
+	updates := stream.PGLog{DB: pool}
+	router.Handle("GET /v1/ws", d.Protect(stream.Socket{
+		Hub: hub, Updates: updates, Access: socketAccess{accounts: accounts, chats: chatm.Service},
+		Verify: account.TokenVerifier(cfg.Auth), Tick: time.Minute, Now: time.Now, Log: log,
+	}))
+	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
 		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm, discoverym, chatm.Service, notificationm.Service)
@@ -287,8 +292,8 @@ func (a *App) ready(ctx context.Context) error {
 	return nil
 }
 
-// CloseStreams ends every open /v1/stream, so a server shutdown does not
-// wait for them; the server's RegisterOnShutdown calls it.
+// CloseStreams ends every open WebSocket with 1001, so a server shutdown
+// does not wait for them; the server's RegisterOnShutdown calls it.
 func (a *App) CloseStreams() { a.hub.Close() }
 
 // Close ends the streams, stops the event bus, the stream hub and the

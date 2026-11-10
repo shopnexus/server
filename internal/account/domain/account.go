@@ -36,6 +36,9 @@ type Account struct {
 	writeID        uuid.UUID
 	createdAt      time.Time
 	updatedAt      time.Time
+	// lastActiveAt is when the person last had the app open; nil before the
+	// first time. Only the WebSocket writes it, outside the aggregate's saves.
+	lastActiveAt *time.Time
 }
 
 // New builds an active account with the caller's id. The display name may
@@ -51,11 +54,12 @@ func New(id uuid.UUID, displayName string, now time.Time) (Account, error) {
 
 // RestoreAccount rebuilds a stored account. Stores only.
 func RestoreAccount(id uuid.UUID, displayName, bio, avatarKey string, status Status, suspendedUntil *time.Time,
-	suspendReason string, writeID uuid.UUID, createdAt, updatedAt time.Time,
+	suspendReason string, writeID uuid.UUID, createdAt, updatedAt time.Time, lastActiveAt *time.Time,
 ) Account {
 	return Account{
 		id: id, displayName: displayName, bio: bio, avatarKey: avatarKey, status: status,
 		suspendedUntil: suspendedUntil, suspendReason: suspendReason, writeID: writeID, createdAt: createdAt, updatedAt: updatedAt,
+		lastActiveAt: lastActiveAt,
 	}
 }
 
@@ -67,6 +71,7 @@ func (a *Account) SuspendReason() string      { return a.suspendReason }
 func (a *Account) SuspendedUntil() *time.Time { return a.suspendedUntil }
 func (a *Account) CreatedAt() time.Time       { return a.createdAt }
 func (a *Account) UpdatedAt() time.Time       { return a.updatedAt }
+func (a *Account) LastActiveAt() *time.Time   { return a.lastActiveAt }
 func (a *Account) WriteID() uuid.UUID         { return a.writeID }
 
 // StoredStatus is the status as stored, which Status may read as active once
