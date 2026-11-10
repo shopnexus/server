@@ -106,6 +106,8 @@ linters:
               desc: test support; only tests import it.
             - pkg: github.com/shopnexus/server2/internal/provider/firebase/firebasetest
               desc: test support; only tests import it.
+            - pkg: github.com/shopnexus/server2/internal/provider/google/googletest
+              desc: test support; only tests import it.
         non-main files:
           files:
             - "!**/main.go"

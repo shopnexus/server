@@ -29,6 +29,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
+	"github.com/shopnexus/server2/internal/provider/google/googletest"
 )
 
 var (
@@ -42,6 +43,7 @@ var (
 		return k
 	}()
 	issuer     *firebasetest.Issuer // signs the phone tokens; the server's key URLs point at it
+	google     *googletest.Issuer   // signs Google ID tokens; the server's key URL points at it
 	model      = newModel()         // the model that reads search queries
 	embedder   = newEmbed()         // the embedding aliases, embed-text and embed-image
 	phones     = newPhones()        // every push the server sends
@@ -118,6 +120,12 @@ func setup(closers *[]func()) error {
 	}
 	*closers = append(*closers, stopSigner)
 	issuer = signer
+	googleSigner, stopGoogle, err := googletest.NewForMain()
+	if err != nil {
+		return err
+	}
+	*closers = append(*closers, stopGoogle)
+	google = googleSigner
 	// PNV's keys stay down for the whole run, so a PNV token observes the
 	// 503 the spec declares; the firebase tests check PNV tokens.
 	issuer.SetPNVDown(true)
@@ -139,6 +147,7 @@ func setup(closers *[]func()) error {
 		},
 		Firebase: issuer.Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
+		Google:   google.Config(),
 		// Tests may set X-Forwarded-For.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}

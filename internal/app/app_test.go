@@ -15,6 +15,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
+	"github.com/shopnexus/server2/internal/provider/google/googletest"
 	"github.com/shopnexus/server2/internal/provider/push"
 )
 
@@ -40,6 +41,7 @@ func testConfig(t *testing.T) config.Config {
 		},
 		Firebase: firebasetest.New(t).Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},
+		Google:   googletest.New(t).Config(),
 	}
 }
 

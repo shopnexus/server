@@ -85,6 +85,8 @@ func required() map[string]string {
 		"EMAIL_SENDER":                 "resend",
 		"RESEND_API_KEY":               "re_test",
 		"EMAIL_FROM":                   "ShopNexus <no-reply@shopnexus.test>",
+		"GOOGLE_CLIENT_ID":             "web.apps.googleusercontent.com",
+		"GOOGLE_JWKS_URL":              "https://www.googleapis.com/oauth2/v3/certs",
 	}
 }
 
@@ -159,7 +161,8 @@ func TestLoadAllSet(t *testing.T) {
 			ProjectID: "shopnexus-test", ProjectNumber: "123456789",
 			AuthJWKSURL: "https://keys.example.test/auth", PNVJWKSURL: "https://keys.example.test/pnv", TestNumbers: true,
 		},
-		Email: EmailConfig{Sender: "resend", ResendAPIKey: "re_test", From: "ShopNexus <no-reply@shopnexus.test>"},
+		Email:  EmailConfig{Sender: "resend", ResendAPIKey: "re_test", From: "ShopNexus <no-reply@shopnexus.test>"},
+		Google: GoogleConfig{ClientID: "web.apps.googleusercontent.com", JWKSURL: "https://www.googleapis.com/oauth2/v3/certs"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
