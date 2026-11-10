@@ -169,8 +169,9 @@ type Watches interface {
 	// Arrive records listing's first publication, once, and deletes up to
 	// 1,000 arrivals older than domain.KeepArrivals.
 	Arrive(ctx context.Context, listing uuid.UUID) error
-	// Arrivals lists the arrivals after seq after that are older than lag,
-	// oldest first, at most limit.
+	// Arrivals lists the arrivals after seq after, oldest first, at most
+	// limit, and stops at the first one younger than lag: no sweep moves
+	// past an arrival whose transaction may still be committing.
 	Arrivals(ctx context.Context, after int64, lag time.Duration, limit int) ([]Arrival, error)
 	// Swept moves the watch's last_arrival from prev to through and adds n
 	// to new_count, at most domain.MaxNewCount; with n > 0 and the alert on

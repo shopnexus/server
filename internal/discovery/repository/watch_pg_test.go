@@ -172,3 +172,24 @@ AND (payload->>'count')::int = 2`, w.ID).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("an arrival past two days is deleted: %d %v", n, err)
 	}
 }
+
+// A lower seq that is still younger than the lag holds back the higher
+// ones: a sweep reads only a prefix, so it never moves past an arrival it
+// has not weighed.
+func TestArrivalsStopAtTheFirstYoungOne(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ws := repository.NewWatches(db)
+	ctx := context.Background()
+	ls := arrive(t, db, ws, 3)
+	// seq order ls[0] < ls[1] < ls[2]; ls[1] took its seq first but its
+	// arrived_at is the latest, as a slow transaction can leave it.
+	if _, err := db.Exec(ctx, `UPDATE listing_arrivals SET arrived_at = now() - interval '5 minutes' WHERE listing_id = ANY($1)`,
+		[]uuid.UUID{ls[0], ls[2]}); err != nil {
+		t.Fatal(err)
+	}
+	a, err := ws.Arrivals(ctx, 0, time.Minute, 10)
+	if err != nil || len(a) != 1 || a[0].ListingID != ls[0] {
+		t.Fatalf("the prefix before the young arrival: %v %v", a, err)
+	}
+}

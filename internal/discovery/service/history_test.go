@@ -94,3 +94,60 @@ func TestAccountDeletedClearsSavesAndHistory(t *testing.T) {
 		t.Fatalf("saves left: %+v", saved)
 	}
 }
+
+// count is how many rows of a table belong to account.
+func (e env) count(t *testing.T, table string, account uuid.UUID) int {
+	t.Helper()
+	var n int
+	if err := e.db.QueryRow(context.Background(), `SELECT count(*) FROM `+table+` WHERE account_id = $1`, account).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// keepings gives account a watch, a hidden listing and the switch off.
+func (e env) keepings(t *testing.T, account uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	if _, _, err := e.discovery.Watch(ctx, account, service.WatchInput{Query: "xe đạp"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.discovery.Hide(ctx, account, e.put(t, "Ghế gỗ", "home.other", baDinh)); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.discovery.SetPriceCutAlerts(ctx, account, false); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Erasure takes the watches, the hides and the switch as well.
+func TestAccountDeletedClearsWatchesHidesAndSettings(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	me := accounttest.New(t, e.db)
+	e.keepings(t, me)
+	if err := e.discovery.AccountDeleted(context.Background(), me); err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"search_watches", "hidden_listings", "saved_settings"} {
+		if n := e.count(t, table, me); n != 0 {
+			t.Errorf("%s: %d rows left", table, n)
+		}
+	}
+}
+
+// Clearing the search history leaves the watches, the hides and the switch.
+func TestClearHistoryKeepsWatchesHidesAndSettings(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	me := accounttest.New(t, e.db)
+	e.keepings(t, me)
+	if err := e.discovery.ClearHistory(context.Background(), me); err != nil {
+		t.Fatal(err)
+	}
+	for _, table := range []string{"search_watches", "hidden_listings", "saved_settings"} {
+		if n := e.count(t, table, me); n != 1 {
+			t.Errorf("%s: %d rows, want 1", table, n)
+		}
+	}
+}

@@ -51,15 +51,6 @@ func (d *Discovery) ClearHistory(ctx context.Context, account uuid.UUID) error {
 	if err := d.history.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear history: %w", err)
 	}
-	if err := d.hidden.Clear(ctx, account); err != nil {
-		return fmt.Errorf("clear hides: %w", err)
-	}
-	if err := d.settings.Clear(ctx, account); err != nil {
-		return fmt.Errorf("clear settings: %w", err)
-	}
-	if err := d.watches.Clear(ctx, account); err != nil {
-		return fmt.Errorf("clear watches: %w", err)
-	}
 	return nil
 }
 
@@ -69,6 +60,15 @@ func (d *Discovery) AccountDeleted(ctx context.Context, account uuid.UUID) error
 	}
 	if err := d.history.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear history: %w", err)
+	}
+	if err := d.hidden.Clear(ctx, account); err != nil {
+		return fmt.Errorf("clear hides: %w", err)
+	}
+	if err := d.settings.Clear(ctx, account); err != nil {
+		return fmt.Errorf("clear settings: %w", err)
+	}
+	if err := d.watches.Clear(ctx, account); err != nil {
+		return fmt.Errorf("clear watches: %w", err)
 	}
 	return nil
 }

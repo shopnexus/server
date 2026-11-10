@@ -193,8 +193,13 @@ func (s pgWatches) Arrive(ctx context.Context, listing uuid.UUID) error {
 }
 
 func (s pgWatches) Arrivals(ctx context.Context, after int64, lag time.Duration, limit int) ([]Arrival, error) {
+	// A prefix: an arrival younger than the lag holds back every higher seq,
+	// since arrived_at is its transaction's start and a slow transaction can
+	// take a lower seq yet a later time.
 	rows, err := s.db.Query(ctx, `SELECT seq, listing_id FROM listing_arrivals
-WHERE seq > @after AND arrived_at <= now() - make_interval(secs => @lag) ORDER BY seq LIMIT @limit`,
+WHERE seq > @after AND seq < coalesce((SELECT min(seq) FROM listing_arrivals
+    WHERE seq > @after AND arrived_at > now() - make_interval(secs => @lag)), 9223372036854775807)
+ORDER BY seq LIMIT @limit`,
 		pgx.StrictNamedArgs{"after": after, "lag": lag.Seconds(), "limit": limit})
 	if err != nil {
 		return nil, fmt.Errorf("select arrivals: %w", err)
