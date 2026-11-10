@@ -107,8 +107,11 @@ func (u *Upload) ThumbKey() string    { return u.thumbKey }
 func (u *Upload) Failure() string     { return u.failure }
 func (u *Upload) WriteID() uuid.UUID  { return u.writeID }
 
+// UploadKey is where the client puts the original of upload id.
+func UploadKey(id uuid.UUID) string { return "uploads/" + id.String() }
+
 // Key is where the client puts the original.
-func (u *Upload) Key() string { return "uploads/" + u.id.String() }
+func (u *Upload) Key() string { return UploadKey(u.id) }
 
 // Attach gives a waiting upload of owner to holder, such as a listing, to
 // be processed into shape, and reports whether it changed the upload. A
@@ -150,6 +153,17 @@ func (u *Upload) Expire(now time.Time) bool {
 		return false
 	}
 	u.status, u.updatedAt = StatusExpired, now
+	return true
+}
+
+// Consume ends a held video once the read that held it is over, and reports
+// whether it did; any other upload, or a video already consumed, stays as it
+// is.
+func (u *Upload) Consume(now time.Time) bool {
+	if u.shape != ShapeVideo || u.status != StatusAttached {
+		return false
+	}
+	u.status, u.updatedAt = StatusConsumed, now
 	return true
 }
 

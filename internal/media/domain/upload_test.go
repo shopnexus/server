@@ -161,3 +161,28 @@ func TestUploadJSONRoundTrip(t *testing.T) {
 		t.Fatalf("%v\n%+v\n%+v", err, back.State(), u.State())
 	}
 }
+
+// Only a held video is consumed, once.
+func TestConsume(t *testing.T) {
+	t.Parallel()
+	owner := uuid.NewV7()
+	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, now)
+	if video.Consume(now) {
+		t.Fatal("a waiting video was consumed")
+	}
+	_, _ = video.Attach(owner, uuid.NewV7(), domain.ShapeVideo, now)
+	if !video.Consume(now) || video.Status() != domain.StatusConsumed {
+		t.Fatalf("held: %s", video.Status())
+	}
+	if video.Consume(now) {
+		t.Fatal("consumed twice")
+	}
+	photo, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	_, _ = photo.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
+	if photo.Consume(now) || photo.Status() != domain.StatusAttached {
+		t.Fatalf("a photo: %s", photo.Status())
+	}
+	if domain.UploadKey(video.ID()) != video.Key() {
+		t.Fatal(domain.UploadKey(video.ID()))
+	}
+}

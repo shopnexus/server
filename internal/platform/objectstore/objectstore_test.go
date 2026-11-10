@@ -139,3 +139,25 @@ func TestPresignsForThePublicEndpoint(t *testing.T) {
 		t.Fatalf("%s", u)
 	}
 }
+
+// A presigned GET reads a private object until its TTL, through the public
+// endpoint, without credentials.
+func TestPresignGet(t *testing.T) {
+	t.Parallel()
+	s := objectstoretest.New(t)
+	ctx := context.Background()
+	key, body := "uploads/"+uuid.NewV7().String(), []byte("a frame's bytes")
+	if err := s.Put(ctx, key, "image/jpeg", bytes.NewReader(body), int64(len(body))); err != nil {
+		t.Fatal(err)
+	}
+	url, err := s.PresignGet(ctx, key, time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status, got := get(t, url); status != http.StatusOK || !bytes.Equal(got, body) {
+		t.Fatalf("presigned get: %d %q", status, got)
+	}
+	if status, _ := get(t, strings.Replace(url, key, "uploads/"+uuid.NewV7().String(), 1)); status == http.StatusOK {
+		t.Fatal("the signature covers the key")
+	}
+}

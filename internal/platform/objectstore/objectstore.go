@@ -99,6 +99,15 @@ func (s *Store) PresignPut(ctx context.Context, key, contentType string, size in
 	return u.String(), headers, nil
 }
 
+// PresignGet returns a URL that reads key, private or not, valid for ttl.
+func (s *Store) PresignGet(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	u, err := s.presigner.PresignedGetObject(ctx, s.bucket, key, ttl, url.Values{})
+	if err != nil {
+		return "", fmt.Errorf("presign get %s: %w", key, err)
+	}
+	return u.String(), nil
+}
+
 // Stat returns the size and content type of key, or ErrNotFound.
 func (s *Store) Stat(ctx context.Context, key string) (size int64, contentType string, err error) {
 	info, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})

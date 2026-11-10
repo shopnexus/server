@@ -1,0 +1,173 @@
+package service_test
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"io"
+	"net/http"
+	"testing"
+	"uuid"
+
+	"github.com/shopnexus/server2/internal/account/accounttest"
+	"github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server2/internal/media/mediatest"
+	"github.com/shopnexus/server2/internal/media/repository"
+	"github.com/shopnexus/server2/internal/platform/objectstore"
+)
+
+// A frame the server saves is a waiting photo upload of the seller's: it is
+// read back as a search-sized JPEG, a listing attaches and processes it,
+// and a retried save neither fails nor brings its original back.
+func TestSaveFrame(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	owner, other := accounttest.New(t, e.db), accounttest.New(t, e.db)
+	frame, id := mediatest.JPEG(t, 1280, 720), uuid.NewV7()
+	if err := e.media.SaveFrame(ctx, owner, id, frame); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.media.SaveFrame(ctx, owner, id, frame); err != nil {
+		t.Fatalf("a retried save: %v", err)
+	}
+	u, err := repository.NewUploads(e.db).Get(ctx, id)
+	if err != nil || u.Status() != domain.StatusWaiting || u.OwnerID() != owner || u.ContentType() != "image/jpeg" ||
+		u.Size() != int64(len(frame)) {
+		t.Fatalf("%+v %v", u.State(), err)
+	}
+	if img, imgErr := e.media.QueryImage(ctx, owner, id); imgErr != nil || len(img) == 0 {
+		t.Fatalf("read back for the model: %v", imgErr)
+	}
+	if err = e.media.SaveFrame(ctx, other, id, frame); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("the same id for another owner: %v", err)
+	}
+	if err = e.media.SaveFrame(ctx, owner, uuid.NewV7(), nil); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("an empty frame: %v", err)
+	}
+	listing := uuid.NewV7()
+	if err = e.media.Attach(ctx, owner, listing, []uuid.UUID{id}); err != nil {
+		t.Fatalf("a listing takes the frame: %v", err)
+	}
+	if res := e.process(t, id); res.Status != domain.StatusReady || res.PhotoKey == "" {
+		t.Fatalf("processed: %+v", res)
+	}
+	if err = e.media.SaveFrame(ctx, owner, id, frame); err != nil {
+		t.Fatalf("a save after the listing took the frame: %v", err)
+	}
+	if _, _, err = e.store.Stat(ctx, domain.UploadKey(id)); !errors.Is(err, objectstore.ErrNotFound) {
+		t.Fatalf("the processed frame's original came back: %v", err)
+	}
+}
+
+// A saved frame waits 24 hours like any upload, then expires.
+func TestSavedFrameExpires(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	owner, id := accounttest.New(t, e.db), uuid.NewV7()
+	if err := e.media.SaveFrame(ctx, owner, id, mediatest.JPEG(t, 64, 48)); err != nil {
+		t.Fatal(err)
+	}
+	e.expire(t, id)
+	if u, _ := repository.NewUploads(e.db).Get(ctx, id); u.Status() != domain.StatusExpired {
+		t.Fatalf("status %s", u.Status())
+	}
+}
+
+// A presigned frame URL reads the frame without credentials.
+func TestPresignFrame(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	owner, id, frame := accounttest.New(t, e.db), uuid.NewV7(), mediatest.JPEG(t, 64, 48)
+	if err := e.media.SaveFrame(ctx, owner, id, frame); err != nil {
+		t.Fatal(err)
+	}
+	url, err := e.media.PresignFrame(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	got, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusOK || !bytes.Equal(got, frame) {
+		t.Fatalf("%d, %d bytes", res.StatusCode, len(got))
+	}
+}
+
+// A read holds one video of its reader's, opens it, and consumes it at the
+// end; nothing else holds it, MediaExpire leaves it, and once consumed it is
+// gone for good.
+func TestHoldOpenConsumeVideo(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	owner, other, read := accounttest.New(t, e.db), accounttest.New(t, e.db), uuid.NewV7()
+	body := []byte("an mp4's bytes")
+	video := mediatest.Upload(t, e.media, owner, domain.ContentTypeMP4, body)
+	photo := e.upload(t, owner, mediatest.JPEG(t, 64, 48))
+	notPut, err := e.media.CreateUpload(ctx, owner, domain.ContentTypeMP4, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, call := range map[string]func() error{
+		"another owner's": func() error { return e.media.HoldVideo(ctx, other, read, video) },
+		"a photo":         func() error { return e.media.HoldVideo(ctx, owner, read, photo) },
+		"never put":       func() error { return e.media.HoldVideo(ctx, owner, read, notPut.UploadID) },
+		"unknown":         func() error { return e.media.HoldVideo(ctx, owner, read, uuid.NewV7()) },
+	} {
+		if callErr := call(); !errors.Is(callErr, domain.ErrInvalidUpload) {
+			t.Errorf("%s: %v", name, callErr)
+		}
+	}
+	if err = e.media.HoldVideo(ctx, owner, read, video); err != nil {
+		t.Fatal(err)
+	}
+	if err = e.media.HoldVideo(ctx, owner, read, video); err != nil {
+		t.Fatalf("held again by the same read: %v", err)
+	}
+	if err = e.media.HoldVideo(ctx, owner, uuid.NewV7(), video); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("a second read of the video: %v", err)
+	}
+	e.expire(t, video)
+	r, size, err := e.media.OpenVideo(ctx, video)
+	if err != nil || size != int64(len(body)) {
+		t.Fatalf("open after an expiry run: %d %v", size, err)
+	}
+	got, _ := io.ReadAll(r)
+	_ = r.Close()
+	if !bytes.Equal(got, body) {
+		t.Fatalf("%q", got)
+	}
+	for name, id := range map[string]uuid.UUID{"a photo": photo, "unknown": uuid.NewV7()} {
+		if _, _, openErr := e.media.OpenVideo(ctx, id); !errors.Is(openErr, objectstore.ErrNotFound) {
+			t.Errorf("open %s: %v", name, openErr)
+		}
+	}
+	if err = e.media.Consume(ctx, video); err != nil {
+		t.Fatal(err)
+	}
+	if err = e.media.Consume(ctx, video); err != nil {
+		t.Fatalf("consumed twice: %v", err)
+	}
+	if err = e.media.Consume(ctx, uuid.NewV7()); err != nil {
+		t.Fatalf("consume unknown: %v", err)
+	}
+	if u, _ := repository.NewUploads(e.db).Get(ctx, video); u.Status() != domain.StatusConsumed {
+		t.Fatalf("status %s", u.Status())
+	}
+	if _, _, err = e.store.Stat(ctx, domain.UploadKey(video)); !errors.Is(err, objectstore.ErrNotFound) {
+		t.Fatalf("object after consume: %v", err)
+	}
+	if _, _, err = e.media.OpenVideo(ctx, video); !errors.Is(err, objectstore.ErrNotFound) {
+		t.Fatalf("open after consume: %v", err)
+	}
+	if err = e.media.HoldVideo(ctx, owner, read, video); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("held after consume: %v", err)
+	}
+}

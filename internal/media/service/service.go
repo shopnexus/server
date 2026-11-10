@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"io"
 	"time"
 	"uuid"
 
@@ -39,6 +40,23 @@ type Service interface {
 	// ReadPhoto reads a processed object under media/, such as a listing's
 	// photo; an absent one is objectstore.ErrNotFound.
 	ReadPhoto(ctx context.Context, key string) ([]byte, error)
+	// SaveFrame stores jpeg, a frame the server cut from owner's video, as a
+	// waiting photo upload of owner's with the ID id, which the caller mints
+	// so a retry saves the same upload. It expires in 24 hours like an
+	// upload the app put.
+	SaveFrame(ctx context.Context, owner, id uuid.UUID, jpeg []byte) error
+	// HoldVideo gives owner's video upload to holder, such as a read: owner's,
+	// waiting or already held by holder, before its expiry and in the store
+	// as declared. Anything else is domain.ErrInvalidUpload.
+	HoldVideo(ctx context.Context, owner, holder, id uuid.UUID) error
+	// OpenVideo reads a held video and its size; the caller closes it. An
+	// unknown, unheld or consumed video is objectstore.ErrNotFound.
+	OpenVideo(ctx context.Context, id uuid.UUID) (io.ReadCloser, int64, error)
+	// PresignFrame is a URL that reads frame id for an hour.
+	PresignFrame(ctx context.Context, id uuid.UUID) (string, error)
+	// Consume deletes a held video's object once its read is over. Anything
+	// else, or a second call, changes nothing.
+	Consume(ctx context.Context, id uuid.UUID) error
 }
 
 // Deps is what New builds Media from.
