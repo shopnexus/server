@@ -64,6 +64,9 @@ type Service interface {
 	Unblock(ctx context.Context, blocker, blocked uuid.UUID) error
 	// Blocked reports a block between a and b, in either direction.
 	Blocked(ctx context.Context, a, b uuid.UUID) (bool, error)
+	// BlockedWith lists the accounts on either side of account's blocks;
+	// discovery leaves their listings out of account's searches.
+	BlockedWith(ctx context.Context, account uuid.UUID) ([]uuid.UUID, error)
 	// Blocks lists the accounts blocker blocks, newest block first.
 	Blocks(ctx context.Context, blocker uuid.UUID, p page.Request) (page.Page[BlockView], error)
 	// Follow makes follower follow followed; following again changes

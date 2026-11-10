@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"uuid"
 
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
@@ -50,6 +51,9 @@ type SearchInput struct {
 	Cursor             string
 	Limit              int
 	Photo, Like        uuid.UUID // zero for none
+	// Watch is a watch of the viewer's, zero for none; it brings its query
+	// and filters, and goes with Sort, Off, Cursor and Limit alone.
+	Watch uuid.UUID
 }
 
 // SearchItem is a listing of a search page, and whether the viewer saved
@@ -67,6 +71,8 @@ type SearchView struct {
 	Understood string                        `json:"understood,omitempty"`
 	Chips      []domain.Chip                 `json:"chips,omitempty"`
 	Counts     []catalogdomain.CategoryCount `json:"counts,omitempty"`
+	// WatchID is the viewer's watch of the query, nil for none.
+	WatchID *uuid.UUID `json:"watch_id,omitempty"`
 }
 
 // Search reads the query through the model, from the cache when it read the
@@ -79,6 +85,28 @@ type SearchView struct {
 // words. A signed-in viewer's first page with q is kept in the history; a
 // failed write is logged and the search still answers.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
+	if in.Watch != uuid.Nil() {
+		if in.Query != "" || in.Category != "" || in.PriceMin != 0 || in.PriceMax != 0 || len(in.Conditions) > 0 ||
+			in.RadiusKm != 0 || in.OffersOnly || in.Near != (Near{}) || in.Photo != uuid.Nil() || in.Like != uuid.Nil() {
+			return SearchView{}, domain.ErrSearchConflict
+		}
+		if viewer == nil {
+			return SearchView{}, authn.ErrUnauthenticated
+		}
+		w, found, err := d.watches.Get(ctx, in.Watch)
+		if err != nil {
+			return SearchView{}, fmt.Errorf("read the watch: %w", err)
+		}
+		if !found || w.Account != *viewer {
+			return SearchView{}, domain.ErrWatchNotFound
+		}
+		in.Query, in.Category, in.PriceMin, in.PriceMax = w.Query, w.Category, w.PriceMin, w.PriceMax
+		in.OffersOnly, in.RadiusKm, in.Near = w.OffersOnly, w.RadiusKm, Near{Commune: w.Commune}
+		in.Conditions = make([]catalogdomain.Condition, len(w.Conditions))
+		for i, c := range w.Conditions {
+			in.Conditions[i] = catalogdomain.Condition(c)
+		}
+	}
 	q := strings.TrimSpace(in.Query)
 	photo, like := in.Photo != uuid.Nil(), in.Like != uuid.Nil()
 	if photo && (q != "" || like) {
@@ -120,16 +148,17 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions, OffersOnly: in.OffersOnly,
 		Origin: origin, RadiusKm: radius,
 	}
-	if strings.Contains(in.Category, ".") {
-		filters.CategoryCode = in.Category
-	} else {
-		filters.CategoryRoot = in.Category
-	}
+	category(&filters, in.Category)
 	search := catalogdomain.Search{Filters: filters, Sort: sort, Offset: offset, Limit: limit + 1}
 	if sort == SortNearby {
 		search.Sort, search.Boosts = catalogdomain.SortRelevance, domain.NearbyBoosts(*origin, d.now())
 	}
 	search.Vectors.TextMin, search.Vectors.PhotoMin = d.textMin, d.photoMin
+	if viewer != nil {
+		if search.ExcludeListings, search.ExcludeSellers, err = d.exclusions(ctx, *viewer); err != nil {
+			return SearchView{}, err
+		}
+	}
 	var view SearchView
 
 	if photo {
@@ -171,7 +200,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		search.Phrases, search.Boosts = domain.LikeTerms(src.Title, src.CategoryCode, src.Price)
 		search.Like, search.Weights = in.Like, domain.FuseLike
 		if viewer != nil {
-			search.ExcludeSeller = *viewer
+			search.ExcludeSellers = append(search.ExcludeSellers, *viewer)
 		}
 	}
 
@@ -181,37 +210,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		if catErr != nil {
 			return SearchView{}, fmt.Errorf("read categories: %w", catErr)
 		}
-		var u domain.Understanding
-		understood := false
-		key := domain.QueryKey(q)
-		cached, found, cacheErr := d.understandings.Get(ctx, key, domain.PromptVersion, now.Add(-domain.CacheTTL))
-		switch {
-		case cacheErr != nil:
-			d.log.WarnContext(ctx, "read the cached understanding", "err", cacheErr)
-		case found:
-			understood = json.Unmarshal(cached, &u) == nil
-		default:
-		}
-		if !understood {
-			mctx, cancel := context.WithTimeout(ctx, d.modelTimeout)
-			modelErr := d.llm.Complete(mctx, llm.Request{
-				System: domain.SystemPrompt(categories, now), User: q, SchemaName: "search_understanding", Schema: domain.Schema(),
-			}, &u)
-			cancel()
-			if modelErr != nil {
-				d.log.WarnContext(ctx, "the model did not read the query", "err", modelErr)
-				u = domain.Understanding{}
-			} else {
-				understood = true
-				answer, encErr := json.Marshal(u)
-				if encErr == nil {
-					encErr = d.understandings.Put(ctx, key, domain.PromptVersion, answer, now, now.Add(-domain.CacheTTL))
-				}
-				if encErr != nil {
-					d.log.WarnContext(ctx, "cache the understanding", "err", encErr)
-				}
-			}
-		}
+		u, understood := d.understand(ctx, q, categories, now)
 		names := make(map[string]string, len(categories))
 		for _, c := range categories {
 			names[c.Code] = c.DisplayName
@@ -283,7 +282,67 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			d.log.WarnContext(ctx, "remember the search", "err", err)
 		}
 	}
+	if viewer != nil && q != "" {
+		id, found, keyErr := d.watches.ByKey(ctx, *viewer, domain.HistoryKey(q))
+		switch {
+		case keyErr != nil:
+			d.log.WarnContext(ctx, "read the watch of the query", "err", keyErr)
+		case found:
+			view.WatchID = &id
+		default:
+		}
+	}
+	if in.Watch != uuid.Nil() && in.Cursor == "" {
+		if err = d.watches.Seen(ctx, *viewer, in.Watch); err != nil {
+			d.log.WarnContext(ctx, "see the watch", "err", err)
+		}
+	}
 	return view, nil
+}
+
+// understand is the model's reading of q, from the cache when the same query
+// was read within domain.CacheTTL, and whether the model answered. A model
+// that errs or takes longer than the timeout gives the zero reading. Search
+// and Watch call it.
+func (d *Discovery) understand(ctx context.Context, q string, categories []catalogdomain.Category, now time.Time) (domain.Understanding, bool) {
+	var u domain.Understanding
+	key := domain.QueryKey(q)
+	cached, found, err := d.understandings.Get(ctx, key, domain.PromptVersion, now.Add(-domain.CacheTTL))
+	switch {
+	case err != nil:
+		d.log.WarnContext(ctx, "read the cached understanding", "err", err)
+	case found && json.Unmarshal(cached, &u) == nil:
+		return u, true
+	default:
+	}
+	u = domain.Understanding{}
+	mctx, cancel := context.WithTimeout(ctx, d.modelTimeout)
+	err = d.llm.Complete(mctx, llm.Request{
+		System: domain.SystemPrompt(categories, now), User: q, SchemaName: "search_understanding", Schema: domain.Schema(),
+	}, &u)
+	cancel()
+	if err != nil {
+		d.log.WarnContext(ctx, "the model did not read the query", "err", err)
+		return domain.Understanding{}, false
+	}
+	answer, err := json.Marshal(u)
+	if err == nil {
+		err = d.understandings.Put(ctx, key, domain.PromptVersion, answer, now, now.Add(-domain.CacheTTL))
+	}
+	if err != nil {
+		d.log.WarnContext(ctx, "cache the understanding", "err", err)
+	}
+	return u, true
+}
+
+// category sets f's root or subcategory from a code: a subcategory has a
+// dot. Search and Sweep call it.
+func category(f *catalogdomain.Filters, code string) {
+	if strings.Contains(code, ".") {
+		f.CategoryCode = code
+	} else {
+		f.CategoryRoot = code
+	}
 }
 
 // queryVector embeds a search text with m, from the cache when the same text

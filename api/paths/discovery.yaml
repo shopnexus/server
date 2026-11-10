@@ -86,7 +86,11 @@ search:
       category page. sort=nearby is the "Gần bạn" feed, which Home's first page
       comes from. A model that fails leaves the lists it feeds out; q then
       searches its raw words, with no understood and no chips. A signed-in
-      caller's first page with q is kept in the search history.
+      caller's first page with q is kept in the search history, and a
+      signed-in caller never sees the listings they hid nor those of an
+      account on either side of their blocks. With watch, a watch of the
+      caller's runs its query and filters. photo and watch need a signed-in
+      caller.
     tags: [discovery]
     security:
       - {}
@@ -153,6 +157,7 @@ search:
       - $ref: "../parameters/discovery.yaml#/NearCommune"
       - $ref: "../parameters/discovery.yaml#/SearchPhoto"
       - $ref: "../parameters/discovery.yaml#/SearchLike"
+      - $ref: "../parameters/discovery.yaml#/SearchWatch"
       - $ref: "../parameters/discovery.yaml#/SearchCursor"
       - $ref: "../parameters/common.yaml#/Limit"
     responses:
@@ -163,7 +168,7 @@ search:
             schema:
               $ref: "../schemas/discovery.yaml#/SearchView"
       "400":
-        description: "A malformed parameter, position_required, invalid_position, invalid_cursor, invalid_price_range, or search_conflict: photo with q or like, or sort=nearby with q, photo or like."
+        description: "A malformed parameter, position_required, invalid_position, invalid_cursor, invalid_price_range, or search_conflict: photo with q or like, sort=nearby with q, photo or like, or watch with any parameter but cursor, limit, sort and off."
         content:
           application/json:
             schema:
@@ -171,7 +176,7 @@ search:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
-        description: "listing_not_found: like names a listing that is not on sale or reserved."
+        description: "listing_not_found: like names a listing that is not on sale or reserved; watch_not_found: watch is not a watch of the caller's."
         content:
           application/json:
             schema:
@@ -236,3 +241,273 @@ searchHistoryItem:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+hiddenListing:
+  put:
+    operationId: hideFromSearch
+    summary: Leave someone else's listing out of the caller's searches, Home and the nearby feed; hiding again makes it the newest hide.
+    description: The caller keeps the 1,000 newest hides; one more shows the oldest again. Saved listings, the seller page and the listing itself still show it.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: listing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Hidden.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing, or it is deleted (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is the caller's (own_listing)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: unhideFromSearch
+    summary: Show a hidden listing again; a listing not hidden is fine.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: listing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Shown again.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+savedAlert:
+  put:
+    operationId: setSavedAlert
+    summary: Hear when the listing's price falls below a level; a listing not saved is saved first.
+    description: The caller hears at each new low below the level. A price back at or above it starts over, and setting a level forgets the price last told.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: listing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/discovery.yaml#/SavedAlert"
+    responses:
+      "204":
+        description: Set.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The listing is the caller's (own_listing), not on sale (listing_unavailable), the caller has 500 saves (saved_limit_reached), or the save went meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: clearSavedAlert
+    summary: Remove the save's own level; the save stays, and a listing not saved is fine.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: listing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Removed.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+priceCutAlerts:
+  get:
+    operationId: getPriceCutAlerts
+    summary: Whether a saved listing without its own level alerts below its saved price; on until set off.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The switch.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/discovery.yaml#/PriceCutAlerts"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+  put:
+    operationId: setPriceCutAlerts
+    summary: Turn the switch on or off.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/discovery.yaml#/PriceCutAlerts"
+    responses:
+      "204":
+        description: Set.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+searchWatches:
+  post:
+    operationId: createSearchWatch
+    summary: Follow a text search with its filters; the same words again replace the filters.
+    description: |
+      One watch per query, folded as the search history folds it. A GPS
+      point is turned into its nearest commune and not kept. A sweep every 30
+      minutes counts the new listings holding every word of the query or of a
+      phrase the model read from it, under the filters, and tells the caller
+      while the watch is not muted.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/discovery.yaml#/SearchWatchInput"
+    responses:
+      "200":
+        description: The watch of the same query, with the new filters.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/discovery.yaml#/SearchWatch"
+      "201":
+        description: A new watch.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/discovery.yaml#/SearchWatch"
+      "400":
+        description: "A malformed body, invalid_price_range, invalid_position (no commune within 30 km of the point, or an unknown commune), or position_required (radius_km without a place)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "409":
+        description: "The caller has 20 watches (watch_limit_reached)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  get:
+    operationId: listSearchWatches
+    summary: The caller's watches, newest first.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The watches.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/discovery.yaml#/SearchWatchList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+searchWatch:
+  delete:
+    operationId: deleteSearchWatch
+    summary: Stop following a search; an unknown watch is fine.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/discovery.yaml#/WatchID"
+    responses:
+      "204":
+        description: Forgotten.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+searchWatchMute:
+  post:
+    operationId: muteSearchWatch
+    summary: Keep counting the watch's new listings without telling the caller.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/discovery.yaml#/WatchID"
+    responses:
+      "204":
+        description: Muted.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "Not a watch of the caller's (watch_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+searchWatchUnmute:
+  post:
+    operationId: unmuteSearchWatch
+    summary: Tell the caller of the watch's new listings again.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/discovery.yaml#/WatchID"
+    responses:
+      "204":
+        description: Unmuted.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "Not a watch of the caller's (watch_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

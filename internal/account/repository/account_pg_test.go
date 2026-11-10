@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 	"uuid"
@@ -397,5 +398,30 @@ VALUES (uuidv7(), @id, decode(md5(random()::text), 'hex'), now(), current_timest
 	stale.Saved(uuid.NewV7())
 	if err = s.Erase(ctx, &stale, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("a stale erase: %v", err)
+	}
+}
+
+// BlockedWith lists the accounts on either side of a person's blocks.
+func TestBlockedWith(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+	ctx := context.Background()
+	me, blockedByMe, blocksMe, other := seed(t, s), seed(t, s), seed(t, s), seed(t, s)
+	if err := s.Block(ctx, uuid.NewV7(), me, blockedByMe, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Block(ctx, uuid.NewV7(), blocksMe, me, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Block(ctx, uuid.NewV7(), other, blocksMe, now); err != nil { // a block not mine
+		t.Fatal(err)
+	}
+	got, err := s.BlockedWith(ctx, me)
+	byID := func(a, b uuid.UUID) int { return strings.Compare(a.String(), b.String()) }
+	slices.SortFunc(got, byID)
+	want := []uuid.UUID{blockedByMe, blocksMe}
+	slices.SortFunc(want, byID)
+	if err != nil || !slices.Equal(got, want) {
+		t.Fatalf("%v %v", got, err)
 	}
 }

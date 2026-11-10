@@ -45,3 +45,20 @@ SearchLike:
   schema:
     type: string
     format: uuid
+SearchWatch:
+  name: watch
+  in: query
+  description: |
+    A search watch of the caller's: search its query and filters from its
+    commune. Goes with cursor, limit, sort and off only, and needs a
+    signed-in caller. The first page sets the watch's new_count to 0.
+  schema:
+    type: string
+    format: uuid
+WatchID:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: string
+    format: uuid

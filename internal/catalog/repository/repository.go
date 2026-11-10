@@ -69,6 +69,8 @@ type Regions interface {
 	// A province's point is the mean of its communes'. A name that matches
 	// nothing is left out.
 	FindPlaces(ctx context.Context, names []string) (map[string][]domain.Point, error)
+	// Nearest returns the commune whose point is closest to p.
+	Nearest(ctx context.Context, p domain.Point) (Place, error)
 }
 
 // Searches runs searches over the listings' ParadeDB index.

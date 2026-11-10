@@ -23,12 +23,23 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 // one.
 func (h *Handler) Register(r *httpx.Router, protect, identify func(http.Handler) http.Handler) {
 	r.Handle("GET /v1/search", identify(http.HandlerFunc(h.Search)))
+	r.Handle("POST /v1/search/watches", protect(http.HandlerFunc(h.Watch)))
+	r.Handle("GET /v1/search/watches", protect(http.HandlerFunc(h.Watches)))
+	r.Handle("DELETE /v1/search/watches/{id}", protect(http.HandlerFunc(h.Unwatch)))
+	r.Handle("POST /v1/search/watches/{id}/mute", protect(http.HandlerFunc(h.Mute)))
+	r.Handle("POST /v1/search/watches/{id}/unmute", protect(http.HandlerFunc(h.Unmute)))
 	r.Handle("GET /v1/search/history", protect(http.HandlerFunc(h.History)))
 	r.Handle("DELETE /v1/search/history", protect(http.HandlerFunc(h.ClearHistory)))
 	r.Handle("DELETE /v1/search/history/{id}", protect(http.HandlerFunc(h.ForgetSearch)))
 	r.Handle("GET /v1/saved", protect(http.HandlerFunc(h.Saved)))
 	r.Handle("PUT /v1/saved/{listing_id}", protect(http.HandlerFunc(h.Save)))
 	r.Handle("DELETE /v1/saved/{listing_id}", protect(http.HandlerFunc(h.Unsave)))
+	r.Handle("PUT /v1/saved/{listing_id}/alert", protect(http.HandlerFunc(h.SetAlert)))
+	r.Handle("DELETE /v1/saved/{listing_id}/alert", protect(http.HandlerFunc(h.ClearAlert)))
+	r.Handle("GET /v1/me/price-cut-alerts", protect(http.HandlerFunc(h.PriceCutAlerts)))
+	r.Handle("PUT /v1/me/price-cut-alerts", protect(http.HandlerFunc(h.SetPriceCutAlerts)))
+	r.Handle("PUT /v1/hidden/{listing_id}", protect(http.HandlerFunc(h.Hide)))
+	r.Handle("DELETE /v1/hidden/{listing_id}", protect(http.HandlerFunc(h.Unhide)))
 }
 
 type listingRequest struct {

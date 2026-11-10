@@ -38,6 +38,12 @@ const (
 	ListingRejected Kind = "listing.rejected"
 	// ReviewPosted is a review's first submission.
 	ReviewPosted Kind = "review.posted"
+	// SavedPriceDropped is a saved listing's price at a new low below the
+	// save's alert level; the payload's price is that price.
+	SavedPriceDropped Kind = "saved.price_dropped"
+	// SearchWatchMatched is a sweep that found new listings for a watch with
+	// its alert on; the payload's count is the watch's new_count after it.
+	SearchWatchMatched Kind = "search_watch.matched"
 )
 
 // Event is what happened to which aggregate. It is thin: a subscriber reads

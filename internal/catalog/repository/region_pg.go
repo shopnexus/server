@@ -110,3 +110,18 @@ JOIN communes c ON lower(c.display_name) = lower(a.place_name)
 	}
 	return out, nil
 }
+
+func (s pgRegions) Nearest(ctx context.Context, p domain.Point) (Place, error) {
+	rows, err := s.db.Query(ctx, `SELECT c.code, c.province_code, c.display_name, c.lat, c.lng, p.display_name
+FROM communes c JOIN provinces p ON p.code = c.province_code
+ORDER BY power(c.lat - @lat, 2) + power((c.lng - @lng) * cos(radians(@lat)), 2), c.code LIMIT 1`,
+		pgx.StrictNamedArgs{"lat": p.Lat, "lng": p.Lng})
+	if err != nil {
+		return Place{}, fmt.Errorf("select nearest commune: %w", err)
+	}
+	place, err := pgx.CollectExactlyOneRow(rows, pgx.RowToStructByPos[Place])
+	if err != nil {
+		return Place{}, fmt.Errorf("read nearest commune: %w", err)
+	}
+	return place, nil
+}

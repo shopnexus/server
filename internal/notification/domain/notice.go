@@ -43,6 +43,8 @@ const (
 	TypeReview             Type = "review"
 	TypeSuspended          Type = "suspended"
 	TypeUnsuspended        Type = "unsuspended"
+	TypeWatchMatched       Type = "watch_matched"
+	TypePriceDropped       Type = "price_dropped"
 )
 
 // Notice is one thing to tell one person. Params hold what its text is
@@ -77,6 +79,13 @@ type Params struct {
 	Stars   int    `json:"stars,omitempty"`
 	// Until is the end of a suspension in RFC 3339, empty for none.
 	Until string `json:"until,omitempty"`
+	// WatchID, Query and Count are a search watch's notice: the watch, its
+	// words and its new listings.
+	WatchID uuid.UUID `json:"watch_id,omitzero"`
+	Query   string    `json:"query,omitempty"`
+	Count   int       `json:"count,omitempty"`
+	// SavedPrice is the listing's price when the recipient saved it.
+	SavedPrice int64 `json:"saved_price,omitempty"`
 }
 
 // Move is a deal move as notification reads it.
@@ -160,6 +169,23 @@ func FollowedListing(follower, seller uuid.UUID, sellerName string, listing uuid
 	}
 }
 
+// WatchMatched tells a watcher how many new listings their watch has; a
+// newer count replaces the unread notice of the watch.
+func WatchMatched(recipient, watch uuid.UUID, query string, count int, at time.Time) Notice {
+	return Notice{
+		Recipient: recipient, Type: TypeWatchMatched, CollapseKey: "watch:" + watch.String(), At: at,
+		Params: Params{WatchID: watch, Query: query, Count: count},
+	}
+}
+
+// PriceDropped tells a saver of a new low of a saved listing.
+func PriceDropped(recipient, listing uuid.UUID, title string, price, saved int64, at time.Time) Notice {
+	return Notice{
+		Recipient: recipient, Type: TypePriceDropped, CollapseKey: "saved:" + listing.String(), At: at,
+		Params: Params{ListingID: listing, Title: title, Amount: price, SavedPrice: saved},
+	}
+}
+
 // Reviewed tells a seller a buyer reviewed them.
 func Reviewed(seller uuid.UUID, buyerName, title string, stars int, at time.Time) Notice {
 	return Notice{
@@ -198,6 +224,8 @@ var (
 	listings = group{"Tin đăng", "listing", func(p Params) uuid.UUID { return p.ListingID }}
 	reviews  = group{"Đánh giá", "seller_reviews", func(p Params) uuid.UUID { return p.SellerID }}
 	accounts = group{"Tài khoản", "account", func(Params) uuid.UUID { return uuid.UUID{} }}
+	searches = group{"Tìm kiếm", "search_watch", func(p Params) uuid.UUID { return p.WatchID }}
+	saved    = group{"Đã lưu", "listing", func(p Params) uuid.UUID { return p.ListingID }}
 )
 
 // types describes each notice type: its group and its Vietnamese text.
@@ -255,6 +283,16 @@ var types = map[Type]struct {
 		return "Tài khoản của bạn bị khoá đến " + until.In(vietnam).Format("2/1")
 	}},
 	TypeUnsuspended: {accounts, func(Params) string { return "Tài khoản của bạn đã được mở khoá" }},
+	TypeWatchMatched: {searches, func(p Params) string {
+		n := strconv.Itoa(p.Count)
+		if p.Count >= 99 {
+			n = "99+"
+		}
+		return "Có " + n + " tin mới cho “" + p.Query + "”"
+	}},
+	TypePriceDropped: {saved, func(p Params) string {
+		return p.Title + " giảm còn " + money(p.Amount) + ", lúc lưu " + money(p.SavedPrice)
+	}},
 }
 
 // carrierLabels name the carriers by their codes; a notice written before

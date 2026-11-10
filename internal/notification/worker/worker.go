@@ -17,6 +17,7 @@ import (
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
+	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 	"github.com/shopnexus/server2/internal/notification/domain"
 	"github.com/shopnexus/server2/internal/notification/service"
 	"github.com/shopnexus/server2/internal/platform/events"
@@ -39,8 +40,10 @@ type Worker struct {
 	Catalog  catalogsvc.Service
 	Trust    trustsvc.Service
 	Accounts accountsvc.Service
-	Push     push.Sender
-	Log      *slog.Logger
+	// Discovery gives the facts of search watches and price drops.
+	Discovery discoverysvc.Service
+	Push      push.Sender
+	Log       *slog.Logger
 	// FollowerPage is how many followers one step reads when a listing
 	// first goes on sale.
 	FollowerPage int
@@ -220,6 +223,53 @@ func (w Worker) ReviewPosted(ctx restate.Context, e events.Event) error {
 		return nil
 	}
 	return w.tell(ctx, e.ID, []domain.Notice{domain.Reviewed(f.SellerID, f.BuyerName, f.ListingTitle, f.Stars, e.OccurredAt)})
+}
+
+// SearchWatchMatched tells a watcher of the new listings a sweep found.
+func (w Worker) SearchWatchMatched(ctx restate.Context, e events.Event) error {
+	count, _ := e.Payload["count"].(float64) //nolint:revive // a payload without the count tells 0, which no sweep writes
+	f, err := restate.Run(ctx, func(rc restate.RunContext) (discoverysvc.WatchFacts, error) {
+		facts, found, stepErr := w.Discovery.WatchFacts(rc, e.SubjectID)
+		if stepErr != nil {
+			return discoverysvc.WatchFacts{}, fmt.Errorf("read watch: %w", stepErr)
+		}
+		if !found {
+			return discoverysvc.WatchFacts{}, nil
+		}
+		return facts, nil
+	})
+	if err != nil {
+		return fmt.Errorf("read the watch: %w", err)
+	}
+	if f.ID == (uuid.UUID{}) {
+		return nil
+	}
+	return w.tell(ctx, e.ID, []domain.Notice{domain.WatchMatched(f.Account, f.ID, f.Query, int(count), e.OccurredAt)})
+}
+
+// SavedPriceDropped tells a saver their saved listing fell to a new low.
+// The event reaches the handler as JSON, so a payload number is a float64.
+func (w Worker) SavedPriceDropped(ctx restate.Context, e events.Event) error {
+	price, _ := e.Payload["price"].(float64) //nolint:revive // every drop carries its price
+	f, err := restate.Run(ctx, func(rc restate.RunContext) (discoverysvc.PriceDropFacts, error) {
+		facts, found, stepErr := w.Discovery.PriceDropFacts(rc, e.SubjectID)
+		if stepErr != nil {
+			return discoverysvc.PriceDropFacts{}, fmt.Errorf("read save: %w", stepErr)
+		}
+		if !found {
+			return discoverysvc.PriceDropFacts{}, nil
+		}
+		return facts, nil
+	})
+	if err != nil {
+		return fmt.Errorf("read the save: %w", err)
+	}
+	if f.ID == (uuid.UUID{}) {
+		return nil
+	}
+	return w.tell(ctx, e.ID, []domain.Notice{
+		domain.PriceDropped(f.Account, f.ListingID, f.Title, int64(price), f.SavedPrice, e.OccurredAt),
+	})
 }
 
 // AccountSuspended tells the account it is suspended.

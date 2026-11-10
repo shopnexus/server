@@ -263,7 +263,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Image:       embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.SearchAPIKey, catalogdomain.PhotoDims),
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
-	}, catalogm.Service, mediam.Service)
+	}, catalogm.Service, mediam.Service, accounts)
 	assistm := assist.Mount(d, assist.Settings{
 		Frames: frames.Client{BaseURL: cfg.Assist.FramesBaseURL, HTTP: &http.Client{}},
 		STT: stt.OpenAI{
@@ -283,7 +283,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}))
 	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
-		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service)
+		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service, discoverym.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm, discoverym.Service, chatm.Service, notificationm.Service)
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, dealm.Services, discoverym.Services,
 		chatm.Services, notificationm.Services, assistm.Services), nil

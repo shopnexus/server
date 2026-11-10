@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 	"uuid"
@@ -17,6 +18,7 @@ import (
 
 type item struct {
 	title  string
+	desc   string
 	cat    string
 	price  int64
 	point  domain.Point
@@ -34,7 +36,7 @@ func put(t *testing.T, db *pgxpool.Pool, it item) uuid.UUID {
 	at := time.Now().Add(-it.age)
 	id := uuid.NewV7()
 	l := domain.RestoreListing(domain.ListingState{
-		ID: id, SellerID: accounttest.New(t, db), Title: it.title, Price: it.price, CategoryCode: it.cat,
+		ID: id, SellerID: accounttest.New(t, db), Title: it.title, Description: it.desc, Price: it.price, CategoryCode: it.cat,
 		Condition: domain.ConditionUsed, AllowOffers: true, CommuneCode: "00004",
 		Photos: []domain.Photo{{UploadID: uuid.NewV7()}}, Status: status, WriteID: id,
 		CreatedAt: at, UpdatedAt: at, PublishedAt: &at, Lat: it.point.Lat, Lng: it.point.Lng,
@@ -132,5 +134,65 @@ func TestSearch(t *testing.T) {
 	}
 	if got = ids(domain.Search{Phrases: []domain.Phrase{{Text: "giabt", Weight: 1}}, Sort: domain.SortRelevance}); len(got) != 1 || got[0] != touring {
 		t.Fatalf("a typo in a long word matches through fuzzy: %v", got)
+	}
+}
+
+// AllWords needs every word of a phrase in the title, description or specs;
+// the IDs filter and the exclusions hold in BM25 and in browsing.
+func TestSearchAllWordsAndExclusions(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewSearches(db)
+	hn := domain.Point{Lat: 21.03, Lng: 105.85}
+	bike := put(t, db, item{title: "Xe đạp Asama", cat: "vehicles.bicycle", price: 1_500_000, point: hn})
+	motor := put(t, db, item{title: "Xe máy Wave", cat: "vehicles.bicycle", price: 9_000_000, point: hn})
+	split := put(t, db, item{title: "Đạp êm, còn mới", desc: "xe của con gái", cat: "vehicles.bicycle", price: 900_000, point: hn})
+	byID := func(a, b uuid.UUID) int { return strings.Compare(a.String(), b.String()) }
+	run := func(q domain.Search) []uuid.UUID {
+		t.Helper()
+		q.Limit = 20
+		hits, err := s.Search(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := make([]uuid.UUID, len(hits))
+		for i, h := range hits {
+			out[i] = h.ID
+		}
+		slices.SortFunc(out, byID)
+		return out
+	}
+	want := func(ids ...uuid.UUID) []uuid.UUID {
+		slices.SortFunc(ids, byID)
+		return ids
+	}
+	all := []uuid.UUID{bike, motor, split}
+	words := domain.Search{Filters: domain.Filters{IDs: all}, Phrases: []domain.Phrase{{Text: "xe đạp", Weight: 1, AllWords: true}}}
+	if got := run(words); !slices.Equal(got, want(bike, split)) {
+		t.Fatalf("all words: %v", got)
+	}
+	ranked := domain.Search{Filters: domain.Filters{IDs: all}, Phrases: []domain.Phrase{{Text: "xe đạp", Weight: 1}}}
+	if got := run(ranked); !slices.Contains(got, motor) {
+		t.Fatalf("a ranked phrase matches any word: %v", got)
+	}
+	empty := domain.Search{Filters: domain.Filters{IDs: all}, Phrases: []domain.Phrase{{Text: "- / ...", Weight: 1, AllWords: true}}}
+	if got := run(empty); len(got) != 0 {
+		t.Fatalf("a phrase of no word matches nothing: %v", got)
+	}
+	if got := run(domain.Search{Filters: domain.Filters{IDs: []uuid.UUID{bike}}, Sort: domain.SortNewest}); !slices.Equal(got, []uuid.UUID{bike}) {
+		t.Fatalf("ids: %v", got)
+	}
+	ex := domain.Search{Filters: domain.Filters{IDs: all}, Sort: domain.SortNewest, ExcludeListings: []uuid.UUID{bike}}
+	if got := run(ex); !slices.Equal(got, want(motor, split)) {
+		t.Fatalf("exclude listings: %v", got)
+	}
+	var seller uuid.UUID
+	if err := db.QueryRow(ctx, `SELECT seller_id FROM listings WHERE id = $1`, motor).Scan(&seller); err != nil {
+		t.Fatal(err)
+	}
+	ex = domain.Search{Filters: domain.Filters{IDs: all}, Phrases: []domain.Phrase{{Text: "xe", Weight: 1}}, ExcludeSellers: []uuid.UUID{seller}}
+	if got := run(ex); slices.Contains(got, motor) || len(got) != 2 {
+		t.Fatalf("exclude sellers: %v", got)
 	}
 }

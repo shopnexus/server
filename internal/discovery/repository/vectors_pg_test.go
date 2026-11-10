@@ -18,12 +18,12 @@ func TestQueryVectors(t *testing.T) {
 	db := pgtest.New(t)
 	ctx := context.Background()
 	c := repository.NewQueryVectors(db)
-	now := time.Now()
+	at := time.Now()
 	v := []float32{0.5, 0.5}
-	if err := c.Put(ctx, "xe dap", 2, "m1", v, now, now.Add(-time.Hour)); err != nil {
+	if err := c.Put(ctx, "xe dap", 2, "m1", v, at, at.Add(-time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	got, ok, err := c.Get(ctx, "xe dap", 2, "m1", now.Add(-time.Minute))
+	got, ok, err := c.Get(ctx, "xe dap", 2, "m1", at.Add(-time.Minute))
 	if err != nil || !ok || !slices.Equal(got, v) {
 		t.Fatalf("%v %v %v", got, ok, err)
 	}
@@ -31,12 +31,12 @@ func TestQueryVectors(t *testing.T) {
 		model string
 		ver   int
 		since time.Time
-	}{"model": {"m2", 2, now.Add(-time.Minute)}, "version": {"m1", 1, now.Add(-time.Minute)}, "stale": {"m1", 2, now.Add(time.Minute)}} {
+	}{"model": {"m2", 2, at.Add(-time.Minute)}, "version": {"m1", 1, at.Add(-time.Minute)}, "stale": {"m1", 2, at.Add(time.Minute)}} {
 		if _, found, _ := c.Get(ctx, "xe dap", args.ver, args.model, args.since); found {
 			t.Errorf("%s: found", name)
 		}
 	}
-	if err = c.Put(ctx, "noi com", 2, "m1", v, now.Add(time.Hour), now.Add(time.Minute)); err != nil {
+	if err = c.Put(ctx, "noi com", 2, "m1", v, at.Add(time.Hour), at.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok, _ = c.Get(ctx, "xe dap", 2, "m1", time.Time{}); ok {
@@ -49,22 +49,22 @@ func TestPhotoVectors(t *testing.T) {
 	db := pgtest.New(t)
 	ctx := context.Background()
 	c := repository.NewPhotoVectors(db)
-	now := time.Now()
+	at := time.Now()
 	up := uuid.NewV7()
 	axis := embedtest.Axis(catalogdomain.PhotoDims, 0)
-	if err := c.Put(ctx, up, "p1", axis, now.Add(time.Hour), now); err != nil {
+	if err := c.Put(ctx, up, "p1", axis, at.Add(time.Hour), at); err != nil {
 		t.Fatal(err)
 	}
-	if got, ok, err := c.Get(ctx, up, "p1", now); err != nil || !ok || got[0] != 1 {
+	if got, ok, err := c.Get(ctx, up, "p1", at); err != nil || !ok || got[0] != 1 {
 		t.Fatalf("%v %v %v", got, ok, err)
 	}
-	if _, ok, _ := c.Get(ctx, up, "p2", now); ok {
+	if _, ok, _ := c.Get(ctx, up, "p2", at); ok {
 		t.Fatal("another model")
 	}
-	if _, ok, _ := c.Get(ctx, up, "p1", now.Add(2*time.Hour)); ok {
+	if _, ok, _ := c.Get(ctx, up, "p1", at.Add(2*time.Hour)); ok {
 		t.Fatal("past its expiry")
 	}
-	if err := c.Put(ctx, uuid.NewV7(), "p1", axis, now.Add(3*time.Hour), now.Add(2*time.Hour)); err != nil {
+	if err := c.Put(ctx, uuid.NewV7(), "p1", axis, at.Add(3*time.Hour), at.Add(2*time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	var n int

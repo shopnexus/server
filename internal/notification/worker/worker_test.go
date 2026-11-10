@@ -21,6 +21,7 @@ import (
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
+	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 	"github.com/shopnexus/server2/internal/notification/domain"
 	"github.com/shopnexus/server2/internal/notification/repository"
 	"github.com/shopnexus/server2/internal/notification/service"
@@ -81,6 +82,23 @@ func (c catalog) Summary(_ context.Context, id uuid.UUID) (catalogsvc.Summary, b
 }
 
 type trust struct{ trustsvc.Service }
+
+type discovery struct {
+	discoverysvc.Service
+
+	watches map[uuid.UUID]discoverysvc.WatchFacts
+	drops   map[uuid.UUID]discoverysvc.PriceDropFacts
+}
+
+func (d discovery) WatchFacts(_ context.Context, id uuid.UUID) (discoverysvc.WatchFacts, bool, error) {
+	f, ok := d.watches[id]
+	return f, ok, nil
+}
+
+func (d discovery) PriceDropFacts(_ context.Context, id uuid.UUID) (discoverysvc.PriceDropFacts, bool, error) {
+	f, ok := d.drops[id]
+	return f, ok, nil
+}
 
 // accounts answers that every session but the revoked ones is active, names
 // every account Hoàng Nam, and pages followers, the newest follow first.
@@ -155,7 +173,7 @@ func newEnv(t *testing.T, revoked map[uuid.UUID]bool, once map[string]error) env
 	notices := service.New(service.Deps{Notices: repository.NewNotices(db), Now: time.Now})
 	s := &sender{sent: map[string]int{}, body: map[string]string{}, once: once}
 	w := worker.Worker{
-		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{},
+		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{}, Discovery: discovery{},
 		Accounts: accounts{revoked: revoked}, Push: s, Log: slog.New(slog.DiscardHandler), FollowerPage: 2,
 	}
 	return env{db: db, notices: notices, push: s, worker: w}
@@ -481,5 +499,45 @@ func TestAccountDeletedForgetsTheAccount(t *testing.T) {
 	}
 	if tokens, _ := e.notices.Tokens(ctx, gone); len(tokens) != 0 {
 		t.Fatalf("tokens left: %+v", tokens)
+	}
+}
+
+// A watch's sweeps leave one unread notice with the latest count, and a
+// price drop tells the saver; facts gone tell no one.
+func TestWatchAndPriceNotices(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, nil, nil)
+	me := accounttest.New(t, e.db)
+	watch, save, listing := uuid.NewV7(), uuid.NewV7(), uuid.NewV7()
+	e.worker.Discovery = discovery{
+		watches: map[uuid.UUID]discoverysvc.WatchFacts{watch: {ID: watch, Account: me, Query: "xe đạp"}},
+		drops: map[uuid.UUID]discoverysvc.PriceDropFacts{
+			save: {ID: save, Account: me, ListingID: listing, Title: "Xe đạp Asama", SavedPrice: 1_500_000},
+		},
+	}
+	e.start(t)
+	at := time.Now()
+	e.deliver(t, "SearchWatchMatched", events.Event{
+		ID: uuid.NewV7(), Kind: events.SearchWatchMatched, SubjectID: watch,
+		Payload: map[string]any{"count": 2}, OccurredAt: at,
+	})
+	e.deliver(t, "SearchWatchMatched", events.Event{
+		ID: uuid.NewV7(), Kind: events.SearchWatchMatched, SubjectID: watch,
+		Payload: map[string]any{"count": 5}, OccurredAt: at.Add(time.Minute),
+	})
+	e.deliver(t, "SearchWatchMatched", events.Event{
+		ID: uuid.NewV7(), Kind: events.SearchWatchMatched, SubjectID: uuid.NewV7(),
+		Payload: map[string]any{"count": 1}, OccurredAt: at,
+	})
+	e.deliver(t, "SavedPriceDropped", events.Event{
+		ID: uuid.NewV7(), Kind: events.SavedPriceDropped, SubjectID: save,
+		Payload: map[string]any{"price": 1_400_000}, OccurredAt: at.Add(2 * time.Minute),
+	})
+	items := e.noticesOf(t, me, 2)
+	if items[0].Type != domain.TypePriceDropped || items[0].Text != "Xe đạp Asama giảm còn 1,4 tr, lúc lưu 1,5 tr" {
+		t.Fatalf("%+v", items[0])
+	}
+	if items[1].Type != domain.TypeWatchMatched || items[1].Text != "Có 5 tin mới cho “xe đạp”" || items[1].Target.Kind != "search_watch" {
+		t.Fatalf("%+v", items[1])
 	}
 }

@@ -64,6 +64,9 @@ type Service interface {
 	// Places reads the communes among codes with their provinces, keyed by
 	// code; an unknown code is left out.
 	Places(ctx context.Context, codes []string) (map[string]Location, error)
+	// NearestCommune is the commune whose point is closest to p, and how
+	// far that point is in kilometres.
+	NearestCommune(ctx context.Context, p domain.Point) (code string, km float64, err error)
 	Categories(ctx context.Context) ([]domain.Category, error)
 	// Search runs s and returns its listings as cards, in order.
 	Search(ctx context.Context, s domain.Search) ([]SearchCard, error)

@@ -29,13 +29,19 @@ type Filters struct {
 	// it.
 	Origin   *Point
 	RadiusKm int // 0 is no radius
+	// IDs keeps the search to these listings, empty for every listing: a
+	// watch's sweep weighs the listings that arrived since the last one.
+	IDs []uuid.UUID
 }
 
 // Phrase is text to match in the title, the description and the specs. A
-// negative weight demotes what matches.
+// negative weight demotes what matches. AllWords makes it match only a
+// listing holding every word of Text in one of the three, as a watch's
+// sweep needs; a ranked phrase matches any of its words.
 type Phrase struct {
-	Text   string
-	Weight float64
+	Text     string
+	Weight   float64
+	AllWords bool
 }
 
 // BoostKind is what a boost matches on.
@@ -83,9 +89,10 @@ type Search struct {
 	// Like is the source of a similar-listings search, zero for none: the
 	// service reads its vectors into Vectors, and the search leaves it out.
 	Like uuid.UUID
-	// ExcludeSeller leaves out one seller's listings, zero for none: the
-	// viewer's own in a similar-listings search.
-	ExcludeSeller uuid.UUID
+	// ExcludeListings and ExcludeSellers leave listings out: the ones the
+	// viewer hid, the sellers on either side of the viewer's blocks, and the
+	// viewer's own in a similar-listings search or a sweep.
+	ExcludeListings, ExcludeSellers []uuid.UUID
 }
 
 // Hybrid reports whether s fuses lists; otherwise it is one BM25 query.

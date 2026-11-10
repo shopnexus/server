@@ -5,6 +5,7 @@ package discovery
 import (
 	restate "github.com/restatedev/sdk-go"
 
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/discovery/domain"
 	"github.com/shopnexus/server2/internal/discovery/handler"
@@ -30,11 +31,18 @@ type Settings struct {
 }
 
 // Mount registers the discovery endpoints, subscribes the account watch to
-// account.deleted, and returns discovery's Restate services and the
-// Service screen reads saves and Home's nearby feed through.
-func Mount(d module.Deps, s Settings, catalog catalogsvc.Service, media mediasvc.Service) module.Mounted[service.Service] {
+// account.deleted and the listing watch to listing.published and
+// listing.updated, and returns discovery's Restate services, the sweep of
+// the search watches among them, and the Service screen reads saves and
+// Home's nearby feed through.
+func Mount(
+	d module.Deps, s Settings, catalog catalogsvc.Service, media mediasvc.Service, accounts accountsvc.Service,
+) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
 		Saves: repository.NewSaves(d.Pool), Understandings: repository.NewUnderstandings(d.Pool), History: repository.NewHistory(d.Pool),
+		Hidden: repository.NewHidden(d.Pool), Settings: repository.NewSettings(d.Pool), Accounts: accounts,
+		Watches: repository.NewWatches(d.Pool), Sweeps: service.NewSweeper(d.Ingress, d.ServicePrefix),
+		ArrivalLag: domain.ArrivalLag, SweepBatch: domain.SweepBatch,
 		QueryVectors: repository.NewQueryVectors(d.Pool), PhotoVectors: repository.NewPhotoVectors(d.Pool),
 		Catalog: catalog, Media: media, LLM: s.Model, Text: s.Text, Image: s.Image,
 		TextVersion: s.TextVersion, ImageVersion: s.ImageVersion, TextMin: s.TextMin, PhotoMin: s.PhotoMin,
@@ -43,5 +51,12 @@ func Mount(d module.Deps, s Settings, catalog catalogsvc.Service, media mediasvc
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Discovery: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
-	return module.Mounted[service.Service]{Services: []restate.ServiceDefinition{restate.Reflect(watch)}, Service: svc}
+	listings := worker.ListingWatch{Prefix: d.ServicePrefix, Discovery: svc}
+	d.Events.Subscribe(events.ListingPublished, listings.ServiceName(), "Published")
+	d.Events.Subscribe(events.ListingUpdated, listings.ServiceName(), "Updated")
+	sweep := worker.SearchWatchSweep{Prefix: d.ServicePrefix, Discovery: svc, Every: domain.SweepEvery}
+	return module.Mounted[service.Service]{
+		Services: []restate.ServiceDefinition{restate.Reflect(watch), restate.Reflect(listings), restate.Reflect(sweep)},
+		Service:  svc,
+	}
 }

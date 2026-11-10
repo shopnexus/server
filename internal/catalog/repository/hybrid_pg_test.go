@@ -116,7 +116,7 @@ func TestHybridLikeLeavesOutSourceAndSeller(t *testing.T) {
 	theirs := putHybrid(t, db, other, "Xe đạp Asama 3", 1_400_000, embedtest.Axis(td, 0), nil)
 	hits, err := repository.NewSearches(db).Search(ctx, domain.Search{
 		Phrases: []domain.Phrase{{Text: "Xe đạp Asama", Weight: 1}},
-		Vectors: vecs(embedtest.Axis(td, 0), nil), Like: source, ExcludeSeller: me,
+		Vectors: vecs(embedtest.Axis(td, 0), nil), Like: source, ExcludeSellers: []uuid.UUID{me},
 		Weights: domain.Weights{BM25: 0.5, Text: 1}, Sort: domain.SortRelevance, Limit: 10,
 	})
 	if got := ids(hits); err != nil || !slices.Equal(got, []uuid.UUID{theirs}) {
