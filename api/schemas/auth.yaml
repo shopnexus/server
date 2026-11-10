@@ -94,3 +94,29 @@ SessionList:
       type: string
       format: uuid
       description: Present when more sessions follow; pass it as cursor.
+EmailCodeRequest:
+  type: object
+  additionalProperties: false
+  required: [email]
+  properties:
+    email:
+      type: string
+      minLength: 3
+      maxLength: 254
+      description: Trimmed and lower-cased by the server.
+EmailCode:
+  type: object
+  additionalProperties: false
+  required: [challenge_id, expires_at, resend_at]
+  properties:
+    challenge_id:
+      type: string
+      format: uuid
+      description: Sent back with the code.
+    expires_at:
+      type: string
+      format: date-time
+    resend_at:
+      type: string
+      format: date-time
+      description: The first moment another code to this address is allowed.

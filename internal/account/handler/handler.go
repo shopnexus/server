@@ -20,6 +20,7 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 // signed-in caller.
 func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
 	r.Handle("POST /v1/auth/sign-in", http.HandlerFunc(h.SignIn))
+	r.Handle("POST /v1/auth/email-codes", http.HandlerFunc(h.SendEmailCode))
 	r.Handle("POST /v1/auth/refresh", http.HandlerFunc(h.Refresh))
 	r.Handle("GET /v1/auth/sessions", protect(http.HandlerFunc(h.ListSessions)))
 	r.Handle("DELETE /v1/auth/sessions", protect(http.HandlerFunc(h.DeleteAllSessions)))
@@ -29,6 +30,7 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("DELETE /v1/auth/sessions/{id}", protect(http.HandlerFunc(h.DeleteSession)))
 	r.Handle("GET /v1/accounts/me", protect(http.HandlerFunc(h.GetMe)))
 	r.Handle("PATCH /v1/accounts/me", protect(http.HandlerFunc(h.Update)))
+	r.Handle("POST /v1/accounts/me/email-codes", protect(http.HandlerFunc(h.SendMyEmailCode)))
 	r.Handle("POST /v1/blocks", protect(tie[accountBody](h, h.svc.Block)))
 	r.Handle("GET /v1/blocks", protect(ties(h, h.svc.Blocks)))
 	r.Handle("DELETE /v1/blocks/{account_id}", protect(tie[accountPath](h, h.svc.Unblock)))

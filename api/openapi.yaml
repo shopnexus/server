@@ -15,6 +15,8 @@ paths:
     $ref: "paths/system.yaml#/readyz"
   /v1/auth/sign-in:
     $ref: "paths/auth.yaml#/signIn"
+  /v1/auth/email-codes:
+    $ref: "paths/auth.yaml#/emailCodes"
   /v1/auth/refresh:
     $ref: "paths/auth.yaml#/refresh"
   /v1/auth/sessions:
@@ -25,6 +27,8 @@ paths:
     $ref: "paths/auth.yaml#/session"
   /v1/accounts/me:
     $ref: "paths/account.yaml#/me"
+  /v1/accounts/me/email-codes:
+    $ref: "paths/account.yaml#/myEmailCodes"
   /v1/blocks:
     $ref: "paths/account.yaml#/blocks"
   /v1/blocks/{account_id}:

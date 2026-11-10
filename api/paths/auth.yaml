@@ -144,3 +144,42 @@ session:
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
         $ref: "../responses/common.yaml#/NotFound"
+emailCodes:
+  post:
+    operationId: sendEmailCode
+    summary: Mail a six-digit code to sign in, or sign up on first use, with an email address.
+    description: |
+      The reply is the same whether or not an account holds the address.
+      The code lasts 5 minutes and takes 5 guesses. Limits: one code per
+      address per 45 seconds, five per address per hour, twenty per client
+      address per hour.
+    tags: [auth]
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/auth.yaml#/EmailCodeRequest"
+    responses:
+      "200":
+        description: The code is on its way.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/auth.yaml#/EmailCode"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "422":
+        description: The address is not valid (invalid_email).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "429":
+        description: Too soon after the last code to this address (otp_too_soon), or over a limit (otp_limit); details.retry_after gives seconds.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

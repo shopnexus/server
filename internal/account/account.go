@@ -1,6 +1,7 @@
 // Package account owns who a person is and how they prove it: display name,
 // bio, avatar, status and suspension, blocks and addresses, and sign-in with a
-// phone number Firebase verified, with its sessions and tokens.
+// phone number Firebase verified, a Google account or an email code, with its
+// sessions and tokens.
 package account
 
 import (
@@ -46,6 +47,7 @@ func Mount(d module.Deps, s Settings, media mediasvc.Service) module.Mounted[ser
 	svc := service.New(service.Deps{
 		Accounts: repository.NewAccounts(d.Pool), Follows: repository.NewFollows(d.Pool), Addresses: repository.NewAddresses(d.Pool), Credentials: repository.NewCredentials(d.Pool),
 		Sessions: repository.NewSessions(d.Pool), Signer: domain.NewSigner(s.Keys), Phones: s.Phones, Media: media,
+		Challenges: repository.NewChallenges(d.Pool), Quotas: repository.NewQuotas(d.Pool), Codes: domain.NewCodes(s.Keys.OTPKey), Email: s.Email,
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)

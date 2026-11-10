@@ -1,6 +1,7 @@
 package service
 
 import (
+	"net/netip"
 	"time"
 	"uuid"
 
@@ -128,4 +129,20 @@ type SessionItem struct {
 type Identity struct {
 	Kind  domain.Kind `json:"kind"`
 	Value string      `json:"value"`
+}
+
+// SendEmailCodeInput is an address as the person typed it. AccountID is the
+// signed-in caller for an add-identity code and nil for a sign-in code.
+type SendEmailCodeInput struct {
+	IdempotencyKey string
+	Email          string
+	AccountID      *uuid.UUID
+	IP             netip.Addr
+}
+
+// EmailCodeView is the EmailCode schema in api/schemas/auth.yaml.
+type EmailCodeView struct {
+	ChallengeID uuid.UUID `json:"challenge_id"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	ResendAt    time.Time `json:"resend_at"`
 }

@@ -1,7 +1,8 @@
 // Package service holds module account's use cases: accounts, suspensions,
-// blocks, follows and addresses, and signing in with a phone number Firebase verified,
-// with the sessions and tokens it starts. Signing in runs on Restate, in
-// sign_in_durable.go; Account reaches it through restatex.Caller. Its
+// blocks, follows and addresses, and signing in with a phone number Firebase
+// verified, a Google account or an email code, with the sessions and tokens
+// it starts. Signing in and mailing codes run on Restate, in the
+// *_durable.go files; Account reaches them through restatex.Caller. Its
 // handlers and the modules that call account use Service.
 package service
 
@@ -22,6 +23,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/contact"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server2/internal/provider/email"
 )
 
 // Service is module account's contract.
@@ -81,6 +83,9 @@ type Service interface {
 	FindByPhone(ctx context.Context, q string) (uuid.UUID, bool, error)
 	// Identities lists an account's sign-in methods.
 	Identities(ctx context.Context, accountID uuid.UUID) ([]Identity, error)
+	// SendEmailCode mails a six-digit code to an address: a sign-in code,
+	// or with AccountID one that adds the address to that account.
+	SendEmailCode(ctx context.Context, in SendEmailCodeInput) (EmailCodeView, error)
 
 	// The address book: only the owner reads or changes an address; any
 	// other caller gets domain.ErrAddressNotFound.
@@ -140,6 +145,10 @@ type Deps struct {
 	Sessions    repository.Sessions
 	Signer      domain.Signer
 	Phones      PhoneVerifier
+	Challenges  repository.Challenges
+	Quotas      repository.Quotas
+	Codes       domain.Codes
+	Email       email.Sender
 	Media       mediasvc.Service
 	// Ingress and Prefix reach this process's Restate services.
 	Ingress *ingress.Client
@@ -157,11 +166,17 @@ type Account struct {
 	sessions    repository.Sessions
 	signer      domain.Signer
 	phones      PhoneVerifier
+	challenges  repository.Challenges
+	quotas      repository.Quotas
+	codes       domain.Codes
+	email       email.Sender
 	media       mediasvc.Service
 	prefix      string
 	now         func() time.Time
 	log         *slog.Logger
-	signIn      restatex.Caller[PhoneSignIn, SignInResult]
+
+	signIn        restatex.Caller[PhoneSignIn, SignInResult]
+	emailCodeSend restatex.Caller[EmailCodeInput, EmailCodeResult]
 }
 
 var _ Service = (*Account)(nil)
@@ -170,8 +185,12 @@ var _ Service = (*Account)(nil)
 func New(d Deps) *Account {
 	return &Account{
 		accounts: d.Accounts, follows: d.Follows, addresses: d.Addresses, credentials: d.Credentials, sessions: d.Sessions, signer: d.Signer, phones: d.Phones,
+		challenges: d.Challenges, quotas: d.Quotas, codes: d.Codes, email: d.Email,
 		media: d.Media, prefix: d.Prefix, now: d.Now, log: d.Log,
 		signIn: restatex.Caller[PhoneSignIn, SignInResult]{Ingress: d.Ingress, Service: d.Prefix + signInService, Handler: "Run"},
+		emailCodeSend: restatex.Caller[EmailCodeInput, EmailCodeResult]{
+			Ingress: d.Ingress, Service: d.Prefix + emailCodeSendService, Handler: "Run",
+		},
 	}
 }
 
@@ -179,5 +198,8 @@ func New(d Deps) *Account {
 func (s *Account) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
 		restate.Reflect(SignIn{Prefix: s.prefix, Accounts: s.accounts, Credentials: s.credentials, Now: s.now}),
+		restate.Reflect(EmailCodeSend{
+			Prefix: s.prefix, Quotas: s.quotas, Challenges: s.challenges, Codes: s.codes, Email: s.email, Now: s.now,
+		}),
 	}
 }

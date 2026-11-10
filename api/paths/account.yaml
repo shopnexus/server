@@ -82,6 +82,47 @@ me:
               $ref: "../schemas/error.yaml#/Error"
       "428":
         $ref: "../responses/common.yaml#/PreconditionRequired"
+myEmailCodes:
+  post:
+    operationId: sendMyEmailCode
+    summary: Mail a six-digit code that adds this email address to the caller's account.
+    description: |
+      The code works only for the caller's account, through
+      POST /v1/accounts/me/identities. Limits as for sendEmailCode.
+    tags: [account]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/auth.yaml#/EmailCodeRequest"
+    responses:
+      "200":
+        description: The code is on its way.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/auth.yaml#/EmailCode"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "422":
+        description: The address is not valid (invalid_email).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "429":
+        description: Too soon after the last code to this address (otp_too_soon), or over a limit (otp_limit); details.retry_after gives seconds.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 blocks:
   post:
     operationId: blockAccount
