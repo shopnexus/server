@@ -273,8 +273,8 @@ next: `billing` (boosts and seller plans); `notification` holds the
 in-app list and push (see Notifications). There
 is no `kyc` module: an account's verified phone number is enough, since a
 carrier checks a seller's identity when it opens their account (decided
-2026-10-27). Reports, incident
-records and reputation will join `trust`; followed searches, price alerts,
+2026-10-27). Reports are in `trust` (see Trust); incident records and
+reputation will join it; followed searches, price alerts,
 "Dành cho bạn" and vector search will join `discovery`, beside search and
 the nearby feed. Imports run one way, `handler` and `worker` →
 `service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
@@ -744,7 +744,10 @@ server receives a complete listing.
 - Each change writes its event in its transaction: `listing.published`,
   `listing.updated`, `listing.hidden`, `listing.unhidden`, `listing.sold`,
   `listing.unsold`, `listing.deleted`; search and recommendations will
-  subscribe to them.
+  subscribe to them. `listing.published` carries the payload `first: true`
+  on a listing's first publication (`Listing.Published` reports it, from
+  `published_at` being unset); a listing that goes back through processing
+  after an edit or a rejection publishes without it.
 - `categories(code, parent_code, display_name, sort_order)` is loaded by
   migration 0007: 9 roots, each with subcategories coded `<root>.<slug>` and
   ending with `<root>.other` ("Khác"). A listing's `category_code` must name
@@ -923,13 +926,35 @@ server-sent events (decided 2026-10-26).
   `RegisterOnShutdown`. `Hub.Close` closes every subscriber's channel, the
   handlers return, and the apps reconnect to another instance and reload.
 
-### Blocks
+### Blocks and follows
 
 Blocks live in module `account`, since both `chat` and `deal` check them. A block stands either way: neither person
 may message the other, open a conversation with them or open a deal on
 their listings (403 `blocked`). The blocker's inbox leaves the conversation
 out. Running deals and orders stay as they are. Each block has a UUIDv7
 `id`, so `GET /v1/blocks` pages like every list.
+
+Follows live beside blocks (decided 2026-11-10, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-10-server2-follows-reports-design.md`).
+
+- `POST /v1/follows {account_id}`, `GET /v1/follows` and
+  `DELETE /v1/follows/{account_id}` work as the block endpoints do, and
+  one pair of generic handlers (`handler/tie.go`) serves both. A `Follow`
+  row has the fields of a `Block` row plus `avatar_url`.
+- Any account can be followed. A follower follows at most 1,000 accounts
+  (`follow_limit_reached`), counted under `pg_advisory_xact_lock` on
+  `'follows:' || follower`. A suspended follower gets 403
+  `account_suspended`.
+- A block deletes the follows between the two, both ways, in its
+  transaction. While a block stands, following is 403 `blocked`, and
+  unblocking restores nothing. A follow and a block of the same two
+  accounts take one lock on the pair (`'pair:' || lo/hi`), so a follow
+  written beside a block cannot outlive it.
+- `repository.Follows` holds the follow statements; `Accounts.Block`
+  deletes from `account_follows` itself.
+- The seller view shows `seller.followers` to everyone and
+  `viewer.following` to a signed-in reader. A follower hears when the seller
+  first puts a listing on sale (see Notifications).
 
 ### Account profile and addresses
 
@@ -1014,8 +1039,9 @@ page that shows two views calls both at once.
   for everyone; its seller reads it through `GET /v1/listings/{id}`.
 - `GET /v1/screens/seller/{id}` (signed in or not): the seller's profile
   (account's public fields, catalog's counts, and the rating of the reviews
-  page), the first page of the seller's public listings and of their
-  reviews, and `viewer {blocked, conversation_id}`; `blocked` holds either
+  page, and the follower count), the first page of the seller's public
+  listings and of their reviews, and
+  `viewer {blocked, following, conversation_id}`; `blocked` holds either
   way.
 - `GET /v1/screens/inbox?archived=&cursor=&limit=`: chat's inbox page,
   each row with the pair's deal from `PairSummaries` and
@@ -1065,6 +1091,28 @@ Module `trust` holds reviews (spec:
   when they joined, rating, catalog's on-sale and sold counts) is screen's
   `SellerProfile`, which screen builds from account, catalog and trust
   (moved from trust on 2026-11-08).
+
+Reports are trust's too (decided 2026-11-10, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-10-server2-follows-reports-design.md`).
+
+- `POST /v1/reports` takes exactly one of `listing_id` and `account_id`,
+  a `reason` (`banned`, `fake`, `scam`, `other`) and an optional `note` of
+  up to 500 characters after trimming. A broken rule is `invalid_report`;
+  the caller's own account or listing is `self_report`.
+- One table, `reports`. `account_id` is always set, to the seller for a
+  listing report, so a later queue can gather every report about a person.
+  `listing_id` is null for an account report.
+- A reporter has one open report per target, kept by two partial unique
+  indexes (one per kind of target) and `INSERT … ON CONFLICT`. Reporting the
+  target again replaces the reason and note and answers 200; a new report
+  answers 201.
+- `DELETE /v1/reports/{id}` withdraws a report for "Hoàn tác". The row
+  stays with `withdrawn_at`, and the next report of the target opens a new
+  row. Someone else's report is `report_not_found`.
+- A suspended account cannot report. A deleted listing is
+  `listing_not_found`; a hidden, reserved, sold or rejected one can be
+  reported.
+- Nobody reads reports yet: the console queue is a later item.
 
 ### Search
 
@@ -1223,6 +1271,17 @@ calls it except screen, for Home's unread count; depguard holds that.
   two events of one key. A redelivered event writes nothing (the row
   records its `event_id`). A recipient's
   notices older than 90 days are deleted when they get a new one.
+- A followed seller's new listing (decided 2026-11-10): on a
+  `listing.published` with `first`, `ListingPublished` tells the seller as
+  before, reads the seller's name, then reads the followers 500 per step
+  (`accountsvc.Followers`) and sends `NotificationWorker.TellFollower` once
+  per follower with the idempotency key `<event id>/<follower id>`. Each
+  follower's notice is an invocation of its own, so no journal grows with
+  the follower count. `TellFollower` reads the listing again and tells no
+  one when it is no longer `active`; otherwise it writes `followed_listing`
+  ("{seller} vừa đăng tin mới: {title}", opening the listing) collapsing on
+  `seller:<id>`, so a run of listings leaves one unread notice, and pushes
+  it.
 - Chat messages are pushed and never listed, collapsing on
   `conversation:<id>`, with the sender's name and the first 100 characters
   (chat's `MessageFacts` gives the whole text; notification cuts it).
