@@ -41,7 +41,7 @@ func newEnv(t *testing.T) env {
 		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Ingress: in, Prefix: p, Now: time.Now,
 	})
 	restatetest.Start(t, deals.Durable()...)
-	trust := service.New(service.Deps{Reviews: repository.NewReviews(db), Accounts: accounts, Catalog: c, Deals: deals, Now: time.Now})
+	trust := service.New(service.Deps{Reviews: repository.NewReviews(db), Reports: repository.NewReports(db), Accounts: accounts, Catalog: c, Deals: deals, Now: time.Now})
 	return env{db: db, accounts: accounts, deals: deals, trust: trust}
 }
 

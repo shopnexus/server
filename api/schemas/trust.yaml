@@ -75,3 +75,47 @@ Rating:
       description: The average stars over every review of the seller; 0 without reviews.
     count:
       type: integer
+ReportCreate:
+  type: object
+  additionalProperties: false
+  required: [reason]
+  properties:
+    listing_id:
+      type: string
+      format: uuid
+    account_id:
+      type: string
+      format: uuid
+    reason:
+      type: string
+      description: banned, fake, scam or other; a business rule, so another value is 422.
+    note:
+      type: string
+      description: At most 500 characters after trimming; may be empty.
+Report:
+  type: object
+  additionalProperties: false
+  required: [id, account_id, reason, note, created_at, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    listing_id:
+      type: string
+      format: uuid
+      description: The listing reported; absent for a report of an account.
+    account_id:
+      type: string
+      format: uuid
+      description: The account reported, the seller for a listing.
+    reason:
+      type: string
+      enum: [banned, fake, scam, other]
+    note:
+      type: string
+    created_at:
+      type: string
+      format: date-time
+    updated_at:
+      type: string
+      format: date-time

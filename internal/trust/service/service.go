@@ -1,6 +1,6 @@
-// Package service holds module trust's use cases: for now a buyer reviews
-// the seller of a shipped order, and anyone reads a seller's rating and
-// reviews.
+// Package service holds module trust's use cases: a buyer reviews the
+// seller of a shipped order, anyone reads a seller's rating and reviews,
+// and people report listings and accounts.
 package service
 
 import (
@@ -30,11 +30,19 @@ type Service interface {
 	SellerReviews(ctx context.Context, seller uuid.UUID, p page.Request) (page.Page[ReviewView], error)
 	// Rating reads the average and count over a seller's reviews.
 	Rating(ctx context.Context, seller uuid.UUID) (Rating, error)
+	// Report opens the reporter's report of a listing or an account, or
+	// replaces the reason and note of their open report of it; the bool is
+	// whether it opened one.
+	Report(ctx context.Context, reporter uuid.UUID, in ReportInput) (ReportView, bool, error)
+	// WithdrawReport withdraws one of the reporter's reports; a withdrawn
+	// one is fine.
+	WithdrawReport(ctx context.Context, reporter, id uuid.UUID) error
 }
 
 // Deps is what New builds Trust from.
 type Deps struct {
 	Reviews  repository.Reviews
+	Reports  repository.Reports
 	Accounts accountsvc.Service
 	Catalog  catalogsvc.Service
 	Deals    dealsvc.Service
@@ -44,6 +52,7 @@ type Deps struct {
 // Trust implements Service in this process.
 type Trust struct {
 	reviews  repository.Reviews
+	reports  repository.Reports
 	accounts accountsvc.Service
 	catalog  catalogsvc.Service
 	deals    dealsvc.Service
@@ -53,5 +62,5 @@ type Trust struct {
 var _ Service = (*Trust)(nil)
 
 func New(d Deps) *Trust {
-	return &Trust{reviews: d.Reviews, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, now: d.Now}
+	return &Trust{reviews: d.Reviews, reports: d.Reports, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, now: d.Now}
 }

@@ -123,6 +123,10 @@ paths:
     $ref: "paths/trust.yaml#/review"
   /v1/sellers/{id}/reviews:
     $ref: "paths/trust.yaml#/sellerReviews"
+  /v1/reports:
+    $ref: "paths/trust.yaml#/reports"
+  /v1/reports/{id}:
+    $ref: "paths/trust.yaml#/report"
   /v1/sellers/{id}/listings:
     $ref: "paths/catalog.yaml#/sellerListings"
   /v1/search:

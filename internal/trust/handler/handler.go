@@ -18,11 +18,14 @@ type Handler struct {
 
 func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: svc, log: log} }
 
-// Register adds the trust endpoints; a seller's reviews are public.
+// Register adds the trust endpoints; a seller's reviews are public, and
+// reports need a signed-in caller.
 func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
 	r.Handle("PUT /v1/orders/{order_id}/review", protect(http.HandlerFunc(h.PutReview)))
 	r.Handle("DELETE /v1/orders/{order_id}/review", protect(http.HandlerFunc(h.DeleteReview)))
 	r.Handle("GET /v1/sellers/{id}/reviews", http.HandlerFunc(h.SellerReviews))
+	r.Handle("POST /v1/reports", protect(http.HandlerFunc(h.Report)))
+	r.Handle("DELETE /v1/reports/{id}", protect(http.HandlerFunc(h.WithdrawReport)))
 }
 
 type putRequest struct {

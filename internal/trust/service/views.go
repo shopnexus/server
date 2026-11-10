@@ -9,6 +9,27 @@ import (
 	"github.com/shopnexus/server2/internal/trust/domain"
 )
 
+// ReportInput is what POST /v1/reports carries: exactly one of ListingID
+// and AccountID.
+type ReportInput struct {
+	ListingID uuid.UUID
+	AccountID uuid.UUID
+	Reason    domain.Reason
+	Note      string
+}
+
+// ReportView is the Report schema in api/schemas/trust.yaml. ListingID is
+// zero for a report of an account.
+type ReportView struct {
+	ID        uuid.UUID     `json:"id"`
+	ListingID uuid.UUID     `json:"listing_id,omitzero"`
+	AccountID uuid.UUID     `json:"account_id"`
+	Reason    domain.Reason `json:"reason"`
+	Note      string        `json:"note"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
 // Person is the buyer of a review.
 type Person struct {
 	ID          uuid.UUID `json:"id"`

@@ -118,3 +118,79 @@ sellerReviews:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+reports:
+  post:
+    operationId: createReport
+    summary: Report a listing or an account.
+    description: |
+      Exactly one of listing_id and account_id. A report of a listing is
+      also about its seller, whom account_id names in the answer. The
+      caller has one open report per target: reporting it again replaces
+      the reason and note and answers 200.
+    tags: [trust]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/trust.yaml#/ReportCreate"
+    responses:
+      "200":
+        description: The open report of the target, with the new reason and note.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/trust.yaml#/Report"
+      "201":
+        description: The report, opened.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/trust.yaml#/Report"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/Forbidden"
+      "404":
+        description: "No such listing, or a deleted one (listing_not_found), or no such account (account_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "A rule is broken (invalid_report, with fields), or the caller named themselves or their own listing (self_report)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+report:
+  delete:
+    operationId: withdrawReport
+    summary: Withdraw one of the caller's reports; a withdrawn one is fine.
+    tags: [trust]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Withdrawn.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such report of the caller's (report_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
