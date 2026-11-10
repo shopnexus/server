@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/platform/contact"
@@ -15,12 +16,15 @@ func (s *Account) SendEmailCode(ctx context.Context, in SendEmailCodeInput) (Ema
 	if err != nil {
 		return EmailCodeView{}, err //nolint:wrapcheck // contact.ErrInvalidEmail is the client's answer.
 	}
-	purpose, owner := domain.PurposeSignIn, "-"
-	if in.AccountID != nil {
-		purpose, owner = domain.PurposeAddIdentity, in.AccountID.String()
+	purpose, owner, accountID := domain.PurposeSignIn, "-", (*uuid.UUID)(nil)
+	if in.Caller != nil {
+		if err = s.mayAddIdentity(ctx, *in.Caller); err != nil {
+			return EmailCodeView{}, err
+		}
+		purpose, owner, accountID = domain.PurposeAddIdentity, in.Caller.AccountID.String(), &in.Caller.AccountID
 	}
 	res, err := s.emailCodeSend.Call(ctx, owner+"/"+addr.Value()+"/"+in.IdempotencyKey,
-		EmailCodeInput{Email: addr, Purpose: purpose, AccountID: in.AccountID, IP: in.IP})
+		EmailCodeInput{Email: addr, Purpose: purpose, AccountID: accountID, IP: in.IP})
 	if err != nil {
 		return EmailCodeView{}, err
 	}

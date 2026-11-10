@@ -2,7 +2,9 @@ package e2e
 
 import (
 	"testing"
+	"time"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
 )
 
@@ -61,4 +63,40 @@ func TestAddIdentityRefusals(t *testing.T) {
 	check(t, "forged token", add(map[string]string{"phone_token": issuer.SMSToken(newPhone(), firebasetest.Claim("aud", "other"))}, newKey(), auth), 401, "invalid_phone_token")
 	check(t, "no key", add(map[string]string{"phone_token": issuer.SMSToken(newPhone())}, auth), 400, "")
 	check(t, "signed out", add(map[string]string{"phone_token": issuer.SMSToken(newPhone())}, newKey()), 401, "")
+}
+
+// staleToken is an access token of me's session whose sign-in was 20
+// minutes ago.
+func staleToken(t *testing.T, me signIn) string {
+	t.Helper()
+	p, err := accountdomain.NewVerifier(keys).Verify(me.AccessToken, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, _ := accountdomain.NewSession(p.SessionID, p.AccountID, "", time.Now().Add(-20*time.Minute), time.Now())
+	token, _, err := accountdomain.NewSigner(keys).Sign(s, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token
+}
+
+// Adding a sign-in method needs a recent sign-in and an account that may
+// write, and so does mailing the code that adds an email.
+func TestAddingAnIdentityNeedsARecentSignIn(t *testing.T) {
+	t.Parallel()
+	me, _ := newEmailAccount(t)
+	stale := bearer(staleToken(t, me))
+	check(t, "add, stale", call(t, "POST", "/v1/accounts/me/identities", map[string]string{"phone_token": issuer.SMSToken(newPhone())}, newKey(), stale),
+		428, "reauth_required")
+	check(t, "mail, stale", call(t, "POST", "/v1/accounts/me/email-codes", map[string]string{"email": newEmail()}, newKey(), newClient(), stale),
+		428, "reauth_required")
+
+	suspended, _ := newAccount(t)
+	suspend(t, suspended.Account.ID)
+	auth := bearer(suspended.AccessToken)
+	check(t, "add, suspended", call(t, "POST", "/v1/accounts/me/identities", map[string]string{"google_token": google.Token(newEmail())}, newKey(), auth),
+		403, "account_suspended")
+	check(t, "mail, suspended", call(t, "POST", "/v1/accounts/me/email-codes", map[string]string{"email": newEmail()}, newKey(), newClient(), auth),
+		403, "account_suspended")
 }

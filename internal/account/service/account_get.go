@@ -33,11 +33,15 @@ func (s *Account) GetMany(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]A
 	return out, nil
 }
 
-// Me reads the caller's account and its sign-in methods.
+// Me reads the caller's account and its sign-in methods. A deleted account
+// has none, and its access token answers session_revoked.
 func (s *Account) Me(ctx context.Context, id uuid.UUID) (MeView, error) {
 	a, err := s.load(ctx, id)
 	if err != nil {
 		return MeView{}, err
+	}
+	if a.StoredStatus() == domain.StatusDeleted {
+		return MeView{}, domain.ErrSessionRevoked
 	}
 	ids, err := s.Identities(ctx, id)
 	if err != nil {

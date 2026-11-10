@@ -25,7 +25,7 @@ func (h *Handler) AddIdentity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := h.svc.AddIdentity(r.Context(), service.AddIdentityInput{
-		IdempotencyKey: in.IdempotencyKey, AccountID: p.AccountID, Proof: in.proof(),
+		IdempotencyKey: in.IdempotencyKey, Caller: p, Proof: in.proof(),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

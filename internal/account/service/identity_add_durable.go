@@ -90,7 +90,9 @@ func (s AddIdentity) Run(ctx restate.Context, in AddIdentityRun) (AddIdentityRes
 		return AddIdentityResult{}, fmt.Errorf("load credentials: %w", err)
 	}
 	if !l.Found {
-		return AddIdentityResult{Refused: domain.ErrAccountNotFound}, nil
+		// Every account that signed in has credentials until Erase deletes
+		// them: the account was deleted since the caller was checked.
+		return AddIdentityResult{Refused: domain.ErrSessionRevoked}, nil
 	}
 	c := l.Credentials
 	if added := c.Add(domain.NewIdentity(restatex.NewID(ctx, at), addr, at)); added != nil {

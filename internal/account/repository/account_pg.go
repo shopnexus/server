@@ -110,8 +110,13 @@ func (s pgAccounts) Save(ctx context.Context, a *domain.Account, writeID uuid.UU
 }
 
 // eraseAccount is what Erase deletes beside the row, in order; identities
-// go with their credentials (ON DELETE CASCADE).
+// go with their credentials (ON DELETE CASCADE). The email codes go first,
+// while the identities still name the account's address.
 var eraseAccount = []string{
+	`DELETE FROM otp_challenges WHERE account_id = @id
+OR destination IN (SELECT identifier FROM identities WHERE account_id = @id AND kind = 'email')`,
+	`DELETE FROM otp_quotas
+WHERE subject IN (SELECT 'dest:' || identifier FROM identities WHERE account_id = @id AND kind = 'email')`,
 	`DELETE FROM credentials WHERE account_id = @id`,
 	`DELETE FROM addresses WHERE account_id = @id`,
 	`DELETE FROM account_blocks WHERE blocker_id = @id OR blocked_id = @id`,

@@ -89,7 +89,9 @@ myIdentities:
     description: |
       A phone_token adds a phone to an account that has only an email;
       google_token or email_code (from sendMyEmailCode) adds an email to an
-      account that has only a phone.
+      account that has only a phone. Needs a sign-in within 15 minutes: a
+      sign-in method is never removed, so one added with a leaked access
+      token would let its holder in for good.
     tags: [account]
     security:
       - bearerAuth: []
@@ -111,11 +113,13 @@ myIdentities:
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
-        description: Not signed in, or a token failed a check (invalid_phone_token, invalid_google_token).
+        description: Not signed in, the account was deleted (session_revoked), or a token failed a check (invalid_phone_token, invalid_google_token).
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+      "403":
+        $ref: "../responses/common.yaml#/Forbidden"
       "409":
         description: The account has this kind already (identity_kind_taken), another account signs in with this value (identity_taken), or a race (try_again).
         content:
@@ -128,13 +132,16 @@ myIdentities:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+      "428":
+        $ref: "../responses/common.yaml#/PreconditionRequired"
 myEmailCodes:
   post:
     operationId: sendMyEmailCode
     summary: Mail a six-digit code that adds this email address to the caller's account.
     description: |
       The code works only for the caller's account, through
-      POST /v1/accounts/me/identities. Limits as for sendEmailCode.
+      POST /v1/accounts/me/identities. Needs a sign-in within 15 minutes.
+      Limits as for sendEmailCode.
     tags: [account]
     security:
       - bearerAuth: []
@@ -157,6 +164,8 @@ myEmailCodes:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/Forbidden"
       "422":
         description: The address is not valid (invalid_email).
         content:
@@ -169,6 +178,8 @@ myEmailCodes:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+      "428":
+        $ref: "../responses/common.yaml#/PreconditionRequired"
 blocks:
   post:
     operationId: blockAccount

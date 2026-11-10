@@ -7,6 +7,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/platform/audit"
+	"github.com/shopnexus/server2/internal/platform/authn"
 )
 
 // AccountView is the Account schema in api/schemas/account.yaml.
@@ -146,12 +147,12 @@ type Identity struct {
 	Value string      `json:"value"`
 }
 
-// SendEmailCodeInput is an address as the person typed it. AccountID is the
+// SendEmailCodeInput is an address as the person typed it. Caller is the
 // signed-in caller for an add-identity code and nil for a sign-in code.
 type SendEmailCodeInput struct {
 	IdempotencyKey string
 	Email          string
-	AccountID      *uuid.UUID
+	Caller         *authn.Principal
 	IP             netip.Addr
 }
 
@@ -162,10 +163,10 @@ type EmailCodeView struct {
 	ResendAt    time.Time `json:"resend_at"`
 }
 
-// AddIdentityInput is a proof of the kind the account lacks.
+// AddIdentityInput is a proof of the kind the caller's account lacks.
 type AddIdentityInput struct {
 	IdempotencyKey string
-	AccountID      uuid.UUID
+	Caller         authn.Principal
 	Proof          Proof
 }
 

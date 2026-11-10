@@ -337,6 +337,14 @@ func TestErase(t *testing.T) {
 	for _, q := range []string{
 		`INSERT INTO credentials (account_id, write_id) VALUES (@id, @id)`,
 		`INSERT INTO identities (id, account_id, kind, identifier) VALUES (uuidv7(), @id::uuid, 'phone', '+8499' || substr(md5(@id::text), 1, 7))`,
+		`INSERT INTO identities (id, account_id, kind, identifier) VALUES (uuidv7(), @id::uuid, 'email', @id::text || '@example.com')`,
+		// A sign-in code to the account's email, an add-email code it asked
+		// for, and the email's send quota.
+		`INSERT INTO otp_challenges (id, purpose, kind, destination, code_hash, ip, expires_at, created_at, write_id)
+VALUES (uuidv7(), 'sign_in', 'email', @id::text || '@example.com', '\x00', '127.0.0.1', now() + interval '5 minutes', now(), uuidv7())`,
+		`INSERT INTO otp_challenges (id, purpose, kind, destination, account_id, code_hash, ip, expires_at, created_at, write_id)
+VALUES (uuidv7(), 'add_identity', 'email', 'other-' || @id::text || '@example.com', @id::uuid, '\x00', '127.0.0.1', now() + interval '5 minutes', now(), uuidv7())`,
+		`INSERT INTO otp_quotas (subject, sent_at, write_id) VALUES ('dest:' || @id::text || '@example.com', ARRAY[now()], uuidv7())`,
 		`INSERT INTO addresses (id, account_id, recipient_name, phone, street, commune_code, is_default, request_key, write_id, created_at)
 VALUES (uuidv7(), @id, 'Linh', '0912345678', '1 Lê Lợi', (SELECT code FROM communes ORDER BY code LIMIT 1), true, gen_random_uuid(), uuidv7(), now())`,
 		`INSERT INTO sessions (id, account_id, refresh_hash, auth_time, created_at, last_used_at, expires_at, write_id)
@@ -370,13 +378,15 @@ VALUES (uuidv7(), @id, decode(md5(random()::text), 'hex'), now(), current_timest
 		t.Fatalf("stored: %+v %v", got, err)
 	}
 	for q, want := range map[string]int{
-		`SELECT count(*) FROM credentials WHERE account_id = @id`:                           0,
-		`SELECT count(*) FROM identities WHERE account_id = @id`:                            0,
-		`SELECT count(*) FROM addresses WHERE account_id = @id`:                             0,
-		`SELECT count(*) FROM account_blocks WHERE blocker_id = @id OR blocked_id = @id`:    0,
-		`SELECT count(*) FROM account_follows WHERE follower_id = @id OR followed_id = @id`: 0,
-		`SELECT count(*) FROM sessions WHERE account_id = @id AND revoked_at IS NULL`:       0,
-		`SELECT count(*) FROM events WHERE subject_id = @id AND kind = 'account.deleted'`:   1,
+		`SELECT count(*) FROM credentials WHERE account_id = @id`:                                                 0,
+		`SELECT count(*) FROM identities WHERE account_id = @id`:                                                  0,
+		`SELECT count(*) FROM addresses WHERE account_id = @id`:                                                   0,
+		`SELECT count(*) FROM account_blocks WHERE blocker_id = @id OR blocked_id = @id`:                          0,
+		`SELECT count(*) FROM account_follows WHERE follower_id = @id OR followed_id = @id`:                       0,
+		`SELECT count(*) FROM sessions WHERE account_id = @id AND revoked_at IS NULL`:                             0,
+		`SELECT count(*) FROM events WHERE subject_id = @id AND kind = 'account.deleted'`:                         1,
+		`SELECT count(*) FROM otp_challenges WHERE account_id = @id OR destination = @id::text || '@example.com'`: 0,
+		`SELECT count(*) FROM otp_quotas WHERE subject = 'dest:' || @id::text || '@example.com'`:                  0,
 	} {
 		if n := count(t, db, q, me); n != want {
 			t.Errorf("%s: %d, want %d", q, n, want)

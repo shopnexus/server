@@ -41,7 +41,7 @@ func (h *Handler) SendMyEmailCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := h.svc.SendEmailCode(r.Context(), service.SendEmailCodeInput{
-		IdempotencyKey: in.IdempotencyKey, Email: in.Email, AccountID: &p.AccountID, IP: httpx.ClientIP(r),
+		IdempotencyKey: in.IdempotencyKey, Email: in.Email, Caller: &p, IP: httpx.ClientIP(r),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

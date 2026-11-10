@@ -518,9 +518,15 @@ key `<account_id>/<Idempotency-Key>`, judges a code with `judgeGuess`
 `Add`s the identity between steps and saves it in the next. A kind the
 account holds is 409 `identity_kind_taken`; a value another account holds
 is 409 `identity_taken`; a lost race is `try_again`. Accounts are never
-merged, and no endpoint changes or removes an identity.
+merged, and no endpoint changes or removes an identity, so adding one and
+mailing the code that adds an email (`POST /v1/accounts/me/email-codes`)
+need a sign-in within `domain.RecentAuth` (428 `reauth_required`) and an
+account that may write (403 `account_suspended`, 401 `session_revoked`);
+an identity added with a leaked access token would otherwise let its
+holder in for good (decided 2026-11-10, after the branch's review).
 `GET /v1/accounts/me` answers `MyAccount`, the account with its
-`identities`; `Account`, the public view other modules return, has none.
+`identities`, and `session_revoked` for a deleted account; `Account`, the
+public view other modules return, has none.
 
 Posting a listing, opening a deal and opening a chat need a phone identity:
 `accountsvc.Service.HasPhone`, read by `ListingPost` in a step after the
@@ -1439,10 +1445,11 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
 - `Erase` keeps the `accounts` row as a tombstone, since orders, reviews,
   messages, conversations and reports point to it: `status = 'deleted'`,
   `deleted_at` set, no name, bio or avatar (a CHECK holds it). In the same
-  transaction it deletes the credentials with their identities, the
-  addresses, the blocks and follows either way, revokes every session and
-  writes `account.deleted`. A phone of the account then signs up as a new
-  account. A conflict reads again once, then `try_again`.
+  transaction it deletes the email codes the account asked for or that went
+  to its email, that email's send quota, the credentials with their
+  identities, the addresses, the blocks and follows either way, revokes
+  every session and writes `account.deleted`. A phone or email of the
+  account then signs up as a new account. A conflict reads again once, then `try_again`.
 - Each module clears its own rows from a worker on `account.deleted`, and
   each handler does nothing the second time: catalog deletes the listings
   that are not sold (a processing one too; its publish flow stops on a
