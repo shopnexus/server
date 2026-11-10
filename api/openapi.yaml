@@ -117,6 +117,8 @@ paths:
     $ref: "paths/chat.yaml#/unread"
   /v1/screens/inbox:
     $ref: "paths/screen_inbox.yaml#/screenInbox"
+  /v1/screens/inbox/search:
+    $ref: "paths/screen_inbox.yaml#/screenInboxSearch"
   /v1/screens/chat/{conversation_id}:
     $ref: "paths/screen_inbox.yaml#/screenChat"
   /v1/screens/home:
