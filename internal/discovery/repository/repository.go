@@ -116,3 +116,65 @@ type PhotoVectors interface {
 	Get(ctx context.Context, upload uuid.UUID, model string, now time.Time) ([]float32, bool, error)
 	Put(ctx context.Context, upload uuid.UUID, model string, v []float32, expires, now time.Time) error
 }
+
+// Watch is a person's followed search: the query, the phrases the model
+// read from it, the filters and a commune. Zero values are no filter.
+type Watch struct {
+	ID          uuid.UUID
+	Account     uuid.UUID
+	Query       string
+	Phrases     []string
+	Category    string
+	PriceMin    int64
+	PriceMax    int64
+	Conditions  []string
+	OffersOnly  bool
+	Commune     string
+	RadiusKm    int
+	Alert       bool
+	NewCount    int
+	LastArrival int64
+	CreatedAt   time.Time
+}
+
+// Arrival is a listing's first publication, in the order it committed.
+type Arrival struct {
+	Seq       int64
+	ListingID uuid.UUID
+}
+
+// Watches persists the search watches and the arrivals they sweep.
+type Watches interface {
+	// Put stores w under domain.HistoryKey of its query. A new key inserts
+	// w with last_arrival at the newest arrival; past domain.MaxWatches it
+	// is domain.ErrWatchLimit, counted one at a time per account. A key the
+	// account watches takes w's query, phrases and filters, keeps its ID
+	// and alert, and sets new_count to 0. It returns the stored watch and
+	// whether it is new.
+	Put(ctx context.Context, w Watch) (Watch, bool, error)
+	Get(ctx context.Context, id uuid.UUID) (Watch, bool, error)
+	// List is the account's watches, newest first.
+	List(ctx context.Context, account uuid.UUID) ([]Watch, error)
+	// ByKey is the ID of account's watch of key.
+	ByKey(ctx context.Context, account uuid.UUID, key string) (uuid.UUID, bool, error)
+	// SetAlert mutes or unmutes account's watch; found is false for
+	// another account's or an unknown one.
+	SetAlert(ctx context.Context, account, id uuid.UUID, on bool) (found bool, err error)
+	// Seen sets the watch's new_count to 0.
+	Seen(ctx context.Context, account, id uuid.UUID) error
+	// Delete forgets account's watch; an unknown one is fine.
+	Delete(ctx context.Context, account, id uuid.UUID) error
+	// Clear deletes every watch of the account.
+	Clear(ctx context.Context, account uuid.UUID) error
+	// Arrive records listing's first publication, once, and deletes up to
+	// 1,000 arrivals older than domain.KeepArrivals.
+	Arrive(ctx context.Context, listing uuid.UUID) error
+	// Arrivals lists the arrivals after seq after that are older than lag,
+	// oldest first, at most limit.
+	Arrivals(ctx context.Context, after int64, lag time.Duration, limit int) ([]Arrival, error)
+	// Swept moves the watch's last_arrival from prev to through and adds n
+	// to new_count, at most domain.MaxNewCount; with n > 0 and the alert on
+	// it writes events.SearchWatchMatched, in one transaction. A watch no
+	// longer at prev moves nothing, and moved is false.
+	Swept(ctx context.Context, id uuid.UUID, prev, through int64, n int, at time.Time) (moved bool, err error)
+}
