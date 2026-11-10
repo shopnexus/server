@@ -1439,6 +1439,84 @@ Search history (decided 2026-11-10, spec:
   /v1/search/history` empties it and `DELETE /v1/search/history/{id}`
   forgets one, an unknown ID included; no endpoint restores either.
 
+Hidden listings (decided 2026-11-11, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-11-server2-search-watches-price-alerts-hidden-design.md`):
+
+- `PUT /v1/hidden/{listing_id}` hides someone else's listing that exists and
+  is not deleted (404 `listing_not_found`, 409 `own_listing`), and `DELETE`
+  shows it again. Hiding again gives the row a new UUIDv7 `id`; the same
+  transaction deletes the rows past the 1,000 newest, so the 1,001st hide
+  shows the oldest again. The app has no screen of hidden listings, and no
+  endpoint lists them.
+- A signed-in search of any form, Home's nearby feed included, leaves out
+  the hidden listings and the listings of every account on either side of
+  the viewer's blocks (`accountsvc.BlockedWith`). Catalog's
+  `Search.ExcludeListings` and `ExcludeSellers` carry them as `id <> ALL`
+  and `seller_id <> ALL` in every list, in browsing and in counts;
+  `ExcludeSeller` became `ExcludeSellers`. Saved listings, the seller page
+  and the listing itself still show them.
+
+Price alerts (decided 2026-11-11, same spec):
+
+- The level is on the save, `saved_listings.alert_below`.
+  `PUT /v1/saved/{listing_id}/alert {below}` saves the listing first, with
+  the save's refusals, then sets the level and clears `alerted_price`.
+  `DELETE` removes the level and keeps the save.
+- `saved_settings.price_cut_alerts`, read and set at
+  `/v1/me/price-cut-alerts`, is on for an account without a row. While it is
+  on, a save without its own level uses its saved price as the level.
+- A save tells at each new low below its level: below the level and below
+  `alerted_price`, the price it last told. A price at or above the level, or
+  no level, clears `alerted_price`. `domain.PriceStep` holds the rule;
+  `Saves.PriceMoved` runs it in SQL with the level as a correlated subquery,
+  so an UPDATE that waited for another reads the newest row.
+- `DiscoveryListingWatch` hears `listing.updated` and `listing.published`,
+  reads the listing's current price through catalog's `Summary`, and skips a
+  listing that is not active. A late or reordered event weighs the price as
+  it is when the handler runs. `PriceMoved` writes `saved.price_dropped`
+  (subject the save, payload `price`) for each save it tells; a retried step
+  finds `alerted_price` at the price and writes none.
+
+Search watches (decided 2026-11-11, same spec):
+
+- `POST /v1/search/watches` follows a `q` with its filters (category,
+  price range, conditions, offers only) and a place. An account has one
+  watch per `domain.HistoryKey` and at most 20 (`watch_limit_reached`,
+  counted under `pg_advisory_xact_lock` on `'watches:' || account`). The
+  same words again take the new filters, keep the ID and set `new_count` to
+  0, with 200; a new watch is 201. `GET` lists them, `DELETE /{id}` forgets
+  one, and `/mute` and `/unmute` set `alert`.
+- A watch keeps a commune and no point: `near_commune` as given, or the
+  commune nearest a GPS point (`catalogsvc.NearestCommune`), refused past 30
+  km with `invalid_position`. `radius_km` is measured from the commune's
+  point.
+- The watch stores the phrases the model read when it was made, the raw
+  query among them, so a sweep calls no model.
+- `listing_arrivals` logs each first publication (`listing.published` with
+  `first`) by `seq`, written by discovery's listing watch after the commit.
+  `published_at` is the time the publish flow started, before the photos
+  were processed, so a sweep that read by it would miss listings. The insert
+  deletes arrivals older than 2 days.
+- Restate service `SearchWatchSweep.Run(watch)` reads up to 500 arrivals
+  past the watch's `last_arrival` that are at least a minute old, so an
+  insert that took a lower `seq` has committed. Catalog's `Search` keeps the
+  ones under the filters that hold every word of one phrase
+  (`Phrase.AllWords`: each word in the title, description or specs, so "xe
+  đạp" does not match "xe máy"), less the watcher's own, hidden and blocked
+  listings. `Swept` moves `last_arrival` and adds the matches to
+  `new_count`, at most 99, when `last_arrival` is still where the sweep read
+  it; with matches and the alert on it writes `search_watch.matched`
+  (payload `count`, the new `new_count`).
+- A full batch sends the next run at once, any other 30 minutes later, and
+  a watch gone ends the chain. The first run is sent with the watch's ID as
+  idempotency key before the row exists, as an upload's expiry is. A watch
+  made again after a delete has a new ID and a chain of its own.
+- `GET /v1/search?watch=<id>` runs the watch's query and filters as a full
+  hybrid search. Only `cursor`, `limit`, `sort` and `off` go with it
+  (`search_conflict`), another account's watch is `watch_not_found`, and the
+  first page sets `new_count` to 0. `SearchView.watch_id` names the viewer's
+  watch of a `q`.
+
 ### Assist
 
 Module `assist` holds what AI does for the person using the app. Its first
@@ -1564,8 +1642,9 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   listing that left processing); deal ends the account's deals with
   `PartyLeft` (a requested order cancelled by the system with
   `listing_closed`, an agreement dropped, an open price taken back);
-  discovery deletes the saves and the search history; notification deletes
-  the notices and push tokens; assist deletes the video reads. Media does
+  discovery deletes the saves, the search history, the hidden listings, the
+  search watches and the price cut switch; notification deletes the notices
+  and push tokens; assist deletes the video reads. Media does
   nothing: a waiting upload, a video read's frames among them, expires
   within a day anyway, a read's video is consumed when the read ends, and
   the avatar object stays in the store, as a removed avatar does.
@@ -1646,6 +1725,14 @@ calls it except screen, for Home's unread count; depguard holds that.
   ("{seller} vừa đăng tin mới: {title}", opening the listing) collapsing on
   `seller:<id>`, so a run of listings leaves one unread notice, and pushes
   it.
+- Search watches and price alerts (decided 2026-11-11):
+  `search_watch.matched` writes `watch_matched` ("Có {count} tin mới cho"
+  and the query in curly quotes, 99+ from 99), whose target kind is
+  `search_watch`, collapsing on `watch:<id>`. `saved.price_dropped` writes `price_dropped` ("{title}
+  giảm còn {price}, lúc lưu {saved price}"), opening the listing,
+  collapsing on `saved:<listing id>`. The worker reads discovery's
+  `WatchFacts` and `PriceDropFacts` and tells no one when the watch or the
+  save is gone.
 - Chat messages are pushed and never listed, collapsing on
   `conversation:<id>`, with the sender's name and the first 100 characters
   (chat's `MessageFacts` gives the whole text; notification cuts it).

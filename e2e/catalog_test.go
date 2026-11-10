@@ -22,6 +22,7 @@ import (
 type listing struct {
 	ID     string `json:"id"`
 	Status string `json:"status"`
+	Price  int64  `json:"price"`
 	Photos []struct {
 		UploadID string `json:"upload_id"`
 		URL      string `json:"url"`
