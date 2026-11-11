@@ -1,6 +1,7 @@
-// Package repository stores module trust's reviews in Postgres. Each method
-// is one statement, except Insert, which writes the review and its event in
-// one transaction.
+// Package repository stores module trust's reviews, reports and scam
+// warnings in Postgres. Each method is one statement, except the review's
+// Insert and the scam warnings' Record and Save, which write in one
+// transaction.
 package repository
 
 import (
