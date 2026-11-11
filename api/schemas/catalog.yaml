@@ -160,11 +160,17 @@ ListingList:
 Photo:
   type: object
   additionalProperties: false
-  required: [upload_id]
+  required: [upload_id, copied]
   properties:
     upload_id:
       type: string
       format: uuid
+    copied:
+      type: boolean
+      description: |
+        True for a photo ShopNexus copied from the seller's own listing on
+        another site (POST /v1/link-reads); false for one taken or picked in
+        the app, and until the photo is processed. Read only.
     url:
       type: string
       format: uri

@@ -71,7 +71,7 @@ func (s ListingPublish) Run(ctx restate.Context, id uuid.UUID) error {
 	reasons := map[uuid.UUID]string{}
 	for _, u := range pending {
 		if r := results[u]; r.Status == mediadomain.StatusReady {
-			keys[u] = domain.PhotoKeys{Photo: r.PhotoKey, Thumb: r.ThumbKey}
+			keys[u] = domain.PhotoKeys{Photo: r.PhotoKey, Thumb: r.ThumbKey, Copied: r.Copied}
 		} else {
 			reasons[u] = r.Failure
 		}

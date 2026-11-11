@@ -55,6 +55,9 @@ const (
 type PhotoKeys struct {
 	Photo string `json:"photo"`
 	Thumb string `json:"thumb"`
+	// Copied is true for a photo the server copied from the seller's
+	// listing on another site; processing says so.
+	Copied bool `json:"copied,omitempty"`
 }
 
 // Photo is an upload of the listing; Keys is empty until it is processed.
