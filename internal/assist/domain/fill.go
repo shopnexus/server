@@ -62,52 +62,11 @@ var AnswerSchema = json.RawMessage(`{"type":"object","additionalProperties":fals
 // sharpest, the cover when the model kept none. An answer that shows no
 // item, or has no title, is ErrNoItem.
 func Clean(a Answer, frames []Frame, sharpest int, cats []catalogdomain.Category) (Draft, *Range, error) {
-	title := cut(strings.Join(strings.Fields(a.Title), " "), catalogdomain.MaxTitle)
-	if !a.IsItem || title == "" {
-		return Draft{}, nil, ErrNoItem
+	d, err := cleanDraft(a.IsItem, a.Title, a.CategoryCode, a.Condition, a.Specs, a.Description, cats)
+	if err != nil {
+		return Draft{}, nil, err
 	}
-	d := Draft{
-		Title: title, Condition: catalogdomain.Condition(a.Condition),
-		Specs:       []catalogdomain.Spec{},
-		Description: cut(strings.TrimSpace(a.Description), catalogdomain.MaxDescription),
-		AllowOffers: a.Negotiable, Photos: []uuid.UUID{},
-	}
-
-	// A category must be a subcategory. A root, or an unknown subcategory
-	// of a known root, becomes that root's "Khác"; anything else is none.
-	byCode := make(map[string]catalogdomain.Category, len(cats))
-	for _, c := range cats {
-		byCode[c.Code] = c
-	}
-	code := strings.TrimSpace(a.CategoryCode)
-	if c, ok := byCode[code]; ok && c.ParentCode != "" {
-		d.CategoryCode = code
-	} else {
-		root, _, _ := strings.Cut(code, ".")
-		if r, ok := byCode[root]; ok && r.ParentCode == "" {
-			if _, ok := byCode[root+".other"]; ok {
-				d.CategoryCode = root + ".other"
-			}
-		}
-	}
-
-	switch d.Condition {
-	case catalogdomain.ConditionNew, catalogdomain.ConditionLikeNew, catalogdomain.ConditionUsed:
-	default:
-		d.Condition = catalogdomain.ConditionUsed
-	}
-
-	for _, s := range a.Specs {
-		label := cut(strings.TrimSpace(s.Label), catalogdomain.MaxSpecText)
-		value := cut(strings.TrimSpace(s.Value), catalogdomain.MaxSpecText)
-		if label == "" || value == "" {
-			continue
-		}
-		if len(d.Specs) == catalogdomain.MaxSpecs {
-			break
-		}
-		d.Specs = append(d.Specs, catalogdomain.Spec{Label: label, Value: value})
-	}
+	d.AllowOffers = a.Negotiable
 
 	if p := a.SpokenPrice; p != nil && *p >= catalogdomain.MinPrice && *p <= catalogdomain.MaxPrice {
 		price := *p
@@ -125,13 +84,73 @@ func Clean(a Answer, frames []Frame, sharpest int, cats []catalogdomain.Category
 	if len(d.Photos) == 0 && sharpest >= 0 && sharpest < len(frames) {
 		d.Photos = append(d.Photos, frames[sharpest].UploadID)
 	}
+	return d, cleanRange(a.Estimate), nil
+}
 
-	var r *Range
-	if e := a.Estimate; e != nil && catalogdomain.MinPrice <= e.Low && e.Low <= e.Median && e.Median <= e.High &&
-		e.High <= catalogdomain.MaxPrice {
-		r = &Range{Low: roundPrice(e.Low), Median: roundPrice(e.Median), High: roundPrice(e.High)}
+// cleanDraft keeps the fields both reads fill only where they pass the
+// listing's rules: the title squeezed and cut, a subcategory (or its
+// root's "Khác"), a known condition (else used), specs cut to size, the
+// description cut, and an empty list of photos. No item, or no title, is
+// ErrNoItem.
+func cleanDraft(isItem bool, rawTitle, rawCategory, rawCondition string, rawSpecs []catalogdomain.Spec, rawDescription string,
+	cats []catalogdomain.Category,
+) (Draft, error) {
+	title := cut(strings.Join(strings.Fields(rawTitle), " "), catalogdomain.MaxTitle)
+	if !isItem || title == "" {
+		return Draft{}, ErrNoItem
 	}
-	return d, r, nil
+	d := Draft{
+		Title: title, Condition: catalogdomain.Condition(rawCondition),
+		Specs:       []catalogdomain.Spec{},
+		Description: cut(strings.TrimSpace(rawDescription), catalogdomain.MaxDescription),
+		Photos:      []uuid.UUID{},
+	}
+
+	// A category must be a subcategory. A root, or an unknown subcategory
+	// of a known root, becomes that root's "Khác"; anything else is none.
+	byCode := make(map[string]catalogdomain.Category, len(cats))
+	for _, c := range cats {
+		byCode[c.Code] = c
+	}
+	code := strings.TrimSpace(rawCategory)
+	if c, ok := byCode[code]; ok && c.ParentCode != "" {
+		d.CategoryCode = code
+	} else {
+		root, _, _ := strings.Cut(code, ".")
+		if r, ok := byCode[root]; ok && r.ParentCode == "" {
+			if _, ok := byCode[root+".other"]; ok {
+				d.CategoryCode = root + ".other"
+			}
+		}
+	}
+
+	switch d.Condition {
+	case catalogdomain.ConditionNew, catalogdomain.ConditionLikeNew, catalogdomain.ConditionUsed:
+	default:
+		d.Condition = catalogdomain.ConditionUsed
+	}
+
+	for _, s := range rawSpecs {
+		label := cut(strings.TrimSpace(s.Label), catalogdomain.MaxSpecText)
+		value := cut(strings.TrimSpace(s.Value), catalogdomain.MaxSpecText)
+		if label == "" || value == "" {
+			continue
+		}
+		if len(d.Specs) == catalogdomain.MaxSpecs {
+			break
+		}
+		d.Specs = append(d.Specs, catalogdomain.Spec{Label: label, Value: value})
+	}
+	return d, nil
+}
+
+// cleanRange keeps the model's range when it is ordered and within the
+// listing's prices, rounded to 10,000; else nil.
+func cleanRange(e *Range) *Range {
+	if e == nil || catalogdomain.MinPrice > e.Low || e.Low > e.Median || e.Median > e.High || e.High > catalogdomain.MaxPrice {
+		return nil
+	}
+	return &Range{Low: roundPrice(e.Low), Median: roundPrice(e.Median), High: roundPrice(e.High)}
 }
 
 // Sample is the price of a similar listing and whether it sold.
