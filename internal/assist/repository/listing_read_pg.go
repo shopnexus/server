@@ -89,6 +89,11 @@ func (s pgListingReads) Insert(ctx context.Context, r domain.ListingRead, reques
 		return err
 	}
 	a["request_key"] = requestKey
+	// Stale waits go outside the transaction, so a refused insert prunes them too.
+	if _, err = s.db.Exec(ctx, `DELETE FROM listing_read_transcripts WHERE created_at < @stale`,
+		pgx.StrictNamedArgs{"stale": st.CreatedAt.Add(-domain.TranscriptWait)}); err != nil {
+		return fmt.Errorf("delete stale transcripts: %w", err)
+	}
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		// A share lock on the account's row: an insert that commits after
 		// Erase waits for it and sees the tombstone.
@@ -124,10 +129,9 @@ func (s pgListingReads) Insert(ctx context.Context, r domain.ListingRead, reques
 		if _, txErr = tx.Exec(ctx, insertRead, a); txErr != nil {
 			return fmt.Errorf("insert read: %w", txErr)
 		}
-		if _, txErr = tx.Exec(ctx, `DELETE FROM listing_read_transcripts
-WHERE (account_id = @account AND request_key = @key) OR created_at < @stale`,
-			pgx.StrictNamedArgs{"account": st.AccountID, "key": requestKey, "stale": st.CreatedAt.Add(-domain.TranscriptWait)}); txErr != nil {
-			return fmt.Errorf("delete waiting transcripts: %w", txErr)
+		if _, txErr = tx.Exec(ctx, `DELETE FROM listing_read_transcripts WHERE account_id = @account AND request_key = @key`,
+			pgx.StrictNamedArgs{"account": st.AccountID, "key": requestKey}); txErr != nil {
+			return fmt.Errorf("delete the waiting transcript: %w", txErr)
 		}
 		id := st.ID
 		return stream.Notify(ctx, tx, []uuid.UUID{st.AccountID}, stream.Hint{Kind: stream.KindListingRead, ListingReadID: &id})
@@ -233,6 +237,14 @@ VALUES (@account, @key, @text, @at)
 ON CONFLICT (account_id, request_key) DO UPDATE SET text = excluded.text, created_at = excluded.created_at`,
 		pgx.StrictNamedArgs{"account": account, "key": requestKey, "text": text, "at": at}); err != nil {
 		return fmt.Errorf("keep transcript: %w", err)
+	}
+	return nil
+}
+
+func (s pgListingReads) DeleteTranscript(ctx context.Context, account uuid.UUID, requestKey string) error {
+	if _, err := s.db.Exec(ctx, `DELETE FROM listing_read_transcripts WHERE account_id = @account AND request_key = @key`,
+		pgx.StrictNamedArgs{"account": account, "key": requestKey}); err != nil {
+		return fmt.Errorf("delete waiting transcript: %w", err)
 	}
 	return nil
 }

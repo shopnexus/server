@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"uuid"
@@ -20,6 +21,12 @@ func (a *Assist) StartVideoRead(ctx context.Context, account uuid.UUID, idempote
 	}
 	res, err := a.startVideo.Call(ctx, account.String()+"/"+idempotencyKey,
 		StartInput{Account: account, Video: video, RequestKey: idempotencyKey})
+	// The insert took the transcript in, or nothing will: a retry answered
+	// with the first read, or a refused start. A transient failure that loses
+	// it leaves the read to hear the video's sound.
+	if delErr := a.d.Reads.DeleteTranscript(ctx, account, idempotencyKey); delErr != nil {
+		return ListingReadView{}, errors.Join(err, fmt.Errorf("drop the waiting transcript: %w", delErr))
+	}
 	if err != nil {
 		return ListingReadView{}, err
 	}

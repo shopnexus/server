@@ -562,3 +562,46 @@ func TestRepeatedKeyKeepsTheFirstTranscript(t *testing.T) {
 		t.Fatalf("the model was asked %q", user)
 	}
 }
+
+// waitingTranscripts counts the transcripts still waiting for account's reads.
+func waitingTranscripts(t *testing.T, e env, account uuid.UUID) int {
+	t.Helper()
+	var n int
+	if err := e.db.QueryRow(context.Background(), `SELECT count(*) FROM listing_read_transcripts WHERE account_id = @a`,
+		pgx.StrictNamedArgs{"a": account}).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// A retry's transcript, and the transcript of a refused start, do not wait
+// for a read that never takes them.
+func TestNoTranscriptWaitsAfterTheStart(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := accounttest.WithPhone(t, e.db)
+	key, video := uuid.NewV7().String(), e.video(t, seller)
+	if _, err := e.assist.StartVideoRead(ctx, seller, key, video, "lần đầu"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.assist.StartVideoRead(ctx, seller, key, video, "lần sau"); err != nil {
+		t.Fatal(err)
+	}
+	if n := waitingTranscripts(t, e, seller); n != 0 {
+		t.Fatalf("%d transcripts wait after a retry", n)
+	}
+
+	busy := accounttest.WithPhone(t, e.db)
+	for range domain.VideoCap {
+		if err := e.reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now()), ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := e.assist.StartVideoRead(ctx, busy, uuid.NewV7().String(), e.video(t, busy), "một triệu hai"); !errors.Is(err, domain.ErrReadLimit) {
+		t.Fatalf("a read past the cap: %v", err)
+	}
+	if n := waitingTranscripts(t, e, busy); n != 0 {
+		t.Fatalf("%d transcripts wait after a refused start", n)
+	}
+}

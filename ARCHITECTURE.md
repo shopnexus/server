@@ -1676,8 +1676,10 @@ The video read:
   `maxLength`) and is taken as the seller's words. The use case keeps it,
   trimmed, in `listing_read_transcripts` under the account and the
   `Idempotency-Key` before it calls `VideoRead.Start`; the insert moves it
-  into `listing_reads.transcript` and deletes waiting ones older than 10
-  minutes; the save that ends the read sets it to NULL. A repeated key
+  into `listing_reads.transcript`, and every insert first deletes waiting
+  ones older than 10 minutes. Once `Start` answers, the use case deletes
+  its own waiting one, so a retry's or a refused start's does not stay. The
+  save that ends the read sets `listing_reads.transcript` to NULL. A repeated key
   answers the first read with the first transcript. No transcript is ever
   logged, returned or in a journaled value. The fill's log line
   holds the prompt version, the frame count, the transcript's length in

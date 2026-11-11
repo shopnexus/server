@@ -260,3 +260,29 @@ FROM listing_reads`, pgx.StrictNamedArgs{"me": me, "other": other}).Scan(&mine, 
 		t.Fatal("transcripts")
 	}
 }
+
+// An insert refused for the cap still prunes the stale waiting transcripts.
+func TestRefusedInsertPrunesStaleTranscripts(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	reads := repository.NewListingReads(db)
+	me := accounttest.New(t, db)
+	if err := reads.PutTranscript(ctx, me, "stale", "cũ", now.Add(-domain.TranscriptWait-time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	for range domain.VideoCap {
+		if err := reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now), "x"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := reads.PutTranscript(ctx, me, "stale", "cũ", now.Add(-domain.TranscriptWait-time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if err := reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now), "y"); !errors.Is(err, domain.ErrReadLimit) {
+		t.Fatalf("%v", err)
+	}
+	if n := waiting(t, db, me); n != 0 {
+		t.Fatalf("%d stale transcripts kept by a refused insert", n)
+	}
+}

@@ -40,6 +40,9 @@ type ListingReads interface {
 	// requestKey, until Insert takes it in or domain.TranscriptWait passes.
 	// A second put under the same key replaces the first.
 	PutTranscript(ctx context.Context, account uuid.UUID, requestKey, text string, at time.Time) error
+	// DeleteTranscript removes what PutTranscript kept under account and
+	// requestKey; an absent one is fine.
+	DeleteTranscript(ctx context.Context, account uuid.UUID, requestKey string) error
 	// Delete removes a read; an absent one is fine.
 	Delete(ctx context.Context, id uuid.UUID) error
 	// DeleteAccount removes every read of the account and its waiting
