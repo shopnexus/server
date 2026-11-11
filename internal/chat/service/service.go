@@ -57,6 +57,10 @@ type Service interface {
 	Messages(ctx context.Context, account, conversation uuid.UUID, p page.Request) (page.Page[MessageView], error)
 	// MessageFacts reads a message for its push; false for an unknown one.
 	MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bool, error)
+	// Window reads conversation's last n sent messages with text up to
+	// message upTo, or the newest for the zero upTo, oldest first; false for
+	// an unknown conversation.
+	Window(ctx context.Context, conversation, upTo uuid.UUID, n int) (Window, bool, error)
 	// Unread counts account's unread messages over unarchived conversations.
 	Unread(ctx context.Context, account uuid.UUID) (int, error)
 	// Search finds account's conversations by the other member's name or a

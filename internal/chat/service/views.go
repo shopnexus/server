@@ -107,3 +107,17 @@ func (c *Chat) messageView(m domain.Message) MessageView {
 		Status: m.Status(), Failure: m.Failure(), CreatedAt: m.CreatedAt(),
 	}
 }
+
+// Window is a conversation's newest sent messages with text, oldest first,
+// with its two members, for module trust's scam check.
+type Window struct {
+	AccountA, AccountB uuid.UUID
+	Lines              []WindowLine
+}
+
+// WindowLine is one message of a Window.
+type WindowLine struct {
+	ID, SenderID uuid.UUID
+	Text         string
+	ListingID    *uuid.UUID
+}
