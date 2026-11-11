@@ -18,7 +18,19 @@ ListingReadRequest:
   description: What to read, one of a video, a photo or a link.
   oneOf:
     - $ref: "#/VideoReadRequest"
+    - $ref: "#/PhotoReadRequest"
     - $ref: "#/LinkReadRequest"
+PhotoReadRequest:
+  type: object
+  additionalProperties: false
+  required: [photo]
+  properties:
+    photo:
+      type: string
+      format: uuid
+      description: |
+        A photo upload of the caller's, uploaded and not yet in a listing:
+        the cover. The read does not take it; post it in the listing.
 LinkReadRequest:
   type: object
   additionalProperties: false
@@ -45,7 +57,7 @@ ListingRead:
       format: uuid
     source:
       type: string
-      enum: [video, link]
+      enum: [video, photo, link]
     status:
       type: string
       enum: [reading, done, failed]
@@ -64,8 +76,8 @@ ListingRead:
       type: array
       maxItems: 10
       description: |
-        A video's clearest frames in time order (at most 8), or a link's
-        copies in the old listing's order.
+        A video's clearest frames in time order (at most 8), a link's
+        copies in the old listing's order, or the photo read.
       items:
         $ref: "#/ReadPhoto"
     draft:
@@ -123,7 +135,7 @@ ReadDraft:
     description:
       type: string
       maxLength: 1500
-      description: The seller's own words, restated; empty when they said nothing.
+      description: The seller's own words, restated, or for a photo read what the photo shows; empty when there is nothing.
     price:
       type: [integer, "null"]
       format: int64
@@ -137,7 +149,8 @@ ReadDraft:
       maxItems: 10
       description: |
         Upload IDs of the draft's photos, the cover first: a video read's
-        kept frames (at most 6) or a link read's copies (at most 10).
+        kept frames (at most 6), a photo read's photo, or a link read's
+        copies (at most 10).
       items:
         type: string
         format: uuid

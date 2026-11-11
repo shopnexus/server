@@ -17,6 +17,8 @@ func TestPhoneRequiredToTrade(t *testing.T) {
 	check(t, "open a deal", call(t, "POST", "/v1/deals", map[string]any{"listing_id": l.ID}, auth), http.StatusForbidden, "phone_required")
 	check(t, "read a video", call(t, "POST", "/v1/listing-reads", map[string]any{"video": uploadVideo(t, me.AccessToken, "a video")}, auth, newKey()),
 		http.StatusForbidden, "phone_required")
+	check(t, "read a photo", call(t, "POST", "/v1/listing-reads", map[string]any{"photo": upload(t, me.AccessToken, photoWithGPS(t))}, auth, newKey()),
+		http.StatusForbidden, "phone_required")
 	check(t, "read a link", call(t, "POST", "/v1/listing-reads", map[string]any{"link": iphoneURL(iphoneListing)}, auth, newKey()),
 		http.StatusForbidden, "phone_required")
 	check(t, "open a chat", call(t, "POST", "/v1/conversations", map[string]any{"listing_id": l.ID, "text": "Còn không?"}, auth, newKey()),

@@ -13,6 +13,7 @@ import (
 // exactly one source through.
 type startReadRequest struct {
 	Video          *uuid.UUID `json:"video"`
+	Photo          *uuid.UUID `json:"photo"`
 	Link           *string    `json:"link"`
 	Transcript     string     `json:"transcript"`
 	IdempotencyKey string     `header:"Idempotency-Key" json:"-"`
@@ -36,6 +37,8 @@ func (h *Handler) StartRead(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case in.Video != nil:
 		v, err = h.svc.StartVideoRead(r.Context(), p.AccountID, in.IdempotencyKey, *in.Video, in.Transcript)
+	case in.Photo != nil:
+		v, err = h.svc.StartPhotoRead(r.Context(), p.AccountID, in.IdempotencyKey, *in.Photo)
 	case in.Link != nil:
 		v, err = h.svc.StartLinkRead(r.Context(), p.AccountID, in.IdempotencyKey, *in.Link)
 	default:

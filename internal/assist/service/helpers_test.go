@@ -71,7 +71,7 @@ func newEnv(t *testing.T, opts ...func(*env)) env {
 		clock: restatetest.NewClock(time.Now()), ingress: in, prefix: p,
 		cut:    &fakeCutter{frames: 3, jpeg: mediatest.JPEG(t, 96, 64)},
 		stt:    &fakeSTT{text: transcript},
-		model:  &fakeModel{answer: bicycle(), link: iphoneAnswer()},
+		model:  &fakeModel{answer: bicycle(), link: iphoneAnswer(), photo: iphonePhoto()},
 		source: newSource(t),
 	}
 	e.deps = service.Deps{
@@ -220,6 +220,7 @@ type fakeModel struct {
 	answer domain.Answer
 	err    error
 	link   domain.LinkAnswer
+	photo  domain.PhotoAnswer
 	calls  int
 	images int
 	user   string
@@ -230,9 +231,14 @@ func (m *fakeModel) Complete(_ context.Context, r llm.Request, out any) error {
 	m.mu.Lock()
 	m.calls++
 	m.images, m.user, m.system = len(r.Images), r.User, r.System
-	var answer any = m.answer
-	if r.SchemaName == domain.LinkAnswerSchemaName {
+	var answer any
+	switch r.SchemaName {
+	case domain.LinkAnswerSchemaName:
 		answer = m.link
+	case domain.PhotoAnswerSchemaName:
+		answer = m.photo
+	default:
+		answer = m.answer
 	}
 	err := m.err
 	m.mu.Unlock()
@@ -370,5 +376,31 @@ func (e env) linkEnd(t *testing.T, owner, id uuid.UUID) service.ListingReadView 
 		}
 		return nil
 	})
+	return v
+}
+
+// iphonePhoto is the model's answer for the seller's photo of their iPhone.
+func iphonePhoto() domain.PhotoAnswer {
+	return domain.PhotoAnswer{
+		IsItem: true, Title: "iPhone 11 Trắng", CategoryCode: "phones.iphone", Condition: "used",
+		Specs:       []catalogdomain.Spec{{Label: "Màu", Value: "Trắng"}},
+		Description: "iPhone 11 màu trắng, mặt lưng kính, cụm 2 camera sau.",
+		Estimate:    &domain.Range{Low: 4_000_000, Median: 4_500_000, High: 5_000_000},
+	}
+}
+
+// photo uploads a JPEG for owner and returns its upload ID.
+func (e env) photo(t *testing.T, owner uuid.UUID) uuid.UUID {
+	t.Helper()
+	return mediatest.Upload(t, e.media, owner, "image/jpeg", mediatest.JPEG(t, 96, 64))
+}
+
+// startPhoto starts a read of photo as owner.
+func (e env) startPhoto(t *testing.T, owner, photo uuid.UUID) service.ListingReadView {
+	t.Helper()
+	v, err := e.assist.StartPhotoRead(context.Background(), owner, uuid.NewV7().String(), photo)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return v
 }

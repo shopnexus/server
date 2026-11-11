@@ -277,3 +277,52 @@ func TestVideoReadWithThePhonesTranscript(t *testing.T) {
 		t.Fatalf("%d transcripts left: %v", left, err)
 	}
 }
+
+// A photo read fills a draft whose one photo is the photo, and the draft
+// posts as a listing with a price added.
+func TestPhotoReadToListing(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	photo := upload(t, seller.AccessToken, frameJPEG(1))
+	r := readEnd(t, seller.AccessToken, startRead(t, seller.AccessToken, map[string]any{"photo": photo}).ID)
+	if r.Status != "done" || r.Source != "photo" || len(r.Photos) != 1 || r.Photos[0].UploadID != photo ||
+		r.Photos[0].AtSeconds != nil || r.Draft == nil || r.Estimate == nil {
+		t.Fatalf("%+v", r)
+	}
+	d := r.Draft
+	if d.Title != "Xe đạp Asama xanh" || d.Price != nil || d.AllowOffers || !slices.Equal(d.Photos, []string{photo}) {
+		t.Fatalf("draft %+v", d)
+	}
+	if s := uploadStatus(t, photo); s != "waiting" {
+		t.Fatalf("the photo is %s", s)
+	}
+	body := map[string]any{
+		"title": d.Title, "price": r.Estimate.Median, "description": d.Description, "category_code": d.CategoryCode,
+		"condition": d.Condition, "allow_offers": d.AllowOffers, "commune_code": "00004", "photos": d.Photos, "specs": d.Specs,
+	}
+	l := expect[listing](t, call(t, "POST", "/v1/listings", body, bearer(seller.AccessToken), newKey()), http.StatusCreated)
+	if l = settled(t, seller.AccessToken, l.ID); l.Status != "active" || len(l.Photos) != 1 {
+		t.Fatalf("listing %+v", l)
+	}
+}
+
+func TestCreatePhotoReadRefusals(t *testing.T) {
+	t.Parallel()
+	me, _ := newAccount(t)
+	other, _ := newAccount(t)
+	post := func(token, photo string) Response {
+		return call(t, "POST", "/v1/listing-reads", map[string]any{"photo": photo}, bearer(token), newKey())
+	}
+	check(t, "a video", post(me.AccessToken, uploadVideo(t, me.AccessToken, "a video")), 422, "invalid_upload")
+	check(t, "someone else's photo", post(me.AccessToken, upload(t, other.AccessToken, frameJPEG(0))), 422, "invalid_upload")
+
+	busy, _ := newAccount(t)
+	if _, err := db.Exec(context.Background(), `INSERT INTO listing_reads
+    (id, account_id, source, media_id, status, created_at, expires_at, write_id)
+SELECT gen_random_uuid(), @account, 'photo', gen_random_uuid(), 'reading', now(), now() + interval '1 day', gen_random_uuid()
+FROM generate_series(1, 60)`, pgx.StrictNamedArgs{"account": busy.Account.ID}); err != nil {
+		t.Fatal(err)
+	}
+	check(t, "sixty photo reads", post(busy.AccessToken, upload(t, busy.AccessToken, frameJPEG(2))), 429, "read_limit_reached")
+	startVideoRead(t, busy.AccessToken, uploadVideo(t, busy.AccessToken, "a phone video of a bicycle"))
+}
