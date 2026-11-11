@@ -21,10 +21,10 @@ var cats = []catalogdomain.Category{
 	{Code: "misc.toys", ParentCode: "misc", DisplayName: "Đồ chơi"},
 }
 
-func eightFrames() []domain.Frame {
-	out := make([]domain.Frame, 8)
+func eightFrames() []domain.Photo {
+	out := make([]domain.Photo, 8)
 	for i := range out {
-		out[i] = domain.Frame{UploadID: uuid.NewV7(), AtSeconds: float64(i)}
+		out[i] = domain.Photo{UploadID: uuid.NewV7(), AtSeconds: new(float64(i))}
 	}
 	return out
 }
@@ -86,69 +86,69 @@ func TestCleanRules(t *testing.T) {
 	cases := []struct {
 		name   string
 		change func(*domain.Answer)
-		check  func(*testing.T, domain.Draft, *domain.Range, []domain.Frame)
+		check  func(*testing.T, domain.Draft, *domain.Range, []domain.Photo)
 	}{
-		{"title spaces collapse", func(a *domain.Answer) { a.Title = "  iPhone   11\n64GB " }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"title spaces collapse", func(a *domain.Answer) { a.Title = "  iPhone   11\n64GB " }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Title != "iPhone 11 64GB" {
 				t.Fatalf("%q", d.Title)
 			}
 		}},
-		{"title cut at 70 characters", func(a *domain.Answer) { a.Title = long }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"title cut at 70 characters", func(a *domain.Answer) { a.Title = long }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Title != strings.Repeat("Đ", 70) {
 				t.Fatalf("%d runes", len([]rune(d.Title)))
 			}
 		}},
-		{"a root becomes its other", func(a *domain.Answer) { a.CategoryCode = "phones" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"a root becomes its other", func(a *domain.Answer) { a.CategoryCode = "phones" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.CategoryCode != "phones.other" {
 				t.Fatalf("%q", d.CategoryCode)
 			}
 		}},
-		{"an unknown sub becomes its root's other", func(a *domain.Answer) { a.CategoryCode = "phones.nokia" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"an unknown sub becomes its root's other", func(a *domain.Answer) { a.CategoryCode = "phones.nokia" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.CategoryCode != "phones.other" {
 				t.Fatalf("%q", d.CategoryCode)
 			}
 		}},
-		{"an unknown root is empty", func(a *domain.Answer) { a.CategoryCode = "boats.sail" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"an unknown root is empty", func(a *domain.Answer) { a.CategoryCode = "boats.sail" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.CategoryCode != "" {
 				t.Fatalf("%q", d.CategoryCode)
 			}
 		}},
-		{"a root without other is empty", func(a *domain.Answer) { a.CategoryCode = "misc" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"a root without other is empty", func(a *domain.Answer) { a.CategoryCode = "misc" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.CategoryCode != "" {
 				t.Fatalf("%q", d.CategoryCode)
 			}
 		}},
-		{"spaces around a code", func(a *domain.Answer) { a.CategoryCode = " misc.toys " }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"spaces around a code", func(a *domain.Answer) { a.CategoryCode = " misc.toys " }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.CategoryCode != "misc.toys" {
 				t.Fatalf("%q", d.CategoryCode)
 			}
 		}},
-		{"an unknown condition is used", func(a *domain.Answer) { a.Condition = "broken" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"an unknown condition is used", func(a *domain.Answer) { a.Condition = "broken" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Condition != catalogdomain.ConditionUsed {
 				t.Fatalf("%q", d.Condition)
 			}
 		}},
-		{"like new stays", func(a *domain.Answer) { a.Condition = "like_new" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"like new stays", func(a *domain.Answer) { a.Condition = "like_new" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Condition != catalogdomain.ConditionLikeNew {
 				t.Fatalf("%q", d.Condition)
 			}
 		}},
-		{"description trimmed and cut at 1500", func(a *domain.Answer) { a.Description = "  " + strings.Repeat("ă", 1600) + "  " }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"description trimmed and cut at 1500", func(a *domain.Answer) { a.Description = "  " + strings.Repeat("ă", 1600) + "  " }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Description != strings.Repeat("ă", 1500) {
 				t.Fatalf("%d runes", len([]rune(d.Description)))
 			}
 		}},
-		{"no speech, no description", func(a *domain.Answer) { a.Description = "   " }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"no speech, no description", func(a *domain.Answer) { a.Description = "   " }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Description != "" {
 				t.Fatalf("%q", d.Description)
@@ -161,7 +161,7 @@ func TestCleanRules(t *testing.T) {
 				{Label: "Pin", Value: "  "},
 				{Label: strings.Repeat("l", 60), Value: strings.Repeat("v", 60)},
 			}
-		}, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		}, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			want := []catalogdomain.Spec{{Label: "Màu", Value: "Trắng"}, {Label: strings.Repeat("l", 50), Value: strings.Repeat("v", 50)}}
 			if !reflect.DeepEqual(d.Specs, want) {
@@ -173,61 +173,61 @@ func TestCleanRules(t *testing.T) {
 			for range 25 {
 				a.Specs = append(a.Specs, catalogdomain.Spec{Label: "a", Value: "b"})
 			}
-		}, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		}, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if len(d.Specs) != 20 {
 				t.Fatalf("%d specs", len(d.Specs))
 			}
 		}},
-		{"no specs is an empty list", func(a *domain.Answer) { a.Specs = nil }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"no specs is an empty list", func(a *domain.Answer) { a.Specs = nil }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Specs == nil || len(d.Specs) != 0 {
 				t.Fatalf("%#v", d.Specs)
 			}
 		}},
-		{"a price under 10,000 is dropped", func(a *domain.Answer) { a.SpokenPrice = price(5_000) }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"a price under 10,000 is dropped", func(a *domain.Answer) { a.SpokenPrice = price(5_000) }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Price != nil {
 				t.Fatalf("%d", *d.Price)
 			}
 		}},
-		{"a price over 1,000,000,000 is dropped", func(a *domain.Answer) { a.SpokenPrice = price(2_000_000_000) }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"a price over 1,000,000,000 is dropped", func(a *domain.Answer) { a.SpokenPrice = price(2_000_000_000) }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Price != nil {
 				t.Fatalf("%d", *d.Price)
 			}
 		}},
-		{"the edges are prices", func(a *domain.Answer) { a.SpokenPrice = price(10_000) }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"the edges are prices", func(a *domain.Answer) { a.SpokenPrice = price(10_000) }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Price == nil || *d.Price != 10_000 {
 				t.Fatalf("%v", d.Price)
 			}
 		}},
-		{"no price said", func(a *domain.Answer) { a.SpokenPrice = nil }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"no price said", func(a *domain.Answer) { a.SpokenPrice = nil }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.Price != nil {
 				t.Fatalf("%d", *d.Price)
 			}
 		}},
-		{"not negotiable", func(a *domain.Answer) { a.Negotiable = false }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Frame) {
+		{"not negotiable", func(a *domain.Answer) { a.Negotiable = false }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if d.AllowOffers {
 				t.Fatal("offers allowed")
 			}
 		}},
-		{"bad and repeated frames dropped, order kept", func(a *domain.Answer) { a.Kept = []int{4, -1, 9, 4, 1, 8} }, func(t *testing.T, d domain.Draft, _ *domain.Range, f []domain.Frame) {
+		{"bad and repeated frames dropped, order kept", func(a *domain.Answer) { a.Kept = []int{4, -1, 9, 4, 1, 8} }, func(t *testing.T, d domain.Draft, _ *domain.Range, f []domain.Photo) {
 			t.Helper()
 			if !slices.Equal(d.Photos, []uuid.UUID{f[4].UploadID, f[1].UploadID}) {
 				t.Fatalf("%v", d.Photos)
 			}
 		}},
-		{"at most 6 frames", func(a *domain.Answer) { a.Kept = []int{0, 1, 2, 3, 4, 5, 6, 7} }, func(t *testing.T, d domain.Draft, _ *domain.Range, f []domain.Frame) {
+		{"at most 6 frames", func(a *domain.Answer) { a.Kept = []int{0, 1, 2, 3, 4, 5, 6, 7} }, func(t *testing.T, d domain.Draft, _ *domain.Range, f []domain.Photo) {
 			t.Helper()
 			if len(d.Photos) != 6 || d.Photos[5] != f[5].UploadID {
 				t.Fatalf("%v", d.Photos)
 			}
 		}},
-		{"no valid frame takes the sharpest", func(a *domain.Answer) { a.Kept = []int{12, -3} }, func(t *testing.T, d domain.Draft, _ *domain.Range, f []domain.Frame) {
+		{"no valid frame takes the sharpest", func(a *domain.Answer) { a.Kept = []int{12, -3} }, func(t *testing.T, d domain.Draft, _ *domain.Range, f []domain.Photo) {
 			t.Helper()
 			if !slices.Equal(d.Photos, []uuid.UUID{f[5].UploadID}) {
 				t.Fatalf("%v", d.Photos)
@@ -235,7 +235,7 @@ func TestCleanRules(t *testing.T) {
 		}},
 		{"a range is rounded to 10,000", func(a *domain.Answer) {
 			a.Estimate = &domain.Range{Low: 4_444_999, Median: 4_445_000, High: 5_104_000}
-		}, func(t *testing.T, _ domain.Draft, r *domain.Range, _ []domain.Frame) {
+		}, func(t *testing.T, _ domain.Draft, r *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if r == nil || *r != (domain.Range{Low: 4_440_000, Median: 4_450_000, High: 5_100_000}) {
 				t.Fatalf("%+v", r)
@@ -243,7 +243,7 @@ func TestCleanRules(t *testing.T) {
 		}},
 		{"a range out of order is dropped", func(a *domain.Answer) {
 			a.Estimate = &domain.Range{Low: 5_000_000, Median: 4_800_000, High: 5_100_000}
-		}, func(t *testing.T, _ domain.Draft, r *domain.Range, _ []domain.Frame) {
+		}, func(t *testing.T, _ domain.Draft, r *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if r != nil {
 				t.Fatalf("%+v", r)
@@ -251,7 +251,7 @@ func TestCleanRules(t *testing.T) {
 		}},
 		{"a range under the floor is dropped", func(a *domain.Answer) {
 			a.Estimate = &domain.Range{Low: 5_000, Median: 20_000, High: 30_000}
-		}, func(t *testing.T, _ domain.Draft, r *domain.Range, _ []domain.Frame) {
+		}, func(t *testing.T, _ domain.Draft, r *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if r != nil {
 				t.Fatalf("%+v", r)
@@ -259,13 +259,13 @@ func TestCleanRules(t *testing.T) {
 		}},
 		{"a range over the ceiling is dropped", func(a *domain.Answer) {
 			a.Estimate = &domain.Range{Low: 900_000_000, Median: 950_000_000, High: 1_200_000_000}
-		}, func(t *testing.T, _ domain.Draft, r *domain.Range, _ []domain.Frame) {
+		}, func(t *testing.T, _ domain.Draft, r *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if r != nil {
 				t.Fatalf("%+v", r)
 			}
 		}},
-		{"no range", func(a *domain.Answer) { a.Estimate = nil }, func(t *testing.T, _ domain.Draft, r *domain.Range, _ []domain.Frame) {
+		{"no range", func(a *domain.Answer) { a.Estimate = nil }, func(t *testing.T, _ domain.Draft, r *domain.Range, _ []domain.Photo) {
 			t.Helper()
 			if r != nil {
 				t.Fatalf("%+v", r)

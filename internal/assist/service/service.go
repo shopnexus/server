@@ -25,21 +25,19 @@ import (
 type Service interface {
 	// StartVideoRead runs VideoRead.Start once per account and
 	// idempotencyKey and returns the read as it is then.
-	StartVideoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID) (VideoReadView, error)
-	// GetVideoRead returns one of account's video reads. Another account's,
-	// an unknown one and one past its expiry are domain.ErrNotFound.
-	GetVideoRead(ctx context.Context, account, id uuid.UUID) (VideoReadView, error)
+	StartVideoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID) (ListingReadView, error)
+	// StartLinkRead parses the link, runs LinkRead.Start once per account
+	// and idempotencyKey and returns the read as it is then.
+	StartLinkRead(ctx context.Context, account uuid.UUID, idempotencyKey, link string) (ListingReadView, error)
+	// GetRead returns one of account's reads of any source. Another
+	// account's, an unknown one and one past its expiry are
+	// domain.ErrNotFound.
+	GetRead(ctx context.Context, account, id uuid.UUID) (ListingReadView, error)
 	// PreviewLink reads the listing a pasted link names, for the card the
 	// app shows before the read, and stores nothing.
 	PreviewLink(ctx context.Context, account uuid.UUID, link string) (LinkPreviewView, error)
-	// StartLinkRead runs LinkRead.Start once per account and
-	// idempotencyKey and returns the read as it is then.
-	StartLinkRead(ctx context.Context, account uuid.UUID, idempotencyKey, link string) (LinkReadView, error)
-	// GetLinkRead returns one of account's link reads. Another account's, an
-	// unknown one and one past its expiry are domain.ErrLinkReadNotFound.
-	GetLinkRead(ctx context.Context, account, id uuid.UUID) (LinkReadView, error)
-	// DeleteAccount deletes a deleted account's reads of both kinds; a
-	// second call finds nothing left.
+	// DeleteAccount deletes a deleted account's reads and waiting
+	// transcripts; a second call finds nothing left.
 	DeleteAccount(ctx context.Context, account uuid.UUID) error
 }
 
@@ -62,8 +60,7 @@ type Transcriber interface {
 
 // Deps is what New builds Assist from.
 type Deps struct {
-	VideoReads repository.VideoReads
-	LinkReads  repository.LinkReads
+	Reads repository.ListingReads
 	// Source is Chợ Tốt, for link reads.
 	Source   ListingSource
 	Accounts accountsvc.Service

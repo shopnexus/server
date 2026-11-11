@@ -45,14 +45,13 @@ type env struct {
 	accounts accountsvc.Service
 	media    *mediasvc.Media
 	assist   *service.Assist
-	videos   repository.VideoReads
+	reads    repository.ListingReads
 	clock    *restatetest.Clock
 	ingress  *ingress.Client
 	prefix   string
 	cut      *fakeCutter
 	stt      *fakeSTT
 	model    *fakeModel
-	links    repository.LinkReads
 	source   *fakeSource
 	deps     service.Deps
 }
@@ -68,16 +67,15 @@ func newEnv(t *testing.T, opts ...func(*env)) env {
 	m := mediatest.Service(db, objectstoretest.New(t), in, p)
 	c := catalogtest.Service(db, accounts, m, in, p)
 	e := env{
-		db: db, accounts: accounts, media: m, videos: repository.NewVideoReads(db),
+		db: db, accounts: accounts, media: m, reads: repository.NewListingReads(db),
 		clock: restatetest.NewClock(time.Now()), ingress: in, prefix: p,
 		cut:    &fakeCutter{frames: 3, jpeg: mediatest.JPEG(t, 96, 64)},
 		stt:    &fakeSTT{text: transcript},
 		model:  &fakeModel{answer: bicycle(), link: iphoneAnswer()},
-		links:  repository.NewLinkReads(db),
 		source: newSource(t),
 	}
 	e.deps = service.Deps{
-		VideoReads: e.videos, LinkReads: e.links, Source: e.source, Accounts: accounts, Media: m, Catalog: c,
+		Reads: e.reads, Source: e.source, Accounts: accounts, Media: m, Catalog: c,
 		Frames: e.cut, STT: e.stt, Model: e.model,
 		Text: embedtest.New(catalogdomain.TextDims), Image: embedtest.New(catalogdomain.PhotoDims),
 		TextMin: 0.5, PhotoMin: 0.5, CallTimeout: 5 * time.Second,
@@ -98,7 +96,7 @@ func (e env) video(t *testing.T, owner uuid.UUID) uuid.UUID {
 }
 
 // start starts a read of a fresh video of owner's.
-func (e env) start(t *testing.T, owner uuid.UUID) service.VideoReadView {
+func (e env) start(t *testing.T, owner uuid.UUID) service.ListingReadView {
 	t.Helper()
 	v, err := e.assist.StartVideoRead(context.Background(), owner, uuid.NewV7().String(), e.video(t, owner))
 	if err != nil {
@@ -108,12 +106,12 @@ func (e env) start(t *testing.T, owner uuid.UUID) service.VideoReadView {
 }
 
 // end waits until the read leaves reading and returns it.
-func (e env) end(t *testing.T, owner, id uuid.UUID) service.VideoReadView {
+func (e env) end(t *testing.T, owner, id uuid.UUID) service.ListingReadView {
 	t.Helper()
-	var v service.VideoReadView
+	var v service.ListingReadView
 	testenv.Eventually(t, 30*time.Second, func() error {
 		var err error
-		if v, err = e.assist.GetVideoRead(context.Background(), owner, id); err != nil {
+		if v, err = e.assist.GetRead(context.Background(), owner, id); err != nil {
 			t.Fatal(err)
 		}
 		if v.Status == domain.StatusReading {
@@ -124,12 +122,12 @@ func (e env) end(t *testing.T, owner, id uuid.UUID) service.VideoReadView {
 	return v
 }
 
-// updates counts the video_read updates of the read in owner's log.
+// updates counts the listing_read updates of the read in owner's log.
 func (e env) updates(t *testing.T, owner, id uuid.UUID) int {
 	t.Helper()
 	var n int
 	if err := e.db.QueryRow(context.Background(), `SELECT count(*) FROM account_updates
-WHERE account_id = @account AND kind = 'video_read' AND video_read_id = @read`,
+WHERE account_id = @account AND kind = 'listing_read' AND listing_read_id = @read`,
 		pgx.StrictNamedArgs{"account": owner, "read": id}).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
@@ -139,11 +137,11 @@ WHERE account_id = @account AND kind = 'video_read' AND video_read_id = @read`,
 // videoOf is the upload the read started from.
 func (e env) videoOf(t *testing.T, id uuid.UUID) mediadomain.Status {
 	t.Helper()
-	r, err := e.videos.Get(context.Background(), id)
+	r, err := e.reads.Get(context.Background(), id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	u, err := mediarepo.NewUploads(e.db).Get(context.Background(), r.VideoID())
+	u, err := mediarepo.NewUploads(e.db).Get(context.Background(), r.Media())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -330,7 +328,7 @@ func iphoneAnswer() domain.LinkAnswer {
 const iphoneLink = "https://www.chotot.com/tp-ho-chi-minh/quan-binh-thanh/mua-ban-dien-thoai/119482736.htm?utm_source=share"
 
 // startLink starts a read of the fake listing as owner.
-func (e env) startLink(t *testing.T, owner uuid.UUID) service.LinkReadView {
+func (e env) startLink(t *testing.T, owner uuid.UUID) service.ListingReadView {
 	t.Helper()
 	v, err := e.assist.StartLinkRead(context.Background(), owner, uuid.NewV7().String(), iphoneLink)
 	if err != nil {
@@ -340,12 +338,12 @@ func (e env) startLink(t *testing.T, owner uuid.UUID) service.LinkReadView {
 }
 
 // linkEnd waits until the link read leaves reading and returns it.
-func (e env) linkEnd(t *testing.T, owner, id uuid.UUID) service.LinkReadView {
+func (e env) linkEnd(t *testing.T, owner, id uuid.UUID) service.ListingReadView {
 	t.Helper()
-	var v service.LinkReadView
+	var v service.ListingReadView
 	testenv.Eventually(t, 30*time.Second, func() error {
 		var err error
-		if v, err = e.assist.GetLinkRead(context.Background(), owner, id); err != nil {
+		if v, err = e.assist.GetRead(context.Background(), owner, id); err != nil {
 			t.Fatal(err)
 		}
 		if v.Status == domain.StatusReading {

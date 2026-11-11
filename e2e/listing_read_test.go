@@ -14,15 +14,21 @@ import (
 	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
-type videoRead struct {
+type listingRead struct {
 	ID      string `json:"id"`
+	Source  string `json:"source"`
 	Status  string `json:"status"`
 	Failure string `json:"failure"`
-	Frames  []struct {
-		UploadID  string  `json:"upload_id"`
-		URL       string  `json:"url"`
-		AtSeconds float64 `json:"at_seconds"`
-	} `json:"frames"`
+	Link    *struct {
+		Site       string `json:"site"`
+		URL        string `json:"url"`
+		PhotoCount int    `json:"photo_count"`
+	} `json:"link"`
+	Photos []struct {
+		UploadID  string   `json:"upload_id"`
+		URL       string   `json:"url"`
+		AtSeconds *float64 `json:"at_seconds"`
+	} `json:"photos"`
 	Draft *struct {
 		Title        string              `json:"title"`
 		CategoryCode string              `json:"category_code"`
@@ -33,7 +39,8 @@ type videoRead struct {
 		AllowOffers  bool                `json:"allow_offers"`
 		Photos       []string            `json:"photos"`
 	} `json:"draft"`
-	Estimate *struct {
+	ContactRemoved *bool `json:"contact_removed"`
+	Estimate       *struct {
 		Low        int64  `json:"low"`
 		Median     int64  `json:"median"`
 		High       int64  `json:"high"`
@@ -42,19 +49,24 @@ type videoRead struct {
 	} `json:"estimate"`
 }
 
-// startRead starts a read of video as the account with token.
-func startRead(t *testing.T, token, video string) videoRead {
+// startRead starts a read of body as the account with token.
+func startRead(t *testing.T, token string, body map[string]any) listingRead {
 	t.Helper()
-	return expect[videoRead](t, call(t, "POST", "/v1/video-reads", map[string]any{"video": video}, bearer(token), newKey()),
-		http.StatusAccepted)
+	return expect[listingRead](t, call(t, "POST", "/v1/listing-reads", body, bearer(token), newKey()), http.StatusAccepted)
+}
+
+// startVideoRead starts a read of video.
+func startVideoRead(t *testing.T, token, video string) listingRead {
+	t.Helper()
+	return startRead(t, token, map[string]any{"video": video})
 }
 
 // readEnd polls the read until it leaves reading.
-func readEnd(t *testing.T, token, id string) videoRead {
+func readEnd(t *testing.T, token, id string) listingRead {
 	t.Helper()
-	var r videoRead
+	var r listingRead
 	testenv.Eventually(t, 30*time.Second, func() error {
-		if r = expect[videoRead](t, call(t, "GET", "/v1/video-reads/"+id, nil, bearer(token)), http.StatusOK); r.Status == "reading" {
+		if r = expect[listingRead](t, call(t, "GET", "/v1/listing-reads/"+id, nil, bearer(token)), http.StatusOK); r.Status == "reading" {
 			return fmt.Errorf("read %s still reading", id)
 		}
 		return nil
@@ -79,18 +91,18 @@ func TestVideoReadToListing(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
 	video := uploadVideo(t, seller.AccessToken, "a phone video of a bicycle")
-	started := startRead(t, seller.AccessToken, video)
+	started := startVideoRead(t, seller.AccessToken, video)
 	if started.Status != "reading" || started.Draft != nil || started.Estimate != nil {
 		t.Fatalf("started: %+v", started)
 	}
 	r := readEnd(t, seller.AccessToken, started.ID)
-	if r.Status != "done" || len(r.Frames) != 3 || r.Draft == nil || r.Estimate == nil {
+	if r.Status != "done" || r.Source != "video" || r.Link != nil || len(r.Photos) != 3 || r.Draft == nil || r.Estimate == nil {
 		t.Fatalf("%+v", r)
 	}
 	d := r.Draft
 	if d.Title != "Xe đạp Asama xanh" || d.CategoryCode != "vehicles.bicycle" || d.Condition != "used" ||
 		d.Price == nil || *d.Price != 1_200_000 || !d.AllowOffers ||
-		!slices.Equal(d.Photos, []string{r.Frames[2].UploadID, r.Frames[0].UploadID}) {
+		!slices.Equal(d.Photos, []string{r.Photos[2].UploadID, r.Photos[0].UploadID}) {
 		t.Fatalf("draft %+v", d)
 	}
 	// The embedding stub's vectors are below the floors, so no listing is
@@ -102,7 +114,7 @@ func TestVideoReadToListing(t *testing.T) {
 		t.Fatalf("the video is %s", s)
 	}
 
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, r.Frames[0].URL, http.NoBody)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, r.Photos[0].URL, http.NoBody)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,18 +129,18 @@ func TestVideoReadToListing(t *testing.T) {
 
 	log := expect[struct {
 		Updates []struct {
-			Kind        string `json:"kind"`
-			VideoReadID string `json:"video_read_id"`
+			Kind          string `json:"kind"`
+			ListingReadID string `json:"listing_read_id"`
 		} `json:"updates"`
 	}](t, call(t, "GET", "/v1/updates?since=0", nil, bearer(seller.AccessToken)), http.StatusOK)
 	n := 0
 	for _, u := range log.Updates {
-		if u.Kind == "video_read" && u.VideoReadID == r.ID {
+		if u.Kind == "listing_read" && u.ListingReadID == r.ID {
 			n++
 		}
 	}
 	if n != 4 {
-		t.Fatalf("%d video_read updates, want start, frames, draft and done", n)
+		t.Fatalf("%d listing_read updates, want start, frames, draft and done", n)
 	}
 
 	body := map[string]any{
@@ -155,8 +167,8 @@ func TestVideoReadFailures(t *testing.T) {
 			t.Parallel()
 			seller, _ := newAccount(t)
 			video := uploadVideo(t, seller.AccessToken, c.video)
-			r := readEnd(t, seller.AccessToken, startRead(t, seller.AccessToken, video).ID)
-			if r.Status != "failed" || r.Failure != c.failure || len(r.Frames) != c.frames || r.Draft != nil || r.Estimate != nil {
+			r := readEnd(t, seller.AccessToken, startVideoRead(t, seller.AccessToken, video).ID)
+			if r.Status != "failed" || r.Failure != c.failure || len(r.Photos) != c.frames || r.Draft != nil || r.Estimate != nil {
 				t.Fatalf("%+v", r)
 			}
 			if s := uploadStatus(t, video); s != "consumed" {
@@ -166,24 +178,26 @@ func TestVideoReadFailures(t *testing.T) {
 	}
 }
 
-func TestCreateVideoReadRefusals(t *testing.T) {
+func TestCreateListingReadRefusals(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
 	other, _ := newAccount(t)
 	post := func(token, video string, key [2]string) Response {
-		return call(t, "POST", "/v1/video-reads", map[string]any{"video": video}, bearer(token), key)
+		return call(t, "POST", "/v1/listing-reads", map[string]any{"video": video}, bearer(token), key)
 	}
 
 	check(t, "signed out", post("", uuid.NewV7().String(), newKey()), 401, "unauthenticated")
-	check(t, "no video", call(t, "POST", "/v1/video-reads", map[string]any{}, bearer(me.AccessToken), newKey()), 400, "")
+	check(t, "no video", call(t, "POST", "/v1/listing-reads", map[string]any{}, bearer(me.AccessToken), newKey()), 400, "")
+	check(t, "two sources", call(t, "POST", "/v1/listing-reads",
+		map[string]any{"video": uuid.NewV7().String(), "link": iphoneURL(iphoneListing)}, bearer(me.AccessToken), newKey()), 400, "invalid_request")
 	check(t, "a photo", post(me.AccessToken, upload(t, me.AccessToken, photoWithGPS(t)), newKey()), 422, "invalid_upload")
 	check(t, "someone else's video", post(me.AccessToken, uploadVideo(t, other.AccessToken, "their video"), newKey()),
 		422, "invalid_upload")
 
 	video := uploadVideo(t, me.AccessToken, "a phone video of a bicycle")
 	key := newKey()
-	first := expect[videoRead](t, post(me.AccessToken, video, key), http.StatusAccepted)
-	if again := expect[videoRead](t, post(me.AccessToken, video, key), http.StatusAccepted); again.ID != first.ID {
+	first := expect[listingRead](t, post(me.AccessToken, video, key), http.StatusAccepted)
+	if again := expect[listingRead](t, post(me.AccessToken, video, key), http.StatusAccepted); again.ID != first.ID {
 		t.Fatalf("a repeated key started %s after %s", again.ID, first.ID)
 	}
 	check(t, "read twice", post(me.AccessToken, video, newKey()), 422, "invalid_upload")
@@ -194,9 +208,9 @@ func TestCreateVideoReadRefusals(t *testing.T) {
 	check(t, "suspended", post(suspended.AccessToken, theirs, newKey()), 403, "account_suspended")
 
 	busy, _ := newAccount(t)
-	if _, err := db.Exec(context.Background(), `INSERT INTO video_reads
-    (id, account_id, video_id, status, created_at, expires_at, write_id)
-SELECT gen_random_uuid(), @account, gen_random_uuid(), 'reading', now(), now() + interval '1 day', gen_random_uuid()
+	if _, err := db.Exec(context.Background(), `INSERT INTO listing_reads
+    (id, account_id, source, media_id, status, created_at, expires_at, write_id)
+SELECT gen_random_uuid(), @account, 'video', gen_random_uuid(), 'reading', now(), now() + interval '1 day', gen_random_uuid()
 FROM generate_series(1, 30)`, pgx.StrictNamedArgs{"account": busy.Account.ID}); err != nil {
 		t.Fatal(err)
 	}
@@ -204,32 +218,32 @@ FROM generate_series(1, 30)`, pgx.StrictNamedArgs{"account": busy.Account.ID}); 
 		429, "read_limit_reached")
 }
 
-func TestGetVideoRead(t *testing.T) {
+func TestGetListingRead(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
 	other, _ := newAccount(t)
-	r := readEnd(t, me.AccessToken, startRead(t, me.AccessToken, uploadVideo(t, me.AccessToken, "a phone video of a bicycle")).ID)
-	path := "/v1/video-reads/" + r.ID
+	r := readEnd(t, me.AccessToken, startVideoRead(t, me.AccessToken, uploadVideo(t, me.AccessToken, "a phone video of a bicycle")).ID)
+	path := "/v1/listing-reads/" + r.ID
 
-	check(t, "another account", call(t, "GET", path, nil, bearer(other.AccessToken)), 404, "video_read_not_found")
+	check(t, "another account", call(t, "GET", path, nil, bearer(other.AccessToken)), 404, "listing_read_not_found")
 	check(t, "signed out", call(t, "GET", path, nil), 401, "unauthenticated")
-	check(t, "not a uuid", call(t, "GET", "/v1/video-reads/nope", nil, bearer(me.AccessToken)), 400, "")
-	if _, err := db.Exec(context.Background(), `UPDATE video_reads SET expires_at = now() - interval '1 minute' WHERE id = @id`,
+	check(t, "not a uuid", call(t, "GET", "/v1/listing-reads/nope", nil, bearer(me.AccessToken)), 400, "")
+	if _, err := db.Exec(context.Background(), `UPDATE listing_reads SET expires_at = now() - interval '1 minute' WHERE id = @id`,
 		pgx.StrictNamedArgs{"id": r.ID}); err != nil {
 		t.Fatal(err)
 	}
-	check(t, "expired", call(t, "GET", path, nil, bearer(me.AccessToken)), 404, "video_read_not_found")
+	check(t, "expired", call(t, "GET", path, nil, bearer(me.AccessToken)), 404, "listing_read_not_found")
 }
 
 // A deleted account's reads go with it.
 func TestDeletedAccountsReadsGo(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
-	readEnd(t, me.AccessToken, startRead(t, me.AccessToken, uploadVideo(t, me.AccessToken, "a phone video of a bicycle")).ID)
+	readEnd(t, me.AccessToken, startVideoRead(t, me.AccessToken, uploadVideo(t, me.AccessToken, "a phone video of a bicycle")).ID)
 	check(t, "delete", call(t, "DELETE", "/v1/accounts/me", nil, bearer(me.AccessToken)), 204, "")
 	testenv.Eventually(t, 30*time.Second, func() error {
 		var n int
-		if err := db.QueryRow(context.Background(), `SELECT count(*) FROM video_reads WHERE account_id = @a`,
+		if err := db.QueryRow(context.Background(), `SELECT count(*) FROM listing_reads WHERE account_id = @a`,
 			pgx.StrictNamedArgs{"a": me.Account.ID}).Scan(&n); err != nil {
 			t.Fatal(err)
 		}

@@ -28,13 +28,16 @@ func TestLinkReadFillsADraft(t *testing.T) {
 	e := newEnv(t)
 	seller := accounttest.WithPhone(t, e.db)
 	started := e.startLink(t, seller)
-	if started.Status != domain.StatusReading || started.Source.URL != "https://www.chotot.com/119482736.htm" ||
-		started.Source.Site != "chotot.com" || started.Draft != nil {
+	if started.Status != domain.StatusReading || started.Link.URL != "https://www.chotot.com/119482736.htm" ||
+		started.Link.Site != "chotot.com" || started.Draft != nil {
 		t.Fatalf("started: %+v", started)
 	}
 	v := e.linkEnd(t, seller, started.ID)
-	if v.Status != domain.StatusDone || v.Failure != "" || v.Source.PhotoCount != 5 || len(v.Photos) != 5 {
+	if v.Status != domain.StatusDone || v.Failure != "" || v.Link.PhotoCount != 5 || len(v.Photos) != 5 {
 		t.Fatalf("%+v", v)
+	}
+	if v.Source != domain.SourceLink || v.Link == nil || len(v.Photos) != len(v.Draft.Photos) || v.Photos[0].AtSeconds != nil {
+		t.Fatalf("link read view %+v", v)
 	}
 	d := v.Draft
 	if d == nil || d.Title != "iPhone 11 64GB Trắng, pin 81%" || d.CategoryCode != "phones.iphone" ||
@@ -64,7 +67,7 @@ func TestLinkReadFillsADraft(t *testing.T) {
 	}
 	var n int
 	if err := e.db.QueryRow(context.Background(), `SELECT count(*) FROM account_updates
-WHERE account_id = @account AND kind = 'link_read' AND link_read_id = @read`,
+WHERE account_id = @account AND kind = 'listing_read' AND listing_read_id = @read`,
 		pgx.StrictNamedArgs{"account": seller, "read": v.ID}).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +121,7 @@ func TestLinkReadFailures(t *testing.T) {
 		e := newEnv(t, func(x *env) { x.source.onAd = func() { x.clock.Add(3 * time.Minute) } })
 		seller := accounttest.WithPhone(t, e.db)
 		v := e.linkEnd(t, seller, e.startLink(t, seller).ID)
-		if v.Status != domain.StatusFailed || v.Failure != domain.FailUnavailable || v.Source.PhotoCount != 5 || v.Draft != nil {
+		if v.Status != domain.StatusFailed || v.Failure != domain.FailUnavailable || v.Link.PhotoCount != 5 || v.Draft != nil {
 			t.Fatalf("%+v", v)
 		}
 	})
@@ -130,7 +133,7 @@ func TestLinkReadSkipsABadPhoto(t *testing.T) {
 	e := newEnv(t, func(x *env) { delete(x.source.images, photoURL(1)) })
 	seller := accounttest.WithPhone(t, e.db)
 	v := e.linkEnd(t, seller, e.startLink(t, seller).ID)
-	if v.Status != domain.StatusDone || v.Source.PhotoCount != 5 || len(v.Photos) != 4 || len(v.Draft.Photos) != 4 {
+	if v.Status != domain.StatusDone || v.Link.PhotoCount != 5 || len(v.Photos) != 4 || len(v.Draft.Photos) != 4 {
 		t.Fatalf("%+v", v)
 	}
 }
@@ -172,9 +175,9 @@ func TestStartLinkReadRefusals(t *testing.T) {
 		t.Fatalf("a repeated key: %s after %s, %v", again.ID, first.ID, err)
 	}
 	busy := accounttest.WithPhone(t, e.db)
-	for range domain.ReadLimit {
+	for range domain.LinkCap {
 		link, _ := domain.ParseLink(iphoneLink)
-		if err = e.links.Insert(ctx, domain.NewOldLinkRead(uuid.NewV7(), busy, link, e.clock.Now())); err != nil {
+		if err = e.reads.Insert(ctx, domain.NewLinkRead(uuid.NewV7(), busy, link, e.clock.Now()), ""); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -197,11 +200,11 @@ func TestGetLinkRead(t *testing.T) {
 	ctx := context.Background()
 	me, other := accounttest.WithPhone(t, e.db), accounttest.WithPhone(t, e.db)
 	v := e.linkEnd(t, me, e.startLink(t, me).ID)
-	if _, err := e.assist.GetLinkRead(ctx, other, v.ID); !errors.Is(err, domain.ErrLinkReadNotFound) {
+	if _, err := e.assist.GetRead(ctx, other, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another account: %v", err)
 	}
 	e.clock.Add(domain.KeepFor)
-	if _, err := e.assist.GetLinkRead(ctx, me, v.ID); !errors.Is(err, domain.ErrLinkReadNotFound) {
+	if _, err := e.assist.GetRead(ctx, me, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("expired: %v", err)
 	}
 }
@@ -249,7 +252,7 @@ func TestDeleteAccountDeletesLinkReads(t *testing.T) {
 	if err := e.assist.DeleteAccount(context.Background(), me); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.links.Get(context.Background(), v.ID); !errors.Is(err, domain.ErrLinkReadNotFound) {
+	if _, err := e.reads.Get(context.Background(), v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("%v", err)
 	}
 }

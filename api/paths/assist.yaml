@@ -1,84 +1,3 @@
-videoReads:
-  post:
-    operationId: createVideoRead
-    summary: Read a product video into a listing draft.
-    description: |
-      Starts reading a video the caller uploaded with POST /v1/uploads. The
-      answer comes at once with status reading. Each step that finishes adds
-      its fields and sends a video_read update on /v1/ws; the app then reads
-      the read with GET. Checks, in order: account_suspended,
-      read_limit_reached (30 reads in 24 hours), invalid_upload.
-    tags: [assist]
-    security:
-      - bearerAuth: []
-    parameters:
-      - $ref: "../parameters/common.yaml#/IdempotencyKey"
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: "../schemas/assist.yaml#/VideoReadRequest"
-    responses:
-      "202":
-        description: The read, reading.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/assist.yaml#/VideoRead"
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "403":
-        description: "The account is suspended (account_suspended), or has no phone to sign in with (phone_required)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "422":
-        description: "The upload is not the caller's, not a video, not uploaded yet, expired or already read (invalid_upload)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "429":
-        description: "The account started 30 reads in the last 24 hours (read_limit_reached)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-videoRead:
-  get:
-    operationId: getVideoRead
-    summary: Read a video read.
-    tags: [assist]
-    security:
-      - bearerAuth: []
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    responses:
-      "200":
-        description: The read as it is now.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/assist.yaml#/VideoRead"
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "404":
-        description: "No such read for this caller, or it is past its 24 hours (video_read_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
 linkPreviews:
   post:
     operationId: previewLink
@@ -131,17 +50,19 @@ linkPreviews:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-linkReads:
+listingReads:
   post:
-    operationId: createLinkRead
-    summary: Read the seller's listing on Chợ Tốt into a listing draft.
+    operationId: createListingRead
+    summary: Read a video or the seller's Chợ Tốt listing into a listing draft.
     description: |
-      Starts copying the seller's own listing. The answer comes at once with
-      status reading. Each step that finishes adds its fields and sends a
-      link_read update on /v1/ws; the app then reads the read with GET.
-      Checks, in order: not_a_link, unsupported_source, account_suspended,
-      phone_required, read_limit_reached (30 link reads in 24 hours). The
-      link is not fetched until the read runs.
+      Starts reading what the body names: a video the caller uploaded with
+      POST /v1/uploads, or the link to the seller's own listing on Chợ Tốt.
+      The answer comes at once with status reading. Each step that finishes
+      adds its fields and sends a listing_read update on /v1/ws; the app
+      then reads the read with GET. Checks, in order: for a link not_a_link
+      and unsupported_source; then account_suspended, phone_required,
+      read_limit_reached (30 video reads or 30 link reads in 24 hours); then
+      invalid_upload for a video. A link is not fetched until the read runs.
     tags: [assist]
     security:
       - bearerAuth: []
@@ -152,14 +73,14 @@ linkReads:
       content:
         application/json:
           schema:
-            $ref: "../schemas/assist.yaml#/LinkRequest"
+            $ref: "../schemas/assist.yaml#/ListingReadRequest"
     responses:
       "202":
         description: The read, reading.
         content:
           application/json:
             schema:
-              $ref: "../schemas/assist.yaml#/LinkRead"
+              $ref: "../schemas/assist.yaml#/ListingRead"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
@@ -171,21 +92,23 @@ linkReads:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "The text is not an http or https link (not_a_link), or not a link to a listing on chotot.com (unsupported_source)."
+        description: |
+          The video is not the caller's, not a video, not uploaded yet, expired or already read (invalid_upload); the
+          text is not an http or https link (not_a_link), or not a link to a listing on chotot.com (unsupported_source).
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "429":
-        description: "The account started 30 link reads in the last 24 hours (read_limit_reached)."
+        description: "The account started as many reads of this source as its cap allows in the last 24 hours (read_limit_reached)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-linkRead:
+listingRead:
   get:
-    operationId: getLinkRead
-    summary: Read a link read.
+    operationId: getListingRead
+    summary: Read a listing read.
     tags: [assist]
     security:
       - bearerAuth: []
@@ -202,13 +125,13 @@ linkRead:
         content:
           application/json:
             schema:
-              $ref: "../schemas/assist.yaml#/LinkRead"
+              $ref: "../schemas/assist.yaml#/ListingRead"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
-        description: "No such read for this caller, or it is past its 24 hours (link_read_not_found)."
+        description: "No such read for this caller, or it is past its 24 hours (listing_read_not_found)."
         content:
           application/json:
             schema:

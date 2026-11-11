@@ -41,18 +41,21 @@ func TestReadFillsADraft(t *testing.T) {
 		t.Fatalf("started: %+v", started)
 	}
 	v := e.end(t, seller, started.ID)
-	if v.Status != domain.StatusDone || v.Failure != "" || len(v.Frames) != 3 {
+	if v.Status != domain.StatusDone || v.Failure != "" || len(v.Photos) != 3 {
 		t.Fatalf("%+v", v)
 	}
-	for _, f := range v.Frames {
+	for _, f := range v.Photos {
 		if f.URL == "" || f.UploadID == (uuid.UUID{}) {
 			t.Fatalf("frame %+v", f)
 		}
 	}
+	if v.Source != domain.SourceVideo || v.Link != nil || v.ContactRemoved != nil || v.Photos[0].AtSeconds == nil {
+		t.Fatalf("video read view %+v", v)
+	}
 	d := v.Draft
 	if d == nil || d.Title != "Xe đạp Asama xanh" || d.CategoryCode != "vehicles.bicycle" ||
 		d.Condition != catalogdomain.ConditionUsed || d.Price == nil || *d.Price != 1_200_000 || !d.AllowOffers ||
-		len(d.Photos) != 2 || d.Photos[0] != v.Frames[2].UploadID || d.Photos[1] != v.Frames[0].UploadID {
+		len(d.Photos) != 2 || d.Photos[0] != v.Photos[2].UploadID || d.Photos[1] != v.Photos[0].UploadID {
 		t.Fatalf("draft %+v", d)
 	}
 	if v.Estimate == nil || *v.Estimate == nil {
@@ -99,7 +102,7 @@ func TestReadFailures(t *testing.T) {
 			e := newEnv(t, c.opt)
 			seller := accounttest.WithPhone(t, e.db)
 			v := e.end(t, seller, e.start(t, seller).ID)
-			if v.Status != domain.StatusFailed || v.Failure != c.failure || v.Draft != nil || v.Estimate != nil || len(v.Frames) != c.frames {
+			if v.Status != domain.StatusFailed || v.Failure != c.failure || v.Draft != nil || v.Estimate != nil || len(v.Photos) != c.frames {
 				t.Fatalf("%+v", v)
 			}
 			if n := e.updates(t, seller, v.ID); n != c.updates {
@@ -133,7 +136,7 @@ func TestReadPastTheDeadline(t *testing.T) {
 	e := newEnv(t, func(x *env) { x.cut.onCall = func() { x.clock.Add(3 * time.Minute) } })
 	seller := accounttest.WithPhone(t, e.db)
 	v := e.end(t, seller, e.start(t, seller).ID)
-	if v.Status != domain.StatusFailed || v.Failure != domain.FailUnavailable || len(v.Frames) != 3 {
+	if v.Status != domain.StatusFailed || v.Failure != domain.FailUnavailable || len(v.Photos) != 3 {
 		t.Fatalf("%+v", v)
 	}
 	if calls, _, _ := e.model.asked(); calls != 0 {
@@ -239,7 +242,7 @@ func TestStartReadRefusals(t *testing.T) {
 
 	reads := func(account uuid.UUID) int {
 		var n int
-		if err := e.db.QueryRow(ctx, `SELECT count(*) FROM video_reads WHERE account_id = @a`,
+		if err := e.db.QueryRow(ctx, `SELECT count(*) FROM listing_reads WHERE account_id = @a AND source = 'video'`,
 			pgx.StrictNamedArgs{"a": account}).Scan(&n); err != nil {
 			t.Fatal(err)
 		}
@@ -269,8 +272,8 @@ func TestStartReadRefusals(t *testing.T) {
 	}
 
 	busy := accounttest.WithPhone(t, e.db)
-	for range domain.ReadLimit {
-		if err := e.videos.Insert(ctx, domain.NewOldVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now())); err != nil {
+	for range domain.VideoCap {
+		if err := e.reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now()), ""); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -321,7 +324,7 @@ func TestStartReadRace(t *testing.T) {
 		t.Fatalf("%d started, %d refused", ok, refused)
 	}
 	var n int
-	if err := e.db.QueryRow(ctx, `SELECT count(*) FROM video_reads WHERE account_id = @a`,
+	if err := e.db.QueryRow(ctx, `SELECT count(*) FROM listing_reads WHERE account_id = @a AND source = 'video'`,
 		pgx.StrictNamedArgs{"a": me}).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("%d reads, %v", n, err)
 	}
@@ -343,7 +346,7 @@ func TestStartReadTwice(t *testing.T) {
 		t.Fatalf("again: %+v %v", again, err)
 	}
 	var n int
-	if err = e.db.QueryRow(ctx, `SELECT count(*) FROM video_reads WHERE account_id = @a`,
+	if err = e.db.QueryRow(ctx, `SELECT count(*) FROM listing_reads WHERE account_id = @a AND source = 'video'`,
 		pgx.StrictNamedArgs{"a": me}).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("%d reads, %v", n, err)
 	}
@@ -356,14 +359,14 @@ func TestGetRead(t *testing.T) {
 	ctx := context.Background()
 	me, other := accounttest.WithPhone(t, e.db), accounttest.WithPhone(t, e.db)
 	v := e.end(t, me, e.start(t, me).ID)
-	if _, err := e.assist.GetVideoRead(ctx, other, v.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.assist.GetRead(ctx, other, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another account: %v", err)
 	}
-	if _, err := e.assist.GetVideoRead(ctx, me, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.assist.GetRead(ctx, me, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("unknown: %v", err)
 	}
 	e.clock.Add(domain.KeepFor + time.Minute)
-	if _, err := e.assist.GetVideoRead(ctx, me, v.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.assist.GetRead(ctx, me, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("expired: %v", err)
 	}
 }
@@ -377,18 +380,18 @@ func TestExpireDeletesTheRead(t *testing.T) {
 	me := accounttest.WithPhone(t, e.db)
 	v := e.end(t, me, e.start(t, me).ID)
 	status := e.videoOf(t, v.ID)
-	r, err := e.videos.Get(ctx, v.ID)
+	r, err := e.reads.Get(ctx, v.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	in := service.ExpireInput{Read: v.ID, Video: r.VideoID()}
+	in := service.ExpireInput{Read: v.ID, Video: r.Media()}
 	for range 2 {
 		if _, err = ingress.Service[service.ExpireInput, restate.Void](e.ingress, e.prefix+"VideoRead", "Expire").
 			Request(ctx, in, restate.WithIdempotencyKey(uuid.NewV7().String())); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := e.videos.Get(ctx, v.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.reads.Get(ctx, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("read still there: %v", err)
 	}
 	if status != mediadomain.StatusConsumed {
@@ -407,7 +410,7 @@ func TestDeleteAccount(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := e.videos.Get(ctx, v.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.reads.Get(ctx, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("read still there: %v", err)
 	}
 }

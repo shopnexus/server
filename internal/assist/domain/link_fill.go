@@ -12,10 +12,6 @@ import (
 // as a listing takes.
 const MaxCopied = catalogdomain.MaxPhotos
 
-// FailListingNotFound is a link read of a listing Chợ Tốt does not have on
-// sale, or one with no photo that could be copied.
-const FailListingNotFound Failure = "listing_not_found"
-
 // LinkAnswer is what the model returns for a listing, in LinkAnswerSchema's
 // shape. The price is not in it: the listing states it.
 type LinkAnswer struct {

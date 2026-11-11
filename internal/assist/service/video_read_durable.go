@@ -63,21 +63,21 @@ func (s VideoRead) ServiceName() string { return s.Prefix + videoRead }
 
 // loadedRead is what a load step found.
 type loadedRead struct {
-	Read  domain.VideoRead `json:"read"`
-	Found bool             `json:"found"`
+	Read  domain.ListingRead `json:"read"`
+	Found bool               `json:"found"`
 }
 
 // savedRead is the read a save step wrote, with its new write ID, or Gone
 // when the row went meanwhile: Expire or the account's deletion took it.
 type savedRead struct {
-	Read domain.VideoRead `json:"read"`
-	Gone bool             `json:"gone"`
+	Read domain.ListingRead `json:"read"`
+	Gone bool               `json:"gone"`
 }
 
 // cutFrames is what the frames step kept: the frames saved as uploads and
 // the sharpest one, or the failure ai's answer means.
 type cutFrames struct {
-	Frames   []domain.Frame `json:"frames,omitempty"`
+	Frames   []domain.Photo `json:"frames,omitempty"`
 	Sharpest int            `json:"sharpest"`
 	Failure  domain.Failure `json:"failure,omitempty"`
 }
@@ -119,9 +119,9 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 		return StartResult{Refused: accountdomain.ErrPhoneRequired}, nil
 	}
 	id := restatex.NewID(ctx, at)
-	read := domain.NewOldVideoRead(id, in.Account, in.Video, at)
+	read := domain.NewVideoRead(id, in.Account, in.Video, at)
 	inserted, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		return restatex.AsRefusal(s.VideoReads.Insert(rc, read))
+		return restatex.AsRefusal(s.Reads.Insert(rc, read, ""))
 	})
 	if err != nil {
 		return StartResult{}, fmt.Errorf("insert read: %w", err)
@@ -142,7 +142,7 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 		return StartResult{}, fmt.Errorf("hold video: %w", err)
 	}
 	if held.Refusal != nil {
-		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.VideoReads.Delete(rc, id) }); err != nil {
+		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Reads.Delete(rc, id) }); err != nil {
 			return StartResult{}, fmt.Errorf("undo read: %w", err)
 		}
 		return StartResult{Refused: held.Refusal}, nil
@@ -164,7 +164,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	// restate.Run answers a TerminalError; err holds the other calls' errors too.
 	var err error
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
-		r, stepErr := s.VideoReads.Get(rc, id)
+		r, stepErr := s.Reads.Get(rc, id)
 		if errors.Is(stepErr, domain.ErrNotFound) {
 			return loadedRead{}, nil
 		}
@@ -188,7 +188,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		w := restatex.NewID(ctx, at)
 		out, saveErr := restate.Run(ctx, func(rc restate.RunContext) (savedRead, error) {
 			c := r // Save sets the write ID on its copy; r outside stays as journaled
-			lost, stepErr := restatex.Outcome(s.VideoReads.Save(rc, &c, w), repository.ErrConflict)
+			lost, stepErr := restatex.Outcome(s.Reads.Save(rc, &c, w), repository.ErrConflict)
 			if stepErr != nil {
 				return savedRead{}, fmt.Errorf("save read: %w", stepErr)
 			}
@@ -201,7 +201,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return out.Gone, nil
 	}
 	consume := func() error {
-		if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Media.Consume(rc, r.VideoID()) }); err != nil {
+		if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Media.Consume(rc, r.Media()) }); err != nil {
 			return fmt.Errorf("consume video: %w", err)
 		}
 		return nil
@@ -231,7 +231,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		ids[i] = restatex.NewID(ctx, at)
 	}
 	cut, err := restate.Run(ctx, func(rc restate.RunContext) (cutFrames, error) {
-		video, size, openErr := s.Media.OpenVideo(rc, r.VideoID())
+		video, size, openErr := s.Media.OpenVideo(rc, r.Media())
 		if errors.Is(openErr, objectstore.ErrNotFound) {
 			return cutFrames{Failure: domain.FailUnreadable}, nil
 		}
@@ -260,14 +260,14 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 			return cutFrames{Failure: domain.FailUnreadable}, nil
 		}
 		res.Frames = res.Frames[:min(len(res.Frames), maxFrames)]
-		out := cutFrames{Frames: make([]domain.Frame, len(res.Frames))}
+		out := cutFrames{Frames: make([]domain.Photo, len(res.Frames))}
 		for i, f := range res.Frames {
 			// The ID was minted before the step, so a retry overwrites the
 			// same object and inserts no second upload.
 			if saveErr := s.Media.SavePhoto(rc, r.AccountID(), ids[i], f.JPEG, "image/jpeg", mediadomain.OriginFrame); saveErr != nil {
 				return cutFrames{}, fmt.Errorf("save frame %d: %w", i, saveErr)
 			}
-			out.Frames[i] = domain.Frame{UploadID: ids[i], AtSeconds: f.AtSeconds}
+			out.Frames[i] = domain.Photo{UploadID: ids[i], AtSeconds: new(f.AtSeconds)}
 			if f.Sharpness > res.Frames[out.Sharpest].Sharpness {
 				out.Sharpest = i
 			}
@@ -280,7 +280,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if cut.Failure != "" {
 		return fail(at, cut.Failure)
 	}
-	if err = r.SetFrames(cut.Frames); err != nil {
+	if err = r.SetPhotos(cut.Frames); err != nil {
 		return fmt.Errorf("set frames: %w", err)
 	}
 	if gone, saveErr := save(at); saveErr != nil || gone {
@@ -294,7 +294,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return fail(at, domain.FailUnavailable)
 	}
 	fill, err := restate.Run(ctx, func(rc restate.RunContext) (filled, error) {
-		video, size, openErr := s.Media.OpenVideo(rc, r.VideoID())
+		video, size, openErr := s.Media.OpenVideo(rc, r.Media())
 		if errors.Is(openErr, objectstore.ErrNotFound) {
 			return filled{Failure: domain.FailUnreadable}, nil
 		}
@@ -318,8 +318,8 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 			return filled{}, fmt.Errorf("transcribe: %w", sttErr)
 		default:
 		}
-		images := make([][]byte, len(r.Frames()))
-		for i, f := range r.Frames() {
+		images := make([][]byte, len(r.Photos()))
+		for i, f := range r.Photos() {
 			img, imgErr := s.Media.QueryImage(rc, r.AccountID(), f.UploadID)
 			if imgErr != nil {
 				return filled{}, fmt.Errorf("read frame %d: %w", i, imgErr)
@@ -344,7 +344,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		if modelErr != nil {
 			return filled{}, fmt.Errorf("ask the model: %w", modelErr)
 		}
-		d, rng, cleanErr := domain.Clean(answer, r.Frames(), cut.Sharpest, cats)
+		d, rng, cleanErr := domain.Clean(answer, r.Photos(), cut.Sharpest, cats)
 		// One line per answer, with no word of the seller's: no transcript,
 		// title or description.
 		s.Log.InfoContext(rc, "video read filled", "read", id, "prompt_version", PromptVersion,
@@ -367,7 +367,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if fill.Failure != "" {
 		return fail(at, fill.Failure)
 	}
-	if err = r.SetDraft(fill.Draft); err != nil {
+	if err = r.SetDraft(fill.Draft, false); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}
 	if gone, saveErr := save(at); saveErr != nil || gone {
@@ -396,7 +396,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 func (s VideoRead) Expire(ctx restate.Context, in ExpireInput) error {
 	id := in.Read
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
-		r, stepErr := s.VideoReads.Get(rc, id)
+		r, stepErr := s.Reads.Get(rc, id)
 		if errors.Is(stepErr, domain.ErrNotFound) {
 			return loadedRead{}, nil
 		}
@@ -412,7 +412,7 @@ func (s VideoRead) Expire(ctx restate.Context, in ExpireInput) error {
 	// Run) still leaves its video held; Start named it in the input.
 	video := in.Video
 	if loaded.Found {
-		video = loaded.Read.VideoID()
+		video = loaded.Read.Media()
 	}
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
 		return s.Media.Consume(rc, video)
@@ -422,7 +422,7 @@ func (s VideoRead) Expire(ctx restate.Context, in ExpireInput) error {
 	if !loaded.Found {
 		return nil
 	}
-	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.VideoReads.Delete(rc, id) }); err != nil {
+	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Reads.Delete(rc, id) }); err != nil {
 		return fmt.Errorf("delete read: %w", err)
 	}
 	return nil

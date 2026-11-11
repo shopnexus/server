@@ -169,7 +169,7 @@ Photo:
       type: boolean
       description: |
         True for a photo ShopNexus copied from the seller's own listing on
-        another site (POST /v1/link-reads); false for one taken or picked in
+        another site (POST /v1/listing-reads); false for one taken or picked in
         the app, and until the photo is processed. Read only.
     url:
       type: string

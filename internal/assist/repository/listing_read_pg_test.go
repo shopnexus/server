@@ -18,6 +18,8 @@ import (
 	"github.com/shopnexus/server2/internal/platform/stream"
 )
 
+var now = time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
+
 var link = domain.Link{Site: domain.SiteChotot, ListID: 119482736, URL: "https://www.chotot.com/119482736.htm"}
 
 func transcriptOf(t *testing.T, db *pgxpool.Pool, id uuid.UUID) *string {

@@ -47,16 +47,12 @@ paths:
     $ref: "paths/address.yaml#/addressDefault"
   /v1/uploads:
     $ref: "paths/media.yaml#/uploads"
-  /v1/video-reads:
-    $ref: "paths/assist.yaml#/videoReads"
-  /v1/video-reads/{id}:
-    $ref: "paths/assist.yaml#/videoRead"
+  /v1/listing-reads:
+    $ref: "paths/assist.yaml#/listingReads"
+  /v1/listing-reads/{id}:
+    $ref: "paths/assist.yaml#/listingRead"
   /v1/link-previews:
     $ref: "paths/assist.yaml#/linkPreviews"
-  /v1/link-reads:
-    $ref: "paths/assist.yaml#/linkReads"
-  /v1/link-reads/{id}:
-    $ref: "paths/assist.yaml#/linkRead"
   /v1/listings:
     $ref: "paths/catalog.yaml#/listings"
   /v1/listings/{id}:

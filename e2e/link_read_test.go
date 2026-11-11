@@ -6,64 +6,18 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/jackc/pgx/v5"
-
-	"github.com/shopnexus/server2/internal/platform/testenv"
 )
-
-type linkRead struct {
-	ID      string `json:"id"`
-	Status  string `json:"status"`
-	Failure string `json:"failure"`
-	Source  struct {
-		Site       string `json:"site"`
-		URL        string `json:"url"`
-		PhotoCount int    `json:"photo_count"`
-	} `json:"source"`
-	Photos []struct {
-		UploadID string `json:"upload_id"`
-		URL      string `json:"url"`
-	} `json:"photos"`
-	Draft *struct {
-		Title        string              `json:"title"`
-		CategoryCode string              `json:"category_code"`
-		Condition    string              `json:"condition"`
-		Specs        []map[string]string `json:"specs"`
-		Description  string              `json:"description"`
-		Price        *int64              `json:"price"`
-		AllowOffers  bool                `json:"allow_offers"`
-		Photos       []string            `json:"photos"`
-	} `json:"draft"`
-	ContactRemoved *bool `json:"contact_removed"`
-	Estimate       *struct {
-		Median int64  `json:"median"`
-		Source string `json:"source"`
-	} `json:"estimate"`
-}
 
 // iphoneURL is a link to listing id as the Chợ Tốt app shares it.
 func iphoneURL(id int64) string {
 	return fmt.Sprintf("https://www.chotot.com/tp-ho-chi-minh/quan-binh-thanh/mua-ban-dien-thoai/%d.htm?utm_source=app", id)
 }
 
-func startLinkRead(t *testing.T, token string, id int64) linkRead {
+func startLinkRead(t *testing.T, token string, id int64) listingRead {
 	t.Helper()
-	return expect[linkRead](t, call(t, "POST", "/v1/link-reads", map[string]any{"url": iphoneURL(id)}, bearer(token), newKey()),
-		http.StatusAccepted)
-}
-
-func linkReadEnd(t *testing.T, token, id string) linkRead {
-	t.Helper()
-	var r linkRead
-	testenv.Eventually(t, 30*time.Second, func() error {
-		if r = expect[linkRead](t, call(t, "GET", "/v1/link-reads/"+id, nil, bearer(token)), http.StatusOK); r.Status == "reading" {
-			return fmt.Errorf("read %s still reading", id)
-		}
-		return nil
-	})
-	return r
+	return startRead(t, token, map[string]any{"link": iphoneURL(id)})
 }
 
 func TestLinkReadToListing(t *testing.T) {
@@ -71,11 +25,11 @@ func TestLinkReadToListing(t *testing.T) {
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
 	started := startLinkRead(t, seller.AccessToken, iphoneListing)
-	if started.Status != "reading" || started.Source.URL != "https://www.chotot.com/119482736.htm" || started.Draft != nil {
+	if started.Status != "reading" || started.Source != "link" || started.Link == nil || started.Link.URL != "https://www.chotot.com/119482736.htm" || started.Draft != nil {
 		t.Fatalf("started: %+v", started)
 	}
-	r := linkReadEnd(t, seller.AccessToken, started.ID)
-	if r.Status != "done" || r.Source.PhotoCount != 3 || len(r.Photos) != 3 || r.Draft == nil || r.Estimate == nil ||
+	r := readEnd(t, seller.AccessToken, started.ID)
+	if r.Status != "done" || r.Source != "link" || r.Link.PhotoCount != 3 || len(r.Photos) != 3 || r.Draft == nil || r.Estimate == nil ||
 		r.ContactRemoved == nil || !*r.ContactRemoved {
 		t.Fatalf("%+v", r)
 	}
@@ -129,7 +83,7 @@ func TestLinkReadFailures(t *testing.T) {
 		{119400404, "listing_not_found"},
 		{downListing, "unavailable"},
 	} {
-		if r := linkReadEnd(t, seller.AccessToken, startLinkRead(t, seller.AccessToken, tc.id).ID); r.Status != "failed" || r.Failure != tc.want {
+		if r := readEnd(t, seller.AccessToken, startLinkRead(t, seller.AccessToken, tc.id).ID); r.Status != "failed" || r.Failure != tc.want {
 			t.Errorf("listing %d: %+v, want %s", tc.id, r, tc.want)
 		}
 	}
@@ -139,49 +93,33 @@ func TestCreateLinkReadRefusals(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
 	post := func(token string, body any, key [2]string) Response {
-		return call(t, "POST", "/v1/link-reads", body, bearer(token), key)
+		return call(t, "POST", "/v1/listing-reads", body, bearer(token), key)
 	}
-	check(t, "signed out", call(t, "POST", "/v1/link-reads", map[string]any{"url": iphoneURL(iphoneListing)}, newKey()), 401, "unauthenticated")
-	check(t, "no url", post(me.AccessToken, map[string]any{}, newKey()), 400, "")
-	check(t, "not a link", post(me.AccessToken, map[string]any{"url": "iphone 11 trắng"}, newKey()), 422, "not_a_link")
-	check(t, "facebook", post(me.AccessToken, map[string]any{"url": "https://www.facebook.com/groups/passdophcm/posts/2048817356"}, newKey()),
+	check(t, "signed out", call(t, "POST", "/v1/listing-reads", map[string]any{"link": iphoneURL(iphoneListing)}, newKey()), 401, "unauthenticated")
+	check(t, "no link", post(me.AccessToken, map[string]any{}, newKey()), 400, "")
+	check(t, "not a link", post(me.AccessToken, map[string]any{"link": "iphone 11 trắng"}, newKey()), 422, "not_a_link")
+	check(t, "facebook", post(me.AccessToken, map[string]any{"link": "https://www.facebook.com/groups/passdophcm/posts/2048817356"}, newKey()),
 		422, "unsupported_source")
 
 	key := newKey()
-	first := expect[linkRead](t, post(me.AccessToken, map[string]any{"url": iphoneURL(iphoneListing)}, key), http.StatusAccepted)
-	if again := expect[linkRead](t, post(me.AccessToken, map[string]any{"url": iphoneURL(iphoneListing)}, key), http.StatusAccepted); again.ID != first.ID {
+	first := expect[listingRead](t, post(me.AccessToken, map[string]any{"link": iphoneURL(iphoneListing)}, key), http.StatusAccepted)
+	if again := expect[listingRead](t, post(me.AccessToken, map[string]any{"link": iphoneURL(iphoneListing)}, key), http.StatusAccepted); again.ID != first.ID {
 		t.Fatalf("a repeated key started %s after %s", again.ID, first.ID)
 	}
 
 	suspended, _ := newAccount(t)
 	suspend(t, suspended.Account.ID)
-	check(t, "suspended", post(suspended.AccessToken, map[string]any{"url": iphoneURL(iphoneListing)}, newKey()), 403, "account_suspended")
+	check(t, "suspended", post(suspended.AccessToken, map[string]any{"link": iphoneURL(iphoneListing)}, newKey()), 403, "account_suspended")
 
 	busy, _ := newAccount(t)
-	if _, err := db.Exec(context.Background(), `INSERT INTO link_reads
-    (id, account_id, site, list_id, url, status, created_at, expires_at, write_id)
-SELECT gen_random_uuid(), @account, 'chotot.com', 119482736, 'https://www.chotot.com/119482736.htm', 'reading', now(),
+	if _, err := db.Exec(context.Background(), `INSERT INTO listing_reads
+    (id, account_id, source, link_site, link_list_id, link_url, status, created_at, expires_at, write_id)
+SELECT gen_random_uuid(), @account, 'link', 'chotot.com', 119482736, 'https://www.chotot.com/119482736.htm', 'reading', now(),
        now() + interval '1 day', gen_random_uuid()
 FROM generate_series(1, 30)`, pgx.StrictNamedArgs{"account": busy.Account.ID}); err != nil {
 		t.Fatal(err)
 	}
-	check(t, "thirty reads", post(busy.AccessToken, map[string]any{"url": iphoneURL(iphoneListing)}, newKey()), 429, "read_limit_reached")
-}
-
-func TestGetLinkRead(t *testing.T) {
-	t.Parallel()
-	me, _ := newAccount(t)
-	other, _ := newAccount(t)
-	r := linkReadEnd(t, me.AccessToken, startLinkRead(t, me.AccessToken, iphoneListing).ID)
-	path := "/v1/link-reads/" + r.ID
-	check(t, "another account", call(t, "GET", path, nil, bearer(other.AccessToken)), 404, "link_read_not_found")
-	check(t, "signed out", call(t, "GET", path, nil), 401, "unauthenticated")
-	check(t, "not a uuid", call(t, "GET", "/v1/link-reads/nope", nil, bearer(me.AccessToken)), 400, "")
-	if _, err := db.Exec(context.Background(), `UPDATE link_reads SET expires_at = now() - interval '1 minute' WHERE id = @id`,
-		pgx.StrictNamedArgs{"id": r.ID}); err != nil {
-		t.Fatal(err)
-	}
-	check(t, "expired", call(t, "GET", path, nil, bearer(me.AccessToken)), 404, "link_read_not_found")
+	check(t, "thirty reads", post(busy.AccessToken, map[string]any{"link": iphoneURL(iphoneListing)}, newKey()), 429, "read_limit_reached")
 }
 
 func TestPreviewLink(t *testing.T) {
@@ -211,23 +149,4 @@ func TestPreviewLink(t *testing.T) {
 	suspended, _ := newAccount(t)
 	suspend(t, suspended.Account.ID)
 	check(t, "suspended", preview(suspended.AccessToken, map[string]any{"url": iphoneURL(iphoneListing)}), 403, "account_suspended")
-}
-
-// A deleted account's link reads go with it.
-func TestDeletedAccountsLinkReadsGo(t *testing.T) {
-	t.Parallel()
-	me, _ := newAccount(t)
-	linkReadEnd(t, me.AccessToken, startLinkRead(t, me.AccessToken, iphoneListing).ID)
-	check(t, "delete", call(t, "DELETE", "/v1/accounts/me", nil, bearer(me.AccessToken)), 204, "")
-	testenv.Eventually(t, 30*time.Second, func() error {
-		var n int
-		if err := db.QueryRow(context.Background(), `SELECT count(*) FROM link_reads WHERE account_id = @a`,
-			pgx.StrictNamedArgs{"a": me.Account.ID}).Scan(&n); err != nil {
-			t.Fatal(err)
-		}
-		if n != 0 {
-			return fmt.Errorf("%d link reads left", n)
-		}
-		return nil
-	})
 }

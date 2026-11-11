@@ -5,7 +5,7 @@ uploads:
     description: |
       The app PUTs the file to `url` with `headers` before `expires_at`;
       the URL fixes the content type and length. Attach a photo to a
-      listing, or read a video with POST /v1/video-reads, within 24 hours,
+      listing, or read a video with POST /v1/listing-reads, within 24 hours,
       or the upload is deleted.
     tags: [media]
     security:

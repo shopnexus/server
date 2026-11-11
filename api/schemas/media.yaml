@@ -7,7 +7,7 @@ UploadRequest:
       type: string
       enum: [image/jpeg, image/png, image/webp, video/mp4, video/quicktime]
       description: |
-        A photo, or a product video for POST /v1/video-reads. HEIC is
+        A photo, or a product video for POST /v1/listing-reads. HEIC is
         converted to JPEG by the app before uploading.
     size:
       type: integer
