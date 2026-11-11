@@ -78,6 +78,10 @@ type Service interface {
 	// PriceSample returns the prices of listings like q's vectors, most
 	// similar first, at most domain.PriceSampleSize; nil without a vector.
 	PriceSample(ctx context.Context, q PriceQuery) ([]PriceSample, error)
+	// MarketPrice compares a listing's price with a price sample drawn with
+	// its own vectors at the cosine floors given, its seller's listings left
+	// out; false for an unknown listing.
+	MarketPrice(ctx context.Context, listing uuid.UUID, textMin, photoMin float64) (MarketPrice, bool, error)
 	// FindPlaces resolves province and commune names to points, keyed by
 	// the name as given; a name that no place or more than one has is left
 	// out.
