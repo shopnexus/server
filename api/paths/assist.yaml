@@ -79,3 +79,137 @@ videoRead:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+linkPreviews:
+  post:
+    operationId: previewLink
+    summary: Preview the listing a pasted link names.
+    description: |
+      Reads the seller's listing on Chợ Tốt for the card the app shows under
+      the paste field, before the seller asks for a read. Nothing is stored.
+      POST keeps the link out of access logs.
+    tags: [assist]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/assist.yaml#/LinkRequest"
+    responses:
+      "200":
+        description: The listing's card.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/assist.yaml#/LinkPreview"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "Chợ Tốt has no such listing on sale (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The text is not an http or https link (not_a_link), or not a link to a listing on chotot.com (unsupported_source)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: "Chợ Tốt did not answer (source_unavailable); try again."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+linkReads:
+  post:
+    operationId: createLinkRead
+    summary: Read the seller's listing on Chợ Tốt into a listing draft.
+    description: |
+      Starts copying the seller's own listing. The answer comes at once with
+      status reading. Each step that finishes adds its fields and sends a
+      link_read update on /v1/ws; the app then reads the read with GET.
+      Checks, in order: not_a_link, unsupported_source, account_suspended,
+      phone_required, read_limit_reached (30 link reads in 24 hours). The
+      link is not fetched until the read runs.
+    tags: [assist]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/assist.yaml#/LinkRequest"
+    responses:
+      "202":
+        description: The read, reading.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/assist.yaml#/LinkRead"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended), or has no phone to sign in with (phone_required)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The text is not an http or https link (not_a_link), or not a link to a listing on chotot.com (unsupported_source)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "429":
+        description: "The account started 30 link reads in the last 24 hours (read_limit_reached)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+linkRead:
+  get:
+    operationId: getLinkRead
+    summary: Read a link read.
+    tags: [assist]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The read as it is now.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/assist.yaml#/LinkRead"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such read for this caller, or it is past its 24 hours (link_read_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

@@ -39,6 +39,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/platform/stream"
+	"github.com/shopnexus/server2/internal/provider/chotot"
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/firebase"
@@ -280,6 +281,9 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Text:    embedder(cfg.Embed.TextBaseURL, cfg.Embed.TextModel, cfg.Embed.SearchAPIKey, catalogdomain.TextDims),
 		Image:   embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.SearchAPIKey, catalogdomain.PhotoDims),
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, CallTimeout: cfg.Assist.CallTimeout,
+		Source: chotot.Client{
+			GatewayURL: cfg.Assist.ChototGatewayURL, CDNURL: cfg.Assist.ChototCDNURL, HTTP: &http.Client{},
+		},
 	}, accounts, mediam.Service, catalogm.Service)
 	updates := stream.PGLog{DB: pool}
 	router.Handle("GET /v1/ws", d.Protect(stream.Socket{

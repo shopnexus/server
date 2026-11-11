@@ -1,6 +1,6 @@
 // Package assist is AI that helps a person do something in the app. Today
-// it reads a seller's video into a listing draft: frames, speech, the
-// fields and a price range.
+// it reads a seller's video or their listing on Chợ Tốt into a listing
+// draft: photos, the fields and a price range.
 package assist
 
 import (
@@ -30,6 +30,8 @@ type Settings struct {
 	Text, Image       embed.Model
 	TextMin, PhotoMin float64
 	CallTimeout       time.Duration
+	// Source is Chợ Tốt, for link reads.
+	Source service.ListingSource
 }
 
 // Mount registers the assist endpoints, subscribes the account watch to
@@ -37,7 +39,7 @@ type Settings struct {
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasvc.Service, catalog catalogsvc.Service,
 ) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		VideoReads: repository.NewVideoReads(d.Pool), Accounts: accounts, Media: media, Catalog: catalog,
+		VideoReads: repository.NewVideoReads(d.Pool), LinkReads: repository.NewLinkReads(d.Pool), Source: s.Source, Accounts: accounts, Media: media, Catalog: catalog,
 		Frames: s.Frames, STT: s.STT, Model: s.Model, Text: s.Text, Image: s.Image,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin, CallTimeout: s.CallTimeout,
 		Log: d.Log, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,

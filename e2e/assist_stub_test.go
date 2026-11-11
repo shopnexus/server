@@ -27,6 +27,11 @@ const (
 		`"specs":[{"label":"Màu","value":"Xanh"}],"description":"Xe đi ít, giá một triệu hai, có thương lượng.",` +
 		`"spoken_price":1200000,"negotiable":true,"kept":[2,0],` +
 		`"estimate":{"low":1000000,"median":1200000,"high":1400000}}`
+	iphoneLinkAnswer = `{"is_item":true,"title":"iPhone 11 64GB Trắng, pin 81%","category_code":"phones.iphone","condition":"used",` +
+		`"specs":[{"label":"Dung lượng","value":"64 GB"}],"description":"Máy dùng 3 năm, zin all. Có thương lượng.",` +
+		`"negotiable":true,"contact_removed":true,"estimate":{"low":4000000,"median":4500000,"high":5000000}}`
+	flatLinkAnswer = `{"is_item":false,"title":"","category_code":"","condition":"used","specs":[],"description":"",` +
+		`"negotiable":false,"contact_removed":false,"estimate":null}`
 	noItemAnswer = `{"is_item":false,"title":"","category_code":"","condition":"used","specs":[],"description":"",` +
 		`"spoken_price":null,"negotiable":false,"kept":[],"estimate":null}`
 )
@@ -71,13 +76,34 @@ func newAssist() *stubAssist {
 				Messages []struct {
 					Content json.RawMessage `json:"content"`
 				} `json:"messages"`
+				ResponseFormat struct {
+					JSONSchema struct {
+						Name string `json:"name"`
+					} `json:"json_schema"`
+				} `json:"response_format"`
+			}
+			if json.NewDecoder(r.Body).Decode(&req) != nil || len(req.Messages) != 2 {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			if req.ResponseFormat.JSONSchema.Name == "link_read" {
+				var text string
+				if json.Unmarshal(req.Messages[1].Content, &text) != nil {
+					http.Error(w, "a link read sends text only", http.StatusBadRequest)
+					return
+				}
+				answer := iphoneLinkAnswer
+				if strings.Contains(text, "căn hộ") {
+					answer = flatLinkAnswer
+				}
+				writeStubJSON(w, map[string]any{"choices": []map[string]any{{"message": map[string]string{"content": answer}}}})
+				return
 			}
 			var parts []struct {
 				Type string `json:"type"`
 				Text string `json:"text"`
 			}
-			if json.NewDecoder(r.Body).Decode(&req) != nil || len(req.Messages) != 2 ||
-				json.Unmarshal(req.Messages[1].Content, &parts) != nil {
+			if json.Unmarshal(req.Messages[1].Content, &parts) != nil {
 				http.Error(w, "bad request", http.StatusBadRequest)
 				return
 			}
