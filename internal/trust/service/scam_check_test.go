@@ -197,9 +197,7 @@ func TestScamCheckKeepsADismissal(t *testing.T) {
 	e := newCheckEnv(t, fakeFacts{})
 	e.say(t, e.c.AccountA, "Chuyển cọc trước nhé")
 	e.run(t)
-	w, _ := e.scams.Get(context.Background(), e.c.ID, e.c.AccountB)
-	w.Dismiss(time.Now())
-	if err := e.scams.Save(context.Background(), &w, uuid.NewV7()); err != nil {
+	if _, err := e.scams.Dismiss(context.Background(), e.c.ID, e.c.AccountB, time.Now(), uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	e.say(t, e.c.AccountA, "Cọc đi bạn")
@@ -218,8 +216,8 @@ func TestScamCheckCap(t *testing.T) {
 	t.Parallel()
 	e := newCheckEnv(t, fakeFacts{})
 	for range domain.ChecksPerDay {
-		if _, err := e.db.Exec(context.Background(), `INSERT INTO scam_checks (id, conversation_id, first_message_id, last_message_id,
-    classifier, prompt_version, codes_a, codes_b, created_at) VALUES (@id, @c, @id, @id, 'fake', 0, '{}', '{}', now())`,
+		if _, err := e.db.Exec(context.Background(), `INSERT INTO scam_checks (id, conversation_id, message_ids,
+    classifier, prompt_version, codes_a, codes_b, created_at) VALUES (@id, @c, ARRAY[@id::uuid], 'fake', 0, '{}', '{}', now())`,
 			pgx.StrictNamedArgs{"id": uuid.NewV7(), "c": e.c.ID}); err != nil {
 			t.Fatal(err)
 		}
@@ -249,5 +247,65 @@ func TestScamCheckFactSourceFails(t *testing.T) {
 	e.run(t)
 	if w, err := e.scams.Get(context.Background(), e.c.ID, e.c.AccountB); err != nil || len(w.Signals()) != 1 {
 		t.Fatalf("%+v %v", w.State(), err)
+	}
+}
+
+// A message that becomes sent after a newer one, as a photo message does
+// once its photos are processed, gets a check of its own.
+func TestScamCheckReadsALateMessage(t *testing.T) {
+	t.Parallel()
+	e := newCheckEnv(t, fakeFacts{})
+	late, err := chatdomain.NewMessage(uuid.NewV7(), e.c.ID, e.c.AccountA, "Mình chuyển dư rồi, bạn chuyển cọc lại giúp",
+		[]uuid.UUID{uuid.NewV7()}, nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.chats.AddMessage(context.Background(), late); err != nil {
+		t.Fatal(err)
+	}
+	e.say(t, e.c.AccountA, "nhé bạn")
+	e.run(t)
+	if _, err = e.db.Exec(context.Background(), `UPDATE messages SET status = 'sent' WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": late.ID()}); err != nil {
+		t.Fatal(err)
+	}
+	e.run(t)
+	seen := e.model.seen()
+	if len(seen) != 2 || len(seen[1].Lines) != 2 || seen[1].Lines[0].MessageID != late.ID() {
+		t.Fatalf("read %+v", seen)
+	}
+	if w, err := e.scams.Get(context.Background(), e.c.ID, e.c.AccountB); err != nil || w.Signals()[0].Code != domain.CodePrepayment {
+		t.Fatalf("%+v %v", w.State(), err)
+	}
+}
+
+// A burst of messages and the runs it sends at once end in one check: the
+// object runs them one at a time and the later ones find the window read.
+func TestScamCheckBurst(t *testing.T) {
+	t.Parallel()
+	e := newCheckEnv(t, fakeFacts{})
+	for _, text := range []string{"Còn bạn", "Giá đó nha", "Chuyển cọc trước", "Mình giữ xe", "Nhanh nhé"} {
+		e.say(t, e.c.AccountA, text)
+	}
+	var wg sync.WaitGroup
+	for range 5 {
+		wg.Go(func() { e.run(t) })
+	}
+	wg.Wait()
+	if seen := e.model.seen(); len(seen) != 1 || len(seen[0].Lines) != 5 || e.checks(t) != 1 {
+		t.Fatalf("read %d windows, %d checks", len(seen), e.checks(t))
+	}
+}
+
+// A classifier that keeps failing is tried 3 times, then the check is
+// skipped with no row.
+func TestScamCheckGivesUp(t *testing.T) {
+	t.Parallel()
+	e := newCheckEnv(t, fakeFacts{})
+	e.model.err = errors.New("model down")
+	e.say(t, e.c.AccountA, "Chuyển cọc trước nhé")
+	e.run(t)
+	if n := len(e.model.seen()); n != 3 || e.checks(t) != 0 {
+		t.Fatalf("tried %d times, %d checks", n, e.checks(t))
 	}
 }

@@ -22,12 +22,14 @@ type ScamWarnings interface {
 	// whose row has another write ID than its own, or a new one whose row
 	// exists, is ErrConflict and nothing is written.
 	Record(ctx context.Context, c domain.Check, ws []WarningWrite, pruneBefore time.Time) error
-	// Save writes w under writeID when its row still has w.WriteID(), and
-	// notifies its account; otherwise ErrConflict.
-	Save(ctx context.Context, w *domain.Warning, writeID uuid.UUID) error
-	// Checked returns the last message of conversation's newest check, the
-	// zero ID without one, and how many checks it had since since.
-	Checked(ctx context.Context, conversation uuid.UUID, since time.Time) (last uuid.UUID, count int, err error)
+	// Dismiss dismisses account's warning in conversation at at, under
+	// writeID, with an update to account. It holds the row's lock from the
+	// read to the write, so it never conflicts; it reports false, writing
+	// nothing, without a warning or when the warning is dismissed already.
+	Dismiss(ctx context.Context, conversation, account uuid.UUID, at time.Time, writeID uuid.UUID) (bool, error)
+	// Checked returns the messages of conversation's newest check, nil
+	// without one, and how many checks it had since since.
+	Checked(ctx context.Context, conversation uuid.UUID, since time.Time) (last []uuid.UUID, count int, err error)
 	// DeleteAccount deletes account's own warnings; the warnings about it
 	// stay.
 	DeleteAccount(ctx context.Context, account uuid.UUID) error

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 	"uuid"
 
@@ -43,13 +44,12 @@ type ScamCheck struct {
 func (s ScamCheck) ServiceName() string { return s.Prefix + ScamCheckName }
 
 // checkPlan is what the plan step found: whether to run, the members, and
-// the window's first and last message.
+// the window's messages, oldest first.
 type checkPlan struct {
-	Run      bool      `json:"run"`
-	AccountA uuid.UUID `json:"account_a"`
-	AccountB uuid.UUID `json:"account_b"`
-	First    uuid.UUID `json:"first"`
-	Last     uuid.UUID `json:"last"`
+	Run      bool        `json:"run"`
+	AccountA uuid.UUID   `json:"account_a"`
+	AccountB uuid.UUID   `json:"account_b"`
+	Messages []uuid.UUID `json:"messages"`
 }
 
 // checkVerdict is the classify step's answer, codes only.
@@ -64,15 +64,20 @@ type checkFacts struct {
 	B []domain.Signal `json:"b"`
 }
 
-// window reads conversation's window up to last and redacts it. Each line
-// carries its sender's side.
-func (s ScamCheck) window(rc restate.RunContext, conversation, last uuid.UUID) (domain.Window, error) {
-	w, _, err := s.Chats.Window(rc, conversation, last, domain.WindowSize)
+// window reads the planned messages of conversation and redacts them. A
+// message with a lower ID that became sent after the plan is left out, so
+// every step reads what the plan recorded. Each line carries its sender's
+// side.
+func (s ScamCheck) window(rc restate.RunContext, conversation uuid.UUID, messages []uuid.UUID) (domain.Window, error) {
+	w, _, err := s.Chats.Window(rc, conversation, messages[len(messages)-1], domain.WindowSize)
 	if err != nil {
 		return domain.Window{}, fmt.Errorf("read the window: %w", err)
 	}
 	out := domain.Window{Lines: make([]domain.Line, 0, len(w.Lines))}
 	for _, l := range w.Lines {
+		if !slices.Contains(messages, l.ID) {
+			continue
+		}
 		side := domain.SideA
 		if l.SenderID == w.AccountB {
 			side = domain.SideB
@@ -103,19 +108,24 @@ func (s ScamCheck) Run(ctx restate.ObjectContext) error {
 		if !found || len(w.Lines) == 0 {
 			return checkPlan{}, nil
 		}
-		newest := w.Lines[len(w.Lines)-1].ID
+		messages := make([]uuid.UUID, len(w.Lines))
+		for i, l := range w.Lines {
+			messages[i] = l.ID
+		}
 		last, count, stepErr := s.Scams.Checked(rc, conversation, at.Add(-24*time.Hour))
 		if stepErr != nil {
 			return checkPlan{}, fmt.Errorf("read the checks: %w", stepErr)
 		}
-		if last == newest {
+		// The window the newest check read is still the window: nothing was
+		// sent since, and no older message became sent.
+		if slices.Equal(last, messages) {
 			return checkPlan{}, nil
 		}
 		if count >= domain.ChecksPerDay {
 			s.Log.InfoContext(rc, "scam checks capped for the day", "conversation", conversation, "checks", count)
 			return checkPlan{}, nil
 		}
-		return checkPlan{Run: true, AccountA: w.AccountA, AccountB: w.AccountB, First: w.Lines[0].ID, Last: newest}, nil
+		return checkPlan{Run: true, AccountA: w.AccountA, AccountB: w.AccountB, Messages: messages}, nil
 	})
 	if err != nil {
 		return fmt.Errorf("plan the check: %w", err)
@@ -125,7 +135,7 @@ func (s ScamCheck) Run(ctx restate.ObjectContext) error {
 	}
 
 	verdict, err := restate.Run(ctx, func(rc restate.RunContext) (checkVerdict, error) {
-		w, stepErr := s.window(rc, conversation, plan.Last)
+		w, stepErr := s.window(rc, conversation, plan.Messages)
 		if stepErr != nil {
 			return checkVerdict{}, stepErr
 		}
@@ -157,7 +167,7 @@ func (s ScamCheck) Run(ctx restate.ObjectContext) error {
 		if len(v.A) == 0 && len(v.B) == 0 {
 			return out, nil
 		}
-		w, stepErr := s.window(rc, conversation, plan.Last)
+		w, stepErr := s.window(rc, conversation, plan.Messages)
 		if stepErr != nil {
 			return checkFacts{}, stepErr
 		}
@@ -211,7 +221,7 @@ func (s ScamCheck) Run(ctx restate.ObjectContext) error {
 			}
 		}
 		return s.Scams.Record(rc, domain.Check{
-			ID: checkID, ConversationID: conversation, FirstMessageID: plan.First, LastMessageID: plan.Last,
+			ID: checkID, ConversationID: conversation, MessageIDs: plan.Messages,
 			Classifier: s.Classifier.Name(), PromptVersion: s.Classifier.PromptVersion(), A: v.A, B: v.B, CreatedAt: at,
 		}, writes, at.Add(-domain.CheckRetention))
 	}); err != nil {

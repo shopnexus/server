@@ -50,9 +50,11 @@ services:
       RESTATE_WORKER__INVOKER__REQUEST_IDENTITY_PRIVATE_KEY_PEM_FILE: /identity.pem
     volumes:
       - ./.restate/identity.pem:/identity.pem:ro
+    # One run of make test journals about 1 GB since every message with text
+    # starts a scam check.
     tmpfs:
-      - /restate-data:size=1g
-    mem_limit: 2048m
+      - /restate-data:size=2g
+    mem_limit: 3072m
 
   # Object store on tmpfs; each test writes under keys of its own.
   rustfs:

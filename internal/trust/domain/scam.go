@@ -6,6 +6,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 	"uuid"
 )
 
@@ -163,14 +165,24 @@ var (
 	// placeholder is never matched again.
 	urlPattern = regexp.MustCompile(`(?i)\bhttps?://([^\s/?#]+)\S*|` +
 		`\b((?:[a-z0-9-]+\.)+(?:com|net|org|info|vn|me|ly|io|co|xyz|top|site|online|shop|link|app|cc|tk))\b(?:[/?#]\S*)?`)
-	phonePattern  = regexp.MustCompile(`(?:\+84|\b84|\b0)(?:[\s.-]?\d){9,10}\b`)
-	numberPattern = regexp.MustCompile(`\b\d(?:[\s-]?\d){7,18}\b(\s?(?i:vnđ|vnd|đ|k|tr))?`)
+	// runPattern is a run of digits with single spaces, dots or dashes
+	// between them, after an optional plus sign.
+	runPattern = regexp.MustCompile(`\+?\d(?:[\s.\-]?\d)*`)
+	// unitPattern is a currency unit right after a run, with one optional
+	// space before it.
+	unitPattern = regexp.MustCompile(`(?i)^\s?(vnđ|vnd|đ|k|tr)`)
 )
+
+// amountDigits caps the digits of a run read as an amount before each
+// unit: up to 1,000,000,000 đồng, or 9,999,999 with k or tr.
+var amountDigits = map[string]int{"vnđ": 10, "vnd": 10, "đ": 10, "k": 7, "tr": 7}
 
 // Redact replaces email addresses, links, phone numbers and runs of 8 to 19
 // digits (bank accounts, cards) with <EMAIL>, <URL:domain>, <PHONE> and
-// <BANK_NUMBER>, in that order. An amount followed by đ, vnd, vnđ, k or tr
-// stays, since a classifier needs it.
+// <BANK_NUMBER>. A run is an amount, and stays, when a currency unit follows
+// it that is not the start of a word and it has no more digits than the
+// unit allows. A run is a phone when it starts with +, or has 10 or 11
+// digits from 0, or 11 from 84.
 func Redact(text string) string {
 	text = emailPattern.ReplaceAllString(text, "<EMAIL>")
 	text = urlPattern.ReplaceAllStringFunc(text, func(m string) string {
@@ -181,13 +193,42 @@ func Redact(text string) string {
 		}
 		return "<URL:" + strings.TrimPrefix(strings.ToLower(host), "www.") + ">"
 	})
-	text = phonePattern.ReplaceAllString(text, "<PHONE>")
-	return numberPattern.ReplaceAllStringFunc(text, func(m string) string {
-		if numberPattern.FindStringSubmatch(m)[1] != "" {
-			return m
+	var b strings.Builder
+	last := 0
+	for _, loc := range runPattern.FindAllStringIndex(text, -1) {
+		run := text[loc[0]:loc[1]]
+		digits := strings.Map(func(r rune) rune {
+			if unicode.IsDigit(r) {
+				return r
+			}
+			return -1
+		}, run)
+		n := len(digits)
+		after := text[loc[1]:]
+		if u := unitPattern.FindStringSubmatch(after); u != nil {
+			next, _ := utf8.DecodeRuneInString(after[len(u[0]):])
+			wordGoesOn := unicode.IsLetter(next) || unicode.IsDigit(next)
+			if !wordGoesOn && n <= amountDigits[strings.ToLower(u[1])] {
+				continue
+			}
 		}
-		return "<BANK_NUMBER>"
-	})
+		var placeholder string
+		switch {
+		case strings.HasPrefix(run, "+") && n >= 9,
+			strings.HasPrefix(digits, "0") && (n == 10 || n == 11),
+			strings.HasPrefix(digits, "84") && n == 11:
+			placeholder = "<PHONE>"
+		case n >= 8 && n <= 19:
+			placeholder = "<BANK_NUMBER>"
+		default:
+			continue
+		}
+		b.WriteString(text[last:loc[0]])
+		b.WriteString(placeholder)
+		last = loc[1]
+	}
+	b.WriteString(text[last:])
+	return b.String()
 }
 
 // Warning is what one member of a conversation is told about the other
@@ -254,11 +295,16 @@ func (w *Warning) has(c Code) bool {
 
 // Raise adds the message codes of messages the warning lacks, in the order
 // of MessageCodes, then the fact signals of facts it lacks, each first seen
-// at at. Without a message code in messages it adds nothing. It reports
-// whether the warning changed.
+// at at, and reports whether the warning changed. Without a message code in
+// messages it adds nothing. A check reads its clock before it calls the
+// model, so a dismissal can land after at; the codes are then first seen a
+// microsecond after the dismissal, since the member dismissed without them.
 func (w *Warning) Raise(messages []Code, facts []Signal, at time.Time) bool {
 	if !slices.ContainsFunc(messages, Code.FromMessages) {
 		return false
+	}
+	if w.dismissedAt != nil && !at.After(*w.dismissedAt) {
+		at = w.dismissedAt.Add(time.Microsecond)
 	}
 	changed := false
 	for _, c := range MessageCodes {
@@ -302,13 +348,12 @@ func (w *Warning) Dismiss(at time.Time) bool {
 }
 
 // Check is one classifier run over a window of a conversation: the
-// window's first and last message, which classifier and prompt read it, and
+// window's messages, oldest first, which classifier and prompt read it, and
 // the codes of each side after Clean, with no message text.
 type Check struct {
 	ID             uuid.UUID
 	ConversationID uuid.UUID
-	FirstMessageID uuid.UUID
-	LastMessageID  uuid.UUID
+	MessageIDs     []uuid.UUID
 	Classifier     string
 	PromptVersion  int
 	A, B           []Code

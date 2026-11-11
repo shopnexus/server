@@ -96,11 +96,11 @@ func codeStrings(codes []domain.Code) []string {
 
 func (s pgScamWarnings) Record(ctx context.Context, c domain.Check, ws []WarningWrite, pruneBefore time.Time) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO scam_checks (id, conversation_id, first_message_id, last_message_id, classifier,
-    prompt_version, codes_a, codes_b, created_at)
-VALUES (@id, @conversation, @first, @last, @classifier, @prompt_version, @codes_a, @codes_b, @created_at)
+		if _, err := tx.Exec(ctx, `INSERT INTO scam_checks (id, conversation_id, message_ids, classifier, prompt_version, codes_a,
+    codes_b, created_at)
+VALUES (@id, @conversation, @messages, @classifier, @prompt_version, @codes_a, @codes_b, @created_at)
 ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
-			"id": c.ID, "conversation": c.ConversationID, "first": c.FirstMessageID, "last": c.LastMessageID,
+			"id": c.ID, "conversation": c.ConversationID, "messages": c.MessageIDs,
 			"classifier": c.Classifier, "prompt_version": c.PromptVersion, "codes_a": codeStrings(c.A), "codes_b": codeStrings(c.B),
 			"created_at": c.CreatedAt,
 		}); err != nil {
@@ -127,29 +127,41 @@ ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 	return nil
 }
 
-func (s pgScamWarnings) Save(ctx context.Context, w *domain.Warning, writeID uuid.UUID) error {
-	if err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error { return putWarning(ctx, tx, w, writeID) }); err != nil {
-		return fmt.Errorf("save scam warning: %w", err)
+func (s pgScamWarnings) Dismiss(ctx context.Context, conversation, account uuid.UUID, at time.Time, writeID uuid.UUID) (bool, error) {
+	changed := false
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		w, err := scanWarning(tx.QueryRow(ctx, `SELECT `+warningColumns+` FROM scam_warnings
+WHERE conversation_id = @conversation AND account_id = @account FOR UPDATE`, pgx.StrictNamedArgs{"conversation": conversation, "account": account}))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if !w.Dismiss(at) {
+			return nil
+		}
+		changed = true
+		return putWarning(ctx, tx, &w, writeID)
+	})
+	if err != nil {
+		return false, fmt.Errorf("dismiss scam warning: %w", err)
 	}
-	w.Saved(writeID)
-	return nil
+	return changed, nil
 }
 
-func (s pgScamWarnings) Checked(ctx context.Context, conversation uuid.UUID, since time.Time) (uuid.UUID, int, error) {
+func (s pgScamWarnings) Checked(ctx context.Context, conversation uuid.UUID, since time.Time) ([]uuid.UUID, int, error) {
 	var (
-		last  *uuid.UUID
+		last  []uuid.UUID
 		count int
 	)
 	if err := s.db.QueryRow(ctx, `SELECT
-    (SELECT last_message_id FROM scam_checks WHERE conversation_id = @conversation ORDER BY created_at DESC, id DESC LIMIT 1),
+    (SELECT message_ids FROM scam_checks WHERE conversation_id = @conversation ORDER BY created_at DESC, id DESC LIMIT 1),
     (SELECT count(*) FROM scam_checks WHERE conversation_id = @conversation AND created_at >= @since)`,
 		pgx.StrictNamedArgs{"conversation": conversation, "since": since}).Scan(&last, &count); err != nil {
-		return uuid.UUID{}, 0, fmt.Errorf("read scam checks: %w", err)
+		return nil, 0, fmt.Errorf("read scam checks: %w", err)
 	}
-	if last == nil {
-		return uuid.UUID{}, count, nil
-	}
-	return *last, count, nil
+	return last, count, nil
 }
 
 func (s pgScamWarnings) DeleteAccount(ctx context.Context, account uuid.UUID) error {

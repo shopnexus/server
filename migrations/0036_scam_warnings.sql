@@ -2,7 +2,7 @@
 -- conversation is told about the other, the suspect; signals is
 -- [{code, params, first_seen_at}] in the order found. A check is one
 -- classifier run over a window of a conversation and holds no message text:
--- the window is first_message_id to last_message_id in messages.
+-- message_ids are the window's messages, oldest first.
 CREATE TABLE scam_warnings (
     conversation_id uuid NOT NULL REFERENCES conversations (id),
     account_id      uuid NOT NULL REFERENCES accounts (id),
@@ -18,8 +18,7 @@ CREATE TABLE scam_warnings (
 CREATE TABLE scam_checks (
     id               uuid PRIMARY KEY,
     conversation_id  uuid NOT NULL REFERENCES conversations (id),
-    first_message_id uuid NOT NULL,
-    last_message_id  uuid NOT NULL,
+    message_ids      uuid[] NOT NULL,
     classifier       text NOT NULL,
     prompt_version   int NOT NULL,
     codes_a          text[] NOT NULL,

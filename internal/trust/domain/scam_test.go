@@ -23,6 +23,16 @@ func TestRedact(t *testing.T) {
 		"chốt 12000000đ":                                 "chốt 12000000đ",
 		"chốt 12 000 000 đ":                              "chốt 12 000 000 đ",
 		"Xe còn không bạn?":                              "Xe còn không bạn?",
+		"stk 19036688221101 trước nha":                   "stk <BANK_NUMBER> trước nha",
+		"ck vào 19036688221101 không":                    "ck vào <BANK_NUMBER> không",
+		"số thẻ 4111 1111 1111 1111 đây":                 "số thẻ <BANK_NUMBER> đây",
+		"stk 1903 6688 2211 01 k nha":                    "stk <BANK_NUMBER> k nha",
+		"stk 1903.6688.2211.01":                          "stk <BANK_NUMBER>",
+		"thẻ 4111.1111.1111.1111":                        "thẻ <BANK_NUMBER>",
+		"stk1903668822110":                               "stk<BANK_NUMBER>",
+		"zalo0912345678":                                 "zalo<PHONE>",
+		"chốt 12.000.000 vnđ nhé":                        "chốt 12.000.000 vnđ nhé",
+		"bớt 2tr5 được không":                            "bớt 2tr5 được không",
 	} {
 		if got := domain.Redact(in); got != want {
 			t.Errorf("Redact(%q) = %q, want %q", in, got, want)
@@ -150,5 +160,23 @@ func TestWarning(t *testing.T) {
 	empty := domain.NewWarning(conversation, suspect, victim)
 	if empty.Dismiss(t0) {
 		t.Fatal("dismissed an empty warning")
+	}
+}
+
+// A dismissal during a check, after the check read its clock and before it
+// saved, does not hide the code the check found: the code is seen after
+// the dismissal.
+func TestWarningRaisedAfterADismissalMidCheck(t *testing.T) {
+	t.Parallel()
+	t0 := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
+	w := domain.NewWarning(uuid.NewV7(), uuid.NewV7(), uuid.NewV7())
+	w.Raise([]domain.Code{domain.CodeOffApp}, nil, t0)
+	checkStarted := t0.Add(time.Minute)
+	w.Dismiss(checkStarted.Add(3 * time.Second))
+	if !w.Raise([]domain.Code{domain.CodeSensitive}, nil, checkStarted) || w.Dismissed() {
+		t.Fatalf("the new code is hidden: %+v", w.State())
+	}
+	if got := w.Signals()[1].FirstSeenAt; !got.After(*w.DismissedAt()) {
+		t.Fatalf("first seen %v, dismissed %v", got, *w.DismissedAt())
 	}
 }

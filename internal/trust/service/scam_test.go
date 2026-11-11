@@ -28,7 +28,7 @@ func raise(t *testing.T, e env, c chatdomain.Conversation, victim, suspect uuid.
 	}
 	w.Raise(codes, nil, at)
 	ck := domain.Check{
-		ID: uuid.NewV7(), ConversationID: c.ID, FirstMessageID: uuid.NewV7(), LastMessageID: uuid.NewV7(),
+		ID: uuid.NewV7(), ConversationID: c.ID, MessageIDs: []uuid.UUID{uuid.NewV7()},
 		Classifier: "test", A: codes, B: []domain.Code{}, CreatedAt: at,
 	}
 	if err = e.scams.Record(context.Background(), ck, []repository.WarningWrite{{Warning: &w, WriteID: uuid.NewV7()}},

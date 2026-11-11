@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 	"uuid"
@@ -31,7 +32,7 @@ func conversation(t *testing.T, db *pgxpool.Pool) (c chatdomain.Conversation) {
 
 func check(c chatdomain.Conversation, at time.Time, a []domain.Code) domain.Check {
 	return domain.Check{
-		ID: uuid.NewV7(), ConversationID: c.ID, FirstMessageID: uuid.NewV7(), LastMessageID: uuid.NewV7(),
+		ID: uuid.NewV7(), ConversationID: c.ID, MessageIDs: []uuid.UUID{uuid.NewV7(), uuid.NewV7()},
 		Classifier: "test", PromptVersion: 1, A: a, B: []domain.Code{}, CreatedAt: at,
 	}
 }
@@ -54,7 +55,7 @@ func TestScamWarnings(t *testing.T) {
 	c := conversation(t, db)
 	at := time.Now().UTC().Truncate(time.Microsecond)
 
-	if last, n, err := s.Checked(ctx, c.ID, at.Add(-24*time.Hour)); err != nil || last != (uuid.UUID{}) || n != 0 {
+	if last, n, err := s.Checked(ctx, c.ID, at.Add(-24*time.Hour)); err != nil || last != nil || n != 0 {
 		t.Fatalf("no checks: %v %d %v", last, n, err)
 	}
 	w := domain.NewWarning(c.ID, c.AccountB, c.AccountA)
@@ -73,7 +74,7 @@ func TestScamWarnings(t *testing.T) {
 		t.Fatalf("write id %v", w.WriteID())
 	}
 	last, n, err := s.Checked(ctx, c.ID, at.Add(-24*time.Hour))
-	if err != nil || last != ck.LastMessageID || n != 1 {
+	if err != nil || !slices.Equal(last, ck.MessageIDs) || n != 1 {
 		t.Fatalf("checked: %v %d %v", last, n, err)
 	}
 	got, err := s.Get(ctx, c.ID, c.AccountB)
@@ -92,8 +93,7 @@ func TestScamWarnings(t *testing.T) {
 		t.Fatalf("of: %v %v", many, err)
 	}
 
-	got.Dismiss(at.Add(time.Minute))
-	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+	if _, err = s.Dismiss(ctx, c.ID, c.AccountB, at.Add(time.Minute), uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	if again, _ := s.Get(ctx, c.ID, c.AccountB); !again.Dismissed() || updates(t, db, c.AccountB) != 2 {
@@ -116,9 +116,7 @@ func TestScamWarningsConflict(t *testing.T) {
 		t.Fatal(err)
 	}
 	stale, _ := s.Get(ctx, c.ID, c.AccountB)
-	fresh, _ := s.Get(ctx, c.ID, c.AccountB)
-	fresh.Dismiss(at.Add(time.Minute))
-	if err := s.Save(ctx, &fresh, uuid.NewV7()); err != nil {
+	if _, err := s.Dismiss(ctx, c.ID, c.AccountB, at.Add(time.Minute), uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	stale.Raise([]domain.Code{domain.CodeSensitive}, nil, at.Add(2*time.Minute))
@@ -133,7 +131,9 @@ func TestScamWarningsConflict(t *testing.T) {
 	// A new warning where a row exists is a conflict too.
 	dup := domain.NewWarning(c.ID, c.AccountB, c.AccountA)
 	dup.Raise([]domain.Code{domain.CodePressure}, nil, at)
-	if err = s.Save(ctx, &dup, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
+	err = s.Record(ctx, check(c, at, []domain.Code{domain.CodePressure}), []repository.WarningWrite{{Warning: &dup, WriteID: uuid.NewV7()}},
+		at.Add(-domain.CheckRetention))
+	if !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("duplicate insert: %v", err)
 	}
 }
@@ -184,5 +184,34 @@ func TestScamChecksPruned(t *testing.T) {
 	}
 	if _, n, _ := s.Checked(ctx, c.ID, old.Add(-time.Hour)); n != 1 {
 		t.Fatalf("checks left: %d", n)
+	}
+}
+
+// Dismiss locks the row, so it never loses a race: it dismisses once,
+// changes nothing again, and finds nothing for a member without a warning.
+func TestScamWarningsDismiss(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewScamWarnings(db)
+	c := conversation(t, db)
+	at := time.Now().UTC().Truncate(time.Microsecond)
+	w := domain.NewWarning(c.ID, c.AccountB, c.AccountA)
+	w.Raise([]domain.Code{domain.CodePrepayment}, nil, at)
+	if err := s.Record(ctx, check(c, at, []domain.Code{domain.CodePrepayment}), []repository.WarningWrite{{Warning: &w, WriteID: uuid.NewV7()}},
+		at.Add(-domain.CheckRetention)); err != nil {
+		t.Fatal(err)
+	}
+	if changed, err := s.Dismiss(ctx, c.ID, c.AccountB, at.Add(time.Minute), uuid.NewV7()); err != nil || !changed {
+		t.Fatalf("dismiss: %v %v", changed, err)
+	}
+	if changed, err := s.Dismiss(ctx, c.ID, c.AccountB, at.Add(2*time.Minute), uuid.NewV7()); err != nil || changed {
+		t.Fatalf("again: %v %v", changed, err)
+	}
+	if got, _ := s.Get(ctx, c.ID, c.AccountB); !got.Dismissed() || !got.DismissedAt().Equal(at.Add(time.Minute)) || updates(t, db, c.AccountB) != 2 {
+		t.Fatalf("%+v, %d updates", got.State(), updates(t, db, c.AccountB))
+	}
+	if changed, err := s.Dismiss(ctx, c.ID, c.AccountA, at, uuid.NewV7()); err != nil || changed {
+		t.Fatalf("no warning: %v %v", changed, err)
 	}
 }

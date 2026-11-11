@@ -2,12 +2,8 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"uuid"
-
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/trust/repository"
 )
 
 func (t *Trust) ScamWarnings(ctx context.Context, account uuid.UUID, conversations []uuid.UUID) (map[uuid.UUID]ScamWarningView, error) {
@@ -29,32 +25,14 @@ func (t *Trust) ScamWarnings(ctx context.Context, account uuid.UUID, conversatio
 	return out, nil
 }
 
-// DismissScamWarning reads the warning again once when a check saved it
-// meanwhile, then answers try_again.
 func (t *Trust) DismissScamWarning(ctx context.Context, account, conversation uuid.UUID) error {
 	if _, err := t.chats.Get(ctx, account, conversation); err != nil {
 		return fmt.Errorf("read conversation: %w", err)
 	}
-	for range 2 {
-		w, err := t.scams.Get(ctx, conversation, account)
-		if errors.Is(err, repository.ErrNotFound) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("read scam warning: %w", err)
-		}
-		if !w.Dismiss(t.now()) {
-			return nil
-		}
-		err = t.scams.Save(ctx, &w, uuid.NewV7())
-		if err == nil {
-			return nil
-		}
-		if !errors.Is(err, repository.ErrConflict) {
-			return fmt.Errorf("save scam warning: %w", err)
-		}
+	if _, err := t.scams.Dismiss(ctx, conversation, account, t.now(), uuid.NewV7()); err != nil {
+		return fmt.Errorf("dismiss scam warning: %w", err)
 	}
-	return apperr.ErrTryAgain
+	return nil
 }
 
 func (t *Trust) DeleteScamWarnings(ctx context.Context, account uuid.UUID) error {
