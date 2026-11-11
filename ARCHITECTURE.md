@@ -48,6 +48,10 @@ LiteLLM's alias `video-read` in the cluster, the LLM in `.env` locally.
 Locally `ai` answers on 127.0.0.1:56810 under the profile `models`, as for
 the embeddings.
 
+A link read (see Assist) calls the same model at `ASSIST_LLM_BASE_URL`
+with text only, and, through the cluster's open egress, Chợ Tốt's public
+gateway at `CHOTOT_GATEWAY_URL` and its CDN at `CHOTOT_CDN_URL`.
+
 ### Use cases
 
 A use case is a method of the module's service, in its own file:
@@ -761,7 +765,7 @@ Search reads photos through three more use cases (decided 2026-11-09):
 - `ReadPhoto(key)` reads a processed photo under `media/`, for
   `ListingEmbed`.
 
-Video reads use four more (decided 2026-11-10, spec:
+Video reads, and link reads after them, use four more (decided 2026-11-10, spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-10-video-read-design.md`):
 
 - A video upload serves a video read only: `Attach`, `Square`,
@@ -771,14 +775,19 @@ Video reads use four more (decided 2026-11-10, spec:
   records `shape = video`. `OpenVideo` reads the object for the read's
   flow. `Consume` deletes the object and sets status `consumed`; a second
   call changes nothing.
-- `SaveFrame(owner, id, jpeg)` writes a frame the server made to
-  `uploads/<id>` and inserts a waiting `image/jpeg` upload of the owner,
-  with its 24-hour `MediaExpire`. A listing attaches and processes it like
-  a photo the app uploaded. The caller mints the ID before its step, so a
-  retry writes the same object and inserts nothing.
-- `PresignFrame(id)` signs a GET of `uploads/<id>` valid for an hour
-  (`Store.PresignGet`, for `OBJECT_STORE_PUBLIC_ENDPOINT`), for the read's
+- `SavePhoto(owner, id, bytes, contentType, origin)` writes a photo the
+  server made or copied to `uploads/<id>` and inserts a waiting upload of
+  the owner, with its 24-hour `MediaExpire`: a video read's frame (`origin
+  = frame`) or a link read's copy (`origin = link`). A listing attaches and
+  processes it like a photo the app uploaded. The caller mints the ID
+  before its step, so a retry writes the same object and inserts nothing.
+  Origin `app` or a video type is `invalid_upload`.
+- `PresignPhoto(id)` signs a GET of `uploads/<id>` valid for an hour
+  (`Store.PresignGet`, for `OBJECT_STORE_PUBLIC_ENDPOINT`), for a read's
   view.
+- `uploads.origin` is `app`, `frame` or `link` (decided 2026-11-11).
+  `MediaProcess`'s result carries `Copied` for origin `link`, and catalog
+  keeps it with the photo's keys.
 
 ### Catalog
 
@@ -786,6 +795,13 @@ Module `catalog` holds listings, categories and regions. A listing is one
 item at one price, C2C, cash on delivery. Drafts stay on the device; the
 server receives a complete listing.
 
+- A photo the server copied from the seller's listing on another site
+  shows `copied: true` (decided 2026-11-11, spec:
+  `~/shopnexus/docs/superpowers/specs/2026-11-11-server2-link-read-design.md`).
+  Processing reads it from the upload's origin and stores it in the
+  photo's keys in `listings.photos`, an edit keeps it, and every reader of
+  the listing sees it. The server cannot tell a camera photo from a
+  gallery one, so only copies are marked.
 - A listing declares no marks (decided 2026-10-27, spec:
   `~/shopnexus/docs/superpowers/specs/2026-10-27-remove-declared-marks-design.md`). People
   judge wear on used goods differently, so a declared mark is not a
@@ -1025,8 +1041,9 @@ everything after each reconnect and deploy).
   members a message is visible to, and the other member on a read; the
   notification repository the recipient.
 - An update carries IDs only (`message`, `read`, `deal`, `notification`,
-  `video_read`, `scam_warning`); the app reloads what it shows. Assist's
-  repository notifies the reader's account at each save of a video read,
+  `video_read`, `scam_warning`, `link_read`); the app reloads what it
+  shows. Assist's repository notifies the reader's account at each save of
+  a video read or a link read,
   and trust's repository the warned member at each save of a scam warning.
 - `Notify` then rings a `Bell`. `PGBell` runs `pg_notify('stream', …)` in
   the same transaction, which Postgres delivers on commit to every
@@ -1567,8 +1584,9 @@ Search watches (decided 2026-11-11, same spec):
 
 ### Assist
 
-Module `assist` holds what AI does for the person using the app. Its first
-use case reads a seller's video into a listing draft (decided 2026-11-10,
+Module `assist` holds what AI does for the person using the app: it reads
+a seller's video, or their listing on Chợ Tốt, into a listing draft. The
+first use case reads the video (decided 2026-11-10,
 spec: `~/shopnexus/docs/superpowers/specs/2026-11-10-video-read-design.md`).
 Spam and scam detection is moderation and goes to trust; the two share
 `provider/llm`.
@@ -1644,6 +1662,65 @@ Spam and scam detection is moderation and goes to trust; the two share
   cluster the keys are LiteLLM's `server-stt` and `server-assist`. The
   estimate embeds with the search key, `EMBED_SEARCH_API_KEY`.
 
+The second use case reads the seller's own listing on Chợ Tốt into a
+listing draft (decided 2026-11-11, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-11-server2-link-read-design.md`).
+The server reads only Chợ Tốt, through its public gateway, and takes the
+seller's word that the listing is theirs: the app says "Chỉ dán tin của
+bạn", and nothing compares the listing's owner with the account.
+
+- `provider/chotot` reads `GET {CHOTOT_GATEWAY_URL}/v1/public/ad-listing/{list_id}`
+  and decodes the subject, body, price, category name, photo URLs and
+  parameters, and nothing else. The seller's name, phone, address,
+  coordinates and the parameters that place them are never decoded. A
+  listing that is absent or not `active` is `ErrNotFound`; 5xx, 403, 429, a
+  redirect or a timeout is `ErrUnavailable`; an answer without a subject or
+  photos is `ErrFormat`, logged as an error. A photo is read only from the
+  scheme and host of `CHOTOT_CDN_URL`, without redirects, at most 15 MB, and
+  only when its magic bytes say JPEG, PNG or WebP.
+- `domain.ParseLink` takes `chotot.com` and its subdomains, finds the
+  listing ID in the last path segment, drops the query and the fragment,
+  and rewrites the link to `https://www.chotot.com/<id>.htm`. Text that is
+  not an http or https URL is `not_a_link` 422; another site, or no listing
+  ID, is `unsupported_source` 422.
+- `POST /v1/link-previews {url}` answers at once with the listing's title,
+  price, first photo on the CDN and photo count, for the card under the
+  paste field. It stores nothing and needs no phone; it is POST so the link
+  stays out of access logs. Chợ Tốt down is `source_unavailable` 503. It has
+  no rate limit yet.
+- `POST /v1/link-reads {url}` with an `Idempotency-Key` answers 202.
+  Restate service `LinkRead.Start` refuses a suspended account and one
+  without a phone, then inserts the row under its own cap of 30 link reads
+  in 24 hours (counted apart from video reads, with the same code
+  `read_limit_reached` and the same locks), and sends `Expire` with a
+  24-hour delay and `Run`. The link is not fetched until `Run`.
+- `Run` has three steps under the video read's rules (a 2-minute deadline,
+  at most 3 attempts a step, a save and a `link_read` notice after each).
+  Read: the gateway and the model in one step, so the listing's text never
+  enters the journal; the model gets the subject, the parameters, Chợ Tốt's
+  category and the body, without photos, and answers a strict schema
+  (`LinkPromptVersion` 1). The cleaning is the video read's (`cleanDraft`,
+  `cleanRange`); the price is the listing's own, kept between 10,000 and
+  1,000,000,000 đồng; `StripPhones` takes out what still looks like a
+  Vietnamese phone number and sets `contact_removed`. Copy: the first 10
+  photos, each saved with `SavePhoto(origin = link)` under an ID minted
+  before the step; a photo the CDN refuses is skipped, and none copied is
+  `listing_not_found`. Estimate: `marketEstimate`, which the video read
+  calls too, with the copies' vectors; without a market range the model's
+  stands.
+- A failed read says `listing_not_found`, `no_item` or `unavailable`.
+  `GET /v1/link-reads/{id}` returns the read to its account until
+  `expires_at`, with presigned photo URLs valid for an hour; any other read
+  is `link_read_not_found` 404. `Expire` deletes the row after 24 hours;
+  copies not posted expire with their uploads.
+- The read step's log line holds the prompt version, the list ID, the
+  photo count, the body's length, Chợ Tốt's category, the category asked
+  for and the one kept, the condition, the count of specs,
+  `contact_removed`, the price and the range, and the time taken. No
+  subject, body, title, description or link is logged.
+- Configuration: `CHOTOT_GATEWAY_URL` and `CHOTOT_CDN_URL`, with the
+  video read's `ASSIST_LLM_*` and `ASSIST_CALL_TIMEOUT`.
+
 ### Support
 
 Module `support` keeps the feedback people send (decided 2026-11-10, same
@@ -1692,8 +1769,9 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   `listing_closed`, an agreement dropped, an open price taken back);
   discovery deletes the saves, the search history, the hidden listings, the
   search watches and the price cut switch; notification deletes the notices
-  and push tokens; assist deletes the video reads. Media does
-  nothing: a waiting upload, a video read's frames among them, expires
+  and push tokens; assist deletes the video reads and the link reads.
+  Media does nothing: a waiting upload, a video read's frames and a link
+  read's copies among them, expires
   within a day anyway, a read's video is consumed when the read ends, and
   the avatar object stays in the store, as a removed avatar does.
 - Deal's `DealAccountWatch.Deleted` also sends `Scrub` with a delay of 365
