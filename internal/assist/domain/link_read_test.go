@@ -15,7 +15,7 @@ func TestLinkReadLifecycle(t *testing.T) {
 	now := time.Date(2026, 11, 11, 9, 0, 0, 0, time.UTC)
 	link := domain.Link{Site: domain.SiteChotot, ListID: 119482736, URL: "https://www.chotot.com/119482736.htm"}
 	id, me := uuid.NewV7(), uuid.NewV7()
-	r := domain.NewLinkRead(id, me, link, now)
+	r := domain.NewOldLinkRead(id, me, link, now)
 	if r.ID() != id || r.AccountID() != me || r.Link() != link || r.Status() != domain.StatusReading || r.WriteID() != id ||
 		r.PhotoCount() != 0 || r.Draft() != nil || r.Estimate() != nil || !r.ExpiresAt().Equal(now.Add(24*time.Hour)) {
 		t.Fatalf("%+v", r.State())

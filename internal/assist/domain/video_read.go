@@ -93,9 +93,9 @@ type VideoRead struct {
 	writeID                uuid.UUID
 }
 
-// NewVideoRead starts a read of video for account. Its first write ID is
+// NewOldVideoRead starts a read of video for account. Its first write ID is
 // its ID, so a retried insert writes the same row.
-func NewVideoRead(id, account, video uuid.UUID, now time.Time) VideoRead {
+func NewOldVideoRead(id, account, video uuid.UUID, now time.Time) VideoRead {
 	return VideoRead{
 		id: id, accountID: account, videoID: video, status: StatusReading,
 		createdAt: now, expiresAt: now.Add(KeepFor), writeID: id,

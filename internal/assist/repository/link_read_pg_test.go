@@ -22,7 +22,7 @@ import (
 var listing = domain.Link{Site: domain.SiteChotot, ListID: 119482736, URL: "https://www.chotot.com/119482736.htm"}
 
 func linkRead(account uuid.UUID, at time.Time) domain.LinkRead {
-	return domain.NewLinkRead(uuid.NewV7(), account, listing, at)
+	return domain.NewOldLinkRead(uuid.NewV7(), account, listing, at)
 }
 
 func TestLinkReadInsertSaveGet(t *testing.T) {

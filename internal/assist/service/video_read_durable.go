@@ -119,7 +119,7 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 		return StartResult{Refused: accountdomain.ErrPhoneRequired}, nil
 	}
 	id := restatex.NewID(ctx, at)
-	read := domain.NewVideoRead(id, in.Account, in.Video, at)
+	read := domain.NewOldVideoRead(id, in.Account, in.Video, at)
 	inserted, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
 		return restatex.AsRefusal(s.VideoReads.Insert(rc, read))
 	})

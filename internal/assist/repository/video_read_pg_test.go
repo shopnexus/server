@@ -23,7 +23,7 @@ import (
 var now = time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
 
 func read(account uuid.UUID, at time.Time) domain.VideoRead {
-	return domain.NewVideoRead(uuid.NewV7(), account, uuid.NewV7(), at)
+	return domain.NewOldVideoRead(uuid.NewV7(), account, uuid.NewV7(), at)
 }
 
 func seq(t *testing.T, db *pgxpool.Pool, account uuid.UUID) int64 {

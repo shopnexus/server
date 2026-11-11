@@ -96,7 +96,7 @@ func (s LinkRead) Start(ctx restate.Context, in StartLinkInput) (StartResult, er
 		return StartResult{Refused: accountdomain.ErrPhoneRequired}, nil
 	}
 	id := restatex.NewID(ctx, at)
-	read := domain.NewLinkRead(id, in.Account, in.Link, at)
+	read := domain.NewOldLinkRead(id, in.Account, in.Link, at)
 	inserted, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
 		return restatex.AsRefusal(s.LinkReads.Insert(rc, read))
 	})

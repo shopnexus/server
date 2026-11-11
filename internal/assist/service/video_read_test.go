@@ -270,7 +270,7 @@ func TestStartReadRefusals(t *testing.T) {
 
 	busy := accounttest.WithPhone(t, e.db)
 	for range domain.ReadLimit {
-		if err := e.videos.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now())); err != nil {
+		if err := e.videos.Insert(ctx, domain.NewOldVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now())); err != nil {
 			t.Fatal(err)
 		}
 	}

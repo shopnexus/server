@@ -18,6 +18,12 @@ var (
 	// ErrNotReading is a change of a read that has ended. The flow never
 	// makes one; it is a bug if it shows.
 	ErrNotReading = errors.New("assist: the video read has ended")
+	// ErrWrongSource is a change only another source's read takes, such as
+	// a link's photo count on a video read. It is a bug if it shows.
+	ErrWrongSource = errors.New("assist: a change for another source's read")
+	// ErrWrongFailure is a failure the read's source cannot end with. It
+	// is a bug if it shows.
+	ErrWrongFailure = errors.New("assist: a failure the read's source cannot end with")
 	// ErrNoItem is a model answer that shows no item for sale; the read
 	// fails with FailNoItem.
 	ErrNoItem = errors.New("assist: the video shows no item for sale")

@@ -23,9 +23,9 @@ type LinkRead struct {
 	writeID              uuid.UUID
 }
 
-// NewLinkRead starts a read of link for account. Its first write ID is its
+// NewOldLinkRead starts a read of link for account. Its first write ID is its
 // ID, so a retried insert writes the same row.
-func NewLinkRead(id, account uuid.UUID, link Link, now time.Time) LinkRead {
+func NewOldLinkRead(id, account uuid.UUID, link Link, now time.Time) LinkRead {
 	return LinkRead{
 		id: id, accountID: account, link: link, status: StatusReading,
 		createdAt: now, expiresAt: now.Add(KeepFor), writeID: id,

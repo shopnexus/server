@@ -174,7 +174,7 @@ func TestStartLinkReadRefusals(t *testing.T) {
 	busy := accounttest.WithPhone(t, e.db)
 	for range domain.ReadLimit {
 		link, _ := domain.ParseLink(iphoneLink)
-		if err = e.links.Insert(ctx, domain.NewLinkRead(uuid.NewV7(), busy, link, e.clock.Now())); err != nil {
+		if err = e.links.Insert(ctx, domain.NewOldLinkRead(uuid.NewV7(), busy, link, e.clock.Now())); err != nil {
 			t.Fatal(err)
 		}
 	}

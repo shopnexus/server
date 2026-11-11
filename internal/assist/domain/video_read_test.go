@@ -15,13 +15,13 @@ import (
 var start = time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
 
 func newRead() domain.VideoRead {
-	return domain.NewVideoRead(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), start)
+	return domain.NewOldVideoRead(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), start)
 }
 
 func TestNewVideoRead(t *testing.T) {
 	t.Parallel()
 	id, account, video := uuid.NewV7(), uuid.NewV7(), uuid.NewV7()
-	r := domain.NewVideoRead(id, account, video, start)
+	r := domain.NewOldVideoRead(id, account, video, start)
 	if r.ID() != id || r.AccountID() != account || r.VideoID() != video || r.Status() != domain.StatusReading ||
 		r.Failure() != "" || r.Frames() != nil || r.Draft() != nil || r.Estimate() != nil ||
 		!r.CreatedAt().Equal(start) || !r.ExpiresAt().Equal(start.Add(24*time.Hour)) || r.WriteID() != id {
