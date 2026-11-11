@@ -50,6 +50,9 @@ type Chats interface {
 	// Messages lists the messages viewer may see with IDs below p.Before(),
 	// newest first, at most p.Fetch().
 	Messages(ctx context.Context, conversation, viewer uuid.UUID, p page.Request) ([]domain.Message, error)
+	// Window lists conversation's sent messages with text whose IDs are at
+	// most upTo, or every one for the zero upTo, newest first, at most n.
+	Window(ctx context.Context, conversation, upTo uuid.UUID, n int) ([]domain.Message, error)
 	// Inbox lists viewer's conversations with a sent message, archived or
 	// not, without those whose other member viewer blocks, by last message
 	// below p.Before(), newest first, at most p.Fetch().

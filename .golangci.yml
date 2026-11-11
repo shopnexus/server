@@ -181,6 +181,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
             - pkg: github.com/shopnexus/server2/internal/notification/service
@@ -244,6 +246,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
             - pkg: github.com/shopnexus/server2/internal/notification/service
@@ -306,6 +310,8 @@ linters:
             - pkg: github.com/shopnexus/server2/internal/discovery/worker
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
@@ -372,6 +378,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
             - pkg: github.com/shopnexus/server2/internal/notification/service
@@ -437,6 +445,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
             - pkg: github.com/shopnexus/server2/internal/notification/service
@@ -500,6 +510,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
             - pkg: github.com/shopnexus/server2/internal/notification/service
@@ -562,6 +574,8 @@ linters:
             - pkg: github.com/shopnexus/server2/internal/deal/worker
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
@@ -630,6 +644,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/service
               desc: only screen calls notification; it hears the others through events.
             - pkg: github.com/shopnexus/server2/internal/screen/service
@@ -693,6 +709,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
             - pkg: github.com/shopnexus/server2/internal/notification/service
@@ -755,6 +773,8 @@ linters:
             - pkg: github.com/shopnexus/server2/internal/deal/worker
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/discovery/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
@@ -821,6 +841,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
         module support:
@@ -881,6 +903,8 @@ linters:
             - pkg: github.com/shopnexus/server2/internal/discovery/worker
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server2/internal/erasure/service
               desc: no module calls erasure; it calls account and deal.
@@ -1041,6 +1065,8 @@ linters:
               desc: domain imports no layer above it.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: domain imports no layer above it.
         repository layer:
           files:
             - "**/internal/*/repository/**"
@@ -1107,6 +1133,8 @@ linters:
               desc: repository imports no layer above it.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: repository imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: repository imports no layer above it.
         service layer:
           files:
             - "**/internal/*/service/**"
@@ -1147,6 +1175,8 @@ linters:
               desc: service imports no layer above it.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
               desc: service imports no layer above it.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
+              desc: service imports no layer above it.
         handler layer:
           files:
             - "**/internal/*/handler/**"
@@ -1182,6 +1212,8 @@ linters:
             - pkg: github.com/shopnexus/server2/internal/discovery/worker
               desc: handler imports no worker.
             - pkg: github.com/shopnexus/server2/internal/notification/worker
+              desc: handler imports no worker.
+            - pkg: github.com/shopnexus/server2/internal/trust/worker
               desc: handler imports no worker.
         worker layer:
           files:

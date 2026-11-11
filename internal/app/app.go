@@ -255,7 +255,12 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	dealm := deal.Mount(d, accounts, catalogm.Service)
 	erasure.Mount(d, accounts, dealm.Service)
 	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
-	trustm := trust.Mount(d, accounts, catalogm.Service, dealm.Service, chatm.Service)
+	trustm := trust.Mount(d, trust.Settings{
+		Classifier: trust.LLMClassifier(
+			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: &http.Client{}},
+			cfg.Trust.LLMModel, cfg.Trust.CallTimeout, log),
+		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
+	}, accounts, catalogm.Service, dealm.Service, chatm.Service)
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
 	discoverym := discovery.Mount(d, discovery.Settings{
 		Model:       model,
@@ -283,10 +288,10 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}))
 	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
-		accounts, catalogm.Service, dealm.Service, trustm, chatm.Service, discoverym.Service)
-	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm, discoverym.Service, chatm.Service, notificationm.Service)
+		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service)
+	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service)
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, dealm.Services, discoverym.Services,
-		chatm.Services, notificationm.Services, assistm.Services), nil
+		chatm.Services, trustm.Services, notificationm.Services, assistm.Services), nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

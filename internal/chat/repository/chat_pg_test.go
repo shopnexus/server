@@ -312,3 +312,34 @@ func pairWith(t *testing.T, db *pgxpool.Pool, s repository.Chats, viewer uuid.UU
 	}
 	return c, other
 }
+
+// Window lists sent messages with text up to a message, newest first;
+// photo-only and unsent messages stay out.
+func TestWindow(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewChats(db)
+	ctx := context.Background()
+	c, a, b := pair(t, db, s)
+	first := send(t, s, c, a, "Còn không bạn?")
+	second := send(t, s, c, b, "Còn bạn")
+	photo, err := domain.NewMessage(uuid.NewV7(), c.ID, b, "", []uuid.UUID{uuid.NewV7()}, nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.AddMessage(ctx, photo); err != nil {
+		t.Fatal(err)
+	}
+	third := send(t, s, c, a, "Cọc trước được không?")
+
+	got, err := s.Window(ctx, c.ID, uuid.UUID{}, 20)
+	if err != nil || len(got) != 3 || got[0].ID() != third.ID() || got[2].ID() != first.ID() {
+		t.Fatalf("newest: %d %v", len(got), err)
+	}
+	if got, err = s.Window(ctx, c.ID, second.ID(), 20); err != nil || len(got) != 2 || got[0].ID() != second.ID() {
+		t.Fatalf("up to the second: %d %v", len(got), err)
+	}
+	if got, err = s.Window(ctx, c.ID, uuid.UUID{}, 1); err != nil || len(got) != 1 || got[0].ID() != third.ID() {
+		t.Fatalf("one: %d %v", len(got), err)
+	}
+}

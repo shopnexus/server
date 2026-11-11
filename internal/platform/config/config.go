@@ -51,6 +51,7 @@ type Config struct {
 	LLM            LLMConfig
 	Embed          EmbedConfig
 	Assist         AssistConfig
+	Trust          TrustConfig
 	Push           PushConfig
 	Firebase       FirebaseConfig
 	Email          EmailConfig
@@ -129,6 +130,16 @@ type AssistConfig struct {
 	LLMAPIKey     string        // ASSIST_LLM_API_KEY: server-assist's key
 	LLMModel      string        // ASSIST_LLM_MODEL: the alias video-read
 	CallTimeout   time.Duration // ASSIST_CALL_TIMEOUT: one call to ai, STT or the model
+}
+
+// TrustConfig says where module trust's scam classifier is: an
+// OpenAI-compatible API, LiteLLM's alias scam-check in the cluster. The key
+// is never logged.
+type TrustConfig struct {
+	LLMBaseURL  string        // TRUST_LLM_BASE_URL
+	LLMAPIKey   string        // TRUST_LLM_API_KEY: server-trust's key
+	LLMModel    string        // TRUST_LLM_MODEL: the alias scam-check
+	CallTimeout time.Duration // TRUST_CALL_TIMEOUT: one call to the model
 }
 
 // AuthConfig holds the auth module's keys and token settings. No key is ever
@@ -393,6 +404,10 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			STTBaseURL:    need("STT_BASE_URL"), STTAPIKey: set("STT_API_KEY"), STTModel: need("STT_MODEL"),
 			LLMBaseURL: need("ASSIST_LLM_BASE_URL"), LLMAPIKey: need("ASSIST_LLM_API_KEY"), LLMModel: need("ASSIST_LLM_MODEL"),
 			CallTimeout: duration("ASSIST_CALL_TIMEOUT"),
+		},
+		Trust: TrustConfig{
+			LLMBaseURL: need("TRUST_LLM_BASE_URL"), LLMAPIKey: need("TRUST_LLM_API_KEY"), LLMModel: need("TRUST_LLM_MODEL"),
+			CallTimeout: duration("TRUST_CALL_TIMEOUT"),
 		},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),

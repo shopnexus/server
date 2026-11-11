@@ -33,7 +33,8 @@ type inboxRow struct {
 			ID string `json:"id"`
 		} `json:"listing"`
 	} `json:"deal"`
-	OtherActiveDeals int `json:"other_active_deals"`
+	OtherActiveDeals int          `json:"other_active_deals"`
+	ScamWarning      *scamWarning `json:"scam_warning"`
 }
 
 type chatScreen struct {
@@ -41,9 +42,27 @@ type chatScreen struct {
 	Other struct {
 		ID string `json:"id"`
 	} `json:"other"`
-	Archived bool              `json:"archived"`
-	Deals    []dealView        `json:"deals"`
-	Messages page[messageBody] `json:"messages"`
+	Archived    bool              `json:"archived"`
+	Deals       []dealView        `json:"deals"`
+	Messages    page[messageBody] `json:"messages"`
+	ScamWarning *scamWarning      `json:"scam_warning"`
+}
+
+type scamWarning struct {
+	Signals []struct {
+		Code string `json:"code"`
+		Text string `json:"text"`
+	} `json:"signals"`
+	Dismissed bool `json:"dismissed"`
+}
+
+// codes lists a warning's codes.
+func (w *scamWarning) codes() []string {
+	out := make([]string, 0, len(w.Signals))
+	for _, s := range w.Signals {
+		out = append(out, s.Code)
+	}
+	return out
 }
 
 // inboxView reads a page of token's inbox view; query is the query string

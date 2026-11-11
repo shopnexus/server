@@ -315,6 +315,23 @@ ORDER BY m.id DESC LIMIT @limit`, pgx.StrictNamedArgs{
 	return out, nil
 }
 
+func (s pgChats) Window(ctx context.Context, conversation, upTo uuid.UUID, n int) ([]domain.Message, error) {
+	if upTo == (uuid.UUID{}) {
+		upTo = uuid.Max()
+	}
+	rows, err := s.db.Query(ctx, `SELECT `+messageColumns+` FROM messages m
+WHERE m.conversation_id = @conversation AND m.status = 'sent' AND m.body <> '' AND m.id <= @up_to
+ORDER BY m.id DESC LIMIT @limit`, pgx.StrictNamedArgs{"conversation": conversation, "up_to": upTo, "limit": n})
+	if err != nil {
+		return nil, fmt.Errorf("select window: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, scanMessage)
+	if err != nil {
+		return nil, fmt.Errorf("read window: %w", err)
+	}
+	return out, nil
+}
+
 // listed is the condition for a conversation of the viewer's member row cm
 // to show in the inbox: a sent message, archived or not as @archived asks,
 // and no block of the other member by the viewer.

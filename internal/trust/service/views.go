@@ -100,3 +100,15 @@ func (s *Trust) views(ctx context.Context, reviews []domain.Review) ([]ReviewVie
 	}
 	return out, nil
 }
+
+// ScamWarningView is the ScamWarning schema in api/schemas/trust.yaml.
+type ScamWarningView struct {
+	Signals   []ScamSignalView `json:"signals"`
+	Dismissed bool             `json:"dismissed"`
+}
+
+// ScamSignalView is the ScamSignal schema.
+type ScamSignalView struct {
+	Code string `json:"code"`
+	Text string `json:"text"`
+}

@@ -1025,8 +1025,9 @@ everything after each reconnect and deploy).
   members a message is visible to, and the other member on a read; the
   notification repository the recipient.
 - An update carries IDs only (`message`, `read`, `deal`, `notification`,
-  `video_read`); the app reloads what it shows. Assist's repository
-  notifies the reader's account at each save of a video read.
+  `video_read`, `scam_warning`); the app reloads what it shows. Assist's
+  repository notifies the reader's account at each save of a video read,
+  and trust's repository the warned member at each save of a scam warning.
 - `Notify` then rings a `Bell`. `PGBell` runs `pg_notify('stream', …)` in
   the same transaction, which Postgres delivers on commit to every
   instance. The log is the truth and the ring only says something new is
@@ -1294,6 +1295,53 @@ Reports are trust's too (decided 2026-11-10, spec:
   conversation or clears it. Trust takes chat's service, so `app.go`
   mounts chat before trust.
 - Nobody reads reports yet: the console queue is a later item.
+
+Scam warnings are trust's too (decided 2026-11-11, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-11-server2-scam-warning-design.md`).
+
+- A signal is a fixed code: seven read from messages (`prepayment_request`,
+  `off_app_contact`, `suspicious_link`, `sensitive_info_request`,
+  `impersonation`, `fake_payment_proof`, `pressure`) and two computed
+  from data (`new_account` under 7 days, `price_far_below` at least 30%
+  under the median of 5 or more similar listings). The server writes each
+  code's Vietnamese text; the API returns `{code, text}`.
+- A `Classifier` picks the message codes of each side from a window of the
+  last 20 messages with text, after `domain.Redact` replaced phones, bank
+  and card numbers, emails and links. Redact reads each run of digits
+  (single spaces, dots or dashes between them) as a whole: an amount keeps
+  its unit (đ, vnd, vnđ up to 10 digits; k, tr up to 7) when the unit does
+  not start a word, a run from + or of 10 or 11 digits from 0 is a phone,
+  and any other run of 8 to 19 digits is a bank number. `LLMClassifier` asks LiteLLM's alias
+  `scam-check` with the key `server-trust` under a strict schema of the
+  seven codes. A trained model is another `Classifier`, built in the root
+  package `trust` and passed by app as `trust.Settings.Classifier`.
+- The worker hears `message.sent` and sends `ScamCheck.Run`, a Virtual
+  Object keyed by conversation, for a message with text. Run's four steps
+  plan, classify, gather facts and save, and return IDs and codes only.
+  The plan journals the window's message IDs and the later steps read
+  exactly those. A window whose IDs equal the newest check's, or a
+  conversation with 50 checks in 24 hours, stops the run; a photo message
+  that turns `sent` after a newer message changes the window and gets its
+  check; a refusal or a classify step past 3 attempts and 10
+  minutes skips it.
+- `scam_warnings` holds one row per warned member, `scam_checks` one row
+  per run with the window's message IDs, the classifier and the codes, and
+  no text; joined with `messages`, dismissals and `scam`
+  reports it is the training set. Each save deletes up to 1,000 checks
+  older than 365 days.
+- A warning needs a message code; fact signals join it then. Codes are
+  only added. `dismissed` holds until a message code appears after the
+  dismissal; a code a check saves after a dismissal that landed while the
+  model ran is first seen a microsecond after the dismissal.
+  `POST /v1/conversations/{id}/scam-warning/dismiss` checks membership
+  through `chatsvc.Get`, so a member who blocks the other can dismiss, and
+  dismisses under the row's lock (`SELECT … FOR UPDATE`), so it never
+  answers `try_again`. No read returns a row by `suspect_id`, so the suspect never sees
+  a warning about themselves.
+- Screen reads `trustsvc.ScamWarnings` once per page for the inbox, the
+  inbox search and Chat; the stream update `scam_warning` names the
+  conversation. `account.deleted` deletes the account's own warnings;
+  those about it stay.
 
 ### Search
 

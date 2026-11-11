@@ -43,6 +43,7 @@ func testConfig(t *testing.T) config.Config {
 			FramesBaseURL: "http://127.0.0.1:1/v1", STTBaseURL: "http://127.0.0.1:1/v1", STTAPIKey: "", STTModel: "none",
 			LLMBaseURL: "http://127.0.0.1:1", LLMAPIKey: "none", LLMModel: "none", CallTimeout: time.Second,
 		},
+		Trust:    config.TrustConfig{LLMBaseURL: "http://127.0.0.1:1", LLMAPIKey: "none", LLMModel: "none", CallTimeout: time.Second},
 		Firebase: firebasetest.New(t).Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},
 		Google:   googletest.New(t).Config(),

@@ -135,3 +135,12 @@ func (c *Catalog) own(ctx context.Context, seller, id uuid.UUID) (domain.Listing
 	}
 	return l, nil
 }
+
+// MarketPrice is a listing's seller and price beside the median price of the
+// listings like it and how many there were.
+type MarketPrice struct {
+	SellerID   uuid.UUID
+	Price      int64
+	Median     int64
+	SampleSize int
+}

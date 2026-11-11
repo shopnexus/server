@@ -23,6 +23,9 @@ const (
 	KindNotification = "notification"
 	// KindVideoRead is a step of a video read of the account's finishing.
 	KindVideoRead = "video_read"
+	// KindScamWarning is a scam warning of the account's raised, grown or
+	// dismissed, with its conversation.
+	KindScamWarning = "scam_warning"
 	// KindTyping is the other member typing in a conversation. It is rung
 	// with no update in the log.
 	KindTyping = "typing"

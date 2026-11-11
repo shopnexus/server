@@ -130,3 +130,35 @@ Report:
     updated_at:
       type: string
       format: date-time
+ScamWarning:
+  type: object
+  additionalProperties: false
+  required: [signals, dismissed]
+  description: What the caller is told about the other member of a conversation; that member never sees it.
+  properties:
+    signals:
+      type: array
+      description: Oldest first; at least one is a message code.
+      items:
+        $ref: "#/ScamSignal"
+    dismissed:
+      type: boolean
+      description: |
+        True while no message code has appeared since the caller last
+        dismissed the warning. The inbox shows the warning either way; Chat
+        shows its banner only when this is false.
+ScamSignal:
+  type: object
+  additionalProperties: false
+  required: [code, text]
+  properties:
+    code:
+      type: string
+      description: |
+        prepayment_request, off_app_contact, suspicious_link,
+        sensitive_info_request, impersonation, fake_payment_proof, pressure,
+        new_account or price_far_below. More may come; the app shows an
+        unknown code with the Info icon.
+    text:
+      type: string
+      description: Vietnamese, written by the server, as "Tài khoản mới tạo 2 ngày".
