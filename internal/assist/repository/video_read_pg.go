@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/assist/domain"
 	"github.com/shopnexus/server2/internal/platform/stream"
 )
@@ -61,39 +60,8 @@ func (s pgVideoReads) Insert(ctx context.Context, r domain.VideoRead) error {
 	if err != nil {
 		return err
 	}
-	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		// A share lock on the account's row: an insert that commits after
-		// Erase waits for it and sees the tombstone.
-		var deleted bool
-		txErr := tx.QueryRow(ctx, `SELECT status = 'deleted' FROM accounts WHERE id = @id FOR SHARE`,
-			pgx.StrictNamedArgs{"id": st.AccountID}).Scan(&deleted)
-		if txErr != nil && !errors.Is(txErr, pgx.ErrNoRows) {
-			return fmt.Errorf("lock account: %w", txErr)
-		}
-		if deleted {
-			return accountdomain.ErrSessionRevoked
-		}
-		if _, txErr = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('video_reads:' || @account::text))`,
-			pgx.StrictNamedArgs{"account": st.AccountID}); txErr != nil {
-			return fmt.Errorf("lock reads: %w", txErr)
-		}
-		var (
-			stored bool
-			n      int
-		)
-		if txErr = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM video_reads WHERE id = @id),
-       (SELECT count(*) FROM video_reads WHERE account_id = @account AND created_at > @since)`,
-			pgx.StrictNamedArgs{"id": st.ID, "account": st.AccountID, "since": st.CreatedAt.Add(-domain.ReadWindow)}).
-			Scan(&stored, &n); txErr != nil {
-			return fmt.Errorf("count reads: %w", txErr)
-		}
-		if stored {
-			return nil
-		}
-		if n >= domain.ReadLimit {
-			return domain.ErrReadLimit
-		}
-		if _, txErr = tx.Exec(ctx, insertVideoRead, a); txErr != nil {
+	err = insertCapped(ctx, s.db, "video_reads", st.ID, st.AccountID, st.CreatedAt, func(tx pgx.Tx) error {
+		if _, txErr := tx.Exec(ctx, insertVideoRead, a); txErr != nil {
 			return fmt.Errorf("insert read: %w", txErr)
 		}
 		id := st.ID
