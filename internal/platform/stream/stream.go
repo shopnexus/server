@@ -25,6 +25,9 @@ const (
 	KindVideoRead = "video_read"
 	// KindLinkRead is a step of a link read of the account's finishing.
 	KindLinkRead = "link_read"
+	// KindListingRead is a step of a read of the account's (a video, a
+	// photo or a link) finishing.
+	KindListingRead = "listing_read"
 	// KindScamWarning is a scam warning of the account's raised, grown or
 	// dismissed, with its conversation.
 	KindScamWarning = "scam_warning"
@@ -42,6 +45,7 @@ type Hint struct {
 	NotificationID *uuid.UUID `json:"notification_id,omitempty"`
 	VideoReadID    *uuid.UUID `json:"video_read_id,omitempty"`
 	LinkReadID     *uuid.UUID `json:"link_read_id,omitempty"`
+	ListingReadID  *uuid.UUID `json:"listing_read_id,omitempty"`
 }
 
 // Update is a hint in an account's log, at its seq.
@@ -58,8 +62,9 @@ WITH next AS (
     INSERT INTO account_update_seqs (account_id, seq) VALUES (@account, 1)
     ON CONFLICT (account_id) DO UPDATE SET seq = account_update_seqs.seq + 1
     RETURNING seq)
-INSERT INTO account_updates (account_id, seq, kind, conversation_id, message_id, deal_id, notification_id, video_read_id, link_read_id)
-SELECT @account, seq, @kind, @conversation, @message, @deal, @notification, @video_read, @link_read FROM next
+INSERT INTO account_updates (account_id, seq, kind, conversation_id, message_id, deal_id, notification_id, video_read_id, link_read_id,
+    listing_read_id)
+SELECT @account, seq, @kind, @conversation, @message, @deal, @notification, @video_read, @link_read, @listing_read FROM next
 RETURNING seq`
 
 // Notify appends h to the log of each of accounts and rings the bell, in
@@ -76,7 +81,7 @@ func Notify(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h Hint) error 
 		if err := tx.QueryRow(ctx, appendUpdate, pgx.StrictNamedArgs{
 			"account": a, "kind": h.Kind, "conversation": h.ConversationID, "message": h.MessageID,
 			"deal": h.DealID, "notification": h.NotificationID, "video_read": h.VideoReadID,
-			"link_read": h.LinkReadID,
+			"link_read": h.LinkReadID, "listing_read": h.ListingReadID,
 		}).Scan(&seq); err != nil {
 			return fmt.Errorf("append update: %w", err)
 		}
