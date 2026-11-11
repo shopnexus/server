@@ -16,6 +16,7 @@ import (
 	"github.com/shopnexus/server2/internal/assist/repository"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	mediadomain "github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 	"github.com/shopnexus/server2/internal/platform/restatex"
@@ -267,7 +268,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		for i, f := range res.Frames {
 			// The ID was minted before the step, so a retry overwrites the
 			// same object and inserts no second upload.
-			if saveErr := s.Media.SaveFrame(rc, r.AccountID(), ids[i], f.JPEG); saveErr != nil {
+			if saveErr := s.Media.SavePhoto(rc, r.AccountID(), ids[i], f.JPEG, "image/jpeg", mediadomain.OriginFrame); saveErr != nil {
 				return cutFrames{}, fmt.Errorf("save frame %d: %w", i, saveErr)
 			}
 			out.Frames[i] = domain.Frame{UploadID: ids[i], AtSeconds: f.AtSeconds}

@@ -18,12 +18,12 @@ type pgUploads struct{ db *pgxpool.Pool }
 func NewUploads(db *pgxpool.Pool) Uploads { return pgUploads{db} }
 
 const uploadColumns = `id, owner_id, coalesce(holder_id, '00000000-0000-0000-0000-000000000000'), coalesce(shape, ''), content_type, size, status, coalesce(photo_key, ''), coalesce(thumb_key, ''),
-       coalesce(failure, ''), write_id, created_at, updated_at`
+       coalesce(failure, ''), write_id, created_at, updated_at, origin`
 
 func scanUpload(row pgx.CollectableRow) (domain.Upload, error) {
 	var st domain.UploadState
 	if err := row.Scan(&st.ID, &st.OwnerID, &st.HolderID, &st.Shape, &st.ContentType, &st.Size, &st.Status, &st.PhotoKey, &st.ThumbKey,
-		&st.Failure, &st.WriteID, &st.CreatedAt, &st.UpdatedAt); err != nil {
+		&st.Failure, &st.WriteID, &st.CreatedAt, &st.UpdatedAt, &st.Origin); err != nil {
 		return domain.Upload{}, fmt.Errorf("scan upload: %w", err)
 	}
 	return domain.RestoreUpload(st), nil
@@ -32,11 +32,11 @@ func scanUpload(row pgx.CollectableRow) (domain.Upload, error) {
 func (s pgUploads) Create(ctx context.Context, u domain.Upload) error {
 	st := u.State()
 	_, err := s.db.Exec(ctx, `
-INSERT INTO uploads (id, owner_id, content_type, size, status, write_id, created_at, updated_at)
-VALUES (@id, @owner_id, @content_type, @size, @status, @write_id, @created_at, @updated_at)
+INSERT INTO uploads (id, owner_id, content_type, size, origin, status, write_id, created_at, updated_at)
+VALUES (@id, @owner_id, @content_type, @size, @origin, @status, @write_id, @created_at, @updated_at)
 ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
-		"id": st.ID, "owner_id": st.OwnerID, "content_type": st.ContentType, "size": st.Size, "status": st.Status,
-		"write_id": st.WriteID, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
+		"id": st.ID, "owner_id": st.OwnerID, "content_type": st.ContentType, "size": st.Size, "origin": st.Origin,
+		"status": st.Status, "write_id": st.WriteID, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
 	})
 	if err != nil {
 		return fmt.Errorf("insert upload: %w", err)

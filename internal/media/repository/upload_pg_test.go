@@ -26,7 +26,7 @@ func same(a, b domain.UploadState) bool {
 
 func created(t *testing.T, s repository.Uploads, owner uuid.UUID) domain.Upload {
 	t.Helper()
-	u, err := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 100, now)
+	u, err := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 100, domain.OriginApp, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestStoreAVideo(t *testing.T) {
 	s := repository.NewUploads(db)
 	ctx := context.Background()
 	owner := accounttest.New(t, db)
-	u, err := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, domain.MaxVideoBytes, now)
+	u, err := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, domain.MaxVideoBytes, domain.OriginApp, now)
 	if err != nil {
 		t.Fatal(err)
 	}

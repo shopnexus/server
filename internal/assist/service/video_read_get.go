@@ -23,7 +23,7 @@ func (a *Assist) GetRead(ctx context.Context, account, id uuid.UUID) (VideoReadV
 	}
 	v := VideoReadView{ID: r.ID(), Status: r.Status(), Failure: r.Failure(), Draft: r.Draft(), ExpiresAt: r.ExpiresAt()}
 	for _, f := range r.Frames() {
-		url, signErr := a.d.Media.PresignFrame(ctx, f.UploadID)
+		url, signErr := a.d.Media.PresignPhoto(ctx, f.UploadID)
 		if signErr != nil {
 			return VideoReadView{}, fmt.Errorf("sign frame %s: %w", f.UploadID, signErr)
 		}

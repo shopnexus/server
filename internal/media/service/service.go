@@ -12,6 +12,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
+	"github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/media/repository"
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 	"github.com/shopnexus/server2/internal/platform/restatex"
@@ -40,11 +41,13 @@ type Service interface {
 	// ReadPhoto reads a processed object under media/, such as a listing's
 	// photo; an absent one is objectstore.ErrNotFound.
 	ReadPhoto(ctx context.Context, key string) ([]byte, error)
-	// SaveFrame stores jpeg, a frame the server cut from owner's video, as a
-	// waiting photo upload of owner's with the ID id, which the caller mints
-	// so a retry saves the same upload. It expires in 24 hours like an
-	// upload the app put.
-	SaveFrame(ctx context.Context, owner, id uuid.UUID, jpeg []byte) error
+	// SavePhoto stores data, a photo the server made or copied for owner (a
+	// frame of their video, a photo of their listing elsewhere), as a
+	// waiting photo upload of owner's with the ID id and the given origin.
+	// The caller mints id so a retry saves the same upload. It expires in
+	// 24 hours like an upload the app put. Origin app, a video type or a
+	// size outside the photo limits is domain.ErrInvalidUpload.
+	SavePhoto(ctx context.Context, owner, id uuid.UUID, data []byte, contentType string, origin domain.Origin) error
 	// HoldVideo gives owner's video upload to holder, such as a read: owner's,
 	// waiting or already held by holder, before its expiry and in the store
 	// as declared. Anything else is domain.ErrInvalidUpload.
@@ -52,8 +55,8 @@ type Service interface {
 	// OpenVideo reads a held video and its size; the caller closes it. An
 	// unknown, unheld or consumed video is objectstore.ErrNotFound.
 	OpenVideo(ctx context.Context, id uuid.UUID) (io.ReadCloser, int64, error)
-	// PresignFrame is a URL that reads frame id for an hour.
-	PresignFrame(ctx context.Context, id uuid.UUID) (string, error)
+	// PresignPhoto is a URL that reads such a photo for an hour.
+	PresignPhoto(ctx context.Context, id uuid.UUID) (string, error)
 	// Consume deletes a held video's object once its read is over. Anything
 	// else, or a second call, changes nothing.
 	Consume(ctx context.Context, id uuid.UUID) error

@@ -221,3 +221,28 @@ func TestProcessWaitsForASlot(t *testing.T) {
 		t.Fatal("not processed after the slot freed")
 	}
 }
+
+// Processing says which photos the server copied from a link.
+func TestProcessMarksCopies(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	owner := accounttest.New(t, e.db)
+	copied := uuid.NewV7()
+	if err := e.media.SavePhoto(ctx, owner, copied, mediatest.JPEG(t, 64, 48), "image/jpeg", domain.OriginLink); err != nil {
+		t.Fatal(err)
+	}
+	put := e.upload(t, owner, mediatest.JPEG(t, 64, 48))
+	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{copied, put}); err != nil {
+		t.Fatal(err)
+	}
+	if res := e.process(t, copied); res.Status != domain.StatusReady || !res.Copied {
+		t.Fatalf("copied: %+v", res)
+	}
+	if res := e.process(t, put); res.Status != domain.StatusReady || res.Copied {
+		t.Fatalf("put by the app: %+v", res)
+	}
+	if res := e.process(t, copied); !res.Copied {
+		t.Fatalf("a second run: %+v", res)
+	}
+}
