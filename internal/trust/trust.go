@@ -1,26 +1,59 @@
 // Package trust is what people can rely on about each other: the reviews
-// buyers give sellers, the rating they add up to, and the reports people
-// make of listings and accounts.
+// buyers give sellers, the rating they add up to, the reports people make
+// of listings and accounts, and the scam warnings of chat.
 package trust
 
 import (
+	"log/slog"
+	"time"
+
+	restate "github.com/restatedev/sdk-go"
+
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
+	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/module"
+	"github.com/shopnexus/server2/internal/provider/llm"
 	"github.com/shopnexus/server2/internal/trust/handler"
 	"github.com/shopnexus/server2/internal/trust/repository"
 	"github.com/shopnexus/server2/internal/trust/service"
+	"github.com/shopnexus/server2/internal/trust/worker"
 )
 
-// Mount registers the trust endpoints and returns the Service screen reads
-// ratings and reviews through.
-func Mount(d module.Deps, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service, chats chatsvc.Service) service.Service {
+// Settings is what trust's Mount takes beyond module.Deps: the scam
+// classifier, and search's cosine floors for the price signal.
+type Settings struct {
+	Classifier        service.Classifier
+	TextMin, PhotoMin float64
+}
+
+// LLMClassifier is the scam classifier that asks model under alias, each
+// call within timeout. A trained model gets a constructor of its own here,
+// and app passes it instead.
+func LLMClassifier(model llm.Client, alias string, timeout time.Duration, log *slog.Logger) service.Classifier {
+	return service.LLMClassifier{Model: model, Alias: alias, Timeout: timeout, Log: log}
+}
+
+// Mount registers the trust endpoints, subscribes the scam worker to
+// message.sent and account.deleted, and returns trust's Restate services and
+// the Service screen reads ratings, reviews and warnings through.
+func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service,
+	chats chatsvc.Service,
+) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		Reviews: repository.NewReviews(d.Pool), Reports: repository.NewReports(d.Pool), Accounts: accounts, Catalog: catalog,
-		Deals: deals, Chats: chats, Now: d.Now,
+		Reviews: repository.NewReviews(d.Pool), Reports: repository.NewReports(d.Pool), Scams: repository.NewScamWarnings(d.Pool),
+		Accounts: accounts, Catalog: catalog, Deals: deals, Chats: chats, Classifier: s.Classifier,
+		Facts: []service.FactSource{
+			service.AccountAge{Accounts: accounts},
+			service.MarketGap{Catalog: catalog, TextMin: s.TextMin, PhotoMin: s.PhotoMin},
+		},
+		Log: d.Log, Prefix: d.ServicePrefix, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
-	return svc
+	w := worker.ScamWorker{Prefix: d.ServicePrefix, Chats: chats, Trust: svc}
+	d.Events.Subscribe(events.MessageSent, w.ServiceName(), "MessageSent")
+	d.Events.Subscribe(events.AccountDeleted, w.ServiceName(), "AccountDeleted")
+	return module.Mounted[service.Service]{Services: append(svc.Durable(), restate.Reflect(w)), Service: svc}
 }

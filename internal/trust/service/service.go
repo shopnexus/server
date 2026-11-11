@@ -10,6 +10,8 @@ import (
 	"time"
 	"uuid"
 
+	restate "github.com/restatedev/sdk-go"
+
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
@@ -95,4 +97,11 @@ func New(d Deps) *Trust {
 		reviews: d.Reviews, reports: d.Reports, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, chats: d.Chats,
 		scams: d.Scams, classifier: d.Classifier, facts: d.Facts, log: d.Log, prefix: d.Prefix, now: d.Now,
 	}
+}
+
+// Durable returns module trust's Restate services, for Mount to bind.
+func (t *Trust) Durable() []restate.ServiceDefinition {
+	return []restate.ServiceDefinition{restate.Reflect(ScamCheck{
+		Prefix: t.prefix, Chats: t.chats, Scams: t.scams, Classifier: t.classifier, Facts: t.facts, Log: t.log, Now: t.now,
+	})}
 }
