@@ -31,6 +31,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 	"github.com/shopnexus/server2/internal/platform/testenv"
+	"github.com/shopnexus/server2/internal/provider/chotot"
 	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
 	"github.com/shopnexus/server2/internal/provider/frames"
 	"github.com/shopnexus/server2/internal/provider/llm"
@@ -51,6 +52,8 @@ type env struct {
 	cut      *fakeCutter
 	stt      *fakeSTT
 	model    *fakeModel
+	links    repository.LinkReads
+	source   *fakeSource
 	deps     service.Deps
 }
 
@@ -67,12 +70,14 @@ func newEnv(t *testing.T, opts ...func(*env)) env {
 	e := env{
 		db: db, accounts: accounts, media: m, videos: repository.NewVideoReads(db),
 		clock: restatetest.NewClock(time.Now()), ingress: in, prefix: p,
-		cut:   &fakeCutter{frames: 3, jpeg: mediatest.JPEG(t, 96, 64)},
-		stt:   &fakeSTT{text: transcript},
-		model: &fakeModel{answer: bicycle()},
+		cut:    &fakeCutter{frames: 3, jpeg: mediatest.JPEG(t, 96, 64)},
+		stt:    &fakeSTT{text: transcript},
+		model:  &fakeModel{answer: bicycle(), link: iphoneAnswer()},
+		links:  repository.NewLinkReads(db),
+		source: newSource(t),
 	}
 	e.deps = service.Deps{
-		VideoReads: e.videos, Accounts: accounts, Media: m, Catalog: c,
+		VideoReads: e.videos, LinkReads: e.links, Source: e.source, Accounts: accounts, Media: m, Catalog: c,
 		Frames: e.cut, STT: e.stt, Model: e.model,
 		Text: embedtest.New(catalogdomain.TextDims), Image: embedtest.New(catalogdomain.PhotoDims),
 		TextMin: 0.5, PhotoMin: 0.5, CallTimeout: 5 * time.Second,
@@ -197,16 +202,22 @@ type fakeModel struct {
 	mu     sync.Mutex
 	answer domain.Answer
 	err    error
+	link   domain.LinkAnswer
 	calls  int
 	images int
 	user   string
+	system string
 }
 
 func (m *fakeModel) Complete(_ context.Context, r llm.Request, out any) error {
 	m.mu.Lock()
 	m.calls++
-	m.images, m.user = len(r.Images), r.User
-	answer, err := m.answer, m.err
+	m.images, m.user, m.system = len(r.Images), r.User, r.System
+	var answer any = m.answer
+	if r.SchemaName == domain.LinkAnswerSchemaName {
+		answer = m.link
+	}
+	err := m.err
 	m.mu.Unlock()
 	if err != nil {
 		return err
@@ -235,4 +246,107 @@ func bicycle() domain.Answer {
 		SpokenPrice: &price, Negotiable: true, Kept: []int{2, 0},
 		Estimate: &domain.Range{Low: 1_000_000, Median: 1_200_000, High: 1_400_000},
 	}
+}
+
+// photoURL is photo i of the fake listing on the fake CDN.
+func photoURL(i int) string { return fmt.Sprintf("https://cdn.chotot.com/fake/%d.jpg", i) }
+
+// fakeSource is Chợ Tốt with one listing, the seller's iPhone, and its
+// five photos. adErr or imageErr fails every call of its kind.
+type fakeSource struct {
+	mu       sync.Mutex
+	ad       chotot.Ad
+	adErr    error
+	images   map[string][]byte
+	imageErr error
+	adCalls  int
+	// onAd runs before each answer of Ad, outside the lock.
+	onAd func()
+}
+
+func newSource(t *testing.T) *fakeSource {
+	t.Helper()
+	f := &fakeSource{images: map[string][]byte{}, ad: chotot.Ad{
+		Subject:      "iPhone 11 64GB trắng pin 81% zin all",
+		Body:         "Máy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Có thương lượng. Liên hệ 0909 123 456.",
+		Price:        4_500_000,
+		CategoryName: "Điện thoại",
+		Params:       []chotot.Param{{Label: "Dung lượng", Value: "64 GB"}, {Label: "Màu sắc", Value: "Trắng"}},
+	}}
+	for i := range 5 {
+		f.ad.Images = append(f.ad.Images, photoURL(i))
+		f.images[photoURL(i)] = mediatest.JPEG(t, 64+i, 48)
+	}
+	return f
+}
+
+func (f *fakeSource) Ad(_ context.Context, listID int64) (chotot.Ad, error) {
+	f.mu.Lock()
+	onAd := f.onAd
+	f.mu.Unlock()
+	if onAd != nil {
+		onAd()
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.adCalls++
+	if f.adErr != nil {
+		return chotot.Ad{}, f.adErr
+	}
+	a := f.ad
+	a.ListID = listID
+	return a, nil
+}
+
+func (f *fakeSource) Image(_ context.Context, url string) (photo []byte, contentType string, err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.imageErr != nil {
+		return nil, "", f.imageErr
+	}
+	b, ok := f.images[url]
+	if !ok {
+		return nil, "", chotot.ErrBadImage
+	}
+	return b, "image/jpeg", nil
+}
+
+// iphoneAnswer is the model's answer for the seller's iPhone; it leaves
+// the phone in the description for the regex to find.
+func iphoneAnswer() domain.LinkAnswer {
+	return domain.LinkAnswer{
+		IsItem: true, Title: "iPhone 11 64GB Trắng, pin 81%", CategoryCode: "phones.iphone", Condition: "used",
+		Specs:       []catalogdomain.Spec{{Label: "Dung lượng", Value: "64 GB"}, {Label: "Màu", Value: "Trắng"}},
+		Description: "Máy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Có thương lượng. Liên hệ 0909 123 456.",
+		Negotiable:  true, Estimate: &domain.Range{Low: 4_000_000, Median: 4_500_000, High: 5_000_000},
+	}
+}
+
+const iphoneLink = "https://www.chotot.com/tp-ho-chi-minh/quan-binh-thanh/mua-ban-dien-thoai/119482736.htm?utm_source=share"
+
+// startLink starts a read of the fake listing as owner.
+func (e env) startLink(t *testing.T, owner uuid.UUID) service.LinkReadView {
+	t.Helper()
+	v, err := e.assist.StartLinkRead(context.Background(), owner, uuid.NewV7().String(), iphoneLink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+// linkEnd waits until the link read leaves reading and returns it.
+func (e env) linkEnd(t *testing.T, owner, id uuid.UUID) service.LinkReadView {
+	t.Helper()
+	var v service.LinkReadView
+	testenv.Eventually(t, 30*time.Second, func() error {
+		var err error
+		if v, err = e.assist.GetLinkRead(context.Background(), owner, id); err != nil {
+			t.Fatal(err)
+		}
+		if v.Status == domain.StatusReading {
+			return fmt.Errorf("read %s still reading", id)
+		}
+		return nil
+	})
+	return v
 }

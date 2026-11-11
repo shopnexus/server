@@ -11,7 +11,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/events"
 )
 
-// AccountWatch deletes a deleted account's video reads: Mount subscribes
+// AccountWatch deletes a deleted account's video and link reads: Mount subscribes
 // Deleted to account.deleted. The account's frames are waiting uploads and
 // expire within a day; a video still held is consumed when its run ends.
 type AccountWatch struct {
