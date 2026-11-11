@@ -57,6 +57,8 @@ listingReads:
     description: |
       Starts reading what the body names: a video the caller uploaded with
       POST /v1/uploads, or the link to the seller's own listing on Chợ Tốt.
+      A video may carry the phone's transcript; then the server runs no
+      speech recognition.
       The answer comes at once with status reading. Each step that finishes
       adds its fields and sends a listing_read update on /v1/ws; the app
       then reads the read with GET. Checks, in order: for a link not_a_link

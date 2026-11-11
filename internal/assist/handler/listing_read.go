@@ -14,6 +14,7 @@ import (
 type startReadRequest struct {
 	Video          *uuid.UUID `json:"video"`
 	Link           *string    `json:"link"`
+	Transcript     string     `json:"transcript"`
 	IdempotencyKey string     `header:"Idempotency-Key" json:"-"`
 }
 
@@ -34,7 +35,7 @@ func (h *Handler) StartRead(w http.ResponseWriter, r *http.Request) {
 	)
 	switch {
 	case in.Video != nil:
-		v, err = h.svc.StartVideoRead(r.Context(), p.AccountID, in.IdempotencyKey, *in.Video)
+		v, err = h.svc.StartVideoRead(r.Context(), p.AccountID, in.IdempotencyKey, *in.Video, in.Transcript)
 	case in.Link != nil:
 		v, err = h.svc.StartLinkRead(r.Context(), p.AccountID, in.IdempotencyKey, *in.Link)
 	default:

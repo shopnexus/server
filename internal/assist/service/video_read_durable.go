@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 	"unicode/utf8"
 	"uuid"
@@ -32,7 +33,16 @@ const maxFrames = 8
 type StartInput struct {
 	Account uuid.UUID `json:"account"`
 	Video   uuid.UUID `json:"video"`
+	// RequestKey names the phone's transcript waiting for this read.
+	RequestKey string `json:"request_key"`
 }
+
+// Where the fill's transcript came from, for the prompt and the log line.
+const (
+	fromPhone  = "phone"
+	fromServer = "server"
+	fromNone   = "none"
+)
 
 // modelAttempts bounds each model step: SDK v1.1.0 retries a step every
 // 2 s at most, so a step bounded only by the deadline would transcribe the
@@ -121,7 +131,7 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 	id := restatex.NewID(ctx, at)
 	read := domain.NewVideoRead(id, in.Account, in.Video, at)
 	inserted, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		return restatex.AsRefusal(s.Reads.Insert(rc, read, ""))
+		return restatex.AsRefusal(s.Reads.Insert(rc, read, in.RequestKey))
 	})
 	if err != nil {
 		return StartResult{}, fmt.Errorf("insert read: %w", err)
@@ -294,29 +304,39 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return fail(at, domain.FailUnavailable)
 	}
 	fill, err := restate.Run(ctx, func(rc restate.RunContext) (filled, error) {
-		video, size, openErr := s.Media.OpenVideo(rc, r.Media())
-		if errors.Is(openErr, objectstore.ErrNotFound) {
-			return filled{Failure: domain.FailUnreadable}, nil
-		}
-		if openErr != nil {
-			return filled{}, fmt.Errorf("open video: %w", openErr)
-		}
-		defer func() { _ = video.Close() }()
 		started := time.Now()
-		sttCtx, cancelSTT := context.WithTimeout(rc, s.CallTimeout)
-		transcript, sttErr := s.STT.Transcribe(sttCtx, video, size)
-		cancelSTT()
-		switch {
-		case errors.Is(sttErr, stt.ErrNoAudio):
-			transcript = ""
-		case errors.Is(sttErr, stt.ErrRefused):
-			// The frames step read the video, so a refusal is the gateway's
-			// (a key, a budget, a rewritten error code): read without speech.
-			s.Log.WarnContext(rc, "speech to text refused; the read goes on without speech", "read", id, "err", sttErr)
-			transcript = ""
-		case sttErr != nil:
-			return filled{}, fmt.Errorf("transcribe: %w", sttErr)
-		default:
+		transcript, trErr := s.Reads.Transcript(rc, id)
+		if trErr != nil {
+			return filled{}, fmt.Errorf("read the transcript: %w", trErr)
+		}
+		from := fromPhone
+		if transcript == "" {
+			from = fromServer
+			video, size, openErr := s.Media.OpenVideo(rc, r.Media())
+			if errors.Is(openErr, objectstore.ErrNotFound) {
+				return filled{Failure: domain.FailUnreadable}, nil
+			}
+			if openErr != nil {
+				return filled{}, fmt.Errorf("open video: %w", openErr)
+			}
+			sttCtx, cancelSTT := context.WithTimeout(rc, s.CallTimeout)
+			heard, sttErr := s.STT.Transcribe(sttCtx, video, size)
+			cancelSTT()
+			_ = video.Close()
+			switch {
+			case errors.Is(sttErr, stt.ErrNoAudio):
+			case errors.Is(sttErr, stt.ErrRefused):
+				// The frames step read the video, so a refusal is the gateway's
+				// (a key, a budget, a rewritten error code): read without speech.
+				s.Log.WarnContext(rc, "speech to text refused; the read goes on without speech", "read", id, "err", sttErr)
+			case sttErr != nil:
+				return filled{}, fmt.Errorf("transcribe: %w", sttErr)
+			default:
+				transcript = heard
+			}
+			if strings.TrimSpace(transcript) == "" {
+				from = fromNone
+			}
 		}
 		images := make([][]byte, len(r.Photos()))
 		for i, f := range r.Photos() {
@@ -333,7 +353,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		var answer domain.Answer
 		modelCtx, cancelModel := context.WithTimeout(rc, s.CallTimeout)
 		modelErr := s.Model.Complete(modelCtx, llm.Request{
-			System: systemPrompt(cats), User: userPrompt(transcript, len(images)),
+			System: systemPrompt(cats), User: userPrompt(transcript, len(images), from),
 			SchemaName: domain.AnswerSchemaName, Schema: domain.AnswerSchema, Images: images,
 		}, &answer)
 		cancelModel()
@@ -348,7 +368,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		// One line per answer, with no word of the seller's: no transcript,
 		// title or description.
 		s.Log.InfoContext(rc, "video read filled", "read", id, "prompt_version", PromptVersion,
-			"frames", len(images), "transcript_chars", utf8.RuneCountInString(transcript), "is_item", answer.IsItem,
+			"frames", len(images), "transcript_chars", utf8.RuneCountInString(transcript), "transcript_from", from, "is_item", answer.IsItem,
 			"category_asked", answer.CategoryCode, "category_kept", d.CategoryCode, "condition", d.Condition,
 			"specs", len(d.Specs), "kept", len(d.Photos), "has_description", d.Description != "",
 			"spoken_price", answer.SpokenPrice, "price", d.Price, "range", rng,

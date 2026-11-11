@@ -7,6 +7,13 @@ VideoReadRequest:
       type: string
       format: uuid
       description: A video upload of the caller's (video/mp4 or video/quicktime), uploaded and not read yet.
+    transcript:
+      type: string
+      maxLength: 1000
+      description: |
+        What the phone's speech recognizer heard while the video was filmed,
+        taken as the seller's words. Blank or absent, the server hears the
+        video's sound. Never stored past the read, logged or returned.
 ListingReadRequest:
   description: What to read, one of a video, a photo or a link.
   oneOf:

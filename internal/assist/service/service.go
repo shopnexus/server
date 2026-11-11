@@ -24,8 +24,9 @@ import (
 // Service is module assist's contract.
 type Service interface {
 	// StartVideoRead runs VideoRead.Start once per account and
-	// idempotencyKey and returns the read as it is then.
-	StartVideoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID) (ListingReadView, error)
+	// idempotencyKey and returns the read as it is then. transcript is what
+	// the phone heard; blank is none, and the server hears the video then.
+	StartVideoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID, transcript string) (ListingReadView, error)
 	// StartLinkRead parses the link, runs LinkRead.Start once per account
 	// and idempotencyKey and returns the read as it is then.
 	StartLinkRead(ctx context.Context, account uuid.UUID, idempotencyKey, link string) (ListingReadView, error)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 	"uuid"
@@ -188,6 +189,9 @@ func TestCreateListingReadRefusals(t *testing.T) {
 
 	check(t, "signed out", post("", uuid.NewV7().String(), newKey()), 401, "unauthenticated")
 	check(t, "no video", call(t, "POST", "/v1/listing-reads", map[string]any{}, bearer(me.AccessToken), newKey()), 400, "")
+	check(t, "a long transcript", call(t, "POST", "/v1/listing-reads",
+		map[string]any{"video": uploadVideo(t, me.AccessToken, "a video"), "transcript": strings.Repeat("a", 1001)},
+		bearer(me.AccessToken), newKey()), 400, "invalid_request")
 	check(t, "two sources", call(t, "POST", "/v1/listing-reads",
 		map[string]any{"video": uuid.NewV7().String(), "link": iphoneURL(iphoneListing)}, bearer(me.AccessToken), newKey()), 400, "invalid_request")
 	check(t, "a photo", post(me.AccessToken, upload(t, me.AccessToken, photoWithGPS(t)), newKey()), 422, "invalid_upload")
@@ -252,4 +256,24 @@ func TestDeletedAccountsReadsGo(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+// With the phone's transcript the read takes the seller's words from it,
+// not from the video's sound: the empty room said by the phone gives
+// no_item although the video is the bicycle. Nothing of it is left.
+func TestVideoReadWithThePhonesTranscript(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	video := uploadVideo(t, seller.AccessToken, "a phone video of a bicycle")
+	r := readEnd(t, seller.AccessToken, startRead(t, seller.AccessToken,
+		map[string]any{"video": video, "transcript": "Trong phòng không có gì."}).ID)
+	if r.Status != "failed" || r.Failure != "no_item" {
+		t.Fatalf("%+v", r)
+	}
+	var left int
+	if err := db.QueryRow(context.Background(), `SELECT count(*) FILTER (WHERE transcript IS NOT NULL) +
+       (SELECT count(*) FROM listing_read_transcripts WHERE account_id = @a) FROM listing_reads WHERE account_id = @a`,
+		pgx.StrictNamedArgs{"a": seller.Account.ID}).Scan(&left); err != nil || left != 0 {
+		t.Fatalf("%d transcripts left: %v", left, err)
+	}
 }

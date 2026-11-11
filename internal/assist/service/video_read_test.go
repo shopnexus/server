@@ -68,6 +68,9 @@ func TestReadFillsADraft(t *testing.T) {
 	if calls != 1 || images != 3 || !strings.Contains(user, transcript) {
 		t.Fatalf("model asked %d times, %d images, %q", calls, images, user)
 	}
+	if n := e.stt.called(); n != 1 {
+		t.Fatalf("speech to text ran %d times", n)
+	}
 	if n := e.updates(t, seller, v.ID); n != 4 {
 		t.Fatalf("%d updates, want start, frames, draft and done", n)
 	}
@@ -249,7 +252,7 @@ func TestStartReadRefusals(t *testing.T) {
 		return n
 	}
 	start := func(account, video uuid.UUID) error {
-		_, err := e.assist.StartVideoRead(ctx, account, uuid.NewV7().String(), video)
+		_, err := e.assist.StartVideoRead(ctx, account, uuid.NewV7().String(), video, "")
 		return err
 	}
 
@@ -305,7 +308,7 @@ func TestStartReadRace(t *testing.T) {
 	errs := make(chan error, 2)
 	for range 2 {
 		go func() {
-			_, err := e.assist.StartVideoRead(ctx, me, uuid.NewV7().String(), video)
+			_, err := e.assist.StartVideoRead(ctx, me, uuid.NewV7().String(), video, "")
 			errs <- err
 		}()
 	}
@@ -337,11 +340,11 @@ func TestStartReadTwice(t *testing.T) {
 	ctx := context.Background()
 	me := accounttest.WithPhone(t, e.db)
 	key, video := uuid.NewV7().String(), e.video(t, me)
-	first, err := e.assist.StartVideoRead(ctx, me, key, video)
+	first, err := e.assist.StartVideoRead(ctx, me, key, video, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	again, err := e.assist.StartVideoRead(ctx, me, key, video)
+	again, err := e.assist.StartVideoRead(ctx, me, key, video, "")
 	if err != nil || again.ID != first.ID {
 		t.Fatalf("again: %+v %v", again, err)
 	}
@@ -474,7 +477,7 @@ func TestStartReadRetriesALostHold(t *testing.T) {
 	hold := &flakyHold{}
 	e := newEnv(t, func(x *env) { hold.Service = x.media; x.deps.Media = hold })
 	me := accounttest.WithPhone(t, e.db)
-	if _, err := e.assist.StartVideoRead(context.Background(), me, uuid.NewV7().String(), e.video(t, me)); err != nil {
+	if _, err := e.assist.StartVideoRead(context.Background(), me, uuid.NewV7().String(), e.video(t, me), ""); err != nil {
 		t.Fatalf("start: %v", err)
 	}
 }
@@ -497,5 +500,65 @@ func TestExpireConsumesTheVideoOfAGoneRead(t *testing.T) {
 	u, err := mediarepo.NewUploads(e.db).Get(ctx, video)
 	if err != nil || u.Status() != mediadomain.StatusConsumed {
 		t.Fatalf("video %s %v", u.Status(), err)
+	}
+}
+
+// The phone's transcript reaches the model, no speech to text runs, and
+// nothing of it is left when the read ends.
+func TestReadWithThePhonesTranscript(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	seller := accounttest.WithPhone(t, e.db)
+	heard := "Xe đạp Asama còn mới, mình bán một triệu hai, có thương lượng."
+	v := e.end(t, seller, e.startHeard(t, seller, uuid.NewV7().String(), heard).ID)
+	if v.Status != domain.StatusDone {
+		t.Fatalf("%+v", v)
+	}
+	if n := e.stt.called(); n != 0 {
+		t.Fatalf("speech to text ran %d times", n)
+	}
+	_, _, user := e.model.asked()
+	if !strings.Contains(user, heard) || !strings.Contains(user, "from the seller's phone") {
+		t.Fatalf("the model was asked %q", user)
+	}
+	var left int
+	if err := e.db.QueryRow(context.Background(), `SELECT count(*) FILTER (WHERE transcript IS NOT NULL) +
+       (SELECT count(*) FROM listing_read_transcripts WHERE account_id = @a) FROM listing_reads WHERE account_id = @a`,
+		pgx.StrictNamedArgs{"a": seller}).Scan(&left); err != nil || left != 0 {
+		t.Fatalf("%d transcripts left: %v", left, err)
+	}
+}
+
+// A transcript of spaces reads the video's own sound, as none does.
+func TestBlankTranscriptReadsTheSound(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	seller := accounttest.WithPhone(t, e.db)
+	v := e.end(t, seller, e.startHeard(t, seller, uuid.NewV7().String(), " \n\t ").ID)
+	_, _, user := e.model.asked()
+	if v.Status != domain.StatusDone || e.stt.called() != 1 || !strings.Contains(user, transcript) {
+		t.Fatalf("%+v, stt %d, asked %q", v, e.stt.called(), user)
+	}
+}
+
+// A repeated key answers the first read, and the first transcript is the
+// one read.
+func TestRepeatedKeyKeepsTheFirstTranscript(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	seller := accounttest.WithPhone(t, e.db)
+	key := uuid.NewV7().String()
+	video := e.video(t, seller)
+	first, err := e.assist.StartVideoRead(context.Background(), seller, key, video, "lần đầu: một triệu hai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := e.assist.StartVideoRead(context.Background(), seller, key, video, "lần sau")
+	if err != nil || again.ID != first.ID {
+		t.Fatalf("%v %v", again.ID, err)
+	}
+	e.end(t, seller, first.ID)
+	if _, _, user := e.model.asked(); !strings.Contains(user, "lần đầu") || strings.Contains(user, "lần sau") {
+		t.Fatalf("the model was asked %q", user)
 	}
 }

@@ -98,7 +98,18 @@ func (e env) video(t *testing.T, owner uuid.UUID) uuid.UUID {
 // start starts a read of a fresh video of owner's.
 func (e env) start(t *testing.T, owner uuid.UUID) service.ListingReadView {
 	t.Helper()
-	v, err := e.assist.StartVideoRead(context.Background(), owner, uuid.NewV7().String(), e.video(t, owner))
+	v, err := e.assist.StartVideoRead(context.Background(), owner, uuid.NewV7().String(), e.video(t, owner), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+// startHeard starts a read of a fresh video of owner's with the phone's
+// transcript, under key.
+func (e env) startHeard(t *testing.T, owner uuid.UUID, key, transcript string) service.ListingReadView {
+	t.Helper()
+	v, err := e.assist.StartVideoRead(context.Background(), owner, key, e.video(t, owner), transcript)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,11 +189,12 @@ func (f *fakeCutter) Extract(_ context.Context, video io.Reader, _ int64) (frame
 	return res, nil
 }
 
-// fakeSTT hears text, or fails with err.
+// fakeSTT hears text, or fails with err, and counts its calls.
 type fakeSTT struct {
-	mu   sync.Mutex
-	text string
-	err  error
+	mu    sync.Mutex
+	text  string
+	err   error
+	calls int
 }
 
 func (f *fakeSTT) Transcribe(_ context.Context, audio io.Reader, _ int64) (string, error) {
@@ -191,7 +203,14 @@ func (f *fakeSTT) Transcribe(_ context.Context, audio io.Reader, _ int64) (strin
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.calls++
 	return f.text, f.err
+}
+
+func (f *fakeSTT) called() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.calls
 }
 
 // fakeModel answers every request with answer, or fails with err, and
