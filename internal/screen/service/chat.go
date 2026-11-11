@@ -8,19 +8,21 @@ import (
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/platform/page"
+	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
 // ChatScreen is the ChatScreen schema in api/schemas/screen_inbox.yaml.
 type ChatScreen struct {
 	chatsvc.ConversationView
 
-	Deals    []dealsvc.DealView             `json:"deals"`
-	Messages page.Page[chatsvc.MessageView] `json:"messages"`
+	Deals       []dealsvc.DealView             `json:"deals"`
+	Messages    page.Page[chatsvc.MessageView] `json:"messages"`
+	ScamWarning *trustsvc.ScamWarningView      `json:"scam_warning,omitempty"`
 }
 
-// Chat reads a conversation of account's, the pair's deals and the first
-// page of messages; for an account outside the conversation it returns
-// chat's ErrNotFound (conversation_not_found).
+// Chat reads a conversation of account's, the pair's deals, the first page
+// of messages and account's scam warning in it; for an account outside the
+// conversation it returns chat's ErrNotFound (conversation_not_found).
 func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID) (ChatScreen, error) {
 	conv, err := s.chats.Get(ctx, account, conversation)
 	if err != nil {
@@ -34,5 +36,13 @@ func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID) (Cha
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read messages: %w", err)
 	}
-	return ChatScreen{ConversationView: conv, Deals: deals, Messages: messages}, nil
+	warnings, err := s.trust.ScamWarnings(ctx, account, []uuid.UUID{conversation})
+	if err != nil {
+		return ChatScreen{}, fmt.Errorf("read the scam warning: %w", err)
+	}
+	out := ChatScreen{ConversationView: conv, Deals: deals, Messages: messages}
+	if w, ok := warnings[conversation]; ok {
+		out.ScamWarning = &w
+	}
+	return out, nil
 }

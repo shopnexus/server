@@ -194,3 +194,35 @@ report:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+scamWarningDismiss:
+  post:
+    operationId: dismissScamWarning
+    summary: Dismiss the caller's scam warning in a conversation.
+    description: |
+      The warning stays in the inbox with dismissed true, and Chat hides its
+      banner, until a check finds a message code it did not have. Without a
+      warning, or dismissed already, nothing changes. A member who blocks
+      the other may dismiss.
+    tags: [trust]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Dismissed, or nothing to dismiss.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such conversation of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

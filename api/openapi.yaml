@@ -123,6 +123,8 @@ paths:
     $ref: "paths/chat.yaml#/conversationArchive"
   /v1/conversations/{id}/unarchive:
     $ref: "paths/chat.yaml#/conversationUnarchive"
+  /v1/conversations/{id}/scam-warning/dismiss:
+    $ref: "paths/trust.yaml#/scamWarningDismiss"
   /v1/me/unread:
     $ref: "paths/chat.yaml#/unread"
   /v1/screens/inbox:

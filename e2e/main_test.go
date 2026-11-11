@@ -47,6 +47,7 @@ var (
 	model      = newModel()         // the model that reads search queries
 	embedder   = newEmbed()         // the embedding aliases, embed-text and embed-image
 	assistStub = newAssist()        // ai's frames, the stt alias and the video-read model
+	scamStub   = newScam()          // the scam-check model
 	phones     = newPhones()        // every push the server sends
 	mails      = newInbox()         // every mail the server sends
 	consoleSvc *consolesvc.Console  // on the server's keys and database, so tests create members directly
@@ -150,6 +151,7 @@ func setup(closers *[]func()) error {
 			FramesBaseURL: assistStub.url(), STTBaseURL: assistStub.url(), STTAPIKey: "e2e", STTModel: "gipformer-1.5",
 			LLMBaseURL: assistStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second,
 		},
+		Trust:    config.TrustConfig{LLMBaseURL: scamStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second},
 		Firebase: issuer.Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
 		Google:   google.Config(),
