@@ -1,0 +1,41 @@
+{
+  "ad": {
+    "ad_id": 180000001,
+    "list_id": 119482736,
+    "account_id": 1000001,
+    "account_name": "Nguyễn Văn Mẫu",
+    "full_name": "Nguyễn Văn Mẫu",
+    "phone": "090000****",
+    "subject": "iPhone 11 64GB trắng pin 81% zin all",
+    "body": "Máy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Mặt lưng có vài vết xước nhẹ, màn đẹp. Có thương lượng.\nLiên hệ 0909 123 456 hoặc zalo 0909123456.",
+    "price": 4500000,
+    "price_string": "4.500.000 đ",
+    "category": 5010,
+    "category_name": "Điện thoại",
+    "status": "active",
+    "state": "accepted",
+    "images": [
+      "https://cdn.chotot.com/fake/1.jpg",
+      "https://cdn.chotot.com/fake/2.jpg",
+      "https://cdn.chotot.com/fake/3.jpg",
+      "https://cdn.chotot.com/fake/4.jpg",
+      "https://cdn.chotot.com/fake/5.jpg"
+    ],
+    "number_of_images": 5,
+    "latitude": 10.7769,
+    "longitude": 106.7009,
+    "detail_address": "1 Đường Mẫu, Phường Mẫu, Quận Mẫu",
+    "seller_info": {"full_name": "Nguyễn Văn Mẫu", "avatar": "https://cdn.chotot.com/fake/avatar.jpg"}
+  },
+  "parameters": [
+    {"id": "mobile_brand", "label": "Hãng", "value": "Apple"},
+    {"id": "mobile_model", "label": "Dòng máy", "value": "iPhone 11"},
+    {"id": "mobile_capacity", "label": "Dung lượng", "value": "64 GB"},
+    {"id": "mobile_color", "label": "Màu sắc", "value": "Trắng"},
+    {"id": "elt_condition", "label": "Tình trạng", "value": "Đã sử dụng (chưa sửa chữa)"},
+    {"id": "ward", "label": "Phường, thị xã, thị trấn", "value": "Phường Mẫu"},
+    {"id": "area", "label": "Quận, Huyện", "value": "Quận Mẫu"},
+    {"id": "region", "label": "Tỉnh, thành phố", "value": "Tp Hồ Chí Minh"},
+    {"id": "address", "label": "Địa chỉ", "value": "1 Đường Mẫu, Phường Mẫu, Quận Mẫu"}
+  ]
+}

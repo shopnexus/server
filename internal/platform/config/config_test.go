@@ -83,6 +83,8 @@ func required() map[string]string {
 		"ASSIST_LLM_API_KEY":           "assist-key",
 		"ASSIST_LLM_MODEL":             "video-read",
 		"ASSIST_CALL_TIMEOUT":          "30s",
+		"CHOTOT_GATEWAY_URL":           "https://gateway.chotot.com",
+		"CHOTOT_CDN_URL":               "https://cdn.chotot.com",
 		"TRUST_LLM_BASE_URL":           "http://litellm.example.test/v1",
 		"TRUST_LLM_API_KEY":            "trust-key",
 		"TRUST_LLM_MODEL":              "scam-check",
@@ -173,7 +175,8 @@ func TestLoadAllSet(t *testing.T) {
 			FramesBaseURL: "http://ai.example.test/v1",
 			STTBaseURL:    "http://litellm.example.test/v1", STTAPIKey: "", STTModel: "stt",
 			LLMBaseURL: "http://litellm.example.test/v1", LLMAPIKey: "assist-key", LLMModel: "video-read",
-			CallTimeout: 30 * time.Second,
+			CallTimeout:      30 * time.Second,
+			ChototGatewayURL: "https://gateway.chotot.com", ChototCDNURL: "https://cdn.chotot.com",
 		},
 		Trust: TrustConfig{
 			LLMBaseURL: "http://litellm.example.test/v1", LLMAPIKey: "trust-key", LLMModel: "scam-check",

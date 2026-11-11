@@ -38,7 +38,7 @@ VideoRead:
       items:
         $ref: "#/VideoReadFrame"
     draft:
-      $ref: "#/VideoReadDraft"
+      $ref: "#/ReadDraft"
     estimate:
       description: Only when status is done; null when neither the market nor the model gave a range.
       anyOf:
@@ -63,7 +63,7 @@ VideoReadFrame:
     at_seconds:
       type: number
       minimum: 0
-VideoReadDraft:
+ReadDraft:
   type: object
   additionalProperties: false
   required: [title, category_code, condition, specs, description, price, allow_offers, photos]
@@ -99,8 +99,10 @@ VideoReadDraft:
     photos:
       type: array
       minItems: 1
-      maxItems: 6
-      description: Upload IDs of the kept frames, the cover first.
+      maxItems: 10
+      description: |
+        Upload IDs of the draft's photos, the cover first: a video read's
+        kept frames (at most 6) or a link read's copies (at most 10).
       items:
         type: string
         format: uuid
@@ -126,3 +128,113 @@ PriceEstimate:
       type: integer
       minimum: 0
       description: Listings behind a market range; 0 for model.
+LinkRequest:
+  type: object
+  additionalProperties: false
+  required: [url]
+  properties:
+    url:
+      type: string
+      maxLength: 2048
+      description: The link the seller pasted to their own listing.
+LinkPreview:
+  type: object
+  additionalProperties: false
+  required: [site, url, title, price, cover_url, photo_count]
+  properties:
+    site:
+      type: string
+      enum: [chotot.com]
+    url:
+      type: string
+      format: uri
+      description: The link without what tracks the share, as https://www.chotot.com/<list id>.htm.
+    title:
+      type: string
+      description: The listing's title as Chợ Tốt shows it.
+    price:
+      type: [integer, "null"]
+      format: int64
+      description: Whole đồng; null when the listing has no price between 10,000 and 1,000,000,000.
+    cover_url:
+      type: string
+      format: uri
+      description: The listing's first photo on Chợ Tốt's CDN.
+    photo_count:
+      type: integer
+      minimum: 1
+LinkRead:
+  type: object
+  additionalProperties: false
+  required: [id, status, source, expires_at]
+  description: |
+    A read of the seller's listing on Chợ Tốt. Fields fill in as its steps
+    finish: source.photo_count after the read step, photos, draft and
+    contact_removed after the copy step, estimate when the read is done. A
+    field not reached yet is absent. The read is kept 24 hours; nothing
+    about the listing's seller is kept.
+  properties:
+    id:
+      type: string
+      format: uuid
+    status:
+      type: string
+      enum: [reading, done, failed]
+    failure:
+      type: string
+      enum: [listing_not_found, no_item, unavailable]
+      description: |
+        Only when status is failed. listing_not_found: Chợ Tốt has no such
+        listing on sale, or none of its photos could be copied; no_item: the
+        listing is not one item for sale (a flat, a job); unavailable: Chợ
+        Tốt or the model did not answer in time, try again.
+    source:
+      $ref: "#/LinkSource"
+    photos:
+      type: array
+      maxItems: 10
+      description: The copied photos, in the old listing's order.
+      items:
+        $ref: "#/LinkReadPhoto"
+    draft:
+      $ref: "#/ReadDraft"
+    contact_removed:
+      type: boolean
+      description: True when a phone number, Zalo or other contact was taken out of the description.
+    estimate:
+      description: Only when status is done; null when neither the market nor the model gave a range.
+      anyOf:
+        - $ref: "#/PriceEstimate"
+        - type: "null"
+    expires_at:
+      type: string
+      format: date-time
+LinkSource:
+  type: object
+  additionalProperties: false
+  required: [site, url]
+  properties:
+    site:
+      type: string
+      enum: [chotot.com]
+    url:
+      type: string
+      format: uri
+      description: The old listing, for the seller's "Từ tin Chợ Tốt của bạn" line; only the seller sees it.
+    photo_count:
+      type: integer
+      minimum: 1
+      description: Photos on the old listing; set after the read step.
+LinkReadPhoto:
+  type: object
+  additionalProperties: false
+  required: [upload_id, url]
+  properties:
+    upload_id:
+      type: string
+      format: uuid
+      description: A photo upload of the caller's; post it in a listing's photos.
+    url:
+      type: string
+      format: uri
+      description: Where to read the copy, for one hour after this response.

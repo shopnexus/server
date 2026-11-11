@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 	"unicode/utf8"
 	"uuid"
@@ -14,12 +13,10 @@ import (
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/assist/domain"
 	"github.com/shopnexus/server2/internal/assist/repository"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	mediadomain "github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 	"github.com/shopnexus/server2/internal/platform/restatex"
-	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/frames"
 	"github.com/shopnexus/server2/internal/provider/llm"
 	"github.com/shopnexus/server2/internal/provider/stt"
@@ -124,7 +121,7 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 	id := restatex.NewID(ctx, at)
 	read := domain.NewVideoRead(id, in.Account, in.Video, at)
 	inserted, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		return restatex.AsRefusal(s.Reads.Insert(rc, read))
+		return restatex.AsRefusal(s.VideoReads.Insert(rc, read))
 	})
 	if err != nil {
 		return StartResult{}, fmt.Errorf("insert read: %w", err)
@@ -145,7 +142,7 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 		return StartResult{}, fmt.Errorf("hold video: %w", err)
 	}
 	if held.Refusal != nil {
-		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Reads.Delete(rc, id) }); err != nil {
+		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.VideoReads.Delete(rc, id) }); err != nil {
 			return StartResult{}, fmt.Errorf("undo read: %w", err)
 		}
 		return StartResult{Refused: held.Refusal}, nil
@@ -167,7 +164,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	// restate.Run answers a TerminalError; err holds the other calls' errors too.
 	var err error
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
-		r, stepErr := s.Reads.Get(rc, id)
+		r, stepErr := s.VideoReads.Get(rc, id)
 		if errors.Is(stepErr, domain.ErrNotFound) {
 			return loadedRead{}, nil
 		}
@@ -191,7 +188,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		w := restatex.NewID(ctx, at)
 		out, saveErr := restate.Run(ctx, func(rc restate.RunContext) (savedRead, error) {
 			c := r // Save sets the write ID on its copy; r outside stays as journaled
-			lost, stepErr := restatex.Outcome(s.Reads.Save(rc, &c, w), repository.ErrConflict)
+			lost, stepErr := restatex.Outcome(s.VideoReads.Save(rc, &c, w), repository.ErrConflict)
 			if stepErr != nil {
 				return savedRead{}, fmt.Errorf("save read: %w", stepErr)
 			}
@@ -267,7 +264,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		for i, f := range res.Frames {
 			// The ID was minted before the step, so a retry overwrites the
 			// same object and inserts no second upload.
-			if saveErr := s.Media.SaveFrame(rc, r.AccountID(), ids[i], f.JPEG); saveErr != nil {
+			if saveErr := s.Media.SavePhoto(rc, r.AccountID(), ids[i], f.JPEG, "image/jpeg", mediadomain.OriginFrame); saveErr != nil {
 				return cutFrames{}, fmt.Errorf("save frame %d: %w", i, saveErr)
 			}
 			out.Frames[i] = domain.Frame{UploadID: ids[i], AtSeconds: f.AtSeconds}
@@ -380,73 +377,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if at, err = restatex.Now(ctx, s.Now); err != nil {
 		return err
 	}
-	var market *domain.Estimate
-	if d := fill.Draft; at.Before(deadline) && d.CategoryCode != "" {
-		m, marketErr := restate.Run(ctx, func(rc restate.RunContext) (*domain.Estimate, error) {
-			text, textErr := s.Catalog.EmbeddingText(rc, catalogdomain.Draft{
-				Title: d.Title, CategoryCode: d.CategoryCode, Condition: d.Condition, Specs: d.Specs, Description: d.Description,
-			})
-			if textErr != nil {
-				return nil, fmt.Errorf("build the embedding text: %w", textErr)
-			}
-			inputs := make([]string, len(d.Photos))
-			for i, p := range d.Photos {
-				img, imgErr := s.Media.QueryImage(rc, r.AccountID(), p)
-				if imgErr != nil {
-					return nil, fmt.Errorf("read frame %s: %w", p, imgErr)
-				}
-				inputs[i] = embed.ImageInput(img)
-			}
-			q := catalogsvc.PriceQuery{
-				Exclude: r.AccountID(), CategoryCode: d.CategoryCode, Condition: d.Condition,
-				TextMin: s.TextMin, PhotoMin: s.PhotoMin, Now: at,
-			}
-			embedCtx, cancel := context.WithTimeout(rc, s.CallTimeout)
-			defer cancel()
-			// A model that fails leaves its list out of the sample.
-			if vs, embedErr := s.Text.Embed(embedCtx, []string{text}); embedErr != nil {
-				s.Log.WarnContext(rc, "the price sample goes without the text vector", "read", id, "err", embedErr)
-			} else {
-				q.Text = vs[0]
-			}
-			if vs, embedErr := s.Image.Embed(embedCtx, inputs); embedErr != nil || len(vs) == 0 {
-				s.Log.WarnContext(rc, "the price sample goes without the photo vector", "read", id, "err", embedErr)
-			} else {
-				// The normalized mean of the kept frames, as like does with a
-				// listing's photos.
-				mean := make([]float32, len(vs[0]))
-				for _, v := range vs {
-					for j, x := range v {
-						mean[j] += x
-					}
-				}
-				var norm float64
-				for _, x := range mean {
-					norm += float64(x) * float64(x)
-				}
-				if norm > 0 {
-					scale := float32(1 / math.Sqrt(norm))
-					for j := range mean {
-						mean[j] *= scale
-					}
-					q.Photo = mean
-				}
-			}
-			samples, sampleErr := s.Catalog.PriceSample(rc, q)
-			if sampleErr != nil {
-				return nil, fmt.Errorf("price sample: %w", sampleErr)
-			}
-			ss := make([]domain.Sample, len(samples))
-			for i, x := range samples {
-				ss[i] = domain.Sample{Price: x.Price, Sold: x.Sold}
-			}
-			return domain.MarketEstimate(ss), nil
-		}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
-		if marketErr == nil {
-			market = m
-		}
-	}
-	est := market
+	est := s.marketEstimate(ctx, id, r.AccountID(), fill.Draft, at, deadline)
 	if est == nil {
 		est = domain.ModelEstimate(fill.Range)
 	}
@@ -465,7 +396,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 func (s VideoRead) Expire(ctx restate.Context, in ExpireInput) error {
 	id := in.Read
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
-		r, stepErr := s.Reads.Get(rc, id)
+		r, stepErr := s.VideoReads.Get(rc, id)
 		if errors.Is(stepErr, domain.ErrNotFound) {
 			return loadedRead{}, nil
 		}
@@ -491,7 +422,7 @@ func (s VideoRead) Expire(ctx restate.Context, in ExpireInput) error {
 	if !loaded.Found {
 		return nil
 	}
-	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Reads.Delete(rc, id) }); err != nil {
+	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.VideoReads.Delete(rc, id) }); err != nil {
 		return fmt.Errorf("delete read: %w", err)
 	}
 	return nil

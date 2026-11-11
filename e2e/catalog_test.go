@@ -27,6 +27,7 @@ type listing struct {
 		UploadID string `json:"upload_id"`
 		URL      string `json:"url"`
 		ThumbURL string `json:"thumb_url"`
+		Copied   bool   `json:"copied"`
 	} `json:"photos"`
 	Location struct {
 		Province struct {

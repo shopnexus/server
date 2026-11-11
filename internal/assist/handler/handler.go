@@ -18,6 +18,9 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 
 // Register adds the assist endpoints; protect requires a signed-in caller.
 func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
-	r.Handle("POST /v1/video-reads", protect(http.HandlerFunc(h.StartRead)))
-	r.Handle("GET /v1/video-reads/{id}", protect(http.HandlerFunc(h.GetRead)))
+	r.Handle("POST /v1/video-reads", protect(http.HandlerFunc(h.StartVideoRead)))
+	r.Handle("GET /v1/video-reads/{id}", protect(http.HandlerFunc(h.GetVideoRead)))
+	r.Handle("POST /v1/link-previews", protect(http.HandlerFunc(h.PreviewLink)))
+	r.Handle("POST /v1/link-reads", protect(http.HandlerFunc(h.StartLinkRead)))
+	r.Handle("GET /v1/link-reads/{id}", protect(http.HandlerFunc(h.GetLinkRead)))
 }

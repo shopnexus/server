@@ -396,3 +396,38 @@ func TestPlaces(t *testing.T) {
 		t.Fatalf("%+v %v", got, err)
 	}
 }
+
+// A photo the server copied from the seller's listing elsewhere is marked
+// for everyone who reads the listing, and an edit keeps the mark.
+func TestCopiedPhotosAreMarked(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.seller(t), e.account(t)
+	copied := uuid.NewV7()
+	if err := e.media.SavePhoto(ctx, seller, copied, mediatest.JPEG(t, 64, 48), "image/jpeg", mediadomain.OriginLink); err != nil {
+		t.Fatal(err)
+	}
+	own := e.upload(t, seller, mediatest.JPEG(t, 64, 48))
+	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(copied, own))
+	if err != nil {
+		t.Fatal(err)
+	}
+	l := e.settle(t, seller, posted.ID)
+	if l.Status != domain.StatusActive || !l.Photos[0].Copied || l.Photos[1].Copied {
+		t.Fatalf("%+v", l.Photos)
+	}
+	d := draft(copied, own)
+	d.Title = "iPhone 13 128GB, pin 90%"
+	if _, err = e.catalog.Edit(ctx, seller, l.ID, uuid.NewV7().String(), d); err != nil {
+		t.Fatal(err)
+	}
+	l = e.settle(t, seller, l.ID)
+	if !l.Photos[0].Copied || l.Photos[1].Copied {
+		t.Fatalf("after an edit: %+v", l.Photos)
+	}
+	seen, err := e.catalog.Get(ctx, &buyer, l.ID)
+	if err != nil || !seen.Photos[0].Copied || seen.Photos[1].Copied {
+		t.Fatalf("as a buyer reads it: %+v %v", seen.Photos, err)
+	}
+}

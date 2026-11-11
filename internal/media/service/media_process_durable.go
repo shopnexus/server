@@ -26,6 +26,8 @@ type ProcessResult struct {
 	PhotoKey string        `json:"photo_key,omitempty"`
 	ThumbKey string        `json:"thumb_key,omitempty"`
 	Failure  string        `json:"failure,omitempty"`
+	// Copied is true for a photo the server copied from a link.
+	Copied bool `json:"copied,omitempty"`
 }
 
 func (ProcessResult) Refusal() *apperr.Error { return nil }
@@ -99,7 +101,10 @@ func (s MediaProcess) Run(ctx restate.Context, id uuid.UUID) (ProcessResult, err
 	case !l.Found:
 		return ProcessResult{Status: domain.StatusFailed, Failure: "unknown upload"}, nil
 	case u.Status() == domain.StatusReady || u.Status() == domain.StatusFailed:
-		return ProcessResult{Status: u.Status(), PhotoKey: u.PhotoKey(), ThumbKey: u.ThumbKey(), Failure: u.Failure()}, nil
+		return ProcessResult{
+			Status: u.Status(), PhotoKey: u.PhotoKey(), ThumbKey: u.ThumbKey(), Failure: u.Failure(),
+			Copied: u.Origin() == domain.OriginLink,
+		}, nil
 	case u.Status() != domain.StatusAttached:
 		return ProcessResult{Status: domain.StatusFailed, Failure: "the upload is not attached"}, nil
 	}
@@ -154,5 +159,8 @@ func (s MediaProcess) Run(ctx restate.Context, id uuid.UUID) (ProcessResult, err
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Store.Delete(rc, u.Key()) }); err != nil {
 		return ProcessResult{}, fmt.Errorf("delete the original: %w", err)
 	}
-	return ProcessResult{Status: u.Status(), PhotoKey: u.PhotoKey(), ThumbKey: u.ThumbKey(), Failure: u.Failure()}, nil
+	return ProcessResult{
+		Status: u.Status(), PhotoKey: u.PhotoKey(), ThumbKey: u.ThumbKey(), Failure: u.Failure(),
+		Copied: u.Origin() == domain.OriginLink,
+	}, nil
 }

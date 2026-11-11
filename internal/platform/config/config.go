@@ -119,7 +119,7 @@ type EmbedConfig struct {
 
 // AssistConfig says where module assist's models are: ai's frame cutter,
 // speech to text, and the model that fills a listing from frames and
-// speech. Locally frames and speech are ai itself, which takes no key; in
+// speech or from the seller's listing on Chợ Tốt, and where Chợ Tốt is. Locally frames and speech are ai itself, which takes no key; in
 // the cluster speech is LiteLLM's alias stt. The keys are never logged.
 type AssistConfig struct {
 	FramesBaseURL string        // AI_FRAMES_BASE_URL: ai's API; POST {base}/video/frames
@@ -129,7 +129,11 @@ type AssistConfig struct {
 	LLMBaseURL    string        // ASSIST_LLM_BASE_URL: an OpenAI-compatible API whose model reads images
 	LLMAPIKey     string        // ASSIST_LLM_API_KEY: server-assist's key
 	LLMModel      string        // ASSIST_LLM_MODEL: the alias video-read
-	CallTimeout   time.Duration // ASSIST_CALL_TIMEOUT: one call to ai, STT or the model
+	CallTimeout   time.Duration // ASSIST_CALL_TIMEOUT: one call to ai, STT, the model or Chợ Tốt
+	// CHOTOT_GATEWAY_URL: Chợ Tốt's public gateway, https://gateway.chotot.com
+	ChototGatewayURL string
+	// CHOTOT_CDN_URL: where Chợ Tốt's photos are, https://cdn.chotot.com; no other origin is read
+	ChototCDNURL string
 }
 
 // TrustConfig says where module trust's scam classifier is: an
@@ -403,7 +407,8 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			FramesBaseURL: need("AI_FRAMES_BASE_URL"),
 			STTBaseURL:    need("STT_BASE_URL"), STTAPIKey: set("STT_API_KEY"), STTModel: need("STT_MODEL"),
 			LLMBaseURL: need("ASSIST_LLM_BASE_URL"), LLMAPIKey: need("ASSIST_LLM_API_KEY"), LLMModel: need("ASSIST_LLM_MODEL"),
-			CallTimeout: duration("ASSIST_CALL_TIMEOUT"),
+			CallTimeout:      duration("ASSIST_CALL_TIMEOUT"),
+			ChototGatewayURL: need("CHOTOT_GATEWAY_URL"), ChototCDNURL: need("CHOTOT_CDN_URL"),
 		},
 		Trust: TrustConfig{
 			LLMBaseURL: need("TRUST_LLM_BASE_URL"), LLMAPIKey: need("TRUST_LLM_API_KEY"), LLMModel: need("TRUST_LLM_MODEL"),

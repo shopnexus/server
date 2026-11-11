@@ -22,7 +22,7 @@ const (
 // left without one; an expiry that finds no row does nothing.
 func (m *Media) CreateUpload(ctx context.Context, owner uuid.UUID, contentType string, size int64) (UploadTicket, error) {
 	now := m.now()
-	u, err := domain.NewUpload(uuid.NewV7(), owner, contentType, size, now)
+	u, err := domain.NewUpload(uuid.NewV7(), owner, contentType, size, domain.OriginApp, now)
 	if err != nil {
 		return UploadTicket{}, err
 	}

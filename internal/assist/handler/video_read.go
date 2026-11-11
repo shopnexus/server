@@ -12,8 +12,8 @@ type startRequest struct {
 	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
 }
 
-// StartRead serves POST /v1/video-reads.
-func (h *Handler) StartRead(w http.ResponseWriter, r *http.Request) {
+// StartVideoRead serves POST /v1/video-reads.
+func (h *Handler) StartVideoRead(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
 		return
@@ -23,7 +23,7 @@ func (h *Handler) StartRead(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.StartRead(r.Context(), p.AccountID, in.IdempotencyKey, in.Video)
+	v, err := h.svc.StartVideoRead(r.Context(), p.AccountID, in.IdempotencyKey, in.Video)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
@@ -35,8 +35,8 @@ type readRequest struct {
 	ID uuid.UUID `json:"-" path:"id"`
 }
 
-// GetRead serves GET /v1/video-reads/{id}.
-func (h *Handler) GetRead(w http.ResponseWriter, r *http.Request) {
+// GetVideoRead serves GET /v1/video-reads/{id}.
+func (h *Handler) GetVideoRead(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
 		return
@@ -46,7 +46,7 @@ func (h *Handler) GetRead(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.GetRead(r.Context(), p.AccountID, in.ID)
+	v, err := h.svc.GetVideoRead(r.Context(), p.AccountID, in.ID)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

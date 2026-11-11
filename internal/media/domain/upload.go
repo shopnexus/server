@@ -64,6 +64,16 @@ const (
 	ShapeVideo Shape = "video"
 )
 
+// Origin is where an upload came from. Only the server makes frames and
+// copies, and only photos.
+type Origin string
+
+const (
+	OriginApp   Origin = "app"   // the app put it
+	OriginFrame Origin = "frame" // the server cut it from the seller's video
+	OriginLink  Origin = "link"  // the server copied it from the seller's listing on another site
+)
+
 // Upload is one photo or video a client puts to uploads/<id>.
 type Upload struct {
 	id          uuid.UUID
@@ -72,6 +82,7 @@ type Upload struct {
 	shape       Shape     // set with the holder
 	contentType string
 	size        int64
+	origin      Origin
 	status      Status
 	photoKey    string
 	thumbKey    string
@@ -81,7 +92,7 @@ type Upload struct {
 	updatedAt   time.Time
 }
 
-func NewUpload(id, owner uuid.UUID, contentType string, size int64, now time.Time) (Upload, error) {
+func NewUpload(id, owner uuid.UUID, contentType string, size int64, origin Origin, now time.Time) (Upload, error) {
 	limit := MaxPhotoBytes
 	if IsVideo(contentType) {
 		limit = MaxVideoBytes
@@ -89,8 +100,17 @@ func NewUpload(id, owner uuid.UUID, contentType string, size int64, now time.Tim
 	if !contentTypes[contentType] || size < 1 || size > limit {
 		return Upload{}, ErrInvalidUpload
 	}
+	switch origin {
+	case OriginApp:
+	case OriginFrame, OriginLink:
+		if IsVideo(contentType) {
+			return Upload{}, ErrInvalidUpload
+		}
+	default:
+		return Upload{}, ErrInvalidUpload
+	}
 	return Upload{
-		id: id, ownerID: owner, contentType: contentType, size: size, status: StatusWaiting,
+		id: id, ownerID: owner, contentType: contentType, size: size, origin: origin, status: StatusWaiting,
 		writeID: id, createdAt: now, updatedAt: now,
 	}, nil
 }
@@ -101,6 +121,7 @@ func (u *Upload) HolderID() uuid.UUID { return u.holderID }
 func (u *Upload) Shape() Shape        { return u.shape }
 func (u *Upload) ContentType() string { return u.contentType }
 func (u *Upload) Size() int64         { return u.size }
+func (u *Upload) Origin() Origin      { return u.origin }
 func (u *Upload) Status() Status      { return u.status }
 func (u *Upload) PhotoKey() string    { return u.photoKey }
 func (u *Upload) ThumbKey() string    { return u.thumbKey }
@@ -175,6 +196,7 @@ type UploadState struct {
 	Shape       Shape     `json:"shape"`
 	ContentType string    `json:"content_type"`
 	Size        int64     `json:"size"`
+	Origin      Origin    `json:"origin"`
 	Status      Status    `json:"status"`
 	PhotoKey    string    `json:"photo_key"`
 	ThumbKey    string    `json:"thumb_key"`
@@ -187,7 +209,7 @@ type UploadState struct {
 // RestoreUpload rebuilds a stored upload. Stores only.
 func RestoreUpload(st UploadState) Upload {
 	return Upload{
-		id: st.ID, ownerID: st.OwnerID, holderID: st.HolderID, shape: st.Shape, contentType: st.ContentType, size: st.Size, status: st.Status,
+		id: st.ID, ownerID: st.OwnerID, holderID: st.HolderID, shape: st.Shape, contentType: st.ContentType, size: st.Size, origin: st.Origin, status: st.Status,
 		photoKey: st.PhotoKey, thumbKey: st.ThumbKey, failure: st.Failure, writeID: st.WriteID,
 		createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
 	}
@@ -196,7 +218,7 @@ func RestoreUpload(st UploadState) Upload {
 // State returns every stored field. Stores only.
 func (u *Upload) State() UploadState {
 	return UploadState{
-		ID: u.id, OwnerID: u.ownerID, HolderID: u.holderID, Shape: u.shape, ContentType: u.contentType, Size: u.size, Status: u.status,
+		ID: u.id, OwnerID: u.ownerID, HolderID: u.holderID, Shape: u.shape, ContentType: u.contentType, Size: u.size, Origin: u.origin, Status: u.status,
 		PhotoKey: u.photoKey, ThumbKey: u.thumbKey, Failure: u.failure, WriteID: u.writeID,
 		CreatedAt: u.createdAt, UpdatedAt: u.updatedAt,
 	}

@@ -19,30 +19,30 @@ import (
 // A frame the server saves is a waiting photo upload of the seller's: it is
 // read back as a search-sized JPEG, a listing attaches and processes it,
 // and a retried save neither fails nor brings its original back.
-func TestSaveFrame(t *testing.T) {
+func TestSavePhoto(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
 	owner, other := accounttest.New(t, e.db), accounttest.New(t, e.db)
 	frame, id := mediatest.JPEG(t, 1280, 720), uuid.NewV7()
-	if err := e.media.SaveFrame(ctx, owner, id, frame); err != nil {
+	if err := e.media.SavePhoto(ctx, owner, id, frame, "image/jpeg", domain.OriginFrame); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.media.SaveFrame(ctx, owner, id, frame); err != nil {
+	if err := e.media.SavePhoto(ctx, owner, id, frame, "image/jpeg", domain.OriginFrame); err != nil {
 		t.Fatalf("a retried save: %v", err)
 	}
 	u, err := repository.NewUploads(e.db).Get(ctx, id)
 	if err != nil || u.Status() != domain.StatusWaiting || u.OwnerID() != owner || u.ContentType() != "image/jpeg" ||
-		u.Size() != int64(len(frame)) {
+		u.Size() != int64(len(frame)) || u.Origin() != domain.OriginFrame {
 		t.Fatalf("%+v %v", u.State(), err)
 	}
 	if img, imgErr := e.media.QueryImage(ctx, owner, id); imgErr != nil || len(img) == 0 {
 		t.Fatalf("read back for the model: %v", imgErr)
 	}
-	if err = e.media.SaveFrame(ctx, other, id, frame); !errors.Is(err, domain.ErrInvalidUpload) {
+	if err = e.media.SavePhoto(ctx, other, id, frame, "image/jpeg", domain.OriginFrame); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("the same id for another owner: %v", err)
 	}
-	if err = e.media.SaveFrame(ctx, owner, uuid.NewV7(), nil); !errors.Is(err, domain.ErrInvalidUpload) {
+	if err = e.media.SavePhoto(ctx, owner, uuid.NewV7(), nil, "image/jpeg", domain.OriginFrame); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("an empty frame: %v", err)
 	}
 	listing := uuid.NewV7()
@@ -52,7 +52,7 @@ func TestSaveFrame(t *testing.T) {
 	if res := e.process(t, id); res.Status != domain.StatusReady || res.PhotoKey == "" {
 		t.Fatalf("processed: %+v", res)
 	}
-	if err = e.media.SaveFrame(ctx, owner, id, frame); err != nil {
+	if err = e.media.SavePhoto(ctx, owner, id, frame, "image/jpeg", domain.OriginFrame); err != nil {
 		t.Fatalf("a save after the listing took the frame: %v", err)
 	}
 	if _, _, err = e.store.Stat(ctx, domain.UploadKey(id)); !errors.Is(err, objectstore.ErrNotFound) {
@@ -61,12 +61,12 @@ func TestSaveFrame(t *testing.T) {
 }
 
 // A saved frame waits 24 hours like any upload, then expires.
-func TestSavedFrameExpires(t *testing.T) {
+func TestSavedPhotoExpires(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
 	owner, id := accounttest.New(t, e.db), uuid.NewV7()
-	if err := e.media.SaveFrame(ctx, owner, id, mediatest.JPEG(t, 64, 48)); err != nil {
+	if err := e.media.SavePhoto(ctx, owner, id, mediatest.JPEG(t, 64, 48), "image/jpeg", domain.OriginFrame); err != nil {
 		t.Fatal(err)
 	}
 	e.expire(t, id)
@@ -76,15 +76,15 @@ func TestSavedFrameExpires(t *testing.T) {
 }
 
 // A presigned frame URL reads the frame without credentials.
-func TestPresignFrame(t *testing.T) {
+func TestPresignPhoto(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
 	owner, id, frame := accounttest.New(t, e.db), uuid.NewV7(), mediatest.JPEG(t, 64, 48)
-	if err := e.media.SaveFrame(ctx, owner, id, frame); err != nil {
+	if err := e.media.SavePhoto(ctx, owner, id, frame, "image/jpeg", domain.OriginFrame); err != nil {
 		t.Fatal(err)
 	}
-	url, err := e.media.PresignFrame(ctx, id)
+	url, err := e.media.PresignPhoto(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,5 +169,28 @@ func TestHoldOpenConsumeVideo(t *testing.T) {
 	}
 	if err = e.media.HoldVideo(ctx, owner, read, video); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("held after consume: %v", err)
+	}
+}
+
+// A copied photo keeps its type and origin; the server never saves an
+// app's upload or a video this way.
+func TestSavePhotoOrigins(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	owner := accounttest.New(t, e.db)
+	id := uuid.NewV7()
+	if err := e.media.SavePhoto(ctx, owner, id, webpBytes(t), "image/webp", domain.OriginLink); err != nil {
+		t.Fatal(err)
+	}
+	u, err := repository.NewUploads(e.db).Get(ctx, id)
+	if err != nil || u.ContentType() != "image/webp" || u.Origin() != domain.OriginLink || u.Status() != domain.StatusWaiting {
+		t.Fatalf("%+v %v", u.State(), err)
+	}
+	if err = e.media.SavePhoto(ctx, owner, uuid.NewV7(), webpBytes(t), "image/webp", domain.OriginApp); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("origin app: %v", err)
+	}
+	if err = e.media.SavePhoto(ctx, owner, uuid.NewV7(), []byte("mp4"), domain.ContentTypeMP4, domain.OriginLink); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("a video: %v", err)
 	}
 }

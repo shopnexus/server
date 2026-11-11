@@ -30,7 +30,7 @@ func TestNewUploadLimits(t *testing.T) {
 		"mp4 over 50MB":   {"video/mp4", domain.MaxVideoBytes + 1, false},
 		"webm":            {"video/webm", 10, false},
 	} {
-		_, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), c.contentType, c.size, now)
+		_, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), c.contentType, c.size, domain.OriginApp, now)
 		if (err == nil) != c.ok || (err != nil && !errors.Is(err, domain.ErrInvalidUpload)) {
 			t.Errorf("%s: %v", name, err)
 		}
@@ -41,13 +41,13 @@ func TestNewUploadLimits(t *testing.T) {
 func TestAttachMatchesTheType(t *testing.T) {
 	t.Parallel()
 	owner, holder := uuid.NewV7(), uuid.NewV7()
-	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, now)
+	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, domain.OriginApp, now)
 	for _, shape := range []domain.Shape{domain.ShapePhoto, domain.ShapeSquare} {
 		if _, err := video.Attach(owner, holder, shape, now); !errors.Is(err, domain.ErrInvalidUpload) {
 			t.Fatalf("a video as %s: %v", shape, err)
 		}
 	}
-	photo, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	photo, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
 	if _, err := photo.Attach(owner, holder, domain.ShapeVideo, now); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("a photo as a video: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestAttachMatchesTheType(t *testing.T) {
 func TestAttachRefusesAnExpiredVideo(t *testing.T) {
 	t.Parallel()
 	owner := uuid.NewV7()
-	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, now)
+	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, domain.OriginApp, now)
 	if _, err := video.Attach(owner, uuid.NewV7(), domain.ShapeVideo, now.Add(domain.ExpireAfter)); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("held at its expiry: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestAttachRefusesAnExpiredVideo(t *testing.T) {
 func TestAttachOnlyByTheOwnerWhileWaiting(t *testing.T) {
 	t.Parallel()
 	owner, holder := uuid.NewV7(), uuid.NewV7()
-	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
 	if _, err := u.Attach(uuid.NewV7(), holder, domain.ShapePhoto, now); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("another owner: %v", err)
 	}
@@ -103,7 +103,7 @@ func TestAttachOnlyByTheOwnerWhileWaiting(t *testing.T) {
 func TestAttachKeepsItsShape(t *testing.T) {
 	t.Parallel()
 	owner, holder := uuid.NewV7(), uuid.NewV7()
-	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
 	if _, err := u.Attach(owner, holder, domain.ShapeSquare, now); err != nil || u.Shape() != domain.ShapeSquare {
 		t.Fatalf("square: %v %s", err, u.Shape())
 	}
@@ -118,11 +118,11 @@ func TestAttachKeepsItsShape(t *testing.T) {
 func TestExpireOnlyWhileWaiting(t *testing.T) {
 	t.Parallel()
 	owner := uuid.NewV7()
-	waiting, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	waiting, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
 	if !waiting.Expire(now) || waiting.Status() != domain.StatusExpired {
 		t.Fatalf("waiting: %s", waiting.Status())
 	}
-	attached, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	attached, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
 	_, _ = attached.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
 	if attached.Expire(now) || attached.Status() != domain.StatusAttached {
 		t.Fatalf("attached: %s", attached.Status())
@@ -132,13 +132,13 @@ func TestExpireOnlyWhileWaiting(t *testing.T) {
 func TestProcessedAndFailed(t *testing.T) {
 	t.Parallel()
 	owner := uuid.NewV7()
-	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
 	_, _ = u.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
 	u.Processed("media/a.jpg", "media/a_thumb.jpg", now)
 	if u.Status() != domain.StatusReady || u.PhotoKey() != "media/a.jpg" || u.ThumbKey() != "media/a_thumb.jpg" {
 		t.Fatalf("%+v", u.State())
 	}
-	f, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	f, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
 	_, _ = f.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
 	f.Failed("not an image", now)
 	if f.Status() != domain.StatusFailed || f.Failure() != "not an image" {
@@ -150,7 +150,7 @@ func TestProcessedAndFailed(t *testing.T) {
 func TestUploadJSONRoundTrip(t *testing.T) {
 	t.Parallel()
 	owner := uuid.NewV7()
-	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/png", 42, now)
+	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/png", 42, domain.OriginApp, now)
 	_, _ = u.Attach(owner, uuid.NewV7(), domain.ShapeSquare, now)
 	b, err := json.Marshal(u)
 	if err != nil {
@@ -166,7 +166,7 @@ func TestUploadJSONRoundTrip(t *testing.T) {
 func TestConsume(t *testing.T) {
 	t.Parallel()
 	owner := uuid.NewV7()
-	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, now)
+	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, domain.OriginApp, now)
 	if video.Consume(now) {
 		t.Fatal("a waiting video was consumed")
 	}
@@ -177,12 +177,28 @@ func TestConsume(t *testing.T) {
 	if video.Consume(now) {
 		t.Fatal("consumed twice")
 	}
-	photo, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, now)
+	photo, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
 	_, _ = photo.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
 	if photo.Consume(now) || photo.Status() != domain.StatusAttached {
 		t.Fatalf("a photo: %s", photo.Status())
 	}
 	if domain.UploadKey(video.ID()) != video.Key() {
 		t.Fatal(domain.UploadKey(video.ID()))
+	}
+}
+
+func TestNewUploadOrigin(t *testing.T) {
+	t.Parallel()
+	for _, o := range []domain.Origin{domain.OriginApp, domain.OriginFrame, domain.OriginLink} {
+		u, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), "image/jpeg", 10, o, now)
+		if err != nil || u.Origin() != o {
+			t.Fatalf("%s: %v %s", o, err, u.Origin())
+		}
+	}
+	if _, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), "image/jpeg", 10, "camera", now); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("an unknown origin: %v", err)
+	}
+	if _, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), domain.ContentTypeMP4, 10, domain.OriginLink, now); !errors.Is(err, domain.ErrInvalidUpload) {
+		t.Fatalf("a video the server made: %v", err)
 	}
 }

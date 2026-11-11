@@ -246,7 +246,7 @@ func TestStartReadRefusals(t *testing.T) {
 		return n
 	}
 	start := func(account, video uuid.UUID) error {
-		_, err := e.assist.StartRead(ctx, account, uuid.NewV7().String(), video)
+		_, err := e.assist.StartVideoRead(ctx, account, uuid.NewV7().String(), video)
 		return err
 	}
 
@@ -270,7 +270,7 @@ func TestStartReadRefusals(t *testing.T) {
 
 	busy := accounttest.WithPhone(t, e.db)
 	for range domain.ReadLimit {
-		if err := e.reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now())); err != nil {
+		if err := e.videos.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now())); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -302,7 +302,7 @@ func TestStartReadRace(t *testing.T) {
 	errs := make(chan error, 2)
 	for range 2 {
 		go func() {
-			_, err := e.assist.StartRead(ctx, me, uuid.NewV7().String(), video)
+			_, err := e.assist.StartVideoRead(ctx, me, uuid.NewV7().String(), video)
 			errs <- err
 		}()
 	}
@@ -334,11 +334,11 @@ func TestStartReadTwice(t *testing.T) {
 	ctx := context.Background()
 	me := accounttest.WithPhone(t, e.db)
 	key, video := uuid.NewV7().String(), e.video(t, me)
-	first, err := e.assist.StartRead(ctx, me, key, video)
+	first, err := e.assist.StartVideoRead(ctx, me, key, video)
 	if err != nil {
 		t.Fatal(err)
 	}
-	again, err := e.assist.StartRead(ctx, me, key, video)
+	again, err := e.assist.StartVideoRead(ctx, me, key, video)
 	if err != nil || again.ID != first.ID {
 		t.Fatalf("again: %+v %v", again, err)
 	}
@@ -356,14 +356,14 @@ func TestGetRead(t *testing.T) {
 	ctx := context.Background()
 	me, other := accounttest.WithPhone(t, e.db), accounttest.WithPhone(t, e.db)
 	v := e.end(t, me, e.start(t, me).ID)
-	if _, err := e.assist.GetRead(ctx, other, v.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.assist.GetVideoRead(ctx, other, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another account: %v", err)
 	}
-	if _, err := e.assist.GetRead(ctx, me, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.assist.GetVideoRead(ctx, me, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("unknown: %v", err)
 	}
 	e.clock.Add(domain.KeepFor + time.Minute)
-	if _, err := e.assist.GetRead(ctx, me, v.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.assist.GetVideoRead(ctx, me, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("expired: %v", err)
 	}
 }
@@ -377,7 +377,7 @@ func TestExpireDeletesTheRead(t *testing.T) {
 	me := accounttest.WithPhone(t, e.db)
 	v := e.end(t, me, e.start(t, me).ID)
 	status := e.videoOf(t, v.ID)
-	r, err := e.reads.Get(ctx, v.ID)
+	r, err := e.videos.Get(ctx, v.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -388,7 +388,7 @@ func TestExpireDeletesTheRead(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := e.reads.Get(ctx, v.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.videos.Get(ctx, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("read still there: %v", err)
 	}
 	if status != mediadomain.StatusConsumed {
@@ -407,7 +407,7 @@ func TestDeleteAccount(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := e.reads.Get(ctx, v.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.videos.Get(ctx, v.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("read still there: %v", err)
 	}
 }
@@ -471,7 +471,7 @@ func TestStartReadRetriesALostHold(t *testing.T) {
 	hold := &flakyHold{}
 	e := newEnv(t, func(x *env) { hold.Service = x.media; x.deps.Media = hold })
 	me := accounttest.WithPhone(t, e.db)
-	if _, err := e.assist.StartRead(context.Background(), me, uuid.NewV7().String(), e.video(t, me)); err != nil {
+	if _, err := e.assist.StartVideoRead(context.Background(), me, uuid.NewV7().String(), e.video(t, me)); err != nil {
 		t.Fatalf("start: %v", err)
 	}
 }

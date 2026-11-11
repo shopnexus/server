@@ -18,14 +18,17 @@ import (
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 )
 
-// frameTTL is how long a presigned frame URL reads.
-const frameTTL = time.Hour
+// photoTTL is how long a presigned photo URL reads.
+const photoTTL = time.Hour
 
-// SaveFrame writes the frame, then its row, after scheduling the expiry as
-// CreateUpload does. A frame already taken by a listing is left alone: its
+// SavePhoto writes the photo, then its row, after scheduling the expiry as
+// CreateUpload does. A photo already taken by a listing is left alone: its
 // original is gone after processing, and writing it again would leave an
 // object nothing deletes.
-func (m *Media) SaveFrame(ctx context.Context, owner, id uuid.UUID, jpeg []byte) error {
+func (m *Media) SavePhoto(ctx context.Context, owner, id uuid.UUID, data []byte, contentType string, origin domain.Origin) error {
+	if origin == domain.OriginApp {
+		return domain.ErrInvalidUpload
+	}
 	existing, err := m.uploads.Get(ctx, id)
 	switch {
 	case err == nil && existing.OwnerID() != owner:
@@ -35,16 +38,16 @@ func (m *Media) SaveFrame(ctx context.Context, owner, id uuid.UUID, jpeg []byte)
 	case err != nil && !errors.Is(err, repository.ErrNotFound):
 		return fmt.Errorf("get upload: %w", err)
 	}
-	u, err := domain.NewUpload(id, owner, "image/jpeg", int64(len(jpeg)), m.now())
+	u, err := domain.NewUpload(id, owner, contentType, int64(len(data)), origin, m.now())
 	if err != nil {
 		return err
 	}
 	if _, err = ingress.ServiceSend[uuid.UUID](m.ingress, m.prefix+mediaExpire, "Run").
 		Send(ctx, id, restate.WithDelay(domain.ExpireAfter), restate.WithIdempotencyKey(id.String())); err != nil {
-		return fmt.Errorf("schedule the frame's expiry: %w", err)
+		return fmt.Errorf("schedule the photo's expiry: %w", err)
 	}
-	if err = m.store.Put(ctx, u.Key(), u.ContentType(), bytes.NewReader(jpeg), u.Size()); err != nil {
-		return fmt.Errorf("put the frame: %w", err)
+	if err = m.store.Put(ctx, u.Key(), u.ContentType(), bytes.NewReader(data), u.Size()); err != nil {
+		return fmt.Errorf("put the photo: %w", err)
 	}
 	if err = m.uploads.Create(ctx, u); err != nil {
 		return fmt.Errorf("create upload: %w", err)
@@ -75,10 +78,10 @@ func (m *Media) OpenVideo(ctx context.Context, id uuid.UUID) (io.ReadCloser, int
 	return r, u.Size(), nil
 }
 
-func (m *Media) PresignFrame(ctx context.Context, id uuid.UUID) (string, error) {
-	url, err := m.store.PresignGet(ctx, domain.UploadKey(id), frameTTL)
+func (m *Media) PresignPhoto(ctx context.Context, id uuid.UUID) (string, error) {
+	url, err := m.store.PresignGet(ctx, domain.UploadKey(id), photoTTL)
 	if err != nil {
-		return "", fmt.Errorf("presign the frame: %w", err)
+		return "", fmt.Errorf("presign the photo: %w", err)
 	}
 	return url, nil
 }

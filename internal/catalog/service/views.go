@@ -74,10 +74,13 @@ type Region struct {
 
 // PhotoView is a photo of the listing. URL and ThumbURL are set once it is
 // processed; Failure is why processing refused it, on a rejected listing.
+// Copied is true once processed for a photo copied from the seller's
+// listing elsewhere.
 type PhotoView struct {
 	UploadID uuid.UUID `json:"upload_id"`
 	URL      string    `json:"url,omitempty"`
 	ThumbURL string    `json:"thumb_url,omitempty"`
+	Copied   bool      `json:"copied"`
 	Failure  string    `json:"failure,omitempty"`
 }
 
@@ -105,7 +108,7 @@ func (c *Catalog) views(ctx context.Context, ls []domain.Listing) ([]ListingView
 		l := &ls[i]
 		photos := make([]PhotoView, 0, len(l.Photos()))
 		for _, p := range l.Photos() {
-			v := PhotoView{UploadID: p.UploadID, Failure: l.Rejection()[p.UploadID]}
+			v := PhotoView{UploadID: p.UploadID, Copied: p.Keys.Copied, Failure: l.Rejection()[p.UploadID]}
 			if p.Keys.Photo != "" {
 				v.URL, v.ThumbURL = c.media.URL(p.Keys.Photo), c.media.URL(p.Keys.Thumb)
 			}
