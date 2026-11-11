@@ -89,6 +89,7 @@ func TestLinkReadFailures(t *testing.T) {
 		{"not an item", func(e *env) { e.model.link.IsItem = false }, domain.FailNoItem, 1},
 		{"no photo copied", func(e *env) { e.source.images = map[string][]byte{} }, domain.FailListingNotFound, -1},
 		{"the CDN down", func(e *env) { e.source.imageErr = chotot.ErrUnavailable }, domain.FailUnavailable, -1},
+		{"photos moved off the CDN", func(e *env) { e.source.imageErr = chotot.ErrOffCDN }, domain.FailUnavailable, -1},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -101,6 +102,12 @@ func TestLinkReadFailures(t *testing.T) {
 			}
 			if calls, _, _ := e.model.asked(); tc.calls >= 0 && calls != tc.calls {
 				t.Fatalf("%d model calls, want %d", calls, tc.calls)
+			}
+			e.source.mu.Lock()
+			adCalls := e.source.adCalls
+			e.source.mu.Unlock()
+			if tc.name == "Chợ Tốt down" && adCalls != 3 {
+				t.Fatalf("%d reads of the listing, want 3 attempts", adCalls)
 			}
 		})
 	}
@@ -124,6 +131,18 @@ func TestLinkReadSkipsABadPhoto(t *testing.T) {
 	seller := accounttest.WithPhone(t, e.db)
 	v := e.linkEnd(t, seller, e.startLink(t, seller).ID)
 	if v.Status != domain.StatusDone || v.Source.PhotoCount != 5 || len(v.Photos) != 4 || len(v.Draft.Photos) != 4 {
+		t.Fatalf("%+v", v)
+	}
+}
+
+// A photo the CDN keeps failing is skipped once the step has asked again;
+// the others are copied.
+func TestLinkReadSkipsAPhotoTheCDNKeepsFailing(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, func(x *env) { x.source.imageErrs = map[string]error{photoURL(2): chotot.ErrUnavailable} })
+	seller := accounttest.WithPhone(t, e.db)
+	v := e.linkEnd(t, seller, e.startLink(t, seller).ID)
+	if v.Status != domain.StatusDone || len(v.Photos) != 4 {
 		t.Fatalf("%+v", v)
 	}
 }

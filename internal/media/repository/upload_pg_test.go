@@ -7,6 +7,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/media/repository"
@@ -131,5 +133,23 @@ func TestStoreAVideo(t *testing.T) {
 	if _, err = db.Exec(ctx, `UPDATE uploads SET size = 15728641, content_type = 'image/jpeg', shape = 'photo' WHERE id = $1`,
 		u.ID()); err == nil {
 		t.Fatal("a photo over 15 MB was stored")
+	}
+}
+
+// A server still on the code before 0037 inserts uploads without an
+// origin while the new one rolls out; those rows are the app's.
+func TestInsertWithoutOriginIsTheApps(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	owner, id := accounttest.New(t, db), uuid.NewV7()
+	if _, err := db.Exec(ctx, `
+INSERT INTO uploads (id, owner_id, content_type, size, status, write_id, created_at, updated_at)
+VALUES (@id, @owner, 'image/jpeg', 100, 'waiting', @id, now(), now())`, pgx.StrictNamedArgs{"id": id, "owner": owner}); err != nil {
+		t.Fatalf("an insert without origin: %v", err)
+	}
+	u, err := repository.NewUploads(db).Get(ctx, id)
+	if err != nil || u.Origin() != domain.OriginApp {
+		t.Fatalf("%+v %v", u.State(), err)
 	}
 }

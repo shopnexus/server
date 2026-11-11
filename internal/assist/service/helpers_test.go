@@ -259,7 +259,9 @@ type fakeSource struct {
 	adErr    error
 	images   map[string][]byte
 	imageErr error
-	adCalls  int
+	// imageErrs fails the photos it names, every call.
+	imageErrs map[string]error
+	adCalls   int
 	// onAd runs before each answer of Ad, outside the lock.
 	onAd func()
 }
@@ -303,6 +305,9 @@ func (f *fakeSource) Image(_ context.Context, url string) (photo []byte, content
 	defer f.mu.Unlock()
 	if f.imageErr != nil {
 		return nil, "", f.imageErr
+	}
+	if err := f.imageErrs[url]; err != nil {
+		return nil, "", err
 	}
 	b, ok := f.images[url]
 	if !ok {

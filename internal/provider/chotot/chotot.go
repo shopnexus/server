@@ -20,15 +20,19 @@ var (
 	// ErrNotFound is a listing the gateway does not have, or has but not on
 	// sale (hidden, expired, sold).
 	ErrNotFound = errors.New("chotot: no such listing on sale")
-	// ErrUnavailable is a gateway or CDN that did not answer, answered 5xx,
-	// 403 or 429, or redirected: try again later.
+	// ErrUnavailable is a gateway or CDN that did not answer or answered
+	// 5xx, 403 or 429, or a gateway that redirected: try again later.
 	ErrUnavailable = errors.New("chotot: did not answer")
 	// ErrFormat is an answer whose shape the client does not know: Chợ Tốt
 	// changed the gateway.
 	ErrFormat = errors.New("chotot: the gateway answered in an unknown shape")
-	// ErrBadImage is a photo URL off the CDN, or an answer that is not a
-	// JPEG, PNG or WebP of at most MaxImageBytes.
+	// ErrBadImage is an answer from the CDN that is not a JPEG, PNG or WebP
+	// of at most MaxImageBytes, or a photo it does not have.
 	ErrBadImage = errors.New("chotot: not a photo on Chợ Tốt's CDN")
+	// ErrOffCDN is a photo URL off CHOTOT_CDN_URL, which is never fetched.
+	// It is an ErrBadImage too; every photo of a listing off the CDN means
+	// Chợ Tốt moved its photos.
+	ErrOffCDN = fmt.Errorf("%w: off the CDN", ErrBadImage)
 )
 
 const (
@@ -150,7 +154,7 @@ func (c Client) Image(ctx context.Context, raw string) (photo []byte, contentTyp
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Scheme != cdn.Scheme || !strings.EqualFold(u.Host, cdn.Host) || u.User != nil {
-		return nil, "", ErrBadImage
+		return nil, "", ErrOffCDN
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), http.NoBody)
 	if err != nil {
@@ -163,7 +167,7 @@ func (c Client) Image(ctx context.Context, raw string) (photo []byte, contentTyp
 	}
 	defer func() { _ = res.Body.Close() }()
 	switch {
-	case res.StatusCode >= 500 || res.StatusCode == http.StatusTooManyRequests:
+	case res.StatusCode >= 500 || res.StatusCode == http.StatusTooManyRequests || res.StatusCode == http.StatusForbidden:
 		return nil, "", fmt.Errorf("%w: the CDN answered %d", ErrUnavailable, res.StatusCode)
 	case res.StatusCode != http.StatusOK:
 		return nil, "", fmt.Errorf("%w: the CDN answered %d", ErrBadImage, res.StatusCode)

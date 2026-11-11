@@ -785,7 +785,9 @@ Video reads, and link reads after them, use four more (decided 2026-11-10, spec:
 - `PresignPhoto(id)` signs a GET of `uploads/<id>` valid for an hour
   (`Store.PresignGet`, for `OBJECT_STORE_PUBLIC_ENDPOINT`), for a read's
   view.
-- `uploads.origin` is `app`, `frame` or `link` (decided 2026-11-11).
+- `uploads.origin` is `app`, `frame` or `link` (decided 2026-11-11). Its
+  default `app` stays, for the replicas of the release before that still
+  insert while a deploy rolls out.
   `MediaProcess`'s result carries `Copied` for origin `link`, and catalog
   keeps it with the photo's keys.
 
@@ -1676,8 +1678,9 @@ bạn", and nothing compares the listing's owner with the account.
   listing that is absent or not `active` is `ErrNotFound`; 5xx, 403, 429, a
   redirect or a timeout is `ErrUnavailable`; an answer without a subject or
   photos is `ErrFormat`, logged as an error. A photo is read only from the
-  scheme and host of `CHOTOT_CDN_URL`, without redirects, at most 15 MB, and
-  only when its magic bytes say JPEG, PNG or WebP.
+  scheme and host of `CHOTOT_CDN_URL` (another URL is `ErrOffCDN`), without
+  redirects, at most 15 MB, and only when its magic bytes say JPEG, PNG or
+  WebP; a 5xx, 403 or 429 from the CDN is `ErrUnavailable`.
 - `domain.ParseLink` takes `chotot.com` and its subdomains, finds the
   listing ID in the last path segment, drops the query and the fragment,
   and rewrites the link to `https://www.chotot.com/<id>.htm`. Text that is
@@ -1704,8 +1707,12 @@ bạn", and nothing compares the listing's owner with the account.
   1,000,000,000 đồng; `StripPhones` takes out what still looks like a
   Vietnamese phone number and sets `contact_removed`. Copy: the first 10
   photos, each saved with `SavePhoto(origin = link)` under an ID minted
-  before the step; a photo the CDN refuses is skipped, and none copied is
-  `listing_not_found`. Estimate: `marketEstimate`, which the video read
+  before the step. A photo the CDN does not have or that is not an image
+  is skipped; one it does not answer (5xx, 403, 429, a timeout) gets two
+  tries and is then skipped. With none copied, a photo that did not come
+  sends the step round again, photos off `CHOTOT_CDN_URL` fail the read
+  `unavailable` with an error log, and otherwise the read is
+  `listing_not_found`. The step logs the counts copied and skipped. Estimate: `marketEstimate`, which the video read
   calls too, with the copies' vectors; without a market range the model's
   stands.
 - A failed read says `listing_not_found`, `no_item` or `unavailable`.

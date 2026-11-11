@@ -47,6 +47,17 @@ type savedLinkRead struct {
 	Gone bool            `json:"gone"`
 }
 
+// photoAttempts is how many times the copy step asks the CDN for one photo
+// before it skips it.
+const photoAttempts = 2
+
+// copiedPhotos is what the copy step saved, in the listing's order, or the
+// failure when it saved none.
+type copiedPhotos struct {
+	Uploads []uuid.UUID    `json:"uploads"`
+	Failure domain.Failure `json:"failure,omitempty"`
+}
+
 // readListing is what the read step made of the listing. The listing's
 // subject and body are not in it: they stay inside the step.
 type readListing struct {
@@ -233,41 +244,76 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 	for i := range ids {
 		ids[i] = restatex.NewID(ctx, at)
 	}
-	copies, err := restate.Run(ctx, func(rc restate.RunContext) ([]uuid.UUID, error) {
-		out := make([]uuid.UUID, 0, len(read.Images))
+	copied, err := restate.Run(ctx, func(rc restate.RunContext) (copiedPhotos, error) {
+		out := copiedPhotos{Uploads: make([]uuid.UUID, 0, len(read.Images))}
+		var unavailable, offCDN, refused int
 		for i, u := range read.Images {
-			imgCtx, cancel := context.WithTimeout(rc, s.CallTimeout)
-			b, contentType, imgErr := s.Source.Image(imgCtx, u)
-			cancel()
-			if errors.Is(imgErr, chotot.ErrBadImage) {
+			// A photo the CDN does not answer gets photoAttempts tries, then
+			// is skipped, so one broken photo does not hold the listing back.
+			var (
+				b           []byte
+				contentType string
+				imgErr      error
+			)
+			for range photoAttempts {
+				imgCtx, cancel := context.WithTimeout(rc, s.CallTimeout)
+				b, contentType, imgErr = s.Source.Image(imgCtx, u)
+				cancel()
+				if !errors.Is(imgErr, chotot.ErrUnavailable) {
+					break
+				}
+			}
+			switch {
+			case errors.Is(imgErr, chotot.ErrOffCDN):
+				offCDN++
+				continue
+			case errors.Is(imgErr, chotot.ErrBadImage):
+				refused++
 				s.Log.WarnContext(rc, "a photo of the listing was skipped", "read", id, "photo", i, "err", imgErr)
 				continue
-			}
-			if imgErr != nil {
-				return nil, fmt.Errorf("copy photo %d: %w", i, imgErr)
+			case imgErr != nil:
+				unavailable++
+				s.Log.WarnContext(rc, "a photo of the listing did not come", "read", id, "photo", i, "err", imgErr)
+				continue
+			default:
 			}
 			// The ID was minted before the step, so a retry overwrites the
 			// same object and inserts no second upload.
 			saveErr := s.Media.SavePhoto(rc, r.AccountID(), ids[i], b, contentType, mediadomain.OriginLink)
 			if errors.Is(saveErr, mediadomain.ErrInvalidUpload) {
+				refused++
 				s.Log.WarnContext(rc, "a photo of the listing was refused", "read", id, "photo", i, "err", saveErr)
 				continue
 			}
 			if saveErr != nil {
-				return nil, fmt.Errorf("save photo %d: %w", i, saveErr)
+				return copiedPhotos{}, fmt.Errorf("save photo %d: %w", i, saveErr)
 			}
-			out = append(out, ids[i])
+			out.Uploads = append(out.Uploads, ids[i])
 		}
-		return out, nil
+		s.Log.InfoContext(rc, "link read copied", "read", id, "list_id", r.Link().ListID, "copied", len(out.Uploads),
+			"refused", refused, "unavailable", unavailable, "off_cdn", offCDN)
+		switch {
+		case len(out.Uploads) > 0:
+			return out, nil
+		case unavailable > 0:
+			// Nothing came and the CDN did not answer: the step tries again.
+			return copiedPhotos{}, fmt.Errorf("copy photos: %d of %d did not come: %w", unavailable, len(read.Images), chotot.ErrUnavailable)
+		case offCDN > 0:
+			s.Log.ErrorContext(rc, "chotot format: the listing's photos are off CHOTOT_CDN_URL", "read", id,
+				"list_id", r.Link().ListID, "photos", offCDN)
+			return copiedPhotos{Failure: domain.FailUnavailable}, nil
+		default:
+			return copiedPhotos{Failure: domain.FailListingNotFound}, nil
+		}
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
 		return fail(at, domain.FailUnavailable)
 	}
-	if len(copies) == 0 {
-		return fail(at, domain.FailListingNotFound)
+	if copied.Failure != "" {
+		return fail(at, copied.Failure)
 	}
 	d := read.Draft
-	d.Photos = copies
+	d.Photos = copied.Uploads
 	if err = r.SetDraft(d, read.ContactRemoved); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}

@@ -157,6 +157,10 @@ func TestImage(t *testing.T) {
 			_, _ = w.Write(append(photo, make([]byte, chotot.MaxImageBytes)...))
 		case "/down.jpg":
 			w.WriteHeader(http.StatusServiceUnavailable)
+		case "/blocked.jpg":
+			w.WriteHeader(http.StatusForbidden)
+		case "/busy.jpg":
+			w.WriteHeader(http.StatusTooManyRequests)
 		default:
 			http.NotFound(w, r)
 		}
@@ -172,8 +176,8 @@ func TestImage(t *testing.T) {
 		name, url string
 		want      error
 	}{
-		{"another host", "http://example.invalid/a.jpg", chotot.ErrBadImage},
-		{"another scheme", "https://" + host + "/a.jpg", chotot.ErrBadImage},
+		{"another host", "http://example.invalid/a.jpg", chotot.ErrOffCDN},
+		{"another scheme", "https://" + host + "/a.jpg", chotot.ErrOffCDN},
 		{"user info", "http://x@" + host + "/a.jpg", chotot.ErrBadImage},
 		{"not a URL", "::", chotot.ErrBadImage},
 		{"redirect", srv.URL + "/moved.jpg", chotot.ErrBadImage},
@@ -181,6 +185,11 @@ func TestImage(t *testing.T) {
 		{"over 15 MB", srv.URL + "/big.jpg", chotot.ErrBadImage},
 		{"gone", srv.URL + "/gone.jpg", chotot.ErrBadImage},
 		{"CDN down", srv.URL + "/down.jpg", chotot.ErrUnavailable},
+		{"the server blocked", srv.URL + "/blocked.jpg", chotot.ErrUnavailable},
+		{"rate limited", srv.URL + "/busy.jpg", chotot.ErrUnavailable},
+	}
+	if !errors.Is(chotot.ErrOffCDN, chotot.ErrBadImage) {
+		t.Fatal("a photo off the CDN is a bad image too")
 	}
 	for _, tc := range cases {
 		if _, _, err := c.Image(context.Background(), tc.url); !errors.Is(err, tc.want) {
