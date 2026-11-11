@@ -44,7 +44,7 @@ type env struct {
 	accounts accountsvc.Service
 	media    *mediasvc.Media
 	assist   *service.Assist
-	reads    repository.VideoReads
+	videos   repository.VideoReads
 	clock    *restatetest.Clock
 	ingress  *ingress.Client
 	prefix   string
@@ -65,14 +65,14 @@ func newEnv(t *testing.T, opts ...func(*env)) env {
 	m := mediatest.Service(db, objectstoretest.New(t), in, p)
 	c := catalogtest.Service(db, accounts, m, in, p)
 	e := env{
-		db: db, accounts: accounts, media: m, reads: repository.NewVideoReads(db),
+		db: db, accounts: accounts, media: m, videos: repository.NewVideoReads(db),
 		clock: restatetest.NewClock(time.Now()), ingress: in, prefix: p,
 		cut:   &fakeCutter{frames: 3, jpeg: mediatest.JPEG(t, 96, 64)},
 		stt:   &fakeSTT{text: transcript},
 		model: &fakeModel{answer: bicycle()},
 	}
 	e.deps = service.Deps{
-		Reads: e.reads, Accounts: accounts, Media: m, Catalog: c,
+		VideoReads: e.videos, Accounts: accounts, Media: m, Catalog: c,
 		Frames: e.cut, STT: e.stt, Model: e.model,
 		Text: embedtest.New(catalogdomain.TextDims), Image: embedtest.New(catalogdomain.PhotoDims),
 		TextMin: 0.5, PhotoMin: 0.5, CallTimeout: 5 * time.Second,
@@ -95,7 +95,7 @@ func (e env) video(t *testing.T, owner uuid.UUID) uuid.UUID {
 // start starts a read of a fresh video of owner's.
 func (e env) start(t *testing.T, owner uuid.UUID) service.VideoReadView {
 	t.Helper()
-	v, err := e.assist.StartRead(context.Background(), owner, uuid.NewV7().String(), e.video(t, owner))
+	v, err := e.assist.StartVideoRead(context.Background(), owner, uuid.NewV7().String(), e.video(t, owner))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func (e env) end(t *testing.T, owner, id uuid.UUID) service.VideoReadView {
 	var v service.VideoReadView
 	testenv.Eventually(t, 30*time.Second, func() error {
 		var err error
-		if v, err = e.assist.GetRead(context.Background(), owner, id); err != nil {
+		if v, err = e.assist.GetVideoRead(context.Background(), owner, id); err != nil {
 			t.Fatal(err)
 		}
 		if v.Status == domain.StatusReading {
@@ -134,7 +134,7 @@ WHERE account_id = @account AND kind = 'video_read' AND video_read_id = @read`,
 // videoOf is the upload the read started from.
 func (e env) videoOf(t *testing.T, id uuid.UUID) mediadomain.Status {
 	t.Helper()
-	r, err := e.reads.Get(context.Background(), id)
+	r, err := e.videos.Get(context.Background(), id)
 	if err != nil {
 		t.Fatal(err)
 	}

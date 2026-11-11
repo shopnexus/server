@@ -22,12 +22,12 @@ import (
 
 // Service is module assist's contract.
 type Service interface {
-	// StartRead runs VideoRead.Start once per account and idempotencyKey and
+	// StartVideoRead runs VideoRead.Start once per account and idempotencyKey and
 	// returns the read as it is then. A repeated key gets the first read.
-	StartRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID) (VideoReadView, error)
-	// GetRead returns one of account's reads. Another account's read, an
+	StartVideoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID) (VideoReadView, error)
+	// GetVideoRead returns one of account's reads. Another account's read, an
 	// unknown one and one past its expiry are domain.ErrNotFound.
-	GetRead(ctx context.Context, account, id uuid.UUID) (VideoReadView, error)
+	GetVideoRead(ctx context.Context, account, id uuid.UUID) (VideoReadView, error)
 	// DeleteAccount deletes a deleted account's reads; a second call finds
 	// nothing left.
 	DeleteAccount(ctx context.Context, account uuid.UUID) error
@@ -46,13 +46,13 @@ type Transcriber interface {
 
 // Deps is what New builds Assist from.
 type Deps struct {
-	Reads    repository.VideoReads
-	Accounts accountsvc.Service
-	Media    mediasvc.Service
-	Catalog  catalogsvc.Service
-	Frames   FrameCutter
-	STT      Transcriber
-	Model    llm.Client
+	VideoReads repository.VideoReads
+	Accounts   accountsvc.Service
+	Media      mediasvc.Service
+	Catalog    catalogsvc.Service
+	Frames     FrameCutter
+	STT        Transcriber
+	Model      llm.Client
 	// Text and Image embed with the search key, for the price sample;
 	// TextMin and PhotoMin are the similarity floors of search.
 	Text, Image       embed.Model
@@ -68,16 +68,16 @@ type Deps struct {
 
 // Assist implements Service in this process.
 type Assist struct {
-	d     Deps
-	start restatex.Caller[StartInput, StartResult]
+	d          Deps
+	startVideo restatex.Caller[StartInput, StartResult]
 }
 
 var _ Service = (*Assist)(nil)
 
 func New(d Deps) *Assist {
 	return &Assist{
-		d:     d,
-		start: restatex.Caller[StartInput, StartResult]{Ingress: d.Ingress, Service: d.Prefix + videoRead, Handler: "Start"},
+		d:          d,
+		startVideo: restatex.Caller[StartInput, StartResult]{Ingress: d.Ingress, Service: d.Prefix + videoRead, Handler: "Start"},
 	}
 }
 

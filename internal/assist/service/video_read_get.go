@@ -9,9 +9,9 @@ import (
 	"github.com/shopnexus/server2/internal/assist/domain"
 )
 
-// GetRead returns one of account's reads with a fresh URL for each frame.
-func (a *Assist) GetRead(ctx context.Context, account, id uuid.UUID) (VideoReadView, error) {
-	r, err := a.d.Reads.Get(ctx, id)
+// GetVideoRead returns one of account's reads with a fresh URL for each frame.
+func (a *Assist) GetVideoRead(ctx context.Context, account, id uuid.UUID) (VideoReadView, error) {
+	r, err := a.d.VideoReads.Get(ctx, id)
 	if errors.Is(err, domain.ErrNotFound) {
 		return VideoReadView{}, domain.ErrNotFound
 	}

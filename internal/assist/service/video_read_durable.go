@@ -125,7 +125,7 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 	id := restatex.NewID(ctx, at)
 	read := domain.NewVideoRead(id, in.Account, in.Video, at)
 	inserted, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		return restatex.AsRefusal(s.Reads.Insert(rc, read))
+		return restatex.AsRefusal(s.VideoReads.Insert(rc, read))
 	})
 	if err != nil {
 		return StartResult{}, fmt.Errorf("insert read: %w", err)
@@ -146,7 +146,7 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 		return StartResult{}, fmt.Errorf("hold video: %w", err)
 	}
 	if held.Refusal != nil {
-		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Reads.Delete(rc, id) }); err != nil {
+		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.VideoReads.Delete(rc, id) }); err != nil {
 			return StartResult{}, fmt.Errorf("undo read: %w", err)
 		}
 		return StartResult{Refused: held.Refusal}, nil
@@ -168,7 +168,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	// restate.Run answers a TerminalError; err holds the other calls' errors too.
 	var err error
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
-		r, stepErr := s.Reads.Get(rc, id)
+		r, stepErr := s.VideoReads.Get(rc, id)
 		if errors.Is(stepErr, domain.ErrNotFound) {
 			return loadedRead{}, nil
 		}
@@ -192,7 +192,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		w := restatex.NewID(ctx, at)
 		out, saveErr := restate.Run(ctx, func(rc restate.RunContext) (savedRead, error) {
 			c := r // Save sets the write ID on its copy; r outside stays as journaled
-			lost, stepErr := restatex.Outcome(s.Reads.Save(rc, &c, w), repository.ErrConflict)
+			lost, stepErr := restatex.Outcome(s.VideoReads.Save(rc, &c, w), repository.ErrConflict)
 			if stepErr != nil {
 				return savedRead{}, fmt.Errorf("save read: %w", stepErr)
 			}
@@ -466,7 +466,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 func (s VideoRead) Expire(ctx restate.Context, in ExpireInput) error {
 	id := in.Read
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
-		r, stepErr := s.Reads.Get(rc, id)
+		r, stepErr := s.VideoReads.Get(rc, id)
 		if errors.Is(stepErr, domain.ErrNotFound) {
 			return loadedRead{}, nil
 		}
@@ -492,7 +492,7 @@ func (s VideoRead) Expire(ctx restate.Context, in ExpireInput) error {
 	if !loaded.Found {
 		return nil
 	}
-	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Reads.Delete(rc, id) }); err != nil {
+	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.VideoReads.Delete(rc, id) }); err != nil {
 		return fmt.Errorf("delete read: %w", err)
 	}
 	return nil
