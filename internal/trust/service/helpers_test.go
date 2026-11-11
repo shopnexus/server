@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"log/slog"
 	"slices"
 	"testing"
 	"time"
@@ -30,6 +31,7 @@ type env struct {
 	accounts accountsvc.Service
 	deals    *dealsvc.Deals
 	chats    *chatsvc.Chat
+	scams    repository.ScamWarnings
 	trust    *service.Trust
 }
 
@@ -49,11 +51,12 @@ func newEnv(t *testing.T) env {
 		Chats: chatrepo.NewChats(db), Accounts: accounts, Catalog: c, Media: media, Ingress: in, Prefix: p, Now: time.Now,
 	})
 	restatetest.Start(t, slices.Concat(deals.Durable(), media.Durable(), chats.Durable())...)
+	scams := repository.NewScamWarnings(db)
 	trust := service.New(service.Deps{
-		Reviews: repository.NewReviews(db), Reports: repository.NewReports(db), Accounts: accounts, Catalog: c, Deals: deals,
-		Chats: chats, Now: time.Now,
+		Reviews: repository.NewReviews(db), Reports: repository.NewReports(db), Scams: scams, Accounts: accounts, Catalog: c,
+		Deals: deals, Chats: chats, Log: slog.New(slog.DiscardHandler), Now: time.Now,
 	})
-	return env{db: db, accounts: accounts, deals: deals, chats: chats, trust: trust}
+	return env{db: db, accounts: accounts, deals: deals, chats: chats, scams: scams, trust: trust}
 }
 
 // person creates an account with a verified phone number.

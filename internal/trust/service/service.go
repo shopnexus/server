@@ -1,10 +1,12 @@
 // Package service holds module trust's use cases: a buyer reviews the
 // seller of a shipped order, anyone reads a seller's rating and reviews,
-// and people report listings and accounts.
+// people report listings and accounts, and members of a conversation are
+// warned of scams.
 package service
 
 import (
 	"context"
+	"log/slog"
 	"time"
 	"uuid"
 
@@ -38,6 +40,15 @@ type Service interface {
 	// WithdrawReport withdraws one of the reporter's reports; a withdrawn
 	// one is fine.
 	WithdrawReport(ctx context.Context, reporter, id uuid.UUID) error
+	// ScamWarnings reads account's scam warnings in the conversations
+	// given, keyed by conversation; one without a warning is left out.
+	ScamWarnings(ctx context.Context, account uuid.UUID, conversations []uuid.UUID) (map[uuid.UUID]ScamWarningView, error)
+	// DismissScamWarning dismisses account's warning in a conversation of
+	// account's, and answers chat's conversation_not_found to anyone but a
+	// member. Without a warning, or dismissed already, it changes nothing.
+	DismissScamWarning(ctx context.Context, account, conversation uuid.UUID) error
+	// DeleteScamWarnings deletes a deleted account's own warnings.
+	DeleteScamWarnings(ctx context.Context, account uuid.UUID) error
 }
 
 // Deps is what New builds Trust from.
@@ -50,22 +61,38 @@ type Deps struct {
 	// Chats tells whether a report's conversation is the reporter's with
 	// the account.
 	Chats chatsvc.Service
-	Now   func() time.Time
+	Scams repository.ScamWarnings
+	// Classifier reads a check's window; Facts add fact signals beside a
+	// message code.
+	Classifier Classifier
+	Facts      []FactSource
+	Log        *slog.Logger
+	// Prefix names this process's Restate services.
+	Prefix string
+	Now    func() time.Time
 }
 
 // Trust implements Service in this process.
 type Trust struct {
-	reviews  repository.Reviews
-	reports  repository.Reports
-	accounts accountsvc.Service
-	catalog  catalogsvc.Service
-	deals    dealsvc.Service
-	chats    chatsvc.Service
-	now      func() time.Time
+	reviews    repository.Reviews
+	reports    repository.Reports
+	accounts   accountsvc.Service
+	catalog    catalogsvc.Service
+	deals      dealsvc.Service
+	chats      chatsvc.Service
+	scams      repository.ScamWarnings
+	classifier Classifier
+	facts      []FactSource
+	log        *slog.Logger
+	prefix     string
+	now        func() time.Time
 }
 
 var _ Service = (*Trust)(nil)
 
 func New(d Deps) *Trust {
-	return &Trust{reviews: d.Reviews, reports: d.Reports, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, chats: d.Chats, now: d.Now}
+	return &Trust{
+		reviews: d.Reviews, reports: d.Reports, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, chats: d.Chats,
+		scams: d.Scams, classifier: d.Classifier, facts: d.Facts, log: d.Log, prefix: d.Prefix, now: d.Now,
+	}
 }
