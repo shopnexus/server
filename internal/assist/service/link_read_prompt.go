@@ -43,16 +43,7 @@ Fill these fields, in Vietnamese with diacritics unless a field says otherwise:
 
 Categories (code — group › name):
 `)
-	names := make(map[string]string, len(cats))
-	for _, c := range cats {
-		names[c.Code] = c.DisplayName
-	}
-	for _, c := range cats {
-		if c.ParentCode == "" {
-			continue
-		}
-		fmt.Fprintf(&b, "%s — %s › %s\n", c.Code, names[c.ParentCode], c.DisplayName)
-	}
+	writeCategories(&b, cats)
 	return b.String()
 }
 

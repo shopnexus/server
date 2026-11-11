@@ -34,19 +34,6 @@ type LinkRead struct{ Deps }
 
 func (s LinkRead) ServiceName() string { return s.Prefix + linkRead }
 
-// loadedLinkRead is what a load step found.
-type loadedLinkRead struct {
-	Read  domain.LinkRead `json:"read"`
-	Found bool            `json:"found"`
-}
-
-// savedLinkRead is the read a save step wrote, or Gone when the row went
-// meanwhile.
-type savedLinkRead struct {
-	Read domain.LinkRead `json:"read"`
-	Gone bool            `json:"gone"`
-}
-
 // photoAttempts is how many times the copy step asks the CDN for one photo
 // before it skips it.
 const photoAttempts = 2
@@ -98,7 +85,7 @@ func (s LinkRead) Start(ctx restate.Context, in StartLinkInput) (StartResult, er
 	id := restatex.NewID(ctx, at)
 	read := domain.NewLinkRead(id, in.Account, in.Link, at)
 	inserted, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		return restatex.AsRefusal(s.LinkReads.Insert(rc, read))
+		return restatex.AsRefusal(s.Reads.Insert(rc, read, ""))
 	})
 	if err != nil {
 		return StartResult{}, fmt.Errorf("insert read: %w", err)
@@ -120,15 +107,15 @@ func (s LinkRead) Start(ctx restate.Context, in StartLinkInput) (StartResult, er
 // stands.
 func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 	var err error
-	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedLinkRead, error) {
-		r, stepErr := s.LinkReads.Get(rc, id)
-		if errors.Is(stepErr, domain.ErrLinkReadNotFound) {
-			return loadedLinkRead{}, nil
+	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
+		r, stepErr := s.Reads.Get(rc, id)
+		if errors.Is(stepErr, domain.ErrNotFound) {
+			return loadedRead{}, nil
 		}
 		if stepErr != nil {
-			return loadedLinkRead{}, fmt.Errorf("get read: %w", stepErr)
+			return loadedRead{}, fmt.Errorf("get read: %w", stepErr)
 		}
-		return loadedLinkRead{Read: r, Found: true}, nil
+		return loadedRead{Read: r, Found: true}, nil
 	})
 	if err != nil {
 		return fmt.Errorf("load read: %w", err)
@@ -143,13 +130,13 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 	// next save carries its write ID.
 	save := func(at time.Time) (gone bool, err error) {
 		w := restatex.NewID(ctx, at)
-		out, saveErr := restate.Run(ctx, func(rc restate.RunContext) (savedLinkRead, error) {
+		out, saveErr := restate.Run(ctx, func(rc restate.RunContext) (savedRead, error) {
 			c := r // Save sets the write ID on its copy; r outside stays as journaled
-			lost, stepErr := restatex.Outcome(s.LinkReads.Save(rc, &c, w), repository.ErrConflict)
+			lost, stepErr := restatex.Outcome(s.Reads.Save(rc, &c, w), repository.ErrConflict)
 			if stepErr != nil {
-				return savedLinkRead{}, fmt.Errorf("save read: %w", stepErr)
+				return savedRead{}, fmt.Errorf("save read: %w", stepErr)
 			}
-			return savedLinkRead{Read: c, Gone: lost}, nil
+			return savedRead{Read: c, Gone: lost}, nil
 		})
 		if saveErr != nil {
 			return false, fmt.Errorf("save read: %w", saveErr)
@@ -227,7 +214,7 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if read.Failure != "" {
 		return fail(at, read.Failure)
 	}
-	if err = r.SetPhotoCount(read.PhotoCount); err != nil {
+	if err = r.SetLinkPhotos(read.PhotoCount); err != nil {
 		return fmt.Errorf("set photo count: %w", err)
 	}
 	if gone, saveErr := save(at); saveErr != nil || gone {
@@ -314,6 +301,13 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 	}
 	d := read.Draft
 	d.Photos = copied.Uploads
+	photos := make([]domain.Photo, len(copied.Uploads))
+	for i, u := range copied.Uploads {
+		photos[i] = domain.Photo{UploadID: u}
+	}
+	if err = r.SetPhotos(photos); err != nil {
+		return fmt.Errorf("set photos: %w", err)
+	}
 	if err = r.SetDraft(d, read.ContactRemoved); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}
@@ -338,7 +332,7 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 // Expire deletes a read a day after it started. Copies not posted expire
 // with their uploads.
 func (s LinkRead) Expire(ctx restate.Context, id uuid.UUID) error {
-	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.LinkReads.Delete(rc, id) }); err != nil {
+	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Reads.Delete(rc, id) }); err != nil {
 		return fmt.Errorf("delete read: %w", err)
 	}
 	return nil

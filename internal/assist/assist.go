@@ -39,7 +39,7 @@ type Settings struct {
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasvc.Service, catalog catalogsvc.Service,
 ) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		VideoReads: repository.NewVideoReads(d.Pool), LinkReads: repository.NewLinkReads(d.Pool), Source: s.Source, Accounts: accounts, Media: media, Catalog: catalog,
+		Reads: repository.NewListingReads(d.Pool), Source: s.Source, Accounts: accounts, Media: media, Catalog: catalog,
 		Frames: s.Frames, STT: s.STT, Model: s.Model, Text: s.Text, Image: s.Image,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin, CallTimeout: s.CallTimeout,
 		Log: d.Log, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,

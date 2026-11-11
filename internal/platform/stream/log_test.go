@@ -204,16 +204,16 @@ func TestSinceResets(t *testing.T) {
 	}
 }
 
-func TestVideoReadUpdate(t *testing.T) {
+func TestListingReadUpdate(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	a, read := uuid.NewV7(), uuid.NewV7()
-	notify(t, db, []uuid.UUID{a}, stream.Hint{Kind: stream.KindVideoRead, VideoReadID: &read}, true)
+	notify(t, db, []uuid.UUID{a}, stream.Hint{Kind: stream.KindListingRead, ListingReadID: &read}, true)
 	p := since(t, db, a, 0, 10)
 	if len(p.Updates) != 1 {
 		t.Fatalf("%+v", p)
 	}
-	if u := p.Updates[0]; u.Kind != "video_read" || u.VideoReadID == nil || *u.VideoReadID != read || u.DealID != nil {
+	if u := p.Updates[0]; u.Kind != "listing_read" || u.ListingReadID == nil || *u.ListingReadID != read || u.DealID != nil {
 		t.Fatalf("update %+v", u)
 	}
 }

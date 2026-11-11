@@ -71,7 +71,7 @@ func (l PGLog) Since(ctx context.Context, account uuid.UUID, since int64, limit 
 		return Page{Updates: []Update{}, Seq: current}, nil
 	}
 	rows, err := l.DB.Query(ctx, `
-SELECT seq, kind, conversation_id, message_id, deal_id, notification_id, video_read_id, link_read_id FROM account_updates
+SELECT seq, kind, conversation_id, message_id, deal_id, notification_id, listing_read_id FROM account_updates
 WHERE account_id = @account AND seq > @since AND seq <= @current
 ORDER BY seq LIMIT @limit`,
 		pgx.StrictNamedArgs{"account": account, "since": since, "current": current, "limit": limit + 1})
@@ -81,7 +81,7 @@ ORDER BY seq LIMIT @limit`,
 	updates, err := pgx.AppendRows(make([]Update, 0, limit+1), rows, func(row pgx.CollectableRow) (Update, error) {
 		var u Update
 		if scanErr := row.Scan(&u.Seq, &u.Kind, &u.ConversationID, &u.MessageID, &u.DealID, &u.NotificationID,
-			&u.VideoReadID, &u.LinkReadID); scanErr != nil {
+			&u.ListingReadID); scanErr != nil {
 			return Update{}, fmt.Errorf("scan update: %w", scanErr)
 		}
 		return u, nil

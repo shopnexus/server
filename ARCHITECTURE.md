@@ -765,7 +765,7 @@ Search reads photos through three more use cases (decided 2026-11-09):
 - `ReadPhoto(key)` reads a processed photo under `media/`, for
   `ListingEmbed`.
 
-Video reads, and link reads after them, use four more (decided 2026-11-10, spec:
+Listing reads use four more (decided 2026-11-10 for the video read, spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-10-video-read-design.md`):
 
 - A video upload serves a video read only: `Attach`, `Square`,
@@ -1043,9 +1043,8 @@ everything after each reconnect and deploy).
   members a message is visible to, and the other member on a read; the
   notification repository the recipient.
 - An update carries IDs only (`message`, `read`, `deal`, `notification`,
-  `video_read`, `scam_warning`, `link_read`); the app reloads what it
-  shows. Assist's repository notifies the reader's account at each save of
-  a video read or a link read,
+  `scam_warning`, `listing_read`); the app reloads what it shows. Assist's
+  repository notifies the reader's account at each save of a read,
   and trust's repository the warned member at each save of a scam warning.
 - `Notify` then rings a `Bell`. `PGBell` runs `pg_notify('stream', …)` in
   the same transaction, which Postgres delivers on commit to every
@@ -1587,33 +1586,54 @@ Search watches (decided 2026-11-11, same spec):
 ### Assist
 
 Module `assist` holds what AI does for the person using the app: it reads
-a seller's video, or their listing on Chợ Tốt, into a listing draft. The
-first use case reads the video (decided 2026-11-10,
-spec: `~/shopnexus/docs/superpowers/specs/2026-11-10-video-read-design.md`).
+a seller's video, one photo of theirs, or their listing on Chợ Tốt into a
+listing draft, through one resource (decided 2026-11-11, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-11-listing-reads-design.md`;
+the video read was first, 2026-11-10, spec
+`~/shopnexus/docs/superpowers/specs/2026-11-10-video-read-design.md`).
 Spam and scam detection is moderation and goes to trust; the two share
 `provider/llm`.
 
-- `POST /v1/video-reads {video}` takes one of the caller's video uploads
-  and an `Idempotency-Key`, and answers 202 with the read. Restate service
+- `POST /v1/listing-reads` takes one of `{video, transcript?}`, `{photo}`
+  and `{link}` with an `Idempotency-Key`, and answers 202 with the read.
+  Each source has its own Restate service, `VideoRead`, `PhotoRead` and
+  `LinkRead`, whose handlers read top to bottom; all three keep
+  `domain.ListingRead` in table `listing_reads`, which has each source's
+  own columns. The caps are 30 video reads, 60 photo reads and 30 link
+  reads in 24 hours, each counted under `pg_advisory_xact_lock` on the
+  account and the source, all `read_limit_reached` 429. A body naming none
+  or two sources is `invalid_request` 400. `GET /v1/listing-reads/{id}`
+  builds one view for every source and is `listing_read_not_found` 404 for
+  another account's read or one past `expires_at`. Each save notifies the
+  account with `listing_read`.
+- Migration 0039 copied the rows of `video_reads` and `link_reads` and
+  their updates into `listing_reads` and `listing_read`; those tables and
+  `account_updates.video_read_id` and `link_read_id` stay, since the
+  release before writes them while the migration runs, until a later
+  release drops them.
+
+The video read:
+
+- `{video}` takes one of the caller's video uploads. Restate service
   `VideoRead.Start`, key `<account id>/<Idempotency-Key>`, refuses a
   suspended account and one without a phone (`phone_required`, as a listing
   post does: a read exists to post a listing, and accounts made of an email
   alone would otherwise reach the model), then inserts the row. The insert's transaction takes
   a share lock on the caller's `accounts` row (a tombstone is
   `session_revoked`) and `pg_advisory_xact_lock` on the account, and counts
-  the reads of the last 24 hours; 30 is `read_limit_reached` 429. `Start`
+  the account's video reads of the last 24 hours. `Start`
   then holds the video (another holder is `invalid_upload`, and the row is
   deleted again; a hold that loses a race to another start's save runs
   again and then sees that holder) and sends `Expire` with a 24-hour delay and `Run` one way,
   both keyed by the read's ID.
-- `Run` has three model steps, and each saves the row and notifies the
-  account with `video_read`. Frames: the video goes to `ai`'s
+- `Run` has three model steps, and each saves the row. Frames: the video goes to `ai`'s
   `POST /v1/video/frames`, and each frame it keeps becomes a waiting photo
   upload of the seller (`SaveFrame`), so the draft posts with
-  `POST /v1/listings` like photos the app uploaded. Fill: speech to text
-  and the LLM in one step, so the transcript never reaches the journal; the
-  LLM gets the frames at 768 px, the transcript and the subcategories, and
-  answers a strict schema. Estimate: catalog's `PriceSample` with the
+  `POST /v1/listings` like photos the app uploaded. Fill: the phone's
+  transcript when the read has one, else speech to text, and the LLM in one
+  step, so the transcript never reaches the journal; the LLM gets the
+  frames at 768 px, the transcript with where it came from, and the
+  subcategories, and answers a strict schema. Estimate: catalog's `PriceSample` with the
   draft's text vector and the mean of the kept frames' vectors.
 - The LLM's answer is cleaned like search's understanding. An unknown
   subcategory becomes its root's `.other`, or nothing when the root is
@@ -1623,7 +1643,7 @@ Spam and scam detection is moderation and goes to trust; the two share
   left gives the sharpest frame. `is_item = false` or an empty title fails
   the read with `no_item`. The description restates the seller's words
   only, and the prompt forbids naming a mark the seller did not name
-  (`app/mohinh.md`, section 1). `PromptVersion` is 1.
+  (`app/mohinh.md`, section 1). `PromptVersion` is 2.
 - The price range comes from the 30 listings most like the draft in its
   subcategory and condition: sold in the last 180 days at weight 2, active
   or reserved and published in the last 90 at weight 1, the seller's own
@@ -1631,7 +1651,7 @@ Spam and scam detection is moderation and goes to trust; the two share
   to 10,000, `source: market`; with fewer it is the model's range,
   `source: model`; without that, none. An embedding failure falls back to
   the model's range.
-- A 4xx from `ai` fails the read: `unreadable_video`, `video_too_short`
+- A 4xx from `ai` fails the read: `unreadable`, `video_too_short`
   (under 3 s) or `video_too_long` (over 35 s); any other 4xx from `ai` is the request's fault,
   `unavailable`, and logged. A 4xx from speech to text (a key, a budget, an
   error code the gateway rewrote) reads the video without speech, since the
@@ -1644,8 +1664,7 @@ Spam and scam detection is moderation and goes to trust; the two share
   never fails a read: past the deadline or after a failure the read ends
   `done` with the model's range. Every end consumes the video before it
   saves the end, so a read that shows it ended holds no video.
-- `GET /v1/video-reads/{id}` returns the read to its account until
-  `expires_at`; any other read is `video_read_not_found` 404. Frame URLs
+- The read's `photos` are its frames with `at_seconds`. Frame URLs
   are presigned GETs valid for an hour; a frame posted in a listing loses
   its original under `uploads/` when the listing's photos are processed, so
   its URL stops working. `Expire`, sent with the read's ID and its video's,
@@ -1653,9 +1672,18 @@ Spam and scam detection is moderation and goes to trust; the two share
   already gone (an account deleted between `Start` and `Run`), and deletes
   the row after 24 hours; frames not posted expire with
   their uploads.
-- The transcript is never stored, logged or returned. The fill's log line
+- The phone's transcript is at most 1,000 characters (the schema's
+  `maxLength`) and is taken as the seller's words. The use case keeps it,
+  trimmed, in `listing_read_transcripts` under the account and the
+  `Idempotency-Key` before it calls `VideoRead.Start`; the insert moves it
+  into `listing_reads.transcript`, and every insert first deletes waiting
+  ones older than 10 minutes. Once `Start` answers, the use case deletes
+  its own waiting one, so a retry's or a refused start's does not stay. The
+  save that ends the read sets `listing_reads.transcript` to NULL. A repeated key
+  answers the first read with the first transcript. No transcript is ever
+  logged, returned or in a journaled value. The fill's log line
   holds the prompt version, the frame count, the transcript's length in
-  characters, the category asked for and the one kept, the condition, the
+  characters and `transcript_from` (`phone`, `server` or `none`), the category asked for and the one kept, the condition, the
   counts of specs and kept frames, whether there is a description, the
   prices and the range, and the time taken.
 - Configuration: `AI_FRAMES_BASE_URL`, `STT_BASE_URL`, `STT_API_KEY`,
@@ -1664,7 +1692,26 @@ Spam and scam detection is moderation and goes to trust; the two share
   cluster the keys are LiteLLM's `server-stt` and `server-assist`. The
   estimate embeds with the search key, `EMBED_SEARCH_API_KEY`.
 
-The second use case reads the seller's own listing on Chợ Tốt into a
+The photo read (decided 2026-11-11, same spec as listing reads) reads one
+photo, the app's cover, and costs one image and no speech to text:
+
+- `PhotoRead.Start` refuses a suspended account and one without a phone,
+  inserts the row under the photo cap, then checks the photo with media's
+  `QueryUpload` (the caller's, a photo, waiting, before its expiry); a
+  refusal is `invalid_upload` 422 and deletes the row again. The read
+  holds nothing: the listing posts the photo.
+- `Run` fills, then estimates. The fill sends the photo at 768 px with
+  `photoSystemPrompt` (`PhotoPromptVersion` 1) and `PhotoAnswerSchema`;
+  `CleanPhoto` cleans the answer like the video's, keeps the photo as the
+  draft's one photo, sets no price and cuts the description at 300
+  characters. The description says what the photo shows and never names a
+  mark or a fault, or anything a photo cannot show. A photo no longer
+  waiting at the fill (posted, expired) is `unreadable` without the model.
+  The estimate is `marketEstimate` with the photo's vector. `Expire` deletes
+  the row after 24 hours. The log line has no title or description, only
+  their counts.
+
+The link read reads the seller's own listing on Chợ Tốt into a
 listing draft (decided 2026-11-11, spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-11-server2-link-read-design.md`).
 The server reads only Chợ Tốt, through its public gateway, and takes the
@@ -1691,14 +1738,14 @@ bạn", and nothing compares the listing's owner with the account.
   paste field. It stores nothing and needs no phone; it is POST so the link
   stays out of access logs. Chợ Tốt down is `source_unavailable` 503. It has
   no rate limit yet.
-- `POST /v1/link-reads {url}` with an `Idempotency-Key` answers 202.
+- `{link}` takes what the seller pasted, at most 2,048 characters;
+  `not_a_link` and `unsupported_source` answer before the account checks.
   Restate service `LinkRead.Start` refuses a suspended account and one
-  without a phone, then inserts the row under its own cap of 30 link reads
-  in 24 hours (counted apart from video reads, with the same code
-  `read_limit_reached` and the same locks), and sends `Expire` with a
-  24-hour delay and `Run`. The link is not fetched until `Run`.
+  without a phone, then inserts the row under the link cap, and sends
+  `Expire` with a 24-hour delay and `Run`. The link is not fetched until
+  `Run`.
 - `Run` has three steps under the video read's rules (a 2-minute deadline,
-  at most 3 attempts a step, a save and a `link_read` notice after each).
+  at most 3 attempts a step, a save after each).
   Read: the gateway and the model in one step, so the listing's text never
   enters the journal; the model gets the subject, the parameters, Chợ Tốt's
   category and the body, without photos, and answers a strict schema
@@ -1707,7 +1754,7 @@ bạn", and nothing compares the listing's owner with the account.
   1,000,000,000 đồng; `StripPhones` takes out what still looks like a
   Vietnamese phone number and sets `contact_removed`. Copy: the first 10
   photos, each saved with `SavePhoto(origin = link)` under an ID minted
-  before the step. A photo the CDN does not have or that is not an image
+  before the step; they are the read's `photos` and the draft's. A photo the CDN does not have or that is not an image
   is skipped; one it does not answer (5xx, 403, 429, a timeout) gets two
   tries and is then skipped. With none copied, a photo that did not come
   sends the step round again, photos off `CHOTOT_CDN_URL` fail the read
@@ -1716,9 +1763,8 @@ bạn", and nothing compares the listing's owner with the account.
   calls too, with the copies' vectors; without a market range the model's
   stands.
 - A failed read says `listing_not_found`, `no_item` or `unavailable`.
-  `GET /v1/link-reads/{id}` returns the read to its account until
-  `expires_at`, with presigned photo URLs valid for an hour; any other read
-  is `link_read_not_found` 404. `Expire` deletes the row after 24 hours;
+  `GET /v1/listing-reads/{id}` shows its `link` (site, URL, photo count),
+  with presigned photo URLs valid for an hour. `Expire` deletes the row after 24 hours;
   copies not posted expire with their uploads.
 - The read step's log line holds the prompt version, the list ID, the
   photo count, the body's length, Chợ Tốt's category, the category asked
@@ -1776,7 +1822,7 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   `listing_closed`, an agreement dropped, an open price taken back);
   discovery deletes the saves, the search history, the hidden listings, the
   search watches and the price cut switch; notification deletes the notices
-  and push tokens; assist deletes the video reads and the link reads.
+  and push tokens; assist deletes the reads and the waiting transcripts.
   Media does nothing: a waiting upload, a video read's frames and a link
   read's copies among them, expires
   within a day anyway, a read's video is consumed when the read ends, and

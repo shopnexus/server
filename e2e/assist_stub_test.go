@@ -32,6 +32,9 @@ const (
 		`"negotiable":true,"contact_removed":true,"estimate":{"low":4000000,"median":4500000,"high":5000000}}`
 	flatLinkAnswer = `{"is_item":false,"title":"","category_code":"","condition":"used","specs":[],"description":"",` +
 		`"negotiable":false,"contact_removed":false,"estimate":null}`
+	bicyclePhotoAnswer = `{"is_item":true,"title":"Xe đạp Asama xanh","category_code":"vehicles.bicycle","condition":"used",` +
+		`"specs":[{"label":"Màu","value":"Xanh"}],"description":"Xe đạp Asama màu xanh, có giỏ trước.",` +
+		`"estimate":{"low":1000000,"median":1200000,"high":1400000}}`
 	noItemAnswer = `{"is_item":false,"title":"","category_code":"","condition":"used","specs":[],"description":"",` +
 		`"spoken_price":null,"negotiable":false,"kept":[],"estimate":null}`
 )
@@ -84,6 +87,10 @@ func newAssist() *stubAssist {
 			}
 			if json.NewDecoder(r.Body).Decode(&req) != nil || len(req.Messages) != 2 {
 				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			if req.ResponseFormat.JSONSchema.Name == "photo_read" {
+				writeStubJSON(w, map[string]any{"choices": []map[string]any{{"message": map[string]string{"content": bicyclePhotoAnswer}}}})
 				return
 			}
 			if req.ResponseFormat.JSONSchema.Name == "link_read" {

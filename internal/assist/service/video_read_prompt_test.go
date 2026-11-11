@@ -34,12 +34,15 @@ func TestSystemPromptListsSubcategories(t *testing.T) {
 
 func TestUserPrompt(t *testing.T) {
 	t.Parallel()
-	p := userPrompt("mình bán bốn triệu rưỡi có thương lượng", 8)
-	if !strings.Contains(p, "8 frames, numbered 0 to 7") ||
+	p := userPrompt("mình bán bốn triệu rưỡi có thương lượng", 8, fromServer)
+	if !strings.Contains(p, "8 frames, numbered 0 to 7") || !strings.Contains(p, "from our speech recognition") ||
 		!strings.Contains(p, "<transcript>\nmình bán bốn triệu rưỡi có thương lượng\n</transcript>") {
 		t.Fatalf("%s", p)
 	}
-	if p = userPrompt("  ", 1); !strings.Contains(p, "1 frame, numbered 0") || !strings.Contains(p, "<transcript>\n</transcript>") ||
+	if p = userPrompt("Mình bán 4 triệu rưỡi.", 2, fromPhone); !strings.Contains(p, "from the seller's phone") {
+		t.Fatalf("%s", p)
+	}
+	if p = userPrompt("  ", 1, fromNone); !strings.Contains(p, "1 frame, numbered 0") || !strings.Contains(p, "<transcript>\n</transcript>") ||
 		!strings.Contains(p, "The seller said nothing") {
 		t.Fatalf("%s", p)
 	}

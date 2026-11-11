@@ -21,25 +21,30 @@ import (
 	"github.com/shopnexus/server2/internal/provider/llm"
 )
 
+// startHandler is the handler each read service starts a read with.
+const startHandler = "Start"
+
 // Service is module assist's contract.
 type Service interface {
 	// StartVideoRead runs VideoRead.Start once per account and
+	// idempotencyKey and returns the read as it is then. transcript is what
+	// the phone heard; blank is none, and the server hears the video then.
+	StartVideoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID, transcript string) (ListingReadView, error)
+	// StartPhotoRead runs PhotoRead.Start once per account and
 	// idempotencyKey and returns the read as it is then.
-	StartVideoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID) (VideoReadView, error)
-	// GetVideoRead returns one of account's video reads. Another account's,
-	// an unknown one and one past its expiry are domain.ErrNotFound.
-	GetVideoRead(ctx context.Context, account, id uuid.UUID) (VideoReadView, error)
+	StartPhotoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, photo uuid.UUID) (ListingReadView, error)
+	// StartLinkRead parses the link, runs LinkRead.Start once per account
+	// and idempotencyKey and returns the read as it is then.
+	StartLinkRead(ctx context.Context, account uuid.UUID, idempotencyKey, link string) (ListingReadView, error)
+	// GetRead returns one of account's reads of any source. Another
+	// account's, an unknown one and one past its expiry are
+	// domain.ErrNotFound.
+	GetRead(ctx context.Context, account, id uuid.UUID) (ListingReadView, error)
 	// PreviewLink reads the listing a pasted link names, for the card the
 	// app shows before the read, and stores nothing.
 	PreviewLink(ctx context.Context, account uuid.UUID, link string) (LinkPreviewView, error)
-	// StartLinkRead runs LinkRead.Start once per account and
-	// idempotencyKey and returns the read as it is then.
-	StartLinkRead(ctx context.Context, account uuid.UUID, idempotencyKey, link string) (LinkReadView, error)
-	// GetLinkRead returns one of account's link reads. Another account's, an
-	// unknown one and one past its expiry are domain.ErrLinkReadNotFound.
-	GetLinkRead(ctx context.Context, account, id uuid.UUID) (LinkReadView, error)
-	// DeleteAccount deletes a deleted account's reads of both kinds; a
-	// second call finds nothing left.
+	// DeleteAccount deletes a deleted account's reads and waiting
+	// transcripts; a second call finds nothing left.
 	DeleteAccount(ctx context.Context, account uuid.UUID) error
 }
 
@@ -62,8 +67,7 @@ type Transcriber interface {
 
 // Deps is what New builds Assist from.
 type Deps struct {
-	VideoReads repository.VideoReads
-	LinkReads  repository.LinkReads
+	Reads repository.ListingReads
 	// Source is Chợ Tốt, for link reads.
 	Source   ListingSource
 	Accounts accountsvc.Service
@@ -90,6 +94,7 @@ type Assist struct {
 	d          Deps
 	startVideo restatex.Caller[StartInput, StartResult]
 	startLink  restatex.Caller[StartLinkInput, StartResult]
+	startPhoto restatex.Caller[StartPhotoInput, StartResult]
 }
 
 var _ Service = (*Assist)(nil)
@@ -97,12 +102,13 @@ var _ Service = (*Assist)(nil)
 func New(d Deps) *Assist {
 	return &Assist{
 		d:          d,
-		startVideo: restatex.Caller[StartInput, StartResult]{Ingress: d.Ingress, Service: d.Prefix + videoRead, Handler: "Start"},
-		startLink:  restatex.Caller[StartLinkInput, StartResult]{Ingress: d.Ingress, Service: d.Prefix + linkRead, Handler: "Start"},
+		startVideo: restatex.Caller[StartInput, StartResult]{Ingress: d.Ingress, Service: d.Prefix + videoRead, Handler: startHandler},
+		startLink:  restatex.Caller[StartLinkInput, StartResult]{Ingress: d.Ingress, Service: d.Prefix + linkRead, Handler: startHandler},
+		startPhoto: restatex.Caller[StartPhotoInput, StartResult]{Ingress: d.Ingress, Service: d.Prefix + photoRead, Handler: startHandler},
 	}
 }
 
 // Durable returns module assist's Restate services, for Mount to bind.
 func (a *Assist) Durable() []restate.ServiceDefinition {
-	return []restate.ServiceDefinition{restate.Reflect(VideoRead{a.d}), restate.Reflect(LinkRead{a.d})}
+	return []restate.ServiceDefinition{restate.Reflect(VideoRead{a.d}), restate.Reflect(PhotoRead{a.d}), restate.Reflect(LinkRead{a.d})}
 }

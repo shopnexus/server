@@ -58,10 +58,10 @@ var AnswerSchema = json.RawMessage(`{"type":"object","additionalProperties":fals
 
 // Clean turns the model's answer into a draft and its price range,
 // keeping only values that pass the listing's rules. frames are the read's
-// frames in the order the model saw them, and sharpest the index of the
+// photos in the order the model saw them, and sharpest the index of the
 // sharpest, the cover when the model kept none. An answer that shows no
 // item, or has no title, is ErrNoItem.
-func Clean(a Answer, frames []Frame, sharpest int, cats []catalogdomain.Category) (Draft, *Range, error) {
+func Clean(a Answer, frames []Photo, sharpest int, cats []catalogdomain.Category) (Draft, *Range, error) {
 	d, err := cleanDraft(a.IsItem, a.Title, a.CategoryCode, a.Condition, a.Specs, a.Description, cats)
 	if err != nil {
 		return Draft{}, nil, err
