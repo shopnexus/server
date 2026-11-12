@@ -77,7 +77,10 @@ type Params struct {
 	Carrier string `json:"carrier,omitempty"`
 	Code    string `json:"code,omitempty"`
 	Reason  string `json:"reason,omitempty"`
-	Stars   int    `json:"stars,omitempty"`
+	// ToSeller marks the seller's copy of a notice both sides get with
+	// their own words.
+	ToSeller bool `json:"to_seller,omitempty"`
+	Stars    int  `json:"stars,omitempty"`
 	// Until is the end of a suspension in RFC 3339, empty for none.
 	Until string `json:"until,omitempty"`
 	// WatchID, Query and Count are a search watch's notice: the watch, its
@@ -139,6 +142,10 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 			t = TypeCompleted
 			if m.By == "system" {
 				p.Seller = f.SellerName
+				// The seller hears that the buyer has it, as from a confirmation.
+				sp := p
+				sp.Actor, sp.Seller = f.BuyerName, ""
+				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at})
 			}
 		case "failed":
 			// A failed delivery tells the seller too: the parcel comes back.
@@ -146,6 +153,13 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 			out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: p, At: at})
 		case "order_cancelled":
 			t, p.Reason = TypeOrderCancelled, f.CancelReason
+			// A timeout puts the seller's listing back on sale; the seller hears
+			// of it too.
+			if m.By == "system" && (p.Reason == "seller_timeout" || p.Reason == "pickup_timeout") {
+				sp := p
+				sp.ToSeller = true
+				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at})
+			}
 		default:
 			continue
 		}
@@ -278,6 +292,9 @@ var types = map[Type]struct {
 		case "listing_closed":
 			return p.Title + " không còn bán, đơn của bạn đã huỷ"
 		case "seller_timeout":
+			if p.ToSeller {
+				return "Bạn chưa tạo đơn " + p.Title + ", đơn đã huỷ"
+			}
 			return "Người bán chưa gửi " + p.Title + ", đơn của bạn đã huỷ"
 		case "pickup_timeout":
 			return "Hãng vận chuyển chưa lấy " + p.Title + ", đơn đã huỷ"
