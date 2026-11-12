@@ -16,21 +16,18 @@ import (
 )
 
 // soldDeal stores a deal on a new listing of seller's whose order was
-// delivered.
+// completed.
 func soldDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, seller uuid.UUID) domain.Deal {
 	t.Helper()
-	d := requestedDeal(t, db, s, buyer, seller)
-	w, err := domain.NewWaybill(domain.CarrierSPX, "", "SPX1", 22_000)
-	if err != nil {
+	d := pendingDeal(t, db, s, buyer, seller)
+	sent := domain.Shipment{Mode: domain.ModeManual, Carrier: domain.CarrierSPX, TrackingCode: "SPX1", Status: domain.ShipmentPendingPickup}
+	if err := d.Ship(domain.Seller, d.Order().ID, sent, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = d.Ship(domain.Seller, d.Order().ID, w, onSale, now); err != nil {
+	if err := d.ConfirmReceipt(domain.Buyer, d.Order().ID, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = d.Deliver(domain.Seller, d.Order().ID, now); err != nil {
-		t.Fatal(err)
-	}
-	if err = s.Save(context.Background(), &d, uuid.NewV7()); err != nil {
+	if err := s.Save(context.Background(), &d, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	return d
@@ -69,7 +66,7 @@ func TestOfPairs(t *testing.T) {
 	if want := []uuid.UUID{open.ID(), soldB.ID(), idle.ID()}; !slices.Equal(ids, want) {
 		t.Fatalf("got %v, want %v", ids, want)
 	}
-	if o := got[1].Order(); o == nil || o.Status != domain.OrderDelivered {
+	if o := got[1].Order(); o == nil || o.Status != domain.OrderCompleted {
 		t.Fatalf("the sold deal's order: %+v", o)
 	}
 	if got, err = s.OfPairs(ctx, viewer, nil); err != nil || len(got) != 0 {

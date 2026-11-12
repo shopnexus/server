@@ -25,8 +25,8 @@ const dealColumns = `id, listing_id, buyer_id, seller_id, status, open_by, open_
        agreed_price, agreed_at, write_id, created_at, updated_at`
 
 const orderColumns = `o.id, o.code, o.status, o.price, o.recipient_name, o.recipient_phone, o.recipient_street,
-       o.recipient_commune, o.waybill_source, o.carrier, o.carrier_name, o.tracking_code, o.fee, o.cancelled_by,
-       o.cancel_reason, o.requested_at, o.shipped_at, o.closed_at`
+       o.recipient_commune, o.shipment_mode, o.carrier, o.tracking_code, o.fee, o.shipment_status, o.delivered_at,
+       o.cancelled_by, o.cancel_reason, o.requested_at, o.shipped_at, o.closed_at`
 
 // selectDeal reads deals as d with each one's latest order.
 const selectDeal = `SELECT d.id, d.listing_id, d.buyer_id, d.seller_id, d.status, d.open_by, d.open_amount, d.open_at,
@@ -38,21 +38,22 @@ LEFT JOIN orders o ON o.id = latest.id
 
 // orderScan holds an order's nullable columns while a row is scanned.
 type orderScan struct {
-	id                                     *uuid.UUID
-	code, status                           *string
-	price                                  *int64
-	name, phone, street, commune           *string
-	source, carrier, carrierName, tracking *string
-	fee                                    *int64
-	cancelledBy, cancelReason              *string
-	requestedAt                            *time.Time
-	shippedAt, closedAt                    *time.Time
+	id                             *uuid.UUID
+	code, status                   *string
+	price                          *int64
+	name, phone, street, commune   *string
+	mode, carrier, tracking, state *string
+	fee                            *int64
+	deliveredAt                    *time.Time
+	cancelledBy, cancelReason      *string
+	requestedAt                    *time.Time
+	shippedAt, closedAt            *time.Time
 }
 
 func (o *orderScan) dest() []any {
 	return []any{
-		&o.id, &o.code, &o.status, &o.price, &o.name, &o.phone, &o.street, &o.commune, &o.source, &o.carrier,
-		&o.carrierName, &o.tracking, &o.fee, &o.cancelledBy, &o.cancelReason, &o.requestedAt, &o.shippedAt, &o.closedAt,
+		&o.id, &o.code, &o.status, &o.price, &o.name, &o.phone, &o.street, &o.commune, &o.mode, &o.carrier, &o.tracking,
+		&o.fee, &o.state, &o.deliveredAt, &o.cancelledBy, &o.cancelReason, &o.requestedAt, &o.shippedAt, &o.closedAt,
 	}
 }
 
@@ -66,12 +67,10 @@ func (o *orderScan) order() *domain.Order {
 		Recipient:   domain.Recipient{Name: *o.name, Phone: *o.phone, Street: *o.street, CommuneCode: *o.commune},
 		RequestedAt: *o.requestedAt, ShippedAt: o.shippedAt, ClosedAt: o.closedAt,
 	}
-	if o.source != nil {
-		out.Waybill = &domain.Waybill{
-			Source: *o.source, Carrier: domain.Carrier(*o.carrier), TrackingCode: *o.tracking, Fee: *o.fee,
-		}
-		if o.carrierName != nil {
-			out.Waybill.CarrierName = *o.carrierName
+	if o.mode != nil {
+		out.Shipment = &domain.Shipment{
+			Mode: domain.ShipmentMode(*o.mode), Carrier: domain.Carrier(*o.carrier), TrackingCode: *o.tracking,
+			Fee: o.fee, Status: domain.ShipmentStatus(*o.state), DeliveredAt: o.deliveredAt,
 		}
 	}
 	if o.cancelledBy != nil {
@@ -176,20 +175,20 @@ VALUES (@id, @deal_id, @kind, @by_party, @amount, @moved_at)
 ON CONFLICT (id) DO NOTHING`
 
 const countOpenOrders = `
-SELECT count(*) FROM orders WHERE buyer_id = @buyer AND status IN ('requested', 'shipped') AND id <> @id`
+SELECT count(*) FROM orders WHERE buyer_id = @buyer AND status IN ('pending', 'shipped') AND id <> @id`
 
 const upsertOrder = `
 INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name, recipient_phone,
-                    recipient_street, recipient_commune, waybill_source, carrier, carrier_name, tracking_code, fee,
-                    cancelled_by, cancel_reason, requested_at, shipped_at, closed_at)
+                    recipient_street, recipient_commune, shipment_mode, carrier, tracking_code, fee, shipment_status,
+                    delivered_at, cancelled_by, cancel_reason, requested_at, shipped_at, closed_at)
 VALUES (@id, @deal_id, @listing_id, @buyer_id, @seller_id, @status, @price, @recipient_name, @recipient_phone,
-        @recipient_street, @recipient_commune, @waybill_source, @carrier, @carrier_name, @tracking_code, @fee,
-        @cancelled_by, @cancel_reason, @requested_at, @shipped_at, @closed_at)
+        @recipient_street, @recipient_commune, @shipment_mode, @carrier, @tracking_code, @fee, @shipment_status,
+        @delivered_at, @cancelled_by, @cancel_reason, @requested_at, @shipped_at, @closed_at)
 ON CONFLICT (id) DO UPDATE
-SET status = excluded.status, waybill_source = excluded.waybill_source, carrier = excluded.carrier,
-    carrier_name = excluded.carrier_name, tracking_code = excluded.tracking_code, fee = excluded.fee,
-    cancelled_by = excluded.cancelled_by, cancel_reason = excluded.cancel_reason, shipped_at = excluded.shipped_at,
-    closed_at = excluded.closed_at`
+SET status = excluded.status, shipment_mode = excluded.shipment_mode, carrier = excluded.carrier,
+    tracking_code = excluded.tracking_code, fee = excluded.fee, shipment_status = excluded.shipment_status,
+    delivered_at = excluded.delivered_at, cancelled_by = excluded.cancelled_by, cancel_reason = excluded.cancel_reason,
+    shipped_at = excluded.shipped_at, closed_at = excluded.closed_at`
 
 // errSaved ends a save whose row already has its write ID: an earlier try
 // of the same save committed.
@@ -202,15 +201,13 @@ func orderArgs(st domain.DealState, o domain.Order) pgx.StrictNamedArgs {
 		"id": o.ID, "deal_id": st.ID, "listing_id": st.ListingID, "buyer_id": st.BuyerID, "seller_id": st.SellerID,
 		"status": o.Status, "price": o.Price, "recipient_name": o.Recipient.Name,
 		"recipient_phone": o.Recipient.Phone, "recipient_street": o.Recipient.Street,
-		"recipient_commune": o.Recipient.CommuneCode, "waybill_source": nil, "carrier": nil, "carrier_name": nil,
-		"tracking_code": nil, "fee": nil, "cancelled_by": nil, "cancel_reason": nil, "requested_at": o.RequestedAt,
-		"shipped_at": o.ShippedAt, "closed_at": o.ClosedAt,
+		"recipient_commune": o.Recipient.CommuneCode, "shipment_mode": nil, "carrier": nil, "tracking_code": nil,
+		"fee": nil, "shipment_status": nil, "delivered_at": nil, "cancelled_by": nil, "cancel_reason": nil,
+		"requested_at": o.RequestedAt, "shipped_at": o.ShippedAt, "closed_at": o.ClosedAt,
 	}
-	if w := o.Waybill; w != nil {
-		a["waybill_source"], a["carrier"], a["tracking_code"], a["fee"] = w.Source, w.Carrier, w.TrackingCode, w.Fee
-		if w.CarrierName != "" {
-			a["carrier_name"] = w.CarrierName
-		}
+	if s := o.Shipment; s != nil {
+		a["shipment_mode"], a["carrier"], a["tracking_code"] = s.Mode, s.Carrier, s.TrackingCode
+		a["fee"], a["shipment_status"], a["delivered_at"] = s.Fee, s.Status, s.DeliveredAt
 	}
 	if o.CancelledBy != "" {
 		a["cancelled_by"], a["cancel_reason"] = o.CancelledBy, o.CancelReason
@@ -242,7 +239,7 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 			return ErrConflict
 		}
 		if o := st.Order; o != nil {
-			if o.Status == domain.OrderRequested {
+			if o.Status == domain.OrderPending {
 				if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext(@buyer::text))`,
 					pgx.StrictNamedArgs{"buyer": st.BuyerID}); err != nil {
 					return fmt.Errorf("lock buyer: %w", err)
@@ -423,4 +420,16 @@ func (s pgDeals) Order(ctx context.Context, id uuid.UUID) (OrderRow, error) {
 		return OrderRow{}, fmt.Errorf("read order: %w", err)
 	}
 	return r, nil
+}
+
+func (s pgDeals) OrdersWithCode(ctx context.Context, code string) ([]OrderRow, error) {
+	rows, err := s.db.Query(ctx, selectOrder+`WHERE o.tracking_code = @code ORDER BY o.id`, pgx.StrictNamedArgs{"code": code})
+	if err != nil {
+		return nil, fmt.Errorf("select orders: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, scanOrder)
+	if err != nil {
+		return nil, fmt.Errorf("read orders: %w", err)
+	}
+	return out, nil
 }

@@ -30,14 +30,14 @@ type Deals interface {
 	// row still has the write ID d was read with, then sets its write ID. A
 	// row that already has writeID was written by an earlier try of this
 	// save: Save writes nothing more and returns nil. Otherwise ErrConflict
-	// and nothing is written. A requested order beyond the buyer's
+	// and nothing is written. A pending order beyond the buyer's
 	// domain.MaxOpenOrders is domain.ErrCodLimit; concurrent saves for one
 	// buyer count one at a time.
 	Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error
 	// OfListing returns every deal on a listing, oldest first.
 	OfListing(ctx context.Context, listingID uuid.UUID) ([]domain.Deal, error)
 	// OpenOrders reports an order of account's, as buyer or seller, that is
-	// requested or shipped.
+	// pending or shipped.
 	OpenOrders(ctx context.Context, account uuid.UUID) (bool, error)
 	// ActiveOf lists the deals, negotiating or agreed, where account is
 	// either side, oldest first.
@@ -50,6 +50,9 @@ type Deals interface {
 	ListByParty(ctx context.Context, account uuid.UUID, as domain.Party, p page.Request) ([]domain.Deal, error)
 	// Order returns one order with its deal, or ErrNotFound.
 	Order(ctx context.Context, id uuid.UUID) (OrderRow, error)
+	// OrdersWithCode returns the orders, in any status, whose shipment has
+	// the tracking code, oldest first.
+	OrdersWithCode(ctx context.Context, code string) ([]OrderRow, error)
 	// Between returns the deals of a and b on either side, newest first.
 	Between(ctx context.Context, a, b uuid.UUID) ([]domain.Deal, error)
 	// OfPairs returns, for viewer and each of others, the pair's deals on
