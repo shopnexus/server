@@ -27,7 +27,8 @@ type madeShipment struct {
 // is held, and a stack without a carrier gives the listing back. It gives the listing back, and calls off a GHTK shipment the
 // order did not take, when the order's save loses to anything but another
 // shipment of the same order. Once shipped, it cancels the listing's other
-// pending orders.
+// pending orders. It schedules the pickup timeout, and the completion of a
+// parcel already delivered.
 type DealShip struct{ Deals *Deals }
 
 func (s DealShip) ServiceName() string { return s.Deals.prefix + dealShip }
@@ -103,6 +104,13 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 			return s.Deals.ListingChanged(rc, m.Listing.ID)
 		}); err != nil {
 			return FlowResult{}, fmt.Errorf("cancel the other orders: %w", err)
+		}
+		ref := OrderRef{DealID: in.DealID, OrderID: in.OrderID}
+		restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "PickupTimeout").
+			Send(ref, restate.WithDelay(s.Deals.waits.Pickup))
+		if d.Order().Shipment.Status == domain.ShipmentDelivered {
+			restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "AutoComplete").
+				Send(ref, restate.WithDelay(s.Deals.waits.Complete))
 		}
 		return FlowResult{}, nil
 	}

@@ -44,7 +44,9 @@ func newEnv(t *testing.T) env {
 	accounts := accounttest.Service(db)
 	c := catalogtest.Service(db, accounts, mediatest.Service(db, objectstoretest.New(t), in, p), in, p)
 	repo := repository.NewDeals(db)
-	deps := service.Deps{Deals: repo, Accounts: accounts, Catalog: c, Carrier: carrier.Fake{}, Ingress: in, Now: time.Now}
+	deps := service.Deps{
+		Deals: repo, Accounts: accounts, Catalog: c, Carrier: carrier.Fake{}, Waits: domain.OrderWaits, Ingress: in, Now: time.Now,
+	}
 	return env{db: db, accounts: accounts, catalog: c, listings: catalogrepo.NewListings(db), repo: repo, deps: deps, deals: start(t, deps)}
 }
 

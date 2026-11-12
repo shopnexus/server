@@ -16,6 +16,7 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	chatrepo "github.com/shopnexus/server2/internal/chat/repository"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
+	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealrepo "github.com/shopnexus/server2/internal/deal/repository"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/media/mediatest"
@@ -46,8 +47,8 @@ func newEnv(t *testing.T) env {
 	media := mediatest.Service(db, objectstoretest.New(t), in, p)
 	c := catalogtest.Service(db, accounts, media, in, p)
 	deals := dealsvc.New(dealsvc.Deps{
-		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Carrier: carrier.Fake{}, Ingress: in, Prefix: p,
-		Now: time.Now,
+		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Carrier: carrier.Fake{}, Waits: dealdomain.OrderWaits, Ingress: in,
+		Prefix: p, Now: time.Now,
 	})
 	chats := chatsvc.New(chatsvc.Deps{
 		Chats: chatrepo.NewChats(db), Accounts: accounts, Catalog: c, Media: media, Ingress: in, Prefix: p, Now: time.Now,

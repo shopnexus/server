@@ -63,6 +63,10 @@ type Service interface {
 	// LookupShipment reads a shipment from its carrier, for the seller's
 	// preview of a manual shipment.
 	LookupShipment(ctx context.Context, carrierCode, trackingCode string) (ShipmentPreview, error)
+	// ShipmentUpdated sets the status of every shipped order whose
+	// shipment has trackingCode, as its carrier reports it. A closed order
+	// changes nothing; no order with the code is domain.ErrShipmentNotFound.
+	ShipmentUpdated(ctx context.Context, trackingCode, status string) error
 	// Order reads one order for another module: its two sides, its
 	// listing and its status; false for an unknown one.
 	Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, error)
@@ -97,11 +101,17 @@ type Deps struct {
 	Catalog  catalogsvc.Service
 	// Carrier makes and reads shipments.
 	Carrier carrier.Client
+	// Waits are how long the system waits before it moves an order on:
+	// domain.OrderWaits outside tests. New refuses a zero wait.
+	Waits domain.Waits
 	// Ingress and Prefix reach this process's Restate services.
 	Ingress *ingress.Client
 	Prefix  string
 	Now     func() time.Time
 }
+
+// flowHandler is the handler of every flow service the module calls.
+const flowHandler = "Run"
 
 // Deals implements Service in this process.
 type Deals struct {
@@ -109,19 +119,31 @@ type Deals struct {
 	accounts accountsvc.Service
 	catalog  catalogsvc.Service
 	carrier  carrier.Client
+	waits    domain.Waits
+	ingress  *ingress.Client
 	prefix   string
 	now      func() time.Time
 	ship     restatex.Caller[FlowInput, FlowResult]
 	confirm  restatex.Caller[FlowInput, FlowResult]
+	shipment restatex.Caller[ShipmentSignal, ShipmentResult]
 }
 
 var _ Service = (*Deals)(nil)
 
+// New builds Deals. A zero wait would move every order on the moment it
+// is made, so New panics on one.
 func New(d Deps) *Deals {
+	if d.Waits.Seller <= 0 || d.Waits.Pickup <= 0 || d.Waits.Complete <= 0 {
+		panic("deal: Deps.Waits needs every wait; pass domain.OrderWaits")
+	}
 	return &Deals{
-		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, carrier: d.Carrier, prefix: d.Prefix, now: d.Now,
-		ship:    restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: "Run"},
-		confirm: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealConfirm, Handler: "Run"},
+		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, carrier: d.Carrier, waits: d.Waits, ingress: d.Ingress,
+		prefix: d.Prefix, now: d.Now,
+		ship:    restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: flowHandler},
+		confirm: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealConfirm, Handler: flowHandler},
+		shipment: restatex.Caller[ShipmentSignal, ShipmentResult]{
+			Ingress: d.Ingress, Service: d.Prefix + shipmentUpdates, Handler: flowHandler,
+		},
 	}
 }
 
@@ -129,6 +151,7 @@ func New(d Deps) *Deals {
 func (s *Deals) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
 		restate.Reflect(DealShip{Deals: s}), restate.Reflect(DealConfirm{Deals: s}),
+		restate.Reflect(OrderTimers{Deals: s}), restate.Reflect(ShipmentUpdates{Deals: s}),
 	}
 }
 

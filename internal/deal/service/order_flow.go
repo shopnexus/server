@@ -143,3 +143,23 @@ func (s *Deals) orderDeal(ctx context.Context, caller, order uuid.UUID) (uuid.UU
 	}
 	return r.DealID, nil
 }
+
+// systemLoadStep reads a deal and its listing for a move of the system's
+// in one journaled step.
+func systemLoadStep(ctx restate.Context, s *Deals, id uuid.UUID) (loaded, error) {
+	out, err := restate.Run(ctx, func(rc restate.RunContext) (loaded, error) {
+		d, stepErr := s.deals.Get(rc, id)
+		if stepErr != nil {
+			return loaded{}, fmt.Errorf("get deal: %w", stepErr)
+		}
+		l, stepErr := s.listing(rc, d.ListingID())
+		if stepErr != nil {
+			return loaded{}, stepErr
+		}
+		return loaded{Deal: d.State(), By: domain.System, Listing: l}, nil
+	})
+	if err != nil {
+		return loaded{}, fmt.Errorf("load the deal: %w", err)
+	}
+	return out, nil
+}

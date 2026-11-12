@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"uuid"
 
+	restate "github.com/restatedev/sdk-go"
+	"github.com/restatedev/sdk-go/ingress"
+
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/provider/carrier"
 )
@@ -41,6 +44,14 @@ func (s *Deals) EditShipment(ctx context.Context, caller, order uuid.UUID, carri
 		Mode: domain.ModeManual, Carrier: c, TrackingCode: code, Fee: p.Fee, Status: domain.ShipmentStatus(p.Status),
 	}, m.now); err != nil {
 		return DealView{}, err
+	}
+	if m.deal.Order().Shipment.Status == domain.ShipmentDelivered {
+		// The completion goes before the save; one that finds the parcel
+		// not delivered, as after a refused save, does nothing.
+		if _, err = ingress.ServiceSend[OrderRef](s.ingress, s.prefix+orderTimers, "AutoComplete").
+			Send(ctx, OrderRef{DealID: deal, OrderID: order}, restate.WithDelay(s.waits.Complete)); err != nil {
+			return DealView{}, fmt.Errorf("schedule the completion: %w", err)
+		}
 	}
 	return s.save(ctx, caller, m)
 }

@@ -368,3 +368,30 @@ func TestShipTwiceKeepsTheListing(t *testing.T) {
 		t.Fatalf("listing %s for %s", st, held)
 	}
 }
+
+func TestConfirmRefusesAFailedOrder(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	listing := catalogtest.Listing(t, e.db, seller)
+	first := e.shipped(t, buyer, seller, listing, "SPXFIRST1")
+	if err := e.deals.ShipmentUpdated(ctx, "SPXFIRST1", "failed"); err != nil {
+		t.Fatal(err)
+	}
+	must(t)(e.deals.Accept(ctx, buyer, first.ID, 1_500_000))
+	second, err := e.deals.RequestCod(ctx, buyer, first.ID, e.address(t, buyer))
+	if err != nil || second.Order.ID == first.Order.ID {
+		t.Fatalf("second order: %+v %v", second.Order, err)
+	}
+	must(t)(e.deals.CreateShipment(ctx, seller, second.Order.ID, key(), manual("SPXSECOND1")))
+	if _, err = e.deals.ConfirmReceipt(ctx, buyer, first.Order.ID, key()); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Fatalf("confirm the failed order: %v", err)
+	}
+	if v := e.get(t, buyer, first.ID); v.Order.ID != second.Order.ID || v.Order.Status != domain.OrderShipped || v.Status != domain.StatusAgreed {
+		t.Fatalf("the second order moved: %+v %s", v.Order, v.Status)
+	}
+	if st, held := e.summary(t, listing); st != catalogdomain.StatusReserved || held != second.Order.ID {
+		t.Fatalf("listing %s for %s", st, held)
+	}
+}

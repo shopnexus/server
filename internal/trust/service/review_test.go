@@ -101,3 +101,17 @@ func TestSellerReviewsOfAStranger(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+func TestFailedOrderIsReviewed(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	_, order := e.shipped(t, buyer, seller)
+	if err := e.deals.ShipmentUpdated(ctx, "SPX1", "failed"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.trust.PutReview(ctx, buyer, order, 1, "Không đúng mô tả"); err != nil {
+		t.Fatal(err)
+	}
+}
