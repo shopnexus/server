@@ -83,11 +83,8 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 		}
 		if o := facts.Order; o != nil {
 			out.CancelReason = string(o.CancelReason)
-			if o.Waybill != nil {
-				out.Carrier, out.TrackingCode = string(o.Waybill.Carrier), o.Waybill.TrackingCode
-				if o.Waybill.CarrierName != "" {
-					out.Carrier = o.Waybill.CarrierName
-				}
+			if o.Shipment != nil {
+				out.Carrier, out.TrackingCode = string(o.Shipment.Carrier), o.Shipment.TrackingCode
 			}
 		}
 		return out, nil

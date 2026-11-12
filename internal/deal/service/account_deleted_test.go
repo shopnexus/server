@@ -13,7 +13,7 @@ func TestAccountDeletedEndsTheDeals(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	v := e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
+	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 
 	open, err := e.deals.OpenOrders(ctx, buyer)
 	if err != nil || !open {

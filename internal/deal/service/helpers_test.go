@@ -21,6 +21,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server2/internal/provider/carrier"
 )
 
 type env struct {
@@ -43,7 +44,7 @@ func newEnv(t *testing.T) env {
 	accounts := accounttest.Service(db)
 	c := catalogtest.Service(db, accounts, mediatest.Service(db, objectstoretest.New(t), in, p), in, p)
 	repo := repository.NewDeals(db)
-	deps := service.Deps{Deals: repo, Accounts: accounts, Catalog: c, Ingress: in, Now: time.Now}
+	deps := service.Deps{Deals: repo, Accounts: accounts, Catalog: c, Carrier: carrier.Fake{}, Ingress: in, Now: time.Now}
 	return env{db: db, accounts: accounts, catalog: c, listings: catalogrepo.NewListings(db), repo: repo, deps: deps, deals: start(t, deps)}
 }
 

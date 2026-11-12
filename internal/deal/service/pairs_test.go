@@ -22,9 +22,9 @@ func TestPairSummaries(t *testing.T) {
 	facing := e.open(t, a, catalogtest.Listing(t, e.db, viewer))
 	must(t)(e.deals.Offer(ctx, a, facing.ID, 1_100_000))
 	e.open(t, viewer, catalogtest.Listing(t, e.db, a))
-	// With c: an idle deal, then a requested order the seller has to ship.
+	// With c: an idle deal, then a pending order the seller has to ship.
 	e.open(t, viewer, catalogtest.Listing(t, e.db, c))
-	requested := e.requested(t, viewer, catalogtest.Listing(t, e.db, c))
+	requested := e.pending(t, viewer, catalogtest.Listing(t, e.db, c))
 	// With d: an agreement waiting for the viewer's COD request.
 	agreed := e.agreed(t, viewer, catalogtest.Listing(t, e.db, d))
 
@@ -45,7 +45,7 @@ func TestPairSummaries(t *testing.T) {
 	}
 	gc := got[c]
 	if gc.Deal.ID != requested.ID || gc.Deal.YourTurn || gc.Deal.Status != domain.StatusAgreed ||
-		gc.Deal.OrderStatus != domain.OrderRequested || gc.Deal.AgreedPrice == nil || *gc.Deal.AgreedPrice != 1_500_000 ||
+		gc.Deal.OrderStatus != domain.OrderPending || gc.Deal.AgreedPrice == nil || *gc.Deal.AgreedPrice != 1_500_000 ||
 		gc.OtherActive != 1 {
 		t.Fatalf("with c: %+v", gc)
 	}
@@ -54,7 +54,7 @@ func TestPairSummaries(t *testing.T) {
 		gd.OtherActive != 0 {
 		t.Fatalf("with d: %+v", gd)
 	}
-	// The seller of the requested order has to ship it.
+	// The seller of the pending order has to ship it.
 	if s, err := e.deals.PairSummaries(ctx, c, []uuid.UUID{viewer}); err != nil || !s[viewer].Deal.YourTurn ||
 		s[viewer].Deal.ID != requested.ID {
 		t.Fatalf("as the seller: %+v %v", s, err)
