@@ -16,12 +16,14 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	chatrepo "github.com/shopnexus/server2/internal/chat/repository"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
+	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealrepo "github.com/shopnexus/server2/internal/deal/repository"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/media/mediatest"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server2/internal/provider/carrier"
 	"github.com/shopnexus/server2/internal/trust/repository"
 	"github.com/shopnexus/server2/internal/trust/service"
 )
@@ -45,7 +47,8 @@ func newEnv(t *testing.T) env {
 	media := mediatest.Service(db, objectstoretest.New(t), in, p)
 	c := catalogtest.Service(db, accounts, media, in, p)
 	deals := dealsvc.New(dealsvc.Deps{
-		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Ingress: in, Prefix: p, Now: time.Now,
+		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Carrier: carrier.Fake{}, Waits: dealdomain.OrderWaits, Ingress: in,
+		Prefix: p, Now: time.Now,
 	})
 	chats := chatsvc.New(chatsvc.Deps{
 		Chats: chatrepo.NewChats(db), Accounts: accounts, Catalog: c, Media: media, Ingress: in, Prefix: p, Now: time.Now,
@@ -65,9 +68,9 @@ func (e env) person(t *testing.T) uuid.UUID {
 	return accounttest.WithPhone(t, e.db)
 }
 
-// requested puts a listing of seller's on sale, agrees a deal on it between
+// pending puts a listing of seller's on sale, agrees a deal on it between
 // buyer and seller and asks for COD, returning the deal and its order.
-func (e env) requested(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
+func (e env) pending(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
 	t.Helper()
 	ctx := context.Background()
 	d, _, err := e.deals.Open(ctx, buyer, catalogtest.Listing(t, e.db, seller))
@@ -90,12 +93,13 @@ func (e env) requested(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.
 	return d.ID, v.Order.ID
 }
 
-// shipped is a requested order the seller shipped.
+// shipped is a pending order the seller shipped under SPX1 with the fake
+// carrier.
 func (e env) shipped(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
 	t.Helper()
-	deal, order = e.requested(t, buyer, seller)
-	if _, err := e.deals.Ship(context.Background(), seller, order, uuid.NewV7().String(), dealsvc.WaybillInput{
-		Carrier: "spx", TrackingCode: "SPX1", Fee: 22_000,
+	deal, order = e.pending(t, buyer, seller)
+	if _, err := e.deals.CreateShipment(context.Background(), seller, order, uuid.NewV7().String(), dealsvc.ShipmentInput{
+		Mode: "manual", Carrier: "spx", TrackingCode: "SPX1",
 	}); err != nil {
 		t.Fatal(err)
 	}

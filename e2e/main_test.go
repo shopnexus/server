@@ -52,6 +52,9 @@ var (
 	phones     = newPhones()        // every push the server sends
 	mails      = newInbox()         // every mail the server sends
 	consoleSvc *consolesvc.Console  // on the server's keys and database, so tests create members directly
+	// serverConfig is the shared server's configuration, for a test that
+	// starts a second server.
+	serverConfig config.Config
 )
 
 func TestMain(m *testing.M) {
@@ -157,9 +160,11 @@ func setup(closers *[]func()) error {
 		Firebase: issuer.Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
 		Google:   google.Config(),
+		Carrier:  "fake",
 		// Tests may set X-Forwarded-For.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}
+	serverConfig = cfg
 	consoleKeys, err := consolesvc.NewKeys(cfg.Console, consoledomain.Fast)
 	if err != nil {
 		return err

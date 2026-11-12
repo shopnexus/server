@@ -39,25 +39,24 @@ func TestTurnOf(t *testing.T) {
 		{"agreed without an order", agreed, onSale, true, false, true},
 		{"agreed on a listing reserved for another order", agreed, reserved, false, false, true},
 		{"agreed on a hidden listing", agreed, domain.Listing{Price: 1_500_000, Status: domain.ListingHidden}, false, false, true},
-		{"a requested order", requested, onSale, false, true, true},
-		{"a shipped order", shipped, reserved, false, true, true},
+		{"a pending order", pending, onSale, false, true, true},
+		{"a shipped order", shipped, reserved, false, false, true},
 		{"a cancelled order", func(t *testing.T) domain.Deal {
 			t.Helper()
-			d := requested(t)
+			d := pending(t)
 			must(t, d.Cancel(domain.Buyer, now))
 			return d
 		}, onSale, false, false, true},
-		{"agreed again after a return", func(t *testing.T) domain.Deal {
+		{"agreed again after a failed delivery", func(t *testing.T) domain.Deal {
 			t.Helper()
-			d := shipped(t)
-			must(t, d.Return(domain.Seller, d.Order().ID, now))
+			d := reported(t, domain.ShipmentFailed)
 			must(t, d.Accept(domain.Buyer, 1_500_000, onSale, now))
 			return d
 		}, onSale, true, false, true},
 		{"sold", func(t *testing.T) domain.Deal {
 			t.Helper()
 			d := shipped(t)
-			must(t, d.Deliver(domain.Seller, d.Order().ID, now))
+			must(t, d.ConfirmReceipt(domain.Buyer, d.Order().ID, now))
 			return d
 		}, gone, false, false, false},
 	}

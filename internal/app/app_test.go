@@ -6,11 +6,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server2/internal/platform/httpx"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
@@ -47,6 +49,7 @@ func testConfig(t *testing.T) config.Config {
 		Firebase: firebasetest.New(t).Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},
 		Google:   googletest.New(t).Config(),
+		Carrier:  "fake",
 	}
 }
 
@@ -189,5 +192,43 @@ func TestCloseStopsTheEventBus(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("Close did not return")
+	}
+}
+
+func TestNewRefusesAnUnknownCarrier(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Carrier = "pigeon"
+	if _, err := New(context.Background(), cfg, discard()); err == nil || !strings.Contains(err.Error(), "CARRIER") {
+		t.Fatalf("err %v", err)
+	}
+}
+
+// With the fake carrier anyone may move shipments through the dev
+// endpoint, so production refuses it.
+func TestNewRefusesTheFakeCarrierInProd(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Env, cfg.Email.Sender, cfg.Email.ResendAPIKey = "prod", "resend", "re_test"
+	_, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}))
+	if err == nil || !strings.Contains(err.Error(), "CARRIER") {
+		t.Fatalf("err %v", err)
+	}
+}
+
+// Without a carrier the dev endpoint is not served; the shipment routes are.
+func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Carrier = "none"
+	a, err := New(context.Background(), cfg, discard())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { a.Close(context.Background()) })
+	routes := a.Routes()
+	if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/shipments/{code}/status"}) ||
+		!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/shipments/lookup"}) {
+		t.Fatalf("routes %v", routes)
 	}
 }

@@ -8,10 +8,10 @@ import (
 
 func TestPartyLeft(t *testing.T) {
 	t.Parallel()
-	req := requested(t)
+	req := pending(t)
 	if !req.PartyLeft(now) || req.Order().Status != domain.OrderCancelled || req.Order().CancelledBy != domain.System ||
 		req.Order().CancelReason != domain.CancelListingClosed || req.Status() != domain.StatusNegotiating {
-		t.Fatalf("requested: %+v", req.State())
+		t.Fatalf("pending: %+v", req.State())
 	}
 
 	agreed := newDeal()

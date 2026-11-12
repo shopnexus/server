@@ -39,6 +39,14 @@ type dealView struct {
 			Phone  string `json:"phone"`
 			Street string `json:"street"`
 		} `json:"recipient"`
+		Shipment *struct {
+			Mode         string `json:"mode"`
+			Carrier      string `json:"carrier"`
+			TrackingCode string `json:"tracking_code"`
+			Fee          *int64 `json:"fee"`
+			Status       string `json:"status"`
+			DeliveredAt  string `json:"delivered_at"`
+		} `json:"shipment"`
 	} `json:"order"`
 }
 

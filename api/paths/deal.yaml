@@ -272,7 +272,7 @@ dealWithdraw:
 dealCancel:
   post:
     operationId: cancelDeal
-    summary: Drop the agreed price, and a requested order with it; the deal negotiates again.
+    summary: Drop the agreed price, and a pending order with it; the deal negotiates again.
     description: |
       Works in any state of the listing and for a suspended account.
     tags: [deal]
@@ -344,7 +344,9 @@ dealCod:
       The buyer of an agreed deal with no open order, on a listing on sale,
       with fewer than 3 open orders, to one of the buyer's addresses. The
       order keeps a copy of the address as its recipient. It starts
-      requested; either side may cancel it until the seller ships.
+      pending; either side may cancel it until the seller creates the
+      shipment, and it is cancelled with seller_timeout when the seller has
+      created none 3 days later.
     tags: [deal]
     security:
       - bearerAuth: []
@@ -390,14 +392,22 @@ dealCod:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-orderShip:
+orderShipment:
   post:
-    operationId: shipOrder
-    summary: Record the waybill of a requested order.
+    operationId: createShipment
+    summary: Create the shipment of a pending order.
     description: |
-      The seller, once the parcel is with the carrier. The listing is
-      reserved for the order, and other buyers' requested orders on it are
-      cancelled with sent_to_another shortly after.
+      The seller, in one commit. manual: the seller made the shipment on
+      the carrier's own app and types its code; the server reads it from
+      the carrier. linked: the server makes it on the seller's GHTK
+      account. The order is shipped, the listing is reserved for it, and
+      other buyers' pending orders on the listing are cancelled with
+      shipped_to_another. A parcel the carrier reports delivered ships
+      delivered. Checks, in order: the shipment's fields, for a manual one
+      the carrier's answer, then the order is the caller's, the order's
+      state, the listing, and for a linked one GHTK's answer. A stack
+      without a carrier (CARRIER=none, production for now) answers 503
+      carrier_unavailable.
     tags: [deal]
     security:
       - bearerAuth: []
@@ -414,7 +424,7 @@ orderShip:
       content:
         application/json:
           schema:
-            $ref: "../schemas/deal.yaml#/WaybillDraft"
+            $ref: "../schemas/deal.yaml#/ShipmentDraft"
     responses:
       "200":
         description: The order's deal.
@@ -433,23 +443,90 @@ orderShip:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not the deal's open one or not requested, or the caller is the buyer (move_not_allowed), the listing is not on sale (listing_unavailable), or the deal changed meanwhile (deal_changed)."
+        description: "The order is not the deal's pending one, or the caller is the buyer (move_not_allowed); the listing is not on sale (listing_unavailable); or the deal changed meanwhile (deal_changed)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "The waybill breaks a rule (invalid_waybill, with fields)."
+        description: "The shipment breaks a rule, the carrier's report of a failed parcel included (invalid_shipment, with fields), or the carrier does not know the tracking code (shipment_not_found)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-orderDeliver:
-  post:
-    operationId: deliverOrder
-    summary: Report a shipped order delivered.
+      "503":
+        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  put:
+    operationId: editShipment
+    summary: Correct the carrier and tracking code of a manual shipment.
     description: |
-      The seller. The deal is sold and the listing sold.
+      The seller, while the shipment is pending_pickup or in_transit. The
+      server reads the new code from the carrier as on creation and takes
+      its status. Checks, in order: the carrier and the code, the
+      carrier's answer, then the order is the caller's and its state.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/deal.yaml#/TrackingCode"
+    responses:
+      "200":
+        description: The order's deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such order of the caller's (order_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The order is not shipped, its shipment is linked or no longer pending_pickup or in_transit, or the caller is the buyer (move_not_allowed); or the deal changed meanwhile (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The carrier or the code breaks a rule, the carrier's report of a failed parcel included (invalid_shipment, with fields), or the carrier does not know the tracking code (shipment_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+orderConfirm:
+  post:
+    operationId: confirmReceipt
+    summary: Confirm receipt of a shipped order.
+    description: |
+      The buyer, at any time while the order is shipped, whatever the
+      carrier reports. The order is completed, the deal sold and the
+      listing sold.
     tags: [deal]
     security:
       - bearerAuth: []
@@ -479,47 +556,101 @@ orderDeliver:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not the deal's open one or not shipped, or the caller is the buyer (move_not_allowed), or the deal changed meanwhile (deal_changed)."
+        description: "The order is not the deal's shipped one, or the caller is the seller (move_not_allowed); or the deal changed meanwhile (deal_changed)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-orderReturn:
-  post:
-    operationId: returnOrder
-    summary: Report a shipped order returned.
+shipmentLookup:
+  get:
+    operationId: lookupShipment
+    summary: Read a shipment from its carrier, for the seller's preview.
     description: |
-      The seller. The deal negotiates again and the listing is back on sale.
+      Before the seller confirms a manual shipment or a corrected code.
+      The app warns, and does not block, when cod_amount differs from the
+      agreed price.
     tags: [deal]
     security:
       - bearerAuth: []
     parameters:
-      - name: order_id
-        in: path
+      - name: carrier
+        in: query
         required: true
+        description: ghtk, ghn, spx, jt or viettel_post; another value is 422 invalid_shipment.
         schema:
           type: string
-          format: uuid
-      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+      - name: code
+        in: query
+        required: true
+        description: The tracking code, 1 to 50 characters once trimmed.
+        schema:
+          type: string
     responses:
       "200":
-        description: The order's deal.
+        description: The shipment as its carrier reads it.
         content:
           application/json:
             schema:
-              $ref: "../schemas/deal.yaml#/Deal"
+              $ref: "../schemas/deal.yaml#/ShipmentPreview"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
-        description: "No such order of the caller's (order_not_found)."
+        description: "The carrier does not know the tracking code (shipment_not_found)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "409":
-        description: "The order is not the deal's open one or not shipped, or the caller is the buyer (move_not_allowed), or the deal changed meanwhile (deal_changed)."
+      "422":
+        description: "The carrier or the code breaks a rule (invalid_shipment, with fields)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+devShipmentStatus:
+  post:
+    operationId: setShipmentStatus
+    summary: Set the status of every shipment with a tracking code, as its carrier would.
+    description: |
+      Served only with CARRIER=fake, which the dev and test stacks run, to
+      anyone, since the fake carrier's shipments move only through it.
+      Production runs CARRIER=none and does not serve it. It calls the entry point the real
+      carriers' reports will use. A closed order changes nothing.
+      delivered completes the order 3 days later unless the buyer
+      confirms first; failed fails it at once and releases the listing.
+    tags: [deal]
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/deal.yaml#/ShipmentStatusChange"
+    responses:
+      "204":
+        description: Taken, whether or not an order changed.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "404":
+        description: "No order has a shipment with the tracking code (shipment_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The status is not pending_pickup, in_transit, delivered or failed (invalid_status)."
         content:
           application/json:
             schema:

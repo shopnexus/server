@@ -18,7 +18,7 @@ func TestOpenOrdersActiveOfAndScrub(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewDeals(db)
 	buyer, seller := accounttest.New(t, db), accounttest.New(t, db)
-	d := requestedDeal(t, db, s, buyer, seller)
+	d := pendingDeal(t, db, s, buyer, seller)
 
 	open, err := s.OpenOrders(ctx, buyer)
 	if err != nil || !open {

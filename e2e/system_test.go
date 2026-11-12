@@ -29,6 +29,7 @@ func TestReadyzDown(t *testing.T) {
 		Restate:     restatetest.Config(t),
 		Auth:        keys,
 		Console:     config.ConsoleConfig{Key: config.NewConsoleKey(), Origin: "http://console.e2e"},
+		Carrier:     "fake",
 	}
 	objectStore, err := objectstoretest.Config()
 	if err != nil {

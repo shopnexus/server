@@ -42,11 +42,10 @@ func TestFromMoves(t *testing.T) {
 		"the listing closed":          {domain.Move{Kind: "listing_closed", By: "system"}, "", buyer, domain.TypeOfferVoided},
 		"a COD request":               {domain.Move{Kind: "cod_requested", By: "buyer"}, "", seller, domain.TypeCodRequested},
 		"shipped":                     {domain.Move{Kind: "shipped", By: "seller"}, "", buyer, domain.TypeShipped},
-		"delivered":                   {domain.Move{Kind: "delivered", By: "seller"}, "", buyer, domain.TypeDelivered},
-		"returned":                    {domain.Move{Kind: "returned", By: "seller"}, "", buyer, domain.TypeReturned},
+		"completed by the buyer":      {domain.Move{Kind: "completed", By: "buyer"}, "", seller, domain.TypeCompleted},
 		"the buyer cancels an order":  {domain.Move{Kind: "order_cancelled", By: "buyer"}, "buyer", seller, domain.TypeOrderCancelled},
 		"the seller cancels an order": {domain.Move{Kind: "order_cancelled", By: "seller"}, "seller", buyer, domain.TypeOrderCancelled},
-		"sent to another":             {domain.Move{Kind: "order_cancelled", By: "system"}, "sent_to_another", buyer, domain.TypeOrderCancelled},
+		"shipped to another":          {domain.Move{Kind: "order_cancelled", By: "system"}, "shipped_to_another", buyer, domain.TypeOrderCancelled},
 	} {
 		f := facts(c.move)
 		f.CancelReason = c.reason
@@ -55,6 +54,14 @@ func TestFromMoves(t *testing.T) {
 			!got[0].At.Equal(at) {
 			t.Errorf("%s: %+v", name, got)
 		}
+	}
+	failed := domain.FromMoves(facts(domain.Move{Kind: "failed", By: "system"}), at)
+	if len(failed) != 2 || failed[0].Recipient != seller || failed[1].Recipient != buyer ||
+		failed[0].Type != domain.TypeFailed || failed[1].Type != domain.TypeFailed {
+		t.Errorf("a failed delivery: %+v", failed)
+	}
+	if got := domain.FromMoves(facts(domain.Move{Kind: "shipment_updated", By: "system"}), at); len(got) != 0 {
+		t.Errorf("a carrier's report notifies: %+v", got)
 	}
 	if got := domain.FromMoves(facts(domain.Move{Kind: "withdraw", By: "buyer"}), at); len(got) != 0 {
 		t.Errorf("a withdrawal notifies: %+v", got)
@@ -79,21 +86,34 @@ func TestFollowedListing(t *testing.T) {
 func TestText(t *testing.T) {
 	t.Parallel()
 	offer := domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 1_200_000}), at)[0]
+	cancelled := func(reason string) domain.Notice {
+		f := facts(domain.Move{Kind: "order_cancelled", By: "system"})
+		f.CancelReason = reason
+		got := domain.FromMoves(f, at)
+		return got[len(got)-1] // the buyer's copy
+	}
 	for want, n := range map[string]domain.Notice{
-		"Đức Huy trả 1,2 tr cho Xe đạp Asama":       offer,
-		"Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9": domain.FromMoves(facts(domain.Move{Kind: "shipped", By: "seller"}), at)[0],
-		"Đức Huy trả 350.000 ₫ cho Xe đạp Asama":    domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 350_000}), at)[0],
-		"Tài khoản của bạn bị khoá đến 3/11":        domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
-		"Tài khoản của bạn bị khoá":                 domain.Suspended(buyer, "", at),
-		"Đức Huy chấm 5 sao cho Xe đạp Asama":       domain.Reviewed(seller, "Đức Huy", "Xe đạp Asama", 5, at),
-		"Hoàng Nam vừa đăng tin mới: Xe đạp Asama":  domain.FollowedListing(buyer, seller, "Hoàng Nam", uuid.NewV7(), "Xe đạp Asama", at),
+		"Đức Huy đã nhận Xe đạp Asama": domain.FromMoves(facts(domain.Move{Kind: "completed", By: "buyer"}), at)[0],
+		"Xe đạp Asama đã giao. Đánh giá Hoàng Nam": domain.FromMoves(
+			facts(domain.Move{Kind: "completed", By: "system"}), at)[1],
+		"Xe đạp Asama giao không thành":                          domain.FromMoves(facts(domain.Move{Kind: "failed", By: "system"}), at)[0],
+		"Xe đạp Asama đã gửi cho người khác, đơn của bạn đã huỷ": cancelled("shipped_to_another"),
+		"Người bán chưa gửi Xe đạp Asama, đơn của bạn đã huỷ":    cancelled("seller_timeout"),
+		"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ":      cancelled("pickup_timeout"),
+		"Đức Huy trả 1,2 tr cho Xe đạp Asama":                    offer,
+		"Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9":              domain.FromMoves(facts(domain.Move{Kind: "shipped", By: "seller"}), at)[0],
+		"Đức Huy trả 350.000 ₫ cho Xe đạp Asama":                 domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 350_000}), at)[0],
+		"Tài khoản của bạn bị khoá đến 3/11":                     domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
+		"Tài khoản của bạn bị khoá":                              domain.Suspended(buyer, "", at),
+		"Đức Huy chấm 5 sao cho Xe đạp Asama":                    domain.Reviewed(seller, "Đức Huy", "Xe đạp Asama", 5, at),
+		"Hoàng Nam vừa đăng tin mới: Xe đạp Asama":               domain.FollowedListing(buyer, seller, "Hoàng Nam", uuid.NewV7(), "Xe đạp Asama", at),
 	} {
 		if got := domain.Text(n.Type, n.Params); got != want {
 			t.Errorf("%s: %q", want, got)
 		}
 	}
 	if offer.Params.Carrier != "" || offer.Params.Code != "" {
-		t.Errorf("an offer stores the waybill: %+v", offer.Params)
+		t.Errorf("an offer stores the shipment: %+v", offer.Params)
 	}
 	if got := domain.TargetOf(offer.Type, offer.Params); got.Kind != "deal" || got.ID != offer.Params.DealID.String() {
 		t.Errorf("target: %+v", got)
@@ -135,5 +155,50 @@ func TestWatchAndPriceTexts(t *testing.T) {
 	}
 	if p.CollapseKey != "saved:"+listing.String() || domain.TargetOf(p.Type, p.Params).Kind != "listing" || domain.Title(p.Type) != "Đã lưu" {
 		t.Fatalf("%+v", p)
+	}
+}
+
+// The system's moves on an order tell both sides: the buyer, and the seller,
+// whose listing goes back on sale or is sold without a move of theirs.
+func TestSystemMovesTellTheSellerToo(t *testing.T) {
+	t.Parallel()
+	for name, c := range map[string]struct {
+		move              domain.Move
+		reason            string
+		typ               domain.Type
+		toSeller, toBuyer string
+	}{
+		"completed by the system": {
+			domain.Move{Kind: "completed", By: "system"},
+			"", domain.TypeCompleted,
+			"Đức Huy đã nhận Xe đạp Asama", "Xe đạp Asama đã giao. Đánh giá Hoàng Nam",
+		},
+		"the seller's timeout": {
+			domain.Move{Kind: "order_cancelled", By: "system"},
+			"seller_timeout", domain.TypeOrderCancelled,
+			"Bạn chưa tạo đơn Xe đạp Asama, đơn đã huỷ", "Người bán chưa gửi Xe đạp Asama, đơn của bạn đã huỷ",
+		},
+		"the pickup timeout": {
+			domain.Move{Kind: "order_cancelled", By: "system"},
+			"pickup_timeout", domain.TypeOrderCancelled,
+			"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ", "Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ",
+		},
+	} {
+		f := facts(c.move)
+		f.CancelReason = c.reason
+		got := domain.FromMoves(f, at)
+		if len(got) != 2 || got[0].Recipient != seller || got[1].Recipient != buyer || got[0].Type != c.typ || got[1].Type != c.typ {
+			t.Errorf("%s: %+v", name, got)
+			continue
+		}
+		if s, b := domain.Text(got[0].Type, got[0].Params), domain.Text(got[1].Type, got[1].Params); s != c.toSeller || b != c.toBuyer {
+			t.Errorf("%s: seller %q, buyer %q", name, s, b)
+		}
+	}
+	// A cancel the listing caused tells the buyer only, as before.
+	f := facts(domain.Move{Kind: "order_cancelled", By: "system"})
+	f.CancelReason = "shipped_to_another"
+	if got := domain.FromMoves(f, at); len(got) != 1 || got[0].Recipient != buyer {
+		t.Errorf("shipped to another: %+v", got)
 	}
 }

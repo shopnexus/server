@@ -14,20 +14,6 @@ type codRequest struct {
 	AddressID uuid.UUID `json:"address_id"`
 }
 
-type shipRequest struct {
-	OrderID        uuid.UUID `json:"-"                 path:"order_id"`
-	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
-	Carrier        string    `json:"carrier"`
-	CarrierName    string    `json:"carrier_name"`
-	TrackingCode   string    `json:"tracking_code"`
-	Fee            int64     `json:"fee"`
-}
-
-type finishRequest struct {
-	OrderID        uuid.UUID `json:"-"                 path:"order_id"`
-	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
-}
-
 // RequestCod serves POST /v1/deals/{id}/cod.
 func (h *Handler) RequestCod(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
@@ -47,19 +33,44 @@ func (h *Handler) RequestCod(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, v)
 }
 
-// Ship serves POST /v1/orders/{order_id}/ship.
-func (h *Handler) Ship(w http.ResponseWriter, r *http.Request) {
+// shipmentRequest is ShipmentDraft: the request validator lets through
+// the fields of one mode only.
+type shipmentRequest struct {
+	OrderID        uuid.UUID `json:"-"                 path:"order_id"`
+	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
+	Mode           string    `json:"mode"`
+	Carrier        string    `json:"carrier"`
+	TrackingCode   string    `json:"tracking_code"`
+	Service        string    `json:"service"`
+	WeightGrams    int       `json:"weight_grams"`
+	Pickup         string    `json:"pickup"`
+}
+
+type trackingRequest struct {
+	OrderID      uuid.UUID `json:"-"             path:"order_id"`
+	Carrier      string    `json:"carrier"`
+	TrackingCode string    `json:"tracking_code"`
+}
+
+type confirmRequest struct {
+	OrderID        uuid.UUID `json:"-"                 path:"order_id"`
+	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
+}
+
+// CreateShipment serves POST /v1/orders/{order_id}/shipment.
+func (h *Handler) CreateShipment(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
 		return
 	}
-	var in shipRequest
+	var in shipmentRequest
 	if err := httpx.Bind(r, &in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Ship(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey, service.WaybillInput{
-		Carrier: in.Carrier, CarrierName: in.CarrierName, TrackingCode: in.TrackingCode, Fee: in.Fee,
+	v, err := h.svc.CreateShipment(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey, service.ShipmentInput{
+		Mode: in.Mode, Carrier: in.Carrier, TrackingCode: in.TrackingCode,
+		Service: in.Service, WeightGrams: in.WeightGrams, Pickup: in.Pickup,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
@@ -68,18 +79,18 @@ func (h *Handler) Ship(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, v)
 }
 
-// Deliver serves POST /v1/orders/{order_id}/deliver.
-func (h *Handler) Deliver(w http.ResponseWriter, r *http.Request) {
+// EditShipment serves PUT /v1/orders/{order_id}/shipment.
+func (h *Handler) EditShipment(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
 		return
 	}
-	var in finishRequest
+	var in trackingRequest
 	if err := httpx.Bind(r, &in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Deliver(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey)
+	v, err := h.svc.EditShipment(r.Context(), p.AccountID, in.OrderID, in.Carrier, in.TrackingCode)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
@@ -87,18 +98,18 @@ func (h *Handler) Deliver(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, v)
 }
 
-// Return serves POST /v1/orders/{order_id}/return.
-func (h *Handler) Return(w http.ResponseWriter, r *http.Request) {
+// ConfirmReceipt serves POST /v1/orders/{order_id}/confirm.
+func (h *Handler) ConfirmReceipt(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
 		return
 	}
-	var in finishRequest
+	var in confirmRequest
 	if err := httpx.Bind(r, &in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Return(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey)
+	v, err := h.svc.ConfirmReceipt(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

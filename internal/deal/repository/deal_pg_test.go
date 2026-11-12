@@ -203,9 +203,9 @@ func TestListByPartyAndOfListing(t *testing.T) {
 	}
 }
 
-// requestedDeal stores a deal on a new listing of seller's, agreed and with
-// a requested order.
-func requestedDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, seller uuid.UUID) domain.Deal {
+// pendingDeal stores a deal on a new listing of seller's, agreed and with
+// a pending order.
+func pendingDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, seller uuid.UUID) domain.Deal {
 	t.Helper()
 	d := inserted(t, s, catalogtest.Listing(t, db, seller), buyer, seller)
 	if err := d.Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
@@ -228,27 +228,24 @@ func TestOrderRoundTrip(t *testing.T) {
 	s := repository.NewDeals(db)
 	ctx := context.Background()
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
-	d := requestedDeal(t, db, s, buyer, seller)
+	d := pendingDeal(t, db, s, buyer, seller)
 	got, err := s.Get(ctx, d.ID())
 	if err != nil {
 		t.Fatal(err)
 	}
 	o := got.Order()
-	if o == nil || o.Status != domain.OrderRequested || !strings.HasPrefix(o.Code, "SN-") || o.Recipient.Name != "Hân" ||
-		o.Price != 1_500_000 || o.RequestedAt.IsZero() {
+	if o == nil || o.Status != domain.OrderPending || !strings.HasPrefix(o.Code, "SN-") || o.Recipient.Name != "Hân" ||
+		o.Price != 1_500_000 || o.RequestedAt.IsZero() || o.Shipment != nil {
 		t.Fatalf("%+v", o)
 	}
-	w, err := domain.NewWaybill(domain.CarrierOther, "Ahamove", "AH1", 30_000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = got.Ship(domain.Seller, got.Order().ID, w, onSale, now); err != nil {
+	sent := domain.Shipment{Mode: domain.ModeManual, Carrier: domain.CarrierGHN, TrackingCode: "GHN1", Status: domain.ShipmentPendingPickup}
+	if err = got.Ship(domain.Seller, o.ID, sent, onSale, now); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
-	if got, err = s.Get(ctx, d.ID()); err != nil || got.Order().Waybill == nil || *got.Order().Waybill != w ||
+	if got, err = s.Get(ctx, d.ID()); err != nil || got.Order().Shipment == nil || *got.Order().Shipment != sent ||
 		got.Order().ShippedAt == nil || got.Order().Code != o.Code {
 		t.Fatalf("%+v %v", got.Order(), err)
 	}
@@ -258,17 +255,28 @@ func TestOrderRoundTrip(t *testing.T) {
 	}{{buyer, domain.Buyer}, {seller, domain.Seller}} {
 		rows, listErr := s.ListOrders(ctx, c.account, c.as, page.Request{})
 		if listErr != nil || len(rows) != 1 || rows[0].DealID != d.ID() || rows[0].ListingID != d.ListingID() ||
-			rows[0].Order.Status != domain.OrderShipped {
+			rows[0].Order.Status != domain.OrderShipped || rows[0].Order.Shipment == nil {
 			t.Fatalf("%s: %+v %v", c.as, rows, listErr)
 		}
 	}
-	if err = got.Deliver(domain.Seller, got.Order().ID, now); err != nil {
+	if _, err = got.ShipmentUpdated(o.ID, domain.ShipmentDelivered, now); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
-	if got, err = s.Get(ctx, d.ID()); err != nil || got.Status() != domain.StatusSold || got.AgreedPrice() != 1_500_000 {
+	if got, err = s.Get(ctx, d.ID()); err != nil || got.Order().Shipment.Status != domain.ShipmentDelivered ||
+		got.Order().Shipment.DeliveredAt == nil || !got.Order().Shipment.DeliveredAt.Equal(now) || got.Order().Shipment.Fee != nil {
+		t.Fatalf("%+v %v", got.Order().Shipment, err)
+	}
+	if err = got.ConfirmReceipt(domain.Buyer, o.ID, now); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = s.Get(ctx, d.ID()); err != nil || got.Status() != domain.StatusSold || got.AgreedPrice() != 1_500_000 ||
+		got.Order().Status != domain.OrderCompleted {
 		t.Fatalf("%+v %v", got.State(), err)
 	}
 }
@@ -308,7 +316,7 @@ func TestCodLimitHoldsUnderRace(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	for range domain.MaxOpenOrders - 1 {
-		requestedDeal(t, db, s, buyer, seller)
+		pendingDeal(t, db, s, buyer, seller)
 	}
 	race := func() []error {
 		ds := make([]domain.Deal, 2)
@@ -347,10 +355,8 @@ func TestOneShippedOrderPerListing(t *testing.T) {
 	ctx := context.Background()
 	seller := accounttest.New(t, db)
 	listing := catalogtest.Listing(t, db, seller)
-	w, err := domain.NewWaybill(domain.CarrierGHN, "", "GHN1", 20_000)
-	if err != nil {
-		t.Fatal(err)
-	}
+	sent := domain.Shipment{Mode: domain.ModeManual, Carrier: domain.CarrierGHN, TrackingCode: "GHN1", Fee: new(int64(20_000)), Status: domain.ShipmentPendingPickup}
+	var err error
 	results := make([]error, 0, 2)
 	for range 2 {
 		d := inserted(t, s, listing, accounttest.New(t, db), seller)
@@ -363,7 +369,7 @@ func TestOneShippedOrderPerListing(t *testing.T) {
 		if err = s.Save(ctx, &d, uuid.NewV7()); err != nil {
 			t.Fatal(err)
 		}
-		if err = d.Ship(domain.Seller, d.Order().ID, w, onSale, now); err != nil {
+		if err = d.Ship(domain.Seller, d.Order().ID, sent, onSale, now); err != nil {
 			t.Fatal(err)
 		}
 		results = append(results, s.Save(ctx, &d, uuid.NewV7()))
@@ -379,12 +385,44 @@ func TestOrderByID(t *testing.T) {
 	s := repository.NewDeals(db)
 	ctx := context.Background()
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
-	d := requestedDeal(t, db, s, buyer, seller)
+	d := pendingDeal(t, db, s, buyer, seller)
 	row, err := s.Order(ctx, d.Order().ID)
-	if err != nil || row.DealID != d.ID() || row.BuyerID != buyer || row.SellerID != seller || row.Order.Status != domain.OrderRequested {
+	if err != nil || row.DealID != d.ID() || row.BuyerID != buyer || row.SellerID != seller || row.Order.Status != domain.OrderPending {
 		t.Fatalf("%+v %v", row, err)
 	}
 	if _, err = s.Order(ctx, uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("unknown: %v", err)
+	}
+}
+
+func TestOrdersWithCode(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewDeals(db)
+	ctx := context.Background()
+	seller := accounttest.New(t, db)
+	ship := func(code string) domain.Deal {
+		t.Helper()
+		d := pendingDeal(t, db, s, accounttest.New(t, db), seller)
+		sent := domain.Shipment{Mode: domain.ModeManual, Carrier: domain.CarrierSPX, TrackingCode: code, Status: domain.ShipmentPendingPickup}
+		if err := d.Ship(domain.Seller, d.Order().ID, sent, onSale, now); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Save(ctx, &d, uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+		return d
+	}
+	// Two items in one parcel: two orders, one code.
+	a, b := ship("SPX-ONE"), ship("SPX-ONE")
+	ship("SPX-TWO")
+	pendingDeal(t, db, s, accounttest.New(t, db), seller)
+	rows, err := s.OrdersWithCode(ctx, "SPX-ONE")
+	if err != nil || len(rows) != 2 || rows[0].DealID != a.ID() || rows[1].DealID != b.ID() ||
+		rows[0].Order.Shipment == nil || rows[0].Order.Shipment.TrackingCode != "SPX-ONE" {
+		t.Fatalf("%+v %v", rows, err)
+	}
+	if rows, err = s.OrdersWithCode(ctx, "SPX-NONE"); err != nil || len(rows) != 0 {
+		t.Fatalf("an unknown code: %+v %v", rows, err)
 	}
 }

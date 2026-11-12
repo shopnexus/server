@@ -1,6 +1,6 @@
 // Package service holds module deal's use cases: a buyer opens a deal on a
-// listing, the two sides move until they agree a price, and the deals
-// follow their listings' changes.
+// listing, the two sides move until they agree a price, the seller ships
+// and the order closes, and the deals follow their listings' changes.
 package service
 
 import (
@@ -21,6 +21,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server2/internal/provider/carrier"
 )
 
 // Service is module deal's contract.
@@ -47,13 +48,25 @@ type Service interface {
 	// RequestCod asks for cash on delivery on the buyer's agreed deal, to
 	// a copy of one of the buyer's addresses.
 	RequestCod(ctx context.Context, caller, id, addressID uuid.UUID) (DealView, error)
-	// Ship records the waybill of a requested order, which holds the
-	// listing; Deliver and Return end a shipped one. Each returns the
-	// order's deal and refuses an order that is no longer the deal's open
-	// one. A repeated idempotencyKey of the same caller runs nothing more.
-	Ship(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, w WaybillInput) (DealView, error)
-	Deliver(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
-	Return(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
+	// CreateShipment ships a pending order: a manual shipment, read from its
+	// carrier, or a linked one, made at GHTK. It holds the listing and
+	// returns the order's deal. A repeated idempotencyKey of the same caller
+	// runs nothing more.
+	CreateShipment(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, in ShipmentInput) (DealView, error)
+	// EditShipment puts the seller's corrected carrier and code, read again
+	// from the carrier, on a manual shipment and returns the order's deal.
+	EditShipment(ctx context.Context, caller, order uuid.UUID, carrierCode, trackingCode string) (DealView, error)
+	// ConfirmReceipt completes a shipped order on its buyer's word, sells
+	// the listing and returns the order's deal. A repeated idempotencyKey
+	// of the same caller runs nothing more.
+	ConfirmReceipt(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
+	// LookupShipment reads a shipment from its carrier, for the seller's
+	// preview of a manual shipment.
+	LookupShipment(ctx context.Context, carrierCode, trackingCode string) (ShipmentPreview, error)
+	// ShipmentUpdated sets the status of every shipped order whose
+	// shipment has trackingCode, as its carrier reports it. A closed order
+	// changes nothing; no order with the code is domain.ErrShipmentNotFound.
+	ShipmentUpdated(ctx context.Context, trackingCode, status string) error
 	// Order reads one order for another module: its two sides, its
 	// listing and its status; false for an unknown one.
 	Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, error)
@@ -71,7 +84,7 @@ type Service interface {
 	// state; the worker calls it for every change of the listing.
 	ListingChanged(ctx context.Context, listingID uuid.UUID) error
 	// OpenOrders reports an order of account's, as either side, that is
-	// requested or shipped; erasure refuses to delete the account then.
+	// pending or shipped; erasure refuses to delete the account then.
 	OpenOrders(ctx context.Context, account uuid.UUID) (bool, error)
 	// AccountDeleted ends what a deleted account leaves open in its deals;
 	// the worker calls it on account.deleted.
@@ -86,37 +99,59 @@ type Deps struct {
 	Deals    repository.Deals
 	Accounts accountsvc.Service
 	Catalog  catalogsvc.Service
+	// Carrier makes and reads shipments.
+	Carrier carrier.Client
+	// Waits are how long the system waits before it moves an order on:
+	// domain.OrderWaits outside tests. New refuses a zero wait.
+	Waits domain.Waits
 	// Ingress and Prefix reach this process's Restate services.
 	Ingress *ingress.Client
 	Prefix  string
 	Now     func() time.Time
 }
 
+// flowHandler is the handler of every flow service the module calls.
+const flowHandler = "Run"
+
 // Deals implements Service in this process.
 type Deals struct {
 	deals    repository.Deals
 	accounts accountsvc.Service
 	catalog  catalogsvc.Service
+	carrier  carrier.Client
+	waits    domain.Waits
+	ingress  *ingress.Client
 	prefix   string
 	now      func() time.Time
 	ship     restatex.Caller[FlowInput, FlowResult]
-	finish   restatex.Caller[FlowInput, FlowResult]
+	confirm  restatex.Caller[FlowInput, FlowResult]
+	shipment restatex.Caller[ShipmentSignal, ShipmentResult]
 }
 
 var _ Service = (*Deals)(nil)
 
+// New builds Deals. A zero wait would move every order on the moment it
+// is made, so New panics on one.
 func New(d Deps) *Deals {
+	if d.Waits.Seller <= 0 || d.Waits.Pickup <= 0 || d.Waits.Complete <= 0 {
+		panic("deal: Deps.Waits needs every wait; pass domain.OrderWaits")
+	}
 	return &Deals{
-		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, prefix: d.Prefix, now: d.Now,
-		ship:   restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: "Run"},
-		finish: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealFinish, Handler: "Run"},
+		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, carrier: d.Carrier, waits: d.Waits, ingress: d.Ingress,
+		prefix: d.Prefix, now: d.Now,
+		ship:    restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: flowHandler},
+		confirm: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealConfirm, Handler: flowHandler},
+		shipment: restatex.Caller[ShipmentSignal, ShipmentResult]{
+			Ingress: d.Ingress, Service: d.Prefix + shipmentUpdates, Handler: flowHandler,
+		},
 	}
 }
 
 // Durable returns module deal's Restate services, for Mount to bind.
 func (s *Deals) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
-		restate.Reflect(DealShip{Deals: s}), restate.Reflect(DealFinish{Deals: s}),
+		restate.Reflect(DealShip{Deals: s}), restate.Reflect(DealConfirm{Deals: s}),
+		restate.Reflect(OrderTimers{Deals: s}), restate.Reflect(ShipmentUpdates{Deals: s}),
 	}
 }
 

@@ -34,8 +34,8 @@ const (
 	TypeOfferVoided        Type = "offer_voided"
 	TypeCodRequested       Type = "cod_requested"
 	TypeShipped            Type = "shipped"
-	TypeDelivered          Type = "delivered"
-	TypeReturned           Type = "returned"
+	TypeCompleted          Type = "completed"
+	TypeFailed             Type = "failed"
 	TypeOrderCancelled     Type = "order_cancelled"
 	TypeListingLive        Type = "listing_live"
 	TypeListingRejected    Type = "listing_rejected"
@@ -71,12 +71,16 @@ type Params struct {
 	Amount int64  `json:"amount,omitempty"`
 	// Move is the deal move that voided an offer.
 	Move string `json:"move,omitempty"`
-	// Carrier is a carrier code, or the name the seller typed for another
-	// carrier; Code is the tracking code.
+	// Carrier is a carrier code (a notice from before 2026-11-12 may hold the
+	// name a seller typed for another carrier, which reads as itself); Code is
+	// the tracking code.
 	Carrier string `json:"carrier,omitempty"`
 	Code    string `json:"code,omitempty"`
 	Reason  string `json:"reason,omitempty"`
-	Stars   int    `json:"stars,omitempty"`
+	// ToSeller marks the seller's copy of a notice both sides get with
+	// their own words.
+	ToSeller bool `json:"to_seller,omitempty"`
+	Stars    int  `json:"stars,omitempty"`
 	// Until is the end of a suspension in RFC 3339, empty for none.
 	Until string `json:"until,omitempty"`
 	// WatchID, Query and Count are a search watch's notice: the watch, its
@@ -100,8 +104,7 @@ type DealFacts struct {
 	DealID, BuyerID, SellerID    uuid.UUID
 	Title, BuyerName, SellerName string
 	Moves                        []Move
-	// Carrier and TrackingCode are the latest order's waybill; Carrier is
-	// a carrier code, or the name the seller typed for another carrier.
+	// Carrier and TrackingCode are the latest order's shipment.
 	Carrier, TrackingCode, CancelReason string
 }
 
@@ -133,12 +136,30 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 			t = TypeCodRequested
 		case "shipped":
 			t, p.Carrier, p.Code = TypeShipped, f.Carrier, f.TrackingCode
-		case "delivered":
-			t, p.Seller = TypeDelivered, f.SellerName
-		case "returned":
-			t, p.Seller = TypeReturned, f.SellerName
+		case "completed":
+			// The buyer's confirmation tells the seller; the system's
+			// completion asks the buyer for a review.
+			t = TypeCompleted
+			if m.By == "system" {
+				p.Seller = f.SellerName
+				// The seller hears that the buyer has it, as from a confirmation.
+				sp := p
+				sp.Actor, sp.Seller = f.BuyerName, ""
+				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at})
+			}
+		case "failed":
+			// A failed delivery tells the seller too: the parcel comes back.
+			t = TypeFailed
+			out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: p, At: at})
 		case "order_cancelled":
 			t, p.Reason = TypeOrderCancelled, f.CancelReason
+			// A timeout puts the seller's listing back on sale; the seller hears
+			// of it too.
+			if m.By == "system" && (p.Reason == "seller_timeout" || p.Reason == "pickup_timeout") {
+				sp := p
+				sp.ToSeller = true
+				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at})
+			}
 		default:
 			continue
 		}
@@ -257,14 +278,26 @@ var types = map[Type]struct {
 		}
 		return p.Actor + " đã gửi " + p.Title + " · " + carrier + " " + p.Code
 	}},
-	TypeDelivered: {orders, func(p Params) string { return p.Title + " đã giao. Đánh giá " + p.Seller }},
-	TypeReturned:  {orders, func(p Params) string { return p.Title + " bị hoàn về " + p.Seller }},
+	TypeCompleted: {orders, func(p Params) string {
+		if p.Seller != "" {
+			return p.Title + " đã giao. Đánh giá " + p.Seller
+		}
+		return p.Actor + " đã nhận " + p.Title
+	}},
+	TypeFailed: {orders, func(p Params) string { return p.Title + " giao không thành" }},
 	TypeOrderCancelled: {orders, func(p Params) string {
 		switch p.Reason {
-		case "sent_to_another":
+		case "shipped_to_another":
 			return p.Title + " đã gửi cho người khác, đơn của bạn đã huỷ"
 		case "listing_closed":
 			return p.Title + " không còn bán, đơn của bạn đã huỷ"
+		case "seller_timeout":
+			if p.ToSeller {
+				return "Bạn chưa tạo đơn " + p.Title + ", đơn đã huỷ"
+			}
+			return "Người bán chưa gửi " + p.Title + ", đơn của bạn đã huỷ"
+		case "pickup_timeout":
+			return "Hãng vận chuyển chưa lấy " + p.Title + ", đơn đã huỷ"
 		default:
 			return p.Actor + " huỷ đơn " + p.Title
 		}
@@ -295,8 +328,8 @@ var types = map[Type]struct {
 	}},
 }
 
-// carrierLabels name the carriers by their codes; a notice written before
-// the label moved here stores the label, which reads as itself.
+// carrierLabels name the carriers by their codes; an older notice may store
+// a label, which reads as itself.
 var carrierLabels = map[string]string{
 	"ghtk": "GHTK", "ghn": "GHN", "spx": "SPX", "jt": "J&T", "viettel_post": "Viettel Post",
 }

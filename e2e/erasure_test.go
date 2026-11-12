@@ -32,7 +32,7 @@ func TestDeleteMyAccountRefusals(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
-	requestedOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
+	pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
 	check(t, "open order", call(t, "DELETE", "/v1/accounts/me", nil, bearer(seller.AccessToken)), 409, "orders_open")
 	check(t, "open order, buyer", call(t, "DELETE", "/v1/accounts/me", nil, bearer(buyer.AccessToken)), 409, "orders_open")
 

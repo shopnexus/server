@@ -34,8 +34,8 @@ func (e env) agreed(t *testing.T, buyer, listing uuid.UUID) service.DealView {
 	return v
 }
 
-// requested agrees buyer's deal on listing and asks for COD.
-func (e env) requested(t *testing.T, buyer, listing uuid.UUID) service.DealView {
+// pending agrees buyer's deal on listing and asks for COD.
+func (e env) pending(t *testing.T, buyer, listing uuid.UUID) service.DealView {
 	t.Helper()
 	v := e.agreed(t, buyer, listing)
 	r, err := e.deals.RequestCod(context.Background(), buyer, v.ID, e.address(t, buyer))
@@ -49,9 +49,9 @@ func TestRequestCod(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
-	v := e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
+	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	o := v.Order
-	if o == nil || o.Status != domain.OrderRequested || o.Code == "" || o.Price != 1_500_000 ||
+	if o == nil || o.Status != domain.OrderPending || o.Code == "" || o.Price != 1_500_000 ||
 		o.Recipient.Commune == "" || o.Recipient.Province == "" || o.Recipient.Phone != "+84912345678" {
 		t.Fatalf("%+v", o)
 	}
@@ -123,7 +123,7 @@ func TestRequestCodRefusals(t *testing.T) {
 		t.Errorf("hidden listing: %v", err)
 	}
 	for range domain.MaxOpenOrders {
-		e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
+		e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	}
 	fourth := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := e.deals.RequestCod(ctx, buyer, fourth.ID, mine); !errors.Is(err, domain.ErrCodLimit) {
@@ -131,11 +131,11 @@ func TestRequestCodRefusals(t *testing.T) {
 	}
 }
 
-func TestCancelARequestedOrder(t *testing.T) {
+func TestCancelAPendingOrder(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
-	v := e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
+	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	c, err := e.deals.Cancel(context.Background(), buyer, v.ID)
 	if err != nil || c.Status != domain.StatusNegotiating || c.Order.Status != domain.OrderCancelled ||
 		c.Order.CancelReason != domain.CancelByBuyer {
@@ -152,26 +152,26 @@ func TestReservationAloneCancelsNothing(t *testing.T) {
 	ctx := context.Background()
 	seller, one, two := e.person(t), e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
-	first, second := e.requested(t, one, listing), e.requested(t, two, listing)
+	first, second := e.pending(t, one, listing), e.pending(t, two, listing)
 	// A ship flow reserved the listing and has not saved the order yet.
 	if err := e.catalog.Reserve(ctx, listing, first.Order.ID); err != nil {
 		t.Fatal(err)
 	}
 	e.changed(t, listing)
-	if v := e.get(t, two, second.ID); v.Order.Status != domain.OrderRequested {
+	if v := e.get(t, two, second.ID); v.Order.Status != domain.OrderPending {
 		t.Fatalf("the other buyer's request: %+v", v.Order)
 	}
 }
 
-func TestShipCancelsOtherRequests(t *testing.T) {
+func TestShipCancelsOtherPendingOrders(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, one, two := e.person(t), e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
-	first, second := e.requested(t, one, listing), e.requested(t, two, listing)
-	must(t)(e.deals.Ship(ctx, seller, first.Order.ID, key(), spx))
-	if v := e.get(t, two, second.ID); v.Order.Status != domain.OrderCancelled || v.Order.CancelReason != domain.CancelSentToAnother ||
+	first, second := e.pending(t, one, listing), e.pending(t, two, listing)
+	must(t)(e.deals.CreateShipment(ctx, seller, first.Order.ID, key(), manual("SPXVN0123")))
+	if v := e.get(t, two, second.ID); v.Order.Status != domain.OrderCancelled || v.Order.CancelReason != domain.CancelShippedToAnother ||
 		v.Status != domain.StatusNegotiating {
 		t.Fatalf("other buyer: %+v %s", v.Order, v.Status)
 	}
@@ -185,7 +185,7 @@ func TestListOrders(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	v := e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
+	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	for _, c := range []struct {
 		viewer uuid.UUID
 		as     domain.Party
@@ -203,7 +203,7 @@ func TestHidingCancelsRequests(t *testing.T) {
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
-	v := e.requested(t, buyer, listing)
+	v := e.pending(t, buyer, listing)
 	if _, err := e.catalog.Hide(context.Background(), seller, listing); err != nil {
 		t.Fatal(err)
 	}
@@ -218,10 +218,10 @@ func TestOrderFacts(t *testing.T) {
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
-	v := e.requested(t, buyer, listing)
+	v := e.pending(t, buyer, listing)
 	f, ok, err := e.deals.Order(context.Background(), v.Order.ID)
 	if err != nil || !ok || f.BuyerID != buyer || f.SellerID != seller || f.ListingID != listing ||
-		f.Status != domain.OrderRequested {
+		f.Status != domain.OrderPending {
 		t.Fatalf("%+v %v %v", f, ok, err)
 	}
 	if _, ok, err = e.deals.Order(context.Background(), uuid.NewV7()); err != nil || ok {

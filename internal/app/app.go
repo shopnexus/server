@@ -39,6 +39,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/platform/stream"
+	"github.com/shopnexus/server2/internal/provider/carrier"
 	"github.com/shopnexus/server2/internal/provider/chotot"
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/embed"
@@ -131,6 +132,17 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	default:
 		mailer = email.LogSender{Log: log}
 	}
+	var shipper carrier.Client
+	switch {
+	case cfg.Carrier == "fake" && cfg.Env == config.EnvProd:
+		return nil, errors.New("APP_ENV=prod with CARRIER=fake; anyone could move shipments through the dev endpoint")
+	case cfg.Carrier == "fake":
+		shipper = carrier.Fake{}
+	case cfg.Carrier == "none":
+		shipper = carrier.None{}
+	default:
+		return nil, fmt.Errorf("CARRIER=%q: want fake or none", cfg.Carrier)
+	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("connect to postgres: %w", err)
@@ -168,7 +180,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	})
 	in := ingress.NewClient(cfg.Restate.IngressURL)
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	defs, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, mailer, log)
+	defs, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, mailer, shipper, log)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +233,8 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 // module mounts after the modules whose services it takes; account's guards
 // come first because they need only the auth keys.
 func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub,
-	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, mailer email.Sender, log *slog.Logger,
+	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, mailer email.Sender, shipper carrier.Client,
+	log *slog.Logger,
 ) ([]restate.ServiceDefinition, error) {
 	d := module.Deps{
 		Router: router, Pool: pool, Ingress: in, ServicePrefix: cfg.Restate.ServicePrefix,
@@ -253,7 +266,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Image:       embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.IndexAPIKey, catalogdomain.PhotoDims),
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion, EmbedSlots: cfg.Embed.Slots,
 	}, accounts, mediam.Service)
-	dealm := deal.Mount(d, accounts, catalogm.Service)
+	dealm := deal.Mount(d, deal.Settings{Carrier: shipper, FakeCarrier: cfg.Carrier == "fake"}, accounts, catalogm.Service)
 	erasure.Mount(d, accounts, dealm.Service)
 	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
 	trustm := trust.Mount(d, trust.Settings{

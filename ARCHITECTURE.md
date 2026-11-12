@@ -920,10 +920,10 @@ listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server2-deal-desig
   `POST /v1/deals` returns the caller's deal on the listing with 200, or
   starts one with 201. Starting needs an account that is not suspended, on
   someone else's active listing.
-- A deal is `negotiating` or `agreed`. While negotiating it holds at most
-  one open price, the buyer's offer or the seller's counter. Several buyers
-  may agree a price on one listing; agreeing reserves nothing, and an open
-  price has no expiry (decided 2026-10-26).
+- A deal is `negotiating`, `agreed` or `sold`. While negotiating it holds
+  at most one open price, the buyer's offer or the seller's counter.
+  Several buyers may agree a price on one listing; agreeing reserves
+  nothing, and an open price has no expiry (decided 2026-10-26).
 - Moves: the buyer offers with nothing open or under the seller's counter;
   the seller counters the buyer's open offer; the side facing an open price
   accepts or declines it; its maker withdraws it; the buyer accepts the
@@ -957,50 +957,68 @@ listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server2-deal-desig
   the deals of that pair (decided 2026-10-26).
 
 Orders, cash on delivery, live in module `deal` (spec:
-`~/shopnexus/docs/superpowers/specs/2026-10-26-server2-order-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-10-26-server2-order-design.md`;
+the flow was redesigned on 2026-11-12, spec
+`~/shopnexus/docs/superpowers/specs/2026-11-12-order-flow-sync-design.md`,
+plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server2-order-flow.md`).
 
-- No carrier is integrated (decided 2026-10-26). The seller ships on the
-  carrier's own app and records the waybill; the waybill keeps `source`
-  (`self`) for an integration later. The COD setup module, with carrier
-  accounts and pickup addresses, was dropped with the integration, and
-  ShopNexus stores nothing about the seller's payout account.
-- An order is `requested` → `shipped` → `delivered` or `returned`, or
-  `requested` → `cancelled`. Nothing sits between requested and shipped,
-  so a buyer cannot cancel on a seller who already packed the parcel
-  (decided 2026-10-26). Either side cancels a requested order with the
-  deal's `cancel`, which then needs no Restate. A delivered order makes the
-  deal `sold`, its final status; a return or a cancel makes it negotiate
-  again.
+- An order is `pending` → `shipped` → `completed` or `failed`, or
+  `pending` → `cancelled`; a shipped order is cancelled only by the pickup
+  timeout. Either side cancels a pending order with the deal's `cancel`,
+  which needs no Restate. A completed order makes the deal `sold`; a
+  failure or a cancel makes it negotiate again without its agreed price.
+- The seller ships with a shipment, which replaced the waybill on
+  2026-11-12. `linked`: the server makes it on the seller's GHTK account
+  (service `standard` or `express`, 1 to 20,000 g, pickup at `home` or at a
+  `post_office`); part 1 does not check that the seller linked an account.
+  `manual`: the seller made it on a carrier's own app and types the code;
+  the server reads it from the carrier, and a code the carrier does not
+  know is 422 `shipment_not_found`. The carriers are `ghtk`, `ghn`, `spx`,
+  `jt` and `viettel_post`, the ones ShopNexus can read; there is no
+  "other". The fee is the carrier's, null while it has none. The
+  shipment's status is the carrier's: `pending_pickup`, `in_transit`,
+  `delivered`, `failed`. A parcel the carrier already reports failed is
+  refused (`invalid_shipment`); one it reports delivered ships delivered.
+- Who closes an order: the buyer with `confirm`, at any time while it is
+  shipped, or the system 3 days after the carrier reports it delivered.
+  The carrier's `failed` fails it at once and releases the listing. After
+  the shipment the seller's only move is correcting a manual shipment's
+  carrier and code while it is `pending_pickup` or `in_transit`.
+- `POST /v1/orders/{order_id}/shipment` takes `{mode: manual, carrier,
+  tracking_code}` or `{mode: linked, service, weight_grams, pickup}`; its
+  `mode` picks a branch of a `oneOf`, and every other rule is the domain's
+  422 `invalid_shipment` with fields. `PUT` on the same path corrects a
+  manual shipment; `POST /v1/orders/{order_id}/confirm` is the buyer's;
+  `GET /v1/shipments/lookup?carrier=&code=` is the seller's preview. The
+  order moves take the order's ID (decided 2026-11-10), and the domain
+  move refuses an order that is not the deal's open one with
+  `move_not_allowed`. An unknown order, or one the caller is neither side
+  of, is `order_not_found` 404. `POST /v1/deals/{id}/cod` stays on the
+  deal: it creates the order. `/ship`, `/deliver` and `/return` are gone.
 - The `Deal` aggregate holds its latest order; `orders` keeps the earlier
   ones (migration 0011, with an index on `(deal_id, id)` for the latest
   order every deal read joins). `Deals.Save` writes deal, order, moves and
   `deal.moved` in one transaction. Each order step is a move:
-  `cod_requested`, `shipped`, `delivered`, `returned`, `order_cancelled`.
-  The order's code `SN-100001` comes from the sequence `order_codes`, so a
-  use case reads the deal back after its save.
-- Ship, deliver and return take the order's ID:
-  `POST /v1/orders/{order_id}/ship|deliver|return`, each answering with the
-  order's deal (decided 2026-11-10; they were under `/v1/deals/{id}/` and
-  moved the deal's latest order). The domain move refuses an order that is
-  not the deal's open one with `move_not_allowed`. A seller whose screen
-  still shows an order that was returned, while the deal's next order is
-  shipped, gets 409 for that order, and the shipped one stays as it was. An
-  unknown order, or one the caller is neither side of, is
-  `order_not_found` 404. `POST /v1/deals/{id}/cod` stays on the deal: it
-  creates the order.
-- A buyer has at most 3 orders requested or shipped; `Save` counts them
+  `cod_requested`, `shipped`, `shipment_updated` (a carrier's report or
+  the seller's corrected code), `completed`, `failed`, `order_cancelled`;
+  cancel reasons are `buyer`, `seller`, `seller_timeout`, `pickup_timeout`,
+  `shipped_to_another` and `listing_closed`. Order changes have no event
+  kind of their own: they ride on `deal.moved` as these moves, which
+  notification reads. The order's code `SN-100001` comes from the sequence
+  `order_codes`, so a use case reads the deal back after its save.
+- A buyer has at most 3 orders pending or shipped; `Save` counts them
   under `pg_advisory_xact_lock` on the buyer and refuses the fourth with
   `cod_limit_reached`.
-- A suspended account cannot ask for COD; ship, deliver, return and
-  cancel finish or take back an order already under way, and refuse no
-  one for a suspension.
-- Ship, deliver and return change the listing, so they run as Restate
-  flows, `DealShip` and `DealFinish` (one service for both endings, with
-  the outcome in its input), with the invocation key `<caller
-  id>/<Idempotency-Key>`. `DealShip` reserves the listing first, so a
-  listing no longer on sale refuses before anything is written, then saves
-  the order, and releases the listing when that save loses a race.
-  `DealFinish` saves, then sells or releases the listing.
+- A suspended account cannot ask for COD; a shipment, a corrected code, a
+  confirmation and a cancel finish or take back an order already under
+  way, and refuse no one for a suspension.
+- The shipment and the confirmation change the listing, so they run as
+  Restate flows, `DealShip` and `DealConfirm`, with the invocation key
+  `<caller id>/<Idempotency-Key>`. `DealShip` checks a manual shipment
+  whole, or a linked one's order and listing, reserves the listing, makes
+  a linked shipment at GHTK, then saves. When that save loses a race it
+  releases the listing and calls off a GHTK shipment the order did not
+  take. `DealConfirm` saves, then sells the listing.
 - A flow journals the deal it loaded and replays the domain move, which
   mints new move IDs. `Save` therefore treats a row that already has the
   write ID as an earlier try that committed and writes nothing more, where
@@ -1008,11 +1026,42 @@ Orders, cash on delivery, live in module `deal` (spec:
 - `DealShip` keeps the listing when its save loses to another try that
   shipped the same order (a second tap with a key of its own), and
   releases it otherwise. Once shipped, it calls `ListingChanged`, which
-  cancels the listing's other requested orders with `sent_to_another`.
+  cancels the listing's other pending orders with `shipped_to_another`.
   `ListingChanged` reads a listing reserved for an order that is not
-  shipped yet as paused, so a ship that loses to a cancel ends no other
-  buyer's request. The deal worker cancels requested orders whose listing
-  is hidden, sold off the app or deleted (`listing_closed`).
+  shipped yet as paused, so a shipment that loses to a cancel ends no
+  other buyer's order. The deal worker cancels pending orders whose
+  listing is hidden, sold off the app or deleted (`listing_closed`).
+- The timers are delayed Restate sends to `OrderTimers`:
+  `SellerTimeout` 3 days after the COD request, `PickupTimeout` 3 days
+  after the shipment, `AutoComplete` 3 days after a delivered report. Each
+  names its order, reads the deal when it fires, does nothing when that
+  order moved on, and never compares clocks; a save that loses a race
+  reads again. A pickup timeout calls a linked shipment off at GHTK and
+  releases the listing. The waits are `domain.OrderWaits`; tests pass
+  short ones, and `service.New` refuses a zero wait. `RequestCod` sends
+  its timer before its save, so a COD request needs Restate.
+- `ShipmentUpdates.Run(tracking code, status)` is the one entry point of
+  a carrier's report: the dev endpoint calls it now, the carriers'
+  webhooks or polling will. It moves every shipped order whose shipment has
+  the code (two items in one parcel), changes nothing on a closed order,
+  and answers `shipment_not_found` 404 when no order has the code.
+- The carrier is `provider/carrier.Client` (`Create`, `Lookup`, and
+  `Cancel`, which the spec did not name), picked by `CARRIER`: `fake` or
+  `none` (decided 2026-11-12). `fake` runs locally, in the tests and on
+  the dev cluster stack: every code but those that start with `NOTFOUND`
+  is found, as the same parcel waiting for pickup (COD 1,500,000 đ, fee
+  22,000 đ); a linked code is `GHTK-` and a number from the order ID;
+  nothing is called off. With `fake` the server serves
+  `POST /v1/dev/shipments/{code}/status {status}` to anyone, and
+  `APP_ENV=prod` refuses it. `none` runs on the production stack until
+  part 2 brings GHTK: `carrier.None` returns `carrier.ErrUnavailable`, the
+  dev endpoint is not registered, and the lookup and both shipment
+  endpoints answer 503 `carrier_unavailable`; a linked shipment gives back
+  the listing it held. Confirmations, cancels, COD requests, the timers and
+  `ShipmentUpdates` need no carrier. A manual shipment's carrier and code
+  are checked and read before the order is looked up, so a stack without
+  a carrier refuses before it reads an order. The chart sets the carrier
+  in each stack's values file and none in `values.yaml`.
 - The buyer always reads the recipient in full; the seller reads it in
   full except on a cancelled order, which keeps only the name and the
   commune.
@@ -1023,6 +1072,13 @@ Orders, cash on delivery, live in module `deal` (spec:
   address is `address_not_found`. The request reads the deal (party,
   suspension), then the address, then applies the move's rules, so a
   missing address answers before `move_not_allowed`.
+- Migration 0040 renamed the order statuses, cancel reasons, moves and
+  stored notices, gave every waybill a manual shipment (`in_transit`, or
+  the order's end), dropped `waybill_source` and `carrier_name`, and
+  dropped the shipment of the rows on carrier `other` (development data
+  only). Unlike the migrations before it, it broke the release before's
+  order reads and writes while it rolled out; that was accepted because
+  the app was not wired to the server yet.
 
 ### Stream
 

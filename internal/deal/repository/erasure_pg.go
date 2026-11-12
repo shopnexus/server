@@ -13,7 +13,7 @@ import (
 func (s pgDeals) OpenOrders(ctx context.Context, account uuid.UUID) (bool, error) {
 	var open bool
 	if err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orders
-WHERE (buyer_id = @account OR seller_id = @account) AND status IN ('requested', 'shipped'))`,
+WHERE (buyer_id = @account OR seller_id = @account) AND status IN ('pending', 'shipped'))`,
 		pgx.StrictNamedArgs{"account": account}).Scan(&open); err != nil {
 		return false, fmt.Errorf("check open orders: %w", err)
 	}

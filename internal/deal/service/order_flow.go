@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -17,14 +18,15 @@ import (
 	"github.com/shopnexus/server2/internal/platform/restatex"
 )
 
-// FlowInput names the order a flow moves, its deal and the caller, with the
-// waybill of a shipment or the outcome, delivered or returned, of a finish.
+// FlowInput names the order a flow moves, its deal and the caller. A
+// shipment carries either its manual shipment, read from the carrier, or
+// what the seller picked for a linked one.
 type FlowInput struct {
-	Caller  uuid.UUID          `json:"caller"`
-	DealID  uuid.UUID          `json:"deal_id"`
-	OrderID uuid.UUID          `json:"order_id"`
-	Waybill *domain.Waybill    `json:"waybill,omitempty"`
-	Outcome domain.OrderStatus `json:"outcome,omitempty"`
+	Caller  uuid.UUID           `json:"caller"`
+	DealID  uuid.UUID           `json:"deal_id"`
+	OrderID uuid.UUID           `json:"order_id"`
+	Manual  *domain.Shipment    `json:"manual,omitempty"`
+	Linked  *domain.LinkedDraft `json:"linked,omitempty"`
 }
 
 // FlowResult carries a flow's refusal, or none.
@@ -33,14 +35,6 @@ type FlowResult struct {
 }
 
 func (r FlowResult) Refusal() *apperr.Error { return r.Refused }
-
-// WaybillInput is a waybill as the seller types it.
-type WaybillInput struct {
-	Carrier      string
-	CarrierName  string
-	TrackingCode string
-	Fee          int64
-}
 
 // loaded is a deal as a flow's first step journals it: its state, the
 // caller's side and its listing, or the refusal of a caller who is no side.
@@ -131,4 +125,41 @@ func sellStep(ctx restate.Context, catalog catalogsvc.Service, listing, order uu
 		return fmt.Errorf("sell the listing: %w", err)
 	}
 	return nil
+}
+
+// orderDeal is the deal of order. An unknown order and one the caller is
+// neither side of are both domain.ErrOrderNotFound, so an order's existence
+// does not leak.
+func (s *Deals) orderDeal(ctx context.Context, caller, order uuid.UUID) (uuid.UUID, error) {
+	r, err := s.deals.Order(ctx, order)
+	if errors.Is(err, repository.ErrNotFound) {
+		return uuid.Nil(), domain.ErrOrderNotFound
+	}
+	if err != nil {
+		return uuid.Nil(), fmt.Errorf("get order: %w", err)
+	}
+	if caller != r.BuyerID && caller != r.SellerID {
+		return uuid.Nil(), domain.ErrOrderNotFound
+	}
+	return r.DealID, nil
+}
+
+// systemLoadStep reads a deal and its listing for a move of the system's
+// in one journaled step.
+func systemLoadStep(ctx restate.Context, s *Deals, id uuid.UUID) (loaded, error) {
+	out, err := restate.Run(ctx, func(rc restate.RunContext) (loaded, error) {
+		d, stepErr := s.deals.Get(rc, id)
+		if stepErr != nil {
+			return loaded{}, fmt.Errorf("get deal: %w", stepErr)
+		}
+		l, stepErr := s.listing(rc, d.ListingID())
+		if stepErr != nil {
+			return loaded{}, stepErr
+		}
+		return loaded{Deal: d.State(), By: domain.System, Listing: l}, nil
+	})
+	if err != nil {
+		return loaded{}, fmt.Errorf("load the deal: %w", err)
+	}
+	return out, nil
 }

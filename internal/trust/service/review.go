@@ -17,7 +17,7 @@ import (
 
 // reviewable are the order statuses a review may be given in: the parcel
 // went to the carrier.
-var reviewable = []dealdomain.OrderStatus{dealdomain.OrderShipped, dealdomain.OrderDelivered, dealdomain.OrderReturned}
+var reviewable = []dealdomain.OrderStatus{dealdomain.OrderShipped, dealdomain.OrderCompleted, dealdomain.OrderFailed}
 
 // PutReview checks that the caller may write, bought the order and the
 // order is shipped, then creates the review or edits it within 7 days.

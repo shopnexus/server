@@ -20,8 +20,8 @@ Notification:
       format: uuid
     type:
       type: string
-      enum: [offer, counter, agreed, declined, agreement_cancelled, offer_voided, cod_requested, shipped, delivered,
-        returned, order_cancelled, listing_live, listing_rejected, followed_listing, review, suspended, unsuspended,
+      enum: [offer, counter, agreed, declined, agreement_cancelled, offer_voided, cod_requested, shipped, completed,
+        failed, order_cancelled, listing_live, listing_rejected, followed_listing, review, suspended, unsuspended,
         watch_matched, price_dropped]
     text:
       type: string

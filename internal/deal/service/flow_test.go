@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -13,11 +14,20 @@ import (
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/deal/service"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server2/internal/provider/carrier"
 )
 
-var spx = service.WaybillInput{Carrier: "spx", TrackingCode: "SPXVN0123", Fee: 22_000}
+// manual is a shipment the seller made on SPX's own app, under a code the
+// fake carrier knows.
+func manual(code string) service.ShipmentInput {
+	return service.ShipmentInput{Mode: "manual", Carrier: "spx", TrackingCode: code}
+}
+
+// linked is a shipment to make on the seller's GHTK account.
+var linked = service.ShipmentInput{Mode: "linked", Service: "standard", WeightGrams: 800, Pickup: "home"}
 
 func key() string { return uuid.NewV7().String() }
 
@@ -41,18 +51,47 @@ func count(kinds []string, kind string) int {
 	return n
 }
 
-func TestShipDeliver(t *testing.T) {
+// shipped is a pending order of buyer's on listing, shipped by its seller
+// under code with the fake carrier.
+func (e env) shipped(t *testing.T, buyer, seller, listing uuid.UUID, code string) service.DealView {
+	t.Helper()
+	v := e.pending(t, buyer, listing)
+	s, err := e.deals.CreateShipment(context.Background(), seller, v.Order.ID, key(), manual(code))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
+// countingCarrier is the fake carrier, counting the shipments it calls off.
+type countingCarrier struct {
+	carrier.Fake
+
+	cancels *atomic.Int32
+}
+
+func (c countingCarrier) Cancel(ctx context.Context, cr carrier.Carrier, code string) error {
+	c.cancels.Add(1)
+	return c.Fake.Cancel(ctx, cr, code)
+}
+
+func TestShipThenConfirm(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
-	v := e.requested(t, buyer, listing)
+	v := e.pending(t, buyer, listing)
 	k := key()
 	for range 2 {
-		s, err := e.deals.Ship(ctx, seller, v.Order.ID, k, spx)
-		if err != nil || s.Order.Status != domain.OrderShipped || s.Order.Waybill == nil || s.Order.Waybill.Fee != 22_000 {
+		s, err := e.deals.CreateShipment(ctx, seller, v.Order.ID, k, manual(" SPXVN0123 "))
+		if err != nil || s.Order.Status != domain.OrderShipped || s.Order.Shipment == nil || s.Order.ShippedAt == nil {
 			t.Fatalf("ship: %+v %v", s.Order, err)
+		}
+		sh := s.Order.Shipment
+		if sh.Mode != domain.ModeManual || sh.Carrier != domain.CarrierSPX || sh.TrackingCode != "SPXVN0123" ||
+			sh.Fee == nil || *sh.Fee != 22_000 || sh.Status != domain.ShipmentPendingPickup || sh.DeliveredAt != nil {
+			t.Fatalf("shipment: %+v", sh)
 		}
 	}
 	if st, held := e.summary(t, listing); st != catalogdomain.StatusReserved || held != v.Order.ID {
@@ -64,62 +103,112 @@ func TestShipDeliver(t *testing.T) {
 	if n := countMoves(moveKinds(e.get(t, buyer, v.ID)), domain.MoveShipped); n != 1 {
 		t.Fatalf("shipped %d times", n)
 	}
-	d, err := e.deals.Deliver(ctx, seller, v.Order.ID, key())
-	if err != nil || d.Status != domain.StatusSold || d.Order.Status != domain.OrderDelivered {
-		t.Fatalf("deliver: %+v %v", d, err)
+	c, err := e.deals.ConfirmReceipt(ctx, buyer, v.Order.ID, key())
+	if err != nil || c.Status != domain.StatusSold || c.Order.Status != domain.OrderCompleted || c.Order.ClosedAt == nil {
+		t.Fatalf("confirm: %+v %v", c, err)
+	}
+	if m := c.Moves[len(c.Moves)-1]; m.Kind != domain.MoveCompleted || m.By != domain.Buyer {
+		t.Fatalf("%+v", m)
 	}
 	if st, _ := e.summary(t, listing); st != catalogdomain.StatusSold {
 		t.Fatalf("listing %s", st)
 	}
 }
 
-func TestShipReturn(t *testing.T) {
+func TestConfirmTwice(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
-	v := e.requested(t, buyer, listing)
-	must(t)(e.deals.Ship(ctx, seller, v.Order.ID, key(), spx))
-	r, err := e.deals.Return(ctx, seller, v.Order.ID, key())
-	if err != nil || r.Status != domain.StatusNegotiating || r.Order.Status != domain.OrderReturned {
-		t.Fatalf("return: %+v %v", r, err)
+	v := e.shipped(t, buyer, seller, listing, "SPXVN0123")
+	k := key()
+	for range 2 {
+		c, err := e.deals.ConfirmReceipt(ctx, buyer, v.Order.ID, k)
+		if err != nil || c.Order.Status != domain.OrderCompleted {
+			t.Fatalf("confirm with one key: %+v %v", c.Order, err)
+		}
 	}
-	if st, held := e.summary(t, listing); st != catalogdomain.StatusActive || held != (uuid.UUID{}) {
-		t.Fatalf("listing %s for %s", st, held)
+	if _, err := e.deals.ConfirmReceipt(ctx, buyer, v.Order.ID, key()); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Fatalf("confirm a completed order: %v", err)
+	}
+	if n := count(pgtest.EventKinds(t, e.db, listing), "listing.sold"); n != 1 {
+		t.Fatalf("listing.sold %d times", n)
+	}
+	if n := countMoves(moveKinds(e.get(t, seller, v.ID)), domain.MoveCompleted); n != 1 {
+		t.Fatalf("completed %d times", n)
 	}
 }
 
-func TestFinishRefusesAnEarlierOrder(t *testing.T) {
+func TestLinkedShipment(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	listing := catalogtest.Listing(t, e.db, seller)
-	first := e.requested(t, buyer, listing)
-	must(t)(e.deals.Ship(ctx, seller, first.Order.ID, key(), spx))
-	must(t)(e.deals.Return(ctx, seller, first.Order.ID, key()))
-	second := e.requested(t, buyer, listing)
-	if second.ID != first.ID || second.Order.ID == first.Order.ID {
-		t.Fatalf("second order: %+v", second)
+	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
+	s, err := e.deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
+	if err != nil || s.Order.Status != domain.OrderShipped {
+		t.Fatalf("%+v %v", s.Order, err)
 	}
-	if _, err := e.deals.Ship(ctx, seller, first.Order.ID, key(), spx); !errors.Is(err, domain.ErrMoveNotAllowed) {
-		t.Fatalf("ship the returned order: %v", err)
+	if sh := s.Order.Shipment; sh.Mode != domain.ModeLinked || sh.Carrier != domain.CarrierGHTK ||
+		!strings.HasPrefix(sh.TrackingCode, "GHTK-") || sh.Fee == nil || *sh.Fee != 22_000 || sh.Status != domain.ShipmentPendingPickup {
+		t.Fatalf("%+v", sh)
 	}
-	must(t)(e.deals.Ship(ctx, seller, second.Order.ID, key(), spx))
-	for name, call := range map[string]func() error{
-		"deliver": func() error { _, err := e.deals.Deliver(ctx, seller, first.Order.ID, key()); return err },
-		"return":  func() error { _, err := e.deals.Return(ctx, seller, first.Order.ID, key()); return err },
-	} {
-		if err := call(); !errors.Is(err, domain.ErrMoveNotAllowed) {
-			t.Errorf("%s the returned order: %v", name, err)
-		}
+	if _, err = e.deals.EditShipment(ctx, seller, v.Order.ID, "spx", "SPX1"); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Fatalf("edit a linked shipment: %v", err)
 	}
-	if v := e.get(t, buyer, first.ID); v.Order.ID != second.Order.ID || v.Order.Status != domain.OrderShipped || v.Status != domain.StatusAgreed {
-		t.Fatalf("the second order moved: %+v %s", v.Order, v.Status)
+}
+
+func TestEditShipment(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
+	v := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPXVN0123")
+	got, err := e.deals.EditShipment(ctx, seller, v.Order.ID, "ghn", " GHN0042 ")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if st, held := e.summary(t, listing); st != catalogdomain.StatusReserved || held != second.Order.ID {
-		t.Fatalf("listing %s for %s", st, held)
+	if sh := got.Order.Shipment; sh.Mode != domain.ModeManual || sh.Carrier != domain.CarrierGHN || sh.TrackingCode != "GHN0042" ||
+		sh.Status != domain.ShipmentPendingPickup || got.Order.Status != domain.OrderShipped {
+		t.Fatalf("%+v", got.Order)
+	}
+	if m := got.Moves[len(got.Moves)-1]; m.Kind != domain.MoveShipmentUpdated || m.By != domain.Seller {
+		t.Fatalf("%+v", m)
+	}
+	if _, err = e.deals.EditShipment(ctx, buyer, v.Order.ID, "ghn", "GHN1"); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Errorf("the buyer edits: %v", err)
+	}
+	if _, err = e.deals.EditShipment(ctx, stranger, v.Order.ID, "ghn", "GHN1"); !errors.Is(err, domain.ErrOrderNotFound) {
+		t.Errorf("a stranger edits: %v", err)
+	}
+	if _, err = e.deals.EditShipment(ctx, seller, v.Order.ID, "ghn", "NOTFOUND1"); !errors.Is(err, domain.ErrShipmentUnknown) ||
+		apperr.From(err).Kind != apperr.KindInvalid {
+		t.Errorf("a code the carrier does not know: %v", err)
+	}
+	if _, err = e.deals.EditShipment(ctx, seller, v.Order.ID, "other", "X1"); !errors.Is(err, domain.ErrInvalidShipment) {
+		t.Errorf("carrier other: %v", err)
+	}
+	if got = e.get(t, buyer, v.ID); got.Order.Shipment.TrackingCode != "GHN0042" {
+		t.Fatalf("a refused edit changed the shipment: %+v", got.Order.Shipment)
+	}
+}
+
+func TestLookupShipment(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	p, err := e.deals.LookupShipment(ctx, "spx", " SPX1 ")
+	if err != nil || p.Carrier != domain.CarrierSPX || p.TrackingCode != "SPX1" || p.CODAmount != 1_500_000 ||
+		p.Status != domain.ShipmentPendingPickup || p.Fee == nil || p.RecipientName == "" || p.District == "" {
+		t.Fatalf("%+v %v", p, err)
+	}
+	if _, err = e.deals.LookupShipment(ctx, "spx", "NOTFOUND"); !errors.Is(err, domain.ErrShipmentNotFound) ||
+		apperr.From(err).Kind != apperr.KindNotFound {
+		t.Errorf("an unknown code: %v", err)
+	}
+	if _, err = e.deals.LookupShipment(ctx, "other", "X1"); !errors.Is(err, domain.ErrInvalidShipment) {
+		t.Errorf("carrier other: %v", err)
 	}
 }
 
@@ -129,14 +218,16 @@ func TestShipRefusesAHiddenListing(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
-	v := e.requested(t, buyer, listing)
+	v := e.pending(t, buyer, listing)
 	if _, err := e.catalog.Hide(ctx, seller, listing); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.deals.Ship(ctx, seller, v.Order.ID, key(), spx); !errors.Is(err, domain.ErrListingUnavailable) {
-		t.Fatalf("ship: %v", err)
+	for _, in := range []service.ShipmentInput{manual("SPX1"), linked} {
+		if _, err := e.deals.CreateShipment(ctx, seller, v.Order.ID, key(), in); !errors.Is(err, domain.ErrListingUnavailable) {
+			t.Fatalf("%s: %v", in.Mode, err)
+		}
 	}
-	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderRequested {
+	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderPending {
 		t.Fatalf("%+v", got.Order)
 	}
 }
@@ -167,24 +258,33 @@ func (c cancelFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID
 
 func TestShipLosesToACancel(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t)
-	ctx := context.Background()
-	seller, buyer := e.person(t), e.person(t)
-	listing := catalogtest.Listing(t, e.db, seller)
-	v := e.requested(t, buyer, listing)
-	deps := e.deps
-	deps.Deals = cancelFirst{Deals: e.repo, fired: &atomic.Bool{}}
-	if _, err := start(t, deps).Ship(ctx, seller, v.Order.ID, key(), spx); !errors.Is(err, domain.ErrChanged) {
-		t.Fatalf("ship: %v", err)
-	}
-	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderCancelled || got.Order.CancelReason != domain.CancelByBuyer {
-		t.Fatalf("%+v", got.Order)
-	}
-	if st, _ := e.summary(t, listing); st != catalogdomain.StatusActive {
-		t.Fatalf("listing %s", st)
-	}
-	if k := pgtest.EventKinds(t, e.db, listing); count(k, "listing.reserved") != 1 || k[len(k)-1] != "listing.released" {
-		t.Fatalf("events %v", k)
+	for _, in := range []service.ShipmentInput{manual("SPX1"), linked} {
+		e := newEnv(t)
+		ctx := context.Background()
+		seller, buyer := e.person(t), e.person(t)
+		listing := catalogtest.Listing(t, e.db, seller)
+		v := e.pending(t, buyer, listing)
+		cancels := &atomic.Int32{}
+		deps := e.deps
+		deps.Deals = cancelFirst{Deals: e.repo, fired: &atomic.Bool{}}
+		deps.Carrier = countingCarrier{cancels: cancels}
+		if _, err := start(t, deps).CreateShipment(ctx, seller, v.Order.ID, key(), in); !errors.Is(err, domain.ErrChanged) {
+			t.Fatalf("%s: %v", in.Mode, err)
+		}
+		if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderCancelled || got.Order.CancelReason != domain.CancelByBuyer {
+			t.Fatalf("%s: %+v", in.Mode, got.Order)
+		}
+		if st, _ := e.summary(t, listing); st != catalogdomain.StatusActive {
+			t.Fatalf("%s: listing %s", in.Mode, st)
+		}
+		if k := pgtest.EventKinds(t, e.db, listing); count(k, "listing.reserved") != 1 || k[len(k)-1] != "listing.released" {
+			t.Fatalf("%s: events %v", in.Mode, k)
+		}
+		// The GHTK shipment the order did not take is called off; a manual
+		// one is the seller's own.
+		if want := map[string]int32{"manual": 0, "linked": 1}[in.Mode]; cancels.Load() != want {
+			t.Fatalf("%s: %d cancels at the carrier", in.Mode, cancels.Load())
+		}
 	}
 }
 
@@ -193,25 +293,36 @@ func TestShipRefusals(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
-	v := e.requested(t, buyer, catalogtest.Listing(t, e.db, seller))
-	if _, err := e.deals.Ship(ctx, buyer, v.Order.ID, key(), spx); !errors.Is(err, domain.ErrMoveNotAllowed) {
-		t.Errorf("buyer ships: %v", err)
-	}
-	if _, err := e.deals.Ship(ctx, stranger, v.Order.ID, key(), spx); !errors.Is(err, domain.ErrOrderNotFound) {
-		t.Errorf("stranger ships: %v", err)
-	}
-	bad := spx
-	bad.Fee = -1
-	if _, err := e.deals.Ship(ctx, seller, v.Order.ID, key(), bad); !errors.Is(err, domain.ErrInvalidWaybill) {
-		t.Errorf("bad waybill: %v", err)
-	}
-	for name, call := range map[string]func() error{
-		"deliver": func() error { _, err := e.deals.Deliver(ctx, seller, v.Order.ID, key()); return err },
-		"return":  func() error { _, err := e.deals.Return(ctx, seller, v.Order.ID, key()); return err },
+	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
+	for name, c := range map[string]struct {
+		caller uuid.UUID
+		in     service.ShipmentInput
+		want   error
+	}{
+		"the buyer ships":          {buyer, manual("SPX1"), domain.ErrMoveNotAllowed},
+		"a stranger ships":         {stranger, manual("SPX1"), domain.ErrOrderNotFound},
+		"carrier other":            {seller, service.ShipmentInput{Mode: "manual", Carrier: "other", TrackingCode: "X1"}, domain.ErrInvalidShipment},
+		"a code of spaces":         {seller, manual("   "), domain.ErrInvalidShipment},
+		"a code the carrier lacks": {seller, manual("NOTFOUND-7"), domain.ErrShipmentUnknown},
+		"a parcel of 0 grams":      {seller, service.ShipmentInput{Mode: "linked", Service: "standard", Pickup: "home"}, domain.ErrInvalidShipment},
+		"a pickup at the door":     {seller, service.ShipmentInput{Mode: "linked", Service: "standard", WeightGrams: 800, Pickup: "door"}, domain.ErrInvalidShipment},
 	} {
-		if err := call(); !errors.Is(err, domain.ErrMoveNotAllowed) {
-			t.Errorf("%s a requested order: %v", name, err)
+		if _, err := e.deals.CreateShipment(ctx, c.caller, v.Order.ID, key(), c.in); !errors.Is(err, c.want) {
+			t.Errorf("%s: %v", name, err)
 		}
+	}
+	if _, err := e.deals.ConfirmReceipt(ctx, buyer, v.Order.ID, key()); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Errorf("confirm a pending order: %v", err)
+	}
+	must(t)(e.deals.CreateShipment(ctx, seller, v.Order.ID, key(), manual("SPX1")))
+	if _, err := e.deals.ConfirmReceipt(ctx, seller, v.Order.ID, key()); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Errorf("the seller confirms: %v", err)
+	}
+	if _, err := e.deals.ConfirmReceipt(ctx, stranger, v.Order.ID, key()); !errors.Is(err, domain.ErrOrderNotFound) {
+		t.Errorf("a stranger confirms: %v", err)
+	}
+	if _, err := e.deals.CreateShipment(ctx, seller, v.Order.ID, key(), manual("SPX2")); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Errorf("ship a shipped order: %v", err)
 	}
 }
 
@@ -229,12 +340,8 @@ func (c shipFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, 
 		if err != nil {
 			return err
 		}
-		w, err := domain.NewWaybill(domain.CarrierSPX, "", "SPXVN0123", 22_000)
-		if err != nil {
-			return err
-		}
 		listing := domain.Listing{Price: 1_500_000, AllowOffers: true, Status: domain.ListingActive}
-		if err = cur.Ship(domain.Seller, cur.Order().ID, w, listing, time.Now()); err != nil {
+		if err = cur.Ship(domain.Seller, cur.Order().ID, *o.Shipment, listing, time.Now()); err != nil {
 			return err
 		}
 		if err = c.Deals.Save(ctx, &cur, uuid.NewV7()); err != nil {
@@ -250,14 +357,41 @@ func TestShipTwiceKeepsTheListing(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
-	v := e.requested(t, buyer, listing)
+	v := e.pending(t, buyer, listing)
 	deps := e.deps
 	deps.Deals = shipFirst{Deals: e.repo, fired: &atomic.Bool{}}
-	s, err := start(t, deps).Ship(ctx, seller, v.Order.ID, key(), spx)
+	s, err := start(t, deps).CreateShipment(ctx, seller, v.Order.ID, key(), manual("SPX1"))
 	if err != nil || s.Order.Status != domain.OrderShipped {
 		t.Fatalf("ship: %+v %v", s.Order, err)
 	}
 	if st, held := e.summary(t, listing); st != catalogdomain.StatusReserved || held != v.Order.ID {
+		t.Fatalf("listing %s for %s", st, held)
+	}
+}
+
+func TestConfirmRefusesAFailedOrder(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	listing := catalogtest.Listing(t, e.db, seller)
+	first := e.shipped(t, buyer, seller, listing, "SPXFIRST1")
+	if err := e.deals.ShipmentUpdated(ctx, "SPXFIRST1", "failed"); err != nil {
+		t.Fatal(err)
+	}
+	must(t)(e.deals.Accept(ctx, buyer, first.ID, 1_500_000))
+	second, err := e.deals.RequestCod(ctx, buyer, first.ID, e.address(t, buyer))
+	if err != nil || second.Order.ID == first.Order.ID {
+		t.Fatalf("second order: %+v %v", second.Order, err)
+	}
+	must(t)(e.deals.CreateShipment(ctx, seller, second.Order.ID, key(), manual("SPXSECOND1")))
+	if _, err = e.deals.ConfirmReceipt(ctx, buyer, first.Order.ID, key()); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Fatalf("confirm the failed order: %v", err)
+	}
+	if v := e.get(t, buyer, first.ID); v.Order.ID != second.Order.ID || v.Order.Status != domain.OrderShipped || v.Status != domain.StatusAgreed {
+		t.Fatalf("the second order moved: %+v %s", v.Order, v.Status)
+	}
+	if st, held := e.summary(t, listing); st != catalogdomain.StatusReserved || held != second.Order.ID {
 		t.Fatalf("listing %s for %s", st, held)
 	}
 }

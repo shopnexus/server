@@ -56,6 +56,12 @@ type Config struct {
 	Firebase       FirebaseConfig
 	Email          EmailConfig
 	Google         GoogleConfig
+	// Carrier is CARRIER, where shipments are made and read. fake (dev and
+	// test) knows every tracking code but those that start with NOTFOUND,
+	// and with it the server serves the dev endpoint that moves its
+	// shipments; APP_ENV=prod refuses it. none (production until a real
+	// carrier comes) makes and reads no shipment.
+	Carrier string
 }
 
 // PushConfig says how pushes reach phones. Empty credentials mean the log
@@ -393,8 +399,9 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			ResendAPIKey: set("RESEND_API_KEY"),
 			From:         need("EMAIL_FROM"),
 		},
-		Google: GoogleConfig{ClientID: set("GOOGLE_CLIENT_ID"), JWKSURL: need("GOOGLE_JWKS_URL")},
-		LLM:    LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
+		Google:  GoogleConfig{ClientID: set("GOOGLE_CLIENT_ID"), JWKSURL: need("GOOGLE_JWKS_URL")},
+		Carrier: oneOf("CARRIER", "fake", "none"),
+		LLM:     LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
 		Embed: EmbedConfig{
 			TextBaseURL: need("EMBED_TEXT_BASE_URL"), ImageBaseURL: need("EMBED_IMAGE_BASE_URL"),
 			TextModel: need("EMBED_TEXT_MODEL"), ImageModel: need("EMBED_IMAGE_MODEL"),

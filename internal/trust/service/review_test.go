@@ -61,9 +61,9 @@ func TestPutReviewRefusals(t *testing.T) {
 	if _, err := e.trust.PutReview(ctx, buyer, uuid.NewV7(), 5, ""); !errors.Is(err, domain.ErrOrderNotFound) {
 		t.Errorf("unknown order: %v", err)
 	}
-	deal, requested := e.requested(t, buyer, seller)
+	deal, requested := e.pending(t, buyer, seller)
 	if _, err := e.trust.PutReview(ctx, buyer, requested, 5, ""); !errors.Is(err, domain.ErrNotShipped) {
-		t.Errorf("requested: %v", err)
+		t.Errorf("pending: %v", err)
 	}
 	if _, err := e.deals.Cancel(ctx, buyer, deal); err != nil {
 		t.Fatal(err)
@@ -80,16 +80,16 @@ func TestPutReviewRefusals(t *testing.T) {
 	}
 }
 
-func TestReturnedOrderIsReviewed(t *testing.T) {
+func TestCompletedOrderIsReviewed(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	_, order := e.shipped(t, buyer, seller)
-	if _, err := e.deals.Return(ctx, seller, order, uuid.NewV7().String()); err != nil {
+	if _, err := e.deals.ConfirmReceipt(ctx, buyer, order, uuid.NewV7().String()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.trust.PutReview(ctx, buyer, order, 1, "Không đúng mô tả"); err != nil {
+	if _, err := e.trust.PutReview(ctx, buyer, order, 5, "Đúng mô tả"); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -99,5 +99,19 @@ func TestSellerReviewsOfAStranger(t *testing.T) {
 	e := newEnv(t)
 	if _, err := e.trust.SellerReviews(context.Background(), uuid.NewV7(), page.Request{}); !errors.Is(err, accountdomain.ErrAccountNotFound) {
 		t.Fatalf("%v", err)
+	}
+}
+
+func TestFailedOrderIsReviewed(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	_, order := e.shipped(t, buyer, seller)
+	if err := e.deals.ShipmentUpdated(ctx, "SPX1", "failed"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.trust.PutReview(ctx, buyer, order, 1, "Không đúng mô tả"); err != nil {
+		t.Fatal(err)
 	}
 }
