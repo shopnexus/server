@@ -30,6 +30,7 @@ func lookup(env map[string]string) func(string) (string, bool) {
 func required() map[string]string {
 	return map[string]string{
 		"APP_ENV":                      "prod",
+		"CARRIER":                      "fake",
 		"HTTP_ADDR":                    ":8080",
 		"LOG_LEVEL":                    "info",
 		"LOG_FORMAT":                   "json",
@@ -186,8 +187,9 @@ func TestLoadAllSet(t *testing.T) {
 			ProjectID: "shopnexus-test", ProjectNumber: "123456789",
 			AuthJWKSURL: "https://keys.example.test/auth", PNVJWKSURL: "https://keys.example.test/pnv", TestNumbers: true,
 		},
-		Email:  EmailConfig{Sender: "resend", ResendAPIKey: "re_test", From: "ShopNexus <no-reply@shopnexus.test>"},
-		Google: GoogleConfig{ClientID: "web.apps.googleusercontent.com", JWKSURL: "https://www.googleapis.com/oauth2/v3/certs"},
+		Email:   EmailConfig{Sender: "resend", ResendAPIKey: "re_test", From: "ShopNexus <no-reply@shopnexus.test>"},
+		Google:  GoogleConfig{ClientID: "web.apps.googleusercontent.com", JWKSURL: "https://www.googleapis.com/oauth2/v3/certs"},
+		Carrier: "fake",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
@@ -428,5 +430,18 @@ func TestLoadEmailSender(t *testing.T) {
 	env["EMAIL_SENDER"], env["RESEND_API_KEY"] = "log", ""
 	if cfg, err := Load(lookup(env)); err != nil || cfg.Email.Sender != "log" {
 		t.Fatalf("log sender without a key: %v", err)
+	}
+}
+
+func TestLoadCarrier(t *testing.T) {
+	t.Parallel()
+	env := required()
+	env["CARRIER"] = "ghtk"
+	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "CARRIER") {
+		t.Fatalf("a carrier with no client yet: %v", err)
+	}
+	env["CARRIER"] = "none"
+	if cfg, err := Load(lookup(env)); err != nil || cfg.Carrier != "none" {
+		t.Fatalf("no carrier: %q %v", cfg.Carrier, err)
 	}
 }

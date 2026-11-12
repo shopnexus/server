@@ -6,24 +6,34 @@ import (
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/handler"
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/deal/worker"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/module"
+	"github.com/shopnexus/server2/internal/provider/carrier"
 )
+
+// Settings is what deal needs beyond the shared dependencies: the carrier
+// shipments are made and read at, and whether it is the fake, whose
+// shipments the dev endpoint moves.
+type Settings struct {
+	Carrier     carrier.Client
+	FakeCarrier bool
+}
 
 // Mount registers the deal endpoints, subscribes the listing watch to the
 // listing events and the account watch to account.deleted, and returns
 // deal's Restate services and the Service other modules read deals
 // through.
-func Mount(d module.Deps, accounts accountsvc.Service, catalog catalogsvc.Service) module.Mounted[service.Service] {
+func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Catalog: catalog,
-		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
+		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Catalog: catalog, Carrier: s.Carrier,
+		Waits: domain.OrderWaits, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
-	handler.New(svc, d.Log).Register(d.Router, d.Protect)
+	handler.New(svc, d.Log).Register(d.Router, d.Protect, s.FakeCarrier)
 	watch := worker.ListingWatch{Prefix: d.ServicePrefix, Deals: svc}
 	for _, k := range []events.Kind{events.ListingUpdated, events.ListingHidden, events.ListingSold, events.ListingDeleted} {
 		d.Events.Subscribe(k, watch.ServiceName(), "Changed")

@@ -39,7 +39,7 @@ func TestReviews(t *testing.T) {
 	check(t, "put a bad id", put(buyer.AccessToken, "/v1/orders/x/review", map[string]any{"stars": 5}), 400, "")
 	check(t, "put as a stranger", put(stranger.AccessToken, path, map[string]any{"stars": 5}), 404, "order_not_found")
 	check(t, "put nine stars", put(buyer.AccessToken, path, map[string]any{"stars": 9}), 422, "invalid_review")
-	cancelled := requestedOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
+	cancelled := pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
 	moved(t, buyer.AccessToken, cancelled.ID, "cancel", nil)
 	check(t, "put a cancelled order", put(buyer.AccessToken, "/v1/orders/"+cancelled.Order.ID+"/review", map[string]any{"stars": 5}), 409, "order_not_shipped")
 
