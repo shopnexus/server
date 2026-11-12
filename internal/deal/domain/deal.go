@@ -15,7 +15,7 @@ type Status string
 const (
 	StatusNegotiating Status = "negotiating"
 	StatusAgreed      Status = "agreed"
-	// StatusSold is a deal whose order was delivered; it takes no move.
+	// StatusSold is a deal whose order was completed; it takes no move.
 	StatusSold Status = "sold"
 )
 
@@ -32,25 +32,26 @@ const (
 type MoveKind string
 
 const (
-	MoveOffer          MoveKind = "offer"
-	MoveCounter        MoveKind = "counter"
-	MoveAccept         MoveKind = "accept"
-	MoveDecline        MoveKind = "decline"
-	MoveWithdraw       MoveKind = "withdraw"
-	MoveCancel         MoveKind = "cancel"
-	MovePriceChanged   MoveKind = "price_changed"
-	MoveOffersClosed   MoveKind = "offers_closed"
-	MoveListingClosed  MoveKind = "listing_closed"
-	MoveCodRequested   MoveKind = "cod_requested"
-	MoveShipped        MoveKind = "shipped"
-	MoveDelivered      MoveKind = "delivered"
-	MoveReturned       MoveKind = "returned"
-	MoveOrderCancelled MoveKind = "order_cancelled"
+	MoveOffer           MoveKind = "offer"
+	MoveCounter         MoveKind = "counter"
+	MoveAccept          MoveKind = "accept"
+	MoveDecline         MoveKind = "decline"
+	MoveWithdraw        MoveKind = "withdraw"
+	MoveCancel          MoveKind = "cancel"
+	MovePriceChanged    MoveKind = "price_changed"
+	MoveOffersClosed    MoveKind = "offers_closed"
+	MoveListingClosed   MoveKind = "listing_closed"
+	MoveCodRequested    MoveKind = "cod_requested"
+	MoveShipped         MoveKind = "shipped"
+	MoveShipmentUpdated MoveKind = "shipment_updated"
+	MoveCompleted       MoveKind = "completed"
+	MoveFailed          MoveKind = "failed"
+	MoveOrderCancelled  MoveKind = "order_cancelled"
 )
 
 // Move is one step of a deal's thread. Amount is 0 on a move without one;
 // on price_changed it is the new listed price, on cod_requested the price,
-// on shipped the fee.
+// on shipped the carrier's fee when it gave one.
 type Move struct {
 	ID     uuid.UUID
 	Kind   MoveKind
@@ -234,14 +235,14 @@ func (d *Deal) Withdraw(by Party, now time.Time) error {
 	return nil
 }
 
-// Cancel drops the agreed price, and a requested order with it; the deal
+// Cancel drops the agreed price, and a pending order with it; the deal
 // negotiates again. A shipped order cannot be cancelled.
 func (d *Deal) Cancel(by Party, now time.Time) error {
 	if d.status != StatusAgreed {
 		return ErrMoveNotAllowed
 	}
 	if o := d.openOrder(); o != nil {
-		if o.Status != OrderRequested {
+		if o.Status != OrderPending {
 			return ErrMoveNotAllowed
 		}
 		reason := CancelByBuyer
@@ -264,65 +265,166 @@ func (d *Deal) RequestCod(by Party, r Recipient, l Listing, now time.Time) error
 	if l.Status != ListingActive {
 		return ErrListingUnavailable
 	}
-	d.order = &Order{ID: uuid.NewV7(), Status: OrderRequested, Price: d.agreedPrice, Recipient: r, RequestedAt: now}
+	d.order = &Order{ID: uuid.NewV7(), Status: OrderPending, Price: d.agreedPrice, Recipient: r, RequestedAt: now}
 	d.record(MoveCodRequested, by, d.agreedPrice, now)
 	return nil
 }
 
-// Ship records the waybill of the requested order: the parcel is with the
-// carrier. An order that is not the deal's open one is ErrMoveNotAllowed.
-func (d *Deal) Ship(by Party, order uuid.UUID, w Waybill, l Listing, now time.Time) error {
+// Shippable reports whether by may ship order on l now: the seller, on the
+// deal's pending order, with the listing on sale. DealShip asks before it
+// holds the listing, and Ship asks again.
+func (d *Deal) Shippable(by Party, order uuid.UUID, l Listing) error {
 	o := d.openOrder()
-	if by != Seller || o == nil || o.ID != order || o.Status != OrderRequested {
+	if by != Seller || o == nil || o.ID != order || o.Status != OrderPending {
 		return ErrMoveNotAllowed
 	}
 	if l.Status != ListingActive {
 		return ErrListingUnavailable
 	}
-	o.Status, o.Waybill, o.ShippedAt = OrderShipped, &w, &now
-	d.record(MoveShipped, by, w.Fee, now)
 	return nil
 }
 
-// Deliver ends the shipped order delivered; the deal is sold.
-func (d *Deal) Deliver(by Party, order uuid.UUID, now time.Time) error {
-	o := d.openOrder()
-	if by != Seller || o == nil || o.ID != order || o.Status != OrderShipped {
-		return ErrMoveNotAllowed
+// Ship records s, the pending order's shipment as its carrier reads it or
+// as GHTK made it: the order is shipped. A parcel the carrier already
+// reports delivered is delivered at now; one it reports failed is
+// ErrInvalidShipment.
+func (d *Deal) Ship(by Party, order uuid.UUID, s Shipment, l Listing, now time.Time) error {
+	if err := d.Shippable(by, order, l); err != nil {
+		return err
 	}
-	o.Status, o.ClosedAt, d.status = OrderDelivered, &now, StatusSold
-	d.record(MoveDelivered, by, 0, now)
+	if s.Status == ShipmentFailed {
+		return errFailedParcel
+	}
+	s.DeliveredAt = nil
+	if s.Status == ShipmentDelivered {
+		s.DeliveredAt = &now
+	}
+	o := d.order
+	o.Status, o.Shipment, o.ShippedAt = OrderShipped, &s, &now
+	var fee int64
+	if s.Fee != nil {
+		fee = *s.Fee
+	}
+	d.record(MoveShipped, by, fee, now)
 	return nil
 }
 
-// Return ends the shipped order returned; the deal negotiates again.
-func (d *Deal) Return(by Party, order uuid.UUID, now time.Time) error {
+// EditShipment puts s, the seller's corrected carrier and code as the
+// carrier reads them, on order's manual shipment: the seller's, on the
+// shipped order, while the parcel waits for pickup or is in transit. A
+// parcel the carrier reports delivered is delivered at now; one it reports
+// failed is ErrInvalidShipment and changes nothing.
+func (d *Deal) EditShipment(by Party, order uuid.UUID, s Shipment, now time.Time) error {
 	o := d.openOrder()
-	if by != Seller || o == nil || o.ID != order || o.Status != OrderShipped {
+	if by != Seller || o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil ||
+		o.Shipment.Mode != ModeManual ||
+		(o.Shipment.Status != ShipmentPendingPickup && o.Shipment.Status != ShipmentInTransit) {
 		return ErrMoveNotAllowed
 	}
-	o.Status, o.ClosedAt = OrderReturned, &now
-	d.reopen()
-	d.record(MoveReturned, by, 0, now)
+	if s.Status == ShipmentFailed {
+		return errFailedParcel
+	}
+	s.Mode, s.DeliveredAt = ModeManual, nil
+	if s.Status == ShipmentDelivered {
+		s.DeliveredAt = &now
+	}
+	d.order.Shipment = &s
+	d.record(MoveShipmentUpdated, by, 0, now)
+	return nil
+}
+
+// ConfirmReceipt ends the shipped order completed on the buyer's word, at
+// any time while it is shipped, whatever the carrier reports.
+func (d *Deal) ConfirmReceipt(by Party, order uuid.UUID, now time.Time) error {
+	o := d.openOrder()
+	if by != Buyer || o == nil || o.ID != order || o.Status != OrderShipped {
+		return ErrMoveNotAllowed
+	}
+	d.complete(by, now)
+	return nil
+}
+
+// ShipmentUpdated sets the shipped order's shipment status as its carrier
+// reports it and reports whether anything changed. delivered sets
+// DeliveredAt and leaving it clears it. failed fails the order at once: the
+// deal negotiates again without its agreed price. An order that is not the
+// deal's shipped one, or one without a shipment, is ErrMoveNotAllowed: a
+// late report changes nothing.
+func (d *Deal) ShipmentUpdated(order uuid.UUID, status ShipmentStatus, now time.Time) (bool, error) {
+	o := d.openOrder()
+	if o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil {
+		return false, ErrMoveNotAllowed
+	}
+	if o.Shipment.Status == status {
+		return false, nil
+	}
+	s := *o.Shipment
+	s.Status, s.DeliveredAt = status, nil
+	if status == ShipmentDelivered {
+		s.DeliveredAt = &now
+	}
+	o.Shipment = &s
+	if status == ShipmentFailed {
+		o.Status, o.ClosedAt = OrderFailed, &now
+		d.reopen()
+		d.record(MoveFailed, System, 0, now)
+		return true, nil
+	}
+	d.record(MoveShipmentUpdated, System, 0, now)
+	return true, nil
+}
+
+// SellerTimeout cancels order when it is still the deal's pending order;
+// anything else is ErrMoveNotAllowed and the timer leaves the deal alone.
+func (d *Deal) SellerTimeout(order uuid.UUID, now time.Time) error {
+	o := d.openOrder()
+	if o == nil || o.ID != order || o.Status != OrderPending {
+		return ErrMoveNotAllowed
+	}
+	d.cancelOrder(System, CancelSellerTimeout, now)
+	return nil
+}
+
+// PickupTimeout cancels order when it is shipped and its parcel still
+// waits for pickup; anything else is ErrMoveNotAllowed.
+func (d *Deal) PickupTimeout(order uuid.UUID, now time.Time) error {
+	o := d.openOrder()
+	if o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil ||
+		o.Shipment.Status != ShipmentPendingPickup {
+		return ErrMoveNotAllowed
+	}
+	d.cancelOrder(System, CancelPickupTimeout, now)
+	return nil
+}
+
+// AutoComplete ends order completed when it is shipped and its carrier
+// reports it delivered; anything else is ErrMoveNotAllowed.
+func (d *Deal) AutoComplete(order uuid.UUID, now time.Time) error {
+	o := d.openOrder()
+	if o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil ||
+		o.Shipment.Status != ShipmentDelivered {
+		return ErrMoveNotAllowed
+	}
+	d.complete(System, now)
 	return nil
 }
 
 // ListingChanged brings the deal in line with its listing and reports
-// whether it changed. A requested order ends when the listing is hidden,
+// whether it changed. A pending order ends when the listing is hidden,
 // gone or reserved for another order; a shipped one stays. Otherwise a
 // hidden or gone listing takes the open price back, a gone one the
 // agreement too; a new listed price, or offers turned off, takes the open
 // price back. A second call with the same listing changes nothing.
 func (d *Deal) ListingChanged(l Listing, now time.Time) bool {
 	if o := d.openOrder(); o != nil {
-		if o.Status != OrderRequested {
+		if o.Status != OrderPending {
 			return false
 		}
 		switch {
 		case l.Closed():
 			d.cancelOrder(System, CancelListingClosed, now)
 		case l.Status == ListingReserved && l.ReservedFor != o.ID:
-			d.cancelOrder(System, CancelSentToAnother, now)
+			d.cancelOrder(System, CancelShippedToAnother, now)
 		default:
 			return false
 		}
@@ -364,24 +466,26 @@ func (d *Deal) Active() bool { return d.status == StatusNegotiating || d.status 
 // TurnOf reports whether by has to act: the deal negotiates and the open
 // price l still stands behind is the other side's, or the deal is agreed
 // and waits for the buyer's COD request on a listing still on sale or, on
-// an order requested or shipped, for the seller.
+// a pending order, for the seller's shipment. Nobody's turn comes while an
+// order is shipped: the carrier moves it.
 func (d *Deal) TurnOf(by Party, l Listing) bool {
 	switch d.status {
 	case StatusNegotiating:
 		open := d.live(l)
 		return open != nil && open.By != by
 	case StatusAgreed:
+		o := d.openOrder()
 		if by == Seller {
-			return d.openOrder() != nil
+			return o != nil && o.Status == OrderPending
 		}
-		return d.openOrder() == nil && l.Status == ListingActive
+		return o == nil && l.Status == ListingActive
 	case StatusSold:
 		return false
 	}
 	return false
 }
 
-// openOrder is the deal's order while requested or shipped, nil otherwise.
+// openOrder is the deal's order while pending or shipped, nil otherwise.
 func (d *Deal) openOrder() *Order {
 	if d.order != nil && d.order.Open() {
 		return d.order
@@ -389,11 +493,17 @@ func (d *Deal) openOrder() *Order {
 	return nil
 }
 
-// cancelOrder ends the requested order and drops the agreement.
+// cancelOrder ends the open order and drops the agreement.
 func (d *Deal) cancelOrder(by Party, reason CancelReason, now time.Time) {
 	d.order.Status, d.order.CancelledBy, d.order.CancelReason, d.order.ClosedAt = OrderCancelled, by, reason, &now
 	d.reopen()
 	d.record(MoveOrderCancelled, by, 0, now)
+}
+
+// complete ends the shipped order completed; the deal is sold.
+func (d *Deal) complete(by Party, now time.Time) {
+	d.order.Status, d.order.ClosedAt, d.status = OrderCompleted, &now, StatusSold
+	d.record(MoveCompleted, by, 0, now)
 }
 
 // reopen drops the agreement; the deal negotiates again.

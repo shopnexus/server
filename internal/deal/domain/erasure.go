@@ -7,12 +7,12 @@ import "time"
 const KeepRecipientsFor = 365 * 24 * time.Hour
 
 // PartyLeft ends what a deleted account leaves open on the deal, by the
-// system: a requested order is cancelled, an agreement dropped, an open
+// system: a pending order is cancelled, an agreement dropped, an open
 // price taken back. A shipped order stays; erasure refuses a deletion
 // while one exists. It reports whether the deal changed.
 func (d *Deal) PartyLeft(now time.Time) bool {
 	if o := d.openOrder(); o != nil {
-		if o.Status != OrderRequested {
+		if o.Status != OrderPending {
 			return false
 		}
 		d.cancelOrder(System, CancelListingClosed, now)
