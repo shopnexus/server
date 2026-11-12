@@ -36,7 +36,7 @@ DealStatus:
   enum: [negotiating, agreed, sold]
   description: |
     Agreeing reserves nothing; several buyers may agree a price on one
-    listing. sold: the deal's order was delivered; the deal takes no move.
+    listing. sold: the deal's order was completed; the deal takes no move.
 DealListing:
   type: object
   additionalProperties: false
@@ -99,9 +99,8 @@ DealSummary:
       description: |
         The caller has to act: the deal is negotiating and the open price is
         the other side's; or the caller is the buyer of an agreed deal
-        without a requested or shipped order, on a listing still active; or
-        the caller is the seller
-        and the deal's newest order is requested or shipped.
+        without a pending or shipped order, on a listing still active; or
+        the caller is the seller and the deal's newest order is pending.
 OfferRange:
   type: object
   additionalProperties: false
@@ -135,8 +134,9 @@ Move:
         - listing_closed
         - cod_requested
         - shipped
-        - delivered
-        - returned
+        - shipment_updated
+        - completed
+        - failed
         - order_cancelled
     by:
       type: string
@@ -147,7 +147,7 @@ Move:
       format: int64
       description: |
         The offered or agreed price, the new listed price on price_changed,
-        the order's price on cod_requested, the fee on shipped.
+        the order's price on cod_requested, the carrier's fee on shipped when it gave one.
     at:
       type: string
       format: date-time
@@ -212,25 +212,95 @@ CodRequest:
       type: string
       format: uuid
       description: An address of the caller's from GET /v1/addresses. The order keeps a copy, so a later edit or delete of the address leaves it as it was.
-WaybillDraft:
+Carrier:
+  type: string
+  enum: [ghtk, ghn, spx, jt, viettel_post]
+  description: The carriers ShopNexus can read; there is no other.
+ShipmentDraft:
+  description: A manual shipment the seller made on a carrier's own app, or a linked one to make on the seller's GHTK account.
+  oneOf:
+    - $ref: "#/ManualShipmentDraft"
+    - $ref: "#/LinkedShipmentDraft"
+ManualShipmentDraft:
   type: object
   additionalProperties: false
-  required: [carrier, tracking_code, fee]
-  description: The waybill the seller made on the carrier's own app. Breaking a rule is 422 invalid_waybill.
+  required: [mode, carrier, tracking_code]
+  properties:
+    mode:
+      type: string
+      enum: [manual]
+    carrier:
+      type: string
+      description: ghtk, ghn, spx, jt or viettel_post; another value is 422 invalid_shipment.
+    tracking_code:
+      type: string
+      description: 1 to 50 characters once trimmed. A code the carrier does not know is 422 shipment_not_found.
+LinkedShipmentDraft:
+  type: object
+  additionalProperties: false
+  required: [mode, service, weight_grams, pickup]
+  properties:
+    mode:
+      type: string
+      enum: [linked]
+    service:
+      type: string
+      description: standard or express.
+    weight_grams:
+      type: integer
+      description: The parcel's weight, 1 to 20,000 grams.
+    pickup:
+      type: string
+      description: home (GHTK picks the parcel up from the seller) or post_office (the seller brings it to one).
+TrackingCode:
+  type: object
+  additionalProperties: false
+  required: [carrier, tracking_code]
+  description: A manual shipment's corrected carrier and code.
   properties:
     carrier:
       type: string
-      description: ghtk, ghn, spx, jt, viettel_post or other.
-    carrier_name:
-      type: string
-      description: 1 to 50 characters, with carrier other and only then.
+      description: ghtk, ghn, spx, jt or viettel_post; another value is 422 invalid_shipment.
     tracking_code:
       type: string
-      description: 1 to 50 characters.
+      description: 1 to 50 characters once trimmed.
+ShipmentStatus:
+  type: string
+  enum: [pending_pickup, in_transit, delivered, failed]
+  description: Where the parcel is, as its carrier reports it.
+ShipmentPreview:
+  type: object
+  additionalProperties: false
+  required: [carrier, tracking_code, recipient_name, district, cod_amount, status]
+  description: A shipment as its carrier reads it, before the seller confirms it.
+  properties:
+    carrier:
+      $ref: "#/Carrier"
+    tracking_code:
+      type: string
+    recipient_name:
+      type: string
+      description: As the carrier masks it.
+    district:
+      type: string
+    cod_amount:
+      type: integer
+      format: int64
+      description: What the carrier collects at the door, in đồng.
+    status:
+      $ref: "#/ShipmentStatus"
     fee:
       type: integer
       format: int64
-      description: The shipping fee the buyer pays at the door, whole đồng from 0 to 5,000,000.
+      description: The carrier's fee in đồng; absent while the carrier has none.
+ShipmentStatusChange:
+  type: object
+  additionalProperties: false
+  required: [status]
+  properties:
+    status:
+      type: string
+      description: pending_pickup, in_transit, delivered or failed; another value is 422 invalid_status.
 Recipient:
   type: object
   additionalProperties: false
@@ -240,42 +310,59 @@ Recipient:
       type: string
     phone:
       type: string
-      description: In the +84 form. Absent for the seller on an order cancelled before shipping.
+      description: In the +84 form. Absent for the seller on a cancelled order.
     street:
       type: string
-      description: Absent for the seller on an order cancelled before shipping.
+      description: Absent for the seller on a cancelled order.
     commune_code:
       type: string
     commune:
       type: string
     province:
       type: string
-Waybill:
+Shipment:
   type: object
   additionalProperties: false
-  required: [source, carrier, tracking_code, fee]
+  required: [mode, carrier, tracking_code, status]
+  description: The parcel of a shipped order.
   properties:
-    source:
+    mode:
       type: string
-      enum: [self]
-      description: self is a waybill the seller made on the carrier's own app.
+      enum: [linked, manual]
+      description: linked is made on the seller's GHTK account; manual, on a carrier's own app and typed by the seller.
     carrier:
-      type: string
-      enum: [ghtk, ghn, spx, jt, viettel_post, other]
-    carrier_name:
-      type: string
+      $ref: "#/Carrier"
     tracking_code:
       type: string
     fee:
       type: integer
       format: int64
+      description: The carrier's fee in đồng; absent while the carrier has none.
+    status:
+      $ref: "#/ShipmentStatus"
+    delivered_at:
+      type: string
+      format: date-time
+      description: When the carrier reported the parcel delivered; present while status is delivered.
+CancelReason:
+  type: string
+  enum: [buyer, seller, seller_timeout, pickup_timeout, shipped_to_another, listing_closed]
+  description: |
+    buyer and seller: that side cancelled a pending order. seller_timeout:
+    the seller created no shipment within 3 days. pickup_timeout: the
+    carrier had not picked the parcel up 3 days after the shipment.
+    shipped_to_another: the seller shipped the listing to another buyer.
+    listing_closed: the listing was hidden, sold off the app or deleted.
 OrderStatus:
   type: string
-  enum: [requested, shipped, delivered, returned, cancelled]
+  enum: [pending, shipped, completed, failed, cancelled]
   description: |
-    requested: the buyer asked for COD; either side may cancel. shipped: the
-    seller recorded the waybill; the listing is reserved. delivered and
-    returned: as the seller reported. cancelled: before shipping.
+    pending: the buyer asked for COD; either side may cancel. shipped: the
+    seller created the shipment; the listing is reserved. completed: the
+    buyer confirmed receipt, or 3 days passed after the carrier reported
+    the parcel delivered. failed: the carrier reported the delivery
+    failed; the deal negotiates again. cancelled: before the shipment, or
+    by the pickup timeout.
 Order:
   type: object
   additionalProperties: false
@@ -295,15 +382,13 @@ Order:
       format: int64
     recipient:
       $ref: "#/Recipient"
-    waybill:
-      $ref: "#/Waybill"
+    shipment:
+      $ref: "#/Shipment"
     cancelled_by:
       type: string
       enum: [buyer, seller, system]
     cancel_reason:
-      type: string
-      enum: [buyer, seller, sent_to_another, listing_closed]
-      description: sent_to_another is a request whose listing the seller shipped to another buyer; listing_closed, one whose listing was hidden, sold off the app or deleted.
+      $ref: "#/CancelReason"
     requested_at:
       type: string
       format: date-time
@@ -331,14 +416,13 @@ OrderItem:
       format: int64
     recipient:
       $ref: "#/Recipient"
-    waybill:
-      $ref: "#/Waybill"
+    shipment:
+      $ref: "#/Shipment"
     cancelled_by:
       type: string
       enum: [buyer, seller, system]
     cancel_reason:
-      type: string
-      enum: [buyer, seller, sent_to_another, listing_closed]
+      $ref: "#/CancelReason"
     requested_at:
       type: string
       format: date-time

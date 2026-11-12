@@ -3,7 +3,7 @@ review:
     operationId: putReview
     summary: Review the seller of an order the caller bought, or edit the review.
     description: |
-      The order is shipped, delivered or returned. A review changes, and a
+      The order is shipped, completed or failed. A review changes, and a
       deleted one is posted again, only within 7 days of its first
       submission.
     tags: [trust]

@@ -75,7 +75,7 @@ me:
       "403":
         $ref: "../responses/common.yaml#/Forbidden"
       "409":
-        description: "An order of the caller is requested or shipped (orders_open), or the account changed twice during the call (try_again)."
+        description: "An order of the caller is pending or shipped (orders_open), or the account changed twice during the call (try_again)."
         content:
           application/json:
             schema:
