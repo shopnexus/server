@@ -25,6 +25,7 @@ import (
 // lands between MediaExpire's load and its save.
 type racingUploads struct {
 	repository.Uploads
+
 	once sync.Once
 	race func()
 }

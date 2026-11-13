@@ -72,7 +72,7 @@ func (s MediaExpire) Run(ctx restate.Context, id uuid.UUID) error {
 				// A wake a moment early, by this clock against the sender's:
 				// a send keyed for the same moment would attach to this run.
 				if err = restate.Sleep(ctx, left); err != nil {
-					return err
+					return fmt.Errorf("sleep until the expiry: %w", err)
 				}
 				continue
 			}
