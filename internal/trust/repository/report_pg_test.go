@@ -108,7 +108,7 @@ func TestReportConversation(t *testing.T) {
 	reporter, seller := accounttest.New(t, db), accounttest.New(t, db)
 	lo, hi := min(reporter.String(), seller.String()), max(reporter.String(), seller.String())
 	conversation := uuid.NewV7()
-	if _, err := db.Exec(ctx, `INSERT INTO conversations (id, account_a, account_b, created_at) VALUES (@id, @a, @b, now())`,
+	if _, err := db.Exec(ctx, `INSERT INTO conversations (id, account_a, account_b, kind, created_at) VALUES (@id, @a, @b, 'pair', now())`,
 		pgx.StrictNamedArgs{"id": conversation, "a": lo, "b": hi}); err != nil {
 		t.Fatal(err)
 	}

@@ -162,16 +162,16 @@ type Recipient struct {
 // Order is a buyer's request for cash on delivery at the agreed price, and
 // what became of it. Code is set by the store.
 type Order struct {
-	ID           uuid.UUID    `json:"id"`
-	Code         string       `json:"code"`
-	Status       OrderStatus  `json:"status"`
-	Price        int64        `json:"price"`
-	Recipient    Recipient    `json:"recipient"`
-	Shipment     *Shipment    `json:"shipment,omitempty"`
-	CancelledBy  Party        `json:"cancelled_by,omitempty"`
+	ID          uuid.UUID   `json:"id"`
+	Code        string      `json:"code"`
+	Status      OrderStatus `json:"status"`
+	Price       int64       `json:"price"`
+	Recipient   Recipient   `json:"recipient"`
+	Shipment    *Shipment   `json:"shipment,omitempty"`
+	CancelledBy Party       `json:"cancelled_by,omitempty"`
 	// CompletedBy is the buyer, who confirmed receipt, or the system, after
 	// the carrier reported the parcel delivered; empty until completed.
-	CompletedBy Party `json:"completed_by,omitempty"`
+	CompletedBy  Party        `json:"completed_by,omitempty"`
 	CancelReason CancelReason `json:"cancel_reason,omitempty"`
 	RequestedAt  time.Time    `json:"requested_at"`
 	ShippedAt    *time.Time   `json:"shipped_at,omitempty"`
