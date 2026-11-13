@@ -9,6 +9,7 @@ import (
 	"time"
 	"uuid"
 
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -137,6 +138,26 @@ type Watch struct {
 	CreatedAt   time.Time
 }
 
+// WatchCandidate is a watch whose category and conditions admit a
+// listing, with what is left to weigh: its words, its price and offers
+// filters, and its area (a zero Point without one).
+type WatchCandidate struct {
+	Query              string
+	Phrases            []string
+	PriceMin, PriceMax int64
+	OffersOnly         bool
+	RadiusKm           int
+	Point              catalogdomain.Point
+}
+
+// CandidateFilter is a listing's category, its root and its condition, and
+// the accounts whose watches stay out.
+type CandidateFilter struct {
+	CategoryCode, CategoryRoot, Condition string
+	Exclude                               []uuid.UUID
+	Limit                                 int
+}
+
 // Arrival is a listing's first publication, in the order it committed.
 type Arrival struct {
 	Seq       int64
@@ -178,4 +199,9 @@ type Watches interface {
 	// it writes events.SearchWatchMatched, in one transaction. A watch no
 	// longer at prev moves nothing, and moved is false.
 	Swept(ctx context.Context, id uuid.UUID, prev, through int64, n int, at time.Time) (moved bool, err error)
+	// Candidates lists the watches of active accounts not in f.Exclude
+	// whose category is none, f's code or f's root and whose conditions are
+	// none or hold f's, muted ones too, oldest first, at most f.Limit.
+	// f.Exclude must not be nil.
+	Candidates(ctx context.Context, f CandidateFilter) ([]WatchCandidate, error)
 }

@@ -240,3 +240,30 @@ WHERE id = @id AND last_arrival = @prev RETURNING new_count, alert`,
 	}
 	return moved, nil
 }
+
+func (s pgWatches) Candidates(ctx context.Context, f CandidateFilter) ([]WatchCandidate, error) {
+	rows, err := s.db.Query(ctx, `SELECT w.query, w.phrases, coalesce(w.price_min, 0), coalesce(w.price_max, 0),
+    w.offers_only, coalesce(w.radius_km, 0), coalesce(c.lat, 0), coalesce(c.lng, 0)
+FROM search_watches AS w
+JOIN accounts AS a ON a.id = w.account_id AND a.status = 'active'
+LEFT JOIN communes AS c ON c.code = w.commune_code
+WHERE (w.category IS NULL OR w.category = @code OR w.category = @root)
+  AND (cardinality(w.conditions) = 0 OR @condition = ANY(w.conditions))
+  AND w.account_id <> ALL(@exclude)
+ORDER BY w.created_at, w.id
+LIMIT @limit`, pgx.StrictNamedArgs{
+		"code": f.CategoryCode, "root": f.CategoryRoot, "condition": f.Condition, "exclude": f.Exclude, "limit": f.Limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("watch candidates: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (WatchCandidate, error) {
+		var w WatchCandidate
+		err := row.Scan(&w.Query, &w.Phrases, &w.PriceMin, &w.PriceMax, &w.OffersOnly, &w.RadiusKm, &w.Point.Lat, &w.Point.Lng)
+		return w, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read watch candidates: %w", err)
+	}
+	return out, nil
+}

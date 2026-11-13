@@ -73,6 +73,11 @@ type Service interface {
 	Hide(ctx context.Context, account, listing uuid.UUID) error
 	// Unhide shows it again; a listing not hidden is fine.
 	Unhide(ctx context.Context, account, listing uuid.UUID) error
+	// Watchers lists the live watches a listing of seller's matching q
+	// would match, muted ones too, oldest first, at most
+	// domain.MaxWatchers: by category, condition, area and words, with
+	// the price and offers filters left for the caller to weigh.
+	Watchers(ctx context.Context, seller uuid.UUID, q WatcherQuery) ([]Watcher, error)
 	// AccountDeleted deletes what discovery keeps of a deleted account: its
 	// saves, history, hides, watches and settings. The worker calls it on
 	// account.deleted.

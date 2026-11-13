@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -191,5 +192,59 @@ func TestArrivalsStopAtTheFirstYoungOne(t *testing.T) {
 	a, err := ws.Arrivals(ctx, 0, time.Minute, 10)
 	if err != nil || len(a) != 1 || a[0].ListingID != ls[0] {
 		t.Fatalf("the prefix before the young arrival: %v %v", a, err)
+	}
+}
+
+// Candidates are the watches of active accounts whose category and
+// conditions admit the listing, with their commune's point, oldest first.
+func TestWatchCandidates(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ws := repository.NewWatches(db)
+	ctx := context.Background()
+	put := func(account uuid.UUID, q string, change func(*repository.Watch)) {
+		t.Helper()
+		w := watch(account, q)
+		change(&w)
+		if _, _, err := ws.Put(ctx, w); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, b, c := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
+	blocked, me := accounttest.New(t, db), accounttest.New(t, db)
+	put(a, "any", func(*repository.Watch) {})
+	put(a, "root", func(w *repository.Watch) { w.Category = "vehicles" })
+	put(a, "leaf", func(w *repository.Watch) { w.Category, w.Conditions = "vehicles.bicycle", []string{"used", "like_new"} })
+	put(b, "near", func(w *repository.Watch) { w.Commune, w.RadiusKm, w.PriceMax = "00004", 5, 2_000_000 })
+	put(b, "other leaf", func(w *repository.Watch) { w.Category = "vehicles.motorbike" })
+	put(b, "new only", func(w *repository.Watch) { w.Conditions = []string{"new"} })
+	put(blocked, "blocked", func(*repository.Watch) {})
+	put(me, "mine", func(*repository.Watch) {})
+	put(c, "suspended", func(*repository.Watch) {})
+	if _, err := db.Exec(ctx, `UPDATE accounts SET status = 'suspended' WHERE id = $1`, c); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ws.Candidates(ctx, repository.CandidateFilter{
+		CategoryCode: "vehicles.bicycle", CategoryRoot: "vehicles", Condition: "used",
+		Exclude: []uuid.UUID{me, blocked}, Limit: 100,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	queries := make([]string, len(got))
+	for i, w := range got {
+		queries[i] = w.Query
+	}
+	if want := []string{"any", "root", "leaf", "near"}; !slices.Equal(queries, want) {
+		t.Fatalf("%v, want %v", queries, want)
+	}
+	if near := got[3]; near.PriceMax != 2_000_000 || near.RadiusKm != 5 || near.Point.Lat != 21.0394 || near.Point.Lng != 105.8364 {
+		t.Fatalf("near: %+v", near)
+	}
+	if got, _ = ws.Candidates(ctx, repository.CandidateFilter{
+		CategoryCode: "vehicles.bicycle", CategoryRoot: "vehicles", Condition: "used", Exclude: []uuid.UUID{}, Limit: 2,
+	}); len(got) != 2 {
+		t.Fatalf("limit: %+v", got)
 	}
 }
