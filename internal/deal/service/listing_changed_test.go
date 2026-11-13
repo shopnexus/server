@@ -40,7 +40,7 @@ func TestListingChanged(t *testing.T) {
 	must(t)(e.deals.Offer(ctx, a, da.ID, 1_000_000))
 	must(t)(e.deals.Accept(ctx, b, db.ID, 1_500_000))
 
-	e.edit(t, listing, func(d *catalogdomain.Draft) { d.Price = 1_400_000 })
+	e.edit(t, listing, func(d *catalogdomain.ListingInput) { d.Price = 1_400_000 })
 	e.changed(t, listing)
 	e.changed(t, listing)
 	va := e.get(t, a, da.ID)
@@ -60,12 +60,12 @@ func TestListingChanged(t *testing.T) {
 		t.Fatalf("a late event took the new offer: %+v", va)
 	}
 
-	e.edit(t, listing, func(d *catalogdomain.Draft) { d.AllowOffers = false })
+	e.edit(t, listing, func(d *catalogdomain.ListingInput) { d.AllowOffers = false })
 	e.changed(t, listing)
 	if va = e.get(t, a, da.ID); va.OpenPrice != nil || moveKinds(va)[len(va.Moves)-1] != domain.MoveOffersClosed {
 		t.Fatalf("offers off: %+v", va)
 	}
-	e.edit(t, listing, func(d *catalogdomain.Draft) { d.AllowOffers = true })
+	e.edit(t, listing, func(d *catalogdomain.ListingInput) { d.AllowOffers = true })
 	must(t)(e.deals.Offer(ctx, a, da.ID, 900_000))
 
 	before := len(pgtest.EventKinds(t, e.db, db.ID))

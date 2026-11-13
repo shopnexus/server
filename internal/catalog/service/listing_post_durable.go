@@ -20,8 +20,9 @@ import (
 const listingPost = "ListingPost"
 
 type PostInput struct {
-	Seller uuid.UUID    `json:"seller"`
-	Draft  domain.Draft `json:"draft"`
+	Seller uuid.UUID `json:"seller"`
+	// The wire key stays "draft" so old and new pods agree during a deploy.
+	Listing domain.ListingInput `json:"draft"`
 }
 
 // PostResult names the listing posted, or carries the refusal.
@@ -51,7 +52,7 @@ type ListingPost struct{ flowDeps }
 func (s ListingPost) ServiceName() string { return s.Prefix + listingPost }
 
 // Run checks, in order, that the seller is not suspended, has a phone and
-// is under the cap, then the draft. The row goes in before
+// is under the cap, then the listing's fields. The row goes in before
 // the uploads are attached: a cap that a racing post filled refuses before
 // any upload is taken, and an attach that refuses deletes the row again.
 func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) {
@@ -94,12 +95,12 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	if n >= domain.MaxOnSale {
 		return PostResult{Refused: domain.ErrCapReached}, nil
 	}
-	refs, err := lookUpRefs(ctx, s.Categories, s.Regions, in.Draft)
+	refs, err := lookUpRefs(ctx, s.Categories, s.Regions, in.Listing)
 	if err != nil {
 		return PostResult{}, err
 	}
 	id := restatex.NewID(ctx, at)
-	l, err := domain.NewListing(id, in.Seller, in.Draft, refs, at)
+	l, err := domain.NewListing(id, in.Seller, in.Listing, refs, at)
 	if err != nil {
 		return PostResult{Refused: apperr.From(err)}, nil
 	}
@@ -113,7 +114,7 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	if capped {
 		return PostResult{Refused: domain.ErrCapReached}, nil
 	}
-	refused, err := attach(ctx, s.Media, in.Seller, id, in.Draft.Photos)
+	refused, err := attach(ctx, s.Media, in.Seller, id, in.Listing.Photos)
 	if err != nil {
 		return PostResult{}, err
 	}
@@ -127,8 +128,8 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	return PostResult{ListingID: id}, nil
 }
 
-// lookUpRefs reads the draft's category and commune.
-func lookUpRefs(ctx restate.Context, categories repository.Categories, regions repository.Regions, d domain.Draft) (domain.Refs, error) {
+// lookUpRefs reads the listing's category and commune.
+func lookUpRefs(ctx restate.Context, categories repository.Categories, regions repository.Regions, d domain.ListingInput) (domain.Refs, error) {
 	refs, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Refs, error) {
 		leaf, stepErr := categories.IsLeaf(rc, d.CategoryCode)
 		if stepErr != nil {

@@ -28,7 +28,7 @@ func Service(
 	change ...func(*service.Deps),
 ) *service.Catalog {
 	deps := service.Deps{
-		Listings: repository.NewListings(db), Categories: repository.NewCategories(db), Regions: repository.NewRegions(db),
+		Listings: repository.NewListings(db), Drafts: repository.NewDrafts(db), Categories: repository.NewCategories(db), Regions: repository.NewRegions(db),
 		Searches: repository.NewSearches(db), Accounts: accounts, Media: media,
 		Ingress: in, Prefix: prefix, Now: time.Now,
 		Vectors: repository.NewVectors(db), Text: embedtest.New(domain.TextDims), Image: embedtest.New(domain.PhotoDims),
@@ -42,13 +42,13 @@ func Service(
 
 // Listing puts a listing of seller's on sale and returns its ID: "Xe đạp
 // Asama", a used bicycle at 1,500,000 đ that takes offers, in commune
-// 00004, with one processed photo. Each change edits the draft or the
+// 00004, with one processed photo. Each change edits the listing input or the
 // references before the listing is built.
-func Listing(tb testing.TB, db *pgxpool.Pool, seller uuid.UUID, change ...func(*domain.Draft, *domain.Refs)) uuid.UUID {
+func Listing(tb testing.TB, db *pgxpool.Pool, seller uuid.UUID, change ...func(*domain.ListingInput, *domain.Refs)) uuid.UUID {
 	tb.Helper()
 	photo := uuid.NewV7()
 	now := time.Now()
-	d := domain.Draft{
+	d := domain.ListingInput{
 		Title: "Xe đạp Asama", Price: 1_500_000, CategoryCode: "vehicles.bicycle", Condition: domain.ConditionUsed,
 		AllowOffers: true, CommuneCode: "00004", Photos: []uuid.UUID{photo},
 	}

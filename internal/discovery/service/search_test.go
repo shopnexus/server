@@ -64,7 +64,7 @@ var baDinh = catalogdomain.Point{Lat: 21.03, Lng: 105.82}
 // its commune at p.
 func (e env) put(t *testing.T, title, category string, p catalogdomain.Point) uuid.UUID {
 	t.Helper()
-	return catalogtest.Listing(t, e.db, accounttest.New(t, e.db), func(d *catalogdomain.Draft, r *catalogdomain.Refs) {
+	return catalogtest.Listing(t, e.db, accounttest.New(t, e.db), func(d *catalogdomain.ListingInput, r *catalogdomain.Refs) {
 		d.Title, d.CategoryCode, r.CommunePoint = title, category, p
 	})
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/repository"
 )
 
-// PriceQuery is a draft a price sample is drawn for: its subcategory, its
+// PriceQuery is a listing input a price sample is drawn for: its subcategory, its
 // condition and its vectors, embedded by the caller with the models behind
 // catalog's versions. Exclude is the seller, whose own listings are left
 // out. TextMin and PhotoMin are the cosine floors; Now is when the windows
@@ -41,7 +41,7 @@ func (c *Catalog) PriceSample(ctx context.Context, q PriceQuery) ([]PriceSample,
 	return samples, nil
 }
 
-func (c *Catalog) EmbeddingText(ctx context.Context, d domain.Draft) (string, error) {
+func (c *Catalog) EmbeddingText(ctx context.Context, d domain.ListingInput) (string, error) {
 	tree, err := c.categories.Tree(ctx)
 	if err != nil {
 		return "", fmt.Errorf("read categories: %w", err)

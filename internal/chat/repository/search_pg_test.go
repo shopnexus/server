@@ -118,7 +118,7 @@ func TestSearchThreads(t *testing.T) {
 		}
 	}
 	send(t, s, byName, hanh, "Chào")
-	listing := catalogtest.Listing(t, db, seller, func(d *catalogdomain.Draft, _ *catalogdomain.Refs) { d.Title = "Giày Nike Air cũ" })
+	listing := catalogtest.Listing(t, db, seller, func(d *catalogdomain.ListingInput, _ *catalogdomain.Refs) { d.Title = "Giày Nike Air cũ" })
 	m, err := domain.NewMessage(uuid.NewV7(), byTitle.ID, viewer, "Còn không?", nil, &listing, time.Now())
 	if err != nil {
 		t.Fatal(err)

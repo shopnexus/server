@@ -17,7 +17,7 @@ listings:
       content:
         application/json:
           schema:
-            $ref: "../schemas/catalog.yaml#/ListingDraft"
+            $ref: "../schemas/catalog.yaml#/ListingInput"
     responses:
       "201":
         description: The listing, in processing.
@@ -105,7 +105,7 @@ listing:
       content:
         application/json:
           schema:
-            $ref: "../schemas/catalog.yaml#/ListingDraft"
+            $ref: "../schemas/catalog.yaml#/ListingInput"
     responses:
       "200":
         description: The listing.
@@ -419,3 +419,105 @@ sellerListings:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+listingDrafts:
+  get:
+    operationId: listListingDrafts
+    summary: List the caller's drafts.
+    description: |
+      Every draft of the caller's, in full, last edited first; at most 20,
+      so there are no pages. Drafts past expires_at are deleted first.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The drafts.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/ListingDraftList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+listingDraft:
+  put:
+    operationId: putListingDraft
+    summary: Create or replace one of the caller's drafts.
+    description: |
+      The app mints the ID, a UUIDv7, so a draft made offline has its ID
+      before it reaches the server. The last PUT wins. Photos a listing took
+      or that expired are dropped; each of the others is kept 30 days from
+      this PUT, and a later PUT never shortens that. The draft is kept 30
+      days from this PUT. Drafts of the caller's past expires_at are deleted
+      first, so they free their places.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/catalog.yaml#/ListingDraftInput"
+    responses:
+      "200":
+        description: The draft, replaced.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/ListingDraft"
+      "201":
+        description: The draft, created.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/ListingDraft"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "The ID is another account's draft (draft_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "A create when the caller has 20 drafts (draft_limit_reached), or the photos collided with another write (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "A photo is not the caller's photo upload, waiting before its expiry and in the store as declared (invalid_upload)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: deleteListingDraft
+    summary: Delete one of the caller's drafts.
+    description: Its photos expire on their own. The app calls it after a post from the draft.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Deleted, or there was no such draft of the caller's.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

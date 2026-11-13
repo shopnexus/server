@@ -11,8 +11,8 @@ import (
 // Post runs ListingPost once per seller and idempotencyKey, then reads the
 // listing it posted. A repeated key gets the first post's listing as it is
 // now.
-func (c *Catalog) Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.Draft) (ListingView, error) {
-	res, err := c.post.Call(ctx, seller.String()+"/"+idempotencyKey, PostInput{Seller: seller, Draft: d})
+func (c *Catalog) Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.ListingInput) (ListingView, error) {
+	res, err := c.post.Call(ctx, seller.String()+"/"+idempotencyKey, PostInput{Seller: seller, Listing: d})
 	if err != nil {
 		return ListingView{}, err
 	}

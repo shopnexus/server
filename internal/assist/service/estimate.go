@@ -24,7 +24,7 @@ func (d Deps) marketEstimate(ctx restate.Context, read, account uuid.UUID, draft
 		return nil
 	}
 	m, err := restate.Run(ctx, func(rc restate.RunContext) (*domain.Estimate, error) {
-		text, textErr := d.Catalog.EmbeddingText(rc, catalogdomain.Draft{
+		text, textErr := d.Catalog.EmbeddingText(rc, catalogdomain.ListingInput{
 			Title: draft.Title, CategoryCode: draft.CategoryCode, Condition: draft.Condition, Specs: draft.Specs,
 			Description: draft.Description,
 		})

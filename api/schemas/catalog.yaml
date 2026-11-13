@@ -1,4 +1,4 @@
-ListingDraft:
+ListingInput:
   type: object
   additionalProperties: false
   required: [title, price, category_code, condition, allow_offers, commune_code, photos]
@@ -270,3 +270,96 @@ CommuneList:
       description: By display name; empty for an unknown province.
       items:
         $ref: "#/Commune"
+ListingDraftInput:
+  type: object
+  additionalProperties: false
+  required: [schema_version, title, price, photos, body]
+  description: |
+    A draft as the app has it. The server reads title, price and photos and
+    keeps body as it came, without reading it; the posting rules apply only
+    at POST /v1/listings.
+  properties:
+    schema_version:
+      type: integer
+      minimum: 1
+      description: The layout of body, which the app defines.
+    title:
+      type: string
+      maxLength: 100
+      description: May be empty.
+    price:
+      type: [integer, "null"]
+      format: int64
+      minimum: 0
+      description: Whole đồng, or null while the seller has typed none.
+    photos:
+      type: array
+      maxItems: 10
+      items:
+        type: string
+        format: uuid
+      description: |
+        Upload IDs of the caller's, in order. A photo a listing took, or one
+        that expired, is dropped from the stored draft; an ID given twice is
+        kept once. Each photo kept is kept 30 days from this PUT.
+    body:
+      type: string
+      maxLength: 32768
+      description: JSON the app owns, as a string.
+ListingDraftPhoto:
+  type: object
+  additionalProperties: false
+  required: [upload_id, url]
+  properties:
+    upload_id:
+      type: string
+      format: uuid
+    url:
+      type: string
+      description: A presigned GET of the original upload, valid for an hour.
+ListingDraft:
+  type: object
+  additionalProperties: false
+  required: [id, schema_version, title, price, photos, body, updated_at, expires_at]
+  description: |
+    A listing the caller started and has not posted, kept for their other
+    devices until expires_at, 30 days after its last PUT. Photos a listing
+    took or that expired are left out.
+  properties:
+    id:
+      type: string
+      format: uuid
+    schema_version:
+      type: integer
+      minimum: 1
+    title:
+      type: string
+      maxLength: 100
+    price:
+      type: [integer, "null"]
+      format: int64
+      minimum: 0
+    photos:
+      type: array
+      maxItems: 10
+      items:
+        $ref: "#/ListingDraftPhoto"
+    body:
+      type: string
+      maxLength: 32768
+    updated_at:
+      type: string
+      format: date-time
+    expires_at:
+      type: string
+      format: date-time
+ListingDraftList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      maxItems: 20
+      items:
+        $ref: "#/ListingDraft"

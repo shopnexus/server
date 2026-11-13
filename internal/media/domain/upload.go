@@ -87,6 +87,7 @@ type Upload struct {
 	photoKey    string
 	thumbKey    string
 	failure     string
+	expiresAt   time.Time // when a waiting upload is deleted; a draft moves it out
 	writeID     uuid.UUID
 	createdAt   time.Time
 	updatedAt   time.Time
@@ -111,7 +112,7 @@ func NewUpload(id, owner uuid.UUID, contentType string, size int64, origin Origi
 	}
 	return Upload{
 		id: id, ownerID: owner, contentType: contentType, size: size, origin: origin, status: StatusWaiting,
-		writeID: id, createdAt: now, updatedAt: now,
+		writeID: id, createdAt: now, updatedAt: now, expiresAt: now.Add(ExpireAfter),
 	}, nil
 }
 
@@ -167,10 +168,11 @@ func (u *Upload) Failed(reason string, now time.Time) {
 	u.status, u.failure, u.updatedAt = StatusFailed, reason, now
 }
 
-// Expire ends an upload still waiting and reports whether it did; an
-// attached, processed or expired one stays as it is.
+// Expire ends an upload that is still waiting at its expiry and reports
+// whether it did; an upload before its expiry, or attached, processed or
+// expired, stays as it is.
 func (u *Upload) Expire(now time.Time) bool {
-	if u.status != StatusWaiting {
+	if u.status != StatusWaiting || now.Before(u.expiresAt) {
 		return false
 	}
 	u.status, u.updatedAt = StatusExpired, now
@@ -188,6 +190,33 @@ func (u *Upload) Consume(now time.Time) bool {
 	return true
 }
 
+// Extend keeps a waiting photo of owner's for their drafts: its expiry
+// moves to ExtendFor from now, unless it is later already. Nothing brings
+// it in. Another owner's upload, a video, or a photo that is not waiting
+// before its expiry is refused.
+func (u *Upload) Extend(owner uuid.UUID, now time.Time) error {
+	if owner != u.ownerID || IsVideo(u.contentType) || u.status != StatusWaiting || !now.Before(u.expiresAt) {
+		return ErrInvalidUpload
+	}
+	if end := now.Add(ExtendFor); u.expiresAt.Before(end) {
+		u.expiresAt, u.updatedAt = end, now
+	}
+	return nil
+}
+
+// Gone reports whether an upload of owner's can no longer be in their
+// drafts: a holder took it, it expired, or it waits past its expiry.
+// Another owner's upload is not gone; Extend refuses it.
+func (u *Upload) Gone(owner uuid.UUID, now time.Time) bool {
+	if owner != u.ownerID {
+		return false
+	}
+	if u.status == StatusWaiting {
+		return !now.Before(u.expiresAt)
+	}
+	return true // attached, ready, failed, expired, consumed
+}
+
 // UploadState is every stored field of an upload. Stores only.
 type UploadState struct {
 	ID          uuid.UUID `json:"id"`
@@ -201,6 +230,7 @@ type UploadState struct {
 	PhotoKey    string    `json:"photo_key"`
 	ThumbKey    string    `json:"thumb_key"`
 	Failure     string    `json:"failure"`
+	ExpiresAt   time.Time `json:"expires_at"`
 	WriteID     uuid.UUID `json:"write_id"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
@@ -210,7 +240,7 @@ type UploadState struct {
 func RestoreUpload(st UploadState) Upload {
 	return Upload{
 		id: st.ID, ownerID: st.OwnerID, holderID: st.HolderID, shape: st.Shape, contentType: st.ContentType, size: st.Size, origin: st.Origin, status: st.Status,
-		photoKey: st.PhotoKey, thumbKey: st.ThumbKey, failure: st.Failure, writeID: st.WriteID,
+		photoKey: st.PhotoKey, thumbKey: st.ThumbKey, failure: st.Failure, expiresAt: st.ExpiresAt, writeID: st.WriteID,
 		createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
 	}
 }
@@ -219,7 +249,7 @@ func RestoreUpload(st UploadState) Upload {
 func (u *Upload) State() UploadState {
 	return UploadState{
 		ID: u.id, OwnerID: u.ownerID, HolderID: u.holderID, Shape: u.shape, ContentType: u.contentType, Size: u.size, Origin: u.origin, Status: u.status,
-		PhotoKey: u.photoKey, ThumbKey: u.thumbKey, Failure: u.failure, WriteID: u.writeID,
+		PhotoKey: u.photoKey, ThumbKey: u.thumbKey, Failure: u.failure, ExpiresAt: u.expiresAt, WriteID: u.writeID,
 		CreatedAt: u.createdAt, UpdatedAt: u.updatedAt,
 	}
 }
@@ -239,11 +269,16 @@ func (u *Upload) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// ExpireAfter is how long an upload may wait for an attach.
+// ExpireAfter is how long a new upload may wait for an attach or a draft.
 const ExpireAfter = 24 * time.Hour
 
-// ExpiresAt is when a waiting upload is deleted.
-func (u *Upload) ExpiresAt() time.Time { return u.createdAt.Add(ExpireAfter) }
+// ExtendFor is how long a draft keeps the photos it names after each PUT:
+// catalog's domain.DraftLife.
+const ExtendFor = 30 * 24 * time.Hour
+
+// ExpiresAt is when a waiting upload is deleted: a day after it was
+// created, or later once a draft extended it.
+func (u *Upload) ExpiresAt() time.Time { return u.expiresAt }
 
 // Queryable reports whether owner may search with u now: it is theirs, still
 // waiting and before its expiry.

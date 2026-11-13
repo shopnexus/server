@@ -8,7 +8,7 @@ import (
 )
 
 type updateRequest struct {
-	draftBody
+	listingBody
 
 	ID             uuid.UUID `json:"-"                 path:"id"`
 	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
@@ -25,7 +25,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Edit(r.Context(), p.AccountID, in.ID, in.IdempotencyKey, in.draft())
+	v, err := h.svc.Edit(r.Context(), p.AccountID, in.ID, in.IdempotencyKey, in.input())
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

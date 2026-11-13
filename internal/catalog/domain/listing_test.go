@@ -17,8 +17,8 @@ var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 // known is a draft whose category and commune the tables hold.
 var known = domain.Refs{CategoryIsLeaf: true, CommuneExists: true}
 
-func draft() domain.Draft {
-	return domain.Draft{
+func draft() domain.ListingInput {
+	return domain.ListingInput{
 		Title: "  iPhone 13 128GB  ", Price: 9_500_000, Description: "Máy zin", CategoryCode: "phones.iphone",
 		Condition: domain.ConditionLikeNew, AllowOffers: true, CommuneCode: "00004",
 		Photos: []uuid.UUID{uuid.NewV7(), uuid.NewV7()},
@@ -52,13 +52,13 @@ func TestNewListingRules(t *testing.T) {
 		}
 		return out
 	}
-	for field, change := range map[string]func(*domain.Draft){
-		"title":       func(d *domain.Draft) { d.Title = "   " },
-		"price":       func(d *domain.Draft) { d.Price = 9_999 },
-		"description": func(d *domain.Draft) { d.Description = strings.Repeat("a", 1501) },
-		"condition":   func(d *domain.Draft) { d.Condition = "broken" },
-		"photos":      func(d *domain.Draft) { d.Photos = photos(11) },
-		"specs":       func(d *domain.Draft) { d.Specs = []domain.Spec{{Label: "x", Value: strings.Repeat("v", 51)}} },
+	for field, change := range map[string]func(*domain.ListingInput){
+		"title":       func(d *domain.ListingInput) { d.Title = "   " },
+		"price":       func(d *domain.ListingInput) { d.Price = 9_999 },
+		"description": func(d *domain.ListingInput) { d.Description = strings.Repeat("a", 1501) },
+		"condition":   func(d *domain.ListingInput) { d.Condition = "broken" },
+		"photos":      func(d *domain.ListingInput) { d.Photos = photos(11) },
+		"specs":       func(d *domain.ListingInput) { d.Specs = []domain.Spec{{Label: "x", Value: strings.Repeat("v", 51)}} },
 	} {
 		d := draft()
 		change(&d)

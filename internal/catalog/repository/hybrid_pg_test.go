@@ -20,7 +20,7 @@ import (
 // put lists a listing at price with a text vector and one photo vector.
 func putHybrid(t *testing.T, db *pgxpool.Pool, seller uuid.UUID, title string, price int64, text, photo []float32) uuid.UUID {
 	t.Helper()
-	id := catalogtest.Listing(t, db, seller, func(d *domain.Draft, _ *domain.Refs) { d.Title, d.Price = title, price })
+	id := catalogtest.Listing(t, db, seller, func(d *domain.ListingInput, _ *domain.Refs) { d.Title, d.Price = title, price })
 	vs := repository.NewVectors(db)
 	if text != nil {
 		if err := vs.PutText(context.Background(), id, "t", []byte{1}, text, time.Now()); err != nil {

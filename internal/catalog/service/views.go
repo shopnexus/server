@@ -147,3 +147,22 @@ type MarketPrice struct {
 	Median     int64
 	SampleSize int
 }
+
+// DraftView is the ListingDraft schema in api/schemas/catalog.yaml.
+type DraftView struct {
+	ID            uuid.UUID        `json:"id"`
+	SchemaVersion int              `json:"schema_version"`
+	Title         string           `json:"title"`
+	Price         *int64           `json:"price"`
+	Photos        []DraftPhotoView `json:"photos"`
+	Body          string           `json:"body"`
+	UpdatedAt     time.Time        `json:"updated_at"`
+	ExpiresAt     time.Time        `json:"expires_at"`
+}
+
+// DraftPhotoView is the ListingDraftPhoto schema: the URL reads the
+// original upload for an hour.
+type DraftPhotoView struct {
+	UploadID uuid.UUID `json:"upload_id"`
+	URL      string    `json:"url"`
+}
