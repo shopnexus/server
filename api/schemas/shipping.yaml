@@ -1,0 +1,91 @@
+LinkedCarrier:
+  type: string
+  enum: [ghtk, ghn]
+  description: The carriers a seller can link. The other carriers in Carrier cannot be linked yet.
+CarrierAccount:
+  type: object
+  additionalProperties: false
+  required: [carrier, shop_code, linked_at]
+  description: A carrier account the seller linked. The token never leaves the server.
+  properties:
+    carrier:
+      $ref: "#/LinkedCarrier"
+    shop_code:
+      type: string
+      description: GHTK's shop code or GHN's ShopId.
+    linked_at:
+      type: string
+      format: date-time
+CarrierAccountList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/CarrierAccount"
+CarrierLogin:
+  description: GHTK takes the seller's email and password; GHN takes the seller's API token and ShopId.
+  oneOf:
+    - $ref: "#/GhtkLogin"
+    - $ref: "#/GhnLogin"
+GhtkLogin:
+  type: object
+  additionalProperties: false
+  required: [email, password]
+  properties:
+    email:
+      type: string
+      minLength: 1
+      maxLength: 254
+    password:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: Used once to get the shop's token; never stored.
+GhnLogin:
+  type: object
+  additionalProperties: false
+  required: [token, shop_id]
+  properties:
+    token:
+      type: string
+      minLength: 1
+      maxLength: 200
+    shop_id:
+      type: string
+      minLength: 1
+      maxLength: 50
+PickupPoint:
+  type: object
+  additionalProperties: false
+  required: [id, name, phone, address]
+  description: A pickup point the seller registered at the carrier.
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+    phone:
+      type: string
+    address:
+      type: string
+PickupPointList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/PickupPoint"
+Quote:
+  type: object
+  additionalProperties: false
+  required: [fee]
+  properties:
+    fee:
+      type: integer
+      format: int64
+      description: The carrier's fee in đồng, read-only.
