@@ -178,44 +178,6 @@ ConsoleAccountList:
     next_cursor:
       type: string
       format: uuid
-ConsoleFeedback:
-  type: object
-  additionalProperties: false
-  required: [id, body, created_at, account]
-  properties:
-    id:
-      type: string
-      format: uuid
-    body:
-      type: string
-    created_at:
-      type: string
-      format: date-time
-    account:
-      type: object
-      additionalProperties: false
-      required: [id, display_name, deleted]
-      description: Who sent it; a deleted account has an empty name.
-      properties:
-        id:
-          type: string
-          format: uuid
-        display_name:
-          type: string
-        deleted:
-          type: boolean
-ConsoleFeedbackList:
-  type: object
-  additionalProperties: false
-  required: [items]
-  properties:
-    items:
-      type: array
-      items:
-        $ref: "#/ConsoleFeedback"
-    next_cursor:
-      type: string
-      format: uuid
 ConsoleAccountDetail:
   type: object
   additionalProperties: false
@@ -283,6 +245,9 @@ Action:
         - member.reset_password
         - member.reset_totp
         - member.unlock
+        - ticket.reply
+        - ticket.resolve
+        - ticket.reopen
     target:
       type: object
       additionalProperties: false
@@ -290,7 +255,7 @@ Action:
       properties:
         kind:
           type: string
-          enum: [account, member]
+          enum: [account, member, ticket]
         id:
           type: string
           format: uuid
@@ -329,3 +294,132 @@ DashboardTicket:
     callback_url:
       type: string
       description: https://<the dashboard's host>/_dashboard/callback?ticket=<ticket>. The console adds rd and sends the browser there.
+ConsoleTicket:
+  type: object
+  additionalProperties: false
+  required: [ticket, person, last_from, last_message_at]
+  properties:
+    ticket:
+      $ref: "support.yaml#/Ticket"
+    person:
+      $ref: "chat.yaml#/Person"
+    last_text:
+      type: string
+      description: The last message's text, for the queue row.
+    last_from:
+      type: string
+      enum: [person, shopnexus]
+      description: person shows "Chờ trả lời".
+    last_message_at:
+      type: string
+      format: date-time
+ConsoleTicketList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/ConsoleTicket"
+    next_cursor:
+      type: string
+      format: uuid
+ConsoleMessage:
+  type: object
+  additionalProperties: false
+  required: [message, automatic]
+  properties:
+    message:
+      $ref: "chat.yaml#/Message"
+    member:
+      type: string
+      description: The member who wrote a ShopNexus reply; absent for the person's messages and for an automatic one.
+    automatic:
+      type: boolean
+      description: A message ShopNexus sent by itself, such as the note when a carrier request closes.
+ConsoleMessageList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/ConsoleMessage"
+    next_cursor:
+      type: string
+      format: uuid
+ConsoleReply:
+  type: object
+  additionalProperties: false
+  required: [body]
+  properties:
+    body:
+      type: string
+      description: 1 to 1000 characters after trimming.
+    reply_to:
+      type: string
+      format: uuid
+      description: A sent message of the ticket's chat the reply quotes.
+ConsoleTicketOrder:
+  type: object
+  additionalProperties: false
+  required: [id, title, price, status, seller]
+  properties:
+    id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    price:
+      type: integer
+      format: int64
+    status:
+      type: string
+      enum: [pending, shipped, completed, failed, cancelled]
+    seller:
+      $ref: "chat.yaml#/Person"
+    carrier:
+      type: string
+    tracking_code:
+      type: string
+    shipment_status:
+      type: string
+    shipped_at:
+      type: string
+      format: date-time
+    delivered_at:
+      type: string
+      format: date-time
+ConsoleTicketDetail:
+  type: object
+  additionalProperties: false
+  required: [ticket, person_status, joined_at, others, messages]
+  properties:
+    ticket:
+      $ref: "#/ConsoleTicket"
+    person_status:
+      type: string
+      enum: [active, suspended, deleted]
+    joined_at:
+      type: string
+      format: date-time
+    order:
+      $ref: "#/ConsoleTicketOrder"
+    same_carrier_30d:
+      type: integer
+      description: carrier_request only; tickets naming the same carrier in 30 days, this one included.
+    others:
+      type: array
+      items:
+        $ref: "support.yaml#/Ticket"
+    messages:
+      $ref: "#/ConsoleMessageList"
+ConsoleSupportSummary:
+  type: object
+  additionalProperties: false
+  required: [open]
+  properties:
+    open:
+      type: integer

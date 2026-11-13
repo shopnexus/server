@@ -314,27 +314,6 @@ accounts:
               $ref: "../schemas/console.yaml#/ConsoleAccountList"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
-feedback:
-  parameters:
-    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
-  get:
-    operationId: listConsoleFeedback
-    summary: Feedback people sent, newest first.
-    tags: [console]
-    security:
-      - consoleAuth: []
-    parameters:
-      - $ref: "../parameters/common.yaml#/Cursor"
-      - $ref: "../parameters/common.yaml#/Limit"
-    responses:
-      "200":
-        description: One page of feedback.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/console.yaml#/ConsoleFeedbackList"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
 account:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -383,6 +362,12 @@ accountSuspend:
         $ref: "../responses/common.yaml#/NotFound"
       "422":
         $ref: "../responses/common.yaml#/Unprocessable"
+      "409":
+        description: "The ShopNexus system account cannot be suspended (account_is_system)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 accountUnsuspend:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -403,6 +388,12 @@ accountUnsuspend:
               $ref: "../schemas/console.yaml#/ConsoleAccount"
       "404":
         $ref: "../responses/common.yaml#/NotFound"
+      "409":
+        description: "The ShopNexus system account cannot be suspended (account_is_system)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 actions:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -582,3 +573,201 @@ dashboardCallback:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+supportTickets:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listConsoleTickets
+    summary: The ticket queue, newest activity first.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/TicketStatusQuery"
+      - $ref: "../parameters/common.yaml#/TicketKindQuery"
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleTicketList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+supportTicket:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getConsoleTicket
+    summary: One ticket with its person, order, other tickets and first page of messages.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/ConsoleTicketID"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleTicketDetail"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such ticket (ticket_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+supportTicketMessages:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listConsoleTicketMessages
+    summary: Older messages of a ticket's chat, newest first.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/ConsoleTicketID"
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleMessageList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such ticket (ticket_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+supportTicketReplies:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: replyConsoleTicket
+    summary: Reply in a ticket's chat as ShopNexus.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/ConsoleTicketID"
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/console.yaml#/ConsoleReply"
+    responses:
+      "201":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleMessage"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such ticket (ticket_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "Empty or over 1000 characters, or a reply_to that is not a sent message of this chat (invalid_message)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+supportTicketResolve:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: resolveConsoleTicket
+    summary: Mark a ticket resolved; a carrier request sends "Đã ghi nhận hãng <name>." in its chat.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/ConsoleTicketID"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleTicket"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such ticket (ticket_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "Already resolved (ticket_not_allowed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+supportTicketReopen:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: reopenConsoleTicket
+    summary: Open a resolved ticket again.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/ConsoleTicketID"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleTicket"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such ticket (ticket_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "Already open (ticket_not_allowed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+supportSummary:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getConsoleSupportSummary
+    summary: The open count for the drawer.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleSupportSummary"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

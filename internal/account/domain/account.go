@@ -23,6 +23,11 @@ const (
 	StatusDeleted Status = "deleted"
 )
 
+// ShopNexusID is the system account every support chat is with. Migration
+// 0044 makes it with no identity, so nobody signs in to it; members of the
+// console write as it.
+var ShopNexusID = uuid.MustParse("0193e000-0000-7000-8000-000000000001")
+
 // RecentAuth is how long after a sign-in the sensitive actions stay open:
 // signing out everywhere and deleting the account.
 const RecentAuth = 15 * time.Minute

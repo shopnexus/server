@@ -228,3 +228,22 @@ func TestOrderFacts(t *testing.T) {
 		t.Fatalf("unknown: %v %v", ok, err)
 	}
 }
+
+func TestOrderFactsCarryTheShipmentAndWhoCompleted(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t)
+	seller, buyer := e.person(t), e.person(t)
+	v := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPX0042")
+	f, ok, err := e.deals.Order(ctx, v.Order.ID)
+	if err != nil || !ok || f.Shipment == nil || f.Shipment.TrackingCode != "SPX0042" || f.Code == "" || f.Price == 0 ||
+		f.ShippedAt == nil || f.CompletedBy != "" {
+		t.Fatalf("shipped: %+v %v %v", f, ok, err)
+	}
+	if _, err = e.deals.ConfirmReceipt(ctx, buyer, v.Order.ID, key()); err != nil {
+		t.Fatal(err)
+	}
+	if f, _, err = e.deals.Order(ctx, v.Order.ID); err != nil || f.CompletedBy != domain.Buyer || f.ClosedAt == nil {
+		t.Fatalf("completed: %+v %v", f, err)
+	}
+}

@@ -1363,6 +1363,18 @@ Module `chat` holds conversations (spec:
   photos to it in media (holder: the message), deleting the message again
   when media refuses the attach; a photo message then sends
   `MessagePublish`.
+- A conversation is `pair`, the one chat of two people, or `support`, one
+  ticket's chat with ShopNexus (decided 2026-11-13): the pair unique index
+  covers `pair` only, so a person has any number of support chats. Support
+  chats stay out of the inbox, its unread count and inbox search
+  (`SupportUnread` counts them), get no scam check, cannot be archived or
+  marked unread (409 `conversation_is_support`), and push with the title
+  "ShopNexus". `MessageSend` lets a suspended person write in a support chat
+  and refuses them everywhere else.
+- A message may quote an earlier sent message of its conversation
+  (`reply_to`, decided 2026-11-13); anything else is 422 `invalid_message`
+  with field `reply_to`. `Message.reply_to` reads the quoted message at read
+  time, its text cut to 200 characters.
 - A photo message is `processing` until `MessagePublish` has its photos
   through `MediaProcess`, then `sent` or `failed`. Only its sender sees it
   until it is sent.
@@ -1972,21 +1984,55 @@ bạn", and nothing compares the listing's owner with the account.
 
 ### Support
 
-Module `support` keeps the feedback people send (decided 2026-11-10, same
-spec as Erasure).
+Module `support` keeps tickets, what people ask ShopNexus (spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-13-support-tickets-design.md`,
+decided 2026-11-13). It replaced the feedback of 2026-11-10: migration 0044
+turned each feedback row into an open ticket of kind `other` and dropped
+the table, `POST /v1/feedback` and `GET /v1/console/feedback`.
 
-- `POST /v1/feedback {body}` takes 1 to 1000 characters after trimming
-  (422 `invalid_feedback`) from an account that may write. It requires an
-  `Idempotency-Key` without running Restate, as `POST /v1/addresses` does:
-  the row keeps it as `request_key`, and a repeated key returns the first
-  feedback, also at the limit.
-- An account sends at most 10 in 24 hours (429 `feedback_limit_reached`),
-  counted under `pg_advisory_xact_lock` on the account.
-- Console members read it at `GET /v1/console/feedback`, newest first, with
-  the sender's name and `deleted`. The route is console's, since `Require`
-  is; console's handler calls `supportsvc.Service.Feedback`. Support mounts
-  after account and before console.
-- Feedback stays when its account is deleted; the tombstone names no one.
+- Every ticket is its own chat between the person and the system account
+  ShopNexus, `accountdomain.ShopNexusID`, which 0044 made with no identity
+  so nobody signs in to it. The chat is a chat of module chat with kind
+  `support`; support stores no messages of its own.
+- Three kinds: `not_received` (the buyer's report of an order that is
+  `shipped`, or `completed` by the system less than 7 days ago, read from
+  `orders.completed_by`; one ticket per order), `carrier_request` (a carrier
+  name of 1 to 50 characters, folded into `carrier_key` to count requests
+  for one carrier) and `other` (needs a first message).
+- `POST /v1/support/tickets` runs the Restate flow `TicketOpen` under
+  `<account>/<Idempotency-Key>`. One step reads the account (a suspended
+  one may still open a ticket), the order's ticket and the order through
+  deal; then steps open the support chat, insert the ticket under
+  `pg_advisory_xact_lock` on the account (at most 10 in 24 hours, 429
+  `too_many_tickets`), send the person's first message through chat's
+  `MessageSend` with `OpensTicket` so it may carry no text, and record it as
+  `first_message_id`, which the app draws as the ticket's card; Hỗ trợ's
+  list carries that message as `first_message`, from chat's `Threads`. The first
+  step also counts the day's tickets, so a request past the limit opens no
+  chat; one that passes it in a race is refused at the insert and leaves an
+  empty support chat, which no list shows. A retried insert step finds its
+  own row and goes on to send the first message.
+- The ticket is `open` or `resolved`. Support's worker follows
+  `message.sent`: the person's message reopens a resolved ticket (event
+  `reopened`) and sets `last_from = person`, which the console shows as
+  "Chờ trả lời"; ShopNexus's message sets `shopnexus`. `account.deleted`
+  resolves the account's open tickets.
+- Members answer as ShopNexus: support calls `chat.Send` with
+  `ShopNexusID` as the sender, and `ticket_replies` records the member of
+  each message, with no member for an automatic one. Resolving a
+  `carrier_request` sends "Đã ghi nhận hãng <name>." before the status
+  moves, keyed by the resolving, so a failed note is sent again by the next
+  "Đã xử lý" and goes out once; for a deleted account the ticket resolves
+  without it. Reply, resolve and
+  reopen write `ticket.reply`, `ticket.resolve` and `ticket.reopen` to the
+  audit log with `target_kind = ticket`.
+- The console's routes are console's (`/v1/console/support/*`), calling
+  `supportsvc.Service`, as feedback did. Support mounts after chat and deal,
+  and before console and screen; screen's chat screen adds the ticket of a
+  support chat (`ChatScreen.ticket`), since chat does not import support.
+- The ShopNexus account cannot be suspended, unsuspended, erased, blocked
+  or reported (409 `account_is_system`), and the console's account list
+  leaves it out.
 
 ### Erasure
 

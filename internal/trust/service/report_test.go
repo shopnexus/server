@@ -126,3 +126,12 @@ func TestReportFromAConversation(t *testing.T) {
 		t.Fatalf("again without one: %+v %v", again, err)
 	}
 }
+
+func TestReportingShopNexusIsRefused(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	_, _, err := e.trust.Report(context.Background(), e.person(t), service.ReportInput{AccountID: accountdomain.ShopNexusID, Reason: domain.ReasonScam})
+	if !errors.Is(err, accountdomain.ErrSystemAccount) {
+		t.Fatalf("got %v", err)
+	}
+}

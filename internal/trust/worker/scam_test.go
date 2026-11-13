@@ -11,6 +11,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
+	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
@@ -68,12 +69,14 @@ func TestScamWorker(t *testing.T) {
 	mu := &sync.Mutex{}
 	var keys []string
 	var deleted []uuid.UUID
-	text, photo, conversation := uuid.NewV7(), uuid.NewV7(), uuid.NewV7()
+	text, photo, support, conversation := uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), uuid.NewV7()
 	w := worker.ScamWorker{
 		Prefix: prefix,
 		Chats: facts{by: map[uuid.UUID]chatsvc.MessageFacts{
 			text:  {ID: text, ConversationID: conversation, Text: "Còn không bạn?"},
 			photo: {ID: photo, ConversationID: conversation, Photos: 2},
+			// A support chat gets no scam check, whatever it says.
+			support: {ID: support, ConversationID: uuid.NewV7(), Text: "chuyển cọc trước", Kind: chatdomain.KindSupport},
 		}},
 		Trust: eraser{mu: mu, deleted: &deleted},
 	}
@@ -84,7 +87,7 @@ func TestScamWorker(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	for _, id := range []uuid.UUID{photo, uuid.NewV7(), text} {
+	for _, id := range []uuid.UUID{photo, uuid.NewV7(), support, text} {
 		send("MessageSent", events.Event{ID: uuid.NewV7(), Kind: events.MessageSent, SubjectID: id, OccurredAt: time.Now()})
 	}
 	gone := uuid.NewV7()

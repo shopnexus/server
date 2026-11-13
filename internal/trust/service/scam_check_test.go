@@ -107,7 +107,7 @@ func newCheckEnv(t *testing.T, facts service.FactSource) checkEnv {
 
 func (e checkEnv) say(t *testing.T, sender uuid.UUID, text string) chatdomain.Message {
 	t.Helper()
-	m, err := chatdomain.NewMessage(uuid.NewV7(), e.c.ID, sender, text, nil, nil, time.Now())
+	m, err := chatdomain.NewMessage(uuid.NewV7(), e.c.ID, sender, text, nil, nil, nil, false, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -256,7 +256,7 @@ func TestScamCheckReadsALateMessage(t *testing.T) {
 	t.Parallel()
 	e := newCheckEnv(t, fakeFacts{})
 	late, err := chatdomain.NewMessage(uuid.NewV7(), e.c.ID, e.c.AccountA, "Mình chuyển dư rồi, bạn chuyển cọc lại giúp",
-		[]uuid.UUID{uuid.NewV7()}, nil, time.Now())
+		[]uuid.UUID{uuid.NewV7()}, nil, nil, false, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

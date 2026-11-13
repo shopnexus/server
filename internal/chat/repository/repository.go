@@ -20,6 +20,9 @@ type Chats interface {
 	// OpenPair inserts c with both members unless the pair has a
 	// conversation, and returns the pair's conversation.
 	OpenPair(ctx context.Context, c domain.Conversation) (domain.Conversation, error)
+	// OpenSupport inserts c, a support conversation, and its two members,
+	// unless a retried step inserted it already, and returns it.
+	OpenSupport(ctx context.Context, c domain.Conversation) (domain.Conversation, error)
 	// Get returns ErrNotFound for an unknown id.
 	Get(ctx context.Context, id uuid.UUID) (domain.Conversation, error)
 	// FindPair returns the conversation of one and other, in either order,
@@ -60,6 +63,13 @@ type Chats interface {
 	// Unread counts viewer's unread messages over unarchived conversations
 	// the inbox lists, a conversation marked unread counting at least 1.
 	Unread(ctx context.Context, viewer uuid.UUID) (int, error)
+	// SupportUnread sums viewer's unread messages over its support chats,
+	// which Unread leaves out.
+	SupportUnread(ctx context.Context, viewer uuid.UUID) (int, error)
+	// Threads reads the first and last sent messages and viewer's unread
+	// count of each of viewer's conversations among ids; one without a
+	// message is absent.
+	Threads(ctx context.Context, viewer uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]ThreadRow, error)
 	// Tokens splits q with the search index's tokenizer: lowercase, accents
 	// folded, split on anything but letters and digits.
 	Tokens(ctx context.Context, q string) ([]string, error)
@@ -82,6 +92,13 @@ type InboxRow struct {
 	Unread       int
 	// Archived is whether viewer archived it.
 	Archived bool
+}
+
+// ThreadRow is a conversation's last message and a viewer's unread count.
+type ThreadRow struct {
+	First  domain.Message
+	Last   domain.Message
+	Unread int
 }
 
 // Terms is a search's tokens: each of Whole matches a whole word, Prefix

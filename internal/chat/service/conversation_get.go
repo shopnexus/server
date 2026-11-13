@@ -71,6 +71,9 @@ func (c *Chat) Messages(ctx context.Context, account, conversation uuid.UUID, p 
 	for i := range rows {
 		items = append(items, c.messageView(rows[i]))
 	}
+	if err = c.quoted(ctx, items, rows); err != nil {
+		return page.Page[MessageView]{}, err
+	}
 	return page.Of(items, p, func(m MessageView) uuid.UUID { return m.ID }), nil
 }
 

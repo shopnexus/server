@@ -9,6 +9,7 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
+	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/trust/service"
@@ -33,7 +34,8 @@ func (w ScamWorker) MessageSent(ctx restate.Context, e events.Event) error {
 		if stepErr != nil {
 			return uuid.UUID{}, fmt.Errorf("read message: %w", stepErr)
 		}
-		if !found || strings.TrimSpace(f.Text) == "" {
+		// A support chat is with ShopNexus, which asks for no deposit.
+		if !found || strings.TrimSpace(f.Text) == "" || f.Kind == chatdomain.KindSupport {
 			return uuid.UUID{}, nil
 		}
 		return f.ConversationID, nil

@@ -26,6 +26,7 @@ type sendRequest struct {
 	Text           string      `json:"text"`
 	Photos         []uuid.UUID `json:"photos"`
 	ListingID      *uuid.UUID  `json:"listing_id"`
+	ReplyTo        *uuid.UUID  `json:"reply_to"`
 }
 
 type readRequest struct {
@@ -95,7 +96,7 @@ func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := h.svc.Send(r.Context(), p.AccountID, in.ID, in.IdempotencyKey, service.SendInput{
-		Text: in.Text, Photos: in.Photos, ListingID: in.ListingID,
+		Text: in.Text, Photos: in.Photos, ListingID: in.ListingID, ReplyTo: in.ReplyTo,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

@@ -102,3 +102,19 @@ func TestUseCasesPublish(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 }
+
+func TestShopNexusCannotBeSuspended(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewAccounts(db)
+	ctx := context.Background()
+	if _, err := at(s, nil, now).Suspend(ctx, service.SuspendInput{ID: domain.ShopNexusID, Reason: "thử", By: audit.ByCLI("test")}); !errors.Is(err, domain.ErrSystemAccount) {
+		t.Fatalf("suspend: %v", err)
+	}
+	if _, err := at(s, nil, now).Unsuspend(ctx, domain.ShopNexusID, audit.ByCLI("test")); !errors.Is(err, domain.ErrSystemAccount) {
+		t.Fatalf("unsuspend: %v", err)
+	}
+	if err := at(s, nil, now).Erase(ctx, domain.ShopNexusID); !errors.Is(err, domain.ErrSystemAccount) {
+		t.Fatalf("erase: %v", err)
+	}
+}

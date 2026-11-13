@@ -13,6 +13,9 @@ func (s *Account) Block(ctx context.Context, blocker, blocked uuid.UUID) error {
 	if blocker == blocked {
 		return domain.ErrSelfBlock
 	}
+	if blocked == domain.ShopNexusID {
+		return domain.ErrSystemAccount
+	}
 	if _, err := s.load(ctx, blocked); err != nil {
 		return err
 	}

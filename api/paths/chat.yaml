@@ -90,7 +90,8 @@ conversationMessages:
     summary: Send a message.
     description: |
       A photo message is processing until its photos are processed; only
-      the sender sees it until it is sent.
+      the sender sees it until it is sent. A suspended account may still
+      write in a support chat.
     tags: [chat]
     security:
       - bearerAuth: []
@@ -210,6 +211,12 @@ conversationUnread:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "A support chat cannot be archived or marked (conversation_is_support)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 conversationArchive:
   post:
     operationId: archiveConversation
@@ -237,6 +244,12 @@ conversationArchive:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "A support chat cannot be archived or marked (conversation_is_support)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 conversationUnarchive:
   post:
     operationId: unarchiveConversation
@@ -260,6 +273,12 @@ conversationUnarchive:
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
         description: "No such conversation of the caller's (conversation_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "A support chat cannot be archived or marked (conversation_is_support)."
         content:
           application/json:
             schema:

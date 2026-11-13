@@ -7,6 +7,7 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/audit"
@@ -15,8 +16,11 @@ import (
 
 // Suspend stops an account from writing, until in.Until or, with a nil
 // Until, until Unsuspend. It records account.suspend for in.By in the same
-// transaction.
+// transaction. The ShopNexus account is refused.
 func (s *Account) Suspend(ctx context.Context, in SuspendInput) (ConsoleAccount, error) {
+	if in.ID == domain.ShopNexusID {
+		return ConsoleAccount{}, domain.ErrSystemAccount
+	}
 	now := s.now()
 	a, err := s.load(ctx, in.ID)
 	if err != nil {
@@ -46,6 +50,9 @@ func (s *Account) Suspend(ctx context.Context, in SuspendInput) (ConsoleAccount,
 
 // Unsuspend lifts a suspension and records account.unsuspend for by.
 func (s *Account) Unsuspend(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleAccount, error) {
+	if id == domain.ShopNexusID {
+		return ConsoleAccount{}, domain.ErrSystemAccount
+	}
 	now := s.now()
 	a, err := s.load(ctx, id)
 	if err != nil {

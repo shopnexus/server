@@ -32,30 +32,42 @@ func (c *Chat) Read(ctx context.Context, account, conversation, message uuid.UUI
 }
 
 func (c *Chat) MarkUnread(ctx context.Context, account, conversation uuid.UUID) error {
-	if _, _, err := c.member(ctx, account, conversation); err != nil {
+	conv, _, err := c.member(ctx, account, conversation)
+	if err != nil {
 		return err
 	}
-	if err := c.chats.MarkUnread(ctx, conversation, account); err != nil {
+	if conv.Kind == domain.KindSupport {
+		return domain.ErrSupportConversation
+	}
+	if err = c.chats.MarkUnread(ctx, conversation, account); err != nil {
 		return fmt.Errorf("mark unread: %w", err)
 	}
 	return nil
 }
 
 func (c *Chat) Archive(ctx context.Context, account, conversation uuid.UUID) error {
-	if _, _, err := c.member(ctx, account, conversation); err != nil {
+	conv, _, err := c.member(ctx, account, conversation)
+	if err != nil {
 		return err
 	}
-	if err := c.chats.SetArchived(ctx, conversation, account, new(c.now())); err != nil {
+	if conv.Kind == domain.KindSupport {
+		return domain.ErrSupportConversation
+	}
+	if err = c.chats.SetArchived(ctx, conversation, account, new(c.now())); err != nil {
 		return fmt.Errorf("archive: %w", err)
 	}
 	return nil
 }
 
 func (c *Chat) Unarchive(ctx context.Context, account, conversation uuid.UUID) error {
-	if _, _, err := c.member(ctx, account, conversation); err != nil {
+	conv, _, err := c.member(ctx, account, conversation)
+	if err != nil {
 		return err
 	}
-	if err := c.chats.SetArchived(ctx, conversation, account, nil); err != nil {
+	if conv.Kind == domain.KindSupport {
+		return domain.ErrSupportConversation
+	}
+	if err = c.chats.SetArchived(ctx, conversation, account, nil); err != nil {
 		return fmt.Errorf("unarchive: %w", err)
 	}
 	return nil

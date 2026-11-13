@@ -60,7 +60,12 @@ func (e *signInEnv) signIn(t *testing.T, raw string) service.SignInResult {
 func (e *signInEnv) count(t *testing.T, table string) int {
 	t.Helper()
 	var n int
-	if err := e.db.QueryRow(context.Background(), `SELECT count(*) FROM `+table).Scan(&n); err != nil {
+	q := `SELECT count(*) FROM ` + table
+	if table == "accounts" {
+		// The ShopNexus system account is in every database; it is not counted.
+		q += ` WHERE id <> '` + domain.ShopNexusID.String() + `'`
+	}
+	if err := e.db.QueryRow(context.Background(), q).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
 	return n

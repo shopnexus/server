@@ -119,7 +119,7 @@ func TestSearchThreads(t *testing.T) {
 	}
 	send(t, s, byName, hanh, "Chào")
 	listing := catalogtest.Listing(t, db, seller, func(d *catalogdomain.ListingInput, _ *catalogdomain.Refs) { d.Title = "Giày Nike Air cũ" })
-	m, err := domain.NewMessage(uuid.NewV7(), byTitle.ID, viewer, "Còn không?", nil, &listing, time.Now())
+	m, err := domain.NewMessage(uuid.NewV7(), byTitle.ID, viewer, "Còn không?", nil, &listing, nil, false, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,5 +156,22 @@ func TestSearchThreads(t *testing.T) {
 	got, err := s.SearchThreads(ctx, viewer, terms(t, s, "han"), 20)
 	if err != nil || len(got) != 1 || !got[0].Archived || got[0].Other != hanh || got[0].Unread != 1 {
 		t.Fatalf("archived thread: %+v %v", got, err)
+	}
+}
+
+func TestSearchSkipsSupportChats(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewChats(db)
+	c, person := support(t, db, s)
+	send(t, s, c, person, "ship nhanh giúp mình")
+	threads, err := s.SearchThreads(ctx, person, terms(t, s, "shopnexus"), 10)
+	if err != nil || len(threads) != 0 {
+		t.Fatalf("threads %+v, %v", threads, err)
+	}
+	hits, err := s.SearchMessages(ctx, person, terms(t, s, "ship"), page.Request{})
+	if err != nil || len(hits) != 0 {
+		t.Fatalf("messages %+v, %v", hits, err)
 	}
 }

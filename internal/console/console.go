@@ -36,8 +36,8 @@ func NewService(db *pgxpool.Pool, s Settings, accounts accountsvc.Service, now f
 }
 
 // Mount registers the console endpoints and the ops dashboards' callback.
-// accounts reaches the customer data of module account, and feedback the
-// feedback module support keeps.
-func Mount(d module.Deps, s Settings, accounts accountsvc.Service, feedback supportsvc.Service) {
-	handler.New(NewService(d.Pool, s, accounts, d.Now), feedback, d.Log).Register(d.Router)
+// accounts reaches the customer data of module account, and support the
+// tickets module support keeps.
+func Mount(d module.Deps, s Settings, accounts accountsvc.Service, support supportsvc.Service) {
+	handler.New(NewService(d.Pool, s, accounts, d.Now), support, d.Log).Register(d.Router)
 }

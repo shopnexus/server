@@ -9,6 +9,7 @@ import (
 var (
 	ErrAccountNotFound = apperr.New(apperr.KindNotFound, "account_not_found", "account not found")
 	ErrSuspended       = apperr.New(apperr.KindForbidden, "account_suspended", "account is suspended")
+	ErrSystemAccount   = apperr.New(apperr.KindConflict, "account_is_system", "the ShopNexus account cannot be suspended or deleted")
 	ErrAccountDeleted  = apperr.New(apperr.KindConflict, "account_deleted", "the other account was deleted")
 	// ErrPhoneRequired answers posting, opening a deal and opening a chat
 	// by an account without a phone identity; catalog, deal and chat

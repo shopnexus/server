@@ -29,7 +29,7 @@ func TestWindowOfAConversation(t *testing.T) {
 	ids := make([]uuid.UUID, 0, 3)
 	for i, text := range []string{"Còn không bạn?", "Còn bạn", "Cọc trước nhé"} {
 		sender := []uuid.UUID{a, b, b}[i]
-		m, mErr := domain.NewMessage(uuid.NewV7(), c.ID, sender, text, nil, nil, time.Now())
+		m, mErr := domain.NewMessage(uuid.NewV7(), c.ID, sender, text, nil, nil, nil, false, time.Now())
 		if mErr != nil {
 			t.Fatal(mErr)
 		}

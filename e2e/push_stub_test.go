@@ -46,3 +46,21 @@ func (p *phoneBox) wait(t *testing.T, token string, n int) push.Message {
 	})
 	return got[n-1]
 }
+
+// waitTitled polls until token got a push titled title and returns it.
+func (p *phoneBox) waitTitled(t *testing.T, token, title string) push.Message {
+	t.Helper()
+	var found push.Message
+	testenv.Eventually(t, 30*time.Second, func() error {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+		for _, m := range p.sent[token] {
+			if m.Title == title {
+				found = m
+				return nil
+			}
+		}
+		return fmt.Errorf("token %s got no push titled %q", token, title)
+	})
+	return found
+}

@@ -279,8 +279,6 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if err != nil {
 		return nil, fmt.Errorf("console keys: %w", err)
 	}
-	feedback := support.Mount(d, accounts)
-	console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, feedback)
 	embedder := func(base, model, key string, dims int) embed.OpenAI {
 		return embed.OpenAI{BaseURL: base, APIKey: key, Model: model, Dims: dims, HTTP: &http.Client{Timeout: cfg.Embed.Timeout}}
 	}
@@ -312,6 +310,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	deals = dealm.Service
 	erasure.Mount(d, accounts, dealm.Service)
 	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
+	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
+	console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service)
 	trustm := trust.Mount(d, trust.Settings{
 		Classifier: trust.LLMClassifier(
 			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: &http.Client{}},
@@ -349,9 +349,10 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service)
-	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service)
+	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
+		supportm.Service)
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, shippingm.Services, dealm.Services, discoverym.Services,
-		chatm.Services, trustm.Services, notificationm.Services, assistm.Services), nil
+		chatm.Services, supportm.Services, trustm.Services, notificationm.Services, assistm.Services), nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

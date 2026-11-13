@@ -131,5 +131,9 @@ func (s *Deals) Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, erro
 	if err != nil {
 		return OrderFacts{}, false, fmt.Errorf("get order: %w", err)
 	}
-	return OrderFacts{BuyerID: r.BuyerID, SellerID: r.SellerID, ListingID: r.ListingID, Status: r.Order.Status}, true, nil
+	o := r.Order
+	return OrderFacts{
+		BuyerID: r.BuyerID, SellerID: r.SellerID, ListingID: r.ListingID, Status: o.Status, Code: o.Code, Price: o.Price,
+		Shipment: o.Shipment, CompletedBy: o.CompletedBy, ShippedAt: o.ShippedAt, ClosedAt: o.ClosedAt,
+	}, true, nil
 }
