@@ -43,15 +43,8 @@ func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape dom
 		if !changed {
 			continue
 		}
-		size, contentType, statErr := m.store.Stat(ctx, u.Key())
-		if errors.Is(statErr, objectstore.ErrNotFound) {
-			return domain.ErrInvalidUpload
-		}
-		if statErr != nil {
-			return fmt.Errorf("stat upload: %w", statErr)
-		}
-		if size != u.Size() || contentType != u.ContentType() {
-			return domain.ErrInvalidUpload
+		if err = m.checkStored(ctx, u); err != nil {
+			return err
 		}
 		ups = append(ups, u)
 	}
@@ -63,6 +56,23 @@ func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape dom
 			return apperr.ErrTryAgain
 		}
 		return fmt.Errorf("save uploads: %w", err)
+	}
+	return nil
+}
+
+// checkStored checks that upload u was put to the store with the type and
+// size it declared; anything else is domain.ErrInvalidUpload. attachAs and
+// Extend call it for each upload they change.
+func (m *Media) checkStored(ctx context.Context, u *domain.Upload) error {
+	size, contentType, err := m.store.Stat(ctx, u.Key())
+	if errors.Is(err, objectstore.ErrNotFound) {
+		return domain.ErrInvalidUpload
+	}
+	if err != nil {
+		return fmt.Errorf("stat upload: %w", err)
+	}
+	if size != u.Size() || contentType != u.ContentType() {
+		return domain.ErrInvalidUpload
 	}
 	return nil
 }

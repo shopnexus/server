@@ -6,8 +6,8 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/domain"
 )
 
-// draftBody is the ListingDraft schema in api/schemas/catalog.yaml.
-type draftBody struct {
+// listingBody is the ListingInput schema in api/schemas/catalog.yaml.
+type listingBody struct {
 	Title        string           `json:"title"`
 	Price        int64            `json:"price"`
 	Description  string           `json:"description"`
@@ -27,12 +27,12 @@ type gpsBody struct {
 	Lng float64 `json:"lng"`
 }
 
-func (b *draftBody) draft() domain.Draft {
+func (b *listingBody) input() domain.ListingInput {
 	var spot *domain.Point
 	if b.GPS != nil {
 		spot = new(domain.Blur(domain.Point{Lat: b.GPS.Lat, Lng: b.GPS.Lng}))
 	}
-	return domain.Draft{
+	return domain.ListingInput{
 		Title: b.Title, Price: b.Price, Description: b.Description, CategoryCode: b.CategoryCode,
 		Condition: b.Condition, AllowOffers: b.AllowOffers, CommuneCode: b.CommuneCode,
 		Photos: b.Photos, Specs: b.Specs, Spot: spot,

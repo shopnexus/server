@@ -23,7 +23,7 @@ var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 
 func listing(t *testing.T, seller uuid.UUID) domain.Listing {
 	t.Helper()
-	l, err := domain.NewListing(uuid.NewV7(), seller, domain.Draft{
+	l, err := domain.NewListing(uuid.NewV7(), seller, domain.ListingInput{
 		Title: "Xe đạp", Price: 1_500_000, CategoryCode: "vehicles.bicycle", Condition: domain.ConditionUsed,
 		CommuneCode: "00004", Photos: []uuid.UUID{uuid.NewV7()},
 		Specs: []domain.Spec{{Label: "Size", Value: "M"}},

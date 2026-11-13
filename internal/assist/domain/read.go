@@ -42,7 +42,7 @@ const (
 	FailUnavailable     Failure = "unavailable"
 )
 
-// Draft is the listing the read filled, in ListingDraft's field names. A
+// Draft is the listing the read filled, in ListingInput's field names. A
 // field with a value is one the model filled.
 type Draft struct {
 	Title        string                  `json:"title"`

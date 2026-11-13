@@ -18,12 +18,12 @@ type pgUploads struct{ db *pgxpool.Pool }
 func NewUploads(db *pgxpool.Pool) Uploads { return pgUploads{db} }
 
 const uploadColumns = `id, owner_id, coalesce(holder_id, '00000000-0000-0000-0000-000000000000'), coalesce(shape, ''), content_type, size, status, coalesce(photo_key, ''), coalesce(thumb_key, ''),
-       coalesce(failure, ''), write_id, created_at, updated_at, origin`
+       coalesce(failure, ''), write_id, created_at, updated_at, origin, expires_at`
 
 func scanUpload(row pgx.CollectableRow) (domain.Upload, error) {
 	var st domain.UploadState
 	if err := row.Scan(&st.ID, &st.OwnerID, &st.HolderID, &st.Shape, &st.ContentType, &st.Size, &st.Status, &st.PhotoKey, &st.ThumbKey,
-		&st.Failure, &st.WriteID, &st.CreatedAt, &st.UpdatedAt, &st.Origin); err != nil {
+		&st.Failure, &st.WriteID, &st.CreatedAt, &st.UpdatedAt, &st.Origin, &st.ExpiresAt); err != nil {
 		return domain.Upload{}, fmt.Errorf("scan upload: %w", err)
 	}
 	return domain.RestoreUpload(st), nil
@@ -32,11 +32,12 @@ func scanUpload(row pgx.CollectableRow) (domain.Upload, error) {
 func (s pgUploads) Create(ctx context.Context, u domain.Upload) error {
 	st := u.State()
 	_, err := s.db.Exec(ctx, `
-INSERT INTO uploads (id, owner_id, content_type, size, origin, status, write_id, created_at, updated_at)
-VALUES (@id, @owner_id, @content_type, @size, @origin, @status, @write_id, @created_at, @updated_at)
+INSERT INTO uploads (id, owner_id, content_type, size, origin, status, write_id, created_at, updated_at, expires_at)
+VALUES (@id, @owner_id, @content_type, @size, @origin, @status, @write_id, @created_at, @updated_at, @expires_at)
 ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 		"id": st.ID, "owner_id": st.OwnerID, "content_type": st.ContentType, "size": st.Size, "origin": st.Origin,
 		"status": st.Status, "write_id": st.WriteID, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
+		"expires_at": st.ExpiresAt,
 	})
 	if err != nil {
 		return fmt.Errorf("insert upload: %w", err)
@@ -75,7 +76,7 @@ const saveUpload = `
 UPDATE uploads SET status = @status, holder_id = NULLIF(@holder_id, '00000000-0000-0000-0000-000000000000'::uuid),
        shape = NULLIF(@shape, ''),
        photo_key = NULLIF(@photo_key, ''), thumb_key = NULLIF(@thumb_key, ''),
-       failure = NULLIF(@failure, ''), updated_at = @updated_at, write_id = @write_id
+       failure = NULLIF(@failure, ''), expires_at = @expires_at, updated_at = @updated_at, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
 func update(ctx context.Context, q postgres.Execer, u *domain.Upload, writeID uuid.UUID) error {
@@ -83,6 +84,7 @@ func update(ctx context.Context, q postgres.Execer, u *domain.Upload, writeID uu
 	tag, err := q.Exec(ctx, saveUpload, pgx.StrictNamedArgs{
 		"id": st.ID, "read_write_id": st.WriteID, "write_id": writeID, "status": st.Status, "holder_id": st.HolderID,
 		"shape": st.Shape, "photo_key": st.PhotoKey, "thumb_key": st.ThumbKey, "failure": st.Failure, "updated_at": st.UpdatedAt,
+		"expires_at": st.ExpiresAt,
 	})
 	if err != nil {
 		return fmt.Errorf("update upload: %w", err)

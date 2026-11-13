@@ -75,7 +75,7 @@ func TestSaveAndList(t *testing.T) {
 	if err := e.discovery.Save(ctx, me, listing); err != nil {
 		t.Fatal(err)
 	}
-	reserved := catalogtest.Listing(t, e.db, seller, func(d *catalogdomain.Draft, _ *catalogdomain.Refs) { d.Price = 900_000 })
+	reserved := catalogtest.Listing(t, e.db, seller, func(d *catalogdomain.ListingInput, _ *catalogdomain.Refs) { d.Price = 900_000 })
 	if err := e.catalog.Reserve(ctx, reserved, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}

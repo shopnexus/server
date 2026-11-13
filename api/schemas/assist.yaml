@@ -115,7 +115,7 @@ ReadDraft:
   additionalProperties: false
   required: [title, category_code, condition, specs, description, price, allow_offers, photos]
   description: |
-    ListingDraft's fields as the AI filled them. Add commune_code (and gps
+    ListingInput's fields as the AI filled them. Add commune_code (and gps
     when allowed) and post it to POST /v1/listings. A field with a value is
     one the AI filled.
   properties:

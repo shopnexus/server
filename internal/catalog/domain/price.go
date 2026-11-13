@@ -15,7 +15,7 @@ const (
 	PriceOnSaleWindow = 90 * 24 * time.Hour
 )
 
-// PriceSample is the price of one listing like a draft, and whether it sold
+// PriceSample is the price of one listing like a listing input, and whether it sold
 // at it.
 type PriceSample struct {
 	Price int64 `json:"price"`

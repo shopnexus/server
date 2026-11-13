@@ -46,6 +46,28 @@ type Listings interface {
 	ListBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status, p page.Request) ([]domain.Listing, error)
 }
 
+// Drafts persists listing drafts. Put takes a lock per account, so the
+// count a create reads holds until it commits, and a share lock on the
+// account's row, so no draft is written after the account's erasure. Put
+// and List first delete the account's drafts that expired.
+type Drafts interface {
+	// Put writes account's draft id with c at now: a create when there is
+	// none, domain.ErrDraftLimitReached when the account has
+	// domain.MaxDrafts drafts, else a replace. Another account's draft is
+	// domain.ErrDraftNotFound; a deleted account is
+	// accountdomain.ErrSessionRevoked. It returns the draft as written and
+	// whether it was created.
+	Put(ctx context.Context, account, id uuid.UUID, c domain.DraftContent, now time.Time) (domain.ListingDraft, bool, error)
+	// List is account's drafts that have not expired at now, last written
+	// first, at most domain.MaxDrafts.
+	List(ctx context.Context, account uuid.UUID, now time.Time) ([]domain.ListingDraft, error)
+	// Delete deletes account's draft id; another account's draft, or none,
+	// is left as it is.
+	Delete(ctx context.Context, account, id uuid.UUID) error
+	// DeleteAll deletes account's drafts, for its erasure.
+	DeleteAll(ctx context.Context, account uuid.UUID) error
+}
+
 // Categories reads the category tree.
 type Categories interface {
 	// Tree returns every category: the roots in order, then each root's

@@ -71,8 +71,8 @@ type Spec struct {
 	Value string `json:"value"`
 }
 
-// Draft is a listing as the seller sends it, to post or to edit.
-type Draft struct {
+// ListingInput is a listing as the seller sends it, to post or to edit.
+type ListingInput struct {
 	Title        string
 	Price        int64
 	Description  string
@@ -88,7 +88,7 @@ type Draft struct {
 }
 
 // Refs is what the service found in the category and region tables for a
-// draft.
+// listing input.
 type Refs struct {
 	CategoryIsLeaf bool
 	CommuneExists  bool
@@ -122,7 +122,7 @@ type Listing struct {
 
 // NewListing checks d and starts the listing in processing. The first write
 // ID is the id.
-func NewListing(id, seller uuid.UUID, d Draft, refs Refs, now time.Time) (Listing, error) {
+func NewListing(id, seller uuid.UUID, d ListingInput, refs Refs, now time.Time) (Listing, error) {
 	l := Listing{id: id, sellerID: seller, status: StatusProcessing, writeID: id, createdAt: now}
 	if err := l.apply(d, refs, now); err != nil {
 		return Listing{}, err
@@ -132,7 +132,7 @@ func NewListing(id, seller uuid.UUID, d Draft, refs Refs, now time.Time) (Listin
 
 // apply checks d and sets the listing's content from it, keeping the keys of
 // photos it already has.
-func (l *Listing) apply(d Draft, refs Refs, now time.Time) error {
+func (l *Listing) apply(d ListingInput, refs Refs, now time.Time) error {
 	e := ErrInvalidListing
 	title := strings.TrimSpace(d.Title)
 	if n := utf8.RuneCountInString(title); n < 1 || n > MaxTitle {
@@ -195,7 +195,7 @@ func within(s string, maxRunes int) bool {
 }
 
 // duplicates reports an upload used twice in d.
-func duplicates(d Draft) bool {
+func duplicates(d ListingInput) bool {
 	seen := map[uuid.UUID]bool{}
 	for _, id := range d.Photos {
 		if seen[id] {
@@ -263,7 +263,7 @@ func (l *Listing) PendingUploads() []uuid.UUID {
 // Edit replaces the listing's content with d. An upload not processed yet,
 // or an edit of a rejected listing, sends the listing back through
 // processing. Sold, deleted and reserved listings cannot be edited.
-func (l *Listing) Edit(d Draft, refs Refs, now time.Time) error {
+func (l *Listing) Edit(d ListingInput, refs Refs, now time.Time) error {
 	if l.status == StatusSold || l.status == StatusDeleted || l.status == StatusReserved {
 		return ErrStateConflict
 	}

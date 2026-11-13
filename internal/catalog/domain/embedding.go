@@ -26,8 +26,8 @@ func (l *Listing) EmbeddingText(category string) string {
 }
 
 // EmbeddingText is the text a listing posted from d would be embedded from,
-// trimmed as NewListing trims it; a price sample embeds a draft with it.
-func (d Draft) EmbeddingText(category string) string {
+// trimmed as NewListing trims it; a price sample embeds a listing input with it.
+func (d ListingInput) EmbeddingText(category string) string {
 	specs := make([]Spec, len(d.Specs))
 	for i, s := range d.Specs {
 		specs[i] = Spec{Label: strings.TrimSpace(s.Label), Value: strings.TrimSpace(s.Value)}
