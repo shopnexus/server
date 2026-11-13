@@ -102,6 +102,9 @@ type Searches interface {
 	// Counts counts the listings s matches, boosts aside, by category or
 	// root, largest first.
 	Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error)
+	// Words splits text as the listings index splits its text fields
+	// (ParadeDB's unicode_words, lowercased).
+	Words(ctx context.Context, text string) ([]string, error)
 }
 
 // Vectors persists the search vectors of listings: one text vector and one

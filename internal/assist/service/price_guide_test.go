@@ -162,3 +162,32 @@ func TestPriceGuideRefusals(t *testing.T) {
 		t.Fatal("a suspended account")
 	}
 }
+
+// A seller blocked either way stays out of the similar listings, as out of
+// every search; their prices still count in the range.
+func TestPriceGuideLeavesBlockedSellersOut(t *testing.T) {
+	t.Parallel()
+	var cat *sampleOf
+	e := newEnv(t, func(x *env) {
+		cat = &sampleOf{Service: x.deps.Catalog}
+		x.deps.Catalog = cat
+	})
+	ctx := context.Background()
+	me, blocked, blocker, other := accounttest.New(t, e.db), accounttest.New(t, e.db), accounttest.New(t, e.db), accounttest.New(t, e.db)
+	for _, seller := range []uuid.UUID{blocked, blocker, other} {
+		cat.samples = append(cat.samples, catalogsvc.PriceSample{ListingID: catalogtest.Listing(t, e.db, seller), Price: 1_500_000})
+	}
+	if err := e.accounts.Block(ctx, me, blocked); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.accounts.Block(ctx, blocker, me); err != nil {
+		t.Fatal(err)
+	}
+	v, err := e.assist.PriceGuide(ctx, me, bike())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(v.Similar) != 1 || v.Similar[0].ListingID != cat.samples[2].ListingID || len(v.LivePrices) != 3 {
+		t.Fatalf("%+v", v)
+	}
+}

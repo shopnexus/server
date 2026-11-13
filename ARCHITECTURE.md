@@ -1794,14 +1794,17 @@ Search watches (decided 2026-11-11, same spec):
   the price guide. SQL takes the watches of active accounts whose category
   is none, the draft's or its root and whose conditions are none or hold
   the draft's, muted ones too, without the seller's own or a blocked pair
-  either way, oldest first, at most 5,000. Go keeps those whose radius box
-  holds the draft's commune point and one of whose phrases (the raw query
-  without phrases) `catalogdomain.HoldsAllWords` finds in the title,
-  description and specs. At most 200 rows, each the watch's price bounds
-  and `offers_only`, nothing that names the buyer; the app counts them at
-  its price. `HoldsAllWords` splits and lowercases as the index's
-  tokenizer does, and `TestHoldsAllWordsAgreesWithTheIndex` pins it to
-  the index.
+  either way, oldest first, at most 5,000. Go keeps those whose area holds
+  the draft's commune point (the box, then the distance, as the sweep's
+  search measures it) and one of whose phrases (the raw query without
+  phrases) `catalogdomain.HoldsAllWords` finds in the draft's words. At
+  most 200 rows, each the watch's price bounds and `offers_only`, nothing
+  that names the buyer; the app counts them at its price.
+- The draft's title, description and specs are split by catalog's `Words`,
+  which runs them through the index's own tokenizer
+  (`pdb.unicode_words`), so "15.6" or "1.200.000đ" stays one word as in
+  the index; the phrase is split as the sweep splits it.
+  `TestHoldsAllWordsAgreesWithTheIndex` runs both against the index.
 
 ### Assist
 
@@ -2020,8 +2023,8 @@ prices any draft for the app's "Giá" step, with or without a read:
   unless it is below the market price. Under 3 sales there are no
   suggestions; under 5 listings there is no range either.
 - The guide lists the first 12 of the sample in vector order, with `km`
-  from the draft's commune point; a listing gone since the sample is left
-  out. `sold_prices` and `live_prices` are the sample's, ascending.
+  from the draft's commune point; a listing gone since the sample, or one
+  of a seller blocked either way, is left out (their prices still count). `sold_prices` and `live_prices` are the sample's, ascending.
   `watchers` comes from discovery (see Search watches).
 - A sample that fails is logged and gives a guide without a comparison;
   the watchers still answer. The log line holds the category, condition,

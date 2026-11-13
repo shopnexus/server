@@ -100,9 +100,15 @@ func (a *Assist) PriceGuide(ctx context.Context, account uuid.UUID, in PriceGuid
 	if err != nil {
 		return PriceGuideView{}, fmt.Errorf("read similar listings: %w", err)
 	}
+	// A seller blocked either way stays out of the list, as out of every
+	// search; their prices stay in the range.
+	blocked, err := a.d.Accounts.BlockedWith(ctx, account)
+	if err != nil {
+		return PriceGuideView{}, fmt.Errorf("read blocks: %w", err)
+	}
 	for _, s := range first {
 		sum, ok := summaries[s.ListingID]
-		if !ok { // deleted since the sample
+		if !ok || slices.Contains(blocked, sum.SellerID) { // deleted since the sample, or blocked
 			continue
 		}
 		sv := SimilarView{

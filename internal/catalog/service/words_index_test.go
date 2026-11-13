@@ -9,10 +9,10 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/domain"
 )
 
-// HoldsAllWords stands in for the index when a listing is not posted yet,
-// so each case puts a listing titled with the case's text and runs the
-// sweep's all-words search on it. A disagreement means the tokenizer
-// changed, and HoldsAllWords follows the index.
+// Words and HoldsAllWords stand in for the index when a listing is not
+// posted yet, so each case puts a listing titled with the case's text and
+// runs the sweep's all-words search on it. A disagreement means Words no
+// longer splits as the index does.
 func TestHoldsAllWordsAgreesWithTheIndex(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -29,6 +29,11 @@ func TestHoldsAllWordsAgreesWithTheIndex(t *testing.T) {
 		{"punctuation splits", "64 gb", "iPhone 11 (64-GB)"},
 		{"digits are words", "11", "iphone 11"},
 		{"part of a word is not a word", "phone", "iphone 11"},
+		{"a decimal is one word", "dell 15", "Laptop Dell 15.6 inch"},
+		{"a dotted price is one word", "giá 1", "Giá 1.200.000đ"},
+		{"an apostrophe joins", "it", "it's ok"},
+		{"an underscore joins", "a", "a_b c"},
+		{"decomposed diacritics", "đạp", "xe \u0111a\u0323p"},
 	} {
 		id := catalogtest.Listing(t, e.db, seller, func(d *domain.ListingInput, _ *domain.Refs) { d.Title = c.text })
 		cards, err := e.catalog.Search(ctx, domain.Search{
@@ -38,7 +43,11 @@ func TestHoldsAllWordsAgreesWithTheIndex(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if index, ours := len(cards) == 1, domain.HoldsAllWords(c.phrase, c.text); index != ours {
+		words, err := e.catalog.Words(ctx, c.text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if index, ours := len(cards) == 1, domain.HoldsAllWords(c.phrase, words); index != ours {
 			t.Errorf("%s: the index says %v, HoldsAllWords %v", c.name, index, ours)
 		}
 	}

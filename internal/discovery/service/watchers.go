@@ -42,15 +42,21 @@ func (d *Discovery) Watchers(ctx context.Context, seller uuid.UUID, q WatcherQue
 	if err != nil {
 		return nil, fmt.Errorf("read watch candidates: %w", err)
 	}
+	words, err := d.catalog.Words(ctx, q.Text)
+	if err != nil {
+		return nil, fmt.Errorf("split the listing's words: %w", err)
+	}
 	out := []Watcher{}
 	for _, w := range candidates {
 		if len(out) == domain.MaxWatchers {
 			break
 		}
-		// The sweep measures a watch's area as a box around its commune.
+		// The sweep's area is the radius around the watch's commune: a box,
+		// then the distance.
 		if w.RadiusKm > 0 {
 			lo, hi := catalogdomain.Box(w.Point, float64(w.RadiusKm))
-			if q.Point.Lat < lo.Lat || q.Point.Lat > hi.Lat || q.Point.Lng < lo.Lng || q.Point.Lng > hi.Lng {
+			if q.Point.Lat < lo.Lat || q.Point.Lat > hi.Lat || q.Point.Lng < lo.Lng || q.Point.Lng > hi.Lng ||
+				catalogdomain.Distance(w.Point, q.Point) > float64(w.RadiusKm) {
 				continue
 			}
 		}
@@ -59,7 +65,7 @@ func (d *Discovery) Watchers(ctx context.Context, seller uuid.UUID, q WatcherQue
 			phrases = []string{w.Query}
 		}
 		for _, p := range phrases {
-			if catalogdomain.HoldsAllWords(p, q.Text) {
+			if catalogdomain.HoldsAllWords(p, words) {
 				out = append(out, Watcher{PriceMin: w.PriceMin, PriceMax: w.PriceMax, OffersOnly: w.OffersOnly})
 				break
 			}

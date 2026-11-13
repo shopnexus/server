@@ -76,3 +76,32 @@ func TestWatchers(t *testing.T) {
 		t.Fatalf("from Thủ Dầu Một the Ngọc Hà watch drops out and the Thủ Dầu Một one comes in: %+v", got)
 	}
 }
+
+// A watch's area is its radius around its commune, as the sweep measures
+// it: a box first, then the circle, so a draft in the box's corner is not
+// counted.
+func TestWatchersMeasureACircle(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	buyer, seller := accounttest.New(t, e.db), accounttest.New(t, e.db)
+	w := repository.Watch{
+		ID: uuid.NewV7(), Account: buyer, Query: "xe đạp", Phrases: []string{"xe đạp"}, Conditions: []string{}, Alert: true,
+		Commune: "00008", RadiusKm: 2, CreatedAt: time.Now(),
+	}
+	if _, _, err := repository.NewWatches(e.db).Put(ctx, w); err != nil {
+		t.Fatal(err)
+	}
+	ngocHa := catalogdomain.Point{Lat: 21.0394, Lng: 105.8169}
+	// 1.6 km north and 1.6 km east of Ngọc Hà: 2.26 km away, inside the 2 km box, outside the circle.
+	corner := catalogdomain.Point{Lat: ngocHa.Lat + 1.6/111.32, Lng: ngocHa.Lng + 0.0154}
+	q := service.WatcherQuery{CategoryCode: "vehicles.bicycle", Condition: catalogdomain.ConditionUsed, Point: corner, Text: "Xe đạp"}
+	got, err := e.discovery.Watchers(ctx, seller, q)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("the corner: %+v %v", got, err)
+	}
+	q.Point = catalogdomain.Point{Lat: ngocHa.Lat + 1.0/111.32, Lng: ngocHa.Lng + 0.0096} // 1.4 km away
+	if got, _ = e.discovery.Watchers(ctx, seller, q); len(got) != 1 {
+		t.Fatalf("inside the circle: %+v", got)
+	}
+}

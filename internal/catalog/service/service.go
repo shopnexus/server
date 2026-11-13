@@ -78,6 +78,9 @@ type Service interface {
 	Categories(ctx context.Context) ([]domain.Category, error)
 	// Search runs s and returns its listings as cards, in order.
 	Search(ctx context.Context, s domain.Search) ([]SearchCard, error)
+	// Words splits text into the words the listings index would find in
+	// it, for matching a listing that is not posted yet.
+	Words(ctx context.Context, text string) ([]string, error)
 	// Counts counts the listings s matches by category or root.
 	Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error)
 	// EmbeddingText is the text a listing posted from d would be embedded

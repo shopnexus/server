@@ -6,27 +6,26 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/domain"
 )
 
-// TestHoldsAllWords holds phrases against listing text as the sweep's
-// all-words query decides them; words_index_test.go in the service runs
-// the same cases against the index.
+// TestHoldsAllWords splits the phrase as the sweep does and looks its words
+// up among the text's words as the index split them (catalog's Words);
+// words_index_test.go in the service runs the pair against the index.
 func TestHoldsAllWords(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
-		name, phrase, text string
-		want               bool
+		name, phrase string
+		words        []string
+		want         bool
 	}{
-		{"every word", "xe đạp", "Xe đạp Asama đi ít", true},
-		{"case", "IPHONE 11", "iphone 11 64GB", true},
-		{"order does not matter", "đạp xe", "xe đạp", true},
-		{"a missing word", "xe đạp", "xe máy Honda", false},
-		{"diacritics are letters", "xe dap", "Xe đạp", false},
-		{"punctuation splits", "64 gb", "iPhone 11 (64-GB)", true},
-		{"digits are words", "11", "iphone 11", true},
-		{"part of a word is not a word", "phone", "iphone 11", false},
-		{"an empty phrase matches nothing", " - ", "xe đạp", false},
+		{"every word", "xe đạp", []string{"xe", "đạp", "asama"}, true},
+		{"case", "IPHONE 11", []string{"iphone", "11", "64gb"}, true},
+		{"order does not matter", "đạp xe", []string{"xe", "đạp"}, true},
+		{"a missing word", "xe đạp", []string{"xe", "máy"}, false},
+		{"punctuation splits the phrase", "64-gb", []string{"64", "gb"}, true},
+		{"a decimal the index keeps whole", "dell 15", []string{"laptop", "dell", "15.6"}, false},
+		{"an empty phrase matches nothing", " - ", []string{"xe"}, false},
 	} {
-		if got := domain.HoldsAllWords(c.phrase, c.text); got != c.want {
-			t.Errorf("%s: HoldsAllWords(%q, %q) = %v", c.name, c.phrase, c.text, got)
+		if got := domain.HoldsAllWords(c.phrase, c.words); got != c.want {
+			t.Errorf("%s: HoldsAllWords(%q, %q) = %v", c.name, c.phrase, c.words, got)
 		}
 	}
 }
