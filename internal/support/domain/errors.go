@@ -9,9 +9,4 @@ var (
 	ErrTooMany       = apperr.New(apperr.KindRateLimited, "too_many_tickets", "at most 10 tickets in 24 hours")
 	ErrNotFound      = apperr.New(apperr.KindNotFound, "ticket_not_found", "no such ticket")
 	ErrOrderNotFound = apperr.New(apperr.KindNotFound, "order_not_found", "no such order of the caller's as buyer")
-
-	// ErrInvalidFeedback and ErrFeedbackLimit go with the feedback code in
-	// the next change.
-	ErrInvalidFeedback = apperr.New(apperr.KindInvalid, "invalid_feedback", "a feedback is 1 to 1000 characters")
-	ErrFeedbackLimit   = apperr.New(apperr.KindRateLimited, "feedback_limit_reached", "at most 10 feedbacks in 24 hours")
 )

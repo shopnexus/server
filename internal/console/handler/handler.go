@@ -14,13 +14,13 @@ import (
 
 type Handler struct {
 	svc service.Service
-	// feedback reads the feedback module support keeps.
-	feedback supportsvc.Service
-	log      *slog.Logger
+	// support works the tickets module support keeps.
+	support supportsvc.Service
+	log     *slog.Logger
 }
 
-func New(svc service.Service, feedback supportsvc.Service, log *slog.Logger) *Handler {
-	return &Handler{svc: svc, feedback: feedback, log: log}
+func New(svc service.Service, support supportsvc.Service, log *slog.Logger) *Handler {
+	return &Handler{svc: svc, support: support, log: log}
 }
 
 // Register adds the console endpoints. Every one under /v1/console but
@@ -50,10 +50,17 @@ func (h *Handler) Register(r *httpx.Router) {
 
 	handle("GET /v1/console/accounts", mod(http.HandlerFunc(h.ListAccounts)))
 	handle("GET /v1/console/accounts/{id}", mod(http.HandlerFunc(h.GetAccount)))
-	handle("GET /v1/console/feedback", mod(http.HandlerFunc(h.ListFeedback)))
 	handle("POST /v1/console/accounts/{id}/suspend", mod(http.HandlerFunc(h.SuspendAccount)))
 	handle("POST /v1/console/accounts/{id}/unsuspend", mod(http.HandlerFunc(h.UnsuspendAccount)))
 	handle("GET /v1/console/actions", admin(http.HandlerFunc(h.ListActions)))
+
+	handle("GET /v1/console/support/tickets", mod(http.HandlerFunc(h.ListTickets)))
+	handle("GET /v1/console/support/tickets/{id}", mod(http.HandlerFunc(h.GetTicket)))
+	handle("GET /v1/console/support/tickets/{id}/messages", mod(http.HandlerFunc(h.ListTicketMessages)))
+	handle("POST /v1/console/support/tickets/{id}/replies", mod(http.HandlerFunc(h.ReplyTicket)))
+	handle("POST /v1/console/support/tickets/{id}/resolve", mod(http.HandlerFunc(h.ResolveTicket)))
+	handle("POST /v1/console/support/tickets/{id}/reopen", mod(http.HandlerFunc(h.ReopenTicket)))
+	handle("GET /v1/console/support/summary", mod(http.HandlerFunc(h.SupportSummary)))
 
 	handle("POST /v1/console/dashboard-tickets", mod(http.HandlerFunc(h.CreateDashboardTicket)))
 	r.Handle("GET /v1/console/dashboard-auth", http.HandlerFunc(h.AuthorizeDashboard))

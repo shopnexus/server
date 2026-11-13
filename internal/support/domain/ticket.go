@@ -1,3 +1,6 @@
+// Package domain holds module support's rules: what a ticket of each kind
+// needs, when an order may be reported, and how many tickets a person opens
+// in a day.
 package domain
 
 import (
