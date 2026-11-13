@@ -353,6 +353,7 @@ separate work.
 | `Session` | `sessions` | adds `write_id` and `auth_time` |
 | `Upload` | `uploads` | module media; status, content type, size, the processed keys |
 | `Listing` | `listings` | module catalog; photos and specs are `jsonb` columns, read and written with the row |
+| `ListingDraft` | `listing_drafts` | module catalog; `photos uuid[]`, `body text` the app owns; no `write_id`: the last write wins |
 | `Address` | `addresses` | module account; one row per address, `write_id`; `recipient_name` keeps the keyword `name` out of the columns |
 | feedback | `feedback` | module support; one row per feedback, `request_key` unique per account; no aggregate, no `write_id` |
 | search history | `search_history` | module discovery; one row per folded query of an account, at most 10; no aggregate, no `write_id` |
@@ -718,13 +719,27 @@ missing key surfaced only then. A missing key is `ErrNotFound`.
 
 Module `media` owns uploads; catalog, chat and account (avatars) use
 them. An `Upload` moves waiting → attached → ready or failed, or
-waiting → expired; a video moves waiting → attached → consumed.
+waiting → expired; a video moves waiting → attached → consumed. A waiting
+upload expires at `uploads.expires_at`: a day after it was created, later
+once a listing draft extended it.
 
 - `CreateUpload` (`POST /v1/uploads`) takes a content type and a size: JPEG,
   PNG or WebP up to 15 MB (the app converts HEIC), or MP4 or QuickTime video
   up to 50 MB. It returns a PUT URL valid for 15 minutes that signs both. Before inserting the row it sends
   `MediaExpire.Run(upload_id)` with a 24-hour delay, keyed by the upload ID.
-  `MediaExpire` deletes an upload still waiting, and its object.
+  `MediaExpire` deletes an upload still waiting at its `expires_at`, and
+  its object. While `expires_at` is still ahead (a draft extended it), it
+  sends itself again for that moment, keyed `<upload id>/<expires_at Unix
+  seconds>`, since the upload ID keyed the first run.
+- `Extend(owner, ids)` keeps photos for the owner's listing drafts
+  (decided 2026-11-13), all or none: each is the owner's photo, waiting
+  before `expires_at` and in the store as declared, otherwise
+  `invalid_upload`. It sets `expires_at = max(expires_at, now + 30 days)`
+  (`domain.ExtendFor`) and leaves the upload waiting, so `Attach` takes it
+  for a listing. Nothing shortens an expiry, so no hold or release is
+  needed: a photo two drafts name lives until the later one's end.
+- `Gone(owner, ids)` names those of the owner's uploads that a holder took,
+  that expired or wait past `expires_at`, and the IDs with no row.
 - `Attach(owner, holder, ids)` gives the uploads to a holder, such as a
   listing, all or none: each must be the owner's and either held by that
   holder already or waiting and present in the store with the declared type
@@ -757,8 +772,9 @@ waiting → expired; a video moves waiting → attached → consumed.
 Search reads photos through three more use cases (decided 2026-11-09):
 
 - `QueryUpload(owner, id)` checks that an upload is the owner's, still
-  waiting and before its expiry (`domain.ExpireAfter`, 24 hours); anything
-  else is `invalid_upload`, 422.
+  waiting and before its expiry (`uploads.expires_at`, 24 hours after the
+  upload unless a draft extended it); anything else is `invalid_upload`,
+  422.
 - `QueryImage(owner, id)` reads such an upload in the shape `ShapeQuery`: at
   most 768 px on its long side, upright, a JPEG without EXIF. It takes a
   processing slot, and nothing is stored or published.
@@ -794,8 +810,36 @@ Listing reads use four more (decided 2026-11-10 for the video read, spec:
 ### Catalog
 
 Module `catalog` holds listings, categories and regions. A listing is one
-item at one price, C2C, cash on delivery. Drafts stay on the device; the
-server receives a complete listing.
+item at one price, C2C, cash on delivery. A seller's drafts are kept on
+the server for their other devices (decided 2026-11-13, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-13-listing-drafts-sync-design.md`);
+the posting rules apply only to the complete listing `POST /v1/listings`
+receives, whose body is `ListingInput` (was `ListingDraft`; Go's
+`domain.ListingInput`, was `domain.Draft`).
+
+- `PUT /v1/listing-drafts/{id}` creates (201) or replaces (200) a draft;
+  the app mints the ID, a UUIDv7, and the last write wins, with no
+  revision. `GET /v1/listing-drafts` returns every draft in full, last
+  written first, with no pages; `DELETE` answers 204, also for a draft
+  that is gone or another account's. Another account's ID on a PUT is
+  `draft_not_found`.
+- An account keeps 20 drafts (`draft_limit_reached` on a 21st create),
+  counted under `pg_advisory_xact_lock(hashtext('drafts:' || account))`
+  with a share lock on the account's row; a deleted account's write is
+  `session_revoked`, a suspended account still writes its drafts. A draft
+  lives 30 days after its last write (`domain.DraftLife`), and the
+  account's next GET or PUT deletes it first, so it frees its place; no
+  job and no notice.
+- The server reads the typed columns (`title` up to 100 characters,
+  `price`, `photos` up to 10 upload IDs) and keeps `body`, the app's JSON
+  as a string of at most 32,768 characters laid out as `schema_version`
+  says, without reading it. A repeated photo ID is kept once.
+- A PUT drops the photos media's `Gone` names, extends the rest with
+  `Extend`, then writes the row. Media and catalog share no transaction:
+  an extension whose write then fails keeps a photo longer and nothing
+  else. GET leaves gone photos out of its answer without writing, so a
+  read never keeps a draft alive. Photo URLs are `PresignPhoto`, valid an
+  hour; unposted photos never go under the public `media/`.
 
 - A photo the server copied from the seller's listing on another site
   shows `copied: true` (decided 2026-11-11, spec:
@@ -1873,7 +1917,7 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
 - Each module clears its own rows from a worker on `account.deleted`, and
   each handler does nothing the second time: catalog deletes the listings
   that are not sold (a processing one too; its publish flow stops on a
-  listing that left processing); deal ends the account's deals with
+  listing that left processing) and the drafts; deal ends the account's deals with
   `PartyLeft` (a requested order cancelled by the system with
   `listing_closed`, an agreement dropped, an open price taken back);
   discovery deletes the saves, the search history, the hidden listings, the
@@ -1881,7 +1925,9 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   and push tokens; assist deletes the reads and the waiting transcripts.
   Media does nothing: a waiting upload, a video read's frames and a link
   read's copies among them, expires
-  within a day anyway, a read's video is consumed when the read ends, and
+  within a day anyway, and a draft's photo within 30 days of the draft's
+  last write, in the private `uploads/` that no URL reaches once the
+  drafts are gone; a read's video is consumed when the read ends, and
   the avatar object stays in the store, as a removed avatar does.
 - Deal's `DealAccountWatch.Deleted` also sends `Scrub` with a delay of 365
   days (`domain.KeepRecipientsFor`), which blanks the recipient name, phone
