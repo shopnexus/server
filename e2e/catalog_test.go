@@ -321,6 +321,29 @@ func TestCategoriesAndRegions(t *testing.T) {
 	expectStatus(t, call(t, "GET", "/v1/regions/hanoi/communes", nil), 400)
 }
 
+// The commune nearest a point comes with its province; a point far from
+// every commune, or a bad one, is refused.
+func TestNearestCommune(t *testing.T) {
+	t.Parallel()
+	type commune struct {
+		Code     string
+		Lat, Lng float64
+	}
+	at := expect[page[commune]](t, call(t, "GET", "/v1/regions/01/communes", nil), 200).Items[0]
+	res := call(t, "GET", fmt.Sprintf("/v1/regions/nearest?lat=%v&lng=%v", at.Lat, at.Lng), nil)
+	type region struct {
+		Code string `json:"code"`
+		Name string `json:"display_name"`
+	}
+	got := expect[struct{ Commune, Province region }](t, res, 200)
+	if got.Commune.Code != at.Code || got.Province.Code != "01" || got.Province.Name == "" {
+		t.Fatalf("%s", res.Body)
+	}
+	check(t, "Paris", call(t, "GET", "/v1/regions/nearest?lat=48.85&lng=2.35", nil), 404, "no_commune_near")
+	check(t, "no lng", call(t, "GET", "/v1/regions/nearest?lat=21.03", nil), 400, "invalid_request")
+	check(t, "lat out of range", call(t, "GET", "/v1/regions/nearest?lat=95&lng=105.8", nil), 400, "invalid_request")
+}
+
 // A GPS point far from the commune is refused, a near one is taken, and no
 // response shows the point.
 func TestListingGPS(t *testing.T) {

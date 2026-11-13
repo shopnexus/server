@@ -9,4 +9,5 @@ var (
 	ErrCapReached        = apperr.New(apperr.KindConflict, "listing_cap_reached", "at most 20 listings on sale or hidden")
 	ErrDraftNotFound     = apperr.New(apperr.KindNotFound, "draft_not_found", "no such draft of the caller's")
 	ErrDraftLimitReached = apperr.New(apperr.KindConflict, "draft_limit_reached", "at most 20 drafts")
+	ErrNoCommuneNear     = apperr.New(apperr.KindNotFound, "no_commune_near", "no commune lies within 30 km of the point")
 )

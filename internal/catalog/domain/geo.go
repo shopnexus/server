@@ -11,9 +11,9 @@ type Point struct {
 	Lng float64 `json:"lng"`
 }
 
-// MaxGPSKm is how far a seller's GPS point may be from their commune's
-// point. The communes table holds points, not boundaries, so this distance
-// stands in for "inside the commune".
+// MaxGPSKm is how far a GPS point may be from a commune's point and still
+// count as in that commune. The communes table holds points, not
+// boundaries, so this distance stands in for "inside the commune".
 const MaxGPSKm = 30
 
 const (

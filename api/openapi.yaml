@@ -77,6 +77,8 @@ paths:
     $ref: "paths/catalog.yaml#/regions"
   /v1/regions/{province_code}/communes:
     $ref: "paths/catalog.yaml#/regionCommunes"
+  /v1/regions/nearest:
+    $ref: "paths/catalog.yaml#/regionNearest"
   /v1/deals:
     $ref: "paths/deal.yaml#/deals"
   /v1/deals/{id}:

@@ -390,6 +390,47 @@ regionCommunes:
               $ref: "../schemas/catalog.yaml#/CommuneList"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
+regionNearest:
+  get:
+    operationId: nearestCommune
+    summary: The commune nearest a point, with its province.
+    description: |
+      The commune whose point is closest to lat and lng, as the app asks
+      when it fills in the area from the phone's position. The communes
+      table holds one point per commune and no boundaries, so a commune
+      farther than 30 km counts as none. The point is used for this request
+      only; it is neither stored nor logged.
+    tags: [catalog]
+    parameters:
+      - name: lat
+        in: query
+        required: true
+        schema:
+          type: number
+          minimum: -90
+          maximum: 90
+      - name: lng
+        in: query
+        required: true
+        schema:
+          type: number
+          minimum: -180
+          maximum: 180
+    responses:
+      "200":
+        description: The nearest commune.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/Location"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "404":
+        description: "No commune lies within 30 km of the point (no_commune_near)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 sellerListings:
   get:
     operationId: listSellerListings

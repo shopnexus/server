@@ -397,6 +397,26 @@ func TestPlaces(t *testing.T) {
 	}
 }
 
+// Locate names the commune nearest a point, and none for a point 30 km
+// from every commune.
+func TestLocate(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	places, err := e.catalog.Places(ctx, []string{"00004"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := places["00004"]
+	got, err := e.catalog.Locate(ctx, domain.Point{Lat: want.Lat + 0.001, Lng: want.Lng})
+	if err != nil || got != want {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if got, err = e.catalog.Locate(ctx, domain.Point{Lat: 48.85, Lng: 2.35}); !errors.Is(err, domain.ErrNoCommuneNear) {
+		t.Fatalf("Paris: %+v %v", got, err)
+	}
+}
+
 // A photo the server copied from the seller's listing elsewhere is marked
 // for everyone who reads the listing, and an edit keeps the mark.
 func TestCopiedPhotosAreMarked(t *testing.T) {
