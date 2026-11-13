@@ -107,9 +107,13 @@ func TestPickupTimeoutCancels(t *testing.T) {
 		}
 		return nil
 	})
-	if cancels.Load() != 1 {
-		t.Fatalf("%d cancels at GHTK", cancels.Load())
-	}
+	// The listing goes back first; the call off at the carrier follows it.
+	testenv.Eventually(t, 15*time.Second, func() error {
+		if n := cancels.Load(); n != 1 {
+			return fmt.Errorf("%d cancels at GHTK", n)
+		}
+		return nil
+	})
 }
 
 func TestAutoCompletes(t *testing.T) {
