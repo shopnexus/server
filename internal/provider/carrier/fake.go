@@ -2,6 +2,7 @@ package carrier
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
 	"strconv"
 	"strings"
@@ -10,23 +11,43 @@ import (
 // fakeFee is what the fake charges for any parcel, in đồng.
 const fakeFee = 22_000
 
-// Fake knows every tracking code but those that start with NOTFOUND, and
-// reads each as the same parcel waiting for pickup. It makes GHTK-<number>
-// codes and calls nothing off. With CARRIER=fake the dev endpoint moves
-// its shipments.
-type Fake struct{}
+// Fake is one carrier in development and tests. It links any account but
+// the password or token "wrong", knows every code but those that start
+// with NOTFOUND, reads each as the same parcel waiting for pickup, and
+// makes codes from the order code, so a retry gets the same one. With
+// CARRIER=fake the dev endpoint moves its shipments.
+type Fake struct{ Carrier Carrier }
 
 var _ Client = Fake{}
 
-// Create makes the code from the order ID's last four bytes, which are
-// random, so a retry gets the same code and two orders almost never share
-// one.
-func (Fake) Create(_ context.Context, in CreateInput) (Created, error) {
-	n := binary.BigEndian.Uint32(in.OrderID[12:16])
-	return Created{TrackingCode: "GHTK-" + strconv.FormatUint(uint64(n), 10), Fee: fakeFee}, nil
+func (f Fake) Link(_ context.Context, c Credentials) (Linked, error) {
+	if c.Password == "wrong" || c.Token == "wrong" {
+		return Linked{}, ErrLoginFailed
+	}
+	if f.Carrier == GHN {
+		return Linked{ShopCode: c.ShopID, Token: "fake-ghn-" + c.Token}, nil
+	}
+	sum := sha256.Sum256([]byte(c.Email))
+	return Linked{ShopCode: "S" + strconv.Itoa(int(binary.BigEndian.Uint16(sum[:2]))), Token: "fake-ghtk-" + c.Email}, nil
 }
 
-func (Fake) Lookup(_ context.Context, _ Carrier, code string) (Parcel, error) {
+func (Fake) Pickups(context.Context, Account) ([]PickupPoint, error) {
+	return []PickupPoint{
+		{ID: "88256", Name: "Kho Bình Thạnh", Phone: "0987654321", Address: "12 Nguyễn Gia Trí, Phường 25, Bình Thạnh"},
+		{ID: "88260", Name: "Kho Quận 1", Phone: "0987654321", Address: "1 Lê Duẩn, Bến Nghé, Quận 1"},
+	}, nil
+}
+
+func (Fake) Quote(context.Context, Account, QuoteInput) (int64, error) { return fakeFee, nil }
+
+// Create makes the code from a hash of the order code.
+func (f Fake) Create(_ context.Context, _ Account, in CreateInput) (Created, error) {
+	sum := sha256.Sum256([]byte(in.OrderCode))
+	n := binary.BigEndian.Uint32(sum[:4])
+	return Created{TrackingCode: strings.ToUpper(string(f.Carrier)) + "-" + strconv.FormatUint(uint64(n), 10), Fee: fakeFee}, nil
+}
+
+func (Fake) Lookup(_ context.Context, _ Account, code string) (Parcel, error) {
 	if strings.HasPrefix(code, "NOTFOUND") {
 		return Parcel{}, ErrNotFound
 	}
@@ -36,4 +57,4 @@ func (Fake) Lookup(_ context.Context, _ Carrier, code string) (Parcel, error) {
 	}, nil
 }
 
-func (Fake) Cancel(context.Context, Carrier, string) error { return nil }
+func (Fake) Cancel(context.Context, Account, string) error { return nil }
