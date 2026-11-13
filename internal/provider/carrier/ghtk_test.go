@@ -59,6 +59,10 @@ func ghtkServer(t *testing.T) carrier.GHTKClient {
 		}
 		_ = json.NewDecoder(r.Body).Decode(&in)
 		o := in.Order
+		if o["id"] == "SN-BAD" {
+			_, _ = w.Write([]byte(`{"success":false,"message":"Số điện thoại người nhận không hợp lệ"}`))
+			return
+		}
 		if o["id"] == "SN-DUP" {
 			_, _ = w.Write([]byte(`{"success":false,"message":"Mã đơn hàng đã tồn tại","error":{"code":"ORDER_ID_EXIST","partner_id":"SN-DUP","ghtk_label":"S1.A1.111","created":"2026-11-13 10:00:00","status":2}}`))
 			return
@@ -72,6 +76,10 @@ func ghtkServer(t *testing.T) carrier.GHTKClient {
 	})
 	mux.HandleFunc("GET /services/shipment/v2/{code}", func(w http.ResponseWriter, r *http.Request) {
 		if !shop(w, r) {
+			return
+		}
+		if r.PathValue("code") == "S1.LATE" {
+			_, _ = w.Write([]byte(`{"success":true,"message":"","order":{"label_id":"S1.LATE","status":"10","customer_fullname":"Vân","address":"1 Lê Lợi","ship_money":"16500","pick_money":47000}}`))
 			return
 		}
 		if r.PathValue("code") != "S1.A1.17373471" {
@@ -148,6 +156,10 @@ func TestGHTKShipsReadsAndCancels(t *testing.T) {
 	if err != nil || c.TrackingCode != "S1.A1.2001297581" || c.Fee != 30_400 {
 		t.Fatalf("%+v %v", c, err)
 	}
+	in.OrderCode = "SN-BAD"
+	if _, err = g.Create(ctx, acc, in); !errors.Is(err, carrier.ErrRefused) || !strings.Contains(err.Error(), "không hợp lệ") {
+		t.Fatalf("a refused order: %v", err)
+	}
 	in.OrderCode = "SN-DUP"
 	if c, err = g.Create(ctx, acc, in); err != nil || c.TrackingCode != "S1.A1.111" {
 		t.Fatalf("a retry of a made order: %+v %v", c, err)
@@ -156,6 +168,12 @@ func TestGHTKShipsReadsAndCancels(t *testing.T) {
 	if err != nil || p.Status != carrier.StatusDelivered || p.COD != 47_000 || p.Fee == nil || *p.Fee != 16_500 ||
 		p.RecipientName != "V** N*****" || p.District != "123 nguyễn chí thanh Quận 1, TP Hồ Chí Minh" {
 		t.Fatalf("%+v %v", p, err)
+	}
+	if !p.Moved {
+		t.Fatal("a delivered parcel reads as moving nothing")
+	}
+	if late, _ := g.Lookup(ctx, acc, "S1.LATE"); late.Moved || late.Status != carrier.StatusPendingPickup {
+		t.Fatalf("delayed delivery (10) moved the parcel: %+v", late)
 	}
 	if _, err = g.Lookup(ctx, acc, "S1.OTHER"); !errors.Is(err, carrier.ErrNotFound) {
 		t.Fatalf("unknown: %v", err)

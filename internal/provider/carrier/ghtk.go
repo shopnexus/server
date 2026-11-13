@@ -127,7 +127,7 @@ func (g GHTKClient) Pickups(ctx context.Context, a Account) ([]PickupPoint, erro
 		return nil, err
 	}
 	if !out.Success {
-		return nil, errors.New("GHTK did not list the pickup points: " + out.Message)
+		return nil, fmt.Errorf("%w: %s", ErrRefused, out.Message)
 	}
 	pts := make([]PickupPoint, 0, len(out.Data))
 	for _, p := range out.Data {
@@ -208,7 +208,7 @@ func (g GHTKClient) Create(ctx context.Context, a Account, in CreateInput) (Crea
 		// A retry: the first try made it. Its fee comes with the next read.
 		return Created{TrackingCode: out.Error.Label}, nil
 	}
-	return Created{}, errors.New("GHTK refused the order: " + out.Message)
+	return Created{}, fmt.Errorf("%w: %s", ErrRefused, out.Message)
 }
 
 func (g GHTKClient) Lookup(ctx context.Context, a Account, code string) (Parcel, error) {
@@ -234,7 +234,10 @@ func (g GHTKClient) Lookup(ctx context.Context, a Account, code string) (Parcel,
 		status = StatusPendingPickup
 	}
 	fee := int64(out.Order.ShipFee)
-	return Parcel{RecipientName: mask(out.Order.Name), District: out.Order.Address, COD: int64(out.Order.PickCash), Status: status, Fee: &fee}, nil
+	return Parcel{
+		RecipientName: mask(out.Order.Name), District: out.Order.Address, COD: int64(out.Order.PickCash), Status: status, Moved: moved,
+		Fee: &fee,
+	}, nil
 }
 
 // Cancel calls the order off by its label. GHTK's samples use GET where
@@ -255,7 +258,7 @@ func (g GHTKClient) Cancel(ctx context.Context, a Account, code string) error {
 	case strings.Contains(out.Message, "không thể hủy"):
 		return ErrNotCancellable
 	}
-	return errors.New("GHTK did not cancel the order: " + out.Message)
+	return fmt.Errorf("%w: %s", ErrRefused, out.Message)
 }
 
 func ghtkTransport(service string) string {

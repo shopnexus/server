@@ -66,6 +66,9 @@ type Response struct {
 // form is a body sent form-encoded, as GHTK posts its reports.
 type form url.Values
 
+// raw is a body sent as it is, under contentType.
+type raw struct{ contentType, body string }
+
 // call sends a request to the shared server; see callAt.
 func call(t *testing.T, method, path string, body any, headers ...[2]string) Response {
 	t.Helper()
@@ -80,9 +83,13 @@ func callAt(t *testing.T, base, method, path string, body any, headers ...[2]str
 	t.Helper()
 	var reqBody []byte
 	contentType := "application/json"
-	if f, ok := body.(form); ok {
-		reqBody, contentType = []byte(url.Values(f).Encode()), "application/x-www-form-urlencoded"
-	} else if body != nil {
+	switch b := body.(type) {
+	case nil:
+	case form:
+		reqBody, contentType = []byte(url.Values(b).Encode()), "application/x-www-form-urlencoded"
+	case raw:
+		reqBody, contentType = []byte(b.body), b.contentType
+	default:
 		var err error
 		if reqBody, err = json.Marshal(body); err != nil {
 			t.Fatal(err)

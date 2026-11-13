@@ -74,6 +74,15 @@ func (g GHNClient) do(ctx context.Context, method, path string, a Account, shop 
 	return nil
 }
 
+// refusal is err as ErrRefused when GHN answered it with a 4xx other than
+// 401 (a token GHN does not take), and err otherwise.
+func refusal(err error) error {
+	if e, ok := errors.AsType[ghnError](err); ok && e.status >= 400 && e.status < 500 && e.status != http.StatusUnauthorized {
+		return fmt.Errorf("%w: %s", ErrRefused, e.codeMessage)
+	}
+	return err
+}
+
 // codeMessage is the code_message of a GHN refusal, or "".
 func codeMessage(err error) string {
 	if e, ok := errors.AsType[ghnError](err); ok {
@@ -166,19 +175,27 @@ func (g GHNClient) Quote(ctx context.Context, a Account, in QuoteInput) (int64, 
 		return 0, ErrAddressUnknown
 	}
 	if err != nil {
-		return 0, err
+		return 0, refusal(err)
 	}
 	return out.TotalFee, nil
 }
 
-// Create makes the order with ShopNexus's order code as client_order_code;
-// GHN answers a retry with the order the first try made.
+// Create makes the order with ShopNexus's order code as client_order_code.
+// A refused create is read back by that code first: a retry whose first
+// try made the order finds it there.
 func (g GHNClient) Create(ctx context.Context, a Account, in CreateInput) (Created, error) {
 	var out ghnOrder
 	err := g.do(ctx, http.MethodPost, "/v2/shipping-order/create", a, true,
 		ghnOrderBody(in.OrderCode, in.Recipient, in.Pickup, in.Item, in.COD, in.WeightGrams), &out)
 	if codeMessage(err) == "ROUTE_NOT_FOUND_SERVICE" {
 		return Created{}, ErrAddressUnknown
+	}
+	if err = refusal(err); errors.Is(err, ErrRefused) {
+		var made ghnOrder
+		if g.do(ctx, http.MethodPost, "/v2/shipping-order/detail-by-client-code", a, false,
+			map[string]string{"client_order_code": in.OrderCode}, &made) == nil && made.OrderCode != "" {
+			return Created{TrackingCode: made.OrderCode, Fee: made.TotalFee}, nil
+		}
 	}
 	if err != nil {
 		return Created{}, err
@@ -194,7 +211,9 @@ func (g GHNClient) Lookup(ctx context.Context, a Account, code string) (Parcel, 
 		COD     int64  `json:"cod_amount"`
 	}
 	err := g.do(ctx, http.MethodPost, "/v2/shipping-order/detail", a, false, map[string]string{"order_code": code}, &out)
-	if codeMessage(err) == "ORDER_NOT_FOUND" {
+	// The code is the only thing detail takes, so any 400 is a code the
+	// account does not have.
+	if e, ok := errors.AsType[ghnError](err); ok && e.status == http.StatusBadRequest {
 		return Parcel{}, ErrNotFound
 	}
 	if err != nil {
@@ -204,7 +223,7 @@ func (g GHNClient) Lookup(ctx context.Context, a Account, code string) (Parcel, 
 	if !moved {
 		status = StatusPendingPickup
 	}
-	return Parcel{RecipientName: mask(out.ToName), District: out.Address, COD: out.COD, Status: status}, nil
+	return Parcel{RecipientName: mask(out.ToName), District: out.Address, COD: out.COD, Status: status, Moved: moved}, nil
 }
 
 func (g GHNClient) Cancel(ctx context.Context, a Account, code string) error {
@@ -217,7 +236,7 @@ func (g GHNClient) Cancel(ctx context.Context, a Account, code string) error {
 		return ErrNotFound
 	}
 	if err != nil {
-		return err
+		return refusal(err)
 	}
 	if len(out) == 0 || !out[0].Result {
 		return ErrNotCancellable

@@ -115,7 +115,7 @@ carrierPickups:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "409":
-        description: "Not linked at that carrier (carrier_not_linked)."
+        description: "Not linked at that carrier, or its token no longer opens and the caller links it again (carrier_not_linked, carrier_relink_needed)."
         content:
           application/json:
             schema:
@@ -199,13 +199,13 @@ shipmentQuote:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "Not linked at that carrier (carrier_not_linked)."
+        description: "Not linked at that carrier, or its token no longer opens and the caller links it again (carrier_not_linked, carrier_relink_needed)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "Not ghtk or ghn (invalid_carrier); the service, weight or pickup breaks a rule (invalid_shipment, with fields); or the carrier does not know an address (carrier_address_unknown)."
+        description: "Not ghtk or ghn (invalid_carrier); the service, weight or pickup breaks a rule (invalid_shipment, with fields); the carrier does not know an address (carrier_address_unknown); or the carrier refused, its words in details.reason (carrier_refused)."
         content:
           application/json:
             schema:
@@ -222,9 +222,12 @@ carrierWebhook:
     summary: A carrier's status report.
     description: |
       GHTK and GHN call it with the secret ShopNexus gave them in the
-      path; GHTK signs nothing. The body is form-encoded or JSON. Once the
-      secret matches it answers 200, also for a code no order has or a
-      body it cannot read, so the carrier does not resend.
+      path; GHTK signs nothing. GHTK posts label_id and status_id,
+      form-encoded or as JSON; GHN posts JSON with OrderCode and Status.
+      The operation declares no request body, so the request validator
+      leaves any body to the handler: once the secret matches it answers
+      200, also for a code no order has or a body it cannot read, so the
+      carrier does not resend.
     tags: [shipping]
     parameters:
       - name: carrier
@@ -237,15 +240,6 @@ carrierWebhook:
         required: true
         schema:
           type: string
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-        application/x-www-form-urlencoded:
-          schema:
-            type: object
     responses:
       "200":
         description: Taken.

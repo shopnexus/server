@@ -15,6 +15,7 @@ import (
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/service"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/testenv"
 	"github.com/shopnexus/server2/internal/provider/carrier"
 )
@@ -106,6 +107,10 @@ func TestALinkedShipmentGoesToTheCarrierAskedWithItsPickup(t *testing.T) {
 		*sh.Pickup != (domain.ShipmentPickup{Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}) {
 		t.Fatalf("%+v %+v", sh, sh.Pickup)
 	}
+	// The pickup is the seller's address: the buyer does not read it.
+	if b := e.get(t, buyer, s.ID).Order.Shipment; b.Pickup != nil {
+		t.Fatalf("the buyer reads the seller's pickup %+v", b.Pickup)
+	}
 	made := rec.made[len(rec.made)-1]
 	if made.OrderCode != s.Order.Code || made.COD != 1_500_000 || made.WeightGrams != 2_000 || made.Service != "express" ||
 		made.Option != "home" || made.Item == "" || made.Recipient.Name != "Hân" || made.Recipient.Commune == "" ||
@@ -183,7 +188,8 @@ func TestPickupTimeoutReleasesBeforeCallingOff(t *testing.T) {
 	}
 }
 
-// reporting is a carrier whose parcels all read the status last set.
+// reporting is a carrier whose parcels all read the status last set, as a
+// status it maps; a nil status is one it does not map, which moves nothing.
 type reporting struct {
 	carrier.Fake
 
@@ -194,8 +200,39 @@ type reporting struct {
 func (r reporting) Lookup(ctx context.Context, a carrier.Account, code string) (carrier.Parcel, error) {
 	r.reads.Add(1)
 	p, err := r.Fake.Lookup(ctx, a, code)
-	p.Status = *r.status.Load()
+	if s := r.status.Load(); s != nil {
+		p.Status, p.Moved = *s, true
+	}
 	return p, err
+}
+
+// A status the carrier does not map (GHTK's delayed delivery, GHN's
+// exception) moves nothing: the poll leaves a delivered parcel delivered,
+// and it completes.
+func TestThePollIgnoresAStatusThatMovesNothing(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	c := reporting{Carrier: carrier.GHTK, status: &atomic.Pointer[carrier.Status]{}, reads: &atomic.Int32{}}
+	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Poll, w.Complete = 300*time.Millisecond, 3*time.Second }), linkedAt{c})
+	seller, buyer := e.person(t), e.person(t)
+	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
+	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), service.ShipmentInput{Mode: "manual", Carrier: "ghtk", TrackingCode: "S1.LATE"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := deals.ShipmentUpdated(ctx, "S1.LATE", "delivered"); err != nil {
+		t.Fatal(err)
+	}
+	testenv.Eventually(t, 15*time.Second, func() error {
+		if c.reads.Load() < 2 {
+			return errors.New("not polled twice yet")
+		}
+		return nil
+	})
+	if s := e.get(t, buyer, v.ID).Order.Shipment.Status; s != domain.ShipmentDelivered {
+		t.Fatalf("the poll moved a delivered parcel to %s", s)
+	}
+	e.until(t, buyer, v.ID, domain.OrderCompleted)
 }
 
 // The poll moves a shipped order as the carrier reads it, does nothing when
@@ -205,7 +242,6 @@ func TestThePollMovesAShipmentAndStopsWhenItCloses(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	c := reporting{Carrier: carrier.GHTK, status: &atomic.Pointer[carrier.Status]{}, reads: &atomic.Int32{}}
-	c.status.Store(new(carrier.StatusPendingPickup))
 	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Poll = 500 * time.Millisecond }), linkedAt{c})
 	seller, buyer := e.person(t), e.person(t)
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
@@ -260,5 +296,55 @@ func TestOpenShipmentsAtAndQuoteFacts(t *testing.T) {
 	}
 	if _, _, _, err = e.deals.QuoteFacts(ctx, buyer, v.Order.ID, uuid.Nil()); !errors.Is(err, domain.ErrOrderNotFound) {
 		t.Fatalf("the buyer's quote: %v", err)
+	}
+}
+
+// A parcel the carrier picked up after the last poll is not cancelled when
+// the pickup wait ends: the timeout reads it first and moves the order.
+func TestPickupTimeoutReadsTheCarrierFirst(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	c := reporting{Carrier: carrier.GHTK, status: &atomic.Pointer[carrier.Status]{}, reads: &atomic.Int32{}}
+	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Pickup = time.Second }), linkedAt{c})
+	seller, buyer := e.person(t), e.person(t)
+	listing := catalogtest.Listing(t, e.db, seller)
+	v := e.pending(t, buyer, listing)
+	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked); err != nil {
+		t.Fatal(err)
+	}
+	c.status.Store(new(carrier.StatusInTransit))
+	testenv.Eventually(t, 15*time.Second, func() error {
+		if s := e.get(t, buyer, v.ID).Order.Shipment.Status; s != domain.ShipmentInTransit {
+			return fmt.Errorf("shipment %s", s)
+		}
+		return nil
+	})
+	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderShipped {
+		t.Fatalf("the picked-up order was cancelled: %+v", got.Order)
+	}
+	if st, held := e.summary(t, listing); st == catalogdomain.StatusActive || held != v.Order.ID {
+		t.Fatalf("the listing went back on sale: %s for %s", st, held)
+	}
+}
+
+// A carrier's refusal ends the shipment at once with the carrier's reason
+// and gives the listing back; it is not tried again.
+func TestACarriersRefusalGivesTheListingBack(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	deps := e.deps
+	deps.Shipping = refusing{apperr.New(apperr.KindInvalid, "carrier_refused", "the carrier refused the request").WithDetail("reason", "bad phone")}
+	deals := start(t, deps)
+	seller, buyer := e.person(t), e.person(t)
+	listing := catalogtest.Listing(t, e.db, seller)
+	v := e.pending(t, buyer, listing)
+	_, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
+	if apperr.From(err).Code != "carrier_refused" {
+		t.Fatalf("%v", err)
+	}
+	if st, held := e.summary(t, listing); st != catalogdomain.StatusActive || held != (uuid.UUID{}) {
+		t.Fatalf("the refused shipment kept the listing: %s for %s", st, held)
 	}
 }

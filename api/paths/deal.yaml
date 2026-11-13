@@ -446,13 +446,13 @@ orderShipment:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not the deal's pending one, or the caller is the buyer (move_not_allowed); the listing is not on sale (listing_unavailable); the deal changed meanwhile (deal_changed); or the caller has not linked that carrier (carrier_not_linked)."
+        description: "The order is not the deal's pending one, or the caller is the buyer (move_not_allowed); the listing is not on sale (listing_unavailable); the deal changed meanwhile (deal_changed); or the caller has not linked that carrier, or must link it again because its token no longer opens (carrier_not_linked, carrier_relink_needed)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "The shipment breaks a rule, the carrier's report of a failed parcel included (invalid_shipment, with fields); the carrier does not know the tracking code (shipment_not_found); or the carrier does not know the recipient's or the pickup's address (carrier_address_unknown)."
+        description: "The shipment breaks a rule, the carrier's report of a failed parcel included (invalid_shipment, with fields); the carrier does not know the tracking code (shipment_not_found); the carrier does not know the recipient's or the pickup's address (carrier_address_unknown); or the carrier refused the shipment, its words in details.reason (carrier_refused)."
         content:
           application/json:
             schema:
@@ -505,7 +505,7 @@ orderShipment:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not shipped, its shipment is linked or no longer pending_pickup or in_transit, or the caller is the buyer (move_not_allowed); the deal changed meanwhile (deal_changed); or the caller has not linked that carrier (carrier_not_linked)."
+        description: "The order is not shipped, its shipment is linked or no longer pending_pickup or in_transit, or the caller is the buyer (move_not_allowed); the deal changed meanwhile (deal_changed); or the caller has not linked that carrier, or must link it again because its token no longer opens (carrier_not_linked, carrier_relink_needed)."
         content:
           application/json:
             schema:
@@ -613,7 +613,7 @@ shipmentLookup:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The caller has not linked that carrier (carrier_not_linked)."
+        description: "The caller has not linked that carrier, or must link it again (carrier_not_linked, carrier_relink_needed)."
         content:
           application/json:
             schema:

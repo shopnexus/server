@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 	"uuid"
 
@@ -139,7 +140,7 @@ func (s *Shipping) account(ctx context.Context, owner uuid.UUID, c string) (carr
 	}
 	token, err := domain.Open(s.d.Key, row.Token, row.Nonce)
 	if err != nil {
-		return nil, carrier.Account{}, fmt.Errorf("open the %s token of %s: %w", c, owner, err)
+		return nil, carrier.Account{}, domain.ErrRelinkNeeded.WithCause(fmt.Errorf("open the %s token of %s: %w", c, owner, err))
 	}
 	return cl, carrier.Account{Token: token, ShopCode: row.ShopCode}, nil
 }
@@ -154,6 +155,9 @@ func carrierError(err error) error {
 		return domain.ErrLoginFailed
 	case errors.Is(err, carrier.ErrAddressUnknown):
 		return domain.ErrAddressUnknown
+	case errors.Is(err, carrier.ErrRefused):
+		reason := strings.TrimSpace(strings.TrimPrefix(err.Error(), carrier.ErrRefused.Error()+":"))
+		return domain.ErrCarrierRefused.WithDetail("reason", reason).WithCause(err)
 	}
 	return err
 }

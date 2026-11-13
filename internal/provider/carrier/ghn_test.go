@@ -45,6 +45,10 @@ func ghnServer(t *testing.T) carrier.GHNClient {
 			OrderCode string `json:"order_code"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&in)
+		if in.OrderCode == "ODD" {
+			fail(w, http.StatusBadRequest, "USER_ERR_COMMON")
+			return
+		}
 		if in.OrderCode != "5ENLKKHD" {
 			fail(w, http.StatusBadRequest, "ORDER_NOT_FOUND")
 			return
@@ -57,6 +61,14 @@ func ghnServer(t *testing.T) carrier.GHNClient {
 		}
 		var in map[string]any
 		_ = json.NewDecoder(r.Body).Decode(&in)
+		if !preview && in["client_order_code"] == "SN-DUP" {
+			fail(w, http.StatusBadRequest, "USER_ERR_COMMON")
+			return
+		}
+		if in["to_phone"] == "bad" {
+			fail(w, http.StatusBadRequest, "PHONE_INVALID")
+			return
+		}
 		if in["to_province_name"] == "Nowhere" {
 			fail(w, http.StatusBadRequest, "ROUTE_NOT_FOUND_SERVICE")
 			return
@@ -73,6 +85,20 @@ func ghnServer(t *testing.T) carrier.GHNClient {
 	}
 	mux.HandleFunc("POST /shiip/public-api/v2/shipping-order/create", func(w http.ResponseWriter, r *http.Request) { order(w, r, false) })
 	mux.HandleFunc("POST /shiip/public-api/v2/shipping-order/preview", func(w http.ResponseWriter, r *http.Request) { order(w, r, true) })
+	mux.HandleFunc("POST /shiip/public-api/v2/shipping-order/detail-by-client-code", func(w http.ResponseWriter, r *http.Request) {
+		if !shop(w, r, false) {
+			return
+		}
+		var in struct {
+			Code string `json:"client_order_code"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		if in.Code != "SN-DUP" {
+			fail(w, http.StatusBadRequest, "ORDER_NOT_FOUND")
+			return
+		}
+		_, _ = w.Write([]byte(`{"code":200,"message":"Success","data":{"order_code":"5DUPLKHD","client_order_code":"SN-DUP","status":"ready_to_pick"}}`))
+	})
 	mux.HandleFunc("POST /shiip/public-api/v2/switch-status/cancel", func(w http.ResponseWriter, r *http.Request) {
 		if !shop(w, r, true) {
 			return
@@ -128,6 +154,17 @@ func TestGHNShipsReadsAndCancels(t *testing.T) {
 	if err != nil || c != (carrier.Created{TrackingCode: "5ENLKKHD", Fee: 33_000}) {
 		t.Fatalf("%+v %v", c, err)
 	}
+	bad := in
+	bad.Recipient.Phone = "bad"
+	if _, err = g.Create(ctx, acc, bad); !errors.Is(err, carrier.ErrRefused) {
+		t.Fatalf("a refused order: %v", err)
+	}
+	// GHN refuses a client_order_code it has: the first try made the order.
+	dup := in
+	dup.OrderCode = "SN-DUP"
+	if c, err = g.Create(ctx, acc, dup); err != nil || c.TrackingCode != "5DUPLKHD" {
+		t.Fatalf("a retry of a made order: %+v %v", c, err)
+	}
 	in.Recipient.Province = "Nowhere"
 	if _, err = g.Create(ctx, acc, in); !errors.Is(err, carrier.ErrAddressUnknown) {
 		t.Fatalf("no route: %v", err)
@@ -136,6 +173,9 @@ func TestGHNShipsReadsAndCancels(t *testing.T) {
 	if err != nil || p.Status != carrier.StatusDelivered || p.COD != 47_000 || p.RecipientName != "V** N*****" ||
 		p.District != "1 Lê Duẩn, Phường Bến Nghé, TP. Hồ Chí Minh" {
 		t.Fatalf("%+v %v", p, err)
+	}
+	if _, err = g.Lookup(ctx, acc, "ODD"); !errors.Is(err, carrier.ErrNotFound) {
+		t.Fatalf("a 400 of another code_message: %v", err)
 	}
 	if _, err = g.Lookup(ctx, acc, "OTHER"); !errors.Is(err, carrier.ErrNotFound) {
 		t.Fatalf("unknown: %v", err)

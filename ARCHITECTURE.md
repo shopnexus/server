@@ -1108,6 +1108,13 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   the seller's is at that carrier. Deleting an account drops its carrier
   accounts (the account watch on `account.deleted`), and deal's scrub
   drops the seller's address copied as a pickup on their sales.
+- A carrier's refusal of a request (a phone number, a weight, a pickup it
+  will not serve) is `carrier.ErrRefused` with the carrier's words, which
+  shipping answers as 422 `carrier_refused` with `details.reason`. A token
+  that no longer opens is 409 `carrier_relink_needed`. Both are refusals,
+  so a durable step that meets one ends the request instead of trying
+  again. A GHN create refused for its `client_order_code` reads the order
+  back by that code, so a retry finds the order the first try made.
 - `provider/carrier` has one client per carrier, each called with the
   seller's `Account{Token, ShopCode}`: `Link`, `Pickups`, `Quote`,
   `Create`, `Lookup`, `Cancel`. GHTK's codes 3 and 4 map to `in_transit`,
@@ -1134,8 +1141,17 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
 - The poll is a delayed send to deal's `OrderTimers.Poll`, which the
   shipment starts. It reads the order's current code from its carrier and
   moves the order through `ShipmentUpdates` when the status differs, then
-  sends itself again until the order closes. A correction of a manual code
-  needs no poll of its own.
+  sends itself again until the order closes. A status the carrier does not
+  map (`Parcel.Moved` false: a delay, a notice, a cancel) moves nothing, so
+  the poll never takes a parcel back to `pending_pickup`. A correction of a
+  manual code needs no poll of its own. The pickup timeout reads the
+  carrier the same way first, and a parcel picked up since the last poll
+  moves the order instead of cancelling it.
+- The webhook operation declares no request body, so the request
+  validator leaves the body to the handler, which answers 200 to one it
+  cannot read.
+- The order keeps the pickup for the seller; the buyer's view of the
+  shipment leaves it out, since it may be a copy of the seller's address.
 
 ### Stream
 

@@ -95,6 +95,12 @@ func TestWebhooks(t *testing.T) {
 	check(t, "a wrong secret", call(t, "POST", "/v1/carriers/ghtk/webhook/nope", map[string]any{"label_id": code, "status_id": 9}), 404, "not_found")
 	check(t, "a carrier with no webhook", call(t, "POST", "/v1/carriers/spx/webhook/dev", map[string]any{"label_id": code}), 404, "not_found")
 	expectStatus(t, call(t, "POST", "/v1/carriers/ghtk/webhook/dev", map[string]any{"label_id": "S1.UNKNOWN", "status_id": 5}), http.StatusOK)
+	// A body that does not read is still taken, so GHTK does not send it again.
+	for _, r := range []raw{{"application/json", "not json"}, {"text/plain", "label_id=S1"}, {"multipart/form-data; boundary=x", "--x--"}} {
+		expectStatus(t, call(t, "POST", "/v1/carriers/ghtk/webhook/dev", r), http.StatusOK)
+	}
+	check(t, "a wrong secret with a body that does not read", call(t, "POST", "/v1/carriers/ghtk/webhook/nope", raw{"application/json", "{"}),
+		404, "not_found")
 	expectStatus(t, call(t, "POST", "/v1/carriers/ghn/webhook/dev", map[string]any{"OrderCode": code, "Status": "picking"}), http.StatusOK)
 	if s := status(); s != "delivered" {
 		t.Fatalf("a GHN notice moved the shipment: %s", s)

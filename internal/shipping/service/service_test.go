@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -247,7 +248,7 @@ func TestAWrongKeyTokenIsAnErrorWithoutTheToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, err = e.svc.Lookup(ctx, e.owner, carrier.GHTK, "S1.A1")
-	if !errors.Is(err, domain.ErrSealedToken) || strings.Contains(err.Error(), "token-of-another-stack") {
+	if !errors.Is(err, domain.ErrRelinkNeeded) || !errors.Is(err, domain.ErrSealedToken) || strings.Contains(err.Error(), "token-of-another-stack") {
 		t.Fatalf("%v", err)
 	}
 	// Linking again replaces the token that does not open.
@@ -256,5 +257,27 @@ func TestAWrongKeyTokenIsAnErrorWithoutTheToken(t *testing.T) {
 	}
 	if _, err = e.svc.Lookup(ctx, e.owner, carrier.GHTK, "S1.A1"); err != nil {
 		t.Fatalf("after relinking: %v", err)
+	}
+}
+
+// refuser is a carrier that refuses every shipment, as GHTK does for a bad
+// phone number.
+type refuser struct{ carrier.Fake }
+
+func (refuser) Create(context.Context, carrier.Account, carrier.CreateInput) (carrier.Created, error) {
+	return carrier.Created{}, fmt.Errorf("%w: Số điện thoại người nhận không hợp lệ", carrier.ErrRefused)
+}
+
+// A carrier's refusal is the seller's to fix, not a failure to try again.
+func TestACarriersRefusalIsCarrierRefused(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t, map[carrier.Carrier]carrier.Client{carrier.GHTK: refuser{carrier.Fake{Carrier: carrier.GHTK}}})
+	if _, err := e.svc.Link(ctx, e.owner, "ghtk", carrier.Credentials{Email: "a@b.vn", Password: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	_, err := e.svc.Create(ctx, e.owner, carrier.GHTK, carrier.CreateInput{OrderCode: "SN-1"})
+	if !errors.Is(err, domain.ErrCarrierRefused) || !strings.Contains(err.Error(), "không hợp lệ") {
+		t.Fatalf("%v", err)
 	}
 }

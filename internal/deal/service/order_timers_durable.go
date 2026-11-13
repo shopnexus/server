@@ -59,13 +59,25 @@ func (s OrderTimers) SellerTimeout(ctx restate.Context, ref OrderRef) error {
 
 // PickupTimeout cancels a shipped order whose parcel the carrier had not
 // picked up Waits.Pickup after the shipment, gives the listing back, then
-// calls a linked shipment off at its carrier. A carrier that has the
-// parcel already, or no longer knows it, leaves the order cancelled all
-// the same.
+// calls a linked shipment off at its carrier. It reads the carrier first:
+// a parcel picked up since the last poll moves the order instead. A
+// carrier that has the parcel by the call off, or no longer knows it,
+// leaves the order cancelled all the same.
 func (s OrderTimers) PickupTimeout(ctx restate.Context, ref OrderRef) error {
 	at, err := restatex.Now(ctx, s.Deals.now)
 	if err != nil {
 		return err
+	}
+	m, err := systemLoadStep(ctx, s.Deals, ref.DealID)
+	if err != nil {
+		return err
+	}
+	first := domain.RestoreDeal(m.Deal)
+	if o := first.Order(); o != nil && o.ID == ref.OrderID && o.Status == domain.OrderShipped && o.Shipment != nil {
+		moved, readErr := s.readMoved(ctx, m.Deal.SellerID, *o.Shipment)
+		if readErr != nil || moved {
+			return readErr
+		}
 	}
 	for {
 		m, loadErr := systemLoadStep(ctx, s.Deals, ref.DealID)
@@ -147,26 +159,41 @@ func (s OrderTimers) Poll(ctx restate.Context, ref OrderRef) error {
 	if o == nil || o.ID != ref.OrderID || o.Status != domain.OrderShipped || o.Shipment == nil {
 		return nil // the order moved on
 	}
-	sh := *o.Shipment
+	if _, err = s.readMoved(ctx, m.Deal.SellerID, *o.Shipment); err != nil {
+		return err
+	}
+	restate.ServiceSend(ctx, s.ServiceName(), "Poll").Send(ref, restate.WithDelay(s.Deals.waits.Poll))
+	return nil
+}
+
+// readMoved reads sh from its carrier with the seller's account and, when
+// the carrier reports a status that moves it to another, moves the order
+// through ShipmentUpdates. A status the carrier does not map, a code it
+// lost, or a refusal of shipping's moves nothing. moved tells whether the
+// order moved.
+func (s OrderTimers) readMoved(ctx restate.Context, seller uuid.UUID, sh domain.Shipment) (moved bool, err error) {
 	read, err := restate.Run(ctx, func(rc restate.RunContext) (domain.ShipmentStatus, error) {
-		p, readErr := s.Deals.shipping.Lookup(rc, m.Deal.SellerID, carrier.Carrier(sh.Carrier), sh.TrackingCode)
+		p, readErr := s.Deals.shipping.Lookup(rc, seller, carrier.Carrier(sh.Carrier), sh.TrackingCode)
 		if errors.Is(readErr, carrier.ErrNotFound) || refusedBy(readErr) {
 			return "", nil
 		}
 		if readErr != nil {
 			return "", fmt.Errorf("read %s: %w", sh.TrackingCode, readErr)
 		}
+		if !p.Moved {
+			return "", nil
+		}
 		return domain.ShipmentStatus(p.Status), nil
 	})
 	if err != nil {
-		return fmt.Errorf("read the shipment at %s: %w", sh.Carrier, err)
+		return false, fmt.Errorf("read the shipment at %s: %w", sh.Carrier, err)
 	}
-	if read != "" && read != sh.Status {
-		if _, err = restate.Service[ShipmentResult](ctx, s.Deals.prefix+shipmentUpdates, flowHandler).
-			Request(ShipmentSignal{TrackingCode: sh.TrackingCode, Status: read}); err != nil {
-			return fmt.Errorf("move the order: %w", err)
-		}
+	if read == "" || read == sh.Status {
+		return false, nil
 	}
-	restate.ServiceSend(ctx, s.ServiceName(), "Poll").Send(ref, restate.WithDelay(s.Deals.waits.Poll))
-	return nil
+	if _, err = restate.Service[ShipmentResult](ctx, s.Deals.prefix+shipmentUpdates, flowHandler).
+		Request(ShipmentSignal{TrackingCode: sh.TrackingCode, Status: read}); err != nil {
+		return false, fmt.Errorf("move the order: %w", err)
+	}
+	return true, nil
 }

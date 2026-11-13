@@ -40,6 +40,10 @@ var (
 	ErrLoginFailed = errors.New("carrier: the carrier refused the account")
 	// ErrNotCancellable is a shipment the carrier has already picked up.
 	ErrNotCancellable = errors.New("carrier: the carrier has picked the parcel up")
+	// ErrRefused is a request the carrier refused for a reason of its own
+	// (a phone number, a weight, an address it will not serve); the error
+	// carries its words. Trying the same request again does not help.
+	ErrRefused = errors.New("carrier: the carrier refused the request")
 	// ErrAddressUnknown is an address the carrier does not deliver to or
 	// does not know.
 	ErrAddressUnknown = errors.New("carrier: the carrier does not know the address")
@@ -116,12 +120,15 @@ type Created struct {
 
 // Parcel is what a carrier tells of a shipment: the recipient's name as
 // ShopNexus masks it, where it goes, the COD amount, the status, and the
-// fee, nil while the carrier tells none.
+// fee, nil while the carrier tells none. Moved is false for a status that
+// moves nothing (delays, notices, a cancel), which reads as pending_pickup
+// for a new shipment and must not move one already on its way.
 type Parcel struct {
 	RecipientName string
 	District      string
 	COD           int64
 	Status        Status
+	Moved         bool
 	Fee           *int64
 }
 
