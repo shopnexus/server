@@ -115,16 +115,23 @@ func TestAttachKeepsItsShape(t *testing.T) {
 	}
 }
 
-func TestExpireOnlyWhileWaiting(t *testing.T) {
+// An upload expires once it is past its expiry, and only while it waits.
+func TestExpireOnlyWhileWaitingPastItsExpiry(t *testing.T) {
 	t.Parallel()
 	owner := uuid.NewV7()
 	waiting, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
-	if !waiting.Expire(now) || waiting.Status() != domain.StatusExpired {
+	if !waiting.ExpiresAt().Equal(now.Add(domain.ExpireAfter)) {
+		t.Fatalf("expires %v", waiting.ExpiresAt())
+	}
+	if waiting.Expire(now.Add(domain.ExpireAfter-time.Second)) || waiting.Status() != domain.StatusWaiting {
+		t.Fatalf("before its expiry: %s", waiting.Status())
+	}
+	if !waiting.Expire(now.Add(domain.ExpireAfter)) || waiting.Status() != domain.StatusExpired {
 		t.Fatalf("waiting: %s", waiting.Status())
 	}
 	attached, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
 	_, _ = attached.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
-	if attached.Expire(now) || attached.Status() != domain.StatusAttached {
+	if attached.Expire(now.Add(domain.ExpireAfter)) || attached.Status() != domain.StatusAttached {
 		t.Fatalf("attached: %s", attached.Status())
 	}
 }
@@ -200,5 +207,88 @@ func TestNewUploadOrigin(t *testing.T) {
 	}
 	if _, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), domain.ContentTypeMP4, 10, domain.OriginLink, now); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("a video the server made: %v", err)
+	}
+}
+
+func newPhoto(owner uuid.UUID) domain.Upload {
+	u, _ := domain.NewUpload(uuid.NewV7(), owner, "image/jpeg", 10, domain.OriginApp, now)
+	return u
+}
+
+// Extend keeps a waiting photo 30 days from now and never brings its
+// expiry in; the photo stays waiting, so a listing still takes it.
+func TestExtend(t *testing.T) {
+	t.Parallel()
+	owner := uuid.NewV7()
+	u := newPhoto(owner)
+	later := now.Add(5 * 24 * time.Hour)
+	if err := u.Extend(owner, now); err != nil || !u.ExpiresAt().Equal(now.Add(domain.ExtendFor)) || u.Status() != domain.StatusWaiting {
+		t.Fatalf("extend: %v, expires %v, %s", err, u.ExpiresAt(), u.Status())
+	}
+	if err := u.Extend(owner, later); err != nil || !u.ExpiresAt().Equal(later.Add(domain.ExtendFor)) {
+		t.Fatalf("extend later: %v, expires %v", err, u.ExpiresAt())
+	}
+	if err := u.Extend(owner, now.Add(time.Hour)); err != nil || !u.ExpiresAt().Equal(later.Add(domain.ExtendFor)) {
+		t.Fatalf("an earlier extension shortened it: %v, expires %v", err, u.ExpiresAt())
+	}
+	if u.Expire(now.Add(domain.ExtendFor)) {
+		t.Fatal("expired before its extended expiry")
+	}
+	if changed, err := u.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now.Add(20*24*time.Hour)); err != nil || !changed {
+		t.Fatalf("a listing took no extended photo: %v %v", changed, err)
+	}
+}
+
+func TestExtendRefuses(t *testing.T) {
+	t.Parallel()
+	owner := uuid.NewV7()
+	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, domain.OriginApp, now)
+	attached := newPhoto(owner)
+	_, _ = attached.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
+	for name, c := range map[string]struct {
+		u     domain.Upload
+		owner uuid.UUID
+		at    time.Time
+	}{
+		"another owner's":         {newPhoto(owner), uuid.NewV7(), now},
+		"a video":                 {video, owner, now},
+		"a photo past its expiry": {newPhoto(owner), owner, now.Add(domain.ExpireAfter)},
+		"an attached photo":       {attached, owner, now},
+	} {
+		u := c.u
+		before := u.ExpiresAt()
+		if err := u.Extend(c.owner, c.at); !errors.Is(err, domain.ErrInvalidUpload) || !u.ExpiresAt().Equal(before) {
+			t.Errorf("%s: %v, expires %v", name, err, u.ExpiresAt())
+		}
+	}
+}
+
+// Gone is what can no longer be in a draft: taken by a holder, expired, or
+// waiting past its expiry. Another owner's upload is not gone; Extend
+// refuses it.
+func TestGone(t *testing.T) {
+	t.Parallel()
+	owner := uuid.NewV7()
+	extended := newPhoto(owner)
+	_ = extended.Extend(owner, now)
+	attached := newPhoto(owner)
+	_, _ = attached.Attach(owner, uuid.NewV7(), domain.ShapePhoto, now)
+	for name, c := range map[string]struct {
+		u    domain.Upload
+		at   time.Time
+		gone bool
+	}{
+		"waiting":                 {newPhoto(owner), now, false},
+		"waiting past its expiry": {newPhoto(owner), now.Add(domain.ExpireAfter), true},
+		"extended, 29 days on":    {extended, now.Add(29 * 24 * time.Hour), false},
+		"attached":                {attached, now, true},
+	} {
+		u := c.u
+		if u.Gone(owner, c.at) != c.gone {
+			t.Errorf("%s: gone %v", name, !c.gone)
+		}
+	}
+	if attached.Gone(uuid.NewV7(), now) {
+		t.Fatal("another owner's upload is gone")
 	}
 }

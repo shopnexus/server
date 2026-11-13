@@ -34,8 +34,10 @@ type loadedUpload struct {
 	Found  bool          `json:"found"`
 }
 
-// Run expires the upload when it is still waiting and deletes its object;
-// an attached, processed or unknown upload is left as it is.
+// Run expires the upload when it is still waiting at its expiry and
+// deletes its object. A waiting upload whose expiry a draft moved out sends
+// this run again for that moment; an attached, processed or unknown upload
+// is left as it is.
 func (s MediaExpire) Run(ctx restate.Context, id uuid.UUID) error {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
@@ -55,7 +57,17 @@ func (s MediaExpire) Run(ctx restate.Context, id uuid.UUID) error {
 		return fmt.Errorf("load upload: %w", err)
 	}
 	u := l.Upload
-	if !l.Found || !u.Expire(at) {
+	if !l.Found {
+		return nil
+	}
+	if u.Status() == domain.StatusWaiting && at.Before(u.ExpiresAt()) {
+		// The upload ID keyed the first run, so the key names the moment: a
+		// second wake for the same expiry sends nothing more.
+		restate.ServiceSend(ctx, s.ServiceName(), "Run").Send(id, restate.WithDelay(u.ExpiresAt().Sub(at)),
+			restate.WithIdempotencyKey(fmt.Sprintf("%s/%d", id, u.ExpiresAt().Unix())))
+		return nil
+	}
+	if !u.Expire(at) {
 		return nil
 	}
 	w := restatex.NewID(ctx, at)

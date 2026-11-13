@@ -25,6 +25,15 @@ type Service interface {
 	// Attach gives owner's uploads to holder, such as a listing: all of them
 	// or none. Uploads holder already holds pass, so a retry succeeds.
 	Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID) error
+	// Extend keeps owner's photos for their drafts, all or none: each is
+	// owner's photo, waiting before its expiry and in the store as
+	// declared, otherwise domain.ErrInvalidUpload. Each then expires 30
+	// days from now; nothing brings an expiry in. The uploads stay
+	// waiting, so Attach takes them.
+	Extend(ctx context.Context, owner uuid.UUID, ids []uuid.UUID) error
+	// Gone returns those of ids that owner's drafts can no longer name: a
+	// holder took it, it expired, or no upload has the ID.
+	Gone(ctx context.Context, owner uuid.UUID, ids []uuid.UUID) ([]uuid.UUID, error)
 	// Square gives one of owner's uploads to holder, such as an account for
 	// its avatar, waits until it is processed into a square and returns the
 	// square's object key. A retry returns the same key.

@@ -153,3 +153,26 @@ VALUES (@id, @owner, 'image/jpeg', 100, 'waiting', @id, now(), now())`, pgx.Stri
 		t.Fatalf("%+v %v", u.State(), err)
 	}
 }
+
+// An upload stores its expiry, a day on at first and later once extended.
+func TestExpiryStored(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewUploads(db)
+	ctx := context.Background()
+	owner := accounttest.New(t, db)
+	u := created(t, s, owner)
+	if got, _ := s.Get(ctx, u.ID()); !got.ExpiresAt().Equal(now.Add(domain.ExpireAfter)) {
+		t.Fatalf("new: %v", got.ExpiresAt())
+	}
+	later := now.Add(2 * time.Hour)
+	if err := u.Extend(owner, later); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(ctx, &u, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.Get(ctx, u.ID()); got.Status() != domain.StatusWaiting || !got.ExpiresAt().Equal(later.Add(domain.ExtendFor)) {
+		t.Fatalf("extended: %+v", got.State())
+	}
+}
