@@ -216,6 +216,12 @@ blocks:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "ShopNexus cannot be blocked (account_is_system)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
   get:
     operationId: listBlocks
     summary: List the accounts the caller blocks, newest block first.
@@ -236,12 +242,6 @@ blocks:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
-      "409":
-        description: "ShopNexus cannot be blocked (account_is_system)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
 block:
   delete:
     operationId: unblockAccount

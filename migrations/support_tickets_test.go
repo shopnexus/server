@@ -3,6 +3,7 @@ package migrations_test
 import (
 	"context"
 	"testing"
+	"time"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
@@ -96,13 +97,15 @@ func TestOrdersCompletedByComesFromTheMove(t *testing.T) {
 	for _, by := range []string{"system", "buyer"} {
 		deal, order := uuid.NewV7(), uuid.NewV7()
 		orders[by] = order
-		a := pgx.NamedArgs{"deal": deal, "order": order, "listing": catalogtest.Listing(t, db, seller), "buyer": buyer, "seller": seller, "by": by}
-		for _, q := range []string{insertDeal, `INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name,
+		a := pgx.NamedArgs{"deal": deal, "order": order, "listing": catalogtest.Listing(t, db, seller), "buyer": buyer, "seller": seller, "by": by, "at": time.Now()}
+		for _, q := range []string{
+			insertDeal, `INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name,
     recipient_phone, recipient_street, recipient_commune, shipment_mode, carrier, tracking_code, shipment_status, requested_at,
     shipped_at, closed_at, delivered_at)
 VALUES (@order, @deal, @listing, @buyer, @seller, 'completed', 1500000, 'Hân', '+84912345678', '1 Lê Lợi', '00004',
-    'manual', 'ghtk', 'S1.A1', 'delivered', now(), now(), now(), now())`,
-			`INSERT INTO deal_moves (id, deal_id, kind, by_party, moved_at) VALUES (uuidv7(), @deal, 'completed', @by, now())`} {
+    'manual', 'ghtk', 'S1.A1', 'delivered', @at, @at, @at, @at)`,
+			`INSERT INTO deal_moves (id, deal_id, kind, by_party, moved_at) VALUES (uuidv7(), @deal, 'completed', @by, now())`,
+		} {
 			if _, err := db.Exec(ctx, q, a); err != nil {
 				t.Fatalf("%s: %v", q, err)
 			}

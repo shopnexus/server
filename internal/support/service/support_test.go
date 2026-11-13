@@ -10,8 +10,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	restate "github.com/restatedev/sdk-go"
-	"github.com/restatedev/sdk-go/ingress"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
@@ -23,7 +21,6 @@ import (
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/media/mediatest"
 	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
@@ -31,7 +28,6 @@ import (
 	"github.com/shopnexus/server2/internal/support/domain"
 	"github.com/shopnexus/server2/internal/support/repository"
 	"github.com/shopnexus/server2/internal/support/service"
-	"github.com/shopnexus/server2/internal/support/worker"
 )
 
 // deals is module deal as support sees it: orders set by the test.
@@ -53,8 +49,6 @@ type env struct {
 	chat     *chatsvc.Chat
 	support  *service.Support
 	deals    deals
-	client   *ingress.Client
-	worker   worker.Worker
 }
 
 func newEnv(t *testing.T) env {
@@ -72,10 +66,8 @@ func newEnv(t *testing.T) env {
 	s := service.New(service.Deps{
 		Tickets: tickets, Accounts: accounts, Chats: chat, Deals: d, Listings: catalog, Ingress: in, Prefix: p, Now: time.Now,
 	})
-	w := worker.Worker{Prefix: p, Chats: chat, Support: s}
-	defs := append(append(media.Durable(), chat.Durable()...), s.Durable()...)
-	client := restatetest.Start(t, append(defs, restate.Reflect(w))...)
-	return env{db: db, accounts: accounts, chat: chat, support: s, deals: d, client: client, worker: w}
+	restatetest.Start(t, append(append(media.Durable(), chat.Durable()...), s.Durable()...)...)
+	return env{db: db, accounts: accounts, chat: chat, support: s, deals: d}
 }
 
 // order sets an order of buyer's that deal reports with status.
@@ -120,16 +112,6 @@ VALUES (@id, @email, @name, 'moderator', 'active', 'x', false, 1, 0, @at, @at, @
 		t.Fatal(err)
 	}
 	return audit.Actor{Kind: audit.ActorMember, MemberID: id}
-}
-
-// sent runs the worker on a message, as the event bus does.
-func (e env) sent(t *testing.T, message uuid.UUID) {
-	t.Helper()
-	ev := events.Event{ID: uuid.NewV7(), Kind: events.MessageSent, SubjectID: message, OccurredAt: time.Now()}
-	if _, err := ingress.Service[events.Event, restate.Void](e.client, e.worker.ServiceName(), "MessageSent").
-		Request(context.Background(), ev); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestOpenOtherMakesAChatWithTheFirstMessage(t *testing.T) {
@@ -249,7 +231,7 @@ func TestResolvingACarrierRequestSendsTheNote(t *testing.T) {
 	}
 }
 
-func TestAPersonsMessageReopensThroughTheWorker(t *testing.T) {
+func TestAPersonsMessageReopens(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	e := newEnv(t)
@@ -261,11 +243,13 @@ func TestAPersonsMessageReopensThroughTheWorker(t *testing.T) {
 	if _, err = e.support.Resolve(ctx, tk.ID, e.member(t, "Lan")); err != nil {
 		t.Fatal(err)
 	}
-	m, err := e.chat.Send(ctx, person, tk.ConversationID, uuid.NewV7().String(), chatsvc.SendInput{Text: "Còn nữa"})
-	if err != nil {
+	if _, err = e.chat.Send(ctx, person, tk.ConversationID, uuid.NewV7().String(), chatsvc.SendInput{Text: "Còn nữa"}); err != nil {
 		t.Fatal(err)
 	}
-	e.sent(t, m.ID)
+	// The worker calls Messaged on message.sent; worker_test covers that call.
+	if err = e.support.Messaged(ctx, tk.ConversationID, true, time.Now()); err != nil {
+		t.Fatal(err)
+	}
 	d, err := e.support.Detail(ctx, tk.ID)
 	if err != nil || d.Ticket.Ticket.Status != domain.StatusOpen || d.Ticket.LastFrom != domain.FromPerson {
 		t.Fatalf("%+v %v", d.Ticket, err)

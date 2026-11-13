@@ -52,8 +52,6 @@ tickets:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
-      "403":
-        $ref: "../responses/common.yaml#/Forbidden"
       "404":
         description: "No such order of the caller's as buyer (order_not_found)."
         content:
