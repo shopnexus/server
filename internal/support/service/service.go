@@ -110,9 +110,10 @@ type TicketView struct {
 
 // TicketListItem is the TicketListItem schema.
 type TicketListItem struct {
-	Ticket      TicketView           `json:"ticket"`
-	LastMessage *chatsvc.MessageView `json:"last_message,omitempty"`
-	Unread      int                  `json:"unread"`
+	Ticket       TicketView           `json:"ticket"`
+	FirstMessage *chatsvc.MessageView `json:"first_message,omitempty"`
+	LastMessage  *chatsvc.MessageView `json:"last_message,omitempty"`
+	Unread       int                  `json:"unread"`
 }
 
 // SummaryView is the SupportSummary schema.

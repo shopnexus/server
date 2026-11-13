@@ -132,6 +132,10 @@ func TestOpenOtherMakesAChatWithTheFirstMessage(t *testing.T) {
 	if err != nil || len(mine) != 1 || mine[0].LastMessage == nil || mine[0].Unread != 0 {
 		t.Fatalf("mine %+v %v", mine, err)
 	}
+	// The row's second line: what the person asked, after ShopNexus answers too.
+	if mine[0].FirstMessage == nil || mine[0].FirstMessage.Text != "Lọc khu vực hay nhảy về Q.1" {
+		t.Fatalf("first message %+v", mine[0].FirstMessage)
+	}
 }
 
 func TestReportTwiceReturnsTheTicket(t *testing.T) {

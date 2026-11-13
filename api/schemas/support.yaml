@@ -86,6 +86,11 @@ TicketListItem:
   properties:
     ticket:
       $ref: "#/Ticket"
+    first_message:
+      $ref: "chat.yaml#/Message"
+      description: >-
+        The person's first message, the ticket's card: Hỗ trợ's second line,
+        which names what a Yêu cầu khác asks.
     last_message:
       $ref: "chat.yaml#/Message"
     unread:

@@ -379,6 +379,21 @@ func TestSupportChatsStayOutOfTheInbox(t *testing.T) {
 	}
 }
 
+func TestThreadsReadTheFirstMessageToo(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewChats(db)
+	c, person := support(t, db, s)
+	send(t, s, c, person, "Lọc khu vực hay nhảy về Q.1")
+	send(t, s, c, accountdomain.ShopNexusID, "Chào bạn")
+	threads, err := s.Threads(ctx, person, []uuid.UUID{c.ID})
+	th := threads[c.ID]
+	if err != nil || th.First.Body() != "Lọc khu vực hay nhảy về Q.1" || th.Last.Body() != "Chào bạn" {
+		t.Fatalf("threads %+v, %v", threads, err)
+	}
+}
+
 func TestOpenSupportMakesANewChatEachTime(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

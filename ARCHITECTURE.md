@@ -1988,7 +1988,8 @@ the table, `POST /v1/feedback` and `GET /v1/console/feedback`.
   `pg_advisory_xact_lock` on the account (at most 10 in 24 hours, 429
   `too_many_tickets`), send the person's first message through chat's
   `MessageSend` with `OpensTicket` so it may carry no text, and record it as
-  `first_message_id`, which the app draws as the ticket's card. The first
+  `first_message_id`, which the app draws as the ticket's card; Hỗ trợ's
+  list carries that message as `first_message`, from chat's `Threads`. The first
   step also counts the day's tickets, so a request past the limit opens no
   chat; one that passes it in a race is refused at the insert and leaves an
   empty support chat, which no list shows. A retried insert step finds its

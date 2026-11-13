@@ -66,8 +66,9 @@ type Chats interface {
 	// SupportUnread sums viewer's unread messages over its support chats,
 	// which Unread leaves out.
 	SupportUnread(ctx context.Context, viewer uuid.UUID) (int, error)
-	// Threads reads the last message and viewer's unread count of each of
-	// viewer's conversations among ids; one without a message is absent.
+	// Threads reads the first and last sent messages and viewer's unread
+	// count of each of viewer's conversations among ids; one without a
+	// message is absent.
 	Threads(ctx context.Context, viewer uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]ThreadRow, error)
 	// Tokens splits q with the search index's tokenizer: lowercase, accents
 	// folded, split on anything but letters and digits.
@@ -95,6 +96,7 @@ type InboxRow struct {
 
 // ThreadRow is a conversation's last message and a viewer's unread count.
 type ThreadRow struct {
+	First  domain.Message
 	Last   domain.Message
 	Unread int
 }

@@ -30,7 +30,12 @@ func (s *Support) Mine(ctx context.Context, account uuid.UUID) ([]TicketListItem
 			return nil, viewErr
 		}
 		th := threads[ts[i].ConversationID]
-		out = append(out, TicketListItem{Ticket: v, LastMessage: th.Last, Unread: th.Unread})
+		item := TicketListItem{Ticket: v, LastMessage: th.Last, Unread: th.Unread}
+		// The chat's first message is the ticket's card once the flow recorded it.
+		if th.First != nil && ts[i].FirstMessageID != nil && th.First.ID == *ts[i].FirstMessageID {
+			item.FirstMessage = th.First
+		}
+		out = append(out, item)
 	}
 	return out, nil
 }

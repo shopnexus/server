@@ -427,6 +427,13 @@ func (s pgChats) SupportUnread(ctx context.Context, viewer uuid.UUID) (int, erro
 	return n, nil
 }
 
+// selectFirsts reads the oldest sent message of each conversation among
+// ids, which Threads has already limited to the viewer's.
+const selectFirsts = `
+SELECT DISTINCT ON (m.conversation_id) ` + messageColumns + `
+FROM messages m WHERE m.conversation_id = ANY(@ids) AND m.status = 'sent'
+ORDER BY m.conversation_id, m.id`
+
 func (s pgChats) Threads(ctx context.Context, viewer uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]ThreadRow, error) {
 	rows, err := s.db.Query(ctx, selectThreads, pgx.StrictNamedArgs{"viewer": viewer, "ids": ids})
 	if err != nil {
@@ -450,6 +457,30 @@ func (s pgChats) Threads(ctx context.Context, viewer uuid.UUID, ids []uuid.UUID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read threads: %w", err)
+	}
+	mine := make([]uuid.UUID, 0, len(out))
+	for id := range out {
+		mine = append(mine, id)
+	}
+	rows, err = s.db.Query(ctx, selectFirsts, pgx.StrictNamedArgs{"ids": mine})
+	if err != nil {
+		return nil, fmt.Errorf("select first messages: %w", err)
+	}
+	firsts, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Message, error) {
+		var m messageScan
+		if scanErr := row.Scan(m.dest()...); scanErr != nil {
+			return domain.Message{}, fmt.Errorf("scan first message: %w", scanErr)
+		}
+		return m.message()
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read first messages: %w", err)
+	}
+	for i := range firsts {
+		id := firsts[i].ConversationID()
+		r := out[id]
+		r.First = firsts[i]
+		out[id] = r
 	}
 	return out, nil
 }

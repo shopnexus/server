@@ -10,6 +10,9 @@ import (
 
 // Thread is a conversation's last message and a member's unread count.
 type Thread struct {
+	// First is the conversation's oldest sent message; in a support chat,
+	// the ticket's card.
+	First  *MessageView
 	Last   *MessageView
 	Unread int
 }
@@ -30,8 +33,8 @@ func (c *Chat) Threads(ctx context.Context, account uuid.UUID, ids []uuid.UUID) 
 	}
 	out := make(map[uuid.UUID]Thread, len(rows))
 	for id := range rows {
-		last := c.messageView(rows[id].Last)
-		out[id] = Thread{Last: &last, Unread: rows[id].Unread}
+		first, last := c.messageView(rows[id].First), c.messageView(rows[id].Last)
+		out[id] = Thread{First: &first, Last: &last, Unread: rows[id].Unread}
 	}
 	return out, nil
 }
