@@ -23,6 +23,7 @@ import (
 	"github.com/shopnexus/server2/internal/assist/service"
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 	mediadomain "github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/media/mediatest"
 	mediarepo "github.com/shopnexus/server2/internal/media/repository"
@@ -53,6 +54,7 @@ type env struct {
 	stt      *fakeSTT
 	model    *fakeModel
 	source   *fakeSource
+	watchers *watchersOf
 	deps     service.Deps
 }
 
@@ -69,13 +71,14 @@ func newEnv(t *testing.T, opts ...func(*env)) env {
 	e := env{
 		db: db, accounts: accounts, media: m, reads: repository.NewListingReads(db),
 		clock: restatetest.NewClock(time.Now()), ingress: in, prefix: p,
-		cut:    &fakeCutter{frames: 3, jpeg: mediatest.JPEG(t, 96, 64)},
-		stt:    &fakeSTT{text: transcript},
-		model:  &fakeModel{answer: bicycle(), link: iphoneAnswer(), photo: iphonePhoto()},
-		source: newSource(t),
+		cut:      &fakeCutter{frames: 3, jpeg: mediatest.JPEG(t, 96, 64)},
+		stt:      &fakeSTT{text: transcript},
+		model:    &fakeModel{answer: bicycle(), link: iphoneAnswer(), photo: iphonePhoto()},
+		source:   newSource(t),
+		watchers: &watchersOf{rows: []discoverysvc.Watcher{}},
 	}
 	e.deps = service.Deps{
-		Reads: e.reads, Source: e.source, Accounts: accounts, Media: m, Catalog: c,
+		Reads: e.reads, Source: e.source, Accounts: accounts, Media: m, Catalog: c, Discovery: e.watchers,
 		Frames: e.cut, STT: e.stt, Model: e.model,
 		Text: embedtest.New(catalogdomain.TextDims), Image: embedtest.New(catalogdomain.PhotoDims),
 		TextMin: 0.5, PhotoMin: 0.5, CallTimeout: 5 * time.Second,
@@ -403,4 +406,21 @@ func (e env) startPhoto(t *testing.T, owner, photo uuid.UUID) service.ListingRea
 		t.Fatal(err)
 	}
 	return v
+}
+
+// watchersOf is discovery whose Watchers answers rows and keeps the query.
+type watchersOf struct {
+	discoverysvc.Service
+
+	mu    sync.Mutex
+	rows  []discoverysvc.Watcher
+	asked discoverysvc.WatcherQuery
+	who   uuid.UUID
+}
+
+func (w *watchersOf) Watchers(_ context.Context, seller uuid.UUID, q discoverysvc.WatcherQuery) ([]discoverysvc.Watcher, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.asked, w.who = q, seller
+	return w.rows, nil
 }

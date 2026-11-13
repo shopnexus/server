@@ -21,4 +21,5 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("POST /v1/listing-reads", protect(http.HandlerFunc(h.StartRead)))
 	r.Handle("GET /v1/listing-reads/{id}", protect(http.HandlerFunc(h.GetRead)))
 	r.Handle("POST /v1/link-previews", protect(http.HandlerFunc(h.PreviewLink)))
+	r.Handle("POST /v1/price-guides", protect(http.HandlerFunc(h.PriceGuide)))
 }

@@ -153,10 +153,12 @@ func cleanRange(e *Range) *Range {
 	return &Range{Low: roundPrice(e.Low), Median: roundPrice(e.Median), High: roundPrice(e.High)}
 }
 
-// Sample is the price of a similar listing and whether it sold.
+// Sample is the price of a similar listing, whether it sold, and the whole
+// days its sale took (0 on sale).
 type Sample struct {
-	Price int64
-	Sold  bool
+	Price      int64
+	Sold       bool
+	DaysToSell int
 }
 
 // MarketEstimate is the weighted quartiles of the samples' prices, nil

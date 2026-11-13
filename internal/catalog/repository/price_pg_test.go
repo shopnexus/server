@@ -70,12 +70,15 @@ func TestPriceSample(t *testing.T) {
 	axis, off := embedtest.Axis(domain.TextDims, 0), embedtest.Axis(domain.TextDims, 1)
 	photo := embedtest.Axis(domain.PhotoDims, 0)
 
-	priced(t, db, seller, 1_000_000, axis, nil) // the same text
+	same := priced(t, db, seller, 1_000_000, axis, nil, func(_ *domain.ListingInput, r *domain.Refs) {
+		r.CommunePoint = domain.Point{Lat: 21.0394, Lng: 105.8364}
+	}) // the same text
 	priced(t, db, seller, 1_100_000, embedtest.Near(domain.TextDims, 0, 1, 0.8), nil)
 	priced(t, db, seller, 1_200_000, off, photo)                                      // through its photo
 	priced(t, db, seller, 1_300_000, embedtest.Near(domain.TextDims, 0, 1, 0.3), nil) // under the floor
 	sold := priced(t, db, seller, 1_400_000, axis, nil)
-	exec(t, db, `UPDATE listings SET status = 'sold', sold_at = now() - interval '10 days' WHERE id = $1`, sold)
+	exec(t, db, `UPDATE listings SET status = 'sold', sold_at = now() - interval '10 days',
+    published_at = now() - interval '10 days' - interval '36 hours' WHERE id = $1`, sold)
 	soldLongAgo := priced(t, db, seller, 1_500_000, axis, nil)
 	exec(t, db, `UPDATE listings SET status = 'sold', sold_at = now() - interval '200 days' WHERE id = $1`, soldLongAgo)
 	old := priced(t, db, seller, 1_600_000, axis, nil)
@@ -108,6 +111,19 @@ func TestPriceSample(t *testing.T) {
 	for _, s := range got {
 		if s.Sold != (s.Price == 1_400_000) {
 			t.Fatalf("sold flag: %+v", s)
+		}
+	}
+	for _, s := range got {
+		switch s.Price {
+		case 1_400_000:
+			if s.ListingID != sold || s.DaysToSell != 2 {
+				t.Fatalf("sold: %+v", s)
+			}
+		case 1_000_000:
+			if s.ListingID != same || s.DaysToSell != 0 || s.Point != (domain.Point{Lat: 21.0394, Lng: 105.8364}) {
+				t.Fatalf("on sale: %+v", s)
+			}
+		default:
 		}
 	}
 	f.Limit = 2

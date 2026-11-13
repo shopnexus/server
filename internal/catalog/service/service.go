@@ -78,13 +78,16 @@ type Service interface {
 	Categories(ctx context.Context) ([]domain.Category, error)
 	// Search runs s and returns its listings as cards, in order.
 	Search(ctx context.Context, s domain.Search) ([]SearchCard, error)
+	// Words splits text into the words the listings index would find in
+	// it, for matching a listing that is not posted yet.
+	Words(ctx context.Context, text string) ([]string, error)
 	// Counts counts the listings s matches by category or root.
 	Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error)
 	// EmbeddingText is the text a listing posted from d would be embedded
 	// from, with its category's display name.
 	EmbeddingText(ctx context.Context, d domain.ListingInput) (string, error)
-	// PriceSample returns the prices of listings like q's vectors, most
-	// similar first, at most domain.PriceSampleSize; nil without a vector.
+	// PriceSample returns the listings like q's vectors with their prices,
+	// days to sell and points, most similar first, at most domain.PriceSampleSize; nil without a vector.
 	PriceSample(ctx context.Context, q PriceQuery) ([]PriceSample, error)
 	// MarketPrice compares a listing's price with a price sample drawn with
 	// its own vectors at the cosine floors given, its seller's listings left

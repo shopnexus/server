@@ -502,3 +502,15 @@ SELECT l.id, l.lat, l.lng FROM fused AS f JOIN listings AS l ON l.id = f.id`
 	}
 	return hits, nil
 }
+
+// Words runs text through the tokenizer the listings index gives its text
+// fields, so a listing not posted yet is matched word for word as one in
+// the index would be.
+func (s pgSearches) Words(ctx context.Context, text string) ([]string, error) {
+	var words []string
+	if err := s.db.QueryRow(ctx, `SELECT coalesce((@text::text)::pdb.unicode_words::text[], '{}')`,
+		pgx.StrictNamedArgs{"text": text}).Scan(&words); err != nil {
+		return nil, fmt.Errorf("split words: %w", err)
+	}
+	return words, nil
+}

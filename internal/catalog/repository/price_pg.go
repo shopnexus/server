@@ -38,16 +38,25 @@ WHERE p.model_version = @pv AND p.embedding <=> @pq::halfvec(1152) <= @pmax`)
 		return nil, nil
 	}
 	rows, err := s.db.Query(ctx, `WITH candidates AS (
-SELECT id, price, status = @sold AS sold FROM listings
+SELECT id, price, status = @sold AS sold, published_at, sold_at, lat, lng FROM listings
 WHERE category_code = @category AND condition = @condition AND seller_id <> @exclude
   AND ((status = @sold AND sold_at >= @sold_since) OR (status = ANY(@on_sale) AND published_at >= @on_sale_since))),
 near AS (SELECT id, min(d) AS d FROM (`+strings.Join(lists, "\nUNION ALL\n")+`) v GROUP BY id)
-SELECT c.price, c.sold FROM near AS n JOIN candidates AS c ON c.id = n.id
+SELECT c.id, c.price, c.sold,
+    CASE WHEN c.sold THEN greatest(1, ceil(extract(epoch FROM c.sold_at - c.published_at) / 86400))::int ELSE 0 END,
+    c.lat, c.lng
+FROM near AS n JOIN candidates AS c ON c.id = n.id
 ORDER BY n.d, c.id LIMIT @limit`, args)
 	if err != nil {
 		return nil, fmt.Errorf("price sample: %w", err)
 	}
-	samples, err := pgx.CollectRows(rows, pgx.RowToStructByPos[domain.PriceSample])
+	samples, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.PriceSample, error) {
+		var p domain.PriceSample
+		if scanErr := row.Scan(&p.ListingID, &p.Price, &p.Sold, &p.DaysToSell, &p.Point.Lat, &p.Point.Lng); scanErr != nil {
+			return p, fmt.Errorf("scan a sample: %w", scanErr)
+		}
+		return p, nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("read price sample: %w", err)
 	}

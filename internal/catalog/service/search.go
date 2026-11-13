@@ -110,3 +110,11 @@ func (c *Catalog) withVectors(ctx context.Context, s domain.Search) (domain.Sear
 	}
 	return s, nil
 }
+
+func (c *Catalog) Words(ctx context.Context, text string) ([]string, error) {
+	words, err := c.searches.Words(ctx, text)
+	if err != nil {
+		return nil, fmt.Errorf("split words: %w", err)
+	}
+	return words, nil
+}

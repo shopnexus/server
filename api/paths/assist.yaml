@@ -141,3 +141,47 @@ listingRead:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+priceGuides:
+  post:
+    operationId: createPriceGuide
+    summary: Price a listing draft against similar listings and the buyers watching for it.
+    description: |
+      Compares the draft with the listings most like it, by text and by
+      photo, and answers the range, the two suggestions, the similar
+      listings, their prices, and the search watches a listing of the draft
+      would match. Stores nothing. POST because the body carries the draft.
+    tags: [assist]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/assist.yaml#/PriceGuideRequest"
+    responses:
+      "200":
+        description: The guide; empty lists when nothing is similar.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/assist.yaml#/PriceGuide"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: |
+          The category is not a subcategory or the commune is not on the list
+          (invalid_listing, with fields); a photo is not the caller's, not a
+          photo, already in a listing or expired (invalid_upload).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

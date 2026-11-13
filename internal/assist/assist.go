@@ -1,6 +1,7 @@
-// Package assist is AI that helps a person do something in the app. Today
-// it reads a seller's video or their listing on Chợ Tốt into a listing
-// draft: photos, the fields and a price range.
+// Package assist is AI that helps a person do something in the app. It
+// reads a seller's video, photo or Chợ Tốt listing into a listing draft
+// (photos, the fields and a price range), and prices a draft against
+// similar listings and the buyers watching for one.
 package assist
 
 import (
@@ -14,6 +15,7 @@ import (
 	"github.com/shopnexus/server2/internal/assist/service"
 	"github.com/shopnexus/server2/internal/assist/worker"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/module"
@@ -37,10 +39,12 @@ type Settings struct {
 // Mount registers the assist endpoints, subscribes the account watch to
 // account.deleted, and returns assist's Restate services and its Service.
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasvc.Service, catalog catalogsvc.Service,
+	discovery discoverysvc.Service,
 ) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
 		Reads: repository.NewListingReads(d.Pool), Source: s.Source, Accounts: accounts, Media: media, Catalog: catalog,
-		Frames: s.Frames, STT: s.STT, Model: s.Model, Text: s.Text, Image: s.Image,
+		Discovery: discovery,
+		Frames:    s.Frames, STT: s.STT, Model: s.Model, Text: s.Text, Image: s.Image,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin, CallTimeout: s.CallTimeout,
 		Log: d.Log, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})

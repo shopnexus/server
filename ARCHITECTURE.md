@@ -1790,6 +1790,21 @@ Search watches (decided 2026-11-11, same spec):
   (`search_conflict`), another account's watch is `watch_not_found`, and the
   first page sets `new_count` to 0. `SearchView.watch_id` names the viewer's
   watch of a `q`.
+- `Watchers` matches a listing not yet posted against the watches, for
+  the price guide. SQL takes the watches of active accounts whose category
+  is none, the draft's or its root and whose conditions are none or hold
+  the draft's, muted ones too, without the seller's own or a blocked pair
+  either way, oldest first, at most 5,000. Go keeps those whose area holds
+  the draft's commune point (the box, then the distance, as the sweep's
+  search measures it) and one of whose phrases (the raw query without
+  phrases) `catalogdomain.HoldsAllWords` finds in the draft's words. At
+  most 200 rows, each the watch's price bounds and `offers_only`, nothing
+  that names the buyer; the app counts them at its price.
+- The draft's title, description and specs are split by catalog's `Words`,
+  which runs them through the index's own tokenizer
+  (`pdb.unicode_words`), so "15.6" or "1.200.000đ" stays one word as in
+  the index; the phrase is split as the sweep splits it.
+  `TestHoldsAllWordsAgreesWithTheIndex` runs both against the index.
 
 ### Assist
 
@@ -1981,6 +1996,40 @@ bạn", and nothing compares the listing's owner with the account.
   subject, body, title, description or link is logged.
 - Configuration: `CHOTOT_GATEWAY_URL` and `CHOTOT_CDN_URL`, with the
   video read's `ASSIST_LLM_*` and `ASSIST_CALL_TIMEOUT`.
+
+The price guide (decided 2026-11-13, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-13-price-guide-design.md`)
+prices any draft for the app's "Giá" step, with or without a read:
+
+- `POST /v1/price-guides` takes the draft's title, category, condition,
+  specs, description, commune and up to 3 photos, answers 200 and stores
+  nothing. It has no cap of its own; the general rate limit in the
+  checklist will cover it. Checks, in order: `account_suspended` 403,
+  `invalid_listing` 422 for a category that is not a subcategory or an
+  unknown commune, and `invalid_upload` 422 for a photo that is not a
+  waiting upload of the caller's. The photos are checked before any model
+  runs.
+- `draftSample` in `estimate.go` is the one path from a draft to a price
+  sample: the embedding text from catalog, the photos' normalized mean
+  vector, catalog's `PriceSample`. The reads' `marketEstimate` calls it
+  inside a Restate step and the guide calls it directly, so a read's range
+  and the guide's agree for the same draft. A model that fails leaves its
+  list out, as before.
+- Catalog's sample carries each listing's ID, its whole days from
+  publication to sale (at least 1, 0 on sale) and its point.
+- `domain.Suggest` gives "Giá thị trường" at the range's median, with the
+  median days of every sale in the sample, and "Bán nhanh" at the median
+  price and days of the sales that took at most that median, left out
+  unless it is below the market price. Under 3 sales there are no
+  suggestions; under 5 listings there is no range either.
+- The guide lists the first 12 of the sample in vector order, with `km`
+  from the draft's commune point; a listing gone since the sample, or one
+  of a seller blocked either way, is left out (their prices still count). `sold_prices` and `live_prices` are the sample's, ascending.
+  `watchers` comes from discovery (see Search watches).
+- A sample that fails is logged and gives a guide without a comparison;
+  the watchers still answer. The log line holds the category, condition,
+  photo count, sample size, sales, estimate source, suggestion and
+  watcher counts and the time taken, and no title, description or specs.
 
 ### Support
 

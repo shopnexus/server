@@ -176,6 +176,139 @@ PriceEstimate:
       type: integer
       minimum: 0
       description: Listings behind a market range; 0 for model.
+PriceGuideRequest:
+  type: object
+  additionalProperties: false
+  required: [title, category_code, condition, commune_code]
+  description: The draft as it stands in the Giá step; ListingInput's fields that price an item.
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 70
+    category_code:
+      type: string
+      description: A subcategory code.
+    condition:
+      $ref: "catalog.yaml#/Condition"
+    specs:
+      type: array
+      maxItems: 20
+      items:
+        $ref: "catalog.yaml#/Spec"
+    description:
+      type: string
+      maxLength: 1500
+    commune_code:
+      type: string
+      description: The listing's commune; distances and watch areas are measured from its point.
+    photos:
+      type: array
+      maxItems: 3
+      uniqueItems: true
+      description: The caller's waiting photo uploads, the cover first. Without photos the text alone is compared.
+      items:
+        type: string
+        format: uuid
+PriceGuide:
+  type: object
+  additionalProperties: false
+  required: [estimate, suggestions, similar, sold_prices, live_prices, watchers]
+  properties:
+    estimate:
+      description: The range of the listings most like the draft; null under 5 of them or when the comparison failed.
+      anyOf:
+        - $ref: "#/PriceEstimate"
+        - type: "null"
+    suggestions:
+      type: array
+      maxItems: 2
+      description: fast before market; empty under 3 sold listings. fast is left out unless it is below market.
+      items:
+        $ref: "#/PriceSuggestion"
+    similar:
+      type: array
+      maxItems: 12
+      description: The most similar listings first, sold within 180 days or on sale and published within 90.
+      items:
+        $ref: "#/SimilarListing"
+    sold_prices:
+      type: array
+      description: The prices of the compared listings that sold, ascending.
+      items:
+        type: integer
+        format: int64
+    live_prices:
+      type: array
+      description: The prices of the compared listings on sale, ascending.
+      items:
+        type: integer
+        format: int64
+    watchers:
+      type: array
+      maxItems: 200
+      description: |
+        One row per search watch, muted ones too, that a listing of this
+        draft would match by category, condition, area and words. The app
+        counts the rows whose price range holds its price and whose
+        offers_only its offers switch allows.
+      items:
+        $ref: "#/Watcher"
+PriceSuggestion:
+  type: object
+  additionalProperties: false
+  required: [kind, price, days]
+  properties:
+    kind:
+      type: string
+      enum: [fast, market]
+    price:
+      type: integer
+      format: int64
+    days:
+      type: integer
+      minimum: 1
+      description: The median whole days from publication to sale at this price.
+SimilarListing:
+  type: object
+  additionalProperties: false
+  required: [listing_id, title, cover_url, price, condition, sold, km]
+  properties:
+    listing_id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    cover_url:
+      type: string
+    price:
+      type: integer
+      format: int64
+    condition:
+      $ref: "catalog.yaml#/Condition"
+    sold:
+      type: boolean
+    km:
+      type: integer
+      minimum: 0
+      description: Whole kilometres from the draft's commune.
+    days_to_sell:
+      type: integer
+      minimum: 1
+      description: Sold listings only.
+Watcher:
+  type: object
+  additionalProperties: false
+  required: [offers_only]
+  properties:
+    price_min:
+      type: integer
+      format: int64
+    price_max:
+      type: integer
+      format: int64
+    offers_only:
+      type: boolean
 LinkRequest:
   type: object
   additionalProperties: false
