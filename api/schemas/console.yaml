@@ -245,6 +245,9 @@ Action:
         - member.reset_password
         - member.reset_totp
         - member.unlock
+        - ticket.reply
+        - ticket.resolve
+        - ticket.reopen
     target:
       type: object
       additionalProperties: false
@@ -252,7 +255,7 @@ Action:
       properties:
         kind:
           type: string
-          enum: [account, member]
+          enum: [account, member, ticket]
         id:
           type: string
           format: uuid

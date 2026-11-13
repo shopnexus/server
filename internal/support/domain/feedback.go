@@ -10,8 +10,6 @@ import (
 const (
 	// MaxBodyRunes is the longest feedback, as the app's counter shows.
 	MaxBodyRunes = 1000
-	// DailyLimit is how many feedbacks an account sends in 24 hours.
-	DailyLimit = 10
 )
 
 // Body trims raw and checks its length.
