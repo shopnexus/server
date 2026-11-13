@@ -167,10 +167,13 @@ func (s pgAccounts) GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Acco
 	return accounts, nil
 }
 
-const listAccounts = `SELECT ` + accountColumns + ` FROM accounts WHERE id < @before ORDER BY id DESC LIMIT @limit`
+// listAccounts leaves out the ShopNexus system account, which is no
+// customer's; Get still reads it.
+const listAccounts = `SELECT ` + accountColumns + ` FROM accounts WHERE id < @before AND id <> @system
+ORDER BY id DESC LIMIT @limit`
 
 func (s pgAccounts) List(ctx context.Context, p page.Request) ([]domain.Account, error) {
-	rows, err := s.db.Query(ctx, listAccounts, pgx.StrictNamedArgs{"before": p.Before(), "limit": p.Fetch()})
+	rows, err := s.db.Query(ctx, listAccounts, pgx.StrictNamedArgs{"before": p.Before(), "limit": p.Fetch(), "system": domain.ShopNexusID})
 	if err != nil {
 		return nil, fmt.Errorf("select accounts: %w", err)
 	}

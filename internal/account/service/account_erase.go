@@ -6,14 +6,19 @@ import (
 	"fmt"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/events"
 )
 
 // Erase deletes the account in one transaction with what goes with it,
-// reading it again once when another write won the race.
+// reading it again once when another write won the race. The ShopNexus
+// account is refused.
 func (s *Account) Erase(ctx context.Context, id uuid.UUID) error {
+	if id == domain.ShopNexusID {
+		return domain.ErrSystemAccount
+	}
 	for range 2 {
 		now := s.now()
 		a, err := s.load(ctx, id)
