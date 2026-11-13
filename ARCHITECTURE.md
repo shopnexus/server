@@ -1988,8 +1988,11 @@ the table, `POST /v1/feedback` and `GET /v1/console/feedback`.
   `pg_advisory_xact_lock` on the account (at most 10 in 24 hours, 429
   `too_many_tickets`), send the person's first message through chat's
   `MessageSend` with `OpensTicket` so it may carry no text, and record it as
-  `first_message_id`, which the app draws as the ticket's card. A refusal at
-  the insert leaves an empty support chat, which no list shows.
+  `first_message_id`, which the app draws as the ticket's card. The first
+  step also counts the day's tickets, so a request past the limit opens no
+  chat; one that passes it in a race is refused at the insert and leaves an
+  empty support chat, which no list shows. A retried insert step finds its
+  own row and goes on to send the first message.
 - The ticket is `open` or `resolved`. Support's worker follows
   `message.sent`: the person's message reopens a resolved ticket (event
   `reopened`) and sets `last_from = person`, which the console shows as
@@ -1998,7 +2001,10 @@ the table, `POST /v1/feedback` and `GET /v1/console/feedback`.
 - Members answer as ShopNexus: support calls `chat.Send` with
   `ShopNexusID` as the sender, and `ticket_replies` records the member of
   each message, with no member for an automatic one. Resolving a
-  `carrier_request` sends "Đã ghi nhận hãng <name>.". Reply, resolve and
+  `carrier_request` sends "Đã ghi nhận hãng <name>." before the status
+  moves, keyed by the resolving, so a failed note is sent again by the next
+  "Đã xử lý" and goes out once; for a deleted account the ticket resolves
+  without it. Reply, resolve and
   reopen write `ticket.reply`, `ticket.resolve` and `ticket.reopen` to the
   audit log with `target_kind = ticket`.
 - The console's routes are console's (`/v1/console/support/*`), calling

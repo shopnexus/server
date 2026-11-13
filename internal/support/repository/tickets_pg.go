@@ -113,7 +113,8 @@ func (s pgTickets) Insert(ctx context.Context, t Ticket, key uuid.UUID, carrierK
     OR (t.kind = 'not_received' AND t.order_id = @order))`,
 			pgx.StrictNamedArgs{"account": t.AccountID, "key": key, "order": t.OrderID})
 		if err == nil {
-			out, existed = prior, true
+			// The flow's own row, from a retried step, is new to the flow.
+			out, existed = prior, prior.ID != t.ID
 			return nil
 		}
 		if !errors.Is(err, domain.ErrNotFound) {
@@ -158,6 +159,15 @@ func (s pgTickets) SetFirstMessage(ctx context.Context, id, message uuid.UUID) e
 		return fmt.Errorf("set the first message: %w", err)
 	}
 	return nil
+}
+
+func (s pgTickets) OpenedSince(ctx context.Context, account uuid.UUID, since time.Time) (int, error) {
+	var n int
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM tickets WHERE account_id = @account AND opened_at > @since`,
+		pgx.StrictNamedArgs{"account": account, "since": since}).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count tickets: %w", err)
+	}
+	return n, nil
 }
 
 func (s pgTickets) Get(ctx context.Context, id uuid.UUID) (Ticket, error) {

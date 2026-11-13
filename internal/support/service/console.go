@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"uuid"
@@ -168,22 +169,31 @@ func (s *Support) Reply(ctx context.Context, id uuid.UUID, key string, in ReplyI
 }
 
 func (s *Support) Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error) {
-	t, err := s.tickets.Resolve(ctx, id, &by, s.now())
+	t, err := s.tickets.Get(ctx, id)
 	if err != nil {
-		return ConsoleTicket{}, fmt.Errorf("resolve the ticket: %w", err)
+		return ConsoleTicket{}, fmt.Errorf("read the ticket: %w", err)
 	}
-	if t.Kind == domain.KindCarrierRequest {
-		// The key names this resolving, so a ticket reopened and resolved
-		// again sends the note again.
-		key := "resolve/" + t.ID.String() + "/" + strconv.Itoa(len(t.Events))
+	if t.Kind == domain.KindCarrierRequest && t.Status == domain.StatusOpen {
+		// The note goes out before the status moves, so a failed note is
+		// sent again when the member resolves again. The key names this
+		// resolving: the retry sends it once, and a ticket reopened and
+		// resolved again sends it again.
+		key := "resolve/" + t.ID.String() + "/" + strconv.Itoa(len(t.Events)+1)
 		m, sendErr := s.chats.Send(ctx, accountdomain.ShopNexusID, t.ConversationID, key,
 			chatsvc.SendInput{Text: "Đã ghi nhận hãng " + t.CarrierName + "."})
-		if sendErr != nil {
+		switch {
+		case errors.Is(sendErr, accountdomain.ErrAccountDeleted):
+			// Nobody is left to read it; the ticket still resolves.
+		case sendErr != nil:
 			return ConsoleTicket{}, fmt.Errorf("send the note: %w", sendErr)
+		default:
+			if err = s.tickets.RecordReply(ctx, t.ID, m.ID, nil, s.now()); err != nil {
+				return ConsoleTicket{}, fmt.Errorf("record the note: %w", err)
+			}
 		}
-		if err = s.tickets.RecordReply(ctx, t.ID, m.ID, nil, s.now()); err != nil {
-			return ConsoleTicket{}, fmt.Errorf("record the note: %w", err)
-		}
+	}
+	if t, err = s.tickets.Resolve(ctx, id, &by, s.now()); err != nil {
+		return ConsoleTicket{}, fmt.Errorf("resolve the ticket: %w", err)
 	}
 	shown, err := s.consoleTickets(ctx, []repository.Ticket{t})
 	if err != nil {

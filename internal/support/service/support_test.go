@@ -231,6 +231,71 @@ func TestResolvingACarrierRequestSendsTheNote(t *testing.T) {
 	}
 }
 
+// The person deleted their account: the note cannot go out, and the
+// ticket still resolves.
+func TestResolvingTheCarrierRequestOfADeletedAccount(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t)
+	seller := accounttest.New(t, e.db)
+	tk, _, err := e.support.Open(ctx, seller, uuid.NewV7(), service.OpenInput{Kind: "carrier_request", CarrierName: "Ninja Van"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.accounts.Erase(ctx, seller); err != nil {
+		t.Fatal(err)
+	}
+	got, err := e.support.Resolve(ctx, tk.ID, e.member(t, "Minh"))
+	if err != nil || got.Ticket.Status != domain.StatusResolved {
+		t.Fatalf("%+v %v", got, err)
+	}
+}
+
+// A note that fails leaves the ticket open, so "Đã xử lý" can run again;
+// before, the status moved first and the next resolve answered 409.
+func TestAFailedNoteLeavesTheTicketOpen(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t)
+	seller := accounttest.New(t, e.db)
+	tk, _, err := e.support.Open(ctx, seller, uuid.NewV7(), service.OpenInput{Kind: "carrier_request", CarrierName: "Ninja Van"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A block row the app cannot make stands in for a send that fails.
+	if _, err = e.db.Exec(ctx, `INSERT INTO account_blocks (id, blocker_id, blocked_id, created_at) VALUES (@id, @p, @s, now())`,
+		pgx.StrictNamedArgs{"id": uuid.NewV7(), "p": seller, "s": accountdomain.ShopNexusID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = e.support.Resolve(ctx, tk.ID, e.member(t, "Lan")); err == nil {
+		t.Fatal("resolved with the note refused")
+	}
+	if d, _ := e.support.Detail(ctx, tk.ID); d.Ticket.Ticket.Status != domain.StatusOpen {
+		t.Fatalf("the ticket resolved without its note: %+v", d.Ticket.Ticket.Status)
+	}
+}
+
+// The eleventh ticket in a day is refused before its chat opens.
+func TestARefusedOpenLeavesNoChat(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t)
+	person := accounttest.New(t, e.db)
+	for range domain.DailyLimit {
+		if _, _, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Hỏi"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Hỏi"}); !errors.Is(err, domain.ErrTooMany) {
+		t.Fatalf("the eleventh: %v", err)
+	}
+	var chats int
+	if err := e.db.QueryRow(ctx, `SELECT count(*) FROM conversation_members m JOIN conversations c ON c.id = m.conversation_id
+WHERE m.account_id = @p AND c.kind = 'support'`, pgx.StrictNamedArgs{"p": person}).Scan(&chats); err != nil || chats != domain.DailyLimit {
+		t.Fatalf("%d chats %v", chats, err)
+	}
+}
+
 func TestAPersonsMessageReopens(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

@@ -52,8 +52,10 @@ type inserted struct {
 // TicketOpen opens a ticket: one step reads whether the account may and
 // whether the order has its ticket; then the support chat opens, the
 // ticket goes in under the account's daily limit, chat's MessageSend sends
-// the person's first message, and the ticket records it as its card. A
-// refusal at the insert leaves an empty support chat, which no list shows.
+// the person's first message, and the ticket records it as its card. The
+// facts step refuses a request past the limit; one that passes it in a race
+// and is refused at the insert leaves an empty support chat, which no list
+// shows.
 type TicketOpen struct{ Support *Support }
 
 func (o TicketOpen) ServiceName() string { return o.Support.prefix + ticketOpen }
@@ -78,15 +80,26 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 		if r := status.Refusal(); r != nil && status != accountdomain.StatusSuspended {
 			return openFacts{Refused: r}, nil
 		}
+		if draft.Kind == domain.KindNotReceived {
+			existing, getErr := s.tickets.ByOrder(rc, in.Account, *draft.OrderID)
+			if getErr == nil {
+				return openFacts{Existing: &existing.ID}, nil
+			}
+			if !errors.Is(getErr, domain.ErrNotFound) {
+				return openFacts{}, fmt.Errorf("find the order's ticket: %w", getErr)
+			}
+		}
+		// Refused here, a request past the limit opens no chat; the insert
+		// counts again under the account's lock.
+		n, countErr := s.tickets.OpenedSince(rc, in.Account, at.Add(-24*time.Hour))
+		if countErr != nil {
+			return openFacts{}, fmt.Errorf("count the day's tickets: %w", countErr)
+		}
+		if n >= domain.DailyLimit {
+			return openFacts{Refused: domain.ErrTooMany}, nil
+		}
 		if draft.Kind != domain.KindNotReceived {
 			return openFacts{}, nil
-		}
-		existing, getErr := s.tickets.ByOrder(rc, in.Account, *draft.OrderID)
-		if getErr == nil {
-			return openFacts{Existing: &existing.ID}, nil
-		}
-		if !errors.Is(getErr, domain.ErrNotFound) {
-			return openFacts{}, fmt.Errorf("find the order's ticket: %w", getErr)
 		}
 		order, ok, readErr := s.deals.Order(rc, *draft.OrderID)
 		if readErr != nil {

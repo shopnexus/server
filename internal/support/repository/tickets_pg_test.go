@@ -120,6 +120,12 @@ func TestInsertKeepsTheRateAndTheKey(t *testing.T) {
 	if err != nil || !existed || again.ID != first.ID {
 		t.Fatalf("the same key: %v %v %v", again.ID, existed, err)
 	}
+	// A retried step inserts the same ticket again: it is the step's own, so
+	// the flow goes on to send the first message.
+	retried := repository.Ticket{ID: first.ID, AccountID: person, ConversationID: first.ConversationID, Kind: domain.KindOther, OpenedAt: at}
+	if got, mine, retryErr := s.Insert(ctx, retried, key, "", since); retryErr != nil || mine || got.ID != first.ID {
+		t.Fatalf("the retried step: %v %v %v", got.ID, mine, retryErr)
+	}
 	for range domain.DailyLimit - 1 {
 		open(t, s, ticket(t, db, person, domain.KindOther, nil, ""))
 	}

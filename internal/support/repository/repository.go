@@ -51,8 +51,12 @@ type Tickets interface {
 	// event, unless the account opened domain.DailyLimit tickets after since
 	// (domain.ErrTooMany). A key the account used already, or for
 	// not_received an order with a ticket, returns that ticket and true
-	// instead. The account is locked for the transaction.
+	// instead; t's own row, from a retried call, returns it and false. The
+	// account is locked for the transaction.
 	Insert(ctx context.Context, t Ticket, key uuid.UUID, carrierKey string, since time.Time) (Ticket, bool, error)
+	// OpenedSince counts the tickets account opened after since, without
+	// the lock: the check before Insert, which counts again under it.
+	OpenedSince(ctx context.Context, account uuid.UUID, since time.Time) (int, error)
 	// SetFirstMessage records the message the ticket's card is.
 	SetFirstMessage(ctx context.Context, id, message uuid.UUID) error
 	// Get reads a ticket; domain.ErrNotFound for none.
