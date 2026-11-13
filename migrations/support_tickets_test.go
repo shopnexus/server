@@ -1,0 +1,174 @@
+package migrations_test
+
+import (
+	"context"
+	"testing"
+	"uuid"
+
+	"github.com/jackc/pgx/v5"
+
+	"github.com/shopnexus/server2/internal/account/accounttest"
+	"github.com/shopnexus/server2/internal/catalog/catalogtest"
+	"github.com/shopnexus/server2/internal/platform/postgres"
+	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server2/migrations"
+)
+
+// shopNexus is the system account 0044 makes.
+const shopNexus = "0193e000-0000-7000-8000-000000000001"
+
+// Feedback sent before 0044 arrives as an open ticket of kind other, its
+// text the first message of a support chat with ShopNexus.
+func TestSupportTicketsMoveTheFeedback(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.Empty(t)
+	if _, err := postgres.Migrate(ctx, db, before(t, "0044_support_tickets.sql")); err != nil {
+		t.Fatal(err)
+	}
+	person := accounttest.New(t, db)
+	if _, err := db.Exec(ctx, `INSERT INTO feedback (id, account_id, body, request_key, created_at)
+VALUES (uuidv7(), @person, 'Lọc khu vực hay nhảy về Q.1', uuidv7(), now() - interval '2 days')`,
+		pgx.StrictNamedArgs{"person": person}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := postgres.Migrate(ctx, db, migrations.FS); err != nil {
+		t.Fatalf("0044 on a database with feedback: %v", err)
+	}
+	var kind, status, body, convKind string
+	var fromPerson bool
+	var events int
+	if err := db.QueryRow(ctx, `SELECT t.kind, t.status, m.body, m.sender_id = t.account_id, c.kind,
+       (SELECT count(*) FROM ticket_events e WHERE e.ticket_id = t.id AND e.kind = 'opened')
+FROM tickets t JOIN messages m ON m.id = t.first_message_id JOIN conversations c ON c.id = t.conversation_id
+WHERE t.account_id = @person`, pgx.StrictNamedArgs{"person": person}).
+		Scan(&kind, &status, &body, &fromPerson, &convKind, &events); err != nil {
+		t.Fatal(err)
+	}
+	if kind != "other" || status != "open" || body != "Lọc khu vực hay nhảy về Q.1" || !fromPerson || convKind != "support" || events != 1 {
+		t.Fatalf("got %s %s %q from person %v, conversation %s, %d opened events", kind, status, body, fromPerson, convKind, events)
+	}
+	var feedback *string
+	if err := db.QueryRow(ctx, `SELECT to_regclass('feedback')::text`).Scan(&feedback); err != nil || feedback != nil {
+		t.Fatalf("feedback is still there: %v %v", feedback, err)
+	}
+}
+
+// A pair of people has one chat; a person and ShopNexus have one per
+// ticket.
+func TestSupportChatsAreManyPerPair(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	person, other := accounttest.New(t, db), accounttest.New(t, db)
+	insert := func(with uuid.UUID, kind string) error {
+		_, err := db.Exec(ctx, `INSERT INTO conversations (id, account_a, account_b, kind, created_at)
+VALUES (uuidv7(), LEAST(@one::uuid, @other::uuid), GREATEST(@one::uuid, @other::uuid), @kind, now())`,
+			pgx.StrictNamedArgs{"one": person, "other": with, "kind": kind})
+		return err
+	}
+	system := uuid.MustParse(shopNexus)
+	for name, err := range map[string]error{
+		"a first support chat":  insert(system, "support"),
+		"a second support chat": insert(system, "support"),
+		"a pair chat":           insert(other, "pair"),
+	} {
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if err := insert(other, "pair"); err == nil {
+		t.Error("a second pair chat was stored")
+	}
+}
+
+// An order completed before 0044 takes completed_by from its deal's
+// completed move.
+func TestOrdersCompletedByComesFromTheMove(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.Empty(t)
+	if _, err := postgres.Migrate(ctx, db, before(t, "0044_support_tickets.sql")); err != nil {
+		t.Fatal(err)
+	}
+	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
+	orders := map[string]uuid.UUID{}
+	for _, by := range []string{"system", "buyer"} {
+		deal, order := uuid.NewV7(), uuid.NewV7()
+		orders[by] = order
+		a := pgx.NamedArgs{"deal": deal, "order": order, "listing": catalogtest.Listing(t, db, seller), "buyer": buyer, "seller": seller, "by": by}
+		for _, q := range []string{insertDeal, `INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name,
+    recipient_phone, recipient_street, recipient_commune, shipment_mode, carrier, tracking_code, shipment_status, requested_at,
+    shipped_at, closed_at, delivered_at)
+VALUES (@order, @deal, @listing, @buyer, @seller, 'completed', 1500000, 'Hân', '+84912345678', '1 Lê Lợi', '00004',
+    'manual', 'ghtk', 'S1.A1', 'delivered', now(), now(), now(), now())`,
+			`INSERT INTO deal_moves (id, deal_id, kind, by_party, moved_at) VALUES (uuidv7(), @deal, 'completed', @by, now())`} {
+			if _, err := db.Exec(ctx, q, a); err != nil {
+				t.Fatalf("%s: %v", q, err)
+			}
+		}
+	}
+	if _, err := postgres.Migrate(ctx, db, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	for by, order := range orders {
+		var got string
+		if err := db.QueryRow(ctx, `SELECT completed_by FROM orders WHERE id = @id`, pgx.StrictNamedArgs{"id": order}).Scan(&got); err != nil || got != by {
+			t.Errorf("%s: completed_by %q, %v", by, got, err)
+		}
+	}
+}
+
+// A ticket carries what its kind needs, and an order has one report.
+func TestTicketChecks(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	person, seller := accounttest.New(t, db), accounttest.New(t, db)
+	deal, order := uuid.NewV7(), uuid.NewV7()
+	a := pgx.NamedArgs{"deal": deal, "order": order, "listing": catalogtest.Listing(t, db, seller), "buyer": person, "seller": seller}
+	for _, q := range []string{insertDeal, `INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name,
+    recipient_phone, recipient_street, recipient_commune, shipment_mode, carrier, tracking_code, shipment_status, requested_at, shipped_at)
+VALUES (@order, @deal, @listing, @buyer, @seller, 'shipped', 1500000, 'Hân', '+84912345678', '1 Lê Lợi', '00004',
+    'manual', 'ghtk', 'S1.A1', 'in_transit', now(), now())`} {
+		if _, err := db.Exec(ctx, q, a); err != nil {
+			t.Fatalf("%s: %v", q, err)
+		}
+	}
+	insert := func(kind string, order *uuid.UUID, carrier string) error {
+		conv := uuid.NewV7()
+		if _, err := db.Exec(ctx, `INSERT INTO conversations (id, account_a, account_b, kind, created_at)
+VALUES (@id, LEAST(@p::uuid, @s::uuid), GREATEST(@p::uuid, @s::uuid), 'support', now())`,
+			pgx.StrictNamedArgs{"id": conv, "p": person, "s": uuid.MustParse(shopNexus)}); err != nil {
+			t.Fatal(err)
+		}
+		var key any
+		if carrier != "" {
+			key = carrier
+		}
+		_, err := db.Exec(ctx, `INSERT INTO tickets (id, account_id, conversation_id, kind, status, order_id, carrier_name, carrier_key,
+    last_message_at, last_from, opened_at, request_key)
+VALUES (uuidv7(), @person, @conv, @kind, 'open', @order, @carrier, @key, now(), 'person', now(), uuidv7())`,
+			pgx.StrictNamedArgs{"person": person, "conv": conv, "kind": kind, "order": order, "carrier": null(carrier), "key": key})
+		return err
+	}
+	for name, err := range map[string]error{
+		"a report":          insert("not_received", &order, ""),
+		"a carrier request": insert("carrier_request", nil, "Ninja Van"),
+		"other":             insert("other", nil, ""),
+	} {
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	for name, err := range map[string]error{
+		"a second report of the order": insert("not_received", &order, ""),
+		"a report without an order":    insert("not_received", nil, ""),
+		"a carrier request unnamed":    insert("carrier_request", nil, ""),
+		"other with an order":          insert("other", &order, ""),
+	} {
+		if err == nil {
+			t.Errorf("%s was stored", name)
+		}
+	}
+}

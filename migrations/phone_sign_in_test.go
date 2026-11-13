@@ -71,7 +71,7 @@ func TestPhoneSignInDeletesEmailOnlyAccounts(t *testing.T) {
 		t.Fatalf("0022 on a database with an email-only account: %v", err)
 	}
 	var accounts, identities int
-	if err := db.QueryRow(ctx, `SELECT (SELECT count(*) FROM accounts), (SELECT count(*) FROM identities WHERE kind = 'phone')`).
+	if err := db.QueryRow(ctx, `SELECT (SELECT count(*) FROM accounts WHERE id <> '`+shopNexus+`'), (SELECT count(*) FROM identities WHERE kind = 'phone')`).
 		Scan(&accounts, &identities); err != nil || accounts != 1 || identities != 1 {
 		t.Fatalf("accounts %d, phone identities %d: %v", accounts, identities, err)
 	}
