@@ -52,8 +52,10 @@ ORDER BY n.d, c.id LIMIT @limit`, args)
 	}
 	samples, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.PriceSample, error) {
 		var p domain.PriceSample
-		err := row.Scan(&p.ListingID, &p.Price, &p.Sold, &p.DaysToSell, &p.Point.Lat, &p.Point.Lng)
-		return p, err
+		if scanErr := row.Scan(&p.ListingID, &p.Price, &p.Sold, &p.DaysToSell, &p.Point.Lat, &p.Point.Lng); scanErr != nil {
+			return p, fmt.Errorf("scan a sample: %w", scanErr)
+		}
+		return p, nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read price sample: %w", err)

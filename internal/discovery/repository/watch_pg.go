@@ -259,8 +259,11 @@ LIMIT @limit`, pgx.StrictNamedArgs{
 	}
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (WatchCandidate, error) {
 		var w WatchCandidate
-		err := row.Scan(&w.Query, &w.Phrases, &w.PriceMin, &w.PriceMax, &w.OffersOnly, &w.RadiusKm, &w.Point.Lat, &w.Point.Lng)
-		return w, err
+		if scanErr := row.Scan(&w.Query, &w.Phrases, &w.PriceMin, &w.PriceMax, &w.OffersOnly, &w.RadiusKm,
+			&w.Point.Lat, &w.Point.Lng); scanErr != nil {
+			return w, fmt.Errorf("scan a watch candidate: %w", scanErr)
+		}
+		return w, nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read watch candidates: %w", err)

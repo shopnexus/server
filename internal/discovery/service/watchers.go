@@ -40,7 +40,7 @@ func (d *Discovery) Watchers(ctx context.Context, seller uuid.UUID, q WatcherQue
 		Exclude: append([]uuid.UUID{seller}, blocks...), Limit: domain.MaxWatcherCandidates,
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read watch candidates: %w", err)
 	}
 	out := []Watcher{}
 	for _, w := range candidates {

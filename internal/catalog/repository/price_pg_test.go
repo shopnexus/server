@@ -123,6 +123,7 @@ func TestPriceSample(t *testing.T) {
 			if s.ListingID != same || s.DaysToSell != 0 || s.Point != (domain.Point{Lat: 21.0394, Lng: 105.8364}) {
 				t.Fatalf("on sale: %+v", s)
 			}
+		default:
 		}
 	}
 	f.Limit = 2
