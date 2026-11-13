@@ -105,6 +105,16 @@ paths:
     $ref: "paths/deal.yaml#/shipmentLookup"
   /v1/dev/shipments/{code}/status:
     $ref: "paths/deal.yaml#/devShipmentStatus"
+  /v1/carrier-accounts:
+    $ref: "paths/shipping.yaml#/carrierAccounts"
+  /v1/carrier-accounts/{carrier}:
+    $ref: "paths/shipping.yaml#/carrierAccount"
+  /v1/carrier-accounts/{carrier}/pickups:
+    $ref: "paths/shipping.yaml#/carrierPickups"
+  /v1/shipments/quote:
+    $ref: "paths/shipping.yaml#/shipmentQuote"
+  /v1/carriers/{carrier}/webhook/{secret}:
+    $ref: "paths/shipping.yaml#/carrierWebhook"
   /v1/notifications:
     $ref: "paths/notification.yaml#/notifications"
   /v1/notifications/read-all:

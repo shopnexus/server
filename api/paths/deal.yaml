@@ -398,14 +398,17 @@ orderShipment:
     summary: Create the shipment of a pending order.
     description: |
       The seller, in one commit. manual: the seller made the shipment on
-      the carrier's own app and types its code; the server reads it from
-      the carrier. linked: the server makes it on the seller's GHTK
-      account. The order is shipped, the listing is reserved for it, and
+      the carrier's own app and types its code; the server reads it with
+      the seller's account at that carrier. linked: the server makes it on
+      the seller's account at the carrier asked, GHTK or GHN, picked up
+      where pickup_from says. The order is shipped, the listing is reserved for it, and
       other buyers' pending orders on the listing are cancelled with
       shipped_to_another. A parcel the carrier reports delivered ships
       delivered. Checks, in order: the shipment's fields, for a manual one
       the carrier's answer, then the order is the caller's, the order's
-      state, the listing, and for a linked one GHTK's answer. A stack
+      state, the listing, and for a linked one the carrier's answer. A
+      carrier the caller has not linked is 409 carrier_not_linked, once the
+      order is found to be the caller's to ship. A stack
       without a carrier (CARRIER=none, production for now) answers 503
       carrier_unavailable.
     tags: [deal]
@@ -443,13 +446,13 @@ orderShipment:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not the deal's pending one, or the caller is the buyer (move_not_allowed); the listing is not on sale (listing_unavailable); or the deal changed meanwhile (deal_changed)."
+        description: "The order is not the deal's pending one, or the caller is the buyer (move_not_allowed); the listing is not on sale (listing_unavailable); the deal changed meanwhile (deal_changed); or the caller has not linked that carrier, or must link it again because its token no longer opens (carrier_not_linked, carrier_relink_needed)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "The shipment breaks a rule, the carrier's report of a failed parcel included (invalid_shipment, with fields), or the carrier does not know the tracking code (shipment_not_found)."
+        description: "The shipment breaks a rule, the carrier's report of a failed parcel included (invalid_shipment, with fields); the carrier does not know the tracking code (shipment_not_found); the carrier does not know the recipient's or the pickup's address (carrier_address_unknown); or the carrier refused the shipment, its words in details.reason (carrier_refused)."
         content:
           application/json:
             schema:
@@ -465,8 +468,8 @@ orderShipment:
     summary: Correct the carrier and tracking code of a manual shipment.
     description: |
       The seller, while the shipment is pending_pickup or in_transit. The
-      server reads the new code from the carrier as on creation and takes
-      its status. Checks, in order: the carrier and the code, the
+      server reads the new code with the seller's account at that carrier,
+      as on creation, and takes its status. Checks, in order: the carrier and the code, the
       carrier's answer, then the order is the caller's and its state.
     tags: [deal]
     security:
@@ -502,7 +505,7 @@ orderShipment:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not shipped, its shipment is linked or no longer pending_pickup or in_transit, or the caller is the buyer (move_not_allowed); or the deal changed meanwhile (deal_changed)."
+        description: "The order is not shipped, its shipment is linked or no longer pending_pickup or in_transit, or the caller is the buyer (move_not_allowed); the deal changed meanwhile (deal_changed); or the caller has not linked that carrier, or must link it again because its token no longer opens (carrier_not_linked, carrier_relink_needed)."
         content:
           application/json:
             schema:
@@ -567,7 +570,8 @@ shipmentLookup:
     summary: Read a shipment from its carrier, for the seller's preview.
     description: |
       Before the seller confirms a manual shipment or a corrected code.
-      The app warns, and does not block, when cod_amount differs from the
+      The code is read with the caller's own account at that carrier. The
+      app warns, and does not block, when cod_amount differs from the
       agreed price.
     tags: [deal]
     security:
@@ -604,6 +608,12 @@ shipmentLookup:
               $ref: "../schemas/error.yaml#/Error"
       "422":
         description: "The carrier or the code breaks a rule (invalid_shipment, with fields)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The caller has not linked that carrier, or must link it again (carrier_not_linked, carrier_relink_needed)."
         content:
           application/json:
             schema:

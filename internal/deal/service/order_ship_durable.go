@@ -15,20 +15,23 @@ import (
 // dealShip is the DealShip service's name without the prefix.
 const dealShip = "DealShip"
 
-// madeShipment is what the step that makes a linked shipment journals:
-// GHTK's answer, or the refusal of a stack without a carrier.
+// madeShipment is what the step that makes a linked shipment journals: the
+// carrier's answer, or shipping's refusal (no carrier in the stack, the
+// carrier not linked, an address the carrier does not know).
 type madeShipment struct {
 	Created carrier.Created `json:"created"`
 	Refused *apperr.Error   `json:"refused,omitempty"`
 }
 
 // DealShip ships a pending order. A manual shipment is checked whole
-// before anything is held; a linked one is made at GHTK once the listing
-// is held, and a stack without a carrier gives the listing back. It gives the listing back, and calls off a GHTK shipment the
-// order did not take, when the order's save loses to anything but another
-// shipment of the same order. Once shipped, it cancels the listing's other
-// pending orders. It schedules the pickup timeout, and the completion of a
-// parcel already delivered.
+// before anything is held; a linked one is made on the seller's account at
+// its carrier once the listing is held, and a refusal of shipping's gives
+// the listing back. It gives the listing back, and calls off a linked
+// shipment the order did not take, when the order's save loses to anything
+// but another shipment of the same order. Once shipped, it cancels the
+// listing's other pending orders. It schedules the pickup timeout, the
+// first poll of the shipment, and the completion of a parcel already
+// delivered.
 type DealShip struct{ Deals *Deals }
 
 func (s DealShip) ServiceName() string { return s.Deals.prefix + dealShip }
@@ -56,18 +59,29 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		return FlowResult{Refused: refused}, err
 	}
 	if in.Linked != nil {
-		o := d.Order()
+		o, draft := d.Order(), *in.Linked
 		made, createErr := restate.Run(ctx, func(rc restate.RunContext) (madeShipment, error) {
-			c, stepErr := s.Deals.carrier.Create(rc, carrier.CreateInput{
-				OrderID: o.ID, COD: o.Price, WeightGrams: in.Linked.WeightGrams,
-				Service: string(in.Linked.Service), Pickup: string(in.Linked.Pickup),
-				Recipient: carrier.Recipient{
-					Name: o.Recipient.Name, Phone: o.Recipient.Phone, Street: o.Recipient.Street,
-					CommuneCode: o.Recipient.CommuneCode,
-				},
+			r := o.Recipient
+			to, stepErr := s.Deals.place(rc, r.Name, r.Phone, r.Street, r.CommuneCode)
+			if stepErr != nil {
+				return madeShipment{}, stepErr
+			}
+			from := carrier.Pickup{}
+			if p := draft.From; p != nil && p.PointID != "" {
+				from.PointID = p.PointID
+			} else if p != nil {
+				place, placeErr := s.Deals.place(rc, p.Name, p.Phone, p.Street, p.CommuneCode)
+				if placeErr != nil {
+					return madeShipment{}, placeErr
+				}
+				from.Place = &place
+			}
+			c, stepErr := s.Deals.shipping.Create(rc, in.Caller, carrier.Carrier(draft.Carrier), carrier.CreateInput{
+				OrderCode: o.Code, Recipient: to, Pickup: from, Item: m.Listing.Title, COD: o.Price,
+				WeightGrams: draft.WeightGrams, Service: string(draft.Service), Option: string(draft.Pickup),
 			})
-			if errors.Is(stepErr, carrier.ErrUnavailable) {
-				return madeShipment{Refused: domain.ErrCarrierUnavailable}, nil
+			if stepErr = shippingError(stepErr, domain.ErrCarrierAddressUnknown); refusedBy(stepErr) {
+				return madeShipment{Refused: apperr.From(stepErr)}, nil
 			}
 			if stepErr != nil {
 				return madeShipment{}, fmt.Errorf("create: %w", stepErr)
@@ -75,9 +89,9 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 			return madeShipment{Created: c}, nil
 		})
 		if createErr != nil {
-			return FlowResult{}, fmt.Errorf("create the shipment at GHTK: %w", createErr)
+			return FlowResult{}, fmt.Errorf("create the shipment at %s: %w", draft.Carrier, createErr)
 		}
-		// A stack without a carrier makes no shipment: the listing goes back.
+		// A refused shipment is not made: the listing goes back.
 		if made.Refused != nil {
 			if err = releaseStep(ctx, s.Deals.catalog, m.Listing.ID, in.OrderID); err != nil {
 				return FlowResult{}, err
@@ -88,8 +102,8 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		// Shippable passed on this deal and listing, and a new shipment
 		// waits for pickup, so Ship takes it.
 		if err = d.Ship(m.By, in.OrderID, domain.Shipment{
-			Mode: domain.ModeLinked, Carrier: domain.CarrierGHTK, TrackingCode: created.TrackingCode,
-			Fee: &created.Fee, Status: domain.ShipmentPendingPickup,
+			Mode: domain.ModeLinked, Carrier: draft.Carrier, TrackingCode: created.TrackingCode,
+			Fee: &created.Fee, Status: domain.ShipmentPendingPickup, Pickup: draft.From,
 		}, facts(m.Listing), at); err != nil {
 			return FlowResult{}, fmt.Errorf("ship the order: %w", err)
 		}
@@ -108,6 +122,8 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		ref := OrderRef{DealID: in.DealID, OrderID: in.OrderID}
 		restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "PickupTimeout").
 			Send(ref, restate.WithDelay(s.Deals.waits.Pickup))
+		restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "Poll").
+			Send(ref, restate.WithDelay(s.Deals.waits.Poll))
 		if d.Order().Shipment.Status == domain.ShipmentDelivered {
 			restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "AutoComplete").
 				Send(ref, restate.WithDelay(s.Deals.waits.Complete))
@@ -133,9 +149,16 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	shipped := cur.ID == in.OrderID && cur.Status == domain.OrderShipped
 	if mine.Mode == domain.ModeLinked && (!shipped || cur.Shipment == nil || cur.Shipment.TrackingCode != mine.TrackingCode) {
 		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-			return s.Deals.carrier.Cancel(rc, carrier.Carrier(mine.Carrier), mine.TrackingCode)
+			callErr := s.Deals.shipping.Cancel(rc, in.Caller, carrier.Carrier(mine.Carrier), mine.TrackingCode)
+			if errors.Is(callErr, carrier.ErrNotCancellable) || errors.Is(callErr, carrier.ErrNotFound) || refusedBy(callErr) {
+				return nil // the carrier has the parcel, or it is not ours to call off any more
+			}
+			if callErr != nil {
+				return fmt.Errorf("cancel %s: %w", mine.TrackingCode, callErr)
+			}
+			return nil
 		}); err != nil {
-			return FlowResult{}, fmt.Errorf("call off the shipment at GHTK: %w", err)
+			return FlowResult{}, fmt.Errorf("call off the shipment at %s: %w", mine.Carrier, err)
 		}
 	}
 	if shipped {

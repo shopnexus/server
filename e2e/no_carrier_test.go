@@ -20,7 +20,8 @@ import (
 func TestNoCarrier(t *testing.T) {
 	t.Parallel()
 	cfg := serverConfig
-	cfg.DatabaseURL, cfg.Restate, cfg.Carrier = pgtest.New(t).Config().ConnString(), restatetest.Config(t), "none"
+	cfg.DatabaseURL, cfg.Restate = pgtest.New(t).Config().ConnString(), restatetest.Config(t)
+	cfg.Carrier.Mode = "none"
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones), app.WithEmailSender(mails), app.WithPasswordHasher(consoledomain.Fast))
 	if err != nil {
@@ -31,10 +32,17 @@ func TestNoCarrier(t *testing.T) {
 	t.Cleanup(srv.Close)
 	me, _ := newAccount(t)
 	auth, order := bearer(me.AccessToken), uuid.NewV7().String()
-	check(t, "a lookup", callAt(t, srv.URL, "GET", "/v1/shipments/lookup?carrier=spx&code=SPX1", nil, auth),
+	check(t, "a lookup", callAt(t, srv.URL, "GET", "/v1/shipments/lookup?carrier=ghtk&code=S1", nil, auth),
 		503, "carrier_unavailable")
+	check(t, "linking", callAt(t, srv.URL, "PUT", "/v1/carrier-accounts/ghtk", map[string]any{"email": "a@b.vn", "password": "x"}, auth),
+		503, "carrier_unavailable")
+	check(t, "the pickup points", callAt(t, srv.URL, "GET", "/v1/carrier-accounts/ghn/pickups", nil, auth), 503, "carrier_unavailable")
+	check(t, "a quote", callAt(t, srv.URL, "GET", "/v1/shipments/quote?order_id="+order+"&carrier=ghtk&service=standard&weight_grams=800",
+		nil, auth), 503, "carrier_unavailable")
+	check(t, "the webhook", callAt(t, srv.URL, "POST", "/v1/carriers/ghtk/webhook/dev", map[string]any{"label_id": "S1", "status_id": 5}),
+		404, "not_found")
 	check(t, "a shipment", callAt(t, srv.URL, "POST", "/v1/orders/"+order+"/shipment", shipmentBody("SPX1"), auth, newKey()),
 		503, "carrier_unavailable")
 	check(t, "a correction", callAt(t, srv.URL, "PUT", "/v1/orders/"+order+"/shipment",
-		map[string]any{"carrier": "spx", "tracking_code": "SPX1"}, auth), 503, "carrier_unavailable")
+		map[string]any{"carrier": "ghtk", "tracking_code": "S1"}, auth), 503, "carrier_unavailable")
 }

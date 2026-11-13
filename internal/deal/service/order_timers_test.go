@@ -23,10 +23,10 @@ import (
 // timed serves a second deal service on e's database with the waits w and
 // the carrier c, and returns it with fire, which runs one of its
 // OrderTimers handlers now, as Restate does when a wait ends.
-func (e env) timed(t *testing.T, w domain.Waits, c carrier.Client) (deals *service.Deals, fire func(handler string, ref service.OrderRef)) {
+func (e env) timed(t *testing.T, w domain.Waits, c service.Shipping) (deals *service.Deals, fire func(handler string, ref service.OrderRef)) {
 	t.Helper()
 	deps := e.deps
-	deps.Waits, deps.Carrier, deps.Prefix = w, c, restatetest.Prefix()
+	deps.Waits, deps.Shipping, deps.Prefix = w, c, restatetest.Prefix()
 	d := service.New(deps)
 	in := restatetest.Start(t, d.Durable()...)
 	return d, func(handler string, ref service.OrderRef) {
@@ -50,8 +50,8 @@ func soon(set func(*domain.Waits)) domain.Waits {
 // a carrier does for a code the seller typed after the parcel arrived.
 type deliveredCarrier struct{ carrier.Fake }
 
-func (deliveredCarrier) Lookup(ctx context.Context, c carrier.Carrier, code string) (carrier.Parcel, error) {
-	p, err := carrier.Fake{}.Lookup(ctx, c, code)
+func (deliveredCarrier) Lookup(ctx context.Context, a carrier.Account, code string) (carrier.Parcel, error) {
+	p, err := carrier.Fake{}.Lookup(ctx, a, code)
 	p.Status = carrier.StatusDelivered
 	return p, err
 }
@@ -72,7 +72,7 @@ func (e env) until(t *testing.T, viewer, id uuid.UUID, status domain.OrderStatus
 func TestSellerTimeoutCancels(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Seller = time.Second }), carrier.Fake{})
+	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Seller = time.Second }), linkedAt{})
 	seller, buyer := e.person(t), e.person(t)
 	v := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := deals.RequestCod(context.Background(), buyer, v.ID, e.address(t, buyer)); err != nil {
@@ -89,7 +89,7 @@ func TestPickupTimeoutCancels(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	cancels := &atomic.Int32{}
-	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Pickup = time.Second }), countingCarrier{cancels: cancels})
+	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Pickup = time.Second }), linkedAt{countingCarrier{Carrier: carrier.GHTK, cancels: cancels}})
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.pending(t, buyer, listing)
@@ -107,16 +107,20 @@ func TestPickupTimeoutCancels(t *testing.T) {
 		}
 		return nil
 	})
-	if cancels.Load() != 1 {
-		t.Fatalf("%d cancels at GHTK", cancels.Load())
-	}
+	// The listing goes back first; the call off at the carrier follows it.
+	testenv.Eventually(t, 15*time.Second, func() error {
+		if n := cancels.Load(); n != 1 {
+			return fmt.Errorf("%d cancels at GHTK", n)
+		}
+		return nil
+	})
 }
 
 func TestAutoCompletes(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Complete = time.Second }), carrier.Fake{})
+	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Complete = time.Second }), linkedAt{})
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.pending(t, buyer, listing)
@@ -145,7 +149,7 @@ func TestAutoCompletes(t *testing.T) {
 func TestShipADeliveredParcelCompletes(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Complete = time.Second }), deliveredCarrier{})
+	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Complete = time.Second }), linkedAt{deliveredCarrier{}})
 	seller, buyer := e.person(t), e.person(t)
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	s, err := deals.CreateShipment(context.Background(), seller, v.Order.ID, key(), manual("SPXLATE1"))
@@ -159,7 +163,7 @@ func TestTimersLeaveAnOrderThatMovedOn(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	deals, fire := e.timed(t, domain.OrderWaits, carrier.Fake{})
+	deals, fire := e.timed(t, domain.OrderWaits, linkedAt{})
 	seller, buyer := e.person(t), e.person(t)
 	ref := func(v service.DealView) service.OrderRef { return service.OrderRef{DealID: v.ID, OrderID: v.Order.ID} }
 	unchanged := func(name string, v service.DealView) {
@@ -216,7 +220,7 @@ func TestTimersWorkWithoutACarrier(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Seller = time.Second }), carrier.None{})
+	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Seller = time.Second }), refusing{errShippingUnavailable})
 	seller, buyer := e.person(t), e.person(t)
 	v := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := deals.RequestCod(ctx, buyer, v.ID, e.address(t, buyer)); err != nil {

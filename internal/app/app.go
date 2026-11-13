@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"uuid"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	restate "github.com/restatedev/sdk-go"
@@ -27,6 +28,8 @@ import (
 	consoledomain "github.com/shopnexus/server2/internal/console/domain"
 	consolesvc "github.com/shopnexus/server2/internal/console/service"
 	"github.com/shopnexus/server2/internal/deal"
+	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
+	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/discovery"
 	"github.com/shopnexus/server2/internal/erasure"
 	"github.com/shopnexus/server2/internal/media"
@@ -50,6 +53,8 @@ import (
 	"github.com/shopnexus/server2/internal/provider/push"
 	"github.com/shopnexus/server2/internal/provider/stt"
 	"github.com/shopnexus/server2/internal/screen"
+	"github.com/shopnexus/server2/internal/shipping"
+	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
 	"github.com/shopnexus/server2/internal/support"
 	"github.com/shopnexus/server2/internal/trust"
 	"github.com/shopnexus/server2/migrations"
@@ -95,6 +100,9 @@ func (a *App) Routes() []httpx.Route { return a.router.Routes() }
 // New builds the server for cfg and starts its background work. It refuses to
 // start while migrations are pending, so the server never runs against an
 // older schema.
+// carrierTimeout bounds a call to GHTK or GHN.
+const carrierTimeout = 20 * time.Second
+
 func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Option) (_ *App, err error) {
 	o := options{hasher: consoledomain.Production}
 	for _, opt := range opts {
@@ -132,16 +140,31 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	default:
 		mailer = email.LogSender{Log: log}
 	}
-	var shipper carrier.Client
-	switch {
-	case cfg.Carrier == "fake" && cfg.Env == config.EnvProd:
-		return nil, errors.New("APP_ENV=prod with CARRIER=fake; anyone could move shipments through the dev endpoint")
-	case cfg.Carrier == "fake":
-		shipper = carrier.Fake{}
-	case cfg.Carrier == "none":
-		shipper = carrier.None{}
+	// carriers holds one client per carrier, and the secret in each
+	// carrier's webhook path; none has no client and no webhook.
+	carriers := shipping.Settings{Key: cfg.Carrier.TokenKey}
+	switch cfg.Carrier.Mode {
+	case "fake":
+		if cfg.Env == config.EnvProd {
+			return nil, errors.New("APP_ENV=prod with CARRIER=fake; anyone could move shipments through the dev endpoint")
+		}
+		carriers.Clients = map[carrier.Carrier]carrier.Client{
+			carrier.GHTK: carrier.Fake{Carrier: carrier.GHTK}, carrier.GHN: carrier.Fake{Carrier: carrier.GHN},
+		}
+		// The fake's webhooks are open to anyone who knows "dev", as its dev
+		// endpoint is.
+		carriers.WebhookSecrets = map[carrier.Carrier]string{carrier.GHTK: "dev", carrier.GHN: "dev"}
+	case "live":
+		web := &http.Client{Timeout: carrierTimeout}
+		c := cfg.Carrier
+		carriers.Clients = map[carrier.Carrier]carrier.Client{
+			carrier.GHTK: carrier.GHTKClient{BaseURL: c.GHTKURL, PartnerToken: c.GHTKPartner, ClientSource: c.GHTKSource, HTTP: web},
+			carrier.GHN:  carrier.GHNClient{BaseURL: c.GHNURL, HTTP: web},
+		}
+		carriers.WebhookSecrets = map[carrier.Carrier]string{carrier.GHTK: c.GHTKWebhook, carrier.GHN: c.GHNWebhook}
+	case "none":
 	default:
-		return nil, fmt.Errorf("CARRIER=%q: want fake or none", cfg.Carrier)
+		return nil, fmt.Errorf("CARRIER=%q: want fake, none or live", cfg.Carrier.Mode)
 	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -180,7 +203,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	})
 	in := ingress.NewClient(cfg.Restate.IngressURL)
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	defs, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, mailer, shipper, log)
+	defs, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, mailer, carriers, log)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +256,7 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 // module mounts after the modules whose services it takes; account's guards
 // come first because they need only the auth keys.
 func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub,
-	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, mailer email.Sender, shipper carrier.Client,
+	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, mailer email.Sender, carriers shipping.Settings,
 	log *slog.Logger,
 ) ([]restate.ServiceDefinition, error) {
 	d := module.Deps{
@@ -266,7 +289,27 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Image:       embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.IndexAPIKey, catalogdomain.PhotoDims),
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion, EmbedSlots: cfg.Embed.Slots,
 	}, accounts, mediam.Service)
-	dealm := deal.Mount(d, deal.Settings{Carrier: shipper, FakeCarrier: cfg.Carrier == "fake"}, accounts, catalogm.Service)
+	// shipping reaches deal through these functions, filled once deal is
+	// mounted, since deal makes its shipments through shipping.
+	var deals dealsvc.Service
+	carriers.Deals = shippingsvc.Deals{
+		ShipmentUpdated: func(ctx context.Context, code, status string) error { return deals.ShipmentUpdated(ctx, code, status) },
+		OpenShipmentsAt: func(ctx context.Context, seller uuid.UUID, c string) (bool, error) {
+			return deals.OpenShipmentsAt(ctx, seller, c)
+		},
+		QuoteFacts: func(ctx context.Context, caller, order, address uuid.UUID) (shippingsvc.QuoteFacts, error) {
+			to, from, price, err := deals.QuoteFacts(ctx, caller, order, address)
+			if err != nil {
+				return shippingsvc.QuoteFacts{}, fmt.Errorf("read the order to price: %w", err)
+			}
+			return shippingsvc.QuoteFacts{Recipient: to, Pickup: from, Price: price}, nil
+		},
+		NotFound: dealdomain.ErrShipmentNotFound,
+	}
+	shippingm := shipping.Mount(d, carriers)
+	dealm := deal.Mount(d, deal.Settings{Shipping: shippingm.Service, FakeCarrier: cfg.Carrier.Mode == "fake", PollEvery: cfg.Carrier.PollEvery},
+		accounts, catalogm.Service)
+	deals = dealm.Service
 	erasure.Mount(d, accounts, dealm.Service)
 	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
 	trustm := trust.Mount(d, trust.Settings{
@@ -307,7 +350,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service)
-	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, dealm.Services, discoverym.Services,
+	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, shippingm.Services, dealm.Services, discoverym.Services,
 		chatm.Services, trustm.Services, notificationm.Services, assistm.Services), nil
 }
 

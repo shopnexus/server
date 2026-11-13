@@ -36,8 +36,8 @@ func (s *Deals) AccountDeleted(ctx context.Context, account uuid.UUID) error {
 	return nil
 }
 
-func (s *Deals) ScrubRecipients(ctx context.Context, buyer uuid.UUID) error {
-	if err := s.deals.ScrubRecipients(ctx, buyer); err != nil {
+func (s *Deals) ScrubRecipients(ctx context.Context, account uuid.UUID) error {
+	if err := s.deals.ScrubRecipients(ctx, account); err != nil {
 		return fmt.Errorf("scrub recipients: %w", err)
 	}
 	return nil

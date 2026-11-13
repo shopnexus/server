@@ -94,6 +94,8 @@ func settled(t *testing.T, token, id string) listing {
 // on sale.
 func activeListing(t *testing.T, token string, fields map[string]any) listing {
 	t.Helper()
+	// A seller with a listing on sale has linked a carrier to ship it.
+	linkCarriers(t, token)
 	l := settled(t, token, postListing(t, token, fields).ID)
 	if l.Status != "active" {
 		t.Fatalf("%+v", l)

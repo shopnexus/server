@@ -49,7 +49,7 @@ func testConfig(t *testing.T) config.Config {
 		Firebase: firebasetest.New(t).Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},
 		Google:   googletest.New(t).Config(),
-		Carrier:  "fake",
+		Carrier:  config.CarrierConfig{Mode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
 	}
 }
 
@@ -198,7 +198,7 @@ func TestCloseStopsTheEventBus(t *testing.T) {
 func TestNewRefusesAnUnknownCarrier(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
-	cfg.Carrier = "pigeon"
+	cfg.Carrier.Mode = "pigeon"
 	if _, err := New(context.Background(), cfg, discard()); err == nil || !strings.Contains(err.Error(), "CARRIER") {
 		t.Fatalf("err %v", err)
 	}
@@ -220,7 +220,7 @@ func TestNewRefusesTheFakeCarrierInProd(t *testing.T) {
 func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
-	cfg.Carrier = "none"
+	cfg.Carrier.Mode = "none"
 	a, err := New(context.Background(), cfg, discard())
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +228,9 @@ func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
 	t.Cleanup(func() { a.Close(context.Background()) })
 	routes := a.Routes()
 	if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/shipments/{code}/status"}) ||
-		!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/shipments/lookup"}) {
+		!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/shipments/lookup"}) ||
+		!slices.Contains(routes, httpx.Route{Method: "PUT", Path: "/v1/carrier-accounts/{carrier}"}) ||
+		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/carriers/{carrier}/webhook/{secret}"}) {
 		t.Fatalf("routes %v", routes)
 	}
 }

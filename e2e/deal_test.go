@@ -46,6 +46,10 @@ type dealView struct {
 			Fee          *int64 `json:"fee"`
 			Status       string `json:"status"`
 			DeliveredAt  string `json:"delivered_at"`
+			Pickup       *struct {
+				PointID string `json:"point_id"`
+				Street  string `json:"street"`
+			} `json:"pickup"`
 		} `json:"shipment"`
 	} `json:"order"`
 }

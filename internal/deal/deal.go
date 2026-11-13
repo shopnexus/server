@@ -2,6 +2,8 @@
 package deal
 
 import (
+	"time"
+
 	restate "github.com/restatedev/sdk-go"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
@@ -13,15 +15,16 @@ import (
 	"github.com/shopnexus/server2/internal/deal/worker"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/module"
-	"github.com/shopnexus/server2/internal/provider/carrier"
 )
 
-// Settings is what deal needs beyond the shared dependencies: the carrier
-// shipments are made and read at, and whether it is the fake, whose
-// shipments the dev endpoint moves.
+// Settings is what deal needs beyond the shared dependencies: module
+// shipping, which makes and reads shipments on the seller's accounts,
+// whether the carriers are the fake, whose shipments the dev endpoint
+// moves, and how often a shipped order's shipment is read again.
 type Settings struct {
-	Carrier     carrier.Client
+	Shipping    service.Shipping
 	FakeCarrier bool
+	PollEvery   time.Duration
 }
 
 // Mount registers the deal endpoints, subscribes the listing watch to the
@@ -29,9 +32,11 @@ type Settings struct {
 // deal's Restate services and the Service other modules read deals
 // through.
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service) module.Mounted[service.Service] {
+	waits := domain.OrderWaits
+	waits.Poll = s.PollEvery
 	svc := service.New(service.Deps{
-		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Catalog: catalog, Carrier: s.Carrier,
-		Waits: domain.OrderWaits, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
+		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Catalog: catalog, Shipping: s.Shipping,
+		Waits: waits, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, s.FakeCarrier)
 	watch := worker.ListingWatch{Prefix: d.ServicePrefix, Deals: svc}

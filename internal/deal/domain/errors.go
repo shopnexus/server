@@ -23,6 +23,12 @@ var (
 	// ErrCarrierUnavailable is a stack without a carrier (CARRIER=none):
 	// no shipment can be made, read or corrected there.
 	ErrCarrierUnavailable = apperr.New(apperr.KindUnavailable, "carrier_unavailable", "no carrier makes or reads shipments here")
+	// ErrCarrierNotLinked is a carrier the seller has not linked: module
+	// shipping reads and makes shipments only with the seller's own account.
+	ErrCarrierNotLinked = apperr.New(apperr.KindConflict, "carrier_not_linked", "the caller has not linked that carrier")
+	// ErrCarrierAddressUnknown is a recipient or pickup address the carrier
+	// does not deliver to or does not know.
+	ErrCarrierAddressUnknown = apperr.New(apperr.KindInvalid, "carrier_address_unknown", "the carrier does not know the address")
 	// errFailedParcel is a parcel the carrier reports failed, which no
 	// order ships on.
 	errFailedParcel = ErrInvalidShipment.WithField("tracking_code", "the carrier reports this parcel failed")

@@ -23,7 +23,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
-	"github.com/shopnexus/server2/internal/provider/carrier"
+	"github.com/shopnexus/server2/internal/shipping/shippingtest"
 	"github.com/shopnexus/server2/internal/trust/repository"
 	"github.com/shopnexus/server2/internal/trust/service"
 )
@@ -47,7 +47,7 @@ func newEnv(t *testing.T) env {
 	media := mediatest.Service(db, objectstoretest.New(t), in, p)
 	c := catalogtest.Service(db, accounts, media, in, p)
 	deals := dealsvc.New(dealsvc.Deps{
-		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Carrier: carrier.Fake{}, Waits: dealdomain.OrderWaits, Ingress: in,
+		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Shipping: shippingtest.Linked{}, Waits: dealdomain.OrderWaits, Ingress: in,
 		Prefix: p, Now: time.Now,
 	})
 	chats := chatsvc.New(chatsvc.Deps{

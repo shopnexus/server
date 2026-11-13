@@ -61,7 +61,7 @@ const (
 var carriers = []Carrier{CarrierGHTK, CarrierGHN, CarrierSPX, CarrierJT, CarrierViettelPost}
 
 // ShipmentMode says who made the shipment: the server on the seller's
-// linked GHTK account, or the seller on a carrier's own app.
+// linked account at GHTK or GHN, or the seller on a carrier's own app.
 type ShipmentMode string
 
 const (
@@ -88,6 +88,21 @@ type Shipment struct {
 	Fee          *int64         `json:"fee,omitempty"`
 	Status       ShipmentStatus `json:"status"`
 	DeliveredAt  *time.Time     `json:"delivered_at,omitempty"`
+	// Pickup is where the carrier takes a linked shipment's parcel; nil
+	// for a manual one, and for a linked one sent from the carrier's
+	// default pickup point.
+	Pickup *ShipmentPickup `json:"pickup,omitempty"`
+}
+
+// ShipmentPickup is the pickup of a linked shipment as the order keeps it:
+// one of the seller's pickup points at the carrier, or a copy of one of
+// the seller's addresses, which a later edit of the address leaves alone.
+type ShipmentPickup struct {
+	PointID     string `json:"point_id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Phone       string `json:"phone,omitempty"`
+	Street      string `json:"street,omitempty"`
+	CommuneCode string `json:"commune_code,omitempty"`
 }
 
 // LinkedService is the GHTK service a linked shipment goes by.
@@ -110,9 +125,13 @@ const (
 // LinkedDraft is what the seller picks for a linked shipment; the server
 // makes the shipment at GHTK.
 type LinkedDraft struct {
+	Carrier     Carrier       `json:"carrier"`
 	Service     LinkedService `json:"service"`
 	WeightGrams int           `json:"weight_grams"`
 	Pickup      Pickup        `json:"pickup"`
+	// From is where the carrier picks the parcel up; nil for the carrier's
+	// default pickup point.
+	From *ShipmentPickup `json:"from,omitempty"`
 }
 
 // Waits are how long the system waits before it moves an order on.
@@ -123,10 +142,14 @@ type Waits struct {
 	Pickup time.Duration
 	// Complete is how long a delivered parcel waits for the buyer's word.
 	Complete time.Duration
+	// Poll is how often a shipped order's shipment is read from its
+	// carrier, under the carrier's reports: CARRIER_POLL_EVERY.
+	Poll time.Duration
 }
 
-// OrderWaits are the waits of every order: 3 days each.
-var OrderWaits = Waits{Seller: 72 * time.Hour, Pickup: 72 * time.Hour, Complete: 72 * time.Hour}
+// OrderWaits are the waits of every order: 3 days each, and a read of the
+// shipment every 2 hours.
+var OrderWaits = Waits{Seller: 72 * time.Hour, Pickup: 72 * time.Hour, Complete: 72 * time.Hour, Poll: 2 * time.Hour}
 
 // Recipient is where the parcel goes. Phone is in the +84 form.
 type Recipient struct {
@@ -170,10 +193,15 @@ func Tracking(carrier, code string) (Carrier, string, error) {
 	return c, code, nil
 }
 
-// NewLinkedDraft checks what the seller picked for a linked shipment.
-func NewLinkedDraft(service string, weightGrams int, pickup string) (LinkedDraft, error) {
+// NewLinkedDraft checks what the seller picked for a linked shipment: a
+// carrier a seller can link, GHTK or GHN, the service, the weight and the
+// pickup.
+func NewLinkedDraft(carrier, service string, weightGrams int, pickup string) (LinkedDraft, error) {
 	e := ErrInvalidShipment
-	s, p := LinkedService(service), Pickup(pickup)
+	c, s, p := Carrier(carrier), LinkedService(service), Pickup(pickup)
+	if c != CarrierGHTK && c != CarrierGHN {
+		e = e.WithField("carrier", "ghtk or ghn")
+	}
 	if s != ServiceStandard && s != ServiceExpress {
 		e = e.WithField("service", "standard or express")
 	}
@@ -186,7 +214,7 @@ func NewLinkedDraft(service string, weightGrams int, pickup string) (LinkedDraft
 	if len(e.Fields) > 0 {
 		return LinkedDraft{}, e
 	}
-	return LinkedDraft{Service: s, WeightGrams: weightGrams, Pickup: p}, nil
+	return LinkedDraft{Carrier: c, Service: s, WeightGrams: weightGrams, Pickup: p}, nil
 }
 
 // ParseShipmentStatus reads a status a carrier, or the dev endpoint,

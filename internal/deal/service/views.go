@@ -104,13 +104,21 @@ func listingRef(l catalogsvc.Summary) ListingRef {
 // orderView shows o to viewer, with the recipient's commune at place.
 func orderView(o domain.Order, viewer domain.Party, place catalogsvc.Location) OrderView {
 	r := o.RecipientFor(viewer)
+	// Where the parcel is picked up is the seller's; the buyer reads the
+	// shipment without it.
+	sh := o.Shipment
+	if sh != nil && sh.Pickup != nil && viewer != domain.Seller {
+		copied := *sh
+		copied.Pickup = nil
+		sh = &copied
+	}
 	return OrderView{
 		ID: o.ID, Code: o.Code, Status: o.Status, Price: o.Price,
 		Recipient: RecipientView{
 			Name: r.Name, Phone: r.Phone, Street: r.Street, CommuneCode: r.CommuneCode,
 			Commune: place.Commune.DisplayName, Province: place.Province.DisplayName,
 		},
-		Shipment: o.Shipment, CancelledBy: o.CancelledBy, CancelReason: o.CancelReason,
+		Shipment: sh, CancelledBy: o.CancelledBy, CancelReason: o.CancelReason,
 		RequestedAt: o.RequestedAt, ShippedAt: o.ShippedAt, ClosedAt: o.ClosedAt,
 	}
 }

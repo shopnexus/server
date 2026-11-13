@@ -1,0 +1,251 @@
+carrierAccounts:
+  get:
+    operationId: listCarrierAccounts
+    summary: The carrier accounts the caller linked.
+    tags: [shipping]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: Linked accounts, GHN before GHTK, in code order.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/shipping.yaml#/CarrierAccountList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+carrierAccount:
+  parameters:
+    - name: carrier
+      in: path
+      required: true
+      description: ghtk or ghn; another value is 422 invalid_carrier.
+      schema:
+        type: string
+  put:
+    operationId: linkCarrierAccount
+    summary: Link the caller's account at a carrier, or replace the one linked.
+    description: |
+      GHTK: the seller's email and password, exchanged at once for the
+      shop's token through GHTK's partner API; the password is not stored.
+      GHN: the seller's token and ShopId, checked against GHN's shop list.
+      The token is stored encrypted and never returned.
+    tags: [shipping]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/shipping.yaml#/CarrierLogin"
+    responses:
+      "200":
+        description: The linked account.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/shipping.yaml#/CarrierAccount"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "422":
+        description: "The carrier refused the account (carrier_login_failed), or the carrier is not ghtk or ghn, or the body is the other carrier's (invalid_carrier)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: unlinkCarrierAccount
+    summary: Unlink the caller's account at a carrier.
+    tags: [shipping]
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Unlinked.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No account linked at that carrier (carrier_account_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "A shipment at that carrier is still open (shipments_open)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "Not ghtk or ghn (invalid_carrier)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+carrierPickups:
+  get:
+    operationId: listCarrierPickups
+    summary: The pickup points the caller registered at the carrier, read from it.
+    tags: [shipping]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: carrier
+        in: path
+        required: true
+        description: ghtk or ghn; another value is 422 invalid_carrier.
+        schema:
+          type: string
+    responses:
+      "200":
+        description: The carrier's pickup points; may be empty.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/shipping.yaml#/PickupPointList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "409":
+        description: "Not linked at that carrier, or its token no longer opens and the caller links it again (carrier_not_linked, carrier_relink_needed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "Not ghtk or ghn (invalid_carrier)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+shipmentQuote:
+  get:
+    operationId: quoteShipment
+    summary: The carrier's fee for a linked shipment of a pending order, read-only.
+    description: |
+      The seller, before making a linked shipment. The fee depends on the
+      order's recipient, the pickup and the weight. Give carrier_pickup_id
+      or address_id, or neither for the carrier's default pickup point.
+    tags: [shipping]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: order_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: carrier
+        in: query
+        required: true
+        description: ghtk or ghn; another value is 422 invalid_carrier.
+        schema:
+          type: string
+      - name: service
+        in: query
+        required: true
+        description: standard or express.
+        schema:
+          type: string
+      - name: weight_grams
+        in: query
+        required: true
+        description: 1 to 20,000 grams.
+        schema:
+          type: integer
+      - name: carrier_pickup_id
+        in: query
+        required: false
+        description: One of the carrier's pickup points, from GET /v1/carrier-accounts/{carrier}/pickups.
+        schema:
+          type: string
+      - name: address_id
+        in: query
+        required: false
+        description: An address of the caller's from GET /v1/addresses.
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The fee.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/shipping.yaml#/Quote"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such order of the caller's (order_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "Not linked at that carrier, or its token no longer opens and the caller links it again (carrier_not_linked, carrier_relink_needed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "Not ghtk or ghn (invalid_carrier); the service, weight or pickup breaks a rule (invalid_shipment, with fields); the carrier does not know an address (carrier_address_unknown); or the carrier refused, its words in details.reason (carrier_refused)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+carrierWebhook:
+  post:
+    operationId: carrierWebhook
+    summary: A carrier's status report.
+    description: |
+      GHTK and GHN call it with the secret ShopNexus gave them in the
+      path; GHTK signs nothing. GHTK posts label_id and status_id,
+      form-encoded or as JSON; GHN posts JSON with OrderCode and Status.
+      The operation declares no request body, so the request validator
+      leaves any body to the handler: once the secret matches it answers
+      200, also for a code no order has or a body it cannot read, so the
+      carrier does not resend.
+    tags: [shipping]
+    parameters:
+      - name: carrier
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: secret
+        in: path
+        required: true
+        schema:
+          type: string
+    responses:
+      "200":
+        description: Taken.
+      "404":
+        description: "Wrong carrier or secret (not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

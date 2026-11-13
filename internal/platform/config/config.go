@@ -56,12 +56,32 @@ type Config struct {
 	Firebase       FirebaseConfig
 	Email          EmailConfig
 	Google         GoogleConfig
-	// Carrier is CARRIER, where shipments are made and read. fake (dev and
-	// test) knows every tracking code but those that start with NOTFOUND,
-	// and with it the server serves the dev endpoint that moves its
-	// shipments; APP_ENV=prod refuses it. none (production until a real
-	// carrier comes) makes and reads no shipment.
-	Carrier string
+	Carrier        CarrierConfig
+}
+
+// CarrierConfig says where shipments are made and read, on the accounts
+// sellers link at GHTK and GHN. The tokens and the key are never logged.
+type CarrierConfig struct {
+	// Mode is CARRIER: fake (dev and test) links any account but the
+	// password or token "wrong" and knows every tracking code but those
+	// that start with NOTFOUND, and with it the server serves the dev
+	// endpoint that moves its shipments; APP_ENV=prod refuses it. none
+	// (production until the GHTK partner contract) makes and reads no
+	// shipment. live calls GHTK and GHN.
+	Mode string
+	// TokenKey is CARRIER_TOKEN_KEY: base64 of 32 bytes, the AES-GCM key
+	// of the carrier tokens sellers link; one per environment.
+	TokenKey []byte
+	// PollEvery is CARRIER_POLL_EVERY: how often a shipped order's
+	// shipment is read from its carrier, under the carriers' reports.
+	PollEvery time.Duration
+	// With CARRIER=live only, empty otherwise.
+	GHTKURL     string //exhaustruct:optional GHTK_API_URL
+	GHTKPartner string //exhaustruct:optional GHTK_PARTNER_TOKEN: ShopNexus's B2C token
+	GHTKSource  string //exhaustruct:optional GHTK_CLIENT_SOURCE: ShopNexus's partner code
+	GHTKWebhook string //exhaustruct:optional GHTK_WEBHOOK_SECRET: the secret in GHTK's webhook path
+	GHNURL      string //exhaustruct:optional GHN_API_URL: ends in /shiip/public-api
+	GHNWebhook  string //exhaustruct:optional GHN_WEBHOOK_SECRET: the secret in GHN's webhook path
 }
 
 // PushConfig says how pushes reach phones. Empty credentials mean the log
@@ -399,9 +419,14 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			ResendAPIKey: set("RESEND_API_KEY"),
 			From:         need("EMAIL_FROM"),
 		},
-		Google:  GoogleConfig{ClientID: set("GOOGLE_CLIENT_ID"), JWKSURL: need("GOOGLE_JWKS_URL")},
-		Carrier: oneOf("CARRIER", "fake", "none"),
-		LLM:     LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
+		Google: GoogleConfig{ClientID: set("GOOGLE_CLIENT_ID"), JWKSURL: need("GOOGLE_JWKS_URL")},
+		Carrier: CarrierConfig{
+			Mode: oneOf("CARRIER", "fake", "none", "live"), TokenKey: decodeKey("CARRIER_TOKEN_KEY", 32, true),
+			PollEvery: duration("CARRIER_POLL_EVERY"),
+			GHTKURL:   set("GHTK_API_URL"), GHTKPartner: set("GHTK_PARTNER_TOKEN"), GHTKSource: set("GHTK_CLIENT_SOURCE"),
+			GHTKWebhook: set("GHTK_WEBHOOK_SECRET"), GHNURL: set("GHN_API_URL"), GHNWebhook: set("GHN_WEBHOOK_SECRET"),
+		},
+		LLM: LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
 		Embed: EmbedConfig{
 			TextBaseURL: need("EMBED_TEXT_BASE_URL"), ImageBaseURL: need("EMBED_IMAGE_BASE_URL"),
 			TextModel: need("EMBED_TEXT_MODEL"), ImageModel: need("EMBED_IMAGE_MODEL"),
@@ -444,6 +469,22 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		errs = append(errs, errors.New("RESTATE_IDENTITY_KEY must start with publickeyv1_"))
 	default:
 		// Unset outside prod, or set and well formed.
+	}
+
+	// live needs every GHTK and GHN setting; fake and none take none, so a
+	// stack never half-points at a real carrier.
+	c := cfg.Carrier
+	for key, v := range map[string]string{
+		"GHTK_API_URL": c.GHTKURL, "GHTK_PARTNER_TOKEN": c.GHTKPartner, "GHTK_CLIENT_SOURCE": c.GHTKSource,
+		"GHTK_WEBHOOK_SECRET": c.GHTKWebhook, "GHN_API_URL": c.GHNURL, "GHN_WEBHOOK_SECRET": c.GHNWebhook,
+	} {
+		switch {
+		case c.Mode == "live" && v == "":
+			errs = append(errs, fmt.Errorf("%s is required with CARRIER=live", key))
+		case c.Mode != "live" && v != "":
+			errs = append(errs, fmt.Errorf("%s is set only with CARRIER=live", key))
+		default:
+		}
 	}
 
 	if cfg.Email.Sender == "resend" && cfg.Email.ResendAPIKey == "" {

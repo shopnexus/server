@@ -13,24 +13,30 @@ import (
 	"github.com/shopnexus/server2/internal/provider/carrier"
 )
 
-// EditShipment checks the corrected carrier and code and reads them from
-// the carrier, then finds the caller's order and puts them on its manual
-// shipment. A code the carrier does not know is domain.ErrShipmentUnknown;
-// a stack without a carrier is domain.ErrCarrierUnavailable, for any
-// order; a deal the other side moved meanwhile is domain.ErrChanged.
+// EditShipment checks the corrected carrier and code and reads them with
+// the caller's account at the carrier, then finds the caller's order and
+// puts them on its manual shipment. A code the carrier does not know is
+// domain.ErrShipmentUnknown and a stack without a carrier
+// domain.ErrCarrierUnavailable, for any order; a carrier the caller has
+// not linked is domain.ErrCarrierNotLinked once the order is the caller's
+// to ship; a deal the other side moved meanwhile is domain.ErrChanged.
 func (s *Deals) EditShipment(ctx context.Context, caller, order uuid.UUID, carrierCode, trackingCode string) (DealView, error) {
 	c, code, err := domain.Tracking(carrierCode, trackingCode)
 	if err != nil {
 		return DealView{}, err
 	}
-	p, err := s.carrier.Lookup(ctx, carrier.Carrier(c), code)
-	switch {
-	case errors.Is(err, carrier.ErrNotFound):
-		return DealView{}, domain.ErrShipmentUnknown
-	case errors.Is(err, carrier.ErrUnavailable):
-		return DealView{}, domain.ErrCarrierUnavailable
-	case err != nil:
-		return DealView{}, fmt.Errorf("read the shipment from %s: %w", c, err)
+	p, err := s.shipping.Lookup(ctx, caller, carrier.Carrier(c), code)
+	err = shippingError(err, domain.ErrShipmentUnknown)
+	if err != nil && !errors.Is(err, domain.ErrCarrierNotLinked) {
+		return DealView{}, err
+	}
+	// A stranger, or the buyer, links nothing: their order answer comes
+	// before the carrier's.
+	if err != nil {
+		if orderErr := s.checkSeller(ctx, caller, order); orderErr != nil {
+			return DealView{}, orderErr
+		}
+		return DealView{}, err
 	}
 	deal, err := s.orderDeal(ctx, caller, order)
 	if err != nil {

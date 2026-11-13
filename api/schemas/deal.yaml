@@ -217,7 +217,7 @@ Carrier:
   enum: [ghtk, ghn, spx, jt, viettel_post]
   description: The carriers ShopNexus can read; there is no other.
 ShipmentDraft:
-  description: A manual shipment the seller made on a carrier's own app, or a linked one to make on the seller's GHTK account.
+  description: A manual shipment the seller made on a carrier's own app, or a linked one to make on the seller's account at GHTK or GHN.
   oneOf:
     - $ref: "#/ManualShipmentDraft"
     - $ref: "#/LinkedShipmentDraft"
@@ -231,18 +231,21 @@ ManualShipmentDraft:
       enum: [manual]
     carrier:
       type: string
-      description: ghtk, ghn, spx, jt or viettel_post; another value is 422 invalid_shipment.
+      description: ghtk, ghn, spx, jt or viettel_post; another value is 422 invalid_shipment. The code is read with the caller's account at that carrier, so only a linked carrier works (409 carrier_not_linked).
     tracking_code:
       type: string
       description: 1 to 50 characters once trimmed. A code the carrier does not know is 422 shipment_not_found.
 LinkedShipmentDraft:
   type: object
   additionalProperties: false
-  required: [mode, service, weight_grams, pickup]
+  required: [mode, carrier, service, weight_grams, pickup]
   properties:
     mode:
       type: string
       enum: [linked]
+    carrier:
+      type: string
+      description: ghtk or ghn, a carrier the caller linked; another value is 422 invalid_shipment, an unlinked one 409 carrier_not_linked.
     service:
       type: string
       description: standard or express.
@@ -251,7 +254,19 @@ LinkedShipmentDraft:
       description: The parcel's weight, 1 to 20,000 grams.
     pickup:
       type: string
-      description: home (GHTK picks the parcel up from the seller) or post_office (the seller brings it to one).
+      description: home (the carrier picks the parcel up from the seller) or post_office (the seller brings it to one).
+    pickup_from:
+      type: object
+      additionalProperties: false
+      description: Where the carrier picks the parcel up, exactly one of the two; absent, the carrier's default pickup point. The order keeps a copy.
+      properties:
+        carrier_pickup_id:
+          type: string
+          description: One of the carrier's pickup points, from GET /v1/carrier-accounts/{carrier}/pickups.
+        address_id:
+          type: string
+          format: uuid
+          description: An address of the caller's from GET /v1/addresses.
 TrackingCode:
   type: object
   additionalProperties: false
@@ -329,7 +344,7 @@ Shipment:
     mode:
       type: string
       enum: [linked, manual]
-      description: linked is made on the seller's GHTK account; manual, on a carrier's own app and typed by the seller.
+      description: linked is made on the seller's account at GHTK or GHN; manual, on a carrier's own app and typed by the seller.
     carrier:
       $ref: "#/Carrier"
     tracking_code:
@@ -344,6 +359,8 @@ Shipment:
       type: string
       format: date-time
       description: When the carrier reported the parcel delivered; present while status is delivered.
+    pickup:
+      $ref: "#/ShipmentPickup"
 CancelReason:
   type: string
   enum: [buyer, seller, seller_timeout, pickup_timeout, shipped_to_another, listing_closed]
@@ -450,3 +467,18 @@ OrderList:
       type: string
       format: uuid
       description: Present when more orders follow; pass it as cursor.
+ShipmentPickup:
+  type: object
+  additionalProperties: false
+  description: "Where a linked shipment is picked up, as the order keeps it: a carrier's pickup point, or a copy of the seller's address."
+  properties:
+    point_id:
+      type: string
+    name:
+      type: string
+    phone:
+      type: string
+    street:
+      type: string
+    commune_code:
+      type: string

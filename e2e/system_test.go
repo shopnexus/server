@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/shopnexus/server2/internal/app"
 	"github.com/shopnexus/server2/internal/platform/config"
@@ -29,7 +30,7 @@ func TestReadyzDown(t *testing.T) {
 		Restate:     restatetest.Config(t),
 		Auth:        keys,
 		Console:     config.ConsoleConfig{Key: config.NewConsoleKey(), Origin: "http://console.e2e"},
-		Carrier:     "fake",
+		Carrier:     config.CarrierConfig{Mode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
 	}
 	objectStore, err := objectstoretest.Config()
 	if err != nil {

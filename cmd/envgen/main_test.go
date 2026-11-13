@@ -40,7 +40,7 @@ func TestEnsureEnvCreatesEveryKey(t *testing.T) {
 	}
 
 	got := read(t, env)
-	for _, k := range []string{"JWT_KEY_ID", "JWT_PRIVATE_KEY", "CONSOLE_KEY", "OTP_KEY", "RESTATE_IDENTITY_KEY"} {
+	for _, k := range []string{"JWT_KEY_ID", "JWT_PRIVATE_KEY", "CONSOLE_KEY", "OTP_KEY", "CARRIER_TOKEN_KEY", "RESTATE_IDENTITY_KEY"} {
 		if value(got, k) == "" {
 			t.Errorf("%s is empty in\n%s", k, got)
 		}
@@ -50,6 +50,10 @@ func TestEnsureEnvCreatesEveryKey(t *testing.T) {
 	}
 	if key, err := base64.StdEncoding.DecodeString(value(got, "OTP_KEY")); err != nil || len(key) != 32 {
 		t.Errorf("OTP_KEY is not base64 of 32 bytes: %d bytes, %v", len(key), err)
+	}
+	if key, err := base64.StdEncoding.DecodeString(value(got, "CARRIER_TOKEN_KEY")); err != nil || len(key) != 32 ||
+		value(got, "CARRIER_TOKEN_KEY") == value(got, "OTP_KEY") {
+		t.Errorf("CARRIER_TOKEN_KEY is not a fresh base64 of 32 bytes: %d bytes, %v", len(key), err)
 	}
 	public, err := restatex.IdentityKey(pem)
 	if err != nil {
