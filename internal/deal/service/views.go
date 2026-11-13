@@ -169,12 +169,19 @@ func (s *Deals) read(ctx context.Context, viewer uuid.UUID, d domain.Deal, l cat
 	return view(viewer, d, l, moves[d.ID()], place), nil
 }
 
-// OrderFacts is what another module reads of an order.
+// OrderFacts is what another module reads of an order: module support
+// checks a report of a parcel that did not arrive against it.
 type OrderFacts struct {
-	BuyerID   uuid.UUID
-	SellerID  uuid.UUID
-	ListingID uuid.UUID
-	Status    domain.OrderStatus
+	BuyerID     uuid.UUID
+	SellerID    uuid.UUID
+	ListingID   uuid.UUID
+	Status      domain.OrderStatus
+	Code        string
+	Price       int64
+	Shipment    *domain.Shipment
+	CompletedBy domain.Party
+	ShippedAt   *time.Time
+	ClosedAt    *time.Time
 }
 
 // DealSummary is the DealSummary schema in api/schemas/deal.yaml.

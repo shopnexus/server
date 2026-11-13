@@ -169,6 +169,9 @@ type Order struct {
 	Recipient    Recipient    `json:"recipient"`
 	Shipment     *Shipment    `json:"shipment,omitempty"`
 	CancelledBy  Party        `json:"cancelled_by,omitempty"`
+	// CompletedBy is the buyer, who confirmed receipt, or the system, after
+	// the carrier reported the parcel delivered; empty until completed.
+	CompletedBy Party `json:"completed_by,omitempty"`
 	CancelReason CancelReason `json:"cancel_reason,omitempty"`
 	RequestedAt  time.Time    `json:"requested_at"`
 	ShippedAt    *time.Time   `json:"shipped_at,omitempty"`

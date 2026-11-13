@@ -502,7 +502,7 @@ func (d *Deal) cancelOrder(by Party, reason CancelReason, now time.Time) {
 
 // complete ends the shipped order completed; the deal is sold.
 func (d *Deal) complete(by Party, now time.Time) {
-	d.order.Status, d.order.ClosedAt, d.status = OrderCompleted, &now, StatusSold
+	d.order.Status, d.order.ClosedAt, d.order.CompletedBy, d.status = OrderCompleted, &now, by, StatusSold
 	d.record(MoveCompleted, by, 0, now)
 }
 

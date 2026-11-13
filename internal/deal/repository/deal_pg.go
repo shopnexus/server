@@ -27,7 +27,7 @@ const dealColumns = `id, listing_id, buyer_id, seller_id, status, open_by, open_
 const orderColumns = `o.id, o.code, o.status, o.price, o.recipient_name, o.recipient_phone, o.recipient_street,
        o.recipient_commune, o.shipment_mode, o.carrier, o.tracking_code, o.fee, o.shipment_status, o.delivered_at,
        o.pickup_point_id, o.pickup_name, o.pickup_phone, o.pickup_street, o.pickup_commune,
-       o.cancelled_by, o.cancel_reason, o.requested_at, o.shipped_at, o.closed_at`
+       o.cancelled_by, o.cancel_reason, o.completed_by, o.requested_at, o.shipped_at, o.closed_at`
 
 // selectDeal reads deals as d with each one's latest order.
 const selectDeal = `SELECT d.id, d.listing_id, d.buyer_id, d.seller_id, d.status, d.open_by, d.open_amount, d.open_at,
@@ -50,6 +50,7 @@ type orderScan struct {
 	pickupPhone, pickupStreet      *string
 	pickupCommune                  *string
 	cancelledBy, cancelReason      *string
+	completedBy                    *string
 	requestedAt                    *time.Time
 	shippedAt, closedAt            *time.Time
 }
@@ -58,7 +59,7 @@ func (o *orderScan) dest() []any {
 	return []any{
 		&o.id, &o.code, &o.status, &o.price, &o.name, &o.phone, &o.street, &o.commune, &o.mode, &o.carrier, &o.tracking,
 		&o.fee, &o.state, &o.deliveredAt, &o.pickupPoint, &o.pickupName, &o.pickupPhone, &o.pickupStreet, &o.pickupCommune,
-		&o.cancelledBy, &o.cancelReason, &o.requestedAt, &o.shippedAt, &o.closedAt,
+		&o.cancelledBy, &o.cancelReason, &o.completedBy, &o.requestedAt, &o.shippedAt, &o.closedAt,
 	}
 }
 
@@ -83,6 +84,9 @@ func (o *orderScan) order() *domain.Order {
 				Street: deref(o.pickupStreet), CommuneCode: deref(o.pickupCommune),
 			}
 		}
+	}
+	if o.completedBy != nil {
+		out.CompletedBy = domain.Party(*o.completedBy)
 	}
 	if o.cancelledBy != nil {
 		out.CancelledBy, out.CancelReason = domain.Party(*o.cancelledBy), domain.CancelReason(*o.cancelReason)
@@ -208,17 +212,17 @@ const upsertOrder = `
 INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name, recipient_phone,
                     recipient_street, recipient_commune, shipment_mode, carrier, tracking_code, fee, shipment_status,
                     delivered_at, pickup_point_id, pickup_name, pickup_phone, pickup_street, pickup_commune,
-                    cancelled_by, cancel_reason, requested_at, shipped_at, closed_at)
+                    cancelled_by, cancel_reason, completed_by, requested_at, shipped_at, closed_at)
 VALUES (@id, @deal_id, @listing_id, @buyer_id, @seller_id, @status, @price, @recipient_name, @recipient_phone,
         @recipient_street, @recipient_commune, @shipment_mode, @carrier, @tracking_code, @fee, @shipment_status,
         @delivered_at, @pickup_point_id, @pickup_name, @pickup_phone, @pickup_street, @pickup_commune,
-        @cancelled_by, @cancel_reason, @requested_at, @shipped_at, @closed_at)
+        @cancelled_by, @cancel_reason, @completed_by, @requested_at, @shipped_at, @closed_at)
 ON CONFLICT (id) DO UPDATE
 SET status = excluded.status, shipment_mode = excluded.shipment_mode, carrier = excluded.carrier,
     tracking_code = excluded.tracking_code, fee = excluded.fee, shipment_status = excluded.shipment_status,
     delivered_at = excluded.delivered_at, pickup_point_id = excluded.pickup_point_id, pickup_name = excluded.pickup_name,
     pickup_phone = excluded.pickup_phone, pickup_street = excluded.pickup_street, pickup_commune = excluded.pickup_commune,
-    cancelled_by = excluded.cancelled_by, cancel_reason = excluded.cancel_reason,
+    cancelled_by = excluded.cancelled_by, cancel_reason = excluded.cancel_reason, completed_by = excluded.completed_by,
     shipped_at = excluded.shipped_at, closed_at = excluded.closed_at`
 
 // errSaved ends a save whose row already has its write ID: an earlier try
@@ -235,7 +239,7 @@ func orderArgs(st domain.DealState, o domain.Order) pgx.StrictNamedArgs {
 		"recipient_commune": o.Recipient.CommuneCode, "shipment_mode": nil, "carrier": nil, "tracking_code": nil,
 		"fee": nil, "shipment_status": nil, "delivered_at": nil, "pickup_point_id": nil, "pickup_name": nil,
 		"pickup_phone": nil, "pickup_street": nil, "pickup_commune": nil, "cancelled_by": nil, "cancel_reason": nil,
-		"requested_at": o.RequestedAt, "shipped_at": o.ShippedAt, "closed_at": o.ClosedAt,
+		"completed_by": nil, "requested_at": o.RequestedAt, "shipped_at": o.ShippedAt, "closed_at": o.ClosedAt,
 	}
 	if s := o.Shipment; s != nil {
 		a["shipment_mode"], a["carrier"], a["tracking_code"] = s.Mode, s.Carrier, s.TrackingCode
@@ -247,6 +251,9 @@ func orderArgs(st domain.DealState, o domain.Order) pgx.StrictNamedArgs {
 	}
 	if o.CancelledBy != "" {
 		a["cancelled_by"], a["cancel_reason"] = o.CancelledBy, o.CancelReason
+	}
+	if o.CompletedBy != "" {
+		a["completed_by"] = o.CompletedBy
 	}
 	return a
 }

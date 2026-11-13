@@ -588,3 +588,17 @@ func TestShippedDealRoundTripsThroughJSON(t *testing.T) {
 		t.Fatalf("%s", b)
 	}
 }
+
+func TestCompletionRecordsWhoCompleted(t *testing.T) {
+	t.Parallel()
+	auto := reported(t, domain.ShipmentDelivered)
+	must(t, auto.AutoComplete(auto.Order().ID, later))
+	byBuyer := shipped(t)
+	must(t, byBuyer.ConfirmReceipt(domain.Buyer, byBuyer.Order().ID, later))
+	if auto.Order().CompletedBy != domain.System || byBuyer.Order().CompletedBy != domain.Buyer {
+		t.Fatalf("auto %q, buyer %q", auto.Order().CompletedBy, byBuyer.Order().CompletedBy)
+	}
+	if open := shipped(t); open.Order().CompletedBy != "" {
+		t.Fatalf("an open order: %q", open.Order().CompletedBy)
+	}
+}
