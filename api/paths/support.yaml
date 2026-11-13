@@ -1,10 +1,29 @@
-feedback:
+tickets:
+  get:
+    operationId: listMyTickets
+    summary: The caller's tickets, open ones first, each newest activity first.
+    tags: [support]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: Every ticket of the caller's; a person has few.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/support.yaml#/TicketList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
   post:
-    operationId: sendFeedback
-    summary: Send feedback to ShopNexus.
+    operationId: openTicket
+    summary: Open a ticket and its chat with ShopNexus.
     description: |
-      At most 10 per account in 24 hours. A repeated Idempotency-Key returns
-      the feedback its first request added, also at the limit.
+      not_received needs order_id, an order of the caller's as buyer that is
+      shipped or was completed by the system less than 7 days ago; an order
+      that has its ticket returns that ticket with 200. carrier_request needs
+      carrier_name. other needs body. At most 10 new tickets in 24 hours. A
+      repeated Idempotency-Key returns the ticket its first request opened. A
+      suspended account may open one.
     tags: [support]
     security:
       - bearerAuth: []
@@ -15,28 +34,91 @@ feedback:
       content:
         application/json:
           schema:
-            $ref: "../schemas/support.yaml#/FeedbackCreate"
+            $ref: "../schemas/support.yaml#/TicketOpen"
     responses:
-      "201":
-        description: Sent.
+      "200":
+        description: The ticket this request or this order already has.
         content:
           application/json:
             schema:
-              $ref: "../schemas/support.yaml#/Feedback"
+              $ref: "../schemas/support.yaml#/Ticket"
+      "201":
+        description: Opened.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/support.yaml#/Ticket"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
         $ref: "../responses/common.yaml#/Forbidden"
+      "404":
+        description: "No such order of the caller's as buyer (order_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The order is not shipped, or was completed by the buyer or more than 7 days ago (ticket_not_allowed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "Empty after trimming or over 1000 characters (invalid_feedback)."
+        description: "A field the kind needs is missing or out of range (invalid_ticket, with fields)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "429":
-        description: "10 feedbacks in the last 24 hours (feedback_limit_reached)."
+        description: "10 tickets in the last 24 hours (too_many_tickets)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+summary:
+  get:
+    operationId: getSupportSummary
+    summary: Open tickets and unread replies, for Tôi and Trợ giúp.
+    tags: [support]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The counts and the newest ticket with an unread reply.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/support.yaml#/SupportSummary"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+orderTicket:
+  get:
+    operationId: getOrderTicket
+    summary: The ticket of one of the caller's orders, for "Xem yêu cầu".
+    tags: [support]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The ticket.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/support.yaml#/Ticket"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "The order has no ticket of the caller's (ticket_not_found)."
         content:
           application/json:
             schema:

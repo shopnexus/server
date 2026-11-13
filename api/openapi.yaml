@@ -191,8 +191,12 @@ paths:
     $ref: "paths/discovery.yaml#/priceCutAlerts"
   /v1/hidden/{listing_id}:
     $ref: "paths/discovery.yaml#/hiddenListing"
-  /v1/feedback:
-    $ref: "paths/support.yaml#/feedback"
+  /v1/support/tickets:
+    $ref: "paths/support.yaml#/tickets"
+  /v1/support/summary:
+    $ref: "paths/support.yaml#/summary"
+  /v1/support/orders/{order_id}/ticket:
+    $ref: "paths/support.yaml#/orderTicket"
   /v1/console/login:
     $ref: "paths/console.yaml#/login"
   /v1/console/login/totp-enrollment:
@@ -217,8 +221,20 @@ paths:
     $ref: "paths/console.yaml#/memberResetTotp"
   /v1/console/accounts:
     $ref: "paths/console.yaml#/accounts"
-  /v1/console/feedback:
-    $ref: "paths/console.yaml#/feedback"
+  /v1/console/support/tickets:
+    $ref: "paths/console.yaml#/supportTickets"
+  /v1/console/support/tickets/{id}:
+    $ref: "paths/console.yaml#/supportTicket"
+  /v1/console/support/tickets/{id}/messages:
+    $ref: "paths/console.yaml#/supportTicketMessages"
+  /v1/console/support/tickets/{id}/replies:
+    $ref: "paths/console.yaml#/supportTicketReplies"
+  /v1/console/support/tickets/{id}/resolve:
+    $ref: "paths/console.yaml#/supportTicketResolve"
+  /v1/console/support/tickets/{id}/reopen:
+    $ref: "paths/console.yaml#/supportTicketReopen"
+  /v1/console/support/summary:
+    $ref: "paths/console.yaml#/supportSummary"
   /v1/console/accounts/{id}:
     $ref: "paths/console.yaml#/account"
   /v1/console/accounts/{id}/suspend:

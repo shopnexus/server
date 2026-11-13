@@ -167,6 +167,12 @@ reports:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The reported conversation is a support chat (conversation_is_support)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 report:
   delete:
     operationId: withdrawReport

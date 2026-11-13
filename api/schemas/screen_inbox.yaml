@@ -44,6 +44,9 @@ InboxItem:
       description: The pair's negotiating or agreed deals besides deal.
     scam_warning:
       $ref: "trust.yaml#/ScamWarning"
+    ticket:
+      $ref: "support.yaml#/Ticket"
+      description: Present for a support chat, whose other side is ShopNexus.
 InboxSearch:
   type: object
   additionalProperties: false

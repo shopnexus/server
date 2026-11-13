@@ -1,21 +1,112 @@
-FeedbackCreate:
+TicketKind:
+  type: string
+  enum: [not_received, carrier_request, other]
+TicketStatus:
+  type: string
+  enum: [open, resolved]
+TicketOpen:
   type: object
   additionalProperties: false
-  required: [body]
+  required: [kind]
   properties:
+    kind:
+      $ref: "#/TicketKind"
+    order_id:
+      type: string
+      format: uuid
+      description: not_received only.
+    carrier_name:
+      type: string
+      description: carrier_request only; 1 to 50 characters after trimming (invalid_ticket).
     body:
       type: string
-      description: 1 to 1000 characters after trimming; a business rule (invalid_feedback).
-Feedback:
+      description: The first message, at most 1000 characters after trimming; other needs at least 1 (invalid_ticket).
+TicketOrder:
   type: object
   additionalProperties: false
-  required: [id, body, created_at]
+  required: [id, title]
   properties:
     id:
       type: string
       format: uuid
-    body:
+    title:
       type: string
-    created_at:
+    photo_url:
+      type: string
+      format: uri
+    carrier:
+      type: string
+    tracking_code:
+      type: string
+TicketEvent:
+  type: object
+  additionalProperties: false
+  required: [kind, at]
+  properties:
+    kind:
+      type: string
+      enum: [opened, resolved, reopened]
+    at:
       type: string
       format: date-time
+Ticket:
+  type: object
+  additionalProperties: false
+  required: [id, kind, status, conversation_id, opened_at, events]
+  properties:
+    id:
+      type: string
+      format: uuid
+    kind:
+      $ref: "#/TicketKind"
+    status:
+      $ref: "#/TicketStatus"
+    conversation_id:
+      type: string
+      format: uuid
+    first_message_id:
+      type: string
+      format: uuid
+      description: The message the app draws as the ticket's card; absent for a moment while the ticket opens.
+    order:
+      $ref: "#/TicketOrder"
+    carrier_name:
+      type: string
+    opened_at:
+      type: string
+      format: date-time
+    events:
+      type: array
+      items:
+        $ref: "#/TicketEvent"
+TicketListItem:
+  type: object
+  additionalProperties: false
+  required: [ticket, unread]
+  properties:
+    ticket:
+      $ref: "#/Ticket"
+    last_message:
+      $ref: "chat.yaml#/Message"
+    unread:
+      type: integer
+TicketList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/TicketListItem"
+SupportSummary:
+  type: object
+  additionalProperties: false
+  required: [open, unread]
+  properties:
+    open:
+      type: integer
+    unread:
+      type: integer
+    latest_unread:
+      $ref: "#/TicketListItem"

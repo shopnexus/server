@@ -33,6 +33,10 @@ MessageDraft:
       type: string
       format: uuid
       description: A listing of either member the message is about.
+    reply_to:
+      type: string
+      format: uuid
+      description: A sent message of the same conversation the message quotes (invalid_message, field reply_to).
 ReadMark:
   type: object
   additionalProperties: false
@@ -65,6 +69,9 @@ Person:
     deleted:
       type: boolean
       description: The person deleted their account; display_name is empty and there is no avatar.
+    official:
+      type: boolean
+      description: ShopNexus itself, the other side of every support chat.
 MessagePhoto:
   type: object
   additionalProperties: false
@@ -107,6 +114,8 @@ Message:
     failure:
       type: string
       description: Why media refused a photo, on a failed message.
+    reply_to:
+      $ref: "#/Quote"
     created_at:
       type: string
       format: date-time
@@ -141,4 +150,21 @@ Unread:
   required: [unread]
   properties:
     unread:
+      type: integer
+Quote:
+  type: object
+  additionalProperties: false
+  required: [id, sender_id, text, photos]
+  description: The message a reply quotes, as it reads now.
+  properties:
+    id:
+      type: string
+      format: uuid
+    sender_id:
+      type: string
+      format: uuid
+    text:
+      type: string
+      description: The first 200 characters.
+    photos:
       type: integer

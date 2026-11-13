@@ -47,3 +47,22 @@ ConsoleAccountID:
   schema:
     type: string
     format: uuid
+ConsoleTicketID:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: string
+    format: uuid
+TicketStatusQuery:
+  name: status
+  in: query
+  required: true
+  schema:
+    $ref: "../schemas/support.yaml#/TicketStatus"
+TicketKindQuery:
+  name: kind
+  in: query
+  required: false
+  schema:
+    $ref: "../schemas/support.yaml#/TicketKind"

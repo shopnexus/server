@@ -236,6 +236,12 @@ blocks:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+      "409":
+        description: "ShopNexus cannot be blocked (conversation_is_support)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 block:
   delete:
     operationId: unblockAccount
