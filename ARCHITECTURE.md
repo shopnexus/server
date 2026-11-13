@@ -968,12 +968,14 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server2-order-flow.md`).
   which needs no Restate. A completed order makes the deal `sold`; a
   failure or a cancel makes it negotiate again without its agreed price.
 - The seller ships with a shipment, which replaced the waybill on
-  2026-11-12. `linked`: the server makes it on the seller's GHTK account
-  (service `standard` or `express`, 1 to 20,000 g, pickup at `home` or at a
-  `post_office`); part 1 does not check that the seller linked an account.
+  2026-11-12. `linked`: the server makes it on the seller's account at
+  GHTK or GHN (service `standard` or `express`, 1 to 20,000 g, pickup at
+  `home` or at a `post_office`), picked up at one of the carrier's pickup
+  points or at one of the seller's addresses, which the order copies.
   `manual`: the seller made it on a carrier's own app and types the code;
-  the server reads it from the carrier, and a code the carrier does not
-  know is 422 `shipment_not_found`. The carriers are `ghtk`, `ghn`, `spx`,
+  the server reads it with the seller's account at that carrier, and a code
+  the account does not know is 422 `shipment_not_found`. A carrier the
+  seller has not linked is 409 `carrier_not_linked` (see Shipping). The carriers are `ghtk`, `ghn`, `spx`,
   `jt` and `viettel_post`, the ones ShopNexus can read; there is no
   "other". The fee is the carrier's, null while it has none. The
   shipment's status is the carrier's: `pending_pickup`, `in_transit`,
@@ -985,7 +987,8 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server2-order-flow.md`).
   the shipment the seller's only move is correcting a manual shipment's
   carrier and code while it is `pending_pickup` or `in_transit`.
 - `POST /v1/orders/{order_id}/shipment` takes `{mode: manual, carrier,
-  tracking_code}` or `{mode: linked, service, weight_grams, pickup}`; its
+  tracking_code}` or `{mode: linked, carrier, service, weight_grams, pickup,
+  pickup_from}`; its
   `mode` picks a branch of a `oneOf`, and every other rule is the domain's
   422 `invalid_shipment` with fields. `PUT` on the same path corrects a
   manual shipment; `POST /v1/orders/{order_id}/confirm` is the buyer's;
@@ -1016,9 +1019,9 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server2-order-flow.md`).
   Restate flows, `DealShip` and `DealConfirm`, with the invocation key
   `<caller id>/<Idempotency-Key>`. `DealShip` checks a manual shipment
   whole, or a linked one's order and listing, reserves the listing, makes
-  a linked shipment at GHTK, then saves. When that save loses a race it
-  releases the listing and calls off a GHTK shipment the order did not
-  take. `DealConfirm` saves, then sells the listing.
+  a linked shipment through shipping, then saves. A refusal of shipping's
+  gives the listing back. When the save loses a race it releases the
+  listing and calls off a linked shipment the order did not take. `DealConfirm` saves, then sells the listing.
 - A flow journals the deal it loaded and replays the domain move, which
   mints new move IDs. `Save` therefore treats a row that already has the
   write ID as an earlier try that committed and writes nothing more, where
@@ -1033,35 +1036,36 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server2-order-flow.md`).
   listing is hidden, sold off the app or deleted (`listing_closed`).
 - The timers are delayed Restate sends to `OrderTimers`:
   `SellerTimeout` 3 days after the COD request, `PickupTimeout` 3 days
-  after the shipment, `AutoComplete` 3 days after a delivered report. Each
+  after the shipment, `AutoComplete` 3 days after a delivered report, and
+  `Poll` every `Waits.Poll` (`CARRIER_POLL_EVERY`, 2 h) while the order is
+  shipped. Each
   names its order, reads the deal when it fires, does nothing when that
   order moved on, and never compares clocks; a save that loses a race
-  reads again. A pickup timeout calls a linked shipment off at GHTK and
-  releases the listing. The waits are `domain.OrderWaits`; tests pass
+  reads again. A pickup timeout releases the listing, then calls a linked
+  shipment off at its carrier; a carrier that already has the parcel, or
+  no longer knows it, leaves the order cancelled all the same (decided
+  2026-11-13, the order of the two reversed from part 1). The waits are `domain.OrderWaits`; tests pass
   short ones, and `service.New` refuses a zero wait. `RequestCod` sends
   its timer before its save, so a COD request needs Restate.
 - `ShipmentUpdates.Run(tracking code, status)` is the one entry point of
-  a carrier's report: the dev endpoint calls it now, the carriers'
-  webhooks or polling will. It moves every shipped order whose shipment has
+  a carrier's report: the dev endpoint, the carriers' webhooks and the
+  poll call it. It moves every shipped order whose shipment has
   the code (two items in one parcel), changes nothing on a closed order,
   and answers `shipment_not_found` 404 when no order has the code.
-- The carrier is `provider/carrier.Client` (`Create`, `Lookup`, and
-  `Cancel`, which the spec did not name), picked by `CARRIER`: `fake` or
-  `none` (decided 2026-11-12). `fake` runs locally, in the tests and on
-  the dev cluster stack: every code but those that start with `NOTFOUND`
-  is found, as the same parcel waiting for pickup (COD 1,500,000 đ, fee
-  22,000 đ); a linked code is `GHTK-` and a number from the order ID;
-  nothing is called off. With `fake` the server serves
-  `POST /v1/dev/shipments/{code}/status {status}` to anyone, and
-  `APP_ENV=prod` refuses it. `none` runs on the production stack until
-  part 2 brings GHTK: `carrier.None` returns `carrier.ErrUnavailable`, the
-  dev endpoint is not registered, and the lookup and both shipment
-  endpoints answer 503 `carrier_unavailable`; a linked shipment gives back
-  the listing it held. Confirmations, cancels, COD requests, the timers and
-  `ShipmentUpdates` need no carrier. A manual shipment's carrier and code
-  are checked and read before the order is looked up, so a stack without
-  a carrier refuses before it reads an order. The chart sets the carrier
-  in each stack's values file and none in `values.yaml`.
+- Deal makes, reads and cancels shipments through `service.Shipping`,
+  module shipping's three calls with the seller's ID, and maps its
+  refusals to its own errors of the same codes. With `CARRIER=fake` the
+  server serves `POST /v1/dev/shipments/{code}/status {status}` to anyone,
+  and `APP_ENV=prod` refuses it. With `none` (production until the GHTK
+  partner contract) the dev endpoint is not registered, and the lookup and
+  both shipment endpoints answer 503 `carrier_unavailable` for any order; a
+  linked shipment gives back the listing it held. Confirmations, cancels,
+  COD requests, the timers and `ShipmentUpdates` need no carrier. A manual
+  shipment's carrier and code are read before the order is looked up, so a
+  stack without a carrier refuses before it reads an order; an unlinked
+  carrier waits for the order check, so a stranger reads `order_not_found`
+  and the buyer `move_not_allowed`. The chart sets the carrier in each
+  stack's values file and none in `values.yaml`.
 - The buyer always reads the recipient in full; the seller reads it in
   full except on a cancelled order, which keeps only the name and the
   commune.
@@ -1079,6 +1083,59 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server2-order-flow.md`).
   only). Unlike the migrations before it, it broke the release before's
   order reads and writes while it rolled out; that was accepted because
   the app was not wired to the server yet.
+
+### Shipping
+
+Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
+
+- Module shipping owns the sellers' carrier accounts, the carrier
+  clients and the carriers' webhooks. Deal imports it, as
+  `deal/service.Shipping`; shipping never imports deal. The app wiring
+  hands shipping three functions of deal's (`ShipmentUpdated`,
+  `OpenShipmentsAt`, `QuoteFacts`) and deal's not-found error, closed over
+  the deal service that is mounted after it.
+- A seller links GHTK and GHN, at most one account each
+  (`carrier_accounts`, migration 0041). GHTK takes the seller's email and
+  password, traded at once for the shop's token through GHTK's B2C
+  endpoint with ShopNexus's partner token; the password goes no further.
+  GHN takes the seller's token and ShopId, linked when the ShopId is one
+  of the token's shops. The token is sealed with AES-GCM under
+  `CARRIER_TOKEN_KEY`, a key of its own that `make env` writes, with a
+  fresh nonce per seal; it is never returned or logged. A token sealed
+  under another environment's key does not open: the call fails without
+  the token in its error, and linking again replaces it.
+- Unlinking is refused with 409 `shipments_open` while a shipped order of
+  the seller's is at that carrier. Deleting an account drops its carrier
+  accounts (the account watch on `account.deleted`), and deal's scrub
+  drops the seller's address copied as a pickup on their sales.
+- `provider/carrier` has one client per carrier, each called with the
+  seller's `Account{Token, ShopCode}`: `Link`, `Pickups`, `Quote`,
+  `Create`, `Lookup`, `Cancel`. GHTK's codes 3 and 4 map to `in_transit`,
+  5 and 6 to `delivered`, 9, 20 and 21 to `failed`; the rest, the
+  shipper's notices among them, move nothing. GHN's statuses map the same
+  way. A cancel after pickup is `ErrNotCancellable`. GHTK's order and
+  GHN's `client_order_code` are the ShopNexus order code, so a retried
+  create finds the first one. GHN takes addresses as commune and province
+  names (its two-level scheme, `is_new_to_address`), and the quote is
+  GHN's preview, since its fee API still wants district IDs.
+- `CARRIER` is `fake`, `none` or `live`. `live` needs `GHTK_API_URL`,
+  `GHTK_PARTNER_TOKEN`, `GHTK_CLIENT_SOURCE`, `GHTK_WEBHOOK_SECRET`,
+  `GHN_API_URL` and `GHN_WEBHOOK_SECRET`; `fake` and `none` refuse them,
+  so a stack never half-points at a real carrier. `none` is an empty
+  client map: every call answers `carrier_unavailable` before anything
+  else. The fake of each carrier links any account but the password or
+  token `wrong`, and its webhooks take the secret `dev`.
+- The webhooks are `POST /v1/carriers/{ghtk|ghn}/webhook/{secret}`, for
+  each carrier with a secret set. The secret in the path is the only
+  check, compared in constant time; a wrong one is 404. GHTK posts a form
+  or JSON, GHN JSON. Once the secret matches the answer is 200, also for a
+  code no order has or a body that does not read, since GHTK sends again
+  on anything else and the poll covers a lost report.
+- The poll is a delayed send to deal's `OrderTimers.Poll`, which the
+  shipment starts. It reads the order's current code from its carrier and
+  moves the order through `ShipmentUpdates` when the status differs, then
+  sends itself again until the order closes. A correction of a manual code
+  needs no poll of its own.
 
 ### Stream
 
