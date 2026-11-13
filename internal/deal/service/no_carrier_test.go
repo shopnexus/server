@@ -11,15 +11,14 @@ import (
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/provider/carrier"
 )
 
-// noCarrier serves a second deal service on e's database with
-// carrier.None, production's carrier.
+// noCarrier serves a second deal service on e's database with module
+// shipping as it answers with CARRIER=none, production's.
 func (e env) noCarrier(t *testing.T) *service.Deals {
 	t.Helper()
 	deps := e.deps
-	deps.Carrier = carrier.None{}
+	deps.Shipping = refusing{errShippingUnavailable}
 	return start(t, deps)
 }
 
@@ -39,7 +38,7 @@ func TestNoCarrier(t *testing.T) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
-	_, err := none.LookupShipment(ctx, "spx", "SPX1")
+	_, err := none.LookupShipment(ctx, seller, "spx", "SPX1")
 	unavailable("a lookup", err)
 	_, err = none.CreateShipment(ctx, seller, v.Order.ID, key(), manual("SPX1"))
 	unavailable("a manual shipment", err)

@@ -18,6 +18,7 @@ import (
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/media/mediatest"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
@@ -45,7 +46,7 @@ func newEnv(t *testing.T) env {
 	c := catalogtest.Service(db, accounts, mediatest.Service(db, objectstoretest.New(t), in, p), in, p)
 	repo := repository.NewDeals(db)
 	deps := service.Deps{
-		Deals: repo, Accounts: accounts, Catalog: c, Carrier: carrier.Fake{}, Waits: domain.OrderWaits, Ingress: in, Now: time.Now,
+		Deals: repo, Accounts: accounts, Catalog: c, Shipping: linkedAt{}, Waits: domain.OrderWaits, Ingress: in, Now: time.Now,
 	}
 	return env{db: db, accounts: accounts, catalog: c, listings: catalogrepo.NewListings(db), repo: repo, deps: deps, deals: start(t, deps)}
 }
@@ -137,3 +138,49 @@ type staleGet struct {
 }
 
 func (s staleGet) Get(context.Context, uuid.UUID) (domain.Deal, error) { return s.stale, nil }
+
+// linkedAt is module shipping for the tests: every seller has linked every
+// carrier, and c answers for them all; a nil c is the fake of the carrier
+// asked.
+type linkedAt struct{ c carrier.Client }
+
+func (l linkedAt) client(c carrier.Carrier) carrier.Client {
+	if l.c != nil {
+		return l.c
+	}
+	return carrier.Fake{Carrier: c}
+}
+
+func (l linkedAt) Create(ctx context.Context, _ uuid.UUID, c carrier.Carrier, in carrier.CreateInput) (carrier.Created, error) {
+	return l.client(c).Create(ctx, carrier.Account{}, in)
+}
+
+func (l linkedAt) Lookup(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
+	return l.client(c).Lookup(ctx, carrier.Account{}, code)
+}
+
+func (l linkedAt) Cancel(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) error {
+	return l.client(c).Cancel(ctx, carrier.Account{}, code)
+}
+
+// refusing is module shipping answering every call with err: a stack
+// without a carrier, or a seller who linked none.
+type refusing struct{ err error }
+
+func (r refusing) Create(context.Context, uuid.UUID, carrier.Carrier, carrier.CreateInput) (carrier.Created, error) {
+	return carrier.Created{}, r.err
+}
+
+func (r refusing) Lookup(context.Context, uuid.UUID, carrier.Carrier, string) (carrier.Parcel, error) {
+	return carrier.Parcel{}, r.err
+}
+
+func (r refusing) Cancel(context.Context, uuid.UUID, carrier.Carrier, string) error { return r.err }
+
+// errShippingUnavailable is module shipping's answer with CARRIER=none; it
+// shares its code with deal's error.
+var errShippingUnavailable = apperr.New(apperr.KindUnavailable, "carrier_unavailable", "no carrier makes or reads shipments here")
+
+// errShippingNotLinked is module shipping's answer for a carrier the seller
+// has not linked.
+var errShippingNotLinked = apperr.New(apperr.KindConflict, "carrier_not_linked", "the caller has not linked that carrier")

@@ -60,9 +60,16 @@ type Service interface {
 	// the listing and returns the order's deal. A repeated idempotencyKey
 	// of the same caller runs nothing more.
 	ConfirmReceipt(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
-	// LookupShipment reads a shipment from its carrier, for the seller's
+	// LookupShipment reads a shipment with the caller's account at its carrier, for the seller's
 	// preview of a manual shipment.
-	LookupShipment(ctx context.Context, carrierCode, trackingCode string) (ShipmentPreview, error)
+	LookupShipment(ctx context.Context, caller uuid.UUID, carrierCode, trackingCode string) (ShipmentPreview, error)
+	// OpenShipmentsAt tells whether a shipped order of the seller's has a
+	// shipment at carrier; module shipping refuses to unlink it then.
+	OpenShipmentsAt(ctx context.Context, seller uuid.UUID, carrier string) (bool, error)
+	// QuoteFacts reads an order of the caller's as its seller, for module
+	// shipping to price: the recipient by names, the caller's address as
+	// the pickup unless address is the zero ID, and the price.
+	QuoteFacts(ctx context.Context, caller, order, address uuid.UUID) (to carrier.Place, from *carrier.Place, price int64, err error)
 	// ShipmentUpdated sets the status of every shipped order whose
 	// shipment has trackingCode, as its carrier reports it. A closed order
 	// changes nothing; no order with the code is domain.ErrShipmentNotFound.
@@ -89,9 +96,10 @@ type Service interface {
 	// AccountDeleted ends what a deleted account leaves open in its deals;
 	// the worker calls it on account.deleted.
 	AccountDeleted(ctx context.Context, account uuid.UUID) error
-	// ScrubRecipients blanks the recipients of a deleted buyer's orders;
-	// the worker calls it domain.KeepRecipientsFor after the deletion.
-	ScrubRecipients(ctx context.Context, buyer uuid.UUID) error
+	// ScrubRecipients blanks the recipients of a deleted account's
+	// purchases and its address copied as a pickup on its sales; the worker
+	// calls it domain.KeepRecipientsFor after the deletion.
+	ScrubRecipients(ctx context.Context, account uuid.UUID) error
 }
 
 // Deps is what New builds Deals from.
@@ -99,8 +107,9 @@ type Deps struct {
 	Deals    repository.Deals
 	Accounts accountsvc.Service
 	Catalog  catalogsvc.Service
-	// Carrier makes and reads shipments.
-	Carrier carrier.Client
+	// Shipping makes, reads and cancels shipments on the seller's linked
+	// accounts: module shipping.
+	Shipping Shipping
 	// Waits are how long the system waits before it moves an order on:
 	// domain.OrderWaits outside tests. New refuses a zero wait.
 	Waits domain.Waits
@@ -118,7 +127,7 @@ type Deals struct {
 	deals    repository.Deals
 	accounts accountsvc.Service
 	catalog  catalogsvc.Service
-	carrier  carrier.Client
+	shipping Shipping
 	waits    domain.Waits
 	ingress  *ingress.Client
 	prefix   string
@@ -133,11 +142,11 @@ var _ Service = (*Deals)(nil)
 // New builds Deals. A zero wait would move every order on the moment it
 // is made, so New panics on one.
 func New(d Deps) *Deals {
-	if d.Waits.Seller <= 0 || d.Waits.Pickup <= 0 || d.Waits.Complete <= 0 {
+	if d.Waits.Seller <= 0 || d.Waits.Pickup <= 0 || d.Waits.Complete <= 0 || d.Waits.Poll <= 0 {
 		panic("deal: Deps.Waits needs every wait; pass domain.OrderWaits")
 	}
 	return &Deals{
-		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, carrier: d.Carrier, waits: d.Waits, ingress: d.Ingress,
+		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, shipping: d.Shipping, waits: d.Waits, ingress: d.Ingress,
 		prefix: d.Prefix, now: d.Now,
 		ship:    restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: flowHandler},
 		confirm: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealConfirm, Handler: flowHandler},

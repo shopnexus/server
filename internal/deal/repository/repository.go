@@ -42,9 +42,13 @@ type Deals interface {
 	// ActiveOf lists the deals, negotiating or agreed, where account is
 	// either side, oldest first.
 	ActiveOf(ctx context.Context, account uuid.UUID) ([]domain.Deal, error)
-	// ScrubRecipients blanks the recipient's name, phone and street of every
-	// order buyer bought; the commune stays.
-	ScrubRecipients(ctx context.Context, buyer uuid.UUID) error
+	// ScrubRecipients blanks the recipient's name, phone and street of
+	// every order the account bought, and drops the copy of the account's
+	// address on every linked shipment it sold.
+	ScrubRecipients(ctx context.Context, account uuid.UUID) error
+	// OpenShipmentsAt tells whether a shipped order of the seller's has a
+	// shipment at carrier.
+	OpenShipmentsAt(ctx context.Context, seller uuid.UUID, carrier string) (bool, error)
 	// ListByParty is a query: account's deals on side as (buyer or
 	// seller) with IDs below p.Before(), newest first, at most p.Fetch().
 	ListByParty(ctx context.Context, account uuid.UUID, as domain.Party, p page.Request) ([]domain.Deal, error)

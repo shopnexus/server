@@ -27,7 +27,7 @@ func manual(code string) service.ShipmentInput {
 }
 
 // linked is a shipment to make on the seller's GHTK account.
-var linked = service.ShipmentInput{Mode: "linked", Service: "standard", WeightGrams: 800, Pickup: "home"}
+var linked = service.ShipmentInput{Mode: "linked", Carrier: "ghtk", Service: "standard", WeightGrams: 800, Pickup: "home"}
 
 func key() string { return uuid.NewV7().String() }
 
@@ -63,16 +63,16 @@ func (e env) shipped(t *testing.T, buyer, seller, listing uuid.UUID, code string
 	return s
 }
 
-// countingCarrier is the fake carrier, counting the shipments it calls off.
+// countingCarrier is the fake GHTK, counting the shipments it calls off.
 type countingCarrier struct {
 	carrier.Fake
 
 	cancels *atomic.Int32
 }
 
-func (c countingCarrier) Cancel(ctx context.Context, cr carrier.Carrier, code string) error {
+func (c countingCarrier) Cancel(ctx context.Context, a carrier.Account, code string) error {
 	c.cancels.Add(1)
-	return c.Fake.Cancel(ctx, cr, code)
+	return c.Fake.Cancel(ctx, a, code)
 }
 
 func TestShipThenConfirm(t *testing.T) {
@@ -198,16 +198,16 @@ func TestLookupShipment(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	p, err := e.deals.LookupShipment(ctx, "spx", " SPX1 ")
+	p, err := e.deals.LookupShipment(ctx, uuid.NewV7(), "spx", " SPX1 ")
 	if err != nil || p.Carrier != domain.CarrierSPX || p.TrackingCode != "SPX1" || p.CODAmount != 1_500_000 ||
 		p.Status != domain.ShipmentPendingPickup || p.Fee == nil || p.RecipientName == "" || p.District == "" {
 		t.Fatalf("%+v %v", p, err)
 	}
-	if _, err = e.deals.LookupShipment(ctx, "spx", "NOTFOUND"); !errors.Is(err, domain.ErrShipmentNotFound) ||
+	if _, err = e.deals.LookupShipment(ctx, uuid.NewV7(), "spx", "NOTFOUND"); !errors.Is(err, domain.ErrShipmentNotFound) ||
 		apperr.From(err).Kind != apperr.KindNotFound {
 		t.Errorf("an unknown code: %v", err)
 	}
-	if _, err = e.deals.LookupShipment(ctx, "other", "X1"); !errors.Is(err, domain.ErrInvalidShipment) {
+	if _, err = e.deals.LookupShipment(ctx, uuid.NewV7(), "other", "X1"); !errors.Is(err, domain.ErrInvalidShipment) {
 		t.Errorf("carrier other: %v", err)
 	}
 }
@@ -267,7 +267,7 @@ func TestShipLosesToACancel(t *testing.T) {
 		cancels := &atomic.Int32{}
 		deps := e.deps
 		deps.Deals = cancelFirst{Deals: e.repo, fired: &atomic.Bool{}}
-		deps.Carrier = countingCarrier{cancels: cancels}
+		deps.Shipping = linkedAt{countingCarrier{Carrier: carrier.GHTK, cancels: cancels}}
 		if _, err := start(t, deps).CreateShipment(ctx, seller, v.Order.ID, key(), in); !errors.Is(err, domain.ErrChanged) {
 			t.Fatalf("%s: %v", in.Mode, err)
 		}

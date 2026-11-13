@@ -108,27 +108,30 @@ func TestTracking(t *testing.T) {
 func TestNewLinkedDraft(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
-		service string
-		weight  int
-		pickup  string
-	}{{"standard", 800, "home"}, {"express", 20_000, "post_office"}, {"standard", 1, "home"}} {
-		got, err := domain.NewLinkedDraft(c.service, c.weight, c.pickup)
-		if err != nil || string(got.Service) != c.service || got.WeightGrams != c.weight || string(got.Pickup) != c.pickup {
+		carrier, service string
+		weight           int
+		pickup           string
+	}{{"ghtk", "standard", 800, "home"}, {"ghn", "express", 20_000, "post_office"}, {"ghtk", "standard", 1, "home"}} {
+		got, err := domain.NewLinkedDraft(c.carrier, c.service, c.weight, c.pickup)
+		if err != nil || string(got.Carrier) != c.carrier || string(got.Service) != c.service || got.WeightGrams != c.weight ||
+			string(got.Pickup) != c.pickup {
 			t.Errorf("%+v: %+v %v", c, got, err)
 		}
 	}
 	for _, c := range []struct {
-		service string
-		weight  int
-		pickup  string
-		field   string
+		carrier, service string
+		weight           int
+		pickup           string
+		field            string
 	}{
-		{"road", 800, "home", "service"},
-		{"standard", 0, "home", "weight_grams"},
-		{"standard", 20_001, "home", "weight_grams"},
-		{"standard", 800, "door", "pickup"},
+		{"spx", "standard", 800, "home", "carrier"},
+		{"", "standard", 800, "home", "carrier"},
+		{"ghtk", "road", 800, "home", "service"},
+		{"ghtk", "standard", 0, "home", "weight_grams"},
+		{"ghtk", "standard", 20_001, "home", "weight_grams"},
+		{"ghtk", "standard", 800, "door", "pickup"},
 	} {
-		if _, err := domain.NewLinkedDraft(c.service, c.weight, c.pickup); !errors.Is(err, domain.ErrInvalidShipment) || field(err, c.field) == "" {
+		if _, err := domain.NewLinkedDraft(c.carrier, c.service, c.weight, c.pickup); !errors.Is(err, domain.ErrInvalidShipment) || field(err, c.field) == "" {
 			t.Errorf("%+v: %v", c, err)
 		}
 	}

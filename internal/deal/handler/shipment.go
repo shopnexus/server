@@ -18,7 +18,8 @@ type shipmentStatusRequest struct {
 
 // LookupShipment serves GET /v1/shipments/lookup.
 func (h *Handler) LookupShipment(w http.ResponseWriter, r *http.Request) {
-	if _, ok := httpx.Caller(w, r, h.log); !ok {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
 		return
 	}
 	var in lookupRequest
@@ -26,7 +27,7 @@ func (h *Handler) LookupShipment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.LookupShipment(r.Context(), in.Carrier, in.Code)
+	v, err := h.svc.LookupShipment(r.Context(), p.AccountID, in.Carrier, in.Code)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
