@@ -72,28 +72,3 @@ func (c *Catalog) Summary(ctx context.Context, id uuid.UUID) (Summary, bool, err
 	s, ok := got[id]
 	return s, ok, nil
 }
-
-// Places reads the communes among codes with their provinces in one query.
-func (c *Catalog) Places(ctx context.Context, codes []string) (map[string]Location, error) {
-	rows, err := c.regions.Places(ctx, codes)
-	if err != nil {
-		return nil, fmt.Errorf("get communes: %w", err)
-	}
-	out := make(map[string]Location, len(rows))
-	for _, p := range rows {
-		out[p.Code] = Location{
-			Commune:  Region{Code: p.Code, DisplayName: p.DisplayName},
-			Province: Region{Code: p.ProvinceCode, DisplayName: p.Province},
-			Lat:      p.Lat, Lng: p.Lng,
-		}
-	}
-	return out, nil
-}
-
-func (c *Catalog) NearestCommune(ctx context.Context, p domain.Point) (code string, km float64, err error) {
-	place, err := c.regions.Nearest(ctx, p)
-	if err != nil {
-		return "", 0, fmt.Errorf("find the commune: %w", err)
-	}
-	return place.Code, domain.Distance(p, domain.Point{Lat: place.Lat, Lng: place.Lng}), nil
-}

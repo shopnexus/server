@@ -186,7 +186,7 @@ Location:
   type: object
   additionalProperties: false
   required: [commune, province, lat, lng]
-  description: The listing's commune and province, with a point inside the commune rather than where the seller is.
+  description: A commune and its province, with a point inside the commune rather than where a seller or the caller is.
   properties:
     commune:
       $ref: "#/Region"

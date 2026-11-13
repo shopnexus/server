@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -84,14 +85,14 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 		if in.Near.Lat == 0 || in.Near.Lng == 0 || in.Near.Lat < -90 || in.Near.Lat > 90 || in.Near.Lng < -180 || in.Near.Lng > 180 {
 			return WatchView{}, false, domain.ErrInvalidPosition
 		}
-		code, km, err := d.catalog.NearestCommune(ctx, catalogdomain.Point{Lat: in.Near.Lat, Lng: in.Near.Lng})
+		loc, err := d.catalog.Locate(ctx, catalogdomain.Point{Lat: in.Near.Lat, Lng: in.Near.Lng})
+		if errors.Is(err, catalogdomain.ErrNoCommuneNear) {
+			return WatchView{}, false, domain.ErrInvalidPosition
+		}
 		if err != nil {
 			return WatchView{}, false, fmt.Errorf("find the commune: %w", err)
 		}
-		if km > catalogdomain.MaxGPSKm {
-			return WatchView{}, false, domain.ErrInvalidPosition
-		}
-		commune = code
+		commune = loc.Commune.Code
 	case commune != "":
 		places, err := d.catalog.Places(ctx, []string{commune})
 		if err != nil {

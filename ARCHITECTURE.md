@@ -933,6 +933,14 @@ agree during a deploy.
   `ST_PointOnSurface` of its boundary rounded to 4 decimals, computed once
   in a throwaway PostGIS container. The listing stores the commune and a
   point distance is measured from; see Search.
+- `GET /v1/regions/nearest?lat=&lng=` is public and answers the commune
+  nearest the point as a `Location`, for the app to fill in the area from
+  the phone's position at sign-in and in settings (decided 2026-11-13). Past
+  30 km from every commune's point it is 404 `no_commune_near`, the same
+  bound a listing's GPS and a watch's point take. `catalogsvc.Locate` holds
+  the lookup and the bound for both this endpoint and watches. The point
+  goes in the query string and is neither stored nor logged; the access log
+  writes only the route.
 - `GET /v1/sellers/{id}/listings` is public: the seller's active and
   reserved listings, newest first. `SellerCounts` gives screen and trust a
   seller's listings on sale (active or reserved) and sold; "Đã bán" counts
@@ -1741,8 +1749,8 @@ Search watches (decided 2026-11-11, same spec):
   0, with 200; a new watch is 201. `GET` lists them, `DELETE /{id}` forgets
   one, and `/mute` and `/unmute` set `alert`.
 - A watch keeps a commune and no point: `near_commune` as given, or the
-  commune nearest a GPS point (`catalogsvc.NearestCommune`), refused past 30
-  km with `invalid_position`. `radius_km` is measured from the commune's
+  commune nearest a GPS point (`catalogsvc.Locate`), refused past 30 km
+  with `invalid_position`. `radius_km` is measured from the commune's
   point.
 - The watch stores the phrases the model read when it was made, the raw
   query among them, so a sweep calls no model.
