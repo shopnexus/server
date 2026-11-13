@@ -68,14 +68,14 @@ func (e env) person(t *testing.T) uuid.UUID {
 
 // edit changes a listing's draft and saves it, as an edit with the same
 // photos does: the listing stays on sale.
-func (e env) edit(t *testing.T, id uuid.UUID, change func(*catalogdomain.Draft)) {
+func (e env) edit(t *testing.T, id uuid.UUID, change func(*catalogdomain.ListingInput)) {
 	t.Helper()
 	ctx := context.Background()
 	l, err := e.listings.Get(ctx, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := catalogdomain.Draft{
+	d := catalogdomain.ListingInput{
 		Title: l.Title(), Price: l.Price(), CategoryCode: l.CategoryCode(), Condition: l.Condition(),
 		AllowOffers: l.AllowOffers(), CommuneCode: l.CommuneCode(), Photos: l.Uploads(),
 	}

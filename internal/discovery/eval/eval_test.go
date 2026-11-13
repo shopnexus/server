@@ -89,7 +89,7 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 	for _, l := range listings {
 		seller := accounttest.WithPhone(t, db)
 		photo := mediatest.Upload(t, m, seller, "image/jpeg", read(t, l.Key+".jpg"))
-		v, postErr := c.Post(ctx, seller, uuid.NewV7().String(), catalogdomain.Draft{
+		v, postErr := c.Post(ctx, seller, uuid.NewV7().String(), catalogdomain.ListingInput{
 			Title: l.Title, Price: l.Price, Description: l.Description, CategoryCode: l.Category,
 			Condition: catalogdomain.Condition(l.Condition), AllowOffers: true, CommuneCode: "00004",
 			Photos: []uuid.UUID{photo}, Specs: l.Specs,

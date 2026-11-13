@@ -51,8 +51,8 @@ func TestWatchAndSweep(t *testing.T) {
 		t.Fatalf("a new watch schedules its sweep: %v", e.sweeps.ids)
 	}
 	bike := catalogtest.Listing(t, e.db, accounttest.New(t, e.db)) // "Xe đạp Asama", 1.5 tr
-	motor := catalogtest.Listing(t, e.db, accounttest.New(t, e.db), func(d *catalogdomain.Draft, _ *catalogdomain.Refs) { d.Title = "Xe máy Wave" })
-	dear := catalogtest.Listing(t, e.db, accounttest.New(t, e.db), func(d *catalogdomain.Draft, _ *catalogdomain.Refs) { d.Price = 5_000_000 })
+	motor := catalogtest.Listing(t, e.db, accounttest.New(t, e.db), func(d *catalogdomain.ListingInput, _ *catalogdomain.Refs) { d.Title = "Xe máy Wave" })
+	dear := catalogtest.Listing(t, e.db, accounttest.New(t, e.db), func(d *catalogdomain.ListingInput, _ *catalogdomain.Refs) { d.Price = 5_000_000 })
 	hidden := catalogtest.Listing(t, e.db, accounttest.New(t, e.db))
 	if err = e.discovery.Hide(ctx, me, hidden); err != nil {
 		t.Fatal(err)

@@ -170,7 +170,7 @@ func TestAcceptAfterThePriceChanged(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.open(t, buyer, listing)
-	e.edit(t, listing, func(d *catalogdomain.Draft) { d.Price = 1_400_000 })
+	e.edit(t, listing, func(d *catalogdomain.ListingInput) { d.Price = 1_400_000 })
 	if _, err := e.deals.Accept(ctx, buyer, v.ID, 1_500_000); !errors.Is(err, domain.ErrPriceChanged) {
 		t.Fatalf("old price: %v", err)
 	}

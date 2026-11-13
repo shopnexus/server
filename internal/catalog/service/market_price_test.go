@@ -22,7 +22,7 @@ func TestMarketPrice(t *testing.T) {
 	vs := repository.NewVectors(e.db)
 	text := embedtest.Axis(domain.TextDims, 0)
 	listing := func(seller uuid.UUID, price int64) uuid.UUID {
-		id := catalogtest.Listing(t, e.db, seller, func(d *domain.Draft, _ *domain.Refs) { d.Price = price })
+		id := catalogtest.Listing(t, e.db, seller, func(d *domain.ListingInput, _ *domain.Refs) { d.Price = price })
 		if err := vs.PutText(ctx, id, "text-test", []byte{1}, text, time.Now()); err != nil {
 			t.Fatal(err)
 		}

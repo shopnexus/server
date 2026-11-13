@@ -27,10 +27,10 @@ import (
 type Service interface {
 	// Post puts a complete listing up for processing. A repeated
 	// idempotencyKey returns the listing it posted.
-	Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.Draft) (ListingView, error)
+	Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.ListingInput) (ListingView, error)
 	// Edit replaces a listing's content; a repeated idempotencyKey edits
 	// nothing more.
-	Edit(ctx context.Context, seller, id uuid.UUID, idempotencyKey string, d domain.Draft) (ListingView, error)
+	Edit(ctx context.Context, seller, id uuid.UUID, idempotencyKey string, d domain.ListingInput) (ListingView, error)
 	Hide(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
 	Unhide(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
 	// MarkSold records a sale made off the app; UnmarkSold undoes it.
@@ -74,7 +74,7 @@ type Service interface {
 	Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error)
 	// EmbeddingText is the text a listing posted from d would be embedded
 	// from, with its category's display name.
-	EmbeddingText(ctx context.Context, d domain.Draft) (string, error)
+	EmbeddingText(ctx context.Context, d domain.ListingInput) (string, error)
 	// PriceSample returns the prices of listings like q's vectors, most
 	// similar first, at most domain.PriceSampleSize; nil without a vector.
 	PriceSample(ctx context.Context, q PriceQuery) ([]PriceSample, error)

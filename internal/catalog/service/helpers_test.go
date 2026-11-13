@@ -68,8 +68,8 @@ func (e env) upload(t *testing.T, owner uuid.UUID, body []byte) uuid.UUID {
 }
 
 // draft is a valid listing with the given photos.
-func draft(photos ...uuid.UUID) domain.Draft {
-	return domain.Draft{
+func draft(photos ...uuid.UUID) domain.ListingInput {
+	return domain.ListingInput{
 		Title: "iPhone 13 128GB", Price: 9_500_000, Description: "Máy zin", CategoryCode: "phones.iphone",
 		Condition: domain.ConditionLikeNew, AllowOffers: true, CommuneCode: "00004", Photos: photos,
 	}

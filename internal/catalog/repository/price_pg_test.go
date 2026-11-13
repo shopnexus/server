@@ -21,12 +21,12 @@ import (
 // change, with a text vector and a photo vector under t1 and p1; nil puts
 // none.
 func priced(t *testing.T, db *pgxpool.Pool, seller uuid.UUID, price int64, text, photo []float32,
-	change ...func(*domain.Draft, *domain.Refs),
+	change ...func(*domain.ListingInput, *domain.Refs),
 ) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
-	id := catalogtest.Listing(t, db, seller, append([]func(*domain.Draft, *domain.Refs){
-		func(d *domain.Draft, _ *domain.Refs) { d.Price = price },
+	id := catalogtest.Listing(t, db, seller, append([]func(*domain.ListingInput, *domain.Refs){
+		func(d *domain.ListingInput, _ *domain.Refs) { d.Price = price },
 	}, change...)...)
 	vs := repository.NewVectors(db)
 	if text != nil {
@@ -84,8 +84,8 @@ func TestPriceSample(t *testing.T) {
 	exec(t, db, `UPDATE listings SET status = 'hidden' WHERE id = $1`, hidden)
 	reserved := priced(t, db, seller, 1_800_000, embedtest.Near(domain.TextDims, 0, 1, 0.9), nil)
 	exec(t, db, `UPDATE listings SET status = 'reserved', reserved_for = gen_random_uuid() WHERE id = $1`, reserved)
-	priced(t, db, seller, 1_900_000, axis, nil, func(d *domain.Draft, _ *domain.Refs) { d.Condition = domain.ConditionLikeNew })
-	priced(t, db, seller, 2_000_000, axis, nil, func(d *domain.Draft, _ *domain.Refs) { d.CategoryCode = "phones.iphone" })
+	priced(t, db, seller, 1_900_000, axis, nil, func(d *domain.ListingInput, _ *domain.Refs) { d.Condition = domain.ConditionLikeNew })
+	priced(t, db, seller, 2_000_000, axis, nil, func(d *domain.ListingInput, _ *domain.Refs) { d.CategoryCode = "phones.iphone" })
 	priced(t, db, me, 2_100_000, axis, nil)
 	stale := priced(t, db, seller, 2_200_000, nil, nil)
 	if err := vs.PutText(ctx, stale, "t0", []byte{1}, axis, time.Now()); err != nil {

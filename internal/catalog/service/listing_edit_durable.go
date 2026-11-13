@@ -20,9 +20,9 @@ import (
 const listingEdit = "ListingEdit"
 
 type EditInput struct {
-	Seller uuid.UUID    `json:"seller"`
-	ID     uuid.UUID    `json:"id"`
-	Draft  domain.Draft `json:"draft"`
+	Seller  uuid.UUID           `json:"seller"`
+	ID      uuid.UUID           `json:"id"`
+	Listing domain.ListingInput `json:"listing"`
 }
 
 // EditResult carries the refusal of an edit, if any.
@@ -72,15 +72,15 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 	if !ld.Found || l.SellerID() != in.Seller {
 		return EditResult{Refused: domain.ErrNotFound}, nil
 	}
-	refs, err := lookUpRefs(ctx, s.Categories, s.Regions, in.Draft)
+	refs, err := lookUpRefs(ctx, s.Categories, s.Regions, in.Listing)
 	if err != nil {
 		return EditResult{}, err
 	}
 	before := l.Uploads()
-	if err = l.Edit(in.Draft, refs, at); err != nil {
+	if err = l.Edit(in.Listing, refs, at); err != nil {
 		return EditResult{Refused: apperr.From(err)}, nil
 	}
-	if added := slices.DeleteFunc(slices.Clone(in.Draft.Photos), func(u uuid.UUID) bool { return slices.Contains(before, u) }); len(added) > 0 {
+	if added := slices.DeleteFunc(slices.Clone(in.Listing.Photos), func(u uuid.UUID) bool { return slices.Contains(before, u) }); len(added) > 0 {
 		refused, attachErr := attach(ctx, s.Media, in.Seller, in.ID, added)
 		if attachErr != nil || refused != nil {
 			return EditResult{Refused: refused}, attachErr

@@ -7,7 +7,7 @@ import (
 )
 
 type postRequest struct {
-	draftBody
+	listingBody
 
 	IdempotencyKey string `header:"Idempotency-Key" json:"-"`
 }
@@ -23,7 +23,7 @@ func (h *Handler) Post(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Post(r.Context(), p.AccountID, in.IdempotencyKey, in.draft())
+	v, err := h.svc.Post(r.Context(), p.AccountID, in.IdempotencyKey, in.input())
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

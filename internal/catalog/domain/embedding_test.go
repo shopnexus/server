@@ -10,10 +10,10 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/domain"
 )
 
-func listing(t *testing.T, change func(*domain.Draft)) domain.Listing {
+func listing(t *testing.T, change func(*domain.ListingInput)) domain.Listing {
 	t.Helper()
 	photo := uuid.NewV7()
-	d := domain.Draft{
+	d := domain.ListingInput{
 		Title: "iPhone 13 128GB", Price: 9_500_000, Description: "Máy zin, pin 89%", CategoryCode: "phones.iphone",
 		Condition: domain.ConditionLikeNew, CommuneCode: "00004", Photos: []uuid.UUID{photo},
 		Specs: []domain.Spec{{Label: "Màu", Value: "Xanh"}},
@@ -37,7 +37,7 @@ func TestEmbeddingText(t *testing.T) {
 	if got != want {
 		t.Fatalf("%q", got)
 	}
-	long := listing(t, func(d *domain.Draft) {
+	long := listing(t, func(d *domain.ListingInput) {
 		d.Description = strings.Repeat("ạ", 1500)
 		d.Specs = []domain.Spec{{Label: strings.Repeat("x", 20), Value: strings.Repeat("y", 50)}}
 	})
@@ -74,14 +74,14 @@ func TestHybrid(t *testing.T) {
 func TestDraftEmbeddingText(t *testing.T) {
 	t.Parallel()
 	l := listing(t, nil)
-	d := domain.Draft{
+	d := domain.ListingInput{
 		Title: "  iPhone 13 128GB ", Description: " Máy zin, pin 89% ", Condition: domain.ConditionLikeNew,
 		Specs: []domain.Spec{{Label: " Màu ", Value: "Xanh "}},
 	}
 	if got, want := d.EmbeddingText("iPhone"), l.EmbeddingText("iPhone"); got != want {
 		t.Fatalf("%q, want %q", got, want)
 	}
-	if got := (domain.Draft{Title: "Xe đạp", Condition: domain.ConditionUsed}).EmbeddingText("Xe đạp"); got != "Xe đạp\nXe đạp\nĐã dùng" {
+	if got := (domain.ListingInput{Title: "Xe đạp", Condition: domain.ConditionUsed}).EmbeddingText("Xe đạp"); got != "Xe đạp\nXe đạp\nĐã dùng" {
 		t.Fatalf("no specs, no description: %q", got)
 	}
 }

@@ -24,7 +24,7 @@ func TestPriceSampleWindows(t *testing.T) {
 	vs := repository.NewVectors(e.db)
 	text := embedtest.Axis(domain.TextDims, 0)
 	listing := func(seller uuid.UUID, price int64) uuid.UUID {
-		id := catalogtest.Listing(t, e.db, seller, func(d *domain.Draft, _ *domain.Refs) { d.Price = price })
+		id := catalogtest.Listing(t, e.db, seller, func(d *domain.ListingInput, _ *domain.Refs) { d.Price = price })
 		if err := vs.PutText(ctx, id, "text-test", []byte{1}, text, time.Now()); err != nil {
 			t.Fatal(err)
 		}
@@ -62,7 +62,7 @@ func TestEmbeddingTextOfADraft(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	d := domain.Draft{Title: "iPhone 11", CategoryCode: "phones.iphone", Condition: domain.ConditionUsed}
+	d := domain.ListingInput{Title: "iPhone 11", CategoryCode: "phones.iphone", Condition: domain.ConditionUsed}
 	if got, err := e.catalog.EmbeddingText(ctx, d); err != nil || got != "iPhone 11\niPhone\nĐã dùng" {
 		t.Fatalf("%q %v", got, err)
 	}
