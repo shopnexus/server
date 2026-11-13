@@ -15,7 +15,9 @@ func onSale(price int64) domain.Sample { return domain.Sample{Price: price} }
 
 func TestSuggest(t *testing.T) {
 	t.Parallel()
-	est := func(median int64) domain.Estimate { return domain.Estimate{Median: median, Source: domain.SourceMarket} }
+	est := func(median int64) domain.Estimate {
+		return domain.Estimate{Median: median, Source: domain.SourceMarket}
+	}
 	cases := []struct {
 		name    string
 		samples []domain.Sample
@@ -25,7 +27,8 @@ func TestSuggest(t *testing.T) {
 		{
 			"under 3 sold is none",
 			[]domain.Sample{soldAfter(1_000_000, 2), soldAfter(1_100_000, 6), onSale(900_000), onSale(950_000)},
-			est(1_000_000), []domain.Suggestion{},
+			est(1_000_000),
+			[]domain.Suggestion{},
 		},
 		// days 2 6 10, median 6; the fast half is 1.0 (2) and 1.1 (6): price 1.05, days 4.
 		{
@@ -34,7 +37,8 @@ func TestSuggest(t *testing.T) {
 				soldAfter(1_000_000, 2), soldAfter(1_100_000, 6), soldAfter(1_200_000, 10),
 				onSale(1_300_000), onSale(1_400_000), onSale(1_500_000),
 			},
-			est(1_200_000), []domain.Suggestion{
+			est(1_200_000),
+			[]domain.Suggestion{
 				{Kind: domain.SuggestFast, Price: 1_050_000, Days: 4},
 				{Kind: domain.SuggestMarket, Price: 1_200_000, Days: 6},
 			},
@@ -43,12 +47,14 @@ func TestSuggest(t *testing.T) {
 		{
 			"a fast half priced above the market is left out",
 			[]domain.Sample{soldAfter(1_500_000, 1), soldAfter(1_000_000, 5), soldAfter(1_100_000, 9)},
-			est(1_200_000), []domain.Suggestion{{Kind: domain.SuggestMarket, Price: 1_200_000, Days: 5}},
+			est(1_200_000),
+			[]domain.Suggestion{{Kind: domain.SuggestMarket, Price: 1_200_000, Days: 5}},
 		},
 		{
 			"every sale took as long",
 			[]domain.Sample{soldAfter(1_000_000, 3), soldAfter(1_200_000, 3), soldAfter(1_400_000, 3)},
-			est(1_300_000), []domain.Suggestion{
+			est(1_300_000),
+			[]domain.Suggestion{
 				{Kind: domain.SuggestFast, Price: 1_200_000, Days: 3},
 				{Kind: domain.SuggestMarket, Price: 1_300_000, Days: 3},
 			},
@@ -58,7 +64,8 @@ func TestSuggest(t *testing.T) {
 		{
 			"rounded to 10,000",
 			[]domain.Sample{soldAfter(1_234_567, 1), soldAfter(1_250_000, 2), soldAfter(2_000_000, 9)},
-			est(1_500_000), []domain.Suggestion{
+			est(1_500_000),
+			[]domain.Suggestion{
 				{Kind: domain.SuggestFast, Price: 1_240_000, Days: 1},
 				{Kind: domain.SuggestMarket, Price: 1_500_000, Days: 2},
 			},
