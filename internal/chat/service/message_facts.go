@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/chat/domain"
 	"github.com/shopnexus/server2/internal/chat/repository"
 )
 
@@ -14,6 +15,9 @@ type MessageFacts struct {
 	ID, ConversationID, RecipientID uuid.UUID
 	SenderName, Text                string
 	Photos                          int
+	// Kind is the conversation's: a support chat pushes as ShopNexus and
+	// gets no scam check.
+	Kind domain.ConversationKind
 }
 
 func (c *Chat) MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bool, error) {
@@ -34,6 +38,6 @@ func (c *Chat) MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bo
 	}
 	return MessageFacts{
 		ID: id, ConversationID: m.ConversationID(), RecipientID: conv.Other(m.SenderID()),
-		SenderName: sender.DisplayName, Text: m.Body(), Photos: len(m.Photos()),
+		SenderName: sender.DisplayName, Text: m.Body(), Photos: len(m.Photos()), Kind: conv.Kind,
 	}, true, nil
 }

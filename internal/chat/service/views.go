@@ -1,12 +1,16 @@
 package service
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"time"
 	"uuid"
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/chat/domain"
+	"github.com/shopnexus/server2/internal/chat/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -17,11 +21,16 @@ type OpenInput struct {
 	Photos    []uuid.UUID
 }
 
-// SendInput is a message as its sender writes it.
+// SendInput is a message as its sender writes it. ReplyTo is the earlier
+// message it quotes. OpensTicket lets the first message of a support
+// ticket carry neither text nor photos; module support sets it, and the
+// HTTP binding has no such field.
 type SendInput struct {
-	Text      string
-	Photos    []uuid.UUID
-	ListingID *uuid.UUID
+	Text        string
+	Photos      []uuid.UUID
+	ListingID   *uuid.UUID
+	ReplyTo     *uuid.UUID
+	OpensTicket bool
 }
 
 // PersonView is the other member of a conversation.
@@ -32,6 +41,8 @@ type PersonView struct {
 	LastActiveAt *time.Time `json:"last_active_at,omitempty"`
 	// Deleted is a person who deleted their account; the name is empty.
 	Deleted bool `json:"deleted"`
+	// Official is ShopNexus, the other side of every support chat.
+	Official bool `json:"official,omitempty"`
 }
 
 // PhotoView is a photo of a message; the URLs are set once it is processed.
@@ -48,10 +59,23 @@ type MessageView struct {
 	Text      string               `json:"text"`
 	Photos    []PhotoView          `json:"photos"`
 	ListingID *uuid.UUID           `json:"listing_id,omitempty"`
+	ReplyTo   *QuoteView           `json:"reply_to,omitempty"`
 	Status    domain.MessageStatus `json:"status"`
 	Failure   string               `json:"failure,omitempty"`
 	CreatedAt time.Time            `json:"created_at"`
 }
+
+// QuoteView is the message a reply quotes, as it reads now: the Quote
+// schema.
+type QuoteView struct {
+	ID       uuid.UUID `json:"id"`
+	SenderID uuid.UUID `json:"sender_id"`
+	Text     string    `json:"text"`
+	Photos   int       `json:"photos"`
+}
+
+// maxQuote is how much of a quoted message's text a reply carries.
+const maxQuote = 200
 
 // ConversationView is the Conversation schema in api/schemas/chat.yaml.
 type ConversationView struct {
@@ -88,8 +112,32 @@ type SearchResult struct {
 func personView(id uuid.UUID, a accountsvc.AccountView) PersonView {
 	return PersonView{
 		ID: id, DisplayName: a.DisplayName, AvatarURL: a.AvatarURL, LastActiveAt: a.LastActiveAt,
-		Deleted: a.Status == accountdomain.StatusDeleted,
+		Deleted: a.Status == accountdomain.StatusDeleted, Official: id == accountdomain.ShopNexusID,
 	}
+}
+
+// quoted adds to each view the message it quotes, read now; a quote whose
+// message is gone is left off.
+func (c *Chat) quoted(ctx context.Context, views []MessageView, msgs []domain.Message) error {
+	for i := range msgs {
+		id := msgs[i].ReplyTo()
+		if id == nil {
+			continue
+		}
+		q, err := c.chats.GetMessage(ctx, *id)
+		if errors.Is(err, repository.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("read the quoted message: %w", err)
+		}
+		text := q.Body()
+		if r := []rune(text); len(r) > maxQuote {
+			text = string(r[:maxQuote])
+		}
+		views[i].ReplyTo = &QuoteView{ID: q.ID(), SenderID: q.SenderID(), Text: text, Photos: len(q.Photos())}
+	}
+	return nil
 }
 
 // messageView shows m with its photos' URLs.

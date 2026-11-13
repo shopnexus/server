@@ -21,8 +21,8 @@ type pgChats struct{ db *pgxpool.Pool }
 
 func NewChats(db *pgxpool.Pool) Chats { return pgChats{db} }
 
-const messageColumns = `m.id, m.conversation_id, m.sender_id, m.body, m.photos, m.listing_id, m.status, m.failure,
-       m.created_at`
+const messageColumns = `m.id, m.conversation_id, m.sender_id, m.body, m.photos, m.listing_id, m.reply_to, m.status,
+       m.failure, m.created_at`
 
 // messageScan holds a message's columns while a row is scanned.
 type messageScan struct {
@@ -33,8 +33,8 @@ type messageScan struct {
 
 func (m *messageScan) dest() []any {
 	return []any{
-		&m.st.ID, &m.st.ConversationID, &m.st.SenderID, &m.st.Body, &m.photos, &m.st.ListingID, &m.st.Status,
-		&m.failure, &m.st.CreatedAt,
+		&m.st.ID, &m.st.ConversationID, &m.st.SenderID, &m.st.Body, &m.photos, &m.st.ListingID, &m.st.ReplyTo,
+		&m.st.Status, &m.failure, &m.st.CreatedAt,
 	}
 }
 
@@ -60,14 +60,14 @@ func scanMessage(row pgx.CollectableRow) (domain.Message, error) {
 func (s pgChats) OpenPair(ctx context.Context, c domain.Conversation) (domain.Conversation, error) {
 	var out domain.Conversation
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO conversations (id, account_a, account_b, created_at)
-VALUES (@id, @a, @b, @at) ON CONFLICT (account_a, account_b) DO NOTHING`,
+		if _, err := tx.Exec(ctx, `INSERT INTO conversations (id, account_a, account_b, kind, created_at)
+VALUES (@id, @a, @b, 'pair', @at) ON CONFLICT (account_a, account_b) WHERE kind = 'pair' DO NOTHING`,
 			pgx.StrictNamedArgs{"id": c.ID, "a": c.AccountA, "b": c.AccountB, "at": c.CreatedAt}); err != nil {
 			return fmt.Errorf("insert conversation: %w", err)
 		}
-		if err := tx.QueryRow(ctx, `SELECT id, account_a, account_b, created_at FROM conversations
-WHERE account_a = @a AND account_b = @b`, pgx.StrictNamedArgs{"a": c.AccountA, "b": c.AccountB}).
-			Scan(&out.ID, &out.AccountA, &out.AccountB, &out.CreatedAt); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT id, account_a, account_b, kind, created_at FROM conversations
+WHERE account_a = @a AND account_b = @b AND kind = 'pair'`, pgx.StrictNamedArgs{"a": c.AccountA, "b": c.AccountB}).
+			Scan(&out.ID, &out.AccountA, &out.AccountB, &out.Kind, &out.CreatedAt); err != nil {
 			return fmt.Errorf("select conversation: %w", err)
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO conversation_members (conversation_id, account_id)
@@ -84,8 +84,8 @@ VALUES (@id, @a), (@id, @b) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"id": o
 
 func (s pgChats) Get(ctx context.Context, id uuid.UUID) (domain.Conversation, error) {
 	var c domain.Conversation
-	err := s.db.QueryRow(ctx, `SELECT id, account_a, account_b, created_at FROM conversations WHERE id = @id`,
-		pgx.StrictNamedArgs{"id": id}).Scan(&c.ID, &c.AccountA, &c.AccountB, &c.CreatedAt)
+	err := s.db.QueryRow(ctx, `SELECT id, account_a, account_b, kind, created_at FROM conversations WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": id}).Scan(&c.ID, &c.AccountA, &c.AccountB, &c.Kind, &c.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Conversation{}, ErrNotFound
 	}
@@ -97,9 +97,9 @@ func (s pgChats) Get(ctx context.Context, id uuid.UUID) (domain.Conversation, er
 
 func (s pgChats) FindPair(ctx context.Context, one, other uuid.UUID) (domain.Conversation, error) {
 	var c domain.Conversation
-	err := s.db.QueryRow(ctx, `SELECT id, account_a, account_b, created_at FROM conversations
-WHERE account_a = LEAST(@one::uuid, @other::uuid) AND account_b = GREATEST(@one::uuid, @other::uuid)`,
-		pgx.StrictNamedArgs{"one": one, "other": other}).Scan(&c.ID, &c.AccountA, &c.AccountB, &c.CreatedAt)
+	err := s.db.QueryRow(ctx, `SELECT id, account_a, account_b, kind, created_at FROM conversations
+WHERE account_a = LEAST(@one::uuid, @other::uuid) AND account_b = GREATEST(@one::uuid, @other::uuid) AND kind = 'pair'`,
+		pgx.StrictNamedArgs{"one": one, "other": other}).Scan(&c.ID, &c.AccountA, &c.AccountB, &c.Kind, &c.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Conversation{}, ErrNotFound
 	}
@@ -152,12 +152,12 @@ func written(ctx context.Context, tx pgx.Tx, m domain.Message) error {
 func (s pgChats) AddMessage(ctx context.Context, m domain.Message) error {
 	st := m.State()
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `INSERT INTO messages (id, conversation_id, sender_id, body, photos, listing_id, status,
-                      failure, created_at)
-VALUES (@id, @conversation, @sender, @body, @photos, @listing, @status, NULL, @at)
+		tag, err := tx.Exec(ctx, `INSERT INTO messages (id, conversation_id, sender_id, body, photos, listing_id, reply_to,
+                      status, failure, created_at)
+VALUES (@id, @conversation, @sender, @body, @photos, @listing, @reply_to, @status, NULL, @at)
 ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 			"id": st.ID, "conversation": st.ConversationID, "sender": st.SenderID, "body": st.Body,
-			"photos": photosOf(st), "listing": st.ListingID, "status": st.Status, "at": st.CreatedAt,
+			"photos": photosOf(st), "listing": st.ListingID, "reply_to": st.ReplyTo, "status": st.Status, "at": st.CreatedAt,
 		})
 		if err != nil {
 			return fmt.Errorf("insert message: %w", err)
@@ -336,7 +336,7 @@ ORDER BY m.id DESC LIMIT @limit`, pgx.StrictNamedArgs{"conversation": conversati
 // to show in the inbox: a sent message, archived or not as @archived asks,
 // and no block of the other member by the viewer.
 const listed = `
-cm.account_id = @viewer AND c.last_message_id IS NOT NULL
+cm.account_id = @viewer AND c.kind = 'pair' AND c.last_message_id IS NOT NULL
   AND @archived = (cm.archived_at IS NOT NULL)
   AND ` + notBlocked
 
@@ -366,7 +366,7 @@ const rowUnread = `greatest(unread.n, marked::int)`
 // selectInbox picks the page first, then reads each row's last message and
 // unread count.
 const selectInbox = `
-SELECT ` + messageColumns + `, c.id, c.account_a, c.account_b, c.created_at, ` + rowUnread + `
+SELECT ` + messageColumns + `, c.id, c.account_a, c.account_b, c.kind, c.created_at, ` + rowUnread + `
 FROM (
     SELECT c.id, cm.last_read_message_id AS last_read, cm.marked_unread AS marked
     FROM conversation_members cm JOIN conversations c ON c.id = cm.conversation_id
@@ -383,6 +383,77 @@ FROM conversation_members cm JOIN conversations c ON c.id = cm.conversation_id
 CROSS JOIN LATERAL (SELECT cm.last_read_message_id, cm.marked_unread) marker (last_read, marked)` + unreadAfter + `
 WHERE ` + listed
 
+// countSupportUnread sums the viewer's unread messages over its support
+// chats.
+const countSupportUnread = `
+SELECT coalesce(sum(` + rowUnread + `), 0)
+FROM conversation_members cm JOIN conversations c ON c.id = cm.conversation_id
+CROSS JOIN LATERAL (SELECT cm.last_read_message_id, cm.marked_unread) marker (last_read, marked)` + unreadAfter + `
+WHERE cm.account_id = @viewer AND c.kind = 'support' AND c.last_message_id IS NOT NULL`
+
+// selectThreads reads the last message and unread count of each of the
+// viewer's conversations among @ids that has a message.
+const selectThreads = `
+SELECT ` + messageColumns + `, c.id, ` + rowUnread + `
+FROM conversation_members cm JOIN conversations c ON c.id = cm.conversation_id
+JOIN messages m ON m.id = c.last_message_id
+CROSS JOIN LATERAL (SELECT cm.last_read_message_id, cm.marked_unread) marker (last_read, marked)` + unreadAfter + `
+WHERE cm.account_id = @viewer AND c.id = ANY(@ids)`
+
+func (s pgChats) OpenSupport(ctx context.Context, c domain.Conversation) (domain.Conversation, error) {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO conversations (id, account_a, account_b, kind, created_at)
+VALUES (@id, @a, @b, 'support', @at) ON CONFLICT (id) DO NOTHING`,
+			pgx.StrictNamedArgs{"id": c.ID, "a": c.AccountA, "b": c.AccountB, "at": c.CreatedAt}); err != nil {
+			return fmt.Errorf("insert conversation: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO conversation_members (conversation_id, account_id)
+VALUES (@id, @a), (@id, @b) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"id": c.ID, "a": c.AccountA, "b": c.AccountB}); err != nil {
+			return fmt.Errorf("insert members: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return domain.Conversation{}, fmt.Errorf("open support conversation: %w", err)
+	}
+	return s.Get(ctx, c.ID)
+}
+
+func (s pgChats) SupportUnread(ctx context.Context, viewer uuid.UUID) (int, error) {
+	var n int
+	if err := s.db.QueryRow(ctx, countSupportUnread, pgx.StrictNamedArgs{"viewer": viewer}).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count support unread: %w", err)
+	}
+	return n, nil
+}
+
+func (s pgChats) Threads(ctx context.Context, viewer uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]ThreadRow, error) {
+	rows, err := s.db.Query(ctx, selectThreads, pgx.StrictNamedArgs{"viewer": viewer, "ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("select threads: %w", err)
+	}
+	out := map[uuid.UUID]ThreadRow{}
+	_, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (struct{}, error) {
+		var (
+			m    messageScan
+			id   uuid.UUID
+			r    ThreadRow
+			last domain.Message
+		)
+		if scanErr := row.Scan(append(m.dest(), &id, &r.Unread)...); scanErr != nil {
+			return struct{}{}, fmt.Errorf("scan thread: %w", scanErr)
+		}
+		last, scanErr := m.message()
+		r.Last = last
+		out[id] = r
+		return struct{}{}, scanErr
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read threads: %w", err)
+	}
+	return out, nil
+}
+
 func (s pgChats) Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p page.Request) ([]InboxRow, error) {
 	rows, err := s.db.Query(ctx, selectInbox, pgx.StrictNamedArgs{
 		"viewer": viewer, "archived": archived, "before": p.Before(), "limit": p.Fetch(),
@@ -396,7 +467,7 @@ func (s pgChats) Inbox(ctx context.Context, viewer uuid.UUID, archived bool, p p
 			m messageScan
 		)
 		if scanErr := row.Scan(append(m.dest(), &r.Conversation.ID, &r.Conversation.AccountA, &r.Conversation.AccountB,
-			&r.Conversation.CreatedAt, &r.Unread)...); scanErr != nil {
+			&r.Conversation.Kind, &r.Conversation.CreatedAt, &r.Unread)...); scanErr != nil {
 			return InboxRow{}, fmt.Errorf("scan inbox row: %w", scanErr)
 		}
 		r.Other, r.Archived = r.Conversation.Other(viewer), archived

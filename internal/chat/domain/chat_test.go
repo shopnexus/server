@@ -7,6 +7,7 @@ import (
 	"time"
 	"uuid"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/chat/domain"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 )
@@ -22,7 +23,7 @@ func ids(n int) []uuid.UUID {
 }
 
 func newMessage(body string, photos []uuid.UUID) (domain.Message, error) {
-	return domain.NewMessage(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), body, photos, nil, now)
+	return domain.NewMessage(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), body, photos, nil, nil, false, now)
 }
 
 func TestNewMessage(t *testing.T) {
@@ -57,7 +58,7 @@ func TestMessageVisibility(t *testing.T) {
 	t.Parallel()
 	sender, other := uuid.NewV7(), uuid.NewV7()
 	photo := uuid.NewV7()
-	m, err := domain.NewMessage(uuid.NewV7(), uuid.NewV7(), sender, "", []uuid.UUID{photo}, nil, now)
+	m, err := domain.NewMessage(uuid.NewV7(), uuid.NewV7(), sender, "", []uuid.UUID{photo}, nil, nil, false, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,5 +86,36 @@ func TestConversationPair(t *testing.T) {
 	}
 	if !one.Has(a) || !one.Has(b) || one.Has(uuid.NewV7()) || one.Other(a) != b || one.Other(b) != a {
 		t.Fatalf("%+v", one)
+	}
+}
+
+func TestATicketsFirstMessageMayBeEmpty(t *testing.T) {
+	t.Parallel()
+	if _, err := domain.NewMessage(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), "  ", nil, nil, nil, true, time.Now()); err != nil {
+		t.Fatalf("a ticket's first message needs no text: %v", err)
+	}
+	if _, err := domain.NewMessage(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), "", nil, nil, nil, false, time.Now()); err == nil {
+		t.Fatal("an ordinary message needs text or photos")
+	}
+}
+
+func TestAMessageKeepsWhatItQuotes(t *testing.T) {
+	t.Parallel()
+	quoted := uuid.NewV7()
+	m, err := domain.NewMessage(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), "Còn 3 tháng", nil, nil, &quoted, false, time.Now())
+	if err != nil || m.ReplyTo() == nil || *m.ReplyTo() != quoted || *m.State().ReplyTo != quoted {
+		t.Fatalf("reply_to %v, %v", m.ReplyTo(), err)
+	}
+}
+
+func TestSupportConversationsAreWithShopNexus(t *testing.T) {
+	t.Parallel()
+	person := uuid.NewV7()
+	c := domain.NewSupportConversation(uuid.NewV7(), person, time.Now())
+	if c.Kind != domain.KindSupport || !c.Has(accountdomain.ShopNexusID) || c.Other(person) != accountdomain.ShopNexusID {
+		t.Fatalf("got %+v", c)
+	}
+	if p := domain.NewConversation(uuid.NewV7(), person, uuid.NewV7(), time.Now()); p.Kind != domain.KindPair {
+		t.Fatalf("a pair is %q", p.Kind)
 	}
 }

@@ -10,6 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 	"uuid"
+
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 )
 
 const (
@@ -39,7 +41,7 @@ type Photo struct {
 }
 
 // Message is one message of a conversation. ListingID names the listing it
-// is about, if any.
+// is about, if any; replyTo the earlier message it quotes.
 type Message struct {
 	id             uuid.UUID
 	conversationID uuid.UUID
@@ -47,18 +49,24 @@ type Message struct {
 	body           string
 	photos         []Photo
 	listingID      *uuid.UUID
+	replyTo        *uuid.UUID
 	status         MessageStatus
 	failure        string
 	createdAt      time.Time
 }
 
 // NewMessage checks a message as its sender wrote it: text 0 to 1,000
-// characters after trimming and 0 to 4 photos, at least one of the two.
-func NewMessage(id, conversation, sender uuid.UUID, body string, photos []uuid.UUID, listing *uuid.UUID, now time.Time) (Message, error) {
+// characters after trimming and 0 to 4 photos, at least one of the two,
+// unless the message opens a support ticket, whose card may carry neither.
+// Whether replyTo is a sent message of the conversation is the send flow's
+// check.
+func NewMessage(id, conversation, sender uuid.UUID, body string, photos []uuid.UUID, listing, replyTo *uuid.UUID,
+	opensTicket bool, now time.Time,
+) (Message, error) {
 	e := ErrInvalidMessage
 	body = strings.TrimSpace(body)
 	n := utf8.RuneCountInString(body)
-	if n > MaxText || (n == 0 && len(photos) == 0) {
+	if n > MaxText || (n == 0 && len(photos) == 0 && !opensTicket) {
 		e = e.WithField("text", "1 to 1,000 characters, or photos")
 	}
 	sorted := slices.SortedFunc(slices.Values(photos), func(a, b uuid.UUID) int { return bytes.Compare(a[:], b[:]) })
@@ -69,7 +77,7 @@ func NewMessage(id, conversation, sender uuid.UUID, body string, photos []uuid.U
 		return Message{}, e
 	}
 	m := Message{
-		id: id, conversationID: conversation, senderID: sender, body: body, listingID: listing,
+		id: id, conversationID: conversation, senderID: sender, body: body, listingID: listing, replyTo: replyTo,
 		status: StatusSent, createdAt: now,
 	}
 	for _, p := range photos {
@@ -106,6 +114,7 @@ func (m *Message) SenderID() uuid.UUID       { return m.senderID }
 func (m *Message) Body() string              { return m.body }
 func (m *Message) Photos() []Photo           { return append([]Photo{}, m.photos...) }
 func (m *Message) ListingID() *uuid.UUID     { return m.listingID }
+func (m *Message) ReplyTo() *uuid.UUID       { return m.replyTo }
 func (m *Message) Status() MessageStatus     { return m.status }
 func (m *Message) Failure() string           { return m.failure }
 func (m *Message) CreatedAt() time.Time      { return m.createdAt }
@@ -128,6 +137,7 @@ type MessageState struct {
 	Body           string        `json:"body"`
 	Photos         []Photo       `json:"photos"`
 	ListingID      *uuid.UUID    `json:"listing_id,omitempty"`
+	ReplyTo        *uuid.UUID    `json:"reply_to,omitempty"`
 	Status         MessageStatus `json:"status"`
 	Failure        string        `json:"failure,omitempty"`
 	CreatedAt      time.Time     `json:"created_at"`
@@ -137,7 +147,7 @@ type MessageState struct {
 func RestoreMessage(st MessageState) Message {
 	return Message{
 		id: st.ID, conversationID: st.ConversationID, senderID: st.SenderID, body: st.Body, photos: st.Photos,
-		listingID: st.ListingID, status: st.Status, failure: st.Failure, createdAt: st.CreatedAt,
+		listingID: st.ListingID, replyTo: st.ReplyTo, status: st.Status, failure: st.Failure, createdAt: st.CreatedAt,
 	}
 }
 
@@ -145,17 +155,28 @@ func RestoreMessage(st MessageState) Message {
 func (m *Message) State() MessageState {
 	return MessageState{
 		ID: m.id, ConversationID: m.conversationID, SenderID: m.senderID, Body: m.body, Photos: m.Photos(),
-		ListingID: m.listingID, Status: m.status, Failure: m.failure, CreatedAt: m.createdAt,
+		ListingID: m.listingID, ReplyTo: m.replyTo, Status: m.status, Failure: m.failure, CreatedAt: m.createdAt,
 	}
 }
 
-// Conversation is the one conversation of two people, stored with
-// AccountA before AccountB.
+// ConversationKind is a pair's one chat, or one support ticket's chat with
+// ShopNexus, of which a person has any number.
+type ConversationKind string
+
+const (
+	KindPair    ConversationKind = "pair"
+	KindSupport ConversationKind = "support"
+)
+
+// Conversation is a chat of two accounts, stored with AccountA before
+// AccountB: the one chat of two people, or a ticket's chat of a person
+// with ShopNexus.
 type Conversation struct {
-	ID        uuid.UUID `json:"id"`
-	AccountA  uuid.UUID `json:"account_a"`
-	AccountB  uuid.UUID `json:"account_b"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uuid.UUID        `json:"id"`
+	AccountA  uuid.UUID        `json:"account_a"`
+	AccountB  uuid.UUID        `json:"account_b"`
+	Kind      ConversationKind `json:"kind"`
+	CreatedAt time.Time        `json:"created_at"`
 }
 
 // NewConversation starts the conversation of one and other, in either
@@ -164,7 +185,15 @@ func NewConversation(id, one, other uuid.UUID, now time.Time) Conversation {
 	if bytes.Compare(one[:], other[:]) > 0 {
 		one, other = other, one
 	}
-	return Conversation{ID: id, AccountA: one, AccountB: other, CreatedAt: now}
+	return Conversation{ID: id, AccountA: one, AccountB: other, Kind: KindPair, CreatedAt: now}
+}
+
+// NewSupportConversation starts a ticket's chat between account and
+// ShopNexus.
+func NewSupportConversation(id, account uuid.UUID, now time.Time) Conversation {
+	c := NewConversation(id, account, accountdomain.ShopNexusID, now)
+	c.Kind = KindSupport
+	return c
 }
 
 // Has reports whether account is a member.

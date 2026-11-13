@@ -20,7 +20,9 @@ import (
 const messageSend = "MessageSend"
 
 // SendFlowInput is one send: into ConversationID, or, when Opening, into
-// the pair of the sender and the seller of ListingID.
+// the pair of the sender and the seller of ListingID. ReplyTo is the
+// message it quotes; OpensTicket lets a support ticket's first message
+// carry no text.
 type SendFlowInput struct {
 	Sender         uuid.UUID   `json:"sender"`
 	ConversationID uuid.UUID   `json:"conversation_id"`
@@ -28,7 +30,13 @@ type SendFlowInput struct {
 	ListingID      *uuid.UUID  `json:"listing_id,omitempty"`
 	Text           string      `json:"text"`
 	Photos         []uuid.UUID `json:"photos"`
+	ReplyTo        *uuid.UUID  `json:"reply_to,omitempty"`
+	OpensTicket    bool        `json:"opens_ticket,omitempty"`
 }
+
+// MessageSendName is the MessageSend service's name without the prefix,
+// for module support's flow, which sends a ticket's first message.
+const MessageSendName = messageSend
 
 // SendResult names the conversation and the message sent, or carries the
 // refusal.
@@ -48,6 +56,8 @@ type facts struct {
 	Conversation *domain.Conversation `json:"conversation,omitempty"`
 	Blocked      bool                 `json:"blocked"`
 	OtherDeleted bool                 `json:"other_deleted"`
+	// ReplyOK is whether ReplyTo is a sent message of the conversation.
+	ReplyOK bool `json:"reply_ok"`
 }
 
 // MessageSend sends a message: one step reads what the send depends on and
@@ -99,6 +109,13 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 				out.Conversation, other = &conv, conv.Other(in.Sender)
 			}
 		}
+		if in.ReplyTo != nil {
+			q, getErr := s.Chat.chats.GetMessage(rc, *in.ReplyTo)
+			if getErr != nil && !errors.Is(getErr, repository.ErrNotFound) {
+				return facts{}, fmt.Errorf("read the quoted message: %w", getErr)
+			}
+			out.ReplyOK = getErr == nil && q.ConversationID() == in.ConversationID && q.Status() == domain.StatusSent
+		}
 		if other != (uuid.UUID{}) {
 			if out.Blocked, stepErr = s.Chat.accounts.Blocked(rc, in.Sender, other); stepErr != nil {
 				return facts{}, fmt.Errorf("check block: %w", stepErr)
@@ -114,9 +131,11 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	if err != nil {
 		return SendResult{}, fmt.Errorf("read the send's facts: %w", err)
 	}
+	// A suspended person still writes to support, to ask why.
+	toSupport := f.Conversation != nil && f.Conversation.Kind == domain.KindSupport
 	var refused *apperr.Error
 	switch {
-	case f.Status.Refusal() != nil:
+	case f.Status.Refusal() != nil && (f.Status != accountdomain.StatusSuspended || !toSupport):
 		refused = f.Status.Refusal()
 	case in.Opening && !f.HasPhone:
 		refused = accountdomain.ErrPhoneRequired
@@ -130,6 +149,8 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 		refused = domain.ErrNotFound
 	case !in.Opening && in.ListingID != nil && (f.Listing == nil || !f.Conversation.Has(f.Listing.SellerID)):
 		refused = domain.ErrInvalidMessage.WithField("listing_id", "a listing of either member")
+	case in.ReplyTo != nil && !f.ReplyOK:
+		refused = domain.ErrInvalidMessage.WithField("reply_to", "a sent message of this conversation")
 	case f.Blocked:
 		refused = accountdomain.ErrBlocked
 	case f.OtherDeleted:
@@ -149,7 +170,8 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 		}
 		conv = &opened
 	}
-	msg, err := domain.NewMessage(restatex.NewID(ctx, at), conv.ID, in.Sender, in.Text, in.Photos, in.ListingID, at)
+	msg, err := domain.NewMessage(restatex.NewID(ctx, at), conv.ID, in.Sender, in.Text, in.Photos, in.ListingID, in.ReplyTo,
+		in.OpensTicket, at)
 	if err != nil {
 		return SendResult{Refused: apperr.From(err)}, nil
 	}

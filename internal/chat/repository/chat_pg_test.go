@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/chat/domain"
 	"github.com/shopnexus/server2/internal/chat/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
@@ -31,7 +32,7 @@ func pair(t *testing.T, db *pgxpool.Pool, s repository.Chats) (c domain.Conversa
 // send adds a message of sender's to c.
 func send(t *testing.T, s repository.Chats, c domain.Conversation, sender uuid.UUID, body string, photos ...uuid.UUID) domain.Message {
 	t.Helper()
-	m, err := domain.NewMessage(uuid.NewV7(), c.ID, sender, body, photos, nil, time.Now())
+	m, err := domain.NewMessage(uuid.NewV7(), c.ID, sender, body, photos, nil, nil, false, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -323,7 +324,7 @@ func TestWindow(t *testing.T) {
 	c, a, b := pair(t, db, s)
 	first := send(t, s, c, a, "Còn không bạn?")
 	second := send(t, s, c, b, "Còn bạn")
-	photo, err := domain.NewMessage(uuid.NewV7(), c.ID, b, "", []uuid.UUID{uuid.NewV7()}, nil, time.Now())
+	photo, err := domain.NewMessage(uuid.NewV7(), c.ID, b, "", []uuid.UUID{uuid.NewV7()}, nil, nil, false, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,5 +342,81 @@ func TestWindow(t *testing.T) {
 	}
 	if got, err = s.Window(ctx, c.ID, uuid.UUID{}, 1); err != nil || len(got) != 1 || got[0].ID() != third.ID() {
 		t.Fatalf("one: %d %v", len(got), err)
+	}
+}
+
+// support opens a ticket's chat of a new account with ShopNexus.
+func support(t *testing.T, db *pgxpool.Pool, s repository.Chats) (domain.Conversation, uuid.UUID) {
+	t.Helper()
+	person := accounttest.New(t, db)
+	c, err := s.OpenSupport(context.Background(), domain.NewSupportConversation(uuid.NewV7(), person, time.Now()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c, person
+}
+
+func TestSupportChatsStayOutOfTheInbox(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewChats(db)
+	c, person := support(t, db, s)
+	send(t, s, c, accountdomain.ShopNexusID, "Chào bạn")
+	if rows := inbox(t, s, person, false); len(rows) != 0 {
+		t.Fatalf("inbox %+v", rows)
+	}
+	if n, err := s.Unread(ctx, person); err != nil || n != 0 {
+		t.Fatalf("unread %d, %v", n, err)
+	}
+	if n, err := s.SupportUnread(ctx, person); err != nil || n != 1 {
+		t.Fatalf("support unread %d, %v", n, err)
+	}
+	threads, err := s.Threads(ctx, person, []uuid.UUID{c.ID})
+	last := threads[c.ID].Last
+	if err != nil || threads[c.ID].Unread != 1 || last.Body() != "Chào bạn" {
+		t.Fatalf("threads %+v, %v", threads, err)
+	}
+}
+
+func TestOpenSupportMakesANewChatEachTime(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewChats(db)
+	a, person := support(t, db, s)
+	b, err := s.OpenSupport(ctx, domain.NewSupportConversation(uuid.NewV7(), person, time.Now()))
+	if err != nil || a.ID == b.ID || a.Kind != domain.KindSupport || b.Kind != domain.KindSupport {
+		t.Fatalf("%+v %+v %v", a, b, err)
+	}
+	again, err := s.OpenSupport(ctx, a)
+	if err != nil || again.ID != a.ID {
+		t.Fatalf("a retried step: %+v %v", again, err)
+	}
+	if got, getErr := s.Get(ctx, a.ID); getErr != nil || got.Kind != domain.KindSupport {
+		t.Fatalf("get %+v %v", got, getErr)
+	}
+	if _, err = s.FindPair(ctx, person, accountdomain.ShopNexusID); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("a support chat is no pair: %v", err)
+	}
+}
+
+func TestAQuoteIsStoredAndRead(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewChats(db)
+	c, a, b := pair(t, db, s)
+	first := send(t, s, c, a, "Còn bảo hành không?")
+	reply, err := domain.NewMessage(uuid.NewV7(), c.ID, b, "Còn 3 tháng", nil, nil, new(first.ID()), false, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.AddMessage(ctx, reply); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.GetMessage(ctx, reply.ID())
+	if err != nil || got.ReplyTo() == nil || *got.ReplyTo() != first.ID() {
+		t.Fatalf("reply_to %v, %v", got.ReplyTo(), err)
 	}
 }

@@ -55,13 +55,24 @@ type Service interface {
 	Peer(ctx context.Context, account, conversation uuid.UUID) (other uuid.UUID, ok bool, err error)
 	// Messages lists what account may read of a conversation, newest first.
 	Messages(ctx context.Context, account, conversation uuid.UUID, p page.Request) (page.Page[MessageView], error)
+	// OpenSupport makes the support chat id between account and ShopNexus,
+	// or returns it when a retried step made it already. Module support
+	// only.
+	OpenSupport(ctx context.Context, account, id uuid.UUID) (ConversationView, error)
+	// Threads reads the last message and account's unread count of each of
+	// account's conversations among ids; one with no message is absent.
+	Threads(ctx context.Context, account uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]Thread, error)
+	// SupportUnread counts account's unread messages over its support
+	// chats, which Unread leaves out.
+	SupportUnread(ctx context.Context, account uuid.UUID) (int, error)
 	// MessageFacts reads a message for its push; false for an unknown one.
 	MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bool, error)
 	// Window reads conversation's last n sent messages with text up to
 	// message upTo, or the newest for the zero upTo, oldest first; false for
 	// an unknown conversation.
 	Window(ctx context.Context, conversation, upTo uuid.UUID, n int) (Window, bool, error)
-	// Unread counts account's unread messages over unarchived conversations.
+	// Unread counts account's unread messages over unarchived pair
+	// conversations; support chats are left out.
 	Unread(ctx context.Context, account uuid.UUID) (int, error)
 	// Search finds account's conversations by the other member's name or a
 	// listing's title, on the first page only, and a page of their messages
