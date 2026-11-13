@@ -47,7 +47,7 @@ func TestPriceSampleWindows(t *testing.T) {
 		t.Fatal(err)
 	}
 	slices.SortFunc(got, func(a, b service.PriceSample) int { return int(a.Price - b.Price) })
-	if want := []service.PriceSample{{Price: 1_000_000}, {Price: 1_200_000, Sold: true}}; !slices.Equal(got, want) {
+	if len(got) != 2 || got[0].Price != 1_000_000 || got[0].Sold || got[1].Price != 1_200_000 || !got[1].Sold {
 		t.Fatalf("%+v", got)
 	}
 	q.Text = nil

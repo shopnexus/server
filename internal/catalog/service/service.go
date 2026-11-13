@@ -83,8 +83,8 @@ type Service interface {
 	// EmbeddingText is the text a listing posted from d would be embedded
 	// from, with its category's display name.
 	EmbeddingText(ctx context.Context, d domain.ListingInput) (string, error)
-	// PriceSample returns the prices of listings like q's vectors, most
-	// similar first, at most domain.PriceSampleSize; nil without a vector.
+	// PriceSample returns the listings like q's vectors with their prices,
+	// days to sell and points, most similar first, at most domain.PriceSampleSize; nil without a vector.
 	PriceSample(ctx context.Context, q PriceQuery) ([]PriceSample, error)
 	// MarketPrice compares a listing's price with a price sample drawn with
 	// its own vectors at the cosine floors given, its seller's listings left

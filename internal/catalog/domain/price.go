@@ -3,6 +3,7 @@ package domain
 import (
 	"slices"
 	"time"
+	"uuid"
 )
 
 const (
@@ -15,11 +16,15 @@ const (
 	PriceOnSaleWindow = 90 * 24 * time.Hour
 )
 
-// PriceSample is the price of one listing like a listing input, and whether it sold
-// at it.
+// PriceSample is one listing like a listing input: its price, whether it
+// sold at it, the whole days from its publication to its sale (at least 1;
+// 0 on sale), and its point.
 type PriceSample struct {
-	Price int64 `json:"price"`
-	Sold  bool  `json:"sold"`
+	ListingID  uuid.UUID `json:"listing_id"`
+	Price      int64     `json:"price"`
+	Sold       bool      `json:"sold"`
+	DaysToSell int       `json:"days_to_sell"`
+	Point      Point     `json:"point"`
 }
 
 // MedianPrice is the median of the samples' prices, the mean of the two
