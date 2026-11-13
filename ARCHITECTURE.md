@@ -730,7 +730,10 @@ once a listing draft extended it.
   `MediaExpire` deletes an upload still waiting at its `expires_at`, and
   its object. While `expires_at` is still ahead (a draft extended it), it
   sends itself again for that moment, keyed `<upload id>/<expires_at Unix
-  seconds>`, since the upload ID keyed the first run.
+  seconds>`, since the upload ID keyed the first run. A run less than a
+  minute early sleeps out the rest instead, since a send keyed for its own
+  moment would attach to it. A save that loses to another write reads the
+  upload again and goes on, so the chain never ends while the upload waits.
 - `Extend(owner, ids)` keeps photos for the owner's listing drafts
   (decided 2026-11-13), all or none: each is the owner's photo, waiting
   before `expires_at` and in the store as declared, otherwise
@@ -815,7 +818,9 @@ the server for their other devices (decided 2026-11-13, spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-13-listing-drafts-sync-design.md`);
 the posting rules apply only to the complete listing `POST /v1/listings`
 receives, whose body is `ListingInput` (was `ListingDraft`; Go's
-`domain.ListingInput`, was `domain.Draft`).
+`domain.ListingInput`, was `domain.Draft`). The flows' `PostInput.Listing`
+and `EditInput.Listing` keep the wire key `draft`, so old and new pods
+agree during a deploy.
 
 - `PUT /v1/listing-drafts/{id}` creates (201) or replaces (200) a draft;
   the app mints the ID, a UUIDv7, and the last write wins, with no

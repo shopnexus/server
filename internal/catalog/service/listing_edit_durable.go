@@ -20,9 +20,10 @@ import (
 const listingEdit = "ListingEdit"
 
 type EditInput struct {
-	Seller  uuid.UUID           `json:"seller"`
-	ID      uuid.UUID           `json:"id"`
-	Listing domain.ListingInput `json:"listing"`
+	Seller uuid.UUID `json:"seller"`
+	ID     uuid.UUID `json:"id"`
+	// The wire key stays "draft" so old and new pods agree during a deploy.
+	Listing domain.ListingInput `json:"draft"`
 }
 
 // EditResult carries the refusal of an edit, if any.

@@ -20,8 +20,9 @@ import (
 const listingPost = "ListingPost"
 
 type PostInput struct {
-	Seller  uuid.UUID           `json:"seller"`
-	Listing domain.ListingInput `json:"listing"`
+	Seller uuid.UUID `json:"seller"`
+	// The wire key stays "draft" so old and new pods agree during a deploy.
+	Listing domain.ListingInput `json:"draft"`
 }
 
 // PostResult names the listing posted, or carries the refusal.
