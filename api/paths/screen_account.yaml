@@ -1,0 +1,19 @@
+screenProfileTasks:
+  get:
+    operationId: getProfileTasksScreen
+    summary: The Hoàn thiện hồ sơ view, the caller's profile steps with the account and the default address.
+    description: |
+      Writes go through PATCH /v1/accounts/me, /v1/addresses and
+      /v1/accounts/me/identities; the app reads this view again after one.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_account.yaml#/ProfileTasksScreen"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

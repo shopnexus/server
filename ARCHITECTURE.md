@@ -1426,6 +1426,16 @@ page that shows two views calls both at once.
 - `GET /v1/screens/chat/{conversation_id}`: the conversation, the pair's
   deals and the first page of messages; anyone but a member gets
   `conversation_not_found`.
+- `GET /v1/screens/profile-tasks` (decided 2026-11-13, spec
+  `2026-11-13-profile-tasks-design.md`): the Hoàn thiện hồ sơ view.
+  `tasks` holds four steps in a fixed order, `address`, `bio`, `phone` and
+  `avatar`, each with `done`. `account` is the caller's `MyAccount` and
+  `address` the default of their address book, null when the book is
+  empty. A step is done when the book holds an address, the bio is not
+  empty, the account has a phone identity, or it has an avatar. The app
+  counts the steps and takes the first one not done as the next. eKYC and
+  COD setup are not steps: COD needs only a phone, and someone who only
+  buys never sets COD up.
 - "Load more" uses the list endpoints, which return the same item shapes:
   `/v1/sellers/{id}/listings`, `/v1/sellers/{id}/reviews`,
   `/v1/conversations/{id}/messages`.

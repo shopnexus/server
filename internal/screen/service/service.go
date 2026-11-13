@@ -33,6 +33,8 @@ type Service interface {
 	InboxSearch(ctx context.Context, account uuid.UUID, q string, p page.Request) (InboxSearchScreen, error)
 	// Chat reads the chat view of a conversation of account's.
 	Chat(ctx context.Context, account, conversation uuid.UUID) (ChatScreen, error)
+	// ProfileTasks reads account's Hoàn thiện hồ sơ view.
+	ProfileTasks(ctx context.Context, account uuid.UUID) (ProfileTasksScreen, error)
 }
 
 // Deps is what New builds Screen from.
