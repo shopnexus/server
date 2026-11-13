@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/deal/domain"
@@ -26,10 +27,11 @@ type ShipmentInput struct {
 // CreateShipment checks the shipment and reads a manual one with the
 // caller's account at its carrier, then finds the caller's order, runs
 // DealShip once per caller and idempotencyKey, and reads the order's deal.
-// A code the carrier does not know is domain.ErrShipmentUnknown; an
-// unlinked carrier is domain.ErrCarrierNotLinked and a stack without a
-// carrier domain.ErrCarrierUnavailable, for any order. A linked shipment's
-// pickup address is copied now, so a later edit of it changes nothing.
+// A code the carrier does not know is domain.ErrShipmentUnknown and a stack
+// without a carrier domain.ErrCarrierUnavailable, for any order; a carrier
+// the caller has not linked is domain.ErrCarrierNotLinked once the order
+// is the caller's to ship. A linked shipment's pickup address is copied
+// now, so a later edit of it changes nothing.
 func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, in ShipmentInput) (DealView, error) {
 	flow := FlowInput{Caller: caller, OrderID: order}
 	if in.Mode == string(domain.ModeLinked) {
@@ -49,8 +51,17 @@ func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, ide
 			return DealView{}, trackErr
 		}
 		p, readErr := s.shipping.Lookup(ctx, caller, carrier.Carrier(c), code)
+		readErr = shippingError(readErr, domain.ErrShipmentUnknown)
+		if readErr != nil && !errors.Is(readErr, domain.ErrCarrierNotLinked) {
+			return DealView{}, readErr
+		}
+		// A stranger, or the buyer, links nothing: their order answer
+		// comes before the carrier's.
 		if readErr != nil {
-			return DealView{}, shippingError(readErr, domain.ErrShipmentUnknown)
+			if err := s.checkSeller(ctx, caller, order); err != nil {
+				return DealView{}, err
+			}
+			return DealView{}, readErr
 		}
 		flow.Manual = &domain.Shipment{
 			Mode: domain.ModeManual, Carrier: c, TrackingCode: code, Fee: p.Fee, Status: domain.ShipmentStatus(p.Status),

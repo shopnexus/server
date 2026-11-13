@@ -14,17 +14,18 @@ import (
 // codBody asks for COD to address.
 func codBody(address string) map[string]any { return map[string]any{"address_id": address} }
 
-// trackingCode is an SPX code no other test ships under: the e2e tests
+// trackingCode is a GHTK code no other test ships under: the e2e tests
 // share one database, and a carrier's report moves every order with its
 // code.
-func trackingCode() string { return "SPX" + strings.ReplaceAll(uuid.NewV7().String(), "-", "") }
+func trackingCode() string { return "S1." + strings.ReplaceAll(uuid.NewV7().String(), "-", "") }
 
-// shipmentBody is a manual SPX shipment under code.
+// shipmentBody is a manual GHTK shipment under code; activeListing links
+// the seller's GHTK and GHN.
 func shipmentBody(code string) map[string]any {
-	return map[string]any{"mode": "manual", "carrier": "spx", "tracking_code": code}
+	return map[string]any{"mode": "manual", "carrier": "ghtk", "tracking_code": code}
 }
 
-var linkedBody = map[string]any{"mode": "linked", "service": "standard", "weight_grams": 800, "pickup": "home"}
+var linkedBody = map[string]any{"mode": "linked", "carrier": "ghtk", "service": "standard", "weight_grams": 800, "pickup": "home"}
 
 // shipmentPreview is the ShipmentPreview schema.
 type shipmentPreview struct {
@@ -98,7 +99,7 @@ func TestOrderShipConfirm(t *testing.T) {
 
 	code := trackingCode()
 	shipped := orderMoved(t, seller.AccessToken, first.Order.ID, "shipment", shipmentBody(" "+code+" "))
-	if sh := shipped.Order.Shipment; shipped.Order.Status != "shipped" || sh == nil || sh.Mode != "manual" || sh.Carrier != "spx" ||
+	if sh := shipped.Order.Shipment; shipped.Order.Status != "shipped" || sh == nil || sh.Mode != "manual" || sh.Carrier != "ghtk" ||
 		sh.TrackingCode != code || sh.Status != "pending_pickup" || sh.Fee == nil || *sh.Fee != 22_000 {
 		t.Fatalf("ship: %+v", shipped.Order)
 	}
@@ -202,7 +203,7 @@ func TestOrderLinked(t *testing.T) {
 		t.Fatalf("%+v", sh)
 	}
 	check(t, "edit a linked shipment", editShipment(t, seller.AccessToken, d.Order.ID,
-		map[string]any{"carrier": "spx", "tracking_code": "SPX1"}), 409, "move_not_allowed")
+		map[string]any{"carrier": "ghn", "tracking_code": "GHN1"}), 409, "move_not_allowed")
 }
 
 func TestOrderEditShipment(t *testing.T) {
@@ -232,15 +233,19 @@ func TestShipmentLookup(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
 	auth := bearer(seller.AccessToken)
-	p := expect[shipmentPreview](t, call(t, "GET", "/v1/shipments/lookup?carrier=spx&code=SPX1", nil, auth), http.StatusOK)
-	if p.Carrier != "spx" || p.TrackingCode != "SPX1" || p.CODAmount != 1_500_000 || p.Status != "pending_pickup" || p.Fee == nil ||
+	check(t, "lookup before linking", call(t, "GET", "/v1/shipments/lookup?carrier=ghtk&code=S1", nil, auth), 409, "carrier_not_linked")
+	linkCarriers(t, seller.AccessToken)
+	p := expect[shipmentPreview](t, call(t, "GET", "/v1/shipments/lookup?carrier=ghtk&code=S1", nil, auth), http.StatusOK)
+	if p.Carrier != "ghtk" || p.TrackingCode != "S1" || p.CODAmount != 1_500_000 || p.Status != "pending_pickup" || p.Fee == nil ||
 		p.RecipientName == "" {
 		t.Fatalf("%+v", p)
 	}
-	check(t, "lookup signed out", call(t, "GET", "/v1/shipments/lookup?carrier=spx&code=SPX1", nil), 401, "unauthenticated")
-	check(t, "lookup without a code", call(t, "GET", "/v1/shipments/lookup?carrier=spx", nil, auth), 400, "")
+	check(t, "lookup signed out", call(t, "GET", "/v1/shipments/lookup?carrier=ghtk&code=S1", nil), 401, "unauthenticated")
+	check(t, "lookup without a code", call(t, "GET", "/v1/shipments/lookup?carrier=ghtk", nil, auth), 400, "")
 	check(t, "lookup carrier other", call(t, "GET", "/v1/shipments/lookup?carrier=other&code=X1", nil, auth), 422, "invalid_shipment")
-	check(t, "lookup an unknown code", call(t, "GET", "/v1/shipments/lookup?carrier=spx&code=NOTFOUND1", nil, auth),
+	check(t, "lookup at a carrier no seller links", call(t, "GET", "/v1/shipments/lookup?carrier=spx&code=SPX1", nil, auth),
+		409, "carrier_not_linked")
+	check(t, "lookup an unknown code", call(t, "GET", "/v1/shipments/lookup?carrier=ghtk&code=NOTFOUND1", nil, auth),
 		404, "shipment_not_found")
 }
 
@@ -318,7 +323,7 @@ func TestOrderRefusals(t *testing.T) {
 		map[string]any{"mode": "manual", "carrier": "other", "tracking_code": "X1"}), 422, "invalid_shipment")
 	check(t, "ship an unknown code", orderCall(t, seller.AccessToken, o, "shipment", shipmentBody("NOTFOUND1")), 422, "shipment_not_found")
 	check(t, "ship 0 grams", orderCall(t, seller.AccessToken, o, "shipment",
-		map[string]any{"mode": "linked", "service": "standard", "weight_grams": 0, "pickup": "home"}), 422, "invalid_shipment")
+		map[string]any{"mode": "linked", "carrier": "ghtk", "service": "standard", "weight_grams": 0, "pickup": "home"}), 422, "invalid_shipment")
 
 	check(t, "confirm signed out", orderCall(t, "", o, "confirm", nil), 401, "unauthenticated")
 	check(t, "confirm a bad id", orderCall(t, buyer.AccessToken, "not-a-uuid", "confirm", nil), 400, "")

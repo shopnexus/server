@@ -407,7 +407,8 @@ orderShipment:
       delivered. Checks, in order: the shipment's fields, for a manual one
       the carrier's answer, then the order is the caller's, the order's
       state, the listing, and for a linked one the carrier's answer. A
-      carrier the seller has not linked is 409 carrier_not_linked. A stack
+      carrier the caller has not linked is 409 carrier_not_linked, once the
+      order is found to be the caller's to ship. A stack
       without a carrier (CARRIER=none, production for now) answers 503
       carrier_unavailable.
     tags: [deal]

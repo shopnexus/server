@@ -140,6 +140,10 @@ func TestNotLinkedAndNoCarrier(t *testing.T) {
 	if _, err := e.svc.Lookup(ctx, e.owner, carrier.GHTK, "S1"); !errors.Is(err, domain.ErrNotLinked) {
 		t.Fatalf("lookup: %v", err)
 	}
+	// A carrier no seller can link is one this seller has not linked.
+	if _, err := e.svc.Lookup(ctx, e.owner, "spx", "SPX1"); !errors.Is(err, domain.ErrNotLinked) {
+		t.Fatalf("lookup at spx: %v", err)
+	}
 	if _, err := e.svc.Pickups(ctx, e.owner, "ghn"); !errors.Is(err, domain.ErrNotLinked) {
 		t.Fatalf("pickups: %v", err)
 	}
@@ -173,6 +177,16 @@ func TestQuoteChecksTheShipmentThenAsksTheCarrier(t *testing.T) {
 	req := service.QuoteRequest{OrderID: uuid.NewV7(), Service: "standard", WeightGrams: 800, PickupPointID: "88256"}
 	if _, err := e.svc.Quote(ctx, e.owner, "ghtk", req); !errors.Is(err, domain.ErrNotLinked) {
 		t.Fatalf("not linked: %v", err)
+	}
+	// Someone else's order is not found before the carrier is asked about.
+	theirs := newEnv(t, fakes())
+	theirs.svc = service.New(service.Deps{Accounts: theirs.rows, Clients: fakes(), Key: theirs.key, Now: time.Now, Deals: service.Deals{
+		QuoteFacts: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (service.QuoteFacts, error) {
+			return service.QuoteFacts{}, errNoOrder
+		},
+	}})
+	if _, err := theirs.svc.Quote(ctx, theirs.owner, "ghtk", req); !errors.Is(err, errNoOrder) {
+		t.Fatalf("someone else's order: %v", err)
 	}
 	if _, err := e.svc.Link(ctx, e.owner, "ghtk", carrier.Credentials{Email: "a@b.vn", Password: "x"}); err != nil {
 		t.Fatal(err)

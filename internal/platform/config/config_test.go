@@ -31,6 +31,14 @@ func required() map[string]string {
 	return map[string]string{
 		"APP_ENV":                      "prod",
 		"CARRIER":                      "fake",
+		"CARRIER_TOKEN_KEY":            b64(testConsoleKey),
+		"CARRIER_POLL_EVERY":           "2h",
+		"GHTK_API_URL":                 "",
+		"GHTK_PARTNER_TOKEN":           "",
+		"GHTK_CLIENT_SOURCE":           "",
+		"GHTK_WEBHOOK_SECRET":          "",
+		"GHN_API_URL":                  "",
+		"GHN_WEBHOOK_SECRET":           "",
 		"HTTP_ADDR":                    ":8080",
 		"LOG_LEVEL":                    "info",
 		"LOG_FORMAT":                   "json",
@@ -189,7 +197,7 @@ func TestLoadAllSet(t *testing.T) {
 		},
 		Email:   EmailConfig{Sender: "resend", ResendAPIKey: "re_test", From: "ShopNexus <no-reply@shopnexus.test>"},
 		Google:  GoogleConfig{ClientID: "web.apps.googleusercontent.com", JWKSURL: "https://www.googleapis.com/oauth2/v3/certs"},
-		Carrier: "fake",
+		Carrier: CarrierConfig{Mode: "fake", TokenKey: testConsoleKey, PollEvery: 2 * time.Hour},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %+v, want %+v", got, want)
@@ -438,10 +446,47 @@ func TestLoadCarrier(t *testing.T) {
 	env := required()
 	env["CARRIER"] = "ghtk"
 	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "CARRIER") {
-		t.Fatalf("a carrier with no client yet: %v", err)
+		t.Fatalf("a carrier with no client: %v", err)
 	}
 	env["CARRIER"] = "none"
-	if cfg, err := Load(lookup(env)); err != nil || cfg.Carrier != "none" {
-		t.Fatalf("no carrier: %q %v", cfg.Carrier, err)
+	cfg, err := Load(lookup(env))
+	if err != nil || cfg.Carrier.Mode != "none" || len(cfg.Carrier.TokenKey) != 32 || cfg.Carrier.PollEvery != 2*time.Hour {
+		t.Fatalf("no carrier: %+v %v", cfg.Carrier, err)
+	}
+}
+
+// live takes GHTK's and GHN's settings, all of them; fake and none take
+// none, so a stack cannot half-point at a real carrier.
+func TestLoadCarrierLive(t *testing.T) {
+	t.Parallel()
+	live := map[string]string{
+		"GHTK_API_URL": "https://services-staging.ghtklab.com", "GHTK_PARTNER_TOKEN": "partner", "GHTK_CLIENT_SOURCE": "S1",
+		"GHTK_WEBHOOK_SECRET": "w1", "GHN_API_URL": "https://dev-online-gateway.ghn.vn/shiip/public-api", "GHN_WEBHOOK_SECRET": "w2",
+	}
+	env := required()
+	env["CARRIER"] = "live"
+	maps.Copy(env, live)
+	cfg, err := Load(lookup(env))
+	if err != nil || cfg.Carrier.Mode != "live" || cfg.Carrier.GHTKPartner != "partner" || cfg.Carrier.GHNURL != live["GHN_API_URL"] {
+		t.Fatalf("%+v %v", cfg.Carrier, err)
+	}
+	for key := range live {
+		missing := required()
+		missing["CARRIER"] = "live"
+		maps.Copy(missing, live)
+		missing[key] = ""
+		if _, err = Load(lookup(missing)); err == nil || !strings.Contains(err.Error(), key) {
+			t.Errorf("live without %s: %v", key, err)
+		}
+		fake := required()
+		fake[key] = live[key]
+		if _, err = Load(lookup(fake)); err == nil || !strings.Contains(err.Error(), key) {
+			t.Errorf("fake with %s: %v", key, err)
+		}
+	}
+	short := required()
+	short["CARRIER_TOKEN_KEY"] = b64(make([]byte, 16))
+	if _, err = Load(lookup(short)); err == nil || !strings.Contains(err.Error(), "CARRIER_TOKEN_KEY") {
+		t.Fatalf("a short token key: %v", err)
 	}
 }

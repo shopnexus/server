@@ -160,7 +160,7 @@ func setup(closers *[]func()) error {
 		Firebase: issuer.Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
 		Google:   google.Config(),
-		Carrier:  "fake",
+		Carrier:  config.CarrierConfig{Mode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
 		// Tests may set X-Forwarded-For.
 		TrustedProxies: []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8"), netip.MustParsePrefix("::1/128")},
 	}

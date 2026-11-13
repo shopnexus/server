@@ -49,6 +49,21 @@ func TestAnUnlinkedCarrierIsRefused(t *testing.T) {
 	shipped := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPXLINK1")
 	_, err = unlinked.EditShipment(ctx, seller, shipped.Order.ID, "ghn", "GHN1")
 	notLinked("a correction", err)
+
+	// The order is found, and its seller is the caller, before any carrier
+	// is asked: a stranger's or the buyer's account links nothing.
+	stranger := e.person(t)
+	for name, c := range map[string]struct {
+		caller uuid.UUID
+		want   error
+	}{"a stranger": {stranger, domain.ErrOrderNotFound}, "the buyer": {buyer, domain.ErrMoveNotAllowed}} {
+		if _, err = unlinked.CreateShipment(ctx, c.caller, v.Order.ID, key(), manual("SPX1")); !errors.Is(err, c.want) {
+			t.Errorf("%s ships: %v", name, err)
+		}
+		if _, err = unlinked.EditShipment(ctx, c.caller, shipped.Order.ID, "ghn", "GHN1"); !errors.Is(err, c.want) {
+			t.Errorf("%s corrects: %v", name, err)
+		}
+	}
 }
 
 // recording is the fake of each carrier, keeping what it was asked to make.

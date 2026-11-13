@@ -144,6 +144,26 @@ func (s *Deals) orderDeal(ctx context.Context, caller, order uuid.UUID) (uuid.UU
 	return r.DealID, nil
 }
 
+// checkSeller tells whether the caller is the order's seller: someone
+// else's order is domain.ErrOrderNotFound, the caller's purchase
+// domain.ErrMoveNotAllowed.
+func (s *Deals) checkSeller(ctx context.Context, caller, order uuid.UUID) error {
+	r, err := s.deals.Order(ctx, order)
+	if errors.Is(err, repository.ErrNotFound) {
+		return domain.ErrOrderNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get order: %w", err)
+	}
+	switch caller {
+	case r.SellerID:
+		return nil
+	case r.BuyerID:
+		return domain.ErrMoveNotAllowed
+	}
+	return domain.ErrOrderNotFound
+}
+
 // systemLoadStep reads a deal and its listing for a move of the system's
 // in one journaled step.
 func systemLoadStep(ctx restate.Context, s *Deals, id uuid.UUID) (loaded, error) {

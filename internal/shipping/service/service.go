@@ -120,9 +120,13 @@ func (s *Shipping) client(c string) (carrier.Client, error) {
 }
 
 // account is the client of c and the owner's account there, its token
-// opened.
+// opened. A carrier without a client, one no seller can link, is one the
+// owner has not linked: ErrNotLinked.
 func (s *Shipping) account(ctx context.Context, owner uuid.UUID, c string) (carrier.Client, carrier.Account, error) {
 	cl, err := s.client(c)
+	if errors.Is(err, domain.ErrInvalidCarrier) {
+		return nil, carrier.Account{}, domain.ErrNotLinked
+	}
 	if err != nil {
 		return nil, carrier.Account{}, err
 	}
@@ -208,6 +212,9 @@ func (s *Shipping) Unlink(ctx context.Context, owner uuid.UUID, c string) error 
 }
 
 func (s *Shipping) Pickups(ctx context.Context, owner uuid.UUID, c string) ([]carrier.PickupPoint, error) {
+	if _, err := s.client(c); err != nil {
+		return nil, err
+	}
 	cl, a, err := s.account(ctx, owner, c)
 	if err != nil {
 		return nil, err
@@ -216,8 +223,8 @@ func (s *Shipping) Pickups(ctx context.Context, owner uuid.UUID, c string) ([]ca
 	return pts, carrierError(err)
 }
 
-// Quote checks the shipment as deal checks one to make, then asks the
-// carrier on the owner's account.
+// Quote checks the shipment as deal checks one to make, reads the order,
+// which must be the owner's, then asks the carrier on the owner's account.
 func (s *Shipping) Quote(ctx context.Context, owner uuid.UUID, c string, in QuoteRequest) (int64, error) {
 	cl, err := s.client(c)
 	if err != nil {
@@ -236,11 +243,11 @@ func (s *Shipping) Quote(ctx context.Context, owner uuid.UUID, c string, in Quot
 	if len(invalid.Fields) > 0 {
 		return 0, invalid
 	}
-	_, a, err := s.account(ctx, owner, c)
+	facts, err := s.d.Deals.QuoteFacts(ctx, owner, in.OrderID, in.AddressID)
 	if err != nil {
 		return 0, err
 	}
-	facts, err := s.d.Deals.QuoteFacts(ctx, owner, in.OrderID, in.AddressID)
+	_, a, err := s.account(ctx, owner, c)
 	if err != nil {
 		return 0, err
 	}
