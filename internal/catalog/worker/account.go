@@ -11,8 +11,8 @@ import (
 	"github.com/shopnexus/server2/internal/platform/events"
 )
 
-// AccountWatch deletes a deleted seller's listings: Mount subscribes
-// Deleted to account.deleted.
+// AccountWatch deletes a deleted seller's listings and drafts: Mount
+// subscribes Deleted to account.deleted.
 type AccountWatch struct {
 	Prefix   string
 	Listings service.Service

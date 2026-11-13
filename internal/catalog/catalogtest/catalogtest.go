@@ -28,7 +28,7 @@ func Service(
 	change ...func(*service.Deps),
 ) *service.Catalog {
 	deps := service.Deps{
-		Listings: repository.NewListings(db), Categories: repository.NewCategories(db), Regions: repository.NewRegions(db),
+		Listings: repository.NewListings(db), Drafts: repository.NewDrafts(db), Categories: repository.NewCategories(db), Regions: repository.NewRegions(db),
 		Searches: repository.NewSearches(db), Accounts: accounts, Media: media,
 		Ingress: in, Prefix: prefix, Now: time.Now,
 		Vectors: repository.NewVectors(db), Text: embedtest.New(domain.TextDims), Image: embedtest.New(domain.PhotoDims),

@@ -19,9 +19,13 @@ import (
 // its publish flow finds it deleted and stops.
 var leftBehind = []domain.Status{domain.StatusProcessing, domain.StatusActive, domain.StatusHidden, domain.StatusRejected}
 
-// SellerLeft deletes the seller's listings a page at a time; a deleted
-// listing leaves the filter, so each round reads the first page again.
+// SellerLeft deletes the seller's drafts, then their listings a page at a
+// time; a deleted listing leaves the filter, so each round reads the first
+// page again. The drafts' photos expire on their own.
 func (c *Catalog) SellerLeft(ctx context.Context, seller uuid.UUID) error {
+	if err := c.drafts.DeleteAll(ctx, seller); err != nil {
+		return fmt.Errorf("delete drafts: %w", err)
+	}
 	for {
 		ls, err := c.listings.ListBySeller(ctx, seller, leftBehind, page.Request{Limit: 100})
 		if err != nil {

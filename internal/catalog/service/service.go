@@ -37,6 +37,13 @@ type Service interface {
 	MarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
 	UnmarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
 	Delete(ctx context.Context, seller, id uuid.UUID) error
+	// PutDraft writes the caller's draft id, the last write winning, and
+	// returns it as stored and whether it was created.
+	PutDraft(ctx context.Context, account, id uuid.UUID, c domain.DraftContent) (DraftView, bool, error)
+	// ListDrafts lists the caller's drafts in full, last written first.
+	ListDrafts(ctx context.Context, account uuid.UUID) ([]DraftView, error)
+	// DeleteDraft deletes one of the caller's drafts; none changes nothing.
+	DeleteDraft(ctx context.Context, account, id uuid.UUID) error
 	// Get reads a listing as viewer, nil when signed out, sees it.
 	Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error)
 	// ListMine lists one of the seller's panes, newest first.
@@ -88,15 +95,17 @@ type Service interface {
 	FindPlaces(ctx context.Context, names []string) (map[string]domain.Point, error)
 	Provinces(ctx context.Context) ([]domain.Province, error)
 	Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error)
-	// SellerLeft deletes every listing of a deleted seller that is not sold
-	// or deleted, each with listing.deleted; the worker calls it on
-	// account.deleted, and a repeated call finds nothing left.
+	// SellerLeft deletes a deleted seller's drafts and every listing of
+	// theirs that is not sold or deleted, each with listing.deleted; the
+	// worker calls it on account.deleted, and a repeated call finds nothing
+	// left.
 	SellerLeft(ctx context.Context, seller uuid.UUID) error
 }
 
 // Deps is what New builds Catalog from.
 type Deps struct {
 	Listings   repository.Listings
+	Drafts     repository.Drafts
 	Categories repository.Categories
 	Regions    repository.Regions
 	Searches   repository.Searches
@@ -120,6 +129,7 @@ type Deps struct {
 // Catalog implements Service in this process.
 type Catalog struct {
 	listings                  repository.Listings
+	drafts                    repository.Drafts
 	categories                repository.Categories
 	regions                   repository.Regions
 	searches                  repository.Searches
@@ -140,7 +150,7 @@ var _ Service = (*Catalog)(nil)
 
 func New(d Deps) *Catalog {
 	return &Catalog{
-		listings: d.Listings, categories: d.Categories, regions: d.Regions, searches: d.Searches,
+		listings: d.Listings, drafts: d.Drafts, categories: d.Categories, regions: d.Regions, searches: d.Searches,
 		accounts: d.Accounts, media: d.Media, prefix: d.Prefix, now: d.Now,
 		vectors: d.Vectors, text: d.Text, image: d.Image, textVersion: d.TextVersion, imageVersion: d.ImageVersion,
 		embedSlots: make(chan struct{}, d.EmbedSlots), log: d.Log,

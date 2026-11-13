@@ -18,6 +18,7 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	"github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/media/mediatest"
+	mediarepo "github.com/shopnexus/server2/internal/media/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
@@ -31,6 +32,7 @@ type env struct {
 	media    *mediasvc.Media
 	catalog  *service.Catalog
 	listings repository.Listings
+	drafts   repository.Drafts
 	ingress  *ingress.Client
 	prefix   string
 }
@@ -46,7 +48,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 	m := mediatest.Service(db, objectstoretest.New(t), in, p)
 	c := catalogtest.Service(db, accounts, m, in, p, opts...)
 	restatetest.Start(t, append(m.Durable(), c.Durable()...)...)
-	return env{db: db, accounts: accounts, media: m, catalog: c, listings: repository.NewListings(db), ingress: in, prefix: p}
+	return env{db: db, accounts: accounts, media: m, catalog: c, listings: repository.NewListings(db), drafts: repository.NewDrafts(db), ingress: in, prefix: p}
 }
 
 // seller creates an account with a verified phone number.
@@ -111,4 +113,33 @@ func (e env) active(t *testing.T, seller uuid.UUID) service.ListingView {
 		t.Fatalf("%+v", v)
 	}
 	return v
+}
+
+// photo uploads a JPEG for owner.
+func (e env) photo(t *testing.T, owner uuid.UUID) uuid.UUID {
+	t.Helper()
+	return e.upload(t, owner, mediatest.JPEG(t, 64, 48))
+}
+
+// expiresAt is when media deletes the upload if nothing takes it.
+func (e env) expiresAt(t *testing.T, id uuid.UUID) time.Time {
+	t.Helper()
+	u, err := mediarepo.NewUploads(e.db).Get(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return u.ExpiresAt()
+}
+
+// content is a draft's content with title and photos.
+func content(title string, photos ...uuid.UUID) domain.DraftContent {
+	return domain.DraftContent{SchemaVersion: 1, Title: title, Price: new(int64(9_500_000)), Photos: photos, Body: `{"condition":"like_new"}`}
+}
+
+func photoIDs(v service.DraftView) []uuid.UUID {
+	out := make([]uuid.UUID, len(v.Photos))
+	for i, p := range v.Photos {
+		out[i] = p.UploadID
+	}
+	return out
 }
