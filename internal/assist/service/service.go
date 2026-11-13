@@ -13,6 +13,7 @@ import (
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/assist/repository"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/provider/chotot"
@@ -43,6 +44,9 @@ type Service interface {
 	// PreviewLink reads the listing a pasted link names, for the card the
 	// app shows before the read, and stores nothing.
 	PreviewLink(ctx context.Context, account uuid.UUID, link string) (LinkPreviewView, error)
+	// PriceGuide prices a draft against the listings most like it and the
+	// search watches it would match, and stores nothing.
+	PriceGuide(ctx context.Context, account uuid.UUID, in PriceGuideInput) (PriceGuideView, error)
 	// DeleteAccount deletes a deleted account's reads and waiting
 	// transcripts; a second call finds nothing left.
 	DeleteAccount(ctx context.Context, account uuid.UUID) error
@@ -73,9 +77,11 @@ type Deps struct {
 	Accounts accountsvc.Service
 	Media    mediasvc.Service
 	Catalog  catalogsvc.Service
-	Frames   FrameCutter
-	STT      Transcriber
-	Model    llm.Client
+	// Discovery gives the search watches a draft would match.
+	Discovery discoverysvc.Service
+	Frames    FrameCutter
+	STT       Transcriber
+	Model     llm.Client
 	// Text and Image embed with the search key, for the price sample;
 	// TextMin and PhotoMin are the similarity floors of search.
 	Text, Image       embed.Model

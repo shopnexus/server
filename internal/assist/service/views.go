@@ -5,6 +5,8 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/assist/domain"
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 )
 
 // ListingReadView is the ListingRead schema in api/schemas/assist.yaml. A
@@ -50,4 +52,26 @@ type LinkPreviewView struct {
 	Price      *int64 `json:"price"`
 	CoverURL   string `json:"cover_url"`
 	PhotoCount int    `json:"photo_count"`
+}
+
+// PriceGuideView is the PriceGuide schema.
+type PriceGuideView struct {
+	Estimate    *domain.Estimate       `json:"estimate"`
+	Suggestions []domain.Suggestion    `json:"suggestions"`
+	Similar     []SimilarView          `json:"similar"`
+	SoldPrices  []int64                `json:"sold_prices"`
+	LivePrices  []int64                `json:"live_prices"`
+	Watchers    []discoverysvc.Watcher `json:"watchers"`
+}
+
+// SimilarView is the SimilarListing schema; DaysToSell only when sold.
+type SimilarView struct {
+	ListingID  uuid.UUID               `json:"listing_id"`
+	Title      string                  `json:"title"`
+	CoverURL   string                  `json:"cover_url"`
+	Price      int64                   `json:"price"`
+	Condition  catalogdomain.Condition `json:"condition"`
+	Sold       bool                    `json:"sold"`
+	Km         int                     `json:"km"`
+	DaysToSell *int                    `json:"days_to_sell,omitempty"`
 }

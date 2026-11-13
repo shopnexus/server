@@ -340,7 +340,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Source: chotot.Client{
 			GatewayURL: cfg.Assist.ChototGatewayURL, CDNURL: cfg.Assist.ChototCDNURL, HTTP: &http.Client{},
 		},
-	}, accounts, mediam.Service, catalogm.Service)
+	}, accounts, mediam.Service, catalogm.Service, discoverym.Service)
 	updates := stream.PGLog{DB: pool}
 	router.Handle("GET /v1/ws", d.Protect(stream.Socket{
 		Hub: hub, Updates: updates, Access: socketAccess{accounts: accounts, chats: chatm.Service},
