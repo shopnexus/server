@@ -15,6 +15,7 @@ import (
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
@@ -311,10 +312,15 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 	if f.ID == (uuid.UUID{}) {
 		return nil
 	}
-	return w.deliver(ctx, f.RecipientID, push.Message{
+	m := push.Message{
 		Title: "Tin nhắn", Body: domain.ChatBody(f.SenderName, f.Text, f.Photos), Tag: "conversation:" + f.ConversationID.String(),
 		Data: map[string]string{"type": "message", "target_kind": "conversation", "target_id": f.ConversationID.String()},
-	})
+	}
+	if f.Kind == chatdomain.KindSupport {
+		// A ticket's chat: ShopNexus is the title, so the body is the reply alone.
+		m.Title, m.Body, m.Data["type"] = "ShopNexus", domain.SupportBody(f.Text, f.Photos), "support_message"
+	}
+	return w.deliver(ctx, f.RecipientID, m)
 }
 
 // tell writes each notice, then pushes it to its recipient. A notice a

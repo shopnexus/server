@@ -18,6 +18,7 @@ import (
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
@@ -133,10 +134,12 @@ func (a accounts) ActiveSessions(_ context.Context, ids []uuid.UUID) (map[uuid.U
 
 // sender records every push and answers a set error once per token.
 type sender struct {
-	mu   sync.Mutex
-	sent map[string]int
-	body map[string]string
-	once map[string]error
+	mu    sync.Mutex
+	sent  map[string]int
+	body  map[string]string
+	title map[string]string
+	data  map[string]map[string]string
+	once  map[string]error
 }
 
 func (s *sender) Send(_ context.Context, token string, m push.Message) error {
@@ -147,7 +150,7 @@ func (s *sender) Send(_ context.Context, token string, m push.Message) error {
 		return err
 	}
 	s.sent[token]++
-	s.body[token] = m.Body
+	s.body[token], s.title[token], s.data[token] = m.Body, m.Title, m.Data
 	return nil
 }
 
@@ -171,7 +174,7 @@ func newEnv(t *testing.T, revoked map[uuid.UUID]bool, once map[string]error) env
 	t.Helper()
 	db := pgtest.New(t)
 	notices := service.New(service.Deps{Notices: repository.NewNotices(db), Now: time.Now})
-	s := &sender{sent: map[string]int{}, body: map[string]string{}, once: once}
+	s := &sender{sent: map[string]int{}, body: map[string]string{}, title: map[string]string{}, data: map[string]map[string]string{}, once: once}
 	w := worker.Worker{
 		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{}, Discovery: discovery{},
 		Accounts: accounts{revoked: revoked}, Push: s, Log: slog.New(slog.DiscardHandler), FollowerPage: 2,
@@ -451,6 +454,28 @@ func TestMessageSentPushesOnly(t *testing.T) {
 	}
 	if l, _ := e.notices.List(context.Background(), recipient, page.Request{}); len(l.Items) != 0 {
 		t.Fatalf("a message lists nothing: %+v", l)
+	}
+}
+
+func TestASupportReplyIsTitledShopNexus(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, nil, nil)
+	recipient := accounttest.New(t, e.db)
+	message := chatsvc.MessageFacts{
+		ID: uuid.NewV7(), ConversationID: uuid.NewV7(), RecipientID: recipient, SenderName: "ShopNexus",
+		Text: "Bạn chưa trả tiền nên không mất gì.", Kind: chatdomain.KindSupport,
+	}
+	e.worker.Chats = chats{facts: message}
+	e.start(t)
+	if err := e.notices.PutToken(context.Background(), uuid.NewV7(), recipient, "phone"); err != nil {
+		t.Fatal(err)
+	}
+	e.deliver(t, "MessageSent", events.Event{ID: message.ID, Kind: events.MessageSent, SubjectID: message.ID, OccurredAt: time.Now()})
+	e.push.mu.Lock()
+	defer e.push.mu.Unlock()
+	if e.push.title["phone"] != "ShopNexus" || e.push.body["phone"] != "Bạn chưa trả tiền nên không mất gì." ||
+		e.push.data["phone"]["type"] != "support_message" || e.push.data["phone"]["target_id"] != message.ConversationID.String() {
+		t.Fatalf("title %q body %q data %v", e.push.title["phone"], e.push.body["phone"], e.push.data["phone"])
 	}
 }
 

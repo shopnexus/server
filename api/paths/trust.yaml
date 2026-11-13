@@ -168,7 +168,7 @@ reports:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The reported conversation is a support chat (conversation_is_support)."
+        description: "ShopNexus cannot be reported (account_is_system)."
         content:
           application/json:
             schema:

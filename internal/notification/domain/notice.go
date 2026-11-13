@@ -386,6 +386,18 @@ func money(n int64) string {
 // chatRunes is how much of a message a chat push shows.
 const chatRunes = 100
 
+// SupportBody is a support reply's push: the title names ShopNexus, so the
+// body is the text alone, cut as ChatBody cuts it, or the photo count.
+func SupportBody(text string, photos int) string {
+	if text != "" {
+		if r := []rune(text); len(r) > chatRunes {
+			text = string(r[:chatRunes])
+		}
+		return text
+	}
+	return strconv.Itoa(photos) + " ảnh"
+}
+
 // ChatBody is a chat push's body: the sender and the first 100 characters
 // of the text, or the photos they sent.
 func ChatBody(sender, text string, photos int) string {

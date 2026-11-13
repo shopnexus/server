@@ -237,7 +237,7 @@ blocks:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "409":
-        description: "ShopNexus cannot be blocked (conversation_is_support)."
+        description: "ShopNexus cannot be blocked (account_is_system)."
         content:
           application/json:
             schema:

@@ -39,3 +39,11 @@ func TestBlock(t *testing.T) {
 		t.Fatal("still blocked")
 	}
 }
+
+func TestShopNexusCannotBeBlocked(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+	if err := at(s, nil, now).Block(context.Background(), seed(t, s), domain.ShopNexusID); !errors.Is(err, domain.ErrSystemAccount) {
+		t.Fatalf("got %v", err)
+	}
+}

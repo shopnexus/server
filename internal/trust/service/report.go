@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"uuid"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/trust/domain"
 	"github.com/shopnexus/server2/internal/trust/repository"
@@ -25,6 +26,9 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 	}
 	if (in.ListingID == uuid.UUID{}) == (in.AccountID == uuid.UUID{}) {
 		return ReportView{}, false, domain.ErrInvalidReport.WithField("target", "exactly one of listing_id and account_id")
+	}
+	if in.AccountID == accountdomain.ShopNexusID {
+		return ReportView{}, false, accountdomain.ErrSystemAccount
 	}
 	account := in.AccountID
 	if in.ListingID != (uuid.UUID{}) {

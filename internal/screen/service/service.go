@@ -13,6 +13,7 @@ import (
 	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 	notificationsvc "github.com/shopnexus/server2/internal/notification/service"
 	"github.com/shopnexus/server2/internal/platform/page"
+	supportsvc "github.com/shopnexus/server2/internal/support/service"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
@@ -46,6 +47,8 @@ type Deps struct {
 	Discovery discoverysvc.Service
 	// Notifications gives Home its unread count.
 	Notifications notificationsvc.Service
+	// Support gives a support chat its ticket.
+	Support supportsvc.Service
 }
 
 // Screen implements Service in this process.
@@ -57,6 +60,7 @@ type Screen struct {
 	chats     chatsvc.Service
 	discovery discoverysvc.Service
 	notices   notificationsvc.Service
+	support   supportsvc.Service
 }
 
 var _ Service = (*Screen)(nil)
@@ -64,5 +68,6 @@ var _ Service = (*Screen)(nil)
 func New(d Deps) *Screen {
 	return &Screen{
 		accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, trust: d.Trust, discovery: d.Discovery, chats: d.Chats, notices: d.Notifications,
+		support: d.Support,
 	}
 }
