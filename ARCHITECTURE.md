@@ -2331,6 +2331,21 @@ provider runs serially and says why in its `//nolint:paralleltest` comment.
 The httpx package installs an SDK tracer provider in `TestMain`, so only the
 tests that read recorded spans swap the global.
 
+### Development data
+
+`go run ./cmd/devseed` fills a dev database through the running server
+(`make run`), and refuses any `APP_ENV` but `dev`. It signs each person in
+with `Account.SignIn`, built with a verifier that takes the phone number as
+its own token, so the account and session come out as a phone sign-in
+makes them. After that it only calls the HTTP API with that person's token,
+the way the app does: profile, address book, a GHTK link on the fake
+carrier, listings through uploads and `POST /v1/listings`, then one offer,
+and one COD order the seller has shipped. The people, listings and photos
+are `cmd/devseed/data`, which `data/build.py` made from the app's fixtures
+and which is committed. A second run adds only what is missing. The seeded
+numbers are +84900000001 to +84900000012; to sign in as one on the app, add
+it as a Firebase Auth test number.
+
 ### Linting
 
 `make test` runs golangci-lint with `.golangci.yml`, which also checks gofumpt

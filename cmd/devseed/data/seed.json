@@ -1,0 +1,823 @@
+{
+ "accounts": [
+  {
+   "key": "u-kiet",
+   "name": "Tuấn Kiệt",
+   "phone": "+84900000001",
+   "bio": "Bán đồ cá nhân dùng kỹ, trả lời tin nhắn buổi tối.",
+   "avatar": "bc94e2dda93e.jpg",
+   "street": "120 Xô Viết Nghệ Tĩnh",
+   "commune": "26929",
+   "carrier": true
+  },
+  {
+   "key": "u-han",
+   "name": "Ngọc Hân",
+   "phone": "+84900000002",
+   "bio": "Thanh lý đồ không dùng nữa, giao COD đồng kiểm.",
+   "avatar": "9c82f7e57184.jpg",
+   "street": "45 Quang Trung",
+   "commune": "26884",
+   "carrier": true
+  },
+  {
+   "key": "u-bao",
+   "name": "Gia Bảo",
+   "phone": "+84900000003",
+   "bio": "Mê xe đạp, hay lên đời nên bán lại xe cũ.",
+   "avatar": "ee11bfd82077.jpg",
+   "street": "120 Xô Viết Nghệ Tĩnh",
+   "commune": "26929",
+   "carrier": true
+  },
+  {
+   "key": "u-nam",
+   "name": "Hoàng Nam",
+   "phone": "+84900000004",
+   "bio": "Đồ công nghệ chính chủ, có hộp và hoá đơn nếu còn.",
+   "avatar": "2de27f6d0949.jpg",
+   "street": "88 Phan Xích Long",
+   "commune": "27073",
+   "carrier": true
+  },
+  {
+   "key": "u-maianh",
+   "name": "Mai Anh",
+   "phone": "+84900000005",
+   "bio": "Bán đồ cá nhân dùng kỹ, trả lời tin nhắn buổi tối.",
+   "avatar": null,
+   "street": "210 Cộng Hòa",
+   "commune": "27004",
+   "carrier": true
+  },
+  {
+   "key": "u-tri",
+   "name": "Đức Trí",
+   "phone": "+84900000006",
+   "bio": "Thanh lý đồ không dùng nữa, giao COD đồng kiểm.",
+   "avatar": null,
+   "street": "15 Kỳ Đồng",
+   "commune": "27154",
+   "carrier": true
+  },
+  {
+   "key": "u-thuha",
+   "name": "Thu Hà",
+   "phone": "+84900000007",
+   "bio": "Mê xe đạp, hay lên đời nên bán lại xe cũ.",
+   "avatar": null,
+   "street": "33 Nguyễn Thị Thập",
+   "commune": "27487",
+   "carrier": true
+  },
+  {
+   "key": "u-quocbao",
+   "name": "Quốc Bảo",
+   "phone": "+84900000008",
+   "bio": "Đồ công nghệ chính chủ, có hộp và hoá đơn nếu còn.",
+   "avatar": null,
+   "street": "70 Ba Tháng Hai",
+   "commune": "27190",
+   "carrier": true
+  },
+  {
+   "key": "u-24h",
+   "name": "Thanh Lý 24h",
+   "phone": "+84900000009",
+   "bio": "Bán đồ cá nhân dùng kỹ, trả lời tin nhắn buổi tối.",
+   "avatar": null,
+   "street": "12 Trần Hưng Đạo",
+   "commune": "27343",
+   "carrier": true
+  },
+  {
+   "key": "u-linh",
+   "name": "Khánh Linh",
+   "phone": "+84900000010",
+   "bio": "",
+   "avatar": "c83df953ba8f.jpg",
+   "street": "120 Xô Viết Nghệ Tĩnh",
+   "commune": "26929",
+   "carrier": false
+  },
+  {
+   "key": "u-quang",
+   "name": "Minh Quang",
+   "phone": "+84900000011",
+   "bio": "",
+   "avatar": null,
+   "street": "120 Xô Viết Nghệ Tĩnh",
+   "commune": "26929",
+   "carrier": false
+  },
+  {
+   "key": "u-huy",
+   "name": "Đức Huy",
+   "phone": "+84900000012",
+   "bio": "",
+   "avatar": null,
+   "street": "120 Xô Viết Nghệ Tĩnh",
+   "commune": "26929",
+   "carrier": false
+  }
+ ],
+ "listings": [
+  {
+   "key": "p-iphone13",
+   "seller": "u-kiet",
+   "title": "iPhone 13 Pro 128GB, Xanh Sierra, pin 88%",
+   "price": 5200000,
+   "category": "phones.iphone",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "d2769c502df8.jpg",
+    "e2e450a6aa12.jpg",
+    "ffdfbe38bb42.jpg",
+    "26a18184553a.jpg",
+    "f0f27e7e81db.jpg"
+   ],
+   "specs": [
+    {
+     "label": "Dòng máy",
+     "value": "iPhone 13 Pro"
+    },
+    {
+     "label": "Dung lượng",
+     "value": "128 GB"
+    },
+    {
+     "label": "Màu",
+     "value": "Xanh Sierra"
+    },
+    {
+     "label": "Pin",
+     "value": "88%"
+    },
+    {
+     "label": "Phiên bản",
+     "value": "VN/A"
+    },
+    {
+     "label": "Bảo hành",
+     "value": "Đã hết"
+    },
+    {
+     "label": "Sửa chữa",
+     "value": "Chưa từng"
+    },
+    {
+     "label": "Phụ kiện",
+     "value": "Cáp sạc, ốp lưng"
+    }
+   ],
+   "description": "Mình dùng từ 2022, máy zin chưa sửa chữa, Face ID nhạy. Viền có 2 vết xước nhỏ, mặt lưng đẹp vì luôn đeo ốp. Đổi máy nên bán lại.\n\nMuốn xem máy trước thì hẹn quanh Bình Thạnh, buổi tối sau 18h."
+  },
+  {
+   "key": "p-iphone14",
+   "seller": "u-maianh",
+   "title": "iPhone 14 128GB",
+   "price": 12800000,
+   "category": "phones.iphone",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26740",
+   "photos": [
+    "0a38656eef28.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Quận 1, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-iphone15",
+   "seller": "u-maianh",
+   "title": "iPhone 15 128GB, bảo hành Apple đến 03/2027",
+   "price": 15900000,
+   "category": "phones.iphone",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "27004",
+   "photos": [
+    "ea1b4327c760.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Tân Bình, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-iphone12",
+   "seller": "u-nam",
+   "title": "iPhone 12 128GB",
+   "price": 6900000,
+   "category": "phones.iphone",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "e7d9b5c1f80f.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-mini",
+   "seller": "u-nam",
+   "title": "iPhone 12 mini 64GB",
+   "price": 5200000,
+   "category": "phones.iphone",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "86abe3db1896.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-iphone11",
+   "seller": "u-nam",
+   "title": "iPhone 11 64GB",
+   "price": 4900000,
+   "category": "phones.iphone",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "27073",
+   "photos": [
+    "d3c8416d6e56.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Phú Nhuận, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-iphonex",
+   "seller": "u-nam",
+   "title": "iPhone X 64GB, pin 86%, máy zin chưa sửa",
+   "price": 3900000,
+   "category": "phones.iphone",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "27073",
+   "photos": [
+    "05d55fa05536.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Phú Nhuận, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-s23",
+   "seller": "u-maianh",
+   "title": "Galaxy S23 Ultra 256GB",
+   "price": 14500000,
+   "category": "phones.android",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "27073",
+   "photos": [
+    "1e9880780c6e.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Phú Nhuận, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-s21",
+   "seller": "u-maianh",
+   "title": "Galaxy S21 Ultra 256GB",
+   "price": 7500000,
+   "category": "phones.android",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "27004",
+   "photos": [
+    "c50017ec8b93.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Tân Bình, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-redmi",
+   "seller": "u-maianh",
+   "title": "Redmi Note 12 Pro 256GB",
+   "price": 3800000,
+   "category": "phones.android",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26824",
+   "photos": [
+    "8566dd74c413.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Thủ Đức, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-single",
+   "seller": "u-han",
+   "title": "Xe đạp single speed trắng size 52, mới bảo dưỡng",
+   "price": 2100000,
+   "category": "vehicles.bicycle",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26884",
+   "photos": [
+    "0fe4769d758b.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Gò Vấp, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-japan",
+   "seller": "u-han",
+   "title": "Xe đạp Nhật bãi, phanh tốt, đi làm hằng ngày",
+   "price": 1400000,
+   "category": "vehicles.bicycle",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "26884",
+   "photos": [
+    "18d6793b8428.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Gò Vấp, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-giant",
+   "seller": "u-bao",
+   "title": "Giant Escape 3 size M, đã thay xích và líp",
+   "price": 2900000,
+   "category": "vehicles.bicycle",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "0e2c287aca71.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-fixed",
+   "seller": "u-han",
+   "title": "Xe đạp fixed gear khung thép, vừa thay lốp",
+   "price": 2300000,
+   "category": "vehicles.bicycle",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "26884",
+   "photos": [
+    "b73d981269e0.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Gò Vấp, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-classic",
+   "seller": "u-bao",
+   "title": "Xe đạp cổ điển khung thép, yên da, có baga",
+   "price": 2600000,
+   "category": "vehicles.bicycle",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "6330b91678a7.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-fixie",
+   "seller": "u-han",
+   "title": "Fixie đen mờ size 50, tặng kèm khoá chữ U",
+   "price": 1800000,
+   "category": "vehicles.bicycle",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26884",
+   "photos": [
+    "a8104589df85.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Gò Vấp, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-trinx",
+   "seller": "u-bao",
+   "title": "Xe đạp hybrid Trinx Free 2.0, đi 600 km",
+   "price": 2750000,
+   "category": "vehicles.bicycle",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "edd243b21111.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-polaroid",
+   "seller": "u-tri",
+   "title": "Máy ảnh Polaroid OneStep 2, tặng 1 hộp film",
+   "price": 1750000,
+   "category": "other.other",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "27154",
+   "photos": [
+    "fb64e0a76c16.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Quận 3, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-a7",
+   "seller": "u-tri",
+   "title": "Sony A7 III kèm lens 28-70 và 50mm f/1.8",
+   "price": 26500000,
+   "category": "other.other",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "27154",
+   "photos": [
+    "dd9a0df2ff2a.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Quận 3, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-xm4",
+   "seller": "u-quocbao",
+   "title": "Tai nghe chống ồn Sony WH-1000XM4, fullbox",
+   "price": 3200000,
+   "category": "phones.headphones",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "27190",
+   "photos": [
+    "b748a9c55863.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Quận 10, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-airpodspro",
+   "seller": "u-kiet",
+   "title": "AirPods Pro 2, hộp sạc USB-C",
+   "price": 3200000,
+   "category": "phones.headphones",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "26032d61343f.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-airpods",
+   "seller": "u-kiet",
+   "title": "Tai nghe AirPods 2, tai trái hơi rè",
+   "price": 1100000,
+   "category": "phones.headphones",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "3f6099777086.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-macbook",
+   "seller": "u-tri",
+   "title": "MacBook Air M1 13 inch 8/256GB, sạc 92 lần",
+   "price": 11500000,
+   "category": "laptop.macbook",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "27154",
+   "photos": [
+    "db75de0e2ca9.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Quận 3, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-ipadair",
+   "seller": "u-kiet",
+   "title": "iPad Air 4 64GB Wi-Fi, kèm bút",
+   "price": 7900000,
+   "category": "phones.tablet",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "b5ba345924b6.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-ipadpro",
+   "seller": "u-kiet",
+   "title": "iPad Pro 11 inch 2020 128GB",
+   "price": 11500000,
+   "category": "phones.tablet",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "c5e011e33fcd.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-laptop",
+   "seller": "u-tri",
+   "title": "Laptop Dell XPS 13, pin tốt",
+   "price": 8900000,
+   "category": "laptop.office",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "27154",
+   "photos": [
+    "dc2b3f6ab279.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Quận 3, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-watch",
+   "seller": "u-kiet",
+   "title": "Apple Watch Series 7 45mm, pin 91%",
+   "price": 4500000,
+   "category": "phones.watch",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "e72584a6bc21.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-sofa",
+   "seller": "u-thuha",
+   "title": "Sofa nhung xanh 3 chỗ, chuyển nhà cần bán gấp",
+   "price": 4800000,
+   "category": "furniture.sofa",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "27487",
+   "photos": [
+    "cd53fb654d71.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Quận 7, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-armchair",
+   "seller": "u-thuha",
+   "title": "Ghế bành bọc vải vàng mù tạt, khung gỗ sồi",
+   "price": 1600000,
+   "category": "furniture.other",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "27487",
+   "photos": [
+    "135afe88f05d.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Quận 7, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-chair",
+   "seller": "u-thuha",
+   "title": "Ghế xoay vải be chân gỗ, ngồi êm",
+   "price": 950000,
+   "category": "furniture.other",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "27487",
+   "photos": [
+    "067f3b0bd0ff.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Quận 7, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-bomber",
+   "seller": "u-thuha",
+   "title": "Áo bomber màu bò size M, mặc 2 lần",
+   "price": 380000,
+   "category": "fashion.men",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "27487",
+   "photos": [
+    "d49cb0a42146.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Quận 7, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-nike",
+   "seller": "u-thuha",
+   "title": "Giày Nike Free RN size 42, mới nguyên hộp",
+   "price": 1290000,
+   "category": "fashion.shoes",
+   "condition": "new",
+   "allow_offers": false,
+   "commune": "27487",
+   "photos": [
+    "247adbadbcb9.jpg"
+   ],
+   "specs": [],
+   "description": "Hàng mới nguyên hộp, mua về chưa dùng tới. Xem hàng quanh Quận 7, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-r1",
+   "seller": "u-thuha",
+   "title": "Yamaha YZF-R1 2019, 8.000 km, chính chủ",
+   "price": 385000000,
+   "category": "vehicles.motorbike",
+   "condition": "used",
+   "allow_offers": false,
+   "commune": "27487",
+   "photos": [
+    "8d02f27c4299.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Quận 7, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-blender",
+   "seller": "u-thuha",
+   "title": "Máy xay sinh tố 2L, còn bảo hành 6 tháng",
+   "price": 450000,
+   "category": "home.kitchen",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "27487",
+   "photos": [
+    "3611de1c405d.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Quận 7, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-whitefixed",
+   "seller": "u-bao",
+   "title": "Fixed gear trắng vành cao 40 mm, ghi đông bò",
+   "price": 2950000,
+   "category": "vehicles.bicycle",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "9bff2b903222.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-toytrain",
+   "seller": "u-thuha",
+   "title": "Đồ chơi tàu hỏa gỗ cho bé, đủ 40 chi tiết",
+   "price": 350000,
+   "category": "baby.toys",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "d97e17175e55.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-babybody",
+   "seller": "u-maianh",
+   "title": "Set 5 body cotton cho bé 6–12 tháng",
+   "price": 180000,
+   "category": "baby.clothes",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26740",
+   "photos": [
+    "6112d4a9d664.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Quận 1, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-dumbbell",
+   "seller": "u-bao",
+   "title": "Bộ tạ tay 2 x 10 kg, tháo lắp được",
+   "price": 900000,
+   "category": "sports.gym",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "27073",
+   "photos": [
+    "0907582ad886.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Phú Nhuận, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-racket",
+   "seller": "u-han",
+   "title": "Vợt cầu lông Yonex Astrox 77, kèm quả cầu",
+   "price": 1100000,
+   "category": "sports.racket",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "26929",
+   "photos": [
+    "3bb65d22e4b0.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Bình Thạnh, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-far-guitar",
+   "seller": "u-maianh",
+   "title": "Đàn guitar Yamaha F310, kèm bao",
+   "price": 1900000,
+   "category": "other.other",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "00070",
+   "photos": [
+    "684d5d523db8.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Hà Nội, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-far-keyboard",
+   "seller": "u-tri",
+   "title": "Bàn phím cơ 87 phím, switch đỏ",
+   "price": 1200000,
+   "category": "laptop.other",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "20242",
+   "photos": [
+    "1af812674875.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Đà Nẵng, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-far-books",
+   "seller": "u-quocbao",
+   "title": "Combo 9 sách khởi nghiệp, như mới",
+   "price": 450000,
+   "category": "other.other",
+   "condition": "like_new",
+   "allow_offers": true,
+   "commune": "31135",
+   "photos": [
+    "bd47b4de0310.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ còn rất mới, dùng ít và giữ kỹ, không trầy xước đáng kể. Xem hàng quanh Cần Thơ, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-far-stool",
+   "seller": "u-thuha",
+   "title": "Ghế đôn gỗ cao, chân chắc",
+   "price": 350000,
+   "category": "furniture.other",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "27553",
+   "photos": [
+    "ec45c560fcfe.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Củ Chi, hoặc gửi COD đồng kiểm toàn quốc."
+  },
+  {
+   "key": "p-far-shelf",
+   "seller": "u-thuha",
+   "title": "Kệ gỗ nhỏ 3 tầng, lắp sẵn",
+   "price": 650000,
+   "category": "furniture.storage",
+   "condition": "used",
+   "allow_offers": true,
+   "commune": "19753",
+   "photos": [
+    "1240d42734f9.jpg"
+   ],
+   "specs": [],
+   "description": "Đồ đã qua sử dụng, hoạt động bình thường, có vài vết dùng nhẹ. Xem hàng quanh Huế, hoặc gửi COD đồng kiểm toàn quốc."
+  }
+ ]
+}
