@@ -36,15 +36,4 @@ func TestPriceAlert(t *testing.T) {
 	check(t, "clear", call(t, "DELETE", path, nil, bearer(me.AccessToken)), 204, "")
 	check(t, "clear a bad id", call(t, "DELETE", "/v1/saved/x/alert", nil, bearer(me.AccessToken)), 400, "")
 	check(t, "clear signed out", call(t, "DELETE", path, nil), 401, "unauthenticated")
-
-	res = call(t, "GET", "/v1/me/price-cut-alerts", nil, bearer(me.AccessToken))
-	if sw := expect[struct {
-		On bool `json:"on"`
-	}](t, res, http.StatusOK); !sw.On {
-		t.Fatalf("on by default: %s", res.Body)
-	}
-	check(t, "switch off", call(t, "PUT", "/v1/me/price-cut-alerts", map[string]any{"on": false}, bearer(me.AccessToken)), 204, "")
-	check(t, "switch a bad body", call(t, "PUT", "/v1/me/price-cut-alerts", map[string]any{"on": "no"}, bearer(me.AccessToken)), 400, "")
-	check(t, "switch signed out", call(t, "PUT", "/v1/me/price-cut-alerts", map[string]any{"on": true}), 401, "unauthenticated")
-	check(t, "read switch signed out", call(t, "GET", "/v1/me/price-cut-alerts", nil), 401, "unauthenticated")
 }

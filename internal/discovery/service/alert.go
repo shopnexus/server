@@ -18,11 +18,6 @@ type PriceDropFacts struct {
 	SavedPrice int64     `json:"saved_price"`
 }
 
-// PriceCutAlertsView is the PriceCutAlerts schema.
-type PriceCutAlertsView struct {
-	On bool `json:"on"`
-}
-
 // SetAlert saves the listing, a second time changing nothing, then sets
 // the level. An unsave between the two is try_again.
 func (d *Discovery) SetAlert(ctx context.Context, account, listing uuid.UUID, below int64) error {
@@ -42,21 +37,6 @@ func (d *Discovery) SetAlert(ctx context.Context, account, listing uuid.UUID, be
 func (d *Discovery) ClearAlert(ctx context.Context, account, listing uuid.UUID) error {
 	if _, err := d.saves.SetAlert(ctx, account, listing, nil); err != nil {
 		return fmt.Errorf("clear alert: %w", err)
-	}
-	return nil
-}
-
-func (d *Discovery) PriceCutAlerts(ctx context.Context, account uuid.UUID) (PriceCutAlertsView, error) {
-	on, err := d.settings.PriceCutAlerts(ctx, account)
-	if err != nil {
-		return PriceCutAlertsView{}, fmt.Errorf("read settings: %w", err)
-	}
-	return PriceCutAlertsView{On: on}, nil
-}
-
-func (d *Discovery) SetPriceCutAlerts(ctx context.Context, account uuid.UUID, on bool) error {
-	if err := d.settings.SetPriceCutAlerts(ctx, account, on); err != nil {
-		return fmt.Errorf("set settings: %w", err)
 	}
 	return nil
 }

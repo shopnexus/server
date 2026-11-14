@@ -36,6 +36,8 @@ type Service interface {
 	Chat(ctx context.Context, account, conversation uuid.UUID) (ChatScreen, error)
 	// ProfileTasks reads account's Hoàn thiện hồ sơ view.
 	ProfileTasks(ctx context.Context, account uuid.UUID) (ProfileTasksScreen, error)
+	// Reputation reads account's Uy tín của bạn view.
+	Reputation(ctx context.Context, account uuid.UUID) (ReputationScreen, error)
 }
 
 // Deps is what New builds Screen from.

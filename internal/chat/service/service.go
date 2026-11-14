@@ -74,6 +74,10 @@ type Service interface {
 	// Unread counts account's unread messages over unarchived pair
 	// conversations; support chats are left out.
 	Unread(ctx context.Context, account uuid.UUID) (int, error)
+	// ReplyRate is how often account answered within domain.ReplyWindow
+	// the conversations others started about its listings over
+	// domain.ReplyPeriod; nil while fewer than domain.MinReplyCount count.
+	ReplyRate(ctx context.Context, account uuid.UUID) (*ReplyRate, error)
 	// Search finds account's conversations by the other member's name or a
 	// listing's title, on the first page only, and a page of their messages
 	// by text; archived conversations are searched too.

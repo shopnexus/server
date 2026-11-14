@@ -51,7 +51,8 @@ type Service interface {
 	// SellerListings lists what anyone sees of a seller's listings, newest
 	// first.
 	SellerListings(ctx context.Context, seller uuid.UUID, p page.Request) (page.Page[ListingView], error)
-	// SellerCounts counts a seller's sold listings and those on sale.
+	// SellerCounts counts a seller's sold listings, the public ones and
+	// those under domain.MaxOnSale.
 	SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCounts, error)
 	// Summaries reads listings in any status for other modules; an unknown
 	// ID is left out of the map.

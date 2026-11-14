@@ -26,6 +26,8 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("POST /v1/notifications/{id}/read", protect(http.HandlerFunc(h.Read)))
 	r.Handle("PUT /v1/me/push-token", protect(http.HandlerFunc(h.PutToken)))
 	r.Handle("DELETE /v1/me/push-token", protect(http.HandlerFunc(h.DeleteToken)))
+	r.Handle("GET /v1/me/notification-settings", protect(http.HandlerFunc(h.Settings)))
+	r.Handle("PUT /v1/me/notification-settings", protect(http.HandlerFunc(h.PutSettings)))
 }
 
 // List serves GET /v1/notifications.

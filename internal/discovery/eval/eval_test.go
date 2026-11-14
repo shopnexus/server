@@ -73,7 +73,7 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 	restatetest.Start(t, append(m.Durable(), c.Durable()...)...)
 	d := service.New(service.Deps{
 		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db),
-		History: repository.NewHistory(db), Hidden: repository.NewHidden(db), Settings: repository.NewSettings(db), Watches: repository.NewWatches(db), Accounts: accounttest.Service(db),
+		History: repository.NewHistory(db), Hidden: repository.NewHidden(db), Watches: repository.NewWatches(db), Accounts: accounttest.Service(db),
 		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db),
 		Catalog: c, Media: m,
 		LLM:         llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}},

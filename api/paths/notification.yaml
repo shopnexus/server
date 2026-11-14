@@ -124,3 +124,51 @@ pushToken:
         description: Forgotten.
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+notificationSettings:
+  get:
+    operationId: getNotificationSettings
+    summary: The caller's push settings; an account that never saved any reads the defaults.
+    description: |
+      The defaults are every switch on and quiet hours on from 22:00 to
+      07:00. A switch that is off stops the push of its notices only: they
+      are still listed. Chat messages are never listed, so messages off
+      means nothing about them reaches the phone.
+    tags: [notification]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The settings.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/notification.yaml#/NotificationSettings"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+  put:
+    operationId: putNotificationSettings
+    summary: Replace the caller's push settings.
+    tags: [notification]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/notification.yaml#/NotificationSettings"
+    responses:
+      "200":
+        description: The saved settings.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/notification.yaml#/NotificationSettings"
+      "400":
+        description: "A malformed body (invalid_request, malformed_json), or quiet hours that start when they end (invalid_quiet_hours)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

@@ -26,4 +26,5 @@ func (h *Handler) Register(r *httpx.Router, protect, identify func(http.Handler)
 	r.Handle("GET /v1/screens/inbox/search", protect(http.HandlerFunc(h.InboxSearch)))
 	r.Handle("GET /v1/screens/chat/{conversation_id}", protect(http.HandlerFunc(h.Chat)))
 	r.Handle("GET /v1/screens/profile-tasks", protect(http.HandlerFunc(h.ProfileTasks)))
+	r.Handle("GET /v1/screens/reputation", protect(http.HandlerFunc(h.Reputation)))
 }

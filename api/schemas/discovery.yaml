@@ -175,13 +175,6 @@ SavedAlert:
       minimum: 10000
       maximum: 1000000000
       description: Tell when the price falls below this.
-PriceCutAlerts:
-  type: object
-  additionalProperties: false
-  required: ["on"]
-  properties:
-    "on":
-      type: boolean
 SearchWatchInput:
   type: object
   additionalProperties: false

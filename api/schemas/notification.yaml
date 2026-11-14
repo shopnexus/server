@@ -83,3 +83,53 @@ ReadAllResult:
       items:
         type: string
         format: uuid
+NotificationSettings:
+  type: object
+  additionalProperties: false
+  required: [messages, offers, orders, price_cuts, followed, reviews, quiet]
+  description: |
+    Which notices push. A switch that is off stops the push only; the notice
+    is still listed. Search watch notices push by each watch's own bell, and
+    the listing and account notices always push. No push goes out during
+    quiet hours.
+  properties:
+    messages:
+      type: boolean
+      description: Chat messages.
+    offers:
+      type: boolean
+      description: Offers, counters, agreements and their ends.
+    orders:
+      type: boolean
+      description: COD requests, shipping, delivery, failed deliveries and cancellations.
+    price_cuts:
+      type: boolean
+      description: A new low of a saved listing.
+    followed:
+      type: boolean
+      description: A new listing of a seller the caller follows.
+    reviews:
+      type: boolean
+      description: A new review of the caller.
+    quiet:
+      $ref: "#/QuietHours"
+QuietHours:
+  type: object
+  additionalProperties: false
+  required: ["on", from, to]
+  description: |
+    In Vietnam time. The window may cross midnight; from is inside it and to
+    is not. A push skipped in the window is dropped, not delayed.
+  properties:
+    "on":
+      type: boolean
+    from:
+      type: string
+      pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+      description: Start, as HH:MM on a 24-hour clock.
+      example: "22:00"
+    to:
+      type: string
+      pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+      description: End, as HH:MM on a 24-hour clock; not the same as from.
+      example: "07:00"

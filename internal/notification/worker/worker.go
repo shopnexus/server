@@ -32,7 +32,8 @@ import (
 // one step, which returns the zero facts for a subject that is gone; a zero
 // ID then tells no one. A first publication sends each of the seller's
 // followers to TellFollower, one invocation per follower; ListingPublished
-// journals one send per follower.
+// journals one send per follower. Before each push it reads the
+// recipient's settings, which may hold it back.
 type Worker struct {
 	Prefix   string
 	Notices  service.Service
@@ -48,6 +49,8 @@ type Worker struct {
 	// FollowerPage is how many followers one step reads when a listing
 	// first goes on sale.
 	FollowerPage int
+	// Now is the clock quiet hours are read on.
+	Now func() time.Time
 }
 
 func (w Worker) ServiceName() string { return w.Prefix + "NotificationWorker" }
@@ -320,7 +323,7 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 		// A ticket's chat: ShopNexus is the title, so the body is the reply alone.
 		m.Title, m.Body, m.Data["type"] = "ShopNexus", domain.SupportBody(f.Text, f.Photos), "support_message"
 	}
-	return w.deliver(ctx, f.RecipientID, m)
+	return w.deliver(ctx, f.RecipientID, domain.SwitchMessages, m)
 }
 
 // tell writes each notice, then pushes it to its recipient. A notice a
@@ -343,7 +346,8 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 			tag = "notification:" + id.String()
 		}
 		target := domain.TargetOf(n.Type, n.Params)
-		if pushErr := w.deliver(ctx, n.Recipient, push.Message{
+		sw, _ := domain.SwitchOf(n.Type)
+		if pushErr := w.deliver(ctx, n.Recipient, sw, push.Message{
 			Title: domain.Title(n.Type), Body: domain.Text(n.Type, n.Params), Tag: tag,
 			Data: map[string]string{
 				"type": string(n.Type), "target_kind": target.Kind, "target_id": target.ID, "notification_id": id.String(),
@@ -355,10 +359,32 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 	return nil
 }
 
+// pushSettings is what a push decision reads in one step: the recipient's
+// settings and the time.
+type pushSettings struct {
+	Settings domain.Settings `json:"settings"`
+	At       time.Time       `json:"at"`
+}
+
 // deliver pushes m to every token of account whose session is still
-// active, one step per token, so a retried send repeats no other. The
-// tokens of ended sessions, and those FCM reports dead, are deleted.
-func (w Worker) deliver(ctx restate.Context, account uuid.UUID, m push.Message) error {
+// active, one step per token, so a retried send repeats no other, unless
+// the account's settings hold back pushes under sw or quiet hours hold at
+// this time; a push held back is dropped. The tokens of ended sessions, and
+// those FCM reports dead, are deleted.
+func (w Worker) deliver(ctx restate.Context, account uuid.UUID, sw domain.Switch, m push.Message) error {
+	ps, err := restate.Run(ctx, func(rc restate.RunContext) (pushSettings, error) {
+		st, stepErr := w.Notices.Settings(rc, account)
+		if stepErr != nil {
+			return pushSettings{}, fmt.Errorf("read settings: %w", stepErr)
+		}
+		return pushSettings{Settings: st, At: w.Now()}, nil
+	})
+	if err != nil {
+		return fmt.Errorf("read push settings: %w", err)
+	}
+	if !ps.Settings.Pushes(sw, ps.At) {
+		return nil
+	}
 	tokens, err := restate.Run(ctx, func(rc restate.RunContext) ([]service.Token, error) {
 		all, stepErr := w.Notices.Tokens(rc, account)
 		if stepErr != nil {

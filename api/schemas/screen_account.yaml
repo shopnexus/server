@@ -32,3 +32,101 @@ ProfileTask:
         avatar when it has an avatar.
     done:
       type: boolean
+ReputationScreen:
+  type: object
+  additionalProperties: false
+  required: [rating, sold, joined_at, followers, reply, figures_90d, caps]
+  description: Uy tín của bạn. Every figure is read when the view is.
+  properties:
+    rating:
+      $ref: "#/ReputationRating"
+    sold:
+      type: integer
+      minimum: 0
+      description: The caller's listings sold, through an order or marked by hand, as the seller page counts them.
+    joined_at:
+      type: string
+      format: date-time
+    followers:
+      type: integer
+      minimum: 0
+    reply:
+      description: The reply rate over the last 90 days; null while fewer than 5 conversations count.
+      anyOf:
+        - $ref: "#/ReplyRate"
+        - type: "null"
+    figures_90d:
+      $ref: "#/BuyerFigures"
+    caps:
+      $ref: "#/ReputationCaps"
+ReputationRating:
+  type: object
+  additionalProperties: false
+  required: [average, count]
+  description: The reviews the caller received as a seller, as the seller page counts them.
+  properties:
+    average:
+      type: [number, "null"]
+      description: The average stars; null without reviews.
+    count:
+      type: integer
+      minimum: 0
+ReplyRate:
+  type: object
+  additionalProperties: false
+  required: [percent, count]
+  description: |
+    A conversation counts when another person started it about one of the
+    caller's listings, its first message is from the last 90 days, and that
+    message is more than 24 hours old or the caller has answered. It is
+    answered in time when the caller's first message in it came within 24
+    hours of the other person's first message.
+  properties:
+    percent:
+      type: integer
+      minimum: 0
+      maximum: 100
+      description: The conversations answered in time, as a percent of count, rounded down.
+    count:
+      type: integer
+      minimum: 5
+      description: The conversations that count.
+BuyerFigures:
+  type: object
+  additionalProperties: false
+  required: [cod_orders, failed]
+  description: The caller as a buyer over the last 90 days.
+  properties:
+    cod_orders:
+      type: integer
+      minimum: 0
+      description: The COD orders the caller placed.
+    failed:
+      type: integer
+      minimum: 0
+      description: Of those, the orders whose delivery failed.
+ReputationCaps:
+  type: object
+  additionalProperties: false
+  required: [listings, cod_orders]
+  description: |
+    The caps every account has, and how much of each the caller uses.
+    listings counts the listings on sale, waiting for review, hidden or
+    refused, and those reserved for an order; cod_orders counts the
+    caller's orders as a buyer that are pending or shipped.
+  properties:
+    listings:
+      $ref: "#/Cap"
+    cod_orders:
+      $ref: "#/Cap"
+Cap:
+  type: object
+  additionalProperties: false
+  required: [used, max]
+  properties:
+    used:
+      type: integer
+      minimum: 0
+    max:
+      type: integer
+      minimum: 1

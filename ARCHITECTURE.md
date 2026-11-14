@@ -292,8 +292,10 @@ next: `billing` (boosts and seller plans); `notification` holds the
 in-app list and push (see Notifications). There
 is no `kyc` module: a seller's verified phone number is enough, since a
 carrier checks a seller's identity when it opens their account (decided
-2026-10-27). Reports are in `trust` (see Trust); incident records and
-reputation will join it; followed searches, price alerts,
+2026-10-27). Reports are in `trust` (see Trust); incident records will
+join it. Reputation has no module or table: screen's reputation view reads
+the figures from the modules that hold them (see Screen). Followed
+searches, price alerts,
 "Dành cho bạn" and vector search will join `discovery`, beside search and
 the nearby feed. Imports run one way, `handler` and `worker` →
 `service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
@@ -357,6 +359,7 @@ separate work.
 | `Address` | `addresses` | module account; one row per address, `write_id`; `recipient_name` keeps the keyword `name` out of the columns |
 | feedback | `feedback` | module support; one row per feedback, `request_key` unique per account; no aggregate, no `write_id` |
 | search history | `search_history` | module discovery; one row per folded query of an account, at most 10; no aggregate, no `write_id` |
+| notification settings | `notification_settings` | module notification; one row per account that saved settings; no aggregate, no `write_id`: the last `PUT` wins |
 
 No column is named after an SQL keyword (sqlfluff RF04, run with
 `sqlfluff lint migrations/`): `events.occurred_at` and `payload`,
@@ -1456,6 +1459,29 @@ page that shows two views calls both at once.
   counts the steps and takes the first one not done as the next. eKYC and
   COD setup are not steps: COD needs only a phone, and someone who only
   buys never sets COD up.
+- `GET /v1/screens/reputation` (decided 2026-11-14, spec
+  `2026-11-14-reputation-screen-design.md`): the Uy tín của bạn view.
+  Points, tiers and tier perks are out of the product, and the view holds
+  figures the server already has. `rating` is trust's `Rating` with a null
+  `average` without reviews. `sold` is catalog's `SellerCounts.Sold`,
+  `joined_at` the account's `created_at`, `followers` account's
+  `FollowerCount`. `figures_90d` is the caller as a buyer over deal's
+  `domain.BuyerPeriod` (90 days): COD orders requested and the failed ones
+  among them, from `dealsvc.BuyerOrders`. `caps` shows `listings`, the
+  listings in a catalog `domain.OnSale` status (`SellerCounts.Capped`)
+  against `domain.MaxOnSale`, and `cod_orders`, the caller's pending and
+  shipped orders as a buyer against deal's `domain.MaxOpenOrders`; the
+  view reads both maxima from the owning domains.
+- `reply` is chat's `ReplyRate`, computed on read with no table of its
+  own. `ReplyThreads` takes the first sent message of each of the caller's
+  pair conversations with a message in the last 90 days, through
+  `messages_conversation`, and keeps those another person wrote about a
+  listing of the caller's (joining `listings`, as `SearchThreads` does),
+  with the caller's first sent message in each. `domain.ReplyRateOf`
+  counts a thread whose first message is from the last 90 days and is
+  either answered or more than 24 hours old; it is in time when the answer
+  came within 24 hours. The rate is the percent in time, rounded down,
+  with the count; null below 5 counted.
 - "Load more" uses the list endpoints, which return the same item shapes:
   `/v1/sellers/{id}/listings`, `/v1/sellers/{id}/reviews`,
   `/v1/conversations/{id}/messages`.
@@ -1736,14 +1762,16 @@ Price alerts (decided 2026-11-11, same spec):
   `PUT /v1/saved/{listing_id}/alert {below}` saves the listing first, with
   the save's refusals, then sets the level and clears `alerted_price`.
   `DELETE` removes the level and keeps the save.
-- `saved_settings.price_cut_alerts`, read and set at
-  `/v1/me/price-cut-alerts`, is on for an account without a row. While it is
-  on, a save without its own level uses its saved price as the level.
+- A save without its own level uses its saved price as the level.
+  Discovery writes `saved.price_dropped` by this rule alone, and
+  notification's `price_cuts` switch stops only the push (see
+  Notifications). `/v1/me/price-cut-alerts` and `saved_settings`, a switch
+  that also stopped the notice, were removed on 2026-11-14.
 - A save tells at each new low below its level: below the level and below
   `alerted_price`, the price it last told. A price at or above the level, or
   no level, clears `alerted_price`. `domain.PriceStep` holds the rule;
-  `Saves.PriceMoved` runs it in SQL with the level as a correlated subquery,
-  so an UPDATE that waited for another reads the newest row.
+  `Saves.PriceMoved` runs it in SQL on the row's own columns, so an UPDATE
+  that waited for another reads the newest row.
 - `DiscoveryListingWatch` hears `listing.updated` and `listing.published`,
   reads the listing's current price through catalog's `Summary`, and skips a
   listing that is not active. A late or reordered event weighs the price as
@@ -2112,8 +2140,8 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   `PartyLeft` (a requested order cancelled by the system with
   `listing_closed`, an agreement dropped, an open price taken back);
   discovery deletes the saves, the search history, the hidden listings, the
-  search watches and the price cut switch; notification deletes the notices
-  and push tokens; assist deletes the reads and the waiting transcripts.
+  search watches; notification deletes the notices, push tokens and
+  settings; assist deletes the reads and the waiting transcripts.
   Media does nothing: a waiting upload, a video read's frames and a link
   read's copies among them, expires
   within a day anyway, and a draft's photo within 30 days of the draft's
@@ -2235,6 +2263,35 @@ calls it except screen, for Home's unread count; depguard holds that.
   index allows one. A notice of the key that turns unread between the
   check and the write raises a unique violation, and the statement runs
   once more.
+- Settings (decided 2026-11-14, spec:
+  `~/shopnexus/docs/superpowers/specs/2026-11-14-notification-settings-design.md`):
+  `GET` and `PUT /v1/me/notification-settings` hold six switches,
+  `messages`, `offers`, `orders`, `price_cuts`, `followed` and `reviews`,
+  and quiet hours `{on, from, to}`, the times as HH:MM in Vietnam time.
+  They replaced discovery's `/v1/me/price-cut-alerts`. A switch that is
+  off stops the push only, and the notice is still listed; a chat message
+  is never listed, so with `messages` off it reaches no phone. Support
+  replies are chat messages and fall under `messages` too.
+  `domain.SwitchOf` places each notice type under a switch or under none:
+  `watch_matched` keeps its watch's bell, and `listing_live`,
+  `listing_rejected`, `suspended` and `unsuspended` always push.
+  `TestEveryTypeHasASwitch` reads the `Type` constants from the package's
+  source and fails on a type the table lacks.
+- While quiet hours are on and Vietnam's clock is in `[from, to)`, no push
+  goes out, and a push held back is dropped. The window may cross
+  midnight; `from == to` is 400 `invalid_quiet_hours`, a time that is not
+  HH:MM is the spec's 400 `invalid_request`. An account without a row
+  reads every switch on and quiet hours on from 22:00 to 07:00, and a read
+  writes no row. `PUT` replaces the whole document and returns it. It
+  takes a share lock on the account's row and refuses a tombstone with
+  `session_revoked`, as the other writes that keep rows of the caller do.
+- `deliver` reads the recipient's settings and the worker's clock
+  (`Worker.Now`) in one step, after the notice is written and before the
+  token step, and decides between steps. E2E's `putToken` also turns quiet
+  hours off, so the tests that wait for a push pass at night.
+- Migration 0045 copied each `saved_settings` row with the switch off into
+  `notification_settings` as `price_cuts = false`, the rest at the
+  defaults, and dropped `saved_settings`.
 
 ### Testing
 

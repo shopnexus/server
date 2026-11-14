@@ -129,6 +129,8 @@ paths:
     $ref: "paths/notification.yaml#/read"
   /v1/me/push-token:
     $ref: "paths/notification.yaml#/pushToken"
+  /v1/me/notification-settings:
+    $ref: "paths/notification.yaml#/notificationSettings"
   /v1/ws:
     $ref: "paths/stream.yaml#/ws"
   /v1/updates:
@@ -163,6 +165,8 @@ paths:
     $ref: "paths/screen_listing.yaml#/screenSeller"
   /v1/screens/profile-tasks:
     $ref: "paths/screen_account.yaml#/screenProfileTasks"
+  /v1/screens/reputation:
+    $ref: "paths/screen_account.yaml#/screenReputation"
   /v1/orders/{order_id}/review:
     $ref: "paths/trust.yaml#/review"
   /v1/sellers/{id}/reviews:
@@ -193,8 +197,6 @@ paths:
     $ref: "paths/discovery.yaml#/savedListing"
   /v1/saved/{listing_id}/alert:
     $ref: "paths/discovery.yaml#/savedAlert"
-  /v1/me/price-cut-alerts:
-    $ref: "paths/discovery.yaml#/priceCutAlerts"
   /v1/hidden/{listing_id}:
     $ref: "paths/discovery.yaml#/hiddenListing"
   /v1/support/tickets:

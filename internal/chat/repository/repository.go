@@ -78,6 +78,11 @@ type Chats interface {
 	// where t matches the other member's name or the title of a listing a
 	// message names; newest last message first, at most limit.
 	SearchThreads(ctx context.Context, viewer uuid.UUID, t Terms, limit int) ([]InboxRow, error)
+	// ReplyThreads reads seller's pair conversations whose first sent
+	// message came at or after since from another person and names one of
+	// seller's listings: that message's time and seller's first sent
+	// message's, if any.
+	ReplyThreads(ctx context.Context, seller uuid.UUID, since time.Time) ([]domain.ReplyThread, error)
 	// SearchMessages lists the sent messages matching t in the
 	// conversations SearchThreads would consider, IDs below p.Before(),
 	// newest first, at most p.Fetch().
