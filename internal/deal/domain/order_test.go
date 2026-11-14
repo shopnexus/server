@@ -19,7 +19,9 @@ var (
 	gone     = domain.Listing{Price: 1_500_000, AllowOffers: true, Status: domain.ListingGone}
 )
 
-var recipient = domain.Recipient{Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
+var recipient = domain.Recipient{
+	Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: domain.AddressWork,
+}
 
 // later is a moment after now, for moves that must not take now's time.
 var later = now.Add(time.Hour)
@@ -543,7 +545,8 @@ func TestRecipientFor(t *testing.T) {
 	d := pending(t)
 	must(t, d.Cancel(domain.Buyer, now))
 	o := d.Order()
-	if r := o.RecipientFor(domain.Seller); r.Phone != "" || r.Street != "" || r.Name != "Hân" || r.CommuneCode != "00004" {
+	if r := o.RecipientFor(domain.Seller); r.Phone != "" || r.Street != "" || r.Name != "Hân" || r.CommuneCode != "00004" ||
+		r.Kind != domain.AddressWork {
 		t.Fatalf("seller reads a cancelled order: %+v", r)
 	}
 	if r := o.RecipientFor(domain.Buyer); r.Phone == "" || r.Street == "" {

@@ -346,8 +346,8 @@ VALUES (uuidv7(), 'sign_in', 'email', @id::text || '@example.com', '\x00', '127.
 		`INSERT INTO otp_challenges (id, purpose, kind, destination, account_id, code_hash, ip, expires_at, created_at, write_id)
 VALUES (uuidv7(), 'add_identity', 'email', 'other-' || @id::text || '@example.com', @id::uuid, '\x00', '127.0.0.1', now() + interval '5 minutes', now(), uuidv7())`,
 		`INSERT INTO otp_quotas (subject, sent_at, write_id) VALUES ('dest:' || @id::text || '@example.com', ARRAY[now()], uuidv7())`,
-		`INSERT INTO addresses (id, account_id, recipient_name, phone, street, commune_code, is_default, request_key, write_id, created_at)
-VALUES (uuidv7(), @id, 'Linh', '0912345678', '1 Lê Lợi', (SELECT code FROM communes ORDER BY code LIMIT 1), true, gen_random_uuid(), uuidv7(), now())`,
+		`INSERT INTO addresses (id, account_id, recipient_name, phone, street, commune_code, kind, is_default, request_key, write_id, created_at)
+VALUES (uuidv7(), @id, 'Linh', '0912345678', '1 Lê Lợi', (SELECT code FROM communes ORDER BY code LIMIT 1), 'home', true, gen_random_uuid(), uuidv7(), now())`,
 		`INSERT INTO sessions (id, account_id, refresh_hash, auth_time, created_at, last_used_at, expires_at, write_id)
 VALUES (uuidv7(), @id, decode(md5(random()::text), 'hex'), now(), current_timestamp, transaction_timestamp(), now() + interval '30 days', uuidv7())`,
 	} {

@@ -54,6 +54,7 @@ type person struct {
 	Avatar  string `json:"avatar"`
 	Street  string `json:"street"`
 	Commune string `json:"commune"`
+	Kind    string `json:"kind"`
 	Carrier bool   `json:"carrier"`
 }
 
@@ -331,7 +332,7 @@ func (c client) address(ctx context.Context, m *member) (string, error) {
 	}
 	var made struct{ ID string }
 	err := c.call(ctx, m.token, http.MethodPost, "/v1/addresses", map[string]any{
-		"name": m.Name, "phone": m.Phone, "street": m.Street, "commune_code": m.Commune,
+		"name": m.Name, "phone": m.Phone, "street": m.Street, "commune_code": m.Commune, "kind": m.Kind,
 	}, &made, "Idempotency-Key", uuid.NewV7().String())
 	if err != nil {
 		return "", fmt.Errorf("add the address: %w", err)

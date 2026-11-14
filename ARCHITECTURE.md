@@ -1338,6 +1338,19 @@ Decided 2026-10-27 (spec:
   account, which keeps the cap and the single default; a partial unique
   index on `(account_id) WHERE is_default` backs the second. An edit checks
   `write_id` and is `try_again` after a race.
+- An address has a kind, `home`, `work` or `other` (the app's Nhà, Công ty
+  and Khác), so the shipper knows when to deliver: an office takes parcels
+  in office hours (decided 2026-11-15). The kind is required; the draft
+  takes it as a plain string, so an unknown one is the domain's 422
+  `invalid_address` with field `kind`, and the views return the
+  `AddressKind` enum. A COD order copies it into its recipient
+  (`orders.recipient_kind`), and a linked shipment passes it to GHTK and
+  GHN as the order's `note` to the shipper: "Nhà riêng" for home, "Địa chỉ
+  công ty: giao giờ hành chính" for work, nothing for other. GHTK's
+  `deliver_work_shift` picks a morning, afternoon or evening slot, which is
+  not office hours, so it stays unset. A seller's address copied as a
+  pickup keeps no kind. Migration 0046 made every earlier address and
+  order `home`.
 - The address book has its own repository, `repository.Addresses`, beside
   `Accounts`. It checks the commune and reads its names from `communes`
   and `provinces` in SQL: catalog imports account, so account cannot call

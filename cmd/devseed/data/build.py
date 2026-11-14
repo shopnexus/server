@@ -70,7 +70,7 @@ for i, s in enumerate(sellers):
         "key": p["id"], "name": p["name"], "phone": f"+84{phone}", "bio": BIOS[i % len(BIOS)],
         "avatar": photo(p["avatarUrl"]) if p.get("avatarUrl") else None,
         "street": STREET.get(s["district"], "1 Nguyễn Huệ"), "commune": COMMUNE.get(s["district"], "26740"),
-        "carrier": True,
+        "kind": "home", "carrier": True,
     })
     phone += 1
 linh = next(s for s in sellers if s["seller"]["id"] == "u-linh")["seller"]
@@ -79,7 +79,9 @@ for b in buyers:
     accounts.append({
         "key": b["id"], "name": b["name"], "phone": f"+84{phone}", "bio": "",
         "avatar": photo(b["avatarUrl"]) if b.get("avatarUrl") else None,
-        "street": "120 Xô Viết Nghệ Tĩnh", "commune": "26929", "carrier": False,
+        # Linh's COD order goes to her office, so the seeded order shows a work address.
+        "street": "120 Xô Viết Nghệ Tĩnh", "commune": "26929", "kind": "work" if b["id"] == "u-linh" else "home",
+        "carrier": False,
     })
     phone += 1
 

@@ -52,9 +52,9 @@ func TestOrderPickups(t *testing.T) {
 		}
 		maps.Copy(b, a)
 		_, err := db.Exec(ctx, `INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name,
-    recipient_phone, recipient_street, recipient_commune, shipment_mode, carrier, tracking_code, shipment_status,
+    recipient_phone, recipient_street, recipient_commune, recipient_kind, shipment_mode, carrier, tracking_code, shipment_status,
     pickup_point_id, pickup_name, pickup_phone, pickup_street, pickup_commune, requested_at, shipped_at)
-VALUES (gen_random_uuid(), @deal, @listing, @buyer, @seller, 'shipped', 1500000, 'Hân', '+84912345678', '1 Lê Lợi', '00004',
+VALUES (gen_random_uuid(), @deal, @listing, @buyer, @seller, 'shipped', 1500000, 'Hân', '+84912345678', '1 Lê Lợi', '00004', 'home',
     @mode, 'ghtk', 'S1.A1', 'pending_pickup', @point, @name, @phone, @street, @commune, now(), @shipped_at)`, b)
 		return err
 	}

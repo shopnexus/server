@@ -142,7 +142,7 @@ func (g GHNClient) Pickups(ctx context.Context, a Account) ([]PickupPoint, error
 
 // orderBody is GHN's create and preview body. A pickup point is the
 // linked shop, whose address GHN has; a place goes as from_ fields.
-func ghnOrderBody(code string, to Place, from Pickup, item string, cod int64, weight int) map[string]any {
+func ghnOrderBody(code string, to Place, from Pickup, item string, cod int64, weight int, note string) map[string]any {
 	body := map[string]any{
 		"payment_type_id": 2, "required_note": "CHOXEMHANGKHONGTHU", "service_type_id": 2,
 		"to_name": to.Name, "to_phone": to.Phone, "to_address": to.Street,
@@ -152,6 +152,9 @@ func ghnOrderBody(code string, to Place, from Pickup, item string, cod int64, we
 	}
 	if code != "" {
 		body["client_order_code"] = code
+	}
+	if note != "" {
+		body["note"] = note
 	}
 	if p := from.Place; p != nil {
 		body["from_name"], body["from_phone"], body["from_address"] = p.Name, p.Phone, p.Street
@@ -170,7 +173,7 @@ type ghnOrder struct {
 func (g GHNClient) Quote(ctx context.Context, a Account, in QuoteInput) (int64, error) {
 	var out ghnOrder
 	err := g.do(ctx, http.MethodPost, "/v2/shipping-order/preview", a, true,
-		ghnOrderBody("", in.Recipient, in.Pickup, "Hàng", 0, in.WeightGrams), &out)
+		ghnOrderBody("", in.Recipient, in.Pickup, "Hàng", 0, in.WeightGrams, ""), &out)
 	if codeMessage(err) == "ROUTE_NOT_FOUND_SERVICE" {
 		return 0, ErrAddressUnknown
 	}
@@ -186,7 +189,7 @@ func (g GHNClient) Quote(ctx context.Context, a Account, in QuoteInput) (int64, 
 func (g GHNClient) Create(ctx context.Context, a Account, in CreateInput) (Created, error) {
 	var out ghnOrder
 	err := g.do(ctx, http.MethodPost, "/v2/shipping-order/create", a, true,
-		ghnOrderBody(in.OrderCode, in.Recipient, in.Pickup, in.Item, in.COD, in.WeightGrams), &out)
+		ghnOrderBody(in.OrderCode, in.Recipient, in.Pickup, in.Item, in.COD, in.WeightGrams, in.Note), &out)
 	if codeMessage(err) == "ROUTE_NOT_FOUND_SERVICE" {
 		return Created{}, ErrAddressUnknown
 	}

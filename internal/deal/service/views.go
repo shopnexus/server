@@ -46,12 +46,13 @@ type OrderView struct {
 // province's names. Phone and Street are absent where the viewer may not
 // read them.
 type RecipientView struct {
-	Name        string `json:"name"`
-	Phone       string `json:"phone,omitempty"`
-	Street      string `json:"street,omitempty"`
-	CommuneCode string `json:"commune_code"`
-	Commune     string `json:"commune"`
-	Province    string `json:"province"`
+	Name        string             `json:"name"`
+	Phone       string             `json:"phone,omitempty"`
+	Street      string             `json:"street,omitempty"`
+	CommuneCode string             `json:"commune_code"`
+	Commune     string             `json:"commune"`
+	Province    string             `json:"province"`
+	Kind        domain.AddressKind `json:"kind"`
 }
 
 // OrderItem is an order in a list, with its deal and listing.
@@ -116,7 +117,7 @@ func orderView(o domain.Order, viewer domain.Party, place catalogsvc.Location) O
 		ID: o.ID, Code: o.Code, Status: o.Status, Price: o.Price,
 		Recipient: RecipientView{
 			Name: r.Name, Phone: r.Phone, Street: r.Street, CommuneCode: r.CommuneCode,
-			Commune: place.Commune.DisplayName, Province: place.Province.DisplayName,
+			Commune: place.Commune.DisplayName, Province: place.Province.DisplayName, Kind: r.Kind,
 		},
 		Shipment: sh, CancelledBy: o.CancelledBy, CancelReason: o.CancelReason,
 		RequestedAt: o.RequestedAt, ShippedAt: o.ShippedAt, ClosedAt: o.ClosedAt,

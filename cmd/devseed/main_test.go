@@ -26,6 +26,9 @@ func TestSeedFitsTheAPI(t *testing.T) {
 		if _, err := contact.ParsePhone(p.Phone); err != nil {
 			t.Errorf("%s: phone %q: %v", p.Key, p.Phone, err)
 		}
+		if p.Kind != "home" && p.Kind != "work" && p.Kind != "other" {
+			t.Errorf("%s: address kind %q", p.Key, p.Kind)
+		}
 		if p.Avatar != "" {
 			if _, err := data.ReadFile("data/photos/" + p.Avatar); err != nil {
 				t.Errorf("%s: avatar: %v", p.Key, err)

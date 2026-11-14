@@ -34,7 +34,7 @@ func order(t *testing.T, db *pgxpool.Pool, buyer, seller uuid.UUID) (orderID, li
 		t.Fatal(err)
 	}
 	onSale := dealdomain.Listing{Price: 1_500_000, Status: dealdomain.ListingActive}
-	r := dealdomain.Recipient{Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
+	r := dealdomain.Recipient{Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: dealdomain.AddressHome}
 	if err := d.Accept(dealdomain.Buyer, 1_500_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}

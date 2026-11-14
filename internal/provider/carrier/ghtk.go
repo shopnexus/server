@@ -175,6 +175,9 @@ func (g GHTKClient) Create(ctx context.Context, a Account, in CreateInput) (Crea
 		"pick_money": in.COD, "value": in.COD, "is_freeship": 0, "transport": ghtkTransport(in.Service),
 		"pick_option": map[string]string{"home": "cod", "post_office": "post"}[in.Option],
 	}
+	if in.Note != "" {
+		order["note"] = in.Note
+	}
 	if in.Pickup.PointID != "" {
 		order["pick_address_id"] = in.Pickup.PointID
 	}

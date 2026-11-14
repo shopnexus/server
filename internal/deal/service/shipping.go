@@ -49,6 +49,13 @@ func refusedBy(err error) bool {
 	return errors.As(err, &e) && e.Kind != apperr.KindInternal
 }
 
+// deliveryNotes tell the carrier's shipper what the recipient's place is,
+// so an office gets its parcel in office hours. other says nothing.
+var deliveryNotes = map[domain.AddressKind]string{
+	domain.AddressHome: "Nhà riêng",
+	domain.AddressWork: "Địa chỉ công ty: giao giờ hành chính",
+}
+
 // place is a recipient or a pickup by names, as the carriers take them.
 func (s *Deals) place(ctx context.Context, name, phone, street, commune string) (carrier.Place, error) {
 	ps, err := s.catalog.Places(ctx, []string{commune})

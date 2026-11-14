@@ -19,7 +19,7 @@ type pgAddresses struct{ db *pgxpool.Pool }
 func NewAddresses(db *pgxpool.Pool) Addresses { return pgAddresses{db} }
 
 // addressColumns are the columns scanAddress reads, of addresses a.
-const addressColumns = `a.id, a.account_id, a.recipient_name, a.phone, a.street, a.commune_code, a.is_default, a.write_id, a.created_at`
+const addressColumns = `a.id, a.account_id, a.recipient_name, a.phone, a.street, a.commune_code, a.kind, a.is_default, a.write_id, a.created_at`
 
 // scanAddress reads addressColumns, then into extra the columns that follow.
 func scanAddress(row pgx.Row, extra ...any) (domain.Address, error) {
@@ -29,7 +29,7 @@ func scanAddress(row pgx.Row, extra ...any) (domain.Address, error) {
 		isDefault          bool
 		createdAt          time.Time
 	)
-	dest := append([]any{&id, &owner, &d.Name, &d.Phone, &d.Street, &d.CommuneCode, &isDefault, &writeID, &createdAt}, extra...)
+	dest := append([]any{&id, &owner, &d.Name, &d.Phone, &d.Street, &d.CommuneCode, &d.Kind, &isDefault, &writeID, &createdAt}, extra...)
 	if err := row.Scan(dest...); err != nil {
 		return domain.Address{}, fmt.Errorf("scan address: %w", err)
 	}
@@ -77,11 +77,11 @@ FROM addresses a WHERE a.account_id = @account AND a.request_key = @key`,
 		}
 		first = n == 0
 		if _, err := tx.Exec(ctx, `INSERT INTO addresses
-    (id, account_id, recipient_name, phone, street, commune_code, is_default, request_key, write_id, created_at)
-VALUES (@id, @account, @name, @phone, @street, @commune_code, @is_default, @key, @write_id, @created_at)`,
+    (id, account_id, recipient_name, phone, street, commune_code, kind, is_default, request_key, write_id, created_at)
+VALUES (@id, @account, @name, @phone, @street, @commune_code, @kind, @is_default, @key, @write_id, @created_at)`,
 			pgx.StrictNamedArgs{
 				"id": a.ID(), "account": a.AccountID(), "name": a.Name(), "phone": a.Phone(), "street": a.Street(),
-				"commune_code": a.CommuneCode(), "is_default": first, "key": key, "write_id": a.WriteID(),
+				"commune_code": a.CommuneCode(), "kind": a.Kind(), "is_default": first, "key": key, "write_id": a.WriteID(),
 				"created_at": a.CreatedAt(),
 			}); err != nil {
 			return fmt.Errorf("insert address: %w", err)
@@ -115,10 +115,12 @@ FROM addresses a WHERE a.id = @id AND a.account_id = @account`, pgx.StrictNamedA
 
 func (s pgAddresses) Save(ctx context.Context, a *domain.Address, writeID uuid.UUID) error {
 	tag, err := s.db.Exec(ctx, `UPDATE addresses
-SET recipient_name = @name, phone = @phone, street = @street, commune_code = @commune_code, write_id = @write_id
+SET recipient_name = @name, phone = @phone, street = @street, commune_code = @commune_code, kind = @kind,
+    write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, pgx.StrictNamedArgs{
 		"id": a.ID(), "read_write_id": a.WriteID(), "write_id": writeID,
 		"name": a.Name(), "phone": a.Phone(), "street": a.Street(), "commune_code": a.CommuneCode(),
+		"kind": a.Kind(),
 	})
 	if err != nil {
 		return fmt.Errorf("update address: %w", err)

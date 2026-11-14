@@ -26,7 +26,9 @@ func (s *Deals) RequestCod(ctx context.Context, caller, id, addressID uuid.UUID)
 	if err != nil {
 		return DealView{}, fmt.Errorf("read the address: %w", err)
 	}
-	recipient := domain.Recipient{Name: a.Name, Phone: a.Phone, Street: a.Street, CommuneCode: a.CommuneCode}
+	recipient := domain.Recipient{
+		Name: a.Name, Phone: a.Phone, Street: a.Street, CommuneCode: a.CommuneCode, Kind: domain.AddressKind(a.Kind),
+	}
 	if err = m.deal.RequestCod(m.by, recipient, m.rules, m.now); err != nil {
 		return DealView{}, err
 	}
