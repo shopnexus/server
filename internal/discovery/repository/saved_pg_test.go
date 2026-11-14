@@ -115,7 +115,7 @@ func TestPriceMoved(t *testing.T) {
 	if err := s.Save(ctx, uuid.NewV7(), me, l, 6_000_000, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, uuid.NewV7(), other, l, 6_000_000, now); err != nil { // the switch alone, at the saved price
+	if err := s.Save(ctx, uuid.NewV7(), other, l, 6_000_000, now); err != nil { // no level of its own: the saved price
 		t.Fatal(err)
 	}
 	if found, err := s.SetAlert(ctx, me, l, new(int64(5_000_000))); err != nil || !found {
@@ -137,15 +137,8 @@ func TestPriceMoved(t *testing.T) {
 	if err := db.QueryRow(ctx, `SELECT count(*) FROM events WHERE kind = 'saved.price_dropped'`).Scan(&events); err != nil || events != 5 {
 		t.Fatalf("%d events %v", events, err)
 	}
-	set := repository.NewSettings(db)
-	if on, err := set.PriceCutAlerts(ctx, other); err != nil || !on {
-		t.Fatalf("on by default: %v %v", on, err)
-	}
-	if err := set.SetPriceCutAlerts(ctx, other, false); err != nil {
-		t.Fatal(err)
-	}
-	if n, err := s.PriceMoved(ctx, l, 4_000_000, now); err != nil || n != 1 { // me alone now
-		t.Fatalf("switch off: %d %v", n, err)
+	if n, err := s.PriceMoved(ctx, l, 4_000_000, now); err != nil || n != 2 {
+		t.Fatalf("a new low tells both: %d %v", n, err)
 	}
 	got, err := s.List(ctx, me, page.Request{})
 	if err != nil || got[0].AlertBelow == nil || *got[0].AlertBelow != 5_000_000 || got[0].Account != me {

@@ -41,11 +41,9 @@ type Service interface {
 	// SetAlert sets the price below which account hears of listing, saving
 	// it first when it is not saved, with Save's refusals.
 	SetAlert(ctx context.Context, account, listing uuid.UUID, below int64) error
-	// ClearAlert removes the save's own level; the save stays.
+	// ClearAlert removes the save's own level; the save stays and tells
+	// below its saved price.
 	ClearAlert(ctx context.Context, account, listing uuid.UUID) error
-	// PriceCutAlerts is "Báo khi tin đã lưu giảm giá", on until set off.
-	PriceCutAlerts(ctx context.Context, account uuid.UUID) (PriceCutAlertsView, error)
-	SetPriceCutAlerts(ctx context.Context, account uuid.UUID, on bool) error
 	// PriceMoved weighs every save of listing against its current price;
 	// the worker calls it on listing.updated and listing.published.
 	PriceMoved(ctx context.Context, listing uuid.UUID) error
@@ -79,7 +77,7 @@ type Service interface {
 	// the price and offers filters left for the caller to weigh.
 	Watchers(ctx context.Context, seller uuid.UUID, q WatcherQuery) ([]Watcher, error)
 	// AccountDeleted deletes what discovery keeps of a deleted account: its
-	// saves, history, hides, watches and settings. The worker calls it on
+	// saves, history, hides and watches. The worker calls it on
 	// account.deleted.
 	AccountDeleted(ctx context.Context, account uuid.UUID) error
 }
@@ -90,7 +88,6 @@ type Deps struct {
 	Understandings repository.Understandings
 	History        repository.History
 	Hidden         repository.Hidden
-	Settings       repository.Settings
 	Watches        repository.Watches
 	// Sweeps starts a new watch's sweeps.
 	Sweeps Sweeper
@@ -123,7 +120,6 @@ type Discovery struct {
 	understandings            repository.Understandings
 	history                   repository.History
 	hidden                    repository.Hidden
-	settings                  repository.Settings
 	watches                   repository.Watches
 	sweeps                    Sweeper
 	arrivalLag                time.Duration
@@ -146,7 +142,7 @@ var _ Service = (*Discovery)(nil)
 
 func New(d Deps) *Discovery {
 	return &Discovery{
-		saves: d.Saves, understandings: d.Understandings, history: d.History, hidden: d.Hidden, settings: d.Settings, watches: d.Watches,
+		saves: d.Saves, understandings: d.Understandings, history: d.History, hidden: d.Hidden, watches: d.Watches,
 		sweeps: d.Sweeps, arrivalLag: d.ArrivalLag, sweepBatch: d.SweepBatch, catalog: d.Catalog,
 		accounts: d.Accounts, llm: d.LLM,
 		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,

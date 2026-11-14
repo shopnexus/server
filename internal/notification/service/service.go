@@ -1,6 +1,6 @@
 // Package service holds module notification's use cases: a person reads
-// their notices, marks them read, and gives the push token of their
-// session.
+// their notices, marks them read, gives the push token of their session,
+// and says which notices push.
 package service
 
 import (
@@ -32,8 +32,14 @@ type Service interface {
 	// DeleteToken deletes a session's token; the handler calls it for the
 	// caller's session, the worker for an ended session or a dead token.
 	DeleteToken(ctx context.Context, session uuid.UUID) error
-	// Forget deletes a deleted account's notices and push tokens; the
-	// worker calls it on account.deleted.
+	// Settings are the account's push settings, the defaults when it
+	// never saved any.
+	Settings(ctx context.Context, account uuid.UUID) (domain.Settings, error)
+	// PutSettings replaces the account's push settings and returns them;
+	// domain.ErrInvalidQuietHours for quiet hours that start when they end.
+	PutSettings(ctx context.Context, account uuid.UUID, s domain.Settings) (domain.Settings, error)
+	// Forget deletes a deleted account's notices, push tokens and
+	// settings; the worker calls it on account.deleted.
 	Forget(ctx context.Context, account uuid.UUID) error
 
 	// Record writes a notice the worker decided, for event; see
@@ -76,16 +82,20 @@ type List struct {
 
 // Deps is what New builds Notification from.
 type Deps struct {
-	Notices repository.Notices
-	Now     func() time.Time
+	Notices  repository.Notices
+	Settings repository.Settings
+	Now      func() time.Time
 }
 
 // Notification implements Service in this process.
 type Notification struct {
-	notices repository.Notices
-	now     func() time.Time
+	notices  repository.Notices
+	settings repository.Settings
+	now      func() time.Time
 }
 
 var _ Service = (*Notification)(nil)
 
-func New(d Deps) *Notification { return &Notification{notices: d.Notices, now: d.Now} }
+func New(d Deps) *Notification {
+	return &Notification{notices: d.Notices, settings: d.Settings, now: d.Now}
+}

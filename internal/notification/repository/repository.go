@@ -1,5 +1,5 @@
-// Package repository stores module notification's notices and push tokens
-// in Postgres. Each method is its own transaction.
+// Package repository stores module notification's notices, push tokens and
+// settings in Postgres. Each method is its own transaction.
 package repository
 
 import (
@@ -42,9 +42,19 @@ type Notices interface {
 	PutToken(ctx context.Context, session, account uuid.UUID, token string, at time.Time) error
 	// DeleteToken forgets a session's token; an absent one is fine.
 	DeleteToken(ctx context.Context, session uuid.UUID) error
-	// Forget deletes the account's notices and push tokens.
+	// Forget deletes the account's notices, push tokens and settings.
 	Forget(ctx context.Context, account uuid.UUID) error
 	Tokens(ctx context.Context, account uuid.UUID) ([]Token, error)
+}
+
+// Settings keeps what each account says about its pushes.
+type Settings interface {
+	// Get is the account's settings, domain.DefaultSettings when it never
+	// saved any; it writes nothing.
+	Get(ctx context.Context, account uuid.UUID) (domain.Settings, error)
+	// Put replaces the account's settings. A deleted account is
+	// accountdomain.ErrSessionRevoked.
+	Put(ctx context.Context, account uuid.UUID, s domain.Settings) error
 }
 
 // Row is a notice as the list reads it.

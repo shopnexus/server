@@ -1,7 +1,8 @@
 // Package notification tells people what happened to their deals, orders,
 // listings, reviews and account, of new listings by the sellers they follow
 // and by their search watches, and of price drops on their saves, in a list
-// and by push, from the events of the other modules.
+// and by push, from the events of the other modules. Each person's settings
+// say which kinds push and when pushes wait for morning.
 // Only screen calls it, for Home's unread count.
 package notification
 
@@ -38,11 +39,11 @@ type Settings struct {
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service,
 	deals dealsvc.Service, trust trustsvc.Service, chats chatsvc.Service, discovery discoverysvc.Service,
 ) module.Mounted[service.Service] {
-	svc := service.New(service.Deps{Notices: repository.NewNotices(d.Pool), Now: d.Now})
+	svc := service.New(service.Deps{Notices: repository.NewNotices(d.Pool), Settings: repository.NewSettings(d.Pool), Now: d.Now})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	w := worker.Worker{
 		Prefix: d.ServicePrefix, Notices: svc, Deals: deals, Chats: chats, Catalog: catalog,
-		Trust: trust, Accounts: accounts, Discovery: discovery, Push: s.Push, Log: d.Log, FollowerPage: followerPage,
+		Trust: trust, Accounts: accounts, Discovery: discovery, Push: s.Push, Log: d.Log, FollowerPage: followerPage, Now: d.Now,
 	}
 	for kind, h := range map[events.Kind]string{
 		events.DealMoved: "DealMoved", events.MessageSent: "MessageSent", events.ListingPublished: "ListingPublished",

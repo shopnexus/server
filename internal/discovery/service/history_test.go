@@ -105,7 +105,7 @@ func (e env) count(t *testing.T, table string, account uuid.UUID) int {
 	return n
 }
 
-// keepings gives account a watch, a hidden listing and the switch off.
+// keepings gives account a watch and a hidden listing.
 func (e env) keepings(t *testing.T, account uuid.UUID) {
 	t.Helper()
 	ctx := context.Background()
@@ -115,13 +115,10 @@ func (e env) keepings(t *testing.T, account uuid.UUID) {
 	if err := e.discovery.Hide(ctx, account, e.put(t, "Ghế gỗ", "home.other", baDinh)); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.discovery.SetPriceCutAlerts(ctx, account, false); err != nil {
-		t.Fatal(err)
-	}
 }
 
-// Erasure takes the watches, the hides and the switch as well.
-func TestAccountDeletedClearsWatchesHidesAndSettings(t *testing.T) {
+// Erasure takes the watches and the hides as well.
+func TestAccountDeletedClearsWatchesAndHides(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	me := accounttest.New(t, e.db)
@@ -129,15 +126,15 @@ func TestAccountDeletedClearsWatchesHidesAndSettings(t *testing.T) {
 	if err := e.discovery.AccountDeleted(context.Background(), me); err != nil {
 		t.Fatal(err)
 	}
-	for _, table := range []string{"search_watches", "hidden_listings", "saved_settings"} {
+	for _, table := range []string{"search_watches", "hidden_listings"} {
 		if n := e.count(t, table, me); n != 0 {
 			t.Errorf("%s: %d rows left", table, n)
 		}
 	}
 }
 
-// Clearing the search history leaves the watches, the hides and the switch.
-func TestClearHistoryKeepsWatchesHidesAndSettings(t *testing.T) {
+// Clearing the search history leaves the watches and the hides.
+func TestClearHistoryKeepsWatchesAndHides(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	me := accounttest.New(t, e.db)
@@ -145,7 +142,7 @@ func TestClearHistoryKeepsWatchesHidesAndSettings(t *testing.T) {
 	if err := e.discovery.ClearHistory(context.Background(), me); err != nil {
 		t.Fatal(err)
 	}
-	for _, table := range []string{"search_watches", "hidden_listings", "saved_settings"} {
+	for _, table := range []string{"search_watches", "hidden_listings"} {
 		if n := e.count(t, table, me); n != 1 {
 			t.Errorf("%s: %d rows, want 1", table, n)
 		}

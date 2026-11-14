@@ -48,13 +48,4 @@ func TestSetAlertSavesAndTells(t *testing.T) {
 	if err = e.discovery.SetAlert(ctx, seller, l, 1_000_000); !errors.Is(err, domain.ErrOwnListing) {
 		t.Fatalf("own: %v", err)
 	}
-	if sw, _ := e.discovery.PriceCutAlerts(ctx, me); !sw.On {
-		t.Fatal("on by default")
-	}
-	if err = e.discovery.SetPriceCutAlerts(ctx, me, false); err != nil {
-		t.Fatal(err)
-	}
-	if sw, _ := e.discovery.PriceCutAlerts(ctx, me); sw.On {
-		t.Fatal("off")
-	}
 }

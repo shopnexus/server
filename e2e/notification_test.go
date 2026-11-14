@@ -42,9 +42,14 @@ func notices(t *testing.T, token string, n int) notificationList {
 	return l
 }
 
+// putToken gives the caller's session a push token and turns quiet hours
+// off, so a test that waits for a push passes at any hour.
 func putToken(t *testing.T, token, push string) {
 	t.Helper()
 	expectStatus(t, call(t, "PUT", "/v1/me/push-token", map[string]any{"token": push}, bearer(token)), http.StatusNoContent)
+	loud := defaultSettings()
+	loud["quiet"] = map[string]any{"on": false, "from": "22:00", "to": "07:00"}
+	expectStatus(t, call(t, "PUT", "/v1/me/notification-settings", loud, bearer(token)), http.StatusOK)
 }
 
 func TestNotifications(t *testing.T) {

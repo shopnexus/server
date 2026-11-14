@@ -160,6 +160,14 @@ func (s *sender) count(token string) int {
 	return s.sent[token]
 }
 
+// noon and night are times on Vietnam's clock outside and inside the
+// default quiet hours, 22:00 to 07:00. The worker runs at noon unless a
+// test moves it.
+var (
+	noon  = time.Date(2026, 11, 14, 12, 0, 0, 0, time.FixedZone("ICT", 7*60*60))
+	night = time.Date(2026, 11, 14, 23, 0, 0, 0, time.FixedZone("ICT", 7*60*60))
+)
+
 type env struct {
 	db      *pgxpool.Pool
 	notices service.Service
@@ -173,11 +181,12 @@ type env struct {
 func newEnv(t *testing.T, revoked map[uuid.UUID]bool, once map[string]error) env {
 	t.Helper()
 	db := pgtest.New(t)
-	notices := service.New(service.Deps{Notices: repository.NewNotices(db), Now: time.Now})
+	notices := service.New(service.Deps{Notices: repository.NewNotices(db), Settings: repository.NewSettings(db), Now: time.Now})
 	s := &sender{sent: map[string]int{}, body: map[string]string{}, title: map[string]string{}, data: map[string]map[string]string{}, once: once}
 	w := worker.Worker{
 		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{}, Discovery: discovery{},
 		Accounts: accounts{revoked: revoked}, Push: s, Log: slog.New(slog.DiscardHandler), FollowerPage: 2,
+		Now: func() time.Time { return noon },
 	}
 	return env{db: db, notices: notices, push: s, worker: w}
 }
@@ -501,7 +510,7 @@ func TestDeliverDropsEndedAndDeadTokens(t *testing.T) {
 	}
 }
 
-// A deleted account loses its notices and push tokens, and a second
+// A deleted account loses its notices, push tokens and settings, and a second
 // account.deleted finds nothing left.
 func TestAccountDeletedForgetsTheAccount(t *testing.T) {
 	t.Parallel()
@@ -515,6 +524,11 @@ func TestAccountDeletedForgetsTheAccount(t *testing.T) {
 	if err := e.notices.PutToken(ctx, uuid.NewV7(), gone, "phone"); err != nil {
 		t.Fatal(err)
 	}
+	quiet := domain.DefaultSettings()
+	quiet.Reviews = false
+	if _, err := e.notices.PutSettings(ctx, gone, quiet); err != nil {
+		t.Fatal(err)
+	}
 	for range 2 {
 		id := uuid.NewV7()
 		e.deliver(t, "AccountDeleted", events.Event{ID: id, Kind: events.AccountDeleted, SubjectID: gone, OccurredAt: time.Now()})
@@ -524,6 +538,9 @@ func TestAccountDeletedForgetsTheAccount(t *testing.T) {
 	}
 	if tokens, _ := e.notices.Tokens(ctx, gone); len(tokens) != 0 {
 		t.Fatalf("tokens left: %+v", tokens)
+	}
+	if st, _ := e.notices.Settings(ctx, gone); st != domain.DefaultSettings() {
+		t.Fatalf("settings left: %+v", st)
 	}
 }
 

@@ -135,11 +135,8 @@ WHERE account_id = @account AND listing_id = @listing`,
 	return tag.RowsAffected() > 0, nil
 }
 
-// alertLevel is domain.AlertLevel on saved_listings s, NULL for none. It is
-// a correlated subquery, not a CTE, so an UPDATE that waited for another
-// re-reads it on the row's newest version.
-const alertLevel = `COALESCE(s.alert_below, CASE WHEN COALESCE(
-    (SELECT st.price_cut_alerts FROM saved_settings st WHERE st.account_id = s.account_id), true) THEN s.saved_price END)`
+// alertLevel is domain.AlertLevel on saved_listings s.
+const alertLevel = `COALESCE(s.alert_below, s.saved_price)`
 
 func (s pgSaves) PriceMoved(ctx context.Context, listing uuid.UUID, price int64, at time.Time) (int, error) {
 	var told []uuid.UUID
@@ -147,7 +144,7 @@ func (s pgSaves) PriceMoved(ctx context.Context, listing uuid.UUID, price int64,
 		args := pgx.StrictNamedArgs{"listing": listing, "price": price}
 		if _, err := tx.Exec(ctx, `UPDATE saved_listings s SET alerted_price = NULL
 WHERE s.listing_id = @listing AND s.alerted_price IS NOT NULL
-  AND (`+alertLevel+` IS NULL OR `+alertLevel+` <= @price)`, args); err != nil {
+  AND `+alertLevel+` <= @price`, args); err != nil {
 			return fmt.Errorf("reset alerts: %w", err)
 		}
 		rows, err := tx.Query(ctx, `UPDATE saved_listings s SET alerted_price = @price

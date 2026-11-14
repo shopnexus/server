@@ -338,6 +338,7 @@ savedAlert:
   delete:
     operationId: clearSavedAlert
     summary: Remove the save's own level; the save stays, and a listing not saved is fine.
+    description: Without a level of its own, a save tells at each new low below its saved price.
     tags: [discovery]
     security:
       - bearerAuth: []
@@ -351,41 +352,6 @@ savedAlert:
     responses:
       "204":
         description: Removed.
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-priceCutAlerts:
-  get:
-    operationId: getPriceCutAlerts
-    summary: Whether a saved listing without its own level alerts below its saved price; on until set off.
-    tags: [discovery]
-    security:
-      - bearerAuth: []
-    responses:
-      "200":
-        description: The switch.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/discovery.yaml#/PriceCutAlerts"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-  put:
-    operationId: setPriceCutAlerts
-    summary: Turn the switch on or off.
-    tags: [discovery]
-    security:
-      - bearerAuth: []
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: "../schemas/discovery.yaml#/PriceCutAlerts"
-    responses:
-      "204":
-        description: Set.
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":

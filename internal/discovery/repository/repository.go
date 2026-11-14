@@ -40,15 +40,6 @@ type Saves interface {
 	PriceMoved(ctx context.Context, listing uuid.UUID, price int64, at time.Time) (int, error)
 }
 
-// Settings keeps a person's discovery settings: the switch that alerts on
-// a drop below the saved price of every save without its own level.
-type Settings interface {
-	// PriceCutAlerts is the switch; an account that never set it reads on.
-	PriceCutAlerts(ctx context.Context, account uuid.UUID) (bool, error)
-	SetPriceCutAlerts(ctx context.Context, account uuid.UUID, on bool) error
-	Clear(ctx context.Context, account uuid.UUID) error
-}
-
 // Hidden keeps the listings a person hid from their searches.
 type Hidden interface {
 	// Hide hides listing from account's searches as the newest hide, again

@@ -209,6 +209,7 @@ func (s pgNotices) Forget(ctx context.Context, account uuid.UUID) error {
 		for _, q := range []string{
 			`DELETE FROM notifications WHERE account_id = @account`,
 			`DELETE FROM push_tokens WHERE account_id = @account`,
+			`DELETE FROM notification_settings WHERE account_id = @account`,
 		} {
 			if _, err := tx.Exec(ctx, q, pgx.StrictNamedArgs{"account": account}); err != nil {
 				return fmt.Errorf("forget: %w", err)
