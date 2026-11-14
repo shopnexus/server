@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/deal/domain"
@@ -39,6 +40,9 @@ type Deals interface {
 	// OpenOrders reports an order of account's, as buyer or seller, that is
 	// pending or shipped.
 	OpenOrders(ctx context.Context, account uuid.UUID) (bool, error)
+	// BuyerOrders counts buyer's orders requested at or after since and,
+	// of those, the failed ones, and buyer's orders pending or shipped now.
+	BuyerOrders(ctx context.Context, buyer uuid.UUID, since time.Time) (BuyerOrders, error)
 	// ActiveOf lists the deals, negotiating or agreed, where account is
 	// either side, oldest first.
 	ActiveOf(ctx context.Context, account uuid.UUID) ([]domain.Deal, error)
@@ -78,4 +82,9 @@ type OrderRow struct {
 	BuyerID   uuid.UUID
 	SellerID  uuid.UUID
 	Order     domain.Order
+}
+
+// BuyerOrders is what a buyer's orders count up to.
+type BuyerOrders struct {
+	Placed, Failed, Open int
 }

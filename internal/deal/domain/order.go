@@ -12,6 +12,8 @@ const (
 	// MaxOpenOrders is how many orders a buyer may have pending or shipped
 	// at once.
 	MaxOpenOrders = 3
+	// BuyerPeriod is how far back a buyer's figures reach.
+	BuyerPeriod = 90 * 24 * time.Hour
 	// MaxWeight is the heaviest parcel a linked shipment takes, in grams.
 	MaxWeight       = 20_000
 	maxTrackingCode = 50

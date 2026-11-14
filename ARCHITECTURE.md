@@ -292,8 +292,10 @@ next: `billing` (boosts and seller plans); `notification` holds the
 in-app list and push (see Notifications). There
 is no `kyc` module: a seller's verified phone number is enough, since a
 carrier checks a seller's identity when it opens their account (decided
-2026-10-27). Reports are in `trust` (see Trust); incident records and
-reputation will join it; followed searches, price alerts,
+2026-10-27). Reports are in `trust` (see Trust); incident records will
+join it. Reputation has no module or table: screen's reputation view reads
+the figures from the modules that hold them (see Screen). Followed
+searches, price alerts,
 "Dành cho bạn" and vector search will join `discovery`, beside search and
 the nearby feed. Imports run one way, `handler` and `worker` →
 `service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
@@ -1457,6 +1459,29 @@ page that shows two views calls both at once.
   counts the steps and takes the first one not done as the next. eKYC and
   COD setup are not steps: COD needs only a phone, and someone who only
   buys never sets COD up.
+- `GET /v1/screens/reputation` (decided 2026-11-14, spec
+  `2026-11-14-reputation-screen-design.md`): the Uy tín của bạn view.
+  Points, tiers and tier perks are out of the product, and the view holds
+  figures the server already has. `rating` is trust's `Rating` with a null
+  `average` without reviews. `sold` is catalog's `SellerCounts.Sold`,
+  `joined_at` the account's `created_at`, `followers` account's
+  `FollowerCount`. `figures_90d` is the caller as a buyer over deal's
+  `domain.BuyerPeriod` (90 days): COD orders requested and the failed ones
+  among them, from `dealsvc.BuyerOrders`. `caps` shows `listings`, the
+  listings in a catalog `domain.OnSale` status (`SellerCounts.Capped`)
+  against `domain.MaxOnSale`, and `cod_orders`, the caller's pending and
+  shipped orders as a buyer against deal's `domain.MaxOpenOrders`; the
+  view reads both maxima from the owning domains.
+- `reply` is chat's `ReplyRate`, computed on read with no table of its
+  own. `ReplyThreads` takes the first sent message of each of the caller's
+  pair conversations with a message in the last 90 days, through
+  `messages_conversation`, and keeps those another person wrote about a
+  listing of the caller's (joining `listings`, as `SearchThreads` does),
+  with the caller's first sent message in each. `domain.ReplyRateOf`
+  counts a thread whose first message is from the last 90 days and is
+  either answered or more than 24 hours old; it is in time when the answer
+  came within 24 hours. The rate is the percent in time, rounded down,
+  with the count; null below 5 counted.
 - "Load more" uses the list endpoints, which return the same item shapes:
   `/v1/sellers/{id}/listings`, `/v1/sellers/{id}/reviews`,
   `/v1/conversations/{id}/messages`.

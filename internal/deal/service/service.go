@@ -93,6 +93,9 @@ type Service interface {
 	// OpenOrders reports an order of account's, as either side, that is
 	// pending or shipped; erasure refuses to delete the account then.
 	OpenOrders(ctx context.Context, account uuid.UUID) (bool, error)
+	// BuyerOrders counts buyer's orders over the last domain.BuyerPeriod,
+	// placed and failed, and those open now against domain.MaxOpenOrders.
+	BuyerOrders(ctx context.Context, buyer uuid.UUID) (BuyerOrders, error)
 	// AccountDeleted ends what a deleted account leaves open in its deals;
 	// the worker calls it on account.deleted.
 	AccountDeleted(ctx context.Context, account uuid.UUID) error

@@ -165,6 +165,8 @@ paths:
     $ref: "paths/screen_listing.yaml#/screenSeller"
   /v1/screens/profile-tasks:
     $ref: "paths/screen_account.yaml#/screenProfileTasks"
+  /v1/screens/reputation:
+    $ref: "paths/screen_account.yaml#/screenReputation"
   /v1/orders/{order_id}/review:
     $ref: "paths/trust.yaml#/review"
   /v1/sellers/{id}/reviews:

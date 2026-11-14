@@ -17,3 +17,19 @@ screenProfileTasks:
               $ref: "../schemas/screen_account.yaml#/ProfileTasksScreen"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+screenReputation:
+  get:
+    operationId: getReputationScreen
+    summary: The Uy tín của bạn view, the figures the server holds about the caller and the caps in use.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_account.yaml#/ReputationScreen"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
