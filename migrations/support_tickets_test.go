@@ -131,8 +131,8 @@ func TestTicketChecks(t *testing.T) {
 	deal, order := uuid.NewV7(), uuid.NewV7()
 	a := pgx.NamedArgs{"deal": deal, "order": order, "listing": catalogtest.Listing(t, db, seller), "buyer": person, "seller": seller}
 	for _, q := range []string{insertDeal, `INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name,
-    recipient_phone, recipient_street, recipient_commune, shipment_mode, carrier, tracking_code, shipment_status, requested_at, shipped_at)
-VALUES (@order, @deal, @listing, @buyer, @seller, 'shipped', 1500000, 'Hân', '+84912345678', '1 Lê Lợi', '00004',
+    recipient_phone, recipient_street, recipient_commune, recipient_kind, shipment_mode, carrier, tracking_code, shipment_status, requested_at, shipped_at)
+VALUES (@order, @deal, @listing, @buyer, @seller, 'shipped', 1500000, 'Hân', '+84912345678', '1 Lê Lợi', '00004', 'home',
     'manual', 'ghtk', 'S1.A1', 'in_transit', now(), now())`} {
 		if _, err := db.Exec(ctx, q, a); err != nil {
 			t.Fatalf("%s: %v", q, err)

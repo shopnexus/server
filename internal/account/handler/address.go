@@ -10,10 +10,11 @@ import (
 )
 
 type addressRequest struct {
-	Name        string `json:"name"`
-	Phone       string `json:"phone"`
-	Street      string `json:"street"`
-	CommuneCode string `json:"commune_code"`
+	Name        string             `json:"name"`
+	Phone       string             `json:"phone"`
+	Street      string             `json:"street"`
+	CommuneCode string             `json:"commune_code"`
+	Kind        domain.AddressKind `json:"kind"`
 }
 
 type addressCreateRequest struct {
@@ -62,7 +63,7 @@ func (h *Handler) CreateAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := h.svc.CreateAddress(r.Context(), p.AccountID, in.Key, domain.AddressDraft{
-		Name: in.Name, Phone: in.Phone, Street: in.Street, CommuneCode: in.CommuneCode,
+		Name: in.Name, Phone: in.Phone, Street: in.Street, CommuneCode: in.CommuneCode, Kind: in.Kind,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
@@ -83,7 +84,7 @@ func (h *Handler) UpdateAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, err := h.svc.UpdateAddress(r.Context(), p.AccountID, in.ID, domain.AddressDraft{
-		Name: in.Name, Phone: in.Phone, Street: in.Street, CommuneCode: in.CommuneCode,
+		Name: in.Name, Phone: in.Phone, Street: in.Street, CommuneCode: in.CommuneCode, Kind: in.Kind,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

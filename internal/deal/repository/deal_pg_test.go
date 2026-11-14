@@ -220,7 +220,9 @@ func pendingDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, sell
 	return d
 }
 
-var recipient = domain.Recipient{Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
+var recipient = domain.Recipient{
+	Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: domain.AddressWork,
+}
 
 func TestOrderRoundTrip(t *testing.T) {
 	t.Parallel()
@@ -235,7 +237,7 @@ func TestOrderRoundTrip(t *testing.T) {
 	}
 	o := got.Order()
 	if o == nil || o.Status != domain.OrderPending || !strings.HasPrefix(o.Code, "SN-") || o.Recipient.Name != "Hân" ||
-		o.Price != 1_500_000 || o.RequestedAt.IsZero() || o.Shipment != nil {
+		o.Recipient.Kind != domain.AddressWork || o.Price != 1_500_000 || o.RequestedAt.IsZero() || o.Shipment != nil {
 		t.Fatalf("%+v", o)
 	}
 	sent := domain.Shipment{Mode: domain.ModeManual, Carrier: domain.CarrierGHN, TrackingCode: "GHN1", Status: domain.ShipmentPendingPickup}

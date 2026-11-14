@@ -16,7 +16,7 @@ import (
 func address(t *testing.T, owner uuid.UUID) domain.Address {
 	t.Helper()
 	a, err := domain.NewAddress(uuid.NewV7(), owner, domain.AddressDraft{
-		Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004",
+		Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: domain.AddressHome,
 	}, true, now)
 	if err != nil {
 		t.Fatal(err)
@@ -75,7 +75,7 @@ func TestAddresses(t *testing.T) {
 		t.Fatalf("the default first, then the newest: %+v %v", rows, err)
 	}
 	first := rows[0]
-	if first.Address.Name() != "Hân" || first.Address.Phone() != "+84912345678" || first.Address.AccountID() != me ||
+	if first.Address.Name() != "Hân" || first.Address.Phone() != "+84912345678" || first.Address.Kind() != domain.AddressHome || first.Address.AccountID() != me ||
 		first.Address.WriteID() != as[0].WriteID() || first.Place.Commune == "" || first.Place.Province == "" || first.Address.CreatedAt().IsZero() {
 		t.Fatalf("%+v", first)
 	}
@@ -105,7 +105,7 @@ func TestSaveAddressWriteID(t *testing.T) {
 	me := seed(t, s)
 	a := insert(t, book, me, 1)[0]
 	stale := a
-	if err := a.Edit(domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004"}, true); err != nil {
+	if err := a.Edit(domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: domain.AddressWork}, true); err != nil {
 		t.Fatal(err)
 	}
 	n := uuid.NewV7()
@@ -113,7 +113,7 @@ func TestSaveAddressWriteID(t *testing.T) {
 		t.Fatal(err)
 	}
 	retry := stale
-	if err := retry.Edit(domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004"}, true); err != nil {
+	if err := retry.Edit(domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: domain.AddressWork}, true); err != nil {
 		t.Fatal(err)
 	}
 	if err := book.Save(ctx, &retry, n); err != nil {
@@ -126,7 +126,7 @@ func TestSaveAddressWriteID(t *testing.T) {
 		t.Fatalf("a second save in a row: %v", err)
 	}
 	got, err := book.Get(ctx, me, a.ID())
-	if err != nil || got.Name() != "Minh" || got.Phone() != "+84987654321" || got.WriteID() != a.WriteID() || !got.IsDefault() {
+	if err != nil || got.Name() != "Minh" || got.Phone() != "+84987654321" || got.Kind() != domain.AddressWork || got.WriteID() != a.WriteID() || !got.IsDefault() {
 		t.Fatalf("%+v %v", got, err)
 	}
 	// Moving the default is a write too: a save read before it conflicts.

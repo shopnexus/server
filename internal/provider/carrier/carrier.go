@@ -100,6 +100,9 @@ type CreateInput struct {
 	WeightGrams int
 	Service     string // standard or express
 	Option      string // home or post_office
+	// Note is a line for the shipper, such as when the recipient takes
+	// parcels; empty for none.
+	Note string
 }
 
 // QuoteInput is a shipment to price.

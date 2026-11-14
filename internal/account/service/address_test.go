@@ -14,7 +14,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
-var home = domain.AddressDraft{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
+var home = domain.AddressDraft{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: domain.AddressHome}
 
 // newBook is the accounts and the address books of one fresh database.
 func newBook(t *testing.T) (repository.Accounts, repository.Addresses) {
@@ -37,27 +37,27 @@ func TestAddressBook(t *testing.T) {
 
 	first, err := svc.CreateAddress(ctx, me, uuid.NewV7(), home)
 	if err != nil || !first.IsDefault || first.Phone != "+84912345678" || first.Commune == "" || first.Province == "" ||
-		!first.CreatedAt.Equal(now) {
+		first.Kind != domain.AddressHome || !first.CreatedAt.Equal(now) {
 		t.Fatalf("%+v %v", first, err)
 	}
 	key := uuid.NewV7()
-	second, err := svc.CreateAddress(ctx, me, key, domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004"})
-	if err != nil || second.IsDefault {
+	second, err := svc.CreateAddress(ctx, me, key, domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: domain.AddressOther})
+	if err != nil || second.IsDefault || second.Kind != domain.AddressOther {
 		t.Fatalf("%+v %v", second, err)
 	}
-	again, err := svc.CreateAddress(ctx, me, key, domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004"})
+	again, err := svc.CreateAddress(ctx, me, key, domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: domain.AddressOther})
 	if err != nil || again.ID != second.ID || again.Name != second.Name || again.IsDefault ||
 		!again.CreatedAt.Equal(second.CreatedAt) {
 		t.Fatalf("a retried request: %+v %v", again, err)
 	}
 	got, err := svc.Address(ctx, me, second.ID)
-	if err != nil || got.ID != second.ID || got.Name != "Minh" || got.Commune != second.Commune || got.IsDefault ||
+	if err != nil || got.ID != second.ID || got.Name != "Minh" || got.Commune != second.Commune || got.Kind != domain.AddressOther || got.IsDefault ||
 		!got.CreatedAt.Equal(second.CreatedAt) {
 		t.Fatalf("%+v %v", got, err)
 	}
 
-	edited, err := svc.UpdateAddress(ctx, me, first.ID, domain.AddressDraft{Name: "Lan", Phone: "0901234567", Street: "3 Hàng Bài", CommuneCode: "00004"})
-	if err != nil || edited.Name != "Lan" || edited.Phone != "+84901234567" || !edited.IsDefault || edited.Commune == "" {
+	edited, err := svc.UpdateAddress(ctx, me, first.ID, domain.AddressDraft{Name: "Lan", Phone: "0901234567", Street: "3 Hàng Bài", CommuneCode: "00004", Kind: domain.AddressWork})
+	if err != nil || edited.Name != "Lan" || edited.Kind != domain.AddressWork || edited.Phone != "+84901234567" || !edited.IsDefault || edited.Commune == "" {
 		t.Fatalf("%+v %v", edited, err)
 	}
 	if err = svc.SetDefaultAddress(ctx, me, second.ID); err != nil {

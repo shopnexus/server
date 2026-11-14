@@ -14,7 +14,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
-var home = accountdomain.AddressDraft{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}
+var home = accountdomain.AddressDraft{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: accountdomain.AddressHome}
 
 // address adds an address to owner's book and returns its ID.
 func (e env) address(t *testing.T, owner uuid.UUID) uuid.UUID {
@@ -52,7 +52,8 @@ func TestRequestCod(t *testing.T) {
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	o := v.Order
 	if o == nil || o.Status != domain.OrderPending || o.Code == "" || o.Price != 1_500_000 ||
-		o.Recipient.Commune == "" || o.Recipient.Province == "" || o.Recipient.Phone != "+84912345678" {
+		o.Recipient.Commune == "" || o.Recipient.Province == "" || o.Recipient.Phone != "+84912345678" ||
+		o.Recipient.Kind != domain.AddressHome {
 		t.Fatalf("%+v", o)
 	}
 	s := e.get(t, seller, v.ID)
@@ -75,7 +76,7 @@ func TestOrderKeepsItsRecipient(t *testing.T) {
 	v := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
 	must(t)(e.deals.RequestCod(ctx, buyer, v.ID, address))
 	if _, err := e.accounts.UpdateAddress(ctx, buyer, address, accountdomain.AddressDraft{
-		Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004",
+		Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: accountdomain.AddressHome,
 	}); err != nil {
 		t.Fatal(err)
 	}

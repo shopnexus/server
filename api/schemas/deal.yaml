@@ -319,7 +319,8 @@ ShipmentStatusChange:
 Recipient:
   type: object
   additionalProperties: false
-  required: [name, commune_code, commune, province]
+  required: [name, commune_code, commune, province, kind]
+  description: The buyer's address as the order copied it from the address book.
   properties:
     name:
       type: string
@@ -335,6 +336,8 @@ Recipient:
       type: string
     province:
       type: string
+    kind:
+      $ref: "address.yaml#/AddressKind"
 Shipment:
   type: object
   additionalProperties: false

@@ -15,11 +15,12 @@ type addressView struct {
 	CommuneCode string `json:"commune_code"`
 	Commune     string `json:"commune"`
 	Province    string `json:"province"`
+	Kind        string `json:"kind"`
 	IsDefault   bool   `json:"is_default"`
 }
 
 func addressBody() map[string]any {
-	return map[string]any{"name": "Hân", "phone": "0912345678", "street": "12 Lý Thường Kiệt", "commune_code": "00004"}
+	return map[string]any{"name": "Hân", "phone": "0912345678", "street": "12 Lý Thường Kiệt", "commune_code": "00004", "kind": "home"}
 }
 
 // newAddress adds an address to token's book.
@@ -47,7 +48,7 @@ func TestAddressBook(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
 	first := newAddress(t, me.AccessToken)
-	if !first.IsDefault || first.Phone != "+84912345678" || first.Commune == "" || first.Province == "" {
+	if !first.IsDefault || first.Phone != "+84912345678" || first.Commune == "" || first.Province == "" || first.Kind != "home" {
 		t.Fatalf("%+v", first)
 	}
 	second := newAddress(t, me.AccessToken)
@@ -56,8 +57,10 @@ func TestAddressBook(t *testing.T) {
 	}
 
 	res := call(t, "PUT", "/v1/addresses/"+second.ID,
-		map[string]any{"name": " Minh ", "phone": "+84 98 765 4321", "street": "1 Lê Lợi", "commune_code": "00004"}, bearer(me.AccessToken))
-	if got := decode[addressView](t, res); res.Status != http.StatusOK || got.Name != "Minh" || got.Phone != "+84987654321" || got.IsDefault {
+		map[string]any{"name": " Minh ", "phone": "+84 98 765 4321", "street": "1 Lê Lợi", "commune_code": "00004", "kind": "work"},
+		bearer(me.AccessToken))
+	if got := decode[addressView](t, res); res.Status != http.StatusOK || got.Name != "Minh" || got.Phone != "+84987654321" ||
+		got.Kind != "work" || got.IsDefault {
 		t.Fatalf("update: %d %s", res.Status, res.Body)
 	}
 	expectStatus(t, call(t, "POST", "/v1/addresses/"+second.ID+"/default", nil, bearer(me.AccessToken)), http.StatusNoContent)
@@ -100,13 +103,29 @@ func TestAddressRefusals(t *testing.T) {
 	check(t, "set default a bad id", call(t, "POST", "/v1/addresses/not-a-uuid/default", nil, bearer(me.AccessToken)), 400, "")
 	check(t, "delete a bad id", call(t, "DELETE", "/v1/addresses/not-a-uuid", nil, bearer(me.AccessToken)), 400, "")
 
-	bad := map[string]any{"name": " ", "phone": "123", "street": "", "commune_code": "nope"}
+	bad := map[string]any{"name": " ", "phone": "123", "street": "", "commune_code": "nope", "kind": "office"}
 	res := call(t, "POST", "/v1/addresses", bad, bearer(me.AccessToken), newKey())
-	if e := errorOf(t, res); res.Status != 422 || e.Code != "invalid_address" || len(e.Fields) != 4 {
+	if e := errorOf(t, res); res.Status != 422 || e.Code != "invalid_address" || len(e.Fields) != 5 {
 		t.Errorf("add a bad address: %d %s", res.Status, res.Body)
 	}
 	check(t, "update to a bad phone", call(t, "PUT", path,
-		map[string]any{"name": "Hân", "phone": "123", "street": "12 Lý", "commune_code": "00004"}, bearer(me.AccessToken)), 422, "invalid_address")
+		map[string]any{"name": "Hân", "phone": "123", "street": "12 Lý", "commune_code": "00004", "kind": "home"},
+		bearer(me.AccessToken)), 422, "invalid_address")
+	noKind := addressBody()
+	delete(noKind, "kind")
+	check(t, "add without a kind", call(t, "POST", "/v1/addresses", noKind, bearer(me.AccessToken), newKey()), 400, "invalid_request")
+	for _, kind := range []string{"office", "", "Home"} {
+		body := addressBody()
+		body["kind"] = kind
+		res = call(t, "POST", "/v1/addresses", body, bearer(me.AccessToken), newKey())
+		if e := errorOf(t, res); res.Status != 422 || e.Code != "invalid_address" || len(e.Fields) != 1 || e.Fields["kind"] == "" {
+			t.Errorf("add kind %q: %d %s", kind, res.Status, res.Body)
+		}
+		res = call(t, "PUT", path, body, bearer(me.AccessToken))
+		if e := errorOf(t, res); res.Status != 422 || e.Fields["kind"] == "" {
+			t.Errorf("update to kind %q: %d %s", kind, res.Status, res.Body)
+		}
+	}
 
 	check(t, "update someone else's", call(t, "PUT", path, addressBody(), bearer(stranger.AccessToken)), 404, "address_not_found")
 	check(t, "set default someone else's", call(t, "POST", path+"/default", nil, bearer(stranger.AccessToken)), 404, "address_not_found")
@@ -158,22 +177,48 @@ func TestAddressUpdateRace(t *testing.T) {
 	}
 }
 
-// The order keeps a copy of the address it was requested to.
+// Each kind of address is kept and read back as it was sent.
+func TestAddressKinds(t *testing.T) {
+	t.Parallel()
+	me, _ := newAccount(t)
+	for _, kind := range []string{"home", "work", "other"} {
+		body := addressBody()
+		body["kind"] = kind
+		made := expect[addressView](t, call(t, "POST", "/v1/addresses", body, bearer(me.AccessToken), newKey()), http.StatusCreated)
+		if made.Kind != kind {
+			t.Errorf("add %s: %+v", kind, made)
+		}
+	}
+	book := addresses(t, me.AccessToken)
+	kinds := map[string]bool{}
+	for _, a := range book {
+		kinds[a.Kind] = true
+	}
+	if len(book) != 3 || !kinds["home"] || !kinds["work"] || !kinds["other"] {
+		t.Fatalf("the book: %+v", book)
+	}
+}
+
+// The order keeps a copy of the address it was requested to, its kind
+// included.
 func TestOrderKeepsItsRecipient(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
-	address := newAddress(t, buyer.AccessToken)
+	work := addressBody()
+	work["kind"] = "work"
+	address := expect[addressView](t, call(t, "POST", "/v1/addresses", work, bearer(buyer.AccessToken), newKey()), http.StatusCreated)
 	d := openDeal(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID, http.StatusCreated)
 	moved(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000})
 	moved(t, buyer.AccessToken, d.ID, "cod", codBody(address.ID))
 	res := call(t, "PUT", "/v1/addresses/"+address.ID,
-		map[string]any{"name": "Minh", "phone": "0987654321", "street": "1 Lê Lợi", "commune_code": "00004"}, bearer(buyer.AccessToken))
+		map[string]any{"name": "Minh", "phone": "0987654321", "street": "1 Lê Lợi", "commune_code": "00004", "kind": "home"},
+		bearer(buyer.AccessToken))
 	expectStatus(t, res, http.StatusOK)
 	expectStatus(t, call(t, "DELETE", "/v1/addresses/"+address.ID, nil, bearer(buyer.AccessToken)), http.StatusNoContent)
 	for _, token := range []string{buyer.AccessToken, seller.AccessToken} {
 		r := getDeal(t, token, d.ID).Order.Recipient
-		if r.Name != "Hân" || r.Phone != "+84912345678" || r.Street != "12 Lý Thường Kiệt" {
+		if r.Name != "Hân" || r.Phone != "+84912345678" || r.Street != "12 Lý Thường Kiệt" || r.Kind != "work" {
 			t.Fatalf("%+v", r)
 		}
 	}

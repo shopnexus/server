@@ -8,6 +8,7 @@
    "avatar": "bc94e2dda93e.jpg",
    "street": "120 Xô Viết Nghệ Tĩnh",
    "commune": "26929",
+   "kind": "home",
    "carrier": true
   },
   {
@@ -18,6 +19,7 @@
    "avatar": "9c82f7e57184.jpg",
    "street": "45 Quang Trung",
    "commune": "26884",
+   "kind": "home",
    "carrier": true
   },
   {
@@ -28,6 +30,7 @@
    "avatar": "ee11bfd82077.jpg",
    "street": "120 Xô Viết Nghệ Tĩnh",
    "commune": "26929",
+   "kind": "home",
    "carrier": true
   },
   {
@@ -38,6 +41,7 @@
    "avatar": "2de27f6d0949.jpg",
    "street": "88 Phan Xích Long",
    "commune": "27073",
+   "kind": "home",
    "carrier": true
   },
   {
@@ -48,6 +52,7 @@
    "avatar": null,
    "street": "210 Cộng Hòa",
    "commune": "27004",
+   "kind": "home",
    "carrier": true
   },
   {
@@ -58,6 +63,7 @@
    "avatar": null,
    "street": "15 Kỳ Đồng",
    "commune": "27154",
+   "kind": "home",
    "carrier": true
   },
   {
@@ -68,6 +74,7 @@
    "avatar": null,
    "street": "33 Nguyễn Thị Thập",
    "commune": "27487",
+   "kind": "home",
    "carrier": true
   },
   {
@@ -78,6 +85,7 @@
    "avatar": null,
    "street": "70 Ba Tháng Hai",
    "commune": "27190",
+   "kind": "home",
    "carrier": true
   },
   {
@@ -88,6 +96,7 @@
    "avatar": null,
    "street": "12 Trần Hưng Đạo",
    "commune": "27343",
+   "kind": "home",
    "carrier": true
   },
   {
@@ -98,6 +107,7 @@
    "avatar": "c83df953ba8f.jpg",
    "street": "120 Xô Viết Nghệ Tĩnh",
    "commune": "26929",
+   "kind": "work",
    "carrier": false
   },
   {
@@ -108,6 +118,7 @@
    "avatar": null,
    "street": "120 Xô Viết Nghệ Tĩnh",
    "commune": "26929",
+   "kind": "home",
    "carrier": false
   },
   {
@@ -118,6 +129,7 @@
    "avatar": null,
    "street": "120 Xô Viết Nghệ Tĩnh",
    "commune": "26929",
+   "kind": "home",
    "carrier": false
   }
  ],

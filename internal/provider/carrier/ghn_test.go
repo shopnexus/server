@@ -78,8 +78,12 @@ func ghnServer(t *testing.T) carrier.GHNClient {
 			in["payment_type_id"] != float64(2) || in["required_note"] != "CHOXEMHANGKHONGTHU" {
 			t.Errorf("order body %+v", in)
 		}
-		if !preview && (in["client_order_code"] != "SN-100001" || in["cod_amount"] != float64(47_000)) {
+		if !preview && (in["client_order_code"] != "SN-100001" || in["cod_amount"] != float64(47_000) ||
+			in["note"] != "Địa chỉ công ty: giao giờ hành chính") {
 			t.Errorf("order body %+v", in)
+		}
+		if _, has := in["note"]; preview && has {
+			t.Errorf("a preview with a note: %+v", in)
 		}
 		_, _ = w.Write([]byte(`{"code":200,"message":"Success","data":{"order_code":"5ENLKKHD","sort_code":"19-00-00","fee":{"main_service":33000},"total_fee":33000,"expected_delivery_time":"2026-11-15T16:59:59Z"}}`))
 	}
@@ -148,7 +152,7 @@ func TestGHNShipsReadsAndCancels(t *testing.T) {
 	acc := carrier.Account{Token: "ghn-token", ShopCode: "885"}
 	in := carrier.CreateInput{
 		OrderCode: "SN-100001", Recipient: benNghe, Pickup: carrier.Pickup{PointID: "885"}, Item: "Ghế gỗ",
-		COD: 47_000, WeightGrams: 800, Service: "standard", Option: "home",
+		COD: 47_000, WeightGrams: 800, Service: "standard", Option: "home", Note: "Địa chỉ công ty: giao giờ hành chính",
 	}
 	c, err := g.Create(ctx, acc, in)
 	if err != nil || c != (carrier.Created{TrackingCode: "5ENLKKHD", Fee: 33_000}) {

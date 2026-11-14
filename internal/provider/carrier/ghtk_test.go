@@ -72,6 +72,10 @@ func ghtkServer(t *testing.T) carrier.GHTKClient {
 			o["pick_option"] != "cod" || len(in.Products) != 1 || in.Products[0].Weight != 0.8 {
 			t.Errorf("order %+v products %+v", o, in.Products)
 		}
+		// The note to the shipper goes as GHTK's note, and only when there is one.
+		if note, has := o["note"]; (o["id"] == "SN-100001" && note != "Địa chỉ công ty: giao giờ hành chính") || (o["id"] == "SN-NONOTE" && has) {
+			t.Errorf("order %s note %v", o["id"], note)
+		}
 		_, _ = w.Write([]byte(`{"success":true,"message":"","order":{"partner_id":"SN-100001","label":"S1.A1.2001297581","area":"1","fee":"30400","insurance_fee":"0","tracking_id":2001297581,"status_id":2}}`))
 	})
 	mux.HandleFunc("GET /services/shipment/v2/{code}", func(w http.ResponseWriter, r *http.Request) {
@@ -150,11 +154,16 @@ func TestGHTKShipsReadsAndCancels(t *testing.T) {
 	}
 	in := carrier.CreateInput{
 		OrderCode: "SN-100001", Recipient: benNghe, Pickup: carrier.Pickup{PointID: "88256"}, Item: "Ghế gỗ",
-		COD: 47_000, WeightGrams: 800, Service: "express", Option: "home",
+		COD: 47_000, WeightGrams: 800, Service: "express", Option: "home", Note: "Địa chỉ công ty: giao giờ hành chính",
 	}
 	c, err := g.Create(ctx, acc, in)
 	if err != nil || c.TrackingCode != "S1.A1.2001297581" || c.Fee != 30_400 {
 		t.Fatalf("%+v %v", c, err)
+	}
+	quiet := in
+	quiet.OrderCode, quiet.Note = "SN-NONOTE", ""
+	if _, err = g.Create(ctx, acc, quiet); err != nil {
+		t.Fatalf("an order without a note: %v", err)
 	}
 	in.OrderCode = "SN-BAD"
 	if _, err = g.Create(ctx, acc, in); !errors.Is(err, carrier.ErrRefused) || !strings.Contains(err.Error(), "không hợp lệ") {

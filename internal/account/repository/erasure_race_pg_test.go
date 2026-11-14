@@ -34,7 +34,7 @@ func TestDeletedAccountKeepsNoNewRows(t *testing.T) {
 	gone, other := seed(t, accounts), seed(t, accounts)
 	markDeleted(t, db, gone)
 
-	a, err := domain.NewAddress(uuid.NewV7(), gone, domain.AddressDraft{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004"}, true, now)
+	a, err := domain.NewAddress(uuid.NewV7(), gone, domain.AddressDraft{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: domain.AddressHome}, true, now)
 	if err != nil {
 		t.Fatal(err)
 	}

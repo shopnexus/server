@@ -14,21 +14,22 @@ import (
 
 // AddressView is the Address schema in api/schemas/address.yaml.
 type AddressView struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Phone       string    `json:"phone"`
-	Street      string    `json:"street"`
-	CommuneCode string    `json:"commune_code"`
-	Commune     string    `json:"commune"`
-	Province    string    `json:"province"`
-	IsDefault   bool      `json:"is_default"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID          uuid.UUID          `json:"id"`
+	Name        string             `json:"name"`
+	Phone       string             `json:"phone"`
+	Street      string             `json:"street"`
+	CommuneCode string             `json:"commune_code"`
+	Commune     string             `json:"commune"`
+	Province    string             `json:"province"`
+	Kind        domain.AddressKind `json:"kind"`
+	IsDefault   bool               `json:"is_default"`
+	CreatedAt   time.Time          `json:"created_at"`
 }
 
 func addressView(a domain.Address, p repository.Place) AddressView {
 	return AddressView{
 		ID: a.ID(), Name: a.Name(), Phone: a.Phone(), Street: a.Street(), CommuneCode: a.CommuneCode(),
-		Commune: p.Commune, Province: p.Province, IsDefault: a.IsDefault(), CreatedAt: a.CreatedAt(),
+		Commune: p.Commune, Province: p.Province, Kind: a.Kind(), IsDefault: a.IsDefault(), CreatedAt: a.CreatedAt(),
 	}
 }
 

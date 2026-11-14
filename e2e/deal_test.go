@@ -38,6 +38,7 @@ type dealView struct {
 			Name   string `json:"name"`
 			Phone  string `json:"phone"`
 			Street string `json:"street"`
+			Kind   string `json:"kind"`
 		} `json:"recipient"`
 		Shipment *struct {
 			Mode         string `json:"mode"`

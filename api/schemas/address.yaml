@@ -1,7 +1,14 @@
+AddressKind:
+  type: string
+  enum: [home, work, other]
+  description: |
+    What the place is, so the shipper knows when to deliver: home (Nhà),
+    work (Công ty), an office that takes parcels in office hours, or other
+    (Khác). A COD order carries it to the carrier.
 AddressDraft:
   type: object
   additionalProperties: false
-  required: [name, phone, street, commune_code]
+  required: [name, phone, street, commune_code, kind]
   description: An address as the person types it. The rules are business rules; breaking one is 422 invalid_address.
   properties:
     name:
@@ -16,10 +23,13 @@ AddressDraft:
     commune_code:
       type: string
       description: A commune code from GET /v1/regions/{province_code}/communes.
+    kind:
+      type: string
+      description: home, work or other (AddressKind); another value is 422 invalid_address.
 Address:
   type: object
   additionalProperties: false
-  required: [id, name, phone, street, commune_code, commune, province, is_default, created_at]
+  required: [id, name, phone, street, commune_code, commune, province, kind, is_default, created_at]
   description: Where the caller's parcels go. A COD request copies it into the order, so a later edit or delete leaves the order as it was.
   properties:
     id:
@@ -38,6 +48,8 @@ Address:
       type: string
     province:
       type: string
+    kind:
+      $ref: "#/AddressKind"
     is_default:
       type: boolean
       description: Exactly one address of an account with any is the default.

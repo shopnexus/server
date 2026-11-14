@@ -153,12 +153,24 @@ type Waits struct {
 // shipment every 2 hours.
 var OrderWaits = Waits{Seller: 72 * time.Hour, Pickup: 72 * time.Hour, Complete: 72 * time.Hour, Poll: 2 * time.Hour}
 
-// Recipient is where the parcel goes. Phone is in the +84 form.
+// AddressKind is what the recipient's place is, copied from the address
+// book: an office (work) takes parcels in office hours.
+type AddressKind string
+
+const (
+	AddressHome  AddressKind = "home"
+	AddressWork  AddressKind = "work"
+	AddressOther AddressKind = "other"
+)
+
+// Recipient is where the parcel goes, a copy of one of the buyer's
+// addresses. Phone is in the +84 form.
 type Recipient struct {
-	Name        string `json:"name"`
-	Phone       string `json:"phone"`
-	Street      string `json:"street"`
-	CommuneCode string `json:"commune_code"`
+	Name        string      `json:"name"`
+	Phone       string      `json:"phone"`
+	Street      string      `json:"street"`
+	CommuneCode string      `json:"commune_code"`
+	Kind        AddressKind `json:"kind"`
 }
 
 // Order is a buyer's request for cash on delivery at the agreed price, and

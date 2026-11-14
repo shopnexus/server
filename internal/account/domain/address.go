@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -17,12 +18,25 @@ const (
 	maxStreet      = 200
 )
 
+// AddressKind is what the place is, so the shipper knows when to deliver:
+// an office takes parcels in office hours.
+type AddressKind string
+
+const (
+	AddressHome  AddressKind = "home"
+	AddressWork  AddressKind = "work"
+	AddressOther AddressKind = "other"
+)
+
+var addressKinds = []AddressKind{AddressHome, AddressWork, AddressOther}
+
 // AddressDraft is an address as the person typed it.
 type AddressDraft struct {
 	Name        string
 	Phone       string
 	Street      string
 	CommuneCode string
+	Kind        AddressKind
 }
 
 // Address is one entry of an account's address book: where a parcel goes.
@@ -35,6 +49,7 @@ type Address struct {
 	phone       string
 	street      string
 	communeCode string
+	kind        AddressKind
 	isDefault   bool
 	writeID     uuid.UUID
 	createdAt   time.Time
@@ -50,7 +65,7 @@ func NewAddress(id, owner uuid.UUID, d AddressDraft, communeExists bool, now tim
 	}
 	return Address{
 		id: id, accountID: owner, name: clean.Name, phone: clean.Phone, street: clean.Street,
-		communeCode: clean.CommuneCode, writeID: id, createdAt: now,
+		communeCode: clean.CommuneCode, kind: clean.Kind, writeID: id, createdAt: now,
 	}, nil
 }
 
@@ -58,7 +73,7 @@ func NewAddress(id, owner uuid.UUID, d AddressDraft, communeExists bool, now tim
 func RestoreAddress(id, owner uuid.UUID, d AddressDraft, isDefault bool, writeID uuid.UUID, createdAt time.Time) Address {
 	return Address{
 		id: id, accountID: owner, name: d.Name, phone: d.Phone, street: d.Street, communeCode: d.CommuneCode,
-		isDefault: isDefault, writeID: writeID, createdAt: createdAt,
+		kind: d.Kind, isDefault: isDefault, writeID: writeID, createdAt: createdAt,
 	}
 }
 
@@ -68,6 +83,7 @@ func (a *Address) Name() string         { return a.name }
 func (a *Address) Phone() string        { return a.phone }
 func (a *Address) Street() string       { return a.street }
 func (a *Address) CommuneCode() string  { return a.communeCode }
+func (a *Address) Kind() AddressKind    { return a.kind }
 func (a *Address) IsDefault() bool      { return a.isDefault }
 func (a *Address) WriteID() uuid.UUID   { return a.writeID }
 func (a *Address) CreatedAt() time.Time { return a.createdAt }
@@ -86,7 +102,7 @@ func (a *Address) Edit(d AddressDraft, communeExists bool) error {
 	if err != nil {
 		return err
 	}
-	a.name, a.phone, a.street, a.communeCode = clean.Name, clean.Phone, clean.Street, clean.CommuneCode
+	a.name, a.phone, a.street, a.communeCode, a.kind = clean.Name, clean.Phone, clean.Street, clean.CommuneCode, clean.Kind
 	return nil
 }
 
@@ -107,6 +123,9 @@ func checkAddress(d AddressDraft, communeExists bool) (AddressDraft, error) {
 	}
 	if !communeExists {
 		e = e.WithField("commune_code", "a commune code from the administrative list")
+	}
+	if !slices.Contains(addressKinds, d.Kind) {
+		e = e.WithField("kind", "home, work or other")
 	}
 	if len(e.Fields) > 0 {
 		return AddressDraft{}, e

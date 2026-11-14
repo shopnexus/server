@@ -11,6 +11,7 @@ import (
 	"time"
 	"uuid"
 
+	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/deal/domain"
@@ -115,7 +116,7 @@ func TestALinkedShipmentGoesToTheCarrierAskedWithItsPickup(t *testing.T) {
 	if made.OrderCode != s.Order.Code || made.COD != 1_500_000 || made.WeightGrams != 2_000 || made.Service != "express" ||
 		made.Option != "home" || made.Item == "" || made.Recipient.Name != "Hân" || made.Recipient.Commune == "" ||
 		made.Recipient.Province == "" || made.Pickup.Place == nil || made.Pickup.Place.Street != "12 Lý Thường Kiệt" ||
-		made.Pickup.Place.Commune != made.Recipient.Commune {
+		made.Pickup.Place.Commune != made.Recipient.Commune || made.Note != "Nhà riêng" {
 		t.Fatalf("asked %+v %+v", made, made.Pickup.Place)
 	}
 
@@ -133,6 +134,51 @@ func TestALinkedShipmentGoesToTheCarrierAskedWithItsPickup(t *testing.T) {
 	in.PickupPointID, in.PickupAddressID = "", uuid.NewV7()
 	if _, err = deals.CreateShipment(ctx, seller, both.Order.ID, key(), in); err == nil {
 		t.Fatal("an address the seller does not have")
+	}
+}
+
+// The recipient's kind of address reaches the carrier as the note to its
+// shipper: an office takes parcels in office hours, other says nothing.
+func TestALinkedShipmentTellsTheShipperWhatThePlaceIs(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	rec := &recording{}
+	deps := e.deps
+	deps.Shipping = rec
+	deals := start(t, deps)
+	seller := e.person(t)
+	for kind, note := range map[accountdomain.AddressKind]string{
+		accountdomain.AddressHome:  "Nhà riêng",
+		accountdomain.AddressWork:  "Địa chỉ công ty: giao giờ hành chính",
+		accountdomain.AddressOther: "",
+	} {
+		buyer := e.person(t)
+		draft := home
+		draft.Kind = kind
+		a, err := e.accounts.CreateAddress(ctx, buyer, uuid.NewV7(), draft)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
+		if v, err = e.deals.RequestCod(ctx, buyer, v.ID, a.ID); err != nil || v.Order.Recipient.Kind != domain.AddressKind(kind) {
+			t.Fatalf("%s: %+v %v", kind, v.Order, err)
+		}
+		in := service.ShipmentInput{Mode: "linked", Carrier: "ghtk", Service: "standard", WeightGrams: 800, Pickup: "home"}
+		if _, err = deals.CreateShipment(ctx, seller, v.Order.ID, key(), in); err != nil {
+			t.Fatal(err)
+		}
+		rec.mu.Lock()
+		var made carrier.CreateInput
+		for _, m := range rec.made {
+			if m.OrderCode == v.Order.Code {
+				made = m
+			}
+		}
+		rec.mu.Unlock()
+		if made.OrderCode == "" || made.Note != note {
+			t.Errorf("%s: note %q, want %q", kind, made.Note, note)
+		}
 	}
 }
 

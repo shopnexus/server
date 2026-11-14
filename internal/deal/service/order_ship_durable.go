@@ -79,6 +79,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 			c, stepErr := s.Deals.shipping.Create(rc, in.Caller, carrier.Carrier(draft.Carrier), carrier.CreateInput{
 				OrderCode: o.Code, Recipient: to, Pickup: from, Item: m.Listing.Title, COD: o.Price,
 				WeightGrams: draft.WeightGrams, Service: string(draft.Service), Option: string(draft.Pickup),
+				Note: deliveryNotes[r.Kind],
 			})
 			if stepErr = shippingError(stepErr, domain.ErrCarrierAddressUnknown); refusedBy(stepErr) {
 				return madeShipment{Refused: apperr.From(stepErr)}, nil
