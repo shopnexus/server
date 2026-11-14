@@ -21,42 +21,9 @@ const (
 	SwitchPriceCuts Switch = "price_cuts"
 	SwitchFollowed  Switch = "followed"
 	SwitchReviews   Switch = "reviews"
-	// SwitchNone is no switch: the push goes unless quiet hours hold it.
+	// SwitchNone is no switch: only quiet hours hold the push.
 	SwitchNone Switch = ""
 )
-
-// switches places every notice type under the switch that stops its push,
-// or SwitchNone. A search watch notice has its own bell on the watch, and
-// the listing and account notices always push. A new type goes here too;
-// TestEveryTypeHasASwitch fails until it does.
-var switches = map[Type]Switch{
-	TypeOffer:              SwitchOffers,
-	TypeCounter:            SwitchOffers,
-	TypeAgreed:             SwitchOffers,
-	TypeDeclined:           SwitchOffers,
-	TypeAgreementCancelled: SwitchOffers,
-	TypeOfferVoided:        SwitchOffers,
-	TypeCodRequested:       SwitchOrders,
-	TypeShipped:            SwitchOrders,
-	TypeCompleted:          SwitchOrders,
-	TypeFailed:             SwitchOrders,
-	TypeOrderCancelled:     SwitchOrders,
-	TypePriceDropped:       SwitchPriceCuts,
-	TypeFollowedListing:    SwitchFollowed,
-	TypeReview:             SwitchReviews,
-	TypeWatchMatched:       SwitchNone,
-	TypeListingLive:        SwitchNone,
-	TypeListingRejected:    SwitchNone,
-	TypeSuspended:          SwitchNone,
-	TypeUnsuspended:        SwitchNone,
-}
-
-// SwitchOf is the switch over t's pushes; placed is false for a type
-// missing from the table, which then pushes like SwitchNone.
-func SwitchOf(t Type) (s Switch, placed bool) {
-	s, placed = switches[t]
-	return s, placed
-}
 
 // Settings say which notices push. A switch that is off stops the push
 // only; the notice is still listed.

@@ -526,7 +526,7 @@ func TestAccountDeletedForgetsTheAccount(t *testing.T) {
 	}
 	quiet := domain.DefaultSettings()
 	quiet.Reviews = false
-	if _, err := e.notices.PutSettings(ctx, gone, quiet); err != nil {
+	if err := e.notices.PutSettings(ctx, gone, quiet); err != nil {
 		t.Fatal(err)
 	}
 	for range 2 {

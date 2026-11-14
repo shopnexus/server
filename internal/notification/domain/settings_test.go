@@ -62,15 +62,15 @@ func typeConstants(t *testing.T) []domain.Type {
 	return out
 }
 
-func TestEveryTypeHasASwitch(t *testing.T) {
+func TestEveryTypeIsDescribed(t *testing.T) {
 	t.Parallel()
 	types := typeConstants(t)
 	if len(types) < 19 {
 		t.Fatalf("found %d types: %v", len(types), types)
 	}
 	for _, ty := range types {
-		if _, placed := domain.SwitchOf(ty); !placed {
-			t.Errorf("type %s is under no switch and not among those that always push", ty)
+		if !domain.Described(ty) {
+			t.Errorf("type %s has no entry in types: no text, title or switch", ty)
 		}
 	}
 }
@@ -89,7 +89,7 @@ func TestSwitchOf(t *testing.T) {
 		domain.TypeListingRejected: domain.SwitchNone,
 		domain.TypeSuspended:       domain.SwitchNone,
 	} {
-		if got, _ := domain.SwitchOf(ty); got != want {
+		if got := domain.SwitchOf(ty); got != want {
 			t.Errorf("%s: %q, want %q", ty, got, want)
 		}
 	}

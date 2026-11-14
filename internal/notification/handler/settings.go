@@ -21,26 +21,20 @@ func (h *Handler) Settings(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, out)
 }
 
-// settingsRequest is the whole NotificationSettings document.
-type settingsRequest struct {
-	domain.Settings
-}
-
 // PutSettings serves PUT /v1/me/notification-settings.
 func (h *Handler) PutSettings(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
 		return
 	}
-	var in settingsRequest
+	var in domain.Settings
 	if err := httpx.Bind(r, &in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, err := h.svc.PutSettings(r.Context(), p.AccountID, in.Settings)
-	if err != nil {
+	if err := h.svc.PutSettings(r.Context(), p.AccountID, in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.Respond(w, http.StatusOK, in)
 }

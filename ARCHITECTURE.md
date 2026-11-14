@@ -946,7 +946,8 @@ agree during a deploy.
   writes only the route.
 - `GET /v1/sellers/{id}/listings` is public: the seller's active and
   reserved listings, newest first. `SellerCounts` gives screen and trust a
-  seller's listings on sale (active or reserved) and sold; "Đã bán" counts
+  seller's public listings (active or reserved), the listings under the
+  cap and the sold ones; "Đã bán" counts
   every sold listing, sold through an order or marked by hand (decided
   2026-10-27).
 
@@ -1468,7 +1469,7 @@ page that shows two views calls both at once.
   `FollowerCount`. `figures_90d` is the caller as a buyer over deal's
   `domain.BuyerPeriod` (90 days): COD orders requested and the failed ones
   among them, from `dealsvc.BuyerOrders`. `caps` shows `listings`, the
-  listings in a catalog `domain.OnSale` status (`SellerCounts.Capped`)
+  listings in a catalog `domain.OnSale` status (`SellerCounts.OnSale`)
   against `domain.MaxOnSale`, and `cod_orders`, the caller's pending and
   shipped orders as a buyer against deal's `domain.MaxOpenOrders`; the
   view reads both maxima from the owning domains.
@@ -1768,8 +1769,8 @@ Price alerts (decided 2026-11-11, same spec):
   Notifications). `/v1/me/price-cut-alerts` and `saved_settings`, a switch
   that also stopped the notice, were removed on 2026-11-14.
 - A save tells at each new low below its level: below the level and below
-  `alerted_price`, the price it last told. A price at or above the level, or
-  no level, clears `alerted_price`. `domain.PriceStep` holds the rule;
+  `alerted_price`, the price it last told. A price at or above the level
+  clears `alerted_price`. `domain.PriceStep` holds the rule;
   `Saves.PriceMoved` runs it in SQL on the row's own columns, so an UPDATE
   that waited for another reads the newest row.
 - `DiscoveryListingWatch` hears `listing.updated` and `listing.published`,
@@ -2272,11 +2273,12 @@ calls it except screen, for Home's unread count; depguard holds that.
   off stops the push only, and the notice is still listed; a chat message
   is never listed, so with `messages` off it reaches no phone. Support
   replies are chat messages and fall under `messages` too.
-  `domain.SwitchOf` places each notice type under a switch or under none:
+  Each notice group in `types` names its switch, and `domain.SwitchOf`
+  reads it; `followed_listing` has a group of its own for `followed`.
   `watch_matched` keeps its watch's bell, and `listing_live`,
   `listing_rejected`, `suspended` and `unsuspended` always push.
-  `TestEveryTypeHasASwitch` reads the `Type` constants from the package's
-  source and fails on a type the table lacks.
+  `TestEveryTypeIsDescribed` reads the `Type` constants from the package's
+  source and fails on a type `types` lacks.
 - While quiet hours are on and Vietnam's clock is in `[from, to)`, no push
   goes out, and a push held back is dropped. The window may cross
   midnight; `from == to` is 400 `invalid_quiet_hours`, a time that is not
@@ -2286,8 +2288,8 @@ calls it except screen, for Home's unread count; depguard holds that.
   takes a share lock on the account's row and refuses a tombstone with
   `session_revoked`, as the other writes that keep rows of the caller do.
 - `deliver` reads the recipient's settings and the worker's clock
-  (`Worker.Now`) in one step, after the notice is written and before the
-  token step, and decides between steps. E2E's `putToken` also turns quiet
+  (`Worker.Now`) in its token step, after the notice is written; a push
+  held back reads no tokens. E2E's `putToken` also turns quiet
   hours off, so the tests that wait for a push pass at night.
 - Migration 0045 copied each `saved_settings` row with the switch off into
   `notification_settings` as `price_cuts = false`, the rest at the

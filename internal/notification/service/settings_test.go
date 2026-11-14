@@ -14,7 +14,7 @@ import (
 )
 
 // Quiet hours that start when they end are refused and change nothing; a
-// put returns what it saved.
+// put is read back.
 func TestPutSettings(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -23,7 +23,7 @@ func TestPutSettings(t *testing.T) {
 	me := accounttest.New(t, db)
 	bad := domain.DefaultSettings()
 	bad.Quiet.To = bad.Quiet.From
-	if _, err := s.PutSettings(ctx, me, bad); !errors.Is(err, domain.ErrInvalidQuietHours) {
+	if err := s.PutSettings(ctx, me, bad); !errors.Is(err, domain.ErrInvalidQuietHours) {
 		t.Fatalf("from == to: %v", err)
 	}
 	if got, _ := s.Settings(ctx, me); got != domain.DefaultSettings() {
@@ -31,11 +31,10 @@ func TestPutSettings(t *testing.T) {
 	}
 	want := domain.DefaultSettings()
 	want.Messages, want.Quiet = false, domain.Quiet{From: "12:00", To: "13:00"}
-	got, err := s.PutSettings(ctx, me, want)
-	if err != nil || got != want {
-		t.Fatalf("put: %+v %v", got, err)
+	if err := s.PutSettings(ctx, me, want); err != nil {
+		t.Fatalf("put: %v", err)
 	}
-	if got, _ = s.Settings(ctx, me); got != want {
+	if got, _ := s.Settings(ctx, me); got != want {
 		t.Fatalf("get after put: %+v", got)
 	}
 }

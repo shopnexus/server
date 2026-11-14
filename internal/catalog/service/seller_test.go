@@ -39,7 +39,7 @@ func TestSellerListingsAndCounts(t *testing.T) {
 	if err != nil || len(rest.Items) != 1 || rest.Items[0].ID != active || rest.NextCursor != nil {
 		t.Fatalf("second page: %+v %v", rest, err)
 	}
-	if got, err := e.catalog.SellerCounts(ctx, seller); err != nil || got != (service.SellerCounts{Sold: 1, OnSale: 2, Capped: 3}) {
+	if got, err := e.catalog.SellerCounts(ctx, seller); err != nil || got != (service.SellerCounts{Sold: 1, Public: 2, OnSale: 3}) {
 		t.Fatalf("counts: %+v %v", got, err)
 	}
 	if _, err := e.catalog.SellerListings(ctx, uuid.NewV7(), page.Request{}); !errors.Is(err, accountdomain.ErrAccountNotFound) {

@@ -16,12 +16,12 @@ func (s *Notification) Settings(ctx context.Context, account uuid.UUID) (domain.
 	return st, nil
 }
 
-func (s *Notification) PutSettings(ctx context.Context, account uuid.UUID, st domain.Settings) (domain.Settings, error) {
+func (s *Notification) PutSettings(ctx context.Context, account uuid.UUID, st domain.Settings) error {
 	if err := st.Check(); err != nil {
-		return domain.Settings{}, err
+		return err
 	}
 	if err := s.settings.Put(ctx, account, st); err != nil {
-		return domain.Settings{}, fmt.Errorf("put settings: %w", err)
+		return fmt.Errorf("put settings: %w", err)
 	}
-	return st, nil
+	return nil
 }

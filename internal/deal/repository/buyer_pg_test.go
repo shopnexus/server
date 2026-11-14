@@ -42,10 +42,10 @@ func TestBuyerOrders(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := s.BuyerOrders(ctx, buyer, now.Add(-domain.BuyerPeriod))
-	if err != nil || got != (repository.BuyerOrders{Placed: 3, Failed: 1, Open: 2}) {
+	if err != nil || got != (domain.BuyerOrders{Placed: 3, Failed: 1, Open: 2}) {
 		t.Fatalf("buyer: %+v %v", got, err)
 	}
-	if got, _ = s.BuyerOrders(ctx, seller, now.Add(-domain.BuyerPeriod)); got != (repository.BuyerOrders{}) {
+	if got, _ = s.BuyerOrders(ctx, seller, now.Add(-domain.BuyerPeriod)); got != (domain.BuyerOrders{}) {
 		t.Fatalf("the seller bought nothing: %+v", got)
 	}
 }

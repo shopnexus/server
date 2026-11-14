@@ -233,8 +233,18 @@ func ParseShipmentStatus(s string) (ShipmentStatus, error) {
 	return "", ErrInvalidStatus
 }
 
-// Open reports whether the order is pending or shipped.
-func (o Order) Open() bool { return o.Status == OrderPending || o.Status == OrderShipped }
+// OpenStatuses are those of an order still under way: it counts against
+// MaxOpenOrders and keeps its parties from deleting their accounts.
+var OpenStatuses = []OrderStatus{OrderPending, OrderShipped}
+
+// Open reports whether the order is in an OpenStatuses status.
+func (o Order) Open() bool { return slices.Contains(OpenStatuses, o.Status) }
+
+// BuyerOrders counts a buyer's orders: Placed and Failed over BuyerPeriod,
+// Open now, against MaxOpenOrders.
+type BuyerOrders struct {
+	Placed, Failed, Open int
+}
 
 // RecipientFor is the recipient as viewer may read it: the seller of a
 // cancelled order keeps only the name and the commune.

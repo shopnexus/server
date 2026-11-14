@@ -95,7 +95,7 @@ type Service interface {
 	OpenOrders(ctx context.Context, account uuid.UUID) (bool, error)
 	// BuyerOrders counts buyer's orders over the last domain.BuyerPeriod,
 	// placed and failed, and those open now against domain.MaxOpenOrders.
-	BuyerOrders(ctx context.Context, buyer uuid.UUID) (BuyerOrders, error)
+	BuyerOrders(ctx context.Context, buyer uuid.UUID) (domain.BuyerOrders, error)
 	// AccountDeleted ends what a deleted account leaves open in its deals;
 	// the worker calls it on account.deleted.
 	AccountDeleted(ctx context.Context, account uuid.UUID) error

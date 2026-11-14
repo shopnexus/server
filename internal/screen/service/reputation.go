@@ -83,7 +83,7 @@ func (s *Screen) Reputation(ctx context.Context, account uuid.UUID) (ReputationS
 		Rating: ReputationRating{Count: rating.Count}, Sold: counts.Sold, JoinedAt: me.CreatedAt, Followers: followers,
 		Reply: reply, Figures90d: BuyerFigures{CodOrders: orders.Placed, Failed: orders.Failed},
 		Caps: ReputationCaps{
-			Listings:  Cap{Used: counts.Capped, Max: catalogdomain.MaxOnSale},
+			Listings:  Cap{Used: counts.OnSale, Max: catalogdomain.MaxOnSale},
 			CodOrders: Cap{Used: orders.Open, Max: dealdomain.MaxOpenOrders},
 		},
 	}

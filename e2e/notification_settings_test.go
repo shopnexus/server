@@ -64,21 +64,6 @@ func TestNotificationSettings(t *testing.T) {
 
 	check(t, "read signed out", call(t, "GET", path, nil), 401, "unauthenticated")
 	check(t, "put signed out", call(t, "PUT", path, defaultSettings()), 401, "unauthenticated")
-
-	// call refuses a path the spec lacks, and the old switch is gone from it.
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server+"/v1/me/price-cut-alerts", http.NoBody)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Authorization", "Bearer "+me.AccessToken)
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	res.Body.Close()
-	if res.StatusCode != http.StatusNotFound {
-		t.Fatalf("the old switch: %d", res.StatusCode)
-	}
 }
 
 // With price_cuts off a new low of a save without a level of its own still

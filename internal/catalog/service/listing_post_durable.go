@@ -83,11 +83,7 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 		if stepErr != nil {
 			return 0, fmt.Errorf("count by status: %w", stepErr)
 		}
-		n := 0
-		for _, st := range domain.OnSale {
-			n += counts[st]
-		}
-		return n, nil
+		return domain.CountIn(counts, domain.OnSale), nil
 	})
 	if err != nil {
 		return PostResult{}, fmt.Errorf("count listings: %w", err)

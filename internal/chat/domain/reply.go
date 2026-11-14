@@ -28,18 +28,13 @@ type ReplyThread struct {
 func ReplyRateOf(threads []ReplyThread, now time.Time) (percent, count int, ok bool) {
 	inTime := 0
 	for _, t := range threads {
-		if t.Started.Before(now.Add(-ReplyPeriod)) {
-			continue
-		}
-		if t.Answered == nil {
-			if now.Sub(t.Started) <= ReplyWindow {
-				continue
-			}
-			count++
+		tooOld := t.Started.Before(now.Add(-ReplyPeriod))
+		tooYoung := t.Answered == nil && now.Sub(t.Started) <= ReplyWindow
+		if tooOld || tooYoung {
 			continue
 		}
 		count++
-		if t.Answered.Sub(t.Started) <= ReplyWindow {
+		if t.Answered != nil && t.Answered.Sub(t.Started) <= ReplyWindow {
 			inTime++
 		}
 	}

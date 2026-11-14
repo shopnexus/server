@@ -4,6 +4,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/platform/contact"
 )
 
@@ -39,19 +40,19 @@ func TestSeedFitsTheAPI(t *testing.T) {
 			t.Errorf("%s: no seller %s", l.Key, l.Seller)
 		}
 		onSale[l.Seller]++
-		if n := utf8.RuneCountInString(l.Title); n < 1 || n > 70 {
+		if n := utf8.RuneCountInString(l.Title); n < 1 || n > catalogdomain.MaxTitle {
 			t.Errorf("%s: title of %d characters", l.Key, n)
 		}
-		if l.Price < 10_000 || l.Price > 1_000_000_000 {
+		if l.Price < catalogdomain.MinPrice || l.Price > catalogdomain.MaxPrice {
 			t.Errorf("%s: price %d", l.Key, l.Price)
 		}
-		if utf8.RuneCountInString(l.Description) > 1500 {
-			t.Errorf("%s: description over 1500 characters", l.Key)
+		if utf8.RuneCountInString(l.Description) > catalogdomain.MaxDescription {
+			t.Errorf("%s: description of more than %d characters", l.Key, catalogdomain.MaxDescription)
 		}
 		if l.Condition != "new" && l.Condition != "like_new" && l.Condition != "used" {
 			t.Errorf("%s: condition %q", l.Key, l.Condition)
 		}
-		if len(l.Photos) < 1 || len(l.Photos) > 10 {
+		if len(l.Photos) < 1 || len(l.Photos) > catalogdomain.MaxPhotos {
 			t.Errorf("%s: %d photos", l.Key, len(l.Photos))
 		}
 		for _, f := range l.Photos {
@@ -59,13 +60,13 @@ func TestSeedFitsTheAPI(t *testing.T) {
 				t.Errorf("%s: %v", l.Key, err)
 			}
 		}
-		if len(l.Specs) > 20 {
+		if len(l.Specs) > catalogdomain.MaxSpecs {
 			t.Errorf("%s: %d specs", l.Key, len(l.Specs))
 		}
 	}
 	for seller, n := range onSale {
-		if n > 20 {
-			t.Errorf("%s has %d listings on sale; the limit is 20", seller, n)
+		if n > catalogdomain.MaxOnSale {
+			t.Errorf("%s has %d listings on sale; the limit is %d", seller, n, catalogdomain.MaxOnSale)
 		}
 	}
 	for _, key := range []string{"u-linh", "u-kiet", "u-nam"} {

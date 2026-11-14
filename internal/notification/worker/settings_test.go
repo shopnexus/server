@@ -32,7 +32,7 @@ func TestSwitchedOffKindListsWithoutPush(t *testing.T) {
 	e.start(t)
 	off := domain.DefaultSettings()
 	off.Offers, off.Messages = false, false
-	if _, err := e.notices.PutSettings(ctx, f.SellerID, off); err != nil {
+	if err := e.notices.PutSettings(ctx, f.SellerID, off); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.notices.PutToken(ctx, uuid.NewV7(), f.SellerID, "seller-phone"); err != nil {
@@ -62,7 +62,7 @@ func TestAlwaysPushIgnoresSwitches(t *testing.T) {
 	e := newEnv(t, nil, nil)
 	e.start(t)
 	me := accounttest.New(t, e.db)
-	if _, err := e.notices.PutSettings(ctx, me, domain.Settings{Quiet: domain.Quiet{On: true, From: "22:00", To: "07:00"}}); err != nil {
+	if err := e.notices.PutSettings(ctx, me, domain.Settings{Quiet: domain.Quiet{On: true, From: "22:00", To: "07:00"}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.notices.PutToken(ctx, uuid.NewV7(), me, "phone"); err != nil {
@@ -97,7 +97,7 @@ func TestQuietHoursHoldEveryPush(t *testing.T) {
 	}
 	loud := domain.DefaultSettings()
 	loud.Quiet.On = false
-	if _, err := e.notices.PutSettings(ctx, me, loud); err != nil {
+	if err := e.notices.PutSettings(ctx, me, loud); err != nil {
 		t.Fatal(err)
 	}
 	e.deliver(t, "AccountUnsuspended", events.Event{ID: uuid.NewV7(), Kind: events.AccountUnsuspended, SubjectID: me, OccurredAt: time.Now()})

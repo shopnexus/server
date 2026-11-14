@@ -81,7 +81,7 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (S
 	out := SellerScreen{
 		Seller: SellerProfile{
 			ID: id, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, Bio: seller.Bio, JoinedAt: seller.CreatedAt, LastActiveAt: seller.LastActiveAt,
-			Rating: rating, Sold: counts.Sold, OnSale: counts.OnSale, Followers: followers,
+			Rating: rating, Sold: counts.Sold, OnSale: counts.Public, Followers: followers,
 		},
 		Listings: listings, Reviews: reviews,
 	}

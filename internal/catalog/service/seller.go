@@ -9,13 +9,12 @@ import (
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
-// SellerCounts is how many listings a seller has sold and has on sale.
-// OnSale counts the public ones; Capped counts those in a domain.OnSale
-// status, which domain.MaxOnSale caps.
+// SellerCounts is how many listings a seller has sold, in a domain.Public
+// status and in a domain.OnSale status, which domain.MaxOnSale caps.
 type SellerCounts struct {
 	Sold   int
+	Public int
 	OnSale int
-	Capped int
 }
 
 // SellerListings lists the seller's active and reserved listings, newest
@@ -42,12 +41,9 @@ func (c *Catalog) SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCou
 	if err != nil {
 		return SellerCounts{}, fmt.Errorf("count listings: %w", err)
 	}
-	out := SellerCounts{Sold: n[domain.StatusSold]}
-	for _, st := range domain.Public {
-		out.OnSale += n[st]
-	}
-	for _, st := range domain.OnSale {
-		out.Capped += n[st]
-	}
-	return out, nil
+	return SellerCounts{
+		Sold:   n[domain.StatusSold],
+		Public: domain.CountIn(n, domain.Public),
+		OnSale: domain.CountIn(n, domain.OnSale),
+	}, nil
 }

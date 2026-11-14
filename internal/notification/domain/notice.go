@@ -233,21 +233,26 @@ type Target struct {
 }
 
 // group is what notices of a kind share: the push's title, the screen they
-// open and which param names it.
+// open, which param names it, and the switch that stops their push.
 type group struct {
 	title, screen string
 	id            func(Params) uuid.UUID
+	push          Switch
 }
 
 var (
-	haggling = group{"Trả giá", "deal", func(p Params) uuid.UUID { return p.DealID }}
-	orders   = group{"Đơn hàng", "order", func(p Params) uuid.UUID { return p.DealID }}
-	listings = group{"Tin đăng", "listing", func(p Params) uuid.UUID { return p.ListingID }}
-	reviews  = group{"Đánh giá", "seller_reviews", func(p Params) uuid.UUID { return p.SellerID }}
-	accounts = group{"Tài khoản", "account", func(Params) uuid.UUID { return uuid.UUID{} }}
-	searches = group{"Tìm kiếm", "search_watch", func(p Params) uuid.UUID { return p.WatchID }}
-	saved    = group{"Đã lưu", "listing", func(p Params) uuid.UUID { return p.ListingID }}
+	haggling = group{"Trả giá", "deal", dealID, SwitchOffers}
+	orders   = group{"Đơn hàng", "order", dealID, SwitchOrders}
+	listings = group{"Tin đăng", "listing", listingID, SwitchNone}
+	followed = group{"Tin đăng", "listing", listingID, SwitchFollowed}
+	reviews  = group{"Đánh giá", "seller_reviews", func(p Params) uuid.UUID { return p.SellerID }, SwitchReviews}
+	accounts = group{"Tài khoản", "account", func(Params) uuid.UUID { return uuid.UUID{} }, SwitchNone}
+	searches = group{"Tìm kiếm", "search_watch", func(p Params) uuid.UUID { return p.WatchID }, SwitchNone}
+	saved    = group{"Đã lưu", "listing", listingID, SwitchPriceCuts}
 )
+
+func dealID(p Params) uuid.UUID    { return p.DealID }
+func listingID(p Params) uuid.UUID { return p.ListingID }
 
 // types describes each notice type: its group and its Vietnamese text.
 var types = map[Type]struct {
@@ -304,7 +309,7 @@ var types = map[Type]struct {
 	}},
 	TypeListingLive:     {listings, func(p Params) string { return p.Title + " đã lên" }},
 	TypeListingRejected: {listings, func(p Params) string { return p.Title + " chưa lên được: một ảnh bị từ chối" }},
-	TypeFollowedListing: {listings, func(p Params) string { return p.Seller + " vừa đăng tin mới: " + p.Title }},
+	TypeFollowedListing: {followed, func(p Params) string { return p.Seller + " vừa đăng tin mới: " + p.Title }},
 	TypeReview: {reviews, func(p Params) string {
 		return p.Actor + " chấm " + strconv.Itoa(p.Stars) + " sao cho " + p.Title
 	}},
@@ -352,6 +357,10 @@ func Title(t Type) string {
 	}
 	return "ShopNexus"
 }
+
+// SwitchOf is the switch that stops pushes of type t; SwitchNone for an
+// unknown type.
+func SwitchOf(t Type) Switch { return types[t].push }
 
 // TargetOf is the screen a notice of type t opens.
 func TargetOf(t Type, p Params) Target {

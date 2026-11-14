@@ -206,7 +206,7 @@ VALUES (@id, @deal_id, @kind, @by_party, @amount, @moved_at)
 ON CONFLICT (id) DO NOTHING`
 
 const countOpenOrders = `
-SELECT count(*) FROM orders WHERE buyer_id = @buyer AND status IN ('pending', 'shipped') AND id <> @id`
+SELECT count(*) FROM orders WHERE buyer_id = @buyer AND status = ANY(@open) AND id <> @id`
 
 const upsertOrder = `
 INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name, recipient_phone,
@@ -288,7 +288,7 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 					return fmt.Errorf("lock buyer: %w", err)
 				}
 				var n int
-				if err = tx.QueryRow(ctx, countOpenOrders, pgx.StrictNamedArgs{"buyer": st.BuyerID, "id": o.ID}).Scan(&n); err != nil {
+				if err = tx.QueryRow(ctx, countOpenOrders, pgx.StrictNamedArgs{"buyer": st.BuyerID, "id": o.ID, "open": domain.OpenStatuses}).Scan(&n); err != nil {
 					return fmt.Errorf("count open orders: %w", err)
 				}
 				if n >= domain.MaxOpenOrders {

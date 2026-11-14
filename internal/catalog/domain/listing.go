@@ -43,6 +43,15 @@ var OnSale = []Status{StatusProcessing, StatusActive, StatusHidden, StatusReject
 // Public are the statuses anyone sees, on the seller's public page too.
 var Public = []Status{StatusActive, StatusReserved}
 
+// CountIn sums the counts of the given statuses.
+func CountIn(counts map[Status]int, statuses []Status) int {
+	n := 0
+	for _, st := range statuses {
+		n += counts[st]
+	}
+	return n
+}
+
 type Condition string
 
 const (

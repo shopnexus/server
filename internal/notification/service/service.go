@@ -35,9 +35,9 @@ type Service interface {
 	// Settings are the account's push settings, the defaults when it
 	// never saved any.
 	Settings(ctx context.Context, account uuid.UUID) (domain.Settings, error)
-	// PutSettings replaces the account's push settings and returns them;
+	// PutSettings replaces the account's push settings;
 	// domain.ErrInvalidQuietHours for quiet hours that start when they end.
-	PutSettings(ctx context.Context, account uuid.UUID, s domain.Settings) (domain.Settings, error)
+	PutSettings(ctx context.Context, account uuid.UUID, s domain.Settings) error
 	// Forget deletes a deleted account's notices, push tokens and
 	// settings; the worker calls it on account.deleted.
 	Forget(ctx context.Context, account uuid.UUID) error
