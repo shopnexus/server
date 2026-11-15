@@ -8,7 +8,7 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/domain"
 )
 
-// SearchCard is a listing as a search page shows it.
+// SearchCard is a listing as a search page and the seller view show it.
 type SearchCard struct {
 	ID            uuid.UUID        `json:"id"`
 	SellerID      uuid.UUID        `json:"seller_id"`
@@ -41,31 +41,43 @@ func (c *Catalog) Search(ctx context.Context, s domain.Search) ([]SearchCard, er
 	if err != nil {
 		return nil, fmt.Errorf("read listings: %w", err)
 	}
-	vs, err := c.views(ctx, ls)
+	byID := make(map[uuid.UUID]*domain.Listing, len(ls))
+	for i := range ls {
+		byID[ls[i].ID()] = &ls[i]
+	}
+	inOrder := make([]domain.Listing, 0, len(hits))
+	for _, h := range hits {
+		if l, ok := byID[h.ID]; ok { // a listing deleted between the index scan and the read is gone
+			inOrder = append(inOrder, *l)
+		}
+	}
+	return c.cards(ctx, inOrder, s.Filters.Origin)
+}
+
+// cards are ls as cards, in order, each measured from origin when it is not
+// nil; one query reads the communes of all of them.
+func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain.Point) ([]SearchCard, error) {
+	codes := make([]string, len(ls))
+	for i := range ls {
+		codes[i] = ls[i].CommuneCode()
+	}
+	places, err := c.Places(ctx, codes)
 	if err != nil {
 		return nil, err
 	}
-	byID := make(map[uuid.UUID]ListingView, len(vs))
-	for i := range vs {
-		byID[vs[i].ID] = vs[i]
-	}
-	out := make([]SearchCard, 0, len(hits))
-	for _, h := range hits {
-		v, ok := byID[h.ID]
-		if !ok {
-			continue // deleted between the index scan and the read
+	out := make([]SearchCard, len(ls))
+	for i := range ls {
+		l := &ls[i]
+		out[i] = SearchCard{
+			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), CategoryCode: l.CategoryCode(),
+			Condition: l.Condition(), AllowOffers: l.AllowOffers(), Commune: places[l.CommuneCode()].Commune.DisplayName,
 		}
-		card := SearchCard{
-			ID: v.ID, SellerID: v.SellerID, Title: v.Title, Price: v.Price, CategoryCode: v.CategoryCode,
-			Condition: v.Condition, AllowOffers: v.AllowOffers, Commune: v.Location.Commune.DisplayName,
+		if ps := l.Photos(); len(ps) > 0 && ps[0].Keys.Photo != "" {
+			out[i].CoverThumbURL = c.media.URL(ps[0].Keys.Thumb)
 		}
-		if len(v.Photos) > 0 {
-			card.CoverThumbURL = v.Photos[0].ThumbURL
+		if origin != nil {
+			out[i].DistanceKm = new(domain.DistanceKm(*origin, l.Point()))
 		}
-		if o := s.Filters.Origin; o != nil {
-			card.DistanceKm = new(domain.DistanceKm(*o, h.Point))
-		}
-		out = append(out, card)
 	}
 	return out, nil
 }

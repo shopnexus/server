@@ -48,7 +48,7 @@ func (c *Catalog) ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p p
 	if pane == PaneSold {
 		statuses = []domain.Status{domain.StatusSold}
 	}
-	rows, err := c.listings.ListBySeller(ctx, seller, statuses, p)
+	rows, err := c.listings.ListBySeller(ctx, seller, statuses, nil, p)
 	if err != nil {
 		return page.Page[ListingView]{}, fmt.Errorf("list listings: %w", err)
 	}

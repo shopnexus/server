@@ -26,8 +26,8 @@ type Service interface {
 	// Listing reads the listing view of a listing on sale, with its
 	// distance from near; viewer is nil when signed out.
 	Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (ListingScreen, error)
-	// Seller reads the seller view, with the listings' distances from near;
-	// viewer is nil when signed out.
+	// Seller reads the seller view, its listings as search items measured
+	// from near; viewer is nil when signed out.
 	Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error)
 	// Inbox reads a page of account's inbox view, archived or not.
 	Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request) (InboxScreen, error)
@@ -50,7 +50,8 @@ type Deps struct {
 	Deals    dealsvc.Service
 	Trust    trustsvc.Service
 	Chats    chatsvc.Service
-	// Discovery gives the save on the listing view and Home's nearby feed.
+	// Discovery gives the save on the listing view, Home's nearby feed and
+	// the seller view's listings.
 	Discovery discoverysvc.Service
 	// Notifications gives Home its unread count.
 	Notifications notificationsvc.Service

@@ -157,39 +157,6 @@ ListingList:
       type: string
       format: uuid
       description: Present when more listings follow; pass it as cursor.
-SellerListingList:
-  type: object
-  additionalProperties: false
-  required: [items]
-  description: A page of a seller's public listings.
-  properties:
-    items:
-      type: array
-      items:
-        $ref: "#/Listing"
-    next_cursor:
-      type: string
-      format: uuid
-      description: Present when more listings follow; pass it as cursor.
-    distances:
-      type: array
-      description: |
-        How far each listing of the page is from the caller's position, in
-        the order of items; absent without a position.
-      items:
-        $ref: "#/ListingDistance"
-ListingDistance:
-  type: object
-  additionalProperties: false
-  required: [listing_id, distance_km]
-  properties:
-    listing_id:
-      type: string
-      format: uuid
-    distance_km:
-      type: integer
-      minimum: 0
-      description: Whole kilometres from the caller's position, 0 under 1 km.
 Photo:
   type: object
   additionalProperties: false

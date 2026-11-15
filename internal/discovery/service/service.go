@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/discovery/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
@@ -30,6 +31,11 @@ type Service interface {
 	// Search finds active listings; viewer, nil when signed out, sees which
 	// they saved.
 	Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error)
+	// SellerListings lists what anyone sees of a seller's listings as
+	// search items, newest first, with the cursor rules of a page.Request:
+	// each measured from near when it names a position. A signed-in
+	// viewer's items leave out the listings they hid and are marked saved.
+	SellerListings(ctx context.Context, viewer *uuid.UUID, seller uuid.UUID, near catalogdomain.Near, p page.Request) (page.Page[SearchItem], error)
 	// History is the account's last domain.MaxHistory text searches,
 	// newest first.
 	History(ctx context.Context, account uuid.UUID) (HistoryView, error)

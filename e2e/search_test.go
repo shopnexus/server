@@ -10,16 +10,22 @@ import (
 	"testing"
 )
 
+// searchCard is a SearchItem, a listing as search, Home's nearby feed and
+// the seller view show it; a nil DistanceKm is an absent key.
+type searchCard struct {
+	ID            string `json:"id"`
+	SellerID      string `json:"seller_id"`
+	CategoryCode  string `json:"category_code"`
+	CoverThumbURL string `json:"cover_thumb_url"`
+	Commune       string `json:"commune"`
+	DistanceKm    *int   `json:"distance_km"`
+	Saved         bool   `json:"saved"`
+}
+
 type searchView struct {
-	Items []struct {
-		ID           string `json:"id"`
-		SellerID     string `json:"seller_id"`
-		CategoryCode string `json:"category_code"`
-		DistanceKm   *int   `json:"distance_km"`
-		Saved        bool   `json:"saved"`
-	} `json:"items"`
-	NextCursor string `json:"next_cursor"`
-	Understood string `json:"understood"`
+	Items      []searchCard `json:"items"`
+	NextCursor string       `json:"next_cursor"`
+	Understood string       `json:"understood"`
 	Chips      []struct {
 		ID string `json:"id"`
 	} `json:"chips"`

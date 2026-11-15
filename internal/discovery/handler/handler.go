@@ -19,10 +19,11 @@ type Handler struct {
 func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: svc, log: log} }
 
 // Register adds the discovery endpoints. The saved ones and the search
-// history are behind protect; search reads a caller when identify finds
-// one.
+// history are behind protect; search and a seller's listings read a caller
+// when identify finds one.
 func (h *Handler) Register(r *httpx.Router, protect, identify func(http.Handler) http.Handler) {
 	r.Handle("GET /v1/search", identify(http.HandlerFunc(h.Search)))
+	r.Handle("GET /v1/sellers/{id}/listings", identify(http.HandlerFunc(h.SellerListings)))
 	r.Handle("POST /v1/search/watches", protect(http.HandlerFunc(h.Watch)))
 	r.Handle("GET /v1/search/watches", protect(http.HandlerFunc(h.Watches)))
 	r.Handle("DELETE /v1/search/watches/{id}", protect(http.HandlerFunc(h.Unwatch)))

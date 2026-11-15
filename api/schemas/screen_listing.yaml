@@ -64,7 +64,7 @@ SellerScreen:
     seller:
       $ref: "#/SellerProfile"
     listings:
-      $ref: "catalog.yaml#/SellerListingList"
+      $ref: "discovery.yaml#/SearchItemList"
     reviews:
       $ref: "trust.yaml#/ReviewList"
     viewer:

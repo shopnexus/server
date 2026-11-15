@@ -50,8 +50,10 @@ screenSeller:
       More listings come from GET /v1/sellers/{id}/listings and more
       reviews from GET /v1/sellers/{id}/reviews, with the view's
       next_cursor. A signed-in reader who is not the seller also gets
-      `viewer`. With a position the listings have distances, measured as
-      GET /v1/search measures them; send the same position to load more.
+      `viewer`. The listings are search cards: each has saved for a
+      signed-in reader and, with a position, distance_km, measured as
+      GET /v1/search measures it; send the same position to load more. A
+      signed-in reader never sees the listings they hid.
     tags: [screen]
     security:
       - {}
