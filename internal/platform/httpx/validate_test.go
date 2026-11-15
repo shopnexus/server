@@ -41,21 +41,21 @@ func thingsServer(t *testing.T) http.Handler {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.DiscardHandler)
-	validate, err := ValidateRequests(doc, log)
-	if err != nil {
-		t.Fatal(err)
-	}
 	r := NewRouter()
 	r.HandleFunc("POST /things", func(w http.ResponseWriter, req *http.Request) {
 		var in struct {
 			Name string `json:"name"`
 		}
-		if err := Bind(req, &in); err != nil {
-			WriteError(w, req, log, err)
+		if bindErr := Bind(req, &in); bindErr != nil {
+			WriteError(w, req, log, bindErr)
 			return
 		}
 		Respond(w, http.StatusCreated, in)
 	})
+	validate, err := ValidateRequests(doc, r.Routes(), log)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return Trace(discard())(validate(r))
 }
 
@@ -117,6 +117,29 @@ func TestBodyOverOneMegabyte(t *testing.T) {
 	}
 }
 
+// An operation of the spec that the mux does not serve is not validated:
+// any body gets the mux's 404 for an unknown path.
+func TestUnservedOperationPassesThrough(t *testing.T) {
+	t.Parallel()
+	doc, err := openapi3.NewLoader().LoadFromData([]byte(thingsSpec))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := NewRouter()
+	validate, err := ValidateRequests(doc, r.Routes(), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := Trace(discard())(validate(r))
+	unknown := serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/elsewhere", http.NoBody))
+	for _, body := range []string{`{"name":"ab"}`, `{"name":"a"}`, `{`, ``} {
+		rec := post(t, h, body)
+		if rec.Code != unknown.Code || rec.Body.String() != unknown.Body.String() {
+			t.Errorf("%q: %d %s, want %d %s", body, rec.Code, rec.Body, unknown.Code, unknown.Body)
+		}
+	}
+}
+
 func TestPathOutsideSpecPassesThrough(t *testing.T) {
 	t.Parallel()
 	rec := serve(thingsServer(t), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/elsewhere", http.NoBody))
@@ -131,7 +154,7 @@ func TestValidationNeverLogsTheBody(t *testing.T) {
 	doc, _ := openapi3.NewLoader().LoadFromData([]byte(thingsSpec))
 	var logs bytes.Buffer
 	log := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	validate, _ := ValidateRequests(doc, log)
+	validate, _ := ValidateRequests(doc, []Route{{Method: "POST", Path: "/things"}}, log)
 	h := Trace(discard())(validate(NewRouter()))
 
 	rec := post(t, h, `{"name":"ab","extra":"hunter2-otp-583920"}`)
@@ -175,10 +198,10 @@ func TestFormatsAreValidated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	validate, _ := ValidateRequests(doc, slog.New(slog.DiscardHandler))
 	r := NewRouter()
 	r.HandleFunc("GET /items/{id}", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	r.HandleFunc("POST /contacts", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusCreated) })
+	validate, _ := ValidateRequests(doc, r.Routes(), slog.New(slog.DiscardHandler))
 	h := Trace(discard())(validate(r))
 
 	if rec := serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/not-a-uuid", http.NoBody)); rec.Code != 400 {

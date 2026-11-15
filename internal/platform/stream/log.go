@@ -99,6 +99,24 @@ ORDER BY seq LIMIT @limit`,
 	return Page{Updates: updates, Seq: current, HasMore: more}, nil
 }
 
+// Append logs h for account in a transaction of its own, as Notify does in
+// the transaction of a change, and returns the update with its seq.
+func (l PGLog) Append(ctx context.Context, account uuid.UUID, h Hint) (Update, error) {
+	var u Update
+	err := pgx.BeginFunc(ctx, l.DB, func(tx pgx.Tx) error {
+		targets, err := appendHint(ctx, tx, []uuid.UUID{account}, h)
+		if err != nil {
+			return err
+		}
+		u = Update{Hint: h, Seq: targets[0].Seq}
+		return nil
+	})
+	if err != nil {
+		return Update{}, fmt.Errorf("append the update: %w", err)
+	}
+	return u, nil
+}
+
 func (l PGLog) Prune(ctx context.Context, before time.Time) (int64, error) {
 	var total int64
 	for {

@@ -32,6 +32,10 @@ const (
 	KindTyping = "typing"
 )
 
+// loggedKinds are the kinds an update in the log may have; typing is rung
+// only.
+var loggedKinds = []string{KindMessage, KindRead, KindDeal, KindNotification, KindListingRead, KindScamWarning}
+
 // Hint names what changed: Kind and the IDs that go with it.
 type Hint struct {
 	Kind           string     `json:"kind"`
@@ -65,6 +69,12 @@ RETURNING seq`
 // accounts' counters in UUID order, so two transactions that notify the
 // same accounts cannot deadlock.
 func Notify(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h Hint) error {
+	_, err := appendHint(ctx, tx, accounts, h)
+	return err
+}
+
+// appendHint is Notify, returning each account's new seq.
+func appendHint(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h Hint) ([]Target, error) {
 	ids := slices.Clone(accounts)
 	slices.SortFunc(ids, uuid.UUID.Compare)
 	ids = slices.Compact(ids)
@@ -75,9 +85,9 @@ func Notify(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h Hint) error 
 			"account": a, "kind": h.Kind, "conversation": h.ConversationID, "message": h.MessageID,
 			"deal": h.DealID, "notification": h.NotificationID, "listing_read": h.ListingReadID,
 		}).Scan(&seq); err != nil {
-			return fmt.Errorf("append update: %w", err)
+			return nil, fmt.Errorf("append update: %w", err)
 		}
 		targets = append(targets, Target{Account: a, Seq: seq})
 	}
-	return PGBell{}.Ring(ctx, tx, targets, h)
+	return targets, PGBell{}.Ring(ctx, tx, targets, h)
 }

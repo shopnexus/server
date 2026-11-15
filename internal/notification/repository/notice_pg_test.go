@@ -7,11 +7,14 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/notification/domain"
 	"github.com/shopnexus/server2/internal/notification/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
 var now = time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
@@ -287,5 +290,61 @@ func TestMarkUnreadCollapse(t *testing.T) {
 	}
 	if err := s.MarkUnread(ctx, me, []uuid.UUID{newer}); err != nil {
 		t.Fatalf("an unread notice again: %v", err)
+	}
+}
+
+// When a newer unread notice with the key commits while Add waits on it,
+// Add keeps it, reports late, and logs no update for the recipient, since
+// nothing changed.
+func TestAddLosingTheRaceLogsNoUpdate(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewNotices(db)
+	me := accounttest.New(t, db)
+	newer := uuid.NewV7()
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err = tx.Exec(ctx, `INSERT INTO notifications (id, account_id, notice_type, collapse_key, params, event_id, created_at, bumped_at)
+VALUES (@id, @account, 'offer', 'deal:1', '{}', @event, @at, @at)`,
+		pgx.StrictNamedArgs{"id": newer, "account": me, "event": uuid.NewV7(), "at": now.Add(time.Minute)}); err != nil {
+		t.Fatal(err)
+	}
+	type added struct {
+		id   uuid.UUID
+		late bool
+		err  error
+	}
+	done := make(chan added, 1)
+	go func() {
+		id, late, addErr := s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 100, now), now.Add(-domain.Retention))
+		done <- added{id, late, addErr}
+	}()
+	// Add's insert waits on the uncommitted notice's key.
+	testenv.Eventually(t, 5*time.Second, func() error {
+		var waiting int
+		if readErr := db.QueryRow(ctx, `SELECT count(*) FROM pg_stat_activity
+WHERE datname = current_database() AND wait_event_type = 'Lock'`).Scan(&waiting); readErr != nil {
+			return readErr
+		}
+		if waiting == 0 {
+			return errors.New("Add is not waiting yet")
+		}
+		return nil
+	})
+	if err = tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	got := <-done
+	if got.err != nil || got.id != newer || !got.late {
+		t.Fatalf("Add: %+v, want the newer notice %s, late", got, newer)
+	}
+	var updates int
+	if err = db.QueryRow(ctx, `SELECT count(*) FROM account_updates WHERE account_id = @account`,
+		pgx.StrictNamedArgs{"account": me}).Scan(&updates); err != nil || updates != 0 {
+		t.Fatalf("updates %d: %v", updates, err)
 	}
 }

@@ -49,7 +49,9 @@ func TestCurrentSessionRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	validate, err := httpx.ValidateRequests(doc, discard)
+	served := httpx.NewRouter()
+	handler.New(&deletes{}, discard).Register(served, func(h http.Handler) http.Handler { return h })
+	validate, err := httpx.ValidateRequests(doc, served.Routes(), discard)
 	if err != nil {
 		t.Fatal(err)
 	}

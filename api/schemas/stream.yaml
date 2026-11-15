@@ -46,3 +46,69 @@ UpdatePage:
     has_more:
       type: boolean
       description: More updates follow the last one; ask again from its seq.
+DevUpdate:
+  description: An update to log for the caller, with exactly the IDs its kind carries.
+  oneOf:
+    - type: object
+      additionalProperties: false
+      required: [kind, conversation_id, message_id]
+      properties:
+        kind:
+          type: string
+          enum: [message]
+        conversation_id:
+          type: string
+          format: uuid
+        message_id:
+          type: string
+          format: uuid
+    - type: object
+      additionalProperties: false
+      required: [kind, conversation_id]
+      properties:
+        kind:
+          type: string
+          enum: [read]
+        conversation_id:
+          type: string
+          format: uuid
+    - type: object
+      additionalProperties: false
+      required: [kind, deal_id]
+      properties:
+        kind:
+          type: string
+          enum: [deal]
+        deal_id:
+          type: string
+          format: uuid
+    - type: object
+      additionalProperties: false
+      required: [kind, notification_id]
+      properties:
+        kind:
+          type: string
+          enum: [notification]
+        notification_id:
+          type: string
+          format: uuid
+    - type: object
+      additionalProperties: false
+      required: [kind, conversation_id]
+      properties:
+        kind:
+          type: string
+          enum: [scam_warning]
+        conversation_id:
+          type: string
+          format: uuid
+    - type: object
+      additionalProperties: false
+      required: [kind, listing_read_id]
+      properties:
+        kind:
+          type: string
+          enum: [listing_read]
+        listing_read_id:
+          type: string
+          format: uuid

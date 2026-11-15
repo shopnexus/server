@@ -216,7 +216,8 @@ func TestNewRefusesTheFakeCarrierInProd(t *testing.T) {
 	}
 }
 
-// Without a carrier the dev endpoint is not served; the shipment routes are.
+// Without a carrier the dev endpoint that moves shipments is not served;
+// the shipment routes are, and so is the dev endpoint that logs updates.
 func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
@@ -230,7 +231,51 @@ func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
 	if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/shipments/{code}/status"}) ||
 		!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/shipments/lookup"}) ||
 		!slices.Contains(routes, httpx.Route{Method: "PUT", Path: "/v1/carrier-accounts/{carrier}"}) ||
-		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/carriers/{carrier}/webhook/{secret}"}) {
+		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/carriers/{carrier}/webhook/{secret}"}) ||
+		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/updates"}) {
 		t.Fatalf("routes %v", routes)
+	}
+}
+
+// Production mounts neither dev route, and a request for one answers as an
+// unknown path does, whatever its body: the request validator matches only
+// mounted routes, so it reveals nothing about the spec's dev operations.
+func TestProdServesNoDevRoute(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Env, cfg.Email.Sender, cfg.Email.ResendAPIKey, cfg.Carrier.Mode = "prod", "resend", "re_test", "none"
+	a, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { a.Close(context.Background()) })
+	routes := a.Routes()
+	if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/updates"}) ||
+		slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/shipments/{code}/status"}) ||
+		!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/updates"}) {
+		t.Fatalf("routes %v", routes)
+	}
+	post := func(path, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		a.Handler.ServeHTTP(rec, req)
+		return rec
+	}
+	unknown := post("/v1/dev/nothing", `{}`)
+	if unknown.Code != http.StatusNotFound {
+		t.Fatalf("an unknown path: %d %s", unknown.Code, unknown.Body)
+	}
+	for _, path := range []string{"/v1/dev/updates", "/v1/dev/shipments/S1/status"} {
+		for _, body := range []string{
+			``, `{`, `{}`, `{"kind":"typing"}`, `{"kind":"deal","deal_id":"01928c3e-7b5a-7c1e-8a2b-3c4d5e6f7a8b"}`,
+			`{"status":"delivered"}`, `{"status":"returned"}`,
+		} {
+			rec := post(path, body)
+			if rec.Code != unknown.Code || rec.Body.String() != unknown.Body.String() ||
+				rec.Header().Get("Content-Type") != unknown.Header().Get("Content-Type") {
+				t.Errorf("%s %q: %d %s, want %d %s", path, body, rec.Code, rec.Body, unknown.Code, unknown.Body)
+			}
+		}
 	}
 }
