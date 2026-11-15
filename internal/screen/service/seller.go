@@ -9,17 +9,17 @@ import (
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 	"github.com/shopnexus/server2/internal/platform/page"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
 // SellerScreen is the SellerScreen schema in api/schemas/screen_listing.yaml.
 type SellerScreen struct {
-	Seller   SellerProfile                  `json:"seller"`
-	Listings catalogsvc.SellerListingPage   `json:"listings"`
-	Reviews  page.Page[trustsvc.ReviewView] `json:"reviews"`
-	Viewer   *SellerViewer                  `json:"viewer,omitempty"`
+	Seller   SellerProfile                      `json:"seller"`
+	Listings page.Page[discoverysvc.SearchItem] `json:"listings"`
+	Reviews  page.Page[trustsvc.ReviewView]     `json:"reviews"`
+	Viewer   *SellerViewer                      `json:"viewer,omitempty"`
 }
 
 // SellerProfile is the SellerProfile schema in
@@ -47,11 +47,11 @@ type SellerViewer struct {
 }
 
 // Seller reads the seller's profile and the first page, of the default
-// size, of their public listings, with each one's distance from near, and
-// of their reviews. An unknown account is
-// accountdomain.ErrAccountNotFound. A viewer who is not the seller also
-// gets whether a block stands between the two, whether they follow the
-// seller, and their conversation.
+// size, of their public listings as search items, each with its distance
+// from near and whether the viewer saved it, and of their reviews. An
+// unknown account is accountdomain.ErrAccountNotFound. A viewer who is not
+// the seller also gets whether a block stands between the two, whether
+// they follow the seller, and their conversation.
 func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error) {
 	seller, err := s.accounts.Get(ctx, id)
 	if err != nil {
@@ -72,7 +72,7 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, ne
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("count the followers: %w", err)
 	}
-	listings, err := s.catalog.SellerListings(ctx, id, near, page.Request{})
+	listings, err := s.discovery.SellerListings(ctx, viewer, id, near, page.Request{})
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("list the listings: %w", err)
 	}

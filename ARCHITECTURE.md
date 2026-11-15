@@ -945,7 +945,9 @@ agree during a deploy.
   goes in the query string and is neither stored nor logged; the access log
   writes only the route.
 - `GET /v1/sellers/{id}/listings` is public: the seller's active and
-  reserved listings, newest first. `SellerCounts` gives screen and trust a
+  reserved listings, newest first, as search cards (see Screen).
+  Discovery serves it and catalog's `SellerListings` builds the cards.
+  `SellerCounts` gives screen and trust a
   seller's public listings (active or reserved), the listings under the
   cap and the sold ones; "Đã bán" counts
   every sold listing, sold through an order or marked by hand (decided
@@ -1452,15 +1454,22 @@ page that shows two views calls both at once.
 - Distances on the listing and seller views (decided 2026-11-15, same
   plan): both views and `GET /v1/sellers/{id}/listings` take
   `near_lat`/`near_lng` or `near_commune` and check them as the search
-  does. The listing view has `distance_km` beside `listing`; the seller
-  view's `listings` and its load more have `distances`, one
-  `{listing_id, distance_km}` per item in the order of the items, and
-  neither field without a position. The distance sits beside the resource
-  because it depends on the request: a `Listing` reads the same for every
-  caller and every endpoint that returns it. `SellerListingList` repeats
-  `ListingList`'s two fields rather than extending it with `allOf`, which
-  the app's Fabrikt codegen may not handle. The listing view reads the
-  listing once, through `GetNear`, and measures from that row.
+  does. The listing view has `distance_km` beside `listing`, and none
+  without a position. The distance sits beside the listing because it
+  depends on the request: a `Listing` reads the same for every caller and
+  every endpoint that returns it. The listing view reads the listing once,
+  through `GetNear`, and measures from that row.
+- The seller view's listings are search cards (decided 2026-11-15): the
+  seller page is a browse surface like search. Its `listings` and
+  `GET /v1/sellers/{id}/listings` are a `SearchItemList`, a page of
+  `SearchItem` paged by listing ID as before. A card has `saved` for a
+  signed-in reader and `distance_km` with a position, as on search;
+  `SellerListingList` and its `distances` array are gone. Catalog's
+  `SellerListings` builds the cards with the search's `cardOf`, and
+  discovery's `SellerListings` marks the saves with the search's
+  `withSaved`. Discovery serves the endpoint because catalog cannot read
+  the saves. `GET /v1/me/listings` keeps `ListingList`, the seller's own
+  list for managing their listings.
 - Screen owns no table. Each view is one method of its service that reads
   the other modules' services top to bottom; depguard forbids every other
   module to import it, so it adds no dependency between the others.
@@ -1521,8 +1530,9 @@ page that shows two views calls both at once.
   either answered or more than 24 hours old; it is in time when the answer
   came within 24 hours. The rate is the percent in time, rounded down,
   with the count; null below 5 counted.
-- "Load more" uses the list endpoints, which return the same item shapes:
-  `/v1/sellers/{id}/listings`, `/v1/sellers/{id}/reviews`,
+- "Load more" uses the list endpoints, which return the same item shapes
+  as the view: `/v1/sellers/{id}/listings` (`SearchItem` cards, like the
+  seller view's `listings`), `/v1/sellers/{id}/reviews` and
   `/v1/conversations/{id}/messages`.
 - Each piece of data has one read path: `GET /v1/conversations`,
   `GET /v1/conversations/{id}` and `GET /v1/sellers/{id}` were removed

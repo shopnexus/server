@@ -176,7 +176,7 @@ paths:
   /v1/reports/{id}:
     $ref: "paths/trust.yaml#/report"
   /v1/sellers/{id}/listings:
-    $ref: "paths/catalog.yaml#/sellerListings"
+    $ref: "paths/discovery.yaml#/sellerListings"
   /v1/search:
     $ref: "paths/discovery.yaml#/search"
   /v1/search/history:

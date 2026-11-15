@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"uuid"
@@ -24,7 +25,7 @@ type sellerScreen struct {
 		OnSale    int `json:"on_sale"`
 		Followers int `json:"followers"`
 	} `json:"seller"`
-	Listings sellerListings `json:"listings"`
+	Listings page[searchCard] `json:"listings"`
 	Reviews  page[struct {
 		Stars int `json:"stars"`
 		Buyer struct {
@@ -38,15 +39,31 @@ type sellerScreen struct {
 	} `json:"viewer"`
 }
 
-// sellerListings is a page of a seller's public listings with their
-// distances.
-type sellerListings struct {
-	page[listing]
+// searchCard is a SearchItem, a listing as search and the seller view
+// show it; a nil DistanceKm is an absent key.
+type searchCard struct {
+	ID            string `json:"id"`
+	SellerID      string `json:"seller_id"`
+	CoverThumbURL string `json:"cover_thumb_url"`
+	Commune       string `json:"commune"`
+	DistanceKm    *int   `json:"distance_km"`
+	Saved         bool   `json:"saved"`
+}
 
-	Distances []struct {
-		ListingID  string `json:"listing_id"`
-		DistanceKm int    `json:"distance_km"`
-	} `json:"distances"`
+// cards checks a page of the seller's cards: their IDs in order, which of
+// them are saved, and that each has a distance when near is set and none
+// otherwise.
+func cards(t *testing.T, name string, got page[searchCard], seller string, near bool, want []string, saved ...string) {
+	t.Helper()
+	if len(got.Items) != len(want) {
+		t.Fatalf("%s: %+v, want %v", name, got, want)
+	}
+	for i, c := range got.Items {
+		if c.ID != want[i] || c.SellerID != seller || c.CoverThumbURL == "" || c.Commune == "" ||
+			c.Saved != slices.Contains(saved, c.ID) || (c.DistanceKm != nil) != near || (near && *c.DistanceKm != 0) {
+			t.Fatalf("%s: card %d is %+v", name, i, c)
+		}
+	}
 }
 
 // The seller view counts the reserved listing on sale and the sold one,
@@ -65,6 +82,7 @@ func TestSellerScreen(t *testing.T) {
 	active := activeListing(t, token, nil).ID
 	reserved := activeListing(t, token, nil).ID
 	order := shippedOrder(t, token, buyer.AccessToken, reserved)
+	expectStatus(t, call(t, "PUT", "/v1/saved/"+active, nil, bearer(buyer.AccessToken)), http.StatusNoContent)
 	expectStatus(t, call(t, "PUT", "/v1/orders/"+order.Order.ID+"/review", map[string]any{"stars": 4}, bearer(buyer.AccessToken)), http.StatusOK)
 	path := "/v1/screens/seller/" + seller.Account.ID
 	get := func(name, path string, headers ...[2]string) sellerScreen {
@@ -82,16 +100,15 @@ func TestSellerScreen(t *testing.T) {
 		s.Rating.Average != 4 || s.Rating.Count != 1 || s.Sold != 1 || s.OnSale != 2 {
 		t.Fatalf("seller: %+v", s)
 	}
-	if ls := got.Listings; len(ls.Items) != 2 || ls.Items[0].ID != reserved || ls.Items[1].ID != active || ls.NextCursor != "" ||
-		ls.Distances != nil {
-		t.Fatalf("listings: %+v", ls)
+	if got.Listings.NextCursor != "" {
+		t.Fatalf("listings: %+v", got.Listings)
 	}
-	// With a position each listing has its distance, in the order of items;
-	// the listings are in commune 00004.
-	if ls := get("near", path+"?near_commune=00004").Listings; len(ls.Distances) != 2 ||
-		ls.Distances[0].ListingID != reserved || ls.Distances[0].DistanceKm != 0 || ls.Distances[1].ListingID != active {
-		t.Fatalf("distances: %+v", ls)
-	}
+	cards(t, "listings signed out", got.Listings, seller.Account.ID, false, []string{reserved, active})
+	// With a position each card has its distance, as the listings are in
+	// commune 00004, and the buyer's cards mark the active one saved.
+	cards(t, "listings near", get("near", path+"?near_commune=00004").Listings, seller.Account.ID, true, []string{reserved, active})
+	cards(t, "listings of the saver", get("saver", path+"?near_commune=00004", bearer(buyer.AccessToken)).Listings,
+		seller.Account.ID, true, []string{reserved, active}, active)
 	check(t, "an unknown commune", call(t, "GET", path+"?near_commune=nope", nil), 400, "invalid_position")
 	if r := got.Reviews; len(r.Items) != 1 || r.Items[0].Stars != 4 ||
 		r.Items[0].Buyer.AvatarURL != buyerAvatar || r.NextCursor != "" {
@@ -137,24 +154,27 @@ func TestSellerScreen(t *testing.T) {
 	// Load more goes through the list endpoints.
 	listings := "/v1/sellers/" + seller.Account.ID + "/listings"
 	res := call(t, "GET", listings+"?limit=1", nil)
-	first := decode[sellerListings](t, res)
-	if res.Status != http.StatusOK || len(first.Items) != 1 || first.Items[0].ID != reserved || first.NextCursor == "" || first.Distances != nil {
+	first := decode[page[searchCard]](t, res)
+	if res.Status != http.StatusOK || first.NextCursor == "" {
 		t.Fatalf("first page: %d %s", res.Status, res.Body)
 	}
+	cards(t, "first page", first, seller.Account.ID, false, []string{reserved})
 	res = call(t, "GET", listings+"?limit=1&near_commune=00004&cursor="+first.NextCursor, nil, bearer(buyer.AccessToken))
-	if rest := decode[sellerListings](t, res); res.Status != http.StatusOK || len(rest.Items) != 1 || rest.Items[0].ID != active || rest.NextCursor != "" ||
-		len(rest.Distances) != 1 || rest.Distances[0].ListingID != active || rest.Distances[0].DistanceKm != 0 {
+	rest := decode[page[searchCard]](t, res)
+	if res.Status != http.StatusOK || rest.NextCursor != "" {
 		t.Fatalf("second page: %d %s", res.Status, res.Body)
 	}
+	cards(t, "second page of the saver", rest, seller.Account.ID, true, []string{active}, active)
+	res = call(t, "GET", listings+"?near_commune=00004&cursor="+first.NextCursor, nil)
+	cards(t, "second page signed out", decode[page[searchCard]](t, res), seller.Account.ID, true, []string{active})
 	check(t, "listings near an unknown commune", call(t, "GET", listings+"?near_commune=nope", nil), 400, "invalid_position")
 	check(t, "listings of an unknown seller near an unknown commune",
 		call(t, "GET", "/v1/sellers/"+uuid.NewV7().String()+"/listings?near_commune=nope", nil), 404, "account_not_found")
-	// With a position an empty page still has the key, so it does not read
-	// as no position.
 	res = call(t, "GET", "/v1/sellers/"+buyer.Account.ID+"/listings?near_commune=00004", nil)
-	if res.Status != http.StatusOK || !strings.Contains(string(res.Body), `"distances":[]`) {
+	if res.Status != http.StatusOK || !strings.Contains(string(res.Body), `"items":[]`) {
 		t.Fatalf("an empty page with a position: %d %s", res.Status, res.Body)
 	}
+	check(t, "listings with a bad token", call(t, "GET", listings, nil, bearer("x")), 401, "")
 	check(t, "listings of a bad id", call(t, "GET", "/v1/sellers/x/listings", nil), 400, "")
 	check(t, "listings with a bad cursor", call(t, "GET", listings+"?cursor=x", nil), 400, "")
 	check(t, "listings of an unknown seller", call(t, "GET", "/v1/sellers/"+uuid.NewV7().String()+"/listings", nil), 404, "account_not_found")

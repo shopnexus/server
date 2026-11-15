@@ -12,8 +12,8 @@ import (
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
-// A seller's public list holds the active and reserved listings, newest
-// first, and the counts set them apart from the sold ones.
+// A seller's public list holds the active and reserved listings as cards,
+// newest first, and the counts set them apart from the sold ones.
 func TestSellerListingsAndCounts(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -33,12 +33,15 @@ func TestSellerListingsAndCounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	first, err := e.catalog.SellerListings(ctx, seller, domain.Near{}, page.Request{Limit: 1})
-	if err != nil || len(first.Items) != 1 || first.Items[0].ID != reserved || first.NextCursor == nil || first.Distances != nil {
+	if err != nil || len(first.Items) != 1 || first.Items[0].ID != reserved || first.NextCursor == nil || first.Items[0].DistanceKm != nil {
 		t.Fatalf("first page: %+v %v", first, err)
+	}
+	if c := first.Items[0]; c.SellerID != seller || c.Commune == "" || c.CategoryCode == "" || c.CoverThumbURL == "" {
+		t.Fatalf("a card misses its fields: %+v", c)
 	}
 	rest, err := e.catalog.SellerListings(ctx, seller, domain.Near{Commune: "00004"}, page.Request{Cursor: *first.NextCursor, Limit: 1})
 	if err != nil || len(rest.Items) != 1 || rest.Items[0].ID != active || rest.NextCursor != nil ||
-		len(rest.Distances) != 1 || rest.Distances[0] != (service.ListingDistance{ListingID: active, DistanceKm: 0}) {
+		rest.Items[0].DistanceKm == nil || *rest.Items[0].DistanceKm != 0 {
 		t.Fatalf("second page: %+v %v", rest, err)
 	}
 	if _, err = e.catalog.SellerListings(ctx, seller, domain.Near{Commune: "nope"}, page.Request{}); !errors.Is(err, domain.ErrInvalidPosition) {
@@ -52,9 +55,8 @@ func TestSellerListingsAndCounts(t *testing.T) {
 			t.Errorf("unknown seller, %s: %v", name, err)
 		}
 	}
-	// With a position an empty page has an empty list of distances.
 	empty, emptyErr := e.catalog.SellerListings(ctx, e.seller(t), domain.Near{Commune: "00004"}, page.Request{})
-	if emptyErr != nil || len(empty.Items) != 0 || empty.Distances == nil || len(empty.Distances) != 0 {
+	if emptyErr != nil || empty.Items == nil || len(empty.Items) != 0 {
 		t.Fatalf("an empty page with a position: %+v %v", empty, emptyErr)
 	}
 }

@@ -61,7 +61,9 @@ SearchItem:
   type: object
   additionalProperties: false
   required: [id, seller_id, title, price, category_code, condition, allow_offers, commune, saved]
-  description: A listing of a search page. It carries no point of the listing.
+  description: |
+    A listing as a browse surface shows it: a search page, Home's nearby
+    feed and the seller view. It carries no point of the listing.
   properties:
     id:
       type: string
@@ -94,6 +96,20 @@ SearchItem:
     saved:
       type: boolean
       description: False when signed out.
+SearchItemList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  description: A page of a seller's public listings as cards, newest first.
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/SearchItem"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more listings follow; pass it as cursor.
 Chip:
   type: object
   additionalProperties: false

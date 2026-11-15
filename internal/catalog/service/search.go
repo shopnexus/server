@@ -8,7 +8,7 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/domain"
 )
 
-// SearchCard is a listing as a search page shows it.
+// SearchCard is a listing as a search page and the seller view show it.
 type SearchCard struct {
 	ID            uuid.UUID        `json:"id"`
 	SellerID      uuid.UUID        `json:"seller_id"`
@@ -55,19 +55,25 @@ func (c *Catalog) Search(ctx context.Context, s domain.Search) ([]SearchCard, er
 		if !ok {
 			continue // deleted between the index scan and the read
 		}
-		card := SearchCard{
-			ID: v.ID, SellerID: v.SellerID, Title: v.Title, Price: v.Price, CategoryCode: v.CategoryCode,
-			Condition: v.Condition, AllowOffers: v.AllowOffers, Commune: v.Location.Commune.DisplayName,
-		}
-		if len(v.Photos) > 0 {
-			card.CoverThumbURL = v.Photos[0].ThumbURL
-		}
-		if o := s.Filters.Origin; o != nil {
-			card.DistanceKm = new(domain.DistanceKm(*o, h.Point))
-		}
-		out = append(out, card)
+		out = append(out, cardOf(&v, h.Point, s.Filters.Origin))
 	}
 	return out, nil
+}
+
+// cardOf is v as a card, measured from origin when it is not nil; point is
+// v's listing's point.
+func cardOf(v *ListingView, point domain.Point, origin *domain.Point) SearchCard {
+	card := SearchCard{
+		ID: v.ID, SellerID: v.SellerID, Title: v.Title, Price: v.Price, CategoryCode: v.CategoryCode,
+		Condition: v.Condition, AllowOffers: v.AllowOffers, Commune: v.Location.Commune.DisplayName,
+	}
+	if len(v.Photos) > 0 {
+		card.CoverThumbURL = v.Photos[0].ThumbURL
+	}
+	if origin != nil {
+		card.DistanceKm = new(domain.DistanceKm(*origin, point))
+	}
+	return card
 }
 
 func (c *Catalog) Counts(ctx context.Context, s domain.Search) ([]domain.CategoryCount, error) {

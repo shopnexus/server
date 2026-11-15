@@ -431,43 +431,6 @@ regionNearest:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-sellerListings:
-  get:
-    operationId: listSellerListings
-    summary: A seller's listings that anyone sees, active and reserved, newest first.
-    description: With a position the page has distances, measured as GET /v1/search measures them.
-    tags: [catalog]
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      - $ref: "../parameters/common.yaml#/Cursor"
-      - $ref: "../parameters/common.yaml#/Limit"
-      - $ref: "../parameters/discovery.yaml#/NearLat"
-      - $ref: "../parameters/discovery.yaml#/NearLng"
-      - $ref: "../parameters/discovery.yaml#/NearCommune"
-    responses:
-      "200":
-        description: One page of listings.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/catalog.yaml#/SellerListingList"
-      "400":
-        description: "A malformed parameter, or invalid_position."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "404":
-        description: "No such account (account_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
 listingDrafts:
   get:
     operationId: listListingDrafts

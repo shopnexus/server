@@ -187,6 +187,51 @@ search:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+sellerListings:
+  get:
+    operationId: listSellerListings
+    summary: A seller's listings that anyone sees, active and reserved, newest first, as search cards.
+    description: |
+      The seller view's load more, with the view's next_cursor. Each card
+      has saved for a signed-in caller and, with a position, distance_km,
+      measured as GET /v1/search measures it.
+    tags: [discovery]
+    security:
+      - {}
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+      - $ref: "../parameters/discovery.yaml#/NearLat"
+      - $ref: "../parameters/discovery.yaml#/NearLng"
+      - $ref: "../parameters/discovery.yaml#/NearCommune"
+    responses:
+      "200":
+        description: One page of listings.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/discovery.yaml#/SearchItemList"
+      "400":
+        description: "A malformed parameter, or invalid_position."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such account (account_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 searchHistory:
   get:
     operationId: getSearchHistory
