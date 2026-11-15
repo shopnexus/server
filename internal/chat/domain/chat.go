@@ -40,8 +40,19 @@ type Photo struct {
 	ThumbKey string    `json:"thumb_key,omitempty"`
 }
 
+// DealMove is the move on a deal that a deal message carries. Kind and By
+// are module deal's names, which chat keeps as they come; Amount is 0 on a
+// move without one.
+type DealMove struct {
+	DealID uuid.UUID `json:"deal_id"`
+	Kind   string    `json:"kind"`
+	By     string    `json:"by"`
+	Amount int64     `json:"amount,omitempty"`
+}
+
 // Message is one message of a conversation. ListingID names the listing it
-// is about, if any; replyTo the earlier message it quotes.
+// is about, if any; replyTo the earlier message it quotes. A deal message
+// carries deal, the move the server wrote it for, and nothing else.
 type Message struct {
 	id             uuid.UUID
 	conversationID uuid.UUID
@@ -50,6 +61,7 @@ type Message struct {
 	photos         []Photo
 	listingID      *uuid.UUID
 	replyTo        *uuid.UUID
+	deal           *DealMove
 	status         MessageStatus
 	failure        string
 	createdAt      time.Time
@@ -89,6 +101,15 @@ func NewMessage(id, conversation, sender uuid.UUID, body string, photos []uuid.U
 	return m, nil
 }
 
+// NewDealMessage is the message of a move on a deal, sent at the move's
+// time: id is the move's, so the same move writes one message. sender is
+// the side that moved, or ShopNexus for a move by the system.
+func NewDealMessage(id, conversation, sender uuid.UUID, move DealMove, at time.Time) Message {
+	return Message{
+		id: id, conversationID: conversation, senderID: sender, deal: &move, status: StatusSent, createdAt: at,
+	}
+}
+
 // Published records the processed photos; the message is sent.
 func (m *Message) Published(keys map[uuid.UUID]Photo) {
 	photos := make([]Photo, len(m.photos))
@@ -115,9 +136,19 @@ func (m *Message) Body() string              { return m.body }
 func (m *Message) Photos() []Photo           { return append([]Photo{}, m.photos...) }
 func (m *Message) ListingID() *uuid.UUID     { return m.listingID }
 func (m *Message) ReplyTo() *uuid.UUID       { return m.replyTo }
-func (m *Message) Status() MessageStatus     { return m.status }
-func (m *Message) Failure() string           { return m.failure }
-func (m *Message) CreatedAt() time.Time      { return m.createdAt }
+
+// Deal returns a copy of the move a deal message carries, nil on any other
+// message.
+func (m *Message) Deal() *DealMove {
+	if m.deal == nil {
+		return nil
+	}
+	return new(*m.deal)
+}
+
+func (m *Message) Status() MessageStatus { return m.status }
+func (m *Message) Failure() string       { return m.failure }
+func (m *Message) CreatedAt() time.Time  { return m.createdAt }
 
 // UploadIDs returns the message's uploads in order.
 func (m *Message) UploadIDs() []uuid.UUID {
@@ -138,6 +169,7 @@ type MessageState struct {
 	Photos         []Photo       `json:"photos"`
 	ListingID      *uuid.UUID    `json:"listing_id,omitempty"`
 	ReplyTo        *uuid.UUID    `json:"reply_to,omitempty"`
+	Deal           *DealMove     `json:"deal,omitempty"`
 	Status         MessageStatus `json:"status"`
 	Failure        string        `json:"failure,omitempty"`
 	CreatedAt      time.Time     `json:"created_at"`
@@ -147,7 +179,8 @@ type MessageState struct {
 func RestoreMessage(st MessageState) Message {
 	return Message{
 		id: st.ID, conversationID: st.ConversationID, senderID: st.SenderID, body: st.Body, photos: st.Photos,
-		listingID: st.ListingID, replyTo: st.ReplyTo, status: st.Status, failure: st.Failure, createdAt: st.CreatedAt,
+		listingID: st.ListingID, replyTo: st.ReplyTo, deal: st.Deal, status: st.Status, failure: st.Failure,
+		createdAt: st.CreatedAt,
 	}
 }
 
@@ -155,7 +188,8 @@ func RestoreMessage(st MessageState) Message {
 func (m *Message) State() MessageState {
 	return MessageState{
 		ID: m.id, ConversationID: m.conversationID, SenderID: m.senderID, Body: m.body, Photos: m.Photos(),
-		ListingID: m.listingID, ReplyTo: m.replyTo, Status: m.status, Failure: m.failure, CreatedAt: m.createdAt,
+		ListingID: m.listingID, ReplyTo: m.replyTo, Deal: m.Deal(), Status: m.status, Failure: m.failure,
+		CreatedAt: m.createdAt,
 	}
 }
 
@@ -210,7 +244,9 @@ func (c Conversation) Other(account uuid.UUID) uuid.UUID {
 }
 
 // Member is one person's place in a conversation: when they archived it,
-// nil while it is not archived.
+// nil while it is not archived, and the newest message they read, nil
+// before the first.
 type Member struct {
 	ArchivedAt *time.Time
+	LastRead   *uuid.UUID
 }

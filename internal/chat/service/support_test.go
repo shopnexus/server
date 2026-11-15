@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
@@ -33,10 +34,18 @@ func TestReplyToMustBeASentMessageHere(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.settled(t, buyer, c.ID, photo.ID) // failed: only its sender sees it
+	move := service.MoveInput{
+		ID: uuid.NewV7(), ConversationID: c.ID, DealID: dealIn(t, e.db, c.ID, buyer, seller), SenderID: buyer, Kind: "offer",
+		By: "buyer", Amount: 1_000_000, At: time.Now(),
+	}
+	if err = e.chat.PostMove(ctx, move); err != nil {
+		t.Fatal(err)
+	}
 	for name, id := range map[string]uuid.UUID{
 		"a message of another chat": foreign.ID,
 		"no message":                uuid.NewV7(),
 		"a failed photo message":    photo.ID,
+		"a deal message":            move.ID,
 	} {
 		_, sendErr := e.chat.Send(ctx, seller, c.ID, key(), service.SendInput{Text: "ok", ReplyTo: &id})
 		var ae *apperr.Error

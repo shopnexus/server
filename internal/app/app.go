@@ -307,11 +307,13 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		NotFound: dealdomain.ErrShipmentNotFound,
 	}
 	shippingm := shipping.Mount(d, carriers)
+	// A deal opens the pair's conversation and writes its moves there, so
+	// chat mounts first.
+	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
 	dealm := deal.Mount(d, deal.Settings{Shipping: shippingm.Service, FakeCarrier: cfg.Carrier.Mode == "fake", PollEvery: cfg.Carrier.PollEvery},
-		accounts, catalogm.Service)
+		accounts, catalogm.Service, chatm.Service)
 	deals = dealm.Service
 	erasure.Mount(d, accounts, dealm.Service)
-	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
 	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
 	console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service)
 	trustm := trust.Mount(d, trust.Settings{

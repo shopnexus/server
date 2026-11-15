@@ -94,6 +94,8 @@ linters:
               desc: test support; only tests import it.
             - pkg: github.com/shopnexus/server2/internal/catalog/catalogtest
               desc: test support; only tests import it.
+            - pkg: github.com/shopnexus/server2/internal/chat/chattest
+              desc: test support; only tests import it.
             - pkg: github.com/shopnexus/server2/internal/media/mediatest
               desc: test support; only tests import it.
             - pkg: github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest

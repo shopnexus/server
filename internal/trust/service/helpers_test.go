@@ -46,12 +46,12 @@ func newEnv(t *testing.T) env {
 	accounts := accounttest.Service(db)
 	media := mediatest.Service(db, objectstoretest.New(t), in, p)
 	c := catalogtest.Service(db, accounts, media, in, p)
-	deals := dealsvc.New(dealsvc.Deps{
-		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Shipping: shippingtest.Linked{}, Waits: dealdomain.OrderWaits, Ingress: in,
-		Prefix: p, Now: time.Now,
-	})
 	chats := chatsvc.New(chatsvc.Deps{
 		Chats: chatrepo.NewChats(db), Accounts: accounts, Catalog: c, Media: media, Ingress: in, Prefix: p, Now: time.Now,
+	})
+	deals := dealsvc.New(dealsvc.Deps{
+		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Chats: chats, Shipping: shippingtest.Linked{},
+		Waits: dealdomain.OrderWaits, Ingress: in, Prefix: p, Now: time.Now, Log: slog.New(slog.DiscardHandler),
 	})
 	restatetest.Start(t, slices.Concat(deals.Durable(), media.Durable(), chats.Durable())...)
 	scams := repository.NewScamWarnings(db)

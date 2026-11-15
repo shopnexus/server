@@ -74,12 +74,16 @@ OpenPrice:
 DealSummary:
   type: object
   additionalProperties: false
-  required: [id, role, listing, status, your_turn]
+  required: [id, conversation_id, role, listing, status, your_turn]
   description: A deal at a glance, as the caller sees it.
   properties:
     id:
       type: string
       format: uuid
+    conversation_id:
+      type: string
+      format: uuid
+      description: The conversation of the buyer and the seller, which holds the deal's messages.
     role:
       $ref: "#/Party"
     listing:
@@ -141,7 +145,7 @@ Move:
     by:
       type: string
       enum: [buyer, seller, system]
-      description: system is the server, following a change of the listing.
+      description: system is the server, following a change of the listing, a carrier's report or a timer.
     amount:
       type: integer
       format: int64
@@ -154,12 +158,19 @@ Move:
 Deal:
   type: object
   additionalProperties: false
-  required: [id, buyer_id, seller_id, listing, role, status, moves]
+  required: [id, conversation_id, buyer_id, seller_id, listing, role, status, moves]
   description: A buyer's negotiation with a seller over one listing; one per buyer and listing.
   properties:
     id:
       type: string
       format: uuid
+    conversation_id:
+      type: string
+      format: uuid
+      description: |
+        The conversation of the buyer and the seller, which opening the deal
+        opened or reused. Each move a person makes and each order step adds a
+        message there.
     buyer_id:
       type: string
       format: uuid

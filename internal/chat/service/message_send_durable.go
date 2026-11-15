@@ -56,7 +56,8 @@ type facts struct {
 	Conversation *domain.Conversation `json:"conversation,omitempty"`
 	Blocked      bool                 `json:"blocked"`
 	OtherDeleted bool                 `json:"other_deleted"`
-	// ReplyOK is whether ReplyTo is a sent message of the conversation.
+	// ReplyOK is whether ReplyTo is a sent message of the conversation
+	// that is not a deal message.
 	ReplyOK bool `json:"reply_ok"`
 }
 
@@ -114,7 +115,8 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 			if getErr != nil && !errors.Is(getErr, repository.ErrNotFound) {
 				return facts{}, fmt.Errorf("read the quoted message: %w", getErr)
 			}
-			out.ReplyOK = getErr == nil && q.ConversationID() == in.ConversationID && q.Status() == domain.StatusSent
+			out.ReplyOK = getErr == nil && q.ConversationID() == in.ConversationID && q.Status() == domain.StatusSent &&
+				q.Deal() == nil
 		}
 		if other != (uuid.UUID{}) {
 			if out.Blocked, stepErr = s.Chat.accounts.Blocked(rc, in.Sender, other); stepErr != nil {
@@ -150,7 +152,7 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	case !in.Opening && in.ListingID != nil && (f.Listing == nil || !f.Conversation.Has(f.Listing.SellerID)):
 		refused = domain.ErrInvalidMessage.WithField("listing_id", "a listing of either member")
 	case in.ReplyTo != nil && !f.ReplyOK:
-		refused = domain.ErrInvalidMessage.WithField("reply_to", "a sent message of this conversation")
+		refused = domain.ErrInvalidMessage.WithField("reply_to", "a sent message of this conversation, not a deal message")
 	case f.Blocked:
 		refused = accountdomain.ErrBlocked
 	case f.OtherDeleted:

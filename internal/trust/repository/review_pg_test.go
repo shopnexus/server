@@ -12,6 +12,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
+	"github.com/shopnexus/server2/internal/chat/chattest"
 	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealrepo "github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
@@ -29,7 +30,7 @@ func order(t *testing.T, db *pgxpool.Pool, buyer, seller uuid.UUID) (orderID, li
 	ctx := context.Background()
 	listing := catalogtest.Listing(t, db, seller)
 	deals := dealrepo.NewDeals(db)
-	d := dealdomain.Open(uuid.NewV7(), listing, buyer, seller, now)
+	d := dealdomain.Open(uuid.NewV7(), chattest.Pair(t, db, buyer, seller), listing, buyer, seller, now)
 	if _, err := deals.Insert(ctx, d); err != nil {
 		t.Fatal(err)
 	}

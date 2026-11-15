@@ -19,12 +19,21 @@ type conversationBody struct {
 }
 
 type messageBody struct {
-	ID     string `json:"id"`
-	Text   string `json:"text"`
-	Status string `json:"status"`
-	Photos []struct {
+	ID       string `json:"id"`
+	SenderID string `json:"sender_id"`
+	Text     string `json:"text"`
+	Status   string `json:"status"`
+	Photos   []struct {
 		URL string `json:"url"`
 	} `json:"photos"`
+	Deal *struct {
+		DealID string `json:"deal_id"`
+		Move   struct {
+			Kind   string `json:"kind"`
+			By     string `json:"by"`
+			Amount int64  `json:"amount"`
+		} `json:"move"`
+	} `json:"deal"`
 }
 
 // openChat has token open a conversation from listing with text.

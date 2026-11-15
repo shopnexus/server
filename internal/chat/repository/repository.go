@@ -23,14 +23,20 @@ type Chats interface {
 	// OpenSupport inserts c, a support conversation, and its two members,
 	// unless a retried step inserted it already, and returns it.
 	OpenSupport(ctx context.Context, c domain.Conversation) (domain.Conversation, error)
+	// DropPair deletes pair conversation id and its members while no
+	// message, deal or other row refers to it; one that has any stays, and
+	// so does an unknown id.
+	DropPair(ctx context.Context, id uuid.UUID) error
 	// Get returns ErrNotFound for an unknown id.
 	Get(ctx context.Context, id uuid.UUID) (domain.Conversation, error)
 	// FindPair returns the conversation of one and other, in either order,
 	// or ErrNotFound.
 	FindPair(ctx context.Context, one, other uuid.UUID) (domain.Conversation, error)
 	// AddMessage inserts m and notifies the members m is visible to. A sent
-	// m becomes the conversation's last message and takes the conversation
-	// out of both members' archives. Adding the same ID again does nothing.
+	// m becomes the conversation's last message unless a newer one is, and
+	// then takes the conversation out of both members' archives; it writes
+	// message.sent unless it is a deal message. Adding the same ID again
+	// does nothing.
 	AddMessage(ctx context.Context, m domain.Message) error
 	// DeleteMessage removes a message the send flow could not finish.
 	DeleteMessage(ctx context.Context, id uuid.UUID) error
@@ -39,8 +45,8 @@ type Chats interface {
 	// SaveMessage writes a processed or failed message, moves the last
 	// message when it is sent and newer, and notifies as AddMessage.
 	SaveMessage(ctx context.Context, m domain.Message) error
-	// Member returns ErrNotFound for an account outside the conversation.
-	Member(ctx context.Context, conversation, account uuid.UUID) (domain.Member, error)
+	// Members returns the conversation's members by account, in one read.
+	Members(ctx context.Context, conversation uuid.UUID) (map[uuid.UUID]domain.Member, error)
 	// MarkRead moves account's marker to message when message is newer than
 	// the marker and clears account's unread mark, in one update; a move
 	// notifies other, a cleared mark notifies account.
@@ -79,9 +85,10 @@ type Chats interface {
 	// message names; newest last message first, at most limit.
 	SearchThreads(ctx context.Context, viewer uuid.UUID, t Terms, limit int) ([]InboxRow, error)
 	// ReplyThreads reads seller's pair conversations whose first sent
-	// message came at or after since from another person and names one of
-	// seller's listings: that message's time and seller's first sent
-	// message's, if any.
+	// message that is not a deal message came at or after since from
+	// another person and names one of seller's listings, or names none in a
+	// conversation holding a deal where seller sells: that message's time
+	// and seller's first such message's, if any.
 	ReplyThreads(ctx context.Context, seller uuid.UUID, since time.Time) ([]domain.ReplyThread, error)
 	// SearchMessages lists the sent messages matching t in the
 	// conversations SearchThreads would consider, IDs below p.Before(),

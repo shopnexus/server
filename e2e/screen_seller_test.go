@@ -109,7 +109,9 @@ func TestSellerScreen(t *testing.T) {
 	if got = get("the seller", path, bearer(token)); got.Viewer != nil {
 		t.Fatalf("the seller has a viewer: %+v", got.Viewer)
 	}
-	if got = get("before chatting", path, bearer(buyer.AccessToken)); got.Viewer == nil || got.Viewer.Blocked || got.Viewer.ConversationID != nil {
+	// The buyer's deal opened the pair's conversation before any message.
+	if got = get("before chatting", path, bearer(buyer.AccessToken)); got.Viewer == nil || got.Viewer.Blocked ||
+		got.Viewer.ConversationID == nil || *got.Viewer.ConversationID != order.ConversationID {
 		t.Fatalf("before chatting: %+v", got.Viewer)
 	}
 	if got.Seller.Followers != 0 || got.Viewer.Following {

@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 	"uuid"
@@ -14,6 +15,8 @@ import (
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogrepo "github.com/shopnexus/server2/internal/catalog/repository"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	chatrepo "github.com/shopnexus/server2/internal/chat/repository"
+	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/deal/service"
@@ -29,6 +32,7 @@ type env struct {
 	db       *pgxpool.Pool
 	accounts accountsvc.Service
 	catalog  *catalogsvc.Catalog
+	chats    *chatsvc.Chat
 	listings catalogrepo.Listings
 	repo     repository.Deals
 	deps     service.Deps
@@ -43,12 +47,20 @@ func newEnv(t *testing.T) env {
 	db := pgtest.New(t)
 	in, p := restatetest.Ingress(t), restatetest.Prefix()
 	accounts := accounttest.Service(db)
-	c := catalogtest.Service(db, accounts, mediatest.Service(db, objectstoretest.New(t), in, p), in, p)
+	media := mediatest.Service(db, objectstoretest.New(t), in, p)
+	c := catalogtest.Service(db, accounts, media, in, p)
+	chats := chatsvc.New(chatsvc.Deps{
+		Chats: chatrepo.NewChats(db), Accounts: accounts, Catalog: c, Media: media, Ingress: in, Prefix: p, Now: time.Now,
+	})
 	repo := repository.NewDeals(db)
 	deps := service.Deps{
-		Deals: repo, Accounts: accounts, Catalog: c, Shipping: linkedAt{}, Waits: domain.OrderWaits, Ingress: in, Now: time.Now,
+		Deals: repo, Accounts: accounts, Catalog: c, Chats: chats, Shipping: linkedAt{}, Waits: domain.OrderWaits, Ingress: in,
+		Now: time.Now, Log: slog.New(slog.DiscardHandler),
 	}
-	return env{db: db, accounts: accounts, catalog: c, listings: catalogrepo.NewListings(db), repo: repo, deps: deps, deals: start(t, deps)}
+	return env{
+		db: db, accounts: accounts, catalog: c, chats: chats, listings: catalogrepo.NewListings(db), repo: repo, deps: deps,
+		deals: start(t, deps),
+	}
 }
 
 // start builds a deal service on deps under a prefix of its own and serves

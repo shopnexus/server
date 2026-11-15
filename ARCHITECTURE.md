@@ -339,6 +339,8 @@ Tests of other modules create accounts through `internal/account/accounttest`
 builds the account service and `accounttest.Suspend` suspends an account.
 `internal/catalog/catalogtest` builds the catalog service (`Service`) and puts
 the standard listing, a used bicycle on sale, in the database (`Listing`).
+`internal/chat/chattest.Pair` opens a pair's conversation, which a deal
+row needs.
 `internal/media/mediatest` builds the media service (`Service`), encodes a
 JPEG (`JPEG`) and uploads it (`Upload`). `pgtest.EventKinds` lists the kinds
 of the events about a subject, `restatetest.Ingress` is a client of the test
@@ -1022,6 +1024,43 @@ listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server2-deal-desig
   repeated or late event changes nothing.
 - Chat, a later module, is one conversation per buyer and seller holding
   the deals of that pair (decided 2026-10-26).
+- A deal lives in its pair's conversation (decided 2026-11-15, app plan
+  `2026-11-16-app-wire-chat-deals.md`). `Open` calls chat's `OpenPair`
+  after its checks and stores the conversation on the deal
+  (`deals.conversation_id`, migration 0047); `Deal` and `DealSummary` carry
+  `conversation_id`. The checks for a deal (phone, block, listing) are the
+  ones for opening a conversation, so chat checks nothing more. Migration
+  0047 gave every earlier deal its pair's conversation, opening one with
+  both members for a pair that had none, and indexed
+  `deals.conversation_id` and `messages.deal_id`. Deals from before 0047
+  show their earlier moves only in `Deal.moves`; no deal message was
+  written for them. Deal imports chat, so chat mounts before deal, and
+  chat still never calls deal.
+- The conversation and the deal are two modules' rows, so they are not
+  written in one transaction. `OpenPair` reports whether it opened the
+  conversation; when the deal's insert then fails, `Open` calls chat's
+  `DropPair`, which deletes the conversation and its members unless a
+  foreign key (a message, a deal, a report, a ticket) holds it, as
+  `MessageSend` deletes a message that media refused. A crash between the
+  two leaves an empty conversation, which the inbox does not list and the
+  next deal or message of the pair reuses.
+- Every move a person makes (offer, counter, accept, decline, withdraw,
+  cancel) and every order step, whoever made it, writes a deal message into
+  that conversation (`Move.InChat`); a change of the listing
+  (`price_changed`, `offers_closed`, `listing_closed`) writes none.
+  `worker.ChatPost` subscribes to `deal.moved` and calls `PostMoves`, which
+  reads the deal's moves among the event's IDs and calls chat's `PostMove`
+  for each. The message takes the move's ID and time, so a retried step or
+  a redelivered event writes no second message, and it lands in the thread
+  at the move's place whenever the event arrives. A move by a side is sent
+  by that side's account, a move by the system by ShopNexus; a move of
+  any other party is logged and skipped. A move chat refuses
+  (`chatdomain.ErrMisplacedMove`: the conversation is not the pair's, or
+  the sender is neither a member nor ShopNexus) ends the invocation with
+  a terminal error, since no retry would place it. `Deals.MovesOf` reads
+  the moves of a deal by their IDs, for `PostMoves` and `Moves`.
+  `dealsvc.MovedIDs` reads the IDs from the event, for notification too.
+  `Deal.moves` stays as it was.
 
 Orders, cash on delivery, live in module `deal` (spec:
 `~/shopnexus/docs/superpowers/specs/2026-10-26-server2-order-design.md`;
@@ -1414,7 +1453,9 @@ Module `chat` holds conversations (spec:
   until it is sent.
 - Each member has a read marker, which only a newer message moves, and an
   archive, each written by a statement of its own (`MarkRead` moves the
-  marker only when the message is newer), so two devices never undo each other. The next sent message clears both members' archives, so
+  marker only when the message is newer), so two devices never undo each other. The next sent message that becomes the last one
+  clears both members' archives (a deal message that lands late, older
+  than the last, clears none but still notifies the streams), so
   archived means `archived_at` is set. Unread counts the other member's
   sent messages after the marker. The inbox pages by the conversation's
   last sent message ID.
@@ -1441,6 +1482,33 @@ Module `chat` holds conversations (spec:
   `ORDER BY id DESC` all run inside the index as a top-K scan. Archived
   conversations are searched; a conversation with someone the viewer
   blocks is not.
+- Deal messages (decided 2026-11-15): a message the server writes for a
+  move on a deal of the pair (see Deal). `Message.deal` is `{deal_id, move}`
+  with deal's `Move` shape (kind, by, amount, at); the text is empty and
+  there are no photos. Migration 0047 added `messages.deal_id`,
+  `move_kind`, `move_by` and `move_amount`, and a CHECK keeps a deal message
+  sent and without text or photos. Clients cannot send one: `MessageDraft`
+  has no such field, so the spec refuses it with 400.
+- A deal message is a sent message for everything that reads messages: it
+  moves the conversation's last message (only forward, so a late one does
+  not displace a newer text), clears both archives, notifies both members'
+  streams with `message`, and counts as unread for every member who did not
+  send it. A move by the system is sent by ShopNexus, which is no member,
+  so it counts for both. It writes no `message.sent`: deal's own notice of
+  the move already pushes, so a chat push would be a second one for the
+  same move, and the scam check and support have nothing to read in it.
+  The reply rate leaves deal messages out on both sides, so it still
+  measures answers in chat. A deal opens the conversation before any
+  text, so a buyer's first message often names no listing; such a
+  conversation counts when it holds a deal where the seller sells.
+  A deal message cannot be quoted (`reply_to` is `invalid_message`), so
+  no empty quote reaches the app.
+- A move across a block (decided 2026-11-15) still writes its deal
+  message, since the block leaves running deals and orders as they are
+  and both sides already read the move in `Deal.moves`. The message
+  follows the rules of any message in a blocked conversation: the
+  blocker's inbox and unread count leave the conversation out, and the
+  blocked person's keep it.
 
 ### Screen
 
@@ -1518,6 +1586,13 @@ page that shows two views calls both at once.
 - `GET /v1/screens/chat/{conversation_id}`: the conversation, the pair's
   deals and the first page of messages; anyone but a member gets
   `conversation_not_found`.
+- The chat view (decided 2026-11-15) also has `blocked`, a block either
+  way (account's `Blocked`), so the app can turn off the composer, and
+  `other_read_message_id`, the other member's read marker, absent before
+  they read anything, so the app can show "Đã xem". The marker is part of
+  chat's `Conversation`, which `Get` builds from both member rows in one
+  query (`Chats.Members`), so the view pays only for the block check. The marker shows whatever the block, as the `read` update already
+  tells the other member of each move of it.
 - `GET /v1/screens/profile-tasks` (decided 2026-11-13, spec
   `2026-11-13-profile-tasks-design.md`): the Hoàn thiện hồ sơ view.
   `tasks` holds four steps in a fixed order, `address`, `bio`, `phone` and

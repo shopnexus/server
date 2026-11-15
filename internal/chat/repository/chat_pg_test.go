@@ -72,9 +72,13 @@ func TestOpenPairOnce(t *testing.T) {
 	if err != nil || again.ID != c.ID {
 		t.Fatalf("%v %v", again.ID, err)
 	}
+	ms, err := s.Members(ctx, c.ID)
+	if err != nil || len(ms) != 2 {
+		t.Fatalf("members: %v %v", ms, err)
+	}
 	for _, who := range []uuid.UUID{a, b} {
-		if _, memberErr := s.Member(ctx, c.ID, who); memberErr != nil {
-			t.Fatalf("member: %v", memberErr)
+		if _, ok := ms[who]; !ok {
+			t.Fatalf("%s is no member", who)
 		}
 	}
 	if _, err = s.Get(ctx, uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {
@@ -207,13 +211,13 @@ func TestReadKeepsTheArchive(t *testing.T) {
 	if err := s.MarkRead(ctx, c.ID, a, m.ID(), b); err != nil {
 		t.Fatal(err)
 	}
-	if got, err := s.Member(ctx, c.ID, a); err != nil || got.ArchivedAt == nil || marker(t, db, c.ID, a) != m.ID() {
+	if got, err := s.Members(ctx, c.ID); err != nil || got[a].ArchivedAt == nil || marker(t, db, c.ID, a) != m.ID() {
 		t.Fatalf("%+v %v", got, err)
 	}
 	if err := s.SetArchived(ctx, c.ID, a, nil); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := s.Member(ctx, c.ID, a); got.ArchivedAt != nil || marker(t, db, c.ID, a) != m.ID() {
+	if got, _ := s.Members(ctx, c.ID); got[a].ArchivedAt != nil || marker(t, db, c.ID, a) != m.ID() {
 		t.Fatalf("unarchive: %+v", got)
 	}
 }

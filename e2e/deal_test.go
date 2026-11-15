@@ -12,11 +12,12 @@ import (
 
 // dealView is the Deal schema, the latest order included.
 type dealView struct {
-	ID          string `json:"id"`
-	Role        string `json:"role"`
-	Status      string `json:"status"`
-	AgreedPrice int64  `json:"agreed_price"`
-	OpenPrice   *struct {
+	ID             string `json:"id"`
+	ConversationID string `json:"conversation_id"`
+	Role           string `json:"role"`
+	Status         string `json:"status"`
+	AgreedPrice    int64  `json:"agreed_price"`
+	OpenPrice      *struct {
 		By     string `json:"by"`
 		Amount int64  `json:"amount"`
 	} `json:"open_price"`

@@ -43,7 +43,7 @@ func TestOrderPickups(t *testing.T) {
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	insert := func(mode, point, name string) error {
 		a := pgx.NamedArgs{"deal": uuid.NewV7(), "listing": catalogtest.Listing(t, db, seller), "buyer": buyer, "seller": seller}
-		if _, err := db.Exec(ctx, insertDeal, a); err != nil {
+		if _, err := db.Exec(ctx, insertPairDeal, a); err != nil {
 			t.Fatal(err)
 		}
 		b := pgx.NamedArgs{"mode": mode, "point": null(point), "name": null(name), "phone": nil, "street": nil, "commune": nil, "shipped_at": time.Now()}

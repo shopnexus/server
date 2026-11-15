@@ -60,6 +60,21 @@ type Move struct {
 	At     time.Time
 }
 
+// InChat reports whether the move writes a deal message into the pair's
+// conversation: every move a person makes and every order step, whoever
+// made it. A change of the listing (price_changed, offers_closed,
+// listing_closed) writes none.
+func (m Move) InChat() bool {
+	switch m.Kind {
+	case MovePriceChanged, MoveOffersClosed, MoveListingClosed:
+		return false
+	case MoveOffer, MoveCounter, MoveAccept, MoveDecline, MoveWithdraw, MoveCancel, MoveCodRequested, MoveShipped,
+		MoveShipmentUpdated, MoveCompleted, MoveFailed, MoveOrderCancelled:
+		return true
+	}
+	return false
+}
+
 // OpenPrice is the offer or counter waiting for the other side.
 type OpenPrice struct {
 	By     Party     `json:"by"`
@@ -101,30 +116,32 @@ type Range struct {
 }
 
 // Deal is a buyer's negotiation with a seller over one listing. It holds
-// at most one open price; agreeing reserves nothing.
+// at most one open price; agreeing reserves nothing. It lives in the
+// conversation of its buyer and seller.
 type Deal struct {
-	id          uuid.UUID
-	listingID   uuid.UUID
-	buyerID     uuid.UUID
-	sellerID    uuid.UUID
-	status      Status
-	open        *OpenPrice
-	listedPrice int64
-	agreedPrice int64
-	agreedAt    *time.Time
-	order       *Order
-	writeID     uuid.UUID
-	createdAt   time.Time
-	updatedAt   time.Time
-	pending     []Move
+	id             uuid.UUID
+	conversationID uuid.UUID
+	listingID      uuid.UUID
+	buyerID        uuid.UUID
+	sellerID       uuid.UUID
+	status         Status
+	open           *OpenPrice
+	listedPrice    int64
+	agreedPrice    int64
+	agreedAt       *time.Time
+	order          *Order
+	writeID        uuid.UUID
+	createdAt      time.Time
+	updatedAt      time.Time
+	pending        []Move
 }
 
-// Open starts the buyer's deal on a listing, negotiating with nothing
-// open. The first write ID is the id.
-func Open(id, listingID, buyer, seller uuid.UUID, now time.Time) Deal {
+// Open starts the buyer's deal on a listing in the pair's conversation,
+// negotiating with nothing open. The first write ID is the id.
+func Open(id, conversation, listingID, buyer, seller uuid.UUID, now time.Time) Deal {
 	return Deal{
-		id: id, listingID: listingID, buyerID: buyer, sellerID: seller, status: StatusNegotiating,
-		writeID: id, createdAt: now, updatedAt: now,
+		id: id, conversationID: conversation, listingID: listingID, buyerID: buyer, sellerID: seller,
+		status: StatusNegotiating, writeID: id, createdAt: now, updatedAt: now,
 	}
 }
 
@@ -521,13 +538,14 @@ func roundUp(v int64) int64 { return (v + Step - 1) / Step * Step }
 // below is the largest multiple of Step under v.
 func below(v int64) int64 { return (v - 1) / Step * Step }
 
-func (d *Deal) ID() uuid.UUID        { return d.id }
-func (d *Deal) ListingID() uuid.UUID { return d.listingID }
-func (d *Deal) BuyerID() uuid.UUID   { return d.buyerID }
-func (d *Deal) SellerID() uuid.UUID  { return d.sellerID }
-func (d *Deal) Status() Status       { return d.status }
-func (d *Deal) AgreedPrice() int64   { return d.agreedPrice }
-func (d *Deal) AgreedAt() *time.Time { return d.agreedAt }
+func (d *Deal) ID() uuid.UUID             { return d.id }
+func (d *Deal) ConversationID() uuid.UUID { return d.conversationID }
+func (d *Deal) ListingID() uuid.UUID      { return d.listingID }
+func (d *Deal) BuyerID() uuid.UUID        { return d.buyerID }
+func (d *Deal) SellerID() uuid.UUID       { return d.sellerID }
+func (d *Deal) Status() Status            { return d.status }
+func (d *Deal) AgreedPrice() int64        { return d.agreedPrice }
+func (d *Deal) AgreedAt() *time.Time      { return d.agreedAt }
 
 // Order returns a copy of the deal's latest order, nil before the first.
 func (d *Deal) Order() *Order {
@@ -551,25 +569,26 @@ func (d *Deal) Pending() []Move { return append([]Move{}, d.pending...) }
 // DealState is every stored field of a deal, with its latest order. Stores
 // and the flows that journal a deal only.
 type DealState struct {
-	ID          uuid.UUID  `json:"id"`
-	ListingID   uuid.UUID  `json:"listing_id"`
-	BuyerID     uuid.UUID  `json:"buyer_id"`
-	SellerID    uuid.UUID  `json:"seller_id"`
-	Status      Status     `json:"status"`
-	Open        *OpenPrice `json:"open,omitempty"`
-	ListedPrice int64      `json:"listed_price"`
-	AgreedPrice int64      `json:"agreed_price"`
-	AgreedAt    *time.Time `json:"agreed_at,omitempty"`
-	Order       *Order     `json:"order,omitempty"`
-	WriteID     uuid.UUID  `json:"write_id"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
+	ID             uuid.UUID  `json:"id"`
+	ConversationID uuid.UUID  `json:"conversation_id"`
+	ListingID      uuid.UUID  `json:"listing_id"`
+	BuyerID        uuid.UUID  `json:"buyer_id"`
+	SellerID       uuid.UUID  `json:"seller_id"`
+	Status         Status     `json:"status"`
+	Open           *OpenPrice `json:"open,omitempty"`
+	ListedPrice    int64      `json:"listed_price"`
+	AgreedPrice    int64      `json:"agreed_price"`
+	AgreedAt       *time.Time `json:"agreed_at,omitempty"`
+	Order          *Order     `json:"order,omitempty"`
+	WriteID        uuid.UUID  `json:"write_id"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 // RestoreDeal rebuilds a stored deal. Stores only.
 func RestoreDeal(st DealState) Deal {
 	return Deal{
-		id: st.ID, listingID: st.ListingID, buyerID: st.BuyerID, sellerID: st.SellerID, status: st.Status,
+		id: st.ID, conversationID: st.ConversationID, listingID: st.ListingID, buyerID: st.BuyerID, sellerID: st.SellerID, status: st.Status,
 		open: st.Open, listedPrice: st.ListedPrice, agreedPrice: st.AgreedPrice, agreedAt: st.AgreedAt,
 		order: st.Order, writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
 	}
@@ -578,7 +597,7 @@ func RestoreDeal(st DealState) Deal {
 // State returns every stored field. Stores only.
 func (d *Deal) State() DealState {
 	return DealState{
-		ID: d.id, ListingID: d.listingID, BuyerID: d.buyerID, SellerID: d.sellerID, Status: d.status,
+		ID: d.id, ConversationID: d.conversationID, ListingID: d.listingID, BuyerID: d.buyerID, SellerID: d.sellerID, Status: d.status,
 		Open: d.OpenPrice(), ListedPrice: d.listedPrice, AgreedPrice: d.agreedPrice, AgreedAt: d.agreedAt,
 		Order: d.Order(), WriteID: d.writeID, CreatedAt: d.createdAt, UpdatedAt: d.updatedAt,
 	}

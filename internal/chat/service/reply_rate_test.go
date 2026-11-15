@@ -24,8 +24,9 @@ type line struct {
 	listing uuid.UUID
 }
 
-// thread writes a pair conversation of a and b with lines, oldest first.
-func thread(t *testing.T, db *pgxpool.Pool, now time.Time, a, b uuid.UUID, lines ...line) {
+// thread writes a pair conversation of a and b with lines, oldest first,
+// and returns its ID.
+func thread(t *testing.T, db *pgxpool.Pool, now time.Time, a, b uuid.UUID, lines ...line) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
 	if b.String() < a.String() {
@@ -57,6 +58,7 @@ VALUES (@id, @c, @from, 'Còn không bạn?', '[]', @listing, 'sent', @at)`, pgx
 			t.Fatal(err)
 		}
 	}
+	return conv
 }
 
 // The reply rate counts the conversations others started about the
@@ -99,5 +101,30 @@ func TestReplyRate(t *testing.T) {
 	}
 	if got, err = s.ReplyRate(ctx, late); err != nil || got != nil {
 		t.Fatalf("a buyer has no rate: %+v %v", got, err)
+	}
+}
+
+// A buyer's first message in a conversation their deal opened names no
+// listing, and the conversation counts by the deal; without a deal of the
+// seller's as seller it does not.
+func TestReplyRateCountsByTheDeal(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	now := time.Now().Truncate(time.Second)
+	s := service.New(service.Deps{Chats: repository.NewChats(db), Now: func() time.Time { return now }})
+	seller := accounttest.New(t, db)
+	day := 24 * time.Hour
+	for range 5 {
+		buyer := accounttest.New(t, db)
+		conv := thread(t, db, now, seller, buyer, line{buyer, 2 * day, uuid.UUID{}}, line{seller, 2*day - time.Hour, uuid.UUID{}})
+		dealIn(t, db, conv, buyer, seller)
+	}
+	// The seller bought here: the deal is not about the seller's listing.
+	other := accounttest.New(t, db)
+	dealIn(t, db, thread(t, db, now, seller, other, line{other, 2 * day, uuid.UUID{}}), seller, other)
+	got, err := s.ReplyRate(ctx, seller)
+	if err != nil || got == nil || *got != (service.ReplyRate{Percent: 100, Count: 5}) {
+		t.Fatalf("%+v %v", got, err)
 	}
 }

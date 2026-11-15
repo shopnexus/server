@@ -19,14 +19,16 @@ type inboxRow struct {
 		ID      string `json:"id"`
 		Deleted bool   `json:"deleted"`
 	} `json:"other"`
-	Unread   int  `json:"unread"`
-	Archived bool `json:"archived"`
-	Deal     *struct {
-		ID        string `json:"id"`
-		Role      string `json:"role"`
-		Status    string `json:"status"`
-		YourTurn  bool   `json:"your_turn"`
-		OpenPrice *struct {
+	LastMessage messageBody `json:"last_message"`
+	Unread      int         `json:"unread"`
+	Archived    bool        `json:"archived"`
+	Deal        *struct {
+		ID             string `json:"id"`
+		ConversationID string `json:"conversation_id"`
+		Role           string `json:"role"`
+		Status         string `json:"status"`
+		YourTurn       bool   `json:"your_turn"`
+		OpenPrice      *struct {
 			By string `json:"by"`
 		} `json:"open_price"`
 		Listing struct {
@@ -43,6 +45,8 @@ type chatScreen struct {
 		ID string `json:"id"`
 	} `json:"other"`
 	Archived    bool              `json:"archived"`
+	Blocked     bool              `json:"blocked"`
+	OtherRead   string            `json:"other_read_message_id"`
 	Deals       []dealView        `json:"deals"`
 	Messages    page[messageBody] `json:"messages"`
 	ScamWarning *scamWarning      `json:"scam_warning"`
@@ -77,8 +81,9 @@ func inboxView(t *testing.T, token, query string) inboxScreen {
 func inboxRows(t *testing.T, token string) map[string]inboxRow {
 	t.Helper()
 	rows := map[string]inboxRow{}
-	for _, r := range inboxView(t, token, "").Items {
-		rows[r.Other.ID] = r
+	items := inboxView(t, token, "").Items
+	for i := range items {
+		rows[items[i].Other.ID] = items[i]
 	}
 	return rows
 }

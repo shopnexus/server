@@ -59,17 +59,7 @@ func (w Worker) ServiceName() string { return w.Prefix + "NotificationWorker" }
 // deal does not have, as when a replayed save minted other IDs than the
 // ones it committed, tells no one.
 func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
-	var ids []uuid.UUID
-	raw, _ := e.Payload["moves"].([]any) //nolint:revive // an event without moves tells no one
-	for _, v := range raw {
-		s, ok := v.(string)
-		if !ok {
-			continue
-		}
-		if id, err := uuid.Parse(s); err == nil {
-			ids = append(ids, id)
-		}
-	}
+	ids := dealsvc.MovedIDs(e)
 	f, err := restate.Run(ctx, func(rc restate.RunContext) (domain.DealFacts, error) {
 		facts, found, stepErr := w.Deals.Moves(rc, e.SubjectID, ids)
 		if stepErr != nil {

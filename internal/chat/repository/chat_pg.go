@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/chat/domain"
@@ -22,19 +23,23 @@ type pgChats struct{ db *pgxpool.Pool }
 func NewChats(db *pgxpool.Pool) Chats { return pgChats{db} }
 
 const messageColumns = `m.id, m.conversation_id, m.sender_id, m.body, m.photos, m.listing_id, m.reply_to, m.status,
-       m.failure, m.created_at`
+       m.failure, m.created_at, m.deal_id, m.move_kind, m.move_by, m.move_amount`
 
 // messageScan holds a message's columns while a row is scanned.
 type messageScan struct {
-	st      domain.MessageState
-	photos  []byte
-	failure *string
+	st         domain.MessageState
+	photos     []byte
+	failure    *string
+	dealID     *uuid.UUID
+	moveKind   *string
+	moveBy     *string
+	moveAmount *int64
 }
 
 func (m *messageScan) dest() []any {
 	return []any{
 		&m.st.ID, &m.st.ConversationID, &m.st.SenderID, &m.st.Body, &m.photos, &m.st.ListingID, &m.st.ReplyTo,
-		&m.st.Status, &m.failure, &m.st.CreatedAt,
+		&m.st.Status, &m.failure, &m.st.CreatedAt, &m.dealID, &m.moveKind, &m.moveBy, &m.moveAmount,
 	}
 }
 
@@ -45,6 +50,12 @@ func (m *messageScan) message() (domain.Message, error) {
 	}
 	if m.failure != nil {
 		m.st.Failure = *m.failure
+	}
+	if m.dealID != nil {
+		m.st.Deal = &domain.DealMove{DealID: *m.dealID, Kind: *m.moveKind, By: *m.moveBy}
+		if m.moveAmount != nil {
+			m.st.Deal.Amount = *m.moveAmount
+		}
 	}
 	return domain.RestoreMessage(m.st), nil
 }
@@ -82,6 +93,32 @@ VALUES (@id, @a), (@id, @b) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"id": o
 	return out, nil
 }
 
+// errKept ends a DropPair whose conversation something refers to.
+var errKept = errors.New("chat: conversation in use")
+
+func (s pgChats) DropPair(ctx context.Context, id uuid.UUID) error {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `DELETE FROM conversation_members WHERE conversation_id = @id`,
+			pgx.StrictNamedArgs{"id": id}); err != nil {
+			return fmt.Errorf("delete members: %w", err)
+		}
+		// The foreign keys of messages, deals, reports and tickets keep a
+		// conversation in use, and the rollback restores its members.
+		_, err := tx.Exec(ctx, `DELETE FROM conversations WHERE id = @id AND kind = 'pair'`, pgx.StrictNamedArgs{"id": id})
+		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23503" {
+			return errKept
+		}
+		if err != nil {
+			return fmt.Errorf("delete conversation: %w", err)
+		}
+		return nil
+	})
+	if err != nil && !errors.Is(err, errKept) {
+		return fmt.Errorf("drop conversation: %w", err)
+	}
+	return nil
+}
+
 func (s pgChats) Get(ctx context.Context, id uuid.UUID) (domain.Conversation, error) {
 	var c domain.Conversation
 	err := s.db.QueryRow(ctx, `SELECT id, account_a, account_b, kind, created_at FROM conversations WHERE id = @id`,
@@ -116,9 +153,10 @@ UPDATE conversations
 SET last_message_id = @id, last_message_at = @at
 WHERE id = @conversation AND (last_message_id IS NULL OR last_message_id < @id)`
 
-// written moves the last message for a sent message, brings the
-// conversation back from both members' archives, and notifies the members
-// it is visible to.
+// written moves the last message for a sent message and, when the message
+// became the last one, brings the conversation back from both members'
+// archives; it notifies the members the message is visible to either way,
+// since the thread changed.
 func written(ctx context.Context, tx pgx.Tx, m domain.Message) error {
 	var accounts []uuid.UUID
 	if err := tx.QueryRow(ctx, `SELECT array_agg(account_id) FROM conversation_members WHERE conversation_id = @id`,
@@ -126,21 +164,27 @@ func written(ctx context.Context, tx pgx.Tx, m domain.Message) error {
 		return fmt.Errorf("read members: %w", err)
 	}
 	if m.Status() == domain.StatusSent {
-		if _, err := tx.Exec(ctx, moveLast, pgx.StrictNamedArgs{
+		tag, err := tx.Exec(ctx, moveLast, pgx.StrictNamedArgs{
 			"id": m.ID(), "at": m.CreatedAt(), "conversation": m.ConversationID(),
-		}); err != nil {
+		})
+		if err != nil {
 			return fmt.Errorf("move the last message: %w", err)
 		}
-		if _, err := tx.Exec(ctx, `UPDATE conversation_members SET archived_at = NULL WHERE conversation_id = @id`,
-			pgx.StrictNamedArgs{"id": m.ConversationID()}); err != nil {
-			return fmt.Errorf("unarchive: %w", err)
+		if tag.RowsAffected() > 0 {
+			if _, err = tx.Exec(ctx, `UPDATE conversation_members SET archived_at = NULL WHERE conversation_id = @id`,
+				pgx.StrictNamedArgs{"id": m.ConversationID()}); err != nil {
+				return fmt.Errorf("unarchive: %w", err)
+			}
 		}
 		// The message's ID is the event's, so writing it sent again inserts
-		// no second event.
-		if err := events.Insert(ctx, tx, events.Event{
-			ID: m.ID(), Kind: events.MessageSent, SubjectID: m.ID(), OccurredAt: m.CreatedAt(),
-		}); err != nil {
-			return fmt.Errorf("insert message.sent: %w", err)
+		// no second event. A deal message has none: deal.moved already
+		// told whoever hears of the move.
+		if m.Deal() == nil {
+			if err := events.Insert(ctx, tx, events.Event{
+				ID: m.ID(), Kind: events.MessageSent, SubjectID: m.ID(), OccurredAt: m.CreatedAt(),
+			}); err != nil {
+				return fmt.Errorf("insert message.sent: %w", err)
+			}
 		}
 	} else {
 		accounts = []uuid.UUID{m.SenderID()}
@@ -151,14 +195,23 @@ func written(ctx context.Context, tx pgx.Tx, m domain.Message) error {
 
 func (s pgChats) AddMessage(ctx context.Context, m domain.Message) error {
 	st := m.State()
+	a := pgx.StrictNamedArgs{
+		"id": st.ID, "conversation": st.ConversationID, "sender": st.SenderID, "body": st.Body,
+		"photos": photosOf(st), "listing": st.ListingID, "reply_to": st.ReplyTo, "status": st.Status, "at": st.CreatedAt,
+		"deal": nil, "move_kind": nil, "move_by": nil, "move_amount": nil,
+	}
+	if d := st.Deal; d != nil {
+		a["deal"], a["move_kind"], a["move_by"] = d.DealID, d.Kind, d.By
+		if d.Amount != 0 {
+			a["move_amount"] = d.Amount
+		}
+	}
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `INSERT INTO messages (id, conversation_id, sender_id, body, photos, listing_id, reply_to,
-                      status, failure, created_at)
-VALUES (@id, @conversation, @sender, @body, @photos, @listing, @reply_to, @status, NULL, @at)
-ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
-			"id": st.ID, "conversation": st.ConversationID, "sender": st.SenderID, "body": st.Body,
-			"photos": photosOf(st), "listing": st.ListingID, "reply_to": st.ReplyTo, "status": st.Status, "at": st.CreatedAt,
-		})
+                      status, failure, created_at, deal_id, move_kind, move_by, move_amount)
+VALUES (@id, @conversation, @sender, @body, @photos, @listing, @reply_to, @status, NULL, @at, @deal, @move_kind,
+        @move_by, @move_amount)
+ON CONFLICT (id) DO NOTHING`, a)
 		if err != nil {
 			return fmt.Errorf("insert message: %w", err)
 		}
@@ -222,18 +275,28 @@ func (s pgChats) SaveMessage(ctx context.Context, m domain.Message) error {
 	return nil
 }
 
-func (s pgChats) Member(ctx context.Context, conversation, account uuid.UUID) (domain.Member, error) {
-	var m domain.Member
-	err := s.db.QueryRow(ctx, `SELECT archived_at FROM conversation_members
-WHERE conversation_id = @conversation AND account_id = @account`,
-		pgx.StrictNamedArgs{"conversation": conversation, "account": account}).Scan(&m.ArchivedAt)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.Member{}, ErrNotFound
-	}
+func (s pgChats) Members(ctx context.Context, conversation uuid.UUID) (map[uuid.UUID]domain.Member, error) {
+	rows, err := s.db.Query(ctx, `SELECT account_id, archived_at, last_read_message_id FROM conversation_members
+WHERE conversation_id = @conversation`, pgx.StrictNamedArgs{"conversation": conversation})
 	if err != nil {
-		return domain.Member{}, fmt.Errorf("select member: %w", err)
+		return nil, fmt.Errorf("select members: %w", err)
 	}
-	return m, nil
+	out := map[uuid.UUID]domain.Member{}
+	_, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (struct{}, error) {
+		var (
+			account uuid.UUID
+			m       domain.Member
+		)
+		if scanErr := row.Scan(&account, &m.ArchivedAt, &m.LastRead); scanErr != nil {
+			return struct{}{}, fmt.Errorf("scan member: %w", scanErr)
+		}
+		out[account] = m
+		return struct{}{}, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read members: %w", err)
+	}
+	return out, nil
 }
 
 func (s pgChats) MarkRead(ctx context.Context, conversation, account, message, other uuid.UUID) error {
