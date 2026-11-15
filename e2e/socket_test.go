@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/coder/websocket"
 
@@ -20,6 +21,8 @@ type socketFrame struct {
 	ConversationID string `json:"conversation_id"`
 	MessageID      string `json:"message_id"`
 	DealID         string `json:"deal_id"`
+	NotificationID string `json:"notification_id"`
+	ListingReadID  string `json:"listing_read_id"`
 }
 
 type updatePage struct {
@@ -214,4 +217,65 @@ func TestUpdates(t *testing.T) {
 		return fmt.Errorf("no message update in %+v", p)
 	})
 	expectStatus(t, call(t, "GET", "/v1/updates", nil), http.StatusUnauthorized)
+}
+
+// devUpdate is the body of POST /v1/dev/updates.
+type devUpdate struct {
+	Kind           string `json:"kind"`
+	ConversationID string `json:"conversation_id,omitempty"`
+	MessageID      string `json:"message_id,omitempty"`
+	DealID         string `json:"deal_id,omitempty"`
+	NotificationID string `json:"notification_id,omitempty"`
+	ListingReadID  string `json:"listing_read_id,omitempty"`
+}
+
+// Each kind logged through the dev endpoint reaches a socket opened with
+// since as the next seq, with the IDs it was given.
+func TestDevUpdateReachesTheSocket(t *testing.T) {
+	t.Parallel()
+	me, _ := newAccount(t)
+	s := openSocket(t, me.AccessToken, "?since=0")
+	backlog := s.ready(t)
+	seq := backlog[len(backlog)-1].Seq
+	id := func() string { return uuid.NewV7().String() }
+	for _, u := range []devUpdate{
+		{Kind: "message", ConversationID: id(), MessageID: id()},
+		{Kind: "read", ConversationID: id()},
+		{Kind: "deal", DealID: id()},
+		{Kind: "notification", NotificationID: id()},
+		{Kind: "scam_warning", ConversationID: id()},
+		{Kind: "listing_read", ListingReadID: id()},
+	} {
+		seq++
+		logged := expect[socketFrame](t, call(t, "POST", "/v1/dev/updates", u, bearer(me.AccessToken)), http.StatusCreated)
+		got := s.next(t)
+		want := socketFrame{
+			Type: "update", Seq: seq, Kind: u.Kind, ConversationID: u.ConversationID, MessageID: u.MessageID,
+			DealID: u.DealID, NotificationID: u.NotificationID, ListingReadID: u.ListingReadID,
+		}
+		if got != want {
+			t.Fatalf("frame %+v, want %+v", got, want)
+		}
+		if logged.Type = "update"; logged != want {
+			t.Fatalf("logged %+v, want %+v", logged, want)
+		}
+	}
+}
+
+func TestDevUpdateChecksTheIDs(t *testing.T) {
+	t.Parallel()
+	me, _ := newAccount(t)
+	auth, id := bearer(me.AccessToken), uuid.NewV7().String()
+	for name, body := range map[string]map[string]any{
+		"an unknown kind":           {"kind": "typing", "conversation_id": id},
+		"no kind":                   {"conversation_id": id},
+		"a message without its ID":  {"kind": "message", "conversation_id": id},
+		"a deal without its ID":     {"kind": "deal"},
+		"an ID the kind lacks":      {"kind": "deal", "deal_id": id, "conversation_id": id},
+		"an ID that is not a UUID":  {"kind": "notification", "notification_id": "n1"},
+		"a read with another's IDs": {"kind": "read", "listing_read_id": id},
+	} {
+		check(t, name, call(t, "POST", "/v1/dev/updates", body, auth), http.StatusBadRequest, "invalid_request")
+	}
+	expectStatus(t, call(t, "POST", "/v1/dev/updates", map[string]any{"kind": "deal", "deal_id": id}), http.StatusUnauthorized)
 }

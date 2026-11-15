@@ -1286,6 +1286,14 @@ everything after each reconnect and deploy).
   `write_id` alone. The chat views and the seller page show it.
 - `platform/stream` reaches the modules through `stream.Access`, which
   `app` adapts from account and chat.
+- `POST /v1/dev/updates {kind, …ids}` (decided 2026-11-16) logs an update
+  for the caller through the same append as `Notify` and answers 201 with
+  it, `seq` included. The app's live test uses it to check that an update
+  reaches the socket. `app` mounts it behind the auth middleware when
+  `APP_ENV` is not `prod`. The spec's `DevUpdate` is a `oneOf` with one
+  branch per kind, so a missing ID, an ID the kind does not carry or an
+  unknown kind is 400 `invalid_request`. The IDs need not name anything,
+  since `account_updates` has no foreign key.
 
 ### Blocks and follows
 

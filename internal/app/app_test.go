@@ -216,7 +216,8 @@ func TestNewRefusesTheFakeCarrierInProd(t *testing.T) {
 	}
 }
 
-// Without a carrier the dev endpoint is not served; the shipment routes are.
+// Without a carrier the dev endpoint that moves shipments is not served;
+// the shipment routes are, and so is the dev endpoint that logs updates.
 func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
@@ -230,7 +231,25 @@ func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
 	if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/shipments/{code}/status"}) ||
 		!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/shipments/lookup"}) ||
 		!slices.Contains(routes, httpx.Route{Method: "PUT", Path: "/v1/carrier-accounts/{carrier}"}) ||
-		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/carriers/{carrier}/webhook/{secret}"}) {
+		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/carriers/{carrier}/webhook/{secret}"}) ||
+		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/updates"}) {
+		t.Fatalf("routes %v", routes)
+	}
+}
+
+// Production does not serve the dev endpoint that logs updates.
+func TestProdServesNoDevUpdates(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Env, cfg.Email.Sender, cfg.Email.ResendAPIKey, cfg.Carrier.Mode = "prod", "resend", "re_test", "none"
+	a, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { a.Close(context.Background()) })
+	routes := a.Routes()
+	if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/updates"}) ||
+		!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/updates"}) {
 		t.Fatalf("routes %v", routes)
 	}
 }

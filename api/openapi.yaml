@@ -135,6 +135,8 @@ paths:
     $ref: "paths/stream.yaml#/ws"
   /v1/updates:
     $ref: "paths/stream.yaml#/updates"
+  /v1/dev/updates:
+    $ref: "paths/stream.yaml#/devUpdates"
   /v1/conversations:
     $ref: "paths/chat.yaml#/conversations"
   /v1/conversations/{id}/messages:

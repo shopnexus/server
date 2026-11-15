@@ -7,11 +7,32 @@ ws:
       sends the caller's updates after `since` (none without it), or
       `{"type":"reset","seq":N}` when the log no longer holds them, then
       `{"type":"ready","seq":N}`. After that it sends each update as
-      `{"type":"update","seq":N,"kind":…,…ids}` (kinds message, read, deal,
-      notification, with the IDs of the Update schema) in seq order, with
-      no duplicate and no hole, and `{"type":"typing","conversation_id":…}`
-      when the other member types. The app keeps the last seq and passes it
-      as `since` on its next connect; after `reset` it reloads everything.
+      `{"type":"update","seq":N,"kind":…,…ids}`, with the IDs of the Update
+      schema, in seq order, with no duplicate and no hole, and
+      `{"type":"typing","conversation_id":…}` when the other member types.
+      The app keeps the last seq and passes it as `since` on its next
+      connect; after `reset` it reloads everything.
+
+      The kinds, the IDs each carries, what logs one and who gets it:
+
+      - `message` (conversation_id, message_id): a message is written or
+        its status changes. Every member of the conversation gets it once
+        the message is sent; while it is processing, or after it failed,
+        only the sender does.
+      - `read` (conversation_id): a member's read marker moves forward, for
+        the other member; a member marks the conversation unread, or clears
+        that mark by reading, for that member.
+      - `deal` (deal_id): each save of a deal: a move (an offer, accept,
+        decline, withdraw, cancel), a COD order, or any change to its order
+        (the shipment, the carrier's status, receipt, completion), for the
+        buyer and the seller. Opening a deal logs no update, so its first
+        one comes with the move after the opening.
+      - `notification` (notification_id): a notification is added, or an
+        unread one with the same collapse key is bumped, for its recipient.
+      - `scam_warning` (conversation_id): a scam warning in the conversation
+        is raised, grows, or is dismissed, for the warned member.
+      - `listing_read` (listing_read_id): a listing read (video, photo or
+        link) starts or one of its steps is saved, for the account reading.
 
       The app sends `{"type":"typing","conversation_id":…}` (at most one in
       3 seconds per conversation reaches the other member) and, before its
@@ -67,5 +88,36 @@ updates:
           application/json:
             schema:
               $ref: "../schemas/stream.yaml#/UpdatePage"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+devUpdates:
+  post:
+    operationId: logDevUpdate
+    summary: Log an update for the caller, so a test can watch it reach the socket.
+    description: |
+      Served outside APP_ENV=prod, so the dev and test stacks have it and
+      production does not. It appends the update to the caller's log as a
+      real change would: it takes the next seq and reaches the caller's open
+      sockets as an `update` frame. The body carries exactly the IDs of its
+      kind (see GET /v1/ws). They need not name anything, since the log has
+      no foreign key and nothing is read or changed behind them.
+    tags: [stream]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/stream.yaml#/DevUpdate"
+    responses:
+      "201":
+        description: The logged update.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/stream.yaml#/Update"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"

@@ -347,6 +347,9 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Verify: account.TokenVerifier(cfg.Auth), Tick: time.Minute, Now: time.Now, Log: log,
 	}))
 	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
+	if cfg.Env != config.EnvProd {
+		router.Handle("POST /v1/dev/updates", d.Protect(stream.DevUpdateHandler(pool, log)))
+	}
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
