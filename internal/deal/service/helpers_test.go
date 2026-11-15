@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 	"uuid"
@@ -54,7 +55,7 @@ func newEnv(t *testing.T) env {
 	repo := repository.NewDeals(db)
 	deps := service.Deps{
 		Deals: repo, Accounts: accounts, Catalog: c, Chats: chats, Shipping: linkedAt{}, Waits: domain.OrderWaits, Ingress: in,
-		Now: time.Now,
+		Now: time.Now, Log: slog.New(slog.DiscardHandler),
 	}
 	return env{
 		db: db, accounts: accounts, catalog: c, chats: chats, listings: catalogrepo.NewListings(db), repo: repo, deps: deps,

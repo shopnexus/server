@@ -106,10 +106,13 @@ type QuoteView struct {
 const maxQuote = 200
 
 // ConversationView is the Conversation schema in api/schemas/chat.yaml.
+// OtherRead is the newest message the other member has read, nil before
+// they read any.
 type ConversationView struct {
-	ID       uuid.UUID  `json:"id"`
-	Other    PersonView `json:"other"`
-	Archived bool       `json:"archived"`
+	ID        uuid.UUID  `json:"id"`
+	Other     PersonView `json:"other"`
+	Archived  bool       `json:"archived"`
+	OtherRead *uuid.UUID `json:"other_read_message_id,omitempty"`
 }
 
 // InboxItem is a conversation in the inbox.

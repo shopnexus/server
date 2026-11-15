@@ -69,6 +69,10 @@ VALUES (@id, LEAST(@a::uuid, @b::uuid), GREATEST(@a::uuid, @b::uuid), 'pair', no
 AND account_id IN (@a, @b)`, pgx.StrictNamedArgs{"id": opened, "a": seller, "b": silent}).Scan(&members); err != nil || members != 2 {
 		t.Fatalf("members of the opened conversation: %d %v", members, err)
 	}
+	if err := db.QueryRow(ctx, `SELECT count(*) FROM conversation_members WHERE conversation_id = @id`,
+		pgx.StrictNamedArgs{"id": existing}).Scan(&members); err != nil || members != 0 {
+		t.Fatalf("members added to a conversation the migration did not open: %d %v", members, err)
+	}
 	var pairs int
 	if err := db.QueryRow(ctx, `SELECT count(*) FROM conversations WHERE kind = 'pair'`).Scan(&pairs); err != nil || pairs != 2 {
 		t.Fatalf("pair conversations: %d %v", pairs, err)

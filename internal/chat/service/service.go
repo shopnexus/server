@@ -44,22 +44,25 @@ type Service interface {
 	// Inbox lists account's conversations, archived or not, newest message
 	// first.
 	Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request) (page.Page[InboxItem], error)
-	// Get reads a conversation of account's.
+	// Get reads a conversation of account's, with the other member's read
+	// marker.
 	Get(ctx context.Context, account, conversation uuid.UUID) (ConversationView, error)
 	// ConversationWith returns the ID of account's conversation with other;
 	// the zero ID when the two have none.
 	ConversationWith(ctx context.Context, account, other uuid.UUID) (uuid.UUID, error)
 	// OpenPair returns the ID of the conversation of one and other, opening
-	// it when the two have none. Module deal opens it with a deal and has
-	// checked the two may deal.
-	OpenPair(ctx context.Context, one, other uuid.UUID) (uuid.UUID, error)
+	// it when the two have none; opened reports a new one. Module deal opens
+	// it with a deal and has checked the two may deal.
+	OpenPair(ctx context.Context, one, other uuid.UUID) (id uuid.UUID, opened bool, err error)
+	// DropPair deletes a pair conversation that OpenPair opened while no
+	// message, deal or other row refers to it; one in use stays. Module
+	// deal drops the conversation it opened for a deal it could not store.
+	DropPair(ctx context.Context, id uuid.UUID) error
 	// PostMove writes the deal message of a move into the pair's
-	// conversation. Posting the same move again writes nothing more. Module
-	// deal only.
+	// conversation. Posting the same move again writes nothing more; a
+	// move that does not belong there is domain.ErrMisplacedMove, which no
+	// retry fixes. Module deal only.
 	PostMove(ctx context.Context, in MoveInput) error
-	// OtherRead returns the newest message the other member of a
-	// conversation of account's has read; nil before they read any.
-	OtherRead(ctx context.Context, account, conversation uuid.UUID) (*uuid.UUID, error)
 	// Peer returns the other member of conversation when account is a
 	// member and neither blocks the other; ok is false otherwise, and for an
 	// unknown conversation.
@@ -134,23 +137,15 @@ func (c *Chat) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{restate.Reflect(MessageSend{Chat: c}), restate.Reflect(MessagePublish{Chat: c})}
 }
 
-// member loads a conversation of account's and account's place in it;
-// anyone else gets domain.ErrNotFound, so a conversation's existence does
-// not leak.
-func (c *Chat) member(ctx context.Context, account, id uuid.UUID) (domain.Conversation, domain.Member, error) {
+// member loads a conversation of account's; anyone else gets
+// domain.ErrNotFound, so a conversation's existence does not leak.
+func (c *Chat) member(ctx context.Context, account, id uuid.UUID) (domain.Conversation, error) {
 	conv, err := c.chats.Get(ctx, id)
-	if errors.Is(err, repository.ErrNotFound) {
-		return domain.Conversation{}, domain.Member{}, domain.ErrNotFound
+	if errors.Is(err, repository.ErrNotFound) || (err == nil && !conv.Has(account)) {
+		return domain.Conversation{}, domain.ErrNotFound
 	}
 	if err != nil {
-		return domain.Conversation{}, domain.Member{}, fmt.Errorf("get conversation: %w", err)
+		return domain.Conversation{}, fmt.Errorf("get conversation: %w", err)
 	}
-	if !conv.Has(account) {
-		return domain.Conversation{}, domain.Member{}, domain.ErrNotFound
-	}
-	m, err := c.chats.Member(ctx, id, account)
-	if err != nil {
-		return domain.Conversation{}, domain.Member{}, fmt.Errorf("get member: %w", err)
-	}
-	return conv, m, nil
+	return conv, nil
 }

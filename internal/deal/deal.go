@@ -39,7 +39,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 	waits.Poll = s.PollEvery
 	svc := service.New(service.Deps{
 		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Catalog: catalog, Chats: chats, Shipping: s.Shipping,
-		Waits: waits, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
+		Waits: waits, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, s.FakeCarrier)
 	watch := worker.ListingWatch{Prefix: d.ServicePrefix, Deals: svc}

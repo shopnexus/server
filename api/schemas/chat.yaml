@@ -36,7 +36,10 @@ MessageDraft:
     reply_to:
       type: string
       format: uuid
-      description: A sent message of the same conversation the message quotes (invalid_message, field reply_to).
+      description: |
+        A sent message of the same conversation the message quotes. A deal
+        message cannot be quoted. Anything else is invalid_message with
+        field reply_to.
 ReadMark:
   type: object
   additionalProperties: false
@@ -155,6 +158,12 @@ Conversation:
       $ref: "#/Person"
     archived:
       type: boolean
+    other_read_message_id:
+      type: string
+      format: uuid
+      description: |
+        The newest message the other member has read, for "Đã xem" under the
+        caller's messages up to it. Absent while they have read nothing.
 MessageList:
   type: object
   additionalProperties: false

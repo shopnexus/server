@@ -1,6 +1,15 @@
 package domain
 
-import "github.com/shopnexus/server2/internal/platform/apperr"
+import (
+	"errors"
+
+	"github.com/shopnexus/server2/internal/platform/apperr"
+)
+
+// ErrMisplacedMove is a move posted to a conversation that is not its
+// pair's, by someone who is neither a member nor ShopNexus. Posting it
+// again cannot succeed.
+var ErrMisplacedMove = errors.New("chat: the move does not belong in the conversation")
 
 var (
 	ErrNotFound            = apperr.New(apperr.KindNotFound, "conversation_not_found", "no such conversation of the caller's")

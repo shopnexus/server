@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 	"uuid"
 
@@ -42,8 +43,8 @@ type Service interface {
 	Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (MoveFacts, bool, error)
 	// PostMoves writes the deal message of each move of ids on a deal that
 	// belongs in chat into the deal's conversation; a move the deal lacks,
-	// or one posted already, writes nothing. The worker calls it on
-	// deal.moved.
+	// or one posted already, writes nothing. A move chat refuses is
+	// chatdomain.ErrMisplacedMove. The worker calls it on deal.moved.
 	PostMoves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) error
 	// ListMine lists viewer's deals on side as, newest first.
 	ListMine(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[DealView], error)
@@ -130,6 +131,7 @@ type Deps struct {
 	Ingress *ingress.Client
 	Prefix  string
 	Now     func() time.Time
+	Log     *slog.Logger
 }
 
 // flowHandler is the handler of every flow service the module calls.
@@ -146,6 +148,7 @@ type Deals struct {
 	ingress  *ingress.Client
 	prefix   string
 	now      func() time.Time
+	log      *slog.Logger
 	ship     restatex.Caller[FlowInput, FlowResult]
 	confirm  restatex.Caller[FlowInput, FlowResult]
 	shipment restatex.Caller[ShipmentSignal, ShipmentResult]
@@ -161,7 +164,7 @@ func New(d Deps) *Deals {
 	}
 	return &Deals{
 		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, chats: d.Chats, shipping: d.Shipping, waits: d.Waits, ingress: d.Ingress,
-		prefix: d.Prefix, now: d.Now,
+		prefix: d.Prefix, now: d.Now, log: d.Log,
 		ship:    restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: flowHandler},
 		confirm: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealConfirm, Handler: flowHandler},
 		shipment: restatex.Caller[ShipmentSignal, ShipmentResult]{

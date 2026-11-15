@@ -15,7 +15,9 @@ import (
 // Open returns the buyer's deal on the listing or starts one. Starting
 // needs an account that is not suspended and has a phone, on someone else's active
 // listing, with no block between the two; it opens the pair's conversation
-// or reuses it. Two opens at once start one deal in one conversation.
+// or reuses it. Two opens at once start one deal in one conversation. A
+// conversation opened for a deal that could not be stored is dropped
+// again, unless something else uses it by then.
 func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView, bool, error) {
 	l, err := s.listing(ctx, listingID)
 	if err != nil {
@@ -56,14 +58,20 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 	if l.Status != catalogdomain.StatusActive {
 		return DealView{}, false, domain.ErrListingUnavailable
 	}
-	conversation, err := s.chats.OpenPair(ctx, buyer, l.SellerID)
+	conversation, opened, err := s.chats.OpenPair(ctx, buyer, l.SellerID)
 	if err != nil {
 		return DealView{}, false, fmt.Errorf("open the conversation: %w", err)
 	}
 	d = domain.Open(uuid.NewV7(), conversation, listingID, buyer, l.SellerID, s.now())
 	created, err := s.deals.Insert(ctx, d)
 	if err != nil {
-		return DealView{}, false, fmt.Errorf("insert deal: %w", err)
+		err = fmt.Errorf("insert deal: %w", err)
+		if opened {
+			if dropErr := s.chats.DropPair(ctx, conversation); dropErr != nil {
+				err = errors.Join(err, fmt.Errorf("drop the conversation: %w", dropErr))
+			}
+		}
+		return DealView{}, false, err
 	}
 	if !created {
 		if d, err = s.deals.Find(ctx, listingID, buyer); err != nil {

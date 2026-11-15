@@ -9,31 +9,33 @@
 
 ALTER TABLE deals ADD COLUMN conversation_id uuid REFERENCES conversations (id);
 
-INSERT INTO conversations (id, account_a, account_b, kind, created_at)
-SELECT
-    uuidv7() AS id,
-    pair.account_a,
-    pair.account_b,
-    'pair' AS kind,
-    pair.opened_at
-FROM (
+-- Only the conversations opened here need members; the others have theirs.
+WITH opened AS (
+    INSERT INTO conversations (id, account_a, account_b, kind, created_at)
     SELECT
-        least(buyer_id, seller_id) AS account_a,
-        greatest(buyer_id, seller_id) AS account_b,
-        min(created_at) AS opened_at
-    FROM deals
-    GROUP BY least(buyer_id, seller_id), greatest(buyer_id, seller_id)
-) AS pair
-ON CONFLICT (account_a, account_b) WHERE kind = 'pair' DO NOTHING;
+        uuidv7() AS id,
+        pair.account_a,
+        pair.account_b,
+        'pair' AS kind,
+        pair.opened_at
+    FROM (
+        SELECT
+            least(buyer_id, seller_id) AS account_a,
+            greatest(buyer_id, seller_id) AS account_b,
+            min(created_at) AS opened_at
+        FROM deals
+        GROUP BY least(buyer_id, seller_id), greatest(buyer_id, seller_id)
+    ) AS pair
+    ON CONFLICT (account_a, account_b) WHERE kind = 'pair' DO NOTHING
+    RETURNING id, account_a, account_b
+)
 
 INSERT INTO conversation_members (conversation_id, account_id)
 SELECT
-    c.id,
+    opened.id,
     member.account_id
-FROM conversations AS c
-CROSS JOIN LATERAL (VALUES (c.account_a), (c.account_b)) AS member (account_id)
-WHERE c.kind = 'pair'
-ON CONFLICT DO NOTHING;
+FROM opened
+CROSS JOIN LATERAL (VALUES (opened.account_a), (opened.account_b)) AS member (account_id);
 
 UPDATE deals AS d
 SET conversation_id = c.id
@@ -44,6 +46,8 @@ WHERE
     AND c.account_b = greatest(d.buyer_id, d.seller_id);
 
 ALTER TABLE deals ALTER COLUMN conversation_id SET NOT NULL;
+
+CREATE INDEX deals_conversation ON deals (conversation_id);
 
 ALTER TABLE messages
 ADD COLUMN deal_id uuid REFERENCES deals (id),
@@ -56,3 +60,5 @@ ADD CONSTRAINT messages_deal_move CHECK (
     AND (deal_id IS NOT NULL OR move_amount IS NULL)
     AND (deal_id IS NULL OR (body = '' AND photos = '[]'::jsonb AND status = 'sent'))
 );
+
+CREATE INDEX messages_deal ON messages (deal_id) WHERE deal_id IS NOT NULL;

@@ -415,6 +415,19 @@ WHERE deal_id = ANY(@ids) ORDER BY id`, pgx.StrictNamedArgs{"ids": ids})
 	return out, nil
 }
 
+func (s pgDeals) MovesOf(ctx context.Context, deal uuid.UUID, ids []uuid.UUID) ([]domain.Move, error) {
+	rows, err := s.db.Query(ctx, `SELECT id, kind, by_party, coalesce(amount, 0), moved_at FROM deal_moves
+WHERE deal_id = @deal AND id = ANY(@ids) ORDER BY id`, pgx.StrictNamedArgs{"deal": deal, "ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("select moves: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, pgx.RowToStructByPos[domain.Move])
+	if err != nil {
+		return nil, fmt.Errorf("read moves: %w", err)
+	}
+	return out, nil
+}
+
 // selectOrder reads orders as o with their deals.
 const selectOrder = `SELECT o.deal_id, o.listing_id, o.buyer_id, o.seller_id, ` + orderColumns + `
 FROM orders o

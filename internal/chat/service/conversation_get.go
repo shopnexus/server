@@ -33,10 +33,16 @@ func (c *Chat) Inbox(ctx context.Context, account uuid.UUID, archived bool, p pa
 	return page.Of(items, p, func(it InboxItem) uuid.UUID { return it.LastMessage.ID }), nil
 }
 
+// Get reads both member rows in one query, so the other member's read
+// marker costs no round trip of its own.
 func (c *Chat) Get(ctx context.Context, account, conversation uuid.UUID) (ConversationView, error) {
-	conv, m, err := c.member(ctx, account, conversation)
+	conv, err := c.member(ctx, account, conversation)
 	if err != nil {
 		return ConversationView{}, err
+	}
+	members, err := c.chats.Members(ctx, conversation)
+	if err != nil {
+		return ConversationView{}, fmt.Errorf("get members: %w", err)
 	}
 	id := conv.Other(account)
 	other, err := c.accounts.Get(ctx, id)
@@ -44,7 +50,8 @@ func (c *Chat) Get(ctx context.Context, account, conversation uuid.UUID) (Conver
 		return ConversationView{}, fmt.Errorf("read the other member: %w", err)
 	}
 	return ConversationView{
-		ID: conv.ID, Other: personView(id, other), Archived: m.ArchivedAt != nil,
+		ID: conv.ID, Other: personView(id, other), Archived: members[account].ArchivedAt != nil,
+		OtherRead: members[id].LastRead,
 	}, nil
 }
 
@@ -60,7 +67,7 @@ func (c *Chat) ConversationWith(ctx context.Context, account, other uuid.UUID) (
 }
 
 func (c *Chat) Messages(ctx context.Context, account, conversation uuid.UUID, p page.Request) (page.Page[MessageView], error) {
-	if _, _, err := c.member(ctx, account, conversation); err != nil {
+	if _, err := c.member(ctx, account, conversation); err != nil {
 		return page.Page[MessageView]{}, err
 	}
 	rows, err := c.chats.Messages(ctx, conversation, account, p)

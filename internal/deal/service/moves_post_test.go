@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"uuid"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/deal/domain"
+	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -99,5 +101,76 @@ func TestPostMoves(t *testing.T) {
 	}
 	if err = e.deals.PostMoves(ctx, uuid.NewV7(), nil); err != nil {
 		t.Fatalf("an unknown deal: %v", err)
+	}
+}
+
+// failingInsert is a store whose Insert fails, as a lost connection does.
+type failingInsert struct{ repository.Deals }
+
+func (failingInsert) Insert(context.Context, domain.Deal) (bool, error) {
+	return false, errors.New("connection lost")
+}
+
+// A deal that could not be stored leaves no conversation it opened, and
+// keeps one the pair had.
+func TestOpenThatFailsLeavesNoConversation(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	deps := e.deps
+	deps.Deals = failingInsert{e.repo}
+	deals := start(t, deps)
+	seller, buyer := e.person(t), e.person(t)
+	if _, _, err := deals.Open(ctx, buyer, catalogtest.Listing(t, e.db, seller)); err == nil {
+		t.Fatal("the open succeeded")
+	}
+	if conv, err := e.chats.ConversationWith(ctx, buyer, seller); err != nil || conv != (uuid.UUID{}) {
+		t.Fatalf("a conversation stayed: %s %v", conv, err)
+	}
+	had := e.open(t, buyer, catalogtest.Listing(t, e.db, seller)).ConversationID
+	if _, _, err := deals.Open(ctx, buyer, catalogtest.Listing(t, e.db, seller)); err == nil {
+		t.Fatal("the second open succeeded")
+	}
+	if conv, err := e.chats.ConversationWith(ctx, buyer, seller); err != nil || conv != had {
+		t.Fatalf("the pair's conversation: %s %v, want %s", conv, err, had)
+	}
+}
+
+// strayParty is a store whose moves carry a party the deal does not know.
+type strayParty struct{ repository.Deals }
+
+func (s strayParty) MovesOf(ctx context.Context, deal uuid.UUID, ids []uuid.UUID) ([]domain.Move, error) {
+	moves, err := s.Deals.MovesOf(ctx, deal, ids)
+	for i := range moves {
+		if moves[i].Kind == domain.MoveOffer {
+			moves[i].By = "admin"
+		}
+	}
+	return moves, err
+}
+
+// A move of no party is skipped and the others are posted.
+func TestPostMovesSkipsAStrayParty(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	deps := e.deps
+	deps.Deals = strayParty{e.repo}
+	deals := start(t, deps)
+	seller, buyer := e.person(t), e.person(t)
+	d := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
+	must(t)(e.deals.Offer(ctx, buyer, d.ID, 1_000_000))
+	must(t)(e.deals.Offer(ctx, seller, d.ID, 1_300_000))
+	moves, err := e.repo.Moves(ctx, []uuid.UUID{d.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := []uuid.UUID{moves[d.ID][0].ID, moves[d.ID][1].ID}
+	if err = deals.PostMoves(ctx, d.ID, ids); err != nil {
+		t.Fatal(err)
+	}
+	p, err := e.chats.Messages(ctx, buyer, d.ConversationID, page.Request{})
+	if err != nil || len(p.Items) != 1 || p.Items[0].ID != ids[1] {
+		t.Fatalf("%+v %v", p.Items, err)
 	}
 }

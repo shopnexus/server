@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/deal/domain"
@@ -29,7 +28,7 @@ func (s *Deals) Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (M
 		return MoveFacts{}, false, fmt.Errorf("read deal: %w", err)
 	}
 	st := d.State()
-	moves, err := s.deals.Moves(ctx, []uuid.UUID{dealID})
+	moves, err := s.deals.MovesOf(ctx, dealID, ids)
 	if err != nil {
 		return MoveFacts{}, false, fmt.Errorf("read moves: %w", err)
 	}
@@ -44,12 +43,7 @@ func (s *Deals) Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (M
 	f := MoveFacts{
 		DealID: dealID, BuyerID: st.BuyerID, SellerID: st.SellerID,
 		ListingTitle: listing.Title, BuyerName: people[st.BuyerID].DisplayName,
-		SellerName: people[st.SellerID].DisplayName, Order: d.Order(),
-	}
-	for _, m := range moves[dealID] {
-		if slices.Contains(ids, m.ID) {
-			f.Moves = append(f.Moves, m)
-		}
+		SellerName: people[st.SellerID].DisplayName, Order: d.Order(), Moves: moves,
 	}
 	return f, true, nil
 }

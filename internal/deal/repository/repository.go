@@ -73,6 +73,9 @@ type Deals interface {
 	// Moves returns each deal's moves, oldest first; a deal without moves
 	// is absent.
 	Moves(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]domain.Move, error)
+	// MovesOf returns the moves of deal among ids, oldest first; an ID of
+	// no move of the deal is left out.
+	MovesOf(ctx context.Context, deal uuid.UUID, ids []uuid.UUID) ([]domain.Move, error)
 }
 
 // OrderRow is an order with the deal it belongs to.

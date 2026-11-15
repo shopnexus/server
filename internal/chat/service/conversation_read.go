@@ -14,7 +14,7 @@ import (
 // conversation; an older one changes nothing. The other member's stream
 // hears of a move.
 func (c *Chat) Read(ctx context.Context, account, conversation, message uuid.UUID) error {
-	conv, _, err := c.member(ctx, account, conversation)
+	conv, err := c.member(ctx, account, conversation)
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func (c *Chat) Read(ctx context.Context, account, conversation, message uuid.UUI
 }
 
 func (c *Chat) MarkUnread(ctx context.Context, account, conversation uuid.UUID) error {
-	conv, _, err := c.member(ctx, account, conversation)
+	conv, err := c.member(ctx, account, conversation)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func (c *Chat) MarkUnread(ctx context.Context, account, conversation uuid.UUID) 
 }
 
 func (c *Chat) Archive(ctx context.Context, account, conversation uuid.UUID) error {
-	conv, _, err := c.member(ctx, account, conversation)
+	conv, err := c.member(ctx, account, conversation)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (c *Chat) Archive(ctx context.Context, account, conversation uuid.UUID) err
 }
 
 func (c *Chat) Unarchive(ctx context.Context, account, conversation uuid.UUID) error {
-	conv, _, err := c.member(ctx, account, conversation)
+	conv, err := c.member(ctx, account, conversation)
 	if err != nil {
 		return err
 	}
@@ -71,16 +71,4 @@ func (c *Chat) Unarchive(ctx context.Context, account, conversation uuid.UUID) e
 		return fmt.Errorf("unarchive: %w", err)
 	}
 	return nil
-}
-
-func (c *Chat) OtherRead(ctx context.Context, account, conversation uuid.UUID) (*uuid.UUID, error) {
-	conv, _, err := c.member(ctx, account, conversation)
-	if err != nil {
-		return nil, err
-	}
-	other, err := c.chats.Member(ctx, conversation, conv.Other(account))
-	if err != nil {
-		return nil, fmt.Errorf("get the other member: %w", err)
-	}
-	return other.LastRead, nil
 }

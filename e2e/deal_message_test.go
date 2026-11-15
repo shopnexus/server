@@ -90,6 +90,8 @@ func TestDealMessages(t *testing.T) {
 		t.Fatalf("the seller's marker: %q, want %s", view.OtherRead, items[0].ID)
 	}
 
+	check(t, "quote a deal message", call(t, "POST", "/v1/conversations/"+d.ConversationID+"/messages",
+		map[string]any{"text": "Ok", "reply_to": items[0].ID}, bearer(seller.AccessToken), newKey()), 422, "invalid_message")
 	check(t, "send a deal message", call(t, "POST", "/v1/conversations/"+d.ConversationID+"/messages",
 		map[string]any{"deal": map[string]any{"deal_id": d.ID}}, bearer(buyer.AccessToken), newKey()), 400, "")
 
