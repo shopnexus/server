@@ -6,16 +6,20 @@ import (
 	"time"
 	"uuid"
 
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
 // ListingScreen is the ListingScreen schema in api/schemas/screen_listing.yaml.
+// DistanceKm is nil without a position; it sits beside the listing because
+// it depends on the request.
 type ListingScreen struct {
-	Listing catalogsvc.ListingView `json:"listing"`
-	Seller  SellerSummary          `json:"seller"`
-	Viewer  *ListingViewer         `json:"viewer,omitempty"`
+	Listing    catalogsvc.ListingView `json:"listing"`
+	DistanceKm *int                   `json:"distance_km,omitempty"`
+	Seller     SellerSummary          `json:"seller"`
+	Viewer     *ListingViewer         `json:"viewer,omitempty"`
 }
 
 // SellerSummary is the SellerSummary schema in api/schemas/screen_listing.yaml.
@@ -38,11 +42,11 @@ type ListingViewer struct {
 }
 
 // Listing reads the listing signed out, so its seller too gets
-// catalogdomain.ErrNotFound for one that is not active or reserved. A
-// viewer who is not the seller also gets their save, deal and
-// conversation with the seller.
-func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingScreen, error) {
-	l, err := s.catalog.Get(ctx, nil, id)
+// catalogdomain.ErrNotFound unless it is active or reserved, then its
+// distance from near. A viewer who is not the seller also gets their save,
+// deal and conversation with the seller.
+func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (ListingScreen, error) {
+	l, distance, err := s.catalog.GetNear(ctx, nil, id, near)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the listing: %w", err)
 	}
@@ -58,7 +62,7 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("count the listings: %w", err)
 	}
-	out := ListingScreen{Listing: l, Seller: SellerSummary{
+	out := ListingScreen{Listing: l, DistanceKm: distance, Seller: SellerSummary{
 		ID: l.SellerID, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, JoinedAt: seller.CreatedAt,
 		Rating: rating, Sold: counts.Sold,
 	}}

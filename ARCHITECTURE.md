@@ -1433,9 +1433,34 @@ app reads a view in one call, and after a socket update it reloads the view
 it shows in one call. Mobile and desktop read the same views; a desktop
 page that shows two views calls both at once.
 
-- `GET /v1/screens/home` (signed in or not, with a position): the category
-  tree with each root's active listings counted, and the first page of
-  `GET /v1/search?sort=nearby`.
+- `GET /v1/screens/home` (signed in or not): the category tree with the
+  active listings counted under each root and in each subcategory, and the
+  first page of `GET /v1/search?sort=nearby` with the same position and
+  `radius_km`.
+- Home without a position (decided 2026-11-15, app plan
+  `2026-11-15-app-wire-discovery.md`): the view answers with an empty
+  `nearby` and no `next_cursor`, where it used to be 400
+  `position_required`. `radius_km` takes the search's rules: 1 to 200, 50
+  km when absent, and `position_required` without a position. Catalog
+  counts the active listings by subcategory in one query, with no
+  exclusions, and a root's count is the sum of its subcategories, since a
+  listing always takes a subcategory: `listings.category_code` references
+  `categories`, and every post and edit checks the code is a leaf. A
+  migration that moves a subcategory to another root moves its count with
+  it, where the old count by `category_root` (the code's prefix) did not.
+  `Counts` lost its `CountField`, as nothing counted by root any more.
+- Distances on the listing and seller views (decided 2026-11-15, same
+  plan): both views and `GET /v1/sellers/{id}/listings` take
+  `near_lat`/`near_lng` or `near_commune` and check them as the search
+  does. The listing view has `distance_km` beside `listing`; the seller
+  view's `listings` and its load more have `distances`, one
+  `{listing_id, distance_km}` per item in the order of the items, and
+  neither field without a position. The distance sits beside the resource
+  because it depends on the request: a `Listing` reads the same for every
+  caller and every endpoint that returns it. `SellerListingList` repeats
+  `ListingList`'s two fields rather than extending it with `allOf`, which
+  the app's Fabrikt codegen may not handle. The listing view reads the
+  listing once, through `GetNear`, and measures from that row.
 - Screen owns no table. Each view is one method of its service that reads
   the other modules' services top to bottom; depguard forbids every other
   module to import it, so it adds no dependency between the others.
@@ -1663,6 +1688,15 @@ Search and the nearby feed (decided 2026-10-27, spec:
 - The searcher sends `near_lat` and `near_lng`, or `near_commune`; neither
   is stored or logged. `distance_km` is whole kilometres, truncated, 0
   meaning under 1 km. Results page by an offset cursor and stop at 500.
+- Catalog owns the position (moved from discovery on 2026-11-15, when the
+  listing and seller views took one): `catalogdomain.Near` is the request's
+  point or commune, `catalogsvc.Origin` resolves it or answers
+  `invalid_position`, and `catalogdomain.DistanceKm`, measured from the
+  listing's own point, is every distance the API shows. Search, watches,
+  the price guide and the views call these. A coordinate of exactly 0
+  reads as absent, as it did before the move, since the query fields are
+  not pointers; no point in Vietnam lies on the equator or the prime
+  meridian.
 - ParadeDB clones are about 13 MB, so the test database's tmpfs is 4 GB,
   and the slower index writes need `max_connections=400` in the test stack.
 
@@ -1724,6 +1758,10 @@ Search).
 - `GET /v1/saved` lists the saves newest first with each listing as it is
   now. A listing hidden or deleted after the save shows its status alone,
   since its seller took it down.
+- A saved listing carries its `category_code`, `condition` and commune name
+  as a search item does (decided 2026-11-15), and a `SearchItem` carries
+  `seller_id` and `category_code`, so the app files and groups both without
+  reading each listing.
 - Each save has a UUIDv7 `id`, so the list pages by it. The 500-save cap
   is counted under `pg_advisory_xact_lock` on the account.
 

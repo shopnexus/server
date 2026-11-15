@@ -43,7 +43,7 @@ func TestWatchAndSweep(t *testing.T) {
 	ctx := context.Background()
 	me := accounttest.New(t, e.db)
 	e.model.answers["xe đạp"] = `{"understood":"Xe đạp","boosts":[{"attr":"phrase","values":["xe đạp"]}],"demotes":[]}`
-	v, created, err := e.discovery.Watch(ctx, me, service.WatchInput{Query: " xe đạp ", PriceMax: 3_000_000, Near: service.Near{Commune: "00004"}})
+	v, created, err := e.discovery.Watch(ctx, me, service.WatchInput{Query: " xe đạp ", PriceMax: 3_000_000, Near: catalogdomain.Near{Commune: "00004"}})
 	if err != nil || !created || v.Query != "xe đạp" || v.Area == nil || v.Area.CommuneCode != "00004" || v.Area.Name == "" || !v.Alert {
 		t.Fatalf("%+v %v %v", v, created, err)
 	}
@@ -144,15 +144,15 @@ func TestWatchRefusals(t *testing.T) {
 	}{
 		"price range":      {service.WatchInput{Query: "a", PriceMin: 2, PriceMax: 1}, domain.ErrInvalidPriceRange},
 		"radius, no place": {service.WatchInput{Query: "a", RadiusKm: 5}, domain.ErrPositionRequired},
-		"unknown commune":  {service.WatchInput{Query: "a", Near: service.Near{Commune: "99999"}}, domain.ErrInvalidPosition},
-		"abroad":           {service.WatchInput{Query: "a", Near: service.Near{Lat: 48.85, Lng: 2.35}}, domain.ErrInvalidPosition},
-		"lat without lng":  {service.WatchInput{Query: "a", Near: service.Near{Lat: 21.03}}, domain.ErrInvalidPosition},
+		"unknown commune":  {service.WatchInput{Query: "a", Near: catalogdomain.Near{Commune: "99999"}}, catalogdomain.ErrInvalidPosition},
+		"abroad":           {service.WatchInput{Query: "a", Near: catalogdomain.Near{Lat: 48.85, Lng: 2.35}}, catalogdomain.ErrInvalidPosition},
+		"lat without lng":  {service.WatchInput{Query: "a", Near: catalogdomain.Near{Lat: 21.03}}, catalogdomain.ErrInvalidPosition},
 	} {
 		if _, _, err := e.discovery.Watch(ctx, me, c.in); !errors.Is(err, c.want) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
-	v, _, err := e.discovery.Watch(ctx, me, service.WatchInput{Query: "xe", Near: service.Near{Lat: baDinh.Lat, Lng: baDinh.Lng}})
+	v, _, err := e.discovery.Watch(ctx, me, service.WatchInput{Query: "xe", Near: catalogdomain.Near{Lat: baDinh.Lat, Lng: baDinh.Lng}})
 	if err != nil || v.Area == nil {
 		t.Fatalf("a GPS point becomes its commune: %+v %v", v, err)
 	}

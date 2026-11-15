@@ -10,4 +10,6 @@ var (
 	ErrDraftNotFound     = apperr.New(apperr.KindNotFound, "draft_not_found", "no such draft of the caller's")
 	ErrDraftLimitReached = apperr.New(apperr.KindConflict, "draft_limit_reached", "at most 20 drafts")
 	ErrNoCommuneNear     = apperr.New(apperr.KindNotFound, "no_commune_near", "no commune lies within 30 km of the point")
+	ErrInvalidPosition   = apperr.New(apperr.KindBadRequest, "invalid_position",
+		"near_lat and near_lng go together, within -90..90 and -180..180, or near_commune names a commune")
 )

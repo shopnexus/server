@@ -125,9 +125,9 @@ func TestSearchRefusals(t *testing.T) {
 	}{
 		"nearest without a position":  {service.SearchInput{Sort: catalogdomain.SortNearest}, domain.ErrPositionRequired},
 		"a radius without a position": {service.SearchInput{RadiusKm: 5}, domain.ErrPositionRequired},
-		"a latitude out of range":     {service.SearchInput{Near: service.Near{Lat: 95, Lng: 1}}, domain.ErrInvalidPosition},
-		"a latitude alone":            {service.SearchInput{Near: service.Near{Lat: 10}}, domain.ErrInvalidPosition},
-		"an unknown commune":          {service.SearchInput{Near: service.Near{Commune: "nope"}}, domain.ErrInvalidPosition},
+		"a latitude out of range":     {service.SearchInput{Near: catalogdomain.Near{Lat: 95, Lng: 1}}, catalogdomain.ErrInvalidPosition},
+		"a latitude alone":            {service.SearchInput{Near: catalogdomain.Near{Lat: 10}}, catalogdomain.ErrInvalidPosition},
+		"an unknown commune":          {service.SearchInput{Near: catalogdomain.Near{Commune: "nope"}}, catalogdomain.ErrInvalidPosition},
 		"a word for a cursor":         {service.SearchInput{Cursor: "x"}, domain.ErrInvalidCursor},
 		"a cursor past the end":       {service.SearchInput{Cursor: "600"}, domain.ErrInvalidCursor},
 		"a minimum above the maximum": {service.SearchInput{PriceMin: 5_000_000, PriceMax: 1_000_000}, domain.ErrInvalidPriceRange},
@@ -190,26 +190,26 @@ func TestSearchNearby(t *testing.T) {
 	if _, err := nearby(service.SearchInput{}); !errors.Is(err, domain.ErrPositionRequired) {
 		t.Fatalf("no position: %v", err)
 	}
-	if _, err := nearby(service.SearchInput{Query: "ghế", Near: service.Near{Commune: "00004"}}); !errors.Is(err, domain.ErrSearchConflict) {
+	if _, err := nearby(service.SearchInput{Query: "ghế", Near: catalogdomain.Near{Commune: "00004"}}); !errors.Is(err, domain.ErrSearchConflict) {
 		t.Fatalf("with q: %v", err)
 	}
-	if _, err := nearby(service.SearchInput{Like: closeBy, Near: service.Near{Commune: "00004"}}); !errors.Is(err, domain.ErrSearchConflict) {
+	if _, err := nearby(service.SearchInput{Like: closeBy, Near: catalogdomain.Near{Commune: "00004"}}); !errors.Is(err, domain.ErrSearchConflict) {
 		t.Fatalf("with like: %v", err)
 	}
-	v, err := nearby(service.SearchInput{Near: service.Near{Lat: baDinh.Lat, Lng: baDinh.Lng}})
+	v, err := nearby(service.SearchInput{Near: catalogdomain.Near{Lat: baDinh.Lat, Lng: baDinh.Lng}})
 	if err != nil || len(v.Items) != 2 || v.Items[0].ID != closeBy || v.Items[1].ID != far || *v.Items[1].DistanceKm != 18 {
 		t.Fatalf("%+v %v", v, err)
 	}
 	if !strings.Contains(v.Items[0].Commune, "Ba Đình") && v.Items[0].Commune == "" {
 		t.Fatalf("commune: %+v", v.Items[0])
 	}
-	if v, err = nearby(service.SearchInput{Near: service.Near{Commune: "00004"}}); err != nil || len(v.Items) != 2 || v.Items[0].ID != closeBy {
+	if v, err = nearby(service.SearchInput{Near: catalogdomain.Near{Commune: "00004"}}); err != nil || len(v.Items) != 2 || v.Items[0].ID != closeBy {
 		t.Fatalf("from a commune: %+v %v", v, err)
 	}
-	if v, err = nearby(service.SearchInput{Near: service.Near{Commune: "00004"}, Limit: 1}); err != nil || len(v.Items) != 1 || v.Items[0].ID != closeBy || v.NextCursor == "" {
+	if v, err = nearby(service.SearchInput{Near: catalogdomain.Near{Commune: "00004"}, Limit: 1}); err != nil || len(v.Items) != 1 || v.Items[0].ID != closeBy || v.NextCursor == "" {
 		t.Fatalf("page 1: %+v %v", v, err)
 	}
-	if v, err = nearby(service.SearchInput{Near: service.Near{Commune: "00004"}, Cursor: v.NextCursor, Limit: 1}); err != nil || len(v.Items) != 1 || v.Items[0].ID != far {
+	if v, err = nearby(service.SearchInput{Near: catalogdomain.Near{Commune: "00004"}, Cursor: v.NextCursor, Limit: 1}); err != nil || len(v.Items) != 1 || v.Items[0].ID != far {
 		t.Fatalf("page 2: %+v %v", v, err)
 	}
 }

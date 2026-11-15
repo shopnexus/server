@@ -30,13 +30,6 @@ const (
 	nearRadiusKm = 50
 )
 
-// Near is where the person searches from: a GPS point, or a commune. It is
-// used for this request only, never stored or logged.
-type Near struct {
-	Lat, Lng float64
-	Commune  string
-}
-
 // SearchInput is a search as the person shaped it.
 type SearchInput struct {
 	Query              string
@@ -47,7 +40,7 @@ type SearchInput struct {
 	OffersOnly         bool
 	Sort               catalogdomain.SortOrder // empty picks relevance with a query, newest without; or SortNearby
 	Off                []string
-	Near               Near
+	Near               catalogdomain.Near
 	Cursor             string
 	Limit              int
 	Photo, Like        uuid.UUID // zero for none
@@ -87,7 +80,7 @@ type SearchView struct {
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
 	if in.Watch != uuid.Nil() {
 		if in.Query != "" || in.Category != "" || in.PriceMin != 0 || in.PriceMax != 0 || len(in.Conditions) > 0 ||
-			in.RadiusKm != 0 || in.OffersOnly || in.Near != (Near{}) || in.Photo != uuid.Nil() || in.Like != uuid.Nil() {
+			in.RadiusKm != 0 || in.OffersOnly || in.Near != (catalogdomain.Near{}) || in.Photo != uuid.Nil() || in.Like != uuid.Nil() {
 			return SearchView{}, domain.ErrSearchConflict
 		}
 		if viewer == nil {
@@ -101,7 +94,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			return SearchView{}, domain.ErrWatchNotFound
 		}
 		in.Query, in.Category, in.PriceMin, in.PriceMax = w.Query, w.Category, w.PriceMin, w.PriceMax
-		in.OffersOnly, in.RadiusKm, in.Near = w.OffersOnly, w.RadiusKm, Near{Commune: w.Commune}
+		in.OffersOnly, in.RadiusKm, in.Near = w.OffersOnly, w.RadiusKm, catalogdomain.Near{Commune: w.Commune}
 		in.Conditions = make([]catalogdomain.Condition, len(w.Conditions))
 		for i, c := range w.Conditions {
 			in.Conditions[i] = catalogdomain.Condition(c)
@@ -118,9 +111,9 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	if photo && viewer == nil {
 		return SearchView{}, authn.ErrUnauthenticated
 	}
-	origin, err := d.origin(ctx, in.Near)
+	origin, err := d.catalog.Origin(ctx, in.Near)
 	if err != nil {
-		return SearchView{}, err
+		return SearchView{}, fmt.Errorf("read the position: %w", err)
 	}
 	offset, limit, err := window(in.Cursor, in.Limit)
 	if err != nil {
@@ -260,7 +253,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	}
 	cards, view.NextCursor = cut(cards, offset, limit)
 	if filters.CategoryRoot != "" {
-		if view.Counts, err = d.catalog.Counts(ctx, search, catalogdomain.CountCode); err != nil {
+		if view.Counts, err = d.catalog.Counts(ctx, search); err != nil {
 			return SearchView{}, fmt.Errorf("count categories: %w", err)
 		}
 	}
@@ -367,29 +360,6 @@ func (d *Discovery) queryVector(ctx context.Context, m embed.Model, version, tex
 		d.log.WarnContext(ctx, "cache the query vector", "err", err)
 	}
 	return vs[0]
-}
-
-// origin is the point near names, or nil when it names none.
-func (d *Discovery) origin(ctx context.Context, near Near) (*catalogdomain.Point, error) {
-	switch {
-	case near.Lat != 0 || near.Lng != 0:
-		if near.Lat == 0 || near.Lng == 0 || near.Lat < -90 || near.Lat > 90 || near.Lng < -180 || near.Lng > 180 {
-			return nil, domain.ErrInvalidPosition
-		}
-		return &catalogdomain.Point{Lat: near.Lat, Lng: near.Lng}, nil
-	case near.Commune != "":
-		places, err := d.catalog.Places(ctx, []string{near.Commune})
-		if err != nil {
-			return nil, fmt.Errorf("read the commune: %w", err)
-		}
-		loc, ok := places[near.Commune]
-		if !ok {
-			return nil, domain.ErrInvalidPosition
-		}
-		return &catalogdomain.Point{Lat: loc.Lat, Lng: loc.Lng}, nil
-	default:
-		return nil, nil //nolint:nilnil // no position is a valid answer, not a missing one
-	}
 }
 
 // window reads a cursor, the offset of the next page, and clips the limit

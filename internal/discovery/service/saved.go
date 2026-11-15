@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 	"uuid"
 
@@ -25,10 +26,14 @@ type SavedView struct {
 // SavedListing is the saved listing as it is now; a hidden or deleted one
 // shows its status alone, since its seller took it down.
 type SavedListing struct {
-	Title         string               `json:"title,omitempty"`
-	Price         *int64               `json:"price,omitempty"`
-	CoverThumbURL string               `json:"cover_thumb_url,omitempty"`
-	Status        catalogdomain.Status `json:"status"`
+	Title         string                  `json:"title,omitempty"`
+	Price         *int64                  `json:"price,omitempty"`
+	CoverThumbURL string                  `json:"cover_thumb_url,omitempty"`
+	CategoryCode  string                  `json:"category_code,omitempty"`
+	Condition     catalogdomain.Condition `json:"condition,omitempty"`
+	// Commune is the name of the listing's commune.
+	Commune string               `json:"commune,omitempty"`
+	Status  catalogdomain.Status `json:"status"`
 }
 
 func (d *Discovery) Save(ctx context.Context, account, listing uuid.UUID) error {
@@ -66,7 +71,12 @@ func (d *Discovery) IsSaved(ctx context.Context, account, listing uuid.UUID) (bo
 	return saved[listing], nil
 }
 
-// Saved reads one page of saves and their listings in one call.
+// takenDown are the statuses in which a saved listing shows its status
+// alone, since its seller took it down.
+var takenDown = []catalogdomain.Status{catalogdomain.StatusHidden, catalogdomain.StatusDeleted}
+
+// Saved reads one page of saves, their listings and the communes of the
+// listings it shows, one call each.
 func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request) (page.Page[SavedView], error) {
 	rows, err := d.saves.List(ctx, account, p)
 	if err != nil {
@@ -80,12 +90,24 @@ func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request
 	if err != nil {
 		return page.Page[SavedView]{}, fmt.Errorf("read listings: %w", err)
 	}
+	codes := make([]string, 0, len(listings))
+	for id := range listings {
+		if l := listings[id]; !slices.Contains(takenDown, l.Status) {
+			codes = append(codes, l.CommuneCode)
+		}
+	}
+	places, err := d.catalog.Places(ctx, codes)
+	if err != nil {
+		return page.Page[SavedView]{}, fmt.Errorf("read communes: %w", err)
+	}
 	items := make([]SavedView, 0, len(rows))
 	for _, r := range rows {
 		l := listings[r.ListingID]
 		shown := SavedListing{Status: l.Status}
-		if l.Status != catalogdomain.StatusHidden && l.Status != catalogdomain.StatusDeleted {
+		if !slices.Contains(takenDown, l.Status) {
 			shown.Title, shown.Price, shown.CoverThumbURL = l.Title, new(l.Price), l.CoverThumbURL
+			shown.CategoryCode, shown.Condition = l.CategoryCode, l.Condition
+			shown.Commune = places[l.CommuneCode].Commune.DisplayName
 		}
 		items = append(items, SavedView{ID: r.ID, ListingID: r.ListingID, SavedPrice: r.Price, SavedAt: r.At, Listing: shown, AlertBelow: r.AlertBelow})
 	}

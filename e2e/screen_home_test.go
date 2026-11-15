@@ -15,7 +15,8 @@ func TestHomeScreen(t *testing.T) {
 			Code     string `json:"code"`
 			Count    int    `json:"count"`
 			Children []struct {
-				Code string `json:"code"`
+				Code  string `json:"code"`
+				Count int    `json:"count"`
 			} `json:"children"`
 		} `json:"categories"`
 		Nearby searchView `json:"nearby"`
@@ -25,12 +26,42 @@ func TestHomeScreen(t *testing.T) {
 	}
 	counted := false
 	for _, c := range v.Categories {
-		if c.Code == "vehicles" && c.Count >= 1 && len(c.Children) > 0 {
-			counted = true
+		sum := 0
+		for _, sub := range c.Children {
+			sum += sub.Count
+			if sub.Code == "vehicles.bicycle" && sub.Count >= 1 {
+				counted = true
+			}
+		}
+		if c.Count != sum {
+			t.Errorf("%s counts %d, its subcategories %d", c.Code, c.Count, sum)
 		}
 	}
 	if !counted {
-		t.Fatalf("vehicles is not counted: %s", res.Body)
+		t.Fatalf("vehicles.bicycle is not counted: %s", res.Body)
+	}
+
+	// Without a position the view still answers, with an empty feed.
+	res = call(t, "GET", "/v1/screens/home", nil)
+	if bare := decode[struct {
+		Categories []struct{} `json:"categories"`
+		Nearby     searchView `json:"nearby"`
+	}](t, res); res.Status != http.StatusOK || len(bare.Categories) != 9 || bare.Nearby.Items == nil || len(bare.Nearby.Items) != 0 ||
+		bare.Nearby.NextCursor != "" {
+		t.Fatalf("no position: %d %s", res.Status, res.Body)
+	}
+	// radius_km bounds the feed as it bounds the search.
+	res = call(t, "GET", "/v1/screens/home?near_commune=00004&radius_km=1", nil)
+	if near := decode[struct {
+		Nearby searchView `json:"nearby"`
+	}](t, res); res.Status != http.StatusOK || len(near.Nearby.Items) == 0 {
+		t.Fatalf("radius_km: %d %s", res.Status, res.Body)
+	} else {
+		for _, it := range near.Nearby.Items {
+			if it.DistanceKm == nil || *it.DistanceKm > 1 {
+				t.Fatalf("radius_km=1 let a listing farther away in: %s", res.Body)
+			}
+		}
 	}
 	for name, c := range map[string]struct {
 		path    string
@@ -38,7 +69,9 @@ func TestHomeScreen(t *testing.T) {
 		status  int
 		code    string
 	}{
-		"no position":        {"/v1/screens/home", nil, 400, "position_required"},
+		"a radius alone":     {"/v1/screens/home?radius_km=5", nil, 400, "position_required"},
+		"a radius of 0":      {"/v1/screens/home?near_commune=00004&radius_km=0", nil, 400, ""},
+		"a radius over 200":  {"/v1/screens/home?near_commune=00004&radius_km=201", nil, 400, ""},
 		"an unknown commune": {"/v1/screens/home?near_commune=nope", nil, 400, "invalid_position"},
 		"a bad token":        {"/v1/screens/home?near_commune=00004", [][2]string{{"Authorization", "Bearer nope"}}, 401, ""},
 	} {

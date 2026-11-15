@@ -418,20 +418,16 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 	return hits, nil
 }
 
-func (s pgSearches) Counts(ctx context.Context, in domain.Search, by domain.CountField) ([]domain.CategoryCount, error) {
+func (s pgSearches) Counts(ctx context.Context, in domain.Search) ([]domain.CategoryCount, error) {
 	if in.Hybrid() {
 		q := query{args: pgx.StrictNamedArgs{}}
-		column := "l.category_code"
-		if by == domain.CountRoot {
-			column = "l.category_root"
-		}
 		var counts []domain.CategoryCount
 		err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 			if _, err := tx.Exec(ctx, `SET LOCAL hnsw.iterative_scan = relaxed_order`); err != nil {
 				return fmt.Errorf("set iterative scan: %w", err)
 			}
 			rows, err := tx.Query(ctx, q.hybrid(in)+`
-SELECT `+column+`, count(*) FROM fused AS f JOIN listings AS l ON l.id = f.id GROUP BY 1 ORDER BY 2 DESC, 1`, q.args)
+SELECT l.category_code, count(*) FROM fused AS f JOIN listings AS l ON l.id = f.id GROUP BY 1 ORDER BY 2 DESC, 1`, q.args)
 			if err != nil {
 				return fmt.Errorf("hybrid counts: %w", err)
 			}
@@ -446,11 +442,7 @@ SELECT `+column+`, count(*) FROM fused AS f JOIN listings AS l ON l.id = f.id GR
 		return counts, nil
 	}
 	q := query{args: pgx.StrictNamedArgs{}}
-	column := "category_code"
-	if by == domain.CountRoot {
-		column = "category_root"
-	}
-	rows, err := s.db.Query(ctx, `SELECT `+column+`, count(*) FROM listings WHERE `+q.where(in, false)+
+	rows, err := s.db.Query(ctx, `SELECT category_code, count(*) FROM listings WHERE `+q.where(in, false)+
 		` GROUP BY 1 ORDER BY 2 DESC, 1`, q.args)
 	if err != nil {
 		return nil, fmt.Errorf("count: %w", err)

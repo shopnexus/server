@@ -55,6 +55,8 @@ type Summary struct {
 	// source's kind.
 	CategoryCode string           `json:"category_code"`
 	Condition    domain.Condition `json:"condition"`
+	// CommuneCode is the listing's commune; Places names it.
+	CommuneCode string `json:"commune_code"`
 }
 
 // Location is the listing's commune and province, with a point inside the

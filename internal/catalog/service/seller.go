@@ -17,21 +17,53 @@ type SellerCounts struct {
 	OnSale int
 }
 
+// SellerListingPage is the SellerListingList schema in
+// api/schemas/catalog.yaml: a page of a seller's public listings and, with a
+// position, how far each is. The distances sit beside the items because
+// they depend on the request, and a ListingView reads the same for everyone.
+type SellerListingPage struct {
+	page.Page[ListingView]
+
+	// Distances is nil without a position and empty for an empty page with
+	// one, so the key is absent only when no position was given.
+	Distances []ListingDistance `json:"distances,omitzero"`
+}
+
+// ListingDistance is how far one listing is from the reader's position, in
+// whole kilometres.
+type ListingDistance struct {
+	ListingID  uuid.UUID `json:"listing_id"`
+	DistanceKm int       `json:"distance_km"`
+}
+
 // SellerListings lists the seller's active and reserved listings, newest
-// first. An unknown seller is accountdomain.ErrAccountNotFound.
-func (c *Catalog) SellerListings(ctx context.Context, seller uuid.UUID, p page.Request) (page.Page[ListingView], error) {
+// first, each with its distance from near when near names a position. An
+// unknown seller is accountdomain.ErrAccountNotFound, before near is
+// checked.
+func (c *Catalog) SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, p page.Request) (SellerListingPage, error) {
 	if _, err := c.accounts.Get(ctx, seller); err != nil {
-		return page.Page[ListingView]{}, fmt.Errorf("read the seller: %w", err)
+		return SellerListingPage{}, fmt.Errorf("read the seller: %w", err)
+	}
+	origin, err := c.Origin(ctx, near)
+	if err != nil {
+		return SellerListingPage{}, err
 	}
 	rows, err := c.listings.ListBySeller(ctx, seller, domain.Public, p)
 	if err != nil {
-		return page.Page[ListingView]{}, fmt.Errorf("list listings: %w", err)
+		return SellerListingPage{}, fmt.Errorf("list listings: %w", err)
 	}
 	items, err := c.views(ctx, rows)
 	if err != nil {
-		return page.Page[ListingView]{}, err
+		return SellerListingPage{}, err
 	}
-	return page.Of(items, p, func(v ListingView) uuid.UUID { return v.ID }), nil
+	out := SellerListingPage{Page: page.Of(items, p, func(v ListingView) uuid.UUID { return v.ID })}
+	if origin != nil {
+		out.Distances = make([]ListingDistance, len(out.Items))
+		for i := range out.Items {
+			out.Distances[i] = ListingDistance{ListingID: rows[i].ID(), DistanceKm: domain.DistanceKm(*origin, rows[i].Point())}
+		}
+	}
+	return out, nil
 }
 
 // SellerCounts counts the seller's sold listings, whether through an order

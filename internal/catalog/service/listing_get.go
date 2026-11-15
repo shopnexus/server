@@ -13,16 +13,33 @@ import (
 // Get reads a listing. Anyone sees an active or reserved listing; its seller
 // also sees it in any other state but deleted.
 func (c *Catalog) Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error) {
+	v, _, err := c.GetNear(ctx, viewer, id, domain.Near{})
+	return v, err
+}
+
+// GetNear reads a listing as Get does, with its distance from near in whole
+// kilometres, nil without a position. The distance is measured from the
+// listing's own point, as a search measures it, which no view carries. An
+// unknown or unseen listing is domain.ErrNotFound before near is checked.
+func (c *Catalog) GetNear(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near domain.Near) (ListingView, *int, error) {
 	l, err := c.listing(ctx, id)
 	if err != nil {
-		return ListingView{}, err
+		return ListingView{}, nil, err
 	}
 	owner := viewer != nil && *viewer == l.SellerID()
 	public := slices.Contains(domain.Public, l.Status())
 	if l.Status() == domain.StatusDeleted || (!public && !owner) {
-		return ListingView{}, domain.ErrNotFound
+		return ListingView{}, nil, domain.ErrNotFound
 	}
-	return c.view(ctx, l)
+	origin, err := c.Origin(ctx, near)
+	if err != nil {
+		return ListingView{}, nil, err
+	}
+	v, err := c.view(ctx, l)
+	if err != nil || origin == nil {
+		return v, nil, err
+	}
+	return v, new(domain.DistanceKm(*origin, l.Point())), nil
 }
 
 // ListMine lists the listings of one of the seller's panes, newest first.
@@ -55,6 +72,7 @@ func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID
 		s := Summary{
 			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), AllowOffers: l.AllowOffers(),
 			Status: l.Status(), ReservedFor: l.ReservedFor(), CategoryCode: l.CategoryCode(), Condition: l.Condition(),
+			CommuneCode: l.CommuneCode(),
 		}
 		if p := l.Photos(); len(p) > 0 && p[0].Keys.Thumb != "" {
 			s.CoverThumbURL = c.media.URL(p[0].Keys.Thumb)

@@ -10,8 +10,11 @@ type savedListing struct {
 	ListingID  string `json:"listing_id"`
 	SavedPrice int64  `json:"saved_price"`
 	Listing    struct {
-		Title  string `json:"title"`
-		Status string `json:"status"`
+		Title        string `json:"title"`
+		CategoryCode string `json:"category_code"`
+		Condition    string `json:"condition"`
+		Commune      string `json:"commune"`
+		Status       string `json:"status"`
 	} `json:"listing"`
 }
 
@@ -25,12 +28,14 @@ func TestSaved(t *testing.T) {
 	check(t, "save", call(t, "PUT", path, nil, bearer(me.AccessToken)), 204, "")
 	check(t, "save again", call(t, "PUT", path, nil, bearer(me.AccessToken)), 204, "")
 	res := call(t, "GET", "/v1/saved", nil, bearer(me.AccessToken))
-	if got := decode[page[savedListing]](t, res); res.Status != http.StatusOK || len(got.Items) != 1 || got.Items[0].Listing.Title == "" {
+	if got := decode[page[savedListing]](t, res); res.Status != http.StatusOK || len(got.Items) != 1 || got.Items[0].Listing.Title == "" ||
+		got.Items[0].Listing.CategoryCode != "vehicles.bicycle" || got.Items[0].Listing.Condition != "used" || got.Items[0].Listing.Commune == "" {
 		t.Fatalf("list: %d %s", res.Status, res.Body)
 	}
 	expectStatus(t, call(t, "POST", "/v1/listings/"+l.ID+"/hide", nil, bearer(seller.AccessToken)), http.StatusOK)
 	res = call(t, "GET", "/v1/saved", nil, bearer(me.AccessToken))
-	if got := decode[page[savedListing]](t, res); got.Items[0].Listing.Status != "hidden" || got.Items[0].Listing.Title != "" {
+	if got := decode[page[savedListing]](t, res); got.Items[0].Listing.Status != "hidden" || got.Items[0].Listing.Title != "" ||
+		got.Items[0].Listing.CategoryCode != "" || got.Items[0].Listing.Commune != "" {
 		t.Fatalf("hidden: %s", res.Body)
 	}
 	check(t, "save a hidden listing", call(t, "PUT", "/v1/saved/"+activeHidden(t, seller.AccessToken), nil, bearer(me.AccessToken)), 409, "listing_unavailable")

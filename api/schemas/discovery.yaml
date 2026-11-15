@@ -34,6 +34,14 @@ SavedListing:
         cover_thumb_url:
           type: string
           format: uri
+        category_code:
+          type: string
+          description: The listing's subcategory, such as phones.iphone.
+        condition:
+          $ref: "catalog.yaml#/Condition"
+        commune:
+          type: string
+          description: The name of the listing's commune.
         status:
           $ref: "catalog.yaml#/ListingStatus"
 SavedList:
@@ -52,10 +60,13 @@ SavedList:
 SearchItem:
   type: object
   additionalProperties: false
-  required: [id, title, price, condition, allow_offers, commune, saved]
+  required: [id, seller_id, title, price, category_code, condition, allow_offers, commune, saved]
   description: A listing of a search page. It carries no point of the listing.
   properties:
     id:
+      type: string
+      format: uuid
+    seller_id:
       type: string
       format: uuid
     title:
@@ -66,12 +77,16 @@ SearchItem:
     cover_thumb_url:
       type: string
       format: uri
+    category_code:
+      type: string
+      description: The listing's subcategory, such as phones.iphone.
     condition:
       $ref: "catalog.yaml#/Condition"
     allow_offers:
       type: boolean
     commune:
       type: string
+      description: The name of the listing's commune.
     distance_km:
       type: integer
       minimum: 0

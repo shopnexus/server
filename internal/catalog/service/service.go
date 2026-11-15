@@ -49,8 +49,14 @@ type Service interface {
 	// ListMine lists one of the seller's panes, newest first.
 	ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p page.Request) (page.Page[ListingView], error)
 	// SellerListings lists what anyone sees of a seller's listings, newest
-	// first.
-	SellerListings(ctx context.Context, seller uuid.UUID, p page.Request) (page.Page[ListingView], error)
+	// first, with their distances from near when it names a position.
+	SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, p page.Request) (SellerListingPage, error)
+	// GetNear reads a listing as Get does, with its distance from near in
+	// whole kilometres, nil when near names no position.
+	GetNear(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near domain.Near) (ListingView, *int, error)
+	// Origin is the point near names, nil for none; a bad point or an
+	// unknown commune is domain.ErrInvalidPosition.
+	Origin(ctx context.Context, near domain.Near) (*domain.Point, error)
 	// SellerCounts counts a seller's sold listings, the public ones and
 	// those under domain.MaxOnSale.
 	SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCounts, error)
@@ -83,7 +89,7 @@ type Service interface {
 	// it, for matching a listing that is not posted yet.
 	Words(ctx context.Context, text string) ([]string, error)
 	// Counts counts the listings s matches by category or root.
-	Counts(ctx context.Context, s domain.Search, by domain.CountField) ([]domain.CategoryCount, error)
+	Counts(ctx context.Context, s domain.Search) ([]domain.CategoryCount, error)
 	// EmbeddingText is the text a listing posted from d would be embedded
 	// from, with its category's display name.
 	EmbeddingText(ctx context.Context, d domain.ListingInput) (string, error)

@@ -7,6 +7,7 @@ import (
 	"uuid"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
@@ -19,13 +20,15 @@ import (
 
 // Service is module screen's contract.
 type Service interface {
-	// Home reads the Home view around near; viewer is nil when signed out.
-	Home(ctx context.Context, viewer *uuid.UUID, near discoverysvc.Near) (HomeScreen, error)
-	// Listing reads the listing view of a listing on sale; viewer is nil
-	// when signed out.
-	Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingScreen, error)
-	// Seller reads the seller view; viewer is nil when signed out.
-	Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (SellerScreen, error)
+	// Home reads the Home view around near, within radiusKm when it is not
+	// 0; viewer is nil when signed out.
+	Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int) (HomeScreen, error)
+	// Listing reads the listing view of a listing on sale, with its
+	// distance from near; viewer is nil when signed out.
+	Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (ListingScreen, error)
+	// Seller reads the seller view, with the listings' distances from near;
+	// viewer is nil when signed out.
+	Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error)
 	// Inbox reads a page of account's inbox view, archived or not.
 	Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request) (InboxScreen, error)
 	// InboxSearch reads the inbox search view: the conversations matching q

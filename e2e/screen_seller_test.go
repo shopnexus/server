@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"uuid"
 )
@@ -23,7 +24,7 @@ type sellerScreen struct {
 		OnSale    int `json:"on_sale"`
 		Followers int `json:"followers"`
 	} `json:"seller"`
-	Listings page[listing] `json:"listings"`
+	Listings sellerListings `json:"listings"`
 	Reviews  page[struct {
 		Stars int `json:"stars"`
 		Buyer struct {
@@ -35,6 +36,17 @@ type sellerScreen struct {
 		Following      bool    `json:"following"`
 		ConversationID *string `json:"conversation_id"`
 	} `json:"viewer"`
+}
+
+// sellerListings is a page of a seller's public listings with their
+// distances.
+type sellerListings struct {
+	page[listing]
+
+	Distances []struct {
+		ListingID  string `json:"listing_id"`
+		DistanceKm int    `json:"distance_km"`
+	} `json:"distances"`
 }
 
 // The seller view counts the reserved listing on sale and the sold one,
@@ -70,9 +82,17 @@ func TestSellerScreen(t *testing.T) {
 		s.Rating.Average != 4 || s.Rating.Count != 1 || s.Sold != 1 || s.OnSale != 2 {
 		t.Fatalf("seller: %+v", s)
 	}
-	if ls := got.Listings; len(ls.Items) != 2 || ls.Items[0].ID != reserved || ls.Items[1].ID != active || ls.NextCursor != "" {
+	if ls := got.Listings; len(ls.Items) != 2 || ls.Items[0].ID != reserved || ls.Items[1].ID != active || ls.NextCursor != "" ||
+		ls.Distances != nil {
 		t.Fatalf("listings: %+v", ls)
 	}
+	// With a position each listing has its distance, in the order of items;
+	// the listings are in commune 00004.
+	if ls := get("near", path+"?near_commune=00004").Listings; len(ls.Distances) != 2 ||
+		ls.Distances[0].ListingID != reserved || ls.Distances[0].DistanceKm != 0 || ls.Distances[1].ListingID != active {
+		t.Fatalf("distances: %+v", ls)
+	}
+	check(t, "an unknown commune", call(t, "GET", path+"?near_commune=nope", nil), 400, "invalid_position")
 	if r := got.Reviews; len(r.Items) != 1 || r.Items[0].Stars != 4 ||
 		r.Items[0].Buyer.AvatarURL != buyerAvatar || r.NextCursor != "" {
 		t.Fatalf("reviews: %+v", r)
@@ -117,13 +137,23 @@ func TestSellerScreen(t *testing.T) {
 	// Load more goes through the list endpoints.
 	listings := "/v1/sellers/" + seller.Account.ID + "/listings"
 	res := call(t, "GET", listings+"?limit=1", nil)
-	first := decode[page[listing]](t, res)
-	if res.Status != http.StatusOK || len(first.Items) != 1 || first.Items[0].ID != reserved || first.NextCursor == "" {
+	first := decode[sellerListings](t, res)
+	if res.Status != http.StatusOK || len(first.Items) != 1 || first.Items[0].ID != reserved || first.NextCursor == "" || first.Distances != nil {
 		t.Fatalf("first page: %d %s", res.Status, res.Body)
 	}
-	res = call(t, "GET", listings+"?limit=1&cursor="+first.NextCursor, nil, bearer(buyer.AccessToken))
-	if rest := decode[page[listing]](t, res); res.Status != http.StatusOK || len(rest.Items) != 1 || rest.Items[0].ID != active || rest.NextCursor != "" {
+	res = call(t, "GET", listings+"?limit=1&near_commune=00004&cursor="+first.NextCursor, nil, bearer(buyer.AccessToken))
+	if rest := decode[sellerListings](t, res); res.Status != http.StatusOK || len(rest.Items) != 1 || rest.Items[0].ID != active || rest.NextCursor != "" ||
+		len(rest.Distances) != 1 || rest.Distances[0].ListingID != active || rest.Distances[0].DistanceKm != 0 {
 		t.Fatalf("second page: %d %s", res.Status, res.Body)
+	}
+	check(t, "listings near an unknown commune", call(t, "GET", listings+"?near_commune=nope", nil), 400, "invalid_position")
+	check(t, "listings of an unknown seller near an unknown commune",
+		call(t, "GET", "/v1/sellers/"+uuid.NewV7().String()+"/listings?near_commune=nope", nil), 404, "account_not_found")
+	// With a position an empty page still has the key, so it does not read
+	// as no position.
+	res = call(t, "GET", "/v1/sellers/"+buyer.Account.ID+"/listings?near_commune=00004", nil)
+	if res.Status != http.StatusOK || !strings.Contains(string(res.Body), `"distances":[]`) {
+		t.Fatalf("an empty page with a position: %d %s", res.Status, res.Body)
 	}
 	check(t, "listings of a bad id", call(t, "GET", "/v1/sellers/x/listings", nil), 400, "")
 	check(t, "listings with a bad cursor", call(t, "GET", listings+"?cursor=x", nil), 400, "")
