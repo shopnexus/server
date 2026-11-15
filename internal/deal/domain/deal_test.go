@@ -17,7 +17,7 @@ var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 var onSale = domain.Listing{Price: 1_500_000, AllowOffers: true, Status: domain.ListingActive}
 
 func newDeal() domain.Deal {
-	return domain.Open(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), now)
+	return domain.Open(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), now)
 }
 
 func kinds(d *domain.Deal) []domain.MoveKind {
@@ -279,7 +279,7 @@ func TestListingGoneEndsTheAgreement(t *testing.T) {
 func TestPartyOf(t *testing.T) {
 	t.Parallel()
 	buyer, seller := uuid.NewV7(), uuid.NewV7()
-	d := domain.Open(uuid.NewV7(), uuid.NewV7(), buyer, seller, now)
+	d := domain.Open(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), buyer, seller, now)
 	if p, ok := d.PartyOf(buyer); p != domain.Buyer || !ok {
 		t.Fatal("buyer")
 	}
@@ -331,4 +331,20 @@ func TestStaleOpenPrice(t *testing.T) {
 			t.Fatalf("%+v", o)
 		}
 	})
+}
+
+// Every move a person makes and every order step goes to chat; a change of
+// the listing does not.
+func TestMoveInChat(t *testing.T) {
+	t.Parallel()
+	for kind, want := range map[domain.MoveKind]bool{
+		domain.MoveOffer: true, domain.MoveCounter: true, domain.MoveAccept: true, domain.MoveDecline: true,
+		domain.MoveWithdraw: true, domain.MoveCancel: true, domain.MoveCodRequested: true, domain.MoveShipped: true,
+		domain.MoveShipmentUpdated: true, domain.MoveCompleted: true, domain.MoveFailed: true, domain.MoveOrderCancelled: true,
+		domain.MovePriceChanged: false, domain.MoveOffersClosed: false, domain.MoveListingClosed: false, "unknown": false,
+	} {
+		if got := (domain.Move{Kind: kind}).InChat(); got != want {
+			t.Errorf("%s: %v", kind, got)
+		}
+	}
 }

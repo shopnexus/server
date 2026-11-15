@@ -16,6 +16,10 @@ import (
 type ChatScreen struct {
 	chatsvc.ConversationView
 
+	// Blocked is a block between the two, either way.
+	Blocked bool `json:"blocked"`
+	// OtherRead is the newest message the other member has read.
+	OtherRead   *uuid.UUID                     `json:"other_read_message_id,omitempty"`
 	Deals       []dealsvc.DealView             `json:"deals"`
 	Messages    page.Page[chatsvc.MessageView] `json:"messages"`
 	ScamWarning *trustsvc.ScamWarningView      `json:"scam_warning,omitempty"`
@@ -23,13 +27,23 @@ type ChatScreen struct {
 	Ticket *supportsvc.TicketView `json:"ticket,omitempty"`
 }
 
-// Chat reads a conversation of account's, the pair's deals, the first page
-// of messages, account's scam warning in it and a support chat's ticket; for an account outside the
-// conversation it returns chat's ErrNotFound (conversation_not_found).
+// Chat reads a conversation of account's, whether a block stands between
+// the two, the other member's read marker, the pair's deals, the first
+// page of messages, account's scam warning in it and a support chat's
+// ticket; for an account outside the conversation it returns chat's
+// ErrNotFound (conversation_not_found).
 func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID) (ChatScreen, error) {
 	conv, err := s.chats.Get(ctx, account, conversation)
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read conversation: %w", err)
+	}
+	blocked, err := s.accounts.Blocked(ctx, account, conv.Other.ID)
+	if err != nil {
+		return ChatScreen{}, fmt.Errorf("check block: %w", err)
+	}
+	otherRead, err := s.chats.OtherRead(ctx, account, conversation)
+	if err != nil {
+		return ChatScreen{}, fmt.Errorf("read the other's marker: %w", err)
 	}
 	deals, err := s.deals.Between(ctx, account, conv.Other.ID)
 	if err != nil {
@@ -47,7 +61,7 @@ func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID) (Cha
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read the ticket: %w", err)
 	}
-	out := ChatScreen{ConversationView: conv, Deals: deals, Messages: messages}
+	out := ChatScreen{ConversationView: conv, Blocked: blocked, OtherRead: otherRead, Deals: deals, Messages: messages}
 	if w, ok := warnings[conversation]; ok {
 		out.ScamWarning = &w
 	}

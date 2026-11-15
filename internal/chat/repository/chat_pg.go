@@ -22,19 +22,23 @@ type pgChats struct{ db *pgxpool.Pool }
 func NewChats(db *pgxpool.Pool) Chats { return pgChats{db} }
 
 const messageColumns = `m.id, m.conversation_id, m.sender_id, m.body, m.photos, m.listing_id, m.reply_to, m.status,
-       m.failure, m.created_at`
+       m.failure, m.created_at, m.deal_id, m.move_kind, m.move_by, m.move_amount`
 
 // messageScan holds a message's columns while a row is scanned.
 type messageScan struct {
-	st      domain.MessageState
-	photos  []byte
-	failure *string
+	st         domain.MessageState
+	photos     []byte
+	failure    *string
+	dealID     *uuid.UUID
+	moveKind   *string
+	moveBy     *string
+	moveAmount *int64
 }
 
 func (m *messageScan) dest() []any {
 	return []any{
 		&m.st.ID, &m.st.ConversationID, &m.st.SenderID, &m.st.Body, &m.photos, &m.st.ListingID, &m.st.ReplyTo,
-		&m.st.Status, &m.failure, &m.st.CreatedAt,
+		&m.st.Status, &m.failure, &m.st.CreatedAt, &m.dealID, &m.moveKind, &m.moveBy, &m.moveAmount,
 	}
 }
 
@@ -45,6 +49,12 @@ func (m *messageScan) message() (domain.Message, error) {
 	}
 	if m.failure != nil {
 		m.st.Failure = *m.failure
+	}
+	if m.dealID != nil {
+		m.st.Deal = &domain.DealMove{DealID: *m.dealID, Kind: *m.moveKind, By: *m.moveBy}
+		if m.moveAmount != nil {
+			m.st.Deal.Amount = *m.moveAmount
+		}
 	}
 	return domain.RestoreMessage(m.st), nil
 }
@@ -136,11 +146,14 @@ func written(ctx context.Context, tx pgx.Tx, m domain.Message) error {
 			return fmt.Errorf("unarchive: %w", err)
 		}
 		// The message's ID is the event's, so writing it sent again inserts
-		// no second event.
-		if err := events.Insert(ctx, tx, events.Event{
-			ID: m.ID(), Kind: events.MessageSent, SubjectID: m.ID(), OccurredAt: m.CreatedAt(),
-		}); err != nil {
-			return fmt.Errorf("insert message.sent: %w", err)
+		// no second event. A deal message has none: deal.moved already
+		// told whoever hears of the move.
+		if m.Deal() == nil {
+			if err := events.Insert(ctx, tx, events.Event{
+				ID: m.ID(), Kind: events.MessageSent, SubjectID: m.ID(), OccurredAt: m.CreatedAt(),
+			}); err != nil {
+				return fmt.Errorf("insert message.sent: %w", err)
+			}
 		}
 	} else {
 		accounts = []uuid.UUID{m.SenderID()}
@@ -151,14 +164,23 @@ func written(ctx context.Context, tx pgx.Tx, m domain.Message) error {
 
 func (s pgChats) AddMessage(ctx context.Context, m domain.Message) error {
 	st := m.State()
+	a := pgx.StrictNamedArgs{
+		"id": st.ID, "conversation": st.ConversationID, "sender": st.SenderID, "body": st.Body,
+		"photos": photosOf(st), "listing": st.ListingID, "reply_to": st.ReplyTo, "status": st.Status, "at": st.CreatedAt,
+		"deal": nil, "move_kind": nil, "move_by": nil, "move_amount": nil,
+	}
+	if d := st.Deal; d != nil {
+		a["deal"], a["move_kind"], a["move_by"] = d.DealID, d.Kind, d.By
+		if d.Amount != 0 {
+			a["move_amount"] = d.Amount
+		}
+	}
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `INSERT INTO messages (id, conversation_id, sender_id, body, photos, listing_id, reply_to,
-                      status, failure, created_at)
-VALUES (@id, @conversation, @sender, @body, @photos, @listing, @reply_to, @status, NULL, @at)
-ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
-			"id": st.ID, "conversation": st.ConversationID, "sender": st.SenderID, "body": st.Body,
-			"photos": photosOf(st), "listing": st.ListingID, "reply_to": st.ReplyTo, "status": st.Status, "at": st.CreatedAt,
-		})
+                      status, failure, created_at, deal_id, move_kind, move_by, move_amount)
+VALUES (@id, @conversation, @sender, @body, @photos, @listing, @reply_to, @status, NULL, @at, @deal, @move_kind,
+        @move_by, @move_amount)
+ON CONFLICT (id) DO NOTHING`, a)
 		if err != nil {
 			return fmt.Errorf("insert message: %w", err)
 		}
@@ -224,9 +246,9 @@ func (s pgChats) SaveMessage(ctx context.Context, m domain.Message) error {
 
 func (s pgChats) Member(ctx context.Context, conversation, account uuid.UUID) (domain.Member, error) {
 	var m domain.Member
-	err := s.db.QueryRow(ctx, `SELECT archived_at FROM conversation_members
+	err := s.db.QueryRow(ctx, `SELECT archived_at, last_read_message_id FROM conversation_members
 WHERE conversation_id = @conversation AND account_id = @account`,
-		pgx.StrictNamedArgs{"conversation": conversation, "account": account}).Scan(&m.ArchivedAt)
+		pgx.StrictNamedArgs{"conversation": conversation, "account": account}).Scan(&m.ArchivedAt, &m.LastRead)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Member{}, ErrNotFound
 	}

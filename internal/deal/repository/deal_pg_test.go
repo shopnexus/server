@@ -14,6 +14,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
+	"github.com/shopnexus/server2/internal/chat/chattest"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/events"
@@ -25,10 +26,11 @@ var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 
 var onSale = domain.Listing{Price: 1_500_000, AllowOffers: true, Status: domain.ListingActive}
 
-// inserted opens buyer's deal on listing and stores it.
-func inserted(t *testing.T, s repository.Deals, listing, buyer, seller uuid.UUID) domain.Deal {
+// inserted opens buyer's deal on listing, in the pair's conversation, and
+// stores it.
+func inserted(t *testing.T, db *pgxpool.Pool, s repository.Deals, listing, buyer, seller uuid.UUID) domain.Deal {
 	t.Helper()
-	d := domain.Open(uuid.NewV7(), listing, buyer, seller, now)
+	d := domain.Open(uuid.NewV7(), chattest.Pair(t, db, buyer, seller), listing, buyer, seller, now)
 	if ok, err := s.Insert(context.Background(), d); err != nil || !ok {
 		t.Fatalf("insert: %v %v", ok, err)
 	}
@@ -46,8 +48,8 @@ func TestInsertFindGet(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	listing := catalogtest.Listing(t, db, seller)
-	d := inserted(t, s, listing, buyer, seller)
-	again, err := s.Insert(ctx, domain.Open(uuid.NewV7(), listing, buyer, seller, now))
+	d := inserted(t, db, s, listing, buyer, seller)
+	again, err := s.Insert(ctx, domain.Open(uuid.NewV7(), d.ConversationID(), listing, buyer, seller, now))
 	if err != nil || again {
 		t.Fatalf("second deal of the pair: %v %v", again, err)
 	}
@@ -73,7 +75,7 @@ func TestSaveWritesMovesAndEvent(t *testing.T) {
 	s := repository.NewDeals(db)
 	ctx := context.Background()
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
-	d := inserted(t, s, catalogtest.Listing(t, db, seller), buyer, seller)
+	d := inserted(t, db, s, catalogtest.Listing(t, db, seller), buyer, seller)
 	if err := d.Offer(domain.Buyer, 1_000_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +142,7 @@ func TestSaveRefusesAStaleDeal(t *testing.T) {
 	s := repository.NewDeals(db)
 	ctx := context.Background()
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
-	d := inserted(t, s, catalogtest.Listing(t, db, seller), buyer, seller)
+	d := inserted(t, db, s, catalogtest.Listing(t, db, seller), buyer, seller)
 	first, err := s.Get(ctx, d.ID())
 	if err != nil {
 		t.Fatal(err)
@@ -174,9 +176,9 @@ func TestListByPartyAndOfListing(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer1, buyer2 := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
 	listing1, listing2 := catalogtest.Listing(t, db, seller), catalogtest.Listing(t, db, seller)
-	a := inserted(t, s, listing1, buyer1, seller)
-	b := inserted(t, s, listing1, buyer2, seller)
-	c := inserted(t, s, listing2, buyer1, seller)
+	a := inserted(t, db, s, listing1, buyer1, seller)
+	b := inserted(t, db, s, listing1, buyer2, seller)
+	c := inserted(t, db, s, listing2, buyer1, seller)
 
 	ids := func(ds []domain.Deal) []uuid.UUID {
 		out := make([]uuid.UUID, 0, len(ds))
@@ -207,7 +209,7 @@ func TestListByPartyAndOfListing(t *testing.T) {
 // a pending order.
 func pendingDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, seller uuid.UUID) domain.Deal {
 	t.Helper()
-	d := inserted(t, s, catalogtest.Listing(t, db, seller), buyer, seller)
+	d := inserted(t, db, s, catalogtest.Listing(t, db, seller), buyer, seller)
 	if err := d.Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +291,7 @@ func TestSaveTwiceWritesOnce(t *testing.T) {
 	s := repository.NewDeals(db)
 	ctx := context.Background()
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
-	d := inserted(t, s, catalogtest.Listing(t, db, seller), buyer, seller)
+	d := inserted(t, db, s, catalogtest.Listing(t, db, seller), buyer, seller)
 	before := d.State()
 	writeID := uuid.NewV7()
 	for range 2 {
@@ -323,7 +325,7 @@ func TestCodLimitHoldsUnderRace(t *testing.T) {
 	race := func() []error {
 		ds := make([]domain.Deal, 2)
 		for i := range ds {
-			ds[i] = inserted(t, s, catalogtest.Listing(t, db, seller), buyer, seller)
+			ds[i] = inserted(t, db, s, catalogtest.Listing(t, db, seller), buyer, seller)
 			if err := ds[i].Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
 				t.Fatal(err)
 			}
@@ -361,7 +363,7 @@ func TestOneShippedOrderPerListing(t *testing.T) {
 	var err error
 	results := make([]error, 0, 2)
 	for range 2 {
-		d := inserted(t, s, listing, accounttest.New(t, db), seller)
+		d := inserted(t, db, s, listing, accounttest.New(t, db), seller)
 		if err = d.Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
 			t.Fatal(err)
 		}

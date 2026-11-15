@@ -21,7 +21,7 @@ type pgDeals struct{ db *pgxpool.Pool }
 
 func NewDeals(db *pgxpool.Pool) Deals { return pgDeals{db} }
 
-const dealColumns = `id, listing_id, buyer_id, seller_id, status, open_by, open_amount, open_at, listed_price,
+const dealColumns = `id, conversation_id, listing_id, buyer_id, seller_id, status, open_by, open_amount, open_at, listed_price,
        agreed_price, agreed_at, write_id, created_at, updated_at`
 
 const orderColumns = `o.id, o.code, o.status, o.price, o.recipient_name, o.recipient_phone, o.recipient_street,
@@ -30,7 +30,7 @@ const orderColumns = `o.id, o.code, o.status, o.price, o.recipient_name, o.recip
        o.cancelled_by, o.cancel_reason, o.completed_by, o.requested_at, o.shipped_at, o.closed_at`
 
 // selectDeal reads deals as d with each one's latest order.
-const selectDeal = `SELECT d.id, d.listing_id, d.buyer_id, d.seller_id, d.status, d.open_by, d.open_amount, d.open_at,
+const selectDeal = `SELECT d.id, d.conversation_id, d.listing_id, d.buyer_id, d.seller_id, d.status, d.open_by, d.open_amount, d.open_at,
        d.listed_price, d.agreed_price, d.agreed_at, d.write_id, d.created_at, d.updated_at, ` + orderColumns + `
 FROM deals d
 LEFT JOIN LATERAL (SELECT id FROM orders WHERE orders.deal_id = d.id ORDER BY orders.id DESC LIMIT 1) latest ON true
@@ -123,7 +123,7 @@ func scanDeal(row pgx.CollectableRow) (domain.Deal, error) {
 	)
 	var o orderScan
 	dest := append([]any{
-		&st.ID, &st.ListingID, &st.BuyerID, &st.SellerID, &st.Status, &openBy, &openAmount, &openAt,
+		&st.ID, &st.ConversationID, &st.ListingID, &st.BuyerID, &st.SellerID, &st.Status, &openBy, &openAmount, &openAt,
 		&st.ListedPrice, &agreed, &st.AgreedAt, &st.WriteID, &st.CreatedAt, &st.UpdatedAt,
 	}, o.dest()...)
 	if err := row.Scan(dest...); err != nil {
@@ -143,7 +143,7 @@ func scanDeal(row pgx.CollectableRow) (domain.Deal, error) {
 // has nothing.
 func dealArgs(st domain.DealState) pgx.StrictNamedArgs {
 	a := pgx.StrictNamedArgs{
-		"id": st.ID, "listing_id": st.ListingID, "buyer_id": st.BuyerID, "seller_id": st.SellerID,
+		"id": st.ID, "conversation_id": st.ConversationID, "listing_id": st.ListingID, "buyer_id": st.BuyerID, "seller_id": st.SellerID,
 		"status": st.Status, "open_by": nil, "open_amount": nil, "open_at": nil, "listed_price": st.ListedPrice,
 		"agreed_price": nil, "agreed_at": st.AgreedAt, "write_id": st.WriteID, "created_at": st.CreatedAt,
 		"updated_at": st.UpdatedAt,
@@ -159,7 +159,7 @@ func dealArgs(st domain.DealState) pgx.StrictNamedArgs {
 
 const insertDeal = `
 INSERT INTO deals (` + dealColumns + `)
-VALUES (@id, @listing_id, @buyer_id, @seller_id, @status, @open_by, @open_amount, @open_at, @listed_price,
+VALUES (@id, @conversation_id, @listing_id, @buyer_id, @seller_id, @status, @open_by, @open_amount, @open_at, @listed_price,
         @agreed_price, @agreed_at, @write_id, @created_at, @updated_at)
 ON CONFLICT (listing_id, buyer_id) DO NOTHING`
 
@@ -265,7 +265,7 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 	st := d.State()
 	a := dealArgs(st)
 	a["read_write_id"], a["write_id"] = st.WriteID, writeID
-	for _, k := range []string{"listing_id", "buyer_id", "seller_id", "created_at"} {
+	for _, k := range []string{"conversation_id", "listing_id", "buyer_id", "seller_id", "created_at"} {
 		delete(a, k)
 	}
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {

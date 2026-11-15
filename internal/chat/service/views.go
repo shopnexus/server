@@ -60,9 +60,37 @@ type MessageView struct {
 	Photos    []PhotoView          `json:"photos"`
 	ListingID *uuid.UUID           `json:"listing_id,omitempty"`
 	ReplyTo   *QuoteView           `json:"reply_to,omitempty"`
+	Deal      *MessageDealView     `json:"deal,omitempty"`
 	Status    domain.MessageStatus `json:"status"`
 	Failure   string               `json:"failure,omitempty"`
 	CreatedAt time.Time            `json:"created_at"`
+}
+
+// MessageDealView is the move a deal message is about: the MessageDeal
+// schema.
+type MessageDealView struct {
+	DealID uuid.UUID `json:"deal_id"`
+	Move   MoveView  `json:"move"`
+}
+
+// MoveView is a move as deal's Move schema shows it; Amount is absent on a
+// move without one.
+type MoveView struct {
+	Kind   string    `json:"kind"`
+	By     string    `json:"by"`
+	Amount *int64    `json:"amount,omitempty"`
+	At     time.Time `json:"at"`
+}
+
+// MoveInput is a move on a deal for its deal message. ID is the move's,
+// which the message takes. SenderID is the side that moved, or
+// accountdomain.ShopNexusID for the system. Kind and By are deal's names;
+// Amount is 0 on a move without one.
+type MoveInput struct {
+	ID, ConversationID, DealID, SenderID uuid.UUID
+	Kind, By                             string
+	Amount                               int64
+	At                                   time.Time
 }
 
 // QuoteView is the message a reply quotes, as it reads now: the Quote
@@ -150,10 +178,17 @@ func (c *Chat) messageView(m domain.Message) MessageView {
 		}
 		photos = append(photos, v)
 	}
-	return MessageView{
+	v := MessageView{
 		ID: m.ID(), SenderID: m.SenderID(), Text: m.Body(), Photos: photos, ListingID: m.ListingID(),
 		Status: m.Status(), Failure: m.Failure(), CreatedAt: m.CreatedAt(),
 	}
+	if d := m.Deal(); d != nil {
+		v.Deal = &MessageDealView{DealID: d.DealID, Move: MoveView{Kind: d.Kind, By: d.By, At: m.CreatedAt()}}
+		if d.Amount != 0 {
+			v.Deal.Move.Amount = new(d.Amount)
+		}
+	}
+	return v
 }
 
 // Window is a conversation's newest sent messages with text, oldest first,

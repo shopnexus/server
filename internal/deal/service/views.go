@@ -13,18 +13,19 @@ import (
 
 // DealView is the Deal schema in api/schemas/deal.yaml.
 type DealView struct {
-	ID          uuid.UUID         `json:"id"`
-	BuyerID     uuid.UUID         `json:"buyer_id"`
-	SellerID    uuid.UUID         `json:"seller_id"`
-	Listing     ListingRef        `json:"listing"`
-	Role        domain.Party      `json:"role"`
-	Status      domain.Status     `json:"status"`
-	OpenPrice   *domain.OpenPrice `json:"open_price,omitempty"`
-	AgreedPrice *int64            `json:"agreed_price,omitempty"`
-	AgreedAt    *time.Time        `json:"agreed_at,omitempty"`
-	OfferRange  *domain.Range     `json:"offer_range,omitempty"`
-	Order       *OrderView        `json:"order,omitempty"`
-	Moves       []MoveView        `json:"moves"`
+	ID             uuid.UUID         `json:"id"`
+	ConversationID uuid.UUID         `json:"conversation_id"`
+	BuyerID        uuid.UUID         `json:"buyer_id"`
+	SellerID       uuid.UUID         `json:"seller_id"`
+	Listing        ListingRef        `json:"listing"`
+	Role           domain.Party      `json:"role"`
+	Status         domain.Status     `json:"status"`
+	OpenPrice      *domain.OpenPrice `json:"open_price,omitempty"`
+	AgreedPrice    *int64            `json:"agreed_price,omitempty"`
+	AgreedAt       *time.Time        `json:"agreed_at,omitempty"`
+	OfferRange     *domain.Range     `json:"offer_range,omitempty"`
+	Order          *OrderView        `json:"order,omitempty"`
+	Moves          []MoveView        `json:"moves"`
 }
 
 // OrderView is the Order schema in api/schemas/deal.yaml.
@@ -129,7 +130,7 @@ func orderView(o domain.Order, viewer domain.Party, place catalogsvc.Location) O
 func view(viewer uuid.UUID, d domain.Deal, l catalogsvc.Summary, moves []domain.Move, place catalogsvc.Location) DealView {
 	by, _ := d.PartyOf(viewer)
 	v := DealView{
-		ID: d.ID(), BuyerID: d.BuyerID(), SellerID: d.SellerID(),
+		ID: d.ID(), ConversationID: d.ConversationID(), BuyerID: d.BuyerID(), SellerID: d.SellerID(),
 		Listing: listingRef(l),
 		Role:    by, Status: d.Status(), OpenPrice: d.OpenFor(facts(l)), AgreedAt: d.AgreedAt(),
 		Moves: make([]MoveView, 0, len(moves)),
@@ -187,21 +188,22 @@ type OrderFacts struct {
 
 // DealSummary is the DealSummary schema in api/schemas/deal.yaml.
 type DealSummary struct {
-	ID          uuid.UUID          `json:"id"`
-	Role        domain.Party       `json:"role"`
-	Listing     ListingRef         `json:"listing"`
-	Status      domain.Status      `json:"status"`
-	OpenPrice   *domain.OpenPrice  `json:"open_price,omitempty"`
-	AgreedPrice *int64             `json:"agreed_price,omitempty"`
-	OrderStatus domain.OrderStatus `json:"order_status,omitempty"`
-	YourTurn    bool               `json:"your_turn"`
+	ID             uuid.UUID          `json:"id"`
+	ConversationID uuid.UUID          `json:"conversation_id"`
+	Role           domain.Party       `json:"role"`
+	Listing        ListingRef         `json:"listing"`
+	Status         domain.Status      `json:"status"`
+	OpenPrice      *domain.OpenPrice  `json:"open_price,omitempty"`
+	AgreedPrice    *int64             `json:"agreed_price,omitempty"`
+	OrderStatus    domain.OrderStatus `json:"order_status,omitempty"`
+	YourTurn       bool               `json:"your_turn"`
 }
 
 // summary is d at a glance for viewer, one of its sides, with its listing.
 func summary(viewer uuid.UUID, d *domain.Deal, l catalogsvc.Summary) DealSummary {
 	by, _ := d.PartyOf(viewer)
 	v := DealSummary{
-		ID: d.ID(), Role: by, Listing: listingRef(l), Status: d.Status(), OpenPrice: d.OpenFor(facts(l)),
+		ID: d.ID(), ConversationID: d.ConversationID(), Role: by, Listing: listingRef(l), Status: d.Status(), OpenPrice: d.OpenFor(facts(l)),
 		YourTurn: d.TurnOf(by, facts(l)),
 	}
 	if d.Status() == domain.StatusAgreed || d.Status() == domain.StatusSold {

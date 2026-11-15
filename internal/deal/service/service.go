@@ -16,6 +16,7 @@ import (
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/events"
@@ -26,8 +27,9 @@ import (
 
 // Service is module deal's contract.
 type Service interface {
-	// Open returns the buyer's deal on a listing, starting one when there is
-	// none; created reports a new deal.
+	// Open returns the buyer's deal on a listing, starting one in the
+	// pair's conversation, which it opens when the two have none, when
+	// there is none; created reports a new deal.
 	Open(ctx context.Context, buyer, listingID uuid.UUID) (v DealView, created bool, err error)
 	// Get reads a deal for one of its two sides.
 	Get(ctx context.Context, viewer, id uuid.UUID) (DealView, error)
@@ -38,6 +40,11 @@ type Service interface {
 	// latest order, for notifications; an ID the deal lacks is left out,
 	// and an unknown deal answers false.
 	Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (MoveFacts, bool, error)
+	// PostMoves writes the deal message of each move of ids on a deal that
+	// belongs in chat into the deal's conversation; a move the deal lacks,
+	// or one posted already, writes nothing. The worker calls it on
+	// deal.moved.
+	PostMoves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) error
 	// ListMine lists viewer's deals on side as, newest first.
 	ListMine(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[DealView], error)
 	Offer(ctx context.Context, caller, id uuid.UUID, amount int64) (DealView, error)
@@ -110,6 +117,9 @@ type Deps struct {
 	Deals    repository.Deals
 	Accounts accountsvc.Service
 	Catalog  catalogsvc.Service
+	// Chats opens the pair's conversation for a new deal and takes its
+	// deal messages.
+	Chats chatsvc.Service
 	// Shipping makes, reads and cancels shipments on the seller's linked
 	// accounts: module shipping.
 	Shipping Shipping
@@ -130,6 +140,7 @@ type Deals struct {
 	deals    repository.Deals
 	accounts accountsvc.Service
 	catalog  catalogsvc.Service
+	chats    chatsvc.Service
 	shipping Shipping
 	waits    domain.Waits
 	ingress  *ingress.Client
@@ -149,7 +160,7 @@ func New(d Deps) *Deals {
 		panic("deal: Deps.Waits needs every wait; pass domain.OrderWaits")
 	}
 	return &Deals{
-		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, shipping: d.Shipping, waits: d.Waits, ingress: d.Ingress,
+		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, chats: d.Chats, shipping: d.Shipping, waits: d.Waits, ingress: d.Ingress,
 		prefix: d.Prefix, now: d.Now,
 		ship:    restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: flowHandler},
 		confirm: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealConfirm, Handler: flowHandler},
@@ -200,4 +211,21 @@ func (s *Deals) own(ctx context.Context, caller, id uuid.UUID) (domain.Deal, dom
 // moved is the event of a deal's new moves.
 func moved(id uuid.UUID, now time.Time) events.Event {
 	return events.Event{ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: id, OccurredAt: now}
+}
+
+// MovedIDs reads the IDs of the moves a deal.moved carries; an ID that does
+// not parse is left out.
+func MovedIDs(e events.Event) []uuid.UUID {
+	raw, _ := e.Payload["moves"].([]any) //nolint:revive // an event without moves names none
+	ids := make([]uuid.UUID, 0, len(raw))
+	for _, v := range raw {
+		s, ok := v.(string)
+		if !ok {
+			continue
+		}
+		if id, err := uuid.Parse(s); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }

@@ -32,8 +32,21 @@ func str(p *string) string {
 	return *p
 }
 
+// insertDeal inserts a deal as the tables stood before 0047.
 const insertDeal = `INSERT INTO deals (id, listing_id, buyer_id, seller_id, status, listed_price, write_id, created_at, updated_at)
 VALUES (@deal, @listing, @buyer, @seller, 'negotiating', 1500000, @deal, now(), now())`
+
+// insertPairDeal inserts a deal in the conversation of its buyer and
+// seller, which it opens when the two have none: a deal from 0047 on.
+const insertPairDeal = `WITH pair AS (
+    INSERT INTO conversations (id, account_a, account_b, kind, created_at)
+    VALUES (uuidv7(), LEAST(@buyer::uuid, @seller::uuid), GREATEST(@buyer::uuid, @seller::uuid), 'pair', now())
+    ON CONFLICT (account_a, account_b) WHERE kind = 'pair' DO UPDATE SET kind = excluded.kind
+    RETURNING id
+)
+INSERT INTO deals (id, conversation_id, listing_id, buyer_id, seller_id, status, listed_price, write_id, created_at,
+    updated_at)
+SELECT @deal, pair.id, @listing, @buyer, @seller, 'negotiating', 1500000, @deal, now(), now() FROM pair`
 
 // The orders, moves and notices of the release before arrive under the
 // new names: requested is pending, delivered completed, returned failed, a
@@ -164,7 +177,7 @@ func TestOrderFlowChecks(t *testing.T) {
 	db := pgtest.New(t)
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	a := pgx.NamedArgs{"deal": uuid.NewV7(), "listing": catalogtest.Listing(t, db, seller), "buyer": buyer, "seller": seller}
-	if _, err := db.Exec(ctx, insertDeal, a); err != nil {
+	if _, err := db.Exec(ctx, insertPairDeal, a); err != nil {
 		t.Fatal(err)
 	}
 	insert := func(status, mode, carrier, ship, reason string, delivered bool) error {

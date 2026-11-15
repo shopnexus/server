@@ -49,6 +49,17 @@ type Service interface {
 	// ConversationWith returns the ID of account's conversation with other;
 	// the zero ID when the two have none.
 	ConversationWith(ctx context.Context, account, other uuid.UUID) (uuid.UUID, error)
+	// OpenPair returns the ID of the conversation of one and other, opening
+	// it when the two have none. Module deal opens it with a deal and has
+	// checked the two may deal.
+	OpenPair(ctx context.Context, one, other uuid.UUID) (uuid.UUID, error)
+	// PostMove writes the deal message of a move into the pair's
+	// conversation. Posting the same move again writes nothing more. Module
+	// deal only.
+	PostMove(ctx context.Context, in MoveInput) error
+	// OtherRead returns the newest message the other member of a
+	// conversation of account's has read; nil before they read any.
+	OtherRead(ctx context.Context, account, conversation uuid.UUID) (*uuid.UUID, error)
 	// Peer returns the other member of conversation when account is a
 	// member and neither blocks the other; ok is false otherwise, and for an
 	// unknown conversation.

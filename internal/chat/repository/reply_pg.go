@@ -14,17 +14,18 @@ import (
 // replyThreads takes the first sent message of each of the seller's pair
 // conversations with a message since since, through messages_conversation,
 // and keeps those another person wrote about a listing of the seller's;
-// the listing join follows SearchThreads'.
+// the listing join follows SearchThreads'. Deal messages are moves, not
+// answers, so neither side's count reads them.
 const replyThreads = `
 SELECT f.created_at,
        (SELECT r.created_at FROM messages r
-        WHERE r.conversation_id = c.id AND r.sender_id = @seller AND r.status = 'sent'
+        WHERE r.conversation_id = c.id AND r.sender_id = @seller AND r.status = 'sent' AND r.deal_id IS NULL
         ORDER BY r.id LIMIT 1)
 FROM conversation_members cm
 JOIN conversations c ON c.id = cm.conversation_id
 CROSS JOIN LATERAL (
     SELECT m.sender_id, m.listing_id, m.created_at FROM messages m
-    WHERE m.conversation_id = c.id AND m.status = 'sent'
+    WHERE m.conversation_id = c.id AND m.status = 'sent' AND m.deal_id IS NULL
     ORDER BY m.id LIMIT 1
 ) f
 JOIN listings l ON l.id = f.listing_id

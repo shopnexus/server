@@ -29,8 +29,10 @@ type Chats interface {
 	// or ErrNotFound.
 	FindPair(ctx context.Context, one, other uuid.UUID) (domain.Conversation, error)
 	// AddMessage inserts m and notifies the members m is visible to. A sent
-	// m becomes the conversation's last message and takes the conversation
-	// out of both members' archives. Adding the same ID again does nothing.
+	// m becomes the conversation's last message, unless a newer one is, and
+	// takes the conversation out of both members' archives; it writes
+	// message.sent unless it is a deal message. Adding the same ID again
+	// does nothing.
 	AddMessage(ctx context.Context, m domain.Message) error
 	// DeleteMessage removes a message the send flow could not finish.
 	DeleteMessage(ctx context.Context, id uuid.UUID) error

@@ -72,3 +72,15 @@ func (c *Chat) Unarchive(ctx context.Context, account, conversation uuid.UUID) e
 	}
 	return nil
 }
+
+func (c *Chat) OtherRead(ctx context.Context, account, conversation uuid.UUID) (*uuid.UUID, error) {
+	conv, _, err := c.member(ctx, account, conversation)
+	if err != nil {
+		return nil, err
+	}
+	other, err := c.chats.Member(ctx, conversation, conv.Other(account))
+	if err != nil {
+		return nil, fmt.Errorf("get the other member: %w", err)
+	}
+	return other.LastRead, nil
+}

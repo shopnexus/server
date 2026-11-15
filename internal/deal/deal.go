@@ -8,6 +8,7 @@ import (
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/handler"
 	"github.com/shopnexus/server2/internal/deal/repository"
@@ -28,14 +29,16 @@ type Settings struct {
 }
 
 // Mount registers the deal endpoints, subscribes the listing watch to the
-// listing events and the account watch to account.deleted, and returns
-// deal's Restate services and the Service other modules read deals
-// through.
-func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service) module.Mounted[service.Service] {
+// listing events, the account watch to account.deleted and the chat post
+// to deal.moved, and returns deal's Restate services and the Service other
+// modules read deals through.
+func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service,
+	chats chatsvc.Service,
+) module.Mounted[service.Service] {
 	waits := domain.OrderWaits
 	waits.Poll = s.PollEvery
 	svc := service.New(service.Deps{
-		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Catalog: catalog, Shipping: s.Shipping,
+		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Catalog: catalog, Chats: chats, Shipping: s.Shipping,
 		Waits: waits, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, s.FakeCarrier)
@@ -45,7 +48,10 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 	}
 	accountWatch := worker.AccountWatch{Prefix: d.ServicePrefix, Deals: svc}
 	d.Events.Subscribe(events.AccountDeleted, accountWatch.ServiceName(), "Deleted")
+	post := worker.ChatPost{Prefix: d.ServicePrefix, Deals: svc}
+	d.Events.Subscribe(events.DealMoved, post.ServiceName(), "Moved")
 	return module.Mounted[service.Service]{
-		Services: append(svc.Durable(), restate.Reflect(watch), restate.Reflect(accountWatch)), Service: svc,
+		Services: append(svc.Durable(), restate.Reflect(watch), restate.Reflect(accountWatch), restate.Reflect(post)),
+		Service:  svc,
 	}
 }

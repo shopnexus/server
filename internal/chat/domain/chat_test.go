@@ -119,3 +119,21 @@ func TestSupportConversationsAreWithShopNexus(t *testing.T) {
 		t.Fatalf("a pair is %q", p.Kind)
 	}
 }
+
+// A deal message is sent at once, visible to both members, and keeps its
+// move through a store's round trip.
+func TestNewDealMessage(t *testing.T) {
+	t.Parallel()
+	move := domain.DealMove{DealID: uuid.NewV7(), Kind: "offer", By: "buyer", Amount: 1_000_000}
+	m := domain.NewDealMessage(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), move, now)
+	if m.Status() != domain.StatusSent || m.Body() != "" || len(m.Photos()) != 0 || !m.VisibleTo(uuid.NewV7()) {
+		t.Fatalf("%+v", m.State())
+	}
+	back := domain.RestoreMessage(m.State())
+	if d := back.Deal(); d == nil || *d != move || !back.CreatedAt().Equal(now) {
+		t.Fatalf("restored: %+v", back.State())
+	}
+	if text, err := newMessage("Còn không?", nil); err != nil || text.Deal() != nil {
+		t.Fatalf("a text message carries a move: %v %v", text.Deal(), err)
+	}
+}

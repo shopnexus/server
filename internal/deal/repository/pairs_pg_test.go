@@ -39,13 +39,13 @@ func TestOfPairs(t *testing.T) {
 	s := repository.NewDeals(db)
 	ctx := context.Background()
 	viewer, a, b, c, stranger := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
-	idle := inserted(t, s, catalogtest.Listing(t, db, viewer), a, viewer)
+	idle := inserted(t, db, s, catalogtest.Listing(t, db, viewer), a, viewer)
 	soldDeal(t, db, s, viewer, b)
 	soldDeal(t, db, s, a, viewer)
-	open := inserted(t, s, catalogtest.Listing(t, db, a), viewer, a)
+	open := inserted(t, db, s, catalogtest.Listing(t, db, a), viewer, a)
 	soldDeal(t, db, s, viewer, a)
 	soldB := soldDeal(t, db, s, viewer, b)
-	inserted(t, s, catalogtest.Listing(t, db, viewer), stranger, viewer)
+	inserted(t, db, s, catalogtest.Listing(t, db, viewer), stranger, viewer)
 	if err := open.Offer(domain.Buyer, 1_000_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
