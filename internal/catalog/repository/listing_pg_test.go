@@ -127,16 +127,20 @@ func TestListBySeller(t *testing.T) {
 	if err := s.Insert(ctx, listing(t, accounttest.New(t, db))); err != nil {
 		t.Fatal(err)
 	}
-	first, err := s.ListBySeller(ctx, seller, domain.OnSale, page.Request{Limit: 2})
+	first, err := s.ListBySeller(ctx, seller, domain.OnSale, nil, page.Request{Limit: 2})
 	if err != nil || len(first) != 3 || first[0].ID() != ids[2] {
 		t.Fatalf("first page: %d %v", len(first), err)
 	}
-	rest, _ := s.ListBySeller(ctx, seller, domain.OnSale, page.Request{Cursor: ids[1], Limit: 2})
+	rest, _ := s.ListBySeller(ctx, seller, domain.OnSale, nil, page.Request{Cursor: ids[1], Limit: 2})
 	if len(rest) != 1 || rest[0].ID() != ids[0] {
 		t.Fatalf("after the cursor: %d", len(rest))
 	}
-	if sold, _ := s.ListBySeller(ctx, seller, []domain.Status{domain.StatusSold}, page.Request{Limit: 2}); len(sold) != 0 {
+	if sold, _ := s.ListBySeller(ctx, seller, []domain.Status{domain.StatusSold}, nil, page.Request{Limit: 2}); len(sold) != 0 {
 		t.Fatalf("sold: %d", len(sold))
+	}
+	if left, _ := s.ListBySeller(ctx, seller, domain.OnSale, []uuid.UUID{ids[1]}, page.Request{}); len(left) != 2 ||
+		left[0].ID() != ids[2] || left[1].ID() != ids[0] {
+		t.Fatalf("leaving one out: %d", len(left))
 	}
 }
 

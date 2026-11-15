@@ -52,7 +52,8 @@ screenSeller:
       next_cursor. A signed-in reader who is not the seller also gets
       `viewer`. The listings are search cards: each has saved for a
       signed-in reader and, with a position, distance_km, measured as
-      GET /v1/search measures it; send the same position to load more.
+      GET /v1/search measures it; send the same position to load more. A
+      signed-in reader never sees the listings they hid.
     tags: [screen]
     security:
       - {}

@@ -17,31 +17,32 @@ type SellerCounts struct {
 	OnSale int
 }
 
-// SellerListings lists the seller's active and reserved listings as cards,
-// newest first, each measured from near when near names a position. An
-// unknown seller is accountdomain.ErrAccountNotFound, before near is
-// checked.
-func (c *Catalog) SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, p page.Request) (page.Page[SearchCard], error) {
-	if _, err := c.accounts.Get(ctx, seller); err != nil {
-		return page.Page[SearchCard]{}, fmt.Errorf("read the seller: %w", err)
+// SellerListings lists the seller's active and reserved listings that are
+// not in except as cards, newest first, each measured from near when near
+// names a position. An unknown seller is
+// accountdomain.ErrAccountNotFound, before near is checked. The seller's
+// account is read only for an empty page, since a listing shows the seller
+// exists.
+func (c *Catalog) SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, except []uuid.UUID, p page.Request) (page.Page[SearchCard], error) {
+	rows, err := c.listings.ListBySeller(ctx, seller, domain.Public, except, p)
+	if err != nil {
+		return page.Page[SearchCard]{}, fmt.Errorf("list listings: %w", err)
+	}
+	if len(rows) == 0 {
+		if _, err = c.accounts.Get(ctx, seller); err != nil {
+			return page.Page[SearchCard]{}, fmt.Errorf("read the seller: %w", err)
+		}
 	}
 	origin, err := c.Origin(ctx, near)
 	if err != nil {
 		return page.Page[SearchCard]{}, err
 	}
-	rows, err := c.listings.ListBySeller(ctx, seller, domain.Public, p)
-	if err != nil {
-		return page.Page[SearchCard]{}, fmt.Errorf("list listings: %w", err)
-	}
-	vs, err := c.views(ctx, rows)
+	kept := page.Of(rows, p, func(l domain.Listing) uuid.UUID { return l.ID() })
+	cards, err := c.cards(ctx, kept.Items, origin)
 	if err != nil {
 		return page.Page[SearchCard]{}, err
 	}
-	cards := make([]SearchCard, len(vs))
-	for i := range vs {
-		cards[i] = cardOf(&vs[i], rows[i].Point(), origin)
-	}
-	return page.Of(cards, p, func(c SearchCard) uuid.UUID { return c.ID }), nil
+	return page.Page[SearchCard]{Items: cards, NextCursor: kept.NextCursor}, nil
 }
 
 // SellerCounts counts the seller's sold listings, whether through an order

@@ -194,7 +194,8 @@ sellerListings:
     description: |
       The seller view's load more, with the view's next_cursor. Each card
       has saved for a signed-in caller and, with a position, distance_km,
-      measured as GET /v1/search measures it.
+      measured as GET /v1/search measures it. A signed-in caller never sees
+      the listings they hid.
     tags: [discovery]
     security:
       - {}

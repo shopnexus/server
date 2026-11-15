@@ -14,7 +14,8 @@ import (
 )
 
 // A seller's listings come as search items, newest first: saved for the
-// viewer who saved one, and measured only when a position is given.
+// viewer who saved one, without the ones the viewer hid, and measured only
+// when a position is given.
 func TestSellerListings(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -42,6 +43,14 @@ func TestSellerListings(t *testing.T) {
 		t.Fatalf("the saved card: %+v", it)
 	}
 
+	// The listing the viewer hid leaves their pages, and only theirs.
+	if err = e.discovery.Hide(ctx, me, newer); err != nil {
+		t.Fatal(err)
+	}
+	mine, err := e.discovery.SellerListings(ctx, &me, seller, catalogdomain.Near{}, page.Request{})
+	if err != nil || len(mine.Items) != 1 || mine.Items[0].ID != older || mine.NextCursor != nil {
+		t.Fatalf("after hiding: %+v %v", mine, err)
+	}
 	anon, err := e.discovery.SellerListings(ctx, nil, seller, catalogdomain.Near{}, page.Request{})
 	if err != nil || len(anon.Items) != 2 {
 		t.Fatalf("signed out: %+v %v", anon, err)

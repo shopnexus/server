@@ -33,8 +33,8 @@ type Service interface {
 	Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error)
 	// SellerListings lists what anyone sees of a seller's listings as
 	// search items, newest first, with the cursor rules of a page.Request:
-	// each measured from near when it names a position, and saved for a
-	// signed-in viewer.
+	// each measured from near when it names a position. A signed-in
+	// viewer's items leave out the listings they hid and are marked saved.
 	SellerListings(ctx context.Context, viewer *uuid.UUID, seller uuid.UUID, near catalogdomain.Near, p page.Request) (page.Page[SearchItem], error)
 	// History is the account's last domain.MaxHistory text searches,
 	// newest first.

@@ -1465,10 +1465,16 @@ page that shows two views calls both at once.
   `SearchItem` paged by listing ID as before. A card has `saved` for a
   signed-in reader and `distance_km` with a position, as on search;
   `SellerListingList` and its `distances` array are gone. Catalog's
-  `SellerListings` builds the cards with the search's `cardOf`, and
-  discovery's `SellerListings` marks the saves with the search's
-  `withSaved`. Discovery serves the endpoint because catalog cannot read
-  the saves. `GET /v1/me/listings` keeps `ListingList`, the seller's own
+  `SellerListings` builds the cards with `cards`, the builder search uses,
+  from the domain listings of the page that `page.Of` kept, so the
+  look-ahead row gets no card. Discovery's `SellerListings` marks the
+  saves with the search's `withSaved` and serves the endpoint, because
+  catalog cannot read the saves. A signed-in reader's cards leave out the
+  listings they hid, as search and the nearby feed do: discovery passes
+  the hides it reads for `exclusions` to catalog, which leaves them out in
+  the `ListBySeller` query, so the pages keep their size. Catalog reads
+  the seller's account only for an empty page, to answer
+  `account_not_found`; the seller view has read it already. `GET /v1/me/listings` keeps `ListingList`, the seller's own
   list for managing their listings.
 - Screen owns no table. Each view is one method of its service that reads
   the other modules' services top to bottom; depguard forbids every other

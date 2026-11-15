@@ -42,8 +42,8 @@ type Listings interface {
 	// domain.ErrCapReached when its seller is at the cap.
 	Save(ctx context.Context, l *domain.Listing, writeID uuid.UUID, evs ...events.Event) error
 	// ListBySeller is a query: seller's listings in statuses with IDs below
-	// p.Before(), newest first, at most p.Fetch().
-	ListBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status, p page.Request) ([]domain.Listing, error)
+	// p.Before() and not in except, newest first, at most p.Fetch().
+	ListBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status, except []uuid.UUID, p page.Request) ([]domain.Listing, error)
 }
 
 // Drafts persists listing drafts. Put takes a lock per account, so the

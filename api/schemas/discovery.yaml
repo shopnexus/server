@@ -100,7 +100,7 @@ SearchItemList:
   type: object
   additionalProperties: false
   required: [items]
-  description: A page of a seller's public listings as cards, newest first.
+  description: A page of search cards.
   properties:
     items:
       type: array

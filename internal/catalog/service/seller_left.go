@@ -27,7 +27,7 @@ func (c *Catalog) SellerLeft(ctx context.Context, seller uuid.UUID) error {
 		return fmt.Errorf("delete drafts: %w", err)
 	}
 	for {
-		ls, err := c.listings.ListBySeller(ctx, seller, leftBehind, page.Request{Limit: 100})
+		ls, err := c.listings.ListBySeller(ctx, seller, leftBehind, nil, page.Request{Limit: 100})
 		if err != nil {
 			return fmt.Errorf("list listings: %w", err)
 		}

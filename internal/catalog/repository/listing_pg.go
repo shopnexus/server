@@ -215,10 +215,13 @@ WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id))`,
 	return nil
 }
 
-func (s pgListings) ListBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status, p page.Request) ([]domain.Listing, error) {
+func (s pgListings) ListBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status, except []uuid.UUID, p page.Request) ([]domain.Listing, error) {
+	if except == nil {
+		except = []uuid.UUID{} // id <> ALL(NULL) is never true
+	}
 	rows, err := s.db.Query(ctx, `SELECT `+listingColumns+` FROM listings
-WHERE seller_id = @seller AND status = ANY(@statuses) AND id < @before ORDER BY id DESC LIMIT @limit`,
-		pgx.StrictNamedArgs{"seller": seller, "statuses": statuses, "before": p.Before(), "limit": p.Fetch()})
+WHERE seller_id = @seller AND status = ANY(@statuses) AND id <> ALL(@except) AND id < @before ORDER BY id DESC LIMIT @limit`,
+		pgx.StrictNamedArgs{"seller": seller, "statuses": statuses, "except": except, "before": p.Before(), "limit": p.Fetch()})
 	if err != nil {
 		return nil, fmt.Errorf("select listings: %w", err)
 	}

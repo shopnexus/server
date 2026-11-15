@@ -48,10 +48,10 @@ type Service interface {
 	Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error)
 	// ListMine lists one of the seller's panes, newest first.
 	ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p page.Request) (page.Page[ListingView], error)
-	// SellerListings lists what anyone sees of a seller's listings as
-	// cards, newest first, each measured from near when it names a
-	// position.
-	SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, p page.Request) (page.Page[SearchCard], error)
+	// SellerListings lists what anyone sees of a seller's listings, except
+	// the IDs in except, as cards, newest first, each measured from near
+	// when it names a position.
+	SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, except []uuid.UUID, p page.Request) (page.Page[SearchCard], error)
 	// GetNear reads a listing as Get does, with its distance from near in
 	// whole kilometres, nil when near names no position.
 	GetNear(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near domain.Near) (ListingView, *int, error)

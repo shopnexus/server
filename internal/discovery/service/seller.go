@@ -10,12 +10,20 @@ import (
 )
 
 // SellerListings lists what anyone sees of a seller's listings as search
-// items, newest first: each measured from near when it names a position,
-// and marked saved for a signed-in viewer.
+// items, newest first: each measured from near when it names a position.
+// A signed-in viewer's items leave out the listings they hid, as their
+// searches do, and are marked saved.
 func (d *Discovery) SellerListings(ctx context.Context, viewer *uuid.UUID, seller uuid.UUID, near catalogdomain.Near, p page.Request) (page.Page[SearchItem], error) {
-	cards, err := d.catalog.SellerListings(ctx, seller, near, p)
+	var hidden []uuid.UUID
+	if viewer != nil {
+		var err error
+		if hidden, err = d.hidden.List(ctx, *viewer); err != nil {
+			return page.Page[SearchItem]{}, fmt.Errorf("read hides: %w", err)
+		}
+	}
+	cards, err := d.catalog.SellerListings(ctx, seller, near, hidden, p)
 	if err != nil {
-		return page.Page[SearchItem]{}, fmt.Errorf("list the listings: %w", err)
+		return page.Page[SearchItem]{}, err //nolint:wrapcheck // catalog names its failed step and the caller names this one.
 	}
 	items, err := d.withSaved(ctx, viewer, cards.Items)
 	if err != nil {

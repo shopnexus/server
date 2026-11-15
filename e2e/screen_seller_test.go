@@ -39,17 +39,6 @@ type sellerScreen struct {
 	} `json:"viewer"`
 }
 
-// searchCard is a SearchItem, a listing as search and the seller view
-// show it; a nil DistanceKm is an absent key.
-type searchCard struct {
-	ID            string `json:"id"`
-	SellerID      string `json:"seller_id"`
-	CoverThumbURL string `json:"cover_thumb_url"`
-	Commune       string `json:"commune"`
-	DistanceKm    *int   `json:"distance_km"`
-	Saved         bool   `json:"saved"`
-}
-
 // cards checks a page of the seller's cards: their IDs in order, which of
 // them are saved, and that each has a distance when near is set and none
 // otherwise.
@@ -175,6 +164,15 @@ func TestSellerScreen(t *testing.T) {
 		t.Fatalf("an empty page with a position: %d %s", res.Status, res.Body)
 	}
 	check(t, "listings with a bad token", call(t, "GET", listings, nil, bearer("x")), 401, "")
+
+	// A listing the reader hid leaves their cards on the view and in load
+	// more, and only theirs.
+	hider, _ := newAccount(t)
+	expectStatus(t, call(t, "PUT", "/v1/hidden/"+reserved, nil, bearer(hider.AccessToken)), http.StatusNoContent)
+	cards(t, "the view of the hider", get("hider", path, bearer(hider.AccessToken)).Listings, seller.Account.ID, false, []string{active})
+	res = call(t, "GET", listings, nil, bearer(hider.AccessToken))
+	cards(t, "load more of the hider", decode[page[searchCard]](t, res), seller.Account.ID, false, []string{active})
+	cards(t, "the view signed out", get("signed out", path).Listings, seller.Account.ID, false, []string{reserved, active})
 	check(t, "listings of a bad id", call(t, "GET", "/v1/sellers/x/listings", nil), 400, "")
 	check(t, "listings with a bad cursor", call(t, "GET", listings+"?cursor=x", nil), 400, "")
 	check(t, "listings of an unknown seller", call(t, "GET", "/v1/sellers/"+uuid.NewV7().String()+"/listings", nil), 404, "account_not_found")
