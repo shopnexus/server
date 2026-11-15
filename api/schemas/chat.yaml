@@ -91,6 +91,10 @@ Message:
   type: object
   additionalProperties: false
   required: [id, sender_id, text, photos, status, created_at]
+  description: |
+    A message a member wrote, or a deal message the server wrote for a move
+    on a deal of the two. A deal message has deal, an empty text and no
+    photos, and nobody can send one.
   properties:
     id:
       type: string
@@ -98,6 +102,10 @@ Message:
     sender_id:
       type: string
       format: uuid
+      description: |
+        The member who wrote the message or made the move. A deal message
+        for a move by the system (a carrier's report, a timer) has the ID of
+        ShopNexus, so it counts as unread for both members.
     text:
       type: string
     photos:
@@ -116,9 +124,25 @@ Message:
       description: Why media refused a photo, on a failed message.
     reply_to:
       $ref: "#/Quote"
+    deal:
+      $ref: "#/MessageDeal"
     created_at:
       type: string
       format: date-time
+MessageDeal:
+  type: object
+  additionalProperties: false
+  required: [deal_id, move]
+  description: |
+    The move a deal message is about. Every move a person makes on a deal
+    writes one, and so does every order step, whoever made it. A change of
+    the listing (price_changed, offers_closed, listing_closed) writes none.
+  properties:
+    deal_id:
+      type: string
+      format: uuid
+    move:
+      $ref: "deal.yaml#/Move"
 Conversation:
   type: object
   additionalProperties: false

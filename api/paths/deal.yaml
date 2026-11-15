@@ -5,7 +5,10 @@ deals:
     description: |
       Returns the caller's existing deal on the listing, or starts one.
       Checks, in order: the caller's deal exists (200); the listing exists;
-      account_suspended; own_listing; listing_unavailable.
+      account_suspended; own_listing; listing_unavailable. A new deal opens
+      the conversation of the buyer and the seller, or reuses the pair's,
+      and names it in conversation_id. The conversation shows in the inbox
+      once it has a message.
     tags: [deal]
     security:
       - bearerAuth: []

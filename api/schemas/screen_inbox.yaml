@@ -76,7 +76,7 @@ MessageHit:
 ChatScreen:
   type: object
   additionalProperties: false
-  required: [id, other, archived, deals, messages]
+  required: [id, other, archived, blocked, deals, messages]
   properties:
     id:
       type: string
@@ -85,6 +85,15 @@ ChatScreen:
       $ref: "chat.yaml#/Person"
     archived:
       type: boolean
+    blocked:
+      type: boolean
+      description: A block stands between the two, either way, so neither can send a message.
+    other_read_message_id:
+      type: string
+      format: uuid
+      description: |
+        The newest message the other member has read, for "Đã xem" under the
+        caller's messages up to it. Absent while they have read nothing.
     deals:
       type: array
       description: The deals of the two people on either side, newest first, as the caller sees them.

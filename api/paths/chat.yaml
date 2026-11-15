@@ -56,6 +56,9 @@ conversationMessages:
   get:
     operationId: listMessages
     summary: List a conversation's messages, newest first.
+    description: |
+      The deal messages of the two people's deals come in the same list, by
+      the time of their moves.
     tags: [chat]
     security:
       - bearerAuth: []
@@ -91,7 +94,8 @@ conversationMessages:
     description: |
       A photo message is processing until its photos are processed; only
       the sender sees it until it is sent. A suspended account may still
-      write in a support chat.
+      write in a support chat. Deal messages come from moves on the deals,
+      never from this endpoint.
     tags: [chat]
     security:
       - bearerAuth: []
