@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
@@ -26,9 +27,10 @@ func (c *Catalog) Communes(ctx context.Context, provinceCode string) ([]domain.C
 	return cs, nil
 }
 
-// Places reads the communes among codes with their provinces in one query.
+// Places reads the communes among codes with their provinces in one query,
+// asking for each code once.
 func (c *Catalog) Places(ctx context.Context, codes []string) (map[string]Location, error) {
-	rows, err := c.regions.Places(ctx, codes)
+	rows, err := c.regions.Places(ctx, slices.Compact(slices.Sorted(slices.Values(codes))))
 	if err != nil {
 		return nil, fmt.Errorf("get communes: %w", err)
 	}

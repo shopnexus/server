@@ -46,13 +46,9 @@ type ListingViewer struct {
 // distance from near. A viewer who is not the seller also gets their save,
 // deal and conversation with the seller.
 func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (ListingScreen, error) {
-	l, err := s.catalog.Get(ctx, nil, id)
+	l, distance, err := s.catalog.GetNear(ctx, nil, id, near)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the listing: %w", err)
-	}
-	distance, err := s.catalog.Distance(ctx, near, id)
-	if err != nil {
-		return ListingScreen{}, fmt.Errorf("measure the distance: %w", err)
 	}
 	seller, err := s.accounts.Get(ctx, l.SellerID)
 	if err != nil {

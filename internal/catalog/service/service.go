@@ -51,9 +51,9 @@ type Service interface {
 	// SellerListings lists what anyone sees of a seller's listings, newest
 	// first, with their distances from near when it names a position.
 	SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, p page.Request) (SellerListingPage, error)
-	// Distance is how far listing id is from near in whole kilometres, nil
-	// when near names no position.
-	Distance(ctx context.Context, near domain.Near, id uuid.UUID) (*int, error)
+	// GetNear reads a listing as Get does, with its distance from near in
+	// whole kilometres, nil when near names no position.
+	GetNear(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near domain.Near) (ListingView, *int, error)
 	// Origin is the point near names, nil for none; a bad point or an
 	// unknown commune is domain.ErrInvalidPosition.
 	Origin(ctx context.Context, near domain.Near) (*domain.Point, error)

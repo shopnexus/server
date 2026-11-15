@@ -1444,8 +1444,11 @@ page that shows two views calls both at once.
   km when absent, and `position_required` without a position. Catalog
   counts the active listings by subcategory in one query, with no
   exclusions, and a root's count is the sum of its subcategories, since a
-  listing always takes a subcategory. `Counts` lost its `CountField`, as
-  nothing counted by root any more.
+  listing always takes a subcategory: `listings.category_code` references
+  `categories`, and every post and edit checks the code is a leaf. A
+  migration that moves a subcategory to another root moves its count with
+  it, where the old count by `category_root` (the code's prefix) did not.
+  `Counts` lost its `CountField`, as nothing counted by root any more.
 - Distances on the listing and seller views (decided 2026-11-15, same
   plan): both views and `GET /v1/sellers/{id}/listings` take
   `near_lat`/`near_lng` or `near_commune` and check them as the search
@@ -1454,7 +1457,10 @@ page that shows two views calls both at once.
   `{listing_id, distance_km}` per item in the order of the items, and
   neither field without a position. The distance sits beside the resource
   because it depends on the request: a `Listing` reads the same for every
-  caller and every endpoint that returns it.
+  caller and every endpoint that returns it. `SellerListingList` repeats
+  `ListingList`'s two fields rather than extending it with `allOf`, which
+  the app's Fabrikt codegen may not handle. The listing view reads the
+  listing once, through `GetNear`, and measures from that row.
 - Screen owns no table. Each view is one method of its service that reads
   the other modules' services top to bottom; depguard forbids every other
   module to import it, so it adds no dependency between the others.
@@ -1686,8 +1692,11 @@ Search and the nearby feed (decided 2026-10-27, spec:
   listing and seller views took one): `catalogdomain.Near` is the request's
   point or commune, `catalogsvc.Origin` resolves it or answers
   `invalid_position`, and `catalogdomain.DistanceKm`, measured from the
-  listing's own point, is every distance the API shows. Search, the price
-  guide and the views call these.
+  listing's own point, is every distance the API shows. Search, watches,
+  the price guide and the views call these. A coordinate of exactly 0
+  reads as absent, as it did before the move, since the query fields are
+  not pointers; no point in Vietnam lies on the equator or the prime
+  meridian.
 - ParadeDB clones are about 13 MB, so the test database's tmpfs is 4 GB,
   and the slower index writes need `max_connections=400` in the test stack.
 

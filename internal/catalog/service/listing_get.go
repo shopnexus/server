@@ -13,31 +13,33 @@ import (
 // Get reads a listing. Anyone sees an active or reserved listing; its seller
 // also sees it in any other state but deleted.
 func (c *Catalog) Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error) {
+	v, _, err := c.GetNear(ctx, viewer, id, domain.Near{})
+	return v, err
+}
+
+// GetNear reads a listing as Get does, with its distance from near in whole
+// kilometres, nil without a position. The distance is measured from the
+// listing's own point, as a search measures it, which no view carries. An
+// unknown or unseen listing is domain.ErrNotFound before near is checked.
+func (c *Catalog) GetNear(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near domain.Near) (ListingView, *int, error) {
 	l, err := c.listing(ctx, id)
 	if err != nil {
-		return ListingView{}, err
+		return ListingView{}, nil, err
 	}
 	owner := viewer != nil && *viewer == l.SellerID()
 	public := slices.Contains(domain.Public, l.Status())
 	if l.Status() == domain.StatusDeleted || (!public && !owner) {
-		return ListingView{}, domain.ErrNotFound
+		return ListingView{}, nil, domain.ErrNotFound
 	}
-	return c.view(ctx, l)
-}
-
-// Distance is how far listing id is from near, in whole kilometres; nil
-// without a position. It measures from the listing's own point, as a
-// search does, which no view carries.
-func (c *Catalog) Distance(ctx context.Context, near domain.Near, id uuid.UUID) (*int, error) {
 	origin, err := c.Origin(ctx, near)
-	if err != nil || origin == nil {
-		return nil, err
-	}
-	l, err := c.listing(ctx, id)
 	if err != nil {
-		return nil, err
+		return ListingView{}, nil, err
 	}
-	return new(domain.DistanceKm(*origin, l.Point())), nil
+	v, err := c.view(ctx, l)
+	if err != nil || origin == nil {
+		return v, nil, err
+	}
+	return v, new(domain.DistanceKm(*origin, l.Point())), nil
 }
 
 // ListMine lists the listings of one of the seller's panes, newest first.

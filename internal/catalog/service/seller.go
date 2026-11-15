@@ -24,7 +24,9 @@ type SellerCounts struct {
 type SellerListingPage struct {
 	page.Page[ListingView]
 
-	Distances []ListingDistance `json:"distances,omitempty"`
+	// Distances is nil without a position and empty for an empty page with
+	// one, so the key is absent only when no position was given.
+	Distances []ListingDistance `json:"distances,omitzero"`
 }
 
 // ListingDistance is how far one listing is from the reader's position, in
@@ -36,14 +38,15 @@ type ListingDistance struct {
 
 // SellerListings lists the seller's active and reserved listings, newest
 // first, each with its distance from near when near names a position. An
-// unknown seller is accountdomain.ErrAccountNotFound.
+// unknown seller is accountdomain.ErrAccountNotFound, before near is
+// checked.
 func (c *Catalog) SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, p page.Request) (SellerListingPage, error) {
+	if _, err := c.accounts.Get(ctx, seller); err != nil {
+		return SellerListingPage{}, fmt.Errorf("read the seller: %w", err)
+	}
 	origin, err := c.Origin(ctx, near)
 	if err != nil {
 		return SellerListingPage{}, err
-	}
-	if _, err = c.accounts.Get(ctx, seller); err != nil {
-		return SellerListingPage{}, fmt.Errorf("read the seller: %w", err)
 	}
 	rows, err := c.listings.ListBySeller(ctx, seller, domain.Public, p)
 	if err != nil {

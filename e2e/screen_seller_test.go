@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"uuid"
 )
@@ -146,6 +147,14 @@ func TestSellerScreen(t *testing.T) {
 		t.Fatalf("second page: %d %s", res.Status, res.Body)
 	}
 	check(t, "listings near an unknown commune", call(t, "GET", listings+"?near_commune=nope", nil), 400, "invalid_position")
+	check(t, "listings of an unknown seller near an unknown commune",
+		call(t, "GET", "/v1/sellers/"+uuid.NewV7().String()+"/listings?near_commune=nope", nil), 404, "account_not_found")
+	// With a position an empty page still has the key, so it does not read
+	// as no position.
+	res = call(t, "GET", "/v1/sellers/"+buyer.Account.ID+"/listings?near_commune=00004", nil)
+	if res.Status != http.StatusOK || !strings.Contains(string(res.Body), `"distances":[]`) {
+		t.Fatalf("an empty page with a position: %d %s", res.Status, res.Body)
+	}
 	check(t, "listings of a bad id", call(t, "GET", "/v1/sellers/x/listings", nil), 400, "")
 	check(t, "listings with a bad cursor", call(t, "GET", listings+"?cursor=x", nil), 400, "")
 	check(t, "listings of an unknown seller", call(t, "GET", "/v1/sellers/"+uuid.NewV7().String()+"/listings", nil), 404, "account_not_found")

@@ -47,18 +47,27 @@ func TestSellerListingsAndCounts(t *testing.T) {
 	if got, err := e.catalog.SellerCounts(ctx, seller); err != nil || got != (service.SellerCounts{Sold: 1, Public: 2, OnSale: 3}) {
 		t.Fatalf("counts: %+v %v", got, err)
 	}
-	if _, err := e.catalog.SellerListings(ctx, uuid.NewV7(), domain.Near{}, page.Request{}); !errors.Is(err, accountdomain.ErrAccountNotFound) {
-		t.Fatalf("unknown seller: %v", err)
+	for name, near := range map[string]domain.Near{"no position": {}, "an unknown commune": {Commune: "nope"}} {
+		if _, err := e.catalog.SellerListings(ctx, uuid.NewV7(), near, page.Request{}); !errors.Is(err, accountdomain.ErrAccountNotFound) {
+			t.Errorf("unknown seller, %s: %v", name, err)
+		}
+	}
+	// With a position an empty page has an empty list of distances.
+	empty, emptyErr := e.catalog.SellerListings(ctx, e.seller(t), domain.Near{Commune: "00004"}, page.Request{})
+	if emptyErr != nil || len(empty.Items) != 0 || empty.Distances == nil || len(empty.Distances) != 0 {
+		t.Fatalf("an empty page with a position: %+v %v", empty, emptyErr)
 	}
 }
 
-// A distance is measured from the listing's point and truncated to whole
-// kilometres; no position gives none, and a bad one is refused.
-func TestDistance(t *testing.T) {
+// GetNear measures from the listing's point and truncates to whole
+// kilometres; no position gives none, and a bad one is refused once the
+// listing is known to be seen.
+func TestGetNear(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	id := e.active(t, e.seller(t)).ID
+	seller := e.seller(t)
+	id := e.active(t, seller).ID
 	places, err := e.catalog.Places(ctx, []string{"00004"})
 	if err != nil {
 		t.Fatal(err)
@@ -72,8 +81,8 @@ func TestDistance(t *testing.T) {
 		"its commune":         {domain.Near{Commune: "00004"}, new(0)},
 		"0.05° north, 5.5 km": {domain.Near{Lat: home.Lat + 0.05, Lng: home.Lng}, new(5)},
 	} {
-		got, err := e.catalog.Distance(ctx, c.near, id)
-		if err != nil || (got == nil) != (c.want == nil) || (got != nil && *got != *c.want) {
+		v, got, err := e.catalog.GetNear(ctx, nil, id, c.near)
+		if err != nil || v.ID != id || (got == nil) != (c.want == nil) || (got != nil && *got != *c.want) {
 			t.Errorf("%s: %v %v", name, got, err)
 		}
 	}
@@ -82,11 +91,18 @@ func TestDistance(t *testing.T) {
 		"out of range":       {Lat: 95, Lng: 105},
 		"an unknown commune": {Commune: "nope"},
 	} {
-		if _, err := e.catalog.Distance(ctx, near, id); !errors.Is(err, domain.ErrInvalidPosition) {
+		if _, _, err := e.catalog.GetNear(ctx, nil, id, near); !errors.Is(err, domain.ErrInvalidPosition) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
-	if _, err := e.catalog.Distance(ctx, domain.Near{Commune: "00004"}, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
+	if _, _, err := e.catalog.GetNear(ctx, nil, uuid.NewV7(), domain.Near{Commune: "nope"}); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("an unknown listing: %v", err)
+	}
+	hidden := e.active(t, seller).ID
+	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.catalog.GetNear(ctx, nil, hidden, domain.Near{Commune: "nope"}); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("a hidden listing signed out: %v", err)
 	}
 }

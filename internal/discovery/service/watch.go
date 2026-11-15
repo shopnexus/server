@@ -79,29 +79,22 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 	if in.PriceMin > 0 && in.PriceMax > 0 && in.PriceMin > in.PriceMax {
 		return WatchView{}, false, domain.ErrInvalidPriceRange
 	}
+	// The search's rules check the place; a GPS point then becomes its
+	// nearest commune, since a watch keeps a commune and no point.
+	origin, err := d.catalog.Origin(ctx, in.Near)
+	if err != nil {
+		return WatchView{}, false, fmt.Errorf("read the place: %w", err)
+	}
 	commune := in.Near.Commune
-	switch {
-	case in.Near.Lat != 0 || in.Near.Lng != 0:
-		if in.Near.Lat == 0 || in.Near.Lng == 0 || in.Near.Lat < -90 || in.Near.Lat > 90 || in.Near.Lng < -180 || in.Near.Lng > 180 {
+	if origin != nil && (in.Near.Lat != 0 || in.Near.Lng != 0) {
+		loc, locErr := d.catalog.Locate(ctx, *origin)
+		if errors.Is(locErr, catalogdomain.ErrNoCommuneNear) {
 			return WatchView{}, false, catalogdomain.ErrInvalidPosition
 		}
-		loc, err := d.catalog.Locate(ctx, catalogdomain.Point{Lat: in.Near.Lat, Lng: in.Near.Lng})
-		if errors.Is(err, catalogdomain.ErrNoCommuneNear) {
-			return WatchView{}, false, catalogdomain.ErrInvalidPosition
-		}
-		if err != nil {
-			return WatchView{}, false, fmt.Errorf("find the commune: %w", err)
+		if locErr != nil {
+			return WatchView{}, false, fmt.Errorf("find the commune: %w", locErr)
 		}
 		commune = loc.Commune.Code
-	case commune != "":
-		places, err := d.catalog.Places(ctx, []string{commune})
-		if err != nil {
-			return WatchView{}, false, fmt.Errorf("read the commune: %w", err)
-		}
-		if _, ok := places[commune]; !ok {
-			return WatchView{}, false, catalogdomain.ErrInvalidPosition
-		}
-	default:
 	}
 	if in.RadiusKm > 0 && commune == "" {
 		return WatchView{}, false, domain.ErrPositionRequired

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"time"
 	"uuid"
 
@@ -70,8 +71,12 @@ func (d *Discovery) IsSaved(ctx context.Context, account, listing uuid.UUID) (bo
 	return saved[listing], nil
 }
 
-// Saved reads one page of saves, their listings and the listings' communes,
-// one call each.
+// takenDown are the statuses in which a saved listing shows its status
+// alone, since its seller took it down.
+var takenDown = []catalogdomain.Status{catalogdomain.StatusHidden, catalogdomain.StatusDeleted}
+
+// Saved reads one page of saves, their listings and the communes of the
+// listings it shows, one call each.
 func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request) (page.Page[SavedView], error) {
 	rows, err := d.saves.List(ctx, account, p)
 	if err != nil {
@@ -87,7 +92,9 @@ func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request
 	}
 	codes := make([]string, 0, len(listings))
 	for id := range listings {
-		codes = append(codes, listings[id].CommuneCode)
+		if l := listings[id]; !slices.Contains(takenDown, l.Status) {
+			codes = append(codes, l.CommuneCode)
+		}
 	}
 	places, err := d.catalog.Places(ctx, codes)
 	if err != nil {
@@ -97,7 +104,7 @@ func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request
 	for _, r := range rows {
 		l := listings[r.ListingID]
 		shown := SavedListing{Status: l.Status}
-		if l.Status != catalogdomain.StatusHidden && l.Status != catalogdomain.StatusDeleted {
+		if !slices.Contains(takenDown, l.Status) {
 			shown.Title, shown.Price, shown.CoverThumbURL = l.Title, new(l.Price), l.CoverThumbURL
 			shown.CategoryCode, shown.Condition = l.CategoryCode, l.Condition
 			shown.Commune = places[l.CommuneCode].Commune.DisplayName
