@@ -185,10 +185,6 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if err != nil {
 		return nil, fmt.Errorf("load api spec: %w", err)
 	}
-	validate, err := httpx.ValidateRequests(doc, log)
-	if err != nil {
-		return nil, fmt.Errorf("build request validator: %w", err)
-	}
 
 	a.router.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.Respond(w, http.StatusOK, status{"ok"})
@@ -210,6 +206,12 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	defs = append(defs, bus.Definition())
 	if err = bus.Check(defs); err != nil {
 		return nil, fmt.Errorf("check event subscriptions: %w", err)
+	}
+	// The validator matches only the mounted routes, so a dev route this
+	// server does not mount answers as an unknown path.
+	validate, err := httpx.ValidateRequests(doc, a.router.Routes(), log)
+	if err != nil {
+		return nil, fmt.Errorf("build request validator: %w", err)
 	}
 	if a.endpoint, err = startRestate(ctx, cfg.Restate, log, defs); err != nil {
 		return nil, err
@@ -348,7 +350,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}))
 	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
 	if cfg.Env != config.EnvProd {
-		router.Handle("POST /v1/dev/updates", d.Protect(stream.DevUpdateHandler(pool, log)))
+		router.Handle("POST /v1/dev/updates", d.Protect(stream.DevUpdateHandler(updates, log)))
 	}
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service)

@@ -230,13 +230,12 @@ type devUpdate struct {
 }
 
 // Each kind logged through the dev endpoint reaches a socket opened with
-// since as the next seq, with the IDs it was given.
+// since, at the seq the endpoint answered, with the IDs it was given.
 func TestDevUpdateReachesTheSocket(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
 	s := openSocket(t, me.AccessToken, "?since=0")
-	backlog := s.ready(t)
-	seq := backlog[len(backlog)-1].Seq
+	s.ready(t)
 	id := func() string { return uuid.NewV7().String() }
 	for _, u := range []devUpdate{
 		{Kind: "message", ConversationID: id(), MessageID: id()},
@@ -246,18 +245,16 @@ func TestDevUpdateReachesTheSocket(t *testing.T) {
 		{Kind: "scam_warning", ConversationID: id()},
 		{Kind: "listing_read", ListingReadID: id()},
 	} {
-		seq++
 		logged := expect[socketFrame](t, call(t, "POST", "/v1/dev/updates", u, bearer(me.AccessToken)), http.StatusCreated)
-		got := s.next(t)
 		want := socketFrame{
-			Type: "update", Seq: seq, Kind: u.Kind, ConversationID: u.ConversationID, MessageID: u.MessageID,
+			Type: "update", Seq: logged.Seq, Kind: u.Kind, ConversationID: u.ConversationID, MessageID: u.MessageID,
 			DealID: u.DealID, NotificationID: u.NotificationID, ListingReadID: u.ListingReadID,
-		}
-		if got != want {
-			t.Fatalf("frame %+v, want %+v", got, want)
 		}
 		if logged.Type = "update"; logged != want {
 			t.Fatalf("logged %+v, want %+v", logged, want)
+		}
+		if got := s.next(t); got != want {
+			t.Fatalf("frame %+v, want %+v", got, want)
 		}
 	}
 }

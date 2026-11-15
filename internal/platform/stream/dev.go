@@ -1,24 +1,25 @@
 package stream
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
-	"uuid"
+	"slices"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-
+	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
 
+// errUnloggedKind answers a kind the log does not hold, should a request
+// reach the handler without the spec's check.
+var errUnloggedKind = apperr.New(apperr.KindBadRequest, "invalid_request", "kind is not one the update log holds")
+
 // DevUpdateHandler serves POST /v1/dev/updates, which app mounts outside
-// APP_ENV=prod. It logs the hint in the body for the caller as Notify does,
-// so a test can watch an update reach the socket without making the change
+// APP_ENV=prod. It appends the hint in the body to the caller's log, so a
+// test can watch an update reach the socket without making the change
 // behind it. The spec has already checked that the IDs are the ones the
 // kind carries; they need not name anything, since the log has no foreign
 // key.
-func DevUpdateHandler(db *pgxpool.Pool, log *slog.Logger) http.Handler {
+func DevUpdateHandler(updates PGLog, log *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, ok := httpx.Caller(w, r, log)
 		if !ok {
@@ -29,17 +30,13 @@ func DevUpdateHandler(db *pgxpool.Pool, log *slog.Logger) http.Handler {
 			httpx.WriteError(w, r, log, err)
 			return
 		}
-		var u Update
-		err := pgx.BeginFunc(r.Context(), db, func(tx pgx.Tx) error {
-			targets, err := appendHint(r.Context(), tx, []uuid.UUID{p.AccountID}, h)
-			if err != nil {
-				return err
-			}
-			u = Update{Hint: h, Seq: targets[0].Seq}
-			return nil
-		})
+		if !slices.Contains(loggedKinds, h.Kind) {
+			httpx.WriteError(w, r, log, errUnloggedKind)
+			return
+		}
+		u, err := updates.Append(r.Context(), p.AccountID, h)
 		if err != nil {
-			httpx.WriteError(w, r, log, fmt.Errorf("log the update: %w", err))
+			httpx.WriteError(w, r, log, err)
 			return
 		}
 		httpx.Respond(w, http.StatusCreated, u)

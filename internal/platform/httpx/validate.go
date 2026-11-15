@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 
@@ -34,13 +36,28 @@ var (
 )
 
 // ValidateRequests checks each request against its operation in doc before
-// the handler runs. Shape rules live only in the spec. Requests to paths the
-// spec does not describe pass through, so the mux answers 404.
-func ValidateRequests(doc *openapi3.T, log *slog.Logger) (func(http.Handler) http.Handler, error) {
+// the handler runs. Shape rules live only in the spec. It matches only the
+// operations in served, the routes the mux has: a request for any other,
+// such as a dev route a production server does not mount, passes through
+// unread, and the mux answers it as an unknown path.
+func ValidateRequests(doc *openapi3.T, served []Route, log *slog.Logger) (func(http.Handler) http.Handler, error) {
 	defineFormats()
 	// Match on paths only; the servers list names deployments, not this process.
 	matchDoc := *doc
 	matchDoc.Servers = nil
+	matchDoc.Paths = openapi3.NewPaths()
+	for path, item := range doc.Paths.Map() {
+		kept := *item
+		kept.AdditionalOperations = maps.Clone(item.AdditionalOperations)
+		for method := range item.Operations() {
+			if !slices.Contains(served, Route{Method: strings.ToUpper(method), Path: path}) {
+				kept.SetOperation(method, nil)
+			}
+		}
+		if len(kept.Operations()) > 0 {
+			matchDoc.Paths.Set(path, &kept)
+		}
+	}
 	router, err := legacy.NewRouter(&matchDoc)
 	if err != nil {
 		return nil, fmt.Errorf("build openapi router: %w", err)

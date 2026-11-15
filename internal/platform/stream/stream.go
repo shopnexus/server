@@ -32,6 +32,10 @@ const (
 	KindTyping = "typing"
 )
 
+// loggedKinds are the kinds an update in the log may have; typing is rung
+// only.
+var loggedKinds = []string{KindMessage, KindRead, KindDeal, KindNotification, KindListingRead, KindScamWarning}
+
 // Hint names what changed: Kind and the IDs that go with it.
 type Hint struct {
 	Kind           string     `json:"kind"`

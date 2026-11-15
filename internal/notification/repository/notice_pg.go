@@ -70,11 +70,15 @@ WHERE account_id = @account AND collapse_key = @key ORDER BY bumped_at DESC LIMI
 		}).Scan(&id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			// A newer notice with the key landed after the read above and
-			// stays as it is.
+			// stays as it is. Nothing changed, so the recipient's log gets
+			// no update.
 			late = true
-			err = tx.QueryRow(ctx, `SELECT id FROM notifications
+			if err = tx.QueryRow(ctx, `SELECT id FROM notifications
 WHERE account_id = @account AND collapse_key = @key AND read_at IS NULL`,
-				pgx.StrictNamedArgs{"account": n.Recipient, "key": n.CollapseKey}).Scan(&id)
+				pgx.StrictNamedArgs{"account": n.Recipient, "key": n.CollapseKey}).Scan(&id); err != nil {
+				return fmt.Errorf("read the newer notice: %w", err)
+			}
+			return nil
 		}
 		if err != nil {
 			return fmt.Errorf("upsert notice: %w", err)

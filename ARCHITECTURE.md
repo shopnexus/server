@@ -93,6 +93,10 @@ spec validator, in that order, before the router. `Trace` is outermost: it
 opens the span, records the duration and writes the access log line after
 the request, so a request that panicked logs the 500 `Recover` wrote, with
 its trace ID.
+The validator matches only the operations the router serves, so a request
+for a spec route this server does not mount, such as a dev route in
+production, gets the router's 404 for an unknown path whatever its body
+(decided 2026-11-15).
 
 ### Pagination
 
@@ -1286,14 +1290,17 @@ everything after each reconnect and deploy).
   `write_id` alone. The chat views and the seller page show it.
 - `platform/stream` reaches the modules through `stream.Access`, which
   `app` adapts from account and chat.
-- `POST /v1/dev/updates {kind, …ids}` (decided 2026-11-16) logs an update
-  for the caller through the same append as `Notify` and answers 201 with
-  it, `seq` included. The app's live test uses it to check that an update
-  reaches the socket. `app` mounts it behind the auth middleware when
-  `APP_ENV` is not `prod`. The spec's `DevUpdate` is a `oneOf` with one
-  branch per kind, so a missing ID, an ID the kind does not carry or an
-  unknown kind is 400 `invalid_request`. The IDs need not name anything,
-  since `account_updates` has no foreign key.
+- `POST /v1/dev/updates {kind, …ids}` (decided 2026-11-15) logs an update
+  for the caller through `PGLog.Append`, the same append as `Notify` in a
+  transaction of its own, and answers 201 with it, `seq` included. The
+  app's live test uses it to check that an update reaches the socket.
+  `app` mounts it behind the auth middleware when `APP_ENV` is not `prod`.
+  The spec's `DevUpdate` is a `oneOf` with one branch per kind, so a
+  missing ID, an ID the kind does not carry or an unknown kind is 400
+  `invalid_request`; the handler also refuses a kind the log does not hold.
+  The IDs need not name anything, since `account_updates` has no foreign
+  key. It has no rate limit, because it is dev-only and writes only the
+  caller's own log.
 
 ### Blocks and follows
 
