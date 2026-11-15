@@ -14,7 +14,20 @@ HomeCategory:
     children:
       type: array
       items:
-        $ref: "catalog.yaml#/Category"
+        $ref: "#/HomeSubcategory"
+HomeSubcategory:
+  type: object
+  additionalProperties: false
+  required: [code, display_name, count]
+  description: A subcategory under a root of the category tree.
+  properties:
+    code:
+      type: string
+    display_name:
+      type: string
+    count:
+      type: integer
+      description: Active listings in the subcategory.
 HomeScreen:
   type: object
   additionalProperties: false
@@ -29,3 +42,4 @@ HomeScreen:
         $ref: "#/HomeCategory"
     nearby:
       $ref: "discovery.yaml#/SearchView"
+      description: The first page of the nearby feed; no items without a position.

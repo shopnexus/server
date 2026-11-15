@@ -12,10 +12,17 @@ import (
 // HomeCategory is a root of the category tree with its active listings
 // counted and its subcategories.
 type HomeCategory struct {
-	Code        string                   `json:"code"`
-	DisplayName string                   `json:"display_name"`
-	Count       int                      `json:"count"`
-	Children    []catalogdomain.Category `json:"children"`
+	Code        string            `json:"code"`
+	DisplayName string            `json:"display_name"`
+	Count       int               `json:"count"`
+	Children    []HomeSubcategory `json:"children"`
+}
+
+// HomeSubcategory is a subcategory with its active listings counted.
+type HomeSubcategory struct {
+	Code        string `json:"code"`
+	DisplayName string `json:"display_name"`
+	Count       int    `json:"count"`
 }
 
 // HomeScreen is the HomeScreen schema in api/schemas/screen_home.yaml.
@@ -26,26 +33,33 @@ type HomeScreen struct {
 	NotificationsUnread int `json:"notifications_unread"`
 }
 
-// Home reads the category tree, the active listings under each root, and
-// the first page of the search sorted SortNearby around near.
-func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near discoverysvc.Near) (HomeScreen, error) {
-	nearby, err := s.discovery.Search(ctx, viewer, discoverysvc.SearchInput{Near: near, Sort: discoverysvc.SortNearby})
-	if err != nil {
-		return HomeScreen{}, fmt.Errorf("read the nearby feed: %w", err)
+// Home reads the category tree, the active listings under each root and in
+// each subcategory, and the first page of the search sorted SortNearby
+// around near within radiusKm (the search's own radius when 0). Without a
+// position the nearby feed is empty; radiusKm without one is the search's
+// discoverydomain.ErrPositionRequired.
+func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int) (HomeScreen, error) {
+	out := HomeScreen{Nearby: discoverysvc.SearchView{Items: []discoverysvc.SearchItem{}}}
+	if near != (catalogdomain.Near{}) || radiusKm > 0 {
+		nearby, err := s.discovery.Search(ctx, viewer, discoverysvc.SearchInput{Near: near, RadiusKm: radiusKm, Sort: discoverysvc.SortNearby})
+		if err != nil {
+			return HomeScreen{}, fmt.Errorf("read the nearby feed: %w", err)
+		}
+		out.Nearby = nearby
 	}
 	tree, err := s.catalog.Categories(ctx)
 	if err != nil {
 		return HomeScreen{}, fmt.Errorf("read categories: %w", err)
 	}
-	counts, err := s.catalog.Counts(ctx, catalogdomain.Search{}, catalogdomain.CountRoot)
+	// A listing takes a subcategory, so a root's count is its children's.
+	counts, err := s.catalog.Counts(ctx, catalogdomain.Search{})
 	if err != nil {
 		return HomeScreen{}, fmt.Errorf("count listings: %w", err)
 	}
-	byRoot := make(map[string]int, len(counts))
+	byCode := make(map[string]int, len(counts))
 	for _, c := range counts {
-		byRoot[c.Code] = c.Count
+		byCode[c.Code] = c.Count
 	}
-	out := HomeScreen{Nearby: nearby}
 	if viewer != nil {
 		if out.NotificationsUnread, err = s.notices.Unread(ctx, *viewer); err != nil {
 			return HomeScreen{}, fmt.Errorf("count unread notices: %w", err)
@@ -55,11 +69,13 @@ func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near discoverysvc.
 	for _, c := range tree {
 		if c.ParentCode == "" {
 			index[c.Code] = len(out.Categories)
-			out.Categories = append(out.Categories, HomeCategory{Code: c.Code, DisplayName: c.DisplayName, Count: byRoot[c.Code]})
+			out.Categories = append(out.Categories, HomeCategory{Code: c.Code, DisplayName: c.DisplayName, Children: []HomeSubcategory{}})
 			continue
 		}
 		if i, ok := index[c.ParentCode]; ok {
-			out.Categories[i].Children = append(out.Categories[i].Children, c)
+			n := byCode[c.Code]
+			out.Categories[i].Count += n
+			out.Categories[i].Children = append(out.Categories[i].Children, HomeSubcategory{Code: c.Code, DisplayName: c.DisplayName, Count: n})
 		}
 	}
 	return out, nil

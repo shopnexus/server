@@ -21,8 +21,6 @@ var (
 	ErrListingUnavailable = apperr.New(apperr.KindConflict, "listing_unavailable", "only a listing on sale or being shipped can be saved")
 	ErrPositionRequired   = apperr.New(apperr.KindBadRequest, "position_required",
 		"this sort or radius needs near_lat and near_lng, or near_commune")
-	ErrInvalidPosition = apperr.New(apperr.KindBadRequest, "invalid_position",
-		"near_lat and near_lng go together, within -90..90 and -180..180, or near_commune names a commune")
 	ErrInvalidCursor     = apperr.New(apperr.KindBadRequest, "invalid_cursor", "cursor is a next_cursor this endpoint gave")
 	ErrInvalidPriceRange = apperr.New(apperr.KindBadRequest, "invalid_price_range", "price_min is at most price_max")
 	ErrSearchConflict    = apperr.New(apperr.KindBadRequest, "search_conflict", "photo goes without q or like, and sort=nearby without q, photo or like")

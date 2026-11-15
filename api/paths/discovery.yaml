@@ -126,13 +126,7 @@ search:
           type: array
           items:
             $ref: "../schemas/catalog.yaml#/Condition"
-      - name: radius_km
-        in: query
-        description: Needs a position.
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 200
+      - $ref: "../parameters/discovery.yaml#/RadiusKm"
       - name: offers_only
         in: query
         schema:

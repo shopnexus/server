@@ -2,7 +2,11 @@ screenHome:
   get:
     operationId: getHomeScreen
     summary: The Home view, the category tree with counts and the first page of the nearby feed.
-    description: nearby is the first page of GET /v1/search with sort=nearby and the same position; its next_cursor pages on there.
+    description: |
+      nearby is the first page of GET /v1/search with sort=nearby and the
+      same position and radius_km; its next_cursor pages on there. Without
+      radius_km the feed keeps within 50 km. Without a position nearby has
+      no items, and the app asks for a position to fill it.
     tags: [screen]
     security:
       - {}
@@ -11,6 +15,7 @@ screenHome:
       - $ref: "../parameters/discovery.yaml#/NearLat"
       - $ref: "../parameters/discovery.yaml#/NearLng"
       - $ref: "../parameters/discovery.yaml#/NearCommune"
+      - $ref: "../parameters/discovery.yaml#/RadiusKm"
     responses:
       "200":
         description: The Home view.
@@ -19,7 +24,7 @@ screenHome:
             schema:
               $ref: "../schemas/screen_home.yaml#/HomeScreen"
       "400":
-        description: "A malformed parameter, position_required or invalid_position."
+        description: "A malformed parameter, invalid_position, or position_required: radius_km without a position."
         content:
           application/json:
             schema:

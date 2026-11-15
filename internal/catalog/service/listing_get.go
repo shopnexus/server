@@ -25,6 +25,21 @@ func (c *Catalog) Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (Lis
 	return c.view(ctx, l)
 }
 
+// Distance is how far listing id is from near, in whole kilometres; nil
+// without a position. It measures from the listing's own point, as a
+// search does, which no view carries.
+func (c *Catalog) Distance(ctx context.Context, near domain.Near, id uuid.UUID) (*int, error) {
+	origin, err := c.Origin(ctx, near)
+	if err != nil || origin == nil {
+		return nil, err
+	}
+	l, err := c.listing(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return new(domain.DistanceKm(*origin, l.Point())), nil
+}
+
 // ListMine lists the listings of one of the seller's panes, newest first.
 func (c *Catalog) ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p page.Request) (page.Page[ListingView], error) {
 	statuses := domain.OnSale
@@ -55,6 +70,7 @@ func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID
 		s := Summary{
 			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), AllowOffers: l.AllowOffers(),
 			Status: l.Status(), ReservedFor: l.ReservedFor(), CategoryCode: l.CategoryCode(), Condition: l.Condition(),
+			CommuneCode: l.CommuneCode(),
 		}
 		if p := l.Photos(); len(p) > 0 && p[0].Keys.Thumb != "" {
 			s.CoverThumbURL = c.media.URL(p[0].Keys.Thumb)

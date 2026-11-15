@@ -15,8 +15,8 @@ import (
 
 func ids(v service.SearchView) []uuid.UUID {
 	out := make([]uuid.UUID, len(v.Items))
-	for i, it := range v.Items {
-		out[i] = it.ID
+	for i := range v.Items {
+		out[i] = v.Items[i].ID
 	}
 	return out
 }
@@ -44,7 +44,7 @@ func TestHideAndBlockLeaveSearch(t *testing.T) {
 	for _, in := range []service.SearchInput{
 		{Query: "xe dap"},
 		{Category: "vehicles.bicycle"},
-		{Sort: service.SortNearby, Near: service.Near{Lat: baDinh.Lat, Lng: baDinh.Lng}},
+		{Sort: service.SortNearby, Near: catalogdomain.Near{Lat: baDinh.Lat, Lng: baDinh.Lng}},
 	} {
 		v, searchErr := e.discovery.Search(ctx, &me, in)
 		if searchErr != nil {

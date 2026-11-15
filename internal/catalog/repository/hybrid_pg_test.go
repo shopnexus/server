@@ -171,7 +171,7 @@ func TestHybridBoostListAndCounts(t *testing.T) {
 	if got := ids(hits); err != nil || !slices.Equal(got, []uuid.UUID{b, a}) {
 		t.Fatalf("the boost list lifts b: %v %v", got, err)
 	}
-	counts, err := repository.NewSearches(db).Counts(ctx, search, domain.CountCode)
+	counts, err := repository.NewSearches(db).Counts(ctx, search)
 	if err != nil || len(counts) != 1 || counts[0].Count != 2 {
 		t.Fatalf("%+v %v", counts, err)
 	}

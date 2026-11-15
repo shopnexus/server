@@ -38,7 +38,7 @@ func (h *Handler) Watch(w http.ResponseWriter, r *http.Request) {
 	}
 	out, created, err := h.svc.Watch(r.Context(), p.AccountID, service.WatchInput{
 		Query: in.Query, Category: in.Category, PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions,
-		OffersOnly: in.OffersOnly, Near: service.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune}, RadiusKm: in.RadiusKm,
+		OffersOnly: in.OffersOnly, Near: catalogdomain.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune}, RadiusKm: in.RadiusKm,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

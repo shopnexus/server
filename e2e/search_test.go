@@ -12,9 +12,11 @@ import (
 
 type searchView struct {
 	Items []struct {
-		ID         string `json:"id"`
-		DistanceKm *int   `json:"distance_km"`
-		Saved      bool   `json:"saved"`
+		ID           string `json:"id"`
+		SellerID     string `json:"seller_id"`
+		CategoryCode string `json:"category_code"`
+		DistanceKm   *int   `json:"distance_km"`
+		Saved        bool   `json:"saved"`
 	} `json:"items"`
 	NextCursor string `json:"next_cursor"`
 	Understood string `json:"understood"`
@@ -58,9 +60,12 @@ func TestSearch(t *testing.T) {
 		t.Fatalf("understood: %d %s", res.Status, res.Body)
 	}
 	for _, it := range v.Items {
-		if it.DistanceKm == nil || *it.DistanceKm < 0 {
-			t.Fatalf("distance: %s", res.Body)
+		if it.DistanceKm == nil || *it.DistanceKm < 0 || it.SellerID != seller.Account.ID {
+			t.Fatalf("distance and seller: %s", res.Body)
 		}
+	}
+	if v.Items[0].CategoryCode != "vehicles.bicycle" || v.Items[1].CategoryCode != "sports.other" {
+		t.Fatalf("categories: %s", res.Body)
 	}
 	if strings.Contains(string(res.Body), `"lat"`) || strings.Contains(string(res.Body), `"lng"`) {
 		t.Fatalf("a point leaked: %s", res.Body)

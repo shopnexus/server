@@ -435,6 +435,7 @@ sellerListings:
   get:
     operationId: listSellerListings
     summary: A seller's listings that anyone sees, active and reserved, newest first.
+    description: With a position the page has distances, measured as GET /v1/search measures them.
     tags: [catalog]
     parameters:
       - name: id
@@ -445,15 +446,22 @@ sellerListings:
           format: uuid
       - $ref: "../parameters/common.yaml#/Cursor"
       - $ref: "../parameters/common.yaml#/Limit"
+      - $ref: "../parameters/discovery.yaml#/NearLat"
+      - $ref: "../parameters/discovery.yaml#/NearLng"
+      - $ref: "../parameters/discovery.yaml#/NearCommune"
     responses:
       "200":
         description: One page of listings.
         content:
           application/json:
             schema:
-              $ref: "../schemas/catalog.yaml#/ListingList"
+              $ref: "../schemas/catalog.yaml#/SellerListingList"
       "400":
-        $ref: "../responses/common.yaml#/BadRequest"
+        description: "A malformed parameter, or invalid_position."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
       "404":
         description: "No such account (account_not_found)."
         content:

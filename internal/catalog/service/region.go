@@ -39,6 +39,31 @@ func (c *Catalog) Places(ctx context.Context, codes []string) (map[string]Locati
 	return out, nil
 }
 
+// Origin is the point near names: its GPS point, or its commune's point.
+// The zero Near is no position, nil. A GPS point needs both coordinates in
+// range, and the commune must exist; otherwise domain.ErrInvalidPosition.
+func (c *Catalog) Origin(ctx context.Context, near domain.Near) (*domain.Point, error) {
+	switch {
+	case near.Lat != 0 || near.Lng != 0:
+		if near.Lat == 0 || near.Lng == 0 || near.Lat < -90 || near.Lat > 90 || near.Lng < -180 || near.Lng > 180 {
+			return nil, domain.ErrInvalidPosition
+		}
+		return &domain.Point{Lat: near.Lat, Lng: near.Lng}, nil
+	case near.Commune != "":
+		places, err := c.Places(ctx, []string{near.Commune})
+		if err != nil {
+			return nil, fmt.Errorf("read the commune: %w", err)
+		}
+		loc, ok := places[near.Commune]
+		if !ok {
+			return nil, domain.ErrInvalidPosition
+		}
+		return &domain.Point{Lat: loc.Lat, Lng: loc.Lng}, nil
+	default:
+		return nil, nil //nolint:nilnil // no position is a valid answer, not a missing one
+	}
+}
+
 func (c *Catalog) Locate(ctx context.Context, p domain.Point) (Location, error) {
 	place, err := c.regions.Nearest(ctx, p)
 	if err != nil {

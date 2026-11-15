@@ -104,14 +104,6 @@ type Hit struct {
 	Point Point
 }
 
-// CountField is what Counts groups by.
-type CountField string
-
-const (
-	CountCode CountField = "category_code"
-	CountRoot CountField = "category_root"
-)
-
 // CategoryCount is how many listings a search matches in one category.
 type CategoryCount struct {
 	Code  string `json:"category"`

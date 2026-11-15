@@ -22,7 +22,7 @@ type WatchInput struct {
 	PriceMin, PriceMax int64
 	Conditions         []catalogdomain.Condition
 	OffersOnly         bool
-	Near               Near
+	Near               catalogdomain.Near
 	RadiusKm           int
 }
 
@@ -83,11 +83,11 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 	switch {
 	case in.Near.Lat != 0 || in.Near.Lng != 0:
 		if in.Near.Lat == 0 || in.Near.Lng == 0 || in.Near.Lat < -90 || in.Near.Lat > 90 || in.Near.Lng < -180 || in.Near.Lng > 180 {
-			return WatchView{}, false, domain.ErrInvalidPosition
+			return WatchView{}, false, catalogdomain.ErrInvalidPosition
 		}
 		loc, err := d.catalog.Locate(ctx, catalogdomain.Point{Lat: in.Near.Lat, Lng: in.Near.Lng})
 		if errors.Is(err, catalogdomain.ErrNoCommuneNear) {
-			return WatchView{}, false, domain.ErrInvalidPosition
+			return WatchView{}, false, catalogdomain.ErrInvalidPosition
 		}
 		if err != nil {
 			return WatchView{}, false, fmt.Errorf("find the commune: %w", err)
@@ -99,7 +99,7 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 			return WatchView{}, false, fmt.Errorf("read the commune: %w", err)
 		}
 		if _, ok := places[commune]; !ok {
-			return WatchView{}, false, domain.ErrInvalidPosition
+			return WatchView{}, false, catalogdomain.ErrInvalidPosition
 		}
 	default:
 	}

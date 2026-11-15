@@ -113,7 +113,7 @@ func (a *Assist) PriceGuide(ctx context.Context, account uuid.UUID, in PriceGuid
 		}
 		sv := SimilarView{
 			ListingID: s.ListingID, Title: sum.Title, CoverURL: sum.CoverThumbURL, Price: sum.Price,
-			Condition: sum.Condition, Sold: s.Sold, Km: int(catalogdomain.Distance(origin, s.Point)),
+			Condition: sum.Condition, Sold: s.Sold, Km: catalogdomain.DistanceKm(origin, s.Point),
 		}
 		if s.Sold {
 			sv.DaysToSell = new(s.DaysToSell)

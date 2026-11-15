@@ -11,6 +11,14 @@ type Point struct {
 	Lng float64 `json:"lng"`
 }
 
+// Near is where a person reads listings from: a GPS point, or a commune
+// whose point stands in for it. The zero Near is no position. It serves one
+// request and is never stored or logged.
+type Near struct {
+	Lat, Lng float64
+	Commune  string
+}
+
 // MaxGPSKm is how far a GPS point may be from a commune's point and still
 // count as in that commune. The communes table holds points, not
 // boundaries, so this distance stands in for "inside the commune".
@@ -31,6 +39,11 @@ func Distance(a, b Point) float64 {
 	h := math.Pow(math.Sin(dla/2), 2) + math.Cos(la1)*math.Cos(la2)*math.Pow(math.Sin(dlo/2), 2)
 	return 2 * earthKm * math.Asin(math.Sqrt(h))
 }
+
+// DistanceKm is the distance between a and b in whole kilometres,
+// truncated, so 0 means under 1 km. Search, the price guide and the views
+// all measure with it.
+func DistanceKm(a, b Point) int { return int(Distance(a, b)) }
 
 // Box is the corners of the latitude and longitude ranges around p that
 // hold a circle of radius km.

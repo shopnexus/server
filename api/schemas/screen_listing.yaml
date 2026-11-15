@@ -5,6 +5,13 @@ ListingScreen:
   properties:
     listing:
       $ref: "catalog.yaml#/Listing"
+    distance_km:
+      type: integer
+      minimum: 0
+      description: |
+        Whole kilometres from the caller's position to the listing, 0 under
+        1 km; absent without a position. It sits beside the listing because
+        it depends on the request, and a Listing reads the same for everyone.
     seller:
       $ref: "#/SellerSummary"
     viewer:
@@ -57,7 +64,7 @@ SellerScreen:
     seller:
       $ref: "#/SellerProfile"
     listings:
-      $ref: "catalog.yaml#/ListingList"
+      $ref: "catalog.yaml#/SellerListingList"
     reviews:
       $ref: "trust.yaml#/ReviewList"
     viewer:

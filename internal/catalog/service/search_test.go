@@ -40,8 +40,8 @@ func TestSearchCards(t *testing.T) {
 		t.Fatalf("%+v %v", cards, err)
 	}
 	if cards[0].DistanceKm == nil || *cards[0].DistanceKm != 0 || cards[1].DistanceKm == nil || *cards[1].DistanceKm != 2 ||
-		cards[0].Commune == "" {
-		t.Fatalf("distance and commune: %+v", cards)
+		cards[0].Commune == "" || cards[0].SellerID == uuid.Nil() || cards[0].CategoryCode != "vehicles.bicycle" {
+		t.Fatalf("distance, commune, seller and category: %+v", cards)
 	}
 	plain, err := e.catalog.Search(ctx, domain.Search{Phrases: []domain.Phrase{{Text: "xe đạp", Weight: 1}}, Sort: domain.SortRelevance, Limit: 20})
 	if err != nil || len(plain) != 2 || plain[0].DistanceKm != nil {
@@ -50,7 +50,7 @@ func TestSearchCards(t *testing.T) {
 	if places, placeErr := e.catalog.FindPlaces(ctx, []string{"Hà Nội", "Atlantis"}); placeErr != nil || len(places) != 1 || places["Hà Nội"].Lat == 0 {
 		t.Fatalf("Hà Nội: %v %v", places, placeErr)
 	}
-	counts, err := e.catalog.Counts(ctx, domain.Search{}, domain.CountRoot)
+	counts, err := e.catalog.Counts(ctx, domain.Search{})
 	if err != nil || len(counts) != 1 || counts[0].Count != 2 {
 		t.Fatalf("counts: %v %v", counts, err)
 	}

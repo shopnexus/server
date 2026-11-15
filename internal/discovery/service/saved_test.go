@@ -84,7 +84,9 @@ func TestSaveAndList(t *testing.T) {
 	}
 	p, err := e.discovery.Saved(ctx, me, page.Request{})
 	if err != nil || len(p.Items) != 2 || p.Items[1].ListingID != listing || p.Items[1].SavedPrice != 1_500_000 ||
-		p.Items[1].Listing.Title == "" || p.Items[1].Listing.CoverThumbURL == "" || p.Items[0].Listing.Status != catalogdomain.StatusReserved {
+		p.Items[1].Listing.Title == "" || p.Items[1].Listing.CoverThumbURL == "" || p.Items[0].Listing.Status != catalogdomain.StatusReserved ||
+		p.Items[1].Listing.CategoryCode != "vehicles.bicycle" || p.Items[1].Listing.Condition != catalogdomain.ConditionUsed ||
+		p.Items[1].Listing.Commune == "" {
 		t.Fatalf("%+v %v", p, err)
 	}
 	if err = e.discovery.Unsave(ctx, me, reserved); err != nil {
@@ -133,7 +135,8 @@ func TestHiddenSaveShowsStatusOnly(t *testing.T) {
 		t.Fatalf("%+v %v", p, err)
 	}
 	l := p.Items[0].Listing
-	if l.Status != catalogdomain.StatusHidden || l.Title != "" || l.Price != nil || l.CoverThumbURL != "" {
+	if l.Status != catalogdomain.StatusHidden || l.Title != "" || l.Price != nil || l.CoverThumbURL != "" ||
+		l.CategoryCode != "" || l.Condition != "" || l.Commune != "" {
 		t.Fatalf("%+v", l)
 	}
 }
