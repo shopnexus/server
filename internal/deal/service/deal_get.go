@@ -95,15 +95,17 @@ func (s *Deals) views(ctx context.Context, viewer uuid.UUID, deals []domain.Deal
 }
 
 // ListOrders reads one page of the viewer's orders with their listings and
-// places.
+// places. The look-ahead row only sets the cursor; its listing and commune
+// are not read.
 func (s *Deals) ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[OrderItem], error) {
 	rows, err := s.deals.ListOrders(ctx, viewer, as, p)
 	if err != nil {
 		return page.Page[OrderItem]{}, fmt.Errorf("list orders: %w", err)
 	}
-	ids, codes := make([]uuid.UUID, 0, len(rows)), make([]string, 0, len(rows))
-	for i := range rows {
-		ids, codes = append(ids, rows[i].ListingID), append(codes, rows[i].Order.Recipient.CommuneCode)
+	kept := page.Of(rows, p, func(r repository.OrderRow) uuid.UUID { return r.Order.ID })
+	ids, codes := make([]uuid.UUID, 0, len(kept.Items)), make([]string, 0, len(kept.Items))
+	for i := range kept.Items {
+		ids, codes = append(ids, kept.Items[i].ListingID), append(codes, kept.Items[i].Order.Recipient.CommuneCode)
 	}
 	listings, err := s.catalog.Summaries(ctx, ids)
 	if err != nil {
@@ -113,14 +115,19 @@ func (s *Deals) ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Part
 	if err != nil {
 		return page.Page[OrderItem]{}, fmt.Errorf("read the recipients' communes: %w", err)
 	}
-	items := make([]OrderItem, 0, len(rows))
-	for i := range rows {
+	items := make([]OrderItem, 0, len(kept.Items))
+	for i := range kept.Items {
+		r := kept.Items[i]
+		other := r.SellerID
+		if as == domain.Seller {
+			other = r.BuyerID
+		}
 		items = append(items, OrderItem{
-			OrderView: orderView(rows[i].Order, as, places[rows[i].Order.Recipient.CommuneCode]), DealID: rows[i].DealID,
-			Listing: listingRef(listings[rows[i].ListingID]),
+			OrderView: orderView(r.Order, as, places[r.Order.Recipient.CommuneCode]), DealID: r.DealID,
+			Listing: listingRef(listings[r.ListingID]), CounterpartID: other,
 		})
 	}
-	return page.Of(items, p, func(o OrderItem) uuid.UUID { return o.ID }), nil
+	return page.Page[OrderItem]{Items: items, NextCursor: kept.NextCursor}, nil
 }
 
 func (s *Deals) Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, error) {

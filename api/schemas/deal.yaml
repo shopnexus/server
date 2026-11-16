@@ -480,19 +480,6 @@ OrderItem:
       format: uuid
     listing:
       $ref: "#/DealListing"
-OrderList:
-  type: object
-  additionalProperties: false
-  required: [items]
-  properties:
-    items:
-      type: array
-      items:
-        $ref: "#/OrderItem"
-    next_cursor:
-      type: string
-      format: uuid
-      description: Present when more orders follow; pass it as cursor.
 ShipmentPickup:
   type: object
   additionalProperties: false

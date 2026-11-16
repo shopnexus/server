@@ -1648,8 +1648,9 @@ page that shows two views calls both at once.
   seller view's `listings`), `/v1/sellers/{id}/reviews` and
   `/v1/conversations/{id}/messages`.
 - Each piece of data has one read path: `GET /v1/conversations`,
-  `GET /v1/conversations/{id}` and `GET /v1/sellers/{id}` were removed
-  when the views came, and no resource carries fields for one screen.
+  `GET /v1/conversations/{id}`, `GET /v1/sellers/{id}` and
+  `GET /v1/me/orders` were removed when the views came, and no resource
+  carries fields for one screen.
 - A view makes a fixed number of service calls per page, and the services
   read a page's people, communes and listings in one query each.
 
@@ -2485,9 +2486,27 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-orders.md`.
   `deleted`, nullable original dates and ID, and `change_until` at seven
   days from the first submission. `locked` calls `Review.CanChange`, whose
   boundary is strictly after those seven days. Stars and text appear only
-  in the active state. Trust reads the review row once, checks its buyer
-  when present and returns `none` when absent. Screen checks the order's
-  ownership before that call, and the HTTP API has no GET review route.
+  in the active state. Trust reads the caller's review rows by buyer and
+  order in one query, and an order without one of the caller's reviews
+  reads `none`. Screen checks the order's ownership before that call, and
+  the HTTP API has no GET review route.
+- `GET /v1/screens/orders?role=buying|selling&cursor=&limit=` is the Đơn
+  hàng list, newest order first and paged by order ID through deal's
+  `ListOrders`. It replaced `GET /v1/me/orders` and its `OrderList` schema,
+  whose only caller was the app. A row is `{order, counterpart,
+  own_review}`: `order` is deal's `OrderItem` with the canonical `Order`
+  redaction, `counterpart` the public `Person`, and `own_review`, on the
+  buyer's rows only, the order view's `OwnReview`. A page costs three
+  calls: `ListOrders`, then account's `GetMany` and, for the buyer,
+  trust's `OwnReviews` at the same time (`errgroup`). `OwnReviews` reads
+  the page's reviews in one query, `Reviews.ByOrders` filtered by buyer.
+  The order view calls `OwnReviews` with its one order, and that replaced
+  trust's single `OwnReview` read. `ListOrders` reads listings and
+  communes for the rows `page.Of` kept, as catalog's `SellerListings`
+  does. Deal's `OrderItem` holds the other party's ID in `CounterpartID`,
+  which is not in the schema, as `AccountView` holds `LastActiveAt`.
+  `GET /v1/me/deals` and the orders view parse `role` through deal's
+  `domain.ListRole`.
 - `POST /v1/orders/{order_id}/cancel` returns the canonical `Deal`, as
   shipment and confirmation do. `CancelPendingOrder` checks that the ID
   still names the aggregate's current pending order, then calls `Cancel`.

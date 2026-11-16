@@ -33,6 +33,39 @@ screenOrder:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+screenOrders:
+  get:
+    operationId: getOrdersScreen
+    summary: One page of the caller's orders on one side, each with the public counterpart.
+    description: |
+      Newest order first, paged by order ID. The buyer's rows also carry
+      own_review, as GET /v1/screens/order/{order_id} reads it; a seller's
+      rows have none. Recipient and pickup fields follow the canonical
+      Order's privacy rules.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: role
+        in: query
+        required: true
+        description: buying lists the orders where the caller is the buyer; selling, the seller.
+        schema:
+          type: string
+          enum: [buying, selling]
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: The view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_order.yaml#/OrdersScreen"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
 screenCodSetup:
   get:
     operationId: getCodSetupScreen

@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 )
@@ -124,27 +123,4 @@ func (h *Handler) ConfirmReceipt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Respond(w, http.StatusOK, v)
-}
-
-// ListOrders serves GET /v1/me/orders.
-func (h *Handler) ListOrders(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in listMineRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	as := domain.Buyer
-	if in.Role == "selling" {
-		as = domain.Seller
-	}
-	out, err := h.svc.ListOrders(r.Context(), p.AccountID, as, in.Request)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
 }

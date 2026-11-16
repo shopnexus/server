@@ -353,3 +353,12 @@ func TestMoveInChat(t *testing.T) {
 		}
 	}
 }
+
+func TestListRoleParty(t *testing.T) {
+	t.Parallel()
+	for role, want := range map[domain.ListRole]domain.Party{domain.RoleBuying: domain.Buyer, domain.RoleSelling: domain.Seller} {
+		if got := role.Party(); got != want {
+			t.Errorf("%s: %s, want %s", role, got, want)
+		}
+	}
+}

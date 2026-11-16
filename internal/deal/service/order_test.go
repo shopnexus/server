@@ -3,12 +3,15 @@ package service_test
 import (
 	"context"
 	"errors"
+	"slices"
+	"sync"
 	"testing"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
+	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/deal/domain"
 	"github.com/shopnexus/server2/internal/deal/service"
 	"github.com/shopnexus/server2/internal/platform/page"
@@ -202,6 +205,53 @@ func TestListOrders(t *testing.T) {
 			p.Items[0].Code != v.Order.Code {
 			t.Fatalf("%s: %+v %v", c.as, p, err)
 		}
+	}
+	if p, _ := e.deals.ListOrders(ctx, buyer, domain.Buyer, page.Request{}); p.Items[0].CounterpartID != seller {
+		t.Fatalf("buyer's counterpart: %s", p.Items[0].CounterpartID)
+	}
+	if p, _ := e.deals.ListOrders(ctx, seller, domain.Seller, page.Request{}); p.Items[0].CounterpartID != buyer {
+		t.Fatalf("seller's counterpart: %s", p.Items[0].CounterpartID)
+	}
+}
+
+// readListings records the listings each Summaries call asks for.
+type readListings struct {
+	catalogsvc.Service
+
+	mu    sync.Mutex
+	asked [][]uuid.UUID
+}
+
+func (r *readListings) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]catalogsvc.Summary, error) {
+	r.mu.Lock()
+	r.asked = append(r.asked, slices.Clone(ids))
+	r.mu.Unlock()
+	return r.Service.Summaries(ctx, ids)
+}
+
+// The look-ahead row of a page sets the cursor, and its listing is not
+// read.
+func TestListOrdersPages(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	older := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
+	newer := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
+	rec := &readListings{Service: e.catalog}
+	deps := e.deps
+	deps.Catalog = rec
+	deals := service.New(deps)
+	first, err := deals.ListOrders(ctx, buyer, domain.Buyer, page.Request{Limit: 1})
+	if err != nil || len(first.Items) != 1 || first.Items[0].ID != newer.Order.ID || first.NextCursor == nil || *first.NextCursor != newer.Order.ID {
+		t.Fatalf("first page: %+v %v", first, err)
+	}
+	if len(rec.asked) != 1 || !slices.Equal(rec.asked[0], []uuid.UUID{newer.Listing.ID}) {
+		t.Fatalf("listings read for the first page: %v", rec.asked)
+	}
+	second, err := deals.ListOrders(ctx, buyer, domain.Buyer, page.Request{Cursor: *first.NextCursor, Limit: 1})
+	if err != nil || len(second.Items) != 1 || second.Items[0].ID != older.Order.ID || second.NextCursor != nil {
+		t.Fatalf("second page: %+v %v", second, err)
 	}
 }
 

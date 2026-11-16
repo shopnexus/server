@@ -30,7 +30,7 @@ type acceptRequest struct {
 type listMineRequest struct {
 	page.Request
 
-	Role string `json:"-" query:"role"`
+	Role domain.ListRole `json:"-" query:"role"`
 }
 
 // Open serves POST /v1/deals: 201 with a new deal, 200 with the caller's
@@ -68,11 +68,7 @@ func (h *Handler) ListMine(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	as := domain.Buyer
-	if in.Role == "selling" {
-		as = domain.Seller
-	}
-	out, err := h.svc.ListMine(r.Context(), p.AccountID, as, in.Request)
+	out, err := h.svc.ListMine(r.Context(), p.AccountID, in.Role.Party(), in.Request)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
