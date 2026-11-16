@@ -90,10 +90,24 @@ type Chats interface {
 	// conversation holding a deal where seller sells: that message's time
 	// and seller's first such message's, if any.
 	ReplyThreads(ctx context.Context, seller uuid.UUID, since time.Time) ([]domain.ReplyThread, error)
+	// ListingSenders reads, for each of seller's listings among ids, the
+	// people other than seller who wrote to seller about it in their pair
+	// conversation, with their first such message's time, earliest first.
+	// A deal message is a move, not a message about the listing, and is
+	// left out.
+	ListingSenders(ctx context.Context, seller uuid.UUID, ids []uuid.UUID) ([]ListingSender, error)
 	// SearchMessages lists the sent messages matching t in the
 	// conversations SearchThreads would consider, IDs below p.Before(),
 	// newest first, at most p.Fetch().
 	SearchMessages(ctx context.Context, viewer uuid.UUID, t Terms, p page.Request) ([]MessageHitRow, error)
+}
+
+// ListingSender is someone who wrote about a listing, since their first
+// sent message that names it.
+type ListingSender struct {
+	ListingID uuid.UUID
+	SenderID  uuid.UUID
+	First     time.Time
 }
 
 // InboxRow is a conversation in viewer's inbox.

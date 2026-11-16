@@ -4,6 +4,8 @@ package service
 
 import (
 	"context"
+	"log/slog"
+	"time"
 	"uuid"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
@@ -26,13 +28,18 @@ type Service interface {
 	// Orders reads a page of account's orders on side as, each with the
 	// other party and, for the buyer, account's review.
 	Orders(ctx context.Context, account uuid.UUID, as dealdomain.Party, p page.Request) (page.Page[OrdersScreenItem], error)
+	// MyListings reads a page of one of the seller's panes of Tin của bạn,
+	// each listing with its views, askers, saves and open order, and the
+	// last seven days of the listings on sale.
+	MyListings(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request) (MyListingsScreen, error)
 	CodSetup(ctx context.Context, account uuid.UUID) (CodSetupScreen, error)
 	CodCheckout(ctx context.Context, account, deal uuid.UUID, address *uuid.UUID) (CodCheckoutScreen, error)
 	// Home reads the Home view around near, within radiusKm when it is not
 	// 0; viewer is nil when signed out.
 	Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int) (HomeScreen, error)
 	// Listing reads the listing view of a listing on sale, with its
-	// distance from near; viewer is nil when signed out.
+	// distance from near; viewer is nil when signed out. A signed-in viewer
+	// who is not the seller counts a view of it.
 	Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (ListingScreen, error)
 	// Seller reads the seller view, its listings as search items measured
 	// from near; viewer is nil when signed out.
@@ -59,13 +66,15 @@ type Deps struct {
 	Deals    dealsvc.Service
 	Trust    trustsvc.Service
 	Chats    chatsvc.Service
-	// Discovery gives the save on the listing view, Home's nearby feed and
-	// the seller view's listings.
+	// Discovery gives the save on the listing view, Home's nearby feed,
+	// the seller view's listings and the views and saves of Tin của bạn.
 	Discovery discoverysvc.Service
 	// Notifications gives Home its unread count.
 	Notifications notificationsvc.Service
 	// Support gives a support chat its ticket.
 	Support supportsvc.Service
+	Now     func() time.Time
+	Log     *slog.Logger
 }
 
 // Screen implements Service in this process.
@@ -79,6 +88,8 @@ type Screen struct {
 	discovery discoverysvc.Service
 	notices   notificationsvc.Service
 	support   supportsvc.Service
+	now       func() time.Time
+	log       *slog.Logger
 }
 
 var _ Service = (*Screen)(nil)
@@ -86,6 +97,6 @@ var _ Service = (*Screen)(nil)
 func New(d Deps) *Screen {
 	return &Screen{
 		accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, trust: d.Trust, discovery: d.Discovery, chats: d.Chats, notices: d.Notifications,
-		support: d.Support, shipping: d.Shipping,
+		support: d.Support, shipping: d.Shipping, now: d.Now, log: d.Log,
 	}
 }

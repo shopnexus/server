@@ -51,7 +51,8 @@ type Service interface {
 	// photo; an absent one is objectstore.ErrNotFound.
 	ReadPhoto(ctx context.Context, key string) ([]byte, error)
 	// SavePhoto stores data, a photo the server made or copied for owner (a
-	// frame of their video, a photo of their listing elsewhere), as a
+	// frame of their video, a photo of their listing elsewhere or of one of
+	// their listings here), as a
 	// waiting photo upload of owner's with the ID id and the given origin.
 	// The caller mints id so a retry saves the same upload. It expires in
 	// 24 hours like an upload the app put. Origin app, a video type or a

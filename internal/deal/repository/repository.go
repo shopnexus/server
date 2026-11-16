@@ -37,6 +37,9 @@ type Deals interface {
 	Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error
 	// OfListing returns every deal on a listing, oldest first.
 	OfListing(ctx context.Context, listingID uuid.UUID) ([]domain.Deal, error)
+	// OnListings is a query: the deals on seller's listings among ids,
+	// oldest first, one row each, with its open order, if any.
+	OnListings(ctx context.Context, seller uuid.UUID, ids []uuid.UUID) ([]ListingDeal, error)
 	// OpenOrders reports an order of account's, as buyer or seller, that is
 	// pending or shipped.
 	OpenOrders(ctx context.Context, account uuid.UUID) (bool, error)
@@ -76,6 +79,24 @@ type Deals interface {
 	// MovesOf returns the moves of deal among ids, oldest first; an ID of
 	// no move of the deal is left out.
 	MovesOf(ctx context.Context, deal uuid.UUID, ids []uuid.UUID) ([]domain.Move, error)
+}
+
+// ListingDeal is a deal on a listing at a glance: its buyer, when it
+// opened, and its order while that is pending or shipped.
+type ListingDeal struct {
+	DealID    uuid.UUID
+	ListingID uuid.UUID
+	BuyerID   uuid.UUID
+	OpenedAt  time.Time
+	// OpenOrder is nil without a pending or shipped order.
+	OpenOrder *ListingOrder
+}
+
+// ListingOrder is a deal's pending or shipped order at a glance.
+type ListingOrder struct {
+	ID          uuid.UUID
+	Status      domain.OrderStatus
+	RequestedAt time.Time
 }
 
 // OrderRow is an order with the deal it belongs to.

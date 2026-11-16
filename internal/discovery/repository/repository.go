@@ -38,6 +38,33 @@ type Saves interface {
 	// and writes events.SavedPriceDropped for each save it tells, in one
 	// transaction. It returns how many it told.
 	PriceMoved(ctx context.Context, listing uuid.UUID, price int64, at time.Time) (int, error)
+	// Counts counts the saves of each listing among ids, all of them and
+	// those made at or after since; a listing without a save is absent.
+	Counts(ctx context.Context, ids []uuid.UUID, since time.Time) (map[uuid.UUID]Counts, error)
+}
+
+// Counts is a listing's count of something, all of it and the part since a
+// time.
+type Counts struct {
+	All   int
+	Since int
+}
+
+// Views counts the times signed-in people open a listing that is not
+// theirs, once per person, listing and day.
+type Views interface {
+	// Record counts viewer's view of listing on day, a UTC midnight, unless
+	// viewer already counted one that day or later, and keeps day as
+	// viewer's last view of it. Only an active or reserved listing counts;
+	// its seller and a deleted account count nothing. Concurrent records of
+	// one viewer and listing count once. It locks no accounts row.
+	Record(ctx context.Context, listing, viewer uuid.UUID, day time.Time) error
+	// Counts sums the views of each listing among ids, all of them and
+	// those of the day from and later; a listing without a view is absent.
+	Counts(ctx context.Context, ids []uuid.UUID, from time.Time) (map[uuid.UUID]Counts, error)
+	// Clear forgets which listings viewer opened, for its erasure, after
+	// the records of viewer in flight commit; the counts stay.
+	Clear(ctx context.Context, viewer uuid.UUID) error
 }
 
 // Hidden keeps the listings a person hid from their searches.

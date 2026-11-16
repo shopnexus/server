@@ -44,7 +44,9 @@ type ListingViewer struct {
 // Listing reads the listing signed out, so its seller too gets
 // catalogdomain.ErrNotFound unless it is active or reserved, then its
 // distance from near. A viewer who is not the seller also gets their save,
-// deal and conversation with the seller.
+// deal and conversation with the seller, and counts a view of the listing.
+// The count is best effort: a failed count is logged, and the view answers
+// all the same.
 func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (ListingScreen, error) {
 	l, distance, err := s.catalog.GetNear(ctx, nil, id, near)
 	if err != nil {
@@ -84,6 +86,9 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, n
 	out.Viewer = &ListingViewer{Saved: saved, ConversationID: conversation}
 	if hasDeal {
 		out.Viewer.Deal = &deal
+	}
+	if err = s.discovery.Viewed(ctx, *viewer, id); err != nil {
+		s.log.WarnContext(ctx, "a listing view went uncounted", "listing", id, "err", err)
 	}
 	return out, nil
 }

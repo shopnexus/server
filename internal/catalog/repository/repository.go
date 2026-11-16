@@ -44,6 +44,9 @@ type Listings interface {
 	// ListBySeller is a query: seller's listings in statuses with IDs below
 	// p.Before() and not in except, newest first, at most p.Fetch().
 	ListBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status, except []uuid.UUID, p page.Request) ([]domain.Listing, error)
+	// IDsBySeller is a query: the IDs of seller's listings in statuses,
+	// newest first.
+	IDsBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status) ([]uuid.UUID, error)
 }
 
 // Drafts persists listing drafts. Put takes a lock per account, so the

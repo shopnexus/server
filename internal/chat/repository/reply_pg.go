@@ -49,3 +49,27 @@ func (s pgChats) ReplyThreads(ctx context.Context, seller uuid.UUID, since time.
 	}
 	return out, nil
 }
+
+// listingSenders reads through messages_listing. A message names a listing
+// of one of its conversation's members, so a sender other than the seller
+// in the seller's pair conversation is the other member, asking.
+const listingSenders = `
+SELECT m.listing_id, m.sender_id, min(m.created_at) AS first
+FROM messages m
+JOIN conversations c ON c.id = m.conversation_id
+WHERE m.listing_id = ANY(@ids) AND m.status = 'sent' AND m.deal_id IS NULL AND m.sender_id <> @seller
+  AND c.kind = 'pair' AND @seller IN (c.account_a, c.account_b)
+GROUP BY m.listing_id, m.sender_id
+ORDER BY first`
+
+func (s pgChats) ListingSenders(ctx context.Context, seller uuid.UUID, ids []uuid.UUID) ([]ListingSender, error) {
+	rows, err := s.db.Query(ctx, listingSenders, pgx.StrictNamedArgs{"seller": seller, "ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("select listing senders: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, pgx.RowToStructByPos[ListingSender])
+	if err != nil {
+		return nil, fmt.Errorf("read listing senders: %w", err)
+	}
+	return out, nil
+}

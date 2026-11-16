@@ -182,14 +182,16 @@ func run(ctx context.Context) error {
 		l := &s.Listings[i]
 		seller := people[l.Seller]
 		var mine struct {
-			Items []struct{ ID, Title string } `json:"items"`
+			Items []struct {
+				Listing struct{ ID, Title string } `json:"listing"`
+			} `json:"items"`
 		}
-		if err = c.call(ctx, seller.token, http.MethodGet, "/v1/me/listings?pane=on_sale&limit=100", nil, &mine); err != nil {
+		if err = c.call(ctx, seller.token, http.MethodGet, "/v1/screens/my-listings?pane=on_sale&limit=100", nil, &mine); err != nil {
 			return fmt.Errorf("listings of %s: %w", l.Seller, err)
 		}
 		for _, it := range mine.Items {
-			if it.Title == l.Title {
-				ids[l.Key] = it.ID
+			if it.Listing.Title == l.Title {
+				ids[l.Key] = it.Listing.ID
 			}
 		}
 		if ids[l.Key] != "" {

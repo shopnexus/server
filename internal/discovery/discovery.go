@@ -39,7 +39,7 @@ func Mount(
 	d module.Deps, s Settings, catalog catalogsvc.Service, media mediasvc.Service, accounts accountsvc.Service,
 ) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		Saves: repository.NewSaves(d.Pool), Understandings: repository.NewUnderstandings(d.Pool), History: repository.NewHistory(d.Pool),
+		Saves: repository.NewSaves(d.Pool), Views: repository.NewViews(d.Pool), Understandings: repository.NewUnderstandings(d.Pool), History: repository.NewHistory(d.Pool),
 		Hidden: repository.NewHidden(d.Pool), Accounts: accounts,
 		Watches: repository.NewWatches(d.Pool), Sweeps: service.NewSweeper(d.Ingress, d.ServicePrefix),
 		ArrivalLag: domain.ArrivalLag, SweepBatch: domain.SweepBatch,

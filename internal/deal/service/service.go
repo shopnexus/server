@@ -137,6 +137,10 @@ type Service interface {
 	//
 	// UC-DEAL-02 A4 · UC-DEAL-06 A3
 	ListingChanged(ctx context.Context, listingID uuid.UUID) error
+	// ListingActivity reads, for each of the seller's listings among ids,
+	// the buyers with a deal on it and the pending or shipped order its
+	// card shows; a listing without a deal has no entry.
+	ListingActivity(ctx context.Context, seller uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]ListingActivity, error)
 	// OpenOrders reports an order of account's, as either side, that is
 	// pending or shipped; erasure refuses to delete the account then.
 	OpenOrders(ctx context.Context, account uuid.UUID) (bool, error)

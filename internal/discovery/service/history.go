@@ -67,5 +67,8 @@ func (d *Discovery) AccountDeleted(ctx context.Context, account uuid.UUID) error
 	if err := d.watches.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear watches: %w", err)
 	}
+	if err := d.views.Clear(ctx, account); err != nil {
+		return fmt.Errorf("clear views: %w", err)
+	}
 	return nil
 }

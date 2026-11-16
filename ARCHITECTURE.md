@@ -382,6 +382,7 @@ separate work.
 | `Address` | `addresses` | module account; one row per address, `write_id`; `recipient_name` keeps the keyword `name` out of the columns |
 | feedback | `feedback` | module support; one row per feedback, `request_key` unique per account; no aggregate, no `write_id` |
 | search history | `search_history` | module discovery; one row per folded query of an account, at most 10; no aggregate, no `write_id` |
+| listing views | `listing_view_marks`, `listing_view_days` | module discovery; a person's last day of opening each listing, and the views per listing and UTC day; no aggregate, no `write_id` |
 | notification settings | `notification_settings` | module notification; one row per account that saved settings; no aggregate, no `write_id`: the last `PUT` wins |
 
 No column is named after an SQL keyword (sqlfluff RF04, run with
@@ -834,7 +835,9 @@ Listing reads use four more (decided 2026-11-10 for the video read, spec:
 - `PresignPhoto(id)` signs a GET of `uploads/<id>` valid for an hour
   (`Store.PresignGet`, for `OBJECT_STORE_PUBLIC_ENDPOINT`), for a read's
   view.
-- `uploads.origin` is `app`, `frame` or `link` (decided 2026-11-11). Its
+- `uploads.origin` is `app`, `frame` or `link` (decided 2026-11-11), or
+  `listing` for a copy of a photo of the seller's own listing (decided
+  2026-11-16, migration 0049). Its
   default `app` stays, for the replicas of the release before that still
   insert while a deploy rolls out.
   `MediaProcess`'s result carries `Copied` for origin `link`, and catalog
@@ -1578,8 +1581,9 @@ page that shows two views calls both at once.
   the hides it reads for `exclusions` to catalog, which leaves them out in
   the `ListBySeller` query, so the pages keep their size. Catalog reads
   the seller's account only for an empty page, to answer
-  `account_not_found`; the seller view has read it already. `GET /v1/me/listings` keeps `ListingList`, the seller's own
-  list for managing their listings.
+  `account_not_found`; the seller view has read it already. The seller's
+  own list is `GET /v1/screens/my-listings` (see Tin của bạn and listing
+  views).
 - Screen owns no table. Each view is one method of its service that reads
   the other modules' services top to bottom; depguard forbids every other
   module to import it, so it adds no dependency between the others.
@@ -1652,9 +1656,9 @@ page that shows two views calls both at once.
   seller view's `listings`), `/v1/sellers/{id}/reviews` and
   `/v1/conversations/{id}/messages`.
 - Each piece of data has one read path: `GET /v1/conversations`,
-  `GET /v1/conversations/{id}`, `GET /v1/sellers/{id}` and
-  `GET /v1/me/orders` were removed when the views came, and no resource
-  carries fields for one screen.
+  `GET /v1/conversations/{id}`, `GET /v1/sellers/{id}`,
+  `GET /v1/me/orders` and `GET /v1/me/listings` were removed when the
+  views came, and no resource carries fields for one screen.
 - A view makes a fixed number of service calls per page, and the services
   read a page's people, communes and listings in one query each.
 
@@ -2320,7 +2324,8 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   `PartyLeft` (a requested order cancelled by the system with
   `listing_closed`, an agreement dropped, an open price taken back);
   discovery deletes the saves, the search history, the hidden listings, the
-  search watches; notification deletes the notices, push tokens and
+  search watches and the record of which listings the account opened
+  (the view counts stay); notification deletes the notices, push tokens and
   settings; assist deletes the reads and the waiting transcripts.
   Media does nothing: a waiting upload, a video read's frames and a link
   read's copies among them, expires
@@ -2354,6 +2359,9 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   deleted account's session with `session_revoked`, and a sign-in that
   found the identity before `Erase` deleted it answers `try_again`; the
   retry finds no identity and signs up a new account.
+  A listing view's mark is the exception: it takes a shared advisory lock
+  on the viewer instead, and discovery's `Clear` the exclusive one (see
+  Tin của bạn and listing views).
 - Others see a deleted person as `status: deleted` on `Account` and the
   console account, and as `deleted: true` on chat's `Person` and a review's
   `buyer`; the reviews it wrote still count toward the seller's rating.
@@ -2577,6 +2585,103 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-orders.md`.
   `TicketOpen` waited before sending. An initial attachment after a newer
   reply keeps that reply's time and sender. Existing message and read updates
   still carry chat content and unread invalidation.
+
+### Tin của bạn and listing views
+
+Decided 2026-11-16, app plan `2026-11-16-app-wire-sell.md`.
+
+- `GET /v1/screens/my-listings?pane=on_sale|sold&cursor=&limit=` is Tin
+  của bạn. It replaced `GET /v1/me/listings` and its `ListingList`
+  schema, whose only caller was the app; `cmd/devseed` reads the view
+  now. Each item is `{listing, views, views_7d, askers, saves, order}`:
+  `listing` is the canonical `Listing` as its seller reads it, and the
+  sold pane's items carry `sold_at` and no buyer. `week` holds the views,
+  askers and saves of the last seven days over the seller's listings on
+  sale, whichever pane and page the call reads, and every response has
+  it.
+- A page costs four or five calls, whatever it holds. Catalog's
+  `ListMine` reads the page. The first page of the on-sale pane with no
+  page after it holds every listing on sale; any other page also reads
+  their IDs through catalog's `OnSale` (at most `MaxOnSale`). Then, for
+  those IDs and the page's together, merged through a set: discovery's
+  `ListingStats`, deal's `ListingActivity` and chat's `ListingAskers`, at
+  the same time.
+- The week is the seven UTC days that end today, the days views are
+  stored by (discovery's `domain.ViewWeek`). The screen reads the clock
+  once (`Deps.Now`), takes the week's start, a UTC midnight, and passes
+  it to every read: `views_7d` and the week's views, saves and askers all
+  count from it.
+- An asker is a person with a deal on the listing or who wrote to the
+  seller about it in their pair conversation, counted once per listing
+  (product decision 2026-11-16). The screen merges deal's buyers with
+  chat's senders and keeps each person's earlier time; the week counts
+  those whose first contact was in the last seven days. Chat reads the
+  messages that name the listing through `messages_listing` (migration
+  0049), sent by someone other than the seller in a pair conversation of
+  the seller's, deal messages left out. Blocked and deleted people still
+  count. The app's "Bán cho ai?" sheet is gone, and the view carries the
+  count alone.
+- `order` is the order the seller acts on: the shipped one, which holds
+  the listing, else the pending order requested first, whose seller
+  timeout ends first. It carries `deal_id`, `order_id` and `status`.
+  `Deals.OnListings` reads one row per deal, its open order through a
+  `LATERAL ... LIMIT 1` with the same pick; `orders_open_per_deal`
+  already holds a deal to one open order, and a deal whose order was
+  cancelled and asked for again lists its buyer once.
+- A view is a signed-in reader other than the seller opening
+  `GET /v1/screens/listing/{id}`; `GET /v1/listings/{id}` is the seller's
+  management read and counts nothing, and guests are not counted. It
+  counts once per reader, listing and UTC day (`domain.ViewDay` in
+  discovery). Discovery owns the counts, beside the saves:
+  `listing_view_marks` keeps each person's last day per listing, and
+  `listing_view_days` the views per listing and day. `Views.Record`
+  upserts the mark only when its day moves forward and, in the same
+  statement, adds one to the day's row when it did; a second open that
+  day, a retry or a concurrent open finds the mark at that day and adds
+  nothing. The statement itself keeps out the listing's seller, a
+  listing that is not active or reserved and a deleted account, whatever
+  the caller checked.
+- Recording a view locks no `accounts` row (decided 2026-11-16, after the
+  branch's review), where the writes of Erasure take a share lock: a
+  listing open is a hot read, and the share lock would make every open
+  write the account's tuple and wait on `TouchActive`. A shared advisory
+  lock on the viewer (`hashtext('views:' || viewer)`) takes its place,
+  and `Views.Clear` takes it exclusively before it deletes. A record in
+  flight when the account is deleted holds the lock, so the erasure's
+  `Clear` waits for it to commit and deletes its mark; a record that
+  starts after `Clear` reads the deleted account and writes nothing.
+  `TestViewsAndErasureRace` stops a record inside its statement and runs
+  the deletion and `Clear` across it. The lock and the record go as one
+  pgx batch: one round trip in one implicit transaction.
+- The listing view counts after its reads and in the request, and a
+  failed count is logged at WARN and leaves the answer as it is.
+- Saves are the saves that stand: the week counts those made since its
+  start.
+- A mark names a person and a listing, so discovery's `AccountDeleted`
+  deletes the person's marks and keeps the day counts. A mark is kept
+  until then; it holds one row per person and listing, whatever the
+  number of opens.
+- `POST /v1/listings/{id}/photo-copies` serves Đăng lại. It takes an
+  `Idempotency-Key` and runs the Restate service `ListingPhotoCopy`
+  through `restatex.Caller`, keyed `<seller id>/<listing id>/<key>`, so a
+  repeated key returns the first run's uploads and the same key on
+  another listing runs apart (decided 2026-11-16, after the branch's
+  review, which found that a retried tap made a second set). A step reads
+  the listing, refusing another seller's or a deleted one with
+  `listing_not_found`. Then one step per processed photo, one at a time,
+  reads it with media's `ReadPhoto` and saves it with `SavePhoto` under
+  an ID `restatex.NewID` minted before the step, so a retried step writes
+  the same object and inserts nothing; the bytes never enter the journal.
+  A copy's origin is `listing`, or `link` for a photo first copied from
+  another site, so the new listing marks it copied. `Catalog.CopyPhotos`
+  then signs each copy with `PresignPhoto`, fresh on a repeated key, and
+  answers 201 with `{items: [{upload_id, url}]}`, the `ListingDraftPhoto`
+  shape, in the listing's order. A listing attaches and processes a copy
+  like a photo the app put, and a draft keeps it. Any status but deleted
+  may be copied, and a photo not processed yet is left out. Copies nobody
+  posts expire after 24 hours with their `MediaExpire`.
+- The cap in `catalog.yaml` reads "processing, active, hidden, rejected
+  or reserved", the statuses `domain.OnSale` counts.
 
 ### Testing
 

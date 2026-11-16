@@ -144,19 +144,16 @@ Listing:
     sold_at:
       type: string
       format: date-time
-ListingList:
+ListingPhotoCopies:
   type: object
   additionalProperties: false
   required: [items]
   properties:
     items:
       type: array
+      maxItems: 10
       items:
-        $ref: "#/Listing"
-    next_cursor:
-      type: string
-      format: uuid
-      description: Present when more listings follow; pass it as cursor.
+        $ref: "#/ListingDraftPhoto"
 Photo:
   type: object
   additionalProperties: false
