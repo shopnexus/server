@@ -1,0 +1,42 @@
+screenMyListings:
+  get:
+    operationId: getMyListingsScreen
+    summary: One page of one of the caller's panes of listings, each with how it does, and the last seven days.
+    description: |
+      Tin của bạn. Newest listing first, paged by listing ID. Each listing
+      is the canonical Listing, as its seller reads it, with its views, its
+      askers, its saves and, while an order on it is pending or shipped,
+      that order. week sums the last seven days of the caller's listings on
+      sale, whichever pane and page the call reads.
+
+      A view is a signed-in reader other than the seller opening the
+      listing view (GET /v1/screens/listing/{id}) of an active or reserved
+      listing, counted once per reader and UTC day. An asker is someone
+      with a deal on the listing or who wrote to the seller about it in
+      chat. The seven days are the seven UTC days that end today, for
+      views_7d and for the week's views, askers and saves alike; the week
+      counts the askers who first asked in them.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: pane
+        in: query
+        required: true
+        description: on_sale holds listings in processing, active, hidden, rejected and reserved; sold holds sold ones.
+        schema:
+          type: string
+          enum: [on_sale, sold]
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: The view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_my_listings.yaml#/MyListingsScreen"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

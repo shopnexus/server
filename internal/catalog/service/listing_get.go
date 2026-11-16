@@ -59,6 +59,16 @@ func (c *Catalog) ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p p
 	return page.Of(items, p, func(v ListingView) uuid.UUID { return v.ID }), nil
 }
 
+// OnSale lists the IDs of the seller's listings in a domain.OnSale status,
+// newest first: at most domain.MaxOnSale, since the cap holds them.
+func (c *Catalog) OnSale(ctx context.Context, seller uuid.UUID) ([]uuid.UUID, error) {
+	ids, err := c.listings.IDsBySeller(ctx, seller, domain.OnSale)
+	if err != nil {
+		return nil, fmt.Errorf("list listings on sale: %w", err)
+	}
+	return ids, nil
+}
+
 // Summaries reads listings in any status, deleted included, for other
 // modules.
 func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Summary, error) {

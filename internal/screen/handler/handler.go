@@ -21,6 +21,7 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 func (h *Handler) Register(r *httpx.Router, protect, identify func(http.Handler) http.Handler) {
 	r.Handle("GET /v1/screens/order/{order_id}", protect(http.HandlerFunc(h.Order)))
 	r.Handle("GET /v1/screens/orders", protect(http.HandlerFunc(h.Orders)))
+	r.Handle("GET /v1/screens/my-listings", protect(http.HandlerFunc(h.MyListings)))
 	r.Handle("GET /v1/screens/cod-setup", protect(http.HandlerFunc(h.CodSetup)))
 	r.Handle("GET /v1/screens/cod-checkout/{deal_id}", protect(http.HandlerFunc(h.CodCheckout)))
 	r.Handle("GET /v1/screens/home", identify(http.HandlerFunc(h.Home)))

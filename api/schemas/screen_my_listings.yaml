@@ -1,0 +1,71 @@
+MyListingsScreen:
+  type: object
+  additionalProperties: false
+  required: [week, items]
+  properties:
+    week:
+      $ref: "#/ListingWeek"
+    items:
+      type: array
+      items:
+        $ref: "#/MyListingsItem"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more listings follow; pass it as cursor.
+ListingWeek:
+  type: object
+  additionalProperties: false
+  required: [views, askers, saves]
+  description: The last seven days of the caller's listings on sale.
+  properties:
+    views:
+      type: integer
+      minimum: 0
+    askers:
+      type: integer
+      minimum: 0
+      description: The people who first asked about one of the listings in the seven days, once per listing.
+    saves:
+      type: integer
+      minimum: 0
+      description: The saves made in the seven days that still stand.
+MyListingsItem:
+  type: object
+  additionalProperties: false
+  required: [listing, views, views_7d, askers, saves]
+  properties:
+    listing:
+      $ref: "catalog.yaml#/Listing"
+    views:
+      type: integer
+      minimum: 0
+    views_7d:
+      type: integer
+      minimum: 0
+    askers:
+      type: integer
+      minimum: 0
+    saves:
+      type: integer
+      minimum: 0
+      description: The saves that stand now.
+    order:
+      $ref: "#/ListingOrder"
+ListingOrder:
+  type: object
+  additionalProperties: false
+  required: [deal_id, order_id, status]
+  description: |
+    The order on the listing the seller acts on: the shipped one, else the
+    pending order requested first. Absent while none is pending or shipped.
+  properties:
+    deal_id:
+      type: string
+      format: uuid
+    order_id:
+      type: string
+      format: uuid
+    status:
+      type: string
+      enum: [pending, shipped]

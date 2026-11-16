@@ -25,7 +25,7 @@ func Mount(d module.Deps, accounts accountsvc.Service, catalog catalogsvc.Servic
 ) {
 	svc := service.New(service.Deps{
 		Accounts: accounts, Catalog: catalog, Deals: deals, Trust: trust, Discovery: discovery, Chats: chats,
-		Notifications: notifications, Support: support, Shipping: shipping,
+		Notifications: notifications, Support: support, Shipping: shipping, Now: d.Now, Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
 }

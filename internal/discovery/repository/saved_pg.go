@@ -171,3 +171,28 @@ RETURNING s.id`, args)
 	}
 	return len(told), nil
 }
+
+func (s pgSaves) Counts(ctx context.Context, ids []uuid.UUID, since time.Time) (map[uuid.UUID]Counts, error) {
+	rows, err := s.db.Query(ctx, `SELECT listing_id, count(*)::int, (count(*) FILTER (WHERE created_at >= @since))::int
+FROM saved_listings WHERE listing_id = ANY(@ids) GROUP BY listing_id`, pgx.StrictNamedArgs{"ids": ids, "since": since})
+	if err != nil {
+		return nil, fmt.Errorf("count saves: %w", err)
+	}
+	return collectCounts(rows)
+}
+
+// collectCounts reads rows of a listing ID and its two counts.
+func collectCounts(rows pgx.Rows) (map[uuid.UUID]Counts, error) {
+	out := map[uuid.UUID]Counts{}
+	var (
+		id uuid.UUID
+		c  Counts
+	)
+	if _, err := pgx.ForEachRow(rows, []any{&id, &c.All, &c.Since}, func() error {
+		out[id] = c
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("read counts: %w", err)
+	}
+	return out, nil
+}

@@ -365,6 +365,43 @@ func (s pgDeals) OfPairs(ctx context.Context, viewer uuid.UUID, others []uuid.UU
 	return s.many(ctx, dealsOfPairs, pgx.StrictNamedArgs{"viewer": viewer, "others": others})
 }
 
+func (s pgDeals) OnListings(ctx context.Context, seller uuid.UUID, ids []uuid.UUID) ([]ListingDeal, error) {
+	// orders_open_per_deal holds a deal to one open order; LIMIT 1 keeps
+	// one row per deal whatever the index, picking as ListingActivity does.
+	rows, err := s.db.Query(ctx, `SELECT d.id, d.listing_id, d.buyer_id, d.created_at, o.id, o.status, o.requested_at
+FROM deals d
+LEFT JOIN LATERAL (
+    SELECT o.id, o.status, o.requested_at FROM orders o
+    WHERE o.deal_id = d.id AND o.status = ANY(@open)
+    ORDER BY o.status = @shipped DESC, o.requested_at, o.id
+    LIMIT 1
+) o ON true
+WHERE d.seller_id = @seller AND d.listing_id = ANY(@ids) ORDER BY d.id`,
+		pgx.StrictNamedArgs{"seller": seller, "ids": ids, "open": domain.OpenStatuses, "shipped": domain.OrderShipped})
+	if err != nil {
+		return nil, fmt.Errorf("select deals on listings: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (ListingDeal, error) {
+		var (
+			d           ListingDeal
+			orderID     *uuid.UUID
+			status      *domain.OrderStatus
+			requestedAt *time.Time
+		)
+		if scanErr := row.Scan(&d.DealID, &d.ListingID, &d.BuyerID, &d.OpenedAt, &orderID, &status, &requestedAt); scanErr != nil {
+			return ListingDeal{}, fmt.Errorf("scan deal on listing: %w", scanErr)
+		}
+		if orderID != nil {
+			d.OpenOrder = &ListingOrder{ID: *orderID, Status: *status, RequestedAt: *requestedAt}
+		}
+		return d, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read deals on listings: %w", err)
+	}
+	return out, nil
+}
+
 func (s pgDeals) OfListing(ctx context.Context, listingID uuid.UUID) ([]domain.Deal, error) {
 	return s.many(ctx, selectDeal+`WHERE d.listing_id = @listing_id ORDER BY d.id`, pgx.StrictNamedArgs{"listing_id": listingID})
 }

@@ -232,6 +232,19 @@ WHERE seller_id = @seller AND status = ANY(@statuses) AND id <> ALL(@except) AND
 	return ls, nil
 }
 
+func (s pgListings) IDsBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status) ([]uuid.UUID, error) {
+	rows, err := s.db.Query(ctx, `SELECT id FROM listings WHERE seller_id = @seller AND status = ANY(@statuses) ORDER BY id DESC`,
+		pgx.StrictNamedArgs{"seller": seller, "statuses": statuses})
+	if err != nil {
+		return nil, fmt.Errorf("select listing ids: %w", err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return nil, fmt.Errorf("read listing ids: %w", err)
+	}
+	return ids, nil
+}
+
 func (s pgListings) GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Listing, error) {
 	rows, err := s.db.Query(ctx, `SELECT `+listingColumns+` FROM listings WHERE id = ANY(@ids)`, pgx.StrictNamedArgs{"ids": ids})
 	if err != nil {

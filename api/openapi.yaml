@@ -67,8 +67,8 @@ paths:
     $ref: "paths/catalog.yaml#/listingMarkSold"
   /v1/listings/{id}/unmark-sold:
     $ref: "paths/catalog.yaml#/listingUnmarkSold"
-  /v1/me/listings:
-    $ref: "paths/catalog.yaml#/myListings"
+  /v1/listings/{id}/photo-copies:
+    $ref: "paths/catalog.yaml#/listingPhotoCopies"
   /v1/listing-drafts:
     $ref: "paths/catalog.yaml#/listingDrafts"
   /v1/listing-drafts/{id}:
@@ -109,6 +109,8 @@ paths:
     $ref: "paths/screen_order.yaml#/screenOrder"
   /v1/screens/orders:
     $ref: "paths/screen_order.yaml#/screenOrders"
+  /v1/screens/my-listings:
+    $ref: "paths/screen_my_listings.yaml#/screenMyListings"
   /v1/screens/cod-setup:
     $ref: "paths/screen_order.yaml#/screenCodSetup"
   /v1/screens/cod-checkout/{deal_id}:

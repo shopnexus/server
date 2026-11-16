@@ -72,6 +72,9 @@ const (
 	OriginApp   Origin = "app"   // the app put it
 	OriginFrame Origin = "frame" // the server cut it from the seller's video
 	OriginLink  Origin = "link"  // the server copied it from the seller's listing on another site
+	// OriginListing is a photo the server copied from the seller's own
+	// listing, for a new listing.
+	OriginListing Origin = "listing"
 )
 
 // Upload is one photo or video a client puts to uploads/<id>.
@@ -103,7 +106,7 @@ func NewUpload(id, owner uuid.UUID, contentType string, size int64, origin Origi
 	}
 	switch origin {
 	case OriginApp:
-	case OriginFrame, OriginLink:
+	case OriginFrame, OriginLink, OriginListing:
 		if IsVideo(contentType) {
 			return Upload{}, ErrInvalidUpload
 		}

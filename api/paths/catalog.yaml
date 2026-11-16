@@ -6,7 +6,8 @@ listings:
       The listing starts in processing while its photos are processed, then
       turns active, or rejected when a photo is refused. Checks, in order:
       account_suspended, listing_cap_reached (20 listings in
-      processing, active, hidden or rejected), invalid_listing, invalid_upload.
+      processing, active, hidden, rejected or reserved), invalid_listing,
+      invalid_upload.
     tags: [catalog]
     security:
       - bearerAuth: []
@@ -36,7 +37,7 @@ listings:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The seller has 20 listings on sale or hidden (listing_cap_reached)."
+        description: "The seller has 20 listings in processing, active, hidden, rejected or reserved (listing_cap_reached)."
         content:
           application/json:
             schema:
@@ -312,39 +313,54 @@ listingUnmarkSold:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The listing is not sold (listing_state_conflict), the seller has 20 listings on sale or hidden (listing_cap_reached), or it changed meanwhile (try_again)."
+        description: "The listing is not sold (listing_state_conflict), the seller has 20 listings in processing, active, hidden, rejected or reserved (listing_cap_reached), or it changed meanwhile (try_again)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-myListings:
-  get:
-    operationId: listMyListings
-    summary: List the caller's listings, newest first.
+listingPhotoCopies:
+  post:
+    operationId: copyListingPhotos
+    summary: Copy the photos of one of the caller's listings into new uploads, to post a new listing from them.
+    description: |
+      For Đăng lại. Each processed photo of the listing, in order, becomes
+      a new waiting upload of the caller's, which POST /v1/listings and
+      PUT /v1/listing-drafts/{id} take like a photo the app put; the
+      listing keeps its own photos. An upload expires 24 hours after the
+      copy unless a listing takes it or a draft keeps it. A photo copied
+      from the caller's listing on another site stays marked copied once
+      the new listing is processed. A photo not processed yet is left out.
+      Any status but deleted may be copied. A repeated Idempotency-Key for
+      the same listing returns the same uploads, with fresh URLs; a new key
+      makes new ones.
     tags: [catalog]
     security:
       - bearerAuth: []
     parameters:
-      - name: pane
-        in: query
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+      - name: id
+        in: path
         required: true
-        description: on_sale holds listings in processing, active, hidden, rejected and reserved; sold holds sold ones.
         schema:
           type: string
-          enum: [on_sale, sold]
-      - $ref: "../parameters/common.yaml#/Cursor"
-      - $ref: "../parameters/common.yaml#/Limit"
+          format: uuid
     responses:
-      "200":
-        description: One page of listings.
+      "201":
+        description: The new uploads, in the listing's photo order.
         content:
           application/json:
             schema:
-              $ref: "../schemas/catalog.yaml#/ListingList"
+              $ref: "../schemas/catalog.yaml#/ListingPhotoCopies"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing of the caller's, or it is deleted (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 categories:
   get:
     operationId: listCategories

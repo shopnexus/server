@@ -5,7 +5,9 @@ screenListing:
     description: |
       Only an active or reserved listing has the view; its seller reads it
       in another status through GET /v1/listings/{id}. A signed-in reader
-      who is not the seller also gets `viewer`. With a position the view
+      who is not the seller also gets `viewer`, and the read counts as a
+      view of the listing, once per reader and UTC day; a signed-out read
+      counts none (GET /v1/screens/my-listings). With a position the view
       has distance_km, measured as GET /v1/search measures it.
     tags: [screen]
     security:

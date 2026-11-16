@@ -290,23 +290,6 @@ func TestUpdateListing(t *testing.T) {
 	check(t, "suspended", call(t, "PUT", path, body, bearer(token), newKey()), 403, "account_suspended")
 }
 
-func TestMyListings(t *testing.T) {
-	t.Parallel()
-	seller, _ := newAccount(t)
-	token := seller.AccessToken
-	onSale := activeListing(t, token, nil).ID
-	sold := activeListing(t, token, nil).ID
-	expectStatus(t, call(t, "POST", "/v1/listings/"+sold+"/mark-sold", nil, bearer(token)), 200)
-	for pane, want := range map[string]string{"on_sale": onSale, "sold": sold} {
-		res := call(t, "GET", "/v1/me/listings?pane="+pane, nil, bearer(token))
-		if items := decode[page[listing]](t, res).Items; res.Status != 200 || len(items) != 1 || items[0].ID != want {
-			t.Errorf("%s: %d %s", pane, res.Status, res.Body)
-		}
-	}
-	check(t, "unknown pane", call(t, "GET", "/v1/me/listings?pane=everything", nil, bearer(token)), 400, "")
-	check(t, "signed out", call(t, "GET", "/v1/me/listings?pane=sold", nil), 401, "")
-}
-
 func TestCategoriesAndRegions(t *testing.T) {
 	t.Parallel()
 	if n := len(expect[page[any]](t, call(t, "GET", "/v1/categories", nil), 200).Items); n != 55 {

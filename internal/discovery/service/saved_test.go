@@ -51,7 +51,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 	c := catalogtest.Service(db, acc, m, in, p)
 	text, image := embedtest.New(catalogdomain.TextDims), embedtest.New(catalogdomain.PhotoDims)
 	deps := service.Deps{
-		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db), History: repository.NewHistory(db),
+		Saves: repository.NewSaves(db), Views: repository.NewViews(db), Understandings: repository.NewUnderstandings(db), History: repository.NewHistory(db),
 		Hidden: repository.NewHidden(db), Accounts: acc,
 		Watches: repository.NewWatches(db), Sweeps: sw, ArrivalLag: 0, SweepBatch: domain.SweepBatch,
 		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db),

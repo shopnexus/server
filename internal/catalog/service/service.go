@@ -1,8 +1,9 @@
 // Package service holds module catalog's use cases: a seller's listings
 // from posting to sale, what anyone may read of them, and the category and
 // region lists. Posting and editing run on Restate, in
-// listing_post_durable.go and listing_edit_durable.go, and publishing waits
-// there for the photos, in listing_publish_durable.go.
+// listing_post_durable.go and listing_edit_durable.go, publishing waits
+// there for the photos, in listing_publish_durable.go, and copying a
+// listing's photos for Đăng lại runs in listing_photo_copy_durable.go.
 package service
 
 import (
@@ -48,6 +49,14 @@ type Service interface {
 	Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error)
 	// ListMine lists one of the seller's panes, newest first.
 	ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p page.Request) (page.Page[ListingView], error)
+	// OnSale lists the IDs of the seller's listings in a domain.OnSale
+	// status, newest first.
+	OnSale(ctx context.Context, seller uuid.UUID) ([]uuid.UUID, error)
+	// CopyPhotos copies the processed photos of one of the seller's
+	// listings into new waiting uploads of the seller's, for a new listing;
+	// a repeated idempotencyKey returns the same uploads. Another seller's
+	// listing, or a deleted one, is domain.ErrNotFound.
+	CopyPhotos(ctx context.Context, seller, id uuid.UUID, idempotencyKey string) ([]DraftPhotoView, error)
 	// SellerListings lists what anyone sees of a seller's listings, except
 	// the IDs in except, as cards, newest first, each measured from near
 	// when it names a position.
@@ -138,6 +147,9 @@ type Deps struct {
 	Log        *slog.Logger
 }
 
+// flowHandler is the handler of every flow service the module calls.
+const flowHandler = "Run"
+
 // Catalog implements Service in this process.
 type Catalog struct {
 	listings                  repository.Listings
@@ -151,6 +163,7 @@ type Catalog struct {
 	now                       func() time.Time
 	post                      restatex.Caller[PostInput, PostResult]
 	edit                      restatex.Caller[EditInput, EditResult]
+	photoCopy                 restatex.Caller[PhotoCopyInput, PhotoCopyResult]
 	vectors                   repository.Vectors
 	text, image               embed.Model
 	textVersion, imageVersion string
@@ -166,8 +179,11 @@ func New(d Deps) *Catalog {
 		accounts: d.Accounts, media: d.Media, prefix: d.Prefix, now: d.Now,
 		vectors: d.Vectors, text: d.Text, image: d.Image, textVersion: d.TextVersion, imageVersion: d.ImageVersion,
 		embedSlots: make(chan struct{}, d.EmbedSlots), log: d.Log,
-		post: restatex.Caller[PostInput, PostResult]{Ingress: d.Ingress, Service: d.Prefix + listingPost, Handler: "Run"},
-		edit: restatex.Caller[EditInput, EditResult]{Ingress: d.Ingress, Service: d.Prefix + listingEdit, Handler: "Run"},
+		post: restatex.Caller[PostInput, PostResult]{Ingress: d.Ingress, Service: d.Prefix + listingPost, Handler: flowHandler},
+		edit: restatex.Caller[EditInput, EditResult]{Ingress: d.Ingress, Service: d.Prefix + listingEdit, Handler: flowHandler},
+		photoCopy: restatex.Caller[PhotoCopyInput, PhotoCopyResult]{
+			Ingress: d.Ingress, Service: d.Prefix + listingPhotoCopy, Handler: flowHandler,
+		},
 	}
 }
 
@@ -181,6 +197,7 @@ func (c *Catalog) Durable() []restate.ServiceDefinition {
 		restate.Reflect(ListingPost{deps}),
 		restate.Reflect(ListingEdit{deps}),
 		restate.Reflect(ListingPublish{Prefix: c.prefix, Listings: c.listings, Now: c.now}),
+		restate.Reflect(ListingPhotoCopy{Prefix: c.prefix, Listings: c.listings, Media: c.media, Now: c.now}),
 		restate.Reflect(ListingEmbed{
 			Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Vectors: c.vectors, Media: c.media,
 			Text: c.text, Image: c.image, TextVersion: c.textVersion, ImageVersion: c.imageVersion,

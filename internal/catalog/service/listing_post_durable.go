@@ -165,7 +165,7 @@ func attach(ctx restate.Context, media mediasvc.Service, seller, holder uuid.UUI
 // writeID. The send is journaled, so it is never lost, and the idempotency
 // key names the write, so the next write starts a run of its own.
 func startPublish(ctx restate.Context, prefix string, id, writeID uuid.UUID) {
-	restate.ServiceSend(ctx, prefix+listingPublish, "Run").
+	restate.ServiceSend(ctx, prefix+listingPublish, flowHandler).
 		Send(id, restate.WithIdempotencyKey(id.String()+"/"+writeID.String()))
 }
 

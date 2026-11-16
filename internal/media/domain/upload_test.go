@@ -196,7 +196,7 @@ func TestConsume(t *testing.T) {
 
 func TestNewUploadOrigin(t *testing.T) {
 	t.Parallel()
-	for _, o := range []domain.Origin{domain.OriginApp, domain.OriginFrame, domain.OriginLink} {
+	for _, o := range []domain.Origin{domain.OriginApp, domain.OriginFrame, domain.OriginLink, domain.OriginListing} {
 		u, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), "image/jpeg", 10, o, now)
 		if err != nil || u.Origin() != o {
 			t.Fatalf("%s: %v %s", o, err, u.Origin())
@@ -205,8 +205,10 @@ func TestNewUploadOrigin(t *testing.T) {
 	if _, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), "image/jpeg", 10, "camera", now); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("an unknown origin: %v", err)
 	}
-	if _, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), domain.ContentTypeMP4, 10, domain.OriginLink, now); !errors.Is(err, domain.ErrInvalidUpload) {
-		t.Fatalf("a video the server made: %v", err)
+	for _, o := range []domain.Origin{domain.OriginFrame, domain.OriginLink, domain.OriginListing} {
+		if _, err := domain.NewUpload(uuid.NewV7(), uuid.NewV7(), domain.ContentTypeMP4, 10, o, now); !errors.Is(err, domain.ErrInvalidUpload) {
+			t.Fatalf("a video the server made, %s: %v", o, err)
+		}
 	}
 }
 

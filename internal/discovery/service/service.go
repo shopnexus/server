@@ -82,15 +82,23 @@ type Service interface {
 	// domain.MaxWatchers: by category, condition, area and words, with
 	// the price and offers filters left for the caller to weigh.
 	Watchers(ctx context.Context, seller uuid.UUID, q WatcherQuery) ([]Watcher, error)
+	// Viewed counts viewer's opening of someone else's listing, at most
+	// once a UTC day; a deleted account counts nothing.
+	Viewed(ctx context.Context, viewer, listing uuid.UUID) error
+	// ListingStats reads the views and saves of each listing among ids:
+	// all of them, and those of since's UTC day and later, where since is a
+	// UTC midnight such as domain.ViewWeek gives. Every ID has an entry.
+	ListingStats(ctx context.Context, ids []uuid.UUID, since time.Time) (map[uuid.UUID]ListingStats, error)
 	// AccountDeleted deletes what discovery keeps of a deleted account: its
-	// saves, history, hides and watches. The worker calls it on
-	// account.deleted.
+	// saves, history, hides, watches and which listings it opened. The
+	// worker calls it on account.deleted.
 	AccountDeleted(ctx context.Context, account uuid.UUID) error
 }
 
 // Deps is what New builds Discovery from.
 type Deps struct {
 	Saves          repository.Saves
+	Views          repository.Views
 	Understandings repository.Understandings
 	History        repository.History
 	Hidden         repository.Hidden
@@ -123,6 +131,7 @@ type Deps struct {
 // Discovery implements Service in this process.
 type Discovery struct {
 	saves                     repository.Saves
+	views                     repository.Views
 	understandings            repository.Understandings
 	history                   repository.History
 	hidden                    repository.Hidden
@@ -148,7 +157,7 @@ var _ Service = (*Discovery)(nil)
 
 func New(d Deps) *Discovery {
 	return &Discovery{
-		saves: d.Saves, understandings: d.Understandings, history: d.History, hidden: d.Hidden, watches: d.Watches,
+		saves: d.Saves, views: d.Views, understandings: d.Understandings, history: d.History, hidden: d.Hidden, watches: d.Watches,
 		sweeps: d.Sweeps, arrivalLag: d.ArrivalLag, sweepBatch: d.SweepBatch, catalog: d.Catalog,
 		accounts: d.Accounts, llm: d.LLM,
 		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,
