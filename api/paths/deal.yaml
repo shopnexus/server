@@ -683,35 +683,6 @@ devShipmentStatus:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-myOrders:
-  get:
-    operationId: listMyOrders
-    summary: List the caller's orders on one side, newest first.
-    tags: [deal]
-    security:
-      - bearerAuth: []
-    parameters:
-      - name: role
-        in: query
-        required: true
-        description: buying lists the orders where the caller is the buyer; selling, the seller.
-        schema:
-          type: string
-          enum: [buying, selling]
-      - $ref: "../parameters/common.yaml#/Cursor"
-      - $ref: "../parameters/common.yaml#/Limit"
-    responses:
-      "200":
-        description: One page of orders.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/deal.yaml#/OrderList"
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-
 orderCancel:
   post:
     operationId: cancelOrder

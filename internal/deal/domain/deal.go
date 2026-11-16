@@ -29,6 +29,23 @@ const (
 	System Party = "system"
 )
 
+// ListRole is the role query of the caller's deal and order lists: buying
+// lists them as the buyer, selling as the seller.
+type ListRole string
+
+const (
+	RoleBuying  ListRole = "buying"
+	RoleSelling ListRole = "selling"
+)
+
+// Party is the caller's side in the deals a list of role r holds.
+func (r ListRole) Party() Party {
+	if r == RoleSelling {
+		return Seller
+	}
+	return Buyer
+}
+
 type MoveKind string
 
 const (

@@ -50,6 +50,19 @@ func (s pgReviews) ByOrder(ctx context.Context, order uuid.UUID) (domain.Review,
 	return r, nil
 }
 
+func (s pgReviews) ByOrders(ctx context.Context, buyer uuid.UUID, orders []uuid.UUID) ([]domain.Review, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+reviewColumns+` FROM reviews WHERE buyer_id = @buyer AND order_id = ANY(@orders)`,
+		pgx.StrictNamedArgs{"buyer": buyer, "orders": orders})
+	if err != nil {
+		return nil, fmt.Errorf("select reviews: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Review, error) { return scanReview(row) })
+	if err != nil {
+		return nil, fmt.Errorf("read reviews: %w", err)
+	}
+	return out, nil
+}
+
 func (s pgReviews) Insert(ctx context.Context, r domain.Review) error {
 	st := r.State()
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {

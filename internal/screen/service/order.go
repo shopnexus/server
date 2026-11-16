@@ -46,11 +46,11 @@ func (s *Screen) Order(ctx context.Context, account, order uuid.UUID) (OrderScre
 	}
 	out := OrderScreen{Order: o, Deal: d, Counterpart: person}
 	if d.Role == dealdomain.Buyer {
-		r, reviewErr := s.trust.OwnReview(ctx, account, order)
+		reviews, reviewErr := s.trust.OwnReviews(ctx, account, []uuid.UUID{order})
 		if reviewErr != nil {
 			return OrderScreen{}, fmt.Errorf("read own review: %w", reviewErr)
 		}
-		out.BuyerOrderView = &BuyerOrderView{OwnReview: r}
+		out.BuyerOrderView = &BuyerOrderView{OwnReview: reviews[order]}
 		ticket, ticketErr := s.support.OfOrder(ctx, account, order)
 		if ticketErr != nil && !errors.Is(ticketErr, supportdomain.ErrNotFound) {
 			return OrderScreen{}, fmt.Errorf("read order ticket: %w", ticketErr)

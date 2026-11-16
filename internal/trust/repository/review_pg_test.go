@@ -107,6 +107,26 @@ func TestReviews(t *testing.T) {
 	if got, err = s.ByOrder(ctx, o2); err != nil || !got.Deleted() || got.Text() != "" {
 		t.Fatalf("deleted: %+v %v", got.State(), err)
 	}
+	// The batch read returns only the buyer's reviews, deleted ones too,
+	// and skips an order without one.
+	o3, l3 := order(t, db, one, seller)
+	r3 := review(t, s, o3, seller, one, l3, 3)
+	orders := []uuid.UUID{o1, o2, o3}
+	mine, err := s.ByOrders(ctx, one, orders)
+	if err != nil || len(mine) != 2 {
+		t.Fatalf("one's reviews: %d %v", len(mine), err)
+	}
+	byOrder := map[uuid.UUID]domain.Review{mine[0].OrderID(): mine[0], mine[1].OrderID(): mine[1]}
+	if a, c := byOrder[o1], byOrder[o3]; a.ID() != r1.ID() || a.Stars() != 5 || c.ID() != r3.ID() {
+		t.Fatalf("one's reviews: %+v %+v", a.State(), c.State())
+	}
+	theirs, err := s.ByOrders(ctx, two, orders)
+	if err != nil || len(theirs) != 1 || theirs[0].ID() != r2.ID() || !theirs[0].Deleted() {
+		t.Fatalf("two's reviews: %d %v", len(theirs), err)
+	}
+	if none, noneErr := s.ByOrders(ctx, one, nil); noneErr != nil || len(none) != 0 {
+		t.Fatalf("no orders: %d %v", len(none), noneErr)
+	}
 	if avg, n, err := s.Summary(ctx, accounttest.New(t, db)); err != nil || n != 0 || avg != 0 {
 		t.Fatalf("no reviews: %v %d %v", avg, n, err)
 	}

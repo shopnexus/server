@@ -63,6 +63,9 @@ type OrderItem struct {
 
 	DealID  uuid.UUID  `json:"deal_id"`
 	Listing ListingRef `json:"listing"`
+	// CounterpartID is the other party. It is not in the OrderItem schema;
+	// the orders view reads the person from it.
+	CounterpartID uuid.UUID `json:"-"`
 }
 
 // ListingRef is the deal's listing as it is now.

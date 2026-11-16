@@ -16,6 +16,31 @@ OrderScreen:
       anyOf:
         - $ref: "support.yaml#/Ticket"
         - type: "null"
+OrdersScreen:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/OrdersScreenItem"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more orders follow; pass it as cursor.
+OrdersScreenItem:
+  type: object
+  additionalProperties: false
+  required: [order, counterpart]
+  description: An order with the other party and, on the buyer's rows only, own_review.
+  properties:
+    order:
+      $ref: "deal.yaml#/OrderItem"
+    counterpart:
+      $ref: "chat.yaml#/Person"
+    own_review:
+      $ref: "trust.yaml#/OwnReview"
 CodSetupScreen:
   type: object
   additionalProperties: false

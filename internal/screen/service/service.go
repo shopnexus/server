@@ -10,6 +10,7 @@ import (
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
+	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 	notificationsvc "github.com/shopnexus/server2/internal/notification/service"
@@ -22,6 +23,9 @@ import (
 // Service is module screen's contract.
 type Service interface {
 	Order(ctx context.Context, account, order uuid.UUID) (OrderScreen, error)
+	// Orders reads a page of account's orders on side as, each with the
+	// other party and, for the buyer, account's review.
+	Orders(ctx context.Context, account uuid.UUID, as dealdomain.Party, p page.Request) (page.Page[OrdersScreenItem], error)
 	CodSetup(ctx context.Context, account uuid.UUID) (CodSetupScreen, error)
 	CodCheckout(ctx context.Context, account, deal uuid.UUID, address *uuid.UUID) (CodCheckoutScreen, error)
 	// Home reads the Home view around near, within radiusKm when it is not

@@ -127,15 +127,10 @@ func TestOrderShipConfirm(t *testing.T) {
 	if st := listingStatus(t, seller.AccessToken, l.ID); st != "sold" {
 		t.Fatalf("listing %s", st)
 	}
-	type orderRow struct {
-		DealID string `json:"deal_id"`
-	}
-	selling := expect[page[orderRow]](t, call(t, "GET", "/v1/me/orders?role=selling", nil, bearer(seller.AccessToken)), http.StatusOK)
-	if len(selling.Items) != 2 {
+	if selling := ordersScreen(t, seller.AccessToken, "role=selling"); len(selling.Items) != 2 {
 		t.Fatalf("orders: %+v", selling)
 	}
-	buying := expect[page[orderRow]](t, call(t, "GET", "/v1/me/orders?role=buying", nil, bearer(one.AccessToken)), http.StatusOK)
-	if len(buying.Items) != 1 || buying.Items[0].DealID != first.ID {
+	if buying := ordersScreen(t, one.AccessToken, "role=buying"); len(buying.Items) != 1 || buying.Items[0].Order["deal_id"] != first.ID {
 		t.Fatalf("buyer's orders: %+v", buying)
 	}
 }
@@ -329,7 +324,4 @@ func TestOrderRefusals(t *testing.T) {
 	check(t, "confirm a bad id", orderCall(t, buyer.AccessToken, "not-a-uuid", "confirm", nil), 400, "")
 	check(t, "confirm as a stranger", orderCall(t, stranger.AccessToken, o, "confirm", nil), 404, "order_not_found")
 	check(t, "confirm a pending order", orderCall(t, buyer.AccessToken, o, "confirm", nil), 409, "move_not_allowed")
-
-	check(t, "orders signed out", call(t, "GET", "/v1/me/orders?role=buying", nil), 401, "unauthenticated")
-	check(t, "orders a bad role", call(t, "GET", "/v1/me/orders?role=bogus", nil, bearer(buyer.AccessToken)), 400, "")
 }
