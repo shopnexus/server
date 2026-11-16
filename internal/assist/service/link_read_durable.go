@@ -99,12 +99,12 @@ func (s LinkRead) Start(ctx restate.Context, in StartLinkInput) (StartResult, er
 	return StartResult{ReadID: id}, nil
 }
 
-// Run reads the listing in three steps, read, copy and estimate, and saves
-// the read after each, which notifies its account. Before each step it
-// reads the journaled clock: past the deadline the read fails with
-// unavailable, and the read and copy steps retry only until the deadline.
-// The estimate step never fails a read: without it the model's range
-// stands.
+// Run is UC-LST-01 A2: it reads the listing in three steps, read, copy and
+// estimate, and saves the read after each, which notifies its account.
+// Before each step it reads the journaled clock: past the deadline the read
+// fails with unavailable, and the read and copy steps retry only until the
+// deadline. The estimate step never fails a read: without it the model's
+// range stands.
 func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 	var err error
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
@@ -145,6 +145,7 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return out.Gone, nil
 	}
 	fail := func(at time.Time, f domain.Failure) error {
+		// A1: the read fails and the seller fills the form by hand.
 		if failErr := r.Fail(f); failErr != nil {
 			return fmt.Errorf("fail read: %w", failErr)
 		}

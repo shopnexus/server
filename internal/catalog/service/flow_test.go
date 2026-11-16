@@ -34,6 +34,8 @@ func (m *attachThenFail) Attach(ctx context.Context, owner, holder uuid.UUID, id
 
 // A post whose attach committed and then failed goes on when Restate
 // retries the step, and the listing goes on sale.
+//
+// UC-LST-01 · NFR-DUR-01.
 func TestPostSurvivesAFailedAttach(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(d *service.Deps) { d.Media = &attachThenFail{Service: d.Media} })
@@ -54,6 +56,8 @@ func (countsNothing) CountByStatus(context.Context, uuid.UUID) (map[domain.Statu
 
 // A post that the insert finds at the cap takes no upload: the photo is
 // still waiting, for the seller's next post.
+//
+// UC-LST-01 E2.
 func TestPostAtTheCapKeepsTheUploads(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(d *service.Deps) { d.Listings = countsNothing{d.Listings} })
@@ -78,6 +82,8 @@ func TestPostAtTheCapKeepsTheUploads(t *testing.T) {
 }
 
 // A post whose attach is refused leaves no listing behind.
+//
+// UC-LST-01 E8.
 func TestRefusedAttachUndoesTheListing(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -109,6 +115,8 @@ func (s *loseFirstEdit) Save(ctx context.Context, l *domain.Listing, writeID uui
 
 // An edit that added a photo and then lost a race is refused with
 // try_again, and the seller's next try attaches the same photo again.
+//
+// UC-LST-02 · NFR-CONC-01.
 func TestEditAfterALostRace(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(d *service.Deps) { d.Listings = &loseFirstEdit{Listings: d.Listings} })
@@ -128,6 +136,8 @@ func TestEditAfterALostRace(t *testing.T) {
 }
 
 // Unmarking a sale counts toward the cap.
+//
+// UC-LST-02 A2 · BR-LST-02.
 func TestUnmarkSoldHoldsTheCap(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -152,6 +162,8 @@ func TestUnmarkSoldHoldsTheCap(t *testing.T) {
 }
 
 // Two sellers who send the same Idempotency-Key each get their own post.
+//
+// UC-LST-01 A6.
 func TestIdempotencyKeysAreTheSellers(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

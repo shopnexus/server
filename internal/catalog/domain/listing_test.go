@@ -43,6 +43,7 @@ func TestNewListingTrimsAndStartsProcessing(t *testing.T) {
 	}
 }
 
+// UC-LST-01 E5 · BR-LST-03.
 func TestNewListingRules(t *testing.T) {
 	t.Parallel()
 	photos := func(n int) []uuid.UUID {
@@ -101,6 +102,7 @@ func published(t *testing.T) domain.Listing {
 	return l
 }
 
+// UC-LST-02 E1.
 func TestTransitions(t *testing.T) {
 	t.Parallel()
 	conflict := func(name string, err error) {

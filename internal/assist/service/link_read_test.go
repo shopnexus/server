@@ -23,6 +23,8 @@ import (
 
 // A link read goes through read, copy and estimate, notifies after each
 // step, copies the photos as the seller's, and takes the phone out.
+//
+// UC-LST-01 A2.
 func TestLinkReadFillsADraft(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -150,6 +152,7 @@ func TestLinkReadSkipsAPhotoTheCDNKeepsFailing(t *testing.T) {
 	}
 }
 
+// UC-LST-01 E7.
 func TestStartLinkReadRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -209,6 +212,7 @@ func TestGetLinkRead(t *testing.T) {
 	}
 }
 
+// UC-LST-01 A2.
 func TestPreviewLink(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

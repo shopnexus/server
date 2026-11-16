@@ -9,7 +9,8 @@ import (
 	"github.com/shopnexus/server2/internal/assist/domain"
 )
 
-// GetRead returns one of account's reads with a fresh URL for each photo.
+// GetRead is UC-LST-01, step 2: it returns one of account's reads with a
+// fresh URL for each photo.
 func (a *Assist) GetRead(ctx context.Context, account, id uuid.UUID) (ListingReadView, error) {
 	r, err := a.d.Reads.Get(ctx, id)
 	if errors.Is(err, domain.ErrNotFound) {

@@ -23,10 +23,10 @@ type PriceGuideInput struct {
 	Photos                                        []uuid.UUID
 }
 
-// PriceGuide checks the account, the category, the commune and the
-// photos, draws the sample as the reads do, and answers the range, the
-// suggestions, the first similar listings with their distance, the
-// sample's prices and the matching watches. A sample that fails gives a
+// PriceGuide is UC-LST-01 A3: it checks the account, the category, the
+// commune and the photos, draws the sample as the reads do, and answers the
+// range, the suggestions, the first similar listings with their distance,
+// the sample's prices and the matching watches. A sample that fails gives a
 // guide without a comparison; the watchers still answer.
 func (a *Assist) PriceGuide(ctx context.Context, account uuid.UUID, in PriceGuideInput) (PriceGuideView, error) {
 	started := a.d.Now()

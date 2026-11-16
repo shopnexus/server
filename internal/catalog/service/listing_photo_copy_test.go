@@ -24,6 +24,8 @@ import (
 // seller's, in the listing's order, which a new listing takes and
 // processes; the sold listing keeps its own photos, and a photo first
 // copied from another site stays marked on the new listing.
+//
+// UC-LST-01 A5.
 func TestCopyPhotosStartsANewListing(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -86,6 +88,8 @@ func TestCopyPhotosStartsANewListing(t *testing.T) {
 // Only the seller copies, only a listing not deleted, and only the photos
 // processed. A repeated key returns the same uploads; a new key makes new
 // ones.
+//
+// UC-LST-01 A5.
 func TestCopyPhotosRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -145,6 +149,8 @@ func (s *saveThenFail) SavePhoto(ctx context.Context, owner, id uuid.UUID, data 
 
 // A copy step that committed and then failed runs again with the same
 // upload ID, so the seller gets one upload per photo.
+//
+// UC-LST-01 A5 · NFR-DUR-01.
 func TestCopyPhotosRetriedStepSavesOnce(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(d *service.Deps) { d.Media = &saveThenFail{Service: d.Media} })

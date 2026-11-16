@@ -53,11 +53,11 @@ type ListingPhotoCopy struct {
 
 func (s ListingPhotoCopy) ServiceName() string { return s.Prefix + listingPhotoCopy }
 
-// Run reads the listing in one step, then copies one photo per step, one at
-// a time. Each upload ID is minted before its step, so a retried step
-// writes the same object and inserts no second upload; the photo's bytes
-// never enter the journal. A photo first copied from another site keeps
-// that origin, so the new listing marks it copied too.
+// Run is UC-LST-01 A5: it reads the listing in one step, then copies one
+// photo per step, one at a time. Each upload ID is minted before its step,
+// so a retried step writes the same object and inserts no second upload;
+// the photo's bytes never enter the journal. A photo first copied from
+// another site keeps that origin, so the new listing marks it copied too.
 func (s ListingPhotoCopy) Run(ctx restate.Context, in PhotoCopyInput) (PhotoCopyResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {

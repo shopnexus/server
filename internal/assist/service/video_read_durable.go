@@ -163,13 +163,13 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 	return StartResult{ReadID: id}, nil
 }
 
-// Run reads the video in three steps, frames, fill and estimate, and saves
-// the read after each, which notifies its account. Every path that ends
-// the read, done or failed, consumes the video. Before each step it reads
-// the journaled clock: past the deadline the read fails with unavailable,
-// and the frames and fill steps retry only until the deadline, so one that
-// keeps failing ends the same way. The estimate step never fails a read:
-// without it the model's range stands.
+// Run is UC-LST-01, step 2: it reads the video in three steps, frames, fill
+// and estimate, and saves the read after each, which notifies its account.
+// Every path that ends the read, done or failed, consumes the video. Before
+// each step it reads the journaled clock: past the deadline the read fails
+// with unavailable, and the frames and fill steps retry only until the
+// deadline, so one that keeps failing ends the same way. The estimate step
+// never fails a read: without it the model's range stands.
 func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	// restate.Run answers a TerminalError; err holds the other calls' errors too.
 	var err error
@@ -219,6 +219,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	// fail consumes the video before it saves the failure, so a read that
 	// shows it ended has no video left.
 	fail := func(at time.Time, f domain.Failure) error {
+		// A1: the read fails and the seller fills the form by hand.
 		if failErr := r.Fail(f); failErr != nil {
 			return fmt.Errorf("fail read: %w", failErr)
 		}

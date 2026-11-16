@@ -39,9 +39,9 @@ type ListingEdit struct{ flowDeps }
 
 func (s ListingEdit) ServiceName() string { return s.Prefix + listingEdit }
 
-// Run edits the seller's listing. Uploads attached by an edit that then
-// lost a race stay with the listing, so the client's next try attaches them
-// again without a refusal.
+// Run is UC-LST-02, step 3: it edits the seller's listing. Uploads attached
+// by an edit that then lost a race stay with the listing, so the client's
+// next try attaches them again without a refusal.
 func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {

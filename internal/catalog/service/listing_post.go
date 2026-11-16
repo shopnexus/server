@@ -8,9 +8,9 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/domain"
 )
 
-// Post runs ListingPost once per seller and idempotencyKey, then reads the
-// listing it posted. A repeated key gets the first post's listing as it is
-// now.
+// Post is UC-LST-01, step 3: it runs ListingPost once per seller and
+// idempotencyKey, then reads the listing it posted. A repeated key gets the
+// first post's listing as it is now.
 func (c *Catalog) Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.ListingInput) (ListingView, error) {
 	res, err := c.post.Call(ctx, seller.String()+"/"+idempotencyKey, PostInput{Seller: seller, Listing: d})
 	if err != nil {

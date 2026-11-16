@@ -21,6 +21,8 @@ import (
 
 // A photo read fills a draft from one image, keeps the photo as the
 // draft's only photo, and leaves the photo waiting for the listing.
+//
+// UC-LST-01.
 func TestPhotoReadFillsADraft(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -56,6 +58,7 @@ func TestPhotoReadFillsADraft(t *testing.T) {
 	}
 }
 
+// UC-LST-01 A1.
 func TestPhotoReadFailures(t *testing.T) {
 	t.Parallel()
 	noItem := iphonePhoto()

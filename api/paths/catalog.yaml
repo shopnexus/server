@@ -1,6 +1,7 @@
 listings:
   post:
     operationId: createListing
+    x-uc: [UC-LST-01]
     summary: Post a listing.
     description: |
       The listing starts in processing while its photos are processed, then
@@ -85,6 +86,7 @@ listing:
               $ref: "../schemas/error.yaml#/Error"
   put:
     operationId: updateListing
+    x-uc: [UC-LST-02]
     summary: Replace a listing's content.
     description: |
       The body is the whole listing, as when posting. Photos not in the
@@ -140,6 +142,7 @@ listing:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: deleteListing
+    x-uc: [UC-LST-02]
     summary: Delete a listing.
     tags: [catalog]
     security:
@@ -173,6 +176,7 @@ listing:
 listingHide:
   post:
     operationId: hideListing
+    x-uc: [UC-LST-02]
     summary: Take an active listing off sale.
     tags: [catalog]
     security:
@@ -210,6 +214,7 @@ listingHide:
 listingUnhide:
   post:
     operationId: unhideListing
+    x-uc: [UC-LST-02]
     summary: Put a hidden listing back on sale.
     tags: [catalog]
     security:
@@ -247,6 +252,7 @@ listingUnhide:
 listingMarkSold:
   post:
     operationId: markListingSold
+    x-uc: [UC-LST-02]
     summary: Record a sale made off the app.
     tags: [catalog]
     security:
@@ -284,6 +290,7 @@ listingMarkSold:
 listingUnmarkSold:
   post:
     operationId: unmarkListingSold
+    x-uc: [UC-LST-02]
     summary: Undo marking a listing sold; it goes back on sale.
     tags: [catalog]
     security:
@@ -321,7 +328,7 @@ listingUnmarkSold:
 listingPhotoCopies:
   post:
     operationId: copyListingPhotos
-    x-uc: [UC-LST-02]
+    x-uc: [UC-LST-01]
     summary: Copy the photos of one of the caller's listings into new uploads, to post a new listing from them.
     description: |
       For Đăng lại. Each processed photo of the listing, in order, becomes
@@ -451,6 +458,7 @@ regionNearest:
 listingDrafts:
   get:
     operationId: listListingDrafts
+    x-uc: [UC-LST-01]
     summary: List the caller's drafts.
     description: |
       Every draft of the caller's, in full, last edited first; at most 20,
@@ -470,6 +478,7 @@ listingDrafts:
 listingDraft:
   put:
     operationId: putListingDraft
+    x-uc: [UC-LST-01]
     summary: Create or replace one of the caller's drafts.
     description: |
       The app mints the ID, a UUIDv7, so a draft made offline has its ID
@@ -531,6 +540,7 @@ listingDraft:
               $ref: "../schemas/error.yaml#/Error"
   delete:
     operationId: deleteListingDraft
+    x-uc: [UC-LST-01]
     summary: Delete one of the caller's drafts.
     description: Its photos expire on their own. The app calls it after a post from the draft.
     tags: [catalog]

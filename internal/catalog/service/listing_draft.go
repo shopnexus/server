@@ -8,10 +8,11 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/domain"
 )
 
-// PutDraft writes the caller's draft id; the last write wins. It drops the
-// photos a listing took or that expired, keeps the others 30 days in
-// media, then writes the row. Media and catalog share no transaction: an
-// extension whose write then fails only keeps a photo longer.
+// PutDraft is UC-LST-01 A4: it writes the caller's draft id; the last write
+// wins. It drops the photos a listing took or that expired, keeps the
+// others 30 days in media, then writes the row. Media and catalog share no
+// transaction: an extension whose write then fails only keeps a photo
+// longer.
 func (c *Catalog) PutDraft(ctx context.Context, account, id uuid.UUID, content domain.DraftContent) (DraftView, bool, error) {
 	now := c.now()
 	gone, err := c.media.Gone(ctx, account, content.Photos)
@@ -30,9 +31,9 @@ func (c *Catalog) PutDraft(ctx context.Context, account, id uuid.UUID, content d
 	return v, created, err
 }
 
-// ListDrafts reads the caller's drafts, last written first, once their
-// expired drafts are deleted. A photo a listing took or that expired is
-// left out of the answer, without a write to the draft.
+// ListDrafts is UC-LST-01 A4: it reads the caller's drafts, last written
+// first, once their expired drafts are deleted. A photo a listing took or
+// that expired is left out of the answer, without a write to the draft.
 func (c *Catalog) ListDrafts(ctx context.Context, account uuid.UUID) ([]DraftView, error) {
 	ds, err := c.drafts.List(ctx, account, c.now())
 	if err != nil {
@@ -55,8 +56,9 @@ func (c *Catalog) ListDrafts(ctx context.Context, account uuid.UUID) ([]DraftVie
 	return out, nil
 }
 
-// DeleteDraft deletes the caller's draft id; another account's draft, or
-// none, changes nothing. Its photos expire on their own.
+// DeleteDraft is UC-LST-01 A4: it deletes the caller's draft id; another
+// account's draft, or none, changes nothing. Its photos expire on their
+// own.
 func (c *Catalog) DeleteDraft(ctx context.Context, account, id uuid.UUID) error {
 	if err := c.drafts.Delete(ctx, account, id); err != nil {
 		return fmt.Errorf("delete draft: %w", err)

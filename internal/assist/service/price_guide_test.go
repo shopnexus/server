@@ -27,6 +27,7 @@ func bike() service.PriceGuideInput {
 	}
 }
 
+// UC-LST-01 A3.
 func TestPriceGuide(t *testing.T) {
 	t.Parallel()
 	var cat *sampleOf

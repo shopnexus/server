@@ -11,8 +11,9 @@ import (
 	"github.com/shopnexus/server2/internal/provider/chotot"
 )
 
-// PreviewLink checks the account, parses the link and reads the listing,
-// for the card the app shows under the field, and stores nothing.
+// PreviewLink is UC-LST-01 A2: it checks the account, parses the link and
+// reads the listing, for the card the app shows under the field, and stores
+// nothing.
 func (a *Assist) PreviewLink(ctx context.Context, account uuid.UUID, link string) (LinkPreviewView, error) {
 	status, err := a.d.Accounts.Status(ctx, account)
 	if err != nil {

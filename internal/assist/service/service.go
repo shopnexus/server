@@ -30,22 +30,34 @@ type Service interface {
 	// StartVideoRead runs VideoRead.Start once per account and
 	// idempotencyKey and returns the read as it is then. transcript is what
 	// the phone heard; blank is none, and the server hears the video then.
+	//
+	// UC-LST-01
 	StartVideoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID, transcript string) (ListingReadView, error)
 	// StartPhotoRead runs PhotoRead.Start once per account and
 	// idempotencyKey and returns the read as it is then.
+	//
+	// UC-LST-01
 	StartPhotoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, photo uuid.UUID) (ListingReadView, error)
 	// StartLinkRead parses the link, runs LinkRead.Start once per account
 	// and idempotencyKey and returns the read as it is then.
+	//
+	// UC-LST-01 A2
 	StartLinkRead(ctx context.Context, account uuid.UUID, idempotencyKey, link string) (ListingReadView, error)
 	// GetRead returns one of account's reads of any source. Another
 	// account's, an unknown one and one past its expiry are
 	// domain.ErrNotFound.
+	//
+	// UC-LST-01
 	GetRead(ctx context.Context, account, id uuid.UUID) (ListingReadView, error)
 	// PreviewLink reads the listing a pasted link names, for the card the
 	// app shows before the read, and stores nothing.
+	//
+	// UC-LST-01 A2
 	PreviewLink(ctx context.Context, account uuid.UUID, link string) (LinkPreviewView, error)
 	// PriceGuide prices a draft against the listings most like it and the
 	// search watches it would match, and stores nothing.
+	//
+	// UC-LST-01 A3
 	PriceGuide(ctx context.Context, account uuid.UUID, in PriceGuideInput) (PriceGuideView, error)
 	// DeleteAccount deletes a deleted account's reads and waiting
 	// transcripts; a second call finds nothing left.

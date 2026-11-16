@@ -13,6 +13,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/events"
 )
 
+// Hide is UC-LST-02.
 func (c *Catalog) Hide(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
 	l, err := c.own(ctx, seller, id)
 	if err != nil {
@@ -25,6 +26,7 @@ func (c *Catalog) Hide(ctx context.Context, seller, id uuid.UUID) (ListingView, 
 	return c.save(ctx, l, events.ListingHidden, now)
 }
 
+// Unhide is UC-LST-02.
 func (c *Catalog) Unhide(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
 	l, err := c.own(ctx, seller, id)
 	if err != nil {
@@ -37,6 +39,7 @@ func (c *Catalog) Unhide(ctx context.Context, seller, id uuid.UUID) (ListingView
 	return c.save(ctx, l, events.ListingUnhidden, now)
 }
 
+// MarkSold is UC-LST-02.
 func (c *Catalog) MarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
 	l, err := c.own(ctx, seller, id)
 	if err != nil {
@@ -49,6 +52,7 @@ func (c *Catalog) MarkSold(ctx context.Context, seller, id uuid.UUID) (ListingVi
 	return c.save(ctx, l, events.ListingSold, now)
 }
 
+// UnmarkSold is UC-LST-02 A2.
 func (c *Catalog) UnmarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
 	l, err := c.own(ctx, seller, id)
 	if err != nil {
@@ -61,6 +65,7 @@ func (c *Catalog) UnmarkSold(ctx context.Context, seller, id uuid.UUID) (Listing
 	return c.save(ctx, l, events.ListingUnsold, now)
 }
 
+// Delete is UC-LST-02.
 func (c *Catalog) Delete(ctx context.Context, seller, id uuid.UUID) error {
 	l, err := c.own(ctx, seller, id)
 	if err != nil {

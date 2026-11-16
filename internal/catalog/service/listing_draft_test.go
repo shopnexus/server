@@ -22,6 +22,8 @@ func kept(at time.Time) bool { return at.After(time.Now().Add(29 * 24 * time.Hou
 // A create keeps its photos 30 days; a replace keeps the new ones and
 // leaves a dropped one to its own expiry; the list shows what is stored,
 // with a URL per photo.
+//
+// UC-LST-01 A4.
 func TestPutDraftCreatesAndReplaces(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -173,6 +175,8 @@ func TestListDraftsLeavesTakenPhotosOut(t *testing.T) {
 
 // Delete is quiet about a draft that is gone or another account's, and
 // leaves the photos to their own expiry.
+//
+// UC-LST-01 A4.
 func TestDeleteDraft(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

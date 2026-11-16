@@ -35,10 +35,10 @@ type loadedListing struct {
 	Found   bool           `json:"found"`
 }
 
-// Run processes every upload the listing holds unprocessed, through
-// MediaProcess with the upload ID as idempotency key, so two runs share one
-// processing. A listing that changed meanwhile is left as it is: the change
-// started a run of its own.
+// Run is UC-LST-01, step 5: it processes every upload the listing holds
+// unprocessed, through MediaProcess with the upload ID as idempotency key,
+// so two runs share one processing. A listing that changed meanwhile is
+// left as it is: the change started a run of its own.
 func (s ListingPublish) Run(ctx restate.Context, id uuid.UUID) error {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
@@ -79,6 +79,7 @@ func (s ListingPublish) Run(ctx restate.Context, id uuid.UUID) error {
 
 	var evs []events.Event
 	if len(reasons) > 0 {
+		// E3: a photo that failed rejects the listing with its reasons.
 		l.Rejected(reasons, at)
 		evs = append(evs, events.Event{ID: restatex.NewID(ctx, at), Kind: events.ListingRejected, SubjectID: id, OccurredAt: at})
 	} else {

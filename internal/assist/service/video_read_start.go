@@ -8,10 +8,11 @@ import (
 	"uuid"
 )
 
-// StartVideoRead keeps the phone's transcript under the account and the key
-// outside Restate, runs VideoRead.Start once per account and
-// idempotencyKey, then reads the read it started. The invocation's key
-// holds the account, so the same key sent by two accounts starts two reads.
+// StartVideoRead is UC-LST-01, step 2: it keeps the phone's transcript
+// under the account and the key outside Restate, runs VideoRead.Start once
+// per account and idempotencyKey, then reads the read it started. The
+// invocation's key holds the account, so the same key sent by two accounts
+// starts two reads.
 func (a *Assist) StartVideoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID, transcript string,
 ) (ListingReadView, error) {
 	if t := strings.TrimSpace(transcript); t != "" {

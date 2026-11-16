@@ -51,15 +51,17 @@ type ListingPost struct{ flowDeps }
 
 func (s ListingPost) ServiceName() string { return s.Prefix + listingPost }
 
-// Run checks, in order, that the seller is not suspended, has a phone and
-// is under the cap, then the listing's fields. The row goes in before
-// the uploads are attached: a cap that a racing post filled refuses before
-// any upload is taken, and an attach that refuses deletes the row again.
+// Run is UC-LST-01, steps 4 and 5: it checks, in order, that the seller is
+// not suspended, has a phone and is under the cap, then the listing's
+// fields. The row goes in before the uploads are attached: a cap that a
+// racing post filled refuses before any upload is taken, and an attach that
+// refuses deletes the row again.
 func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
 		return PostResult{}, err
 	}
+	// E1 · BR-LST-02
 	status, err := restate.Run(ctx, func(rc restate.RunContext) (accountdomain.Status, error) {
 		return s.Accounts.Status(rc, in.Seller)
 	})
@@ -69,6 +71,7 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	if r := status.Refusal(); r != nil {
 		return PostResult{Refused: r}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
 	}
+	// E4 · BR-ACC-03
 	hasPhone, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 		return s.Accounts.HasPhone(rc, in.Seller)
 	})
@@ -78,6 +81,7 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	if !hasPhone {
 		return PostResult{Refused: accountdomain.ErrPhoneRequired}, nil
 	}
+	// E2 · BR-LST-02
 	n, err := restate.Run(ctx, func(rc restate.RunContext) (int, error) {
 		counts, stepErr := s.Listings.CountByStatus(rc, in.Seller)
 		if stepErr != nil {
@@ -96,11 +100,13 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 		return PostResult{}, err
 	}
 	id := restatex.NewID(ctx, at)
+	// E5 · BR-LST-03
 	l, err := domain.NewListing(id, in.Seller, in.Listing, refs, at)
 	if err != nil {
 		return PostResult{Refused: apperr.From(err)}, nil
 	}
 
+	// E2 · NFR-CONC-01: a post racing this one may fill the cap first.
 	capped, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 		return restatex.Outcome(s.Listings.Insert(rc, l), domain.ErrCapReached)
 	})
@@ -110,6 +116,7 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	if capped {
 		return PostResult{Refused: domain.ErrCapReached}, nil
 	}
+	// E8: an upload that is not the seller's, or not waiting, undoes the row.
 	refused, err := attach(ctx, s.Media, in.Seller, id, in.Listing.Photos)
 	if err != nil {
 		return PostResult{}, err
@@ -120,6 +127,7 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 		}
 		return PostResult{Refused: refused}, nil
 	}
+	// 5. Process the photos and put the listing on sale.
 	startPublish(ctx, s.Prefix, id, l.WriteID())
 	return PostResult{ListingID: id}, nil
 }

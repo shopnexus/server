@@ -1,6 +1,7 @@
 linkPreviews:
   post:
     operationId: previewLink
+    x-uc: [UC-LST-01]
     summary: Preview the listing a pasted link names.
     description: |
       Reads the seller's listing on Chợ Tốt for the card the app shows under
@@ -53,6 +54,7 @@ linkPreviews:
 listingReads:
   post:
     operationId: createListingRead
+    x-uc: [UC-LST-01]
     summary: Read a video, a photo or the seller's Chợ Tốt listing into a listing draft.
     description: |
       Starts reading what the body names: a video the caller uploaded with
@@ -113,6 +115,7 @@ listingReads:
 listingRead:
   get:
     operationId: getListingRead
+    x-uc: [UC-LST-01]
     summary: Read a listing read.
     tags: [assist]
     security:
@@ -144,6 +147,7 @@ listingRead:
 priceGuides:
   post:
     operationId: createPriceGuide
+    x-uc: [UC-LST-01]
     summary: Price a listing draft against similar listings and the buyers watching for it.
     description: |
       Compares the draft with the listings most like it, by text and by

@@ -32,6 +32,8 @@ import (
 
 // A read goes through frames, fill and estimate, notifies after each step,
 // and consumes the video.
+//
+// UC-LST-01.
 func TestReadFillsADraft(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -81,6 +83,8 @@ func TestReadFillsADraft(t *testing.T) {
 
 // Each way a read ends early is a failure on the read, and the video is
 // consumed on every path.
+//
+// UC-LST-01 A1.
 func TestReadFailures(t *testing.T) {
 	t.Parallel()
 	noItem := bicycle()
@@ -155,6 +159,8 @@ func TestReadPastTheDeadline(t *testing.T) {
 
 // A model that keeps failing is retried until the deadline, then the read
 // fails with unavailable. The frames step leaves two seconds.
+//
+// UC-LST-01 A1.
 func TestReadModelKeepsFailing(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, func(x *env) {
@@ -237,6 +243,7 @@ func TestReadEstimateWithoutEmbeddings(t *testing.T) {
 	}
 }
 
+// UC-LST-01 E4, E6.
 func TestStartReadRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

@@ -100,10 +100,11 @@ func (s PhotoRead) Start(ctx restate.Context, in StartPhotoInput) (StartResult, 
 	return StartResult{ReadID: id}, nil
 }
 
-// Run reads the photo in two steps, fill and estimate, and saves the read
-// after each, which notifies its account. Past the deadline the read fails
-// with unavailable, and the fill step retries only until the deadline. The
-// estimate step never fails a read: without it the model's range stands.
+// Run is UC-LST-01, step 2: it reads the photo in two steps, fill and
+// estimate, and saves the read after each, which notifies its account. Past
+// the deadline the read fails with unavailable, and the fill step retries
+// only until the deadline. The estimate step never fails a read: without it
+// the model's range stands.
 func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	var err error
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
@@ -144,6 +145,7 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return out.Gone, nil
 	}
 	fail := func(at time.Time, f domain.Failure) error {
+		// A1: the read fails and the seller fills the form by hand.
 		if failErr := r.Fail(f); failErr != nil {
 			return fmt.Errorf("fail read: %w", failErr)
 		}

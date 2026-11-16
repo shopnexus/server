@@ -25,6 +25,8 @@ import (
 // Posting refuses a suspended account, then an account with no phone, then
 // a seller at the cap, then a bad draft, then an upload that is not the
 // seller's.
+//
+// UC-LST-01 E1, E2, E4, E5, E8.
 func TestPostChecksInOrder(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -76,6 +78,8 @@ func TestPostChecksInOrder(t *testing.T) {
 
 // A posted listing turns active once its photos are processed, and a
 // repeated post returns it.
+//
+// UC-LST-01 A6.
 func TestPostPublishes(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -105,6 +109,8 @@ func TestPostPublishes(t *testing.T) {
 
 // A photo processing refuses rejects the listing with the reason; an edit
 // that drops it sends the listing through processing again.
+//
+// UC-LST-01 E3.
 func TestPublishRejects(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -137,6 +143,8 @@ func TestPublishRejects(t *testing.T) {
 
 // An edit that adds a photo takes the listing off sale until the photo is
 // processed; one that changes only text keeps it on sale.
+//
+// UC-LST-02 E2.
 func TestEdit(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -176,6 +184,8 @@ WHERE subject_id = @id AND kind = 'listing.published' ORDER BY id`, pgx.StrictNa
 
 // Each transition records its event; one the state does not allow is a
 // conflict, and another seller's listing is not found.
+//
+// UC-LST-02 E1, E2.
 func TestTransitions(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -419,6 +429,8 @@ func TestLocate(t *testing.T) {
 
 // A photo the server copied from the seller's listing elsewhere is marked
 // for everyone who reads the listing, and an edit keeps the mark.
+//
+// UC-LST-01 A5.
 func TestCopiedPhotosAreMarked(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
