@@ -9,10 +9,10 @@ import (
 	"github.com/shopnexus/server2/internal/provider/carrier"
 )
 
-// ShipmentInput is a shipment as the seller sends it: Mode manual with the
-// carrier and the code, or linked with the carrier, the service, the
-// weight, the pickup and where from: a carrier's pickup point, one of the
-// seller's addresses, or neither for the carrier's default.
+// ShipmentInput is a shipment as the seller sends it: manual with its carrier
+// and code, or linked with its carrier, service, weight and pickup selection.
+// The selection may name a carrier point, an owned address or saved pickup;
+// omitting it uses the carrier's default.
 type ShipmentInput struct {
 	Mode            string
 	Carrier         string
@@ -22,6 +22,7 @@ type ShipmentInput struct {
 	Pickup          string
 	PickupPointID   string
 	PickupAddressID uuid.UUID
+	SavedPickup     bool
 }
 
 // CreateShipment checks the shipment and reads a manual one with the
@@ -30,8 +31,9 @@ type ShipmentInput struct {
 // A code the carrier does not know is domain.ErrShipmentUnknown and a stack
 // without a carrier domain.ErrCarrierUnavailable, for any order; a carrier
 // the caller has not linked is domain.ErrCarrierNotLinked once the order
-// is the caller's to ship. A linked shipment's pickup address is copied
-// now, so a later edit of it changes nothing.
+// is the caller's to ship. CreateShipment copies an explicit book address
+// before the flow. DealShip resolves saved pickup in a journaled step after
+// its order checks.
 func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, in ShipmentInput) (DealView, error) {
 	flow := FlowInput{Caller: caller, OrderID: order}
 	if in.Mode == string(domain.ModeLinked) {
@@ -39,10 +41,14 @@ func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, ide
 		if draftErr != nil {
 			return DealView{}, draftErr
 		}
+		if in.SavedPickup && (in.PickupPointID != "" || in.PickupAddressID != uuid.Nil()) {
+			return DealView{}, domain.ErrInvalidShipment.WithField("pickup_from", "oneOf")
+		}
 		from, fromErr := s.pickupFrom(ctx, caller, in.PickupPointID, in.PickupAddressID)
 		if fromErr != nil {
 			return DealView{}, fromErr
 		}
+		flow.SavedPickup = in.SavedPickup
 		linked.From = from
 		flow.Linked = &linked
 	} else {

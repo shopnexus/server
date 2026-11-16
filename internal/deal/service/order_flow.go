@@ -22,11 +22,12 @@ import (
 // shipment carries either its manual shipment, read from the carrier, or
 // what the seller picked for a linked one.
 type FlowInput struct {
-	Caller  uuid.UUID           `json:"caller"`
-	DealID  uuid.UUID           `json:"deal_id"`
-	OrderID uuid.UUID           `json:"order_id"`
-	Manual  *domain.Shipment    `json:"manual,omitempty"`
-	Linked  *domain.LinkedDraft `json:"linked,omitempty"`
+	SavedPickup bool                `json:"saved_pickup,omitempty"`
+	Caller      uuid.UUID           `json:"caller"`
+	DealID      uuid.UUID           `json:"deal_id"`
+	OrderID     uuid.UUID           `json:"order_id"`
+	Manual      *domain.Shipment    `json:"manual,omitempty"`
+	Linked      *domain.LinkedDraft `json:"linked,omitempty"`
 }
 
 // FlowResult carries a flow's refusal, or none.

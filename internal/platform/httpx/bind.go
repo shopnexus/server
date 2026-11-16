@@ -158,6 +158,18 @@ var textUnmarshaler = reflect.TypeFor[encoding.TextUnmarshaler]()
 
 func parserFor(t reflect.Type, sf reflect.StructField) func(reflect.Value, string) error {
 	ft := sf.Type
+	if ft.Kind() == reflect.Pointer {
+		sf.Type = ft.Elem()
+		parse := parserFor(t, sf)
+		return func(v reflect.Value, raw string) error {
+			value := reflect.New(ft.Elem())
+			if err := parse(value.Elem(), raw); err != nil {
+				return err
+			}
+			v.Set(value)
+			return nil
+		}
+	}
 	if reflect.PointerTo(ft).Implements(textUnmarshaler) {
 		return func(v reflect.Value, raw string) error {
 			u, ok := reflect.TypeAssert[encoding.TextUnmarshaler](v.Addr())

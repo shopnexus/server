@@ -56,7 +56,7 @@ func (c *Chat) Search(ctx context.Context, account uuid.UUID, q string, p page.R
 	for i := range threads {
 		r := &threads[i]
 		items = append(items, InboxItem{
-			ID: r.Conversation.ID, Other: personView(r.Other, others[r.Other]), LastMessage: c.messageView(r.Last),
+			ID: r.Conversation.ID, Other: PersonFromAccount(r.Other, others[r.Other]), LastMessage: c.messageView(r.Last),
 			Unread: r.Unread, Archived: r.Archived,
 		})
 	}
@@ -64,7 +64,7 @@ func (c *Chat) Search(ctx context.Context, account uuid.UUID, q string, p page.R
 	for i := range hits {
 		h := &hits[i]
 		found = append(found, MessageHit{
-			ConversationID: h.Message.ConversationID(), Other: personView(h.Other, others[h.Other]),
+			ConversationID: h.Message.ConversationID(), Other: PersonFromAccount(h.Other, others[h.Other]),
 			Message: c.messageView(h.Message),
 		})
 	}

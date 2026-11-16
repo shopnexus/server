@@ -12,6 +12,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/stream"
 	"github.com/shopnexus/server2/internal/support/domain"
 )
 
@@ -144,6 +145,9 @@ VALUES (@id, @account, @conversation, @kind, 'open', @order, @carrier, @carrier_
 		if err = event(ctx, tx, t.ID, "opened", nil, t.OpenedAt); err != nil {
 			return err
 		}
+		if err = stream.Notify(ctx, tx, []uuid.UUID{t.AccountID}, stream.Hint{Kind: stream.KindTicket, ConversationID: &t.ConversationID}); err != nil {
+			return err
+		}
 		out, err = one(ctx, tx, `WHERE t.id = @id`, pgx.StrictNamedArgs{"id": t.ID})
 		return err
 	})
@@ -154,9 +158,28 @@ VALUES (@id, @account, @conversation, @kind, 'open', @order, @carrier, @carrier_
 }
 
 func (s pgTickets) SetFirstMessage(ctx context.Context, id, message uuid.UUID) error {
-	if _, err := s.db.Exec(ctx, `UPDATE tickets SET first_message_id = @message WHERE id = @id`,
-		pgx.StrictNamedArgs{"id": id, "message": message}); err != nil {
-		return fmt.Errorf("set the first message: %w", err)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		var t Ticket
+		var sentAt time.Time
+		err := tx.QueryRow(ctx, `UPDATE tickets t SET first_message_id = m.id
+FROM messages m
+WHERE t.id = @id AND t.first_message_id IS NULL AND m.id = @message
+  AND m.conversation_id = t.conversation_id AND m.sender_id = t.account_id AND m.status = 'sent'
+RETURNING t.id, t.account_id, t.conversation_id, t.status, t.resolved_at, m.created_at`,
+			pgx.StrictNamedArgs{"id": id, "message": message}).Scan(&t.ID, &t.AccountID, &t.ConversationID, &t.Status, &t.ResolvedAt, &sentAt)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("set first message: %w", err)
+		}
+		if _, err = recordMessage(ctx, tx, t, message, domain.FromPerson, sentAt); err != nil {
+			return err
+		}
+		return stream.Notify(ctx, tx, []uuid.UUID{t.AccountID}, stream.Hint{Kind: stream.KindTicket, ConversationID: &t.ConversationID})
+	})
+	if err != nil {
+		return fmt.Errorf("attach first message: %w", err)
 	}
 	return nil
 }
@@ -231,35 +254,62 @@ WHERE kind = 'carrier_request' AND carrier_key = @key AND opened_at > @since`,
 	return n, nil
 }
 
-func (s pgTickets) Messaged(ctx context.Context, conversation uuid.UUID, from domain.From, at time.Time) (bool, error) {
+func (s pgTickets) Messaged(ctx context.Context, conversation, message uuid.UUID, from domain.From, at time.Time) (bool, error) {
 	var reopened bool
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		var (
-			id  uuid.UUID
-			was domain.Status
-		)
-		err := tx.QueryRow(ctx, `UPDATE tickets SET last_message_at = greatest(last_message_at, @at), last_from = @from,
-    status = CASE WHEN @from = 'person' THEN 'open' ELSE status END,
-    resolved_at = CASE WHEN @from = 'person' THEN NULL ELSE resolved_at END,
-    resolved_by = CASE WHEN @from = 'person' THEN NULL ELSE resolved_by END
-WHERE conversation_id = @conversation
-RETURNING id, old.status`, pgx.StrictNamedArgs{"conversation": conversation, "from": from, "at": at}).Scan(&id, &was)
+		var t Ticket
+		err := tx.QueryRow(ctx, `SELECT id, account_id, conversation_id, status, resolved_at FROM tickets WHERE conversation_id = @conversation FOR UPDATE`,
+			pgx.StrictNamedArgs{"conversation": conversation}).Scan(&t.ID, &t.AccountID, &t.ConversationID, &t.Status, &t.ResolvedAt)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("update ticket: %w", err)
+			return fmt.Errorf("lock ticket: %w", err)
 		}
-		if from != domain.FromPerson || was != domain.StatusResolved {
-			return nil
+		reopened, err = recordMessage(ctx, tx, t, message, from, at)
+		if err != nil || !reopened {
+			return err
 		}
-		reopened = true
-		return event(ctx, tx, id, "reopened", nil, at)
+		return stream.Notify(ctx, tx, []uuid.UUID{t.AccountID}, stream.Hint{Kind: stream.KindTicket, ConversationID: &t.ConversationID})
 	})
 	if err != nil {
 		return false, fmt.Errorf("record a message: %w", err)
 	}
 	return reopened, nil
+}
+
+func recordMessage(ctx context.Context, tx pgx.Tx, t Ticket, message uuid.UUID, from domain.From, at time.Time) (bool, error) {
+	tag, err := tx.Exec(ctx, `INSERT INTO ticket_message_receipts (message_id,ticket_id) VALUES (@message,@ticket)
+ON CONFLICT (message_id) DO NOTHING`, pgx.StrictNamedArgs{"message": message, "ticket": t.ID})
+	if err != nil {
+		return false, fmt.Errorf("record message receipt: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return false, nil
+	}
+	at = at.Truncate(time.Microsecond)
+	reopen := from == domain.FromPerson && t.Status == domain.StatusResolved && t.ResolvedAt != nil && at.After(*t.ResolvedAt)
+	if reopen {
+		if err = tx.QueryRow(ctx, `SELECT status <> 'deleted' FROM accounts WHERE id = @account FOR SHARE`,
+			pgx.StrictNamedArgs{"account": t.AccountID}).Scan(&reopen); err != nil {
+			return false, fmt.Errorf("check ticket owner: %w", err)
+		}
+	}
+	_, err = tx.Exec(ctx, `UPDATE tickets SET last_message_at = greatest(last_message_at,@at),
+ last_from = CASE WHEN @at >= last_message_at THEN @from ELSE last_from END,
+ status = CASE WHEN @reopen THEN 'open' ELSE status END,
+ resolved_at = CASE WHEN @reopen THEN NULL ELSE resolved_at END,
+ resolved_by = CASE WHEN @reopen THEN NULL ELSE resolved_by END
+WHERE id = @id`, pgx.StrictNamedArgs{"id": t.ID, "at": at, "from": from, "reopen": reopen})
+	if err != nil {
+		return false, fmt.Errorf("update ticket message: %w", err)
+	}
+	if reopen {
+		if err = event(ctx, tx, t.ID, "reopened", nil, at); err != nil {
+			return false, err
+		}
+	}
+	return reopen, nil
 }
 
 // move sets a ticket's status to to, with its event and audit row.
@@ -301,7 +351,10 @@ WHERE id = @id`, pgx.StrictNamedArgs{"id": id, "status": to, "resolved_at": reso
 			}
 		}
 		out, err = one(ctx, tx, `WHERE t.id = @id`, pgx.StrictNamedArgs{"id": id})
-		return err
+		if err != nil {
+			return err
+		}
+		return stream.Notify(ctx, tx, []uuid.UUID{out.AccountID}, stream.Hint{Kind: stream.KindTicket, ConversationID: &out.ConversationID})
 	})
 	if err != nil {
 		return Ticket{}, fmt.Errorf("move ticket: %w", err)
@@ -373,16 +426,22 @@ FROM ticket_replies r LEFT JOIN console_members m ON m.id = r.member_id WHERE r.
 func (s pgTickets) ResolveAllOf(ctx context.Context, account uuid.UUID, at time.Time) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		rows, err := tx.Query(ctx, `UPDATE tickets SET status = 'resolved', resolved_at = @at, resolved_by = NULL
-WHERE account_id = @account AND status = 'open' RETURNING id`, pgx.StrictNamedArgs{"account": account, "at": at})
+WHERE account_id = @account AND status = 'open' RETURNING id, conversation_id`, pgx.StrictNamedArgs{"account": account, "at": at})
 		if err != nil {
 			return fmt.Errorf("resolve tickets: %w", err)
 		}
-		ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+		ids, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct {
+			ID           uuid.UUID
+			Conversation uuid.UUID
+		}])
 		if err != nil {
 			return fmt.Errorf("read resolved tickets: %w", err)
 		}
 		for _, id := range ids {
-			if err = event(ctx, tx, id, "resolved", nil, at); err != nil {
+			if err = event(ctx, tx, id.ID, "resolved", nil, at); err != nil {
+				return err
+			}
+			if err = stream.Notify(ctx, tx, []uuid.UUID{account}, stream.Hint{Kind: stream.KindTicket, ConversationID: &id.Conversation}); err != nil {
 				return err
 			}
 		}

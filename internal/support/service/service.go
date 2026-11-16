@@ -42,7 +42,7 @@ type Service interface {
 	OfConversation(ctx context.Context, account, conversation uuid.UUID) (TicketView, bool, error)
 	// Messaged records a message of a support chat at at: the person's
 	// message reopens a resolved ticket, ShopNexus's marks it answered.
-	Messaged(ctx context.Context, conversation uuid.UUID, fromPerson bool, at time.Time) error
+	Messaged(ctx context.Context, conversation, message uuid.UUID, fromPerson bool, at time.Time) error
 	// AccountDeleted resolves a deleted account's open tickets.
 	AccountDeleted(ctx context.Context, account uuid.UUID, at time.Time) error
 	// Queue lists tickets of status, of kind when kind is set, newest

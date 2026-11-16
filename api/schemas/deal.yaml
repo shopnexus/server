@@ -269,11 +269,15 @@ LinkedShipmentDraft:
     pickup_from:
       type: object
       additionalProperties: false
-      description: Where the carrier picks the parcel up, exactly one of the two; absent, the carrier's default pickup point. The order keeps a copy.
+      description: Where the carrier picks the parcel up, one of carrier_pickup_id, address_id or saved_pickup; absent, the carrier's default pickup point. The order keeps a copy.
       properties:
         carrier_pickup_id:
           type: string
           description: One of the carrier's pickup points, from GET /v1/carrier-accounts/{carrier}/pickups.
+        saved_pickup:
+          type: boolean
+          enum: [true]
+          description: Use the caller's saved pickup address and contact phone with their current display name.
         address_id:
           type: string
           format: uuid
@@ -415,6 +419,10 @@ Order:
       $ref: "#/Recipient"
     shipment:
       $ref: "#/Shipment"
+    completed_by:
+      type: string
+      enum: [buyer, system]
+      description: The stored completion actor; present on a completed order.
     cancelled_by:
       type: string
       enum: [buyer, seller, system]
@@ -449,6 +457,10 @@ OrderItem:
       $ref: "#/Recipient"
     shipment:
       $ref: "#/Shipment"
+    completed_by:
+      type: string
+      enum: [buyer, system]
+      description: The stored completion actor; present on a completed order.
     cancelled_by:
       type: string
       enum: [buyer, seller, system]

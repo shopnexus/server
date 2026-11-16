@@ -139,7 +139,7 @@ shipmentQuote:
     description: |
       The seller, before making a linked shipment. The fee depends on the
       order's recipient, the pickup and the weight. Give carrier_pickup_id
-      or address_id, or neither for the carrier's default pickup point.
+      or address_id or saved_pickup=true, exclusively, or none for the carrier's default pickup point.
     tags: [shipping]
     security:
       - bearerAuth: []
@@ -174,6 +174,12 @@ shipmentQuote:
         description: One of the carrier's pickup points, from GET /v1/carrier-accounts/{carrier}/pickups.
         schema:
           type: string
+      - name: saved_pickup
+        in: query
+        required: false
+        schema:
+          type: boolean
+          enum: [true]
       - name: address_id
         in: query
         required: false
@@ -193,13 +199,13 @@ shipmentQuote:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
-        description: "No such order of the caller's (order_not_found)."
+        description: "No such order of the caller's (order_not_found), or missing/foreign pickup address (address_not_found)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "Not linked at that carrier, or its token no longer opens and the caller links it again (carrier_not_linked, carrier_relink_needed)."
+        description: "Not linked at that carrier, or its token no longer opens (carrier_not_linked, carrier_relink_needed); the saved pickup is absent (pickup_not_configured)."
         content:
           application/json:
             schema:
@@ -245,6 +251,42 @@ carrierWebhook:
         description: Taken.
       "404":
         description: "Wrong carrier or secret (not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+shippingSettings:
+  put:
+    operationId: putShippingSettings
+    summary: Replace the caller's pickup preference.
+    tags: [shipping]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/shipping.yaml#/ShippingSettings"
+    responses:
+      "200":
+        description: The normalized settings.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/shipping.yaml#/ShippingSettings"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: Missing or foreign address (address_not_found).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: Invalid contact phone (invalid_shipping_settings, with fields).
         content:
           application/json:
             schema:

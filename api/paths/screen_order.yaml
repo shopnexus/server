@@ -1,0 +1,89 @@
+screenOrder:
+  get:
+    operationId: getOrderScreen
+    summary: The selected order, its current deal and the public counterpart.
+    description: |
+      Historical orders keep their own state. The buyer also receives own_review
+      and ticket (null without one). Those fields are absent for the seller.
+      Recipient and pickup fields follow the canonical Order's privacy rules.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_order.yaml#/OrderScreen"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: Unknown order or caller outside its parties (order_not_found).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+screenCodSetup:
+  get:
+    operationId: getCodSetupScreen
+    summary: The caller's account, addresses, pickup preference and linked carriers.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_order.yaml#/CodSetupScreen"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+screenCodCheckout:
+  get:
+    operationId: getCodCheckoutScreen
+    summary: The buyer's checkout before requesting COD.
+    description: The address is the selected owned address or the default; null with an empty book. Shipping estimate is initially null. This read makes no carrier call or write.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: deal_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: address_id
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_order.yaml#/CodCheckoutScreen"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: Unknown deal or caller outside its buyer (deal_not_found); explicit missing or foreign address (address_not_found).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

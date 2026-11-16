@@ -162,3 +162,33 @@ ScamSignal:
     text:
       type: string
       description: Vietnamese, written by the server, as "Tài khoản mới tạo 2 ngày".
+OwnReview:
+  type: object
+  additionalProperties: false
+  required: [state, id, created_at, updated_at, change_until, locked]
+  description: The buyer's review state. Dates and id are null before the first submission. Deleted reviews carry no stars or text. The seven-day window starts at the original created_at; locked uses the same boundary as edits and deletion.
+  properties:
+    state:
+      type: string
+      enum: [none, active, deleted]
+    id:
+      type: [string, "null"]
+      format: uuid
+    created_at:
+      type: [string, "null"]
+      format: date-time
+    updated_at:
+      type: [string, "null"]
+      format: date-time
+    change_until:
+      type: [string, "null"]
+      format: date-time
+    locked:
+      type: boolean
+    stars:
+      type: integer
+      minimum: 1
+      maximum: 5
+    text:
+      type: string
+      maxLength: 500

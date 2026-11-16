@@ -10,7 +10,7 @@ Update:
       minimum: 1
     kind:
       type: string
-      enum: [message, read, deal, notification, scam_warning, listing_read]
+      enum: [message, read, deal, notification, scam_warning, listing_read, ticket]
     conversation_id:
       type: string
       format: uuid
@@ -110,5 +110,15 @@ DevUpdate:
           type: string
           enum: [listing_read]
         listing_read_id:
+          type: string
+          format: uuid
+    - type: object
+      additionalProperties: false
+      required: [kind, conversation_id]
+      properties:
+        kind:
+          type: string
+          enum: [ticket]
+        conversation_id:
           type: string
           format: uuid

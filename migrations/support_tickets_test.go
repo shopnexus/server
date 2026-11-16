@@ -12,6 +12,8 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	supportdomain "github.com/shopnexus/server2/internal/support/domain"
+	supportrepo "github.com/shopnexus/server2/internal/support/repository"
 	"github.com/shopnexus/server2/migrations"
 )
 
@@ -49,6 +51,7 @@ WHERE t.account_id = @person`, pgx.StrictNamedArgs{"person": person}).
 	if kind != "other" || status != "open" || body != "Lọc khu vực hay nhảy về Q.1" || !fromPerson || convKind != "support" || events != 1 {
 		t.Fatalf("got %s %s %q from person %v, conversation %s, %d opened events", kind, status, body, fromPerson, convKind, events)
 	}
+
 	var feedback *string
 	if err := db.QueryRow(ctx, `SELECT to_regclass('feedback')::text`).Scan(&feedback); err != nil || feedback != nil {
 		t.Fatalf("feedback is still there: %v %v", feedback, err)
@@ -173,5 +176,58 @@ VALUES (uuidv7(), @person, @conv, @kind, 'open', @order, @carrier, @key, now(), 
 		if err == nil {
 			t.Errorf("%s was stored", name)
 		}
+	}
+}
+
+func TestTicketHistoryReplayAfter0048KeepsLaterResolution(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	db := pgtest.Empty(t)
+	if _, err := postgres.Migrate(ctx, db, before(t, "0048_order_screens.sql")); err != nil {
+		t.Fatal(err)
+	}
+	owner := accounttest.New(t, db)
+	conversation := uuid.NewV7()
+	if _, err := db.Exec(ctx, `INSERT INTO conversations (id,account_a,account_b,kind,created_at)
+VALUES (@id,least(@owner::uuid,@system::uuid),greatest(@owner::uuid,@system::uuid),'support',now())`, pgx.StrictNamedArgs{"id": conversation, "owner": owner, "system": uuid.MustParse(shopNexus)}); err != nil {
+		t.Fatal(err)
+	}
+	openedAt := time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)
+	repo := supportrepo.NewTickets(db)
+	tk, _, err := repo.Insert(ctx, supportrepo.Ticket{ID: uuid.NewV7(), AccountID: owner, ConversationID: conversation, Kind: supportdomain.KindOther, OpenedAt: openedAt}, uuid.NewV7(), "", openedAt.Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial, oldReply, newReply := uuid.NewV7(), uuid.NewV7(), uuid.NewV7()
+	for i, id := range []uuid.UUID{initial, oldReply, newReply} {
+		sentAt := openedAt.Add(time.Duration(i*2) * time.Minute)
+		if _, err = db.Exec(ctx, `INSERT INTO messages (id,conversation_id,sender_id,body,photos,status,created_at)
+VALUES (@id,@conversation,@owner,'reply','[]','sent',@at)`, pgx.StrictNamedArgs{"id": id, "conversation": conversation, "owner": owner, "at": sentAt}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = db.Exec(ctx, `UPDATE tickets SET first_message_id = @initial, last_message_at = @at, last_from = 'person' WHERE id = @id`,
+		pgx.StrictNamedArgs{"initial": initial, "at": openedAt.Add(2 * time.Minute), "id": tk.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = repo.Resolve(ctx, tk.ID, nil, openedAt.Add(3*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = postgres.Migrate(ctx, db, migrations.FS); err != nil {
+		t.Fatal(err)
+	}
+	var receipts int
+	if err = db.QueryRow(ctx, `SELECT count(*) FROM ticket_message_receipts`).Scan(&receipts); err != nil || receipts != 0 {
+		t.Fatalf("migration consumed historical events: %d %v", receipts, err)
+	}
+	if reopened, replayErr := repo.Messaged(ctx, conversation, oldReply, supportdomain.FromPerson, openedAt.Add(2*time.Minute)); replayErr != nil || reopened {
+		t.Errorf("legacy processed reply reopened: %v %v", reopened, replayErr)
+	}
+	got, err := repo.Get(ctx, tk.ID)
+	if err != nil || got.Status != supportdomain.StatusResolved {
+		t.Errorf("legacy resolution lost: %+v %v", got, err)
+	}
+	if reopened, deliveryErr := repo.Messaged(ctx, conversation, newReply, supportdomain.FromPerson, openedAt.Add(4*time.Minute)); deliveryErr != nil || !reopened {
+		t.Errorf("legitimate unprocessed newer reply: %v %v", reopened, deliveryErr)
 	}
 }
