@@ -321,6 +321,7 @@ listingUnmarkSold:
 listingPhotoCopies:
   post:
     operationId: copyListingPhotos
+    x-uc: [UC-LST-02]
     summary: Copy the photos of one of the caller's listings into new uploads, to post a new listing from them.
     description: |
       For Đăng lại. Each processed photo of the listing, in order, becomes
