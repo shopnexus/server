@@ -12,17 +12,13 @@ import (
 	"github.com/shopnexus/server2/internal/deal/repository"
 )
 
-// Open returns the buyer's deal on the listing or starts one. Starting
-// needs an account that is not suspended and has a phone, on someone else's active
-// listing, with no block between the two; it opens the pair's conversation
-// or reuses it. Two opens at once start one deal in one conversation. A
-// conversation opened for a deal that could not be stored is dropped
-// again, unless something else uses it by then.
+// Open is UC-DEAL-02.
 func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView, bool, error) {
 	l, err := s.listing(ctx, listingID)
 	if err != nil {
 		return DealView{}, false, err
 	}
+	// A1. The buyer's deal on the listing opens again as it is.
 	d, err := s.deals.Find(ctx, listingID, buyer)
 	if err == nil {
 		v, readErr := s.read(ctx, buyer, d, l)
@@ -31,6 +27,7 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 	if !errors.Is(err, repository.ErrNotFound) {
 		return DealView{}, false, fmt.Errorf("find deal: %w", err)
 	}
+	// E1 · BR-MOD-02
 	status, err := s.accounts.Status(ctx, buyer)
 	if err != nil {
 		return DealView{}, false, fmt.Errorf("read account status: %w", err)
@@ -38,6 +35,7 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 	if r := status.Refusal(); r != nil {
 		return DealView{}, false, r
 	}
+	// E2 · BR-ACC-03
 	hasPhone, err := s.accounts.HasPhone(ctx, buyer)
 	if err != nil {
 		return DealView{}, false, fmt.Errorf("read the buyer's phone: %w", err)
@@ -45,9 +43,11 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 	if !hasPhone {
 		return DealView{}, false, accountdomain.ErrPhoneRequired
 	}
+	// E3
 	if l.SellerID == buyer {
 		return DealView{}, false, domain.ErrOwnListing
 	}
+	// E4 · BR-ACC-01
 	blocked, err := s.accounts.Blocked(ctx, buyer, l.SellerID)
 	if err != nil {
 		return DealView{}, false, fmt.Errorf("check block: %w", err)
@@ -55,9 +55,11 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 	if blocked {
 		return DealView{}, false, accountdomain.ErrBlocked
 	}
+	// E5
 	if l.Status != catalogdomain.StatusActive {
 		return DealView{}, false, domain.ErrListingUnavailable
 	}
+	// 1. Open the pair's conversation, or reuse it.
 	conversation, opened, err := s.chats.OpenPair(ctx, buyer, l.SellerID)
 	if err != nil {
 		return DealView{}, false, fmt.Errorf("open the conversation: %w", err)
@@ -65,6 +67,8 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 	d = domain.Open(uuid.NewV7(), conversation, listingID, buyer, l.SellerID, s.now())
 	created, err := s.deals.Insert(ctx, d)
 	if err != nil {
+		// A conversation opened for this deal is dropped again, unless
+		// something else uses it by then.
 		err = fmt.Errorf("insert deal: %w", err)
 		if opened {
 			if dropErr := s.chats.DropPair(ctx, conversation); dropErr != nil {
@@ -73,6 +77,8 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 		}
 		return DealView{}, false, err
 	}
+	// NFR-CONC-01: two opens at once start one deal; the one that lost the
+	// insert reads the other's.
 	if !created {
 		if d, err = s.deals.Find(ctx, listingID, buyer); err != nil {
 			return DealView{}, false, fmt.Errorf("find deal: %w", err)

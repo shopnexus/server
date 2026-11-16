@@ -45,6 +45,7 @@ func (e env) pending(t *testing.T, buyer, listing uuid.UUID) service.DealView {
 	return r
 }
 
+// UC-DEAL-03.
 func TestRequestCod(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -67,6 +68,8 @@ func TestRequestCod(t *testing.T) {
 
 // The order holds a copy of the address: editing or deleting the address
 // afterwards leaves the order's recipient as it was.
+//
+// UC-DEAL-03.
 func TestOrderKeepsItsRecipient(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -89,6 +92,7 @@ func TestOrderKeepsItsRecipient(t *testing.T) {
 	}
 }
 
+// UC-DEAL-03 E1, E2, E3, E4, E5.
 func TestRequestCodRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -132,6 +136,7 @@ func TestRequestCodRefusals(t *testing.T) {
 	}
 }
 
+// UC-DEAL-06 · UC-DEAL-05 E1.
 func TestCancelAPendingOrder(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -164,6 +169,7 @@ func TestReservationAloneCancelsNothing(t *testing.T) {
 	}
 }
 
+// UC-DEAL-06 A3 · BR-DEAL-04.
 func TestShipCancelsOtherPendingOrders(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -199,6 +205,7 @@ func TestListOrders(t *testing.T) {
 	}
 }
 
+// UC-DEAL-06 A3.
 func TestHidingCancelsRequests(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

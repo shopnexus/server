@@ -36,6 +36,7 @@ type ShipmentUpdates struct{ Deals *Deals }
 
 func (s ShipmentUpdates) ServiceName() string { return s.Deals.prefix + shipmentUpdates }
 
+// Run is UC-DEAL-05, steps 1 and 4, for every order on the parcel.
 func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentResult, error) {
 	at, err := restatex.Now(ctx, s.Deals.now)
 	if err != nil {
@@ -65,6 +66,7 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 				return ShipmentResult{}, loadErr
 			}
 			d := domain.RestoreDeal(m.Deal)
+			// A1 · NFR-IDEM-01: the same status twice changes nothing.
 			changed, moveErr := d.ShipmentUpdated(ref.OrderID, in.Status, at)
 			if moveErr != nil || !changed {
 				break // a closed order, or nothing new
@@ -76,11 +78,13 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 			if refused != nil {
 				continue // the deal moved meanwhile: read it again
 			}
+			// E2 · BR-DEAL-08: a parcel refused at the door fails the order
+			// and puts the listing back on sale.
 			if d.Order().Status == domain.OrderFailed {
 				if err = releaseStep(ctx, s.Deals.catalog, m.Listing.ID, ref.OrderID); err != nil {
 					return ShipmentResult{}, err
 				}
-			} else if in.Status == domain.ShipmentDelivered {
+			} else if in.Status == domain.ShipmentDelivered { // A4
 				restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "AutoComplete").
 					Send(ref, restate.WithDelay(s.Deals.waits.Complete))
 			}

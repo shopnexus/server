@@ -12,6 +12,7 @@ import (
 	"github.com/shopnexus/server2/internal/deal/repository"
 )
 
+// Offer is UC-DEAL-02, steps 2 and 3.
 func (s *Deals) Offer(ctx context.Context, caller, id uuid.UUID, amount int64) (DealView, error) {
 	m, err := s.load(ctx, caller, id, true)
 	if err != nil {
@@ -23,6 +24,7 @@ func (s *Deals) Offer(ctx context.Context, caller, id uuid.UUID, amount int64) (
 	return s.save(ctx, caller, m)
 }
 
+// Accept is UC-DEAL-02, step 4.
 func (s *Deals) Accept(ctx context.Context, caller, id uuid.UUID, price int64) (DealView, error) {
 	m, err := s.load(ctx, caller, id, true)
 	if err != nil {
@@ -34,6 +36,7 @@ func (s *Deals) Accept(ctx context.Context, caller, id uuid.UUID, price int64) (
 	return s.save(ctx, caller, m)
 }
 
+// Decline is UC-DEAL-02, step 3.
 func (s *Deals) Decline(ctx context.Context, caller, id uuid.UUID) (DealView, error) {
 	m, err := s.load(ctx, caller, id, false)
 	if err != nil {
@@ -45,6 +48,7 @@ func (s *Deals) Decline(ctx context.Context, caller, id uuid.UUID) (DealView, er
 	return s.save(ctx, caller, m)
 }
 
+// Withdraw is UC-DEAL-02, step 3.
 func (s *Deals) Withdraw(ctx context.Context, caller, id uuid.UUID) (DealView, error) {
 	m, err := s.load(ctx, caller, id, false)
 	if err != nil {
@@ -56,6 +60,8 @@ func (s *Deals) Withdraw(ctx context.Context, caller, id uuid.UUID) (DealView, e
 	return s.save(ctx, caller, m)
 }
 
+// Cancel is UC-DEAL-02 A3 on an agreed deal and UC-DEAL-06 on a pending
+// order.
 func (s *Deals) Cancel(ctx context.Context, caller, id uuid.UUID) (DealView, error) {
 	m, err := s.load(ctx, caller, id, false)
 	if err != nil {
@@ -77,14 +83,16 @@ type moving struct {
 	now     time.Time
 }
 
-// load reads the caller's deal and its listing for a move. binds refuses a
-// suspended caller: an offer or an accept binds them, while a decline, a
-// withdrawal or a cancel takes a price back.
+// load reads the caller's deal and its listing for a move, in UC-DEAL-02
+// and UC-DEAL-03. binds refuses a suspended caller: an offer, an accept or
+// a COD request binds them, while a decline, a withdrawal or a cancel takes
+// a price back.
 func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (moving, error) {
 	d, by, err := s.own(ctx, caller, id)
 	if err != nil {
 		return moving{}, err
 	}
+	// E1 · BR-MOD-02
 	if binds {
 		status, readErr := s.accounts.Status(ctx, caller)
 		if readErr != nil {
@@ -103,7 +111,8 @@ func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (mov
 
 // save writes the moved deal with deal.moved and returns it as the caller
 // sees it, read back, since the store sets a new order's code. A deal the
-// other side moved meanwhile is domain.ErrChanged.
+// other side moved meanwhile is domain.ErrChanged (UC-DEAL-02 E8,
+// NFR-CONC-01).
 func (s *Deals) save(ctx context.Context, caller uuid.UUID, m moving) (DealView, error) {
 	err := s.deals.Save(ctx, &m.deal, uuid.NewV7(), moved(m.deal.ID(), m.now))
 	if errors.Is(err, repository.ErrConflict) {

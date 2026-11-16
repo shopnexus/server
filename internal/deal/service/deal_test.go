@@ -17,6 +17,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
+// UC-DEAL-02.
 func TestNegotiateToAgreement(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -80,6 +81,7 @@ func TestNegotiateToAgreement(t *testing.T) {
 	}
 }
 
+// UC-DEAL-02 · BR-DEAL-04.
 func TestTwoBuyersDealApart(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -94,6 +96,7 @@ func TestTwoBuyersDealApart(t *testing.T) {
 	must(t)(e.deals.Offer(ctx, two, second.ID, 1_000_000))
 }
 
+// UC-DEAL-02 A1, E1, E2, E3, E5.
 func TestOpenRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -133,6 +136,7 @@ func TestOpenRefusals(t *testing.T) {
 	}
 }
 
+// BR-ACC-02.
 func TestStrangerSeesNoDeal(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -163,6 +167,7 @@ func TestStrangerSeesNoDeal(t *testing.T) {
 	}
 }
 
+// UC-DEAL-02 E7.
 func TestAcceptAfterThePriceChanged(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -180,6 +185,7 @@ func TestAcceptAfterThePriceChanged(t *testing.T) {
 	}
 }
 
+// UC-DEAL-02 A4.
 func TestTakeBackOnAHiddenListing(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -206,6 +212,7 @@ func TestTakeBackOnAHiddenListing(t *testing.T) {
 	}
 }
 
+// UC-DEAL-02 E1 · BR-MOD-02.
 func TestSuspendedCallerTakesBackOnly(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -225,6 +232,7 @@ func TestSuspendedCallerTakesBackOnly(t *testing.T) {
 	}
 }
 
+// UC-DEAL-02 E8 · NFR-CONC-01.
 func TestMoveThatLostARace(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -247,6 +255,7 @@ func TestMoveThatLostARace(t *testing.T) {
 	}
 }
 
+// UC-DEAL-02 E4 · BR-ACC-01.
 func TestOpenRefusesABlock(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

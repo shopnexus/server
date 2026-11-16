@@ -13,13 +13,13 @@ import (
 	"github.com/shopnexus/server2/internal/provider/carrier"
 )
 
-// EditShipment checks the corrected carrier and code and reads them with
-// the caller's account at the carrier, then finds the caller's order and
-// puts them on its manual shipment. A code the carrier does not know is
-// domain.ErrShipmentUnknown and a stack without a carrier
-// domain.ErrCarrierUnavailable, for any order; a carrier the caller has
-// not linked is domain.ErrCarrierNotLinked once the order is the caller's
-// to ship; a deal the other side moved meanwhile is domain.ErrChanged.
+// EditShipment is UC-DEAL-04 A3: it checks the corrected carrier and code
+// and reads them with the caller's account at the carrier, then finds the
+// caller's order and puts them on its manual shipment. A code the carrier
+// does not know is domain.ErrShipmentUnknown and a stack without a carrier
+// domain.ErrCarrierUnavailable, for any order; a carrier the caller has not
+// linked is domain.ErrCarrierNotLinked once the order is the caller's to
+// ship; a deal the other side moved meanwhile is domain.ErrChanged.
 func (s *Deals) EditShipment(ctx context.Context, caller, order uuid.UUID, carrierCode, trackingCode string) (DealView, error) {
 	c, code, err := domain.Tracking(carrierCode, trackingCode)
 	if err != nil {

@@ -30,6 +30,7 @@ func countMoves(v []domain.MoveKind, kind domain.MoveKind) int {
 	return n
 }
 
+// UC-DEAL-02 A4.
 func TestListingChanged(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -86,6 +87,7 @@ func TestListingChanged(t *testing.T) {
 	}
 }
 
+// UC-DEAL-06 A3.
 func TestListingChangedHidden(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

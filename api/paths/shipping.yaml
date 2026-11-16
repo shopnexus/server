@@ -219,6 +219,7 @@ shipmentQuote:
 carrierWebhook:
   post:
     operationId: carrierWebhook
+    x-uc: [UC-DEAL-05]
     summary: A carrier's status report.
     description: |
       GHTK and GHN call it with the secret ShopNexus gave them in the

@@ -12,9 +12,9 @@ import (
 	"github.com/shopnexus/server2/internal/deal/repository"
 )
 
-// PostMoves posts the moves in their order. A buyer's or a seller's move is
-// sent by that side's account, the system's by ShopNexus; a move of
-// another party is logged and skipped.
+// PostMoves is UC-DEAL-01, step 3: it posts the moves in their order. A
+// buyer's or a seller's move is sent by that side's account, the system's
+// by ShopNexus; a move of another party is logged and skipped.
 func (s *Deals) PostMoves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) error {
 	d, err := s.deals.Get(ctx, dealID)
 	if errors.Is(err, repository.ErrNotFound) {

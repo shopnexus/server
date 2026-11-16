@@ -5,8 +5,9 @@ import (
 	"uuid"
 )
 
-// ConfirmReceipt finds the caller's order, runs DealConfirm on it once per
-// caller and idempotencyKey, then reads the order's deal.
+// ConfirmReceipt is UC-DEAL-05 A2: it finds the caller's order, runs
+// DealConfirm on it once per caller and idempotencyKey (NFR-IDEM-01), then
+// reads the order's deal.
 func (s *Deals) ConfirmReceipt(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error) {
 	deal, err := s.orderDeal(ctx, caller, order)
 	if err != nil {

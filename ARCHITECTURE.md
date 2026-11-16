@@ -68,6 +68,23 @@ A flow that runs as a Restate service is written in the service handler
 itself (see Durable flows). The `Service` method in front of it calls it
 through `restatex.Caller`.
 
+A use case names the requirements it implements, by their IDs in
+`registry/requirements.yaml` of the docs repository. The doc comment of a
+`Service` method ends on a line of IDs, `// UC-DEAL-02 · NFR-CONC-01`. The
+method's own doc comment starts with its name and says which UC, flow or
+step it is: `// Open is UC-DEAL-02.`, `// Cancel is UC-DEAL-02 A3 on an
+agreed deal and UC-DEAL-06 on a pending order.` A Restate handler does the
+same on `Run`. Inside the method, `// 1.` is a step of the UC's main
+flow, `// A1` an alternate flow and `// E2` an exception flow, each on the line
+where the branch starts. A test names the UC and the flows it covers above
+`func Test…`: `// UC-DEAL-02 A1, E1, E2, E3, E5.` An operation in `api/`
+lists its UCs in `x-uc`. Handlers, repositories and the domain carry no
+UC IDs; an NFR, BR or ADR ID may stand on the line that implements it.
+`make trace` in the umbrella repository fails on an ID the registry does
+not have, a flow the UC lacks or an `x-uc` that disagrees with the UC's
+`api` list, and lists each finished UC and exception flow that no code or
+test names.
+
 ### HTTP handlers
 
 A handler is a method of the module's `handler.Handler` and runs in one

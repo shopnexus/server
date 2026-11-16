@@ -24,17 +24,15 @@ type ShipmentInput struct {
 	PickupAddressID uuid.UUID
 }
 
-// CreateShipment checks the shipment and reads a manual one with the
-// caller's account at its carrier, then finds the caller's order, runs
-// DealShip once per caller and idempotencyKey, and reads the order's deal.
-// A code the carrier does not know is domain.ErrShipmentUnknown and a stack
-// without a carrier domain.ErrCarrierUnavailable, for any order; a carrier
-// the caller has not linked is domain.ErrCarrierNotLinked once the order
-// is the caller's to ship. A linked shipment's pickup address is copied
-// now, so a later edit of it changes nothing.
+// CreateShipment is UC-DEAL-04, step 1: it checks the shipment and reads a
+// manual one with the caller's account at its carrier, then runs DealShip
+// on the caller's order once per caller and idempotencyKey (A1,
+// NFR-IDEM-01). A linked shipment's pickup address is copied now, so a
+// later edit of it changes nothing.
 func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, in ShipmentInput) (DealView, error) {
 	flow := FlowInput{Caller: caller, OrderID: order}
 	if in.Mode == string(domain.ModeLinked) {
+		// E6: a draft that breaks a rule.
 		linked, draftErr := domain.NewLinkedDraft(in.Carrier, in.Service, in.WeightGrams, in.Pickup)
 		if draftErr != nil {
 			return DealView{}, draftErr
@@ -50,6 +48,8 @@ func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, ide
 		if trackErr != nil {
 			return DealView{}, trackErr
 		}
+		// E1 a code the carrier does not know, E2 no carrier in the stack,
+		// E3 a carrier the caller has not linked.
 		p, readErr := s.shipping.Lookup(ctx, caller, carrier.Carrier(c), code)
 		readErr = shippingError(readErr, domain.ErrShipmentUnknown)
 		if readErr != nil && !errors.Is(readErr, domain.ErrCarrierNotLinked) {

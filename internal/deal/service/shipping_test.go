@@ -23,6 +23,8 @@ import (
 
 // A seller who has not linked the carrier makes, reads and corrects
 // nothing there, and a linked shipment refused so gives the listing back.
+//
+// UC-DEAL-04 E3.
 func TestAnUnlinkedCarrierIsRefused(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -87,6 +89,7 @@ func (*recording) Lookup(ctx context.Context, _ uuid.UUID, c carrier.Carrier, co
 
 func (*recording) Cancel(context.Context, uuid.UUID, carrier.Carrier, string) error { return nil }
 
+// UC-DEAL-04 · ADR-0001.
 func TestALinkedShipmentGoesToTheCarrierAskedWithItsPickup(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -205,6 +208,8 @@ func (p pickedUp) Cancel(context.Context, carrier.Account, string) error {
 // The pickup timeout gives the listing back before it calls the shipment
 // off, and a carrier that has the parcel already ends the timeout all the
 // same.
+//
+// UC-DEAL-06 A2.
 func TestPickupTimeoutReleasesBeforeCallingOff(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -255,6 +260,8 @@ func (r reporting) Lookup(ctx context.Context, a carrier.Account, code string) (
 // A status the carrier does not map (GHTK's delayed delivery, GHN's
 // exception) moves nothing: the poll leaves a delivered parcel delivered,
 // and it completes.
+//
+// UC-DEAL-05.
 func TestThePollIgnoresAStatusThatMovesNothing(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

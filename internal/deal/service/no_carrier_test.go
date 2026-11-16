@@ -24,6 +24,8 @@ func (e env) noCarrier(t *testing.T) *service.Deals {
 
 // Without a carrier no shipment is made, read or corrected, and a linked
 // one gives the listing back; the moves that need no carrier work as ever.
+//
+// UC-DEAL-04 E2.
 func TestNoCarrier(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

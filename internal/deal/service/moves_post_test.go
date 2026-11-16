@@ -16,6 +16,8 @@ import (
 
 // A deal opens the pair's conversation, and every deal of the pair, either
 // way, lives in it.
+//
+// UC-DEAL-01 · UC-DEAL-02.
 func TestOpenOpensThePairsConversation(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -43,6 +45,8 @@ func TestOpenOpensThePairsConversation(t *testing.T) {
 // PostMoves writes a message for each move a person made and each order
 // step, the system's with ShopNexus as the sender, and none for a change
 // of the listing; a second post writes nothing more.
+//
+// UC-DEAL-01.
 func TestPostMoves(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

@@ -69,6 +69,7 @@ func (e env) until(t *testing.T, viewer, id uuid.UUID, status domain.OrderStatus
 	return v
 }
 
+// UC-DEAL-06 A1.
 func TestSellerTimeoutCancels(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -85,6 +86,7 @@ func TestSellerTimeoutCancels(t *testing.T) {
 	}
 }
 
+// UC-DEAL-06 A2.
 func TestPickupTimeoutCancels(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -116,6 +118,7 @@ func TestPickupTimeoutCancels(t *testing.T) {
 	})
 }
 
+// UC-DEAL-05 A4.
 func TestAutoCompletes(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -146,6 +149,7 @@ func TestAutoCompletes(t *testing.T) {
 	})
 }
 
+// UC-DEAL-04 A2.
 func TestShipADeliveredParcelCompletes(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

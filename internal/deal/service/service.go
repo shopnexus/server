@@ -28,9 +28,10 @@ import (
 
 // Service is module deal's contract.
 type Service interface {
-	// Open returns the buyer's deal on a listing, starting one in the
-	// pair's conversation, which it opens when the two have none, when
-	// there is none; created reports a new deal.
+	// Open returns the buyer's deal on a listing, or starts one in the
+	// pair's conversation; created reports a new deal.
+	//
+	// UC-DEAL-02 · NFR-CONC-01
 	Open(ctx context.Context, buyer, listingID uuid.UUID) (v DealView, created bool, err error)
 	// Get reads a deal for one of its two sides.
 	Get(ctx context.Context, viewer, id uuid.UUID) (DealView, error)
@@ -45,31 +46,59 @@ type Service interface {
 	// belongs in chat into the deal's conversation; a move the deal lacks,
 	// or one posted already, writes nothing. A move chat refuses is
 	// chatdomain.ErrMisplacedMove. The worker calls it on deal.moved.
+	//
+	// UC-DEAL-01
 	PostMoves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) error
 	// ListMine lists viewer's deals on side as, newest first.
 	ListMine(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[DealView], error)
+	// Offer opens the caller's price: the buyer's offer or the seller's
+	// counter.
+	//
+	// UC-DEAL-02
 	Offer(ctx context.Context, caller, id uuid.UUID, amount int64) (DealView, error)
+	// Accept agrees the deal at price, the price the caller saw.
+	//
+	// UC-DEAL-02
 	Accept(ctx context.Context, caller, id uuid.UUID, price int64) (DealView, error)
+	// Decline turns down the other side's open price.
+	//
+	// UC-DEAL-02
 	Decline(ctx context.Context, caller, id uuid.UUID) (DealView, error)
+	// Withdraw takes back the caller's own open price.
+	//
+	// UC-DEAL-02
 	Withdraw(ctx context.Context, caller, id uuid.UUID) (DealView, error)
+	// Cancel drops the agreed price, and the pending order with it.
+	//
+	// UC-DEAL-02 · UC-DEAL-06
 	Cancel(ctx context.Context, caller, id uuid.UUID) (DealView, error)
 	// RequestCod asks for cash on delivery on the buyer's agreed deal, to
 	// a copy of one of the buyer's addresses.
+	//
+	// UC-DEAL-03
 	RequestCod(ctx context.Context, caller, id, addressID uuid.UUID) (DealView, error)
 	// CreateShipment ships a pending order: a manual shipment, read from its
 	// carrier, or a linked one, made at GHTK. It holds the listing and
 	// returns the order's deal. A repeated idempotencyKey of the same caller
 	// runs nothing more.
+	//
+	// UC-DEAL-04 · NFR-IDEM-01
 	CreateShipment(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, in ShipmentInput) (DealView, error)
 	// EditShipment puts the seller's corrected carrier and code, read again
 	// from the carrier, on a manual shipment and returns the order's deal.
+	//
+	// UC-DEAL-04 A3
 	EditShipment(ctx context.Context, caller, order uuid.UUID, carrierCode, trackingCode string) (DealView, error)
 	// ConfirmReceipt completes a shipped order on its buyer's word, sells
 	// the listing and returns the order's deal. A repeated idempotencyKey
 	// of the same caller runs nothing more.
+	//
+	// UC-DEAL-05 A2 · NFR-IDEM-01
 	ConfirmReceipt(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
-	// LookupShipment reads a shipment with the caller's account at its carrier, for the seller's
-	// preview of a manual shipment.
+	// LookupShipment reads a shipment with the caller's account at its
+	// carrier, for the seller's preview of a manual shipment.
+	//
+	// UC-DEAL-04
 	LookupShipment(ctx context.Context, caller uuid.UUID, carrierCode, trackingCode string) (ShipmentPreview, error)
 	// OpenShipmentsAt tells whether a shipped order of the seller's has a
 	// shipment at carrier; module shipping refuses to unlink it then.
@@ -81,6 +110,8 @@ type Service interface {
 	// ShipmentUpdated sets the status of every shipped order whose
 	// shipment has trackingCode, as its carrier reports it. A closed order
 	// changes nothing; no order with the code is domain.ErrShipmentNotFound.
+	//
+	// UC-DEAL-05 · NFR-IDEM-01
 	ShipmentUpdated(ctx context.Context, trackingCode, status string) error
 	// Order reads one order for another module: its two sides, its
 	// listing and its status; false for an unknown one.
@@ -97,6 +128,8 @@ type Service interface {
 	ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[OrderItem], error)
 	// ListingChanged brings a listing's deals in line with its current
 	// state; the worker calls it for every change of the listing.
+	//
+	// UC-DEAL-02 A4 · UC-DEAL-06 A3
 	ListingChanged(ctx context.Context, listingID uuid.UUID) error
 	// OpenOrders reports an order of account's, as either side, that is
 	// pending or shipped; erasure refuses to delete the account then.

@@ -11,12 +11,13 @@ import (
 	"github.com/shopnexus/server2/internal/deal/domain"
 )
 
-// ListingChanged brings every deal on the listing in line with the
-// listing's current state. It reads current state, so a repeated or late
-// call changes nothing more. A deal a user moved meanwhile fails the call,
-// and the worker's retry reads it again. A listing reserved for an order
-// that is not shipped yet, while DealShip runs, counts as paused; DealShip
-// calls this again once the order is shipped.
+// ListingChanged is UC-DEAL-02 A4 and UC-DEAL-06 A3: it brings every deal
+// on the listing in line with the listing's current state. It reads current
+// state, so a repeated or late call changes nothing more. A deal a user
+// moved meanwhile fails the call, and the worker's retry reads it again. A
+// listing reserved for an order that is not shipped yet, while DealShip
+// runs, counts as paused; DealShip calls this again once the order is
+// shipped.
 func (s *Deals) ListingChanged(ctx context.Context, listingID uuid.UUID) error {
 	l, err := s.listing(ctx, listingID)
 	if errors.Is(err, catalogdomain.ErrNotFound) {

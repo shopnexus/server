@@ -17,6 +17,7 @@ type DealConfirm struct{ Deals *Deals }
 
 func (s DealConfirm) ServiceName() string { return s.Deals.prefix + dealConfirm }
 
+// Run is UC-DEAL-05 A2.
 func (s DealConfirm) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	at, err := restatex.Now(ctx, s.Deals.now)
 	if err != nil {
@@ -27,6 +28,7 @@ func (s DealConfirm) Run(ctx restate.Context, in FlowInput) (FlowResult, error) 
 		return FlowResult{Refused: m.Refused}, err
 	}
 	d := domain.RestoreDeal(m.Deal)
+	// E3: only the buyer of a shipped order confirms it.
 	if err = d.ConfirmReceipt(m.By, in.OrderID, at); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}

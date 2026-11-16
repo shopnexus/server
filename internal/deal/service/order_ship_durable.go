@@ -36,6 +36,7 @@ type DealShip struct{ Deals *Deals }
 
 func (s DealShip) ServiceName() string { return s.Deals.prefix + dealShip }
 
+// Run is UC-DEAL-04, steps 2 to 5 · ADR-0001 · ADR-0002.
 func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	at, err := restatex.Now(ctx, s.Deals.now)
 	if err != nil {
@@ -54,10 +55,12 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	if err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
+	// 2. Hold the listing for the order; E5 when it is not on sale.
 	refused, err := reserveStep(ctx, s.Deals.catalog, m.Listing.ID, in.OrderID)
 	if err != nil || refused != nil {
 		return FlowResult{Refused: refused}, err
 	}
+	// 3. Make the shipment on the seller's own account at the carrier.
 	if in.Linked != nil {
 		o, draft := d.Order(), *in.Linked
 		made, createErr := restate.Run(ctx, func(rc restate.RunContext) (madeShipment, error) {
@@ -92,7 +95,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		if createErr != nil {
 			return FlowResult{}, fmt.Errorf("create the shipment at %s: %w", draft.Carrier, createErr)
 		}
-		// A refused shipment is not made: the listing goes back.
+		// E4: a refused shipment is not made, and the listing goes back.
 		if made.Refused != nil {
 			if err = releaseStep(ctx, s.Deals.catalog, m.Listing.ID, in.OrderID); err != nil {
 				return FlowResult{}, err
@@ -109,30 +112,35 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 			return FlowResult{}, fmt.Errorf("ship the order: %w", err)
 		}
 	}
+	// 4. The order is shipped.
 	refused, err = saveStep(ctx, s.Deals.deals, &d, restatex.NewID(ctx, at), restatex.NewID(ctx, at), at)
 	if err != nil {
 		return FlowResult{}, err
 	}
 	if refused == nil {
-		// The listing's other pending orders end with shipped_to_another.
+		// The listing's other pending orders end with shipped_to_another
+		// (BR-DEAL-04).
 		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
 			return s.Deals.ListingChanged(rc, m.Listing.ID)
 		}); err != nil {
 			return FlowResult{}, fmt.Errorf("cancel the other orders: %w", err)
 		}
+		// 5. Wait for the pickup and follow the shipment.
 		ref := OrderRef{DealID: in.DealID, OrderID: in.OrderID}
 		restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "PickupTimeout").
 			Send(ref, restate.WithDelay(s.Deals.waits.Pickup))
 		restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "Poll").
 			Send(ref, restate.WithDelay(s.Deals.waits.Poll))
+		// A2
 		if d.Order().Shipment.Status == domain.ShipmentDelivered {
 			restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "AutoComplete").
 				Send(ref, restate.WithDelay(s.Deals.waits.Complete))
 		}
 		return FlowResult{}, nil
 	}
-	// The save lost a race. Another try that shipped this order keeps the
-	// listing; anything else, a cancel above all, gives it back.
+	// E7 · NFR-CONC-01: the save lost a race. Another try that shipped this
+	// order keeps the listing; anything else, a cancel above all, gives it
+	// back.
 	cur, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Order, error) {
 		got, stepErr := s.Deals.deals.Get(rc, in.DealID)
 		if stepErr != nil {

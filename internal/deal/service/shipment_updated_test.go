@@ -16,6 +16,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/events"
 )
 
+// UC-DEAL-05 A1, E2 · NFR-IDEM-01.
 func TestShipmentUpdated(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -75,6 +76,7 @@ func TestShipmentUpdated(t *testing.T) {
 	}
 }
 
+// UC-DEAL-05.
 func TestOneParcelTwoOrders(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

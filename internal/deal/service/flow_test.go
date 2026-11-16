@@ -75,6 +75,7 @@ func (c countingCarrier) Cancel(ctx context.Context, a carrier.Account, code str
 	return c.Fake.Cancel(ctx, a, code)
 }
 
+// UC-DEAL-04 · UC-DEAL-05 A2.
 func TestShipThenConfirm(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -115,6 +116,7 @@ func TestShipThenConfirm(t *testing.T) {
 	}
 }
 
+// UC-DEAL-05 A2 · NFR-IDEM-01.
 func TestConfirmTwice(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -140,6 +142,7 @@ func TestConfirmTwice(t *testing.T) {
 	}
 }
 
+// UC-DEAL-04 · ADR-0001.
 func TestLinkedShipment(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -159,6 +162,7 @@ func TestLinkedShipment(t *testing.T) {
 	}
 }
 
+// UC-DEAL-04 A3.
 func TestEditShipment(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -194,6 +198,7 @@ func TestEditShipment(t *testing.T) {
 	}
 }
 
+// UC-DEAL-04.
 func TestLookupShipment(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -212,6 +217,7 @@ func TestLookupShipment(t *testing.T) {
 	}
 }
 
+// UC-DEAL-04 E5.
 func TestShipRefusesAHiddenListing(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -256,6 +262,7 @@ func (c cancelFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID
 	return c.Deals.Save(ctx, d, writeID, evs...)
 }
 
+// UC-DEAL-04 E7 · NFR-CONC-01.
 func TestShipLosesToACancel(t *testing.T) {
 	t.Parallel()
 	for _, in := range []service.ShipmentInput{manual("SPX1"), linked} {
@@ -288,6 +295,7 @@ func TestShipLosesToACancel(t *testing.T) {
 	}
 }
 
+// UC-DEAL-04 E1, E6, E8 · UC-DEAL-05 E3.
 func TestShipRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -351,6 +359,7 @@ func (c shipFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, 
 	return c.Deals.Save(ctx, d, writeID, evs...)
 }
 
+// UC-DEAL-04 · NFR-CONC-01.
 func TestShipTwiceKeepsTheListing(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -369,6 +378,7 @@ func TestShipTwiceKeepsTheListing(t *testing.T) {
 	}
 }
 
+// UC-DEAL-05 E3.
 func TestConfirmRefusesAFailedOrder(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

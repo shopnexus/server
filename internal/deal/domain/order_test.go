@@ -153,6 +153,7 @@ func TestParseShipmentStatus(t *testing.T) {
 	}
 }
 
+// UC-DEAL-03 E5 · UC-DEAL-04 E6, E8 · UC-DEAL-06 E1.
 func TestOrderLifecycle(t *testing.T) {
 	t.Parallel()
 	d := agreed(t)
@@ -335,6 +336,7 @@ func TestConfirmReceiptWhateverTheCarrierSays(t *testing.T) {
 	}
 }
 
+// UC-DEAL-05 A1 · NFR-IDEM-01.
 func TestShipmentUpdated(t *testing.T) {
 	t.Parallel()
 	d := shipped(t)
@@ -453,6 +455,7 @@ func TestAutoComplete(t *testing.T) {
 	}
 }
 
+// UC-DEAL-05 E2 · BR-DEAL-08.
 func TestFailedNegotiatesAgain(t *testing.T) {
 	t.Parallel()
 	d := reported(t, domain.ShipmentFailed)

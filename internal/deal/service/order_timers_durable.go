@@ -31,8 +31,8 @@ type OrderTimers struct{ Deals *Deals }
 
 func (s OrderTimers) ServiceName() string { return s.Deals.prefix + orderTimers }
 
-// SellerTimeout cancels a pending order whose seller made no shipment
-// within Waits.Seller. A pending order holds no listing.
+// SellerTimeout is UC-DEAL-06 A1: it cancels a pending order whose seller
+// made no shipment within Waits.Seller. A pending order holds no listing.
 func (s OrderTimers) SellerTimeout(ctx restate.Context, ref OrderRef) error {
 	at, err := restatex.Now(ctx, s.Deals.now)
 	if err != nil {
@@ -57,12 +57,12 @@ func (s OrderTimers) SellerTimeout(ctx restate.Context, ref OrderRef) error {
 	}
 }
 
-// PickupTimeout cancels a shipped order whose parcel the carrier had not
-// picked up Waits.Pickup after the shipment, gives the listing back, then
-// calls a linked shipment off at its carrier. It reads the carrier first:
-// a parcel picked up since the last poll moves the order instead. A
-// carrier that has the parcel by the call off, or no longer knows it,
-// leaves the order cancelled all the same.
+// PickupTimeout is UC-DEAL-06 A2: it cancels a shipped order whose parcel
+// the carrier had not picked up Waits.Pickup after the shipment, gives the
+// listing back, then calls a linked shipment off at its carrier. It reads
+// the carrier first: a parcel picked up since the last poll moves the order
+// instead. A carrier that has the parcel by the call off, or no longer
+// knows it, leaves the order cancelled all the same.
 func (s OrderTimers) PickupTimeout(ctx restate.Context, ref OrderRef) error {
 	at, err := restatex.Now(ctx, s.Deals.now)
 	if err != nil {
@@ -116,9 +116,9 @@ func (s OrderTimers) PickupTimeout(ctx restate.Context, ref OrderRef) error {
 	}
 }
 
-// AutoComplete completes a shipped order Waits.Complete after its carrier
-// reported the parcel delivered, unless the buyer confirmed first, and
-// marks the listing sold.
+// AutoComplete is UC-DEAL-05 A4: it completes a shipped order
+// Waits.Complete after its carrier reported the parcel delivered, unless
+// the buyer confirmed first, and marks the listing sold.
 func (s OrderTimers) AutoComplete(ctx restate.Context, ref OrderRef) error {
 	at, err := restatex.Now(ctx, s.Deals.now)
 	if err != nil {
@@ -143,12 +143,12 @@ func (s OrderTimers) AutoComplete(ctx restate.Context, ref OrderRef) error {
 	}
 }
 
-// Poll reads a shipped order's shipment from its carrier with the seller's
-// account and moves the order as a report would, then reads it again
-// Waits.Poll later while the order stays shipped. It is the safety net
-// under the carriers' reports: a report that came first leaves it nothing
-// to change, and a code the carrier lost or a carrier unlinked waits for
-// the next read.
+// Poll is UC-DEAL-05, step 1, when no report comes: it reads a shipped
+// order's shipment from its carrier with the seller's account and moves the
+// order as a report would, then reads it again Waits.Poll later while the
+// order stays shipped. It is the safety net under the carriers' reports: a
+// report that came first leaves it nothing to change, and a code the
+// carrier lost or a carrier unlinked waits for the next read.
 func (s OrderTimers) Poll(ctx restate.Context, ref OrderRef) error {
 	m, err := systemLoadStep(ctx, s.Deals, ref.DealID)
 	if err != nil {

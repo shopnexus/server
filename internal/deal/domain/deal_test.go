@@ -58,6 +58,7 @@ func TestOfferCounterAccept(t *testing.T) {
 	}
 }
 
+// UC-DEAL-02 E9.
 func TestMoveRules(t *testing.T) {
 	t.Parallel()
 	noOffers := domain.Listing{Price: 1_500_000, Status: domain.ListingActive}
@@ -139,6 +140,7 @@ func TestAllowedMoves(t *testing.T) {
 	must(t, odd.Accept(domain.Buyer, 10_500, domain.Listing{Price: 10_500, AllowOffers: true, Status: domain.ListingActive}, now))
 }
 
+// UC-DEAL-02 E6 · BR-DEAL-03.
 func TestOfferRange(t *testing.T) {
 	t.Parallel()
 	at := func(price int64) domain.Listing {
@@ -182,6 +184,7 @@ func TestOfferRange(t *testing.T) {
 	}
 }
 
+// UC-DEAL-02 E6 · BR-DEAL-03.
 func TestOfferAmounts(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
@@ -293,6 +296,8 @@ func TestPartyOf(t *testing.T) {
 
 // A listing change voids the open price at once, before ListingChanged
 // records it.
+//
+// UC-DEAL-02 E7.
 func TestStaleOpenPrice(t *testing.T) {
 	t.Parallel()
 	t.Run("offers off", func(t *testing.T) {

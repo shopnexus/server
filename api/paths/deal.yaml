@@ -1,6 +1,7 @@
 deals:
   post:
     operationId: openDeal
+    x-uc: [UC-DEAL-02]
     summary: Open the caller's deal on a listing.
     description: |
       Returns the caller's existing deal on the listing, or starts one.
@@ -87,6 +88,7 @@ deal:
 dealOffer:
   post:
     operationId: offerDeal
+    x-uc: [UC-DEAL-02]
     summary: Make an offer, or a counter to the buyer's offer.
     description: |
       The buyer offers; the seller counters the buyer's open offer. The
@@ -145,6 +147,7 @@ dealOffer:
 dealAccept:
   post:
     operationId: acceptDeal
+    x-uc: [UC-DEAL-02]
     summary: Agree the deal at a price.
     description: |
       The side facing an open price accepts it; the buyer may also accept
@@ -197,6 +200,7 @@ dealAccept:
 dealDecline:
   post:
     operationId: declineDeal
+    x-uc: [UC-DEAL-02]
     summary: Turn down the other side's open price.
     description: |
       Works in any state of the listing and for a suspended account.
@@ -236,6 +240,7 @@ dealDecline:
 dealWithdraw:
   post:
     operationId: withdrawDeal
+    x-uc: [UC-DEAL-02]
     summary: Take back the caller's own open price.
     description: |
       Works in any state of the listing and for a suspended account.
@@ -275,6 +280,7 @@ dealWithdraw:
 dealCancel:
   post:
     operationId: cancelDeal
+    x-uc: [UC-DEAL-02, UC-DEAL-06]
     summary: Drop the agreed price, and a pending order with it; the deal negotiates again.
     description: |
       Works in any state of the listing and for a suspended account.
@@ -342,6 +348,7 @@ myDeals:
 dealCod:
   post:
     operationId: requestCod
+    x-uc: [UC-DEAL-03]
     summary: Ask for cash on delivery on an agreed deal.
     description: |
       The buyer of an agreed deal with no open order, on a listing on sale,
@@ -398,6 +405,7 @@ dealCod:
 orderShipment:
   post:
     operationId: createShipment
+    x-uc: [UC-DEAL-04]
     summary: Create the shipment of a pending order.
     description: |
       The seller, in one commit. manual: the seller made the shipment on
@@ -468,6 +476,7 @@ orderShipment:
               $ref: "../schemas/error.yaml#/Error"
   put:
     operationId: editShipment
+    x-uc: [UC-DEAL-04]
     summary: Correct the carrier and tracking code of a manual shipment.
     description: |
       The seller, while the shipment is pending_pickup or in_transit. The
@@ -528,6 +537,7 @@ orderShipment:
 orderConfirm:
   post:
     operationId: confirmReceipt
+    x-uc: [UC-DEAL-05]
     summary: Confirm receipt of a shipped order.
     description: |
       The buyer, at any time while the order is shipped, whatever the
@@ -570,6 +580,7 @@ orderConfirm:
 shipmentLookup:
   get:
     operationId: lookupShipment
+    x-uc: [UC-DEAL-04]
     summary: Read a shipment from its carrier, for the seller's preview.
     description: |
       Before the seller confirms a manual shipment or a corrected code.

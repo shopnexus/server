@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -131,5 +132,40 @@ func TestListingSchemaNames(t *testing.T) {
 	got := doc.Paths.Find("/v1/listing-drafts/{id}").Put.Responses.Status(200).Value.Content.Get("application/json").Schema.Ref
 	if !strings.HasSuffix(got, "#/ListingDraft") {
 		t.Errorf("PUT /v1/listing-drafts/{id} answers %s", got)
+	}
+}
+
+// An operation names the use cases it serves in x-uc, by their IDs in the
+// docs repository's registry/requirements.yaml. `make trace` in the
+// umbrella repository checks that the IDs exist; this checks their form.
+func TestSpecUseCaseIDs(t *testing.T) {
+	t.Parallel()
+	doc, err := api.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := regexp.MustCompile(`^UC-[A-Z]+-\d{2}$`)
+	tagged := 0
+	for path, item := range doc.Paths.Map() {
+		for method, op := range item.Operations() {
+			raw, ok := op.Extensions["x-uc"]
+			if !ok {
+				continue
+			}
+			tagged++
+			ucs, ok := raw.([]any)
+			if !ok || len(ucs) == 0 {
+				t.Errorf("%s %s: x-uc is not a list of IDs: %v", method, path, raw)
+				continue
+			}
+			for _, uc := range ucs {
+				if s, isString := uc.(string); !isString || !id.MatchString(s) {
+					t.Errorf("%s %s: x-uc %v is not a UC ID", method, path, uc)
+				}
+			}
+		}
+	}
+	if tagged == 0 {
+		t.Error("no operation has x-uc")
 	}
 }
