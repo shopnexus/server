@@ -49,36 +49,52 @@ servers:
     description: Local, from `make dev` in the umbrella repository
 tags:
   - name: auth
+    x-displayName: Sign-in
     description: Sign in with an email code, a phone number Firebase verified or a Google account; refresh tokens; list and end sessions.
   - name: account
+    x-displayName: Account
     description: The caller's profile, phone, addresses, blocks and follows.
   - name: media
+    x-displayName: Uploads
     description: Presigned URLs to upload a photo or a video, which a listing or a message then names.
   - name: catalog
+    x-displayName: Listings
     description: Listings and their drafts. A seller posts, edits, hides and marks sold; anyone reads a public listing.
   - name: assist
+    x-displayName: Listing assist
     description: Fill a listing draft from a video, photos or a Chợ Tốt link, and price it against similar listings.
   - name: discovery
+    x-displayName: Search and saved listings
     description: Search and browse listings, saved listings, recent searches and a seller's public listings.
   - name: chat
+    x-displayName: Chat
     description: Conversations between two people and their messages, deal messages included.
   - name: deal
+    x-displayName: Deals and orders
     description: A buyer and a seller agree a price, the buyer asks for cash on delivery, the seller ships and the order closes.
   - name: shipping
+    x-displayName: Shipping
     description: The seller's GHTK and GHN accounts, pickup addresses, shipping quotes and the carriers' webhooks.
   - name: trust
+    x-displayName: Reviews and reports
     description: Reviews of sellers, reports of listings and accounts, and scam warnings in chat.
   - name: support
+    x-displayName: Support
     description: Tickets the caller opens with ShopNexus and their chat.
   - name: notification
+    x-displayName: Notifications
     description: The caller's notices, their read state, push tokens and notification settings.
   - name: stream
+    x-displayName: Live updates
     description: Live updates over a WebSocket, and the same updates by seq for an app with no socket open.
   - name: screen
+    x-displayName: Screens
     description: One call per app screen, with everything that screen shows.
   - name: console
+    x-displayName: Console
     description: The staff console. It signs in with a session cookie, so the playground cannot call it from another origin.
   - name: system
+    x-displayName: Health
     description: Liveness and readiness checks.
 x-tagGroups:
   - name: Accounts
