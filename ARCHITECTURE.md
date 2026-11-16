@@ -685,7 +685,11 @@ the decisions and the API.
   `CONSOLE_KEY`, bound to the member's id. Passwords are argon2id
   (64 MiB, 3 passes, 4 lanes) in PHC form, at most four runs at once.
 - Module console reaches customer data through `accountsvc.Service`. CORS allows
-  `CONSOLE_ORIGIN` on `/v1/console/` and nothing else.
+  `CONSOLE_ORIGIN` on `/v1/console/`, with credentials. The docs site's API
+  playground calls from the origins in `DOCS_ORIGINS`, on `/v1/` outside
+  `/v1/console/` and on the health checks, without credentials: the
+  customer API takes a bearer token, and the console cookie never leaves
+  its origin.
 
 ### Ops dashboards
 

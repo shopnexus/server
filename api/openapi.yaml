@@ -1,13 +1,100 @@
 openapi: 3.2.0
 info:
-  title: shopnexus API
+  title: ShopNexus API
   version: 0.1.0
   description: |
-    The contract between shopnexus clients and server2. Code satisfies this
-    document: requests are validated against it at runtime, and the e2e suite
-    validates every response against it.
+    The HTTP contract between the ShopNexus app and its server. The server
+    validates every request against this document, and the end-to-end suite
+    validates every response against it. The docs site explains each module:
+    https://docs.shopnexus.id.vn/en/api.
+
+    ## Signing in
+
+    1. `POST /v1/auth/email-codes` mails a six-digit code to an email address.
+    2. `POST /v1/auth/sign-in` with that code returns an access token and a
+       refresh token. The first sign-in of an address creates the account. A
+       phone number Firebase verified or a Google account signs in the same way.
+    3. Send the access token as `Authorization: Bearer <token>`. It lasts 15
+       minutes; `POST /v1/auth/refresh` returns a new one and rotates the
+       refresh token.
+
+    In the playground, paste the access token under Authentication. It stays in
+    this browser only.
+
+    ## Requests and answers
+
+    - Bodies are JSON. A field the schema does not list is 400.
+    - A write the app may send twice takes an `Idempotency-Key` header: a new
+      UUID per user action, the same one on a retry. A repeated key returns the
+      first answer.
+    - Lists page with `cursor` and `limit`; pass the `next_cursor` of one page to
+      get the next.
+    - Every error has the body `{"error": {"code", "message", "fields",
+      "details", "trace_id"}}`. `code` is stable and snake_case, and each operation lists the
+      codes it can return. `trace_id` equals the `Trace-Id` header.
+    - A resource the caller may not see is 404, the same as one that does not
+      exist.
+
+    ## Live updates
+
+    `GET /v1/ws` is a WebSocket that tells the open app what changed for the
+    caller; the playground cannot open it. `GET /v1/updates` returns the same
+    updates after a `since` seq, for an app with no socket open.
 servers:
-  - url: http://localhost:8080
+  - url: https://api.shopnexus.id.vn
+    description: Production
+  - url: https://api.dev.shopnexus.id.vn
+    description: Dev, on the cluster
+  - url: http://api.shopnexus.localhost:56481
+    description: Local, from `make dev` in the umbrella repository
+tags:
+  - name: auth
+    description: Sign in with an email code, a phone number Firebase verified or a Google account; refresh tokens; list and end sessions.
+  - name: account
+    description: The caller's profile, phone, addresses, blocks and follows.
+  - name: media
+    description: Presigned URLs to upload a photo or a video, which a listing or a message then names.
+  - name: catalog
+    description: Listings and their drafts. A seller posts, edits, hides and marks sold; anyone reads a public listing.
+  - name: assist
+    description: Fill a listing draft from a video, photos or a Chợ Tốt link, and price it against similar listings.
+  - name: discovery
+    description: Search and browse listings, saved listings, recent searches and a seller's public listings.
+  - name: chat
+    description: Conversations between two people and their messages, deal messages included.
+  - name: deal
+    description: A buyer and a seller agree a price, the buyer asks for cash on delivery, the seller ships and the order closes.
+  - name: shipping
+    description: The seller's GHTK and GHN accounts, pickup addresses, shipping quotes and the carriers' webhooks.
+  - name: trust
+    description: Reviews of sellers, reports of listings and accounts, and scam warnings in chat.
+  - name: support
+    description: Tickets the caller opens with ShopNexus and their chat.
+  - name: notification
+    description: The caller's notices, their read state, push tokens and notification settings.
+  - name: stream
+    description: Live updates over a WebSocket, and the same updates by seq for an app with no socket open.
+  - name: screen
+    description: One call per app screen, with everything that screen shows.
+  - name: console
+    description: The staff console. It signs in with a session cookie, so the playground cannot call it from another origin.
+  - name: system
+    description: Liveness and readiness checks.
+x-tagGroups:
+  - name: Accounts
+    tags: [auth, account, media]
+  - name: Listings and search
+    tags: [catalog, assist, discovery]
+  - name: Deals
+    tags: [chat, deal, shipping]
+  - name: After the sale
+    tags: [trust, support, notification, stream]
+  - name: App screens
+    tags: [screen]
+  - name: Staff console
+    tags: [console]
+  - name: System
+    tags: [system]
 paths:
   /healthz:
     $ref: "paths/system.yaml#/healthz"

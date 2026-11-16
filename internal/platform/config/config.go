@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/netip"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -45,18 +46,22 @@ type Config struct {
 	ServiceName    string // SERVICE_NAME
 	Restate        RestateConfig
 	TrustedProxies []netip.Prefix // TRUSTED_PROXIES: CIDRs whose X-Forwarded-For is believed
-	Auth           AuthConfig
-	Console        ConsoleConfig
-	ObjectStore    ObjectStoreConfig
-	LLM            LLMConfig
-	Embed          EmbedConfig
-	Assist         AssistConfig
-	Trust          TrustConfig
-	Push           PushConfig
-	Firebase       FirebaseConfig
-	Email          EmailConfig
-	Google         GoogleConfig
-	Carrier        CarrierConfig
+	// DocsOrigins is DOCS_ORIGINS, the origins of the docs site, comma
+	// separated. Its API playground calls /v1/ from these origins, without
+	// cookies. Empty allows none.
+	DocsOrigins []string //exhaustruct:optional
+	Auth        AuthConfig
+	Console     ConsoleConfig
+	ObjectStore ObjectStoreConfig
+	LLM         LLMConfig
+	Embed       EmbedConfig
+	Assist      AssistConfig
+	Trust       TrustConfig
+	Push        PushConfig
+	Firebase    FirebaseConfig
+	Email       EmailConfig
+	Google      GoogleConfig
+	Carrier     CarrierConfig
 }
 
 // CarrierConfig says where shipments are made and read, on the accounts
@@ -331,6 +336,20 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		proxies = append(proxies, p.Masked())
 	}
 
+	var docsOrigins []string
+	for s := range strings.SplitSeq(set("DOCS_ORIGINS"), ",") {
+		if s = strings.TrimSpace(s); s == "" {
+			continue
+		}
+		u, err := url.Parse(s)
+		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.Path != "" ||
+			u.RawQuery != "" || u.User != nil {
+			errs = append(errs, fmt.Errorf("DOCS_ORIGINS: %q is not an origin like https://docs.example.com", s))
+			continue
+		}
+		docsOrigins = append(docsOrigins, s)
+	}
+
 	var dashboardHosts map[string]string
 	for pair := range strings.SplitSeq(set("DASHBOARD_HOSTS"), ",") {
 		if pair = strings.TrimSpace(pair); pair == "" {
@@ -449,6 +468,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),
 		TrustedProxies: proxies,
+		DocsOrigins:    docsOrigins,
 	}
 
 	prevKey := set("JWT_PREVIOUS_PUBLIC_KEY")

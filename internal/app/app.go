@@ -230,8 +230,9 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	// Trace is outermost, so a panic's 500 carries a trace id and gets its
 	// access log line.
 	cors := httpx.CORS(cfg.Console.Origin, "/v1/console/")
+	docsCORS := httpx.DocsCORS(cfg.DocsOrigins)
 	clientIP := httpx.ResolveClientIP(cfg.TrustedProxies)
-	a.Handler = httpx.Trace(log)(httpx.Recover(log)(clientIP(cors(validate(a.router)))))
+	a.Handler = httpx.Trace(log)(httpx.Recover(log)(clientIP(cors(docsCORS(validate(a.router))))))
 	return a, nil
 }
 

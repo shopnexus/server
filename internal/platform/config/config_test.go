@@ -46,6 +46,7 @@ func required() map[string]string {
 		"OTEL_EXPORTER_OTLP_ENDPOINT":  "",
 		"SERVICE_NAME":                 "server2",
 		"TRUSTED_PROXIES":              "",
+		"DOCS_ORIGINS":                 "",
 		"RESTATE_INGRESS_URL":          "http://restate:8080",
 		"RESTATE_ADMIN_URL":            "http://restate:9070",
 		"RESTATE_LISTEN_ADDR":          "127.0.0.1:9080",
@@ -123,6 +124,7 @@ func TestLoadAllSet(t *testing.T) {
 		"LOG_LEVEL":                   "debug",
 		"LOG_FORMAT":                  "text",
 		"TRUSTED_PROXIES":             "10.0.0.0/8, 192.168.1.7/32",
+		"DOCS_ORIGINS":                "https://docs.example.test, http://localhost:4321",
 		"JWT_PREVIOUS_KEY_ID":         "old",
 		"JWT_PREVIOUS_PUBLIC_KEY":     b64(prev.JWTKey.Public().(ed25519.PublicKey)),
 		"JWT_ISSUER":                  "iss",
@@ -155,6 +157,7 @@ func TestLoadAllSet(t *testing.T) {
 		TrustedProxies: []netip.Prefix{
 			netip.MustParsePrefix("10.0.0.0/8"), netip.MustParsePrefix("192.168.1.7/32"),
 		},
+		DocsOrigins: []string{"https://docs.example.test", "http://localhost:4321"},
 		Auth: AuthConfig{
 			OTPKey:       testKeys.OTPKey,
 			JWTKeyID:     testKeys.JWTKeyID,
@@ -210,7 +213,7 @@ func TestLoadAcceptsExplicitEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.OTLPEndpoint != "" || got.TrustedProxies != nil || got.Restate.EndpointURL != "" ||
+	if got.OTLPEndpoint != "" || got.TrustedProxies != nil || got.DocsOrigins != nil || got.Restate.EndpointURL != "" ||
 		got.Restate.ServicePrefix != "" || got.Auth.JWTPrevKeyID != "" || got.Auth.JWTPrevKey != nil ||
 		got.Console.DashboardHosts != nil || got.Assist.STTAPIKey != "" {
 		t.Fatalf("empty variables: %+v", got)
@@ -294,6 +297,8 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 			"JWT_PREVIOUS_KEY_ID": testKeys.JWTKeyID, "JWT_PREVIOUS_PUBLIC_KEY": b64(make([]byte, 32)),
 		}, "must differ"},
 		{"bad proxy", map[string]string{"TRUSTED_PROXIES": "10.0.0.0/8,nope"}, "TRUSTED_PROXIES"},
+		{"docs origin with a path", map[string]string{"DOCS_ORIGINS": "https://docs.example.test/docs"}, "DOCS_ORIGINS"},
+		{"docs origin without a scheme", map[string]string{"DOCS_ORIGINS": "docs.example.test"}, "DOCS_ORIGINS"},
 		{"short console key", map[string]string{"CONSOLE_KEY": b64(make([]byte, 16))}, "CONSOLE_KEY"},
 	}
 	for _, c := range cases {
