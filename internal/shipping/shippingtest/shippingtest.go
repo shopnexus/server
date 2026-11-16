@@ -8,6 +8,8 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/provider/carrier"
+	"github.com/shopnexus/server2/internal/shipping/domain"
+	"github.com/shopnexus/server2/internal/shipping/service"
 )
 
 // Linked is module shipping as deal calls it, with every seller linked at
@@ -35,4 +37,8 @@ func (Linked) Cancel(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code s
 		return fmt.Errorf("fake %s: %w", c, err)
 	}
 	return nil
+}
+
+func (Linked) SavedPickup(context.Context, uuid.UUID) (service.Pickup, error) {
+	return service.Pickup{}, domain.ErrPickupNotConfigured
 }

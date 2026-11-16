@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	consoledomain "github.com/shopnexus/server2/internal/console/domain"
+	"github.com/shopnexus/server2/internal/platform/stream"
 	"github.com/shopnexus/server2/internal/platform/testenv"
 )
 
@@ -67,6 +68,29 @@ func TestSupportFromReportToReply(t *testing.T) {
 		t.Fatalf("chat screen %+v", screen)
 	}
 
+	selected := orderScreen(t, buyer.AccessToken, order.ID)
+	if selectedTicket := decode[ticketBody](t, Response{Body: selected.Ticket}); selectedTicket.ID != tk.ID {
+		t.Fatalf("selected order ticket: %s", selected.Ticket)
+	}
+	readUpdates := func(token string) stream.Page {
+		t.Helper()
+		return expect[stream.Page](t, call(t, "GET", "/v1/updates?since=0", nil, bearer(token)), 200)
+	}
+	countTicketHints := func(updates stream.Page) int {
+		n := 0
+		for _, u := range updates.Updates {
+			if u.Kind == stream.KindTicket && u.ConversationID != nil && u.ConversationID.String() == tk.ConversationID {
+				n++
+			}
+		}
+		return n
+	}
+	if n := countTicketHints(readUpdates(buyer.AccessToken)); n != 2 {
+		t.Fatalf("creation hints: %d", n)
+	}
+	if n := countTicketHints(readUpdates(seller.AccessToken)); n != 0 {
+		t.Fatalf("seller ticket hints: %d", n)
+	}
 	mod := signInMember(t, consoledomain.RoleModerator)
 	var queued bool
 	testenv.Eventually(t, 10*time.Second, func() error {
@@ -123,6 +147,25 @@ func TestSupportFromReportToReply(t *testing.T) {
 		}
 		return nil
 	})
+	updates := readUpdates(buyer.AccessToken)
+	if n := countTicketHints(updates); n != 4 {
+		t.Fatalf("resolve/reopen hints: %d", n)
+	}
+	var lastMessage, lastTicket int64
+	for _, u := range updates.Updates {
+		if u.ConversationID == nil || u.ConversationID.String() != tk.ConversationID {
+			continue
+		}
+		if u.Kind == stream.KindMessage {
+			lastMessage = u.Seq
+		}
+		if u.Kind == stream.KindTicket {
+			lastTicket = u.Seq
+		}
+	}
+	if lastTicket <= lastMessage {
+		t.Fatalf("reopen hint %d did not follow message %d", lastTicket, lastMessage)
+	}
 	if res := consoleCall(t, mod, "GET", "/v1/console/actions?target_id="+tk.ID, nil); res.Status != http.StatusForbidden &&
 		!strings.Contains(string(res.Body), "ticket.resolve") {
 		t.Fatalf("audit: %d %s", res.Status, res.Body)

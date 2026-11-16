@@ -76,10 +76,11 @@ type Tickets interface {
 	CountOpenOf(ctx context.Context, account uuid.UUID) (int, error)
 	// SameCarrier counts carrier requests for carrierKey opened after since.
 	SameCarrier(ctx context.Context, carrierKey string, since time.Time) (int, error)
-	// Messaged records a message in conversation's ticket at at. The
-	// person's message reopens a resolved ticket, with a reopened event, and
-	// reports true. A chat with no ticket changes nothing.
-	Messaged(ctx context.Context, conversation uuid.UUID, from domain.From, at time.Time) (bool, error)
+	// Messaged records message once in the conversation's ticket at at. A
+	// person's message after its recorded resolution reopens it when the
+	// owner has not been deleted. Replays and messages at or before
+	// resolution leave its status alone.
+	Messaged(ctx context.Context, conversation, message uuid.UUID, from domain.From, at time.Time) (bool, error)
 	// Resolve and Reopen set the ticket's status with its event and, when
 	// actor is a member, the audit row. A ticket in that status already is
 	// domain.ErrNotAllowed.

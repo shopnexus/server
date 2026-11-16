@@ -84,12 +84,12 @@ func (s *Support) OfConversation(ctx context.Context, account, conversation uuid
 	return v, err == nil, err
 }
 
-func (s *Support) Messaged(ctx context.Context, conversation uuid.UUID, fromPerson bool, at time.Time) error {
+func (s *Support) Messaged(ctx context.Context, conversation, message uuid.UUID, fromPerson bool, at time.Time) error {
 	from := domain.FromShopNexus
 	if fromPerson {
 		from = domain.FromPerson
 	}
-	if _, err := s.tickets.Messaged(ctx, conversation, from, at); err != nil {
+	if _, err := s.tickets.Messaged(ctx, conversation, message, from, at); err != nil {
 		return fmt.Errorf("record the message: %w", err)
 	}
 	return nil

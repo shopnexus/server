@@ -89,3 +89,24 @@ Quote:
       type: integer
       format: int64
       description: The carrier's fee in đồng, read-only.
+ShippingSettings:
+  type: object
+  additionalProperties: false
+  required: [pickup]
+  properties:
+    pickup:
+      description: An owned address reference and separate unverified contact phone. Deleting the address clears both; existing shipment copies stay unchanged.
+      anyOf:
+        - $ref: "#/SavedPickup"
+        - type: "null"
+SavedPickup:
+  type: object
+  additionalProperties: false
+  required: [address_id, phone]
+  properties:
+    address_id:
+      type: string
+      format: uuid
+    phone:
+      type: string
+      description: A Vietnamese mobile normalized to +84 on save; invalid values are 422 invalid_shipping_settings with field phone.

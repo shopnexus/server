@@ -252,6 +252,13 @@ func (d *Deal) Withdraw(by Party, now time.Time) error {
 	return nil
 }
 
+func (d *Deal) CancelPendingOrder(by Party, order uuid.UUID, now time.Time) error {
+	if d.order == nil || d.order.ID != order || d.order.Status != OrderPending {
+		return ErrMoveNotAllowed
+	}
+	return d.Cancel(by, now)
+}
+
 // Cancel drops the agreed price, and a pending order with it; the deal
 // negotiates again. A shipped order cannot be cancelled.
 func (d *Deal) Cancel(by Party, now time.Time) error {

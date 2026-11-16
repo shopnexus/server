@@ -139,8 +139,8 @@ type SearchResult struct {
 	Messages page.Page[MessageHit]
 }
 
-// personView shows account a as the other member id.
-func personView(id uuid.UUID, a accountsvc.AccountView) PersonView {
+// PersonFromAccount returns an account's public fields and its deleted and official flags.
+func PersonFromAccount(id uuid.UUID, a accountsvc.AccountView) PersonView {
 	return PersonView{
 		ID: id, DisplayName: a.DisplayName, AvatarURL: a.AvatarURL, LastActiveAt: a.LastActiveAt,
 		Deleted: a.Status == accountdomain.StatusDeleted, Official: id == accountdomain.ShopNexusID,

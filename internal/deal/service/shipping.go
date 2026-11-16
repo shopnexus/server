@@ -10,6 +10,7 @@ import (
 	"github.com/shopnexus/server2/internal/deal/repository"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/provider/carrier"
+	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
 )
 
 // Shipping is what deal asks of module shipping: shipments on the seller's
@@ -18,6 +19,7 @@ import (
 // carrier_address_unknown; carrier.ErrNotFound and
 // carrier.ErrNotCancellable come back as they are.
 type Shipping interface {
+	SavedPickup(ctx context.Context, seller uuid.UUID) (shippingsvc.Pickup, error)
 	Create(ctx context.Context, seller uuid.UUID, c carrier.Carrier, in carrier.CreateInput) (carrier.Created, error)
 	Lookup(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
 	Cancel(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) error

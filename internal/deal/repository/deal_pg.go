@@ -250,6 +250,10 @@ func orderArgs(st domain.DealState, o domain.Order) pgx.StrictNamedArgs {
 		if p := s.Pickup; p != nil {
 			a["pickup_point_id"], a["pickup_name"], a["pickup_phone"] = orNull(p.PointID), orNull(p.Name), orNull(p.Phone)
 			a["pickup_street"], a["pickup_commune"] = orNull(p.Street), orNull(p.CommuneCode)
+			if p.CommuneCode != "" {
+				// A copied address may have the account's empty display name.
+				a["pickup_name"] = p.Name
+			}
 		}
 	}
 	if o.CancelledBy != "" {

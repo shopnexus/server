@@ -22,6 +22,7 @@ import (
 
 // Service is module trust's contract.
 type Service interface {
+	OwnReview(ctx context.Context, buyer, order uuid.UUID) (OwnReview, error)
 	// PutReview creates the buyer's review of an order, or edits it within
 	// its 7 days.
 	PutReview(ctx context.Context, buyer, order uuid.UUID, stars int, text string) (ReviewView, error)

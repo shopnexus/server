@@ -36,6 +36,7 @@ type OrderView struct {
 	Price        int64               `json:"price"`
 	Recipient    RecipientView       `json:"recipient"`
 	Shipment     *domain.Shipment    `json:"shipment,omitempty"`
+	CompletedBy  domain.Party        `json:"completed_by,omitempty"`
 	CancelledBy  domain.Party        `json:"cancelled_by,omitempty"`
 	CancelReason domain.CancelReason `json:"cancel_reason,omitempty"`
 	RequestedAt  time.Time           `json:"requested_at"`
@@ -120,7 +121,7 @@ func orderView(o domain.Order, viewer domain.Party, place catalogsvc.Location) O
 			Name: r.Name, Phone: r.Phone, Street: r.Street, CommuneCode: r.CommuneCode,
 			Commune: place.Commune.DisplayName, Province: place.Province.DisplayName, Kind: r.Kind,
 		},
-		Shipment: sh, CancelledBy: o.CancelledBy, CancelReason: o.CancelReason,
+		Shipment: sh, CompletedBy: o.CompletedBy, CancelledBy: o.CancelledBy, CancelReason: o.CancelReason,
 		RequestedAt: o.RequestedAt, ShippedAt: o.ShippedAt, ClosedAt: o.ClosedAt,
 	}
 }

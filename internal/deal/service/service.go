@@ -28,6 +28,8 @@ import (
 
 // Service is module deal's contract.
 type Service interface {
+	OrderFor(ctx context.Context, viewer, id uuid.UUID) (OrderView, uuid.UUID, error)
+	CancelOrder(ctx context.Context, caller, order uuid.UUID) (DealView, error)
 	// Open returns the buyer's deal on a listing, starting one in the
 	// pair's conversation, which it opens when the two have none, when
 	// there is none; created reports a new deal.

@@ -77,3 +77,16 @@ func TestOpenShipmentsAt(t *testing.T) {
 		t.Error("the buyer's purchase counts as the buyer's shipment")
 	}
 }
+
+func TestPickupSnapshotKeepsEmptyDisplayName(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	repo := repository.NewDeals(db)
+	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
+	pickup := &domain.ShipmentPickup{Phone: "+84987654321", Street: "12 Lê Lợi", CommuneCode: "00004"}
+	d := shipLinked(t, repo, pendingDeal(t, db, repo, buyer, seller), domain.CarrierGHTK, pickup)
+	got, err := repo.Get(t.Context(), d.ID())
+	if err != nil || got.Order().Shipment.Pickup == nil || *got.Order().Shipment.Pickup != *pickup {
+		t.Fatalf("empty display name snapshot: %+v %v", got.Order(), err)
+	}
+}
