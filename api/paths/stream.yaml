@@ -33,6 +33,8 @@ ws:
         is raised, grows, or is dismissed, for the warned member.
       - `listing_read` (listing_read_id): a listing read (video, photo or
         link) starts or one of its steps is saved, for the account reading.
+      - `ticket` (conversation_id): a support ticket is created, its first
+        message is attached, or it is resolved or reopened, for the ticket owner.
 
       The app sends `{"type":"typing","conversation_id":…}` (at most one in
       3 seconds per conversation reaches the other member) and, before its

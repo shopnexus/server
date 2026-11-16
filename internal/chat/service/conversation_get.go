@@ -26,7 +26,7 @@ func (c *Chat) Inbox(ctx context.Context, account uuid.UUID, archived bool, p pa
 	items := make([]InboxItem, 0, len(rows))
 	for i := range rows {
 		items = append(items, InboxItem{
-			ID: rows[i].Conversation.ID, Other: personView(rows[i].Other, others[rows[i].Other]),
+			ID: rows[i].Conversation.ID, Other: PersonFromAccount(rows[i].Other, others[rows[i].Other]),
 			LastMessage: c.messageView(rows[i].Last), Unread: rows[i].Unread, Archived: rows[i].Archived,
 		})
 	}
@@ -50,7 +50,7 @@ func (c *Chat) Get(ctx context.Context, account, conversation uuid.UUID) (Conver
 		return ConversationView{}, fmt.Errorf("read the other member: %w", err)
 	}
 	return ConversationView{
-		ID: conv.ID, Other: personView(id, other), Archived: members[account].ArchivedAt != nil,
+		ID: conv.ID, Other: PersonFromAccount(id, other), Archived: members[account].ArchivedAt != nil,
 		OtherRead: members[id].LastRead,
 	}, nil
 }

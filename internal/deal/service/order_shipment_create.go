@@ -9,10 +9,10 @@ import (
 	"github.com/shopnexus/server2/internal/provider/carrier"
 )
 
-// ShipmentInput is a shipment as the seller sends it: Mode manual with the
-// carrier and the code, or linked with the carrier, the service, the
-// weight, the pickup and where from: a carrier's pickup point, one of the
-// seller's addresses, or neither for the carrier's default.
+// ShipmentInput is a shipment as the seller sends it: manual with its carrier
+// and code, or linked with its carrier, service, weight and pickup selection.
+// The selection may name a carrier point, an owned address or saved pickup;
+// omitting it uses the carrier's default.
 type ShipmentInput struct {
 	Mode            string
 	Carrier         string
@@ -22,13 +22,15 @@ type ShipmentInput struct {
 	Pickup          string
 	PickupPointID   string
 	PickupAddressID uuid.UUID
+	SavedPickup     bool
 }
 
 // CreateShipment is UC-DEAL-04, step 1: it checks the shipment and reads a
 // manual one with the caller's account at its carrier, then runs DealShip
 // on the caller's order once per caller and idempotencyKey (A1,
-// NFR-IDEM-01). A linked shipment's pickup address is copied now, so a
-// later edit of it changes nothing.
+// NFR-IDEM-01). It copies an explicit book address before the flow;
+// DealShip resolves a saved pickup in a journaled step after its order
+// checks.
 func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, in ShipmentInput) (DealView, error) {
 	flow := FlowInput{Caller: caller, OrderID: order}
 	if in.Mode == string(domain.ModeLinked) {
@@ -37,10 +39,14 @@ func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, ide
 		if draftErr != nil {
 			return DealView{}, draftErr
 		}
+		if in.SavedPickup && (in.PickupPointID != "" || in.PickupAddressID != uuid.Nil()) {
+			return DealView{}, domain.ErrInvalidShipment.WithField("pickup_from", "oneOf")
+		}
 		from, fromErr := s.pickupFrom(ctx, caller, in.PickupPointID, in.PickupAddressID)
 		if fromErr != nil {
 			return DealView{}, fromErr
 		}
+		flow.SavedPickup = in.SavedPickup
 		linked.From = from
 		flow.Linked = &linked
 	} else {

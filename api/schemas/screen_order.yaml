@@ -1,0 +1,66 @@
+OrderScreen:
+  type: object
+  additionalProperties: false
+  required: [order, deal, counterpart]
+  description: The selected order and its current deal. Buyer-only fields are absent for a seller.
+  properties:
+    order:
+      $ref: "deal.yaml#/Order"
+    deal:
+      $ref: "deal.yaml#/Deal"
+    counterpart:
+      $ref: "chat.yaml#/Person"
+    own_review:
+      $ref: "trust.yaml#/OwnReview"
+    ticket:
+      anyOf:
+        - $ref: "support.yaml#/Ticket"
+        - type: "null"
+CodSetupScreen:
+  type: object
+  additionalProperties: false
+  required: [account, addresses, settings, carrier_accounts]
+  properties:
+    account:
+      $ref: "account.yaml#/MyAccount"
+    addresses:
+      type: array
+      items:
+        $ref: "address.yaml#/Address"
+    settings:
+      $ref: "shipping.yaml#/ShippingSettings"
+    carrier_accounts:
+      type: array
+      items:
+        $ref: "shipping.yaml#/CarrierAccount"
+CodCheckoutScreen:
+  type: object
+  additionalProperties: false
+  required: [deal, seller, address, cod_orders, shipping_estimate]
+  description: Buyer-only checkout. This read writes nothing and calls no carrier. The initial shipping estimate is null.
+  properties:
+    deal:
+      $ref: "deal.yaml#/Deal"
+    seller:
+      $ref: "chat.yaml#/Person"
+    address:
+      anyOf:
+        - $ref: "address.yaml#/Address"
+        - type: "null"
+    cod_orders:
+      $ref: "screen_account.yaml#/Cap"
+    shipping_estimate:
+      anyOf:
+        - type: object
+          additionalProperties: false
+          required: [low, high]
+          properties:
+            low:
+              type: integer
+              format: int64
+              minimum: 0
+            high:
+              type: integer
+              format: int64
+              minimum: 0
+        - type: "null"

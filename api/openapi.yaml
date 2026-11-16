@@ -103,6 +103,16 @@ paths:
     $ref: "paths/deal.yaml#/orderShipment"
   /v1/orders/{order_id}/confirm:
     $ref: "paths/deal.yaml#/orderConfirm"
+  /v1/orders/{order_id}/cancel:
+    $ref: "paths/deal.yaml#/orderCancel"
+  /v1/screens/order/{order_id}:
+    $ref: "paths/screen_order.yaml#/screenOrder"
+  /v1/screens/cod-setup:
+    $ref: "paths/screen_order.yaml#/screenCodSetup"
+  /v1/screens/cod-checkout/{deal_id}:
+    $ref: "paths/screen_order.yaml#/screenCodCheckout"
+  /v1/me/shipping-settings:
+    $ref: "paths/shipping.yaml#/shippingSettings"
   /v1/me/orders:
     $ref: "paths/deal.yaml#/myOrders"
   /v1/shipments/lookup:

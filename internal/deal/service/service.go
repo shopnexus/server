@@ -28,6 +28,12 @@ import (
 
 // Service is module deal's contract.
 type Service interface {
+	OrderFor(ctx context.Context, viewer, id uuid.UUID) (OrderView, uuid.UUID, error)
+	// CancelOrder cancels the caller's pending order, as its buyer or its
+	// seller, and drops the agreed price.
+	//
+	// UC-DEAL-06
+	CancelOrder(ctx context.Context, caller, order uuid.UUID) (DealView, error)
 	// Open returns the buyer's deal on a listing, or starts one in the
 	// pair's conversation; created reports a new deal.
 	//

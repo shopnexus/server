@@ -12,6 +12,7 @@ import (
 	"time"
 	"uuid"
 
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/provider/carrier"
 	"github.com/shopnexus/server2/internal/shipping/domain"
 	"github.com/shopnexus/server2/internal/shipping/repository"
@@ -35,6 +36,7 @@ type QuoteRequest struct {
 	WeightGrams   int
 	PickupPointID string
 	AddressID     uuid.UUID
+	SavedPickup   bool
 }
 
 // QuoteFacts is what deal tells of an order to price: where it goes, its
@@ -62,7 +64,9 @@ type Deals struct {
 }
 
 type Deps struct {
-	Accounts repository.Accounts
+	Settings  repository.Settings
+	Customers accountsvc.Service
+	Accounts  repository.Accounts
 	// Clients holds one client per carrier; empty is CARRIER=none.
 	Clients map[carrier.Carrier]carrier.Client
 	// Key seals the tokens, 32 bytes.
@@ -73,6 +77,9 @@ type Deps struct {
 
 // Service is module shipping's contract.
 type Service interface {
+	Settings(ctx context.Context, owner uuid.UUID) (domain.Settings, error)
+	PutSettings(ctx context.Context, owner uuid.UUID, st domain.Settings) (domain.Settings, error)
+	SavedPickup(ctx context.Context, owner uuid.UUID) (Pickup, error)
 	// Accounts lists the owner's linked accounts, without their tokens.
 	Accounts(ctx context.Context, owner uuid.UUID) ([]AccountView, error)
 	// Link checks the credentials at carrier c and keeps the token sealed,
@@ -241,7 +248,7 @@ func (s *Shipping) Quote(ctx context.Context, owner uuid.UUID, c string, in Quot
 	if in.WeightGrams < 1 || in.WeightGrams > maxWeightGrams {
 		invalid = invalid.WithField("weight_grams", "range")
 	}
-	if in.PickupPointID != "" && in.AddressID != uuid.Nil() {
+	if (in.PickupPointID != "" && in.AddressID != uuid.Nil()) || (in.SavedPickup && (in.PickupPointID != "" || in.AddressID != uuid.Nil())) {
 		invalid = invalid.WithField("pickup_from", "oneOf")
 	}
 	if len(invalid.Fields) > 0 {
@@ -250,6 +257,13 @@ func (s *Shipping) Quote(ctx context.Context, owner uuid.UUID, c string, in Quot
 	facts, err := s.d.Deals.QuoteFacts(ctx, owner, in.OrderID, in.AddressID)
 	if err != nil {
 		return 0, err
+	}
+	if in.SavedPickup {
+		p, pickupErr := s.SavedPickup(ctx, owner)
+		if pickupErr != nil {
+			return 0, pickupErr
+		}
+		facts.Pickup = &carrier.Place{Name: p.Name, Phone: p.Phone, Street: p.Street, Commune: p.Commune, Province: p.Province}
 	}
 	_, a, err := s.account(ctx, owner, c)
 	if err != nil {

@@ -169,14 +169,14 @@ func TestAPersonsMessageReopens(t *testing.T) {
 	if _, err := s.Resolve(ctx, tk.ID, nil, at); err != nil {
 		t.Fatal(err)
 	}
-	reopened, err := s.Messaged(ctx, tk.ConversationID, domain.FromShopNexus, at)
+	reopened, err := s.Messaged(ctx, tk.ConversationID, uuid.NewV7(), domain.FromShopNexus, at)
 	if err != nil || reopened {
 		t.Fatalf("ShopNexus's message: %v %v", reopened, err)
 	}
 	if got, _ := s.Get(ctx, tk.ID); got.Status != domain.StatusResolved || got.LastFrom != domain.FromShopNexus {
 		t.Fatalf("%+v", got)
 	}
-	reopened, err = s.Messaged(ctx, tk.ConversationID, domain.FromPerson, at.Add(time.Minute))
+	reopened, err = s.Messaged(ctx, tk.ConversationID, uuid.NewV7(), domain.FromPerson, at.Add(time.Minute))
 	if err != nil || !reopened {
 		t.Fatalf("the person's message: %v %v", reopened, err)
 	}
@@ -184,7 +184,7 @@ func TestAPersonsMessageReopens(t *testing.T) {
 	if got.Status != domain.StatusOpen || got.ResolvedAt != nil || got.Events[len(got.Events)-1].Kind != "reopened" {
 		t.Fatalf("%+v", got)
 	}
-	if reopened, err = s.Messaged(ctx, uuid.NewV7(), domain.FromPerson, at); err != nil || reopened {
+	if reopened, err = s.Messaged(ctx, uuid.NewV7(), uuid.NewV7(), domain.FromPerson, at); err != nil || reopened {
 		t.Fatalf("a chat with no ticket: %v %v", reopened, err)
 	}
 }
@@ -244,7 +244,7 @@ func TestQueueAndCounts(t *testing.T) {
 	person := accounttest.New(t, db)
 	older := open(t, s, ticket(t, db, person, domain.KindOther, nil, ""))
 	newer := open(t, s, ticket(t, db, person, domain.KindCarrierRequest, nil, "Ninja Van"))
-	if _, err := s.Messaged(ctx, older.ConversationID, domain.FromPerson, at.Add(time.Hour)); err != nil {
+	if _, err := s.Messaged(ctx, older.ConversationID, uuid.NewV7(), domain.FromPerson, at.Add(time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	q, err := s.Queue(ctx, domain.StatusOpen, nil, page.Request{Limit: 1})

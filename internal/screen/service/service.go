@@ -14,12 +14,16 @@ import (
 	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 	notificationsvc "github.com/shopnexus/server2/internal/notification/service"
 	"github.com/shopnexus/server2/internal/platform/page"
+	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
 	supportsvc "github.com/shopnexus/server2/internal/support/service"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
 // Service is module screen's contract.
 type Service interface {
+	Order(ctx context.Context, account, order uuid.UUID) (OrderScreen, error)
+	CodSetup(ctx context.Context, account uuid.UUID) (CodSetupScreen, error)
+	CodCheckout(ctx context.Context, account, deal uuid.UUID, address *uuid.UUID) (CodCheckoutScreen, error)
 	// Home reads the Home view around near, within radiusKm when it is not
 	// 0; viewer is nil when signed out.
 	Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int) (HomeScreen, error)
@@ -45,6 +49,7 @@ type Service interface {
 
 // Deps is what New builds Screen from.
 type Deps struct {
+	Shipping shippingsvc.Service
 	Accounts accountsvc.Service
 	Catalog  catalogsvc.Service
 	Deals    dealsvc.Service
@@ -61,6 +66,7 @@ type Deps struct {
 
 // Screen implements Service in this process.
 type Screen struct {
+	shipping  shippingsvc.Service
 	accounts  accountsvc.Service
 	catalog   catalogsvc.Service
 	deals     dealsvc.Service
@@ -76,6 +82,6 @@ var _ Service = (*Screen)(nil)
 func New(d Deps) *Screen {
 	return &Screen{
 		accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, trust: d.Trust, discovery: d.Discovery, chats: d.Chats, notices: d.Notifications,
-		support: d.Support,
+		support: d.Support, shipping: d.Shipping,
 	}
 }

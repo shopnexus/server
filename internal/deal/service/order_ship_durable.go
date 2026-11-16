@@ -23,6 +23,11 @@ type madeShipment struct {
 	Refused *apperr.Error   `json:"refused,omitempty"`
 }
 
+type resolvedPickup struct {
+	Pickup  domain.ShipmentPickup `json:"pickup"`
+	Refused *apperr.Error         `json:"refused,omitempty"`
+}
+
 // DealShip ships a pending order. A manual shipment is checked whole
 // before anything is held; a linked one is made on the seller's account at
 // its carrier once the listing is held, and a refusal of shipping's gives
@@ -55,6 +60,29 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	if err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
+	var pickup *domain.ShipmentPickup
+	if in.Linked != nil {
+		pickup = in.Linked.From
+		if in.SavedPickup {
+			resolved, pickupErr := restate.Run(ctx, func(rc restate.RunContext) (resolvedPickup, error) {
+				p, stepErr := s.Deals.shipping.SavedPickup(rc, in.Caller)
+				if refusedBy(stepErr) {
+					return resolvedPickup{Refused: apperr.From(stepErr)}, nil
+				}
+				if stepErr != nil {
+					return resolvedPickup{}, fmt.Errorf("read saved pickup: %w", stepErr)
+				}
+				return resolvedPickup{Pickup: domain.ShipmentPickup{Name: p.Name, Phone: p.Phone, Street: p.Street, CommuneCode: p.CommuneCode}}, nil
+			})
+			if pickupErr != nil {
+				return FlowResult{}, fmt.Errorf("resolve saved pickup: %w", pickupErr)
+			}
+			if resolved.Refused != nil {
+				return FlowResult{Refused: resolved.Refused}, nil //nolint:nilerr // A business refusal goes back as data.
+			}
+			pickup = &resolved.Pickup
+		}
+	}
 	// 2. Hold the listing for the order; E5 when it is not on sale.
 	refused, err := reserveStep(ctx, s.Deals.catalog, m.Listing.ID, in.OrderID)
 	if err != nil || refused != nil {
@@ -63,6 +91,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	// 3. Make the shipment on the seller's own account at the carrier.
 	if in.Linked != nil {
 		o, draft := d.Order(), *in.Linked
+		draft.From = pickup
 		made, createErr := restate.Run(ctx, func(rc restate.RunContext) (madeShipment, error) {
 			r := o.Recipient
 			to, stepErr := s.Deals.place(rc, r.Name, r.Phone, r.Street, r.CommuneCode)

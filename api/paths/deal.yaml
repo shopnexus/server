@@ -397,7 +397,7 @@ dealCod:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The deal is not agreed or has an open order, or the caller is the seller (move_not_allowed); the listing is not on sale (listing_unavailable); the buyer has 3 open orders (cod_limit_reached); or the deal changed meanwhile (deal_changed)."
+        description: "The deal is not agreed or has an open order, or the caller is the seller (move_not_allowed); the listing is not on sale (listing_unavailable); the saved pickup is absent (pickup_not_configured); the buyer has 3 open orders (cod_limit_reached); or the deal changed meanwhile (deal_changed)."
         content:
           application/json:
             schema:
@@ -412,7 +412,11 @@ orderShipment:
       the carrier's own app and types its code; the server reads it with
       the seller's account at that carrier. linked: the server makes it on
       the seller's account at the carrier asked, GHTK or GHN, picked up
-      where pickup_from says. The order is shipped, the listing is reserved for it, and
+      where pickup_from says. A saved_pickup selection is resolved and
+      journaled after the seller and order checks. A retry with the same
+      caller and Idempotency-Key recovers that invocation even if the saved
+      preference or address has since been removed. The order is shipped,
+      the listing is reserved for it, and
       other buyers' pending orders on the listing are cancelled with
       shipped_to_another. A parcel the carrier reports delivered ships
       delivered. Checks, in order: the shipment's fields, for a manual one
@@ -707,3 +711,46 @@ myOrders:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+
+orderCancel:
+  post:
+    operationId: cancelOrder
+    x-uc: [UC-DEAL-06]
+    summary: Cancel this pending order; the deal negotiates again.
+    description: |
+      The selected order must still be the deal's current pending order.
+      Either party may cancel, including a suspended caller. The response is
+      the canonical Deal, as returned by the other order mutations.
+    tags: [deal]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The deal.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/deal.yaml#/Deal"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such order of the caller's (order_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The order is historical or not pending (move_not_allowed), or the other side moved first (deal_changed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

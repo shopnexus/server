@@ -6,6 +6,7 @@ package shipping
 import (
 	restate "github.com/restatedev/sdk-go"
 
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/module"
 	"github.com/shopnexus/server2/internal/provider/carrier"
@@ -29,8 +30,8 @@ type Settings struct {
 
 // Mount registers the routes, subscribes the account watch to
 // account.deleted, and returns shipping's Restate services and Service.
-func Mount(d module.Deps, s Settings) module.Mounted[service.Service] {
-	svc := service.New(service.Deps{Accounts: repository.NewAccounts(d.Pool), Clients: s.Clients, Key: s.Key, Deals: s.Deals, Now: d.Now})
+func Mount(d module.Deps, s Settings, customers accountsvc.Service) module.Mounted[service.Service] {
+	svc := service.New(service.Deps{Settings: repository.NewSettings(d.Pool), Customers: customers, Accounts: repository.NewAccounts(d.Pool), Clients: s.Clients, Key: s.Key, Deals: s.Deals, Now: d.Now})
 	handler.New(svc, s.WebhookSecrets, d.Log).Register(d.Router, d.Protect)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Shipping: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")

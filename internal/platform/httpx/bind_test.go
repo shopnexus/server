@@ -221,3 +221,21 @@ func TestBindRepeatedNamedString(t *testing.T) {
 		t.Fatalf("%+v %v", in, err)
 	}
 }
+
+func TestBindOptionalUUIDDistinguishesAbsentAndZero(t *testing.T) {
+	t.Parallel()
+	type query struct {
+		Address *uuid.UUID `json:"-" query:"address_id"`
+	}
+	var absent, explicit query
+	if err := Bind(request(t, "GET", "/things", ""), &absent); err != nil || absent.Address != nil {
+		t.Fatalf("absent: %+v %v", absent, err)
+	}
+	if err := Bind(request(t, "GET", "/things?address_id="+uuid.Nil().String(), ""), &explicit); err != nil || explicit.Address == nil || *explicit.Address != uuid.Nil() {
+		t.Fatalf("explicit: %+v %v", explicit, err)
+	}
+	var invalid query
+	if err := Bind(request(t, "GET", "/things?address_id=bad", ""), &invalid); err == nil {
+		t.Fatal("invalid UUID accepted")
+	}
+}

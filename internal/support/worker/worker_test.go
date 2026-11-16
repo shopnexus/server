@@ -40,7 +40,7 @@ type recorder struct {
 	deleted  []uuid.UUID
 }
 
-func (r *recorder) Messaged(_ context.Context, conversation uuid.UUID, fromPerson bool, _ time.Time) error {
+func (r *recorder) Messaged(_ context.Context, conversation, _ uuid.UUID, fromPerson bool, _ time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.messaged[conversation] = fromPerson

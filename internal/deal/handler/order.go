@@ -45,6 +45,7 @@ type shipmentRequest struct {
 	WeightGrams    int       `json:"weight_grams"`
 	Pickup         string    `json:"pickup"`
 	PickupFrom     *struct {
+		SavedPickup     bool      `json:"saved_pickup"`
 		CarrierPickupID string    `json:"carrier_pickup_id"`
 		AddressID       uuid.UUID `json:"address_id"`
 	} `json:"pickup_from"`
@@ -77,7 +78,7 @@ func (h *Handler) CreateShipment(w http.ResponseWriter, r *http.Request) {
 		Service: in.Service, WeightGrams: in.WeightGrams, Pickup: in.Pickup,
 	}
 	if f := in.PickupFrom; f != nil {
-		ship.PickupPointID, ship.PickupAddressID = f.CarrierPickupID, f.AddressID
+		ship.PickupPointID, ship.PickupAddressID, ship.SavedPickup = f.CarrierPickupID, f.AddressID, f.SavedPickup
 	}
 	v, err := h.svc.CreateShipment(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey, ship)
 	if err != nil {

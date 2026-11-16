@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"strings"
@@ -19,6 +20,9 @@ import (
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/testenv"
 	"github.com/shopnexus/server2/internal/provider/carrier"
+	shippingdomain "github.com/shopnexus/server2/internal/shipping/domain"
+	shippingrepo "github.com/shopnexus/server2/internal/shipping/repository"
+	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
 )
 
 // A seller who has not linked the carrier makes, reads and corrects
@@ -399,5 +403,64 @@ func TestACarriersRefusalGivesTheListingBack(t *testing.T) {
 	}
 	if st, held := e.summary(t, listing); st != catalogdomain.StatusActive || held != (uuid.UUID{}) {
 		t.Fatalf("the refused shipment kept the listing: %s for %s", st, held)
+	}
+}
+
+func TestSavedPickupShipmentReplayAfterPreferenceRemoval(t *testing.T) {
+	t.Parallel()
+	for _, removeAddress := range []bool{false, true} {
+		name := "clear_preference"
+		if removeAddress {
+			name = "delete_address"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			e := newEnv(t)
+			ctx := t.Context()
+			seller, buyer := e.person(t), e.person(t)
+			address := e.address(t, seller)
+			tokenKey := make([]byte, 32)
+			if _, err := rand.Read(tokenKey); err != nil {
+				t.Fatal(err)
+			}
+			shipping := shippingsvc.New(shippingsvc.Deps{
+				Accounts: shippingrepo.NewAccounts(e.db), Settings: shippingrepo.NewSettings(e.db), Customers: e.accounts,
+				Clients: map[carrier.Carrier]carrier.Client{carrier.GHTK: carrier.Fake{Carrier: carrier.GHTK}}, Key: tokenKey, Now: time.Now,
+			})
+			if _, err := shipping.Link(ctx, seller, "ghtk", carrier.Credentials{Email: "seller@test.invalid", Password: "test"}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := shipping.PutSettings(ctx, seller, shippingdomain.Settings{Pickup: &shippingdomain.SavedPickup{AddressID: address, Phone: "0987654321"}}); err != nil {
+				t.Fatal(err)
+			}
+			deps := e.deps
+			deps.Shipping = shipping
+			deals := start(t, deps)
+			pending := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
+			in := linked
+			in.SavedPickup = true
+			requestKey := key()
+			first, err := deals.CreateShipment(ctx, seller, pending.Order.ID, requestKey, in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if removeAddress {
+				if err = e.accounts.DeleteAddress(ctx, seller, address); err != nil {
+					t.Fatal(err)
+				}
+			} else if _, err = shipping.PutSettings(ctx, seller, shippingdomain.Settings{}); err != nil {
+				t.Fatal(err)
+			}
+			recovered, err := deals.CreateShipment(ctx, seller, pending.Order.ID, requestKey, in)
+			if err != nil {
+				t.Fatalf("same key/body after lost response and removed preference: %v", err)
+			}
+			if recovered.Order.ID != first.Order.ID || recovered.Order.Status != domain.OrderShipped || recovered.Order.Shipment.TrackingCode != first.Order.Shipment.TrackingCode || recovered.Order.Shipment.Pickup == nil || *recovered.Order.Shipment.Pickup != *first.Order.Shipment.Pickup {
+				t.Fatalf("replay changed shipment: %+v", recovered.Order)
+			}
+			if n := countMoves(moveKinds(e.get(t, seller, pending.ID)), domain.MoveShipped); n != 1 {
+				t.Fatalf("shipped %d times", n)
+			}
+		})
 	}
 }

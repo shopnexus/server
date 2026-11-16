@@ -306,7 +306,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		},
 		NotFound: dealdomain.ErrShipmentNotFound,
 	}
-	shippingm := shipping.Mount(d, carriers)
+	shippingm := shipping.Mount(d, carriers, accounts)
 	// A deal opens the pair's conversation and writes its moves there, so
 	// chat mounts first.
 	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
@@ -357,7 +357,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	notificationm := notification.Mount(d, notification.Settings{Push: sender},
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
-		supportm.Service)
+		supportm.Service, shippingm.Service)
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, shippingm.Services, dealm.Services, discoverym.Services,
 		chatm.Services, supportm.Services, trustm.Services, notificationm.Services, assistm.Services), nil
 }

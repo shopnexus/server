@@ -29,6 +29,7 @@ func New(svc service.Service, secrets map[carrier.Carrier]string, log *slog.Logg
 // Register adds the account, pickup and quote endpoints behind protect, and
 // the webhooks open to the carriers.
 func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
+	r.Handle("PUT /v1/me/shipping-settings", protect(http.HandlerFunc(h.PutSettings)))
 	r.Handle("GET /v1/carrier-accounts", protect(http.HandlerFunc(h.List)))
 	r.Handle("PUT /v1/carrier-accounts/{carrier}", protect(http.HandlerFunc(h.Link)))
 	r.Handle("DELETE /v1/carrier-accounts/{carrier}", protect(http.HandlerFunc(h.Unlink)))
@@ -50,6 +51,7 @@ type linkRequest struct {
 }
 
 type quoteRequest struct {
+	SavedPickup   bool      `json:"-" query:"saved_pickup"`
 	OrderID       uuid.UUID `json:"-" query:"order_id"`
 	Carrier       string    `json:"-" query:"carrier"`
 	Service       string    `json:"-" query:"service"`
@@ -171,7 +173,7 @@ func (h *Handler) Quote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fee, err := h.svc.Quote(r.Context(), p.AccountID, in.Carrier, service.QuoteRequest{
-		OrderID: in.OrderID, Service: in.Service, WeightGrams: in.WeightGrams, PickupPointID: in.PickupPointID, AddressID: in.AddressID,
+		SavedPickup: in.SavedPickup, OrderID: in.OrderID, Service: in.Service, WeightGrams: in.WeightGrams, PickupPointID: in.PickupPointID, AddressID: in.AddressID,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

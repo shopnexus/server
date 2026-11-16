@@ -26,6 +26,8 @@ import (
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 	"github.com/shopnexus/server2/internal/provider/carrier"
+	shippingdomain "github.com/shopnexus/server2/internal/shipping/domain"
+	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
 )
 
 type env struct {
@@ -196,3 +198,15 @@ var errShippingUnavailable = apperr.New(apperr.KindUnavailable, "carrier_unavail
 // errShippingNotLinked is module shipping's answer for a carrier the seller
 // has not linked.
 var errShippingNotLinked = apperr.New(apperr.KindConflict, "carrier_not_linked", "the caller has not linked that carrier")
+
+func (linkedAt) SavedPickup(context.Context, uuid.UUID) (shippingsvc.Pickup, error) {
+	return shippingsvc.Pickup{}, shippingdomain.ErrPickupNotConfigured
+}
+
+func (r refusing) SavedPickup(context.Context, uuid.UUID) (shippingsvc.Pickup, error) {
+	return shippingsvc.Pickup{}, r.err
+}
+
+func (*recording) SavedPickup(context.Context, uuid.UUID) (shippingsvc.Pickup, error) {
+	return shippingsvc.Pickup{}, shippingdomain.ErrPickupNotConfigured
+}

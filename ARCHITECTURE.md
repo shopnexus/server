@@ -2469,6 +2469,92 @@ calls it except screen, for Home's unread count; depguard holds that.
   `notification_settings` as `price_cuts = false`, the rest at the
   defaults, and dropped `saved_settings`.
 
+### Order screens and shipping settings
+
+Decided 2026-11-16, app plan `2026-11-16-app-wire-orders.md`.
+
+- `GET /v1/screens/order/{order_id}` reads the selected order through
+  deal's `OrderFor` and the current deal through `Get`. `OrderFor` checks
+  party membership and uses the canonical `Order` builder, including its
+  recipient and pickup redaction. A historical selection keeps its own
+  order ID and status when `deal.order` names a later purchase. Every
+  canonical `Order` response carries the stored `completed_by` on completion.
+- The screen reads the counterpart as a public `Person`. For the buyer it
+  also reads trust's `OwnReview` and support's `OfOrder`; the seller's
+  response omits both fields. `own_review` has state `none`, `active` or
+  `deleted`, nullable original dates and ID, and `change_until` at seven
+  days from the first submission. `locked` calls `Review.CanChange`, whose
+  boundary is strictly after those seven days. Stars and text appear only
+  in the active state. Trust reads the review row once, checks its buyer
+  when present and returns `none` when absent. Screen checks the order's
+  ownership before that call, and the HTTP API has no GET review route.
+- `POST /v1/orders/{order_id}/cancel` returns the canonical `Deal`, as
+  shipment and confirmation do. `CancelPendingOrder` checks that the ID
+  still names the aggregate's current pending order, then calls `Cancel`.
+  `Save` checks the deal's write ID in the same transaction that writes the
+  cancellation, so a stale request cannot cancel a replacement order.
+  Unknown and foreign orders are `order_not_found`; a historical or closed
+  one is `move_not_allowed`; a concurrent write is `deal_changed`. The
+  existing deal-agreement cancellation route stays available.
+- Shipping owns `shipping_settings` (migration 0048), one row per caller
+  with an address reference and a separate contact phone. `PUT
+  /v1/me/shipping-settings` replaces `{pickup: null | {address_id, phone}}`
+  and normalizes the phone through `contact.ParsePhone`; this phone has no
+  identity verification. A null pickup deletes the row. The save holds a
+  share lock on the account, refuses a tombstone with `session_revoked`,
+  and checks ownership while holding a key-share lock on the address.
+  The address foreign key cascades deletion of the whole preference,
+  including its phone. Editing an address changes subsequent resolutions;
+  shipment snapshots retain their earlier values.
+- `GET /v1/screens/cod-setup` composes `MyAccount`, owned addresses,
+  shipping settings and linked carrier accounts. The existing carrier
+  list, link, unlink and pickup routes stay available. Linking GHTK or GHN
+  uses an existing carrier account; the API creates no carrier account and
+  asserts no verified holder or earlier account provenance.
+- Linked `pickup_from` and the quote query accept `saved_pickup: true`,
+  exclusively with respect to the address and carrier-point selectors.
+  Shipping resolves the saved reference through account's service, using
+  the current display name, saved contact phone and current owned address.
+  Deal resolves a saved pickup in a journaled step after checking the seller,
+  selected pending order and listing, and before reserving the listing. A
+  retry with the same caller and `Idempotency-Key` reuses that invocation's
+  snapshot and outcome after the preference or address is removed. Quotes
+  read the current preference on every request. An absent preference on a
+  new valid shipment request is `pickup_not_configured`; omitting all
+  selectors keeps the carrier's default.
+- `GET /v1/screens/cod-checkout/{deal_id}?address_id=` is buyer-only and
+  returns the `Deal`, public seller, selected or default owned address,
+  COD cap `{used,max}` and `shipping_estimate`. The estimate is null until
+  a pre-order estimator is defined. An empty book gives a null address;
+  an explicitly missing or foreign address is `address_not_found` and a
+  nonbuyer or foreign deal is `deal_not_found`. The read writes nothing
+  and calls no carrier. `httpx.Bind` supports optional pointer query fields
+  so an explicit all-zero UUID remains distinct from an omitted address.
+- Stream kind `ticket` carries `conversation_id` to the ticket owner only.
+  Ticket insertion, initial-message attachment, resolve and reopen call
+  `stream.Notify` inside their transactions, including the asynchronous
+  reopen on a person's new message and account-deletion resolution.
+  `ticket_message_receipts` (migration 0048) records each handled message
+  ID in the transaction that applies its metadata and status change. A
+  person's message reopens a resolved ticket only when its event time is
+  strictly later than `resolved_at`, at PostgreSQL's microsecond precision,
+  and the owner is still present. The transaction holds the ticket lock
+  and, when reopening, a share lock on the owner's account. A deleted owner
+  remains resolved even for a message with a later timestamp. A late first
+  delivery at or before resolution updates its receipt and any newer
+  message metadata without a status event or hint.
+- The resolution-time check also covers messages processed before migration
+  0048 whose Restate step was not journaled. The migration creates an empty
+  receipt table and does not pre-consume historical messages; an unprocessed
+  message after the recorded resolution can still reopen the ticket.
+- Initial-message attachment reads the sent message's `created_at` and
+  applies its metadata through the same transaction helper as `MessageSent`.
+  It records the receipt, first-message ID, any allowed reopen and owner-only
+  hint together. The queue therefore uses the actual send time when
+  `TicketOpen` waited before sending. An initial attachment after a newer
+  reply keeps that reply's time and sender. Existing message and read updates
+  still carry chat content and unread invalidation.
+
 ### Testing
 
 There are no in-memory fakes. Anything that touches a store is tested on

@@ -36,7 +36,7 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 		if !found || f.Kind != chatdomain.KindSupport {
 			return nil
 		}
-		if err = w.Support.Messaged(rc, f.ConversationID, f.RecipientID == accountdomain.ShopNexusID, e.OccurredAt); err != nil {
+		if err = w.Support.Messaged(rc, f.ConversationID, e.SubjectID, f.RecipientID == accountdomain.ShopNexusID, e.OccurredAt); err != nil {
 			return fmt.Errorf("record the message: %w", err)
 		}
 		return nil

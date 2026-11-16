@@ -54,18 +54,23 @@ type env struct {
 
 func newEnv(t *testing.T) env {
 	t.Helper()
+	return newEnvWithClocks(t, time.Now, time.Now)
+}
+
+func newEnvWithClocks(t *testing.T, openedAt, sentAt func() time.Time) env {
+	t.Helper()
 	db := pgtest.New(t)
 	in, p := restatetest.Ingress(t), restatetest.Prefix()
 	accounts := accounttest.Service(db)
 	media := mediatest.Service(db, objectstoretest.New(t), in, p)
 	catalog := catalogtest.Service(db, accounts, media, in, p)
 	chat := chatsvc.New(chatsvc.Deps{
-		Chats: chatrepo.NewChats(db), Accounts: accounts, Catalog: catalog, Media: media, Ingress: in, Prefix: p, Now: time.Now,
+		Chats: chatrepo.NewChats(db), Accounts: accounts, Catalog: catalog, Media: media, Ingress: in, Prefix: p, Now: sentAt,
 	})
 	d := deals{mu: &sync.Mutex{}, orders: map[uuid.UUID]dealsvc.OrderFacts{}}
 	tickets := repository.NewTickets(db)
 	s := service.New(service.Deps{
-		Tickets: tickets, Accounts: accounts, Chats: chat, Deals: d, Listings: catalog, Ingress: in, Prefix: p, Now: time.Now,
+		Tickets: tickets, Accounts: accounts, Chats: chat, Deals: d, Listings: catalog, Ingress: in, Prefix: p, Now: openedAt,
 	})
 	restatetest.Start(t, append(append(media.Durable(), chat.Durable()...), s.Durable()...)...)
 	return env{db: db, accounts: accounts, chat: chat, support: s, deals: d}
@@ -321,7 +326,7 @@ func TestAPersonsMessageReopens(t *testing.T) {
 		t.Fatal(err)
 	}
 	// The worker calls Messaged on message.sent; worker_test covers that call.
-	if err = e.support.Messaged(ctx, tk.ConversationID, true, time.Now()); err != nil {
+	if err = e.support.Messaged(ctx, tk.ConversationID, uuid.NewV7(), true, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	d, err := e.support.Detail(ctx, tk.ID)
@@ -331,5 +336,59 @@ func TestAPersonsMessageReopens(t *testing.T) {
 	q, err := e.support.Queue(ctx, domain.StatusOpen, nil, page.Request{})
 	if err != nil || len(q.Items) != 1 || q.Items[0].Ticket.ID != tk.ID || q.Items[0].Person.ID != person {
 		t.Fatalf("queue %+v %v", q, err)
+	}
+}
+
+func TestDurableInitialMessageUsesItsSendTime(t *testing.T) {
+	t.Parallel()
+	openedAt := time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)
+	sentAt := openedAt.Add(time.Hour)
+	e := newEnvWithClocks(t, func() time.Time { return openedAt }, func() time.Time { return sentAt })
+	owner := accounttest.New(t, e.db)
+	tk, _, err := e.support.Open(t.Context(), owner, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Hỏi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repository.NewTickets(e.db).Get(t.Context(), tk.ID)
+	if err != nil || !stored.OpenedAt.Equal(openedAt) || !stored.LastMessageAt.Equal(sentAt) {
+		t.Fatalf("delayed durable first message: %+v %v", stored, err)
+	}
+}
+
+func TestAccountDeletedKeepsDelayedFirstDeliveryResolved(t *testing.T) {
+	t.Parallel()
+	openedAt := time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)
+	clock := restatetest.NewClock(openedAt.Add(time.Minute))
+	e := newEnvWithClocks(t, func() time.Time { return openedAt }, clock.Now)
+	owner := accounttest.New(t, e.db)
+	tk, _, err := e.support.Open(t.Context(), owner, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Hỏi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock.Add(time.Minute)
+	msg, err := e.chat.Send(t.Context(), owner, tk.ConversationID, uuid.NewV7().String(), chatsvc.SendInput{Text: "Còn nữa"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = e.accounts.Erase(t.Context(), owner); err != nil {
+		t.Fatal(err)
+	}
+	resolvedAt := openedAt.Add(5 * time.Minute)
+	if err = e.support.AccountDeleted(t.Context(), owner, resolvedAt); err != nil {
+		t.Fatal(err)
+	}
+	if err = e.support.Messaged(t.Context(), tk.ConversationID, msg.ID, true, clock.Now()); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repository.NewTickets(e.db).Get(t.Context(), tk.ID)
+	if err != nil || stored.Status != domain.StatusResolved || stored.ResolvedAt == nil || !stored.ResolvedAt.Equal(resolvedAt) {
+		t.Fatalf("late first delivery after AccountDeleted: %+v %v", stored, err)
+	}
+	if err = e.support.Messaged(t.Context(), tk.ConversationID, uuid.NewV7(), true, resolvedAt.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	stored, err = repository.NewTickets(e.db).Get(t.Context(), tk.ID)
+	if err != nil || stored.Status != domain.StatusResolved {
+		t.Fatalf("deleted owner reopened: %+v %v", stored, err)
 	}
 }
