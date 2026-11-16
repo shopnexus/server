@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 	"uuid"
@@ -179,6 +180,30 @@ WHERE subject_id = @id AND kind = 'listing.published' ORDER BY id`, pgx.StrictNa
 	}
 	if _, err = e.catalog.Edit(ctx, e.seller(t), v.ID, uuid.NewV7().String(), d); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another seller: %v", err)
+	}
+}
+
+// An edit that breaks a listing rule is refused with the fields it breaks,
+// and the listing keeps its content.
+//
+// UC-LST-02 E3 · BR-LST-03.
+func TestEditRefusesABadListing(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := e.seller(t)
+	v := e.active(t, seller)
+	d := draft(v.Photos[0].UploadID)
+	d.Title = strings.Repeat("x", domain.MaxTitle+1)
+	d.Price = domain.MinPrice - 1_000
+	_, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d)
+	if ae, ok := errors.AsType[*apperr.Error](err); !ok || !errors.Is(err, domain.ErrInvalidListing) ||
+		ae.Fields["title"] == "" || ae.Fields["price"] == "" {
+		t.Fatalf("bad edit: %v", err)
+	}
+	got, err := e.catalog.Get(ctx, &seller, v.ID)
+	if err != nil || got.Title != v.Title || got.Price != v.Price || got.Status != domain.StatusActive {
+		t.Fatalf("the listing changed: %+v %v", got, err)
 	}
 }
 
