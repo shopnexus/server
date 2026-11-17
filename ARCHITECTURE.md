@@ -2381,8 +2381,8 @@ without one:
 | 404 `not_found` | 404 `agent_conversation_not_found` |
 | 429 `agent_budget` (the LiteLLM budget is spent) | 429 `agent_budget` |
 | 429 `rate_limited` | 429 `agent_rate_limited` |
-| 409 `turn_in_progress`, `turn_limit`, `conversation_closed` | 409 `agent_turn_in_progress`, `agent_turn_limit`, `agent_conversation_closed` |
-| 400 `input_rejected` (the agent's input guard) | 422 `agent_input_rejected` |
+| 409 `turn_in_progress`, `conversation_closed` | 409 `agent_turn_in_progress`, `agent_conversation_closed` |
+| 400 `input_rejected` (a question over 2000 characters) | 422 `agent_input_rejected` |
 | 504 `agent_timeout`, or a turn past 75 s | 504 `agent_timeout` |
 | 503 `agent_unavailable`; `unauthorized`, `bad_request`, `internal`, any other answer, no answer, a read past 10 s | 503 `agent_unavailable`, the agent's code logged |
 

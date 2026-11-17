@@ -128,14 +128,14 @@ conversationTurns:
       "404":
         $ref: "../responses/common.yaml#/AgentConversationNotFound"
       "409":
-        description: "The agent is still answering in this conversation (agent_turn_in_progress), the conversation has
-          reached its limit of questions (agent_turn_limit) or is closed (agent_conversation_closed)."
+        description: "The agent is still answering in this conversation (agent_turn_in_progress) or the conversation
+          is closed (agent_conversation_closed)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "The agent's guard refused the question (agent_input_rejected)."
+        description: "The question is longer than 2000 characters (agent_input_rejected)."
         content:
           application/json:
             schema:

@@ -94,9 +94,8 @@ func TestConsoleAgentConversations(t *testing.T) {
 		"rate":   {429, "agent_rate_limited"},
 		"slow":   {504, "agent_timeout"},
 		"busy":   {409, "agent_turn_in_progress"},
-		"limit":  {409, "agent_turn_limit"},
 		"closed": {409, "agent_conversation_closed"},
-		"inject": {422, "agent_input_rejected"},
+		"long":   {422, "agent_input_rejected"},
 		"down":   {503, "agent_unavailable"},
 	} {
 		check(t, text, consoleCall(t, lan, "POST", turns, map[string]string{"text": text}), want.status, want.code)

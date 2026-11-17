@@ -73,7 +73,6 @@ func TestAskMapsTheAgentsFailures(t *testing.T) {
 		{http.StatusBadRequest, "input_rejected", domain.ErrInputRejected},
 		{http.StatusBadRequest, "bad_request", domain.ErrUnavailable},
 		{http.StatusConflict, "turn_in_progress", domain.ErrTurnInProgress},
-		{http.StatusConflict, "turn_limit", domain.ErrTurnLimit},
 		{http.StatusConflict, "conversation_closed", domain.ErrConversationClosed},
 		{http.StatusUnauthorized, "unauthorized", domain.ErrUnavailable},
 		{http.StatusInternalServerError, "internal", domain.ErrUnavailable},

@@ -31,9 +31,8 @@ var agentRefusals = map[string]struct {
 	"rate":   {http.StatusTooManyRequests, "rate_limited"},
 	"slow":   {http.StatusGatewayTimeout, "agent_timeout"},
 	"busy":   {http.StatusConflict, "turn_in_progress"},
-	"limit":  {http.StatusConflict, "turn_limit"},
 	"closed": {http.StatusConflict, "conversation_closed"},
-	"inject": {http.StatusBadRequest, "input_rejected"},
+	"long":   {http.StatusBadRequest, "input_rejected"},
 	"down":   {http.StatusInternalServerError, "internal"},
 }
 

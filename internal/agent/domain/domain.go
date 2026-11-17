@@ -25,11 +25,9 @@ var (
 	ErrRateLimited = apperr.New(apperr.KindRateLimited, "agent_rate_limited",
 		"too many questions to the agent in a short time; wait and ask again")
 	ErrInputRejected = apperr.New(apperr.KindInvalid, "agent_input_rejected",
-		"the agent's guard refused the question; ask it another way")
+		"the question is longer than 2000 characters; shorten it")
 	ErrTurnInProgress = apperr.New(apperr.KindConflict, "agent_turn_in_progress",
 		"the agent is still answering in this conversation; wait for it")
-	ErrTurnLimit = apperr.New(apperr.KindConflict, "agent_turn_limit",
-		"the conversation has reached its limit of questions; start another")
 	ErrConversationClosed = apperr.New(apperr.KindConflict, "agent_conversation_closed",
 		"the conversation is closed; start another")
 )

@@ -41,7 +41,6 @@ var agentErrors = map[string]*apperr.Error{
 	"agent_unavailable":   domain.ErrUnavailable,
 	"input_rejected":      domain.ErrInputRejected,
 	"turn_in_progress":    domain.ErrTurnInProgress,
-	"turn_limit":          domain.ErrTurnLimit,
 	"conversation_closed": domain.ErrConversationClosed,
 }
 
