@@ -1004,7 +1004,7 @@ agree during a deploy.
   of a sold, deleted or reserved listing is `listing_state_conflict`.
 - A console member hides a listing with `POST /v1/console/listings/{id}/hide`
   (`Service.Hold`, decided 2026-11-17): an active listing, or one its seller
-  hid, goes hidden and `listings.held_at` is set (migration 0054). While it
+  hid, goes hidden and `listings.held_at` is set (migration 0055). While it
   is held the seller's `unhide` is 409 `listing_held`, and a publish after
   an edit or an `unmark-sold` leaves it hidden. `…/unhide`
   (`Service.Lift`) clears the hold and puts a listing still hidden back on
@@ -1903,7 +1903,7 @@ Reports are trust's too (decided 2026-11-10, spec:
   `~/shopnexus/docs/superpowers/specs/2026-11-16-console-agent-design.md`,
   Phase 3 without the agent). A case is the reports about one account,
   not withdrawn, that share one row of `report_resolutions` (migration
-  0054); the reports with no `resolution_id` are the account's open case.
+  0055); the reports with no `resolution_id` are the account's open case.
   A resolved report no longer counts as the reporter's open report of its
   target, so the partial unique indexes take `resolution_id IS NULL` and a
   new report opens the next case.
