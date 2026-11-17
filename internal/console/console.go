@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/console/domain"
 	"github.com/shopnexus/server2/internal/console/handler"
 	"github.com/shopnexus/server2/internal/console/repository"
@@ -17,6 +18,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/module"
 	supportsvc "github.com/shopnexus/server2/internal/support/service"
+	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
 // Settings is what console's Mount takes beyond module.Deps.
@@ -47,11 +49,14 @@ type Mounted struct {
 }
 
 // Mount registers the console endpoints and the ops dashboards' callback.
-// accounts reaches the customer data of module account, and support the
-// tickets module support keeps.
-func Mount(d module.Deps, s Settings, accounts accountsvc.Service, support supportsvc.Service) Mounted {
+// accounts reaches the customer data of module account, support the
+// tickets module support keeps, trust the report cases and catalog the
+// listings members hide.
+func Mount(d module.Deps, s Settings, accounts accountsvc.Service, support supportsvc.Service, trust trustsvc.Service,
+	catalog catalogsvc.Service,
+) Mounted {
 	svc := NewService(d.Pool, s, accounts, d.Now)
-	handler.New(svc, support, d.Log).Register(d.Router)
+	handler.New(svc, support, trust, catalog, d.Log).Register(d.Router)
 	fromConsole, mod := handler.FromConsole(d.Log), handler.Require(svc, d.Log, domain.RoleModerator)
 	return Mounted{Service: svc, Moderator: func(h http.Handler) http.Handler { return fromConsole(mod(h)) }}
 }

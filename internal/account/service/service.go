@@ -52,6 +52,9 @@ type Service interface {
 	Touch(ctx context.Context, id uuid.UUID) error
 	// ConsoleAccount reads one account as console members see it.
 	ConsoleAccount(ctx context.Context, id uuid.UUID) (ConsoleAccount, error)
+	// ConsoleAccountsOf reads the accounts among ids as console members see
+	// them, keyed by ID; an unknown ID is left out.
+	ConsoleAccountsOf(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]ConsoleAccount, error)
 	// ConsoleAccounts lists accounts as console members see them, newest first.
 	ConsoleAccounts(ctx context.Context, p page.Request) (page.Page[ConsoleAccount], error)
 	// SuspendedAccounts lists the accounts whose suspension is in force now,

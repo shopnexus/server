@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	supportdomain "github.com/shopnexus/server2/internal/support/domain"
@@ -100,7 +99,7 @@ func TestOrdersCompletedByComesFromTheMove(t *testing.T) {
 	for _, by := range []string{"system", "buyer"} {
 		deal, order := uuid.NewV7(), uuid.NewV7()
 		orders[by] = order
-		a := pgx.NamedArgs{"deal": deal, "order": order, "listing": catalogtest.Listing(t, db, seller), "buyer": buyer, "seller": seller, "by": by, "at": time.Now()}
+		a := pgx.NamedArgs{"deal": deal, "order": order, "listing": listing(t, db, seller), "buyer": buyer, "seller": seller, "by": by, "at": time.Now()}
 		for _, q := range []string{
 			insertDeal, `INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name,
     recipient_phone, recipient_street, recipient_commune, shipment_mode, carrier, tracking_code, shipment_status, requested_at,
@@ -132,7 +131,7 @@ func TestTicketChecks(t *testing.T) {
 	db := pgtest.New(t)
 	person, seller := accounttest.New(t, db), accounttest.New(t, db)
 	deal, order := uuid.NewV7(), uuid.NewV7()
-	a := pgx.NamedArgs{"deal": deal, "order": order, "listing": catalogtest.Listing(t, db, seller), "buyer": person, "seller": seller}
+	a := pgx.NamedArgs{"deal": deal, "order": order, "listing": listing(t, db, seller), "buyer": person, "seller": seller}
 	for _, q := range []string{insertPairDeal, `INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name,
     recipient_phone, recipient_street, recipient_commune, recipient_kind, shipment_mode, carrier, tracking_code, shipment_status, requested_at, shipped_at)
 VALUES (@order, @deal, @listing, @buyer, @seller, 'shipped', 1500000, 'Hân', '+84912345678', '1 Lê Lợi', '00004', 'home',

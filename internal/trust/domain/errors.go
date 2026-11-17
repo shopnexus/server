@@ -12,4 +12,8 @@ var (
 	ErrInvalidReport  = apperr.New(apperr.KindInvalid, "invalid_report", "the report breaks a rule; see fields")
 	ErrSelfReport     = apperr.New(apperr.KindInvalid, "self_report", "nobody reports themselves or their own listing")
 	ErrReportNotFound = apperr.New(apperr.KindNotFound, "report_not_found", "no such report of the caller's")
+
+	ErrCaseNotFound    = apperr.New(apperr.KindNotFound, "report_case_not_found", "nobody has reported the account")
+	ErrCaseNotOpen     = apperr.New(apperr.KindConflict, "report_case_not_open", "the account has no open report case")
+	ErrCaseNotResolved = apperr.New(apperr.KindConflict, "report_case_not_resolved", "the account has no resolved report case to reopen")
 )

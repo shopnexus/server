@@ -19,6 +19,7 @@ import (
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
+	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/provider/embed"
@@ -102,6 +103,15 @@ type Service interface {
 	// Summary reads one listing in any status for other modules; ok is false
 	// for an unknown ID.
 	Summary(ctx context.Context, id uuid.UUID) (s Summary, ok bool, err error)
+	// ReportedListings reads listings in any status as console members see
+	// them, keyed by ID; an unknown ID is left out of the map.
+	ReportedListings(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]ReportedListing, error)
+	// Hold is a console member hiding an active or hidden listing; the
+	// seller cannot unhide it until Lift. It records listing.hide for by.
+	Hold(ctx context.Context, id uuid.UUID, by audit.Actor) (ReportedListing, error)
+	// Lift ends a member's hold and puts the listing back on sale when it is
+	// still hidden. It records listing.unhide for by.
+	Lift(ctx context.Context, id uuid.UUID, by audit.Actor) (ReportedListing, error)
 	// Reserve holds an active listing for an order; holding it again for the
 	// same order changes nothing. Another status is domain.ErrStateConflict.
 	Reserve(ctx context.Context, listingID, orderID uuid.UUID) error

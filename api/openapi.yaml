@@ -362,6 +362,20 @@ paths:
     $ref: "paths/console.yaml#/supportTicketReopen"
   /v1/console/support/summary:
     $ref: "paths/console.yaml#/supportSummary"
+  /v1/console/reports:
+    $ref: "paths/console.yaml#/reportCases"
+  /v1/console/reports/{account_id}:
+    $ref: "paths/console.yaml#/reportCase"
+  /v1/console/reports/{account_id}/dismiss:
+    $ref: "paths/console.yaml#/reportCaseDismiss"
+  /v1/console/reports/{account_id}/resolve:
+    $ref: "paths/console.yaml#/reportCaseResolve"
+  /v1/console/reports/{account_id}/reopen:
+    $ref: "paths/console.yaml#/reportCaseReopen"
+  /v1/console/listings/{id}/hide:
+    $ref: "paths/console.yaml#/listingHide"
+  /v1/console/listings/{id}/unhide:
+    $ref: "paths/console.yaml#/listingUnhide"
   /v1/console/accounts/{id}:
     $ref: "paths/console.yaml#/account"
   /v1/console/accounts/{id}/suspend:

@@ -56,7 +56,7 @@ func newEnv(t *testing.T) env {
 	restatetest.Start(t, slices.Concat(deals.Durable(), media.Durable(), chats.Durable())...)
 	scams := repository.NewScamWarnings(db)
 	trust := service.New(service.Deps{
-		Reviews: repository.NewReviews(db), Reports: repository.NewReports(db), Scams: scams, Accounts: accounts, Catalog: c,
+		Reviews: repository.NewReviews(db), Reports: repository.NewReports(db), Cases: repository.NewCases(db), Scams: scams, Accounts: accounts, Catalog: c,
 		Deals: deals, Chats: chats, Log: slog.New(slog.DiscardHandler), Now: time.Now,
 	})
 	return env{db: db, accounts: accounts, deals: deals, chats: chats, scams: scams, trust: trust}

@@ -9,7 +9,6 @@ import (
 
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
-	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/events"
 )
 
@@ -134,12 +133,8 @@ func (c *Catalog) listing(ctx context.Context, id uuid.UUID) (domain.Listing, er
 // save writes a status change of l with the event of that kind and returns
 // the listing's view. A listing written meanwhile is apperr.ErrTryAgain.
 func (c *Catalog) save(ctx context.Context, l domain.Listing, kind events.Kind, now time.Time) (ListingView, error) {
-	err := c.listings.Save(ctx, &l, uuid.NewV7(), events.Event{ID: uuid.NewV7(), Kind: kind, SubjectID: l.ID(), OccurredAt: now})
-	if errors.Is(err, repository.ErrConflict) {
-		return ListingView{}, apperr.ErrTryAgain
-	}
-	if err != nil {
-		return ListingView{}, fmt.Errorf("save listing: %w", err)
+	if err := c.listings.Save(ctx, &l, uuid.NewV7(), nil, events.Event{ID: uuid.NewV7(), Kind: kind, SubjectID: l.ID(), OccurredAt: now}); err != nil {
+		return ListingView{}, saveErr(err)
 	}
 	return c.view(ctx, l)
 }

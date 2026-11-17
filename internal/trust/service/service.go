@@ -1,7 +1,7 @@
 // Package service holds module trust's use cases: a buyer reviews the
 // seller of a shipped order, anyone reads a seller's rating and reviews,
-// people report listings and accounts, and members of a conversation are
-// warned of scams.
+// people report listings and accounts, console members work the report
+// cases, and members of a conversation are warned of scams.
 package service
 
 import (
@@ -16,7 +16,9 @@ import (
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
+	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/trust/domain"
 	"github.com/shopnexus/server2/internal/trust/repository"
 )
 
@@ -45,6 +47,19 @@ type Service interface {
 	// WithdrawReport withdraws one of the reporter's reports; a withdrawn
 	// one is fine.
 	WithdrawReport(ctx context.Context, reporter, id uuid.UUID) error
+	// ReportCases lists the open report cases, latest report first and with
+	// their count, or the resolved ones, latest resolution first, for
+	// console members.
+	ReportCases(ctx context.Context, status domain.CaseStatus, p page.Request) (CaseList, error)
+	// ReportCase reads account's open report case or, without one, its
+	// latest resolved case.
+	ReportCase(ctx context.Context, account uuid.UUID) (CaseDetail, error)
+	// ResolveReportCase closes account's open report case with outcome for
+	// the console member by.
+	ResolveReportCase(ctx context.Context, account uuid.UUID, outcome domain.Outcome, by audit.Actor) (CaseDetail, error)
+	// ReopenReportCase undoes account's latest resolution for the console
+	// member by; its reports join the open case.
+	ReopenReportCase(ctx context.Context, account uuid.UUID, by audit.Actor) (CaseDetail, error)
 	// ScamWarnings reads account's scam warnings in the conversations
 	// given, keyed by conversation; one without a warning is left out.
 	ScamWarnings(ctx context.Context, account uuid.UUID, conversations []uuid.UUID) (map[uuid.UUID]ScamWarningView, error)
@@ -60,6 +75,7 @@ type Service interface {
 type Deps struct {
 	Reviews  repository.Reviews
 	Reports  repository.Reports
+	Cases    repository.Cases
 	Accounts accountsvc.Service
 	Catalog  catalogsvc.Service
 	Deals    dealsvc.Service
@@ -81,6 +97,7 @@ type Deps struct {
 type Trust struct {
 	reviews    repository.Reviews
 	reports    repository.Reports
+	cases      repository.Cases
 	accounts   accountsvc.Service
 	catalog    catalogsvc.Service
 	deals      dealsvc.Service
@@ -97,7 +114,7 @@ var _ Service = (*Trust)(nil)
 
 func New(d Deps) *Trust {
 	return &Trust{
-		reviews: d.Reviews, reports: d.Reports, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, chats: d.Chats,
+		reviews: d.Reviews, reports: d.Reports, cases: d.Cases, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, chats: d.Chats,
 		scams: d.Scams, classifier: d.Classifier, facts: d.Facts, log: d.Log, prefix: d.Prefix, now: d.Now,
 	}
 }

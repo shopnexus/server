@@ -1,7 +1,8 @@
 // Package audit records what console members and the CLI did to accounts,
-// to console members and to support tickets. An adapter writes an Entry with Insert inside the transaction of
-// the change it records, so the change and its record commit together or
-// not at all.
+// to console members, to support tickets, to report cases and to listings.
+// An adapter writes an Entry with Insert inside the transaction of the
+// change it records, so the change and its record commit together or not
+// at all.
 package audit
 
 import (
@@ -56,6 +57,11 @@ const (
 	TicketReply         ActionKind = "ticket.reply"
 	TicketResolve       ActionKind = "ticket.resolve"
 	TicketReopen        ActionKind = "ticket.reopen"
+	ReportDismiss       ActionKind = "report.dismiss"
+	ReportResolve       ActionKind = "report.resolve"
+	ReportReopen        ActionKind = "report.reopen"
+	ListingHide         ActionKind = "listing.hide"
+	ListingUnhide       ActionKind = "listing.unhide"
 )
 
 type TargetKind string
@@ -64,6 +70,7 @@ const (
 	TargetAccount TargetKind = "account"
 	TargetMember  TargetKind = "member"
 	TargetTicket  TargetKind = "ticket"
+	TargetListing TargetKind = "listing"
 )
 
 // Target is what an action changed.
@@ -75,6 +82,7 @@ type Target struct {
 func Account(id uuid.UUID) Target { return Target{Kind: TargetAccount, ID: id} }
 func Member(id uuid.UUID) Target  { return Target{Kind: TargetMember, ID: id} }
 func Ticket(id uuid.UUID) Target  { return Target{Kind: TargetTicket, ID: id} }
+func Listing(id uuid.UUID) Target { return Target{Kind: TargetListing, ID: id} }
 
 // Entry is one row of console_actions. Details holds what the action kind
 // does not say, such as a suspension's reason; never a hash or a secret.

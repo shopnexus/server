@@ -6,6 +6,7 @@ var (
 	ErrInvalidListing    = apperr.New(apperr.KindInvalid, "invalid_listing", "the listing breaks a rule; see fields")
 	ErrStateConflict     = apperr.New(apperr.KindConflict, "listing_state_conflict", "the listing's state does not allow this")
 	ErrNotFound          = apperr.New(apperr.KindNotFound, "listing_not_found", "no such listing")
+	ErrHeld              = apperr.New(apperr.KindConflict, "listing_held", "ShopNexus hid the listing; only ShopNexus puts it back on sale")
 	ErrCapReached        = apperr.New(apperr.KindConflict, "listing_cap_reached", "at most 20 listings on sale or hidden")
 	ErrDraftNotFound     = apperr.New(apperr.KindNotFound, "draft_not_found", "no such draft of the caller's")
 	ErrDraftLimitReached = apperr.New(apperr.KindConflict, "draft_limit_reached", "at most 20 drafts")

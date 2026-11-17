@@ -9,9 +9,9 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/migrations"
@@ -33,6 +33,24 @@ func str(p *string) string {
 }
 
 // insertDeal inserts a deal as the tables stood before 0047.
+// listing puts an active listing of seller's in db and returns its ID. It
+// names only the columns every schema since 0021 has, so a test that stops
+// before a later migration can use it; catalogtest.Listing writes every
+// column the current repository knows.
+func listing(t *testing.T, db *pgxpool.Pool, seller uuid.UUID) uuid.UUID {
+	t.Helper()
+	id := uuid.NewV7()
+	if _, err := db.Exec(context.Background(), `INSERT INTO listings (id, seller_id, title, price, description, category_code, condition,
+    allow_offers, commune_code, photos, specs, status, write_id, created_at, updated_at, published_at, lat, lng)
+SELECT @id, @seller, 'Xe đạp Asama', 1500000, '', 'vehicles.bicycle', 'used', true, c.code,
+       '[{"upload_id": "00000000-0000-0000-0000-000000000000", "keys": {"photo": "media/a.jpg", "thumb": "media/a_thumb.jpg"}}]',
+       '[]', 'active', @id, @at, @at, @at, c.lat, c.lng
+FROM communes c WHERE c.code = '00004'`, pgx.StrictNamedArgs{"id": id, "seller": seller, "at": time.Now()}); err != nil {
+		t.Fatalf("insert listing: %v", err)
+	}
+	return id
+}
+
 const insertDeal = `INSERT INTO deals (id, listing_id, buyer_id, seller_id, status, listed_price, write_id, created_at, updated_at)
 VALUES (@deal, @listing, @buyer, @seller, 'negotiating', 1500000, @deal, now(), now())`
 
@@ -72,7 +90,7 @@ func TestOrderFlowRenamesTheOldOrders(t *testing.T) {
 	for name, o := range olds {
 		orders[name], deals[name] = uuid.NewV7(), uuid.NewV7()
 		a := pgx.NamedArgs{
-			"deal": deals[name], "order": orders[name], "listing": catalogtest.Listing(t, db, seller), "buyer": buyer,
+			"deal": deals[name], "order": orders[name], "listing": listing(t, db, seller), "buyer": buyer,
 			"seller": seller, "status": o.status, "source": nil, "carrier": null(o.carrier), "carrier_name": null(o.carrierName),
 			"code": nil, "fee": nil, "by": nil, "reason": null(o.reason), "shipped_at": nil, "closed_at": nil,
 		}
@@ -176,7 +194,7 @@ func TestOrderFlowChecks(t *testing.T) {
 	ctx := context.Background()
 	db := pgtest.New(t)
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
-	a := pgx.NamedArgs{"deal": uuid.NewV7(), "listing": catalogtest.Listing(t, db, seller), "buyer": buyer, "seller": seller}
+	a := pgx.NamedArgs{"deal": uuid.NewV7(), "listing": listing(t, db, seller), "buyer": buyer, "seller": seller}
 	if _, err := db.Exec(ctx, insertPairDeal, a); err != nil {
 		t.Fatal(err)
 	}

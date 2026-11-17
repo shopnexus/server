@@ -6,21 +6,26 @@ import (
 	"log/slog"
 	"net/http"
 
+	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	"github.com/shopnexus/server2/internal/console/domain"
 	"github.com/shopnexus/server2/internal/console/service"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	supportsvc "github.com/shopnexus/server2/internal/support/service"
+	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
 type Handler struct {
 	svc service.Service
-	// support works the tickets module support keeps.
+	// support works the tickets module support keeps, trust the report
+	// cases, and catalog the listings members hide.
 	support supportsvc.Service
+	trust   trustsvc.Service
+	catalog catalogsvc.Service
 	log     *slog.Logger
 }
 
-func New(svc service.Service, support supportsvc.Service, log *slog.Logger) *Handler {
-	return &Handler{svc: svc, support: support, log: log}
+func New(svc service.Service, support supportsvc.Service, trust trustsvc.Service, catalog catalogsvc.Service, log *slog.Logger) *Handler {
+	return &Handler{svc: svc, support: support, trust: trust, catalog: catalog, log: log}
 }
 
 // Register adds the console endpoints. Every one under /v1/console but
@@ -61,6 +66,14 @@ func (h *Handler) Register(r *httpx.Router) {
 	handle("POST /v1/console/support/tickets/{id}/resolve", mod(http.HandlerFunc(h.ResolveTicket)))
 	handle("POST /v1/console/support/tickets/{id}/reopen", mod(http.HandlerFunc(h.ReopenTicket)))
 	handle("GET /v1/console/support/summary", mod(http.HandlerFunc(h.SupportSummary)))
+
+	handle("GET /v1/console/reports", mod(http.HandlerFunc(h.ListReportCases)))
+	handle("GET /v1/console/reports/{account_id}", mod(http.HandlerFunc(h.GetReportCase)))
+	handle("POST /v1/console/reports/{account_id}/dismiss", mod(http.HandlerFunc(h.DismissReportCase)))
+	handle("POST /v1/console/reports/{account_id}/resolve", mod(http.HandlerFunc(h.ResolveReportCase)))
+	handle("POST /v1/console/reports/{account_id}/reopen", mod(http.HandlerFunc(h.ReopenReportCase)))
+	handle("POST /v1/console/listings/{id}/hide", mod(http.HandlerFunc(h.HideListing)))
+	handle("POST /v1/console/listings/{id}/unhide", mod(http.HandlerFunc(h.UnhideListing)))
 
 	handle("POST /v1/console/dashboard-tickets", mod(http.HandlerFunc(h.CreateDashboardTicket)))
 	r.Handle("GET /v1/console/dashboard-auth", http.HandlerFunc(h.AuthorizeDashboard))

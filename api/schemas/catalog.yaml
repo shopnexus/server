@@ -75,7 +75,8 @@ ListingStatus:
   enum: [processing, active, hidden, rejected, reserved, sold, deleted]
   description: |
     processing: the photos are being processed. active: on sale. hidden:
-    taken down by the seller. rejected: a photo was refused; the photo says
+    taken down by the seller, or by ShopNexus, and then only ShopNexus puts
+    it back on sale (listing_held). rejected: a photo was refused; the photo says
     why, and an edit tries again. reserved: held while an order's parcel
     travels; anyone may read it, and the seller cannot change it. sold: sold
     off the app or through an order. deleted: removed by the seller; only a

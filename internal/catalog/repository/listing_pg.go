@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
@@ -22,7 +23,7 @@ func NewListings(db *pgxpool.Pool) Listings { return pgListings{db} }
 
 const listingColumns = `id, seller_id, title, price, description, category_code, condition, allow_offers, commune_code,
        photos, specs, status, rejection, reserved_for, write_id, created_at, updated_at, published_at, sold_at,
-       deleted_at, lat, lng`
+       deleted_at, lat, lng, held_at`
 
 func scanListing(row pgx.CollectableRow) (domain.Listing, error) {
 	var (
@@ -32,7 +33,7 @@ func scanListing(row pgx.CollectableRow) (domain.Listing, error) {
 	)
 	if err := row.Scan(&st.ID, &st.SellerID, &st.Title, &st.Price, &st.Description, &st.CategoryCode, &st.Condition,
 		&st.AllowOffers, &st.CommuneCode, &photos, &specs, &st.Status, &rejec, &reservedFor, &st.WriteID, &st.CreatedAt,
-		&st.UpdatedAt, &st.PublishedAt, &st.SoldAt, &st.DeletedAt, &st.Lat, &st.Lng); err != nil {
+		&st.UpdatedAt, &st.PublishedAt, &st.SoldAt, &st.DeletedAt, &st.Lat, &st.Lng, &st.HeldAt); err != nil {
 		return domain.Listing{}, fmt.Errorf("scan listing: %w", err)
 	}
 	if reservedFor != nil {
@@ -72,6 +73,7 @@ func args(st domain.ListingState) pgx.StrictNamedArgs {
 		"commune_code": st.CommuneCode, "photos": st.Photos, "specs": specs, "status": st.Status,
 		"rejection": rejection, "reserved_for": reservedFor, "write_id": st.WriteID, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
 		"published_at": st.PublishedAt, "sold_at": st.SoldAt, "deleted_at": st.DeletedAt, "lat": st.Lat, "lng": st.Lng,
+		"held_at": st.HeldAt,
 	}
 }
 
@@ -90,7 +92,7 @@ const insertListing = `
 INSERT INTO listings (` + listingColumns + `)
 SELECT @id, @seller_id, @title, @price, @description, @category_code, @condition, @allow_offers, @commune_code,
        @photos, @specs, @status, @rejection, @reserved_for, @write_id, @created_at, @updated_at, @published_at, @sold_at,
-       @deleted_at, @lat, @lng
+       @deleted_at, @lat, @lng, @held_at
 WHERE (SELECT count(*) FROM listings WHERE seller_id = @seller_id AND status = ANY(@on_sale)) < @limit
 ON CONFLICT (id) DO NOTHING`
 
@@ -171,12 +173,12 @@ SET title = @title, price = @price, description = @description, category_code = 
     condition = @condition, allow_offers = @allow_offers, commune_code = @commune_code, photos = @photos,
     specs = @specs, status = @status, rejection = @rejection, reserved_for = @reserved_for,
     updated_at = @updated_at, lat = @lat, lng = @lng,
-    published_at = @published_at, sold_at = @sold_at, deleted_at = @deleted_at, write_id = @write_id
+    published_at = @published_at, sold_at = @sold_at, deleted_at = @deleted_at, held_at = @held_at, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
   AND (status = ANY(@on_sale) OR NOT @status = ANY(@on_sale)
        OR (SELECT count(*) FROM listings o WHERE o.seller_id = listings.seller_id AND o.status = ANY(@on_sale)) < @limit)`
 
-func (s pgListings) Save(ctx context.Context, l *domain.Listing, writeID uuid.UUID, evs ...events.Event) error {
+func (s pgListings) Save(ctx context.Context, l *domain.Listing, writeID uuid.UUID, entry *audit.Entry, evs ...events.Event) error {
 	st := l.State()
 	a := args(st)
 	a["read_write_id"], a["write_id"], a["on_sale"], a["limit"] = st.WriteID, writeID, domain.OnSale, domain.MaxOnSale
@@ -205,6 +207,11 @@ WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id))`,
 				return domain.ErrCapReached
 			}
 			return ErrConflict
+		}
+		if entry != nil {
+			if err := audit.Insert(ctx, tx, *entry); err != nil {
+				return err
+			}
 		}
 		return events.Insert(ctx, tx, evs...)
 	})

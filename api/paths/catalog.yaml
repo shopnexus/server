@@ -244,7 +244,7 @@ listingUnhide:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The listing is not hidden (listing_state_conflict), or changed meanwhile (try_again)."
+        description: "The listing is not hidden (listing_state_conflict), ShopNexus hid it and only ShopNexus puts it back on sale (listing_held), or it changed meanwhile (try_again)."
         content:
           application/json:
             schema:

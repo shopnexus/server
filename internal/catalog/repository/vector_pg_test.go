@@ -93,7 +93,7 @@ func TestEmbeddable(t *testing.T) {
 	if err := l.Delete(time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := ls.Save(ctx, &l, l.WriteID()); err != nil { // the same write ID as read is a normal write
+	if err := ls.Save(ctx, &l, l.WriteID(), nil); err != nil { // the same write ID as read is a normal write
 		t.Fatal(err)
 	}
 	ids, err := repository.NewVectors(db).Embeddable(ctx)

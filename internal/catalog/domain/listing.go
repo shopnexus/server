@@ -127,6 +127,9 @@ type Listing struct {
 	publishedAt  *time.Time
 	soldAt       *time.Time
 	deletedAt    *time.Time
+	// heldAt is when a console member hid the listing; nil when no member
+	// holds it.
+	heldAt *time.Time
 }
 
 // NewListing checks d and starts the listing in processing. The first write
@@ -248,6 +251,7 @@ func (l *Listing) CreatedAt() time.Time            { return l.createdAt }
 func (l *Listing) UpdatedAt() time.Time            { return l.updatedAt }
 func (l *Listing) PublishedAt() *time.Time         { return l.publishedAt }
 func (l *Listing) SoldAt() *time.Time              { return l.soldAt }
+func (l *Listing) HeldAt() *time.Time              { return l.heldAt }
 
 // Uploads returns the upload IDs of the listing's photos.
 func (l *Listing) Uploads() []uuid.UUID {
@@ -286,14 +290,15 @@ func (l *Listing) Edit(d ListingInput, refs Refs, now time.Time) error {
 }
 
 // Published records the keys of the processed uploads and puts the listing
-// on sale. It reports whether this is the listing's first publication.
+// on sale, or hidden while a member holds it. It reports whether this is
+// the listing's first publication.
 func (l *Listing) Published(keys map[uuid.UUID]PhotoKeys, now time.Time) (first bool) {
 	for i := range l.photos {
 		if k, ok := keys[l.photos[i].UploadID]; ok {
 			l.photos[i].Keys = k
 		}
 	}
-	l.status, l.rejection, l.updatedAt = StatusActive, nil, now
+	l.status, l.rejection, l.updatedAt = l.onSale(), nil, now
 	if l.publishedAt == nil {
 		l.publishedAt = &now
 		return true
@@ -307,8 +312,48 @@ func (l *Listing) Rejected(reasons map[uuid.UUID]string, now time.Time) {
 	l.status, l.rejection, l.updatedAt = StatusRejected, reasons, now
 }
 
-func (l *Listing) Hide(now time.Time) error   { return l.move(StatusActive, StatusHidden, now) }
-func (l *Listing) Unhide(now time.Time) error { return l.move(StatusHidden, StatusActive, now) }
+func (l *Listing) Hide(now time.Time) error { return l.move(StatusActive, StatusHidden, now) }
+
+// Unhide puts the seller's hidden listing back on sale; one a console
+// member holds is ErrHeld.
+func (l *Listing) Unhide(now time.Time) error {
+	if l.heldAt != nil {
+		return ErrHeld
+	}
+	return l.move(StatusHidden, StatusActive, now)
+}
+
+// Hold is a console member hiding an active or hidden listing until Lift;
+// the seller cannot unhide it meanwhile. A held listing is ErrStateConflict.
+func (l *Listing) Hold(now time.Time) error {
+	if l.heldAt != nil || (l.status != StatusActive && l.status != StatusHidden) {
+		return ErrStateConflict
+	}
+	l.status, l.heldAt, l.updatedAt = StatusHidden, &now, now
+	return nil
+}
+
+// Lift ends a member's hold, and puts a listing still hidden back on sale.
+// A listing nobody holds is ErrStateConflict.
+func (l *Listing) Lift(now time.Time) error {
+	if l.heldAt == nil {
+		return ErrStateConflict
+	}
+	if l.status == StatusHidden {
+		l.status = StatusActive
+	}
+	l.heldAt, l.updatedAt = nil, now
+	return nil
+}
+
+// onSale is the status a listing goes back on sale with: hidden while a
+// member holds it.
+func (l *Listing) onSale() Status {
+	if l.heldAt != nil {
+		return StatusHidden
+	}
+	return StatusActive
+}
 
 // MarkSold records a sale made off the app, of an active or hidden listing.
 func (l *Listing) MarkSold(now time.Time) error {
@@ -319,9 +364,10 @@ func (l *Listing) MarkSold(now time.Time) error {
 	return nil
 }
 
-// UnmarkSold undoes MarkSold; the listing is on sale again.
+// UnmarkSold undoes MarkSold; the listing is on sale again, or hidden while
+// a member holds it.
 func (l *Listing) UnmarkSold(now time.Time) error {
-	if err := l.move(StatusSold, StatusActive, now); err != nil {
+	if err := l.move(StatusSold, l.onSale(), now); err != nil {
 		return err
 	}
 	l.soldAt = nil
@@ -399,6 +445,7 @@ type ListingState struct {
 	PublishedAt  *time.Time           `json:"published_at,omitempty"`
 	SoldAt       *time.Time           `json:"sold_at,omitempty"`
 	DeletedAt    *time.Time           `json:"deleted_at,omitempty"`
+	HeldAt       *time.Time           `json:"held_at,omitempty"`
 	Lat          float64              `json:"lat"`
 	Lng          float64              `json:"lng"`
 }
@@ -410,7 +457,7 @@ func RestoreListing(st ListingState) Listing {
 		categoryCode: st.CategoryCode, condition: st.Condition, allowOffers: st.AllowOffers, communeCode: st.CommuneCode,
 		photos: st.Photos, specs: st.Specs, status: st.Status, rejection: st.Rejection, reservedFor: st.ReservedFor,
 		writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
-		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt, point: Point{Lat: st.Lat, Lng: st.Lng},
+		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt, heldAt: st.HeldAt, point: Point{Lat: st.Lat, Lng: st.Lng},
 	}
 }
 
@@ -421,7 +468,7 @@ func (l *Listing) State() ListingState {
 		CategoryCode: l.categoryCode, Condition: l.condition, AllowOffers: l.allowOffers, CommuneCode: l.communeCode,
 		Photos: l.photos, Specs: l.specs, Status: l.status, Rejection: l.rejection,
 		ReservedFor: l.reservedFor, WriteID: l.writeID, CreatedAt: l.createdAt, UpdatedAt: l.updatedAt,
-		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt, Lat: l.point.Lat, Lng: l.point.Lng,
+		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt, HeldAt: l.heldAt, Lat: l.point.Lat, Lng: l.point.Lng,
 	}
 }
 

@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/migrations"
@@ -29,7 +28,7 @@ func TestOrderStepsNameTheirOrders(t *testing.T) {
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	at := time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
 	a := pgx.NamedArgs{
-		"deal": uuid.NewV7(), "listing": catalogtest.Listing(t, db, seller), "buyer": buyer, "seller": seller,
+		"deal": uuid.NewV7(), "listing": listing(t, db, seller), "buyer": buyer, "seller": seller,
 		"first": uuid.NewV7(), "second": uuid.NewV7(),
 		"t1": at, "t2": at.Add(time.Hour), "t3": at.Add(2 * time.Hour), "t4": at.Add(3 * time.Hour),
 		"t5": at.Add(4 * time.Hour), "t9": at.Add(9 * time.Hour),

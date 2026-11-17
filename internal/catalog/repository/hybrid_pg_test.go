@@ -93,7 +93,7 @@ func TestHybridFiltersEveryList(t *testing.T) {
 	if err := l.Hide(time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err := ls.Save(ctx, &l, uuid.NewV7()); err != nil {
+	if err := ls.Save(ctx, &l, uuid.NewV7(), nil); err != nil {
 		t.Fatal(err)
 	}
 	hits, err := repository.NewSearches(db).Search(ctx, domain.Search{

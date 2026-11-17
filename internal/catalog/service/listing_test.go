@@ -488,3 +488,55 @@ func TestCopiedPhotosAreMarked(t *testing.T) {
 		t.Fatalf("as a buyer reads it: %+v %v", seen.Photos, err)
 	}
 }
+
+// A member's hold hides an active listing, refuses the seller's unhide and
+// writes listing.hide; lifting it puts the listing back on sale.
+func TestHoldAndLift(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := e.seller(t)
+	id := e.active(t, seller).ID
+	by := audit.ByCLI("test")
+
+	got, err := e.catalog.Hold(ctx, id, by)
+	if err != nil || got.ID != id || got.Status != domain.StatusHidden || got.PhotoURL == "" || got.CreatedAt.IsZero() {
+		t.Fatalf("hold: %+v %v", got, err)
+	}
+	if _, err = e.catalog.Hold(ctx, id, by); !errors.Is(err, domain.ErrStateConflict) {
+		t.Fatalf("hold twice: %v", err)
+	}
+	if _, err = e.catalog.Unhide(ctx, seller, id); !errors.Is(err, domain.ErrHeld) {
+		t.Fatalf("the seller unhides: %v", err)
+	}
+	if got, err = e.catalog.Lift(ctx, id, by); err != nil || got.Status != domain.StatusActive {
+		t.Fatalf("lift: %+v %v", got, err)
+	}
+	if _, err = e.catalog.Lift(ctx, id, by); !errors.Is(err, domain.ErrStateConflict) {
+		t.Fatalf("lift twice: %v", err)
+	}
+	var actions []string
+	rows, err := e.db.Query(ctx, `SELECT action_kind || ' ' || (details->>'account_id') FROM console_actions WHERE target_id = @id ORDER BY id`,
+		pgx.StrictNamedArgs{"id": id})
+	if err == nil {
+		actions, err = pgx.CollectRows(rows, pgx.RowTo[string])
+	}
+	if err != nil || !slices.Equal(actions, []string{"listing.hide " + seller.String(), "listing.unhide " + seller.String()}) {
+		t.Fatalf("audit: %v %v", actions, err)
+	}
+
+	if _, err = e.catalog.Hold(ctx, uuid.NewV7(), by); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unknown: %v", err)
+	}
+	gone := e.active(t, seller).ID
+	if err = e.catalog.Delete(ctx, seller, gone); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = e.catalog.Hold(ctx, gone, by); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("deleted: %v", err)
+	}
+	reported, err := e.catalog.ReportedListings(ctx, []uuid.UUID{id, gone, uuid.NewV7()})
+	if err != nil || len(reported) != 2 || reported[gone].Status != domain.StatusDeleted {
+		t.Fatalf("reported listings: %+v %v", reported, err)
+	}
+}

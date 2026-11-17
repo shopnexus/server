@@ -252,6 +252,11 @@ Action:
         - ticket.reply
         - ticket.resolve
         - ticket.reopen
+        - report.dismiss
+        - report.resolve
+        - report.reopen
+        - listing.hide
+        - listing.unhide
     target:
       type: object
       additionalProperties: false
@@ -259,13 +264,15 @@ Action:
       properties:
         kind:
           type: string
-          enum: [account, member, ticket]
+          enum: [account, member, ticket, listing]
         id:
           type: string
           format: uuid
     details:
       type: object
-      description: What the action needs beyond its name, such as a suspension's reason and end. Never a secret.
+      description: >-
+        What the action needs beyond its name, such as a suspension's reason and end. Never a secret. The report
+        actions carry resolution_id; listing.hide and listing.unhide carry account_id, the listing's seller.
 ActionList:
   type: object
   additionalProperties: false
@@ -427,3 +434,171 @@ ConsoleSupportSummary:
   properties:
     open:
       type: integer
+ReportReasons:
+  type: object
+  additionalProperties: false
+  description: How many reports of the case give each reason; a reason no report gives is absent.
+  properties:
+    banned:
+      type: integer
+      minimum: 1
+    fake:
+      type: integer
+      minimum: 1
+    scam:
+      type: integer
+      minimum: 1
+    other:
+      type: integer
+      minimum: 1
+ReportedListing:
+  type: object
+  additionalProperties: false
+  required: [id, title, price, status, created_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    price:
+      type: integer
+      format: int64
+      description: In đồng.
+    status:
+      $ref: "catalog.yaml#/ListingStatus"
+    photo_url:
+      type: string
+      description: The cover photo's thumbnail; absent until the cover is processed.
+    created_at:
+      type: string
+      format: date-time
+ReportResolution:
+  type: object
+  additionalProperties: false
+  required: [outcome, at, by]
+  properties:
+    outcome:
+      type: string
+      enum: [dismissed, actioned]
+      description: dismissed is "Không vi phạm"; actioned follows the member's hides or suspension.
+    at:
+      type: string
+      format: date-time
+    by:
+      type: object
+      additionalProperties: false
+      required: [member_id, display_name]
+      properties:
+        member_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+ReportCase:
+  type: object
+  additionalProperties: false
+  description: >-
+    The reports about one account, the seller for a listing report, that share one resolution. Withdrawn reports
+    never count. listing is the case's most reported listing, a tie going to the one reported last, absent when only
+    the account was reported; resolution is on a resolved case only.
+  required: [account, reports, reasons, first_at, last_at]
+  properties:
+    account:
+      $ref: "#/ConsoleAccount"
+    reports:
+      type: integer
+      minimum: 1
+      description: How many reports the case holds.
+    reasons:
+      $ref: "#/ReportReasons"
+    listing:
+      $ref: "#/ReportedListing"
+    first_at:
+      type: string
+      format: date-time
+    last_at:
+      type: string
+      format: date-time
+    resolution:
+      $ref: "#/ReportResolution"
+ReportCaseList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/ReportCase"
+    next_cursor:
+      type: string
+      format: uuid
+    total:
+      type: integer
+      minimum: 0
+      description: With status=open, how many accounts have an open case, whatever the page.
+ReportCaseReport:
+  type: object
+  additionalProperties: false
+  required: [id, reporter, reason, note, created_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    reporter:
+      type: object
+      additionalProperties: false
+      required: [id, display_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          description: Empty for a deleted account.
+    reason:
+      type: string
+      enum: [banned, fake, scam, other]
+    note:
+      type: string
+      description: May be empty.
+    listing_id:
+      type: string
+      format: uuid
+      description: The listing reported; absent for a report of the account.
+    conversation_id:
+      type: string
+      format: uuid
+      description: The reporter's conversation with the account the report came from; absent when none was named.
+    created_at:
+      type: string
+      format: date-time
+ReportCaseDetail:
+  type: object
+  additionalProperties: false
+  description: A case as ReportCase says; resolution is on a resolved case only.
+  required: [account, reasons, first_at, last_at, listings, reports]
+  properties:
+    account:
+      $ref: "#/ConsoleAccount"
+    reasons:
+      $ref: "#/ReportReasons"
+    first_at:
+      type: string
+      format: date-time
+    last_at:
+      type: string
+      format: date-time
+    resolution:
+      $ref: "#/ReportResolution"
+    listings:
+      type: array
+      description: Every listing reported in the case, the most reported first.
+      items:
+        $ref: "#/ReportedListing"
+    reports:
+      type: array
+      description: The case's reports, newest first.
+      items:
+        $ref: "#/ReportCaseReport"

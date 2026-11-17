@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/migrations"
@@ -26,7 +25,7 @@ func TestAddressKind(t *testing.T) {
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	address, order := uuid.NewV7(), uuid.NewV7()
 	a := pgx.NamedArgs{
-		"address": address, "deal": uuid.NewV7(), "order": order, "listing": catalogtest.Listing(t, db, seller),
+		"address": address, "deal": uuid.NewV7(), "order": order, "listing": listing(t, db, seller),
 		"buyer": buyer, "seller": seller,
 	}
 	for _, q := range []string{

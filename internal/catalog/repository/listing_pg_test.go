@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	"github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/catalog/repository"
+	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
@@ -32,6 +33,43 @@ func listing(t *testing.T, seller uuid.UUID) domain.Listing {
 		t.Fatal(err)
 	}
 	return l
+}
+
+// A member's hold is stored with the listing, and Save writes its audit row
+// in the same transaction; a stale save writes neither.
+func TestSaveHoldWithItsAuditRow(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewListings(db)
+	ctx := context.Background()
+	l := listing(t, accounttest.New(t, db))
+	if err := s.Insert(ctx, l); err != nil {
+		t.Fatal(err)
+	}
+	l.Published(nil, now)
+	if err := s.Save(ctx, &l, uuid.NewV7(), nil); err != nil {
+		t.Fatal(err)
+	}
+	stale := l
+	if err := l.Hold(now); err != nil {
+		t.Fatal(err)
+	}
+	entry := audit.Entry{Actor: audit.ByCLI("test"), Action: audit.ListingHide, Target: audit.Listing(l.ID()), At: now}
+	if err := s.Save(ctx, &l, uuid.NewV7(), &entry); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(ctx, &stale, uuid.NewV7(), &entry); !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("stale: %v", err)
+	}
+	got, err := s.Get(ctx, l.ID())
+	if err != nil || got.Status() != domain.StatusHidden || got.HeldAt() == nil || !got.HeldAt().Equal(now) {
+		t.Fatalf("held: %+v %v", got.State(), err)
+	}
+	var n int
+	if err = db.QueryRow(ctx, `SELECT count(*) FROM console_actions WHERE target_kind = 'listing' AND target_id = @id AND action_kind = 'listing.hide'`,
+		pgx.StrictNamedArgs{"id": l.ID()}).Scan(&n); err != nil || n != 1 {
+		t.Fatalf("audit rows: %d %v", n, err)
+	}
 }
 
 func TestInsertGetSave(t *testing.T) {
@@ -55,17 +93,17 @@ func TestInsertGetSave(t *testing.T) {
 	}
 	got.Published(map[uuid.UUID]domain.PhotoKeys{got.Photos()[0].UploadID: {Photo: "media/a.jpg", Thumb: "media/a_thumb.jpg"}}, now)
 	ev := events.Event{ID: uuid.NewV7(), Kind: events.ListingPublished, SubjectID: l.ID(), OccurredAt: now}
-	if err := s.Save(ctx, &got, uuid.NewV7(), ev); err != nil {
+	if err := s.Save(ctx, &got, uuid.NewV7(), nil, ev); err != nil {
 		t.Fatal(err)
 	}
 	if err := got.Hide(now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &got, uuid.NewV7()); err != nil {
+	if err := s.Save(ctx, &got, uuid.NewV7(), nil); err != nil {
 		t.Fatalf("second save: %v", err)
 	}
 	stale := l
-	if err := s.Save(ctx, &stale, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
+	if err := s.Save(ctx, &stale, uuid.NewV7(), nil); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("stale: %v", err)
 	}
 	var kind string
@@ -160,7 +198,7 @@ func TestSaveBackOnSaleHoldsTheCap(t *testing.T) {
 	if err := sold.MarkSold(now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &sold, uuid.NewV7()); err != nil {
+	if err := s.Save(ctx, &sold, uuid.NewV7(), nil); err != nil {
 		t.Fatal(err)
 	}
 	others := make([]domain.Listing, 0, domain.MaxOnSale)
@@ -175,16 +213,16 @@ func TestSaveBackOnSaleHoldsTheCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	unsold := sold
-	if err := s.Save(ctx, &unsold, uuid.NewV7()); !errors.Is(err, domain.ErrCapReached) {
+	if err := s.Save(ctx, &unsold, uuid.NewV7(), nil); !errors.Is(err, domain.ErrCapReached) {
 		t.Fatalf("at the cap: %v", err)
 	}
 	if err := others[0].Delete(now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &others[0], uuid.NewV7()); err != nil {
+	if err := s.Save(ctx, &others[0], uuid.NewV7(), nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &sold, uuid.NewV7()); err != nil {
+	if err := s.Save(ctx, &sold, uuid.NewV7(), nil); err != nil {
 		t.Fatalf("below the cap: %v", err)
 	}
 }
@@ -241,7 +279,7 @@ func TestReservedRoundTrip(t *testing.T) {
 	if _, err := l.Reserve(order, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &l, uuid.NewV7()); err != nil {
+	if err := s.Save(ctx, &l, uuid.NewV7(), nil); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.Get(ctx, l.ID())
@@ -249,7 +287,7 @@ func TestReservedRoundTrip(t *testing.T) {
 		t.Fatalf("%+v %v", got.State(), err)
 	}
 	got.Release(order, now)
-	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+	if err = s.Save(ctx, &got, uuid.NewV7(), nil); err != nil {
 		t.Fatal(err)
 	}
 	if got, err = s.Get(ctx, l.ID()); err != nil || got.ReservedFor() != (uuid.UUID{}) {
@@ -276,7 +314,7 @@ func TestCountByStatus(t *testing.T) {
 		}
 		l.Published(map[uuid.UUID]domain.PhotoKeys{}, now)
 		change(&l)
-		if err := s.Save(ctx, &l, uuid.NewV7()); err != nil {
+		if err := s.Save(ctx, &l, uuid.NewV7(), nil); err != nil {
 			t.Fatal(err)
 		}
 	}

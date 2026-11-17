@@ -98,7 +98,7 @@ func (e env) edit(t *testing.T, id uuid.UUID, change func(*catalogdomain.Listing
 	if err = l.Edit(d, catalogdomain.Refs{CategoryIsLeaf: true, CommuneExists: true}, time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	if err = e.listings.Save(ctx, &l, uuid.NewV7()); err != nil {
+	if err = e.listings.Save(ctx, &l, uuid.NewV7(), nil); err != nil {
 		t.Fatal(err)
 	}
 }

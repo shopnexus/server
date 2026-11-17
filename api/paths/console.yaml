@@ -783,3 +783,252 @@ supportSummary:
               $ref: "../schemas/console.yaml#/ConsoleSupportSummary"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+reportCases:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listConsoleReportCases
+    summary: Report cases, open or resolved, newest first.
+    description: >-
+      An open case is an account's reports not withdrawn and not resolved, ordered by its latest report, and total counts the open cases. A resolved case is the reports one resolution closed, ordered by the resolution's time; it has no total.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [open, resolved]
+          default: open
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ReportCaseList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "400":
+        description: "A status other than open or resolved, or a bad cursor or limit (invalid_request)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+reportCase:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getConsoleReportCase
+    summary: An account's open report case or, without one, its latest resolved case.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ReportCaseDetail"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "400":
+        description: "A bad account ID (invalid_request)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "Nobody has reported the account, withdrawn reports aside (report_case_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+reportCaseDismiss:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: dismissConsoleReportCase
+    summary: Close the account's open case as dismissed ("Không vi phạm").
+    description: >-
+      Records report.dismiss.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ReportCaseDetail"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "409":
+        description: "The account has no open case (report_case_not_open), or it is the ShopNexus system account (account_is_system)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+reportCaseResolve:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: resolveConsoleReportCase
+    summary: Close the account's open case as actioned.
+    description: >-
+      The console calls it after its hides or suspension succeed. Records report.resolve.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ReportCaseDetail"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "409":
+        description: "The account has no open case (report_case_not_open), or it is the ShopNexus system account (account_is_system)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+reportCaseReopen:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: reopenConsoleReportCase
+    summary: Undo the account's latest resolution.
+    description: >-
+      Its reports join the account's open case, with any newer reports; a report whose reporter has reported the same target again since stays out, the newer one standing for it. Records report.reopen.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: account_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ReportCaseDetail"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "409":
+        description: "The account has no resolution to undo (report_case_not_resolved), or it is the ShopNexus system account (account_is_system), or a report arrived meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+listingHide:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: hideConsoleListing
+    summary: Hide a listing as ShopNexus.
+    description: >-
+      An active listing, or one its seller hid, goes hidden, and its seller cannot put it back on sale until a member unhides it. Records listing.hide.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ReportedListing"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing, or a deleted one (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "Hidden by ShopNexus already, or in a status that cannot be hidden (listing_state_conflict), or changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+listingUnhide:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: unhideConsoleListing
+    summary: Lift ShopNexus's hide of a listing.
+    description: >-
+      The listing goes back on sale when it is still hidden. Records listing.unhide.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ReportedListing"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing, or a deleted one (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "Not hidden by ShopNexus (listing_state_conflict), or changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

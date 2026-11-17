@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
@@ -36,11 +37,12 @@ type Listings interface {
 	// GetMany returns the listings among ids in any status and order; an
 	// unknown ID is left out.
 	GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Listing, error)
-	// Save writes l and evs when its row still has l.WriteID() or already
-	// has writeID, then sets its write ID. Otherwise ErrConflict and nothing
-	// is written. A listing coming back on sale, from sold, is
-	// domain.ErrCapReached when its seller is at the cap.
-	Save(ctx context.Context, l *domain.Listing, writeID uuid.UUID, evs ...events.Event) error
+	// Save writes l, entry when it is not nil, and evs when its row still
+	// has l.WriteID() or already has writeID, then sets its write ID.
+	// Otherwise ErrConflict and nothing is written. A listing coming back
+	// on sale, from sold, is domain.ErrCapReached when its seller is at the
+	// cap.
+	Save(ctx context.Context, l *domain.Listing, writeID uuid.UUID, entry *audit.Entry, evs ...events.Event) error
 	// ListBySeller is a query: seller's listings in statuses with IDs below
 	// p.Before() and not in except, newest first, at most p.Fetch().
 	ListBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status, except []uuid.UUID, p page.Request) ([]domain.Listing, error)

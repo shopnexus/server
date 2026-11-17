@@ -16,6 +16,7 @@ import (
 	mediarepo "github.com/shopnexus/server2/internal/media/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
@@ -106,11 +107,11 @@ type loseFirstEdit struct {
 	lost atomic.Bool
 }
 
-func (s *loseFirstEdit) Save(ctx context.Context, l *domain.Listing, writeID uuid.UUID, evs ...events.Event) error {
+func (s *loseFirstEdit) Save(ctx context.Context, l *domain.Listing, writeID uuid.UUID, entry *audit.Entry, evs ...events.Event) error {
 	if len(evs) == 1 && evs[0].Kind == events.ListingUpdated && !s.lost.Swap(true) {
 		return repository.ErrConflict
 	}
-	return s.Listings.Save(ctx, l, writeID, evs...)
+	return s.Listings.Save(ctx, l, writeID, entry, evs...)
 }
 
 // An edit that added a photo and then lost a race is refused with

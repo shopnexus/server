@@ -43,7 +43,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 	chats chatsvc.Service,
 ) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
-		Reviews: repository.NewReviews(d.Pool), Reports: repository.NewReports(d.Pool), Scams: repository.NewScamWarnings(d.Pool),
+		Reviews: repository.NewReviews(d.Pool), Reports: repository.NewReports(d.Pool), Cases: repository.NewCases(d.Pool), Scams: repository.NewScamWarnings(d.Pool),
 		Accounts: accounts, Catalog: catalog, Deals: deals, Chats: chats, Classifier: s.Classifier,
 		Facts: []service.FactSource{
 			service.AccountAge{Accounts: accounts},

@@ -941,6 +941,15 @@ agree during a deploy.
   sold. Active and reserved are public. An edit that adds an upload, or an
   edit of a rejected listing, returns the listing to processing; an edit
   of a sold, deleted or reserved listing is `listing_state_conflict`.
+- A console member hides a listing with `POST /v1/console/listings/{id}/hide`
+  (`Service.Hold`, decided 2026-11-17): an active listing, or one its seller
+  hid, goes hidden and `listings.held_at` is set (migration 0054). While it
+  is held the seller's `unhide` is 409 `listing_held`, and a publish after
+  an edit or an `unmark-sold` leaves it hidden. `…/unhide`
+  (`Service.Lift`) clears the hold and puts a listing still hidden back on
+  sale. Both write `listing.hide` or `listing.unhide` with `target_kind =
+  listing` and the seller as `details.account_id`, through the `audit.Entry`
+  that `Listings.Save` takes beside its events.
 - A listing is reserved while an order's parcel travels, and
   `reserved_for` names the order (migration 0010). `Service.Reserve`,
   `Release` and `SellTo` take the listing and the order, so module deal's
@@ -1756,7 +1765,32 @@ Reports are trust's too (decided 2026-11-10, spec:
   first and reports second. Reporting the account again replaces the
   conversation or clears it. Trust takes chat's service, so `app.go`
   mounts chat before trust.
-- Nobody reads reports yet: the console queue is a later item.
+- Console members work reports as cases (decided 2026-11-17, spec:
+  `~/shopnexus/docs/superpowers/specs/2026-11-16-console-agent-design.md`,
+  Phase 3 without the agent). A case is the reports about one account,
+  not withdrawn, that share one row of `report_resolutions` (migration
+  0054); the reports with no `resolution_id` are the account's open case.
+  A resolved report no longer counts as the reporter's open report of its
+  target, so the partial unique indexes take `resolution_id IS NULL` and a
+  new report opens the next case.
+- `GET /v1/console/reports?status=open|resolved` lists cases: open ones by
+  their latest report with `total`, resolved ones by `resolved_at`, both
+  paging by the ID cursor of the row that sorts them (the latest report, or
+  the resolution). `GET /v1/console/reports/{account_id}` is the open case
+  or else the latest resolved one, with every listing reported in it, most
+  reported first, and its reports newest first; an account with no report
+  that counts is `report_case_not_found`. Module trust builds both views
+  from account's `ConsoleAccountsOf` and catalog's `ReportedListings`.
+- `…/dismiss` and `…/resolve` close the open case as `dismissed` or
+  `actioned` (409 `report_case_not_open`); `…/reopen` marks the latest
+  resolution `reopened_at` and opens its reports again (409
+  `report_case_not_resolved`), except one whose reporter has reported the
+  same target since, which stays with the reopened resolution. Each runs
+  under `pg_advisory_xact_lock` on the account and writes `report.dismiss`,
+  `report.resolve` or `report.reopen` (target the account,
+  `details.resolution_id`) in its transaction. The ShopNexus account is
+  `account_is_system`. Console mounts after trust and catalog, whose
+  services its handler calls, as it calls support's.
 
 Scam warnings are trust's too (decided 2026-11-11, spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-11-server2-scam-warning-design.md`).

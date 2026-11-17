@@ -39,7 +39,7 @@ func (c *Catalog) SellerLeft(ctx context.Context, seller uuid.UUID) error {
 			if err = ls[i].Delete(now); err != nil {
 				return fmt.Errorf("delete listing %s: %w", ls[i].ID(), err)
 			}
-			err = c.listings.Save(ctx, &ls[i], uuid.NewV7(),
+			err = c.listings.Save(ctx, &ls[i], uuid.NewV7(), nil,
 				events.Event{ID: uuid.NewV7(), Kind: events.ListingDeleted, SubjectID: ls[i].ID(), OccurredAt: now})
 			if errors.Is(err, repository.ErrConflict) {
 				return apperr.ErrTryAgain

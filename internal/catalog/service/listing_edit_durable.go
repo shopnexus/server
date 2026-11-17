@@ -90,7 +90,7 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 	w, evID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)
 	lost, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 		l := l // Save sets the write ID on its copy; l outside stays as journaled
-		stepErr := s.Listings.Save(rc, &l, w, events.Event{ID: evID, Kind: events.ListingUpdated, SubjectID: in.ID, OccurredAt: at})
+		stepErr := s.Listings.Save(rc, &l, w, nil, events.Event{ID: evID, Kind: events.ListingUpdated, SubjectID: in.ID, OccurredAt: at})
 		return restatex.Outcome(stepErr, repository.ErrConflict)
 	})
 	if err != nil {

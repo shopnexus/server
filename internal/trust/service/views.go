@@ -7,8 +7,11 @@ import (
 	"uuid"
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-
+	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
+	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/trust/domain"
+	"github.com/shopnexus/server2/internal/trust/repository"
 )
 
 // ReportInput is what POST /v1/reports carries: exactly one of ListingID
@@ -111,4 +114,77 @@ type ScamWarningView struct {
 type ScamSignalView struct {
 	Code string `json:"code"`
 	Text string `json:"text"`
+}
+
+// CaseList is the ReportCaseList schema in api/schemas/console.yaml. Total,
+// the number of open cases, is set for the open list only.
+type CaseList struct {
+	page.Page[ReportCase]
+
+	Total *int `json:"total,omitempty"`
+}
+
+// ReportCase is the ReportCase schema: one case in the console's queue.
+// Listing is the case's most reported listing, nil when only the account
+// was reported.
+type ReportCase struct {
+	Account    accountsvc.ConsoleAccount   `json:"account"`
+	Reports    int                         `json:"reports"`
+	Reasons    map[domain.Reason]int       `json:"reasons"`
+	Listing    *catalogsvc.ReportedListing `json:"listing,omitempty"`
+	FirstAt    time.Time                   `json:"first_at"`
+	LastAt     time.Time                   `json:"last_at"`
+	Resolution *ResolutionView             `json:"resolution,omitempty"`
+	// key is what the list pages by.
+	key uuid.UUID
+}
+
+// ResolutionView is the ReportResolution schema.
+type ResolutionView struct {
+	Outcome domain.Outcome `json:"outcome"`
+	At      time.Time      `json:"at"`
+	By      Resolver       `json:"by"`
+}
+
+// Resolver is the console member who resolved a case.
+type Resolver struct {
+	MemberID    uuid.UUID `json:"member_id"`
+	DisplayName string    `json:"display_name"`
+}
+
+// CaseDetail is the ReportCaseDetail schema: a case with every listing
+// reported in it, most reported first, and its reports, newest first.
+type CaseDetail struct {
+	Account    accountsvc.ConsoleAccount    `json:"account"`
+	Reasons    map[domain.Reason]int        `json:"reasons"`
+	FirstAt    time.Time                    `json:"first_at"`
+	LastAt     time.Time                    `json:"last_at"`
+	Resolution *ResolutionView              `json:"resolution,omitempty"`
+	Listings   []catalogsvc.ReportedListing `json:"listings"`
+	Reports    []CaseReport                 `json:"reports"`
+}
+
+// CaseReport is the ReportCaseReport schema: one report as console members
+// see it.
+type CaseReport struct {
+	ID             uuid.UUID     `json:"id"`
+	Reporter       Reporter      `json:"reporter"`
+	Reason         domain.Reason `json:"reason"`
+	Note           string        `json:"note"`
+	ListingID      uuid.UUID     `json:"listing_id,omitzero"`
+	ConversationID uuid.UUID     `json:"conversation_id,omitzero"`
+	CreatedAt      time.Time     `json:"created_at"`
+}
+
+// Reporter is who made a report; a deleted account's name is empty.
+type Reporter struct {
+	ID          uuid.UUID `json:"id"`
+	DisplayName string    `json:"display_name"`
+}
+
+func resolutionOf(r *repository.Resolution) *ResolutionView {
+	if r == nil {
+		return nil
+	}
+	return &ResolutionView{Outcome: r.Outcome, At: r.At, By: Resolver{MemberID: r.MemberID, DisplayName: r.MemberName}}
 }

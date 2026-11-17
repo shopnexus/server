@@ -93,7 +93,7 @@ func (s ListingPublish) Run(ctx restate.Context, id uuid.UUID) error {
 	w := restatex.NewID(ctx, at)
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
 		l := l // Save sets the write ID on its copy; l outside stays as journaled
-		return restatex.Ignore(s.Listings.Save(rc, &l, w, evs...), repository.ErrConflict)
+		return restatex.Ignore(s.Listings.Save(rc, &l, w, nil, evs...), repository.ErrConflict)
 	}); err != nil {
 		return fmt.Errorf("save listing: %w", err)
 	}

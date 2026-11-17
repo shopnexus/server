@@ -17,6 +17,20 @@ func (s *Account) ConsoleAccount(ctx context.Context, id uuid.UUID) (ConsoleAcco
 	return consoleAccountOf(a, s.now()), nil
 }
 
+// ConsoleAccountsOf reads the accounts among ids in one query.
+func (s *Account) ConsoleAccountsOf(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]ConsoleAccount, error) {
+	rows, err := s.accounts.GetMany(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get accounts: %w", err)
+	}
+	now := s.now()
+	out := make(map[uuid.UUID]ConsoleAccount, len(rows))
+	for i := range rows {
+		out[rows[i].ID()] = consoleAccountOf(rows[i], now)
+	}
+	return out, nil
+}
+
 // ConsoleAccounts lists accounts as console members see them, newest first.
 func (s *Account) ConsoleAccounts(ctx context.Context, p page.Request) (page.Page[ConsoleAccount], error) {
 	list, err := s.accounts.List(ctx, p)

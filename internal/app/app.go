@@ -337,13 +337,14 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	deals = dealm.Service
 	erasure.Mount(d, accounts, dealm.Service)
 	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
-	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service)
 	trustm := trust.Mount(d, trust.Settings{
 		Classifier: trust.LLMClassifier(
 			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: &http.Client{}},
 			cfg.Trust.LLMModel, cfg.Trust.CallTimeout, log),
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, accounts, catalogm.Service, dealm.Service, chatm.Service)
+	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service, trustm.Service,
+		catalogm.Service)
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
 	discoverym := discovery.Mount(d, discovery.Settings{
 		Model:       model,

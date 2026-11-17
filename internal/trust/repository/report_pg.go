@@ -45,10 +45,10 @@ func scanReport(row pgx.Row, more ...any) (domain.Report, error) {
 func (s pgReports) Open(ctx context.Context, r domain.Report) (domain.Report, bool, error) {
 	st := r.State()
 	// Each target has its partial index; ON CONFLICT names the one it hits.
-	target := `(reporter_id, account_id) WHERE withdrawn_at IS NULL AND listing_id IS NULL`
+	target := `(reporter_id, account_id) WHERE withdrawn_at IS NULL AND resolution_id IS NULL AND listing_id IS NULL`
 	var listing *uuid.UUID
 	if st.ListingID != (uuid.UUID{}) {
-		target, listing = `(reporter_id, listing_id) WHERE withdrawn_at IS NULL AND listing_id IS NOT NULL`, &st.ListingID
+		target, listing = `(reporter_id, listing_id) WHERE withdrawn_at IS NULL AND resolution_id IS NULL AND listing_id IS NOT NULL`, &st.ListingID
 	}
 	var conversation *uuid.UUID
 	if st.ConversationID != (uuid.UUID{}) {

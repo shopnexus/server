@@ -142,6 +142,64 @@ func TestTransitions(t *testing.T) {
 	conflict("unhide deleted", l.Unhide(now))
 }
 
+// A member's hold keeps a listing hidden: the seller cannot unhide it, and
+// neither publishing an edit nor unmarking a sale puts it back on sale.
+func TestHold(t *testing.T) {
+	t.Parallel()
+	conflict := func(name string, err error) {
+		t.Helper()
+		if !errors.Is(err, domain.ErrStateConflict) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	processing := newListing(t)
+	conflict("hold processing", processing.Hold(now))
+	conflict("lift unheld", processing.Lift(now))
+
+	l := published(t)
+	if err := l.Hold(now); err != nil || l.Status() != domain.StatusHidden || l.HeldAt() == nil || !l.HeldAt().Equal(now) {
+		t.Fatalf("hold active: %v %+v", err, l.State())
+	}
+	conflict("hold twice", l.Hold(now))
+	if err := l.Unhide(now); !errors.Is(err, domain.ErrHeld) {
+		t.Fatalf("seller unhides: %v", err)
+	}
+	conflict("seller hides", l.Hide(now))
+	d := draft()
+	d.Photos = append(d.Photos, uuid.NewV7())
+	if err := l.Edit(d, known, now); err != nil || l.Status() != domain.StatusProcessing {
+		t.Fatalf("edit held: %v %s", err, l.Status())
+	}
+	l.Published(nil, now)
+	if l.Status() != domain.StatusHidden {
+		t.Fatalf("published while held: %s", l.Status())
+	}
+	if err := l.MarkSold(now); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.UnmarkSold(now); err != nil || l.Status() != domain.StatusHidden {
+		t.Fatalf("unsell held: %v %s", err, l.Status())
+	}
+	if err := l.Lift(now); err != nil || l.Status() != domain.StatusActive || l.HeldAt() != nil {
+		t.Fatalf("lift: %v %+v", err, l.State())
+	}
+	conflict("lift twice", l.Lift(now))
+
+	hidden := published(t)
+	if err := hidden.Hide(now); err != nil {
+		t.Fatal(err)
+	}
+	if err := hidden.Hold(now); err != nil || hidden.Status() != domain.StatusHidden || hidden.HeldAt() == nil {
+		t.Fatalf("hold hidden: %v %+v", err, hidden.State())
+	}
+	if err := hidden.MarkSold(now); err != nil {
+		t.Fatal(err)
+	}
+	if err := hidden.Lift(now); err != nil || hidden.Status() != domain.StatusSold || hidden.HeldAt() != nil {
+		t.Fatalf("lift sold: %v %+v", err, hidden.State())
+	}
+}
+
 func TestRejectedThenEdited(t *testing.T) {
 	t.Parallel()
 	l := newListing(t)

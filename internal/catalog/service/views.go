@@ -38,6 +38,18 @@ type ListingView struct {
 	SoldAt       *time.Time       `json:"sold_at,omitempty"`
 }
 
+// ReportedListing is the ReportedListing schema in api/schemas/console.yaml:
+// a listing as console members see it beside a report case. PhotoURL is the
+// cover's thumbnail, empty until the cover is processed.
+type ReportedListing struct {
+	ID        uuid.UUID     `json:"id"`
+	Title     string        `json:"title"`
+	Price     int64         `json:"price"`
+	Status    domain.Status `json:"status"`
+	PhotoURL  string        `json:"photo_url,omitempty"`
+	CreatedAt time.Time     `json:"created_at"`
+}
+
 // Summary is what another module reads of a listing, in any status.
 // CoverThumbURL is empty until the cover is processed.
 // ReservedFor is the order a reserved listing is held for. A flow of

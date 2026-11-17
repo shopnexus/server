@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 )
 
@@ -42,7 +41,7 @@ func TestOrderPickups(t *testing.T) {
 	db := pgtest.New(t)
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	insert := func(mode, point, name string) error {
-		a := pgx.NamedArgs{"deal": uuid.NewV7(), "listing": catalogtest.Listing(t, db, seller), "buyer": buyer, "seller": seller}
+		a := pgx.NamedArgs{"deal": uuid.NewV7(), "listing": listing(t, db, seller), "buyer": buyer, "seller": seller}
 		if _, err := db.Exec(ctx, insertPairDeal, a); err != nil {
 			t.Fatal(err)
 		}

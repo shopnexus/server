@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/migrations"
@@ -38,7 +37,7 @@ VALUES (@id, LEAST(@a::uuid, @b::uuid), GREATEST(@a::uuid, @b::uuid), 'pair', no
 		id := uuid.NewV7()
 		deals[id] = p
 		if _, err := db.Exec(ctx, insertDeal, pgx.NamedArgs{
-			"deal": id, "listing": catalogtest.Listing(t, db, p[1]), "buyer": p[0], "seller": p[1],
+			"deal": id, "listing": listing(t, db, p[1]), "buyer": p[0], "seller": p[1],
 		}); err != nil {
 			t.Fatal(err)
 		}
@@ -78,7 +77,7 @@ AND account_id IN (@a, @b)`, pgx.StrictNamedArgs{"id": opened, "a": seller, "b":
 		t.Fatalf("pair conversations: %d %v", pairs, err)
 	}
 	if _, err := db.Exec(ctx, insertDeal, pgx.NamedArgs{
-		"deal": uuid.NewV7(), "listing": catalogtest.Listing(t, db, seller), "buyer": silent, "seller": seller,
+		"deal": uuid.NewV7(), "listing": listing(t, db, seller), "buyer": silent, "seller": seller,
 	}); err == nil {
 		t.Error("a deal went in without a conversation")
 	}
@@ -93,7 +92,7 @@ func TestDealMessageChecks(t *testing.T) {
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	deal := uuid.NewV7()
 	if _, err := db.Exec(ctx, insertPairDeal, pgx.NamedArgs{
-		"deal": deal, "listing": catalogtest.Listing(t, db, seller), "buyer": buyer, "seller": seller,
+		"deal": deal, "listing": listing(t, db, seller), "buyer": buyer, "seller": seller,
 	}); err != nil {
 		t.Fatal(err)
 	}
