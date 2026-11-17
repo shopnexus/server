@@ -127,6 +127,67 @@ func TestPGSessions(t *testing.T) {
 		}
 	})
 
+	// Reauthenticate finds no revoked session, moves auth_time forward only
+	// and keeps the write ID, so a refresh read before it saves, and the
+	// save hands the refresh the new auth_time to sign with.
+	t.Run("reauthenticate", func(t *testing.T) {
+		t.Parallel()
+		s, newAccount := newSessions(t)
+		sess, _ := create(t, s, newAccount(), now)
+		later := now.Add(20 * time.Minute)
+		got, err := s.Reauthenticate(ctx, sess.ID(), later)
+		if err != nil || !got.AuthTime().Equal(later) || got.WriteID() != sess.WriteID() || got.ID() != sess.ID() {
+			t.Fatalf("%+v %v", got, err)
+		}
+		if got, err = s.Reauthenticate(ctx, sess.ID(), now); err != nil || !got.AuthTime().Equal(later) {
+			t.Fatalf("an earlier time moved auth_time back: %v %v", got.AuthTime(), err)
+		}
+		sess.Rotate(later)
+		if err = s.Save(ctx, &sess, uuid.NewV7()); err != nil {
+			t.Fatalf("a refresh read before the reauthentication: %v", err)
+		}
+		if !sess.AuthTime().Equal(later) {
+			t.Fatalf("the refresh signs with auth_time %v", sess.AuthTime())
+		}
+		if got, _ = s.Get(ctx, sess.ID()); !got.AuthTime().Equal(later) {
+			t.Fatalf("the refresh wrote auth_time back: %v", got.AuthTime())
+		}
+		sess.Revoke(domain.RevokedSignOut, later)
+		if err = s.Save(ctx, &sess, uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = s.Reauthenticate(ctx, sess.ID(), later.Add(time.Minute)); !errors.Is(err, repository.ErrNotFound) {
+			t.Fatalf("a revoked session: %v", err)
+		}
+		if _, err = s.Reauthenticate(ctx, uuid.NewV7(), later); !errors.Is(err, repository.ErrNotFound) {
+			t.Fatalf("an unknown session: %v", err)
+		}
+	})
+
+	// A session past its age or idle limit at the time given is not found,
+	// and its auth_time stays.
+	t.Run("reauthenticate an ended session", func(t *testing.T) {
+		t.Parallel()
+		s, newAccount := newSessions(t)
+		acc := newAccount()
+		old, _ := create(t, s, acc, now)
+		if _, err := s.Reauthenticate(ctx, old.ID(), old.ExpiresAt()); !errors.Is(err, repository.ErrNotFound) {
+			t.Fatalf("at its expiry: %v", err)
+		}
+		idle, _ := create(t, s, acc, now)
+		if _, err := s.Reauthenticate(ctx, idle.ID(), now.Add(domain.SessionIdleLimit)); !errors.Is(err, repository.ErrNotFound) {
+			t.Fatalf("idle: %v", err)
+		}
+		for _, x := range []domain.Session{old, idle} {
+			if got, _ := s.Get(ctx, x.ID()); !got.AuthTime().Equal(now) {
+				t.Fatalf("auth_time %v", got.AuthTime())
+			}
+		}
+		if _, err := s.Reauthenticate(ctx, idle.ID(), now.Add(domain.SessionIdleLimit-time.Second)); err != nil {
+			t.Fatalf("a second before the idle limit: %v", err)
+		}
+	})
+
 	t.Run("revoke reason", func(t *testing.T) {
 		t.Parallel()
 		s, newAccount := newSessions(t)

@@ -37,7 +37,7 @@ func insert(t *testing.T, book repository.Addresses, owner uuid.UUID, n int) []d
 	out := make([]domain.Address, 0, n)
 	for range n {
 		a := address(t, owner)
-		if err := book.Insert(context.Background(), uuid.NewV7(), &a); err != nil {
+		if err := book.Insert(context.Background(), uuid.NewV7(), &a, false); err != nil {
 			t.Fatal(err)
 		}
 		out = append(out, a)
@@ -109,20 +109,20 @@ func TestSaveAddressWriteID(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := uuid.NewV7()
-	if err := book.Save(ctx, &a, n); err != nil {
+	if err := book.Save(ctx, &a, n, false); err != nil {
 		t.Fatal(err)
 	}
 	retry := stale
 	if err := retry.Edit(domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: domain.AddressWork}, true); err != nil {
 		t.Fatal(err)
 	}
-	if err := book.Save(ctx, &retry, n); err != nil {
+	if err := book.Save(ctx, &retry, n, false); err != nil {
 		t.Fatalf("a retry with the same write ID: %v", err)
 	}
-	if err := book.Save(ctx, &stale, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
+	if err := book.Save(ctx, &stale, uuid.NewV7(), false); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("a stale save: %v", err)
 	}
-	if err := book.Save(ctx, &a, uuid.NewV7()); err != nil {
+	if err := book.Save(ctx, &a, uuid.NewV7(), false); err != nil {
 		t.Fatalf("a second save in a row: %v", err)
 	}
 	got, err := book.Get(ctx, me, a.ID())
@@ -134,7 +134,7 @@ func TestSaveAddressWriteID(t *testing.T) {
 	if err = book.SetDefault(ctx, me, other.ID()); err != nil {
 		t.Fatal(err)
 	}
-	if err = book.Save(ctx, &a, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
+	if err = book.Save(ctx, &a, uuid.NewV7(), false); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("a save read before the default moved: %v", err)
 	}
 }
@@ -149,7 +149,7 @@ func TestAddressLimit(t *testing.T) {
 	for range domain.MaxAddresses + 5 {
 		wg.Go(func() {
 			a := address(t, me)
-			errs <- book.Insert(ctx, uuid.NewV7(), &a)
+			errs <- book.Insert(ctx, uuid.NewV7(), &a, false)
 		})
 	}
 	wg.Wait()
@@ -242,19 +242,136 @@ func TestAddressRequestKey(t *testing.T) {
 	me, other := seed(t, s), seed(t, s)
 	key := uuid.NewV7()
 	first := address(t, me)
-	if err := book.Insert(ctx, key, &first); err != nil {
+	if err := book.Insert(ctx, key, &first, false); err != nil {
 		t.Fatal(err)
 	}
 	insert(t, book, me, domain.MaxAddresses-1)
 	again := address(t, me)
-	if err := book.Insert(ctx, key, &again); err != nil || again.ID() != first.ID() || !again.IsDefault() {
+	if err := book.Insert(ctx, key, &again, false); err != nil || again.ID() != first.ID() || !again.IsDefault() {
 		t.Fatalf("retry: %v %v %v", err, again.ID(), again.IsDefault())
 	}
 	if rows, err := book.List(ctx, me); err != nil || len(rows) != domain.MaxAddresses {
 		t.Fatalf("%d stored: %v", len(rows), err)
 	}
 	theirs := address(t, other)
-	if err := book.Insert(ctx, key, &theirs); err != nil || theirs.ID() == first.ID() {
+	if err := book.Insert(ctx, key, &theirs, false); err != nil || theirs.ID() == first.ID() {
 		t.Fatalf("another account's key: %v", err)
+	}
+}
+
+// TestInsertAsDefault: an address added with makeDefault takes the default
+// in the insert's transaction, and a retried key moves nothing.
+func TestInsertAsDefault(t *testing.T) {
+	t.Parallel()
+	s, book := newBook(t)
+	ctx := context.Background()
+	me := seed(t, s)
+	first := insert(t, book, me, 1)[0]
+	key := uuid.NewV7()
+	second := address(t, me)
+	if err := book.Insert(ctx, key, &second, true); err != nil || !second.IsDefault() {
+		t.Fatalf("%v, default %v", err, second.IsDefault())
+	}
+	if d := defaults(t, book, me); len(d) != 1 || d[0] != second.ID() {
+		t.Fatalf("defaults %v", d)
+	}
+	if old, err := book.Get(ctx, me, first.ID()); err != nil || old.WriteID() == first.WriteID() {
+		t.Fatalf("the old default keeps its write ID: %v", err)
+	}
+	if err := book.SetDefault(ctx, me, first.ID()); err != nil {
+		t.Fatal(err)
+	}
+	again := address(t, me)
+	if err := book.Insert(ctx, key, &again, true); err != nil || again.ID() != second.ID() || again.IsDefault() {
+		t.Fatalf("retry: %v %v, default %v", err, again.ID(), again.IsDefault())
+	}
+	if d := defaults(t, book, me); len(d) != 1 || d[0] != first.ID() {
+		t.Fatalf("a retried key moved the default: %v", d)
+	}
+}
+
+// TestSaveAsDefault: an edit with makeDefault takes the default in the
+// edit's transaction. An edit without it leaves the default where it is,
+// and a stale edit with it moves nothing.
+func TestSaveAsDefault(t *testing.T) {
+	t.Parallel()
+	s, book := newBook(t)
+	ctx := context.Background()
+	me := seed(t, s)
+	as := insert(t, book, me, 2)
+	b, stale := as[1], as[1]
+	w := uuid.NewV7()
+	if err := book.Save(ctx, &b, w, true); err != nil || !b.IsDefault() || b.WriteID() != w {
+		t.Fatalf("%v, default %v", err, b.IsDefault())
+	}
+	if got, err := book.Get(ctx, me, b.ID()); err != nil || !got.IsDefault() || got.WriteID() != w {
+		t.Fatalf("stored: %+v %v", got, err)
+	}
+	if d := defaults(t, book, me); len(d) != 1 || d[0] != b.ID() {
+		t.Fatalf("defaults %v", d)
+	}
+	if err := book.Save(ctx, &b, uuid.NewV7(), true); err != nil || !b.IsDefault() {
+		t.Fatalf("the default saved as the default: %v", err)
+	}
+	if err := book.Save(ctx, &b, uuid.NewV7(), false); err != nil || !b.IsDefault() {
+		t.Fatalf("the default saved without makeDefault: %v", err)
+	}
+	a, err := book.Get(ctx, me, as[0].ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = book.Save(ctx, &a, uuid.NewV7(), false); err != nil || a.IsDefault() {
+		t.Fatalf("another saved without makeDefault: %v, default %v", err, a.IsDefault())
+	}
+	if d := defaults(t, book, me); len(d) != 1 || d[0] != b.ID() {
+		t.Fatalf("an edit without makeDefault moved the default: %v", d)
+	}
+	if err = book.Save(ctx, &stale, uuid.NewV7(), true); !errors.Is(err, repository.ErrConflict) || stale.IsDefault() {
+		t.Fatalf("a stale save: %v", err)
+	}
+	if d := defaults(t, book, me); len(d) != 1 || d[0] != b.ID() {
+		t.Fatalf("a stale save moved the default: %v", d)
+	}
+}
+
+// Inserts and edits that each make their address the default, all at once,
+// leave one default: the advisory lock orders them. An edit of an address
+// that lost the default after the edit read it conflicts, as after
+// SetDefault.
+func TestAddressDefaultRace(t *testing.T) {
+	t.Parallel()
+	s, book := newBook(t)
+	ctx := context.Background()
+	me := seed(t, s)
+	as := insert(t, book, me, 5)
+	var wg sync.WaitGroup
+	saves, inserts := make(chan error, len(as)), make(chan error, 3)
+	for i := range as {
+		wg.Go(func() {
+			a := as[i]
+			saves <- book.Save(ctx, &a, uuid.NewV7(), true)
+		})
+	}
+	for range 3 {
+		wg.Go(func() {
+			a := address(t, me)
+			inserts <- book.Insert(ctx, uuid.NewV7(), &a, true)
+		})
+	}
+	wg.Wait()
+	close(saves)
+	close(inserts)
+	for err := range saves {
+		if err != nil && !errors.Is(err, repository.ErrConflict) {
+			t.Fatal(err)
+		}
+	}
+	for err := range inserts {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if d := defaults(t, book, me); len(d) != 1 {
+		t.Fatalf("defaults %v", d)
 	}
 }

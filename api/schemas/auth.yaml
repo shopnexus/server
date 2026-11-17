@@ -23,6 +23,32 @@ SignInRequest:
       type: string
       maxLength: 100
       description: Shown in the list of signed-in devices.
+ProofRequest:
+  type: object
+  additionalProperties: false
+  description: |
+    Exactly one proof, phone_token, google_token or email_code: the body of
+    addMyIdentity and reauthenticateSession. SignInRequest repeats these
+    three properties beside device_name, since kin-openapi's JSON Schema
+    2020-12 compiler cannot follow this file's refs under allOf and
+    unevaluatedProperties.
+  oneOf:
+    - required: [phone_token]
+    - required: [google_token]
+    - required: [email_code]
+  properties:
+    phone_token:
+      type: string
+      minLength: 1
+      maxLength: 8192
+      description: The token Firebase returned for the verified number.
+    google_token:
+      type: string
+      minLength: 1
+      maxLength: 8192
+      description: The ID token Credential Manager returned for the Google account; it proves the account's email.
+    email_code:
+      $ref: "#/EmailCodeProof"
 EmailCodeProof:
   type: object
   additionalProperties: false
@@ -46,6 +72,20 @@ Tokens:
       format: date-time
     refresh_token:
       type: string
+    token_type:
+      type: string
+      enum: [Bearer]
+AccessToken:
+  type: object
+  additionalProperties: false
+  required: [access_token, access_token_expires_at, token_type]
+  description: A new access token for the caller's session. The refresh token the app holds stays valid and is not replaced.
+  properties:
+    access_token:
+      type: string
+    access_token_expires_at:
+      type: string
+      format: date-time
     token_type:
       type: string
       enum: [Bearer]

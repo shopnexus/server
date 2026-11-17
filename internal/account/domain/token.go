@@ -21,6 +21,14 @@ type Tokens struct {
 	TokenType            string    `json:"token_type"`
 }
 
+// AccessToken is what a reauthentication returns: a new access token for a
+// session whose refresh token stays as it was.
+type AccessToken struct {
+	AccessToken          string    `json:"access_token"`
+	AccessTokenExpiresAt time.Time `json:"access_token_expires_at"`
+	TokenType            string    `json:"token_type"`
+}
+
 // accessClaims is an access token's payload. No phone, email or name goes
 // in: anyone holding a token can read it.
 type accessClaims struct {

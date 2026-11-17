@@ -81,7 +81,7 @@ func (s *Account) Address(ctx context.Context, owner, id uuid.UUID) (AddressView
 	return addressView(a, place), nil
 }
 
-func (s *Account) CreateAddress(ctx context.Context, owner, key uuid.UUID, d domain.AddressDraft) (AddressView, error) {
+func (s *Account) CreateAddress(ctx context.Context, owner, key uuid.UUID, d domain.AddressDraft, makeDefault bool) (AddressView, error) {
 	place, found, err := s.commune(ctx, d.CommuneCode)
 	if err != nil {
 		return AddressView{}, err
@@ -91,7 +91,7 @@ func (s *Account) CreateAddress(ctx context.Context, owner, key uuid.UUID, d dom
 	if err != nil {
 		return AddressView{}, err
 	}
-	if err = s.addresses.Insert(ctx, key, &a); err != nil {
+	if err = s.addresses.Insert(ctx, key, &a, makeDefault); err != nil {
 		return AddressView{}, fmt.Errorf("insert address: %w", err)
 	}
 	if a.ID() != id {
@@ -106,7 +106,8 @@ func (s *Account) CreateAddress(ctx context.Context, owner, key uuid.UUID, d dom
 
 // UpdateAddress saves under the address's write ID, so an edit that lost a
 // race with another edit or a move of the default is apperr.ErrTryAgain.
-func (s *Account) UpdateAddress(ctx context.Context, owner, id uuid.UUID, d domain.AddressDraft) (AddressView, error) {
+// With makeDefault the save also makes the address the default.
+func (s *Account) UpdateAddress(ctx context.Context, owner, id uuid.UUID, d domain.AddressDraft, makeDefault bool) (AddressView, error) {
 	a, err := s.owned(ctx, owner, id)
 	if err != nil {
 		return AddressView{}, err
@@ -118,7 +119,7 @@ func (s *Account) UpdateAddress(ctx context.Context, owner, id uuid.UUID, d doma
 	if err = a.Edit(d, found); err != nil {
 		return AddressView{}, err
 	}
-	err = s.addresses.Save(ctx, &a, uuid.NewV7())
+	err = s.addresses.Save(ctx, &a, uuid.NewV7(), makeDefault)
 	if errors.Is(err, repository.ErrConflict) {
 		return AddressView{}, apperr.ErrTryAgain
 	}

@@ -74,22 +74,30 @@ const saveSession = `
 UPDATE sessions
 SET refresh_hash = @refresh_hash, prev_refresh_hash = @prev_refresh_hash, last_used_at = @last_used_at,
     revoked_at = @revoked_at, revoke_reason = nullif(@revoke_reason, ''), write_id = @write_id
-WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
+WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
+RETURNING auth_time`
 
 func (s pgSessions) Save(ctx context.Context, x *domain.Session, writeID uuid.UUID) error {
-	tag, err := s.db.Exec(ctx, saveSession, pgx.StrictNamedArgs{
+	var authTime time.Time
+	err := s.db.QueryRow(ctx, saveSession, pgx.StrictNamedArgs{
 		"id": x.ID(), "read_write_id": x.WriteID(), "write_id": writeID,
 		"refresh_hash": x.RefreshHash(), "prev_refresh_hash": x.PrevRefreshHash(),
 		"last_used_at": x.LastUsedAt(), "revoked_at": x.RevokedAt(), "revoke_reason": string(x.RevokeReason()),
-	})
+	}).Scan(&authTime)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrConflict
+	}
 	if err != nil {
 		return fmt.Errorf("update session: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
-		return ErrConflict
-	}
-	x.Saved(writeID)
+	x.Saved(writeID, authTime)
 	return nil
+}
+
+func (s pgSessions) Reauthenticate(ctx context.Context, id uuid.UUID, at time.Time) (domain.Session, error) {
+	return scanSession(s.db.QueryRow(ctx, `UPDATE sessions SET auth_time = greatest(auth_time, @at)
+WHERE id = @id AND revoked_at IS NULL AND expires_at > @at AND last_used_at > @idle_since
+RETURNING `+sessionColumns, pgx.StrictNamedArgs{"id": id, "at": at, "idle_since": at.Add(-domain.SessionIdleLimit)}))
 }
 
 func (s pgSessions) RevokeOthers(ctx context.Context, accountID, keep uuid.UUID, now time.Time) error {

@@ -76,6 +76,49 @@ func TestAddressBook(t *testing.T) {
 	}
 }
 
+// is_default true makes an added or edited address the default in the same
+// request; false or absent leaves the default where it is. A retried add
+// returns its address as it is now and moves nothing.
+func TestAddressDefaultInTheSameRequest(t *testing.T) {
+	t.Parallel()
+	me, _ := newAccount(t)
+	auth := bearer(me.AccessToken)
+	notDefault := addressBody()
+	notDefault["is_default"] = false
+	first := expect[addressView](t, call(t, "POST", "/v1/addresses", notDefault, auth, newKey()), http.StatusCreated)
+	if !first.IsDefault {
+		t.Fatalf("the first address is the default whatever is_default says: %+v", first)
+	}
+	asDefault := addressBody()
+	asDefault["is_default"] = true
+	key := newKey()
+	second := expect[addressView](t, call(t, "POST", "/v1/addresses", asDefault, auth, key), http.StatusCreated)
+	if book := addresses(t, me.AccessToken); !second.IsDefault || len(book) != 2 || book[0].ID != second.ID || book[1].IsDefault {
+		t.Fatalf("added as the default: %+v, book %+v", second, book)
+	}
+
+	edited := expect[addressView](t, call(t, "PUT", "/v1/addresses/"+first.ID, asDefault, auth), http.StatusOK)
+	if book := addresses(t, me.AccessToken); !edited.IsDefault || book[0].ID != first.ID || book[1].IsDefault {
+		t.Fatalf("edited as the default: %+v, book %+v", edited, book)
+	}
+	for name, body := range map[string]map[string]any{"is_default false": notDefault, "no is_default": addressBody()} {
+		if got := expect[addressView](t, call(t, "PUT", "/v1/addresses/"+first.ID, body, auth), http.StatusOK); !got.IsDefault {
+			t.Errorf("the default edited with %s: %+v", name, got)
+		}
+		if got := expect[addressView](t, call(t, "PUT", "/v1/addresses/"+second.ID, body, auth), http.StatusOK); got.IsDefault {
+			t.Errorf("another edited with %s: %+v", name, got)
+		}
+	}
+
+	again := expect[addressView](t, call(t, "POST", "/v1/addresses", asDefault, auth, key), http.StatusCreated)
+	if book := addresses(t, me.AccessToken); again.ID != second.ID || again.IsDefault || len(book) != 2 || book[0].ID != first.ID {
+		t.Fatalf("a retried add moved the default: %+v, book %+v", again, book)
+	}
+	check(t, "is_default not a boolean", call(t, "POST", "/v1/addresses",
+		map[string]any{"name": "Hân", "phone": "0912345678", "street": "12 Lý", "commune_code": "00004", "kind": "home", "is_default": "yes"},
+		auth, newKey()), 400, "invalid_request")
+}
+
 func TestAddressRefusals(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
@@ -97,7 +140,7 @@ func TestAddressRefusals(t *testing.T) {
 	check(t, "delete signed out", call(t, "DELETE", path, nil), 401, "unauthenticated")
 
 	extra := addressBody()
-	extra["is_default"] = true
+	extra["note"] = "gọi trước"
 	check(t, "add with an unknown field", call(t, "POST", "/v1/addresses", extra, bearer(me.AccessToken), newKey()), 400, "invalid_request")
 	check(t, "update a bad id", call(t, "PUT", "/v1/addresses/not-a-uuid", addressBody(), bearer(me.AccessToken)), 400, "")
 	check(t, "set default a bad id", call(t, "POST", "/v1/addresses/not-a-uuid/default", nil, bearer(me.AccessToken)), 400, "")

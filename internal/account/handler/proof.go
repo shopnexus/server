@@ -6,8 +6,9 @@ import (
 	"github.com/shopnexus/server2/internal/account/service"
 )
 
-// proofBody is the proof fields of a sign-in or add-identity body. The spec
-// validator has checked that exactly one is set.
+// proofBody is the proof fields of a sign-in, add-identity or
+// reauthentication body: SignInRequest or ProofRequest in the spec. The
+// spec validator has checked that exactly one is set.
 type proofBody struct {
 	PhoneToken  string         `json:"phone_token"`
 	GoogleToken string         `json:"google_token"`

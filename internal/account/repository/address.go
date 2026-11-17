@@ -12,18 +12,24 @@ import (
 // account's advisory lock, so the cap and the one default hold when they
 // race.
 type Addresses interface {
-	// Insert stores a under the request's key and calls a.StoredAsDefault
-	// when it is the account's first. When the account has an address under
-	// key already, it sets *a to that address and stores nothing. An account
-	// at domain.MaxAddresses is domain.ErrAddressLimit.
-	Insert(ctx context.Context, key uuid.UUID, a *domain.Address) error
+	// Insert stores a under the request's key, or refuses an account at
+	// domain.MaxAddresses with domain.ErrAddressLimit. a becomes the default
+	// when it is the account's first or makeDefault is true, and Insert then
+	// calls a.StoredAsDefault. When the account has an address under key
+	// already, Insert sets *a to that address and stores nothing, the
+	// default included.
+	Insert(ctx context.Context, key uuid.UUID, a *domain.Address, makeDefault bool) error
 	// Get returns ErrNotFound for an unknown id or an address of another
 	// account.
 	Get(ctx context.Context, owner, id uuid.UUID) (domain.Address, error)
 	// Save writes a's fields when its row still has a.WriteID() or already
 	// has writeID, then sets a's write ID to writeID. Otherwise ErrConflict.
-	// Moving the default changes a row's write ID too.
-	Save(ctx context.Context, a *domain.Address, writeID uuid.UUID) error
+	// Moving the default changes a row's write ID too. With makeDefault, a
+	// also becomes the default in one transaction that takes the advisory
+	// lock and, as Insert does, refuses a deleted account with
+	// domain.ErrSessionRevoked; Save then calls a.StoredAsDefault, and a
+	// conflict moves nothing.
+	Save(ctx context.Context, a *domain.Address, writeID uuid.UUID, makeDefault bool) error
 	// SetDefault makes id owner's default; ErrNotFound when owner has no
 	// such address.
 	SetDefault(ctx context.Context, owner, id uuid.UUID) error

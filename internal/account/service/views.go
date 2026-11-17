@@ -95,9 +95,9 @@ type Follower struct {
 	AccountID uuid.UUID `json:"account_id"`
 }
 
-// Proof is what a person shows to sign in or add an identity: exactly one
-// of a phone token, a Google ID token and an email code. The spec's oneOf
-// holds that rule.
+// Proof is what a person shows to sign in, add an identity or
+// reauthenticate. The spec's oneOf holds it to exactly one of a phone
+// token, a Google ID token and an email code.
 type Proof struct {
 	PhoneToken  string
 	GoogleToken string
@@ -165,6 +165,14 @@ type EmailCodeView struct {
 
 // AddIdentityInput is a proof of the kind the caller's account lacks.
 type AddIdentityInput struct {
+	IdempotencyKey string
+	Caller         authn.Principal
+	Proof          Proof
+}
+
+// ReauthenticateInput is a proof that must name an identity of the
+// caller's account.
+type ReauthenticateInput struct {
 	IdempotencyKey string
 	Caller         authn.Principal
 	Proof          Proof
