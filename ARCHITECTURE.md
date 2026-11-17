@@ -566,8 +566,8 @@ The phone token checks live in `internal/provider/firebase`:
   `auth_time` for Firebase Authentication, which a refreshed token keeps,
   and `iat` for PNV. Clocks may differ by 30 seconds. Within those limits a
   token signs in again; the user chose that over single use on 2026-10-28.
-- A failed check is 401 `invalid_phone_token`, and the log names the
-  check. A number outside Vietnam is 422 `invalid_phone`.
+- A failed check is 401 `invalid_phone_token` on sign-in, and the log
+  names the check. A number outside Vietnam is 422 `invalid_phone`.
 - PNV test numbers (`test_number: true`, the country code and zeros) pass
   only with `PNV_TEST_NUMBERS=true` and are stored as they come.
   `APP_ENV=prod` refuses to start with `PNV_TEST_NUMBERS=true`.
@@ -580,8 +580,19 @@ The Google token checks live in `internal/provider/google`: RS256, `iss`
 `accounts.google.com` with or without `https://`, `aud` `GOOGLE_CLIENT_ID`
 (the Web client the app passes to Credential Manager), `exp` required,
 `iat` at most 5 minutes old, `email_verified` true, and `email` through
-`contact.ParseEmail`. A failed check is 401 `invalid_google_token`. An
-empty `GOOGLE_CLIENT_ID` turns Google sign-in off: every token is refused.
+`contact.ParseEmail`. A failed check is 401 `invalid_google_token` on
+sign-in. An empty `GOOGLE_CLIENT_ID` turns Google sign-in off: every token
+is refused.
+
+On `addMyIdentity` and `reauthenticateSession`, which carry a bearer, a
+token that fails a check is 422 with the same code, as a wrong email code
+is (decided 2026-11-17). A client takes a 401 on a bearer call for an
+expired or revoked bearer: the app's SessionAuth refreshed, retried once
+and then signed the person out over a bad proof. On those calls a 401 is
+about the bearer alone: `unauthenticated`, `invalid_token`,
+`session_revoked`, and `session_expired` on reauthentication.
+`Account.verifyToken` takes the kind each use case answers a refused token
+with.
 
 Both providers fetch keys through `internal/provider/jwks`, one `Set` per
 URL (`FIREBASE_AUTH_JWKS_URL`, `PNV_JWKS_URL`, `GOOGLE_JWKS_URL`). Keys are

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/authn"
 )
 
@@ -23,7 +24,7 @@ func (s *Account) AddIdentity(ctx context.Context, in AddIdentityInput) (Identit
 		}
 		run.Guess = &g
 	} else {
-		addr, err := s.verifyToken(ctx, in.Proof)
+		addr, err := s.verifyToken(ctx, in.Proof, apperr.KindInvalid)
 		if err != nil {
 			return IdentitiesView{}, err
 		}

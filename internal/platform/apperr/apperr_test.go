@@ -79,6 +79,15 @@ func TestWithCauseCopies(t *testing.T) {
 	}
 }
 
+func TestWithKindCopies(t *testing.T) {
+	t.Parallel()
+	base := apperr.New(apperr.KindUnauthenticated, "invalid_phone_token", "x")
+	got := base.WithKind(apperr.KindInvalid)
+	if base.Kind != apperr.KindUnauthenticated || got.Kind != apperr.KindInvalid || got.Code != base.Code || !errors.Is(got, base) {
+		t.Fatalf("got %+v, base %+v", got, base)
+	}
+}
+
 // A part second rounds up, so a client that waits retry_after is not
 // refused again.
 func TestWithRetryAfterRoundsUp(t *testing.T) {

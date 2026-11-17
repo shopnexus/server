@@ -6,6 +6,7 @@ import (
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
+	"github.com/shopnexus/server2/internal/provider/google/googletest"
 )
 
 type myAccount struct {
@@ -60,7 +61,9 @@ func TestAddIdentityRefusals(t *testing.T) {
 	check(t, "taken phone", add(map[string]string{"phone_token": issuer.SMSToken(takenPhone)}, newKey(), auth), 409, "identity_taken")
 	check(t, "a second email", add(map[string]string{"google_token": google.Token(newEmail())}, newKey(), auth), 409, "identity_kind_taken")
 	check(t, "foreign number", add(map[string]string{"phone_token": issuer.SMSToken("+14155550100")}, newKey(), auth), 422, "invalid_phone")
-	check(t, "forged token", add(map[string]string{"phone_token": issuer.SMSToken(newPhone(), firebasetest.Claim("aud", "other"))}, newKey(), auth), 401, "invalid_phone_token")
+	check(t, "forged token", add(map[string]string{"phone_token": issuer.SMSToken(newPhone(), firebasetest.Claim("aud", "other"))}, newKey(), auth), 422, "invalid_phone_token")
+	check(t, "stale google token", add(map[string]string{"google_token": google.Token(newEmail(), googletest.Claim("iat", time.Now().Add(-6*time.Minute).Unix()))},
+		newKey(), auth), 422, "invalid_google_token")
 	check(t, "no key", add(map[string]string{"phone_token": issuer.SMSToken(newPhone())}, auth), 400, "")
 	check(t, "signed out", add(map[string]string{"phone_token": issuer.SMSToken(newPhone())}, newKey()), 401, "")
 }

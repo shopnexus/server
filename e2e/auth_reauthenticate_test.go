@@ -187,10 +187,10 @@ func TestReauthenticateRefusals(t *testing.T) {
 	check(t, "a device name", reauth(t, me.AccessToken, map[string]string{"phone_token": issuer.SMSToken(phone), "device_name": "e2e"}),
 		400, "invalid_request")
 	check(t, "forged phone token", reauth(t, me.AccessToken, map[string]string{"phone_token": issuer.SMSToken(phone, firebasetest.Claim("aud", "other"))}),
-		401, "invalid_phone_token")
+		422, "invalid_phone_token")
 	check(t, "stale google token", reauth(t, me.AccessToken,
 		map[string]string{"google_token": google.Token(newEmail(), googletest.Claim("iat", time.Now().Add(-6*time.Minute).Unix()))}),
-		401, "invalid_google_token")
+		422, "invalid_google_token")
 	check(t, "foreign number", reauth(t, me.AccessToken, phoneProof("+14155550100")), 422, "invalid_phone")
 	check(t, "pnv keys down", reauth(t, me.AccessToken, map[string]string{"phone_token": issuer.PNVToken(phone)}), 503, "unavailable")
 

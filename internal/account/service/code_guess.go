@@ -86,19 +86,24 @@ func judgeGuess(ctx restate.Context, challenges repository.Challenges, g CodeGue
 }
 
 // verifyToken checks a phone or Google token outside Restate and returns the
-// address it proves. Account.SignIn and Account.AddIdentity call it for a
-// proof without an email code.
-func (s *Account) verifyToken(ctx context.Context, p Proof) (contact.Address, error) {
+// address it proves. Account.SignIn, Account.AddIdentity and
+// Account.Reauthenticate call it for a proof without an email code. A token
+// the verifier refuses keeps its code and takes kind refused. SignIn passes
+// apperr.KindUnauthenticated, because there the token signs the request in.
+// The other two pass apperr.KindInvalid: a bearer signs those requests in,
+// and a client takes a 401 on a bearer call for an expired or revoked
+// bearer.
+func (s *Account) verifyToken(ctx context.Context, p Proof, refused apperr.Kind) (contact.Address, error) {
+	verifier, token, name := s.phones, p.PhoneToken, "phone"
 	if p.GoogleToken != "" {
-		a, err := s.google.Verify(ctx, p.GoogleToken)
-		if err != nil {
-			return contact.Address{}, fmt.Errorf("verify google token: %w", err)
-		}
-		return a, nil
+		verifier, token, name = s.google, p.GoogleToken, "google"
 	}
-	a, err := s.phones.Verify(ctx, p.PhoneToken)
+	a, err := verifier.Verify(ctx, token)
+	if e, ok := errors.AsType[*apperr.Error](err); ok && e.Kind == apperr.KindUnauthenticated {
+		err = e.WithKind(refused)
+	}
 	if err != nil {
-		return contact.Address{}, fmt.Errorf("verify phone token: %w", err)
+		return contact.Address{}, fmt.Errorf("verify %s token: %w", name, err)
 	}
 	return a, nil
 }
