@@ -29,7 +29,7 @@ func TestPickupSaveRacingAddressOrAccountDeletionLeavesNoPhone(t *testing.T) {
 			accounts := accounttest.Service(db)
 			a, err := accounts.CreateAddress(ctx, owner, uuid.NewV7(), accountdomain.AddressDraft{
 				Name: "Pickup", Phone: "0912345678", Street: "12 Lê Lợi", CommuneCode: "00004", Kind: accountdomain.AddressHome,
-			})
+			}, false)
 			if err != nil {
 				t.Fatal(err)
 			}

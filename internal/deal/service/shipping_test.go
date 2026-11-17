@@ -163,7 +163,7 @@ func TestALinkedShipmentTellsTheShipperWhatThePlaceIs(t *testing.T) {
 		buyer := e.person(t)
 		draft := home
 		draft.Kind = kind
-		a, err := e.accounts.CreateAddress(ctx, buyer, uuid.NewV7(), draft)
+		a, err := e.accounts.CreateAddress(ctx, buyer, uuid.NewV7(), draft, false)
 		if err != nil {
 			t.Fatal(err)
 		}
