@@ -88,33 +88,6 @@ func (s *Console) AuthorizeDashboard(ctx context.Context, in DashboardCheck) (Da
 	return DashboardAccess{Granted: true, Email: g.Email, Role: app.RoleFor(g.Role)}, nil
 }
 
-// DashboardLanding is where a dashboard request for in.URI goes when the
-// dashboard opens: the console's OpenURL when AuthorizeDashboard does not
-// grant it, and in.URI when it does. The S3 console signs its calls in the
-// browser, so with StoreLogin set it lands on the console's SSO callback
-// with fresh keys instead.
-func (s *Console) DashboardLanding(ctx context.Context, in DashboardCheck) (string, error) {
-	access, err := s.AuthorizeDashboard(ctx, in)
-	if err != nil {
-		return "", err
-	}
-	if !access.Granted {
-		return access.OpenURL, nil
-	}
-	rd := in.URI
-	if rd == "" {
-		rd = "/"
-	}
-	if app, _ := s.dashboardAt(in.Host); app != domain.AppS3 || s.storeLogin == nil {
-		return rd, nil
-	}
-	c, err := s.storeLogin(ctx)
-	if err != nil {
-		return "", fmt.Errorf("mint the S3 console's keys: %w", err)
-	}
-	return domain.StoreConsoleCallback(c, rd), nil
-}
-
 // dashboardAt is the dashboard DASHBOARD_HOSTS serves at host, a Host or
 // X-Forwarded-Host value, whose port and case it ignores.
 func (s *Console) dashboardAt(host string) (domain.App, bool) {

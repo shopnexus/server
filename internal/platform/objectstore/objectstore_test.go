@@ -12,9 +12,6 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
-
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 )
@@ -162,36 +159,5 @@ func TestPresignGet(t *testing.T) {
 	}
 	if status, _ := get(t, strings.Replace(url, key, "uploads/"+uuid.NewV7().String(), 1)); status == http.StatusOK {
 		t.Fatal("the signature covers the key")
-	}
-}
-
-// TempKeys last the ttl asked for and reach the bucket as the store does.
-func TestTempKeysReachTheBucket(t *testing.T) {
-	t.Parallel()
-	s := objectstoretest.New(t)
-	cfg, err := objectstoretest.Config()
-	if err != nil {
-		t.Fatal(err)
-	}
-	k, err := s.TempKeys(20 * time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if k.AccessKey == cfg.AccessKey || k.SessionToken == "" {
-		t.Fatalf("keys %q with token %q are not temporary", k.AccessKey, k.SessionToken)
-	}
-	if left := time.Until(k.Expiration); left < 15*time.Minute || left > 21*time.Minute {
-		t.Fatalf("expire in %v", left)
-	}
-	host, secure := strings.CutPrefix(cfg.Endpoint, "https://")
-	host = strings.TrimPrefix(host, "http://")
-	c, err := minio.New(host, &minio.Options{
-		Creds: credentials.NewStaticV4(k.AccessKey, k.SecretKey, k.SessionToken), Secure: secure, Region: cfg.Region,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if ok, err := c.BucketExists(t.Context(), cfg.Bucket); err != nil || !ok {
-		t.Fatalf("bucket %s: %v %v", cfg.Bucket, ok, err)
 	}
 }

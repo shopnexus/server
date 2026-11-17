@@ -337,15 +337,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	deals = dealm.Service
 	erasure.Mount(d, accounts, dealm.Service)
 	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
-	// The S3 console signs in with keys that last an hour.
-	storeLogin := func(context.Context) (consoledomain.StoreCredentials, error) {
-		k, err := store.TempKeys(time.Hour)
-		if err != nil {
-			return consoledomain.StoreCredentials{}, fmt.Errorf("the S3 console's keys: %w", err)
-		}
-		return consoledomain.StoreCredentials{AccessKey: k.AccessKey, SecretKey: k.SecretKey, SessionToken: k.SessionToken, Expiration: k.Expiration}, nil
-	}
-	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console, StoreLogin: storeLogin}, accounts, supportm.Service)
+	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service)
 	trustm := trust.Mount(d, trust.Settings{
 		Classifier: trust.LLMClassifier(
 			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: &http.Client{}},

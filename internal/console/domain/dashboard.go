@@ -1,8 +1,6 @@
 package domain
 
 import (
-	"net/url"
-	"strings"
 	"time"
 	"uuid"
 )
@@ -62,33 +60,4 @@ type DashboardTicket struct {
 type DashboardGrant struct {
 	Email string
 	Role  Role
-}
-
-// StoreCredentials are keys of the object store that last until
-// Expiration, from its STS AssumeRole.
-type StoreCredentials struct {
-	AccessKey    string
-	SecretKey    string
-	SessionToken string
-	Expiration   time.Time
-}
-
-// storeConsoleBase is the path of the RustFS console on the s3 host.
-const storeConsoleBase = "/rustfs/console"
-
-// StoreConsoleCallback is the RustFS console's SSO callback, which keeps c in
-// the browser, where the console signs its S3 calls, and opens rd. The keys
-// ride in the fragment, which the browser sends to no server. rd is a path
-// on the s3 host; one outside the console, or a sign-in page of it, opens
-// the console's start page.
-func StoreConsoleCallback(c StoreCredentials, rd string) string {
-	page := "/"
-	if p, ok := strings.CutPrefix(rd, storeConsoleBase+"/"); ok && !strings.HasPrefix(p, "auth/") {
-		page = "/" + p
-	}
-	f := url.Values{
-		"accessKey": {c.AccessKey}, "secretKey": {c.SecretKey}, "sessionToken": {c.SessionToken},
-		"expiration": {c.Expiration.UTC().Format(time.RFC3339)}, "redirect": {page},
-	}
-	return storeConsoleBase + "/auth/oidc-callback/#" + f.Encode()
 }

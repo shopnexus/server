@@ -36,15 +36,6 @@ func (dashboards) AuthorizeDashboard(_ context.Context, in service.DashboardChec
 	}
 }
 
-// DashboardLanding lands ds_new and ds_viewer at in.URI and sends the
-// others to the console.
-func (dashboards) DashboardLanding(_ context.Context, in service.DashboardCheck) (string, error) {
-	if in.Token == "ds_new" || in.Token == "ds_viewer" {
-		return in.URI, nil
-	}
-	return "https://console.test/dashboards/open?app=grafana&rd=" + url.QueryEscape(in.URI), nil
-}
-
 func dashboardRouter() *httpx.Router {
 	r := httpx.NewRouter()
 	handler.New(dashboards{}, nil, discard).Register(r)
@@ -133,27 +124,6 @@ func TestAuthorizeDashboard(t *testing.T) {
 		}
 		if granted := w.Header().Get("X-Console-Email") == "mod@example.com" && w.Header().Get("X-Console-Role") == "Viewer"; granted != (c.status == 200) {
 			t.Errorf("%s: headers %v", c.name, w.Header())
-		}
-	}
-}
-
-// A dashboard's sign-in page lands a reader with a live cookie, without a
-// cache, and sends any other to the console.
-func TestDashboardLogin(t *testing.T) {
-	t.Parallel()
-	for cookie, want := range map[string]string{
-		"ds_viewer": "/",
-		"":          "https://console.test/dashboards/open?app=grafana&rd=%2F",
-	} {
-		r := httptest.NewRequestWithContext(t.Context(), "GET", "/_dashboard/login", http.NoBody)
-		r.Host = "grafana.test"
-		if cookie != "" {
-			r.AddCookie(&http.Cookie{Name: "console_dashboard", Value: cookie})
-		}
-		w := httptest.NewRecorder()
-		dashboardRouter().ServeHTTP(w, r)
-		if w.Code != http.StatusFound || w.Header().Get("Location") != want || w.Header().Get("Cache-Control") != "no-store" {
-			t.Errorf("cookie %q: %d %v", cookie, w.Code, w.Header())
 		}
 	}
 }

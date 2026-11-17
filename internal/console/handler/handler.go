@@ -1,5 +1,5 @@
 // Package handler serves module console's HTTP API under /v1/console and the
-// ops dashboards' callback and sign-in at /_dashboard.
+// ops dashboards' callback at /_dashboard/callback.
 package handler
 
 import (
@@ -65,5 +65,4 @@ func (h *Handler) Register(r *httpx.Router) {
 	handle("POST /v1/console/dashboard-tickets", mod(http.HandlerFunc(h.CreateDashboardTicket)))
 	r.Handle("GET /v1/console/dashboard-auth", http.HandlerFunc(h.AuthorizeDashboard))
 	r.Handle("GET /_dashboard/callback", http.HandlerFunc(h.OpenDashboard))
-	r.Handle("GET /_dashboard/login", http.HandlerFunc(h.DashboardLogin))
 }
