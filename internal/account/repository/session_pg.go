@@ -19,7 +19,7 @@ type pgSessions struct{ db *pgxpool.Pool }
 func NewSessions(db *pgxpool.Pool) Sessions { return pgSessions{db} }
 
 const sessionColumns = `id, account_id, refresh_hash, prev_refresh_hash, coalesce(device_name, ''),
-       auth_time, created_at, last_used_at, expires_at, revoked_at, write_id`
+       auth_time, created_at, last_used_at, expires_at, revoked_at, coalesce(revoke_reason, ''), write_id`
 
 func scanSession(row pgx.Row) (domain.Session, error) {
 	var (
@@ -28,9 +28,10 @@ func scanSession(row pgx.Row) (domain.Session, error) {
 		deviceName                                 string
 		authTime, createdAt, lastUsedAt, expiresAt time.Time
 		revokedAt                                  *time.Time
+		revokeReason                               string
 	)
 	err := row.Scan(&id, &accountID, &refreshHash, &prevRefreshHash, &deviceName,
-		&authTime, &createdAt, &lastUsedAt, &expiresAt, &revokedAt, &writeID)
+		&authTime, &createdAt, &lastUsedAt, &expiresAt, &revokedAt, &revokeReason, &writeID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Session{}, ErrNotFound
 	}
@@ -38,7 +39,7 @@ func scanSession(row pgx.Row) (domain.Session, error) {
 		return domain.Session{}, fmt.Errorf("select session: %w", err)
 	}
 	return domain.RestoreSession(id, accountID, refreshHash, prevRefreshHash, deviceName,
-		authTime, createdAt, lastUsedAt, expiresAt, revokedAt, writeID), nil
+		authTime, createdAt, lastUsedAt, expiresAt, revokedAt, domain.RevokeReason(revokeReason), writeID), nil
 }
 
 const createSession = `
@@ -72,14 +73,14 @@ func (s pgSessions) FindByPrevRefresh(ctx context.Context, hash []byte) (domain.
 const saveSession = `
 UPDATE sessions
 SET refresh_hash = @refresh_hash, prev_refresh_hash = @prev_refresh_hash, last_used_at = @last_used_at,
-    revoked_at = @revoked_at, write_id = @write_id
+    revoked_at = @revoked_at, revoke_reason = nullif(@revoke_reason, ''), write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
 func (s pgSessions) Save(ctx context.Context, x *domain.Session, writeID uuid.UUID) error {
 	tag, err := s.db.Exec(ctx, saveSession, pgx.StrictNamedArgs{
 		"id": x.ID(), "read_write_id": x.WriteID(), "write_id": writeID,
 		"refresh_hash": x.RefreshHash(), "prev_refresh_hash": x.PrevRefreshHash(),
-		"last_used_at": x.LastUsedAt(), "revoked_at": x.RevokedAt(),
+		"last_used_at": x.LastUsedAt(), "revoked_at": x.RevokedAt(), "revoke_reason": string(x.RevokeReason()),
 	})
 	if err != nil {
 		return fmt.Errorf("update session: %w", err)
@@ -91,10 +92,11 @@ func (s pgSessions) Save(ctx context.Context, x *domain.Session, writeID uuid.UU
 	return nil
 }
 
-func (s pgSessions) RevokeAll(ctx context.Context, accountID uuid.UUID, now time.Time) error {
+func (s pgSessions) RevokeOthers(ctx context.Context, accountID, keep uuid.UUID, now time.Time) error {
 	_, err := s.db.Exec(ctx, `
-UPDATE sessions SET revoked_at = @now, write_id = uuidv7()
-WHERE account_id = @account_id AND revoked_at IS NULL`, pgx.StrictNamedArgs{"account_id": accountID, "now": now})
+UPDATE sessions SET revoked_at = @now, revoke_reason = @reason, write_id = uuidv7()
+WHERE account_id = @account_id AND id <> @keep AND revoked_at IS NULL`,
+		pgx.StrictNamedArgs{"account_id": accountID, "keep": keep, "now": now, "reason": string(domain.RevokedSignOut)})
 	if err != nil {
 		return fmt.Errorf("revoke sessions: %w", err)
 	}

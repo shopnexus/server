@@ -20,13 +20,13 @@ func (h *Handler) DeleteCurrentSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// DeleteAllSessions serves DELETE /v1/auth/sessions.
-func (h *Handler) DeleteAllSessions(w http.ResponseWriter, r *http.Request) {
+// DeleteOtherSessions serves DELETE /v1/auth/sessions/others.
+func (h *Handler) DeleteOtherSessions(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
 		return
 	}
-	if err := h.svc.DeleteAllSessions(r.Context(), p); err != nil {
+	if err := h.svc.DeleteOtherSessions(r.Context(), p); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}

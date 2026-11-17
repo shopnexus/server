@@ -3,6 +3,7 @@ package e2e
 import (
 	"testing"
 	"time"
+	"uuid"
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
 )
@@ -48,8 +49,12 @@ func TestRefreshRefusals(t *testing.T) {
 	expectStatus(t, call(t, "POST", "/v1/auth/refresh", map[string]string{}), 400)
 	acc, _ := newAccount(t)
 	suspend(t, acc.Account.ID)
-	if res := refresh(t, acc.RefreshToken); res.Status != 403 || errorOf(t, res).Code != "account_suspended" {
-		t.Fatalf("suspended: %d %s", res.Status, res.Body)
+	// The first refresh signs the session out; a retry after its answer was
+	// lost still learns why.
+	for _, try := range []string{"suspended", "suspended, again"} {
+		if res := refresh(t, acc.RefreshToken); res.Status != 403 || errorOf(t, res).Code != "account_suspended" {
+			t.Fatalf("%s: %d %s", try, res.Status, res.Body)
+		}
 	}
 }
 
@@ -78,21 +83,37 @@ func TestDeleteCurrentSessionRevokesRefresh(t *testing.T) {
 	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/current", nil), 401)
 }
 
-func TestDeleteAllSessions(t *testing.T) {
+// Signing out the other devices keeps the caller's: the others' refresh
+// tokens answer session_revoked and their push tokens get nothing, and the
+// caller's session refreshes and pushes on.
+func TestDeleteOtherSessions(t *testing.T) {
 	t.Parallel()
 	first, phone := newAccount(t)
 	second := signInWith(t, phone)
+	firstPhone, secondPhone := "first-"+uuid.NewV7().String(), "second-"+uuid.NewV7().String()
+	putToken(t, first.AccessToken, firstPhone)
+	putToken(t, second.AccessToken, secondPhone)
 	p, _ := accountdomain.NewVerifier(keys).Verify(second.AccessToken, time.Now())
 	s, _ := accountdomain.NewSession(p.SessionID, p.AccountID, "", time.Now().Add(-20*time.Minute), time.Now())
 	stale, _, _ := accountdomain.NewSigner(keys).Sign(s, time.Now())
-	if res := call(t, "DELETE", "/v1/auth/sessions", nil, bearer(stale)); res.Status != 428 || errorOf(t, res).Code != "reauth_required" {
+	if res := call(t, "DELETE", "/v1/auth/sessions/others", nil, bearer(stale)); res.Status != 428 || errorOf(t, res).Code != "reauth_required" {
 		t.Fatalf("stale sign-in: %d %s", res.Status, res.Body)
 	}
-	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions", nil, bearer(second.AccessToken)), 204)
-	for _, token := range []string{first.RefreshToken, second.RefreshToken} {
-		expectStatus(t, refresh(t, token), 401) // refresh after signing every session out
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/others", nil, bearer(second.AccessToken)), 204)
+	if res := refresh(t, first.RefreshToken); res.Status != 401 || errorOf(t, res).Code != "session_revoked" {
+		t.Fatalf("the other device refreshes: %d %s", res.Status, res.Body)
 	}
-	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions", nil), 401)
+	next := expect[tokens](t, refresh(t, second.RefreshToken), 200)
+	devices := expect[page[sessionView]](t, call(t, "GET", "/v1/auth/sessions", nil, bearer(next.AccessToken)), 200)
+	if len(devices.Items) != 1 || !devices.Items[0].Current {
+		t.Fatalf("devices after the sign-out: %+v", devices)
+	}
+	activeListing(t, next.AccessToken, nil) // its notice pushes to the account's phones
+	phones.wait(t, secondPhone, 1)
+	if n := phones.count(firstPhone); n != 0 {
+		t.Fatalf("a signed-out device got %d pushes", n)
+	}
+	expectStatus(t, call(t, "DELETE", "/v1/auth/sessions/others", nil), 401)
 }
 
 func TestSessionsListAndRemove(t *testing.T) {

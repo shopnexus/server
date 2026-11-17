@@ -29,8 +29,8 @@ func (d *deletes) DeleteCurrentSession(context.Context, authn.Principal) error {
 	return nil
 }
 
-func (d *deletes) DeleteAllSessions(context.Context, authn.Principal) error {
-	d.called = "DeleteAllSessions"
+func (d *deletes) DeleteOtherSessions(context.Context, authn.Principal) error {
+	d.called = "DeleteOtherSessions"
 	return nil
 }
 
@@ -39,11 +39,12 @@ func (d *deletes) DeleteSession(_ context.Context, _ authn.Principal, id uuid.UU
 	return nil
 }
 
-// TestCurrentSessionRoute sends DELETE /v1/auth/sessions/current through the
-// request validator of api/openapi.yaml and the router: both must take it as
-// its own operation. Were either to match {id}, "current" would fail the uuid
-// format with 400 or reach DeleteSession.
-func TestCurrentSessionRoute(t *testing.T) {
+// TestFixedSessionRoutes sends DELETE /v1/auth/sessions/current and
+// /v1/auth/sessions/others through the request validator of
+// api/openapi.yaml and the router: both must take each as its own
+// operation. Were either to match {id}, "current" or "others" would fail the
+// uuid format with 400 or reach DeleteSession.
+func TestFixedSessionRoutes(t *testing.T) {
 	t.Parallel()
 	doc, err := api.Load()
 	if err != nil {
@@ -68,10 +69,14 @@ func TestCurrentSessionRoute(t *testing.T) {
 		code, called string
 	}{
 		{"DELETE", "/v1/auth/sessions/current", 204, "", "DeleteCurrentSession"},
-		{"DELETE", "/v1/auth/sessions", 204, "", "DeleteAllSessions"},
+		{"DELETE", "/v1/auth/sessions/others", 204, "", "DeleteOtherSessions"},
 		{"DELETE", "/v1/auth/sessions/" + id.String(), 204, "", "DeleteSession"},
 		{"DELETE", "/v1/auth/sessions/currently", 400, "invalid_request", ""},
-		{"DELETE", "/v1/auth/sessions/", 404, "", ""}, // an empty id signs nothing out
+		// The validator reads both as {id} with an empty id, which signs
+		// nothing out; the first was the sign-out of every session until
+		// 2026-11-17.
+		{"DELETE", "/v1/auth/sessions", 400, "invalid_request", ""},
+		{"DELETE", "/v1/auth/sessions/", 400, "invalid_request", ""},
 		{"POST", "/v1/auth/logout", 404, "", ""},
 		{"POST", "/v1/auth/logout-all", 404, "", ""},
 	} {

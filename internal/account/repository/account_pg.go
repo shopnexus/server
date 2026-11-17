@@ -142,8 +142,9 @@ func (s pgAccounts) Erase(ctx context.Context, a *domain.Account, writeID uuid.U
 				return fmt.Errorf("erase: %w", err)
 			}
 		}
-		if _, err = tx.Exec(ctx, `UPDATE sessions SET revoked_at = @now, write_id = uuidv7()
-WHERE account_id = @id AND revoked_at IS NULL`, pgx.StrictNamedArgs{"id": a.ID(), "now": a.UpdatedAt()}); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE sessions SET revoked_at = @now, revoke_reason = @reason, write_id = uuidv7()
+WHERE account_id = @id AND revoked_at IS NULL`,
+			pgx.StrictNamedArgs{"id": a.ID(), "now": a.UpdatedAt(), "reason": string(domain.RevokedDeleted)}); err != nil {
 			return fmt.Errorf("revoke sessions: %w", err)
 		}
 		return events.Insert(ctx, tx, evs...)

@@ -55,7 +55,12 @@ refresh:
   post:
     operationId: refreshSession
     summary: Rotate the refresh token and get a new access token.
-    description: A refresh token works once. Presenting it again, or two refreshes racing with one token, signs the session out.
+    description: |
+      A refresh token works once. Presenting it again, or two refreshes
+      racing with one token, signs the session out. A refresh for a
+      suspended account signs the session out with account_suspended, and
+      the same token answers account_suspended again while the suspension
+      lasts; after it ends, session_revoked.
     tags: [auth]
     requestBody:
       required: true
@@ -97,16 +102,20 @@ sessions:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+otherSessions:
   delete:
-    operationId: deleteAllSessions
-    summary: Sign out every session of the account.
-    description: Needs a sign-in within the last 15 minutes.
+    operationId: deleteOtherSessions
+    summary: Sign out every session of the account but the one this request was made with.
+    description: |
+      Needs a sign-in within the last 15 minutes. The signed-out devices'
+      refresh tokens answer session_revoked, and their push tokens get no
+      more pushes.
     tags: [auth]
     security:
       - bearerAuth: []
     responses:
       "204":
-        description: Every session is signed out.
+        description: Every other session is signed out.
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "428":

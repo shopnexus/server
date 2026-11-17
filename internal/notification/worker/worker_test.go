@@ -395,6 +395,106 @@ func TestDealMoved(t *testing.T) {
 	}
 }
 
+// The steps of two orders of one deal, the first cancelled and the second
+// shipped, tell of their own orders: each notice and its push open its
+// order, with that order's reason or shipment, though the deal's latest
+// order is the second.
+func TestOrderMovesTellTheirOwnOrders(t *testing.T) {
+	t.Parallel()
+	first, second := uuid.NewV7(), uuid.NewV7()
+	cancelled, shipped := uuid.NewV7(), uuid.NewV7()
+	f := dealsvc.MoveFacts{
+		DealID: uuid.NewV7(), ListingTitle: "Xe đạp Asama", BuyerName: "Đức Huy", SellerName: "Hoàng Nam",
+		Moves: []dealdomain.Move{
+			{ID: cancelled, Kind: dealdomain.MoveOrderCancelled, By: dealdomain.Seller, OrderID: &first},
+			{ID: shipped, Kind: dealdomain.MoveShipped, By: dealdomain.Seller, OrderID: &second},
+		},
+		Orders: map[uuid.UUID]dealdomain.Order{
+			first:  {ID: first, Status: dealdomain.OrderCancelled, CancelReason: dealdomain.CancelBySeller},
+			second: {ID: second, Status: dealdomain.OrderShipped, Shipment: &dealdomain.Shipment{Carrier: "ghn", TrackingCode: "8A2K9"}},
+		},
+	}
+	e := newEnv(t, nil, nil)
+	f.BuyerID, f.SellerID = accounttest.New(t, e.db), accounttest.New(t, e.db)
+	e.worker.Deals = deals{facts: f}
+	e.start(t)
+	ctx := context.Background()
+	if err := e.notices.PutToken(ctx, uuid.NewV7(), f.BuyerID, "buyer-phone"); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Now()
+	e.deliver(t, "DealMoved", events.Event{
+		ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: f.DealID, OccurredAt: at,
+		Payload: map[string]any{"moves": []any{cancelled.String()}},
+	})
+	if d := e.push.data["buyer-phone"]; d["target_kind"] != "order" || d["target_id"] != first.String() {
+		t.Fatalf("the cancellation's push: %+v", d)
+	}
+	if _, err := e.notices.ReadAll(ctx, f.BuyerID); err != nil {
+		t.Fatal(err)
+	}
+	e.deliver(t, "DealMoved", events.Event{
+		ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: f.DealID, OccurredAt: at.Add(time.Minute),
+		Payload: map[string]any{"moves": []any{shipped.String()}},
+	})
+	if d := e.push.data["buyer-phone"]; d["target_kind"] != "order" || d["target_id"] != second.String() {
+		t.Fatalf("the shipment's push: %+v", d)
+	}
+	items := e.noticesOf(t, f.BuyerID, 2)
+	if items[0].Type != "shipped" || items[0].Target != (domain.Target{Kind: "order", ID: second.String()}) ||
+		items[0].Text != "Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9" {
+		t.Errorf("the second order's notice: %+v", items[0])
+	}
+	if items[1].Type != "order_cancelled" || items[1].Target != (domain.Target{Kind: "order", ID: first.String()}) ||
+		items[1].Text != "Hoàng Nam huỷ đơn Xe đạp Asama" {
+		t.Errorf("the first order's notice: %+v", items[1])
+	}
+}
+
+// Moves that name no order, as the release before writes them while a
+// deploy rolls out, tell of the deal's latest order as before: a shipment
+// keeps its carrier and code, a seller's timeout tells the seller too, and
+// each notice opens the deal.
+func TestMovesWithoutAnOrderTellOfTheLatest(t *testing.T) {
+	t.Parallel()
+	latest := uuid.NewV7()
+	shipped, timedOut := uuid.NewV7(), uuid.NewV7()
+	f := dealsvc.MoveFacts{
+		DealID: uuid.NewV7(), ListingTitle: "Xe đạp Asama", BuyerName: "Đức Huy", SellerName: "Hoàng Nam",
+		Moves: []dealdomain.Move{
+			{ID: shipped, Kind: dealdomain.MoveShipped, By: dealdomain.Seller},
+			{ID: timedOut, Kind: dealdomain.MoveOrderCancelled, By: dealdomain.System},
+		},
+		Order: &dealdomain.Order{
+			ID: latest, Status: dealdomain.OrderCancelled, CancelReason: dealdomain.CancelSellerTimeout,
+			Shipment: &dealdomain.Shipment{Carrier: "ghn", TrackingCode: "8A2K9"},
+		},
+	}
+	e := newEnv(t, nil, nil)
+	f.BuyerID, f.SellerID = accounttest.New(t, e.db), accounttest.New(t, e.db)
+	e.worker.Deals = deals{facts: f}
+	e.start(t)
+	at := time.Now()
+	e.deliver(t, "DealMoved", events.Event{
+		ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: f.DealID, OccurredAt: at,
+		Payload: map[string]any{"moves": []any{shipped.String()}},
+	})
+	deal := domain.Target{Kind: "deal", ID: f.DealID.String()}
+	if n := e.noticesOf(t, f.BuyerID, 1)[0]; n.Text != "Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9" || n.Target != deal {
+		t.Fatalf("the shipment: %+v", n)
+	}
+	e.deliver(t, "DealMoved", events.Event{
+		ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: f.DealID, OccurredAt: at.Add(time.Minute),
+		Payload: map[string]any{"moves": []any{timedOut.String()}},
+	})
+	if n := e.noticesOf(t, f.SellerID, 1)[0]; n.Text != "Bạn chưa tạo đơn Xe đạp Asama, đơn đã huỷ" || n.Target != deal {
+		t.Fatalf("the seller's timeout: %+v", n)
+	}
+	if n := e.noticesOf(t, f.BuyerID, 1)[0]; n.Text != "Người bán chưa gửi Xe đạp Asama, đơn của bạn đã huỷ" {
+		t.Fatalf("the buyer's timeout: %+v", n)
+	}
+}
+
 // A move delivered after a newer one on the same deal neither replaces the
 // newer notice nor pushes, read or unread.
 func TestLateMoveTellsNothing(t *testing.T) {

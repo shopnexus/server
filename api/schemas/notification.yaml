@@ -2,14 +2,19 @@ Target:
   type: object
   additionalProperties: false
   required: [kind, id]
-  description: The screen a notice opens.
+  description: |
+    The screen a notice opens. An order notice opens the order it is about,
+    which may be an earlier order of its deal than the latest; GET
+    /v1/screens/order/{order_id} reads it with its deal. An order notice
+    from before 2026-11-17 whose order the server could not tell opens its
+    deal instead.
   properties:
     kind:
       type: string
       enum: [deal, order, listing, seller_reviews, account, search_watch]
     id:
       type: string
-      description: The deal, listing, seller or search watch; empty for the account.
+      description: The deal, order, listing, seller or search watch; empty for the account.
 Notification:
   type: object
   additionalProperties: false

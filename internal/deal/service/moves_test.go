@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"uuid"
 
@@ -34,5 +35,66 @@ func TestMoves(t *testing.T) {
 	}
 	if _, ok, err = e.deals.Moves(ctx, uuid.NewV7(), nil); err != nil || ok {
 		t.Fatalf("an unknown deal: %v %v", ok, err)
+	}
+}
+
+// Moves reads the order each step names: after the buyer asked again, the
+// steps of the cancelled order read the cancelled order. The latest order
+// comes apart too, for a move that names none.
+func TestMovesNameTheirOrders(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	first := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
+	must(t)(e.deals.CancelOrder(ctx, buyer, first.Order.ID))
+	must(t)(e.deals.Accept(ctx, buyer, first.ID, 1_500_000))
+	second, err := e.deals.RequestCod(ctx, buyer, first.ID, e.address(t, buyer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := e.db.Query(ctx, `SELECT id FROM deal_moves WHERE deal_id = @id`, pgx.StrictNamedArgs{"id": first.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, _, err := e.deals.Moves(ctx, first.ID, ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, m := range f.Moves {
+		var id uuid.UUID
+		if m.OrderID != nil {
+			id = *m.OrderID
+		}
+		switch id {
+		case first.Order.ID:
+			got = append(got, string(m.Kind)+" first")
+		case second.Order.ID:
+			got = append(got, string(m.Kind)+" second")
+		case uuid.UUID{}:
+			got = append(got, string(m.Kind))
+		default:
+			got = append(got, string(m.Kind)+" another order")
+		}
+	}
+	want := []string{"accept", "cod_requested first", "order_cancelled first", "accept", "cod_requested second"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("moves %v, want %v", got, want)
+	}
+	if len(f.Orders) != 2 || f.Orders[first.Order.ID].Status != domain.OrderCancelled ||
+		f.Orders[first.Order.ID].CancelReason != domain.CancelByBuyer || f.Orders[second.Order.ID].Status != domain.OrderPending {
+		t.Fatalf("orders %+v", f.Orders)
+	}
+	if f.Order == nil || f.Order.ID != second.Order.ID {
+		t.Fatalf("latest order %+v", f.Order)
+	}
+	offer, _, err := e.deals.Moves(ctx, first.ID, ids[:1])
+	if err != nil || offer.Order == nil || len(offer.Orders) != 1 || offer.Orders[second.Order.ID].ID != second.Order.ID {
+		t.Fatalf("a move on the price reads the latest order alone: %+v %v", offer, err)
 	}
 }

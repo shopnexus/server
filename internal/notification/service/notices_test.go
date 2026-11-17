@@ -65,7 +65,8 @@ func TestNotices(t *testing.T) {
 }
 
 // A notice stored before params were typed, with every key of its deal, a
-// carrier label and numbers as JSON writes them, still reads.
+// carrier label and numbers as JSON writes them, still reads. It names no
+// order, so it opens its deal.
 func TestStoredParams(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -82,7 +83,7 @@ VALUES (@id, @account, 'shipped', @key, @params, @id, now(), now())`, pgx.Strict
 	}
 	l, err := s.List(ctx, me, page.Request{})
 	if err != nil || len(l.Items) != 1 || l.Items[0].Text != "Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9" ||
-		l.Items[0].Target.Kind != "order" || l.Items[0].Target.ID != deal.String() {
+		l.Items[0].Target.Kind != "deal" || l.Items[0].Target.ID != deal.String() {
 		t.Fatalf("%+v %v", l, err)
 	}
 }

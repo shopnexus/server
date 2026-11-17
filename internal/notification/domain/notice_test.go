@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -13,13 +14,14 @@ var (
 	at     = time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
 	buyer  = uuid.NewV7()
 	seller = uuid.NewV7()
+	// order is the order the tests' order steps are steps of.
+	order = uuid.NewV7()
 )
 
 func facts(moves ...domain.Move) domain.DealFacts {
 	return domain.DealFacts{
 		DealID: uuid.NewV7(), BuyerID: buyer, SellerID: seller,
 		Title: "Xe đạp Asama", BuyerName: "Đức Huy", SellerName: "Hoàng Nam", Moves: moves,
-		Carrier: "ghn", TrackingCode: "8A2K9",
 	}
 }
 
@@ -47,8 +49,8 @@ func TestFromMoves(t *testing.T) {
 		"the seller cancels an order": {domain.Move{Kind: "order_cancelled", By: "seller"}, "seller", buyer, domain.TypeOrderCancelled},
 		"shipped to another":          {domain.Move{Kind: "order_cancelled", By: "system"}, "shipped_to_another", buyer, domain.TypeOrderCancelled},
 	} {
+		c.move.OrderID, c.move.CancelReason = order, c.reason
 		f := facts(c.move)
-		f.CancelReason = c.reason
 		got := domain.FromMoves(f, at)
 		if len(got) != 1 || got[0].Recipient != c.to || got[0].Type != c.typ || got[0].CollapseKey != "deal:"+f.DealID.String() ||
 			!got[0].At.Equal(at) {
@@ -65,6 +67,70 @@ func TestFromMoves(t *testing.T) {
 	}
 	if got := domain.FromMoves(facts(domain.Move{Kind: "withdraw", By: "buyer"}), at); len(got) != 0 {
 		t.Errorf("a withdrawal notifies: %+v", got)
+	}
+}
+
+// Each order notice names the order its move is a step of, so two orders
+// of one deal open apart; an order notice stored without its order opens
+// the deal.
+func TestOrderNoticesNameTheirOrder(t *testing.T) {
+	t.Parallel()
+	first, second := uuid.NewV7(), uuid.NewV7()
+	f := facts(
+		domain.Move{Kind: "order_cancelled", By: "buyer", OrderID: first, CancelReason: "buyer"},
+		domain.Move{Kind: "accept", By: "buyer", Amount: 1_500_000},
+		domain.Move{Kind: "cod_requested", By: "buyer", Amount: 1_500_000, OrderID: second},
+	)
+	got := domain.FromMoves(f, at)
+	if len(got) != 3 || got[0].Params.OrderID != first || got[0].Params.Reason != "buyer" ||
+		got[1].Params.OrderID != (uuid.UUID{}) || got[2].Params.OrderID != second || got[2].Params.Reason != "" {
+		t.Fatalf("%+v", got)
+	}
+	for i, want := range []domain.Target{
+		{Kind: "order", ID: first.String()}, {Kind: "deal", ID: f.DealID.String()}, {Kind: "order", ID: second.String()},
+	} {
+		if target := domain.TargetOf(got[i].Type, got[i].Params); target != want {
+			t.Errorf("notice %d: target %+v, want %+v", i, target, want)
+		}
+	}
+	old := domain.Params{DealID: f.DealID, Title: "Xe đạp Asama", Actor: "Hoàng Nam", Carrier: "ghn", Code: "8A2K9"}
+	if target := domain.TargetOf(domain.TypeShipped, old); target.Kind != "deal" || target.ID != f.DealID.String() {
+		t.Errorf("an order notice without its order: %+v", target)
+	}
+}
+
+// DealMoved journals DealFacts. A journal entry from before 2026-11-17 has
+// the latest order's carrier, code and cancel reason on the facts and no
+// order on the moves; a replay decodes it and tells what it told then.
+func TestDealFactsOfAnOldJournalEntry(t *testing.T) {
+	t.Parallel()
+	deal := uuid.NewV7()
+	old := `{"DealID":"` + deal.String() + `","BuyerID":"` + buyer.String() + `","SellerID":"` + seller.String() + `",
+"Title":"Xe đạp Asama","BuyerName":"Đức Huy","SellerName":"Hoàng Nam",
+"Moves":[{"Kind":"shipped","By":"seller","Amount":0},{"Kind":"order_cancelled","By":"system","Amount":0}],
+"Carrier":"ghn","TrackingCode":"8A2K9","CancelReason":"pickup_timeout"}`
+	var f domain.DealFacts
+	// Restate journals DealFacts by its Go field names; tags would rename them.
+	if err := json.Unmarshal([]byte(old), &f); err != nil { //nolint:musttag // the journal's own encoding
+		t.Fatal(err)
+	}
+	got := domain.FromMoves(f, at)
+	if len(got) != 3 {
+		t.Fatalf("%+v", got)
+	}
+	for want, n := range map[string]domain.Notice{
+		"Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9":         got[0],
+		"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ": got[2],
+	} {
+		if text := domain.Text(n.Type, n.Params); text != want {
+			t.Errorf("%s: %q", want, text)
+		}
+		if target := domain.TargetOf(n.Type, n.Params); target != (domain.Target{Kind: "deal", ID: deal.String()}) {
+			t.Errorf("%s: target %+v", want, target)
+		}
+	}
+	if got[1].Recipient != seller || got[1].Params.Reason != "pickup_timeout" {
+		t.Errorf("the seller hears of the timeout: %+v", got[1])
 	}
 }
 
@@ -87,9 +153,7 @@ func TestText(t *testing.T) {
 	t.Parallel()
 	offer := domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 1_200_000}), at)[0]
 	cancelled := func(reason string) domain.Notice {
-		f := facts(domain.Move{Kind: "order_cancelled", By: "system"})
-		f.CancelReason = reason
-		got := domain.FromMoves(f, at)
+		got := domain.FromMoves(facts(domain.Move{Kind: "order_cancelled", By: "system", OrderID: order, CancelReason: reason}), at)
 		return got[len(got)-1] // the buyer's copy
 	}
 	for want, n := range map[string]domain.Notice{
@@ -101,19 +165,17 @@ func TestText(t *testing.T) {
 		"Người bán chưa gửi Xe đạp Asama, đơn của bạn đã huỷ":    cancelled("seller_timeout"),
 		"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ":      cancelled("pickup_timeout"),
 		"Đức Huy trả 1,2 tr cho Xe đạp Asama":                    offer,
-		"Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9":              domain.FromMoves(facts(domain.Move{Kind: "shipped", By: "seller"}), at)[0],
-		"Đức Huy trả 350.000 ₫ cho Xe đạp Asama":                 domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 350_000}), at)[0],
-		"Tài khoản của bạn bị khoá đến 3/11":                     domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
-		"Tài khoản của bạn bị khoá":                              domain.Suspended(buyer, "", at),
-		"Đức Huy chấm 5 sao cho Xe đạp Asama":                    domain.Reviewed(seller, "Đức Huy", "Xe đạp Asama", 5, at),
-		"Hoàng Nam vừa đăng tin mới: Xe đạp Asama":               domain.FollowedListing(buyer, seller, "Hoàng Nam", uuid.NewV7(), "Xe đạp Asama", at),
+		"Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9": domain.FromMoves(
+			facts(domain.Move{Kind: "shipped", By: "seller", OrderID: order, Carrier: "ghn", TrackingCode: "8A2K9"}), at)[0],
+		"Đức Huy trả 350.000 ₫ cho Xe đạp Asama":   domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 350_000}), at)[0],
+		"Tài khoản của bạn bị khoá đến 3/11":       domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
+		"Tài khoản của bạn bị khoá":                domain.Suspended(buyer, "", at),
+		"Đức Huy chấm 5 sao cho Xe đạp Asama":      domain.Reviewed(seller, "Đức Huy", "Xe đạp Asama", 5, at),
+		"Hoàng Nam vừa đăng tin mới: Xe đạp Asama": domain.FollowedListing(buyer, seller, "Hoàng Nam", uuid.NewV7(), "Xe đạp Asama", at),
 	} {
 		if got := domain.Text(n.Type, n.Params); got != want {
 			t.Errorf("%s: %q", want, got)
 		}
-	}
-	if offer.Params.Carrier != "" || offer.Params.Code != "" {
-		t.Errorf("an offer stores the shipment: %+v", offer.Params)
 	}
 	if got := domain.TargetOf(offer.Type, offer.Params); got.Kind != "deal" || got.ID != offer.Params.DealID.String() {
 		t.Errorf("target: %+v", got)
@@ -184,8 +246,8 @@ func TestSystemMovesTellTheSellerToo(t *testing.T) {
 			"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ", "Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ",
 		},
 	} {
+		c.move.OrderID, c.move.CancelReason = order, c.reason
 		f := facts(c.move)
-		f.CancelReason = c.reason
 		got := domain.FromMoves(f, at)
 		if len(got) != 2 || got[0].Recipient != seller || got[1].Recipient != buyer || got[0].Type != c.typ || got[1].Type != c.typ {
 			t.Errorf("%s: %+v", name, got)
@@ -196,8 +258,7 @@ func TestSystemMovesTellTheSellerToo(t *testing.T) {
 		}
 	}
 	// A cancel the listing caused tells the buyer only, as before.
-	f := facts(domain.Move{Kind: "order_cancelled", By: "system"})
-	f.CancelReason = "shipped_to_another"
+	f := facts(domain.Move{Kind: "order_cancelled", By: "system", OrderID: order, CancelReason: "shipped_to_another"})
 	if got := domain.FromMoves(f, at); len(got) != 1 || got[0].Recipient != buyer {
 		t.Errorf("shipped to another: %+v", got)
 	}

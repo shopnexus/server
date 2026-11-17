@@ -126,6 +126,8 @@ paths:
     $ref: "paths/auth.yaml#/sessions"
   /v1/auth/sessions/current:
     $ref: "paths/auth.yaml#/currentSession"
+  /v1/auth/sessions/others:
+    $ref: "paths/auth.yaml#/otherSessions"
   /v1/auth/sessions/{id}:
     $ref: "paths/auth.yaml#/session"
   /v1/accounts/me:

@@ -13,7 +13,8 @@ import (
 
 // Refresh rotates a refresh token. A token presented after it was rotated, or
 // two refreshes racing with one token, means two parties hold it, so the
-// session is revoked.
+// session is revoked. A suspended account's session is revoked too, and
+// its token answers account_suspended while the suspension lasts.
 func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, error) {
 	now := s.now()
 	hash := domain.HashRefresh(token)
@@ -32,6 +33,18 @@ func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, err
 		return domain.Tokens{}, fmt.Errorf("find session by token: %w", err)
 	}
 	if err = sess.Usable(now); err != nil {
+		// A client that lost the answer to the refresh that revoked its
+		// session for a suspension retries with the same token. Only that
+		// token's holder learns of the suspension.
+		if sess.RevokeReason() == domain.RevokedSuspended {
+			a, loadErr := s.load(ctx, sess.AccountID())
+			if loadErr != nil {
+				return domain.Tokens{}, loadErr
+			}
+			if a.Suspended(now) {
+				return domain.Tokens{}, domain.ErrSuspended
+			}
+		}
 		return domain.Tokens{}, fmt.Errorf("refresh: %w", err)
 	}
 	a, err := s.load(ctx, sess.AccountID())
@@ -41,8 +54,13 @@ func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, err
 	// A suspended account's session ends with account_suspended; a deleted
 	// one's, which a sign-in racing Erase may have issued, with
 	// session_revoked.
-	if r := a.Status(now).Refusal(); r != nil {
-		if err = s.revoke(ctx, sess.ID(), now); err != nil {
+	st := a.Status(now)
+	if r := st.Refusal(); r != nil {
+		reason := domain.RevokedDeleted
+		if st == domain.StatusSuspended {
+			reason = domain.RevokedSuspended
+		}
+		if err = s.revoke(ctx, sess.ID(), reason, now); err != nil {
 			return domain.Tokens{}, err
 		}
 		return domain.Tokens{}, r
@@ -73,7 +91,7 @@ func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, err
 // reused revokes a session whose refresh token two parties hold, records the
 // security event and returns the refusal.
 func (s *Account) reused(ctx context.Context, id uuid.UUID, now time.Time, why string) error {
-	if err := s.revoke(ctx, id, now); err != nil {
+	if err := s.revoke(ctx, id, domain.RevokedReuse, now); err != nil {
 		return err
 	}
 	s.log.WarnContext(ctx, "security: refresh token reuse, session revoked", "why", why, "session_id", id)
@@ -81,9 +99,10 @@ func (s *Account) reused(ctx context.Context, id uuid.UUID, now time.Time, why s
 	return domain.ErrSessionRevoked
 }
 
-// revoke reloads the session and revokes it, retrying once when a concurrent
-// write gets there first.
-func (s *Account) revoke(ctx context.Context, id uuid.UUID, now time.Time) error {
+// revoke reloads the session and revokes it for reason, retrying once when
+// a concurrent write gets there first. A session revoked already keeps its
+// reason.
+func (s *Account) revoke(ctx context.Context, id uuid.UUID, reason domain.RevokeReason, now time.Time) error {
 	var err error
 	for range 2 {
 		var sess domain.Session
@@ -93,7 +112,7 @@ func (s *Account) revoke(ctx context.Context, id uuid.UUID, now time.Time) error
 		if sess.RevokedAt() != nil {
 			return nil
 		}
-		sess.Revoke(now)
+		sess.Revoke(reason, now)
 		err = s.sessions.Save(ctx, &sess, uuid.NewV7())
 		if err == nil {
 			return nil
