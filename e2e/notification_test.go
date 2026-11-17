@@ -75,7 +75,7 @@ func TestNotifications(t *testing.T) {
 		!strings.Contains(n.Text, "1 tr") {
 		t.Fatalf("the seller's notice: %+v", got)
 	}
-	if m := phones.wait(t, sellerPhone, 2); m.Data["notification_id"] != n.ID || m.Tag != "deal:"+d.ID {
+	if m := phones.wait(t, sellerPhone, 2); m.Data["notification_id"] != n.ID || m.Tag != "notification:"+n.ID {
 		t.Fatalf("the seller's push: %+v", m)
 	}
 

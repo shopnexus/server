@@ -2563,6 +2563,11 @@ calls it except screen, for Home's unread count; depguard holds that.
   two events of one key. A redelivered event writes nothing (the row
   records its `event_id`). A recipient's
   notices older than 90 days are deleted when they get a new one.
+- A notice's push has the Android tag and FCM collapse key
+  `notification:<id>` (decided 2026-11-17). An unread notice keeps its ID
+  when a newer event of its collapse key rewrites it, so the new push
+  replaces the notice's tray item, and the app removes the item by the
+  notice's ID when the notice is read in the app.
 - An order notice opens its own order (decided 2026-11-17): a deal can
   have an earlier order besides its latest, and the app opens an order by
   its ID. Each step of an order in `deal_moves` names its order

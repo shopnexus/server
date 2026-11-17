@@ -343,10 +343,11 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 			continue
 		}
 		id := rec.ID
-		tag := n.CollapseKey
-		if tag == "" {
-			tag = "notification:" + id.String()
-		}
+		// An unread notice keeps its id when a newer event with its
+		// collapse key rewrites it, so this tag replaces that notice's
+		// tray item, and the app removes the item by the notice's id when
+		// the notice is read.
+		tag := "notification:" + id.String()
 		target := domain.TargetOf(n.Type, n.Params)
 		if pushErr := w.deliver(ctx, n.Recipient, domain.SwitchOf(n.Type), push.Message{
 			Title: domain.Title(n.Type), Body: domain.Text(n.Type, n.Params), Tag: tag,

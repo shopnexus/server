@@ -139,6 +139,7 @@ type sender struct {
 	body  map[string]string
 	title map[string]string
 	data  map[string]map[string]string
+	tag   map[string]string
 	once  map[string]error
 }
 
@@ -150,7 +151,7 @@ func (s *sender) Send(_ context.Context, token string, m push.Message) error {
 		return err
 	}
 	s.sent[token]++
-	s.body[token], s.title[token], s.data[token] = m.Body, m.Title, m.Data
+	s.body[token], s.title[token], s.data[token], s.tag[token] = m.Body, m.Title, m.Data, m.Tag
 	return nil
 }
 
@@ -182,7 +183,7 @@ func newEnv(t *testing.T, revoked map[uuid.UUID]bool, once map[string]error) env
 	t.Helper()
 	db := pgtest.New(t)
 	notices := service.New(service.Deps{Notices: repository.NewNotices(db), Settings: repository.NewSettings(db), Now: time.Now})
-	s := &sender{sent: map[string]int{}, body: map[string]string{}, title: map[string]string{}, data: map[string]map[string]string{}, once: once}
+	s := &sender{sent: map[string]int{}, body: map[string]string{}, title: map[string]string{}, data: map[string]map[string]string{}, tag: map[string]string{}, once: once}
 	w := worker.Worker{
 		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{}, Discovery: discovery{},
 		Accounts: accounts{revoked: revoked}, Push: s, Log: slog.New(slog.DiscardHandler), FollowerPage: 2,
@@ -360,10 +361,13 @@ func TestTellFollower(t *testing.T) {
 
 func TestDealMoved(t *testing.T) {
 	t.Parallel()
-	offer := uuid.NewV7()
+	offer, raise := uuid.NewV7(), uuid.NewV7()
 	f := dealsvc.MoveFacts{
 		DealID: uuid.NewV7(), ListingTitle: "Xe đạp Asama", BuyerName: "Đức Huy", SellerName: "Hoàng Nam",
-		Moves: []dealdomain.Move{{ID: offer, Kind: dealdomain.MoveOffer, By: dealdomain.Buyer, Amount: 1_200_000}},
+		Moves: []dealdomain.Move{
+			{ID: offer, Kind: dealdomain.MoveOffer, By: dealdomain.Buyer, Amount: 1_200_000},
+			{ID: raise, Kind: dealdomain.MoveOffer, By: dealdomain.Buyer, Amount: 1_300_000},
+		},
 	}
 	e := newEnv(t, nil, nil)
 	f.BuyerID, f.SellerID = accounttest.New(t, e.db), accounttest.New(t, e.db)
@@ -392,6 +396,20 @@ func TestDealMoved(t *testing.T) {
 	})
 	if l, _ = e.notices.List(context.Background(), f.SellerID, page.Request{}); len(l.Items) != 1 {
 		t.Fatalf("a move the deal lacks tells no one: %+v", l)
+	}
+	// The deal's notice is still unread, so a second offer rewrites it under
+	// its id, and the push replaces the first one in the tray.
+	tag := "notification:" + l.Items[0].ID.String()
+	if e.push.tag["seller-phone"] != tag {
+		t.Fatalf("tagged by the notice: %q, want %q", e.push.tag["seller-phone"], tag)
+	}
+	e.deliver(t, "DealMoved", events.Event{
+		ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: f.DealID, OccurredAt: time.Now(),
+		Payload: map[string]any{"moves": []any{raise.String()}},
+	})
+	if l, _ = e.notices.List(context.Background(), f.SellerID, page.Request{}); len(l.Items) != 1 || e.push.count("seller-phone") != 2 ||
+		e.push.tag["seller-phone"] != tag {
+		t.Fatalf("one notice, a second push with its tag: %+v %d %q", l, e.push.count("seller-phone"), e.push.tag["seller-phone"])
 	}
 }
 
