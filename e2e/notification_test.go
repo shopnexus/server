@@ -173,3 +173,69 @@ func TestNotificationRefusals(t *testing.T) {
 		check(t, name, call(t, c.method, c.path, c.body, bearer(c.token)), c.status, "")
 	}
 }
+
+// newestNotice polls token's list until its newest notice is an unread one
+// of type typ, and returns the list.
+func newestNotice(t *testing.T, token, typ string) notificationList {
+	t.Helper()
+	var l notificationList
+	testenv.Eventually(t, 30*time.Second, func() error {
+		res := call(t, "GET", "/v1/notifications", nil, bearer(token))
+		if l = expect[notificationList](t, res, http.StatusOK); len(l.Items) == 0 || l.Items[0].Type != typ || !l.Items[0].Unread {
+			return fmt.Errorf("no unread %s on top: %s", typ, res.Body)
+		}
+		return nil
+	})
+	return l
+}
+
+// A buyer cancels an order and asks again on the same deal. The seller's
+// notices about the two orders open each its own order, as their pushes
+// do, and the earlier one's screen shows the cancelled order.
+func TestOrderNoticesOpenTheirOwnOrder(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	buyer, _ := newAccount(t)
+	sellerPhone := "seller-" + uuid.NewV7().String()
+	putToken(t, seller.AccessToken, sellerPhone)
+	first := pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
+	newestNotice(t, seller.AccessToken, "cod_requested")
+	expect[readAllResult](t, call(t, "POST", "/v1/notifications/read-all", nil, bearer(seller.AccessToken)), http.StatusOK)
+	moved(t, buyer.AccessToken, first.ID, "cancel", nil)
+	newestNotice(t, seller.AccessToken, "order_cancelled")
+	expect[readAllResult](t, call(t, "POST", "/v1/notifications/read-all", nil, bearer(seller.AccessToken)), http.StatusOK)
+	moved(t, buyer.AccessToken, first.ID, "accept", map[string]any{"price": 1_500_000})
+	second := moved(t, buyer.AccessToken, first.ID, "cod", codBody(deliveryAddress(t, buyer.AccessToken)))
+	if second.Order.ID == first.Order.ID {
+		t.Fatalf("one order: %s", first.Order.ID)
+	}
+
+	l := newestNotice(t, seller.AccessToken, "cod_requested")
+	want := []struct{ typ, order string }{
+		{"cod_requested", second.Order.ID}, {"order_cancelled", first.Order.ID}, {"cod_requested", first.Order.ID},
+	}
+	if len(l.Items) < len(want) {
+		t.Fatalf("%+v", l)
+	}
+	for i, w := range want {
+		if n := l.Items[i]; n.Type != w.typ || n.Target.Kind != "order" || n.Target.ID != w.order {
+			t.Errorf("notice %d: %+v, want %s on %s", i, n, w.typ, w.order)
+		}
+	}
+	testenv.Eventually(t, 30*time.Second, func() error {
+		phones.mu.Lock()
+		defer phones.mu.Unlock()
+		for _, m := range phones.sent[sellerPhone] {
+			if m.Data["type"] == "cod_requested" && m.Data["notification_id"] == l.Items[0].ID {
+				if m.Data["target_kind"] != "order" || m.Data["target_id"] != second.Order.ID {
+					t.Fatalf("the second order's push: %+v", m.Data)
+				}
+				return nil
+			}
+		}
+		return fmt.Errorf("no push of notice %s", l.Items[0].ID)
+	})
+	if s := orderScreen(t, seller.AccessToken, l.Items[1].Target.ID); s.Order.ID != first.Order.ID || s.Order.Status != "cancelled" {
+		t.Fatalf("the earlier notice's order: %+v", s.Order)
+	}
+}

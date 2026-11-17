@@ -61,7 +61,10 @@ type Notice struct {
 // Params are what a notice's text and target are written from, stored as
 // JSON. A notice sets only the ones its type reads.
 type Params struct {
-	DealID    uuid.UUID `json:"deal_id,omitzero"`
+	DealID uuid.UUID `json:"deal_id,omitzero"`
+	// OrderID is the order an order notice is about. A notice of a step
+	// that names no order (see DealFacts) has none and opens its deal.
+	OrderID   uuid.UUID `json:"order_id,omitzero"`
 	ListingID uuid.UUID `json:"listing_id,omitzero"`
 	SellerID  uuid.UUID `json:"seller_id,omitzero"`
 	Title     string    `json:"title,omitempty"`
@@ -92,19 +95,28 @@ type Params struct {
 	SavedPrice int64 `json:"saved_price,omitempty"`
 }
 
-// Move is a deal move as notification reads it.
+// Move is a deal move as notification reads it. A step of an order names
+// the order, with its shipment's carrier and tracking code and the reason
+// it was cancelled, as the order holds them now.
 type Move struct {
-	Kind   string
-	By     string // buyer, seller or system
-	Amount int64
+	Kind    string
+	By      string // buyer, seller or system
+	Amount  int64
+	OrderID uuid.UUID
+
+	Carrier, TrackingCode, CancelReason string
 }
 
-// DealFacts is what a deal's new moves tell.
+// DealFacts is what a deal's new moves tell. Carrier, TrackingCode and
+// CancelReason are the deal's latest order's, which a move that names no
+// order tells of: a step the release before wrote or migration 0052 could
+// not match, and every move of a journal entry from before 2026-11-17,
+// whose facts hold only these.
 type DealFacts struct {
 	DealID, BuyerID, SellerID    uuid.UUID
 	Title, BuyerName, SellerName string
 	Moves                        []Move
-	// Carrier and TrackingCode are the latest order's shipment.
+
 	Carrier, TrackingCode, CancelReason string
 }
 
@@ -113,11 +125,15 @@ type DealFacts struct {
 func FromMoves(f DealFacts, at time.Time) []Notice {
 	out := make([]Notice, 0, len(f.Moves))
 	for _, m := range f.Moves {
+		carrier, code, reason := m.Carrier, m.TrackingCode, m.CancelReason
+		if m.OrderID == (uuid.UUID{}) {
+			carrier, code, reason = f.Carrier, f.TrackingCode, f.CancelReason
+		}
 		to, actor := f.SellerID, f.BuyerName
 		if m.By != "buyer" {
 			to, actor = f.BuyerID, f.SellerName
 		}
-		p := Params{DealID: f.DealID, Title: f.Title, Actor: actor, Amount: m.Amount}
+		p := Params{DealID: f.DealID, OrderID: m.OrderID, Title: f.Title, Actor: actor, Amount: m.Amount}
 		var t Type
 		switch m.Kind {
 		case "offer":
@@ -135,7 +151,7 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 		case "cod_requested":
 			t = TypeCodRequested
 		case "shipped":
-			t, p.Carrier, p.Code = TypeShipped, f.Carrier, f.TrackingCode
+			t, p.Carrier, p.Code = TypeShipped, carrier, code
 		case "completed":
 			// The buyer's confirmation tells the seller; the system's
 			// completion asks the buyer for a review.
@@ -152,7 +168,7 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 			t = TypeFailed
 			out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: p, At: at})
 		case "order_cancelled":
-			t, p.Reason = TypeOrderCancelled, f.CancelReason
+			t, p.Reason = TypeOrderCancelled, reason
 			// A timeout puts the seller's listing back on sale; the seller hears
 			// of it too.
 			if m.By == "system" && (p.Reason == "seller_timeout" || p.Reason == "pickup_timeout") {
@@ -233,26 +249,48 @@ type Target struct {
 }
 
 // group is what notices of a kind share: the push's title, the screen they
-// open, which param names it, and the switch that stops their push.
+// open, and the switch that stops their push.
 type group struct {
-	title, screen string
-	id            func(Params) uuid.UUID
-	push          Switch
+	title  string
+	target func(Params) Target
+	push   Switch
 }
 
 var (
-	haggling = group{"Trả giá", "deal", dealID, SwitchOffers}
-	orders   = group{"Đơn hàng", "order", dealID, SwitchOrders}
-	listings = group{"Tin đăng", "listing", listingID, SwitchNone}
-	followed = group{"Tin đăng", "listing", listingID, SwitchFollowed}
-	reviews  = group{"Đánh giá", "seller_reviews", func(p Params) uuid.UUID { return p.SellerID }, SwitchReviews}
-	accounts = group{"Tài khoản", "account", func(Params) uuid.UUID { return uuid.UUID{} }, SwitchNone}
-	searches = group{"Tìm kiếm", "search_watch", func(p Params) uuid.UUID { return p.WatchID }, SwitchNone}
-	saved    = group{"Đã lưu", "listing", listingID, SwitchPriceCuts}
+	haggling = group{"Trả giá", opens("deal", dealID), SwitchOffers}
+	orders   = group{"Đơn hàng", orderTarget, SwitchOrders}
+	listings = group{"Tin đăng", opens("listing", listingID), SwitchNone}
+	followed = group{"Tin đăng", opens("listing", listingID), SwitchFollowed}
+	reviews  = group{"Đánh giá", opens("seller_reviews", func(p Params) uuid.UUID { return p.SellerID }), SwitchReviews}
+	accounts = group{"Tài khoản", opens("account", func(Params) uuid.UUID { return uuid.UUID{} }), SwitchNone}
+	searches = group{"Tìm kiếm", opens("search_watch", func(p Params) uuid.UUID { return p.WatchID }), SwitchNone}
+	saved    = group{"Đã lưu", opens("listing", listingID), SwitchPriceCuts}
 )
 
 func dealID(p Params) uuid.UUID    { return p.DealID }
 func listingID(p Params) uuid.UUID { return p.ListingID }
+
+// opens is the target of screen, named by the param id reads; a zero ID is
+// empty.
+func opens(screen string, id func(Params) uuid.UUID) func(Params) Target {
+	return func(p Params) Target {
+		t := Target{Kind: screen}
+		if v := id(p); v != (uuid.UUID{}) {
+			t.ID = v.String()
+		}
+		return t
+	}
+}
+
+// orderTarget opens the order a notice is about. An order notice without
+// its order, from before order IDs were kept, opens its deal: the deal's
+// latest order may be a newer one.
+func orderTarget(p Params) Target {
+	if p.OrderID == (uuid.UUID{}) {
+		return haggling.target(p)
+	}
+	return Target{Kind: "order", ID: p.OrderID.String()}
+}
 
 // types describes each notice type: its group and its Vietnamese text.
 var types = map[Type]struct {
@@ -368,11 +406,7 @@ func TargetOf(t Type, p Params) Target {
 	if !ok {
 		return Target{}
 	}
-	id := ""
-	if v := d.id(p); v != (uuid.UUID{}) {
-		id = v.String()
-	}
-	return Target{Kind: d.screen, ID: id}
+	return d.target(p)
 }
 
 // money writes an amount the way the app does: "1,2 tr" from a million,

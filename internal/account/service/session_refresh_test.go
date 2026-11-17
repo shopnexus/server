@@ -98,6 +98,45 @@ func TestRefreshRefusals(t *testing.T) {
 	}
 }
 
+// The refresh that revoked a suspended account's session may lose its
+// answer; the client's retry with the same token is still told of the
+// suspension, and only of it while the suspension lasts. A session that
+// ended for another reason keeps answering session_revoked.
+func TestRefreshOfASuspendedAccountAnswersItsRetries(t *testing.T) {
+	t.Parallel()
+	e := newRefreshEnv(t)
+	signedOut, err := service.IssueSession(at(nil, e.sessions, now), context.Background(), uuid.NewV7(), e.acc, "Pixel 8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := domain.NewVerifier(testKeys).Verify(signedOut.AccessToken, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = at(nil, e.sessions, now).DeleteCurrentSession(context.Background(), p); err != nil {
+		t.Fatal(err)
+	}
+	suspendAccount(t, e.db, e.acc)
+	for i := range 2 {
+		if _, err = e.refresh(e.token, now); !errors.Is(err, domain.ErrSuspended) || !e.revoked(t) {
+			t.Fatalf("refresh %d: %v", i+1, err)
+		}
+	}
+	if s, _ := e.sessions.Get(context.Background(), e.sid); s.RevokeReason() != domain.RevokedSuspended {
+		t.Fatalf("reason %q", s.RevokeReason())
+	}
+	if _, err = e.refresh(signedOut.RefreshToken, now); !errors.Is(err, domain.ErrSessionRevoked) {
+		t.Fatalf("a session signed out before the suspension: %v", err)
+	}
+	if _, err = e.db.Exec(context.Background(), `UPDATE accounts SET status = 'active', suspend_reason = NULL WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": e.acc}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = e.refresh(e.token, now); !errors.Is(err, domain.ErrSessionRevoked) {
+		t.Fatalf("after the suspension: %v", err)
+	}
+}
+
 // losingSave behaves as if another refresh with the same token saved first.
 type losingSave struct{ repository.Sessions }
 
@@ -117,26 +156,26 @@ func TestRefreshThatLosesARaceRevokes(t *testing.T) {
 	}
 }
 
-// revokeAllFirst behaves as if the account signed out everywhere just before
-// the refresh saved.
-type revokeAllFirst struct{ repository.Sessions }
+// othersSignedOutFirst behaves as if another device of the account signed
+// out its other devices just before the refresh saved.
+type othersSignedOutFirst struct{ repository.Sessions }
 
-func (l revokeAllFirst) Save(ctx context.Context, s *domain.Session, w uuid.UUID) error {
-	if err := l.Sessions.RevokeAll(ctx, s.AccountID(), now); err != nil {
+func (l othersSignedOutFirst) Save(ctx context.Context, s *domain.Session, w uuid.UUID) error {
+	if err := l.Sessions.RevokeOthers(ctx, s.AccountID(), uuid.NewV7(), now); err != nil {
 		return err
 	}
 	return l.Sessions.Save(ctx, s, w)
 }
 
-// A refresh that loses to DeleteAllSessions is a signed-out session, not a
+// A refresh that loses to DeleteOtherSessions is a signed-out session, not a
 // token two parties hold: no security event is logged.
-func TestRefreshThatLosesToDeleteAllSessionsIsNotReuse(t *testing.T) {
+func TestRefreshThatLosesToDeleteOtherSessionsIsNotReuse(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
 	var logs bytes.Buffer
 	log := slog.New(slog.NewTextHandler(&logs, nil))
 	svc := service.New(service.Deps{
-		Accounts: e.accounts, Sessions: revokeAllFirst{e.sessions}, Signer: domain.NewSigner(testKeys), Now: func() time.Time { return now }, Log: log,
+		Accounts: e.accounts, Sessions: othersSignedOutFirst{e.sessions}, Signer: domain.NewSigner(testKeys), Now: func() time.Time { return now }, Log: log,
 	})
 	_, err := svc.Refresh(context.Background(), e.token)
 	if !errors.Is(err, domain.ErrSessionRevoked) || strings.Contains(logs.String(), "reuse") {

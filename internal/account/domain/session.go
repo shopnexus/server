@@ -13,6 +13,22 @@ const (
 	SessionIdleLimit = 30 * 24 * time.Hour
 )
 
+// RevokeReason is why a session ended. Sessions revoked before 2026-11-17
+// have none.
+type RevokeReason string
+
+const (
+	// RevokedSignOut is a sign-out: of this device, of one device from the
+	// device list, or of every other device.
+	RevokedSignOut RevokeReason = "sign_out"
+	// RevokedReuse is a refresh token two parties presented.
+	RevokedReuse RevokeReason = "reuse"
+	// RevokedSuspended is a refresh that found the account suspended.
+	RevokedSuspended RevokeReason = "suspended"
+	// RevokedDeleted is a session of a deleted account.
+	RevokedDeleted RevokeReason = "deleted"
+)
+
 // Session is one signed-in device, with its rotating refresh token.
 type Session struct {
 	id              uuid.UUID
@@ -25,6 +41,7 @@ type Session struct {
 	lastUsedAt      time.Time
 	expiresAt       time.Time
 	revokedAt       *time.Time
+	revokeReason    RevokeReason
 	writeID         uuid.UUID
 }
 
@@ -50,14 +67,18 @@ func (s *Session) ExpiresAt() time.Time    { return s.expiresAt }
 func (s *Session) RevokedAt() *time.Time   { return s.revokedAt }
 func (s *Session) WriteID() uuid.UUID      { return s.writeID }
 
+// RevokeReason is why the session ended; empty while it lives and for a
+// session revoked before reasons were kept.
+func (s *Session) RevokeReason() RevokeReason { return s.revokeReason }
+
 // RestoreSession rebuilds a stored session. Stores only.
 func RestoreSession(id, accountID uuid.UUID, refreshHash, prevRefreshHash []byte, deviceName string,
-	authTime, createdAt, lastUsedAt, expiresAt time.Time, revokedAt *time.Time, writeID uuid.UUID,
+	authTime, createdAt, lastUsedAt, expiresAt time.Time, revokedAt *time.Time, revokeReason RevokeReason, writeID uuid.UUID,
 ) Session {
 	return Session{
 		id: id, accountID: accountID, refreshHash: refreshHash, prevRefreshHash: prevRefreshHash, deviceName: deviceName,
 		authTime: authTime, createdAt: createdAt, lastUsedAt: lastUsedAt, expiresAt: expiresAt, revokedAt: revokedAt,
-		writeID: writeID,
+		revokeReason: revokeReason, writeID: writeID,
 	}
 }
 
@@ -84,10 +105,11 @@ func (s *Session) Rotate(now time.Time) string {
 	return refresh
 }
 
-// Revoke signs the session out; a second call keeps the first time.
-func (s *Session) Revoke(now time.Time) {
+// Revoke ends the session for reason; a second call keeps the first time
+// and reason.
+func (s *Session) Revoke(reason RevokeReason, now time.Time) {
 	if s.revokedAt == nil {
-		s.revokedAt = &now
+		s.revokedAt, s.revokeReason = &now, reason
 	}
 }
 

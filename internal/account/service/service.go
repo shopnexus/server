@@ -130,8 +130,9 @@ type Sessions interface {
 	Refresh(ctx context.Context, refreshToken string) (domain.Tokens, error)
 	// DeleteCurrentSession revokes the caller's session.
 	DeleteCurrentSession(ctx context.Context, p authn.Principal) error
-	// DeleteAllSessions revokes every session of the caller's account.
-	DeleteAllSessions(ctx context.Context, p authn.Principal) error
+	// DeleteOtherSessions signs out every session of the caller's account
+	// but the caller's own.
+	DeleteOtherSessions(ctx context.Context, p authn.Principal) error
 	// DeleteSession signs one of the caller's devices out.
 	DeleteSession(ctx context.Context, p authn.Principal, id uuid.UUID) error
 	// ListSessions lists the caller's devices, newest first.

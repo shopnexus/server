@@ -50,8 +50,13 @@ func TestUsable(t *testing.T) {
 	if err := s.Usable(now.Add(domain.SessionMaxAge)); !errors.Is(err, domain.ErrSessionExpired) {
 		t.Fatalf("max age: %v", err)
 	}
-	s.Revoke(now)
+	s.Revoke(domain.RevokedSuspended, now)
 	if err := s.Usable(now); !errors.Is(err, domain.ErrSessionRevoked) {
 		t.Fatalf("revoked: %v", err)
+	}
+	// A later revoke keeps the first time and reason.
+	s.Revoke(domain.RevokedSignOut, now.Add(time.Hour))
+	if !s.RevokedAt().Equal(now) || s.RevokeReason() != domain.RevokedSuspended {
+		t.Fatalf("revoked %v for %q", s.RevokedAt(), s.RevokeReason())
 	}
 }

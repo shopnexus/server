@@ -51,20 +51,29 @@ func TestDeleteCurrentSessionRevokesOnlyIt(t *testing.T) {
 	}
 }
 
-func TestDeleteAllSessionsNeedsRecentSignIn(t *testing.T) {
+// Signing out the other devices keeps the caller's session and leaves
+// other accounts alone; it needs a recent sign-in.
+func TestDeleteOtherSessions(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	s := repository.NewSessions(db)
-	ps := devices(t, s, accounttest.New(t, db), 2, now)
+	ps := devices(t, s, accounttest.New(t, db), 3, now)
 	other := devices(t, s, accounttest.New(t, db), 1, now)
-	if err := at(nil, s, now.Add(15*time.Minute+time.Second)).DeleteAllSessions(context.Background(), ps[0]); !errors.Is(err, domain.ErrReauthRequired) {
+	if err := at(nil, s, now.Add(15*time.Minute+time.Second)).DeleteOtherSessions(context.Background(), ps[1]); !errors.Is(err, domain.ErrReauthRequired) {
 		t.Fatalf("stale sign-in: %v", err)
 	}
-	if err := at(nil, s, now.Add(14*time.Minute)).DeleteAllSessions(context.Background(), ps[0]); err != nil {
+	if revokedIn(t, s, ps[0].SessionID) {
+		t.Fatal("a refused sign-out revoked a session")
+	}
+	if err := at(nil, s, now.Add(14*time.Minute)).DeleteOtherSessions(context.Background(), ps[1]); err != nil {
 		t.Fatal(err)
 	}
-	if !revokedIn(t, s, ps[0].SessionID) || !revokedIn(t, s, ps[1].SessionID) || revokedIn(t, s, other[0].SessionID) {
+	if revokedIn(t, s, ps[1].SessionID) || !revokedIn(t, s, ps[0].SessionID) || !revokedIn(t, s, ps[2].SessionID) ||
+		revokedIn(t, s, other[0].SessionID) {
 		t.Fatal("wrong sessions revoked")
+	}
+	if got, _ := s.Get(context.Background(), ps[0].SessionID); got.RevokeReason() != domain.RevokedSignOut {
+		t.Fatalf("reason %q", got.RevokeReason())
 	}
 }
 

@@ -590,15 +590,22 @@ The device list and the sign-outs are one resource, `/v1/auth/sessions`:
 | Endpoint | Method | Signs out |
 |---|---|---|
 | `GET /v1/auth/sessions` | `ListSessions` | nothing; lists the devices |
-| `DELETE /v1/auth/sessions` | `DeleteAllSessions` | every session; needs a sign-in within 15 minutes (428 `reauth_required`) |
 | `DELETE /v1/auth/sessions/current` | `DeleteCurrentSession` | the session of the access token |
+| `DELETE /v1/auth/sessions/others` | `DeleteOtherSessions` | every session but the caller's; needs a sign-in within 15 minutes (428 `reauth_required`) |
 | `DELETE /v1/auth/sessions/{id}` | `DeleteSession` | one device |
 
-The two deletes without an ID replaced `POST /v1/auth/logout` and
-`POST /v1/auth/logout-all` on 2026-11-10, with the same auth, status codes
-and effects. `current` is a fixed segment. ServeMux and kin-openapi's router,
-which the request validator uses, both match a fixed segment before `{id}`;
-`TestCurrentSessionRoute` in `account/handler` holds both to it.
+`DELETE /v1/auth/sessions/current` replaced `POST /v1/auth/logout` on
+2026-11-10. `DELETE /v1/auth/sessions`, which replaced
+`POST /v1/auth/logout-all` and signed out the caller's session too, became
+`DELETE /v1/auth/sessions/others` on 2026-11-17: the app's row is "Đăng
+xuất các thiết bị khác", and the caller's own device stays signed in.
+`current` and `others` are fixed segments. ServeMux and kin-openapi's
+router, which the request validator uses, both match a fixed segment before
+`{id}`; `TestFixedSessionRoutes` in `account/handler` holds both to it.
+
+A revoked session keeps in `revoke_reason` the reason of its first
+revocation: `sign_out`, `reuse`, `suspended` or `deleted`; sessions revoked
+before 2026-11-17 have none.
 
 Refresh:
 
@@ -607,7 +614,14 @@ Refresh:
    replayed: `Revoke`, `Save`, return `session_revoked`. When nothing matches,
    return `invalid_refresh_token`.
 2. `s.Usable(now)`, then the account's status at `now`. A
-   suspended account gets its session revoked and `account_suspended`.
+   suspended account gets its session revoked for `suspended` and
+   `account_suspended`; a deleted one's for `deleted` and
+   `session_revoked`. A session revoked for `suspended` answers
+   `account_suspended` again while the suspension lasts, so a client that
+   lost the first answer learns of the suspension on its retry, and
+   `session_revoked` once it ends. Only the holder of the session's current
+   refresh token gets that answer; every other revoked session answers
+   `session_revoked`.
 3. `token := s.Rotate(now)`, `Save`. On `ErrConflict` the use case reloads
    the session. Revoked means a sign-out won the race, and the answer is
    `session_revoked`. Otherwise a concurrent refresh with the same token won:
@@ -623,10 +637,12 @@ Two kinds of call skip the aggregate:
 - A read returns view structs from a query and never loads an entity. The
   device list is `sessions.ListActive(accountID, now, cursor, limit)`.
 - A bulk change that only moves a one-way flag may run as one set-based
-  statement that also changes each row's `write_id`. `DeleteAllSessions` is
-  `UPDATE sessions SET revoked_at = @now, write_id = uuidv7() WHERE
-  account_id = @account_id AND revoked_at IS NULL`. Loading and saving each session
-  would cost one transaction per device and protect no rule.
+  statement that also changes each row's `write_id`. `DeleteOtherSessions`
+  is `UPDATE sessions SET revoked_at = @now, revoke_reason = 'sign_out',
+  write_id = uuidv7() WHERE account_id = @account_id AND id <> @keep AND
+  revoked_at IS NULL`. Loading and saving each session would cost one
+  transaction per device and protect no rule. The push tokens of the
+  sessions it ends stop at the next push (see Notifications).
 
 The access token is checked by signature and expiry only; the middleware reads
 no database. `account/domain` signs and verifies it (EdDSA, `kid` header,
@@ -2536,6 +2552,24 @@ calls it except screen, for Home's unread count; depguard holds that.
   two events of one key. A redelivered event writes nothing (the row
   records its `event_id`). A recipient's
   notices older than 90 days are deleted when they get a new one.
+- An order notice opens its own order (decided 2026-11-17): a deal can
+  have an earlier order besides its latest, and the app opens an order by
+  its ID. Each step of an order in `deal_moves` names its order
+  (`order_id`, NULL on a move on the price), `dealsvc.Moves` reads the
+  deal's latest order and the orders the moves name, and each move tells
+  of its own order's ID, carrier, tracking code and cancel reason. The
+  notice keeps `order_id` in its params and targets
+  `{kind: order, id: <order id>}`; the push carries the same. A step that
+  names no order (written by the release before during a deploy, or one
+  0052 could not match) tells of the deal's latest order, as every step
+  did before, and its notice opens the deal (`{kind: deal}`). The journaled
+  `DealFacts` keep the latest order's carrier, code and reason at the top
+  for those steps, so a `DealMoved` journal entry from before replays with
+  its data. Migration 0052 matched the steps and the order notices from
+  before by their times: a step takes the one order of its deal whose
+  request, shipment or end it happened at, and a notice the order of the
+  one step of its deal, kind and `bumped_at`. An order notice that matched
+  none keeps no order and opens its deal.
 - A followed seller's new listing (decided 2026-11-10): on a
   `listing.published` with `first`, `ListingPublished` tells the seller as
   before, reads the seller's name, then reads the followers 500 per step

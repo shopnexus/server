@@ -44,9 +44,10 @@ type Service interface {
 	// BuyerSummary returns buyer's deal on a listing at a glance; false
 	// when there is none.
 	BuyerSummary(ctx context.Context, buyer, listingID uuid.UUID) (DealSummary, bool, error)
-	// Moves reads the moves of ids on a deal, with its people, listing and
-	// latest order, for notifications; an ID the deal lacks is left out,
-	// and an unknown deal answers false.
+	// Moves reads the moves of ids on a deal, with its people, listing,
+	// latest order and the orders the moves are steps of, for
+	// notifications; an ID the deal lacks is left out, and an unknown deal
+	// answers false.
 	Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (MoveFacts, bool, error)
 	// PostMoves writes the deal message of each move of ids on a deal that
 	// belongs in chat into the deal's conversation; a move the deal lacks,

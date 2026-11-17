@@ -17,6 +17,7 @@ import (
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
 	chatsvc "github.com/shopnexus/server2/internal/chat/service"
+	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server2/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
 	"github.com/shopnexus/server2/internal/notification/domain"
@@ -72,14 +73,16 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 			DealID: facts.DealID, BuyerID: facts.BuyerID, SellerID: facts.SellerID,
 			Title: facts.ListingTitle, BuyerName: facts.BuyerName, SellerName: facts.SellerName,
 		}
-		for _, m := range facts.Moves {
-			out.Moves = append(out.Moves, domain.Move{Kind: string(m.Kind), By: string(m.By), Amount: m.Amount})
-		}
 		if o := facts.Order; o != nil {
-			out.CancelReason = string(o.CancelReason)
-			if o.Shipment != nil {
-				out.Carrier, out.TrackingCode = string(o.Shipment.Carrier), o.Shipment.TrackingCode
+			out.Carrier, out.TrackingCode, out.CancelReason = orderFacts(*o)
+		}
+		for _, m := range facts.Moves {
+			mv := domain.Move{Kind: string(m.Kind), By: string(m.By), Amount: m.Amount}
+			if m.OrderID != nil {
+				mv.OrderID = *m.OrderID
+				mv.Carrier, mv.TrackingCode, mv.CancelReason = orderFacts(facts.Orders[*m.OrderID])
 			}
+			out.Moves = append(out.Moves, mv)
 		}
 		return out, nil
 	})
@@ -90,6 +93,15 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 		return nil
 	}
 	return w.tell(ctx, e.ID, domain.FromMoves(f, e.OccurredAt))
+}
+
+// orderFacts is what an order notice tells of o: its shipment's carrier and
+// tracking code, and why it was cancelled.
+func orderFacts(o dealdomain.Order) (carrier, code, reason string) {
+	if o.Shipment != nil {
+		carrier, code = string(o.Shipment.Carrier), o.Shipment.TrackingCode
+	}
+	return carrier, code, string(o.CancelReason)
 }
 
 // FollowerNotice is what TellFollower needs: the event the listing went on

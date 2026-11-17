@@ -102,27 +102,42 @@ func TestPGSessions(t *testing.T) {
 		}
 	})
 
-	t.Run("revoke all", func(t *testing.T) {
+	t.Run("revoke others", func(t *testing.T) {
 		t.Parallel()
 		s, newAccount := newSessions(t)
 		acc, other := newAccount(), newAccount()
 		a, _ := create(t, s, acc, now)
 		b, _ := create(t, s, acc, now)
+		kept, _ := create(t, s, acc, now)
 		c, _ := create(t, s, other, now)
-		if err := s.RevokeAll(ctx, acc, now); err != nil {
+		if err := s.RevokeOthers(ctx, acc, kept.ID(), now); err != nil {
 			t.Fatal(err)
 		}
 		for _, x := range []struct {
 			id      uuid.UUID
 			revoked bool
-		}{{a.ID(), true}, {b.ID(), true}, {c.ID(), false}} {
+		}{{a.ID(), true}, {b.ID(), true}, {kept.ID(), false}, {c.ID(), false}} {
 			got, _ := s.Get(ctx, x.id)
 			if (got.RevokedAt() != nil) != x.revoked {
 				t.Fatalf("revoked %v, want %v", got.RevokedAt(), x.revoked)
 			}
-			if x.revoked && got.WriteID() == x.id {
-				t.Fatal("revoke all left the write id, so a racing refresh would not conflict")
+			if x.revoked && (got.WriteID() == x.id || got.RevokeReason() != domain.RevokedSignOut) {
+				t.Fatalf("write id %s, reason %q: a racing refresh would not conflict, or the reason is lost", got.WriteID(), got.RevokeReason())
 			}
+		}
+	})
+
+	t.Run("revoke reason", func(t *testing.T) {
+		t.Parallel()
+		s, newAccount := newSessions(t)
+		x, _ := create(t, s, newAccount(), now)
+		x.Revoke(domain.RevokedSuspended, now)
+		if err := s.Save(ctx, &x, uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+		got, _ := s.Get(ctx, x.ID())
+		if got.RevokedAt() == nil || got.RevokeReason() != domain.RevokedSuspended {
+			t.Fatalf("revoked %v, reason %q", got.RevokedAt(), got.RevokeReason())
 		}
 	})
 
@@ -132,7 +147,7 @@ func TestPGSessions(t *testing.T) {
 		acc, other := newAccount(), newAccount()
 		first, _ := create(t, s, acc, now)
 		revoked, _ := create(t, s, acc, now)
-		revoked.Revoke(now)
+		revoked.Revoke(domain.RevokedSignOut, now)
 		s.Save(ctx, &revoked, uuid.NewV7())
 		create(t, s, acc, now.Add(-domain.SessionMaxAge-time.Hour))
 		create(t, s, acc, now.Add(-domain.SessionIdleLimit-time.Hour))
@@ -159,7 +174,7 @@ func TestPGSessions(t *testing.T) {
 		acc := newAccount()
 		live, _ := create(t, s, acc, now)
 		revoked, _ := create(t, s, acc, now)
-		revoked.Revoke(now)
+		revoked.Revoke(domain.RevokedSignOut, now)
 		if err := s.Save(ctx, &revoked, uuid.NewV7()); err != nil {
 			t.Fatal(err)
 		}

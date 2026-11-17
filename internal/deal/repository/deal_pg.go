@@ -204,8 +204,8 @@ SET status = @status, open_by = @open_by, open_amount = @open_amount, open_at = 
 WHERE id = @id AND write_id = @read_write_id`
 
 const insertMove = `
-INSERT INTO deal_moves (id, deal_id, kind, by_party, amount, moved_at)
-VALUES (@id, @deal_id, @kind, @by_party, @amount, @moved_at)
+INSERT INTO deal_moves (id, deal_id, kind, by_party, amount, moved_at, order_id)
+VALUES (@id, @deal_id, @kind, @by_party, @amount, @moved_at, @order_id)
 ON CONFLICT (id) DO NOTHING`
 
 const countOpenOrders = `
@@ -313,6 +313,7 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 			}
 			if _, err = tx.Exec(ctx, insertMove, pgx.StrictNamedArgs{
 				"id": m.ID, "deal_id": st.ID, "kind": m.Kind, "by_party": m.By, "amount": amount, "moved_at": m.At,
+				"order_id": m.OrderID,
 			}); err != nil {
 				return fmt.Errorf("insert move: %w", err)
 			}
@@ -433,6 +434,9 @@ func (s pgDeals) many(ctx context.Context, q string, a pgx.StrictNamedArgs) ([]d
 }
 
 // dealMove is a move with its deal, as Moves scans it.
+// moveColumns are the columns of domain.Move, in its order.
+const moveColumns = `id, kind, by_party, coalesce(amount, 0), moved_at, order_id`
+
 type dealMove struct {
 	domain.Move
 
@@ -440,7 +444,7 @@ type dealMove struct {
 }
 
 func (s pgDeals) Moves(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]domain.Move, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, kind, by_party, coalesce(amount, 0), moved_at, deal_id FROM deal_moves
+	rows, err := s.db.Query(ctx, `SELECT `+moveColumns+`, deal_id FROM deal_moves
 WHERE deal_id = ANY(@ids) ORDER BY id`, pgx.StrictNamedArgs{"ids": ids})
 	if err != nil {
 		return nil, fmt.Errorf("select moves: %w", err)
@@ -457,7 +461,7 @@ WHERE deal_id = ANY(@ids) ORDER BY id`, pgx.StrictNamedArgs{"ids": ids})
 }
 
 func (s pgDeals) MovesOf(ctx context.Context, deal uuid.UUID, ids []uuid.UUID) ([]domain.Move, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, kind, by_party, coalesce(amount, 0), moved_at FROM deal_moves
+	rows, err := s.db.Query(ctx, `SELECT `+moveColumns+` FROM deal_moves
 WHERE deal_id = @deal AND id = ANY(@ids) ORDER BY id`, pgx.StrictNamedArgs{"deal": deal, "ids": ids})
 	if err != nil {
 		return nil, fmt.Errorf("select moves: %w", err)

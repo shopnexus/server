@@ -44,7 +44,7 @@ func TestIssueSessionRefusesASignedOutSession(t *testing.T) {
 		t.Fatal(err)
 	}
 	s, _ := sessions.Get(ctx, id)
-	s.Revoke(now)
+	s.Revoke(domain.RevokedSignOut, now)
 	sessions.Save(ctx, &s, uuid.NewV7())
 	if _, err := service.IssueSession(at(nil, sessions, now), ctx, id, acc, ""); !errors.Is(err, domain.ErrSessionRevoked) {
 		t.Fatalf("replay after sign-out: %v", err)

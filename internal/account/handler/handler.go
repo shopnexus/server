@@ -23,10 +23,11 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("POST /v1/auth/email-codes", http.HandlerFunc(h.SendEmailCode))
 	r.Handle("POST /v1/auth/refresh", http.HandlerFunc(h.Refresh))
 	r.Handle("GET /v1/auth/sessions", protect(http.HandlerFunc(h.ListSessions)))
-	r.Handle("DELETE /v1/auth/sessions", protect(http.HandlerFunc(h.DeleteAllSessions)))
-	// "current" is more specific than {id}: ServeMux and the request
-	// validator's router both match it first (TestCurrentSessionRoute).
+	// "current" and "others" are more specific than {id}: ServeMux and the
+	// request validator's router both match them first
+	// (TestFixedSessionRoutes).
 	r.Handle("DELETE /v1/auth/sessions/current", protect(http.HandlerFunc(h.DeleteCurrentSession)))
+	r.Handle("DELETE /v1/auth/sessions/others", protect(http.HandlerFunc(h.DeleteOtherSessions)))
 	r.Handle("DELETE /v1/auth/sessions/{id}", protect(http.HandlerFunc(h.DeleteSession)))
 	r.Handle("GET /v1/accounts/me", protect(http.HandlerFunc(h.GetMe)))
 	r.Handle("PATCH /v1/accounts/me", protect(http.HandlerFunc(h.Update)))

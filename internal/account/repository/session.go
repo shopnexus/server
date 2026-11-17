@@ -28,9 +28,10 @@ type Sessions interface {
 	// Save writes s when its row still has s.WriteID() or already has
 	// writeID, then sets s's write ID. Otherwise ErrConflict.
 	Save(ctx context.Context, s *domain.Session, writeID uuid.UUID) error
-	// RevokeAll revokes every open session of the account in one statement
-	// and gives each a new write ID, so a refresh racing it conflicts.
-	RevokeAll(ctx context.Context, accountID uuid.UUID, now time.Time) error
+	// RevokeOthers signs out every open session of the account but keep in
+	// one statement and gives each a new write ID, so a refresh racing it
+	// conflicts.
+	RevokeOthers(ctx context.Context, accountID, keep uuid.UUID, now time.Time) error
 	// ActiveAmong returns which of ids are usable at now: neither revoked,
 	// expired nor idle past domain.SessionIdleLimit.
 	ActiveAmong(ctx context.Context, ids []uuid.UUID, now time.Time) (map[uuid.UUID]bool, error)

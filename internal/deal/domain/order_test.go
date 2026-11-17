@@ -3,6 +3,7 @@ package domain_test
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -498,6 +499,39 @@ func TestCancelAPendingOrder(t *testing.T) {
 	must(t, d.Cancel(domain.Buyer, now))
 	if k := kinds(&d); k[len(k)-1] != domain.MoveCancel {
 		t.Fatalf("%v", k)
+	}
+}
+
+// Every step of an order names it; a move on the price names none. A
+// second order of the deal is named by its own steps only.
+func TestOrderStepsNameTheirOrder(t *testing.T) {
+	t.Parallel()
+	d := pending(t)
+	first := d.Order().ID
+	must(t, d.Cancel(domain.Buyer, now))
+	must(t, d.Accept(domain.Buyer, 1_500_000, onSale, later))
+	must(t, d.RequestCod(domain.Buyer, recipient, onSale, later))
+	second := d.Order().ID
+	must(t, d.Ship(domain.Seller, second, manual(), onSale, later))
+	want := map[domain.MoveKind][]uuid.UUID{
+		domain.MoveAccept: {{}, {}}, domain.MoveCodRequested: {first, second}, domain.MoveOrderCancelled: {first},
+		domain.MoveShipped: {second},
+	}
+	got := map[domain.MoveKind][]uuid.UUID{}
+	for _, m := range d.Pending() {
+		var id uuid.UUID
+		if m.OrderID != nil {
+			id = *m.OrderID
+		}
+		got[m.Kind] = append(got[m.Kind], id)
+		if m.Kind.OfOrder() != (m.OrderID != nil) {
+			t.Errorf("%s names order %v", m.Kind, m.OrderID)
+		}
+	}
+	for kind, ids := range want {
+		if !slices.Equal(got[kind], ids) {
+			t.Errorf("%s: %v, want %v", kind, got[kind], ids)
+		}
 	}
 }
 

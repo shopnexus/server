@@ -68,13 +68,31 @@ const (
 
 // Move is one step of a deal's thread. Amount is 0 on a move without one;
 // on price_changed it is the new listed price, on cod_requested the price,
-// on shipped the carrier's fee when it gave one.
+// on shipped the carrier's fee when it gave one. OrderID is the order a
+// step of an order belongs to; nil on any other move, and on an order step
+// that the release before wrote or that migration 0052 could not match to
+// its order.
 type Move struct {
-	ID     uuid.UUID
-	Kind   MoveKind
-	By     Party
-	Amount int64
-	At     time.Time
+	ID      uuid.UUID
+	Kind    MoveKind
+	By      Party
+	Amount  int64
+	At      time.Time
+	OrderID *uuid.UUID
+}
+
+// OfOrder reports whether a move of kind k is a step of an order: its
+// request, its shipment and the shipment's updates, and its end.
+func (k MoveKind) OfOrder() bool {
+	switch k {
+	case MoveCodRequested, MoveShipped, MoveShipmentUpdated, MoveCompleted, MoveFailed, MoveOrderCancelled:
+		return true
+	case MoveOffer, MoveCounter, MoveAccept, MoveDecline, MoveWithdraw, MoveCancel, MovePriceChanged,
+		MoveOffersClosed, MoveListingClosed:
+		return false
+	default:
+		return false
+	}
 }
 
 // InChat reports whether the move writes a deal message into the pair's
@@ -550,9 +568,14 @@ func (d *Deal) complete(by Party, now time.Time) {
 // reopen drops the agreement; the deal negotiates again.
 func (d *Deal) reopen() { d.status, d.agreedPrice, d.agreedAt = StatusNegotiating, 0, nil }
 
-// record adds a move to the ones the next save writes.
+// record adds a move to the ones the next save writes. A step of an order
+// names the deal's latest order, the one it moved.
 func (d *Deal) record(kind MoveKind, by Party, amount int64, now time.Time) {
-	d.pending = append(d.pending, Move{ID: uuid.NewV7(), Kind: kind, By: by, Amount: amount, At: now})
+	m := Move{ID: uuid.NewV7(), Kind: kind, By: by, Amount: amount, At: now}
+	if kind.OfOrder() {
+		m.OrderID = new(d.order.ID)
+	}
+	d.pending = append(d.pending, m)
 	d.updatedAt = now
 }
 
