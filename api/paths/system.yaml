@@ -2,7 +2,7 @@ healthz:
   get:
     operationId: getHealthz
     summary: "Liveness: the process is up."
-    tags: [system]
+    tags: [system, internal]
     responses:
       "200":
         description: The process is serving.
@@ -14,7 +14,7 @@ readyz:
   get:
     operationId: getReadyz
     summary: "Readiness: the process can reach its dependencies."
-    tags: [system]
+    tags: [system, internal]
     responses:
       "200":
         description: Postgres and Restate answer.

@@ -164,7 +164,7 @@ func carrierError(err error) error {
 		return domain.ErrAddressUnknown
 	case errors.Is(err, carrier.ErrRefused):
 		reason := strings.TrimSpace(strings.TrimPrefix(err.Error(), carrier.ErrRefused.Error()+":"))
-		return domain.ErrCarrierRefused.WithDetail("reason", reason).WithCause(err)
+		return domain.ErrCarrierRefused.WithReason(reason).WithCause(err)
 	}
 	return err
 }

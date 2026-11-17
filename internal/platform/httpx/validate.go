@@ -15,6 +15,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers/legacy"
+	"github.com/santhosh-tekuri/jsonschema/v6"
+	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 
 	"github.com/shopnexus/server2/internal/platform/apperr"
 )
@@ -121,25 +123,62 @@ func toAppError(err error) error {
 			field = reqErr.Parameter.Name
 		}
 		for _, se := range multiErrors(reqErr.Err) {
-			schemaErr, isSchema := errors.AsType[*openapi3.SchemaError](se)
-			if !isSchema {
+			if _, isSchema := errors.AsType[*openapi3.SchemaError](se); !isSchema {
 				// A missing required body or parameter.
 				fields[field] = "required"
 				continue
 			}
-			name := field
-			if p := schemaErr.JSONPointer(); len(p) > 0 {
-				name = strings.Join(p, ".")
-			}
-			if schemaErr.SchemaField == "additionalProperties" {
-				name = quotedName(schemaErr.Reason, name)
-			}
-			fields[name] = schemaErr.SchemaField
+			addProblems(fields, field, se)
 		}
 	}
 	out := *errInvalidRequest
 	out.Fields = fields
 	return &out
+}
+
+// addProblems puts the field problem of the schema error err in fields. A
+// JSON Schema 2020-12 error with several causes, such as an object with two
+// bad properties beside another problem in the body, names no keyword; its
+// causes go in its place, so a problem is never empty. An unknown property
+// is keyed by its own path, inner.extra for one inside inner, and a
+// dependentRequired miss by each property it lacks, as required.
+func addProblems(fields map[string]string, field string, err error) {
+	schemaErr, ok := errors.AsType[*openapi3.SchemaError](err)
+	if !ok {
+		fields[field] = "invalid"
+		return
+	}
+	if schemaErr.SchemaField == "" && schemaErr.Origin != nil {
+		for _, cause := range multiErrors(schemaErr.Origin) {
+			addProblems(fields, field, cause)
+		}
+		return
+	}
+	path := schemaErr.JSONPointer()
+	if v, isV := errors.AsType[*jsonschema.ValidationError](schemaErr); isV {
+		for len(v.Causes) == 1 {
+			v = v.Causes[0]
+		}
+		// kin-openapi's field is the property that needs the others.
+		if dep, isDep := v.ErrorKind.(*kind.DependentRequired); isDep && dep.Prop == schemaErr.SchemaField {
+			for _, missing := range dep.Missing {
+				fields[strings.Join(slices.Concat(path, []string{missing}), ".")] = "required"
+			}
+			return
+		}
+	}
+	name := field
+	if len(path) > 0 {
+		name = strings.Join(path, ".")
+	}
+	problem := schemaErr.SchemaField
+	if problem == "" {
+		problem = "invalid"
+	}
+	if extra := quotedName(schemaErr.Reason); problem == "additionalProperties" && extra != "" {
+		name = strings.Join(slices.Concat(path, []string{extra}), ".")
+	}
+	fields[name] = problem
 }
 
 // multiErrors returns the errors of the openapi3.MultiError in err's chain,
@@ -152,15 +191,12 @@ func multiErrors(err error) []error {
 }
 
 // quotedName pulls the property out of kin-openapi's
-// "additional properties 'extra' not allowed".
-func quotedName(reason, fallback string) string {
+// "additional properties 'extra' not allowed", or returns "".
+func quotedName(reason string) string {
 	_, rest, ok := strings.Cut(reason, "properties '")
 	if !ok {
-		return fallback
+		return ""
 	}
-	name, _, ok := strings.Cut(rest, "'")
-	if !ok || name == "" {
-		return fallback
-	}
+	name, _, _ := strings.Cut(rest, "'")
 	return name
 }

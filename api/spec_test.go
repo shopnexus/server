@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"encoding/json"
 	"regexp"
 	"slices"
 	"strings"
@@ -167,5 +168,73 @@ func TestSpecUseCaseIDs(t *testing.T) {
 	}
 	if tagged == 0 {
 		t.Error("no operation has x-uc")
+	}
+}
+
+// An operation has one tag of x-tagGroups, its section in the reference.
+// internal and websocket are the one list of routes the app's generated
+// client leaves out: internal on the console, the dev routes, the
+// dashboard callback, the carrier webhook and the health checks, websocket
+// on /v1/ws, and neither on any other operation.
+func TestSpecTags(t *testing.T) {
+	t.Parallel()
+	doc, err := api.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var groups []struct {
+		Tags []string `json:"tags"`
+	}
+	raw, err := json.Marshal(doc.Extensions["x-tagGroups"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(raw, &groups); err != nil {
+		t.Fatal(err)
+	}
+	sections := map[string]bool{}
+	for _, g := range groups {
+		for _, tag := range g.Tags {
+			sections[tag] = true
+		}
+	}
+	if len(sections) == 0 {
+		t.Fatal("x-tagGroups names no tag")
+	}
+	internal := []string{"/_dashboard/callback", "/v1/carriers/{carrier}/webhook/{secret}", "/healthz", "/readyz"}
+	for path, item := range doc.Paths.Map() {
+		for method, op := range item.Operations() {
+			inSection := 0
+			for _, tag := range op.Tags {
+				if doc.Tags.Get(tag) == nil {
+					t.Errorf("%s %s: tag %s is not declared", method, path, tag)
+				}
+				if sections[tag] {
+					inSection++
+				} else if tag != "internal" && tag != "websocket" {
+					t.Errorf("%s %s: tag %s is in no group of x-tagGroups", method, path, tag)
+				}
+			}
+			if inSection != 1 {
+				t.Errorf("%s %s: %d tags of x-tagGroups, want 1", method, path, inSection)
+			}
+			var want []string
+			switch {
+			case strings.HasPrefix(path, "/v1/console/"), strings.HasPrefix(path, "/v1/dev/"), slices.Contains(internal, path):
+				want = []string{"internal"}
+			case path == "/v1/ws":
+				want = []string{"websocket"}
+			default:
+			}
+			got := slices.DeleteFunc(slices.Clone(op.Tags), func(tag string) bool { return tag != "internal" && tag != "websocket" })
+			if !slices.Equal(got, want) {
+				t.Errorf("%s %s: tagged %v of internal and websocket, want %v", method, path, got, want)
+			}
+		}
+	}
+	for _, path := range append(internal, "/v1/ws") {
+		if doc.Paths.Find(path) == nil {
+			t.Errorf("%s is not in the spec", path)
+		}
 	}
 }

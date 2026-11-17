@@ -1,7 +1,13 @@
-VideoReadRequest:
+ListingReadRequest:
   type: object
   additionalProperties: false
-  required: [video]
+  description: What to read, exactly one of video, photo or link, with transcript only beside video.
+  oneOf:
+    - required: [video]
+    - required: [photo]
+    - required: [link]
+  dependentRequired:
+    transcript: [video]
   properties:
     video:
       type: string
@@ -14,28 +20,12 @@ VideoReadRequest:
         What the phone's speech recognizer heard while the video was filmed,
         taken as the seller's words. Blank or absent, the server hears the
         video's sound. Never stored past the read, logged or returned.
-ListingReadRequest:
-  description: What to read, one of a video, a photo or a link.
-  oneOf:
-    - $ref: "#/VideoReadRequest"
-    - $ref: "#/PhotoReadRequest"
-    - $ref: "#/LinkReadRequest"
-PhotoReadRequest:
-  type: object
-  additionalProperties: false
-  required: [photo]
-  properties:
     photo:
       type: string
       format: uuid
       description: |
         A photo upload of the caller's, uploaded and not yet in a listing:
         the cover. The read does not take it; post it in the listing.
-LinkReadRequest:
-  type: object
-  additionalProperties: false
-  required: [link]
-  properties:
     link:
       type: string
       maxLength: 2048

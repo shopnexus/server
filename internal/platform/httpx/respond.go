@@ -39,7 +39,7 @@ type errorPayload struct {
 	Code    string            `json:"code"`
 	Message string            `json:"message"`
 	Fields  map[string]string `json:"fields,omitempty"`
-	Details map[string]any    `json:"details,omitempty"`
+	Details apperr.Details    `json:"details,omitzero"`
 	TraceID string            `json:"trace_id"`
 }
 
