@@ -18,16 +18,18 @@ const (
 	AppLiteLLM App = "litellm"
 	AppS3      App = "s3"
 	AppArgoCD  App = "argocd"
+	AppDB      App = "db"
 )
 
 // Floor is the lowest role that opens a; ok is false for an unknown app.
 // Grafana only shows the server's traces, metrics and logs; the others can
-// cancel invocations, spend model budget, read every object or deploy.
+// cancel invocations, spend model budget, read every object, deploy or
+// change any row (db, pgweb on the stack's database).
 func (a App) Floor() (floor Role, ok bool) {
 	switch a {
 	case AppGrafana:
 		return RoleModerator, true
-	case AppRestate, AppLiteLLM, AppS3, AppArgoCD:
+	case AppRestate, AppLiteLLM, AppS3, AppArgoCD, AppDB:
 		return RoleAdmin, true
 	default:
 		return "", false

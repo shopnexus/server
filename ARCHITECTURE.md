@@ -725,8 +725,9 @@ the decisions and the API.
 
 ### Ops dashboards
 
-Grafana, Restate's UI, LiteLLM's UI, RustFS's console and Argo CD open
-from the console on hosts of their own (decided 2026-11-05, spec:
+Grafana, Restate's UI, LiteLLM's UI, RustFS's console, Argo CD and pgweb
+(app `db`, on the stack's database, added 2026-11-17) open from the
+console on hosts of their own (decided 2026-11-05, spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-05-ops-dashboards-design.md`).
 Grafana takes a moderator; the others take an admin.
 

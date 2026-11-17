@@ -281,7 +281,7 @@ DashboardTicketRequest:
   properties:
     app:
       type: string
-      enum: [grafana, restate, litellm, s3, argocd]
+      enum: [grafana, restate, litellm, s3, argocd, db]
       description: Grafana opens for moderators and admins; the others for admins.
 DashboardTicket:
   type: object

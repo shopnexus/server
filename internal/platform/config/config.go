@@ -228,7 +228,7 @@ type ConsoleConfig struct {
 
 // DashboardApps are the ops dashboards DASHBOARD_HOSTS may name. Module
 // console gives each the role that opens it.
-var DashboardApps = []string{"grafana", "restate", "litellm", "s3", "argocd"}
+var DashboardApps = []string{"grafana", "restate", "litellm", "s3", "argocd", "db"}
 
 // ObjectStoreConfig says where the S3-compatible object store (RustFS) is
 // and where clients read public objects. The keys are never logged.
