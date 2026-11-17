@@ -26,37 +26,38 @@ CarrierAccountList:
       items:
         $ref: "#/CarrierAccount"
 CarrierLogin:
-  description: GHTK takes the seller's email and password; GHN takes the seller's API token and ShopId.
-  oneOf:
-    - $ref: "#/GhtkLogin"
-    - $ref: "#/GhnLogin"
-GhtkLogin:
   type: object
   additionalProperties: false
-  required: [email, password]
+  description: GHTK takes the seller's email and password; GHN takes the seller's API token and ShopId. A body holds one pair and nothing of the other.
+  oneOf:
+    - required: [email, password]
+    - required: [token, shop_id]
+  dependentRequired:
+    email: [password]
+    password: [email]
+    token: [shop_id]
+    shop_id: [token]
   properties:
     email:
       type: string
       minLength: 1
       maxLength: 254
+      description: GHTK's.
     password:
       type: string
       minLength: 1
       maxLength: 200
-      description: Used once to get the shop's token; never stored.
-GhnLogin:
-  type: object
-  additionalProperties: false
-  required: [token, shop_id]
-  properties:
+      description: GHTK's, used once to get the shop's token; never stored.
     token:
       type: string
       minLength: 1
       maxLength: 200
+      description: GHN's API token.
     shop_id:
       type: string
       minLength: 1
       maxLength: 50
+      description: GHN's ShopId.
 PickupPoint:
   type: object
   additionalProperties: false

@@ -24,10 +24,6 @@ const (
 	MaxAttempts = 5
 )
 
-// DetailAttemptsLeft is the detail of ErrInvalidCode that counts the guesses
-// a challenge still takes.
-const DetailAttemptsLeft = "attempts_left"
-
 // Challenge is one code sent to one destination.
 type Challenge struct {
 	id         uuid.UUID
@@ -145,5 +141,5 @@ func (c *Challenge) verdict() error {
 	case c.attempts >= MaxAttempts:
 		return ErrCodeLocked
 	}
-	return ErrInvalidCode.WithDetail(DetailAttemptsLeft, MaxAttempts-c.attempts)
+	return ErrInvalidCode.WithAttemptsLeft(MaxAttempts - c.attempts)
 }

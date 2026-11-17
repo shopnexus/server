@@ -36,8 +36,17 @@ type Error struct {
 	Code    string            `json:"code"`
 	Message string            `json:"message"`
 	Fields  map[string]string `json:"fields,omitempty"`
-	Details map[string]any    `json:"details,omitempty"` // values the client acts on: attempts_left, retry_after
+	Details Details           `json:"details,omitzero"`
 	Err     error             `json:"-"`
+}
+
+// Details are the values a client acts on, the properties of Error.details
+// in api/schemas/error.yaml. A detail that was set is sent, even 0 or "";
+// a nil one is not, and an error with none sends no details.
+type Details struct {
+	RetryAfter   *int    `json:"retry_after,omitempty"`   // seconds
+	AttemptsLeft *int    `json:"attempts_left,omitempty"` // guesses a code still takes
+	Reason       *string `json:"reason,omitempty"`        // a carrier's words
 }
 
 // ErrTryAgain answers a write that lost a race with another write to the
@@ -82,33 +91,37 @@ func (e *Error) WithCause(err error) *Error {
 	return &c
 }
 
-// WithField returns a copy of e with one more field problem.
+// WithField returns a copy of e with one more field problem. The copy has a
+// map of its own, so the Error it came from keeps its fields.
 func (e *Error) WithField(name, problem string) *Error {
 	c := *e
-	c.Fields = withKey(e.Fields, name, problem)
+	c.Fields = maps.Clone(e.Fields)
+	if c.Fields == nil {
+		c.Fields = map[string]string{}
+	}
+	c.Fields[name] = problem
 	return &c
 }
 
 // WithRetryAfter returns a copy of e whose retry_after detail is wait in
 // whole seconds, rounded up, so a client that waits it is not refused again.
 func (e *Error) WithRetryAfter(wait time.Duration) *Error {
-	return e.WithDetail("retry_after", int(math.Ceil(wait.Seconds())))
-}
-
-// WithDetail returns a copy of e with one more detail.
-func (e *Error) WithDetail(name string, value any) *Error {
 	c := *e
-	c.Details = withKey(e.Details, name, value)
+	seconds := int(math.Ceil(wait.Seconds()))
+	c.Details.RetryAfter = &seconds
 	return &c
 }
 
-// withKey returns a copy of m with k set to v, so the Error a copy came
-// from keeps its map.
-func withKey[V any](m map[string]V, k string, v V) map[string]V {
-	c := maps.Clone(m)
-	if c == nil {
-		c = map[string]V{}
-	}
-	c[k] = v
-	return c
+// WithAttemptsLeft returns a copy of e whose attempts_left detail is n.
+func (e *Error) WithAttemptsLeft(n int) *Error {
+	c := *e
+	c.Details.AttemptsLeft = &n
+	return &c
+}
+
+// WithReason returns a copy of e whose reason detail is reason.
+func (e *Error) WithReason(reason string) *Error {
+	c := *e
+	c.Details.Reason = &reason
+	return &c
 }

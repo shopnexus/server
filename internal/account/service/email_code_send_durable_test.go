@@ -122,7 +122,7 @@ func TestEmailCodeSendLimits(t *testing.T) {
 	e := startEmailCodeSend(t, &mailbox{})
 	e.send(t, "linh@example.com", "203.0.113.1")
 	if res := e.send(t, "linh@example.com", "203.0.113.1"); res.Refused == nil || res.Refused.Code != "otp_too_soon" ||
-		fmt.Sprint(res.Refused.Details["retry_after"]) != "45" {
+		res.Refused.Details.RetryAfter == nil || *res.Refused.Details.RetryAfter != 45 {
 		t.Fatalf("resend: %+v", res.Refused)
 	}
 	for range 4 {

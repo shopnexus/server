@@ -22,7 +22,7 @@ var home = accountdomain.AddressDraft{Name: "Hân", Phone: "0912345678", Street:
 // address adds an address to owner's book and returns its ID.
 func (e env) address(t *testing.T, owner uuid.UUID) uuid.UUID {
 	t.Helper()
-	a, err := e.accounts.CreateAddress(context.Background(), owner, uuid.NewV7(), home)
+	a, err := e.accounts.CreateAddress(context.Background(), owner, uuid.NewV7(), home, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestOrderKeepsItsRecipient(t *testing.T) {
 	must(t)(e.deals.RequestCod(ctx, buyer, v.ID, address))
 	if _, err := e.accounts.UpdateAddress(ctx, buyer, address, accountdomain.AddressDraft{
 		Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: accountdomain.AddressHome,
-	}); err != nil {
+	}, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.accounts.DeleteAddress(ctx, buyer, address); err != nil {

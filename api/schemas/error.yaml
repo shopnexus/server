@@ -23,8 +23,20 @@ Error:
             type: string
         details:
           type: object
-          description: Values a client acts on, such as attempts_left or retry_after.
-          additionalProperties: true
+          additionalProperties: false
+          description: Values a client acts on. An operation's error description names the ones its codes send; an error without one has no details.
+          properties:
+            retry_after:
+              type: integer
+              minimum: 1
+              description: Seconds to wait before trying again, rounded up, sent with otp_too_soon, otp_limit and login_locked.
+            attempts_left:
+              type: integer
+              minimum: 1
+              description: Guesses the code still takes, sent with invalid_code. With 1 left, a wrong guess answers code_locked.
+            reason:
+              type: string
+              description: What the carrier answered, in its words and language, sent with carrier_refused.
         trace_id:
           type: string
           description: Equals the Trace-Id response header.

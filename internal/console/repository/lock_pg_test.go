@@ -27,11 +27,10 @@ func retryAfter(t *testing.T, err error) int {
 	if !ok || !errors.Is(err, domain.ErrLoginLocked) {
 		t.Fatalf("not a lock: %v", err)
 	}
-	wait, ok := e.Details["retry_after"].(int)
-	if !ok {
-		t.Fatalf("retry_after: %v", e.Details)
+	if e.Details.RetryAfter == nil {
+		t.Fatalf("no retry_after: %+v", e.Details)
 	}
-	return wait
+	return *e.Details.RetryAfter
 }
 
 func TestFifthFailureLocks(t *testing.T) {

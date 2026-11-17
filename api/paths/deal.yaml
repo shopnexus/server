@@ -653,7 +653,7 @@ devShipmentStatus:
       carriers' reports will use. A closed order changes nothing.
       delivered completes the order 3 days later unless the buyer
       confirms first; failed fails it at once and releases the listing.
-    tags: [deal]
+    tags: [deal, internal]
     parameters:
       - name: code
         in: path

@@ -232,6 +232,11 @@ ShipmentDraft:
   oneOf:
     - $ref: "#/ManualShipmentDraft"
     - $ref: "#/LinkedShipmentDraft"
+  discriminator:
+    propertyName: mode
+    mapping:
+      manual: "#/ManualShipmentDraft"
+      linked: "#/LinkedShipmentDraft"
 ManualShipmentDraft:
   type: object
   additionalProperties: false

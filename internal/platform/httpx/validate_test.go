@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -89,6 +90,65 @@ func TestUnknownFieldIsInvalidRequest(t *testing.T) {
 	b := decodeError(t, rec)
 	if rec.Code != 400 || b.Error.Code != "invalid_request" || b.Error.Fields["extra"] != "additionalProperties" {
 		t.Fatalf("%d %+v", rec.Code, b)
+	}
+}
+
+// nestedSpec has no $ref, so kin-openapi checks it with its JSON Schema
+// 2020-12 engine. That engine's error for a body with problems at two
+// depths has an error for inner or list with several causes and no keyword.
+const nestedSpec = `
+openapi: 3.2.0
+info: {title: t, version: "1"}
+paths:
+  /things:
+    post:
+      operationId: createThing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              dependentRequired: {phone: [region]}
+              properties:
+                name: {type: string, minLength: 2}
+                phone: {type: string}
+                region: {type: string}
+                inner:
+                  type: object
+                  additionalProperties: false
+                  properties:
+                    n: {type: string, minLength: 2}
+                list:
+                  type: array
+                  items: {type: string, minLength: 2}
+      responses:
+        "201": {description: created}
+`
+
+func TestEveryProblemNamesItsKeyword(t *testing.T) {
+	t.Parallel()
+	doc, err := openapi3.NewLoader().LoadFromData([]byte(nestedSpec))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := NewRouter()
+	r.HandleFunc("POST /things", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusCreated) })
+	validate, err := ValidateRequests(doc, r.Routes(), slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := Trace(discard())(validate(r))
+	for body, want := range map[string]map[string]string{
+		`{"extra":1,"inner":{"n":"1","z":1}}`: {"extra": "additionalProperties", "inner.n": "minLength", "inner.z": "additionalProperties"},
+		`{"extra":1,"list":["1","2"]}`:        {"extra": "additionalProperties", "list.0": "minLength", "list.1": "minLength"},
+		`{"name":"1","phone":"0912"}`:         {"name": "minLength", "region": "required"},
+	} {
+		rec := post(t, h, body)
+		if b := decodeError(t, rec); rec.Code != 400 || !maps.Equal(b.Error.Fields, want) {
+			t.Errorf("%s: %d %v, want %v", body, rec.Code, b.Error.Fields, want)
+		}
 	}
 }
 

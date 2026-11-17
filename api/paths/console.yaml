@@ -16,7 +16,7 @@ login:
       password proves right; a wrong code counts too. Five failures on one
       email lock it for 15 minutes, whether or not a member has the email.
       Success sets the console_session cookie.
-    tags: [console]
+    tags: [console, internal]
     requestBody:
       required: true
       content:
@@ -54,7 +54,7 @@ loginTotpEnrollment:
       Only a member without TOTP may call it; a second call replaces the
       secret of the first. The password counts toward the email's lock as in
       login.
-    tags: [console]
+    tags: [console, internal]
     requestBody:
       required: true
       content:
@@ -80,7 +80,7 @@ logout:
   post:
     operationId: consoleLogout
     summary: Sign this session out and clear the cookie.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     responses:
@@ -94,7 +94,7 @@ me:
   get:
     operationId: getConsoleMe
     summary: The signed-in console member.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     responses:
@@ -112,7 +112,7 @@ mePassword:
   put:
     operationId: changeConsolePassword
     summary: Change the password and end every session of the member, this one included.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     requestBody:
@@ -134,7 +134,7 @@ members:
   get:
     operationId: listConsoleMembers
     summary: Console members, newest first. Admins only.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -154,7 +154,7 @@ members:
   post:
     operationId: createConsoleMember
     summary: Create a moderator with a temporary password. Admins only.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     requestBody:
@@ -182,7 +182,7 @@ memberDisable:
   post:
     operationId: disableConsoleMember
     summary: Disable a moderator and end their sessions. Admins only.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -204,7 +204,7 @@ memberEnable:
   post:
     operationId: enableConsoleMember
     summary: Enable a disabled moderator. Admins only.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -226,7 +226,7 @@ memberUnlock:
   post:
     operationId: unlockConsoleMember
     summary: Clear the sign-in lock on a moderator's email. Admins only.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -248,7 +248,7 @@ memberResetPassword:
   post:
     operationId: resetConsoleMemberPassword
     summary: Give a moderator a temporary password and end their sessions. Admins only.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -270,7 +270,7 @@ memberResetTotp:
   post:
     operationId: resetConsoleMemberTotp
     summary: Remove a moderator's TOTP and end their sessions. Admins only.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -293,7 +293,7 @@ accounts:
     operationId: listConsoleAccounts
     summary: Customer accounts, newest first, or the one q names.
     description: q matches an account ID or a phone number in any common form, exactly.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -320,7 +320,7 @@ account:
   get:
     operationId: getConsoleAccount
     summary: One customer account with its identities and console history.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -340,7 +340,7 @@ accountSuspend:
   post:
     operationId: suspendConsoleAccount
     summary: Suspend a customer account.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -374,7 +374,7 @@ accountUnsuspend:
   post:
     operationId: unsuspendConsoleAccount
     summary: Lift a customer account's suspension.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -400,7 +400,7 @@ actions:
   get:
     operationId: listConsoleActions
     summary: The audit log, newest first. Admins only.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -438,7 +438,7 @@ dashboardTickets:
       this session lives. Grafana takes a moderator; the other dashboards
       take an admin. A dashboard that DASHBOARD_HOSTS gives no host is
       dashboard_not_configured.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     requestBody:
@@ -475,7 +475,7 @@ dashboardAuth:
       cookie a GET is sent to the console, which asks for a ticket; any
       other method gets 401. Traefik copies X-Console-Email and X-Console-Role
       onto the request it lets through and drops a client's own.
-    tags: [console]
+    tags: [console, internal]
     security:
       - {}
       - dashboardAuth: []
@@ -534,7 +534,7 @@ dashboardCallback:
       Path=/, no Domain, so only this host gets it) for as long as the
       console session has left, and redirects to rd when rd is a path on
       this host, to / otherwise.
-    tags: [console]
+    tags: [console, internal]
     parameters:
       - name: ticket
         in: query
@@ -579,7 +579,7 @@ supportTickets:
   get:
     operationId: listConsoleTickets
     summary: The ticket queue, newest activity first.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -602,7 +602,7 @@ supportTicket:
   get:
     operationId: getConsoleTicket
     summary: One ticket with its person, order, other tickets and first page of messages.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -628,7 +628,7 @@ supportTicketMessages:
   get:
     operationId: listConsoleTicketMessages
     summary: Older messages of a ticket's chat, newest first.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -656,7 +656,7 @@ supportTicketReplies:
   post:
     operationId: replyConsoleTicket
     summary: Reply in a ticket's chat as ShopNexus.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -695,7 +695,7 @@ supportTicketResolve:
   post:
     operationId: resolveConsoleTicket
     summary: Mark a ticket resolved; a carrier request sends "Đã ghi nhận hãng <name>." in its chat.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -727,7 +727,7 @@ supportTicketReopen:
   post:
     operationId: reopenConsoleTicket
     summary: Open a resolved ticket again.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -759,7 +759,7 @@ supportSummary:
   get:
     operationId: getConsoleSupportSummary
     summary: The open count for the drawer.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     responses:

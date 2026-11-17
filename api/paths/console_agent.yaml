@@ -14,7 +14,7 @@ conversations:
       account, which every member shares (at most one). With subject_kind
       alone, the conversations about records of that kind. With neither,
       the caller's conversations without a record. Newest activity first.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     parameters:
@@ -48,7 +48,7 @@ conversations:
       A record has one conversation, shared by every member: the first call
       for a subject makes it, and later calls answer the same one. Without a
       subject the conversation is new and the caller's.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     requestBody:
@@ -79,7 +79,7 @@ conversation:
     x-uc: [UC-MOD-08]
     summary: One agent conversation with its turns, oldest first.
     description: Each turn names the member who asked.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     responses:
@@ -107,7 +107,7 @@ conversationTurns:
       The answer comes in one response once the agent has finished, within
       its 60-second deadline. It is plain text, with a source for each tool
       call the agent made: the tool, a label and the ids it read.
-    tags: [console]
+    tags: [console, internal]
     security:
       - consoleAuth: []
     requestBody:

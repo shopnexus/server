@@ -46,7 +46,7 @@ ws:
       text or has an unknown type, or more frames than 10 at once and one a
       second after that; 1009 a frame over 4 KB. The server pings every 25
       seconds.
-    tags: [stream]
+    tags: [stream, websocket]
     security:
       - bearerAuth: []
     parameters:
@@ -103,7 +103,7 @@ devUpdates:
       sockets as an `update` frame. The body carries exactly the IDs of its
       kind (see GET /v1/ws). They need not name anything, since the log has
       no foreign key and nothing is read or changed behind them.
-    tags: [stream]
+    tags: [stream, internal]
     security:
       - bearerAuth: []
     requestBody:
