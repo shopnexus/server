@@ -72,23 +72,12 @@ services:
     volumes:
       - lgtm:/data
 
-  # The embedding models (see ARCHITECTURE.md, Search), the same TEI and ai as
-  # the umbrella's compose. Heavy: about 6 GB of images and 2.2 GB of TEI
-  # weights. Start them with
-  #   docker compose --profile models up -d tei ai
-  # Without them search runs on BM25 alone and ListingEmbed retries.
-  tei:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
-    profiles: [models]
-    command: [--model-id, BAAI/bge-m3, --revision, 5617a9f61b028005a4858fdac845db406aefb181, --port, "80", --auto-truncate, --max-client-batch-size, "16", --max-batch-tokens, "2048"]
-    environment:
-      HUGGINGFACE_HUB_CACHE: /data
-    ports:
-      - "127.0.0.1:56800:80"
-    volumes:
-      - tei:/data
-
-  ai:
+  # The self-hosted models (see ARCHITECTURE.md, Search and Assist): speech
+  # to text, SigLIP 2 photo embeddings and video frames, as the umbrella's
+  # compose runs them. The image is about 5.4 GB. Start it with
+  #   docker compose --profile models up -d ai-models
+  # Without it photo search is unavailable and ListingEmbed retries photos.
+  ai-models:
     image: ghcr.io/shopnexus/ai:main
     profiles: [models]
     environment:
@@ -114,4 +103,3 @@ volumes:
   restate:
   rustfs:
   lgtm:
-  tei:

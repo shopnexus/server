@@ -73,7 +73,7 @@ func required() map[string]string {
 		"LLM_BASE_URL":                 "https://llm.example.test/v1",
 		"LLM_API_KEY":                  "llm-key",
 		"LLM_MODEL":                    "a-model",
-		"EMBED_TEXT_BASE_URL":          "http://tei.example.test/v1",
+		"EMBED_TEXT_BASE_URL":          "http://openrouter.example.test/v1",
 		"EMBED_IMAGE_BASE_URL":         "http://ai.example.test/v1",
 		"EMBED_TEXT_MODEL":             "embed-text",
 		"EMBED_IMAGE_MODEL":            "embed-image",
@@ -181,7 +181,7 @@ func TestLoadAllSet(t *testing.T) {
 		},
 		LLM: LLMConfig{BaseURL: "https://llm.example.test/v1", APIKey: "llm-key", Model: "a-model"},
 		Embed: EmbedConfig{
-			TextBaseURL: "http://tei.example.test/v1", ImageBaseURL: "http://ai.example.test/v1",
+			TextBaseURL: "http://openrouter.example.test/v1", ImageBaseURL: "http://ai.example.test/v1",
 			TextModel: "embed-text", ImageModel: "embed-image",
 			TextVersion: "bge-m3@5617a9f6", ImageVersion: "siglip2-so400m-patch16-384-fp32@29f74e67",
 			IndexAPIKey: "", SearchAPIKey: "search-key", Timeout: 10 * time.Second, Slots: 2,
@@ -503,5 +503,36 @@ func TestLoadCarrierLive(t *testing.T) {
 	short["CARRIER_TOKEN_KEY"] = b64(make([]byte, 16))
 	if _, err = Load(lookup(short)); err == nil || !strings.Contains(err.Error(), "CARRIER_TOKEN_KEY") {
 		t.Fatalf("a short token key: %v", err)
+	}
+}
+
+// An empty model turns its kind of vector off; the kind's other settings may
+// then be empty, and stay needed while the model is set.
+func TestLoadEmbedKindsOff(t *testing.T) {
+	t.Parallel()
+	env := required()
+	for _, k := range []string{
+		"EMBED_TEXT_MODEL", "EMBED_TEXT_BASE_URL", "EMBED_TEXT_VERSION", "EMBED_TEXT_MIN_SIMILARITY",
+		"EMBED_IMAGE_MODEL", "EMBED_IMAGE_BASE_URL", "EMBED_IMAGE_VERSION", "EMBED_PHOTO_MIN_SIMILARITY",
+	} {
+		env[k] = ""
+	}
+	got, err := Load(lookup(env))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got.Embed.TextOn() || got.Embed.ImageOn() || got.Embed.TextVersion != "" || got.Embed.PhotoMinSimilarity != 0 {
+		t.Fatalf("embed = %+v, want both kinds off", got.Embed)
+	}
+	env = required()
+	env["EMBED_IMAGE_VERSION"] = ""
+	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "EMBED_IMAGE_VERSION is empty") {
+		t.Fatalf("image on without a version: %v", err)
+	}
+	env = required()
+	delete(env, "EMBED_TEXT_BASE_URL")
+	env["EMBED_TEXT_MODEL"] = ""
+	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "EMBED_TEXT_BASE_URL is not set") {
+		t.Fatalf("text off without its base URL set: %v", err)
 	}
 }

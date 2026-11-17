@@ -1,6 +1,6 @@
 // Package embed turns text and photos into vectors through an
-// OpenAI-compatible POST /embeddings: LiteLLM's aliases in the cluster, TEI
-// and ai locally. An image goes as a data URL string, the convention LiteLLM
+// OpenAI-compatible POST /embeddings: ai-gateway's aliases in the cluster,
+// OpenRouter and ai-models locally. An image goes as a data URL string, the convention LiteLLM
 // uses for multimodal embeddings. It knows nothing about what the vectors are
 // for.
 package embed

@@ -128,13 +128,16 @@ type LLMConfig struct {
 }
 
 // EmbedConfig says where the embedding models are and how search uses them.
-// In the cluster both base URLs are the stack's LiteLLM and the models are
-// its aliases; locally they are TEI and ai, which take no key.
+// In the cluster both base URLs are the stack's ai-gateway and the models are
+// its aliases; locally they are OpenRouter (text) and ai-models (photos).
+// Each kind can be off: an empty TextModel or ImageModel turns it off, and its
+// base URL, version and floor may then be empty too. An off kind writes and
+// reads no vectors.
 type EmbedConfig struct {
 	TextBaseURL  string // EMBED_TEXT_BASE_URL: POST {base}/embeddings for text
 	ImageBaseURL string // EMBED_IMAGE_BASE_URL: the same for photos and visual text
-	TextModel    string // EMBED_TEXT_MODEL, the alias embed-text
-	ImageModel   string // EMBED_IMAGE_MODEL, the alias embed-image
+	TextModel    string // EMBED_TEXT_MODEL, the alias embed-text; empty turns text vectors off
+	ImageModel   string // EMBED_IMAGE_MODEL, the alias embed-image; empty turns photo vectors off
 	// TextVersion and ImageVersion name the model behind each alias. Every
 	// vector row stores its version; a new version embeds again.
 	TextVersion  string        // EMBED_TEXT_VERSION
@@ -148,6 +151,10 @@ type EmbedConfig struct {
 	TextMinSimilarity  float64 // EMBED_TEXT_MIN_SIMILARITY, in (0, 1)
 	PhotoMinSimilarity float64 // EMBED_PHOTO_MIN_SIMILARITY, in (0, 1)
 }
+
+// TextOn and ImageOn say whether each kind of vector is on.
+func (c EmbedConfig) TextOn() bool  { return c.TextModel != "" }
+func (c EmbedConfig) ImageOn() bool { return c.ImageModel != "" }
 
 // AssistConfig says where module assist's models are: ai's frame cutter,
 // speech to text, and the model that fills a listing from frames and
@@ -328,6 +335,22 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		return f
 	}
 
+	// An embedding kind is on when its model is set; the rest of the kind's
+	// settings are then needed, and may be empty when it is off.
+	textModel, imageModel := set("EMBED_TEXT_MODEL"), set("EMBED_IMAGE_MODEL")
+	forKind := func(model, key string) string {
+		if model == "" {
+			return set(key)
+		}
+		return need(key)
+	}
+	fractionForKind := func(model, key string) float64 {
+		if model == "" && set(key) == "" {
+			return 0
+		}
+		return fraction(key)
+	}
+
 	decodeKey := func(key string, size int, exact bool) []byte {
 		v, ok := lookup(key)
 		if !ok || v == "" {
@@ -474,12 +497,13 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		},
 		LLM: LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
 		Embed: EmbedConfig{
-			TextBaseURL: need("EMBED_TEXT_BASE_URL"), ImageBaseURL: need("EMBED_IMAGE_BASE_URL"),
-			TextModel: need("EMBED_TEXT_MODEL"), ImageModel: need("EMBED_IMAGE_MODEL"),
-			TextVersion: need("EMBED_TEXT_VERSION"), ImageVersion: need("EMBED_IMAGE_VERSION"),
+			TextBaseURL: forKind(textModel, "EMBED_TEXT_BASE_URL"), ImageBaseURL: forKind(imageModel, "EMBED_IMAGE_BASE_URL"),
+			TextModel: textModel, ImageModel: imageModel,
+			TextVersion: forKind(textModel, "EMBED_TEXT_VERSION"), ImageVersion: forKind(imageModel, "EMBED_IMAGE_VERSION"),
 			IndexAPIKey: set("EMBED_INDEX_API_KEY"), SearchAPIKey: set("EMBED_SEARCH_API_KEY"),
 			Timeout: duration("EMBED_TIMEOUT"), Slots: positive("EMBED_SLOTS"),
-			TextMinSimilarity: fraction("EMBED_TEXT_MIN_SIMILARITY"), PhotoMinSimilarity: fraction("EMBED_PHOTO_MIN_SIMILARITY"),
+			TextMinSimilarity:  fractionForKind(textModel, "EMBED_TEXT_MIN_SIMILARITY"),
+			PhotoMinSimilarity: fractionForKind(imageModel, "EMBED_PHOTO_MIN_SIMILARITY"),
 		},
 		Assist: AssistConfig{
 			FramesBaseURL: need("AI_FRAMES_BASE_URL"),

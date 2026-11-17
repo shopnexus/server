@@ -377,3 +377,35 @@ func TestSearchLike(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// With the image model off, a photo search is unavailable and q runs without
+// the visual list; with the text model off, q runs without the text list.
+func TestSearchWithAnEmbedderOff(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t, func(d *service.Deps) { d.Image = nil })
+	me := accounttest.New(t, e.db)
+	photo := mediatest.Upload(t, e.media, me, "image/jpeg", mediatest.JPEG(t, 64, 48))
+	if _, err := e.discovery.Search(ctx, &me, service.SearchInput{Photo: photo}); !errors.Is(err, domain.ErrSearchUnavailable) {
+		t.Fatalf("photo search with images off: %v", err)
+	}
+	bike := e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
+	e.model.answers["xe dap"] = `{"understood":"Xe đạp","rewritten":"xe đạp","visual":"a bicycle","boosts":[],"demotes":[]}`
+	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"})
+	if err != nil || len(v.Items) == 0 || v.Items[0].ID != bike {
+		t.Fatalf("q with images off: %+v, %v", v, err)
+	}
+	if e.image.Calls() != 0 {
+		t.Fatalf("the image model was called: %d", e.image.Calls())
+	}
+
+	e = newEnv(t, func(d *service.Deps) { d.Text = nil })
+	bike = e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
+	e.model.answers["xe dap"] = `{"understood":"Xe đạp","rewritten":"xe đạp","boosts":[],"demotes":[]}`
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"}); err != nil || len(v.Items) == 0 || v.Items[0].ID != bike {
+		t.Fatalf("q with text off: %+v, %v", v, err)
+	}
+	if e.text.Calls() != 0 {
+		t.Fatalf("the text model was called: %d", e.text.Calls())
+	}
+}

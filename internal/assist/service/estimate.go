@@ -53,13 +53,17 @@ func (d Deps) draftSample(ctx context.Context, log *slog.Logger, account uuid.UU
 	if err != nil {
 		return nil, fmt.Errorf("build the embedding text: %w", err)
 	}
-	inputs := make([]string, len(in.Photos))
-	for i, p := range in.Photos {
+	// An off kind (nil model) reads nothing for it.
+	var inputs []string
+	for _, p := range in.Photos {
+		if d.Image == nil {
+			break
+		}
 		img, imgErr := d.Media.QueryImage(ctx, account, p)
 		if imgErr != nil {
 			return nil, fmt.Errorf("read photo %s: %w", p, imgErr)
 		}
-		inputs[i] = embed.ImageInput(img)
+		inputs = append(inputs, embed.ImageInput(img))
 	}
 	q := catalogsvc.PriceQuery{
 		Exclude: account, CategoryCode: in.CategoryCode, Condition: in.Condition,
@@ -67,11 +71,13 @@ func (d Deps) draftSample(ctx context.Context, log *slog.Logger, account uuid.UU
 	}
 	embedCtx, cancel := context.WithTimeout(ctx, d.CallTimeout)
 	defer cancel()
-	// A model that fails leaves its list out of the sample.
-	if vs, embedErr := d.Text.Embed(embedCtx, []string{text}); embedErr != nil {
-		log.WarnContext(ctx, "the price sample goes without the text vector", "err", embedErr)
-	} else {
-		q.Text = vs[0]
+	// A model that fails, or is off, leaves its list out of the sample.
+	if d.Text != nil {
+		if vs, embedErr := d.Text.Embed(embedCtx, []string{text}); embedErr != nil {
+			log.WarnContext(ctx, "the price sample goes without the text vector", "err", embedErr)
+		} else {
+			q.Text = vs[0]
+		}
 	}
 	if len(inputs) > 0 {
 		if vs, embedErr := d.Image.Embed(embedCtx, inputs); embedErr != nil || len(vs) == 0 {

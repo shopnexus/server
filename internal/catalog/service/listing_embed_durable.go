@@ -97,11 +97,15 @@ func (s ListingEmbed) Refresh(ctx restate.ObjectContext) error {
 			return embedPlan{}, fmt.Errorf("read vector state: %w", stepErr)
 		}
 		plan := embedPlan{Found: true, Keys: l.ProcessedPhotos()}
+		// A kind whose model is off (nil) plans nothing for it.
 		text := l.EmbeddingText(name)
-		if hash := domain.TextHash(s.TextVersion, text); !bytes.Equal(hash, have.TextHash) {
+		if hash := domain.TextHash(s.TextVersion, text); s.Text != nil && !bytes.Equal(hash, have.TextHash) {
 			plan.Text, plan.TextHash = text, hash
 		}
 		for _, k := range plan.Keys {
+			if s.Image == nil {
+				break
+			}
 			if !slices.Contains(have.Photos, k) {
 				plan.Missing = append(plan.Missing, k)
 			}

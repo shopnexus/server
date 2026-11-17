@@ -298,7 +298,12 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if err != nil {
 		return nil, nil, fmt.Errorf("console keys: %w", err)
 	}
-	embedder := func(base, model, key string, dims int) embed.OpenAI {
+	// An empty model turns its kind off: the modules get nil and write and
+	// read no vectors of that kind.
+	embedder := func(base, model, key string, dims int) embed.Model {
+		if model == "" {
+			return nil
+		}
 		return embed.OpenAI{BaseURL: base, APIKey: key, Model: model, Dims: dims, HTTP: &http.Client{Timeout: cfg.Embed.Timeout}}
 	}
 	catalogm := catalog.Mount(d, catalog.Settings{

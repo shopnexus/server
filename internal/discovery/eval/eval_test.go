@@ -108,7 +108,7 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 				return stateErr
 			}
 			if st.TextHash == nil || len(st.Photos) == 0 {
-				return fmt.Errorf("%s has no vectors yet; are tei and ai up?", key)
+				return fmt.Errorf("%s has no vectors yet; are OpenRouter and ai-models up?", key)
 			}
 		}
 		return nil

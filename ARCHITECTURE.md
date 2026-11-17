@@ -28,25 +28,36 @@ ParadeDB supports it (decided 2026-10-27). Restate replaced the relay, JetStream
 a table, `events`, that a bus drains into Restate (see Events). `/readyz`
 checks Postgres and the Restate admin health endpoint.
 
-The embedding models of search run behind the stack's LiteLLM: the alias
-`embed-text` is TEI serving `BAAI/bge-m3`, and `embed-image` is the `ai`
-service's SigLIP 2 (decided 2026-11-09, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-09-server2-photo-similar-search-design.md`).
-The server reaches them at `EMBED_TEXT_BASE_URL` and `EMBED_IMAGE_BASE_URL`.
-Locally it calls TEI and ai directly, on 127.0.0.1:56800 and 56810, which
-this repo's `docker-compose.yml` runs under the profile `models`
-(`docker compose --profile models up -d tei ai`). `make run` does not start
-them, and search runs on BM25 alone until they answer. `/readyz` does not
-check them.
+Every model call goes through the stack's `ai-gateway`, the LiteLLM of the
+`ai` repo, under an alias and a key per purpose (decided 2026-11-17, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-17-ai-hub-design.md`). The
+embedding models of search are the aliases `embed-text`, `BAAI/bge-m3`
+through OpenRouter, and `embed-image`, SigLIP 2 in `ai-models`. TEI served
+bge-m3 until 2026-11-17; OpenRouter's DeepInfra gives the same vectors, so
+`EMBED_TEXT_VERSION` did not change. The server reaches them at
+`EMBED_TEXT_BASE_URL` and `EMBED_IMAGE_BASE_URL`. Locally it calls OpenRouter
+for text and `ai-models` for photos, on 127.0.0.1:56810 under the profile
+`models` (`docker compose --profile models up -d ai-models`). `make run`
+does not start it, and search runs without the missing lists until it
+answers. `/readyz` does not check them.
+
+Each kind of vector can be off: an empty `EMBED_TEXT_MODEL` or
+`EMBED_IMAGE_MODEL` gives the modules a nil model. `ListingEmbed` then plans
+no vector of that kind, `q` and the price sample leave its list out, and a
+`photo` search with photos off answers 503 `search_unavailable`, as when the
+model fails. The kind's version may then be empty, which matches no stored
+vector, so `like` and the market price read none of it either.
 
 A video read (see Assist) calls three more models. The server calls `ai`'s
 `POST /v1/video/frames` itself at `AI_FRAMES_BASE_URL`, in the cluster too,
-since LiteLLM routes only OpenAI's API. Speech to text is at
-`STT_BASE_URL`: LiteLLM's alias `stt` in the cluster, `ai` with
+since the gateway routes only OpenAI's API. Speech to text is at
+`STT_BASE_URL`: `ai-gateway`'s alias `stt` in the cluster, `ai-models` with
 `gipformer-1.5` locally. The vision model is at `ASSIST_LLM_BASE_URL`:
-LiteLLM's alias `video-read` in the cluster, the LLM in `.env` locally.
-Locally `ai` answers on 127.0.0.1:56810 under the profile `models`, as for
-the embeddings.
+`ai-gateway`'s alias `listing-read` in the cluster, the LLM in `.env`
+locally. Locally `ai-models` answers on 127.0.0.1:56810 under the profile
+`models`, as for the photo embeddings. A 402 from the gateway (a spent
+budget or OpenRouter credit) is a passing failure in `provider/llm`, like a
+429, not a refused request.
 
 A link read (see Assist) calls the same model at `ASSIST_LLM_BASE_URL`
 with text only, and, through the cluster's open egress, Chợ Tốt's public
@@ -1883,7 +1894,7 @@ Hybrid search (decided 2026-11-09, spec:
   that fails leaves its list out; `q` then runs on BM25.
 - `make search-eval` runs the sample set in `internal/discovery/eval` (42
   listings with generated photos, 46 queries: 30 `q`, 10 `photo`, 6 `like`)
-  against TEI, ai and the LLM in `.env`. The baseline of 2026-11-10, with the
+  against TEI (bge-m3 then), ai and the LLM in `.env`. The baseline of 2026-11-10, with the
   starting weights, floors 0.45 (text) and 0.6 (photo),
   `bge-m3@5617a9f6` and `siglip2-so400m-patch16-384-fp32@29f74e67`:
 

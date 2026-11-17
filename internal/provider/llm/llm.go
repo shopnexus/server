@@ -25,7 +25,7 @@ type Request struct {
 	Schema     json.RawMessage
 }
 
-// ErrRefused is a 4xx answer other than 429: the same request would be
+// ErrRefused is a 4xx answer other than 402 and 429: the same request would be
 // refused again, so a caller should not retry it.
 var ErrRefused = errors.New("model refused the request")
 
@@ -86,7 +86,10 @@ func (c OpenAI) Complete(ctx context.Context, r Request, out any) error {
 	}
 	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
-		if res.StatusCode >= 400 && res.StatusCode < 500 && res.StatusCode != http.StatusTooManyRequests {
+		// 402 is a spent budget or credit (OpenRouter through ai-gateway) and
+		// 429 a rate: both pass, so neither is the request's fault.
+		if res.StatusCode >= 400 && res.StatusCode < 500 &&
+			res.StatusCode != http.StatusTooManyRequests && res.StatusCode != http.StatusPaymentRequired {
 			return fmt.Errorf("model answered %d: %w", res.StatusCode, ErrRefused)
 		}
 		return fmt.Errorf("model answered %d", res.StatusCode)

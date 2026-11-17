@@ -209,3 +209,31 @@ func TestPhotoStepReadsUnderTheSlot(t *testing.T) {
 		t.Fatalf("%d photos read while one slot was taken; want only a's (listing %s)", got-reads, a.ID)
 	}
 }
+
+// A kind whose model is off (nil) writes no vectors of that kind, and the
+// other kind still embeds.
+func TestEmbedSkipsAnOffKind(t *testing.T) {
+	t.Parallel()
+	text := embedtest.New(domain.TextDims)
+	e := newEnv(t, func(d *service.Deps) { d.Text, d.Image = text, nil })
+	v := e.post(t, e.seller(t))
+	vectors(t, e, v.ID, 0)
+	if text.Calls() != 1 {
+		t.Fatalf("text %d", text.Calls())
+	}
+
+	image := embedtest.New(domain.PhotoDims)
+	e = newEnv(t, func(d *service.Deps) { d.Text, d.Image = nil, image })
+	v = e.post(t, e.seller(t))
+	vs := repository.NewVectors(e.db)
+	testenv.Eventually(t, 20*time.Second, func() error {
+		st, err := vs.State(context.Background(), v.ID, "text-test", "image-test")
+		if err != nil {
+			return err
+		}
+		if st.TextHash != nil || len(st.Photos) != 1 {
+			return fmt.Errorf("text %v, %d photos", st.TextHash != nil, len(st.Photos))
+		}
+		return nil
+	})
+}

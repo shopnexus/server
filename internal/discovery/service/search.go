@@ -155,6 +155,11 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	var view SearchView
 
 	if photo {
+		// Photo search needs the image model; with it off the search is
+		// unavailable, as when the model fails.
+		if d.image == nil {
+			return SearchView{}, domain.ErrSearchUnavailable
+		}
 		now := d.now()
 		up, upErr := d.media.QueryUpload(ctx, *viewer, in.Photo)
 		if upErr != nil {
@@ -234,8 +239,10 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			// alias costs the search that much and its list is left out.
 			ectx, cancel := context.WithTimeout(ctx, d.modelTimeout)
 			var wg sync.WaitGroup
-			wg.Go(func() { search.Vectors.Text = d.queryVector(ectx, d.text, d.textVersion, text) })
-			if understood && strings.TrimSpace(u.Visual) != "" {
+			if d.text != nil {
+				wg.Go(func() { search.Vectors.Text = d.queryVector(ectx, d.text, d.textVersion, text) })
+			}
+			if d.image != nil && understood && strings.TrimSpace(u.Visual) != "" {
 				wg.Go(func() { search.Vectors.Photo = d.queryVector(ectx, d.image, d.imageVersion, u.Visual) })
 			}
 			wg.Wait()

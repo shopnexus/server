@@ -123,10 +123,10 @@ func TestCompleteSendsImages(t *testing.T) {
 	}
 }
 
-// A 4xx other than 429 is ErrRefused; 429 and 5xx are plain errors.
+// A 4xx other than 402 and 429 is ErrRefused; 402, 429 and 5xx are plain errors.
 func TestCompleteRefused(t *testing.T) {
 	t.Parallel()
-	for status, refused := range map[int]bool{400: true, 403: true, 413: true, 429: false, 500: false, 503: false} {
+	for status, refused := range map[int]bool{400: true, 402: false, 403: true, 413: true, 429: false, 500: false, 503: false} {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "no", status)
 		}))
