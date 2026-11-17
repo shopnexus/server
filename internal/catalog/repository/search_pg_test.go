@@ -196,3 +196,78 @@ func TestSearchAllWordsAndExclusions(t *testing.T) {
 		t.Fatalf("exclude sellers: %v", got)
 	}
 }
+
+// SortPointsNewest puts the listings of the heavier boosts first and every
+// other active listing after them, each group newest first; without boosts
+// it is the newest order. Filters hold, and any page matches the full
+// order.
+func TestSearchPointsNewest(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewSearches(db)
+	hn := domain.Point{Lat: 21.03, Lng: 105.85}
+	toyOld := put(t, db, item{title: "Ngựa gỗ", cat: "baby.toys", price: 300_000, point: hn, age: 3 * time.Hour})
+	toyNew := put(t, db, item{title: "Xếp hình", cat: "baby.toys", price: 200_000, point: hn, age: time.Hour})
+	gym := put(t, db, item{title: "Tạ tay", cat: "sports.gym", price: 400_000, point: hn, age: 30 * time.Minute})
+	phoneOld := put(t, db, item{title: "iPhone 12", cat: "phones.iphone", price: 7_000_000, point: hn, age: 2 * time.Hour})
+	phoneNew := put(t, db, item{title: "iPhone 13", cat: "phones.iphone", price: 9_000_000, point: hn, age: 10 * time.Minute})
+	hidden := put(t, db, item{title: "Búp bê", cat: "baby.toys", price: 100_000, point: hn, age: 5 * time.Minute})
+	put(t, db, item{title: "Xe đẩy đồ chơi", cat: "baby.toys", price: 500_000, point: hn, status: domain.StatusReserved})
+	run := func(q domain.Search) []uuid.UUID {
+		t.Helper()
+		q.Limit = 20
+		hits, err := s.Search(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := make([]uuid.UUID, len(hits))
+		for i, h := range hits {
+			out[i] = h.ID
+		}
+		return out
+	}
+	boosts := []domain.Boost{
+		{Kind: domain.BoostCategory, Code: "baby.toys", Weight: 2},
+		{Kind: domain.BoostCategory, Code: "sports.gym", Weight: 1},
+	}
+	got := run(domain.Search{Sort: domain.SortPointsNewest, Boosts: boosts, ExcludeListings: []uuid.UUID{hidden}})
+	if want := []uuid.UUID{toyNew, toyOld, gym, phoneNew, phoneOld}; !slices.Equal(got, want) {
+		t.Fatalf("points then newest: %v, want %v", got, want)
+	}
+	newest := run(domain.Search{Sort: domain.SortNewest})
+	if got = run(domain.Search{Sort: domain.SortPointsNewest}); !slices.Equal(got, newest) || len(got) != 6 {
+		t.Fatalf("no boosts: %v, newest %v", got, newest)
+	}
+	// Each branch reads offset+limit listings, so every page of the order
+	// is the page of the full sort.
+	full := []uuid.UUID{toyNew, toyOld, gym, phoneNew, phoneOld}
+	for offset := range full {
+		for limit := 1; offset+limit <= len(full); limit++ {
+			hits, err := s.Search(ctx, domain.Search{
+				Sort: domain.SortPointsNewest, Boosts: boosts, ExcludeListings: []uuid.UUID{hidden}, Offset: offset, Limit: limit,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			page := make([]uuid.UUID, len(hits))
+			for i, h := range hits {
+				page[i] = h.ID
+			}
+			if want := full[offset : offset+limit]; !slices.Equal(page, want) {
+				t.Fatalf("offset %d limit %d: %v, want %v", offset, limit, page, want)
+			}
+		}
+	}
+	if got = run(domain.Search{Sort: domain.SortPointsNewest, Boosts: boosts, Filters: domain.Filters{CategoryRoot: "phones"}}); !slices.Equal(got, []uuid.UUID{phoneNew, phoneOld}) {
+		t.Fatalf("a root filter: %v", got)
+	}
+	if got = run(domain.Search{Sort: domain.SortPointsNewest, Boosts: boosts, Filters: domain.Filters{CategoryCode: "sports.gym"}}); !slices.Equal(got, []uuid.UUID{gym}) {
+		t.Fatalf("a subcategory filter: %v", got)
+	}
+	if _, err := s.Search(ctx, domain.Search{
+		Sort: domain.SortPointsNewest, Limit: 20, Boosts: []domain.Boost{{Kind: domain.BoostFresh, Since: time.Now(), Weight: 1}},
+	}); err == nil {
+		t.Fatal("a fresh boost was taken")
+	}
+}

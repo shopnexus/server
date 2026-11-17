@@ -155,3 +155,30 @@ func TestPriceMoved(t *testing.T) {
 		t.Fatal("no save: not found")
 	}
 }
+
+// Recent lists the saves made at or after a time, newest first, of one
+// account only, up to a limit.
+func TestSavesRecent(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewSaves(db)
+	ctx := context.Background()
+	me, other := accounttest.New(t, db), accounttest.New(t, db)
+	ls := listings(t, db, 3)
+	for _, save := range []struct {
+		who     uuid.UUID
+		listing uuid.UUID
+		at      time.Time
+	}{{me, ls[0], now.AddDate(0, 0, -40)}, {me, ls[1], now.AddDate(0, 0, -2)}, {me, ls[2], now}, {other, ls[0], now}} {
+		if err := s.Save(ctx, uuid.NewV7(), save.who, save.listing, 1_500_000, save.at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := s.Recent(ctx, me, now.AddDate(0, 0, -29), 10)
+	if err != nil || !slices.Equal(got, []uuid.UUID{ls[2], ls[1]}) {
+		t.Fatalf("%v %v", got, err)
+	}
+	if got, err = s.Recent(ctx, me, now.AddDate(0, 0, -29), 1); err != nil || !slices.Equal(got, []uuid.UUID{ls[2]}) {
+		t.Fatalf("a limit of 1: %v %v", got, err)
+	}
+}

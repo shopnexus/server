@@ -329,7 +329,7 @@ carrier checks a seller's identity when it opens their account (decided
 join it. Reputation has no module or table: screen's reputation view reads
 the figures from the modules that hold them (see Screen). Followed
 searches, price alerts,
-"Dành cho bạn" and vector search will join `discovery`, beside search and
+"Dành cho bạn" and vector search are in `discovery`, beside search and
 the nearby feed. Imports run one way, `handler` and `worker` →
 `service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
 refuse an import against it.
@@ -1590,6 +1590,62 @@ page that shows two views calls both at once.
   migration that moves a subcategory to another root moves its count with
   it, where the old count by `category_root` (the code's prefix) did not.
   `Counts` lost its `CountField`, as nothing counted by root any more.
+- Dành cho bạn and Vì bạn đã xem gần đây (decided 2026-11-17, app plan
+  `2026-11-17-app-finish.md`): Home's `for_you` is one page of
+  `SearchItem` cards, 20 like the nearby feed's first page, and `viewed`
+  is `{category, items}`, a catalog `Category` and up to 10 cards; neither
+  pages. Discovery's `ForYou` reads both in one call from `screen.Home`, so
+  the exclusions and the views are read once. The signals come from the 30
+  UTC days that end today (`domain.ForYouSince`): the newest 100 listings
+  the person opened (`listing_view_marks`, one mark per listing at its
+  last day), the newest 100 they saved (`saved_listings.created_at`), and
+  the entries of their search history searched in the window whose first
+  category chip is a subcategory. The history holds the last 10 searches
+  (`domain.MaxHistory`), so these are the last 10 searches that fall in
+  the window, and an older search the trim dropped counts nothing. Each
+  signal adds to its subcategory: a save 3, a search 2, an opened listing
+  1 (`domain.ForYouBoosts`); a chip that names a root adds nothing. The
+  bounds (`domain.MaxViewSignals`, `domain.MaxSaveSignals`) keep a heavy
+  browser's Home at two reads of at most 100 rows each and one catalog
+  `Summaries` call for at most 200 listings, which gives the subcategory of
+  each. The feed is one catalog search over the active listings
+  nationwide in `SortPointsNewest` order: each weighed subcategory is a
+  `BoostCategory` boost at its weight, and the listings sort by boost
+  points, then `published_at`, then ID, each descending. A listing outside
+  the weighed subcategories has 0 points, so the newest listings fill the
+  page after the weighed ones in the same query, and no ID repeats. A
+  guest and an account without signals get no boost, which is the newest
+  order. Every listing of one subcategory has the same points, so the
+  first 20 of the order are among the newest 20 of each weighed
+  subcategory and the newest 20 outside them. Catalog's `pointsNewest`
+  reads those through the listings index, one `UNION ALL` branch each,
+  and orders only them; the branches share one binding of the excluded
+  IDs and build no BM25 should-clauses. It takes category boosts only. Both
+  lists leave out what search leaves out (`exclusions`: the hides, and the
+  accounts on either side of the viewer's blocks) and the viewer's own
+  listings through `ExcludeSellers`, as a `like` search does. The cards
+  come from catalog's `cards` and `withSaved`, so `saved` and
+  `distance_km` behave as on search. `viewed` reads the same 100 marks: it
+  takes their latest day, the subcategory most of that day's marks have,
+  and on a tie the subcategory of the listing created last, the highest
+  UUIDv7 ID (`domain.ViewedCategory`). Its items are that subcategory's
+  active listings outside those 100 marks, newest first, with the feed's
+  exclusions. It is absent signed out, without a mark in the window, or
+  with no such listing. Migration 0054 adds `search_history.category_code`,
+  the code of the first category chip beside its label, because a label
+  names no single subcategory: "Khác" is under every root. The column is
+  plain text with no foreign key or index, as `search_watches.category`
+  is; a code no category has any more boosts no listing. Search takes the
+  code from `domain.Chip.Code`, which the API leaves out, and entries from
+  before the migration add nothing. The same migration replaces the index
+  on `listing_view_marks (viewer_id)` with one on `(viewer_id, viewed_on,
+  listing_id)`, so the read of the newest 100 marks stops at 100 rows.
+  `screen.Home` still reads the position and the exclusions twice, once in
+  the nearby search and once in `ForYou`: `nearby` is the first page of
+  `Search` by the 2026-11-10 decision, and one discovery call for both
+  would either copy the nearby query or split `Search` into phases. The
+  repeat costs one commune lookup with `near_commune` and two indexed
+  reads, the hides and the blocks.
 - Distances on the listing and seller views (decided 2026-11-15, same
   plan): both views and `GET /v1/sellers/{id}/listings` take
   `near_lat`/`near_lng` or `near_commune` and check them as the search
@@ -1946,7 +2002,8 @@ Search history (decided 2026-11-10, spec:
   `like`, a later page and a signed-out search keep nothing. A failed write
   is logged at WARN and the search still answers 200.
 - An entry holds the query as typed (trimmed), the label of the first
-  category chip and the first card's `cover_thumb_url`, both as text.
+  category chip and its code (see Screen, Dành cho bạn), and the first
+  card's `cover_thumb_url`, all as text.
   `domain.HistoryKey` folds case, spaces and Vietnamese marks (đ as d), so
   "Xe Đạp" and "xe dap" are one entry. Searching it again gives the row a
   new UUIDv7 `id`, which moves it to the top; the same transaction deletes

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server2/internal/discovery/domain"
 )
 
 type pgViews struct{ db *pgxpool.Pool }
@@ -64,6 +65,23 @@ FROM listing_view_days WHERE listing_id = ANY(@ids) GROUP BY listing_id`, pgx.St
 		return nil, fmt.Errorf("count views: %w", err)
 	}
 	return collectCounts(rows)
+}
+
+func (s pgViews) Recent(ctx context.Context, viewer uuid.UUID, from time.Time, limit int) ([]domain.ViewMark, error) {
+	rows, err := s.db.Query(ctx, `SELECT listing_id, viewed_on FROM listing_view_marks
+WHERE viewer_id = @viewer AND viewed_on >= @from::date ORDER BY viewed_on DESC, listing_id DESC LIMIT @limit`,
+		pgx.StrictNamedArgs{"viewer": viewer, "from": from, "limit": limit})
+	if err != nil {
+		return nil, fmt.Errorf("select recent views: %w", err)
+	}
+	marks, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.ViewMark, error) {
+		var m domain.ViewMark
+		return m, row.Scan(&m.Listing, &m.Day)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read recent views: %w", err)
+	}
+	return marks, nil
 }
 
 func (s pgViews) Clear(ctx context.Context, viewer uuid.UUID) error {

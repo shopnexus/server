@@ -31,7 +31,8 @@ func TestHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := h.Remember(ctx, account, repository.HistoryEntry{
-		Query: "TÌM  5", Category: "Xe đạp", PhotoURL: "https://cdn.example/x.jpg", SearchedAt: now.Add(time.Hour),
+		Query: "TÌM  5", Category: "Xe đạp", CategoryCode: "vehicles.bicycle", PhotoURL: "https://cdn.example/x.jpg",
+		SearchedAt: now.Add(time.Hour),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +40,8 @@ func TestHistory(t *testing.T) {
 	if err != nil || len(list) != domain.MaxHistory {
 		t.Fatalf("list: %d %v", len(list), err)
 	}
-	if list[0].Query != "TÌM  5" || list[0].Category != "Xe đạp" || list[0].PhotoURL == "" {
+	if list[0].Query != "TÌM  5" || list[0].Category != "Xe đạp" || list[0].CategoryCode != "vehicles.bicycle" ||
+		list[0].PhotoURL == "" || list[1].CategoryCode != "" {
 		t.Fatalf("top: %+v", list[0])
 	}
 	kept := map[string]bool{}

@@ -36,6 +36,10 @@ type Service interface {
 	// each measured from near when it names a position. A signed-in
 	// viewer's items leave out the listings they hid and are marked saved.
 	SellerListings(ctx context.Context, viewer *uuid.UUID, seller uuid.UUID, near catalogdomain.Near, p page.Request) (page.Page[SearchItem], error)
+	// ForYou is Home's Dành cho bạn page and its Vì bạn đã xem gần đây rail
+	// for viewer, nil when signed out, each card measured from near when it
+	// names a position.
+	ForYou(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near) (ForYou, error)
 	// History is the account's last domain.MaxHistory text searches,
 	// newest first.
 	History(ctx context.Context, account uuid.UUID) (HistoryView, error)
