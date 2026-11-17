@@ -33,6 +33,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
 	"github.com/shopnexus/server2/internal/platform/testenv"
 	"github.com/shopnexus/server2/internal/provider/push"
+	supportsvc "github.com/shopnexus/server2/internal/support/service"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
@@ -83,6 +84,21 @@ func (c catalog) Summary(_ context.Context, id uuid.UUID) (catalogsvc.Summary, b
 }
 
 type trust struct{ trustsvc.Service }
+
+// support has one ticket, whose chat is conversation and whose owner is
+// owner.
+type support struct {
+	supportsvc.Service
+
+	ticket, conversation, owner uuid.UUID
+}
+
+func (s support) OfConversation(_ context.Context, account, conversation uuid.UUID) (supportsvc.TicketView, bool, error) {
+	if conversation != s.conversation || account != s.owner {
+		return supportsvc.TicketView{}, false, nil
+	}
+	return supportsvc.TicketView{ID: s.ticket, ConversationID: conversation}, true, nil
+}
 
 type discovery struct {
 	discoverysvc.Service
@@ -185,7 +201,7 @@ func newEnv(t *testing.T, revoked map[uuid.UUID]bool, once map[string]error) env
 	notices := service.New(service.Deps{Notices: repository.NewNotices(db), Settings: repository.NewSettings(db), Now: time.Now})
 	s := &sender{sent: map[string]int{}, body: map[string]string{}, title: map[string]string{}, data: map[string]map[string]string{}, tag: map[string]string{}, once: once}
 	w := worker.Worker{
-		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{}, Discovery: discovery{},
+		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{}, Discovery: discovery{}, Support: support{},
 		Accounts: accounts{revoked: revoked}, Push: s, Log: slog.New(slog.DiscardHandler), FollowerPage: 2,
 		Now: func() time.Time { return noon },
 	}
@@ -584,25 +600,41 @@ func TestMessageSentPushesOnly(t *testing.T) {
 	}
 }
 
-func TestASupportReplyIsTitledShopNexus(t *testing.T) {
+// A reply in a ticket's chat pushes to the ticket's owner under ShopNexus's
+// name and opens the ticket; the owner's message to ShopNexus pushes nothing.
+func TestASupportReplyOpensItsTicket(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t, nil, nil)
-	recipient := accounttest.New(t, e.db)
-	message := chatsvc.MessageFacts{
-		ID: uuid.NewV7(), ConversationID: uuid.NewV7(), RecipientID: recipient, SenderName: "ShopNexus",
-		Text: "Bạn chưa trả tiền nên không mất gì.", Kind: chatdomain.KindSupport,
-	}
-	e.worker.Chats = chats{facts: message}
-	e.start(t)
-	if err := e.notices.PutToken(context.Background(), uuid.NewV7(), recipient, "phone"); err != nil {
-		t.Fatal(err)
-	}
-	e.deliver(t, "MessageSent", events.Event{ID: message.ID, Kind: events.MessageSent, SubjectID: message.ID, OccurredAt: time.Now()})
-	e.push.mu.Lock()
-	defer e.push.mu.Unlock()
-	if e.push.title["phone"] != "ShopNexus" || e.push.body["phone"] != "Bạn chưa trả tiền nên không mất gì." ||
-		e.push.data["phone"]["type"] != "support_message" || e.push.data["phone"]["target_id"] != message.ConversationID.String() {
-		t.Fatalf("title %q body %q data %v", e.push.title["phone"], e.push.body["phone"], e.push.data["phone"])
+	for _, toOwner := range []bool{true, false} {
+		e := newEnv(t, nil, nil)
+		owner, other := accounttest.New(t, e.db), accounttest.New(t, e.db)
+		message := chatsvc.MessageFacts{
+			ID: uuid.NewV7(), ConversationID: uuid.NewV7(), RecipientID: owner, SenderName: "ShopNexus",
+			Text: "Bạn chưa trả tiền nên không mất gì.", Kind: chatdomain.KindSupport,
+		}
+		if !toOwner {
+			message.RecipientID = other
+		}
+		ticket := uuid.NewV7()
+		e.worker.Chats = chats{facts: message}
+		e.worker.Support = support{ticket: ticket, conversation: message.ConversationID, owner: owner}
+		e.start(t)
+		for account, token := range map[uuid.UUID]string{owner: "owner", other: "other"} {
+			if err := e.notices.PutToken(context.Background(), uuid.NewV7(), account, token); err != nil {
+				t.Fatal(err)
+			}
+		}
+		e.deliver(t, "MessageSent", events.Event{ID: message.ID, Kind: events.MessageSent, SubjectID: message.ID, OccurredAt: time.Now()})
+		e.push.mu.Lock()
+		if !toOwner {
+			if e.push.sent["owner"]+e.push.sent["other"] != 0 {
+				t.Errorf("a message to ShopNexus pushed: %v", e.push.sent)
+			}
+		} else if e.push.title["owner"] != "ShopNexus" || e.push.body["owner"] != "Bạn chưa trả tiền nên không mất gì." ||
+			e.push.tag["owner"] != "conversation:"+message.ConversationID.String() || e.push.data["owner"]["type"] != "support_message" ||
+			e.push.data["owner"]["target_kind"] != "ticket" || e.push.data["owner"]["target_id"] != ticket.String() {
+			t.Errorf("title %q body %q tag %q data %v", e.push.title["owner"], e.push.body["owner"], e.push.tag["owner"], e.push.data["owner"])
+		}
+		e.push.mu.Unlock()
 	}
 }
 

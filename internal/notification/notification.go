@@ -21,6 +21,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/module"
 	"github.com/shopnexus/server2/internal/provider/push"
+	supportsvc "github.com/shopnexus/server2/internal/support/service"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
@@ -38,12 +39,13 @@ type Settings struct {
 // services.
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service,
 	deals dealsvc.Service, trust trustsvc.Service, chats chatsvc.Service, discovery discoverysvc.Service,
+	support supportsvc.Service,
 ) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{Notices: repository.NewNotices(d.Pool), Settings: repository.NewSettings(d.Pool), Now: d.Now})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	w := worker.Worker{
 		Prefix: d.ServicePrefix, Notices: svc, Deals: deals, Chats: chats, Catalog: catalog,
-		Trust: trust, Accounts: accounts, Discovery: discovery, Push: s.Push, Log: d.Log, FollowerPage: followerPage, Now: d.Now,
+		Trust: trust, Accounts: accounts, Discovery: discovery, Support: support, Push: s.Push, Log: d.Log, FollowerPage: followerPage, Now: d.Now,
 	}
 	for kind, h := range map[events.Kind]string{
 		events.DealMoved: "DealMoved", events.MessageSent: "MessageSent", events.ListingPublished: "ListingPublished",

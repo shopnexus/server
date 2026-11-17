@@ -2611,6 +2611,11 @@ calls it except screen, for Home's unread count; depguard holds that.
 - Chat messages are pushed and never listed, collapsing on
   `conversation:<id>`, with the sender's name and the first 100 characters
   (chat's `MessageFacts` gives the whole text; notification cuts it).
+  A support chat's message pushes only to the ticket's owner, titled
+  ShopNexus, with `type` `support_message` and target kind `ticket` and the
+  ticket's ID, so the app opens the ticket without looking it up (decided
+  2026-11-17). The owner's message to ShopNexus pushes nothing; the
+  console's queue shows it.
 - A push token belongs to a sign-in session (`push_tokens.session_id`).
   Putting a token takes it from every other session that had it, so a
   phone signed in to a second account stops getting the first account's
