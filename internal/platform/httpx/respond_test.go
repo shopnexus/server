@@ -152,7 +152,7 @@ func TestRouterRecordsRoutes(t *testing.T) {
 
 func TestWriteErrorIncludesDetails(t *testing.T) {
 	t.Parallel()
-	rec, _ := failWith(t, apperr.New(apperr.KindInvalid, "invalid_code", "no match").WithDetail("attempts_left", 4))
+	rec, _ := failWith(t, apperr.New(apperr.KindInvalid, "invalid_code", "no match").WithAttemptsLeft(4))
 	var body struct {
 		Error struct {
 			Details map[string]any `json:"details"`
@@ -163,5 +163,9 @@ func TestWriteErrorIncludesDetails(t *testing.T) {
 	}
 	if rec, _ := failWith(t, apperr.New(apperr.KindInvalid, "x", "y")); strings.Contains(rec.Body.String(), "details") {
 		t.Fatalf("empty details written: %s", rec.Body.String())
+	}
+	// A carrier that refuses with no words still sends its reason.
+	if rec, _ := failWith(t, apperr.New(apperr.KindInvalid, "carrier_refused", "y").WithReason("")); !strings.Contains(rec.Body.String(), `"details":{"reason":""}`) {
+		t.Fatalf("blank reason dropped: %s", rec.Body.String())
 	}
 }

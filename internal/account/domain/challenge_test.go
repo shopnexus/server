@@ -44,7 +44,7 @@ func TestVerifyWrongCodeCountsAndLocks(t *testing.T) {
 	c := challenge(t)
 	err := c.Verify([]byte("wrong"), now)
 	var ae *apperr.Error
-	if !errors.Is(err, domain.ErrInvalidCode) || !errors.As(err, &ae) || ae.Details["attempts_left"] != domain.MaxAttempts-1 {
+	if !errors.Is(err, domain.ErrInvalidCode) || !errors.As(err, &ae) || ae.Details.AttemptsLeft == nil || *ae.Details.AttemptsLeft != domain.MaxAttempts-1 {
 		t.Fatalf("err %v", err)
 	}
 	for i := 2; i < domain.MaxAttempts; i++ {

@@ -56,15 +56,16 @@ func TestWithFieldCopies(t *testing.T) {
 	}
 }
 
-func TestWithDetailCopies(t *testing.T) {
+func TestDetailsCopy(t *testing.T) {
 	t.Parallel()
 	base := apperr.New(apperr.KindInvalid, "invalid_code", "the code does not match")
-	got := base.WithDetail("attempts_left", 4)
-	if got.Details["attempts_left"] != 4 || base.Details != nil || !errors.Is(got, base) {
-		t.Fatalf("copy %v, base %v", got.Details, base.Details)
+	got := base.WithAttemptsLeft(4)
+	if got.Details.AttemptsLeft == nil || *got.Details.AttemptsLeft != 4 || base.Details != (apperr.Details{}) || !errors.Is(got, base) {
+		t.Fatalf("copy %+v, base %+v", got.Details, base.Details)
 	}
-	if again := got.WithDetail("retry_after", 9); len(got.Details) != 1 || len(again.Details) != 2 {
-		t.Fatalf("got %v, again %v", got.Details, again.Details)
+	again := got.WithReason("")
+	if got.Details.Reason != nil || again.Details.Reason == nil || *again.Details.Reason != "" || again.Details.AttemptsLeft != got.Details.AttemptsLeft {
+		t.Fatalf("got %+v, again %+v", got.Details, again.Details)
 	}
 }
 
@@ -84,11 +85,11 @@ func TestWithRetryAfterRoundsUp(t *testing.T) {
 	t.Parallel()
 	base := apperr.New(apperr.KindRateLimited, "otp_limit", "too many")
 	for wait, want := range map[time.Duration]int{time.Second: 1, 1500 * time.Millisecond: 2, 44*time.Second + time.Millisecond: 45} {
-		if got := base.WithRetryAfter(wait).Details["retry_after"]; got != want {
+		if got := base.WithRetryAfter(wait).Details.RetryAfter; got == nil || *got != want {
 			t.Errorf("%s: %v, want %d", wait, got, want)
 		}
 	}
-	if base.Details != nil {
-		t.Fatalf("the sentinel changed: %v", base.Details)
+	if base.Details != (apperr.Details{}) {
+		t.Fatalf("the sentinel changed: %+v", base.Details)
 	}
 }

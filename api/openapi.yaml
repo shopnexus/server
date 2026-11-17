@@ -100,6 +100,14 @@ tags:
   - name: system
     x-displayName: Health
     description: Liveness and readiness checks.
+  # internal and websocket are in no group of x-tagGroups, so the reference
+  # lists each operation under its module's tag only. They are the one list
+  # of the routes the app leaves out: its generated client drops every
+  # operation that has either of them.
+  - name: internal
+    description: Operations the app does not call. The console and the ops dashboards' sign-in, carrier webhooks, the health checks and the dev routes have it.
+  - name: websocket
+    description: GET /v1/ws, a WebSocket. The app opens it with its socket code, since an HTTP client cannot.
 x-tagGroups:
   - name: Accounts
     tags: [auth, account, media]

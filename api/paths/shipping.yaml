@@ -235,7 +235,7 @@ carrierWebhook:
       leaves any body to the handler: once the secret matches it answers
       200, also for a code no order has or a body it cannot read, so the
       carrier does not resend.
-    tags: [shipping]
+    tags: [shipping, internal]
     parameters:
       - name: carrier
         in: path

@@ -392,7 +392,7 @@ func TestACarriersRefusalGivesTheListingBack(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	deps := e.deps
-	deps.Shipping = refusing{apperr.New(apperr.KindInvalid, "carrier_refused", "the carrier refused the request").WithDetail("reason", "bad phone")}
+	deps.Shipping = refusing{apperr.New(apperr.KindInvalid, "carrier_refused", "the carrier refused the request").WithReason("bad phone")}
 	deals := start(t, deps)
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)

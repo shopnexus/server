@@ -126,6 +126,44 @@ for a spec route this server does not mount, such as a dev route in
 production, gets the router's 404 for an unknown path whatever its body
 (decided 2026-11-15).
 
+### Spec shapes for generated clients
+
+The app generates its Ktor client from the bundled spec with Fabrikt and
+kotlinx.serialization. The spec keeps to four shapes that Fabrikt takes as
+written (decided 2026-11-17):
+
+- A `oneOf` of `$ref`s has a `discriminator` with a `mapping`, and each
+  branch requires that property with a single `enum` value. `ShipmentDraft`
+  picks its branch by `mode`. kin-openapi then checks a body against that
+  branch alone; a body without `mode`, or with another value, is 400
+  `invalid_request` with `fields.body: discriminator`.
+- A body that takes one of several sets of fields is one object, written
+  like `SignInRequest`: `properties` with every field, a `oneOf` whose
+  branches list only `required`, and `additionalProperties: false`.
+  `dependentRequired` keeps the sets apart where a field of one set could
+  join another. `ListingReadRequest` takes `transcript` only with `video`;
+  in `CarrierLogin`, GHTK's `email` and `password` need each other, and so
+  do GHN's `token` and `shop_id`. A body that breaks it is 400 with
+  `required` on each property it lacks. The app's script drops the
+  `oneOf`, so its model has every field optional.
+- No schema that an app operation reaches is a map of any values.
+  `Error.details` lists `retry_after`, `attempts_left` and `reason` with
+  `additionalProperties: false`. `apperr.Details` is a struct with the same
+  three fields as pointers, set by `WithRetryAfter`, `WithAttemptsLeft` and
+  `WithReason`, so a new detail is a field in both places. A detail that
+  was set is sent, a blank `reason` included, and an unset one is not.
+- The tag `internal` marks the operations the app does not call: the
+  console, `/_dashboard/callback`, the carrier webhook, `/healthz`,
+  `/readyz` and the dev routes. `websocket` marks `GET /v1/ws`, which the
+  app opens with its socket code. The two tags are the one list of the
+  routes the app leaves out: its client drops every operation with either
+  tag. Neither tag is in `x-tagGroups`, so the docs list each operation
+  under its module's tag only. kin-openapi v0.151.0, the version `go.mod`
+  pins, rejects OpenAPI 3.2's tag `kind`, and v0.153.0 rejects it too, so
+  the two tags have none. `TestSpecTags` checks that each operation has
+  one tag of `x-tagGroups`, that each route above has its tag, and that no
+  other operation has either.
+
 ### Pagination
 
 A list endpoint pages by keyset over UUIDv7 IDs, newest first. Its handler
@@ -1228,7 +1266,7 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server2-order-flow.md`).
 - `POST /v1/orders/{order_id}/shipment` takes `{mode: manual, carrier,
   tracking_code}` or `{mode: linked, carrier, service, weight_grams, pickup,
   pickup_from}`; its
-  `mode` picks a branch of a `oneOf`, and every other rule is the domain's
+  `mode` is the discriminator of a `oneOf`, and every other rule is the domain's
   422 `invalid_shipment` with fields. `PUT` on the same path corrects a
   manual shipment; `POST /v1/orders/{order_id}/confirm` is the buyer's;
   `GET /v1/shipments/lookup?carrier=&code=` is the seller's preview. The

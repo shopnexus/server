@@ -3,6 +3,7 @@ package restatex_test
 import (
 	"errors"
 	"testing"
+	"time"
 	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
@@ -28,7 +29,7 @@ func (gate) Pass(_ restate.Context, in string) (passed, error) {
 	if in == "ok" {
 		return passed{Value: "passed"}, nil
 	}
-	refused := apperr.New(apperr.KindRateLimited, "otp_limit", "too many").WithDetail("retry_after", 7)
+	refused := apperr.New(apperr.KindRateLimited, "otp_limit", "too many").WithRetryAfter(7 * time.Second)
 	return passed{Refused: refused}, nil
 }
 
@@ -43,7 +44,7 @@ func TestCallerReturnsTheRefusal(t *testing.T) {
 	}
 	_, err := c.Call(t.Context(), uuid.NewV7().String(), "no")
 	e, ok := errors.AsType[*apperr.Error](err)
-	if !ok || e.Kind != apperr.KindRateLimited || e.Code != "otp_limit" || e.Details["retry_after"] != float64(7) {
+	if !ok || e.Kind != apperr.KindRateLimited || e.Code != "otp_limit" || e.Details.RetryAfter == nil || *e.Details.RetryAfter != 7 {
 		t.Fatalf("refused: %#v", err)
 	}
 }
