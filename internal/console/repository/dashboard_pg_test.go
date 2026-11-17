@@ -12,6 +12,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/console/domain"
 	"github.com/shopnexus/server2/internal/console/repository"
+	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/token"
 )
 
@@ -191,5 +192,19 @@ func TestCreateTicketDeletesExpiredOnes(t *testing.T) {
 	var n int
 	if err := db.QueryRow(context.Background(), `SELECT count(*) FROM console_dashboard_tickets`, pgx.StrictNamedArgs{}).Scan(&n); err != nil || n != 1 {
 		t.Fatalf("%d tickets: %v", n, err)
+	}
+}
+
+// Every app DASHBOARD_HOSTS may name gets a ticket and a session: the
+// tables' CHECK lists them all.
+func TestEveryDashboardAppIsStored(t *testing.T) {
+	t.Parallel()
+	_, s, db := consoleSession(t, domain.RoleAdmin)
+	st := repository.NewDashboards(db)
+	for _, name := range config.DashboardApps {
+		app := domain.App(name)
+		if _, err := st.Redeem(context.Background(), ticketFor(t, st, s, app), cookieHash(), app, now); err != nil {
+			t.Errorf("%s: %v", app, err)
+		}
 	}
 }
