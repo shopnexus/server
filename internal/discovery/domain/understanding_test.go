@@ -60,7 +60,8 @@ func TestCompileCategory(t *testing.T) {
 		len(root) != 1 || root[0].Code != "vehicles" || !near(root[0].Weight, 1.5*0.33) {
 		t.Fatalf("%+v", c.Boosts)
 	}
-	if ids := chipIDs(c); !slices.Equal(ids, []string{"category-0", "category-2"}) || c.Chips[0].Label != "Xe đạp" {
+	if ids := chipIDs(c); !slices.Equal(ids, []string{"category-0", "category-2"}) || c.Chips[0].Label != "Xe đạp" ||
+		c.Chips[0].Code != "vehicles.bicycle" || c.Chips[1].Code != "vehicles" {
 		t.Fatalf("chips %+v", c.Chips)
 	}
 	off := domain.Compile(u, "xe", vocab, nil, now, []string{"category-0"})

@@ -271,7 +271,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		entry := repository.HistoryEntry{Query: q, SearchedAt: d.now()}
 		for _, c := range view.Chips {
 			if c.Kind == domain.AttrCategory {
-				entry.Category = c.Label
+				entry.Category, entry.CategoryCode = c.Label, c.Code
 				break
 			}
 		}

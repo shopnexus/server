@@ -1,12 +1,14 @@
 screenHome:
   get:
     operationId: getHomeScreen
-    summary: The Home view, the category tree with counts and the first page of the nearby feed.
+    summary: The Home view, the category tree with counts, the first page of the nearby feed, Dành cho bạn and Vì bạn đã xem gần đây.
     description: |
       nearby is the first page of GET /v1/search with sort=nearby and the
       same position and radius_km; its next_cursor pages on there. Without
       radius_km the feed keeps within 50 km. Without a position nearby has
-      no items, and the app asks for a position to fill it.
+      no items, and the app asks for a position to fill it. for_you and
+      viewed are one page each, with no cursor. Their cards carry
+      distance_km with a position, and saved for a signed-in reader.
     tags: [screen]
     security:
       - {}

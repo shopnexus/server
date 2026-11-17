@@ -20,6 +20,7 @@ var answers = map[string]string{
 	"xe dap di lam duoi 3tr": `{"understood":"Xe đạp đi làm, dưới 3 triệu","boosts":[` +
 		`{"attr":"phrase","values":["xe đạp đi làm"]},{"attr":"category","values":["vehicles.bicycle"]},` +
 		`{"attr":"price","values":["-3000000"]}],"demotes":[]}`,
+	"may giat cu": `{"understood":"Máy giặt cũ","boosts":[{"attr":"category","values":["home.washer"]}],"demotes":[]}`,
 }
 
 func newModel() *stubModel {

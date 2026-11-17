@@ -181,6 +181,20 @@ FROM saved_listings WHERE listing_id = ANY(@ids) GROUP BY listing_id`, pgx.Stric
 	return collectCounts(rows)
 }
 
+func (s pgSaves) Recent(ctx context.Context, account uuid.UUID, since time.Time, limit int) ([]uuid.UUID, error) {
+	rows, err := s.db.Query(ctx, `SELECT listing_id FROM saved_listings
+WHERE account_id = @account AND created_at >= @since ORDER BY id DESC LIMIT @limit`,
+		pgx.StrictNamedArgs{"account": account, "since": since, "limit": limit})
+	if err != nil {
+		return nil, fmt.Errorf("select recent saves: %w", err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return nil, fmt.Errorf("read recent saves: %w", err)
+	}
+	return ids, nil
+}
+
 // collectCounts reads rows of a listing ID and its two counts.
 func collectCounts(rows pgx.Rows) (map[uuid.UUID]Counts, error) {
 	out := map[uuid.UUID]Counts{}

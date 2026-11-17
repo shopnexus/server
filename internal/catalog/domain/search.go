@@ -17,6 +17,13 @@ const (
 	SortNearest   SortOrder = "nearest"
 	SortPriceAsc  SortOrder = "price_asc"
 	SortPriceDesc SortOrder = "price_desc"
+	// SortPointsNewest orders by boost points, the weights of the category
+	// boosts a listing matches summed, highest first, then newest first,
+	// then by ID; a boost of another kind is an error. It reads at most
+	// offset+limit listings of each boosted subcategory and as many of the
+	// rest, and no vector list. No endpoint takes it; discovery's Dành cho
+	// bạn feed uses it.
+	SortPointsNewest SortOrder = "points_newest"
 )
 
 // Filters are what the person picked: a listing outside them never shows.

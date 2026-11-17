@@ -246,3 +246,37 @@ func TestSaveCounts(t *testing.T) {
 		t.Fatalf("%+v %v", got, err)
 	}
 }
+
+// Recent lists one viewer's marks from a day on, the latest day first, up
+// to a limit; a listing opened again keeps its last day only.
+func TestViewsRecent(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	v := repository.NewViews(db)
+	ctx := context.Background()
+	seller, ann, bao := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
+	old, again, today := catalogtest.Listing(t, db, seller), catalogtest.Listing(t, db, seller), catalogtest.Listing(t, db, seller)
+	day := domain.ViewDay(now)
+	for _, r := range []struct {
+		listing, viewer uuid.UUID
+		day             time.Time
+	}{
+		{old, ann, day.AddDate(0, 0, -40)},
+		{again, ann, day.AddDate(0, 0, -45)},
+		{again, ann, day.AddDate(0, 0, -3)},
+		{today, ann, day},
+		{today, bao, day},
+	} {
+		if err := v.Record(ctx, r.listing, r.viewer, r.day); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := v.Recent(ctx, ann, day.AddDate(0, 0, -29), 10)
+	if err != nil || len(got) != 2 || got[0].Listing != today || !got[0].Day.Equal(day) ||
+		got[1].Listing != again || !got[1].Day.Equal(day.AddDate(0, 0, -3)) || got[0].Category != "" {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if got, err = v.Recent(ctx, ann, day.AddDate(0, 0, -29), 1); err != nil || len(got) != 1 || got[0].Listing != today {
+		t.Fatalf("a limit of 1: %+v %v", got, err)
+	}
+}

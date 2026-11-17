@@ -31,10 +31,10 @@ func living(ctx context.Context, tx pgx.Tx, account uuid.UUID) (bool, error) {
 func NewHistory(db *pgxpool.Pool) History { return pgHistory{db} }
 
 const rememberSearch = `
-INSERT INTO search_history (id, account_id, query_key, query, category, photo_url, searched_at)
-VALUES (@id, @account, @key, @query, NULLIF(@category, ''), NULLIF(@photo_url, ''), @at)
+INSERT INTO search_history (id, account_id, query_key, query, category, category_code, photo_url, searched_at)
+VALUES (@id, @account, @key, @query, NULLIF(@category, ''), NULLIF(@category_code, ''), NULLIF(@photo_url, ''), @at)
 ON CONFLICT (account_id, query_key) DO UPDATE
-SET id = excluded.id, query = excluded.query, category = excluded.category,
+SET id = excluded.id, query = excluded.query, category = excluded.category, category_code = excluded.category_code,
     photo_url = excluded.photo_url, searched_at = excluded.searched_at`
 
 // trimHistory keeps an account's newest domain.MaxHistory entries; the IDs
@@ -51,7 +51,7 @@ func (s pgHistory) Remember(ctx context.Context, account uuid.UUID, e HistoryEnt
 		}
 		if _, err := tx.Exec(ctx, rememberSearch, pgx.StrictNamedArgs{
 			"id": uuid.NewV7(), "account": account, "key": domain.HistoryKey(e.Query), "query": e.Query,
-			"category": e.Category, "photo_url": e.PhotoURL, "at": e.SearchedAt,
+			"category": e.Category, "category_code": e.CategoryCode, "photo_url": e.PhotoURL, "at": e.SearchedAt,
 		}); err != nil {
 			return fmt.Errorf("upsert search: %w", err)
 		}
@@ -67,7 +67,7 @@ func (s pgHistory) Remember(ctx context.Context, account uuid.UUID, e HistoryEnt
 }
 
 func (s pgHistory) List(ctx context.Context, account uuid.UUID) ([]HistoryEntry, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, query, coalesce(category, ''), coalesce(photo_url, ''), searched_at
+	rows, err := s.db.Query(ctx, `SELECT id, query, coalesce(category, ''), coalesce(category_code, ''), coalesce(photo_url, ''), searched_at
 FROM search_history WHERE account_id = @account ORDER BY id DESC`, pgx.StrictNamedArgs{"account": account})
 	if err != nil {
 		return nil, fmt.Errorf("select history: %w", err)
