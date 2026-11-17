@@ -11,7 +11,7 @@
 !/.sqlfluff
 !/.sqlfluffignore
 !/ARCHITECTURE.md
-!/CLAUDE.md
+!/AGENTS.md
 !/Dockerfile
 !/LICENSE
 !/Makefile
