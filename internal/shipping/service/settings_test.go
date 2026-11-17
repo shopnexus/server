@@ -22,11 +22,11 @@ func TestSavedPickupFollowsAddressAndClearsPhoneOnDelete(t *testing.T) {
 	accounts := accounttest.Service(db)
 	svc := service.New(service.Deps{Customers: accounts, Settings: repository.NewSettings(db)})
 	draft := accountdomain.AddressDraft{Name: "Book name", Phone: "0912345678", Street: "12 Lê Lợi", CommuneCode: "00004", Kind: accountdomain.AddressHome}
-	a, err := accounts.CreateAddress(ctx, owner, uuid.NewV7(), draft)
+	a, err := accounts.CreateAddress(ctx, owner, uuid.NewV7(), draft, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	foreign, err := accounts.CreateAddress(ctx, other, uuid.NewV7(), draft)
+	foreign, err := accounts.CreateAddress(ctx, other, uuid.NewV7(), draft, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestSavedPickupFollowsAddressAndClearsPhoneOnDelete(t *testing.T) {
 		t.Fatalf("settings: %+v %v", st, err)
 	}
 	draft.Street = "15 Lê Lợi"
-	if _, err = accounts.UpdateAddress(ctx, owner, a.ID, draft); err != nil {
+	if _, err = accounts.UpdateAddress(ctx, owner, a.ID, draft, false); err != nil {
 		t.Fatal(err)
 	}
 	p, err := svc.SavedPickup(ctx, owner)

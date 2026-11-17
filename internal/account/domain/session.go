@@ -82,8 +82,12 @@ func RestoreSession(id, accountID uuid.UUID, refreshHash, prevRefreshHash []byte
 	}
 }
 
-// Saved records that a store wrote s under writeID. Stores only.
-func (s *Session) Saved(writeID uuid.UUID) { s.writeID = writeID }
+// Saved is for stores only. It records that a store wrote s under writeID,
+// and the auth_time its row holds, which a reauthentication moves without a
+// new write ID and which may be later than the one s was read with.
+func (s *Session) Saved(writeID uuid.UUID, authTime time.Time) {
+	s.writeID, s.authTime = writeID, authTime
+}
 
 // Usable returns nil while the session may refresh: not revoked, younger than
 // SessionMaxAge, and used within SessionIdleLimit.

@@ -69,6 +69,9 @@ type Chip struct {
 	ID    string `json:"id"`
 	Kind  Attr   `json:"kind"`
 	Label string `json:"label"`
+	// Code is a category chip's category code, which the search history
+	// keeps; the API leaves it out.
+	Code string `json:"-"`
 }
 
 // Compiled is an understanding resolved into catalog's search terms.
@@ -150,7 +153,11 @@ func Compile(u Understanding, raw string, v Vocabulary, origin *catalogdomain.Po
 				}
 				c.Ran = append(c.Ran, fmt.Sprintf("%s w=%+.2f", term, w))
 				if group.sign > 0 {
-					c.Chips = append(c.Chips, Chip{ID: id, Kind: s.Attr, Label: label})
+					chip := Chip{ID: id, Kind: s.Attr, Label: label}
+					if s.Attr == AttrCategory {
+						chip.Code = strings.TrimSpace(value)
+					}
+					c.Chips = append(c.Chips, chip)
 				}
 			}
 		}

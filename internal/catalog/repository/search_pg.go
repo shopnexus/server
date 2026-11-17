@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -383,6 +384,9 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 	if in.Hybrid() {
 		return s.hybridSearch(ctx, in)
 	}
+	if in.Sort == domain.SortPointsNewest {
+		return s.pointsNewest(ctx, in)
+	}
 	q := query{args: pgx.StrictNamedArgs{"limit": in.Limit, "offset": in.Offset}}
 	sql := `SELECT id, lat, lng FROM listings WHERE ` + q.where(in, true)
 	if o := in.Filters.Origin; o != nil && (in.Filters.RadiusKm > 0 || in.Sort == domain.SortNearest) {
@@ -408,6 +412,65 @@ func (s pgSearches) Search(ctx context.Context, in domain.Search) ([]domain.Hit,
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
+	return collectHits(rows)
+}
+
+// pointsNewest runs a SortPointsNewest search over a bounded set of
+// candidates. Every listing of one subcategory has the same points, so a
+// listing in the first offset+limit of the order is among the newest
+// offset+limit of its boosted subcategory, or of the listings outside
+// every boosted one. One branch per boosted subcategory and one for the
+// rest read those through the index, and the outer query orders them.
+// The branches share one binding of the ID lists the search leaves out.
+func (s pgSearches) pointsNewest(ctx context.Context, in domain.Search) ([]domain.Hit, error) {
+	q := query{args: pgx.StrictNamedArgs{"limit": in.Limit, "offset": in.Offset, "branch": in.Offset + in.Limit}}
+	var codes []string
+	for _, b := range in.Boosts {
+		if b.Kind != domain.BoostCategory {
+			return nil, fmt.Errorf("sort %s takes category boosts only, not %s", in.Sort, b.Kind)
+		}
+		if !slices.Contains(codes, b.Code) {
+			codes = append(codes, b.Code)
+		}
+	}
+	var shared string
+	if ex := q.exclusions(in, ""); len(ex) > 0 {
+		shared = ` AND ` + strings.Join(ex, " AND ")
+	}
+	if o := in.Filters.Origin; o != nil && in.Filters.RadiusKm > 0 {
+		q.args["olat"], q.args["olng"], q.args["radius"] = o.Lat, o.Lng, in.Filters.RadiusKm
+		shared += ` AND ` + distanceSQL + ` <= @radius`
+	}
+	branch := func(f domain.Search, cond string) string {
+		return `(SELECT id FROM listings WHERE id @@@ paradedb.boolean(must => ` + array(q.must(f)) + `)` + shared + cond +
+			` ORDER BY published_at DESC, id DESC LIMIT @branch)`
+	}
+	branches := make([]string, 0, len(codes)+1)
+	for _, code := range codes {
+		if in.Filters.CategoryCode != "" && in.Filters.CategoryCode != code {
+			continue // the filter leaves this subcategory out
+		}
+		f := in
+		f.Filters.CategoryCode = code
+		branches = append(branches, branch(f, ""))
+	}
+	rest := ""
+	if len(codes) > 0 {
+		rest = ` AND category_code <> ALL(` + q.arg(codes, "text[]") + `)`
+	}
+	branches = append(branches, branch(in, rest))
+	// The cast keeps the points of no boost, a bare 0, from reading as a
+	// column position.
+	rows, err := s.db.Query(ctx, `SELECT l.id, l.lat, l.lng FROM listings AS l JOIN (`+strings.Join(branches, " UNION ALL ")+`) AS c ON c.id = l.id
+ORDER BY (`+q.points(in.Boosts)+`)::float8 DESC, l.published_at DESC, l.id DESC LIMIT @limit OFFSET @offset`, q.args)
+	if err != nil {
+		return nil, fmt.Errorf("search by points: %w", err)
+	}
+	return collectHits(rows)
+}
+
+// collectHits reads rows of a listing's ID and point.
+func collectHits(rows pgx.Rows) ([]domain.Hit, error) {
 	hits, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Hit, error) {
 		var h domain.Hit
 		return h, row.Scan(&h.ID, &h.Point.Lat, &h.Point.Lng)
@@ -481,13 +544,8 @@ SELECT l.id, l.lat, l.lng FROM fused AS f JOIN listings AS l ON l.id = f.id`
 		if err != nil {
 			return fmt.Errorf("hybrid search: %w", err)
 		}
-		if hits, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Hit, error) {
-			var h domain.Hit
-			return h, row.Scan(&h.ID, &h.Point.Lat, &h.Point.Lng)
-		}); err != nil {
-			return fmt.Errorf("read hits: %w", err)
-		}
-		return nil
+		hits, err = collectHits(rows)
+		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)

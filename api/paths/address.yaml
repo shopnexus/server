@@ -17,7 +17,11 @@ addresses:
   post:
     operationId: createAddress
     summary: Add an address; the first becomes the default.
-    description: A repeated Idempotency-Key returns the address its first request added, and adds nothing.
+    description: |
+      With is_default true the address becomes the default in the same
+      request. A repeated Idempotency-Key returns the address its first
+      request added, as it is now, and changes nothing, the default
+      included.
     tags: [account]
     security:
       - bearerAuth: []
@@ -57,7 +61,9 @@ address:
     operationId: updateAddress
     summary: Replace an address of the caller's.
     description: |
-      Orders already requested to the address keep the copy they took.
+      With is_default true the address also becomes the default; without
+      it the default stays where it is. Orders already requested to the
+      address keep the copy they took.
     tags: [account]
     security:
       - bearerAuth: []

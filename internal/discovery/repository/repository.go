@@ -10,6 +10,7 @@ import (
 	"uuid"
 
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server2/internal/discovery/domain"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -41,6 +42,9 @@ type Saves interface {
 	// Counts counts the saves of each listing among ids, all of them and
 	// those made at or after since; a listing without a save is absent.
 	Counts(ctx context.Context, ids []uuid.UUID, since time.Time) (map[uuid.UUID]Counts, error)
+	// Recent lists the listings account saved at or after since, newest
+	// save first, at most limit.
+	Recent(ctx context.Context, account uuid.UUID, since time.Time, limit int) ([]uuid.UUID, error)
 }
 
 // Counts is a listing's count of something, all of it and the part since a
@@ -65,6 +69,10 @@ type Views interface {
 	// Clear forgets which listings viewer opened, for its erasure, after
 	// the records of viewer in flight commit; the counts stay.
 	Clear(ctx context.Context, viewer uuid.UUID) error
+	// Recent lists the listings viewer last opened on the day from or
+	// later, the latest day first, at most limit. Each mark's Category is
+	// empty, as catalog holds the listing's subcategory.
+	Recent(ctx context.Context, viewer uuid.UUID, from time.Time, limit int) ([]domain.ViewMark, error)
 }
 
 // Hidden keeps the listings a person hid from their searches.
@@ -96,11 +104,14 @@ type History interface {
 
 // HistoryEntry is one search of a person's history.
 type HistoryEntry struct {
-	ID         uuid.UUID
-	Query      string
-	Category   string // empty when the search understood none
-	PhotoURL   string // empty when the search found nothing
-	SearchedAt time.Time
+	ID       uuid.UUID
+	Query    string
+	Category string // empty when the search understood none
+	// CategoryCode is the code of the first category chip, a root or a
+	// subcategory, empty with Category.
+	CategoryCode string
+	PhotoURL     string // empty when the search found nothing
+	SearchedAt   time.Time
 }
 
 // Save is one saved listing with the price it had when saved and its own

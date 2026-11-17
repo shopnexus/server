@@ -82,7 +82,7 @@ func (e env) pending(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UU
 	}
 	a, err := e.accounts.CreateAddress(ctx, buyer, uuid.NewV7(), accountdomain.AddressDraft{
 		Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: accountdomain.AddressHome,
-	})
+	}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

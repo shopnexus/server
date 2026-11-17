@@ -17,6 +17,10 @@ info:
     3. Send the access token as `Authorization: Bearer <token>`. It lasts 15
        minutes; `POST /v1/auth/refresh` returns a new one and rotates the
        refresh token.
+    4. A call that needs a sign-in within 15 minutes answers 428
+       `reauth_required` after that. `POST /v1/auth/sessions/current/reauthenticate`
+       with a new proof of the same account returns an access token that
+       passes it.
 
     In the playground, paste the access token under Authentication. It stays in
     this browser only.
@@ -126,6 +130,8 @@ paths:
     $ref: "paths/auth.yaml#/sessions"
   /v1/auth/sessions/current:
     $ref: "paths/auth.yaml#/currentSession"
+  /v1/auth/sessions/current/reauthenticate:
+    $ref: "paths/auth.yaml#/reauthenticate"
   /v1/auth/sessions/others:
     $ref: "paths/auth.yaml#/otherSessions"
   /v1/auth/sessions/{id}:

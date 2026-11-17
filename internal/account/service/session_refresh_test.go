@@ -156,6 +156,45 @@ func TestRefreshThatLosesARaceRevokes(t *testing.T) {
 	}
 }
 
+// reauthenticatedMeanwhile behaves as if a reauthentication of the session,
+// at the time in at, committed after the refresh found it and before it
+// saved.
+type reauthenticatedMeanwhile struct {
+	repository.Sessions
+
+	at time.Time
+}
+
+func (r reauthenticatedMeanwhile) FindByRefresh(ctx context.Context, hash []byte) (domain.Session, error) {
+	s, err := r.Sessions.FindByRefresh(ctx, hash)
+	if err != nil {
+		return s, err
+	}
+	if _, err = r.Reauthenticate(ctx, s.ID(), r.at); err != nil {
+		return domain.Session{}, err
+	}
+	return s, nil
+}
+
+// A refresh that read the session before a reauthentication signs with the
+// new auth_time, so the app does not store a token that answers 428 again.
+func TestRefreshRacingAReauthenticationSignsTheNewAuthTime(t *testing.T) {
+	t.Parallel()
+	e := newRefreshEnv(t)
+	when := now.Add(20 * time.Minute)
+	out, err := at(e.accounts, reauthenticatedMeanwhile{Sessions: e.sessions, at: when}, when).Refresh(context.Background(), e.token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, err := domain.NewVerifier(testKeys).Verify(out.AccessToken, when)
+	if err != nil || !p.AuthTime.Equal(when) {
+		t.Fatalf("auth_time %v, want %v: %v", p.AuthTime, when, err)
+	}
+	if e.revoked(t) {
+		t.Fatal("the refresh took the reauthentication for a reused token")
+	}
+}
+
 // othersSignedOutFirst behaves as if another device of the account signed
 // out its other devices just before the refresh saved.
 type othersSignedOutFirst struct{ repository.Sessions }

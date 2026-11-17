@@ -31,7 +31,7 @@ HomeSubcategory:
 HomeScreen:
   type: object
   additionalProperties: false
-  required: [categories, nearby, notifications_unread]
+  required: [categories, nearby, for_you, notifications_unread]
   properties:
     notifications_unread:
       type: integer
@@ -43,3 +43,42 @@ HomeScreen:
     nearby:
       $ref: "discovery.yaml#/SearchView"
       description: The first page of the nearby feed; no items without a position.
+    for_you:
+      type: array
+      maxItems: 20
+      description: |
+        Dành cho bạn, active listings nationwide. A signed-in reader's
+        listings come first from the subcategories of their signals of the
+        last 30 days: the newest 100 listings they saved, the newest 100
+        they opened, and those of their last 10 searches that fall in the
+        window and named a subcategory. The listings are ordered by the
+        weight of their subcategory, then newest first. The newest listings
+        of any other subcategory follow. A signed-out reader, or one with no
+        signal, gets the newest listings. Each listing appears at most once,
+        and the reader's own listings, those they hid and those of the
+        accounts on either side of their blocks are left out.
+      items:
+        $ref: "discovery.yaml#/SearchItem"
+    viewed:
+      $ref: "#/HomeViewed"
+      description: Absent when signed out, without a listing opened in the last 30 days, or when the subcategory has no listing to show.
+HomeViewed:
+  type: object
+  additionalProperties: false
+  required: [category, items]
+  description: |
+    Vì bạn đã xem gần đây, read from the newest 100 listings the reader
+    opened in the last 30 days. Of those opened on the latest day among
+    them, category is the subcategory most of them have; a tie goes to the
+    subcategory of the most recently created one. items are the active
+    listings of category outside those 100, newest first, with the
+    exclusions of for_you.
+  properties:
+    category:
+      $ref: "catalog.yaml#/Category"
+    items:
+      type: array
+      minItems: 1
+      maxItems: 10
+      items:
+        $ref: "discovery.yaml#/SearchItem"

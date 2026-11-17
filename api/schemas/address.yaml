@@ -26,6 +26,13 @@ AddressDraft:
     kind:
       type: string
       description: home, work or other (AddressKind); another value is 422 invalid_address.
+    is_default:
+      type: boolean
+      description: |
+        true makes the address the default in the same request. false or
+        absent leaves the default where it is: an address stops being the
+        default only when another one becomes it or it is deleted. The
+        first address of a book is the default either way.
 Address:
   type: object
   additionalProperties: false

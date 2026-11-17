@@ -15,6 +15,7 @@ type addressRequest struct {
 	Street      string             `json:"street"`
 	CommuneCode string             `json:"commune_code"`
 	Kind        domain.AddressKind `json:"kind"`
+	IsDefault   bool               `json:"is_default"`
 }
 
 type addressCreateRequest struct {
@@ -64,7 +65,7 @@ func (h *Handler) CreateAddress(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := h.svc.CreateAddress(r.Context(), p.AccountID, in.Key, domain.AddressDraft{
 		Name: in.Name, Phone: in.Phone, Street: in.Street, CommuneCode: in.CommuneCode, Kind: in.Kind,
-	})
+	}, in.IsDefault)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
@@ -85,7 +86,7 @@ func (h *Handler) UpdateAddress(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := h.svc.UpdateAddress(r.Context(), p.AccountID, in.ID, domain.AddressDraft{
 		Name: in.Name, Phone: in.Phone, Street: in.Street, CommuneCode: in.CommuneCode, Kind: in.Kind,
-	})
+	}, in.IsDefault)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

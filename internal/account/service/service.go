@@ -116,13 +116,15 @@ type Service interface {
 	// Address reads one of owner's addresses; module deal copies it into
 	// an order.
 	Address(ctx context.Context, owner, id uuid.UUID) (AddressView, error)
-	// CreateAddress adds an address under the request's key; the first
-	// becomes the default. A key owner used already returns the address
-	// that request added. An account at domain.MaxAddresses is
-	// domain.ErrAddressLimit.
-	CreateAddress(ctx context.Context, owner, key uuid.UUID, d domain.AddressDraft) (AddressView, error)
-	// UpdateAddress replaces an address with d.
-	UpdateAddress(ctx context.Context, owner, id uuid.UUID, d domain.AddressDraft) (AddressView, error)
+	// CreateAddress adds an address under the request's key, or refuses an
+	// account at domain.MaxAddresses with domain.ErrAddressLimit. The first
+	// address becomes the default, and so does one added with makeDefault.
+	// A key owner used already returns the address that request added and
+	// moves no default.
+	CreateAddress(ctx context.Context, owner, key uuid.UUID, d domain.AddressDraft, makeDefault bool) (AddressView, error)
+	// UpdateAddress replaces an address with d; with makeDefault it also
+	// becomes the default.
+	UpdateAddress(ctx context.Context, owner, id uuid.UUID, d domain.AddressDraft, makeDefault bool) (AddressView, error)
 	SetDefaultAddress(ctx context.Context, owner, id uuid.UUID) error
 	// DeleteAddress removes an address; when it was the default, the newest
 	// remaining one becomes the default.
@@ -137,6 +139,10 @@ type Sessions interface {
 	SignIn(ctx context.Context, in SignInInput) (SignedIn, error)
 	// Refresh rotates a refresh token.
 	Refresh(ctx context.Context, refreshToken string) (domain.Tokens, error)
+	// Reauthenticate checks a proof of the caller's own account without
+	// creating one, renews the sign-in time of the caller's session and
+	// returns an access token that carries the new time.
+	Reauthenticate(ctx context.Context, in ReauthenticateInput) (domain.AccessToken, error)
 	// DeleteCurrentSession revokes the caller's session.
 	DeleteCurrentSession(ctx context.Context, p authn.Principal) error
 	// DeleteOtherSessions signs out every session of the caller's account
@@ -199,9 +205,10 @@ type Account struct {
 	now         func() time.Time
 	log         *slog.Logger
 
-	signIn        restatex.Caller[ProvenSignIn, SignInResult]
-	emailCodeSend restatex.Caller[EmailCodeInput, EmailCodeResult]
-	addIdentity   restatex.Caller[AddIdentityRun, AddIdentityResult]
+	signIn         restatex.Caller[ProvenSignIn, SignInResult]
+	emailCodeSend  restatex.Caller[EmailCodeInput, EmailCodeResult]
+	addIdentity    restatex.Caller[AddIdentityRun, AddIdentityResult]
+	reauthenticate restatex.Caller[ReauthenticateRun, ReauthenticateResult]
 }
 
 var _ Service = (*Account)(nil)
@@ -222,6 +229,9 @@ func New(d Deps) *Account {
 		addIdentity: restatex.Caller[AddIdentityRun, AddIdentityResult]{
 			Ingress: d.Ingress, Service: d.Prefix + addIdentityService, Handler: runHandler,
 		},
+		reauthenticate: restatex.Caller[ReauthenticateRun, ReauthenticateResult]{
+			Ingress: d.Ingress, Service: d.Prefix + reauthenticateService, Handler: runHandler,
+		},
 	}
 }
 
@@ -233,5 +243,6 @@ func (s *Account) Durable() []restate.ServiceDefinition {
 			Prefix: s.prefix, Quotas: s.quotas, Challenges: s.challenges, Codes: s.codes, Email: s.email, Now: s.now, Log: s.log,
 		}),
 		restate.Reflect(AddIdentity{Prefix: s.prefix, Challenges: s.challenges, Credentials: s.credentials, Now: s.now}),
+		restate.Reflect(Reauthenticate{Prefix: s.prefix, Credentials: s.credentials, Challenges: s.challenges, Now: s.now}),
 	}
 }

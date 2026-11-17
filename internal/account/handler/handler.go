@@ -27,6 +27,7 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	// request validator's router both match them first
 	// (TestFixedSessionRoutes).
 	r.Handle("DELETE /v1/auth/sessions/current", protect(http.HandlerFunc(h.DeleteCurrentSession)))
+	r.Handle("POST /v1/auth/sessions/current/reauthenticate", protect(http.HandlerFunc(h.Reauthenticate)))
 	r.Handle("DELETE /v1/auth/sessions/others", protect(http.HandlerFunc(h.DeleteOtherSessions)))
 	r.Handle("DELETE /v1/auth/sessions/{id}", protect(http.HandlerFunc(h.DeleteSession)))
 	r.Handle("GET /v1/accounts/me", protect(http.HandlerFunc(h.GetMe)))

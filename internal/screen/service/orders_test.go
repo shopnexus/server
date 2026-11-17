@@ -158,7 +158,7 @@ func (e *env) address(t *testing.T, owner uuid.UUID) uuid.UUID {
 	t.Helper()
 	a, err := e.accounts.CreateAddress(context.Background(), owner, uuid.NewV7(), accountdomain.AddressDraft{
 		Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: accountdomain.AddressHome,
-	})
+	}, false)
 	if err != nil {
 		t.Fatal(err)
 	}

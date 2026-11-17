@@ -35,17 +35,17 @@ func TestAddressBook(t *testing.T) {
 	svc := onBook(book)
 	me, other := seed(t, s), seed(t, s)
 
-	first, err := svc.CreateAddress(ctx, me, uuid.NewV7(), home)
+	first, err := svc.CreateAddress(ctx, me, uuid.NewV7(), home, false)
 	if err != nil || !first.IsDefault || first.Phone != "+84912345678" || first.Commune == "" || first.Province == "" ||
 		first.Kind != domain.AddressHome || !first.CreatedAt.Equal(now) {
 		t.Fatalf("%+v %v", first, err)
 	}
 	key := uuid.NewV7()
-	second, err := svc.CreateAddress(ctx, me, key, domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: domain.AddressOther})
+	second, err := svc.CreateAddress(ctx, me, key, domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: domain.AddressOther}, false)
 	if err != nil || second.IsDefault || second.Kind != domain.AddressOther {
 		t.Fatalf("%+v %v", second, err)
 	}
-	again, err := svc.CreateAddress(ctx, me, key, domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: domain.AddressOther})
+	again, err := svc.CreateAddress(ctx, me, key, domain.AddressDraft{Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: domain.AddressOther}, false)
 	if err != nil || again.ID != second.ID || again.Name != second.Name || again.IsDefault ||
 		!again.CreatedAt.Equal(second.CreatedAt) {
 		t.Fatalf("a retried request: %+v %v", again, err)
@@ -56,7 +56,7 @@ func TestAddressBook(t *testing.T) {
 		t.Fatalf("%+v %v", got, err)
 	}
 
-	edited, err := svc.UpdateAddress(ctx, me, first.ID, domain.AddressDraft{Name: "Lan", Phone: "0901234567", Street: "3 Hàng Bài", CommuneCode: "00004", Kind: domain.AddressWork})
+	edited, err := svc.UpdateAddress(ctx, me, first.ID, domain.AddressDraft{Name: "Lan", Phone: "0901234567", Street: "3 Hàng Bài", CommuneCode: "00004", Kind: domain.AddressWork}, false)
 	if err != nil || edited.Name != "Lan" || edited.Kind != domain.AddressWork || edited.Phone != "+84901234567" || !edited.IsDefault || edited.Commune == "" {
 		t.Fatalf("%+v %v", edited, err)
 	}
@@ -76,7 +76,7 @@ func TestAddressBook(t *testing.T) {
 
 	for name, call := range map[string]func() error{
 		"read":        func() error { _, err := svc.Address(ctx, other, first.ID); return err },
-		"update":      func() error { _, err := svc.UpdateAddress(ctx, other, first.ID, home); return err },
+		"update":      func() error { _, err := svc.UpdateAddress(ctx, other, first.ID, home, false); return err },
 		"set default": func() error { return svc.SetDefaultAddress(ctx, other, first.ID) },
 		"delete":      func() error { return svc.DeleteAddress(ctx, other, first.ID) },
 		"unknown":     func() error { _, err := svc.Address(ctx, me, uuid.NewV7()); return err },
@@ -98,24 +98,24 @@ func TestAddressRefusals(t *testing.T) {
 	me := seed(t, s)
 	bad := home
 	bad.CommuneCode = "nope"
-	if _, err := svc.CreateAddress(ctx, me, uuid.NewV7(), bad); !errors.Is(err, domain.ErrInvalidAddress) {
+	if _, err := svc.CreateAddress(ctx, me, uuid.NewV7(), bad, false); !errors.Is(err, domain.ErrInvalidAddress) {
 		t.Errorf("an unknown commune: %v", err)
 	}
-	a, err := svc.CreateAddress(ctx, me, uuid.NewV7(), home)
+	a, err := svc.CreateAddress(ctx, me, uuid.NewV7(), home, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	bad = home
 	bad.Phone = "123"
-	if _, err = svc.UpdateAddress(ctx, me, a.ID, bad); !errors.Is(err, domain.ErrInvalidAddress) {
+	if _, err = svc.UpdateAddress(ctx, me, a.ID, bad, false); !errors.Is(err, domain.ErrInvalidAddress) {
 		t.Errorf("a bad phone: %v", err)
 	}
 	for range domain.MaxAddresses - 1 {
-		if _, err = svc.CreateAddress(ctx, me, uuid.NewV7(), home); err != nil {
+		if _, err = svc.CreateAddress(ctx, me, uuid.NewV7(), home, false); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err = svc.CreateAddress(ctx, me, uuid.NewV7(), home); !errors.Is(err, domain.ErrAddressLimit) {
+	if _, err = svc.CreateAddress(ctx, me, uuid.NewV7(), home, false); !errors.Is(err, domain.ErrAddressLimit) {
 		t.Errorf("the eleventh: %v", err)
 	}
 }
@@ -137,7 +137,7 @@ func TestUpdateAddressLosesARace(t *testing.T) {
 	s, book := newBook(t)
 	ctx := context.Background()
 	me := seed(t, s)
-	a, err := onBook(book).CreateAddress(ctx, me, uuid.NewV7(), home)
+	a, err := onBook(book).CreateAddress(ctx, me, uuid.NewV7(), home, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,10 +145,10 @@ func TestUpdateAddressLosesARace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = onBook(book).UpdateAddress(ctx, me, a.ID, home); err != nil {
+	if _, err = onBook(book).UpdateAddress(ctx, me, a.ID, home, false); err != nil {
 		t.Fatal(err)
 	}
-	_, err = onBook(staleAddress{Addresses: book, stale: stale}).UpdateAddress(ctx, me, a.ID, home)
+	_, err = onBook(staleAddress{Addresses: book, stale: stale}).UpdateAddress(ctx, me, a.ID, home, false)
 	if !errors.Is(err, apperr.ErrTryAgain) {
 		t.Fatalf("%v", err)
 	}

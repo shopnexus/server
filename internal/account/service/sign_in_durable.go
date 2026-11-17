@@ -58,6 +58,25 @@ type foundIdentity struct {
 	Found bool               `json:"found"`
 }
 
+// findIdentity looks up the identity of addr in a step. SignIn and
+// Reauthenticate call it.
+func findIdentity(ctx restate.Context, credentials repository.Credentials, addr contact.Address) (foundIdentity, error) {
+	f, err := restate.Run(ctx, func(rc restate.RunContext) (foundIdentity, error) {
+		ref, stepErr := credentials.FindIdentity(rc, domain.Kind(addr.Kind()), addr.Value())
+		if errors.Is(stepErr, repository.ErrNotFound) {
+			return foundIdentity{}, nil
+		}
+		if stepErr != nil {
+			return foundIdentity{}, fmt.Errorf("find identity: %w", stepErr)
+		}
+		return foundIdentity{Ref: ref, Found: true}, nil
+	})
+	if err != nil {
+		return foundIdentity{}, fmt.Errorf("look up identity: %w", err)
+	}
+	return f, nil
+}
+
 func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
@@ -74,18 +93,9 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 		addr = *in.Address
 	}
 
-	f, err := restate.Run(ctx, func(rc restate.RunContext) (foundIdentity, error) {
-		ref, stepErr := s.Credentials.FindIdentity(rc, domain.Kind(addr.Kind()), addr.Value())
-		if errors.Is(stepErr, repository.ErrNotFound) {
-			return foundIdentity{}, nil
-		}
-		if stepErr != nil {
-			return foundIdentity{}, fmt.Errorf("find identity: %w", stepErr)
-		}
-		return foundIdentity{Ref: ref, Found: true}, nil
-	})
+	f, err := findIdentity(ctx, s.Credentials, addr)
 	if err != nil {
-		return SignInResult{}, fmt.Errorf("look up identity: %w", err)
+		return SignInResult{}, err
 	}
 	sessionID := restatex.NewID(ctx, at)
 

@@ -133,6 +133,71 @@ currentSession:
         description: Signed out.
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+reauthenticate:
+  post:
+    operationId: reauthenticateSession
+    summary: Prove again that the caller holds the account, for the calls that need a sign-in within 15 minutes.
+    description: |
+      Takes a proof as signIn does: a phone_token, a google_token or an
+      email_code from sendEmailCode. The proof must name a phone number or
+      an email address of the caller's account. A proof of another account,
+      or of an address no account holds, is wrong_account, and no account
+      is created or changed. The session's sign-in time becomes the time the
+      proof was checked. The reply is a new access token that carries it;
+      the refresh token stays as it was, and the tokens it refreshes carry
+      the new time too. A repeated Idempotency-Key with a proof of the same
+      address answers as the first request did and keeps the first
+      request's sign-in time.
+    tags: [auth]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/auth.yaml#/ProofRequest"
+    responses:
+      "200":
+        description: A new access token with the new sign-in time.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/auth.yaml#/AccessToken"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        description: Not signed in, the session was signed out or has expired (session_revoked, session_expired), or a token failed a check (invalid_phone_token, invalid_google_token).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "403":
+        description: The proof names no phone number or email address of the caller's account (wrong_account), or the account is suspended (account_suspended).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: Another guess at the same code was counted at the same moment (try_again).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: The verified number is not a Vietnamese mobile number (invalid_phone), or the code is wrong (invalid_code, details.attempts_left), expired or replaced (code_expired) or out of guesses (code_locked).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: The keys that sign phone or Google tokens could not be fetched yet (unavailable); try again.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 session:
   delete:
     operationId: deleteSession
