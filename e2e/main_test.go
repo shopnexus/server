@@ -49,12 +49,15 @@ var (
 	assistStub = newAssist()        // ai's frames, the stt alias and the video-read model
 	scamStub   = newScam()          // the scam-check model
 	chototStub = newChotot()        // Chợ Tốt's gateway and CDN
+	agentStub  = newAgent()         // the console agent service
 	phones     = newPhones()        // every push the server sends
 	mails      = newInbox()         // every mail the server sends
 	consoleSvc *consolesvc.Console  // on the server's keys and database, so tests create members directly
 	// serverConfig is the shared server's configuration, for a test that
 	// starts a second server.
 	serverConfig config.Config
+	// mcpURL is the shared server's MCP endpoint.
+	mcpURL string
 )
 
 func TestMain(m *testing.M) {
@@ -156,7 +159,10 @@ func setup(closers *[]func()) error {
 			LLMBaseURL: assistStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second,
 			ChototGatewayURL: chototStub.url(), ChototCDNURL: chototStub.url(),
 		},
-		Trust:    config.TrustConfig{LLMBaseURL: scamStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second},
+		Trust: config.TrustConfig{LLMBaseURL: scamStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second},
+		Agent: config.AgentConfig{
+			BaseURL: agentStub.url(), ServiceToken: agentServiceToken, MCPAddr: "127.0.0.1:0", MCPToken: agentMCPToken,
+		},
 		Firebase: issuer.Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
 		Google:   google.Config(),
@@ -181,6 +187,7 @@ func setup(closers *[]func()) error {
 	srv := httptest.NewServer(a.Handler)
 	*closers = append(*closers, srv.Close)
 	server = srv.URL
+	mcpURL = "http://" + a.AgentMCPAddr().String() + "/mcp"
 
 	return loadSpec()
 }

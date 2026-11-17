@@ -57,6 +57,7 @@ type Config struct {
 	Embed       EmbedConfig
 	Assist      AssistConfig
 	Trust       TrustConfig
+	Agent       AgentConfig
 	Push        PushConfig
 	Firebase    FirebaseConfig
 	Email       EmailConfig
@@ -177,6 +178,24 @@ type TrustConfig struct {
 	CallTimeout time.Duration // TRUST_CALL_TIMEOUT: one call to the model
 }
 
+// AgentConfig says where the console agent is and how it and the server
+// trust each other (see ARCHITECTURE.md, Console agent). Neither token is
+// ever logged.
+type AgentConfig struct {
+	// BaseURL is AGENT_BASE_URL, the agent service on the internal
+	// network; the console's agent endpoints forward there.
+	BaseURL string
+	// ServiceToken is AGENT_SERVICE_TOKEN, the bearer token the server
+	// sends the agent; at least 32 characters.
+	ServiceToken string
+	// MCPAddr is AGENT_MCP_ADDR, the address the MCP server listens on,
+	// apart from HTTP_ADDR and never behind the ingress.
+	MCPAddr string
+	// MCPToken is AGENT_MCP_TOKEN, the bearer token the agent sends the
+	// MCP server; at least 32 characters.
+	MCPToken string
+}
+
 // AuthConfig holds the auth module's keys and token settings. No key is ever
 // logged.
 type AuthConfig struct {
@@ -291,6 +310,14 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			errs = append(errs, fmt.Errorf("%s=%q: want a positive duration such as 10s", key, v))
 		}
 		return d
+	}
+	// token is a shared secret of at least 32 characters.
+	token := func(key string) string {
+		v := need(key)
+		if v != "" && len(v) < 32 {
+			errs = append(errs, fmt.Errorf("%s: want at least 32 characters; make run adds it to .env", key))
+		}
+		return v
 	}
 	fraction := func(key string) float64 {
 		v := need(key)
@@ -464,6 +491,10 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		Trust: TrustConfig{
 			LLMBaseURL: need("TRUST_LLM_BASE_URL"), LLMAPIKey: need("TRUST_LLM_API_KEY"), LLMModel: need("TRUST_LLM_MODEL"),
 			CallTimeout: duration("TRUST_CALL_TIMEOUT"),
+		},
+		Agent: AgentConfig{
+			BaseURL: need("AGENT_BASE_URL"), ServiceToken: token("AGENT_SERVICE_TOKEN"),
+			MCPAddr: need("AGENT_MCP_ADDR"), MCPToken: token("AGENT_MCP_TOKEN"),
 		},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),

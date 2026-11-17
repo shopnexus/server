@@ -20,12 +20,12 @@ type pgTickets struct{ db *pgxpool.Pool }
 
 func NewTickets(db *pgxpool.Pool) Tickets { return pgTickets{db} }
 
-const ticketColumns = `t.id, t.account_id, t.conversation_id, t.kind, t.status, t.order_id, coalesce(t.carrier_name, ''),
+const ticketColumns = `t.id, t.account_id, t.conversation_id, t.kind, t.status, t.order_id, t.seller_id, coalesce(t.carrier_name, ''),
        t.first_message_id, t.last_message_at, t.last_from, t.opened_at, t.resolved_at, t.resolved_by`
 
 func scanTicket(row pgx.CollectableRow) (Ticket, error) {
 	var t Ticket
-	if err := row.Scan(&t.ID, &t.AccountID, &t.ConversationID, &t.Kind, &t.Status, &t.OrderID, &t.CarrierName,
+	if err := row.Scan(&t.ID, &t.AccountID, &t.ConversationID, &t.Kind, &t.Status, &t.OrderID, &t.SellerID, &t.CarrierName,
 		&t.FirstMessageID, &t.LastMessageAt, &t.LastFrom, &t.OpenedAt, &t.ResolvedAt, &t.ResolvedBy); err != nil {
 		return Ticket{}, fmt.Errorf("scan ticket: %w", err)
 	}
@@ -133,11 +133,12 @@ func (s pgTickets) Insert(ctx context.Context, t Ticket, key uuid.UUID, carrierK
 		if t.CarrierName != "" {
 			carrier, carrierKeyArg = t.CarrierName, carrierKey
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO tickets (id, account_id, conversation_id, kind, status, order_id, carrier_name,
+		if _, err = tx.Exec(ctx, `INSERT INTO tickets (id, account_id, conversation_id, kind, status, order_id, seller_id, carrier_name,
     carrier_key, last_message_at, last_from, opened_at, request_key)
-VALUES (@id, @account, @conversation, @kind, 'open', @order, @carrier, @carrier_key, @at, 'person', @at, @key)`,
+VALUES (@id, @account, @conversation, @kind, 'open', @order, @seller, @carrier, @carrier_key, @at, 'person', @at, @key)`,
 			pgx.StrictNamedArgs{
 				"id": t.ID, "account": t.AccountID, "conversation": t.ConversationID, "kind": t.Kind, "order": t.OrderID,
+				"seller":  t.SellerID,
 				"carrier": carrier, "carrier_key": carrierKeyArg, "at": t.OpenedAt, "key": key,
 			}); err != nil {
 			return fmt.Errorf("insert ticket: %w", err)
@@ -209,6 +210,11 @@ func (s pgTickets) ByOrder(ctx context.Context, account, order uuid.UUID) (Ticke
 func (s pgTickets) OfAccount(ctx context.Context, account uuid.UUID) ([]Ticket, error) {
 	return read(ctx, s.db, `WHERE t.account_id = @account ORDER BY t.status = 'resolved', t.last_message_at DESC, t.id DESC`,
 		pgx.StrictNamedArgs{"account": account})
+}
+
+func (s pgTickets) Involving(ctx context.Context, account uuid.UUID, limit int) ([]Ticket, error) {
+	return read(ctx, s.db, `WHERE t.account_id = @account OR t.seller_id = @account ORDER BY t.opened_at DESC, t.id DESC LIMIT @limit`,
+		pgx.StrictNamedArgs{"account": account, "limit": limit})
 }
 
 func (s pgTickets) Queue(ctx context.Context, status domain.Status, kind *domain.Kind, p page.Request) ([]Ticket, error) {

@@ -20,6 +20,8 @@ type Ticket struct {
 	Kind           domain.Kind
 	Status         domain.Status
 	OrderID        *uuid.UUID
+	// SellerID is the seller of OrderID, set with it.
+	SellerID       *uuid.UUID
 	CarrierName    string
 	FirstMessageID *uuid.UUID
 	LastMessageAt  time.Time
@@ -69,6 +71,9 @@ type Tickets interface {
 	// OfAccount reads account's tickets, open first, each newest activity
 	// first.
 	OfAccount(ctx context.Context, account uuid.UUID) ([]Ticket, error)
+	// Involving reads the tickets account opened and those on orders it
+	// sold, newest opened first, at most limit.
+	Involving(ctx context.Context, account uuid.UUID, limit int) ([]Ticket, error)
 	// Queue is a query: tickets of status, of kind when kind is set, newest
 	// activity first, after the ticket p.Cursor names, at most p.Fetch().
 	Queue(ctx context.Context, status domain.Status, kind *domain.Kind, p page.Request) ([]Ticket, error)

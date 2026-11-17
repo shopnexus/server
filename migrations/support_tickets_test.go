@@ -152,10 +152,16 @@ VALUES (@id, LEAST(@p::uuid, @s::uuid), GREATEST(@p::uuid, @s::uuid), 'support',
 		if carrier != "" {
 			key = carrier
 		}
-		_, err := db.Exec(ctx, `INSERT INTO tickets (id, account_id, conversation_id, kind, status, order_id, carrier_name, carrier_key,
-    last_message_at, last_from, opened_at, request_key)
-VALUES (uuidv7(), @person, @conv, @kind, 'open', @order, @carrier, @key, now(), 'person', now(), uuidv7())`,
-			pgx.StrictNamedArgs{"person": person, "conv": conv, "kind": kind, "order": order, "carrier": null(carrier), "key": key})
+		var sellerOf any
+		if order != nil {
+			sellerOf = seller
+		}
+		_, err := db.Exec(ctx, `INSERT INTO tickets (id, account_id, conversation_id, kind, status, order_id, seller_id, carrier_name,
+    carrier_key, last_message_at, last_from, opened_at, request_key)
+VALUES (uuidv7(), @person, @conv, @kind, 'open', @order, @seller, @carrier, @key, now(), 'person', now(), uuidv7())`,
+			pgx.StrictNamedArgs{
+				"person": person, "conv": conv, "kind": kind, "order": order, "seller": sellerOf, "carrier": null(carrier), "key": key,
+			})
 		return err
 	}
 	for name, err := range map[string]error{
@@ -193,9 +199,19 @@ VALUES (@id,least(@owner::uuid,@system::uuid),greatest(@owner::uuid,@system::uui
 		t.Fatal(err)
 	}
 	openedAt := time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)
+	// The ticket is written in SQL: the repository is today's and reads
+	// columns later migrations add.
 	repo := supportrepo.NewTickets(db)
-	tk, _, err := repo.Insert(ctx, supportrepo.Ticket{ID: uuid.NewV7(), AccountID: owner, ConversationID: conversation, Kind: supportdomain.KindOther, OpenedAt: openedAt}, uuid.NewV7(), "", openedAt.Add(-time.Hour))
+	tk := supportrepo.Ticket{ID: uuid.NewV7()}
+	_, err := db.Exec(ctx, `INSERT INTO tickets (id, account_id, conversation_id, kind, status, last_message_at, last_from, opened_at,
+    request_key)
+VALUES (@id, @owner, @conversation, 'other', 'open', @at, 'person', @at, uuidv7())`,
+		pgx.StrictNamedArgs{"id": tk.ID, "owner": owner, "conversation": conversation, "at": openedAt})
 	if err != nil {
+		t.Fatal(err)
+	}
+	ticketEvent := `INSERT INTO ticket_events (id, ticket_id, kind, at) VALUES (uuidv7(), @id, @kind, @at)`
+	if _, err = db.Exec(ctx, ticketEvent, pgx.StrictNamedArgs{"id": tk.ID, "kind": "opened", "at": openedAt}); err != nil {
 		t.Fatal(err)
 	}
 	initial, oldReply, newReply := uuid.NewV7(), uuid.NewV7(), uuid.NewV7()
@@ -210,7 +226,12 @@ VALUES (@id,@conversation,@owner,'reply','[]','sent',@at)`, pgx.StrictNamedArgs{
 		pgx.StrictNamedArgs{"initial": initial, "at": openedAt.Add(2 * time.Minute), "id": tk.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = repo.Resolve(ctx, tk.ID, nil, openedAt.Add(3*time.Minute)); err != nil {
+	resolvedAt := openedAt.Add(3 * time.Minute)
+	if _, err = db.Exec(ctx, `UPDATE tickets SET status = 'resolved', resolved_at = @at WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": tk.ID, "at": resolvedAt}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(ctx, ticketEvent, pgx.StrictNamedArgs{"id": tk.ID, "kind": "resolved", "at": resolvedAt}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = postgres.Migrate(ctx, db, migrations.FS); err != nil {

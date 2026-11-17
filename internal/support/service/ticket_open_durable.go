@@ -40,6 +40,8 @@ type openFacts struct {
 	Refused *apperr.Error `json:"refused,omitempty"`
 	// Existing is the order's ticket, for a second report of one order.
 	Existing *uuid.UUID `json:"existing,omitempty"`
+	// SellerID is the order's seller, which the ticket keeps.
+	SellerID *uuid.UUID `json:"seller_id,omitempty"`
 }
 
 // inserted is the insert step's outcome.
@@ -114,7 +116,7 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 		if mayErr := domain.MayReport(check, in.Account, at); mayErr != nil {
 			return openFacts{Refused: apperr.From(mayErr)}, nil
 		}
-		return openFacts{}, nil
+		return openFacts{SellerID: &order.SellerID}, nil
 	})
 	if err != nil {
 		return OpenResult{}, fmt.Errorf("read the request's facts: %w", err)
@@ -136,7 +138,7 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 	ins, err := restate.Run(ctx, func(rc restate.RunContext) (inserted, error) {
 		t, existed, insErr := s.tickets.Insert(rc, repository.Ticket{
 			ID: ticketID, AccountID: in.Account, ConversationID: conversationID, Kind: draft.Kind, OrderID: draft.OrderID,
-			CarrierName: draft.CarrierName, OpenedAt: at,
+			SellerID: f.SellerID, CarrierName: draft.CarrierName, OpenedAt: at,
 		}, in.Key, draft.CarrierKey, at.Add(-24*time.Hour))
 		if errors.Is(insErr, domain.ErrTooMany) {
 			return inserted{Refused: domain.ErrTooMany}, nil

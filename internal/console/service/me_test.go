@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/shopnexus/server2/internal/console/domain"
 	"github.com/shopnexus/server2/internal/console/service"
@@ -73,5 +74,25 @@ func TestLogout(t *testing.T) {
 	me, err := e.at(now).GetMe(ctx, caller)
 	if err != nil || me.Email != "mod@example.com" {
 		t.Fatalf("%+v %v", me, err)
+	}
+}
+
+// The agent's MCP server reads an active member only.
+func TestActiveMemberRefusesUnknownAndDisabled(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	v, _ := e.create(t, "agent-mod@example.com", domain.RoleModerator)
+	if got, err := e.at(now).ActiveMember(ctx, v.ID); err != nil || got.Role != domain.RoleModerator {
+		t.Fatalf("an active member: %+v %v", got, err)
+	}
+	if _, err := e.at(now).ActiveMember(ctx, uuid.NewV7()); !errors.Is(err, authn.ErrUnauthenticated) {
+		t.Fatalf("an unknown member: %v", err)
+	}
+	if _, err := e.at(now).DisableMember(ctx, v.ID, audit.ByCLI("root")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.at(now).ActiveMember(ctx, v.ID); !errors.Is(err, authn.ErrUnauthenticated) {
+		t.Fatalf("a disabled member: %v", err)
 	}
 }

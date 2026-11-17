@@ -25,6 +25,7 @@ const (
 	KindPreconditionRequired             // 428
 	KindTooLarge                         // 413: the request body is over the limit
 	KindUnavailable                      // 503: a service this request needs is down; try again
+	KindTimeout                          // 504: a service this request needs did not answer in time
 )
 
 // Error is a business error. Code is stable and snake_case; Message is English

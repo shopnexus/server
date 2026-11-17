@@ -25,6 +25,10 @@ type Service interface {
 	EnrollTOTP(ctx context.Context, email, password string) (Enrollment, error)
 	// Authenticate returns the live session whose cookie holds token.
 	Authenticate(ctx context.Context, token string) (domain.Grant, error)
+	// ActiveMember reads an active member by id, as the console agent's MCP
+	// server names one; an unknown or disabled member is
+	// authn.ErrUnauthenticated.
+	ActiveMember(ctx context.Context, id uuid.UUID) (Me, error)
 	// GetMe reads the signed-in member.
 	GetMe(ctx context.Context, caller authn.ConsoleMember) (Me, error)
 	// ChangePassword replaces the caller's password and ends every session.

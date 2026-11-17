@@ -214,6 +214,17 @@ func (s *Support) Reopen(ctx context.Context, id uuid.UUID, by audit.Actor) (Con
 	return shown[0], nil
 }
 
+// TicketsOfLimit is how many tickets TicketsOf lists.
+const TicketsOfLimit = 50
+
+func (s *Support) TicketsOf(ctx context.Context, account uuid.UUID) ([]ConsoleTicket, error) {
+	ts, err := s.tickets.Involving(ctx, account, TicketsOfLimit)
+	if err != nil {
+		return nil, fmt.Errorf("read the account's tickets: %w", err)
+	}
+	return s.consoleTickets(ctx, ts)
+}
+
 func (s *Support) OpenCount(ctx context.Context) (int, error) {
 	n, err := s.tickets.CountOpen(ctx)
 	if err != nil {

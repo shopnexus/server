@@ -300,7 +300,8 @@ internal/account/
 ```
 
 Modules console, media, catalog, deal, chat, trust, discovery and support
-have the same four packages; a module that reacts to events adds `worker`,
+have the same four packages; module agent has them and `mcp`, its MCP
+server (see Console agent); a module that reacts to events adds `worker`,
 as catalog, deal, discovery and notification do. Module `screen` has no
 `repository` or `domain`: it only reads the other modules' services (see
 Screen). Module `erasure` has only `service` and `handler`: it calls
@@ -336,7 +337,9 @@ services of the modules it calls, one argument each. It builds the
 repositories, the service and the handler, registers the routes, and
 returns what app and other modules need: a module with Restate services
 returns `module.Mounted[service.Service]`, its `Service` and those services;
-trust returns its `Service`; console, erasure and screen return nothing.
+trust returns its `Service`; console returns `console.Mounted`, its
+`Service` and its moderator guard; agent returns `*agent.Mounted`, whose
+`Run` app starts (see Console agent); erasure and screen return nothing.
 `app.mountModules` calls each `Mount` in dependency order and imports no
 package inside a module. `account.Guards` builds `Protect`, which requires
 a signed-in caller, and `Identify`, which lets a signed-out request through,
@@ -348,8 +351,8 @@ configuration read it with `config.FromDotEnv(".env")`.
 
 `app.New` picks the push sender once: the one a test passes, FCM when
 `FCM_CREDENTIALS` is set, else the log sender, which `APP_ENV=prod` refuses.
-The event bus and the stream hub run on the app's `sync.WaitGroup`;
-`App.Close` cancels them and waits for both.
+The event bus, the stream hub and the agent's MCP server run on the app's
+`sync.WaitGroup`; `App.Close` cancels them and waits for all three.
 
 Tests of other modules create accounts through `internal/account/accounttest`
 (`New`, `WithPhone`), beside `pgtest` and `restatetest`. `accounttest.Service`
@@ -384,13 +387,14 @@ separate work.
 | search history | `search_history` | module discovery; one row per folded query of an account, at most 10; no aggregate, no `write_id` |
 | listing views | `listing_view_marks`, `listing_view_days` | module discovery; a person's last day of opening each listing, and the views per listing and UTC day; no aggregate, no `write_id` |
 | notification settings | `notification_settings` | module notification; one row per account that saved settings; no aggregate, no `write_id`: the last `PUT` wins |
+| agent reads | `console_agent_reads` | module agent; one row per read of personal data by an MCP tool, kept 90 days; no aggregate, no `write_id` |
 
 No column is named after an SQL keyword (sqlfluff RF04, run with
 `sqlfluff lint migrations/`): `events.occurred_at` and `payload`,
 `console_actions.action_kind` and `acted_at`, `identities.identifier`,
 `console_login_locks.email_hash`,
-`console_members.console_role`, and `display_name` for categories, provinces and
-communes. Go fields and JSON keep their own names where an API already
+`console_members.console_role`, `console_agent_reads.tool_name` and
+`read_at`, and `display_name` for categories, provinces and communes. Go fields and JSON keep their own names where an API already
 published them (`role`, `value`, `action`, `at`). `.sqlfluffignore` skips
 the generated `0005_regions.sql`, which is past the parser's node limit.
 
@@ -2295,6 +2299,139 @@ the table, `POST /v1/feedback` and `GET /v1/console/feedback`.
   or reported (409 `account_is_system`), and the console's account list
   leaves it out.
 
+### Console agent
+
+Console members ask an agent about a ticket or an account (UC-MOD-08,
+decided 2026-11-16, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-16-console-agent-design.md`).
+The agent loop is its own service, `shopnexus/agent`, on the internal
+network (ADR-0003). The server is the agent's only way in and its only
+source of data: the console calls the server, the server forwards to the
+agent, and the agent reads through the server's MCP. Phase 1 is a buffered
+answer in plain text with its sources; blocks, the stream and background
+runs come later.
+
+- Module `agent` has `handler` (the console's agent endpoints), `mcp` (the
+  MCP server and its tools), `service` (the client to the agent service and
+  the read record) and `repository` (`console_agent_reads`). `mcp` is a
+  layer of its own in depguard: it imports a module's service and domain,
+  as a handler does, and nothing imports it but the module's `Mount`.
+  `Mount` takes `module.Deps`, `Settings`, console's moderator guard and
+  service, and the services of support, account, catalog, deal and
+  shipping. `console.Mount` returns `console.Mounted`, the service and
+  `Moderator` (`FromConsole` then `Require(..., moderator)`), so a module
+  outside console can serve a console route.
+- Configuration, all required: `AGENT_BASE_URL`, `AGENT_SERVICE_TOKEN`,
+  `AGENT_MCP_ADDR`, `AGENT_MCP_TOKEN`. Each token has at least 32
+  characters; `cmd/envgen` writes both, 32 random bytes in URL-safe base64,
+  and the agent's environment takes the same two; no log line carries
+  either token.
+
+#### The console's agent endpoints
+
+`GET` and `POST /v1/console/agent/conversations`,
+`GET /v1/console/agent/conversations/{id}` and
+`POST /v1/console/agent/conversations/{id}/turns`, behind `FromConsole`
+and a moderator's or an admin's session. A handler forwards and adds
+nothing: the service sends the request to `AGENT_BASE_URL` with
+`Authorization: Bearer <AGENT_SERVICE_TOKEN>`, `X-Console-Member` (the
+member's id) and `X-Console-Role` (`moderator` or `admin`), and maps the
+answer. A record has one conversation, which every member shares and the
+first `POST` for it makes; a conversation without a record is its
+creator's. A list takes a subject, a subject kind alone or neither; a new
+conversation takes both or neither (422 `agent_subject_invalid`). A turn
+is answered in one response this phase; the server waits 75 seconds, the
+agent's 60-second deadline (NFR-PERF-02) and a margin, and 10 seconds for
+any other call.
+
+The agent service (`shopnexus/agent`) serves the same paths under its base
+URL, in snake_case JSON, and the API's schemas are its shapes, so the
+service decodes an answer into the view it returns. It refuses a request
+without the service token (constant-time) and reads the member from the
+two headers.
+
+| Agent | Answer |
+|---|---|
+| `GET /conversations?subject_kind=&subject_id=` | 200, an array of `{id, subject_kind?, subject_id?, title?, updated_at}`; the server answers `{items}` |
+| `POST /conversations {subject_kind?, subject_id?}` | 200, the conversation, found or made |
+| `GET /conversations/{id}` | 200, the conversation with `turns`, oldest first: `{id, member_id, status, text, answer?, sources, created_at}`, the status in upper case, which the server lowers |
+| `POST /conversations/{id}/turns {text}` | 200 `{conversation_id, turn_id, answer, sources: [{tool, label, ids}]}`, a source per tool call |
+
+An error is `{code}`. The server maps the code, and the status for a body
+without one:
+
+| Agent | Console |
+|---|---|
+| 404 `not_found` | 404 `agent_conversation_not_found` |
+| 429 `agent_budget` (the LiteLLM budget is spent) | 429 `agent_budget` |
+| 429 `rate_limited` | 429 `agent_rate_limited` |
+| 409 `turn_in_progress`, `turn_limit`, `conversation_closed` | 409 `agent_turn_in_progress`, `agent_turn_limit`, `agent_conversation_closed` |
+| 400 `input_rejected` (the agent's input guard) | 422 `agent_input_rejected` |
+| 504 `agent_timeout`, or a turn past 75 s | 504 `agent_timeout` |
+| 503 `agent_unavailable`; `unauthorized`, `bad_request`, `internal`, any other answer, no answer, a read past 10 s | 503 `agent_unavailable`, the agent's code logged |
+
+No request or answer body is logged, since a turn quotes people.
+
+#### The MCP server
+
+- Streamable HTTP at `/mcp`, official Go SDK
+  (`github.com/modelcontextprotocol/go-sdk` v1.8.0), on a listener of its
+  own at `AGENT_MCP_ADDR`, never on `:8080` and never behind the ingress.
+  `agent.Mount` opens the listener, so an address in use stops the start;
+  `app.New` runs it on the app's `sync.WaitGroup` and `App.Close` shuts it
+  down, waiting 10 seconds at most for calls in flight. It is stateless:
+  every POST is one request on a session of its own, answered as JSON.
+- Trust: a call carries `Authorization: Bearer <AGENT_MCP_TOKEN>`,
+  compared in constant time, and `X-Console-Member`. The middleware reads
+  the member through `consolesvc.Service.ActiveMember` on every call, so a
+  member disabled between two tool calls gets nothing from the second;
+  an unknown id, a disabled member or a wrong token is 401 before any MCP
+  handling, logged as `security: agent MCP call refused` without the
+  token. The member and role go in the context, and each tool takes them
+  from there. Every member role may use every tool of this phase; a tool
+  for admins alone will check the role itself.
+- The tools only read, each a thin adapter over a module's `Service`; no
+  tool reads a table. Each declares `readOnlyHint`, an input and an output
+  schema (inferred from its Go types, a UUID as a string), and returns the
+  ids the agent cites as sources. The SDK sends a result as structured
+  content and as its JSON in one text block, which the agent reads; ids
+  sit under keys `id`, `*_id`, `ids` or `*_ids`, which is how the agent
+  finds a source's ids, and the tool's title is the chip's label. The
+  agent drops a tool without `readOnlyHint`. A refusal reaches the agent
+  as a tool error with its code; any other failure as `internal error`,
+  logged.
+
+| Tool | Reads | Records a read |
+|---|---|---|
+| `ticket_get` | support's `Detail`: the ticket, its person, its order, the first page of its chat, the person's other tickets | ticket, its person |
+| `tickets_of_account` | support's `TicketsOf`: the newest 50 tickets the account opened or that are on orders it sold, each with its chat's last line | the account and the tickets, when there are any |
+| `account_get` | account's `ConsoleAccount` and `Identities` (phone and email as flags), catalog's `SellerCounts`, deal's `BuyerOrders`, the suspensions among the latest 50 console actions | no |
+| `account_actions` | console's `ListActions` on the account, without the members' IPs | no |
+| `order_get` | deal's `Order` and, for a shipment on the seller's carrier account, the carrier's status now through shipping's `Lookup`; no pickup and no recipient | no |
+| `listing_get` | catalog's `Summary`, then `Get` as its seller, so a hidden or sold listing shows | no |
+| `price_guide` | catalog's `MarketPrice`: the listing's price, the sample's median and size | no |
+
+  The spec's `account_get` also counts reports, and `order_get` gives the
+  carrier's events and proof of delivery. Trust is not wired to the agent
+  yet, and ShopNexus keeps no carrier events or proof, so both wait;
+  `order_get` says so in its description. `price_guide` takes a listing,
+  since a sample needs the listing's vectors. Report tools come with
+  Phase 3.
+- A not_received ticket keeps its order's seller, `tickets.seller_id`
+  (migration 0050, filled from `orders`), which `TicketOpen` takes from the
+  order it reads, so support finds the tickets of a seller without reading
+  deal's tables.
+
+#### The read record
+
+Every tool that returns personal data (what a person wrote, messages)
+records the read in `console_agent_reads` before it answers (NFR-PRIV-02):
+the member, the tool, the subject's kind (`ticket` or `account`) and the
+ids it read, at the service's clock. A read is kept 90 days. The sweep
+runs at start and every hour in the MCP server's `Run`, as the events
+cleanup does in the bus, and deletes 10,000 rows at a time. Listing the
+reads for admins comes with the console's audit pages.
+
 ### Erasure
 
 A person deletes their account with `DELETE /v1/accounts/me` (decided
@@ -2762,9 +2899,9 @@ formatting. The rules that shape the code:
   `**/internal/**/*test/*.go`. `catalogtest` builds catalog on `embedtest`'s
   fakes.
 - depguard: a module's domain, repository and service import no layer above
-  them, a handler or worker imports no repository, nothing imports a
-  worker, and production code reaches another module only through its
-  `service`. An error a client sees, such
+  them, a handler, a worker or module agent's `mcp` imports no repository,
+  nothing imports a worker or `mcp`, and production code reaches another
+  module only through its `service`. An error a client sees, such
   as `account_not_found`, lives in `domain` for that reason. A worker's
   tests may build its module's repositories.
 - The module and layer rules of depguard sit between the

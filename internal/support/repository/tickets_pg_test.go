@@ -92,9 +92,16 @@ VALUES (@id, @email, @name, 'moderator', 'active', 'x', false, 1, 0, @at, @at, @
 
 func ticket(t *testing.T, db *pgxpool.Pool, person uuid.UUID, kind domain.Kind, order *uuid.UUID, carrier string) repository.Ticket {
 	t.Helper()
+	var seller *uuid.UUID
+	if order != nil {
+		if err := db.QueryRow(context.Background(), `SELECT seller_id FROM orders WHERE id = @id`,
+			pgx.StrictNamedArgs{"id": *order}).Scan(&seller); err != nil {
+			t.Fatal(err)
+		}
+	}
 	return repository.Ticket{
 		ID: uuid.NewV7(), AccountID: person, ConversationID: chat(t, db, person), Kind: kind, OrderID: order,
-		CarrierName: carrier, OpenedAt: at,
+		SellerID: seller, CarrierName: carrier, OpenedAt: at,
 	}
 }
 

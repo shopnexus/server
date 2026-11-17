@@ -4,7 +4,7 @@
 //	depguardgen -root . [-check]
 //
 // A module is a directory under internal/ that has one of the layer
-// packages domain, repository, service, handler and worker. The rules name
+// packages domain, repository, service, handler, mcp and worker. The rules name
 // only the packages that exist, so a new module or layer is covered on the
 // next run. They replace the lines between the BEGIN and END markers in
 // .golangci.yml under -root; the rest of the file stays as it is. With
@@ -30,7 +30,8 @@ const (
 )
 
 // layers are a module's layer packages from the bottom up.
-var layers = []string{"domain", "repository", "service", "handler", "worker"}
+// mcp is module agent's MCP server, a handler of another protocol.
+var layers = []string{"domain", "repository", "service", "handler", "mcp", "worker"}
 
 // denial refuses the import of the given layer packages of any module.
 type denial struct {
@@ -46,17 +47,21 @@ var layerRules = []struct {
 	deny      []denial
 }{
 	{layer: "domain", deny: []denial{
-		{[]string{"repository", "service", "handler", "worker"}, "domain imports no layer above it."},
+		{[]string{"repository", "service", "handler", "mcp", "worker"}, "domain imports no layer above it."},
 	}},
 	{layer: "repository", deny: []denial{
-		{[]string{"service", "handler", "worker"}, "repository imports no layer above it."},
+		{[]string{"service", "handler", "mcp", "worker"}, "repository imports no layer above it."},
 	}},
 	{layer: "service", deny: []denial{
-		{[]string{"handler", "worker"}, "service imports no layer above it."},
+		{[]string{"handler", "mcp", "worker"}, "service imports no layer above it."},
 	}},
 	{layer: "handler", deny: []denial{
 		{[]string{"repository"}, "handler reaches data through service."},
 		{[]string{"worker"}, "handler imports no worker."},
+	}},
+	{layer: "mcp", deny: []denial{
+		{[]string{"repository"}, "mcp reaches data through service, as a handler does."},
+		{[]string{"handler", "worker"}, "mcp imports no handler or worker."},
 	}},
 	// A worker test may build the module's repositories to set up a case.
 	{layer: "worker", skipTests: true, deny: []denial{
@@ -66,7 +71,7 @@ var layerRules = []struct {
 
 // otherModuleDenied are the layers production code of one module may not
 // import from another: it goes through the other module's service.
-var otherModuleDenied = []string{"repository", "handler", "worker"}
+var otherModuleDenied = []string{"repository", "handler", "mcp", "worker"}
 
 // serviceCallers lists, for the modules whose service not every other
 // module may call, the modules that may.

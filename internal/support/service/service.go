@@ -62,6 +62,9 @@ type Service interface {
 	Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error)
 	// Reopen opens a resolved ticket again.
 	Reopen(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error)
+	// TicketsOf lists, for console members, the newest tickets account
+	// opened and those on orders it sold, at most TicketsOfLimit.
+	TicketsOf(ctx context.Context, account uuid.UUID) ([]ConsoleTicket, error)
 	// OpenCount counts every open ticket, for the console's drawer.
 	OpenCount(ctx context.Context) (int, error)
 }

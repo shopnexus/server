@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"slices"
 	"strings"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/account"
+	"github.com/shopnexus/server2/internal/agent"
 	"github.com/shopnexus/server2/internal/assist"
 	"github.com/shopnexus/server2/internal/catalog"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
@@ -68,7 +70,9 @@ type App struct {
 	endpoint *restatex.Endpoint
 	adminURL string
 	hub      *stream.Hub
-	// stop cancels the event bus and the stream hub, which run in bg.
+	agent    *agent.Mounted
+	// stop cancels the event bus, the stream hub and the agent's MCP
+	// server, which run in bg.
 	stop context.CancelFunc
 	bg   sync.WaitGroup
 }
@@ -93,6 +97,10 @@ func WithEmailSender(s email.Sender) Option { return func(o *options) { o.email 
 // WithPasswordHasher sets the argon2id parameters of new member passwords;
 // tests pass consoledomain.Fast.
 func WithPasswordHasher(h consoledomain.Hasher) Option { return func(o *options) { o.hasher = h } }
+
+// AgentMCPAddr is where the agent's MCP server listens, for tests that
+// set AGENT_MCP_ADDR to port 0.
+func (a *App) AgentMCPAddr() net.Addr { return a.agent.Addr() }
 
 // Routes lists every registered route, for the route-versus-spec test.
 func (a *App) Routes() []httpx.Route { return a.router.Routes() }
@@ -199,10 +207,17 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	})
 	in := ingress.NewClient(cfg.Restate.IngressURL)
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	defs, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, mailer, carriers, log)
+	defs, agentm, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, mailer, carriers, log)
 	if err != nil {
 		return nil, err
 	}
+	// The MCP listener is open; Run serves it until Close.
+	a.agent = agentm
+	a.bg.Go(func() {
+		if runErr := agentm.Run(runCtx); runErr != nil {
+			log.ErrorContext(runCtx, "agent MCP server stopped", "err", runErr)
+		}
+	})
 	defs = append(defs, bus.Definition())
 	if err = bus.Check(defs); err != nil {
 		return nil, fmt.Errorf("check event subscriptions: %w", err)
@@ -255,13 +270,14 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	return fmt.Errorf("migrations pending: %s; run go run ./cmd/migrate or make run", strings.Join(names, ", "))
 }
 
-// mountModules mounts every module and returns their Restate services. A
-// module mounts after the modules whose services it takes; account's guards
-// come first because they need only the auth keys.
+// mountModules mounts every module and returns their Restate services and
+// the agent module, whose MCP server app runs. A module mounts after the
+// modules whose services it takes; account's guards come first because they
+// need only the auth keys.
 func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub,
 	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, mailer email.Sender, carriers shipping.Settings,
 	log *slog.Logger,
-) ([]restate.ServiceDefinition, error) {
+) ([]restate.ServiceDefinition, *agent.Mounted, error) {
 	d := module.Deps{
 		Router: router, Pool: pool, Ingress: in, ServicePrefix: cfg.Restate.ServicePrefix,
 		Events: bus, Now: time.Now, Log: log,
@@ -269,7 +285,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	d.Protect, d.Identify = account.Guards(d, cfg.Auth)
 	store, err := objectstore.New(cfg.ObjectStore)
 	if err != nil {
-		return nil, fmt.Errorf("object store: %w", err)
+		return nil, nil, fmt.Errorf("object store: %w", err)
 	}
 	mediam := media.Mount(d, media.Settings{Store: store})
 	accountm := account.Mount(d,
@@ -280,7 +296,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	accounts := accountm.Service
 	consoleKeys, err := consolesvc.NewKeys(cfg.Console, hasher)
 	if err != nil {
-		return nil, fmt.Errorf("console keys: %w", err)
+		return nil, nil, fmt.Errorf("console keys: %w", err)
 	}
 	embedder := func(base, model, key string, dims int) embed.OpenAI {
 		return embed.OpenAI{BaseURL: base, APIKey: key, Model: model, Dims: dims, HTTP: &http.Client{Timeout: cfg.Embed.Timeout}}
@@ -316,7 +332,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	deals = dealm.Service
 	erasure.Mount(d, accounts, dealm.Service)
 	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
-	console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service)
+	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service)
 	trustm := trust.Mount(d, trust.Settings{
 		Classifier: trust.LLMClassifier(
 			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: &http.Client{}},
@@ -359,8 +375,14 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
 		supportm.Service, shippingm.Service)
+	agentm, agentErr := agent.Mount(d, agent.Settings{
+		Config: cfg.Agent, TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
+	}, consolem.Moderator, consolem.Service, supportm.Service, accounts, catalogm.Service, dealm.Service, shippingm.Service)
+	if agentErr != nil {
+		return nil, nil, fmt.Errorf("agent: %w", agentErr)
+	}
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, shippingm.Services, dealm.Services, discoverym.Services,
-		chatm.Services, supportm.Services, trustm.Services, notificationm.Services, assistm.Services), nil
+		chatm.Services, supportm.Services, trustm.Services, notificationm.Services, assistm.Services), agentm, nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {
@@ -413,8 +435,8 @@ func (a *App) ready(ctx context.Context) error {
 // does not wait for them; the server's RegisterOnShutdown calls it.
 func (a *App) CloseStreams() { a.hub.Close() }
 
-// Close ends the streams, stops the event bus, the stream hub and the
-// Restate endpoint, then closes the pool.
+// Close ends the streams, stops the event bus, the stream hub, the agent's
+// MCP server and the Restate endpoint, then closes the pool.
 func (a *App) Close(ctx context.Context) error {
 	a.CloseStreams()
 	a.stop()

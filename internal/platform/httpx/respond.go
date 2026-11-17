@@ -32,6 +32,7 @@ var statusOf = map[apperr.Kind]int{
 	apperr.KindPreconditionRequired: http.StatusPreconditionRequired,
 	apperr.KindTooLarge:             http.StatusRequestEntityTooLarge,
 	apperr.KindUnavailable:          http.StatusServiceUnavailable,
+	apperr.KindTimeout:              http.StatusGatewayTimeout,
 }
 
 type errorPayload struct {

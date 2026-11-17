@@ -99,6 +99,10 @@ func required() map[string]string {
 		"TRUST_LLM_API_KEY":            "trust-key",
 		"TRUST_LLM_MODEL":              "scam-check",
 		"TRUST_CALL_TIMEOUT":           "20s",
+		"AGENT_BASE_URL":               "http://agent.example.test:3000",
+		"AGENT_SERVICE_TOKEN":          "agent-service-token-of-32-characters",
+		"AGENT_MCP_ADDR":               "0.0.0.0:9090",
+		"AGENT_MCP_TOKEN":              "agent-mcp-token-of-at-least-32-chars",
 		"FCM_CREDENTIALS":              "",
 		"FIREBASE_PROJECT_ID":          "shopnexus-test",
 		"FIREBASE_PROJECT_NUMBER":      "123456789",
@@ -193,6 +197,10 @@ func TestLoadAllSet(t *testing.T) {
 		Trust: TrustConfig{
 			LLMBaseURL: "http://litellm.example.test/v1", LLMAPIKey: "trust-key", LLMModel: "scam-check",
 			CallTimeout: 20 * time.Second,
+		},
+		Agent: AgentConfig{
+			BaseURL: "http://agent.example.test:3000", ServiceToken: "agent-service-token-of-32-characters",
+			MCPAddr: "0.0.0.0:9090", MCPToken: "agent-mcp-token-of-at-least-32-chars",
 		},
 		Firebase: FirebaseConfig{
 			ProjectID: "shopnexus-test", ProjectNumber: "123456789",
@@ -300,6 +308,8 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 		{"docs origin with a path", map[string]string{"DOCS_ORIGINS": "https://docs.example.test/docs"}, "DOCS_ORIGINS"},
 		{"docs origin without a scheme", map[string]string{"DOCS_ORIGINS": "docs.example.test"}, "DOCS_ORIGINS"},
 		{"short console key", map[string]string{"CONSOLE_KEY": b64(make([]byte, 16))}, "CONSOLE_KEY"},
+		{"short agent service token", map[string]string{"AGENT_SERVICE_TOKEN": "short"}, "AGENT_SERVICE_TOKEN"},
+		{"short agent MCP token", map[string]string{"AGENT_MCP_TOKEN": "short"}, "AGENT_MCP_TOKEN"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
