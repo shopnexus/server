@@ -25,6 +25,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
 	"github.com/shopnexus/server2/internal/provider/push"
+	supportsvc "github.com/shopnexus/server2/internal/support/service"
 	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
@@ -45,8 +46,11 @@ type Worker struct {
 	Accounts accountsvc.Service
 	// Discovery gives the facts of search watches and price drops.
 	Discovery discoverysvc.Service
-	Push      push.Sender
-	Log       *slog.Logger
+	// Support gives the ticket of a support chat, which the chat's push
+	// opens.
+	Support supportsvc.Service
+	Push    push.Sender
+	Log     *slog.Logger
 	// FollowerPage is how many followers one step reads when a listing
 	// first goes on sale.
 	FollowerPage int
@@ -322,8 +326,27 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 		Data: map[string]string{"type": "message", "target_kind": "conversation", "target_id": f.ConversationID.String()},
 	}
 	if f.Kind == chatdomain.KindSupport {
-		// A ticket's chat: ShopNexus is the title, so the body is the reply alone.
-		m.Title, m.Body, m.Data["type"] = "ShopNexus", domain.SupportBody(f.Text, f.Photos), "support_message"
+		// A ticket's chat pushes only to the ticket's owner and opens the
+		// ticket. ShopNexus is the title, so the body is the reply alone.
+		// A message to ShopNexus pushes nothing: the console's queue shows it.
+		ticket, stepErr := restate.Run(ctx, func(rc restate.RunContext) (uuid.UUID, error) {
+			v, found, readErr := w.Support.OfConversation(rc, f.RecipientID, f.ConversationID)
+			if readErr != nil {
+				return uuid.UUID{}, fmt.Errorf("read the ticket: %w", readErr)
+			}
+			if !found {
+				return uuid.UUID{}, nil
+			}
+			return v.ID, nil
+		})
+		if stepErr != nil {
+			return fmt.Errorf("read the chat's ticket: %w", stepErr)
+		}
+		if ticket == (uuid.UUID{}) {
+			return nil
+		}
+		m.Title, m.Body = "ShopNexus", domain.SupportBody(f.Text, f.Photos)
+		m.Data = map[string]string{"type": "support_message", "target_kind": "ticket", "target_id": ticket.String()}
 	}
 	return w.deliver(ctx, f.RecipientID, domain.SwitchMessages, m)
 }
@@ -343,10 +366,11 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 			continue
 		}
 		id := rec.ID
-		tag := n.CollapseKey
-		if tag == "" {
-			tag = "notification:" + id.String()
-		}
+		// An unread notice keeps its id when a newer event with its
+		// collapse key rewrites it, so this tag replaces that notice's
+		// tray item, and the app removes the item by the notice's id when
+		// the notice is read.
+		tag := "notification:" + id.String()
 		target := domain.TargetOf(n.Type, n.Params)
 		if pushErr := w.deliver(ctx, n.Recipient, domain.SwitchOf(n.Type), push.Message{
 			Title: domain.Title(n.Type), Body: domain.Text(n.Type, n.Params), Tag: tag,

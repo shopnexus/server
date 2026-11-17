@@ -121,7 +121,7 @@ func TestSupportFromReportToReply(t *testing.T) {
 		t.Fatalf("the reply %+v", msgs.Items[0])
 	}
 	if m := phones.waitTitled(t, "phone-"+buyer.Account.ID, "ShopNexus"); m.Data["type"] != "support_message" ||
-		m.Data["target_id"] != tk.ConversationID {
+		m.Data["target_kind"] != "ticket" || m.Data["target_id"] != tk.ID {
 		t.Fatalf("push %+v", m)
 	}
 	summary := expect[struct {
