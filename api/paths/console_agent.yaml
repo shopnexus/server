@@ -1,0 +1,157 @@
+# The console agent: a member's conversations with the agent, which the
+# server forwards to the agent service with the member's id and role. The
+# agent only reads, through the server's MCP tools; every change stays a
+# console call of its own.
+conversations:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listConsoleAgentConversations
+    x-uc: [UC-MOD-08]
+    summary: The agent conversation of a record, those about records of a kind, or the caller's own.
+    description: |
+      With subject_kind and subject_id, the conversation of that ticket or
+      account, which every member shares (at most one). With subject_kind
+      alone, the conversations about records of that kind. With neither,
+      the caller's conversations without a record. Newest activity first.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: subject_kind
+        in: query
+        schema:
+          $ref: "../schemas/console_agent.yaml#/AgentSubjectKind"
+      - name: subject_id
+        in: query
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console_agent.yaml#/AgentConversationList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "422":
+        $ref: "../responses/common.yaml#/AgentSubjectInvalid"
+      "503":
+        $ref: "../responses/common.yaml#/AgentUnavailable"
+  post:
+    operationId: createConsoleAgentConversation
+    x-uc: [UC-MOD-08]
+    summary: Open the agent conversation of a record, or start one of the caller's own.
+    description: |
+      A record has one conversation, shared by every member: the first call
+      for a subject makes it, and later calls answer the same one. Without a
+      subject the conversation is new and the caller's.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/console_agent.yaml#/AgentConversationNew"
+    responses:
+      "200":
+        description: The conversation.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console_agent.yaml#/AgentConversation"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "422":
+        $ref: "../responses/common.yaml#/AgentSubjectInvalid"
+      "503":
+        $ref: "../responses/common.yaml#/AgentUnavailable"
+conversation:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/AgentConversationID"
+  get:
+    operationId: getConsoleAgentConversation
+    x-uc: [UC-MOD-08]
+    summary: One agent conversation with its turns, oldest first.
+    description: Each turn names the member who asked.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console_agent.yaml#/AgentConversationDetail"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        $ref: "../responses/common.yaml#/AgentConversationNotFound"
+      "503":
+        $ref: "../responses/common.yaml#/AgentUnavailable"
+conversationTurns:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/AgentConversationID"
+  post:
+    operationId: askConsoleAgent
+    x-uc: [UC-MOD-08]
+    summary: Ask the agent in a conversation and wait for its answer.
+    description: |
+      The answer comes in one response once the agent has finished, within
+      its 60-second deadline. It is plain text, with a source for each tool
+      call the agent made: the tool, a label and the ids it read.
+    tags: [console]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/console_agent.yaml#/AgentQuestion"
+    responses:
+      "200":
+        description: The agent's answer.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console_agent.yaml#/AgentAnswer"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        $ref: "../responses/common.yaml#/AgentConversationNotFound"
+      "409":
+        description: "The agent is still answering in this conversation (agent_turn_in_progress), the conversation has
+          reached its limit of questions (agent_turn_limit) or is closed (agent_conversation_closed)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The agent's guard refused the question (agent_input_rejected)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "429":
+        description: "The agent's budget for today is spent (agent_budget), and the rest of the console works without
+          it; or the member asked too much in a short time (agent_rate_limited)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AgentUnavailable"
+      "504":
+        description: "The agent did not answer within its deadline (agent_timeout); ask again."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

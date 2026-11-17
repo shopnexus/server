@@ -1,0 +1,135 @@
+AgentSubjectKind:
+  type: string
+  description: The record a conversation is about.
+  enum: [ticket, account]
+AgentConversation:
+  type: object
+  additionalProperties: false
+  required: [id, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    subject_kind:
+      $ref: "#/AgentSubjectKind"
+    subject_id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    updated_at:
+      type: string
+      format: date-time
+AgentConversationList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/AgentConversation"
+AgentConversationNew:
+  type: object
+  additionalProperties: false
+  description: A record to talk about, subject_kind and subject_id together, or neither for a conversation of the caller's own.
+  properties:
+    subject_kind:
+      $ref: "#/AgentSubjectKind"
+    subject_id:
+      type: string
+      format: uuid
+AgentConversationDetail:
+  type: object
+  additionalProperties: false
+  description: A conversation with its turns, oldest first.
+  required: [id, updated_at, turns]
+  properties:
+    id:
+      type: string
+      format: uuid
+    subject_kind:
+      $ref: "#/AgentSubjectKind"
+    subject_id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    updated_at:
+      type: string
+      format: date-time
+    turns:
+      type: array
+      items:
+        $ref: "#/AgentTurn"
+AgentTurn:
+  type: object
+  additionalProperties: false
+  required: [id, member_id, text, sources, status, created_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    member_id:
+      type: string
+      format: uuid
+      description: The member who asked.
+    text:
+      type: string
+      description: The question.
+    answer:
+      type: string
+      description: The agent's answer, once it has one.
+    sources:
+      type: array
+      items:
+        $ref: "#/AgentSource"
+    status:
+      type: string
+      enum: [running, succeeded, failed, cancelled, timed_out]
+    created_at:
+      type: string
+      format: date-time
+      description: When the member asked.
+AgentQuestion:
+  type: object
+  additionalProperties: false
+  required: [text]
+  properties:
+    text:
+      type: string
+      minLength: 1
+      maxLength: 4000
+AgentAnswer:
+  type: object
+  additionalProperties: false
+  required: [conversation_id, turn_id, answer, sources]
+  properties:
+    conversation_id:
+      type: string
+      format: uuid
+    turn_id:
+      type: string
+      format: uuid
+    answer:
+      type: string
+    sources:
+      type: array
+      items:
+        $ref: "#/AgentSource"
+AgentSource:
+  type: object
+  additionalProperties: false
+  required: [tool, label, ids]
+  description: One tool call of a turn, shown as a chip.
+  properties:
+    tool:
+      type: string
+      description: The MCP tool, such as ticket_get.
+    label:
+      type: string
+    ids:
+      type: array
+      description: The ids of the records the call read.
+      items:
+        type: string

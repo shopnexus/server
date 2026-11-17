@@ -368,6 +368,12 @@ paths:
     $ref: "paths/console.yaml#/accountUnsuspend"
   /v1/console/actions:
     $ref: "paths/console.yaml#/actions"
+  /v1/console/agent/conversations:
+    $ref: "paths/console_agent.yaml#/conversations"
+  /v1/console/agent/conversations/{id}:
+    $ref: "paths/console_agent.yaml#/conversation"
+  /v1/console/agent/conversations/{id}/turns:
+    $ref: "paths/console_agent.yaml#/conversationTurns"
   /v1/console/dashboard-tickets:
     $ref: "paths/console.yaml#/dashboardTickets"
   /v1/console/dashboard-auth:

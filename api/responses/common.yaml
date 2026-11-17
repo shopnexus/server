@@ -52,3 +52,21 @@ ConsoleForbidden:
     application/json:
       schema:
         $ref: "../schemas/error.yaml#/Error"
+AgentUnavailable:
+  description: "The agent cannot be reached (agent_unavailable); the rest of the console works without it."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+AgentConversationNotFound:
+  description: "No such agent conversation, or one of another member's (agent_conversation_not_found)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+AgentSubjectInvalid:
+  description: "subject_id without subject_kind, or a new conversation with subject_kind alone (agent_subject_invalid)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
