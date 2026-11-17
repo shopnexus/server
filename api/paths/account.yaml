@@ -102,7 +102,7 @@ myIdentities:
       content:
         application/json:
           schema:
-            $ref: "../schemas/account.yaml#/AddIdentityRequest"
+            $ref: "../schemas/auth.yaml#/ProofRequest"
     responses:
       "200":
         description: The account's identities after the add.

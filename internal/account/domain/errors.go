@@ -41,6 +41,10 @@ var (
 	ErrSessionExpired      = apperr.New(apperr.KindUnauthenticated, "session_expired", "the session has expired; sign in again")
 	ErrInvalidToken        = apperr.New(apperr.KindUnauthenticated, "invalid_token", "the access token is not valid")
 	ErrReauthRequired      = apperr.New(apperr.KindPreconditionRequired, "reauth_required", "sign in again to do this")
+	// ErrWrongAccount answers a reauthentication whose proof names an
+	// identity of another account or of none. Both get the same code, so
+	// the answer does not tell whether an address is registered.
+	ErrWrongAccount = apperr.New(apperr.KindForbidden, "wrong_account", "the proof is not of the signed-in account")
 	// ErrSessionNotFound also answers for another account's session: a
 	// resource the caller may not see is 404, never 403.
 	ErrSessionNotFound = apperr.New(apperr.KindNotFound, "session_not_found", "no such session")

@@ -26,8 +26,17 @@ type Sessions interface {
 	// FindByPrevRefresh finds the session a rotated token belonged to.
 	FindByPrevRefresh(ctx context.Context, hash []byte) (domain.Session, error)
 	// Save writes s when its row still has s.WriteID() or already has
-	// writeID, then sets s's write ID. Otherwise ErrConflict.
+	// writeID, then sets s's write ID and the auth_time the row holds.
+	// Otherwise ErrConflict.
 	Save(ctx context.Context, s *domain.Session, writeID uuid.UUID) error
+	// Reauthenticate moves the auth_time of session id forward to at, in one
+	// statement, and returns the session. ErrNotFound when the session is
+	// unknown, revoked, or past domain.SessionMaxAge or
+	// domain.SessionIdleLimit at the time given. It leaves the write ID as it was: Save never
+	// writes auth_time, so the two cannot overwrite each other, and a
+	// refresh racing it would otherwise read the conflict as a reused
+	// token.
+	Reauthenticate(ctx context.Context, id uuid.UUID, at time.Time) (domain.Session, error)
 	// RevokeOthers signs out every open session of the account but keep in
 	// one statement and gives each a new write ID, so a refresh racing it
 	// conflicts.

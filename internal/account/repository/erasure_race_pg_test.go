@@ -38,7 +38,7 @@ func TestDeletedAccountKeepsNoNewRows(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = book.Insert(ctx, uuid.NewV7(), &a); !errors.Is(err, domain.ErrSessionRevoked) {
+	if err = book.Insert(ctx, uuid.NewV7(), &a, false); !errors.Is(err, domain.ErrSessionRevoked) {
 		t.Fatalf("an address of a deleted account: %v", err)
 	}
 	if err = accounts.Block(ctx, uuid.NewV7(), gone, other, now); !errors.Is(err, domain.ErrSessionRevoked) {
@@ -46,5 +46,25 @@ func TestDeletedAccountKeepsNoNewRows(t *testing.T) {
 	}
 	if n := count(t, db, `SELECT (SELECT count(*) FROM addresses WHERE account_id = @id) + (SELECT count(*) FROM account_blocks WHERE blocker_id = @id)`, gone); n != 0 {
 		t.Fatalf("rows on the tombstone: %d", n)
+	}
+}
+
+// An edit that makes an address the default, read before the account was
+// deleted and saved after, is refused as Insert refuses one, and the
+// default stays.
+func TestDeletedAccountTakesNoDefault(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	accounts, book := repository.NewAccounts(db), repository.NewAddresses(db)
+	gone := seed(t, accounts)
+	as := insert(t, book, gone, 2)
+	markDeleted(t, db, gone)
+	edit := as[1]
+	if err := book.Save(ctx, &edit, uuid.NewV7(), true); !errors.Is(err, domain.ErrSessionRevoked) {
+		t.Fatalf("an edit as the default of a deleted account's address: %v", err)
+	}
+	if d := defaults(t, book, gone); len(d) != 1 || d[0] != as[0].ID() {
+		t.Fatalf("defaults %v", d)
 	}
 }

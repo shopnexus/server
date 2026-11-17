@@ -454,7 +454,8 @@ the same answer. `PATCH /v1/accounts/me` with an avatar is the exception: it
 calls `MediaProcess` keyed by the upload ID, which already makes a repeat
 attach to the first run. Sign-in puts the verified number in the key and
 listing posts put the seller, so a key sent with another number's token or
-by another seller runs apart.
+by another seller runs apart. A reauthentication puts the caller's session
+and the proven address in it.
 
 ### Sign-in
 
@@ -584,6 +585,61 @@ holder in for good (decided 2026-11-10, after the branch's review).
 `identities`, and `session_revoked` for a deleted account; `Account`, the
 public view other modules return, has none.
 
+### Reauthentication
+
+`POST /v1/auth/sessions/current/reauthenticate` is the app's "Xác nhận lại
+là bạn" after a 428 `reauth_required` (decided 2026-11-17). The app used to
+call `POST /v1/auth/sign-in` again and read the new `sid` out of the JWT;
+a Google account or an email address that no account held then signed up
+an empty account.
+
+- The body is `ProofRequest` in `api/schemas/auth.yaml`: `phone_token`,
+  `google_token` or `email_code` (`EmailCodeProof`), a `oneOf` of
+  `required` only, and `additionalProperties: false`. `addMyIdentity` takes
+  it too. `SignInRequest` repeats the three properties beside
+  `device_name`. A shared schema under `allOf` would need
+  `unevaluatedProperties: false` to stay closed, and kin-openapi checks a
+  schema with that keyword with its JSON Schema 2020-12 compiler, which
+  cannot follow the spec's file refs such as `#/EmailCodeProof`: every
+  sign-in failed with 400 when it was tried.
+- `Account.Reauthenticate` loads the account (`CanWrite`: 403
+  `account_suspended`, 401 `session_revoked` once deleted) and the caller's
+  session (`Usable`: 401 `session_revoked` or `session_expired`). It checks
+  a token outside Restate as `SignIn` does, or hashes a code into a
+  `CodeGuess`.
+- Restate service `Reauthenticate` runs under the key
+  `<session_id>/<kind>:<value>/<Idempotency-Key>`, or
+  `<session_id>/<challenge_id>/<Idempotency-Key>` for a code. It judges a
+  code with `judgeGuess` for purpose `sign_in`, so the code comes from
+  `POST /v1/auth/email-codes` with that endpoint's quotas and five guesses.
+  Then `findIdentity`, the step `SignIn` also runs, looks the address up.
+  An identity of another account and an address no identity holds both
+  answer 403 `wrong_account`, so the answer does not tell whether an
+  address is registered. The service writes only the counted guess and
+  returns `at`, the time it checked the proof. A repeated key with another
+  code is `code_expired`, as for sign-in.
+- `Sessions.Reauthenticate` sets `auth_time = greatest(auth_time, at)` in
+  one statement that keeps `write_id`, on the session if it is not revoked
+  and at `at` neither past `SessionMaxAge` nor idle past
+  `SessionIdleLimit`. No `Save` writes `auth_time`, so neither write can
+  undo the other. A new `write_id` would make a refresh that read the
+  session before it conflict, and Refresh treats that conflict as a reused
+  token and revokes the session. `Save` returns the row's `auth_time`
+  instead, so a refresh that read the session before a reauthentication
+  signs with the new time. A session that the update misses is
+  `session_expired` when `Usable(at)` fails on the session as first read,
+  which covers one that ended while the code was judged, and
+  `session_revoked` otherwise. A repeated key writes the first run's `at`
+  again, which does not move `auth_time`.
+- The reply is `AccessToken`, an access token for the same session signed
+  with the new `auth_time`. The middleware reads `auth_time` from the
+  access token and from no database (see Session use cases), so the app
+  replaces its access token with this one. The refresh token stays: it
+  carries no sign-in time, and rotating it would leave an app that lost
+  the reply holding a token whose hash is now `prev_refresh_hash`, which
+  signs the session out as a reuse. A refresh signs its access token with
+  the `auth_time` of the row, the new one included.
+
 Posting a listing, opening a deal and opening a chat need a phone identity:
 `accountsvc.Service.HasPhone`, read by `ListingPost` in a step after the
 suspension check, by `Deals.Open` and by `MessageSend`'s facts step when
@@ -596,14 +652,16 @@ identity and is not verified.
 Refresh, sign-out and the device list are plain `Account` methods against the
 `Session` aggregate; none of them goes through Restate.
 
-The device list and the sign-outs are one resource, `/v1/auth/sessions`:
+The device list, the sign-outs and the reauthentication are one resource,
+`/v1/auth/sessions`:
 
-| Endpoint | Method | Signs out |
+| Endpoint | Method | Does |
 |---|---|---|
-| `GET /v1/auth/sessions` | `ListSessions` | nothing; lists the devices |
-| `DELETE /v1/auth/sessions/current` | `DeleteCurrentSession` | the session of the access token |
-| `DELETE /v1/auth/sessions/others` | `DeleteOtherSessions` | every session but the caller's; needs a sign-in within 15 minutes (428 `reauth_required`) |
-| `DELETE /v1/auth/sessions/{id}` | `DeleteSession` | one device |
+| `GET /v1/auth/sessions` | `ListSessions` | lists the devices |
+| `DELETE /v1/auth/sessions/current` | `DeleteCurrentSession` | signs out the session of the access token |
+| `POST /v1/auth/sessions/current/reauthenticate` | `Reauthenticate` | renews the sign-in time of the session of the access token after a proof of the same account; returns an access token (see Reauthentication) |
+| `DELETE /v1/auth/sessions/others` | `DeleteOtherSessions` | signs out every session but the caller's; needs a sign-in within 15 minutes (428 `reauth_required`) |
+| `DELETE /v1/auth/sessions/{id}` | `DeleteSession` | signs out one device |
 
 `DELETE /v1/auth/sessions/current` replaced `POST /v1/auth/logout` on
 2026-11-10. `DELETE /v1/auth/sessions`, which replaced
@@ -637,7 +695,8 @@ Refresh:
    the session. Revoked means a sign-out won the race, and the answer is
    `session_revoked`. Otherwise a concurrent refresh with the same token won:
    the use case revokes, logs the reuse and returns `session_revoked`.
-4. Sign the access token with the session's `auth_time`.
+4. Sign the access token with the `auth_time` the save returned, which a
+   reauthentication may have moved after step 1.
 
 `DeleteCurrentSession` and `DeleteSession` load the session, `Revoke` and
 `Save`, retrying once on `ErrConflict`. `DeleteSession` first checks that the
@@ -654,6 +713,8 @@ Two kinds of call skip the aggregate:
   revoked_at IS NULL`. Loading and saving each session would cost one
   transaction per device and protect no rule. The push tokens of the
   sessions it ends stop at the next push (see Notifications).
+- `Sessions.Reauthenticate` moves one session's `auth_time` forward in one
+  statement and keeps its `write_id` (see Reauthentication).
 
 The access token is checked by signature and expiry only; the middleware reads
 no database. `account/domain` signs and verifies it (EdDSA, `kid` header,
@@ -1450,6 +1511,23 @@ Decided 2026-10-27 (spec:
   account, which keeps the cap and the single default; a partial unique
   index on `(account_id) WHERE is_default` backs the second. An edit checks
   `write_id` and is `try_again` after a race.
+- `AddressDraft.is_default` true makes the address the default in the
+  request that adds or edits it (decided 2026-11-17). The app had made it
+  the default with a second call, and a failed second call left the new
+  address without it. The flag is no field of `domain.AddressDraft`: the
+  handler passes it to `CreateAddress` and `UpdateAddress` as its own
+  argument, and they pass it to `Addresses.Insert` and `Addresses.Save` as
+  `makeDefault`. Those move the default inside their own transaction,
+  under the advisory lock, and refuse a deleted account with
+  `session_revoked` (`lockLiving`); `Save` without `makeDefault` stays one
+  statement. The old default loses the flag first, since the partial
+  unique index is checked row by row; an edit that loses the `write_id`
+  race moves nothing. false or absent leaves the default where
+  it is. That is the rule of `POST /v1/addresses/{id}/default` too: no
+  request takes the default away, and an address loses it only when
+  another one gets it or it is deleted. The first address is the default
+  whatever `is_default` says. A repeated `Idempotency-Key` returns the
+  first request's address as it is now and moves no default.
 - An address has a kind, `home`, `work` or `other` (the app's Nhà, Công ty
   and Khác), so the shipper knows when to deliver: an office takes parcels
   in office hours (decided 2026-11-15). The kind is required; the draft

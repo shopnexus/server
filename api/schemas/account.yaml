@@ -75,25 +75,6 @@ Identities:
       type: array
       items:
         $ref: "#/Identity"
-AddIdentityRequest:
-  type: object
-  additionalProperties: false
-  description: Exactly one proof, of the kind the account lacks.
-  oneOf:
-    - required: [phone_token]
-    - required: [google_token]
-    - required: [email_code]
-  properties:
-    phone_token:
-      type: string
-      minLength: 1
-      maxLength: 8192
-    google_token:
-      type: string
-      minLength: 1
-      maxLength: 8192
-    email_code:
-      $ref: "auth.yaml#/EmailCodeProof"
 AccountUpdate:
   type: object
   additionalProperties: false
