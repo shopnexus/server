@@ -1,7 +1,11 @@
 package domain_test
 
 import (
+	"net/url"
+	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/shopnexus/server2/internal/console/domain"
 	"github.com/shopnexus/server2/internal/platform/config"
@@ -43,6 +47,40 @@ func TestRoleFor(t *testing.T) {
 	for _, c := range cases {
 		if got := c.app.RoleFor(c.role); got != c.want {
 			t.Errorf("%s %s: %q, want %q", c.app, c.role, got, c.want)
+		}
+	}
+}
+
+// The callback carries the keys in the fragment and opens a page of the
+// console, or its start page for any other path.
+func TestStoreConsoleCallback(t *testing.T) {
+	t.Parallel()
+	c := domain.StoreCredentials{
+		AccessKey: "AK", SecretKey: "S+K/=", SessionToken: "tok&en",
+		Expiration: time.Date(2026, 11, 17, 10, 0, 0, 0, time.FixedZone("ICT", 7*3600)),
+	}
+	for rd, page := range map[string]string{
+		"/rustfs/console/browser/shopnexus/": "/browser/shopnexus/",
+		"/rustfs/console/":                   "/",
+		"/rustfs/console/auth/login/":        "/",
+		"/rustfs/consoleevil":                "/",
+		"/":                                  "/",
+	} {
+		got := domain.StoreConsoleCallback(c, rd)
+		path, frag, ok := strings.Cut(got, "#")
+		if !ok || path != "/rustfs/console/auth/oidc-callback/" {
+			t.Fatalf("rd %q: %q", rd, got)
+		}
+		f, err := url.ParseQuery(frag)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := url.Values{
+			"accessKey": {"AK"}, "secretKey": {"S+K/="}, "sessionToken": {"tok&en"},
+			"expiration": {"2026-11-17T03:00:00Z"}, "redirect": {page},
+		}
+		if !reflect.DeepEqual(f, want) {
+			t.Errorf("rd %q: %v", rd, f)
 		}
 	}
 }

@@ -741,6 +741,17 @@ Grafana takes a moderator; the others take an admin.
   so the redirect from the console carries it, and lasts what the console
   session has left. The redirect follows `rd` only when it starts with one
   `/` and holds no backslash or control character; otherwise it goes to `/`.
+- RustFS's console signs its S3 calls in the browser with keys it keeps in
+  `localStorage`, and reads no proxy header (decided 2026-11-17). On the
+  s3 host the callback redirects to the console's SSO callback,
+  `/rustfs/console/auth/oidc-callback/#accessKey=&secretKey=&sessionToken=&expiration=&redirect=`,
+  with keys from `Store.TempKeys`: an STS AssumeRole with the root keys
+  that lasts an hour. The keys ride in the fragment, which no server
+  receives. Traefik sends the console's sign-in page,
+  `/rustfs/console/auth/login`, to `GET /_dashboard/login`, which does the
+  same for a reader with a live `console_dashboard` cookie, so a reload
+  after the keys expire signs in again. The callback's format is
+  RustFS 1.0.4's; a RustFS upgrade checks it.
 - `GET /v1/console/dashboard-auth` is Traefik's forwardAuth target. It reads
   the app from `X-Forwarded-Host` and answers 200 with `X-Console-Email` and
   `X-Console-Role` (Grafana's `Admin` or `Viewer` there), 302 to the console's

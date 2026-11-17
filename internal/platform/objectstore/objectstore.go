@@ -31,6 +31,9 @@ type Store struct {
 	bucket    string
 	region    string
 	publicURL string
+	// sts is the store's STS endpoint and keys, for TempKeys.
+	sts      credentials.STSAssumeRoleOptions
+	endpoint string
 }
 
 func New(cfg config.ObjectStoreConfig) (*Store, error) {
@@ -45,6 +48,8 @@ func New(cfg config.ObjectStoreConfig) (*Store, error) {
 	return &Store{
 		client: client, presigner: presigner, bucket: cfg.Bucket, region: cfg.Region,
 		publicURL: strings.TrimRight(cfg.PublicURL, "/"),
+		sts:       credentials.STSAssumeRoleOptions{AccessKey: cfg.AccessKey, SecretKey: cfg.SecretKey, Location: cfg.Region},
+		endpoint:  cfg.Endpoint,
 	}, nil
 }
 
@@ -62,6 +67,32 @@ func clientFor(endpoint string, cfg config.ObjectStoreConfig) (*minio.Client, er
 		return nil, fmt.Errorf("object store client: %w", err)
 	}
 	return client, nil
+}
+
+// TempKeys are keys with the store's own rights that last ttl, from the
+// store's STS AssumeRole; at least 15 minutes, as STS requires.
+type TempKeys struct {
+	AccessKey, SecretKey, SessionToken string
+	Expiration                         time.Time
+}
+
+// stsClient bounds an AssumeRole call, which minio-go makes without a
+// context.
+var stsClient = &http.Client{Timeout: 10 * time.Second}
+
+// TempKeys asks the store for keys that last ttl.
+func (s *Store) TempKeys(ttl time.Duration) (TempKeys, error) {
+	opts := s.sts
+	opts.DurationSeconds = int(ttl.Seconds())
+	c, err := credentials.NewSTSAssumeRole(s.endpoint, opts)
+	if err != nil {
+		return TempKeys{}, fmt.Errorf("object store STS: %w", err)
+	}
+	v, err := c.GetWithContext(&credentials.CredContext{Client: stsClient})
+	if err != nil {
+		return TempKeys{}, fmt.Errorf("object store AssumeRole: %w", err)
+	}
+	return TempKeys{AccessKey: v.AccessKeyID, SecretKey: v.SecretAccessKey, SessionToken: v.SessionToken, Expiration: v.Expiration}, nil
 }
 
 // Prepare creates the bucket when it is missing and lets anyone read

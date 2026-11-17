@@ -3,6 +3,7 @@
 package console
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -24,6 +25,8 @@ type Settings struct {
 	// Keys are derived from Config.Key.
 	Keys   service.Keys
 	Config config.ConsoleConfig
+	// StoreLogin mints the S3 console's keys; nil leaves its sign-in page.
+	StoreLogin func(context.Context) (domain.StoreCredentials, error)
 }
 
 // NewService builds Console on db. Mount, cmd/console and the e2e tests build
@@ -33,7 +36,8 @@ func NewService(db *pgxpool.Pool, s Settings, accounts accountsvc.Service, now f
 		Members: repository.NewMembers(db, s.Keys.Secrets), Locks: repository.NewLocks(db),
 		Sessions: repository.NewSessions(db), Actions: audit.NewPGStore(db), Keys: s.Keys,
 		Dashboards: repository.NewDashboards(db), DashboardHosts: s.Config.DashboardHosts, ConsoleOrigin: s.Config.Origin,
-		Accounts: accounts, Now: now,
+		StoreLogin: s.StoreLogin,
+		Accounts:   accounts, Now: now,
 	})
 }
 

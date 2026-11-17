@@ -382,6 +382,8 @@ paths:
     $ref: "paths/console.yaml#/dashboardAuth"
   /_dashboard/callback:
     $ref: "paths/console.yaml#/dashboardCallback"
+  /_dashboard/login:
+    $ref: "paths/console.yaml#/dashboardLogin"
 components:
   securitySchemes:
     bearerAuth:

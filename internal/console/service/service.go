@@ -63,6 +63,7 @@ type Service interface {
 	// AuthorizeDashboard checks a request to a dashboard, for Traefik's
 	// forwardAuth.
 	AuthorizeDashboard(ctx context.Context, in DashboardCheck) (DashboardAccess, error)
+	DashboardLanding(ctx context.Context, in DashboardCheck) (string, error)
 }
 
 // Deps is what New builds Console from.
@@ -78,6 +79,9 @@ type Deps struct {
 	Dashboards     repository.Dashboards
 	DashboardHosts map[string]string
 	ConsoleOrigin  string
+	// StoreLogin mints the keys the S3 console signs in with; nil leaves
+	// its own sign-in page.
+	StoreLogin func(context.Context) (domain.StoreCredentials, error)
 	// Accounts reaches customer data; cmd/console, which manages only members,
 	// leaves it nil.
 	Accounts accountsvc.Service
@@ -97,6 +101,7 @@ type Console struct {
 	dashboards     repository.Dashboards
 	dashboardHosts map[string]string
 	consoleOrigin  string
+	storeLogin     func(context.Context) (domain.StoreCredentials, error)
 }
 
 var _ Service = (*Console)(nil)
@@ -106,5 +111,6 @@ func New(d Deps) *Console {
 		members: d.Members, locks: d.Locks, sessions: d.Sessions, actions: d.Actions, keys: d.Keys,
 		accounts: d.Accounts, now: d.Now,
 		dashboards: d.Dashboards, dashboardHosts: d.DashboardHosts, consoleOrigin: d.ConsoleOrigin,
+		storeLogin: d.StoreLogin,
 	}
 }

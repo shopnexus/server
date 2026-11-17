@@ -31,13 +31,14 @@ type env struct {
 	keys service.Keys
 }
 
-// newEnv serves grafana and restate at grafana.test and restate.test; the
-// other dashboards have no host.
+// newEnv serves grafana, restate and s3 at grafana.test, restate.test and
+// s3.test, and mints the S3 console's keys with testStoreLogin; the other
+// dashboards have no host.
 func newEnv(t *testing.T) env {
 	t.Helper()
 	cfg := config.ConsoleConfig{
 		Key: config.NewConsoleKey(), Origin: "https://console.test",
-		DashboardHosts: map[string]string{"grafana": "grafana.test", "restate": "restate.test"},
+		DashboardHosts: map[string]string{"grafana": "grafana.test", "restate": "restate.test", "s3": "s3.test"},
 	}
 	k, err := service.NewKeys(cfg, domain.Fast)
 	if err != nil {
@@ -46,9 +47,14 @@ func newEnv(t *testing.T) env {
 	return env{db: pgtest.New(t), cfg: cfg, keys: k}
 }
 
+// testStoreLogin mints the same keys every time.
+func testStoreLogin(context.Context) (domain.StoreCredentials, error) {
+	return domain.StoreCredentials{AccessKey: "AK", SecretKey: "SK", SessionToken: "ST", Expiration: now.Add(time.Hour)}, nil
+}
+
 // at is Console on the env's database with its clock stopped at t.
 func (e env) at(t time.Time) *service.Console {
-	return console.NewService(e.db, console.Settings{Keys: e.keys, Config: e.cfg}, nil, func() time.Time { return t })
+	return console.NewService(e.db, console.Settings{Keys: e.keys, Config: e.cfg, StoreLogin: testStoreLogin}, nil, func() time.Time { return t })
 }
 
 func (e env) login(email, pw, newPassword, code string, at time.Time) (service.SignedIn, error) {

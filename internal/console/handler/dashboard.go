@@ -73,7 +73,31 @@ func (h *Handler) OpenDashboard(w http.ResponseWriter, r *http.Request) {
 		strings.ContainsFunc(rd, func(c rune) bool { return c == '\\' || unicode.IsControl(c) }) {
 		rd = "/"
 	}
-	w.Header().Set("Location", rd)
+	h.land(w, r, service.DashboardCheck{Host: r.Host, URI: rd, Token: out.Token})
+}
+
+// DashboardLogin serves GET /_dashboard/login on a dashboard's host, where
+// Traefik sends a dashboard's own sign-in page (the S3 console's): it signs
+// in a reader whose dashboard cookie is live, and sends any other to the
+// console.
+func (h *Handler) DashboardLogin(w http.ResponseWriter, r *http.Request) {
+	var tok string
+	if c, err := r.Cookie(dashboardCookie); err == nil {
+		tok = c.Value
+	}
+	h.land(w, r, service.DashboardCheck{Host: r.Host, URI: "/", Token: tok})
+}
+
+// land redirects to DashboardLanding's answer for in. The S3 console's
+// answer carries keys, so no cache keeps it.
+func (h *Handler) land(w http.ResponseWriter, r *http.Request, in service.DashboardCheck) {
+	loc, err := h.svc.DashboardLanding(r.Context(), in)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Location", loc)
 	w.WriteHeader(http.StatusFound)
 }
 

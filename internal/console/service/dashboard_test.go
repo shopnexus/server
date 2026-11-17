@@ -204,3 +204,30 @@ func TestDashboardSessionsEndWithTheConsoleSession(t *testing.T) {
 		t.Fatal("granted after a disable")
 	}
 }
+
+// A dashboard opens at the path asked for; the S3 console opens through its
+// SSO callback with fresh keys; a request without a live session goes to
+// the console.
+func TestDashboardLanding(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	_, admin := e.enrolled(t, "admin@example.com", domain.RoleAdmin)
+	grafana := e.open(t, "grafana.test", e.ticket(t, admin, domain.AppGrafana))
+	s3 := e.open(t, "s3.test", e.ticket(t, admin, domain.AppS3))
+
+	if got, err := e.at(now).DashboardLanding(ctx, service.DashboardCheck{Host: "grafana.test", URI: "/d/abc", Token: grafana}); err != nil || got != "/d/abc" {
+		t.Errorf("grafana: %q %v", got, err)
+	}
+	want := domain.StoreConsoleCallback(domain.StoreCredentials{AccessKey: "AK", SecretKey: "SK", SessionToken: "ST", Expiration: now.Add(time.Hour)}, "/rustfs/console/browser/")
+	if got, err := e.at(now).DashboardLanding(ctx, service.DashboardCheck{Host: "s3.test", URI: "/rustfs/console/browser/", Token: s3}); err != nil || got != want {
+		t.Errorf("s3: %q %v", got, err)
+	}
+	got, err := e.at(now).DashboardLanding(ctx, service.DashboardCheck{Host: "s3.test", URI: "/", Token: grafana})
+	if err != nil || got != "https://console.test/dashboards/open?app=s3&rd=%2F" {
+		t.Errorf("s3 with grafana's cookie: %q %v", got, err)
+	}
+	if _, err := e.at(now).DashboardLanding(ctx, service.DashboardCheck{Host: "elsewhere.test", Token: s3}); !errors.Is(err, domain.ErrDashboardHostUnknown) {
+		t.Errorf("an unknown host: %v", err)
+	}
+}

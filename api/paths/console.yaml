@@ -533,7 +533,10 @@ dashboardCallback:
       The answer sets console_dashboard (Secure, HttpOnly, SameSite=Lax,
       Path=/, no Domain, so only this host gets it) for as long as the
       console session has left, and redirects to rd when rd is a path on
-      this host, to / otherwise.
+      this host, to / otherwise. On the s3 host it redirects to the RustFS
+      console's SSO callback instead, with keys from the store's STS
+      AssumeRole that last an hour in the fragment, and the callback opens
+      rd when rd is a page of the console.
     tags: [console]
     parameters:
       - name: ticket
@@ -551,7 +554,7 @@ dashboardCallback:
           maxLength: 4096
     responses:
       "302":
-        description: Opened; Location is rd or /.
+        description: Opened; Location is rd, /, or the RustFS console's SSO callback.
         headers:
           Location:
             schema:
@@ -569,6 +572,33 @@ dashboardCallback:
               $ref: "../schemas/error.yaml#/Error"
       "403":
         description: "DASHBOARD_HOSTS does not name this host (dashboard_host_unknown)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+dashboardLogin:
+  get:
+    operationId: signInConsoleDashboard
+    summary: Sign the browser in to a dashboard that keeps its own keys.
+    description: |
+      Served on each dashboard's own host. Traefik sends the RustFS
+      console's sign-in page (/rustfs/console/auth/login) here, so a reader
+      whose keys expired signs in again without typing them. With a live
+      console_dashboard cookie it redirects as the callback does for rd /;
+      without one, to the console's /dashboards/open. The answer has
+      Cache-Control no-store.
+    tags: [console]
+    security:
+      - dashboardAuth: []
+    responses:
+      "302":
+        description: Location is the RustFS console's SSO callback, /, or the console's /dashboards/open.
+        headers:
+          Location:
+            schema:
+              type: string
+      "403":
+        description: "DASHBOARD_HOSTS does not name this host (dashboard_host_unknown), or the member's role is below the dashboard's floor (console_forbidden)."
         content:
           application/json:
             schema:
