@@ -113,7 +113,7 @@ myIdentities:
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
-        description: Not signed in, the account was deleted (session_revoked), or a token failed a check (invalid_phone_token, invalid_google_token).
+        description: Not signed in (unauthenticated, invalid_token), or the account was deleted (session_revoked).
         content:
           application/json:
             schema:
@@ -127,7 +127,7 @@ myIdentities:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: invalid_phone, invalid_code (details.attempts_left), code_expired or code_locked.
+        description: A token failed a check (invalid_phone_token, invalid_google_token), the verified number is not a Vietnamese mobile number (invalid_phone), or the code is wrong (invalid_code, details.attempts_left), expired or replaced (code_expired) or out of guesses (code_locked).
         content:
           application/json:
             schema:

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
 // SignIn checks the proof, has the SignIn service find or create the
@@ -23,7 +24,7 @@ func (s *Account) SignIn(ctx context.Context, in SignInInput) (SignedIn, error) 
 		}
 		run.Guess, key, codeMatch = &g, g.ChallengeID.String()+"/"+in.IdempotencyKey, match
 	} else {
-		addr, err := s.verifyToken(ctx, in.Proof)
+		addr, err := s.verifyToken(ctx, in.Proof, apperr.KindUnauthenticated)
 		if err != nil {
 			return SignedIn{}, err
 		}

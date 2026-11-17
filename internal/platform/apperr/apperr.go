@@ -91,6 +91,14 @@ func (e *Error) WithCause(err error) *Error {
 	return &c
 }
 
+// WithKind returns a copy of e of another kind with the same code, for a
+// refusal whose status depends on the operation that meets it.
+func (e *Error) WithKind(kind Kind) *Error {
+	c := *e
+	c.Kind = kind
+	return &c
+}
+
 // WithField returns a copy of e with one more field problem. The copy has a
 // map of its own, so the Error it came from keeps its fields.
 func (e *Error) WithField(name, problem string) *Error {

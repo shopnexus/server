@@ -150,7 +150,8 @@ type Sessions interface {
 
 // TokenVerifier checks a sign-in token and returns the address it proves:
 // provider/firebase for phone tokens and provider/google for Google ID
-// tokens in the app.
+// tokens in the app. A token that fails a check is an *apperr.Error of
+// kind KindUnauthenticated, which is how SignIn answers it.
 type TokenVerifier interface {
 	Verify(ctx context.Context, token string) (contact.Address, error)
 }

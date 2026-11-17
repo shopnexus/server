@@ -7,6 +7,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/account/repository"
+	"github.com/shopnexus/server2/internal/platform/apperr"
 )
 
 // Reauthenticate renews the sign-in time of the caller's session after a
@@ -50,7 +51,7 @@ func (s *Account) Reauthenticate(ctx context.Context, in ReauthenticateInput) (d
 		}
 		run.Guess, key, codeMatch = &g, sess.ID().String()+"/"+g.ChallengeID.String()+"/"+in.IdempotencyKey, match
 	} else {
-		addr, verifyErr := s.verifyToken(ctx, in.Proof)
+		addr, verifyErr := s.verifyToken(ctx, in.Proof, apperr.KindInvalid)
 		if verifyErr != nil {
 			return domain.AccessToken{}, verifyErr
 		}
