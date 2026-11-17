@@ -178,6 +178,10 @@ ConsoleAccountList:
     next_cursor:
       type: string
       format: uuid
+    total:
+      type: integer
+      minimum: 0
+      description: With status, how many accounts are in that status now, whatever q and the page.
 ConsoleAccountDetail:
   type: object
   additionalProperties: false

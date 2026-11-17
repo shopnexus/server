@@ -54,6 +54,12 @@ type Service interface {
 	ConsoleAccount(ctx context.Context, id uuid.UUID) (ConsoleAccount, error)
 	// ConsoleAccounts lists accounts as console members see them, newest first.
 	ConsoleAccounts(ctx context.Context, p page.Request) (page.Page[ConsoleAccount], error)
+	// SuspendedAccounts lists the accounts whose suspension is in force now,
+	// as console members see them: the suspension that ends soonest first,
+	// those without an end last.
+	SuspendedAccounts(ctx context.Context, p page.Request) (page.Page[ConsoleAccount], error)
+	// SuspendedCount is how many accounts SuspendedAccounts lists in all.
+	SuspendedCount(ctx context.Context) (int, error)
 	// Suspend stops an account from writing and records account.suspend.
 	Suspend(ctx context.Context, in SuspendInput) (ConsoleAccount, error)
 	// Unsuspend lifts a suspension and records account.unsuspend.

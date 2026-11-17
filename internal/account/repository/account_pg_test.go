@@ -207,6 +207,51 @@ func TestListNewestFirst(t *testing.T) {
 	}
 }
 
+// ListSuspended lists the suspensions in force, the one that ends soonest
+// first and one without an end last, and leaves out a lapsed one and an
+// active account; CountSuspended counts the same accounts.
+func TestListSuspended(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+	ctx := context.Background()
+	suspend := func(until *time.Time) uuid.UUID {
+		t.Helper()
+		id := seed(t, s)
+		a, err := s.Get(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := a.Suspend("spam", until, now); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Save(ctx, &a, uuid.NewV7(), nil); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	later, soon, lapsed := now.Add(2*time.Hour), now.Add(time.Hour), now.Add(10*time.Minute)
+	noEnd, second, first := suspend(nil), suspend(&later), suspend(&soon)
+	suspend(&lapsed)
+	seed(t, s)
+	at := now.Add(30 * time.Minute)
+
+	got, err := s.ListSuspended(ctx, at, page.Request{Limit: 10})
+	ids := make([]uuid.UUID, 0, len(got))
+	for _, a := range got {
+		ids = append(ids, a.ID())
+	}
+	if err != nil || !slices.Equal(ids, []uuid.UUID{first, second, noEnd}) {
+		t.Fatalf("%v %v", ids, err)
+	}
+	rest, err := s.ListSuspended(ctx, at, page.Request{Cursor: second, Limit: 10})
+	if err != nil || len(rest) != 1 || rest[0].ID() != noEnd {
+		t.Fatalf("after the cursor: %v %v", rest, err)
+	}
+	if n, err := s.CountSuspended(ctx, at); err != nil || n != 3 {
+		t.Fatalf("count: %d %v", n, err)
+	}
+}
+
 // GetMany returns the accounts it finds and leaves an unknown ID out.
 func TestGetMany(t *testing.T) {
 	t.Parallel()

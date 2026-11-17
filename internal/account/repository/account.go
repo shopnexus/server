@@ -40,6 +40,12 @@ type Accounts interface {
 	// List is a query: accounts with IDs below p.Before(), newest first, at
 	// most p.Fetch().
 	List(ctx context.Context, p page.Request) ([]domain.Account, error)
+	// ListSuspended is a query: the accounts whose suspension is in force at
+	// now, the one that ends soonest first and those without an end last,
+	// after the account p.Cursor names, at most p.Fetch().
+	ListSuspended(ctx context.Context, now time.Time, p page.Request) ([]domain.Account, error)
+	// CountSuspended is a query: how many accounts ListSuspended lists in all.
+	CountSuspended(ctx context.Context, now time.Time) (int, error)
 	// Block records that blocker blocks blocked, as id, and deletes the
 	// follows between the two, both ways; blocking again changes nothing.
 	Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error

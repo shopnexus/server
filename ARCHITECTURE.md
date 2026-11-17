@@ -136,6 +136,13 @@ the repository. The repository lists rows below `req.Before()`, which is
 the page holds. The service returns `page.Of(rows, req, id)`, which drops the extra
 row and sets `next_cursor` to the ID of the last item kept.
 
+A list ordered by another column keeps the ID cursor. The repository reads
+the cursor row's sort key and lists the rows after it in (key, id) order.
+`Accounts.ListSuspended` does this with the suspension's end, a missing end
+as infinity. A list that needs a count adds a `total` field to its own
+response schema, as `ConsoleAccountList` does; `page.Page` has none
+(decided 2026-11-17).
+
 ### Transactions and concurrency
 
 A transaction lives inside a repository method and covers one aggregate.

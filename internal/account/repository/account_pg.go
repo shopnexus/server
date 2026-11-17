@@ -185,6 +185,42 @@ func (s pgAccounts) List(ctx context.Context, p page.Request) ([]domain.Account,
 	return accounts, nil
 }
 
+// suspendedNow are the accounts whose suspension is in force at @now: a
+// lapsed one reads as active, as domain.Account.Status says.
+const suspendedNow = `status = 'suspended' AND (suspended_until IS NULL OR suspended_until > @now) AND id <> @system`
+
+// listSuspended orders by the suspension's end, a missing end as infinity,
+// then by ID. The cursor is the ID of the last account listed; the query
+// reads that account's end to know where to go on. On the first page the
+// cursor is the zero ID and @first is true.
+const listSuspended = `SELECT ` + accountColumns + ` FROM accounts WHERE ` + suspendedNow + `
+  AND (@first OR (coalesce(suspended_until, 'infinity'), id) >
+      (SELECT coalesce(suspended_until, 'infinity'), id FROM accounts WHERE id = @cursor))
+ORDER BY coalesce(suspended_until, 'infinity'), id LIMIT @limit`
+
+func (s pgAccounts) ListSuspended(ctx context.Context, now time.Time, p page.Request) ([]domain.Account, error) {
+	rows, err := s.db.Query(ctx, listSuspended, pgx.StrictNamedArgs{
+		"now": now, "system": domain.ShopNexusID, "first": p.Cursor == (uuid.UUID{}), "cursor": p.Cursor, "limit": p.Fetch(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("select suspended accounts: %w", err)
+	}
+	accounts, err := pgx.CollectRows(rows, scanAccount)
+	if err != nil {
+		return nil, fmt.Errorf("read suspended accounts: %w", err)
+	}
+	return accounts, nil
+}
+
+func (s pgAccounts) CountSuspended(ctx context.Context, now time.Time) (int, error) {
+	var n int
+	err := s.db.QueryRow(ctx, `SELECT count(*) FROM accounts WHERE `+suspendedNow, pgx.StrictNamedArgs{"now": now, "system": domain.ShopNexusID}).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count suspended accounts: %w", err)
+	}
+	return n, nil
+}
+
 // lockLiving takes a share lock on account's row and refuses a deleted
 // account with domain.ErrSessionRevoked. A write that checked the account
 // before Erase and commits after it waits for Erase and then sees the

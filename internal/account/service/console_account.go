@@ -30,3 +30,27 @@ func (s *Account) ConsoleAccounts(ctx context.Context, p page.Request) (page.Pag
 	}
 	return page.Of(out, p, func(a ConsoleAccount) uuid.UUID { return a.ID }), nil
 }
+
+// SuspendedAccounts lists the accounts whose suspension is in force now: the
+// suspension that ends soonest first, those without an end last.
+func (s *Account) SuspendedAccounts(ctx context.Context, p page.Request) (page.Page[ConsoleAccount], error) {
+	now := s.now()
+	list, err := s.accounts.ListSuspended(ctx, now, p)
+	if err != nil {
+		return page.Page[ConsoleAccount]{}, fmt.Errorf("list suspended accounts: %w", err)
+	}
+	out := make([]ConsoleAccount, 0, len(list))
+	for i := range list {
+		out = append(out, consoleAccountOf(list[i], now))
+	}
+	return page.Of(out, p, func(a ConsoleAccount) uuid.UUID { return a.ID }), nil
+}
+
+// SuspendedCount is how many accounts SuspendedAccounts lists in all.
+func (s *Account) SuspendedCount(ctx context.Context) (int, error) {
+	n, err := s.accounts.CountSuspended(ctx, s.now())
+	if err != nil {
+		return 0, fmt.Errorf("count suspended accounts: %w", err)
+	}
+	return n, nil
+}

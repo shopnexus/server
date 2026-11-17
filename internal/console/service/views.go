@@ -8,6 +8,7 @@ import (
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
 	"github.com/shopnexus/server2/internal/console/domain"
 	"github.com/shopnexus/server2/internal/platform/audit"
+	"github.com/shopnexus/server2/internal/platform/page"
 )
 
 // Me is the Me schema in api/schemas/console.yaml.
@@ -108,4 +109,20 @@ type DashboardAccess struct {
 	Email   string
 	Role    string
 	OpenURL string
+}
+
+// AccountQuery is what ListAccounts lists: every account, or the one Q names
+// by ID or phone number, and with Suspended only accounts suspended now.
+type AccountQuery struct {
+	Q         string
+	Suspended bool
+}
+
+// AccountList is the ConsoleAccountList schema. Total is set with
+// AccountQuery.Suspended: how many accounts are suspended now, whatever Q
+// and the page.
+type AccountList struct {
+	page.Page[accountsvc.ConsoleAccount]
+
+	Total *int `json:"total,omitempty"`
 }
