@@ -30,6 +30,8 @@ func (h *Handler) Register(r *httpx.Router, moderator, admin func(http.Handler) 
 	mod("GET /v1/console/agent/conversations", h.ListConversations)
 	mod("POST /v1/console/agent/conversations", h.CreateConversation)
 	mod("GET /v1/console/agent/conversations/{id}", h.GetConversation)
+	mod("PATCH /v1/console/agent/conversations/{id}", h.RenameConversation)
+	mod("DELETE /v1/console/agent/conversations/{id}", h.DeleteConversation)
 	mod("POST /v1/console/agent/conversations/{id}/turns", h.Ask)
 	mod("GET /v1/console/agent/turns/{id}", h.GetTurn)
 	mod("GET /v1/console/agent/turns/{id}/events", h.Events)
@@ -141,6 +143,25 @@ func (h *Handler) CreateConversation(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
 	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in idRequest) (service.ConversationDetail, error) {
 		return h.svc.Conversation(r.Context(), c, in.ID)
+	})
+}
+
+type renameRequest struct {
+	ID    uuid.UUID `json:"-"     path:"id"`
+	Title string    `json:"title"`
+}
+
+// RenameConversation serves PATCH /v1/console/agent/conversations/{id}.
+func (h *Handler) RenameConversation(w http.ResponseWriter, r *http.Request) {
+	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in renameRequest) (service.Conversation, error) {
+		return h.svc.RenameConversation(r.Context(), c, in.ID, in.Title)
+	})
+}
+
+// DeleteConversation serves DELETE /v1/console/agent/conversations/{id}.
+func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
+	serve(h, w, r, http.StatusNoContent, func(c authn.ConsoleMember, in idRequest) (none, error) {
+		return none{}, h.svc.DeleteConversation(r.Context(), c, in.ID)
 	})
 }
 

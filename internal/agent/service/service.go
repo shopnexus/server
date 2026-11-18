@@ -37,6 +37,17 @@ type Service interface {
 	//
 	// UC-MOD-08
 	Conversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConversationDetail, error)
+	// RenameConversation gives a conversation a title: caller's own, or any
+	// for an admin; a shared one is an admin's (agent_forbidden).
+	//
+	// UC-MOD-08
+	RenameConversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, title string) (Conversation, error)
+	// DeleteConversation deletes a conversation with its turns, events and
+	// documents, by the same rule as RenameConversation; a turn still open
+	// refuses it (agent_turn_in_progress).
+	//
+	// UC-MOD-08
+	DeleteConversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) error
 	// Ask puts caller's question to a console agent in a conversation; the
 	// agent answers with the turn's id at once and runs it.
 	//

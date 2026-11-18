@@ -39,6 +39,15 @@ AgentConversationNew:
     subject_id:
       type: string
       format: uuid
+AgentConversationRename:
+  type: object
+  additionalProperties: false
+  required: [title]
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 80
 AgentConversationDetail:
   type: object
   additionalProperties: false

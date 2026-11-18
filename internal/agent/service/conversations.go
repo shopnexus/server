@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"strings"
+	"unicode/utf8"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/agent/domain"
@@ -61,4 +63,29 @@ func (s *Agent) Conversation(ctx context.Context, caller authn.ConsoleMember, id
 	}
 	got.Turns = turns
 	return got, nil
+}
+
+// RenameConversation is UC-MOD-08: the member names a conversation.
+func (s *Agent) RenameConversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, title string) (Conversation, error) {
+	title = strings.TrimSpace(title)
+	if title == "" || utf8.RuneCountInString(title) > 80 {
+		return Conversation{}, domain.ErrTitleInvalid
+	}
+	var got Conversation
+	if err := s.send(ctx, caller, request{
+		method: http.MethodPatch, path: "/conversations/" + id.String(), in: map[string]string{"title": title}, out: &got,
+		timeout: readTimeout, late: domain.ErrUnavailable, notFound: domain.ErrConversationNotFound, badRequest: domain.ErrTitleInvalid,
+	}); err != nil {
+		return Conversation{}, err
+	}
+	return got, nil
+}
+
+// DeleteConversation is UC-MOD-08: the member deletes a conversation, and
+// the agent deletes its turns, events and documents with it.
+func (s *Agent) DeleteConversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) error {
+	return s.send(ctx, caller, request{
+		method: http.MethodDelete, path: "/conversations/" + id.String(), timeout: readTimeout,
+		late: domain.ErrUnavailable, notFound: domain.ErrConversationNotFound,
+	})
 }

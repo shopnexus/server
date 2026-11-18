@@ -55,4 +55,6 @@ var (
 	ErrAnswersInvalid = apperr.New(apperr.KindInvalid, "agent_answers_invalid",
 		"the answers do not fit the turn's questions")
 	ErrSkillInvalid = apperr.New(apperr.KindInvalid, "agent_skill_invalid", "the skill's fields do not fit")
+	// ErrTitleInvalid refuses an empty title for a conversation.
+	ErrTitleInvalid = apperr.New(apperr.KindInvalid, "agent_title_invalid", "a title has 1 to 80 characters")
 )

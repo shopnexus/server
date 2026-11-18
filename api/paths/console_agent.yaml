@@ -95,6 +95,80 @@ conversation:
         $ref: "../responses/common.yaml#/AgentConversationNotFound"
       "503":
         $ref: "../responses/common.yaml#/AgentUnavailable"
+  patch:
+    operationId: renameConsoleAgentConversation
+    x-uc: [UC-MOD-08]
+    summary: Give a conversation a title.
+    description: >-
+      A member renames their own conversation without a subject, an admin any. Another member's own is not found;
+      a ticket's or an account's shared conversation is an admin's (agent_forbidden).
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/console_agent.yaml#/AgentConversationRename"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console_agent.yaml#/AgentConversation"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "A shared conversation, for a moderator (agent_forbidden)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        $ref: "../responses/common.yaml#/AgentConversationNotFound"
+      "422":
+        description: "The title is empty or longer than 80 characters (agent_title_invalid)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AgentUnavailable"
+  delete:
+    operationId: deleteConsoleAgentConversation
+    x-uc: [UC-MOD-08]
+    summary: Delete a conversation with its turns, events and documents.
+    description: >-
+      Who may is as for the rename. A conversation with a turn running, paused or waiting for answers is refused
+      (agent_turn_in_progress).
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "204":
+        description: Deleted.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "A shared conversation, for a moderator (agent_forbidden)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        $ref: "../responses/common.yaml#/AgentConversationNotFound"
+      "409":
+        description: "A turn of the conversation is still open (agent_turn_in_progress)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AgentUnavailable"
 conversationTurns:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"

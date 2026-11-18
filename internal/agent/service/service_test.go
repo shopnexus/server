@@ -177,3 +177,54 @@ func TestConversationSubjects(t *testing.T) {
 		t.Errorf("an id alone: %v", err)
 	}
 }
+
+// A rename and a delete go to the agent as PATCH and DELETE on the
+// conversation; an empty title is refused here, and the agent's refusals
+// keep their meaning. UC-MOD-08.
+func TestRenameAndDeleteConversation(t *testing.T) {
+	t.Parallel()
+	st := repository.NewSettings(pgtest.New(t))
+	id := uuid.NewV7()
+	var got []string
+	s := agentOn(t, st, func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]string
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		got = append(got, r.Method+" "+r.URL.Path+" "+body["title"])
+		if r.Method == http.MethodDelete {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"id": id, "title": body["title"], "updated_at": time.Now()})
+	})
+	c, err := s.RenameConversation(context.Background(), caller, id, "  Ring check  ")
+	if err != nil || c.Title != "Ring check" {
+		t.Fatalf("rename: %+v %v", c, err)
+	}
+	if err := s.DeleteConversation(context.Background(), caller, id); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	want := []string{"PATCH /conversations/" + id.String() + " Ring check", "DELETE /conversations/" + id.String() + " "}
+	if len(got) != 2 || got[0] != want[0] || got[1] != want[1] {
+		t.Errorf("calls %q, want %q", got, want)
+	}
+	if _, err := s.RenameConversation(context.Background(), caller, id, "   "); !errors.Is(err, domain.ErrTitleInvalid) {
+		t.Errorf("an empty title: %v", err)
+	}
+	for _, c := range []struct {
+		status int
+		code   string
+		want   error
+	}{
+		{http.StatusForbidden, "forbidden", domain.ErrForbidden},
+		{http.StatusConflict, "turn_in_progress", domain.ErrTurnInProgress},
+		{http.StatusNotFound, "not_found", domain.ErrConversationNotFound},
+	} {
+		refuse := agentOn(t, st, func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(c.status)
+			_ = json.NewEncoder(w).Encode(map[string]string{"code": c.code})
+		})
+		if err := refuse.DeleteConversation(context.Background(), caller, id); !errors.Is(err, c.want) {
+			t.Errorf("delete %q: %v, want %v", c.code, err, c.want)
+		}
+	}
+}
