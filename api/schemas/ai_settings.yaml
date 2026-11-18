@@ -1,0 +1,569 @@
+AIProviderMode:
+  type: string
+  description: pick keeps the models an admin added; sync lists the provider's models every 6 hours and adds the new ones, with no tags.
+  enum: [pick, sync]
+AIProvider:
+  type: object
+  additionalProperties: false
+  description: A provider, a LiteLLM credential. Each of its models is a deployment of every agent alias that runs on it, with the provider's weight and order.
+  required: [id, name, kind, weight, order, mode, models]
+  properties:
+    id:
+      type: string
+      description: The LiteLLM credential name.
+    name:
+      type: string
+    kind:
+      type: string
+      description: LiteLLM's provider route, such as openai, anthropic or openrouter.
+    base_url:
+      type: string
+    key_hint:
+      type: string
+      description: The key as LiteLLM shows it, masked. The key itself never comes back.
+    weight:
+      type: number
+      minimum: 0
+      description: The provider's share of calls among providers of the same order.
+    order:
+      type: integer
+      minimum: 1
+      description: Lower is tried first; a higher order is the fallback.
+    mode:
+      $ref: "#/AIProviderMode"
+    models:
+      type: array
+      items:
+        type: string
+    synced_at:
+      type: string
+      format: date-time
+      description: The last sync, for a provider in sync mode.
+AIProviderList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/AIProvider"
+AIProviderNew:
+  type: object
+  additionalProperties: false
+  required: [id, kind, api_key]
+  properties:
+    id:
+      type: string
+      pattern: "^[a-z0-9][a-z0-9-]{1,40}$"
+    name:
+      type: string
+      maxLength: 100
+    kind:
+      type: string
+      pattern: "^[a-z][a-z0-9_]{1,30}$"
+    base_url:
+      type: string
+      format: uri
+      maxLength: 500
+    api_key:
+      type: string
+      minLength: 1
+      maxLength: 1000
+      writeOnly: true
+    weight:
+      type: number
+      minimum: 0
+    order:
+      type: integer
+      minimum: 1
+    mode:
+      $ref: "#/AIProviderMode"
+AIProviderPatch:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    name:
+      type: string
+      maxLength: 100
+    base_url:
+      type: string
+      maxLength: 500
+    api_key:
+      type: string
+      minLength: 1
+      maxLength: 1000
+      writeOnly: true
+    weight:
+      type: number
+      minimum: 0
+    order:
+      type: integer
+      minimum: 1
+    mode:
+      $ref: "#/AIProviderMode"
+AIProviderModelNew:
+  type: object
+  additionalProperties: false
+  required: [model]
+  properties:
+    model:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: The model as the provider names it, without LiteLLM's route.
+    input_cost_per_mtok:
+      type: number
+      minimum: 0
+      description: USD per million input tokens, for LiteLLM's spend.
+    output_cost_per_mtok:
+      type: number
+      minimum: 0
+AIProviderTestRequest:
+  type: object
+  additionalProperties: false
+  properties:
+    model:
+      type: string
+      maxLength: 200
+      description: The model to call; the first of the provider's list when left out.
+AIProviderTest:
+  type: object
+  additionalProperties: false
+  required: [ok, latency_ms]
+  properties:
+    ok:
+      type: boolean
+    model:
+      type: string
+    error:
+      type: string
+      description: The provider's error as LiteLLM gives it.
+    latency_ms:
+      type: integer
+AITag:
+  type: object
+  additionalProperties: false
+  required: [name, kind]
+  properties:
+    name:
+      type: string
+    kind:
+      type: string
+      enum: [type, capability]
+AINamed:
+  type: object
+  additionalProperties: false
+  required: [id, name]
+  properties:
+    id:
+      type: string
+    name:
+      type: string
+AIAgentRef:
+  type: object
+  additionalProperties: false
+  required: [id, name]
+  properties:
+    id:
+      type: string
+      format: uuid
+    name:
+      type: string
+AIModel:
+  type: object
+  additionalProperties: false
+  required: [model, tags, providers, agents]
+  properties:
+    model:
+      type: string
+    tags:
+      type: array
+      items:
+        type: string
+    providers:
+      type: array
+      items:
+        $ref: "#/AINamed"
+    agents:
+      type: array
+      description: The agents that run on the model.
+      items:
+        $ref: "#/AIAgentRef"
+    input_cost_per_mtok:
+      type: number
+    output_cost_per_mtok:
+      type: number
+AIModelList:
+  type: object
+  additionalProperties: false
+  required: [items, tags]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/AIModel"
+    tags:
+      type: array
+      description: Every tag, in order.
+      items:
+        $ref: "#/AITag"
+AIModelTagsRequest:
+  type: object
+  additionalProperties: false
+  required: [model, tags]
+  properties:
+    model:
+      type: string
+      minLength: 1
+      maxLength: 200
+      description: The model, which may hold a slash (baai/bge-m3).
+    tags:
+      type: array
+      maxItems: 20
+      items:
+        type: string
+AIModelTags:
+  type: object
+  additionalProperties: false
+  required: [model, tags]
+  properties:
+    model:
+      type: string
+    tags:
+      type: array
+      items:
+        type: string
+AIAgentLimits:
+  type: object
+  additionalProperties: false
+  description: >-
+    A console agent's limits, sent to the agent service with each turn: the deadline (10 to 300 s, 60 by
+    default), the model calls of a run segment, the context window, each tool call's time limit and attempts,
+    and an answer's tokens; a field left out takes the agent service's default. An app agent's timeout_s is its
+    call's time limit.
+  properties:
+    deadline_s:
+      type: integer
+      minimum: 10
+      maximum: 300
+    max_model_calls:
+      type: integer
+      minimum: 1
+    context_window:
+      type: integer
+      minimum: 1
+    tool_timeout_s:
+      type: integer
+      minimum: 1
+    tool_attempts:
+      type: integer
+      minimum: 1
+    max_tokens:
+      type: integer
+      minimum: 1
+    timeout_s:
+      type: integer
+      minimum: 1
+AIAgent:
+  type: object
+  additionalProperties: false
+  required: [id, kind, name, alias, icon, purpose, required_tags, model, instructions_version, tools, limits, enabled, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    kind:
+      type: string
+      description: app agents are called by the server's code; console agents run in the agent service.
+      enum: [app, console]
+    name:
+      type: string
+    alias:
+      type: string
+      description: The model name sent to LiteLLM; shown nowhere else.
+    icon:
+      type: string
+    purpose:
+      type: string
+    required_tags:
+      type: array
+      items:
+        type: string
+    model:
+      type: string
+    instructions:
+      type: string
+      description: A console agent's instructions.
+    instructions_version:
+      type: integer
+    tools:
+      type: array
+      description: The MCP tools a console agent may call.
+      items:
+        type: string
+    limits:
+      $ref: "#/AIAgentLimits"
+    monthly_budget_usd:
+      type: number
+    enabled:
+      type: boolean
+    updated_by:
+      type: string
+      format: uuid
+    updated_at:
+      type: string
+      format: date-time
+AIAgentList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/AIAgent"
+AIAgentNew:
+  type: object
+  additionalProperties: false
+  required: [name, alias, model]
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    alias:
+      type: string
+      pattern: "^[a-z0-9][a-z0-9-]{1,62}$"
+    icon:
+      type: string
+      maxLength: 40
+    purpose:
+      type: string
+      maxLength: 500
+    required_tags:
+      type: array
+      maxItems: 10
+      items:
+        type: string
+    model:
+      type: string
+      minLength: 1
+      maxLength: 200
+    instructions:
+      type: string
+      maxLength: 20000
+    tools:
+      type: array
+      maxItems: 50
+      items:
+        type: string
+    limits:
+      $ref: "#/AIAgentLimits"
+    monthly_budget_usd:
+      type: number
+      minimum: 0
+    enabled:
+      type: boolean
+AIAgentPatch:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  description: An app agent takes model, limits and monthly_budget_usd only (else ai_agent_app_fixed).
+  properties:
+    name:
+      type: string
+      minLength: 1
+      maxLength: 80
+    icon:
+      type: string
+      maxLength: 40
+    purpose:
+      type: string
+      maxLength: 500
+    required_tags:
+      type: array
+      maxItems: 10
+      items:
+        type: string
+    model:
+      type: string
+      minLength: 1
+      maxLength: 200
+    instructions:
+      type: string
+      maxLength: 20000
+    tools:
+      type: array
+      maxItems: 50
+      items:
+        type: string
+    limits:
+      $ref: "#/AIAgentLimits"
+    monthly_budget_usd:
+      type: [number, "null"]
+      minimum: 0
+      description: null takes the budget away.
+    enabled:
+      type: boolean
+AIAgentVersion:
+  type: object
+  additionalProperties: false
+  required: [version, instructions, created_at]
+  properties:
+    version:
+      type: integer
+    instructions:
+      type: string
+    created_by:
+      type: string
+      format: uuid
+    created_at:
+      type: string
+      format: date-time
+AIAgentVersionList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      description: Newest first.
+      items:
+        $ref: "#/AIAgentVersion"
+AIRoutingStrategy:
+  type: string
+  description: LiteLLM's routing strategy. simple-shuffle picks by the providers' weights.
+  enum: [simple-shuffle, least-busy, latency-based-routing, usage-based-routing-v2]
+AIRotation:
+  type: object
+  additionalProperties: false
+  required: [routing_strategy, num_retries, allowed_fails, cooldown_s, timeout_s]
+  properties:
+    routing_strategy:
+      type: string
+    num_retries:
+      type: integer
+    allowed_fails:
+      type: integer
+      description: Failures in a minute before a deployment cools down.
+    cooldown_s:
+      type: number
+    timeout_s:
+      type: number
+AIRotationPatch:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    routing_strategy:
+      $ref: "#/AIRoutingStrategy"
+    num_retries:
+      type: integer
+      minimum: 0
+      maximum: 10
+    allowed_fails:
+      type: integer
+      minimum: 0
+      maximum: 100
+    cooldown_s:
+      type: number
+      minimum: 0
+      maximum: 3600
+    timeout_s:
+      type: number
+      minimum: 1
+      maximum: 600
+AIAgentBudget:
+  type: object
+  additionalProperties: false
+  required: [agent_id, name, kind, spent_usd]
+  properties:
+    agent_id:
+      type: string
+      format: uuid
+    name:
+      type: string
+    kind:
+      type: string
+      enum: [app, console]
+    monthly_budget_usd:
+      type: number
+    spent_usd:
+      type: number
+      description: Spent in the budget's current period, as LiteLLM counts it.
+AIBudgets:
+  type: object
+  additionalProperties: false
+  required: [agents]
+  properties:
+    agents:
+      type: array
+      items:
+        $ref: "#/AIAgentBudget"
+    member_daily_usd:
+      type: number
+      description: What each member may spend a day through the console agents.
+AIBudgetsPatch:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  properties:
+    agents:
+      type: array
+      maxItems: 50
+      items:
+        type: object
+        additionalProperties: false
+        required: [agent_id, monthly_budget_usd]
+        properties:
+          agent_id:
+            type: string
+            format: uuid
+          monthly_budget_usd:
+            type: [number, "null"]
+            minimum: 0
+    member_daily_usd:
+      type: [number, "null"]
+      minimum: 0
+AISpend:
+  type: object
+  additionalProperties: false
+  required: [range, start, end, total_usd, days]
+  properties:
+    range:
+      type: string
+      enum: [7d, 30d, 90d]
+    start:
+      type: string
+      format: date
+    end:
+      type: string
+      format: date
+    total_usd:
+      type: number
+    days:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [date, total_usd, agents]
+        properties:
+          date:
+            type: string
+            format: date
+          total_usd:
+            type: number
+          agents:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              required: [agent_id, usd]
+              properties:
+                agent_id:
+                  type: string
+                  format: uuid
+                usd:
+                  type: number

@@ -6,6 +6,7 @@ package service
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"time"
 	"uuid"
@@ -13,6 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
 	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/provider/litellm"
 )
 
 // Service is module agent's contract.
@@ -33,11 +35,80 @@ type Service interface {
 	//
 	// UC-MOD-08
 	Conversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConversationDetail, error)
-	// Ask puts caller's question to the agent in a conversation and waits
-	// for the answer and the sources the agent read.
+	// Ask puts caller's question to a console agent in a conversation; the
+	// agent answers with the turn's id at once and runs it.
 	//
 	// UC-MOD-08 · BR-MOD-03 · ADR-0003
-	Ask(ctx context.Context, caller authn.ConsoleMember, conversation uuid.UUID, text string) (Answer, error)
+	Ask(ctx context.Context, caller authn.ConsoleMember, conversation uuid.UUID, in NewTurn) (TurnStarted, error)
+	// Events opens a turn's event stream after lastEventID.
+	//
+	// UC-MOD-08
+	Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, lastEventID string) (io.ReadCloser, error)
+	// Control pauses, stops, continues or ends a turn's run.
+	Control(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, c Control) (TurnState, error)
+	// Steer gives a run text to read before its next model call.
+	Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, text string) (Steering, error)
+	// Turn reads a turn.
+	Turn(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Turn, error)
+	// Answer answers a turn's clarifying questions.
+	Answer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, answers Answers) (TurnState, error)
+	// ToolCall reads a tool call in full.
+	ToolCall(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ToolCall, error)
+	// Document reads a document a turn wrote, with its versions.
+	Document(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Document, error)
+	// Skill reads a skill.
+	Skill(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Skill, error)
+	// Skills lists the skills every member shares.
+	Skills(ctx context.Context, caller authn.ConsoleMember) ([]Skill, error)
+	// CreateSkill saves a skill.
+	CreateSkill(ctx context.Context, caller authn.ConsoleMember, in SkillInput) (Skill, error)
+	// UpdateSkill changes a skill.
+	UpdateSkill(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, in SkillPatch) (Skill, error)
+	// DeleteSkill deletes a skill.
+	DeleteSkill(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) error
+	// ConsoleAgents lists the console agents a member may pick.
+	ConsoleAgents(ctx context.Context) ([]ConsoleAgent, error)
+
+	// The AI settings, an admin's. Each change is a console action.
+
+	// Providers lists the providers with their models.
+	Providers(ctx context.Context) ([]Provider, error)
+	// CreateProvider stores a provider in LiteLLM.
+	CreateProvider(ctx context.Context, caller authn.ConsoleMember, in NewProvider) (Provider, error)
+	// UpdateProvider changes a provider.
+	UpdateProvider(ctx context.Context, caller authn.ConsoleMember, id string, in ProviderPatch) (Provider, error)
+	// DeleteProvider deletes a provider and its deployments.
+	DeleteProvider(ctx context.Context, caller authn.ConsoleMember, id string) error
+	// AddProviderModel adds a model to a provider's list.
+	AddProviderModel(ctx context.Context, caller authn.ConsoleMember, id, model string, inPerMTok, outPerMTok *float64) (Provider, error)
+	// RemoveProviderModel takes a model out of a provider's list.
+	RemoveProviderModel(ctx context.Context, caller authn.ConsoleMember, id, model string) (Provider, error)
+	// TestProvider calls a provider's model once through LiteLLM.
+	TestProvider(ctx context.Context, id, model string) (ProviderTest, error)
+	// SyncProviders adds the new models of the providers in sync mode.
+	SyncProviders(ctx context.Context) error
+	// Models lists the models with their tags.
+	Models(ctx context.Context) (ModelList, error)
+	// SetModelTags replaces a model's tags.
+	SetModelTags(ctx context.Context, caller authn.ConsoleMember, model string, tags []string) ([]string, error)
+	// Agents lists the app and console agents.
+	Agents(ctx context.Context) ([]AgentView, error)
+	// CreateAgent makes a console agent.
+	CreateAgent(ctx context.Context, caller authn.ConsoleMember, in NewAgent) (AgentView, error)
+	// UpdateAgent changes an agent.
+	UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, in AgentPatch) (AgentView, error)
+	// AgentVersions lists an agent's instructions' versions.
+	AgentVersions(ctx context.Context, id uuid.UUID) ([]AgentVersion, error)
+	// Rotation reads the router's settings.
+	Rotation(ctx context.Context) (Rotation, error)
+	// UpdateRotation changes the router's settings.
+	UpdateRotation(ctx context.Context, caller authn.ConsoleMember, in RotationPatch) (Rotation, error)
+	// Budgets reads the agents' and members' budgets.
+	Budgets(ctx context.Context) (Budgets, error)
+	// UpdateBudgets changes them.
+	UpdateBudgets(ctx context.Context, caller authn.ConsoleMember, in BudgetsPatch) (Budgets, error)
+	// Spend reads the daily spend over a range.
+	Spend(ctx context.Context, rng string) (Spend, error)
 	// RecordRead records that an MCP tool read personal data of subject
 	// for member.
 	//
@@ -54,7 +125,11 @@ const ReadsKeptFor = 90 * 24 * time.Hour
 
 // Deps is what New builds Agent from.
 type Deps struct {
-	Reads repository.Reads
+	Reads    repository.Reads
+	Settings repository.Settings
+	// Gateway is LiteLLM's admin API, with LITELLM_URL and
+	// LITELLM_MASTER_KEY.
+	Gateway litellm.Admin
 	// BaseURL is the agent service's, and Token the bearer token it takes
 	// (AGENT_BASE_URL and AGENT_SERVICE_TOKEN).
 	BaseURL string
@@ -65,15 +140,17 @@ type Deps struct {
 
 // Agent implements Service in this process.
 type Agent struct {
-	reads   repository.Reads
-	baseURL string
-	token   string
-	http    *http.Client
-	now     func() time.Time
+	reads    repository.Reads
+	settings repository.Settings
+	gateway  litellm.Admin
+	baseURL  string
+	token    string
+	http     *http.Client
+	now      func() time.Time
 }
 
 var _ Service = (*Agent)(nil)
 
 func New(d Deps) *Agent {
-	return &Agent{reads: d.Reads, baseURL: d.BaseURL, token: d.Token, http: d.HTTP, now: d.Now}
+	return &Agent{reads: d.Reads, settings: d.Settings, gateway: d.Gateway, baseURL: d.BaseURL, token: d.Token, http: d.HTTP, now: d.Now}
 }

@@ -109,6 +109,8 @@ func required() map[string]string {
 		"AGENT_SERVICE_TOKEN":          "agent-service-token-of-32-characters",
 		"AGENT_MCP_ADDR":               "0.0.0.0:9090",
 		"AGENT_MCP_TOKEN":              "agent-mcp-token-of-at-least-32-chars",
+		"LITELLM_URL":                  "http://litellm.example.test:4000",
+		"LITELLM_MASTER_KEY":           "sk-master",
 		"FCM_CREDENTIALS":              "",
 		"FIREBASE_PROJECT_ID":          "shopnexus-test",
 		"FIREBASE_PROJECT_NUMBER":      "123456789",
@@ -212,6 +214,7 @@ func TestLoadAllSet(t *testing.T) {
 		Agent: AgentConfig{
 			BaseURL: "http://agent.example.test:3000", ServiceToken: "agent-service-token-of-32-characters",
 			MCPAddr: "0.0.0.0:9090", MCPToken: "agent-mcp-token-of-at-least-32-chars",
+			LiteLLMURL: "http://litellm.example.test:4000", LiteLLMMasterKey: "sk-master",
 		},
 		Firebase: FirebaseConfig{
 			ProjectID: "shopnexus-test", ProjectNumber: "123456789",

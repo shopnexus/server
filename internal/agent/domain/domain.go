@@ -36,3 +36,23 @@ var (
 // conversation with a kind and no id.
 var ErrInvalidSubject = apperr.New(apperr.KindInvalid, "agent_subject_invalid",
 	"a subject_id needs its subject_kind, and a new conversation takes both or neither")
+
+// The errors of a run's controls and of what a turn made.
+var (
+	ErrTurnNotFound = apperr.New(apperr.KindNotFound, "agent_turn_not_found",
+		"no such turn, or not one this member may open")
+	ErrTurnState = apperr.New(apperr.KindConflict, "agent_turn_state",
+		"the turn is not in a state that takes this: pause a running turn, continue a paused or broken one")
+	ErrToolCallNotFound = apperr.New(apperr.KindNotFound, "agent_tool_call_not_found", "no such tool call")
+	ErrDocumentNotFound = apperr.New(apperr.KindNotFound, "agent_document_not_found", "no such document or version")
+	ErrSkillNotFound    = apperr.New(apperr.KindNotFound, "agent_skill_not_found", "no such skill")
+	ErrSkillTaken       = apperr.New(apperr.KindConflict, "agent_skill_taken", "another skill has this slug")
+)
+
+var (
+	ErrForbidden = apperr.New(apperr.KindForbidden, "agent_forbidden",
+		"only the member who made the skill, or an admin, may change it")
+	ErrAnswersInvalid = apperr.New(apperr.KindInvalid, "agent_answers_invalid",
+		"the answers do not fit the turn's questions")
+	ErrSkillInvalid = apperr.New(apperr.KindInvalid, "agent_skill_invalid", "the skill's fields do not fit")
+)

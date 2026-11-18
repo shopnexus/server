@@ -404,6 +404,56 @@ paths:
     $ref: "paths/console_agent.yaml#/conversation"
   /v1/console/agent/conversations/{id}/turns:
     $ref: "paths/console_agent.yaml#/conversationTurns"
+  /v1/console/agent/turns/{id}:
+    $ref: "paths/console_agent.yaml#/turn"
+  /v1/console/agent/turns/{id}/events:
+    $ref: "paths/console_agent.yaml#/turnEvents"
+  /v1/console/agent/turns/{id}/pause:
+    $ref: "paths/console_agent.yaml#/turnPause"
+  /v1/console/agent/turns/{id}/stop:
+    $ref: "paths/console_agent.yaml#/turnStop"
+  /v1/console/agent/turns/{id}/continue:
+    $ref: "paths/console_agent.yaml#/turnContinue"
+  /v1/console/agent/turns/{id}/end:
+    $ref: "paths/console_agent.yaml#/turnEnd"
+  /v1/console/agent/turns/{id}/steer:
+    $ref: "paths/console_agent.yaml#/turnSteer"
+  /v1/console/agent/turns/{id}/input:
+    $ref: "paths/console_agent.yaml#/turnInput"
+  /v1/console/agent/tool-calls/{id}:
+    $ref: "paths/console_agent.yaml#/toolCall"
+  /v1/console/agent/documents/{id}:
+    $ref: "paths/console_agent.yaml#/document"
+  /v1/console/agent/skills:
+    $ref: "paths/console_agent.yaml#/skills"
+  /v1/console/agent/skills/{id}:
+    $ref: "paths/console_agent.yaml#/skill"
+  /v1/console/agents:
+    $ref: "paths/console_agent.yaml#/consoleAgents"
+  /v1/console/settings/providers:
+    $ref: "paths/ai_settings.yaml#/providers"
+  /v1/console/settings/providers/{id}:
+    $ref: "paths/ai_settings.yaml#/provider"
+  /v1/console/settings/providers/{id}/models:
+    $ref: "paths/ai_settings.yaml#/providerModels"
+  /v1/console/settings/providers/{id}/test:
+    $ref: "paths/ai_settings.yaml#/providerTest"
+  /v1/console/settings/models:
+    $ref: "paths/ai_settings.yaml#/models"
+  /v1/console/settings/models/tags:
+    $ref: "paths/ai_settings.yaml#/modelTags"
+  /v1/console/settings/agents:
+    $ref: "paths/ai_settings.yaml#/agents"
+  /v1/console/settings/agents/{id}:
+    $ref: "paths/ai_settings.yaml#/agent"
+  /v1/console/settings/agents/{id}/versions:
+    $ref: "paths/ai_settings.yaml#/agentVersions"
+  /v1/console/settings/rotation:
+    $ref: "paths/ai_settings.yaml#/rotation"
+  /v1/console/settings/budgets:
+    $ref: "paths/ai_settings.yaml#/budgets"
+  /v1/console/settings/spend:
+    $ref: "paths/ai_settings.yaml#/spend"
   /v1/console/dashboard-tickets:
     $ref: "paths/console.yaml#/dashboardTickets"
   /v1/console/dashboard-auth:

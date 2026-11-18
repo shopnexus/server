@@ -3,6 +3,7 @@ package e2e
 import (
 	"net/http"
 	"slices"
+	"strings"
 	"testing"
 
 	consoledomain "github.com/shopnexus/server/internal/console/domain"
@@ -15,14 +16,9 @@ type agentConversation struct {
 	Title       string `json:"title"`
 }
 
-type agentAnswer struct {
+type agentTurnStarted struct {
 	ConversationID string `json:"conversation_id"`
 	TurnID         string `json:"turn_id"`
-	Answer         string `json:"answer"`
-	Sources        []struct {
-		Tool string   `json:"tool"`
-		IDs  []string `json:"ids"`
-	} `json:"sources"`
 }
 
 // A record's conversation is shared by every member; one without a record
@@ -63,11 +59,14 @@ func TestConsoleAgentConversations(t *testing.T) {
 		t.Fatalf("the conversations about accounts: %+v", ofKind)
 	}
 
-	answer := expect[agentAnswer](t, consoleCall(t, lan, "POST", path+"/"+first.ID+"/turns", map[string]string{"text": "Tài khoản này có gì lạ?"}),
-		http.StatusOK)
-	if answer.ConversationID != first.ID || answer.TurnID == "" || answer.Answer == "" || len(answer.Sources) != 1 ||
-		answer.Sources[0].Tool != "ticket_get" {
-		t.Fatalf("answer %+v", answer)
+	started := expect[agentTurnStarted](t, consoleCall(t, lan, "POST", path+"/"+first.ID+"/turns",
+		map[string]string{"text": "Tài khoản này có gì lạ?"}), http.StatusAccepted)
+	if started.ConversationID != first.ID || started.TurnID == "" {
+		t.Fatalf("started %+v", started)
+	}
+	events := consoleCall(t, lan, "GET", "/v1/console/agent/turns/"+started.TurnID+"/events", nil)
+	if events.Status != http.StatusOK || !strings.Contains(string(events.Body), `"type":"turn.finished"`) {
+		t.Fatalf("events %d %s", events.Status, events.Body)
 	}
 	if asked := agentStub.lastAsked(); asked != [2]string{lan.ID, "moderator"} {
 		t.Fatalf("the agent heard %v, want %s as moderator", asked, lan.ID)
@@ -92,7 +91,6 @@ func TestConsoleAgentConversations(t *testing.T) {
 	}{
 		"budget": {429, "agent_budget"},
 		"rate":   {429, "agent_rate_limited"},
-		"slow":   {504, "agent_timeout"},
 		"busy":   {409, "agent_turn_in_progress"},
 		"closed": {409, "agent_conversation_closed"},
 		"long":   {422, "agent_input_rejected"},

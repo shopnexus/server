@@ -229,7 +229,8 @@ type TrustConfig struct {
 }
 
 // AgentConfig says where the console agent is and how it and the server
-// trust each other (see ARCHITECTURE.md, Console agent). Neither token is
+// trust each other, and where LiteLLM's admin API is for the AI settings
+// (see ARCHITECTURE.md, Console agent and AI settings). No token or key is
 // ever logged.
 type AgentConfig struct {
 	// BaseURL is AGENT_BASE_URL, the agent service on the internal
@@ -244,6 +245,11 @@ type AgentConfig struct {
 	// MCPToken is AGENT_MCP_TOKEN, the bearer token the agent sends the
 	// MCP server; at least 32 characters.
 	MCPToken string
+	// LiteLLMURL is LITELLM_URL, LiteLLM's base URL for its admin API (no
+	// /v1), which the AI settings drive.
+	LiteLLMURL string
+	// LiteLLMMasterKey is LITELLM_MASTER_KEY, LiteLLM's master key.
+	LiteLLMMasterKey string
 }
 
 // AuthConfig holds the auth module's keys and token settings. No key is ever
@@ -618,6 +624,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		Agent: AgentConfig{
 			BaseURL: need("AGENT_BASE_URL"), ServiceToken: token("AGENT_SERVICE_TOKEN"),
 			MCPAddr: need("AGENT_MCP_ADDR"), MCPToken: token("AGENT_MCP_TOKEN"),
+			LiteLLMURL: need("LITELLM_URL"), LiteLLMMasterKey: need("LITELLM_MASTER_KEY"),
 		},
 		OTLPEndpoint:   set("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		ServiceName:    need("SERVICE_NAME"),

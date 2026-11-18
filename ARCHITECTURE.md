@@ -438,13 +438,17 @@ separate work.
 | listing views | `listing_view_marks`, `listing_view_days` | module discovery; a person's last day of opening each listing, and the views per listing and UTC day; no aggregate, no `write_id` |
 | notification settings | `notification_settings` | module notification; one row per account that saved settings; no aggregate, no `write_id`: the last `PUT` wins |
 | agent reads | `console_agent_reads` | module agent; one row per read of personal data by an MCP tool, kept 90 days; no aggregate, no `write_id` |
+| AI agents | `ai_agents`, `ai_agent_versions` | module agent; `ai_agents` adds `write_id`, and a save adds the version of new instructions (see AI settings) |
+| model tags | `ai_tags`, `ai_model_tags` | module agent; no aggregate, no `write_id`: setting a model's tags replaces them |
 
 No column is named after an SQL keyword (sqlfluff RF04, run with
 `sqlfluff lint migrations/`): `events.occurred_at` and `payload`,
 `console_actions.action_kind` and `acted_at`, `identities.identifier`,
 `console_login_locks.email_hash`,
 `console_members.console_role`, `console_agent_reads.tool_name` and
-`read_at`, and `display_name` for categories, provinces and communes. Go fields and JSON keep their own names where an API already
+`read_at`, `ai_tags.tag_name`, `tag_kind` and `sort_order`,
+`ai_agents.agent_kind`, `display_name` and `model_alias`,
+`ai_agent_versions.version_no`, and `display_name` for categories, provinces and communes. Go fields and JSON keep their own names where an API already
 published them (`role`, `value`, `action`, `at`). `.sqlfluffignore` skips
 the generated `0005_regions.sql`, which is past the parser's node limit.
 
@@ -2609,70 +2613,110 @@ decided 2026-11-16, spec:
 The agent loop is its own service, `shopnexus/agent`, on the internal
 network (ADR-0003). The server is the agent's only way in and its only
 source of data: the console calls the server, the server forwards to the
-agent, and the agent reads through the server's MCP. Phase 1 is a buffered
-answer in plain text with its sources; blocks, the stream and background
-runs come later.
+agent, and the agent reads through the server's MCP. Since 2026-11-18 a
+turn is a run the member watches on a server-sent event stream, with
+pause, steering, clarifying questions, numbered sources, documents and
+skills (spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-18-console-ai-synthesis-design.md`).
 
-- Module `agent` has `handler` (the console's agent endpoints), `mcp` (the
-  MCP server and its tools), `service` (the client to the agent service and
-  the read record) and `repository` (`console_agent_reads`). `mcp` is a
-  layer of its own in depguard: it imports a module's service and domain,
-  as a handler does, and nothing imports it but the module's `Mount`.
-  `Mount` takes `module.Deps`, `Settings`, console's moderator guard and
-  service, and the services of support, account, catalog, deal,
-  shipping and trust. `console.Mount` returns `console.Mounted`, the service and
-  `Moderator` (`FromConsole` then `Require(..., moderator)`), so a module
-  outside console can serve a console route.
+- Module `agent` has `handler` (the console's agent endpoints and the AI
+  settings), `mcp` (the MCP server and its tools), `service` (the client
+  to the agent service, the read record and the AI settings over LiteLLM)
+  and `repository` (`console_agent_reads` and the `ai_*` tables). `mcp` is
+  a layer of its own in depguard: it imports a module's service and
+  domain, as a handler does, and nothing imports it but the module's
+  `Mount`. `Mount` takes `module.Deps`, `Settings`, console's moderator
+  and admin guards and service, and the services of support, account,
+  catalog, deal, shipping and trust. `console.Mount` returns
+  `console.Mounted`, the service, `Moderator` (`FromConsole` then
+  `Require(..., moderator)`) and `Admin` (the same with the admin floor),
+  so a module outside console can serve a console route.
 - Configuration, all required: `AGENT_BASE_URL`, `AGENT_SERVICE_TOKEN`,
-  `AGENT_MCP_ADDR`, `AGENT_MCP_TOKEN`. Each token has at least 32
-  characters; `cmd/envgen` writes both, 32 random bytes in URL-safe base64,
-  and the agent's environment takes the same two; no log line carries
-  either token.
+  `AGENT_MCP_ADDR`, `AGENT_MCP_TOKEN`, `LITELLM_URL` (LiteLLM's base URL
+  without `/v1`) and `LITELLM_MASTER_KEY`. Each agent token has at least
+  32 characters; `cmd/envgen` writes both, 32 random bytes in URL-safe
+  base64, and the agent's environment takes the same two. No log line
+  carries a token or the master key.
 
 #### The console's agent endpoints
 
-`GET` and `POST /v1/console/agent/conversations`,
-`GET /v1/console/agent/conversations/{id}` and
-`POST /v1/console/agent/conversations/{id}/turns`, behind `FromConsole`
-and a moderator's or an admin's session. A handler forwards and adds
-nothing: the service sends the request to `AGENT_BASE_URL` with
+Behind `FromConsole` and a moderator's or an admin's session. A handler
+forwards and adds nothing but a turn's agent configuration: the service
+sends the request to `AGENT_BASE_URL` with
 `Authorization: Bearer <AGENT_SERVICE_TOKEN>`, `X-Console-Member` (the
 member's id) and `X-Console-Role` (`moderator` or `admin`), and maps the
 answer. A record has one conversation, which every member shares and the
 first `POST` for it makes; a conversation without a record is its
 creator's. A list takes a subject, a subject kind alone or neither; a new
-conversation takes both or neither (422 `agent_subject_invalid`). A turn
-is answered in one response this phase; the server waits 75 seconds, the
-agent's 60-second deadline (NFR-PERF-02) and a margin, and 10 seconds for
-any other call.
+conversation takes both or neither (422 `agent_subject_invalid`). Every
+call waits 10 seconds for the agent; a turn's event stream waits 10
+seconds for its headers and then has no deadline.
 
-The agent service (`shopnexus/agent`) serves the same paths under its base
-URL, in snake_case JSON, and the API's schemas are its shapes, so the
-service decodes an answer into the view it returns. It refuses a request
-without the service token (constant-time) and reads the member from the
-two headers.
+The agent service serves the same paths under its base URL, in snake_case
+JSON, and the API's schemas are its shapes, so the service decodes an
+answer into the view it returns, with the statuses in lower case.
 
-| Agent | Answer |
-|---|---|
-| `GET /conversations?subject_kind=&subject_id=` | 200, an array of `{id, subject_kind?, subject_id?, title?, updated_at}`; the server answers `{items}` |
-| `POST /conversations {subject_kind?, subject_id?}` | 200, the conversation, found or made |
-| `GET /conversations/{id}` | 200, the conversation with `turns`, oldest first: `{id, member_id, status, text, answer?, sources, created_at}`, the status in upper case, which the server lowers |
-| `POST /conversations/{id}/turns {text}` | 200 `{conversation_id, turn_id, answer, sources: [{tool, label, ids}]}`, a source per tool call |
+| Console | Agent | Answer |
+|---|---|---|
+| `GET /v1/console/agent/conversations` | `GET /conversations?subject_kind=&subject_id=` | the agent's array as `{items}` |
+| `POST /v1/console/agent/conversations` | `POST /conversations` | the conversation, found or made |
+| `GET /v1/console/agent/conversations/{id}` | `GET /conversations/{id}` | the conversation with its turns, oldest first, each the turn view |
+| `POST /v1/console/agent/conversations/{id}/turns {text, agent_id?, attachments?, skill_id?}` | `POST /conversations/{id}/turns {text, attachments?, skill_id?, agent_config}` | 202 `{conversation_id, turn_id}` |
+| `GET /v1/console/agent/turns/{id}` | `GET /turns/{id}` | the turn view: status, answer, blocks, sources, outcome, error code, continuable, agent, usage, steers, questions while it waits, `last_seq` |
+| `GET /v1/console/agent/turns/{id}/events` | `GET /turns/{id}/events` | `text/event-stream` |
+| `POST …/turns/{id}/pause`, `stop`, `continue` | the same | 202 `{turn_id}` |
+| `POST …/turns/{id}/end` | the same | 200 `{turn_id, status: cancelled}` |
+| `POST …/turns/{id}/steer {text}` | the same | 202 `{steer_id, turn_id, resumed}` |
+| `POST …/turns/{id}/input {answers}` | the same | 202 `{turn_id}`; `answers` maps a question's id to an option's id or a list of them |
+| `GET /v1/console/agent/tool-calls/{id}` | `GET /tool-calls/{id}` | the call's input, output, attempts and timing |
+| `GET /v1/console/agent/documents/{id}` | `GET /documents/{id}` | the document with every version, newest first |
+| `GET`, `POST /v1/console/agent/skills`, `GET`, `PATCH`, `DELETE …/skills/{id}` | `/skills`, `/skills/{id}` | the skills every member shares; a change by a moderator to another member's skill is 403 |
+| `GET /v1/console/agents` | none | the console agents turned on, from `ai_agents`, the Console assistant marked `default` |
+
+A question names a console agent by `agent_id`, the Console assistant
+(`domain.ConsoleAssistant`, seeded by migration 0056) when it names none.
+The server reads the agent from `ai_agents`: an unknown one or an app
+agent is 404 `ai_agent_not_found`, one turned off 409 `ai_agent_disabled`.
+It sends `agent_config {id, name, alias, instructions,
+instructions_version, tools, limits}`, so the server stays the only source
+of a console agent's configuration and the agent keeps it only on the
+turn. `limits` are `deadline_s` (10 to 300, 60 by default),
+`max_model_calls`, `context_window`, `tool_timeout_s`, `tool_attempts` and
+`max_tokens`.
+
+The event stream is the agent's, copied line by line: each event is
+`id: <seq>` and `data: {seq, type, at, …}`, the schema `AgentRunEvent`
+lists the types, and the handler flushes at each blank line. The handler
+lifts the HTTP server's 30-second write deadline with
+`http.ResponseController`, and sends `Cache-Control: no-cache` and
+`X-Accel-Buffering: no`. `Last-Event-ID`, or `after` in the query for a
+page that opens the stream itself, goes to the agent as `Last-Event-ID`.
+The agent ends the stream after `turn.finished`, `turn.paused` or
+`clarify`, and the server ends its answer with it; after Continue, answers
+or an update to a paused turn the console opens the stream again from its
+last seq. A member who closes the tab cancels the request, which ends the
+read from the agent; the run goes on.
 
 An error is `{code}`. The server maps the code, and the status for a body
 without one:
 
 | Agent | Console |
 |---|---|
-| 404 `not_found` | 404 `agent_conversation_not_found` |
+| 404 `not_found` | 404 of the thing the path names: `agent_conversation_not_found`, `agent_turn_not_found`, `agent_tool_call_not_found`, `agent_document_not_found` or `agent_skill_not_found` |
 | 429 `agent_budget` (the LiteLLM budget is spent) | 429 `agent_budget` |
 | 429 `rate_limited` | 429 `agent_rate_limited` |
 | 409 `turn_in_progress`, `conversation_closed` | 409 `agent_turn_in_progress`, `agent_conversation_closed` |
+| 409 `turn_state` | 409 `agent_turn_state` |
+| 409 `skill_exists` | 409 `agent_skill_taken` |
+| 403 `forbidden` | 403 `agent_forbidden` |
 | 400 `input_rejected` (a question over 2000 characters) | 422 `agent_input_rejected` |
-| 504 `agent_timeout`, or a turn past 75 s | 504 `agent_timeout` |
-| 503 `agent_unavailable`; `unauthorized`, `bad_request`, `internal`, any other answer, no answer, a read past 10 s | 503 `agent_unavailable`, the agent's code logged |
+| 400 `bad_request` on the answers or a skill | 422 `agent_answers_invalid`, `agent_skill_invalid` |
+| 504 `agent_timeout` | 504 `agent_timeout` |
+| 503 `agent_unavailable`; `unauthorized`, `bad_request` elsewhere, `internal`, any other answer, no answer, a call past 10 s | 503 `agent_unavailable`, the agent's code logged |
 
-No request or answer body is logged, since a turn quotes people.
+A run's own failures (budget, timeout, a model or the MCP server down)
+reach the console as `turn.finished`. No request or
+answer body is logged, since a turn quotes people.
 
 #### The MCP server
 
@@ -2757,6 +2801,91 @@ ids it read, at the service's clock. A read is kept 90 days. The sweep
 runs at start and every hour in the MCP server's `Run`, as the events
 cleanup does in the bus, and deletes 10,000 rows at a time. Listing the
 reads for admins comes with the console's audit pages.
+
+### AI settings
+
+Admins set the AI providers, the models, the agents, the router's rotation
+and the budgets under `/v1/console/settings/*` (decided 2026-11-18, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-18-console-ai-synthesis-design.md`).
+Module agent serves them behind console's `Admin` guard and drives
+LiteLLM's admin API with `LITELLM_URL` and `LITELLM_MASTER_KEY`
+(`provider/litellm.Admin`). LiteLLM's database holds providers,
+deployments, router settings and budgets (`store_model_in_db`); the
+server's database holds the tags and the agents. Every change is a row in
+`console_actions`: a change to `ai_*` rows writes it in the same
+transaction, and a change made in LiteLLM writes it after LiteLLM took it.
+A provider and a model have no UUID of their own, so their `target_id` is
+`audit.NamedID`, the first 16 bytes of SHA-256 over kind and name as a
+version 8 UUID, and `details` carries the name. LiteLLM down is 503
+`ai_gateway_unavailable`; a request LiteLLM refuses is 422
+`ai_gateway_refused`, its detail logged.
+
+- A provider is a LiteLLM credential: its id is the credential name, its
+  key and base URL are the credential's values, and `credential_info`
+  holds `custom_llm_provider` (the kind, LiteLLM's route such as `openai`),
+  `base_url`, `weight`, `order`, `mode` and `synced_at`. The key never
+  comes back; the list shows LiteLLM's masked copy.
+- The deployments the server writes carry `model_info.shopnexus` (their
+  role), `provider` and `model`. A `catalog` deployment, model name
+  `<provider>/<model>`, puts a model in a provider's list. An `alias`
+  deployment serves an agent's alias: one per provider whose list has the
+  agent's model, with that provider's weight and order and the catalog's
+  price. A `lister`, model name `<provider>/*` with the route `<kind>/*`,
+  belongs to a provider in sync mode; LiteLLM's `/model/info` expands it
+  into one row per model the provider lists (the live list with
+  `litellm_settings.check_provider_endpoint`, else LiteLLM's known list).
+- A model is named as the stack calls it without LiteLLM's route
+  (`claude-haiku-5-5`, `baai/bge-m3`). The model list joins the catalog
+  deployments, the aliases LiteLLM's config wrote before the server
+  managed them, `ai_model_tags` and the agents. A model id may hold a
+  slash, and kin-openapi's router matches no encoded slash in a path, so
+  the model goes in the body (`PUT …/models/tags`) or the query
+  (`DELETE …/providers/{id}/models?model=`).
+- Picking a model for an agent rewrites the alias's deployments: it adds
+  one per provider of the model, then deletes the old ones, so the alias
+  always has a deployment and the code that calls it needs no deploy. A
+  model no provider serves is 404 `ai_model_not_found`, and one without a
+  tag the agent requires is 422 `ai_model_lacks_tags`. A provider's new
+  weight or order, and a model added to its list, rewrite the aliases on
+  it. Removing the last provider of an agent's model is 409
+  `ai_provider_in_use`.
+- Sync mode: `Mounted.Run` calls `SyncProviders` at start and every 6
+  hours, beside the read sweep. It adds a catalog deployment for each
+  model a provider's lister lists and its list lacks, with no tags, and
+  drops a model's second catalog deployment, which two replicas syncing
+  at once can leave. Switching a provider to sync syncs it at once;
+  switching back to pick deletes its lister and keeps its models.
+- Rotation is LiteLLM's router settings, read from `/router/settings` and
+  written through `/config/update`: `routing_strategy` (`simple-shuffle`
+  picks by weight; a lower order is tried first and a higher one is the
+  fallback), `num_retries`, `allowed_fails`, `cooldown_time` and
+  `timeout`.
+- Budgets: an app agent's monthly budget is `max_budget` with
+  `budget_duration: 30d` on each of its keys (`ai_agents.key_aliases`); a
+  console agent's is `model_max_budget[alias]` on the agent service's key
+  `agent`, which also gains a new console agent's alias in its `models`.
+  A member's daily budget is the LiteLLM budget `console-member-daily`
+  (one day), the `end_user_budget_id` of key `agent`; the agent passes
+  `user=<member id>`. Spent figures are the keys' `spend` and
+  `model_spend`; `GET …/spend?range=7d|30d|90d` reads
+  `/user/daily/activity/aggregated` and maps each model group to the
+  agent with that alias.
+
+| Table | Holds |
+|---|---|
+| `ai_tags` | the eight tags: types Chat and Embedding; capabilities Vision, Tool use, Long context, Reasoning, Structured output and Multilingual |
+| `ai_model_tags` | `(model_id, tag_name)`, seeded for `claude-sonnet-5-5`, `claude-haiku-5-5` and `baai/bge-m3` |
+| `ai_agents` | each agent: kind (`app`, `console`), `display_name`, `model_alias`, icon, purpose, required tags, model, instructions and their version, tools, limits, monthly budget, LiteLLM key aliases, enabled, who changed it and `write_id` |
+| `ai_agent_versions` | each version of an agent's instructions, who wrote it and when |
+
+Migration 0056 seeds the agents: Console assistant (`console-agent`,
+console, every MCP tool), Scam check (`scam-check`), Listing photo reader
+(`listing-read`), Search (`search`) and Search embeddings (`embed-text`),
+the four app agents with their keys of `infra/stack/litellm/keys.txt`. An
+app agent takes a model, limits and a budget; any other change is 422
+`ai_agent_app_fixed`. Only a console agent has instructions and tools,
+which a CHECK holds. New instructions raise `instructions_version` and add
+a row to `ai_agent_versions`.
 
 ### Erasure
 

@@ -1,0 +1,570 @@
+# The AI settings, an admin's: providers, models and their tags, agents,
+# the router's rotation, budgets and spend. Providers, deployments, router
+# settings and budgets live in LiteLLM's database and the server drives
+# them through LiteLLM's admin API with the master key; tags and agents
+# live in the server's database.
+providers:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listAIProviders
+    summary: "The providers, each with its models. Admins only."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIProviderList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+  post:
+    operationId: createAIProvider
+    summary: "Add a provider: a LiteLLM credential with its key. Admins only; each change is a console action."
+    description: "A provider in sync mode lists its models at once. The key goes to LiteLLM only."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/ai_settings.yaml#/AIProviderNew"
+    responses:
+      "201":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIProvider"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "422":
+        $ref: "../responses/common.yaml#/AISettingsRefused"
+      "409":
+        description: "A provider has this id already (ai_provider_exists)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+provider:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/AIProviderID"
+  patch:
+    operationId: updateAIProvider
+    summary: "Change a provider's name, base URL, key, weight, order or mode. Admins only; each change is a console action."
+    description: "A new weight or order is written onto each agent alias deployment on the provider; sync mode lists its models at once."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/ai_settings.yaml#/AIProviderPatch"
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIProvider"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "404":
+        description: "No such provider (ai_provider_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        $ref: "../responses/common.yaml#/AISettingsRefused"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+  delete:
+    operationId: deleteAIProvider
+    summary: "Delete a provider and its deployments. Admins only; each change is a console action."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "204":
+        description: Done.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "404":
+        description: "No such provider (ai_provider_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "An agent's model has no other provider (ai_provider_in_use); pick another model for the agent first."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+providerModels:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/AIProviderID"
+  post:
+    operationId: addAIProviderModel
+    summary: "Add a model to a provider's list. Admins only; each change is a console action."
+    description: "The aliases of agents on the model gain a deployment on the provider."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/ai_settings.yaml#/AIProviderModelNew"
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIProvider"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "404":
+        description: "No such provider (ai_provider_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        $ref: "../responses/common.yaml#/AISettingsRefused"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+  delete:
+    operationId: removeAIProviderModel
+    summary: "Take a model out of a provider's list. Admins only; each change is a console action."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: model
+        in: query
+        required: true
+        description: The model, which may hold a slash (baai/bge-m3).
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 200
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIProvider"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "404":
+        description: "No such provider (ai_provider_not_found) or model on it (ai_model_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "An agent's model has no other provider (ai_provider_in_use); pick another model for the agent first."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+providerTest:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/AIProviderID"
+  post:
+    operationId: testAIProvider
+    summary: "Call one of a provider's models once through LiteLLM. Admins only."
+    description: "ok false with the provider error when the call fails; nothing changes."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/ai_settings.yaml#/AIProviderTestRequest"
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIProviderTest"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "404":
+        description: "No such provider (ai_provider_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+models:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listAIModels
+    summary: "Every model a provider serves or an agent runs on, with tags, providers, price and agents. Admins only."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIModelList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+modelTags:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  put:
+    operationId: setAIModelTags
+    summary: "Replace a model's tags. Admins only; each change is a console action."
+    description: "An agent that requires a tag the model loses keeps running on it."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/ai_settings.yaml#/AIModelTagsRequest"
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIModelTags"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "422":
+        $ref: "../responses/common.yaml#/AISettingsRefused"
+agents:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listAIAgents
+    summary: "The app agents and the console agents. Admins only."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIAgentList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+  post:
+    operationId: createAIAgent
+    summary: "Make a console agent. Admins only; each change is a console action."
+    description: "The model must carry the required tags. The alias gets one deployment per provider of the model and joins the agent service's key."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/ai_settings.yaml#/AIAgentNew"
+    responses:
+      "201":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIAgent"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "422":
+        $ref: "../responses/common.yaml#/AISettingsRefused"
+      "404":
+        description: "No provider has this model (ai_model_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "Another agent has this name or alias (ai_agent_taken), or the agent changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+agent:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/AIAgentID"
+  patch:
+    operationId: updateAIAgent
+    summary: "Change an agent. Admins only; each change is a console action."
+    description: "A new model rewrites the alias's deployments, so the code that calls it needs no deploy; new instructions are a new version."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/ai_settings.yaml#/AIAgentPatch"
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIAgent"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "404":
+        description: "No such agent (ai_agent_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        $ref: "../responses/common.yaml#/AISettingsRefused"
+      "409":
+        description: "Another agent has this name or alias (ai_agent_taken), or the agent changed meanwhile (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+agentVersions:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/AIAgentID"
+  get:
+    operationId: listAIAgentVersions
+    summary: "An agent's instructions, newest first. Admins only."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIAgentVersionList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "404":
+        description: "No such agent (ai_agent_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+rotation:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getAIRotation
+    summary: "LiteLLM's router settings. Admins only."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIRotation"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+  patch:
+    operationId: updateAIRotation
+    summary: "Change LiteLLM's router settings. Admins only; each change is a console action."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/ai_settings.yaml#/AIRotationPatch"
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIRotation"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+budgets:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getAIBudgets
+    summary: "Each agent's monthly budget and spend, and the members' daily budget. Admins only."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIBudgets"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+  patch:
+    operationId: updateAIBudgets
+    summary: "Set agents' monthly budgets and the members' daily budget. Admins only; each change is a console action."
+    description: "An app agent's budget is its LiteLLM keys'; a console agent's is its alias's budget on the agent service's key; a member's is a LiteLLM end-user budget of one day."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/ai_settings.yaml#/AIBudgetsPatch"
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIBudgets"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "404":
+        description: "No such agent (ai_agent_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+spend:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getAISpend
+    summary: "LiteLLM's spend by day, in all and by agent, over a range ending today. Admins only."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: range
+        in: query
+        schema:
+          type: string
+          enum: [7d, 30d, 90d]
+          default: 30d
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AISpend"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"

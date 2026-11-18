@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strings"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/agent/domain"
@@ -26,7 +25,7 @@ func (s *Agent) Conversations(ctx context.Context, caller authn.ConsoleMember, k
 	default:
 	}
 	var got []Conversation
-	if err := s.call(ctx, caller, http.MethodGet, "/conversations", q, nil, &got, readTimeout, domain.ErrUnavailable); err != nil {
+	if err := s.call(ctx, caller, http.MethodGet, "/conversations", q, nil, &got); err != nil {
 		return nil, err
 	}
 	if got == nil {
@@ -43,7 +42,7 @@ func (s *Agent) CreateConversation(ctx context.Context, caller authn.ConsoleMemb
 		return Conversation{}, domain.ErrInvalidSubject
 	}
 	var got Conversation
-	if err := s.call(ctx, caller, http.MethodPost, "/conversations", nil, in, &got, readTimeout, domain.ErrUnavailable); err != nil {
+	if err := s.call(ctx, caller, http.MethodPost, "/conversations", nil, in, &got); err != nil {
 		return Conversation{}, err
 	}
 	return got, nil
@@ -53,14 +52,12 @@ func (s *Agent) CreateConversation(ctx context.Context, caller authn.ConsoleMemb
 // question with the member who asked it.
 func (s *Agent) Conversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConversationDetail, error) {
 	var got ConversationDetail
-	if err := s.call(ctx, caller, http.MethodGet, "/conversations/"+id.String(), nil, nil, &got, readTimeout, domain.ErrUnavailable); err != nil {
+	if err := s.call(ctx, caller, http.MethodGet, "/conversations/"+id.String(), nil, nil, &got); err != nil {
 		return ConversationDetail{}, err
 	}
 	turns := make([]Turn, 0, len(got.Turns))
 	for i := range got.Turns {
-		t := got.Turns[i]
-		t.Status, t.Sources = strings.ToLower(t.Status), sourcesOf(t.Sources)
-		turns = append(turns, t)
+		turns = append(turns, got.Turns[i].lists())
 	}
 	got.Turns = turns
 	return got, nil

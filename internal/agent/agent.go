@@ -22,6 +22,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/config"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/module"
+	"github.com/shopnexus/server/internal/provider/litellm"
 	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
@@ -53,17 +54,20 @@ type Mounted struct {
 }
 
 // Mount registers the console's agent endpoints behind moderator, console's
-// guard of a moderator's route, builds the MCP server over the services of
-// console, support, account, catalog, deal, shipping and trust, and opens its
-// listener at AGENT_MCP_ADDR, so an address in use stops the start.
-func Mount(d module.Deps, s Settings, moderator func(http.Handler) http.Handler, consoles consolesvc.Service,
+// guard of a moderator's route, and the AI settings behind admin, builds the
+// MCP server over the services of console, support, account, catalog,
+// deal, shipping and trust, and opens its listener at AGENT_MCP_ADDR, so an
+// address in use stops the start.
+func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.Handler, consoles consolesvc.Service,
 	support supportsvc.Service, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service,
 	shipping shippingsvc.Service, trust trustsvc.Service,
 ) (*Mounted, error) {
 	svc := service.New(service.Deps{
-		Reads: repository.NewReads(d.Pool), BaseURL: s.Config.BaseURL, Token: s.Config.ServiceToken, HTTP: &http.Client{}, Now: d.Now,
+		Reads: repository.NewReads(d.Pool), Settings: repository.NewSettings(d.Pool),
+		Gateway: litellm.Admin{BaseURL: s.Config.LiteLLMURL, MasterKey: s.Config.LiteLLMMasterKey, HTTP: &http.Client{}},
+		BaseURL: s.Config.BaseURL, Token: s.Config.ServiceToken, HTTP: &http.Client{}, Now: d.Now,
 	})
-	handler.New(svc, d.Log).Register(d.Router, moderator)
+	handler.New(svc, d.Log).Register(d.Router, moderator, admin)
 	h := mcp.Handler(mcp.Deps{
 		Token: s.Config.MCPToken, Console: consoles, Agent: svc,
 		Support: support, Accounts: accounts, Catalog: catalog, Deals: deals, Shipping: shipping, Trust: trust,
@@ -79,8 +83,10 @@ func Mount(d module.Deps, s Settings, moderator func(http.Handler) http.Handler,
 // Addr is where the MCP server listens, for a test that listens on port 0.
 func (m *Mounted) Addr() net.Addr { return m.listener.Addr() }
 
-// Run serves the MCP server and sweeps old reads, at start and every hour,
-// until ctx is done; then it waits for the calls in flight and returns nil.
+// Run serves the MCP server, sweeps old reads at start and every hour, and
+// syncs the models of the providers in sync mode at start and every 6
+// hours, until ctx is done; then it waits for the calls in flight and
+// returns nil.
 func (m *Mounted) Run(ctx context.Context) error {
 	srv := &http.Server{Handler: m.mcp, ReadHeaderTimeout: 10 * time.Second}
 	served := make(chan error, 1)
@@ -90,9 +96,17 @@ func (m *Mounted) Run(ctx context.Context) error {
 			m.d.Log.WarnContext(ctx, "agent: sweep reads", "err", err)
 		}
 	}
+	sync := func() {
+		if err := m.Service.SyncProviders(ctx); err != nil && ctx.Err() == nil {
+			m.d.Log.WarnContext(ctx, "agent: sync the providers' models", "err", err)
+		}
+	}
 	sweep()
+	sync()
 	tick := time.NewTicker(sweepEvery)
 	defer tick.Stop()
+	syncTick := time.NewTicker(service.SyncEvery)
+	defer syncTick.Stop()
 	for {
 		select {
 		case <-ctx.Done():
@@ -104,6 +118,8 @@ func (m *Mounted) Run(ctx context.Context) error {
 			return fmt.Errorf("serve MCP: %w", err)
 		case <-tick.C:
 			sweep()
+		case <-syncTick.C:
+			sync()
 		}
 	}
 }

@@ -51,6 +51,7 @@ var (
 	scamStub   = newScam()          // the scam-check model
 	chototStub = newChotot()        // Chợ Tốt's gateway and CDN
 	agentStub  = newAgent()         // the console agent service
+	gateway    = newGateway()       // LiteLLM's admin API
 	phones     = newPhones()        // every push the server sends
 	mails      = newInbox()         // every mail the server sends
 	consoleSvc *consolesvc.Console  // on the server's keys and database, so tests create members directly
@@ -164,6 +165,7 @@ func setup(closers *[]func()) error {
 		Trust: config.TrustConfig{LLMBaseURL: scamStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second},
 		Agent: config.AgentConfig{
 			BaseURL: agentStub.url(), ServiceToken: agentServiceToken, MCPAddr: "127.0.0.1:0", MCPToken: agentMCPToken,
+			LiteLLMURL: gateway.url(), LiteLLMMasterKey: gatewayMasterKey,
 		},
 		Firebase: issuer.Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},

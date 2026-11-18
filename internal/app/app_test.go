@@ -58,6 +58,7 @@ func testConfig(t *testing.T) config.Config {
 		Agent: config.AgentConfig{
 			BaseURL: "http://127.0.0.1:1", ServiceToken: "app-test-agent-service-token-0123456789",
 			MCPAddr: "127.0.0.1:0", MCPToken: "app-test-agent-mcp-token-0123456789abcdef",
+			LiteLLMURL: "http://127.0.0.1:1", LiteLLMMasterKey: "none",
 		},
 		Firebase: firebasetest.New(t).Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},

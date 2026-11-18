@@ -41,12 +41,13 @@ func NewService(db *pgxpool.Pool, s Settings, accounts accountsvc.Service, now f
 }
 
 // Mounted is what console gives the modules that serve console routes of
-// their own, as agent does: the Service, and Moderator, the guard of a
-// route for moderators and admins (the console's header, then a live
-// session of a moderator or an admin).
+// their own, as agent does: the Service, Moderator, the guard of a route
+// for moderators and admins (the console's header, then a live session of
+// a moderator or an admin), and Admin, the same for admins alone.
 type Mounted struct {
 	Service   service.Service
 	Moderator func(http.Handler) http.Handler
+	Admin     func(http.Handler) http.Handler
 }
 
 // Mount registers the console endpoints and the ops dashboards' callback.
@@ -59,5 +60,10 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, support suppo
 	svc := NewService(d.Pool, s, accounts, d.Now)
 	handler.New(svc, support, trust, catalog, d.Log).Register(d.Router)
 	fromConsole, mod := handler.FromConsole(d.Log), handler.Require(svc, d.Log, domain.RoleModerator)
-	return Mounted{Service: svc, Moderator: func(h http.Handler) http.Handler { return fromConsole(mod(h)) }}
+	admin := handler.Require(svc, d.Log, domain.RoleAdmin)
+	return Mounted{
+		Service:   svc,
+		Moderator: func(h http.Handler) http.Handler { return fromConsole(mod(h)) },
+		Admin:     func(h http.Handler) http.Handler { return fromConsole(admin(h)) },
+	}
 }

@@ -257,6 +257,15 @@ Action:
         - report.reopen
         - listing.hide
         - listing.unhide
+        - ai.provider_create
+        - ai.provider_update
+        - ai.provider_delete
+        - ai.provider_models
+        - ai.model_tags
+        - ai.agent_create
+        - ai.agent_update
+        - ai.rotation
+        - ai.budgets
     target:
       type: object
       additionalProperties: false
@@ -264,7 +273,7 @@ Action:
       properties:
         kind:
           type: string
-          enum: [account, member, ticket, listing]
+          enum: [account, member, ticket, listing, ai_provider, ai_model, ai_agent, ai_settings]
         id:
           type: string
           format: uuid
@@ -272,7 +281,8 @@ Action:
       type: object
       description: >-
         What the action needs beyond its name, such as a suspension's reason and end. Never a secret. The report
-        actions carry resolution_id; listing.hide and listing.unhide carry account_id, the listing's seller.
+        actions carry resolution_id; listing.hide and listing.unhide carry account_id, the listing's seller. The ai.* actions
+        on a provider or a model carry its name, since their target id is a hash of it.
 ActionList:
   type: object
   additionalProperties: false

@@ -7,6 +7,7 @@ package audit
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"net/netip"
 	"time"
@@ -62,6 +63,18 @@ const (
 	ReportReopen        ActionKind = "report.reopen"
 	ListingHide         ActionKind = "listing.hide"
 	ListingUnhide       ActionKind = "listing.unhide"
+	// AIProviderCreate and the ai.* kinds after it are changes to the AI
+	// settings: providers, their models, model tags, agents, the router's
+	// rotation and the budgets.
+	AIProviderCreate ActionKind = "ai.provider_create"
+	AIProviderUpdate ActionKind = "ai.provider_update"
+	AIProviderDelete ActionKind = "ai.provider_delete"
+	AIProviderModels ActionKind = "ai.provider_models"
+	AIModelTags      ActionKind = "ai.model_tags"
+	AIAgentCreate    ActionKind = "ai.agent_create"
+	AIAgentUpdate    ActionKind = "ai.agent_update"
+	AIRotation       ActionKind = "ai.rotation"
+	AIBudgets        ActionKind = "ai.budgets"
 )
 
 type TargetKind string
@@ -71,6 +84,13 @@ const (
 	TargetMember  TargetKind = "member"
 	TargetTicket  TargetKind = "ticket"
 	TargetListing TargetKind = "listing"
+	// TargetAIProvider and TargetAIModel are named, not numbered: their
+	// Target.ID is NamedID of the name, and the entry's details carry it.
+	TargetAIProvider TargetKind = "ai_provider"
+	TargetAIModel    TargetKind = "ai_model"
+	TargetAIAgent    TargetKind = "ai_agent"
+	// TargetAISettings is the router's rotation and the budgets, as a whole.
+	TargetAISettings TargetKind = "ai_settings"
 )
 
 // Target is what an action changed.
@@ -83,6 +103,34 @@ func Account(id uuid.UUID) Target { return Target{Kind: TargetAccount, ID: id} }
 func Member(id uuid.UUID) Target  { return Target{Kind: TargetMember, ID: id} }
 func Ticket(id uuid.UUID) Target  { return Target{Kind: TargetTicket, ID: id} }
 func Listing(id uuid.UUID) Target { return Target{Kind: TargetListing, ID: id} }
+func AIAgent(id uuid.UUID) Target { return Target{Kind: TargetAIAgent, ID: id} }
+
+// AIProvider is the provider named name.
+func AIProvider(name string) Target {
+	return Target{Kind: TargetAIProvider, ID: NamedID(TargetAIProvider, name)}
+}
+
+// AIModel is the model named name.
+func AIModel(name string) Target {
+	return Target{Kind: TargetAIModel, ID: NamedID(TargetAIModel, name)}
+}
+
+// AISettings is a part of the AI settings as a whole, such as rotation.
+func AISettings(name string) Target {
+	return Target{Kind: TargetAISettings, ID: NamedID(TargetAISettings, name)}
+}
+
+// NamedID is the id of a target that has a name and no id of its own: the
+// first 16 bytes of SHA-256 over kind and name, as a version 8 UUID, so
+// the audit log finds every action on one provider or model by target_id.
+func NamedID(kind TargetKind, name string) uuid.UUID {
+	sum := sha256.Sum256([]byte(string(kind) + "\x00" + name))
+	var id uuid.UUID
+	copy(id[:], sum[:16])
+	id[6] = id[6]&0x0f | 0x80
+	id[8] = id[8]&0x3f | 0x80
+	return id
+}
 
 // Entry is one row of console_actions. Details holds what the action kind
 // does not say, such as a suspension's reason; never a hash or a secret.

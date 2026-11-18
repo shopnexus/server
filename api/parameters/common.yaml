@@ -73,3 +73,46 @@ AgentConversationID:
   schema:
     type: string
     format: uuid
+AgentTurnID:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: string
+    format: uuid
+AgentToolCallID:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: string
+    format: uuid
+AgentDocumentID:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: string
+    format: uuid
+AgentSkillID:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: string
+    format: uuid
+AIProviderID:
+  name: id
+  in: path
+  required: true
+  description: The provider's id, its LiteLLM credential name.
+  schema:
+    type: string
+    pattern: "^[a-z0-9][a-z0-9-]{1,40}$"
+AIAgentID:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: string
+    format: uuid

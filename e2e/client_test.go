@@ -1,15 +1,20 @@
 package e2e
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/legacy"
@@ -30,8 +35,34 @@ func loadSpec() error {
 		return err
 	}
 	doc.Servers = nil // match paths on any host, the test server included
+	openapi3filter.RegisterBodyDecoder("text/event-stream", decodeEvents)
 	specRouter, err = legacy.NewRouter(doc)
 	return err
+}
+
+// decodeEvents checks the data of every server-sent event in body against
+// the response's schema and gives the last one to the validator.
+func decodeEvents(body io.Reader, _ http.Header, schema *openapi3.SchemaRef, _ openapi3filter.EncodingFn) (any, error) {
+	var last any
+	lines := bufio.NewScanner(body)
+	for lines.Scan() {
+		data, ok := strings.CutPrefix(lines.Text(), "data: ")
+		if !ok {
+			continue
+		}
+		var v any
+		if err := json.Unmarshal([]byte(data), &v); err != nil {
+			return nil, fmt.Errorf("event data %q: %w", data, err)
+		}
+		if err := schema.Value.VisitJSON(v); err != nil {
+			return nil, fmt.Errorf("event data %q: %w", data, err)
+		}
+		last = v
+	}
+	if last == nil {
+		return nil, errors.New("a stream without events")
+	}
+	return last, nil
 }
 
 // record notes that op answered status, for the coverage check.

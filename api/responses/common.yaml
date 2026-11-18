@@ -70,3 +70,27 @@ AgentSubjectInvalid:
     application/json:
       schema:
         $ref: "../schemas/error.yaml#/Error"
+AgentTurnNotFound:
+  description: "No such turn, or not one this member may open (agent_turn_not_found)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+AgentTurnState:
+  description: "The turn is not in a state that takes this control (agent_turn_state): pause and stop take a running turn, continue a paused one or a continuable failed or timed out one, end a paused one or one awaiting input, input one awaiting input."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+AIGatewayUnavailable:
+  description: "LiteLLM cannot be reached (ai_gateway_unavailable); the settings stay as they were."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
+AISettingsRefused:
+  description: "A rule refuses the change: ai_provider_invalid, ai_model_lacks_tags, ai_tag_unknown, ai_agent_invalid, ai_agent_app_fixed, ai_rotation_invalid, or LiteLLM refused it (ai_gateway_refused)."
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/error.yaml#/Error"
