@@ -7,13 +7,13 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/chat/repository"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/restatex"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/restatex"
 )
 
 // messageSend is the MessageSend service's name without the prefix.

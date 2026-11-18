@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/api"
+	"github.com/shopnexus/server/api"
 )
 
 func TestSpecValid(t *testing.T) {

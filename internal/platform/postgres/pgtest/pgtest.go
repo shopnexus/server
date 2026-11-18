@@ -20,14 +20,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/platform/postgres"
-	"github.com/shopnexus/server2/internal/platform/testenv"
-	"github.com/shopnexus/server2/migrations"
+	"github.com/shopnexus/server/internal/platform/postgres"
+	"github.com/shopnexus/server/internal/platform/testenv"
+	"github.com/shopnexus/server/migrations"
 )
 
 const (
 	testPort = "56433"
-	testName = "server2_test"
+	testName = "server_test"
 	// cloneLock serialises template builds and clones across the test
 	// binaries `go test ./...` runs in parallel.
 	cloneLock = 7_301_002
@@ -129,7 +129,7 @@ func template(adminURL string) (string, error) {
 		h.Write([]byte(m.File()))
 		h.Write(m.Checksum[:])
 	}
-	name := "server2_tpl_" + hex.EncodeToString(h.Sum(nil))[:12]
+	name := "server_tpl_" + hex.EncodeToString(h.Sum(nil))[:12]
 
 	err := withAdmin(adminURL, func(ctx context.Context, conn *pgx.Conn) error {
 		var exists bool

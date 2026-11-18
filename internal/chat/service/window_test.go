@@ -6,11 +6,11 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/chat/repository"
-	"github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/repository"
+	"github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
 // Window gives the members and the lines oldest first; an unknown

@@ -6,7 +6,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/domain"
 )
 
 // ListingActivity is what deal holds about one of a seller's listings: the

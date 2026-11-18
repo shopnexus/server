@@ -7,9 +7,9 @@ import (
 	"slices"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/media/repository"
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // Extend keeps owner's photos for their drafts, all or none: each must be

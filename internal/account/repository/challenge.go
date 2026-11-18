@@ -4,7 +4,7 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/domain"
 )
 
 // Challenges persists email code challenges.

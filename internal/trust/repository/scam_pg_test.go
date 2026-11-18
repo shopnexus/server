@@ -11,12 +11,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
-	chatrepo "github.com/shopnexus/server2/internal/chat/repository"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server2/internal/trust/domain"
-	"github.com/shopnexus/server2/internal/trust/repository"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
+	chatrepo "github.com/shopnexus/server/internal/chat/repository"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/repository"
 )
 
 // conversation opens the conversation of two new accounts.

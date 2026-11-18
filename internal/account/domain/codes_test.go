@@ -6,8 +6,8 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 var key1, key2 = []byte("key-one-key-one-key-one-key-one!"), []byte("key-two-key-two-key-two-key-two!")

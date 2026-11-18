@@ -8,8 +8,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/notification/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/notification/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // ErrNotFound is a notice the account does not have.

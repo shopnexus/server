@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/support/domain"
+	"github.com/shopnexus/server/internal/support/domain"
 )
 
 // Open checks the request, then runs TicketOpen once per account and key,

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 func TestParsePhone(t *testing.T) {

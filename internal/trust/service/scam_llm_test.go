@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/provider/llm"
-	"github.com/shopnexus/server2/internal/trust/domain"
-	"github.com/shopnexus/server2/internal/trust/service"
+	"github.com/shopnexus/server/internal/provider/llm"
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/service"
 )
 
 // The classifier sends one line per message, marked with its side, under a

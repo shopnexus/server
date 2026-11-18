@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 // Purpose says what a code is for: signing in (and signing up), or adding

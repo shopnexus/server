@@ -14,9 +14,9 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/restatex"
-	"github.com/shopnexus/server2/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
 // urls returns TEST_RESTATE_INGRESS_URL and TEST_RESTATE_ADMIN_URL, from the

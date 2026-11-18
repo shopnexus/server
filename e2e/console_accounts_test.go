@@ -6,7 +6,7 @@ import (
 	"time"
 	"uuid"
 
-	consoledomain "github.com/shopnexus/server2/internal/console/domain"
+	consoledomain "github.com/shopnexus/server/internal/console/domain"
 )
 
 type consoleAccount struct {

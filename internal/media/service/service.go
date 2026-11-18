@@ -11,10 +11,10 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/media/repository"
-	"github.com/shopnexus/server2/internal/platform/objectstore"
-	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/repository"
+	"github.com/shopnexus/server/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/platform/restatex"
 )
 
 // Service is module media's contract.

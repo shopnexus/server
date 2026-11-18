@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/shipping/domain"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/shipping/domain"
 )
 
 type Settings interface {

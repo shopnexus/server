@@ -12,10 +12,10 @@ import (
 	"time"
 	"uuid"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/provider/carrier"
-	"github.com/shopnexus/server2/internal/shipping/domain"
-	"github.com/shopnexus/server2/internal/shipping/repository"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/shipping/domain"
+	"github.com/shopnexus/server/internal/shipping/repository"
 )
 
 // maxWeightGrams is the heaviest parcel, as deal takes it.

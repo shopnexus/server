@@ -11,13 +11,13 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
-	"github.com/shopnexus/server2/internal/platform/testenv"
-	"github.com/shopnexus/server2/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // timed serves a second deal service on e's database with the waits w and

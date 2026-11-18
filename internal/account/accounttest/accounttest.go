@@ -12,11 +12,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/account/repository"
-	"github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/repository"
+	"github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 // New creates an active account named Linh with no sign-in method and

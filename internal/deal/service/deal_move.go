@@ -7,9 +7,9 @@ import (
 	"time"
 	"uuid"
 
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/deal/repository"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/repository"
 )
 
 // Offer is UC-DEAL-02, steps 2 and 3.

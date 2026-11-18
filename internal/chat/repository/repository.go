@@ -8,8 +8,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 var ErrNotFound = errors.New("chat: not found")

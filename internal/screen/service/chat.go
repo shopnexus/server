@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"uuid"
 
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/page"
-	supportsvc "github.com/shopnexus/server2/internal/support/service"
-	trustsvc "github.com/shopnexus/server2/internal/trust/service"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/page"
+	supportsvc "github.com/shopnexus/server/internal/support/service"
+	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
 // ChatScreen is the ChatScreen schema in api/schemas/screen_inbox.yaml.

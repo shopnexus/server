@@ -4,8 +4,8 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 // SendEmailCode mails a code to the address through the EmailCodeSend

@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server2/internal/shipping/repository"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/shipping/repository"
 )
 
 func TestAccountsPutListAndDelete(t *testing.T) {

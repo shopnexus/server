@@ -4,11 +4,11 @@
 package media
 
 import (
-	"github.com/shopnexus/server2/internal/media/handler"
-	"github.com/shopnexus/server2/internal/media/repository"
-	"github.com/shopnexus/server2/internal/media/service"
-	"github.com/shopnexus/server2/internal/platform/module"
-	"github.com/shopnexus/server2/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/media/handler"
+	"github.com/shopnexus/server/internal/media/repository"
+	"github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/module"
+	"github.com/shopnexus/server/internal/platform/objectstore"
 )
 
 // Settings is what media's Mount takes beyond module.Deps.

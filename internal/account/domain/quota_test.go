@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/domain"
 )
 
 var destRules = []domain.Rule{{Window: 45 * time.Second, Max: 1}, {Window: time.Hour, Max: 5}}

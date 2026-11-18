@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	consoledomain "github.com/shopnexus/server2/internal/console/domain"
-	consolesvc "github.com/shopnexus/server2/internal/console/service"
-	"github.com/shopnexus/server2/internal/platform/audit"
+	consoledomain "github.com/shopnexus/server/internal/console/domain"
+	consolesvc "github.com/shopnexus/server/internal/console/service"
+	"github.com/shopnexus/server/internal/platform/audit"
 )
 
 const memberPassword = "a long e2e member password"

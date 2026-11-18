@@ -6,12 +6,12 @@ import (
 	"log/slog"
 	"net/http"
 
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/console/service"
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	supportsvc "github.com/shopnexus/server2/internal/support/service"
-	trustsvc "github.com/shopnexus/server2/internal/trust/service"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/console/service"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	supportsvc "github.com/shopnexus/server/internal/support/service"
+	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
 type Handler struct {

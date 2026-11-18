@@ -10,10 +10,10 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/restatex"
-	"github.com/shopnexus/server2/internal/trust/domain"
-	"github.com/shopnexus/server2/internal/trust/repository"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/repository"
 )
 
 // ScamCheckName is the ScamCheck object's name without the prefix; trust's

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/domain"
 )
 
 // ReplyRate is the ReplyRate schema in api/schemas/screen_account.yaml.

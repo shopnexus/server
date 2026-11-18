@@ -5,9 +5,9 @@ import (
 	"time"
 	"uuid"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 type suspendRequest struct {

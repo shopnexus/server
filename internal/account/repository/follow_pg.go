@@ -9,8 +9,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 type pgFollows struct{ db *pgxpool.Pool }

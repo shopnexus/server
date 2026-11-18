@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	"github.com/shopnexus/server2/internal/deal/domain"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	"github.com/shopnexus/server/internal/deal/domain"
 )
 
 func TestAccountDeletedEndsTheDeals(t *testing.T) {

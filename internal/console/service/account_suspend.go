@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"uuid"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/platform/audit"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/audit"
 )
 
 // SuspendAccount suspends a customer account; module account records

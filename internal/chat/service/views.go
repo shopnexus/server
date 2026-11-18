@@ -7,11 +7,11 @@ import (
 	"time"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/chat/repository"
-	"github.com/shopnexus/server2/internal/platform/page"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/repository"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // OpenInput is the first message of a conversation, about a listing.

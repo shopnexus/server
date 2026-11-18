@@ -14,7 +14,7 @@ import (
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 
-	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 )
 
 // Kind is what a ticket is about.

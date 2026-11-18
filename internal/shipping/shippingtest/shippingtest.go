@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/provider/carrier"
-	"github.com/shopnexus/server2/internal/shipping/domain"
-	"github.com/shopnexus/server2/internal/shipping/service"
+	"github.com/shopnexus/server/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/shipping/domain"
+	"github.com/shopnexus/server/internal/shipping/service"
 )
 
 // Linked is module shipping as deal calls it, with every seller linked at

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 type codRequest struct {

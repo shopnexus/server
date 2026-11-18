@@ -10,12 +10,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	"github.com/shopnexus/server2/internal/discovery/domain"
-	"github.com/shopnexus/server2/internal/discovery/repository"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server2/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	"github.com/shopnexus/server/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/discovery/repository"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
 // A person counts once per listing and day, again on a later day, and the

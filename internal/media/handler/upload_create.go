@@ -3,9 +3,9 @@ package handler
 import (
 	"net/http"
 
-	"github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // errPhotoTooLarge answers a photo over domain.MaxPhotoBytes: the schema's

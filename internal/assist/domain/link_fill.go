@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // MaxCopied is how many of a listing's photos a link read copies: as many

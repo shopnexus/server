@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // SearchCard is a listing as a search page and the seller view show it.

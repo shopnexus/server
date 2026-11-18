@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	"github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 func TestSearch(t *testing.T) {

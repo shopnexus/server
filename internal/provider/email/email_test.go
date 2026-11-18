@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/provider/email"
+	"github.com/shopnexus/server/internal/provider/email"
 )
 
 func TestLogSenderWritesMessage(t *testing.T) {

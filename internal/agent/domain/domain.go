@@ -3,7 +3,7 @@
 // sees when the agent cannot answer.
 package domain
 
-import "github.com/shopnexus/server2/internal/platform/apperr"
+import "github.com/shopnexus/server/internal/platform/apperr"
 
 // SubjectKind is what a conversation is about, or what a read of personal
 // data was of.

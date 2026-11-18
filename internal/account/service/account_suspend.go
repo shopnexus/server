@@ -7,11 +7,11 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/account/repository"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/events"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/events"
 )
 
 // Suspend stops an account from writing, until in.Until or, with a nil

@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // Get serves GET /v1/listings/{id}, signed in or not.

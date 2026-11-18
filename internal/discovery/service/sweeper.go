@@ -8,7 +8,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
 )
 
 // SweepService is the Restate service that sweeps one watch, without the

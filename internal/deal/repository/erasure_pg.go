@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/domain"
 )
 
 func (s pgDeals) OpenOrders(ctx context.Context, account uuid.UUID) (bool, error) {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/agent/domain"
-	"github.com/shopnexus/server2/internal/agent/repository"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/agent/domain"
+	"github.com/shopnexus/server/internal/agent/repository"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
 var now = time.Date(2026, 11, 17, 9, 0, 0, 0, time.UTC)

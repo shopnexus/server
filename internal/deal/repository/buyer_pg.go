@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/platform/postgres"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 func (s pgDeals) BuyerOrders(ctx context.Context, buyer uuid.UUID, since time.Time) (domain.BuyerOrders, error) {

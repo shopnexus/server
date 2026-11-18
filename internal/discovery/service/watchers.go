@@ -6,9 +6,9 @@ import (
 	"strings"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/discovery/domain"
-	"github.com/shopnexus/server2/internal/discovery/repository"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/discovery/repository"
 )
 
 // WatcherQuery is a listing not yet posted: its category, condition,

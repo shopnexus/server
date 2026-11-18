@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // errUnloggedKind answers a kind the log does not hold, should a request

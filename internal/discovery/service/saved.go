@@ -7,9 +7,9 @@ import (
 	"time"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/discovery/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // SavedView is the SavedListing schema in api/schemas/discovery.yaml.

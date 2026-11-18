@@ -6,8 +6,8 @@ import (
 	"testing"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	consoledomain "github.com/shopnexus/server2/internal/console/domain"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	consoledomain "github.com/shopnexus/server/internal/console/domain"
 )
 
 type reportedListing struct {

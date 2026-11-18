@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/provider/chotot"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/provider/chotot"
 )
 
 // LinkPromptVersion names the link read's prompt and

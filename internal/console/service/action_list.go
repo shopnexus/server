@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // ListActions lists the audit log newest first, narrowed by f.

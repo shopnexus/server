@@ -5,10 +5,10 @@ import (
 	"testing"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/console/service"
-	"github.com/shopnexus/server2/internal/platform/page"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/console/service"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // noAccounts is module account's Service with no accounts, as a remote

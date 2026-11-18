@@ -13,16 +13,16 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/platform/restatex"
-	"github.com/shopnexus/server2/internal/support/domain"
-	"github.com/shopnexus/server2/internal/support/repository"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/support/domain"
+	"github.com/shopnexus/server/internal/support/repository"
 )
 
 // Service is module support's contract.

@@ -1,4 +1,4 @@
-module github.com/shopnexus/server2
+module github.com/shopnexus/server
 
 go 1.27.2
 

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // SellerListings lists what anyone sees of a seller's listings as search

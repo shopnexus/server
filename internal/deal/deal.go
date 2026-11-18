@@ -6,16 +6,16 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/deal/handler"
-	"github.com/shopnexus/server2/internal/deal/repository"
-	"github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/deal/worker"
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/platform/module"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/handler"
+	"github.com/shopnexus/server/internal/deal/repository"
+	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/deal/worker"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/module"
 )
 
 // Settings is what deal needs beyond the shared dependencies: module

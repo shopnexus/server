@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
 // The search migration leaves one ParadeDB index on listings and the

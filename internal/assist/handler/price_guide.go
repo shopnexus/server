@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/assist/service"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/assist/service"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // priceGuideRequest is PriceGuideRequest; the request validator holds the

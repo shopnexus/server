@@ -16,7 +16,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
 type listing struct {

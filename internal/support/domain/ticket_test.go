@@ -7,8 +7,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/support/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/support/domain"
 )
 
 func fieldsOf(err error) map[string]string {

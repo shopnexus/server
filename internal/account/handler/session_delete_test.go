@@ -8,11 +8,11 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/api"
-	"github.com/shopnexus/server2/internal/account/handler"
-	"github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/platform/authn"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/api"
+	"github.com/shopnexus/server/internal/account/handler"
+	"github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // deletes records which session delete ran; the other methods of

@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/platform/page"
-	supportdomain "github.com/shopnexus/server2/internal/support/domain"
-	supportsvc "github.com/shopnexus/server2/internal/support/service"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/page"
+	supportdomain "github.com/shopnexus/server/internal/support/domain"
+	supportsvc "github.com/shopnexus/server/internal/support/service"
 )
 
 type queueRequest struct {

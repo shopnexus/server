@@ -7,8 +7,8 @@ import (
 	"math"
 	"time"
 
-	"github.com/shopnexus/server2/internal/ai/domain"
-	"github.com/shopnexus/server2/internal/provider/embed"
+	"github.com/shopnexus/server/internal/ai/domain"
+	"github.com/shopnexus/server/internal/provider/embed"
 )
 
 // Photos is the embed.Model of photo vectors: SigLIP 2 in module ai.

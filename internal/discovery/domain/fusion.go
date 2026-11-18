@@ -1,6 +1,6 @@
 package domain
 
-import catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+import catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 
 // The weights of each list in a hybrid search's RRF, starting values that
 // make search-eval tunes (see ARCHITECTURE.md, Search).

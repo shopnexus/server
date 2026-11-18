@@ -11,10 +11,10 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/discovery/service"
-	"github.com/shopnexus/server2/internal/discovery/worker"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
-	"github.com/shopnexus/server2/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/discovery/worker"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
 // sweeps answers Full twice, then Found, then not Found, counting the runs.

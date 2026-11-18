@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // writeCategories ends a read's system prompt with every subcategory, one

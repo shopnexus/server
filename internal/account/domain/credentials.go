@@ -6,7 +6,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 // Kind is the kind of an identity.

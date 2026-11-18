@@ -7,8 +7,8 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/shopnexus/server2/internal/assist/service"
-	"github.com/shopnexus/server2/internal/platform/events"
+	"github.com/shopnexus/server/internal/assist/service"
+	"github.com/shopnexus/server/internal/platform/events"
 )
 
 // AccountWatch deletes a deleted account's reads and waiting transcripts: Mount subscribes

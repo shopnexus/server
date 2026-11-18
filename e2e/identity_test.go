@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
-	"github.com/shopnexus/server2/internal/provider/google/googletest"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/provider/firebase/firebasetest"
+	"github.com/shopnexus/server/internal/provider/google/googletest"
 )
 
 type myAccount struct {

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/domain"
 )
 
 func TestReplyRateOf(t *testing.T) {

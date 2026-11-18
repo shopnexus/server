@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/discovery/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
 )
 
 func (d *Discovery) Hide(ctx context.Context, account, listing uuid.UUID) error {

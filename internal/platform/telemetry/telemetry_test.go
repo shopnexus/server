@@ -6,7 +6,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 
-	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/config"
 )
 
 // Without an exporter, spans must still carry real ids, so logs, error bodies

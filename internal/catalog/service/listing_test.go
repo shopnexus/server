@@ -10,17 +10,17 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/catalog/service"
-	mediadomain "github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/media/mediatest"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/service"
+	mediadomain "github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/mediatest"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
 // Posting refuses a suspended account, then an account with no phone, then

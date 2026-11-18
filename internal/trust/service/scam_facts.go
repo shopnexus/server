@@ -7,9 +7,9 @@ import (
 	"time"
 	"uuid"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/trust/domain"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/trust/domain"
 )
 
 // AccountAge tells new_account for a suspect whose account is under a week

@@ -6,7 +6,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/domain"
 )
 
 // Classifier reads a redacted window of a conversation and picks the

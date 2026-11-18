@@ -9,12 +9,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/trust/domain"
-	"github.com/shopnexus/server2/internal/trust/service"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/service"
 )
 
 // member inserts a console member and returns it as an actor.

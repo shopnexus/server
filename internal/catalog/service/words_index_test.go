@@ -5,8 +5,8 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	"github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // Words and HoldsAllWords stand in for the index when a listing is not

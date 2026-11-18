@@ -18,7 +18,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // defineFormats registers the string formats the spec relies on as shape

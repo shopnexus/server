@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // TestHoldsAllWords splits the phrase as the sweep does and looks its words

@@ -3,7 +3,7 @@ package handler
 import (
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/service"
+	"github.com/shopnexus/server/internal/account/service"
 )
 
 // proofBody is the proof fields of a sign-in, add-identity or

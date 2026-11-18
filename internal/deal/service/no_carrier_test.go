@@ -6,11 +6,11 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // noCarrier serves a second deal service on e's database with module

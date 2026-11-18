@@ -14,7 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/authn"
 )
 
 type ActorKind string

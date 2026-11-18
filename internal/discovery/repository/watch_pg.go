@@ -10,9 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/discovery/domain"
-	"github.com/shopnexus/server2/internal/platform/events"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/platform/events"
 )
 
 type pgWatches struct{ db *pgxpool.Pool }

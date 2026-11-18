@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 type Handler struct {

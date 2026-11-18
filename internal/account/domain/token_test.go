@@ -11,13 +11,13 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/config"
 )
 
 func keys(kid string) config.AuthConfig {
 	k := config.NewAuthKeys()
-	k.JWTKeyID, k.Issuer, k.Audience = kid, "server2-test", "shopnexus-app-test"
+	k.JWTKeyID, k.Issuer, k.Audience = kid, "server-test", "shopnexus-app-test"
 	return k
 }
 

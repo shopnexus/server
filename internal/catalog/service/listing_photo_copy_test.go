@@ -11,13 +11,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/catalog/service"
-	mediadomain "github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/media/mediatest"
-	mediarepo "github.com/shopnexus/server2/internal/media/repository"
-	mediasvc "github.com/shopnexus/server2/internal/media/service"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/service"
+	mediadomain "github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/mediatest"
+	mediarepo "github.com/shopnexus/server/internal/media/repository"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
 )
 
 // The copies of a sold listing's photos are new waiting uploads of the

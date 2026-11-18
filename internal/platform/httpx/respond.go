@@ -10,7 +10,7 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // Respond writes body as JSON with status.

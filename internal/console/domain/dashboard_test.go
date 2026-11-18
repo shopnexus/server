@@ -3,8 +3,8 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/platform/config"
 )
 
 // Every dashboard DASHBOARD_HOSTS may name has a floor.

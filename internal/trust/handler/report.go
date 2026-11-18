@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/trust/domain"
-	"github.com/shopnexus/server2/internal/trust/service"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/service"
 )
 
 type reportRequest struct {

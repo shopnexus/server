@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // temporaryPassword is the TemporaryPassword schema.

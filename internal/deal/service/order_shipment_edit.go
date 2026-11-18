@@ -9,8 +9,8 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // EditShipment is UC-DEAL-04 A3: it checks the corrected carrier and code

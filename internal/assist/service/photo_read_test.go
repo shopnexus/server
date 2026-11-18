@@ -11,12 +11,12 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/assist/domain"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	mediadomain "github.com/shopnexus/server2/internal/media/domain"
-	mediarepo "github.com/shopnexus/server2/internal/media/repository"
-	"github.com/shopnexus/server2/internal/provider/llm"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/assist/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	mediadomain "github.com/shopnexus/server/internal/media/domain"
+	mediarepo "github.com/shopnexus/server/internal/media/repository"
+	"github.com/shopnexus/server/internal/provider/llm"
 )
 
 // A photo read fills a draft from one image, keeps the photo as the

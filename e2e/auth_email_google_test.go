@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/provider/google/googletest"
+	"github.com/shopnexus/server/internal/provider/google/googletest"
 )
 
 func TestSignUpByEmailThenGoogle(t *testing.T) {

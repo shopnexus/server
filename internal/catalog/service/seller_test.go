@@ -6,10 +6,10 @@ import (
 	"testing"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/platform/page"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // A seller's public list holds the active and reserved listings as cards,

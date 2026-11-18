@@ -4,8 +4,8 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/contact"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 // TestSeedFitsTheAPI checks data/seed.json against the rules POST

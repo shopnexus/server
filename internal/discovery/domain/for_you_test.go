@@ -6,8 +6,8 @@ import (
 	"time"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/discovery/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
 )
 
 // The window is the 30 UTC days that end today.

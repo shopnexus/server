@@ -6,11 +6,11 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // A seller's listings come as search items, newest first: saved for the

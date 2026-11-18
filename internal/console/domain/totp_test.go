@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/console/domain"
+	"github.com/shopnexus/server/internal/console/domain"
 )
 
 // RFC 6238 appendix B, SHA-1 rows, cut to six digits.

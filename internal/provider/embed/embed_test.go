@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/provider/embed"
+	"github.com/shopnexus/server/internal/provider/embed"
 )
 
 // server answers every request with reply and keeps the last request body.

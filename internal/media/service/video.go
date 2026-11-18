@@ -11,10 +11,10 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/media/repository"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/objectstore"
 )
 
 // photoTTL is how long a presigned photo URL reads.

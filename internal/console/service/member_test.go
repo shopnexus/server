@@ -7,10 +7,10 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/authn"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 func TestAdminCannotTouchAnAdmin(t *testing.T) {

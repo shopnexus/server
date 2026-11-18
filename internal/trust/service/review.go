@@ -7,12 +7,12 @@ import (
 	"slices"
 	"uuid"
 
-	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/trust/domain"
-	"github.com/shopnexus/server2/internal/trust/repository"
+	dealdomain "github.com/shopnexus/server/internal/deal/domain"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/repository"
 )
 
 // reviewable are the order statuses a review may be given in: the parcel

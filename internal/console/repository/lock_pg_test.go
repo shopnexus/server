@@ -7,12 +7,12 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/console/repository"
+	"github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/console/repository"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
 func newKey() []byte { return []byte(uuid.NewV7().String()) }

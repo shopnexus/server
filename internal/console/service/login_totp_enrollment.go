@@ -4,7 +4,7 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/console/domain"
+	"github.com/shopnexus/server/internal/console/domain"
 )
 
 // EnrollTOTP gives a member without TOTP a fresh secret, which the first

@@ -4,7 +4,7 @@ import (
 	"net/url"
 	"testing"
 
-	consoledomain "github.com/shopnexus/server2/internal/console/domain"
+	consoledomain "github.com/shopnexus/server/internal/console/domain"
 )
 
 func TestConsoleActions(t *testing.T) {

@@ -8,12 +8,12 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/catalog/repository"
-	mediadomain "github.com/shopnexus/server2/internal/media/domain"
-	mediasvc "github.com/shopnexus/server2/internal/media/service"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/repository"
+	mediadomain "github.com/shopnexus/server/internal/media/domain"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/restatex"
 )
 
 // listingPhotoCopy is the ListingPhotoCopy service's name without the

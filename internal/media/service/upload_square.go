@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/domain"
 )
 
 // Square attaches owner's upload to holder as a square and runs

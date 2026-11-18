@@ -8,9 +8,9 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/media/mediatest"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/mediatest"
 )
 
 // Square attaches the upload, waits for its processing and returns the key

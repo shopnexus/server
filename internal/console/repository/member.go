@@ -4,9 +4,9 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // Members persists console members. Each method is its own transaction.

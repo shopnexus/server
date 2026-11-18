@@ -1,6 +1,6 @@
 package domain
 
-import "github.com/shopnexus/server2/internal/platform/apperr"
+import "github.com/shopnexus/server/internal/platform/apperr"
 
 var (
 	ErrInvalidListing    = apperr.New(apperr.KindInvalid, "invalid_listing", "the listing breaks a rule; see fields")

@@ -3,8 +3,8 @@ package domain_test
 import (
 	"testing"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/discovery/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
 )
 
 func TestLikeTerms(t *testing.T) {

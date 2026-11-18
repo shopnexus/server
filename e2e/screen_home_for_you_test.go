@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
 // homeForYou is what Home holds for Dành cho bạn and Vì bạn đã xem gần đây.

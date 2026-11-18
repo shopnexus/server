@@ -22,10 +22,10 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/catalog/repository"
-	"github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/postgres"
+	"github.com/shopnexus/server/internal/catalog/repository"
+	"github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 func main() {

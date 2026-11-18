@@ -7,11 +7,11 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/support/service"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/support/service"
 )
 
 // Worker follows chat and accounts: Mount subscribes MessageSent to

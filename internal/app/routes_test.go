@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/api"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/api"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // TestRoutesMatchSpec holds the registered routes and the OpenAPI operations

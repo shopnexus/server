@@ -6,16 +6,16 @@ import (
 	"time"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	agentdomain "github.com/shopnexus/server2/internal/agent/domain"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/authn"
-	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/provider/carrier"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	agentdomain "github.com/shopnexus/server/internal/agent/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealdomain "github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // actionsRead is how many console actions account_get counts.

@@ -7,9 +7,9 @@ import (
 	"strings"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/assist/domain"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
+	"github.com/shopnexus/server/internal/assist/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
 )
 
 // maxSimilar is how many of the sample a guide shows.

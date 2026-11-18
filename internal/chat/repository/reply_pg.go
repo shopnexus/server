@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/domain"
 )
 
 // replyThreads takes the first sent message of each of the seller's pair

@@ -12,8 +12,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/objectstore"
-	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
+	"github.com/shopnexus/server/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 )
 
 func put(t *testing.T, url string, headers map[string]string, body []byte) int {

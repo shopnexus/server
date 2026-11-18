@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/assist/domain"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/assist/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 func TestStripPhones(t *testing.T) {

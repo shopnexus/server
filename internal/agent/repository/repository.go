@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/agent/domain"
+	"github.com/shopnexus/server/internal/agent/domain"
 )
 
 // Read is one read of personal data an MCP tool made for a member: the

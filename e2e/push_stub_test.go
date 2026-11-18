@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/platform/testenv"
-	"github.com/shopnexus/server2/internal/provider/push"
+	"github.com/shopnexus/server/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/provider/push"
 )
 
 // phoneBox stands in for FCM: it keeps every push by token.

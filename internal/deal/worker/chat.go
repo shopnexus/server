@@ -6,9 +6,9 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/events"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/events"
 )
 
 // ChatPost writes deal messages: Mount subscribes Moved to deal.moved.

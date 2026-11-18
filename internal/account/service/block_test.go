@@ -6,8 +6,8 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 func TestBlock(t *testing.T) {

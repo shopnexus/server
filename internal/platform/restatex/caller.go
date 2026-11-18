@@ -7,7 +7,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // Refusable is the result of a Restate service, which carries a refusal as

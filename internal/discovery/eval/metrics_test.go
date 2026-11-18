@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/discovery/eval"
+	"github.com/shopnexus/server/internal/discovery/eval"
 )
 
 func TestRecallAt(t *testing.T) {

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/platform/audit"
+	"github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/platform/audit"
 )
 
 func TestFirstSignIn(t *testing.T) {

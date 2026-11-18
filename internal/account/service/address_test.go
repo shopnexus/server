@@ -7,11 +7,11 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/account/repository"
-	"github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/repository"
+	"github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
 var home = domain.AddressDraft{Name: "Hân", Phone: "0912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: domain.AddressHome}

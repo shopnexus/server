@@ -1,6 +1,6 @@
 package domain
 
-import "github.com/shopnexus/server2/internal/platform/apperr"
+import "github.com/shopnexus/server/internal/platform/apperr"
 
 var (
 	ErrPickupNotConfigured = apperr.New(apperr.KindConflict, "pickup_not_configured", "save a pickup address and contact phone first")

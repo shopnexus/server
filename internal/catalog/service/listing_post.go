@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // Post is UC-LST-01, step 3: it runs ListingPost once per seller and

@@ -7,8 +7,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 // TestSHA256CodesFallToATable is the spec's reason for HMAC: a dump of plain

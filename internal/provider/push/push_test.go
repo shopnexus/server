@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/provider/push"
+	"github.com/shopnexus/server/internal/provider/push"
 )
 
 func TestFCMSend(t *testing.T) {

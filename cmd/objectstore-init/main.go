@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/objectstore"
 )
 
 func main() {

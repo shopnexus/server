@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // maxReport caps a report's body; GHTK's and GHN's are a few hundred bytes.

@@ -20,7 +20,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 
-	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/config"
 )
 
 // Setup installs the global tracer, meter and logger providers and the W3C

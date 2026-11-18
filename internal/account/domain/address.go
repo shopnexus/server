@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 // MaxAddresses is how many addresses one account may keep.

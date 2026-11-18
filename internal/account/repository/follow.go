@@ -5,7 +5,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // Follows persists who follows whom. Accounts.Block deletes the follows

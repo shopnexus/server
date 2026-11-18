@@ -7,8 +7,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/account/repository"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/repository"
 )
 
 // Refresh rotates a refresh token. A token presented after it was rotated, or

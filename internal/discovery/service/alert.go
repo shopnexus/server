@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // PriceDropFacts is a save whose listing fell to a new low.

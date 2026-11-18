@@ -6,7 +6,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
 )
 
 // ListingStats is what discovery knows of how a listing does: its views and

@@ -12,11 +12,11 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/account/repository"
-	"github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/repository"
+	"github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
 )
 
 type signInEnv struct {

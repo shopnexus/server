@@ -10,15 +10,15 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	"github.com/shopnexus/server2/internal/chat/chattest"
-	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
-	dealrepo "github.com/shopnexus/server2/internal/deal/repository"
-	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server2/internal/trust/domain"
-	"github.com/shopnexus/server2/internal/trust/repository"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	"github.com/shopnexus/server/internal/chat/chattest"
+	dealdomain "github.com/shopnexus/server/internal/deal/domain"
+	dealrepo "github.com/shopnexus/server/internal/deal/repository"
+	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/repository"
 )
 
 var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)

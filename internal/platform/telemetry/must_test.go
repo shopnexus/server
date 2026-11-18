@@ -6,7 +6,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 
-	"github.com/shopnexus/server2/internal/platform/telemetry"
+	"github.com/shopnexus/server/internal/platform/telemetry"
 )
 
 func TestMustReturnsTheInstrument(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/authn"
 )
 
 // Caller returns the principal of a route behind the auth middleware, or

@@ -6,10 +6,10 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/discovery/repository"
-	"github.com/shopnexus/server2/internal/discovery/service"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/discovery/repository"
+	"github.com/shopnexus/server/internal/discovery/service"
 )
 
 // baDinhCommune is commune 00004's point; Ngọc Hà (00008) is 2 km west of it and

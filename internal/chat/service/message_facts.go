@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/chat/repository"
+	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/repository"
 )
 
 // MessageFacts is a message as its push reads it.

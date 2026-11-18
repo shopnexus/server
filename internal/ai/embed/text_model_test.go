@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/ai/aitest"
+	"github.com/shopnexus/server/internal/ai/aitest"
 )
 
 const modelName = "siglip2-so400m-patch16-384"

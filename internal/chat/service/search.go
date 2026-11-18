@@ -7,9 +7,9 @@ import (
 	"unicode/utf8"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/chat/repository"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/repository"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // SearchThreads caps the conversations an inbox search lists.

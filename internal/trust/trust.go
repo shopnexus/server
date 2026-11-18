@@ -9,17 +9,17 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/platform/module"
-	"github.com/shopnexus/server2/internal/provider/llm"
-	"github.com/shopnexus/server2/internal/trust/handler"
-	"github.com/shopnexus/server2/internal/trust/repository"
-	"github.com/shopnexus/server2/internal/trust/service"
-	"github.com/shopnexus/server2/internal/trust/worker"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/module"
+	"github.com/shopnexus/server/internal/provider/llm"
+	"github.com/shopnexus/server/internal/trust/handler"
+	"github.com/shopnexus/server/internal/trust/repository"
+	"github.com/shopnexus/server/internal/trust/service"
+	"github.com/shopnexus/server/internal/trust/worker"
 )
 
 // Settings is what trust's Mount takes beyond module.Deps: the scam

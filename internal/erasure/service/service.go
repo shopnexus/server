@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/authn"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 )
 
 // Service is module erasure's contract.

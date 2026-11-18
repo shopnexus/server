@@ -5,7 +5,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/domain"
 )
 
 // ScamWarnings persists scam warnings, one per member of a conversation,

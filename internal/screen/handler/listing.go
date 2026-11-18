@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // listingScreenRequest carries where the reader is, which reaches the service and

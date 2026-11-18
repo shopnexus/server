@@ -1,4 +1,4 @@
-# server2
+# server
 
 Read `ARCHITECTURE.md` before changing code. It records design decisions and
 overrides the older spec in `~/shopnexus/docs/superpowers/specs/` where they disagree. Record

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/assist/domain"
+	"github.com/shopnexus/server/internal/assist/domain"
 )
 
 // GetRead is UC-LST-01, step 2: it returns one of account's reads with a

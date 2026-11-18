@@ -6,7 +6,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/domain"
 )
 
 func TestStatusFollowsTheClock(t *testing.T) {

@@ -11,9 +11,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/catalog/domain"
-	mediadomain "github.com/shopnexus/server2/internal/media/domain"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/catalog/domain"
+	mediadomain "github.com/shopnexus/server/internal/media/domain"
 )
 
 // kept reports whether a PUT kept the upload for about 30 days.

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/postgres"
-	"github.com/shopnexus/server2/migrations"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/postgres"
+	"github.com/shopnexus/server/migrations"
 )
 
 func main() {

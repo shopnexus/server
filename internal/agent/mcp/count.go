@@ -6,8 +6,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/authn"
 )
 
 // counter counts one kind of record created at or after a time, the zero

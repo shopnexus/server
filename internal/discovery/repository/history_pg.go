@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
 )
 
 type pgHistory struct{ db *pgxpool.Pool }

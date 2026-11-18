@@ -7,9 +7,9 @@ import (
 	"time"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)

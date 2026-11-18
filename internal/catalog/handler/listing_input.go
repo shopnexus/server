@@ -3,7 +3,7 @@ package handler
 import (
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // listingBody is the ListingInput schema in api/schemas/catalog.yaml.

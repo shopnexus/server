@@ -3,9 +3,9 @@ package handler
 import (
 	"net/http"
 
-	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/platform/page"
+	dealdomain "github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 type ordersRequest struct {

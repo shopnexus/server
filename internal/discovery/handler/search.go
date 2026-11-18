@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/discovery/service"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // searchRequest is a search as the query string gives it. The position

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/shipping/domain"
+	"github.com/shopnexus/server/internal/shipping/domain"
 )
 
 func key(t *testing.T) []byte {

@@ -3,9 +3,9 @@ package service
 import (
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/restatex"
 )
 
 // dealConfirm is the DealConfirm service's name without the prefix.

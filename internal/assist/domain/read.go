@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 const (

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	consoledomain "github.com/shopnexus/server2/internal/console/domain"
+	consoledomain "github.com/shopnexus/server/internal/console/domain"
 )
 
 func TestConsoleFirstSignIn(t *testing.T) {

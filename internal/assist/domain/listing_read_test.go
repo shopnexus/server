@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/assist/domain"
+	"github.com/shopnexus/server/internal/assist/domain"
 )
 
 var at = time.Date(2026, 11, 11, 9, 0, 0, 0, time.UTC)

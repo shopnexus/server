@@ -5,15 +5,15 @@ package catalog
 import (
 	restate "github.com/restatedev/sdk-go"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/catalog/handler"
-	"github.com/shopnexus/server2/internal/catalog/repository"
-	"github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/catalog/worker"
-	mediasvc "github.com/shopnexus/server2/internal/media/service"
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/platform/module"
-	"github.com/shopnexus/server2/internal/provider/embed"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/catalog/handler"
+	"github.com/shopnexus/server/internal/catalog/repository"
+	"github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/catalog/worker"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/module"
+	"github.com/shopnexus/server/internal/provider/embed"
 )
 
 // Settings is what catalog's Mount takes beyond module.Deps: the embedding

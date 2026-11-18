@@ -7,12 +7,12 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/page"
-	trustsvc "github.com/shopnexus/server2/internal/trust/service"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealdomain "github.com/shopnexus/server/internal/deal/domain"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/page"
+	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
 // OrdersScreenItem is the OrdersScreenItem schema in

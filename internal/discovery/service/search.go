@@ -11,14 +11,14 @@ import (
 	"time"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/discovery/domain"
-	"github.com/shopnexus/server2/internal/discovery/repository"
-	"github.com/shopnexus/server2/internal/platform/authn"
-	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/provider/embed"
-	"github.com/shopnexus/server2/internal/provider/llm"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/discovery/repository"
+	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/provider/embed"
+	"github.com/shopnexus/server/internal/provider/llm"
 )
 
 const (

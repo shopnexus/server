@@ -7,8 +7,8 @@ import (
 	"slices"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/deal/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/deal/domain"
 )
 
 // ListingChanged is UC-DEAL-02 A4 and UC-DEAL-06 A3: it brings every deal

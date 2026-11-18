@@ -3,7 +3,7 @@ package service
 import (
 	"strings"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // PhotoPromptVersion names the photo read's prompt and

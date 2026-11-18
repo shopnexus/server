@@ -11,15 +11,15 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	aidomain "github.com/shopnexus/server2/internal/ai/domain"
-	"github.com/shopnexus/server2/internal/assist/domain"
-	"github.com/shopnexus/server2/internal/assist/repository"
-	mediadomain "github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/objectstore"
-	"github.com/shopnexus/server2/internal/platform/restatex"
-	"github.com/shopnexus/server2/internal/provider/llm"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	aidomain "github.com/shopnexus/server/internal/ai/domain"
+	"github.com/shopnexus/server/internal/assist/domain"
+	"github.com/shopnexus/server/internal/assist/repository"
+	mediadomain "github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/provider/llm"
 )
 
 // videoRead is the VideoRead service's name without the prefix.

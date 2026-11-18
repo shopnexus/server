@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/agent/domain"
-	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server/internal/agent/domain"
+	"github.com/shopnexus/server/internal/platform/authn"
 )
 
 // Ask is UC-MOD-08 steps 2 and 3. The server only forwards: the agent

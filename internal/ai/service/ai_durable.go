@@ -13,8 +13,8 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/shopnexus/server2/internal/ai/domain"
-	"github.com/shopnexus/server2/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/ai/domain"
+	"github.com/shopnexus/server/internal/platform/objectstore"
 )
 
 // Speech hears a file: the Gipformer transcriber. A file with no audio

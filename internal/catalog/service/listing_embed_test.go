@@ -9,18 +9,18 @@ import (
 	"time"
 	"uuid"
 
-	mediasvc "github.com/shopnexus/server2/internal/media/service"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
 
 	"github.com/jackc/pgx/v5"
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/catalog/repository"
-	"github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/media/mediatest"
-	"github.com/shopnexus/server2/internal/platform/testenv"
-	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
+	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/repository"
+	"github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/media/mediatest"
+	"github.com/shopnexus/server/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/provider/embed/embedtest"
 )
 
 // embedEnv is newEnv with counting embedding fakes.

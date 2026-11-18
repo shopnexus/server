@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
 )
 
 // A view counts on its UTC day whatever the clock's zone, and a week is

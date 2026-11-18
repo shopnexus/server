@@ -6,8 +6,8 @@ import (
 	"slices"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
 )
 
 // ProfileTasksScreen is the ProfileTasksScreen schema in

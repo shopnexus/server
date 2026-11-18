@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // Filter narrows a listing; a zero field filters nothing. A handler binds it

@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/agent/domain"
-	"github.com/shopnexus/server2/internal/agent/service"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/agent/domain"
+	"github.com/shopnexus/server/internal/agent/service"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 type Handler struct {

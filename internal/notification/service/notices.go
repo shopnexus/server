@@ -7,9 +7,9 @@ import (
 	"strings"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/notification/domain"
-	"github.com/shopnexus/server2/internal/notification/repository"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/notification/domain"
+	"github.com/shopnexus/server/internal/notification/repository"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 func (s *Notification) List(ctx context.Context, account uuid.UUID, p page.Request) (List, error) {

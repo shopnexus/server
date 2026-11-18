@@ -21,8 +21,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/restatex"
 )
 
 func main() {

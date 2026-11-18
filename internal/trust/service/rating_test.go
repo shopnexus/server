@@ -5,7 +5,7 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/trust/service"
+	"github.com/shopnexus/server/internal/trust/service"
 )
 
 // The rating counts every review of the seller; a seller without reviews

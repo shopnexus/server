@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // Categories returns the category tree: the roots in order, then each

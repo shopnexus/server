@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/shopnexus/server2/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/audit"
 )
 
 // Locks counts failed sign-ins per email and locks the email after

@@ -14,7 +14,7 @@ import (
 	"golang.org/x/image/draw"
 	"golang.org/x/image/webp"
 
-	"github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/domain"
 )
 
 const (

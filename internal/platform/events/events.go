@@ -1,4 +1,4 @@
-// Package events is server2's outbox. A repository writes an Event with
+// Package events is server's outbox. A repository writes an Event with
 // Insert in the transaction of the change it announces, and Bus hands it to
 // the Restate handlers subscribed to its kind.
 package events

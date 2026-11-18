@@ -8,8 +8,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/discovery/repository"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/discovery/repository"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
 func TestUnderstandings(t *testing.T) {

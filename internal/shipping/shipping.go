@@ -6,14 +6,14 @@ package shipping
 import (
 	restate "github.com/restatedev/sdk-go"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/platform/module"
-	"github.com/shopnexus/server2/internal/provider/carrier"
-	"github.com/shopnexus/server2/internal/shipping/handler"
-	"github.com/shopnexus/server2/internal/shipping/repository"
-	"github.com/shopnexus/server2/internal/shipping/service"
-	"github.com/shopnexus/server2/internal/shipping/worker"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/module"
+	"github.com/shopnexus/server/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/shipping/handler"
+	"github.com/shopnexus/server/internal/shipping/repository"
+	"github.com/shopnexus/server/internal/shipping/service"
+	"github.com/shopnexus/server/internal/shipping/worker"
 )
 
 // Settings is what shipping needs beyond the shared dependencies.

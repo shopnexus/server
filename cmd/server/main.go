@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/shopnexus/server2/internal/app"
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/telemetry"
+	"github.com/shopnexus/server/internal/app"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/telemetry"
 )
 
 func main() {

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/deal/repository"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/repository"
 )
 
 func (s *Deals) OrderFor(ctx context.Context, viewer, id uuid.UUID) (OrderView, uuid.UUID, error) {

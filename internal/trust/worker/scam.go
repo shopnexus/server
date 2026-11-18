@@ -9,10 +9,10 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/trust/service"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/trust/service"
 )
 
 // ScamWorker starts a scam check after each message with text and deletes

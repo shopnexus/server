@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/ai/aitest"
+	"github.com/shopnexus/server/internal/ai/aitest"
 )
 
 func newTranscriber(t *testing.T, maxConcurrent, maxSeconds int) *Transcriber {

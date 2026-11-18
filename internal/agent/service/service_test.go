@@ -10,9 +10,9 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/agent/domain"
-	"github.com/shopnexus/server2/internal/agent/service"
-	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server/internal/agent/domain"
+	"github.com/shopnexus/server/internal/agent/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 )
 
 var caller = authn.ConsoleMember{MemberID: uuid.NewV7(), Role: "moderator"}

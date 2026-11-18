@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/platform/restatex"
 )
 
 // value returns the value of the first key= line in content.

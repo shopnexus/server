@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shopnexus/server2/internal/agent/domain"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server/internal/agent/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/authn"
 )
 
 const (

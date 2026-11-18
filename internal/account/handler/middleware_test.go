@@ -9,17 +9,17 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/account/handler"
-	"github.com/shopnexus/server2/internal/platform/authn"
-	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/handler"
+	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/config"
 )
 
 var (
 	now      = time.Date(2026, 10, 19, 10, 0, 0, 0, time.UTC)
 	testKeys = func() config.AuthConfig {
 		k := config.NewAuthKeys()
-		k.Issuer, k.Audience = "server2-test", "shopnexus-app-test"
+		k.Issuer, k.Audience = "server-test", "shopnexus-app-test"
 		return k
 	}()
 	discard = slog.New(slog.DiscardHandler)

@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/shopnexus/server2/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
 )
 
 func TestHistoryKey(t *testing.T) {

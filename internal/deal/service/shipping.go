@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/deal/repository"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/provider/carrier"
-	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/provider/carrier"
+	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 )
 
 // Shipping is what deal asks of module shipping: shipments on the seller's

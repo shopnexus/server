@@ -8,17 +8,17 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/console/handler"
-	"github.com/shopnexus/server2/internal/console/repository"
-	"github.com/shopnexus/server2/internal/console/service"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/module"
-	supportsvc "github.com/shopnexus/server2/internal/support/service"
-	trustsvc "github.com/shopnexus/server2/internal/trust/service"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/console/handler"
+	"github.com/shopnexus/server/internal/console/repository"
+	"github.com/shopnexus/server/internal/console/service"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/module"
+	supportsvc "github.com/shopnexus/server/internal/support/service"
+	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
 // Settings is what console's Mount takes beyond module.Deps.

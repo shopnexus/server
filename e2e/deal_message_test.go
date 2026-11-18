@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
 // dealMoves waits until token's first page of conversation id holds n deal

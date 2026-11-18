@@ -6,8 +6,8 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	"github.com/shopnexus/server2/internal/deal/domain"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	"github.com/shopnexus/server/internal/deal/domain"
 )
 
 // UC-DEAL-06 · NFR-CONC-01.

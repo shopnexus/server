@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // Follow checks that the follower may write and the account exists and is

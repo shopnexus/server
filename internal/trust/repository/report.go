@@ -5,7 +5,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/domain"
 )
 
 // Reports persists reports. A reporter has at most one open report of a

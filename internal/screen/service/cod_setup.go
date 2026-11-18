@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"uuid"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	shippingdomain "github.com/shopnexus/server2/internal/shipping/domain"
-	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	shippingdomain "github.com/shopnexus/server/internal/shipping/domain"
+	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 )
 
 type CodSetupScreen struct {

@@ -7,8 +7,8 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/events"
+	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/events"
 )
 
 // ListingWatch keeps deals in line with their listings: Mount subscribes

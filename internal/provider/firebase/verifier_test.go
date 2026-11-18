@@ -14,10 +14,10 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/shopnexus/server2/internal/platform/contact"
-	"github.com/shopnexus/server2/internal/provider/firebase"
-	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
-	"github.com/shopnexus/server2/internal/provider/jwks"
+	"github.com/shopnexus/server/internal/platform/contact"
+	"github.com/shopnexus/server/internal/provider/firebase"
+	"github.com/shopnexus/server/internal/provider/firebase/firebasetest"
+	"github.com/shopnexus/server/internal/provider/jwks"
 )
 
 var at = time.Date(2026, 10, 28, 9, 0, 0, 0, time.UTC)

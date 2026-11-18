@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/support/domain"
+	"github.com/shopnexus/server/internal/support/domain"
 )
 
 func (s *Support) Mine(ctx context.Context, account uuid.UUID) ([]TicketListItem, error) {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/trust/repository"
+	"github.com/shopnexus/server/internal/trust/repository"
 )
 
 // ReviewFacts is a review as its notification reads it.

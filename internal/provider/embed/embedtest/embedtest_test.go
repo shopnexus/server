@@ -6,7 +6,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
+	"github.com/shopnexus/server/internal/provider/embed/embedtest"
 )
 
 func cos(a, b []float32) float64 {

@@ -4,7 +4,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/token"
+	"github.com/shopnexus/server/internal/platform/token"
 )
 
 const (

@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/ai/domain"
-	"github.com/shopnexus/server2/internal/ai/service"
+	"github.com/shopnexus/server/internal/ai/domain"
+	"github.com/shopnexus/server/internal/ai/service"
 )
 
 // ModelsDir is $AI_TEST_MODELS, or /models when it is unset: the folder

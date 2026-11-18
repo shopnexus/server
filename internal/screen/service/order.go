@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"uuid"
 
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
-	supportdomain "github.com/shopnexus/server2/internal/support/domain"
-	supportsvc "github.com/shopnexus/server2/internal/support/service"
-	trustsvc "github.com/shopnexus/server2/internal/trust/service"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealdomain "github.com/shopnexus/server/internal/deal/domain"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	supportdomain "github.com/shopnexus/server/internal/support/domain"
+	supportsvc "github.com/shopnexus/server/internal/support/service"
+	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
 type OrderScreen struct {

@@ -4,9 +4,9 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/assist/domain"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
+	"github.com/shopnexus/server/internal/assist/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
 )
 
 // ListingReadView is the ListingRead schema in api/schemas/assist.yaml. A

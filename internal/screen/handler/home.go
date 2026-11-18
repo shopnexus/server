@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // homeScreenRequest is where the viewer is, which reaches the service and

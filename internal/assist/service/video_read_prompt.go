@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // PromptVersion names the prompt below and domain.AnswerSchema; a change to

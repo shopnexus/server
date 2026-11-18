@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 // Codes derives and hashes OTP codes with OTP_KEY. A code is derived from its

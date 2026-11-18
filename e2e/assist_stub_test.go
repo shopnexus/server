@@ -10,8 +10,8 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/shopnexus/server2/internal/ai/aitest"
-	aidomain "github.com/shopnexus/server2/internal/ai/domain"
+	"github.com/shopnexus/server/internal/ai/aitest"
+	aidomain "github.com/shopnexus/server/internal/ai/domain"
 )
 
 // The video bodies the assist stub tells apart. Any other body is a

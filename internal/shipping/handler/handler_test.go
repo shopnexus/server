@@ -12,12 +12,12 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/authn"
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/provider/carrier"
-	"github.com/shopnexus/server2/internal/shipping/domain"
-	"github.com/shopnexus/server2/internal/shipping/handler"
-	"github.com/shopnexus/server2/internal/shipping/service"
+	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/shipping/domain"
+	"github.com/shopnexus/server/internal/shipping/handler"
+	"github.com/shopnexus/server/internal/shipping/service"
 )
 
 // shipping records what the handler asks of the service.

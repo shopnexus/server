@@ -6,7 +6,7 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
 )
 
 func TestMessageFacts(t *testing.T) {

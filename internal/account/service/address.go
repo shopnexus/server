@@ -7,9 +7,9 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/account/repository"
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // AddressView is the Address schema in api/schemas/address.yaml.

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/catalog/service"
+	"github.com/shopnexus/server/internal/catalog/service"
 )
 
 // The flows' inputs keep the wire key "draft": during a rolling deploy an old

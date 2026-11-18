@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/notification/domain"
+	"github.com/shopnexus/server/internal/notification/domain"
 )
 
 func (s *Notification) Settings(ctx context.Context, account uuid.UUID) (domain.Settings, error) {

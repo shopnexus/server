@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"uuid"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealdomain "github.com/shopnexus/server/internal/deal/domain"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
 )
 
 type ShippingEstimate struct {

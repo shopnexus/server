@@ -10,12 +10,12 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server2/internal/provider/carrier"
-	"github.com/shopnexus/server2/internal/shipping/domain"
-	"github.com/shopnexus/server2/internal/shipping/repository"
-	"github.com/shopnexus/server2/internal/shipping/service"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/shipping/domain"
+	"github.com/shopnexus/server/internal/shipping/repository"
+	"github.com/shopnexus/server/internal/shipping/service"
 )
 
 var errNoOrder = errors.New("deal: no order has the code")

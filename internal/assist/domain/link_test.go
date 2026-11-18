@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/assist/domain"
+	"github.com/shopnexus/server/internal/assist/domain"
 )
 
 func TestParseLink(t *testing.T) {

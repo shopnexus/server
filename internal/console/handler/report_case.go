@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/platform/page"
-	trustdomain "github.com/shopnexus/server2/internal/trust/domain"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/page"
+	trustdomain "github.com/shopnexus/server/internal/trust/domain"
 )
 
 type listReportCasesRequest struct {

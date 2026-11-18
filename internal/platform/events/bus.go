@@ -16,7 +16,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/shopnexus/server2/internal/platform/postgres"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 const (

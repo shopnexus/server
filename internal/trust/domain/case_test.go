@@ -5,7 +5,7 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/domain"
 )
 
 // The most reported listing comes first; a tie goes to the later report.

@@ -3,7 +3,7 @@ package mcp
 import (
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // maxPage caps a list tool's page, so one call cannot fill the agent's

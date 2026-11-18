@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 func TestFakeLinksAnythingButWrong(t *testing.T) {

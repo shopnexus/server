@@ -4,18 +4,18 @@
 package screen
 
 import (
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
-	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
-	notificationsvc "github.com/shopnexus/server2/internal/notification/service"
-	"github.com/shopnexus/server2/internal/platform/module"
-	"github.com/shopnexus/server2/internal/screen/handler"
-	"github.com/shopnexus/server2/internal/screen/service"
-	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
-	supportsvc "github.com/shopnexus/server2/internal/support/service"
-	trustsvc "github.com/shopnexus/server2/internal/trust/service"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
+	notificationsvc "github.com/shopnexus/server/internal/notification/service"
+	"github.com/shopnexus/server/internal/platform/module"
+	"github.com/shopnexus/server/internal/screen/handler"
+	"github.com/shopnexus/server/internal/screen/service"
+	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
+	supportsvc "github.com/shopnexus/server/internal/support/service"
+	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
 // Mount registers the screen endpoints.

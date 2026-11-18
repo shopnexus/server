@@ -4,8 +4,8 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/platform/audit"
+	"github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/platform/audit"
 )
 
 // ResetMemberPassword gives a member a temporary password, which ends every

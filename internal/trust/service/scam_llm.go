@@ -9,8 +9,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/shopnexus/server2/internal/provider/llm"
-	"github.com/shopnexus/server2/internal/trust/domain"
+	"github.com/shopnexus/server/internal/provider/llm"
+	"github.com/shopnexus/server/internal/trust/domain"
 )
 
 // ScamPromptVersion is stored with each check the LLM makes; raise it with

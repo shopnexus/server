@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 type openRequest struct {

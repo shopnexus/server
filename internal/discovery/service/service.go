@@ -8,14 +8,14 @@ import (
 	"time"
 	"uuid"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/discovery/repository"
-	mediasvc "github.com/shopnexus/server2/internal/media/service"
-	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/provider/embed"
-	"github.com/shopnexus/server2/internal/provider/llm"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/discovery/repository"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/provider/embed"
+	"github.com/shopnexus/server/internal/provider/llm"
 )
 
 // Service is module discovery's contract.

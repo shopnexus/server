@@ -9,19 +9,19 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	aisvc "github.com/shopnexus/server2/internal/ai/service"
-	"github.com/shopnexus/server2/internal/assist/handler"
-	"github.com/shopnexus/server2/internal/assist/repository"
-	"github.com/shopnexus/server2/internal/assist/service"
-	"github.com/shopnexus/server2/internal/assist/worker"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
-	mediasvc "github.com/shopnexus/server2/internal/media/service"
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/platform/module"
-	"github.com/shopnexus/server2/internal/provider/embed"
-	"github.com/shopnexus/server2/internal/provider/llm"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	aisvc "github.com/shopnexus/server/internal/ai/service"
+	"github.com/shopnexus/server/internal/assist/handler"
+	"github.com/shopnexus/server/internal/assist/repository"
+	"github.com/shopnexus/server/internal/assist/service"
+	"github.com/shopnexus/server/internal/assist/worker"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/module"
+	"github.com/shopnexus/server/internal/provider/embed"
+	"github.com/shopnexus/server/internal/provider/llm"
 )
 
 // Settings is what assist's Mount takes beyond module.Deps: the models a

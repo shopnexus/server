@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/chat/repository"
+	"github.com/shopnexus/server/internal/chat/repository"
 )
 
 func (c *Chat) Window(ctx context.Context, conversation, upTo uuid.UUID, n int) (Window, bool, error) {

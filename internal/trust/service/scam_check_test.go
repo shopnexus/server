@@ -15,15 +15,15 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
-	chatrepo "github.com/shopnexus/server2/internal/chat/repository"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
-	"github.com/shopnexus/server2/internal/trust/domain"
-	"github.com/shopnexus/server2/internal/trust/repository"
-	"github.com/shopnexus/server2/internal/trust/service"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
+	chatrepo "github.com/shopnexus/server/internal/chat/repository"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/repository"
+	"github.com/shopnexus/server/internal/trust/service"
 )
 
 // fakeClassifier gives a side prepayment_request when one of its lines

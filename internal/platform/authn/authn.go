@@ -9,7 +9,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // ErrUnauthenticated answers a request that needs a signed-in caller and has

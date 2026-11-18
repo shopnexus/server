@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/domain"
 )
 
 func TestBlur(t *testing.T) {

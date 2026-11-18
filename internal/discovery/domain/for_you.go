@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // ForYouDays is how many UTC days, today included, Dành cho bạn and Vì bạn

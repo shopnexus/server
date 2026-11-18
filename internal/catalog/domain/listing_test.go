@@ -8,8 +8,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)

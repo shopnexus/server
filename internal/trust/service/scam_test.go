@@ -7,12 +7,12 @@ import (
 	"time"
 	"uuid"
 
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
-	chatrepo "github.com/shopnexus/server2/internal/chat/repository"
-	"github.com/shopnexus/server2/internal/trust/domain"
-	"github.com/shopnexus/server2/internal/trust/repository"
-	"github.com/shopnexus/server2/internal/trust/service"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
+	chatrepo "github.com/shopnexus/server/internal/chat/repository"
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/repository"
+	"github.com/shopnexus/server/internal/trust/service"
 )
 
 // raise writes a warning to victim about suspect in conversation c, as a

@@ -6,10 +6,10 @@ import (
 	"time"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
-	trustsvc "github.com/shopnexus/server2/internal/trust/service"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
 // ListingScreen is the ListingScreen schema in api/schemas/screen_listing.yaml.

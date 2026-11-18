@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // ghtkServer plays GHTK with the documentation's sample answers. Every

@@ -6,12 +6,12 @@ import (
 	"time"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
-	"github.com/shopnexus/server2/internal/platform/page"
-	trustsvc "github.com/shopnexus/server2/internal/trust/service"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/page"
+	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
 // SellerScreen is the SellerScreen schema in api/schemas/screen_listing.yaml.

@@ -3,7 +3,7 @@ package restatex
 import (
 	"errors"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // Refused is what a step decided: a business refusal, or none. A step

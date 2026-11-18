@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"uuid"
 
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/deal/repository"
-	"github.com/shopnexus/server2/internal/platform/page"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/repository"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 func (s *Deals) Get(ctx context.Context, viewer, id uuid.UUID) (DealView, error) {

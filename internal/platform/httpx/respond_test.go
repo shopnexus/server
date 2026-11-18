@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/telemetry"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/telemetry"
 )
 
 type errorBody struct {

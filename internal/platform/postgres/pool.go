@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/shopnexus/server2/internal/platform/telemetry"
+	"github.com/shopnexus/server/internal/platform/telemetry"
 )
 
 // NewPool opens a pool on url with the query tracer and pool metrics
@@ -34,7 +34,7 @@ func NewPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
 }
 
 func registerPoolMetrics(pool *pgxpool.Pool) {
-	m := otel.Meter("github.com/shopnexus/server2/internal/platform/postgres")
+	m := otel.Meter("github.com/shopnexus/server/internal/platform/postgres")
 	acquired := telemetry.Must(m.Int64ObservableGauge("db.client.connection.acquired", metric.WithDescription("Connections in use.")))
 	idle := telemetry.Must(m.Int64ObservableGauge("db.client.connection.idle", metric.WithDescription("Idle connections.")))
 	total := telemetry.Must(m.Int64ObservableGauge("db.client.connection.total", metric.WithDescription("Open connections.")))

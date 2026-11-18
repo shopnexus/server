@@ -11,9 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/assist/domain"
-	"github.com/shopnexus/server2/internal/platform/stream"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/assist/domain"
+	"github.com/shopnexus/server/internal/platform/stream"
 )
 
 type pgListingReads struct{ db *pgxpool.Pool }

@@ -6,10 +6,10 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/app"
-	consoledomain "github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/app"
+	consoledomain "github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
 )
 
 // A stack without a carrier, as production runs, answers 503

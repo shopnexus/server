@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	"github.com/shopnexus/server2/internal/platform/page"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // ListAccounts lists accounts newest first or, with in.Q, the one account Q

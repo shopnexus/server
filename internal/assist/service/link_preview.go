@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/assist/domain"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/provider/chotot"
+	"github.com/shopnexus/server/internal/assist/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/provider/chotot"
 )
 
 // PreviewLink is UC-LST-01 A2: it checks the account, parses the link and

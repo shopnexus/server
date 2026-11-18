@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // ErrMalformedJSON is a body that does not parse as the expected JSON.

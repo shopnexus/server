@@ -4,7 +4,7 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/domain"
 )
 
 // ShipmentUpdated is UC-DEAL-05, a carrier's report: it checks status and

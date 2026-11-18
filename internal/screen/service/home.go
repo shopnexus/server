@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
 )
 
 // HomeCategory is a root of the category tree with its active listings

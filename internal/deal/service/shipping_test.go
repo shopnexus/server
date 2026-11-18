@@ -12,17 +12,17 @@ import (
 	"time"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/catalog/catalogtest"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/testenv"
-	"github.com/shopnexus/server2/internal/provider/carrier"
-	shippingdomain "github.com/shopnexus/server2/internal/shipping/domain"
-	shippingrepo "github.com/shopnexus/server2/internal/shipping/repository"
-	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/provider/carrier"
+	shippingdomain "github.com/shopnexus/server/internal/shipping/domain"
+	shippingrepo "github.com/shopnexus/server/internal/shipping/repository"
+	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 )
 
 // A seller who has not linked the carrier makes, reads and corrects

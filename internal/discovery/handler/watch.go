@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/discovery/service"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // watchRequest is a search to follow. The position reaches the service and

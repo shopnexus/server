@@ -8,12 +8,12 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/platform/postgres"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	supportdomain "github.com/shopnexus/server2/internal/support/domain"
-	supportrepo "github.com/shopnexus/server2/internal/support/repository"
-	"github.com/shopnexus/server2/migrations"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/platform/postgres"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	supportdomain "github.com/shopnexus/server/internal/support/domain"
+	supportrepo "github.com/shopnexus/server/internal/support/repository"
+	"github.com/shopnexus/server/migrations"
 )
 
 // shopNexus is the system account 0044 makes.

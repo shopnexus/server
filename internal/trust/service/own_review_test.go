@@ -8,9 +8,9 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/trust/domain"
-	"github.com/shopnexus/server2/internal/trust/repository"
-	"github.com/shopnexus/server2/internal/trust/service"
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/repository"
+	"github.com/shopnexus/server/internal/trust/service"
 )
 
 func TestOwnReviewUsesOriginalWindowAndMutationBoundary(t *testing.T) {

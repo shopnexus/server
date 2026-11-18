@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"uuid"
 
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/page"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // InboxSearchScreen is the InboxSearch schema in

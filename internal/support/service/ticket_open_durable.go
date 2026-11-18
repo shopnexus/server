@@ -8,12 +8,12 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/restatex"
-	"github.com/shopnexus/server2/internal/support/domain"
-	"github.com/shopnexus/server2/internal/support/repository"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/support/domain"
+	"github.com/shopnexus/server/internal/support/repository"
 )
 
 // ticketOpen is the TicketOpen service's name without the prefix.

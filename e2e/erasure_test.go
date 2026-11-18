@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/platform/testenv"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
 func TestDeleteMyAccount(t *testing.T) {

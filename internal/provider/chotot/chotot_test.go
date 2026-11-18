@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/provider/chotot"
+	"github.com/shopnexus/server/internal/provider/chotot"
 )
 
 // gateway serves body with status on the listing's path and records the

@@ -4,7 +4,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/agent/domain"
+	"github.com/shopnexus/server/internal/agent/domain"
 )
 
 // The views are the schemas in api/schemas/console_agent.yaml, which are

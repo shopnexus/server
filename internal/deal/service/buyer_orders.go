@@ -6,7 +6,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/domain"
 )
 
 func (s *Deals) BuyerOrders(ctx context.Context, buyer uuid.UUID) (domain.BuyerOrders, error) {

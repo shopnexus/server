@@ -17,7 +17,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
-	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/config"
 )
 
 var ErrNotFound = errors.New("object not found")

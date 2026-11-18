@@ -3,7 +3,7 @@ package carrier_test
 import (
 	"testing"
 
-	"github.com/shopnexus/server2/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 func TestGHTKStatuses(t *testing.T) {

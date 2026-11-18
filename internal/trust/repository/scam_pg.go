@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/platform/stream"
-	"github.com/shopnexus/server2/internal/trust/domain"
+	"github.com/shopnexus/server/internal/platform/stream"
+	"github.com/shopnexus/server/internal/trust/domain"
 )
 
 type pgScamWarnings struct{ db *pgxpool.Pool }

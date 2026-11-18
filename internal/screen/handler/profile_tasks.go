@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // ProfileTasks serves GET /v1/screens/profile-tasks.

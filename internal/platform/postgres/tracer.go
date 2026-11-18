@@ -20,7 +20,7 @@ func (tracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQu
 	if f := strings.Fields(data.SQL); len(f) > 0 {
 		op = strings.ToUpper(f[0])
 	}
-	ctx, _ = otel.Tracer("github.com/shopnexus/server2/internal/platform/postgres").Start(ctx, op,
+	ctx, _ = otel.Tracer("github.com/shopnexus/server/internal/platform/postgres").Start(ctx, op,
 		trace.WithSpanKind(trace.SpanKindClient),
 		trace.WithAttributes(
 			attribute.String("db.system.name", "postgresql"),

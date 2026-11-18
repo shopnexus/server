@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/platform/stream"
+	"github.com/shopnexus/server/internal/platform/stream"
 )
 
 // fakeBell hands the test the hub's deliver and resync, and records typing

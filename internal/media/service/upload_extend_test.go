@@ -8,9 +8,9 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/platform/objectstore"
 )
 
 // Extend takes all of the owner's photos or none; one that is another

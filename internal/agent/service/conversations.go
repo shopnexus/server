@@ -7,8 +7,8 @@ import (
 	"strings"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/agent/domain"
-	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server/internal/agent/domain"
+	"github.com/shopnexus/server/internal/platform/authn"
 )
 
 // Conversations is UC-MOD-08 step 1: the member finds the conversation of a

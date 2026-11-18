@@ -5,8 +5,8 @@ import (
 	"errors"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // ShipmentInput is a shipment as the seller sends it: manual with its carrier

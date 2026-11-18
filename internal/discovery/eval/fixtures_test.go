@@ -3,7 +3,7 @@ package eval_test
 import (
 	"testing"
 
-	"github.com/shopnexus/server2/internal/discovery/eval"
+	"github.com/shopnexus/server/internal/discovery/eval"
 )
 
 // TestSampleSetAgrees keeps the sample set whole: Load checks every key,

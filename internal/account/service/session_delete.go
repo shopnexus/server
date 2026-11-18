@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/account/repository"
-	"github.com/shopnexus/server2/internal/platform/authn"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/account/repository"
+	"github.com/shopnexus/server/internal/platform/authn"
 )
 
 // DeleteCurrentSession revokes the caller's session. Its access token keeps working until

@@ -8,7 +8,7 @@ import (
 	"go.opentelemetry.io/contrib/bridges/otelslog"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/config"
 )
 
 // NewLogger writes text or JSON records to w at level and above, adds trace_id
@@ -22,7 +22,7 @@ func NewLogger(w io.Writer, format config.LogFormat, level slog.Level) *slog.Log
 	}
 	return slog.New(&contextHandler{
 		level: level,
-		inner: slog.NewMultiHandler(local, otelslog.NewHandler("server2")),
+		inner: slog.NewMultiHandler(local, otelslog.NewHandler("server")),
 	})
 }
 

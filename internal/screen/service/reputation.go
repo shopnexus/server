@@ -6,9 +6,9 @@ import (
 	"time"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	dealdomain "github.com/shopnexus/server2/internal/deal/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealdomain "github.com/shopnexus/server/internal/deal/domain"
 )
 
 // ReputationScreen is the ReputationScreen schema in

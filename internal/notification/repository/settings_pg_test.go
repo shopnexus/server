@@ -7,11 +7,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/notification/domain"
-	"github.com/shopnexus/server2/internal/notification/repository"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/notification/domain"
+	"github.com/shopnexus/server/internal/notification/repository"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
 // An account that never saved settings reads the defaults and gets no row;

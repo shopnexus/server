@@ -14,7 +14,7 @@ import (
 	"github.com/getkin/kin-openapi/routers"
 	"github.com/getkin/kin-openapi/routers/legacy"
 
-	"github.com/shopnexus/server2/api"
+	"github.com/shopnexus/server/api"
 )
 
 var (

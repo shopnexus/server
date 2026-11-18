@@ -8,9 +8,9 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/notification/domain"
-	"github.com/shopnexus/server2/internal/notification/repository"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/notification/domain"
+	"github.com/shopnexus/server/internal/notification/repository"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // Service is module notification's contract.

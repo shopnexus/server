@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shopnexus/server2/internal/platform/telemetry"
+	"github.com/shopnexus/server/internal/platform/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -70,8 +70,8 @@ func route(r *http.Request) string {
 // writes one access log line after the request finishes. It is the outermost
 // middleware, so a request that panicked logs the 500 Recover wrote.
 func Trace(log *slog.Logger) func(http.Handler) http.Handler {
-	tracer := otel.Tracer("github.com/shopnexus/server2/internal/platform/httpx")
-	duration := telemetry.Must(otel.Meter("github.com/shopnexus/server2/internal/platform/httpx").Float64Histogram(
+	tracer := otel.Tracer("github.com/shopnexus/server/internal/platform/httpx")
+	duration := telemetry.Must(otel.Meter("github.com/shopnexus/server/internal/platform/httpx").Float64Histogram(
 		"http.server.request.duration",
 		metric.WithUnit("s"),
 		metric.WithDescription("Duration of HTTP server requests."),

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/agent/domain"
-	"github.com/shopnexus/server2/internal/agent/repository"
+	"github.com/shopnexus/server/internal/agent/domain"
+	"github.com/shopnexus/server/internal/agent/repository"
 )
 
 // sweepBatch is how many reads one delete removes, so a sweep after a long

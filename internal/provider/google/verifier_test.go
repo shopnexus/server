@@ -11,9 +11,9 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/shopnexus/server2/internal/provider/google"
-	"github.com/shopnexus/server2/internal/provider/google/googletest"
-	"github.com/shopnexus/server2/internal/provider/jwks"
+	"github.com/shopnexus/server/internal/provider/google"
+	"github.com/shopnexus/server/internal/provider/google/googletest"
+	"github.com/shopnexus/server/internal/provider/jwks"
 )
 
 var at = time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)

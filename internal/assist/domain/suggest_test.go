@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/assist/domain"
+	"github.com/shopnexus/server/internal/assist/domain"
 )
 
 func soldAfter(price int64, days int) domain.Sample {

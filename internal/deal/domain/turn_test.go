@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/shopnexus/server2/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/domain"
 )
 
 func TestTurnOf(t *testing.T) {

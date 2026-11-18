@@ -10,7 +10,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/ai/domain"
+	"github.com/shopnexus/server/internal/ai/domain"
 )
 
 // Service is module ai's contract. Video and audio stay in the object

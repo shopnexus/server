@@ -4,7 +4,7 @@ import (
 	"testing"
 	"uuid"
 
-	consoledomain "github.com/shopnexus/server2/internal/console/domain"
+	consoledomain "github.com/shopnexus/server/internal/console/domain"
 )
 
 var memberOps = []string{"disable", "enable", "unlock", "reset-password", "reset-totp"}

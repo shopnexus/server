@@ -6,8 +6,8 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/shipping/service"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/shipping/service"
 )
 
 // AccountWatch drops a deleted account's carrier tokens: Mount subscribes

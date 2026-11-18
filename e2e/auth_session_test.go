@@ -5,7 +5,7 @@ import (
 	"time"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 )
 
 type tokens struct {

@@ -12,12 +12,12 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/shopnexus/server2/internal/ai/aitest"
-	"github.com/shopnexus/server2/internal/ai/domain"
-	"github.com/shopnexus/server2/internal/ai/service"
-	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
-	"github.com/shopnexus/server2/internal/provider/embed"
+	"github.com/shopnexus/server/internal/ai/aitest"
+	"github.com/shopnexus/server/internal/ai/domain"
+	"github.com/shopnexus/server/internal/ai/service"
+	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/provider/embed"
 )
 
 // serve binds service ai over fake engines on the test stack and returns

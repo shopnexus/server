@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/deal/domain"
-	"github.com/shopnexus/server2/internal/deal/repository"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/repository"
 )
 
 // PostMoves is UC-DEAL-01, step 3: it posts the moves in their order. A

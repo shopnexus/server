@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/domain"
 )
 
 // Thread is a conversation's last message and a member's unread count.

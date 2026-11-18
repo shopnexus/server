@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/provider/llm"
+	"github.com/shopnexus/server/internal/provider/llm"
 )
 
 func TestComplete(t *testing.T) {

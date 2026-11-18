@@ -9,8 +9,8 @@ import (
 	"errors"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/trust/domain"
+	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/trust/domain"
 )
 
 var (

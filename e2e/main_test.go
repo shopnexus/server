@@ -18,19 +18,19 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/api"
-	"github.com/shopnexus/server2/internal/ai"
-	"github.com/shopnexus/server2/internal/app"
-	"github.com/shopnexus/server2/internal/console"
-	consoledomain "github.com/shopnexus/server2/internal/console/domain"
-	consolesvc "github.com/shopnexus/server2/internal/console/service"
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/objectstore"
-	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
-	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
-	"github.com/shopnexus/server2/internal/provider/google/googletest"
+	"github.com/shopnexus/server/api"
+	"github.com/shopnexus/server/internal/ai"
+	"github.com/shopnexus/server/internal/app"
+	"github.com/shopnexus/server/internal/console"
+	consoledomain "github.com/shopnexus/server/internal/console/domain"
+	consolesvc "github.com/shopnexus/server/internal/console/service"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/objectstore"
+	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/provider/firebase/firebasetest"
+	"github.com/shopnexus/server/internal/provider/google/googletest"
 )
 
 var (
@@ -40,7 +40,7 @@ var (
 	db      *pgxpool.Pool                // the e2e database, for setup a test cannot do over HTTP
 	keys    = func() config.AuthConfig { // the server's keys, so tests can mint tokens
 		k := config.NewAuthKeys()
-		k.Issuer, k.Audience = "server2-e2e", "shopnexus-app-e2e"
+		k.Issuer, k.Audience = "server-e2e", "shopnexus-app-e2e"
 		return k
 	}()
 	issuer     *firebasetest.Issuer // signs the phone tokens; the server's key URLs point at it

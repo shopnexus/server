@@ -8,12 +8,12 @@ import (
 	"time"
 	"uuid"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/page"
-	"github.com/shopnexus/server2/internal/support/domain"
-	"github.com/shopnexus/server2/internal/support/repository"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/support/domain"
+	"github.com/shopnexus/server/internal/support/repository"
 )
 
 // consoleTickets shows tickets with their persons and their chats' last

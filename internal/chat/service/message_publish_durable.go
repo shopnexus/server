@@ -7,10 +7,10 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/chat/repository"
-	mediadomain "github.com/shopnexus/server2/internal/media/domain"
-	mediasvc "github.com/shopnexus/server2/internal/media/service"
+	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/repository"
+	mediadomain "github.com/shopnexus/server/internal/media/domain"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
 )
 
 // messagePublish is the MessagePublish service's name without the prefix.

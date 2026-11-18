@@ -12,11 +12,11 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
-	"github.com/shopnexus/server2/internal/deal/service"
-	"github.com/shopnexus/server2/internal/deal/worker"
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/deal/worker"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
 )
 
 // poster is a deal service that records what PostMoves was called with,

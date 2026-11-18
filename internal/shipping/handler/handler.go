@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/provider/carrier"
-	"github.com/shopnexus/server2/internal/shipping/domain"
-	"github.com/shopnexus/server2/internal/shipping/service"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/shipping/domain"
+	"github.com/shopnexus/server/internal/shipping/service"
 )
 
 type Handler struct {

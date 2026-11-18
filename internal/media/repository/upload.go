@@ -7,7 +7,7 @@ import (
 	"errors"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/domain"
 )
 
 var (

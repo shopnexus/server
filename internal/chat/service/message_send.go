@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/chat/domain"
+	"github.com/shopnexus/server/internal/chat/domain"
 )
 
 // Open checks the first message, runs MessageSend once per buyer and

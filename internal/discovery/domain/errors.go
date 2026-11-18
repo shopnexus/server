@@ -5,7 +5,7 @@ package domain
 import (
 	"time"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // MaxSaved is how many listings one person may save.

@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 const (

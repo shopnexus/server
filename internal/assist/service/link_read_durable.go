@@ -10,13 +10,13 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/assist/domain"
-	"github.com/shopnexus/server2/internal/assist/repository"
-	mediadomain "github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/platform/restatex"
-	"github.com/shopnexus/server2/internal/provider/chotot"
-	"github.com/shopnexus/server2/internal/provider/llm"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/assist/domain"
+	"github.com/shopnexus/server/internal/assist/repository"
+	mediadomain "github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/provider/chotot"
+	"github.com/shopnexus/server/internal/provider/llm"
 )
 
 // linkRead is the LinkRead service's name without the prefix.

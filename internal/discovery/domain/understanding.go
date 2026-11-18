@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // PromptVersion names the prompt and schema below; a change to either bumps

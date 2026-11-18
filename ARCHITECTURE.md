@@ -1,16 +1,16 @@
-# server2 architecture
+# server architecture
 
-`~/shopnexus/docs/superpowers/specs/2026-10-19-server2-foundation-design.md` holds scope,
+`~/shopnexus/docs/superpowers/specs/2026-10-19-server-foundation-design.md` holds scope,
 endpoints, auth flows, security rules and the testing matrix, and points here
 for code shape, transactions and durability. Where the two disagree, this file
-wins. Plan 2 (`~/shopnexus/docs/superpowers/plans/2026-10-20-server2-plan2-redesign-otp.md`)
+wins. Plan 2 (`~/shopnexus/docs/superpowers/plans/2026-10-20-server-plan2-redesign-otp.md`)
 built the sessions on this design; sign-in moved to Firebase on 2026-10-28,
 and email codes and Google came back on 2026-11-10 (see Sign-in).
 
 The code takes from two branches of the old `server` repository.
 `origin/microservice-ready` reads top to bottom with few layers.
 `origin/cleancode` has hand-written SQL repositories, idempotent inserts and
-Restate workflows split by phase. server2 adds rich entities and
+Restate workflows split by phase. server adds rich entities and
 OpenAPI-first contracts.
 
 ## Decided
@@ -274,7 +274,7 @@ skipped; any other error is retried by Restate.
 
 A module announces a change with an event, and modules that react
 subscribe to its kind; the module that changed data never lists who
-reacts. Every subscriber is a module of server2, so there is no broker.
+reacts. Every subscriber is a module of server, so there is no broker.
 
 - `events.Event` is thin: a `Kind` constant in the form
   `aggregate.past_tense` (`account.updated`, `account.suspended`,
@@ -357,7 +357,7 @@ as catalog, deal, discovery and notification do. Module `screen` has no
 Screen). Module `erasure` has only `service` and `handler`: it calls
 account and deal to delete an account (see Erasure).
 
-The modules follow the product model in `app2/mohinh.md`, not the old
+The modules follow the product model in `app/mohinh.md`, not the old
 server's split (decided 2026-10-26). There is no finance module: ShopNexus
 holds no money, so there is no wallet and no payment session. Planned
 next: `billing` (boosts and seller plans); `notification` holds the
@@ -509,7 +509,7 @@ which reverses the email removal of the 2026-10-28 spec):
 - `google_token`, which proves an email address: a Google ID token the app
   gets from Android Credential Manager.
 - `email_code`, which proves an email address: a challenge ID and the
-  six-digit code server2 mailed to it.
+  six-digit code server mailed to it.
 
 The OpenAPI `oneOf` admits exactly one of them. An account holds a phone,
 an email or both, one identity of each kind, and a value belongs to one
@@ -565,7 +565,7 @@ The phone token checks live in `internal/provider/firebase`:
 - PNV test numbers (`test_number: true`, the country code and zeros) pass
   only with `PNV_TEST_NUMBERS=true` and are stored as they come.
   `APP_ENV=prod` refuses to start with `PNV_TEST_NUMBERS=true`.
-- Firebase Authentication keeps a user record per SMS sign-in; server2
+- Firebase Authentication keeps a user record per SMS sign-in; server
   leaves it, and the app signs out of Firebase once it has the token.
 - `FIREBASE_PROJECT_ID` and `FIREBASE_PROJECT_NUMBER` name the project;
   push uses the same project ID.
@@ -775,7 +775,7 @@ the previous key accepted during a key change) and requires `sid` and
 
 Moderators and admins run the web console as console members, on accounts
 of their own (module `console`), separate from customer accounts.
-`~/shopnexus/docs/superpowers/specs/2026-10-24-server2-staff-authorization-design.md` holds
+`~/shopnexus/docs/superpowers/specs/2026-10-24-server-staff-authorization-design.md` holds
 the decisions and the API.
 
 - Module `console` was module `staff` until 2026-11-08 (spec:
@@ -1024,7 +1024,7 @@ agree during a deploy.
 
 - A photo the server copied from the seller's listing on another site
   shows `copied: true` (decided 2026-11-11, spec:
-  `~/shopnexus/docs/superpowers/specs/2026-11-11-server2-link-read-design.md`).
+  `~/shopnexus/docs/superpowers/specs/2026-11-11-server-link-read-design.md`).
   Processing reads it from the upload's origin and stores it in the
   photo's keys in `listings.photos`, an edit keeps it, and every reader of
   the listing sees it. The server cannot tell a camera photo from a
@@ -1159,7 +1159,7 @@ Search vectors (decided 2026-11-09, migration 0024):
 ### Deal
 
 Module `deal` holds deals: a buyer and a seller agreeing a price on one
-listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server2-deal-design.md`.
+listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server-deal-design.md`.
 
 - One deal per buyer and listing, unique on `(listing_id, buyer_id)`.
   `POST /v1/deals` returns the caller's deal on the listing with 200, or
@@ -1239,10 +1239,10 @@ listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server2-deal-desig
   `Deal.moves` stays as it was.
 
 Orders, cash on delivery, live in module `deal` (spec:
-`~/shopnexus/docs/superpowers/specs/2026-10-26-server2-order-design.md`;
+`~/shopnexus/docs/superpowers/specs/2026-10-26-server-order-design.md`;
 the flow was redesigned on 2026-11-12, spec
 `~/shopnexus/docs/superpowers/specs/2026-11-12-order-flow-sync-design.md`,
-plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server2-order-flow.md`).
+plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
 
 - An order is `pending` → `shipped` → `completed` or `failed`, or
   `pending` → `cancelled`; a shipped order is cancelled only by the pickup
@@ -1526,7 +1526,7 @@ out. Running deals and orders stay as they are. Each block has a UUIDv7
 `id`, so `GET /v1/blocks` pages like every list.
 
 Follows live beside blocks (decided 2026-11-10, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-10-server2-follows-reports-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-11-10-server-follows-reports-design.md`).
 
 - `POST /v1/follows {account_id}`, `GET /v1/follows` and
   `DELETE /v1/follows/{account_id}` work as the block endpoints do, and
@@ -1550,7 +1550,7 @@ Follows live beside blocks (decided 2026-11-10, spec:
 ### Account profile and addresses
 
 Decided 2026-10-27 (spec:
-`~/shopnexus/docs/superpowers/specs/2026-10-27-server2-app-alignment-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-10-27-server-app-alignment-design.md`).
 
 - `PATCH /v1/accounts/me` takes any of `display_name`, `bio` (0 to 200
   characters, public, no content filter) and `avatar_upload_id` (`null`
@@ -1608,7 +1608,7 @@ Decided 2026-10-27 (spec:
 ### Chat
 
 Module `chat` holds conversations (spec:
-`~/shopnexus/docs/superpowers/specs/2026-10-26-server2-chat-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-10-26-server-chat-design.md`).
 
 - One conversation per pair of people, whatever their roles, stored as
   `(account_a, account_b)` with `account_a < account_b`. Screen's chat
@@ -1653,7 +1653,7 @@ Module `chat` holds conversations (spec:
   sent messages after the marker. The inbox pages by the conversation's
   last sent message ID.
 - A member can mark a conversation unread (decided 2026-11-10, spec:
-  `~/shopnexus/docs/superpowers/specs/2026-11-10-server2-inbox-search-unread-design.md`).
+  `~/shopnexus/docs/superpowers/specs/2026-11-10-server-inbox-search-unread-design.md`).
   `POST /v1/conversations/{id}/unread` sets `conversation_members.marked_unread`,
   and the conversation then counts at least 1 in the inbox row's `unread`
   and in `/v1/me/unread`. Every read clears the flag in the same `UPDATE`
@@ -1706,7 +1706,7 @@ Module `chat` holds conversations (spec:
 ### Screen
 
 Module `screen` serves one `GET` per view of the app (decided 2026-10-27,
-spec: `~/shopnexus/docs/superpowers/specs/2026-10-27-server2-app-alignment-design.md`). The
+spec: `~/shopnexus/docs/superpowers/specs/2026-10-27-server-app-alignment-design.md`). The
 app reads a view in one call, and after a socket update it reloads the view
 it shows in one call. Mobile and desktop read the same views; a desktop
 page that shows two views calls both at once.
@@ -1890,7 +1890,7 @@ page that shows two views calls both at once.
 ### Trust
 
 Module `trust` holds reviews (spec:
-`~/shopnexus/docs/superpowers/specs/2026-10-26-server2-reviews-saved-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-10-26-server-reviews-saved-design.md`).
 
 - The buyer of an order reviews its seller once the order is `shipped`,
   `delivered` or `returned`: 1 to 5 stars and up to 500 characters of
@@ -1915,7 +1915,7 @@ Module `trust` holds reviews (spec:
   (moved from trust on 2026-11-08).
 
 Reports are trust's too (decided 2026-11-10, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-10-server2-follows-reports-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-11-10-server-follows-reports-design.md`).
 
 - `POST /v1/reports` takes exactly one of `listing_id` and `account_id`,
   a `reason` (`banned`, `fake`, `scam`, `other`) and an optional `note` of
@@ -1935,7 +1935,7 @@ Reports are trust's too (decided 2026-11-10, spec:
   `listing_not_found`; a hidden, reserved, sold or rejected one can be
   reported.
 - An account report may carry `conversation_id` (decided 2026-11-10, spec:
-  `~/shopnexus/docs/superpowers/specs/2026-11-10-server2-inbox-search-unread-design.md`),
+  `~/shopnexus/docs/superpowers/specs/2026-11-10-server-inbox-search-unread-design.md`),
   the reporter's conversation with that account, which trust checks through
   `chatsvc.ConversationWith`; another one, or one beside `listing_id`, is
   `invalid_report`. A block keeps the conversation, so the app blocks
@@ -1970,7 +1970,7 @@ Reports are trust's too (decided 2026-11-10, spec:
   services its handler calls, as it calls support's.
 
 Scam warnings are trust's too (decided 2026-11-11, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-11-server2-scam-warning-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-11-11-server-scam-warning-design.md`).
 
 - A signal is a fixed code: seven read from messages (`prepayment_request`,
   `off_app_contact`, `suspicious_link`, `sensitive_info_request`,
@@ -2019,7 +2019,7 @@ Scam warnings are trust's too (decided 2026-11-11, spec:
 ### Search
 
 Search and the nearby feed (decided 2026-10-27, spec:
-`~/shopnexus/docs/superpowers/specs/2026-10-27-server2-search-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-10-27-server-search-design.md`).
 
 - Catalog owns `listings` and its ParadeDB index (`listings_search`,
   migration 0019: title, description, `specs_text`, and the fields
@@ -2083,7 +2083,7 @@ Search and the nearby feed (decided 2026-10-27, spec:
   and the slower index writes need `max_connections=400` in the test stack.
 
 Hybrid search (decided 2026-11-09, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-09-server2-photo-similar-search-design.md`):
+`~/shopnexus/docs/superpowers/specs/2026-11-09-server-photo-similar-search-design.md`):
 
 - `GET /v1/search` takes `photo` (a waiting upload of the caller's) and
   `like` (a listing on sale or reserved). `photo` goes alone and needs a
@@ -2157,7 +2157,7 @@ Search).
 - No search photo or vector reaches a log or the journal.
 
 Search history (decided 2026-11-10, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-10-server2-account-erasure-feedback-search-history-design.md`):
+`~/shopnexus/docs/superpowers/specs/2026-11-10-server-account-erasure-feedback-search-history-design.md`):
 
 - `Search` keeps the first page (no `cursor`) of a signed-in person's
   search with `q`, after the search has answered. A search with `photo` or
@@ -2175,7 +2175,7 @@ Search history (decided 2026-11-10, spec:
   forgets one, an unknown ID included; no endpoint restores either.
 
 Hidden listings (decided 2026-11-11, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-11-server2-search-watches-price-alerts-hidden-design.md`):
+`~/shopnexus/docs/superpowers/specs/2026-11-11-server-search-watches-price-alerts-hidden-design.md`):
 
 - `PUT /v1/hidden/{listing_id}` hides someone else's listing that exists and
   is not deleted (404 `listing_not_found`, 409 `own_listing`), and `DELETE`
@@ -2400,7 +2400,7 @@ photo, the app's cover, and costs one image and no speech to text:
 
 The link read reads the seller's own listing on Chợ Tốt into a
 listing draft (decided 2026-11-11, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-11-server2-link-read-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-11-11-server-link-read-design.md`).
 The server reads only Chợ Tốt, through its public gateway, and takes the
 seller's word that the listing is theirs: the app says "Chỉ dán tin của
 bạn", and nothing compares the listing's owner with the account.
@@ -2762,7 +2762,7 @@ reads for admins comes with the console's audit pages.
 
 A person deletes their account with `DELETE /v1/accounts/me` (decided
 2026-11-10, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-10-server2-account-erasure-feedback-search-history-design.md`).
+`~/shopnexus/docs/superpowers/specs/2026-11-10-server-account-erasure-feedback-search-history-design.md`).
 
 - Module `erasure` serves the route because deal imports account: account
   cannot ask deal about orders. Its one use case checks the sign-in's age
@@ -2834,7 +2834,7 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
 
 Module `notification` tells people of their deals, orders, listings,
 reviews and account, in a list and by push (decided 2026-10-27, spec:
-`~/shopnexus/docs/superpowers/specs/2026-10-27-server2-notification-design.md`). No module
+`~/shopnexus/docs/superpowers/specs/2026-10-27-server-notification-design.md`). No module
 calls it except screen, for Home's unread count; depguard holds that.
 
 - It hears events: `deal.moved` (whose payload now lists the IDs of the

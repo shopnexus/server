@@ -9,12 +9,12 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	dealsvc "github.com/shopnexus/server2/internal/deal/service"
-	discoverydomain "github.com/shopnexus/server2/internal/discovery/domain"
-	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
-	"github.com/shopnexus/server2/internal/platform/page"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	discoverydomain "github.com/shopnexus/server/internal/discovery/domain"
+	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // MyListingsScreen is the MyListingsScreen schema in

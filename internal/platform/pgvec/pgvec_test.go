@@ -7,8 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/platform/pgvec"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/pgvec"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
 func TestRoundTrip(t *testing.T) {

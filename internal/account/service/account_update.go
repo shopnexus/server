@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/repository"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/events"
+	"github.com/shopnexus/server/internal/account/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/events"
 )
 
 // Update changes what in names. A new avatar is attached to the account

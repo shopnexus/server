@@ -6,8 +6,8 @@ import (
 	"slices"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // Get reads a listing. Anyone sees an active or reserved listing; its seller

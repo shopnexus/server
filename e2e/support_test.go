@@ -8,9 +8,9 @@ import (
 	"time"
 	"uuid"
 
-	consoledomain "github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/platform/stream"
-	"github.com/shopnexus/server2/internal/platform/testenv"
+	consoledomain "github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/platform/stream"
+	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
 // newID is an id nothing has.

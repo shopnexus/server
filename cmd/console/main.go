@@ -22,12 +22,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/shopnexus/server2/internal/console"
-	consoledomain "github.com/shopnexus/server2/internal/console/domain"
-	consolesvc "github.com/shopnexus/server2/internal/console/service"
-	"github.com/shopnexus/server2/internal/platform/audit"
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/postgres"
+	"github.com/shopnexus/server/internal/console"
+	consoledomain "github.com/shopnexus/server/internal/console/domain"
+	consolesvc "github.com/shopnexus/server/internal/console/service"
+	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 const usage = "usage: console create-admin --email <email> --name <name>\n" +

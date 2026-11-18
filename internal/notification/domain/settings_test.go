@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/notification/domain"
+	"github.com/shopnexus/server/internal/notification/domain"
 )
 
 // typeConstants reads every constant of type Type declared in the package's

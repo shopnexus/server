@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	"github.com/shopnexus/server2/internal/notification/domain"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/notification/domain"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // Settings serves GET /v1/me/notification-settings.

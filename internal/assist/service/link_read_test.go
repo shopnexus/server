@@ -10,15 +10,15 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/assist/domain"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	mediadomain "github.com/shopnexus/server2/internal/media/domain"
-	mediarepo "github.com/shopnexus/server2/internal/media/repository"
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/provider/chotot"
-	"github.com/shopnexus/server2/internal/provider/llm"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/assist/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	mediadomain "github.com/shopnexus/server/internal/media/domain"
+	mediarepo "github.com/shopnexus/server/internal/media/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/provider/chotot"
+	"github.com/shopnexus/server/internal/provider/llm"
 )
 
 // A link read goes through read, copy and estimate, notifies after each

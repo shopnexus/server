@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopnexus/server2/internal/account/accounttest"
-	"github.com/shopnexus/server2/internal/notification/domain"
-	"github.com/shopnexus/server2/internal/notification/repository"
-	"github.com/shopnexus/server2/internal/notification/service"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/notification/domain"
+	"github.com/shopnexus/server/internal/notification/repository"
+	"github.com/shopnexus/server/internal/notification/service"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
 // Quiet hours that start when they end are refused and change nothing; a

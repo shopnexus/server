@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/shopnexus/server2/internal/console/domain"
+	"github.com/shopnexus/server/internal/console/domain"
 )
 
 // Dashboards keeps the tickets and sessions of the ops dashboards. Each

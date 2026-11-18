@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/config"
 )
 
 var load = sync.OnceValue(func() error {

@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	"github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // Categories serves GET /v1/categories.

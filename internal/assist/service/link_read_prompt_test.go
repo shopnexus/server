@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/provider/chotot"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/provider/chotot"
 )
 
 // The listing's text is fenced as data, with its parameters as lines, and

@@ -3,7 +3,7 @@ package domain
 import (
 	"errors"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // ErrMisplacedMove is a move posted to a conversation that is not its

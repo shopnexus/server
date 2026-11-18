@@ -12,10 +12,10 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/contact"
-	"github.com/shopnexus/server2/internal/provider/jwks"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/contact"
+	"github.com/shopnexus/server/internal/provider/jwks"
 )
 
 const (

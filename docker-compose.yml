@@ -3,15 +3,15 @@
 #
 # Ports sit in the 564xx-565xx range, away from the usual ones, so the stack
 # runs beside other projects on the same machine.
-name: shopnexus-server2
+name: shopnexus-server
 
 services:
   postgres:
     image: paradedb/paradedb:0.26.3-pg18
     environment:
-      POSTGRES_USER: server2
-      POSTGRES_PASSWORD: server2
-      POSTGRES_DB: server2
+      POSTGRES_USER: server
+      POSTGRES_PASSWORD: server
+      POSTGRES_DB: server
     ports:
       - "56432:5432"
     # ParadeDB is Postgres 18 with pg_search preloaded. Postgres 18 keeps
@@ -20,7 +20,7 @@ services:
     volumes:
       - postgres:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U server2 -d server2"]
+      test: ["CMD-SHELL", "pg_isready -U server -d server"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -47,8 +47,8 @@ services:
   rustfs:
     image: rustfs/rustfs:1.0.4
     environment:
-      RUSTFS_ACCESS_KEY: server2rustfs
-      RUSTFS_SECRET_KEY: server2rustfs-secret
+      RUSTFS_ACCESS_KEY: server-rustfs
+      RUSTFS_SECRET_KEY: server-rustfs-secret
       RUSTFS_VOLUMES: /data
       RUSTFS_ADDRESS: 0.0.0.0:9000
       RUSTFS_CONSOLE_ENABLE: "false"

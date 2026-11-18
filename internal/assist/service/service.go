@@ -9,16 +9,16 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	aisvc "github.com/shopnexus/server2/internal/ai/service"
-	"github.com/shopnexus/server2/internal/assist/repository"
-	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
-	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
-	mediasvc "github.com/shopnexus/server2/internal/media/service"
-	"github.com/shopnexus/server2/internal/platform/restatex"
-	"github.com/shopnexus/server2/internal/provider/chotot"
-	"github.com/shopnexus/server2/internal/provider/embed"
-	"github.com/shopnexus/server2/internal/provider/llm"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	aisvc "github.com/shopnexus/server/internal/ai/service"
+	"github.com/shopnexus/server/internal/assist/repository"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/provider/chotot"
+	"github.com/shopnexus/server/internal/provider/embed"
+	"github.com/shopnexus/server/internal/provider/llm"
 )
 
 // startHandler is the handler each read service starts a read with.

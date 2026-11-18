@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/assist/domain"
-	"github.com/shopnexus/server2/internal/assist/service"
-	"github.com/shopnexus/server2/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/assist/domain"
+	"github.com/shopnexus/server/internal/assist/service"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // startReadRequest is ListingReadRequest; the request validator lets

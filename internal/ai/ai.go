@@ -12,13 +12,13 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	"github.com/shopnexus/server2/internal/ai/domain"
-	"github.com/shopnexus/server2/internal/ai/embed"
-	"github.com/shopnexus/server2/internal/ai/frames"
-	"github.com/shopnexus/server2/internal/ai/service"
-	"github.com/shopnexus/server2/internal/ai/speech"
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/module"
+	"github.com/shopnexus/server/internal/ai/domain"
+	"github.com/shopnexus/server/internal/ai/embed"
+	"github.com/shopnexus/server/internal/ai/frames"
+	"github.com/shopnexus/server/internal/ai/service"
+	"github.com/shopnexus/server/internal/ai/speech"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/module"
 )
 
 // Engines are the loaded models. Images is nil when photo vectors are off.

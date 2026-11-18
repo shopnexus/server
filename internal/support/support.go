@@ -5,14 +5,14 @@ package support
 import (
 	restate "github.com/restatedev/sdk-go"
 
-	accountsvc "github.com/shopnexus/server2/internal/account/service"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/platform/module"
-	"github.com/shopnexus/server2/internal/support/handler"
-	"github.com/shopnexus/server2/internal/support/repository"
-	"github.com/shopnexus/server2/internal/support/service"
-	"github.com/shopnexus/server2/internal/support/worker"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/module"
+	"github.com/shopnexus/server/internal/support/handler"
+	"github.com/shopnexus/server/internal/support/repository"
+	"github.com/shopnexus/server/internal/support/service"
+	"github.com/shopnexus/server/internal/support/worker"
 )
 
 // Mount registers the /v1/support endpoints, subscribes the worker to

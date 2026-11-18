@@ -1,6 +1,6 @@
 package domain
 
-import "github.com/shopnexus/server2/internal/platform/apperr"
+import "github.com/shopnexus/server/internal/platform/apperr"
 
 var (
 	ErrOrdersOpen         = apperr.New(apperr.KindConflict, "orders_open", "an order of the account is pending or shipped")

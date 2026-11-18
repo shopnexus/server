@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // ListSessions serves GET /v1/auth/sessions.

@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/platform/pgvec"
+	"github.com/shopnexus/server/internal/platform/pgvec"
 )
 
 type pgQueryVectors struct{ db *pgxpool.Pool }

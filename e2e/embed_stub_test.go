@@ -15,10 +15,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/ai/aitest"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/provider/embed"
-	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
+	"github.com/shopnexus/server/internal/ai/aitest"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/provider/embed"
+	"github.com/shopnexus/server/internal/provider/embed/embedtest"
 )
 
 // stubEmbed stands in for the alias embed-text, 1024 dimensions, and for

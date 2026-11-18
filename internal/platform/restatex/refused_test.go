@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/restatex"
 )
 
 // TestRefusedJournalShape pins the JSON a step journals, so a replay of an

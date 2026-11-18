@@ -5,7 +5,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/console/domain"
+	"github.com/shopnexus/server/internal/console/domain"
 )
 
 // Sessions keeps console sessions. Each method is one statement.

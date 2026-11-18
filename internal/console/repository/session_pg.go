@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/shopnexus/server2/internal/console/domain"
+	"github.com/shopnexus/server/internal/console/domain"
 )
 
 type pgSessions struct{ db *pgxpool.Pool }

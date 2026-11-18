@@ -7,7 +7,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/notification/domain"
+	"github.com/shopnexus/server/internal/notification/domain"
 )
 
 var (

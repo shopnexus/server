@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"uuid"
 
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // MaxPhotoDescription is the longest description a photo read writes: a

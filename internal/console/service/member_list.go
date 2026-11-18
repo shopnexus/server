@@ -6,8 +6,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/console/domain"
-	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // ListMembers lists members newest first, each with the end of its email's

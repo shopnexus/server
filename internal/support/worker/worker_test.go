@@ -10,13 +10,13 @@ import (
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
-	accountdomain "github.com/shopnexus/server2/internal/account/domain"
-	chatdomain "github.com/shopnexus/server2/internal/chat/domain"
-	chatsvc "github.com/shopnexus/server2/internal/chat/service"
-	"github.com/shopnexus/server2/internal/platform/events"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
-	"github.com/shopnexus/server2/internal/support/service"
-	"github.com/shopnexus/server2/internal/support/worker"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/support/service"
+	"github.com/shopnexus/server/internal/support/worker"
 )
 
 // facts answers MessageFacts from a map.

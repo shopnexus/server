@@ -3,7 +3,7 @@ package domain
 import (
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/platform/contact"
+	"github.com/shopnexus/server/internal/platform/contact"
 )
 
 type Settings struct {

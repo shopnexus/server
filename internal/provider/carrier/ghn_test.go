@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // ghnServer plays GHN: answers carry code and code_message, and an error

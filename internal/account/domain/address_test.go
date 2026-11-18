@@ -6,8 +6,8 @@ import (
 	"testing"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/account/domain"
-	"github.com/shopnexus/server2/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 var draft = domain.AddressDraft{Name: " Hân ", Phone: "0912345678", Street: " 12 Lý Thường Kiệt ", CommuneCode: "00004", Kind: domain.AddressHome}

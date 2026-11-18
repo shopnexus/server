@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shopnexus/server2/internal/media/domain"
-	"github.com/shopnexus/server2/internal/media/mediatest"
-	"github.com/shopnexus/server2/internal/media/service"
+	"github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/mediatest"
+	"github.com/shopnexus/server/internal/media/service"
 )
 
 // withOrientation puts an APP1 EXIF segment whose IFD0 holds only the

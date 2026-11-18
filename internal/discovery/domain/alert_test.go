@@ -3,7 +3,7 @@ package domain_test
 import (
 	"testing"
 
-	"github.com/shopnexus/server2/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/discovery/domain"
 )
 
 // Level 5 tr over 6 → 4.8 → 4.5 → 5.5 → 4.9 tells at 4.8, 4.5 and 4.9.

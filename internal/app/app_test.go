@@ -14,19 +14,19 @@ import (
 
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server2/internal/ai"
-	"github.com/shopnexus/server2/internal/ai/aitest"
-	aidomain "github.com/shopnexus/server2/internal/ai/domain"
-	aisvc "github.com/shopnexus/server2/internal/ai/service"
-	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
-	"github.com/shopnexus/server2/internal/platform/config"
-	"github.com/shopnexus/server2/internal/platform/httpx"
-	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
-	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
-	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
-	"github.com/shopnexus/server2/internal/provider/firebase/firebasetest"
-	"github.com/shopnexus/server2/internal/provider/google/googletest"
-	"github.com/shopnexus/server2/internal/provider/push"
+	"github.com/shopnexus/server/internal/ai"
+	"github.com/shopnexus/server/internal/ai/aitest"
+	aidomain "github.com/shopnexus/server/internal/ai/domain"
+	aisvc "github.com/shopnexus/server/internal/ai/service"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
+	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
+	"github.com/shopnexus/server/internal/provider/firebase/firebasetest"
+	"github.com/shopnexus/server/internal/provider/google/googletest"
+	"github.com/shopnexus/server/internal/provider/push"
 )
 
 func discard() *slog.Logger { return slog.New(slog.DiscardHandler) }
@@ -34,7 +34,7 @@ func discard() *slog.Logger { return slog.New(slog.DiscardHandler) }
 func testConfig(t *testing.T) config.Config {
 	t.Helper()
 	keys := config.NewAuthKeys()
-	keys.Issuer, keys.Audience = "server2-test", "shopnexus-app-test"
+	keys.Issuer, keys.Audience = "server-test", "shopnexus-app-test"
 	return config.Config{
 		DatabaseURL: pgtest.New(t).Config().ConnString(),
 		Restate:     restatetest.Config(t),

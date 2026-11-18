@@ -8,7 +8,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server2/internal/assist/domain"
+	"github.com/shopnexus/server/internal/assist/domain"
 )
 
 // ErrConflict is a save that lost a race: the row changed meanwhile.
