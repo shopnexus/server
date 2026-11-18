@@ -446,8 +446,13 @@ func TestProviderModelsEnabledAndHealth(t *testing.T) {
 	}
 	models, err := s.ProviderModels(ctx, "relay")
 	if err != nil || len(models) != 2 || models[0].Model != "claude-haiku-5-5" || !models[0].Added || models[1].Added ||
-		*models[1].ContextTokens != 200000 || *models[0].InputCostPerMTok != 1 || !slices.Contains(models[0].Tags, "Chat") {
+		*models[1].ContextTokens != 200000 || *models[0].InputCostPerMTok != 1 || *models[0].OutputCostPerMTok != 5 ||
+		!slices.Contains(models[0].Tags, "Chat") {
 		t.Fatalf("models %+v %v", models, err)
+	}
+	// gpt-5 is listed and not added: its price is the cost map's.
+	if *models[1].InputCostPerMTok != 3 || *models[1].OutputCostPerMTok != 15 {
+		t.Errorf("gpt-5's price %v %v", *models[1].InputCostPerMTok, *models[1].OutputCostPerMTok)
 	}
 	if _, err = s.ProviderModels(ctx, "nobody"); !errors.Is(err, domain.ErrProviderNotFound) {
 		t.Errorf("an unknown provider: %v", err)
@@ -536,5 +541,40 @@ func TestUsageToolsAndGuardrails(t *testing.T) {
 	guards, err := s.Guardrails(ctx, admin, "bogus")
 	if err != nil || len(guards.Items) != 1 || guards.Items[0].Count != 2 || guards.Recent == nil {
 		t.Fatalf("guardrails %+v %v", guards, err)
+	}
+}
+
+// A model's price is what LiteLLM keeps: the one in litellm_params, which
+// the server writes, and none for a deployment without one, whose
+// model_info LiteLLM shows as 0.
+func TestModelPricesAreLiteLLMParams(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s, _, _, admin := settingsOn(t)
+	if _, err := s.CreateProvider(ctx, admin, service.NewProvider{ID: "relay", Kind: "openai", APIKey: "sk-relay"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddProviderModel(ctx, admin, "relay", "priced", new(2.0), new(10.0)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AddProviderModel(ctx, admin, "relay", "unpriced", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	list, err := s.Models(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range list.Items {
+		switch m.Model {
+		case "priced":
+			if m.InputCostPerMTok == nil || *m.InputCostPerMTok != 2 || *m.OutputCostPerMTok != 10 {
+				t.Errorf("priced: %+v", m)
+			}
+		case "unpriced":
+			if m.InputCostPerMTok != nil || m.OutputCostPerMTok != nil {
+				t.Errorf("unpriced shows %v %v", m.InputCostPerMTok, m.OutputCostPerMTok)
+			}
+		default:
+		}
 	}
 }

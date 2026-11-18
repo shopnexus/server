@@ -186,7 +186,10 @@ func (s *Agent) ProviderModels(ctx context.Context, id string) ([]AvailableModel
 			byModel[model] = m
 		}
 		m.Added = m.Added || role(d) == roleCatalog
-		if m.InputCostPerMTok == nil {
+		// The catalog deployment's own price, which the admin set, wins
+		// over the cost map's on the lister's row.
+		own := role(d) == roleCatalog && (d.Params.InputCost != nil || d.Params.OutputCost != nil)
+		if m.InputCostPerMTok == nil || own {
 			m.InputCostPerMTok, m.OutputCostPerMTok = priceOf(d)
 		}
 		if m.ContextTokens == nil {
@@ -201,27 +204,33 @@ func (s *Agent) ProviderModels(ctx context.Context, id string) ([]AvailableModel
 	return out, nil
 }
 
-// priceOf is a deployment's price per million tokens, from its params or
-// the model_info LiteLLM fills from its price list.
+// priceOf is a deployment's price per million tokens. LiteLLM keeps a
+// stored deployment's own price in litellm_params, where the server
+// writes it, and drops one written in model_info alone; its model_info
+// otherwise carries the price of its model cost map, or 0 or null for a
+// model the map lacks. So the price is litellm_params', else model_info's
+// when it is above 0, else none.
 func priceOf(d litellm.Deployment) (in, out *float64) {
-	in, out = perMTok(d.Params.InputCost), perMTok(d.Params.OutputCost)
-	if in == nil {
-		in, out = perMTok(infoNumber(d.Info, "input_cost_per_token")), perMTok(infoNumber(d.Info, "output_cost_per_token"))
+	if d.Params.InputCost != nil || d.Params.OutputCost != nil {
+		return perMTok(d.Params.InputCost), perMTok(d.Params.OutputCost)
 	}
-	return in, out
+	return perMTok(infoPositive(d.Info, "input_cost_per_token")), perMTok(infoPositive(d.Info, "output_cost_per_token"))
 }
 
-// contextOf is the input tokens LiteLLM's model_info gives the model.
+// contextOf is the input tokens LiteLLM's model_info gives the model, from
+// its cost map.
 func contextOf(d litellm.Deployment) *int {
-	v := infoNumber(d.Info, "max_input_tokens")
-	if v == nil || *v <= 0 {
+	v := infoPositive(d.Info, "max_input_tokens")
+	if v == nil {
 		return nil
 	}
 	return new(int(*v))
 }
 
-func infoNumber(m map[string]any, key string) *float64 {
-	if v, ok := m[key].(float64); ok {
+// infoPositive is a number of model_info above 0, which LiteLLM sets to 0
+// or null when its cost map lacks the model.
+func infoPositive(m map[string]any, key string) *float64 {
+	if v, ok := m[key].(float64); ok && v > 0 {
 		return &v
 	}
 	return nil
