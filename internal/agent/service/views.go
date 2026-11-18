@@ -93,11 +93,14 @@ type Steer struct {
 
 // Usage is a turn's usage summed over its model calls.
 type Usage struct {
-	InputTokens  int     `json:"input_tokens"`
-	OutputTokens int     `json:"output_tokens"`
-	CostUSD      float64 `json:"cost_usd"`
-	FirstTokenMS *int    `json:"first_token_ms,omitempty"`
-	Provider     string  `json:"provider,omitempty"`
+	// InputTokens is the input the prompt cache did not hold.
+	InputTokens      int     `json:"input_tokens"`
+	OutputTokens     int     `json:"output_tokens"`
+	CacheReadTokens  *int    `json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens *int    `json:"cache_write_tokens,omitempty"`
+	CostUSD          float64 `json:"cost_usd"`
+	FirstTokenMS     *int    `json:"first_token_ms,omitempty"`
+	Provider         string  `json:"provider,omitempty"`
 }
 
 // Source is a numbered record a tool call of the turn returned, which the

@@ -194,8 +194,15 @@ AgentUsage:
   properties:
     input_tokens:
       type: integer
+      description: The input the prompt cache did not hold.
     output_tokens:
       type: integer
+    cache_read_tokens:
+      type: integer
+      description: Input read from the prompt cache; absent where the agent does not report it.
+    cache_write_tokens:
+      type: integer
+      description: Input written to the prompt cache; absent where the agent does not report it.
     cost_usd:
       type: number
     first_token_ms:
@@ -578,8 +585,8 @@ AgentRunEvent:
     - block: block, one AgentBlock
     - clarify: questions [{id, label, kind: single|multi, options: [{id,
       label, hint?}], default?}]; the turn waits
-    - usage: input_tokens, output_tokens, cost_usd, provider,
-      first_token_ms
+    - usage: input_tokens (uncached), output_tokens, cache_read_tokens?,
+      cache_write_tokens?, cost_usd, provider, first_token_ms
     - steer.read: steer_id, step_id (or null), step_number
     - turn.pausing, turn.paused: steps_done, reason (member, stop_now)
     - rate.waiting: until
