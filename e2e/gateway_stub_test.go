@@ -187,6 +187,17 @@ func (f *fakeLiteLLM) modelNew(w http.ResponseWriter, r *http.Request) {
 		d.Info = map[string]any{}
 	}
 	d.Info["id"] = fmt.Sprintf("dep-%d", f.next)
+	// As LiteLLM keeps a deployment it stores: a price is the one in
+	// litellm_params, which model_info shows too, and a price in
+	// model_info alone is dropped, so model_info shows 0.
+	for key, price := range map[string]*float64{
+		"input_cost_per_token": d.Params.InputCost, "output_cost_per_token": d.Params.OutputCost,
+	} {
+		d.Info[key] = 0.0
+		if price != nil {
+			d.Info[key] = *price
+		}
+	}
 	f.deps = append(f.deps, d)
 	gwReply(w, http.StatusOK, d)
 }
