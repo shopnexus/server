@@ -211,3 +211,23 @@ func TestWrongCodesBeyondTheBudget(t *testing.T) {
 		t.Fatalf("evaluated %d, refused %d", evaluated, refused)
 	}
 }
+
+func TestSkipTOTPSignsInWithThePassword(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.cfg.SkipTOTP = true
+	_, temp := e.create(t, "skip@example.com", domain.RoleModerator)
+	if _, err := e.login("skip@example.com", temp, "", "", now); !errors.Is(err, domain.ErrPasswordChangeRequired) {
+		t.Fatalf("the temporary password is still replaced: %v", err)
+	}
+	in, err := e.login("skip@example.com", temp, password, "", now)
+	if err != nil || in.Token == "" {
+		t.Fatalf("new password, no code: %+v %v", in, err)
+	}
+	if in, err = e.login("skip@example.com", password, "", "", now); err != nil || in.Token == "" {
+		t.Fatalf("password alone: %+v %v", in, err)
+	}
+	if _, err = e.login("skip@example.com", "a wrong member password", "", "", now); !errors.Is(err, domain.ErrInvalidCredentials) {
+		t.Fatalf("a wrong password: %v", err)
+	}
+}

@@ -79,6 +79,8 @@ type Deps struct {
 	Dashboards     repository.Dashboards
 	DashboardHosts map[string]string
 	ConsoleOrigin  string
+	// SkipTOTP lets Login sign a member in with the password alone.
+	SkipTOTP bool
 	// Accounts reaches customer data; cmd/console, which manages only members,
 	// leaves it nil.
 	Accounts accountsvc.Service
@@ -98,6 +100,7 @@ type Console struct {
 	dashboards     repository.Dashboards
 	dashboardHosts map[string]string
 	consoleOrigin  string
+	skipTOTP       bool
 }
 
 var _ Service = (*Console)(nil)
@@ -107,5 +110,6 @@ func New(d Deps) *Console {
 		members: d.Members, locks: d.Locks, sessions: d.Sessions, actions: d.Actions, keys: d.Keys,
 		accounts: d.Accounts, now: d.Now,
 		dashboards: d.Dashboards, dashboardHosts: d.DashboardHosts, consoleOrigin: d.ConsoleOrigin,
+		skipTOTP: d.SkipTOTP,
 	}
 }

@@ -224,6 +224,9 @@ type ConsoleConfig struct {
 	// the host each ops dashboard is served at, keyed by one of
 	// DashboardApps, host names lower-cased. Empty refuses every dashboard.
 	DashboardHosts map[string]string //exhaustruct:optional
+	// SkipTOTP is CONSOLE_SKIP_TOTP=true: a member signs in with the email
+	// and password alone, with no TOTP step. Unset or false keeps TOTP.
+	SkipTOTP bool //exhaustruct:optional
 }
 
 // DashboardApps are the ops dashboards DASHBOARD_HOSTS may name. Module
@@ -301,6 +304,13 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			errs = append(errs, fmt.Errorf("%s=%q: want one of %v", key, v, allowed))
 		}
 		return v
+	}
+	optBool := func(key string) bool {
+		v, _ := lookup(key)
+		if !slices.Contains([]string{"", "true", "false"}, v) {
+			errs = append(errs, fmt.Errorf("%s=%q: want true, false or empty", key, v))
+		}
+		return v == "true"
 	}
 	positive := func(key string) int {
 		v := need(key)
@@ -465,6 +475,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Key:            decodeKey("CONSOLE_KEY", 32, false),
 			Origin:         need("CONSOLE_ORIGIN"),
 			DashboardHosts: dashboardHosts,
+			SkipTOTP:       optBool("CONSOLE_SKIP_TOTP"),
 		},
 		ObjectStore: ObjectStoreConfig{
 			Endpoint:       need("OBJECT_STORE_ENDPOINT"),

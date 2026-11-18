@@ -20,7 +20,8 @@ const maxUserAgent = 500
 // member decides what else the call needs. A temporary password needs
 // NewPassword, which replaces it. A member without TOTP enrolls through
 // EnrollTOTP and confirms with the first code; an enrolled member sends a
-// code. A missing piece is a 428 that names it.
+// code. A missing piece is a 428 that names it. With SkipTOTP the password
+// (and a new one when due) is enough, and the code is never asked for.
 //
 // The attempt is charged to the email's lock before anything is checked. A
 // wrong password or code keeps the charge; any other answer takes it back,
@@ -43,21 +44,10 @@ func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
 			return SignedIn{}, saveFailed(err)
 		}
 	}
-	switch {
-	case m.Next() == domain.StepEnrollTOTP && !m.Enrolling():
-		return SignedIn{}, s.refund(ctx, key, now, domain.ErrTOTPEnrollmentRequired)
-	case in.Code == "":
-		return SignedIn{}, s.refund(ctx, key, now, domain.ErrTOTPRequired)
-	}
-	if m.AcceptCode(in.Code, now) != nil {
-		if err = s.locks.Fail(ctx, key, now); err != nil {
-			return SignedIn{}, fmt.Errorf("record failed sign-in: %w", err)
+	if !s.skipTOTP {
+		if err = s.acceptCode(ctx, &m, key, in.Code, now); err != nil {
+			return SignedIn{}, err
 		}
-		return SignedIn{}, domain.ErrInvalidTOTPCode
-	}
-	// Saving the accepted step is what stops the code working twice.
-	if err = s.members.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
-		return SignedIn{}, saveFailed(err)
 	}
 	if err = s.locks.Clear(ctx, key, now); err != nil {
 		return SignedIn{}, fmt.Errorf("clear login lock: %w", err)
@@ -74,6 +64,27 @@ func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
 		return SignedIn{}, fmt.Errorf("create console session: %w", err)
 	}
 	return SignedIn{Me: meOf(m), Token: tok}, nil
+}
+
+// acceptCode checks the member's TOTP code and saves the accepted step,
+// which is what stops the code working twice.
+func (s *Console) acceptCode(ctx context.Context, m *domain.Member, key []byte, code string, now time.Time) error {
+	switch {
+	case m.Next() == domain.StepEnrollTOTP && !m.Enrolling():
+		return s.refund(ctx, key, now, domain.ErrTOTPEnrollmentRequired)
+	case code == "":
+		return s.refund(ctx, key, now, domain.ErrTOTPRequired)
+	}
+	if m.AcceptCode(code, now) != nil {
+		if err := s.locks.Fail(ctx, key, now); err != nil {
+			return fmt.Errorf("record failed sign-in: %w", err)
+		}
+		return domain.ErrInvalidTOTPCode
+	}
+	if err := s.members.Save(ctx, m, uuid.NewV7(), nil); err != nil {
+		return saveFailed(err)
+	}
+	return nil
 }
 
 // checkPassword charges a sign-in attempt to the email's lock, then checks

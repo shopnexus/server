@@ -35,6 +35,7 @@ func NewService(db *pgxpool.Pool, s Settings, accounts accountsvc.Service, now f
 		Members: repository.NewMembers(db, s.Keys.Secrets), Locks: repository.NewLocks(db),
 		Sessions: repository.NewSessions(db), Actions: audit.NewPGStore(db), Keys: s.Keys,
 		Dashboards: repository.NewDashboards(db), DashboardHosts: s.Config.DashboardHosts, ConsoleOrigin: s.Config.Origin,
+		SkipTOTP: s.Config.SkipTOTP,
 		Accounts: accounts, Now: now,
 	})
 }
