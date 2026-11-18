@@ -58,6 +58,10 @@ type Turn struct {
 	Questions []json.RawMessage `json:"questions,omitempty"`
 	LastSeq   int               `json:"last_seq"`
 	CreatedAt time.Time         `json:"created_at"`
+	// FinishedAt is when the run ended; DurationMS is how long it worked,
+	// pauses left out.
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	DurationMS *int64     `json:"duration_ms,omitempty"`
 }
 
 // lists is t with its status in lower case and no nil list.

@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	consoledomain "github.com/shopnexus/server/internal/console/domain"
 )
@@ -45,14 +46,17 @@ func TestConsoleAgentRuns(t *testing.T) {
 		t.Errorf("events after=1: %d %s", after.Status, after.Body)
 	}
 	view := expect[struct {
-		Status  string `json:"status"`
-		LastSeq int    `json:"last_seq"`
-		Sources []struct {
+		Status     string     `json:"status"`
+		LastSeq    int        `json:"last_seq"`
+		FinishedAt *time.Time `json:"finished_at"`
+		DurationMS int64      `json:"duration_ms"`
+		Sources    []struct {
 			N    int    `json:"n"`
 			Tool string `json:"tool"`
 		} `json:"sources"`
 	}](t, consoleCall(t, lan, "GET", turns+ok, nil), 200)
-	if view.Status != "succeeded" || view.LastSeq != 2 || len(view.Sources) != 1 || view.Sources[0].N != 1 {
+	if view.Status != "succeeded" || view.LastSeq != 2 || len(view.Sources) != 1 || view.Sources[0].N != 1 ||
+		view.FinishedAt == nil || view.DurationMS != 4200 {
 		t.Errorf("turn %+v", view)
 	}
 	check(t, "an unknown turn", consoleCall(t, lan, "GET", turns+missing, nil), 404, "agent_turn_not_found")

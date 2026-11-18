@@ -195,7 +195,8 @@ func turnView(turn, conversation, member, text string, agent map[string]any) map
 		}},
 		"outcome": nil, "continuable": false, "agent": agent, "steers": []any{}, "last_seq": 2,
 		"usage":      map[string]any{"input_tokens": 10, "output_tokens": 5, "cost_usd": 0.001},
-		"created_at": time.Now().UTC().Format(time.RFC3339),
+		"created_at": time.Now().UTC().Format(time.RFC3339), "finished_at": time.Now().UTC().Format(time.RFC3339),
+		"duration_ms": 4200,
 	}
 }
 

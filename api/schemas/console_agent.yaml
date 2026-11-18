@@ -149,6 +149,13 @@ AgentTurn:
       type: string
       format: date-time
       description: When the member asked.
+    finished_at:
+      type: string
+      format: date-time
+      description: When the run ended; absent while it has not.
+    duration_ms:
+      type: integer
+      description: How long the run worked, pauses left out; set once it has stopped or paused.
 AgentTurnStatus:
   type: string
   description: A turn's status. paused and awaiting_input wait on the member; the ones after them are final.
