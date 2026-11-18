@@ -198,3 +198,17 @@ func (h *Handler) ConsoleAgents(w http.ResponseWriter, r *http.Request) {
 		return listOf(h.svc.ConsoleAgents(r.Context()))
 	})
 }
+
+// GetOrder serves GET /v1/console/orders/{id}.
+func (h *Handler) GetOrder(w http.ResponseWriter, r *http.Request) {
+	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in idRequest) (service.ConsoleOrder, error) {
+		return h.svc.Order(r.Context(), c, in.ID)
+	})
+}
+
+// GetListing serves GET /v1/console/listings/{id}.
+func (h *Handler) GetListing(w http.ResponseWriter, r *http.Request) {
+	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in idRequest) (service.ConsoleListing, error) {
+		return h.svc.Listing(r.Context(), c, in.ID)
+	})
+}

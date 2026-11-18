@@ -1,0 +1,75 @@
+# The console's record pages: an order and a listing, read through the
+# modules' services as the agent's MCP tools read them. A page that shows
+# what people wrote records the read for the member, as the tools do.
+order:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  get:
+    operationId: getConsoleOrder
+    summary: One order, its listing, its parties, its shipment and its tickets.
+    description: |
+      The facts of the agent's order_get, with the parties' accounts, the
+      seller's rating and the support tickets about the order. For a
+      shipment on the seller's carrier account the carrier is asked for the
+      parcel's status now; a carrier that cannot be read gives
+      carrier_error. ShopNexus keeps no carrier events, so the page has
+      none. Reading the tickets' last lines is recorded for the member.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console_records.yaml#/ConsoleOrder"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such order (order_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+listing:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  get:
+    operationId: getConsoleListing
+    summary: One listing, its seller, its hold, its reports and its price guide.
+    description: |
+      The facts of the agent's listing_get, read as its seller reads it so a
+      hidden or sold listing shows, with the seller's counts, the member who
+      hid it, the reports about it in the seller's report case and the
+      price guide. Reading the reports is recorded for the member.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console_records.yaml#/ConsoleListing"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such listing, or a deleted one (listing_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

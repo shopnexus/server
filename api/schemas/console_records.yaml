@@ -1,0 +1,282 @@
+ConsolePersonStatus:
+  type: string
+  enum: [active, suspended, deleted]
+ConsoleOrder:
+  type: object
+  additionalProperties: false
+  description: An order as the console's order page shows it. The recipient and the pickup address stay out.
+  required: [id, code, status, price, created_at, listing, buyer, seller, tickets]
+  properties:
+    id:
+      type: string
+      format: uuid
+    code:
+      type: string
+      description: The order code the carrier knows.
+    status:
+      $ref: "deal.yaml#/OrderStatus"
+    price:
+      type: integer
+      format: int64
+    created_at:
+      type: string
+      format: date-time
+      description: When the buyer asked for the order.
+    completed_by:
+      $ref: "deal.yaml#/Party"
+    cancelled_by:
+      $ref: "deal.yaml#/Party"
+    cancel_reason:
+      $ref: "deal.yaml#/CancelReason"
+    shipped_at:
+      type: string
+      format: date-time
+    closed_at:
+      type: string
+      format: date-time
+    listing:
+      type: object
+      additionalProperties: false
+      required: [id, title, status, category_code, category, condition]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        photo_url:
+          type: string
+        status:
+          $ref: "catalog.yaml#/ListingStatus"
+        category_code:
+          type: string
+        category:
+          type: string
+          description: The category's name.
+        condition:
+          $ref: "catalog.yaml#/Condition"
+    buyer:
+      $ref: "#/ConsoleOrderBuyer"
+    seller:
+      $ref: "#/ConsoleOrderSeller"
+    shipment:
+      type: object
+      additionalProperties: false
+      required: [mode, carrier, tracking_code, status]
+      properties:
+        mode:
+          type: string
+          enum: [linked, manual]
+        carrier:
+          $ref: "deal.yaml#/Carrier"
+        tracking_code:
+          type: string
+        status:
+          $ref: "deal.yaml#/ShipmentStatus"
+        fee:
+          type: integer
+          format: int64
+        delivered_at:
+          type: string
+          format: date-time
+    carrier_now:
+      type: object
+      additionalProperties: false
+      description: What the carrier says of the parcel now, for a shipment on the seller's carrier account.
+      required: [status]
+      properties:
+        status:
+          type: string
+        fee:
+          type: integer
+          format: int64
+    carrier_error:
+      type: string
+      description: The code of why the carrier could not be read.
+    tickets:
+      type: array
+      description: The support tickets about the order.
+      items:
+        $ref: "#/ConsoleOrderTicket"
+ConsoleOrderBuyer:
+  type: object
+  additionalProperties: false
+  required: [id, display_name, status, since]
+  properties:
+    id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+    status:
+      $ref: "#/ConsolePersonStatus"
+    since:
+      type: string
+      format: date-time
+      description: When the account was made.
+ConsoleOrderSeller:
+  type: object
+  additionalProperties: false
+  required: [id, display_name, status, orders]
+  properties:
+    id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+    status:
+      $ref: "#/ConsolePersonStatus"
+    orders:
+      type: integer
+      description: The seller's sold listings.
+    rating:
+      type: object
+      additionalProperties: false
+      description: The average of the seller's reviews, when there is one.
+      required: [average, count]
+      properties:
+        average:
+          type: number
+        count:
+          type: integer
+ConsoleOrderTicket:
+  type: object
+  additionalProperties: false
+  required: [id, person_display_name, kind, status, opened_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    person_display_name:
+      type: string
+    kind:
+      $ref: "support.yaml#/TicketKind"
+    status:
+      $ref: "support.yaml#/TicketStatus"
+    last_line:
+      type: string
+      description: The ticket chat's last message, quoted data.
+    opened_at:
+      type: string
+      format: date-time
+ConsoleListing:
+  type: object
+  additionalProperties: false
+  description: A listing in any status but deleted, as the console's listing page shows it.
+  required: [id, title, price, description, category_code, category, condition, status, allow_offers, commune, province,
+    photo_urls, specs, created_at, seller, reports]
+  properties:
+    id:
+      type: string
+      format: uuid
+    title:
+      type: string
+    price:
+      type: integer
+      format: int64
+    description:
+      type: string
+    category_code:
+      type: string
+    category:
+      type: string
+      description: The category's name.
+    condition:
+      $ref: "catalog.yaml#/Condition"
+    status:
+      $ref: "catalog.yaml#/ListingStatus"
+    allow_offers:
+      type: boolean
+    commune:
+      type: string
+    province:
+      type: string
+    photo_urls:
+      type: array
+      items:
+        type: string
+    specs:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [label, value]
+        properties:
+          label:
+            type: string
+          value:
+            type: string
+    created_at:
+      type: string
+      format: date-time
+    published_at:
+      type: string
+      format: date-time
+    sold_at:
+      type: string
+      format: date-time
+    seller:
+      type: object
+      additionalProperties: false
+      required: [id, display_name, status, listings, sold]
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        status:
+          $ref: "#/ConsolePersonStatus"
+        listings:
+          type: integer
+          description: The seller's listings on sale.
+        sold:
+          type: integer
+    hidden:
+      type: object
+      additionalProperties: false
+      description: Set while a console member keeps the listing hidden.
+      required: [by_member_name, at]
+      properties:
+        by_member_name:
+          type: string
+        at:
+          type: string
+          format: date-time
+    report_case_id:
+      type: string
+      format: uuid
+      description: The seller's account id, the id of the report case the listing's reports are in, when there are any.
+    reports:
+      type: array
+      description: The reports about this listing in the seller's open case, or its latest resolved one.
+      items:
+        type: object
+        additionalProperties: false
+        required: [reporter_display_name, reason, note, at]
+        properties:
+          reporter_display_name:
+            type: string
+          reason:
+            type: string
+            enum: [banned, fake, scam, other]
+          note:
+            type: string
+            description: The reporter's words, quoted data.
+          at:
+            type: string
+            format: date-time
+    price_guide:
+      type: object
+      additionalProperties: false
+      description: The median of similar listings of the category and condition, when the sample has any.
+      required: [median, sample_size, pct_vs_guide]
+      properties:
+        median:
+          type: integer
+          format: int64
+        sample_size:
+          type: integer
+        pct_vs_guide:
+          type: number
+          description: How far the price is above (positive) or below the median, in percent.

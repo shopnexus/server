@@ -141,6 +141,7 @@ func (s *Deals) Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, erro
 	o := r.Order
 	return OrderFacts{
 		BuyerID: r.BuyerID, SellerID: r.SellerID, ListingID: r.ListingID, Status: o.Status, Code: o.Code, Price: o.Price,
-		Shipment: o.Shipment, CompletedBy: o.CompletedBy, ShippedAt: o.ShippedAt, ClosedAt: o.ClosedAt,
+		Shipment: o.Shipment, CompletedBy: o.CompletedBy, CancelledBy: o.CancelledBy, CancelReason: o.CancelReason,
+		RequestedAt: o.RequestedAt, ShippedAt: o.ShippedAt, ClosedAt: o.ClosedAt,
 	}, true, nil
 }

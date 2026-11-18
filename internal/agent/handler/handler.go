@@ -48,6 +48,8 @@ func (h *Handler) Register(r *httpx.Router, moderator, admin func(http.Handler) 
 	mod("PATCH /v1/console/agent/skills/{id}", h.UpdateSkill)
 	mod("DELETE /v1/console/agent/skills/{id}", h.DeleteSkill)
 	mod("GET /v1/console/agents", h.ConsoleAgents)
+	mod("GET /v1/console/orders/{id}", h.GetOrder)
+	mod("GET /v1/console/listings/{id}", h.GetListing)
 
 	adm("GET /v1/console/settings/providers", h.ListProviders)
 	adm("POST /v1/console/settings/providers", h.CreateProvider)

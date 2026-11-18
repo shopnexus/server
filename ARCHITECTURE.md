@@ -2726,6 +2726,32 @@ A run's own failures (budget, timeout, a model or the MCP server down)
 reach the console as `turn.finished`. No request or
 answer body is logged, since a turn quotes people.
 
+#### The record pages
+
+`GET /v1/console/orders/{id}` and `GET /v1/console/listings/{id}` are the
+console's order and listing pages, behind the moderator guard. Module
+agent serves them because it holds the read record and the services the
+MCP tools read through; `service.Order` and `service.Listing` read the
+facts `order_get` and `listing_get` read, through the same calls, and add:
+
+- to an order, the buyer's and seller's `ConsoleAccount`, the seller's
+  sold listings (catalog's `SellerCounts`) and trust's `Rating`, the
+  category's name, and the tickets about the order: support's
+  `TicketsOf` the buyer, kept where the ticket's order is this one;
+- to a listing, the seller's counts, the member who hid it (the latest
+  `listing.hide` in the listing's console actions, when no
+  `listing.unhide` is later and the listing is hidden), the reports about
+  it in trust's `ReportCase` of the seller, whose id is the case's
+  (`report_case_id`), and catalog's `MarketPrice` as `price_guide`, left
+  out for an empty sample.
+
+The tickets' last lines and the reports are what people wrote, so a page
+that shows any records the read in `console_agent_reads` under the tool
+name `console_order` (the tickets) or `console_listing` (the seller, the
+reports and their reporters). ShopNexus keeps no carrier events and no
+reason for a hold, so neither page has them. An unknown order is 404
+`order_not_found`, an unknown or deleted listing 404 `listing_not_found`.
+
 #### The MCP server
 
 - Streamable HTTP at `/mcp`, official Go SDK

@@ -12,11 +12,17 @@ import (
 	"time"
 	"uuid"
 
+	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	consolesvc "github.com/shopnexus/server/internal/console/service"
+	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/provider/litellm"
+	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
+	supportsvc "github.com/shopnexus/server/internal/support/service"
+	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
 // Service is module agent's contract.
@@ -132,6 +138,12 @@ type Service interface {
 	AgentUsage(ctx context.Context, caller authn.ConsoleMember, rng string) ([]AgentUsage, error)
 	// Tools reads the agent's tool calls over a range.
 	Tools(ctx context.Context, caller authn.ConsoleMember, rng string) (ToolStats, error)
+	// Order reads an order for the console's order page, recording the
+	// read of its tickets for caller.
+	Order(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConsoleOrder, error)
+	// Listing reads a listing for the console's listing page, recording
+	// the read of its reports for caller.
+	Listing(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConsoleListing, error)
 	// Guardrails reads the agent's guardrail notices over a range.
 	Guardrails(ctx context.Context, caller authn.ConsoleMember, rng string) (GuardrailStats, error)
 	// RecordRead records that an MCP tool read personal data of subject
@@ -155,8 +167,18 @@ type Deps struct {
 	// Gateway is LiteLLM's admin API, with LITELLM_URL and
 	// LITELLM_MASTER_KEY.
 	Gateway litellm.Admin
-	// Console lists the console's members, for their budgets and names.
+	// Console lists the console's members, for their budgets and names,
+	// and the audit log.
 	Console consolesvc.Service
+	// The services the record pages read, as the MCP tools do, and the
+	// similarity floors of the price guide.
+	Accounts          accountsvc.Service
+	Catalog           catalogsvc.Service
+	Deals             dealsvc.Service
+	Shipping          shippingsvc.Service
+	Support           supportsvc.Service
+	Trust             trustsvc.Service
+	TextMin, PhotoMin float64
 	// BaseURL is the agent service's, and Token the bearer token it takes
 	// (AGENT_BASE_URL and AGENT_SERVICE_TOKEN).
 	BaseURL string
@@ -171,6 +193,14 @@ type Agent struct {
 	settings repository.Settings
 	gateway  litellm.Admin
 	console  consolesvc.Service
+	accounts accountsvc.Service
+	catalog  catalogsvc.Service
+	deals    dealsvc.Service
+	shipping shippingsvc.Service
+	support  supportsvc.Service
+	trust    trustsvc.Service
+	textMin  float64
+	photoMin float64
 	// mu guards the month's spend the cap check reuses and the budget
 	// each member's end user was put on.
 	mu       sync.Mutex
@@ -186,5 +216,8 @@ type Agent struct {
 var _ Service = (*Agent)(nil)
 
 func New(d Deps) *Agent {
-	return &Agent{reads: d.Reads, settings: d.Settings, gateway: d.Gateway, console: d.Console, budgetOf: map[uuid.UUID]string{}, baseURL: d.BaseURL, token: d.Token, http: d.HTTP, now: d.Now}
+	return &Agent{
+		reads: d.Reads, settings: d.Settings, gateway: d.Gateway, console: d.Console, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals,
+		shipping: d.Shipping, support: d.Support, trust: d.Trust, textMin: d.TextMin, photoMin: d.PhotoMin, budgetOf: map[uuid.UUID]string{}, baseURL: d.BaseURL, token: d.Token, http: d.HTTP, now: d.Now,
+	}
 }
