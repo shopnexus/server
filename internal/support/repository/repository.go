@@ -78,6 +78,9 @@ type Tickets interface {
 	// activity first, after the ticket p.Cursor names, at most p.Fetch().
 	Queue(ctx context.Context, status domain.Status, kind *domain.Kind, p page.Request) ([]Ticket, error)
 	CountOpen(ctx context.Context) (int, error)
+	// CountByStatus is a query: how many tickets opened at or after since
+	// are in each status; a status without one is left out.
+	CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error)
 	CountOpenOf(ctx context.Context, account uuid.UUID) (int, error)
 	// SameCarrier counts carrier requests for carrierKey opened after since.
 	SameCarrier(ctx context.Context, carrierKey string, since time.Time) (int, error)

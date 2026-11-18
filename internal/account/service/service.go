@@ -63,6 +63,9 @@ type Service interface {
 	SuspendedAccounts(ctx context.Context, p page.Request) (page.Page[ConsoleAccount], error)
 	// SuspendedCount is how many accounts SuspendedAccounts lists in all.
 	SuspendedCount(ctx context.Context) (int, error)
+	// CountByStatus counts the accounts created at or after since, the zero
+	// time for all, in each status now; ShopNexus's own account is left out.
+	CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error)
 	// Suspend stops an account from writing and records account.suspend.
 	Suspend(ctx context.Context, in SuspendInput) (ConsoleAccount, error)
 	// Unsuspend lifts a suspension and records account.unsuspend.

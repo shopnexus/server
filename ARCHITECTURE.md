@@ -2570,8 +2570,8 @@ runs come later.
   layer of its own in depguard: it imports a module's service and domain,
   as a handler does, and nothing imports it but the module's `Mount`.
   `Mount` takes `module.Deps`, `Settings`, console's moderator guard and
-  service, and the services of support, account, catalog, deal and
-  shipping. `console.Mount` returns `console.Mounted`, the service and
+  service, and the services of support, account, catalog, deal,
+  shipping and trust. `console.Mount` returns `console.Mounted`, the service and
   `Moderator` (`FromConsole` then `Require(..., moderator)`), so a module
   outside console can serve a console route.
 - Configuration, all required: `AGENT_BASE_URL`, `AGENT_SERVICE_TOKEN`,
@@ -2654,22 +2654,46 @@ No request or answer body is logged, since a turn quotes people.
   as a tool error with its code; any other failure as `internal error`,
   logged.
 
+- Tools that read one record take its id. List tools take `cursor` and
+  `limit` (1 to 50, default 20) and answer `{items, next_cursor}`; the
+  agent passes `next_cursor` back as `cursor` for the next page. A value
+  from a fixed set (a ticket's status or kind, a case's status, a party, a
+  pane, an entity) has an enum in the input schema, read from the owning
+  module's constants.
+
 | Tool | Reads | Records a read |
 |---|---|---|
+| `count` | the module's count by status of one entity, `accounts`, `listings`, `orders`, `tickets` or `report_cases`, from `since` on or for all time, with the total | no |
+| `lookup` | which records have an id: account's `ConsoleAccount`, trust's `ReportCase`, deal's `Order`, catalog's `Summary` and support's `Detail`, all at once; each match is a kind, a few words and the tool that reads it | no |
 | `ticket_get` | support's `Detail`: the ticket, its person, its order, the first page of its chat, the person's other tickets | ticket, its person |
+| `ticket_messages` | support's `Messages`, a page of a ticket's chat | the ticket |
+| `tickets_list` | support's `Queue`: open or resolved tickets, of one kind or all, each with its chat's last line | the tickets and their persons, when there are any |
 | `tickets_of_account` | support's `TicketsOf`: the newest 50 tickets the account opened or that are on orders it sold, each with its chat's last line | the account and the tickets, when there are any |
 | `account_get` | account's `ConsoleAccount` and `Identities` (phone and email as flags), catalog's `SellerCounts`, deal's `BuyerOrders`, the suspensions among the latest 50 console actions | no |
-| `account_actions` | console's `ListActions` on the account, without the members' IPs | no |
+| `accounts_list` | console's `ListAccounts`: newest accounts, those suspended now with their total, or the one account an id or a phone number names | no |
+| `orders_of_account` | deal's `ListOrders` as buyer or seller; no recipient | no |
+| `listings_of_account` | catalog's `ListMine`, on sale or sold | no |
+| `console_actions` | console's `ListActions` by the record acted on, by the member, or all, without the members' IPs | no |
 | `order_get` | deal's `Order` and, for a shipment on the seller's carrier account, the carrier's status now through shipping's `Lookup`; no pickup and no recipient | no |
 | `listing_get` | catalog's `Summary`, then `Get` as its seller, so a hidden or sold listing shows | no |
 | `price_guide` | catalog's `MarketPrice`: the listing's price, the sample's median and size | no |
+| `report_cases_list` | trust's `ReportCases`, open with their total or resolved | no |
+| `report_case_get` | trust's `ReportCase`: the account's open case or its latest resolved one, with every report and its note | the account, the reports and their reporters |
 
-  The spec's `account_get` also counts reports, and `order_get` gives the
-  carrier's events and proof of delivery. Trust is not wired to the agent
-  yet, and ShopNexus keeps no carrier events or proof, so both wait;
+  `count` reads a `CountByStatus` (`CountOrders` in deal,
+  `CountReportCases` in trust) that each module answers with one
+  `GROUP BY status` query through `postgres.Counts`. Accounts count by
+  `created_at` and leave out ShopNexus's own account, listings by
+  `created_at` with deleted ones, orders by `requested_at`, tickets by
+  `opened_at`; open cases are accounts with an open report made since,
+  resolved cases those resolved since. A new entity is one entry in the
+  tool's `counters` and a count in its module; a new kind for `lookup` is
+  one entry in `finders`.
+- The spec's `account_get` also counts reports, and `order_get` gives the
+  carrier's events and proof of delivery. `account_get` leaves reports to
+  `report_case_get`, and ShopNexus keeps no carrier events or proof, so
   `order_get` says so in its description. `price_guide` takes a listing,
-  since a sample needs the listing's vectors. Report tools come with
-  Phase 3.
+  since a sample needs the listing's vectors.
 - A not_received ticket keeps its order's seller, `tickets.seller_id`
   (migration 0050, filled from `orders`), which `TicketOpen` takes from the
   order it reads, so support finds the tickets of a seller without reading

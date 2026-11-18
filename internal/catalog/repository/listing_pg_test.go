@@ -332,4 +332,11 @@ func TestCountByStatus(t *testing.T) {
 	if got, err = s.CountByStatus(ctx, uuid.NewV7()); err != nil || len(got) != 0 {
 		t.Fatalf("no listings: %v %v", got, err)
 	}
+	want[domain.StatusActive]++ // other's
+	if got, err = s.CountCreatedSince(ctx, time.Time{}); err != nil || !maps.Equal(got, want) {
+		t.Fatalf("everyone's: %v %v", got, err)
+	}
+	if got, err = s.CountCreatedSince(ctx, time.Now().Add(time.Hour)); err != nil || len(got) != 0 {
+		t.Fatalf("created since a later time: %v %v", got, err)
+	}
 }

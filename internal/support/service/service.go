@@ -67,6 +67,9 @@ type Service interface {
 	TicketsOf(ctx context.Context, account uuid.UUID) ([]ConsoleTicket, error)
 	// OpenCount counts every open ticket, for the console's drawer.
 	OpenCount(ctx context.Context) (int, error)
+	// CountByStatus counts the tickets opened at or after since, the zero
+	// time for all, in each status.
+	CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error)
 }
 
 // OpenInput is a ticket as its person asks for it.

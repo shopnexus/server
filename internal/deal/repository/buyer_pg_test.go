@@ -2,6 +2,7 @@ package repository_test
 
 import (
 	"context"
+	"maps"
 	"testing"
 	"time"
 	"uuid"
@@ -47,5 +48,15 @@ func TestBuyerOrders(t *testing.T) {
 	}
 	if got, _ = s.BuyerOrders(ctx, seller, now.Add(-domain.BuyerPeriod)); got != (domain.BuyerOrders{}) {
 		t.Fatalf("the seller bought nothing: %+v", got)
+	}
+	all, err := s.CountOrders(ctx, time.Time{})
+	if want := map[domain.OrderStatus]int{domain.OrderPending: 2, domain.OrderCompleted: 1, domain.OrderFailed: 1}; err != nil ||
+		!maps.Equal(all, want) {
+		t.Fatalf("every order: %v %v", all, err)
+	}
+	recent, err := s.CountOrders(ctx, now.Add(-domain.BuyerPeriod))
+	if want := map[domain.OrderStatus]int{domain.OrderPending: 1, domain.OrderCompleted: 1, domain.OrderFailed: 1}; err != nil ||
+		!maps.Equal(recent, want) {
+		t.Fatalf("recent orders: %v %v", recent, err)
 	}
 }

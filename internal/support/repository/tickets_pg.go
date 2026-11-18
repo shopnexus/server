@@ -12,6 +12,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/platform/stream"
 	"github.com/shopnexus/server2/internal/support/domain"
 )
@@ -239,6 +240,11 @@ func (s pgTickets) CountOpen(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("count open tickets: %w", err)
 	}
 	return n, nil
+}
+
+func (s pgTickets) CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error) {
+	return postgres.Counts[domain.Status](s.db.Query(ctx, `SELECT status, count(*) FROM tickets WHERE opened_at >= @since GROUP BY status`,
+		pgx.StrictNamedArgs{"since": since}))
 }
 
 func (s pgTickets) CountOpenOf(ctx context.Context, account uuid.UUID) (int, error) {

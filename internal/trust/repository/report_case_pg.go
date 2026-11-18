@@ -14,6 +14,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/postgres"
 	"github.com/shopnexus/server2/internal/trust/domain"
 )
 
@@ -101,6 +102,17 @@ func (s pgCases) CountOpen(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("count open cases: %w", err)
 	}
 	return n, nil
+}
+
+func (s pgCases) CountByStatus(ctx context.Context, since time.Time) (map[domain.CaseStatus]int, error) {
+	return postgres.Counts[domain.CaseStatus](s.db.Query(ctx, `SELECT status, n FROM (
+    SELECT 'open' AS status, count(DISTINCT account_id) AS n FROM reports
+    WHERE withdrawn_at IS NULL AND resolution_id IS NULL AND created_at >= @since
+    UNION ALL
+    SELECT 'resolved', count(*) FROM report_resolutions s
+    WHERE s.reopened_at IS NULL AND s.resolved_at >= @since
+      AND EXISTS (SELECT 1 FROM reports r WHERE r.resolution_id = s.id AND r.withdrawn_at IS NULL)
+) c WHERE n > 0`, pgx.StrictNamedArgs{"since": since}))
 }
 
 func (s pgCases) Resolved(ctx context.Context, p page.Request) ([]Case, error) {

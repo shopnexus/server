@@ -97,6 +97,9 @@ type Service interface {
 	// SellerCounts counts a seller's sold listings, the public ones and
 	// those under domain.MaxOnSale.
 	SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCounts, error)
+	// CountByStatus counts the listings created at or after since, the zero
+	// time for all, in each status, deleted ones too.
+	CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error)
 	// Summaries reads listings in any status for other modules; an unknown
 	// ID is left out of the map.
 	Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Summary, error)

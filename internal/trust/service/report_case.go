@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 	"uuid"
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
@@ -159,4 +160,12 @@ func (s *Trust) ReopenReportCase(ctx context.Context, account uuid.UUID, by audi
 		return CaseDetail{}, fmt.Errorf("reopen the case: %w", err)
 	}
 	return s.ReportCase(ctx, account)
+}
+
+func (s *Trust) CountReportCases(ctx context.Context, since time.Time) (map[domain.CaseStatus]int, error) {
+	n, err := s.cases.CountByStatus(ctx, since)
+	if err != nil {
+		return nil, fmt.Errorf("count the cases: %w", err)
+	}
+	return n, nil
 }

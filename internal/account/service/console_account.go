@@ -3,8 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 	"uuid"
 
+	"github.com/shopnexus/server2/internal/account/domain"
 	"github.com/shopnexus/server2/internal/platform/page"
 )
 
@@ -65,6 +67,16 @@ func (s *Account) SuspendedCount(ctx context.Context) (int, error) {
 	n, err := s.accounts.CountSuspended(ctx, s.now())
 	if err != nil {
 		return 0, fmt.Errorf("count suspended accounts: %w", err)
+	}
+	return n, nil
+}
+
+// CountByStatus counts the accounts created at or after since in each
+// status now.
+func (s *Account) CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error) {
+	n, err := s.accounts.CountByStatus(ctx, s.now(), since)
+	if err != nil {
+		return nil, fmt.Errorf("count accounts: %w", err)
 	}
 	return n, nil
 }

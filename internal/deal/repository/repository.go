@@ -46,6 +46,9 @@ type Deals interface {
 	// BuyerOrders counts buyer's orders requested at or after since and,
 	// of those, the failed ones, and buyer's orders pending or shipped now.
 	BuyerOrders(ctx context.Context, buyer uuid.UUID, since time.Time) (domain.BuyerOrders, error)
+	// CountOrders is a query: how many orders requested at or after since
+	// are in each status; a status without one is left out.
+	CountOrders(ctx context.Context, since time.Time) (map[domain.OrderStatus]int, error)
 	// ActiveOf lists the deals, negotiating or agreed, where account is
 	// either side, oldest first.
 	ActiveOf(ctx context.Context, account uuid.UUID) ([]domain.Deal, error)

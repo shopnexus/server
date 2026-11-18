@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
@@ -15,6 +16,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/audit"
 	"github.com/shopnexus/server2/internal/platform/events"
 	"github.com/shopnexus/server2/internal/platform/page"
+	"github.com/shopnexus/server2/internal/platform/postgres"
 )
 
 type pgListings struct{ db *pgxpool.Pool }
@@ -133,23 +135,13 @@ func (s pgListings) Discard(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s pgListings) CountByStatus(ctx context.Context, seller uuid.UUID) (map[domain.Status]int, error) {
-	rows, err := s.db.Query(ctx, `SELECT status, count(*) FROM listings WHERE seller_id = @seller GROUP BY status`,
-		pgx.StrictNamedArgs{"seller": seller})
-	if err != nil {
-		return nil, fmt.Errorf("count listings: %w", err)
-	}
-	counts, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct {
-		Status domain.Status
-		N      int
-	}])
-	if err != nil {
-		return nil, fmt.Errorf("read counts: %w", err)
-	}
-	out := make(map[domain.Status]int, len(counts))
-	for _, c := range counts {
-		out[c.Status] = c.N
-	}
-	return out, nil
+	return postgres.Counts[domain.Status](s.db.Query(ctx, `SELECT status, count(*) FROM listings WHERE seller_id = @seller GROUP BY status`,
+		pgx.StrictNamedArgs{"seller": seller}))
+}
+
+func (s pgListings) CountCreatedSince(ctx context.Context, since time.Time) (map[domain.Status]int, error) {
+	return postgres.Counts[domain.Status](s.db.Query(ctx, `SELECT status, count(*) FROM listings WHERE created_at >= @since GROUP BY status`,
+		pgx.StrictNamedArgs{"since": since}))
 }
 
 func (s pgListings) Get(ctx context.Context, id uuid.UUID) (domain.Listing, error) {

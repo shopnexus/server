@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -249,6 +250,13 @@ func TestListSuspended(t *testing.T) {
 	}
 	if n, err := s.CountSuspended(ctx, at); err != nil || n != 3 {
 		t.Fatalf("count: %d %v", n, err)
+	}
+	byStatus, countErr := s.CountByStatus(ctx, at, time.Time{})
+	if want := map[domain.Status]int{domain.StatusSuspended: 3, domain.StatusActive: 2}; countErr != nil || !maps.Equal(byStatus, want) {
+		t.Fatalf("by status: %v %v", byStatus, countErr)
+	}
+	if byStatus, countErr = s.CountByStatus(ctx, at, now.Add(time.Second)); countErr != nil || len(byStatus) != 0 {
+		t.Fatalf("created since a later time: %v %v", byStatus, countErr)
 	}
 }
 

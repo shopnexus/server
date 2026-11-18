@@ -46,6 +46,10 @@ type Accounts interface {
 	ListSuspended(ctx context.Context, now time.Time, p page.Request) ([]domain.Account, error)
 	// CountSuspended is a query: how many accounts ListSuspended lists in all.
 	CountSuspended(ctx context.Context, now time.Time) (int, error)
+	// CountByStatus is a query: how many accounts created at or after since
+	// are in each status at now, ShopNexus's own account aside; a status
+	// without one is left out. A suspension that ended counts as active.
+	CountByStatus(ctx context.Context, now, since time.Time) (map[domain.Status]int, error)
 	// Block records that blocker blocks blocked, as id, and deletes the
 	// follows between the two, both ways; blocking again changes nothing.
 	Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error

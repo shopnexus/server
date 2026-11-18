@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 	"uuid"
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
@@ -229,6 +230,14 @@ func (s *Support) OpenCount(ctx context.Context) (int, error) {
 	n, err := s.tickets.CountOpen(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("count open tickets: %w", err)
+	}
+	return n, nil
+}
+
+func (s *Support) CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error) {
+	n, err := s.tickets.CountByStatus(ctx, since)
+	if err != nil {
+		return nil, fmt.Errorf("count tickets: %w", err)
 	}
 	return n, nil
 }

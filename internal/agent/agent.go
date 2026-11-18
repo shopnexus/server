@@ -24,6 +24,7 @@ import (
 	"github.com/shopnexus/server2/internal/platform/module"
 	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
 	supportsvc "github.com/shopnexus/server2/internal/support/service"
+	trustsvc "github.com/shopnexus/server2/internal/trust/service"
 )
 
 const (
@@ -53,11 +54,11 @@ type Mounted struct {
 
 // Mount registers the console's agent endpoints behind moderator, console's
 // guard of a moderator's route, builds the MCP server over the services of
-// console, support, account, catalog, deal and shipping, and opens its
+// console, support, account, catalog, deal, shipping and trust, and opens its
 // listener at AGENT_MCP_ADDR, so an address in use stops the start.
 func Mount(d module.Deps, s Settings, moderator func(http.Handler) http.Handler, consoles consolesvc.Service,
 	support supportsvc.Service, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service,
-	shipping shippingsvc.Service,
+	shipping shippingsvc.Service, trust trustsvc.Service,
 ) (*Mounted, error) {
 	svc := service.New(service.Deps{
 		Reads: repository.NewReads(d.Pool), BaseURL: s.Config.BaseURL, Token: s.Config.ServiceToken, HTTP: &http.Client{}, Now: d.Now,
@@ -65,7 +66,7 @@ func Mount(d module.Deps, s Settings, moderator func(http.Handler) http.Handler,
 	handler.New(svc, d.Log).Register(d.Router, moderator)
 	h := mcp.Handler(mcp.Deps{
 		Token: s.Config.MCPToken, Console: consoles, Agent: svc,
-		Support: support, Accounts: accounts, Catalog: catalog, Deals: deals, Shipping: shipping,
+		Support: support, Accounts: accounts, Catalog: catalog, Deals: deals, Shipping: shipping, Trust: trust,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin, Now: d.Now, Log: d.Log,
 	})
 	l, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", s.Config.MCPAddr)

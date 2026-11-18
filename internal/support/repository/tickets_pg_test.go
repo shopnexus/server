@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"testing"
 	"time"
 	"uuid"
@@ -268,6 +269,12 @@ func TestQueueAndCounts(t *testing.T) {
 	}
 	if n, _ := s.CountOpenOf(ctx, person); n != 2 {
 		t.Fatalf("open of %d", n)
+	}
+	if n, countErr := s.CountByStatus(ctx, time.Time{}); countErr != nil || !maps.Equal(n, map[domain.Status]int{domain.StatusOpen: 2}) {
+		t.Fatalf("by status %v %v", n, countErr)
+	}
+	if n, countErr := s.CountByStatus(ctx, at.Add(time.Hour)); countErr != nil || len(n) != 0 {
+		t.Fatalf("opened since a later time %v %v", n, countErr)
 	}
 	mine, err := s.OfAccount(ctx, person)
 	if err != nil || len(mine) != 2 {

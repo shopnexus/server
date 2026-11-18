@@ -44,6 +44,10 @@ type Cases interface {
 	Open(ctx context.Context, p page.Request) ([]Case, error)
 	// CountOpen counts the accounts with an open case.
 	CountOpen(ctx context.Context) (int, error)
+	// CountByStatus is a query: the open cases with a report made at or
+	// after since, and the resolved cases, as Resolved lists them, resolved
+	// at or after since; a status without one is left out.
+	CountByStatus(ctx context.Context, since time.Time) (map[domain.CaseStatus]int, error)
 	// Resolved lists the resolved cases, not reopened, whose resolution
 	// comes before the one p.Before() names, latest resolution first, at
 	// most p.Fetch(). A resolution whose reports were all withdrawn since is

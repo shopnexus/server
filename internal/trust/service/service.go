@@ -54,6 +54,9 @@ type Service interface {
 	// ReportCase reads account's open report case or, without one, its
 	// latest resolved case.
 	ReportCase(ctx context.Context, account uuid.UUID) (CaseDetail, error)
+	// CountReportCases counts the open cases with a report made at or after
+	// since and the cases resolved at or after since, the zero time for all.
+	CountReportCases(ctx context.Context, since time.Time) (map[domain.CaseStatus]int, error)
 	// ResolveReportCase closes account's open report case with outcome for
 	// the console member by.
 	ResolveReportCase(ctx context.Context, account uuid.UUID, outcome domain.Outcome, by audit.Actor) (CaseDetail, error)

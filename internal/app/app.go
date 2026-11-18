@@ -383,7 +383,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		supportm.Service, shippingm.Service)
 	agentm, agentErr := agent.Mount(d, agent.Settings{
 		Config: cfg.Agent, TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
-	}, consolem.Moderator, consolem.Service, supportm.Service, accounts, catalogm.Service, dealm.Service, shippingm.Service)
+	}, consolem.Moderator, consolem.Service, supportm.Service, accounts, catalogm.Service, dealm.Service, shippingm.Service, trustm.Service)
 	if agentErr != nil {
 		return nil, nil, fmt.Errorf("agent: %w", agentErr)
 	}

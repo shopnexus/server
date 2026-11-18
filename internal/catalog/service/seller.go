@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/catalog/domain"
@@ -57,4 +58,12 @@ func (c *Catalog) SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCou
 		Public: domain.CountIn(n, domain.Public),
 		OnSale: domain.CountIn(n, domain.OnSale),
 	}, nil
+}
+
+func (c *Catalog) CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error) {
+	n, err := c.listings.CountCreatedSince(ctx, since)
+	if err != nil {
+		return nil, fmt.Errorf("count listings: %w", err)
+	}
+	return n, nil
 }

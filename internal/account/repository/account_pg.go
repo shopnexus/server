@@ -221,6 +221,14 @@ func (s pgAccounts) CountSuspended(ctx context.Context, now time.Time) (int, err
 	return n, nil
 }
 
+func (s pgAccounts) CountByStatus(ctx context.Context, now, since time.Time) (map[domain.Status]int, error) {
+	return postgres.Counts[domain.Status](s.db.Query(ctx, `SELECT CASE WHEN status = 'deleted' THEN 'deleted'
+    WHEN status = 'suspended' AND (suspended_until IS NULL OR suspended_until > @now) THEN 'suspended'
+    ELSE 'active' END, count(*)
+FROM accounts WHERE id <> @system AND created_at >= @since GROUP BY 1`,
+		pgx.StrictNamedArgs{"now": now, "since": since, "system": domain.ShopNexusID}))
+}
+
 // lockLiving takes a share lock on account's row and refuses a deleted
 // account with domain.ErrSessionRevoked. A write that checked the account
 // before Erase and commits after it waits for Erase and then sees the

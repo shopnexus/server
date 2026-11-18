@@ -92,6 +92,13 @@ func TestCases(t *testing.T) {
 	if n, countErr := cases.CountOpen(ctx); countErr != nil || n != 2 {
 		t.Fatalf("count: %d %v", n, countErr)
 	}
+	if n, countErr := cases.CountByStatus(ctx, time.Time{}); countErr != nil || !maps.Equal(n, map[domain.CaseStatus]int{domain.CaseOpen: 2}) {
+		t.Fatalf("by status: %v %v", n, countErr)
+	}
+	// From the fifth report on, only other's case has one: the sixth was withdrawn.
+	if n, _ := cases.CountByStatus(ctx, start.Add(5*time.Minute)); !maps.Equal(n, map[domain.CaseStatus]int{domain.CaseOpen: 1}) {
+		t.Fatalf("since the fifth report: %v", n)
+	}
 
 	by := audit.Actor{Kind: audit.ActorMember, MemberID: lan}
 	resolution := repository.Resolution{ID: uuid.NewV7(), Outcome: domain.OutcomeDismissed, MemberID: lan, At: start.Add(2 * time.Hour)}
@@ -105,6 +112,12 @@ func TestCases(t *testing.T) {
 	}
 	if n, _ := cases.CountOpen(ctx); n != 1 {
 		t.Fatalf("count after resolving: %d", n)
+	}
+	if n, _ := cases.CountByStatus(ctx, time.Time{}); !maps.Equal(n, map[domain.CaseStatus]int{domain.CaseOpen: 1, domain.CaseResolved: 1}) {
+		t.Fatalf("by status after resolving: %v", n)
+	}
+	if n, _ := cases.CountByStatus(ctx, resolution.At.Add(time.Second)); len(n) != 0 {
+		t.Fatalf("resolved before the cut: %v", n)
 	}
 	resolved, err := cases.Resolved(ctx, page.Request{})
 	if err != nil || len(resolved) != 1 || resolved[0].AccountID != seller || resolved[0].Reports != 4 || resolved[0].Resolution == nil ||

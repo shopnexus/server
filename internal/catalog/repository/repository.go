@@ -32,6 +32,10 @@ type Listings interface {
 	// CountByStatus is a query: how many listings seller has in each
 	// status; a status without one is left out.
 	CountByStatus(ctx context.Context, seller uuid.UUID) (map[domain.Status]int, error)
+	// CountCreatedSince is a query: how many listings created at or after
+	// since are in each status, deleted ones too; a status without one is
+	// left out.
+	CountCreatedSince(ctx context.Context, since time.Time) (map[domain.Status]int, error)
 	// Get returns ErrNotFound for an unknown id.
 	Get(ctx context.Context, id uuid.UUID) (domain.Listing, error)
 	// GetMany returns the listings among ids in any status and order; an

@@ -18,8 +18,7 @@ import (
 	"github.com/shopnexus/server2/internal/provider/carrier"
 )
 
-// actionsRead is how many console actions account_get counts and
-// account_actions lists.
+// actionsRead is how many console actions account_get counts.
 const actionsRead = 50
 
 // tools are the MCP tools, each a thin adapter over the services of the
@@ -109,15 +108,7 @@ func (t tools) ticketGet(ctx context.Context, caller authn.ConsoleMember, in tic
 		}
 	}
 	for i := range d.Messages.Items {
-		m := &d.Messages.Items[i]
-		from := "person"
-		if m.Message.SenderID == accountdomain.ShopNexusID {
-			from = "shopnexus"
-		}
-		out.Messages = append(out.Messages, messageOut{
-			ID: m.Message.ID, From: from, Member: m.Member, Automatic: m.Automatic, Text: m.Message.Text,
-			Photos: len(m.Message.Photos), ListingID: m.Message.ListingID, At: m.Message.CreatedAt,
-		})
+		out.Messages = append(out.Messages, messageOf(&d.Messages.Items[i]))
 	}
 	for i := range d.Others {
 		o := &d.Others[i]
@@ -139,16 +130,9 @@ type ticketsOut struct {
 }
 
 type accountTicket struct {
-	ID            uuid.UUID  `json:"id"`
-	Kind          string     `json:"kind"`
-	Status        string     `json:"status"`
-	As            string     `json:"as"                  jsonschema:"person when the account opened it, seller when it is on an order the account sold"`
-	Person        person     `json:"person"`
-	OrderID       *uuid.UUID `json:"order_id,omitempty"`
-	LastText      string     `json:"last_text,omitempty" jsonschema:"the chat's last message, quoted data"`
-	LastFrom      string     `json:"last_from"           jsonschema:"person or shopnexus"`
-	LastMessageAt time.Time  `json:"last_message_at"`
-	OpenedAt      time.Time  `json:"opened_at"`
+	ticketItem
+
+	As string `json:"as" jsonschema:"person when the account opened it, seller when it is on an order the account sold"`
 }
 
 func (t tools) ticketsOfAccount(ctx context.Context, caller authn.ConsoleMember, in accountIn) (ticketsOut, error) {
@@ -164,13 +148,7 @@ func (t tools) ticketsOfAccount(ctx context.Context, caller authn.ConsoleMember,
 		if c.Person.ID == in.AccountID {
 			as = "person"
 		}
-		v := accountTicket{
-			ID: c.Ticket.ID, Kind: string(c.Ticket.Kind), Status: string(c.Ticket.Status), As: as, Person: personOf(c.Person),
-			LastText: c.LastText, LastFrom: string(c.LastFrom), LastMessageAt: c.LastMessageAt, OpenedAt: c.Ticket.OpenedAt,
-		}
-		if c.Ticket.Order != nil {
-			v.OrderID = &c.Ticket.Order.ID
-		}
+		v := accountTicket{ticketItem: ticketItemOf(c), As: as}
 		out.Tickets = append(out.Tickets, v)
 		read = append(read, c.Ticket.ID)
 	}
@@ -244,41 +222,6 @@ func (t tools) accountGet(ctx context.Context, _ authn.ConsoleMember, in account
 		if acts.Items[i].Action == audit.AccountSuspend {
 			out.Suspensions++
 		}
-	}
-	return out, nil
-}
-
-type actionsOut struct {
-	AccountID uuid.UUID   `json:"account_id"`
-	Actions   []actionOut `json:"actions"    jsonschema:"newest first, at most 50"`
-}
-
-type actionOut struct {
-	ID        uuid.UUID      `json:"id"`
-	At        time.Time      `json:"at"`
-	Action    string         `json:"action"              jsonschema:"such as account.suspend or account.unsuspend"`
-	ActorKind string         `json:"actor_kind"          jsonschema:"member or cli"`
-	ActorName string         `json:"actor_name"`
-	MemberID  *uuid.UUID     `json:"member_id,omitempty"`
-	Details   map[string]any `json:"details"             jsonschema:"what the action does not say, such as a suspension's reason and end"`
-}
-
-func (t tools) accountActions(ctx context.Context, _ authn.ConsoleMember, in accountIn) (actionsOut, error) {
-	acts, err := t.d.Console.ListActions(ctx, audit.Filter{TargetID: in.AccountID}, page.Request{Limit: actionsRead})
-	if err != nil {
-		return actionsOut{}, fmt.Errorf("read the console actions: %w", err)
-	}
-	out := actionsOut{AccountID: in.AccountID, Actions: make([]actionOut, 0, len(acts.Items))}
-	for i := range acts.Items {
-		a := &acts.Items[i]
-		details := a.Details
-		if details == nil {
-			details = map[string]any{}
-		}
-		out.Actions = append(out.Actions, actionOut{
-			ID: a.ID, At: a.At, Action: string(a.Action), ActorKind: string(a.Actor.Kind), ActorName: a.Actor.DisplayName,
-			MemberID: a.Actor.MemberID, Details: details,
-		})
 	}
 	return out, nil
 }
