@@ -153,6 +153,32 @@ func TestConsoleAgentRuns(t *testing.T) {
 	check(t, "deleting when the agent fails", consoleCall(t, lan, "DELETE", skills+"/"+down, nil), 503, "agent_unavailable")
 	expectStatus(t, consoleCall(t, signedOut, "DELETE", skills+"/"+ok, nil), 401)
 
+	const conversations = "/v1/console/agent/conversations/"
+	renamed := expect[agentConversation](t, consoleCall(t, lan, "PATCH", conversations+conversation.ID,
+		map[string]string{"title": "  Tuần này  "}), 200)
+	if renamed.ID != conversation.ID || renamed.Title != "Tuần này" {
+		t.Errorf("renamed %+v", renamed)
+	}
+	title := map[string]string{"title": "Tuần"}
+	check(t, "a title of spaces", consoleCall(t, lan, "PATCH", conversations+conversation.ID, map[string]string{"title": "   "}), 422,
+		"agent_title_invalid")
+	check(t, "a rename without a title", consoleCall(t, lan, "PATCH", conversations+conversation.ID, map[string]any{}), 400, "")
+	for _, method := range []string{"PATCH", "DELETE"} {
+		var body any
+		if method == "PATCH" {
+			body = title
+		}
+		check(t, method+" a shared conversation", consoleCall(t, lan, method, conversations+agentForbidden.String(), body), 403,
+			"agent_forbidden")
+		check(t, method+" an unknown conversation", consoleCall(t, lan, method, conversations+missing, body), 404,
+			"agent_conversation_not_found")
+		check(t, method+" when the agent fails", consoleCall(t, lan, method, conversations+down, body), 503, "agent_unavailable")
+		expectStatus(t, consoleCall(t, signedOut, method, conversations+conversation.ID, body), 401)
+	}
+	check(t, "deleting with a turn open", consoleCall(t, lan, "DELETE", conversations+conflict, nil), 409, "agent_turn_in_progress")
+	expectStatus(t, consoleCall(t, lan, "DELETE", conversations+conversation.ID, nil), 204)
+	check(t, "the deleted conversation", consoleCall(t, lan, "GET", conversations+conversation.ID, nil), 404, "agent_conversation_not_found")
+
 	picks := expect[struct {
 		Items []struct {
 			Name    string `json:"name"`

@@ -61,6 +61,8 @@ func newAgent() *stubAgent {
 	mux.HandleFunc("GET /conversations/{id}", a.get)
 	mux.HandleFunc("POST /conversations/{id}/turns", a.ask)
 	mux.HandleFunc("GET /turns/{id}/events", a.events)
+	mux.HandleFunc("PATCH /conversations/{id}", a.rename)
+	mux.HandleFunc("DELETE /conversations/{id}", a.remove)
 	a.runs(mux)
 	a.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer "+agentServiceToken || r.Header.Get("X-Console-Member") == "" ||
@@ -434,4 +436,56 @@ func (*stubAgent) runs(mux *http.ServeMux) {
 			w.WriteHeader(http.StatusNoContent)
 		}
 	})
+}
+
+// conversationOf is the conversation of the path, or false after an answer
+// for agentDown (a failure), agentForbidden (a shared one, for a
+// moderator), agentConflict (a turn still open, conflict is the code) and
+// an unknown one.
+func (a *stubAgent) conversationOf(w http.ResponseWriter, r *http.Request, conflict string) (map[string]any, bool) {
+	switch uuid.MustParse(r.PathValue("id")) {
+	case agentDown:
+		refuse(w, http.StatusInternalServerError, "internal")
+		return nil, false
+	case agentForbidden:
+		refuse(w, http.StatusForbidden, "forbidden")
+		return nil, false
+	case agentConflict:
+		refuse(w, http.StatusConflict, conflict)
+		return nil, false
+	}
+	c, ok := a.conversations[r.PathValue("id")]
+	if !ok {
+		refuse(w, http.StatusNotFound, "not_found")
+	}
+	return c, ok
+}
+
+func (a *stubAgent) rename(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Title string `json:"title"`
+	}
+	if json.NewDecoder(r.Body).Decode(&in) != nil || in.Title == "" {
+		refuse(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	c, ok := a.conversationOf(w, r, "conversation_closed")
+	if !ok {
+		return
+	}
+	c["title"] = in.Title
+	writeJSON(w, http.StatusOK, public(c))
+}
+
+func (a *stubAgent) remove(w http.ResponseWriter, r *http.Request) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if _, ok := a.conversationOf(w, r, "turn_in_progress"); !ok {
+		return
+	}
+	delete(a.conversations, r.PathValue("id"))
+	delete(a.turns, r.PathValue("id"))
+	w.WriteHeader(http.StatusNoContent)
 }
