@@ -3,6 +3,9 @@ package repository
 import (
 	"context"
 	"time"
+	"uuid"
+
+	"github.com/shopnexus/server/internal/platform/audit"
 
 	"github.com/shopnexus/server/internal/console/domain"
 )
@@ -23,4 +26,12 @@ type Dashboards interface {
 	// tokenHash with its console session and member. It returns ErrNotFound
 	// unless the session is for app and its console session lives at now.
 	Live(ctx context.Context, tokenHash []byte, app domain.App, now time.Time) (domain.DashboardGrant, error)
+	// Floors lists the dashboards with their floors, in their order.
+	Floors(ctx context.Context) ([]domain.DashboardFloor, error)
+	// Floor is the floor of app, or ErrNotFound.
+	Floor(ctx context.Context, app domain.App) (domain.Role, error)
+	// SetFloors sets the floors of the dashboards in floors, and writes an
+	// entry for each, in one transaction; an app with no row is
+	// ErrNotFound and changes nothing.
+	SetFloors(ctx context.Context, floors map[domain.App]domain.Role, by uuid.UUID, at time.Time, entries []audit.Entry) error
 }

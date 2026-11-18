@@ -35,13 +35,16 @@ type fakeLiteLLM struct {
 	// listed is what each provider's lister expands into.
 	listed map[string][]string
 	days   []map[string]any
-	down   bool
+	// customers is each end user's budget.
+	customers map[string]string
+	down      bool
 }
 
 func newGateway() *fakeLiteLLM {
 	f := &fakeLiteLLM{
 		creds: map[string]litellm.Credential{}, budget: map[string]map[string]any{}, listed: map[string][]string{},
-		router: map[string]any{"routing_strategy": "simple-shuffle", "num_retries": 2.0},
+		customers: map[string]string{},
+		router:    map[string]any{"routing_strategy": "simple-shuffle", "num_retries": 2.0},
 		keys: []map[string]any{
 			{
 				"token": "hash-agent", "key_alias": "agent", "models": []any{"console-agent"}, "spend": 1.5,
@@ -66,6 +69,12 @@ func newGateway() *fakeLiteLLM {
 	mux.HandleFunc("POST /budget/new", f.budgetSave)
 	mux.HandleFunc("POST /budget/update", f.budgetSave)
 	mux.HandleFunc("GET /user/daily/activity/aggregated", f.daily)
+	mux.HandleFunc("GET /customer/daily/activity/aggregated", f.daily)
+	mux.HandleFunc("POST /customer/update", f.customerSave)
+	mux.HandleFunc("POST /customer/new", f.customerSave)
+	mux.HandleFunc("GET /spend/logs/v2", func(w http.ResponseWriter, _ *http.Request) {
+		gwReply(w, http.StatusOK, map[string]any{"data": []any{}, "total_pages": 1})
+	})
 	mux.HandleFunc("POST /health/test_connection", f.testConnection)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
@@ -284,4 +293,20 @@ func (f *fakeLiteLLM) testConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gwReply(w, http.StatusOK, map[string]any{"status": "error", "error": "AuthenticationError: bad key"})
+}
+
+// customerSave sets an end user's budget; /customer/update of one LiteLLM
+// has not seen is 400, as LiteLLM answers.
+func (f *fakeLiteLLM) customerSave(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		UserID   string `json:"user_id"`
+		BudgetID string `json:"budget_id"`
+	}
+	gwDecode(r, &in)
+	if _, ok := f.customers[in.UserID]; ok == (r.URL.Path == "/customer/new") {
+		gwReply(w, http.StatusBadRequest, map[string]any{"detail": "end user exists or is missing"})
+		return
+	}
+	f.customers[in.UserID] = in.BudgetID
+	gwReply(w, http.StatusOK, map[string]any{"user_id": in.UserID})
 }

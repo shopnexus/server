@@ -76,6 +76,8 @@ func (h *Handler) Register(r *httpx.Router) {
 	handle("POST /v1/console/listings/{id}/unhide", mod(http.HandlerFunc(h.UnhideListing)))
 
 	handle("POST /v1/console/dashboard-tickets", mod(http.HandlerFunc(h.CreateDashboardTicket)))
+	handle("GET /v1/console/settings/dashboards", admin(http.HandlerFunc(h.ListDashboardFloors)))
+	handle("PATCH /v1/console/settings/dashboards", admin(http.HandlerFunc(h.SetDashboardFloors)))
 	r.Handle("GET /v1/console/dashboard-auth", http.HandlerFunc(h.AuthorizeDashboard))
 	r.Handle("GET /_dashboard/callback", http.HandlerFunc(h.OpenDashboard))
 }

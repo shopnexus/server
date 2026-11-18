@@ -96,16 +96,3 @@ func (s *Agent) syncProvider(ctx context.Context, p Provider) (Provider, error) 
 	c, _ := st.credential(p.ID)
 	return st.providerOf(c), nil
 }
-
-// dropLister deletes provider's lister, when it leaves sync mode; the
-// models it added stay in the list.
-func (s *Agent) dropLister(ctx context.Context, st state, provider string) error {
-	for _, d := range st.deps {
-		if d.ModelName == provider+"/*" && d.ID() != "" {
-			if err := s.gateway.DeleteDeployment(ctx, d.ID()); err != nil {
-				return gatewayError(err)
-			}
-		}
-	}
-	return nil
-}

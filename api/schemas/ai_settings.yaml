@@ -6,7 +6,7 @@ AIProvider:
   type: object
   additionalProperties: false
   description: A provider, a LiteLLM credential. Each of its models is a deployment of every agent alias that runs on it, with the provider's weight and order.
-  required: [id, name, kind, weight, order, mode, models]
+  required: [id, name, kind, weight, order, mode, enabled, models]
   properties:
     id:
       type: string
@@ -31,6 +31,9 @@ AIProvider:
       description: Lower is tried first; a higher order is the fallback.
     mode:
       $ref: "#/AIProviderMode"
+    enabled:
+      type: boolean
+      description: The provider serves the agents' aliases; a provider turned off keeps its models and serves none.
     models:
       type: array
       items:
@@ -103,6 +106,9 @@ AIProviderPatch:
       minimum: 1
     mode:
       $ref: "#/AIProviderMode"
+    enabled:
+      type: boolean
+      description: false takes the provider out of every alias (ai_provider_in_use when it is an agent's model's only one).
 AIProviderModelNew:
   type: object
   additionalProperties: false
@@ -195,6 +201,9 @@ AIModel:
       type: number
     output_cost_per_mtok:
       type: number
+    context_tokens:
+      type: integer
+      description: The input tokens LiteLLM's model info gives the model.
 AIModelList:
   type: object
   additionalProperties: false
@@ -493,6 +502,26 @@ AIAgentBudget:
     spent_usd:
       type: number
       description: Spent in the budget's current period, as LiteLLM counts it.
+AIRoleBudgets:
+  type: object
+  additionalProperties: false
+  description: The daily budget of a moderator and of an admin through the console agents; none when left out.
+  properties:
+    moderator:
+      type: number
+    admin:
+      type: number
+AIMemberBudget:
+  type: object
+  additionalProperties: false
+  required: [member_id, daily_usd]
+  properties:
+    member_id:
+      type: string
+      format: uuid
+    daily_usd:
+      type: number
+      minimum: 0
 AIBudgets:
   type: object
   additionalProperties: false
@@ -502,9 +531,30 @@ AIBudgets:
       type: array
       items:
         $ref: "#/AIAgentBudget"
-    member_daily_usd:
+    monthly_cap_usd:
       type: number
-      description: What each member may spend a day through the console agents.
+      description: The cap on the month's spend of every agent (UTC month).
+    month_spent_usd:
+      type: number
+    alert_pct:
+      type: integer
+    on_cap:
+      type: string
+      description: stop_agents refuses console turns once the month's spend reaches the cap; alert_only only alerts.
+      enum: [stop_agents, alert_only]
+    alerting:
+      type: boolean
+      description: The month's spend is at or past alert_pct of the cap.
+    capped:
+      type: boolean
+      description: The month's spend is at or past the cap.
+    member_daily_usd:
+      $ref: "#/AIRoleBudgets"
+    overrides:
+      type: array
+      description: Members with a daily budget of their own, in place of their role's.
+      items:
+        $ref: "#/AIMemberBudget"
 AIBudgetsPatch:
   type: object
   additionalProperties: false
@@ -524,13 +574,37 @@ AIBudgetsPatch:
           monthly_budget_usd:
             type: [number, "null"]
             minimum: 0
-    member_daily_usd:
+    monthly_cap_usd:
       type: [number, "null"]
       minimum: 0
+    alert_pct:
+      type: integer
+      minimum: 1
+      maximum: 100
+    on_cap:
+      type: string
+      enum: [stop_agents, alert_only]
+    member_daily_usd:
+      type: object
+      additionalProperties: false
+      description: A role's daily budget; null or 0 takes it away.
+      properties:
+        moderator:
+          type: [number, "null"]
+          minimum: 0
+        admin:
+          type: [number, "null"]
+          minimum: 0
+    overrides:
+      type: array
+      description: Every member's own daily budget; replaces the list.
+      maxItems: 200
+      items:
+        $ref: "#/AIMemberBudget"
 AISpend:
   type: object
   additionalProperties: false
-  required: [range, start, end, total_usd, days]
+  required: [range, start, end, total_usd, days, members]
   properties:
     range:
       type: string
@@ -567,3 +641,203 @@ AISpend:
                   format: uuid
                 usd:
                   type: number
+    members:
+      type: array
+      description: Each member's spend through the console agents (LiteLLM's end users) and questions, most spent first.
+      items:
+        type: object
+        additionalProperties: false
+        required: [member_id, display_name, usd, requests]
+        properties:
+          member_id:
+            type: string
+            format: uuid
+          display_name:
+            type: string
+          usd:
+            type: number
+          requests:
+            type: integer
+AIProviderModelList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [model, added]
+        properties:
+          model:
+            type: string
+          tags:
+            type: array
+            items:
+              type: string
+          input_cost_per_mtok:
+            type: number
+          output_cost_per_mtok:
+            type: number
+          context_tokens:
+            type: integer
+          added:
+            type: boolean
+            description: The model is in the provider's list.
+AIProviderHealthList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [id, requests_24h, share_pct, success_pct, p50_ms]
+        properties:
+          id:
+            type: string
+          requests_24h:
+            type: integer
+          share_pct:
+            type: number
+          success_pct:
+            type: number
+          p50_ms:
+            type: integer
+          cooling_until:
+            type: string
+            format: date-time
+          last_error:
+            type: string
+AIDayCount:
+  type: object
+  additionalProperties: false
+  required: [date, requests]
+  properties:
+    date:
+      type: string
+      format: date
+    requests:
+      type: integer
+AIAgentUsageList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [agent_id, requests, days]
+        properties:
+          agent_id:
+            type: string
+            format: uuid
+          requests:
+            type: integer
+          days:
+            type: array
+            items:
+              $ref: "#/AIDayCount"
+AIToolStats:
+  type: object
+  additionalProperties: false
+  required: [items, recent]
+  properties:
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [name, display_name, calls, failed, days]
+        properties:
+          name:
+            type: string
+          display_name:
+            type: string
+            description: The tool's title.
+          calls:
+            type: integer
+          failed:
+            type: integer
+          p50_ms:
+            type: integer
+          days:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              required: [date, calls]
+              properties:
+                date:
+                  type: string
+                  format: date
+                calls:
+                  type: integer
+    recent:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [call_id, turn_id, tool, label, status, at]
+        properties:
+          call_id:
+            type: string
+            format: uuid
+          turn_id:
+            type: string
+            format: uuid
+          member_id:
+            type: string
+            format: uuid
+          tool:
+            type: string
+          label:
+            type: string
+          duration_ms:
+            type: integer
+          status:
+            type: string
+          at:
+            type: string
+            format: date-time
+AIGuardrailStats:
+  type: object
+  additionalProperties: false
+  required: [items, recent]
+  properties:
+    items:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [rule, count]
+        properties:
+          rule:
+            type: string
+          count:
+            type: integer
+    recent:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required: [rule, detail, at]
+        properties:
+          rule:
+            type: string
+          detail:
+            type: string
+          member_id:
+            type: string
+            format: uuid
+          turn_id:
+            type: string
+            format: uuid
+          at:
+            type: string
+            format: date-time

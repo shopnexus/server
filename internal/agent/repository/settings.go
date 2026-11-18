@@ -61,7 +61,7 @@ type Version struct {
 // Settings keeps the AI settings LiteLLM has no place for: the tags, the
 // models' tags and the agents with their instructions' versions. A write
 // records its console action in the same transaction.
-type Settings interface {
+type Settings interface { //nolint:interfacebloat // module agent's one store of the AI settings, as a repository.go store.
 	// Tags lists ai_tags in their order.
 	Tags(ctx context.Context) ([]Tag, error)
 	// ModelTags maps each model that has tags to them, in the tags' order.
@@ -86,4 +86,32 @@ type Settings interface {
 	// Record writes a console action on its own, for a change made in
 	// LiteLLM.
 	Record(ctx context.Context, e audit.Entry) error
+	// BudgetSettings reads the one row of ai_budget_settings and the
+	// members' own daily budgets.
+	BudgetSettings(ctx context.Context) (BudgetSettings, error)
+	// SaveBudgetSettings writes b, and replaces the members' own budgets
+	// with b.Members when b.SetMembers, with e in the same transaction.
+	SaveBudgetSettings(ctx context.Context, b BudgetSettings, e audit.Entry) error
+}
+
+// BudgetSettings is the AI spend's monthly cap, its alert and what the cap
+// does, and the console agents' daily budget per member: one per role and
+// the members' own.
+type BudgetSettings struct {
+	MonthlyCapUSD     *float64
+	AlertPct          int
+	OnCap             string
+	ModeratorDailyUSD *float64
+	AdminDailyUSD     *float64
+	Members           []MemberBudget
+	// SetMembers says that Members replaces the stored list.
+	SetMembers bool
+	UpdatedBy  *uuid.UUID
+	UpdatedAt  time.Time
+}
+
+// MemberBudget is a member's own daily budget.
+type MemberBudget struct {
+	MemberID uuid.UUID
+	DailyUSD float64
 }

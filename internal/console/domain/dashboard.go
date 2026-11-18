@@ -21,10 +21,19 @@ const (
 	AppDB      App = "db"
 )
 
-// Floor is the lowest role that opens a; ok is false for an unknown app.
-// Grafana only shows the server's traces, metrics and logs; the others can
-// cancel invocations, spend model budget, read every object, deploy or
-// change any row (db, pgweb on the stack's database).
+// DashboardFloor is an ops dashboard's name and the lowest role that opens
+// it, a row of console_dashboards, which an admin may change.
+type DashboardFloor struct {
+	App   App    `json:"app"`
+	Name  string `json:"name"`
+	Floor Role   `json:"floor"`
+}
+
+// Floor is the lowest role that opens a by default, the floor migration
+// 0057 seeds; ok is false for an unknown app. Grafana only shows the
+// server's traces, metrics and logs; the others can cancel invocations,
+// spend model budget, read every object, deploy or change any row (db,
+// pgweb on the stack's database).
 func (a App) Floor() (floor Role, ok bool) {
 	switch a {
 	case AppGrafana:

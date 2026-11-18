@@ -46,6 +46,7 @@ const (
 	infoOrder    = "order"
 	infoMode     = "mode"
 	infoSyncedAt = "synced_at"
+	infoEnabled  = "enabled"
 )
 
 // gatewayError is what a member sees of a LiteLLM failure: its refusal as
@@ -99,16 +100,23 @@ func (st state) catalog(provider string) []string {
 	return slices.Compact(out)
 }
 
-// providersOf lists the providers that serve model, in the credentials'
-// order.
+// providersOf lists the enabled providers that serve model, in the
+// credentials' order.
 func (st state) providersOf(model string) []litellm.Credential {
 	var out []litellm.Credential
 	for _, c := range st.creds {
-		if slices.Contains(st.catalog(c.Name), model) {
+		if enabled(c) && slices.Contains(st.catalog(c.Name), model) {
 			out = append(out, c)
 		}
 	}
 	return out
+}
+
+// enabled says a provider serves the aliases: info's enabled, true when
+// unset.
+func enabled(c litellm.Credential) bool {
+	v, ok := c.Info[infoEnabled].(bool)
+	return !ok || v
 }
 
 // providerOf is the Provider view of c.
@@ -116,7 +124,7 @@ func (st state) providerOf(c litellm.Credential) Provider {
 	p := Provider{
 		ID: c.Name, Name: c.DisplayName, Kind: infoString(c.Info, infoKind), BaseURL: infoString(c.Info, infoBaseURL),
 		KeyHint: c.Values["api_key"], Weight: infoFloat(c.Info, infoWeight, 1), Order: int(infoFloat(c.Info, infoOrder, 1)),
-		Mode: domain.ProviderMode(infoString(c.Info, infoMode)), Models: st.catalog(c.Name),
+		Mode: domain.ProviderMode(infoString(c.Info, infoMode)), Enabled: enabled(c), Models: st.catalog(c.Name),
 	}
 	if p.Name == "" {
 		p.Name = c.Name

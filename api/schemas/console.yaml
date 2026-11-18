@@ -63,6 +63,52 @@ Me:
     role:
       type: string
       enum: [moderator, admin]
+    dashboards:
+      type: array
+      description: The ops dashboards and the lowest role that opens each, on GET /v1/console/me.
+      items:
+        $ref: "#/DashboardFloor"
+DashboardFloor:
+  type: object
+  additionalProperties: false
+  required: [app, name, floor]
+  properties:
+    app:
+      type: string
+      enum: [grafana, restate, litellm, s3, db, argocd]
+    name:
+      type: string
+    floor:
+      type: string
+      enum: [moderator, admin]
+DashboardFloorList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/DashboardFloor"
+DashboardFloorsPatch:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      minItems: 1
+      items:
+        type: object
+        additionalProperties: false
+        required: [app, floor]
+        properties:
+          app:
+            type: string
+            enum: [grafana, restate, litellm, s3, db, argocd]
+          floor:
+            type: string
+            enum: [moderator, admin]
 ChangePasswordRequest:
   type: object
   additionalProperties: false
@@ -266,6 +312,7 @@ Action:
         - ai.agent_update
         - ai.rotation
         - ai.budgets
+        - dashboard.floor
     target:
       type: object
       additionalProperties: false
@@ -273,7 +320,7 @@ Action:
       properties:
         kind:
           type: string
-          enum: [account, member, ticket, listing, ai_provider, ai_model, ai_agent, ai_settings]
+          enum: [account, member, ticket, listing, ai_provider, ai_model, ai_agent, ai_settings, dashboard]
         id:
           type: string
           format: uuid

@@ -107,3 +107,50 @@ func (h *Handler) AuthorizeDashboard(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, authn.ErrUnauthenticated)
 	}
 }
+
+type dashboardFloors struct {
+	Items []domain.DashboardFloor `json:"items"`
+}
+
+// ListDashboardFloors serves GET /v1/console/settings/dashboards.
+func (h *Handler) ListDashboardFloors(w http.ResponseWriter, r *http.Request) {
+	if _, ok := httpx.ConsoleCaller(w, r, h.log); !ok {
+		return
+	}
+	out, err := h.svc.DashboardFloors(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, dashboardFloors{out})
+}
+
+type setFloorsRequest struct {
+	Items []struct {
+		App   domain.App  `json:"app"`
+		Floor domain.Role `json:"floor"`
+	} `json:"items"`
+}
+
+// SetDashboardFloors serves PATCH /v1/console/settings/dashboards.
+func (h *Handler) SetDashboardFloors(w http.ResponseWriter, r *http.Request) {
+	caller, ok := httpx.ConsoleCaller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in setFloorsRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	floors := make(map[domain.App]domain.Role, len(in.Items))
+	for _, it := range in.Items {
+		floors[it.App] = it.Floor
+	}
+	out, err := h.svc.SetDashboardFloors(r.Context(), caller, floors)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, dashboardFloors{out})
+}

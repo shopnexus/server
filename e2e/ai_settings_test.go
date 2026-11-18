@@ -156,6 +156,72 @@ func TestAISettings(t *testing.T) {
 		t.Fatalf("agents %+v", agents)
 	}
 
+	available := expect[struct {
+		Items []struct {
+			Model string `json:"model"`
+			Added bool   `json:"added"`
+		} `json:"items"`
+	}](t, consoleCall(t, minh, "GET", settings+"/providers/"+provider+"/models", nil), 200)
+	if len(available.Items) == 0 || !slices.ContainsFunc(available.Items, func(m struct {
+		Model string `json:"model"`
+		Added bool   `json:"added"`
+	},
+	) bool {
+		return m.Model == model && m.Added
+	}) {
+		t.Errorf("available models %+v", available)
+	}
+	check(t, "the models of an unknown provider", consoleCall(t, minh, "GET", settings+"/providers/nobody/models", nil), 404,
+		"ai_provider_not_found")
+	expectStatus(t, consoleCall(t, minh, "GET", settings+"/providers/health", nil), 200)
+	check(t, "turning off the only provider of a model", consoleCall(t, minh, "PATCH", settings+"/providers/"+provider,
+		map[string]any{"enabled": false}), 409, "ai_provider_in_use")
+	usage := expect[struct {
+		Items []struct {
+			AgentID  string `json:"agent_id"`
+			Requests int    `json:"requests"`
+		} `json:"items"`
+	}](t, consoleCall(t, minh, "GET", settings+"/agents/usage?range=7d", nil), 200)
+	if !slices.ContainsFunc(usage.Items, func(u struct {
+		AgentID  string `json:"agent_id"`
+		Requests int    `json:"requests"`
+	},
+	) bool {
+		return u.AgentID == "0193e000-0000-7000-8000-00000000a101" && u.Requests == 2
+	}) {
+		t.Errorf("usage %+v", usage)
+	}
+	tools := expect[struct {
+		Items []struct {
+			DisplayName string `json:"display_name"`
+		} `json:"items"`
+	}](t, consoleCall(t, minh, "GET", settings+"/tools?range=30d", nil), 200)
+	if len(tools.Items) != 1 || tools.Items[0].DisplayName != "Ticket" {
+		t.Errorf("tools %+v", tools)
+	}
+	expectStatus(t, consoleCall(t, minh, "GET", settings+"/guardrails", nil), 200)
+	floors := expect[struct {
+		Items []struct {
+			App   string `json:"app"`
+			Floor string `json:"floor"`
+		} `json:"items"`
+	}](t, consoleCall(t, minh, "PATCH", settings+"/dashboards", map[string]any{
+		"items": []map[string]string{{"app": "grafana", "floor": "moderator"}},
+	}), 200)
+	if len(floors.Items) != 6 || floors.Items[0].App != "grafana" {
+		t.Errorf("floors %+v", floors)
+	}
+	expectStatus(t, consoleCall(t, minh, "GET", settings+"/dashboards", nil), 200)
+	check(t, "an unknown dashboard", consoleCall(t, minh, "PATCH", settings+"/dashboards", map[string]any{
+		"items": []map[string]string{{"app": "kibana", "floor": "admin"}},
+	}), 400, "")
+	me := expect[struct {
+		Dashboards []any `json:"dashboards"`
+	}](t, consoleCall(t, lan, "GET", "/v1/console/me", nil), 200)
+	if len(me.Dashboards) != 6 {
+		t.Errorf("a moderator's dashboards %+v", me)
+	}
+
 	check(t, "deleting the only provider of a model", consoleCall(t, minh, "DELETE", settings+"/providers/"+provider, nil), 409,
 		"ai_provider_in_use")
 	check(t, "removing the only provider's model", consoleCall(t, minh, "DELETE", settings+"/providers/"+provider+"/models?model="+escaped, nil),
@@ -192,22 +258,33 @@ func TestAISettings(t *testing.T) {
 	check(t, "an unknown strategy", consoleCall(t, minh, "PATCH", settings+"/rotation", map[string]any{"routing_strategy": "random"}), 400, "")
 
 	budgets := expect[struct {
-		MemberDailyUSD float64 `json:"member_daily_usd"`
+		MemberDailyUSD struct {
+			Moderator float64 `json:"moderator"`
+		} `json:"member_daily_usd"`
+		Overrides []any  `json:"overrides"`
+		OnCap     string `json:"on_cap"`
 	}](t, consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{
-		"member_daily_usd": 2, "agents": []map[string]any{{"agent_id": agent.ID, "monthly_budget_usd": 7}},
+		"member_daily_usd": map[string]any{"moderator": 2, "admin": 0},
+		"overrides":        []map[string]any{{"member_id": minh.ID, "daily_usd": 4}},
+		"agents":           []map[string]any{{"agent_id": agent.ID, "monthly_budget_usd": 7}},
+		"alert_pct":        90, "on_cap": "alert_only",
 	}), 200)
-	if budgets.MemberDailyUSD != 2 {
+	if budgets.MemberDailyUSD.Moderator != 2 || len(budgets.Overrides) != 1 || budgets.OnCap != "alert_only" {
 		t.Errorf("budgets %+v", budgets)
 	}
 	expectStatus(t, consoleCall(t, minh, "GET", settings+"/budgets", nil), 200)
 	check(t, "the budget of an unknown agent", consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{
 		"agents": []map[string]any{{"agent_id": newID(), "monthly_budget_usd": 1}},
 	}), 404, "ai_agent_not_found")
-	check(t, "a negative budget", consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{"member_daily_usd": -1}), 400, "")
+	check(t, "a negative budget", consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{"monthly_cap_usd": -1}), 400, "")
+	check(t, "the budget of an unknown member", consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{
+		"overrides": []map[string]any{{"member_id": newID(), "daily_usd": 1}},
+	}), 404, "member_not_found")
 	spend := expect[struct {
-		Range string `json:"range"`
+		Range   string `json:"range"`
+		Members []any  `json:"members"`
 	}](t, consoleCall(t, minh, "GET", settings+"/spend?range=7d", nil), 200)
-	if spend.Range != "7d" {
+	if spend.Range != "7d" || spend.Members == nil {
 		t.Errorf("spend %+v", spend)
 	}
 
@@ -262,8 +339,15 @@ func settingsCalls(provider, model, agent string) []settingsCall {
 		{"GET", settings + "/rotation", nil},
 		{"PATCH", settings + "/rotation", map[string]any{"num_retries": 1}},
 		{"GET", settings + "/budgets", nil},
-		{"PATCH", settings + "/budgets", map[string]any{"member_daily_usd": 1}},
+		{"PATCH", settings + "/budgets", map[string]any{"alert_pct": 50}},
 		{"GET", settings + "/spend", nil},
+		{"GET", settings + "/providers/health", nil},
+		{"GET", p + "/models", nil},
+		{"GET", settings + "/agents/usage", nil},
+		{"GET", settings + "/tools", nil},
+		{"GET", settings + "/guardrails", nil},
+		{"GET", settings + "/dashboards", nil},
+		{"PATCH", settings + "/dashboards", map[string]any{"items": []map[string]string{{"app": "grafana", "floor": "moderator"}}}},
 	}
 }
 
@@ -297,10 +381,15 @@ func TestAISettingsDown(t *testing.T) {
 	}
 	assistant := "0193e000-0000-7000-8000-00000000a101"
 	for _, c := range settingsCalls("relay", "m", assistant) {
-		if c.path == settings+"/agents" || strings.HasSuffix(c.path, "/tags") || strings.Contains(c.path, "/agents/") {
+		switch {
+		case c.path == settings+"/agents", strings.HasSuffix(c.path, "/tags"), strings.HasPrefix(c.path, settings+"/agents/0"),
+			strings.HasSuffix(c.path, "/dashboards"):
 			continue // the database's alone
+		case strings.HasSuffix(c.path, "/tools"), strings.HasSuffix(c.path, "/guardrails"), strings.HasSuffix(c.path, "/usage"):
+			check(t, c.method+" "+c.path, at(c.method, c.path, c.body), 503, "agent_unavailable")
+		default:
+			check(t, c.method+" "+c.path, at(c.method, c.path, c.body), 503, "ai_gateway_unavailable")
 		}
-		check(t, c.method+" "+c.path, at(c.method, c.path, c.body), 503, "ai_gateway_unavailable")
 	}
 	check(t, "creating an agent", at("POST", settings+"/agents", map[string]any{"name": "Down", "alias": "down-agent", "model": "m"}), 503,
 		"ai_gateway_unavailable")

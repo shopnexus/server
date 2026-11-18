@@ -184,6 +184,16 @@ type ToolCall struct {
 	FinishedAt    *time.Time      `json:"finished_at,omitempty"`
 	DurationMS    *int            `json:"duration_ms,omitempty"`
 	Timing        *Timing         `json:"timing,omitempty"`
+	// AttemptErrors are the errors of the attempts that failed before the
+	// last.
+	AttemptErrors []AttemptError `json:"attempt_errors,omitempty"`
+}
+
+// AttemptError is a failed attempt of a tool call.
+type AttemptError struct {
+	Attempt int       `json:"attempt"`
+	Error   string    `json:"error"`
+	At      time.Time `json:"at"`
 }
 
 // Timing splits a tool call's time in milliseconds; DB is what the server

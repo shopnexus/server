@@ -432,6 +432,8 @@ paths:
     $ref: "paths/console_agent.yaml#/consoleAgents"
   /v1/console/settings/providers:
     $ref: "paths/ai_settings.yaml#/providers"
+  /v1/console/settings/providers/health:
+    $ref: "paths/ai_settings.yaml#/providerHealth"
   /v1/console/settings/providers/{id}:
     $ref: "paths/ai_settings.yaml#/provider"
   /v1/console/settings/providers/{id}/models:
@@ -444,6 +446,8 @@ paths:
     $ref: "paths/ai_settings.yaml#/modelTags"
   /v1/console/settings/agents:
     $ref: "paths/ai_settings.yaml#/agents"
+  /v1/console/settings/agents/usage:
+    $ref: "paths/ai_settings.yaml#/agentUsage"
   /v1/console/settings/agents/{id}:
     $ref: "paths/ai_settings.yaml#/agent"
   /v1/console/settings/agents/{id}/versions:
@@ -454,6 +458,12 @@ paths:
     $ref: "paths/ai_settings.yaml#/budgets"
   /v1/console/settings/spend:
     $ref: "paths/ai_settings.yaml#/spend"
+  /v1/console/settings/tools:
+    $ref: "paths/ai_settings.yaml#/tools"
+  /v1/console/settings/guardrails:
+    $ref: "paths/ai_settings.yaml#/guardrails"
+  /v1/console/settings/dashboards:
+    $ref: "paths/ai_settings.yaml#/dashboards"
   /v1/console/dashboard-tickets:
     $ref: "paths/console.yaml#/dashboardTickets"
   /v1/console/dashboard-auth:

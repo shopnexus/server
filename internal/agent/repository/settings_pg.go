@@ -248,3 +248,65 @@ func (s pgSettings) Record(ctx context.Context, e audit.Entry) error {
 	}
 	return nil
 }
+
+func (s pgSettings) BudgetSettings(ctx context.Context) (BudgetSettings, error) {
+	var b BudgetSettings
+	if err := s.db.QueryRow(ctx, `SELECT monthly_cap_usd::float8, alert_pct, on_cap, moderator_daily_usd::float8,
+    admin_daily_usd::float8, updated_by, updated_at FROM ai_budget_settings`).Scan(&b.MonthlyCapUSD, &b.AlertPct, &b.OnCap,
+		&b.ModeratorDailyUSD, &b.AdminDailyUSD, &b.UpdatedBy, &b.UpdatedAt); err != nil {
+		return BudgetSettings{}, fmt.Errorf("select budget settings: %w", err)
+	}
+	rows, err := s.db.Query(ctx, `SELECT member_id, daily_usd::float8 FROM ai_member_budgets ORDER BY member_id`)
+	if err != nil {
+		return BudgetSettings{}, fmt.Errorf("select member budgets: %w", err)
+	}
+	b.Members, err = pgx.CollectRows(rows, func(r pgx.CollectableRow) (MemberBudget, error) {
+		var m MemberBudget
+		if scanErr := r.Scan(&m.MemberID, &m.DailyUSD); scanErr != nil {
+			return m, fmt.Errorf("scan member budget: %w", scanErr)
+		}
+		return m, nil
+	})
+	if err != nil {
+		return BudgetSettings{}, fmt.Errorf("read member budgets: %w", err)
+	}
+	return b, nil
+}
+
+func (s pgSettings) SaveBudgetSettings(ctx context.Context, b BudgetSettings, e audit.Entry) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin budget settings: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err = tx.Exec(ctx, `UPDATE ai_budget_settings SET monthly_cap_usd = @cap, alert_pct = @alert, on_cap = @on_cap,
+    moderator_daily_usd = @moderator, admin_daily_usd = @admin, updated_by = @by, updated_at = @at`, pgx.StrictNamedArgs{
+		"cap": b.MonthlyCapUSD, "alert": b.AlertPct, "on_cap": b.OnCap, "moderator": b.ModeratorDailyUSD,
+		"admin": b.AdminDailyUSD, "by": b.UpdatedBy, "at": b.UpdatedAt,
+	}); err != nil {
+		return fmt.Errorf("update budget settings: %w", err)
+	}
+	if b.SetMembers {
+		if _, err = tx.Exec(ctx, `DELETE FROM ai_member_budgets`); err != nil {
+			return fmt.Errorf("delete member budgets: %w", err)
+		}
+		for _, m := range b.Members {
+			if _, err = tx.Exec(ctx, `INSERT INTO ai_member_budgets (member_id, daily_usd, updated_by, updated_at)
+VALUES (@member, @usd, @by, @at)`, pgx.StrictNamedArgs{
+				"member": m.MemberID, "usd": m.DailyUSD, "by": b.UpdatedBy, "at": b.UpdatedAt,
+			}); err != nil {
+				if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23503" {
+					return ErrNotFound
+				}
+				return fmt.Errorf("insert member budget: %w", err)
+			}
+		}
+	}
+	if err = audit.Insert(ctx, tx, e); err != nil {
+		return fmt.Errorf("record budget settings: %w", err)
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit budget settings: %w", err)
+	}
+	return nil
+}

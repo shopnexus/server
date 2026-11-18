@@ -199,7 +199,42 @@ type spendRequest struct {
 
 // GetSpend serves GET /v1/console/settings/spend.
 func (h *Handler) GetSpend(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, in spendRequest) (service.Spend, error) {
-		return h.svc.Spend(r.Context(), in.Range)
+	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (service.Spend, error) {
+		return h.svc.Spend(r.Context(), c, in.Range)
+	})
+}
+
+// ProviderModels serves GET /v1/console/settings/providers/{id}/models.
+func (h *Handler) ProviderModels(w http.ResponseWriter, r *http.Request) {
+	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, in providerRequest) (items[service.AvailableModel], error) {
+		return listOf(h.svc.ProviderModels(r.Context(), in.ID))
+	})
+}
+
+// ProviderHealth serves GET /v1/console/settings/providers/health.
+func (h *Handler) ProviderHealth(w http.ResponseWriter, r *http.Request) {
+	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, _ none) (items[service.ProviderHealth], error) {
+		return listOf(h.svc.ProviderHealth(r.Context()))
+	})
+}
+
+// AgentUsage serves GET /v1/console/settings/agents/usage.
+func (h *Handler) AgentUsage(w http.ResponseWriter, r *http.Request) {
+	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (items[service.AgentUsage], error) {
+		return listOf(h.svc.AgentUsage(r.Context(), c, in.Range))
+	})
+}
+
+// Tools serves GET /v1/console/settings/tools.
+func (h *Handler) Tools(w http.ResponseWriter, r *http.Request) {
+	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (service.ToolStats, error) {
+		return h.svc.Tools(r.Context(), c, in.Range)
+	})
+}
+
+// Guardrails serves GET /v1/console/settings/guardrails.
+func (h *Handler) Guardrails(w http.ResponseWriter, r *http.Request) {
+	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (service.GuardrailStats, error) {
+		return h.svc.Guardrails(r.Context(), c, in.Range)
 	})
 }

@@ -75,6 +75,8 @@ const (
 	AIAgentUpdate    ActionKind = "ai.agent_update"
 	AIRotation       ActionKind = "ai.rotation"
 	AIBudgets        ActionKind = "ai.budgets"
+	// DashboardFloor changes the lowest role that opens ops dashboards.
+	DashboardFloor ActionKind = "dashboard.floor"
 )
 
 type TargetKind string
@@ -91,6 +93,8 @@ const (
 	TargetAIAgent    TargetKind = "ai_agent"
 	// TargetAISettings is the router's rotation and the budgets, as a whole.
 	TargetAISettings TargetKind = "ai_settings"
+	// TargetDashboard is an ops dashboard, named by its app.
+	TargetDashboard TargetKind = "dashboard"
 )
 
 // Target is what an action changed.
@@ -118,6 +122,11 @@ func AIModel(name string) Target {
 // AISettings is a part of the AI settings as a whole, such as rotation.
 func AISettings(name string) Target {
 	return Target{Kind: TargetAISettings, ID: NamedID(TargetAISettings, name)}
+}
+
+// Dashboard is the ops dashboard of app.
+func Dashboard(app string) Target {
+	return Target{Kind: TargetDashboard, ID: NamedID(TargetDashboard, app)}
 }
 
 // NamedID is the id of a target that has a name and no id of its own: the

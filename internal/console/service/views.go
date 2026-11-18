@@ -17,6 +17,10 @@ type Me struct {
 	Email       string      `json:"email"`
 	DisplayName string      `json:"display_name"`
 	Role        domain.Role `json:"role"`
+	// Dashboards are the ops dashboards and their floors, which GET
+	// /v1/console/me carries so a moderator's sidebar follows a changed
+	// floor.
+	Dashboards []domain.DashboardFloor `json:"dashboards,omitempty"`
 }
 
 func meOf(m domain.Member) Me {

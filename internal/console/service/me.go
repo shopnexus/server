@@ -9,13 +9,17 @@ import (
 	"github.com/shopnexus/server/internal/platform/authn"
 )
 
-// GetMe reads the signed-in member.
+// GetMe reads the signed-in member, with the ops dashboards' floors.
 func (s *Console) GetMe(ctx context.Context, caller authn.ConsoleMember) (Me, error) {
 	m, err := s.members.Get(ctx, caller.MemberID)
 	if err != nil {
 		return Me{}, fmt.Errorf("get console member: %w", err)
 	}
-	return meOf(m), nil
+	me := meOf(m)
+	if me.Dashboards, err = s.DashboardFloors(ctx); err != nil {
+		return Me{}, err
+	}
+	return me, nil
 }
 
 // ChangePassword replaces the caller's password. The credentials version

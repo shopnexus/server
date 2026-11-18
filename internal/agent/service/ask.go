@@ -33,6 +33,15 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	if !a.Enabled {
 		return TurnStarted{}, domain.ErrAgentDisabled
 	}
+	set, err := s.settings.BudgetSettings(ctx)
+	if err != nil {
+		return TurnStarted{}, fmt.Errorf("read the budget settings: %w", err)
+	}
+	// E1 the month's cap on AI spend is reached and stops the agents.
+	if s.capReached(ctx, set) {
+		return TurnStarted{}, domain.ErrBudget
+	}
+	s.ensureMemberBudget(ctx, set, caller)
 	// 2. The question goes out with the member's id and role, which the
 	// agent writes on the turn, and the agent's configuration, so the
 	// server stays its only source. · ADR-0003

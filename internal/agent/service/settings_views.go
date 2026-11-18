@@ -19,12 +19,14 @@ type Provider struct {
 	Kind    string `json:"kind"`
 	BaseURL string `json:"base_url,omitempty"`
 	// KeyHint is the key as LiteLLM shows it, masked.
-	KeyHint  string              `json:"key_hint,omitempty"`
-	Weight   float64             `json:"weight"`
-	Order    int                 `json:"order"`
-	Mode     domain.ProviderMode `json:"mode"`
-	Models   []string            `json:"models"`
-	SyncedAt *time.Time          `json:"synced_at,omitempty"`
+	KeyHint string              `json:"key_hint,omitempty"`
+	Weight  float64             `json:"weight"`
+	Order   int                 `json:"order"`
+	Mode    domain.ProviderMode `json:"mode"`
+	// Enabled says the provider's deployments serve the agents' aliases.
+	Enabled  bool       `json:"enabled"`
+	Models   []string   `json:"models"`
+	SyncedAt *time.Time `json:"synced_at,omitempty"`
 }
 
 // NewProvider is the AIProviderNew schema.
@@ -47,6 +49,7 @@ type ProviderPatch struct {
 	Weight  *float64             `json:"weight,omitempty"`
 	Order   *int                 `json:"order,omitempty"`
 	Mode    *domain.ProviderMode `json:"mode,omitempty"`
+	Enabled *bool                `json:"enabled,omitempty"`
 }
 
 // ProviderTest is the AIProviderTest schema: one call through LiteLLM with
@@ -73,6 +76,8 @@ type Model struct {
 	Agents            []AgentRef `json:"agents"`
 	InputCostPerMTok  *float64   `json:"input_cost_per_mtok,omitempty"`
 	OutputCostPerMTok *float64   `json:"output_cost_per_mtok,omitempty"`
+	// ContextTokens is the input tokens LiteLLM gives the model.
+	ContextTokens *int `json:"context_tokens,omitempty"`
 }
 
 // Named is a provider in a model's list.
@@ -198,10 +203,34 @@ type RotationPatch struct {
 }
 
 // Budgets is the AIBudgets schema: each agent's monthly budget and what it
-// spent of it, and the daily budget of each member.
+// spent of it, the month's cap on all AI spend with its alert, and the
+// members' daily budgets.
 type Budgets struct {
-	Agents         []AgentBudget `json:"agents"`
-	MemberDailyUSD *float64      `json:"member_daily_usd,omitempty"`
+	Agents []AgentBudget `json:"agents"`
+	// MonthlyCapUSD is the cap on the month's spend of every agent, nil for
+	// none; MonthSpentUSD is that spend so far.
+	MonthlyCapUSD *float64 `json:"monthly_cap_usd,omitempty"`
+	MonthSpentUSD float64  `json:"month_spent_usd"`
+	AlertPct      int      `json:"alert_pct"`
+	OnCap         string   `json:"on_cap"`
+	// Alerting is the month's spend at or past AlertPct of the cap, and
+	// Capped past the cap itself.
+	Alerting       bool             `json:"alerting"`
+	Capped         bool             `json:"capped"`
+	MemberDailyUSD RoleBudgets      `json:"member_daily_usd"`
+	Overrides      []MemberDailyUSD `json:"overrides"`
+}
+
+// RoleBudgets is the daily budget of a moderator and of an admin.
+type RoleBudgets struct {
+	Moderator *float64 `json:"moderator,omitempty"`
+	Admin     *float64 `json:"admin,omitempty"`
+}
+
+// MemberDailyUSD is a member's own daily budget, in place of their role's.
+type MemberDailyUSD struct {
+	MemberID uuid.UUID `json:"member_id"`
+	DailyUSD float64   `json:"daily_usd"`
 }
 
 // AgentBudget is one agent's budget and spend this period.
@@ -213,10 +242,21 @@ type AgentBudget struct {
 	SpentUSD         float64          `json:"spent_usd"`
 }
 
-// BudgetsPatch is the AIBudgetsPatch schema.
+// BudgetsPatch is the AIBudgetsPatch schema; a field left out stays.
 type BudgetsPatch struct {
 	Agents         []AgentBudgetPatch `json:"agents,omitempty"`
-	MemberDailyUSD Budget             `json:"member_daily_usd,omitzero"`
+	MonthlyCapUSD  Budget             `json:"monthly_cap_usd,omitzero"`
+	AlertPct       *int               `json:"alert_pct,omitempty"`
+	OnCap          *string            `json:"on_cap,omitempty"`
+	MemberDailyUSD *RoleBudgetsPatch  `json:"member_daily_usd,omitempty"`
+	// Overrides, when set, replaces every member's own budget.
+	Overrides *[]MemberDailyUSD `json:"overrides,omitempty"`
+}
+
+// RoleBudgetsPatch sets the daily budget of a role, null for none.
+type RoleBudgetsPatch struct {
+	Moderator Budget `json:"moderator,omitzero"`
+	Admin     Budget `json:"admin,omitzero"`
 }
 
 // AgentBudgetPatch sets one agent's monthly budget, null for none.
@@ -233,6 +273,9 @@ type Spend struct {
 	End      string     `json:"end"`
 	TotalUSD float64    `json:"total_usd"`
 	Days     []SpendDay `json:"days"`
+	// Members is each member's spend through the console agents, most
+	// first.
+	Members []MemberSpend `json:"members"`
 }
 
 // SpendDay is one day's spend.

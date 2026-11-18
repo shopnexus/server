@@ -325,12 +325,44 @@ func (*stubAgent) runs(mux *http.ServeMux) {
 			writeJSON(w, http.StatusAccepted, map[string]any{"steer_id": uuid.NewV7(), "resumed": false})
 		}
 	})
+	mux.HandleFunc("GET /stats/{what}", func(w http.ResponseWriter, r *http.Request) {
+		at := time.Now().UTC().Format(time.RFC3339)
+		switch r.PathValue("what") {
+		case "turns":
+			writeJSON(w, http.StatusOK, map[string]any{
+				"by_agent": []map[string]any{{
+					"agent_id": "0193e000-0000-7000-8000-00000000a101", "requests": 2,
+					"days": []map[string]any{{"date": at[:10], "requests": 2}},
+				}},
+				"by_member": []map[string]any{{"member_id": r.Header.Get("X-Console-Member"), "requests": 2}},
+			})
+		case "tools":
+			writeJSON(w, http.StatusOK, map[string]any{
+				"items": []map[string]any{{
+					"name": "ticket_get", "calls": 3, "failed": 0, "p50_ms": 90,
+					"days": []map[string]any{{"date": at[:10], "calls": 3}},
+				}},
+				"recent": []map[string]any{{
+					"call_id": uuid.NewV7(), "turn_id": uuid.NewV7(), "tool": "ticket_get", "label": "Ticket",
+					"duration_ms": 90, "status": "success", "at": at,
+				}},
+			})
+		case "guardrails":
+			writeJSON(w, http.StatusOK, map[string]any{
+				"items":  []map[string]any{{"rule": "loop_stopped", "count": 1}},
+				"recent": []map[string]any{{"rule": "loop_stopped", "detail": "same call 3 times", "at": at}},
+			})
+		default:
+			refuse(w, http.StatusNotFound, "not_found")
+		}
+	})
 	mux.HandleFunc("GET /tool-calls/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if known(w, r, "") {
 			writeJSON(w, http.StatusOK, map[string]any{
 				"id": r.PathValue("id"), "turn_id": uuid.NewV7(), "tool": "ticket_get", "status": "success",
 				"input": map[string]any{"id": uuid.NewV7()}, "output": map[string]any{"status": "open"}, "output_spilled": false,
-				"attempts": 1, "duration_ms": 120, "timing": map[string]any{"queued": 1, "server": 100, "db": nil, "return": 4},
+				"attempts": 2, "duration_ms": 120,
+				"attempt_errors": []map[string]any{{"attempt": 1, "error": "timeout", "at": time.Now().UTC().Format(time.RFC3339)}}, "timing": map[string]any{"queued": 1, "server": 100, "db": nil, "return": 4},
 				"started_at": time.Now().UTC().Format(time.RFC3339), "finished_at": time.Now().UTC().Format(time.RFC3339),
 			})
 		}

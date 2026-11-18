@@ -99,6 +99,12 @@ provider:
               $ref: "../schemas/error.yaml#/Error"
       "422":
         $ref: "../responses/common.yaml#/AISettingsRefused"
+      "409":
+        description: "An agent's model has no other provider (ai_provider_in_use); pick another model for the agent first."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
       "503":
         $ref: "../responses/common.yaml#/AIGatewayUnavailable"
   delete:
@@ -128,10 +134,59 @@ provider:
               $ref: "../schemas/error.yaml#/Error"
       "503":
         $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+providerHealth:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getAIProviderHealth
+    summary: "Each provider's last 24 hours in LiteLLM's logs. Admins only."
+    description: "Requests served, their share of all, the share that succeeded, the median duration and the last error. LiteLLM shows no cooldowns, so cooling_until is left out."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIProviderHealthList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
 providerModels:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
     - $ref: "../parameters/common.yaml#/AIProviderID"
+  get:
+    operationId: listAIProviderModels
+    summary: "The models a provider lists, each marked added when it is in the provider's list. Admins only."
+    description: "From the provider's lister in LiteLLM, which every provider has; tags, price and context come from the server's tags and LiteLLM's model info."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIProviderModelList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "404":
+        description: "No such provider (ai_provider_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        $ref: "../responses/common.yaml#/AIGatewayUnavailable"
   post:
     operationId: addAIProviderModel
     summary: "Add a model to a provider's list. Admins only; each change is a console action."
@@ -407,6 +462,40 @@ agent:
               $ref: "../schemas/error.yaml#/Error"
       "503":
         $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+agentUsage:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getAIAgentUsage
+    summary: "Each agent's requests by day over a range. Admins only."
+    description: "A console agent's are its turns from the agent service; an app agent's its alias's requests in LiteLLM."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: range
+        in: query
+        schema:
+          type: string
+          enum: [7d, 30d, 90d]
+          default: 7d
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIAgentUsageList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        description: "LiteLLM (ai_gateway_unavailable) or the agent (agent_unavailable) cannot be reached."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 agentVersions:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -568,3 +657,108 @@ spend:
         $ref: "../responses/common.yaml#/ConsoleForbidden"
       "503":
         $ref: "../responses/common.yaml#/AIGatewayUnavailable"
+tools:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getAITools
+    summary: "The agent's tool calls over a range, each tool with its title. Admins only."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: range
+        in: query
+        schema:
+          type: string
+          enum: [7d, 30d, 90d]
+          default: 7d
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIToolStats"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/AgentUnavailable"
+guardrails:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getAIGuardrails
+    summary: "The agent's guardrail notices over a range. Admins only."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - name: range
+        in: query
+        schema:
+          type: string
+          enum: [7d, 30d, 90d]
+          default: 7d
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/ai_settings.yaml#/AIGuardrailStats"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "503":
+        $ref: "../responses/common.yaml#/AgentUnavailable"
+dashboards:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listDashboardFloors
+    summary: "The ops dashboards and the lowest role that opens each. Admins only."
+    description: "Moderators read the same list on GET /v1/console/me."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/DashboardFloorList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+  patch:
+    operationId: setDashboardFloors
+    summary: "Change dashboards' floors. Admins only; each change is a console action."
+    description: "The ticket and the dashboards' forwardAuth check read the new floor at once, so a dashboard session of a member below it is refused on its next request."
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/console.yaml#/DashboardFloorsPatch"
+    responses:
+      "200":
+        description: "Done."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/DashboardFloorList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"

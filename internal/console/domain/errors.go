@@ -32,6 +32,7 @@ func Locked(wait time.Duration) error {
 
 var (
 	ErrDashboardNotConfigured = apperr.New(apperr.KindInvalid, "dashboard_not_configured", "DASHBOARD_HOSTS gives this dashboard no host")
+	ErrDashboardFloorInvalid  = apperr.New(apperr.KindInvalid, "dashboard_floor_invalid", "a floor is moderator or admin")
 	ErrDashboardHostUnknown   = apperr.New(apperr.KindForbidden, "dashboard_host_unknown", "DASHBOARD_HOSTS names no dashboard at this host")
 	ErrInvalidDashboardTicket = apperr.New(apperr.KindUnauthenticated, "invalid_dashboard_ticket", "the ticket is unknown, used or expired; open the dashboard from the console again")
 )

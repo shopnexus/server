@@ -32,14 +32,20 @@ type fakeLiteLLM struct {
 	// listed is what each provider's lister expands into.
 	listed map[string][]string
 	days   []map[string]any
-	down   bool
+	// customerDays are the end users' daily activity, customers each end
+	// user's budget, and logs the spend logs.
+	customerDays []map[string]any
+	customers    map[string]string
+	logs         []map[string]any
+	down         bool
 }
 
 func newFakeLiteLLM(t *testing.T) *fakeLiteLLM {
 	t.Helper()
 	f := &fakeLiteLLM{
 		creds: map[string]litellm.Credential{}, budget: map[string]map[string]any{}, listed: map[string][]string{},
-		router: map[string]any{"routing_strategy": "simple-shuffle", "num_retries": 2.0},
+		customers: map[string]string{},
+		router:    map[string]any{"routing_strategy": "simple-shuffle", "num_retries": 2.0},
 		keys: []map[string]any{
 			{
 				"token": "hash-agent", "key_alias": "agent", "models": []any{"console-agent"}, "spend": 1.5,
@@ -64,6 +70,12 @@ func newFakeLiteLLM(t *testing.T) *fakeLiteLLM {
 	mux.HandleFunc("POST /budget/new", f.budgetSave)
 	mux.HandleFunc("POST /budget/update", f.budgetSave)
 	mux.HandleFunc("GET /user/daily/activity/aggregated", f.daily)
+	mux.HandleFunc("GET /customer/daily/activity/aggregated", f.daily)
+	mux.HandleFunc("POST /customer/update", f.customerSave)
+	mux.HandleFunc("POST /customer/new", f.customerSave)
+	mux.HandleFunc("GET /spend/logs/v2", func(w http.ResponseWriter, _ *http.Request) {
+		reply(w, http.StatusOK, map[string]any{"data": f.logs, "total_pages": 1})
+	})
 	mux.HandleFunc("POST /health/test_connection", f.testConnection)
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
@@ -152,6 +164,8 @@ func (f *fakeLiteLLM) modelInfo(w http.ResponseWriter, _ *http.Request) {
 		for _, m := range f.listed[provider] {
 			e := d
 			e.ModelName = provider + "/" + m
+			e.Info = maps.Clone(d.Info)
+			e.Info["max_input_tokens"] = 200000.0
 			out = append(out, e)
 		}
 	}
@@ -259,7 +273,38 @@ func (f *fakeLiteLLM) daily(w http.ResponseWriter, r *http.Request) {
 		reply(w, http.StatusBadRequest, map[string]any{"detail": "dates"})
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{"results": f.days, "metadata": map[string]any{}})
+	days := f.days
+	if strings.HasPrefix(r.URL.Path, "/customer") {
+		days = f.customerDays
+	}
+	reply(w, http.StatusOK, map[string]any{"results": days, "metadata": map[string]any{}})
+}
+
+// customerSave sets an end user's budget; /customer/update of one LiteLLM
+// has not seen is 400, as LiteLLM answers.
+func (f *fakeLiteLLM) customerSave(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		UserID   string `json:"user_id"`
+		BudgetID string `json:"budget_id"`
+	}
+	decodeBody(r, &in)
+	if _, ok := f.customers[in.UserID]; ok == (r.URL.Path == "/customer/new") {
+		reply(w, http.StatusBadRequest, map[string]any{"detail": "end user exists or is missing"})
+		return
+	}
+	if _, ok := f.budget[in.BudgetID]; !ok {
+		reply(w, http.StatusBadRequest, map[string]any{"detail": "no budget"})
+		return
+	}
+	f.customers[in.UserID] = in.BudgetID
+	reply(w, http.StatusOK, map[string]any{"user_id": in.UserID})
+}
+
+// customer is the budget of end user id.
+func (f *fakeLiteLLM) customer(id string) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.customers[id]
 }
 
 func (f *fakeLiteLLM) testConnection(w http.ResponseWriter, r *http.Request) {

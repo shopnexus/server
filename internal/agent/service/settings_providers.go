@@ -70,6 +70,11 @@ func (s *Agent) CreateProvider(ctx context.Context, caller authn.ConsoleMember, 
 	}
 	p := st.providerOf(cred)
 	p.KeyHint = ""
+	// Every provider has a lister, which lists its models for the admin;
+	// sync mode also adds them.
+	if _, err = s.ensureLister(ctx, st, p); err != nil {
+		return Provider{}, err
+	}
 	if in.Mode == domain.ModeSync {
 		if p, err = s.syncProvider(ctx, p); err != nil {
 			return Provider{}, err
@@ -125,16 +130,21 @@ func (s *Agent) UpdateProvider(ctx context.Context, caller authn.ConsoleMember, 
 	if in.Mode != nil {
 		patch.Info[infoMode], details["mode"] = string(*in.Mode), string(*in.Mode)
 	}
+	if in.Enabled != nil {
+		if !*in.Enabled {
+			// Turning a provider off takes it out of every alias, so an
+			// agent whose model only it serves stops the change.
+			if err = s.inUse(ctx, st, id, st.catalog(id)); err != nil {
+				return Provider{}, err
+			}
+		}
+		patch.Info[infoEnabled], details["enabled"] = *in.Enabled, *in.Enabled
+	}
 	if err = s.gateway.UpdateCredential(ctx, patch); err != nil {
 		return Provider{}, gatewayError(err)
 	}
-	if in.Weight != nil || in.Order != nil {
+	if in.Weight != nil || in.Order != nil || in.Enabled != nil {
 		if err = s.rewriteAliases(ctx, id); err != nil {
-			return Provider{}, err
-		}
-	}
-	if in.Mode != nil && *in.Mode == domain.ModePick {
-		if err = s.dropLister(ctx, st, id); err != nil {
 			return Provider{}, err
 		}
 	}

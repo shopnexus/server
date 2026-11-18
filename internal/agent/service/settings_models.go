@@ -65,8 +65,11 @@ func (s *Agent) Models(ctx context.Context) (ModelList, error) {
 		if provider != "" && !slices.ContainsFunc(m.Providers, func(n Named) bool { return n.ID == provider }) {
 			m.Providers = append(m.Providers, Named{ID: provider, Name: names[provider]})
 		}
-		if m.InputCostPerMTok == nil && d.Params.InputCost != nil {
-			m.InputCostPerMTok, m.OutputCostPerMTok = perMTok(d.Params.InputCost), perMTok(d.Params.OutputCost)
+		if m.InputCostPerMTok == nil {
+			m.InputCostPerMTok, m.OutputCostPerMTok = priceOf(d)
+		}
+		if m.ContextTokens == nil {
+			m.ContextTokens = contextOf(d)
 		}
 	}
 	for i := range agents {

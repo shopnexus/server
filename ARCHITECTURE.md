@@ -869,8 +869,16 @@ Grafana takes a moderator; the others take an admin.
   `Authenticate` (`sessionLives` in `session_pg.go`). A new ticket deletes
   its session's expired tickets.
 - `DASHBOARD_HOSTS` is required and may be empty, which refuses every
-  dashboard. `config.DashboardApps` lists the apps it may name, and
-  `domain.App.Floor` gives each its role.
+  dashboard. `config.DashboardApps` lists the apps it may name.
+- Each app's floor is a row of `console_dashboards` (migration 0057, seeded
+  with `domain.App.Floor`'s defaults: Grafana moderator, the others
+  admin). The ticket and the forwardAuth check read the row on every
+  request, so a floor an admin raises refuses a moderator's open
+  dashboard session on its next request. `GET` and `PATCH
+  /v1/console/settings/dashboards {items: [{app, floor}]}` are admin only;
+  each change is a `dashboard.floor` console action on target
+  `dashboard`. `GET /v1/console/me` carries the same list as
+  `dashboards`, so a moderator's sidebar follows a changed floor.
 
 ### Object store
 
@@ -2853,8 +2861,20 @@ version 8 UUID, and `details` carries the name. LiteLLM down is 503
   hours, beside the read sweep. It adds a catalog deployment for each
   model a provider's lister lists and its list lacks, with no tags, and
   drops a model's second catalog deployment, which two replicas syncing
-  at once can leave. Switching a provider to sync syncs it at once;
-  switching back to pick deletes its lister and keeps its models.
+  at once can leave. Switching a provider to sync syncs it at once.
+  Every provider has a lister, made with the provider, so `GET
+  …/providers/{id}/models` lists what the provider offers in either mode,
+  each model marked `added` when its catalog deployment exists; price and
+  `context_tokens` (`max_input_tokens`) come from LiteLLM's model info.
+- A provider turned off (`enabled: false` in `credential_info`) keeps its
+  catalog and serves no alias: the aliases on it are rewritten without
+  it, and turning it on writes it back. Turning off an agent's model's
+  only provider is 409 `ai_provider_in_use`.
+- `GET …/providers/health` counts each provider's requests of the last 24
+  hours in `/spend/logs/v2`, by the deployment that served them: share of
+  all, share that succeeded, median `request_duration_ms` and the last
+  failure's message. LiteLLM keeps cooldowns in its router and shows none,
+  so `cooling_until` is never set.
 - Rotation is LiteLLM's router settings, read from `/router/settings` and
   written through `/config/update`: `routing_strategy` (`simple-shuffle`
   picks by weight; a lower order is tried first and a higher one is the
@@ -2864,12 +2884,34 @@ version 8 UUID, and `details` carries the name. LiteLLM down is 503
   `budget_duration: 30d` on each of its keys (`ai_agents.key_aliases`); a
   console agent's is `model_max_budget[alias]` on the agent service's key
   `agent`, which also gains a new console agent's alias in its `models`.
-  A member's daily budget is the LiteLLM budget `console-member-daily`
-  (one day), the `end_user_budget_id` of key `agent`; the agent passes
-  `user=<member id>`. Spent figures are the keys' `spend` and
-  `model_spend`; `GET …/spend?range=7d|30d|90d` reads
-  `/user/daily/activity/aggregated` and maps each model group to the
-  agent with that alias.
+  Spent figures are the keys' `spend` and `model_spend`;
+  `GET …/spend?range=7d|30d|90d` reads `/user/daily/activity/aggregated`
+  and maps each model group to the agent with that alias, and each
+  member's spend from `/customer/daily/activity/aggregated` (the agent
+  passes `user=<member id>`) with their questions from the agent's
+  `GET /stats/turns`.
+- Members' daily budgets: `ai_budget_settings` holds one per role and
+  `ai_member_budgets` a member's own. Each is a LiteLLM budget of one day,
+  `console-member-moderator`, `console-member-admin` and
+  `console-member-<member id>`; a change saves them, makes the moderators'
+  budget the `end_user_budget_id` of key `agent`, and puts every member's
+  end user on the budget that applies (`/customer/update`, else
+  `/customer/new`). A member made later is put on theirs before their
+  first turn, once per process. A role's budget of 0 or null is none.
+- The month's cap (`ai_budget_settings.monthly_cap_usd`, with `alert_pct`
+  and `on_cap`) is on the spend of every agent since the first of the UTC
+  month. `GET …/budgets` sets `alerting` at `alert_pct` of the cap and
+  `capped` at the cap. With `on_cap: stop_agents` a question to a console
+  agent past the cap is 429 `agent_budget`; the month's spend is read at
+  most once a minute, and a LiteLLM that cannot be read stops nothing. App
+  agents keep their own key budgets. No console notice is sent; the
+  console shows `alerting`.
+- `GET …/agents/usage`, `…/tools` and `…/guardrails` take
+  `range=7d|30d|90d` (7d by default). Usage counts a console agent's turns
+  from the agent's `GET /stats/turns` and an app agent's requests to its
+  alias in LiteLLM; tools and guardrails are the agent's `GET
+  /stats/tools` and `/stats/guardrails`, each tool with its title from
+  `domain.ToolTitles`, which the MCP server's tools also read.
 
 | Table | Holds |
 |---|---|
@@ -2877,6 +2919,8 @@ version 8 UUID, and `details` carries the name. LiteLLM down is 503
 | `ai_model_tags` | `(model_id, tag_name)`, seeded for `claude-sonnet-5-5`, `claude-haiku-5-5` and `baai/bge-m3` |
 | `ai_agents` | each agent: kind (`app`, `console`), `display_name`, `model_alias`, icon, purpose, required tags, model, instructions and their version, tools, limits, monthly budget, LiteLLM key aliases, enabled, who changed it and `write_id` |
 | `ai_agent_versions` | each version of an agent's instructions, who wrote it and when |
+| `ai_budget_settings` | one row: the month's cap, `alert_pct`, `on_cap`, and the daily budget of a moderator and of an admin |
+| `ai_member_budgets` | a member's own daily budget |
 
 Migration 0056 seeds the agents: Console assistant (`console-agent`,
 console, every MCP tool), Scam check (`scam-check`), Listing photo reader

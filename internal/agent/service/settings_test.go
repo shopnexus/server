@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 	"uuid"
@@ -15,7 +17,9 @@ import (
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
 	"github.com/shopnexus/server/internal/agent/service"
+	consolesvc "github.com/shopnexus/server/internal/console/service"
 	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
@@ -38,11 +42,53 @@ VALUES (@id, @email, 'Minh', 'admin', 'active', 'x', false, 1, 0, @at, @at, @id)
 		t.Fatal(err)
 	}
 	f := newFakeLiteLLM(t)
+	agent := httptest.NewServer(http.HandlerFunc(statsAgent))
+	t.Cleanup(agent.Close)
 	s := service.New(service.Deps{
-		Settings: repository.NewSettings(db), Gateway: f.admin(), HTTP: &http.Client{},
+		Settings: repository.NewSettings(db), Gateway: f.admin(), HTTP: &http.Client{}, BaseURL: agent.URL, Token: "t",
+		Console: members{list: []consolesvc.MemberView{
+			{ID: admin.MemberID, DisplayName: "Minh", Role: "admin"}, {ID: moderator, DisplayName: "Lan", Role: "moderator"},
+		}},
 		Now: func() time.Time { return settingsNow },
 	})
 	return s, f, db, admin
+}
+
+// moderator is the members fake's moderator, with no row in the database.
+var moderator = uuid.MustParse("0193e000-0000-7000-8000-0000000000aa")
+
+// members is console's member list.
+type members struct {
+	consolesvc.Service
+
+	list []consolesvc.MemberView
+}
+
+func (m members) ListMembers(context.Context, page.Request) (page.Page[consolesvc.MemberView], error) {
+	return page.Page[consolesvc.MemberView]{Items: m.list}, nil
+}
+
+// statsAgent answers the agent service's /stats endpoints with fixed
+// figures for the range 7d, and 400 for any other.
+func statsAgent(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("range") != "7d" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	at := settingsNow.Format(time.RFC3339)
+	body := map[string]string{
+		"/stats/turns": `{"by_agent":[{"agent_id":"0193e000-0000-7000-8000-00000000a101","requests":4,` +
+			`"days":[{"date":"2026-11-18","requests":4}]}],"by_member":[{"member_id":"` + moderator.String() + `","requests":3}]}`,
+		"/stats/tools": `{"items":[{"name":"ticket_get","calls":5,"failed":1,"p50_ms":80,"days":[{"date":"2026-11-18","calls":5}]}],` +
+			`"recent":[{"call_id":"0193e000-0000-7000-8000-000000000c01","turn_id":"0193e000-0000-7000-8000-000000000c02",` +
+			`"tool":"ticket_get","label":"Ticket","duration_ms":80,"status":"success","at":"` + at + `"}]}`,
+		"/stats/guardrails": `{"items":[{"rule":"loop_stopped","count":2}],"recent":[]}`,
+	}[r.URL.Path]
+	if body == "" {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	_, _ = w.Write([]byte(body))
 }
 
 // actions lists the console actions on the AI settings, oldest first.
@@ -307,12 +353,32 @@ func TestRotationBudgetsAndSpend(t *testing.T) {
 		t.Error("an unknown strategy passed")
 	}
 
-	b, err := s.UpdateBudgets(ctx, admin, service.BudgetsPatch{MemberDailyUSD: service.Budget{Set: true, Value: new(2.0)}})
-	if err != nil || b.MemberDailyUSD == nil || *b.MemberDailyUSD != 2 {
+	b, err := s.UpdateBudgets(ctx, admin, service.BudgetsPatch{
+		MemberDailyUSD: &service.RoleBudgetsPatch{
+			Moderator: service.Budget{Set: true, Value: new(2.0)}, Admin: service.Budget{Set: true, Value: new(5.0)},
+		},
+		Overrides:     &[]service.MemberDailyUSD{{MemberID: admin.MemberID, DailyUSD: 9}},
+		MonthlyCapUSD: service.Budget{Set: true, Value: new(10.0)}, AlertPct: new(30), OnCap: new(service.OnCapStop),
+	})
+	if err != nil || *b.MemberDailyUSD.Moderator != 2 || *b.MemberDailyUSD.Admin != 5 || len(b.Overrides) != 1 ||
+		*b.MonthlyCapUSD != 10 || b.AlertPct != 30 || b.OnCap != service.OnCapStop || b.Alerting {
 		t.Fatalf("budgets %+v %v", b, err)
 	}
-	if k := f.key("agent"); k["end_user_budget_id"] != "console-member-daily" {
+	if k := f.key("agent"); k["end_user_budget_id"] != "console-member-moderator" {
 		t.Errorf("the agent key's end user budget %v", k)
+	}
+	if got, want := f.customer(admin.MemberID.String()), "console-member-"+admin.MemberID.String(); got != want {
+		t.Errorf("the admin's end user is on %q, want %q", got, want)
+	}
+	if got := f.customer(moderator.String()); got != "console-member-moderator" {
+		t.Errorf("the moderator's end user is on %q", got)
+	}
+	b, err = s.UpdateBudgets(ctx, admin, service.BudgetsPatch{
+		MemberDailyUSD: &service.RoleBudgetsPatch{Admin: service.Budget{Set: true, Value: new(0.0)}},
+		Overrides:      &[]service.MemberDailyUSD{},
+	})
+	if err != nil || b.MemberDailyUSD.Admin != nil || len(b.Overrides) != 0 || f.customer(admin.MemberID.String()) != "console-member-admin" {
+		t.Fatalf("clearing %+v %v", b, err)
 	}
 	i := slices.IndexFunc(b.Agents, func(a service.AgentBudget) bool { return a.AgentID == domain.ConsoleAssistant })
 	j := slices.IndexFunc(b.Agents, func(a service.AgentBudget) bool { return a.AgentID == scamCheck })
@@ -327,13 +393,28 @@ func TestRotationBudgetsAndSpend(t *testing.T) {
 		}},
 		{"date": "2026-11-17", "metrics": map[string]any{"spend": 1.0}},
 	}
+	f.customerDays = []map[string]any{{"date": "2026-11-18", "metrics": map[string]any{"spend": 2.5}, "breakdown": map[string]any{
+		"entities": map[string]any{moderator.String(): map[string]any{"metrics": map[string]any{"spend": 2.5, "api_requests": 6}}},
+	}}}
 	f.mu.Unlock()
-	spend, err := s.Spend(ctx, "7d")
+	spend, err := s.Spend(ctx, admin, "7d")
 	if err != nil || spend.TotalUSD != 4 || spend.Start != "2026-11-12" || len(spend.Days) != 2 || spend.Days[0].Date != "2026-11-17" ||
-		len(spend.Days[1].Agents) != 1 || spend.Days[1].Agents[0].USD != 2.5 {
+		len(spend.Days[1].Agents) != 1 || spend.Days[1].Agents[0].USD != 2.5 || len(spend.Members) != 1 ||
+		spend.Members[0] != (service.MemberSpend{MemberID: moderator, DisplayName: "Lan", USD: 2.5, Requests: 3}) {
 		t.Fatalf("spend %+v %v", spend, err)
 	}
-	if got := actions(t, db); !slices.Equal(got, []string{"ai.rotation", "ai.budgets"}) {
+	// The month's 4 USD is past 30 % of the 10 USD cap, and a cap of 3 USD
+	// with stop_agents refuses the console's turns.
+	if b, err = s.Budgets(ctx); err != nil || !b.Alerting || b.Capped || b.MonthSpentUSD != 4 {
+		t.Fatalf("alerting %+v %v", b, err)
+	}
+	if _, err = s.UpdateBudgets(ctx, admin, service.BudgetsPatch{MonthlyCapUSD: service.Budget{Set: true, Value: new(3.0)}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.Ask(ctx, admin, uuid.NewV7(), service.NewTurn{Text: "?"}); !errors.Is(err, domain.ErrBudget) {
+		t.Errorf("a question past the cap: %v", err)
+	}
+	if got := actions(t, db); !slices.Equal(got, []string{"ai.rotation", "ai.budgets", "ai.budgets", "ai.budgets"}) {
 		t.Errorf("console actions %v", got)
 	}
 
@@ -342,5 +423,118 @@ func TestRotationBudgetsAndSpend(t *testing.T) {
 	f.mu.Unlock()
 	if _, err = s.Providers(ctx); !errors.Is(err, domain.ErrGatewayUnavailable) {
 		t.Errorf("LiteLLM down: %v", err)
+	}
+}
+
+// A provider lists the models its lister finds, each marked added when it
+// is in its list; turning the provider off takes it out of the aliases
+// unless an agent's model has no other provider, and turning it on puts
+// it back. Its health is its share of LiteLLM's logged requests.
+func TestProviderModelsEnabledAndHealth(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s, f, _, admin := settingsOn(t)
+	f.listed["relay"] = []string{"claude-haiku-5-5", "gpt-5"}
+	f.listed["backup"] = []string{"claude-haiku-5-5"}
+	for _, p := range []string{"relay", "backup"} {
+		if _, err := s.CreateProvider(ctx, admin, service.NewProvider{ID: p, Kind: "openai", APIKey: "sk-" + p}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := s.AddProviderModel(ctx, admin, p, "claude-haiku-5-5", new(1.0), new(5.0)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	models, err := s.ProviderModels(ctx, "relay")
+	if err != nil || len(models) != 2 || models[0].Model != "claude-haiku-5-5" || !models[0].Added || models[1].Added ||
+		*models[1].ContextTokens != 200000 || *models[0].InputCostPerMTok != 1 || !slices.Contains(models[0].Tags, "Chat") {
+		t.Fatalf("models %+v %v", models, err)
+	}
+	if _, err = s.ProviderModels(ctx, "nobody"); !errors.Is(err, domain.ErrProviderNotFound) {
+		t.Errorf("an unknown provider: %v", err)
+	}
+	if _, err = s.UpdateAgent(ctx, admin, scamCheck, service.AgentPatch{Model: new("claude-haiku-5-5")}); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.aliases("scam-check"); len(got) != 2 {
+		t.Fatalf("scam-check on both providers %v", got)
+	}
+	off, err := s.UpdateProvider(ctx, admin, "backup", service.ProviderPatch{Enabled: new(false)})
+	if err != nil || off.Enabled {
+		t.Fatalf("turning backup off %+v %v", off, err)
+	}
+	if got := f.aliases("scam-check"); len(got) != 1 || !strings.HasPrefix(got[0], "relay:") {
+		t.Fatalf("scam-check with backup off %v", got)
+	}
+	if _, err = s.UpdateProvider(ctx, admin, "relay", service.ProviderPatch{Enabled: new(false)}); !errors.Is(err, domain.ErrProviderInUse) {
+		t.Errorf("turning the last provider off: %v", err)
+	}
+	if _, err = s.UpdateProvider(ctx, admin, "backup", service.ProviderPatch{Enabled: new(true)}); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.aliases("scam-check"); len(got) != 2 {
+		t.Fatalf("scam-check with backup on again %v", got)
+	}
+
+	f.mu.Lock()
+	var relayDep, backupDep string
+	for _, d := range f.deps {
+		if d.ModelName == "scam-check" {
+			if d.Params.Credential == "relay" {
+				relayDep = d.ID()
+			} else {
+				backupDep = d.ID()
+			}
+		}
+	}
+	at := settingsNow.Add(-time.Hour).Format("2006-01-02T15:04:05.000000")
+	f.logs = []map[string]any{
+		{"model_id": relayDep, "status": "success", "request_duration_ms": 100, "startTime": at},
+		{"model_id": relayDep, "status": "success", "request_duration_ms": 300, "startTime": at},
+		{
+			"model_id": relayDep, "status": "failure", "request_duration_ms": 50, "startTime": at,
+			"metadata": map[string]any{"error_information": map[string]any{"error_message": "RateLimitError"}},
+		},
+		{"model_id": backupDep, "status": "success", "request_duration_ms": 200, "startTime": at},
+	}
+	f.mu.Unlock()
+	health, err := s.ProviderHealth(ctx)
+	if err != nil || len(health) != 2 {
+		t.Fatalf("health %+v %v", health, err)
+	}
+	relay := health[slices.IndexFunc(health, func(h service.ProviderHealth) bool { return h.ID == "relay" })]
+	if relay.Requests24h != 3 || relay.SharePct != 75 || relay.SuccessPct != 66.6 || relay.P50MS != 100 || relay.LastError != "RateLimitError" {
+		t.Errorf("relay %+v", relay)
+	}
+}
+
+// The usage of a console agent is its turns from the agent service, an
+// app agent's its alias's requests in LiteLLM; the tools and guardrails
+// are the agent's, each tool with its title.
+func TestUsageToolsAndGuardrails(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s, f, _, admin := settingsOn(t)
+	f.mu.Lock()
+	f.days = []map[string]any{{"date": "2026-11-18", "metrics": map[string]any{"spend": 1.0}, "breakdown": map[string]any{
+		"model_groups": map[string]any{"scam-check": map[string]any{"metrics": map[string]any{"spend": 1.0, "api_requests": 7}}},
+	}}}
+	f.mu.Unlock()
+	usage, err := s.AgentUsage(ctx, admin, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for id, want := range map[uuid.UUID]int{domain.ConsoleAssistant: 4, scamCheck: 7} {
+		i := slices.IndexFunc(usage, func(u service.AgentUsage) bool { return u.AgentID == id })
+		if i < 0 || usage[i].Requests != want || len(usage[i].Days) != 1 || usage[i].Days[0].Requests != want {
+			t.Errorf("usage of %s: %+v", id, usage)
+		}
+	}
+	tools, err := s.Tools(ctx, admin, "7d")
+	if err != nil || len(tools.Items) != 1 || tools.Items[0].DisplayName != "Ticket" || tools.Items[0].Calls != 5 || len(tools.Recent) != 1 {
+		t.Fatalf("tools %+v %v", tools, err)
+	}
+	guards, err := s.Guardrails(ctx, admin, "bogus")
+	if err != nil || len(guards.Items) != 1 || guards.Items[0].Count != 2 || guards.Recent == nil {
+		t.Fatalf("guardrails %+v %v", guards, err)
 	}
 }

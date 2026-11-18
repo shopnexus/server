@@ -14,7 +14,9 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // ErrNotFound is LiteLLM's 404: no credential, deployment, key or budget
@@ -247,36 +249,165 @@ func (a Admin) SaveBudget(ctx context.Context, b Budget) error {
 	}
 }
 
+// Metric is spend and requests.
+type Metric struct {
+	Spend    float64 `json:"spend"`
+	Requests int     `json:"api_requests"`
+}
+
+// Activity is one day of LiteLLM's daily activity: its totals, by model
+// group (the model name callers send) and by entity (an end user, for
+// the customer scope).
+type Activity struct {
+	Date     string
+	Total    Metric
+	ByModel  map[string]Metric
+	ByEntity map[string]Metric
+}
+
 // DailySpend is the spend of each day from start to end, both YYYY-MM-DD.
 func (a Admin) DailySpend(ctx context.Context, start, end string) ([]Day, error) {
-	var out struct {
-		Results []struct {
-			Date    string `json:"date"`
-			Metrics struct {
-				Spend float64 `json:"spend"`
-			} `json:"metrics"`
-			Breakdown struct {
-				ModelGroups map[string]struct {
-					Metrics struct {
-						Spend float64 `json:"spend"`
-					} `json:"metrics"`
-				} `json:"model_groups"`
-			} `json:"breakdown"`
-		} `json:"results"`
-	}
-	q := url.Values{"start_date": {start}, "end_date": {end}}
-	if err := a.do(ctx, http.MethodGet, "/user/daily/activity/aggregated", q, nil, &out); err != nil {
+	acts, err := a.DailyActivity(ctx, "/user", start, end)
+	if err != nil {
 		return nil, err
 	}
-	days := make([]Day, 0, len(out.Results))
-	for _, r := range out.Results {
-		d := Day{Date: r.Date, Spend: r.Metrics.Spend, ByModel: map[string]float64{}}
-		for name, m := range r.Breakdown.ModelGroups {
-			d.ByModel[name] = m.Metrics.Spend
+	days := make([]Day, 0, len(acts))
+	for _, act := range acts {
+		d := Day{Date: act.Date, Spend: act.Total.Spend, ByModel: map[string]float64{}}
+		for name, m := range act.ByModel {
+			d.ByModel[name] = m.Spend
 		}
 		days = append(days, d)
 	}
 	return days, nil
+}
+
+// DailyActivity is LiteLLM's aggregated daily activity of a scope, "/user"
+// for every caller or "/customer" for end users, from start to end, both
+// YYYY-MM-DD.
+func (a Admin) DailyActivity(ctx context.Context, scope, start, end string) ([]Activity, error) {
+	type metrics struct {
+		Metrics Metric `json:"metrics"`
+	}
+	var out struct {
+		Results []struct {
+			Date      string `json:"date"`
+			Metrics   Metric `json:"metrics"`
+			Breakdown struct {
+				ModelGroups map[string]metrics `json:"model_groups"`
+				Entities    map[string]metrics `json:"entities"`
+			} `json:"breakdown"`
+		} `json:"results"`
+	}
+	q := url.Values{"start_date": {start}, "end_date": {end}}
+	if err := a.do(ctx, http.MethodGet, scope+"/daily/activity/aggregated", q, nil, &out); err != nil {
+		return nil, err
+	}
+	acts := make([]Activity, 0, len(out.Results))
+	for _, r := range out.Results {
+		act := Activity{Date: r.Date, Total: r.Metrics, ByModel: map[string]Metric{}, ByEntity: map[string]Metric{}}
+		for name, m := range r.Breakdown.ModelGroups {
+			act.ByModel[name] = m.Metrics
+		}
+		for name, m := range r.Breakdown.Entities {
+			act.ByEntity[name] = m.Metrics
+		}
+		acts = append(acts, act)
+	}
+	return acts, nil
+}
+
+// SpendLog is one request LiteLLM logged: the deployment that served it,
+// its model group, its status, its duration and its error.
+type SpendLog struct {
+	ModelID    string
+	ModelGroup string
+	Status     string
+	DurationMS int
+	Start      time.Time
+	Error      string
+}
+
+// spendLogPages bounds how many pages of 1000 SpendLogs reads.
+const spendLogPages = 20
+
+// SpendLogs lists the requests LiteLLM logged from start to end, newest
+// first, at most 20,000.
+func (a Admin) SpendLogs(ctx context.Context, start, end time.Time) ([]SpendLog, error) {
+	const layout = "2006-01-02 15:04:05"
+	var logs []SpendLog
+	for page := 1; page <= spendLogPages; page++ {
+		var out struct {
+			Data []struct {
+				ModelID    string         `json:"model_id"`
+				ModelGroup string         `json:"model_group"`
+				Status     string         `json:"status"`
+				DurationMS *int           `json:"request_duration_ms"`
+				StartTime  string         `json:"startTime"` //nolint:tagliatelle // LiteLLM's name.
+				EndTime    string         `json:"endTime"`   //nolint:tagliatelle // LiteLLM's name.
+				Metadata   map[string]any `json:"metadata"`
+			} `json:"data"`
+			TotalPages int `json:"total_pages"`
+		}
+		q := url.Values{
+			"start_date": {start.UTC().Format(layout)}, "end_date": {end.UTC().Format(layout)},
+			"page": {strconv.Itoa(page)}, "page_size": {"1000"},
+		}
+		if err := a.do(ctx, http.MethodGet, "/spend/logs/v2", q, nil, &out); err != nil {
+			return nil, err
+		}
+		for _, d := range out.Data {
+			l := SpendLog{ModelID: d.ModelID, ModelGroup: d.ModelGroup, Status: d.Status, Error: errorOf(d.Metadata)}
+			l.Start = parseTime(d.StartTime)
+			if d.DurationMS != nil {
+				l.DurationMS = *d.DurationMS
+			} else if end := parseTime(d.EndTime); !end.IsZero() && !l.Start.IsZero() {
+				l.DurationMS = int(end.Sub(l.Start).Milliseconds())
+			}
+			logs = append(logs, l)
+		}
+		if page >= out.TotalPages {
+			break
+		}
+	}
+	return logs, nil
+}
+
+func parseTime(s string) time.Time {
+	for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04:05.999999", "2006-01-02 15:04:05.999999"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
+}
+
+// errorOf is the error message LiteLLM keeps in a failed request's
+// metadata, at most 300 bytes.
+func errorOf(meta map[string]any) string {
+	info, ok := meta["error_information"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	msg, ok := info["error_message"].(string)
+	if !ok {
+		return ""
+	}
+	if len(msg) > 300 {
+		msg = msg[:300]
+	}
+	return msg
+}
+
+// SetEndUserBudget puts the end user named user on the budget budgetID,
+// making the end user when LiteLLM has none yet.
+func (a Admin) SetEndUserBudget(ctx context.Context, user, budgetID string) error {
+	body := map[string]any{"user_id": user, "budget_id": budgetID}
+	err := a.do(ctx, http.MethodPost, "/customer/update", nil, body, nil)
+	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrRefused) {
+		return a.do(ctx, http.MethodPost, "/customer/new", nil, body, nil)
+	}
+	return err
 }
 
 // TestConnection asks LiteLLM to call model with the credential once.

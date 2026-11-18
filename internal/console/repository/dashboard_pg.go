@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"uuid"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server/internal/console/domain"
+	"github.com/shopnexus/server/internal/platform/audit"
 )
 
 type pgDashboards struct{ db *pgxpool.Pool }
@@ -76,4 +78,64 @@ WHERE d.token_hash = @token_hash AND d.app = @app AND `+sessionLives,
 		return domain.DashboardGrant{}, fmt.Errorf("select dashboard session: %w", err)
 	}
 	return g, nil
+}
+
+func (st pgDashboards) Floors(ctx context.Context) ([]domain.DashboardFloor, error) {
+	rows, err := st.db.Query(ctx, `SELECT app, display_name, floor_role FROM console_dashboards ORDER BY sort_order`)
+	if err != nil {
+		return nil, fmt.Errorf("select dashboards: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (domain.DashboardFloor, error) {
+		var f domain.DashboardFloor
+		if scanErr := r.Scan(&f.App, &f.Name, &f.Floor); scanErr != nil {
+			return f, fmt.Errorf("scan dashboard: %w", scanErr)
+		}
+		return f, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read dashboards: %w", err)
+	}
+	return out, nil
+}
+
+func (st pgDashboards) Floor(ctx context.Context, app domain.App) (domain.Role, error) {
+	var floor domain.Role
+	err := st.db.QueryRow(ctx, `SELECT floor_role FROM console_dashboards WHERE app = @app`,
+		pgx.StrictNamedArgs{"app": app}).Scan(&floor)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("select dashboard floor: %w", err)
+	}
+	return floor, nil
+}
+
+func (st pgDashboards) SetFloors(ctx context.Context, floors map[domain.App]domain.Role, by uuid.UUID, at time.Time,
+	entries []audit.Entry,
+) error {
+	tx, err := st.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin dashboard floors: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	for app, floor := range floors {
+		tag, execErr := tx.Exec(ctx, `UPDATE console_dashboards SET floor_role = @floor, updated_by = @by, updated_at = @at
+WHERE app = @app`, pgx.StrictNamedArgs{"app": app, "floor": floor, "by": by, "at": at})
+		if execErr != nil {
+			return fmt.Errorf("update dashboard floor: %w", execErr)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrNotFound
+		}
+	}
+	for i := range entries {
+		if err = audit.Insert(ctx, tx, entries[i]); err != nil {
+			return fmt.Errorf("record dashboard floor: %w", err)
+		}
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit dashboard floors: %w", err)
+	}
+	return nil
 }

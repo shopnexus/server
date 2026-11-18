@@ -204,3 +204,45 @@ func TestDashboardSessionsEndWithTheConsoleSession(t *testing.T) {
 		t.Fatal("granted after a disable")
 	}
 }
+
+// The floors are console_dashboards': a moderator is refused restate while
+// its floor is admin, both for a ticket and on the dashboard session the
+// moderator already holds, and let in once an admin lowers it; raising it
+// again refuses the same session on its next request. Each change is a
+// console action.
+func TestDashboardFloorsAreTheTables(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	_, mod := e.enrolled(t, "mod@example.com", domain.RoleModerator)
+	_, admin := e.enrolled(t, "admin@example.com", domain.RoleAdmin)
+	s, modCaller, adminCaller := e.at(now), e.callerOf(t, mod), e.callerOf(t, admin)
+
+	if _, err := s.CreateDashboardTicket(ctx, modCaller, domain.AppRestate); !errors.Is(err, domain.ErrConsoleForbidden) {
+		t.Fatalf("a moderator for restate at admin: %v", err)
+	}
+	floors, err := s.SetDashboardFloors(ctx, adminCaller, map[domain.App]domain.Role{domain.AppRestate: domain.RoleModerator})
+	if err != nil || len(floors) != 6 || floors[1].App != domain.AppRestate || floors[1].Floor != domain.RoleModerator ||
+		floors[1].Name != "Restate" {
+		t.Fatalf("floors %+v %v", floors, err)
+	}
+	cookie := e.open(t, "restate.test", e.ticket(t, mod, domain.AppRestate))
+	if got, authErr := s.AuthorizeDashboard(ctx, service.DashboardCheck{Host: "restate.test", Token: cookie}); authErr != nil || !got.Granted {
+		t.Fatalf("a moderator on restate at moderator: %+v %v", got, authErr)
+	}
+	if _, err = s.SetDashboardFloors(ctx, adminCaller, map[domain.App]domain.Role{domain.AppRestate: domain.RoleAdmin}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.AuthorizeDashboard(ctx, service.DashboardCheck{Host: "restate.test", Token: cookie}); !errors.Is(err, domain.ErrConsoleForbidden) {
+		t.Fatalf("the moderator's session after the floor went up: %v", err)
+	}
+	for floors, want := range map[domain.App]domain.Role{"kibana": domain.RoleAdmin, domain.AppGrafana: "owner"} {
+		if _, err = s.SetDashboardFloors(ctx, adminCaller, map[domain.App]domain.Role{floors: want}); err == nil {
+			t.Errorf("%s at %s passed", floors, want)
+		}
+	}
+	var n int
+	if err = e.db.QueryRow(ctx, `SELECT count(*) FROM console_actions WHERE action_kind = 'dashboard.floor'`).Scan(&n); err != nil || n != 2 {
+		t.Errorf("%d dashboard.floor actions, %v", n, err)
+	}
+}

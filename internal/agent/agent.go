@@ -65,6 +65,7 @@ func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.H
 	svc := service.New(service.Deps{
 		Reads: repository.NewReads(d.Pool), Settings: repository.NewSettings(d.Pool),
 		Gateway: litellm.Admin{BaseURL: s.Config.LiteLLMURL, MasterKey: s.Config.LiteLLMMasterKey, HTTP: &http.Client{}},
+		Console: consoles,
 		BaseURL: s.Config.BaseURL, Token: s.Config.ServiceToken, HTTP: &http.Client{}, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, moderator, admin)

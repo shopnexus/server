@@ -116,8 +116,9 @@ var (
 	ErrTagUnknown    = apperr.New(apperr.KindInvalid, "ai_tag_unknown", "no such tag")
 	ErrAgentNotFound = apperr.New(apperr.KindNotFound, "ai_agent_not_found",
 		"no such agent, or not a console agent a member may pick")
-	ErrAgentDisabled = apperr.New(apperr.KindConflict, "ai_agent_disabled", "the agent is turned off")
-	ErrAgentInvalid  = apperr.New(apperr.KindInvalid, "ai_agent_invalid",
+	ErrMemberNotFound = apperr.New(apperr.KindNotFound, "member_not_found", "no such console member")
+	ErrAgentDisabled  = apperr.New(apperr.KindConflict, "ai_agent_disabled", "the agent is turned off")
+	ErrAgentInvalid   = apperr.New(apperr.KindInvalid, "ai_agent_invalid",
 		"the agent's name, alias, tools or limits do not fit")
 	ErrAgentTaken = apperr.New(apperr.KindConflict, "ai_agent_taken", "another agent has this name or alias")
 	// ErrAppAgentFixed answers a change to an app agent other than its

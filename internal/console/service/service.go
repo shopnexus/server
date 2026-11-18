@@ -64,6 +64,11 @@ type Service interface {
 	// AuthorizeDashboard checks a request to a dashboard, for Traefik's
 	// forwardAuth.
 	AuthorizeDashboard(ctx context.Context, in DashboardCheck) (DashboardAccess, error)
+	// DashboardFloors lists the ops dashboards and the lowest role that
+	// opens each.
+	DashboardFloors(ctx context.Context) ([]domain.DashboardFloor, error)
+	// SetDashboardFloors changes dashboards' floors, as an admin.
+	SetDashboardFloors(ctx context.Context, caller authn.ConsoleMember, floors map[domain.App]domain.Role) ([]domain.DashboardFloor, error)
 }
 
 // Deps is what New builds Console from.

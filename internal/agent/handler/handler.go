@@ -65,6 +65,11 @@ func (h *Handler) Register(r *httpx.Router, moderator, admin func(http.Handler) 
 	adm("GET /v1/console/settings/budgets", h.GetBudgets)
 	adm("PATCH /v1/console/settings/budgets", h.UpdateBudgets)
 	adm("GET /v1/console/settings/spend", h.GetSpend)
+	adm("GET /v1/console/settings/providers/health", h.ProviderHealth)
+	adm("GET /v1/console/settings/providers/{id}/models", h.ProviderModels)
+	adm("GET /v1/console/settings/agents/usage", h.AgentUsage)
+	adm("GET /v1/console/settings/tools", h.Tools)
+	adm("GET /v1/console/settings/guardrails", h.Guardrails)
 }
 
 // serve runs one endpoint in the handlers' order: the console caller, Bind

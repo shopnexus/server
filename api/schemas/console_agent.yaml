@@ -320,6 +320,21 @@ AgentToolCall:
       type: integer
     timing:
       $ref: "#/AgentTiming"
+    attempt_errors:
+      type: array
+      description: The errors of the attempts that failed before the last.
+      items:
+        type: object
+        additionalProperties: false
+        required: [attempt, error, at]
+        properties:
+          attempt:
+            type: integer
+          error:
+            type: string
+          at:
+            type: string
+            format: date-time
 AgentTiming:
   type: object
   additionalProperties: false
