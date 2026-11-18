@@ -30,32 +30,26 @@ checks Postgres and the Restate admin health endpoint.
 
 Every model call goes through the stack's `ai-gateway`, the LiteLLM of the
 `ai` repo, under an alias and a key per purpose (decided 2026-11-17, spec:
-`~/shopnexus/docs/superpowers/specs/2026-11-17-ai-hub-design.md`). The
-embedding models of search are the aliases `embed-text`, `BAAI/bge-m3`
-through OpenRouter, and `embed-image`, SigLIP 2 in `ai-models`. TEI served
-bge-m3 until 2026-11-17; OpenRouter's DeepInfra gives the same vectors, so
-`EMBED_TEXT_VERSION` did not change. The server reaches them at
-`EMBED_TEXT_BASE_URL` and `EMBED_IMAGE_BASE_URL`. Locally it calls OpenRouter
-for text and `ai-models` for photos, on 127.0.0.1:56810 under the profile
-`models` (`docker compose --profile models up -d ai-models`). `make run`
-does not start it, and search runs without the missing lists until it
-answers. `/readyz` does not check them.
+`~/shopnexus/docs/superpowers/specs/2026-11-17-ai-hub-design.md`). The text
+embedding model of search is the alias `embed-text`, `BAAI/bge-m3` through
+OpenRouter, at `EMBED_TEXT_BASE_URL`; locally the server calls OpenRouter
+itself. TEI served bge-m3 until 2026-11-17; OpenRouter's DeepInfra gives the
+same vectors, so `EMBED_TEXT_VERSION` did not change. Photo vectors, speech
+to text and video frames are module ai's, in this binary (see Module ai);
+they went through LiteLLM and the `ai` repo's `ai-models` until 2026-11-18.
+`/readyz` checks neither.
 
 Each kind of vector can be off: an empty `EMBED_TEXT_MODEL` or
-`EMBED_IMAGE_MODEL` gives the modules a nil model. `ListingEmbed` then plans
+`AI_EMBED_MODELS` gives the modules a nil model. `ListingEmbed` then plans
 no vector of that kind, `q` and the price sample leave its list out, and a
 `photo` search with photos off answers 503 `search_unavailable`, as when the
 model fails. The kind's version may then be empty, which matches no stored
 vector, so `like` and the market price read none of it either.
 
-A video read (see Assist) calls three more models. The server calls `ai`'s
-`POST /v1/video/frames` itself at `AI_FRAMES_BASE_URL`, in the cluster too,
-since the gateway routes only OpenAI's API. Speech to text is at
-`STT_BASE_URL`: `ai-gateway`'s alias `stt` in the cluster, `ai-models` with
-`gipformer-1.5` locally. The vision model is at `ASSIST_LLM_BASE_URL`:
-`ai-gateway`'s alias `listing-read` in the cluster, the LLM in `.env`
-locally. Locally `ai-models` answers on 127.0.0.1:56810 under the profile
-`models`, as for the photo embeddings. A 402 from the gateway (a spent
+A video read (see Assist) calls three more models. Frames and speech to
+text are module ai's `Frames` and `Transcribe`. The vision model is at
+`ASSIST_LLM_BASE_URL`: LiteLLM's alias `listing-read` in the cluster, the
+LLM in `.env` locally. A 402 from the gateway (a spent
 budget or OpenRouter credit) is a passing failure in `provider/llm`, like a
 429, not a refused request.
 
@@ -2318,11 +2312,11 @@ The video read:
   deleted again; a hold that loses a race to another start's save runs
   again and then sees that holder) and sends `Expire` with a 24-hour delay and `Run` one way,
   both keyed by the read's ID.
-- `Run` has three model steps, and each saves the row. Frames: the video goes to `ai`'s
-  `POST /v1/video/frames`, and each frame it keeps becomes a waiting photo
+- `Run` has three model steps, and each saves the row. Frames: module ai's
+  `Frames` gets the video's object store key from media's `VideoKey`, and each frame it keeps becomes a waiting photo
   upload of the seller (`SaveFrame`), so the draft posts with
   `POST /v1/listings` like photos the app uploaded. Fill: the phone's
-  transcript when the read has one, else speech to text, and the LLM in one
+  transcript when the read has one, else module ai's `Transcribe` of the same key, and the LLM in one
   step, so the transcript never reaches the journal; the LLM gets the
   frames at 768 px, the transcript with where it came from, and the
   subcategories, and answers a strict schema. Estimate: catalog's `PriceSample` with the
@@ -2343,11 +2337,12 @@ The video read:
   to 10,000, `source: market`; with fewer it is the model's range,
   `source: model`; without that, none. An embedding failure falls back to
   the model's range.
-- A 4xx from `ai` fails the read: `unreadable`, `video_too_short`
-  (under 3 s) or `video_too_long` (over 35 s); any other 4xx from `ai` is the request's fault,
-  `unavailable`, and logged. A 4xx from speech to text (a key, a budget, an
-  error code the gateway rewrote) reads the video without speech, since the
-  frames step already read it, and is logged. One from the LLM
+- A refusal from `Frames` fails the read: `unreadable` (also for a key with
+  no object), `video_too_short` (under 3 s) or `video_too_long` (over 35 s);
+  any other refusal is the request's fault, `unavailable`, and logged. A
+  video with no audio track reads without speech. `Transcribe`'s too long or
+  any other refusal also reads the video without speech, since the frames
+  step already read it, and is logged. One from the LLM
   (`llm.ErrRefused`, any 4xx but 429) is `unavailable` at once. The run has a 2-minute deadline from
   `created_at`. Each model step runs with `restate.WithMaxRetryDuration` set
   to the time left and at most 3 attempts, since the SDK retries a step
@@ -2378,11 +2373,11 @@ The video read:
   characters and `transcript_from` (`phone`, `server` or `none`), the category asked for and the one kept, the condition, the
   counts of specs and kept frames, whether there is a description, the
   prices and the range, and the time taken.
-- Configuration: `AI_FRAMES_BASE_URL`, `STT_BASE_URL`, `STT_API_KEY`,
-  `STT_MODEL`, `ASSIST_LLM_BASE_URL`, `ASSIST_LLM_API_KEY`,
-  `ASSIST_LLM_MODEL`, and `ASSIST_CALL_TIMEOUT` for one call. In the
-  cluster the keys are LiteLLM's `server-stt` and `server-assist`. The
-  estimate embeds with the search key, `EMBED_SEARCH_API_KEY`.
+- Configuration: `ASSIST_LLM_BASE_URL`, `ASSIST_LLM_API_KEY`,
+  `ASSIST_LLM_MODEL`, and `ASSIST_CALL_TIMEOUT` for one call, ai's calls
+  included. In the cluster the key is LiteLLM's `server-assist`. The
+  estimate embeds text with the search key, `EMBED_SEARCH_API_KEY`, and
+  photos with module ai.
 
 The photo read (decided 2026-11-11, same spec as listing reads) reads one
 photo, the app's cover, and costs one image and no speech to text:
@@ -2499,6 +2494,60 @@ prices any draft for the app's "Giá" step, with or without a read:
   the watchers still answer. The log line holds the category, condition,
   photo count, sample size, sales, estimate source, suggestion and
   watcher counts and the time taken, and no title, description or specs.
+
+### Module ai
+
+Module ai (decided 2026-11-18, plan:
+`~/shopnexus/docs/superpowers/plans/2026-11-18-ai-into-server.md`) runs the
+self-hosted models on CPU: Gipformer 1.5 with Silero VAD for speech to text
+(`internal/ai/speech`, sherpa-onnx), SigLIP 2 so400m-patch16-384 in fp32 for
+photo vectors (`internal/ai/embed`, onnxruntime) and ffmpeg for video frames
+(`internal/ai/frames`). The code came from the `ai` repo without its HTTP
+API.
+
+- The Restate service `ai` has three handlers. `Transcribe` takes
+  `{"key"}`, an object store key, and answers `{"text"}`. `Frames` takes
+  `{"key"}` and answers `{"duration", "frames"}`, at most 8 frames of
+  `at_seconds`, `sharpness` and a base64 `jpeg`. `EmbedImages` takes
+  `{"inputs"}`, at most `AI_EMBED_MAX_INPUTS` JPEG, PNG or WebP data URLs,
+  and answers `{"vectors"}`. ai copies the object to a temp file, since
+  ffmpeg needs to seek in an mp4 whose index is at the end.
+- Every error ends the call as a terminal error, so Restate does not retry
+  it, with a code per error of `ai/domain`: 415 unreadable, 410 no object at
+  the key, 422 too short, 413 too long, 400 any other refusal (a bad image,
+  too many inputs, photo vectors off), 500 a model or ffmpeg failure. The
+  handlers journal nothing; a retried invocation runs the model again.
+- Callers use `ai/service.Client`, which posts to Restate's ingress
+  (`RESTATE_INGRESS_URL`, `/ai/<Handler>`) in every role and turns the code
+  back into the `ai/domain` error. A 500 or an ingress error, such as
+  service ai not registered yet, comes back as a plain error for the caller
+  to retry. `ai/service.Photos` is the `embed.Model` catalog, discovery and
+  assist take for photos.
+- `SERVER_ROLE` picks what a process runs. `all`, the default and compose's,
+  runs every module and module ai. `api`, the cluster's Deployment
+  `server`, loads no model and binds no service `ai`. `ai`, the cluster's
+  `server-ai`, loads the models and serves only service `ai` and, on
+  `HTTP_ADDR`, `/healthz` and `/readyz`; it opens no database.
+- Configuration, read in every role: `AI_STT_MODELS` and `AI_EMBED_MODELS`,
+  one `name=dir` each (an empty `AI_EMBED_MODELS` loads no SigLIP 2 and
+  turns photo vectors off), `AI_VAD_MODEL`, `AI_NUM_THREADS`,
+  `AI_MAX_CONCURRENT`, `AI_MAX_AUDIO_SECONDS`, `AI_EMBED_MAX_INPUTS`,
+  `AI_EMBED_MAX_CONCURRENT`, `AI_EMBED_MAX_IMAGE_MB`,
+  `AI_FRAMES_MAX_CONCURRENT`, `AI_FRAMES_MAX_SECONDS` and
+  `AI_FRAMES_MIN_SHARPNESS`. `EMBED_IMAGE_VERSION` names the stored
+  vectors' model.
+- The models (about 5 GB) are not in the image. `scripts/fetch-models.sh
+  <dir>`, shipped as `/fetch-models.sh`, downloads each file that is missing
+  or fails its sha256, and skips SigLIP 2 with `FETCH_EMBED=0`; the stacks
+  run it into `/models`, and `make models` into `tmp/models` for `make run`.
+- The binary links `libsherpa-onnx-c-api.so` and `libonnxruntime.so` through
+  cgo. A build from source finds them through the runpath into the Go
+  module cache; the image copies them to `/usr/local/lib` and runs
+  `ldconfig`. onnxruntime_go opens `libonnxruntime.so` by name and gets the
+  copy already loaded.
+- Model tests read `AI_TEST_MODELS` (default `/models`) and `AI_TEST_WAVS`
+  and skip when the files are missing. Other tests give app fake engines
+  through `app.WithAIEngines` and `ai/aitest.Fake`.
 
 ### Support
 

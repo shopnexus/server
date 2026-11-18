@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server2/api"
+	"github.com/shopnexus/server2/internal/ai"
 	"github.com/shopnexus/server2/internal/app"
 	"github.com/shopnexus/server2/internal/console"
 	consoledomain "github.com/shopnexus/server2/internal/console/domain"
@@ -45,8 +46,8 @@ var (
 	issuer     *firebasetest.Issuer // signs the phone tokens; the server's key URLs point at it
 	google     *googletest.Issuer   // signs Google ID tokens; the server's key URL points at it
 	model      = newModel()         // the model that reads search queries
-	embedder   = newEmbed()         // the embedding aliases, embed-text and embed-image
-	assistStub = newAssist()        // ai's frames, the stt alias and the video-read model
+	embedder   = newEmbed()         // the alias embed-text, and module ai's photo vectors
+	assistStub = newAssist()        // module ai's frames and speech, and the video-read model
 	scamStub   = newScam()          // the scam-check model
 	chototStub = newChotot()        // Chợ Tốt's gateway and CDN
 	agentStub  = newAgent()         // the console agent service
@@ -149,15 +150,16 @@ func setup(closers *[]func()) error {
 		},
 		LLM: config.LLMConfig{BaseURL: model.url(), APIKey: "e2e", Model: "e2e"},
 		Embed: config.EmbedConfig{
-			TextBaseURL: embedder.url(), ImageBaseURL: embedder.url(),
-			TextModel: "embed-text", ImageModel: "embed-image", TextVersion: "text-test", ImageVersion: "image-test",
+			TextBaseURL: embedder.url(), TextModel: "embed-text", TextVersion: "text-test", ImageVersion: "image-test",
 			IndexAPIKey: "", SearchAPIKey: "", Timeout: time.Second, Slots: 1,
 			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,
 		},
 		Assist: config.AssistConfig{
-			FramesBaseURL: assistStub.url(), STTBaseURL: assistStub.url(), STTAPIKey: "e2e", STTModel: "gipformer-1.5",
 			LLMBaseURL: assistStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second,
 			ChototGatewayURL: chototStub.url(), ChototCDNURL: chototStub.url(),
+		},
+		AI: config.AIConfig{
+			EmbedModel: "siglip2-so400m-patch16-384", EmbedMaxInputs: 16, EmbedMaxImageMB: 10, FramesMaxConcurrent: 2,
 		},
 		Trust: config.TrustConfig{LLMBaseURL: scamStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second},
 		Agent: config.AgentConfig{
@@ -179,7 +181,8 @@ func setup(closers *[]func()) error {
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones),
 		app.WithEmailSender(mails),
-		app.WithPasswordHasher(consoledomain.Fast))
+		app.WithPasswordHasher(consoledomain.Fast),
+		fakeAI())
 	if err != nil {
 		return err
 	}
@@ -190,6 +193,12 @@ func setup(closers *[]func()) error {
 	mcpURL = "http://" + a.AgentMCPAddr().String() + "/mcp"
 
 	return loadSpec()
+}
+
+// fakeAI gives module ai the stubs' frames, speech and photo vectors in
+// place of the models.
+func fakeAI() app.Option {
+	return app.WithAIEngines(ai.Engines{Speech: assistStub.models(), Frames: assistStub.models(), Images: embedder.photos()})
 }
 
 // uncovered lists "operationId status" for every numeric response code in the

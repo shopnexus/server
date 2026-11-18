@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -11,6 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/restatedev/sdk-go/ingress"
+
+	"github.com/shopnexus/server2/internal/ai"
+	"github.com/shopnexus/server2/internal/ai/aitest"
+	aidomain "github.com/shopnexus/server2/internal/ai/domain"
+	aisvc "github.com/shopnexus/server2/internal/ai/service"
+	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	"github.com/shopnexus/server2/internal/platform/config"
 	"github.com/shopnexus/server2/internal/platform/httpx"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
@@ -36,13 +44,14 @@ func testConfig(t *testing.T) config.Config {
 		// No model answers here; a search falls back to the raw words.
 		LLM: config.LLMConfig{BaseURL: "http://127.0.0.1:1", APIKey: "none", Model: "none"},
 		Embed: config.EmbedConfig{
-			TextBaseURL: "http://127.0.0.1:1", ImageBaseURL: "http://127.0.0.1:1",
-			TextModel: "embed-text", ImageModel: "embed-image", TextVersion: "text-test", ImageVersion: "image-test",
+			TextBaseURL: "http://127.0.0.1:1", TextModel: "embed-text", TextVersion: "text-test", ImageVersion: "image-test",
 			IndexAPIKey: "", SearchAPIKey: "", Timeout: time.Second, Slots: 1,
 			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,
 		},
+		AI: config.AIConfig{
+			EmbedModel: "siglip2", EmbedMaxInputs: 4, EmbedMaxImageMB: 1, FramesMaxConcurrent: 1,
+		},
 		Assist: config.AssistConfig{
-			FramesBaseURL: "http://127.0.0.1:1/v1", STTBaseURL: "http://127.0.0.1:1/v1", STTAPIKey: "", STTModel: "none",
 			LLMBaseURL: "http://127.0.0.1:1", LLMAPIKey: "none", LLMModel: "none", CallTimeout: time.Second,
 		},
 		Trust: config.TrustConfig{LLMBaseURL: "http://127.0.0.1:1", LLMAPIKey: "none", LLMModel: "none", CallTimeout: time.Second},
@@ -75,12 +84,18 @@ func newApp(t *testing.T) *App {
 
 func newAppWithLog(t *testing.T, log *slog.Logger) *App {
 	t.Helper()
-	a, err := New(context.Background(), testConfig(t), log)
+	a, err := New(context.Background(), testConfig(t), log, withFakeAI())
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	t.Cleanup(func() { a.Close(context.Background()) })
 	return a
+}
+
+// withFakeAI gives module ai fake engines in place of the models.
+func withFakeAI() Option {
+	f := aitest.Fake{Dims: catalogdomain.PhotoDims}
+	return WithAIEngines(ai.Engines{Speech: f, Frames: f, Images: f})
 }
 
 func get(a *App, path string) (status int, body string) {
@@ -226,7 +241,7 @@ func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Carrier.Mode = "none"
-	a, err := New(context.Background(), cfg, discard())
+	a, err := New(context.Background(), cfg, discard(), withFakeAI())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +263,7 @@ func TestProdServesNoDevRoute(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
 	cfg.Env, cfg.Email.Sender, cfg.Email.ResendAPIKey, cfg.Carrier.Mode = "prod", "resend", "re_test", "none"
-	a, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}))
+	a, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}), withFakeAI())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -281,5 +296,56 @@ func TestProdServesNoDevRoute(t *testing.T) {
 				t.Errorf("%s %q: %d %s, want %d %s", path, body, rec.Code, rec.Body, unknown.Code, unknown.Body)
 			}
 		}
+	}
+}
+
+// SERVER_ROLE=ai serves module ai alone: the probes on HTTP, and the
+// Restate service ai, which the client reaches through the ingress.
+func TestRoleAI(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Role = config.RoleAI
+	a, err := New(context.Background(), cfg, discard(), withFakeAI())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { a.Close(context.Background()) })
+	if a.pool != nil {
+		t.Fatal("role ai opened the database")
+	}
+	routes := a.Routes()
+	if len(routes) != 2 {
+		t.Fatalf("routes %v, want the probes alone", routes)
+	}
+	for _, path := range []string{"/healthz", "/readyz"} {
+		if code, body := get(a, path); code != http.StatusOK {
+			t.Fatalf("%s: %d %q", path, code, body)
+		}
+	}
+	client := aisvc.NewClient(ingress.NewClient(cfg.Restate.IngressURL), cfg.Restate.ServicePrefix)
+	vs, err := client.EmbedImages(context.Background(), []string{"data:image/jpeg;base64,AAAA"})
+	if err != nil || len(vs) != 1 || len(vs[0]) != catalogdomain.PhotoDims {
+		t.Fatalf("EmbedImages: %d vectors, %v", len(vs), err)
+	}
+	if _, err = client.Transcribe(context.Background(), "media/none"); !errors.Is(err, aidomain.ErrNotFound) {
+		t.Fatalf("Transcribe of a missing key: %v", err)
+	}
+}
+
+// SERVER_ROLE=api loads no model and leaves service ai to another process.
+func TestRoleAPI(t *testing.T) {
+	t.Parallel()
+	cfg := testConfig(t)
+	cfg.Role = config.RoleAPI
+	// No engines: a model load would fail on the empty AI config.
+	a, err := New(context.Background(), cfg, discard())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(func() { a.Close(context.Background()) })
+	client := aisvc.NewClient(ingress.NewClient(cfg.Restate.IngressURL), cfg.Restate.ServicePrefix)
+	_, err = client.EmbedImages(context.Background(), []string{"data:image/jpeg;base64,AAAA"})
+	if err == nil || errors.Is(err, aidomain.ErrRefused) {
+		t.Fatalf("service ai answered in role api: %v", err)
 	}
 }

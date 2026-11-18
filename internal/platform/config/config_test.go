@@ -74,9 +74,7 @@ func required() map[string]string {
 		"LLM_API_KEY":                  "llm-key",
 		"LLM_MODEL":                    "a-model",
 		"EMBED_TEXT_BASE_URL":          "http://openrouter.example.test/v1",
-		"EMBED_IMAGE_BASE_URL":         "http://ai.example.test/v1",
 		"EMBED_TEXT_MODEL":             "embed-text",
-		"EMBED_IMAGE_MODEL":            "embed-image",
 		"EMBED_TEXT_VERSION":           "bge-m3@5617a9f6",
 		"EMBED_IMAGE_VERSION":          "siglip2-so400m-patch16-384-fp32@29f74e67",
 		"EMBED_INDEX_API_KEY":          "",
@@ -85,10 +83,18 @@ func required() map[string]string {
 		"EMBED_SLOTS":                  "2",
 		"EMBED_TEXT_MIN_SIMILARITY":    "0.45",
 		"EMBED_PHOTO_MIN_SIMILARITY":   "0.6",
-		"AI_FRAMES_BASE_URL":           "http://ai.example.test/v1",
-		"STT_BASE_URL":                 "http://litellm.example.test/v1",
-		"STT_API_KEY":                  "",
-		"STT_MODEL":                    "stt",
+		"AI_STT_MODELS":                "gipformer-1.5=/models/gipformer-1.5",
+		"AI_VAD_MODEL":                 "/models/silero_vad.onnx",
+		"AI_NUM_THREADS":               "4",
+		"AI_MAX_CONCURRENT":            "2",
+		"AI_MAX_AUDIO_SECONDS":         "300",
+		"AI_EMBED_MODELS":              "siglip2-so400m-patch16-384=/models/siglip2-so400m-patch16-384",
+		"AI_EMBED_MAX_INPUTS":          "16",
+		"AI_EMBED_MAX_CONCURRENT":      "2",
+		"AI_EMBED_MAX_IMAGE_MB":        "10",
+		"AI_FRAMES_MAX_CONCURRENT":     "2",
+		"AI_FRAMES_MAX_SECONDS":        "35",
+		"AI_FRAMES_MIN_SHARPNESS":      "30",
 		"ASSIST_LLM_BASE_URL":          "http://litellm.example.test/v1",
 		"ASSIST_LLM_API_KEY":           "assist-key",
 		"ASSIST_LLM_MODEL":             "video-read",
@@ -147,6 +153,7 @@ func TestLoadAllSet(t *testing.T) {
 	}
 	want := Config{
 		Env:         "dev",
+		Role:        RoleAll,
 		HTTPAddr:    ":9090",
 		LogLevel:    slog.LevelDebug,
 		LogFormat:   "text",
@@ -181,15 +188,19 @@ func TestLoadAllSet(t *testing.T) {
 		},
 		LLM: LLMConfig{BaseURL: "https://llm.example.test/v1", APIKey: "llm-key", Model: "a-model"},
 		Embed: EmbedConfig{
-			TextBaseURL: "http://openrouter.example.test/v1", ImageBaseURL: "http://ai.example.test/v1",
-			TextModel: "embed-text", ImageModel: "embed-image",
+			TextBaseURL: "http://openrouter.example.test/v1", TextModel: "embed-text",
 			TextVersion: "bge-m3@5617a9f6", ImageVersion: "siglip2-so400m-patch16-384-fp32@29f74e67",
 			IndexAPIKey: "", SearchAPIKey: "search-key", Timeout: 10 * time.Second, Slots: 2,
 			TextMinSimilarity: 0.45, PhotoMinSimilarity: 0.6,
 		},
+		AI: AIConfig{
+			STTModel: "gipformer-1.5", STTDir: "/models/gipformer-1.5", VADModel: "/models/silero_vad.onnx",
+			NumThreads: 4, MaxConcurrent: 2, MaxAudioSeconds: 300,
+			EmbedModel: "siglip2-so400m-patch16-384", EmbedDir: "/models/siglip2-so400m-patch16-384",
+			EmbedMaxInputs: 16, EmbedMaxConcurrent: 2, EmbedMaxImageMB: 10,
+			FramesMaxConcurrent: 2, FramesMaxSeconds: 35, FramesMinSharpness: 30,
+		},
 		Assist: AssistConfig{
-			FramesBaseURL: "http://ai.example.test/v1",
-			STTBaseURL:    "http://litellm.example.test/v1", STTAPIKey: "", STTModel: "stt",
 			LLMBaseURL: "http://litellm.example.test/v1", LLMAPIKey: "assist-key", LLMModel: "video-read",
 			CallTimeout:      30 * time.Second,
 			ChototGatewayURL: "https://gateway.chotot.com", ChototCDNURL: "https://cdn.chotot.com",
@@ -223,7 +234,7 @@ func TestLoadAcceptsExplicitEmpty(t *testing.T) {
 	}
 	if got.OTLPEndpoint != "" || got.TrustedProxies != nil || got.DocsOrigins != nil || got.Restate.EndpointURL != "" ||
 		got.Restate.ServicePrefix != "" || got.Auth.JWTPrevKeyID != "" || got.Auth.JWTPrevKey != nil ||
-		got.Console.DashboardHosts != nil || got.Assist.STTAPIKey != "" {
+		got.Console.DashboardHosts != nil {
 		t.Fatalf("empty variables: %+v", got)
 	}
 }
@@ -513,7 +524,7 @@ func TestLoadEmbedKindsOff(t *testing.T) {
 	env := required()
 	for _, k := range []string{
 		"EMBED_TEXT_MODEL", "EMBED_TEXT_BASE_URL", "EMBED_TEXT_VERSION", "EMBED_TEXT_MIN_SIMILARITY",
-		"EMBED_IMAGE_MODEL", "EMBED_IMAGE_BASE_URL", "EMBED_IMAGE_VERSION", "EMBED_PHOTO_MIN_SIMILARITY",
+		"AI_EMBED_MODELS", "EMBED_IMAGE_VERSION", "EMBED_PHOTO_MIN_SIMILARITY",
 	} {
 		env[k] = ""
 	}
@@ -521,7 +532,7 @@ func TestLoadEmbedKindsOff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.Embed.TextOn() || got.Embed.ImageOn() || got.Embed.TextVersion != "" || got.Embed.PhotoMinSimilarity != 0 {
+	if got.Embed.TextOn() || got.AI.EmbedOn() || got.AI.EmbedDir != "" || got.Embed.TextVersion != "" || got.Embed.PhotoMinSimilarity != 0 {
 		t.Fatalf("embed = %+v, want both kinds off", got.Embed)
 	}
 	env = required()
@@ -534,5 +545,63 @@ func TestLoadEmbedKindsOff(t *testing.T) {
 	env["EMBED_TEXT_MODEL"] = ""
 	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "EMBED_TEXT_BASE_URL is not set") {
 		t.Fatalf("text off without its base URL set: %v", err)
+	}
+}
+
+// SERVER_ROLE is the one setting with a default: unset or empty is all.
+func TestLoadRole(t *testing.T) {
+	t.Parallel()
+	for v, want := range map[string]Role{"\x00unset": RoleAll, "": RoleAll, "all": RoleAll, "api": RoleAPI, "ai": RoleAI} {
+		env := required()
+		if v != "\x00unset" {
+			env["SERVER_ROLE"] = v
+		}
+		got, err := Load(lookup(env))
+		if err != nil || got.Role != want {
+			t.Errorf("SERVER_ROLE=%q: %q %v", v, got.Role, err)
+		}
+	}
+	env := required()
+	env["SERVER_ROLE"] = "models"
+	if _, err := Load(lookup(env)); err == nil || !strings.Contains(err.Error(), "SERVER_ROLE") {
+		t.Fatalf("an unknown role: %v", err)
+	}
+	if !RoleAll.ServesAPI() || !RoleAll.ServesAI() || RoleAPI.ServesAI() || RoleAI.ServesAPI() ||
+		!Role("").ServesAPI() || !Role("").ServesAI() {
+		t.Fatal("ServesAPI or ServesAI")
+	}
+}
+
+func TestLoadAIValuesAreChecked(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct{ key, value, want string }{
+		"no stt model":      {"AI_STT_MODELS", "", "AI_STT_MODELS is empty"},
+		"stt not name=dir":  {"AI_STT_MODELS", "gipformer-1.5", "AI_STT_MODELS"},
+		"two stt models":    {"AI_STT_MODELS", "a=/m/a,b=/m/b", "AI_STT_MODELS"},
+		"two embed models":  {"AI_EMBED_MODELS", "a=/m/a,b=/m/b", "AI_EMBED_MODELS"},
+		"embed model unset": {"AI_EMBED_MODELS", "\x00unset", "AI_EMBED_MODELS is not set"},
+		"no vad":            {"AI_VAD_MODEL", "", "AI_VAD_MODEL is empty"},
+		"threads":           {"AI_NUM_THREADS", "0", "AI_NUM_THREADS"},
+		"inputs":            {"AI_EMBED_MAX_INPUTS", "many", "AI_EMBED_MAX_INPUTS"},
+		"sharpness":         {"AI_FRAMES_MIN_SHARPNESS", "-1", "AI_FRAMES_MIN_SHARPNESS"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			env := required()
+			if tc.value == "\x00unset" {
+				delete(env, tc.key)
+			} else {
+				env[tc.key] = tc.value
+			}
+			_, err := Load(lookup(env))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want it to name %s", err, tc.want)
+			}
+		})
+	}
+	env := required()
+	env["AI_FRAMES_MIN_SHARPNESS"] = "0"
+	if got, err := Load(lookup(env)); err != nil || got.AI.FramesMinSharpness != 0 {
+		t.Fatalf("a sharpness floor of zero: %v", err)
 	}
 }

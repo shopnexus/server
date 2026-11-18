@@ -22,6 +22,8 @@ import (
 	"github.com/shopnexus/server2/api"
 	"github.com/shopnexus/server2/internal/account"
 	"github.com/shopnexus/server2/internal/agent"
+	"github.com/shopnexus/server2/internal/ai"
+	aisvc "github.com/shopnexus/server2/internal/ai/service"
 	"github.com/shopnexus/server2/internal/assist"
 	"github.com/shopnexus/server2/internal/catalog"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
@@ -49,11 +51,9 @@ import (
 	"github.com/shopnexus/server2/internal/provider/email"
 	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/firebase"
-	"github.com/shopnexus/server2/internal/provider/frames"
 	"github.com/shopnexus/server2/internal/provider/google"
 	"github.com/shopnexus/server2/internal/provider/llm"
 	"github.com/shopnexus/server2/internal/provider/push"
-	"github.com/shopnexus/server2/internal/provider/stt"
 	"github.com/shopnexus/server2/internal/screen"
 	"github.com/shopnexus/server2/internal/shipping"
 	shippingsvc "github.com/shopnexus/server2/internal/shipping/service"
@@ -71,6 +71,8 @@ type App struct {
 	adminURL string
 	hub      *stream.Hub
 	agent    *agent.Mounted
+	// closeAI releases module ai's models; nil when none are loaded.
+	closeAI func()
 	// stop cancels the event bus, the stream hub and the agent's MCP
 	// server, which run in bg.
 	stop context.CancelFunc
@@ -84,6 +86,7 @@ type options struct {
 	push   push.Sender
 	email  email.Sender
 	hasher consoledomain.Hasher
+	ai     *ai.Engines
 }
 
 // WithPushSender replaces the sender the configuration picks; e2e tests
@@ -97,6 +100,10 @@ func WithEmailSender(s email.Sender) Option { return func(o *options) { o.email 
 // WithPasswordHasher sets the argon2id parameters of new member passwords;
 // tests pass consoledomain.Fast.
 func WithPasswordHasher(h consoledomain.Hasher) Option { return func(o *options) { o.hasher = h } }
+
+// WithAIEngines gives module ai these engines in place of the models
+// AI_* names, which are then not loaded; tests pass fakes.
+func WithAIEngines(e ai.Engines) Option { return func(o *options) { o.ai = &e } }
 
 // AgentMCPAddr is where the agent's MCP server listens, for tests that
 // set AGENT_MCP_ADDR to port 0.
@@ -119,6 +126,9 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	// config.Load checks the key too; this catches a Config built by hand.
 	if len(cfg.Auth.OTPKey) < 32 {
 		return nil, errors.New("OTP_KEY missing from config; make run adds it to .env")
+	}
+	if cfg.Role == config.RoleAI {
+		return newAI(ctx, cfg, log, o)
 	}
 	if cfg.Env == config.EnvProd && cfg.Firebase.TestNumbers {
 		return nil, errors.New("APP_ENV=prod with PNV_TEST_NUMBERS=true; test numbers would sign in")
@@ -193,21 +203,18 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if err != nil {
 		return nil, fmt.Errorf("load api spec: %w", err)
 	}
-
-	a.router.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		httpx.Respond(w, http.StatusOK, status{"ok"})
-	})
-	a.router.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
-		if notReady := a.ready(r.Context()); notReady != nil {
-			log.WarnContext(r.Context(), "not ready", "err", notReady)
-			httpx.Respond(w, http.StatusServiceUnavailable, status{"unavailable"})
-			return
+	// SERVER_ROLE=api loads no model; all serves ai in this process.
+	var engines *ai.Engines
+	if cfg.Role.ServesAI() {
+		if engines, err = a.loadAI(cfg.AI, o); err != nil {
+			return nil, err
 		}
-		httpx.Respond(w, http.StatusOK, status{"ok"})
-	})
+	}
+
+	a.health(log)
 	in := ingress.NewClient(cfg.Restate.IngressURL)
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	defs, agentm, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, mailer, carriers, log)
+	defs, agentm, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, mailer, carriers, engines, log)
 	if err != nil {
 		return nil, err
 	}
@@ -255,6 +262,67 @@ type status struct {
 	Status string `json:"status"`
 }
 
+// newAI builds a process of SERVER_ROLE=ai: module ai's models and its
+// Restate service, and on HTTP only /healthz and /readyz. It opens no
+// database and runs no other module.
+func newAI(ctx context.Context, cfg config.Config, log *slog.Logger, o options) (_ *App, err error) {
+	a := &App{router: httpx.NewRouter(), adminURL: cfg.Restate.AdminURL, stop: func() {}}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, a.Close(context.Background()))
+		}
+	}()
+	engines, err := a.loadAI(cfg.AI, o)
+	if err != nil {
+		return nil, err
+	}
+	store, err := objectstore.New(cfg.ObjectStore)
+	if err != nil {
+		return nil, fmt.Errorf("object store: %w", err)
+	}
+	d := module.Deps{
+		Router: a.router, Ingress: ingress.NewClient(cfg.Restate.IngressURL), ServicePrefix: cfg.Restate.ServicePrefix,
+		Now: time.Now, Log: log,
+	}
+	aim := ai.Mount(d, ai.Settings{Engines: *engines, Objects: store, Config: cfg.AI})
+	a.health(log)
+	if a.endpoint, err = startRestate(ctx, cfg.Restate, log, aim.Services); err != nil {
+		return nil, err
+	}
+	a.Handler = httpx.Trace(log)(httpx.Recover(log)(a.router))
+	return a, nil
+}
+
+// loadAI loads module ai's models, or takes the engines of WithAIEngines,
+// and keeps what releases them for Close.
+func (a *App) loadAI(c config.AIConfig, o options) (*ai.Engines, error) {
+	if o.ai != nil {
+		return o.ai, nil
+	}
+	e, err := ai.Load(c)
+	if err != nil {
+		return nil, fmt.Errorf("module ai: %w", err)
+	}
+	a.closeAI = e.Close
+	return &e, nil
+}
+
+// health registers the probes: /healthz says the process runs, /readyz
+// that Postgres (when the process uses it) and Restate answer.
+func (a *App) health(log *slog.Logger) {
+	a.router.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+		httpx.Respond(w, http.StatusOK, status{"ok"})
+	})
+	a.router.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
+		if notReady := a.ready(r.Context()); notReady != nil {
+			log.WarnContext(r.Context(), "not ready", "err", notReady)
+			httpx.Respond(w, http.StatusServiceUnavailable, status{"unavailable"})
+			return
+		}
+		httpx.Respond(w, http.StatusOK, status{"ok"})
+	})
+}
+
 func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 	pending, err := postgres.Pending(ctx, pool, migrations.FS)
 	if err != nil {
@@ -273,10 +341,11 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 // mountModules mounts every module and returns their Restate services and
 // the agent module, whose MCP server app runs. A module mounts after the
 // modules whose services it takes; account's guards come first because they
-// need only the auth keys.
+// need only the auth keys. Module ai's service is among them when engines
+// is not nil; the other modules call ai through Restate either way.
 func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub,
 	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, mailer email.Sender, carriers shipping.Settings,
-	log *slog.Logger,
+	engines *ai.Engines, log *slog.Logger,
 ) ([]restate.ServiceDefinition, *agent.Mounted, error) {
 	d := module.Deps{
 		Router: router, Pool: pool, Ingress: in, ServicePrefix: cfg.Restate.ServicePrefix,
@@ -298,17 +367,29 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if err != nil {
 		return nil, nil, fmt.Errorf("console keys: %w", err)
 	}
+	aiClient := ai.Client(d)
+	var aiServices []restate.ServiceDefinition
+	if engines != nil {
+		aiServices = ai.Mount(d, ai.Settings{Engines: *engines, Objects: store, Config: cfg.AI}).Services
+	}
 	// An empty model turns its kind off: the modules get nil and write and
 	// read no vectors of that kind.
-	embedder := func(base, model, key string, dims int) embed.Model {
-		if model == "" {
+	embedder := func(key string) embed.Model {
+		if cfg.Embed.TextModel == "" {
 			return nil
 		}
-		return embed.OpenAI{BaseURL: base, APIKey: key, Model: model, Dims: dims, HTTP: &http.Client{Timeout: cfg.Embed.Timeout}}
+		return embed.OpenAI{
+			BaseURL: cfg.Embed.TextBaseURL, APIKey: key, Model: cfg.Embed.TextModel, Dims: catalogdomain.TextDims,
+			HTTP: &http.Client{Timeout: cfg.Embed.Timeout},
+		}
+	}
+	var photos embed.Model
+	if cfg.AI.EmbedOn() {
+		photos = aisvc.Photos{AI: aiClient, Dims: catalogdomain.PhotoDims, Timeout: cfg.Embed.Timeout}
 	}
 	catalogm := catalog.Mount(d, catalog.Settings{
-		Text:        embedder(cfg.Embed.TextBaseURL, cfg.Embed.TextModel, cfg.Embed.IndexAPIKey, catalogdomain.TextDims),
-		Image:       embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.IndexAPIKey, catalogdomain.PhotoDims),
+		Text:        embedder(cfg.Embed.IndexAPIKey),
+		Image:       photos,
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion, EmbedSlots: cfg.Embed.Slots,
 	}, accounts, mediam.Service)
 	// shipping reaches deal through these functions, filled once deal is
@@ -348,21 +429,18 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
 	discoverym := discovery.Mount(d, discovery.Settings{
 		Model:       model,
-		Text:        embedder(cfg.Embed.TextBaseURL, cfg.Embed.TextModel, cfg.Embed.SearchAPIKey, catalogdomain.TextDims),
-		Image:       embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.SearchAPIKey, catalogdomain.PhotoDims),
+		Text:        embedder(cfg.Embed.SearchAPIKey),
+		Image:       photos,
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, catalogm.Service, mediam.Service, accounts)
 	assistm := assist.Mount(d, assist.Settings{
-		Frames: frames.Client{BaseURL: cfg.Assist.FramesBaseURL, HTTP: &http.Client{}},
-		STT: stt.OpenAI{
-			BaseURL: cfg.Assist.STTBaseURL, APIKey: cfg.Assist.STTAPIKey, Model: cfg.Assist.STTModel, HTTP: &http.Client{},
-		},
+		AI: aiClient,
 		Model: llm.OpenAI{
 			BaseURL: cfg.Assist.LLMBaseURL, APIKey: cfg.Assist.LLMAPIKey, Model: cfg.Assist.LLMModel, HTTP: &http.Client{},
 		},
-		Text:    embedder(cfg.Embed.TextBaseURL, cfg.Embed.TextModel, cfg.Embed.SearchAPIKey, catalogdomain.TextDims),
-		Image:   embedder(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.SearchAPIKey, catalogdomain.PhotoDims),
+		Text:    embedder(cfg.Embed.SearchAPIKey),
+		Image:   photos,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, CallTimeout: cfg.Assist.CallTimeout,
 		Source: chotot.Client{
 			GatewayURL: cfg.Assist.ChototGatewayURL, CDNURL: cfg.Assist.ChototCDNURL, HTTP: &http.Client{},
@@ -388,7 +466,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		return nil, nil, fmt.Errorf("agent: %w", agentErr)
 	}
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, shippingm.Services, dealm.Services, discoverym.Services,
-		chatm.Services, supportm.Services, trustm.Services, notificationm.Services, assistm.Services), agentm, nil
+		chatm.Services, supportm.Services, trustm.Services, notificationm.Services, assistm.Services, aiServices), agentm, nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {
@@ -428,8 +506,10 @@ func register(ctx context.Context, adminURL, url string, log *slog.Logger) error
 }
 
 func (a *App) ready(ctx context.Context) error {
-	if err := a.pool.Ping(ctx); err != nil {
-		return fmt.Errorf("ping postgres: %w", err)
+	if a.pool != nil {
+		if err := a.pool.Ping(ctx); err != nil {
+			return fmt.Errorf("ping postgres: %w", err)
+		}
 	}
 	if err := restatex.Healthy(ctx, a.adminURL); err != nil {
 		return fmt.Errorf("check restate: %w", err)
@@ -439,10 +519,15 @@ func (a *App) ready(ctx context.Context) error {
 
 // CloseStreams ends every open WebSocket with 1001, so a server shutdown
 // does not wait for them; the server's RegisterOnShutdown calls it.
-func (a *App) CloseStreams() { a.hub.Close() }
+func (a *App) CloseStreams() {
+	if a.hub != nil {
+		a.hub.Close()
+	}
+}
 
 // Close ends the streams, stops the event bus, the stream hub, the agent's
-// MCP server and the Restate endpoint, then closes the pool.
+// MCP server and the Restate endpoint, then releases the models and closes
+// the pool.
 func (a *App) Close(ctx context.Context) error {
 	a.CloseStreams()
 	a.stop()
@@ -453,6 +538,11 @@ func (a *App) Close(ctx context.Context) error {
 			err = fmt.Errorf("stop restate endpoint: %w", cerr)
 		}
 	}
-	a.pool.Close()
+	if a.closeAI != nil {
+		a.closeAI()
+	}
+	if a.pool != nil {
+		a.pool.Close()
+	}
 	return err
 }

@@ -3,8 +3,8 @@ package service_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"slices"
 	"sync"
@@ -18,6 +18,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	aidomain "github.com/shopnexus/server2/internal/ai/domain"
 	"github.com/shopnexus/server2/internal/assist/domain"
 	"github.com/shopnexus/server2/internal/assist/repository"
 	"github.com/shopnexus/server2/internal/assist/service"
@@ -34,7 +35,6 @@ import (
 	"github.com/shopnexus/server2/internal/platform/testenv"
 	"github.com/shopnexus/server2/internal/provider/chotot"
 	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
-	"github.com/shopnexus/server2/internal/provider/frames"
 	"github.com/shopnexus/server2/internal/provider/llm"
 )
 
@@ -79,7 +79,7 @@ func newEnv(t *testing.T, opts ...func(*env)) env {
 	}
 	e.deps = service.Deps{
 		Reads: e.reads, Source: e.source, Accounts: accounts, Media: m, Catalog: c, Discovery: e.watchers,
-		Frames: e.cut, STT: e.stt, Model: e.model,
+		AI: fakeAI{e.cut, e.stt}, Model: e.model,
 		Text: embedtest.New(catalogdomain.TextDims), Image: embedtest.New(catalogdomain.PhotoDims),
 		TextMin: 0.5, PhotoMin: 0.5, CallTimeout: 5 * time.Second,
 		Log: slog.New(slog.DiscardHandler), Ingress: in, Prefix: p, Now: e.clock.Now,
@@ -162,8 +162,19 @@ func (e env) videoOf(t *testing.T, id uuid.UUID) mediadomain.Status {
 	return u.Status()
 }
 
-// fakeCutter answers as ai's frames endpoint: frames copies of jpeg with
-// rising sharpness, or err. onCall runs before each answer.
+// fakeAI is module ai: fakeCutter's frames and fakeSTT's speech. A read
+// embeds no photo through it.
+type fakeAI struct {
+	*fakeCutter
+	*fakeSTT
+}
+
+func (fakeAI) EmbedImages(context.Context, []string) ([][]float32, error) {
+	return nil, errors.New("a read embeds no photo through ai")
+}
+
+// fakeCutter answers as ai's Frames: frames copies of jpeg with rising
+// sharpness, or err. onCall runs before each answer.
 type fakeCutter struct {
 	mu     sync.Mutex
 	frames int
@@ -172,9 +183,9 @@ type fakeCutter struct {
 	onCall func()
 }
 
-func (f *fakeCutter) Extract(_ context.Context, video io.Reader, _ int64) (frames.Result, error) {
-	if _, err := io.Copy(io.Discard, video); err != nil {
-		return frames.Result{}, err
+func (f *fakeCutter) Frames(_ context.Context, key string) (aidomain.FramesOutput, error) {
+	if key == "" {
+		return aidomain.FramesOutput{}, errors.New("no key")
 	}
 	f.mu.Lock()
 	n, jpeg, err, onCall := f.frames, f.jpeg, f.err, f.onCall
@@ -183,11 +194,11 @@ func (f *fakeCutter) Extract(_ context.Context, video io.Reader, _ int64) (frame
 		onCall()
 	}
 	if err != nil {
-		return frames.Result{}, err
+		return aidomain.FramesOutput{}, err
 	}
-	res := frames.Result{Duration: 12}
+	res := aidomain.FramesOutput{Duration: 12}
 	for i := range n {
-		res.Frames = append(res.Frames, frames.Frame{AtSeconds: float64(i) * 1.5, Sharpness: float64(100 + i), JPEG: jpeg})
+		res.Frames = append(res.Frames, aidomain.Frame{AtSeconds: float64(i) * 1.5, Sharpness: float64(100 + i), JPEG: jpeg})
 	}
 	return res, nil
 }
@@ -200,9 +211,9 @@ type fakeSTT struct {
 	calls int
 }
 
-func (f *fakeSTT) Transcribe(_ context.Context, audio io.Reader, _ int64) (string, error) {
-	if _, err := io.Copy(io.Discard, audio); err != nil {
-		return "", err
+func (f *fakeSTT) Transcribe(_ context.Context, key string) (string, error) {
+	if key == "" {
+		return "", errors.New("no key")
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()

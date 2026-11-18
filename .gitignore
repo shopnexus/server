@@ -25,6 +25,7 @@
 !/go.sum
 !/internal/
 !/migrations/
+!/scripts/
 
 # Inside the directories above:
 .env

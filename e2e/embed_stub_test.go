@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -14,14 +15,17 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/shopnexus/server2/internal/ai/aitest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
+	"github.com/shopnexus/server2/internal/provider/embed"
 	"github.com/shopnexus/server2/internal/provider/embed/embedtest"
 )
 
-// stubEmbed stands in for the embedding aliases: embed-text answers 1024
-// dimensions, embed-image 1152, each input its embedtest vector. Hashed
-// vectors are close to orthogonal, so below the e2e floors of 0.5: vector
-// lists stay empty unless a test sets a vector, and BM25 answers.
+// stubEmbed stands in for the alias embed-text, 1024 dimensions, and for
+// module ai's photo vectors, 1152, each input its embedtest vector of the
+// photo's data URL. Hashed vectors are close to orthogonal, so below the
+// e2e floors of 0.5: vector lists stay empty unless a test sets a vector,
+// and BM25 answers.
 type stubEmbed struct {
 	srv         *httptest.Server
 	text, image *embedtest.Model
@@ -34,19 +38,11 @@ func newEmbed() *stubEmbed {
 			Model string   `json:"model"`
 			Input []string `json:"input"`
 		}
-		if r.URL.Path != "/v1/embeddings" || json.NewDecoder(r.Body).Decode(&req) != nil {
+		if r.URL.Path != "/v1/embeddings" || json.NewDecoder(r.Body).Decode(&req) != nil || req.Model != "embed-text" {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}
-		m := e.text
-		if req.Model == "embed-image" {
-			m = e.image
-			if slices.ContainsFunc(req.Input, unavailable) {
-				http.Error(w, "the stub is down for this photo", http.StatusServiceUnavailable)
-				return
-			}
-		}
-		vs, _ := m.Embed(context.Background(), req.Input)
+		vs, _ := e.text.Embed(context.Background(), req.Input)
 		data := make([]map[string]any, len(vs))
 		for i, v := range vs {
 			data[i] = map[string]any{"object": "embedding", "index": i, "embedding": v}
@@ -55,6 +51,20 @@ func newEmbed() *stubEmbed {
 		_ = json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": data})
 	}))
 	return e
+}
+
+// photos is module ai's SigLIP 2; it fails for the magenta photo.
+func (e *stubEmbed) photos() aitest.Fake {
+	return aitest.Fake{Embed: func(images [][]byte) ([][]float32, error) {
+		inputs := make([]string, len(images))
+		for i, img := range images {
+			inputs[i] = embed.ImageInput(img)
+		}
+		if slices.ContainsFunc(inputs, unavailable) {
+			return nil, errors.New("the stub is down for this photo")
+		}
+		return e.image.Embed(context.Background(), inputs)
+	}}
 }
 
 func (e *stubEmbed) url() string { return e.srv.URL + "/v1" }
@@ -79,7 +89,7 @@ func unavailable(input string) bool {
 	return r>>8 > 200 && g>>8 < 60 && bl>>8 > 200
 }
 
-// magentaPhoto is a JPEG the stub's image alias answers 503 for.
+// magentaPhoto is a JPEG the stub's photo vectors fail for.
 func magentaPhoto(t *testing.T) []byte {
 	t.Helper()
 	m := image.NewRGBA(image.Rect(0, 0, 64, 64))

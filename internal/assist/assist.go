@@ -10,6 +10,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	aisvc "github.com/shopnexus/server2/internal/ai/service"
 	"github.com/shopnexus/server2/internal/assist/handler"
 	"github.com/shopnexus/server2/internal/assist/repository"
 	"github.com/shopnexus/server2/internal/assist/service"
@@ -26,8 +27,8 @@ import (
 // Settings is what assist's Mount takes beyond module.Deps: the models a
 // read calls, the search key's embedding models, and search's floors.
 type Settings struct {
-	Frames            service.FrameCutter
-	STT               service.Transcriber
+	// AI cuts a video's frames and hears it.
+	AI                aisvc.Service
 	Model             llm.Client
 	Text, Image       embed.Model
 	TextMin, PhotoMin float64
@@ -44,7 +45,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasv
 	svc := service.New(service.Deps{
 		Reads: repository.NewListingReads(d.Pool), Source: s.Source, Accounts: accounts, Media: media, Catalog: catalog,
 		Discovery: discovery,
-		Frames:    s.Frames, STT: s.STT, Model: s.Model, Text: s.Text, Image: s.Image,
+		AI:        s.AI, Model: s.Model, Text: s.Text, Image: s.Image,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin, CallTimeout: s.CallTimeout,
 		Log: d.Log, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})

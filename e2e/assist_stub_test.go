@@ -2,15 +2,16 @@ package e2e
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"image"
 	"image/color"
 	"image/jpeg"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+
+	"github.com/shopnexus/server2/internal/ai/aitest"
+	aidomain "github.com/shopnexus/server2/internal/ai/domain"
 )
 
 // The video bodies the assist stub tells apart. Any other body is a
@@ -39,41 +40,14 @@ const (
 		`"spoken_price":null,"negotiable":false,"kept":[],"estimate":null}`
 )
 
-// stubAssist stands in for what a video read calls: ai's frames endpoint,
-// the stt alias and the video-read model, on one server.
+// stubAssist stands in for what a video read calls: the video-read model,
+// on a server, and module ai's frames and speech, in models.
 type stubAssist struct{ srv *httptest.Server }
 
 func newAssist() *stubAssist {
 	a := &stubAssist{}
 	a.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/video/frames"):
-			video, ok := fileOf(w, r)
-			if !ok {
-				return
-			}
-			if video == shortVideo {
-				writeStubError(w, http.StatusBadRequest, "too_short")
-				return
-			}
-			frames := make([]map[string]any, 3)
-			for i := range frames {
-				frames[i] = map[string]any{
-					"at_seconds": float64(i) * 4, "sharpness": 100 + i,
-					"jpeg": base64.StdEncoding.EncodeToString(frameJPEG(i)),
-				}
-			}
-			writeStubJSON(w, map[string]any{"duration": 12.0, "frames": frames})
-		case strings.HasSuffix(r.URL.Path, "/audio/transcriptions"):
-			video, ok := fileOf(w, r)
-			if !ok {
-				return
-			}
-			text := "mình bán xe đạp asama giá một triệu hai có thương lượng"
-			if video == emptyRoom {
-				text = "trong phòng không có gì"
-			}
-			writeStubJSON(w, map[string]any{"text": text, "duration": 12.0, "usage": map[string]any{"type": "duration", "seconds": 12}})
 		case strings.HasSuffix(r.URL.Path, "/chat/completions"):
 			var req struct {
 				Messages []struct {
@@ -130,34 +104,32 @@ func newAssist() *stubAssist {
 
 func (a *stubAssist) url() string { return a.srv.URL + "/v1" }
 
-// fileOf reads the multipart field file.
-func fileOf(w http.ResponseWriter, r *http.Request) (string, bool) {
-	f, _, err := r.FormFile("file")
-	if err != nil {
-		http.Error(w, "no file", http.StatusBadRequest)
-		return "", false
+// models are module ai's frames and speech: a short video is too short,
+// and the empty room has its own speech.
+func (*stubAssist) models() aitest.Fake {
+	return aitest.Fake{
+		Cut: func(video []byte) (aidomain.FramesOutput, error) {
+			if string(video) == shortVideo {
+				return aidomain.FramesOutput{Duration: 2}, aidomain.ErrTooShort
+			}
+			out := aidomain.FramesOutput{Duration: 12, Frames: make([]aidomain.Frame, 3)}
+			for i := range out.Frames {
+				out.Frames[i] = aidomain.Frame{AtSeconds: float64(i) * 4, Sharpness: float64(100 + i), JPEG: frameJPEG(i)}
+			}
+			return out, nil
+		},
+		Hear: func(video []byte) (string, error) {
+			if string(video) == emptyRoom {
+				return "trong phòng không có gì", nil
+			}
+			return "mình bán xe đạp asama giá một triệu hai có thương lượng", nil
+		},
 	}
-	defer f.Close()
-	b, err := io.ReadAll(f)
-	if err != nil {
-		http.Error(w, "read file", http.StatusBadRequest)
-		return "", false
-	}
-	return string(b), true
 }
 
 func writeStubJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
-}
-
-// writeStubError answers in OpenAI's error shape, as ai does.
-func writeStubError(w http.ResponseWriter, status int, code string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"error": map[string]string{"message": code, "type": "invalid_request_error", "code": code},
-	})
 }
 
 // frameJPEG is frame i of the bicycle video: a 96×64 gradient, a hue of

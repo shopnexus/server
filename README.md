@@ -61,7 +61,7 @@ A feature starts as its OpenAPI spec in `api/`. Middleware checks every request 
 make run    # start the dev stack and the server; the first run writes .env
 make test   # every test against the test stack, then golangci-lint
 make down   # stop both stacks
-docker compose --profile models up -d ai-models   # speech, photo vectors and frames, for make run
+make models # fetch module ai's models (about 5 GB) into tmp/models, which make run needs
 ```
 
-Configuration has no defaults: a missing variable stops the process with its name. Console admins are created from the command line with `go run ./cmd/console create-admin`; the API cannot create one.
+Configuration has no defaults, except `SERVER_ROLE`, which is `all` when unset: a missing variable stops the process with its name. Console admins are created from the command line with `go run ./cmd/console create-admin`; the API cannot create one.

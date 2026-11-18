@@ -1,4 +1,4 @@
-.PHONY: env run test down depguard search-eval
+.PHONY: env run test down depguard models search-eval
 
 TEST_STACK := docker compose -f docker-compose.test.yml
 
@@ -41,13 +41,16 @@ down:
 depguard:
 	go run ./cmd/depguardgen -root .
 
+# Downloads module ai's models into tmp/models, where .env.example's AI_*
+# point; a file already there with the right sha256 is kept.
+models:
+	scripts/fetch-models.sh tmp/models
+
 # Runs the search sample set (internal/discovery/eval) against the real
-# models: ai-models from this repo's docker-compose.yml, profile models, and
-# OpenRouter's bge-m3 and the LLM in .env. Not part of make test. It prints recall@10 and nDCG@10 per
+# models: module ai's SigLIP 2 from tmp/models, and OpenRouter's bge-m3 and
+# the LLM in .env. Not part of make test. It prints recall@10 and nDCG@10 per
 # query and per kind, and writes them to tmp/.
-search-eval: env
-	docker compose --profile models up -d ai-models
-	@until curl -sf http://127.0.0.1:56810/readyz >/dev/null; do sleep 2; done
+search-eval: env models
 	$(TEST_STACK) up -d --wait
 	$(TEST_STACK) up -d --wait --force-recreate restate
 	@until curl -sf http://127.0.0.1:56571/health >/dev/null; do sleep 0.5; done

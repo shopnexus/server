@@ -1,8 +1,8 @@
-// Package embed turns text and photos into vectors through an
-// OpenAI-compatible POST /embeddings: ai-gateway's aliases in the cluster,
-// OpenRouter and ai-models locally. An image goes as a data URL string, the convention LiteLLM
-// uses for multimodal embeddings. It knows nothing about what the vectors are
-// for.
+// Package embed holds Model, what the modules embed text and photos with,
+// and OpenAI, the Model of text over an OpenAI-compatible POST /embeddings:
+// LiteLLM's alias embed-text in the cluster, OpenRouter locally. Photos go
+// to module ai (ai/service.Photos) as data URL strings, which ImageInput
+// writes. It knows nothing about what the vectors are for.
 package embed
 
 import (

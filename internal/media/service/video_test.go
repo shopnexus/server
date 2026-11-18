@@ -135,9 +135,13 @@ func TestHoldOpenConsumeVideo(t *testing.T) {
 		t.Fatalf("a second read of the video: %v", err)
 	}
 	e.expire(t, video)
-	r, size, err := e.media.OpenVideo(ctx, video)
-	if err != nil || size != int64(len(body)) {
-		t.Fatalf("open after an expiry run: %d %v", size, err)
+	key, err := e.media.VideoKey(ctx, video)
+	if err != nil {
+		t.Fatalf("key after an expiry run: %v", err)
+	}
+	r, err := e.store.Get(ctx, key)
+	if err != nil {
+		t.Fatal(err)
 	}
 	got, _ := io.ReadAll(r)
 	_ = r.Close()
@@ -145,8 +149,8 @@ func TestHoldOpenConsumeVideo(t *testing.T) {
 		t.Fatalf("%q", got)
 	}
 	for name, id := range map[string]uuid.UUID{"a photo": photo, "unknown": uuid.NewV7()} {
-		if _, _, openErr := e.media.OpenVideo(ctx, id); !errors.Is(openErr, objectstore.ErrNotFound) {
-			t.Errorf("open %s: %v", name, openErr)
+		if _, keyErr := e.media.VideoKey(ctx, id); !errors.Is(keyErr, objectstore.ErrNotFound) {
+			t.Errorf("key of %s: %v", name, keyErr)
 		}
 	}
 	if err = e.media.Consume(ctx, video); err != nil {
@@ -164,8 +168,8 @@ func TestHoldOpenConsumeVideo(t *testing.T) {
 	if _, _, err = e.store.Stat(ctx, domain.UploadKey(video)); !errors.Is(err, objectstore.ErrNotFound) {
 		t.Fatalf("object after consume: %v", err)
 	}
-	if _, _, err = e.media.OpenVideo(ctx, video); !errors.Is(err, objectstore.ErrNotFound) {
-		t.Fatalf("open after consume: %v", err)
+	if _, err = e.media.VideoKey(ctx, video); !errors.Is(err, objectstore.ErrNotFound) {
+		t.Fatalf("key after consume: %v", err)
 	}
 	if err = e.media.HoldVideo(ctx, owner, read, video); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("held after consume: %v", err)

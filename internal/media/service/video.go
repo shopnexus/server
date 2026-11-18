@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"time"
 	"uuid"
 
@@ -60,22 +59,18 @@ func (m *Media) HoldVideo(ctx context.Context, owner, holder, id uuid.UUID) erro
 	return m.attachAs(ctx, owner, holder, domain.ShapeVideo, []uuid.UUID{id})
 }
 
-func (m *Media) OpenVideo(ctx context.Context, id uuid.UUID) (io.ReadCloser, int64, error) {
+func (m *Media) VideoKey(ctx context.Context, id uuid.UUID) (string, error) {
 	u, err := m.uploads.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
-		return nil, 0, objectstore.ErrNotFound
+		return "", objectstore.ErrNotFound
 	}
 	if err != nil {
-		return nil, 0, fmt.Errorf("get upload: %w", err)
+		return "", fmt.Errorf("get upload: %w", err)
 	}
 	if u.Shape() != domain.ShapeVideo || u.Status() != domain.StatusAttached {
-		return nil, 0, objectstore.ErrNotFound
+		return "", objectstore.ErrNotFound
 	}
-	r, err := m.store.Get(ctx, u.Key())
-	if err != nil {
-		return nil, 0, fmt.Errorf("read the video: %w", err)
-	}
-	return r, u.Size(), nil
+	return u.Key(), nil
 }
 
 func (m *Media) PresignPhoto(ctx context.Context, id uuid.UUID) (string, error) {

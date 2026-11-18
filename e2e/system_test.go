@@ -37,7 +37,7 @@ func TestReadyzDown(t *testing.T) {
 		t.Fatal(err)
 	}
 	cfg.ObjectStore = objectStore
-	a, err := app.New(context.Background(), cfg, discard)
+	a, err := app.New(context.Background(), cfg, discard, fakeAI())
 	if err != nil {
 		t.Fatal(err)
 	}

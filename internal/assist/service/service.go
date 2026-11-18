@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"time"
 	"uuid"
@@ -11,6 +10,7 @@ import (
 	"github.com/restatedev/sdk-go/ingress"
 
 	accountsvc "github.com/shopnexus/server2/internal/account/service"
+	aisvc "github.com/shopnexus/server2/internal/ai/service"
 	"github.com/shopnexus/server2/internal/assist/repository"
 	catalogsvc "github.com/shopnexus/server2/internal/catalog/service"
 	discoverysvc "github.com/shopnexus/server2/internal/discovery/service"
@@ -18,7 +18,6 @@ import (
 	"github.com/shopnexus/server2/internal/platform/restatex"
 	"github.com/shopnexus/server2/internal/provider/chotot"
 	"github.com/shopnexus/server2/internal/provider/embed"
-	"github.com/shopnexus/server2/internal/provider/frames"
 	"github.com/shopnexus/server2/internal/provider/llm"
 )
 
@@ -70,17 +69,6 @@ type ListingSource interface {
 	Image(ctx context.Context, url string) ([]byte, string, error)
 }
 
-// FrameCutter cuts a video into its clearest frames: ai's
-// /v1/video/frames.
-type FrameCutter interface {
-	Extract(ctx context.Context, video io.Reader, size int64) (frames.Result, error)
-}
-
-// Transcriber turns a video's sound into text: the stt alias.
-type Transcriber interface {
-	Transcribe(ctx context.Context, audio io.Reader, size int64) (string, error)
-}
-
 // Deps is what New builds Assist from.
 type Deps struct {
 	Reads repository.ListingReads
@@ -91,14 +79,14 @@ type Deps struct {
 	Catalog  catalogsvc.Service
 	// Discovery gives the search watches a draft would match.
 	Discovery discoverysvc.Service
-	Frames    FrameCutter
-	STT       Transcriber
-	Model     llm.Client
+	// AI cuts a video's frames and hears it, from its object store key.
+	AI    aisvc.Service
+	Model llm.Client
 	// Text and Image embed with the search key, for the price sample;
 	// TextMin and PhotoMin are the similarity floors of search.
 	Text, Image       embed.Model
 	TextMin, PhotoMin float64
-	// CallTimeout bounds one call to ai, STT, the model or an embedding.
+	// CallTimeout bounds one call to ai, the model or an embedding.
 	CallTimeout time.Duration
 	Log         *slog.Logger
 	// Ingress and Prefix reach this process's Restate services.

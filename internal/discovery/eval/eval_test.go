@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"text/tabwriter"
@@ -16,6 +17,8 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
+	"github.com/shopnexus/server2/internal/ai"
+	aisvc "github.com/shopnexus/server2/internal/ai/service"
 	"github.com/shopnexus/server2/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
 	catalogrepo "github.com/shopnexus/server2/internal/catalog/repository"
@@ -26,6 +29,7 @@ import (
 	"github.com/shopnexus/server2/internal/discovery/service"
 	"github.com/shopnexus/server2/internal/media/mediatest"
 	"github.com/shopnexus/server2/internal/platform/config"
+	"github.com/shopnexus/server2/internal/platform/module"
 	"github.com/shopnexus/server2/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server2/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server2/internal/platform/restatex/restatetest"
@@ -60,25 +64,36 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 	ctx := context.Background()
 	db := pgtest.New(t)
 	in, p := restatetest.Ingress(t), restatetest.Prefix()
-	m := mediatest.Service(db, objectstoretest.New(t), in, p)
-	model := func(base, name, key string, dims int) embed.OpenAI {
-		return embed.OpenAI{BaseURL: base, APIKey: key, Model: name, Dims: dims, HTTP: &http.Client{Timeout: cfg.Embed.Timeout}}
+	store := objectstoretest.New(t)
+	m := mediatest.Service(db, store, in, p)
+	text := func(key string) embed.OpenAI {
+		return embed.OpenAI{
+			BaseURL: cfg.Embed.TextBaseURL, APIKey: key, Model: cfg.Embed.TextModel, Dims: catalogdomain.TextDims,
+			HTTP: &http.Client{Timeout: cfg.Embed.Timeout},
+		}
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	// SigLIP 2 runs here, in module ai, from the models AI_* names.
+	engines, err := ai.Load(cfg.AI)
+	if err != nil {
+		t.Fatalf("module ai's models (scripts/fetch-models.sh): %v", err)
+	}
+	t.Cleanup(engines.Close)
+	aim := ai.Mount(module.Deps{Ingress: in, ServicePrefix: p, Log: log}, ai.Settings{Engines: engines, Objects: store, Config: cfg.AI})
+	photos := aisvc.Photos{AI: aim.Service, Dims: catalogdomain.PhotoDims, Timeout: cfg.Embed.Timeout}
 	c := catalogtest.Service(db, accounttest.Service(db), m, in, p, func(d *catalogsvc.Deps) {
-		d.Text = model(cfg.Embed.TextBaseURL, cfg.Embed.TextModel, cfg.Embed.IndexAPIKey, catalogdomain.TextDims)
-		d.Image = model(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.IndexAPIKey, catalogdomain.PhotoDims)
+		d.Text, d.Image = text(cfg.Embed.IndexAPIKey), photos
 		d.TextVersion, d.ImageVersion, d.EmbedSlots, d.Log = cfg.Embed.TextVersion, cfg.Embed.ImageVersion, cfg.Embed.Slots, log
 	})
-	restatetest.Start(t, append(m.Durable(), c.Durable()...)...)
+	restatetest.Start(t, slices.Concat(m.Durable(), c.Durable(), aim.Services)...)
 	d := service.New(service.Deps{
 		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db),
 		History: repository.NewHistory(db), Hidden: repository.NewHidden(db), Watches: repository.NewWatches(db), Accounts: accounttest.Service(db),
 		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db),
 		Catalog: c, Media: m,
 		LLM:         llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}},
-		Text:        model(cfg.Embed.TextBaseURL, cfg.Embed.TextModel, cfg.Embed.SearchAPIKey, catalogdomain.TextDims),
-		Image:       model(cfg.Embed.ImageBaseURL, cfg.Embed.ImageModel, cfg.Embed.SearchAPIKey, catalogdomain.PhotoDims),
+		Text:        text(cfg.Embed.SearchAPIKey),
+		Image:       photos,
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 		ModelTimeout: discoverydomain.ModelTimeout, Log: log, Now: time.Now,
@@ -108,7 +123,7 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 				return stateErr
 			}
 			if st.TextHash == nil || len(st.Photos) == 0 {
-				return fmt.Errorf("%s has no vectors yet; are OpenRouter and ai-models up?", key)
+				return fmt.Errorf("%s has no vectors yet; are OpenRouter and module ai's models there?", key)
 			}
 		}
 		return nil

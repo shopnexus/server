@@ -5,7 +5,6 @@ package service
 
 import (
 	"context"
-	"io"
 	"time"
 	"uuid"
 
@@ -62,9 +61,9 @@ type Service interface {
 	// waiting or already held by holder, before its expiry and in the store
 	// as declared. Anything else is domain.ErrInvalidUpload.
 	HoldVideo(ctx context.Context, owner, holder, id uuid.UUID) error
-	// OpenVideo reads a held video and its size; the caller closes it. An
-	// unknown, unheld or consumed video is objectstore.ErrNotFound.
-	OpenVideo(ctx context.Context, id uuid.UUID) (io.ReadCloser, int64, error)
+	// VideoKey is the object store key of a held video, for module ai to
+	// read. An unknown, unheld or consumed video is objectstore.ErrNotFound.
+	VideoKey(ctx context.Context, id uuid.UUID) (string, error)
 	// PresignPhoto is a URL that reads such a photo for an hour.
 	PresignPhoto(ctx context.Context, id uuid.UUID) (string, error)
 	// Consume deletes a held video's object once its read is over. Anything

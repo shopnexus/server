@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"math"
 	"net/netip"
 	"net/url"
 	"slices"
@@ -34,10 +35,33 @@ const (
 	LogJSON LogFormat = "json"
 )
 
+// Role is SERVER_ROLE: what this process runs. Unset or empty is all.
+type Role string
+
+const (
+	// RoleAll runs every module, the HTTP API, every Restate service and
+	// module ai with its models: compose.
+	RoleAll Role = "all"
+	// RoleAPI runs everything but module ai: no models, no Restate service
+	// ai. The cluster's Deployment server.
+	RoleAPI Role = "api"
+	// RoleAI runs module ai alone: its models and the Restate service ai,
+	// and on HTTP_ADDR only /healthz and /readyz. The cluster's server-ai.
+	RoleAI Role = "ai"
+)
+
+// ServesAPI says whether the process runs the modules other than ai.
+func (r Role) ServesAPI() bool { return r != RoleAI }
+
+// ServesAI says whether the process loads the models and serves the
+// Restate service ai.
+func (r Role) ServesAI() bool { return r != RoleAPI }
+
 // Config holds every setting the server reads. Modules receive the parts they
 // need through their constructors and never read the environment themselves.
 type Config struct {
 	Env            Env
+	Role           Role       //exhaustruct:optional SERVER_ROLE; the zero value is all
 	HTTPAddr       string     // HTTP_ADDR
 	LogLevel       slog.Level // LOG_LEVEL: debug | info | warn | error
 	LogFormat      LogFormat
@@ -56,6 +80,7 @@ type Config struct {
 	LLM         LLMConfig
 	Embed       EmbedConfig
 	Assist      AssistConfig
+	AI          AIConfig //exhaustruct:optional
 	Trust       TrustConfig
 	Agent       AgentConfig
 	Push        PushConfig
@@ -127,18 +152,15 @@ type LLMConfig struct {
 	Model   string // LLM_MODEL
 }
 
-// EmbedConfig says where the embedding models are and how search uses them.
-// In the cluster both base URLs are the stack's ai-gateway and the models are
-// its aliases; locally they are OpenRouter (text) and ai-models (photos).
-// Each kind can be off: an empty TextModel or ImageModel turns it off, and its
-// base URL, version and floor may then be empty too. An off kind writes and
-// reads no vectors.
+// EmbedConfig says where the text embedding model is and how search uses
+// both kinds of vector. Text goes to LiteLLM's alias embed-text; photos go
+// to module ai (AIConfig). Each kind can be off: an empty TextModel, or an
+// empty AI_EMBED_MODELS, turns it off, and its base URL, version and floor
+// may then be empty too. An off kind writes and reads no vectors.
 type EmbedConfig struct {
-	TextBaseURL  string // EMBED_TEXT_BASE_URL: POST {base}/embeddings for text
-	ImageBaseURL string // EMBED_IMAGE_BASE_URL: the same for photos and visual text
-	TextModel    string // EMBED_TEXT_MODEL, the alias embed-text; empty turns text vectors off
-	ImageModel   string // EMBED_IMAGE_MODEL, the alias embed-image; empty turns photo vectors off
-	// TextVersion and ImageVersion name the model behind each alias. Every
+	TextBaseURL string // EMBED_TEXT_BASE_URL: POST {base}/embeddings for text
+	TextModel   string // EMBED_TEXT_MODEL, the alias embed-text; empty turns text vectors off
+	// TextVersion and ImageVersion name the model behind each kind. Every
 	// vector row stores its version; a new version embeds again.
 	TextVersion  string        // EMBED_TEXT_VERSION
 	ImageVersion string        // EMBED_IMAGE_VERSION
@@ -152,23 +174,44 @@ type EmbedConfig struct {
 	PhotoMinSimilarity float64 // EMBED_PHOTO_MIN_SIMILARITY, in (0, 1)
 }
 
-// TextOn and ImageOn say whether each kind of vector is on.
-func (c EmbedConfig) TextOn() bool  { return c.TextModel != "" }
-func (c EmbedConfig) ImageOn() bool { return c.ImageModel != "" }
+// TextOn says whether text vectors are on; AIConfig.EmbedOn says it of
+// photo vectors.
+func (c EmbedConfig) TextOn() bool { return c.TextModel != "" }
 
-// AssistConfig says where module assist's models are: ai's frame cutter,
-// speech to text, and the model that fills a listing from frames and
-// speech or from the seller's listing on Chợ Tốt, and where Chợ Tốt is. Locally frames and speech are ai itself, which takes no key; in
-// the cluster speech is LiteLLM's alias stt. The keys are never logged.
+// AIConfig is module ai's models and limits. Every role reads it; only a
+// process with SERVER_ROLE all or ai loads the models. A model is name=dir,
+// its folder under /models in the image's stacks.
+type AIConfig struct {
+	// STTModel and STTDir are AI_STT_MODELS, one name=dir: Gipformer's
+	// encoder, decoder, joiner and tokens.
+	STTModel, STTDir string
+	VADModel         string // AI_VAD_MODEL: path of silero_vad.onnx
+	NumThreads       int    // AI_NUM_THREADS: onnxruntime threads per run
+	MaxConcurrent    int    // AI_MAX_CONCURRENT: transcriptions decoding at once
+	MaxAudioSeconds  int    // AI_MAX_AUDIO_SECONDS: longest audio heard
+	// EmbedModel and EmbedDir are AI_EMBED_MODELS, one name=dir of SigLIP 2,
+	// or empty: photo vectors are off and SigLIP 2 is not loaded.
+	EmbedModel, EmbedDir string  //exhaustruct:optional
+	EmbedMaxInputs       int     // AI_EMBED_MAX_INPUTS: images per EmbedImages call
+	EmbedMaxConcurrent   int     // AI_EMBED_MAX_CONCURRENT: calls embedding at once
+	EmbedMaxImageMB      int     // AI_EMBED_MAX_IMAGE_MB: one image after base64 decoding
+	FramesMaxConcurrent  int     // AI_FRAMES_MAX_CONCURRENT: videos cut into frames at once
+	FramesMaxSeconds     int     // AI_FRAMES_MAX_SECONDS: longest video
+	FramesMinSharpness   float64 // AI_FRAMES_MIN_SHARPNESS: Laplacian variance under which a frame is blurred
+}
+
+// EmbedOn says whether photo vectors are on.
+func (c AIConfig) EmbedOn() bool { return c.EmbedModel != "" }
+
+// AssistConfig says where module assist's model is, the one that fills a
+// listing from frames and speech or from the seller's listing on Chợ Tốt,
+// and where Chợ Tốt is. Frames and speech are module ai's. The key is
+// never logged.
 type AssistConfig struct {
-	FramesBaseURL string        // AI_FRAMES_BASE_URL: ai's API; POST {base}/video/frames
-	STTBaseURL    string        // STT_BASE_URL: POST {base}/audio/transcriptions
-	STTAPIKey     string        // STT_API_KEY: server-stt's key; empty locally
-	STTModel      string        // STT_MODEL: the alias stt, or gipformer-1.5 locally
-	LLMBaseURL    string        // ASSIST_LLM_BASE_URL: an OpenAI-compatible API whose model reads images
-	LLMAPIKey     string        // ASSIST_LLM_API_KEY: server-assist's key
-	LLMModel      string        // ASSIST_LLM_MODEL: the alias video-read
-	CallTimeout   time.Duration // ASSIST_CALL_TIMEOUT: one call to ai, STT, the model or Chợ Tốt
+	LLMBaseURL  string        // ASSIST_LLM_BASE_URL: an OpenAI-compatible API whose model reads images
+	LLMAPIKey   string        // ASSIST_LLM_API_KEY: server-assist's key
+	LLMModel    string        // ASSIST_LLM_MODEL: the alias video-read
+	CallTimeout time.Duration // ASSIST_CALL_TIMEOUT: one call to ai, the model or Chợ Tốt
 	// CHOTOT_GATEWAY_URL: Chợ Tốt's public gateway, https://gateway.chotot.com
 	ChototGatewayURL string
 	// CHOTOT_CDN_URL: where Chợ Tốt's photos are, https://cdn.chotot.com; no other origin is read
@@ -345,9 +388,55 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		return f
 	}
 
+	nonNegative := func(key string) float64 {
+		v := need(key)
+		f, err := strconv.ParseFloat(v, 64)
+		if v != "" && (err != nil || f < 0 || math.IsNaN(f) || math.IsInf(f, 0)) {
+			errs = append(errs, fmt.Errorf("%s=%q: want a number of zero or more", key, v))
+		}
+		return f
+	}
+	// model reads one name=dir; empty is none when it may be.
+	model := func(key string, mayBeEmpty bool) (name, dir string) {
+		var v string
+		if mayBeEmpty {
+			v = set(key)
+		} else {
+			v = need(key)
+		}
+		if v = strings.TrimSpace(v); v == "" {
+			return "", ""
+		}
+		name, dir, ok := strings.Cut(v, "=")
+		name, dir = strings.TrimSpace(name), strings.TrimSpace(dir)
+		if !ok || name == "" || dir == "" || strings.Contains(dir, ",") {
+			errs = append(errs, fmt.Errorf("%s=%q: want one model as name=dir", key, v))
+		}
+		return name, dir
+	}
+
+	role := RoleAll
+	if v, _ := lookup("SERVER_ROLE"); v != "" {
+		role = Role(v)
+		if !slices.Contains([]Role{RoleAll, RoleAPI, RoleAI}, role) {
+			errs = append(errs, fmt.Errorf("SERVER_ROLE=%q: want all, api or ai", v))
+		}
+	}
+
+	var ai AIConfig
+	ai.STTModel, ai.STTDir = model("AI_STT_MODELS", false)
+	ai.EmbedModel, ai.EmbedDir = model("AI_EMBED_MODELS", true)
+	ai.VADModel = need("AI_VAD_MODEL")
+	ai.NumThreads, ai.MaxConcurrent = positive("AI_NUM_THREADS"), positive("AI_MAX_CONCURRENT")
+	ai.MaxAudioSeconds = positive("AI_MAX_AUDIO_SECONDS")
+	ai.EmbedMaxInputs, ai.EmbedMaxConcurrent = positive("AI_EMBED_MAX_INPUTS"), positive("AI_EMBED_MAX_CONCURRENT")
+	ai.EmbedMaxImageMB = positive("AI_EMBED_MAX_IMAGE_MB")
+	ai.FramesMaxConcurrent, ai.FramesMaxSeconds = positive("AI_FRAMES_MAX_CONCURRENT"), positive("AI_FRAMES_MAX_SECONDS")
+	ai.FramesMinSharpness = nonNegative("AI_FRAMES_MIN_SHARPNESS")
+
 	// An embedding kind is on when its model is set; the rest of the kind's
 	// settings are then needed, and may be empty when it is off.
-	textModel, imageModel := set("EMBED_TEXT_MODEL"), set("EMBED_IMAGE_MODEL")
+	textModel, imageModel := set("EMBED_TEXT_MODEL"), ai.EmbedModel
 	forKind := func(model, key string) string {
 		if model == "" {
 			return set(key)
@@ -450,6 +539,8 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 
 	cfg := Config{
 		Env:         Env(oneOf("APP_ENV", string(EnvDev), string(EnvTest), string(EnvProd))),
+		Role:        role,
+		AI:          ai,
 		HTTPAddr:    need("HTTP_ADDR"),
 		LogLevel:    logLevel,
 		LogFormat:   LogFormat(oneOf("LOG_FORMAT", string(LogText), string(LogJSON))),
@@ -508,8 +599,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		},
 		LLM: LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
 		Embed: EmbedConfig{
-			TextBaseURL: forKind(textModel, "EMBED_TEXT_BASE_URL"), ImageBaseURL: forKind(imageModel, "EMBED_IMAGE_BASE_URL"),
-			TextModel: textModel, ImageModel: imageModel,
+			TextBaseURL: forKind(textModel, "EMBED_TEXT_BASE_URL"), TextModel: textModel,
 			TextVersion: forKind(textModel, "EMBED_TEXT_VERSION"), ImageVersion: forKind(imageModel, "EMBED_IMAGE_VERSION"),
 			IndexAPIKey: set("EMBED_INDEX_API_KEY"), SearchAPIKey: set("EMBED_SEARCH_API_KEY"),
 			Timeout: duration("EMBED_TIMEOUT"), Slots: positive("EMBED_SLOTS"),
@@ -517,8 +607,6 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			PhotoMinSimilarity: fractionForKind(imageModel, "EMBED_PHOTO_MIN_SIMILARITY"),
 		},
 		Assist: AssistConfig{
-			FramesBaseURL: need("AI_FRAMES_BASE_URL"),
-			STTBaseURL:    need("STT_BASE_URL"), STTAPIKey: set("STT_API_KEY"), STTModel: need("STT_MODEL"),
 			LLMBaseURL: need("ASSIST_LLM_BASE_URL"), LLMAPIKey: need("ASSIST_LLM_API_KEY"), LLMModel: need("ASSIST_LLM_MODEL"),
 			CallTimeout:      duration("ASSIST_CALL_TIMEOUT"),
 			ChototGatewayURL: need("CHOTOT_GATEWAY_URL"), ChototCDNURL: need("CHOTOT_CDN_URL"),

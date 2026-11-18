@@ -12,23 +12,22 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+	aidomain "github.com/shopnexus/server2/internal/ai/domain"
 	"github.com/shopnexus/server2/internal/assist/domain"
 	"github.com/shopnexus/server2/internal/assist/repository"
 	mediadomain "github.com/shopnexus/server2/internal/media/domain"
 	"github.com/shopnexus/server2/internal/platform/apperr"
 	"github.com/shopnexus/server2/internal/platform/objectstore"
 	"github.com/shopnexus/server2/internal/platform/restatex"
-	"github.com/shopnexus/server2/internal/provider/frames"
 	"github.com/shopnexus/server2/internal/provider/llm"
-	"github.com/shopnexus/server2/internal/provider/stt"
 )
 
 // videoRead is the VideoRead service's name without the prefix.
 const videoRead = "VideoRead"
 
-// maxFrames is the most frames ai's /v1/video/frames answers; the IDs of
-// that many uploads are minted before the frames step.
-const maxFrames = 8
+// maxFrames is the most frames ai's Frames answers; the IDs of that many
+// uploads are minted before the frames step.
+const maxFrames = aidomain.MaxFrames
 
 type StartInput struct {
 	Account uuid.UUID `json:"account"`
@@ -242,27 +241,26 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		ids[i] = restatex.NewID(ctx, at)
 	}
 	cut, err := restate.Run(ctx, func(rc restate.RunContext) (cutFrames, error) {
-		video, size, openErr := s.Media.OpenVideo(rc, r.Media())
-		if errors.Is(openErr, objectstore.ErrNotFound) {
+		key, keyErr := s.Media.VideoKey(rc, r.Media())
+		if errors.Is(keyErr, objectstore.ErrNotFound) {
 			return cutFrames{Failure: domain.FailUnreadable}, nil
 		}
-		if openErr != nil {
-			return cutFrames{}, fmt.Errorf("open video: %w", openErr)
+		if keyErr != nil {
+			return cutFrames{}, fmt.Errorf("find video: %w", keyErr)
 		}
-		defer func() { _ = video.Close() }()
 		callCtx, cancel := context.WithTimeout(rc, s.CallTimeout)
 		defer cancel()
-		res, cutErr := s.Frames.Extract(callCtx, video, size)
+		res, cutErr := s.AI.Frames(callCtx, key)
 		switch {
-		case errors.Is(cutErr, frames.ErrUnreadable):
+		case errors.Is(cutErr, aidomain.ErrUnreadable), errors.Is(cutErr, aidomain.ErrNotFound):
 			return cutFrames{Failure: domain.FailUnreadable}, nil
-		case errors.Is(cutErr, frames.ErrRefused):
+		case errors.Is(cutErr, aidomain.ErrRefused):
 			// ai refused the request itself, not the video.
 			s.Log.WarnContext(rc, "ai refused the frames request", "read", id, "err", cutErr)
 			return cutFrames{Failure: domain.FailUnavailable}, nil
-		case errors.Is(cutErr, frames.ErrTooShort):
+		case errors.Is(cutErr, aidomain.ErrTooShort):
 			return cutFrames{Failure: domain.FailTooShort}, nil
-		case errors.Is(cutErr, frames.ErrTooLong):
+		case errors.Is(cutErr, aidomain.ErrTooLong):
 			return cutFrames{Failure: domain.FailTooLong}, nil
 		case cutErr != nil:
 			return cutFrames{}, fmt.Errorf("cut frames: %w", cutErr)
@@ -313,22 +311,24 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		from := fromPhone
 		if transcript == "" {
 			from = fromServer
-			video, size, openErr := s.Media.OpenVideo(rc, r.Media())
-			if errors.Is(openErr, objectstore.ErrNotFound) {
+			key, keyErr := s.Media.VideoKey(rc, r.Media())
+			if errors.Is(keyErr, objectstore.ErrNotFound) {
 				return filled{Failure: domain.FailUnreadable}, nil
 			}
-			if openErr != nil {
-				return filled{}, fmt.Errorf("open video: %w", openErr)
+			if keyErr != nil {
+				return filled{}, fmt.Errorf("find video: %w", keyErr)
 			}
 			sttCtx, cancelSTT := context.WithTimeout(rc, s.CallTimeout)
-			heard, sttErr := s.STT.Transcribe(sttCtx, video, size)
+			heard, sttErr := s.AI.Transcribe(sttCtx, key)
 			cancelSTT()
-			_ = video.Close()
 			switch {
-			case errors.Is(sttErr, stt.ErrNoAudio):
-			case errors.Is(sttErr, stt.ErrRefused):
-				// The frames step read the video, so a refusal is the gateway's
-				// (a key, a budget, a rewritten error code): read without speech.
+			case errors.Is(sttErr, aidomain.ErrUnreadable):
+				// No audio track: the read goes on without speech.
+			case errors.Is(sttErr, aidomain.ErrNotFound):
+				return filled{Failure: domain.FailUnreadable}, nil
+			case errors.Is(sttErr, aidomain.ErrTooLong), errors.Is(sttErr, aidomain.ErrRefused):
+				// The frames step read the video, so a refusal is ai's limit
+				// or a bad request: read without speech.
 				s.Log.WarnContext(rc, "speech to text refused; the read goes on without speech", "read", id, "err", sttErr)
 			case sttErr != nil:
 				return filled{}, fmt.Errorf("transcribe: %w", sttErr)

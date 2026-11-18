@@ -72,32 +72,6 @@ services:
     volumes:
       - lgtm:/data
 
-  # The self-hosted models (see ARCHITECTURE.md, Search and Assist): speech
-  # to text, SigLIP 2 photo embeddings and video frames, as the umbrella's
-  # compose runs them. The image is about 5.4 GB. Start it with
-  #   docker compose --profile models up -d ai-models
-  # Without it photo search is unavailable and ListingEmbed retries photos.
-  ai-models:
-    image: ghcr.io/shopnexus/ai:main
-    profiles: [models]
-    environment:
-      AI_ADDR: ":8000"
-      AI_STT_MODELS: gipformer-1.5=/models/gipformer-1.5
-      AI_VAD_MODEL: /models/silero_vad.onnx
-      AI_NUM_THREADS: "4"
-      AI_MAX_CONCURRENT: "2"
-      AI_MAX_UPLOAD_MB: "100"
-      AI_MAX_AUDIO_SECONDS: "300"
-      AI_EMBED_MODELS: siglip2-so400m-patch16-384=/models/siglip2-so400m-patch16-384
-      AI_EMBED_MAX_INPUTS: "16"
-      AI_EMBED_MAX_CONCURRENT: "2"
-      AI_EMBED_MAX_IMAGE_MB: "10"
-      AI_FRAMES_MAX_CONCURRENT: "2"
-      AI_FRAMES_MAX_SECONDS: "35"
-      AI_FRAMES_MIN_SHARPNESS: "30"
-    ports:
-      - "127.0.0.1:56810:8000"
-
 volumes:
   postgres:
   restate:

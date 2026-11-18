@@ -16,6 +16,7 @@ import (
 
 	"github.com/shopnexus/server2/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server2/internal/account/domain"
+	aidomain "github.com/shopnexus/server2/internal/ai/domain"
 	"github.com/shopnexus/server2/internal/assist/domain"
 	"github.com/shopnexus/server2/internal/assist/service"
 	catalogdomain "github.com/shopnexus/server2/internal/catalog/domain"
@@ -25,9 +26,7 @@ import (
 	mediarepo "github.com/shopnexus/server2/internal/media/repository"
 	mediasvc "github.com/shopnexus/server2/internal/media/service"
 	"github.com/shopnexus/server2/internal/platform/apperr"
-	"github.com/shopnexus/server2/internal/provider/frames"
 	"github.com/shopnexus/server2/internal/provider/llm"
-	"github.com/shopnexus/server2/internal/provider/stt"
 )
 
 // A read goes through frames, fill and estimate, notifies after each step,
@@ -96,10 +95,10 @@ func TestReadFailures(t *testing.T) {
 		updates int // start, then frames when they were saved, then the failure
 		frames  int
 	}{
-		{"unreadable", func(e *env) { e.cut.err = frames.ErrUnreadable }, domain.FailUnreadable, 2, 0},
-		{"refused by ai", func(e *env) { e.cut.err = frames.ErrRefused }, domain.FailUnavailable, 2, 0},
-		{"too short", func(e *env) { e.cut.err = frames.ErrTooShort }, domain.FailTooShort, 2, 0},
-		{"too long", func(e *env) { e.cut.err = frames.ErrTooLong }, domain.FailTooLong, 2, 0},
+		{"unreadable", func(e *env) { e.cut.err = aidomain.ErrUnreadable }, domain.FailUnreadable, 2, 0},
+		{"refused by ai", func(e *env) { e.cut.err = aidomain.ErrRefused }, domain.FailUnavailable, 2, 0},
+		{"too short", func(e *env) { e.cut.err = aidomain.ErrTooShort }, domain.FailTooShort, 2, 0},
+		{"too long", func(e *env) { e.cut.err = aidomain.ErrTooLong }, domain.FailTooLong, 2, 0},
 		{"no frames", func(e *env) { e.cut.frames = 0 }, domain.FailUnreadable, 2, 0},
 		{"no item", func(e *env) { e.model.answer = noItem }, domain.FailNoItem, 3, 3},
 		{"model refused", func(e *env) { e.model.err = fmt.Errorf("model answered 400: %w", llm.ErrRefused) }, domain.FailUnavailable, 3, 3},
@@ -125,7 +124,7 @@ func TestReadFailures(t *testing.T) {
 // A video with no sound track still gives a draft, from the frames alone.
 func TestReadWithoutSound(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t, func(e *env) { e.stt.err = stt.ErrNoAudio })
+	e := newEnv(t, func(e *env) { e.stt.err = aidomain.ErrUnreadable })
 	seller := accounttest.WithPhone(t, e.db)
 	v := e.end(t, seller, e.start(t, seller).ID)
 	if v.Status != domain.StatusDone || v.Draft == nil {
@@ -430,7 +429,7 @@ func TestDeleteAccount(t *testing.T) {
 // read it, so the read goes on without the speech.
 func TestReadWhenSpeechToTextRefuses(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t, func(x *env) { x.stt.err = stt.ErrRefused })
+	e := newEnv(t, func(x *env) { x.stt.err = aidomain.ErrRefused })
 	seller := accounttest.WithPhone(t, e.db)
 	v := e.end(t, seller, e.start(t, seller).ID)
 	if v.Status != domain.StatusDone || v.Draft == nil {

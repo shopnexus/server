@@ -23,7 +23,7 @@ func TestNoCarrier(t *testing.T) {
 	cfg.DatabaseURL, cfg.Restate = pgtest.New(t).Config().ConnString(), restatetest.Config(t)
 	cfg.Carrier.Mode = "none"
 	a, err := app.New(context.Background(), cfg, discard,
-		app.WithPushSender(phones), app.WithEmailSender(mails), app.WithPasswordHasher(consoledomain.Fast))
+		app.WithPushSender(phones), app.WithEmailSender(mails), app.WithPasswordHasher(consoledomain.Fast), fakeAI())
 	if err != nil {
 		t.Fatal(err)
 	}
