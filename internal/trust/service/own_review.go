@@ -9,40 +9,88 @@ import (
 	"github.com/shopnexus/server/internal/trust/domain"
 )
 
-// OwnReview is the OwnReview schema in api/schemas/trust.yaml.
+// OwnReview is the OwnReview schema in api/schemas/trust.yaml: the
+// caller's review of the other side of an order.
 type OwnReview struct {
 	State       string     `json:"state"`
 	ID          *uuid.UUID `json:"id"`
 	CreatedAt   *time.Time `json:"created_at"`
 	UpdatedAt   *time.Time `json:"updated_at"`
 	ChangeUntil *time.Time `json:"change_until"`
-	Locked      bool       `json:"locked"`
-	Stars       *int       `json:"stars,omitempty"`
-	Text        *string    `json:"text,omitempty"`
+	// VisibleAt is when the other side sees it.
+	VisibleAt *time.Time `json:"visible_at"`
+	Locked    bool       `json:"locked"`
+	Stars     *int       `json:"stars,omitempty"`
+	Text      *string    `json:"text,omitempty"`
+	Reply     *Reply     `json:"reply,omitempty"`
 }
 
-// OwnReviews reads buyer's reviews of the orders given in one query, keyed
-// by order. An order without one of buyer's reviews reads as none.
-func (s *Trust) OwnReviews(ctx context.Context, buyer uuid.UUID, orders []uuid.UUID) (map[uuid.UUID]OwnReview, error) {
-	rows, err := s.reviews.ByOrders(ctx, buyer, orders)
+// TheirReview is the TheirReview schema: the other side's review of the
+// caller. A hidden one shows only when it will show.
+type TheirReview struct {
+	State     string     `json:"state"`
+	ID        uuid.UUID  `json:"id"`
+	VisibleAt time.Time  `json:"visible_at"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+	Stars     *int       `json:"stars,omitempty"`
+	Text      *string    `json:"text,omitempty"`
+	Reply     *Reply     `json:"reply,omitempty"`
+	// CanReply is a visible review without a reply.
+	CanReply bool `json:"can_reply"`
+}
+
+// OrderReviews are the two reviews of one order as one party sees them.
+// Their is nil when the other side has not reviewed, or deleted theirs.
+type OrderReviews struct {
+	Own   OwnReview
+	Their *TheirReview
+}
+
+// OrderReviews reads the reviews of the orders given, in one query, as the
+// party caller sees them, keyed by order. The caller must be a party to
+// each order; screen checks that first.
+func (s *Trust) OrderReviews(ctx context.Context, caller uuid.UUID, orders []uuid.UUID) (map[uuid.UUID]OrderReviews, error) {
+	rows, err := s.reviews.OfOrders(ctx, orders)
 	if err != nil {
-		return nil, fmt.Errorf("read own reviews: %w", err)
+		return nil, fmt.Errorf("read the orders' reviews: %w", err)
 	}
 	now := s.now()
-	out := make(map[uuid.UUID]OwnReview, len(orders))
+	out := make(map[uuid.UUID]OrderReviews, len(orders))
 	for _, o := range orders {
-		out[o] = OwnReview{State: "none"}
+		out[o] = OrderReviews{Own: OwnReview{State: "none"}}
 	}
 	for i := range rows {
 		r := &rows[i]
-		v := OwnReview{
-			State: "deleted", ID: new(r.ID()), CreatedAt: new(r.CreatedAt()), UpdatedAt: new(r.UpdatedAt()),
-			ChangeUntil: new(r.CreatedAt().Add(domain.EditWindow)), Locked: r.CanChange(now) != nil,
-		}
-		if !r.Deleted() {
-			v.State, v.Stars, v.Text = "active", new(r.Stars()), new(r.Text())
+		v := out[r.OrderID()]
+		switch {
+		case r.ReviewerID() == caller:
+			own := OwnReview{
+				State: "deleted", ID: new(r.ID()), CreatedAt: new(r.CreatedAt()), UpdatedAt: new(r.UpdatedAt()),
+				ChangeUntil: new(r.CreatedAt().Add(domain.EditWindow)), VisibleAt: new(r.VisibleAt()),
+				Locked: r.CanChange(now) != nil, Reply: replyOf(r),
+			}
+			if !r.Deleted() {
+				own.State, own.Stars, own.Text = "active", new(r.Stars()), new(r.Text())
+			}
+			v.Own = own
+		case r.Deleted():
+			// The other side took theirs down: the caller reads none.
+		default:
+			their := &TheirReview{State: "hidden", ID: r.ID(), VisibleAt: r.VisibleAt()}
+			if r.Visible(now) {
+				their.State, their.CreatedAt, their.Stars, their.Text = "visible", new(r.CreatedAt()), new(r.Stars()), new(r.Text())
+				their.Reply, their.CanReply = replyOf(r), !r.Replied()
+			}
+			v.Their = their
 		}
 		out[r.OrderID()] = v
 	}
 	return out, nil
+}
+
+func replyOf(r *domain.Review) *Reply {
+	if !r.Replied() {
+		return nil
+	}
+	return &Reply{Text: r.ReplyText(), At: *r.RepliedAt()}
 }

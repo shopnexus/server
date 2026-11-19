@@ -9,18 +9,22 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	dealdomain "github.com/shopnexus/server/internal/deal/domain"
+	trustdomain "github.com/shopnexus/server/internal/trust/domain"
+	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
 // ReputationScreen is the ReputationScreen schema in
 // api/schemas/screen_account.yaml.
 type ReputationScreen struct {
-	Rating     ReputationRating   `json:"rating"`
-	Sold       int                `json:"sold"`
-	JoinedAt   time.Time          `json:"joined_at"`
-	Followers  int                `json:"followers"`
-	Reply      *chatsvc.ReplyRate `json:"reply"`
-	Figures90d BuyerFigures       `json:"figures_90d"`
-	Caps       ReputationCaps     `json:"caps"`
+	Rating ReputationRating `json:"rating"`
+	// BuyerRating is the caller's rating as a buyer.
+	BuyerRating ReputationRating   `json:"buyer_rating"`
+	Sold        int                `json:"sold"`
+	JoinedAt    time.Time          `json:"joined_at"`
+	Followers   int                `json:"followers"`
+	Reply       *chatsvc.ReplyRate `json:"reply"`
+	Figures90d  BuyerFigures       `json:"figures_90d"`
+	Caps        ReputationCaps     `json:"caps"`
 }
 
 // ReputationRating is the seller page's rating with a null average
@@ -50,8 +54,8 @@ type Cap struct {
 	Max  int `json:"max"`
 }
 
-// Reputation reads the Uy tín của bạn view: the caller's rating as a
-// seller, sales, join date, followers and reply rate, its COD figures as a
+// Reputation reads the Uy tín của bạn view: the caller's ratings as a
+// seller and as a buyer, sales, join date, followers and reply rate, its COD figures as a
 // buyer, and the listing and COD caps with the caller's use. A deleted
 // account is accountdomain.ErrSessionRevoked, from Me.
 func (s *Screen) Reputation(ctx context.Context, account uuid.UUID) (ReputationScreen, error) {
@@ -59,9 +63,13 @@ func (s *Screen) Reputation(ctx context.Context, account uuid.UUID) (ReputationS
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("read the account: %w", err)
 	}
-	rating, err := s.trust.Rating(ctx, account)
+	rating, err := s.trust.Rating(ctx, account, trustdomain.RoleSeller)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("read the rating: %w", err)
+	}
+	buyerRating, err := s.trust.Rating(ctx, account, trustdomain.RoleBuyer)
+	if err != nil {
+		return ReputationScreen{}, fmt.Errorf("read the buyer rating: %w", err)
 	}
 	counts, err := s.catalog.SellerCounts(ctx, account)
 	if err != nil {
@@ -80,15 +88,21 @@ func (s *Screen) Reputation(ctx context.Context, account uuid.UUID) (ReputationS
 		return ReputationScreen{}, fmt.Errorf("count the orders: %w", err)
 	}
 	out := ReputationScreen{
-		Rating: ReputationRating{Count: rating.Count}, Sold: counts.Sold, JoinedAt: me.CreatedAt, Followers: followers,
+		Rating: reputationRating(rating), BuyerRating: reputationRating(buyerRating), Sold: counts.Sold, JoinedAt: me.CreatedAt, Followers: followers,
 		Reply: reply, Figures90d: BuyerFigures{CodOrders: orders.Placed, Failed: orders.Failed},
 		Caps: ReputationCaps{
 			Listings:  Cap{Used: counts.OnSale, Max: catalogdomain.MaxOnSale},
 			CodOrders: Cap{Used: orders.Open, Max: dealdomain.MaxOpenOrders},
 		},
 	}
-	if rating.Count > 0 {
-		out.Rating.Average = &rating.Average
-	}
 	return out, nil
+}
+
+// reputationRating is r with a null average without reviews.
+func reputationRating(r trustsvc.Rating) ReputationRating {
+	out := ReputationRating{Count: r.Count}
+	if r.Count > 0 {
+		out.Average = &r.Average
+	}
+	return out
 }

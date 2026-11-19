@@ -106,3 +106,6 @@ ChatScreen:
     ticket:
       $ref: "support.yaml#/Ticket"
       description: Present for a support chat, whose other side is ShopNexus.
+    buyer_rating:
+      $ref: "trust.yaml#/Rating"
+      description: The other member's rating as a buyer; present when the caller sells to them in one of the deals.

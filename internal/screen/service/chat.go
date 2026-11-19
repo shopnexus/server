@@ -3,12 +3,15 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"uuid"
 
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	dealdomain "github.com/shopnexus/server/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/platform/page"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
+	trustdomain "github.com/shopnexus/server/internal/trust/domain"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
@@ -23,12 +26,16 @@ type ChatScreen struct {
 	ScamWarning *trustsvc.ScamWarningView      `json:"scam_warning,omitempty"`
 	// Ticket is a support chat's ticket.
 	Ticket *supportsvc.TicketView `json:"ticket,omitempty"`
+	// BuyerRating is the other member's rating as a buyer, when the
+	// caller sells to them in one of the pair's deals.
+	BuyerRating *trustsvc.Rating `json:"buyer_rating,omitempty"`
 }
 
 // Chat reads a conversation of account's with the other member's read
 // marker, whether a block stands between the two, the pair's deals, the
 // first page of messages, account's scam warning in it and a support chat's
-// ticket; for an account outside the conversation it returns chat's
+// ticket, and for a seller the other member's rating as a buyer; for an
+// account outside the conversation it returns chat's
 // ErrNotFound (conversation_not_found).
 func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID) (ChatScreen, error) {
 	conv, err := s.chats.Get(ctx, account, conversation)
@@ -61,6 +68,13 @@ func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID) (Cha
 	}
 	if isTicket {
 		out.Ticket = &ticket
+	}
+	if slices.ContainsFunc(deals, func(d dealsvc.DealView) bool { return d.Role == dealdomain.Seller }) {
+		rating, ratingErr := s.trust.Rating(ctx, conv.Other.ID, trustdomain.RoleBuyer)
+		if ratingErr != nil {
+			return ChatScreen{}, fmt.Errorf("read the buyer rating: %w", ratingErr)
+		}
+		out.BuyerRating = &rating
 	}
 	return out, nil
 }

@@ -15,6 +15,10 @@ type reputationScreen struct {
 		Average *float64 `json:"average"`
 		Count   int      `json:"count"`
 	} `json:"rating"`
+	BuyerRating struct {
+		Average *float64 `json:"average"`
+		Count   int      `json:"count"`
+	} `json:"buyer_rating"`
 	Sold      int    `json:"sold"`
 	JoinedAt  string `json:"joined_at"`
 	Followers int    `json:"followers"`
@@ -61,6 +65,8 @@ func TestReputationScreen(t *testing.T) {
 	}
 	orderMoved(t, buyer.AccessToken, shipped.Order.ID, "confirm", nil)
 	expectStatus(t, call(t, "PUT", "/v1/orders/"+shipped.Order.ID+"/review", map[string]any{"stars": 4}, bearer(buyer.AccessToken)), http.StatusOK)
+	// The seller's review of the buyer shows both.
+	expectStatus(t, call(t, "PUT", "/v1/orders/"+shipped.Order.ID+"/review", map[string]any{"stars": 5}, bearer(seller.AccessToken)), http.StatusOK)
 
 	got := reputation(t, seller.AccessToken)
 	if got.Sold != 1 || got.Rating.Count != 1 || got.Rating.Average == nil || *got.Rating.Average != 4 || got.Followers != 1 ||
@@ -68,7 +74,7 @@ func TestReputationScreen(t *testing.T) {
 		t.Fatalf("the seller after the sale: %+v", got)
 	}
 	if got = reputation(t, buyer.AccessToken); got.Figures.CodOrders != 1 || got.Figures.Failed != 0 || got.Caps.CodOrders.Used != 0 ||
-		got.Sold != 0 {
+		got.Sold != 0 || got.BuyerRating.Count != 1 || got.BuyerRating.Average == nil || *got.BuyerRating.Average != 5 {
 		t.Fatalf("the buyer after the sale: %+v", got)
 	}
 

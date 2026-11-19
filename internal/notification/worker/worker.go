@@ -211,10 +211,53 @@ func (w Worker) TellFollower(ctx restate.Context, in FollowerNotice) error {
 	})
 }
 
-// ReviewPosted tells the seller a buyer reviewed them.
+// ReviewPosted tells the subject of a review once it shows: at once, or
+// after a durable sleep while it is hidden. A review revealed by the other
+// side's is told by that review's handler, which tells both subjects.
 func (w Worker) ReviewPosted(ctx restate.Context, e events.Event) error {
+	f, err := w.reviewFacts(ctx, e.SubjectID)
+	if err != nil {
+		return err
+	}
+	at := e.OccurredAt
+	if f.HiddenFor > 0 {
+		if err = restate.Sleep(ctx, f.HiddenFor); err != nil {
+			return fmt.Errorf("wait until the review shows: %w", err)
+		}
+		if f, err = w.reviewFacts(ctx, e.SubjectID); err != nil {
+			return err
+		}
+		at = f.VisibleAt
+	}
+	if f.ID == (uuid.UUID{}) || f.RevealedBy != (uuid.UUID{}) {
+		return nil
+	}
+	notices := []domain.Notice{domain.Reviewed(f.SubjectID, f.ReviewerName, f.ListingTitle, f.Stars, f.OrderID, at)}
+	if f.Revealed != (uuid.UUID{}) {
+		other, otherErr := w.reviewFacts(ctx, f.Revealed)
+		if otherErr != nil {
+			return otherErr
+		}
+		if other.ID != (uuid.UUID{}) {
+			notices = append(notices, domain.Reviewed(other.SubjectID, other.ReviewerName, other.ListingTitle, other.Stars, other.OrderID, at))
+		}
+	}
+	return w.tell(ctx, e.ID, notices)
+}
+
+// ReviewReplied tells a reviewer the subject replied.
+func (w Worker) ReviewReplied(ctx restate.Context, e events.Event) error {
+	f, err := w.reviewFacts(ctx, e.SubjectID)
+	if err != nil || f.ID == (uuid.UUID{}) {
+		return err
+	}
+	return w.tell(ctx, e.ID, []domain.Notice{domain.ReviewReplied(f.ReviewerID, f.SubjectName, f.ListingTitle, f.OrderID, e.OccurredAt)})
+}
+
+// reviewFacts reads a review's facts in one step; zero for a gone one.
+func (w Worker) reviewFacts(ctx restate.Context, id uuid.UUID) (trustsvc.ReviewFacts, error) {
 	f, err := restate.Run(ctx, func(rc restate.RunContext) (trustsvc.ReviewFacts, error) {
-		facts, found, stepErr := w.Trust.ReviewFacts(rc, e.SubjectID)
+		facts, found, stepErr := w.Trust.ReviewFacts(rc, id)
 		if stepErr != nil {
 			return trustsvc.ReviewFacts{}, fmt.Errorf("read review: %w", stepErr)
 		}
@@ -224,12 +267,9 @@ func (w Worker) ReviewPosted(ctx restate.Context, e events.Event) error {
 		return facts, nil
 	})
 	if err != nil {
-		return fmt.Errorf("read the review: %w", err)
+		return trustsvc.ReviewFacts{}, fmt.Errorf("read the review: %w", err)
 	}
-	if f.ID == (uuid.UUID{}) {
-		return nil
-	}
-	return w.tell(ctx, e.ID, []domain.Notice{domain.Reviewed(f.SellerID, f.BuyerName, f.ListingTitle, f.Stars, e.OccurredAt)})
+	return f, nil
 }
 
 // SearchWatchMatched tells a watcher of the new listings a sweep found.

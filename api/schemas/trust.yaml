@@ -12,16 +12,18 @@ ReviewDraft:
 Review:
   type: object
   additionalProperties: false
-  required: [id, stars, text, buyer, listing, created_at, updated_at]
+  required: [id, role, stars, text, reviewer, listing, reply, created_at, updated_at]
   properties:
     id:
       type: string
       format: uuid
+    role:
+      $ref: "#/ReviewRole"
     stars:
       type: integer
     text:
       type: string
-    buyer:
+    reviewer:
       type: object
       additionalProperties: false
       required: [id, display_name, deleted]
@@ -33,7 +35,7 @@ Review:
           type: string
         deleted:
           type: boolean
-          description: The buyer deleted their account; display_name is empty and there is no avatar.
+          description: The reviewer deleted their account; display_name is empty and there is no avatar.
         avatar_url:
           type: string
           format: uri
@@ -48,13 +50,41 @@ Review:
           format: uuid
         title:
           type: string
+    reply:
+      anyOf:
+        - $ref: "#/ReviewReply"
+        - type: "null"
+      description: The subject's one reply; null without one.
     created_at:
       type: string
       format: date-time
-      description: The first submission; the review changes only for 7 days after it.
+      description: The first submission; the review changes only for 7 days after it, and not after a reply.
     updated_at:
       type: string
       format: date-time
+ReviewRole:
+  type: string
+  enum: [seller, buyer]
+  description: The side the reviewed person was on. seller rates the person who sold, written by the buyer; buyer rates the person who bought, written by the seller.
+ReviewReply:
+  type: object
+  additionalProperties: false
+  required: [text, at]
+  properties:
+    text:
+      type: string
+      maxLength: 500
+    at:
+      type: string
+      format: date-time
+ReplyDraft:
+  type: object
+  additionalProperties: false
+  required: [text]
+  properties:
+    text:
+      type: string
+      description: 1 to 500 characters after trimming; a business rule, so another length is 422.
 ReviewList:
   type: object
   additionalProperties: false
@@ -165,8 +195,8 @@ ScamSignal:
 OwnReview:
   type: object
   additionalProperties: false
-  required: [state, id, created_at, updated_at, change_until, locked]
-  description: The buyer's review state. Dates and id are null before the first submission. Deleted reviews carry no stars or text. The seven-day window starts at the original created_at; locked uses the same boundary as edits and deletion.
+  required: [state, id, created_at, updated_at, change_until, visible_at, locked]
+  description: The caller's review of the other side of an order. Dates and id are null before the first submission. Deleted reviews carry no stars or text. The seven-day window starts at the original created_at; locked uses the same boundary as edits and deletion, and is true once the subject replied.
   properties:
     state:
       type: string
@@ -183,6 +213,10 @@ OwnReview:
     change_until:
       type: [string, "null"]
       format: date-time
+    visible_at:
+      type: [string, "null"]
+      format: date-time
+      description: When the other side and the public see the review; it waits for their review or 7 days after the order closed.
     locked:
       type: boolean
     stars:
@@ -192,3 +226,35 @@ OwnReview:
     text:
       type: string
       maxLength: 500
+    reply:
+      $ref: "#/ReviewReply"
+TheirReview:
+  type: object
+  additionalProperties: false
+  required: [state, id, visible_at, can_reply]
+  description: The other side's review of the caller. A hidden one carries only when it shows; a visible one carries its stars, text, date and reply.
+  properties:
+    state:
+      type: string
+      enum: [hidden, visible]
+    id:
+      type: string
+      format: uuid
+    visible_at:
+      type: string
+      format: date-time
+    created_at:
+      type: string
+      format: date-time
+    stars:
+      type: integer
+      minimum: 1
+      maximum: 5
+    text:
+      type: string
+      maxLength: 500
+    reply:
+      $ref: "#/ReviewReply"
+    can_reply:
+      type: boolean
+      description: Visible and without a reply. A reply closes the review for both sides.

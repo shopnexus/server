@@ -1,11 +1,14 @@
 review:
   put:
     operationId: putReview
-    summary: Review the seller of an order the caller bought, or edit the review.
+    summary: Review the other party to an order, or edit the review.
     description: |
-      The order is shipped, completed or failed. A review changes, and a
-      deleted one is posted again, only within 7 days of its first
-      submission.
+      The buyer reviews the seller (role seller) and the seller the buyer
+      (role buyer). A first review needs the order completed or failed. It
+      stays hidden from the other party and the public until they review
+      too or 7 days after the order closed. A review changes, and a deleted
+      one is posted again, only within 7 days of its first submission and
+      before the other party replies.
     tags: [trust]
     security:
       - bearerAuth: []
@@ -46,7 +49,7 @@ review:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not shipped yet (order_not_shipped), 7 days have passed since the first submission (review_locked), or another write of the review came first (try_again)."
+        description: "The order is not completed or failed yet (order_not_delivered), 7 days have passed since the first submission (review_locked), the other party replied (review_closed), or another write of the review came first (try_again)."
         content:
           application/json:
             schema:
@@ -84,7 +87,7 @@ review:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "7 days have passed since the first submission (review_locked), or another write of the review came first (try_again)."
+        description: "7 days have passed since the first submission (review_locked), the other party replied (review_closed), or another write of the review came first (try_again)."
         content:
           application/json:
             schema:
@@ -92,7 +95,7 @@ review:
 sellerReviews:
   get:
     operationId: listSellerReviews
-    summary: A seller's reviews, newest first.
+    summary: A seller's visible reviews, newest first; the same as /v1/accounts/{id}/reviews?role=seller.
     tags: [trust]
     parameters:
       - name: id
@@ -114,6 +117,99 @@ sellerReviews:
         $ref: "../responses/common.yaml#/BadRequest"
       "404":
         description: "No such account (account_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+accountReviews:
+  get:
+    operationId: listAccountReviews
+    summary: A person's visible reviews in one role, newest first.
+    tags: [trust]
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: role
+        in: query
+        required: false
+        schema:
+          $ref: "../schemas/trust.yaml#/ReviewRole"
+          default: seller
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of reviews.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/trust.yaml#/ReviewList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "404":
+        description: "No such account (account_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+reviewReply:
+  post:
+    operationId: replyReview
+    summary: The reviewed person's one reply, which closes the review.
+    description: |
+      Only the subject replies, once, to a review they can see. After it the
+      reviewer can no longer edit or delete the review.
+    tags: [trust]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/trust.yaml#/ReplyDraft"
+    responses:
+      "200":
+        description: The review with its reply.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/trust.yaml#/Review"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such review of the caller, or it was deleted (review_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The review is still hidden (review_hidden), it has a reply (review_replied), or another write came first (try_again)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "The text is empty or too long (invalid_review, with fields)."
         content:
           application/json:
             schema:

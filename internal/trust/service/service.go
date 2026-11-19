@@ -1,5 +1,6 @@
-// Package service holds module trust's use cases: a buyer reviews the
-// seller of a shipped order, anyone reads a seller's rating and reviews,
+// Package service holds module trust's use cases: the two sides of a closed
+// order review each other and the subject replies once, anyone reads a
+// person's ratings and reviews,
 // people report listings and accounts, console members work the report
 // cases, and members of a conversation are warned of scams.
 package service
@@ -24,22 +25,26 @@ import (
 
 // Service is module trust's contract.
 type Service interface {
-	// OwnReviews reads buyer's reviews of the orders given, keyed by order;
-	// an order without one of buyer's reads as none.
-	OwnReviews(ctx context.Context, buyer uuid.UUID, orders []uuid.UUID) (map[uuid.UUID]OwnReview, error)
-	// PutReview creates the buyer's review of an order, or edits it within
-	// its 7 days.
-	PutReview(ctx context.Context, buyer, order uuid.UUID, stars int, text string) (ReviewView, error)
-	// DeleteReview removes the buyer's review of an order within its 7 days.
-	DeleteReview(ctx context.Context, buyer, order uuid.UUID) error
-	// ReviewFacts reads a review for its notification; false for an
-	// unknown one.
+	// OrderReviews reads the caller's review and the other side's review of
+	// each order given, keyed by order; the caller is a party to each.
+	OrderReviews(ctx context.Context, caller uuid.UUID, orders []uuid.UUID) (map[uuid.UUID]OrderReviews, error)
+	// PutReview creates the caller's review of the other party to an
+	// order, or edits it within its 7 days and before a reply.
+	PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string) (ReviewView, error)
+	// DeleteReview removes the caller's review of an order within its 7
+	// days and before a reply.
+	DeleteReview(ctx context.Context, caller, order uuid.UUID) error
+	// ReplyReview is the subject's one reply to a visible review.
+	ReplyReview(ctx context.Context, caller, review uuid.UUID, text string) (ReviewView, error)
+	// ReviewFacts reads a review for its notifications; false for an
+	// unknown or deleted one.
 	ReviewFacts(ctx context.Context, id uuid.UUID) (ReviewFacts, bool, error)
-	// SellerReviews reads a page of a seller's reviews, newest first: the
-	// ReviewList schema in api/schemas/trust.yaml.
-	SellerReviews(ctx context.Context, seller uuid.UUID, p page.Request) (page.Page[ReviewView], error)
-	// Rating reads the average and count over a seller's reviews.
-	Rating(ctx context.Context, seller uuid.UUID) (Rating, error)
+	// Reviews reads a page of a person's visible reviews in one role,
+	// newest first: the ReviewList schema in api/schemas/trust.yaml.
+	Reviews(ctx context.Context, subject uuid.UUID, role domain.Role, p page.Request) (page.Page[ReviewView], error)
+	// Rating reads the average and count over a person's visible reviews
+	// in one role.
+	Rating(ctx context.Context, subject uuid.UUID, role domain.Role) (Rating, error)
 	// Report opens the reporter's report of a listing or an account, or
 	// replaces the reason, note and conversation of their open report of it;
 	// the bool is whether it opened one.

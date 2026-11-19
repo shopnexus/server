@@ -1908,24 +1908,48 @@ page that shows two views calls both at once.
 Module `trust` holds reviews (spec:
 `~/shopnexus/docs/superpowers/specs/2026-10-26-server-reviews-saved-design.md`).
 
-- The buyer of an order reviews its seller once the order is `shipped`,
-  `delivered` or `returned`: 1 to 5 stars and up to 500 characters of
-  text. One review per order, since a deal can hold several orders.
-- The buyer edits, deletes or posts it again within 7 days of the first
+- Two-way reviews (decided 2026-11-19, spec
+  `2026-11-19-two-way-reviews-design.md`): both sides of an order review
+  each other once it is `completed` or `failed`, 1 to 5 stars and up to 500
+  characters of text. A review rates a person: `role` is the side its
+  subject was on, `seller` (written by the buyer) or `buyer` (written by
+  the seller), with `reviewer_id` and `subject_id`. One review per order
+  and role. `PUT /v1/orders/{order_id}/review` takes the role from the
+  caller's side of the order. Reviews written under the old rule, while
+  `shipped`, stay as they are.
+- The reviewer edits, deletes or posts it again within 7 days of the first
   submission (`created_at`); after that it is `review_locked`. A delete
   keeps the row with `deleted_at` and no text, so posting again cannot
   restart the 7 days (decided 2026-10-27). A suspended account cannot
   write one.
+- Blind until both or 7 days: `visible_at` is written at insert, the
+  order's `closed_at` plus `domain.BlindWindow`, or now when the other
+  side's review exists, and `Insert` pulls the other side's `visible_at`
+  down to the new review's creation in the same transaction, under an
+  advisory lock on the order. A review is visible when `visible_at <= now`,
+  so no timer writes data. A hidden review shows to its reviewer only:
+  lists, ratings and the subject's order view skip it.
+- The subject replies once, up to 500 characters, to a visible review
+  (`POST /v1/reviews/{id}/reply`); anyone else gets `review_not_found`, a
+  hidden review `review_hidden`, a second reply `review_replied`. A reply
+  closes the review: `CanChange` is `review_closed` for the reviewer.
 - Review writes follow the `write_id` rule: `Insert` refuses an order that
-  has a review and `Save` a stale row, both `try_again`.
+  has a review in the role, or a hidden review when the other side's
+  exists, and `Save` a stale row, all `try_again`. `Save` writes
+  `review.replied` with the first reply.
 - `trust` reads the order through `dealsvc.Service.Order`, which answers
   false for an unknown order like the other facts reads; an unknown order
-  or someone else's is trust's `order_not_found`. `GET /v1/sellers/{id}/reviews` is public and
-  returns a `ReviewList`, a page of reviews without a summary; the rating
+  or one the caller is no party to is trust's `order_not_found`.
+  `GET /v1/accounts/{id}/reviews?role=` is public and returns a
+  `ReviewList` of visible reviews without a summary;
+  `GET /v1/sellers/{id}/reviews` stays as its `role=seller`. The rating
   comes from `Service.Rating` (decided 2026-11-08, so a view no longer gets
   the average twice).
-- `Service.Rating` is a seller's average and count over all reviews; the
-  listing view reads it. The seller's public profile (name, avatar, bio,
+- `Service.Rating` is a person's average and count over their visible
+  reviews in one role. The listing view, search's seller head and the
+  console agent read the seller rating; the seller view and the reputation
+  view read both, and the chat view gives a seller `buyer_rating`, the
+  other member's rating as a buyer, for the offer card. The seller's public profile (name, avatar, bio,
   when they joined, rating, catalog's on-sale and sold counts) is screen's
   `SellerProfile`, which screen builds from account, catalog and trust
   (moved from trust on 2026-11-08).
@@ -3044,6 +3068,7 @@ calls it except screen, for Home's unread count; depguard holds that.
   moves the save wrote), `message.sent` (event ID = message ID, so a
   repeated write adds none), `listing.published`, `listing.rejected`,
   `review.posted` (event ID = review ID, first submission only),
+  `review.replied` (event ID = the reply's write ID),
   `account.suspended` (payload `until`) and `account.unsuspended`.
 - The Restate service `NotificationWorker` has a handler per kind. Each
   reads the facts through the source module's service in one step
@@ -3053,6 +3078,13 @@ calls it except screen, for Home's unread count; depguard holds that.
   when a replayed save minted other IDs, tells no one. A step returns zero
   facts when the source answers not found, and the handler tells no one
   when the facts' ID is zero.
+- Review notices (2026-11-19): `ReviewPosted` tells the subject once the
+  review shows. A hidden review's handler sleeps in Restate until its
+  `visible_at`, then reads the review again. The second side's review
+  reveals the first, so its handler tells both subjects; the first one's
+  handler sees `RevealedBy` and tells no one. `ReviewReplied` tells the
+  reviewer. Both open the order; a review notice from before, with only
+  the seller, still opens `seller_reviews`.
 - A notice stores its type and `domain.Params`, JSON with only the keys
   its type reads; the server writes the Vietnamese text, carrier labels
   included, when it lists and when it pushes. Deal and order notices collapse on
@@ -3186,28 +3218,30 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-orders.md`.
   recipient and pickup redaction. A historical selection keeps its own
   order ID and status when `deal.order` names a later purchase. Every
   canonical `Order` response carries the stored `completed_by` on completion.
-- The screen reads the counterpart as a public `Person`. For the buyer it
-  also reads trust's `OwnReview` and support's `OfOrder`; the seller's
-  response omits both fields. `own_review` has state `none`, `active` or
-  `deleted`, nullable original dates and ID, and `change_until` at seven
-  days from the first submission. `locked` calls `Review.CanChange`, whose
-  boundary is strictly after those seven days. Stars and text appear only
-  in the active state. Trust reads the caller's review rows by buyer and
-  order in one query, and an order without one of the caller's reviews
-  reads `none`. Screen checks the order's ownership before that call, and
-  the HTTP API has no GET review route.
+- The screen reads the counterpart as a public `Person`, and for either
+  side trust's `OrderReviews`: `own_review`, the caller's review, and
+  `their_review`, the other side's review of the caller. For the buyer it
+  also reads support's `OfOrder`; the seller's response omits `ticket`.
+  `own_review` has state `none`, `active` or `deleted`, nullable original
+  dates and ID, `change_until` at seven days from the first submission,
+  `visible_at`, and the subject's `reply`. `locked` calls
+  `Review.CanChange`, whose boundary is strictly after those seven days,
+  and which a reply closes. Stars and text appear only in the active state.
+  `their_review` is null without one or once deleted; `hidden` carries only
+  `visible_at`, `visible` its stars, text, reply and `can_reply`. Trust
+  reads the order's review rows in one query. Screen checks the order's
+  ownership before that call, and the HTTP API has no GET review route.
 - `GET /v1/screens/orders?role=buying|selling&cursor=&limit=` is the Đơn
   hàng list, newest order first and paged by order ID through deal's
   `ListOrders`. It replaced `GET /v1/me/orders` and its `OrderList` schema,
   whose only caller was the app. A row is `{order, counterpart,
   own_review}`: `order` is deal's `OrderItem` with the canonical `Order`
-  redaction, `counterpart` the public `Person`, and `own_review`, on the
-  buyer's rows only, the order view's `OwnReview`. A page costs three
-  calls: `ListOrders`, then account's `GetMany` and, for the buyer,
-  trust's `OwnReviews` at the same time (`errgroup`). `OwnReviews` reads
-  the page's reviews in one query, `Reviews.ByOrders` filtered by buyer.
-  The order view calls `OwnReviews` with its one order, and that replaced
-  trust's single `OwnReview` read. `ListOrders` reads listings and
+  redaction, `counterpart` the public `Person`, and `own_review`, on both
+  sides' rows, the order view's `OwnReview`. A page costs three calls:
+  `ListOrders`, then account's `GetMany` and trust's `OrderReviews` at the
+  same time (`errgroup`). `OrderReviews` reads the page's reviews in one
+  query, `Reviews.OfOrders`. The order view calls `OrderReviews` with its
+  one order. `ListOrders` reads listings and
   communes for the rows `page.Of` kept, as catalog's `SellerListings`
   does. Deal's `OrderItem` holds the other party's ID in `CounterpartID`,
   which is not in the schema, as `AccountView` holds `LastActiveAt`.

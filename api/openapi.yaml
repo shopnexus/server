@@ -304,6 +304,10 @@ paths:
     $ref: "paths/trust.yaml#/review"
   /v1/sellers/{id}/reviews:
     $ref: "paths/trust.yaml#/sellerReviews"
+  /v1/accounts/{id}/reviews:
+    $ref: "paths/trust.yaml#/accountReviews"
+  /v1/reviews/{id}/reply:
+    $ref: "paths/trust.yaml#/reviewReply"
   /v1/reports:
     $ref: "paths/trust.yaml#/reports"
   /v1/reports/{id}:

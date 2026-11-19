@@ -35,11 +35,14 @@ ProfileTask:
 ReputationScreen:
   type: object
   additionalProperties: false
-  required: [rating, sold, joined_at, followers, reply, figures_90d, caps]
+  required: [rating, buyer_rating, sold, joined_at, followers, reply, figures_90d, caps]
   description: Uy tín của bạn. Every figure is read when the view is.
   properties:
     rating:
       $ref: "#/ReputationRating"
+    buyer_rating:
+      $ref: "#/ReputationRating"
+      description: The caller's rating as a buyer.
     sold:
       type: integer
       minimum: 0

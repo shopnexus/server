@@ -9,6 +9,7 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	trustdomain "github.com/shopnexus/server/internal/trust/domain"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
 
@@ -56,7 +57,7 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, n
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the seller: %w", err)
 	}
-	rating, err := s.trust.Rating(ctx, l.SellerID)
+	rating, err := s.trust.Rating(ctx, l.SellerID, trustdomain.RoleSeller)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the rating: %w", err)
 	}

@@ -21,17 +21,23 @@ type sellerScreen struct {
 			Average float64 `json:"average"`
 			Count   int     `json:"count"`
 		} `json:"rating"`
+		BuyerRating struct {
+			Count int `json:"count"`
+		} `json:"buyer_rating"`
 		Sold      int `json:"sold"`
 		OnSale    int `json:"on_sale"`
 		Followers int `json:"followers"`
 	} `json:"seller"`
 	Listings page[searchCard] `json:"listings"`
 	Reviews  page[struct {
-		Stars int `json:"stars"`
-		Buyer struct {
+		Stars    int `json:"stars"`
+		Reviewer struct {
 			AvatarURL string `json:"avatar_url"`
-		} `json:"buyer"`
+		} `json:"reviewer"`
 	}] `json:"reviews"`
+	BuyerReviews page[struct {
+		Stars int `json:"stars"`
+	}] `json:"buyer_reviews"`
 	Viewer *struct {
 		Blocked        bool    `json:"blocked"`
 		Following      bool    `json:"following"`
@@ -70,9 +76,11 @@ func TestSellerScreen(t *testing.T) {
 	activeHidden(t, token)
 	active := activeListing(t, token, nil).ID
 	reserved := activeListing(t, token, nil).ID
-	order := shippedOrder(t, token, buyer.AccessToken, reserved)
+	shippedOrder(t, token, buyer.AccessToken, reserved)
+	order := completedOrder(t, token, buyer.AccessToken, activeListing(t, token, nil).ID)
 	expectStatus(t, call(t, "PUT", "/v1/saved/"+active, nil, bearer(buyer.AccessToken)), http.StatusNoContent)
 	expectStatus(t, call(t, "PUT", "/v1/orders/"+order.Order.ID+"/review", map[string]any{"stars": 4}, bearer(buyer.AccessToken)), http.StatusOK)
+	revealReviews(t, order.Order.ID)
 	path := "/v1/screens/seller/" + seller.Account.ID
 	get := func(name, path string, headers ...[2]string) sellerScreen {
 		t.Helper()
@@ -86,7 +94,7 @@ func TestSellerScreen(t *testing.T) {
 	got := get("signed out", path)
 	s := got.Seller
 	if s.ID != seller.Account.ID || s.DisplayName != "Linh" || s.Bio != "Đồ cũ còn tốt" || s.AvatarURL != avatar || s.JoinedAt == "" ||
-		s.Rating.Average != 4 || s.Rating.Count != 1 || s.Sold != 1 || s.OnSale != 2 {
+		s.Rating.Average != 4 || s.Rating.Count != 1 || s.BuyerRating.Count != 0 || s.Sold != 2 || s.OnSale != 2 {
 		t.Fatalf("seller: %+v", s)
 	}
 	if got.Listings.NextCursor != "" {
@@ -100,7 +108,7 @@ func TestSellerScreen(t *testing.T) {
 		seller.Account.ID, true, []string{reserved, active}, active)
 	check(t, "an unknown commune", call(t, "GET", path+"?near_commune=nope", nil), 400, "invalid_position")
 	if r := got.Reviews; len(r.Items) != 1 || r.Items[0].Stars != 4 ||
-		r.Items[0].Buyer.AvatarURL != buyerAvatar || r.NextCursor != "" {
+		r.Items[0].Reviewer.AvatarURL != buyerAvatar || r.NextCursor != "" || len(got.BuyerReviews.Items) != 0 {
 		t.Fatalf("reviews: %+v", r)
 	}
 	if got.Viewer != nil {
