@@ -13,6 +13,19 @@ ws:
       The app keeps the last seq and passes it as `since` on its next
       connect; after `reset` it reloads everything.
 
+      The app sends its access token in `Authorization: Bearer`. A browser,
+      which cannot set that header on a WebSocket, offers the subprotocols
+      `bearer` and the token, as `new WebSocket(url, ["bearer", token])`
+      does (`Sec-WebSocket-Protocol: bearer, <token>`). Without an
+      Authorization header, a request offering exactly these two is checked
+      as if the token were in the header, and the handshake selects
+      `bearer`. A missing or bad token is 401 before the upgrade, either
+      way. A request with an `Origin` header opens the socket only from one
+      of the website's origins (`WEBSITE_ORIGINS`), scheme and host, or the
+      API's own host; another origin is 403. A request without `Origin`,
+      as the app's, is not checked. The server reads no token from the
+      query string.
+
       The kinds, the IDs each carries, what logs one and who gets it:
 
       - `message` (conversation_id, message_id): a message is written or
@@ -63,6 +76,8 @@ ws:
         description: Switched to the WebSocket protocol.
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: The `Origin` header is not one of the website's origins.
 updates:
   get:
     operationId: listUpdates

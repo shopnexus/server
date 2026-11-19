@@ -892,7 +892,8 @@ process. The server reaches the store at `OBJECT_STORE_ENDPOINT` and signs
 presigned URLs for `OBJECT_STORE_PUBLIC_ENDPOINT`, the address phones reach;
 the signature covers the host, so a proxy cannot rewrite it. The bucket's
 CORS lets the origins in `WEBSITE_ORIGINS` PUT, so the website's pages upload
-from the browser. Configuration:
+from the browser; the same list says which origins may open `GET /v1/ws`
+(see Stream). Configuration:
 `OBJECT_STORE_ENDPOINT`, `OBJECT_STORE_PUBLIC_ENDPOINT`, `OBJECT_STORE_REGION`,
 `OBJECT_STORE_ACCESS_KEY`, `OBJECT_STORE_SECRET_KEY`, `OBJECT_STORE_BUCKET`,
 `WEBSITE_ORIGINS` and `MEDIA_PUBLIC_URL`, the base a public URL is built on. RustFS listens on
@@ -1508,6 +1509,15 @@ everything after each reconnect and deploy).
   while the main loop waits on the database. It starts before the first
   catch-up. The server pings every 25 seconds and closes when a pong takes
   10.
+- A browser cannot set Authorization on a WebSocket, so the website opens
+  the socket with `new WebSocket(url, ["bearer", token])` (decided
+  2026-11-19). `stream.SubprotocolToken`, before the auth middleware on
+  `/v1/ws` only, moves the token of a request with no Authorization header
+  that offers exactly `bearer, <token>` into the header, and the upgrade
+  selects `bearer`, which a browser requires. The socket accepts an
+  `Origin` from `WEBSITE_ORIGINS` (scheme and host) or the API's own host
+  and refuses others with 403; the app sends no `Origin`. Tokens are never
+  read from the query, which proxies log.
 - The handler clears its request's read and write deadlines through
   `http.ResponseController` before the upgrade, since the server's
   timeouts would end the connection.

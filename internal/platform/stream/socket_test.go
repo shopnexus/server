@@ -115,7 +115,7 @@ func newSocketEnv(t *testing.T, opts ...func(*stream.Socket)) *socketEnv {
 		opt(&socket)
 	}
 	updates := stream.UpdatesHandler(stream.PGLog{DB: db}, discard)
-	srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewUnstartedServer(stream.SubprotocolToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p, err := verify(strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "), time.Now())
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -127,7 +127,7 @@ func newSocketEnv(t *testing.T, opts ...func(*stream.Socket)) *socketEnv {
 			return
 		}
 		socket.ServeHTTP(w, r)
-	}))
+	})))
 	// Shorter than the tests wait, so a socket that kept them would end.
 	srv.Config.ReadTimeout, srv.Config.WriteTimeout = time.Second, time.Second
 	srv.Start()
@@ -184,8 +184,13 @@ type client struct {
 // its frames until it closes.
 func (e *socketEnv) dial(t *testing.T, token, query string) *client {
 	t.Helper()
-	c, _, err := websocket.Dial(context.Background(), e.url+"/ws"+query, //nolint:bodyclose // Dial closes the handshake response's body.
-		&websocket.DialOptions{HTTPHeader: http.Header{"Authorization": {"Bearer " + token}}})
+	return e.dialWith(t, query, &websocket.DialOptions{HTTPHeader: http.Header{"Authorization": {"Bearer " + token}}})
+}
+
+// dialWith opens the socket with opts, which carry the token.
+func (e *socketEnv) dialWith(t *testing.T, query string, opts *websocket.DialOptions) *client {
+	t.Helper()
+	c, _, err := websocket.Dial(context.Background(), e.url+"/ws"+query, opts) //nolint:bodyclose // Dial closes the handshake response's body.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -594,4 +599,102 @@ func TestPongDuringCatchUp(t *testing.T) {
 		t.Fatalf("no pong during catch-up: %v", err)
 	}
 	expectFrame(t, cl.next(t), "update", 1)
+}
+
+// refused dials with opts and returns the handshake's status.
+func (e *socketEnv) refused(t *testing.T, opts *websocket.DialOptions) int {
+	t.Helper()
+	c, resp, err := websocket.Dial(context.Background(), e.url+"/ws", opts) //nolint:bodyclose // Dial closes the handshake response's body.
+	if err == nil {
+		_ = c.CloseNow()
+		t.Fatal("the socket opened")
+	}
+	if resp == nil {
+		t.Fatalf("no handshake response: %v", err)
+	}
+	return resp.StatusCode
+}
+
+func TestHeaderTokenSelectsNoSubprotocol(t *testing.T) {
+	t.Parallel()
+	e := newSocketEnv(t)
+	cl := e.dial(t, e.token(uuid.NewV7(), time.Hour), "")
+	expectFrame(t, cl.next(t), "ready", 0)
+	if got := cl.conn.Subprotocol(); got != "" {
+		t.Fatalf("subprotocol %q, want none", got)
+	}
+}
+
+func TestSubprotocolTokenConnects(t *testing.T) {
+	t.Parallel()
+	e := newSocketEnv(t)
+	a := uuid.NewV7()
+	cl := e.dialWith(t, "", &websocket.DialOptions{Subprotocols: []string{"bearer", e.token(a, time.Hour)}})
+	expectFrame(t, cl.next(t), "ready", 0)
+	if got := cl.conn.Subprotocol(); got != "bearer" {
+		t.Fatalf("subprotocol %q, want bearer", got)
+	}
+	e.notify(t, a, 1)
+	expectFrame(t, cl.next(t), "update", 1)
+}
+
+func TestBadSubprotocolTokenIsRefusedAsABadHeader(t *testing.T) {
+	t.Parallel()
+	e := newSocketEnv(t)
+	header := e.refused(t, &websocket.DialOptions{HTTPHeader: http.Header{"Authorization": {"Bearer nope"}}})
+	sub := e.refused(t, &websocket.DialOptions{Subprotocols: []string{"bearer", "nope"}})
+	if header != http.StatusUnauthorized || sub != header {
+		t.Fatalf("header %d, subprotocol %d, want both 401", header, sub)
+	}
+}
+
+func TestOrigins(t *testing.T) {
+	t.Parallel()
+	e := newSocketEnv(t, func(s *stream.Socket) { s.Origins = []string{"https://site.example.test"} })
+	tok := e.token(uuid.NewV7(), time.Hour)
+	cl := e.dialWith(t, "", &websocket.DialOptions{
+		Subprotocols: []string{"bearer", tok}, HTTPHeader: http.Header{"Origin": {"https://site.example.test"}},
+	})
+	expectFrame(t, cl.next(t), "ready", 0)
+	for _, origin := range []string{"https://evil.example.test", "http://site.example.test"} {
+		got := e.refused(t, &websocket.DialOptions{
+			Subprotocols: []string{"bearer", tok}, HTTPHeader: http.Header{"Origin": {origin}},
+		})
+		if got != http.StatusForbidden {
+			t.Fatalf("origin %s: status %d, want 403", origin, got)
+		}
+	}
+}
+
+func TestSubprotocolToken(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, auth, protocols, want string
+	}{
+		{"bearer and a token", "", "bearer, tok", "Bearer tok"},
+		{"the header wins", "Bearer head", "bearer, tok", "Bearer head"},
+		{"bearer alone", "", "bearer", ""},
+		{"a third protocol", "", "bearer, tok, more", ""},
+		{"another protocol first", "", "chat, tok", ""},
+		{"none", "", "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var got string
+			h := stream.SubprotocolToken(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+				got = r.Header.Get("Authorization")
+			}))
+			r := httptest.NewRequest(http.MethodGet, "/v1/ws", nil)
+			if tc.auth != "" {
+				r.Header.Set("Authorization", tc.auth)
+			}
+			if tc.protocols != "" {
+				r.Header.Set("Sec-WebSocket-Protocol", tc.protocols)
+			}
+			h.ServeHTTP(httptest.NewRecorder(), r)
+			if got != tc.want {
+				t.Fatalf("Authorization %q, want %q", got, tc.want)
+			}
+		})
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"uuid"
@@ -54,7 +55,7 @@ type Access interface {
 	Touch(ctx context.Context, account uuid.UUID) error
 }
 
-// Socket serves GET /v1/ws behind the auth middleware.
+// Socket serves GET /v1/ws behind SubprotocolToken and the auth middleware.
 type Socket struct {
 	Hub     *Hub
 	Updates UpdateLog
@@ -65,8 +66,36 @@ type Socket struct {
 	// Tick is how often a connection records that the person is active and
 	// reads the log, in case a ring was lost.
 	Tick time.Duration
-	Now  func() time.Time
-	Log  *slog.Logger
+	// Origins are the website's origins (WEBSITE_ORIGINS), whose browsers
+	// may open the socket. A request without Origin, as the app's, is let in.
+	Origins []string
+	Now     func() time.Time
+	Log     *slog.Logger
+}
+
+// Subprotocol is the WebSocket subprotocol a browser offers, with its access
+// token after it, since a browser cannot set Authorization on a WebSocket.
+const Subprotocol = "bearer"
+
+// SubprotocolToken puts the token of a request offering exactly
+// "bearer, <token>" as its subprotocols into its Authorization header, for
+// the auth middleware after it. A request with Authorization keeps it.
+func SubprotocolToken(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") == "" {
+			var offered []string
+			for _, v := range r.Header.Values("Sec-WebSocket-Protocol") {
+				for p := range strings.SplitSeq(v, ",") {
+					offered = append(offered, strings.TrimSpace(p))
+				}
+			}
+			if len(offered) == 2 && strings.EqualFold(offered[0], Subprotocol) && offered[1] != "" {
+				r = r.Clone(r.Context())
+				r.Header.Set("Authorization", "Bearer "+offered[1])
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 type (
@@ -130,7 +159,9 @@ func (s Socket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var workers sync.WaitGroup
 	defer workers.Wait()
-	c, err := websocket.Accept(w, r, nil)
+	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		Subprotocols: []string{Subprotocol}, OriginPatterns: s.Origins,
+	})
 	if err != nil {
 		s.Log.WarnContext(ctx, "stream: accept the websocket", "err", err)
 		return

@@ -448,10 +448,11 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		},
 	}, accounts, mediam.Service, catalogm.Service, discoverym.Service)
 	updates := stream.PGLog{DB: pool}
-	router.Handle("GET /v1/ws", d.Protect(stream.Socket{
+	router.Handle("GET /v1/ws", stream.SubprotocolToken(d.Protect(stream.Socket{
 		Hub: hub, Updates: updates, Access: socketAccess{accounts: accounts, chats: chatm.Service},
-		Verify: account.TokenVerifier(cfg.Auth), Tick: time.Minute, Now: time.Now, Log: log,
-	}))
+		Verify: account.TokenVerifier(cfg.Auth), Tick: time.Minute, Origins: cfg.ObjectStore.UploadOrigins,
+		Now: time.Now, Log: log,
+	})))
 	router.Handle("GET /v1/updates", d.Protect(stream.UpdatesHandler(updates, log)))
 	if cfg.Env != config.EnvProd {
 		router.Handle("POST /v1/dev/updates", d.Protect(stream.DevUpdateHandler(updates, log)))

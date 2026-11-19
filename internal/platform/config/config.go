@@ -298,7 +298,7 @@ type ObjectStoreConfig struct {
 	PublicURL      string // MEDIA_PUBLIC_URL: the base URL clients read media/ objects under
 	// UploadOrigins is WEBSITE_ORIGINS, the website's origins, comma
 	// separated. Browsers there PUT uploads to presigned URLs, so the
-	// bucket's CORS allows them. Empty allows none.
+	// bucket's CORS allows them, and open GET /v1/ws. Empty allows none.
 	UploadOrigins []string //exhaustruct:optional
 }
 
