@@ -1,0 +1,2265 @@
+{
+ "version": 1,
+ "license": "CC0-1.0",
+ "family": [
+  {
+   "name": "Nguyễn",
+   "w": 38
+  },
+  {
+   "name": "Trần",
+   "w": 11
+  },
+  {
+   "name": "Lê",
+   "w": 9.5
+  },
+  {
+   "name": "Phạm",
+   "w": 7
+  },
+  {
+   "name": "Hoàng",
+   "w": 4
+  },
+  {
+   "name": "Huỳnh",
+   "w": 1.5
+  },
+  {
+   "name": "Phan",
+   "w": 4
+  },
+  {
+   "name": "Vũ",
+   "w": 3.9
+  },
+  {
+   "name": "Võ",
+   "w": 1.8
+  },
+  {
+   "name": "Đặng",
+   "w": 2.1
+  },
+  {
+   "name": "Bùi",
+   "w": 2
+  },
+  {
+   "name": "Đỗ",
+   "w": 1.4
+  },
+  {
+   "name": "Hồ",
+   "w": 1.3
+  },
+  {
+   "name": "Ngô",
+   "w": 1.3
+  },
+  {
+   "name": "Dương",
+   "w": 1
+  },
+  {
+   "name": "Lý",
+   "w": 0.5
+  },
+  {
+   "name": "Đào",
+   "w": 0.6
+  },
+  {
+   "name": "Đoàn",
+   "w": 0.5
+  },
+  {
+   "name": "Vương",
+   "w": 0.2
+  },
+  {
+   "name": "Trịnh",
+   "w": 0.5
+  },
+  {
+   "name": "Đinh",
+   "w": 0.5
+  },
+  {
+   "name": "Lâm",
+   "w": 0.4
+  },
+  {
+   "name": "Phùng",
+   "w": 0.2
+  },
+  {
+   "name": "Mai",
+   "w": 0.4
+  },
+  {
+   "name": "Tô",
+   "w": 0.2
+  },
+  {
+   "name": "Trương",
+   "w": 0.6
+  },
+  {
+   "name": "Hà",
+   "w": 0.5
+  },
+  {
+   "name": "Lương",
+   "w": 0.4
+  },
+  {
+   "name": "Cao",
+   "w": 0.4
+  },
+  {
+   "name": "Châu",
+   "w": 0.2
+  },
+  {
+   "name": "Tạ",
+   "w": 0.2
+  },
+  {
+   "name": "Quách",
+   "w": 0.15
+  },
+  {
+   "name": "Lưu",
+   "w": 0.3
+  },
+  {
+   "name": "Thái",
+   "w": 0.2
+  },
+  {
+   "name": "Kiều",
+   "w": 0.1
+  },
+  {
+   "name": "La",
+   "w": 0.1
+  },
+  {
+   "name": "Tăng",
+   "w": 0.1
+  },
+  {
+   "name": "Từ",
+   "w": 0.1
+  },
+  {
+   "name": "Văn",
+   "w": 0.15
+  },
+  {
+   "name": "Chu",
+   "w": 0.2
+  },
+  {
+   "name": "Triệu",
+   "w": 0.2
+  },
+  {
+   "name": "Mạc",
+   "w": 0.05
+  },
+  {
+   "name": "Thân",
+   "w": 0.1
+  },
+  {
+   "name": "Khúc",
+   "w": 0.05
+  },
+  {
+   "name": "Âu",
+   "w": 0.05
+  },
+  {
+   "name": "Diệp",
+   "w": 0.05
+  },
+  {
+   "name": "Quan",
+   "w": 0.05
+  },
+  {
+   "name": "Nghiêm",
+   "w": 0.1
+  },
+  {
+   "name": "Giang",
+   "w": 0.1
+  },
+  {
+   "name": "Lục",
+   "w": 0.05
+  },
+  {
+   "name": "Ông",
+   "w": 0.05
+  },
+  {
+   "name": "Bạch",
+   "w": 0.05
+  },
+  {
+   "name": "Kim",
+   "w": 0.05
+  },
+  {
+   "name": "Tống",
+   "w": 0.1
+  },
+  {
+   "name": "Vi",
+   "w": 0.05
+  },
+  {
+   "name": "Lại",
+   "w": 0.1
+  },
+  {
+   "name": "Thạch",
+   "w": 0.05
+  },
+  {
+   "name": "Hứa",
+   "w": 0.1
+  },
+  {
+   "name": "Cù",
+   "w": 0.03
+  },
+  {
+   "name": "Ninh",
+   "w": 0.05
+  },
+  {
+   "name": "Lò",
+   "w": 0.03
+  },
+  {
+   "name": "Mã",
+   "w": 0.05
+  }
+ ],
+ "given": [
+  {
+   "name": "Linh",
+   "g": "f",
+   "w": 5
+  },
+  {
+   "name": "Anh",
+   "g": "f",
+   "w": 5
+  },
+  {
+   "name": "Trang",
+   "g": "f",
+   "w": 4
+  },
+  {
+   "name": "Hương",
+   "g": "f",
+   "w": 3
+  },
+  {
+   "name": "Lan",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Mai",
+   "g": "f",
+   "w": 3
+  },
+  {
+   "name": "Ngọc",
+   "g": "f",
+   "w": 3
+  },
+  {
+   "name": "Thảo",
+   "g": "f",
+   "w": 4
+  },
+  {
+   "name": "Hà",
+   "g": "f",
+   "w": 3
+  },
+  {
+   "name": "Hằng",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Huyền",
+   "g": "f",
+   "w": 3
+  },
+  {
+   "name": "Nhung",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Phương",
+   "g": "f",
+   "w": 3
+  },
+  {
+   "name": "Thủy",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Thu",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Hoa",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Yến",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Vy",
+   "g": "f",
+   "w": 4
+  },
+  {
+   "name": "Nhi",
+   "g": "f",
+   "w": 4
+  },
+  {
+   "name": "Trâm",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Quyên",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Hạnh",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Hiền",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Loan",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Nga",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Oanh",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Giang",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Diệp",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Dung",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Duyên",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Hân",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Hậu",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Hồng",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Khánh Linh",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Kim",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Liên",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Liễu",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Ly",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "My",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Mỹ",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Mơ",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Nguyệt",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Như",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Nhàn",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Nhiên",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Quỳnh",
+   "g": "f",
+   "w": 3
+  },
+  {
+   "name": "Sương",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Tâm",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Tiên",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Trinh",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Tuyết",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Uyên",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Vân",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Xuân",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Yên",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Ánh",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Ân",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Băng",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Châu",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Chi",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Cúc",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Diễm",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Đào",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Hảo",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Hoài",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Huệ",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Kiều",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Lệ",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Lụa",
+   "g": "f",
+   "w": 0.3
+  },
+  {
+   "name": "Mến",
+   "g": "f",
+   "w": 0.3
+  },
+  {
+   "name": "Minh Thư",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Bảo Anh",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Ngọc Ánh",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Thanh Hà",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Thu Trang",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Phương Anh",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Mai Anh",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Bảo Ngọc",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Gia Hân",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Khánh Vy",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Hà My",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Thùy Linh",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Thùy Dung",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Kim Ngân",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Ngọc Hân",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Tường Vy",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Diệu Linh",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Hoài An",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Thanh Thảo",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Cẩm Tú",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Bích Ngọc",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Mỹ Duyên",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Thảo My",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Quỳnh Anh",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Hồng Nhung",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Phương Thảo",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Lan Anh",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Ngọc Mai",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Trúc",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Trúc Linh",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Thiên Kim",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Hải Yến",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Ái",
+   "g": "f",
+   "w": 0.3
+  },
+  {
+   "name": "Thơ",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Thắm",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Thoa",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Thư",
+   "g": "f",
+   "w": 3
+  },
+  {
+   "name": "Tú",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Vi",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Xuyến",
+   "g": "f",
+   "w": 0.3
+  },
+  {
+   "name": "Ngân",
+   "g": "f",
+   "w": 2
+  },
+  {
+   "name": "Nhã",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Phượng",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Thúy",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Hồng Hạnh",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Kim Chi",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Ngọc Diệp",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Thanh Tâm",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Mai Phương",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Như Ý",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Bảo Trân",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Trân",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Ngọc Trâm",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Yến Nhi",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Thục Anh",
+   "g": "f",
+   "w": 0.3
+  },
+  {
+   "name": "Hà Linh",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Bích",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Hạ",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Khuê",
+   "g": "f",
+   "w": 0.3
+  },
+  {
+   "name": "Lam Anh",
+   "g": "f",
+   "w": 0.3
+  },
+  {
+   "name": "Minh Châu",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Ngọc Trinh",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Thanh Hương",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Thu Hà",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Thu Hương",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Vân Anh",
+   "g": "f",
+   "w": 1
+  },
+  {
+   "name": "Hoàng Yến",
+   "g": "f",
+   "w": 0.5
+  },
+  {
+   "name": "Kim Oanh",
+   "g": "f",
+   "w": 0.3
+  },
+  {
+   "name": "Thanh Nga",
+   "g": "f",
+   "w": 0.3
+  },
+  {
+   "name": "Huy",
+   "g": "m",
+   "w": 4
+  },
+  {
+   "name": "Tuấn",
+   "g": "m",
+   "w": 4
+  },
+  {
+   "name": "Minh",
+   "g": "m",
+   "w": 4
+  },
+  {
+   "name": "Hùng",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Dũng",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Nam",
+   "g": "m",
+   "w": 4
+  },
+  {
+   "name": "Hải",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Long",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Đức",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Thắng",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Quang",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Sơn",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Trung",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Phong",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Hiếu",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Khoa",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Khang",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Bảo",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Duy",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Đạt",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Hoàng",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Kiên",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Lâm",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Lộc",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Lợi",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Mạnh",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Nghĩa",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Nhân",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Phát",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Phúc",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Quân",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Quý",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Tài",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Tâm",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Thành",
+   "g": "m",
+   "w": 3
+  },
+  {
+   "name": "Thịnh",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Thông",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Tiến",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Toàn",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Trí",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Trọng",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Tùng",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Việt",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Vinh",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Vũ",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Cường",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Chiến",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Công",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Danh",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Định",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Đông",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Giang",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Hào",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Hậu",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Hiển",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Hòa",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Học",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Hưng",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Khải",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Khánh",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Kha",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Luân",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Lực",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Nguyên",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Nhật",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Ninh",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Phú",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Phước",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Quốc",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Sang",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Tân",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Thái",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Thiện",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Thuận",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Tín",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Tú",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Tuấn Anh",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Minh Quân",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Gia Huy",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Đức Anh",
+   "g": "m",
+   "w": 2
+  },
+  {
+   "name": "Minh Khôi",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Hoàng Long",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Quốc Bảo",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Thanh Tùng",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Văn Nam",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Anh Tuấn",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Minh Đức",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Hữu Phước",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Trung Kiên",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Đăng Khoa",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Hải Đăng",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Nhật Minh",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Bảo Long",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Quang Huy",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Thế Anh",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Duy Anh",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Tiến Dũng",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Minh Tuấn",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Hoàng Nam",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Gia Bảo",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Văn Hùng",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Thành Đạt",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Khôi",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Kiệt",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Lĩnh",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Tấn",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Vĩnh",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Quyết",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Sỹ",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Trường",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Tường",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Uy",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Vương",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Bình",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Cảnh",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Duẩn",
+   "g": "m",
+   "w": 0.2
+  },
+  {
+   "name": "Đạo",
+   "g": "m",
+   "w": 0.2
+  },
+  {
+   "name": "Điệp",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Huân",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Hoan",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Hội",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Khiêm",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Lân",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Mẫn",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Nhẫn",
+   "g": "m",
+   "w": 0.2
+  },
+  {
+   "name": "Phi",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Quyền",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Thạch",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Thanh",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Thọ",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Triết",
+   "g": "m",
+   "w": 0.2
+  },
+  {
+   "name": "Tuệ",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Đông Hải",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Hoàng Anh",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Huy Hoàng",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Minh Hiếu",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Ngọc Sơn",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Phúc Khang",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Quang Minh",
+   "g": "m",
+   "w": 1
+  },
+  {
+   "name": "Thanh Phong",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Trọng Nhân",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "Văn Toàn",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Xuân Trường",
+   "g": "m",
+   "w": 0.3
+  },
+  {
+   "name": "Hữu Nghĩa",
+   "g": "m",
+   "w": 0.5
+  },
+  {
+   "name": "An",
+   "g": "u",
+   "w": 2
+  },
+  {
+   "name": "Bình",
+   "g": "u",
+   "w": 1
+  },
+  {
+   "name": "Minh Anh",
+   "g": "u",
+   "w": 1
+  },
+  {
+   "name": "Khánh An",
+   "g": "u",
+   "w": 1
+  },
+  {
+   "name": "Gia Linh",
+   "g": "u",
+   "w": 0.5
+  },
+  {
+   "name": "Thanh",
+   "g": "u",
+   "w": 1
+  },
+  {
+   "name": "Tú Anh",
+   "g": "u",
+   "w": 0.5
+  },
+  {
+   "name": "Xuân Mai",
+   "g": "u",
+   "w": 0.3
+  },
+  {
+   "name": "Nhật Anh",
+   "g": "u",
+   "w": 0.5
+  },
+  {
+   "name": "Bảo",
+   "g": "u",
+   "w": 0.5
+  },
+  {
+   "name": "Hà An",
+   "g": "u",
+   "w": 0.3
+  },
+  {
+   "name": "Phương",
+   "g": "u",
+   "w": 0.5
+  },
+  {
+   "name": "Ngọc Minh",
+   "g": "u",
+   "w": 0.3
+  },
+  {
+   "name": "Thiên",
+   "g": "u",
+   "w": 0.3
+  },
+  {
+   "name": "Hải",
+   "g": "u",
+   "w": 0.3
+  },
+  {
+   "name": "Lam",
+   "g": "u",
+   "w": 0.5
+  },
+  {
+   "name": "Đan",
+   "g": "u",
+   "w": 0.3
+  },
+  {
+   "name": "Kỳ",
+   "g": "u",
+   "w": 0.3
+  },
+  {
+   "name": "Sa",
+   "g": "u",
+   "w": 0.2
+  },
+  {
+   "name": "Ngân Hà",
+   "g": "u",
+   "w": 0.3
+  }
+ ],
+ "middle": {
+  "f": [
+   {
+    "name": "Thị",
+    "w": 40
+   },
+   {
+    "name": "Ngọc",
+    "w": 12
+   },
+   {
+    "name": "Thu",
+    "w": 8
+   },
+   {
+    "name": "Thanh",
+    "w": 8
+   },
+   {
+    "name": "Hồng",
+    "w": 5
+   },
+   {
+    "name": "Kim",
+    "w": 5
+   },
+   {
+    "name": "Thùy",
+    "w": 6
+   },
+   {
+    "name": "Phương",
+    "w": 5
+   },
+   {
+    "name": "Bảo",
+    "w": 3
+   },
+   {
+    "name": "Mỹ",
+    "w": 3
+   },
+   {
+    "name": "Minh",
+    "w": 4
+   },
+   {
+    "name": "Hoài",
+    "w": 2
+   },
+   {
+    "name": "Diệu",
+    "w": 2
+   },
+   {
+    "name": "Khánh",
+    "w": 2
+   },
+   {
+    "name": "Hải",
+    "w": 2
+   },
+   {
+    "name": "Xuân",
+    "w": 2
+   }
+  ],
+  "m": [
+   {
+    "name": "Văn",
+    "w": 35
+   },
+   {
+    "name": "Minh",
+    "w": 14
+   },
+   {
+    "name": "Đức",
+    "w": 10
+   },
+   {
+    "name": "Quốc",
+    "w": 6
+   },
+   {
+    "name": "Thanh",
+    "w": 6
+   },
+   {
+    "name": "Hữu",
+    "w": 7
+   },
+   {
+    "name": "Công",
+    "w": 5
+   },
+   {
+    "name": "Hoàng",
+    "w": 4
+   },
+   {
+    "name": "Anh",
+    "w": 4
+   },
+   {
+    "name": "Gia",
+    "w": 3
+   },
+   {
+    "name": "Xuân",
+    "w": 3
+   },
+   {
+    "name": "Tuấn",
+    "w": 3
+   },
+   {
+    "name": "Thế",
+    "w": 3
+   },
+   {
+    "name": "Trọng",
+    "w": 2
+   },
+   {
+    "name": "Đình",
+    "w": 4
+   },
+   {
+    "name": "Ngọc",
+    "w": 2
+   }
+  ]
+ },
+ "display_patterns": [
+  {
+   "pattern": "{family} {given}",
+   "w": 40
+  },
+  {
+   "pattern": "{given}",
+   "w": 18
+  },
+  {
+   "pattern": "{family} {middle} {given}",
+   "w": 15
+  },
+  {
+   "pattern": "{given} {family}",
+   "w": 4
+  },
+  {
+   "pattern": "{middle} {given}",
+   "w": 8
+  },
+  {
+   "pattern": "{given_ascii}",
+   "w": 3
+  },
+  {
+   "pattern": "{family_ascii} {given_ascii}",
+   "w": 4
+  },
+  {
+   "pattern": "{given_lower}",
+   "w": 2
+  },
+  {
+   "pattern": "{nickname}",
+   "w": 6
+  }
+ ],
+ "nicknames": [
+  {
+   "name": "Linh Bé",
+   "g": "f"
+  },
+  {
+   "name": "mẹ Bin",
+   "g": "f"
+  },
+  {
+   "name": "Nhà Cún",
+   "g": "f"
+  },
+  {
+   "name": "Thảo Đồ Si",
+   "g": "f"
+  },
+  {
+   "name": "Mẹ Bông",
+   "g": "f"
+  },
+  {
+   "name": "Hương Thanh Lý",
+   "g": "f"
+  },
+  {
+   "name": "Trang Pass Đồ",
+   "g": "f"
+  },
+  {
+   "name": "Vy Vintage",
+   "g": "f"
+  },
+  {
+   "name": "Mẹ Sóc",
+   "g": "f"
+  },
+  {
+   "name": "Ngọc Bé Mỡ",
+   "g": "f"
+  },
+  {
+   "name": "Chị Mai Đồ Cũ",
+   "g": "f"
+  },
+  {
+   "name": "Hà Nhỏ",
+   "g": "f"
+  },
+  {
+   "name": "Mẹ Gạo",
+   "g": "f"
+  },
+  {
+   "name": "Thu Bán Đồ",
+   "g": "f"
+  },
+  {
+   "name": "Nhi Mèo",
+   "g": "f"
+  },
+  {
+   "name": "Bé Na mama",
+   "g": "f"
+  },
+  {
+   "name": "Tủ Đồ Của Lan",
+   "g": "f"
+  },
+  {
+   "name": "Mẹ Mít",
+   "g": "f"
+  },
+  {
+   "name": "Quỳnh Secondhand",
+   "g": "f"
+  },
+  {
+   "name": "My Pass Lại",
+   "g": "f"
+  },
+  {
+   "name": "Cô Hoa Q7",
+   "g": "f"
+  },
+  {
+   "name": "Hằng Đà Nẵng",
+   "g": "f"
+  },
+  {
+   "name": "Mẹ Ken",
+   "g": "f"
+  },
+  {
+   "name": "Yến Nhà Mèo",
+   "g": "f"
+  },
+  {
+   "name": "Chi Nấm",
+   "g": "f"
+  },
+  {
+   "name": "Phương Bỉm Sữa",
+   "g": "f"
+  },
+  {
+   "name": "Nhung Dọn Nhà",
+   "g": "f"
+  },
+  {
+   "name": "Trâm Sách Cũ",
+   "g": "f"
+  },
+  {
+   "name": "mai_anh",
+   "g": "f"
+  },
+  {
+   "name": "linhlinh",
+   "g": "f"
+  },
+  {
+   "name": "thuy.dothanhly",
+   "g": "f"
+  },
+  {
+   "name": "Bông Gòn",
+   "g": "f"
+  },
+  {
+   "name": "Su Kem",
+   "g": "f"
+  },
+  {
+   "name": "Mèo Mập",
+   "g": "f"
+  },
+  {
+   "name": "Gấu Nhỏ",
+   "g": "f"
+  },
+  {
+   "name": "Tuấn Đồ Cũ",
+   "g": "m"
+  },
+  {
+   "name": "Huy Laptop",
+   "g": "m"
+  },
+  {
+   "name": "Nam Xe Đạp",
+   "g": "m"
+  },
+  {
+   "name": "Long Phone",
+   "g": "m"
+  },
+  {
+   "name": "Anh Ba Thanh Lý",
+   "g": "m"
+  },
+  {
+   "name": "Khoa Máy Ảnh",
+   "g": "m"
+  },
+  {
+   "name": "Đạt Đồ Công Nghệ",
+   "g": "m"
+  },
+  {
+   "name": "Minh Mô Hình",
+   "g": "m"
+  },
+  {
+   "name": "Hùng Xe Cũ",
+   "g": "m"
+  },
+  {
+   "name": "Bố Bin",
+   "g": "m"
+  },
+  {
+   "name": "Phong Vinyl",
+   "g": "m"
+  },
+  {
+   "name": "Quân Gaming",
+   "g": "m"
+  },
+  {
+   "name": "Trung Đồ Gỗ",
+   "g": "m"
+  },
+  {
+   "name": "Hiếu Tai Nghe",
+   "g": "m"
+  },
+  {
+   "name": "Duy Bàn Phím",
+   "g": "m"
+  },
+  {
+   "name": "Sơn Phượt",
+   "g": "m"
+  },
+  {
+   "name": "Chú Tư Đồ Xưa",
+   "g": "m"
+  },
+  {
+   "name": "Bảo Lego",
+   "g": "m"
+  },
+  {
+   "name": "Khang Gym",
+   "g": "m"
+  },
+  {
+   "name": "Việt Cầu Lông",
+   "g": "m"
+  },
+  {
+   "name": "Thắng Guitar",
+   "g": "m"
+  },
+  {
+   "name": "Lâm Sài Gòn",
+   "g": "m"
+  },
+  {
+   "name": "Đức Chuyển Nhà",
+   "g": "m"
+  },
+  {
+   "name": "Ba Cu Tí",
+   "g": "m"
+  },
+  {
+   "name": "tuananh99",
+   "g": "m"
+  },
+  {
+   "name": "huy.pc",
+   "g": "m"
+  },
+  {
+   "name": "nam_hn",
+   "g": "m"
+  },
+  {
+   "name": "Ông Sáu Đồ Cổ",
+   "g": "m"
+  },
+  {
+   "name": "Tí Nị",
+   "g": "m"
+  },
+  {
+   "name": "Bin Béo",
+   "g": "m"
+  },
+  {
+   "name": "Cu Bo",
+   "g": "m"
+  },
+  {
+   "name": "Hải Đồng Hồ",
+   "g": "m"
+  },
+  {
+   "name": "Tùng Sách Cũ",
+   "g": "m"
+  },
+  {
+   "name": "Kiên Drone",
+   "g": "m"
+  },
+  {
+   "name": "Vinh Bình Dương",
+   "g": "m"
+  },
+  {
+   "name": "Nhà Có Mèo",
+   "g": "u"
+  },
+  {
+   "name": "Góc Đồ Cũ",
+   "g": "u"
+  },
+  {
+   "name": "Đồ Nhà Dùng",
+   "g": "u"
+  },
+  {
+   "name": "Pass Đồ Nhanh",
+   "g": "u"
+  },
+  {
+   "name": "Tiệm Nhỏ Nhà Mình",
+   "g": "u"
+  },
+  {
+   "name": "Đồ Si Tuyển",
+   "g": "u"
+  },
+  {
+   "name": "Kho Đồ Cũ Q.Tân Bình",
+   "g": "u"
+  },
+  {
+   "name": "Thanh Lý Cuối Tháng",
+   "g": "u"
+  },
+  {
+   "name": "An Nhiên",
+   "g": "u"
+  },
+  {
+   "name": "Mây Trôi",
+   "g": "u"
+  }
+ ]
+}

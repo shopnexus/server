@@ -1,0 +1,1256 @@
+{
+ "version": 1,
+ "license": "CC0-1.0",
+ "texts": [
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn nhiều nha!"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn ❤️"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Thanks b nhé"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "cam on ban nhieu"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn đã ủng hộ ạ"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Dạ cảm ơn bạn 🥰"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Hihi cảm ơn b, chúc b một ngày vui vẻ"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn đã đánh giá nha"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Tks b nhiều 😊"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn, giao dịch với bạn rất vui"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn b, có dịp lại giao dịch tiếp nhé"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "thanks ban nha"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Dạ em cảm ơn ạ"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn anh/chị nhiều ạ"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn đã tin tưởng 🙏"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cám ơn bạn nhé, chúc bạn mọi điều tốt lành"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "❤️❤️"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "🙏🙏🙏"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn, mình cũng rất hài lòng khi giao dịch với bạn"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Tks bạn, lần sau có gì cứ ib mình nha"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "cảm ơn b nhìu nhìu"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn đã dành thời gian đánh giá ạ"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Hì cảm ơn b, mình cũng vui vì bạn ưng"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn nha, giao dịch nhanh gọn quá"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn đã ủng hộ, chúc bạn sức khỏe"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "thank you b 😘"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn, rất vui được giao dịch cùng bạn"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cám ơn b, hẹn gặp lại lần sau nhé"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Dạ cảm ơn chị nhiều ạ ❤️"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn anh nhé, chúc anh làm ăn thuận lợi"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "cảm ơn bạn đã tin tưởng mình nha 😊"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn, đánh giá của bạn giúp mình nhiều lắm"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Dạ cảm ơn b đã dễ thương ạ"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn! Chúc bạn cuối tuần vui vẻ"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Mình cảm ơn bạn nhiều nha 🌸"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn b, giao dịch suôn sẻ ghê"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "tks b, có gì cần cứ nhắn mình"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn rất nhiều 💕"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn đã nhiệt tình nha"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn b đã review có tâm quá 😆"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Hihi tks b"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn, mong được giao dịch lại"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Ok b, cảm ơn nhé"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "cam on b nhe 😊"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn, chúc bạn mọi việc suôn sẻ"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn nha, vui vì mọi thứ ổn"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Dạ cảm ơn bạn, mình rất vui"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn đã để lại đánh giá tốt ạ"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn b nhiều, b cũng dễ thương lắm"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn nha, chúc gia đình bạn mạnh khỏe"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn đã mua đồ của mình, dùng tốt nha!"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn b, chúc b dùng sp bền lâu"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, mình đóng gói kỹ vì sợ hư hàng thôi hihi"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Tks b, máy mình giữ kỹ lắm, b dùng yên tâm nha"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, có gì trục trặc cứ nhắn mình hỗ trợ nhé"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn đã mua, đồ mình dùng còn kỹ nên mong bạn thích"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn b, mình còn vài món khác nữa, b ghé xem nhé"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn! Bé dùng vừa thì tốt quá"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, áo mặc vừa là mình vui rồi 😊"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Dạ cảm ơn b, mình bán vì ít dùng thôi chứ đồ còn ngon lắm"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, chúc bạn đi xe an toàn nha"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Tks bạn, laptop có gì cần cài thêm thì ib mình chỉ nha"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn b đã đồng kiểm kỹ, mình cũng yên tâm hơn"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, mình gửi hàng ngay trong ngày cho kịp"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn đã thông cảm vụ ship hơi lâu nha"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "cảm ơn b, đồ mình giữ như mới, b dùng sướng nha"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn nhé, có món nào cần thanh lý tiếp mình báo b"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn! Bàn hơi nặng nên mình bọc kỹ lắm hihi"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, mong bạn tập luyện vui nha 💪"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, điện thoại pin còn tốt, b dùng thoải mái"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn b nhiều, đồ cũ mà b ưng là mình mừng"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn đã ủng hộ, mình sắp đăng thêm đồ mới"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, nhận hàng ổn là tốt rồi"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn b đã chốt nhanh, mình gửi liền cho b"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, nồi mình dùng có vài lần thôi, b nấu ngon nha"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, size vừa là mình yên tâm rồi"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn đã tin mình, lần đầu bán đồ online mà gặp b dễ thương quá"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, máy mình có kèm sạc với hộp như mô tả nha"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Tks b, giày mình mang ít nên còn mới lắm"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, có gì không ổn cứ nhắn mình trong tuần đầu nhé"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn, đồ của bạn đúng mô tả nên mình chốt liền"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn b, giao dịch với b yên tâm lắm"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Tks b, hàng tốt lắm, cảm ơn b đã gói kỹ"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn, mình nhận hàng đúng hẹn vì háo hức quá hihi"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn nhé, đồ dùng tốt lắm"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn b, lần sau b bán gì báo mình nha"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn đã nhường giá, mình rất vui"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "cảm ơn b nha, sp ok lắm"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn, mình cũng đánh giá b 5 sao rồi nè"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn, máy chạy ngon, mình hài lòng"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Dạ cảm ơn chị, bé nhà em dùng thích lắm"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn b đã giữ hàng cho mình mấy hôm"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn, đồ đẹp hơn ảnh luôn"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Tks b, mình sẽ giữ gìn cẩn thận"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn đã gửi nhanh, mình nhận rồi nha"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn b, giao dịch với b thoải mái ghê"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn, mình thanh toán COD nên nhận là trả liền thôi"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn anh, xe đi êm lắm"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn, có dịp mình lại mua tiếp"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn, 4 sao cũng vui rồi, lần sau mình sẽ làm tốt hơn"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn góp ý của bạn nha, mình sẽ để ý hơn"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn, mình ghi nhận góp ý nhé"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, vụ ship chậm là do bên vận chuyển, mình xin lỗi nha"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn b nhé, lần sau mình sẽ gói thêm lớp chống sốc"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, vết xước nhỏ đó mình có ghi trong mô tả rồi á, mong b thông cảm"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn, hôm đó mình bận nên nhận hơi trễ, xin lỗi b nha"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Tks b, lần sau mình phản hồi tin nhắn nhanh hơn"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn đã góp ý thẳng thắn 🙏"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn b đã thông cảm cho mình"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn đã kiên nhẫn chờ nhé"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "cảm ơn b, mình rút kinh nghiệm nha"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn, mình sẽ cố gắng hơn lần sau ạ"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Dạ cảm ơn, mình cũng mong giao dịch suôn sẻ hơn lần tới"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, pin đúng là có chai chút, mình đã ghi % pin trong tin rồi"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn b, hộp hơi móp do vận chuyển, máy bên trong vẫn ổn là mừng"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Tks bạn, chúc bạn một tuần làm việc hiệu quả"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn nhiều, rất vui vì gặp người dễ thương"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn b, mình lưu b lại để lần sau giao dịch tiếp"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "❤️ cảm ơn b"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn nhé! 👍"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "thanks nha 🙌"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn đã khen, mình ngại quá hihi"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn bạn, tiện thì giới thiệu bạn bè giúp mình nha"
+  },
+  {
+   "context": "positive",
+   "role": "any",
+   "text": "Cảm ơn b đã đánh giá chi tiết như vậy"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn, mình test kỹ trước khi gửi nên yên tâm nha"
+  },
+  {
+   "context": "positive",
+   "role": "seller",
+   "text": "Cảm ơn bạn đã đồng kiểm, có gì mình luôn sẵn sàng hỗ trợ"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn b, mình rất thích món đồ này"
+  },
+  {
+   "context": "positive",
+   "role": "buyer",
+   "text": "Cảm ơn bạn, bạn gói hàng kỹ quá trời"
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi vì ship lâu, đợt đó bên vận chuyển bị dồn đơn nên chậm mấy ngày."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Xin lỗi b nha, vết trầy đó mình có chụp trong ảnh thứ 3 rồi á, chắc b chưa để ý."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình rất tiếc vì b không hài lòng. Máy lúc gửi đi mình đã test đầy đủ, có quay video đóng gói, b cần mình gửi lại nhé."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Dạ xin lỗi bạn, mình đo size theo cách khác nên bị lệch, lần sau mình sẽ ghi số đo cụ thể hơn."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi, hộp bị móp là do vận chuyển, mình đã gói 2 lớp xốp rồi. Mình sẽ báo bên ship giúp b."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình hiểu cảm giác của b. Pin mình ghi là 82% đúng như lúc chụp, dùng lâu có thể tụt thêm chút. Mong b thông cảm."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Xin lỗi b vì trả lời tin nhắn chậm, mấy hôm đó mình đi công tác."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi nha. B có thể mở yêu cầu hỗ trợ trên app để bên sàn xem giúp, mình sẵn sàng phối hợp."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình đã ghi rõ là đồ cũ đã qua sử dụng, có vài vết xước nhỏ. Tiếc là b không ưng, mình xin lỗi."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi vì thiếu dây sạc, mình sẽ gửi bổ sung cho b trong tuần này nhé."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Dạ màu ngoài thực tế hơi khác ảnh do đèn chụp, mình xin lỗi b, lần sau mình chụp ánh sáng tự nhiên."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Xin lỗi b, hôm đó mình gửi hàng trễ 1 ngày vì bị ốm. Mong b bỏ qua."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình tiếc vì b chưa hài lòng. Lúc giao b đã đồng kiểm và nhận hàng rồi, nếu có lỗi phát sinh sau đó b nhắn mình xem cách xử lý nhé."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "xin loi b nha, minh se goi hang ky hon lan sau"
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi, xe có tiếng kêu nhỏ là do lâu không đi, thay nhớt là hết. Có gì b nhắn mình chỉ chỗ sửa quen."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi vì mô tả chưa kỹ, mình đã sửa lại tin cho người sau."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình hiểu, b cần đổi trả thì nhắn mình trong app nhé, mình sẽ hỗ trợ."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Bàn bị lỏng ốc do tháo ra vận chuyển, b siết lại giúp mình nha, mình xin lỗi vì không ghi chú trước."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Dạ mình xin lỗi, laptop bị lỗi phím đó mình không phát hiện ra khi test. Mình gửi lại b một phần tiền được không?"
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi b nhiều. Đợt đó bên ship giao nhầm địa chỉ nên mới trễ, mình cũng đã khiếu nại giúp b rồi."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi vì đóng gói chưa kỹ. Rút kinh nghiệm lần sau ạ."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi vì b phải chờ, mình đã gửi ngay khi có xe ship lấy hàng."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Dạ quần áo mình đã giặt sạch trước khi gửi, mùi chắc do túi đóng gói kín lâu, b phơi gió giúp mình nhé. Xin lỗi b."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình rất tiếc. Mình đã hỏi kỹ b về size trước khi chốt, nếu không vừa b có thể đăng bán lại, mình hỗ trợ ảnh nếu cần."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Màn có ám nhẹ mình có ghi trong tin rồi b ơi. Dù sao cũng xin lỗi vì làm b không vui."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi, mình sẽ cẩn thận hơn khi kiểm tra đồ trước khi gửi."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Cảm ơn b đã phản hồi thật. Mình xin lỗi và đã liên hệ b để xử lý rồi nha."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình đã nhắn b để hoàn tiền phần phụ kiện thiếu, mong b kiểm tra tin nhắn giúp mình."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Xin lỗi bạn, ảnh mình chụp từ trước nên giờ tình trạng có cũ hơn chút, lẽ ra mình phải chụp lại."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi vì giá ship cao, do món hàng cồng kềnh nên bên vận chuyển tính vậy."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi vì hôm đó không nhận được hàng, mình đi làm về trễ nên lỡ cuộc gọi của shipper."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Xin lỗi bạn, mình đã hẹn rồi mà có việc gấp ở nhà nên không tới được, lẽ ra mình phải báo sớm hơn."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi vì trả giá sau khi đã chốt, lúc đó mình chưa tính kỹ. Rút kinh nghiệm ạ."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Dạ mình không cố ý bom hàng, đợt đó mình về quê đột xuất và đã nhắn b mà chắc b chưa đọc. Xin lỗi b."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi vì phản hồi chậm, mấy hôm đó mình bận thi."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình từ chối nhận vì hàng khác mô tả khá nhiều khi đồng kiểm, mình đã chụp ảnh lại. Mong b thông cảm."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Xin lỗi b, mình nhập sai số nhà nên shipper giao vòng lại, mình sẽ ghi kỹ hơn."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi vì hỏi nhiều, tại lần đầu mua đồ cũ nên hơi lo."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Hôm đó shipper gọi lúc mình đang họp, mình đã gọi lại mà không được. Xin lỗi b vì làm b phải chờ."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "xin loi b, minh se nhan hang dung hen hon lan sau"
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi, mình hủy vì người nhà đã mua món tương tự trước đó. Lẽ ra mình nên hỏi kỹ ở nhà trước khi chốt."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi b vì trễ hẹn 30 phút, kẹt xe quá trời."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Dạ mình có trả giá nhưng không có ý ép b đâu, nếu làm b khó chịu thì mình xin lỗi nha."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi, lần sau mình sẽ xác nhận đã nhận hàng sớm hơn."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi vì đổi địa chỉ phút chót, làm b mất công gửi lại."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình xin lỗi vì trải nghiệm không tốt, mình sẽ rút kinh nghiệm."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Cảm ơn b đã góp ý, mình xin lỗi vì sự bất tiện."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình xin lỗi b, có gì mình nhắn riêng để giải quyết cho rõ nhé."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình tiếc vì giao dịch không như mong đợi. Chúc b tìm được món ưng ý hơn."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Xin lỗi bạn nhé, lỗi do mình chưa trao đổi kỹ."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình ghi nhận và xin lỗi b. Lần sau mình sẽ báo sớm nếu có thay đổi."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình hiểu b bực, mình cũng không muốn như vậy. Xin lỗi b nhiều."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình đã nhắn b qua chat để nói rõ, mong b xem giúp mình."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình xin lỗi, đợt đó nhà mình có việc nên mọi thứ bị chậm."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Dạ mình xin lỗi, mình sẽ cẩn thận hơn ạ 🙏"
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "xin lỗi b nha 😔"
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình xin lỗi vì không trả lời tin nhắn kịp, điện thoại mình bị hư mấy hôm."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình có giải thích trong chat rồi, nhưng vẫn xin lỗi b vì làm b mất thời gian."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình tôn trọng đánh giá của b. Mình đã cố gắng hết sức, có thể mình chưa khéo, xin lỗi b."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình xin lỗi, chuyện hiểu lầm thôi b ạ, mong b bỏ qua."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Cảm ơn b đã nói thẳng, mình sẽ sửa."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình xin lỗi vì làm b chờ lâu. Mong b thông cảm cho mình lần này."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Dạ mình biết lỗi rồi ạ, lần sau mình sẽ báo trước."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình rất tiếc. Mình vẫn muốn giải quyết cho b, b nhắn mình nhé."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Xin lỗi b, mình có nhờ người nhà nhận/gửi giúp nên bị nhầm lẫn chút."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi, máy bị treo là do bản cập nhật mới, b reset giúp mình thử nha, nếu vẫn lỗi mình hỗ trợ."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Dạ mình xin lỗi, xe đạp mình đã bơm bánh trước khi gửi nhưng đi đường xa nên xẹp chút."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi vì hàng tới trễ dịp lễ, bên vận chuyển nghỉ mấy ngày."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi, đồ chơi thiếu 1 mảnh nhỏ, mình tìm được rồi và gửi bù cho b nhé."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Xin lỗi b, giày mình đã vệ sinh rồi nhưng đế cũ nên hơi ố, mình có ghi là đã qua sử dụng."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi vì nệm khác màu ảnh chút xíu, do mình chụp buổi tối."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình hoàn lại b tiền ship rồi nha, xin lỗi b vì sự cố."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi b, mình đã thanh toán ngay khi nhận nhưng app báo chậm."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi, tai nghe bị rè một bên là mình không biết trước, b gửi lại mình hoàn tiền nhé."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Dạ mình hiểu, lẽ ra mình nên ghi là máy đã thay pin, mình xin lỗi b."
+  },
+  {
+   "context": "negative",
+   "role": "seller",
+   "text": "Mình xin lỗi vì hẹn giao rồi lại dời, hôm đó xe mình bị hư giữa đường."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Mình rất tiếc vì giao dịch lần này không vui. Mình đã sửa cách làm để không lặp lại."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "Xin lỗi b, lỗi là ở mình. Cảm ơn b vẫn hoàn tất giao dịch."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi vì đến trễ mà không báo, điện thoại mình hết pin giữa đường."
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình xin lỗi, mình chốt rồi mới hỏi thêm giá ship nên làm b phiền."
+  },
+  {
+   "context": "negative",
+   "role": "any",
+   "text": "minh xin loi nha, lan sau se bao som hon"
+  },
+  {
+   "context": "negative",
+   "role": "buyer",
+   "text": "Mình không có ý bùng đâu b, mình nhắn hủy trước khi b gửi mà chắc tin nhắn bị trôi. Xin lỗi b."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Mình đã đọc đánh giá của b, cảm ơn b."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Ok b, mình ghi nhận."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Cảm ơn b đã phản hồi."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Dạ mình hiểu ạ."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "ok b"
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Cảm ơn góp ý nhé."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Mình đã xem rồi, cảm ơn bạn."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Dạ vâng, cảm ơn bạn."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Mình hiểu, chúc b mọi điều tốt."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Cảm ơn b, lần sau mình sẽ chú ý hơn."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Mình cũng thấy giao dịch tạm ổn, cảm ơn b."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Ok, cảm ơn b đã dành thời gian."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Dạ, mình sẽ xem lại."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Cam on b da danh gia"
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Mình ghi nhận nhé."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Cảm ơn b. Có gì b cứ nhắn mình."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Dạ, b cần gì thêm cứ nhắn mình nha."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Mình đã nhắn lại b trong chat rồi nhé."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Cảm ơn b đã chia sẻ cảm nhận."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Dạ mình biết rồi, cảm ơn b 🙂"
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Ừ b, mình hiểu ý b."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Cảm ơn b, mỗi người một cảm nhận mà."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Mình tôn trọng ý kiến của b."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Mình sẽ cố gắng hơn."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Thanks b đã góp ý."
+  },
+  {
+   "context": "neutral",
+   "role": "seller",
+   "text": "Đồ cũ nên có vài chỗ không được như mới, mình đã ghi trong tin, cảm ơn b đã thông cảm."
+  },
+  {
+   "context": "neutral",
+   "role": "seller",
+   "text": "Giá mình để đã tính tình trạng máy rồi b ạ, cảm ơn b."
+  },
+  {
+   "context": "neutral",
+   "role": "seller",
+   "text": "Mình gửi đúng như ảnh chụp, có gì b nhắn mình nha."
+  },
+  {
+   "context": "neutral",
+   "role": "seller",
+   "text": "Ship chậm là ngoài ý muốn, cảm ơn b đã chờ."
+  },
+  {
+   "context": "neutral",
+   "role": "seller",
+   "text": "Mình đã ghi rõ size trong mô tả, cảm ơn b đã phản hồi."
+  },
+  {
+   "context": "neutral",
+   "role": "seller",
+   "text": "Cảm ơn b, mình sẽ chụp thêm ảnh chi tiết cho các món sau."
+  },
+  {
+   "context": "neutral",
+   "role": "seller",
+   "text": "Dạ, đồ mình dùng 2 năm nên hao mòn chút là bình thường b ạ."
+  },
+  {
+   "context": "neutral",
+   "role": "buyer",
+   "text": "Mình nhận hàng hơi trễ do đi làm, cảm ơn b đã thông cảm."
+  },
+  {
+   "context": "neutral",
+   "role": "buyer",
+   "text": "Mình hỏi kỹ vì muốn chắc chắn thôi b, cảm ơn b đã trả lời."
+  },
+  {
+   "context": "neutral",
+   "role": "buyer",
+   "text": "Dạ mình có trả giá chút, b không đồng ý thì mình vẫn mua mà."
+  },
+  {
+   "context": "neutral",
+   "role": "buyer",
+   "text": "Cảm ơn b, mình cũng thấy ổn."
+  },
+  {
+   "context": "neutral",
+   "role": "buyer",
+   "text": "Mình đã nhận và xác nhận rồi nhé b."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Mình hiểu, lần sau mình phản hồi sớm hơn."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Dạ cảm ơn b, chúc b may mắn."
+  },
+  {
+   "context": "neutral",
+   "role": "any",
+   "text": "Cảm ơn bạn, mình rút kinh nghiệm."
+  }
+ ]
+}

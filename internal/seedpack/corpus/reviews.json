@@ -1,0 +1,7278 @@
+{
+ "version": 1,
+ "license": "CC0-1.0",
+ "texts": [
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bình thường"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Tạm"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Hẹn trễ gần 1 tiếng"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Trễ hẹn nhiều"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Đổi giờ hẹn 3 lần"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Hẹn tới mấy lần dời"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ép giá hơi nhiều"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Trả giá quá thấp so với giá đăng"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Chốt rồi lại trả giá thêm"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Chốt xong đòi bớt tiếp khi gặp"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Tới nơi mới trả giá lại"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Hỏi rất nhiều, chốt rất lâu"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Chốt mấy ngày mới chuyển tiền"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Nhận hàng chậm, shipper gọi 3 lần"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Shipper phải giao lại 2 lần"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ko bấm xác nhận nhận hàng, phải chờ hệ thống tự xác nhận"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Rep rất chậm"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Nhắn tin hơi cộc"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Nói chuyện hơi khó nghe"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Đòi hỏi nhiều so với đồ cũ"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Mong đồ cũ như đồ mới, hơi khó"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Kiểm hàng quá lâu, giữ shipper gần nửa tiếng"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Nhận hàng rồi chê, nhưng vẫn giữ"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Tạm được"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ko vui lắm"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Giao dịch tạm ổn"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Hẹn tại nhà mà ko có ở nhà, phải quay lại hôm sau"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bạn đòi free ship sau khi đã chốt giá có ship"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bạn yêu cầu gửi thêm ảnh rất nhiều lần rồi mới chốt, mình hiểu bạn cẩn thận nhưng hơi mệt"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ép giá xuống nhiều, mình bán vì cần thanh lý gấp. Bạn nhận hàng ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bạn hẹn qua lấy lúc 7h, mình đợi tới 8h30 mới thấy, nhắn ko trả lời. Cuối cùng vẫn lấy và trả đủ tiền"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Lúc đầu nói chuyện ok, khi gặp lại chê đồ và đòi giảm thêm 100k dù đã xem ảnh, video kỹ. Mình đồng ý cho xong"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bạn nhận hàng nhưng sau đó nhắn đòi trả lại vì ko hợp, đồ ko có lỗi. Mình từ chối, bạn ko nói gì thêm"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Nhận hàng trễ 3 ngày, bên ship suýt hoàn"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Suýt bị hoàn đơn vì ko nghe máy"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Hơi khó chịu khi trao đổi"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Lúc mua thì nhanh, lúc nhận thì chậm"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Đặt rồi để đó 2 ngày mới thanh toán"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ok nhưng mình ko muốn giao dịch lại lắm"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Trung bình"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "3 sao"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "hoi kho tinh, tre hen"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "ep gia nhieu"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Hẹn ở chỗ đông người, bạn tới trễ và vội"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bạn ko đọc mô tả, hỏi lại mọi thứ"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bạn mặc cả xong còn xin thêm phụ kiện ko có trong tin đăng"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "phones",
+   "text": "Test máy gần 1 tiếng rồi đòi bớt vì pin 88%, mô tả đã ghi rõ"
+  },
+  {
+   "role": "buyer",
+   "stars": 3,
+   "cat": "vehicles",
+   "text": "Chạy thử xe xong đòi giảm mạnh dù đã báo hết tình trạng"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Hẹn rồi không tới, cũng ko báo"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Hẹn 2 lần đều ko tới"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Bom hàng 1 lần, đặt lại mới nhận"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Từ chối nhận lần đầu ko lý do, lần sau mới nhận"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Ép giá quá mức sau khi đã chốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Chốt giá xong tới nơi trả nửa giá"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Mất liên lạc vài ngày sau khi chốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Nhận hàng rồi đòi hoàn tiền dù đồ đúng mô tả"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Kiểm hàng xong đòi giảm giá tại chỗ, ko thì ko nhận"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Đặt COD rồi ko nghe máy, shipper phải hoàn 1 lần"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Nói chuyện thiếu lịch sự khi mình ko đồng ý bớt"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Bạn liên tục đổi ý, lúc lấy lúc không"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Chuyển khoản thiếu, nhắc mãi mới bù"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Hẹn rồi hủy phút chót, mình đã chờ sẵn"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Rất mất thời gian"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Ko muốn giao dịch lại"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Mình đã giữ hàng 3 ngày theo lời hẹn, bạn ko tới và ko trả lời tin nhắn. Hôm thứ 4 mới nhắn xin lỗi và lấy. Cho 2 sao vì cuối cùng vẫn mua"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Đơn COD, bạn từ chối nhận vì \"đổi ý\", mình mất phí ship 2 chiều. Sau đó bạn đặt lại và nhận. Mong bạn cân nhắc kỹ trước khi đặt"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Bạn đồng kiểm rồi từ chối nhận vì một vết xước đã chụp rõ trong tin. Tuần sau đặt lại và nhận. Hơi mệt"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "hen ko toi, ko bao"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "bom hang 1 lan"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Thái độ ko thoải mái khi trao đổi"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Đặt 2 lần hủy 2 lần, lần 3 mới nhận"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Bom hàng"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Bom hàng, ko nghe máy"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Đặt COD rồi bom, mất phí ship 2 chiều"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Hẹn 3 lần ko tới lần nào"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Hẹn rồi không tới, chặn tin nhắn"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Đặt cọc hứa rồi biến mất"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Chốt xong ko nhận hàng, ko lý do"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Từ chối nhận hàng, ko liên lạc được"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Bom hàng, mọi người cẩn thận khi bán COD"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Ko nhận hàng, đơn hoàn về"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Đồng kiểm xong đòi tráo đồ khác, mình ko đồng ý thì bỏ đi"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Nhận hàng rồi báo ko nhận được, may có ảnh giao hàng"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Bạn đặt hàng COD giá trị cao, mình đóng gói gửi đi, đến nơi ko nghe máy 3 lần, đơn bị hoàn. Nhắn thì bạn bảo ko cần nữa. Mình mất phí ship 2 chiều. Mong bạn tôn trọng người bán hơn"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Hẹn gặp trực tiếp, mình đi gần 10km tới thì bạn bảo bận ko ra được, hẹn lại hôm sau cũng vậy"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Nói chuyện thiếu tôn trọng khi mình từ chối bớt giá"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Hủy đơn khi hàng đang giao"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "bom hang, khong nen ban COD"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Ko đúng hẹn, ko nhận hàng"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Trả giá xong ko lấy, lặp lại nhiều lần"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Bỏ đơn sau khi mình đã gửi"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ok, hẹn trễ chút"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Tới trễ 15p nhưng có báo"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Trễ hẹn xíu, còn lại ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hỏi hơi nhiều nhưng chốt nhanh"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hỏi kỹ quá, nhưng mua là mua"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Trả giá hơi sâu nhưng lịch sự"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Trả giá nhiều lần mới chốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mặc cả hơi lâu"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Chốt hơi lâu nhưng ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Phân vân mấy ngày mới chốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ok bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Tạm ổn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ổn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Khá ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ok, rep hơi chậm"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Rep chậm, nhưng nhận hàng ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn quên xác nhận đã nhận hàng, nhắc mới bấm"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nhắc mấy lần mới bấm đã nhận"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nhận hàng chậm 1 ngày do bận"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Shipper gọi 2 lần mới nhận"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Lần giao đầu ko nghe máy, lần 2 nhận"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn đổi giờ hẹn 1 lần"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hẹn dời 1 lần, có báo trước"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Kiểm hàng hơi lâu, làm shipper đợi"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồng kiểm kỹ quá, shipper hơi sốt ruột 😅"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ok nha, lần sau đúng giờ hơn nha bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "ok, tre hen chut"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hơi khó tính nhưng hợp lý"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Khó tính xíu nhưng lịch sự"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn hỏi lại mấy thứ đã ghi trong mô tả"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nhiều câu hỏi lắm 😅 nhưng rồi cũng chốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Chốt rồi xin bớt thêm chút, thôi cũng được"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Xin free ship sau khi chốt giá, mình đồng ý"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Xin thêm quà tặng 😂 ok vẫn vui"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nhận hàng ok, ko nhắn gì luôn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ko phản hồi sau khi nhận nhưng giao dịch ổn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ok, hơi im lặng"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn nhắn tin cộc xíu nhưng ko sao"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hơi vội, nói chuyện ngắn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nhìn chung ổn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nói chung ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Giao dịch ổn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mọi thứ ổn, trừ hẹn trễ"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mọi thứ ok trừ việc chốt hơi lâu"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ok, mong lần sau bạn nhận hàng sớm hơn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn đặt rồi bảo đợi lương mới chuyển, vẫn giữ lời"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hẹn chuyển khoản tối mà sáng mới chuyển, ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Chuyển thiếu 10k phí ship, nhắc thì bù liền"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Chuyển thiếu, nhắc là bù, ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đổi địa chỉ nhận sau khi mình gửi, phải nhờ bên ship sửa"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ghi địa chỉ thiếu số nhà, shipper phải gọi hỏi"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ok, nhưng ghi số điện thoại sai 1 số 😅"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hẹn tại chỗ hơi khó tìm nhưng bạn ra đón"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn hẹn chỗ xa so với thỏa thuận ban đầu"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Phải đợi bạn 20 phút"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đợi hơi lâu nhưng bạn xin lỗi"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn xin lỗi vì trễ, ko sao"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nhận hàng ok, đánh giá chậm 😄"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mua ok, chỉ là hỏi giá rồi im 2 hôm mới chốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hỏi rồi lặn, sau đó quay lại chốt 😂"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn ok, mỗi tội rep chậm"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn dễ thương nhưng hơi lề mề"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Dễ chịu, hơi chậm"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ổn áp"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Tạm ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "4 sao"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "4⭐"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "ok bạn ơi"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn trả giá sát quá, nhưng nói chuyện dễ nghe nên mình bán"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mình đồng ý bớt vì bạn là sinh viên, bạn nhận hàng đúng hẹn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn kiểm hàng khá kỹ, hỏi thêm vài điểm nhỏ trước khi nhận. Hơi mất thời gian nhưng hợp lý, cuối cùng nhận và xác nhận đủ"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Lúc đầu bạn trả giá khá thấp, sau thương lượng lại thì chốt giữa chừng. Nhận hàng đúng hẹn, lịch sự. Ổn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn hẹn tới lấy buổi tối, trễ 30 phút do kẹt xe nhưng có nhắn trước. Còn lại mọi thứ ok, trả tiền đủ"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn ok, chỉ hơi khó liên lạc qua điện thoại, nhắn app thì rep. Nhận hàng bình thường"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Khách ổn, nhưng bấm hủy rồi lại đặt lại 1 lần, hơi rối"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đặt nhầm rồi đặt lại, ko sao"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn hỏi kỹ về đổi trả, mình hiểu. Nhận hàng ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đòi xem video thêm mấy lần, ok vẫn chốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ok nhưng mong bạn đọc mô tả trước khi hỏi"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mọi thứ ổn"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Được"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "any",
+   "text": "Dc ban"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "phones",
+   "text": "Test máy hơi lâu, gần 30 phút, nhưng chốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "phones",
+   "text": "Đòi xem pin, imei mấy lần, hợp lý thôi"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "vehicles",
+   "text": "Chạy thử xe hơi xa 😅 nhưng ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "furniture",
+   "text": "Hẹn lấy tủ mà quên mang người phụ, mình phải khiêng cùng 😂"
+  },
+  {
+   "role": "buyer",
+   "stars": 4,
+   "cat": "fashion",
+   "text": "Hỏi size nhiều lần, mua rồi vẫn vừa"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người mua dễ thương"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách dễ thương"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chốt nhanh"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chốt nhanh gọn lẹ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chốt lẹ, nhận hàng đúng hẹn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhận hàng đúng hẹn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhận hàng nhanh, thanh toán đủ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Thanh toán nhanh"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chuyển khoản liền sau khi chốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lịch sự"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn rất lịch sự"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lịch sự, dễ trao đổi"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Dễ thương, ko ép giá"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko ép giá, chốt đúng giá đăng"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Trả giá nhẹ nhàng, dễ chịu"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua bán vui vẻ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách uy tín"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người mua uy tín"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Uy tín 👍"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đúng hẹn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Tới đúng giờ hẹn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hẹn 5h là 5h có mặt, quý ghê"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đến sớm hơn hẹn luôn 😄"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rep nhanh, nhiệt tình"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhắn tin lịch sự, rõ ràng"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hỏi kỹ trước khi mua, mình thích người mua như vậy"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn hỏi kỹ nên ko có hiểu lầm gì"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồng kiểm nhanh, gọn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Kiểm hàng xong nhận luôn, ko làm khó shipper"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhận COD nhanh"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhận COD đúng hẹn, ko bom"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko bom hàng 😆"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko bom, ko hủy, quá tốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách ruột rồi"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách quen, mua lần 3 rồi"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cảm ơn bạn đã ủng hộ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cảm ơn bạn đã mua đồ của mình nha"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mong bạn dùng vui"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mong bạn xài bền nha 🥰"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Thân thiện"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Vui vẻ, hòa đồng"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nói chuyện duyên lắm"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn dễ mến"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người mua tuyệt vời"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "10 điểm cho người mua"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "10/10 khách"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "⭐⭐⭐⭐⭐"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "❤️"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "👍"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "ok ban"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "khach de thuong"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "chot nhanh, nhan hang dung hen"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "lich su, de thuong"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "thanh toan nhanh, uy tin"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giao dịch suôn sẻ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giao dịch êm"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mọi thứ ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ổn hết"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko có gì để chê"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rất hài lòng với người mua này"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hài lòng"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Gặp trực tiếp, bạn tới đúng giờ, xem đồ nhanh, trả tiền gọn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn tới tận nhà lấy, đỡ cho mình phải đi gửi"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn tự qua lấy, quá tiện"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn chịu phí ship luôn, ko kì kèo"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko kì kèo phí ship"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko mặc cả, chốt liền"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mặc cả nhẹ nhàng, hợp lý"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Trả giá hợp lý, mình đồng ý luôn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Trả giá nhưng rất lịch sự"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn hiểu chuyện, biết đồ cũ nên ko đòi hỏi quá"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Biết đồ secondhand nên rất thoải mái"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn đọc kỹ mô tả trước khi hỏi, đỡ mất thời gian cả 2"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đọc kỹ mô tả rồi mới chốt 👏"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhận hàng xong còn nhắn báo đã nhận, cảm ơn bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhận hàng còn chụp ảnh báo, dễ thương ghê"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn còn để lại lời cảm ơn, vui cả ngày"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn mời mình ly cà phê lúc gặp lấy đồ 😂"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hẹn ở quán cà phê, bạn tới trước còn order sẵn nước, quá lịch sự"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn đợi mình 10 phút vì mình trễ, ko phàn nàn gì, cảm ơn nha"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình gửi trễ 1 ngày mà bạn thông cảm, cảm ơn nhiều"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình có sơ suất gói thiếu 1 món, bạn nhắn nhẹ nhàng, mình gửi bù. Cảm ơn bạn đã kiên nhẫn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn rất thoải mái, dễ chịu"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn rất tôn trọng người bán"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko hỏi dồn dập, ko làm phiền"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko hỏi giá rồi im lặng như nhiều người 😅"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hỏi là mua, ko hỏi chơi"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chốt là lấy, uy tín"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nói là làm"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hẹn là tới"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đúng giờ, đúng hẹn, đúng tiền"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Tiền đủ, ko thiếu đồng nào"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chuyển khoản đúng nội dung, dễ đối soát"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhận hàng xong xác nhận trên app liền"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn bấm xác nhận đã nhận hàng ngay, cảm ơn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người mua có tâm"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách có tâm"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách xịn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rất vui được bán cho bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Vui khi đồ cũ của mình có người dùng tiếp"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Món này mình quý, vui vì bạn cũng quý nó"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Thấy bạn thích món đồ mình cũng vui lây"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chúc bạn dùng vui vẻ nha"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chúc bạn học tốt với cái máy nha 😄"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chúc bé nhà bạn mau lớn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chúc bạn ở nhà mới vui"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn chốt lúc khuya mà sáng ra chuyển khoản liền, quá uy tín"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người mua nhanh nhẹn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhanh gọn, dễ chịu"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Dễ trao đổi"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Trao đổi dễ, ko nhiều yêu cầu"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn mua mà còn giới thiệu bạn bè qua mua tiếp"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giới thiệu khách cho mình luôn, cảm ơn nhiều"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Sẽ ưu tiên bạn nếu có đồ mới"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Có đồ mới mình nhắn bạn liền"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rất mong được giao dịch lại"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hy vọng gặp lại bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ok bạn nha"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "oke bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "okela"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Good buyer 👍"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nice"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khach ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "nguoi mua uy tin, nen ban"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "de thuong, chot nhanh"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cảm ơn bạn ❤️"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cảm ơn nha 😊"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Thanks ban"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn rất hiểu chuyện, mình ghi nhầm kích thước bạn cũng thông cảm"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn mua nhiều món một lúc, chốt nhanh, gọn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Gom đơn nhiều món, trả đủ, ko kì kèo"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn đến lấy hàng còn phụ mình khiêng ra xe 😄"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn chở cả xe ba gác tới lấy tủ, quá chuyên nghiệp 😂"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đến lấy đồ nặng mà bạn rủ thêm người, chu đáo"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hẹn lấy đồ buổi trưa nắng mà bạn vẫn tới đúng giờ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Trời mưa mà bạn vẫn qua lấy đúng hẹn, cảm ơn nha"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn mở hàng kiểm trước mặt mình, xong cảm ơn rồi đi, rất văn minh"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Kiểm hàng kỹ nhưng nhanh, ko làm khó"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn test máy kỹ, hợp lý, mình cũng yên tâm"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ok bạn, mua bán vui vẻ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lần sau mua tiếp nha bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn ơi có đồ mới mình báo nha"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách lịch sự nhất mình từng gặp trên app"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ít khi gặp người mua dễ thương vậy"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người mua chuẩn mực"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko phàn nàn gì"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mọi thứ trơn tru"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Trơn tru từ lúc hỏi tới lúc nhận"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hỏi buổi sáng, chiều đã chốt, tối nhận hàng. Nhanh ghê"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn ở xa nhưng nhận hàng đúng hẹn, ko để shipper đợi"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Shipper khen bạn nhận hàng nhanh 😂"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko để shipper gọi lần 2"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nghe máy shipper liền"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình ghi nhầm địa chỉ bạn còn nhắc, cảm ơn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn nhắc mình gửi mã vận đơn, rất rõ ràng"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rõ ràng, minh bạch"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Dễ thương hết sức"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hiền 😄"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách hiền, nói chuyện nhỏ nhẹ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nói chuyện lễ phép"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Em sinh viên dễ thương, chúc em học tốt"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cô chú mua đồ mà nói chuyện dễ thương quá"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Anh mua nhiệt tình, chốt nhanh"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chị mua vui vẻ, dễ tính"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mẹ bỉm dễ thương, chốt lẹ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người mua rất ok. Hỏi vài câu về tình trạng, xem thêm ảnh rồi chốt luôn, chuyển khoản ngay. Nhận hàng xong còn nhắn báo đồ đúng như mô tả. Mong có thêm nhiều người mua như bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình bán đồ lâu rồi mà ít gặp người mua thoải mái vậy. Bạn hẹn qua lấy, tới đúng giờ, kiểm hàng nhanh và trả tiền đầy đủ. Còn cảm ơn mình nữa. 5 sao xứng đáng"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ban dat hang luc nua dem, sang ra minh gui, chieu ban nhan va xac nhan lien. Nhanh gon uy tin, cam on ban"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn trả giá một lần, mình đồng ý, bạn chốt liền không đổi ý. Giao COD, bạn đồng kiểm nhanh rồi nhận. Không có gì để chê"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lúc đầu mình hơi lo vì đơn COD giá cao, nhưng bạn nhận hàng đúng hẹn, kiểm kỹ, xác nhận ngay. Người mua rất uy tín, mọi người yên tâm bán cho bạn này nhé"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn hỏi đúng trọng tâm, không vòng vo, không hỏi lại những gì đã ghi trong mô tả. Hẹn giờ nào tới giờ đó. Giao dịch nhanh nhất mình từng có 😄"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ cồng kềnh nên mình lo vụ vận chuyển, bạn tự thuê xe tải nhỏ tới chở, còn mang theo dây buộc. Rất chu đáo và đúng hẹn. Cảm ơn bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người mua dễ thương, mình gửi nhầm màu bạn vẫn nhắn nhẹ nhàng, chờ mình gửi lại, ko hề cáu. Cảm ơn bạn rất nhiều vì đã thông cảm"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn hỏi mua cho mẹ nên hỏi rất kỹ cách dùng, mình hướng dẫn qua video call. Bạn cảm ơn rối rít, dễ thương ghê"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chốt đơn nhanh, nhận hàng đúng hẹn, xác nhận trên app ngay. Người mua lý tưởng"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách uy tín, chuyển cọc trước rồi mới hẹn lấy"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn đặt cọc trước, giữ đúng hẹn qua lấy"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cọc trước, lấy đúng hẹn, ko đổi ý"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn gom tiền lẻ đưa đủ, còn hỏi có cần đổi tiền ko 😂"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Bạn test máy kỹ mà nhanh, lịch sự"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Bạn mang theo sim với sạc dự phòng để test, chuyên nghiệp ghê"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Kiểm máy kỹ nhưng ko soi mói, dễ chịu"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Bạn test laptop đúng các phần mềm cần dùng, nhanh gọn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Tới lấy máy còn mang túi chống sốc theo, quý ghê"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Bạn chạy thử xe cẩn thận, sang tên nhanh, đúng hẹn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Đi công chứng sang tên đúng giờ, giấy tờ chuẩn bị sẵn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Tới lấy tủ đúng giờ, có người phụ khiêng, ko làm trầy tường nhà mình"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Mẹ bé dễ thương, mua đồ cho bé chốt lẹ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Bạn hỏi số đo kỹ trước khi mua nên ko phải đổi trả"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Hỏi size kỹ, chốt nhanh"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn hẹn 3h tới 2h55 😆"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách quá ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ok lắm nha bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người mua chuẩn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Uy tín ko cần bàn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rất đáng tin"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách đáng tin cậy"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đáng tin"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đúng hẹn, lịch sự"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chốt lẹ ko lăn tăn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko lăn tăn, chốt liền"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn quyết đoán, mình thích"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn dễ tính ghê"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Dễ tính, vui vẻ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bán cho bạn rất yên tâm"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Yên tâm 100%"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn còn hỏi thăm mình chuyển nhà ổn ko, dễ thương quá"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Thanh toán qua app nhanh, ko vấn đề gì"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhận hàng đúng ngày, xác nhận liền"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn nhận đơn ngay lần giao đầu tiên"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Shipper giao 1 lần là nhận"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "nhan hang lan dau luon, ok"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "khach quen, uy tin"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cam on ban nhieu nha"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chúc bạn một ngày vui 🌻"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình rất quý người mua như bạn"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn ít nói nhưng làm việc gọn gàng"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hỏi ít, chốt nhanh, trả đủ"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người mua văn minh"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rất vui khi giao dịch với bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Xe đẩy còn mới, gấp mở dễ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Đồ bé dùng ít, còn rất mới"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Quần áo em bé sạch thơm, giặt sẵn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Mẹ bé bán đồ có tâm, đồ sạch sẽ lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Bé nhà mình mặc vừa, cảm ơn mẹ nhé 🥰"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Ghế ăn dặm chắc chắn, dễ vệ sinh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Nôi còn đẹp, ko mùi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Đồ chơi đủ chi tiết, bé thích mê"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Bé chơi suốt ko rời 😆"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Máy hâm sữa ok, chạy tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Bình sữa mới chưa dùng, còn hộp"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Bạn tiệt trùng đồ trước khi gửi, quá chu đáo"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Địu em bé còn tốt, khóa chắc"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Mẹ bỉm thanh lý mà gói kỹ như mới"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Ghế ngồi ô tô cho bé còn đẹp, đủ dây"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "xe tap di cho be ok, be thich lam"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Bé mau lớn nên đồ còn mới tinh, mình được lời 😄"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Sách vải cho bé đẹp, ko rách"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Mua cho cháu, chị gái khen đồ sạch"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Cảm ơn mẹ nó tặng thêm mấy bộ đồ sơ sinh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "baby",
+   "text": "Mình mua xe đẩy và ghế ăn của mẹ bé thanh lý. Đồ vệ sinh rất sạch, các khớp gấp bạn tra dầu sẵn, có cả hướng dẫn. Giá chỉ bằng 1/3 đồ mới. Cảm ơn mẹ nhé, chúc bé nhà mình khỏe"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "baby",
+   "text": "Xe đẩy ok, bánh xe hơi kêu"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "baby",
+   "text": "Quần áo có 1 bộ hơi ố cổ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "baby",
+   "text": "Đồ chơi thiếu 1 miếng nhỏ, bé vẫn chơi được"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "baby",
+   "text": "Ghế ăn có vết trầy nhỏ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "baby",
+   "text": "Nôi ok, đệm hơi xẹp"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "baby",
+   "text": "Size đồ hơi nhỏ so với tuổi ghi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "baby",
+   "text": "Bình sữa ok, hộp hơi móp"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "baby",
+   "text": "Đồ ok, ship hơi lâu"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "baby",
+   "text": "Đồ chơi thiếu khá nhiều chi tiết"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "baby",
+   "text": "Quần áo có vết ố ko giặt ra"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "baby",
+   "text": "Xe đẩy khóa gấp hơi khó dùng"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "baby",
+   "text": "Đồ có mùi nhà kho, phải giặt lại hết"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "baby",
+   "text": "Size ghi 6-12 tháng mà nhỏ như sơ sinh"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "baby",
+   "text": "Ghế ăn gãy chốt khóa, ko an toàn cho bé, bạn chưa nói"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "baby",
+   "text": "Xe đẩy phanh ko ăn, mình ko dám cho bé ngồi"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "baby",
+   "text": "Máy hâm sữa ko nóng, nhắn bạn ko trả lời"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "baby",
+   "text": "Đồ bé bẩn, mốc, ko dùng được"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Áo đẹp, đúng size"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Đúng size, mặc vừa in"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Size chuẩn như bạn đo giùm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Bạn đo số đo kỹ giùm, mặc vừa khít"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Váy xinh xỉu 😍"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Đồ thơm, giặt sạch sẵn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Giày còn mới, đế chưa mòn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Giày đi êm, đúng size 40"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Túi còn đẹp, ko bong tróc"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Túi đẹp, quai chắc, bên trong sạch"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Vải dày dặn, form đẹp"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Áo khoác ấm, còn mới 90%"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Đồ pass mà như mới mua"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Mặc 1 lần thật, còn tag luôn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Còn nguyên tag 🏷️"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Bạn ủi phẳng rồi gấp gọn gửi, dễ thương"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Màu y hình, ko lệch"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "mặc lên đẹp lắm bạn ơi, cảm ơn nha"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "quan jean form dep, dung size"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Đầm dự tiệc mặc 1 lần mà bạn để giá rẻ quá"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "fashion",
+   "text": "Mình mua 5 món đồ bạn pass, món nào cũng sạch, thơm, gấp gọn và có ghi size trên giấy. Mặc đều vừa. Sẽ theo dõi để mua tiếp"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "fashion",
+   "text": "Áo đẹp nhưng hơi rộng so với size ghi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "fashion",
+   "text": "Size hơi nhỏ xíu, vẫn mặc được"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "fashion",
+   "text": "Màu ngoài nhạt hơn ảnh"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "fashion",
+   "text": "Có 1 vết ố nhỏ ở tay áo, giặt mờ rồi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "fashion",
+   "text": "Giày có mùi nhẹ, phơi là hết"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "fashion",
+   "text": "Vải hơi xù lông nhẹ ở nách"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "fashion",
+   "text": "Túi có vết xước nhỏ ở khóa"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "fashion",
+   "text": "Đồ ok, gói hơi nhăn"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "fashion",
+   "text": "Size ghi M mà form như S"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "fashion",
+   "text": "Áo bị xù nhiều hơn ảnh"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "fashion",
+   "text": "Giày mòn đế hơn mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "fashion",
+   "text": "Có vết ố ko thấy trong ảnh"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "fashion",
+   "text": "Màu khác ảnh khá nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "fashion",
+   "text": "Áo bị rách đường may ở nách, ko được báo trước"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "fashion",
+   "text": "Đồ có mùi ẩm nặng, giặt 3 lần mới đỡ"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "fashion",
+   "text": "Gửi sai size, nhắn đổi ko được hỗ trợ"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "fashion",
+   "text": "Giày bị bong keo cả 2 chiếc, mô tả ghi còn tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Bàn chắc chắn, gỗ đẹp"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Ghế ngồi êm, chân ko lung lay"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Tủ còn mới, cửa đóng mở êm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Sofa sạch, ko rách, ko mùi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Bạn tháo rời đóng gói kỹ, có cả ốc vít đủ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Có hướng dẫn lắp ráp, ráp 15p xong"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Bạn chở tận nhà, còn khiêng lên lầu 3 giúp 🥹"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Kệ sách vừa chỗ, đúng kích thước"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Đúng kích thước như bạn đo"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Giường chắc, ko kêu cót két"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Nệm sạch, bạn vệ sinh rồi mới giao"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Bàn làm việc vừa góc phòng, cảm ơn bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Gỗ thật, nặng tay, giá vậy là rẻ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Thanh lý chuyển nhà nên giá quá tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Bàn ăn 4 ghế còn đẹp, cả nhà thích"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "ghe van phong ngoi em, ngả lưng ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Kệ tivi đẹp, ko mối mọt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Bạn còn cho thêm mấy cái móc treo 😄"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Tủ quần áo nặng mà bạn cùng mình bê lên xe tải nhỏ, quá nhiệt tình"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "furniture",
+   "text": "Mua bộ bàn ghế học cho con. Bạn chụp ảnh từng góc, đo kích thước cụ thể nên mình biết chắc vừa phòng. Lúc giao bạn còn lắp sẵn, vặn ốc chặt. Mọi thứ đúng mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "furniture",
+   "text": "Bàn có vết trầy mặt bàn, lấy khăn trải là ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "furniture",
+   "text": "Ghế hơi kêu khi xoay"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "furniture",
+   "text": "Tủ ok, thiếu 1 tay nắm"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "furniture",
+   "text": "Sofa có vết bạc màu 1 chỗ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "furniture",
+   "text": "Kệ hơi lệch, chỉnh lại ốc là xong"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "furniture",
+   "text": "Ok nhưng phải tự thuê xe chở, hơi cực"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "furniture",
+   "text": "Giường ok, thiếu 2 con ốc"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "furniture",
+   "text": "Mặt kính bàn có vết xước nhẹ"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "furniture",
+   "text": "Ghế lung lay nhiều hơn mình nghĩ"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "furniture",
+   "text": "Kích thước thực tế nhỏ hơn mô tả vài cm"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "furniture",
+   "text": "Có mùi ẩm, chắc để kho lâu"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "furniture",
+   "text": "Sofa có vết bẩn lâu ngày ko giặt được"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "furniture",
+   "text": "Tủ có dấu mối ở chân sau"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "furniture",
+   "text": "Bàn bị nứt chân, ảnh ko thấy, bạn bảo do vận chuyển"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "furniture",
+   "text": "Nệm có vết ố lớn, mô tả ghi sạch"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "furniture",
+   "text": "Tủ có mọt nặng, phải bỏ"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "furniture",
+   "text": "Hẹn giao 3 lần đều hoãn, cuối cùng hủy"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Nồi chiên còn mới, chạy tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Quạt chạy êm, ko kêu"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Máy xay ok, lưỡi còn bén"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Nồi cơm nấu ngon, lòng nồi ko tróc"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Lòng nồi chưa trầy, xài ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Bạn test máy trước khi gửi, có video"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Đồ gia dụng còn mới tinh, chưa dùng mấy"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Bộ chén bát đẹp, ko mẻ cái nào"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Gói từng cái chén bằng giấy báo, ko vỡ cái nào 👏"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Máy lọc không khí chạy êm, màng lọc mới thay"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Đèn bàn đẹp, sáng tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Nồi lẩu điện ok, cả nhà dùng ngay tối đó"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Bếp từ còn đẹp, mặt kính ko trầy"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Ấm siêu tốc đun nhanh, sạch sẽ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "quat dung ok, ship nhanh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Rèm cửa giặt sạch, thơm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Mua hộp đựng đồ thanh lý, còn mới 100%"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Máy hút bụi lực hút mạnh, pin ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Ổ cắm, dây điện còn tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Bạn để lại cả sách hướng dẫn và phiếu bảo hành"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "home",
+   "text": "Mua nồi chiên không dầu của bạn thanh lý trước khi chuyển nhà, dùng 2 tuần rồi vẫn ok. Bạn còn chỉ cách nướng bánh mì 😂 Cảm ơn và chúc bạn ở nhà mới vui nha"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "home",
+   "text": "Quạt chạy ok, hơi kêu ở số 3"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "home",
+   "text": "Nồi cơm ok, nắp hơi lỏng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "home",
+   "text": "Chén có 1 cái mẻ nhỏ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "home",
+   "text": "Máy chạy tốt, vỏ hơi ố vàng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "home",
+   "text": "Thiếu dây nguồn phụ, may nhà có"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "home",
+   "text": "Lòng nồi có vài vết xước"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "home",
+   "text": "Máy hút bụi pin yếu hơn mô tả chút"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "home",
+   "text": "Đồ tốt, gói hơi sơ"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "home",
+   "text": "Máy xay kêu to hơn bình thường"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "home",
+   "text": "Quạt chạy được nhưng rung"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "home",
+   "text": "Nồi chiên có mùi khét lúc đầu"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "home",
+   "text": "Thiếu phụ kiện như mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "home",
+   "text": "Có 2 cái ly bị nứt chân chim"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "home",
+   "text": "Máy dùng 3 ngày thì không lên nữa"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "home",
+   "text": "Bếp từ báo lỗi liên tục, mô tả ghi hoạt động tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "home",
+   "text": "Đóng gói sơ sài, vỡ gần hết bộ chén"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "home",
+   "text": "Máy ko chạy ngay từ đầu, bạn ko phản hồi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Máy chạy êm, pin còn tầm 4 tiếng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Laptop đẹp, bàn phím ko bóng mờ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Máy mát, quạt êm, đã vệ sinh tra keo mới"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Bạn vệ sinh máy sạch sẽ trước khi giao"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Màn ko điểm chết, ko hở sáng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Ram ssd đúng cấu hình như mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Cài sẵn win bản quyền + office, quá chu đáo"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Máy để học + làm văn phòng mượt mà"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Bạn cho test cả buổi, chạy thử phần mềm mình cần, ok hết"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "laptop ngon, bản lề chắc"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Máy mỏng nhẹ, vỏ nhôm còn đẹp"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Có túi chống sốc + sạc zin"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Sạc zin, pin chai ít, ok giá này"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Mua cho em đi học, máy chạy ok lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Máy xài lướt, chưa sửa chữa gì"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Cấu hình đúng, bạn còn gửi ảnh chụp thông số trước"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Gói hàng cực kỹ, 2 lớp xốp + thùng carton"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Bàn phím có đèn, phím nảy êm, còn đẹp"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Máy đồ họa nhẹ ok, render video ko nóng lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Bạn hướng dẫn kỹ cách nâng cấp ram sau này"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "laptop",
+   "text": "Laptop mình mua về làm đồ án, mọi thứ chạy ổn sau 2 tuần. Bạn đã xóa dữ liệu cũ, cài lại win sạch, còn để lại vài phần mềm miễn phí hay dùng. Rất có tâm"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "laptop",
+   "text": "Máy ok, pin chỉ được 2 tiếng hơn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "laptop",
+   "text": "Pin hơi yếu nhưng cắm sạc xài thì ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "laptop",
+   "text": "Có vết trầy ở nắp lưng, chấp nhận"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "laptop",
+   "text": "Quạt hơi ồn khi chạy nặng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "laptop",
+   "text": "Phím có vài nút bóng, ko ảnh hưởng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "laptop",
+   "text": "Máy ok, sạc ko phải zin như bạn nói trước"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "laptop",
+   "text": "Laptop ổn, ship lâu 4 ngày"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "laptop",
+   "text": "Máy mượt nhưng loa hơi nhỏ"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "laptop",
+   "text": "Màn có 1 điểm sáng nhỏ, mô tả ko nhắc"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "laptop",
+   "text": "Bản lề hơi lỏng, mở ra hay bị ngả"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "laptop",
+   "text": "Pin báo chai nhiều hơn mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "laptop",
+   "text": "Máy chạy ổn nhưng nóng, chắc chưa vệ sinh lâu"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "laptop",
+   "text": "Bàn phím có 2 phím hơi kẹt"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "laptop",
+   "text": "Ổ cứng ghi ssd 512 mà máy chỉ 256, bạn bảo nhầm, có bù ít tiền"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "laptop",
+   "text": "Máy hay tự tắt khi chạy lâu, mô tả ghi hoạt động ổn định"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "laptop",
+   "text": "Máy ko lên màn hình sau 2 ngày, bạn bảo lúc giao vẫn chạy và ko hỗ trợ"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "laptop",
+   "text": "Cấu hình khác hoàn toàn với mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Sách còn mới, ko ghi chú"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Sách sạch, ko ố vàng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Truyện đủ bộ, bọc bìa cẩn thận"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Đàn guitar còn đẹp, cần thẳng, âm hay"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Đàn bạn chỉnh dây sẵn, gửi kèm capo"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Máy ảnh chụp ok, cảm biến sạch"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Ống kính ko mốc, ko rơ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Mô hình đủ phụ kiện, hộp còn đẹp"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Tay cầm chơi game còn nhạy, ko drift"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Máy game đủ phụ kiện, tặng thêm đĩa"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Cây cảnh khỏe, gói chậu kỹ ko đổ đất"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Bút ký còn đẹp, mực ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Đồng hồ chạy đúng, dây còn mới"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Tai nghe nghe hay, pin còn tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Loa kêu to, bass ấm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Đồ sưu tầm hiếm, bạn gói kỹ như đồ cổ 😄"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Tem bạn bỏ bìa nilon từng cái, dân chơi có khác"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Mua sách giáo trình cũ giá rẻ, đỡ bao nhiêu tiền"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "sach dep, ship nhanh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Board game đủ quân, ko thiếu thẻ nào"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "other",
+   "text": "Mua cây đàn cũ của bạn để tập. Bạn chỉ cách lên dây, gửi link bài tập cơ bản, còn tặng kèm bao đàn. Đàn còn rất tốt so với giá. Cảm ơn bạn nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "other",
+   "text": "Sách có vài trang gấp góc"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "other",
+   "text": "Đàn hơi rè dây 6, chỉnh lại là ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "other",
+   "text": "Máy ảnh có xước thân, chụp ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "other",
+   "text": "Tai nghe pin yếu hơn mô tả chút"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "other",
+   "text": "Truyện thiếu 1 tập, bạn bớt tiền"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "other",
+   "text": "Mô hình thiếu 1 phụ kiện nhỏ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "other",
+   "text": "Cây hơi héo do ship lâu, tưới là tươi lại"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "other",
+   "text": "Loa ok, có tiếng rè nhẹ khi to"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "other",
+   "text": "Sách ố vàng nhiều hơn ảnh"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "other",
+   "text": "Ống kính có mốc nhẹ chưa được nói"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "other",
+   "text": "Tay cầm hơi drift"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "other",
+   "text": "Đàn cong cần nhẹ, phải chỉnh"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "other",
+   "text": "Cây bị gãy cành khi nhận"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "other",
+   "text": "Máy ảnh lỗi màn trập, mô tả ghi chụp tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "other",
+   "text": "Truyện thiếu 3 tập mà ghi đủ bộ"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "other",
+   "text": "Tai nghe 1 bên ko kêu, bạn ko hỗ trợ"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "other",
+   "text": "Sách photo mà ghi sách gốc"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Máy đẹp, pin còn 89% như mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Pin trâu, máy zin ko lỗi lầm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Máy zin chưa bung, ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "may zin, pin con ngon"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Máy đẹp keng, ko 1 vết xước"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Máy đẹp như mới, có dán cường lực sẵn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Bạn tặng kèm ốp với cường lực, cảm ơn nha"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Máy chạy mượt, face id ok, loa ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Test hết chức năng đều ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Đã test sóng, camera, loa, mic đều ngon"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Máy quốc tế, lắp sim nhận liền"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Pin 91% đúng như ảnh chụp, máy mượt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Màn zin ko ám, ko sọc"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Màn đẹp, ko điểm chết"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Có sạc + cáp zin kèm theo, quá ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Fullbox còn cả que chọc sim 😆"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Máy còn bảo hành thêm mấy tháng, bạn chuyển đổi tên bảo hành giùm luôn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Bạn reset sạch máy, thoát tài khoản sẵn trước khi gửi, rất có trách nhiệm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Đồng kiểm thoải mái, mình test 15 phút bạn vẫn vui vẻ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Mua cho mẹ dùng, máy ok, bạn còn cài sẵn zalo giùm 😂"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "phones",
+   "text": "Máy viền có vài vết nhỏ bạn chụp rõ trước, mặt kính đẹp. Pin còn 86%, dùng 1 ngày thoải mái. Giao dịch rất uy tín, gặp trực tiếp cho test kỹ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "phones",
+   "text": "Máy ok, pin tụt nhanh hơn mình nghĩ chút"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "phones",
+   "text": "Pin 84% mà dùng tầm nửa ngày, chấp nhận được"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "phones",
+   "text": "Có vài vết xước viền, ảnh ko thấy rõ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "phones",
+   "text": "Máy ok, thiếu cáp sạc như bạn nói, tự mua"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "phones",
+   "text": "Máy hơi nóng khi chơi game, xài bình thường thì ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "phones",
+   "text": "Máy mượt, loa ngoài hơi rè nhẹ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "phones",
+   "text": "Máy ok nhưng ốp lưng bạn tặng hơi cũ 😅"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "phones",
+   "text": "Máy tốt, bạn rep chậm xíu"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "phones",
+   "text": "Máy có vết cấn góc chưa thấy trong ảnh"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "phones",
+   "text": "Pin ghi 88% mà vào xem chỉ 82%"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "phones",
+   "text": "Màn hơi ám vàng khi để nền trắng, bạn ko nói"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "phones",
+   "text": "Camera sau có hạt bụi nhỏ, chụp vẫn ok"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "phones",
+   "text": "Máy xài tạm được, sóng hơi yếu so với máy khác"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "phones",
+   "text": "Máy báo zin mà mở ra thấy màn đã thay, giá này là hơi cao"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "phones",
+   "text": "Pin ghi 90% nhưng chai nhanh, nửa ngày hết, ko như mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "phones",
+   "text": "Máy dính tài khoản cũ, nhắn mấy ngày bạn chưa thoát giúp được"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "phones",
+   "text": "Máy nhận về ko nhận sim, mô tả ghi bình thường"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Vợt còn căng cước, cầm đầm tay"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Giày đá bóng còn mới, đinh chưa mòn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Tạ tay đủ cặp, ko rỉ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Thảm yoga dày, ko mùi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Xe đạp tập chạy êm, ko kêu"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Bóng còn căng, ko xì"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Lều cắm trại đủ cọc đủ dây, dựng thử ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Đồ cắm trại sạch sẽ, gấp gọn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Gậy cầu lông đẹp, bạn tặng thêm ống cầu 🏸"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Găng boxing còn tốt, ko bong da"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Balo leo núi chắc, khóa kéo êm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Ván trượt còn ngon, bánh mượt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Áo đấu đúng size, còn mới"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Máy chạy bộ bạn tháo lắp giùm, quá nhiệt tình"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Bạn chỉ cách căng lại cước, có tâm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "dụng cụ gym ok, giá rẻ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Kính bơi mới, ko trầy"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Mua bộ tạ của bạn thanh lý vì chuyển nhà, nặng mà bạn chở tới tận nơi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Đồ thể thao đã giặt sạch"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Đúng hàng, đúng size, đúng giá 👍"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "sports",
+   "text": "Mình mua cặp vợt cầu lông và túi đựng. Vợt còn rất đẹp, cước mới căng lại tuần trước. Bạn còn cho chơi thử ở sân gần nhà trước khi mua. Người bán quá thoải mái"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "sports",
+   "text": "Vợt có vài vết xước khung"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "sports",
+   "text": "Giày hơi mòn mũi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "sports",
+   "text": "Lều thiếu 1 cọc, dùng cọc tự chế"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "sports",
+   "text": "Tạ có ít rỉ, chà là sạch"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "sports",
+   "text": "Thảm hơi có mùi cao su"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "sports",
+   "text": "Xe đạp tập hơi kêu khi đạp nhanh"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "sports",
+   "text": "Bóng hơi non hơi, bơm là ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "sports",
+   "text": "Ok, giao chậm"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "sports",
+   "text": "Vợt có vết nứt nhỏ ở khung, chưa được báo"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "sports",
+   "text": "Lều có lỗ thủng nhỏ, phải vá"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "sports",
+   "text": "Giày mòn đế nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "sports",
+   "text": "Máy chạy bộ băng chạy hơi lệch"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "sports",
+   "text": "Tạ thiếu 2 bánh so với mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "sports",
+   "text": "Xe đạp tập gãy bàn đạp sau vài lần dùng, có vẻ đã sửa"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "sports",
+   "text": "Lều bị mốc, ko dùng được như mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "sports",
+   "text": "Vợt nứt khung, bạn bảo lúc gửi còn nguyên"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "sports",
+   "text": "Máy chạy bộ ko lên điện"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Xe chạy êm, máy zin"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Xe đẹp, giấy tờ đầy đủ, sang tên nhanh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Giấy tờ chính chủ, bạn đi công chứng cùng luôn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Bạn hỗ trợ sang tên tận tình"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Máy êm, ko hao xăng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Xe chạy bốc, phanh ăn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Xe đi lướt, odo thấp thật"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Odo đúng như bạn nói"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Bạn cho chạy thử thoải mái"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Chạy thử 1 vòng ok mới chốt, bạn ko hối"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Xe đạp nhẹ, líp êm, thắng tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Xe đạp còn đẹp, bạn bơm bánh, tra dầu sẵn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Xe đẹp như hình, sơn còn bóng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Xe vừa thay nhớt, lốp mới, quá ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Bạn chỉ chỗ bảo dưỡng quen gần nhà, nhiệt tình"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Mua xe cũ lần đầu mà gặp người bán thật thà, may ghê"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Mũ bảo hiểm bạn tặng kèm còn mới 😄"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Đã đi được 1 tháng, xe vẫn ngon"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "xe ngon, giay to ok, ban nhiet tinh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Xe điện pin còn tốt, sạc đầy đi được như bạn nói"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "vehicles",
+   "text": "Mua xe cho con đi học. Bạn bán thật thà, chỉ rõ chỗ nào đã thay, chỗ nào zin. Giấy tờ đầy đủ, đi sang tên trong ngày. Xe chạy êm, mình rất yên tâm"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "vehicles",
+   "text": "Xe ok, yên hơi rách nhẹ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "vehicles",
+   "text": "Xe có vết trầy dàn áo, máy ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "vehicles",
+   "text": "Máy êm, cần thay lốp sau sớm"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "vehicles",
+   "text": "Xe ok, phải đợi 1 tuần mới sang tên"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "vehicles",
+   "text": "Xe đạp ok, xích hơi khô, tra dầu là được"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "vehicles",
+   "text": "Pin xe điện yếu hơn mình nghĩ chút"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "vehicles",
+   "text": "Đèn xi nhan 1 bên hơi mờ, thay rẻ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "vehicles",
+   "text": "Xe tốt, bạn hẹn hơi trễ"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "vehicles",
+   "text": "Xe hơi hao xăng hơn mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "vehicles",
+   "text": "Máy có tiếng kêu lạ khi đề, bạn bảo bình thường"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "vehicles",
+   "text": "Odo có vẻ đã chỉnh, ko chắc"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "vehicles",
+   "text": "Phải thay má phanh ngay sau khi mua"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "vehicles",
+   "text": "Giấy tờ thiếu 1 bản, mất thêm thời gian bổ sung"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "vehicles",
+   "text": "Xe báo chưa đâm đụng nhưng thợ xem thấy đã sửa khung"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "vehicles",
+   "text": "Pin xe điện chai nặng, đi chưa được nửa quãng bạn nói"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "vehicles",
+   "text": "Giấy tờ ko khớp số khung, ko sang tên được, phải trả lại"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "vehicles",
+   "text": "Bạn hẹn sang tên mà mấy tuần chưa thấy đâu"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Đồ khác mô tả khá nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Đồ ko giống ảnh"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Ảnh 1 đằng hàng 1 nẻo"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Mô tả như mới nhưng thực tế cũ, trầy nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Có lỗi mà bạn ko nói trước"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Ko báo lỗi trước, nhận về mới thấy"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Gửi chậm cả tuần, nhắn ko trả lời"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Chốt xong mất liên lạc mấy ngày, cuối cùng mới gửi"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Đóng gói quá sơ sài, hàng tới bị móp"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Gói ko kỹ nên bị vỡ 1 góc"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Ko cho đồng kiểm, mở ra thấy lỗi, bạn ko hỗ trợ"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Thiếu đồ so với mô tả, nhắn thì bạn bảo ko để ý"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Bạn tăng giá sau khi đã chốt"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Đã chốt giá rồi lại đòi thêm tiền ship"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Hẹn gặp trực tiếp, bạn hủy phút chót 2 lần"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Hơi thất vọng"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Ko hài lòng lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Rep chậm, đồ cũng ko như ý"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Đồ có mùi nặng, giặt mấy lần chưa hết"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Hàng bẩn, chưa vệ sinh gì đã gửi"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Mình mua vì mô tả ghi chưa sửa chữa, nhận về mở ra thấy đã thay linh kiện. Hỏi bạn thì bạn bảo ko biết. Mình ko nói bạn cố ý nhưng mong người bán kiểm kỹ trước khi đăng"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Đồ dùng được nhưng tình trạng kém hơn nhiều so với mô tả \"còn rất mới\". Mình đã nhắn để trao đổi trả lại nhưng bạn ko đồng ý. 2 sao để mọi người cân nhắc"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Chờ hơn 1 tuần mới nhận được, trong lúc đó nhắn hỏi thì bạn trả lời lúc có lúc không. Hàng tạm dùng được"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Thái độ ko được thân thiện khi mình phản hồi về lỗi"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Khi mình báo hàng có vấn đề bạn đọc tin mà ko trả lời"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Giá ko tương xứng chất lượng"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "ko giong mo ta, hoi that vong"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "2 sao vì ko đúng mô tả, nhưng bạn có hoàn lại 1 ít tiền"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Bạn chịu hoàn 1 phần tiền nên mình để 2 sao, chứ đồ ko đúng mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Đồ ko đúng như trao đổi trước"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Ko đúng mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Hàng hỏng, ko dùng được"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Nhận về ko dùng được, bạn ko hỗ trợ"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Gửi sai món"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Gửi nhầm đồ khác, nhắn ko thấy trả lời"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Rất thất vọng"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Thất vọng"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Ko nên mua"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Hàng ko giống ảnh chút nào"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Đồ hư mà mô tả còn tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Đồ hỏng bạn bảo do vận chuyển, nhưng nhìn là lỗi cũ"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Chốt xong ko gửi, phải hủy đơn"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Hẹn 3 lần ko tới"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Mất liên lạc sau khi chốt"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Bạn hủy đơn khi mình đã chuẩn bị nhận, ko lý do"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Ko cho kiểm hàng, nhận về hỏng, ko chịu đổi trả"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Đóng gói cẩu thả, hàng vỡ"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "1 sao vì không đúng mô tả và không hỗ trợ đổi trả. Mình đã gửi ảnh, video mở hàng nhưng không nhận được phản hồi. Mọi người nên yêu cầu đồng kiểm khi mua"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Đồ báo hoạt động bình thường nhưng nhận về không lên nguồn. Bạn bảo lúc gửi vẫn chạy, nhưng không đồng ý xem lại. Mình đã báo app hỗ trợ"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Mô tả và thực tế khác nhau hoàn toàn. Mình rất tiếc vì đã tin. Hy vọng bạn mô tả trung thực hơn với người mua sau"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "hang khong dung mo ta, rat that vong"
+  },
+  {
+   "role": "seller",
+   "stars": 1,
+   "cat": "any",
+   "text": "Ko đúng hẹn, ko đúng hàng"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Tạm"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bình thường"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Tàm tạm"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Cũng được"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bt"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "bình thường thôi"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Tạm được, ko như kỳ vọng"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Đồ cũ hơn mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Đồ cũ hơn ảnh khá nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ảnh và thực tế khác nhau hơi nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Đồ ko được như ảnh"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ok nhưng ship quá lâu"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Gửi chậm cả tuần"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Chốt xong 4 ngày mới gửi, hơi lâu"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Hẹn gửi hôm qua mà hôm nay mới gửi"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Rep chậm, phải nhắn nhiều lần"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Rep chậm quá, hỏi 1 câu đợi nửa ngày"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Đồ tạm ổn, đóng gói sơ sài"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Gói bằng túi nilon, ko có chống sốc gì"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Có vết trầy bạn ko nói trước"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Có vài vết bẩn ko lau được"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Mùi ẩm mốc, phải giặt mấy lần"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Đồ có mùi, chắc để kho lâu"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Giá hơi cao so với tình trạng"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Tình trạng ko xứng với giá lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "3 sao, đồ xài được nhưng ko như mô tả \"như mới\""
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Mô tả 99% mà mình thấy tầm 85%"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ghi 95% nhưng thực tế cũ hơn vậy"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bạn đổi giờ hẹn mấy lần"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Hẹn gặp mà bạn tới trễ gần 1 tiếng"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Thiếu phụ kiện, bạn bảo mất rồi nhưng mô tả ghi đủ"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ko có hộp như mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "hang tam, ship cham"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "tạm chấp nhận"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Cũng tạm, ko quá tệ"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ko tệ nhưng cũng ko tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Đồ dùng được, nhưng thái độ bạn hơi khó chịu khi mình hỏi"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Mình hỏi kỹ thì bạn trả lời kiểu ko muốn bán"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Thái độ chưa ok lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Bạn ko cho đồng kiểm, mở ra thấy có lỗi nhỏ, nhắn thì bạn bảo đồ cũ là vậy"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Ko cho kiểm hàng, nhận về có lỗi nhỏ, tự sửa được nên thôi"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Mình nhận được hàng nhưng ko giống lắm với ảnh. Có vài vết sử dụng rõ mà ảnh ko thấy. Nhắn bạn thì bạn cũng thừa nhận chụp lâu rồi. Thôi giá rẻ nên mình giữ, cho 3 sao để người sau biết"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Đồ ok nhưng quá trình mua hơi mệt: chốt giá xong bạn lại muốn tăng thêm vì có người hỏi, mình phải thương lượng lại. Cuối cùng vẫn mua giá cũ"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Hàng đến muộn hơn hẹn 3 ngày mà bạn ko báo gì. Đồ thì dùng tạm được. Mong bạn chú ý giao tiếp hơn"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Món đồ tạm ổn so với giá. Tuy nhiên đóng gói rất sơ sài, chỉ có 1 lớp giấy, may mà ko vỡ. Bạn nên gói kỹ hơn cho người mua sau"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "3 sao: đồ được, giá được, nhưng rep tin nhắn quá chậm và ship lâu"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Phải tự nhắc bạn gửi hàng 2 lần. Đồ thì tạm"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Vừa đủ dùng"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Trung bình"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Hơi thất vọng chút, nhưng giá rẻ nên thôi"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Không đúng kỳ vọng nhưng chấp nhận"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ok, hàng ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hàng ổn, ship hơi lâu"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ ok, đóng gói hơi sơ sài xíu"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ ổn so với giá"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Tạm ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Khá ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ổn, có vài vết xước nhỏ nhưng chấp nhận được"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ ok nhưng có mùi hơi lâu ngày, phơi chút là hết"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đúng mô tả, rep hơi chậm"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "rep tin nhan hoi cham nhung hang ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "ok, tru 1 sao vi ship lau"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Trừ 1 sao vì gói hàng chưa kỹ lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hàng ổn, giao trễ 1 ngày so với hẹn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn dễ thương, đồ hơi cũ hơn ảnh xíu"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ cũ hơn mình nghĩ 1 chút nhưng vẫn xài tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ảnh chụp hơi ảo hơn ngoài, nhưng ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ảnh đẹp hơn thực tế xíu thôi, vẫn ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Giá ok, đồ ok, ko có gì đặc biệt"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Được"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Dc"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ổn ạ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "ổn nha, cám ơn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Tạm được, giá vậy ok rồi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ ok, thiếu cái túi đựng như mô tả, bạn bảo quên. Ko sao"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Thiếu 1 phụ kiện nhỏ, bạn gửi bù sau. Cảm ơn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn quên gửi dây sạc, nhắn thì gửi bù liền. 4 sao"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Có chút bụi nhưng lau là sạch"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ hơi bụi, chắc để lâu"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hàng ok, mong bạn rep nhanh hơn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Phải nhắn mấy lần mới thấy rep, đồ thì ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hẹn 2h mà 3h mới giao, đồ thì ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hẹn trễ xíu, đồ ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn nhiệt tình, chỉ là ship lâu do xa"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Do xa nên ship lâu, ko lỗi bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ổn, sẽ quay lại nếu có đồ hợp"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mọi thứ ok trừ việc bạn đổi giờ hẹn 2 lần"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hàng tốt, giá hơi cao xíu so với mặt bằng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Giá nhỉnh hơn chỗ khác chút nhưng đồ đẹp hơn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ ổn, có vết trầy nhỏ bạn chưa nói trước nhưng ko đáng kể"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Có 1 vết nhỏ ko thấy trong ảnh, nhưng ko ảnh hưởng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Có xước nhẹ, giá vậy là chấp nhận được"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Tốt, nhưng hộp hơi móp do vận chuyển"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hộp móp nhẹ, đồ bên trong ko sao"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ổn nha, lần sau gói kỹ hơn xíu nha bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hơi chậm nhưng ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ổn áp, ko xuất sắc"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ đúng, bạn rep cộc xíu nhưng ko sao"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn hơi kiệm lời nhưng giao dịch ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Trao đổi ngắn gọn, đồ ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn bận nên rep chậm, hiểu mà"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hàng tốt 👍 ship chậm 🐢"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "ok 👌"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "4 sao vì ko được đồng kiểm, nhưng hàng ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bên ship ko cho kiểm, mở ra thì đồ ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Gần đúng mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Khá giống mô tả, màu hơi khác do ánh sáng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Màu thật hơi khác ảnh chút"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Màu nhạt hơn ảnh nhưng vẫn đẹp"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hàng ổn, giá có thể bớt thêm 😅"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn ko bớt nhưng đồ ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Giá cứng nhưng đồ đáng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ ok, mình thích. Trừ 1 sao vì phải đợi bạn đi công tác về mới gửi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn báo bận nên gửi chậm 3 ngày, có báo trước nên ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn có báo trước sẽ gửi trễ, mình thông cảm. Đồ tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ổn so với đồ cũ"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ cũ mà vậy là được rồi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ secondhand nên ko đòi hỏi nhiều, vậy là ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mua đồ cũ thì vậy là ổn rồi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Dùng ổn, có vài chỗ cũ theo thời gian"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Có dấu hiệu sử dụng nhiều hơn ảnh 1 chút"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nhìn chung hài lòng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nói chung là ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nhìn chung ổn, mong bạn mô tả kỹ hơn về khuyết điểm nha"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Lần sau bạn chụp thêm góc cạnh thì tốt hơn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ ok. Góp ý bạn nên ghi rõ kích thước trong mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Ổn. Bạn ghi thiếu thông tin nên mình phải hỏi nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Giao đúng nhưng đóng gói bằng túi nilon mỏng, may mà ko sao"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Gói hàng đơn giản quá, lần sau chèn thêm chống sốc nha bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "hàng ok, hơi ít chống sốc"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "ok ban, lan sau goi ky hon nha"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Gặp trực tiếp, bạn tới trễ 15p nhưng có nhắn trước"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn đến trễ có báo, ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ tốt, chỉ là bạn hơi gấp, ko cho xem kỹ lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Xem nhanh quá chưa kỹ, về xài thấy ổn nên 4 sao"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mọi thứ tốt, trừ 1 sao vì phí ship hơi cao bạn tính"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn tính phí ship cao hơn thực tế chút, đồ ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn giữ hàng hơi lâu mới gửi nhưng hàng ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hàng ổn, vote 4"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Tạm ok nha"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Chưa dùng nhiều, thấy ổn trước đã"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mới dùng thử thấy ổn, có gì cập nhật sau"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ ổn, mà mùi nước hoa của chủ cũ nồng quá 😅 giặt là hết"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Có mùi long não, phơi nắng 1 bữa là ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nhận hàng ok. Mình trừ 1 sao vì ảnh bạn đăng chụp từ lâu, đồ thực tế có thêm vài vết sử dụng. Nhưng giá rẻ nên vẫn thấy đáng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Bạn bán ok, nhiệt tình trả lời. Chỉ có điều gửi hàng chậm hơn hẹn 2 ngày mà không báo, mình phải nhắn hỏi mới biết. Đồ thì đúng mô tả, dùng tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hàng đúng như mô tả, chỉ là vỏ hộp hơi cũ và có vết băng keo. Không ảnh hưởng gì đồ bên trong. Cảm ơn bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Lúc nói chuyện bạn hơi lạnh lùng, nhưng đồ tốt và đúng hẹn. Với mình thế là đủ rồi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Trừ 1 sao vì phải chờ bạn khá lâu mới chốt được, bạn cứ hỏi lại giá mấy lần. Đồ cuối cùng ok"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ tốt nhưng bạn ko cho đồng kiểm, nói bên ship ko hỗ trợ. Mở ra may là ổn. Lần sau mong được kiểm hàng"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Hàng ổn, có điều nhận được rồi mới thấy thiếu 1 con ốc nhỏ. Ra tiệm mua 5k là xong, ko đáng phàn nàn"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Đồ ổn nha, mà mình nghĩ giá này hơi cao so với tình trạng. Mua vì cần gấp thôi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Giao dịch ổn. Đồ dùng tốt. Chỉ góp ý nhỏ là nên trả lời tin nhắn sớm hơn, mình hỏi 1 ngày sau mới thấy trả lời"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Mình hài lòng với món đồ. Ship lâu 5 ngày do khác tỉnh, bạn có gửi mã vận đơn để theo dõi. Ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ok shop"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "oke"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hàng đúng mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hàng đúng mô tả, cảm ơn bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giao nhanh, đóng gói kỹ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đóng gói kỹ, giao nhanh."
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rất ok 👍"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "10 điểm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "10đ ko có nhưng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Uy tín"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người bán uy tín"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn bán dễ thương lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhiệt tình, rep tin nhắn nhanh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "rep nhanh, đóng gói cẩn thận"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hàng như hình"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hàng giống hình, còn mới hơn mình nghĩ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ còn mới lắm, giá hời"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giá hợp lý, đồ còn tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "hang dung mo ta"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "ok ban"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "giao nhanh dong goi ky"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "sp tot, ban nhiet tinh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Tuyệt vời"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Sẽ ủng hộ tiếp ❤️"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lần sau mua tiếp"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua lần 2 rồi, vẫn ưng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Thanks bạn nha"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cảm ơn bạn, đồ đẹp lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người bán vui vẻ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn rất lịch sự"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Thái độ tốt, giao đúng hẹn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giao đúng hẹn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ y mô tả, ko lỗi gì"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đúng như bạn nói"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mô tả trung thực"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mô tả kỹ, nhận hàng không bất ngờ gì"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ưng cái bụng 😍"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ưng lắm luôn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ xài lướt thật"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ còn zin"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ cũ mà như mới"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua được món hời 😆"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giá rẻ hơn ngoài tiệm nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn bớt cho mình chút, cảm ơn nha"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn bớt giá + free ship luôn, quá tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ship COD nhanh, kiểm hàng ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cho đồng kiểm, yên tâm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cho đồng kiểm thoải mái, đồ ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Được kiểm hàng trước khi nhận, rất tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Gói hàng kỹ như gói quà 🎁"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Gói 3 lớp chống sốc, quá cẩn thận"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "dong goi can than lam"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đã nhận, ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhận rồi nha bạn, ok hết"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhận hàng rồi, cảm ơn bạn nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hài lòng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rất hài lòng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hoàn toàn hài lòng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "5 sao cho bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "5⭐"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "⭐⭐⭐⭐⭐"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "👍👍👍"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "❤️❤️"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đỉnh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "quá ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chuẩn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chuẩn mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chuẩn ko cần chỉnh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn chụp hình thật, ko filter gì"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hình thật 100%"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ảnh sao đồ vậy"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ đẹp hơn ảnh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua online mà như đi coi tận nơi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Trao đổi dễ chịu"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nói chuyện dễ chịu, chốt lẹ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chốt nhanh gọn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bán nhanh gọn lẹ, ko vòng vo"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko lằng nhằng, thích kiểu bán này"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn còn tặng thêm đồ, dễ thương ghê"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Được tặng kèm thêm mấy món nhỏ, cảm ơn bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Có quà kèm 🥰"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hẹn gặp trực tiếp, bạn tới đúng giờ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giao tận tay, đúng giờ hẹn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Gặp trực tiếp, bạn cho xem kỹ rồi mới trả tiền"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn tận tâm lắm, giải thích kỹ cách dùng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hỏi gì cũng trả lời, nhiệt tình"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Tư vấn có tâm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Có tâm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người bán có tâm, đồ có tâm luôn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Gửi hàng ngay trong ngày"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hôm qua chốt hôm nay có hàng rồi, nhanh thật"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ship 2 ngày tới, đóng gói ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "ship hơi lâu do bên vận chuyển chứ bạn gửi nhanh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giao hàng chậm xíu do đơn vị ship nhưng bạn hỗ trợ theo dõi đơn, cảm ơn nhé"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ sạch sẽ, thơm tho"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ được vệ sinh sạch trước khi gửi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Còn hộp, còn giấy tờ đầy đủ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Fullbox luôn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đủ phụ kiện như mô tả"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko thiếu món nào"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "hàng ok nha mn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mọi người yên tâm mua của bạn này"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Recommend nha mn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đáng tiền"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đáng đồng tiền"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rẻ mà chất"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giá mềm, đồ ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giá hạt dẻ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn bán đúng giá đã thỏa thuận, ko đổi ý"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Không tăng giá phút chót, uy tín"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chốt giá xong bạn giữ hàng cho mình 2 ngày luôn, cảm ơn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn giữ đồ cho mình dù có người trả cao hơn, quá uy tín"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn chủ động báo lỗi nhỏ trước khi mua, rất thật thà"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn báo trước chỗ trầy nhỏ, nhận đúng vậy"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lỗi nhỏ bạn đã nói trước, ko vấn đề"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "thật thà dễ thương"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ok luôn bạn ơi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hàng về rồi, xịn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Xịn xò"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Quá xịn so với giá"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lụm lẹ ko hối hận"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hên quá mua được"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Săn mãi mới được món này, cảm ơn bạn đã bán"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Tìm lâu lắm mới thấy, đồ đúng ý luôn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đúng thứ mình cần"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ dùng tốt, ko có gì để chê"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko có gì để chê"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "ko co gi de che"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Tốt hơn mong đợi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hơn cả mong đợi 😍"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Sẽ giới thiệu bạn bè"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đã giới thiệu cho bạn mình mua tiếp"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Uy tín nha cả nhà"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Gd lần đầu mà rất yên tâm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lần đầu mua đồ cũ online, trải nghiệm tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lần đầu dùng app mua đồ cũ, gặp người bán dễ thương nên rất vui"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giao dịch suôn sẻ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giao dịch êm, cảm ơn bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mọi thứ đều ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ổn áp"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "on ap"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ổn nha"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ổn hết"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Okela"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "okie"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "okela bạn ơi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Good"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Very good 👌"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nice"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "10/10"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "100 điểm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bán có tâm, mua có tình 😄"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn còn nhắn hỏi đã nhận chưa, dùng ổn ko, chu đáo ghê"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Sau khi bán còn hỏi thăm, ít người vậy lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rep tin nhắn cả khuya, nhiệt tình quá"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rep chậm xíu nhưng bù lại đồ tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn quay video lúc đóng gói gửi mình, rất chuyên nghiệp"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Có video kiểm tra trước khi gửi, yên tâm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Gửi kèm hướng dẫn viết tay, cute"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Có ghi chú viết tay cảm ơn, dễ thương ghê"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cảm ơn bạn đã gói kỹ, trời mưa mà hàng khô ráo"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Trời mưa bạn còn bọc nilon kỹ, cảm ơn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hàng tới nguyên vẹn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nguyên vẹn ko móp méo gì"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hộp ko móp, đồ ko trầy"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Người bán thân thiện, đồ y hình. Sẽ ghé tiếp khi bạn đăng đồ mới"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình hỏi rất nhiều mà bạn vẫn trả lời từ tốn, cảm ơn bạn đã kiên nhẫn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua cho mẹ, mẹ khen quá trời"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua tặng bạn, bạn mình thích lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ cũ nhưng chất lượng còn rất tốt, xài thêm vài năm nữa ko lo"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn bán rẻ vì chuyển nhà, mình được lợi quá"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn thanh lý gấp nên giá tốt, đồ vẫn ngon"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua gom mấy món bạn thanh lý, món nào cũng ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua 3 món bạn bớt thêm, cảm ơn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ship nhanh mà còn rẻ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn ra bưu cục gửi liền sau khi chốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đặt sáng chiều đã gửi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua tối sáng mai bạn gửi luôn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cảm ơn bạn đã ra tận đầu hẻm đưa đồ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn chở đồ qua tận nhà, cảm ơn nhiều lắm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Nhà gần nên qua lấy trực tiếp, bạn dễ thương"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đúng hẹn, đúng giá, đúng hàng. Ko còn gì để nói"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "3 đúng: đúng hàng, đúng giá, đúng hẹn 👍"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình kiểm kỹ rồi mới nhận, ko có vấn đề gì. Bạn bán thật thà"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khui hàng thấy ưng liền"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mở hộp mà vui ghê"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hàng về là xài liền, ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đã dùng thử 1 tuần, ổn định, giờ mới đánh giá. 5 sao xứng đáng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Dùng được mấy hôm rồi mới review, vẫn tốt nha"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ban dep trai noi chuyen de thuong 😂"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn nói chuyện duyên ghê"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lịch sự, nhã nhặn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Thái độ 10 điểm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "thai do tot"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giá tốt nhất mình tìm được trên app"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "So giá mấy chỗ thì chỗ bạn rẻ nhất mà đồ còn đẹp nhất"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hàng cũ nhưng giữ gìn kỹ, nhìn biết chủ cũ cẩn thận"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chủ cũ giữ đồ kỹ thật sự"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Thấy được bạn quý đồ nên mình cũng sẽ giữ kỹ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko mua nhầm chỗ 😁"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ưng quá trời ưng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cưng xỉu"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đẹp xỉu"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "xinh quá trời"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Món này giờ ngoài tiệm hết rồi, may có bạn bán lại"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ hiếm mà giá mềm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn ship hỏa tốc cho mình kịp dùng, cảm ơn nhiều"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cần gấp mà bạn hỗ trợ giao ngay trong ngày, quá tuyệt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cảm ơn bạn đã đợi mình tan làm mới giao"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hẹn 7h tối bạn đợi tới 7h30 vì mình kẹt xe, ngại ghê mà bạn vẫn vui vẻ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko đồng kiểm được do bên ship nhưng bạn cam kết đổi trả, rất uy tín. Hàng ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "COD nhanh gọn, hàng ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Thanh toán qua app, nhận hàng ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Có chút trục trặc với bên ship nhưng bạn xử lý nhanh, cuối cùng vẫn nhận được đồ ok. Cảm ơn bạn đã kiên nhẫn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hàng gửi bị lạc 1 ngày, bạn gọi bưu cục hỏi giùm mình luôn. Nhận rồi, đồ ổn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình đổi ý địa chỉ phút chót mà bạn vẫn sửa giúp, cảm ơn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Rất đáng để mua lại từ người bán này"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình thấy mua đồ cũ của người như bạn yên tâm hơn mua đồ mới ngoài chợ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ đẹp, người bán dễ mến, gói hàng cẩn thận, ship nhanh. Không có gì để phàn nàn hết, chúc bạn bán được nhiều đồ 😊"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ban oi do xai ok lam, cam on nha. Lan sau co gi dang ban nhan minh voi"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Có gì mới đăng nhớ tag mình 😄"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đã follow, chờ bạn đăng thêm"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Follow luôn rồi nha"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Uy tín lâu năm thấy rõ"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đọc review cũ thấy tốt nên mua, quả thật tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mn review đúng, bạn này bán uy tín"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ko cần nghĩ nhiều, cứ mua"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua nhiều lần, chưa lần nào thất vọng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lần thứ 3 mua của bạn rồi 😄"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Khách quen rồi nha 😆"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giá yêu thương"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn để giá yêu thương quá"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lâu lắm mới gặp người bán thật thà vậy"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Hàng ok, bạn ok, mọi thứ ok"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Tóm lại: ưng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "hàng tốt giá tốt"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "dc lắm nha"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "đc nha bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ chất lượng"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Quá ưng ý"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đẹp, rẻ, nhanh"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Chuẩn chỉnh từ A tới Z"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Cảm ơn bạn vì đã bán cho mình với giá sinh viên 🥹"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Sinh viên mua được giá vậy là vui lắm rồi, cảm ơn bạn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đã nhận đủ, ko thiếu"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình nhận được hàng rồi nhé. Đồ còn đẹp, đúng như ảnh và mô tả. Bạn đóng gói cẩn thận, có chèn giấy báo xung quanh nên không bị xê dịch. Rất cảm ơn bạn!"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình hơi lo khi mua đồ cũ qua mạng nhưng bạn gửi thêm ảnh và video chi tiết mọi góc, trả lời mọi câu hỏi. Lúc nhận được đồ thì đúng y vậy, không có gì bất ngờ. Cho 5 sao vì sự trung thực."
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ đúng như mô tả, có vài vết sử dụng nhỏ bạn đã chụp rõ trước đó. Giá vậy là quá hợp lý. Đóng gói chắc chắn, ship 2 ngày tới. Rất recommend cho ai đang tìm món này."
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Lúc đầu mình định trả giá thấp hơn nữa nhưng nghe bạn kể mua món này bao nhiêu và dùng ra sao thì thấy giá bạn đưa là quá ổn rồi. Nhận đồ thấy đúng là còn tốt thật. Cảm ơn bạn đã bán lại 🙏"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn bán đồ do chuẩn bị đi du học nên thanh lý nhiều món, mình mua mấy món một lúc, bạn còn bớt và gói riêng từng món, ghi chú rõ ràng. Chúc bạn đi học vui nha!"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ship qua bên xe vì xa, bạn chủ động hỏi nhà xe, gửi ảnh biên nhận, báo giờ xe tới. Mình ra nhận đúng giờ, đồ nguyên vẹn. Người bán chu đáo hiếm thấy."
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình hẹn qua lấy mà trễ 2 lần vì công việc, bạn vẫn vui vẻ dời lịch, ko hề khó chịu. Tới nơi còn mời ly nước 😂 Đồ thì ok khỏi bàn."
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Giao dịch rất ok. Chốt buổi sáng, chiều bạn đã gửi, có mã vận đơn ngay. Hàng tới mình đồng kiểm, mọi thứ đúng mô tả. Cảm ơn bạn nhé, chúc bạn buôn may bán đắt 😄"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mua về xài 2 tuần rồi mới lên đánh giá cho chắc. Mọi thứ hoạt động bình thường, không có lỗi gì phát sinh. Người bán uy tín, nói gì đúng nấy."
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Đồ thực tế còn đẹp hơn trong ảnh vì ảnh chụp hơi tối. Bạn còn tặng thêm túi đựng. Giao dịch nhanh gọn, cảm ơn và chúc bạn một ngày vui."
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn có tâm lắm, đồ có chỗ hơi bẩn bạn còn lau chùi sạch rồi mới gửi. Mình mở ra là dùng được luôn"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Mình viết dài chút cho mọi người tham khảo. Mình hỏi món này từ tuần trước, bạn trả lời rất chi tiết: mua lúc nào, dùng bao lâu, lỗi gì, vì sao bán. Bạn gửi thêm ảnh chụp ngoài trời và video quay cận từng góc. Chốt xong bạn gửi ngay chiều hôm đó, gói 2 lớp xốp, ngoài thùng ghi \"hàng dễ vỡ\". Mình đồng kiểm với shipper, mọi thứ đúng như bạn nói, kể cả vết xước nhỏ bạn đã chỉ. Dùng 1 tuần rồi vẫn ổn. Người bán như vầy thì mua đồ cũ không sợ gì 😊"
+  },
+  {
+   "role": "seller",
+   "stars": 5,
+   "cat": "any",
+   "text": "Ban dau minh hoi so vi gia re hon cho khac kha nhieu, nghi chac co van de. Hoi ky thi ban noi la sap chuyen vao Nam nen ban gap, khong muon cho lon. Gap truc tiep thi do dep that, con hoa don mua. Ban con giup minh chat len xe. Cam on ban nhieu, chuc ban chuyen nha thuan loi"
+  },
+  {
+   "role": "seller",
+   "stars": 4,
+   "cat": "any",
+   "text": "Nhìn chung mình hài lòng. Đồ đúng mô tả, giá hợp lý, bạn nói chuyện lịch sự. Mình trừ 1 sao vì khâu gửi hàng: chốt thứ 2 mà thứ 5 bạn mới gửi, giữa chừng mình nhắn hỏi 2 lần bạn mới báo là bận đi làm. Nếu bạn báo trước thì mình hoàn toàn thông cảm. Hàng tới nơi được gói kỹ, không móp méo gì. Nếu bạn còn đăng đồ mình vẫn sẽ mua tiếp"
+  },
+  {
+   "role": "seller",
+   "stars": 3,
+   "cat": "any",
+   "text": "Mình để 3 sao cho công bằng. Ưu: giá rẻ, bạn rep nhanh, gói hàng ổn. Nhược: mô tả ghi \"như mới, ít dùng\" nhưng thực tế có khá nhiều vết sử dụng ở các góc, ảnh trong tin đăng chụp xa nên không thấy. Mình nhắn thì bạn cũng xin lỗi và bảo chụp vội. Không đến mức phải trả lại, nhưng mong bạn chụp cận và ghi rõ khuyết điểm cho người sau"
+  },
+  {
+   "role": "seller",
+   "stars": 2,
+   "cat": "any",
+   "text": "Mình mua theo mô tả là hoạt động bình thường, không lỗi. Nhận hàng dùng thử thì thấy chập chờn, lúc được lúc không. Mình đã quay video gửi bạn trong ngày, bạn bảo lúc gửi vẫn chạy và có thể do vận chuyển. Sau thương lượng bạn hoàn lại một phần tiền nên mình giữ lại để sửa. Cho 2 sao vì đồ không đúng mô tả, nhưng bạn có hỗ trợ một phần"
+  },
+  {
+   "role": "buyer",
+   "stars": 5,
+   "cat": "any",
+   "text": "Bạn này là người mua dễ chịu nhất mình gặp từ khi bán đồ trên app. Hỏi đúng trọng tâm, trả giá một lần hợp lý rồi chốt. Hẹn qua lấy lúc 6h chiều, 5h50 đã nhắn là tới đầu hẻm. Kiểm hàng kỹ nhưng nhanh, hỏi thêm cách bảo quản, trả tiền đủ, còn cảm ơn mình. Tối về còn nhắn báo đã dùng thử, ok. Nếu ai bán đồ cho bạn này thì cứ yên tâm"
+  },
+  {
+   "role": "buyer",
+   "stars": 2,
+   "cat": "any",
+   "text": "Mình không muốn đánh giá thấp nhưng phải ghi lại cho người bán khác biết. Bạn chốt giá qua tin nhắn, hẹn tối thứ 6 qua lấy, mình từ chối 2 người hỏi khác để giữ đồ. Tối đó bạn không tới, không báo. Hai ngày sau bạn nhắn xin lỗi vì có việc gấp và hẹn lại, lần này thì tới, nhưng lại xin bớt thêm. Cuối cùng vẫn giao dịch xong, nên 2 sao"
+  },
+  {
+   "role": "buyer",
+   "stars": 1,
+   "cat": "any",
+   "text": "Đơn COD, mình gói hàng cẩn thận, gửi đúng hẹn, có báo mã vận đơn. Shipper gọi 3 ngày liền không nghe máy, nhắn app bạn đã xem nhưng không trả lời, đơn bị hoàn về và mình chịu phí ship 2 chiều. Mình hiểu ai cũng có thể đổi ý, nhưng chỉ cần một tin nhắn báo trước là đủ. Người bán khác cân nhắc khi nhận đơn COD của tài khoản này"
+  }
+ ]
+}

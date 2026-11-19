@@ -1,0 +1,1611 @@
+{
+ "version": 1,
+ "license": "CC0-1.0",
+ "empty_rate": 0.35,
+ "bios": [
+  {
+   "persona": "student",
+   "text": "Sinh viên năm 3, pass lại đồ không dùng tới"
+  },
+  {
+   "persona": "student",
+   "text": "SV thanh lý đồ phòng trọ"
+  },
+  {
+   "persona": "student",
+   "text": "Sinh viên, bán đồ cũ kiếm thêm tiền trọ 😅"
+  },
+  {
+   "persona": "student",
+   "text": "Đang ôn thi nên rep tin hơi chậm nha"
+  },
+  {
+   "persona": "student",
+   "text": "SV IT, pass sách với đồ công nghệ"
+  },
+  {
+   "persona": "student",
+   "text": "Pass giáo trình, sách cũ giá rẻ"
+  },
+  {
+   "persona": "student",
+   "text": "sv nghèo thanh lý đồ 🥲"
+  },
+  {
+   "persona": "student",
+   "text": "Sinh viên năm cuối, ra trường nên dọn đồ"
+  },
+  {
+   "persona": "student",
+   "text": "Học ở Thủ Đức, giao dịch quanh làng đại học"
+  },
+  {
+   "persona": "student",
+   "text": "Pass đồ ký túc xá: quạt, đèn, kệ sách"
+  },
+  {
+   "persona": "student",
+   "text": "Sinh viên, có thể gặp trực tiếp ở trường"
+  },
+  {
+   "persona": "student",
+   "text": "Thanh lý đồ sau 4 năm đại học"
+  },
+  {
+   "persona": "student",
+   "text": "Đi học cả ngày, ib tối mình rep nhé"
+  },
+  {
+   "persona": "student",
+   "text": "SV năm 2 mê đồ vintage"
+  },
+  {
+   "persona": "student",
+   "text": "Bán lại đồ mua về không hợp 🙃"
+  },
+  {
+   "persona": "student",
+   "text": "sinh vien, ib truoc khi qua lay nha"
+  },
+  {
+   "persona": "student",
+   "text": "Pass nhanh trước khi về quê nghỉ hè"
+  },
+  {
+   "persona": "student",
+   "text": "Tân sinh viên, mua bán đồ dùng học tập"
+  },
+  {
+   "persona": "student",
+   "text": "Sắp đi du học nên thanh lý hết"
+  },
+  {
+   "persona": "student",
+   "text": "Học sinh lớp 12, pass sách ôn thi"
+  },
+  {
+   "persona": "student",
+   "text": "Pass truyện tranh đọc rồi"
+  },
+  {
+   "persona": "student",
+   "text": "Sinh viên kiến trúc, pass dụng cụ vẽ"
+  },
+  {
+   "persona": "student",
+   "text": "Chuyên pass đồ ký túc xá cuối kỳ"
+  },
+  {
+   "persona": "student",
+   "text": "Rảnh buổi chiều, hẹn gặp ở cổng trường"
+  },
+  {
+   "persona": "student",
+   "text": "SV y, ít online, nhắn mình sẽ rep sau ca trực"
+  },
+  {
+   "persona": "student",
+   "text": "Mua bán đồ cũ cho sinh viên, giá mềm"
+  },
+  {
+   "persona": "student",
+   "text": "Sinh viên thích đồ second-hand ♻️"
+  },
+  {
+   "persona": "student",
+   "text": "Đồ còn mới, mình bán vì cần tiền đóng học phí"
+  },
+  {
+   "persona": "student",
+   "text": "Pass lại đồ hội nhóm, giá sinh viên"
+  },
+  {
+   "persona": "student",
+   "text": "Sinh viên, ko ship xa, ưu tiên gặp trực tiếp"
+  },
+  {
+   "persona": "office",
+   "text": "Dân văn phòng, thanh lý đồ ít dùng"
+  },
+  {
+   "persona": "office",
+   "text": "Đi làm giờ hành chính, ib sau 18h nhé"
+  },
+  {
+   "persona": "office",
+   "text": "Nhân viên văn phòng, đồ giữ kỹ"
+  },
+  {
+   "persona": "office",
+   "text": "Làm việc ở Q1, giao dịch giờ trưa được"
+  },
+  {
+   "persona": "office",
+   "text": "Bán bớt đồ cho nhà gọn"
+  },
+  {
+   "persona": "office",
+   "text": "Ib trước 21h giúp mình nha"
+  },
+  {
+   "persona": "office",
+   "text": "Rep chậm giờ làm việc, thông cảm nha"
+  },
+  {
+   "persona": "office",
+   "text": "Office girl thanh lý tủ đồ"
+  },
+  {
+   "persona": "office",
+   "text": "Pass lại đồ công sở mặc vài lần"
+  },
+  {
+   "persona": "office",
+   "text": "Đồ chính chủ, dùng kỹ, bán vì ít dùng"
+  },
+  {
+   "persona": "office",
+   "text": "Đi làm cả tuần, cuối tuần mình giao hàng"
+  },
+  {
+   "persona": "office",
+   "text": "Nhân viên ngân hàng, bán đồ cá nhân"
+  },
+  {
+   "persona": "office",
+   "text": "Giao dịch nhanh gọn, không thích kỳ kèo nhiều"
+  },
+  {
+   "persona": "office",
+   "text": "Kế toán, giá đã tính kỹ rồi nha 😄"
+  },
+  {
+   "persona": "office",
+   "text": "Làm ca đêm, nhắn tin buổi chiều mình rep"
+  },
+  {
+   "persona": "office",
+   "text": "Thanh lý đồ thừa sau mỗi đợt dọn nhà"
+  },
+  {
+   "persona": "office",
+   "text": "Công việc bận, đồ để lâu không dùng nên pass"
+  },
+  {
+   "persona": "office",
+   "text": "Dân IT văn phòng, bán đồ công nghệ cũ"
+  },
+  {
+   "persona": "office",
+   "text": "Chỉ bán đồ nhà dùng, không buôn bán"
+  },
+  {
+   "persona": "office",
+   "text": "Có thể hẹn gặp gần công ty ở Cầu Giấy"
+  },
+  {
+   "persona": "office",
+   "text": "Mình đi làm ở Bình Thạnh, giao quanh đó"
+  },
+  {
+   "persona": "office",
+   "text": "Bán đồ thật, mô tả thật"
+  },
+  {
+   "persona": "office",
+   "text": "Đồ cá nhân, không phải hàng shop"
+  },
+  {
+   "persona": "office",
+   "text": "Văn phòng bận, chốt nhanh mình gửi liền"
+  },
+  {
+   "persona": "office",
+   "text": "Nhắn tin trước, gọi sau nhé"
+  },
+  {
+   "persona": "office",
+   "text": "Ưu tiên COD, được đồng kiểm"
+  },
+  {
+   "persona": "office",
+   "text": "Không giữ hàng quá 2 ngày nha"
+  },
+  {
+   "persona": "office",
+   "text": "Mình làm marketing, thích đồ đẹp nhưng nhà hết chỗ rồi 😂"
+  },
+  {
+   "persona": "office",
+   "text": "Tối thứ 7 mình mới ship được"
+  },
+  {
+   "persona": "office",
+   "text": "Pass đồ dư sau mỗi mùa"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ bỉm thanh lý đồ con"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ 2 bé, pass đồ con lớn không dùng nữa"
+  },
+  {
+   "persona": "mom",
+   "text": "Đồ bé dùng ít, giặt sạch sẽ"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ bé Na, pass đồ sơ sinh"
+  },
+  {
+   "persona": "mom",
+   "text": "Bé lớn nhanh quá nên pass lại đồ 👶"
+  },
+  {
+   "persona": "mom",
+   "text": "Pass xe đẩy, nôi, ghế ăn dặm"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ bỉm sữa, ib mình rep khi con ngủ nha"
+  },
+  {
+   "persona": "mom",
+   "text": "Đồ trẻ em secondhand, sạch, còn tốt"
+  },
+  {
+   "persona": "mom",
+   "text": "Thanh lý đồ chơi gỗ cho bé"
+  },
+  {
+   "persona": "mom",
+   "text": "Rep chậm vì bận chăm con, mong thông cảm 🙏"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ bầu pass đồ bầu"
+  },
+  {
+   "persona": "mom",
+   "text": "Đồ của 2 nhóc nhà mình, còn mới 80-90%"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ Gấu pass quần áo bé gái 0-3 tuổi"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ cu Tí pass đồ bé trai"
+  },
+  {
+   "persona": "mom",
+   "text": "Nội trợ, bán bớt đồ nhà cho gọn"
+  },
+  {
+   "persona": "mom",
+   "text": "Đồ bé giặt kỹ, phơi nắng trước khi gửi"
+  },
+  {
+   "persona": "mom",
+   "text": "Mình chỉ bán đồ con mình dùng thôi"
+  },
+  {
+   "persona": "mom",
+   "text": "Giao trong quận, hoặc ship COD toàn quốc"
+  },
+  {
+   "persona": "mom",
+   "text": "Pass sữa, bỉm còn date dài khi bé chuyển loại"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ bỉm ở Hà Đông"
+  },
+  {
+   "persona": "mom",
+   "text": "Bán đồ bé để mua đồ mới cho bé 😆"
+  },
+  {
+   "persona": "mom",
+   "text": "Nhà có 3 con, đồ truyền mãi giờ pass lại"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ bé Bông, đồ chủ yếu size 1-4 tuổi"
+  },
+  {
+   "persona": "mom",
+   "text": "Pass ghế ngồi ô tô cho bé, còn tốt"
+  },
+  {
+   "persona": "mom",
+   "text": "Chăm con full time, nhắn tin là tốt nhất"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ Mây thanh lý đồ con"
+  },
+  {
+   "persona": "mom",
+   "text": "Bé dị ứng nên đổi loại, pass lại đồ còn nguyên"
+  },
+  {
+   "persona": "mom",
+   "text": "Đồ mẹ và bé, sạch sẽ, giá mềm"
+  },
+  {
+   "persona": "mom",
+   "text": "Giao hàng buổi sáng khi bé đi học"
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ 3 con, pass đồ có tâm"
+  },
+  {
+   "persona": "tech",
+   "text": "Mê đồ công nghệ, đổi máy liên tục nên pass máy cũ"
+  },
+  {
+   "persona": "tech",
+   "text": "Tech lover, máy giữ kỹ, có hộp đầy đủ"
+  },
+  {
+   "persona": "tech",
+   "text": "Pass điện thoại, tai nghe, phụ kiện cũ"
+  },
+  {
+   "persona": "tech",
+   "text": "Thích vọc vạch, đồ bán đều test kỹ"
+  },
+  {
+   "persona": "tech",
+   "text": "Máy chính chủ, không qua sửa chữa"
+  },
+  {
+   "persona": "tech",
+   "text": "Dân chơi bàn phím cơ, pass bớt switch keycap"
+  },
+  {
+   "persona": "tech",
+   "text": "Lên đời nên pass lại máy cũ"
+  },
+  {
+   "persona": "tech",
+   "text": "Laptop, PC, linh kiện cũ, test thoải mái"
+  },
+  {
+   "persona": "tech",
+   "text": "Đồ công nghệ đã qua sử dụng, bao test 3 ngày"
+  },
+  {
+   "persona": "tech",
+   "text": "Pass máy ảnh, ống kính giữ kỹ 📷"
+  },
+  {
+   "persona": "tech",
+   "text": "Gamer pass lại tay cầm, đĩa game"
+  },
+  {
+   "persona": "tech",
+   "text": "Đổi hệ sinh thái nên thanh lý"
+  },
+  {
+   "persona": "tech",
+   "text": "Máy mình dùng cẩn thận, dán cường lực từ đầu"
+  },
+  {
+   "persona": "tech",
+   "text": "Ghi rõ pin, trầy xước trong mô tả"
+  },
+  {
+   "persona": "tech",
+   "text": "Dân IT, có thể cài phần mềm giúp"
+  },
+  {
+   "persona": "tech",
+   "text": "Thích setup bàn làm việc, hay pass đồ cũ"
+  },
+  {
+   "persona": "tech",
+   "text": "Không bán máy lỗi, có lỗi ghi rõ"
+  },
+  {
+   "persona": "tech",
+   "text": "Pass tai nghe, loa, đồ âm thanh"
+  },
+  {
+   "persona": "tech",
+   "text": "Máy nào cũng có video test trước khi gửi"
+  },
+  {
+   "persona": "tech",
+   "text": "Đồ công nghệ cũ, giá hợp lý, kiểm tra thoải mái"
+  },
+  {
+   "persona": "tech",
+   "text": "Mình chụp ảnh thật, không dùng ảnh mạng"
+  },
+  {
+   "persona": "tech",
+   "text": "Chơi drone, máy ảnh, gimbal"
+  },
+  {
+   "persona": "tech",
+   "text": "tech nerd thanh lý đồ 🤓"
+  },
+  {
+   "persona": "tech",
+   "text": "Pass đồ smart home"
+  },
+  {
+   "persona": "tech",
+   "text": "Cập nhật pin, tình trạng máy chuẩn"
+  },
+  {
+   "persona": "tech",
+   "text": "Retro gaming, máy chơi game cũ"
+  },
+  {
+   "persona": "tech",
+   "text": "PC build lại nên pass linh kiện"
+  },
+  {
+   "persona": "tech",
+   "text": "Pass phụ kiện điện thoại còn mới"
+  },
+  {
+   "persona": "tech",
+   "text": "Mình sửa điện tử nghiệp dư, đồ bán đều đã kiểm tra"
+  },
+  {
+   "persona": "tech",
+   "text": "Đồ công nghệ đời cũ cho người cần"
+  },
+  {
+   "persona": "collector",
+   "text": "Sưu tầm đồ cũ, thỉnh thoảng pass bớt"
+  },
+  {
+   "persona": "collector",
+   "text": "Chơi mô hình, pass bớt cho bạn cùng đam mê"
+  },
+  {
+   "persona": "collector",
+   "text": "Sưu tầm tem, tiền xu"
+  },
+  {
+   "persona": "collector",
+   "text": "Đĩa than, băng cassette, máy nghe nhạc cũ 🎶"
+  },
+  {
+   "persona": "collector",
+   "text": "Mê đồ vintage, đồ xưa"
+  },
+  {
+   "persona": "collector",
+   "text": "Sưu tầm sách cũ, truyện xưa"
+  },
+  {
+   "persona": "collector",
+   "text": "Chơi Lego lâu năm, pass bộ trùng"
+  },
+  {
+   "persona": "collector",
+   "text": "Sưu tầm máy ảnh film"
+  },
+  {
+   "persona": "collector",
+   "text": "Đồng hồ cơ cũ, mua bán giao lưu"
+  },
+  {
+   "persona": "collector",
+   "text": "Chơi figure anime, pass bớt"
+  },
+  {
+   "persona": "collector",
+   "text": "Sưu tầm gốm sứ cũ"
+  },
+  {
+   "persona": "collector",
+   "text": "Đồ xưa, đồ cổ nhỏ, giá giao lưu"
+  },
+  {
+   "persona": "collector",
+   "text": "Card game, thẻ bài, pass trùng"
+  },
+  {
+   "persona": "collector",
+   "text": "Mô hình xe, tỉ lệ 1:64"
+  },
+  {
+   "persona": "collector",
+   "text": "Đồ sưu tầm, giữ hộp kỹ"
+  },
+  {
+   "persona": "collector",
+   "text": "Thích đồ có câu chuyện"
+  },
+  {
+   "persona": "collector",
+   "text": "Sưu tầm bút máy"
+  },
+  {
+   "persona": "collector",
+   "text": "Collector đĩa CD nhạc Việt cũ"
+  },
+  {
+   "persona": "collector",
+   "text": "Chơi cây cảnh mini, đôi khi pass chậu"
+  },
+  {
+   "persona": "collector",
+   "text": "Đồ vintage Sài Gòn xưa"
+  },
+  {
+   "persona": "collector",
+   "text": "Mê xe đạp cổ"
+  },
+  {
+   "persona": "collector",
+   "text": "Sưu tầm gấu bông, pass bớt vì hết chỗ 🧸"
+  },
+  {
+   "persona": "collector",
+   "text": "Chơi Gundam, pass mô hình đã lắp"
+  },
+  {
+   "persona": "collector",
+   "text": "Sưu tầm sách ảnh, tạp chí cũ"
+  },
+  {
+   "persona": "collector",
+   "text": "Đồ cũ có hồn"
+  },
+  {
+   "persona": "collector",
+   "text": "Chơi đàn guitar cũ, pass bớt cây"
+  },
+  {
+   "persona": "collector",
+   "text": "Mô hình tàu thủy, xe tăng"
+  },
+  {
+   "persona": "collector",
+   "text": "Đổi hoặc bán, tùy món"
+  },
+  {
+   "persona": "collector",
+   "text": "Sách cũ, đồ cũ, chuyện cũ"
+  },
+  {
+   "persona": "collector",
+   "text": "Pass đồ trùng trong bộ sưu tập"
+  },
+  {
+   "persona": "mover",
+   "text": "Chuyển nhà nên pass lại"
+  },
+  {
+   "persona": "mover",
+   "text": "Sắp chuyển vào Nam, thanh lý hết đồ"
+  },
+  {
+   "persona": "mover",
+   "text": "Chuyển công tác, bán nhanh giá rẻ"
+  },
+  {
+   "persona": "mover",
+   "text": "Thanh lý đồ trước khi chuyển nhà cuối tháng"
+  },
+  {
+   "persona": "mover",
+   "text": "Ra nước ngoài nên bán hết đồ đạc"
+  },
+  {
+   "persona": "mover",
+   "text": "Chuyển trọ nên pass đồ cồng kềnh"
+  },
+  {
+   "persona": "mover",
+   "text": "Dọn nhà, bán rẻ cho nhanh"
+  },
+  {
+   "persona": "mover",
+   "text": "Đi định cư, thanh lý toàn bộ đồ"
+  },
+  {
+   "persona": "mover",
+   "text": "Bán trước ngày 30, sau đó mình đi rồi"
+  },
+  {
+   "persona": "mover",
+   "text": "Chuyển nhà, ai lấy nhiều món mình bớt"
+  },
+  {
+   "persona": "mover",
+   "text": "Nhà mới nhỏ hơn nên phải bỏ bớt đồ"
+  },
+  {
+   "persona": "mover",
+   "text": "Thanh lý gấp, ưu tiên khách tới lấy"
+  },
+  {
+   "persona": "mover",
+   "text": "Về quê sống nên pass hết đồ thành phố"
+  },
+  {
+   "persona": "mover",
+   "text": "Chuyển ra Hà Nội, pass đồ ở Sài Gòn"
+  },
+  {
+   "persona": "mover",
+   "text": "Hết hợp đồng thuê nhà, thanh lý nội thất"
+  },
+  {
+   "persona": "mover",
+   "text": "Bán gấp vì chuyển nhà, có thể thương lượng"
+  },
+  {
+   "persona": "mover",
+   "text": "Còn ít đồ, bán nốt trước khi đi"
+  },
+  {
+   "persona": "mover",
+   "text": "Pass tủ, bàn, giường, khách tự vận chuyển"
+  },
+  {
+   "persona": "mover",
+   "text": "Thanh lý đồ phòng trọ, tới xem trực tiếp được"
+  },
+  {
+   "persona": "mover",
+   "text": "Đi du học, pass xe máy và đồ gia dụng"
+  },
+  {
+   "persona": "mover",
+   "text": "Chuyển nhà nên bán đồ còn tốt"
+  },
+  {
+   "persona": "mover",
+   "text": "Giá thanh lý, không giữ hàng"
+  },
+  {
+   "persona": "mover",
+   "text": "Mình đi tháng sau, ai cần thì nhanh nha"
+  },
+  {
+   "persona": "mover",
+   "text": "Dọn kho, bán bớt đồ lâu không dùng"
+  },
+  {
+   "persona": "mover",
+   "text": "Nhà đông người chuyển đi nên pass lại đồ"
+  },
+  {
+   "persona": "reseller",
+   "text": "Mua bán đồ cũ, kiểm tra kỹ trước khi đăng"
+  },
+  {
+   "persona": "reseller",
+   "text": "Thu mua và pass lại đồ second-hand"
+  },
+  {
+   "persona": "reseller",
+   "text": "Chuyên đồ si tuyển, giặt sạch"
+  },
+  {
+   "persona": "reseller",
+   "text": "Đồ cũ tuyển chọn, mô tả đúng tình trạng"
+  },
+  {
+   "persona": "reseller",
+   "text": "Pass lại đồ thanh lý mua về"
+  },
+  {
+   "persona": "reseller",
+   "text": "Buôn bán nhỏ đồ cũ, uy tín là chính"
+  },
+  {
+   "persona": "reseller",
+   "text": "Hàng tuyển từ kiện, có lỗi ghi rõ"
+  },
+  {
+   "persona": "reseller",
+   "text": "Đồ secondhand giá tốt, cập nhật mỗi tuần"
+  },
+  {
+   "persona": "reseller",
+   "text": "Thanh lý đồ gom từ các nhà quen"
+  },
+  {
+   "persona": "reseller",
+   "text": "Đồ cũ chất lượng, đóng gói cẩn thận"
+  },
+  {
+   "persona": "reseller",
+   "text": "Nhận đổi đồ cũ, ib trao đổi"
+  },
+  {
+   "persona": "reseller",
+   "text": "Đồ si Nhật, Hàn tuyển"
+  },
+  {
+   "persona": "reseller",
+   "text": "Hàng ký gửi, đã kiểm tra"
+  },
+  {
+   "persona": "reseller",
+   "text": "Đồ điện cũ đã vệ sinh, test kỹ"
+  },
+  {
+   "persona": "reseller",
+   "text": "Ship toàn quốc, được đồng kiểm"
+  },
+  {
+   "persona": "reseller",
+   "text": "Mua bán đồ cũ uy tín, có đánh giá thật"
+  },
+  {
+   "persona": "reseller",
+   "text": "Hàng thanh lý văn phòng, bàn ghế"
+  },
+  {
+   "persona": "reseller",
+   "text": "Đồ cũ cho người tiết kiệm ♻️"
+  },
+  {
+   "persona": "reseller",
+   "text": "Xe đạp cũ đã bảo dưỡng"
+  },
+  {
+   "persona": "reseller",
+   "text": "Giày si tuyển, đã vệ sinh"
+  },
+  {
+   "persona": "reseller",
+   "text": "Không bán hàng giả, có gì hỏi kỹ"
+  },
+  {
+   "persona": "reseller",
+   "text": "Cập nhật đồ mới mỗi tối"
+  },
+  {
+   "persona": "reseller",
+   "text": "Bán đồ cũ lâu năm, ai cần cứ ib"
+  },
+  {
+   "persona": "reseller",
+   "text": "Đồ gia dụng cũ, còn tốt"
+  },
+  {
+   "persona": "reseller",
+   "text": "Đồ cũ, giá mềm, ship nhanh"
+  },
+  {
+   "persona": "general",
+   "text": "Thanh lý đồ cá nhân"
+  },
+  {
+   "persona": "general",
+   "text": "Đồ dùng kỹ, bán vì ít dùng"
+  },
+  {
+   "persona": "general",
+   "text": "Inbox trước 21h"
+  },
+  {
+   "persona": "general",
+   "text": "Bán đồ cũ"
+  },
+  {
+   "persona": "general",
+   "text": "Pass đồ"
+  },
+  {
+   "persona": "general",
+   "text": "Chỉ bán đồ nhà dùng"
+  },
+  {
+   "persona": "general",
+   "text": "Hàng chính chủ"
+  },
+  {
+   "persona": "general",
+   "text": "Hỏi gì cứ nhắn"
+  },
+  {
+   "persona": "general",
+   "text": "Thiện chí mua bán"
+  },
+  {
+   "persona": "general",
+   "text": "Giao dịch vui vẻ 😊"
+  },
+  {
+   "persona": "general",
+   "text": "Không thích kỳ kèo nhiều"
+  },
+  {
+   "persona": "general",
+   "text": "Giá đã tốt, bớt chút xíu cho người thiện chí"
+  },
+  {
+   "persona": "general",
+   "text": "Mô tả đúng, ảnh thật"
+  },
+  {
+   "persona": "general",
+   "text": "Nhắn tin trước khi gọi"
+  },
+  {
+   "persona": "general",
+   "text": "Rep hơi chậm, mong thông cảm"
+  },
+  {
+   "persona": "general",
+   "text": "Ưu tiên giao dịch trực tiếp"
+  },
+  {
+   "persona": "general",
+   "text": "Ship COD toàn quốc"
+  },
+  {
+   "persona": "general",
+   "text": "Có đồng kiểm"
+  },
+  {
+   "persona": "general",
+   "text": "Đồ cũ nhưng còn tốt"
+  },
+  {
+   "persona": "general",
+   "text": "Ít online"
+  },
+  {
+   "persona": "general",
+   "text": "Chủ yếu online buổi tối"
+  },
+  {
+   "persona": "general",
+   "text": "Mua bán thiện chí"
+  },
+  {
+   "persona": "general",
+   "text": "Không giữ hàng nhé"
+  },
+  {
+   "persona": "general",
+   "text": "Ai cần thì ib"
+  },
+  {
+   "persona": "general",
+   "text": "Bán nhanh cho người thiện chí"
+  },
+  {
+   "persona": "general",
+   "text": "Thích đồ cũ đẹp"
+  },
+  {
+   "persona": "general",
+   "text": "Đồ nhà dùng, bán lại cho ai cần"
+  },
+  {
+   "persona": "general",
+   "text": "Giảm rác thải, dùng lại đồ cũ ♻️"
+  },
+  {
+   "persona": "general",
+   "text": "Mình ở Đà Nẵng, giao trong thành phố"
+  },
+  {
+   "persona": "general",
+   "text": "Mình ở Cần Thơ"
+  },
+  {
+   "persona": "general",
+   "text": "Sài Gòn"
+  },
+  {
+   "persona": "general",
+   "text": "Hà Nội"
+  },
+  {
+   "persona": "general",
+   "text": "Huế"
+  },
+  {
+   "persona": "general",
+   "text": "Biên Hòa, giao quanh khu vực"
+  },
+  {
+   "persona": "general",
+   "text": "Nha Trang, có thể gặp ở trung tâm"
+  },
+  {
+   "persona": "general",
+   "text": "Vui vẻ, dễ thương, thiện chí 🥰"
+  },
+  {
+   "persona": "general",
+   "text": "Cuối tuần mới ship được"
+  },
+  {
+   "persona": "general",
+   "text": "Chỉ bán, không trao đổi"
+  },
+  {
+   "persona": "general",
+   "text": "Nhận trao đổi đồ tương đương"
+  },
+  {
+   "persona": "general",
+   "text": "😊"
+  },
+  {
+   "persona": "general",
+   "text": "🌻"
+  },
+  {
+   "persona": "general",
+   "text": "✌️"
+  },
+  {
+   "persona": "general",
+   "text": "🐱"
+  },
+  {
+   "persona": "general",
+   "text": "♻️"
+  },
+  {
+   "persona": "general",
+   "text": "🌿"
+  },
+  {
+   "persona": "general",
+   "text": "🙏"
+  },
+  {
+   "persona": "general",
+   "text": "🍀✨"
+  },
+  {
+   "persona": "general",
+   "text": "Hello 👋"
+  },
+  {
+   "persona": "general",
+   "text": "Hi"
+  },
+  {
+   "persona": "general",
+   "text": "..."
+  },
+  {
+   "persona": "general",
+   "text": "Xin chào"
+  },
+  {
+   "persona": "general",
+   "text": "Bán gì thì xem tin đăng nhé"
+  },
+  {
+   "persona": "general",
+   "text": "Đồ còn là còn, đã bán sẽ ẩn tin"
+  },
+  {
+   "persona": "general",
+   "text": "Đã bán thì mình ẩn tin luôn"
+  },
+  {
+   "persona": "general",
+   "text": "ko ship xa"
+  },
+  {
+   "persona": "general",
+   "text": "thanh ly do ca nhan"
+  },
+  {
+   "persona": "general",
+   "text": "ban do cu, ib nha"
+  },
+  {
+   "persona": "general",
+   "text": "hang chinh chu, dung ky"
+  },
+  {
+   "persona": "general",
+   "text": "pass do ko dung"
+  },
+  {
+   "persona": "general",
+   "text": "ib minh rep lien"
+  },
+  {
+   "persona": "general",
+   "text": "Người thật, đồ thật"
+  },
+  {
+   "persona": "general",
+   "text": "Thích nấu ăn, pass bớt đồ bếp"
+  },
+  {
+   "persona": "general",
+   "text": "Mê cây cối, pass chậu với cây con 🌱"
+  },
+  {
+   "persona": "general",
+   "text": "Yêu mèo, nhà có 3 bé 🐈"
+  },
+  {
+   "persona": "general",
+   "text": "Nuôi chó nên không bán đồ vải lông nhé 🐶"
+  },
+  {
+   "persona": "general",
+   "text": "Chạy bộ mỗi sáng, pass đồ thể thao cũ"
+  },
+  {
+   "persona": "general",
+   "text": "Chơi cầu lông, pass vợt cũ"
+  },
+  {
+   "persona": "general",
+   "text": "Đạp xe cuối tuần"
+  },
+  {
+   "persona": "general",
+   "text": "Thích đi phượt, pass đồ cắm trại"
+  },
+  {
+   "persona": "general",
+   "text": "Tập gym, pass tạ với dụng cụ"
+  },
+  {
+   "persona": "general",
+   "text": "Yêu bóng đá, pass giày đá bóng"
+  },
+  {
+   "persona": "general",
+   "text": "Mê đọc sách, đọc xong pass lại 📚"
+  },
+  {
+   "persona": "general",
+   "text": "Đồ handmade tự làm và đồ cũ"
+  },
+  {
+   "persona": "general",
+   "text": "Thích decor, đổi phong cách nên pass đồ cũ"
+  },
+  {
+   "persona": "general",
+   "text": "Thợ chụp ảnh nghiệp dư"
+  },
+  {
+   "persona": "general",
+   "text": "Nghỉ hưu, bán bớt đồ trong nhà"
+  },
+  {
+   "persona": "general",
+   "text": "Ông bà già bán đồ, con cháu đăng giúp"
+  },
+  {
+   "persona": "general",
+   "text": "Bán giúp người nhà"
+  },
+  {
+   "persona": "general",
+   "text": "Giáo viên, bán đồ ngoài giờ dạy"
+  },
+  {
+   "persona": "general",
+   "text": "Tài xế, giao hàng tiện đường"
+  },
+  {
+   "persona": "general",
+   "text": "Kỹ sư công trường, ít về nhà, nhắn tin nhé"
+  },
+  {
+   "persona": "general",
+   "text": "Bác sĩ, hay trực, rep muộn"
+  },
+  {
+   "persona": "general",
+   "text": "Y tá ca đêm, nhắn mình rep ban ngày"
+  },
+  {
+   "persona": "general",
+   "text": "Làm freelance, giờ giấc linh hoạt"
+  },
+  {
+   "persona": "general",
+   "text": "Chủ quán cà phê nhỏ, pass đồ quán cũ"
+  },
+  {
+   "persona": "general",
+   "text": "Đầu bếp, pass dụng cụ bếp"
+  },
+  {
+   "persona": "general",
+   "text": "Nhà gần chợ, hẹn gặp ở chợ được"
+  },
+  {
+   "persona": "general",
+   "text": "Có thể xem hàng trực tiếp tại nhà"
+  },
+  {
+   "persona": "general",
+   "text": "Mình bán đồ chậm mà chắc"
+  },
+  {
+   "persona": "general",
+   "text": "Thích thì mua, không thích thì thôi, vui vẻ"
+  },
+  {
+   "persona": "general",
+   "text": "Bớt cho người tới lấy tận nơi"
+  },
+  {
+   "persona": "general",
+   "text": "Đồ cũ vẫn còn giá trị"
+  },
+  {
+   "persona": "general",
+   "text": "Hạn chế gọi điện, nhắn tin giúp mình"
+  },
+  {
+   "persona": "general",
+   "text": "Nhắn rõ món cần hỏi giúp mình nha"
+  },
+  {
+   "persona": "general",
+   "text": "Không giao dịch ngoài app"
+  },
+  {
+   "persona": "general",
+   "text": "Thanh toán qua app cho an toàn"
+  },
+  {
+   "persona": "general",
+   "text": "Ship hỏa tốc nội thành được"
+  },
+  {
+   "persona": "general",
+   "text": "Gửi xe khách cho đồ lớn"
+  },
+  {
+   "persona": "general",
+   "text": "Mình chỉ có buổi tối rảnh"
+  },
+  {
+   "persona": "general",
+   "text": "Bán vì cần chỗ, không phải vì hư"
+  },
+  {
+   "persona": "general",
+   "text": "Từ từ rồi sẽ bán hết 😅"
+  },
+  {
+   "persona": "general",
+   "text": "Dọn nhà mỗi mùa, pass đồ mỗi mùa"
+  },
+  {
+   "persona": "general",
+   "text": "Ai cần đồ gì nhắn mình tìm thử"
+  },
+  {
+   "persona": "general",
+   "text": "Ở Quận 7, giao Phú Mỹ Hưng"
+  },
+  {
+   "persona": "general",
+   "text": "Ở Long Biên, giao trong ngày"
+  },
+  {
+   "persona": "general",
+   "text": "Ở Thủ Dầu Một, Bình Dương"
+  },
+  {
+   "persona": "general",
+   "text": "Hải Phòng"
+  },
+  {
+   "persona": "general",
+   "text": "Vũng Tàu"
+  },
+  {
+   "persona": "general",
+   "text": "Đà Lạt, đồ ấm áp hơi nhiều 😄"
+  },
+  {
+   "persona": "general",
+   "text": "Quy Nhơn"
+  },
+  {
+   "persona": "general",
+   "text": "Buôn Ma Thuột"
+  },
+  {
+   "persona": "general",
+   "text": "Vinh"
+  },
+  {
+   "persona": "general",
+   "text": "Thái Nguyên"
+  },
+  {
+   "persona": "general",
+   "text": "Mua đồ cũ là thói quen tốt"
+  },
+  {
+   "persona": "general",
+   "text": "Đồ ít dùng, giá thật"
+  },
+  {
+   "persona": "general",
+   "text": "Đăng gì bán nấy"
+  },
+  {
+   "persona": "general",
+   "text": "Có bảo hành cá nhân 7 ngày cho đồ điện"
+  },
+  {
+   "persona": "general",
+   "text": "Tin nhắn mình trả lời trong ngày"
+  },
+  {
+   "persona": "general",
+   "text": "Ưu tiên người mua chốt nhanh"
+  },
+  {
+   "persona": "general",
+   "text": "Hàng có sẵn, không order"
+  },
+  {
+   "persona": "general",
+   "text": "Cẩn thận, kỹ tính, đóng gói kỹ"
+  },
+  {
+   "persona": "general",
+   "text": "Hoàn tiền nếu khác mô tả"
+  },
+  {
+   "persona": "general",
+   "text": "Mình rất dễ, chỉ cần thiện chí"
+  },
+  {
+   "persona": "general",
+   "text": "Thích mua đồ cũ, thỉnh thoảng bán lại"
+  },
+  {
+   "persona": "general",
+   "text": "Mua nhiều hơn bán 😆"
+  },
+  {
+   "persona": "general",
+   "text": "Chủ yếu mua đồ, đôi khi bán"
+  },
+  {
+   "persona": "general",
+   "text": "Đi săn đồ cũ đẹp"
+  },
+  {
+   "persona": "general",
+   "text": "Tìm mua đồ gỗ cũ"
+  },
+  {
+   "persona": "general",
+   "text": "Đang tìm mua xe đạp cũ, ai có ib"
+  },
+  {
+   "persona": "general",
+   "text": "Mua đồ cũ cho bé"
+  },
+  {
+   "persona": "general",
+   "text": "Đang tìm bàn học cũ"
+  },
+  {
+   "persona": "general",
+   "text": "Thích săn sale đồ secondhand"
+  },
+  {
+   "persona": "general",
+   "text": "Nhận hàng đúng hẹn, thanh toán liền"
+  },
+  {
+   "persona": "general",
+   "text": "Mua bán sòng phẳng"
+  },
+  {
+   "persona": "general",
+   "text": "Không bom hàng"
+  },
+  {
+   "persona": "general",
+   "text": "Chốt là lấy"
+  },
+  {
+   "persona": "general",
+   "text": "Mua nhanh, không hỏi nhiều"
+  },
+  {
+   "persona": "general",
+   "text": "Trả lời chậm nhưng luôn trả lời"
+  },
+  {
+   "persona": "general",
+   "text": "Tối nay mình online 🌙"
+  },
+  {
+   "persona": "general",
+   "text": "Đi làm xa, cuối tháng về"
+  },
+  {
+   "persona": "general",
+   "text": "Gia đình nhỏ, đồ không nhiều"
+  },
+  {
+   "persona": "general",
+   "text": "Mỗi món một câu chuyện"
+  },
+  {
+   "persona": "general",
+   "text": "Đồ của mình, bạn dùng tiếp nha"
+  },
+  {
+   "persona": "general",
+   "text": "Mình giữ đồ như giữ của quý"
+  },
+  {
+   "persona": "general",
+   "text": "Thanh lý mùa dọn Tết"
+  },
+  {
+   "persona": "general",
+   "text": "Dọn nhà đón Tết, pass đồ cũ"
+  },
+  {
+   "persona": "general",
+   "text": "Hết hè pass đồ đi biển"
+  },
+  {
+   "persona": "general",
+   "text": "Đổi gió, đổi đồ"
+  },
+  {
+   "persona": "general",
+   "text": "Đồ cũ người này, đồ mới người kia"
+  },
+  {
+   "persona": "student",
+   "text": "Sinh viên năm 2 ở Hà Nội. Đồ mình bán đều là đồ mình dùng, có gì hỏi kỹ trước khi chốt giúp mình nha. Ưu tiên gặp ở trường cho nhanh."
+  },
+  {
+   "persona": "student",
+   "text": "Mình là sinh viên, bán bớt đồ để có chỗ trong phòng trọ 12m2 😅 Giá sinh viên, bớt thêm nếu lấy nhiều món."
+  },
+  {
+   "persona": "student",
+   "text": "sv năm nhất, đồ mua về ko hợp nên pass lại, còn mới lắm, ib mình nha"
+  },
+  {
+   "persona": "student",
+   "text": "Đang học thạc sĩ, ít thời gian nên chỉ nhận tin nhắn buổi tối. Sách và tài liệu còn sạch, không ghi chú."
+  },
+  {
+   "persona": "student",
+   "text": "Sinh viên kinh tế, thích săn đồ cũ đẹp, mặc vài lần rồi pass cho bạn khác mặc tiếp ♻️"
+  },
+  {
+   "persona": "student",
+   "text": "Học sinh cấp 3, bố mẹ đồng ý cho bán đồ cũ. Giao dịch giờ tan học hoặc cuối tuần."
+  },
+  {
+   "persona": "office",
+   "text": "Đi làm ở Quận 3, nhà ở Gò Vấp. Có thể gặp trên đường đi làm hoặc ship COD. Đồ mình dùng giữ gìn, có lỗi mình ghi rõ."
+  },
+  {
+   "persona": "office",
+   "text": "Dân văn phòng bận rộn. Mình mô tả kỹ, chụp ảnh thật, giá hợp lý nên mong bạn hạn chế trả giá quá sâu nha 🙏"
+  },
+  {
+   "persona": "office",
+   "text": "Làm việc từ xa, nhà ở Thanh Xuân. Thỉnh thoảng dọn nhà và đăng bán những món ít dùng. Nhắn tin mình rep trong ngày."
+  },
+  {
+   "persona": "office",
+   "text": "Mình bán vì nhà chật chứ đồ vẫn dùng tốt. Có thể xem trực tiếp sau 19h các ngày trong tuần."
+  },
+  {
+   "persona": "office",
+   "text": "Nhân viên kinh doanh, hay đi công tác nên có khi rep trễ 1-2 hôm, mong mọi người thông cảm."
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ hai bé trai 3 và 6 tuổi. Đồ của các con giặt sạch, phơi nắng, xếp gọn. Mình ship COD được đồng kiểm, không ưng thì không nhận."
+  },
+  {
+   "persona": "mom",
+   "text": "Mẹ bỉm ở Biên Hòa. Đồ chơi, quần áo, xe đẩy của bé đều còn tốt, mình chỉ pass vì con lớn rồi. Ưu tiên các mẹ tới lấy."
+  },
+  {
+   "persona": "mom",
+   "text": "Mình là mẹ bỉm sữa, bán đồ con để đổi đồ mới vừa size. Ai cần tư vấn size bé cứ hỏi mình nha 💕"
+  },
+  {
+   "persona": "mom",
+   "text": "Bé nhà mình dùng đồ rất ít vì được cho nhiều quá. Pass lại cho các mẹ cần, giá chỉ bằng 1/3 giá mới."
+  },
+  {
+   "persona": "mom",
+   "text": "mẹ bỉm, rep chậm vì bận con, ib để lại tin mình sẽ trả lời tối nha"
+  },
+  {
+   "persona": "tech",
+   "text": "Thích đồ công nghệ từ hồi đi học. Máy nào mình bán cũng ghi pin, trầy xước, lịch sử sửa chữa nếu có. Test thoải mái khi gặp."
+  },
+  {
+   "persona": "tech",
+   "text": "Mình hay đổi điện thoại vì công việc review, máy đều dùng cẩn thận, có ốp và cường lực từ ngày đầu."
+  },
+  {
+   "persona": "tech",
+   "text": "Lập trình viên, hay nâng cấp đồ nên pass lại laptop, màn hình, bàn phím cũ. Hỗ trợ cài đặt cơ bản nếu bạn cần."
+  },
+  {
+   "persona": "tech",
+   "text": "Mình bán đồ điện tử cũ của mình, không phải thợ. Có gì không rõ cứ hỏi, mình trả lời thật."
+  },
+  {
+   "persona": "tech",
+   "text": "Chơi âm thanh lâu năm, giờ thu gọn hệ thống. Đồ còn hộp, có thể nghe thử trực tiếp."
+  },
+  {
+   "persona": "collector",
+   "text": "Sưu tầm mô hình hơn 10 năm. Giờ nhà chật nên pass bớt những bộ trùng hoặc ít thích. Hộp giữ kỹ, không ám khói."
+  },
+  {
+   "persona": "collector",
+   "text": "Mình mê đồ xưa: radio, máy hát, đèn bàn cũ. Món nào cũng đã vệ sinh, còn chạy được. Ai cùng đam mê thì giao lưu nhé."
+  },
+  {
+   "persona": "collector",
+   "text": "Chơi máy ảnh film, thỉnh thoảng pass bớt máy và ống kính đã kiểm tra. Có thể bắn thử 1 cuộn nếu bạn muốn."
+  },
+  {
+   "persona": "collector",
+   "text": "Sưu tầm truyện tranh cũ từ thời bìa giấy mỏng, pass những cuốn trùng. Truyện có ố vàng theo năm tháng, mình ghi rõ."
+  },
+  {
+   "persona": "mover",
+   "text": "Mình chuyển vào Đà Nẵng làm việc nên cần thanh lý hết đồ ở Hà Nội trước cuối tháng. Giá mềm, ưu tiên ai tới lấy sớm."
+  },
+  {
+   "persona": "mover",
+   "text": "Cả nhà sắp đi định cư, bán toàn bộ nội thất và đồ gia dụng. Có thể qua xem trực tiếp, lấy nhiều mình bớt thêm."
+  },
+  {
+   "persona": "mover",
+   "text": "Hết hợp đồng thuê căn hộ, tủ lạnh, máy giặt, giường cần đi nhà mới. Khách tự vận chuyển giúp mình nha."
+  },
+  {
+   "persona": "mover",
+   "text": "chuyển trọ gấp, đồ còn ok hết, ai lấy nhanh mình để giá rẻ"
+  },
+  {
+   "persona": "reseller",
+   "text": "Mình mua lại đồ cũ từ các gia đình dọn nhà, vệ sinh, kiểm tra rồi mới đăng. Mô tả đúng tình trạng, ship COD đồng kiểm."
+  },
+  {
+   "persona": "reseller",
+   "text": "Chuyên đồ si tuyển Nhật, giặt hấp sạch trước khi gửi. Có lỗi nhỏ như sờn, ố mình đều chụp kỹ."
+  },
+  {
+   "persona": "reseller",
+   "text": "Bán xe đạp cũ đã bảo dưỡng: thay dầu, chỉnh phanh, bơm bánh. Bạn có thể đạp thử trước khi mua."
+  },
+  {
+   "persona": "reseller",
+   "text": "Nhận ký gửi đồ cũ cho người quen. Món nào cũng kiểm tra kỹ, không nhận đồ hư."
+  },
+  {
+   "persona": "general",
+   "text": "Mình bán đồ cũ của gia đình, không buôn bán. Đồ còn là còn, bán rồi mình ẩn tin. Cảm ơn mọi người đã ghé xem 😊"
+  },
+  {
+   "persona": "general",
+   "text": "Thích lối sống tối giản nên dọn dần đồ trong nhà. Món nào cũng còn dùng tốt, mong gặp được người cần."
+  },
+  {
+   "persona": "general",
+   "text": "Nhà mình ở gần chợ Bà Chiểu, có thể hẹn xem hàng buổi chiều. Ship COD toàn quốc, được kiểm tra trước khi nhận."
+  },
+  {
+   "persona": "general",
+   "text": "Mua bán thiện chí là được. Mình không giữ hàng quá 2 ngày, ai chuyển cọc qua app trước thì mình giữ."
+  },
+  {
+   "persona": "general",
+   "text": "Mình đăng đồ thật, ảnh thật, giá thật. Hỏi gì cũng được, mình trả lời hết, chỉ mong đừng hẹn rồi không tới nha 🙏"
+  },
+  {
+   "persona": "general",
+   "text": "Hay đi săn đồ cũ ở chợ đồ si cuối tuần, thỉnh thoảng bán lại món mua về không dùng tới."
+  },
+  {
+   "persona": "general",
+   "text": "Về hưu, ở nhà trồng cây và dọn đồ cũ. Con cháu giúp đăng tin nên có khi trả lời chậm."
+  },
+  {
+   "persona": "general",
+   "text": "Thích nấu ăn và đổi đồ bếp liên tục. Nồi, chảo, máy xay mình dùng ít, rửa sạch trước khi gửi."
+  },
+  {
+   "persona": "general",
+   "text": "Chạy bộ, đạp xe, cắm trại. Đồ thể thao mình dùng có vết sử dụng nhưng còn chắc chắn, giá để mềm."
+  },
+  {
+   "persona": "general",
+   "text": "Mình là người mua nhiều hơn bán. Nhận hàng đúng hẹn, thanh toán liền, có gì không ổn mình nói thẳng và lịch sự."
+  },
+  {
+   "persona": "general",
+   "text": "Đi làm xa nhà, cuối tháng mới về nên đồ chỉ giao được tuần cuối tháng. Mong mọi người thông cảm."
+  },
+  {
+   "persona": "general",
+   "text": "Mình thích đồ cũ vì nó bền và có câu chuyện. Mua của mình thì cứ dùng thoải mái nha."
+  },
+  {
+   "persona": "general",
+   "text": "Gia đình có nuôi mèo, đồ vải có thể dính chút lông, mình đã lăn kỹ. Ai dị ứng lông mèo cân nhắc giúp mình."
+  },
+  {
+   "persona": "general",
+   "text": "Làm ca xoay nên giờ giấc thất thường. Cứ nhắn tin, mình sẽ trả lời khi rảnh, thường trong ngày."
+  },
+  {
+   "persona": "general",
+   "text": "Ở chung cư có bảo vệ, có thể gửi hàng ở quầy lễ tân nếu bạn tới lấy khi mình đi vắng."
+  },
+  {
+   "persona": "general",
+   "text": "Đồ mình dùng kỹ, không hút thuốc, không thú cưng. Giá đã thấp hơn thị trường, bớt nhẹ cho người thiện chí."
+  },
+  {
+   "persona": "general",
+   "text": "nha minh o Tan Binh, gap truc tiep hoac ship cod deu dc nha"
+  },
+  {
+   "persona": "general",
+   "text": "Thích trao đổi đồ hơn bán. Nếu bạn có món hay, nhắn mình xem có đổi được không 😄"
+  },
+  {
+   "persona": "general",
+   "text": "Mình hay đăng đồ vào cuối tuần. Theo dõi để xem món mới nha."
+  }
+ ]
+}

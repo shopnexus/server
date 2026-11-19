@@ -49,7 +49,7 @@ func TestCategories(t *testing.T) {
 	s := repository.NewCategories(pgtest.New(t))
 	ctx := context.Background()
 	tree, err := s.Tree(ctx)
-	if err != nil || len(tree) != 55 || tree[0].Code != "phones" || tree[0].ParentCode != "" {
+	if err != nil || len(tree) != 96 || tree[0].Code != "phones" || tree[0].ParentCode != "" {
 		t.Fatalf("%d categories, first %+v, %v", len(tree), tree[0], err)
 	}
 	for key, want := range map[string]bool{"phones.iphone": true, "phones": false, "other.other": true, "nope": false} {

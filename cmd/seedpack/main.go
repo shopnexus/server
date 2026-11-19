@@ -20,6 +20,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/seedpack"
 	"github.com/shopnexus/server/internal/seedpack/fixtures"
+	"github.com/shopnexus/server/internal/seedpack/legacy"
 	"github.com/shopnexus/server/internal/seedpack/loader"
 )
 
@@ -28,6 +29,7 @@ import (
 func builders() []seedpack.Builder {
 	return []seedpack.Builder{
 		&fixtures.Builder{},
+		&legacy.Builder{},
 	}
 }
 
