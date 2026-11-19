@@ -5,19 +5,15 @@ package service
 import (
 	"fmt"
 	"strings"
-
-	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // PromptVersion names the prompt below and domain.AnswerSchema; a change to
 // either bumps it. The read's log line carries it.
-const PromptVersion = 2
+const PromptVersion = 3
 
-// systemPrompt is the model's instructions with the subcategories, built
-// once at start-up: the category tree changes only with a migration.
-func systemPrompt(cats []catalogdomain.Category) string {
-	var b strings.Builder
-	b.WriteString(`You read a short video a seller filmed on ShopNexus, a Vietnamese second-hand marketplace, and fill in
+// systemPrompt is the model's instructions. The category is not the model's:
+// catalog guesses it from the draft's title and description.
+const systemPrompt = `You read a short video a seller filmed on ShopNexus, a Vietnamese second-hand marketplace, and fill in
 their listing. You get frames of the video, numbered from 0 in time order, and a transcript of what the seller said.
 The transcript comes from speech recognition, on the seller's phone or on ours; the message says which, and some words
 may be misheard. Read it for its meaning and fix what was plainly misheard (prices, brands, model names, numbers). The
@@ -29,8 +25,6 @@ Fill these fields, in Vietnamese with diacritics unless a field says otherwise:
 - title: at most 70 characters, the way a Vietnamese seller titles a listing: the item, its brand and model, then
   what a buyer filters by (capacity, size, colour, battery health), as in "iPhone 11 64GB Trắng, pin 81%". No price,
   no emoji, and no "bán gấp", "giá rẻ" or "chính hãng" unless the seller said it.
-- category_code: one code from the list below, and only from it; the most specific one that fits. When no
-  subcategory fits, the code ending in ".other" under the right group.
 - condition: new (never used, boxed or sealed), like_new (used, with no wear a buyer would notice) or used. Take what
   the seller says about it; otherwise judge from the frames.
 - specs: label and value pairs a buyer compares, with Vietnamese labels ("Dung lượng": "64 GB", "Pin": "81%",
@@ -50,11 +44,7 @@ Fill these fields, in Vietnamese with diacritics unless a field says otherwise:
 - estimate: what this item in this condition sells for second-hand in Vietnam now, in whole đồng, as low, median and
   high. null when you cannot tell the item or its model well enough to price it. Never base it on spoken_price.
 
-Categories (code — group › name):
-`)
-	writeCategories(&b, cats)
-	return b.String()
-}
+`
 
 // userPrompt goes with the frames: how many there are, where the
 // transcript came from, and the transcript, fenced so the seller's words

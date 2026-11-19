@@ -170,14 +170,10 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		if imgErr != nil {
 			return filledPhoto{}, fmt.Errorf("read photo: %w", imgErr)
 		}
-		cats, catErr := s.Catalog.Categories(rc)
-		if catErr != nil {
-			return filledPhoto{}, fmt.Errorf("read categories: %w", catErr)
-		}
 		var answer domain.PhotoAnswer
 		modelCtx, cancelModel := context.WithTimeout(rc, s.CallTimeout)
 		modelErr := s.Model.Complete(modelCtx, llm.Request{
-			System: photoSystemPrompt(cats), User: photoUserPrompt,
+			System: photoSystemPrompt, User: photoUserPrompt,
 			SchemaName: domain.PhotoAnswerSchemaName, Schema: domain.PhotoAnswerSchema, Images: [][]byte{img},
 		}, &answer)
 		cancelModel()
@@ -188,11 +184,14 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		if modelErr != nil {
 			return filledPhoto{}, fmt.Errorf("ask the model: %w", modelErr)
 		}
-		d, rng, cleanErr := domain.CleanPhoto(answer, r.Media(), cats)
+		d, rng, cleanErr := domain.CleanPhoto(answer, r.Media())
+		if cleanErr == nil {
+			d.CategoryCode = s.guessCategory(rc, id, d)
+		}
 		// One line per answer, with no word of the draft's: no title or
 		// description.
 		s.Log.InfoContext(rc, "photo read filled", "read", id, "prompt_version", PhotoPromptVersion, "is_item", answer.IsItem,
-			"category_asked", answer.CategoryCode, "category_kept", d.CategoryCode, "condition", d.Condition,
+			"category", d.CategoryCode, "condition", d.Condition,
 			"specs", len(d.Specs), "description_chars", utf8.RuneCountInString(d.Description), "range", rng,
 			"ms", time.Since(started).Milliseconds())
 		if errors.Is(cleanErr, domain.ErrNoItem) {

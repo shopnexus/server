@@ -24,6 +24,7 @@ import (
 	"github.com/shopnexus/server/internal/assist/service"
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
 	mediadomain "github.com/shopnexus/server/internal/media/domain"
 	"github.com/shopnexus/server/internal/media/mediatest"
@@ -53,6 +54,8 @@ type env struct {
 	cut      *fakeCutter
 	stt      *fakeSTT
 	model    *fakeModel
+	// catText is catalog's text model, which guesses the drafts' categories.
+	catText  *embedtest.Model
 	source   *fakeSource
 	watchers *watchersOf
 	deps     service.Deps
@@ -67,13 +70,15 @@ func newEnv(t *testing.T, opts ...func(*env)) env {
 	in, p := restatetest.Ingress(t), restatetest.Prefix()
 	accounts := accounttest.Service(db)
 	m := mediatest.Service(db, objectstoretest.New(t), in, p)
-	c := catalogtest.Service(db, accounts, m, in, p)
+	catText := guessing(t)
+	c := catalogtest.Service(db, accounts, m, in, p, func(d *catalogsvc.Deps) { d.Text = catText })
 	e := env{
 		db: db, accounts: accounts, media: m, reads: repository.NewListingReads(db),
 		clock: restatetest.NewClock(time.Now()), ingress: in, prefix: p,
 		cut:      &fakeCutter{frames: 3, jpeg: mediatest.JPEG(t, 96, 64)},
 		stt:      &fakeSTT{text: transcript},
 		model:    &fakeModel{answer: bicycle(), link: iphoneAnswer(), photo: iphonePhoto()},
+		catText:  catText,
 		source:   newSource(t),
 		watchers: &watchersOf{rows: []discoverysvc.Watcher{}},
 	}
@@ -90,6 +95,21 @@ func newEnv(t *testing.T, opts ...func(*env)) env {
 	e.assist = service.New(e.deps)
 	restatetest.Start(t, slices.Concat(m.Durable(), c.Durable(), e.assist.Durable())...)
 	return e
+}
+
+// guessing is a text model under which the fakes' drafts read as their
+// categories: each draft's text embeds as its category's name does.
+func guessing(t *testing.T) *embedtest.Model {
+	t.Helper()
+	m := embedtest.New(catalogdomain.TextDims)
+	bicycle, iphone := embedtest.Axis(catalogdomain.TextDims, 0), embedtest.Axis(catalogdomain.TextDims, 1)
+	m.Set("Xe cộ › Xe đạp", bicycle)
+	m.Set("Điện thoại › iPhone", iphone)
+	m.Set(catalogdomain.GuessText("Xe đạp Asama xanh", "Xe đi ít, giá một triệu hai, có thương lượng."), bicycle)
+	m.Set(catalogdomain.GuessText("iPhone 11 64GB Trắng, pin 81%",
+		"Máy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Có thương lượng. Liên hệ."), iphone)
+	m.Set(catalogdomain.GuessText("iPhone 11 Trắng", "iPhone 11 màu trắng, mặt lưng kính, cụm 2 camera sau."), iphone)
+	return m
 }
 
 // video uploads a short mp4 for owner and returns its upload ID.
@@ -277,7 +297,7 @@ func (m *fakeModel) asked() (calls, images int, user string) {
 func bicycle() domain.Answer {
 	price := int64(1_200_000)
 	return domain.Answer{
-		IsItem: true, Title: "Xe đạp Asama xanh", CategoryCode: "vehicles.bicycle", Condition: "used",
+		IsItem: true, Title: "Xe đạp Asama xanh", Condition: "used",
 		Specs:       []catalogdomain.Spec{{Label: "Màu", Value: "Xanh"}},
 		Description: "Xe đi ít, giá một triệu hai, có thương lượng.",
 		SpokenPrice: &price, Negotiable: true, Kept: []int{2, 0},
@@ -357,7 +377,7 @@ func (f *fakeSource) Image(_ context.Context, url string) (photo []byte, content
 // the phone in the description for the regex to find.
 func iphoneAnswer() domain.LinkAnswer {
 	return domain.LinkAnswer{
-		IsItem: true, Title: "iPhone 11 64GB Trắng, pin 81%", CategoryCode: "phones.iphone", Condition: "used",
+		IsItem: true, Title: "iPhone 11 64GB Trắng, pin 81%", Condition: "used",
 		Specs:       []catalogdomain.Spec{{Label: "Dung lượng", Value: "64 GB"}, {Label: "Màu", Value: "Trắng"}},
 		Description: "Máy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Có thương lượng. Liên hệ 0909 123 456.",
 		Negotiable:  true, Estimate: &domain.Range{Low: 4_000_000, Median: 4_500_000, High: 5_000_000},
@@ -396,7 +416,7 @@ func (e env) linkEnd(t *testing.T, owner, id uuid.UUID) service.ListingReadView 
 // iphonePhoto is the model's answer for the seller's photo of their iPhone.
 func iphonePhoto() domain.PhotoAnswer {
 	return domain.PhotoAnswer{
-		IsItem: true, Title: "iPhone 11 Trắng", CategoryCode: "phones.iphone", Condition: "used",
+		IsItem: true, Title: "iPhone 11 Trắng", Condition: "used",
 		Specs:       []catalogdomain.Spec{{Label: "Màu", Value: "Trắng"}},
 		Description: "iPhone 11 màu trắng, mặt lưng kính, cụm 2 camera sau.",
 		Estimate:    &domain.Range{Low: 4_000_000, Median: 4_500_000, High: 5_000_000},

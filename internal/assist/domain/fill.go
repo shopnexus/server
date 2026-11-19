@@ -28,16 +28,15 @@ type Range struct {
 
 // Answer is what the model returns for a video, in AnswerSchema's shape.
 type Answer struct {
-	IsItem       bool                 `json:"is_item"`
-	Title        string               `json:"title"`
-	CategoryCode string               `json:"category_code"`
-	Condition    string               `json:"condition"`
-	Specs        []catalogdomain.Spec `json:"specs"`
-	Description  string               `json:"description"`
-	SpokenPrice  *int64               `json:"spoken_price"`
-	Negotiable   bool                 `json:"negotiable"`
-	Kept         []int                `json:"kept"`
-	Estimate     *Range               `json:"estimate"`
+	IsItem      bool                 `json:"is_item"`
+	Title       string               `json:"title"`
+	Condition   string               `json:"condition"`
+	Specs       []catalogdomain.Spec `json:"specs"`
+	Description string               `json:"description"`
+	SpokenPrice *int64               `json:"spoken_price"`
+	Negotiable  bool                 `json:"negotiable"`
+	Kept        []int                `json:"kept"`
+	Estimate    *Range               `json:"estimate"`
 }
 
 // AnswerSchemaName names AnswerSchema in the request.
@@ -46,8 +45,8 @@ const AnswerSchemaName = "video_read"
 // AnswerSchema is Answer as a strict JSON schema: every property required,
 // none other allowed, null where the answer may have none.
 var AnswerSchema = json.RawMessage(`{"type":"object","additionalProperties":false,
-"required":["is_item","title","category_code","condition","specs","description","spoken_price","negotiable","kept","estimate"],
-"properties":{"is_item":{"type":"boolean"},"title":{"type":"string"},"category_code":{"type":"string"},
+"required":["is_item","title","condition","specs","description","spoken_price","negotiable","kept","estimate"],
+"properties":{"is_item":{"type":"boolean"},"title":{"type":"string"},
 "condition":{"type":"string","enum":["new","like_new","used"]},
 "specs":{"type":"array","maxItems":20,"items":{"type":"object","additionalProperties":false,"required":["label","value"],
 "properties":{"label":{"type":"string"},"value":{"type":"string"}}}},
@@ -60,9 +59,9 @@ var AnswerSchema = json.RawMessage(`{"type":"object","additionalProperties":fals
 // keeping only values that pass the listing's rules. frames are the read's
 // photos in the order the model saw them, and sharpest the index of the
 // sharpest, the cover when the model kept none. An answer that shows no
-// item, or has no title, is ErrNoItem.
-func Clean(a Answer, frames []Photo, sharpest int, cats []catalogdomain.Category) (Draft, *Range, error) {
-	d, err := cleanDraft(a.IsItem, a.Title, a.CategoryCode, a.Condition, a.Specs, a.Description, cats)
+// item, or has no title, is ErrNoItem. The draft has no category yet.
+func Clean(a Answer, frames []Photo, sharpest int) (Draft, *Range, error) {
+	d, err := cleanDraft(a.IsItem, a.Title, a.Condition, a.Specs, a.Description)
 	if err != nil {
 		return Draft{}, nil, err
 	}
@@ -88,13 +87,10 @@ func Clean(a Answer, frames []Photo, sharpest int, cats []catalogdomain.Category
 }
 
 // cleanDraft keeps the fields both reads fill only where they pass the
-// listing's rules: the title squeezed and cut, a subcategory (or its
-// root's "Khác"), a known condition (else used), specs cut to size, the
-// description cut, and an empty list of photos. No item, or no title, is
-// ErrNoItem.
-func cleanDraft(isItem bool, rawTitle, rawCategory, rawCondition string, rawSpecs []catalogdomain.Spec, rawDescription string,
-	cats []catalogdomain.Category,
-) (Draft, error) {
+// listing's rules: the title squeezed and cut, a known condition (else
+// used), specs cut to size, the description cut, and an empty list of
+// photos. No item, or no title, is ErrNoItem.
+func cleanDraft(isItem bool, rawTitle, rawCondition string, rawSpecs []catalogdomain.Spec, rawDescription string) (Draft, error) {
 	title := cut(strings.Join(strings.Fields(rawTitle), " "), catalogdomain.MaxTitle)
 	if !isItem || title == "" {
 		return Draft{}, ErrNoItem
@@ -104,24 +100,6 @@ func cleanDraft(isItem bool, rawTitle, rawCategory, rawCondition string, rawSpec
 		Specs:       []catalogdomain.Spec{},
 		Description: cut(strings.TrimSpace(rawDescription), catalogdomain.MaxDescription),
 		Photos:      []uuid.UUID{},
-	}
-
-	// A category must be a subcategory. A root, or an unknown subcategory
-	// of a known root, becomes that root's "Khác"; anything else is none.
-	byCode := make(map[string]catalogdomain.Category, len(cats))
-	for _, c := range cats {
-		byCode[c.Code] = c
-	}
-	code := strings.TrimSpace(rawCategory)
-	if c, ok := byCode[code]; ok && c.ParentCode != "" {
-		d.CategoryCode = code
-	} else {
-		root, _, _ := strings.Cut(code, ".")
-		if r, ok := byCode[root]; ok && r.ParentCode == "" {
-			if _, ok := byCode[root+".other"]; ok {
-				d.CategoryCode = root + ".other"
-			}
-		}
 	}
 
 	switch d.Condition {

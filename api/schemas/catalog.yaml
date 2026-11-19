@@ -215,6 +215,26 @@ Category:
       description: Absent on a root. A listing takes a category with a parent.
     display_name:
       type: string
+CategoryGuessRequest:
+  type: object
+  additionalProperties: false
+  required: [title]
+  properties:
+    title:
+      type: string
+      minLength: 1
+      maxLength: 70
+    description:
+      type: string
+      maxLength: 1500
+CategoryGuess:
+  type: object
+  additionalProperties: false
+  required: [category_code]
+  properties:
+    category_code:
+      type: [string, "null"]
+      description: A subcategory code, null when the text reads as none.
 CategoryList:
   type: object
   additionalProperties: false

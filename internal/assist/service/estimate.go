@@ -124,3 +124,14 @@ func samplesOf(ss []catalogsvc.PriceSample) []domain.Sample {
 	}
 	return out
 }
+
+// guessCategory is the subcategory catalog reads draft's title and
+// description as; "" when the guess fails, which leaves the seller to pick.
+func (d Deps) guessCategory(ctx context.Context, read uuid.UUID, draft domain.Draft) string {
+	code, err := d.Catalog.GuessCategory(ctx, draft.Title, draft.Description)
+	if err != nil {
+		d.Log.WarnContext(ctx, "the draft goes without a category", "read", read, "err", err)
+		return ""
+	}
+	return code
+}

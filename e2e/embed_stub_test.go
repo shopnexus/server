@@ -33,6 +33,18 @@ type stubEmbed struct {
 
 func newEmbed() *stubEmbed {
 	e := &stubEmbed{text: embedtest.New(catalogdomain.TextDims), image: embedtest.New(catalogdomain.PhotoDims)}
+	// The stub answers' drafts read as their categories, on axes no other
+	// test sets.
+	bicycle, iphone := embedtest.Axis(catalogdomain.TextDims, 1000), embedtest.Axis(catalogdomain.TextDims, 1001)
+	for text, v := range map[string][]float32{
+		"Xe cộ › Xe đạp":      bicycle,
+		"Điện thoại › iPhone": iphone,
+		catalogdomain.GuessText("Xe đạp Asama xanh", "Xe đi ít, giá một triệu hai, có thương lượng."):         bicycle,
+		catalogdomain.GuessText("Xe đạp Asama xanh", "Xe đạp Asama màu xanh, có giỏ trước."):                  bicycle,
+		catalogdomain.GuessText("iPhone 11 64GB Trắng, pin 81%", "Máy dùng 3 năm, zin all. Có thương lượng."): iphone,
+	} {
+		e.text.Set(text, v)
+	}
 	e.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
 			Model string   `json:"model"`

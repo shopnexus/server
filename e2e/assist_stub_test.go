@@ -24,19 +24,19 @@ const (
 // The model's answers: the bicycle keeps frames 2 and 0; the empty room
 // shows no item.
 const (
-	bicycleAnswer = `{"is_item":true,"title":"Xe đạp Asama xanh","category_code":"vehicles.bicycle","condition":"used",` +
+	bicycleAnswer = `{"is_item":true,"title":"Xe đạp Asama xanh","condition":"used",` +
 		`"specs":[{"label":"Màu","value":"Xanh"}],"description":"Xe đi ít, giá một triệu hai, có thương lượng.",` +
 		`"spoken_price":1200000,"negotiable":true,"kept":[2,0],` +
 		`"estimate":{"low":1000000,"median":1200000,"high":1400000}}`
-	iphoneLinkAnswer = `{"is_item":true,"title":"iPhone 11 64GB Trắng, pin 81%","category_code":"phones.iphone","condition":"used",` +
+	iphoneLinkAnswer = `{"is_item":true,"title":"iPhone 11 64GB Trắng, pin 81%","condition":"used",` +
 		`"specs":[{"label":"Dung lượng","value":"64 GB"}],"description":"Máy dùng 3 năm, zin all. Có thương lượng.",` +
 		`"negotiable":true,"contact_removed":true,"estimate":{"low":4000000,"median":4500000,"high":5000000}}`
-	flatLinkAnswer = `{"is_item":false,"title":"","category_code":"","condition":"used","specs":[],"description":"",` +
+	flatLinkAnswer = `{"is_item":false,"title":"","condition":"used","specs":[],"description":"",` +
 		`"negotiable":false,"contact_removed":false,"estimate":null}`
-	bicyclePhotoAnswer = `{"is_item":true,"title":"Xe đạp Asama xanh","category_code":"vehicles.bicycle","condition":"used",` +
+	bicyclePhotoAnswer = `{"is_item":true,"title":"Xe đạp Asama xanh","condition":"used",` +
 		`"specs":[{"label":"Màu","value":"Xanh"}],"description":"Xe đạp Asama màu xanh, có giỏ trước.",` +
 		`"estimate":{"low":1000000,"median":1200000,"high":1400000}}`
-	noItemAnswer = `{"is_item":false,"title":"","category_code":"","condition":"used","specs":[],"description":"",` +
+	noItemAnswer = `{"is_item":false,"title":"","condition":"used","specs":[],"description":"",` +
 		`"spoken_price":null,"negotiable":false,"kept":[],"estimate":null}`
 )
 

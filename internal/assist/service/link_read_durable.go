@@ -174,14 +174,10 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		case adErr != nil:
 			return readListing{}, fmt.Errorf("read the listing: %w", adErr)
 		}
-		cats, catErr := s.Catalog.Categories(rc)
-		if catErr != nil {
-			return readListing{}, fmt.Errorf("read categories: %w", catErr)
-		}
 		var answer domain.LinkAnswer
 		modelCtx, cancelModel := context.WithTimeout(rc, s.CallTimeout)
 		modelErr := s.Model.Complete(modelCtx, llm.Request{
-			System: linkSystemPrompt(cats), User: linkUserPrompt(ad),
+			System: linkSystemPrompt, User: linkUserPrompt(ad),
 			SchemaName: domain.LinkAnswerSchemaName, Schema: domain.LinkAnswerSchema,
 		}, &answer)
 		cancelModel()
@@ -192,13 +188,16 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		if modelErr != nil {
 			return readListing{}, fmt.Errorf("ask the model: %w", modelErr)
 		}
-		d, rng, removed, cleanErr := domain.CleanLink(answer, ad.Price, cats)
+		d, rng, removed, cleanErr := domain.CleanLink(answer, ad.Price)
+		if cleanErr == nil {
+			d.CategoryCode = s.guessCategory(rc, id, d)
+		}
 		images := ad.Images[:min(len(ad.Images), domain.MaxCopied)]
 		// One line per answer, with no word of the seller's: no subject,
 		// body, title, description or link.
 		s.Log.InfoContext(rc, "link read filled", "read", id, "prompt_version", LinkPromptVersion, "list_id", r.Link().ListID,
 			"photos", len(ad.Images), "body_chars", utf8.RuneCountInString(ad.Body), "chotot_category", ad.CategoryName,
-			"is_item", answer.IsItem, "category_asked", answer.CategoryCode, "category_kept", d.CategoryCode,
+			"is_item", answer.IsItem, "category", d.CategoryCode,
 			"condition", d.Condition, "specs", len(d.Specs), "contact_removed", removed, "price", d.Price, "range", rng,
 			"ms", time.Since(started).Milliseconds())
 		if errors.Is(cleanErr, domain.ErrNoItem) {

@@ -130,3 +130,16 @@ func TestPhotoReadRefusals(t *testing.T) {
 		t.Fatalf("%d refused reads kept: %v", n, err)
 	}
 }
+
+// A guess that fails leaves the draft without a category; the read still
+// fills the rest and the seller picks the category.
+func TestPhotoReadWithoutAGuess(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	e.catText.SetFail(errors.New("embedding down"))
+	seller := accounttest.WithPhone(t, e.db)
+	v := e.end(t, seller, e.startPhoto(t, seller, e.photo(t, seller)).ID)
+	if v.Status != domain.StatusDone || v.Draft == nil || v.Draft.Title != "iPhone 11 Trắng" || v.Draft.CategoryCode != "" {
+		t.Fatalf("%+v %+v", v, v.Draft)
+	}
+}

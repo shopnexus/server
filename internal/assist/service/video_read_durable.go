@@ -347,14 +347,10 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 			}
 			images[i] = img
 		}
-		cats, catErr := s.Catalog.Categories(rc)
-		if catErr != nil {
-			return filled{}, fmt.Errorf("read categories: %w", catErr)
-		}
 		var answer domain.Answer
 		modelCtx, cancelModel := context.WithTimeout(rc, s.CallTimeout)
 		modelErr := s.Model.Complete(modelCtx, llm.Request{
-			System: systemPrompt(cats), User: userPrompt(transcript, len(images), from),
+			System: systemPrompt, User: userPrompt(transcript, len(images), from),
 			SchemaName: domain.AnswerSchemaName, Schema: domain.AnswerSchema, Images: images,
 		}, &answer)
 		cancelModel()
@@ -365,12 +361,15 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		if modelErr != nil {
 			return filled{}, fmt.Errorf("ask the model: %w", modelErr)
 		}
-		d, rng, cleanErr := domain.Clean(answer, r.Photos(), cut.Sharpest, cats)
+		d, rng, cleanErr := domain.Clean(answer, r.Photos(), cut.Sharpest)
+		if cleanErr == nil {
+			d.CategoryCode = s.guessCategory(rc, id, d)
+		}
 		// One line per answer, with no word of the seller's: no transcript,
 		// title or description.
 		s.Log.InfoContext(rc, "video read filled", "read", id, "prompt_version", PromptVersion,
 			"frames", len(images), "transcript_chars", utf8.RuneCountInString(transcript), "transcript_from", from, "is_item", answer.IsItem,
-			"category_asked", answer.CategoryCode, "category_kept", d.CategoryCode, "condition", d.Condition,
+			"category", d.CategoryCode, "condition", d.Condition,
 			"specs", len(d.Specs), "kept", len(d.Photos), "has_description", d.Description != "",
 			"spoken_price", answer.SpokenPrice, "price", d.Price, "range", rng,
 			"ms", time.Since(started).Milliseconds())

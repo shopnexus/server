@@ -13,14 +13,6 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
-var cats = []catalogdomain.Category{
-	{Code: "phones", DisplayName: "Điện thoại"},
-	{Code: "phones.iphone", ParentCode: "phones", DisplayName: "iPhone"},
-	{Code: "phones.other", ParentCode: "phones", DisplayName: "Khác"},
-	{Code: "misc", DisplayName: "Đồ linh tinh"}, // a root without .other
-	{Code: "misc.toys", ParentCode: "misc", DisplayName: "Đồ chơi"},
-}
-
 func eightFrames() []domain.Photo {
 	out := make([]domain.Photo, 8)
 	for i := range out {
@@ -34,7 +26,7 @@ func price(v int64) *int64 { return new(v) }
 // good is an answer every rule keeps as it is.
 func good() domain.Answer {
 	return domain.Answer{
-		IsItem: true, Title: "iPhone 11 64GB Trắng, pin 81%", CategoryCode: "phones.iphone", Condition: "used",
+		IsItem: true, Title: "iPhone 11 64GB Trắng, pin 81%", Condition: "used",
 		Specs:       []catalogdomain.Spec{{Label: "Dung lượng", Value: "64 GB"}, {Label: "Pin", Value: "81%"}},
 		Description: "Máy dùng 3 năm, chưa sửa chữa gì.", SpokenPrice: price(4_500_000), Negotiable: true,
 		Kept: []int{2, 0, 3}, Estimate: &domain.Range{Low: 4_400_000, Median: 4_800_000, High: 5_100_000},
@@ -44,12 +36,12 @@ func good() domain.Answer {
 func TestCleanKeepsAGoodAnswer(t *testing.T) {
 	t.Parallel()
 	frames := eightFrames()
-	d, r, err := domain.Clean(good(), frames, 5, cats)
+	d, r, err := domain.Clean(good(), frames, 5)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := domain.Draft{
-		Title: "iPhone 11 64GB Trắng, pin 81%", CategoryCode: "phones.iphone", Condition: catalogdomain.ConditionUsed,
+		Title: "iPhone 11 64GB Trắng, pin 81%", Condition: catalogdomain.ConditionUsed,
 		Specs:       []catalogdomain.Spec{{Label: "Dung lượng", Value: "64 GB"}, {Label: "Pin", Value: "81%"}},
 		Description: "Máy dùng 3 năm, chưa sửa chữa gì.", Price: price(4_500_000), AllowOffers: true,
 		Photos: []uuid.UUID{frames[2].UploadID, frames[0].UploadID, frames[3].UploadID},
@@ -73,7 +65,7 @@ func TestCleanRefusesNoItem(t *testing.T) {
 			t.Parallel()
 			a := good()
 			change(&a)
-			if _, _, err := domain.Clean(a, eightFrames(), 0, cats); !errors.Is(err, domain.ErrNoItem) {
+			if _, _, err := domain.Clean(a, eightFrames(), 0); !errors.Is(err, domain.ErrNoItem) {
 				t.Fatalf("got %v", err)
 			}
 		})
@@ -98,36 +90,6 @@ func TestCleanRules(t *testing.T) {
 			t.Helper()
 			if d.Title != strings.Repeat("Đ", 70) {
 				t.Fatalf("%d runes", len([]rune(d.Title)))
-			}
-		}},
-		{"a root becomes its other", func(a *domain.Answer) { a.CategoryCode = "phones" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
-			t.Helper()
-			if d.CategoryCode != "phones.other" {
-				t.Fatalf("%q", d.CategoryCode)
-			}
-		}},
-		{"an unknown sub becomes its root's other", func(a *domain.Answer) { a.CategoryCode = "phones.nokia" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
-			t.Helper()
-			if d.CategoryCode != "phones.other" {
-				t.Fatalf("%q", d.CategoryCode)
-			}
-		}},
-		{"an unknown root is empty", func(a *domain.Answer) { a.CategoryCode = "boats.sail" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
-			t.Helper()
-			if d.CategoryCode != "" {
-				t.Fatalf("%q", d.CategoryCode)
-			}
-		}},
-		{"a root without other is empty", func(a *domain.Answer) { a.CategoryCode = "misc" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
-			t.Helper()
-			if d.CategoryCode != "" {
-				t.Fatalf("%q", d.CategoryCode)
-			}
-		}},
-		{"spaces around a code", func(a *domain.Answer) { a.CategoryCode = " misc.toys " }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
-			t.Helper()
-			if d.CategoryCode != "misc.toys" {
-				t.Fatalf("%q", d.CategoryCode)
 			}
 		}},
 		{"an unknown condition is used", func(a *domain.Answer) { a.Condition = "broken" }, func(t *testing.T, d domain.Draft, _ *domain.Range, _ []domain.Photo) {
@@ -278,7 +240,7 @@ func TestCleanRules(t *testing.T) {
 			a := good()
 			c.change(&a)
 			frames := eightFrames()
-			d, r, err := domain.Clean(a, frames, 5, cats)
+			d, r, err := domain.Clean(a, frames, 5)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -309,7 +271,7 @@ func TestAnswerSchemaMatchesAnswer(t *testing.T) {
 		t.Fatalf("schema %v, answer %v", req, tags)
 	}
 	var a domain.Answer
-	if err := json.Unmarshal([]byte(`{"is_item":true,"title":"t","category_code":"c","condition":"used","specs":[],
+	if err := json.Unmarshal([]byte(`{"is_item":true,"title":"t","condition":"used","specs":[],
 "description":"","spoken_price":null,"negotiable":false,"kept":[0],"estimate":null}`), &a); err != nil || a.SpokenPrice != nil || a.Estimate != nil {
 		t.Fatalf("%+v %v", a, err)
 	}

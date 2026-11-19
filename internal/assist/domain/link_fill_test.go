@@ -30,17 +30,9 @@ func TestStripPhones(t *testing.T) {
 	}
 }
 
-func phoneCats() []catalogdomain.Category {
-	return []catalogdomain.Category{
-		{Code: "phones", DisplayName: "Điện thoại"},
-		{Code: "phones.iphone", ParentCode: "phones", DisplayName: "iPhone"},
-		{Code: "phones.other", ParentCode: "phones", DisplayName: "Khác"},
-	}
-}
-
 func iphone() domain.LinkAnswer {
 	return domain.LinkAnswer{
-		IsItem: true, Title: "  iPhone 11 64GB   Trắng, pin 81% ", CategoryCode: "phones.iphone", Condition: "used",
+		IsItem: true, Title: "  iPhone 11 64GB   Trắng, pin 81% ", Condition: "used",
 		Specs:       []catalogdomain.Spec{{Label: "Dung lượng", Value: "64 GB"}, {Label: " ", Value: "x"}},
 		Description: "Máy dùng 3 năm, zin all. Có thương lượng. Liên hệ 0909 123 456.",
 		Negotiable:  true, ContactRemoved: false,
@@ -50,11 +42,11 @@ func iphone() domain.LinkAnswer {
 
 func TestCleanLink(t *testing.T) {
 	t.Parallel()
-	d, rng, removed, err := domain.CleanLink(iphone(), 4_500_000, phoneCats())
+	d, rng, removed, err := domain.CleanLink(iphone(), 4_500_000)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Title != "iPhone 11 64GB Trắng, pin 81%" || d.CategoryCode != "phones.iphone" || d.Condition != catalogdomain.ConditionUsed ||
+	if d.Title != "iPhone 11 64GB Trắng, pin 81%" || d.Condition != catalogdomain.ConditionUsed ||
 		len(d.Specs) != 1 || d.Description != "Máy dùng 3 năm, zin all. Có thương lượng. Liên hệ." || d.Price == nil ||
 		*d.Price != 4_500_000 || !d.AllowOffers || d.Photos == nil || len(d.Photos) != 0 {
 		t.Fatalf("%+v", d)
@@ -67,21 +59,21 @@ func TestCleanLink(t *testing.T) {
 	}
 
 	a := iphone()
-	a.CategoryCode, a.Condition, a.Estimate, a.ContactRemoved = "phones.samsung", "broken", nil, true
+	a.Condition, a.Estimate, a.ContactRemoved = "broken", nil, true
 	a.Description = "Máy đẹp."
-	d, rng, removed, err = domain.CleanLink(a, 5_000, phoneCats())
-	if err != nil || d.CategoryCode != "phones.other" || d.Condition != catalogdomain.ConditionUsed || d.Price != nil || rng != nil || !removed {
+	d, rng, removed, err = domain.CleanLink(a, 5_000)
+	if err != nil || d.CategoryCode != "" || d.Condition != catalogdomain.ConditionUsed || d.Price != nil || rng != nil || !removed {
 		t.Fatalf("%+v %+v %v %v", d, rng, removed, err)
 	}
 
 	a = iphone()
 	a.IsItem = false
-	if _, _, _, err = domain.CleanLink(a, 4_500_000, phoneCats()); !errors.Is(err, domain.ErrNoItem) {
+	if _, _, _, err = domain.CleanLink(a, 4_500_000); !errors.Is(err, domain.ErrNoItem) {
 		t.Fatalf("not an item: %v", err)
 	}
 	a = iphone()
 	a.Title = "   "
-	if _, _, _, err = domain.CleanLink(a, 4_500_000, phoneCats()); !errors.Is(err, domain.ErrNoItem) {
+	if _, _, _, err = domain.CleanLink(a, 4_500_000); !errors.Is(err, domain.ErrNoItem) {
 		t.Fatalf("no title: %v", err)
 	}
 }

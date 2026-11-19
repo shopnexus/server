@@ -381,6 +381,35 @@ categories:
           application/json:
             schema:
               $ref: "../schemas/catalog.yaml#/CategoryList"
+categoryGuesses:
+  post:
+    operationId: guessCategory
+    x-uc: [UC-LST-01]
+    summary: The subcategory a draft's title and description read as.
+    description: |
+      Compares the text with each subcategory's words and answers the
+      nearest. The sell form asks as the seller types the title; a read
+      fills its draft's category the same way. Stores nothing.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/catalog.yaml#/CategoryGuessRequest"
+    responses:
+      "200":
+        description: The guess; category_code is null when there is none.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/CategoryGuess"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
 regions:
   get:
     operationId: listProvinces

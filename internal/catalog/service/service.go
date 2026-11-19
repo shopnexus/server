@@ -132,6 +132,9 @@ type Service interface {
 	// domain.MaxGPSKm.
 	Locate(ctx context.Context, p domain.Point) (Location, error)
 	Categories(ctx context.Context) ([]domain.Category, error)
+	// GuessCategory is the subcategory a listing's title and description
+	// read as; "" when both are blank or the text model is off.
+	GuessCategory(ctx context.Context, title, description string) (string, error)
 	// Search runs s and returns its listings as cards, in order.
 	Search(ctx context.Context, s domain.Search) ([]SearchCard, error)
 	// Words splits text into the words the listings index would find in
@@ -207,6 +210,8 @@ type Catalog struct {
 	text, image               embed.Model
 	textVersion, imageVersion string
 	embedSlots                chan struct{}
+	protoLock                 chan struct{}
+	protos                    []domain.CategoryPrototype
 	log                       *slog.Logger
 }
 
@@ -217,7 +222,7 @@ func New(d Deps) *Catalog {
 		listings: d.Listings, drafts: d.Drafts, categories: d.Categories, regions: d.Regions, searches: d.Searches,
 		accounts: d.Accounts, media: d.Media, prefix: d.Prefix, now: d.Now,
 		vectors: d.Vectors, text: d.Text, image: d.Image, textVersion: d.TextVersion, imageVersion: d.ImageVersion,
-		embedSlots: make(chan struct{}, d.EmbedSlots), log: d.Log,
+		embedSlots: make(chan struct{}, d.EmbedSlots), protoLock: make(chan struct{}, 1), log: d.Log,
 		post: restatex.Caller[PostInput, PostResult]{Ingress: d.Ingress, Service: d.Prefix + listingPost, Handler: flowHandler},
 		edit: restatex.Caller[EditInput, EditResult]{Ingress: d.Ingress, Service: d.Prefix + listingEdit, Handler: flowHandler},
 		photoCopy: restatex.Caller[PhotoCopyInput, PhotoCopyResult]{

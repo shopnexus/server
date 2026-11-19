@@ -347,3 +347,18 @@ func TestListingGPS(t *testing.T) {
 		t.Fatalf("the point leaked: %s", res.Body)
 	}
 }
+
+func TestGuessCategory(t *testing.T) {
+	t.Parallel()
+	me, _ := newAccount(t)
+	type guess struct {
+		CategoryCode *string `json:"category_code"`
+	}
+	body := map[string]any{"title": "Xe đạp Asama xanh", "description": "Xe đi ít, giá một triệu hai, có thương lượng."}
+	g := expect[guess](t, call(t, "POST", "/v1/category-guesses", body, bearer(me.AccessToken)), 200)
+	if g.CategoryCode == nil || *g.CategoryCode != "vehicles.bicycle" {
+		t.Fatalf("guess %v", g.CategoryCode)
+	}
+	check(t, "signed out", call(t, "POST", "/v1/category-guesses", body), 401, "unauthenticated")
+	check(t, "no title", call(t, "POST", "/v1/category-guesses", map[string]any{"title": ""}, bearer(me.AccessToken)), 400, "invalid_request")
+}

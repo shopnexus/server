@@ -17,7 +17,6 @@ const MaxCopied = catalogdomain.MaxPhotos
 type LinkAnswer struct {
 	IsItem         bool                 `json:"is_item"`
 	Title          string               `json:"title"`
-	CategoryCode   string               `json:"category_code"`
 	Condition      string               `json:"condition"`
 	Specs          []catalogdomain.Spec `json:"specs"`
 	Description    string               `json:"description"`
@@ -31,8 +30,8 @@ const LinkAnswerSchemaName = "link_read"
 
 // LinkAnswerSchema is LinkAnswer as a strict JSON schema.
 var LinkAnswerSchema = json.RawMessage(`{"type":"object","additionalProperties":false,
-"required":["is_item","title","category_code","condition","specs","description","negotiable","contact_removed","estimate"],
-"properties":{"is_item":{"type":"boolean"},"title":{"type":"string"},"category_code":{"type":"string"},
+"required":["is_item","title","condition","specs","description","negotiable","contact_removed","estimate"],
+"properties":{"is_item":{"type":"boolean"},"title":{"type":"string"},
 "condition":{"type":"string","enum":["new","like_new","used"]},
 "specs":{"type":"array","maxItems":20,"items":{"type":"object","additionalProperties":false,"required":["label","value"],
 "properties":{"label":{"type":"string"},"value":{"type":"string"}}}},
@@ -43,8 +42,8 @@ var LinkAnswerSchema = json.RawMessage(`{"type":"object","additionalProperties":
 // CleanLink turns the model's answer and the listing's price into a draft
 // without photos, the model's price range, and whether a contact was taken
 // out of the description, by the model or by StripPhones after it.
-func CleanLink(a LinkAnswer, price int64, cats []catalogdomain.Category) (Draft, *Range, bool, error) {
-	d, err := cleanDraft(a.IsItem, a.Title, a.CategoryCode, a.Condition, a.Specs, a.Description, cats)
+func CleanLink(a LinkAnswer, price int64) (Draft, *Range, bool, error) {
+	d, err := cleanDraft(a.IsItem, a.Title, a.Condition, a.Specs, a.Description)
 	if err != nil {
 		return Draft{}, nil, false, err
 	}

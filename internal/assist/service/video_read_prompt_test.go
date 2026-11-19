@@ -3,31 +3,15 @@ package service
 import (
 	"strings"
 	"testing"
-
-	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
-func TestSystemPromptListsSubcategories(t *testing.T) {
+func TestSystemPrompt(t *testing.T) {
 	t.Parallel()
-	p := systemPrompt([]catalogdomain.Category{
-		{Code: "phones", DisplayName: "Điện thoại"},
-		{Code: "phones.iphone", ParentCode: "phones", DisplayName: "iPhone"},
-		{Code: "phones.other", ParentCode: "phones", DisplayName: "Khác"},
-		{Code: "fashion", DisplayName: "Thời trang"},
-		{Code: "fashion.shoes", ParentCode: "fashion", DisplayName: "Giày dép"},
-	})
-	for _, line := range []string{
-		"\nphones.iphone — Điện thoại › iPhone\n", "\nphones.other — Điện thoại › Khác\n", "\nfashion.shoes — Thời trang › Giày dép\n",
-	} {
-		if !strings.Contains(p, line) {
-			t.Errorf("missing %q", line)
-		}
-	}
-	if strings.Contains(p, "\nphones — ") || strings.Contains(p, "\nfashion — ") {
-		t.Error("a root is listed as a category")
+	if strings.Contains(systemPrompt, "category_code") {
+		t.Error("the model is asked for a category; catalog guesses it")
 	}
 	// The rule of app/mohinh.md section 1: the model names no mark.
-	if !strings.Contains(p, "Never name a mark, scratch, dent, crack, stain or fault the seller did not name") {
+	if !strings.Contains(systemPrompt, "Never name a mark, scratch, dent, crack, stain or fault the seller did not name") {
 		t.Error("the marks rule is missing")
 	}
 }

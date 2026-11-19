@@ -1128,6 +1128,18 @@ agree during a deploy.
   migration 0007: 9 roots, each with subcategories coded `<root>.<slug>` and
   ending with `<root>.other` ("Khác"). A listing's `category_code` must name
   a subcategory, a row with a parent.
+- `POST /v1/category-guesses` (seller-only) and the three reads guess a
+  draft's subcategory with `GuessCategory`. It embeds the title and the
+  description with the text model and takes the nearest of the category
+  texts: per subcategory in `domain.CategoryKeywords`, its "group › name",
+  and that name with each of its keywords; the category texts are embedded
+  on the first guess of a process and kept. The ".other" leaves have no
+  keywords and are never guessed.
+  On the 86 listings of the search sample set and the demo pack, 71 of the 77
+  outside Khác come out right from the title and description, 69 from the
+  title alone (`go test -tags eval -run TestGuessEval`, 2026-11-19). Each
+  guess is one call to the text model, about 1 s through OpenRouter. With the
+  text model off, the answer is null.
 - `provinces` and `communes` (migration 0005) hold the 34 provinces and
   3,321 communes after the 2025 merger, from
   thanglequoc/vietnamese-provinces-database v5.2.0 (commit 8b78ba511871,
@@ -2368,18 +2380,18 @@ The video read:
   `POST /v1/listings` like photos the app uploaded. Fill: the phone's
   transcript when the read has one, else module ai's `Transcribe` of the same key, and the LLM in one
   step, so the transcript never reaches the journal; the LLM gets the
-  frames at 768 px, the transcript with where it came from, and the
-  subcategories, and answers a strict schema. Estimate: catalog's `PriceSample` with the
+  frames at 768 px and the transcript with where it came from, and answers
+  a strict schema without a category. Estimate: catalog's `PriceSample` with the
   draft's text vector and the mean of the kept frames' vectors.
-- The LLM's answer is cleaned like search's understanding. An unknown
-  subcategory becomes its root's `.other`, or nothing when the root is
-  unknown too. The title is cut at 70 characters and the description at
+- The LLM's answer is cleaned like search's understanding. The category is
+  catalog's `GuessCategory` of the cleaned title and description; a guess
+  that fails leaves it empty for the seller to pick. The title is cut at 70 characters and the description at
   1,500, specs at 20, a spoken price outside 10,000 to 1,000,000,000 đồng
   is dropped, and a kept frame number outside the frames is dropped; none
   left gives the sharpest frame. `is_item = false` or an empty title fails
   the read with `no_item`. The description restates the seller's words
   only, and the prompt forbids naming a mark the seller did not name
-  (`app/mohinh.md`, section 1). `PromptVersion` is 2.
+  (`app/mohinh.md`, section 1). `PromptVersion` is 3.
 - The price range comes from the 30 listings most like the draft in its
   subcategory and condition: sold in the last 180 days at weight 2, active
   or reserved and published in the last 90 at weight 1, the seller's own
@@ -2439,7 +2451,7 @@ photo, the app's cover, and costs one image and no speech to text:
   refusal is `invalid_upload` 422 and deletes the row again. The read
   holds nothing: the listing posts the photo.
 - `Run` fills, then estimates. The fill sends the photo at 768 px with
-  `photoSystemPrompt` (`PhotoPromptVersion` 1) and `PhotoAnswerSchema`;
+  `photoSystemPrompt` (`PhotoPromptVersion` 2) and `PhotoAnswerSchema`;
   `CleanPhoto` cleans the answer like the video's, keeps the photo as the
   draft's one photo, sets no price and cuts the description at 300
   characters. The description says what the photo shows and never names a
@@ -2487,7 +2499,7 @@ bạn", and nothing compares the listing's owner with the account.
   Read: the gateway and the model in one step, so the listing's text never
   enters the journal; the model gets the subject, the parameters, Chợ Tốt's
   category and the body, without photos, and answers a strict schema
-  (`LinkPromptVersion` 1). The cleaning is the video read's (`cleanDraft`,
+  (`LinkPromptVersion` 2). The cleaning and the category guess are the video read's (`cleanDraft`,
   `cleanRange`); the price is the listing's own, kept between 10,000 and
   1,000,000,000 đồng; `StripPhones` takes out what still looks like a
   Vietnamese phone number and sets `contact_removed`. Copy: the first 10
