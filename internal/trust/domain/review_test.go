@@ -15,8 +15,11 @@ var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 
 var subject = uuid.NewV7()
 
+// newReview is a first review still hidden: the other side has not
+// reviewed, and it shows 10 days on, after the edit window.
 func newReview(stars int, text string) (domain.Review, error) {
-	return domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleSeller, uuid.NewV7(), subject, uuid.NewV7(), stars, text, now, now)
+	return domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleSeller, uuid.NewV7(), subject, uuid.NewV7(), stars, text,
+		now.Add(10*24*time.Hour), now)
 }
 
 func TestNewReview(t *testing.T) {
@@ -65,6 +68,35 @@ func TestEditWindow(t *testing.T) {
 	}
 	if err = r.CanChange(now.Add(7 * day)); err != nil {
 		t.Fatalf("day 7: %v", err)
+	}
+}
+
+func TestLockedOnceShown(t *testing.T) {
+	t.Parallel()
+	day := 24 * time.Hour
+	r, err := domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleSeller, uuid.NewV7(), subject, uuid.NewV7(), 4, "Ổn",
+		now.Add(3*day), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := r.ChangeUntil(); !got.Equal(now.Add(3 * day)) {
+		t.Fatalf("change until %v, want when it shows", got)
+	}
+	if err = r.Edit(5, "Tốt", now.Add(2*day)); err != nil {
+		t.Fatalf("hidden on day 2: %v", err)
+	}
+	if err = r.Edit(1, "Tệ", now.Add(3*day)); !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("shown on day 3: %v", err)
+	}
+	if err = r.Delete(now.Add(4 * day)); !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("delete once shown: %v", err)
+	}
+	hidden, err := newReview(5, "Tốt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := hidden.ChangeUntil(); !got.Equal(now.Add(domain.EditWindow)) {
+		t.Fatalf("change until %v, want the end of the window", got)
 	}
 }
 

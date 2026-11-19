@@ -48,10 +48,11 @@ func order(t *testing.T, db *pgxpool.Pool, buyer, seller uuid.UUID) (orderID, li
 	return d.Order().ID, listing
 }
 
-// review stores buyer's review of seller, visible at once.
+// review stores buyer's review of seller, written at postedAt and visible
+// from now; an edit before now finds it hidden, so it may change.
 func review(t *testing.T, s repository.Reviews, o, seller, buyer, listing uuid.UUID, stars int) domain.Review {
 	t.Helper()
-	r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, listing, stars, "Ổn", now, now)
+	r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, listing, stars, "Ổn", now, postedAt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,6 +61,9 @@ func review(t *testing.T, s repository.Reviews, o, seller, buyer, listing uuid.U
 	}
 	return r
 }
+
+// postedAt is when review writes a review, before it shows at now.
+var postedAt = now.Add(-2 * time.Hour)
 
 func TestReviews(t *testing.T) {
 	t.Parallel()
@@ -79,14 +83,14 @@ func TestReviews(t *testing.T) {
 	if avg, n, err := s.Summary(ctx, seller, domain.RoleSeller, now); err != nil || n != 2 || avg != 3 {
 		t.Fatalf("summary %v %d %v", avg, n, err)
 	}
-	if err := r1.Edit(5, "Rất tốt", now.Add(time.Hour)); err != nil {
+	if err := r1.Edit(5, "Rất tốt", now.Add(-time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Save(ctx, &r1, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.ByOrder(ctx, o1, domain.RoleSeller)
-	if err != nil || got.Stars() != 5 || got.Text() != "Rất tốt" || !got.CreatedAt().Equal(now) {
+	if err != nil || got.Stars() != 5 || got.Text() != "Rất tốt" || !got.CreatedAt().Equal(postedAt) {
 		t.Fatalf("%+v %v", got.State(), err)
 	}
 	if avg, n, _ := s.Summary(ctx, seller, domain.RoleSeller, now); n != 2 || avg != 3.5 {
@@ -96,7 +100,7 @@ func TestReviews(t *testing.T) {
 	if err != nil || len(list) != 2 || list[0].OrderID() != o2 {
 		t.Fatalf("list: %d %v", len(list), err)
 	}
-	if err = r2.Delete(now.Add(time.Hour)); err != nil {
+	if err = r2.Delete(now.Add(-time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(ctx, &r2, uuid.NewV7()); err != nil {
@@ -147,13 +151,13 @@ func TestReviewWritesConflict(t *testing.T) {
 		t.Fatalf("%+v %v", stale.State(), err)
 	}
 	fresh := stale
-	if err = fresh.Delete(now.Add(time.Hour)); err != nil {
+	if err = fresh.Delete(now.Add(-time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(ctx, &fresh, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
-	if err = stale.Edit(2, "Cũ", now.Add(2*time.Hour)); err != nil {
+	if err = stale.Edit(2, "Cũ", now.Add(-30*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(ctx, &stale, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {

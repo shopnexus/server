@@ -27,24 +27,7 @@ func TestPutReview(t *testing.T) {
 	if v, err = e.trust.PutReview(ctx, buyer, order, 4, "Hơi trầy"); err != nil || v.Stars != 4 {
 		t.Fatalf("edit: %+v %v", v, err)
 	}
-	// Hidden from the public until the seller reviews too or the window ends.
-	if got, _ := e.trust.Reviews(ctx, seller, domain.RoleSeller, page.Request{}); len(got.Items) != 0 {
-		t.Fatalf("hidden: %+v", got)
-	}
-	if r, _ := e.trust.Rating(ctx, seller, domain.RoleSeller); r != (service.Rating{}) {
-		t.Fatalf("hidden rating: %+v", r)
-	}
-	e.reveal(t, order)
-	got, err := e.trust.Reviews(ctx, seller, domain.RoleSeller, page.Request{})
-	if err != nil || len(got.Items) != 1 || got.Items[0].Text != "Hơi trầy" {
-		t.Fatalf("%+v %v", got, err)
-	}
-	if r, rErr := e.trust.Rating(ctx, seller, domain.RoleSeller); rErr != nil || r != (service.Rating{Average: 4, Count: 1}) {
-		t.Fatalf("rating: %+v %v", r, rErr)
-	}
-	if r, _ := e.trust.Rating(ctx, seller, domain.RoleBuyer); r != (service.Rating{}) {
-		t.Fatalf("buyer rating of the seller: %+v", r)
-	}
+	// While hidden, the review is deleted and posted again.
 	if err = e.trust.DeleteReview(ctx, buyer, order); err != nil {
 		t.Fatal(err)
 	}
@@ -54,8 +37,30 @@ func TestPutReview(t *testing.T) {
 	if v, err = e.trust.PutReview(ctx, buyer, order, 3, "Đăng lại"); err != nil || v.Stars != 3 {
 		t.Fatalf("post again: %+v %v", v, err)
 	}
-	if r, _ := e.trust.Rating(ctx, seller, domain.RoleSeller); r != (service.Rating{Average: 3, Count: 1}) {
-		t.Fatalf("after posting again: %+v", r)
+	// Hidden from the public until the seller reviews too or the window ends.
+	if got, _ := e.trust.Reviews(ctx, seller, domain.RoleSeller, page.Request{}); len(got.Items) != 0 {
+		t.Fatalf("hidden: %+v", got)
+	}
+	if r, _ := e.trust.Rating(ctx, seller, domain.RoleSeller); r != (service.Rating{}) {
+		t.Fatalf("hidden rating: %+v", r)
+	}
+	e.reveal(t, order)
+	got, err := e.trust.Reviews(ctx, seller, domain.RoleSeller, page.Request{})
+	if err != nil || len(got.Items) != 1 || got.Items[0].Text != "Đăng lại" {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if r, rErr := e.trust.Rating(ctx, seller, domain.RoleSeller); rErr != nil || r != (service.Rating{Average: 3, Count: 1}) {
+		t.Fatalf("rating: %+v %v", r, rErr)
+	}
+	if r, _ := e.trust.Rating(ctx, seller, domain.RoleBuyer); r != (service.Rating{}) {
+		t.Fatalf("buyer rating of the seller: %+v", r)
+	}
+	// Once it shows, it no longer changes.
+	if _, err = e.trust.PutReview(ctx, buyer, order, 1, "Đổi ý"); !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("edit once shown: %v", err)
+	}
+	if err = e.trust.DeleteReview(ctx, buyer, order); !errors.Is(err, domain.ErrLocked) {
+		t.Fatalf("delete once shown: %v", err)
 	}
 }
 

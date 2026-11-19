@@ -88,19 +88,29 @@ func NewReview(id, order uuid.UUID, role Role, reviewer, subject, listing uuid.U
 	return r, nil
 }
 
-// CanChange is ErrClosed once the subject replied, and ErrLocked once
-// EditWindow has passed since the first submission.
+// CanChange is ErrClosed once the subject replied, and ErrLocked once the
+// review shows or EditWindow has passed since the first submission: a side
+// that read the other's stars cannot change its own.
 func (r *Review) CanChange(now time.Time) error {
 	if r.repliedAt != nil {
 		return ErrClosed
 	}
-	if now.Sub(r.createdAt) > EditWindow {
+	if r.Visible(now) || now.Sub(r.createdAt) > EditWindow {
 		return ErrLocked
 	}
 	return nil
 }
 
-// Edit replaces the stars and the text within EditWindow; a deleted
+// ChangeUntil is the last moment CanChange allows, short of a reply: when
+// the review shows, or the end of EditWindow if that comes first.
+func (r *Review) ChangeUntil() time.Time {
+	if end := r.createdAt.Add(EditWindow); end.Before(r.visibleAt) {
+		return end
+	}
+	return r.visibleAt
+}
+
+// Edit replaces the stars and the text while CanChange allows; a deleted
 // review is posted again.
 func (r *Review) Edit(stars int, text string, now time.Time) error {
 	if err := r.CanChange(now); err != nil {
@@ -113,7 +123,7 @@ func (r *Review) Edit(stars int, text string, now time.Time) error {
 	return nil
 }
 
-// Delete takes the review down within EditWindow and drops its text.
+// Delete takes the review down while CanChange allows and drops its text.
 func (r *Review) Delete(now time.Time) error {
 	if err := r.CanChange(now); err != nil {
 		return err

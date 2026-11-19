@@ -7,8 +7,8 @@ review:
       (role buyer). A first review needs the order completed or failed. It
       stays hidden from the other party and the public until they review
       too or 7 days after the order closed. A review changes, and a deleted
-      one is posted again, only within 7 days of its first submission and
-      before the other party replies.
+      one is posted again, only while it is hidden, within 7 days of its
+      first submission; once it shows, neither side changes it.
     tags: [trust]
     security:
       - bearerAuth: []
@@ -49,7 +49,7 @@ review:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not completed or failed yet (order_not_delivered), 7 days have passed since the first submission (review_locked), the other party replied (review_closed), or another write of the review came first (try_again)."
+        description: "The order is not completed or failed yet (order_not_delivered), the review shows or 7 days have passed since the first submission (review_locked), the other party replied (review_closed), or another write of the review came first (try_again)."
         content:
           application/json:
             schema:
@@ -87,7 +87,7 @@ review:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "7 days have passed since the first submission (review_locked), the other party replied (review_closed), or another write of the review came first (try_again)."
+        description: "the review shows or 7 days have passed since the first submission (review_locked), the other party replied (review_closed), or another write of the review came first (try_again)."
         content:
           application/json:
             schema:

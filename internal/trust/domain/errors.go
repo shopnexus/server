@@ -4,7 +4,7 @@ import "github.com/shopnexus/server/internal/platform/apperr"
 
 var (
 	ErrInvalidReview = apperr.New(apperr.KindInvalid, "invalid_review", "the review breaks a rule; see fields")
-	ErrLocked        = apperr.New(apperr.KindConflict, "review_locked", "a review changes only within 7 days of its first submission")
+	ErrLocked        = apperr.New(apperr.KindConflict, "review_locked", "a review changes only while it is hidden, within 7 days of its first submission")
 	ErrNotFound      = apperr.New(apperr.KindNotFound, "review_not_found", "no such review")
 	ErrOrderNotFound = apperr.New(apperr.KindNotFound, "order_not_found", "no such order of the caller's")
 	ErrNotDelivered  = apperr.New(apperr.KindConflict, "order_not_delivered", "an order is reviewed once it is completed or failed")

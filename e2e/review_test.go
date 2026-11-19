@@ -80,6 +80,8 @@ func TestReviews(t *testing.T) {
 	check(t, "account reviews a bad role", call(t, "GET", "/v1/accounts/"+buyer.Account.ID+"/reviews?role=x", nil), 400, "")
 	check(t, "account reviews an unknown one", call(t, "GET", "/v1/accounts/"+uuid.NewV7().String()+"/reviews", nil), 404, "account_not_found")
 
+	check(t, "edit once shown", put(buyer.AccessToken, path, map[string]any{"stars": 1}), 409, "review_locked")
+	check(t, "delete once shown", call(t, "DELETE", path, nil, bearer(buyer.AccessToken)), 409, "review_locked")
 	check(t, "reply signed out", call(t, "POST", "/v1/reviews/"+first.ID+"/reply", map[string]any{"text": "a"}), 401, "unauthenticated")
 	check(t, "reply a bad id", reply(seller.AccessToken, "x", map[string]any{"text": "a"}), 400, "")
 	check(t, "reply as a stranger", reply(stranger.AccessToken, first.ID, map[string]any{"text": "a"}), 404, "review_not_found")
@@ -96,7 +98,6 @@ func TestReviews(t *testing.T) {
 	check(t, "put signed out", put("", path, map[string]any{"stars": 5}), 401, "unauthenticated")
 	check(t, "put a bad id", put(buyer.AccessToken, "/v1/orders/x/review", map[string]any{"stars": 5}), 400, "")
 	check(t, "put as a stranger", put(stranger.AccessToken, path, map[string]any{"stars": 5}), 404, "order_not_found")
-	check(t, "put nine stars", put(seller.AccessToken, path, map[string]any{"stars": 9}), 422, "invalid_review")
 	shipped := shippedOrder(t, seller.AccessToken, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
 	check(t, "put a shipped order", put(seller.AccessToken, "/v1/orders/"+shipped.Order.ID+"/review", map[string]any{"stars": 5}), 409, "order_not_delivered")
 	cancelled := pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
@@ -109,6 +110,7 @@ func TestReviews(t *testing.T) {
 
 	fresh := completedOrder(t, seller.AccessToken, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
 	freshPath := "/v1/orders/" + fresh.Order.ID + "/review"
+	check(t, "put nine stars", put(seller.AccessToken, freshPath, map[string]any{"stars": 9}), 422, "invalid_review")
 	check(t, "review the second", put(buyer.AccessToken, freshPath, map[string]any{"stars": 3}), 200, "")
 	if _, err := db.Exec(context.Background(), `UPDATE reviews SET created_at = now() - interval '8 days' WHERE order_id = @order`,
 		pgx.StrictNamedArgs{"order": fresh.Order.ID}); err != nil {

@@ -21,7 +21,7 @@ func TestHomeScreen(t *testing.T) {
 		} `json:"categories"`
 		Nearby searchView `json:"nearby"`
 	}](t, res)
-	if res.Status != http.StatusOK || len(v.Categories) != 9 || len(v.Nearby.Items) == 0 {
+	if res.Status != http.StatusOK || len(v.Categories) != 14 || len(v.Nearby.Items) == 0 {
 		t.Fatalf("%d %s", res.Status, res.Body)
 	}
 	counted := false
@@ -46,7 +46,7 @@ func TestHomeScreen(t *testing.T) {
 	if bare := decode[struct {
 		Categories []struct{} `json:"categories"`
 		Nearby     searchView `json:"nearby"`
-	}](t, res); res.Status != http.StatusOK || len(bare.Categories) != 9 || bare.Nearby.Items == nil || len(bare.Nearby.Items) != 0 ||
+	}](t, res); res.Status != http.StatusOK || len(bare.Categories) != 14 || bare.Nearby.Items == nil || len(bare.Nearby.Items) != 0 ||
 		bare.Nearby.NextCursor != "" {
 		t.Fatalf("no position: %d %s", res.Status, res.Body)
 	}

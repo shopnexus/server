@@ -58,7 +58,7 @@ Review:
     created_at:
       type: string
       format: date-time
-      description: The first submission; the review changes only for 7 days after it, and not after a reply.
+      description: The first submission; the review changes only while hidden and for 7 days after it, and not after a reply.
     updated_at:
       type: string
       format: date-time
@@ -196,7 +196,7 @@ OwnReview:
   type: object
   additionalProperties: false
   required: [state, id, created_at, updated_at, change_until, visible_at, locked]
-  description: The caller's review of the other side of an order. Dates and id are null before the first submission. Deleted reviews carry no stars or text. The seven-day window starts at the original created_at; locked uses the same boundary as edits and deletion, and is true once the subject replied.
+  description: The caller's review of the other side of an order. Dates and id are null before the first submission. Deleted reviews carry no stars or text. change_until is when the review shows or 7 days after the original created_at, whichever comes first; locked uses the same boundary as edits and deletion, and is true once the subject replied.
   properties:
     state:
       type: string

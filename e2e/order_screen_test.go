@@ -99,7 +99,7 @@ func TestOrderScreenOwnReviewAndCompletion(t *testing.T) {
 	path := "/v1/orders/" + d.Order.ID + "/review"
 	expectStatus(t, call(t, "PUT", path, map[string]any{"stars": 5, "text": "Đúng mô tả"}, bearer(buyer.AccessToken)), 200)
 	first := orderScreen(t, buyer.AccessToken, d.Order.ID)
-	if first.Order.CompletedBy != "buyer" || first.OwnReview.State != "active" || first.OwnReview.Stars == nil || *first.OwnReview.Stars != 5 || first.OwnReview.ChangeUntil.Sub(*first.OwnReview.CreatedAt) != 7*24*time.Hour {
+	if first.Order.CompletedBy != "buyer" || first.OwnReview.State != "active" || first.OwnReview.Stars == nil || *first.OwnReview.Stars != 5 || !changesUntilHidden(*first.OwnReview.CreatedAt, *first.OwnReview.ChangeUntil) {
 		t.Fatalf("review: %+v", first)
 	}
 	// The seller has not reviewed: the buyer's review waits, hidden.
@@ -108,10 +108,7 @@ func TestOrderScreenOwnReviewAndCompletion(t *testing.T) {
 		sellerView.TheirReview.Stars != nil || len(sellerView.Ticket) != 0 {
 		t.Fatalf("seller's view: %+v", sellerView)
 	}
-	revealReviews(t, d.Order.ID)
-	if their := orderScreen(t, seller.AccessToken, d.Order.ID).TheirReview; their.State != "visible" || *their.Stars != 5 || !their.CanReply {
-		t.Fatalf("seller's view after the window: %+v", their)
-	}
+	// While hidden, the buyer deletes and posts again; the window holds.
 	expectStatus(t, call(t, "DELETE", path, nil, bearer(buyer.AccessToken)), 204)
 	deleted := orderScreen(t, buyer.AccessToken, d.Order.ID).OwnReview
 	if deleted.State != "deleted" || deleted.Stars != nil || deleted.Text != nil || *deleted.ID != *first.OwnReview.ID || !deleted.CreatedAt.Equal(*first.OwnReview.CreatedAt) {
@@ -122,12 +119,15 @@ func TestOrderScreenOwnReviewAndCompletion(t *testing.T) {
 	if reposted.State != "active" || !reposted.ChangeUntil.Equal(*first.OwnReview.ChangeUntil) || *reposted.Text != "" {
 		t.Fatalf("reposted: %+v", reposted)
 	}
-	if _, err := db.Exec(context.Background(), `UPDATE reviews SET created_at = now() - interval '8 days' WHERE order_id = @order`, pgx.StrictNamedArgs{"order": d.Order.ID}); err != nil {
-		t.Fatal(err)
+	revealReviews(t, d.Order.ID)
+	if their := orderScreen(t, seller.AccessToken, d.Order.ID).TheirReview; their.State != "visible" || *their.Stars != 4 || !their.CanReply {
+		t.Fatalf("seller's view after the window: %+v", their)
 	}
+	// Once it shows, it is locked.
 	if !orderScreen(t, buyer.AccessToken, d.Order.ID).OwnReview.Locked {
-		t.Fatal("expired review reads unlocked")
+		t.Fatal("a shown review reads unlocked")
 	}
+	check(t, "delete once shown", call(t, "DELETE", path, nil, bearer(buyer.AccessToken)), 409, "review_locked")
 	check(t, "locked review", call(t, "PUT", path, map[string]any{"stars": 1}, bearer(buyer.AccessToken)), 409, "review_locked")
 	if _, err := db.Exec(context.Background(), `UPDATE orders SET completed_by = 'system' WHERE id = @order`, pgx.StrictNamedArgs{"order": d.Order.ID}); err != nil {
 		t.Fatal(err)
@@ -210,7 +210,7 @@ func TestOrdersScreen(t *testing.T) {
 	if r, ok := bought[0].Order["recipient"].(map[string]any); !ok || r["street"] == nil || r["phone"] == nil {
 		t.Fatalf("buyer's cancelled recipient: %+v", r)
 	}
-	if r := bought[1].review(t); r.State != "active" || *r.Stars != 5 || r.Locked || r.ChangeUntil.Sub(*r.CreatedAt) != 7*24*time.Hour {
+	if r := bought[1].review(t); r.State != "active" || *r.Stars != 5 || r.Locked || !changesUntilHidden(*r.CreatedAt, *r.ChangeUntil) {
 		t.Fatalf("reviewed row: %+v", r)
 	}
 	if r := bought[0].review(t); r.State != "none" || r.ID != nil || r.CreatedAt != nil || r.ChangeUntil != nil || r.Locked {
@@ -256,4 +256,12 @@ func TestOrdersScreen(t *testing.T) {
 	check(t, "orders screen without a role", call(t, "GET", "/v1/screens/orders", nil, bearer(buyer.AccessToken)), http.StatusBadRequest, "")
 	check(t, "orders screen a bad role", call(t, "GET", "/v1/screens/orders?role=bogus", nil, bearer(buyer.AccessToken)), http.StatusBadRequest, "")
 	check(t, "orders screen a bad cursor", call(t, "GET", "/v1/screens/orders?role=buying&cursor=bad", nil, bearer(buyer.AccessToken)), http.StatusBadRequest, "")
+}
+
+// changesUntilHidden reports a change_until of a review the other side has
+// not answered: when it shows, 7 days after the order closed, a moment
+// before 7 days after the review.
+func changesUntilHidden(created, until time.Time) bool {
+	d := created.Add(7 * 24 * time.Hour).Sub(until)
+	return d >= 0 && d < time.Minute
 }

@@ -292,7 +292,7 @@ func TestUpdateListing(t *testing.T) {
 
 func TestCategoriesAndRegions(t *testing.T) {
 	t.Parallel()
-	if n := len(expect[page[any]](t, call(t, "GET", "/v1/categories", nil), 200).Items); n != 55 {
+	if n := len(expect[page[any]](t, call(t, "GET", "/v1/categories", nil), 200).Items); n != 96 {
 		t.Fatalf("categories: %d items", n)
 	}
 	if n := len(expect[page[any]](t, call(t, "GET", "/v1/regions", nil), 200).Items); n != 34 {

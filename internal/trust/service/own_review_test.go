@@ -34,7 +34,8 @@ func TestOwnReviewUsesOriginalWindowAndMutationBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := domain.NewReview(uuid.NewV7(), order, domain.RoleSeller, buyer, seller, facts.ListingID, 5, "", now, now)
+	// Hidden past the window, so the window is what locks it.
+	r, err := domain.NewReview(uuid.NewV7(), order, domain.RoleSeller, buyer, seller, facts.ListingID, 5, "", now.Add(domain.EditWindow+time.Hour), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +93,7 @@ func TestOrderReviewsReadsEveryOrderInOneQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := domain.NewReview(uuid.NewV7(), reviewed, domain.RoleSeller, buyer, seller, facts.ListingID, 4, "Ổn", now, now)
+	r, err := domain.NewReview(uuid.NewV7(), reviewed, domain.RoleSeller, buyer, seller, facts.ListingID, 4, "Ổn", now.Add(domain.EditWindow+time.Hour), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,7 +113,8 @@ func TestOrderReviewsReadsEveryOrderInOneQuery(t *testing.T) {
 	if empty, emptyErr := trust.OrderReviews(ctx, buyer, nil); emptyErr != nil || len(empty) != 0 {
 		t.Fatalf("no orders: %+v %v", empty, emptyErr)
 	}
-	// For the seller the buyer's review is theirs, visible since now.
+	// Once it shows, the seller reads the buyer's review as theirs.
+	now = now.Add(domain.EditWindow + time.Hour)
 	others, err := trust.OrderReviews(ctx, seller, []uuid.UUID{bare, reviewed})
 	if err != nil || len(others) != 2 || others[bare].Own.State != "none" || others[bare].Their != nil ||
 		others[reviewed].Own.State != "none" || others[reviewed].Their == nil || *others[reviewed].Their.Stars != 4 {

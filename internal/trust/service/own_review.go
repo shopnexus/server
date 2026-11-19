@@ -66,7 +66,7 @@ func (s *Trust) OrderReviews(ctx context.Context, caller uuid.UUID, orders []uui
 		case r.ReviewerID() == caller:
 			own := OwnReview{
 				State: "deleted", ID: new(r.ID()), CreatedAt: new(r.CreatedAt()), UpdatedAt: new(r.UpdatedAt()),
-				ChangeUntil: new(r.CreatedAt().Add(domain.EditWindow)), VisibleAt: new(r.VisibleAt()),
+				ChangeUntil: new(r.ChangeUntil()), VisibleAt: new(r.VisibleAt()),
 				Locked: r.CanChange(now) != nil, Reply: replyOf(r),
 			}
 			if !r.Deleted() {
