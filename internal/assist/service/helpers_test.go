@@ -2,11 +2,11 @@ package service_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -32,6 +32,7 @@ import (
 	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/relay"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
 	"github.com/shopnexus/server/internal/platform/testenv"
 	"github.com/shopnexus/server/internal/provider/chotot"
@@ -54,6 +55,7 @@ type env struct {
 	cut      *fakeCutter
 	stt      *fakeSTT
 	model    *fakeModel
+	relay    *relay.Relay
 	// catText is catalog's text model, which guesses the drafts' categories.
 	catText  *embedtest.Model
 	source   *fakeSource
@@ -77,14 +79,15 @@ func newEnv(t *testing.T, opts ...func(*env)) env {
 		clock: restatetest.NewClock(time.Now()), ingress: in, prefix: p,
 		cut:      &fakeCutter{frames: 3, jpeg: mediatest.JPEG(t, 96, 64)},
 		stt:      &fakeSTT{text: transcript},
-		model:    &fakeModel{answer: bicycle(), link: iphoneAnswer(), photo: iphonePhoto()},
+		model:    &fakeModel{answer: bicycleText, link: iphoneLinkText, photo: iphonePhotoText},
+		relay:    relay.New(db, slog.New(slog.DiscardHandler)),
 		catText:  catText,
 		source:   newSource(t),
 		watchers: &watchersOf{rows: []discoverysvc.Watcher{}},
 	}
 	e.deps = service.Deps{
 		Reads: e.reads, Source: e.source, Accounts: accounts, Media: m, Catalog: c, Discovery: e.watchers,
-		AI: fakeAI{e.cut, e.stt}, Model: e.model,
+		AI: fakeAI{e.cut, e.stt}, Model: e.model, Relay: e.relay,
 		Text: embedtest.New(catalogdomain.TextDims), Image: embedtest.New(catalogdomain.PhotoDims),
 		TextMin: 0.5, PhotoMin: 0.5, CallTimeout: 5 * time.Second,
 		Log: slog.New(slog.DiscardHandler), Ingress: in, Prefix: p, Now: e.clock.Now,
@@ -92,6 +95,9 @@ func newEnv(t *testing.T, opts ...func(*env)) env {
 	for _, o := range opts {
 		o(&e)
 	}
+	ctx, stop := context.WithCancel(context.Background())
+	t.Cleanup(stop)
+	go e.relay.Run(ctx)
 	e.assist = service.New(e.deps)
 	restatetest.Start(t, slices.Concat(m.Durable(), c.Durable(), e.assist.Durable())...)
 	return e
@@ -105,9 +111,9 @@ func guessing(t *testing.T) *embedtest.Model {
 	bicycle, iphone := embedtest.Axis(catalogdomain.TextDims, 0), embedtest.Axis(catalogdomain.TextDims, 1)
 	m.Set("Xe cộ › Xe đạp", bicycle)
 	m.Set("Điện thoại › iPhone", iphone)
-	m.Set(catalogdomain.GuessText("Xe đạp Asama xanh", "Xe đi ít, giá một triệu hai, có thương lượng."), bicycle)
+	m.Set(catalogdomain.GuessText("Xe đạp Asama xanh", "Xe đi ít, có thương lượng."), bicycle)
 	m.Set(catalogdomain.GuessText("iPhone 11 64GB Trắng, pin 81%",
-		"Máy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Có thương lượng. Liên hệ."), iphone)
+		"Máy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Liên hệ."), iphone)
 	m.Set(catalogdomain.GuessText("iPhone 11 Trắng", "iPhone 11 màu trắng, mặt lưng kính, cụm 2 camera sau."), iphone)
 	return m
 }
@@ -247,43 +253,44 @@ func (f *fakeSTT) called() int {
 	return f.calls
 }
 
-// fakeModel answers every request with answer, or fails with err, and
-// keeps what it was asked.
+// fakeModel writes answer for a video, link for a listing and photo for a
+// photo, in three pieces, or fails with err, and keeps what it was asked.
+// Each piece waits for gap, so a watcher sees the text grow.
 type fakeModel struct {
 	mu     sync.Mutex
-	answer domain.Answer
+	answer string
 	err    error
-	link   domain.LinkAnswer
-	photo  domain.PhotoAnswer
+	link   string
+	photo  string
+	gap    time.Duration
 	calls  int
 	images int
 	user   string
 	system string
 }
 
-func (m *fakeModel) Complete(_ context.Context, r llm.Request, out any) error {
+func (m *fakeModel) Stream(_ context.Context, r llm.Request, onText func(string)) (string, error) {
 	m.mu.Lock()
 	m.calls++
 	m.images, m.user, m.system = len(r.Images), r.User, r.System
-	var answer any
-	switch r.SchemaName {
-	case domain.LinkAnswerSchemaName:
+	answer := m.answer
+	switch {
+	case len(r.Images) == 0:
 		answer = m.link
-	case domain.PhotoAnswerSchemaName:
+	case strings.HasPrefix(r.User, "The seller's photo"):
 		answer = m.photo
-	default:
-		answer = m.answer
 	}
-	err := m.err
+	err, gap := m.err, m.gap
 	m.mu.Unlock()
 	if err != nil {
-		return err
+		return "", err
 	}
-	b, err := json.Marshal(answer)
-	if err != nil {
-		return err
+	runes := []rune(answer)
+	for i := 1; i <= 3; i++ {
+		time.Sleep(gap)
+		onText(string(runes[:len(runes)*i/3]))
 	}
-	return json.Unmarshal(b, out)
+	return answer, nil
 }
 
 func (m *fakeModel) asked() (calls, images int, user string) {
@@ -292,18 +299,8 @@ func (m *fakeModel) asked() (calls, images int, user string) {
 	return m.calls, m.images, m.user
 }
 
-// bicycle is the model's answer for the seller's bicycle: frames 2 and 0
-// kept, the price spoken, a range of its own.
-func bicycle() domain.Answer {
-	price := int64(1_200_000)
-	return domain.Answer{
-		IsItem: true, Title: "Xe đạp Asama xanh", Condition: "used",
-		Specs:       []catalogdomain.Spec{{Label: "Màu", Value: "Xanh"}},
-		Description: "Xe đi ít, giá một triệu hai, có thương lượng.",
-		SpokenPrice: &price, Negotiable: true, Kept: []int{2, 0},
-		Estimate: &domain.Range{Low: 1_000_000, Median: 1_200_000, High: 1_400_000},
-	}
-}
+// bicycleText is the model's text for the seller's bicycle video.
+const bicycleText = "Xe đạp Asama xanh\nXe đi ít, có thương lượng."
 
 // photoURL is photo i of the fake listing on the fake CDN.
 func photoURL(i int) string { return fmt.Sprintf("https://cdn.chotot.com/fake/%d.jpg", i) }
@@ -373,16 +370,9 @@ func (f *fakeSource) Image(_ context.Context, url string) (photo []byte, content
 	return b, "image/jpeg", nil
 }
 
-// iphoneAnswer is the model's answer for the seller's iPhone; it leaves
-// the phone in the description for the regex to find.
-func iphoneAnswer() domain.LinkAnswer {
-	return domain.LinkAnswer{
-		IsItem: true, Title: "iPhone 11 64GB Trắng, pin 81%", Condition: "used",
-		Specs:       []catalogdomain.Spec{{Label: "Dung lượng", Value: "64 GB"}, {Label: "Màu", Value: "Trắng"}},
-		Description: "Máy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Có thương lượng. Liên hệ 0909 123 456.",
-		Negotiable:  true, Estimate: &domain.Range{Low: 4_000_000, Median: 4_500_000, High: 5_000_000},
-	}
-}
+// iphoneLinkText is the model's text for the seller's iPhone listing; it
+// leaves the phone in the description for the regex to find.
+const iphoneLinkText = "iPhone 11 64GB Trắng, pin 81%\nMáy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Liên hệ 0909 123 456."
 
 const iphoneLink = "https://www.chotot.com/tp-ho-chi-minh/quan-binh-thanh/mua-ban-dien-thoai/119482736.htm?utm_source=share"
 
@@ -413,15 +403,9 @@ func (e env) linkEnd(t *testing.T, owner, id uuid.UUID) service.ListingReadView 
 	return v
 }
 
-// iphonePhoto is the model's answer for the seller's photo of their iPhone.
-func iphonePhoto() domain.PhotoAnswer {
-	return domain.PhotoAnswer{
-		IsItem: true, Title: "iPhone 11 Trắng", Condition: "used",
-		Specs:       []catalogdomain.Spec{{Label: "Màu", Value: "Trắng"}},
-		Description: "iPhone 11 màu trắng, mặt lưng kính, cụm 2 camera sau.",
-		Estimate:    &domain.Range{Low: 4_000_000, Median: 4_500_000, High: 5_000_000},
-	}
-}
+// iphonePhotoText is the model's text for the seller's photo of their
+// iPhone.
+const iphonePhotoText = "iPhone 11 Trắng\niPhone 11 màu trắng, mặt lưng kính, cụm 2 camera sau."
 
 // photo uploads a JPEG for owner and returns its upload ID.
 func (e env) photo(t *testing.T, owner uuid.UUID) uuid.UUID {

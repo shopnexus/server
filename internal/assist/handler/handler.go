@@ -20,6 +20,7 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
 	r.Handle("POST /v1/listing-reads", protect(http.HandlerFunc(h.StartRead)))
 	r.Handle("GET /v1/listing-reads/{id}", protect(http.HandlerFunc(h.GetRead)))
+	r.Handle("GET /v1/listing-reads/{id}/events", protect(http.HandlerFunc(h.ReadEvents)))
 	r.Handle("POST /v1/link-previews", protect(http.HandlerFunc(h.PreviewLink)))
 	r.Handle("POST /v1/price-guides", protect(http.HandlerFunc(h.PriceGuide)))
 }

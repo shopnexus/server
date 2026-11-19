@@ -29,8 +29,8 @@ import (
 	"github.com/shopnexus/server/internal/provider/llm"
 )
 
-// A read goes through frames, fill and estimate, notifies after each step,
-// and consumes the video.
+// A read goes through frames and the text, notifies after each step, and
+// consumes the video.
 //
 // UC-LST-01.
 func TestReadFillsADraft(t *testing.T) {
@@ -38,7 +38,7 @@ func TestReadFillsADraft(t *testing.T) {
 	e := newEnv(t)
 	seller := accounttest.WithPhone(t, e.db)
 	started := e.start(t, seller)
-	if started.Status != domain.StatusReading || started.Draft != nil || started.Estimate != nil {
+	if started.Status != domain.StatusReading || started.Draft != nil {
 		t.Fatalf("started: %+v", started)
 	}
 	v := e.end(t, seller, started.ID)
@@ -55,15 +55,10 @@ func TestReadFillsADraft(t *testing.T) {
 	}
 	d := v.Draft
 	if d == nil || d.Title != "Xe đạp Asama xanh" || d.CategoryCode != "vehicles.bicycle" ||
-		d.Condition != catalogdomain.ConditionUsed || d.Price == nil || *d.Price != 1_200_000 || !d.AllowOffers ||
-		len(d.Photos) != 2 || d.Photos[0] != v.Photos[2].UploadID || d.Photos[1] != v.Photos[0].UploadID {
+		d.Condition != catalogdomain.ConditionUsed || d.Price != nil || d.AllowOffers || len(d.Specs) != 0 ||
+		d.Description != "Xe đi ít, có thương lượng." || len(d.Photos) != 3 ||
+		d.Photos[0] != v.Photos[2].UploadID || d.Photos[1] != v.Photos[0].UploadID || d.Photos[2] != v.Photos[1].UploadID {
 		t.Fatalf("draft %+v", d)
-	}
-	if v.Estimate == nil || *v.Estimate == nil {
-		t.Fatal("no estimate")
-	}
-	if est := *v.Estimate; est.Source != domain.SourceModel || est.Median != 1_200_000 || est.SampleSize != 0 {
-		t.Fatalf("estimate %+v", est)
 	}
 	calls, images, user := e.model.asked()
 	if calls != 1 || images != 3 || !strings.Contains(user, transcript) {
@@ -72,8 +67,8 @@ func TestReadFillsADraft(t *testing.T) {
 	if n := e.stt.called(); n != 1 {
 		t.Fatalf("speech to text ran %d times", n)
 	}
-	if n := e.updates(t, seller, v.ID); n != 4 {
-		t.Fatalf("%d updates, want start, frames, draft and done", n)
+	if n := e.updates(t, seller, v.ID); n != 3 {
+		t.Fatalf("%d updates, want start, frames and done", n)
 	}
 	if s := e.videoOf(t, v.ID); s != mediadomain.StatusConsumed {
 		t.Fatalf("video %s", s)
@@ -86,8 +81,6 @@ func TestReadFillsADraft(t *testing.T) {
 // UC-LST-01 A1.
 func TestReadFailures(t *testing.T) {
 	t.Parallel()
-	noItem := bicycle()
-	noItem.IsItem = false
 	for _, c := range []struct {
 		name    string
 		opt     func(*env)
@@ -100,7 +93,7 @@ func TestReadFailures(t *testing.T) {
 		{"too short", func(e *env) { e.cut.err = aidomain.ErrTooShort }, domain.FailTooShort, 2, 0},
 		{"too long", func(e *env) { e.cut.err = aidomain.ErrTooLong }, domain.FailTooLong, 2, 0},
 		{"no frames", func(e *env) { e.cut.frames = 0 }, domain.FailUnreadable, 2, 0},
-		{"no item", func(e *env) { e.model.answer = noItem }, domain.FailNoItem, 3, 3},
+		{"no item", func(e *env) { e.model.answer = domain.NoItem }, domain.FailNoItem, 3, 3},
 		{"model refused", func(e *env) { e.model.err = fmt.Errorf("model answered 400: %w", llm.ErrRefused) }, domain.FailUnavailable, 3, 3},
 	} {
 		t.Run(c.name, func(t *testing.T) {
@@ -108,7 +101,7 @@ func TestReadFailures(t *testing.T) {
 			e := newEnv(t, c.opt)
 			seller := accounttest.WithPhone(t, e.db)
 			v := e.end(t, seller, e.start(t, seller).ID)
-			if v.Status != domain.StatusFailed || v.Failure != c.failure || v.Draft != nil || v.Estimate != nil || len(v.Photos) != c.frames {
+			if v.Status != domain.StatusFailed || v.Failure != c.failure || v.Draft != nil || len(v.Photos) != c.frames {
 				t.Fatalf("%+v", v)
 			}
 			if n := e.updates(t, seller, v.ID); n != c.updates {
@@ -195,51 +188,11 @@ func (c *sampleOf) PriceSample(_ context.Context, q catalogsvc.PriceQuery) ([]ca
 	return c.samples, nil
 }
 
-// Enough similar listings give a market range, asked for with both vectors
-// and without the seller's own listings.
-func TestReadMarketEstimate(t *testing.T) {
-	t.Parallel()
-	var cat *sampleOf
-	e := newEnv(t, func(x *env) {
-		cat = &sampleOf{Service: x.deps.Catalog}
-		for i := range 6 {
-			cat.samples = append(cat.samples, catalogsvc.PriceSample{Price: 2_000_000, Sold: i%2 == 0})
-		}
-		x.deps.Catalog = cat
-	})
-	seller := accounttest.WithPhone(t, e.db)
-	v := e.end(t, seller, e.start(t, seller).ID)
-	if v.Estimate == nil || *v.Estimate == nil {
-		t.Fatalf("%+v", v)
-	}
-	if est := *v.Estimate; est.Source != domain.SourceMarket || est.Median != 2_000_000 || est.SampleSize != 6 {
-		t.Fatalf("estimate %+v", est)
-	}
-	cat.mu.Lock()
-	q := cat.asked
-	cat.mu.Unlock()
-	if q.Exclude != seller || q.CategoryCode != "vehicles.bicycle" || q.Condition != catalogdomain.ConditionUsed ||
-		len(q.Text) != catalogdomain.TextDims || len(q.Photo) != catalogdomain.PhotoDims {
-		t.Fatalf("query %+v", q)
-	}
-}
-
 // failingEmbed is an embedding model that is down.
 type failingEmbed struct{}
 
 func (failingEmbed) Embed(context.Context, []string) ([][]float32, error) {
 	return nil, errors.New("the embedding model is down")
-}
-
-// Embedding models that fail leave the model's range, and the read ends done.
-func TestReadEstimateWithoutEmbeddings(t *testing.T) {
-	t.Parallel()
-	e := newEnv(t, func(x *env) { x.deps.Text, x.deps.Image = failingEmbed{}, failingEmbed{} })
-	seller := accounttest.WithPhone(t, e.db)
-	v := e.end(t, seller, e.start(t, seller).ID)
-	if v.Status != domain.StatusDone || v.Estimate == nil || *v.Estimate == nil || (*v.Estimate).Source != domain.SourceModel {
-		t.Fatalf("%+v", v)
-	}
 }
 
 // UC-LST-01 E4, E6.

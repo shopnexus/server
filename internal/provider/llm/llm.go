@@ -16,7 +16,8 @@ import (
 )
 
 // Request is one question: the instructions, the text to read, the photos
-// to look at, and the JSON schema the answer must fit.
+// to look at, and the JSON schema the answer must fit. Stream sends no
+// schema: its answer is plain text.
 type Request struct {
 	System, User string
 	// Images are JPEGs sent after User, in order, as data URLs.
@@ -48,6 +49,33 @@ type OpenAI struct {
 const maxReply = 1 << 20
 
 func (c OpenAI) Complete(ctx context.Context, r Request, out any) error {
+	res, err := c.post(ctx, r, false)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = res.Body.Close() }()
+	var reply struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err = json.NewDecoder(io.LimitReader(res.Body, maxReply)).Decode(&reply); err != nil {
+		return fmt.Errorf("decode reply: %w", err)
+	}
+	if len(reply.Choices) == 0 {
+		return errors.New("model gave no choice")
+	}
+	if err = json.Unmarshal([]byte(reply.Choices[0].Message.Content), out); err != nil {
+		return fmt.Errorf("decode answer: %w", err)
+	}
+	return nil
+}
+
+// post sends r, as a stream when stream is set, and returns an OK reply
+// for the caller to read and close.
+func (c OpenAI) post(ctx context.Context, r Request, stream bool) (*http.Response, error) {
 	var user any = r.User
 	if len(r.Images) > 0 {
 		parts := make([]map[string]any, 0, len(r.Images)+1)
@@ -67,54 +95,43 @@ func (c OpenAI) Complete(ctx context.Context, r Request, out any) error {
 			{"role": "user", "content": user},
 		},
 		"temperature": 0,
-		"response_format": map[string]any{
+	}
+	if r.Schema != nil {
+		req["response_format"] = map[string]any{
 			"type":        "json_schema",
 			"json_schema": map[string]any{"name": r.SchemaName, "strict": true, "schema": r.Schema},
-		},
+		}
+	}
+	if stream {
+		req["stream"] = true
 	}
 	if c.Effort != "" {
 		req["reasoning_effort"] = c.Effort
 	}
 	body, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("encode request: %w", err)
+		return nil, fmt.Errorf("encode request: %w", err)
 	}
 	hr, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(c.BaseURL, "/")+"/chat/completions",
 		bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("build request: %w", err)
+		return nil, fmt.Errorf("build request: %w", err)
 	}
 	hr.Header.Set("Authorization", "Bearer "+c.APIKey)
 	hr.Header.Set("Content-Type", "application/json")
 	res, err := c.HTTP.Do(hr)
 	if err != nil {
-		return fmt.Errorf("call model: %w", err)
+		return nil, fmt.Errorf("call model: %w", err)
 	}
-	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode != http.StatusOK {
+		_ = res.Body.Close()
 		// 402 is a spent budget or credit (OpenRouter through ai-gateway) and
 		// 429 a rate: both pass, so neither is the request's fault.
 		if res.StatusCode >= 400 && res.StatusCode < 500 &&
 			res.StatusCode != http.StatusTooManyRequests && res.StatusCode != http.StatusPaymentRequired {
-			return fmt.Errorf("model answered %d: %w", res.StatusCode, ErrRefused)
+			return nil, fmt.Errorf("model answered %d: %w", res.StatusCode, ErrRefused)
 		}
-		return fmt.Errorf("model answered %d", res.StatusCode)
+		return nil, fmt.Errorf("model answered %d", res.StatusCode)
 	}
-	var reply struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-	if err = json.NewDecoder(io.LimitReader(res.Body, maxReply)).Decode(&reply); err != nil {
-		return fmt.Errorf("decode reply: %w", err)
-	}
-	if len(reply.Choices) == 0 {
-		return errors.New("model gave no choice")
-	}
-	if err = json.Unmarshal([]byte(reply.Choices[0].Message.Content), out); err != nil {
-		return fmt.Errorf("decode answer: %w", err)
-	}
-	return nil
+	return res, nil
 }

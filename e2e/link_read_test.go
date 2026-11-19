@@ -29,17 +29,14 @@ func TestLinkReadToListing(t *testing.T) {
 		t.Fatalf("started: %+v", started)
 	}
 	r := readEnd(t, seller.AccessToken, started.ID)
-	if r.Status != "done" || r.Source != "link" || r.Link.PhotoCount != 3 || len(r.Photos) != 3 || r.Draft == nil || r.Estimate == nil ||
+	if r.Status != "done" || r.Source != "link" || r.Link.PhotoCount != 3 || len(r.Photos) != 3 || r.Draft == nil ||
 		r.ContactRemoved == nil || !*r.ContactRemoved {
 		t.Fatalf("%+v", r)
 	}
 	d := r.Draft
 	if d.Title != "iPhone 11 64GB Trắng, pin 81%" || d.CategoryCode != "phones.iphone" || d.Price == nil || *d.Price != 4_500_000 ||
-		!d.AllowOffers || strings.Contains(d.Description, "0909") {
+		d.AllowOffers || len(d.Specs) != 0 || d.Description != "Máy dùng 3 năm, zin all. Liên hệ." {
 		t.Fatalf("draft %+v", d)
-	}
-	if r.Estimate.Source != "model" || r.Estimate.Median != 4_500_000 {
-		t.Fatalf("estimate %+v", r.Estimate)
 	}
 
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, r.Photos[0].URL, http.NoBody)
@@ -57,7 +54,7 @@ func TestLinkReadToListing(t *testing.T) {
 
 	body := map[string]any{
 		"title": d.Title, "price": *d.Price, "description": d.Description, "category_code": d.CategoryCode,
-		"condition": d.Condition, "allow_offers": d.AllowOffers, "commune_code": "00004", "photos": d.Photos, "specs": d.Specs,
+		"condition": d.Condition, "allow_offers": d.AllowOffers, "commune_code": "00004", "photos": d.Photos, "specs": iphoneSpecs,
 	}
 	l := expect[listing](t, call(t, "POST", "/v1/listings", body, bearer(seller.AccessToken), newKey()), http.StatusCreated)
 	if l = settled(t, seller.AccessToken, l.ID); l.Status != "active" || len(l.Photos) != 3 {

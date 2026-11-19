@@ -8,45 +8,17 @@ import (
 	"time"
 	"uuid"
 
-	restate "github.com/restatedev/sdk-go"
-
 	"github.com/shopnexus/server/internal/assist/domain"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/provider/embed"
 )
 
-// marketEstimate is the price range of the listings most like draft, or
-// nil: without a category, past the deadline, under
-// domain.MinMarketSample similar listings, or when the step fails. The
-// reads call it after their draft is saved; draft's photos are waiting
-// uploads of account's.
-func (d Deps) marketEstimate(ctx restate.Context, read, account uuid.UUID, draft domain.Draft, at, deadline time.Time) *domain.Estimate {
-	if !at.Before(deadline) || draft.CategoryCode == "" {
-		return nil
-	}
-	in := catalogdomain.ListingInput{
-		Title: draft.Title, CategoryCode: draft.CategoryCode, Condition: draft.Condition, Specs: draft.Specs,
-		Description: draft.Description, Photos: draft.Photos,
-	}
-	m, err := restate.Run(ctx, func(rc restate.RunContext) (*domain.Estimate, error) {
-		samples, err := d.draftSample(rc, d.Log.With("read", read), account, in, at)
-		if err != nil {
-			return nil, err
-		}
-		return domain.MarketEstimate(samplesOf(samples)), nil
-	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
-	if err != nil {
-		return nil
-	}
-	return m
-}
-
 // draftSample draws the price sample of the listings most like in, as of
 // at, without account's own: in's embedding text and the normalized mean
 // of its photos, which must be waiting uploads of account's. A model that
 // fails leaves its list out and logs to log; with neither, the sample is
-// nil. The reads and the price guide call it, so both price a draft alike.
+// nil. The price guide calls it.
 func (d Deps) draftSample(ctx context.Context, log *slog.Logger, account uuid.UUID, in catalogdomain.ListingInput, at time.Time,
 ) ([]catalogsvc.PriceSample, error) {
 	text, err := d.Catalog.EmbeddingText(ctx, in)

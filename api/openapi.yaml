@@ -170,6 +170,8 @@ paths:
     $ref: "paths/assist.yaml#/listingReads"
   /v1/listing-reads/{id}:
     $ref: "paths/assist.yaml#/listingRead"
+  /v1/listing-reads/{id}/events:
+    $ref: "paths/assist.yaml#/listingReadEvents"
   /v1/link-previews:
     $ref: "paths/assist.yaml#/linkPreviews"
   /v1/price-guides:

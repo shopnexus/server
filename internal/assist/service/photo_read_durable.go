@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -27,9 +26,9 @@ type StartPhotoInput struct {
 }
 
 // PhotoRead reads one photo of a seller's into a listing draft. Start
-// inserts the read under the photo cap and checks the photo, Run fills the
-// draft and estimates the price, Expire deletes the read a day later. The
-// read never holds the photo: the listing posts it.
+// inserts the read under the photo cap and checks the photo, Run has the
+// model write the title and description, Expire deletes the read a day
+// later. The read never holds the photo: the listing posts it.
 type PhotoRead struct{ Deps }
 
 func (s PhotoRead) ServiceName() string { return s.Prefix + photoRead }
@@ -37,7 +36,6 @@ func (s PhotoRead) ServiceName() string { return s.Prefix + photoRead }
 // filledPhoto is what the fill step made of the photo, or the failure.
 type filledPhoto struct {
 	Draft   domain.Draft   `json:"draft"`
-	Range   *domain.Range  `json:"range,omitempty"`
 	Failure domain.Failure `json:"failure,omitempty"`
 }
 
@@ -100,11 +98,9 @@ func (s PhotoRead) Start(ctx restate.Context, in StartPhotoInput) (StartResult, 
 	return StartResult{ReadID: id}, nil
 }
 
-// Run is UC-LST-01, step 2: it reads the photo in two steps, fill and
-// estimate, and saves the read after each, which notifies its account. Past
-// the deadline the read fails with unavailable, and the fill step retries
-// only until the deadline. The estimate step never fails a read: without it
-// the model's range stands.
+// Run is UC-LST-01, step 2: one fill step streams the model's text to the
+// relay, then the read saves done or failed. Past the deadline it fails
+// with unavailable.
 func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	var err error
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
@@ -150,6 +146,7 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 			return fmt.Errorf("fail read: %w", failErr)
 		}
 		_, saveErr := save(at)
+		s.relayEnd(ctx, id)
 		return saveErr
 	}
 
@@ -170,37 +167,31 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		if imgErr != nil {
 			return filledPhoto{}, fmt.Errorf("read photo: %w", imgErr)
 		}
-		var answer domain.PhotoAnswer
-		modelCtx, cancelModel := context.WithTimeout(rc, s.CallTimeout)
-		modelErr := s.Model.Complete(modelCtx, llm.Request{
-			System: photoSystemPrompt, User: photoUserPrompt,
-			SchemaName: domain.PhotoAnswerSchemaName, Schema: domain.PhotoAnswerSchema, Images: [][]byte{img},
-		}, &answer)
-		cancelModel()
-		if errors.Is(modelErr, llm.ErrRefused) {
+		raw, modelErr := s.writeText(rc, id, llm.Request{System: photoSystemPrompt, User: photoUserPrompt, Images: [][]byte{img}},
+			func(so string) domain.Text { return domain.SplitText(so, domain.MaxPhotoDescription) })
+		if refusedModel(modelErr) {
 			s.Log.WarnContext(rc, "the model refused the photo read", "read", id, "err", modelErr)
 			return filledPhoto{Failure: domain.FailUnavailable}, nil
 		}
 		if modelErr != nil {
-			return filledPhoto{}, fmt.Errorf("ask the model: %w", modelErr)
+			return filledPhoto{}, modelErr
 		}
-		d, rng, cleanErr := domain.CleanPhoto(answer, r.Media())
+		d, cleanErr := domain.PhotoDraft(raw, r.Media())
 		if cleanErr == nil {
 			d.CategoryCode = s.guessCategory(rc, id, d)
 		}
 		// One line per answer, with no word of the draft's: no title or
 		// description.
-		s.Log.InfoContext(rc, "photo read filled", "read", id, "prompt_version", PhotoPromptVersion, "is_item", answer.IsItem,
-			"category", d.CategoryCode, "condition", d.Condition,
-			"specs", len(d.Specs), "description_chars", utf8.RuneCountInString(d.Description), "range", rng,
-			"ms", time.Since(started).Milliseconds())
+		s.Log.InfoContext(rc, "photo read filled", "read", id, "prompt_version", PhotoPromptVersion,
+			"is_item", cleanErr == nil, "category", d.CategoryCode,
+			"description_chars", utf8.RuneCountInString(d.Description), "ms", time.Since(started).Milliseconds())
 		if errors.Is(cleanErr, domain.ErrNoItem) {
 			return filledPhoto{Failure: domain.FailNoItem}, nil
 		}
 		if cleanErr != nil {
 			return filledPhoto{}, fmt.Errorf("clean the answer: %w", cleanErr)
 		}
-		return filledPhoto{Draft: d, Range: rng}, nil
+		return filledPhoto{Draft: d}, nil
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
 		return fail(at, domain.FailUnavailable)
@@ -214,21 +205,11 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if err = r.SetDraft(fill.Draft, false); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}
-	if gone, saveErr := save(at); saveErr != nil || gone {
-		return saveErr
-	}
-
-	if at, err = restatex.Now(ctx, s.Now); err != nil {
-		return err
-	}
-	est := s.marketEstimate(ctx, id, r.AccountID(), fill.Draft, at, deadline)
-	if est == nil {
-		est = domain.ModelEstimate(fill.Range)
-	}
-	if err = r.Finish(est); err != nil {
+	if err = r.Finish(nil); err != nil {
 		return fmt.Errorf("finish read: %w", err)
 	}
 	_, err = save(at)
+	s.relayEnd(ctx, id)
 	return err
 }
 

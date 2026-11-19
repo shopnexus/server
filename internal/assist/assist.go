@@ -28,8 +28,10 @@ import (
 // read calls, the search key's embedding models, and search's floors.
 type Settings struct {
 	// AI cuts a video's frames and hears it.
-	AI                aisvc.Service
-	Model             llm.Client
+	AI aisvc.Service
+	// Model writes a read's text; Relay carries it to the seller.
+	Model             llm.Streamer
+	Relay             service.Relay
 	Text, Image       embed.Model
 	TextMin, PhotoMin float64
 	CallTimeout       time.Duration
@@ -45,7 +47,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasv
 	svc := service.New(service.Deps{
 		Reads: repository.NewListingReads(d.Pool), Source: s.Source, Accounts: accounts, Media: media, Catalog: catalog,
 		Discovery: discovery,
-		AI:        s.AI, Model: s.Model, Text: s.Text, Image: s.Image,
+		AI:        s.AI, Model: s.Model, Relay: s.Relay, Text: s.Text, Image: s.Image,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin, CallTimeout: s.CallTimeout,
 		Log: d.Log, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})

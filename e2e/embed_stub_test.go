@@ -39,9 +39,10 @@ func newEmbed() *stubEmbed {
 	for text, v := range map[string][]float32{
 		"Xe cộ › Xe đạp":      bicycle,
 		"Điện thoại › iPhone": iphone,
-		catalogdomain.GuessText("Xe đạp Asama xanh", "Xe đi ít, giá một triệu hai, có thương lượng."):         bicycle,
-		catalogdomain.GuessText("Xe đạp Asama xanh", "Xe đạp Asama màu xanh, có giỏ trước."):                  bicycle,
-		catalogdomain.GuessText("iPhone 11 64GB Trắng, pin 81%", "Máy dùng 3 năm, zin all. Có thương lượng."): iphone,
+		catalogdomain.GuessText("Xe đạp Asama xanh", "Xe đi ít, giá một triệu hai, có thương lượng."): bicycle,
+		catalogdomain.GuessText("Xe đạp Asama xanh", "Xe đi ít, có thương lượng."):                    bicycle,
+		catalogdomain.GuessText("Xe đạp Asama xanh", "Xe đạp Asama màu xanh, có giỏ trước."):          bicycle,
+		catalogdomain.GuessText("iPhone 11 64GB Trắng, pin 81%", "Máy dùng 3 năm, zin all. Liên hệ."): iphone,
 	} {
 		e.text.Set(text, v)
 	}

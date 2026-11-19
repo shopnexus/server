@@ -15,6 +15,7 @@ import (
 	aidomain "github.com/shopnexus/server/internal/ai/domain"
 	"github.com/shopnexus/server/internal/assist/domain"
 	"github.com/shopnexus/server/internal/assist/repository"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	mediadomain "github.com/shopnexus/server/internal/media/domain"
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/objectstore"
@@ -95,7 +96,6 @@ type cutFrames struct {
 // transcript is not in it: it stays inside the step.
 type filled struct {
 	Draft   domain.Draft   `json:"draft"`
-	Range   *domain.Range  `json:"range,omitempty"`
 	Failure domain.Failure `json:"failure,omitempty"`
 }
 
@@ -162,13 +162,9 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 	return StartResult{ReadID: id}, nil
 }
 
-// Run is UC-LST-01, step 2: it reads the video in three steps, frames, fill
-// and estimate, and saves the read after each, which notifies its account.
-// Every path that ends the read, done or failed, consumes the video. Before
-// each step it reads the journaled clock: past the deadline the read fails
-// with unavailable, and the frames and fill steps retry only until the
-// deadline, so one that keeps failing ends the same way. The estimate step
-// never fails a read: without it the model's range stands.
+// Run is UC-LST-01, step 2: frames, then a fill step that streams the
+// model's text to the relay, saving after each. Every end consumes the
+// video; past the deadline the read fails with unavailable.
 func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	// restate.Run answers a TerminalError; err holds the other calls' errors too.
 	var err error
@@ -226,6 +222,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 			return consumeErr
 		}
 		_, saveErr := save(at)
+		s.relayEnd(ctx, id)
 		return saveErr
 	}
 
@@ -347,39 +344,33 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 			}
 			images[i] = img
 		}
-		var answer domain.Answer
-		modelCtx, cancelModel := context.WithTimeout(rc, s.CallTimeout)
-		modelErr := s.Model.Complete(modelCtx, llm.Request{
-			System: systemPrompt, User: userPrompt(transcript, len(images), from),
-			SchemaName: domain.AnswerSchemaName, Schema: domain.AnswerSchema, Images: images,
-		}, &answer)
-		cancelModel()
-		if errors.Is(modelErr, llm.ErrRefused) {
+		raw, modelErr := s.writeText(rc, id, llm.Request{
+			System: systemPrompt, User: userPrompt(transcript, len(images), from), Images: images,
+		}, func(so string) domain.Text { return domain.SplitText(so, catalogdomain.MaxDescription) })
+		if refusedModel(modelErr) {
 			s.Log.WarnContext(rc, "the model refused the video read", "read", id, "err", modelErr)
 			return filled{Failure: domain.FailUnavailable}, nil
 		}
 		if modelErr != nil {
-			return filled{}, fmt.Errorf("ask the model: %w", modelErr)
+			return filled{}, modelErr
 		}
-		d, rng, cleanErr := domain.Clean(answer, r.Photos(), cut.Sharpest)
+		d, cleanErr := domain.VideoDraft(raw, r.Photos(), cut.Sharpest)
 		if cleanErr == nil {
 			d.CategoryCode = s.guessCategory(rc, id, d)
 		}
 		// One line per answer, with no word of the seller's: no transcript,
 		// title or description.
 		s.Log.InfoContext(rc, "video read filled", "read", id, "prompt_version", PromptVersion,
-			"frames", len(images), "transcript_chars", utf8.RuneCountInString(transcript), "transcript_from", from, "is_item", answer.IsItem,
-			"category", d.CategoryCode, "condition", d.Condition,
-			"specs", len(d.Specs), "kept", len(d.Photos), "has_description", d.Description != "",
-			"spoken_price", answer.SpokenPrice, "price", d.Price, "range", rng,
-			"ms", time.Since(started).Milliseconds())
+			"frames", len(images), "transcript_chars", utf8.RuneCountInString(transcript), "transcript_from", from,
+			"is_item", cleanErr == nil, "category", d.CategoryCode, "kept", len(d.Photos),
+			"description_chars", utf8.RuneCountInString(d.Description), "ms", time.Since(started).Milliseconds())
 		if errors.Is(cleanErr, domain.ErrNoItem) {
 			return filled{Failure: domain.FailNoItem}, nil
 		}
 		if cleanErr != nil {
 			return filled{}, fmt.Errorf("clean the answer: %w", cleanErr)
 		}
-		return filled{Draft: d, Range: rng}, nil
+		return filled{Draft: d}, nil
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
 		return fail(at, domain.FailUnavailable)
@@ -390,24 +381,14 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if err = r.SetDraft(fill.Draft, false); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}
-	if gone, saveErr := save(at); saveErr != nil || gone {
-		return errors.Join(saveErr, consume())
-	}
-
-	if at, err = restatex.Now(ctx, s.Now); err != nil {
-		return err
-	}
-	est := s.marketEstimate(ctx, id, r.AccountID(), fill.Draft, at, deadline)
-	if est == nil {
-		est = domain.ModelEstimate(fill.Range)
-	}
-	if err = r.Finish(est); err != nil {
+	if err = r.Finish(nil); err != nil {
 		return fmt.Errorf("finish read: %w", err)
 	}
 	if err = consume(); err != nil {
 		return err
 	}
 	_, err = save(at)
+	s.relayEnd(ctx, id)
 	return err
 }
 

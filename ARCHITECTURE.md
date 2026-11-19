@@ -2363,6 +2363,15 @@ Spam and scam detection is moderation and goes to trust; the two share
   builds one view for every source and is `listing_read_not_found` 404 for
   another account's read or one past `expires_at`. Each save notifies the
   account with `listing_read`.
+- `GET /v1/listing-reads/{id}/events` is a server-sent event stream
+  (decided 2026-11-19): event `read` with the read as the GET answers it,
+  event `text` with the title and description each time the model has
+  written more (at most every 100 ms), and `read` again when the read ends.
+  The text travels on `platform/relay`, Postgres channel `relay`, whose
+  message is the whole text so far, so a lost message costs nothing the
+  next one does not carry. The handler extends the write deadline for each
+  event, sends a comment every 15 s, and closes 30 s after the read's
+  2-minute deadline at the latest.
 - Migration 0039 copied the rows of `video_reads` and `link_reads` and
   their updates into `listing_reads` and `listing_read`; those tables and
   `account_updates.video_read_id` and `link_read_id` stay, since the
@@ -2383,31 +2392,27 @@ The video read:
   deleted again; a hold that loses a race to another start's save runs
   again and then sees that holder) and sends `Expire` with a 24-hour delay and `Run` one way,
   both keyed by the read's ID.
-- `Run` has three model steps, and each saves the row. Frames: module ai's
+- `Run` has two model steps, and each saves the row. Frames: module ai's
   `Frames` gets the video's object store key from media's `VideoKey`, and each frame it keeps becomes a waiting photo
   upload of the seller (`SaveFrame`), so the draft posts with
   `POST /v1/listings` like photos the app uploaded. Fill: the phone's
   transcript when the read has one, else module ai's `Transcribe` of the same key, and the LLM in one
   step, so the transcript never reaches the journal; the LLM gets the
-  frames at 768 px and the transcript with where it came from, and answers
-  a strict schema without a category. Estimate: catalog's `PriceSample` with the
-  draft's text vector and the mean of the kept frames' vectors.
-- The LLM's answer is cleaned like search's understanding. The category is
-  catalog's `GuessCategory` of the cleaned title and description; a guess
-  that fails leaves it empty for the seller to pick. The title is cut at 70 characters and the description at
-  1,500, specs at 20, a spoken price outside 10,000 to 1,000,000,000 đồng
-  is dropped, and a kept frame number outside the frames is dropped; none
-  left gives the sharpest frame. `is_item = false` or an empty title fails
-  the read with `no_item`. The description restates the seller's words
-  only, and the prompt forbids naming a mark the seller did not name
-  (`app/mohinh.md`, section 1). `PromptVersion` is 3.
-- The price range comes from the 30 listings most like the draft in its
-  subcategory and condition: sold in the last 180 days at weight 2, active
-  or reserved and published in the last 90 at weight 1, the seller's own
-  left out. With 5 or more it is their weighted p25, median and p75 rounded
-  to 10,000, `source: market`; with fewer it is the model's range,
-  `source: model`; without that, none. An embedding failure falls back to
-  the model's range.
+  frames at 768 px and the transcript with where it came from, and streams
+  plain text (decided 2026-11-19): the title on the first line, the
+  description after it, or `NO_ITEM` alone.
+- The category is catalog's `GuessCategory` of the title and description;
+  a guess that fails leaves it empty for the seller to pick.
+  `domain.VideoDraft` squeezes the title and cuts it at 70 characters and
+  the description at 1,500. The draft is `used`, with no specs, no price
+  and `allow_offers` false; the seller fills the category's `spec_labels`,
+  the price and the rest. Its photos are the sharpest frame, then the
+  others in time order, 6 at most. `NO_ITEM` or an empty title fails the
+  read with `no_item`. The description restates the seller's words only,
+  and the prompt forbids naming a mark the seller did not name
+  (`app/mohinh.md`, section 1). `PromptVersion` is 4.
+- The reads do not price the draft (decided 2026-11-19); the seller types
+  the price, and `POST /v1/price-guides` still prices a draft on request.
 - A refusal from `Frames` fails the read: `unreadable` (also for a key with
   no object), `video_too_short` (under 3 s) or `video_too_long` (over 35 s);
   any other refusal is the request's fault, `unavailable`, and logged. A
@@ -2418,9 +2423,8 @@ The video read:
   `created_at`. Each model step runs with `restate.WithMaxRetryDuration` set
   to the time left and at most 3 attempts, since the SDK retries a step
   every 2 s at most; a frames or fill step that runs out, or would start
-  after the deadline, saves `failed` with `unavailable`. The estimate step
-  never fails a read: past the deadline or after a failure the read ends
-  `done` with the model's range. Every end consumes the video before it
+  after the deadline, saves `failed` with `unavailable`. Every end consumes
+  the video before it
   saves the end, so a read that shows it ended holds no video.
 - The read's `photos` are its frames with `at_seconds`. Frame URLs
   are presigned GETs valid for an hour; a frame posted in a listing loses
@@ -2441,14 +2445,14 @@ The video read:
   answers the first read with the first transcript. No transcript is ever
   logged, returned or in a journaled value. The fill's log line
   holds the prompt version, the frame count, the transcript's length in
-  characters and `transcript_from` (`phone`, `server` or `none`), the category asked for and the one kept, the condition, the
-  counts of specs and kept frames, whether there is a description, the
-  prices and the range, and the time taken.
+  characters and `transcript_from` (`phone`, `server` or `none`), whether there was an
+  item, the category, the count of photos kept, the description's length
+  and the time taken.
 - Configuration: `ASSIST_LLM_BASE_URL`, `ASSIST_LLM_API_KEY`,
   `ASSIST_LLM_MODEL`, `ASSIST_LLM_REASONING_EFFORT` (sent as
   `reasoning_effort` when set), and `ASSIST_CALL_TIMEOUT` for one call, ai's calls
   included. In the cluster the key is LiteLLM's `server-assist`. The
-  estimate embeds text with the search key, `EMBED_SEARCH_API_KEY`, and
+  price guide embeds text with the search key, `EMBED_SEARCH_API_KEY`, and
   photos with module ai.
 
 The photo read (decided 2026-11-11, same spec as listing reads) reads one
@@ -2459,16 +2463,14 @@ photo, the app's cover, and costs one image and no speech to text:
   `QueryUpload` (the caller's, a photo, waiting, before its expiry); a
   refusal is `invalid_upload` 422 and deletes the row again. The read
   holds nothing: the listing posts the photo.
-- `Run` fills, then estimates. The fill sends the photo at 768 px with
-  `photoSystemPrompt` (`PhotoPromptVersion` 2) and `PhotoAnswerSchema`;
-  `CleanPhoto` cleans the answer like the video's, keeps the photo as the
-  draft's one photo, sets no price and cuts the description at 300
-  characters. The description says what the photo shows and never names a
+- `Run` has one step. It sends the photo at 768 px with
+  `photoSystemPrompt` (`PhotoPromptVersion` 3) and streams the text;
+  `domain.PhotoDraft` cleans it as the video read does, keeps the photo as
+  the draft's one photo and cuts the description at 300 characters. The description says what the photo shows and never names a
   mark or a fault, or anything a photo cannot show. A photo no longer
   waiting at the fill (posted, expired) is `unreadable` without the model.
-  The estimate is `marketEstimate` with the photo's vector. `Expire` deletes
-  the row after 24 hours. The log line has no title or description, only
-  their counts.
+  `Expire` deletes the row after 24 hours. The log line has no title or
+  description, only the description's length.
 
 The link read reads the seller's own listing on Chợ Tốt into a
 listing draft (decided 2026-11-11, spec:
@@ -2503,32 +2505,31 @@ bạn", and nothing compares the listing's owner with the account.
   without a phone, then inserts the row under the link cap, and sends
   `Expire` with a 24-hour delay and `Run`. The link is not fetched until
   `Run`.
-- `Run` has three steps under the video read's rules (a 2-minute deadline,
+- `Run` has two steps under the video read's rules (a 2-minute deadline,
   at most 3 attempts a step, a save after each).
   Read: the gateway and the model in one step, so the listing's text never
   enters the journal; the model gets the subject, the parameters, Chợ Tốt's
-  category and the body, without photos, and answers a strict schema
-  (`LinkPromptVersion` 2). The cleaning and the category guess are the video read's (`cleanDraft`,
-  `cleanRange`); the price is the listing's own, kept between 10,000 and
-  1,000,000,000 đồng; `StripPhones` takes out what still looks like a
-  Vietnamese phone number and sets `contact_removed`. Copy: the first 10
+  category and the body, without photos, and streams the text
+  (`LinkPromptVersion` 3). `domain.LinkDraft` cleans it and guesses the
+  category as the video read does; the price is the listing's own, kept
+  between 10,000 and 1,000,000,000 đồng; `StripPhones` takes out what still
+  looks like a Vietnamese phone number and sets `contact_removed`. While the
+  text streams, `domain.LinkText` also hides a number still being written
+  at its end. Copy: the first 10
   photos, each saved with `SavePhoto(origin = link)` under an ID minted
   before the step; they are the read's `photos` and the draft's. A photo the CDN does not have or that is not an image
   is skipped; one it does not answer (5xx, 403, 429, a timeout) gets two
   tries and is then skipped. With none copied, a photo that did not come
   sends the step round again, photos off `CHOTOT_CDN_URL` fail the read
   `unavailable` with an error log, and otherwise the read is
-  `listing_not_found`. The step logs the counts copied and skipped. Estimate: `marketEstimate`, which the video read
-  calls too, with the copies' vectors; without a market range the model's
-  stands.
+  `listing_not_found`. The step logs the counts copied and skipped.
 - A failed read says `listing_not_found`, `no_item` or `unavailable`.
   `GET /v1/listing-reads/{id}` shows its `link` (site, URL, photo count),
   with presigned photo URLs valid for an hour. `Expire` deletes the row after 24 hours;
   copies not posted expire with their uploads.
 - The read step's log line holds the prompt version, the list ID, the
-  photo count, the body's length, Chợ Tốt's category, the category asked
-  for and the one kept, the condition, the count of specs,
-  `contact_removed`, the price and the range, and the time taken. No
+  photo count, the body's length, Chợ Tốt's category, whether there was an
+  item, the category, `contact_removed`, the price and the time taken. No
   subject, body, title, description or link is logged.
 - Configuration: `CHOTOT_GATEWAY_URL` and `CHOTOT_CDN_URL`, with the
   video read's `ASSIST_LLM_*` and `ASSIST_CALL_TIMEOUT`.

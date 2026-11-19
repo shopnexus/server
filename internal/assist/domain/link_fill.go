@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"regexp"
 	"strings"
 
@@ -12,53 +11,37 @@ import (
 // as a listing takes.
 const MaxCopied = catalogdomain.MaxPhotos
 
-// LinkAnswer is what the model returns for a listing, in LinkAnswerSchema's
-// shape. The price is not in it: the listing states it.
-type LinkAnswer struct {
-	IsItem         bool                 `json:"is_item"`
-	Title          string               `json:"title"`
-	Condition      string               `json:"condition"`
-	Specs          []catalogdomain.Spec `json:"specs"`
-	Description    string               `json:"description"`
-	Negotiable     bool                 `json:"negotiable"`
-	ContactRemoved bool                 `json:"contact_removed"`
-	Estimate       *Range               `json:"estimate"`
+// LinkText is a link read's text cut short, with its phone numbers taken
+// out, and a number it may still be writing at its end too.
+func LinkText(raw string) Text {
+	t := SplitText(raw, catalogdomain.MaxDescription)
+	t.Description, _ = StripPhones(t.Description)
+	t.Description = strings.TrimRight(partialPhone.ReplaceAllString(t.Description, ""), " ")
+	return t
 }
 
-// LinkAnswerSchemaName names LinkAnswerSchema in the request.
-const LinkAnswerSchemaName = "link_read"
-
-// LinkAnswerSchema is LinkAnswer as a strict JSON schema.
-var LinkAnswerSchema = json.RawMessage(`{"type":"object","additionalProperties":false,
-"required":["is_item","title","condition","specs","description","negotiable","contact_removed","estimate"],
-"properties":{"is_item":{"type":"boolean"},"title":{"type":"string"},
-"condition":{"type":"string","enum":["new","like_new","used"]},
-"specs":{"type":"array","maxItems":20,"items":{"type":"object","additionalProperties":false,"required":["label","value"],
-"properties":{"label":{"type":"string"},"value":{"type":"string"}}}},
-"description":{"type":"string"},"negotiable":{"type":"boolean"},"contact_removed":{"type":"boolean"},
-"estimate":{"anyOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["low","median","high"],
-"properties":{"low":{"type":"integer"},"median":{"type":"integer"},"high":{"type":"integer"}}}]}}}`)
-
-// CleanLink turns the model's answer and the listing's price into a draft
-// without photos, the model's price range, and whether a contact was taken
-// out of the description, by the model or by StripPhones after it.
-func CleanLink(a LinkAnswer, price int64) (Draft, *Range, bool, error) {
-	d, err := cleanDraft(a.IsItem, a.Title, a.Condition, a.Specs, a.Description)
+// LinkDraft is the draft of a link read's reply at the listing's price,
+// and whether a contact was taken out of its description.
+func LinkDraft(raw string, price int64) (Draft, bool, error) {
+	d, err := textDraft(raw, catalogdomain.MaxDescription)
 	if err != nil {
-		return Draft{}, nil, false, err
+		return Draft{}, false, err
 	}
-	description, stripped := StripPhones(d.Description)
-	d.Description, d.AllowOffers = description, a.Negotiable
+	var stripped bool
+	d.Description, stripped = StripPhones(d.Description)
 	if price >= catalogdomain.MinPrice && price <= catalogdomain.MaxPrice {
 		d.Price = &price
 	}
-	return d, cleanRange(a.Estimate), a.ContactRemoved || stripped, nil
+	return d, stripped, nil
 }
 
 // phone is a Vietnamese phone number: 0 or +84, then 9 digits, with single
 // spaces, dots or dashes between them, standing alone. A price such as
 // 1.200.000.000 has 8 digits after its first 0 and stays.
 var phone = regexp.MustCompile(`(?:\+84|\b0)(?:[ .\-]?\d){9}\b`)
+
+// partialPhone is the start of a phone number at the end of a text.
+var partialPhone = regexp.MustCompile(`(?:\+|\b0)[\d .\-]*$`)
 
 var (
 	spaces      = regexp.MustCompile(` {2,}`)

@@ -21,26 +21,13 @@ const (
 	emptyRoom  = "a video of an empty room"
 )
 
-// The model's answers: the bicycle keeps frames 2 and 0; the empty room
-// shows no item.
+// The model's texts: the first line is the title, the rest the
+// description; the iPhone's keeps a phone for the regex to find.
 const (
-	bicycleAnswer = `{"is_item":true,"title":"Xe đạp Asama xanh","condition":"used",` +
-		`"specs":[{"label":"Màu","value":"Xanh"},{"label":"Hãng","value":"Asama"},{"label":"Loại xe","value":"Xe đạp phố"},` +
-		`{"label":"Cỡ khung","value":"26 inch"}],"description":"Xe đi ít, giá một triệu hai, có thương lượng.",` +
-		`"spoken_price":1200000,"negotiable":true,"kept":[2,0],` +
-		`"estimate":{"low":1000000,"median":1200000,"high":1400000}}`
-	iphoneLinkAnswer = `{"is_item":true,"title":"iPhone 11 64GB Trắng, pin 81%","condition":"used",` +
-		`"specs":[{"label":"Dòng máy","value":"iPhone 11"},{"label":"Dung lượng","value":"64 GB"},` +
-		`{"label":"Màu","value":"Trắng"},{"label":"Pin","value":"81%"}],"description":"Máy dùng 3 năm, zin all. Có thương lượng.",` +
-		`"negotiable":true,"contact_removed":true,"estimate":{"low":4000000,"median":4500000,"high":5000000}}`
-	flatLinkAnswer = `{"is_item":false,"title":"","condition":"used","specs":[],"description":"",` +
-		`"negotiable":false,"contact_removed":false,"estimate":null}`
-	bicyclePhotoAnswer = `{"is_item":true,"title":"Xe đạp Asama xanh","condition":"used",` +
-		`"specs":[{"label":"Màu","value":"Xanh"},{"label":"Hãng","value":"Asama"},{"label":"Loại xe","value":"Xe đạp phố"},` +
-		`{"label":"Cỡ khung","value":"26 inch"}],"description":"Xe đạp Asama màu xanh, có giỏ trước.",` +
-		`"estimate":{"low":1000000,"median":1200000,"high":1400000}}`
-	noItemAnswer = `{"is_item":false,"title":"","condition":"used","specs":[],"description":"",` +
-		`"spoken_price":null,"negotiable":false,"kept":[],"estimate":null}`
+	bicycleText      = "Xe đạp Asama xanh\nXe đi ít, có thương lượng."
+	iphoneLinkText   = "iPhone 11 64GB Trắng, pin 81%\nMáy dùng 3 năm, zin all. Liên hệ 0909 123 456."
+	bicyclePhotoText = "Xe đạp Asama xanh\nXe đạp Asama màu xanh, có giỏ trước."
+	noItemText       = "NO_ITEM"
 )
 
 // stubAssist stands in for what a video read calls: the video-read model,
@@ -53,34 +40,23 @@ func newAssist() *stubAssist {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/chat/completions"):
 			var req struct {
+				Stream   bool `json:"stream"`
 				Messages []struct {
 					Content json.RawMessage `json:"content"`
 				} `json:"messages"`
-				ResponseFormat struct {
-					JSONSchema struct {
-						Name string `json:"name"`
-					} `json:"json_schema"`
-				} `json:"response_format"`
 			}
-			if json.NewDecoder(r.Body).Decode(&req) != nil || len(req.Messages) != 2 {
+			if json.NewDecoder(r.Body).Decode(&req) != nil || len(req.Messages) != 2 || !req.Stream {
 				http.Error(w, "bad request", http.StatusBadRequest)
 				return
 			}
-			if req.ResponseFormat.JSONSchema.Name == "photo_read" {
-				writeStubJSON(w, map[string]any{"choices": []map[string]any{{"message": map[string]string{"content": bicyclePhotoAnswer}}}})
-				return
-			}
-			if req.ResponseFormat.JSONSchema.Name == "link_read" {
-				var text string
-				if json.Unmarshal(req.Messages[1].Content, &text) != nil {
-					http.Error(w, "a link read sends text only", http.StatusBadRequest)
-					return
-				}
-				answer := iphoneLinkAnswer
+			var text string
+			if json.Unmarshal(req.Messages[1].Content, &text) == nil {
+				// A link read sends text only.
+				answer := iphoneLinkText
 				if strings.Contains(text, "căn hộ") {
-					answer = flatLinkAnswer
+					answer = noItemText
 				}
-				writeStubJSON(w, map[string]any{"choices": []map[string]any{{"message": map[string]string{"content": answer}}}})
+				writeStubStream(w, answer)
 				return
 			}
 			var parts []struct {
@@ -91,13 +67,16 @@ func newAssist() *stubAssist {
 				http.Error(w, "bad request", http.StatusBadRequest)
 				return
 			}
-			answer := bicycleAnswer
+			answer := bicycleText
 			for _, p := range parts {
-				if p.Type == "text" && strings.Contains(p.Text, "không có gì") {
-					answer = noItemAnswer
+				switch {
+				case p.Type == "text" && strings.HasPrefix(p.Text, "The seller's photo"):
+					answer = bicyclePhotoText
+				case p.Type == "text" && strings.Contains(p.Text, "không có gì"):
+					answer = noItemText
 				}
 			}
-			writeStubJSON(w, map[string]any{"choices": []map[string]any{{"message": map[string]string{"content": answer}}}})
+			writeStubStream(w, answer)
 		default:
 			http.NotFound(w, r)
 		}
@@ -133,6 +112,18 @@ func (*stubAssist) models() aitest.Fake {
 func writeStubJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// writeStubStream streams text as chat completion chunks, a few runes
+// each.
+func writeStubStream(w http.ResponseWriter, text string) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	runes := []rune(text)
+	for i := 0; i < len(runes); i += 8 {
+		chunk, _ := json.Marshal(map[string]any{"choices": []map[string]any{{"delta": map[string]string{"content": string(runes[i:min(i+8, len(runes))])}}}})
+		_, _ = w.Write([]byte("data: " + string(chunk) + "\n\n"))
+	}
+	_, _ = w.Write([]byte("data: [DONE]\n\n"))
 }
 
 // frameJPEG is frame i of the bicycle video: a 96×64 gradient, a hue of

@@ -44,6 +44,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/module"
 	"github.com/shopnexus/server/internal/platform/objectstore"
 	"github.com/shopnexus/server/internal/platform/postgres"
+	"github.com/shopnexus/server/internal/platform/relay"
 	"github.com/shopnexus/server/internal/platform/restatex"
 	"github.com/shopnexus/server/internal/platform/stream"
 	"github.com/shopnexus/server/internal/provider/carrier"
@@ -70,6 +71,7 @@ type App struct {
 	endpoint *restatex.Endpoint
 	adminURL string
 	hub      *stream.Hub
+	relay    *relay.Relay
 	agent    *agent.Mounted
 	// closeAI releases module ai's models; nil when none are loaded.
 	closeAI func()
@@ -189,7 +191,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		return nil, fmt.Errorf("connect to postgres: %w", err)
 	}
 	runCtx, stop := context.WithCancel(context.Background())
-	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL, hub: stream.NewHub(stream.PGBell{DB: pool, Log: log}, stream.PGLog{DB: pool}, time.Now, log), stop: stop}
+	a := &App{router: httpx.NewRouter(), pool: pool, adminURL: cfg.Restate.AdminURL, hub: stream.NewHub(stream.PGBell{DB: pool, Log: log}, stream.PGLog{DB: pool}, time.Now, log), relay: relay.New(pool, log), stop: stop}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, a.Close(context.Background()))
@@ -214,7 +216,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	a.health(log)
 	in := ingress.NewClient(cfg.Restate.IngressURL)
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
-	defs, agentm, err := mountModules(a.router, pool, in, bus, a.hub, cfg, o.hasher, sender, mailer, carriers, engines, log)
+	defs, agentm, err := mountModules(a.router, pool, in, bus, a.hub, a.relay, cfg, o.hasher, sender, mailer, carriers, engines, log)
 	if err != nil {
 		return nil, err
 	}
@@ -248,6 +250,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 			log.ErrorContext(runCtx, "stream hub stopped", "err", err)
 		}
 	})
+	a.bg.Go(func() { a.relay.Run(runCtx) })
 
 	// Trace is outermost, so a panic's 500 carries a trace id and gets its
 	// access log line.
@@ -343,7 +346,7 @@ func checkMigrations(ctx context.Context, pool *pgxpool.Pool) error {
 // modules whose services it takes; account's guards come first because they
 // need only the auth keys. Module ai's service is among them when engines
 // is not nil; the other modules call ai through Restate either way.
-func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub,
+func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, bus *events.Bus, hub *stream.Hub, rel *relay.Relay,
 	cfg config.Config, hasher consoledomain.Hasher, sender push.Sender, mailer email.Sender, carriers shipping.Settings,
 	engines *ai.Engines, log *slog.Logger,
 ) ([]restate.ServiceDefinition, *agent.Mounted, error) {
@@ -440,6 +443,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 			BaseURL: cfg.Assist.LLMBaseURL, APIKey: cfg.Assist.LLMAPIKey, Model: cfg.Assist.LLMModel,
 			Effort: cfg.Assist.LLMEffort, HTTP: &http.Client{},
 		},
+		Relay:   rel,
 		Text:    embedder(cfg.Embed.SearchAPIKey),
 		Image:   photos,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, CallTimeout: cfg.Assist.CallTimeout,
@@ -519,11 +523,14 @@ func (a *App) ready(ctx context.Context) error {
 	return nil
 }
 
-// CloseStreams ends every open WebSocket with 1001, so a server shutdown
-// does not wait for them; the server's RegisterOnShutdown calls it.
+// CloseStreams ends every open WebSocket with 1001, and every read's event
+// stream, so a server shutdown does not wait for them; the server's RegisterOnShutdown calls it.
 func (a *App) CloseStreams() {
 	if a.hub != nil {
 		a.hub.Close()
+	}
+	if a.relay != nil {
+		a.relay.Close()
 	}
 }
 

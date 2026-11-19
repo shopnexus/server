@@ -49,7 +49,6 @@ type copiedPhotos struct {
 // subject and body are not in it: they stay inside the step.
 type readListing struct {
 	Draft          domain.Draft   `json:"draft"`
-	Range          *domain.Range  `json:"range,omitempty"`
 	ContactRemoved bool           `json:"contact_removed"`
 	Images         []string       `json:"images,omitempty"`
 	PhotoCount     int            `json:"photo_count"`
@@ -99,12 +98,9 @@ func (s LinkRead) Start(ctx restate.Context, in StartLinkInput) (StartResult, er
 	return StartResult{ReadID: id}, nil
 }
 
-// Run is UC-LST-01 A2: it reads the listing in three steps, read, copy and
-// estimate, and saves the read after each, which notifies its account.
-// Before each step it reads the journaled clock: past the deadline the read
-// fails with unavailable, and the read and copy steps retry only until the
-// deadline. The estimate step never fails a read: without it the model's
-// range stands.
+// Run is UC-LST-01 A2: a read step that streams the model's text to the
+// relay, then the copy step, saving after each. Past the deadline the read
+// fails with unavailable.
 func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 	var err error
 	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
@@ -150,6 +146,7 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 			return fmt.Errorf("fail read: %w", failErr)
 		}
 		_, saveErr := save(at)
+		s.relayEnd(ctx, id)
 		return saveErr
 	}
 
@@ -174,21 +171,15 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		case adErr != nil:
 			return readListing{}, fmt.Errorf("read the listing: %w", adErr)
 		}
-		var answer domain.LinkAnswer
-		modelCtx, cancelModel := context.WithTimeout(rc, s.CallTimeout)
-		modelErr := s.Model.Complete(modelCtx, llm.Request{
-			System: linkSystemPrompt, User: linkUserPrompt(ad),
-			SchemaName: domain.LinkAnswerSchemaName, Schema: domain.LinkAnswerSchema,
-		}, &answer)
-		cancelModel()
-		if errors.Is(modelErr, llm.ErrRefused) {
+		raw, modelErr := s.writeText(rc, id, llm.Request{System: linkSystemPrompt, User: linkUserPrompt(ad)}, domain.LinkText)
+		if refusedModel(modelErr) {
 			s.Log.WarnContext(rc, "the model refused the link read", "read", id, "err", modelErr)
 			return readListing{Failure: domain.FailUnavailable}, nil
 		}
 		if modelErr != nil {
-			return readListing{}, fmt.Errorf("ask the model: %w", modelErr)
+			return readListing{}, modelErr
 		}
-		d, rng, removed, cleanErr := domain.CleanLink(answer, ad.Price)
+		d, removed, cleanErr := domain.LinkDraft(raw, ad.Price)
 		if cleanErr == nil {
 			d.CategoryCode = s.guessCategory(rc, id, d)
 		}
@@ -197,8 +188,7 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		// body, title, description or link.
 		s.Log.InfoContext(rc, "link read filled", "read", id, "prompt_version", LinkPromptVersion, "list_id", r.Link().ListID,
 			"photos", len(ad.Images), "body_chars", utf8.RuneCountInString(ad.Body), "chotot_category", ad.CategoryName,
-			"is_item", answer.IsItem, "category", d.CategoryCode,
-			"condition", d.Condition, "specs", len(d.Specs), "contact_removed", removed, "price", d.Price, "range", rng,
+			"is_item", cleanErr == nil, "category", d.CategoryCode, "contact_removed", removed, "price", d.Price,
 			"ms", time.Since(started).Milliseconds())
 		if errors.Is(cleanErr, domain.ErrNoItem) {
 			return readListing{Failure: domain.FailNoItem}, nil
@@ -206,7 +196,7 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		if cleanErr != nil {
 			return readListing{}, fmt.Errorf("clean the answer: %w", cleanErr)
 		}
-		return readListing{Draft: d, Range: rng, ContactRemoved: removed, Images: images, PhotoCount: len(ad.Images)}, nil
+		return readListing{Draft: d, ContactRemoved: removed, Images: images, PhotoCount: len(ad.Images)}, nil
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
 		return fail(at, domain.FailUnavailable)
@@ -311,21 +301,11 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if err = r.SetDraft(d, read.ContactRemoved); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}
-	if gone, saveErr := save(at); saveErr != nil || gone {
-		return saveErr
-	}
-
-	if at, err = restatex.Now(ctx, s.Now); err != nil {
-		return err
-	}
-	est := s.marketEstimate(ctx, id, r.AccountID(), d, at, deadline)
-	if est == nil {
-		est = domain.ModelEstimate(read.Range)
-	}
-	if err = r.Finish(est); err != nil {
+	if err = r.Finish(nil); err != nil {
 		return fmt.Errorf("finish read: %w", err)
 	}
 	_, err = save(at)
+	s.relayEnd(ctx, id)
 	return err
 }
 

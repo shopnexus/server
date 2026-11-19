@@ -48,6 +48,15 @@ type Service interface {
 	//
 	// UC-LST-01
 	GetRead(ctx context.Context, account, id uuid.UUID) (ListingReadView, error)
+	// WatchRead calls emit with one of account's reads, as GetRead returns
+	// it, then with its text each time the model has written more, then
+	// with the read again once it ends. It returns after the read ends,
+	// WatchFor after it starts watching, or when ctx is done or the relay
+	// closes. A read GetRead would not return is domain.ErrNotFound, before
+	// any emit.
+	//
+	// UC-LST-01
+	WatchRead(ctx context.Context, account, id uuid.UUID, emit func(ReadEvent) error) error
 	// PreviewLink reads the listing a pasted link names, for the card the
 	// app shows before the read, and stores nothing.
 	//
@@ -80,8 +89,11 @@ type Deps struct {
 	// Discovery gives the search watches a draft would match.
 	Discovery discoverysvc.Service
 	// AI cuts a video's frames and hears it, from its object store key.
-	AI    aisvc.Service
-	Model llm.Client
+	AI aisvc.Service
+	// Model writes a read's title and description; Relay carries the text
+	// to the seller as it is written.
+	Model llm.Streamer
+	Relay Relay
 	// Text and Image embed with the search key, for the price sample;
 	// TextMin and PhotoMin are the similarity floors of search.
 	Text, Image       embed.Model

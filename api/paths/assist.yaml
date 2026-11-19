@@ -144,6 +144,49 @@ listingRead:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+listingReadEvents:
+  get:
+    operationId: streamListingRead
+    x-uc: [UC-LST-01]
+    summary: Watch a listing read as the model writes it.
+    description: |
+      A server-sent event stream. It sends event read with the read as GET
+      /v1/listing-reads/{id} answers it, then event text with the title and
+      description each time the model has written more, then event read
+      again when the read ends, and closes. A read that has ended gets one
+      event read. A comment line every 15 s keeps the stream open; the
+      stream closes 30 s after the read's 2-minute deadline at the latest.
+    tags: [assist]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: |
+          The events. Each data line is JSON: a ListingRead after event read,
+          a ReadText after event text.
+        content:
+          text/event-stream:
+            schema:
+              oneOf:
+                - $ref: "../schemas/assist.yaml#/ListingRead"
+                - $ref: "../schemas/assist.yaml#/ReadText"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such read for this caller, or it is past its 24 hours (listing_read_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 priceGuides:
   post:
     operationId: createPriceGuide

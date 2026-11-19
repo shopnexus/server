@@ -43,7 +43,7 @@ func TestLinkReadFillsADraft(t *testing.T) {
 	}
 	d := v.Draft
 	if d == nil || d.Title != "iPhone 11 64GB Trắng, pin 81%" || d.CategoryCode != "phones.iphone" ||
-		d.Condition != catalogdomain.ConditionUsed || d.Price == nil || *d.Price != 4_500_000 || !d.AllowOffers ||
+		d.Condition != catalogdomain.ConditionUsed || d.Price == nil || *d.Price != 4_500_000 || d.AllowOffers || len(d.Specs) != 0 ||
 		len(d.Photos) != 5 || strings.Contains(d.Description, "0909") {
 		t.Fatalf("draft %+v", d)
 	}
@@ -59,9 +59,6 @@ func TestLinkReadFillsADraft(t *testing.T) {
 			t.Fatalf("upload %d: %+v %v", i, u.State(), err)
 		}
 	}
-	if v.Estimate == nil || *v.Estimate == nil || (*v.Estimate).Source != domain.SourceModel || (*v.Estimate).Median != 4_500_000 {
-		t.Fatalf("estimate %+v", v.Estimate)
-	}
 	_, images, user := e.model.asked()
 	if images != 0 || !strings.Contains(user, "iPhone 11 64GB trắng pin 81% zin all") || !strings.Contains(user, "Dung lượng: 64 GB") ||
 		!strings.Contains(user, "Điện thoại") {
@@ -73,8 +70,8 @@ WHERE account_id = @account AND kind = 'listing_read' AND listing_read_id = @rea
 		pgx.StrictNamedArgs{"account": seller, "read": v.ID}).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
-	if n != 4 {
-		t.Fatalf("%d updates, want start, read, copy and done", n)
+	if n != 3 {
+		t.Fatalf("%d updates, want start, read and done", n)
 	}
 }
 
@@ -91,7 +88,7 @@ func TestLinkReadFailures(t *testing.T) {
 		{"Chợ Tốt changed", func(e *env) { e.source.adErr = chotot.ErrFormat }, domain.FailUnavailable, 0},
 		{"Chợ Tốt down", func(e *env) { e.source.adErr = chotot.ErrUnavailable }, domain.FailUnavailable, 0},
 		{"the model refused", func(e *env) { e.model.err = llm.ErrRefused }, domain.FailUnavailable, 1},
-		{"not an item", func(e *env) { e.model.link.IsItem = false }, domain.FailNoItem, 1},
+		{"not an item", func(e *env) { e.model.link = domain.NoItem }, domain.FailNoItem, 1},
 		{"no photo copied", func(e *env) { e.source.images = map[string][]byte{} }, domain.FailListingNotFound, -1},
 		{"the CDN down", func(e *env) { e.source.imageErr = chotot.ErrUnavailable }, domain.FailUnavailable, -1},
 		{"photos moved off the CDN", func(e *env) { e.source.imageErr = chotot.ErrOffCDN }, domain.FailUnavailable, -1},
@@ -102,7 +99,7 @@ func TestLinkReadFailures(t *testing.T) {
 			e := newEnv(t, tc.setup)
 			seller := accounttest.WithPhone(t, e.db)
 			v := e.linkEnd(t, seller, e.startLink(t, seller).ID)
-			if v.Status != domain.StatusFailed || v.Failure != tc.want || v.Draft != nil || v.Estimate != nil {
+			if v.Status != domain.StatusFailed || v.Failure != tc.want || v.Draft != nil {
 				t.Fatalf("%+v", v)
 			}
 			if calls, _, _ := e.model.asked(); tc.calls >= 0 && calls != tc.calls {

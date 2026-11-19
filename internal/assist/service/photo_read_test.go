@@ -39,18 +39,15 @@ func TestPhotoReadFillsADraft(t *testing.T) {
 	}
 	d := v.Draft
 	if d == nil || d.Title != "iPhone 11 Trắng" || d.CategoryCode != "phones.iphone" || d.Condition != catalogdomain.ConditionUsed ||
-		d.Price != nil || d.AllowOffers || len(d.Photos) != 1 || d.Photos[0] != photo {
+		d.Price != nil || d.AllowOffers || len(d.Specs) != 0 || len(d.Photos) != 1 || d.Photos[0] != photo {
 		t.Fatalf("draft %+v", d)
-	}
-	if v.Estimate == nil || *v.Estimate == nil || (*v.Estimate).Source != domain.SourceModel || (*v.Estimate).Median != 4_500_000 {
-		t.Fatalf("estimate %+v", v.Estimate)
 	}
 	calls, images, user := e.model.asked()
 	if calls != 1 || images != 1 || user != "The seller's photo is attached below.\n" || e.stt.called() != 0 {
 		t.Fatalf("model asked %d times, %d images, %q; stt %d", calls, images, user, e.stt.called())
 	}
-	if n := e.updates(t, seller, v.ID); n != 3 {
-		t.Fatalf("%d updates, want start, draft and done", n)
+	if n := e.updates(t, seller, v.ID); n != 2 {
+		t.Fatalf("%d updates, want start and done", n)
 	}
 	u, err := mediarepo.NewUploads(e.db).Get(context.Background(), photo)
 	if err != nil || u.Status() != mediadomain.StatusWaiting {
@@ -61,14 +58,12 @@ func TestPhotoReadFillsADraft(t *testing.T) {
 // UC-LST-01 A1.
 func TestPhotoReadFailures(t *testing.T) {
 	t.Parallel()
-	noItem := iphonePhoto()
-	noItem.IsItem = false
 	for _, c := range []struct {
 		name    string
 		opt     func(*env)
 		failure domain.Failure
 	}{
-		{"no item", func(e *env) { e.model.photo = noItem }, domain.FailNoItem},
+		{"no item", func(e *env) { e.model.photo = domain.NoItem }, domain.FailNoItem},
 		{"model refused", func(e *env) { e.model.err = fmt.Errorf("model answered 400: %w", llm.ErrRefused) }, domain.FailUnavailable},
 	} {
 		t.Run(c.name, func(t *testing.T) {

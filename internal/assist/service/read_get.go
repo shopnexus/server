@@ -40,9 +40,5 @@ func (a *Assist) GetRead(ctx context.Context, account, id uuid.UUID) (ListingRea
 		}
 		v.Photos = append(v.Photos, PhotoView{UploadID: p.UploadID, URL: url, AtSeconds: p.AtSeconds})
 	}
-	if r.Status() == domain.StatusDone {
-		est := r.Estimate()
-		v.Estimate = &est
-	}
 	return v, nil
 }

@@ -21,11 +21,8 @@ type ListingReadView struct {
 	Photos  []PhotoView     `json:"photos,omitempty"`
 	Draft   *domain.Draft   `json:"draft,omitempty"`
 	// ContactRemoved is set with a link read's draft.
-	ContactRemoved *bool `json:"contact_removed,omitempty"`
-	// Estimate is set once the read is done: a nil outer pointer leaves the
-	// field out, a nil inner one sends null, for a read with no range.
-	Estimate  **domain.Estimate `json:"estimate,omitempty"`
-	ExpiresAt time.Time         `json:"expires_at"`
+	ContactRemoved *bool     `json:"contact_removed,omitempty"`
+	ExpiresAt      time.Time `json:"expires_at"`
 }
 
 // PhotoView is a photo of the read with a URL the app reads it from for an

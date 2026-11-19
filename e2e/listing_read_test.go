@@ -41,14 +41,14 @@ type listingRead struct {
 		Photos       []string            `json:"photos"`
 	} `json:"draft"`
 	ContactRemoved *bool `json:"contact_removed"`
-	Estimate       *struct {
-		Low        int64  `json:"low"`
-		Median     int64  `json:"median"`
-		High       int64  `json:"high"`
-		Source     string `json:"source"`
-		SampleSize int    `json:"sample_size"`
-	} `json:"estimate"`
 }
+
+// The specs a seller fills for a bicycle and an iPhone, the categories'
+// spec_labels.
+var (
+	bicycleSpecs = []map[string]string{{"label": "Hãng", "value": "Asama"}, {"label": "Loại xe", "value": "Xe đạp phố"}, {"label": "Cỡ khung", "value": "26 inch"}}
+	iphoneSpecs  = []map[string]string{{"label": "Dòng máy", "value": "iPhone 11"}, {"label": "Dung lượng", "value": "64 GB"}, {"label": "Màu", "value": "Trắng"}, {"label": "Pin", "value": "81%"}}
+)
 
 // startRead starts a read of body as the account with token.
 func startRead(t *testing.T, token string, body map[string]any) listingRead {
@@ -93,23 +93,18 @@ func TestVideoReadToListing(t *testing.T) {
 	seller, _ := newAccount(t)
 	video := uploadVideo(t, seller.AccessToken, "a phone video of a bicycle")
 	started := startVideoRead(t, seller.AccessToken, video)
-	if started.Status != "reading" || started.Draft != nil || started.Estimate != nil {
+	if started.Status != "reading" || started.Draft != nil {
 		t.Fatalf("started: %+v", started)
 	}
 	r := readEnd(t, seller.AccessToken, started.ID)
-	if r.Status != "done" || r.Source != "video" || r.Link != nil || len(r.Photos) != 3 || r.Draft == nil || r.Estimate == nil {
+	if r.Status != "done" || r.Source != "video" || r.Link != nil || len(r.Photos) != 3 || r.Draft == nil {
 		t.Fatalf("%+v", r)
 	}
 	d := r.Draft
 	if d.Title != "Xe đạp Asama xanh" || d.CategoryCode != "vehicles.bicycle" || d.Condition != "used" ||
-		d.Price == nil || *d.Price != 1_200_000 || !d.AllowOffers ||
-		!slices.Equal(d.Photos, []string{r.Photos[2].UploadID, r.Photos[0].UploadID}) {
+		d.Price != nil || d.AllowOffers || len(d.Specs) != 0 || d.Description != "Xe đi ít, có thương lượng." ||
+		!slices.Equal(d.Photos, []string{r.Photos[2].UploadID, r.Photos[0].UploadID, r.Photos[1].UploadID}) {
 		t.Fatalf("draft %+v", d)
-	}
-	// The embedding stub's vectors are below the floors, so no listing is
-	// similar and the model's range stands.
-	if r.Estimate.Source != "model" || r.Estimate.Median != 1_200_000 || r.Estimate.SampleSize != 0 {
-		t.Fatalf("estimate %+v", r.Estimate)
 	}
 	if s := uploadStatus(t, video); s != "consumed" {
 		t.Fatalf("the video is %s", s)
@@ -140,16 +135,16 @@ func TestVideoReadToListing(t *testing.T) {
 			n++
 		}
 	}
-	if n != 4 {
-		t.Fatalf("%d listing_read updates, want start, frames, draft and done", n)
+	if n != 3 {
+		t.Fatalf("%d listing_read updates, want start, frames and done", n)
 	}
 
 	body := map[string]any{
-		"title": d.Title, "price": *d.Price, "description": d.Description, "category_code": d.CategoryCode,
-		"condition": d.Condition, "allow_offers": d.AllowOffers, "commune_code": "00004", "photos": d.Photos, "specs": d.Specs,
+		"title": d.Title, "price": 1_200_000, "description": d.Description, "category_code": d.CategoryCode,
+		"condition": d.Condition, "allow_offers": d.AllowOffers, "commune_code": "00004", "photos": d.Photos, "specs": bicycleSpecs,
 	}
 	l := expect[listing](t, call(t, "POST", "/v1/listings", body, bearer(seller.AccessToken), newKey()), http.StatusCreated)
-	if l = settled(t, seller.AccessToken, l.ID); l.Status != "active" || len(l.Photos) != 2 || l.Photos[0].UploadID != d.Photos[0] {
+	if l = settled(t, seller.AccessToken, l.ID); l.Status != "active" || len(l.Photos) != 3 || l.Photos[0].UploadID != d.Photos[0] {
 		t.Fatalf("listing %+v", l)
 	}
 }
@@ -169,7 +164,7 @@ func TestVideoReadFailures(t *testing.T) {
 			seller, _ := newAccount(t)
 			video := uploadVideo(t, seller.AccessToken, c.video)
 			r := readEnd(t, seller.AccessToken, startVideoRead(t, seller.AccessToken, video).ID)
-			if r.Status != "failed" || r.Failure != c.failure || len(r.Photos) != c.frames || r.Draft != nil || r.Estimate != nil {
+			if r.Status != "failed" || r.Failure != c.failure || len(r.Photos) != c.frames || r.Draft != nil {
 				t.Fatalf("%+v", r)
 			}
 			if s := uploadStatus(t, video); s != "consumed" {
@@ -286,7 +281,7 @@ func TestPhotoReadToListing(t *testing.T) {
 	photo := upload(t, seller.AccessToken, frameJPEG(1))
 	r := readEnd(t, seller.AccessToken, startRead(t, seller.AccessToken, map[string]any{"photo": photo}).ID)
 	if r.Status != "done" || r.Source != "photo" || len(r.Photos) != 1 || r.Photos[0].UploadID != photo ||
-		r.Photos[0].AtSeconds != nil || r.Draft == nil || r.Estimate == nil {
+		r.Photos[0].AtSeconds != nil || r.Draft == nil {
 		t.Fatalf("%+v", r)
 	}
 	d := r.Draft
@@ -297,8 +292,8 @@ func TestPhotoReadToListing(t *testing.T) {
 		t.Fatalf("the photo is %s", s)
 	}
 	body := map[string]any{
-		"title": d.Title, "price": r.Estimate.Median, "description": d.Description, "category_code": d.CategoryCode,
-		"condition": d.Condition, "allow_offers": d.AllowOffers, "commune_code": "00004", "photos": d.Photos, "specs": d.Specs,
+		"title": d.Title, "price": 1_200_000, "description": d.Description, "category_code": d.CategoryCode,
+		"condition": d.Condition, "allow_offers": d.AllowOffers, "commune_code": "00004", "photos": d.Photos, "specs": bicycleSpecs,
 	}
 	l := expect[listing](t, call(t, "POST", "/v1/listings", body, bearer(seller.AccessToken), newKey()), http.StatusCreated)
 	if l = settled(t, seller.AccessToken, l.ID); l.Status != "active" || len(l.Photos) != 1 {
@@ -325,4 +320,31 @@ FROM generate_series(1, 60)`, pgx.StrictNamedArgs{"account": busy.Account.ID}); 
 	}
 	check(t, "sixty photo reads", post(busy.AccessToken, upload(t, busy.AccessToken, frameJPEG(2))), 429, "read_limit_reached")
 	startVideoRead(t, busy.AccessToken, uploadVideo(t, busy.AccessToken, "a phone video of a bicycle"))
+}
+
+// A read's event stream sends the read, the text as the model writes it,
+// and the read again when it ends; a read that ended gets one event.
+func TestListingReadEvents(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	other, _ := newAccount(t)
+	started := startRead(t, seller.AccessToken, map[string]any{"photo": upload(t, seller.AccessToken, frameJPEG(1))})
+	path := "/v1/listing-reads/" + started.ID + "/events"
+	res := call(t, "GET", path, nil, bearer(seller.AccessToken))
+	expectStatus(t, res, http.StatusOK)
+	body := string(res.Body)
+	if !strings.HasPrefix(body, "event: read\ndata: {") || !strings.Contains(body, `"status":"done"`) ||
+		!strings.HasSuffix(body, "\n\n") {
+		t.Fatalf("events %s", body)
+	}
+	if !strings.Contains(body, `"title":"Xe đạp Asama xanh"`) {
+		t.Fatalf("no title in %s", body)
+	}
+	again := string(call(t, "GET", path, nil, bearer(seller.AccessToken)).Body)
+	if strings.Count(again, "event: ") != 1 || !strings.Contains(again, `"status":"done"`) {
+		t.Fatalf("an ended read: %s", again)
+	}
+	expectStatus(t, call(t, "GET", path, nil, bearer(other.AccessToken)), http.StatusNotFound)
+	expectStatus(t, call(t, "GET", path, nil), http.StatusUnauthorized)
+	expectStatus(t, call(t, "GET", "/v1/listing-reads/nope/events", nil, bearer(seller.AccessToken)), http.StatusBadRequest)
 }
