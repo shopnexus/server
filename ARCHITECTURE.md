@@ -453,6 +453,14 @@ No column is named after an SQL keyword (sqlfluff RF04, run with
 published them (`role`, `value`, `action`, `at`). `.sqlfluffignore` skips
 the generated `0005_regions.sql`, which is past the parser's node limit.
 
+`cmd/migrate`, which compose's migrate service and the cluster's migrate
+hook run, applies every file whose version `schema_migrations` lacks, in
+version order, each in its own transaction, and stops when an applied
+file's sha256 changed. A gap in the numbers is
+fine, and so is a lower version that lands after a higher one, as when
+two branches number apart and merge in either order; only a version two
+files share is refused.
+
 IDs are chosen by the caller before the insert: `restatex.NewID(ctx, at)`
 inside a Restate service, `uuid.NewV7()` in a direct use case. Only
 `accounts.id` keeps `uuidv7()` as a column default. `Create` inserts with

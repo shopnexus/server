@@ -3,6 +3,7 @@ package postgres_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -98,6 +99,27 @@ func TestMigrateTwiceAppliesNothing(t *testing.T) {
 	applied, err := postgres.Migrate(context.Background(), pool, fsys)
 	if err != nil || len(applied) != 0 {
 		t.Fatalf("second run applied %d, err %v", len(applied), err)
+	}
+}
+
+// Two branches number their migrations apart and merge in either order: a
+// database that applied 0003 still applies 0002 when it lands later.
+func TestMigrateAppliesALowerVersionThatLandsLater(t *testing.T) {
+	t.Parallel()
+	pool := pgtest.Empty(t)
+	first := files(map[string]string{"0001_a.sql": "CREATE TABLE a (id int);", "0003_c.sql": "CREATE TABLE c (id int);"})
+	if _, err := postgres.Migrate(context.Background(), pool, first); err != nil {
+		t.Fatal(err)
+	}
+	later := files(map[string]string{
+		"0001_a.sql": "CREATE TABLE a (id int);", "0002_b.sql": "CREATE TABLE b (id int);", "0003_c.sql": "CREATE TABLE c (id int);",
+	})
+	applied, err := postgres.Migrate(context.Background(), pool, later)
+	if err != nil || len(applied) != 1 || applied[0].Version != 2 {
+		t.Fatalf("applied %+v, err %v", applied, err)
+	}
+	if got := appliedVersions(t, pool); !slices.Equal(got, []int{1, 2, 3}) {
+		t.Fatalf("recorded %v", got)
 	}
 }
 
