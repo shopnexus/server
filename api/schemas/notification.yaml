@@ -26,7 +26,7 @@ Notification:
     type:
       type: string
       enum: [offer, counter, agreed, declined, agreement_cancelled, offer_voided, cod_requested, shipped, completed,
-        failed, order_cancelled, listing_live, listing_rejected, followed_listing, review, suspended, unsuspended,
+        failed, order_cancelled, listing_live, listing_rejected, followed_listing, review, review_reply, suspended, unsuspended,
         watch_matched, price_dropped]
     text:
       type: string
@@ -115,7 +115,7 @@ NotificationSettings:
       description: A new listing of a seller the caller follows.
     reviews:
       type: boolean
-      description: A new review of the caller.
+      description: A review of the caller that shows, or a reply to the caller's review.
     quiet:
       $ref: "#/QuietHours"
 QuietHours:
