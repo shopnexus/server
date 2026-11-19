@@ -407,7 +407,7 @@ func (r *run) sale(ctx context.Context, s saleRow) error {
 		return fmt.Errorf("deal of %s: %w", s.sale.Listing.Key, err)
 	}
 	n, err := r.d.Reviews.Write(ctx, Sold{
-		Pack: r.name, ListingKey: s.sale.Listing.Key, ListingID: s.id, OrderID: order, SellerID: seller, BuyerID: buyer,
+		Pack: r.name, ListingKey: s.sale.Listing.Key, ListingID: s.id, OrderID: order, SellerID: seller, BuyerID: buyer, ClosedAt: completed,
 	}, s.sale.Reviews)
 	if err != nil {
 		return fmt.Errorf("reviews of %s: %w", s.sale.Listing.Key, err)

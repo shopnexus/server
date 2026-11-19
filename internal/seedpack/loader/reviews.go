@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/seedpack"
@@ -19,11 +21,11 @@ type Sold struct {
 	OrderID    uuid.UUID
 	SellerID   uuid.UUID
 	BuyerID    uuid.UUID
+	// ClosedAt is when the order closed, which the blind window counts from.
+	ClosedAt time.Time
 }
 
-// ReviewWriter writes the reviews of one sale. The schema decides what it
-// keeps: today one review of the seller by the buyer and no reply; the
-// two-way reviews add the seller's review of the buyer and one reply each.
+// ReviewWriter writes the reviews of one sale.
 type ReviewWriter interface {
 	// Keeps says how many of reviews Write stores and how many it drops.
 	Keeps(reviews []seedpack.Review) (kept, dropped int)
@@ -32,44 +34,64 @@ type ReviewWriter interface {
 	Write(ctx context.Context, s Sold, reviews []seedpack.Review) (int, error)
 }
 
-// SellerReviews writes the buyer's review of the seller through trust's
-// Review and its repository, and drops the buyer's review and the replies,
-// which today's schema has no place for.
-type SellerReviews struct {
+// Reviews writes both sides' reviews and their replies through trust's
+// Review and its repository, in the order they were posted, so the second
+// review reveals the first as it does in the app.
+type Reviews struct {
 	Reviews trustrepo.Reviews
 }
 
-func (SellerReviews) Keeps(reviews []seedpack.Review) (kept, dropped int) {
-	for _, r := range reviews {
-		if r.Role == seedpack.RoleSeller {
-			kept++
-			if r.Reply != nil {
-				dropped++
-			}
-		} else {
-			dropped++
-		}
-	}
-	return kept, dropped
-}
+func (Reviews) Keeps(reviews []seedpack.Review) (kept, dropped int) { return len(reviews), 0 }
 
-func (w SellerReviews) Write(ctx context.Context, s Sold, reviews []seedpack.Review) (int, error) {
-	n := 0
-	for _, r := range reviews {
-		if r.Role != seedpack.RoleSeller {
-			continue
+func (w Reviews) Write(ctx context.Context, s Sold, reviews []seedpack.Review) (int, error) {
+	reviews = slices.Clone(reviews)
+	slices.SortFunc(reviews, func(a, b seedpack.Review) int { return a.At.Compare(b.At) })
+	written := make([]trustdomain.Review, 0, len(reviews))
+	replies := make([]*seedpack.Reply, 0, len(reviews))
+	for i, r := range reviews {
+		role, reviewer, subject := trustdomain.RoleSeller, s.BuyerID, s.SellerID
+		if r.Role == seedpack.RoleBuyer {
+			role, reviewer, subject = trustdomain.RoleBuyer, s.SellerID, s.BuyerID
 		}
+		visible := trustdomain.RevealAt(s.ClosedAt, i > 0, r.At)
 		id := seedpack.ID(s.Pack, "review", s.ListingKey+"/"+r.Role, r.At)
-		review, err := trustdomain.NewReview(id, s.OrderID, s.SellerID, s.BuyerID, s.ListingID, r.Stars, r.Text, r.At)
+		review, err := trustdomain.NewReview(id, s.OrderID, role, reviewer, subject, s.ListingID, r.Stars, r.Text, visible, r.At)
 		if err != nil {
-			return n, fmt.Errorf("review: %w", err)
+			return 0, fmt.Errorf("review: %w", err)
 		}
 		if err = w.Reviews.Insert(ctx, review); errors.Is(err, trustrepo.ErrConflict) {
-			continue // the order has its review
+			continue // a load before wrote it, and its reply
 		} else if err != nil {
-			return n, fmt.Errorf("insert review: %w", err)
+			return 0, fmt.Errorf("insert review: %w", err)
 		}
-		n++
+		written = append(written, review)
+		replies = append(replies, r.Reply)
 	}
-	return n, nil
+	// A second review revealed the first at its own time.
+	if len(written) == 2 && len(reviews) == 2 {
+		st := written[0].State()
+		st.VisibleAt = minTime(st.VisibleAt, reviews[1].At)
+		written[0] = trustdomain.RestoreReview(st)
+	}
+	for i := range written {
+		rp := replies[i]
+		if rp == nil {
+			continue
+		}
+		r := &written[i]
+		if err := r.Reply(r.SubjectID(), rp.Text, rp.At); err != nil {
+			return len(written), fmt.Errorf("reply to review %s: %w", r.ID(), err)
+		}
+		if err := w.Reviews.Save(ctx, r, seedpack.ID(s.Pack, "review-reply", r.ID().String(), rp.At)); err != nil {
+			return len(written), fmt.Errorf("save the reply to review %s: %w", r.ID(), err)
+		}
+	}
+	return len(written), nil
+}
+
+func minTime(a, b time.Time) time.Time {
+	if b.Before(a) {
+		return b
+	}
+	return a
 }

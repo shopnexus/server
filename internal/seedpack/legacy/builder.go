@@ -435,13 +435,22 @@ func newSale(it *item, people []*person, byKey map[string]*person, cp *corpus.Co
 			Role: role, Stars: stars, At: at,
 			Text: cp.ReviewText(role, stars, root, [3]float64{u(key, role+"t0"), u(key, role+"t1"), u(key, role+"t2")}),
 		}
-		if text, ok := cp.ReplyText(role, stars, [2]float64{u(key, role+"r0"), u(key, role+"r1")}); ok {
-			if replied := at.Add(time.Duration((1 + 40*u(key, role+"rat")) * float64(time.Hour))).Truncate(time.Second); replied.Before(ref) {
-				r.Reply = &seedpack.Reply{Text: text, At: replied}
-			}
-		}
 		if at.Before(ref) {
 			s.Reviews = append(s.Reviews, r)
+		}
+	}
+	// A reply comes once its review shows: after the other side's review,
+	// or after the blind week from the close, an hour after delivery.
+	shown := delivered.Add(time.Hour + 8*24*time.Hour)
+	if len(s.Reviews) == 2 {
+		shown = maxTime(s.Reviews[0].At, s.Reviews[1].At)
+	}
+	for i := range s.Reviews {
+		r := &s.Reviews[i]
+		text, ok := cp.ReplyText(r.Role, r.Stars, [2]float64{u(key, r.Role+"r0"), u(key, r.Role+"r1")})
+		replied := maxTime(shown, r.At).Add(time.Duration((1 + 40*u(key, r.Role+"rat")) * float64(time.Hour))).Truncate(time.Second)
+		if ok && replied.Before(ref) {
+			r.Reply = &seedpack.Reply{Text: text, At: replied}
 		}
 	}
 	return s

@@ -33,8 +33,8 @@ type Deps struct {
 	// TextVersion and ImageVersion are the stack's EMBED_TEXT_VERSION and
 	// EMBED_IMAGE_VERSION; empty when that kind of vector is off.
 	TextVersion, ImageVersion string
-	// Reviews writes a sale's reviews; nil is SellerReviews, today's
-	// buyer-to-seller review without replies.
+	// Reviews writes a sale's reviews; nil is Reviews, both sides and the
+	// replies.
 	Reviews ReviewWriter
 	Now     func() time.Time
 }
@@ -141,7 +141,7 @@ type Loader struct {
 
 func New(d Deps) *Loader {
 	if d.Reviews == nil {
-		d.Reviews = SellerReviews{Reviews: trustrepo.NewReviews(d.Pool)}
+		d.Reviews = Reviews{Reviews: trustrepo.NewReviews(d.Pool)}
 	}
 	if d.Now == nil {
 		d.Now = time.Now

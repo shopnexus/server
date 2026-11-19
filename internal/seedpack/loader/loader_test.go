@@ -58,8 +58,14 @@ func TestLoadTwiceThenWipe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.People.Written != 12 || res.Listings.Written != 44 || res.Sold.Written != 4 || res.Reviews != 4 || res.Follows != 5 {
+	if res.People.Written != 12 || res.Listings.Written != 44 || res.Sold.Written != 4 || res.Reviews != 6 || res.Follows != 5 {
 		t.Fatalf("first load %+v", res)
+	}
+	if n := count(t, db, `SELECT count(*) FROM reviews WHERE role = 'buyer'`); n != 2 {
+		t.Errorf("%d reviews of buyers", n)
+	}
+	if n := count(t, db, `SELECT count(*) FROM reviews WHERE reply IS NOT NULL AND replied_at >= visible_at`); n != 2 {
+		t.Errorf("%d replies after their review showed", n)
 	}
 	if n := count(t, db, `SELECT count(*) FROM listings WHERE status = 'active'`); n != 44 {
 		t.Errorf("%d active listings", n)
