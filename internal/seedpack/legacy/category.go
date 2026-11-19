@@ -34,7 +34,8 @@ var consumable = regexp.MustCompile(`(?i)viên uống|tpbvsk|thực phẩm|sữa
 	`khẩu trang|phân bón|hạt giống|thuốc|kem đánh răng|nước súc miệng|mật ong|(^|\s)trà (xanh|túi|thảo mộc|sữa)|cà phê (hạt|bột|hòa tan)|bánh (quy|ngọt|mì|snack|tráng)|kẹo|nước mắm|gia vị|` +
 	`dầu gội|sữa tắm|nước giặt|nước rửa|giấy vệ sinh|khăn giấy|khăn ướt|mực in|hộp mực|ống mực|vitamin|collagen|men vi sinh|` +
 	`dung dịch vệ sinh|thức ăn|pate|cát vệ sinh|que thử|phụ gia nhiên liệu|nhớt|dầu nhớt|keo dán|tinh dầu|` +
-	`phiếu quà|e-voucher|giftpop|nước tẩy|bơ đậu phộng|ngũ cốc`)
+	`phiếu quà|e-voucher|giftpop|nước tẩy|bơ đậu phộng|ngũ cốc|xà phòng|xà bông|dầu xả|gel rửa|sữa rửa|tăm bông|` +
+	`lăn khử|xịt khử|khử mùi|nhang|nụ trầm|trầm hương|sữa công thức|bột ăn|bánh ăn dặm|bàn chải đánh răng`)
 
 var routes = map[string]route{
 	// Electronics.
@@ -47,11 +48,15 @@ var routes = map[string]route{
 		r("phones.headphones", `tai nghe|airpods|earbud|headphone|đệm tai`), r("home.audio", `loa|micro|karaoke|amply|ampli|soundbar|âm ly`),
 	}, "home.audio"},
 	"Máy ảnh & Quay phim": {[]rule{
-		r("camera.security", `camera (giám sát|ip|wifi|wi-fi|an ninh|trong nhà|ngoài trời|thông minh|pt)|hikvision|ezviz|imou|tapo|kbvision|dahua|đầu ghi`),
-		r("camera.other", `ống nhòm|kính hiển vi`),
-		r("camera.lens", `ống kính|lens`), r("camera.action", `hành trình|gopro|action|dashcam|camera giám sát|camera wifi|camera ip`),
-		r("camera.accessories", `chân máy|tripod|túi|thẻ nhớ|pin|sạc|gimbal|đèn|filter|kính lọc|dây đeo|balo`),
-		r("camera.body", `máy ảnh|camera|instax|polaroid|máy quay`),
+		r("camera.security", `camera (giám sát|quan sát|ip|wifi|wi-fi|an ninh|trong nhà|ngoài trời|thông minh|pt|hồng ngoại|hd)|`+
+			`hikvision|ezviz|imou|tapo|kbvision|dahua|vantech|yoosee|đầu ghi`),
+		r("vehicles.parts", `camera (lùi|ô ?tô|hành trình ô tô)|camera ôtô`),
+		r("camera.action", `(camera|cam) (hành|hàng) trình|gopro|action cam|dashcam|ulanzi`),
+		r("camera.other", `ống nhòm|kính hiển vi|realsense|astra|camera 3d|máy bẫy`),
+		r("camera.accessories", `chân máy|chân đế|tripod|túi|thẻ nhớ|(^|\s)pin|sạc|gimbal|đèn|filter|kính lọc|dây|balo|`+
+			`hút ẩm|micro|(^|\s)mic(\s|$)|cho máy ảnh|bộ kit`),
+		r("camera.lens", `ống kính|(^|\s)lens(\s|$)`),
+		r("camera.body", `^(máy ảnh|máy quay|máy chụp)|instax|polaroid|fujifilm|canon eos|nikon|lumix|sony (a|zv)`),
 	}, "camera.other"},
 	"Máy tính & Thiết bị mạng": {[]rule{
 		r("laptop.parts", `ổ cứng|ssd|hdd|(^|\s)ram(\s|$)|cpu|processor|mainboard|bo mạch|card màn hình|vga|nguồn máy tính|tản nhiệt|(^|\s)(pin|sạc|adapter)\s|bàn phím|chuột`),
@@ -88,11 +93,14 @@ var routes = map[string]route{
 
 	// Home and furniture.
 	"Nội thất gia đình": {[]rule{
-		r("furniture.sofa", `sofa|ghế băng`), r("furniture.bed", `giường|nệm|đệm`), r("furniture.table", `bàn`),
-		r("furniture.storage", `tủ|kệ|giá|rương`), r("furniture.lighting", `đèn`),
+		r("home.bedding", bedding), r("furniture.storage", `két sắt`),
+		r("furniture.sofa", `sofa|ghế băng`), r("furniture.chair", `^(bộ )?ghế|(^|\s)ghế (công thái học|văn phòng|xoay|ăn|xếp|gỗ|nhựa|đôn|bệt|thư giãn|gaming)`),
+		r("furniture.bed", `giường|nệm|đệm`), r("furniture.table", `bàn`),
+		r("furniture.storage", `tủ|kệ|giá|rương`), r("home.tools", `đèn pin`), r("home.other", `muỗi|côn trùng`),
+		r("furniture.lighting", `đèn`),
 	}, "furniture.other"},
 	"Chăn ga gối đệm & Phòng tắm": {[]rule{
-		r("furniture.bed", `giường`), r("home.bedding", `chăn|(^|\s)ga(\s|$)|gối|nệm|đệm|mền|drap|khăn tắm|rèm`),
+		r("furniture.bed", `giường`), r("home.bedding", bedding+`|nệm|đệm|khăn tắm|rèm`),
 		r("home.cleaning", `cây lau|chổi|thùng rác|cây lăn bụi`),
 	}, homeOther},
 	"Nhà bếp & Ăn uống": {nil, "home.kitchen"},
@@ -108,7 +116,8 @@ var routes = map[string]route{
 		r("home.tools", `ổ cắm|công tắc|cầu dao|ổ khóa|khóa cửa|khóa vân tay|khóa thông minh|bóng đèn|dây điện`),
 	}, homeOther},
 	"Trang trí nhà cửa & Đèn chiếu sáng": {[]rule{
-		r("home.tools", `ổ cắm|công tắc|cầu dao|bóng đèn`), r("furniture.lighting", `đèn`),
+		r("home.tools", `ổ cắm|công tắc|cầu dao|bóng đèn|đèn pin`), r("home.other", `muỗi|côn trùng`),
+		r("home.garden", `năng lượng mặt trời|đèn (đường|pha|sân|trụ cổng)`), r("furniture.lighting", `đèn`),
 	}, "home.decor"},
 	"Sân vườn & Ngoại thất": {[]rule{r("sports.camping", `lều|cắm trại|camping`)}, "home.garden"},
 	"Công cụ & Phần cứng":   {[]rule{r("vehicles.parts", `xe máy|ô tô|oto`)}, "home.tools"},
@@ -124,6 +133,8 @@ var routes = map[string]route{
 	}, "baby.toys"},
 	"Nhạc cụ": {nil, "hobby.music"},
 	"Nghệ thuật & Thủ công": {[]rule{
+		r("fashion.accessories", `móc (khóa|khoá|chìa)`), r("books.stationery", `túi giấy|túi kraft|thiệp|sticker|bookmark|hộp quà`),
+		r("home.kitchen", `bình nước|cốc|ly|bình giữ nhiệt`),
 		r("hobby.collectibles", `mô hình|tượng|figure|sưu tầm`), r("home.decor", `cây thông|treo|trang trí|hộp nhạc`),
 	}, "hobby.crafts"},
 	"Đồ dùng cho thú cưng": {[]rule{r("pets.homes", `chuồng|lồng|nệm|(^|\s)ổ(\s|$)|nhà cho|balo|túi vận chuyển`)}, "pets.supplies"},
@@ -165,6 +176,9 @@ var routes = map[string]route{
 	"Tạp hóa & Thực phẩm":      {nil, ""},
 	"Công nghiệp & Thương mại": {nil, ""},
 }
+
+// bedding is what Chăn ga, gối nệm holds wherever a store filed it.
+const bedding = `chăn|(^|\s)ga (chống|giường|trải|bọc)|bộ ga|gối|drap|chiếu|màn chụp|mùng|mền|ruột gối|vỏ gối|áo gối`
 
 // network is the gear that belongs to Thiết bị mạng wherever a store filed it.
 const network = `router|wifi|wi-fi|bộ phát|cáp mạng|(^|\s)lan(\s|$)|switch|modem|bộ chia mạng|tp-link|tp link|mesh|access point|đầu bấm mạng|cat ?[5-7]`

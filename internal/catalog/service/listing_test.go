@@ -311,7 +311,7 @@ func TestCategoriesAndRegions(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	cats, err := e.catalog.Categories(ctx)
-	if err != nil || len(cats) != 96 {
+	if err != nil || len(cats) != 97 {
 		t.Fatalf("%d %v", len(cats), err)
 	}
 	provinces, err := e.catalog.Provinces(ctx)

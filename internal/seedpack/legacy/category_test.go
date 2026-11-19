@@ -18,6 +18,16 @@ func TestCategory(t *testing.T) {
 		{"Tạp hóa & Thực phẩm", "Nồi chiên", ""},
 		{"Sách & Văn phòng phẩm", "Truyện tranh Conan tập 12", "books.comics"},
 		{"Ô tô & Xe máy", "Bánh xe máy Michelin", "vehicles.parts"},
+		{"Nội thất gia đình", "Ghế công thái học Sihoo M57", "furniture.chair"},
+		{"Nội thất gia đình", "Ghế sofa văn phòng Tundo", "furniture.sofa"},
+		{"Nội thất gia đình", "Bộ chăn ga gối cotton", "home.bedding"},
+		{"Nội thất gia đình", "Đèn Pin Led Cob chống nước", "home.tools"},
+		{"Máy ảnh & Quay phim", "Camera IP wifi Imou Ranger 2C", "camera.security"},
+		{"Máy ảnh & Quay phim", "Micro Shotgun cho máy ảnh", "camera.accessories"},
+		{"Máy ảnh & Quay phim", "Camera lùi Maxviss RC-101", "vehicles.parts"},
+		{"Máy ảnh & Quay phim", "Máy ảnh Fujifilm X-T30", "camera.body"},
+		{"Sắc đẹp & Chăm sóc cá nhân", "Xà phòng thảo dược 100g", ""},
+		{"Nghệ thuật & Thủ công", "Móc khóa hình mèo", "fashion.accessories"},
 	} {
 		got, ok := Category(c.old, c.title)
 		if got != c.want || ok != (c.want != "") {
