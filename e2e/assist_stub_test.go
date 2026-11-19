@@ -25,16 +25,19 @@ const (
 // shows no item.
 const (
 	bicycleAnswer = `{"is_item":true,"title":"Xe đạp Asama xanh","condition":"used",` +
-		`"specs":[{"label":"Màu","value":"Xanh"}],"description":"Xe đi ít, giá một triệu hai, có thương lượng.",` +
+		`"specs":[{"label":"Màu","value":"Xanh"},{"label":"Hãng","value":"Asama"},{"label":"Loại xe","value":"Xe đạp phố"},` +
+		`{"label":"Cỡ khung","value":"26 inch"}],"description":"Xe đi ít, giá một triệu hai, có thương lượng.",` +
 		`"spoken_price":1200000,"negotiable":true,"kept":[2,0],` +
 		`"estimate":{"low":1000000,"median":1200000,"high":1400000}}`
 	iphoneLinkAnswer = `{"is_item":true,"title":"iPhone 11 64GB Trắng, pin 81%","condition":"used",` +
-		`"specs":[{"label":"Dung lượng","value":"64 GB"}],"description":"Máy dùng 3 năm, zin all. Có thương lượng.",` +
+		`"specs":[{"label":"Dòng máy","value":"iPhone 11"},{"label":"Dung lượng","value":"64 GB"},` +
+		`{"label":"Màu","value":"Trắng"},{"label":"Pin","value":"81%"}],"description":"Máy dùng 3 năm, zin all. Có thương lượng.",` +
 		`"negotiable":true,"contact_removed":true,"estimate":{"low":4000000,"median":4500000,"high":5000000}}`
 	flatLinkAnswer = `{"is_item":false,"title":"","condition":"used","specs":[],"description":"",` +
 		`"negotiable":false,"contact_removed":false,"estimate":null}`
 	bicyclePhotoAnswer = `{"is_item":true,"title":"Xe đạp Asama xanh","condition":"used",` +
-		`"specs":[{"label":"Màu","value":"Xanh"}],"description":"Xe đạp Asama màu xanh, có giỏ trước.",` +
+		`"specs":[{"label":"Màu","value":"Xanh"},{"label":"Hãng","value":"Asama"},{"label":"Loại xe","value":"Xe đạp phố"},` +
+		`{"label":"Cỡ khung","value":"26 inch"}],"description":"Xe đạp Asama màu xanh, có giỏ trước.",` +
 		`"estimate":{"low":1000000,"median":1200000,"high":1400000}}`
 	noItemAnswer = `{"is_item":false,"title":"","condition":"used","specs":[],"description":"",` +
 		`"spoken_price":null,"negotiable":false,"kept":[],"estimate":null}`

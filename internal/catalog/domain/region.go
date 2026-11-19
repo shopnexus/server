@@ -6,6 +6,9 @@ type Category struct {
 	Code        string `json:"code"`
 	ParentCode  string `json:"parent_code,omitempty"`
 	DisplayName string `json:"display_name"`
+	// SpecLabels are the specs a listing under it must fill, in order; none
+	// on a root or a "Khác".
+	SpecLabels []string `json:"spec_labels"`
 }
 
 // Province is a province or centrally governed city.

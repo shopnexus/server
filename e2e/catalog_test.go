@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
@@ -11,6 +12,7 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -65,14 +67,59 @@ func draftWith(photos ...string) map[string]any {
 	return map[string]any{
 		"title": "Xe đạp Asama", "price": 1_500_000, "description": "Đi ít", "category_code": "vehicles.bicycle",
 		"condition": "used", "allow_offers": true, "commune_code": "00004", "photos": photos,
+		"specs": []map[string]string{{"label": "Hãng", "value": "Asama"}, {"label": "Loại xe", "value": "Xe đạp phố"}, {"label": "Cỡ khung", "value": "26 inch"}},
 	}
 }
 
+// specLabels are the spec labels of each category, read once.
+var specLabels = sync.OnceValues(func() (map[string][]string, error) {
+	res, err := http.Get(server + "/v1/categories")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = res.Body.Close() }()
+	var list struct {
+		Items []struct {
+			Code       string   `json:"code"`
+			SpecLabels []string `json:"spec_labels"`
+		} `json:"items"`
+	}
+	if err = json.NewDecoder(res.Body).Decode(&list); err != nil {
+		return nil, err
+	}
+	out := map[string][]string{}
+	for _, c := range list.Items {
+		out[c.Code] = c.SpecLabels
+	}
+	return out, nil
+})
+
+// withSpecs gives body a spec for each label of its category.
+func withSpecs(t *testing.T, body map[string]any) {
+	t.Helper()
+	labels, err := specLabels()
+	if err != nil {
+		t.Fatal(err)
+	}
+	code, _ := body["category_code"].(string)
+	specs := []map[string]string{}
+	for _, l := range labels[code] {
+		specs = append(specs, map[string]string{"label": l, "value": "Có"})
+	}
+	body["specs"] = specs
+}
+
 // postListing posts a listing with one fresh photo as the account with
-// token, with fields over the body draftWith gives.
+// token, with fields over the body draftWith gives. Fields with another
+// category and no specs get that category's specs.
 func postListing(t *testing.T, token string, fields map[string]any) listing {
 	t.Helper()
 	body := draftWith(upload(t, token, photoWithGPS(t)))
+	_, category := fields["category_code"]
+	if _, specs := fields["specs"]; category && !specs {
+		fields = maps.Clone(fields)
+		withSpecs(t, fields)
+	}
 	maps.Copy(body, fields)
 	return expect[listing](t, call(t, "POST", "/v1/listings", body, bearer(token), newKey()), http.StatusCreated)
 }

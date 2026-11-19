@@ -37,7 +37,7 @@ ListingInput:
       type: array
       items:
         $ref: "#/Spec"
-      description: Up to 20 label and value pairs.
+      description: Up to 20 label and value pairs, with one for each of the category's spec_labels.
     gps:
       type: object
       additionalProperties: false
@@ -206,7 +206,7 @@ Region:
 Category:
   type: object
   additionalProperties: false
-  required: [code, display_name]
+  required: [code, display_name, spec_labels]
   properties:
     code:
       type: string
@@ -215,6 +215,11 @@ Category:
       description: Absent on a root. A listing takes a category with a parent.
     display_name:
       type: string
+    spec_labels:
+      type: array
+      description: The specs a listing under it must fill, in order. Empty on a root and on "Khác".
+      items:
+        type: string
 CategoryGuessRequest:
   type: object
   additionalProperties: false

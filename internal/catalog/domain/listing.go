@@ -5,6 +5,7 @@ package domain
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -100,8 +101,10 @@ type ListingInput struct {
 // listing input.
 type Refs struct {
 	CategoryIsLeaf bool
-	CommuneExists  bool
-	CommunePoint   Point // the chosen commune's point
+	// SpecLabels are the specs the category requires.
+	SpecLabels    []string
+	CommuneExists bool
+	CommunePoint  Point // the chosen commune's point
 }
 
 // Listing is one item on sale.
@@ -180,6 +183,9 @@ func (l *Listing) apply(d ListingInput, refs Refs, now time.Time) error {
 		}
 		specs = append(specs, Spec{Label: label, Value: value})
 	}
+	if missing := missingSpecs(refs.SpecLabels, specs); len(missing) > 0 {
+		e = e.WithField("specs", "a value for "+strings.Join(missing, ", "))
+	}
 	if d.Spot != nil && Distance(*d.Spot, refs.CommunePoint) > MaxGPSKm {
 		e = e.WithField("gps", "within 30 km of the commune")
 	}
@@ -199,6 +205,17 @@ func (l *Listing) apply(d ListingInput, refs Refs, now time.Time) error {
 	l.categoryCode, l.condition, l.allowOffers, l.communeCode = d.CategoryCode, d.Condition, d.AllowOffers, d.CommuneCode
 	l.photos, l.specs, l.updatedAt = photos, specs, now
 	return nil
+}
+
+// missingSpecs are the labels with no spec of that label, case aside.
+func missingSpecs(labels []string, specs []Spec) []string {
+	var out []string
+	for _, l := range labels {
+		if !slices.ContainsFunc(specs, func(s Spec) bool { return strings.EqualFold(s.Label, l) && s.Value != "" }) {
+			out = append(out, l)
+		}
+	}
+	return out
 }
 
 func within(s string, maxRunes int) bool {

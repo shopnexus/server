@@ -74,6 +74,8 @@ func draft(photos ...uuid.UUID) domain.ListingInput {
 	return domain.ListingInput{
 		Title: "iPhone 13 128GB", Price: 9_500_000, Description: "Máy zin", CategoryCode: "phones.iphone",
 		Condition: domain.ConditionLikeNew, AllowOffers: true, CommuneCode: "00004", Photos: photos,
+		Specs: []domain.Spec{{Label: "Dòng máy", Value: "iPhone 13"}, {Label: "Dung lượng", Value: "128GB"},
+			{Label: "Màu", Value: "Trắng"}, {Label: "Pin", Value: "90%"}},
 	}
 }
 

@@ -82,8 +82,9 @@ type Categories interface {
 	// Tree returns every category: the roots in order, then each root's
 	// subcategories in order.
 	Tree(ctx context.Context) ([]domain.Category, error)
-	// IsLeaf reports whether key is a subcategory.
-	IsLeaf(ctx context.Context, key string) (bool, error)
+	// Leaf reports whether key is a subcategory, with the spec labels it
+	// requires.
+	Leaf(ctx context.Context, key string) (bool, []string, error)
 }
 
 // Regions reads the administrative units.

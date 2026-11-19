@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -16,7 +17,7 @@ func NewCategories(db *pgxpool.Pool) Categories { return pgCategories{db} }
 
 func (s pgCategories) Tree(ctx context.Context) ([]domain.Category, error) {
 	rows, err := s.db.Query(ctx, `
-SELECT c.code, coalesce(c.parent_code, ''), c.display_name FROM categories c LEFT JOIN categories p ON p.code = c.parent_code
+SELECT c.code, coalesce(c.parent_code, ''), c.display_name, c.spec_labels FROM categories c LEFT JOIN categories p ON p.code = c.parent_code
 ORDER BY c.parent_code IS NOT NULL, coalesce(p.sort_order, c.sort_order), c.sort_order`)
 	if err != nil {
 		return nil, fmt.Errorf("select categories: %w", err)
@@ -28,14 +29,17 @@ ORDER BY c.parent_code IS NOT NULL, coalesce(p.sort_order, c.sort_order), c.sort
 	return out, nil
 }
 
-func (s pgCategories) IsLeaf(ctx context.Context, code string) (bool, error) {
-	var leaf bool
-	err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM categories WHERE code = @code AND parent_code IS NOT NULL)`,
-		pgx.StrictNamedArgs{"code": code}).Scan(&leaf)
-	if err != nil {
-		return false, fmt.Errorf("check category: %w", err)
+func (s pgCategories) Leaf(ctx context.Context, code string) (bool, []string, error) {
+	var labels []string
+	err := s.db.QueryRow(ctx, `SELECT spec_labels FROM categories WHERE code = @code AND parent_code IS NOT NULL`,
+		pgx.StrictNamedArgs{"code": code}).Scan(&labels)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil, nil
 	}
-	return leaf, nil
+	if err != nil {
+		return false, nil, fmt.Errorf("check category: %w", err)
+	}
+	return true, labels, nil
 }
 
 type pgRegions struct{ db *pgxpool.Pool }

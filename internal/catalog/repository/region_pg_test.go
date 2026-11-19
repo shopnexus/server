@@ -53,8 +53,16 @@ func TestCategories(t *testing.T) {
 		t.Fatalf("%d categories, first %+v, %v", len(tree), tree[0], err)
 	}
 	for key, want := range map[string]bool{"phones.iphone": true, "phones": false, "other.other": true, "nope": false} {
-		if got, _ := s.IsLeaf(ctx, key); got != want {
+		if got, _, _ := s.Leaf(ctx, key); got != want {
 			t.Errorf("%s: %v", key, got)
+		}
+	}
+	if _, labels, err := s.Leaf(ctx, "phones.iphone"); err != nil || len(labels) != 4 || labels[0] != "Dòng máy" {
+		t.Errorf("iphone specs %v, %v", labels, err)
+	}
+	for _, c := range tree {
+		if c.SpecLabels == nil {
+			t.Errorf("%s: nil spec labels", c.Code)
 		}
 	}
 }

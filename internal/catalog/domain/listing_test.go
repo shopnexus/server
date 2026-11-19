@@ -375,3 +375,18 @@ func TestPublishedTellsTheFirst(t *testing.T) {
 		t.Fatalf("published_at moved: %v", l.PublishedAt())
 	}
 }
+
+func TestCategorySpecsRequired(t *testing.T) {
+	t.Parallel()
+	refs := domain.Refs{CategoryIsLeaf: true, CommuneExists: true, SpecLabels: []string{"Dung lượng", "Màu"}}
+	_, err := domain.NewListing(uuid.NewV7(), uuid.NewV7(), draft(), refs, now)
+	var e *apperr.Error
+	if !errors.As(err, &e) || !strings.Contains(e.Fields["specs"], "Màu") || strings.Contains(e.Fields["specs"], "Dung lượng") {
+		t.Fatalf("missing Màu: %v", err)
+	}
+	d := draft()
+	d.Specs = append(d.Specs, domain.Spec{Label: "màu", Value: "Trắng"})
+	if _, err = domain.NewListing(uuid.NewV7(), uuid.NewV7(), d, refs, now); err != nil {
+		t.Fatalf("all filled: %v", err)
+	}
+}

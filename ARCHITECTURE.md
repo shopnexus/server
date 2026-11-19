@@ -1129,6 +1129,14 @@ agree during a deploy.
   migration 0007: 9 roots, each with subcategories coded `<root>.<slug>` and
   ending with `<root>.other` ("Khác"). A listing's `category_code` must name
   a subcategory, a row with a parent.
+- Migration 0060 adds `categories.spec_labels`, the specs a listing under
+  the subcategory must fill, in order (decided 2026-11-19): "Dòng máy",
+  "Dung lượng", "Màu" and "Pin" for `phones.iphone`, none for the roots and
+  the ".other" leaves. `GET /v1/categories` returns them. A post or an edit
+  needs a spec with each label (case aside) and a value, else
+  `invalid_listing` on `specs`; the seller may add specs of their own, 20
+  in all. The seed pack loader passes no labels to `domain.NewListing`, so
+  seeded listings may lack them.
 - `POST /v1/category-guesses` (seller-only) and the three reads guess a
   draft's subcategory with `GuessCategory`. It embeds the title and the
   description with the text model and takes the nearest of the category
