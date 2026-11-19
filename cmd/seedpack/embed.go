@@ -23,6 +23,7 @@ func embedCmd() *cobra.Command {
 		pack                  string
 		text, photos, jsonOut bool
 		missing               bool
+		from                  string
 		batch                 int
 	)
 	cmd := &cobra.Command{
@@ -33,10 +34,14 @@ func embedCmd() *cobra.Command {
 SigLIP 2 from AI_EMBED_MODELS, the vectors the server would make. It sets
 each listing's text_sha256 and the manifest's models. A stopped run resumes
 from the last row it wrote. With --missing, --text embeds only the rows of
-an existing text.npy that hold no vector and leaves the rest as they are.`,
+an existing text.npy that hold no vector and leaves the rest as they are.
+--from copies the vectors of an earlier build first, a text row by the
+listing's key and a photo row by its SHA-256, so a rebuild embeds only what
+is new.`,
 		Example: `  seedpack embed --pack tmp/packs/vn-catalog-10k --text
   seedpack embed --pack tmp/packs/vn-catalog-10k --photos
-  seedpack embed --pack tmp/packs/vn-catalog --text --missing`,
+  seedpack embed --pack tmp/packs/vn-catalog --text --missing
+  seedpack embed --pack tmp/packs/vn-catalog --from tmp/packs/vn-catalog-old --text --missing`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -45,8 +50,8 @@ an existing text.npy that hold no vector and leaves the rest as they are.`,
 			if err != nil {
 				return err
 			}
-			if !text && !photos {
-				return errors.New("pass --text, --photos or both")
+			if !text && !photos && from == "" {
+				return errors.New("pass --from, --text, --photos or a mix")
 			}
 			s, err := openStack(ctx)
 			if err != nil {
@@ -62,6 +67,11 @@ an existing text.npy that hold no vector and leaves the rest as they are.`,
 				return err
 			}
 			out := map[string]int{}
+			if from != "" {
+				if out["text"], out["photo"], err = reuse(p, from, u); err != nil {
+					return err
+				}
+			}
 			if text {
 				if out["text"], err = embedText(ctx, s, p, max(batch, 1), missing, u); err != nil {
 					return err
@@ -83,6 +93,7 @@ an existing text.npy that hold no vector and leaves the rest as they are.`,
 	f.BoolVar(&photos, "photos", false, "embed the photos")
 	f.IntVar(&batch, "batch", 16, "texts per call")
 	f.BoolVar(&missing, "missing", false, "with --text, embed only the rows without a vector")
+	f.StringVar(&from, "from", "", "first copy the vectors of an earlier build of the pack, by listing key and photo")
 	f.BoolVar(&jsonOut, "json", false, "print the counts as JSON, without bars")
 	return cmd
 }
@@ -227,24 +238,7 @@ func embedPhotos(ctx context.Context, s *stack, p *seedpack.Pack, u *ui) (int, e
 	if err != nil {
 		return 0, err
 	}
-	var keys []seedpack.PhotoKey
-	seen := map[string]bool{}
-	add := func(l seedpack.Listing) {
-		for _, sha := range l.Photos {
-			if !seen[sha] {
-				seen[sha] = true
-				keys = append(keys, seedpack.PhotoKey{Listing: l.Key, Photo: sha})
-			}
-		}
-	}
-	for i := range listings {
-		l := &listings[i]
-		add(*l)
-	}
-	for i := range sales {
-		sl := &sales[i]
-		add(sl.Listing)
-	}
+	keys := photoKeys(listings, sales)
 	em, err := aiembed.New(aiembed.Config{
 		Models: map[string]string{ai.EmbedModel: ai.EmbedDir}, NumThreads: ai.NumThreads, MaxConcurrent: ai.EmbedMaxConcurrent,
 	})
@@ -354,6 +348,136 @@ func fillText(ctx context.Context, model embed.OpenAI, p *seedpack.Pack, version
 	}
 	bar.Done()
 	return done, nil
+}
+
+// photoKeys lists each photo once, in the order listings and then sales
+// first use it: the rows of photo.npy.
+func photoKeys(listings []seedpack.Listing, sales []seedpack.Sale) []seedpack.PhotoKey {
+	var keys []seedpack.PhotoKey
+	seen := map[string]bool{}
+	add := func(l *seedpack.Listing) {
+		for _, sha := range l.Photos {
+			if !seen[sha] {
+				seen[sha] = true
+				keys = append(keys, seedpack.PhotoKey{Listing: l.Key, Photo: sha})
+			}
+		}
+	}
+	for i := range listings {
+		add(&listings[i])
+	}
+	for i := range sales {
+		add(&sales[i].Listing)
+	}
+	return keys
+}
+
+// reuse copies the vectors of an earlier build of the pack: a text row by
+// the listing's key, a photo row by the photo's SHA-256, which names the
+// same bytes. Rows it has no vector for stay empty, for --missing or a
+// load to fill.
+func reuse(p *seedpack.Pack, from string, u *ui) (text, photo int, err error) {
+	old, err := seedpack.Open(from)
+	if err != nil {
+		return 0, 0, err
+	}
+	oldListings, err := old.Listings()
+	if err != nil {
+		return 0, 0, err
+	}
+	oldSales, err := old.History()
+	if err != nil {
+		return 0, 0, err
+	}
+	listings, err := p.Listings()
+	if err != nil {
+		return 0, 0, err
+	}
+	sales, err := p.History()
+	if err != nil {
+		return 0, 0, err
+	}
+	keysOf := func(ls []seedpack.Listing, ss []seedpack.Sale) []string {
+		out := make([]string, 0, len(ls)+len(ss))
+		for i := range ls {
+			out = append(out, ls[i].Key)
+		}
+		for i := range ss {
+			out = append(out, ss[i].Listing.Key)
+		}
+		return out
+	}
+	if set := old.Manifest.Vectors.Text; set != nil && old.Has(seedpack.TextVectors) {
+		at := map[string]int{}
+		for i, k := range keysOf(oldListings, oldSales) {
+			at[k] = i
+		}
+		if text, err = copyRows(old, p, seedpack.TextVectors, seedpack.TextDims, keysOf(listings, sales), at); err != nil {
+			return 0, 0, err
+		}
+		p.Manifest.Vectors.Text = set
+	}
+	if set := old.Manifest.Vectors.Photo; set != nil && old.Has(seedpack.PhotoVectors) {
+		oldKeys, keysErr := old.PhotoKeys()
+		if keysErr != nil {
+			return 0, 0, keysErr
+		}
+		at := map[string]int{}
+		for i, k := range oldKeys {
+			at[k.Photo] = i
+		}
+		keys := photoKeys(listings, sales)
+		shas := make([]string, len(keys))
+		for i, k := range keys {
+			shas[i] = k.Photo
+		}
+		if err = rewrite(p, seedpack.PhotoKeysFile, keys); err != nil {
+			return 0, 0, err
+		}
+		if photo, err = copyRows(old, p, seedpack.PhotoVectors, seedpack.PhotoDims, shas, at); err != nil {
+			return 0, 0, err
+		}
+		p.Manifest.Vectors.Photo = set
+		if photo < len(keys) {
+			u.Warnf("%d photos have no vector in %s; embed --photos fills them", len(keys)-photo, from)
+		}
+	}
+	return text, photo, seedpack.WriteManifest(p.Dir, p.Manifest)
+}
+
+// copyRows writes p's matrix rel, one row per name, from old's row of the
+// same name, and returns how many it found.
+func copyRows(old, p *seedpack.Pack, rel string, cols int, names []string, at map[string]int) (int, error) {
+	src, err := seedpack.OpenMatrix(old.Path(rel), false)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = src.Close() }() // read-only
+	dst, err := seedpack.CreateMatrix(p.Path(rel), len(names), cols)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for i, name := range names {
+		j, ok := at[name]
+		if !ok {
+			continue
+		}
+		v, rowErr := src.Row(j)
+		if rowErr != nil {
+			_ = dst.Close()
+			return n, rowErr
+		}
+		if v == nil {
+			continue
+		}
+		if err = dst.SetRow(i, v); err != nil {
+			_ = dst.Close()
+			return n, err
+		}
+		n++
+	}
+	return n, dst.Close()
 }
 
 // rewrite replaces a JSONL file of the pack with lines.
