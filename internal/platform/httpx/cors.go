@@ -22,8 +22,8 @@ func CORS(origin, prefix string) func(http.Handler) http.Handler {
 			h.Set("Access-Control-Allow-Credentials", "true")
 			h.Add("Vary", "Origin")
 			if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
-				h.Set("Access-Control-Allow-Methods", "GET, POST, PUT")
-				h.Set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With")
+				h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE")
+				h.Set("Access-Control-Allow-Headers", "Content-Type, X-Requested-With, Idempotency-Key")
 				h.Set("Access-Control-Max-Age", "600")
 				w.WriteHeader(http.StatusNoContent)
 				return

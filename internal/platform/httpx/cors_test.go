@@ -26,7 +26,8 @@ func TestCORS(t *testing.T) {
 	w := serve(http.MethodOptions, "/v1/console/login", "http://console.test", true)
 	if w.Code != http.StatusNoContent || w.Header().Get("Access-Control-Allow-Origin") != "http://console.test" ||
 		w.Header().Get("Access-Control-Allow-Credentials") != "true" ||
-		w.Header().Get("Access-Control-Allow-Headers") != "Content-Type, X-Requested-With" {
+		w.Header().Get("Access-Control-Allow-Headers") != "Content-Type, X-Requested-With, Idempotency-Key" ||
+		w.Header().Get("Access-Control-Allow-Methods") != "GET, POST, PUT, PATCH, DELETE" {
 		t.Fatalf("preflight: %d %v", w.Code, w.Header())
 	}
 	if w := serve(http.MethodGet, "/v1/console/me", "http://console.test", false); w.Code != http.StatusTeapot || w.Header().Get("Access-Control-Allow-Origin") != "http://console.test" {
