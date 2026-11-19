@@ -684,8 +684,6 @@ tools:
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
         $ref: "../responses/common.yaml#/ConsoleForbidden"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 guardrails:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -713,8 +711,6 @@ guardrails:
         $ref: "../responses/common.yaml#/Unauthorized"
       "403":
         $ref: "../responses/common.yaml#/ConsoleForbidden"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 dashboards:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"

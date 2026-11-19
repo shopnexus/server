@@ -246,7 +246,7 @@ func TestAskRunsTheTurn(t *testing.T) {
 }
 
 // A refused run, a busy conversation and the input guard reach the member
-// as their codes, and a refused run leaves no turn. UC-MOD-08 E1.
+// as their codes, and a refused run leaves no turn. UC-MOD-08.
 func TestAskRefusals(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

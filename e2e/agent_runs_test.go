@@ -10,15 +10,37 @@ import (
 	consoledomain "github.com/shopnexus/server/internal/console/domain"
 )
 
-// A turn's run controls, its tool calls, its documents and the skills go
-// to the agent with the member, and the agent's refusals reach the console
-// as its codes. UC-MOD-08.
+// agentTurn is what the runs tests read of a turn.
+type agentTurn struct {
+	Status      string     `json:"status"`
+	ErrorCode   string     `json:"error_code"`
+	Continuable bool       `json:"continuable"`
+	LastSeq     int        `json:"last_seq"`
+	FinishedAt  *time.Time `json:"finished_at"`
+	DurationMS  int64      `json:"duration_ms"`
+	Sources     []struct {
+		N    int    `json:"n"`
+		Tool string `json:"tool"`
+	} `json:"sources"`
+	Steers []struct {
+		SteerID string `json:"steer_id"`
+	} `json:"steers"`
+}
+
+// A turn's run streams back from the agent into the turn, its tool call,
+// its document and its events; the controls pause, steer, answer, end and
+// continue it, the agent polls pause and steer from the control endpoint,
+// and the skills are the server's. UC-MOD-08 A1.
 func TestConsoleAgentRuns(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)
 	signedOut := consoleSession{}
-	ok, missing, conflict, down := newID(), agentMissing.String(), agentConflict.String(), agentDown.String()
+	missing := newID()
 	const turns = "/v1/console/agent/turns/"
+	turnOf := func(id string) agentTurn {
+		t.Helper()
+		return expect[agentTurn](t, consoleCall(t, lan, "GET", turns+id, nil), 200)
+	}
 
 	conversation := expect[agentConversation](t, consoleCall(t, lan, "POST", "/v1/console/agent/conversations", map[string]any{}),
 		http.StatusOK)
@@ -29,129 +51,164 @@ func TestConsoleAgentRuns(t *testing.T) {
 	started := expect[agentTurnStarted](t, consoleCall(t, lan, "POST", "/v1/console/agent/conversations/"+conversation.ID+"/turns",
 		map[string]any{"text": "Tuần này thế nào?", "attachments": []map[string]any{{"kind": "ticket", "id": newID()}}}),
 		http.StatusAccepted)
-	agentStub.mu.Lock()
-	alias := agentStub.configs[len(agentStub.configs)-1]
-	agentStub.mu.Unlock()
-	if alias != "console-agent" || started.TurnID == "" {
-		t.Errorf("the turn went to %q: %+v", alias, started)
+	ok := started.TurnID
+	if events := waitTurn(t, lan, ok); !strings.Contains(events, "event: turn.started") || !strings.Contains(events, `"type":"turn.finished"`) {
+		t.Errorf("events %s", events)
 	}
-
-	events := consoleCall(t, lan, "GET", turns+started.TurnID+"/events", nil, [2]string{"Last-Event-ID", "1"})
+	events := consoleCall(t, lan, "GET", turns+ok+"/events", nil, [2]string{"Last-Event-ID", "1"})
 	if events.Status != 200 || strings.Contains(string(events.Body), "turn.started") || !strings.Contains(string(events.Body), "id: 2") ||
 		events.Header.Get("Content-Type") != "text/event-stream" {
 		t.Errorf("events after 1: %d %s", events.Status, events.Body)
 	}
-	if after := consoleCall(t, lan, "GET", turns+started.TurnID+"/events?after=1", nil); after.Status != 200 ||
+	if after := consoleCall(t, lan, "GET", turns+ok+"/events?after=1", nil); after.Status != 200 ||
 		strings.Contains(string(after.Body), "turn.started") {
 		t.Errorf("events after=1: %d %s", after.Status, after.Body)
 	}
-	view := expect[struct {
-		Status     string     `json:"status"`
-		LastSeq    int        `json:"last_seq"`
-		FinishedAt *time.Time `json:"finished_at"`
-		DurationMS int64      `json:"duration_ms"`
-		Sources    []struct {
-			N    int    `json:"n"`
-			Tool string `json:"tool"`
-		} `json:"sources"`
-	}](t, consoleCall(t, lan, "GET", turns+ok, nil), 200)
-	if view.Status != "succeeded" || view.LastSeq != 2 || len(view.Sources) != 1 || view.Sources[0].N != 1 ||
+	if view := turnOf(ok); view.Status != "succeeded" || view.LastSeq != 2 || len(view.Sources) != 1 || view.Sources[0].N != 1 ||
 		view.FinishedAt == nil || view.DurationMS != 4200 {
 		t.Errorf("turn %+v", view)
 	}
 	check(t, "an unknown turn", consoleCall(t, lan, "GET", turns+missing, nil), 404, "agent_turn_not_found")
-	check(t, "a turn when the agent fails", consoleCall(t, lan, "GET", turns+down, nil), 503, "agent_unavailable")
 	expectStatus(t, consoleCall(t, signedOut, "GET", turns+ok, nil), 401)
 	check(t, "the events of an unknown turn", consoleCall(t, lan, "GET", turns+missing+"/events", nil), 404, "agent_turn_not_found")
-	check(t, "the events when the agent fails", consoleCall(t, lan, "GET", turns+down+"/events", nil), 503, "agent_unavailable")
 	expectStatus(t, consoleCall(t, signedOut, "GET", turns+ok+"/events", nil), 401)
 
-	bodies := map[string]any{
-		"pause": nil, "stop": nil, "continue": nil, "end": nil,
-		"steer": map[string]string{"text": "Chỉ Hà Nội"},
-		"input": map[string]any{"answers": map[string]any{"range": "week", "cities": []string{"hn"}}},
-	}
-	for c, body := range bodies {
-		status := http.StatusAccepted
-		if c == "end" {
-			status = http.StatusOK
-		}
-		state := expect[struct {
-			TurnID string `json:"turn_id"`
-			Status string `json:"status"`
-		}](t, consoleCall(t, lan, "POST", turns+ok+"/"+c, body), status)
-		if state.TurnID != ok || (c == "end") != (state.Status == "cancelled") {
-			t.Errorf("%s: %+v", c, state)
-		}
-		check(t, c+" an unknown turn", consoleCall(t, lan, "POST", turns+missing+"/"+c, body), 404, "agent_turn_not_found")
-		check(t, c+" a turn in another state", consoleCall(t, lan, "POST", turns+conflict+"/"+c, body), 409, "agent_turn_state")
-		check(t, c+" when the agent fails", consoleCall(t, lan, "POST", turns+down+"/"+c, body), 503, "agent_unavailable")
-		expectStatus(t, consoleCall(t, signedOut, "POST", turns+ok+"/"+c, body), 401)
-	}
-	check(t, "a steer without text", consoleCall(t, lan, "POST", turns+ok+"/steer", map[string]any{}), 400, "")
-	check(t, "input without answers", consoleCall(t, lan, "POST", turns+ok+"/input", map[string]any{"answers": map[string]any{}}), 400, "")
-	check(t, "answers that do not fit", consoleCall(t, lan, "POST", turns+ok+"/input", map[string]any{"answers": map[string]any{"range": "wrong"}}),
-		422, "agent_answers_invalid")
-
-	for path, code := range map[string]string{
-		"/v1/console/agent/tool-calls/": "agent_tool_call_not_found", "/v1/console/agent/documents/": "agent_document_not_found",
-	} {
-		expectStatus(t, consoleCall(t, lan, "GET", path+ok, nil), 200)
-		check(t, path+" unknown", consoleCall(t, lan, "GET", path+missing, nil), 404, code)
-		check(t, path+" when the agent fails", consoleCall(t, lan, "GET", path+down, nil), 503, "agent_unavailable")
-		expectStatus(t, consoleCall(t, signedOut, "GET", path+ok, nil), 401)
+	made := agentStub.madeBy(ok)
+	if call := expect[struct {
+		Status        string `json:"status"`
+		Attempts      int    `json:"attempts"`
+		AttemptErrors []any  `json:"attempt_errors"`
+	}](t, consoleCall(t, lan, "GET", "/v1/console/agent/tool-calls/"+made[0], nil), 200); call.Status != "success" || call.Attempts != 2 ||
+		len(call.AttemptErrors) != 1 {
+		t.Errorf("tool call %+v", call)
 	}
 	if doc := expect[struct {
 		LatestVersion int   `json:"latest_version"`
 		Versions      []any `json:"versions"`
-	}](t, consoleCall(t, lan, "GET", "/v1/console/agent/documents/"+ok, nil), 200); doc.LatestVersion != 2 ||
+	}](t, consoleCall(t, lan, "GET", "/v1/console/agent/documents/"+made[1], nil), 200); doc.LatestVersion != 2 ||
 		len(doc.Versions) != 2 {
 		t.Errorf("document %+v", doc)
 	}
+	for path, code := range map[string]string{
+		"/v1/console/agent/tool-calls/": "agent_tool_call_not_found", "/v1/console/agent/documents/": "agent_document_not_found",
+	} {
+		check(t, path+" unknown", consoleCall(t, lan, "GET", path+missing, nil), 404, code)
+		expectStatus(t, consoleCall(t, signedOut, "GET", path+missing, nil), 401)
+	}
 
-	const skills = "/v1/console/agent/skills"
-	if list := expect[struct {
-		Items []struct {
-			Slug string `json:"slug"`
-		} `json:"items"`
-	}](t, consoleCall(t, lan, "GET", skills, nil), 200); len(list.Items) != 1 {
-		t.Errorf("skills %+v", list)
+	bodies := map[string]any{
+		"pause": nil, "stop": nil, "continue": nil, "end": nil,
+		"steer": map[string]string{"text": "Chỉ Hà Nội"},
+		"input": map[string]any{"answers": map[string]any{"range": "week"}},
 	}
-	expectStatus(t, consoleCall(t, signedOut, "GET", skills, nil), 401)
-	skill := map[string]any{"name": "Weekly", "slug": "weekly", "prompt": "Report on {{week}}", "variables": []map[string]any{{"name": "week"}}}
-	if made := expect[struct {
-		CreatedBy string `json:"created_by"`
-	}](t, consoleCall(t, lan, "POST", skills, skill), 201); made.CreatedBy != lan.ID {
-		t.Errorf("made by %s", made.CreatedBy)
+	for c, body := range bodies {
+		check(t, c+" a finished turn", consoleCall(t, lan, "POST", turns+ok+"/"+c, body), 409, "agent_turn_state")
+		check(t, c+" an unknown turn", consoleCall(t, lan, "POST", turns+missing+"/"+c, body), 404, "agent_turn_not_found")
+		expectStatus(t, consoleCall(t, signedOut, "POST", turns+ok+"/"+c, body), 401)
 	}
-	check(t, "a skill the agent refuses", consoleCall(t, lan, "POST", skills, map[string]any{"name": "invalid", "prompt": "?"}), 422,
-		"agent_skill_invalid")
-	expectStatus(t, consoleCall(t, lan, "GET", skills+"/"+ok, nil), 200)
-	check(t, "an unknown skill", consoleCall(t, lan, "GET", skills+"/"+missing, nil), 404, "agent_skill_not_found")
-	check(t, "a skill when the agent fails", consoleCall(t, lan, "GET", skills+"/"+down, nil), 503, "agent_unavailable")
-	expectStatus(t, consoleCall(t, signedOut, "GET", skills+"/"+ok, nil), 401)
-	forbidden := agentForbidden.String()
-	check(t, "another member's skill", consoleCall(t, lan, "PATCH", skills+"/"+forbidden, map[string]any{"name": "x"}), 403, "agent_forbidden")
-	check(t, "deleting another member's skill", consoleCall(t, lan, "DELETE", skills+"/"+forbidden, nil), 403, "agent_forbidden")
-	check(t, "a patch the agent refuses", consoleCall(t, lan, "PATCH", skills+"/"+ok, map[string]any{"name": "invalid"}), 422,
-		"agent_skill_invalid")
-	check(t, "a skill without a prompt", consoleCall(t, lan, "POST", skills, map[string]any{"name": "x", "slug": "x"}), 400, "")
-	check(t, "a slug taken", consoleCall(t, lan, "POST", skills, map[string]any{"name": "x", "slug": "taken", "prompt": "?"}), 409,
-		"agent_skill_taken")
-	check(t, "a skill when the agent fails", consoleCall(t, lan, "POST", skills, map[string]any{"name": "x", "slug": "down", "prompt": "?"}),
-		503, "agent_unavailable")
-	expectStatus(t, consoleCall(t, signedOut, "POST", skills, skill), 401)
-	patch := map[string]any{"name": "Weekly report"}
-	expectStatus(t, consoleCall(t, lan, "PATCH", skills+"/"+ok, patch), 200)
-	check(t, "an empty patch", consoleCall(t, lan, "PATCH", skills+"/"+ok, map[string]any{}), 400, "")
-	check(t, "an unknown skill", consoleCall(t, lan, "PATCH", skills+"/"+missing, patch), 404, "agent_skill_not_found")
-	check(t, "a patch to a slug taken", consoleCall(t, lan, "PATCH", skills+"/"+conflict, patch), 409, "agent_skill_taken")
-	check(t, "a patch when the agent fails", consoleCall(t, lan, "PATCH", skills+"/"+down, patch), 503, "agent_unavailable")
-	expectStatus(t, consoleCall(t, signedOut, "PATCH", skills+"/"+ok, patch), 401)
-	expectStatus(t, consoleCall(t, lan, "DELETE", skills+"/"+ok, nil), 204)
-	check(t, "deleting an unknown skill", consoleCall(t, lan, "DELETE", skills+"/"+missing, nil), 404, "agent_skill_not_found")
-	check(t, "deleting when the agent fails", consoleCall(t, lan, "DELETE", skills+"/"+down, nil), 503, "agent_unavailable")
-	expectStatus(t, consoleCall(t, signedOut, "DELETE", skills+"/"+ok, nil), 401)
+	check(t, "a steer without text", consoleCall(t, lan, "POST", turns+ok+"/steer", map[string]any{}), 400, "")
+	check(t, "input without answers", consoleCall(t, lan, "POST", turns+ok+"/input", map[string]any{"answers": map[string]any{}}), 400, "")
+
+	// A running turn takes a steer and a pause from the control queue.
+	_, held := ask(t, lan, "hold")
+	steer := expect[struct {
+		SteerID string `json:"steer_id"`
+		Resumed bool   `json:"resumed"`
+	}](t, consoleCall(t, lan, "POST", turns+held+"/steer", map[string]string{"text": "Chỉ Hà Nội"}), 202)
+	expectStatus(t, consoleCall(t, lan, "POST", turns+held+"/pause", nil), 202)
+	expectStatus(t, consoleCall(t, lan, "POST", turns+held+"/stop", nil), 202)
+	waitTurn(t, lan, held)
+	if view := turnOf(held); view.Status != "paused" || !view.Continuable || len(view.Steers) != 1 || view.Steers[0].SteerID != steer.SteerID ||
+		steer.Resumed {
+		t.Errorf("the held turn %+v %+v", view, steer)
+	}
+	// A steer to a paused turn continues it.
+	if resumed := expect[struct {
+		Resumed bool `json:"resumed"`
+	}](t, consoleCall(t, lan, "POST", turns+held+"/steer", map[string]string{"text": "Tiếp"}), 202); !resumed.Resumed {
+		t.Error("a steer to a paused turn did not continue it")
+	}
+	waitTurn(t, lan, held)
+	if view := turnOf(held); view.Status != "succeeded" {
+		t.Errorf("the steered turn %+v", view)
+	}
+
+	// A turn waiting on questions takes the answers that fit.
+	_, asking := ask(t, lan, "ask")
+	waitTurn(t, lan, asking)
+	check(t, "answers that do not fit", consoleCall(t, lan, "POST", turns+asking+"/input",
+		map[string]any{"answers": map[string]any{"range": "wrong"}}), 422, "agent_answers_invalid")
+	expectStatus(t, consoleCall(t, lan, "POST", turns+asking+"/input",
+		map[string]any{"answers": map[string]any{"range": "week", "cities": []string{"hn"}}}), 202)
+	waitTurn(t, lan, asking)
+	agentStub.mu.Lock()
+	answered := slices.Contains(agentStub.answers, "The member's answers to your questions:\n- Khoảng: Tuần này\n- Thành phố: Hà Nội")
+	agentStub.mu.Unlock()
+	if view := turnOf(asking); view.Status != "succeeded" || !answered {
+		t.Errorf("the answered turn %+v, answers sent %v", view, answered)
+	}
+
+	// A paused turn holds its conversation until it ends.
+	paused, pausing := ask(t, lan, "pause")
+	waitTurn(t, lan, pausing)
+	check(t, "a second question", consoleCall(t, lan, "POST", "/v1/console/agent/conversations/"+paused+"/turns",
+		map[string]string{"text": "?"}), 409, "agent_turn_in_progress")
+	check(t, "deleting with a turn open", consoleCall(t, lan, "DELETE", "/v1/console/agent/conversations/"+paused, nil), 409,
+		"agent_turn_in_progress")
+	if state := expect[struct {
+		Status string `json:"status"`
+	}](t, consoleCall(t, lan, "POST", turns+pausing+"/end", nil), 200); state.Status != "cancelled" {
+		t.Errorf("end %+v", state)
+	}
+
+	// A stream that breaks closes the turn as agent_stuck, and Continue
+	// runs it again.
+	_, broken := ask(t, lan, "break")
+	waitTurn(t, lan, broken)
+	if view := turnOf(broken); view.Status != "failed" || view.ErrorCode != "agent_stuck" || !view.Continuable {
+		t.Errorf("the broken turn %+v", view)
+	}
+	expectStatus(t, consoleCall(t, lan, "POST", turns+broken+"/continue", nil), 202)
+	waitTurn(t, lan, broken)
+	if view := turnOf(broken); view.Status != "succeeded" || view.ErrorCode != "" {
+		t.Errorf("the continued turn %+v", view)
+	}
+	check(t, "a question the agent refuses", consoleCall(t, lan, "POST", "/v1/console/agent/conversations/"+paused+"/turns",
+		map[string]string{"text": "down"}), 503, "agent_unavailable")
+
+	// A segment the agent refuses to resume leaves the turn as it was.
+	_, stuck := ask(t, lan, "pause-down")
+	waitTurn(t, lan, stuck)
+	check(t, "continue when the agent refuses", consoleCall(t, lan, "POST", turns+stuck+"/continue", nil), 503, "agent_unavailable")
+	check(t, "a steer when the agent refuses", consoleCall(t, lan, "POST", turns+stuck+"/steer", map[string]string{"text": "Tiếp"}), 503,
+		"agent_unavailable")
+	if view := turnOf(stuck); view.Status != "paused" || len(view.Steers) != 0 {
+		t.Errorf("a turn the agent did not resume %+v", view)
+	}
+	_, waiting := ask(t, lan, "ask-down")
+	waitTurn(t, lan, waiting)
+	check(t, "answers when the agent refuses", consoleCall(t, lan, "POST", turns+waiting+"/input",
+		map[string]any{"answers": map[string]any{"range": "week"}}), 503, "agent_unavailable")
+	if view := turnOf(waiting); view.Status != "awaiting_input" {
+		t.Errorf("a turn the agent did not resume %+v", view)
+	}
+
+	// More than 30 questions and updates a minute are refused.
+	busy, _ := ask(t, lan, "pause")
+	limited := false
+	for range 35 {
+		res := consoleCall(t, lan, "POST", "/v1/console/agent/conversations/"+busy+"/turns", map[string]string{"text": "?"})
+		if res.Status == http.StatusTooManyRequests {
+			check(t, "the 31st question", res, 429, "agent_rate_limited")
+			limited = true
+			break
+		}
+	}
+	if !limited {
+		t.Error("no question was rate limited")
+	}
+
+	skills(t, lan)
 
 	const conversations = "/v1/console/agent/conversations/"
 	renamed := expect[agentConversation](t, consoleCall(t, lan, "PATCH", conversations+conversation.ID,
@@ -159,23 +216,22 @@ func TestConsoleAgentRuns(t *testing.T) {
 	if renamed.ID != conversation.ID || renamed.Title != "Tuần này" {
 		t.Errorf("renamed %+v", renamed)
 	}
-	title := map[string]string{"title": "Tuần"}
 	check(t, "a title of spaces", consoleCall(t, lan, "PATCH", conversations+conversation.ID, map[string]string{"title": "   "}), 422,
 		"agent_title_invalid")
 	check(t, "a rename without a title", consoleCall(t, lan, "PATCH", conversations+conversation.ID, map[string]any{}), 400, "")
+	account, _ := newAccount(t)
+	shared := expect[agentConversation](t, consoleCall(t, lan, "POST", "/v1/console/agent/conversations",
+		map[string]any{"subject_kind": "account", "subject_id": account.Account.ID}), 200)
 	for _, method := range []string{"PATCH", "DELETE"} {
 		var body any
 		if method == "PATCH" {
-			body = title
+			body = map[string]string{"title": "Tuần"}
 		}
-		check(t, method+" a shared conversation", consoleCall(t, lan, method, conversations+agentForbidden.String(), body), 403,
-			"agent_forbidden")
+		check(t, method+" a shared conversation", consoleCall(t, lan, method, conversations+shared.ID, body), 403, "agent_forbidden")
 		check(t, method+" an unknown conversation", consoleCall(t, lan, method, conversations+missing, body), 404,
 			"agent_conversation_not_found")
-		check(t, method+" when the agent fails", consoleCall(t, lan, method, conversations+down, body), 503, "agent_unavailable")
 		expectStatus(t, consoleCall(t, signedOut, method, conversations+conversation.ID, body), 401)
 	}
-	check(t, "deleting with a turn open", consoleCall(t, lan, "DELETE", conversations+conflict, nil), 409, "agent_turn_in_progress")
 	expectStatus(t, consoleCall(t, lan, "DELETE", conversations+conversation.ID, nil), 204)
 	check(t, "the deleted conversation", consoleCall(t, lan, "GET", conversations+conversation.ID, nil), 404, "agent_conversation_not_found")
 
@@ -195,4 +251,78 @@ func TestConsoleAgentRuns(t *testing.T) {
 		t.Errorf("the agents a member picks %+v", picks)
 	}
 	expectStatus(t, consoleCall(t, signedOut, "GET", "/v1/console/agents", nil), 401)
+}
+
+// ask asks question in a new conversation of member's own and returns
+// the conversation and the turn, without waiting for the run.
+func ask(t *testing.T, member consoleSession, question string) (conversation, turn string) {
+	t.Helper()
+	c := expect[agentConversation](t, consoleCall(t, member, "POST", "/v1/console/agent/conversations", map[string]any{}), http.StatusOK)
+	started := expect[agentTurnStarted](t, consoleCall(t, member, "POST", "/v1/console/agent/conversations/"+c.ID+"/turns",
+		map[string]string{"text": question}), http.StatusAccepted)
+	return c.ID, started.TurnID
+}
+
+// skills checks the skills: shared by every member, changed only by their
+// creator or an admin, each slug once.
+func skills(t *testing.T, lan consoleSession) {
+	t.Helper()
+	const path = "/v1/console/agent/skills"
+	other := signInMember(t, consoledomain.RoleModerator)
+	slug := "weekly-" + newID()[28:]
+	skill := map[string]any{"name": "Weekly", "slug": slug, "prompt": "Report on {{week}}", "variables": []map[string]any{{"name": "week"}}}
+	made := expect[struct {
+		ID        string `json:"id"`
+		CreatedBy string `json:"created_by"`
+	}](t, consoleCall(t, lan, "POST", path, skill), 201)
+	if made.CreatedBy != lan.ID {
+		t.Errorf("made by %s", made.CreatedBy)
+	}
+	if list := expect[struct {
+		Items []struct {
+			Slug string `json:"slug"`
+		} `json:"items"`
+	}](t, consoleCall(t, other, "GET", path, nil), 200); !slices.ContainsFunc(list.Items, func(s struct {
+		Slug string `json:"slug"`
+	},
+	) bool {
+		return s.Slug == slug
+	}) {
+		t.Errorf("skills %+v", list)
+	}
+	check(t, "a name of spaces", consoleCall(t, lan, "POST", path, map[string]any{"name": "   ", "prompt": "?"}), 422,
+		"agent_skill_invalid")
+	check(t, "a skill without a prompt", consoleCall(t, lan, "POST", path, map[string]any{"name": "x", "slug": "x"}), 400, "")
+	check(t, "a slug taken", consoleCall(t, other, "POST", path, map[string]any{"name": "x", "slug": slug, "prompt": "?"}), 409,
+		"agent_skill_taken")
+	expectStatus(t, consoleCall(t, lan, "GET", path+"/"+made.ID, nil), 200)
+	check(t, "an unknown skill", consoleCall(t, lan, "GET", path+"/"+newID(), nil), 404, "agent_skill_not_found")
+	patch := map[string]any{"name": "Weekly report"}
+	check(t, "another member's skill", consoleCall(t, other, "PATCH", path+"/"+made.ID, patch), 403, "agent_forbidden")
+	check(t, "deleting another member's skill", consoleCall(t, other, "DELETE", path+"/"+made.ID, nil), 403, "agent_forbidden")
+	expectStatus(t, consoleCall(t, lan, "PATCH", path+"/"+made.ID, patch), 200)
+	check(t, "an empty patch", consoleCall(t, lan, "PATCH", path+"/"+made.ID, map[string]any{}), 400, "")
+	check(t, "a patch to a name of spaces", consoleCall(t, lan, "PATCH", path+"/"+made.ID, map[string]any{"name": "   "}), 422,
+		"agent_skill_invalid")
+	taken := expect[struct {
+		ID string `json:"id"`
+	}](t, consoleCall(t, lan, "POST", path, map[string]any{"name": "Taken", "slug": slug + "-2", "prompt": "?"}), 201)
+	check(t, "a patch to a slug taken", consoleCall(t, lan, "PATCH", path+"/"+taken.ID, map[string]any{"slug": slug}), 409,
+		"agent_skill_taken")
+	check(t, "a patch to an unknown skill", consoleCall(t, lan, "PATCH", path+"/"+newID(), patch), 404, "agent_skill_not_found")
+	for _, c := range [][2]string{
+		{"POST", path},
+		{"GET", path},
+		{"GET", path + "/" + made.ID},
+		{"PATCH", path + "/" + made.ID},
+		{"DELETE", path + "/" + made.ID},
+	} {
+		var body any
+		if c[0] == "POST" || c[0] == "PATCH" {
+			body = skill
+		}
+		expectStatus(t, consoleCall(t, consoleSession{}, c[0], c[1], body), 401)
+	}
+	expectStatus(t, consoleCall(t, lan, "DELETE", path+"/"+made.ID, nil), 204)
+	check(t, "deleting an unknown skill", consoleCall(t, lan, "DELETE", path+"/"+made.ID, nil), 404, "agent_skill_not_found")
 }

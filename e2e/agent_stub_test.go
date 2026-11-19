@@ -3,11 +3,12 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 	"uuid"
 )
@@ -19,230 +20,213 @@ const (
 	agentMCPToken     = "e2e-agent-mcp-token-0123456789abcdefghij"
 )
 
-// agentDown is a subject or conversation id for which the stub agent
-// fails with a 500, as an agent that broke would.
-var agentDown = uuid.MustParse("0193e000-0000-7000-8000-00000000dead")
-
-// agentRefusals are the questions the stub refuses, with the status and
-// the code the agent service answers them with.
-var agentRefusals = map[string]struct {
-	status int
-	code   string
-}{
-	"budget": {http.StatusTooManyRequests, "agent_budget"},
-	"rate":   {http.StatusTooManyRequests, "rate_limited"},
-	"busy":   {http.StatusConflict, "turn_in_progress"},
-	"closed": {http.StatusConflict, "conversation_closed"},
-	"long":   {http.StatusBadRequest, "input_rejected"},
-	"down":   {http.StatusInternalServerError, "internal"},
-}
-
-// stubAgent stands in for the agent service, its API as shopnexus/agent
-// serves it: snake_case JSON, errors as {code}, conversations in memory,
-// one per subject. A question in agentRefusals is refused; any other gets
-// an answer with one source. It refuses a request without the service
-// token or the member's headers, so a test sees the server send them.
+// stubAgent stands in for the agent service's POST /runs as
+// shopnexus/agent serves it: it refuses a request without the service
+// token, and streams NDJSON lines by the question. "down" is refused with
+// 503; "ask" waits for answers; "pause" pauses; "break" ends the stream
+// without an end line; "hold" polls the server's control endpoint, reads
+// each steer and pauses at a stop; any other question reads a ticket,
+// writes a document twice and answers with one source. A resumed segment
+// answers, but one of a question ending in "-down" is refused with 503.
 type stubAgent struct {
-	srv           *httptest.Server
-	mu            sync.Mutex
-	conversations map[string]map[string]any
-	turns         map[string][]map[string]any
-	// asked is the last member and role a question came with, and
-	// configs the aliases of the agents the questions went to.
+	srv *httptest.Server
+	mu  sync.Mutex
+	// asked is the last member and role a run came with, configs the
+	// aliases of the agents the runs went to, answers the answers text of
+	// each resumed segment, and made the tool call and document of each
+	// turn.
 	asked   [2]string
 	configs []string
+	answers []string
+	made    map[string][2]string
+}
+
+type stubRun struct {
+	TurnID       string `json:"turn_id"`
+	Mode         string `json:"mode"`
+	Question     string `json:"question"`
+	ControlAfter int64  `json:"control_after"`
+	Answers      string `json:"answers"`
+	Member       struct {
+		ID   string `json:"id"`
+		Role string `json:"role"`
+	} `json:"member"`
+	AgentConfig struct {
+		Alias string `json:"alias"`
+	} `json:"agent_config"`
 }
 
 func newAgent() *stubAgent {
-	a := &stubAgent{conversations: map[string]map[string]any{}, turns: map[string][]map[string]any{}}
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /conversations", a.list)
-	mux.HandleFunc("POST /conversations", a.open)
-	mux.HandleFunc("GET /conversations/{id}", a.get)
-	mux.HandleFunc("POST /conversations/{id}/turns", a.ask)
-	mux.HandleFunc("GET /turns/{id}/events", a.events)
-	mux.HandleFunc("PATCH /conversations/{id}", a.rename)
-	mux.HandleFunc("DELETE /conversations/{id}", a.remove)
-	a.runs(mux)
-	a.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Authorization") != "Bearer "+agentServiceToken || r.Header.Get("X-Console-Member") == "" ||
-			r.Header.Get("X-Console-Role") == "" {
-			refuse(w, http.StatusUnauthorized, "unauthorized")
-			return
-		}
-		mux.ServeHTTP(w, r)
-	}))
+	a := &stubAgent{made: map[string][2]string{}}
+	a.srv = httptest.NewServer(http.HandlerFunc(a.run))
 	return a
 }
 
 func (a *stubAgent) url() string { return a.srv.URL }
 
-func (a *stubAgent) list(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	if q.Get("subject_id") == agentDown.String() {
-		refuse(w, http.StatusInternalServerError, "internal")
-		return
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	items := []map[string]any{}
-	for _, c := range a.conversations {
-		var match bool
-		switch {
-		case q.Get("subject_id") != "":
-			match = c["subject_id"] == q.Get("subject_id")
-		case q.Get("subject_kind") != "":
-			match = c["subject_kind"] == q.Get("subject_kind")
-		default:
-			match = c["subject_kind"] == nil && c["owner"] == r.Header.Get("X-Console-Member")
-		}
-		if match {
-			items = append(items, public(c))
-		}
-	}
-	writeJSON(w, http.StatusOK, items)
-}
-
-func (a *stubAgent) open(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		SubjectKind string `json:"subject_kind"`
-		SubjectID   string `json:"subject_id"`
-	}
-	if json.NewDecoder(r.Body).Decode(&in) != nil {
-		refuse(w, http.StatusBadRequest, "bad_request")
-		return
-	}
-	if in.SubjectID == agentDown.String() {
-		refuse(w, http.StatusInternalServerError, "internal")
-		return
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	for _, c := range a.conversations {
-		if in.SubjectID != "" && c["subject_id"] == in.SubjectID {
-			writeJSON(w, http.StatusOK, public(c))
-			return
-		}
-	}
-	c := map[string]any{
-		"id": uuid.NewV7().String(), "updated_at": time.Now().UTC().Format(time.RFC3339), "owner": r.Header.Get("X-Console-Member"),
-	}
-	if in.SubjectID != "" {
-		c["subject_kind"], c["subject_id"] = in.SubjectKind, in.SubjectID
-	}
-	a.conversations[c["id"].(string)] = c
-	writeJSON(w, http.StatusOK, public(c))
-}
-
-func (a *stubAgent) get(w http.ResponseWriter, r *http.Request) {
-	if r.PathValue("id") == agentDown.String() {
-		refuse(w, http.StatusInternalServerError, "internal")
-		return
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	c, ok := a.conversations[r.PathValue("id")]
-	if !ok {
-		refuse(w, http.StatusNotFound, "not_found")
-		return
-	}
-	out := public(c)
-	turns := a.turns[r.PathValue("id")]
-	if turns == nil {
-		turns = []map[string]any{}
-	}
-	out["turns"] = turns
-	writeJSON(w, http.StatusOK, out)
-}
-
-func (a *stubAgent) ask(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Text        string `json:"text"`
-		AgentConfig struct {
-			ID    string `json:"id"`
-			Name  string `json:"name"`
-			Alias string `json:"alias"`
-		} `json:"agent_config"`
-	}
-	if json.NewDecoder(r.Body).Decode(&in) != nil {
-		refuse(w, http.StatusBadRequest, "bad_request")
-		return
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	id := r.PathValue("id")
-	if _, ok := a.conversations[id]; !ok {
-		refuse(w, http.StatusNotFound, "not_found")
-		return
-	}
-	a.asked = [2]string{r.Header.Get("X-Console-Member"), r.Header.Get("X-Console-Role")}
-	if no, ok := agentRefusals[strings.TrimSpace(in.Text)]; ok {
-		refuse(w, no.status, no.code)
-		return
-	}
-	turn := uuid.NewV7().String()
-	a.turns[id] = append(a.turns[id], turnView(turn, id, r.Header.Get("X-Console-Member"), in.Text,
-		map[string]any{"id": in.AgentConfig.ID, "name": in.AgentConfig.Name}))
-	a.configs = append(a.configs, in.AgentConfig.Alias)
-	writeJSON(w, http.StatusAccepted, map[string]any{"conversation_id": id, "turn_id": turn})
-}
-
-// turnView is a finished turn as the agent shows it, with one source.
-func turnView(turn, conversation, member, text string, agent map[string]any) map[string]any {
-	return map[string]any{
-		"id": turn, "conversation_id": conversation, "member_id": member, "text": text, "answer": "Đã đọc.",
-		"status": "SUCCEEDED", "blocks": []map[string]any{{"type": "text", "markdown": "Đã đọc [1]."}},
-		"sources": []map[string]any{{
-			"n": 1, "kind": "ticket", "record_id": conversation, "label": "Ticket", "call_id": uuid.NewV7(), "tool": "ticket_get",
-		}},
-		"outcome": nil, "continuable": false, "agent": agent, "steers": []any{}, "last_seq": 2,
-		"usage":      map[string]any{"input_tokens": 10, "output_tokens": 5, "cost_usd": 0.001},
-		"created_at": time.Now().UTC().Format(time.RFC3339), "finished_at": time.Now().UTC().Format(time.RFC3339),
-		"duration_ms": 4200,
-	}
-}
-
-// events streams a finished turn's two events after Last-Event-ID.
-func (*stubAgent) events(w http.ResponseWriter, r *http.Request) {
-	switch uuid.MustParse(r.PathValue("id")) {
-	case agentDown:
-		refuse(w, http.StatusInternalServerError, "internal")
-		return
-	case agentMissing:
-		refuse(w, http.StatusNotFound, "not_found")
-		return
-	}
-	w.Header().Set("Content-Type", "text/event-stream")
-	at := time.Now().UTC().Format(time.RFC3339)
-	for i, typ := range []string{"turn.started", "turn.finished"} {
-		seq := i + 1
-		if strconv.Itoa(seq) <= r.Header.Get("Last-Event-ID") {
-			continue
-		}
-		_, _ = fmt.Fprintf(w, "id: %d\ndata: {\"seq\":%d,\"type\":%q,\"at\":%q}\n\n", seq, seq, typ, at)
-	}
-}
-
-// lastAsked is the member and role of the last question.
+// lastAsked is the member and role of the last run.
 func (a *stubAgent) lastAsked() [2]string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.asked
 }
 
-// public is a conversation without the stub's own fields.
-func public(c map[string]any) map[string]any {
-	out := map[string]any{}
-	for k, v := range c {
-		if k != "owner" {
-			out[k] = v
-		}
-	}
-	return out
+// madeBy is the tool call and the document turn's run made.
+func (a *stubAgent) madeBy(turn string) [2]string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.made[turn]
 }
 
-func refuse(w http.ResponseWriter, status int, code string) {
-	writeJSON(w, status, map[string]string{"code": code})
+func (a *stubAgent) run(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost || r.URL.Path != "/runs" || r.Header.Get("Authorization") != "Bearer "+agentServiceToken {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"code": "unauthorized"})
+		return
+	}
+	var in stubRun
+	if json.NewDecoder(r.Body).Decode(&in) != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"code": "bad_request"})
+		return
+	}
+	a.mu.Lock()
+	a.asked = [2]string{in.Member.ID, in.Member.Role}
+	a.configs = append(a.configs, in.AgentConfig.Alias)
+	if in.Mode == "resume" {
+		a.answers = append(a.answers, in.Answers)
+	}
+	a.mu.Unlock()
+	question := strings.TrimSpace(in.Question)
+	if (in.Mode == "new" && question == "down") || (in.Mode == "resume" && strings.HasSuffix(question, "-down")) {
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"code": "agent_unavailable"})
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	send := func(lines ...any) {
+		for _, l := range lines {
+			b, _ := json.Marshal(l)
+			_, _ = w.Write(append(b, '\n'))
+		}
+		w.(http.Flusher).Flush()
+	}
+	event := func(typ string, body map[string]any) map[string]any {
+		return map[string]any{"kind": "event", "type": typ, "body": body}
+	}
+	send(event("turn.started", map[string]any{"agent": map[string]any{"id": "a", "name": "Console assistant"}, "deadline_s": 60}))
+	if in.Mode == "resume" {
+		send(end("SUCCEEDED", nil))
+		return
+	}
+	switch strings.TrimSuffix(question, "-down") {
+	case "ask":
+		send(end("AWAITING_INPUT", []map[string]any{
+			{"id": "range", "label": "Khoảng", "kind": "single", "options": []map[string]string{{"id": "week", "label": "Tuần này"}}},
+			{"id": "cities", "label": "Thành phố", "kind": "multi", "options": []map[string]string{{"id": "hn", "label": "Hà Nội"}}},
+		}))
+	case "pause":
+		send(end("PAUSED", nil))
+	case "break":
+		send(event("step.started", map[string]any{"step_id": "s1", "title": "Đọc"}))
+	case "hold":
+		a.hold(r, in, send, event)
+	default:
+		call, doc := uuid.NewV7().String(), uuid.NewV7().String()
+		a.mu.Lock()
+		a.made[in.TurnID] = [2]string{call, doc}
+		a.mu.Unlock()
+		tool := func(status string, output any) map[string]any {
+			return map[string]any{
+				"kind": "tool_call", "id": call, "tool_use_id": "tu1", "tool": "ticket_get", "label": "Ticket", "source": "mcp",
+				"input": map[string]any{"id": "x"}, "status": status, "output": output, "content": nil, "output_spilled": false,
+				"latency_ms": 120, "attempts": 2, "timing": map[string]any{"queued": 1, "server": 100, "db": nil, "return": 4},
+				"attempt_errors": []map[string]any{{"attempt": 1, "error": "timeout", "at": time.Now().UTC().Format(time.RFC3339)}},
+				"finished_at":    nil,
+			}
+		}
+		document := func(version int) map[string]any {
+			return map[string]any{
+				"kind": "document", "document_id": doc, "version": version, "title": "Báo cáo tuần",
+				"sections": []map[string]any{{"type": "markdown", "markdown": "# Tuần"}},
+			}
+		}
+		send(tool("running", nil), tool("success", `{"status":"open"}`), document(1), document(2), end("SUCCEEDED", nil))
+	}
+}
+
+// hold polls the control endpoint after the run's control_after, reads
+// each steer with steer.read, and pauses at the first stop.
+func (*stubAgent) hold(r *http.Request, in stubRun, send func(...any), event func(string, map[string]any) map[string]any) {
+	after := in.ControlAfter
+	base := strings.TrimSuffix(mcpURL, "/mcp")
+	for range 100 {
+		req, _ := http.NewRequestWithContext(r.Context(), http.MethodGet,
+			fmt.Sprintf("%s/agent/turns/%s/control?after=%d", base, in.TurnID, after), http.NoBody)
+		req.Header.Set("Authorization", "Bearer "+agentMCPToken)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return
+		}
+		var got struct {
+			Items []struct {
+				Seq     int64  `json:"seq"`
+				Kind    string `json:"kind"`
+				SteerID string `json:"steer_id"`
+			} `json:"items"`
+			Running bool `json:"running"`
+		}
+		_ = json.NewDecoder(res.Body).Decode(&got)
+		_, _ = io.Copy(io.Discard, res.Body)
+		_ = res.Body.Close()
+		for _, it := range got.Items {
+			after = it.Seq
+			switch it.Kind {
+			case "steer":
+				send(event("steer.read", map[string]any{"steer_id": it.SteerID, "step_id": nil, "step_number": 1}))
+			case "stop":
+				send(end("PAUSED", nil))
+				return
+			default:
+			}
+		}
+		if !got.Running {
+			send(end("PAUSED", nil))
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// end is a run's end line in status, with the questions of ask_user.
+func end(status string, questions []map[string]any) map[string]any {
+	state := map[string]any{
+		"v": 1, "question": "?", "messages": []any{}, "sources": []any{}, "steps": []any{}, "wrote": true,
+		"usage": map[string]any{"input_tokens": 10, "output_tokens": 5, "cost_usd": 0.001},
+	}
+	line := map[string]any{
+		"kind": "end", "status": status, "error_code": nil, "answer": nil, "blocks": []any{}, "sources": []any{},
+		"usage": map[string]any{
+			"input_tokens": 10, "output_tokens": 5, "cache_read_tokens": 0, "cache_write_tokens": 0, "cost_usd": 0.001,
+			"first_token_ms": 300, "provider": "anthropic",
+		},
+		"latency_ms": 4200, "wrote": true, "state": state,
+	}
+	switch status {
+	case "SUCCEEDED":
+		sources := []any{map[string]any{
+			"n": 1, "kind": "ticket", "record_id": "t1", "label": "Ticket", "call_id": uuid.NewV7(), "tool": "ticket_get",
+		}}
+		line["answer"], line["sources"] = "Đã đọc [1].", sources
+		line["blocks"] = []map[string]any{{"type": "text", "markdown": "Đã đọc [1]."}}
+		line["event"] = map[string]any{"type": "turn.finished", "body": map[string]any{
+			"status": "SUCCEEDED", "outcome": nil, "continuable": false, "sources": sources,
+		}}
+	case "PAUSED":
+		line["event"] = map[string]any{"type": "turn.paused", "body": map[string]any{"steps_done": 0, "reason": "member"}}
+	case "AWAITING_INPUT":
+		state["pending_ask"] = questions
+		line["event"] = map[string]any{"type": "clarify", "body": map[string]any{"questions": questions}}
+	default:
+	}
+	return line
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -251,241 +235,23 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// agentMissing is a turn, tool call, document or skill the stub agent
-// does not know, agentConflict one in a state that refuses the call, and
-// agentForbidden a skill another member made.
-var (
-	agentMissing   = uuid.MustParse("0193e000-0000-7000-8000-00000000beef")
-	agentConflict  = uuid.MustParse("0193e000-0000-7000-8000-00000000c0f1")
-	agentForbidden = uuid.MustParse("0193e000-0000-7000-8000-00000000f0bd")
-)
-
-// runs serves the agent's paths of a turn's run, its tool calls, its
-// documents and the skills: agentDown fails, agentMissing is not found,
-// agentConflict, agentForbidden and the slug "taken" are refused, the
-// answer "wrong" and the skill named "invalid" are bad requests, anything
-// else answers.
-func (*stubAgent) runs(mux *http.ServeMux) {
-	known := func(w http.ResponseWriter, r *http.Request, conflict string) bool {
-		switch uuid.MustParse(r.PathValue("id")) {
-		case agentDown:
-			refuse(w, http.StatusInternalServerError, "internal")
-		case agentMissing:
-			refuse(w, http.StatusNotFound, "not_found")
-		case agentConflict:
-			refuse(w, http.StatusConflict, conflict)
-		case agentForbidden:
-			refuse(w, http.StatusForbidden, "forbidden")
-		default:
-			return true
-		}
-		return false
-	}
-	mux.HandleFunc("GET /turns/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if known(w, r, "") {
-			writeJSON(w, http.StatusOK, turnView(r.PathValue("id"), uuid.NewV7().String(), r.Header.Get("X-Console-Member"), "?",
-				map[string]any{"id": "console-agent", "name": "Console assistant"}))
-		}
-	})
-	for c, answer := range map[string]struct {
-		status int
-		body   map[string]any
-	}{
-		"pause": {http.StatusAccepted, nil}, "stop": {http.StatusAccepted, nil},
-		"continue": {http.StatusAccepted, map[string]any{"turn_id": true}},
-		"end":      {http.StatusOK, map[string]any{"status": "CANCELLED"}},
-	} {
-		mux.HandleFunc("POST /turns/{id}/"+c, func(w http.ResponseWriter, r *http.Request) {
-			if !known(w, r, "turn_state") {
-				return
-			}
-			body := map[string]any{}
-			for k, v := range answer.body {
-				body[k] = v
-				if k == "turn_id" {
-					body[k] = r.PathValue("id")
-				}
-			}
-			writeJSON(w, answer.status, body)
-		})
-	}
-	mux.HandleFunc("POST /turns/{id}/input", func(w http.ResponseWriter, r *http.Request) {
-		var in struct {
-			Answers map[string]any `json:"answers"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&in)
-		if !known(w, r, "turn_state") {
-			return
-		}
-		if in.Answers["range"] == "wrong" {
-			refuse(w, http.StatusBadRequest, "bad_request")
-			return
-		}
-		writeJSON(w, http.StatusAccepted, map[string]any{"turn_id": r.PathValue("id")})
-	})
-	mux.HandleFunc("POST /turns/{id}/steer", func(w http.ResponseWriter, r *http.Request) {
-		if known(w, r, "turn_state") {
-			writeJSON(w, http.StatusAccepted, map[string]any{"steer_id": uuid.NewV7(), "resumed": false})
-		}
-	})
-	mux.HandleFunc("GET /stats/{what}", func(w http.ResponseWriter, r *http.Request) {
-		at := time.Now().UTC().Format(time.RFC3339)
-		switch r.PathValue("what") {
-		case "turns":
-			writeJSON(w, http.StatusOK, map[string]any{
-				"by_agent": []map[string]any{{
-					"agent_id": "0193e000-0000-7000-8000-00000000a101", "requests": 2,
-					"days": []map[string]any{{"date": at[:10], "requests": 2}},
-				}},
-				"by_member": []map[string]any{{"member_id": r.Header.Get("X-Console-Member"), "requests": 2}},
-			})
-		case "tools":
-			writeJSON(w, http.StatusOK, map[string]any{
-				"items": []map[string]any{{
-					"name": "ticket_get", "calls": 3, "failed": 0, "p50_ms": 90,
-					"days": []map[string]any{{"date": at[:10], "calls": 3}},
-				}},
-				"recent": []map[string]any{{
-					"call_id": uuid.NewV7(), "turn_id": uuid.NewV7(), "tool": "ticket_get", "label": "Ticket",
-					"duration_ms": 90, "status": "success", "at": at,
-				}},
-			})
-		case "guardrails":
-			writeJSON(w, http.StatusOK, map[string]any{
-				"items":  []map[string]any{{"rule": "loop_stopped", "count": 1}},
-				"recent": []map[string]any{{"rule": "loop_stopped", "detail": "same call 3 times", "at": at}},
-			})
-		default:
-			refuse(w, http.StatusNotFound, "not_found")
-		}
-	})
-	mux.HandleFunc("GET /tool-calls/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if known(w, r, "") {
-			writeJSON(w, http.StatusOK, map[string]any{
-				"id": r.PathValue("id"), "turn_id": uuid.NewV7(), "tool": "ticket_get", "status": "success",
-				"input": map[string]any{"id": uuid.NewV7()}, "output": map[string]any{"status": "open"}, "output_spilled": false,
-				"attempts": 2, "duration_ms": 120,
-				"attempt_errors": []map[string]any{{"attempt": 1, "error": "timeout", "at": time.Now().UTC().Format(time.RFC3339)}}, "timing": map[string]any{"queued": 1, "server": 100, "db": nil, "return": 4},
-				"started_at": time.Now().UTC().Format(time.RFC3339), "finished_at": time.Now().UTC().Format(time.RFC3339),
-			})
-		}
-	})
-	mux.HandleFunc("GET /documents/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if known(w, r, "") {
-			at := time.Now().UTC().Format(time.RFC3339)
-			version := func(n int) map[string]any {
-				return map[string]any{
-					"version": n, "title": "Báo cáo tuần", "sections": []map[string]any{{"type": "markdown", "markdown": "# Tuần"}},
-					"created_at": at,
-				}
-			}
-			writeJSON(w, http.StatusOK, map[string]any{
-				"id": r.PathValue("id"), "conversation_id": uuid.NewV7(), "title": "Báo cáo tuần", "latest_version": 2,
-				"created_at": at, "updated_at": at, "versions": []map[string]any{version(2), version(1)},
-			})
-		}
-	})
-	skill := func(id, slug string, r *http.Request) map[string]any {
-		return map[string]any{
-			"id": id, "created_by": r.Header.Get("X-Console-Member"), "name": "Weekly", "slug": slug, "description": "",
-			"prompt": "Report on {{week}}", "variables": []map[string]any{{"name": "week"}},
-			"updated_at": time.Now().UTC().Format(time.RFC3339),
-		}
-	}
-	mux.HandleFunc("GET /skills", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, []map[string]any{skill(uuid.NewV7().String(), "weekly", r)})
-	})
-	mux.HandleFunc("GET /skills/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if known(w, r, "") {
-			writeJSON(w, http.StatusOK, skill(r.PathValue("id"), "weekly", r))
-		}
-	})
-	mux.HandleFunc("POST /skills", func(w http.ResponseWriter, r *http.Request) {
-		var in struct {
-			Name string `json:"name"`
-			Slug string `json:"slug"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&in)
-		switch {
-		case in.Slug == "taken":
-			refuse(w, http.StatusConflict, "skill_exists")
-		case in.Slug == "down":
-			refuse(w, http.StatusInternalServerError, "internal")
-		case in.Name == "invalid":
-			refuse(w, http.StatusBadRequest, "bad_request")
-		default:
-			writeJSON(w, http.StatusCreated, skill(uuid.NewV7().String(), in.Slug, r))
-		}
-	})
-	mux.HandleFunc("PATCH /skills/{id}", func(w http.ResponseWriter, r *http.Request) {
-		var in struct {
-			Name string `json:"name"`
-		}
-		_ = json.NewDecoder(r.Body).Decode(&in)
-		if !known(w, r, "skill_exists") {
-			return
-		}
-		if in.Name == "invalid" {
-			refuse(w, http.StatusBadRequest, "bad_request")
-			return
-		}
-		writeJSON(w, http.StatusOK, skill(r.PathValue("id"), "weekly", r))
-	})
-	mux.HandleFunc("DELETE /skills/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if known(w, r, "") {
-			w.WriteHeader(http.StatusNoContent)
-		}
-	})
+// askAndWait opens a conversation of member's own, asks question and
+// reads the turn's events until the stream ends.
+func askAndWait(t *testing.T, member consoleSession, question string) (conversation, turn string) {
+	t.Helper()
+	c := expect[agentConversation](t, consoleCall(t, member, "POST", "/v1/console/agent/conversations", map[string]any{}), http.StatusOK)
+	started := expect[agentTurnStarted](t, consoleCall(t, member, "POST", "/v1/console/agent/conversations/"+c.ID+"/turns",
+		map[string]string{"text": question}), http.StatusAccepted)
+	waitTurn(t, member, started.TurnID)
+	return c.ID, started.TurnID
 }
 
-// conversationOf is the conversation of the path, or false after an answer
-// for agentDown (a failure), agentForbidden (a shared one, for a
-// moderator), agentConflict (a turn still open, conflict is the code) and
-// an unknown one.
-func (a *stubAgent) conversationOf(w http.ResponseWriter, r *http.Request, conflict string) (map[string]any, bool) {
-	switch uuid.MustParse(r.PathValue("id")) {
-	case agentDown:
-		refuse(w, http.StatusInternalServerError, "internal")
-		return nil, false
-	case agentForbidden:
-		refuse(w, http.StatusForbidden, "forbidden")
-		return nil, false
-	case agentConflict:
-		refuse(w, http.StatusConflict, conflict)
-		return nil, false
+// waitTurn reads a turn's events until the stream ends, at a stop event.
+func waitTurn(t *testing.T, member consoleSession, turn string) string {
+	t.Helper()
+	res := consoleCall(t, member, "GET", "/v1/console/agent/turns/"+turn+"/events", nil)
+	if res.Status != http.StatusOK {
+		t.Fatalf("events of %s: %d %s", turn, res.Status, res.Body)
 	}
-	c, ok := a.conversations[r.PathValue("id")]
-	if !ok {
-		refuse(w, http.StatusNotFound, "not_found")
-	}
-	return c, ok
-}
-
-func (a *stubAgent) rename(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Title string `json:"title"`
-	}
-	if json.NewDecoder(r.Body).Decode(&in) != nil || in.Title == "" {
-		refuse(w, http.StatusBadRequest, "bad_request")
-		return
-	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	c, ok := a.conversationOf(w, r, "conversation_closed")
-	if !ok {
-		return
-	}
-	c["title"] = in.Title
-	writeJSON(w, http.StatusOK, public(c))
-}
-
-func (a *stubAgent) remove(w http.ResponseWriter, r *http.Request) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if _, ok := a.conversationOf(w, r, "turn_in_progress"); !ok {
-		return
-	}
-	delete(a.conversations, r.PathValue("id"))
-	delete(a.turns, r.PathValue("id"))
-	w.WriteHeader(http.StatusNoContent)
+	return string(res.Body)
 }

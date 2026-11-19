@@ -1,7 +1,7 @@
 # The console agent: a member's conversations with the agent, which the
-# server forwards to the agent service with the member's id and role. The
-# agent only reads, through the server's MCP tools; every change stays a
-# console call of its own.
+# server keeps. Each run segment goes to the agent service with the
+# member's id and role and streams back. The agent only reads, through the
+# server's MCP tools; every change stays a console call of its own.
 conversations:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -38,8 +38,6 @@ conversations:
         $ref: "../responses/common.yaml#/Unauthorized"
       "422":
         $ref: "../responses/common.yaml#/AgentSubjectInvalid"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
   post:
     operationId: createConsoleAgentConversation
     x-uc: [UC-MOD-08]
@@ -68,8 +66,6 @@ conversations:
         $ref: "../responses/common.yaml#/Unauthorized"
       "422":
         $ref: "../responses/common.yaml#/AgentSubjectInvalid"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 conversation:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -93,8 +89,6 @@ conversation:
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
         $ref: "../responses/common.yaml#/AgentConversationNotFound"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
   patch:
     operationId: renameConsoleAgentConversation
     x-uc: [UC-MOD-08]
@@ -136,8 +130,6 @@ conversation:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
   delete:
     operationId: deleteConsoleAgentConversation
     x-uc: [UC-MOD-08]
@@ -167,8 +159,6 @@ conversation:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 conversationTurns:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -178,11 +168,11 @@ conversationTurns:
     x-uc: [UC-MOD-08]
     summary: Ask a console agent in a conversation; the run starts and the answer comes on its events.
     description: |
-      The server adds the picked agent's configuration (the Console
-      assistant when agent_id is left out) and forwards the question. The
-      agent stores the turn as running and answers 202 with its id at once;
-      the console then opens GET /v1/console/agent/turns/{id}/events to
-      watch the run step by step. Closing the stream does not stop the run.
+      The server opens the turn as running and starts its run on the agent
+      service with the picked agent's configuration (the Console assistant
+      when agent_id is left out), then answers 202 with the turn's id; the
+      console opens GET /v1/console/agent/turns/{id}/events to watch the
+      run step by step. Closing the stream does not stop the run.
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -256,8 +246,6 @@ turn:
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
         $ref: "../responses/common.yaml#/AgentTurnNotFound"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 turnEvents:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -302,8 +290,6 @@ turnEvents:
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
         $ref: "../responses/common.yaml#/AgentTurnNotFound"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 turnPause:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -328,8 +314,6 @@ turnPause:
         $ref: "../responses/common.yaml#/AgentTurnNotFound"
       "409":
         $ref: "../responses/common.yaml#/AgentTurnState"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 turnStop:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -354,8 +338,6 @@ turnStop:
         $ref: "../responses/common.yaml#/AgentTurnNotFound"
       "409":
         $ref: "../responses/common.yaml#/AgentTurnState"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 turnContinue:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -406,8 +388,6 @@ turnEnd:
         $ref: "../responses/common.yaml#/AgentTurnNotFound"
       "409":
         $ref: "../responses/common.yaml#/AgentTurnState"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 turnSteer:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -513,8 +493,6 @@ toolCall:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 document:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -541,8 +519,6 @@ document:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 skills:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -561,8 +537,6 @@ skills:
               $ref: "../schemas/console_agent.yaml#/AgentSkillList"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
   post:
     operationId: createConsoleAgentSkill
     summary: Save a skill, a question with {{variables}}, for every member.
@@ -598,8 +572,6 @@ skills:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 skill:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -625,8 +597,6 @@ skill:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
   patch:
     operationId: updateConsoleAgentSkill
     summary: Change a skill; its maker or an admin may.
@@ -674,8 +644,6 @@ skill:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
   delete:
     operationId: deleteConsoleAgentSkill
     summary: Delete a skill; its maker or an admin may.
@@ -699,8 +667,6 @@ skill:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "503":
-        $ref: "../responses/common.yaml#/AgentUnavailable"
 consoleAgents:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"

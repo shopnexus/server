@@ -176,6 +176,7 @@ func TestAISettings(t *testing.T) {
 	expectStatus(t, consoleCall(t, minh, "GET", settings+"/providers/health", nil), 200)
 	check(t, "turning off the only provider of a model", consoleCall(t, minh, "PATCH", settings+"/providers/"+provider,
 		map[string]any{"enabled": false}), 409, "ai_provider_in_use")
+	askAndWait(t, minh, "Tuần này thế nào?")
 	usage := expect[struct {
 		Items []struct {
 			AgentID  string `json:"agent_id"`
@@ -187,7 +188,7 @@ func TestAISettings(t *testing.T) {
 		Requests int    `json:"requests"`
 	},
 	) bool {
-		return u.AgentID == "0193e000-0000-7000-8000-00000000a101" && u.Requests == 2
+		return u.AgentID == "0193e000-0000-7000-8000-00000000a101" && u.Requests >= 1
 	}) {
 		t.Errorf("usage %+v", usage)
 	}
@@ -196,7 +197,12 @@ func TestAISettings(t *testing.T) {
 			DisplayName string `json:"display_name"`
 		} `json:"items"`
 	}](t, consoleCall(t, minh, "GET", settings+"/tools?range=30d", nil), 200)
-	if len(tools.Items) != 1 || tools.Items[0].DisplayName != "Ticket" {
+	if !slices.ContainsFunc(tools.Items, func(i struct {
+		DisplayName string `json:"display_name"`
+	},
+	) bool {
+		return i.DisplayName == "Ticket"
+	}) {
 		t.Errorf("tools %+v", tools)
 	}
 	expectStatus(t, consoleCall(t, minh, "GET", settings+"/guardrails", nil), 200)
@@ -353,7 +359,7 @@ func settingsCalls(provider, model, agent string) []settingsCall {
 
 // A stack whose LiteLLM and agent are down answers ai_gateway_unavailable
 // on every setting that reads or writes LiteLLM, and agent_unavailable on
-// the skills. The second server has a database of its own, with an admin
+// a question; the tools, guardrails and skills are the server's. The second server has a database of its own, with an admin
 // of its own.
 func TestAISettingsDown(t *testing.T) {
 	t.Parallel()
@@ -385,8 +391,8 @@ func TestAISettingsDown(t *testing.T) {
 		case c.path == settings+"/agents", strings.HasSuffix(c.path, "/tags"), strings.HasPrefix(c.path, settings+"/agents/0"),
 			strings.HasSuffix(c.path, "/dashboards"):
 			continue // the database's alone
-		case strings.HasSuffix(c.path, "/tools"), strings.HasSuffix(c.path, "/guardrails"), strings.HasSuffix(c.path, "/usage"):
-			check(t, c.method+" "+c.path, at(c.method, c.path, c.body), 503, "agent_unavailable")
+		case strings.HasSuffix(c.path, "/tools"), strings.HasSuffix(c.path, "/guardrails"):
+			expectStatus(t, at(c.method, c.path, c.body), 200)
 		default:
 			check(t, c.method+" "+c.path, at(c.method, c.path, c.body), 503, "ai_gateway_unavailable")
 		}
@@ -395,7 +401,10 @@ func TestAISettingsDown(t *testing.T) {
 		"ai_gateway_unavailable")
 	check(t, "a new model", at("PATCH", settings+"/agents/"+assistant, map[string]any{"model": "claude-haiku-5-5"}), 503,
 		"ai_gateway_unavailable")
-	check(t, "the skills", at("GET", "/v1/console/agent/skills", nil), 503, "agent_unavailable")
+	expectStatus(t, at("GET", "/v1/console/agent/skills", nil), 200)
+	own := expect[agentConversation](t, at("POST", "/v1/console/agent/conversations", map[string]any{}), 200)
+	check(t, "a question", at("POST", "/v1/console/agent/conversations/"+own.ID+"/turns", map[string]string{"text": "?"}), 503,
+		"agent_unavailable")
 }
 
 // signInMemberAt creates a member in svc's database and signs it in at

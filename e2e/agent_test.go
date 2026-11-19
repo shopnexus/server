@@ -23,7 +23,7 @@ type agentTurnStarted struct {
 
 // A record's conversation is shared by every member; one without a record
 // is the member's own. Each question goes out with the member who asked.
-// UC-MOD-08 A1, E1.
+// UC-MOD-08 A1.
 func TestConsoleAgentConversations(t *testing.T) {
 	t.Parallel()
 	lan := signInMember(t, consoledomain.RoleModerator)
@@ -64,9 +64,8 @@ func TestConsoleAgentConversations(t *testing.T) {
 	if started.ConversationID != first.ID || started.TurnID == "" {
 		t.Fatalf("started %+v", started)
 	}
-	events := consoleCall(t, lan, "GET", "/v1/console/agent/turns/"+started.TurnID+"/events", nil)
-	if events.Status != http.StatusOK || !strings.Contains(string(events.Body), `"type":"turn.finished"`) {
-		t.Fatalf("events %d %s", events.Status, events.Body)
+	if events := waitTurn(t, lan, started.TurnID); !strings.Contains(events, `"type":"turn.finished"`) {
+		t.Fatalf("events %s", events)
 	}
 	if asked := agentStub.lastAsked(); asked != [2]string{lan.ID, "moderator"} {
 		t.Fatalf("the agent heard %v, want %s as moderator", asked, lan.ID)
@@ -89,27 +88,19 @@ func TestConsoleAgentConversations(t *testing.T) {
 		status int
 		code   string
 	}{
-		"budget": {429, "agent_budget"},
-		"rate":   {429, "agent_rate_limited"},
-		"busy":   {409, "agent_turn_in_progress"},
-		"closed": {409, "agent_conversation_closed"},
-		"long":   {422, "agent_input_rejected"},
-		"down":   {503, "agent_unavailable"},
+		strings.Repeat("a", 2001): {422, "agent_input_rejected"},
+		"down":                    {503, "agent_unavailable"},
 	} {
-		check(t, text, consoleCall(t, lan, "POST", turns, map[string]string{"text": text}), want.status, want.code)
+		check(t, text[:4], consoleCall(t, lan, "POST", turns, map[string]string{"text": text}), want.status, want.code)
 	}
 	check(t, "an unknown conversation", consoleCall(t, lan, "POST", path+"/"+newID()+"/turns", map[string]string{"text": "?"}),
+		404, "agent_conversation_not_found")
+	check(t, "another member's own", consoleCall(t, minh, "POST", path+"/"+own.ID+"/turns", map[string]string{"text": "?"}),
 		404, "agent_conversation_not_found")
 	check(t, "an unknown conversation", consoleCall(t, lan, "GET", path+"/"+newID(), nil), 404, "agent_conversation_not_found")
 	check(t, "an id without a kind", consoleCall(t, lan, "GET", path+"?subject_id="+account.Account.ID, nil), 422, "agent_subject_invalid")
 	check(t, "a kind without an id", consoleCall(t, lan, "POST", path, map[string]any{"subject_kind": "ticket"}), 422,
 		"agent_subject_invalid")
-
-	down := agentDown.String()
-	check(t, "the agent fails", consoleCall(t, lan, "GET", path+"?subject_kind=ticket&subject_id="+down, nil), 503, "agent_unavailable")
-	check(t, "the agent fails", consoleCall(t, lan, "POST", path, map[string]any{"subject_kind": "ticket", "subject_id": down}), 503,
-		"agent_unavailable")
-	check(t, "the agent fails", consoleCall(t, lan, "GET", path+"/"+down, nil), 503, "agent_unavailable")
 
 	signedOut := consoleSession{}
 	expectStatus(t, consoleCall(t, signedOut, "GET", path, nil), 401)
