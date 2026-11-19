@@ -10,6 +10,7 @@ import (
 	restate "github.com/restatedev/sdk-go"
 
 	"github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/imaging"
 	"github.com/shopnexus/server/internal/media/repository"
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/objectstore"
@@ -121,12 +122,12 @@ func (s MediaProcess) Run(ctx restate.Context, id uuid.UUID) (ProcessResult, err
 			return processed{}, fmt.Errorf("read the upload: %w", stepErr)
 		}
 		defer func() { _ = r.Close() }() // a read-only object; nothing to flush
-		photo, thumb, stepErr := process(r, u.ContentType(), u.Shape())
-		if reason := refusal(stepErr); reason != "" {
+		photo, thumb, stepErr := imaging.Process(r, u.ContentType(), u.Shape())
+		if reason := imaging.Refusal(stepErr); reason != "" {
 			return processed{Failure: reason}, nil
 		}
 		if stepErr != nil {
-			return processed{}, stepErr
+			return processed{}, fmt.Errorf("decode the upload: %w", stepErr)
 		}
 		photoKey := "media/" + id.String() + ".jpg"
 		if stepErr = s.Store.Put(rc, photoKey, "image/jpeg", bytes.NewReader(photo), int64(len(photo))); stepErr != nil {

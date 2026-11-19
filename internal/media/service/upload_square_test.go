@@ -20,7 +20,7 @@ func TestSquare(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	owner, holder := accounttest.New(t, e.db), uuid.NewV7()
-	id := e.upload(t, owner, withOrientation(mediatest.JPEG(t, 800, 600), 1))
+	id := e.upload(t, owner, mediatest.WithOrientation(mediatest.JPEG(t, 800, 600), 1))
 	key, err := e.media.Square(ctx, owner, holder, id)
 	if err != nil {
 		t.Fatal(err)

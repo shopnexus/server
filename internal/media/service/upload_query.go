@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/media/imaging"
 	"github.com/shopnexus/server/internal/media/repository"
 	"github.com/shopnexus/server/internal/platform/objectstore"
 )
@@ -63,8 +64,8 @@ func (m *Media) QueryImage(ctx context.Context, owner, id uuid.UUID) ([]byte, er
 		return nil, fmt.Errorf("wait for a processing slot: %w", ctx.Err())
 	}
 	defer func() { <-m.slots }()
-	photo, _, err := process(r, u.ContentType(), domain.ShapeQuery)
-	if _, refused := errors.AsType[refusedError](err); refused {
+	photo, _, err := imaging.Process(r, u.ContentType(), domain.ShapeQuery)
+	if _, refused := errors.AsType[imaging.RefusedError](err); refused {
 		return nil, domain.ErrInvalidUpload
 	}
 	if err != nil {

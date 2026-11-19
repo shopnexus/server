@@ -944,7 +944,9 @@ once a listing draft extended it.
   upright by the JPEG's EXIF Orientation, and the 400 px thumbnail is made
   from that photo; neither keeps more than its output in memory. Both go
   under `media/`. Re-encoding drops EXIF, GPS included. Two photos decode
-  at once in the process (`processSlots`); the others wait for a slot. The photo's bytes never
+  at once in the process (`processSlots`); the others wait for a slot. The
+  decoding and encoding are `internal/media/imaging.Process`, which the seed
+  pack builders call too (decided 2026-11-19). The photo's bytes never
   enter the journal; the step returns the keys. A later step saves the
   upload ready or failed with the reason and deletes the original. A second
   run returns the first run's result.
@@ -3415,18 +3417,41 @@ tests that read recorded spans swap the global.
 
 ### Development data
 
-`go run ./cmd/devseed` fills a dev database through the running server
-(`make run`), and refuses any `APP_ENV` but `dev`. It signs each person in
-with `Account.SignIn`, built with a verifier that takes the phone number as
-its own token, so the account and session come out as a phone sign-in
-makes them. After that it only calls the HTTP API with that person's token,
-the way the app does: profile, address book, a GHTK link on the fake
-carrier, listings through uploads and `POST /v1/listings`, then one offer,
-and one COD order the seller has shipped. The people, listings and photos
-are `cmd/devseed/data`, which `data/build.py` made from the app's fixtures
-and which is committed. A second run adds only what is missing. The seeded
-numbers are +84900000001 to +84900000012; to sign in as one on the app, add
-it as a Firebase Auth test number.
+Seed packs carry development data (decided 2026-11-19, spec:
+`~/shopnexus/docs/superpowers/specs/2026-11-19-seed-packs-design.md`). A pack is
+a directory of JSONL, JPEG and float16 `.npy` files; `internal/seedpack`
+documents the format and reads and writes it. `go run ./cmd/seedpack` builds
+packs (`build <source>`, one `seedpack.Builder` per source, listed in
+`cmd/seedpack/main.go`), fills their vectors (`embed`), checks them offline
+(`verify`), writes them to a stack (`load`) and deletes one pack's rows
+(`wipe`). `load`, `wipe` and `embed` refuse any `APP_ENV` but `dev`.
+
+`internal/seedpack/loader` writes through the modules' entities and
+repositories: `Credentials.SignUp` with a phone identity, uploads stored as
+processed with their objects at `media/<upload>.jpg` and
+`media/<upload>_thumb.jpg`, listings built with `NewListing` and `Published`,
+and each sold item as a deal agreed, a COD order shipped by GHTK, delivered and
+confirmed, the listing held for the order and sold to it. It writes no events,
+except the `review.posted` that `Reviews.Insert` writes. Every row's ID is
+`seedpack.ID(pack, kind, key, at)`: a UUIDv7 at the row's own date whose
+random bits hash the pack's name and the row's key, so a second load skips
+what is there and lists ordered by ID keep the pack's dates. Order and move
+IDs are the deal entity's own UUIDv7s at load time. `wipe` deletes the pack's
+accounts and every row that refers to them, following the schema's foreign
+keys, then their uploads' objects. Reviews go through `loader.ReviewWriter`;
+today it keeps the buyer's review of the seller and drops the seller's review
+of the buyer and the replies.
+
+`go run ./cmd/devseed` loads the demo pack, `cmd/devseed/data/demo` (12
+people, 44 listings, 4 sold items, 5 follows, 2.1 MB), which
+`seedpack build fixtures` made from the app's fixtures and which is
+committed. Then it signs each person in with `Account.SignIn`, built with a
+verifier that takes the phone number as its own token, and plays its
+scenario through the HTTP API with their tokens: a GHTK link on the fake
+carrier for each seller, saves, a follow, a chat, one offer, and one COD
+order the seller has shipped. A second run writes only what is missing. The
+demo's numbers are +84900199001 to +84900199012; to sign in as one on the
+app, add it as a Firebase Auth test number.
 
 ### Linting
 

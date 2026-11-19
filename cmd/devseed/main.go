@@ -1,23 +1,10 @@
-// Command devseed fills a development database with people, listings and a
-// few deals, so the app has something to show. It runs against the server
-// that make run started and refuses any APP_ENV but dev.
-//
-//	go run ./cmd/devseed
-//
-// Each person signs in by phone through Account.SignIn, the path the app
-// takes, except that the phone token is the number itself: devseed builds
-// Account with a verifier that trusts it. Everything after sign-in goes
-// through the HTTP API with that person's token. The people, listings and
-// photos come from data/, built from the app's fixtures.
-//
-// A second run adds only what is missing: a profile without a name, a
-// person without an address, a listing whose title its seller does not
-// have, and the deals while the first buyer's inbox is empty.
+// Command devseed loads the demo pack into a dev stack, signs its people in
+// with a verifier that trusts the phone number, and makes a few deals
+// through the HTTP API. A second run adds only what is missing.
 package main
 
 import (
 	"context"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -34,52 +21,18 @@ import (
 	"github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/platform/config"
 	"github.com/shopnexus/server/internal/platform/contact"
+	"github.com/shopnexus/server/internal/platform/objectstore"
 	"github.com/shopnexus/server/internal/platform/postgres"
+	"github.com/shopnexus/server/internal/seedpack"
+	"github.com/shopnexus/server/internal/seedpack/loader"
 )
 
-//go:embed data/seed.json data/photos
-var data embed.FS
+// packDir is the demo pack, from the repository's root.
+const packDir = seedpack.RepoPacks + "/demo"
 
-// seed is data/seed.json.
-type seed struct {
-	Accounts []person  `json:"accounts"`
-	Listings []listing `json:"listings"`
-}
-
-type person struct {
-	Key     string `json:"key"`
-	Name    string `json:"name"`
-	Phone   string `json:"phone"`
-	Bio     string `json:"bio"`
-	Avatar  string `json:"avatar"`
-	Street  string `json:"street"`
-	Commune string `json:"commune"`
-	Kind    string `json:"kind"`
-	Carrier bool   `json:"carrier"`
-}
-
-type listing struct {
-	Key         string   `json:"key"`
-	Seller      string   `json:"seller"`
-	Title       string   `json:"title"`
-	Price       int64    `json:"price"`
-	Category    string   `json:"category"`
-	Condition   string   `json:"condition"`
-	AllowOffers bool     `json:"allow_offers"`
-	Commune     string   `json:"commune"`
-	Photos      []string `json:"photos"`
-	Specs       []spec   `json:"specs"`
-	Description string   `json:"description"`
-}
-
-type spec struct {
-	Label string `json:"label"`
-	Value string `json:"value"`
-}
-
-// member is a seeded person once signed in.
+// member is a pack person once signed in.
 type member struct {
-	person
+	seedpack.Account
 
 	id    string
 	token string
@@ -112,10 +65,6 @@ func run(ctx context.Context) error {
 	if cfg.Env != config.EnvDev {
 		return fmt.Errorf("APP_ENV is %s; devseed only fills a dev database", cfg.Env)
 	}
-	s, err := load()
-	if err != nil {
-		return err
-	}
 	c := client{base: "http://127.0.0.1" + cfg.HTTPAddr[strings.LastIndex(cfg.HTTPAddr, ":"):], http: &http.Client{Timeout: 30 * time.Second}}
 	if err = c.call(ctx, "", http.MethodGet, "/readyz", nil, nil); err != nil {
 		return fmt.Errorf("the server is not ready, start it with make run: %w", err)
@@ -125,123 +74,87 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("connect to postgres: %w", err)
 	}
 	defer pool.Close()
+	store, err := objectstore.New(cfg.ObjectStore)
+	if err != nil {
+		return fmt.Errorf("connect to the object store: %w", err)
+	}
+
+	// The pack: people, listings, sold items and follows.
+	p, err := seedpack.Open(packDir)
+	if err != nil {
+		return err
+	}
+	d := loader.Deps{Pool: pool, Store: store, Ingress: ingress.NewClient(cfg.Restate.IngressURL), Prefix: cfg.Restate.ServicePrefix}
+	if cfg.Embed.TextOn() {
+		d.TextVersion = cfg.Embed.TextVersion
+	}
+	if cfg.AI.EmbedOn() {
+		d.ImageVersion = cfg.Embed.ImageVersion
+	}
+	l := loader.New(d)
+	plan, err := l.Plan(ctx, p, loader.Options{Vectors: loader.VectorsPack, HistoryRatio: 1, Workers: 4, EmbedEvery: time.Second})
+	if err != nil {
+		return err
+	}
+	loaded, err := l.Load(ctx, plan, seedpack.Discard{})
+	if err != nil {
+		return fmt.Errorf("load %s: %w", packDir, err)
+	}
+	for _, w := range loaded.Warnings {
+		fmt.Println("  !", w)
+	}
+	fmt.Printf("demo pack: %d people, %d listings and %d sold items written, %d people and %d listings were there\n",
+		loaded.People.Written, loaded.Listings.Written, loaded.Sold.Written, loaded.People.Skipped, loaded.Listings.Skipped)
+
+	// Sign everyone in, and link GHTK through the fake carrier for every
+	// seller.
 	accounts := service.New(service.Deps{
 		Accounts: repository.NewAccounts(pool), Credentials: repository.NewCredentials(pool), Sessions: repository.NewSessions(pool),
 		Signer: domain.NewSigner(cfg.Auth), Phones: phoneAsToken{}, Ingress: ingress.NewClient(cfg.Restate.IngressURL),
 		Prefix: cfg.Restate.ServicePrefix, Now: time.Now, Log: slog.Default(),
 	})
-
-	// People: sign in, then a name, a photo and an address for whoever has
-	// none, and GHTK through the fake carrier for every seller.
-	people := map[string]*member{}
-	for i := range s.Accounts {
-		p := &s.Accounts[i]
+	people, err := p.Accounts()
+	if err != nil {
+		return err
+	}
+	listings, err := p.Listings()
+	if err != nil {
+		return err
+	}
+	sells := map[string]bool{}
+	ids := map[string]string{}
+	for i := range listings {
+		x := &listings[i]
+		sells[x.Seller] = true
+		ids[x.Key] = p.Manifest.ListingID(x).String()
+	}
+	members := map[string]*member{}
+	for i := range people {
+		a := &people[i]
 		signed, signErr := accounts.SignIn(ctx, service.SignInInput{
-			IdempotencyKey: uuid.NewV7().String(), Proof: service.Proof{PhoneToken: p.Phone}, DeviceName: "devseed",
+			IdempotencyKey: uuid.NewV7().String(), Proof: service.Proof{PhoneToken: a.Phone}, DeviceName: "devseed",
 		})
 		if signErr != nil {
-			return fmt.Errorf("sign in %s: %w", p.Key, signErr)
+			return fmt.Errorf("sign in %s: %w", a.Key, signErr)
 		}
-		m := &member{person: *p, id: signed.Account.ID.String(), token: signed.AccessToken}
-		people[p.Key] = m
-		var me struct {
-			DisplayName string `json:"display_name"`
+		if signed.Account.ID != p.Manifest.AccountID(a) {
+			return fmt.Errorf("%s signs in as %s, not the pack's person; seedpack wipe demo, or free the number", a.Phone, signed.Account.ID)
 		}
-		if err = c.call(ctx, m.token, http.MethodGet, "/v1/accounts/me", nil, &me); err != nil {
-			return fmt.Errorf("account of %s: %w", p.Key, err)
-		}
-		if me.DisplayName == "" {
-			patch := map[string]any{"display_name": p.Name, "bio": p.Bio}
-			if p.Avatar != "" {
-				id, upErr := c.upload(ctx, m.token, "data/photos/"+p.Avatar)
-				if upErr != nil {
-					return fmt.Errorf("avatar of %s: %w", p.Key, upErr)
-				}
-				patch["avatar_upload_id"] = id
-			}
-			if err = c.call(ctx, m.token, http.MethodPatch, "/v1/accounts/me", patch, nil); err != nil {
-				return fmt.Errorf("profile of %s: %w", p.Key, err)
-			}
-		}
-		if _, err = c.address(ctx, m); err != nil {
-			return fmt.Errorf("address of %s: %w", p.Key, err)
-		}
-		if p.Carrier {
-			login := map[string]any{"email": strings.TrimPrefix(p.Phone, "+") + "@devseed.test", "password": "devseed"}
+		m := &member{Account: *a, id: signed.Account.ID.String(), token: signed.AccessToken}
+		members[a.Key] = m
+		if sells[a.Key] {
+			login := map[string]any{"email": strings.TrimPrefix(a.Phone, "+") + "@devseed.test", "password": "devseed"}
 			if err = c.call(ctx, m.token, http.MethodPut, "/v1/carrier-accounts/ghtk", login, nil); err != nil {
-				return fmt.Errorf("link GHTK for %s: %w", p.Key, err)
+				return fmt.Errorf("link GHTK for %s: %w", a.Key, err)
 			}
 		}
 	}
-	fmt.Printf("%d people signed in\n", len(people))
-
-	// Listings: post each one its seller does not have by title, then wait
-	// until every one has left processing.
-	posted, ids := 0, map[string]string{}
-	for i := range s.Listings {
-		l := &s.Listings[i]
-		seller := people[l.Seller]
-		var mine struct {
-			Items []struct {
-				Listing struct{ ID, Title string } `json:"listing"`
-			} `json:"items"`
-		}
-		if err = c.call(ctx, seller.token, http.MethodGet, "/v1/screens/my-listings?pane=on_sale&limit=100", nil, &mine); err != nil {
-			return fmt.Errorf("listings of %s: %w", l.Seller, err)
-		}
-		for _, it := range mine.Items {
-			if it.Listing.Title == l.Title {
-				ids[l.Key] = it.Listing.ID
-			}
-		}
-		if ids[l.Key] != "" {
-			continue
-		}
-		photos := make([]string, 0, len(l.Photos))
-		for _, f := range l.Photos {
-			id, upErr := c.upload(ctx, seller.token, "data/photos/"+f)
-			if upErr != nil {
-				return fmt.Errorf("photo %s of %s: %w", f, l.Key, upErr)
-			}
-			photos = append(photos, id)
-		}
-		var out struct{ ID string }
-		err = c.call(ctx, seller.token, http.MethodPost, "/v1/listings", map[string]any{
-			"title": l.Title, "price": l.Price, "description": l.Description, "category_code": l.Category,
-			"condition": l.Condition, "allow_offers": l.AllowOffers, "commune_code": l.Commune, "photos": photos, "specs": l.Specs,
-		}, &out, "Idempotency-Key", uuid.NewV7().String())
-		if err != nil {
-			return fmt.Errorf("post %s: %w", l.Key, err)
-		}
-		ids[l.Key] = out.ID
-		posted++
-	}
-	deadline := time.Now().Add(3 * time.Minute)
-	for i := range s.Listings {
-		l := &s.Listings[i]
-		for {
-			var got struct{ Status string }
-			if err = c.call(ctx, people[l.Seller].token, http.MethodGet, "/v1/listings/"+ids[l.Key], nil, &got); err != nil {
-				return fmt.Errorf("listing %s: %w", l.Key, err)
-			}
-			if got.Status == "rejected" {
-				return fmt.Errorf("listing %s was rejected; the server log says why its photos failed", l.Key)
-			}
-			if got.Status != "processing" {
-				break
-			}
-			if time.Now().After(deadline) {
-				return fmt.Errorf("listing %s is still processing after 3 minutes", l.Key)
-			}
-			time.Sleep(time.Second)
-		}
-	}
-	fmt.Printf("%d listings posted, %d were there\n", posted, len(ids)-posted)
+	fmt.Printf("%d people signed in\n", len(members))
 
 	// Deals, while Khánh Linh's inbox is empty: she saves three listings,
 	// follows Tuấn Kiệt, asks about and offers on his iPhone 13 Pro, and buys
 	// Hoàng Nam's iPhone 12 at its price by COD, which Nam ships by GHTK.
-	linh, kiet, nam := people["u-linh"], people["u-kiet"], people["u-nam"]
+	linh, kiet, nam := members["u-linh"], members["u-kiet"], members["u-nam"]
 	var inbox struct {
 		Items []json.RawMessage `json:"items"`
 	}
@@ -307,21 +220,8 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-// load reads data/seed.json.
-func load() (seed, error) {
-	raw, err := data.ReadFile("data/seed.json")
-	if err != nil {
-		return seed{}, fmt.Errorf("read data/seed.json: %w", err)
-	}
-	var s seed
-	if err = json.Unmarshal(raw, &s); err != nil {
-		return seed{}, fmt.Errorf("data/seed.json: %w", err)
-	}
-	return s, nil
-}
-
-// address returns the id of the person's first address, adding their
-// seeded one when the book is empty.
+// address returns the id of the person's first address, which the pack
+// gave them.
 func (c client) address(ctx context.Context, m *member) (string, error) {
 	var book struct {
 		Items []struct{ ID string } `json:"items"`
@@ -329,15 +229,8 @@ func (c client) address(ctx context.Context, m *member) (string, error) {
 	if err := c.call(ctx, m.token, http.MethodGet, "/v1/addresses", nil, &book); err != nil {
 		return "", err
 	}
-	if len(book.Items) > 0 {
-		return book.Items[0].ID, nil
+	if len(book.Items) == 0 {
+		return "", fmt.Errorf("%s has no address; the demo pack gives everyone one", m.Key)
 	}
-	var made struct{ ID string }
-	err := c.call(ctx, m.token, http.MethodPost, "/v1/addresses", map[string]any{
-		"name": m.Name, "phone": m.Phone, "street": m.Street, "commune_code": m.Commune, "kind": m.Kind,
-	}, &made, "Idempotency-Key", uuid.NewV7().String())
-	if err != nil {
-		return "", fmt.Errorf("add the address: %w", err)
-	}
-	return made.ID, nil
+	return book.Items[0].ID, nil
 }

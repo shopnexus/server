@@ -1,0 +1,16 @@
+{
+  "format": 1,
+  "name": "demo",
+  "version": "2026.11.19",
+  "license": "the server repository's license",
+  "source": "ShopNexus app fixtures (core/data/src/main/resources/fixtures); photos from Unsplash",
+  "counts": {
+    "accounts": 12,
+    "listings": 44,
+    "photos": 47,
+    "avatars": 5,
+    "sold": 4,
+    "reviews": 6,
+    "follows": 5
+  }
+}

@@ -138,7 +138,7 @@ func TestProcessJPEGPNGWebP(t *testing.T) {
 func TestProcessDropsExif(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	id := e.uploadAs(t, "image/jpeg", withOrientation(mediatest.JPEG(t, 800, 600), 1))
+	id := e.uploadAs(t, "image/jpeg", mediatest.WithOrientation(mediatest.JPEG(t, 800, 600), 1))
 	if res := e.process(t, id); res.Status != domain.StatusReady {
 		t.Fatalf("%+v", res)
 	}
@@ -153,7 +153,7 @@ func TestProcessDropsExif(t *testing.T) {
 func TestProcessRefusesHugeImages(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	id := e.uploadAs(t, "image/png", pngHeaderOf(10000, 10000, 8))
+	id := e.uploadAs(t, "image/png", mediatest.PNGHeader(10000, 10000, 8))
 	res := e.process(t, id)
 	if res.Status != domain.StatusFailed || !strings.Contains(res.Failure, "too large") {
 		t.Fatalf("%+v", res)

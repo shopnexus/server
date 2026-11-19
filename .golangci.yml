@@ -1928,6 +1928,8 @@ linters:
       # the client as they are.
       ignore-package-globs:
         - github.com/shopnexus/server/internal/*/domain
+        # The seed pack packages name the file, line or row in their errors.
+        - github.com/shopnexus/server/internal/seedpack*
       extra-ignore-sigs:
         # These build an *apperr.Error; there is nothing below it to wrap.
         - apperr.New(

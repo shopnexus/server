@@ -82,6 +82,9 @@ type Deps struct {
 }
 
 // Media implements Service in this process.
+// processSlots is how many photos the process decodes at once.
+const processSlots = 2
+
 type Media struct {
 	uploads repository.Uploads
 	store   *objectstore.Store

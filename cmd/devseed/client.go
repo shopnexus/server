@@ -69,38 +69,3 @@ func (c client) call(ctx context.Context, token, method, path string, body, out 
 	}
 	return nil
 }
-
-// upload sends one embedded JPEG through POST /v1/uploads and the presigned
-// PUT, and returns its upload id.
-func (c client) upload(ctx context.Context, token, file string) (string, error) {
-	raw, err := data.ReadFile(file)
-	if err != nil {
-		return "", fmt.Errorf("read %s: %w", file, err)
-	}
-	var ticket struct {
-		UploadID string            `json:"upload_id"`
-		URL      string            `json:"url"`
-		Headers  map[string]string `json:"headers"`
-	}
-	err = c.call(ctx, token, http.MethodPost, "/v1/uploads", map[string]any{"content_type": "image/jpeg", "size": len(raw)}, &ticket)
-	if err != nil {
-		return "", err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, ticket.URL, bytes.NewReader(raw))
-	if err != nil {
-		return "", fmt.Errorf("PUT the upload: %w", err)
-	}
-	for k, v := range ticket.Headers {
-		req.Header.Set(k, v)
-	}
-	req.ContentLength = int64(len(raw))
-	res, err := c.http.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("PUT the upload: %w", err)
-	}
-	defer func() { _ = res.Body.Close() }()
-	if res.StatusCode >= 300 {
-		return "", fmt.Errorf("PUT the upload: %d", res.StatusCode)
-	}
-	return ticket.UploadID, nil
-}
