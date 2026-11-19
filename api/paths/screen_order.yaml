@@ -41,7 +41,9 @@ screenOrders:
       Newest order first, paged by order ID. The buyer's rows also carry
       own_review, as GET /v1/screens/order/{order_id} reads it; a seller's
       rows have none. Recipient and pickup fields follow the canonical
-      Order's privacy rules.
+      Order's privacy rules. Every page also carries the side's count over
+      all of the caller's orders: cod_orders for buying, awaiting_shipment
+      for selling.
     tags: [screen]
     security:
       - bearerAuth: []

@@ -3316,13 +3316,19 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-orders.md`.
   whose only caller was the app. A row is `{order, counterpart,
   own_review}`: `order` is deal's `OrderItem` with the canonical `Order`
   redaction, `counterpart` the public `Person`, and `own_review`, on both
-  sides' rows, the order view's `OwnReview`. A page costs three calls:
-  `ListOrders`, then account's `GetMany` and trust's `OrderReviews` at the
-  same time (`errgroup`). `OrderReviews` reads the page's reviews in one
+  sides' rows, the order view's `OwnReview`. A page costs four calls:
+  `ListOrders`, then account's `GetMany`, trust's `OrderReviews` and the
+  side's count at the same time (`errgroup`). `OrderReviews` reads the page's reviews in one
   query, `Reviews.OfOrders`. The order view calls `OrderReviews` with its
   one order. `ListOrders` reads listings and
   communes for the rows `page.Of` kept, as catalog's `SellerListings`
-  does. Deal's `OrderItem` holds the other party's ID in `CounterpartID`,
+  does. Each page also counts over all of the caller's orders on its side
+  (decided 2026-11-19), so the list needs no paging for them: `cod_orders`
+  for buying, the `Cap` of the checkout and the reputation view
+  (`BuyerOrders.Open` against `domain.MaxOpenOrders`), and
+  `awaiting_shipment` for selling, the pending orders, which wait for the
+  seller's shipment (`AwaitingShipment`, one count over `orders_seller`).
+  The other side's field is absent. Deal's `OrderItem` holds the other party's ID in `CounterpartID`,
   which is not in the schema, as `AccountView` holds `LastActiveAt`.
   `GET /v1/me/deals` and the orders view parse `role` through deal's
   `domain.ListRole`.

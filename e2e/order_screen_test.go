@@ -155,9 +155,17 @@ func (r ordersRow) review(t *testing.T) ownReview {
 	return v
 }
 
-func ordersScreen(t *testing.T, token, query string) page[ordersRow] {
+// ordersPage is an OrdersScreen: a page of rows and the side's count.
+type ordersPage struct {
+	page[ordersRow]
+
+	CodOrders        *struct{ Used, Max int } `json:"cod_orders"`
+	AwaitingShipment *int                     `json:"awaiting_shipment"`
+}
+
+func ordersScreen(t *testing.T, token, query string) ordersPage {
 	t.Helper()
-	return expect[page[ordersRow]](t, call(t, "GET", "/v1/screens/orders?"+query, nil, bearer(token)), http.StatusOK)
+	return expect[ordersPage](t, call(t, "GET", "/v1/screens/orders?"+query, nil, bearer(token)), http.StatusOK)
 }
 
 func TestOrdersScreen(t *testing.T) {
@@ -251,6 +259,16 @@ func TestOrdersScreen(t *testing.T) {
 		if empty := ordersScreen(t, nobody.AccessToken, "role="+role); empty.Items == nil || len(empty.Items) != 0 || empty.NextCursor != "" {
 			t.Fatalf("empty %s page: %+v", role, empty)
 		}
+	}
+
+	// The buyer's open COD orders and the seller's orders to ship count
+	// only the pending one.
+	pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
+	if v := ordersScreen(t, buyer.AccessToken, "role=buying&limit=1"); v.CodOrders == nil || v.CodOrders.Used != 1 || v.CodOrders.Max != 3 || v.AwaitingShipment != nil {
+		t.Fatalf("buyer's counts: %+v %v", v.CodOrders, v.AwaitingShipment)
+	}
+	if v := ordersScreen(t, seller.AccessToken, "role=selling&limit=1"); v.AwaitingShipment == nil || *v.AwaitingShipment != 1 || v.CodOrders != nil {
+		t.Fatalf("seller's counts: %+v %v", v.CodOrders, v.AwaitingShipment)
 	}
 	check(t, "orders screen signed out", call(t, "GET", "/v1/screens/orders?role=buying", nil), http.StatusUnauthorized, "unauthenticated")
 	check(t, "orders screen without a role", call(t, "GET", "/v1/screens/orders", nil, bearer(buyer.AccessToken)), http.StatusBadRequest, "")

@@ -34,6 +34,13 @@ OrdersScreen:
       type: string
       format: uuid
       description: Present when more orders follow; pass it as cursor.
+    cod_orders:
+      $ref: "screen_account.yaml#/Cap"
+      description: Buying only. The caller's pending and shipped orders against the open COD order cap, as the checkout reads it. Absent for selling.
+    awaiting_shipment:
+      type: integer
+      minimum: 0
+      description: Selling only. The caller's pending orders, which wait for the caller to create the shipment. Absent for buying.
 OrdersScreenItem:
   type: object
   additionalProperties: false

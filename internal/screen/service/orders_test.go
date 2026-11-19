@@ -167,7 +167,7 @@ func (e *env) address(t *testing.T, owner uuid.UUID) uuid.UUID {
 // read reads one page of the orders view and checks it called each
 // service a fixed number of times: the page, the people and the reviews,
 // each once.
-func (e *env) read(t *testing.T, account uuid.UUID, as dealdomain.Party, p page.Request) page.Page[service.OrdersScreenItem] {
+func (e *env) read(t *testing.T, account uuid.UUID, as dealdomain.Party, p page.Request) service.OrdersScreen {
 	t.Helper()
 	e.take()
 	v, err := e.screen.Orders(context.Background(), account, as, p)
@@ -288,16 +288,28 @@ func TestOrdersPageNewestFirst(t *testing.T) {
 	if len(second.Items) != 1 || second.Items[0].Order.ID != older || second.NextCursor != nil {
 		t.Fatalf("second page: %+v", second)
 	}
+	// Each page counts over every order of the side.
+	for _, v := range []service.OrdersScreen{first, second} {
+		if v.CodOrders == nil || *v.CodOrders != (service.Cap{Used: 2, Max: dealdomain.MaxOpenOrders}) || v.AwaitingShipment != nil {
+			t.Fatalf("buyer's counts: %+v %v", v.CodOrders, v.AwaitingShipment)
+		}
+	}
+	if sold := e.read(t, seller, dealdomain.Seller, page.Request{Limit: 1}); sold.AwaitingShipment == nil || *sold.AwaitingShipment != 2 || sold.CodOrders != nil {
+		t.Fatalf("seller's counts: %+v %v", sold.CodOrders, sold.AwaitingShipment)
+	}
 }
 
 func TestOrdersEmptyPage(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	nobody := accounttest.WithPhone(t, e.db)
-	for _, as := range []dealdomain.Party{dealdomain.Buyer, dealdomain.Seller} {
+	for as, want := range map[dealdomain.Party]string{
+		dealdomain.Buyer:  `{"items":[],"cod_orders":{"used":0,"max":3}}`,
+		dealdomain.Seller: `{"items":[],"awaiting_shipment":0}`,
+	} {
 		v := e.read(t, nobody, as, page.Request{})
 		raw, err := json.Marshal(v)
-		if err != nil || string(raw) != `{"items":[]}` {
+		if err != nil || string(raw) != want {
 			t.Fatalf("%s's empty page: %s %v", as, raw, err)
 		}
 	}

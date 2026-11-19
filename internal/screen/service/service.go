@@ -26,8 +26,9 @@ import (
 type Service interface {
 	Order(ctx context.Context, account, order uuid.UUID) (OrderScreen, error)
 	// Orders reads a page of account's orders on side as, each with the
-	// other party and, for the buyer, account's review.
-	Orders(ctx context.Context, account uuid.UUID, as dealdomain.Party, p page.Request) (page.Page[OrdersScreenItem], error)
+	// other party and, for the buyer, account's review, and the side's
+	// count: the buyer's open COD orders, the seller's pending orders.
+	Orders(ctx context.Context, account uuid.UUID, as dealdomain.Party, p page.Request) (OrdersScreen, error)
 	// MyListings reads a page of one of the seller's panes of Tin của bạn,
 	// each listing with its views, askers, saves and open order, and the
 	// last seven days of the listings on sale.

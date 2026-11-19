@@ -25,6 +25,15 @@ FROM orders WHERE buyer_id = @buyer`, pgx.StrictNamedArgs{"buyer": buyer, "since
 	return out, nil
 }
 
+func (s pgDeals) AwaitingShipment(ctx context.Context, seller uuid.UUID) (int, error) {
+	var n int
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM orders WHERE seller_id = @seller AND status = @pending`,
+		pgx.StrictNamedArgs{"seller": seller, "pending": domain.OrderPending}).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count pending sales: %w", err)
+	}
+	return n, nil
+}
+
 func (s pgDeals) CountOrders(ctx context.Context, since time.Time) (map[domain.OrderStatus]int, error) {
 	return postgres.Counts[domain.OrderStatus](s.db.Query(ctx, `SELECT status, count(*) FROM orders WHERE requested_at >= @since GROUP BY status`,
 		pgx.StrictNamedArgs{"since": since}))

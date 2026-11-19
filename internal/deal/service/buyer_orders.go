@@ -17,6 +17,14 @@ func (s *Deals) BuyerOrders(ctx context.Context, buyer uuid.UUID) (domain.BuyerO
 	return n, nil
 }
 
+func (s *Deals) AwaitingShipment(ctx context.Context, seller uuid.UUID) (int, error) {
+	n, err := s.deals.AwaitingShipment(ctx, seller)
+	if err != nil {
+		return 0, fmt.Errorf("count pending sales: %w", err)
+	}
+	return n, nil
+}
+
 func (s *Deals) CountOrders(ctx context.Context, since time.Time) (map[domain.OrderStatus]int, error) {
 	n, err := s.deals.CountOrders(ctx, since)
 	if err != nil {

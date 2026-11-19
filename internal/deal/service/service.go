@@ -148,6 +148,9 @@ type Service interface {
 	// BuyerOrders counts buyer's orders over the last domain.BuyerPeriod,
 	// placed and failed, and those open now against domain.MaxOpenOrders.
 	BuyerOrders(ctx context.Context, buyer uuid.UUID) (domain.BuyerOrders, error)
+	// AwaitingShipment counts seller's pending orders, which wait for the
+	// seller to create the shipment.
+	AwaitingShipment(ctx context.Context, seller uuid.UUID) (int, error)
 	// CountOrders counts the orders requested at or after since, the zero
 	// time for all, in each status.
 	CountOrders(ctx context.Context, since time.Time) (map[domain.OrderStatus]int, error)
