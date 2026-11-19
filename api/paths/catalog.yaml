@@ -505,6 +505,41 @@ listingDrafts:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
 listingDraft:
+  get:
+    operationId: getListingDraft
+    x-uc: [UC-LST-01]
+    summary: Read one of the caller's drafts.
+    description: |
+      The draft in full, as GET /v1/listing-drafts lists it: photos a
+      listing took or that expired are left out. A draft past expires_at
+      reads as missing.
+    tags: [catalog]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "200":
+        description: The draft.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/ListingDraft"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such draft of the caller's, another account's draft included (draft_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
   put:
     operationId: putListingDraft
     x-uc: [UC-LST-01]

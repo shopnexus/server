@@ -66,6 +66,11 @@ type Service interface {
 	//
 	// UC-LST-01 A4
 	ListDrafts(ctx context.Context, account uuid.UUID) ([]DraftView, error)
+	// GetDraft reads one of the caller's drafts in full; another
+	// account's, an expired one or none is domain.ErrDraftNotFound.
+	//
+	// UC-LST-01
+	GetDraft(ctx context.Context, account, id uuid.UUID) (DraftView, error)
 	// DeleteDraft deletes one of the caller's drafts; none changes nothing.
 	//
 	// UC-LST-01 A4

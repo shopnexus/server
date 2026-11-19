@@ -146,6 +146,22 @@ ORDER BY updated_at DESC, id DESC LIMIT @limit`, pgx.StrictNamedArgs{"account": 
 	return out, nil
 }
 
+func (s pgDrafts) Get(ctx context.Context, account, id uuid.UUID, now time.Time) (domain.ListingDraft, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+draftColumns+` FROM listing_drafts
+WHERE id = @id AND account_id = @account AND expires_at > @now`, pgx.StrictNamedArgs{"id": id, "account": account, "now": now})
+	if err != nil {
+		return domain.ListingDraft{}, fmt.Errorf("select draft: %w", err)
+	}
+	d, err := pgx.CollectOneRow(rows, scanDraft)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ListingDraft{}, domain.ErrDraftNotFound
+	}
+	if err != nil {
+		return domain.ListingDraft{}, fmt.Errorf("read draft: %w", err)
+	}
+	return d, nil
+}
+
 func (s pgDrafts) Delete(ctx context.Context, account, id uuid.UUID) error {
 	if _, err := s.db.Exec(ctx, `DELETE FROM listing_drafts WHERE id = @id AND account_id = @account`,
 		pgx.StrictNamedArgs{"id": id, "account": account}); err != nil {

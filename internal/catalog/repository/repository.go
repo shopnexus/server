@@ -70,6 +70,9 @@ type Drafts interface {
 	// List is account's drafts that have not expired at now, last written
 	// first, at most domain.MaxDrafts.
 	List(ctx context.Context, account uuid.UUID, now time.Time) ([]domain.ListingDraft, error)
+	// Get is account's draft id when it has not expired at now; another
+	// account's draft, an expired one or none is domain.ErrDraftNotFound.
+	Get(ctx context.Context, account, id uuid.UUID, now time.Time) (domain.ListingDraft, error)
 	// Delete deletes account's draft id; another account's draft, or none,
 	// is left as it is.
 	Delete(ctx context.Context, account, id uuid.UUID) error

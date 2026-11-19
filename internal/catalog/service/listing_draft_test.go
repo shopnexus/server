@@ -173,6 +173,39 @@ func TestListDraftsLeavesTakenPhotosOut(t *testing.T) {
 	}
 }
 
+// Get reads the caller's draft as the list does, a taken photo left out;
+// another account's, an expired one and none are draft_not_found.
+//
+// UC-LST-01 A4.
+func TestGetDraft(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	me, other := e.account(t), e.account(t)
+	id, taken, left := uuid.NewV7(), e.photo(t, me), e.photo(t, me)
+	if _, _, err := e.catalog.PutDraft(ctx, me, id, content("Xe đạp", taken, left)); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.media.Attach(ctx, me, uuid.NewV7(), []uuid.UUID{taken}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := e.catalog.GetDraft(ctx, me, id)
+	if err != nil || got.ID != id || got.Title != "Xe đạp" || !slices.Equal(photoIDs(got), []uuid.UUID{left}) {
+		t.Fatalf("%+v %v", got, err)
+	}
+	expired := uuid.NewV7()
+	if _, _, err = e.drafts.Put(ctx, me, expired, content(""), time.Now().Add(-domain.DraftLife-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	for name, c := range map[string]struct{ account, id uuid.UUID }{
+		"another account's": {other, id}, "an expired one": {me, expired}, "none": {me, uuid.NewV7()},
+	} {
+		if _, err = e.catalog.GetDraft(ctx, c.account, c.id); !errors.Is(err, domain.ErrDraftNotFound) {
+			t.Fatalf("%s: %v", name, err)
+		}
+	}
+}
+
 // Delete is quiet about a draft that is gone or another account's, and
 // leaves the photos to their own expiry.
 //

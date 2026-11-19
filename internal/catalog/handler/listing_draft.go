@@ -59,6 +59,25 @@ func (h *Handler) ListDrafts(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, list[service.DraftView]{Items: items})
 }
 
+// GetDraft serves GET /v1/listing-drafts/{id}.
+func (h *Handler) GetDraft(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in listingRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	v, err := h.svc.GetDraft(r.Context(), p.AccountID, in.ID)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, v)
+}
+
 // DeleteDraft serves DELETE /v1/listing-drafts/{id}.
 func (h *Handler) DeleteDraft(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)

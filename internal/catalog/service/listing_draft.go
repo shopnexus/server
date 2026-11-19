@@ -56,6 +56,20 @@ func (c *Catalog) ListDrafts(ctx context.Context, account uuid.UUID) ([]DraftVie
 	return out, nil
 }
 
+// GetDraft is UC-LST-01 A4: it reads the caller's draft id, leaving out a
+// photo a listing took or that expired, as ListDrafts does.
+func (c *Catalog) GetDraft(ctx context.Context, account, id uuid.UUID) (DraftView, error) {
+	d, err := c.drafts.Get(ctx, account, id, c.now())
+	if err != nil {
+		return DraftView{}, fmt.Errorf("get draft: %w", err)
+	}
+	gone, err := c.media.Gone(ctx, account, d.Photos())
+	if err != nil {
+		return DraftView{}, fmt.Errorf("find the photos that are gone: %w", err)
+	}
+	return c.draftView(ctx, d, gone)
+}
+
 // DeleteDraft is UC-LST-01 A4: it deletes the caller's draft id; another
 // account's draft, or none, changes nothing. Its photos expire on their
 // own.
@@ -67,7 +81,8 @@ func (c *Catalog) DeleteDraft(ctx context.Context, account, id uuid.UUID) error 
 }
 
 // draftView is d without the photos in gone, each other photo with a
-// presigned URL valid for an hour. PutDraft and ListDrafts call it.
+// presigned URL valid for an hour. PutDraft, ListDrafts and GetDraft
+// call it.
 func (c *Catalog) draftView(ctx context.Context, d domain.ListingDraft, gone []uuid.UUID) (DraftView, error) {
 	dc := d.Content()
 	photos := domain.KeepPhotos(dc.Photos, gone)

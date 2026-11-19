@@ -1021,13 +1021,16 @@ agree during a deploy.
   revision. `GET /v1/listing-drafts` returns every draft in full, last
   written first, with no pages; `DELETE` answers 204, also for a draft
   that is gone or another account's. Another account's ID on a PUT is
-  `draft_not_found`.
+  `draft_not_found`. `GET /v1/listing-drafts/{id}` (2026-11-19) reads one
+  draft as the list does; another account's, an expired one or none is
+  404 `draft_not_found`. It deletes nothing: an expired draft goes on
+  the account's next list or PUT.
 - An account keeps 20 drafts (`draft_limit_reached` on a 21st create),
   counted under `pg_advisory_xact_lock(hashtext('drafts:' || account))`
   with a share lock on the account's row; a deleted account's write is
   `session_revoked`, a suspended account still writes its drafts. A draft
   lives 30 days after its last write (`domain.DraftLife`), and the
-  account's next GET or PUT deletes it first, so it frees its place; no
+  account's next list or PUT deletes it first, so it frees its place; no
   job and no notice.
 - The server reads the typed columns (`title` up to 100 characters,
   `price`, `photos` up to 10 upload IDs) and keeps `body`, the app's JSON

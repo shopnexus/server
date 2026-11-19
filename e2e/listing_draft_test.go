@@ -67,6 +67,9 @@ func TestListingDraftLifecycle(t *testing.T) {
 	if d = expect[listingDraft](t, call(t, "PUT", path, draftBody("Xe đạp Asama", photo), auth), http.StatusOK); d.Title != "Xe đạp Asama" {
 		t.Fatalf("%+v", d)
 	}
+	if one := expect[listingDraft](t, call(t, "GET", path, nil, auth), http.StatusOK); one.ID != d.ID || one.Title != "Xe đạp Asama" || len(one.Photos) != 1 {
+		t.Fatalf("one draft: %+v", one)
+	}
 	list := expect[struct {
 		Items []listingDraft `json:"items"`
 	}](t, call(t, "GET", "/v1/listing-drafts", nil, auth), http.StatusOK)
@@ -75,6 +78,7 @@ func TestListingDraftLifecycle(t *testing.T) {
 	}
 	check(t, "delete", call(t, "DELETE", path, nil, auth), http.StatusNoContent, "")
 	check(t, "delete again", call(t, "DELETE", path, nil, auth), http.StatusNoContent, "")
+	check(t, "get a deleted one", call(t, "GET", path, nil, auth), http.StatusNotFound, "draft_not_found")
 	if list = expect[struct {
 		Items []listingDraft `json:"items"`
 	}](t, call(t, "GET", "/v1/listing-drafts", nil, auth), http.StatusOK); len(list.Items) != 0 {
@@ -94,6 +98,9 @@ func TestListingDraftRefusals(t *testing.T) {
 	check(t, "put signed out", call(t, "PUT", fresh(), draftBody("")), http.StatusUnauthorized, "unauthenticated")
 	check(t, "list signed out", call(t, "GET", "/v1/listing-drafts", nil), http.StatusUnauthorized, "unauthenticated")
 	check(t, "delete signed out", call(t, "DELETE", fresh(), nil), http.StatusUnauthorized, "unauthenticated")
+	check(t, "get signed out", call(t, "GET", fresh(), nil), http.StatusUnauthorized, "unauthenticated")
+	check(t, "get a bad ID", call(t, "GET", "/v1/listing-drafts/nope", nil, auth), http.StatusBadRequest, "invalid_request")
+	check(t, "get another account's", call(t, "GET", theirs, nil, auth), http.StatusNotFound, "draft_not_found")
 	check(t, "put a bad ID", call(t, "PUT", "/v1/listing-drafts/nope", draftBody(""), auth), http.StatusBadRequest, "invalid_request")
 	check(t, "delete a bad ID", call(t, "DELETE", "/v1/listing-drafts/nope", nil, auth), http.StatusBadRequest, "invalid_request")
 	check(t, "a 101-letter title", call(t, "PUT", fresh(), draftBody(strings.Repeat("a", 101)), auth), http.StatusBadRequest, "invalid_request")
