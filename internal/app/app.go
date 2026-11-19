@@ -429,7 +429,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}, accounts, catalogm.Service, dealm.Service, chatm.Service)
 	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service, trustm.Service,
 		catalogm.Service)
-	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, HTTP: &http.Client{}}
+	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, Effort: cfg.LLM.Effort, HTTP: &http.Client{}}
 	discoverym := discovery.Mount(d, discovery.Settings{
 		Model:       model,
 		Text:        embedder(cfg.Embed.SearchAPIKey),

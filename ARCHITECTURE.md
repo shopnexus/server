@@ -2144,7 +2144,8 @@ Search and the nearby feed (decided 2026-10-27, spec:
   (see Chat).
 - Discovery owns the understanding. With `q` it asks the model, through
   `internal/provider/llm` (an OpenAI-compatible chat completions call with
-  a strict JSON schema, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`), for
+  a strict JSON schema, `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL`, and
+  `LLM_REASONING_EFFORT` sent as `reasoning_effort` when set), for
   boosts and demotes: phrase, category, price, condition, place, near_me,
   fresh, offers, each with up to three values in priority order. The model
   never writes a weight. Every value is resolved against real rows (the

@@ -150,6 +150,8 @@ type LLMConfig struct {
 	BaseURL string // LLM_BASE_URL: an OpenAI-compatible API, such as https://proxy/v1
 	APIKey  string // LLM_API_KEY
 	Model   string // LLM_MODEL
+	// LLM_REASONING_EFFORT: none, low, medium or high; empty is the model's default
+	Effort string
 }
 
 // EmbedConfig says where the text embedding model is and how search uses
@@ -615,7 +617,10 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			GHTKURL:   set("GHTK_API_URL"), GHTKPartner: set("GHTK_PARTNER_TOKEN"), GHTKSource: set("GHTK_CLIENT_SOURCE"),
 			GHTKWebhook: set("GHTK_WEBHOOK_SECRET"), GHNURL: set("GHN_API_URL"), GHNWebhook: set("GHN_WEBHOOK_SECRET"),
 		},
-		LLM: LLMConfig{BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL")},
+		LLM: LLMConfig{
+			BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL"),
+			Effort: oneOf("LLM_REASONING_EFFORT", "", "none", "low", "medium", "high"),
+		},
 		Embed: EmbedConfig{
 			TextBaseURL: forKind(textModel, "EMBED_TEXT_BASE_URL"), TextModel: textModel,
 			TextVersion: forKind(textModel, "EMBED_TEXT_VERSION"), ImageVersion: forKind(imageModel, "EMBED_IMAGE_VERSION"),

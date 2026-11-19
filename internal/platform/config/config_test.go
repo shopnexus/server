@@ -74,6 +74,7 @@ func required() map[string]string {
 		"LLM_BASE_URL":                 "https://llm.example.test/v1",
 		"LLM_API_KEY":                  "llm-key",
 		"LLM_MODEL":                    "a-model",
+		"LLM_REASONING_EFFORT":         "none",
 		"EMBED_TEXT_BASE_URL":          "http://openrouter.example.test/v1",
 		"EMBED_TEXT_MODEL":             "embed-text",
 		"EMBED_TEXT_VERSION":           "bge-m3@5617a9f6",
@@ -192,7 +193,7 @@ func TestLoadAllSet(t *testing.T) {
 			AccessKey: "access", SecretKey: "secret", Bucket: "server", PublicURL: "http://rustfs:9000/server",
 			UploadOrigins: []string{"https://example.test"},
 		},
-		LLM: LLMConfig{BaseURL: "https://llm.example.test/v1", APIKey: "llm-key", Model: "a-model"},
+		LLM: LLMConfig{BaseURL: "https://llm.example.test/v1", APIKey: "llm-key", Model: "a-model", Effort: "none"},
 		Embed: EmbedConfig{
 			TextBaseURL: "http://openrouter.example.test/v1", TextModel: "embed-text",
 			TextVersion: "bge-m3@5617a9f6", ImageVersion: "siglip2-so400m-patch16-384-fp32@29f74e67",
