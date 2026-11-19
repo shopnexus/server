@@ -41,6 +41,7 @@ const (
 	TypeListingRejected    Type = "listing_rejected"
 	TypeFollowedListing    Type = "followed_listing"
 	TypeReview             Type = "review"
+	TypeReviewReply        Type = "review_reply"
 	TypeSuspended          Type = "suspended"
 	TypeUnsuspended        Type = "unsuspended"
 	TypeWatchMatched       Type = "watch_matched"
@@ -223,11 +224,20 @@ func PriceDropped(recipient, listing uuid.UUID, title string, price, saved int64
 	}
 }
 
-// Reviewed tells a seller a buyer reviewed them.
-func Reviewed(seller uuid.UUID, buyerName, title string, stars int, at time.Time) Notice {
+// Reviewed tells the subject of a review, once it shows, that the other
+// side of an order reviewed them.
+func Reviewed(subject uuid.UUID, reviewerName, title string, stars int, order uuid.UUID, at time.Time) Notice {
 	return Notice{
-		Recipient: seller, Type: TypeReview, At: at,
-		Params: Params{SellerID: seller, Actor: buyerName, Title: title, Stars: stars},
+		Recipient: subject, Type: TypeReview, At: at,
+		Params: Params{OrderID: order, Actor: reviewerName, Title: title, Stars: stars},
+	}
+}
+
+// ReviewReplied tells a reviewer that the subject replied to their review.
+func ReviewReplied(reviewer uuid.UUID, subjectName, title string, order uuid.UUID, at time.Time) Notice {
+	return Notice{
+		Recipient: reviewer, Type: TypeReviewReply, At: at,
+		Params: Params{OrderID: order, Actor: subjectName, Title: title},
 	}
 }
 
@@ -261,7 +271,7 @@ var (
 	orders   = group{"Đơn hàng", orderTarget, SwitchOrders}
 	listings = group{"Tin đăng", opens("listing", listingID), SwitchNone}
 	followed = group{"Tin đăng", opens("listing", listingID), SwitchFollowed}
-	reviews  = group{"Đánh giá", opens("seller_reviews", func(p Params) uuid.UUID { return p.SellerID }), SwitchReviews}
+	reviews  = group{"Đánh giá", reviewTarget, SwitchReviews}
 	accounts = group{"Tài khoản", opens("account", func(Params) uuid.UUID { return uuid.UUID{} }), SwitchNone}
 	searches = group{"Tìm kiếm", opens("search_watch", func(p Params) uuid.UUID { return p.WatchID }), SwitchNone}
 	saved    = group{"Đã lưu", opens("listing", listingID), SwitchPriceCuts}
@@ -288,6 +298,15 @@ func opens(screen string, id func(Params) uuid.UUID) func(Params) Target {
 func orderTarget(p Params) Target {
 	if p.OrderID == (uuid.UUID{}) {
 		return haggling.target(p)
+	}
+	return Target{Kind: "order", ID: p.OrderID.String()}
+}
+
+// reviewTarget opens the order a review notice is about; one from before
+// two-way reviews names only the seller and opens their reviews.
+func reviewTarget(p Params) Target {
+	if p.OrderID == (uuid.UUID{}) {
+		return opens("seller_reviews", func(p Params) uuid.UUID { return p.SellerID })(p)
 	}
 	return Target{Kind: "order", ID: p.OrderID.String()}
 }
@@ -349,8 +368,9 @@ var types = map[Type]struct {
 	TypeListingRejected: {listings, func(p Params) string { return p.Title + " chưa lên được: một ảnh bị từ chối" }},
 	TypeFollowedListing: {followed, func(p Params) string { return p.Seller + " vừa đăng tin mới: " + p.Title }},
 	TypeReview: {reviews, func(p Params) string {
-		return p.Actor + " chấm " + strconv.Itoa(p.Stars) + " sao cho " + p.Title
+		return p.Actor + " chấm bạn " + strconv.Itoa(p.Stars) + " sao · " + p.Title
 	}},
+	TypeReviewReply: {reviews, func(p Params) string { return p.Actor + " trả lời đánh giá của bạn · " + p.Title }},
 	TypeSuspended: {accounts, func(p Params) string {
 		until, err := time.Parse(time.RFC3339, p.Until)
 		if err != nil {

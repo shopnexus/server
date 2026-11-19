@@ -1,6 +1,6 @@
-// Package domain holds module trust's entities: the review a buyer gives
-// the seller of a shipped order, and the reports people make of listings
-// and accounts.
+// Package domain holds module trust's entities: the reviews the two sides
+// of a closed order give each other, and the reports people make of
+// listings and accounts.
 package domain
 
 import (
@@ -10,43 +10,90 @@ import (
 	"uuid"
 )
 
+// Role is the side of the order the subject of a review was on.
+type Role string
+
+const (
+	// RoleSeller rates the person who sold; the buyer writes it.
+	RoleSeller Role = "seller"
+	// RoleBuyer rates the person who bought; the seller writes it.
+	RoleBuyer Role = "buyer"
+)
+
+// Valid reports whether r is a known role.
+func (r Role) Valid() bool { return r == RoleSeller || r == RoleBuyer }
+
+// Other is the role of the review the other side of the order writes.
+func (r Role) Other() Role {
+	if r == RoleSeller {
+		return RoleBuyer
+	}
+	return RoleSeller
+}
+
 const (
 	MaxStars = 5
 	MaxText  = 500
 	// EditWindow is how long after the first submission a review may be
 	// edited or deleted.
 	EditWindow = 7 * 24 * time.Hour
+	// BlindWindow is how long after the order closed a review stays
+	// hidden when the other side has not reviewed.
+	BlindWindow = 7 * 24 * time.Hour
 )
 
-// Review is a buyer's stars and words about the seller of one order. A
-// deleted review keeps its first submission time and loses its text.
+// RevealAt is when a new review becomes visible: now when the other side
+// has reviewed the order, otherwise BlindWindow after it closed.
+func RevealAt(closedAt time.Time, otherSide bool, now time.Time) time.Time {
+	at := closedAt.Add(BlindWindow)
+	if otherSide || at.Before(now) {
+		return now
+	}
+	return at
+}
+
+// Review is one side's stars and words about the other side of an order,
+// and the subject's one reply. A deleted review keeps its first submission
+// time and loses its text.
 type Review struct {
-	id        uuid.UUID
-	orderID   uuid.UUID
-	sellerID  uuid.UUID
-	buyerID   uuid.UUID
-	listingID uuid.UUID
-	stars     int
-	text      string
-	deletedAt *time.Time
-	writeID   uuid.UUID
-	createdAt time.Time
-	updatedAt time.Time
+	id         uuid.UUID
+	orderID    uuid.UUID
+	role       Role
+	reviewerID uuid.UUID
+	subjectID  uuid.UUID
+	listingID  uuid.UUID
+	stars      int
+	text       string
+	reply      string
+	repliedAt  *time.Time
+	visibleAt  time.Time
+	deletedAt  *time.Time
+	writeID    uuid.UUID
+	createdAt  time.Time
+	updatedAt  time.Time
 }
 
 // NewReview checks a first review: 1 to 5 stars and up to 500 characters
-// of text after trimming.
-func NewReview(id, order, seller, buyer, listing uuid.UUID, stars int, text string, now time.Time) (Review, error) {
-	r := Review{id: id, orderID: order, sellerID: seller, buyerID: buyer, listingID: listing, writeID: id, createdAt: now}
+// of text after trimming. visibleAt comes from RevealAt.
+func NewReview(id, order uuid.UUID, role Role, reviewer, subject, listing uuid.UUID, stars int, text string,
+	visibleAt, now time.Time,
+) (Review, error) {
+	r := Review{
+		id: id, orderID: order, role: role, reviewerID: reviewer, subjectID: subject, listingID: listing,
+		visibleAt: visibleAt, writeID: id, createdAt: now,
+	}
 	if err := r.set(stars, text, now); err != nil {
 		return Review{}, err
 	}
 	return r, nil
 }
 
-// CanChange is ErrLocked once EditWindow has passed since the first
-// submission.
+// CanChange is ErrClosed once the subject replied, and ErrLocked once
+// EditWindow has passed since the first submission.
 func (r *Review) CanChange(now time.Time) error {
+	if r.repliedAt != nil {
+		return ErrClosed
+	}
 	if now.Sub(r.createdAt) > EditWindow {
 		return ErrLocked
 	}
@@ -75,8 +122,36 @@ func (r *Review) Delete(now time.Time) error {
 	return nil
 }
 
-// Deleted reports whether the buyer took the review down.
+// Reply is the subject's one answer, up to 500 characters, to a review
+// they can see. Anyone else gets ErrNotFound, so a hidden review does not
+// leak. After it the review is closed.
+func (r *Review) Reply(by uuid.UUID, text string, now time.Time) error {
+	if by != r.subjectID || r.Deleted() {
+		return ErrNotFound
+	}
+	if !r.Visible(now) {
+		return ErrHidden
+	}
+	if r.repliedAt != nil {
+		return ErrReplied
+	}
+	text = strings.TrimSpace(text)
+	if text == "" || utf8.RuneCountInString(text) > MaxText {
+		return ErrInvalidReview.WithField("text", "1 to 500 characters")
+	}
+	r.reply, r.repliedAt = text, &now
+	return nil
+}
+
+// Visible reports whether the subject and the public see the review at
+// now; its reviewer always does.
+func (r *Review) Visible(now time.Time) bool { return !r.visibleAt.After(now) }
+
+// Deleted reports whether the reviewer took the review down.
 func (r *Review) Deleted() bool { return r.deletedAt != nil }
+
+// Replied reports whether the subject replied.
+func (r *Review) Replied() bool { return r.repliedAt != nil }
 
 func (r *Review) set(stars int, text string, now time.Time) error {
 	e := ErrInvalidReview
@@ -94,37 +169,46 @@ func (r *Review) set(stars int, text string, now time.Time) error {
 	return nil
 }
 
-func (r *Review) ID() uuid.UUID        { return r.id }
-func (r *Review) OrderID() uuid.UUID   { return r.orderID }
-func (r *Review) SellerID() uuid.UUID  { return r.sellerID }
-func (r *Review) BuyerID() uuid.UUID   { return r.buyerID }
-func (r *Review) ListingID() uuid.UUID { return r.listingID }
-func (r *Review) Stars() int           { return r.stars }
-func (r *Review) Text() string         { return r.text }
-func (r *Review) CreatedAt() time.Time { return r.createdAt }
-func (r *Review) UpdatedAt() time.Time { return r.updatedAt }
-func (r *Review) WriteID() uuid.UUID   { return r.writeID }
+func (r *Review) ID() uuid.UUID         { return r.id }
+func (r *Review) OrderID() uuid.UUID    { return r.orderID }
+func (r *Review) Role() Role            { return r.role }
+func (r *Review) ReviewerID() uuid.UUID { return r.reviewerID }
+func (r *Review) SubjectID() uuid.UUID  { return r.subjectID }
+func (r *Review) ListingID() uuid.UUID  { return r.listingID }
+func (r *Review) Stars() int            { return r.stars }
+func (r *Review) Text() string          { return r.text }
+func (r *Review) ReplyText() string     { return r.reply }
+func (r *Review) RepliedAt() *time.Time { return r.repliedAt }
+func (r *Review) VisibleAt() time.Time  { return r.visibleAt }
+func (r *Review) CreatedAt() time.Time  { return r.createdAt }
+func (r *Review) UpdatedAt() time.Time  { return r.updatedAt }
+func (r *Review) WriteID() uuid.UUID    { return r.writeID }
 
 // ReviewState is every stored field of a review. Stores only.
 type ReviewState struct {
-	ID        uuid.UUID
-	OrderID   uuid.UUID
-	SellerID  uuid.UUID
-	BuyerID   uuid.UUID
-	ListingID uuid.UUID
-	Stars     int
-	Text      string
-	DeletedAt *time.Time
-	WriteID   uuid.UUID
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         uuid.UUID
+	OrderID    uuid.UUID
+	Role       Role
+	ReviewerID uuid.UUID
+	SubjectID  uuid.UUID
+	ListingID  uuid.UUID
+	Stars      int
+	Text       string
+	Reply      string
+	RepliedAt  *time.Time
+	VisibleAt  time.Time
+	DeletedAt  *time.Time
+	WriteID    uuid.UUID
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // RestoreReview rebuilds a stored review. Stores only.
 func RestoreReview(st ReviewState) Review {
 	return Review{
-		id: st.ID, orderID: st.OrderID, sellerID: st.SellerID, buyerID: st.BuyerID, listingID: st.ListingID,
-		stars: st.Stars, text: st.Text, deletedAt: st.DeletedAt, writeID: st.WriteID, createdAt: st.CreatedAt,
+		id: st.ID, orderID: st.OrderID, role: st.Role, reviewerID: st.ReviewerID, subjectID: st.SubjectID,
+		listingID: st.ListingID, stars: st.Stars, text: st.Text, reply: st.Reply, repliedAt: st.RepliedAt,
+		visibleAt: st.VisibleAt, deletedAt: st.DeletedAt, writeID: st.WriteID, createdAt: st.CreatedAt,
 		updatedAt: st.UpdatedAt,
 	}
 }
@@ -132,8 +216,9 @@ func RestoreReview(st ReviewState) Review {
 // State returns every stored field. Stores only.
 func (r *Review) State() ReviewState {
 	return ReviewState{
-		ID: r.id, OrderID: r.orderID, SellerID: r.sellerID, BuyerID: r.buyerID, ListingID: r.listingID,
-		Stars: r.stars, Text: r.text, DeletedAt: r.deletedAt, WriteID: r.writeID, CreatedAt: r.createdAt,
+		ID: r.id, OrderID: r.orderID, Role: r.role, ReviewerID: r.reviewerID, SubjectID: r.subjectID,
+		ListingID: r.listingID, Stars: r.stars, Text: r.text, Reply: r.reply, RepliedAt: r.repliedAt,
+		VisibleAt: r.visibleAt, DeletedAt: r.deletedAt, WriteID: r.writeID, CreatedAt: r.createdAt,
 		UpdatedAt: r.updatedAt,
 	}
 }

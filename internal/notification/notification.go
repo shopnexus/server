@@ -50,6 +50,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 	for kind, h := range map[events.Kind]string{
 		events.DealMoved: "DealMoved", events.MessageSent: "MessageSent", events.ListingPublished: "ListingPublished",
 		events.ListingRejected: "ListingRejected", events.ReviewPosted: "ReviewPosted",
+		events.ReviewReplied:    "ReviewReplied",
 		events.AccountSuspended: "AccountSuspended", events.AccountUnsuspended: "AccountUnsuspended",
 		events.AccountDeleted: "AccountDeleted", events.SearchWatchMatched: "SearchWatchMatched",
 		events.SavedPriceDropped: "SavedPriceDropped",

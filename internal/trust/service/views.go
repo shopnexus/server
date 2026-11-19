@@ -39,12 +39,12 @@ type ReportView struct {
 	UpdatedAt      time.Time     `json:"updated_at"`
 }
 
-// Person is the buyer of a review.
+// Person is the reviewer of a review.
 type Person struct {
 	ID          uuid.UUID `json:"id"`
 	DisplayName string    `json:"display_name"`
 	AvatarURL   string    `json:"avatar_url,omitempty"`
-	// Deleted is a buyer who deleted their account; the name is empty.
+	// Deleted is a person who deleted their account; the name is empty.
 	Deleted bool `json:"deleted"`
 }
 
@@ -56,48 +56,57 @@ type ListingRef struct {
 
 // ReviewView is the Review schema in api/schemas/trust.yaml.
 type ReviewView struct {
-	ID        uuid.UUID  `json:"id"`
-	Stars     int        `json:"stars"`
-	Text      string     `json:"text"`
-	Buyer     Person     `json:"buyer"`
-	Listing   ListingRef `json:"listing"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
+	ID        uuid.UUID   `json:"id"`
+	Role      domain.Role `json:"role"`
+	Stars     int         `json:"stars"`
+	Text      string      `json:"text"`
+	Reviewer  Person      `json:"reviewer"`
+	Listing   ListingRef  `json:"listing"`
+	Reply     *Reply      `json:"reply"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at"`
+}
+
+// Reply is the ReviewReply schema: the subject's one answer.
+type Reply struct {
+	Text string    `json:"text"`
+	At   time.Time `json:"at"`
 }
 
 // Rating is the Rating schema in api/schemas/trust.yaml: the average stars
-// and the count over a seller's reviews.
+// and the count over a person's visible reviews in one role.
 type Rating struct {
 	Average float64 `json:"average"`
 	Count   int     `json:"count"`
 }
 
-// views builds the views of reviews, reading their buyers in one call and
-// their listing titles in another.
+// views builds the views of reviews, reading their reviewers in one call
+// and their listing titles in another.
 func (s *Trust) views(ctx context.Context, reviews []domain.Review) ([]ReviewView, error) {
-	listingIDs, buyerIDs := make([]uuid.UUID, 0, len(reviews)), make([]uuid.UUID, 0, len(reviews))
+	listingIDs, reviewerIDs := make([]uuid.UUID, 0, len(reviews)), make([]uuid.UUID, 0, len(reviews))
 	for i := range reviews {
-		listingIDs, buyerIDs = append(listingIDs, reviews[i].ListingID()), append(buyerIDs, reviews[i].BuyerID())
+		listingIDs, reviewerIDs = append(listingIDs, reviews[i].ListingID()), append(reviewerIDs, reviews[i].ReviewerID())
 	}
 	listings, err := s.catalog.Summaries(ctx, listingIDs)
 	if err != nil {
 		return nil, fmt.Errorf("read listings: %w", err)
 	}
-	buyers, err := s.accounts.GetMany(ctx, buyerIDs)
+	reviewers, err := s.accounts.GetMany(ctx, reviewerIDs)
 	if err != nil {
-		return nil, fmt.Errorf("read the buyers: %w", err)
+		return nil, fmt.Errorf("read the reviewers: %w", err)
 	}
 	out := make([]ReviewView, 0, len(reviews))
 	for i := range reviews {
 		r := &reviews[i]
-		buyer := buyers[r.BuyerID()]
+		reviewer := reviewers[r.ReviewerID()]
 		out = append(out, ReviewView{
-			ID: r.ID(), Stars: r.Stars(), Text: r.Text(),
-			Buyer: Person{
-				ID: r.BuyerID(), DisplayName: buyer.DisplayName, AvatarURL: buyer.AvatarURL,
-				Deleted: buyer.Status == accountdomain.StatusDeleted,
+			ID: r.ID(), Role: r.Role(), Stars: r.Stars(), Text: r.Text(),
+			Reviewer: Person{
+				ID: r.ReviewerID(), DisplayName: reviewer.DisplayName, AvatarURL: reviewer.AvatarURL,
+				Deleted: reviewer.Status == accountdomain.StatusDeleted,
 			},
 			Listing:   ListingRef{ID: r.ListingID(), Title: listings[r.ListingID()].Title},
+			Reply:     replyOf(r),
 			CreatedAt: r.CreatedAt(), UpdatedAt: r.UpdatedAt(),
 		})
 	}

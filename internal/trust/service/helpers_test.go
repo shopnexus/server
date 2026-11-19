@@ -106,6 +106,24 @@ func (e env) shipped(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UU
 	return deal, order
 }
 
+// completed is a shipped order the buyer confirmed receiving.
+func (e env) completed(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
+	t.Helper()
+	deal, order = e.shipped(t, buyer, seller)
+	if _, err := e.deals.ConfirmReceipt(context.Background(), buyer, order, uuid.NewV7().String()); err != nil {
+		t.Fatal(err)
+	}
+	return deal, order
+}
+
+// reveal ends the blind window of the order's reviews.
+func (e env) reveal(t *testing.T, order uuid.UUID) {
+	t.Helper()
+	if _, err := e.db.Exec(context.Background(), `UPDATE reviews SET visible_at = now() - interval '1 second' WHERE order_id = $1`, order); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // conversation has buyer open a conversation on a listing of seller's.
 func (e env) conversation(t *testing.T, buyer, seller uuid.UUID) uuid.UUID {
 	t.Helper()

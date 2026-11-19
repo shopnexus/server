@@ -45,8 +45,9 @@ func TestListingScreen(t *testing.T) {
 	sold := activeListing(t, seller.AccessToken, nil).ID
 	expectStatus(t, call(t, "POST", "/v1/listings/"+sold+"/mark-sold", nil, bearer(seller.AccessToken)), http.StatusOK)
 	reviewer, _ := newAccount(t)
-	reviewed := shippedOrder(t, seller.AccessToken, reviewer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
+	reviewed := completedOrder(t, seller.AccessToken, reviewer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
 	expectStatus(t, call(t, "PUT", "/v1/orders/"+reviewed.Order.ID+"/review", map[string]any{"stars": 4}, bearer(reviewer.AccessToken)), http.StatusOK)
+	revealReviews(t, reviewed.Order.ID)
 	lo, _ := band()
 	l := activeListing(t, seller.AccessToken, map[string]any{"price": lo})
 	path := "/v1/screens/listing/" + l.ID
@@ -61,7 +62,7 @@ func TestListingScreen(t *testing.T) {
 
 	got := get("signed out")
 	if got.Listing.ID != l.ID || got.Seller.ID != seller.Account.ID || got.Seller.DisplayName != "Linh" ||
-		got.Seller.AvatarURL != avatar || got.Seller.JoinedAt == "" || got.Seller.Sold != 1 ||
+		got.Seller.AvatarURL != avatar || got.Seller.JoinedAt == "" || got.Seller.Sold != 2 ||
 		got.Seller.Rating.Average != 4 || got.Seller.Rating.Count != 1 {
 		t.Fatalf("signed out: %+v", got)
 	}

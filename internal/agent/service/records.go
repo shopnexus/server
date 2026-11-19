@@ -200,7 +200,7 @@ func (s *Agent) Order(ctx context.Context, caller authn.ConsoleMember, id uuid.U
 	if err != nil {
 		return ConsoleOrder{}, fmt.Errorf("count the seller's listings: %w", err)
 	}
-	rating, err := s.trust.Rating(ctx, f.SellerID)
+	rating, err := s.trust.Rating(ctx, f.SellerID, trustdomain.RoleSeller)
 	if err != nil {
 		return ConsoleOrder{}, fmt.Errorf("read the seller's rating: %w", err)
 	}

@@ -48,9 +48,10 @@ func order(t *testing.T, db *pgxpool.Pool, buyer, seller uuid.UUID) (orderID, li
 	return d.Order().ID, listing
 }
 
+// review stores buyer's review of seller, visible at once.
 func review(t *testing.T, s repository.Reviews, o, seller, buyer, listing uuid.UUID, stars int) domain.Review {
 	t.Helper()
-	r, err := domain.NewReview(uuid.NewV7(), o, seller, buyer, listing, stars, "Ổn", now)
+	r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, listing, stars, "Ổn", now, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +76,7 @@ func TestReviews(t *testing.T) {
 		pgx.StrictNamedArgs{"ids": []uuid.UUID{r1.ID(), r2.ID()}}).Scan(&posted); err != nil || posted != 2 {
 		t.Fatalf("one review.posted per review: %d %v", posted, err)
 	}
-	if avg, n, err := s.Summary(ctx, seller); err != nil || n != 2 || avg != 3 {
+	if avg, n, err := s.Summary(ctx, seller, domain.RoleSeller, now); err != nil || n != 2 || avg != 3 {
 		t.Fatalf("summary %v %d %v", avg, n, err)
 	}
 	if err := r1.Edit(5, "Rất tốt", now.Add(time.Hour)); err != nil {
@@ -84,14 +85,14 @@ func TestReviews(t *testing.T) {
 	if err := s.Save(ctx, &r1, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
-	got, err := s.ByOrder(ctx, o1)
+	got, err := s.ByOrder(ctx, o1, domain.RoleSeller)
 	if err != nil || got.Stars() != 5 || got.Text() != "Rất tốt" || !got.CreatedAt().Equal(now) {
 		t.Fatalf("%+v %v", got.State(), err)
 	}
-	if avg, n, _ := s.Summary(ctx, seller); n != 2 || avg != 3.5 {
+	if avg, n, _ := s.Summary(ctx, seller, domain.RoleSeller, now); n != 2 || avg != 3.5 {
 		t.Fatalf("after the edit %v %d", avg, n)
 	}
-	list, err := s.OfSeller(ctx, seller, page.Request{})
+	list, err := s.OfSubject(ctx, seller, domain.RoleSeller, now, page.Request{})
 	if err != nil || len(list) != 2 || list[0].OrderID() != o2 {
 		t.Fatalf("list: %d %v", len(list), err)
 	}
@@ -101,33 +102,27 @@ func TestReviews(t *testing.T) {
 	if err = s.Save(ctx, &r2, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
-	if avg, n, _ := s.Summary(ctx, seller); n != 1 || avg != 5 {
+	if avg, n, _ := s.Summary(ctx, seller, domain.RoleSeller, now); n != 1 || avg != 5 {
 		t.Fatalf("after the delete %v %d", avg, n)
 	}
-	if got, err = s.ByOrder(ctx, o2); err != nil || !got.Deleted() || got.Text() != "" {
+	if got, err = s.ByOrder(ctx, o2, domain.RoleSeller); err != nil || !got.Deleted() || got.Text() != "" {
 		t.Fatalf("deleted: %+v %v", got.State(), err)
 	}
-	// The batch read returns only the buyer's reviews, deleted ones too,
-	// and skips an order without one.
-	o3, l3 := order(t, db, one, seller)
-	r3 := review(t, s, o3, seller, one, l3, 3)
-	orders := []uuid.UUID{o1, o2, o3}
-	mine, err := s.ByOrders(ctx, one, orders)
-	if err != nil || len(mine) != 2 {
-		t.Fatalf("one's reviews: %d %v", len(mine), err)
+	// The batch read returns the orders' reviews, deleted ones too, and
+	// skips an order without one.
+	o3, _ := order(t, db, one, seller)
+	all, err := s.OfOrders(ctx, []uuid.UUID{o1, o2, o3})
+	if err != nil || len(all) != 2 {
+		t.Fatalf("the orders' reviews: %d %v", len(all), err)
 	}
-	byOrder := map[uuid.UUID]domain.Review{mine[0].OrderID(): mine[0], mine[1].OrderID(): mine[1]}
-	if a, c := byOrder[o1], byOrder[o3]; a.ID() != r1.ID() || a.Stars() != 5 || c.ID() != r3.ID() {
-		t.Fatalf("one's reviews: %+v %+v", a.State(), c.State())
+	byOrder := map[uuid.UUID]domain.Review{all[0].OrderID(): all[0], all[1].OrderID(): all[1]}
+	if a, b := byOrder[o1], byOrder[o2]; a.ID() != r1.ID() || a.Stars() != 5 || b.ID() != r2.ID() || !b.Deleted() {
+		t.Fatalf("the orders' reviews: %+v %+v", a.State(), b.State())
 	}
-	theirs, err := s.ByOrders(ctx, two, orders)
-	if err != nil || len(theirs) != 1 || theirs[0].ID() != r2.ID() || !theirs[0].Deleted() {
-		t.Fatalf("two's reviews: %d %v", len(theirs), err)
-	}
-	if none, noneErr := s.ByOrders(ctx, one, nil); noneErr != nil || len(none) != 0 {
+	if none, noneErr := s.OfOrders(ctx, nil); noneErr != nil || len(none) != 0 {
 		t.Fatalf("no orders: %d %v", len(none), noneErr)
 	}
-	if avg, n, err := s.Summary(ctx, accounttest.New(t, db)); err != nil || n != 0 || avg != 0 {
+	if avg, n, err := s.Summary(ctx, accounttest.New(t, db), domain.RoleSeller, now); err != nil || n != 0 || avg != 0 {
 		t.Fatalf("no reviews: %v %d %v", avg, n, err)
 	}
 }
@@ -140,14 +135,14 @@ func TestReviewWritesConflict(t *testing.T) {
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	o, l := order(t, db, buyer, seller)
 	first := review(t, s, o, seller, buyer, l, 5)
-	second, err := domain.NewReview(uuid.NewV7(), o, seller, buyer, l, 1, "Lần hai", now.Add(time.Hour))
+	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 1, "Lần hai", now, now.Add(time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Insert(ctx, second); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("a second first review: %v", err)
 	}
-	stale, err := s.ByOrder(ctx, o)
+	stale, err := s.ByOrder(ctx, o, domain.RoleSeller)
 	if err != nil || stale.ID() != first.ID() {
 		t.Fatalf("%+v %v", stale.State(), err)
 	}
@@ -164,10 +159,72 @@ func TestReviewWritesConflict(t *testing.T) {
 	if err = s.Save(ctx, &stale, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("a stale edit: %v", err)
 	}
-	if _, n, _ := s.Summary(ctx, seller); n != 0 {
+	if _, n, _ := s.Summary(ctx, seller, domain.RoleSeller, now); n != 0 {
 		t.Fatalf("a deleted review counted: %d", n)
 	}
-	if list, _ := s.OfSeller(ctx, seller, page.Request{}); len(list) != 0 {
+	if list, _ := s.OfSubject(ctx, seller, domain.RoleSeller, now, page.Request{}); len(list) != 0 {
 		t.Fatalf("a deleted review listed: %d", len(list))
+	}
+}
+
+// The second side's review shows the first from its own creation; a first
+// reply writes review.replied once.
+func TestRevealAndReply(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewReviews(db)
+	ctx := context.Background()
+	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
+	o, l := order(t, db, buyer, seller)
+	deadline := now.Add(domain.BlindWindow)
+	first, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 5, "Tốt", deadline, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Insert(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	if _, n, _ := s.Summary(ctx, seller, domain.RoleSeller, now.Add(time.Hour)); n != 0 {
+		t.Fatalf("a hidden review counted: %d", n)
+	}
+	if _, n, _ := s.Summary(ctx, seller, domain.RoleSeller, deadline); n != 1 {
+		t.Fatalf("at the deadline: %d", n)
+	}
+	// A hidden second review while the first exists is refused.
+	later := now.Add(2 * time.Hour)
+	stale, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", deadline, later)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Insert(ctx, stale); !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("a hidden second review: %v", err)
+	}
+	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", later, later)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Insert(ctx, second); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.ByOrder(ctx, o, domain.RoleSeller)
+	if err != nil || !got.VisibleAt().Equal(later) {
+		t.Fatalf("revealed: %+v %v", got.State(), err)
+	}
+	if list, _ := s.OfSubject(ctx, buyer, domain.RoleBuyer, later, page.Request{}); len(list) != 1 || list[0].ID() != second.ID() {
+		t.Fatalf("buyer's reviews: %d", len(list))
+	}
+	if err = got.Reply(seller, "Cảm ơn", later); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = s.Get(ctx, first.ID()); err != nil || got.ReplyText() != "Cảm ơn" || got.RepliedAt() == nil {
+		t.Fatalf("reply: %+v %v", got.State(), err)
+	}
+	var replied int
+	if err = db.QueryRow(ctx, `SELECT count(*) FROM events WHERE kind = 'review.replied' AND subject_id = @id`,
+		pgx.StrictNamedArgs{"id": first.ID()}).Scan(&replied); err != nil || replied != 1 {
+		t.Fatalf("review.replied: %d %v", replied, err)
 	}
 }

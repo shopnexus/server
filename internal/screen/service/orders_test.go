@@ -1,7 +1,6 @@
 package service_test
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"log/slog"
@@ -71,9 +70,9 @@ type countedTrust struct {
 	reviews atomic.Int32
 }
 
-func (c *countedTrust) OwnReviews(ctx context.Context, buyer uuid.UUID, orders []uuid.UUID) (map[uuid.UUID]trustsvc.OwnReview, error) {
+func (c *countedTrust) OrderReviews(ctx context.Context, caller uuid.UUID, orders []uuid.UUID) (map[uuid.UUID]trustsvc.OrderReviews, error) {
 	c.reviews.Add(1)
-	return c.Service.OwnReviews(ctx, buyer, orders)
+	return c.Service.OrderReviews(ctx, caller, orders)
 }
 
 // calls is how many times the orders view called each service since the
@@ -166,8 +165,8 @@ func (e *env) address(t *testing.T, owner uuid.UUID) uuid.UUID {
 }
 
 // read reads one page of the orders view and checks it called each
-// service a fixed number of times: the page, the people and, for the
-// buyer, the reviews, each once.
+// service a fixed number of times: the page, the people and the reviews,
+// each once.
 func (e *env) read(t *testing.T, account uuid.UUID, as dealdomain.Party, p page.Request) page.Page[service.OrdersScreenItem] {
 	t.Helper()
 	e.take()
@@ -175,10 +174,7 @@ func (e *env) read(t *testing.T, account uuid.UUID, as dealdomain.Party, p page.
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := calls{lists: 1, many: 1}
-	if as == dealdomain.Buyer {
-		want.reviews = 1
-	}
+	want := calls{lists: 1, many: 1, reviews: 1}
 	if got := e.take(); got != want {
 		t.Fatalf("%s's page made %+v calls, want %+v", as, got, want)
 	}
@@ -199,6 +195,9 @@ func TestOrdersShowEachSideItsRowsWithTheCounterpart(t *testing.T) {
 	}
 	cancelled := e.pending(t, buyer, other, to)
 	if _, err := e.deals.CancelOrder(ctx, buyer, cancelled); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.deals.ConfirmReceipt(ctx, buyer, shipped, uuid.NewV7().String()); err != nil {
 		t.Fatal(err)
 	}
 	review, err := e.trust.PutReview(ctx, buyer, shipped, 5, "Tốt")
@@ -245,7 +244,8 @@ func TestOrdersShowEachSideItsRowsWithTheCounterpart(t *testing.T) {
 	}
 
 	sold := e.read(t, seller, dealdomain.Seller, page.Request{})
-	if len(sold.Items) != 1 || sold.Items[0].Order.ID != shipped || sold.Items[0].Counterpart.ID != buyer || sold.Items[0].OwnReview != nil {
+	if len(sold.Items) != 1 || sold.Items[0].Order.ID != shipped || sold.Items[0].Counterpart.ID != buyer ||
+		sold.Items[0].OwnReview == nil || sold.Items[0].OwnReview.State != "none" {
 		t.Fatalf("seller's page: %+v", sold)
 	}
 	if sh := sold.Items[0].Order.Shipment; sh == nil || sh.Pickup == nil || sh.Pickup.Street != "12 Lý Thường Kiệt" {
@@ -253,14 +253,11 @@ func TestOrdersShowEachSideItsRowsWithTheCounterpart(t *testing.T) {
 	}
 	// The seller of a cancelled order no longer reads where it was going.
 	gone := e.read(t, other, dealdomain.Seller, page.Request{})
-	if len(gone.Items) != 1 || gone.Items[0].OwnReview != nil {
+	if len(gone.Items) != 1 || gone.Items[0].OwnReview == nil || gone.Items[0].OwnReview.State != "none" {
 		t.Fatalf("other seller's page: %+v", gone)
 	}
 	if r := gone.Items[0].Order.Recipient; r.Street != "" || r.Phone != "" || r.Name != "Hân" || r.Commune == "" {
 		t.Fatalf("cancelled recipient for the seller: %+v", r)
-	}
-	if raw, marshalErr := json.Marshal(gone.Items[0]); marshalErr != nil || bytes.Contains(raw, []byte(`"own_review"`)) {
-		t.Fatalf("seller's row carries own_review: %s %v", raw, marshalErr)
 	}
 
 	// A deleted review keeps its first dates and, past its seven days,

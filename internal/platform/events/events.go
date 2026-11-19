@@ -38,6 +38,8 @@ const (
 	ListingRejected Kind = "listing.rejected"
 	// ReviewPosted is a review's first submission.
 	ReviewPosted Kind = "review.posted"
+	// ReviewReplied is the subject's one reply to a review.
+	ReviewReplied Kind = "review.replied"
 	// SavedPriceDropped is a saved listing's price at a new low below the
 	// save's alert level; the payload's price is that price.
 	SavedPriceDropped Kind = "saved.price_dropped"

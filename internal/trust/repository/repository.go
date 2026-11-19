@@ -7,6 +7,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/page"
@@ -18,26 +19,30 @@ var (
 	ErrConflict = errors.New("trust: changed meanwhile")
 )
 
-// Reviews persists reviews, one per order.
+// Reviews persists reviews, one per order and role.
 type Reviews interface {
-	// ByOrder returns the review of an order, deleted or not, or
+	// ByOrder returns the review of an order in role, deleted or not, or
 	// ErrNotFound.
-	ByOrder(ctx context.Context, order uuid.UUID) (domain.Review, error)
-	// ByOrders returns buyer's reviews of the orders given, deleted or not,
-	// in any order; an order without one of buyer's is left out.
-	ByOrders(ctx context.Context, buyer uuid.UUID, orders []uuid.UUID) ([]domain.Review, error)
+	ByOrder(ctx context.Context, order uuid.UUID, role domain.Role) (domain.Review, error)
+	// OfOrders returns every review of the orders given, both roles,
+	// deleted or not, in any order.
+	OfOrders(ctx context.Context, orders []uuid.UUID) ([]domain.Review, error)
 	// Get returns a review by its ID, or ErrNotFound.
 	Get(ctx context.Context, id uuid.UUID) (domain.Review, error)
-	// Insert adds the order's first review; an order that has one is
-	// ErrConflict.
+	// Insert adds the order's first review in r's role, makes the other
+	// role's review visible from r's creation, and writes review.posted.
+	// An order with a review in the role is ErrConflict, and so is a
+	// hidden r when the other role's review exists.
 	Insert(ctx context.Context, r domain.Review) error
 	// Save writes r when its row still has r.WriteID(), then sets its
 	// write ID to writeID; otherwise ErrConflict and nothing is written.
+	// A first reply also writes review.replied with writeID as its ID.
 	Save(ctx context.Context, r *domain.Review, writeID uuid.UUID) error
-	// OfSeller is a query: seller's reviews not deleted with IDs below
-	// p.Before(), newest first, at most p.Fetch().
-	OfSeller(ctx context.Context, seller uuid.UUID, p page.Request) ([]domain.Review, error)
-	// Summary is the seller's average stars and number of reviews not
-	// deleted; no reviews give 0 and 0.
-	Summary(ctx context.Context, seller uuid.UUID) (average float64, count int, err error)
+	// OfSubject is a query: subject's reviews in role, visible at now and
+	// not deleted, with IDs below p.Before(), newest first, at most
+	// p.Fetch().
+	OfSubject(ctx context.Context, subject uuid.UUID, role domain.Role, now time.Time, p page.Request) ([]domain.Review, error)
+	// Summary is subject's average stars and number of reviews in role,
+	// visible at now and not deleted; no reviews give 0 and 0.
+	Summary(ctx context.Context, subject uuid.UUID, role domain.Role, now time.Time) (average float64, count int, err error)
 }

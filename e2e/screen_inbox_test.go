@@ -50,6 +50,9 @@ type chatScreen struct {
 	Deals       []dealView        `json:"deals"`
 	Messages    page[messageBody] `json:"messages"`
 	ScamWarning *scamWarning      `json:"scam_warning"`
+	BuyerRating *struct {
+		Count int `json:"count"`
+	} `json:"buyer_rating"`
 }
 
 type scamWarning struct {
@@ -172,7 +175,8 @@ func TestChatScreen(t *testing.T) {
 	got := decode[chatScreen](t, res)
 	if res.Status != http.StatusOK || got.ID != c.ID || got.Other.ID != buyer.Account.ID || !got.Archived ||
 		len(got.Deals) != 2 || got.Deals[0].ID != bought.ID || got.Deals[0].Role != "buyer" || got.Deals[1].ID != sold.ID ||
-		len(got.Messages.Items) != 2 || got.Messages.Items[0].ID != reply.ID || got.Messages.NextCursor != "" {
+		len(got.Messages.Items) != 2 || got.Messages.Items[0].ID != reply.ID || got.Messages.NextCursor != "" ||
+		got.BuyerRating == nil || got.BuyerRating.Count != 0 {
 		t.Fatalf("seller's view: %d %s", res.Status, res.Body)
 	}
 	res = call(t, "GET", path, nil, bearer(buyer.AccessToken))

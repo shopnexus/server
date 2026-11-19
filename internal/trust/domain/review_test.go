@@ -13,8 +13,10 @@ import (
 
 var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 
+var subject = uuid.NewV7()
+
 func newReview(stars int, text string) (domain.Review, error) {
-	return domain.NewReview(uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), uuid.NewV7(), stars, text, now)
+	return domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleSeller, uuid.NewV7(), subject, uuid.NewV7(), stars, text, now, now)
 }
 
 func TestNewReview(t *testing.T) {
@@ -87,5 +89,71 @@ func TestDeleteAndRepost(t *testing.T) {
 	}
 	if err = r.Delete(now.Add(8 * day)); !errors.Is(err, domain.ErrLocked) {
 		t.Fatalf("delete on day 8: %v", err)
+	}
+}
+
+func TestRevealAt(t *testing.T) {
+	t.Parallel()
+	day := 24 * time.Hour
+	closed := now.Add(-2 * day)
+	if got := domain.RevealAt(closed, false, now); !got.Equal(closed.Add(7 * day)) {
+		t.Errorf("first side: %v", got)
+	}
+	if got := domain.RevealAt(closed, true, now); !got.Equal(now) {
+		t.Errorf("second side: %v", got)
+	}
+	if got := domain.RevealAt(now.Add(-9*day), false, now); !got.Equal(now) {
+		t.Errorf("after the window: %v", got)
+	}
+}
+
+func TestReply(t *testing.T) {
+	t.Parallel()
+	day := 24 * time.Hour
+	r, err := domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleBuyer, uuid.NewV7(), subject, uuid.NewV7(), 2, "Bom hàng",
+		now.Add(3*day), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Visible(now) || !r.Visible(now.Add(3*day)) {
+		t.Fatal("visibility")
+	}
+	if err = r.Reply(subject, "Xin lỗi", now.Add(day)); !errors.Is(err, domain.ErrHidden) {
+		t.Fatalf("hidden: %v", err)
+	}
+	if err = r.Reply(r.ReviewerID(), "Tự trả lời", now.Add(4*day)); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("reviewer: %v", err)
+	}
+	if err = r.Reply(subject, "  ", now.Add(4*day)); !errors.Is(err, domain.ErrInvalidReview) {
+		t.Fatalf("empty: %v", err)
+	}
+	if err = r.Reply(subject, strings.Repeat("a", 501), now.Add(4*day)); !errors.Is(err, domain.ErrInvalidReview) {
+		t.Fatalf("long: %v", err)
+	}
+	if err = r.Reply(subject, " Tôi đi công tác ", now.Add(4*day)); err != nil || r.ReplyText() != "Tôi đi công tác" || !r.Replied() {
+		t.Fatalf("reply: %+v %v", r.State(), err)
+	}
+	if err = r.Reply(subject, "Lần hai", now.Add(4*day)); !errors.Is(err, domain.ErrReplied) {
+		t.Fatalf("second reply: %v", err)
+	}
+	if err = r.Edit(5, "Đổi ý", now.Add(5*day)); !errors.Is(err, domain.ErrClosed) {
+		t.Fatalf("edit after reply: %v", err)
+	}
+	if err = r.Delete(now.Add(5 * day)); !errors.Is(err, domain.ErrClosed) {
+		t.Fatalf("delete after reply: %v", err)
+	}
+}
+
+func TestReplyToDeleted(t *testing.T) {
+	t.Parallel()
+	r, err := newReview(1, "Tệ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Delete(now); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Reply(subject, "Sao xoá", now); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("deleted: %v", err)
 	}
 }

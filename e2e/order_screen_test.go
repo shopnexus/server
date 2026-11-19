@@ -24,7 +24,16 @@ type selectedOrderScreen struct {
 	Deal        dealView        `json:"deal"`
 	Counterpart map[string]any  `json:"counterpart"`
 	OwnReview   *ownReview      `json:"own_review"`
+	TheirReview *theirReview    `json:"their_review"`
 	Ticket      json.RawMessage `json:"ticket"`
+}
+
+// theirReview is the TheirReview schema.
+type theirReview struct {
+	State    string `json:"state"`
+	ID       string `json:"id"`
+	Stars    *int   `json:"stars"`
+	CanReply bool   `json:"can_reply"`
 }
 
 // ownReview is the OwnReview schema.
@@ -62,7 +71,7 @@ func TestSelectedOrderAndScopedCancel(t *testing.T) {
 	moved(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000})
 	current := moved(t, buyer.AccessToken, d.ID, "cod", codBody(deliveryAddress(t, buyer.AccessToken)))
 	read := orderScreen(t, seller.AccessToken, old)
-	if read.Order.ID != old || read.Order.Status != "cancelled" || read.Deal.Order.ID != current.Order.ID || read.OwnReview != nil || len(read.Ticket) != 0 || read.Order.Recipient["phone"] != nil || read.Order.Recipient["street"] != nil {
+	if read.Order.ID != old || read.Order.Status != "cancelled" || read.Deal.Order.ID != current.Order.ID || read.OwnReview == nil || read.OwnReview.State != "none" || read.TheirReview != nil || len(read.Ticket) != 0 || read.Order.Recipient["phone"] != nil || read.Order.Recipient["street"] != nil {
 		t.Fatalf("historical seller view: %+v", read)
 	}
 	check(t, "historical cancel", orderCall(t, seller.AccessToken, old, "cancel", nil), 409, "move_not_allowed")
@@ -93,9 +102,15 @@ func TestOrderScreenOwnReviewAndCompletion(t *testing.T) {
 	if first.Order.CompletedBy != "buyer" || first.OwnReview.State != "active" || first.OwnReview.Stars == nil || *first.OwnReview.Stars != 5 || first.OwnReview.ChangeUntil.Sub(*first.OwnReview.CreatedAt) != 7*24*time.Hour {
 		t.Fatalf("review: %+v", first)
 	}
+	// The seller has not reviewed: the buyer's review waits, hidden.
 	sellerView := orderScreen(t, seller.AccessToken, d.Order.ID)
-	if sellerView.OwnReview != nil || len(sellerView.Ticket) != 0 {
-		t.Fatal("seller reads buyer state")
+	if sellerView.OwnReview.State != "none" || sellerView.TheirReview == nil || sellerView.TheirReview.State != "hidden" ||
+		sellerView.TheirReview.Stars != nil || len(sellerView.Ticket) != 0 {
+		t.Fatalf("seller's view: %+v", sellerView)
+	}
+	revealReviews(t, d.Order.ID)
+	if their := orderScreen(t, seller.AccessToken, d.Order.ID).TheirReview; their.State != "visible" || *their.Stars != 5 || !their.CanReply {
+		t.Fatalf("seller's view after the window: %+v", their)
 	}
 	expectStatus(t, call(t, "DELETE", path, nil, bearer(buyer.AccessToken)), 204)
 	deleted := orderScreen(t, buyer.AccessToken, d.Order.ID).OwnReview
@@ -155,6 +170,7 @@ func TestOrdersScreen(t *testing.T) {
 			"mode": "linked", "carrier": "ghn", "service": "express", "weight_grams": 1200, "pickup": "home",
 			"pickup_from": map[string]any{"address_id": deliveryAddress(t, seller.AccessToken)},
 		}).Order.ID
+	orderMoved(t, buyer.AccessToken, shipped, "confirm", nil)
 	cancelled := pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID).Order.ID
 	orderMoved(t, buyer.AccessToken, cancelled, "cancel", nil)
 	review := "/v1/orders/" + shipped + "/review"
@@ -203,8 +219,8 @@ func TestOrdersScreen(t *testing.T) {
 
 	sold := ordersScreen(t, seller.AccessToken, "role=selling").Items
 	for i := range sold {
-		if len(sold[i].OwnReview) != 0 {
-			t.Fatalf("seller's row %d carries own_review %s", i, sold[i].OwnReview)
+		if r := sold[i].review(t); r.State != "none" {
+			t.Fatalf("seller's row %d: %+v", i, r)
 		}
 	}
 	if sh, ok := sold[1].Order["shipment"].(map[string]any); !ok || sh["pickup"] == nil {

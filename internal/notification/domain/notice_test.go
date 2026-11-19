@@ -167,11 +167,12 @@ func TestText(t *testing.T) {
 		"Đức Huy trả 1,2 tr cho Xe đạp Asama":                    offer,
 		"Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9": domain.FromMoves(
 			facts(domain.Move{Kind: "shipped", By: "seller", OrderID: order, Carrier: "ghn", TrackingCode: "8A2K9"}), at)[0],
-		"Đức Huy trả 350.000 ₫ cho Xe đạp Asama":   domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 350_000}), at)[0],
-		"Tài khoản của bạn bị khoá đến 3/11":       domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
-		"Tài khoản của bạn bị khoá":                domain.Suspended(buyer, "", at),
-		"Đức Huy chấm 5 sao cho Xe đạp Asama":      domain.Reviewed(seller, "Đức Huy", "Xe đạp Asama", 5, at),
-		"Hoàng Nam vừa đăng tin mới: Xe đạp Asama": domain.FollowedListing(buyer, seller, "Hoàng Nam", uuid.NewV7(), "Xe đạp Asama", at),
+		"Đức Huy trả 350.000 ₫ cho Xe đạp Asama":            domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 350_000}), at)[0],
+		"Tài khoản của bạn bị khoá đến 3/11":                domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
+		"Tài khoản của bạn bị khoá":                         domain.Suspended(buyer, "", at),
+		"Đức Huy chấm bạn 5 sao · Xe đạp Asama":             domain.Reviewed(seller, "Đức Huy", "Xe đạp Asama", 5, order, at),
+		"Hoàng Nam trả lời đánh giá của bạn · Xe đạp Asama": domain.ReviewReplied(buyer, "Hoàng Nam", "Xe đạp Asama", order, at),
+		"Hoàng Nam vừa đăng tin mới: Xe đạp Asama":          domain.FollowedListing(buyer, seller, "Hoàng Nam", uuid.NewV7(), "Xe đạp Asama", at),
 	} {
 		if got := domain.Text(n.Type, n.Params); got != want {
 			t.Errorf("%s: %q", want, got)
@@ -186,6 +187,13 @@ func TestText(t *testing.T) {
 	suspended := domain.Suspended(buyer, "", at)
 	if got := domain.TargetOf(suspended.Type, suspended.Params); got.Kind != "account" || got.ID != "" {
 		t.Errorf("account target: %+v", got)
+	}
+	// A review notice opens its order; one from before names only the seller.
+	if got := domain.TargetOf(domain.TypeReview, domain.Params{OrderID: order}); got != (domain.Target{Kind: "order", ID: order.String()}) {
+		t.Errorf("review target: %+v", got)
+	}
+	if got := domain.TargetOf(domain.TypeReview, domain.Params{SellerID: seller}); got != (domain.Target{Kind: "seller_reviews", ID: seller.String()}) {
+		t.Errorf("old review target: %+v", got)
 	}
 	if got := domain.ChatBody("Hoàng Nam", "Còn không bạn?", 0); got != "Hoàng Nam: Còn không bạn?" {
 		t.Errorf("chat: %q", got)

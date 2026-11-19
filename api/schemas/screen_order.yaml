@@ -1,8 +1,8 @@
 OrderScreen:
   type: object
   additionalProperties: false
-  required: [order, deal, counterpart]
-  description: The selected order and its current deal. Buyer-only fields are absent for a seller.
+  required: [order, deal, counterpart, own_review, their_review]
+  description: The selected order and its current deal, with the caller's review of the other party and theirs of the caller. The ticket is the buyer's only and absent for a seller.
   properties:
     order:
       $ref: "deal.yaml#/Order"
@@ -12,6 +12,11 @@ OrderScreen:
       $ref: "chat.yaml#/Person"
     own_review:
       $ref: "trust.yaml#/OwnReview"
+    their_review:
+      description: The other party's review of the caller; null when they have not reviewed or deleted it.
+      anyOf:
+        - $ref: "trust.yaml#/TheirReview"
+        - type: "null"
     ticket:
       anyOf:
         - $ref: "support.yaml#/Ticket"
@@ -32,8 +37,8 @@ OrdersScreen:
 OrdersScreenItem:
   type: object
   additionalProperties: false
-  required: [order, counterpart]
-  description: An order with the other party and, on the buyer's rows only, own_review.
+  required: [order, counterpart, own_review]
+  description: An order with the other party and the caller's review of them.
   properties:
     order:
       $ref: "deal.yaml#/OrderItem"

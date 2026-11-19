@@ -59,7 +59,7 @@ ListingViewer:
 SellerScreen:
   type: object
   additionalProperties: false
-  required: [seller, listings, reviews]
+  required: [seller, listings, reviews, buyer_reviews]
   properties:
     seller:
       $ref: "#/SellerProfile"
@@ -67,12 +67,16 @@ SellerScreen:
       $ref: "discovery.yaml#/SearchItemList"
     reviews:
       $ref: "trust.yaml#/ReviewList"
+      description: The first page of the person's reviews as a seller (Khi bán).
+    buyer_reviews:
+      $ref: "trust.yaml#/ReviewList"
+      description: The first page of the person's reviews as a buyer (Khi mua).
     viewer:
       $ref: "#/SellerViewer"
 SellerProfile:
   type: object
   additionalProperties: false
-  required: [id, display_name, bio, joined_at, rating, sold, on_sale, followers]
+  required: [id, display_name, bio, joined_at, rating, buyer_rating, sold, on_sale, followers]
   description: The seller as the seller view shows them.
   properties:
     id:
@@ -92,6 +96,10 @@ SellerProfile:
       format: date-time
     rating:
       $ref: "trust.yaml#/Rating"
+      description: The rating as a seller, which search and the seller head use.
+    buyer_rating:
+      $ref: "trust.yaml#/Rating"
+      description: The rating as a buyer.
     sold:
       type: integer
       description: Listings sold, through an order or marked by hand.
