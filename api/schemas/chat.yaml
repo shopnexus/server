@@ -129,9 +129,96 @@ Message:
       $ref: "#/Quote"
     deal:
       $ref: "#/MessageDeal"
+    refs:
+      type: array
+      maxItems: 5
+      description: |
+        The ShopNexus links in text, as cards to draw in place of the URL:
+        a listing, a person, an order, a category or a search on the
+        website, or a shopnexus:// link of the app. A link to something
+        gone, hidden, or an order the reader is not a side of, has none and
+        stays text.
+      items:
+        $ref: "#/MessageRef"
     created_at:
       type: string
       format: date-time
+MessageRef:
+  type: object
+  additionalProperties: false
+  required: [url, kind]
+  description: A link in a message and what it points at; the field of its kind is set.
+  properties:
+    url:
+      type: string
+      description: The link exactly as it is written in the message's text.
+    kind:
+      type: string
+      enum: [listing, seller, order, category, search]
+    listing:
+      type: object
+      additionalProperties: false
+      required: [id, title, price, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        price:
+          type: integer
+          format: int64
+        status:
+          $ref: "catalog.yaml#/ListingStatus"
+        thumb_url:
+          type: string
+    seller:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        avatar_url:
+          type: string
+    order:
+      type: object
+      additionalProperties: false
+      required: [id, code, status, price, title]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        status:
+          $ref: "deal.yaml#/OrderStatus"
+        price:
+          type: integer
+          format: int64
+        title:
+          type: string
+        thumb_url:
+          type: string
+    category:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+    search:
+      type: object
+      additionalProperties: false
+      required: [query]
+      properties:
+        query:
+          type: string
 MessageDeal:
   type: object
   additionalProperties: false

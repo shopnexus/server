@@ -42,6 +42,8 @@ type Chats interface {
 	DeleteMessage(ctx context.Context, id uuid.UUID) error
 	// GetMessage returns ErrNotFound for an unknown id.
 	GetMessage(ctx context.Context, id uuid.UUID) (domain.Message, error)
+	// GetMessages reads messages by id; an unknown id is left out.
+	GetMessages(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]domain.Message, error)
 	// SaveMessage writes a processed or failed message, moves the last
 	// message when it is sent and newer, and notifies as AddMessage.
 	SaveMessage(ctx context.Context, m domain.Message) error

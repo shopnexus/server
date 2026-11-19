@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 	"uuid"
@@ -10,7 +9,6 @@ import (
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/chat/domain"
-	"github.com/shopnexus/server/internal/chat/repository"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -61,6 +59,7 @@ type MessageView struct {
 	ListingID *uuid.UUID           `json:"listing_id,omitempty"`
 	ReplyTo   *QuoteView           `json:"reply_to,omitempty"`
 	Deal      *MessageDealView     `json:"deal,omitempty"`
+	Refs      []RefView            `json:"refs,omitempty"`
 	Status    domain.MessageStatus `json:"status"`
 	Failure   string               `json:"failure,omitempty"`
 	CreatedAt time.Time            `json:"created_at"`
@@ -147,20 +146,39 @@ func PersonFromAccount(id uuid.UUID, a accountsvc.AccountView) PersonView {
 	}
 }
 
-// quoted adds to each view the message it quotes, read now; a quote whose
-// message is gone is left off.
+// decorate adds what a message's own row does not hold: the message each
+// one quotes and the cards of its ShopNexus links, as viewer sees them.
+func (c *Chat) decorate(ctx context.Context, viewer uuid.UUID, views []MessageView, msgs []domain.Message) error {
+	if err := c.quoted(ctx, views, msgs); err != nil {
+		return err
+	}
+	return c.refs(ctx, viewer, views)
+}
+
+// quoted adds to each view the message it quotes, read now in one query; a
+// quote whose message is gone is left off.
 func (c *Chat) quoted(ctx context.Context, views []MessageView, msgs []domain.Message) error {
+	var ids []uuid.UUID
+	for i := range msgs {
+		if id := msgs[i].ReplyTo(); id != nil {
+			ids = append(ids, *id)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	quoted, err := c.chats.GetMessages(ctx, ids)
+	if err != nil {
+		return fmt.Errorf("read the quoted messages: %w", err)
+	}
 	for i := range msgs {
 		id := msgs[i].ReplyTo()
 		if id == nil {
 			continue
 		}
-		q, err := c.chats.GetMessage(ctx, *id)
-		if errors.Is(err, repository.ErrNotFound) {
+		q, ok := quoted[*id]
+		if !ok {
 			continue
-		}
-		if err != nil {
-			return fmt.Errorf("read the quoted message: %w", err)
 		}
 		text := q.Body()
 		if r := []rune(text); len(r) > maxQuote {

@@ -42,7 +42,7 @@ func (c *Chat) Send(ctx context.Context, sender, conversation uuid.UUID, idempot
 		return MessageView{}, fmt.Errorf("read the message: %w", err)
 	}
 	v := []MessageView{c.messageView(m)}
-	if err = c.quoted(ctx, v, []domain.Message{m}); err != nil {
+	if err = c.decorate(ctx, sender, v, []domain.Message{m}); err != nil {
 		return MessageView{}, err
 	}
 	return v[0], nil

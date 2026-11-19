@@ -28,6 +28,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/chat"
+	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	"github.com/shopnexus/server/internal/console"
 	consoledomain "github.com/shopnexus/server/internal/console/domain"
 	consolesvc "github.com/shopnexus/server/internal/console/service"
@@ -415,7 +416,10 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	shippingm := shipping.Mount(d, carriers, accounts)
 	// A deal opens the pair's conversation and writes its moves there, so
 	// chat mounts first.
-	chatm := chat.Mount(d, accounts, catalogm.Service, mediam.Service)
+	// Module deal mounts after chat and uses it; chat reads linked orders through deals once it is set.
+	chatm := chat.Mount(d, chat.Settings{WebsiteOrigins: cfg.ObjectStore.UploadOrigins, Orders: func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]chatsvc.OrderRef, error) {
+		return orderRefs(ctx, deals, ids)
+	}}, accounts, catalogm.Service, mediam.Service)
 	dealm := deal.Mount(d, deal.Settings{Shipping: shippingm.Service, FakeCarrier: cfg.Carrier.Mode == "fake", PollEvery: cfg.Carrier.PollEvery},
 		accounts, catalogm.Service, chatm.Service)
 	deals = dealm.Service
@@ -554,4 +558,19 @@ func (a *App) Close(ctx context.Context) error {
 		a.pool.Close()
 	}
 	return err
+}
+
+// orderRefs reads orders for chat's link cards.
+func orderRefs(ctx context.Context, deals dealsvc.Service, ids []uuid.UUID) (map[uuid.UUID]chatsvc.OrderRef, error) {
+	out := make(map[uuid.UUID]chatsvc.OrderRef, len(ids))
+	for _, id := range ids {
+		o, ok, err := deals.Order(ctx, id)
+		if err != nil {
+			return nil, fmt.Errorf("read order %s: %w", id, err)
+		}
+		if ok {
+			out[id] = chatsvc.OrderRef{BuyerID: o.BuyerID, SellerID: o.SellerID, ListingID: o.ListingID, Code: o.Code, Status: string(o.Status), Price: o.Price}
+		}
+	}
+	return out, nil
 }

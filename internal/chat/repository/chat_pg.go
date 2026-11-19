@@ -256,6 +256,25 @@ func (s pgChats) GetMessage(ctx context.Context, id uuid.UUID) (domain.Message, 
 	return m, nil
 }
 
+func (s pgChats) GetMessages(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]domain.Message, error) {
+	out := make(map[uuid.UUID]domain.Message, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx, `SELECT `+messageColumns+` FROM messages m WHERE m.id = ANY(@ids)`, pgx.StrictNamedArgs{"ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("select messages: %w", err)
+	}
+	ms, err := pgx.CollectRows(rows, scanMessage)
+	if err != nil {
+		return nil, fmt.Errorf("read messages: %w", err)
+	}
+	for i := range ms {
+		out[ms[i].ID()] = ms[i]
+	}
+	return out, nil
+}
+
 func (s pgChats) SaveMessage(ctx context.Context, m domain.Message) error {
 	st := m.State()
 	var failure any

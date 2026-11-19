@@ -113,6 +113,10 @@ type Deps struct {
 	Ingress *ingress.Client
 	Prefix  string
 	Now     func() time.Time
+	// LinkHosts are the website's hosts, whose links in a message become
+	// cards; Orders reads the linked orders, nil for none.
+	LinkHosts []string  //exhaustruct:optional
+	Orders    OrderRefs //exhaustruct:optional
 }
 
 // Chat implements Service in this process.
@@ -124,6 +128,9 @@ type Chat struct {
 	prefix   string
 	now      func() time.Time
 	send     restatex.Caller[SendFlowInput, SendResult]
+	// linkHosts and orders are Deps' LinkHosts and Orders.
+	linkHosts []string
+	orders    OrderRefs
 }
 
 var _ Service = (*Chat)(nil)
@@ -131,7 +138,7 @@ var _ Service = (*Chat)(nil)
 func New(d Deps) *Chat {
 	return &Chat{
 		chats: d.Chats, accounts: d.Accounts, catalog: d.Catalog, media: d.Media,
-		prefix: d.Prefix, now: d.Now,
+		prefix: d.Prefix, now: d.Now, linkHosts: d.LinkHosts, orders: d.Orders,
 		send: restatex.Caller[SendFlowInput, SendResult]{Ingress: d.Ingress, Service: d.Prefix + messageSend, Handler: "Run"},
 	}
 }

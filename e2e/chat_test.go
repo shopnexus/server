@@ -180,3 +180,26 @@ func TestMarkConversationUnread(t *testing.T) {
 	stranger, _ := newAccount(t)
 	check(t, "mark someone else's", call(t, "POST", path, nil, bearer(stranger.AccessToken)), 404, "conversation_not_found")
 }
+
+// A link to a listing on the website comes back as its card, and the
+// response matches the Message schema with refs.
+func TestChatLinkCards(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	buyer, _ := newAccount(t)
+	l := activeListing(t, seller.AccessToken, nil)
+	c := openChat(t, buyer.AccessToken, l.ID, "Còn không bạn?")
+	link := websiteOrigin + "/listings/" + l.ID
+	m := expect[struct {
+		Refs []struct {
+			URL     string `json:"url"`
+			Kind    string `json:"kind"`
+			Listing struct {
+				ID string `json:"id"`
+			} `json:"listing"`
+		} `json:"refs"`
+	}](t, call(t, "POST", "/v1/conversations/"+c.ID+"/messages", map[string]any{"text": "Món này nè " + link}, bearer(seller.AccessToken), newKey()), http.StatusCreated)
+	if len(m.Refs) != 1 || m.Refs[0].URL != link || m.Refs[0].Kind != "listing" || m.Refs[0].Listing.ID != l.ID {
+		t.Fatalf("refs: %+v", m.Refs)
+	}
+}
