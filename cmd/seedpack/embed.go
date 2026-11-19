@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -21,6 +22,7 @@ func embedCmd() *cobra.Command {
 	var (
 		pack                  string
 		text, photos, jsonOut bool
+		missing               bool
 		batch                 int
 	)
 	cmd := &cobra.Command{
@@ -30,9 +32,11 @@ func embedCmd() *cobra.Command {
 (LiteLLM's embed-text, BGE-M3) and vectors/photo.npy through module ai's
 SigLIP 2 from AI_EMBED_MODELS, the vectors the server would make. It sets
 each listing's text_sha256 and the manifest's models. A stopped run resumes
-from the last row it wrote.`,
+from the last row it wrote. With --missing, --text embeds only the rows of
+an existing text.npy that hold no vector and leaves the rest as they are.`,
 		Example: `  seedpack embed --pack tmp/packs/vn-catalog-10k --text
-  seedpack embed --pack tmp/packs/vn-catalog-10k --photos`,
+  seedpack embed --pack tmp/packs/vn-catalog-10k --photos
+  seedpack embed --pack tmp/packs/vn-catalog --text --missing`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -59,7 +63,7 @@ from the last row it wrote.`,
 			}
 			out := map[string]int{}
 			if text {
-				if out["text"], err = embedText(ctx, s, p, max(batch, 1), u); err != nil {
+				if out["text"], err = embedText(ctx, s, p, max(batch, 1), missing, u); err != nil {
 					return err
 				}
 			}
@@ -78,6 +82,7 @@ from the last row it wrote.`,
 	f.BoolVar(&text, "text", false, "embed the listings' texts")
 	f.BoolVar(&photos, "photos", false, "embed the photos")
 	f.IntVar(&batch, "batch", 16, "texts per call")
+	f.BoolVar(&missing, "missing", false, "with --text, embed only the rows without a vector")
 	f.BoolVar(&jsonOut, "json", false, "print the counts as JSON, without bars")
 	return cmd
 }
@@ -112,7 +117,7 @@ func saveProgress(p *seedpack.Pack, rel string, pf *progressFile) error {
 
 // embedText embeds each listing's EmbeddingText, as ListingEmbed does,
 // and records its hash on the line.
-func embedText(ctx context.Context, s *stack, p *seedpack.Pack, batch int, u *ui) (int, error) {
+func embedText(ctx context.Context, s *stack, p *seedpack.Pack, batch int, missing bool, u *ui) (int, error) {
 	cfg := s.cfg.Embed
 	if !cfg.TextOn() {
 		return 0, errors.New("text vectors are off in the stack: EMBED_TEXT_MODEL is empty")
@@ -146,6 +151,9 @@ func embedText(ctx context.Context, s *stack, p *seedpack.Pack, batch int, u *ui
 		l := &sales[i].Listing
 		texts = append(texts, l.Input().EmbeddingText(names[l.Category]))
 		l.TextSHA256 = seedpack.TextSHA256(*l, names[l.Category])
+	}
+	if missing {
+		return fillText(ctx, model, p, cfg.TextVersion, texts, batch, u)
 	}
 	m, pf, err := resume(p, seedpack.TextVectors, cfg.TextVersion, len(texts), seedpack.TextDims)
 	if err != nil {
@@ -281,6 +289,71 @@ func embedPhotos(ctx context.Context, s *stack, p *seedpack.Pack, u *ui) (int, e
 	}
 	_ = os.Remove(p.Path(seedpack.PhotoVectors + ".progress.json"))
 	return len(keys), nil
+}
+
+// fillText embeds the rows of the pack's text.npy that hold no vector, the
+// texts the old model had none for, and keeps the other rows, the lines and
+// the manifest as they are. A call the endpoint throttles is sent again.
+func fillText(ctx context.Context, model embed.OpenAI, p *seedpack.Pack, version string, texts []string, batch int, u *ui) (int, error) {
+	if set := p.Manifest.Vectors.Text; set == nil || set.Model != version || !p.Has(seedpack.TextVectors) {
+		return 0, fmt.Errorf("--missing needs the pack's text vectors of %s", version)
+	}
+	m, err := seedpack.OpenMatrix(p.Path(seedpack.TextVectors), true)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = m.Close() }()
+	if m.Rows != len(texts) {
+		return 0, fmt.Errorf("text.npy has %d rows for %d listings and sales", m.Rows, len(texts))
+	}
+	var gaps []int
+	for i := range texts {
+		v, rowErr := m.Row(i)
+		if rowErr != nil {
+			return 0, rowErr
+		}
+		if v == nil {
+			gaps = append(gaps, i)
+		}
+	}
+	bar := u.Stage("text", int64(len(gaps)))
+	done := 0
+	for start := 0; start < len(gaps); start += batch {
+		part := gaps[start:min(start+batch, len(gaps))]
+		in := make([]string, len(part))
+		for i, row := range part {
+			in[i] = texts[row]
+		}
+		var vs [][]float32
+		for attempt := 1; ; attempt++ {
+			vs, err = model.Embed(ctx, in)
+			if err == nil || errors.Is(err, embed.ErrRefused) || attempt == 6 {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return done, fmt.Errorf("embed rows %d to %d: %w", part[0], part[len(part)-1], ctx.Err())
+			case <-time.After(time.Duration(attempt) * 2 * time.Second):
+			}
+		}
+		if errors.Is(err, embed.ErrRefused) {
+			u.Warnf("rows %d to %d: the model refused a text; they stay without a vector", part[0], part[len(part)-1])
+			bar.Add(int64(len(part)))
+			continue
+		}
+		if err != nil {
+			return done, fmt.Errorf("embed rows %d to %d: %w", part[0], part[len(part)-1], err)
+		}
+		for i, v := range vs {
+			if err = m.SetRow(part[i], v); err != nil {
+				return done, err
+			}
+		}
+		done += len(part)
+		bar.Add(int64(len(part)))
+	}
+	bar.Done()
+	return done, nil
 }
 
 // rewrite replaces a JSONL file of the pack with lines.
