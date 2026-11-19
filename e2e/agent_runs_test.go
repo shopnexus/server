@@ -22,6 +22,11 @@ type agentTurn struct {
 		N    int    `json:"n"`
 		Tool string `json:"tool"`
 	} `json:"sources"`
+	Attachments []struct {
+		Kind  string `json:"kind"`
+		ID    string `json:"id"`
+		Label string `json:"label"`
+	} `json:"attachments"`
 	Steers []struct {
 		SteerID string `json:"steer_id"`
 	} `json:"steers"`
@@ -48,9 +53,18 @@ func TestConsoleAgentRuns(t *testing.T) {
 		map[string]any{"text": "?", "speed": "fast"}), 400, "")
 	check(t, "an unknown agent", consoleCall(t, lan, "POST", "/v1/console/agent/conversations/"+conversation.ID+"/turns",
 		map[string]any{"text": "?", "agent_id": newID()}), 404, "ai_agent_not_found")
+	mentioned := newID()
+	for name, attachment := range map[string]map[string]any{
+		"an unknown kind": {"kind": "message", "id": mentioned},
+		"a long label":    {"kind": "ticket", "id": mentioned, "label": strings.Repeat("ê", 121)},
+	} {
+		check(t, name, consoleCall(t, lan, "POST", "/v1/console/agent/conversations/"+conversation.ID+"/turns",
+			map[string]any{"text": "?", "attachments": []map[string]any{attachment}}), 400, "invalid_request")
+	}
 	started := expect[agentTurnStarted](t, consoleCall(t, lan, "POST", "/v1/console/agent/conversations/"+conversation.ID+"/turns",
-		map[string]any{"text": "Tuần này thế nào?", "attachments": []map[string]any{{"kind": "ticket", "id": newID()}}}),
-		http.StatusAccepted)
+		map[string]any{"text": "Tuần này thế nào?", "attachments": []map[string]any{
+			{"kind": "ticket", "id": mentioned, "label": " Ticket #12 "}, {"kind": "ticket", "id": mentioned},
+		}}), http.StatusAccepted)
 	ok := started.TurnID
 	if events := waitTurn(t, lan, ok); !strings.Contains(events, "event: turn.started") || !strings.Contains(events, `"type":"turn.finished"`) {
 		t.Errorf("events %s", events)
@@ -65,8 +79,27 @@ func TestConsoleAgentRuns(t *testing.T) {
 		t.Errorf("events after=1: %d %s", after.Status, after.Body)
 	}
 	if view := turnOf(ok); view.Status != "succeeded" || view.LastSeq != 2 || len(view.Sources) != 1 || view.Sources[0].N != 1 ||
-		view.FinishedAt == nil || view.DurationMS != 4200 {
+		view.FinishedAt == nil || view.DurationMS != 4200 || len(view.Attachments) != 1 || view.Attachments[0].ID != mentioned ||
+		view.Attachments[0].Label != "Ticket #12" {
 		t.Errorf("turn %+v", view)
+	}
+	if sent := agentStub.mentionsOf(ok); !slices.Equal(sent, []string{"ticket:" + mentioned}) {
+		t.Errorf("the run's mentions %v", sent)
+	}
+	const list = "/v1/console/agent/conversations"
+	if found := expect[struct {
+		Items []agentConversation `json:"items"`
+	}](t, consoleCall(t, lan, "GET", list+"?mention_kind=ticket&mention_id="+mentioned, nil), 200); len(found.Items) != 1 ||
+		found.Items[0].ID != conversation.ID {
+		t.Errorf("the conversations that mention the ticket %+v", found)
+	}
+	for name, query := range map[string]string{
+		"a mention kind alone":   "?mention_kind=ticket",
+		"a mention id alone":     "?mention_id=" + mentioned,
+		"an unknown kind":        "?mention_kind=message&mention_id=" + mentioned,
+		"a mention with subject": "?subject_kind=ticket&mention_kind=ticket&mention_id=" + mentioned,
+	} {
+		check(t, name, consoleCall(t, lan, "GET", list+query, nil), 400, "invalid_request")
 	}
 	check(t, "an unknown turn", consoleCall(t, lan, "GET", turns+missing, nil), 404, "agent_turn_not_found")
 	expectStatus(t, consoleCall(t, signedOut, "GET", turns+ok, nil), 401)

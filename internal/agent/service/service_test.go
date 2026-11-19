@@ -43,6 +43,7 @@ type runRequest struct {
 	Answers      string            `json:"answers"`
 	Documents    []json.RawMessage `json:"documents"`
 	ControlAfter int64             `json:"control_after"`
+	Mentions     []json.RawMessage `json:"mentions"`
 }
 
 type runConfig struct {
@@ -531,17 +532,17 @@ func TestConversations(t *testing.T) {
 	if _, err = s.CreateConversation(ctx, lan, service.NewConversation{SubjectKind: domain.SubjectAccount}); !errors.Is(err, domain.ErrInvalidSubject) {
 		t.Errorf("a kind alone: %v", err)
 	}
-	if _, err = s.Conversations(ctx, lan, "", &subject); !errors.Is(err, domain.ErrInvalidSubject) {
+	if _, err = s.Conversations(ctx, lan, service.ConversationQuery{SubjectID: &subject}); !errors.Is(err, domain.ErrInvalidSubject) {
 		t.Errorf("an id alone: %v", err)
 	}
 	own, err := s.CreateConversation(ctx, lan, service.NewConversation{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if list, _ := s.Conversations(ctx, lan, "", nil); len(list) != 1 || list[0].ID != own.ID {
+	if list, _ := s.Conversations(ctx, lan, service.ConversationQuery{}); len(list) != 1 || list[0].ID != own.ID {
 		t.Errorf("lan's own %+v", list)
 	}
-	if list, _ := s.Conversations(ctx, minh, domain.SubjectTicket, &subject); len(list) != 1 || list[0].ID != shared.ID {
+	if list, _ := s.Conversations(ctx, minh, service.ConversationQuery{SubjectKind: domain.SubjectTicket, SubjectID: &subject}); len(list) != 1 || list[0].ID != shared.ID {
 		t.Errorf("by subject %+v", list)
 	}
 	if _, err = s.Conversation(ctx, minh, own.ID); !errors.Is(err, domain.ErrConversationNotFound) {

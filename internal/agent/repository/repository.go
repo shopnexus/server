@@ -43,6 +43,17 @@ var (
 	ErrState = errors.New("agent repository: turn state")
 )
 
+// ConversationFilter picks the conversations of a list: with SubjectKind
+// those about records of that kind, of SubjectID when set; with
+// MentionKind the member's own whose turns mention MentionID; with neither
+// the member's own.
+type ConversationFilter struct {
+	SubjectKind string
+	SubjectID   *uuid.UUID
+	MentionKind string
+	MentionID   *uuid.UUID
+}
+
 // Conversation is an agent_conversations row. SubjectKind and SubjectID
 // are both set or both empty.
 type Conversation struct {
@@ -93,6 +104,8 @@ type Turn struct {
 	EventSeq       int64
 	Wrote          bool
 	State          json.RawMessage
+	// Attachments are the records the member mentioned in the question.
+	Attachments []domain.Attachment
 
 	Latest      bool
 	Owner       uuid.UUID
@@ -245,12 +258,14 @@ type Resume struct {
 }
 
 // Resumed is a resumed turn with what its segment starts from: the steers
-// not read yet, the newest input seq and the conversation's documents.
+// not read yet, the newest input seq, the conversation's documents and the
+// records it mentions.
 type Resumed struct {
 	Turn         Turn
 	Steers       []Input
 	ControlAfter int64
 	Documents    []DocumentRef
+	Mentions     []domain.Attachment
 }
 
 // DocumentRef is a document of a conversation and its latest version.
@@ -338,9 +353,9 @@ type Runs interface {
 	// OpenConversation returns c's subject's conversation, made from c the
 	// first time, or inserts c when it has no subject.
 	OpenConversation(ctx context.Context, c Conversation) (Conversation, error)
-	// Conversations lists the active conversations of kind (and subject id)
-	// or, without a kind, member's own, newest activity first.
-	Conversations(ctx context.Context, member uuid.UUID, kind string, subject *uuid.UUID, limit int) ([]Conversation, error)
+	// Conversations lists the active conversations f picks for member,
+	// newest activity first.
+	Conversations(ctx context.Context, member uuid.UUID, f ConversationFilter, limit int) ([]Conversation, error)
 	// Conversation reads one, ErrNotFound when it does not exist.
 	Conversation(ctx context.Context, id uuid.UUID) (Conversation, error)
 	// RenameConversation sets a title.
@@ -367,6 +382,9 @@ type Runs interface {
 	History(ctx context.Context, conversation uuid.UUID, limit int) ([]History, error)
 	// Documents lists a conversation's documents.
 	Documents(ctx context.Context, conversation uuid.UUID) ([]DocumentRef, error)
+	// Mentions lists the records the turns of turn's conversation mention,
+	// each once without its label: turn's first, then the newest turn's.
+	Mentions(ctx context.Context, turn uuid.UUID, limit int) ([]domain.Attachment, error)
 	// ResumeTurn runs r; ErrState when the turn is not in r.From, or a
 	// failed one is no longer its conversation's latest or another turn
 	// is unfinished.

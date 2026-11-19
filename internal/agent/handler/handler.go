@@ -120,12 +120,14 @@ type idRequest struct {
 type listRequest struct {
 	SubjectKind domain.SubjectKind `json:"-" query:"subject_kind"`
 	SubjectID   *uuid.UUID         `json:"-" query:"subject_id"`
+	MentionKind string             `json:"-" query:"mention_kind"`
+	MentionID   *uuid.UUID         `json:"-" query:"mention_id"`
 }
 
 // ListConversations serves GET /v1/console/agent/conversations.
 func (h *Handler) ListConversations(w http.ResponseWriter, r *http.Request) {
 	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in listRequest) (items[service.Conversation], error) {
-		return listOf(h.svc.Conversations(r.Context(), c, in.SubjectKind, in.SubjectID))
+		return listOf(h.svc.Conversations(r.Context(), c, service.ConversationQuery(in)))
 	})
 }
 

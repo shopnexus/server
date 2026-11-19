@@ -72,6 +72,10 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	if err != nil {
 		return TurnStarted{}, err
 	}
+	attachments, err := domain.CheckAttachments(in.Attachments)
+	if err != nil {
+		return TurnStarted{}, err
+	}
 	limits, err := a.Limits.Check(domain.AgentConsole)
 	if err != nil {
 		return TurnStarted{}, fmt.Errorf("the turn's agent's limits: %w", err)
@@ -82,7 +86,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	t := repository.Turn{
 		ID: uuid.NewV7(), ConversationID: conversation, MemberID: caller.MemberID, Question: text, AgentID: a.ID.String(),
 		AgentName: a.Name, ModelAlias: a.Alias, StartedAt: now, RunStartedAt: now, DeadlineMS: deadline.Milliseconds(),
-		SubjectKind: c.SubjectKind, SubjectID: c.SubjectID,
+		SubjectKind: c.SubjectKind, SubjectID: c.SubjectID, Attachments: attachments,
 	}
 	switch err = s.runs.OpenTurn(ctx, t, caller.MemberID); {
 	case errors.Is(err, repository.ErrNotFound):
@@ -95,7 +99,8 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 		return TurnStarted{}, fmt.Errorf("open the turn: %w", err)
 	}
 	// 3. The run goes out with the agent's configuration, so the server
-	// stays its only source, and the prior turns it replays. · ADR-0003
+	// stays its only source, the prior turns it replays and the records the
+	// conversation mentions. · ADR-0003
 	// A1 past the agent's deadline the run ends TIMED_OUT with what it
 	// found, and the member may continue it.
 	history, err := s.runs.History(ctx, conversation, historyTurns)
@@ -103,10 +108,14 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	if err == nil {
 		docs, err = s.runs.Documents(ctx, conversation)
 	}
+	var mentions []domain.Attachment
+	if err == nil {
+		mentions, err = s.runs.Mentions(ctx, t.ID, domain.MaxMentions)
+	}
 	var stream io.ReadCloser
 	var cancel context.CancelFunc
 	if err == nil {
-		req := newRequest(t, caller, "new", docs)
+		req := newRequest(t, caller, "new", docs, mentions)
 		req.AgentConfig = configOf(a)
 		req.Skill, req.History = skill, historyOf(history)
 		stream, cancel, err = s.startRun(ctx, req, deadline)

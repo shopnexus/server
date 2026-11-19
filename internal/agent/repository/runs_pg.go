@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
@@ -86,13 +87,16 @@ VALUES (@id, @member, @kind, @subject, 'active', @at, @at, @at) ON CONFLICT DO N
 WHERE subject_kind = @kind AND subject_id = @subject`, pgx.StrictNamedArgs{"kind": kind, "subject": c.SubjectID}))
 }
 
-func (s pgRuns) Conversations(ctx context.Context, member uuid.UUID, kind string, subject *uuid.UUID, limit int,
-) ([]Conversation, error) {
+func (s pgRuns) Conversations(ctx context.Context, member uuid.UUID, f ConversationFilter, limit int) ([]Conversation, error) {
 	rows, err := s.db.Query(ctx, `SELECT `+conversationColumns+` FROM agent_conversations
 WHERE status = 'active' AND CASE WHEN @kind = '' THEN subject_kind IS NULL AND member_id = @member
+        AND (@mention_kind = '' OR id IN (SELECT conversation_id FROM agent_turns
+            WHERE attachments @> jsonb_build_array(jsonb_build_object('kind', @mention_kind::text, 'id', @mention_id::uuid))))
     ELSE subject_kind = @kind AND (@subject::uuid IS NULL OR subject_id = @subject) END
-ORDER BY last_activity_at DESC, id LIMIT @limit`,
-		pgx.StrictNamedArgs{"member": member, "kind": kind, "subject": subject, "limit": limit})
+ORDER BY last_activity_at DESC, id LIMIT @limit`, pgx.StrictNamedArgs{
+		"member": member, "kind": f.SubjectKind, "subject": f.SubjectID, "mention_kind": f.MentionKind, "mention_id": f.MentionID,
+		"limit": limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("select agent conversations: %w", err)
 	}
@@ -161,12 +165,12 @@ WHERE id = @id AND (subject_kind IS NOT NULL OR member_id = @member) FOR UPDATE`
 		return ErrClosed
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO agent_turns (id, conversation_id, member_id, ordinal, status, question, agent_id,
-    agent_name, model_alias, started_at, run_started_at, deadline_ms)
+    agent_name, model_alias, started_at, run_started_at, deadline_ms, attachments)
 SELECT @id, @conversation, @member, COALESCE(max(ordinal), -1) + 1, 'running', @question, @agent_id, @agent_name, @alias,
-    @at, @at, @deadline
+    @at, @at, @deadline, COALESCE(@attachments::jsonb, '[]')
 FROM agent_turns WHERE conversation_id = @conversation`, pgx.StrictNamedArgs{
 		"id": t.ID, "conversation": t.ConversationID, "member": t.MemberID, "question": t.Question, "agent_id": t.AgentID,
-		"agent_name": t.AgentName, "alias": t.ModelAlias, "at": t.StartedAt, "deadline": t.DeadlineMS,
+		"agent_name": t.AgentName, "alias": t.ModelAlias, "at": t.StartedAt, "deadline": t.DeadlineMS, "attachments": t.Attachments,
 	})
 	if isUnique(err) {
 		return ErrBusy
@@ -196,7 +200,7 @@ const turnColumns = `t.id, t.conversation_id, t.member_id, t.ordinal, t.status, 
     COALESCE(t.agent_id, ''), COALESCE(t.agent_name, ''), COALESCE(t.model_alias, ''), COALESCE(t.error_code, ''),
     t.input_tokens, t.output_tokens, t.cache_read_tokens, t.cache_write_tokens, t.cost_usd::float8, t.first_token_ms,
     COALESCE(t.provider_name, ''), t.started_at, t.run_started_at, t.deadline_ms, t.finished_at, t.latency_ms, t.event_seq,
-    t.wrote, t.state,
+    t.wrote, t.state, t.attachments,
     NOT EXISTS (SELECT 1 FROM agent_turns AS l WHERE l.conversation_id = t.conversation_id AND l.ordinal > t.ordinal),
     c.member_id, COALESCE(c.subject_kind, ''), c.subject_id`
 
@@ -208,7 +212,7 @@ func scanTurn(r pgx.CollectableRow) (Turn, error) {
 		&t.Sources, &t.AgentID, &t.AgentName, &t.ModelAlias, &t.ErrorCode, &t.Usage.InputTokens, &t.Usage.OutputTokens,
 		&t.Usage.CacheReadTokens, &t.Usage.CacheWriteTokens, &t.Usage.CostUSD, &t.Usage.FirstTokenMS, &t.Usage.Provider,
 		&t.StartedAt, &t.RunStartedAt, &t.DeadlineMS, &t.FinishedAt, &t.LatencyMS, &t.EventSeq, &t.Wrote, &t.State,
-		&t.Latest, &t.Owner, &t.SubjectKind, &t.SubjectID); err != nil {
+		&t.Attachments, &t.Latest, &t.Owner, &t.SubjectKind, &t.SubjectID); err != nil {
 		return t, fmt.Errorf("scan agent turn: %w", err)
 	}
 	return t, nil
@@ -368,6 +372,34 @@ func (s pgRuns) Documents(ctx context.Context, conversation uuid.UUID) ([]Docume
 	return documentRefs(ctx, s.db, conversation)
 }
 
+func mentions(ctx context.Context, db querier, turn uuid.UUID, limit int) ([]domain.Attachment, error) {
+	rows, err := db.Query(ctx, `SELECT kind, id FROM (
+    SELECT DISTINCT ON (e.a->>'kind', e.a->>'id') e.a->>'kind' AS kind, (e.a->>'id')::uuid AS id, t.id = @turn AS current,
+        t.ordinal, e.n
+    FROM agent_turns AS t CROSS JOIN LATERAL jsonb_array_elements(t.attachments) WITH ORDINALITY AS e(a, n)
+    WHERE t.conversation_id = (SELECT conversation_id FROM agent_turns WHERE id = @turn)
+    ORDER BY e.a->>'kind', e.a->>'id', t.id = @turn DESC, t.ordinal DESC, e.n
+) AS m ORDER BY current DESC, ordinal DESC, n LIMIT @limit`, pgx.StrictNamedArgs{"turn": turn, "limit": limit})
+	if err != nil {
+		return nil, fmt.Errorf("select agent mentions: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (domain.Attachment, error) {
+		var a domain.Attachment
+		if scanErr := r.Scan(&a.Kind, &a.ID); scanErr != nil {
+			return a, fmt.Errorf("scan agent mention: %w", scanErr)
+		}
+		return a, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read agent mentions: %w", err)
+	}
+	return out, nil
+}
+
+func (s pgRuns) Mentions(ctx context.Context, turn uuid.UUID, limit int) ([]domain.Attachment, error) {
+	return mentions(ctx, s.db, turn, limit)
+}
+
 func insertInput(ctx context.Context, db querier, in Input) error {
 	var text *string
 	if in.Text != "" {
@@ -434,6 +466,9 @@ WHERE id = @id`, pgx.StrictNamedArgs{"id": r.TurnID, "at": r.At, "clear": r.Clea
 		return Resumed{}, fmt.Errorf("read agent control seq: %w", err)
 	}
 	if out.Documents, err = documentRefs(ctx, tx, out.Turn.ConversationID); err != nil {
+		return Resumed{}, err
+	}
+	if out.Mentions, err = mentions(ctx, tx, r.TurnID, domain.MaxMentions); err != nil {
 		return Resumed{}, err
 	}
 	if err = tx.Commit(ctx); err != nil {

@@ -90,6 +90,11 @@ AgentTurn:
     text:
       type: string
       description: The question.
+    attachments:
+      type: array
+      description: The records the question mentioned; absent when it mentioned none.
+      items:
+        $ref: "#/AgentAttachment"
     answer:
       type: string
       description: The agent's answer as text, once it has one.
@@ -231,21 +236,25 @@ AgentQuestion:
       type: string
       format: uuid
       description: The skill the question comes from.
+AgentAttachmentKind:
+  type: string
+  description: A record a question may mention.
+  enum: [ticket, account, order, listing, report_case, document]
 AgentAttachment:
   type: object
   additionalProperties: false
-  description: A record or a document the question is about.
+  description: A record or a document the question is about, once per question.
   required: [kind, id]
   properties:
     kind:
-      type: string
-      enum: [ticket, account, order, listing, report_case, document]
+      $ref: "#/AgentAttachmentKind"
     id:
       type: string
       format: uuid
     label:
       type: string
-      maxLength: 200
+      maxLength: 120
+      description: What the console showed for the record, trimmed. The console's alone; the agent never gets it.
 AgentTurnStarted:
   type: object
   additionalProperties: false

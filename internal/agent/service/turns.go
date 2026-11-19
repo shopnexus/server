@@ -205,7 +205,7 @@ func (s *Agent) resume(ctx context.Context, caller authn.ConsoleMember, t reposi
 	case err != nil:
 		return fmt.Errorf("resume the turn: %w", err)
 	}
-	req := newRequest(res.Turn, caller, "resume", res.Documents)
+	req := newRequest(res.Turn, caller, "resume", res.Documents, res.Mentions)
 	req.State, req.Answers, req.ControlAfter = res.Turn.State, answers, res.ControlAfter
 	steers := make([]runSteer, 0, len(res.Steers))
 	for i := range res.Steers {

@@ -41,6 +41,7 @@ type runRequest struct {
 	Mode           string        `json:"mode"`
 	Question       string        `json:"question"`
 	Subject        *runSubject   `json:"subject,omitempty"`
+	Mentions       []runSubject  `json:"mentions"`
 	AgentConfig    *AgentConfig  `json:"agent_config,omitempty"`
 	Skill          *runSkill     `json:"skill,omitempty"`
 	History        any           `json:"history,omitempty"`
@@ -103,15 +104,21 @@ type segment struct {
 	start        time.Time
 }
 
-// newRequest is a run's request for turn t's caller, its subject and its
-// conversation's documents.
-func newRequest(t repository.Turn, caller authn.ConsoleMember, mode string, docs []repository.DocumentRef) runRequest {
+// newRequest is a run's request for turn t's caller, its subject, the
+// records its conversation mentions and its documents. A mention goes
+// without its label: the agent's prompt takes only values the server owns.
+func newRequest(t repository.Turn, caller authn.ConsoleMember, mode string, docs []repository.DocumentRef,
+	mentions []domain.Attachment,
+) runRequest {
 	req := runRequest{
 		TurnID: t.ID, ConversationID: t.ConversationID, Member: runMember{ID: caller.MemberID, Role: caller.Role},
-		Mode: mode, Question: t.Question, Documents: make([]runDocument, 0, len(docs)),
+		Mode: mode, Question: t.Question, Mentions: make([]runSubject, 0, len(mentions)), Documents: make([]runDocument, 0, len(docs)),
 	}
 	if t.SubjectKind != "" && t.SubjectID != nil {
 		req.Subject = &runSubject{Kind: t.SubjectKind, ID: *t.SubjectID}
+	}
+	for _, m := range mentions {
+		req.Mentions = append(req.Mentions, runSubject{Kind: m.Kind, ID: m.ID})
 	}
 	for _, d := range docs {
 		req.Documents = append(req.Documents, runDocument{DocumentID: d.ID, LatestVersion: d.LatestVersion})

@@ -2782,16 +2782,19 @@ streams each run segment back (spec:
 Behind `FromConsole` and a moderator's or an admin's session. A record has
 one conversation, which every member shares and the first `POST` for it
 makes; a conversation without a record is its creator's, and another
-member gets 404 for it. A list takes a subject, a subject kind alone or
-neither; a new conversation takes both or neither (422
-`agent_subject_invalid`). A member renames or deletes their own
-conversation, an admin any; a shared one is an admin's (403
-`agent_forbidden`). A delete takes the turns, events and documents with it
+member gets 404 for it. A list takes a subject, a subject kind alone, a
+mentioned record or nothing; a new conversation takes both or neither (422
+`agent_subject_invalid`). `mention_kind` and `mention_id` go together and
+without a subject (400 `invalid_request`), and list the caller's own
+conversations in which a question mentioned that record: the console's
+chats about a ticket are such conversations, each with no subject. A
+member renames or deletes their own conversation, an admin any; a shared
+one is an admin's (403 `agent_forbidden`). A delete takes the turns, events and documents with it
 and is refused while a turn is unfinished (409 `agent_turn_in_progress`).
 
 | Console | Answer |
 |---|---|
-| `GET /v1/console/agent/conversations` | `{items}`, newest activity first, at most 50 |
+| `GET /v1/console/agent/conversations?subject_kind&subject_id&mention_kind&mention_id` | `{items}`, newest activity first, at most 50 |
 | `POST /v1/console/agent/conversations` | the conversation, found or made |
 | `GET /v1/console/agent/conversations/{id}` | the conversation with its turns, oldest first, each the turn view |
 | `POST /v1/console/agent/conversations/{id}/turns {text, agent_id?, attachments?, skill_id?}` | 202 `{conversation_id, turn_id}` |
@@ -2815,6 +2818,12 @@ questions and updates a minute per member, kept in each replica's memory
 (429 `agent_rate_limited`), and the input guard: a question empty once
 zero-width and control characters and HTML tags are taken out is 400
 `invalid_request`, one over 2000 characters 422 `agent_input_rejected`.
+`attachments` are the records the member mentioned (`@`) in the question,
+`{kind, id, label?}`: at most 10, a kind of `ticket`, `account`, `order`,
+`listing`, `report_case` or `document`, a label of 120 characters at most
+once trimmed, or 400 `invalid_request`. The turn keeps them in
+`agent_turns.attachments` (migration 0065), each record once, and the turn
+view returns them.
 The turn opens `running` under the conversation's row lock; a closed
 conversation is 409 `agent_conversation_closed`, one with an unfinished
 turn 409 `agent_turn_in_progress`. The run goes out with
@@ -2845,6 +2854,12 @@ keywords are `input_text`, `provider_name`, `tool_input`, `tool_output`,
   send `agent_config`. The server waits 10 s for the status; anything but
   200 is 503 `agent_unavailable` and takes the new turn away, or puts a
   resumed turn back as it was.
+- Both modes also send `mentions`, `[{kind, id}]`: the records of every
+  turn's attachments in the conversation, the current turn's first, then
+  the other turns' from the newest, each once, at most 20. Labels stay on
+  the server; the agent's prompt takes only values the server owns. A GIN index
+  (`jsonb_path_ops`) on `agent_turns.attachments` serves the list by
+  mention.
 - On 200 the server reads the NDJSON lines in the background on the same
   replica, until 60 s past the segment's deadline, each in its own
   transaction and only while the turn is `running`: `event` takes the

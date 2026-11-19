@@ -12,8 +12,10 @@ conversations:
     description: |
       With subject_kind and subject_id, the conversation of that ticket or
       account, which every member shares (at most one). With subject_kind
-      alone, the conversations about records of that kind. With neither,
-      the caller's conversations without a record. Newest activity first.
+      alone, the conversations about records of that kind. With
+      mention_kind and mention_id, the caller's conversations without a
+      record in which a question mentioned that record. With none, the
+      caller's conversations without a record. Newest activity first.
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -27,6 +29,17 @@ conversations:
         schema:
           type: string
           format: uuid
+      - name: mention_kind
+        in: query
+        description: Taken with mention_id and without a subject.
+        schema:
+          $ref: "../schemas/console_agent.yaml#/AgentAttachmentKind"
+      - name: mention_id
+        in: query
+        description: Taken with mention_kind.
+        schema:
+          type: string
+          format: uuid
     responses:
       "200":
         description: Done.
@@ -34,6 +47,14 @@ conversations:
           application/json:
             schema:
               $ref: "../schemas/console_agent.yaml#/AgentConversationList"
+      "400":
+        description: >-
+          The request does not match the API description, or mention_kind and mention_id come apart or with a
+          subject (invalid_request).
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "422":
@@ -172,7 +193,10 @@ conversationTurns:
       service with the picked agent's configuration (the Console assistant
       when agent_id is left out), then answers 202 with the turn's id; the
       console opens GET /v1/console/agent/turns/{id}/events to watch the
-      run step by step. Closing the stream does not stop the run.
+      run step by step. Closing the stream does not stop the run. The
+      attachments are kept on the turn, each record once; the run is told
+      the kind and id of every record the conversation's questions
+      mention, without the labels.
     tags: [console, internal]
     security:
       - consoleAuth: []

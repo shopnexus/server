@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"unicode/utf8"
 	"uuid"
@@ -30,12 +31,19 @@ func conversationView(c repository.Conversation) Conversation {
 }
 
 // Conversations is UC-MOD-08 step 1: the member finds the conversation of a
-// record, those about records of a kind, or their own.
-func (s *Agent) Conversations(ctx context.Context, caller authn.ConsoleMember, kind domain.SubjectKind, id *uuid.UUID) ([]Conversation, error) {
-	if id != nil && kind == "" {
+// record, those about records of a kind, their own that mention a record,
+// or all their own.
+func (s *Agent) Conversations(ctx context.Context, caller authn.ConsoleMember, q ConversationQuery) ([]Conversation, error) {
+	if q.SubjectID != nil && q.SubjectKind == "" {
 		return nil, domain.ErrInvalidSubject
 	}
-	list, err := s.runs.Conversations(ctx, caller.MemberID, string(kind), id, listLimit)
+	mention := q.MentionKind != "" || q.MentionID != nil
+	if mention && (q.MentionID == nil || !slices.Contains(domain.AttachmentKinds, q.MentionKind) || q.SubjectKind != "") {
+		return nil, domain.ErrRequestInvalid
+	}
+	list, err := s.runs.Conversations(ctx, caller.MemberID, repository.ConversationFilter{
+		SubjectKind: string(q.SubjectKind), SubjectID: q.SubjectID, MentionKind: q.MentionKind, MentionID: q.MentionID,
+	}, listLimit)
 	if err != nil {
 		return nil, fmt.Errorf("list the conversations: %w", err)
 	}
@@ -154,7 +162,7 @@ func turnView(t repository.Turn, steers []repository.Input) Turn {
 	st := stateOf(t)
 	v := Turn{
 		ID: t.ID, ConversationID: &t.ConversationID, MemberID: t.MemberID, Status: t.Status, Text: t.Question,
-		Blocks: rawList(t.Blocks), Sources: []Source{}, Outcome: domain.Outcome(t.Status, t.ErrorCode), ErrorCode: t.ErrorCode,
+		Attachments: t.Attachments, Blocks: rawList(t.Blocks), Sources: []Source{}, Outcome: domain.Outcome(t.Status, t.ErrorCode), ErrorCode: t.ErrorCode,
 		Continuable: domain.Continuable(t.Status, t.ErrorCode, t.Wrote, t.Latest),
 		Agent:       &TurnAgent{ID: t.AgentID, Name: t.AgentName},
 		Usage: &Usage{

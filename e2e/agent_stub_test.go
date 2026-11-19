@@ -34,11 +34,12 @@ type stubAgent struct {
 	// asked is the last member and role a run came with, configs the
 	// aliases of the agents the runs went to, answers the answers text of
 	// each resumed segment, and made the tool call and document of each
-	// turn.
-	asked   [2]string
-	configs []string
-	answers []string
-	made    map[string][2]string
+	// turn, and mentions the records each run was told of.
+	asked    [2]string
+	configs  []string
+	answers  []string
+	made     map[string][2]string
+	mentions map[string][]string
 }
 
 type stubRun struct {
@@ -54,10 +55,14 @@ type stubRun struct {
 	AgentConfig struct {
 		Alias string `json:"alias"`
 	} `json:"agent_config"`
+	Mentions []struct {
+		Kind string `json:"kind"`
+		ID   string `json:"id"`
+	} `json:"mentions"`
 }
 
 func newAgent() *stubAgent {
-	a := &stubAgent{made: map[string][2]string{}}
+	a := &stubAgent{made: map[string][2]string{}, mentions: map[string][]string{}}
 	a.srv = httptest.NewServer(http.HandlerFunc(a.run))
 	return a
 }
@@ -69,6 +74,13 @@ func (a *stubAgent) lastAsked() [2]string {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	return a.asked
+}
+
+// mentionsOf is the records the last run of turn was told of, as kind:id.
+func (a *stubAgent) mentionsOf(turn string) []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.mentions[turn]
 }
 
 // madeBy is the tool call and the document turn's run made.
@@ -91,6 +103,10 @@ func (a *stubAgent) run(w http.ResponseWriter, r *http.Request) {
 	a.mu.Lock()
 	a.asked = [2]string{in.Member.ID, in.Member.Role}
 	a.configs = append(a.configs, in.AgentConfig.Alias)
+	a.mentions[in.TurnID] = nil
+	for _, m := range in.Mentions {
+		a.mentions[in.TurnID] = append(a.mentions[in.TurnID], m.Kind+":"+m.ID)
+	}
 	if in.Mode == "resume" {
 		a.answers = append(a.answers, in.Answers)
 	}

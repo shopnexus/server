@@ -37,11 +37,13 @@ type Turn struct {
 	MemberID       uuid.UUID  `json:"member_id"`
 	// Status is running, paused, awaiting_input, succeeded, failed,
 	// cancelled or timed_out.
-	Status  string            `json:"status"`
-	Text    string            `json:"text"`
-	Answer  string            `json:"answer,omitempty"`
-	Blocks  []json.RawMessage `json:"blocks"`
-	Sources []Source          `json:"sources"`
+	Status string `json:"status"`
+	Text   string `json:"text"`
+	// Attachments are the records the member mentioned in the question.
+	Attachments []Attachment      `json:"attachments,omitempty"`
+	Answer      string            `json:"answer,omitempty"`
+	Blocks      []json.RawMessage `json:"blocks"`
+	Sources     []Source          `json:"sources"`
 	// Outcome is the group a turn's end falls in, empty on success:
 	// stopped, out_of_room, broken, unavailable or blocked.
 	Outcome     string     `json:"outcome,omitempty"`
@@ -98,6 +100,17 @@ type Source struct {
 	Tool     string    `json:"tool"`
 }
 
+// ConversationQuery picks the conversations of a list: those about
+// records of SubjectKind, of SubjectID when set; the caller's own that
+// mention a record, MentionKind and MentionID together; or with neither
+// the caller's own.
+type ConversationQuery struct {
+	SubjectKind domain.SubjectKind
+	SubjectID   *uuid.UUID
+	MentionKind string
+	MentionID   *uuid.UUID
+}
+
 // NewConversation is the record a conversation is about, SubjectKind and
 // SubjectID together, or neither for a conversation of the member's own.
 type NewConversation struct {
@@ -116,11 +129,7 @@ type NewTurn struct {
 }
 
 // Attachment is a record or a document a question is about.
-type Attachment struct {
-	Kind  string    `json:"kind"`
-	ID    uuid.UUID `json:"id"`
-	Label string    `json:"label,omitempty"`
-}
+type Attachment = domain.Attachment
 
 // AgentConfig is what the agent service runs a turn with, from ai_agents.
 type AgentConfig struct {

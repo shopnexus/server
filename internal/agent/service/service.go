@@ -28,12 +28,12 @@ import (
 
 // Service is module agent's contract.
 type Service interface {
-	// Conversations lists the conversations caller may open: the one of
-	// the record kind and id name, those about records of kind, or with
-	// neither the caller's own.
+	// Conversations lists the conversations caller may open that q picks:
+	// the one of a record, those about records of a kind, the caller's own
+	// that mention a record, or all the caller's own.
 	//
 	// UC-MOD-08
-	Conversations(ctx context.Context, caller authn.ConsoleMember, kind domain.SubjectKind, id *uuid.UUID) ([]Conversation, error)
+	Conversations(ctx context.Context, caller authn.ConsoleMember, q ConversationQuery) ([]Conversation, error)
 	// CreateConversation returns the conversation of in's subject, shared by
 	// every member and made the first time, or starts the caller's own when
 	// in has no subject.
