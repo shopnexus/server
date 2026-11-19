@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/cors"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/shopnexus/server/internal/platform/config"
@@ -31,6 +32,7 @@ type Store struct {
 	bucket    string
 	region    string
 	publicURL string
+	origins   []string
 }
 
 func New(cfg config.ObjectStoreConfig) (*Store, error) {
@@ -44,7 +46,7 @@ func New(cfg config.ObjectStoreConfig) (*Store, error) {
 	}
 	return &Store{
 		client: client, presigner: presigner, bucket: cfg.Bucket, region: cfg.Region,
-		publicURL: strings.TrimRight(cfg.PublicURL, "/"),
+		publicURL: strings.TrimRight(cfg.PublicURL, "/"), origins: cfg.UploadOrigins,
 	}, nil
 }
 
@@ -64,8 +66,9 @@ func clientFor(endpoint string, cfg config.ObjectStoreConfig) (*minio.Client, er
 	return client, nil
 }
 
-// Prepare creates the bucket when it is missing and lets anyone read
-// media/. cmd/objectstore-init and the test helpers run it.
+// Prepare creates the bucket when it is missing, lets anyone read media/,
+// and lets the website's origins PUT to presigned URLs.
+// cmd/objectstore-init and the test helpers run it.
 func (s *Store) Prepare(ctx context.Context) error {
 	exists, err := s.client.BucketExists(ctx, s.bucket)
 	if err != nil {
@@ -80,6 +83,13 @@ func (s *Store) Prepare(ctx context.Context) error {
 		`"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::` + s.bucket + `/media/*"]}]}`
 	if err := s.client.SetBucketPolicy(ctx, s.bucket, policy); err != nil {
 		return fmt.Errorf("set bucket policy: %w", err)
+	}
+	if len(s.origins) == 0 {
+		return nil
+	}
+	rules := cors.NewConfig([]cors.Rule{{AllowedOrigin: s.origins, AllowedMethod: []string{http.MethodPut}, AllowedHeader: []string{"*"}, MaxAgeSeconds: 3600}})
+	if err := s.client.SetBucketCors(ctx, s.bucket, rules); err != nil {
+		return fmt.Errorf("set bucket cors: %w", err)
 	}
 	return nil
 }

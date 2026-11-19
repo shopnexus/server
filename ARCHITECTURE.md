@@ -890,10 +890,12 @@ the bucket and the `media/*` read policy; `make run` calls it through
 `cmd/objectstore-init`, and `objectstoretest.New` calls it once per test
 process. The server reaches the store at `OBJECT_STORE_ENDPOINT` and signs
 presigned URLs for `OBJECT_STORE_PUBLIC_ENDPOINT`, the address phones reach;
-the signature covers the host, so a proxy cannot rewrite it. Configuration:
+the signature covers the host, so a proxy cannot rewrite it. The bucket's
+CORS lets the origins in `WEBSITE_ORIGINS` PUT, so the website's pages upload
+from the browser. Configuration:
 `OBJECT_STORE_ENDPOINT`, `OBJECT_STORE_PUBLIC_ENDPOINT`, `OBJECT_STORE_REGION`,
-`OBJECT_STORE_ACCESS_KEY`, `OBJECT_STORE_SECRET_KEY`, `OBJECT_STORE_BUCKET`
-and `MEDIA_PUBLIC_URL`, the base a public URL is built on. RustFS listens on
+`OBJECT_STORE_ACCESS_KEY`, `OBJECT_STORE_SECRET_KEY`, `OBJECT_STORE_BUCKET`,
+`WEBSITE_ORIGINS` and `MEDIA_PUBLIC_URL`, the base a public URL is built on. RustFS listens on
 127.0.0.1:56490 in development and 56491 in tests; the test container keeps
 `/data` on a tmpfs owned by uid 10001, the user the image runs as.
 

@@ -294,6 +294,10 @@ type ObjectStoreConfig struct {
 	SecretKey      string // OBJECT_STORE_SECRET_KEY
 	Bucket         string // OBJECT_STORE_BUCKET
 	PublicURL      string // MEDIA_PUBLIC_URL: the base URL clients read media/ objects under
+	// UploadOrigins is WEBSITE_ORIGINS, the website's origins, comma
+	// separated. Browsers there PUT uploads to presigned URLs, so the
+	// bucket's CORS allows them. Empty allows none.
+	UploadOrigins []string //exhaustruct:optional
 }
 
 // RestateConfig says where the Restate server is and how it reaches this
@@ -491,19 +495,24 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		proxies = append(proxies, p.Masked())
 	}
 
-	var docsOrigins []string
-	for s := range strings.SplitSeq(set("DOCS_ORIGINS"), ",") {
-		if s = strings.TrimSpace(s); s == "" {
-			continue
+	origins := func(key string) []string {
+		var out []string
+		for s := range strings.SplitSeq(set(key), ",") {
+			if s = strings.TrimSpace(s); s == "" {
+				continue
+			}
+			u, err := url.Parse(s)
+			if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.Path != "" ||
+				u.RawQuery != "" || u.User != nil {
+				errs = append(errs, fmt.Errorf("%s: %q is not an origin like https://example.com", key, s))
+				continue
+			}
+			out = append(out, s)
 		}
-		u, err := url.Parse(s)
-		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.Path != "" ||
-			u.RawQuery != "" || u.User != nil {
-			errs = append(errs, fmt.Errorf("DOCS_ORIGINS: %q is not an origin like https://docs.example.com", s))
-			continue
-		}
-		docsOrigins = append(docsOrigins, s)
+		return out
 	}
+	docsOrigins := origins("DOCS_ORIGINS")
+	uploadOrigins := origins("WEBSITE_ORIGINS")
 
 	var dashboardHosts map[string]string
 	for pair := range strings.SplitSeq(set("DASHBOARD_HOSTS"), ",") {
@@ -582,6 +591,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			SecretKey:      need("OBJECT_STORE_SECRET_KEY"),
 			Bucket:         need("OBJECT_STORE_BUCKET"),
 			PublicURL:      need("MEDIA_PUBLIC_URL"),
+			UploadOrigins:  uploadOrigins,
 		},
 		Push: push,
 		Firebase: FirebaseConfig{

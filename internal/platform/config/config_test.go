@@ -47,6 +47,7 @@ func required() map[string]string {
 		"SERVICE_NAME":                 "server",
 		"TRUSTED_PROXIES":              "",
 		"DOCS_ORIGINS":                 "",
+		"WEBSITE_ORIGINS":              "",
 		"RESTATE_INGRESS_URL":          "http://restate:8080",
 		"RESTATE_ADMIN_URL":            "http://restate:9070",
 		"RESTATE_LISTEN_ADDR":          "127.0.0.1:9080",
@@ -137,6 +138,7 @@ func TestLoadAllSet(t *testing.T) {
 		"LOG_FORMAT":                  "text",
 		"TRUSTED_PROXIES":             "10.0.0.0/8, 192.168.1.7/32",
 		"DOCS_ORIGINS":                "https://docs.example.test, http://localhost:4321",
+		"WEBSITE_ORIGINS":             "https://example.test",
 		"JWT_PREVIOUS_KEY_ID":         "old",
 		"JWT_PREVIOUS_PUBLIC_KEY":     b64(prev.JWTKey.Public().(ed25519.PublicKey)),
 		"JWT_ISSUER":                  "iss",
@@ -187,6 +189,7 @@ func TestLoadAllSet(t *testing.T) {
 		ObjectStore: ObjectStoreConfig{
 			Endpoint: "http://rustfs:9000", PublicEndpoint: "https://photos.example.test", Region: "us-east-1",
 			AccessKey: "access", SecretKey: "secret", Bucket: "server", PublicURL: "http://rustfs:9000/server",
+			UploadOrigins: []string{"https://example.test"},
 		},
 		LLM: LLMConfig{BaseURL: "https://llm.example.test/v1", APIKey: "llm-key", Model: "a-model"},
 		Embed: EmbedConfig{
@@ -235,7 +238,7 @@ func TestLoadAcceptsExplicitEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if got.OTLPEndpoint != "" || got.TrustedProxies != nil || got.DocsOrigins != nil || got.Restate.EndpointURL != "" ||
+	if got.OTLPEndpoint != "" || got.TrustedProxies != nil || got.DocsOrigins != nil || got.ObjectStore.UploadOrigins != nil || got.Restate.EndpointURL != "" ||
 		got.Restate.ServicePrefix != "" || got.Auth.JWTPrevKeyID != "" || got.Auth.JWTPrevKey != nil ||
 		got.Console.DashboardHosts != nil {
 		t.Fatalf("empty variables: %+v", got)
@@ -321,6 +324,7 @@ func TestLoadRejectsBadKeys(t *testing.T) {
 		{"bad proxy", map[string]string{"TRUSTED_PROXIES": "10.0.0.0/8,nope"}, "TRUSTED_PROXIES"},
 		{"docs origin with a path", map[string]string{"DOCS_ORIGINS": "https://docs.example.test/docs"}, "DOCS_ORIGINS"},
 		{"docs origin without a scheme", map[string]string{"DOCS_ORIGINS": "docs.example.test"}, "DOCS_ORIGINS"},
+		{"website origin with a path", map[string]string{"WEBSITE_ORIGINS": "https://example.test/tin"}, "WEBSITE_ORIGINS"},
 		{"short console key", map[string]string{"CONSOLE_KEY": b64(make([]byte, 16))}, "CONSOLE_KEY"},
 		{"short agent service token", map[string]string{"AGENT_SERVICE_TOKEN": "short"}, "AGENT_SERVICE_TOKEN"},
 		{"short agent MCP token", map[string]string{"AGENT_MCP_TOKEN": "short"}, "AGENT_MCP_TOKEN"},
