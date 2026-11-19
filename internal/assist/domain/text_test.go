@@ -24,6 +24,8 @@ func TestSplitText(t *testing.T) {
 		{"NO_ITEM", domain.Text{}},
 		{"NO_ITEM\n", domain.Text{}},
 		{"", domain.Text{}},
+		{"Tiêu đề: Quạt bàn Senko\n\nMô tả: Quạt màu trắng.", domain.Text{Title: "Quạt bàn Senko", Description: "Quạt màu trắng."}},
+		{"Tiêu đề:\nQuạt bàn Senko\n\nMô tả:\nQuạt màu trắng.", domain.Text{Title: "Quạt bàn Senko", Description: "Quạt màu trắng."}},
 	}
 	for _, c := range cases {
 		if got := domain.SplitText(c.raw, 300); got != c.want {

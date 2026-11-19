@@ -25,11 +25,29 @@ func SplitText(raw string, maxDescription int) Text {
 	if strings.HasPrefix(NoItem, raw) || strings.HasPrefix(raw, NoItem) {
 		return Text{}
 	}
+	// The model sometimes labels the lines although told not to.
+	raw = strings.TrimSpace(dropLabel(raw, titleLabels))
 	title, description, _ := strings.Cut(raw, "\n")
+	description = strings.TrimSpace(dropLabel(strings.TrimSpace(description), descriptionLabels))
 	return Text{
 		Title:       cut(strings.Join(strings.Fields(title), " "), catalogdomain.MaxTitle),
 		Description: cut(strings.TrimSpace(description), maxDescription),
 	}
+}
+
+var (
+	titleLabels       = []string{"Tiêu đề:", "Tên:", "Title:"}
+	descriptionLabels = []string{"Mô tả:", "Description:"}
+)
+
+// dropLabel takes one of labels off the start of s, case aside.
+func dropLabel(s string, labels []string) string {
+	for _, l := range labels {
+		if len(s) >= len(l) && strings.EqualFold(s[:len(l)], l) {
+			return s[len(l):]
+		}
+	}
+	return s
 }
 
 // textDraft is the draft of a whole reply: its title and description,

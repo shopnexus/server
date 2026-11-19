@@ -9,7 +9,7 @@ import (
 
 // PromptVersion names the prompt below; a change bumps it. The read's log
 // line carries it.
-const PromptVersion = 4
+const PromptVersion = 5
 
 // systemPrompt is the model's instructions. The model writes the title and
 // description only; catalog guesses the category from them and the seller
@@ -35,8 +35,10 @@ line only. At most 1,500 characters.
 Reply in plain text, without JSON, markdown, labels or quotes:
 - The first line is the title.
 - The lines after it are the description.
-- When the video shows no item, several unrelated items, only a person, a place, or anything that cannot be sold as
-one listing, reply with exactly NO_ITEM and nothing else.
+- Write about the one item the video is of: the one the camera follows or the seller talks about. Things in the
+background are not for sale; leave them out.
+- When no item stands out (only a person, a place, or things where nothing is the subject), reply with exactly
+NO_ITEM and nothing else.
 `
 
 // userPrompt goes with the frames: how many there are, where the

@@ -1,7 +1,7 @@
 package service
 
 // PhotoPromptVersion names the photo read's prompt; a change bumps it.
-const PhotoPromptVersion = 3
+const PhotoPromptVersion = 4
 
 // photoUserPrompt goes with the photo.
 const photoUserPrompt = "The seller's photo is attached below.\n"
@@ -25,6 +25,8 @@ no age, use, repairs, battery health, warranty or why they sell. No praise.
 Reply in plain text, without JSON, markdown, labels or quotes:
 - The first line is the title.
 - The lines after it are the description.
-- When the photo shows no item, several unrelated items, only a person, a place, a screenshot or a document, or
-anything that cannot be sold as one listing, reply with exactly NO_ITEM and nothing else.
+- Write about the one item the photo is of: the one in focus, nearest the middle or filling most of the frame. Things
+in the background or at the edges are not for sale; leave them out.
+- When no item stands out (only a person, a place, a screenshot, a document, or a pile where nothing is the subject),
+reply with exactly NO_ITEM and nothing else.
 `
