@@ -36,7 +36,7 @@ func TestAddressBook(t *testing.T) {
 	me, other := seed(t, s), seed(t, s)
 
 	first, err := svc.CreateAddress(ctx, me, uuid.NewV7(), home, false)
-	if err != nil || !first.IsDefault || first.Phone != "+84912345678" || first.Commune == "" || first.Province == "" ||
+	if err != nil || !first.IsDefault || first.Phone != "+84912345678" || first.Commune == "" || first.Province == "" || first.ProvinceCode != "01" ||
 		first.Kind != domain.AddressHome || !first.CreatedAt.Equal(now) {
 		t.Fatalf("%+v %v", first, err)
 	}

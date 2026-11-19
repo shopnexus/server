@@ -76,7 +76,7 @@ func TestAddresses(t *testing.T) {
 	}
 	first := rows[0]
 	if first.Address.Name() != "Hân" || first.Address.Phone() != "+84912345678" || first.Address.Kind() != domain.AddressHome || first.Address.AccountID() != me ||
-		first.Address.WriteID() != as[0].WriteID() || first.Place.Commune == "" || first.Place.Province == "" || first.Address.CreatedAt().IsZero() {
+		first.Address.WriteID() != as[0].WriteID() || first.Place.Commune == "" || first.Place.Province == "" || first.Place.ProvinceCode != "01" || first.Address.CreatedAt().IsZero() {
 		t.Fatalf("%+v", first)
 	}
 	got, err := book.Get(ctx, me, as[1].ID())

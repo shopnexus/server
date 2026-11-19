@@ -44,10 +44,12 @@ type Addresses interface {
 	Commune(ctx context.Context, code string) (Place, error)
 }
 
-// Place is the display names of a commune and its province.
+// Place is the display names of a commune and its province, and the
+// province's code.
 type Place struct {
-	Commune  string
-	Province string
+	Commune      string
+	Province     string
+	ProvinceCode string
 }
 
 // PlacedAddress is one address as the list reads it, with its place.

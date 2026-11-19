@@ -8,15 +8,16 @@ import (
 )
 
 type addressView struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Phone       string `json:"phone"`
-	Street      string `json:"street"`
-	CommuneCode string `json:"commune_code"`
-	Commune     string `json:"commune"`
-	Province    string `json:"province"`
-	Kind        string `json:"kind"`
-	IsDefault   bool   `json:"is_default"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Phone        string `json:"phone"`
+	Street       string `json:"street"`
+	CommuneCode  string `json:"commune_code"`
+	ProvinceCode string `json:"province_code"`
+	Commune      string `json:"commune"`
+	Province     string `json:"province"`
+	Kind         string `json:"kind"`
+	IsDefault    bool   `json:"is_default"`
 }
 
 func addressBody() map[string]any {
@@ -48,7 +49,7 @@ func TestAddressBook(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
 	first := newAddress(t, me.AccessToken)
-	if !first.IsDefault || first.Phone != "+84912345678" || first.Commune == "" || first.Province == "" || first.Kind != "home" {
+	if !first.IsDefault || first.Phone != "+84912345678" || first.Commune == "" || first.Province == "" || first.ProvinceCode != "01" || first.Kind != "home" {
 		t.Fatalf("%+v", first)
 	}
 	second := newAddress(t, me.AccessToken)

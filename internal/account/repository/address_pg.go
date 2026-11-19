@@ -250,7 +250,7 @@ WHERE id = (SELECT id FROM addresses WHERE account_id = @account ORDER BY id DES
 }
 
 func (s pgAddresses) List(ctx context.Context, owner uuid.UUID) ([]PlacedAddress, error) {
-	rows, err := s.db.Query(ctx, `SELECT `+addressColumns+`, c.display_name, p.display_name
+	rows, err := s.db.Query(ctx, `SELECT `+addressColumns+`, c.display_name, p.display_name, p.code
 FROM addresses a JOIN communes c ON c.code = a.commune_code JOIN provinces p ON p.code = c.province_code
 WHERE a.account_id = @account ORDER BY a.is_default DESC, a.id DESC`, pgx.StrictNamedArgs{"account": owner})
 	if err != nil {
@@ -258,7 +258,7 @@ WHERE a.account_id = @account ORDER BY a.is_default DESC, a.id DESC`, pgx.Strict
 	}
 	list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (PlacedAddress, error) {
 		var p Place
-		a, scanErr := scanAddress(row, &p.Commune, &p.Province)
+		a, scanErr := scanAddress(row, &p.Commune, &p.Province, &p.ProvinceCode)
 		return PlacedAddress{Address: a, Place: p}, scanErr
 	})
 	if err != nil {
@@ -269,9 +269,9 @@ WHERE a.account_id = @account ORDER BY a.is_default DESC, a.id DESC`, pgx.Strict
 
 func (s pgAddresses) Commune(ctx context.Context, code string) (Place, error) {
 	var p Place
-	err := s.db.QueryRow(ctx, `SELECT c.display_name, p.display_name
+	err := s.db.QueryRow(ctx, `SELECT c.display_name, p.display_name, p.code
 FROM communes c JOIN provinces p ON p.code = c.province_code WHERE c.code = @code`, pgx.StrictNamedArgs{"code": code}).
-		Scan(&p.Commune, &p.Province)
+		Scan(&p.Commune, &p.Province, &p.ProvinceCode)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Place{}, ErrNotFound
 	}

@@ -36,7 +36,7 @@ AddressDraft:
 Address:
   type: object
   additionalProperties: false
-  required: [id, name, phone, street, commune_code, commune, province, kind, is_default, created_at]
+  required: [id, name, phone, street, commune_code, province_code, commune, province, kind, is_default, created_at]
   description: Where the caller's parcels go. A COD request copies it into the order, so a later edit or delete leaves the order as it was.
   properties:
     id:
@@ -51,6 +51,9 @@ Address:
       type: string
     commune_code:
       type: string
+    province_code:
+      type: string
+      description: The code of the commune's province, as GET /v1/regions lists it.
     commune:
       type: string
     province:

@@ -1650,7 +1650,9 @@ Decided 2026-10-27 (spec:
 - The address book has its own repository, `repository.Addresses`, beside
   `Accounts`. It checks the commune and reads its names from `communes`
   and `provinces` in SQL: catalog imports account, so account cannot call
-  catalog.
+  catalog. The same join gives `Address.province_code` (decided
+  2026-11-19), so an edit form selects the province by code, where it
+  matched the province's name before.
 
 ### Chat
 
