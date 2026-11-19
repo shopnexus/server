@@ -88,7 +88,13 @@ screenCodCheckout:
   get:
     operationId: getCodCheckoutScreen
     summary: The buyer's checkout before requesting COD.
-    description: The address is the selected owned address or the default; null with an empty book. Shipping estimate is initially null. This read makes no carrier call or write.
+    description: |
+      The address is the selected owned address or the default; null with
+      an empty book. shipping_estimate is null on every call, with the fake
+      carrier and the real ones, linked or not: the server has no estimator
+      before an order exists, and the buyer gives no weight. The seller
+      reads the carrier's fee for the order with GET /v1/shipments/quote
+      once it is requested. This read makes no carrier call or write.
     tags: [screen]
     security:
       - bearerAuth: []

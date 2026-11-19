@@ -3395,8 +3395,11 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-orders.md`.
   selectors keeps the carrier's default.
 - `GET /v1/screens/cod-checkout/{deal_id}?address_id=` is buyer-only and
   returns the `Deal`, public seller, selected or default owned address,
-  COD cap `{used,max}` and `shipping_estimate`. The estimate is null until
-  a pre-order estimator is defined. An empty book gives a null address;
+  COD cap `{used,max}` and `shipping_estimate`. The estimate is null on
+  every call, whatever `CARRIER` is and whether the seller linked a
+  carrier, until a pre-order estimator is defined: a quote needs the
+  order's weight and the seller's carrier, which the checkout does not
+  have (checked 2026-11-19). An empty book gives a null address;
   an explicitly missing or foreign address is `address_not_found` and a
   nonbuyer or foreign deal is `deal_not_found`. The read writes nothing
   and calls no carrier. `httpx.Bind` supports optional pointer query fields

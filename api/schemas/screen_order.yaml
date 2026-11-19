@@ -74,7 +74,7 @@ CodCheckoutScreen:
   type: object
   additionalProperties: false
   required: [deal, seller, address, cod_orders, shipping_estimate]
-  description: Buyer-only checkout. This read writes nothing and calls no carrier. The initial shipping estimate is null.
+  description: Buyer-only checkout. This read writes nothing and calls no carrier.
   properties:
     deal:
       $ref: "deal.yaml#/Deal"
@@ -87,6 +87,7 @@ CodCheckoutScreen:
     cod_orders:
       $ref: "screen_account.yaml#/Cap"
     shipping_estimate:
+      description: Null on every call until the server has a pre-order estimator; the field is there for it.
       anyOf:
         - type: object
           additionalProperties: false
