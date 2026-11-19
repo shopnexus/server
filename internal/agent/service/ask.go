@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
+	"io"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/agent/domain"
@@ -13,11 +14,11 @@ import (
 )
 
 // Ask is UC-MOD-08 steps 2 and 3. The server checks the agent the member
-// picked, adds its configuration and forwards: the agent stores the turn
-// RUNNING, answers with its id at once and runs it, and the console
-// follows the run through Events. The agent reads through the MCP server's
-// read-only tools and holds no write tool, so a question changes no
-// business data.
+// picked, the budget, the rate limit and the question, opens the turn
+// running and starts its run on the agent service, which streams the run
+// back; the console follows it through Events. The agent reads through
+// the MCP server's read-only tools and holds no write tool, so a question
+// changes no business data.
 func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversation uuid.UUID, in NewTurn) (TurnStarted, error) {
 	id := domain.ConsoleAssistant
 	if in.AgentID != nil {
@@ -42,35 +43,80 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 		return TurnStarted{}, domain.ErrBudget
 	}
 	s.ensureMemberBudget(ctx, set, caller)
-	// 2. The question goes out with the member's id and role, which the
-	// agent writes on the turn, and the agent's configuration, so the
-	// server stays its only source. · ADR-0003
-	body := turnRequest{
-		Text: in.Text, Attachments: in.Attachments, SkillID: in.SkillID,
-		AgentConfig: AgentConfig{
-			ID: a.ID, Name: a.Name, Alias: a.Alias, Instructions: a.Instructions,
-			InstructionsVersion: a.InstructionsVersion, Tools: a.Tools, Limits: a.Limits,
-		},
+	c, err := s.runs.Conversation(ctx, conversation)
+	if errors.Is(err, repository.ErrNotFound) || (err == nil && !visible(c, caller)) {
+		return TurnStarted{}, domain.ErrConversationNotFound
 	}
-	var got TurnStarted
-	// 3. The agent reads, shows its sources and answers, step by step on
-	// the turn's events. · BR-MOD-03
-	// A1 past the agent's deadline the run ends TIMED_OUT with what it
-	// found, and the member may continue it.
-	// E1 over the budget the agent answers agent_budget, and the console
-	// works on without it.
-	if err = s.call(ctx, caller, http.MethodPost, "/conversations/"+conversation.String()+"/turns", nil,
-		body, &got); err != nil {
+	if err != nil {
+		return TurnStarted{}, fmt.Errorf("read the conversation: %w", err)
+	}
+	if c.Status != "active" {
+		return TurnStarted{}, domain.ErrConversationClosed
+	}
+	var skill *runSkill
+	if in.SkillID != nil {
+		sk, skillErr := s.runs.Skill(ctx, *in.SkillID)
+		if errors.Is(skillErr, repository.ErrNotFound) {
+			return TurnStarted{}, domain.ErrSkillInvalid
+		}
+		if skillErr != nil {
+			return TurnStarted{}, fmt.Errorf("read the turn's skill: %w", skillErr)
+		}
+		skill = &runSkill{ID: sk.ID, Name: sk.Name, Prompt: sk.Prompt}
+	}
+	now := s.now().UTC().Truncate(time.Microsecond)
+	if !s.limiter.allow(caller.MemberID, now) {
+		return TurnStarted{}, domain.ErrRateLimited
+	}
+	text, err := domain.CleanInput(in.Text)
+	if err != nil {
 		return TurnStarted{}, err
 	}
-	got.ConversationID = conversation
-	return got, nil
-}
-
-// turnRequest is the body of the agent's POST /conversations/{id}/turns.
-type turnRequest struct {
-	Text        string       `json:"text"`
-	Attachments []Attachment `json:"attachments,omitempty"`
-	SkillID     *uuid.UUID   `json:"skill_id,omitempty"`
-	AgentConfig AgentConfig  `json:"agent_config"`
+	limits, err := a.Limits.Check(domain.AgentConsole)
+	if err != nil {
+		return TurnStarted{}, fmt.Errorf("the turn's agent's limits: %w", err)
+	}
+	deadline := time.Duration(limits.DeadlineS) * time.Second
+	// 2. The turn opens running under the conversation's lock, one
+	// unfinished turn at a time.
+	t := repository.Turn{
+		ID: uuid.NewV7(), ConversationID: conversation, MemberID: caller.MemberID, Question: text, AgentID: a.ID.String(),
+		AgentName: a.Name, ModelAlias: a.Alias, StartedAt: now, RunStartedAt: now, DeadlineMS: deadline.Milliseconds(),
+		SubjectKind: c.SubjectKind, SubjectID: c.SubjectID,
+	}
+	switch err = s.runs.OpenTurn(ctx, t, caller.MemberID); {
+	case errors.Is(err, repository.ErrNotFound):
+		return TurnStarted{}, domain.ErrConversationNotFound
+	case errors.Is(err, repository.ErrClosed):
+		return TurnStarted{}, domain.ErrConversationClosed
+	case errors.Is(err, repository.ErrBusy):
+		return TurnStarted{}, domain.ErrTurnInProgress
+	case err != nil:
+		return TurnStarted{}, fmt.Errorf("open the turn: %w", err)
+	}
+	// 3. The run goes out with the agent's configuration, so the server
+	// stays its only source, and the prior turns it replays. · ADR-0003
+	// A1 past the agent's deadline the run ends TIMED_OUT with what it
+	// found, and the member may continue it.
+	history, err := s.runs.History(ctx, conversation, historyTurns)
+	var docs []repository.DocumentRef
+	if err == nil {
+		docs, err = s.runs.Documents(ctx, conversation)
+	}
+	var stream io.ReadCloser
+	var cancel context.CancelFunc
+	if err == nil {
+		req := newRequest(t, caller, "new", docs)
+		req.AgentConfig = configOf(a)
+		req.Skill, req.History = skill, historyOf(history)
+		stream, cancel, err = s.startRun(ctx, req, deadline)
+	}
+	if err != nil {
+		if delErr := s.runs.DeleteTurn(context.WithoutCancel(ctx), t.ID); delErr != nil {
+			s.log.WarnContext(ctx, "agent: delete a turn whose run did not start", "turn_id", t.ID, "err", delErr)
+		}
+		return TurnStarted{}, err
+	}
+	s.launch(ctx, segment{turn: t.ID, conversation: conversation, member: caller.MemberID, start: now}, stream, cancel)
+	return TurnStarted{ConversationID: conversation, TurnID: t.ID}, nil
 }

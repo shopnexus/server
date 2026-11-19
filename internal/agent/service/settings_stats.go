@@ -3,14 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/url"
+	"math"
 	"slices"
 	"strings"
 	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/agent/domain"
+	"github.com/shopnexus/server/internal/agent/repository"
 	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/provider/litellm"
 )
@@ -119,33 +119,101 @@ type GuardrailNotice struct {
 	At       time.Time  `json:"at"`
 }
 
-// turnStats is the agent's GET /stats/turns.
+// turnStats counts the console turns of a range by agent and by member.
 type turnStats struct {
-	ByAgent []struct {
-		AgentID  string     `json:"agent_id"`
-		Requests int        `json:"requests"`
-		Days     []DayCount `json:"days"`
-	} `json:"by_agent"`
-	ByMember []struct {
-		MemberID uuid.UUID `json:"member_id"`
-		Requests int       `json:"requests"`
-	} `json:"by_member"`
+	ByAgent  []agentTurns
+	ByMember []memberTurns
 }
 
-// rangeOf is rng when Spend takes it, else 7d, and its days.
-func rangeOf(rng string) (r string, days int) {
+type agentTurns struct {
+	AgentID  string
+	Requests int
+	Days     []DayCount
+}
+
+type memberTurns struct {
+	MemberID uuid.UUID
+	Requests int
+}
+
+// rangeOf is the days of rng when Spend takes it, else of 7d.
+func rangeOf(rng string) int {
 	if days, ok := SpendRanges[rng]; ok {
-		return rng, days
+		return days
 	}
-	return "7d", SpendRanges["7d"]
+	return SpendRanges["7d"]
 }
 
-// stats reads one of the agent's /stats endpoints over rng.
-func (s *Agent) stats(ctx context.Context, caller authn.ConsoleMember, what, rng string, out any) error {
-	return s.send(ctx, caller, request{
-		method: http.MethodGet, path: "/stats/" + what, query: url.Values{"range": {rng}}, out: out, timeout: readTimeout,
-		late: domain.ErrUnavailable, notFound: domain.ErrUnavailable,
+// recentStats is how many recent tool calls and guardrail events the stats
+// list.
+const recentStats = 20
+
+// rangeDays is every UTC date of a range of n days ending today, oldest
+// first, and the moment the first one starts.
+func rangeDays(now time.Time, n int) (from time.Time, dates []string) {
+	today := time.Date(now.UTC().Year(), now.UTC().Month(), now.UTC().Day(), 0, 0, 0, 0, time.UTC)
+	from = today.AddDate(0, 0, -(n - 1))
+	dates = make([]string, 0, n)
+	for i := range n {
+		dates = append(dates, from.AddDate(0, 0, i).Format(time.DateOnly))
+	}
+	return from, dates
+}
+
+// byDay is, for each key of rows, its count on every date (0 where there
+// was none).
+func byDay(rows []repository.DayCount, dates []string) map[string][]int {
+	at := map[string]int{}
+	for i, d := range dates {
+		at[d] = i
+	}
+	out := map[string][]int{}
+	for _, r := range rows {
+		key := ""
+		if r.Key != nil {
+			key = *r.Key
+		}
+		if out[key] == nil {
+			out[key] = make([]int, len(dates))
+		}
+		if i, ok := at[r.Date]; ok {
+			out[key][i] += r.Count
+		}
+	}
+	return out
+}
+
+// turnsOf counts the console turns of the last n days by agent and by
+// member.
+func (s *Agent) turnsOf(ctx context.Context, n int) (turnStats, error) {
+	from, dates := rangeDays(s.now(), n)
+	days, err := s.runs.AgentDays(ctx, from)
+	if err != nil {
+		return turnStats{}, fmt.Errorf("count the turns by agent: %w", err)
+	}
+	members, err := s.runs.MemberTurns(ctx, from)
+	if err != nil {
+		return turnStats{}, fmt.Errorf("count the turns by member: %w", err)
+	}
+	var out turnStats
+	for agent, counts := range byDay(days, dates) {
+		a := agentTurns{AgentID: agent, Days: make([]DayCount, 0, len(dates))}
+		for i, d := range dates {
+			a.Requests += counts[i]
+			a.Days = append(a.Days, DayCount{Date: d, Requests: counts[i]})
+		}
+		out.ByAgent = append(out.ByAgent, a)
+	}
+	slices.SortFunc(out.ByAgent, func(a, b agentTurns) int {
+		if a.Requests != b.Requests {
+			return b.Requests - a.Requests
+		}
+		return strings.Compare(a.AgentID, b.AgentID)
 	})
+	for _, m := range members {
+		out.ByMember = append(out.ByMember, memberTurns{MemberID: m.MemberID, Requests: m.Count})
+	}
+	return out, nil
 }
 
 // ProviderModels lists the models a provider lists, through its lister,
@@ -327,18 +395,18 @@ func pct(part, whole int) float64 {
 }
 
 // AgentUsage counts each agent's requests by day over a range: a console
-// agent's turns from the agent service, an app agent's calls to its alias
+// agent's turns, an app agent's calls to its alias
 // from LiteLLM.
-func (s *Agent) AgentUsage(ctx context.Context, caller authn.ConsoleMember, rng string) ([]AgentUsage, error) {
+func (s *Agent) AgentUsage(ctx context.Context, _ authn.ConsoleMember, rng string) ([]AgentUsage, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
-	rng, n := rangeOf(rng)
+	n := rangeOf(rng)
 	agents, err := s.settings.Agents(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list the agents: %w", err)
 	}
-	var turns turnStats
-	if err = s.stats(ctx, caller, "turns", rng, &turns); err != nil {
+	turns, err := s.turnsOf(ctx, n)
+	if err != nil {
 		return nil, err
 	}
 	end := s.now().UTC()
@@ -372,15 +440,16 @@ func (s *Agent) AgentUsage(ctx context.Context, caller authn.ConsoleMember, rng 
 }
 
 // memberSpend is each member's spend through the console agents over a
-// range, from LiteLLM's end users, with their questions from the agent
-// service; members with neither are left out.
-func (s *Agent) memberSpend(ctx context.Context, caller authn.ConsoleMember, rng, start, end string) ([]MemberSpend, error) {
+// range, from LiteLLM's end users, with their questions; members with
+// neither are left out.
+func (s *Agent) memberSpend(ctx context.Context, rng, start, end string) ([]MemberSpend, error) {
 	acts, err := s.gateway.DailyActivity(ctx, "/customer", start, end)
 	if err != nil {
 		return nil, gatewayError(err)
 	}
-	var turns turnStats
-	if err = s.stats(ctx, caller, "turns", rng, &turns); err != nil {
+	n := rangeOf(rng)
+	turns, err := s.turnsOf(ctx, n)
+	if err != nil {
 		return nil, err
 	}
 	members, err := s.members(ctx)
@@ -415,44 +484,74 @@ func (s *Agent) memberSpend(ctx context.Context, caller authn.ConsoleMember, rng
 	return out, nil
 }
 
-// Tools reads the agent's tool calls over a range, each tool with its
-// title.
-func (s *Agent) Tools(ctx context.Context, caller authn.ConsoleMember, rng string) (ToolStats, error) {
-	rng, _ = rangeOf(rng)
-	var out ToolStats
-	if err := s.stats(ctx, caller, "tools", rng, &out); err != nil {
-		return ToolStats{}, err
+// Tools reads the agent's tool calls over a range: each tool's calls,
+// failures, median time and calls by day, with its title, and the newest
+// calls with their turn's member.
+func (s *Agent) Tools(ctx context.Context, _ authn.ConsoleMember, rng string) (ToolStats, error) {
+	n := rangeOf(rng)
+	from, dates := rangeDays(s.now(), n)
+	totals, err := s.runs.ToolTotals(ctx, from)
+	if err != nil {
+		return ToolStats{}, fmt.Errorf("count the tool calls: %w", err)
 	}
-	for i := range out.Items {
-		out.Items[i].DisplayName = domain.ToolTitles[out.Items[i].Name]
-		if out.Items[i].DisplayName == "" {
-			out.Items[i].DisplayName = out.Items[i].Name
+	days, err := s.runs.ToolDays(ctx, from)
+	if err != nil {
+		return ToolStats{}, fmt.Errorf("count the tool calls by day: %w", err)
+	}
+	recent, err := s.runs.RecentCalls(ctx, from, recentStats)
+	if err != nil {
+		return ToolStats{}, fmt.Errorf("list the recent tool calls: %w", err)
+	}
+	daysOf := byDay(days, dates)
+	out := ToolStats{Items: make([]ToolStat, 0, len(totals)), Recent: make([]ToolRecent, 0, len(recent))}
+	for _, t := range totals {
+		item := ToolStat{Name: t.Name, DisplayName: domain.ToolTitles[t.Name], Calls: t.Calls, Failed: t.Failed, Days: []DayCalls{}}
+		if item.DisplayName == "" {
+			item.DisplayName = t.Name
 		}
-		if out.Items[i].Days == nil {
-			out.Items[i].Days = []DayCalls{}
+		if t.P50MS != nil {
+			item.P50MS = new(int(math.Round(*t.P50MS)))
 		}
+		for i, d := range dates {
+			calls := 0
+			if c := daysOf[t.Name]; c != nil {
+				calls = c[i]
+			}
+			item.Days = append(item.Days, DayCalls{Date: d, Calls: calls})
+		}
+		out.Items = append(out.Items, item)
 	}
-	if out.Items == nil {
-		out.Items = []ToolStat{}
-	}
-	if out.Recent == nil {
-		out.Recent = []ToolRecent{}
+	for i := range recent {
+		r := &recent[i]
+		v := ToolRecent{CallID: r.CallID, TurnID: r.TurnID, MemberID: &r.MemberID, Tool: r.Tool, Label: r.Label, Status: r.Status, At: r.At}
+		if r.DurationMS != nil {
+			v.DurationMS = new(int(*r.DurationMS))
+		}
+		out.Recent = append(out.Recent, v)
 	}
 	return out, nil
 }
 
-// Guardrails reads the agent's guardrail notices over a range.
-func (s *Agent) Guardrails(ctx context.Context, caller authn.ConsoleMember, rng string) (GuardrailStats, error) {
-	rng, _ = rangeOf(rng)
-	var out GuardrailStats
-	if err := s.stats(ctx, caller, "guardrails", rng, &out); err != nil {
-		return GuardrailStats{}, err
+// Guardrails reads the agent's guardrail events over a range: how often
+// each rule acted, and the newest events.
+func (s *Agent) Guardrails(ctx context.Context, _ authn.ConsoleMember, rng string) (GuardrailStats, error) {
+	n := rangeOf(rng)
+	from, _ := rangeDays(s.now(), n)
+	rules, err := s.runs.GuardrailRules(ctx, from)
+	if err != nil {
+		return GuardrailStats{}, fmt.Errorf("count the guardrail events: %w", err)
 	}
-	if out.Items == nil {
-		out.Items = []GuardrailCount{}
+	recent, err := s.runs.RecentGuardrails(ctx, from, recentStats)
+	if err != nil {
+		return GuardrailStats{}, fmt.Errorf("list the recent guardrail events: %w", err)
 	}
-	if out.Recent == nil {
-		out.Recent = []GuardrailNotice{}
+	out := GuardrailStats{Items: make([]GuardrailCount, 0, len(rules)), Recent: make([]GuardrailNotice, 0, len(recent))}
+	for _, r := range rules {
+		out.Items = append(out.Items, GuardrailCount{Rule: r.Rule, Count: r.Count})
+	}
+	for i := range recent {
+		r := &recent[i]
+		out.Recent = append(out.Recent, GuardrailNotice{Rule: r.Rule, Detail: r.Detail, MemberID: &r.MemberID, TurnID: &r.TurnID, At: r.At})
 	}
 	return out, nil
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
-// maxEventLine bounds one line of the agent's event stream.
+// maxEventLine bounds one line of a turn's event stream.
 const maxEventLine = 1 << 20
 
 var newline = []byte{'\n'}
@@ -27,12 +27,10 @@ type eventsRequest struct {
 	After string `json:"-" query:"after"`
 }
 
-// Events serves GET /v1/console/agent/turns/{id}/events: the agent's
-// stream as it comes, each event flushed when its blank line arrives, with
-// no write deadline. The agent ends the stream after turn.finished,
-// turn.paused or clarify, and so does the server, which does not read
-// again; the member closing the tab ends the read upstream, and the run
-// goes on.
+// Events serves GET /v1/console/agent/turns/{id}/events: the turn's
+// events as the service writes them, each flushed at its blank line, with
+// no write deadline. The stream ends after turn.finished, turn.paused or
+// clarify; the member closing the tab ends it, and the run goes on.
 func (h *Handler) Events(w http.ResponseWriter, r *http.Request) {
 	caller, ok := httpx.ConsoleCaller(w, r, h.log)
 	if !ok {

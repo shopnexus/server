@@ -2,18 +2,15 @@ package service
 
 import (
 	"encoding/json"
-	"strings"
 	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/agent/domain"
 )
 
-// The views are the schemas in api/schemas/console_agent.yaml, which are
-// the agent service's own shapes: the service decodes the agent's answer
-// into them and checks only what the console relies on. A part the agent
-// owns whole, such as an answer block or a tool's input, passes through
-// as raw JSON.
+// The views are the schemas in api/schemas/console_agent.yaml. A part the
+// agent writes whole, such as an answer block or a tool's input, passes
+// through as raw JSON.
 
 // Conversation is the AgentConversation schema.
 type Conversation struct {
@@ -38,8 +35,8 @@ type Turn struct {
 	ID             uuid.UUID  `json:"id"`
 	ConversationID *uuid.UUID `json:"conversation_id,omitempty"`
 	MemberID       uuid.UUID  `json:"member_id"`
-	// Status is the agent's, in lower case: running, paused,
-	// awaiting_input, succeeded, failed, cancelled, timed_out or budget.
+	// Status is running, paused, awaiting_input, succeeded, failed,
+	// cancelled or timed_out.
 	Status  string            `json:"status"`
 	Text    string            `json:"text"`
 	Answer  string            `json:"answer,omitempty"`
@@ -62,21 +59,6 @@ type Turn struct {
 	// pauses left out.
 	FinishedAt *time.Time `json:"finished_at,omitempty"`
 	DurationMS *int64     `json:"duration_ms,omitempty"`
-}
-
-// lists is t with its status in lower case and no nil list.
-func (t Turn) lists() Turn {
-	t.Status = strings.ToLower(t.Status)
-	if t.Blocks == nil {
-		t.Blocks = []json.RawMessage{}
-	}
-	if t.Sources == nil {
-		t.Sources = []Source{}
-	}
-	if t.Steers == nil {
-		t.Steers = []Steer{}
-	}
-	return t
 }
 
 // TurnAgent is the agent that ran a turn.
@@ -249,23 +231,11 @@ type Skill struct {
 	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
-// lists is sk with no nil list, so the JSON has arrays.
-func (sk Skill) lists() Skill {
-	if sk.Variables == nil {
-		sk.Variables = []SkillVariable{}
-	}
-	return sk
-}
-
 // SkillVariable is a blank in a skill's prompt, {{name}}.
-type SkillVariable struct {
-	Name    string `json:"name"`
-	Label   string `json:"label,omitempty"`
-	Default string `json:"default,omitempty"`
-}
+type SkillVariable = domain.SkillVariable
 
-// SkillInput is a new skill; the agent makes the slug from the name when
-// it has none.
+// SkillInput is a new skill; the slug is made from the name when it has
+// none.
 type SkillInput struct {
 	Name        string          `json:"name"`
 	Slug        string          `json:"slug,omitempty"`
@@ -281,4 +251,19 @@ type SkillPatch struct {
 	Description *string          `json:"description,omitempty"`
 	Prompt      *string          `json:"prompt,omitempty"`
 	Variables   *[]SkillVariable `json:"variables,omitempty"`
+}
+
+// TurnControl is what a running segment polls: the pauses, stops and
+// steers after its cursor, and whether the turn still runs.
+type TurnControl struct {
+	Items   []ControlItem `json:"items"`
+	Running bool          `json:"running"`
+}
+
+// ControlItem is one input of TurnControl; a steer has its id and text.
+type ControlItem struct {
+	Seq     int64      `json:"seq"`
+	Kind    string     `json:"kind"`
+	SteerID *uuid.UUID `json:"steer_id,omitempty"`
+	Text    string     `json:"text,omitempty"`
 }

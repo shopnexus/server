@@ -1,12 +1,13 @@
 // Package service holds module agent's use cases: a console member's
-// conversations with the console agent, which the server forwards to the
-// agent service, and the record of what the agent read of people through
-// the MCP server.
+// conversations with the console agent, whose runs the agent service
+// streams back to the server, the AI settings, and the record of what the
+// agent read of people through the MCP server.
 package service
 
 import (
 	"context"
 	"io"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
@@ -54,8 +55,8 @@ type Service interface {
 	//
 	// UC-MOD-08
 	DeleteConversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) error
-	// Ask puts caller's question to a console agent in a conversation; the
-	// agent answers with the turn's id at once and runs it.
+	// Ask puts caller's question to a console agent in a conversation and
+	// starts its run, which goes on in the background.
 	//
 	// UC-MOD-08 · BR-MOD-03 · ADR-0003
 	Ask(ctx context.Context, caller authn.ConsoleMember, conversation uuid.UUID, in NewTurn) (TurnStarted, error)
@@ -71,6 +72,17 @@ type Service interface {
 	Turn(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Turn, error)
 	// Answer answers a turn's clarifying questions.
 	Answer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, answers Answers) (TurnState, error)
+	// TurnControl is what a running segment polls through the MCP
+	// listener: the turn's pauses, stops and steers after a seq.
+	TurnControl(ctx context.Context, turn uuid.UUID, after int64) (TurnControl, error)
+	// FollowTurns hands this replica's event streams the rings of new
+	// events until ctx is done.
+	FollowTurns(ctx context.Context)
+	// SweepTurns closes the turns running past their deadline as
+	// agent_stuck.
+	//
+	// UC-MOD-08
+	SweepTurns(ctx context.Context) error
 	// ToolCall reads a tool call in full.
 	ToolCall(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ToolCall, error)
 	// Document reads a document a turn wrote, with its versions.
@@ -164,6 +176,7 @@ const ReadsKeptFor = 90 * 24 * time.Hour
 type Deps struct {
 	Reads    repository.Reads
 	Settings repository.Settings
+	Runs     repository.Runs
 	// Gateway is LiteLLM's admin API, with LITELLM_URL and
 	// LITELLM_MASTER_KEY.
 	Gateway litellm.Admin
@@ -185,12 +198,14 @@ type Deps struct {
 	Token   string
 	HTTP    *http.Client
 	Now     func() time.Time
+	Log     *slog.Logger
 }
 
 // Agent implements Service in this process.
 type Agent struct {
 	reads    repository.Reads
 	settings repository.Settings
+	runs     repository.Runs
 	gateway  litellm.Admin
 	console  consolesvc.Service
 	accounts accountsvc.Service
@@ -211,13 +226,20 @@ type Agent struct {
 	token    string
 	http     *http.Client
 	now      func() time.Time
+	log      *slog.Logger
+	limiter  *limiter
+	hub      *hub
 }
 
 var _ Service = (*Agent)(nil)
 
 func New(d Deps) *Agent {
+	if d.Log == nil {
+		d.Log = slog.New(slog.DiscardHandler)
+	}
 	return &Agent{
 		reads: d.Reads, settings: d.Settings, gateway: d.Gateway, console: d.Console, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals,
 		shipping: d.Shipping, support: d.Support, trust: d.Trust, textMin: d.TextMin, photoMin: d.PhotoMin, budgetOf: map[uuid.UUID]string{}, baseURL: d.BaseURL, token: d.Token, http: d.HTTP, now: d.Now,
+		runs: d.Runs, log: d.Log, limiter: newLimiter(), hub: newHub(),
 	}
 }

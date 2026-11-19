@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
-	"net/http"
-	"strings"
+	"fmt"
 	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/agent/domain"
-	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/agent/repository"
 	"github.com/shopnexus/server/internal/platform/authn"
 )
 
@@ -26,197 +24,313 @@ const (
 	ControlEnd      Control = "end"
 )
 
-// Events is UC-MOD-08 step 3 as the member watches it: the agent's event
-// stream of a turn, replayed after lastEventID (a seq) and then followed
-// live. The body is text/event-stream as the agent writes it; the caller
-// copies it and closes it, which ends the read upstream and not the run.
-// Only the wait for the stream to open is bounded; a stream runs as long
-// as the turn and the member's tab.
-func (s *Agent) Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, lastEventID string) (io.ReadCloser, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	target := strings.TrimSuffix(s.baseURL, "/") + "/turns/" + turn.String() + "/events"
-	req, err := s.newRequest(ctx, caller, http.MethodGet, target, nil)
-	if err != nil {
-		cancel()
-		return nil, err
-	}
-	req.Header.Set("Accept", "text/event-stream")
-	if lastEventID != "" {
-		req.Header.Set("Last-Event-ID", lastEventID)
-	}
-	opened := time.AfterFunc(readTimeout, cancel)
-	res, err := s.http.Do(req)
-	if !opened.Stop() {
-		cancel()
-		if res != nil {
-			_ = res.Body.Close()
-		}
-		return nil, domain.ErrUnavailable.WithCause(errors.New("the agent's event stream did not open in time"))
+// rateLimitedDetail is the guardrail event's detail for an update the rate
+// limit refused.
+const rateLimitedDetail = "More than 30 messages a minute; the update was not sent."
+
+// visibleTurn reads a turn of a conversation caller may open.
+func (s *Agent) visibleTurn(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (repository.Turn, error) {
+	t, err := s.runs.Turn(ctx, id)
+	if errors.Is(err, repository.ErrNotFound) || (err == nil && t.SubjectKind == "" && t.Owner != caller.MemberID) {
+		return repository.Turn{}, domain.ErrTurnNotFound
 	}
 	if err != nil {
-		cancel()
-		return nil, domain.ErrUnavailable.WithCause(err)
+		return repository.Turn{}, fmt.Errorf("read the turn: %w", err)
 	}
-	if res.StatusCode != http.StatusOK {
-		defer cancel()
-		defer func() { _ = res.Body.Close() }()
-		return nil, refusalOf(res, http.MethodGet, "/turns/{id}/events", domain.ErrTurnNotFound, nil)
-	}
-	return stream{ReadCloser: res.Body, cancel: cancel}, nil
+	return t, nil
 }
 
-// stream is an open event stream; Close ends the request.
-type stream struct {
-	io.ReadCloser
-
-	cancel context.CancelFunc
-}
-
-func (s stream) Close() error {
-	s.cancel()
-	return s.ReadCloser.Close() //nolint:wrapcheck // Close of the body, as an io.ReadCloser passes it on.
-}
-
-// Turn reads a turn as the agent keeps it: its status, its answer, its
-// sources, its steering and, while it waits, its questions.
+// Turn reads a turn: its status, its answer, its sources, its steering and,
+// while it waits, its questions.
 func (s *Agent) Turn(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Turn, error) {
-	var got Turn
-	if err := s.send(ctx, caller, request{
-		method: http.MethodGet, path: "/turns/" + id.String(), out: &got, timeout: readTimeout,
-		late: domain.ErrUnavailable, notFound: domain.ErrTurnNotFound,
-	}); err != nil {
+	t, err := s.visibleTurn(ctx, caller, id)
+	if err != nil {
 		return Turn{}, err
 	}
-	return got.lists(), nil
+	steers, err := s.runs.Steers(ctx, []uuid.UUID{id})
+	if err != nil {
+		return Turn{}, fmt.Errorf("read the turn's steers: %w", err)
+	}
+	return turnView(t, steers[id]), nil
 }
 
 // Control is UC-MOD-08's run controls: pause takes effect before the next
 // model call, so no tool is cut halfway; stop ends the call in flight and
 // pauses the run; continue resumes a paused, failed or timed out turn that
-// is its conversation's latest; end cancels a paused or waiting one. After
+// is its conversation's latest; end cancels a paused or waiting one. Pause
+// and stop wait in the turn's inputs, which the agent polls. After
 // continue the console opens the stream again from its last seq.
 func (s *Agent) Control(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, c Control) (TurnState, error) {
-	var got TurnState
-	if err := s.turnCall(ctx, caller, turn, string(c), nil, &got, nil); err != nil {
+	t, err := s.visibleTurn(ctx, caller, turn)
+	if err != nil {
 		return TurnState{}, err
 	}
-	return TurnState{TurnID: turn, Status: strings.ToLower(got.Status)}, nil
+	switch c {
+	case ControlPause, ControlStop:
+		if t.Status != domain.TurnRunning {
+			return TurnState{}, domain.ErrTurnState
+		}
+		err = s.runs.AddInput(ctx, repository.Input{ID: uuid.NewV7(), TurnID: turn, Kind: string(c), CreatedAt: s.now()})
+		if errors.Is(err, repository.ErrState) {
+			return TurnState{}, domain.ErrTurnState
+		}
+		if err != nil {
+			return TurnState{}, fmt.Errorf("send %s: %w", c, err)
+		}
+		return TurnState{TurnID: turn}, nil
+	case ControlContinue:
+		ok := t.Status == domain.TurnPaused || domain.Continuable(t.Status, t.ErrorCode, t.Wrote, t.Latest)
+		if !ok {
+			return TurnState{}, domain.ErrTurnState
+		}
+		if err = s.resume(ctx, caller, t, "continue", nil, ""); err != nil {
+			return TurnState{}, err
+		}
+		return TurnState{TurnID: turn}, nil
+	case ControlEnd:
+		if t.Status != domain.TurnPaused && t.Status != domain.TurnAwaitingInput {
+			return TurnState{}, domain.ErrTurnState
+		}
+		sources := sourcesOf(t)
+		body, encErr := json.Marshal(map[string]any{
+			"status": "CANCELLED", "outcome": domain.Outcome(domain.TurnCancelled, ""), "continuable": false, "sources": sources,
+		})
+		if encErr != nil {
+			return TurnState{}, fmt.Errorf("encode turn.finished: %w", encErr)
+		}
+		err = s.runs.CancelTurn(ctx, turn, t.Status, sources, body, s.now())
+		if errors.Is(err, repository.ErrState) {
+			return TurnState{}, domain.ErrTurnState
+		}
+		if err != nil {
+			return TurnState{}, fmt.Errorf("end the turn: %w", err)
+		}
+		return TurnState{TurnID: turn, Status: domain.TurnCancelled}, nil
+	}
+	return TurnState{}, domain.ErrTurnState
 }
 
-// Steer is UC-MOD-08's steering: text the run reads before its next model
-// call, or that continues a paused run.
+// Steer is UC-MOD-08's steering: text a running run reads before its next
+// model call, or that continues a paused run.
 func (s *Agent) Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, text string) (Steering, error) {
-	var got Steering
-	if err := s.turnCall(ctx, caller, turn, "steer", map[string]string{"text": text}, &got, nil); err != nil {
+	t, err := s.visibleTurn(ctx, caller, turn)
+	if err != nil {
 		return Steering{}, err
 	}
-	got.TurnID = turn
-	return got, nil
+	now := s.now()
+	if !s.limiter.allow(caller.MemberID, now) {
+		if t.Status == domain.TurnRunning || t.Status == domain.TurnPaused {
+			body, _ := json.Marshal(map[string]string{"rule": "rate_limited", "detail": rateLimitedDetail})
+			if _, evErr := s.runs.AppendEvent(ctx, turn, "guardrail", body, now); evErr != nil {
+				s.log.WarnContext(ctx, "agent: write a guardrail event", "turn_id", turn, "err", evErr)
+			}
+		}
+		return Steering{}, domain.ErrRateLimited
+	}
+	clean, err := domain.CleanInput(text)
+	if err != nil {
+		return Steering{}, err
+	}
+	in := repository.Input{ID: uuid.NewV7(), TurnID: turn, Kind: "steer", Text: clean, CreatedAt: now}
+	switch t.Status {
+	case domain.TurnRunning:
+		err = s.runs.AddInput(ctx, in)
+		if errors.Is(err, repository.ErrState) {
+			return Steering{}, domain.ErrTurnState
+		}
+		if err != nil {
+			return Steering{}, fmt.Errorf("send the steer: %w", err)
+		}
+		return Steering{SteerID: in.ID, TurnID: turn}, nil
+	case domain.TurnPaused:
+		if err = s.resume(ctx, caller, t, "steer", &in, ""); err != nil {
+			return Steering{}, err
+		}
+		return Steering{SteerID: in.ID, TurnID: turn, Resumed: true}, nil
+	}
+	return Steering{}, domain.ErrTurnState
 }
 
 // Answer gives a turn that waits on the agent's clarifying questions the
 // member's answers, and the run goes on; answers that do not fit the
 // questions are agent_answers_invalid.
 func (s *Agent) Answer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, answers Answers) (TurnState, error) {
-	if err := s.turnCall(ctx, caller, turn, "input", map[string]Answers{"answers": answers}, &struct{}{},
-		domain.ErrAnswersInvalid); err != nil {
+	t, err := s.visibleTurn(ctx, caller, turn)
+	if err != nil {
+		return TurnState{}, err
+	}
+	if t.Status != domain.TurnAwaitingInput {
+		return TurnState{}, domain.ErrTurnState
+	}
+	var questions []domain.Question
+	if ask := nullable(stateOf(t).PendingAsk); ask != nil {
+		if err = json.Unmarshal(ask, &questions); err != nil {
+			return TurnState{}, fmt.Errorf("read the turn's questions: %w", err)
+		}
+	}
+	text, err := domain.AnswerText(questions, answers)
+	if err != nil {
+		return TurnState{}, err
+	}
+	raw, err := json.Marshal(answers)
+	if err != nil {
+		return TurnState{}, fmt.Errorf("encode the answers: %w", err)
+	}
+	now := s.now()
+	in := repository.Input{ID: uuid.NewV7(), TurnID: turn, Kind: "answers", Text: text, Answers: raw, ReadAt: &now, CreatedAt: now}
+	if err = s.resume(ctx, caller, t, "input", &in, text); err != nil {
 		return TurnState{}, err
 	}
 	return TurnState{TurnID: turn}, nil
 }
 
-func (s *Agent) turnCall(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, action string, in, out any,
-	badRequest *apperr.Error,
+// resume runs the next segment of t, which the member continued (by), as
+// caller: the turn goes running under its lock with in stored, the run
+// starts from its last checkpoint with the unread steers and answers, and
+// turn.resumed is written once the agent took it. A refusal puts the turn
+// back as it was.
+func (s *Agent) resume(ctx context.Context, caller authn.ConsoleMember, t repository.Turn, by string, in *repository.Input,
+	answers string,
 ) error {
-	if in == nil {
-		in = struct{}{}
-	}
-	return s.send(ctx, caller, request{
-		method: http.MethodPost, path: "/turns/" + turn.String() + "/" + action, in: in, out: out, timeout: readTimeout,
-		late: domain.ErrUnavailable, notFound: domain.ErrTurnNotFound, badRequest: badRequest,
+	now := s.now().UTC().Truncate(time.Microsecond)
+	res, err := s.runs.ResumeTurn(ctx, repository.Resume{
+		TurnID: t.ID, From: t.Status, At: now, Input: in,
+		ClearAnswer: t.Status == domain.TurnFailed || t.Status == domain.TurnTimedOut,
 	})
-}
-
-// ToolCall reads one tool call of a turn in full: its input, its output
-// and its timing, for the console's tool panel.
-func (s *Agent) ToolCall(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ToolCall, error) {
-	var got ToolCall
-	if err := s.send(ctx, caller, request{
-		method: http.MethodGet, path: "/tool-calls/" + id.String(), out: &got, timeout: readTimeout,
-		late: domain.ErrUnavailable, notFound: domain.ErrToolCallNotFound,
-	}); err != nil {
-		return ToolCall{}, err
+	switch {
+	case errors.Is(err, repository.ErrNotFound):
+		return domain.ErrTurnNotFound
+	case errors.Is(err, repository.ErrState):
+		return domain.ErrTurnState
+	case err != nil:
+		return fmt.Errorf("resume the turn: %w", err)
 	}
-	return got, nil
-}
-
-// Document reads a document a turn wrote, with every version.
-func (s *Agent) Document(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Document, error) {
-	var got Document
-	if err := s.send(ctx, caller, request{
-		method: http.MethodGet, path: "/documents/" + id.String(), out: &got, timeout: readTimeout,
-		late: domain.ErrUnavailable, notFound: domain.ErrDocumentNotFound,
-	}); err != nil {
-		return Document{}, err
+	req := newRequest(res.Turn, caller, "resume", res.Documents)
+	req.State, req.Answers, req.ControlAfter = res.Turn.State, answers, res.ControlAfter
+	steers := make([]runSteer, 0, len(res.Steers))
+	for i := range res.Steers {
+		steers = append(steers, runSteer{SteerID: res.Steers[i].ID, Text: res.Steers[i].Text})
 	}
-	if got.Versions == nil {
-		got.Versions = []DocumentVersion{}
-	}
-	for i := range got.Versions {
-		if got.Versions[i].Sections == nil {
-			got.Versions[i].Sections = []json.RawMessage{}
+	req.Steers = steers
+	if id, parseErr := uuid.Parse(t.AgentID); parseErr == nil {
+		if a, agentErr := s.settings.Agent(ctx, id); agentErr == nil {
+			req.AgentConfig = configOf(a)
 		}
 	}
-	return got, nil
-}
-
-// Skill reads one skill.
-func (s *Agent) Skill(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Skill, error) {
-	return s.skillCall(ctx, caller, http.MethodGet, "/skills/"+id.String(), nil)
-}
-
-// Skills lists every skill; each is shared with every member.
-func (s *Agent) Skills(ctx context.Context, caller authn.ConsoleMember) ([]Skill, error) {
-	var got []Skill
-	if err := s.send(ctx, caller, request{
-		method: http.MethodGet, path: "/skills", out: &got, timeout: readTimeout,
-		late: domain.ErrUnavailable, notFound: domain.ErrSkillNotFound,
-	}); err != nil {
-		return nil, err
+	stream, cancel, err := s.startRun(ctx, req, time.Duration(t.DeadlineMS)*time.Millisecond)
+	if err != nil {
+		var input *uuid.UUID
+		if in != nil {
+			input = &in.ID
+		}
+		if restoreErr := s.runs.RestoreTurn(context.WithoutCancel(ctx), t, input); restoreErr != nil {
+			s.log.WarnContext(ctx, "agent: put back a turn whose run did not start", "turn_id", t.ID, "err", restoreErr)
+		}
+		return err
 	}
-	out := make([]Skill, 0, len(got))
-	for i := range got {
-		sk := &got[i]
-		out = append(out, sk.lists())
+	body, _ := json.Marshal(map[string]string{"by": by})
+	if _, err = s.runs.AppendEvent(ctx, t.ID, "turn.resumed", body, now); err != nil {
+		s.log.WarnContext(ctx, "agent: write turn.resumed", "turn_id", t.ID, "err", err)
+	}
+	s.launch(ctx, segment{turn: t.ID, conversation: t.ConversationID, member: caller.MemberID, start: res.Turn.RunStartedAt},
+		stream, cancel)
+	return nil
+}
+
+// configOf is the agent_config a run of a goes out with.
+func configOf(a repository.Agent) *AgentConfig {
+	return &AgentConfig{
+		ID: a.ID, Name: a.Name, Alias: a.Alias, Instructions: a.Instructions, InstructionsVersion: a.InstructionsVersion,
+		Tools: a.Tools, Limits: a.Limits,
+	}
+}
+
+// TurnControl is what a running segment polls: the pauses, stops and
+// steers after a seq, and whether the turn still runs.
+func (s *Agent) TurnControl(ctx context.Context, turn uuid.UUID, after int64) (TurnControl, error) {
+	list, running, err := s.runs.Control(ctx, turn, after, controlPage)
+	if err != nil {
+		return TurnControl{}, fmt.Errorf("read the turn's control: %w", err)
+	}
+	out := TurnControl{Items: make([]ControlItem, 0, len(list)), Running: running}
+	for i := range list {
+		in := &list[i]
+		item := ControlItem{Seq: in.Seq, Kind: in.Kind}
+		if in.Kind == "steer" {
+			item.SteerID, item.Text = &in.ID, in.Text
+		}
+		out.Items = append(out.Items, item)
 	}
 	return out, nil
 }
 
-// CreateSkill saves a skill made by caller.
-func (s *Agent) CreateSkill(ctx context.Context, caller authn.ConsoleMember, in SkillInput) (Skill, error) {
-	return s.skillCall(ctx, caller, http.MethodPost, "/skills", in)
-}
+// controlPage is the most inputs one poll returns.
+const controlPage = 100
 
-// UpdateSkill changes a skill; any member may.
-func (s *Agent) UpdateSkill(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, in SkillPatch) (Skill, error) {
-	return s.skillCall(ctx, caller, http.MethodPatch, "/skills/"+id.String(), in)
-}
-
-// DeleteSkill deletes a skill.
-func (s *Agent) DeleteSkill(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) error {
-	return s.send(ctx, caller, request{
-		method: http.MethodDelete, path: "/skills/" + id.String(), timeout: readTimeout,
-		late: domain.ErrUnavailable, notFound: domain.ErrSkillNotFound, badRequest: domain.ErrSkillNotFound,
-	})
-}
-
-func (s *Agent) skillCall(ctx context.Context, caller authn.ConsoleMember, method, path string, in any) (Skill, error) {
-	var got Skill
-	if err := s.send(ctx, caller, request{
-		method: method, path: path, in: in, out: &got, timeout: readTimeout,
-		late: domain.ErrUnavailable, notFound: domain.ErrSkillNotFound, badRequest: domain.ErrSkillInvalid,
-	}); err != nil {
-		return Skill{}, err
+// ToolCall reads one tool call of a turn in full: its input, its output
+// and its timing, for the console's tool panel.
+func (s *Agent) ToolCall(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ToolCall, error) {
+	tc, err := s.runs.ToolCall(ctx, id, caller.MemberID)
+	if errors.Is(err, repository.ErrNotFound) {
+		return ToolCall{}, domain.ErrToolCallNotFound
 	}
-	return got.lists(), nil
+	if err != nil {
+		return ToolCall{}, fmt.Errorf("read the tool call: %w", err)
+	}
+	out := ToolCall{
+		ID: tc.ID, TurnID: tc.TurnID, Tool: tc.Tool, Status: tc.Status, Input: tc.Input, OutputSpilled: tc.OutputSpilled,
+		Attempts: tc.Attempts, StartedAt: tc.CreatedAt, FinishedAt: tc.FinishedAt, AttemptErrors: []AttemptError{},
+	}
+	if tc.LatencyMS != nil {
+		out.DurationMS = new(int(*tc.LatencyMS))
+	}
+	if tc.Output != nil {
+		if json.Valid([]byte(*tc.Output)) {
+			out.Output = json.RawMessage(*tc.Output)
+		} else {
+			out.Output, _ = json.Marshal(*tc.Output)
+		}
+	}
+	if nullable(tc.Timing) != nil {
+		out.Timing = &Timing{}
+		_ = json.Unmarshal(tc.Timing, out.Timing)
+	}
+	if nullable(tc.AttemptErrors) != nil {
+		_ = json.Unmarshal(tc.AttemptErrors, &out.AttemptErrors)
+	}
+	return out, nil
+}
+
+// Document reads a document a turn wrote, with every version.
+func (s *Agent) Document(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Document, error) {
+	d, err := s.runs.Document(ctx, id, caller.MemberID)
+	if errors.Is(err, repository.ErrNotFound) {
+		return Document{}, domain.ErrDocumentNotFound
+	}
+	if err != nil {
+		return Document{}, fmt.Errorf("read the document: %w", err)
+	}
+	out := Document{
+		ID: d.ID, ConversationID: d.ConversationID, TurnID: d.TurnID, Title: d.Title, LatestVersion: d.LatestVersion,
+		CreatedBy: d.CreatedBy, CreatedAt: d.CreatedAt, UpdatedAt: d.UpdatedAt, Versions: make([]DocumentVersion, 0, len(d.Versions)),
+	}
+	for _, v := range d.Versions {
+		out.Versions = append(out.Versions, DocumentVersion{
+			Version: v.Version, Title: v.Title, Sections: rawList(v.Sections), TurnID: v.TurnID, CreatedBy: v.CreatedBy,
+			CreatedAt: v.CreatedAt,
+		})
+	}
+	return out, nil
+}
+
+// rawList is a JSON array's items, an empty list for anything else.
+func rawList(raw json.RawMessage) []json.RawMessage {
+	var out []json.RawMessage
+	if nullable(raw) != nil {
+		_ = json.Unmarshal(raw, &out)
+	}
+	if out == nil {
+		out = []json.RawMessage{}
+	}
+	return out
 }

@@ -1,6 +1,7 @@
 // Package agent serves the console agent's two sides in the server: the
-// console's agent endpoints, which forward to the agent service, and the
-// MCP server the agent reads through, on a listener of its own.
+// console's agent endpoints, whose runs the agent service streams back,
+// and the MCP server the agent reads through and polls a run's control
+// on, on a listener of its own.
 package agent
 
 import (
@@ -34,6 +35,8 @@ const (
 	sweepEvery = time.Hour
 	// stopWait bounds the MCP server's shutdown.
 	stopWait = 10 * time.Second
+	// turnSweepEvery is how often turns stuck running are closed.
+	turnSweepEvery = time.Minute
 )
 
 // Settings is what agent's Mount takes beyond module.Deps.
@@ -63,11 +66,12 @@ func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.H
 	shipping shippingsvc.Service, trust trustsvc.Service,
 ) (*Mounted, error) {
 	svc := service.New(service.Deps{
-		Reads: repository.NewReads(d.Pool), Settings: repository.NewSettings(d.Pool),
+		Reads: repository.NewReads(d.Pool), Settings: repository.NewSettings(d.Pool), Runs: repository.NewRuns(d.Pool, d.Log),
 		Gateway: litellm.Admin{BaseURL: s.Config.LiteLLMURL, MasterKey: s.Config.LiteLLMMasterKey, HTTP: &http.Client{}},
 		Console: consoles, Accounts: accounts, Catalog: catalog, Deals: deals, Shipping: shipping, Support: support, Trust: trust,
 		TextMin: s.TextMin, PhotoMin: s.PhotoMin,
 		BaseURL: s.Config.BaseURL, Token: s.Config.ServiceToken, HTTP: &http.Client{}, Now: d.Now,
+		Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, moderator, admin)
 	h := mcp.Handler(mcp.Deps{
@@ -85,14 +89,26 @@ func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.H
 // Addr is where the MCP server listens, for a test that listens on port 0.
 func (m *Mounted) Addr() net.Addr { return m.listener.Addr() }
 
-// Run serves the MCP server, sweeps old reads at start and every hour, and
-// syncs the models of the providers in sync mode at start and every 6
-// hours, until ctx is done; then it waits for the calls in flight and
-// returns nil.
+// Run serves the MCP server, hands the turns' event streams their rings,
+// sweeps old reads at start and every hour, closes stuck turns at start
+// and every minute, and syncs the models of the providers in sync mode at
+// start and every 6 hours, until ctx is done; then it waits for the calls
+// in flight and returns nil.
 func (m *Mounted) Run(ctx context.Context) error {
 	srv := &http.Server{Handler: m.mcp, ReadHeaderTimeout: 10 * time.Second}
 	served := make(chan error, 1)
 	go func() { served <- srv.Serve(m.listener) }()
+	followed := make(chan struct{})
+	go func() {
+		defer close(followed)
+		m.Service.FollowTurns(ctx)
+	}()
+	defer func() { <-followed }()
+	sweepTurns := func() {
+		if err := m.Service.SweepTurns(ctx); err != nil && ctx.Err() == nil {
+			m.d.Log.WarnContext(ctx, "agent: sweep stuck turns", "err", err)
+		}
+	}
 	sweep := func() {
 		if err := m.Service.SweepReads(ctx); err != nil && ctx.Err() == nil {
 			m.d.Log.WarnContext(ctx, "agent: sweep reads", "err", err)
@@ -104,9 +120,12 @@ func (m *Mounted) Run(ctx context.Context) error {
 		}
 	}
 	sweep()
+	sweepTurns()
 	sync()
 	tick := time.NewTicker(sweepEvery)
 	defer tick.Stop()
+	turnTick := time.NewTicker(turnSweepEvery)
+	defer turnTick.Stop()
 	syncTick := time.NewTicker(service.SyncEvery)
 	defer syncTick.Stop()
 	for {
@@ -120,6 +139,8 @@ func (m *Mounted) Run(ctx context.Context) error {
 			return fmt.Errorf("serve MCP: %w", err)
 		case <-tick.C:
 			sweep()
+		case <-turnTick.C:
+			sweepTurns()
 		case <-syncTick.C:
 			sync()
 		}

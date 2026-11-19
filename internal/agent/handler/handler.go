@@ -1,7 +1,7 @@
 // Package handler serves the console's agent endpoints under
-// /v1/console/agent, which forward to the agent service, the console
-// agents a member may pick, and the AI settings under /v1/console/settings,
-// which admins change over LiteLLM's admin API.
+// /v1/console/agent, the console agents a member may pick, and the AI
+// settings under /v1/console/settings, which admins change over LiteLLM's
+// admin API.
 package handler
 
 import (

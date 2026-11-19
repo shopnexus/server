@@ -3,8 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
-	"net/http"
-	"net/http/httptest"
+	"log/slog"
 	"slices"
 	"strings"
 	"testing"
@@ -41,11 +40,10 @@ VALUES (@id, @email, 'Minh', 'admin', 'active', 'x', false, 1, 0, @at, @at, @id)
 		pgx.StrictNamedArgs{"id": admin.MemberID, "email": admin.MemberID.String() + "@console.test", "at": settingsNow}); err != nil {
 		t.Fatal(err)
 	}
+	seedRuns(t, db, admin.MemberID)
 	f := newFakeLiteLLM(t)
-	agent := httptest.NewServer(http.HandlerFunc(statsAgent))
-	t.Cleanup(agent.Close)
 	s := service.New(service.Deps{
-		Settings: repository.NewSettings(db), Gateway: f.admin(), HTTP: &http.Client{}, BaseURL: agent.URL, Token: "t",
+		Settings: repository.NewSettings(db), Runs: repository.NewRuns(db, slog.New(slog.DiscardHandler)), Gateway: f.admin(),
 		Console: members{list: []consolesvc.MemberView{
 			{ID: admin.MemberID, DisplayName: "Minh", Role: "admin"}, {ID: moderator, DisplayName: "Lan", Role: "moderator"},
 		}},
@@ -54,8 +52,51 @@ VALUES (@id, @email, 'Minh', 'admin', 'active', 'x', false, 1, 0, @at, @at, @id)
 	return s, f, db, admin
 }
 
-// moderator is the members fake's moderator, with no row in the database.
+// moderator is the members fake's moderator.
 var moderator = uuid.MustParse("0193e000-0000-7000-8000-0000000000aa")
+
+// seedRuns puts the Console assistant's turns in db: three of the
+// moderator's at settingsNow, the first with a tool call and two guardrail
+// events, and one of the admin's 30 days earlier.
+func seedRuns(t *testing.T, db *pgxpool.Pool, admin uuid.UUID) {
+	t.Helper()
+	conversation, first := uuid.NewV7(), uuid.NewV7()
+	at, agent := settingsNow, domain.ConsoleAssistant.String()
+	for _, q := range []struct {
+		sql  string
+		args pgx.StrictNamedArgs
+	}{
+		{
+			`INSERT INTO console_members (id, email, display_name, console_role, status, password_hash, must_change_password,
+                           credentials_version, totp_last_step, created_at, updated_at, write_id)
+VALUES (@mod, 'lan@console.test', 'Lan', 'moderator', 'active', 'x', false, 1, 0, @at, @at, @mod)`,
+			pgx.StrictNamedArgs{"mod": moderator, "at": at},
+		},
+		{`INSERT INTO agent_conversations (id, member_id, status, created_at, updated_at, last_activity_at)
+VALUES (@c, @mod, 'active', @at, @at, @at)`, pgx.StrictNamedArgs{"c": conversation, "mod": moderator, "at": at}},
+		{`INSERT INTO agent_turns (id, conversation_id, member_id, ordinal, status, question, agent_id, started_at, run_started_at,
+    deadline_ms)
+SELECT CASE WHEN n = 0 THEN @first::uuid ELSE uuidv7() END, @c, CASE WHEN n < 3 THEN @mod::uuid ELSE @admin::uuid END, n, 'succeeded', '?',
+    @agent, CASE WHEN n < 3 THEN @at::timestamptz ELSE @at::timestamptz - interval '30 days' END, @at, 60000
+FROM generate_series(0, 3) AS n`, pgx.StrictNamedArgs{
+			"first": first, "c": conversation, "mod": moderator, "admin": admin, "agent": agent, "at": at,
+		}},
+		{
+			`INSERT INTO agent_tool_calls (id, turn_id, tool_use_id, tool_name, tool_label, tool_input, status, latency_ms, created_at)
+VALUES (@call, @first, 'tu1', 'ticket_get', 'Ticket', '{}', 'success', 80, @at)`,
+			pgx.StrictNamedArgs{"call": uuid.NewV7(), "first": first, "at": at},
+		},
+		{
+			`INSERT INTO agent_turn_events (turn_id, seq, event_type, body, occurred_at)
+SELECT @first, n, 'guardrail', '{"rule":"loop_stopped","detail":"same call 3 times"}', @at FROM generate_series(1, 2) AS n`,
+			pgx.StrictNamedArgs{"first": first, "at": at},
+		},
+	} {
+		if _, err := db.Exec(context.Background(), q.sql, q.args); err != nil {
+			t.Fatalf("%s: %v", q.sql, err)
+		}
+	}
+}
 
 // members is console's member list.
 type members struct {
@@ -66,29 +107,6 @@ type members struct {
 
 func (m members) ListMembers(context.Context, page.Request) (page.Page[consolesvc.MemberView], error) {
 	return page.Page[consolesvc.MemberView]{Items: m.list}, nil
-}
-
-// statsAgent answers the agent service's /stats endpoints with fixed
-// figures for the range 7d, and 400 for any other.
-func statsAgent(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Query().Get("range") != "7d" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	at := settingsNow.Format(time.RFC3339)
-	body := map[string]string{
-		"/stats/turns": `{"by_agent":[{"agent_id":"0193e000-0000-7000-8000-00000000a101","requests":4,` +
-			`"days":[{"date":"2026-11-18","requests":4}]}],"by_member":[{"member_id":"` + moderator.String() + `","requests":3}]}`,
-		"/stats/tools": `{"items":[{"name":"ticket_get","calls":5,"failed":1,"p50_ms":80,"days":[{"date":"2026-11-18","calls":5}]}],` +
-			`"recent":[{"call_id":"0193e000-0000-7000-8000-000000000c01","turn_id":"0193e000-0000-7000-8000-000000000c02",` +
-			`"tool":"ticket_get","label":"Ticket","duration_ms":80,"status":"success","at":"` + at + `"}]}`,
-		"/stats/guardrails": `{"items":[{"rule":"loop_stopped","count":2}],"recent":[]}`,
-	}[r.URL.Path]
-	if body == "" {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	_, _ = w.Write([]byte(body))
 }
 
 // actions lists the console actions on the AI settings, oldest first.
@@ -512,9 +530,9 @@ func TestProviderModelsEnabledAndHealth(t *testing.T) {
 	}
 }
 
-// The usage of a console agent is its turns from the agent service, an
-// app agent's its alias's requests in LiteLLM; the tools and guardrails
-// are the agent's, each tool with its title.
+// The usage of a console agent is its turns, an app agent's its alias's
+// requests in LiteLLM; the tools and guardrails are the runs', each tool
+// with its title.
 func TestUsageToolsAndGuardrails(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -528,18 +546,19 @@ func TestUsageToolsAndGuardrails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for id, want := range map[uuid.UUID]int{domain.ConsoleAssistant: 4, scamCheck: 7} {
+	for id, want := range map[uuid.UUID]int{domain.ConsoleAssistant: 3, scamCheck: 7} {
 		i := slices.IndexFunc(usage, func(u service.AgentUsage) bool { return u.AgentID == id })
-		if i < 0 || usage[i].Requests != want || len(usage[i].Days) != 1 || usage[i].Days[0].Requests != want {
+		if i < 0 || usage[i].Requests != want || usage[i].Days[len(usage[i].Days)-1].Requests != want {
 			t.Errorf("usage of %s: %+v", id, usage)
 		}
 	}
 	tools, err := s.Tools(ctx, admin, "7d")
-	if err != nil || len(tools.Items) != 1 || tools.Items[0].DisplayName != "Ticket" || tools.Items[0].Calls != 5 || len(tools.Recent) != 1 {
+	if err != nil || len(tools.Items) != 1 || tools.Items[0].DisplayName != "Ticket" || tools.Items[0].Calls != 1 ||
+		*tools.Items[0].P50MS != 80 || len(tools.Items[0].Days) != 7 || len(tools.Recent) != 1 || *tools.Recent[0].MemberID != moderator {
 		t.Fatalf("tools %+v %v", tools, err)
 	}
 	guards, err := s.Guardrails(ctx, admin, "bogus")
-	if err != nil || len(guards.Items) != 1 || guards.Items[0].Count != 2 || guards.Recent == nil {
+	if err != nil || len(guards.Items) != 1 || guards.Items[0].Count != 2 || len(guards.Recent) != 2 {
 		t.Fatalf("guardrails %+v %v", guards, err)
 	}
 }

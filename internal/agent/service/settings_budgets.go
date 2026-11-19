@@ -379,7 +379,7 @@ var SpendRanges = map[string]int{"7d": 7, "30d": 30, "90d": 90}
 
 // Spend reads LiteLLM's daily spend over a range ending today, in all and
 // by agent; spend on a model name no agent has counts in the total only.
-func (s *Agent) Spend(ctx context.Context, caller authn.ConsoleMember, rng string) (Spend, error) {
+func (s *Agent) Spend(ctx context.Context, _ authn.ConsoleMember, rng string) (Spend, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
 	days, ok := SpendRanges[rng]
@@ -389,7 +389,7 @@ func (s *Agent) Spend(ctx context.Context, caller authn.ConsoleMember, rng strin
 	end := s.now().UTC()
 	start := end.AddDate(0, 0, -(days - 1))
 	out := Spend{Range: rng, Start: start.Format(time.DateOnly), End: end.Format(time.DateOnly), Days: []SpendDay{}}
-	members, err := s.memberSpend(ctx, caller, rng, out.Start, out.End)
+	members, err := s.memberSpend(ctx, rng, out.Start, out.End)
 	if err != nil {
 		return Spend{}, err
 	}

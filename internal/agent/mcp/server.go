@@ -1,7 +1,8 @@
 // Package mcp is the server's MCP server, which the console agent reads
 // through: Streamable HTTP at /mcp on a listener of its own. Every tool
 // only reads, through the services of the modules that own the data, and
-// every call carries the console member the agent works for.
+// every call carries the console member the agent works for. The same
+// listener serves the control a running segment polls.
 package mcp
 
 import (
@@ -12,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 	"uuid"
@@ -115,7 +117,47 @@ func Handler(d Deps) http.Handler {
 		&sdk.StreamableHTTPOptions{Stateless: true, JSONResponse: true, Logger: d.Log})
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", authorize(d, mcpHandler))
+	mux.Handle("GET /agent/turns/{id}/control", control(d))
 	return mux
+}
+
+// tokenOK says whether r carries the bearer token AGENT_MCP_TOKEN,
+// compared in constant time, and logs a refusal.
+func tokenOK(d Deps, r *http.Request) bool {
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok || subtle.ConstantTimeCompare([]byte(token), []byte(d.Token)) != 1 {
+		d.Log.WarnContext(r.Context(), "security: agent MCP call refused", "reason", "token", "ip", r.RemoteAddr)
+		return false
+	}
+	return true
+}
+
+// control serves GET /agent/turns/{id}/control?after=<seq> with the
+// bearer token: the turn's pauses, stops and steers after seq, and
+// whether it still runs, {items: [{seq, kind, steer_id?, text?}],
+// running}. A turn that does not exist does not run.
+func control(d Deps) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !tokenOK(d, r) {
+			httpx.WriteError(w, r, d.Log, authn.ErrUnauthenticated)
+			return
+		}
+		id, err := uuid.Parse(r.PathValue("id"))
+		var after int64
+		if err == nil && r.URL.Query().Get("after") != "" {
+			after, err = strconv.ParseInt(r.URL.Query().Get("after"), 10, 64)
+		}
+		if err != nil || after < 0 {
+			httpx.WriteError(w, r, d.Log, domain.ErrRequestInvalid.WithField("after", "not_a_seq"))
+			return
+		}
+		out, err := d.Agent.TurnControl(r.Context(), id, after)
+		if err != nil {
+			httpx.WriteError(w, r, d.Log, err)
+			return
+		}
+		httpx.Respond(w, http.StatusOK, out)
+	})
 }
 
 // authorize lets a call through with the bearer token AGENT_MCP_TOKEN,
@@ -125,9 +167,7 @@ func Handler(d Deps) http.Handler {
 // without a member.
 func authorize(d Deps, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !ok || subtle.ConstantTimeCompare([]byte(token), []byte(d.Token)) != 1 {
-			d.Log.WarnContext(r.Context(), "security: agent MCP call refused", "reason", "token", "ip", r.RemoteAddr)
+		if !tokenOK(d, r) {
 			httpx.WriteError(w, r, d.Log, authn.ErrUnauthenticated)
 			return
 		}
