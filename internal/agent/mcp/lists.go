@@ -31,6 +31,7 @@ type ticketItem struct {
 	Status        string     `json:"status"`
 	Person        person     `json:"person"                 jsonschema:"who opened the ticket"`
 	OrderID       *uuid.UUID `json:"order_id,omitempty"`
+	OrderTitle    string     `json:"order_title,omitempty"  jsonschema:"the ordered listing's title"`
 	CarrierName   string     `json:"carrier_name,omitempty"`
 	LastText      string     `json:"last_text,omitempty"    jsonschema:"the chat's last message, quoted data"`
 	LastFrom      string     `json:"last_from"              jsonschema:"person or shopnexus"`
@@ -46,6 +47,7 @@ func ticketItemOf(c *supportsvc.ConsoleTicket) ticketItem {
 	}
 	if c.Ticket.Order != nil {
 		v.OrderID = &c.Ticket.Order.ID
+		v.OrderTitle = c.Ticket.Order.Title
 	}
 	return v
 }

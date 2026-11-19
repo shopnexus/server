@@ -116,7 +116,7 @@ func TestAgentMCPTools(t *testing.T) {
 	l := activeListing(t, seller.AccessToken, nil)
 	order := shippedOrder(t, seller.AccessToken, buyer.AccessToken, l.ID).Order
 	tk := openTicket(t, buyer.AccessToken, map[string]any{
-		"kind": "not_received", "order_id": order.ID, "body": "GHTK báo đã giao mà mình chưa nhận",
+		"kind": "not_received", "order_id": order.ID, "text": "GHTK báo đã giao mà mình chưa nhận",
 	}, http.StatusCreated)
 	reporter, _ := newAccount(t)
 	expectStatus(t, call(t, "POST", "/v1/reports", map[string]any{"listing_id": l.ID, "reason": "scam", "note": "Đòi cọc"},
@@ -257,7 +257,8 @@ func TestAgentMCPTools(t *testing.T) {
 	}
 
 	type idOnly struct {
-		ID string `json:"id"`
+		ID         string `json:"id"`
+		OrderTitle string `json:"order_title"`
 	}
 	type paged struct {
 		Items      []idOnly `json:"items"`
@@ -270,7 +271,10 @@ func TestAgentMCPTools(t *testing.T) {
 	args := map[string]any{"kind": "not_received", "limit": 50}
 	for {
 		q := callTool[paged](t, s, schemas, "tickets_list", args)
-		if has(q, tk.ID) {
+		if i := slices.IndexFunc(q.Items, func(x idOnly) bool { return x.ID == tk.ID }); i >= 0 {
+			if q.Items[i].OrderTitle == "" {
+				t.Fatalf("tickets_list: the ticket has no order_title %+v", q.Items[i])
+			}
 			break
 		}
 		if q.NextCursor == nil {
