@@ -142,7 +142,7 @@ func setup(closers *[]func()) error {
 	issuer.SetPNVDown(true)
 	cfg := config.Config{
 		DatabaseURL: pool.Config().ConnString(),
-		ObjectStore: objectStoreCfg,
+		ObjectStore: websiteAt(objectStoreCfg),
 		Restate:     restateCfg,
 		Auth:        keys,
 		Console: config.ConsoleConfig{

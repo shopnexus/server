@@ -11,8 +11,21 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/shopnexus/server/internal/platform/config"
 	"github.com/shopnexus/server/internal/platform/testenv"
 )
+
+// websiteOrigin is the website's origin in the server's WEBSITE_ORIGINS,
+// whose browsers may open /v1/ws.
+const websiteOrigin = "http://website.e2e"
+
+// websiteAt is the object store's settings with websiteOrigin as the
+// website's origins. Only the socket reads them: the store's CORS rules
+// are set by Prepare, which the server does not call.
+func websiteAt(c config.ObjectStoreConfig) config.ObjectStoreConfig {
+	c.UploadOrigins = []string{websiteOrigin}
+	return c
+}
 
 type socketFrame struct {
 	Type           string `json:"type"`
@@ -102,6 +115,33 @@ func (s *socket) waitFrame(t *testing.T, typ, kind, id string) {
 		}
 		return nil
 	})
+}
+
+// A browser on another origin is refused with 403; the website's browser
+// connects with the token as a subprotocol, which the server selects.
+func TestSocketOrigins(t *testing.T) {
+	t.Parallel()
+	me, _ := newAccount(t)
+	_, res, err := websocket.Dial(t.Context(), server+"/v1/ws", &websocket.DialOptions{ //nolint:bodyclose // Dial closes the handshake response's body.
+		HTTPHeader: http.Header{"Authorization": {"Bearer " + me.AccessToken}, "Origin": {"http://elsewhere.e2e"}},
+	})
+	if err == nil || res == nil || res.StatusCode != http.StatusForbidden {
+		t.Fatalf("a foreign origin: %v %v", res, err)
+	}
+	record("openSocket", res.StatusCode)
+
+	conn, res, err := websocket.Dial(t.Context(), server+"/v1/ws", &websocket.DialOptions{ //nolint:bodyclose // Dial closes the handshake response's body.
+		HTTPHeader:   http.Header{"Origin": {websiteOrigin}},
+		Subprotocols: []string{"bearer", me.AccessToken},
+	})
+	if err != nil {
+		t.Fatalf("the website's origin: %v", err)
+	}
+	defer func() { _ = conn.CloseNow() }()
+	record("openSocket", res.StatusCode)
+	if conn.Subprotocol() != "bearer" {
+		t.Fatalf("selected subprotocol %q", conn.Subprotocol())
+	}
 }
 
 func TestSocketGetsADealUpdate(t *testing.T) {
