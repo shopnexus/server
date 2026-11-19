@@ -40,7 +40,18 @@ type Report struct {
 	createdAt      time.Time
 	updatedAt      time.Time
 	withdrawnAt    *time.Time
+	// resolved is set once a console member resolved the report's case.
+	resolved bool
 }
+
+// ReportStatus is where a report stands for its reporter.
+type ReportStatus string
+
+const (
+	ReportOpen      ReportStatus = "open"
+	ReportWithdrawn ReportStatus = "withdrawn"
+	ReportResolved  ReportStatus = "resolved"
+)
 
 // NewReport checks a report: not of the reporter, a known reason, a note of
 // at most 500 characters after trimming, and a conversation only beside an
@@ -80,6 +91,18 @@ func (r *Report) CreatedAt() time.Time      { return r.createdAt }
 func (r *Report) UpdatedAt() time.Time      { return r.updatedAt }
 func (r *Report) WithdrawnAt() *time.Time   { return r.withdrawnAt }
 
+// Status is withdrawn once the reporter withdrew the report, else resolved
+// once its case was resolved, else open.
+func (r *Report) Status() ReportStatus {
+	switch {
+	case r.withdrawnAt != nil:
+		return ReportWithdrawn
+	case r.resolved:
+		return ReportResolved
+	}
+	return ReportOpen
+}
+
 // ReportState is every stored field of a report. Stores only.
 type ReportState struct {
 	ID             uuid.UUID
@@ -92,6 +115,7 @@ type ReportState struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	WithdrawnAt    *time.Time
+	Resolved       bool
 }
 
 // RestoreReport rebuilds a stored report. Stores only.
@@ -99,6 +123,7 @@ func RestoreReport(st ReportState) Report {
 	return Report{
 		id: st.ID, reporterID: st.ReporterID, accountID: st.AccountID, listingID: st.ListingID,
 		conversationID: st.ConversationID, reason: st.Reason, note: st.Note, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt, withdrawnAt: st.WithdrawnAt,
+		resolved: st.Resolved,
 	}
 }
 
@@ -107,5 +132,6 @@ func (r *Report) State() ReportState {
 	return ReportState{
 		ID: r.id, ReporterID: r.reporterID, AccountID: r.accountID, ListingID: r.listingID,
 		ConversationID: r.conversationID, Reason: r.reason, Note: r.note, CreatedAt: r.createdAt, UpdatedAt: r.updatedAt, WithdrawnAt: r.withdrawnAt,
+		Resolved: r.resolved,
 	}
 }

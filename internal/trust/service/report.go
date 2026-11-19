@@ -8,6 +8,7 @@ import (
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
 	"github.com/shopnexus/server/internal/trust/repository"
 )
@@ -60,10 +61,21 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 	if err != nil {
 		return ReportView{}, false, fmt.Errorf("open report: %w", err)
 	}
-	return ReportView{
-		ID: r.ID(), ListingID: r.ListingID(), AccountID: r.AccountID(), ConversationID: r.ConversationID(), Reason: r.Reason(), Note: r.Note(),
-		CreatedAt: r.CreatedAt(), UpdatedAt: r.UpdatedAt(),
-	}, added, nil
+	return reportView(r), added, nil
+}
+
+// MyReports lists a page of the reporter's reports, newest first.
+func (s *Trust) MyReports(ctx context.Context, reporter uuid.UUID, p page.Request) (page.Page[ReportView], error) {
+	rows, err := s.reports.ListMine(ctx, reporter, p)
+	if err != nil {
+		return page.Page[ReportView]{}, fmt.Errorf("list reports: %w", err)
+	}
+	pg := page.Of(rows, p, func(r domain.Report) uuid.UUID { return r.ID() })
+	out := page.Page[ReportView]{Items: make([]ReportView, 0, len(pg.Items)), NextCursor: pg.NextCursor}
+	for i := range pg.Items {
+		out.Items = append(out.Items, reportView(pg.Items[i]))
+	}
+	return out, nil
 }
 
 // WithdrawReport withdraws the reporter's report; anyone else's, or an

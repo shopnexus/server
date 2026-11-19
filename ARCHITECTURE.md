@@ -2013,6 +2013,14 @@ Reports are trust's too (decided 2026-11-10, spec:
 - `DELETE /v1/reports/{id}` withdraws a report for "Hoàn tác". The row
   stays with `withdrawn_at`, and the next report of the target opens a new
   row. Someone else's report is `report_not_found`.
+- `GET /v1/reports` (decided 2026-11-19) lists the caller's reports,
+  newest first and paged by report ID over `reports_reporter (reporter_id,
+  id)` (migration 0063), withdrawn and resolved ones included, so a client
+  shows them and withdraws an open one. `Report.status` is `withdrawn` once
+  `withdrawn_at` is set, else `resolved` while a `resolution_id` is set,
+  else `open`; a reopened case clears the ID, and its reports read open
+  again. The domain's `Report.Status` decides it, from the row's
+  `resolution_id IS NOT NULL`.
 - A suspended account cannot report. A deleted listing is
   `listing_not_found`; a hidden, reserved, sold or rejected one can be
   reported.

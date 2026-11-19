@@ -157,7 +157,7 @@ LIMIT 1`, args), true)
 	if resolved {
 		where, args = `r.resolution_id = @key`, pgx.StrictNamedArgs{"key": c.Key}
 	}
-	rows, err := s.db.Query(ctx, `SELECT `+reportColumns+` FROM reports r WHERE r.withdrawn_at IS NULL AND `+where+`
+	rows, err := s.db.Query(ctx, `SELECT `+reportSelect+` FROM reports r WHERE r.withdrawn_at IS NULL AND `+where+`
 ORDER BY r.created_at DESC, r.id DESC`, args)
 	if err != nil {
 		return Case{}, nil, fmt.Errorf("select the case's reports: %w", err)

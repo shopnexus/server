@@ -27,6 +27,7 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("POST /v1/reviews/{id}/reply", protect(http.HandlerFunc(h.ReplyReview)))
 	r.Handle("GET /v1/accounts/{id}/reviews", http.HandlerFunc(h.Reviews))
 	r.Handle("GET /v1/sellers/{id}/reviews", http.HandlerFunc(h.Reviews))
+	r.Handle("GET /v1/reports", protect(http.HandlerFunc(h.MyReports)))
 	r.Handle("POST /v1/reports", protect(http.HandlerFunc(h.Report)))
 	r.Handle("DELETE /v1/reports/{id}", protect(http.HandlerFunc(h.WithdrawReport)))
 	r.Handle("POST /v1/conversations/{id}/scam-warning/dismiss", protect(http.HandlerFunc(h.DismissScamWarning)))

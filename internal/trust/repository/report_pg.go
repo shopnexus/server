@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
 )
 
@@ -20,7 +21,10 @@ func NewReports(db *pgxpool.Pool) Reports { return pgReports{db} }
 const reportColumns = `id, reporter_id, account_id, listing_id, conversation_id, reason, note, created_at, updated_at,
        withdrawn_at`
 
-// scanReport reads reportColumns, then any more destinations.
+// reportSelect is reportColumns and whether a case resolved the report.
+const reportSelect = reportColumns + `, resolution_id IS NOT NULL`
+
+// scanReport reads reportSelect, then any more destinations.
 func scanReport(row pgx.Row, more ...any) (domain.Report, error) {
 	var (
 		st                    domain.ReportState
@@ -28,7 +32,7 @@ func scanReport(row pgx.Row, more ...any) (domain.Report, error) {
 	)
 	dest := append([]any{
 		&st.ID, &st.ReporterID, &st.AccountID, &listing, &conversation, &st.Reason, &st.Note, &st.CreatedAt, &st.UpdatedAt,
-		&st.WithdrawnAt,
+		&st.WithdrawnAt, &st.Resolved,
 	}, more...)
 	if err := row.Scan(dest...); err != nil {
 		return domain.Report{}, fmt.Errorf("scan report: %w", err)
@@ -60,7 +64,7 @@ VALUES (@id, @reporter, @account, @listing, @conversation, @reason, @note, @crea
 ON CONFLICT `+target+` DO UPDATE
 SET reason = EXCLUDED.reason, note = EXCLUDED.note, conversation_id = EXCLUDED.conversation_id,
     updated_at = EXCLUDED.updated_at
-RETURNING `+reportColumns+`, xmax = 0`, pgx.StrictNamedArgs{
+RETURNING `+reportSelect+`, xmax = 0`, pgx.StrictNamedArgs{
 		"id": st.ID, "reporter": st.ReporterID, "account": st.AccountID, "listing": listing, "conversation": conversation, "reason": st.Reason,
 		"note": st.Note, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
 	}), &added)
@@ -71,11 +75,25 @@ RETURNING `+reportColumns+`, xmax = 0`, pgx.StrictNamedArgs{
 }
 
 func (s pgReports) Get(ctx context.Context, id uuid.UUID) (domain.Report, error) {
-	r, err := scanReport(s.db.QueryRow(ctx, `SELECT `+reportColumns+` FROM reports WHERE id = @id`, pgx.StrictNamedArgs{"id": id}))
+	r, err := scanReport(s.db.QueryRow(ctx, `SELECT `+reportSelect+` FROM reports WHERE id = @id`, pgx.StrictNamedArgs{"id": id}))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Report{}, ErrNotFound
 	}
 	return r, err
+}
+
+func (s pgReports) ListMine(ctx context.Context, reporter uuid.UUID, p page.Request) ([]domain.Report, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+reportSelect+` FROM reports
+WHERE reporter_id = @reporter AND id < @before ORDER BY id DESC LIMIT @limit`,
+		pgx.StrictNamedArgs{"reporter": reporter, "before": p.Before(), "limit": p.Fetch()})
+	if err != nil {
+		return nil, fmt.Errorf("select reports: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Report, error) { return scanReport(row) })
+	if err != nil {
+		return nil, fmt.Errorf("read reports: %w", err)
+	}
+	return out, nil
 }
 
 func (s pgReports) Withdraw(ctx context.Context, id uuid.UUID, at time.Time) error {

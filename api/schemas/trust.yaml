@@ -132,7 +132,7 @@ ReportCreate:
 Report:
   type: object
   additionalProperties: false
-  required: [id, account_id, reason, note, created_at, updated_at]
+  required: [id, account_id, reason, note, status, created_at, updated_at]
   properties:
     id:
       type: string
@@ -154,12 +154,29 @@ Report:
       enum: [banned, fake, scam, other]
     note:
       type: string
+    status:
+      type: string
+      enum: [open, withdrawn, resolved]
+      description: withdrawn once the caller withdrew it; resolved once ShopNexus closed the case it is part of; else open. A new or updated report is open.
     created_at:
       type: string
       format: date-time
     updated_at:
       type: string
       format: date-time
+ReportList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/Report"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more reports follow; pass it as cursor.
 ScamWarning:
   type: object
   additionalProperties: false

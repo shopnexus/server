@@ -5,6 +5,7 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
 )
 
@@ -17,6 +18,9 @@ type Reports interface {
 	Open(ctx context.Context, r domain.Report) (domain.Report, bool, error)
 	// Get returns a report, open or withdrawn, or ErrNotFound.
 	Get(ctx context.Context, id uuid.UUID) (domain.Report, error)
+	// ListMine lists reporter's reports with IDs below p's cursor, newest
+	// first, withdrawn and resolved ones included.
+	ListMine(ctx context.Context, reporter uuid.UUID, p page.Request) ([]domain.Report, error)
 	// Withdraw marks an open report withdrawn at at; a withdrawn one keeps
 	// its time.
 	Withdraw(ctx context.Context, id uuid.UUID, at time.Time) error

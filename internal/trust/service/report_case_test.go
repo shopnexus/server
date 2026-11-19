@@ -75,6 +75,13 @@ func TestReportCase(t *testing.T) {
 		d.Resolution.By.MemberID != lan.MemberID || len(d.Reports) != 2 {
 		t.Fatalf("dismiss: %+v %v", d, err)
 	}
+	// Each reporter reads the case's reports as resolved, a withdrawn one
+	// as withdrawn.
+	mine, err := e.trust.MyReports(ctx, other, page.Request{})
+	if err != nil || len(mine.Items) != 2 || mine.Items[0].ID != gone.ID || mine.Items[0].Status != domain.ReportWithdrawn ||
+		mine.Items[1].Status != domain.ReportResolved {
+		t.Fatalf("other's reports: %+v %v", mine, err)
+	}
 	if _, err = e.trust.ResolveReportCase(ctx, seller, domain.OutcomeActioned, lan); !errors.Is(err, domain.ErrCaseNotOpen) {
 		t.Fatalf("resolve a resolved case: %v", err)
 	}

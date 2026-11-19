@@ -35,8 +35,17 @@ type ReportView struct {
 	ConversationID uuid.UUID     `json:"conversation_id,omitzero"`
 	Reason         domain.Reason `json:"reason"`
 	Note           string        `json:"note"`
-	CreatedAt      time.Time     `json:"created_at"`
-	UpdatedAt      time.Time     `json:"updated_at"`
+	// Status is open, withdrawn or resolved.
+	Status    domain.ReportStatus `json:"status"`
+	CreatedAt time.Time           `json:"created_at"`
+	UpdatedAt time.Time           `json:"updated_at"`
+}
+
+func reportView(r domain.Report) ReportView {
+	return ReportView{
+		ID: r.ID(), ListingID: r.ListingID(), AccountID: r.AccountID(), ConversationID: r.ConversationID(), Reason: r.Reason(), Note: r.Note(),
+		Status: r.Status(), CreatedAt: r.CreatedAt(), UpdatedAt: r.UpdatedAt(),
+	}
 }
 
 // Person is the reviewer of a review.

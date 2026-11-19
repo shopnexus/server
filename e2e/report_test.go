@@ -14,6 +14,7 @@ type report struct {
 	ConversationID string `json:"conversation_id"`
 	Reason         string `json:"reason"`
 	Note           string `json:"note"`
+	Status         string `json:"status"`
 }
 
 func TestReports(t *testing.T) {
@@ -27,7 +28,7 @@ func TestReports(t *testing.T) {
 	}
 
 	first := expect[report](t, send(reporter.AccessToken, map[string]any{"listing_id": l.ID, "reason": "fake"}), http.StatusCreated)
-	if first.AccountID != seller.Account.ID || first.ListingID != l.ID || first.Reason != "fake" {
+	if first.AccountID != seller.Account.ID || first.ListingID != l.ID || first.Reason != "fake" || first.Status != "open" {
 		t.Fatalf("first: %+v", first)
 	}
 	again := expect[report](t, send(reporter.AccessToken, map[string]any{"listing_id": l.ID, "reason": "scam", "note": " Đòi cọc "}), http.StatusOK)
@@ -63,6 +64,26 @@ func TestReports(t *testing.T) {
 	if next.ID == first.ID {
 		t.Fatal("a report after a withdrawal reused the withdrawn one")
 	}
+
+	// The reporter's list: newest first, the withdrawn one kept with its
+	// status.
+	mine := expect[page[report]](t, call(t, "GET", "/v1/reports", nil, bearer(reporter.AccessToken)), http.StatusOK)
+	if len(mine.Items) != 3 || mine.Items[0].ID != next.ID || mine.Items[0].Status != "open" || mine.Items[1].ID != person.ID ||
+		mine.Items[2].ID != first.ID || mine.Items[2].Status != "withdrawn" {
+		t.Fatalf("the reporter's list: %+v", mine)
+	}
+	paged := expect[page[report]](t, call(t, "GET", "/v1/reports?limit=2", nil, bearer(reporter.AccessToken)), http.StatusOK)
+	if len(paged.Items) != 2 || paged.NextCursor != person.ID {
+		t.Fatalf("the first page: %+v", paged)
+	}
+	if rest := expect[page[report]](t, call(t, "GET", "/v1/reports?limit=2&cursor="+paged.NextCursor, nil, bearer(reporter.AccessToken)), http.StatusOK); len(rest.Items) != 1 || rest.Items[0].ID != first.ID || rest.NextCursor != "" {
+		t.Fatalf("the second page: %+v", rest)
+	}
+	if theirs := expect[page[report]](t, call(t, "GET", "/v1/reports", nil, bearer(seller.AccessToken)), http.StatusOK); len(theirs.Items) != 0 {
+		t.Fatalf("the seller's list: %+v", theirs)
+	}
+	check(t, "list signed out", call(t, "GET", "/v1/reports", nil), 401, "unauthenticated")
+	check(t, "list a bad cursor", call(t, "GET", "/v1/reports?cursor=x", nil, bearer(reporter.AccessToken)), 400, "")
 
 	suspended, _ := newAccount(t)
 	suspend(t, suspended.Account.ID)

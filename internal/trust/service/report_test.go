@@ -12,6 +12,7 @@ import (
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
 	"github.com/shopnexus/server/internal/trust/service"
 )
@@ -65,6 +66,19 @@ func TestReport(t *testing.T) {
 		if err = e.trust.WithdrawReport(ctx, reporter, v.ID); err != nil {
 			t.Fatal(err)
 		}
+	}
+
+	// The reporter's list pages newest first and keeps the withdrawn one.
+	first, err := e.trust.MyReports(ctx, reporter, page.Request{Limit: 1})
+	if err != nil || len(first.Items) != 1 || first.Items[0].ID != person.ID || first.Items[0].Status != domain.ReportOpen || first.NextCursor == nil {
+		t.Fatalf("first page: %+v %v", first, err)
+	}
+	second, err := e.trust.MyReports(ctx, reporter, page.Request{Cursor: *first.NextCursor, Limit: 1})
+	if err != nil || len(second.Items) != 1 || second.Items[0].ID != v.ID || second.Items[0].Status != domain.ReportWithdrawn || second.NextCursor != nil {
+		t.Fatalf("second page: %+v %v", second, err)
+	}
+	if theirs, listErr := e.trust.MyReports(ctx, seller, page.Request{}); listErr != nil || len(theirs.Items) != 0 {
+		t.Fatalf("the seller's list: %+v %v", theirs, listErr)
 	}
 
 	accounttest.Suspend(t, e.accounts, reporter)

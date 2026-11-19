@@ -5,6 +5,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
 	"github.com/shopnexus/server/internal/trust/service"
 )
@@ -45,6 +46,25 @@ func (h *Handler) Report(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusCreated
 	}
 	httpx.Respond(w, status, v)
+}
+
+// MyReports serves GET /v1/reports.
+func (h *Handler) MyReports(w http.ResponseWriter, r *http.Request) {
+	p, ok := httpx.Caller(w, r, h.log)
+	if !ok {
+		return
+	}
+	var in page.Request
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	out, err := h.svc.MyReports(r.Context(), p.AccountID, in)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, out)
 }
 
 // WithdrawReport serves DELETE /v1/reports/{id}.

@@ -49,6 +49,9 @@ type Service interface {
 	// replaces the reason, note and conversation of their open report of it;
 	// the bool is whether it opened one.
 	Report(ctx context.Context, reporter uuid.UUID, in ReportInput) (ReportView, bool, error)
+	// MyReports lists the reporter's reports, newest first, withdrawn and
+	// resolved ones included.
+	MyReports(ctx context.Context, reporter uuid.UUID, p page.Request) (page.Page[ReportView], error)
 	// WithdrawReport withdraws one of the reporter's reports; a withdrawn
 	// one is fine.
 	WithdrawReport(ctx context.Context, reporter, id uuid.UUID) error

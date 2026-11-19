@@ -215,6 +215,29 @@ reviewReply:
             schema:
               $ref: "../schemas/error.yaml#/Error"
 reports:
+  get:
+    operationId: listMyReports
+    summary: List the caller's reports, newest first.
+    description: |
+      Every report the caller made, withdrawn and resolved ones included,
+      paged by report ID. DELETE /v1/reports/{id} withdraws an open one.
+    tags: [trust]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: One page of reports.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/trust.yaml#/ReportList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
   post:
     operationId: createReport
     summary: Report a listing or an account.
