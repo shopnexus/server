@@ -149,6 +149,8 @@ func (b *Builder) Build(ctx context.Context, w *seedpack.Writer, p seedpack.Prog
 		people = append(people, pr)
 		return pr
 	}
+	placeholder := &person{a: seedpack.Account{Key: "check"}, commune: Commune{Code: "check"}}
+	invalid := 0
 	for _, acc := range order {
 		list := byAccount[acc]
 		slices.SortFunc(list, func(x, y *old) int { return x.createdAt.Compare(y.createdAt) })
@@ -156,6 +158,15 @@ func (b *Builder) Build(ctx context.Context, w *seedpack.Writer, p seedpack.Prog
 		onSale, quota := 0, 0
 		for _, o := range list {
 			key := fmt.Sprintf("l-%d", o.id)
+			// A listing whose photos processing all refused, or that breaks
+			// another rule, stays out.
+			if err = seedpack.CheckListing(newItem(o, key, placeholder, shas, shift).l); err != nil {
+				invalid++
+				if invalid <= 5 {
+					p.Warnf("%v", err)
+				}
+				continue
+			}
 			sold := o.status == seedpack.StatusActive && u(key, "sold") < b.soldRate && ref.Sub(o.createdAt.Add(shift)) > 10*24*time.Hour
 			if cur == nil || (!sold && onSale >= quota) {
 				cur = newPerson(fmt.Sprintf("p-%d-%d", acc, len(people)))
@@ -169,6 +180,9 @@ func (b *Builder) Build(ctx context.Context, w *seedpack.Writer, p seedpack.Prog
 			cur.sells = append(cur.sells, it)
 			items = append(items, it)
 		}
+	}
+	if invalid > 0 {
+		p.Warnf("%d listings left out for breaking the server's rules", invalid)
 	}
 	// Buyers who never sold, a third as many as the sellers.
 	sellers := len(people)
