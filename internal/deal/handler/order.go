@@ -9,8 +9,9 @@ import (
 )
 
 type codRequest struct {
-	ID        uuid.UUID `json:"-"          path:"id"`
-	AddressID uuid.UUID `json:"address_id"`
+	ID             uuid.UUID `json:"-"                 path:"id"`
+	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
+	AddressID      uuid.UUID `json:"address_id"`
 }
 
 // RequestCod serves POST /v1/deals/{id}/cod.
@@ -24,7 +25,7 @@ func (h *Handler) RequestCod(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.RequestCod(r.Context(), p.AccountID, in.ID, in.AddressID)
+	v, err := h.svc.RequestCod(r.Context(), p.AccountID, in.ID, in.AddressID, in.IdempotencyKey)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

@@ -21,21 +21,21 @@ func TestCancelSelectedOrderDoesNotCancelItsReplacement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	must(t)(e.deals.CancelOrder(ctx, buyer, d.Order.ID))
+	must(t)(e.deals.CancelOrder(ctx, buyer, d.Order.ID, ""))
 	must(t)(e.deals.Accept(ctx, buyer, d.ID, 1_500_000))
-	replacement, err := e.deals.RequestCod(ctx, buyer, d.ID, e.address(t, buyer))
+	replacement, err := e.deals.RequestCod(ctx, buyer, d.ID, e.address(t, buyer), "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, who := range []uuid.UUID{buyer, seller} {
-		if _, err = e.deals.CancelOrder(ctx, who, d.Order.ID); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		if _, err = e.deals.CancelOrder(ctx, who, d.Order.ID, ""); !errors.Is(err, domain.ErrMoveNotAllowed) {
 			t.Fatalf("historical: %v", err)
 		}
 	}
 	deps := e.deps
 	deps.Deals = staleGet{Deals: e.repo, stale: stale}
 	staleService := start(t, deps)
-	if _, err = staleService.CancelOrder(ctx, buyer, d.Order.ID); !errors.Is(err, domain.ErrChanged) {
+	if _, err = staleService.CancelOrder(ctx, buyer, d.Order.ID, ""); !errors.Is(err, domain.ErrChanged) {
 		t.Fatalf("stale save: %v", err)
 	}
 	if current := e.get(t, buyer, d.ID).Order; current.ID != replacement.Order.ID || current.Status != domain.OrderPending {

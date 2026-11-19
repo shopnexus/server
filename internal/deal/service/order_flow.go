@@ -69,13 +69,18 @@ func loadStep(ctx restate.Context, s *Deals, caller, id uuid.UUID) (loaded, erro
 }
 
 // saveStep saves d under writeID with deal.moved as eventID in one
-// journaled step. A deal changed meanwhile is domain.ErrChanged, as data;
+// journaled step. A deal changed meanwhile is domain.ErrChanged and a
+// fourth open order domain.ErrCodLimit, as data;
 // a retry of a save that committed writes nothing more.
 func saveStep(ctx restate.Context, deals repository.Deals, d *domain.Deal, writeID, eventID uuid.UUID, at time.Time) (*apperr.Error, error) {
 	out, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
 		stepErr := deals.Save(rc, d, writeID, events.Event{ID: eventID, Kind: events.DealMoved, SubjectID: d.ID(), OccurredAt: at})
 		if errors.Is(stepErr, repository.ErrConflict) {
 			return restatex.Refused{Refusal: domain.ErrChanged}, nil
+		}
+		// BR-DEAL-06: only a new pending order meets the cap.
+		if errors.Is(stepErr, domain.ErrCodLimit) {
+			return restatex.Refused{Refusal: domain.ErrCodLimit}, nil
 		}
 		if stepErr != nil {
 			return restatex.Refused{}, fmt.Errorf("save deal: %w", stepErr)

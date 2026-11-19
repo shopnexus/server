@@ -145,7 +145,7 @@ func (e *env) pending(t *testing.T, buyer, seller, address uuid.UUID) uuid.UUID 
 	if _, err = e.deals.Accept(ctx, buyer, d.ID, 1_500_000); err != nil {
 		t.Fatal(err)
 	}
-	v, err := e.deals.RequestCod(ctx, buyer, d.ID, address)
+	v, err := e.deals.RequestCod(ctx, buyer, d.ID, address, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,7 +194,7 @@ func TestOrdersShowEachSideItsRowsWithTheCounterpart(t *testing.T) {
 		t.Fatal(err)
 	}
 	cancelled := e.pending(t, buyer, other, to)
-	if _, err := e.deals.CancelOrder(ctx, buyer, cancelled); err != nil {
+	if _, err := e.deals.CancelOrder(ctx, buyer, cancelled, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.deals.ConfirmReceipt(ctx, buyer, shipped, uuid.NewV7().String()); err != nil {

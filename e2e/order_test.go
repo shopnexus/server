@@ -325,3 +325,29 @@ func TestOrderRefusals(t *testing.T) {
 	check(t, "confirm as a stranger", orderCall(t, stranger.AccessToken, o, "confirm", nil), 404, "order_not_found")
 	check(t, "confirm a pending order", orderCall(t, buyer.AccessToken, o, "confirm", nil), 409, "move_not_allowed")
 }
+
+// A repeated Idempotency-Key on the COD request and on the cancel answers
+// the deal again; without a key the second call is refused.
+func TestCodAndCancelRepeatAKey(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	buyer, _ := newAccount(t)
+	d := openDeal(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID, http.StatusCreated)
+	moved(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000})
+	cod, body := newKey(), codBody(deliveryAddress(t, buyer.AccessToken))
+	first := expect[dealView](t, call(t, "POST", "/v1/deals/"+d.ID+"/cod", body, bearer(buyer.AccessToken), cod), http.StatusOK)
+	again := expect[dealView](t, call(t, "POST", "/v1/deals/"+d.ID+"/cod", body, bearer(buyer.AccessToken), cod), http.StatusOK)
+	if first.Order == nil || again.Order == nil || again.Order.ID != first.Order.ID {
+		t.Fatalf("the repeated request: %+v %+v", first.Order, again.Order)
+	}
+	check(t, "a second request without a key", dealCall(t, buyer.AccessToken, d.ID, "cod", body), http.StatusConflict, "move_not_allowed")
+	check(t, "a bad key", call(t, "POST", "/v1/deals/"+d.ID+"/cod", body, bearer(buyer.AccessToken), [2]string{"Idempotency-Key", "x"}), http.StatusBadRequest, "")
+
+	cancel := newKey()
+	path := "/v1/orders/" + first.Order.ID + "/cancel"
+	expect[dealView](t, call(t, "POST", path, nil, bearer(seller.AccessToken), cancel), http.StatusOK)
+	if done := expect[dealView](t, call(t, "POST", path, nil, bearer(seller.AccessToken), cancel), http.StatusOK); done.Order == nil || done.Order.Status != "cancelled" {
+		t.Fatalf("the repeated cancel: %+v", done.Order)
+	}
+	check(t, "a second cancel without a key", call(t, "POST", path, nil, bearer(seller.AccessToken)), http.StatusConflict, "move_not_allowed")
+}

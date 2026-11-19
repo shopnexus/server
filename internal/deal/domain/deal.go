@@ -316,15 +316,16 @@ func (d *Deal) Cancel(by Party, now time.Time) error {
 	return nil
 }
 
-// RequestCod asks for cash on delivery to r at the agreed price.
-func (d *Deal) RequestCod(by Party, r Recipient, l Listing, now time.Time) error {
+// RequestCod asks for cash on delivery to r at the agreed price; the
+// order takes the ID order, which the caller picks.
+func (d *Deal) RequestCod(by Party, order uuid.UUID, r Recipient, l Listing, now time.Time) error {
 	if by != Buyer || d.status != StatusAgreed || d.openOrder() != nil {
 		return ErrMoveNotAllowed
 	}
 	if l.Status != ListingActive {
 		return ErrListingUnavailable
 	}
-	d.order = &Order{ID: uuid.NewV7(), Status: OrderPending, Price: d.agreedPrice, Recipient: r, RequestedAt: now}
+	d.order = &Order{ID: order, Status: OrderPending, Price: d.agreedPrice, Recipient: r, RequestedAt: now}
 	d.record(MoveCodRequested, by, d.agreedPrice, now)
 	return nil
 }

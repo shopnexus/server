@@ -66,7 +66,7 @@ func TestNoCarrier(t *testing.T) {
 		t.Fatalf("cancel: %+v %v", c.Order, cancelErr)
 	}
 	must(t)(none.Accept(ctx, buyer, v.ID, 1_500_000))
-	if r, codErr := none.RequestCod(ctx, buyer, v.ID, e.address(t, buyer)); codErr != nil || r.Order.Status != domain.OrderPending {
+	if r, codErr := none.RequestCod(ctx, buyer, v.ID, e.address(t, buyer), ""); codErr != nil || r.Order.Status != domain.OrderPending {
 		t.Fatalf("COD: %+v %v", r.Order, codErr)
 	}
 }

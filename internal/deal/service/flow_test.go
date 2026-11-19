@@ -390,7 +390,7 @@ func TestConfirmRefusesAFailedOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	must(t)(e.deals.Accept(ctx, buyer, first.ID, 1_500_000))
-	second, err := e.deals.RequestCod(ctx, buyer, first.ID, e.address(t, buyer))
+	second, err := e.deals.RequestCod(ctx, buyer, first.ID, e.address(t, buyer), "")
 	if err != nil || second.Order.ID == first.Order.ID {
 		t.Fatalf("second order: %+v %v", second.Order, err)
 	}

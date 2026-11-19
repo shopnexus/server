@@ -48,7 +48,7 @@ func agreed(t *testing.T) domain.Deal {
 func pending(t *testing.T) domain.Deal {
 	t.Helper()
 	d := agreed(t)
-	must(t, d.RequestCod(domain.Buyer, recipient, onSale, now))
+	must(t, d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now))
 	return d
 }
 
@@ -158,15 +158,15 @@ func TestParseShipmentStatus(t *testing.T) {
 func TestOrderLifecycle(t *testing.T) {
 	t.Parallel()
 	d := agreed(t)
-	if err := d.RequestCod(domain.Seller, recipient, onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if err := d.RequestCod(domain.Seller, uuid.NewV7(), recipient, onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("seller requests: %v", err)
 	}
-	must(t, d.RequestCod(domain.Buyer, recipient, onSale, now))
+	must(t, d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now))
 	o := d.Order()
 	if o == nil || o.Status != domain.OrderPending || o.Price != 1_500_000 || !o.Open() || o.Shipment != nil {
 		t.Fatalf("%+v", o)
 	}
-	if err := d.RequestCod(domain.Buyer, recipient, onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if err := d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("second request: %v", err)
 	}
 	if err := d.Ship(domain.Buyer, o.ID, manual(), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
@@ -211,7 +211,7 @@ func TestOrderLifecycle(t *testing.T) {
 		"offer":   func() error { return d.Offer(domain.Buyer, 1_000_000, onSale, now) },
 		"accept":  func() error { return d.Accept(domain.Buyer, 1_500_000, onSale, now) },
 		"cancel":  func() error { return d.Cancel(domain.Buyer, now) },
-		"request": func() error { return d.RequestCod(domain.Buyer, recipient, onSale, now) },
+		"request": func() error { return d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now) },
 		"confirm": func() error { return d.ConfirmReceipt(domain.Buyer, o.ID, now) },
 	} {
 		if err := move(); !errors.Is(err, domain.ErrMoveNotAllowed) {
@@ -462,7 +462,7 @@ func TestFailedNegotiatesAgain(t *testing.T) {
 	d := reported(t, domain.ShipmentFailed)
 	first := d.Order().ID
 	must(t, d.Accept(domain.Buyer, 1_500_000, onSale, now))
-	must(t, d.RequestCod(domain.Buyer, recipient, onSale, now))
+	must(t, d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now))
 	if d.Order().ID == first || d.Order().Status != domain.OrderPending {
 		t.Fatalf("%+v", d.Order())
 	}
@@ -510,7 +510,7 @@ func TestOrderStepsNameTheirOrder(t *testing.T) {
 	first := d.Order().ID
 	must(t, d.Cancel(domain.Buyer, now))
 	must(t, d.Accept(domain.Buyer, 1_500_000, onSale, later))
-	must(t, d.RequestCod(domain.Buyer, recipient, onSale, later))
+	must(t, d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, later))
 	second := d.Order().ID
 	must(t, d.Ship(domain.Seller, second, manual(), onSale, later))
 	want := map[domain.MoveKind][]uuid.UUID{
@@ -539,7 +539,7 @@ func TestRequestNeedsAnActiveListing(t *testing.T) {
 	t.Parallel()
 	for name, l := range map[string]domain.Listing{"reserved": reserved, "hidden": hidden, "paused": paused} {
 		d := agreed(t)
-		if err := d.RequestCod(domain.Buyer, recipient, l, now); !errors.Is(err, domain.ErrListingUnavailable) {
+		if err := d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, l, now); !errors.Is(err, domain.ErrListingUnavailable) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}

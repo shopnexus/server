@@ -32,8 +32,11 @@ type Service interface {
 	// CancelOrder cancels the caller's pending order, as its buyer or its
 	// seller, and drops the agreed price.
 	//
-	// UC-DEAL-06
-	CancelOrder(ctx context.Context, caller, order uuid.UUID) (DealView, error)
+	// A repeated idempotencyKey of the same caller runs nothing more; an
+	// empty one runs every call.
+	//
+	// UC-DEAL-06 · NFR-IDEM-01
+	CancelOrder(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
 	// Open returns the buyer's deal on a listing, or starts one in the
 	// pair's conversation; created reports a new deal.
 	//
@@ -80,10 +83,11 @@ type Service interface {
 	// UC-DEAL-02 · UC-DEAL-06
 	Cancel(ctx context.Context, caller, id uuid.UUID) (DealView, error)
 	// RequestCod asks for cash on delivery on the buyer's agreed deal, to
-	// a copy of one of the buyer's addresses.
+	// a copy of one of the buyer's addresses. A repeated idempotencyKey of
+	// the same caller runs nothing more; an empty one runs every call.
 	//
-	// UC-DEAL-03
-	RequestCod(ctx context.Context, caller, id, addressID uuid.UUID) (DealView, error)
+	// UC-DEAL-03 · NFR-IDEM-01
+	RequestCod(ctx context.Context, caller, id, addressID uuid.UUID, idempotencyKey string) (DealView, error)
 	// CreateShipment ships a pending order: a manual shipment, read from its
 	// carrier, or a linked one, made at GHTK. It holds the listing and
 	// returns the order's deal. A repeated idempotencyKey of the same caller
@@ -201,7 +205,10 @@ type Deals struct {
 	log      *slog.Logger
 	ship     restatex.Caller[FlowInput, FlowResult]
 	confirm  restatex.Caller[FlowInput, FlowResult]
-	shipment restatex.Caller[ShipmentSignal, ShipmentResult]
+	// requestCod and cancelOrder run DealRequestCod and DealCancelOrder.
+	requestCod  restatex.Caller[CodInput, FlowResult]
+	cancelOrder restatex.Caller[FlowInput, FlowResult]
+	shipment    restatex.Caller[ShipmentSignal, ShipmentResult]
 }
 
 var _ Service = (*Deals)(nil)
@@ -215,8 +222,10 @@ func New(d Deps) *Deals {
 	return &Deals{
 		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, chats: d.Chats, shipping: d.Shipping, waits: d.Waits, ingress: d.Ingress,
 		prefix: d.Prefix, now: d.Now, log: d.Log,
-		ship:    restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: flowHandler},
-		confirm: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealConfirm, Handler: flowHandler},
+		ship:        restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: flowHandler},
+		confirm:     restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealConfirm, Handler: flowHandler},
+		requestCod:  restatex.Caller[CodInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealRequestCod, Handler: flowHandler},
+		cancelOrder: restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealCancelOrder, Handler: flowHandler},
 		shipment: restatex.Caller[ShipmentSignal, ShipmentResult]{
 			Ingress: d.Ingress, Service: d.Prefix + shipmentUpdates, Handler: flowHandler,
 		},
@@ -227,6 +236,7 @@ func New(d Deps) *Deals {
 func (s *Deals) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
 		restate.Reflect(DealShip{Deals: s}), restate.Reflect(DealConfirm{Deals: s}),
+		restate.Reflect(DealRequestCod{Deals: s}), restate.Reflect(DealCancelOrder{Deals: s}),
 		restate.Reflect(OrderTimers{Deals: s}), restate.Reflect(ShipmentUpdates{Deals: s}),
 	}
 }
@@ -259,6 +269,16 @@ func (s *Deals) own(ctx context.Context, caller, id uuid.UUID) (domain.Deal, dom
 		return domain.Deal{}, "", domain.ErrNotFound
 	}
 	return d, by, nil
+}
+
+// invocationKey is the Restate idempotency key of a caller's
+// Idempotency-Key, which runs apart from another caller's same key; an
+// empty key gives none, so every call runs.
+func invocationKey(caller uuid.UUID, idempotencyKey string) string {
+	if idempotencyKey == "" {
+		return ""
+	}
+	return caller.String() + "/" + idempotencyKey
 }
 
 // moved is the event of a deal's new moves.

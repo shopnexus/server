@@ -39,7 +39,7 @@ func order(t *testing.T, db *pgxpool.Pool, buyer, seller uuid.UUID) (orderID, li
 	if err := d.Accept(dealdomain.Buyer, 1_500_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.RequestCod(dealdomain.Buyer, r, onSale, now); err != nil {
+	if err := d.RequestCod(dealdomain.Buyer, uuid.NewV7(), r, onSale, now); err != nil {
 		t.Fatal(err)
 	}
 	if err := deals.Save(ctx, &d, uuid.NewV7()); err != nil {

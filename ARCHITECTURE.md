@@ -496,7 +496,11 @@ header (a UUID) and passes it as the invocation's idempotency key. A repeated
 key attaches to the first run and returns its result, so a retried tap gets
 the same answer. `PATCH /v1/accounts/me` with an avatar is the exception: it
 calls `MediaProcess` keyed by the upload ID, which already makes a repeat
-attach to the first run. Sign-in puts the verified number in the key and
+attach to the first run. `POST /v1/deals/{id}/cod` and
+`POST /v1/orders/{order_id}/cancel` take the header as optional (decided
+2026-11-19), since app versions from before send none: with a key they
+run once per caller and key, and without one every request runs its own
+invocation. Sign-in puts the verified number in the key and
 listing posts put the seller, so a key sent with another number's token or
 by another seller runs apart. A reauthentication puts the caller's session
 and the proven address in it.
@@ -1345,6 +1349,16 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   a linked shipment through shipping, then saves. A refusal of shipping's
   gives the listing back. When the save loses a race it releases the
   listing and calls off a linked shipment the order did not take. `DealConfirm` saves, then sells the listing.
+- The COD request and the order's cancel run as the flows
+  `DealRequestCod` and `DealCancelOrder` (decided 2026-11-19), so a
+  repeated `Idempotency-Key` answers as the first request did: its
+  refusal again, or the deal read anew. The key is optional on both; an
+  empty one gives the invocation no key. `DealRequestCod` loads the deal,
+  then reads the buyer's status and address in one step, makes the order
+  under an ID from `restatex.NewID` (domain `RequestCod` takes the ID, as
+  the timer after the save names it, and a replay must name the same
+  one), saves, and sends `SellerTimeout`. `saveStep` returns
+  `cod_limit_reached` as data, like `deal_changed`.
 - A flow journals the deal it loaded and replays the domain move, which
   mints new move IDs. `Save` therefore treats a row that already has the
   write ID as an earlier try that committed and writes nothing more, where
@@ -1368,8 +1382,8 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   shipment off at its carrier; a carrier that already has the parcel, or
   no longer knows it, leaves the order cancelled all the same (decided
   2026-11-13, the order of the two reversed from part 1). The waits are `domain.OrderWaits`; tests pass
-  short ones, and `service.New` refuses a zero wait. `RequestCod` sends
-  its timer before its save, so a COD request needs Restate.
+  short ones, and `service.New` refuses a zero wait. `DealRequestCod`
+  sends its timer once its save committed.
 - `ShipmentUpdates.Run(tracking code, status)` is the one entry point of
   a carrier's report: the dev endpoint, the carriers' webhooks and the
   poll call it. It moves every shipped order whose shipment has

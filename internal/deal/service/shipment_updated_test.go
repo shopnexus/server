@@ -70,7 +70,7 @@ func TestShipmentUpdated(t *testing.T) {
 	}
 	// Mua lại: the buyer agrees again and asks for COD on the same deal.
 	must(t)(e.deals.Accept(ctx, buyer, v.ID, 1_500_000))
-	again, err := e.deals.RequestCod(ctx, buyer, v.ID, e.address(t, buyer))
+	again, err := e.deals.RequestCod(ctx, buyer, v.ID, e.address(t, buyer), "")
 	if err != nil || again.Order.Status != domain.OrderPending || again.Order.ID == v.Order.ID {
 		t.Fatalf("buy again: %+v %v", again.Order, err)
 	}

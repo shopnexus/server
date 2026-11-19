@@ -433,7 +433,7 @@ func (r *run) deal(s saleRow, conversation uuid.UUID, shipped, completed time.Ti
 	if ad := b.Address; ad != nil {
 		to.Street, to.CommuneCode, to.Kind = ad.Street, ad.Commune, dealdomain.AddressKind(ad.Kind)
 	}
-	if err := d.RequestCod(dealdomain.Buyer, to, dl, s.sale.OrderedAt); err != nil {
+	if err := d.RequestCod(dealdomain.Buyer, uuid.NewV7(), to, dl, s.sale.OrderedAt); err != nil {
 		return d, fmt.Errorf("request COD: %w", err)
 	}
 	order := d.Order().ID

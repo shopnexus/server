@@ -218,7 +218,7 @@ func (e *sellEnv) pending(t *testing.T, buyer, listing uuid.UUID) dealsvc.DealVi
 	if _, err = e.deals.Accept(ctx, buyer, d.ID, 1_500_000); err != nil {
 		t.Fatal(err)
 	}
-	v, err := e.deals.RequestCod(ctx, buyer, d.ID, e.address(t, buyer))
+	v, err := e.deals.RequestCod(ctx, buyer, d.ID, e.address(t, buyer), "")
 	if err != nil {
 		t.Fatal(err)
 	}

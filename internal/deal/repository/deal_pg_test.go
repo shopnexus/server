@@ -213,7 +213,7 @@ func pendingDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, sell
 	if err := d.Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.RequestCod(domain.Buyer, recipient, onSale, now); err != nil {
+	if err := d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Save(context.Background(), &d, uuid.NewV7()); err != nil {
@@ -329,7 +329,7 @@ func TestCodLimitHoldsUnderRace(t *testing.T) {
 			if err := ds[i].Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
 				t.Fatal(err)
 			}
-			if err := ds[i].RequestCod(domain.Buyer, recipient, onSale, now); err != nil {
+			if err := ds[i].RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -367,7 +367,7 @@ func TestOneShippedOrderPerListing(t *testing.T) {
 		if err = d.Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
 			t.Fatal(err)
 		}
-		if err = d.RequestCod(domain.Buyer, recipient, onSale, now); err != nil {
+		if err = d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now); err != nil {
 			t.Fatal(err)
 		}
 		if err = s.Save(ctx, &d, uuid.NewV7()); err != nil {

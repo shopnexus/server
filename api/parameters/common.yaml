@@ -6,6 +6,14 @@ IdempotencyKey:
   schema:
     type: string
     format: uuid
+IdempotencyKeyOptional:
+  name: Idempotency-Key
+  in: header
+  required: false
+  description: A new UUID per user action, reused when the client retries that action. A repeated key returns the first result. Without one, every request runs; the key is optional because earlier app versions send none.
+  schema:
+    type: string
+    format: uuid
 Cursor:
   name: cursor
   in: query
