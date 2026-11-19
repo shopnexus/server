@@ -18,9 +18,16 @@ TicketOpen:
     carrier_name:
       type: string
       description: carrier_request only; 1 to 50 characters after trimming (invalid_ticket).
-    body:
+    text:
       type: string
-      description: The first message, at most 1000 characters after trimming; other needs at least 1 (invalid_ticket).
+      description: The first message's text, at most 1000 characters after trimming; other needs it or a photo (invalid_ticket).
+    photos:
+      type: array
+      maxItems: 4
+      description: Uploads of the first message, as a message's photos.
+      items:
+        type: string
+        format: uuid
 TicketOrder:
   type: object
   additionalProperties: false

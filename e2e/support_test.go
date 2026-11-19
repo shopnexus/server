@@ -46,7 +46,7 @@ func TestSupportFromReportToReply(t *testing.T) {
 	putToken(t, buyer.AccessToken, "phone-"+buyer.Account.ID)
 	l := activeListing(t, seller.AccessToken, nil)
 	order := shippedOrder(t, seller.AccessToken, buyer.AccessToken, l.ID).Order
-	report := map[string]any{"kind": "not_received", "order_id": order.ID, "body": "GHTK báo đã giao mà mình chưa nhận"}
+	report := map[string]any{"kind": "not_received", "order_id": order.ID, "text": "GHTK báo đã giao mà mình chưa nhận"}
 	tk := openTicket(t, buyer.AccessToken, report, http.StatusCreated)
 	if tk.Kind != "not_received" || tk.Status != "open" || tk.Order == nil || tk.Order.TrackingCode == "" || tk.FirstMessageID == "" {
 		t.Fatalf("ticket %+v", tk)
@@ -191,16 +191,16 @@ func TestSupportRefusals(t *testing.T) {
 	me, _ := newAccount(t)
 	check(t, "other without a body", call(t, "POST", "/v1/support/tickets", map[string]any{"kind": "other"}, bearer(me.AccessToken), newKey()),
 		422, "invalid_ticket")
-	check(t, "no key", call(t, "POST", "/v1/support/tickets", map[string]any{"kind": "other", "body": "x"}, bearer(me.AccessToken)), 400, "")
-	check(t, "signed out", call(t, "POST", "/v1/support/tickets", map[string]any{"kind": "other", "body": "x"}, newKey()), 401, "unauthenticated")
+	check(t, "no key", call(t, "POST", "/v1/support/tickets", map[string]any{"kind": "other", "text": "x"}, bearer(me.AccessToken)), 400, "")
+	check(t, "signed out", call(t, "POST", "/v1/support/tickets", map[string]any{"kind": "other", "text": "x"}, newKey()), 401, "unauthenticated")
 	for range 10 {
-		openTicket(t, me.AccessToken, map[string]any{"kind": "other", "body": "x"}, http.StatusCreated)
+		openTicket(t, me.AccessToken, map[string]any{"kind": "other", "text": "x"}, http.StatusCreated)
 	}
-	check(t, "the eleventh", call(t, "POST", "/v1/support/tickets", map[string]any{"kind": "other", "body": "x"}, bearer(me.AccessToken), newKey()),
+	check(t, "the eleventh", call(t, "POST", "/v1/support/tickets", map[string]any{"kind": "other", "text": "x"}, bearer(me.AccessToken), newKey()),
 		429, "too_many_tickets")
 	suspended, _ := newAccount(t)
 	suspend(t, suspended.Account.ID)
-	openTicket(t, suspended.AccessToken, map[string]any{"kind": "other", "body": "Vì sao tôi bị khoá?"}, http.StatusCreated)
+	openTicket(t, suspended.AccessToken, map[string]any{"kind": "other", "text": "Vì sao tôi bị khoá?"}, http.StatusCreated)
 	check(t, "block ShopNexus", call(t, "POST", "/v1/blocks", map[string]any{"account_id": shopNexusID}, bearer(me.AccessToken)), 409, "account_is_system")
 	mod := signInMember(t, consoledomain.RoleModerator)
 	check(t, "suspend ShopNexus", consoleCall(t, mod, "POST", "/v1/console/accounts/"+shopNexusID+"/suspend", map[string]any{"reason": "thử"}),
@@ -211,7 +211,7 @@ func TestSupportRefusals(t *testing.T) {
 func TestSupportStaysOutOfTinNhan(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
-	tk := openTicket(t, me.AccessToken, map[string]any{"kind": "other", "body": "Hỏi về khu vực"}, http.StatusCreated)
+	tk := openTicket(t, me.AccessToken, map[string]any{"kind": "other", "text": "Hỏi về khu vực"}, http.StatusCreated)
 	mod := signInMember(t, consoledomain.RoleModerator)
 	expectStatus(t, consoleCall(t, mod, "POST", "/v1/console/support/tickets/"+tk.ID+"/replies", map[string]any{"body": "Chào bạn"}, newKey()),
 		http.StatusCreated)
@@ -271,7 +271,7 @@ func TestSupportStatuses(t *testing.T) {
 	check(t, "a pending order", call(t, "POST", "/v1/support/tickets", map[string]any{"kind": "not_received", "order_id": pending.ID},
 		bearer(me.AccessToken), newKey()), 409, "ticket_not_allowed")
 
-	tk := openTicket(t, me.AccessToken, map[string]any{"kind": "other", "body": "Hỏi"}, http.StatusCreated)
+	tk := openTicket(t, me.AccessToken, map[string]any{"kind": "other", "text": "Hỏi"}, http.StatusCreated)
 	for _, a := range []string{"unread", "unarchive"} {
 		check(t, a, call(t, "POST", "/v1/conversations/"+tk.ConversationID+"/"+a, nil, bearer(me.AccessToken)), 409, "conversation_is_support")
 	}

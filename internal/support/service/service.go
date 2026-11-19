@@ -77,7 +77,10 @@ type OpenInput struct {
 	Kind        string     `json:"kind"`
 	OrderID     *uuid.UUID `json:"order_id,omitempty"`
 	CarrierName string     `json:"carrier_name,omitempty"`
-	Body        string     `json:"body,omitempty"`
+	// Text and Photos are the first message, as chat's SendInput. The
+	// journal of a ticket-open flow names the text body.
+	Text   string      `json:"body,omitempty"`
+	Photos []uuid.UUID `json:"photos,omitempty"`
 }
 
 // ReplyInput is a member's reply.

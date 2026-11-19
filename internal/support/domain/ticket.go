@@ -72,9 +72,10 @@ type Draft struct {
 }
 
 // NewTicket checks a request for a ticket: not_received needs its order,
-// carrier_request a carrier name of 1 to 50 characters, other a body; a
-// body is at most chat's 1,000 characters. Every broken field is named.
-func NewTicket(kind, carrierName, body string, order *uuid.UUID) (Draft, error) {
+// carrier_request a carrier name of 1 to 50 characters, other a text or a
+// photo; a text is at most chat's 1,000 characters. Every broken field is
+// named.
+func NewTicket(kind, carrierName, body string, photos int, order *uuid.UUID) (Draft, error) {
 	e := ErrInvalidTicket
 	d := Draft{
 		Kind: Kind(kind), OrderID: order, CarrierName: strings.TrimSpace(carrierName), Body: strings.TrimSpace(body),
@@ -90,8 +91,8 @@ func NewTicket(kind, carrierName, body string, order *uuid.UUID) (Draft, error) 
 		}
 		d.CarrierKey = CarrierKey(d.CarrierName)
 	case KindOther:
-		if d.Body == "" {
-			e = e.WithField("body", "1 to 1,000 characters")
+		if d.Body == "" && photos == 0 {
+			e = e.WithField("text", "1 to 1,000 characters, or a photo")
 		}
 	default:
 		e = e.WithField("kind", "not_received, carrier_request or other")
@@ -100,7 +101,7 @@ func NewTicket(kind, carrierName, body string, order *uuid.UUID) (Draft, error) 
 		e = e.WithField("order_id", "only for not_received")
 	}
 	if utf8.RuneCountInString(d.Body) > chatdomain.MaxText {
-		e = e.WithField("body", "1 to 1,000 characters")
+		e = e.WithField("text", "1 to 1,000 characters")
 	}
 	if len(e.Fields) > 0 {
 		return Draft{}, e

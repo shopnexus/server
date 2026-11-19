@@ -1714,7 +1714,17 @@ Module `chat` holds conversations (spec:
 - A message may quote an earlier sent message of its conversation
   (`reply_to`, decided 2026-11-13); anything else is 422 `invalid_message`
   with field `reply_to`. `Message.reply_to` reads the quoted message at read
-  time, its text cut to 200 characters.
+  time, its text cut to 200 characters; a page reads its quotes in one
+  query.
+- `Message.refs` are the ShopNexus links in a message's text, read when the
+  message is: a listing, person, order, category or search page on one of
+  `WEBSITE_ORIGINS`' hosts, or an app `shopnexus://` link, at most 5. Each
+  kind is read once a page (catalog's `Summaries` and `Categories`,
+  account's `GetMany`, and deal's `Order` through a function app wires,
+  since deal mounts after chat). A listing must be public, a person not
+  deleted, and an order shows only to its buyer, its seller and ShopNexus;
+  any other link has no ref and stays text. Nothing is stored: the card
+  reads the listing as it is now.
 - A photo message is `processing` until `MessagePublish` has its photos
   through `MediaProcess`, then `sent` or `failed`. Only its sender sees it
   until it is sent.
@@ -2680,7 +2690,9 @@ the table, `POST /v1/feedback` and `GET /v1/console/feedback`.
   `shipped`, or `completed` by the system less than 7 days ago, read from
   `orders.completed_by`; one ticket per order), `carrier_request` (a carrier
   name of 1 to 50 characters, folded into `carrier_key` to count requests
-  for one carrier) and `other` (needs a first message).
+  for one carrier) and `other` (needs a first message, a text or a photo).
+  `TicketOpen` takes the first message as a message does, `text` and
+  `photos`.
 - `POST /v1/support/tickets` runs the Restate flow `TicketOpen` under
   `<account>/<Idempotency-Key>`. One step reads the account (a suspended
   one may still open a ticket), the order's ticket and the order through
@@ -2705,7 +2717,8 @@ the table, `POST /v1/feedback` and `GET /v1/console/feedback`.
   `carrier_request` sends "Đã ghi nhận hãng <name>." before the status
   moves, keyed by the resolving, so a failed note is sent again by the next
   "Đã xử lý" and goes out once; for a deleted account the ticket resolves
-  without it. Reply, resolve and
+  without it. A member opening a ticket in the console reads its chat for
+  ShopNexus, so the person sees "Đã xem". Reply, resolve and
   reopen write `ticket.reply`, `ticket.resolve` and `ticket.reopen` to the
   audit log with `target_kind = ticket`.
 - The console's routes are console's (`/v1/console/support/*`), calling

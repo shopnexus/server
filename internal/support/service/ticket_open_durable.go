@@ -64,7 +64,7 @@ func (o TicketOpen) ServiceName() string { return o.Support.prefix + ticketOpen 
 
 func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, error) {
 	s := o.Support
-	draft, err := domain.NewTicket(in.Input.Kind, in.Input.CarrierName, in.Input.Body, in.Input.OrderID)
+	draft, err := domain.NewTicket(in.Input.Kind, in.Input.CarrierName, in.Input.Text, len(in.Input.Photos), in.Input.OrderID)
 	if err != nil {
 		return OpenResult{Refused: apperr.From(err)}, nil
 	}
@@ -155,7 +155,7 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 		return OpenResult(ins), nil //nolint:nilerr // As above.
 	}
 	sent, err := restate.Service[chatsvc.SendResult](ctx, s.prefix+chatsvc.MessageSendName, "Run").
-		Request(chatsvc.SendFlowInput{Sender: in.Account, ConversationID: conversationID, Text: draft.Body, OpensTicket: true})
+		Request(chatsvc.SendFlowInput{Sender: in.Account, ConversationID: conversationID, Text: draft.Body, Photos: in.Input.Photos, OpensTicket: true})
 	if err != nil {
 		return OpenResult{}, fmt.Errorf("send the first message: %w", err)
 	}

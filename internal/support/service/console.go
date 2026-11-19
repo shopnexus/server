@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/page"
@@ -121,6 +122,12 @@ func (s *Support) Detail(ctx context.Context, id uuid.UUID) (ConsoleTicketDetail
 	}
 	if out.Messages, err = s.Messages(ctx, id, page.Request{}); err != nil {
 		return ConsoleTicketDetail{}, err
+	}
+	// A member opening the ticket reads its chat for ShopNexus, so the person sees "Đã xem".
+	if newest := out.Messages.Items; len(newest) > 0 && newest[0].Message.Status == chatdomain.StatusSent {
+		if err = s.chats.Read(ctx, accountdomain.ShopNexusID, t.ConversationID, newest[0].Message.ID); err != nil {
+			return ConsoleTicketDetail{}, fmt.Errorf("mark the chat read: %w", err)
+		}
 	}
 	return out, nil
 }

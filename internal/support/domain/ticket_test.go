@@ -29,22 +29,22 @@ func TestNewTicketChecksEachKind(t *testing.T) {
 		{"a report without its order", "not_received", "", "", nil, "order_id"},
 		{"a carrier request without a name", "carrier_request", "  ", "", nil, "carrier_name"},
 		{"a carrier name over 50", "carrier_request", strings.Repeat("x", 51), "", nil, "carrier_name"},
-		{"other without a body", "other", "", " ", nil, "body"},
+		{"other without a body", "other", "", " ", nil, "text"},
 		{"an unknown kind", "refund", "", "x", nil, "kind"},
-		{"a body over 1000", "other", "", strings.Repeat("ạ", 1001), nil, "body"},
+		{"a body over 1000", "other", "", strings.Repeat("ạ", 1001), nil, "text"},
 		{"other with an order", "other", "", "x", &order, "order_id"},
 	}
 	for _, c := range cases {
-		_, err := domain.NewTicket(c.kind, c.carrier, c.body, c.order)
+		_, err := domain.NewTicket(c.kind, c.carrier, c.body, 0, c.order)
 		if !errors.Is(err, domain.ErrInvalidTicket) || fieldsOf(err)[c.field] == "" {
 			t.Errorf("%s: %v", c.name, err)
 		}
 	}
-	d, err := domain.NewTicket("not_received", "", "", &order)
+	d, err := domain.NewTicket("not_received", "", "", 0, &order)
 	if err != nil || d.Kind != domain.KindNotReceived || d.OrderID == nil || *d.OrderID != order {
 		t.Fatalf("a report: %+v %v", d, err)
 	}
-	d, err = domain.NewTicket("carrier_request", " Ninja Van ", " gần nhà ", nil)
+	d, err = domain.NewTicket("carrier_request", " Ninja Van ", " gần nhà ", 0, nil)
 	if err != nil || d.CarrierName != "Ninja Van" || d.CarrierKey != "ninja van" || d.Body != "gần nhà" {
 		t.Fatalf("a carrier request: %+v %v", d, err)
 	}

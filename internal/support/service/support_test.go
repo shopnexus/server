@@ -129,7 +129,7 @@ func TestOpenOtherMakesAChatWithTheFirstMessage(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t)
 	person := accounttest.New(t, e.db)
-	tk, existed, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Lọc khu vực hay nhảy về Q.1"})
+	tk, existed, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Text: "Lọc khu vực hay nhảy về Q.1"})
 	if err != nil || existed || tk.FirstMessageID == nil || tk.Status != domain.StatusOpen {
 		t.Fatalf("%+v %v %v", tk, existed, err)
 	}
@@ -195,7 +195,7 @@ func TestSuspendedPersonOpensATicket(t *testing.T) {
 	e := newEnv(t)
 	person := accounttest.New(t, e.db)
 	accounttest.Suspend(t, e.accounts, person)
-	if _, _, err := e.support.Open(context.Background(), person, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Vì sao?"}); err != nil {
+	if _, _, err := e.support.Open(context.Background(), person, uuid.NewV7(), service.OpenInput{Kind: "other", Text: "Vì sao?"}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -205,7 +205,7 @@ func TestReplyGoesOutAsShopNexusAndNamesTheMember(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t)
 	person := accounttest.New(t, e.db)
-	tk, _, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Hỏi"})
+	tk, _, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Text: "Hỏi"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,6 +220,9 @@ func TestReplyGoesOutAsShopNexusAndNamesTheMember(t *testing.T) {
 	}
 	if s, _ := e.support.Summary(ctx, person); s.Unread != 1 || s.Open != 1 || s.LatestUnread == nil {
 		t.Fatalf("summary %+v", s)
+	} // Opening the ticket read its chat for ShopNexus: the person sees "Đã xem" on what came before.
+	if c, err := e.chat.Get(ctx, person, tk.ConversationID); err != nil || c.OtherRead == nil || *c.OtherRead != d.Messages.Items[0].Message.ID {
+		t.Fatalf("the person's chat after the detail: %+v %v", c, err)
 	}
 }
 
@@ -296,11 +299,11 @@ func TestARefusedOpenLeavesNoChat(t *testing.T) {
 	e := newEnv(t)
 	person := accounttest.New(t, e.db)
 	for range domain.DailyLimit {
-		if _, _, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Hỏi"}); err != nil {
+		if _, _, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Text: "Hỏi"}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, _, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Hỏi"}); !errors.Is(err, domain.ErrTooMany) {
+	if _, _, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Text: "Hỏi"}); !errors.Is(err, domain.ErrTooMany) {
 		t.Fatalf("the eleventh: %v", err)
 	}
 	var chats int
@@ -315,7 +318,7 @@ func TestAPersonsMessageReopens(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t)
 	person := accounttest.New(t, e.db)
-	tk, _, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Hỏi"})
+	tk, _, err := e.support.Open(ctx, person, uuid.NewV7(), service.OpenInput{Kind: "other", Text: "Hỏi"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,7 +348,7 @@ func TestDurableInitialMessageUsesItsSendTime(t *testing.T) {
 	sentAt := openedAt.Add(time.Hour)
 	e := newEnvWithClocks(t, func() time.Time { return openedAt }, func() time.Time { return sentAt })
 	owner := accounttest.New(t, e.db)
-	tk, _, err := e.support.Open(t.Context(), owner, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Hỏi"})
+	tk, _, err := e.support.Open(t.Context(), owner, uuid.NewV7(), service.OpenInput{Kind: "other", Text: "Hỏi"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -361,7 +364,7 @@ func TestAccountDeletedKeepsDelayedFirstDeliveryResolved(t *testing.T) {
 	clock := restatetest.NewClock(openedAt.Add(time.Minute))
 	e := newEnvWithClocks(t, func() time.Time { return openedAt }, clock.Now)
 	owner := accounttest.New(t, e.db)
-	tk, _, err := e.support.Open(t.Context(), owner, uuid.NewV7(), service.OpenInput{Kind: "other", Body: "Hỏi"})
+	tk, _, err := e.support.Open(t.Context(), owner, uuid.NewV7(), service.OpenInput{Kind: "other", Text: "Hỏi"})
 	if err != nil {
 		t.Fatal(err)
 	}

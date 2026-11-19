@@ -11,7 +11,7 @@ import (
 // Open checks the request, then runs TicketOpen once per account and key,
 // and reads the ticket it opened or found.
 func (s *Support) Open(ctx context.Context, account, key uuid.UUID, in OpenInput) (TicketView, bool, error) {
-	if _, err := domain.NewTicket(in.Kind, in.CarrierName, in.Body, in.OrderID); err != nil {
+	if _, err := domain.NewTicket(in.Kind, in.CarrierName, in.Text, len(in.Photos), in.OrderID); err != nil {
 		return TicketView{}, false, err
 	}
 	res, err := s.open.Call(ctx, account.String()+"/"+key.String(), OpenFlowInput{Account: account, Key: key, Input: in})

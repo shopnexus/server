@@ -27,11 +27,12 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 }
 
 type openRequest struct {
-	Key         uuid.UUID  `header:"Idempotency-Key" json:"-"`
-	Kind        string     `json:"kind"`
-	OrderID     *uuid.UUID `json:"order_id"`
-	CarrierName string     `json:"carrier_name"`
-	Body        string     `json:"body"`
+	Key         uuid.UUID   `header:"Idempotency-Key" json:"-"`
+	Kind        string      `json:"kind"`
+	OrderID     *uuid.UUID  `json:"order_id"`
+	CarrierName string      `json:"carrier_name"`
+	Text        string      `json:"text"`
+	Photos      []uuid.UUID `json:"photos"`
 }
 
 // Open serves POST /v1/support/tickets: 201 for a new ticket, 200 for the
@@ -47,7 +48,7 @@ func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, existed, err := h.svc.Open(r.Context(), p.AccountID, in.Key, service.OpenInput{
-		Kind: in.Kind, OrderID: in.OrderID, CarrierName: in.CarrierName, Body: in.Body,
+		Kind: in.Kind, OrderID: in.OrderID, CarrierName: in.CarrierName, Text: in.Text, Photos: in.Photos,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
