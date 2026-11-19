@@ -438,6 +438,7 @@ separate work.
 | listing views | `listing_view_marks`, `listing_view_days` | module discovery; a person's last day of opening each listing, and the views per listing and UTC day; no aggregate, no `write_id` |
 | notification settings | `notification_settings` | module notification; one row per account that saved settings; no aggregate, no `write_id`: the last `PUT` wins |
 | agent reads | `console_agent_reads` | module agent; one row per read of personal data by an MCP tool, kept 90 days; no aggregate, no `write_id` |
+| agent runs | `agent_conversations`, `agent_turns`, `agent_turn_inputs`, `agent_tool_calls`, `agent_turn_events`, `agent_documents`, `agent_document_versions`, `agent_skills` | module agent; the console agent's conversations and what their runs wrote; no aggregate, no `write_id`: a turn's status changes under its row lock or a `WHERE status` check |
 | AI agents | `ai_agents`, `ai_agent_versions` | module agent; `ai_agents` adds `write_id`, and a save adds the version of new instructions (see AI settings) |
 | model tags | `ai_tags`, `ai_model_tags` | module agent; no aggregate, no `write_id`: setting a model's tags replaces them |
 
@@ -2671,17 +2672,23 @@ decided 2026-11-16, spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-16-console-agent-design.md`).
 The agent loop is its own service, `shopnexus/agent`, on the internal
 network (ADR-0003). The server is the agent's only way in and its only
-source of data: the console calls the server, the server forwards to the
-agent, and the agent reads through the server's MCP. Since 2026-11-18 a
-turn is a run the member watches on a server-sent event stream, with
-pause, steering, clarifying questions, numbered sources, documents and
-skills (spec:
+source of data: the console calls the server, the server starts each run
+on the agent, and the agent reads through the server's MCP. Since
+2026-11-18 a turn is a run the member watches on a server-sent event
+stream, with pause, steering, clarifying questions, numbered sources,
+documents and skills (spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-18-console-ai-synthesis-design.md`).
+Since 2026-11-19 the agent keeps no state: the server stores every
+conversation, turn, event, tool call, document and skill, and the agent
+streams each run segment back (spec:
+`~/shopnexus/agent/docs/superpowers/specs/2026-11-19-stateless-runtime-design.md`).
 
 - Module `agent` has `handler` (the console's agent endpoints and the AI
-  settings), `mcp` (the MCP server and its tools), `service` (the client
-  to the agent service, the read record and the AI settings over LiteLLM)
-  and `repository` (`console_agent_reads` and the `ai_*` tables). `mcp` is
+  settings), `mcp` (the MCP server, its tools and a run's control),
+  `service` (the conversations and runs, the run client to the agent
+  service, the read record and the AI settings over LiteLLM) and
+  `repository` (`console_agent_reads`, the `ai_*` tables and the
+  `agent_*` run tables). `mcp` is
   a layer of its own in depguard: it imports a module's service and
   domain, as a handler does, and nothing imports it but the module's
   `Mount`. `Mount` takes `module.Deps`, `Settings`, console's moderator
@@ -2699,83 +2706,116 @@ skills (spec:
 
 #### The console's agent endpoints
 
-Behind `FromConsole` and a moderator's or an admin's session. A handler
-forwards and adds nothing but a turn's agent configuration: the service
-sends the request to `AGENT_BASE_URL` with
-`Authorization: Bearer <AGENT_SERVICE_TOKEN>`, `X-Console-Member` (the
-member's id) and `X-Console-Role` (`moderator` or `admin`), and maps the
-answer. A record has one conversation, which every member shares and the
-first `POST` for it makes; a conversation without a record is its
-creator's. A list takes a subject, a subject kind alone or neither; a new
-conversation takes both or neither (422 `agent_subject_invalid`). Every
-call waits 10 seconds for the agent; a turn's event stream waits 10
-seconds for its headers and then has no deadline.
+Behind `FromConsole` and a moderator's or an admin's session. A record has
+one conversation, which every member shares and the first `POST` for it
+makes; a conversation without a record is its creator's, and another
+member gets 404 for it. A list takes a subject, a subject kind alone or
+neither; a new conversation takes both or neither (422
+`agent_subject_invalid`). A member renames or deletes their own
+conversation, an admin any; a shared one is an admin's (403
+`agent_forbidden`). A delete takes the turns, events and documents with it
+and is refused while a turn is unfinished (409 `agent_turn_in_progress`).
 
-The agent service serves the same paths under its base URL, in snake_case
-JSON, and the API's schemas are its shapes, so the service decodes an
-answer into the view it returns, with the statuses in lower case.
-
-| Console | Agent | Answer |
-|---|---|---|
-| `GET /v1/console/agent/conversations` | `GET /conversations?subject_kind=&subject_id=` | the agent's array as `{items}` |
-| `POST /v1/console/agent/conversations` | `POST /conversations` | the conversation, found or made |
-| `GET /v1/console/agent/conversations/{id}` | `GET /conversations/{id}` | the conversation with its turns, oldest first, each the turn view |
-| `POST /v1/console/agent/conversations/{id}/turns {text, agent_id?, attachments?, skill_id?}` | `POST /conversations/{id}/turns {text, attachments?, skill_id?, agent_config}` | 202 `{conversation_id, turn_id}` |
-| `GET /v1/console/agent/turns/{id}` | `GET /turns/{id}` | the turn view: status, answer, blocks, sources, outcome, error code, continuable, agent, usage, steers, questions while it waits, `last_seq` |
-| `GET /v1/console/agent/turns/{id}/events` | `GET /turns/{id}/events` | `text/event-stream` |
-| `POST …/turns/{id}/pause`, `stop`, `continue` | the same | 202 `{turn_id}` |
-| `POST …/turns/{id}/end` | the same | 200 `{turn_id, status: cancelled}` |
-| `POST …/turns/{id}/steer {text}` | the same | 202 `{steer_id, turn_id, resumed}` |
-| `POST …/turns/{id}/input {answers}` | the same | 202 `{turn_id}`; `answers` maps a question's id to an option's id or a list of them |
-| `GET /v1/console/agent/tool-calls/{id}` | `GET /tool-calls/{id}` | the call's input, output, attempts and timing |
-| `GET /v1/console/agent/documents/{id}` | `GET /documents/{id}` | the document with every version, newest first |
-| `GET`, `POST /v1/console/agent/skills`, `GET`, `PATCH`, `DELETE …/skills/{id}` | `/skills`, `/skills/{id}` | the skills every member shares; a change by a moderator to another member's skill is 403 |
-| `GET /v1/console/agents` | none | the console agents turned on, from `ai_agents`, the Console assistant marked `default` |
+| Console | Answer |
+|---|---|
+| `GET /v1/console/agent/conversations` | `{items}`, newest activity first, at most 50 |
+| `POST /v1/console/agent/conversations` | the conversation, found or made |
+| `GET /v1/console/agent/conversations/{id}` | the conversation with its turns, oldest first, each the turn view |
+| `POST /v1/console/agent/conversations/{id}/turns {text, agent_id?, attachments?, skill_id?}` | 202 `{conversation_id, turn_id}` |
+| `GET /v1/console/agent/turns/{id}` | the turn view: status, answer, blocks, sources, outcome, error code, continuable, agent, usage, steers, questions while it waits, `last_seq` |
+| `GET /v1/console/agent/turns/{id}/events` | `text/event-stream` |
+| `POST …/turns/{id}/pause`, `stop`, `continue` | 202 `{turn_id}` |
+| `POST …/turns/{id}/end` | 200 `{turn_id, status: cancelled}` |
+| `POST …/turns/{id}/steer {text}` | 202 `{steer_id, turn_id, resumed}` |
+| `POST …/turns/{id}/input {answers}` | 202 `{turn_id}`; `answers` maps a question's id to an option's id or a list of them |
+| `GET /v1/console/agent/tool-calls/{id}` | the call's input, output, attempts and timing |
+| `GET /v1/console/agent/documents/{id}` | the document with every version, newest first |
+| `GET`, `POST /v1/console/agent/skills`, `GET`, `PATCH`, `DELETE …/skills/{id}` | the skills every member shares; a change by a moderator to another member's skill is 403 |
+| `GET /v1/console/agents` | the console agents turned on, from `ai_agents`, the Console assistant marked `default` |
 
 A question names a console agent by `agent_id`, the Console assistant
 (`domain.ConsoleAssistant`, seeded by migration 0056) when it names none.
 The server reads the agent from `ai_agents`: an unknown one or an app
 agent is 404 `ai_agent_not_found`, one turned off 409 `ai_agent_disabled`.
-It sends `agent_config {id, name, alias, instructions,
-instructions_version, tools, limits}`, so the server stays the only source
-of a console agent's configuration and the agent keeps it only on the
-turn. `limits` are `deadline_s` (10 to 300, 60 by default),
+Then it checks the month's cap (429 `agent_budget`), the rate limit of 30
+questions and updates a minute per member, kept in each replica's memory
+(429 `agent_rate_limited`), and the input guard: a question empty once
+zero-width and control characters and HTML tags are taken out is 400
+`invalid_request`, one over 2000 characters 422 `agent_input_rejected`.
+The turn opens `running` under the conversation's row lock; a closed
+conversation is 409 `agent_conversation_closed`, one with an unfinished
+turn 409 `agent_turn_in_progress`. The run goes out with
+`agent_config {id, name, alias, instructions, instructions_version, tools,
+limits}`, so the server stays the only source of a console agent's
+configuration. `limits` are `deadline_s` (10 to 300, 60 by default),
 `max_model_calls`, `context_window`, `tool_timeout_s`, `tool_attempts` and
 `max_tokens`.
 
-The event stream is the agent's, copied line by line: each event is
-`id: <seq>` and `data: {seq, type, at, …}`, the schema `AgentRunEvent`
-lists the types, and the handler flushes at each blank line. The handler
-lifts the HTTP server's 30-second write deadline with
-`http.ResponseController`, and sends `Cache-Control: no-cache` and
-`X-Accel-Buffering: no`. `Last-Event-ID`, or `after` in the query for a
-page that opens the stream itself, goes to the agent as `Last-Event-ID`.
-The agent ends the stream after `turn.finished`, `turn.paused` or
-`clarify`, and the server ends its answer with it; after Continue, answers
-or an update to a paused turn the console opens the stream again from its
-last seq. A member who closes the tab cancels the request, which ends the
-read from the agent; the run goes on.
+#### Runs
 
-An error is `{code}`. The server maps the code, and the status for a body
-without one:
+Tables (migration 0061): `agent_conversations`, `agent_turns` (one
+unfinished turn per conversation by a partial unique index; `state` is the
+agent's checkpoint, read only for `pending_ask` and `sources`),
+`agent_turn_inputs` (pause, stop, steer and answers, by an identity
+`seq`), `agent_tool_calls`, `agent_turn_events`, `agent_documents`,
+`agent_document_versions` and `agent_skills`. Columns that would be SQL
+keywords are `input_text`, `provider_name`, `tool_input`, `tool_output`,
+`result_content`, `tool_timing`, `event_type`, `occurred_at`,
+`version_no`, `skill_name` and `skill_variables`.
 
-| Agent | Console |
-|---|---|
-| 404 `not_found` | 404 of the thing the path names: `agent_conversation_not_found`, `agent_turn_not_found`, `agent_tool_call_not_found`, `agent_document_not_found` or `agent_skill_not_found` |
-| 429 `agent_budget` (the LiteLLM budget is spent) | 429 `agent_budget` |
-| 429 `rate_limited` | 429 `agent_rate_limited` |
-| 409 `turn_in_progress`, `conversation_closed` | 409 `agent_turn_in_progress`, `agent_conversation_closed` |
-| 409 `turn_state` | 409 `agent_turn_state` |
-| 409 `skill_exists` | 409 `agent_skill_taken` |
-| 403 `forbidden` | 403 `agent_forbidden` |
-| 400 `input_rejected` (a question over 2000 characters) | 422 `agent_input_rejected` |
-| 400 `bad_request` on the answers or a skill | 422 `agent_answers_invalid`, `agent_skill_invalid` |
-| 504 `agent_timeout` | 504 `agent_timeout` |
-| 503 `agent_unavailable`; `unauthorized`, `bad_request` elsewhere, `internal`, any other answer, no answer, a call past 10 s | 503 `agent_unavailable`, the agent's code logged |
+- A segment starts with `POST {AGENT_BASE_URL}/runs` and
+  `Authorization: Bearer <AGENT_SERVICE_TOKEN>`: the turn, the member who
+  acts and their role, `mode` `new` (the question, the subject, the skill
+  and the last 20 terminal turns as history) or `resume` (the last
+  checkpoint, the unread steers and the answers text), the conversation's
+  documents and `control_after`, the turn's newest input seq. Both modes
+  send `agent_config`. The server waits 10 s for the status; anything but
+  200 is 503 `agent_unavailable` and takes the new turn away, or puts a
+  resumed turn back as it was.
+- On 200 the server reads the NDJSON lines in the background on the same
+  replica, until 60 s past the segment's deadline, each in its own
+  transaction and only while the turn is `running`: `event` takes the
+  turn's next `event_seq` and rings `pg_notify('agent_turn', turn_id)`
+  (`steer.read` marks its steer read); `checkpoint` stores `state`;
+  `tool_call` upserts by `(turn_id, tool_use_id)` and never moves a
+  finished call back; `document` inserts version 1 or the next version;
+  `end` sets the status, the answer, the usage and `wrote`, and writes its
+  closing event in the same transaction. A stream that ends without `end`
+  closes the turn `failed` with `agent_stuck`.
+- Pause and stop need a `running` turn and go in `agent_turn_inputs`, as
+  does a steer to a running turn. The agent polls
+  `GET /agent/turns/{id}/control?after=<seq>` on the MCP listener with
+  `AGENT_MCP_TOKEN` and gets `{items: [{seq, kind, steer_id?, text?}],
+  running}`; a turn that is gone or ended answers `running: false`.
+- Continue (a paused turn, or a failed or timed out one that is the
+  conversation's latest, wrote something and failed with a continuable
+  code), answers and a steer to a paused turn set the turn `running`
+  under its lock with a new `run_started_at`, then start a `resume`
+  segment and write `turn.resumed {by}`. End cancels a paused or waiting
+  turn with `turn.finished`.
+- `Mounted.Run` keeps one `LISTEN agent_turn` per replica, which rings the
+  open streams of that turn, and closes turns still `running` 30 s past
+  `run_started_at + deadline_ms` as `agent_stuck`, at start and every
+  minute.
 
-A run's own failures (budget, timeout, a model or the MCP server down)
-reach the console as `turn.finished`. No request or
-answer body is logged, since a turn quotes people.
+The event stream replays `agent_turn_events` after `Last-Event-ID` (or
+`after` in the query, for a page that opens the stream itself), then reads
+the table again at each ring; every 15 s without one it sends
+`: keep-alive` and reads the table. Each event is `id: <seq>`,
+`event: <type>` and `data: {seq, type, at, …}`; the schema `AgentRunEvent`
+lists the types. The stream ends after `turn.finished`, `turn.paused` or
+`clarify`, or 10 s after the turn stopped running with nothing new; after
+Continue, answers or an update to a paused turn the console opens it again
+from its last seq. The handler flushes at each blank line, lifts the HTTP
+server's 30-second write deadline with `http.ResponseController`, and
+sends `Cache-Control: no-cache` and `X-Accel-Buffering: no`. A member who
+closes the tab ends the stream; the run goes on.
+
+The admin's tool, guardrail and usage figures read `agent_tool_calls`,
+the `guardrail` events and `agent_turns` over the range's UTC days. A
+run's own failures (budget, timeout, a model or the MCP server down) reach
+the console as `turn.finished`. No request or answer body is logged, since
+a turn quotes people.
 
 #### The record pages
 
