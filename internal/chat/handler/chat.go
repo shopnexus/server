@@ -40,10 +40,6 @@ type messagesRequest struct {
 	ID uuid.UUID `json:"-" path:"id"`
 }
 
-type unread struct {
-	Unread int `json:"unread"`
-}
-
 // Open serves POST /v1/conversations.
 func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 	p, ok := httpx.Caller(w, r, h.log)
@@ -175,18 +171,4 @@ func (h *Handler) Unarchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// Unread serves GET /v1/me/unread.
-func (h *Handler) Unread(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	n, err := h.svc.Unread(r.Context(), p.AccountID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, unread{Unread: n})
 }

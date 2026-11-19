@@ -1923,6 +1923,12 @@ page that shows two views calls both at once.
   either answered or more than 24 hours old; it is in time when the answer
   came within 24 hours. The rate is the percent in time, rounded down,
   with the count; null below 5 counted.
+- `GET /v1/me/unread` (decided 2026-11-19): `{unread, notifications}`,
+  chat's unread total, as the inbox counts it, and notification's unread
+  notices, so a badge needs one call. Screen serves it, since chat cannot
+  import notification (notification's worker reads chat). The path and the
+  `chat` tag stay as they were, so the app's generated chat client keeps
+  `getUnread`.
 - "Load more" uses the list endpoints, which return the same item shapes
   as the view: `/v1/sellers/{id}/listings` (`SearchItem` cards, like the
   seller view's `listings`), `/v1/sellers/{id}/reviews` and
@@ -3134,7 +3140,8 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
 Module `notification` tells people of their deals, orders, listings,
 reviews and account, in a list and by push (decided 2026-10-27, spec:
 `~/shopnexus/docs/superpowers/specs/2026-10-27-server-notification-design.md`). No module
-calls it except screen, for Home's unread count; depguard holds that.
+calls it except screen, for the unread counts of Home and
+`GET /v1/me/unread`; depguard holds that.
 
 - It hears events: `deal.moved` (whose payload now lists the IDs of the
   moves the save wrote), `message.sent` (event ID = message ID, so a

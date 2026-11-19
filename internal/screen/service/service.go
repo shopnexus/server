@@ -56,6 +56,9 @@ type Service interface {
 	ProfileTasks(ctx context.Context, account uuid.UUID) (ProfileTasksScreen, error)
 	// Reputation reads account's Uy tín của bạn view.
 	Reputation(ctx context.Context, account uuid.UUID) (ReputationScreen, error)
+	// Unread counts account's unread messages, as the inbox does, and
+	// unread notices.
+	Unread(ctx context.Context, account uuid.UUID) (Unread, error)
 }
 
 // Deps is what New builds Screen from.
@@ -69,7 +72,7 @@ type Deps struct {
 	// Discovery gives the save on the listing view, Home's nearby feed,
 	// the seller view's listings and the views and saves of Tin của bạn.
 	Discovery discoverysvc.Service
-	// Notifications gives Home its unread count.
+	// Notifications gives Home and GET /v1/me/unread the unread notices.
 	Notifications notificationsvc.Service
 	// Support gives a support chat its ticket.
 	Support supportsvc.Service

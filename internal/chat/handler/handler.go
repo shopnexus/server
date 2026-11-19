@@ -25,5 +25,4 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("POST /v1/conversations/{id}/unread", protect(http.HandlerFunc(h.MarkUnread)))
 	r.Handle("POST /v1/conversations/{id}/archive", protect(http.HandlerFunc(h.Archive)))
 	r.Handle("POST /v1/conversations/{id}/unarchive", protect(http.HandlerFunc(h.Unarchive)))
-	r.Handle("GET /v1/me/unread", protect(http.HandlerFunc(h.Unread)))
 }

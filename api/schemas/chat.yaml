@@ -180,10 +180,14 @@ MessageList:
 Unread:
   type: object
   additionalProperties: false
-  required: [unread]
+  required: [unread, notifications]
   properties:
     unread:
       type: integer
+      description: Unread messages over the caller's unarchived pair conversations.
+    notifications:
+      type: integer
+      description: The caller's unread notices.
 Quote:
   type: object
   additionalProperties: false
