@@ -39,7 +39,9 @@ type Client interface {
 // of several models.
 type OpenAI struct {
 	BaseURL, APIKey, Model string
-	HTTP                   *http.Client
+	// Effort is sent as reasoning_effort; empty leaves the model's default.
+	Effort string
+	HTTP   *http.Client
 }
 
 // maxReply caps how much of a reply is read.
@@ -58,7 +60,7 @@ func (c OpenAI) Complete(ctx context.Context, r Request, out any) error {
 		}
 		user = parts
 	}
-	body, err := json.Marshal(map[string]any{
+	req := map[string]any{
 		"model": c.Model,
 		"messages": []map[string]any{
 			{"role": "system", "content": r.System},
@@ -69,18 +71,22 @@ func (c OpenAI) Complete(ctx context.Context, r Request, out any) error {
 			"type":        "json_schema",
 			"json_schema": map[string]any{"name": r.SchemaName, "strict": true, "schema": r.Schema},
 		},
-	})
+	}
+	if c.Effort != "" {
+		req["reasoning_effort"] = c.Effort
+	}
+	body, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("encode request: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(c.BaseURL, "/")+"/chat/completions",
+	hr, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(c.BaseURL, "/")+"/chat/completions",
 		bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+c.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-	res, err := c.HTTP.Do(req)
+	hr.Header.Set("Authorization", "Bearer "+c.APIKey)
+	hr.Header.Set("Content-Type", "application/json")
+	res, err := c.HTTP.Do(hr)
 	if err != nil {
 		return fmt.Errorf("call model: %w", err)
 	}

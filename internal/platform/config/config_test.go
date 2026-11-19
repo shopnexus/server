@@ -99,6 +99,7 @@ func required() map[string]string {
 		"ASSIST_LLM_BASE_URL":          "http://litellm.example.test/v1",
 		"ASSIST_LLM_API_KEY":           "assist-key",
 		"ASSIST_LLM_MODEL":             "video-read",
+		"ASSIST_LLM_REASONING_EFFORT":  "none",
 		"ASSIST_CALL_TIMEOUT":          "30s",
 		"CHOTOT_GATEWAY_URL":           "https://gateway.chotot.com",
 		"CHOTOT_CDN_URL":               "https://cdn.chotot.com",
@@ -207,7 +208,7 @@ func TestLoadAllSet(t *testing.T) {
 		},
 		Assist: AssistConfig{
 			LLMBaseURL: "http://litellm.example.test/v1", LLMAPIKey: "assist-key", LLMModel: "video-read",
-			CallTimeout:      30 * time.Second,
+			LLMEffort: "none", CallTimeout: 30 * time.Second,
 			ChototGatewayURL: "https://gateway.chotot.com", ChototCDNURL: "https://cdn.chotot.com",
 		},
 		Trust: TrustConfig{

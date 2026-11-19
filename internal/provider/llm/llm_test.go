@@ -41,6 +41,33 @@ func TestComplete(t *testing.T) {
 	}
 }
 
+// Effort goes as reasoning_effort, and none is sent without it.
+func TestCompleteEffort(t *testing.T) {
+	t.Parallel()
+	for _, effort := range []string{"", "none"} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]any
+			if json.NewDecoder(r.Body).Decode(&body) != nil {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			got, sent := body["reasoning_effort"]
+			if sent != (effort != "") || (sent && got != effort) {
+				http.Error(w, "bad effort", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{}"}}]}`))
+		}))
+		c := llm.OpenAI{BaseURL: srv.URL, APIKey: "k", Model: "m", Effort: effort, HTTP: srv.Client()}
+		var out map[string]any
+		err := c.Complete(context.Background(), llm.Request{SchemaName: "x", Schema: json.RawMessage(`{}`)}, &out)
+		srv.Close()
+		if err != nil {
+			t.Fatalf("effort %q: %v", effort, err)
+		}
+	}
+}
+
 func TestCompleteFails(t *testing.T) {
 	t.Parallel()
 	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

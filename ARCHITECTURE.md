@@ -2414,7 +2414,8 @@ The video read:
   counts of specs and kept frames, whether there is a description, the
   prices and the range, and the time taken.
 - Configuration: `ASSIST_LLM_BASE_URL`, `ASSIST_LLM_API_KEY`,
-  `ASSIST_LLM_MODEL`, and `ASSIST_CALL_TIMEOUT` for one call, ai's calls
+  `ASSIST_LLM_MODEL`, `ASSIST_LLM_REASONING_EFFORT` (sent as
+  `reasoning_effort` when set), and `ASSIST_CALL_TIMEOUT` for one call, ai's calls
   included. In the cluster the key is LiteLLM's `server-assist`. The
   estimate embeds text with the search key, `EMBED_SEARCH_API_KEY`, and
   photos with module ai.

@@ -208,9 +208,11 @@ func (c AIConfig) EmbedOn() bool { return c.EmbedModel != "" }
 // and where Chợ Tốt is. Frames and speech are module ai's. The key is
 // never logged.
 type AssistConfig struct {
-	LLMBaseURL  string        // ASSIST_LLM_BASE_URL: an OpenAI-compatible API whose model reads images
-	LLMAPIKey   string        // ASSIST_LLM_API_KEY: server-assist's key
-	LLMModel    string        // ASSIST_LLM_MODEL: the alias video-read
+	LLMBaseURL string // ASSIST_LLM_BASE_URL: an OpenAI-compatible API whose model reads images
+	LLMAPIKey  string // ASSIST_LLM_API_KEY: server-assist's key
+	LLMModel   string // ASSIST_LLM_MODEL: the alias video-read
+	// ASSIST_LLM_REASONING_EFFORT: none, low, medium or high; empty is the model's default
+	LLMEffort   string
 	CallTimeout time.Duration // ASSIST_CALL_TIMEOUT: one call to ai, the model or Chợ Tốt
 	// CHOTOT_GATEWAY_URL: Chợ Tốt's public gateway, https://gateway.chotot.com
 	ChototGatewayURL string
@@ -624,6 +626,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		},
 		Assist: AssistConfig{
 			LLMBaseURL: need("ASSIST_LLM_BASE_URL"), LLMAPIKey: need("ASSIST_LLM_API_KEY"), LLMModel: need("ASSIST_LLM_MODEL"),
+			LLMEffort:        oneOf("ASSIST_LLM_REASONING_EFFORT", "", "none", "low", "medium", "high"),
 			CallTimeout:      duration("ASSIST_CALL_TIMEOUT"),
 			ChototGatewayURL: need("CHOTOT_GATEWAY_URL"), ChototCDNURL: need("CHOTOT_CDN_URL"),
 		},

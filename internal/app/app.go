@@ -437,7 +437,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	assistm := assist.Mount(d, assist.Settings{
 		AI: aiClient,
 		Model: llm.OpenAI{
-			BaseURL: cfg.Assist.LLMBaseURL, APIKey: cfg.Assist.LLMAPIKey, Model: cfg.Assist.LLMModel, HTTP: &http.Client{},
+			BaseURL: cfg.Assist.LLMBaseURL, APIKey: cfg.Assist.LLMAPIKey, Model: cfg.Assist.LLMModel,
+			Effort: cfg.Assist.LLMEffort, HTTP: &http.Client{},
 		},
 		Text:    embedder(cfg.Embed.SearchAPIKey),
 		Image:   photos,
