@@ -105,6 +105,10 @@ type Service interface {
 	// CountByStatus counts the listings created at or after since, the zero
 	// time for all, in each status, deleted ones too.
 	CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error)
+	// IDsBySlug finds the listings whose web addresses end with slugs, by
+	// the code after the last hyphen, in any status, keyed by the slug as
+	// given; a slug that names no listing is left out.
+	IDsBySlug(ctx context.Context, slugs []string) (map[string]uuid.UUID, error)
 	// Summaries reads listings in any status for other modules; an unknown
 	// ID is left out of the map.
 	Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Summary, error)

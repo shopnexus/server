@@ -340,3 +340,40 @@ func TestCountByStatus(t *testing.T) {
 		t.Fatalf("created since a later time: %v %v", got, err)
 	}
 }
+
+// Insert gives a listing the first of its ID's codes no listing holds, and
+// IDsByCode finds it by that code.
+func TestInsertGivesAFreeCode(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewListings(db)
+	ctx := context.Background()
+	seller := accounttest.New(t, db)
+	a, b := listing(t, seller), listing(t, seller)
+	if err := s.Insert(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	// a takes the code b would get first.
+	if _, err := db.Exec(ctx, `UPDATE listings SET code = listing_code(@b, 0) WHERE id = @a`,
+		pgx.StrictNamedArgs{"a": a.ID(), "b": b.ID()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Insert(ctx, b); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Get(ctx, b.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var second string
+	if err = db.QueryRow(ctx, `SELECT listing_code(@b, 1)`, pgx.StrictNamedArgs{"b": b.ID()}).Scan(&second); err != nil {
+		t.Fatal(err)
+	}
+	if code := got.State().Code; code != second || got.Slug() != "xe-dap-"+second {
+		t.Fatalf("code %q, slug %q; want %q", code, got.Slug(), second)
+	}
+	ids, err := s.IDsByCode(ctx, []string{second, "zzzzzzzz"})
+	if err != nil || len(ids) != 1 || ids[second] != b.ID() {
+		t.Fatalf("IDsByCode = %v, %v", ids, err)
+	}
+}

@@ -47,8 +47,19 @@ type ListingViewer struct {
 // distance from near. A viewer who is not the seller also gets their save,
 // deal and conversation with the seller, and counts a view of the listing.
 // The count is best effort: a failed count is logged, and the view answers
-// all the same.
-func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (ListingScreen, error) {
+// all the same. ref is the listing's ID or the slug of its web address.
+func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, ref string, near catalogdomain.Near) (ListingScreen, error) {
+	id, err := uuid.Parse(ref)
+	if err != nil {
+		ids, findErr := s.catalog.IDsBySlug(ctx, []string{ref})
+		if findErr != nil {
+			return ListingScreen{}, fmt.Errorf("find the listing: %w", findErr)
+		}
+		var ok bool
+		if id, ok = ids[ref]; !ok {
+			return ListingScreen{}, catalogdomain.ErrNotFound
+		}
+	}
 	l, distance, err := s.catalog.GetNear(ctx, nil, id, near)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the listing: %w", err)

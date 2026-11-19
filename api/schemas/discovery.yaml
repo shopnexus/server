@@ -26,6 +26,8 @@ SavedListing:
       required: [status]
       description: The listing as it is now. A hidden or deleted listing shows its status alone.
       properties:
+        slug:
+          $ref: "catalog.yaml#/ListingSlug"
         title:
           type: string
         price:
@@ -60,7 +62,7 @@ SavedList:
 SearchItem:
   type: object
   additionalProperties: false
-  required: [id, seller_id, title, price, category_code, condition, allow_offers, commune, saved]
+  required: [id, slug, seller_id, title, price, category_code, condition, allow_offers, commune, saved]
   description: |
     A listing as a browse surface shows it: a search page, Home's nearby
     feed and the seller view. It carries no point of the listing.
@@ -68,6 +70,8 @@ SearchItem:
     id:
       type: string
       format: uuid
+    slug:
+      $ref: "catalog.yaml#/ListingSlug"
     seller_id:
       type: string
       format: uuid

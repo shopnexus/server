@@ -17,9 +17,9 @@ screenListing:
       - name: id
         in: path
         required: true
+        description: The listing's ID, or the slug of its web address (ListingSlug).
         schema:
           type: string
-          format: uuid
       - $ref: "../parameters/discovery.yaml#/NearLat"
       - $ref: "../parameters/discovery.yaml#/NearLng"
       - $ref: "../parameters/discovery.yaml#/NearCommune"

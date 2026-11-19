@@ -34,17 +34,27 @@ func str(p *string) string {
 
 // insertDeal inserts a deal as the tables stood before 0047.
 // listing puts an active listing of seller's in db and returns its ID. It
-// names only the columns every schema since 0021 has, so a test that stops
-// before a later migration can use it; catalogtest.Listing writes every
-// column the current repository knows.
+// names only the columns every schema since 0021 has, and the code once
+// 0064 has run, so a test that stops before a later migration can use it;
+// catalogtest.Listing writes every column the current repository knows.
 func listing(t *testing.T, db *pgxpool.Pool, seller uuid.UUID) uuid.UUID {
 	t.Helper()
+	ctx := context.Background()
+	var coded bool
+	if err := db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM information_schema.columns
+WHERE table_name = 'listings' AND column_name = 'code')`).Scan(&coded); err != nil {
+		t.Fatal(err)
+	}
+	cols, vals := "", ""
+	if coded {
+		cols, vals = ", code", ", listing_code(@id, 0)"
+	}
 	id := uuid.NewV7()
-	if _, err := db.Exec(context.Background(), `INSERT INTO listings (id, seller_id, title, price, description, category_code, condition,
-    allow_offers, commune_code, photos, specs, status, write_id, created_at, updated_at, published_at, lat, lng)
+	if _, err := db.Exec(ctx, `INSERT INTO listings (id, seller_id, title, price, description, category_code, condition,
+    allow_offers, commune_code, photos, specs, status, write_id, created_at, updated_at, published_at, lat, lng`+cols+`)
 SELECT @id, @seller, 'Xe đạp Asama', 1500000, '', 'vehicles.bicycle', 'used', true, c.code,
        '[{"upload_id": "00000000-0000-0000-0000-000000000000", "keys": {"photo": "media/a.jpg", "thumb": "media/a_thumb.jpg"}}]',
-       '[]', 'active', @id, @at, @at, @at, c.lat, c.lng
+       '[]', 'active', @id, @at, @at, @at, c.lat, c.lng`+vals+`
 FROM communes c WHERE c.code = '00004'`, pgx.StrictNamedArgs{"id": id, "seller": seller, "at": time.Now()}); err != nil {
 		t.Fatalf("insert listing: %v", err)
 	}

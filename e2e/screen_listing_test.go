@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"uuid"
 )
@@ -69,6 +70,13 @@ func TestListingScreen(t *testing.T) {
 	if got.Viewer != nil || got.DistanceKm != nil {
 		t.Fatalf("signed out has a viewer or a distance: %+v", got)
 	}
+	// The slug ends with the code, which alone finds the listing.
+	code := got.Listing.Slug[strings.LastIndexByte(got.Listing.Slug, '-')+1:]
+	for _, ref := range []string{got.Listing.Slug, "an-old-title-" + code} {
+		if by := expect[listingScreen](t, call(t, "GET", "/v1/screens/listing/"+ref, nil), http.StatusOK); by.Listing.ID != l.ID {
+			t.Fatalf("by %s: %+v", ref, by.Listing)
+		}
+	}
 	// With a position the view has the listing's distance, as search
 	// measures it; the listing is in commune 00004.
 	res := call(t, "GET", path+"?near_commune=00004", nil)
@@ -111,6 +119,6 @@ func TestListingScreen(t *testing.T) {
 	check(t, "hidden, signed out", call(t, "GET", path, nil), 404, "listing_not_found")
 	check(t, "sold", call(t, "GET", "/v1/screens/listing/"+sold, nil), 404, "listing_not_found")
 	check(t, "unknown", call(t, "GET", "/v1/screens/listing/"+uuid.NewV7().String(), nil), 404, "listing_not_found")
-	check(t, "a bad id", call(t, "GET", "/v1/screens/listing/x", nil), 400, "")
+	check(t, "a slug of no listing", call(t, "GET", "/v1/screens/listing/x", nil), 404, "listing_not_found")
 	check(t, "a bad token", call(t, "GET", path, nil, bearer("x")), 401, "")
 }

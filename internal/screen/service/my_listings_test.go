@@ -190,7 +190,7 @@ func (e *sellEnv) read(t *testing.T, seller uuid.UUID, pane catalogsvc.Pane, p p
 // open reads the listing view of id as viewer, nil for signed out.
 func (e *sellEnv) open(t *testing.T, viewer *uuid.UUID, id uuid.UUID) {
 	t.Helper()
-	if _, err := e.screen.Listing(context.Background(), viewer, id, catalogdomain.Near{}); err != nil {
+	if _, err := e.screen.Listing(context.Background(), viewer, id.String(), catalogdomain.Near{}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -423,7 +423,7 @@ func TestListingViewSurvivesAFailedCount(t *testing.T) {
 	seller, ann := accounttest.WithPhone(t, e.db), accounttest.WithPhone(t, e.db)
 	listing := catalogtest.Listing(t, e.db, seller)
 	e.counted.discovery.fail.Store(true)
-	v, err := e.screen.Listing(context.Background(), &ann, listing, catalogdomain.Near{})
+	v, err := e.screen.Listing(context.Background(), &ann, listing.String(), catalogdomain.Near{})
 	if err != nil || v.Viewer == nil || v.Listing.ID != listing {
 		t.Fatalf("%+v %v", v, err)
 	}

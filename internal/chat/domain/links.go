@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"uuid"
+
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
 // LinkKind is what a ShopNexus link in a message points at.
@@ -23,11 +25,14 @@ const MaxLinks = 5
 
 // Link is a ShopNexus link found in a message's text. URL is the text as
 // written, so a client can find it in the message. ID is set for a
-// listing, seller or order, Code for a category, Query for a search.
+// listing, seller or order, Code for a category, Query for a search. A
+// listing's web address names it by slug instead (Slug), which module
+// catalog resolves.
 type Link struct {
 	URL   string
 	Kind  LinkKind
 	ID    uuid.UUID
+	Slug  string
 	Code  string
 	Query string
 }
@@ -86,6 +91,9 @@ func parseLink(raw string, hosts []string) (Link, bool) {
 	case parts[0] == "categories":
 		l.Kind, l.Code = LinkCategory, parts[1]
 		return l, categoryCode.MatchString(l.Code)
+	case parts[0] == "listings" && catalogdomain.CodeOf(parts[1]) != "":
+		l.Kind, l.Slug = LinkListing, parts[1]
+		return l, true
 	}
 	id, err := uuid.Parse(parts[1])
 	if err != nil {

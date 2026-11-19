@@ -133,6 +133,9 @@ type Listing struct {
 	// heldAt is when a console member hid the listing; nil when no member
 	// holds it.
 	heldAt *time.Time
+	// code ends the web address; the store sets it on insert, so a new
+	// listing has none until it is read back.
+	code string
 }
 
 // NewListing checks d and starts the listing in processing. The first write
@@ -246,9 +249,12 @@ func (l *Listing) keysOf(id uuid.UUID) PhotoKeys {
 	return PhotoKeys{}
 }
 
-func (l *Listing) ID() uuid.UUID        { return l.id }
-func (l *Listing) SellerID() uuid.UUID  { return l.sellerID }
-func (l *Listing) Title() string        { return l.title }
+func (l *Listing) ID() uuid.UUID       { return l.id }
+func (l *Listing) SellerID() uuid.UUID { return l.sellerID }
+func (l *Listing) Title() string       { return l.title }
+
+// Slug is the last part of the listing's web address: Slug(title, code).
+func (l *Listing) Slug() string         { return Slug(l.title, l.code) }
 func (l *Listing) Price() int64         { return l.price }
 func (l *Listing) Description() string  { return l.description }
 func (l *Listing) CategoryCode() string { return l.categoryCode }
@@ -465,6 +471,7 @@ type ListingState struct {
 	HeldAt       *time.Time           `json:"held_at,omitempty"`
 	Lat          float64              `json:"lat"`
 	Lng          float64              `json:"lng"`
+	Code         string               `json:"code,omitempty"`
 }
 
 // RestoreListing rebuilds a stored listing. Stores only.
@@ -474,7 +481,7 @@ func RestoreListing(st ListingState) Listing {
 		categoryCode: st.CategoryCode, condition: st.Condition, allowOffers: st.AllowOffers, communeCode: st.CommuneCode,
 		photos: st.Photos, specs: st.Specs, status: st.Status, rejection: st.Rejection, reservedFor: st.ReservedFor,
 		writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
-		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt, heldAt: st.HeldAt, point: Point{Lat: st.Lat, Lng: st.Lng},
+		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt, heldAt: st.HeldAt, point: Point{Lat: st.Lat, Lng: st.Lng}, code: st.Code,
 	}
 }
 
@@ -485,7 +492,7 @@ func (l *Listing) State() ListingState {
 		CategoryCode: l.categoryCode, Condition: l.condition, AllowOffers: l.allowOffers, CommuneCode: l.communeCode,
 		Photos: l.photos, Specs: l.specs, Status: l.status, Rejection: l.rejection,
 		ReservedFor: l.reservedFor, WriteID: l.writeID, CreatedAt: l.createdAt, UpdatedAt: l.updatedAt,
-		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt, HeldAt: l.heldAt, Lat: l.point.Lat, Lng: l.point.Lng,
+		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt, HeldAt: l.heldAt, Lat: l.point.Lat, Lng: l.point.Lng, Code: l.code,
 	}
 }
 

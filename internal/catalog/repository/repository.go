@@ -41,6 +41,9 @@ type Listings interface {
 	// GetMany returns the listings among ids in any status and order; an
 	// unknown ID is left out.
 	GetMany(ctx context.Context, ids []uuid.UUID) ([]domain.Listing, error)
+	// IDsByCode maps the codes of web addresses to their listings, in any
+	// status; an unknown code is left out.
+	IDsByCode(ctx context.Context, codes []string) (map[string]uuid.UUID, error)
 	// Save writes l, entry when it is not nil, and evs when its row still
 	// has l.WriteID() or already has writeID, then sets its write ID.
 	// Otherwise ErrConflict and nothing is written. A listing coming back

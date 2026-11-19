@@ -40,12 +40,14 @@ DealStatus:
 DealListing:
   type: object
   additionalProperties: false
-  required: [id, title, price, status]
+  required: [id, slug, title, price, status]
   description: The deal's listing as it is now.
   properties:
     id:
       type: string
       format: uuid
+    slug:
+      $ref: "catalog.yaml#/ListingSlug"
     title:
       type: string
     price:

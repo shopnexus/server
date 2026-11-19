@@ -25,7 +25,7 @@ func NewListings(db *pgxpool.Pool) Listings { return pgListings{db} }
 
 const listingColumns = `id, seller_id, title, price, description, category_code, condition, allow_offers, commune_code,
        photos, specs, status, rejection, reserved_for, write_id, created_at, updated_at, published_at, sold_at,
-       deleted_at, lat, lng, held_at`
+       deleted_at, lat, lng, held_at, code`
 
 func scanListing(row pgx.CollectableRow) (domain.Listing, error) {
 	var (
@@ -35,7 +35,7 @@ func scanListing(row pgx.CollectableRow) (domain.Listing, error) {
 	)
 	if err := row.Scan(&st.ID, &st.SellerID, &st.Title, &st.Price, &st.Description, &st.CategoryCode, &st.Condition,
 		&st.AllowOffers, &st.CommuneCode, &photos, &specs, &st.Status, &rejec, &reservedFor, &st.WriteID, &st.CreatedAt,
-		&st.UpdatedAt, &st.PublishedAt, &st.SoldAt, &st.DeletedAt, &st.Lat, &st.Lng, &st.HeldAt); err != nil {
+		&st.UpdatedAt, &st.PublishedAt, &st.SoldAt, &st.DeletedAt, &st.Lat, &st.Lng, &st.HeldAt, &st.Code); err != nil {
 		return domain.Listing{}, fmt.Errorf("scan listing: %w", err)
 	}
 	if reservedFor != nil {
@@ -89,12 +89,15 @@ func lockSeller(ctx context.Context, tx pgx.Tx, seller uuid.UUID) error {
 	return nil
 }
 
-// insertListing adds the row unless the seller is at the cap.
+// insertListing adds the row unless the seller is at the cap, with the
+// first of the ID's codes (listing_code, migration 0064) no listing holds.
 const insertListing = `
 INSERT INTO listings (` + listingColumns + `)
 SELECT @id, @seller_id, @title, @price, @description, @category_code, @condition, @allow_offers, @commune_code,
        @photos, @specs, @status, @rejection, @reserved_for, @write_id, @created_at, @updated_at, @published_at, @sold_at,
-       @deleted_at, @lat, @lng, @held_at
+       @deleted_at, @lat, @lng, @held_at,
+       (SELECT c FROM generate_series(0, 15) a, listing_code(@id, a) c
+        WHERE NOT EXISTS (SELECT 1 FROM listings WHERE code = c) ORDER BY a LIMIT 1)
 WHERE (SELECT count(*) FROM listings WHERE seller_id = @seller_id AND status = ANY(@on_sale)) < @limit
 ON CONFLICT (id) DO NOTHING`
 
@@ -125,6 +128,28 @@ func (s pgListings) Insert(ctx context.Context, l domain.Listing) error {
 		return fmt.Errorf("insert listing: %w", err)
 	}
 	return nil
+}
+
+func (s pgListings) IDsByCode(ctx context.Context, codes []string) (map[string]uuid.UUID, error) {
+	out := map[string]uuid.UUID{}
+	if len(codes) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx, `SELECT code, id FROM listings WHERE code = ANY(@codes)`, pgx.StrictNamedArgs{"codes": codes})
+	if err != nil {
+		return nil, fmt.Errorf("select listing codes: %w", err)
+	}
+	var (
+		code string
+		id   uuid.UUID
+	)
+	if _, err = pgx.ForEachRow(rows, []any{&code, &id}, func() error {
+		out[code] = id
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("select listing codes: %w", err)
+	}
+	return out, nil
 }
 
 func (s pgListings) Discard(ctx context.Context, id uuid.UUID) error {

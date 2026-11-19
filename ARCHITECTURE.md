@@ -1124,6 +1124,15 @@ agree during a deploy.
   run of its own.
 - The listing stores object keys; views build URLs from `MEDIA_PUBLIC_URL`
   at read time.
+- A listing's web address is `/listings/{slug}` (decided 2026-11-20): the
+  title without accents in hyphenated words, then `listings.code`, 8
+  Crockford base32 characters (migration 0064). The code comes from SQL
+  `listing_code(id, attempt)`, a hash of the ID; the insert takes the first
+  attempt no listing holds, so a seed pack's listings get the same codes on
+  every load. Only the code finds a listing (`IDsBySlug`), so an edited
+  title keeps old addresses; the website redirects any other address,
+  the ID included, to the current slug with a 301. Views carry `slug`; the
+  API and the app keep using IDs.
 - Another seller's listing is `listing_not_found`. `GET /v1/listings/{id}`
   sits behind `Identify`, which lets a request without an
   `Authorization` header through signed out and holds one with it to

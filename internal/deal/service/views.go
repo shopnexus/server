@@ -71,6 +71,7 @@ type OrderItem struct {
 // ListingRef is the deal's listing as it is now.
 type ListingRef struct {
 	ID            uuid.UUID            `json:"id"`
+	Slug          string               `json:"slug"`
 	Title         string               `json:"title"`
 	Price         int64                `json:"price"`
 	CoverThumbURL string               `json:"cover_thumb_url,omitempty"`
@@ -104,7 +105,7 @@ func facts(l catalogsvc.Summary) domain.Listing {
 
 // listingRef is the deal's listing as a view shows it.
 func listingRef(l catalogsvc.Summary) ListingRef {
-	return ListingRef{ID: l.ID, Title: l.Title, Price: l.Price, CoverThumbURL: l.CoverThumbURL, Status: l.Status}
+	return ListingRef{ID: l.ID, Slug: l.Slug, Title: l.Title, Price: l.Price, CoverThumbURL: l.CoverThumbURL, Status: l.Status}
 }
 
 // orderView shows o to viewer, with the recipient's commune at place.

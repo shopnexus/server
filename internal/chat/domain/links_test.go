@@ -36,6 +36,10 @@ func TestLinks(t *testing.T) {
 			"search", "https://shopnexus.id.vn/search?q=b%E1%BA%A3ng+t%C3%AAn",
 			[]domain.Link{{URL: "https://shopnexus.id.vn/search?q=b%E1%BA%A3ng+t%C3%AAn", Kind: domain.LinkSearch, Query: "bảng tên"}},
 		},
+		{
+			"listing by slug", "https://shopnexus.id.vn/listings/xe-dap-giant-k7m2qx9a",
+			[]domain.Link{{URL: "https://shopnexus.id.vn/listings/xe-dap-giant-k7m2qx9a", Kind: domain.LinkListing, Slug: "xe-dap-giant-k7m2qx9a"}},
+		},
 		{"another site", "https://example.com/listings/" + id.String(), nil},
 		{"a page with no card", "https://shopnexus.id.vn/help", nil},
 		{"not an id", "https://shopnexus.id.vn/listings/abc", nil},

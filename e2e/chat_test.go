@@ -189,17 +189,23 @@ func TestChatLinkCards(t *testing.T) {
 	buyer, _ := newAccount(t)
 	l := activeListing(t, seller.AccessToken, nil)
 	c := openChat(t, buyer.AccessToken, l.ID, "Còn không bạn?")
-	link := websiteOrigin + "/listings/" + l.ID
+	link, bySlug := websiteOrigin+"/listings/"+l.ID, websiteOrigin+"/listings/"+l.Slug
 	m := expect[struct {
 		Refs []struct {
 			URL     string `json:"url"`
 			Kind    string `json:"kind"`
 			Listing struct {
-				ID string `json:"id"`
+				ID   string `json:"id"`
+				Slug string `json:"slug"`
 			} `json:"listing"`
 		} `json:"refs"`
-	}](t, call(t, "POST", "/v1/conversations/"+c.ID+"/messages", map[string]any{"text": "Món này nè " + link}, bearer(seller.AccessToken), newKey()), http.StatusCreated)
-	if len(m.Refs) != 1 || m.Refs[0].URL != link || m.Refs[0].Kind != "listing" || m.Refs[0].Listing.ID != l.ID {
+	}](t, call(t, "POST", "/v1/conversations/"+c.ID+"/messages", map[string]any{"text": "Món này nè " + link + " " + bySlug}, bearer(seller.AccessToken), newKey()), http.StatusCreated)
+	if len(m.Refs) != 2 || m.Refs[0].URL != link || m.Refs[1].URL != bySlug {
 		t.Fatalf("refs: %+v", m.Refs)
+	}
+	for _, r := range m.Refs {
+		if r.Kind != "listing" || r.Listing.ID != l.ID || r.Listing.Slug != l.Slug {
+			t.Fatalf("ref: %+v", r)
+		}
 	}
 }

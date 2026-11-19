@@ -26,6 +26,7 @@ type SavedView struct {
 // SavedListing is the saved listing as it is now; a hidden or deleted one
 // shows its status alone, since its seller took it down.
 type SavedListing struct {
+	Slug          string                  `json:"slug,omitempty"`
 	Title         string                  `json:"title,omitempty"`
 	Price         *int64                  `json:"price,omitempty"`
 	CoverThumbURL string                  `json:"cover_thumb_url,omitempty"`
@@ -105,7 +106,7 @@ func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request
 		l := listings[r.ListingID]
 		shown := SavedListing{Status: l.Status}
 		if !slices.Contains(takenDown, l.Status) {
-			shown.Title, shown.Price, shown.CoverThumbURL = l.Title, new(l.Price), l.CoverThumbURL
+			shown.Slug, shown.Title, shown.Price, shown.CoverThumbURL = l.Slug, l.Title, new(l.Price), l.CoverThumbURL
 			shown.CategoryCode, shown.Condition = l.CategoryCode, l.Condition
 			shown.Commune = places[l.CommuneCode].Commune.DisplayName
 		}

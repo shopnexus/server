@@ -23,6 +23,7 @@ import (
 
 type listing struct {
 	ID     string `json:"id"`
+	Slug   string `json:"slug"`
 	Status string `json:"status"`
 	Price  int64  `json:"price"`
 	Photos []struct {
@@ -234,9 +235,9 @@ func TestPostListingRefusals(t *testing.T) {
 	first := postListing(t, full.AccessToken, nil)
 	if _, err := db.Exec(context.Background(), `
 INSERT INTO listings (id, seller_id, title, price, description, category_code, condition, allow_offers, commune_code,
-                      photos, specs, status, rejection, write_id, created_at, updated_at, lat, lng)
+                      photos, specs, status, rejection, write_id, created_at, updated_at, lat, lng, code)
 SELECT gen_random_uuid(), seller_id, title, price, description, category_code, condition, allow_offers, commune_code,
-       photos, specs, 'hidden', rejection, gen_random_uuid(), created_at, updated_at, lat, lng
+       photos, specs, 'hidden', rejection, gen_random_uuid(), created_at, updated_at, lat, lng, listing_code(gen_random_uuid(), 0)
 FROM listings, generate_series(1, 19) n WHERE id = @id`, pgx.StrictNamedArgs{"id": first.ID}); err != nil {
 		t.Fatal(err)
 	}

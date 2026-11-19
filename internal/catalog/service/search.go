@@ -11,6 +11,7 @@ import (
 // SearchCard is a listing as a search page and the seller view show it.
 type SearchCard struct {
 	ID            uuid.UUID        `json:"id"`
+	Slug          string           `json:"slug"`
 	SellerID      uuid.UUID        `json:"seller_id"`
 	Title         string           `json:"title"`
 	Price         int64            `json:"price"`
@@ -69,7 +70,7 @@ func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain
 	for i := range ls {
 		l := &ls[i]
 		out[i] = SearchCard{
-			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), CategoryCode: l.CategoryCode(),
+			ID: l.ID(), Slug: l.Slug(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), CategoryCode: l.CategoryCode(),
 			Condition: l.Condition(), AllowOffers: l.AllowOffers(), Commune: places[l.CommuneCode()].Commune.DisplayName,
 		}
 		if ps := l.Photos(); len(ps) > 0 && ps[0].Keys.Photo != "" {

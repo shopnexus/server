@@ -87,6 +87,7 @@ Listing:
   additionalProperties: false
   required:
     - id
+    - slug
     - seller_id
     - title
     - price
@@ -104,6 +105,8 @@ Listing:
     id:
       type: string
       format: uuid
+    slug:
+      $ref: "#/ListingSlug"
     seller_id:
       type: string
       format: uuid
@@ -145,6 +148,14 @@ Listing:
     sold_at:
       type: string
       format: date-time
+ListingSlug:
+  type: string
+  description: |
+    The end of the listing's web address, /listings/{slug}: the title
+    without accents in lowercase words joined by hyphens, then the
+    listing's 8-character code. Only the code finds the listing, so an
+    address written before a title edit still works.
+  example: xe-dap-giant-escape-3-k7m2qx9a
 ListingPhotoCopies:
   type: object
   additionalProperties: false

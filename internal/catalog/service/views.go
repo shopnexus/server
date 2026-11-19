@@ -21,6 +21,7 @@ const (
 // ListingView is the Listing schema in api/schemas/catalog.yaml.
 type ListingView struct {
 	ID           uuid.UUID        `json:"id"`
+	Slug         string           `json:"slug"`
 	SellerID     uuid.UUID        `json:"seller_id"`
 	Title        string           `json:"title"`
 	Price        int64            `json:"price"`
@@ -56,6 +57,7 @@ type ReportedListing struct {
 // module deal journals a Summary, hence the JSON tags.
 type Summary struct {
 	ID            uuid.UUID     `json:"id"`
+	Slug          string        `json:"slug"`
 	SellerID      uuid.UUID     `json:"seller_id"`
 	Title         string        `json:"title"`
 	Price         int64         `json:"price"`
@@ -129,7 +131,7 @@ func (c *Catalog) views(ctx context.Context, ls []domain.Listing) ([]ListingView
 			photos = append(photos, v)
 		}
 		out = append(out, ListingView{
-			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), Description: l.Description(),
+			ID: l.ID(), Slug: l.Slug(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), Description: l.Description(),
 			CategoryCode: l.CategoryCode(), Condition: l.Condition(), AllowOffers: l.AllowOffers(),
 			Location: places[l.CommuneCode()],
 			Photos:   photos, Specs: l.Specs(), Status: l.Status(),

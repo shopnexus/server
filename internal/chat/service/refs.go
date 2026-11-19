@@ -27,6 +27,7 @@ type RefView struct {
 // RefListing is a linked listing as it reads now.
 type RefListing struct {
 	ID       uuid.UUID            `json:"id"`
+	Slug     string               `json:"slug"`
 	Title    string               `json:"title"`
 	Price    int64                `json:"price"`
 	Status   catalogdomain.Status `json:"status"`
@@ -78,6 +79,7 @@ type OrderRefs func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]OrderRe
 func (c *Chat) refs(ctx context.Context, viewer uuid.UUID, views []MessageView) error {
 	links := make([][]domain.Link, len(views))
 	var listings, people, orders []uuid.UUID
+	var slugs []string
 	found, categories := false, false
 	for i := range views {
 		links[i] = domain.Links(views[i].Text, c.linkHosts)
@@ -85,7 +87,11 @@ func (c *Chat) refs(ctx context.Context, viewer uuid.UUID, views []MessageView) 
 		for _, l := range links[i] {
 			switch l.Kind {
 			case domain.LinkListing:
-				listings = append(listings, l.ID)
+				if l.Slug != "" {
+					slugs = append(slugs, l.Slug)
+				} else {
+					listings = append(listings, l.ID)
+				}
 			case domain.LinkSeller:
 				people = append(people, l.ID)
 			case domain.LinkOrder:
@@ -112,6 +118,18 @@ func (c *Chat) refs(ctx context.Context, viewer uuid.UUID, views []MessageView) 
 				continue
 			}
 			listings = append(listings, o.ListingID)
+		}
+	}
+	bySlug, err := c.catalog.IDsBySlug(ctx, slugs)
+	if err != nil {
+		return fmt.Errorf("find the linked listings: %w", err)
+	}
+	for i := range links {
+		for j, l := range links[i] {
+			if id, ok := bySlug[l.Slug]; ok && l.Slug != "" {
+				links[i][j].ID = id
+				listings = append(listings, id)
+			}
 		}
 	}
 	sums, err := c.catalog.Summaries(ctx, listings)
@@ -141,7 +159,7 @@ func (c *Chat) refs(ctx context.Context, viewer uuid.UUID, views []MessageView) 
 				if !ok || !slices.Contains(catalogdomain.Public, s.Status) {
 					continue
 				}
-				r.Listing = &RefListing{ID: s.ID, Title: s.Title, Price: s.Price, Status: s.Status, ThumbURL: s.CoverThumbURL}
+				r.Listing = &RefListing{ID: s.ID, Slug: s.Slug, Title: s.Title, Price: s.Price, Status: s.Status, ThumbURL: s.CoverThumbURL}
 			case domain.LinkSeller:
 				a, ok := accounts[l.ID]
 				if !ok || a.Status == accountdomain.StatusDeleted {

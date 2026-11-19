@@ -41,7 +41,7 @@ type Service interface {
 	// Listing reads the listing view of a listing on sale, with its
 	// distance from near; viewer is nil when signed out. A signed-in viewer
 	// who is not the seller counts a view of it.
-	Listing(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (ListingScreen, error)
+	Listing(ctx context.Context, viewer *uuid.UUID, ref string, near catalogdomain.Near) (ListingScreen, error)
 	// Seller reads the seller view, its listings as search items measured
 	// from near; viewer is nil when signed out.
 	Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error)

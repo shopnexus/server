@@ -69,6 +69,26 @@ func (c *Catalog) OnSale(ctx context.Context, seller uuid.UUID) ([]uuid.UUID, er
 	return ids, nil
 }
 
+func (c *Catalog) IDsBySlug(ctx context.Context, slugs []string) (map[string]uuid.UUID, error) {
+	codes := make([]string, 0, len(slugs))
+	for _, s := range slugs {
+		if code := domain.CodeOf(s); code != "" {
+			codes = append(codes, code)
+		}
+	}
+	ids, err := c.listings.IDsByCode(ctx, codes)
+	if err != nil {
+		return nil, fmt.Errorf("find listing codes: %w", err)
+	}
+	out := make(map[string]uuid.UUID, len(ids))
+	for _, s := range slugs {
+		if id, ok := ids[domain.CodeOf(s)]; ok {
+			out[s] = id
+		}
+	}
+	return out, nil
+}
+
 // Summaries reads listings in any status, deleted included, for other
 // modules.
 func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Summary, error) {
@@ -80,7 +100,7 @@ func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID
 	for i := range rows {
 		l := &rows[i]
 		s := Summary{
-			ID: l.ID(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), AllowOffers: l.AllowOffers(),
+			ID: l.ID(), Slug: l.Slug(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), AllowOffers: l.AllowOffers(),
 			Status: l.Status(), ReservedFor: l.ReservedFor(), CategoryCode: l.CategoryCode(), Condition: l.Condition(),
 			CommuneCode: l.CommuneCode(),
 		}
