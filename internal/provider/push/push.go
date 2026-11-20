@@ -1,5 +1,5 @@
-// Package push sends notifications to phones. It knows nothing about what
-// they say; callers write the title and the body.
+// Package push sends notifications to phones and browsers. It knows nothing
+// about what they say; callers write the title and the body.
 package push
 
 import (
@@ -85,7 +85,10 @@ func (f *FCM) Send(ctx context.Context, token string, m Message) error {
 		"token":        token,
 		"notification": map[string]string{"title": m.Title, "body": m.Body},
 		"android":      map[string]any{"collapse_key": m.Tag, "notification": map[string]string{"tag": m.Tag}},
-		"data":         m.Data,
+		// The website's service worker shows the push itself: the tag replaces
+		// the browser's earlier notification, and the page opens from Data.
+		"webpush": map[string]any{"headers": map[string]string{"Urgency": "high"}, "notification": map[string]string{"tag": m.Tag}},
+		"data":    m.Data,
 	}})
 	if err != nil {
 		return fmt.Errorf("encode push: %w", err)

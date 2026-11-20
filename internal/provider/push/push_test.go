@@ -13,15 +13,22 @@ import (
 
 func TestFCMSend(t *testing.T) {
 	t.Parallel()
+	type tag struct {
+		Tag string `json:"tag"`
+	}
 	var got struct {
 		Message struct {
-			Token   string `json:"token"`
-			Android struct {
+			Token        string            `json:"token"`
+			Notification map[string]string `json:"notification"`
+			Data         map[string]string `json:"data"`
+			Android      struct {
 				CollapseKey  string `json:"collapse_key"`
-				Notification struct {
-					Tag string `json:"tag"`
-				} `json:"notification"`
+				Notification tag    `json:"notification"`
 			} `json:"android"`
+			Webpush struct {
+				Headers      map[string]string `json:"headers"`
+				Notification tag               `json:"notification"`
+			} `json:"webpush"`
 		} `json:"message"`
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -37,8 +44,15 @@ func TestFCMSend(t *testing.T) {
 	if err := f.Send(context.Background(), "tok", m); err != nil {
 		t.Fatal(err)
 	}
-	if got.Message.Token != "tok" || got.Message.Android.CollapseKey != "deal:1" || got.Message.Android.Notification.Tag != "deal:1" {
-		t.Fatalf("%+v", got)
+	g := got.Message
+	if g.Token != "tok" || g.Notification["title"] != "Trả giá" || g.Notification["body"] != "Đức Huy trả 1,2 tr" || g.Data["type"] != "offer" {
+		t.Fatalf("message: %+v", g)
+	}
+	if g.Android.CollapseKey != "deal:1" || g.Android.Notification.Tag != "deal:1" {
+		t.Fatalf("android: %+v", g.Android)
+	}
+	if g.Webpush.Notification.Tag != "deal:1" || g.Webpush.Headers["Urgency"] != "high" {
+		t.Fatalf("webpush: %+v", g.Webpush)
 	}
 }
 
