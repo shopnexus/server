@@ -32,6 +32,9 @@ type SellerSummary struct {
 	JoinedAt    time.Time       `json:"joined_at"`
 	Rating      trustsvc.Rating `json:"rating"`
 	Sold        int             `json:"sold"`
+	// PhoneVerified is whether the seller has a phone identity; the number
+	// stays out of the view.
+	PhoneVerified bool `json:"phone_verified"`
 	// ReplyTime is "" when the seller has too few answers to tell.
 	ReplyTime chatdomain.ReplyTime `json:"reply_time,omitempty"`
 }
@@ -93,9 +96,13 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the reply time: %w", err)
 	}
+	phoneVerified, err := s.accounts.HasPhone(ctx, l.SellerID)
+	if err != nil {
+		return ListingScreen{}, fmt.Errorf("read the phone identity: %w", err)
+	}
 	out := ListingScreen{Listing: l, DistanceKm: distance, Seller: SellerSummary{
 		ID: l.SellerID, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, JoinedAt: seller.CreatedAt,
-		Rating: rating, Sold: counts.Sold, ReplyTime: replyTime,
+		Rating: rating, Sold: counts.Sold, PhoneVerified: phoneVerified, ReplyTime: replyTime,
 	}}
 	if viewer == nil || *viewer == l.SellerID {
 		return out, nil

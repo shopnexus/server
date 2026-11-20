@@ -454,3 +454,24 @@ func TestListingPrefetchCountsNoView(t *testing.T) {
 		t.Fatalf("the reported open: %+v", it)
 	}
 }
+
+// The listing view and the seller view say whether the seller has a phone
+// identity.
+func TestSellerPhoneVerified(t *testing.T) {
+	t.Parallel()
+	e := newSellEnv(t)
+	for _, c := range []struct {
+		seller uuid.UUID
+		want   bool
+	}{{accounttest.WithPhone(t, e.db), true}, {accounttest.New(t, e.db), false}} {
+		listing := catalogtest.Listing(t, e.db, c.seller)
+		v, err := e.screen.Listing(context.Background(), nil, service.ListingRead{Ref: listing.String()})
+		if err != nil || v.Seller.PhoneVerified != c.want {
+			t.Fatalf("listing view: %+v %v, want %v", v.Seller, err, c.want)
+		}
+		p, err := e.screen.Seller(context.Background(), nil, c.seller, catalogdomain.Near{})
+		if err != nil || p.Seller.PhoneVerified != c.want {
+			t.Fatalf("seller view: %+v %v, want %v", p.Seller, err, c.want)
+		}
+	}
+}

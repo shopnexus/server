@@ -19,7 +19,7 @@ ListingScreen:
 SellerSummary:
   type: object
   additionalProperties: false
-  required: [id, display_name, joined_at, rating, sold]
+  required: [id, display_name, joined_at, rating, sold, phone_verified]
   description: The seller of a listing, as the listing view shows them.
   properties:
     id:
@@ -39,6 +39,11 @@ SellerSummary:
     sold:
       type: integer
       description: Listings sold, through an order or marked by hand.
+    phone_verified:
+      type: boolean
+      description: |
+        Whether the person signs in with a phone number, which the sign-in
+        verified. The number itself is never sent.
     reply_time:
       $ref: "#/ReplyTime"
 ListingViewer:
@@ -78,7 +83,7 @@ SellerScreen:
 SellerProfile:
   type: object
   additionalProperties: false
-  required: [id, display_name, bio, joined_at, rating, buyer_rating, sold, on_sale, followers]
+  required: [id, display_name, bio, joined_at, rating, buyer_rating, sold, on_sale, followers, phone_verified]
   description: The seller as the seller view shows them.
   properties:
     id:
@@ -111,6 +116,11 @@ SellerProfile:
     followers:
       type: integer
       description: How many accounts follow the seller.
+    phone_verified:
+      type: boolean
+      description: |
+        Whether the person signs in with a phone number, which the sign-in
+        verified. The number itself is never sent.
     reply_time:
       $ref: "#/ReplyTime"
     last_active_at:
