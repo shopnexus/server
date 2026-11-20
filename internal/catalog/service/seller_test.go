@@ -112,3 +112,29 @@ func TestGetNear(t *testing.T) {
 		t.Errorf("a hidden listing signed out: %v", err)
 	}
 }
+
+// The sitemap names a public listing by its slug and its seller by ID, in
+// one part each, the first without a cursor.
+func TestSitemap(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := e.seller(t)
+	l := e.active(t, seller)
+	hidden := e.active(t, seller).ID
+	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+		t.Fatal(err)
+	}
+	m, err := e.catalog.Sitemap(ctx)
+	if err != nil || len(m.Listings) != 1 || len(m.Sellers) != 1 || m.Listings[0].Cursor != nil || m.Sellers[0].Cursor != nil {
+		t.Fatalf("parts: %+v %v", m, err)
+	}
+	listings, err := e.catalog.SitemapListings(ctx, uuid.UUID{})
+	if err != nil || len(listings) != 1 || listings[0].Slug != l.Slug || !listings[0].UpdatedAt.Equal(m.Listings[0].UpdatedAt) {
+		t.Fatalf("listings: %+v %v, want %s", listings, err, l.Slug)
+	}
+	sellers, err := e.catalog.SitemapSellers(ctx, uuid.UUID{})
+	if err != nil || len(sellers) != 1 || sellers[0].ID != seller {
+		t.Fatalf("sellers: %+v %v", sellers, err)
+	}
+}

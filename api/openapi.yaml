@@ -105,7 +105,7 @@ tags:
   # of the routes the app leaves out: its generated client drops every
   # operation that has either of them.
   - name: internal
-    description: Operations the app does not call. The console and the ops dashboards' sign-in, carrier webhooks, the health checks and the dev routes have it.
+    description: Operations the app does not call. The console and the ops dashboards' sign-in, carrier webhooks, the health checks, the dev routes and the website's sitemap have it.
   - name: websocket
     description: GET /v1/ws, a WebSocket. The app opens it with its socket code, since an HTTP client cannot.
 x-tagGroups:
@@ -204,6 +204,12 @@ paths:
     $ref: "paths/catalog.yaml#/regionCommunes"
   /v1/regions/nearest:
     $ref: "paths/catalog.yaml#/regionNearest"
+  /v1/sitemap:
+    $ref: "paths/catalog.yaml#/sitemap"
+  /v1/sitemap/listings:
+    $ref: "paths/catalog.yaml#/sitemapListings"
+  /v1/sitemap/sellers:
+    $ref: "paths/catalog.yaml#/sitemapSellers"
   /v1/deals:
     $ref: "paths/deal.yaml#/deals"
   /v1/deals/{id}:

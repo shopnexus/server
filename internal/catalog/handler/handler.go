@@ -37,6 +37,9 @@ func (h *Handler) Register(r *httpx.Router, protect, identify func(http.Handler)
 	r.Handle("GET /v1/regions", http.HandlerFunc(h.Provinces))
 	r.Handle("GET /v1/regions/{province_code}/communes", http.HandlerFunc(h.Communes))
 	r.Handle("GET /v1/regions/nearest", http.HandlerFunc(h.Nearest))
+	r.Handle("GET /v1/sitemap", http.HandlerFunc(h.Sitemap))
+	r.Handle("GET /v1/sitemap/listings", http.HandlerFunc(h.SitemapListings))
+	r.Handle("GET /v1/sitemap/sellers", http.HandlerFunc(h.SitemapSellers))
 }
 
 // list is the body of a list response that has no pages.

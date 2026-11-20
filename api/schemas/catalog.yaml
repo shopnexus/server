@@ -397,3 +397,72 @@ ListingDraftList:
       maxItems: 20
       items:
         $ref: "#/ListingDraft"
+Sitemap:
+  type: object
+  additionalProperties: false
+  required: [listings, sellers]
+  properties:
+    listings:
+      type: array
+      description: The parts of the public listings, newest first; none when no listing is public.
+      items:
+        $ref: "#/SitemapPart"
+    sellers:
+      type: array
+      description: The parts of the sellers with a public listing, newest account first.
+      items:
+        $ref: "#/SitemapPart"
+SitemapPart:
+  type: object
+  additionalProperties: false
+  required: [updated_at]
+  properties:
+    cursor:
+      type: string
+      format: uuid
+      description: What GET /v1/sitemap/listings or /v1/sitemap/sellers takes for this part; absent on the first part.
+    updated_at:
+      type: string
+      format: date-time
+      description: The latest change to an entry of the part.
+SitemapListingList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/SitemapListing"
+SitemapListing:
+  type: object
+  additionalProperties: false
+  required: [slug, updated_at]
+  properties:
+    slug:
+      type: string
+      description: The listing's web address name, /listings/{slug} on the website.
+    updated_at:
+      type: string
+      format: date-time
+SitemapSellerList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/SitemapSeller"
+SitemapSeller:
+  type: object
+  additionalProperties: false
+  required: [id, updated_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    updated_at:
+      type: string
+      format: date-time
+      description: The latest change to one of the seller's public listings.

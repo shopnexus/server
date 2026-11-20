@@ -182,3 +182,27 @@ type DraftPhotoView struct {
 	UploadID uuid.UUID `json:"upload_id"`
 	URL      string    `json:"url"`
 }
+
+// SitemapView is the Sitemap schema in api/schemas/catalog.yaml.
+type SitemapView struct {
+	Listings []SitemapPartView `json:"listings"`
+	Sellers  []SitemapPartView `json:"sellers"`
+}
+
+// SitemapPartView is the SitemapPart schema; the first part has no cursor.
+type SitemapPartView struct {
+	Cursor    *uuid.UUID `json:"cursor,omitempty"`
+	UpdatedAt time.Time  `json:"updated_at"`
+}
+
+// SitemapListingView is the SitemapListing schema.
+type SitemapListingView struct {
+	Slug      string    `json:"slug"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// SitemapSellerView is the SitemapSeller schema.
+type SitemapSellerView struct {
+	ID        uuid.UUID `json:"id"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
