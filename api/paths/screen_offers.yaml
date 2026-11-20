@@ -1,0 +1,32 @@
+screenOffers:
+  get:
+    operationId: getOffersScreen
+    summary: One page of the buyers' open offers on the caller's listings, each with its buyer.
+    description: |
+      The offers waiting on the caller as seller: deals negotiating whose
+      open price is the buyer's and still stands for the listing. An offer
+      a change of the listing voided (a new price, offers turned off, the
+      listing hidden or gone) is left out; an offer on a reserved listing
+      stays, without offer_range, since the seller may only decline it.
+      Newest offer first, paged by deal ID: the next page lists the offers
+      made before the cursor deal's. When the cursor deal no longer holds
+      an open offer of its buyer's, the page starts again from the newest,
+      and the client drops the rows it already shows. Accept, counter and
+      decline are the deal's moves.
+    tags: [screen]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: The view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_offers.yaml#/OffersScreen"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

@@ -420,6 +420,29 @@ func (s pgDeals) ListByParty(ctx context.Context, account uuid.UUID, as domain.P
 	return s.many(ctx, q, pgx.StrictNamedArgs{"account": account, "before": p.Before(), "limit": p.Fetch()})
 }
 
+// openOffer is a deal negotiating with the buyer's price open, as the
+// partial index deals_open_offers holds them.
+const openOffer = `d.seller_id = @seller AND d.status = 'negotiating' AND d.open_by = 'buyer'`
+
+// openOffers keys the page on the cursor deal's offer when it still is
+// one; without it the page starts from the newest offer.
+const openOffers = `WITH after AS (SELECT d.open_at, d.id FROM deals d WHERE d.id = @cursor AND ` + openOffer + `)
+` + selectDeal + `WHERE ` + openOffer + `
+  AND (NOT EXISTS (SELECT 1 FROM after) OR (d.open_at, d.id) < (SELECT a.open_at, a.id FROM after a))
+ORDER BY d.open_at DESC, d.id DESC LIMIT @limit`
+
+func (s pgDeals) OpenOffers(ctx context.Context, seller uuid.UUID, p page.Request) ([]domain.Deal, error) {
+	return s.many(ctx, openOffers, pgx.StrictNamedArgs{"seller": seller, "cursor": p.Before(), "limit": p.Fetch()})
+}
+
+func (s pgDeals) CountOpenOffers(ctx context.Context, seller uuid.UUID) (int, error) {
+	var n int
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM deals d WHERE `+openOffer, pgx.StrictNamedArgs{"seller": seller}).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count open offers: %w", err)
+	}
+	return n, nil
+}
+
 // many reads every deal query q finds.
 func (s pgDeals) many(ctx context.Context, q string, a pgx.StrictNamedArgs) ([]domain.Deal, error) {
 	rows, err := s.db.Query(ctx, q, a)

@@ -1,0 +1,23 @@
+OffersScreen:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/OffersScreenItem"
+    next_cursor:
+      type: string
+      format: uuid
+      description: Present when more offers follow; pass it as cursor.
+OffersScreenItem:
+  type: object
+  additionalProperties: false
+  required: [deal, buyer]
+  description: A buyer's open offer, as its deal, with the buyer.
+  properties:
+    deal:
+      $ref: "deal.yaml#/Deal"
+    buyer:
+      $ref: "chat.yaml#/Person"

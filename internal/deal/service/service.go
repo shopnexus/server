@@ -61,6 +61,13 @@ type Service interface {
 	PostMoves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) error
 	// ListMine lists viewer's deals on side as, newest first.
 	ListMine(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[DealView], error)
+	// OpenOffers lists the buyers' open offers on seller's listings that
+	// still stand, newest offer first; a page may hold fewer than the
+	// limit when a change of a listing voided some.
+	OpenOffers(ctx context.Context, seller uuid.UUID, p page.Request) (page.Page[DealView], error)
+	// OpenOfferCount counts the buyers' open offers on seller's listings,
+	// a voided one until the change of its listing is recorded.
+	OpenOfferCount(ctx context.Context, seller uuid.UUID) (int, error)
 	// Offer opens the caller's price: the buyer's offer or the seller's
 	// counter.
 	//

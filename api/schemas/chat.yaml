@@ -269,7 +269,7 @@ MessageList:
 Unread:
   type: object
   additionalProperties: false
-  required: [unread, notifications]
+  required: [unread, notifications, offers]
   properties:
     unread:
       type: integer
@@ -277,6 +277,9 @@ Unread:
     notifications:
       type: integer
       description: The caller's unread notices.
+    offers:
+      type: integer
+      description: The buyers' open offers waiting on the caller as seller, as GET /v1/screens/offers lists them.
 Quote:
   type: object
   additionalProperties: false

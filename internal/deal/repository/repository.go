@@ -65,6 +65,13 @@ type Deals interface {
 	// ListByParty is a query: account's deals on side as (buyer or
 	// seller) with IDs below p.Before(), newest first, at most p.Fetch().
 	ListByParty(ctx context.Context, account uuid.UUID, as domain.Party, p page.Request) ([]domain.Deal, error)
+	// OpenOffers is a query: the deals on seller's listings that negotiate
+	// with the buyer's price open, newest offer first, at most p.Fetch().
+	// With a cursor that is such a deal, the offers made before its offer;
+	// otherwise from the newest.
+	OpenOffers(ctx context.Context, seller uuid.UUID, p page.Request) ([]domain.Deal, error)
+	// CountOpenOffers counts the deals OpenOffers lists.
+	CountOpenOffers(ctx context.Context, seller uuid.UUID) (int, error)
 	// Order returns one order with its deal, or ErrNotFound.
 	Order(ctx context.Context, id uuid.UUID) (OrderRow, error)
 	// OrdersWithCode returns the orders, in any status, whose shipment has
