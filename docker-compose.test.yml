@@ -44,17 +44,20 @@ services:
       RESTATE_ADMIN__BIND_ADDRESS: 127.0.0.1:56571
       RESTATE_BIND_ADDRESS: 127.0.0.1:56561
       RESTATE_ADVERTISED_ADDRESS: http://127.0.0.1:56561
-      # The tmpfs counts toward mem_limit; RocksDB sizes itself for a server.
+      # RocksDB sizes itself for a server otherwise.
       RESTATE_ROCKSDB_TOTAL_MEMORY_SIZE: 256MB
       # Signs every request to the test endpoints; make test writes the key.
       RESTATE_WORKER__INVOKER__REQUEST_IDENTITY_PRIVATE_KEY_PEM_FILE: /identity.pem
+      # A run writes gigabytes of log in minutes: trim it at once and keep no
+      # finished journals, or the disk fills before the default 10 m delay.
+      RESTATE_WORKER__TRIM_DELAY_INTERVAL: 0s
+      RESTATE_DEFAULT_JOURNAL_RETENTION: 0s
+      RESTATE_DEFAULT_IDEMPOTENCY_RETENTION: 1h
+      # Throwaway data on the container's disk; recreating the stack drops it.
+      RESTATE_BIFROST__LOCAL__ROCKSDB_DISABLE_WAL_FSYNC: "true"
     volumes:
       - ./.restate/identity.pem:/identity.pem:ro
-    # Every message with text starts a scam check, and on 2026-11-11 one run
-    # of make test filled 2 GB; Restate then stops writing until restarted.
-    tmpfs:
-      - /restate-data:size=3g
-    mem_limit: 4096m
+    mem_limit: 1536m
 
   # Object store on tmpfs; each test writes under keys of its own.
   rustfs:
