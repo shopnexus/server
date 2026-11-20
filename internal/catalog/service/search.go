@@ -22,7 +22,8 @@ type SearchCard struct {
 	Commune       string           `json:"commune"`
 	// DistanceKm is whole kilometres from the search's origin, 0 under 1
 	// km; absent without an origin.
-	DistanceKm *int `json:"distance_km,omitempty"`
+	DistanceKm *int              `json:"distance_km,omitempty"`
+	PriceDrop  *domain.PriceDrop `json:"price_drop,omitempty"`
 }
 
 func (c *Catalog) Search(ctx context.Context, s domain.Search) ([]SearchCard, error) {
@@ -66,6 +67,7 @@ func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain
 	if err != nil {
 		return nil, err
 	}
+	now := c.now()
 	out := make([]SearchCard, len(ls))
 	for i := range ls {
 		l := &ls[i]
@@ -78,6 +80,9 @@ func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain
 		}
 		if origin != nil {
 			out[i].DistanceKm = new(domain.DistanceKm(*origin, l.Point()))
+		}
+		if d, ok := l.PriceDrop(now); ok {
+			out[i].PriceDrop = &d
 		}
 	}
 	return out, nil

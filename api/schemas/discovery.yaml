@@ -93,6 +93,8 @@ SearchItem:
     commune:
       type: string
       description: The name of the listing's commune.
+    price_drop:
+      $ref: "catalog.yaml#/PriceDrop"
     distance_km:
       type: integer
       minimum: 0

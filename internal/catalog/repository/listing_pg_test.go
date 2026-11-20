@@ -377,3 +377,52 @@ func TestInsertGivesAFreeCode(t *testing.T) {
 		t.Fatalf("IDsByCode = %v, %v", ids, err)
 	}
 }
+
+// A price change is stored with the listing and comes back from every read
+// the cards are built from.
+func TestSaveKeepsThePriceChange(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewListings(db)
+	ctx := context.Background()
+	seller := accounttest.New(t, db)
+	l := listing(t, seller)
+	if err := s.Insert(ctx, l); err != nil {
+		t.Fatal(err)
+	}
+	l.Published(nil, now)
+	if err := s.Save(ctx, &l, uuid.NewV7(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.Get(ctx, l.ID()); err != nil || got.State().PriceChangedAt != nil {
+		t.Fatalf("a listing never repriced: %+v %v", got.State(), err)
+	}
+	d := domain.ListingInput{
+		Title: "Xe đạp", Price: 1_200_000, CategoryCode: "vehicles.bicycle", Condition: domain.ConditionUsed,
+		CommuneCode: "00004", Photos: l.Uploads(), Specs: l.Specs(),
+	}
+	at := now.Add(time.Hour)
+	if err := l.Edit(d, domain.Refs{CategoryIsLeaf: true, CommuneExists: true}, at); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(ctx, &l, uuid.NewV7(), nil); err != nil {
+		t.Fatal(err)
+	}
+	one, err := s.Get(ctx, l.ID())
+	if err != nil {
+		t.Fatal(err)
+	}
+	many, err := s.GetMany(ctx, []uuid.UUID{l.ID()})
+	if err != nil || len(many) != 1 {
+		t.Fatalf("get many: %d %v", len(many), err)
+	}
+	mine, err := s.ListBySeller(ctx, seller, domain.OnSale, nil, page.Request{Limit: 10})
+	if err != nil || len(mine) != 1 {
+		t.Fatalf("list: %d %v", len(mine), err)
+	}
+	for _, got := range []domain.Listing{one, many[0], mine[0]} {
+		if drop, ok := got.PriceDrop(at); !ok || drop.PreviousPrice != 1_500_000 || !drop.DroppedAt.Equal(at) {
+			t.Fatalf("read back %+v %v", drop, ok)
+		}
+	}
+}

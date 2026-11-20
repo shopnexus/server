@@ -1142,6 +1142,19 @@ agree during a deploy.
 - `PUT /v1/listings/{id}` replaces the whole listing with the body. The
   catalog spec named `PATCH`; the user chose `PUT` on 2026-10-26, since the
   app sends the whole form.
+- A listing keeps its last price change after it first went on sale
+  (decided 2026-11-20, migration 0067): `listings.previous_price` and
+  `price_changed_at`, set by the edit that changes the price. The Listing
+  view and the search card (`SearchItem`) carry `price_drop` while that
+  change is a drop of at least 5 % (`domain.PriceDropMinPercent`) made less
+  than 7 days ago (`domain.PriceDropShownFor`); the website shows "Vừa giảm"
+  with the old price struck through. A later raise ends it. A raise less
+  than 7 days old is not a price to drop from, so a drop after it counts
+  from the price before the raise, and raising then lowering shows nothing.
+  A price changed before the first publication was never shown and is not
+  kept. Nothing was backfilled, since no price history existed. The fields
+  are on the listing row, so search, the feeds and the seller lists read
+  them with no extra query.
 - Each change writes its event in its transaction: `listing.published`,
   `listing.updated`, `listing.hidden`, `listing.unhidden`, `listing.sold`,
   `listing.unsold`, `listing.deleted`; search and recommendations will

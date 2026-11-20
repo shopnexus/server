@@ -136,6 +136,10 @@ type Listing struct {
 	// code ends the web address; the store sets it on insert, so a new
 	// listing has none until it is read back.
 	code string
+	// previousPrice is the price the last change after publication counts
+	// from (see repriced), made at priceChangedAt; 0 and nil before one.
+	previousPrice  int64
+	priceChangedAt *time.Time
 }
 
 // NewListing checks d and starts the listing in processing. The first write
@@ -298,13 +302,18 @@ func (l *Listing) PendingUploads() []uuid.UUID {
 
 // Edit replaces the listing's content with d. An upload not processed yet,
 // or an edit of a rejected listing, sends the listing back through
-// processing. Sold, deleted and reserved listings cannot be edited.
+// processing. Sold, deleted and reserved listings cannot be edited. A new
+// price on a published listing is kept for PriceDrop.
 func (l *Listing) Edit(d ListingInput, refs Refs, now time.Time) error {
 	if l.status == StatusSold || l.status == StatusDeleted || l.status == StatusReserved {
 		return ErrStateConflict
 	}
+	was := l.price
 	if err := l.apply(d, refs, now); err != nil {
 		return err
+	}
+	if l.publishedAt != nil && l.price != was {
+		l.repriced(was, now)
 	}
 	if len(l.PendingUploads()) > 0 || l.status == StatusRejected {
 		l.status, l.rejection = StatusProcessing, nil
@@ -472,6 +481,9 @@ type ListingState struct {
 	Lat          float64              `json:"lat"`
 	Lng          float64              `json:"lng"`
 	Code         string               `json:"code,omitempty"`
+	// PreviousPrice is 0 when PriceChangedAt is nil.
+	PreviousPrice  int64      `json:"previous_price,omitempty"`
+	PriceChangedAt *time.Time `json:"price_changed_at,omitempty"`
 }
 
 // RestoreListing rebuilds a stored listing. Stores only.
@@ -482,6 +494,7 @@ func RestoreListing(st ListingState) Listing {
 		photos: st.Photos, specs: st.Specs, status: st.Status, rejection: st.Rejection, reservedFor: st.ReservedFor,
 		writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
 		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt, heldAt: st.HeldAt, point: Point{Lat: st.Lat, Lng: st.Lng}, code: st.Code,
+		previousPrice: st.PreviousPrice, priceChangedAt: st.PriceChangedAt,
 	}
 }
 
@@ -493,6 +506,7 @@ func (l *Listing) State() ListingState {
 		Photos: l.photos, Specs: l.specs, Status: l.status, Rejection: l.rejection,
 		ReservedFor: l.reservedFor, WriteID: l.writeID, CreatedAt: l.createdAt, UpdatedAt: l.updatedAt,
 		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt, HeldAt: l.heldAt, Lat: l.point.Lat, Lng: l.point.Lng, Code: l.code,
+		PreviousPrice: l.previousPrice, PriceChangedAt: l.priceChangedAt,
 	}
 }
 

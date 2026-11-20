@@ -148,6 +148,24 @@ Listing:
     sold_at:
       type: string
       format: date-time
+    price_drop:
+      $ref: "#/PriceDrop"
+PriceDrop:
+  type: object
+  additionalProperties: false
+  required: [previous_price, dropped_at]
+  description: |
+    The listing's last price change, sent while it is a drop of 5 % or more
+    made in the last 7 days. A later raise ends it, and a drop that follows
+    a raise in that week counts from the price before the raise.
+  properties:
+    previous_price:
+      type: integer
+      format: int64
+      description: The price the drop replaced.
+    dropped_at:
+      type: string
+      format: date-time
 ListingSlug:
   type: string
   description: |

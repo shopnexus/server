@@ -183,6 +183,30 @@ WHERE subject_id = @id AND kind = 'listing.published' ORDER BY id`, pgx.StrictNa
 	}
 }
 
+// A lower price shows on the listing and its card with the price before;
+// a raise after it shows none.
+func TestEditShowsAPriceDrop(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := e.seller(t)
+	v := e.active(t, seller)
+	d := draft(v.Photos[0].UploadID)
+	d.Price = 8_000_000
+	edited, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d)
+	if err != nil || edited.PriceDrop == nil || edited.PriceDrop.PreviousPrice != v.Price {
+		t.Fatalf("the edit: %+v %v", edited.PriceDrop, err)
+	}
+	cards, err := e.catalog.SellerListings(ctx, seller, domain.Near{}, nil, page.Request{})
+	if err != nil || len(cards.Items) != 1 || cards.Items[0].PriceDrop == nil || *cards.Items[0].PriceDrop != *edited.PriceDrop {
+		t.Fatalf("the card: %+v %v", cards.Items, err)
+	}
+	d.Price = 8_500_000
+	if edited, err = e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d); err != nil || edited.PriceDrop != nil {
+		t.Fatalf("after a raise: %+v %v", edited.PriceDrop, err)
+	}
+}
+
 // An edit that breaks a listing rule is refused with the fields it breaks,
 // and the listing keeps its content.
 //

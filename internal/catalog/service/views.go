@@ -20,23 +20,24 @@ const (
 
 // ListingView is the Listing schema in api/schemas/catalog.yaml.
 type ListingView struct {
-	ID           uuid.UUID        `json:"id"`
-	Slug         string           `json:"slug"`
-	SellerID     uuid.UUID        `json:"seller_id"`
-	Title        string           `json:"title"`
-	Price        int64            `json:"price"`
-	Description  string           `json:"description"`
-	CategoryCode string           `json:"category_code"`
-	Condition    domain.Condition `json:"condition"`
-	AllowOffers  bool             `json:"allow_offers"`
-	Location     Location         `json:"location"`
-	Photos       []PhotoView      `json:"photos"`
-	Specs        []domain.Spec    `json:"specs"`
-	Status       domain.Status    `json:"status"`
-	CreatedAt    time.Time        `json:"created_at"`
-	UpdatedAt    time.Time        `json:"updated_at"`
-	PublishedAt  *time.Time       `json:"published_at,omitempty"`
-	SoldAt       *time.Time       `json:"sold_at,omitempty"`
+	ID           uuid.UUID         `json:"id"`
+	Slug         string            `json:"slug"`
+	SellerID     uuid.UUID         `json:"seller_id"`
+	Title        string            `json:"title"`
+	Price        int64             `json:"price"`
+	Description  string            `json:"description"`
+	CategoryCode string            `json:"category_code"`
+	Condition    domain.Condition  `json:"condition"`
+	AllowOffers  bool              `json:"allow_offers"`
+	Location     Location          `json:"location"`
+	Photos       []PhotoView       `json:"photos"`
+	Specs        []domain.Spec     `json:"specs"`
+	Status       domain.Status     `json:"status"`
+	CreatedAt    time.Time         `json:"created_at"`
+	UpdatedAt    time.Time         `json:"updated_at"`
+	PublishedAt  *time.Time        `json:"published_at,omitempty"`
+	SoldAt       *time.Time        `json:"sold_at,omitempty"`
+	PriceDrop    *domain.PriceDrop `json:"price_drop,omitempty"`
 }
 
 // ReportedListing is the ReportedListing schema in api/schemas/console.yaml:
@@ -119,6 +120,7 @@ func (c *Catalog) views(ctx context.Context, ls []domain.Listing) ([]ListingView
 	if err != nil {
 		return nil, err
 	}
+	now := c.now()
 	out := make([]ListingView, 0, len(ls))
 	for i := range ls {
 		l := &ls[i]
@@ -137,6 +139,9 @@ func (c *Catalog) views(ctx context.Context, ls []domain.Listing) ([]ListingView
 			Photos:   photos, Specs: l.Specs(), Status: l.Status(),
 			CreatedAt: l.CreatedAt(), UpdatedAt: l.UpdatedAt(), PublishedAt: l.PublishedAt(), SoldAt: l.SoldAt(),
 		})
+		if d, ok := l.PriceDrop(now); ok {
+			out[len(out)-1].PriceDrop = &d
+		}
 	}
 	return out, nil
 }
