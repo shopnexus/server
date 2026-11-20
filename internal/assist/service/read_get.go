@@ -23,7 +23,8 @@ func (a *Assist) GetRead(ctx context.Context, account, id uuid.UUID) (ListingRea
 		return ListingReadView{}, domain.ErrNotFound
 	}
 	v := ListingReadView{
-		ID: r.ID(), Source: r.Source(), Status: r.Status(), Failure: r.Failure(), Draft: r.Draft(), ExpiresAt: r.ExpiresAt(),
+		ID: r.ID(), Source: r.Source(), Status: r.Status(), Failure: r.Failure(), FailureReason: r.FailureReason(),
+		Draft: r.Draft(), ExpiresAt: r.ExpiresAt(),
 	}
 	if r.Source() == domain.SourceLink {
 		l := r.Link()

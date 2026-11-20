@@ -24,14 +24,15 @@ func NewListingReads(db *pgxpool.Pool) ListingReads { return pgListingReads{db} 
 // request key, for a video read only.
 const insertRead = `
 INSERT INTO listing_reads (id, account_id, source, media_id, link_site, link_list_id, link_url, link_photos, transcript,
-    status, failure, photos, draft, contact_removed, estimate, created_at, expires_at, write_id)
+    status, failure, failure_reason, photos, draft, contact_removed, estimate, created_at, expires_at, write_id)
 VALUES (@id, @account_id, @source, @media_id, @link_site, @link_list_id, @link_url, @link_photos,
     (SELECT text FROM listing_read_transcripts
      WHERE account_id = @account_id AND request_key = @request_key AND @source::text = 'video'),
-    @status, NULLIF(@failure, ''), @photos, @draft, @contact_removed, @estimate, @created_at, @expires_at, @write_id)`
+    @status, NULLIF(@failure, ''), NULLIF(@failure_reason, ''), @photos, @draft, @contact_removed, @estimate, @created_at, @expires_at, @write_id)`
 
 const saveRead = `
-UPDATE listing_reads SET status = @status, failure = NULLIF(@failure, ''), link_photos = @link_photos, photos = @photos,
+UPDATE listing_reads SET status = @status, failure = NULLIF(@failure, ''),
+    failure_reason = NULLIF(@failure_reason, ''), link_photos = @link_photos, photos = @photos,
     draft = @draft, contact_removed = @contact_removed, estimate = @estimate, write_id = @write_id,
     transcript = CASE WHEN @status::text = 'reading' THEN transcript END
 WHERE id = @id AND write_id = @read_write_id`
@@ -77,7 +78,7 @@ func readArgs(st domain.ListingReadState) (pgx.StrictNamedArgs, error) {
 	return pgx.StrictNamedArgs{
 		"id": st.ID, "account_id": st.AccountID, "source": st.Source, "media_id": media,
 		"link_site": site, "link_list_id": listID, "link_url": url, "link_photos": linkPhotos,
-		"status": st.Status, "failure": st.Failure, "photos": photos, "draft": draft, "contact_removed": removed,
+		"status": st.Status, "failure": st.Failure, "failure_reason": st.FailureReason, "photos": photos, "draft": draft, "contact_removed": removed,
 		"estimate": estimate, "created_at": st.CreatedAt, "expires_at": st.ExpiresAt, "write_id": st.WriteID,
 	}, nil
 }
@@ -188,10 +189,10 @@ func (s pgListingReads) Get(ctx context.Context, id uuid.UUID) (domain.ListingRe
 		photos, draft, estimate []byte
 	)
 	err := s.db.QueryRow(ctx, `SELECT id, account_id, source, media_id, link_site, link_list_id, link_url, coalesce(link_photos, 0),
-       status, coalesce(failure, ''), photos, draft, coalesce(contact_removed, false), estimate, created_at, expires_at, write_id
+       status, coalesce(failure, ''), coalesce(failure_reason, ''), photos, draft, coalesce(contact_removed, false), estimate, created_at, expires_at, write_id
 FROM listing_reads WHERE id = @id`, pgx.StrictNamedArgs{"id": id}).
 		Scan(&st.ID, &st.AccountID, &st.Source, &media, &site, &listID, &url, &st.LinkPhotos,
-			&st.Status, &st.Failure, &photos, &draft, &st.ContactRemoved, &estimate, &st.CreatedAt, &st.ExpiresAt, &st.WriteID)
+			&st.Status, &st.Failure, &st.FailureReason, &photos, &draft, &st.ContactRemoved, &estimate, &st.CreatedAt, &st.ExpiresAt, &st.WriteID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ListingRead{}, domain.ErrNotFound
 	}

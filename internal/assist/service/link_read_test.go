@@ -88,7 +88,7 @@ func TestLinkReadFailures(t *testing.T) {
 		{"Chợ Tốt changed", func(e *env) { e.source.adErr = chotot.ErrFormat }, domain.FailUnavailable, 0},
 		{"Chợ Tốt down", func(e *env) { e.source.adErr = chotot.ErrUnavailable }, domain.FailUnavailable, 0},
 		{"the model refused", func(e *env) { e.model.err = llm.ErrRefused }, domain.FailUnavailable, 1},
-		{"not an item", func(e *env) { e.model.link = domain.NoItem }, domain.FailNoItem, 1},
+		{"not an item", func(e *env) { e.model.link = noItemReply }, domain.FailNoItem, 1},
 		{"no photo copied", func(e *env) { e.source.images = map[string][]byte{} }, domain.FailListingNotFound, -1},
 		{"the CDN down", func(e *env) { e.source.imageErr = chotot.ErrUnavailable }, domain.FailUnavailable, -1},
 		{"photos moved off the CDN", func(e *env) { e.source.imageErr = chotot.ErrOffCDN }, domain.FailUnavailable, -1},

@@ -16,11 +16,12 @@ import (
 )
 
 type listingRead struct {
-	ID      string `json:"id"`
-	Source  string `json:"source"`
-	Status  string `json:"status"`
-	Failure string `json:"failure"`
-	Link    *struct {
+	ID            string `json:"id"`
+	Source        string `json:"source"`
+	Status        string `json:"status"`
+	Failure       string `json:"failure"`
+	FailureReason string `json:"failure_reason"`
+	Link          *struct {
 		Site       string `json:"site"`
 		URL        string `json:"url"`
 		PhotoCount int    `json:"photo_count"`
@@ -153,18 +154,18 @@ func TestVideoReadToListing(t *testing.T) {
 func TestVideoReadFailures(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
-		name, video, failure string
-		frames               int
+		name, video, failure, reason string
+		frames                       int
 	}{
-		{"too short", shortVideo, "video_too_short", 0},
-		{"no item", emptyRoom, "no_item", 3},
+		{"too short", shortVideo, "video_too_short", "", 0},
+		{"no item", emptyRoom, "no_item", "Video chỉ có một căn phòng trống.", 3},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			seller, _ := newAccount(t)
 			video := uploadVideo(t, seller.AccessToken, c.video)
 			r := readEnd(t, seller.AccessToken, startVideoRead(t, seller.AccessToken, video).ID)
-			if r.Status != "failed" || r.Failure != c.failure || len(r.Photos) != c.frames || r.Draft != nil {
+			if r.Status != "failed" || r.Failure != c.failure || r.FailureReason != c.reason || len(r.Photos) != c.frames || r.Draft != nil {
 				t.Fatalf("%+v", r)
 			}
 			if s := uploadStatus(t, video); s != "consumed" {

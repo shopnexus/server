@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 	"uuid"
 
@@ -85,3 +86,47 @@ func (d Deps) relayEnd(ctx restate.Context, read uuid.UUID) {
 
 // refusedModel reports a model that refused the request itself.
 func refusedModel(err error) bool { return errors.Is(err, llm.ErrRefused) }
+
+// mediaTries is how many times a photo or video read asks the model while
+// it finds no item: the same photo sometimes reads as nothing once.
+const mediaTries = 2
+
+// writeReply asks the model for a read's reply in domain.ReplySchema, up
+// to tries times while it finds no item, publishing its text as partial
+// makes it, and parses the whole answer.
+func (d Deps) writeReply(ctx context.Context, read uuid.UUID, r llm.Request, tries int, partial func(string) domain.Text) (domain.Reply, error) {
+	r.SchemaName, r.Schema = domain.ReplySchemaName, domain.ReplySchema
+	var rep domain.Reply
+	for range tries {
+		raw, err := d.writeText(ctx, read, r, partial)
+		if err != nil {
+			return domain.Reply{}, err
+		}
+		if rep, err = domain.ParseReply(raw); err != nil {
+			return domain.Reply{}, err
+		}
+		if rep.Found {
+			break
+		}
+	}
+	return rep, nil
+}
+
+// modelReason says, for the seller, why asking the model failed. After
+// Restate's retries an error is only its text, so it reads the text.
+func modelReason(err error) string {
+	msg := err.Error()
+	switch {
+	case strings.Contains(msg, "model answered "):
+		_, after, _ := strings.Cut(msg, "model answered ")
+		return "AI báo lỗi " + after
+	case strings.Contains(msg, domain.ErrBadReply.Error()):
+		return "AI trả lời sai định dạng. Thử lại nhé."
+	case strings.Contains(msg, context.DeadlineExceeded.Error()), strings.Contains(msg, "Client.Timeout"):
+		return "AI không trả lời kịp. Thử lại sau ít phút."
+	}
+	return "AI chưa trả lời được. Thử lại sau ít phút."
+}
+
+// pastDeadline is the reason of a read that ran out of time.
+const pastDeadline = "AI đọc quá 2 phút nên đã dừng. Thử lại nhé."

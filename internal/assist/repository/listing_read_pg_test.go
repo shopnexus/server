@@ -182,7 +182,7 @@ func TestSaveDropsTheTranscriptAtTheEnd(t *testing.T) {
 	if s := transcriptOf(t, db, r.ID()); s == nil || *s != "một triệu hai" {
 		t.Fatalf("a read still reading lost its transcript: %v", s)
 	}
-	if err := r.Fail(domain.FailNoItem); err != nil {
+	if err := r.Fail(domain.FailNoItem, "Video chỉ có một căn phòng."); err != nil {
 		t.Fatal(err)
 	}
 	if err := reads.Save(ctx, &r, uuid.NewV7()); err != nil {
@@ -192,7 +192,8 @@ func TestSaveDropsTheTranscriptAtTheEnd(t *testing.T) {
 		t.Fatalf("an ended read holds %q", *s)
 	}
 	got, err := reads.Get(ctx, r.ID())
-	if err != nil || got.Failure() != domain.FailNoItem || len(got.Photos()) != 1 || *got.Photos()[0].AtSeconds != 1.5 {
+	if err != nil || got.Failure() != domain.FailNoItem || got.FailureReason() != "Video chỉ có một căn phòng." ||
+		len(got.Photos()) != 1 || *got.Photos()[0].AtSeconds != 1.5 {
 		t.Fatalf("%+v %v", got.State(), err)
 	}
 }

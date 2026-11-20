@@ -13,13 +13,15 @@ import (
 // field a step has not reached yet is absent, and so is a field of another
 // source.
 type ListingReadView struct {
-	ID      uuid.UUID       `json:"id"`
-	Source  domain.Source   `json:"source"`
-	Status  domain.Status   `json:"status"`
-	Failure domain.Failure  `json:"failure,omitempty"`
-	Link    *LinkSourceView `json:"link,omitempty"`
-	Photos  []PhotoView     `json:"photos,omitempty"`
-	Draft   *domain.Draft   `json:"draft,omitempty"`
+	ID      uuid.UUID      `json:"id"`
+	Source  domain.Source  `json:"source"`
+	Status  domain.Status  `json:"status"`
+	Failure domain.Failure `json:"failure,omitempty"`
+	// FailureReason says why in a sentence, when the model or its error said.
+	FailureReason string          `json:"failure_reason,omitempty"`
+	Link          *LinkSourceView `json:"link,omitempty"`
+	Photos        []PhotoView     `json:"photos,omitempty"`
+	Draft         *domain.Draft   `json:"draft,omitempty"`
 	// ContactRemoved is set with a link read's draft.
 	ContactRemoved *bool     `json:"contact_removed,omitempty"`
 	ExpiresAt      time.Time `json:"expires_at"`

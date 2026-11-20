@@ -3,7 +3,6 @@ package service_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"testing"
 	"uuid"
 
@@ -62,17 +61,32 @@ func TestPhotoReadFailures(t *testing.T) {
 		name    string
 		opt     func(*env)
 		failure domain.Failure
+		reason  string
+		calls   int
 	}{
-		{"no item", func(e *env) { e.model.photo = domain.NoItem }, domain.FailNoItem},
-		{"model refused", func(e *env) { e.model.err = fmt.Errorf("model answered 400: %w", llm.ErrRefused) }, domain.FailUnavailable},
+		// The model is asked again once when it sees nothing.
+		{"no item", func(e *env) { e.model.photo = noItemReply }, domain.FailNoItem, "Ảnh chỉ có một người.", 2},
+		{
+			"model refused", func(e *env) { e.model.err = &llm.APIError{Status: 400, Message: "image too large"} },
+			domain.FailUnavailable, "AI báo lỗi 400: image too large", 1,
+		},
+		// A 5xx is retried; the reason survives Restate's retries as text.
+		{
+			"model down", func(e *env) { e.model.err = &llm.APIError{Status: 503, Message: "overloaded"} },
+			domain.FailUnavailable, "AI báo lỗi 503: overloaded", 3,
+		},
+		{"not JSON", func(e *env) { e.model.photo = "iPhone 11 Trắng" }, domain.FailUnavailable, "AI trả lời sai định dạng. Thử lại nhé.", 3},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
 			e := newEnv(t, c.opt)
 			seller := accounttest.WithPhone(t, e.db)
 			v := e.end(t, seller, e.startPhoto(t, seller, e.photo(t, seller)).ID)
-			if v.Status != domain.StatusFailed || v.Failure != c.failure || v.Draft != nil || v.Photos != nil {
+			if v.Status != domain.StatusFailed || v.Failure != c.failure || v.FailureReason != c.reason || v.Draft != nil || v.Photos != nil {
 				t.Fatalf("%+v", v)
+			}
+			if calls, _, _ := e.model.asked(); calls != c.calls {
+				t.Fatalf("model asked %d times, want %d", calls, c.calls)
 			}
 		})
 	}

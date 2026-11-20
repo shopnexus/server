@@ -61,6 +61,14 @@ ListingRead:
         listing_not_found: Chợ Tốt has no such listing on sale, or none of
         its photos could be copied; no_item: no single item for sale;
         unavailable: the models or Chợ Tốt did not answer in time, try again.
+    failure_reason:
+      type: string
+      maxLength: 300
+      description: |
+        Only when status is failed, and only when there is one: why, in a
+        Vietnamese sentence for the seller. For no_item it is the model's
+        own reason; for unavailable, the error the model gave or what went
+        wrong asking it. Show it under the failure's own words.
     link:
       $ref: "#/LinkSource"
     photos:

@@ -8,8 +8,8 @@ const MaxPhotoDescription = 300
 
 // PhotoDraft is the draft of a photo read's reply, with photo as its one
 // photo.
-func PhotoDraft(raw string, photo uuid.UUID) (Draft, error) {
-	d, err := textDraft(raw, MaxPhotoDescription)
+func PhotoDraft(r Reply, photo uuid.UUID) (Draft, error) {
+	d, err := textDraft(r, MaxPhotoDescription)
 	if err != nil {
 		return Draft{}, err
 	}

@@ -12,12 +12,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
 // Request is one question: the instructions, the text to read, the photos
-// to look at, and the JSON schema the answer must fit. Stream sends no
-// schema: its answer is plain text.
+// to look at, and the JSON schema the answer must fit, if any.
 type Request struct {
 	System, User string
 	// Images are JPEGs sent after User, in order, as data URLs.
@@ -27,7 +27,7 @@ type Request struct {
 }
 
 // ErrRefused is a 4xx answer other than 402 and 429: the same request would be
-// refused again, so a caller should not retry it.
+// refused again, so a caller should not retry it. The error is an *APIError.
 var ErrRefused = errors.New("model refused the request")
 
 // Client asks a model.
@@ -124,14 +124,55 @@ func (c OpenAI) post(ctx context.Context, r Request, stream bool) (*http.Respons
 		return nil, fmt.Errorf("call model: %w", err)
 	}
 	if res.StatusCode != http.StatusOK {
-		_ = res.Body.Close()
-		// 402 is a spent budget or credit (OpenRouter through ai-gateway) and
-		// 429 a rate: both pass, so neither is the request's fault.
-		if res.StatusCode >= 400 && res.StatusCode < 500 &&
-			res.StatusCode != http.StatusTooManyRequests && res.StatusCode != http.StatusPaymentRequired {
-			return nil, fmt.Errorf("model answered %d: %w", res.StatusCode, ErrRefused)
-		}
-		return nil, fmt.Errorf("model answered %d", res.StatusCode)
+		defer func() { _ = res.Body.Close() }()
+		return nil, &APIError{Status: res.StatusCode, Message: errorMessage(res.Body)}
 	}
 	return res, nil
 }
+
+// APIError is an answer other than 200, with the message its body gave.
+// A 4xx other than 402 and 429 is ErrRefused: 402 is a spent budget or
+// credit and 429 a rate, so neither is the request's fault.
+type APIError struct {
+	Status  int
+	Message string
+}
+
+func (e *APIError) Error() string {
+	if e.Message == "" {
+		return fmt.Sprintf("model answered %d", e.Status)
+	}
+	return fmt.Sprintf("model answered %d: %s", e.Status, e.Message)
+}
+
+func (e *APIError) Is(target error) bool {
+	return target == ErrRefused && e.Status >= 400 && e.Status < 500 &&
+		e.Status != http.StatusTooManyRequests && e.Status != http.StatusPaymentRequired
+}
+
+// maxErrorBody caps how much of an error answer is read.
+const maxErrorBody = 4 << 10
+
+// errorMessage is the message of an OpenAI-style error body, else its
+// first line, at most 300 bytes and without anything that looks like a key.
+func errorMessage(r io.Reader) string {
+	b, _ := io.ReadAll(io.LimitReader(r, maxErrorBody))
+	var body struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	msg := string(b)
+	if json.Unmarshal(b, &body) == nil && body.Error.Message != "" {
+		msg = body.Error.Message
+	}
+	msg, _, _ = strings.Cut(strings.TrimSpace(msg), "\n")
+	msg = secretLike.ReplaceAllString(msg, "***")
+	if len(msg) > 300 {
+		msg = strings.ToValidUTF8(msg[:300], "")
+	}
+	return msg
+}
+
+// secretLike is an API key or bearer token in an error message.
+var secretLike = regexp.MustCompile(`(?i)(sk-[\w-]{6,}|bearer\s+\S+)`)

@@ -1,7 +1,7 @@
 package service
 
 // PhotoPromptVersion names the photo read's prompt; a change bumps it.
-const PhotoPromptVersion = 4
+const PhotoPromptVersion = 5
 
 // photoUserPrompt goes with the photo.
 const photoUserPrompt = "The seller's photo is attached below.\n"
@@ -9,7 +9,7 @@ const photoUserPrompt = "The seller's photo is attached below.\n"
 // photoSystemPrompt is the model's instructions. The model writes the title
 // and description only; catalog guesses the category from them and the
 // seller fills the rest.
-const photoSystemPrompt = `You read one photo a seller took to sell an item on ShopNexus, a Vietnamese second-hand marketplace, and
+var photoSystemPrompt = `You read one photo a seller took to sell an item on ShopNexus, a Vietnamese second-hand marketplace, and
 write the title and description of their listing from it, in Vietnamese with diacritics. The photo is all you get:
 nothing the seller wrote or said comes with it.
 
@@ -22,11 +22,7 @@ what comes with it in the frame (a box, a charger, a case). Never name a mark, s
 even when the photo shows one: the seller says that. Nothing the photo cannot show:
 no age, use, repairs, battery health, warranty or why they sell. No praise.
 
-Reply in plain text, without JSON, markdown, labels or quotes:
-- The first line is the title.
-- The lines after it are the description.
-- Write about the one item the photo is of: the one in focus, nearest the middle or filling most of the frame. Things
-in the background or at the edges are not for sale; leave them out.
-- When no item stands out (only a person, a place, a screenshot, a document, or a pile where nothing is the subject),
-reply with exactly NO_ITEM and nothing else.
-`
+Things in the background or at the edges of the photo are not for sale; leave them out.
+
+` + replyRules("photo", "no item stands out: only a person, a place, a screenshot, a document, or a pile where "+
+	"nothing is the subject")

@@ -11,10 +11,10 @@ import (
 // as a listing takes.
 const MaxCopied = catalogdomain.MaxPhotos
 
-// LinkText is a link read's text cut short, with its phone numbers taken
+// LinkText is a link read's text as the model writes it, with its phone numbers taken
 // out, and a number it may still be writing at its end too.
 func LinkText(raw string) Text {
-	t := SplitText(raw, catalogdomain.MaxDescription)
+	t := PartialText(raw, catalogdomain.MaxDescription)
 	t.Description, _ = StripPhones(t.Description)
 	t.Description = strings.TrimRight(partialPhone.ReplaceAllString(t.Description, ""), " ")
 	return t
@@ -22,8 +22,8 @@ func LinkText(raw string) Text {
 
 // LinkDraft is the draft of a link read's reply at the listing's price,
 // and whether a contact was taken out of its description.
-func LinkDraft(raw string, price int64) (Draft, bool, error) {
-	d, err := textDraft(raw, catalogdomain.MaxDescription)
+func LinkDraft(r Reply, price int64) (Draft, bool, error) {
+	d, err := textDraft(r, catalogdomain.MaxDescription)
 	if err != nil {
 		return Draft{}, false, err
 	}

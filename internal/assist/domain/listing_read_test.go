@@ -74,16 +74,17 @@ func TestFailuresBySource(t *testing.T) {
 	} {
 		for _, f := range c.ok {
 			r := c.read
-			if err := r.Fail(f); err != nil || r.Status() != domain.StatusFailed || r.Failure() != f {
+			if err := r.Fail(f, "  Lý do.  "); err != nil || r.Status() != domain.StatusFailed || r.Failure() != f ||
+				r.FailureReason() != "Lý do." {
 				t.Errorf("%s fails with %s: %v", r.Source(), f, err)
 			}
-			if err := r.Fail(f); !errors.Is(err, domain.ErrNotReading) {
+			if err := r.Fail(f, ""); !errors.Is(err, domain.ErrNotReading) {
 				t.Errorf("%s failed twice: %v", r.Source(), err)
 			}
 		}
 		for _, f := range c.bad {
 			r := c.read
-			if err := r.Fail(f); !errors.Is(err, domain.ErrWrongFailure) || r.Status() != domain.StatusReading {
+			if err := r.Fail(f, ""); !errors.Is(err, domain.ErrWrongFailure) || r.Status() != domain.StatusReading {
 				t.Errorf("%s took %s: %v", r.Source(), f, err)
 			}
 		}

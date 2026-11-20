@@ -5,20 +5,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 )
 
 // Streamer asks a model for plain text and hears it as it is written.
 type Streamer interface {
-	// Stream sends r without its schema and calls onText with the whole
-	// text so far after each piece. It returns the whole text.
+	// Stream sends r, with its schema when it has one, and calls onText
+	// with the whole text so far after each piece. It returns the whole
+	// text. An error the stream sends is an *APIError.
 	Stream(ctx context.Context, r Request, onText func(string)) (string, error)
 }
 
 var _ Streamer = OpenAI{}
 
 func (c OpenAI) Stream(ctx context.Context, r Request, onText func(string)) (string, error) {
-	r.SchemaName, r.Schema = "", nil
 	res, err := c.post(ctx, r, true)
 	if err != nil {
 		return "", err
@@ -37,6 +38,9 @@ func (c OpenAI) Stream(ctx context.Context, r Request, onText func(string)) (str
 			return text.String(), nil
 		}
 		var chunk struct {
+			Error *struct {
+				Message string `json:"message"`
+			} `json:"error"`
 			Choices []struct {
 				Delta struct {
 					Content string `json:"content"`
@@ -45,6 +49,9 @@ func (c OpenAI) Stream(ctx context.Context, r Request, onText func(string)) (str
 		}
 		if err = json.Unmarshal([]byte(data), &chunk); err != nil {
 			return "", fmt.Errorf("decode chunk: %w", err)
+		}
+		if chunk.Error != nil {
+			return "", &APIError{Status: http.StatusBadGateway, Message: chunk.Error.Message}
 		}
 		if len(chunk.Choices) == 0 || chunk.Choices[0].Delta.Content == "" {
 			continue

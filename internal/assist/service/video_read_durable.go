@@ -97,6 +97,7 @@ type cutFrames struct {
 type filled struct {
 	Draft   domain.Draft   `json:"draft"`
 	Failure domain.Failure `json:"failure,omitempty"`
+	Reason  string         `json:"reason,omitempty"`
 }
 
 // Start checks the account, inserts the read under the daily cap and
@@ -213,9 +214,9 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	}
 	// fail consumes the video before it saves the failure, so a read that
 	// shows it ended has no video left.
-	fail := func(at time.Time, f domain.Failure) error {
+	fail := func(at time.Time, f domain.Failure, reason string) error {
 		// A1: the read fails and the seller fills the form by hand.
-		if failErr := r.Fail(f); failErr != nil {
+		if failErr := r.Fail(f, reason); failErr != nil {
 			return fmt.Errorf("fail read: %w", failErr)
 		}
 		if consumeErr := consume(); consumeErr != nil {
@@ -231,7 +232,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return err
 	}
 	if !at.Before(deadline) {
-		return fail(at, domain.FailUnavailable)
+		return fail(at, domain.FailUnavailable, pastDeadline)
 	}
 	ids := make([]uuid.UUID, maxFrames)
 	for i := range ids {
@@ -281,10 +282,10 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return out, nil
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
-		return fail(at, domain.FailUnavailable)
+		return fail(at, domain.FailUnavailable, "")
 	}
 	if cut.Failure != "" {
-		return fail(at, cut.Failure)
+		return fail(at, cut.Failure, "")
 	}
 	if err = r.SetPhotos(cut.Frames); err != nil {
 		return fmt.Errorf("set frames: %w", err)
@@ -297,7 +298,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return err
 	}
 	if !at.Before(deadline) {
-		return fail(at, domain.FailUnavailable)
+		return fail(at, domain.FailUnavailable, pastDeadline)
 	}
 	fill, err := restate.Run(ctx, func(rc restate.RunContext) (filled, error) {
 		started := time.Now()
@@ -344,17 +345,17 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 			}
 			images[i] = img
 		}
-		raw, modelErr := s.writeText(rc, id, llm.Request{
+		rep, modelErr := s.writeReply(rc, id, llm.Request{
 			System: systemPrompt, User: userPrompt(transcript, len(images), from), Images: images,
-		}, func(so string) domain.Text { return domain.SplitText(so, catalogdomain.MaxDescription) })
+		}, mediaTries, func(so string) domain.Text { return domain.PartialText(so, catalogdomain.MaxDescription) })
 		if refusedModel(modelErr) {
 			s.Log.WarnContext(rc, "the model refused the video read", "read", id, "err", modelErr)
-			return filled{Failure: domain.FailUnavailable}, nil
+			return filled{Failure: domain.FailUnavailable, Reason: modelReason(modelErr)}, nil
 		}
 		if modelErr != nil {
 			return filled{}, modelErr
 		}
-		d, cleanErr := domain.VideoDraft(raw, r.Photos(), cut.Sharpest)
+		d, cleanErr := domain.VideoDraft(rep, r.Photos(), cut.Sharpest)
 		if cleanErr == nil {
 			d.CategoryCode = s.guessCategory(rc, id, d)
 		}
@@ -364,8 +365,8 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 			"frames", len(images), "transcript_chars", utf8.RuneCountInString(transcript), "transcript_from", from,
 			"is_item", cleanErr == nil, "category", d.CategoryCode, "kept", len(d.Photos),
 			"description_chars", utf8.RuneCountInString(d.Description), "ms", time.Since(started).Milliseconds())
-		if errors.Is(cleanErr, domain.ErrNoItem) {
-			return filled{Failure: domain.FailNoItem}, nil
+		if noItem, ok := errors.AsType[domain.NoItemError](cleanErr); ok {
+			return filled{Failure: domain.FailNoItem, Reason: noItem.Reason}, nil
 		}
 		if cleanErr != nil {
 			return filled{}, fmt.Errorf("clean the answer: %w", cleanErr)
@@ -373,10 +374,10 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return filled{Draft: d}, nil
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
-		return fail(at, domain.FailUnavailable)
+		return fail(at, domain.FailUnavailable, modelReason(err))
 	}
 	if fill.Failure != "" {
-		return fail(at, fill.Failure)
+		return fail(at, fill.Failure, fill.Reason)
 	}
 	if err = r.SetDraft(fill.Draft, false); err != nil {
 		return fmt.Errorf("set draft: %w", err)

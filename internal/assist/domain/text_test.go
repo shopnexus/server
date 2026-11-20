@@ -11,28 +11,56 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 )
 
-func TestSplitText(t *testing.T) {
+func item(title, description string) domain.Reply {
+	return domain.Reply{Subject: "x", Found: true, Title: title, Description: description}
+}
+
+func TestParseReply(t *testing.T) {
 	t.Parallel()
-	cases := []struct {
-		raw  string
-		want domain.Text
-	}{
-		{"  iPhone   11\tTrắng \n\n Máy dùng 3 năm.\nCòn hộp. ", domain.Text{Title: "iPhone 11 Trắng", Description: "Máy dùng 3 năm.\nCòn hộp."}},
-		{"iPhone 1", domain.Text{Title: "iPhone 1"}},
-		{"iPhone 11\n", domain.Text{Title: "iPhone 11"}},
-		{"NO_", domain.Text{}},
-		{"NO_ITEM", domain.Text{}},
-		{"NO_ITEM\n", domain.Text{}},
-		{"", domain.Text{}},
-		{"Tiêu đề: Quạt bàn Senko\n\nMô tả: Quạt màu trắng.", domain.Text{Title: "Quạt bàn Senko", Description: "Quạt màu trắng."}},
-		{"Tiêu đề:\nQuạt bàn Senko\n\nMô tả:\nQuạt màu trắng.", domain.Text{Title: "Quạt bàn Senko", Description: "Quạt màu trắng."}},
-	}
-	for _, c := range cases {
-		if got := domain.SplitText(c.raw, 300); got != c.want {
-			t.Errorf("%q: %+v", c.raw, got)
+	want := domain.Reply{Subject: "xe đạp", Found: true, Title: "Xe đạp", Description: "Xe trắng."}
+	for _, raw := range []string{
+		`{"subject":"xe đạp","found":true,"title":"Xe đạp","description":"Xe trắng.","reason":""}`,
+		"```json\n{\"subject\": \"xe đạp\", \"found\": true, \"title\": \"Xe đạp\", \"description\": \"Xe trắng.\"}\n```",
+	} {
+		if got, err := domain.ParseReply(raw); err != nil || got != want {
+			t.Errorf("%q: %+v %v", raw, got, err)
 		}
 	}
-	long := domain.SplitText(strings.Repeat("ắ", 100)+"\n"+strings.Repeat("ư", 400), 300)
+	for _, raw := range []string{"", "Xe đạp\nXe trắng.", `{"found": tru`} {
+		if _, err := domain.ParseReply(raw); !errors.Is(err, domain.ErrBadReply) {
+			t.Errorf("%q: %v", raw, err)
+		}
+	}
+}
+
+// The text shows as the model writes it, once it says it found an item.
+func TestPartialText(t *testing.T) {
+	t.Parallel()
+	whole := `{"subject":"quạt","found":true,"title":"Quạt  bàn\tSenko","description":"Quạt \"trắng\"\nCòn hộp. \u0110ẹp","reason":""}`
+	var last domain.Text
+	for i := range len(whole) + 1 {
+		last = domain.PartialText(whole[:i], 300)
+		if strings.ContainsAny(last.Description, "\\") {
+			t.Fatalf("cut at %d: an escape leaked: %+v", i, last)
+		}
+	}
+	if last != (domain.Text{Title: "Quạt bàn Senko", Description: "Quạt \"trắng\"\nCòn hộp. Đẹp"}) {
+		t.Fatalf("%+v", last)
+	}
+	for _, raw := range []string{
+		`{"subject":"quạt","found":true,"title":"Quạt bà`,
+		`{"subject": "quạt" , "found" : true, "title": "Quạt bà`,
+	} {
+		if got := domain.PartialText(raw, 300); got.Title != "Quạt bà" {
+			t.Errorf("%q: %+v", raw, got)
+		}
+	}
+	for _, raw := range []string{"", `{"subject":"một người","found":false,"title":"x"`, `{"subject":"quạt","title":"Quạt"`, "Quạt bàn"} {
+		if got := domain.PartialText(raw, 300); got != (domain.Text{}) {
+			t.Errorf("%q: %+v", raw, got)
+		}
+	}
+	long := domain.PartialText(`{"found":true,"title":"`+strings.Repeat("ắ", 100)+`","description":"`+strings.Repeat("ư", 400)+`"}`, 300)
 	if utf8.RuneCountInString(long.Title) != catalogdomain.MaxTitle || utf8.RuneCountInString(long.Description) != 300 {
 		t.Fatalf("cut: %d %d", utf8.RuneCountInString(long.Title), utf8.RuneCountInString(long.Description))
 	}
@@ -49,7 +77,7 @@ func eightFrames() []domain.Photo {
 func TestVideoDraft(t *testing.T) {
 	t.Parallel()
 	frames := eightFrames()
-	d, err := domain.VideoDraft("Xe đạp Asama xanh\nXe đi ít.", frames, 3)
+	d, err := domain.VideoDraft(item("Xe đạp Asama xanh", "Xe đi ít."), frames, 3)
 	if err != nil || d.Title != "Xe đạp Asama xanh" || d.Description != "Xe đi ít." || d.Condition != catalogdomain.ConditionUsed ||
 		d.Price != nil || d.AllowOffers || d.CategoryCode != "" || d.Specs == nil || len(d.Specs) != 0 {
 		t.Fatalf("%+v %v", d, err)
@@ -58,12 +86,12 @@ func TestVideoDraft(t *testing.T) {
 	if len(d.Photos) != domain.MaxKept || !equalIDs(d.Photos, want) {
 		t.Fatalf("photos %v, want the sharpest then time order", d.Photos)
 	}
-	if d, err = domain.VideoDraft("Xe đạp", nil, 0); err != nil || len(d.Photos) != 0 {
+	if d, err = domain.VideoDraft(item("Xe đạp", ""), nil, 0); err != nil || len(d.Photos) != 0 {
 		t.Fatalf("no frames: %+v %v", d, err)
 	}
-	for _, raw := range []string{"NO_ITEM", "  "} {
-		if _, err = domain.VideoDraft(raw, frames, 0); !errors.Is(err, domain.ErrNoItem) {
-			t.Errorf("%q: %v", raw, err)
+	for _, r := range []domain.Reply{{Found: false, Reason: "Chỉ có người."}, item("  ", "x")} {
+		if _, err = domain.VideoDraft(r, frames, 0); !errors.Is(err, domain.ErrNoItem) {
+			t.Errorf("%+v: %v", r, err)
 		}
 	}
 }
@@ -71,38 +99,40 @@ func TestVideoDraft(t *testing.T) {
 func TestPhotoDraft(t *testing.T) {
 	t.Parallel()
 	photo := uuid.NewV7()
-	d, err := domain.PhotoDraft("iPhone 11 Trắng\n"+strings.Repeat("a", 400), photo)
+	d, err := domain.PhotoDraft(item("iPhone 11 Trắng", strings.Repeat("a", 400)), photo)
 	if err != nil || d.Title != "iPhone 11 Trắng" || utf8.RuneCountInString(d.Description) != domain.MaxPhotoDescription ||
 		len(d.Photos) != 1 || d.Photos[0] != photo || d.Condition != catalogdomain.ConditionUsed {
 		t.Fatalf("%+v %v", d, err)
 	}
-	if _, err = domain.PhotoDraft("NO_ITEM", photo); !errors.Is(err, domain.ErrNoItem) {
+	_, err = domain.PhotoDraft(domain.Reply{Subject: "một người", Reason: "Ảnh chỉ có một người."}, photo)
+	if noItem, ok := errors.AsType[domain.NoItemError](err); !ok || !errors.Is(err, domain.ErrNoItem) || noItem.Reason != "Ảnh chỉ có một người." {
 		t.Fatalf("no item: %v", err)
 	}
 }
 
 func TestLinkDraft(t *testing.T) {
 	t.Parallel()
-	d, removed, err := domain.LinkDraft("iPhone 11 64GB Trắng\nMáy zin. Liên hệ 0912 345 678.", 4_500_000)
+	d, removed, err := domain.LinkDraft(item("iPhone 11 64GB Trắng", "Máy zin. Liên hệ 0912 345 678."), 4_500_000)
 	if err != nil || !removed || d.Description != "Máy zin. Liên hệ." || d.Price == nil || *d.Price != 4_500_000 || len(d.Photos) != 0 {
 		t.Fatalf("%+v %v %v", d, removed, err)
 	}
-	if d, removed, err = domain.LinkDraft("iPhone 11\nMáy zin.", 5_000); err != nil || removed || d.Price != nil {
+	if d, removed, err = domain.LinkDraft(item("iPhone 11", "Máy zin."), 5_000); err != nil || removed || d.Price != nil {
 		t.Fatalf("a price under 10,000: %+v %v %v", d, removed, err)
 	}
-	if _, _, err = domain.LinkDraft("NO_ITEM", 4_500_000); !errors.Is(err, domain.ErrNoItem) {
+	if _, _, err = domain.LinkDraft(domain.Reply{}, 4_500_000); !errors.Is(err, domain.ErrNoItem) {
 		t.Fatalf("no item: %v", err)
 	}
 }
 
 func TestLinkTextHidesAPhoneBeingWritten(t *testing.T) {
 	t.Parallel()
-	for raw, want := range map[string]string{
-		"iPhone 11\nLiên hệ 0912 34":          "Liên hệ",
-		"iPhone 11\nLiên hệ +84 91":           "Liên hệ",
-		"iPhone 11\nLiên hệ 0912 345 678 nhé": "Liên hệ nhé",
-		"iPhone 11\nMáy zin":                  "Máy zin",
+	for description, want := range map[string]string{
+		"Liên hệ 0912 34":          "Liên hệ",
+		"Liên hệ +84 91":           "Liên hệ",
+		"Liên hệ 0912 345 678 nhé": "Liên hệ nhé",
+		"Máy zin":                  "Máy zin",
 	} {
+		raw := `{"subject":"điện thoại","found":true,"title":"iPhone 11","description":"` + description
 		if got := domain.LinkText(raw); got.Description != want || got.Title != "iPhone 11" {
 			t.Errorf("%q: %+v", raw, got)
 		}

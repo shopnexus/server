@@ -93,7 +93,7 @@ func TestReadFailures(t *testing.T) {
 		{"too short", func(e *env) { e.cut.err = aidomain.ErrTooShort }, domain.FailTooShort, 2, 0},
 		{"too long", func(e *env) { e.cut.err = aidomain.ErrTooLong }, domain.FailTooLong, 2, 0},
 		{"no frames", func(e *env) { e.cut.frames = 0 }, domain.FailUnreadable, 2, 0},
-		{"no item", func(e *env) { e.model.answer = domain.NoItem }, domain.FailNoItem, 3, 3},
+		{"no item", func(e *env) { e.model.answer = noItemReply }, domain.FailNoItem, 3, 3},
 		{"model refused", func(e *env) { e.model.err = fmt.Errorf("model answered 400: %w", llm.ErrRefused) }, domain.FailUnavailable, 3, 3},
 	} {
 		t.Run(c.name, func(t *testing.T) {

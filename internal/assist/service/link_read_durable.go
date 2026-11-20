@@ -53,6 +53,7 @@ type readListing struct {
 	Images         []string       `json:"images,omitempty"`
 	PhotoCount     int            `json:"photo_count"`
 	Failure        domain.Failure `json:"failure,omitempty"`
+	Reason         string         `json:"reason,omitempty"`
 }
 
 // Start checks the account and inserts the read under the daily cap, each
@@ -140,9 +141,9 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		r = out.Read
 		return out.Gone, nil
 	}
-	fail := func(at time.Time, f domain.Failure) error {
+	fail := func(at time.Time, f domain.Failure, reason string) error {
 		// A1: the read fails and the seller fills the form by hand.
-		if failErr := r.Fail(f); failErr != nil {
+		if failErr := r.Fail(f, reason); failErr != nil {
 			return fmt.Errorf("fail read: %w", failErr)
 		}
 		_, saveErr := save(at)
@@ -155,7 +156,7 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return err
 	}
 	if !at.Before(deadline) {
-		return fail(at, domain.FailUnavailable)
+		return fail(at, domain.FailUnavailable, pastDeadline)
 	}
 	read, err := restate.Run(ctx, func(rc restate.RunContext) (readListing, error) {
 		started := time.Now()
@@ -171,15 +172,15 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		case adErr != nil:
 			return readListing{}, fmt.Errorf("read the listing: %w", adErr)
 		}
-		raw, modelErr := s.writeText(rc, id, llm.Request{System: linkSystemPrompt, User: linkUserPrompt(ad)}, domain.LinkText)
+		rep, modelErr := s.writeReply(rc, id, llm.Request{System: linkSystemPrompt, User: linkUserPrompt(ad)}, 1, domain.LinkText)
 		if refusedModel(modelErr) {
 			s.Log.WarnContext(rc, "the model refused the link read", "read", id, "err", modelErr)
-			return readListing{Failure: domain.FailUnavailable}, nil
+			return readListing{Failure: domain.FailUnavailable, Reason: modelReason(modelErr)}, nil
 		}
 		if modelErr != nil {
 			return readListing{}, modelErr
 		}
-		d, removed, cleanErr := domain.LinkDraft(raw, ad.Price)
+		d, removed, cleanErr := domain.LinkDraft(rep, ad.Price)
 		if cleanErr == nil {
 			d.CategoryCode = s.guessCategory(rc, id, d)
 		}
@@ -190,8 +191,8 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 			"photos", len(ad.Images), "body_chars", utf8.RuneCountInString(ad.Body), "chotot_category", ad.CategoryName,
 			"is_item", cleanErr == nil, "category", d.CategoryCode, "contact_removed", removed, "price", d.Price,
 			"ms", time.Since(started).Milliseconds())
-		if errors.Is(cleanErr, domain.ErrNoItem) {
-			return readListing{Failure: domain.FailNoItem}, nil
+		if noItem, ok := errors.AsType[domain.NoItemError](cleanErr); ok {
+			return readListing{Failure: domain.FailNoItem, Reason: noItem.Reason}, nil
 		}
 		if cleanErr != nil {
 			return readListing{}, fmt.Errorf("clean the answer: %w", cleanErr)
@@ -199,10 +200,10 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return readListing{Draft: d, ContactRemoved: removed, Images: images, PhotoCount: len(ad.Images)}, nil
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
-		return fail(at, domain.FailUnavailable)
+		return fail(at, domain.FailUnavailable, modelReason(err))
 	}
 	if read.Failure != "" {
-		return fail(at, read.Failure)
+		return fail(at, read.Failure, read.Reason)
 	}
 	if err = r.SetLinkPhotos(read.PhotoCount); err != nil {
 		return fmt.Errorf("set photo count: %w", err)
@@ -215,7 +216,7 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return err
 	}
 	if !at.Before(deadline) {
-		return fail(at, domain.FailUnavailable)
+		return fail(at, domain.FailUnavailable, pastDeadline)
 	}
 	ids := make([]uuid.UUID, len(read.Images))
 	for i := range ids {
@@ -284,10 +285,10 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		}
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
-		return fail(at, domain.FailUnavailable)
+		return fail(at, domain.FailUnavailable, "")
 	}
 	if copied.Failure != "" {
-		return fail(at, copied.Failure)
+		return fail(at, copied.Failure, "")
 	}
 	d := read.Draft
 	d.Photos = copied.Uploads

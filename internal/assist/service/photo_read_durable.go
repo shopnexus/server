@@ -37,6 +37,7 @@ func (s PhotoRead) ServiceName() string { return s.Prefix + photoRead }
 type filledPhoto struct {
 	Draft   domain.Draft   `json:"draft"`
 	Failure domain.Failure `json:"failure,omitempty"`
+	Reason  string         `json:"reason,omitempty"`
 }
 
 // Start checks the account, inserts the read under the daily cap and
@@ -140,9 +141,9 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		r = out.Read
 		return out.Gone, nil
 	}
-	fail := func(at time.Time, f domain.Failure) error {
+	fail := func(at time.Time, f domain.Failure, reason string) error {
 		// A1: the read fails and the seller fills the form by hand.
-		if failErr := r.Fail(f); failErr != nil {
+		if failErr := r.Fail(f, reason); failErr != nil {
 			return fmt.Errorf("fail read: %w", failErr)
 		}
 		_, saveErr := save(at)
@@ -155,7 +156,7 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return err
 	}
 	if !at.Before(deadline) {
-		return fail(at, domain.FailUnavailable)
+		return fail(at, domain.FailUnavailable, pastDeadline)
 	}
 	fill, err := restate.Run(ctx, func(rc restate.RunContext) (filledPhoto, error) {
 		started := time.Now()
@@ -167,16 +168,16 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		if imgErr != nil {
 			return filledPhoto{}, fmt.Errorf("read photo: %w", imgErr)
 		}
-		raw, modelErr := s.writeText(rc, id, llm.Request{System: photoSystemPrompt, User: photoUserPrompt, Images: [][]byte{img}},
-			func(so string) domain.Text { return domain.SplitText(so, domain.MaxPhotoDescription) })
+		rep, modelErr := s.writeReply(rc, id, llm.Request{System: photoSystemPrompt, User: photoUserPrompt, Images: [][]byte{img}}, mediaTries,
+			func(so string) domain.Text { return domain.PartialText(so, domain.MaxPhotoDescription) })
 		if refusedModel(modelErr) {
 			s.Log.WarnContext(rc, "the model refused the photo read", "read", id, "err", modelErr)
-			return filledPhoto{Failure: domain.FailUnavailable}, nil
+			return filledPhoto{Failure: domain.FailUnavailable, Reason: modelReason(modelErr)}, nil
 		}
 		if modelErr != nil {
 			return filledPhoto{}, modelErr
 		}
-		d, cleanErr := domain.PhotoDraft(raw, r.Media())
+		d, cleanErr := domain.PhotoDraft(rep, r.Media())
 		if cleanErr == nil {
 			d.CategoryCode = s.guessCategory(rc, id, d)
 		}
@@ -185,8 +186,8 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		s.Log.InfoContext(rc, "photo read filled", "read", id, "prompt_version", PhotoPromptVersion,
 			"is_item", cleanErr == nil, "category", d.CategoryCode,
 			"description_chars", utf8.RuneCountInString(d.Description), "ms", time.Since(started).Milliseconds())
-		if errors.Is(cleanErr, domain.ErrNoItem) {
-			return filledPhoto{Failure: domain.FailNoItem}, nil
+		if noItem, ok := errors.AsType[domain.NoItemError](cleanErr); ok {
+			return filledPhoto{Failure: domain.FailNoItem, Reason: noItem.Reason}, nil
 		}
 		if cleanErr != nil {
 			return filledPhoto{}, fmt.Errorf("clean the answer: %w", cleanErr)
@@ -194,10 +195,10 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return filledPhoto{Draft: d}, nil
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
-		return fail(at, domain.FailUnavailable)
+		return fail(at, domain.FailUnavailable, modelReason(err))
 	}
 	if fill.Failure != "" {
-		return fail(at, fill.Failure)
+		return fail(at, fill.Failure, fill.Reason)
 	}
 	if err = r.SetPhotos([]domain.Photo{{UploadID: r.Media()}}); err != nil {
 		return fmt.Errorf("set photos: %w", err)

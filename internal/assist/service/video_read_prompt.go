@@ -9,12 +9,12 @@ import (
 
 // PromptVersion names the prompt below; a change bumps it. The read's log
 // line carries it.
-const PromptVersion = 5
+const PromptVersion = 6
 
 // systemPrompt is the model's instructions. The model writes the title and
 // description only; catalog guesses the category from them and the seller
 // fills the rest.
-const systemPrompt = `You read a short video a seller filmed on ShopNexus, a Vietnamese second-hand marketplace, and write the
+var systemPrompt = `You read a short video a seller filmed on ShopNexus, a Vietnamese second-hand marketplace, and write the
 title and description of their listing, in Vietnamese with diacritics. You get frames of the video in time order and a
 transcript of what the seller said. The transcript comes from speech recognition, on the seller's phone or on ours;
 the message says which, and some words may be misheard. Read it for its meaning and fix what was plainly misheard
@@ -29,17 +29,13 @@ The description: what the seller said about the item, written as their listing t
 words fixed, filler and repetition dropped, in the first person as they spoke. Keep every fact they gave (age, use,
 repairs, accessories, why they sell, faults they named) but leave out the price. Add nothing they did not say:
 nothing seen in the frames, no praise, no guess.
-Never name a mark, scratch, dent, crack, stain or fault the seller did not name, even when a frame shows one. When the seller said nothing about the item, no description: the title
-line only. At most 1,500 characters.
+Never name a mark, scratch, dent, crack, stain or fault the seller did not name, even when a frame shows one.
+When the seller said nothing about the item, an empty description. At most 1,500 characters.
 
-Reply in plain text, without JSON, markdown, labels or quotes:
-- The first line is the title.
-- The lines after it are the description.
-- Write about the one item the video is of: the one the camera follows or the seller talks about. Things in the
-background are not for sale; leave them out.
-- When no item stands out (only a person, a place, or things where nothing is the subject), reply with exactly
-NO_ITEM and nothing else.
-`
+The item is the one the camera follows or the seller talks about. Things in the background are not for sale; leave
+them out.
+
+` + replyRules("video", "no item stands out: only a person, a place, or things where nothing is the subject")
 
 // userPrompt goes with the frames: how many there are, where the
 // transcript came from, and the transcript, fenced so the seller's words

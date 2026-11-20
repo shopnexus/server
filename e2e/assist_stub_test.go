@@ -21,13 +21,17 @@ const (
 	emptyRoom  = "a video of an empty room"
 )
 
-// The model's texts: the first line is the title, the rest the
-// description; the iPhone's keeps a phone for the regex to find.
+// The model's JSON replies; the iPhone's description keeps a phone for the
+// regex to find.
 const (
-	bicycleText      = "Xe đạp Asama xanh\nXe đi ít, có thương lượng."
-	iphoneLinkText   = "iPhone 11 64GB Trắng, pin 81%\nMáy dùng 3 năm, zin all. Liên hệ 0909 123 456."
-	bicyclePhotoText = "Xe đạp Asama xanh\nXe đạp Asama màu xanh, có giỏ trước."
-	noItemText       = "NO_ITEM"
+	bicycleText = `{"subject":"xe đạp","found":true,"title":"Xe đạp Asama xanh",` +
+		`"description":"Xe đi ít, có thương lượng.","reason":""}`
+	iphoneLinkText = `{"subject":"điện thoại","found":true,"title":"iPhone 11 64GB Trắng, pin 81%",` +
+		`"description":"Máy dùng 3 năm, zin all. Liên hệ 0909 123 456.","reason":""}`
+	bicyclePhotoText = `{"subject":"xe đạp","found":true,"title":"Xe đạp Asama xanh",` +
+		`"description":"Xe đạp Asama màu xanh, có giỏ trước.","reason":""}`
+	noItemText = `{"subject":"căn phòng trống","found":false,"title":"","description":"",` +
+		`"reason":"Video chỉ có một căn phòng trống."}`
 )
 
 // stubAssist stands in for what a video read calls: the video-read model,

@@ -3,6 +3,7 @@ package domain
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 	"time"
 	"uuid"
 )
@@ -71,6 +72,7 @@ type ListingRead struct {
 	linkPhotos           int
 	status               Status
 	failure              Failure
+	reason               string
 	photos               []Photo
 	draft                *Draft
 	contactRemoved       bool
@@ -116,14 +118,18 @@ func (r *ListingRead) Media() uuid.UUID { return r.media }
 func (r *ListingRead) Link() Link { return r.link }
 
 // LinkPhotos is how many photos the old listing has, 0 before the read step.
-func (r *ListingRead) LinkPhotos() int      { return r.linkPhotos }
-func (r *ListingRead) Status() Status       { return r.status }
-func (r *ListingRead) Failure() Failure     { return r.failure }
-func (r *ListingRead) Photos() []Photo      { return slices.Clone(r.photos) }
-func (r *ListingRead) ContactRemoved() bool { return r.contactRemoved }
-func (r *ListingRead) CreatedAt() time.Time { return r.createdAt }
-func (r *ListingRead) ExpiresAt() time.Time { return r.expiresAt }
-func (r *ListingRead) WriteID() uuid.UUID   { return r.writeID }
+func (r *ListingRead) LinkPhotos() int  { return r.linkPhotos }
+func (r *ListingRead) Status() Status   { return r.status }
+func (r *ListingRead) Failure() Failure { return r.failure }
+
+// FailureReason says in a sentence why the read failed: the model's
+// reason, or what went wrong asking it; empty for the other failures.
+func (r *ListingRead) FailureReason() string { return r.reason }
+func (r *ListingRead) Photos() []Photo       { return slices.Clone(r.photos) }
+func (r *ListingRead) ContactRemoved() bool  { return r.contactRemoved }
+func (r *ListingRead) CreatedAt() time.Time  { return r.createdAt }
+func (r *ListingRead) ExpiresAt() time.Time  { return r.expiresAt }
+func (r *ListingRead) WriteID() uuid.UUID    { return r.writeID }
 
 // Draft is a copy of the draft, nil before the step that fills it.
 func (r *ListingRead) Draft() *Draft {
@@ -187,15 +193,16 @@ func (r *ListingRead) Finish(e *Estimate) error {
 	return nil
 }
 
-// Fail ends the read with f, one of the failures its source can have.
-func (r *ListingRead) Fail(f Failure) error {
+// Fail ends the read with f, one of the failures its source can have, and
+// the reason for the seller, cut to MaxReason.
+func (r *ListingRead) Fail(f Failure, reason string) error {
 	if r.status != StatusReading {
 		return ErrNotReading
 	}
 	if !slices.Contains(failures[r.source], f) {
 		return ErrWrongFailure
 	}
-	r.status, r.failure = StatusFailed, f
+	r.status, r.failure, r.reason = StatusFailed, f, cut(strings.TrimSpace(reason), MaxReason)
 	return nil
 }
 
@@ -219,6 +226,7 @@ type ListingReadState struct {
 	LinkPhotos     int       `json:"link_photos"`
 	Status         Status    `json:"status"`
 	Failure        Failure   `json:"failure"`
+	FailureReason  string    `json:"failure_reason"`
 	Photos         []Photo   `json:"photos"`
 	Draft          *Draft    `json:"draft"`
 	ContactRemoved bool      `json:"contact_removed"`
@@ -232,7 +240,7 @@ type ListingReadState struct {
 func RestoreListingRead(st ListingReadState) ListingRead {
 	return ListingRead{
 		id: st.ID, accountID: st.AccountID, source: st.Source, media: st.Media, link: st.Link, linkPhotos: st.LinkPhotos,
-		status: st.Status, failure: st.Failure, photos: st.Photos, draft: st.Draft, contactRemoved: st.ContactRemoved,
+		status: st.Status, failure: st.Failure, reason: st.FailureReason, photos: st.Photos, draft: st.Draft, contactRemoved: st.ContactRemoved,
 		estimate: st.Estimate, createdAt: st.CreatedAt, expiresAt: st.ExpiresAt, writeID: st.WriteID,
 	}
 }
@@ -241,7 +249,7 @@ func RestoreListingRead(st ListingReadState) ListingRead {
 func (r *ListingRead) State() ListingReadState {
 	return ListingReadState{
 		ID: r.id, AccountID: r.accountID, Source: r.source, Media: r.media, Link: r.link, LinkPhotos: r.linkPhotos,
-		Status: r.status, Failure: r.failure, Photos: r.Photos(), Draft: r.Draft(), ContactRemoved: r.contactRemoved,
+		Status: r.status, Failure: r.failure, FailureReason: r.reason, Photos: r.Photos(), Draft: r.Draft(), ContactRemoved: r.contactRemoved,
 		Estimate: r.Estimate(), CreatedAt: r.createdAt, ExpiresAt: r.expiresAt, WriteID: r.writeID,
 	}
 }

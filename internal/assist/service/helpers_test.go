@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -286,9 +287,9 @@ func (m *fakeModel) Stream(_ context.Context, r llm.Request, onText func(string)
 		return "", err
 	}
 	runes := []rune(answer)
-	for i := 1; i <= 3; i++ {
+	for i := 1; i <= 6; i++ {
 		time.Sleep(gap)
-		onText(string(runes[:len(runes)*i/3]))
+		onText(string(runes[:len(runes)*i/6]))
 	}
 	return answer, nil
 }
@@ -299,8 +300,20 @@ func (m *fakeModel) asked() (calls, images int, user string) {
 	return m.calls, m.images, m.user
 }
 
+// reply is the model's JSON answer with an item.
+func reply(title, description string) string {
+	b, err := json.Marshal(domain.Reply{Subject: "món đồ", Found: true, Title: title, Description: description})
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
+}
+
+// noItemReply is the model's JSON answer when it sees no item.
+const noItemReply = `{"subject":"một người","found":false,"title":"","description":"","reason":"Ảnh chỉ có một người."}`
+
 // bicycleText is the model's text for the seller's bicycle video.
-const bicycleText = "Xe đạp Asama xanh\nXe đi ít, có thương lượng."
+var bicycleText = reply("Xe đạp Asama xanh", "Xe đi ít, có thương lượng.")
 
 // photoURL is photo i of the fake listing on the fake CDN.
 func photoURL(i int) string { return fmt.Sprintf("https://cdn.chotot.com/fake/%d.jpg", i) }
@@ -372,7 +385,7 @@ func (f *fakeSource) Image(_ context.Context, url string) (photo []byte, content
 
 // iphoneLinkText is the model's text for the seller's iPhone listing; it
 // leaves the phone in the description for the regex to find.
-const iphoneLinkText = "iPhone 11 64GB Trắng, pin 81%\nMáy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Liên hệ 0909 123 456."
+var iphoneLinkText = reply("iPhone 11 64GB Trắng, pin 81%", "Máy dùng 3 năm, zin all, chưa sửa chữa. Pin 81%. Liên hệ 0909 123 456.")
 
 const iphoneLink = "https://www.chotot.com/tp-ho-chi-minh/quan-binh-thanh/mua-ban-dien-thoai/119482736.htm?utm_source=share"
 
@@ -405,7 +418,7 @@ func (e env) linkEnd(t *testing.T, owner, id uuid.UUID) service.ListingReadView 
 
 // iphonePhotoText is the model's text for the seller's photo of their
 // iPhone.
-const iphonePhotoText = "iPhone 11 Trắng\niPhone 11 màu trắng, mặt lưng kính, cụm 2 camera sau."
+var iphonePhotoText = reply("iPhone 11 Trắng", "iPhone 11 màu trắng, mặt lưng kính, cụm 2 camera sau.")
 
 // photo uploads a JPEG for owner and returns its upload ID.
 func (e env) photo(t *testing.T, owner uuid.UUID) uuid.UUID {

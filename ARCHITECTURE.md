@@ -2591,18 +2591,23 @@ The video read:
   transcript when the read has one, else module ai's `Transcribe` of the same key, and the LLM in one
   step, so the transcript never reaches the journal; the LLM gets the
   frames at 768 px and the transcript with where it came from, and streams
-  plain text (decided 2026-11-19): the title on the first line, the
-  description after it, or `NO_ITEM` alone.
+  JSON in `domain.ReplySchema` (decided 2026-11-20; plain text read as no
+  item too often): `subject`, `found`, `title`, `description` and `reason`,
+  a Vietnamese sentence for the seller when `found` is false. The text
+  reaches the relay as the model writes it (`domain.PartialText`). A photo
+  or video reply with `found` false is asked once more.
 - The category is catalog's `GuessCategory` of the title and description;
   a guess that fails leaves it empty for the seller to pick.
   `domain.VideoDraft` squeezes the title and cuts it at 70 characters and
   the description at 1,500. The draft is `used`, with no specs, no price
   and `allow_offers` false; the seller fills the category's `spec_labels`,
   the price and the rest. Its photos are the sharpest frame, then the
-  others in time order, 6 at most. `NO_ITEM` or an empty title fails the
-  read with `no_item`. The description restates the seller's words only,
-  and the prompt forbids naming a mark the seller did not name
-  (`app/mohinh.md`, section 1). `PromptVersion` is 4.
+  others in time order, 6 at most. `found` false or an empty title fails
+  the read with `no_item` and the model's `reason` as `failure_reason`. An
+  answer that is not the JSON is retried like a model error. The
+  description restates the seller's words only, and the prompt forbids
+  naming a mark the seller did not name (`app/mohinh.md`, section 1).
+  `PromptVersion` is 6.
 - The reads do not price the draft (decided 2026-11-19); the seller types
   the price, and `POST /v1/price-guides` still prices a draft on request.
 - A refusal from `Frames` fails the read: `unreadable` (also for a key with
@@ -2611,7 +2616,10 @@ The video read:
   video with no audio track reads without speech. `Transcribe`'s too long or
   any other refusal also reads the video without speech, since the frames
   step already read it, and is logged. One from the LLM
-  (`llm.ErrRefused`, any 4xx but 429) is `unavailable` at once. The run has a 2-minute deadline from
+  (`llm.ErrRefused`, any 4xx but 402 and 429) is `unavailable` at once. An
+  `unavailable` from the model keeps a `failure_reason`: the status and
+  message the model's error gave, or that it timed out or answered
+  something other than the JSON. The run has a 2-minute deadline from
   `created_at`. Each model step runs with `restate.WithMaxRetryDuration` set
   to the time left and at most 3 attempts, since the SDK retries a step
   every 2 s at most; a frames or fill step that runs out, or would start
@@ -2656,7 +2664,7 @@ photo, the app's cover, and costs one image and no speech to text:
   refusal is `invalid_upload` 422 and deletes the row again. The read
   holds nothing: the listing posts the photo.
 - `Run` has one step. It sends the photo at 768 px with
-  `photoSystemPrompt` (`PhotoPromptVersion` 3) and streams the text;
+  `photoSystemPrompt` (`PhotoPromptVersion` 5) and streams the JSON reply;
   `domain.PhotoDraft` cleans it as the video read does, keeps the photo as
   the draft's one photo and cuts the description at 300 characters. The description says what the photo shows and never names a
   mark or a fault, or anything a photo cannot show. A photo no longer
@@ -2702,7 +2710,7 @@ bạn", and nothing compares the listing's owner with the account.
   Read: the gateway and the model in one step, so the listing's text never
   enters the journal; the model gets the subject, the parameters, Chợ Tốt's
   category and the body, without photos, and streams the text
-  (`LinkPromptVersion` 3). `domain.LinkDraft` cleans it and guesses the
+  (`LinkPromptVersion` 4). `domain.LinkDraft` cleans it and guesses the
   category as the video read does; the price is the listing's own, kept
   between 10,000 and 1,000,000,000 đồng; `StripPhones` takes out what still
   looks like a Vietnamese phone number and sets `contact_removed`. While the
