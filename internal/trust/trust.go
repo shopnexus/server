@@ -13,6 +13,7 @@ import (
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/module"
 	"github.com/shopnexus/server/internal/provider/llm"
@@ -40,18 +41,18 @@ func LLMClassifier(model llm.Client, alias string, timeout time.Duration, log *s
 // message.sent and account.deleted, and returns trust's Restate services and
 // the Service screen reads ratings, reviews and warnings through.
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service,
-	chats chatsvc.Service,
+	chats chatsvc.Service, media mediasvc.Service,
 ) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
 		Reviews: repository.NewReviews(d.Pool), Reports: repository.NewReports(d.Pool), Cases: repository.NewCases(d.Pool), Scams: repository.NewScamWarnings(d.Pool),
-		Accounts: accounts, Catalog: catalog, Deals: deals, Chats: chats, Classifier: s.Classifier,
+		Accounts: accounts, Catalog: catalog, Deals: deals, Chats: chats, Media: media, Classifier: s.Classifier,
 		Facts: []service.FactSource{
 			service.AccountAge{Accounts: accounts},
 			service.MarketGap{Catalog: catalog, TextMin: s.TextMin, PhotoMin: s.PhotoMin},
 		},
 		Log: d.Log, Prefix: d.ServicePrefix, Now: d.Now,
 	})
-	handler.New(svc, d.Log).Register(d.Router, d.Protect)
+	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
 	w := worker.ScamWorker{Prefix: d.ServicePrefix, Chats: chats, Trust: svc}
 	d.Events.Subscribe(events.MessageSent, w.ServiceName(), "MessageSent")
 	d.Events.Subscribe(events.AccountDeleted, w.ServiceName(), "AccountDeleted")

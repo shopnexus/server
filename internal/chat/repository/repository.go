@@ -92,6 +92,10 @@ type Chats interface {
 	// conversation holding a deal where seller sells: that message's time
 	// and seller's first such message's, if any.
 	ReplyThreads(ctx context.Context, seller uuid.UUID, since time.Time) ([]domain.ReplyThread, error)
+	// ReplyWait is how many of account's reply samples were answered at or
+	// after since, and their median wait; none give 0 and 0. Each sent
+	// message writes its sender's sample when it ends a wait.
+	ReplyWait(ctx context.Context, account uuid.UUID, since time.Time) (samples int, median time.Duration, err error)
 	// ListingSenders reads, for each of seller's listings among ids, the
 	// people other than seller who wrote to seller about it in their pair
 	// conversation, with their first such message's time, earliest first.

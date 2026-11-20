@@ -9,6 +9,18 @@ ReviewDraft:
     text:
       type: string
       description: At most 500 characters after trimming; may be empty.
+    photos:
+      type: array
+      maxItems: 4
+      uniqueItems: true
+      description: |
+        Upload IDs of the caller's photos, in the order they show; [] removes
+        them, and leaving the field out keeps the review's photos. Each is a
+        photo upload of the caller's, uploaded and not yet used elsewhere, or
+        already one of this review's.
+      items:
+        type: string
+        format: uuid
 Review:
   type: object
   additionalProperties: false
@@ -55,6 +67,14 @@ Review:
         - $ref: "#/ReviewReply"
         - type: "null"
       description: The subject's one reply; null without one.
+    photos:
+      type: array
+      maxItems: 4
+      description: The reviewer's photos in their order; empty without any.
+      items:
+        $ref: "#/ReviewPhoto"
+    helpful:
+      $ref: "#/ReviewHelpful"
     created_at:
       type: string
       format: date-time
@@ -62,6 +82,38 @@ Review:
     updated_at:
       type: string
       format: date-time
+ReviewPhoto:
+  type: object
+  additionalProperties: false
+  required: [upload_id, url, thumb_url]
+  properties:
+    upload_id:
+      type: string
+      format: uuid
+      description: What ReviewDraft.photos names to keep the photo.
+    url:
+      type: string
+      format: uri
+      description: The photo, at most 1600 px on its long side.
+    thumb_url:
+      type: string
+      format: uri
+      description: A 400 px thumbnail.
+ReviewHelpful:
+  type: object
+  additionalProperties: false
+  required: [count]
+  description: The people who found the review helpful.
+  properties:
+    count:
+      type: integer
+      minimum: 0
+    marked:
+      type: boolean
+      description: |
+        Whether the reader marked the review helpful; present only when the
+        reader may mark it: signed in, and neither its reviewer nor its
+        subject.
 ReviewRole:
   type: string
   enum: [seller, buyer]
@@ -245,6 +297,12 @@ OwnReview:
       maxLength: 500
     reply:
       $ref: "#/ReviewReply"
+    photos:
+      type: array
+      maxItems: 4
+      description: The review's photos; absent on a deleted review.
+      items:
+        $ref: "#/ReviewPhoto"
 TheirReview:
   type: object
   additionalProperties: false
@@ -275,3 +333,9 @@ TheirReview:
     can_reply:
       type: boolean
       description: Visible and without a reply. A reply closes the review for both sides.
+    photos:
+      type: array
+      maxItems: 4
+      description: A visible review's photos.
+      items:
+        $ref: "#/ReviewPhoto"

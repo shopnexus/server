@@ -55,7 +55,7 @@ review:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "Stars or text break a rule (invalid_review, with fields)."
+        description: "Stars or text break a rule (invalid_review, with fields), or a photo is not one the caller may use (invalid_upload)."
         content:
           application/json:
             schema:
@@ -96,7 +96,11 @@ sellerReviews:
   get:
     operationId: listSellerReviews
     summary: A seller's visible reviews, newest first; the same as /v1/accounts/{id}/reviews?role=seller.
+    description: A signed-in reader gets helpful.marked on each review they may mark.
     tags: [trust]
+    security:
+      - {}
+      - bearerAuth: []
     parameters:
       - name: id
         in: path
@@ -125,7 +129,11 @@ accountReviews:
   get:
     operationId: listAccountReviews
     summary: A person's visible reviews in one role, newest first.
+    description: A signed-in reader gets helpful.marked on each review they may mark.
     tags: [trust]
+    security:
+      - {}
+      - bearerAuth: []
     parameters:
       - name: id
         in: path
@@ -214,6 +222,68 @@ reviewReply:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+reviewHelpful:
+  put:
+    operationId: markReviewHelpful
+    summary: Mark a visible review helpful; marking it again changes nothing.
+    description: |
+      Anyone signed in but the review's reviewer and its subject. The count
+      shows in Review.helpful.
+    tags: [trust]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Marked.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No such visible review (review_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The caller wrote the review or is its subject (own_review)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: unmarkReviewHelpful
+    summary: Take back the caller's helpful mark; an absent one is fine.
+    tags: [trust]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Not marked.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
 reports:
   get:
     operationId: listMyReports

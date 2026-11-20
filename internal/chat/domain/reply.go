@@ -43,3 +43,49 @@ func ReplyRateOf(threads []ReplyThread, now time.Time) (percent, count int, ok b
 	}
 	return inTime * 100 / count, count, true
 }
+
+const (
+	// ReplyTimePeriod is how far back a reply time reaches.
+	ReplyTimePeriod = 30 * 24 * time.Hour
+	// ReplyGap is how long after the seller's last message another one
+	// from the other person starts a new wait; a message sooner continues
+	// the talk.
+	ReplyGap = time.Hour
+	// MinReplySamples is how many answers a reply time needs.
+	MinReplySamples = 5
+)
+
+// ReplyTime is how soon a seller usually answers: the ReplyTime schema.
+type ReplyTime string
+
+const (
+	ReplyMinutes ReplyTime = "minutes"
+	ReplyHour    ReplyTime = "hour"
+	ReplyHours   ReplyTime = "hours"
+	ReplyDay     ReplyTime = "day"
+)
+
+// replyBounds are the longest median wait of each ReplyTime, shortest first.
+var replyBounds = []struct {
+	upTo time.Duration
+	time ReplyTime
+}{
+	{10 * time.Minute, ReplyMinutes},
+	{time.Hour, ReplyHour},
+	{6 * time.Hour, ReplyHours},
+	{24 * time.Hour, ReplyDay},
+}
+
+// ReplyTimeOf is the ReplyTime of a median wait over samples answers; ok
+// is false below MinReplySamples or past a day.
+func ReplyTimeOf(samples int, median time.Duration) (t ReplyTime, ok bool) {
+	if samples < MinReplySamples {
+		return "", false
+	}
+	for _, b := range replyBounds {
+		if median <= b.upTo {
+			return b.time, true
+		}
+	}
+	return "", false
+}

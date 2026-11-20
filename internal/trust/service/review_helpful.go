@@ -1,0 +1,51 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"uuid"
+
+	"github.com/shopnexus/server/internal/trust/domain"
+	"github.com/shopnexus/server/internal/trust/repository"
+)
+
+// MarkHelpful records that the caller found a visible review helpful. Its
+// reviewer and its subject get domain.ErrOwnReview; a hidden, deleted or
+// unknown review is domain.ErrNotFound.
+func (s *Trust) MarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
+	status, err := s.accounts.Status(ctx, caller)
+	if err != nil {
+		return fmt.Errorf("read account status: %w", err)
+	}
+	if r := status.Refusal(); r != nil {
+		return r
+	}
+	r, err := s.reviews.Get(ctx, id)
+	if errors.Is(err, repository.ErrNotFound) {
+		return domain.ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("get review: %w", err)
+	}
+	now := s.now()
+	if r.Deleted() || !r.Visible(now) {
+		return domain.ErrNotFound
+	}
+	if caller == r.ReviewerID() || caller == r.SubjectID() {
+		return domain.ErrOwnReview
+	}
+	if err = s.reviews.MarkHelpful(ctx, id, caller, now); err != nil {
+		return fmt.Errorf("mark helpful: %w", err)
+	}
+	return nil
+}
+
+// UnmarkHelpful takes the caller's helpful mark back; without one it
+// changes nothing.
+func (s *Trust) UnmarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
+	if err := s.reviews.UnmarkHelpful(ctx, id, caller); err != nil {
+		return fmt.Errorf("unmark helpful: %w", err)
+	}
+	return nil
+}

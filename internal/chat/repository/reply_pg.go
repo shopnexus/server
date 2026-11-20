@@ -73,3 +73,58 @@ func (s pgChats) ListingSenders(ctx context.Context, seller uuid.UUID, ids []uui
 	}
 	return out, nil
 }
+
+// replySample records a sent message as its sender's answer when it ends a
+// wait in a pair conversation where the sender sells: the other member
+// named a listing of the sender's there, or a deal there has the sender
+// selling. The wait starts at the other member's first message after the
+// sender's previous one, and counts only when that came at least @gap
+// seconds after it, or the sender had not written before. Deal messages
+// count on neither side, as in replyThreads.
+const replySample = `
+INSERT INTO reply_samples (message_id, account_id, asked_at, answered_at)
+SELECT @id, @sender, w.asked_at, @at
+FROM conversations c
+LEFT JOIN LATERAL (
+    SELECT o.id, o.created_at FROM messages o
+    WHERE o.conversation_id = c.id AND o.sender_id = @sender AND o.status = 'sent' AND o.deal_id IS NULL AND o.id < @id
+    ORDER BY o.id DESC LIMIT 1
+) own ON true
+CROSS JOIN LATERAL (
+    SELECT min(q.created_at) AS asked_at FROM messages q
+    WHERE q.conversation_id = c.id AND q.sender_id <> @sender AND q.status = 'sent' AND q.deal_id IS NULL
+      AND q.id < @id AND (own.id IS NULL OR q.id > own.id)
+) w
+WHERE c.id = @conversation AND c.kind = 'pair' AND w.asked_at IS NOT NULL
+  AND (own.id IS NULL OR w.asked_at >= own.created_at + make_interval(secs => @gap))
+  AND (EXISTS (SELECT 1 FROM deals d WHERE d.conversation_id = c.id AND d.seller_id = @sender)
+       OR EXISTS (SELECT 1 FROM messages n JOIN listings l ON l.id = n.listing_id
+                  WHERE n.conversation_id = c.id AND n.sender_id <> @sender AND l.seller_id = @sender))
+ON CONFLICT (message_id) DO NOTHING`
+
+// sampled writes m's reply sample, if it is one, and drops its sender's
+// samples older than domain.ReplyTimePeriod, so the table holds the period.
+func sampled(ctx context.Context, tx pgx.Tx, m domain.Message) error {
+	if _, err := tx.Exec(ctx, replySample, pgx.StrictNamedArgs{
+		"id": m.ID(), "sender": m.SenderID(), "conversation": m.ConversationID(), "at": m.CreatedAt(),
+		"gap": domain.ReplyGap.Seconds(),
+	}); err != nil {
+		return fmt.Errorf("insert the reply sample: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM reply_samples WHERE account_id = @sender AND answered_at < @before`,
+		pgx.StrictNamedArgs{"sender": m.SenderID(), "before": m.CreatedAt().Add(-domain.ReplyTimePeriod)}); err != nil {
+		return fmt.Errorf("drop old reply samples: %w", err)
+	}
+	return nil
+}
+
+func (s pgChats) ReplyWait(ctx context.Context, account uuid.UUID, since time.Time) (samples int, median time.Duration, err error) {
+	var seconds float64
+	if err = s.db.QueryRow(ctx, `SELECT count(*),
+       coalesce(extract(epoch FROM percentile_disc(0.5) WITHIN GROUP (ORDER BY answered_at - asked_at)), 0)::float8
+FROM reply_samples WHERE account_id = @account AND answered_at >= @since`,
+		pgx.StrictNamedArgs{"account": account, "since": since}).Scan(&samples, &seconds); err != nil {
+		return 0, 0, fmt.Errorf("read the reply wait: %w", err)
+	}
+	return samples, time.Duration(seconds * float64(time.Second)), nil
+}

@@ -11,6 +11,7 @@ var (
 	ErrClosed        = apperr.New(apperr.KindConflict, "review_closed", "a review with a reply no longer changes")
 	ErrHidden        = apperr.New(apperr.KindConflict, "review_hidden", "a review is answered once it shows")
 	ErrReplied       = apperr.New(apperr.KindConflict, "review_replied", "a review takes one reply")
+	ErrOwnReview     = apperr.New(apperr.KindConflict, "own_review", "nobody marks a review they wrote or one about them helpful")
 
 	ErrInvalidReport  = apperr.New(apperr.KindInvalid, "invalid_report", "the report breaks a rule; see fields")
 	ErrSelfReport     = apperr.New(apperr.KindInvalid, "self_report", "nobody reports themselves or their own listing")

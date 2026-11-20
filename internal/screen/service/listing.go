@@ -8,6 +8,7 @@ import (
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	trustdomain "github.com/shopnexus/server/internal/trust/domain"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
@@ -31,6 +32,8 @@ type SellerSummary struct {
 	JoinedAt    time.Time       `json:"joined_at"`
 	Rating      trustsvc.Rating `json:"rating"`
 	Sold        int             `json:"sold"`
+	// ReplyTime is "" when the seller has too few answers to tell.
+	ReplyTime chatdomain.ReplyTime `json:"reply_time,omitempty"`
 }
 
 // ListingViewer is the ListingViewer schema in
@@ -76,9 +79,13 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, ref string, nea
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("count the listings: %w", err)
 	}
+	replyTime, err := s.chats.ReplyTime(ctx, l.SellerID)
+	if err != nil {
+		return ListingScreen{}, fmt.Errorf("read the reply time: %w", err)
+	}
 	out := ListingScreen{Listing: l, DistanceKm: distance, Seller: SellerSummary{
 		ID: l.SellerID, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, JoinedAt: seller.CreatedAt,
-		Rating: rating, Sold: counts.Sold,
+		Rating: rating, Sold: counts.Sold, ReplyTime: replyTime,
 	}}
 	if viewer == nil || *viewer == l.SellerID {
 		return out, nil

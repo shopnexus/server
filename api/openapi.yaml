@@ -312,6 +312,8 @@ paths:
     $ref: "paths/trust.yaml#/accountReviews"
   /v1/reviews/{id}/reply:
     $ref: "paths/trust.yaml#/reviewReply"
+  /v1/reviews/{id}/helpful:
+    $ref: "paths/trust.yaml#/reviewHelpful"
   /v1/reports:
     $ref: "paths/trust.yaml#/reports"
   /v1/reports/{id}:

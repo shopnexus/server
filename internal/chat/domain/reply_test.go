@@ -38,3 +38,26 @@ func TestReplyRateOf(t *testing.T) {
 		}
 	}
 }
+
+func TestReplyTimeOf(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		samples int
+		median  time.Duration
+		want    domain.ReplyTime
+		ok      bool
+	}{
+		{4, time.Minute, "", false},
+		{5, 10 * time.Minute, domain.ReplyMinutes, true},
+		{5, 11 * time.Minute, domain.ReplyHour, true},
+		{9, time.Hour, domain.ReplyHour, true},
+		{9, 2 * time.Hour, domain.ReplyHours, true},
+		{9, 7 * time.Hour, domain.ReplyDay, true},
+		{9, 24 * time.Hour, domain.ReplyDay, true},
+		{9, 25 * time.Hour, "", false},
+	} {
+		if got, ok := domain.ReplyTimeOf(c.samples, c.median); got != c.want || ok != c.ok {
+			t.Errorf("ReplyTimeOf(%d, %v) = %q, %v; want %q, %v", c.samples, c.median, got, ok, c.want, c.ok)
+		}
+	}
+}

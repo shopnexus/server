@@ -92,6 +92,10 @@ type Service interface {
 	// the conversations others started about its listings over
 	// domain.ReplyPeriod; nil while fewer than domain.MinReplyCount count.
 	ReplyRate(ctx context.Context, account uuid.UUID) (*ReplyRate, error)
+	// ReplyTime is how soon account usually answered those who wrote
+	// about its listings over domain.ReplyTimePeriod; "" with fewer than
+	// domain.MinReplySamples answers or a median past a day.
+	ReplyTime(ctx context.Context, account uuid.UUID) (domain.ReplyTime, error)
 	// ListingAskers reads, for each of the seller's listings among ids, the
 	// people who wrote to the seller about it, with their first such
 	// message's time; a listing nobody wrote about has no entry.

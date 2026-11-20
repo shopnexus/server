@@ -45,4 +45,20 @@ type Reviews interface {
 	// Summary is subject's average stars and number of reviews in role,
 	// visible at now and not deleted; no reviews give 0 and 0.
 	Summary(ctx context.Context, subject uuid.UUID, role domain.Role, now time.Time) (average float64, count int, err error)
+	// MarkHelpful records that account found the review helpful; a second
+	// mark changes nothing.
+	MarkHelpful(ctx context.Context, review, account uuid.UUID, at time.Time) error
+	// UnmarkHelpful takes account's mark back; an absent one is fine.
+	UnmarkHelpful(ctx context.Context, review, account uuid.UUID) error
+	// Helpful counts the helpful marks of the reviews given and tells
+	// whether viewer made each, in one query; a review without marks is
+	// left out. A nil viewer made none.
+	Helpful(ctx context.Context, reviews []uuid.UUID, viewer *uuid.UUID) (map[uuid.UUID]HelpfulMarks, error)
+}
+
+// HelpfulMarks are the helpful marks of one review.
+type HelpfulMarks struct {
+	Count int
+	// Viewer is whether the viewer made one of them.
+	Viewer bool
 }
