@@ -40,6 +40,9 @@ type SellerProfile struct {
 	Sold         int             `json:"sold"`
 	OnSale       int             `json:"on_sale"`
 	Followers    int             `json:"followers"`
+	// PhoneVerified is whether the seller has a phone identity; the number
+	// stays out of the view.
+	PhoneVerified bool `json:"phone_verified"`
 	// ReplyTime is "" when the seller has too few answers to tell.
 	ReplyTime chatdomain.ReplyTime `json:"reply_time,omitempty"`
 }
@@ -53,14 +56,14 @@ type SellerViewer struct {
 	ConversationID uuid.UUID `json:"conversation_id,omitzero"`
 }
 
-// Seller reads the seller's profile with how soon they usually answer, and
-// the first page, of the default
+// Seller reads the seller's profile with how soon they usually answer and
+// whether they have a phone identity, and the first page, of the default
 // size, of their public listings as search items, each with its distance
 // from near and whether the viewer saved it, and of their reviews as a
-// seller and as a buyer, with both ratings. An
-// unknown account is accountdomain.ErrAccountNotFound. A viewer who is not
-// the seller also gets whether a block stands between the two, whether
-// they follow the seller, and their conversation.
+// seller and as a buyer, with both ratings. An unknown account is
+// accountdomain.ErrAccountNotFound. A viewer who is not the seller also
+// gets whether a block stands between the two, whether they follow the
+// seller, and their conversation.
 func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error) {
 	seller, err := s.accounts.Get(ctx, id)
 	if err != nil {
@@ -89,6 +92,10 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, ne
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the reply time: %w", err)
 	}
+	phoneVerified, err := s.accounts.HasPhone(ctx, id)
+	if err != nil {
+		return SellerScreen{}, fmt.Errorf("read the phone identity: %w", err)
+	}
 	listings, err := s.discovery.SellerListings(ctx, viewer, id, near, page.Request{})
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("list the listings: %w", err)
@@ -105,7 +112,7 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, ne
 		Seller: SellerProfile{
 			ID: id, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, Bio: seller.Bio, JoinedAt: seller.CreatedAt, LastActiveAt: seller.LastActiveAt,
 			Rating: rating, BuyerRating: buyerRating, Sold: counts.Sold, OnSale: counts.Public, Followers: followers,
-			ReplyTime: replyTime,
+			PhoneVerified: phoneVerified, ReplyTime: replyTime,
 		},
 		Listings: listings, Reviews: reviews, BuyerReviews: buyerReviews,
 	}

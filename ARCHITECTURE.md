@@ -2028,6 +2028,11 @@ page that shows two views calls both at once.
   neither side. The read is one indexed `percentile_disc(0.5)` over the
   seller's rows. Unanswered waits count nothing; the reply rate covers
   those. Migration 0067 fills the last 30 days by the same rule.
+- `phone_verified` on the listing view's `SellerSummary` and the seller
+  view's `SellerProfile` (decided 2026-11-20) is account's `HasPhone`: the
+  seller signs in with a phone number, which the sign-in verified. The
+  website shows "Đã xác minh SĐT" for it. The number stays out of both
+  views.
 - `GET /v1/me/unread` (decided 2026-11-19): `{unread, notifications}`,
   chat's unread total, as the inbox counts it, and notification's unread
   notices, so a badge needs one call. Screen serves it, since chat cannot
