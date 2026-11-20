@@ -20,6 +20,7 @@ import (
 	dealrepo "github.com/shopnexus/server/internal/deal/repository"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/media/mediatest"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
@@ -33,6 +34,7 @@ type env struct {
 	accounts accountsvc.Service
 	deals    *dealsvc.Deals
 	chats    *chatsvc.Chat
+	media    *mediasvc.Media
 	scams    repository.ScamWarnings
 	trust    *service.Trust
 }
@@ -57,9 +59,9 @@ func newEnv(t *testing.T) env {
 	scams := repository.NewScamWarnings(db)
 	trust := service.New(service.Deps{
 		Reviews: repository.NewReviews(db), Reports: repository.NewReports(db), Cases: repository.NewCases(db), Scams: scams, Accounts: accounts, Catalog: c,
-		Deals: deals, Chats: chats, Log: slog.New(slog.DiscardHandler), Now: time.Now,
+		Deals: deals, Chats: chats, Media: media, Log: slog.New(slog.DiscardHandler), Now: time.Now,
 	})
-	return env{db: db, accounts: accounts, deals: deals, chats: chats, scams: scams, trust: trust}
+	return env{db: db, accounts: accounts, deals: deals, chats: chats, media: media, scams: scams, trust: trust}
 }
 
 // person creates an account with a verified phone number.

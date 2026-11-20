@@ -37,6 +37,10 @@ type Service interface {
 	// its avatar, waits until it is processed into a square and returns the
 	// square's object key. A retry returns the same key.
 	Square(ctx context.Context, owner, holder, id uuid.UUID) (string, error)
+	// Photos gives owner's uploads to holder, such as an order's review, as
+	// photos, waits until each is processed and returns their keys by upload
+	// ID. A retry returns the same keys.
+	Photos(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]ProcessResult, error)
 	// URL is where a client reads the processed object key.
 	URL(key string) string
 	// QueryUpload checks that id is a photo owner uploaded to search with:

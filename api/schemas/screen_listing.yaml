@@ -39,6 +39,8 @@ SellerSummary:
     sold:
       type: integer
       description: Listings sold, through an order or marked by hand.
+    reply_time:
+      $ref: "#/ReplyTime"
 ListingViewer:
   type: object
   additionalProperties: false
@@ -109,6 +111,8 @@ SellerProfile:
     followers:
       type: integer
       description: How many accounts follow the seller.
+    reply_time:
+      $ref: "#/ReplyTime"
     last_active_at:
       type: string
       format: date-time
@@ -116,6 +120,18 @@ SellerProfile:
         When the person last had the app open, to the 30 seconds; absent
         before the first time. The app shows "Đang hoạt động" under 5
         minutes, otherwise how long ago.
+ReplyTime:
+  type: string
+  enum: [minutes, hour, hours, day]
+  description: |
+    How soon the seller usually answers someone who writes about one of
+    their listings: the median wait over the answers of the last 30 days.
+    A wait starts at the other person's first message after the seller's
+    last one, when that came at least an hour before, or at the first
+    message of the conversation; the seller's next message ends it. minutes
+    is within 10 minutes, hour within an hour, hours within 6 hours and day
+    within 24 hours. Absent with fewer than 5 answers in the 30 days, or a
+    median over a day.
 SellerViewer:
   type: object
   additionalProperties: false

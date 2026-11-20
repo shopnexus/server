@@ -65,15 +65,31 @@ type ListingRef struct {
 
 // ReviewView is the Review schema in api/schemas/trust.yaml.
 type ReviewView struct {
-	ID        uuid.UUID   `json:"id"`
-	Role      domain.Role `json:"role"`
-	Stars     int         `json:"stars"`
-	Text      string      `json:"text"`
-	Reviewer  Person      `json:"reviewer"`
-	Listing   ListingRef  `json:"listing"`
-	Reply     *Reply      `json:"reply"`
-	CreatedAt time.Time   `json:"created_at"`
-	UpdatedAt time.Time   `json:"updated_at"`
+	ID        uuid.UUID     `json:"id"`
+	Role      domain.Role   `json:"role"`
+	Stars     int           `json:"stars"`
+	Text      string        `json:"text"`
+	Reviewer  Person        `json:"reviewer"`
+	Listing   ListingRef    `json:"listing"`
+	Reply     *Reply        `json:"reply"`
+	Photos    []ReviewPhoto `json:"photos"`
+	Helpful   Helpful       `json:"helpful"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
+// ReviewPhoto is the ReviewPhoto schema.
+type ReviewPhoto struct {
+	UploadID uuid.UUID `json:"upload_id"`
+	URL      string    `json:"url"`
+	ThumbURL string    `json:"thumb_url"`
+}
+
+// Helpful is the ReviewHelpful schema. Marked is nil for a reader who may
+// not mark the review: signed out, its reviewer or its subject.
+type Helpful struct {
+	Count  int   `json:"count"`
+	Marked *bool `json:"marked,omitempty"`
 }
 
 // Reply is the ReviewReply schema: the subject's one answer.
@@ -89,12 +105,19 @@ type Rating struct {
 	Count   int     `json:"count"`
 }
 
-// views builds the views of reviews, reading their reviewers in one call
-// and their listing titles in another.
-func (s *Trust) views(ctx context.Context, reviews []domain.Review) ([]ReviewView, error) {
+// views builds the views of reviews as viewer reads them, reading their
+// reviewers in one call, their listing titles in another and their helpful
+// marks in a third.
+func (s *Trust) views(ctx context.Context, viewer *uuid.UUID, reviews []domain.Review) ([]ReviewView, error) {
+	ids := make([]uuid.UUID, 0, len(reviews))
 	listingIDs, reviewerIDs := make([]uuid.UUID, 0, len(reviews)), make([]uuid.UUID, 0, len(reviews))
 	for i := range reviews {
+		ids = append(ids, reviews[i].ID())
 		listingIDs, reviewerIDs = append(listingIDs, reviews[i].ListingID()), append(reviewerIDs, reviews[i].ReviewerID())
+	}
+	marks, err := s.reviews.Helpful(ctx, ids, viewer)
+	if err != nil {
+		return nil, fmt.Errorf("read the helpful marks: %w", err)
 	}
 	listings, err := s.catalog.Summaries(ctx, listingIDs)
 	if err != nil {
@@ -108,6 +131,10 @@ func (s *Trust) views(ctx context.Context, reviews []domain.Review) ([]ReviewVie
 	for i := range reviews {
 		r := &reviews[i]
 		reviewer := reviewers[r.ReviewerID()]
+		helpful := Helpful{Count: marks[r.ID()].Count}
+		if viewer != nil && *viewer != r.ReviewerID() && *viewer != r.SubjectID() {
+			helpful.Marked = new(marks[r.ID()].Viewer)
+		}
 		out = append(out, ReviewView{
 			ID: r.ID(), Role: r.Role(), Stars: r.Stars(), Text: r.Text(),
 			Reviewer: Person{
@@ -116,10 +143,21 @@ func (s *Trust) views(ctx context.Context, reviews []domain.Review) ([]ReviewVie
 			},
 			Listing:   ListingRef{ID: r.ListingID(), Title: listings[r.ListingID()].Title},
 			Reply:     replyOf(r),
+			Photos:    s.photoViews(r.Photos()),
+			Helpful:   helpful,
 			CreatedAt: r.CreatedAt(), UpdatedAt: r.UpdatedAt(),
 		})
 	}
 	return out, nil
+}
+
+// photoViews are the public addresses of a review's photos; [] without any.
+func (s *Trust) photoViews(photos []domain.Photo) []ReviewPhoto {
+	out := make([]ReviewPhoto, 0, len(photos))
+	for _, p := range photos {
+		out = append(out, ReviewPhoto{UploadID: p.UploadID, URL: s.media.URL(p.PhotoKey), ThumbURL: s.media.URL(p.ThumbKey)})
+	}
+	return out
 }
 
 // ScamWarningView is the ScamWarning schema in api/schemas/trust.yaml.

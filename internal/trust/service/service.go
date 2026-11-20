@@ -17,6 +17,7 @@ import (
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
@@ -29,8 +30,9 @@ type Service interface {
 	// each order given, keyed by order; the caller is a party to each.
 	OrderReviews(ctx context.Context, caller uuid.UUID, orders []uuid.UUID) (map[uuid.UUID]OrderReviews, error)
 	// PutReview creates the caller's review of the other party to an
-	// order, or edits it within its 7 days and before a reply.
-	PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string) (ReviewView, error)
+	// order, or edits it within its 7 days and before a reply. photos are
+	// upload IDs in order; nil keeps the review's photos.
+	PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string, photos []uuid.UUID) (ReviewView, error)
 	// DeleteReview removes the caller's review of an order within its 7
 	// days and before a reply.
 	DeleteReview(ctx context.Context, caller, order uuid.UUID) error
@@ -40,8 +42,14 @@ type Service interface {
 	// unknown or deleted one.
 	ReviewFacts(ctx context.Context, id uuid.UUID) (ReviewFacts, bool, error)
 	// Reviews reads a page of a person's visible reviews in one role,
-	// newest first: the ReviewList schema in api/schemas/trust.yaml.
-	Reviews(ctx context.Context, subject uuid.UUID, role domain.Role, p page.Request) (page.Page[ReviewView], error)
+	// newest first, as viewer reads them (nil signed out): the ReviewList
+	// schema in api/schemas/trust.yaml.
+	Reviews(ctx context.Context, viewer *uuid.UUID, subject uuid.UUID, role domain.Role, p page.Request) (page.Page[ReviewView], error)
+	// MarkHelpful records that the caller found a visible review helpful;
+	// its reviewer and subject cannot.
+	MarkHelpful(ctx context.Context, caller, review uuid.UUID) error
+	// UnmarkHelpful takes the caller's helpful mark back.
+	UnmarkHelpful(ctx context.Context, caller, review uuid.UUID) error
 	// Rating reads the average and count over a person's visible reviews
 	// in one role.
 	Rating(ctx context.Context, subject uuid.UUID, role domain.Role) (Rating, error)
@@ -90,6 +98,8 @@ type Deps struct {
 	Accounts accountsvc.Service
 	Catalog  catalogsvc.Service
 	Deals    dealsvc.Service
+	// Media keeps and processes reviews' photos.
+	Media mediasvc.Service
 	// Chats tells whether a report's conversation is the reporter's with
 	// the account.
 	Chats chatsvc.Service
@@ -112,6 +122,7 @@ type Trust struct {
 	accounts   accountsvc.Service
 	catalog    catalogsvc.Service
 	deals      dealsvc.Service
+	media      mediasvc.Service
 	chats      chatsvc.Service
 	scams      repository.ScamWarnings
 	classifier Classifier
@@ -125,7 +136,7 @@ var _ Service = (*Trust)(nil)
 
 func New(d Deps) *Trust {
 	return &Trust{
-		reviews: d.Reviews, reports: d.Reports, cases: d.Cases, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, chats: d.Chats,
+		reviews: d.Reviews, reports: d.Reports, cases: d.Cases, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, media: d.Media, chats: d.Chats,
 		scams: d.Scams, classifier: d.Classifier, facts: d.Facts, log: d.Log, prefix: d.Prefix, now: d.Now,
 	}
 }

@@ -440,6 +440,8 @@ separate work.
 | search history | `search_history` | module discovery; one row per folded query of an account, at most 10; no aggregate, no `write_id` |
 | listing views | `listing_view_marks`, `listing_view_days` | module discovery; a person's last day of opening each listing, and the views per listing and UTC day; no aggregate, no `write_id` |
 | notification settings | `notification_settings` | module notification; one row per account that saved settings; no aggregate, no `write_id`: the last `PUT` wins |
+| reply samples | `reply_samples` | module chat; one row per answer that ended a wait, kept 30 days; no aggregate, no `write_id` |
+| helpful marks | `review_helpful` | module trust; one row per person and review; no aggregate, no `write_id` |
 | agent reads | `console_agent_reads` | module agent; one row per read of personal data by an MCP tool, kept 90 days; no aggregate, no `write_id` |
 | agent runs | `agent_conversations`, `agent_turns`, `agent_turn_inputs`, `agent_tool_calls`, `agent_turn_events`, `agent_documents`, `agent_document_versions`, `agent_skills` | module agent; the console agent's conversations and what their runs wrote; no aggregate, no `write_id`: a turn's status changes under its row lock or a `WHERE status` check |
 | AI agents | `ai_agents`, `ai_agent_versions` | module agent; `ai_agents` adds `write_id`, and a save adds the version of new instructions (see AI settings) |
@@ -974,6 +976,10 @@ once a listing draft extended it.
   `MediaProcess`, keyed by the upload ID, so the caller answers once the
   square exists; a refused photo is `invalid_upload`. A replaced avatar's
   objects stay in the store.
+- `Service.Photos(owner, holder, ids)` (decided 2026-11-20) does the same
+  for photos a direct use case keeps, such as a review's: it attaches them
+  as `photo` and calls `MediaProcess` for each at once, keyed by the upload
+  ID, and returns their keys; a refused photo is `invalid_upload`.
 - Another module's Restate flow processes its uploads with
   `mediasvc.ProcessAll(ctx, prefix, ids)`: one `MediaProcess` call per
   upload, keyed by the upload ID, all sent before it waits for the
@@ -1994,6 +2000,23 @@ page that shows two views calls both at once.
   either answered or more than 24 hours old; it is in time when the answer
   came within 24 hours. The rate is the percent in time, rounded down,
   with the count; null below 5 counted.
+- `reply_time` on the listing view's `SellerSummary` and the seller view's
+  `SellerProfile` (decided 2026-11-20) is chat's `ReplyTime`: how soon the
+  seller usually answers people who write about their listings, as a bucket
+  the client words (`minutes` up to 10 minutes, `hour`, `hours` up to 6,
+  `day` up to 24), absent below 5 answers in 30 days or past a day. A view
+  reads it from a table, not from the messages: chat's repository writes a
+  row of `reply_samples` (migration 0068) in the transaction that makes a
+  message sent, when the message ends a wait, and drops the sender's rows
+  older than 30 days. A wait starts at the other member's first message
+  after the seller's previous one, when that came at least an hour later
+  (`domain.ReplyGap`), or at the conversation's first message; within the
+  hour it is the same talk and starts none. The conversation counts when
+  the other member named a listing of the seller's or a deal there has the
+  seller selling, as for the reply rate, and deal messages count on
+  neither side. The read is one indexed `percentile_disc(0.5)` over the
+  seller's rows. Unanswered waits count nothing; the reply rate covers
+  those. Migration 0068 fills the last 30 days by the same rule.
 - `GET /v1/me/unread` (decided 2026-11-19): `{unread, notifications}`,
   chat's unread total, as the inbox counts it, and notification's unread
   notices, so a badge needs one call. Screen serves it, since chat cannot
@@ -2053,6 +2076,22 @@ Module `trust` holds reviews (spec:
   `GET /v1/sellers/{id}/reviews` stays as its `role=seller`. The rating
   comes from `Service.Rating` (decided 2026-11-08, so a view no longer gets
   the average twice).
+- Review photos and helpful marks (decided 2026-11-20). `ReviewDraft.photos`
+  takes up to 4 upload IDs in order; leaving the field out keeps the
+  review's photos, so a client that never sends it (the app) changes none,
+  and `[]` removes them. New ones go through media's `Photos`, which
+  attaches them with the order as holder (a first review's ID is new on
+  each try, so a retry must find its photos still free for it) and waits on
+  `MediaProcess` for each at once; a refused photo is `invalid_upload`.
+  `reviews.photos` keeps `{upload_id, photo_key, thumb_key}` (migration
+  0068), and a delete drops them. `Review`, `OwnReview` and `TheirReview`
+  carry `photos` with public URLs.
+- `PUT /v1/reviews/{id}/helpful` marks a visible review helpful and
+  `DELETE` takes the mark back; its reviewer and subject get `own_review`,
+  a hidden or deleted review `review_not_found`. One row per mark in
+  `review_helpful`. `Review.helpful` is `{count, marked}`, where `marked`
+  is sent only to a reader who may mark it; the review lists read under
+  `Identify` for it. A page counts its marks in one grouped query.
 - `Service.Rating` is a person's average and count over their visible
   reviews in one role. The listing view, search's seller head and the
   console agent read the seller rating; the seller view and the reputation

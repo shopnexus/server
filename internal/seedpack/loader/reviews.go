@@ -55,7 +55,7 @@ func (w Reviews) Write(ctx context.Context, s Sold, reviews []seedpack.Review) (
 		}
 		visible := trustdomain.RevealAt(s.ClosedAt, i > 0, r.At)
 		id := seedpack.ID(s.Pack, "review", s.ListingKey+"/"+r.Role, r.At)
-		review, err := trustdomain.NewReview(id, s.OrderID, role, reviewer, subject, s.ListingID, r.Stars, r.Text, visible, r.At)
+		review, err := trustdomain.NewReview(id, s.OrderID, role, reviewer, subject, s.ListingID, r.Stars, r.Text, nil, visible, r.At)
 		if err != nil {
 			return 0, fmt.Errorf("review: %w", err)
 		}

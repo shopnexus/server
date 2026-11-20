@@ -185,6 +185,9 @@ func written(ctx context.Context, tx pgx.Tx, m domain.Message) error {
 			}); err != nil {
 				return fmt.Errorf("insert message.sent: %w", err)
 			}
+			if err := sampled(ctx, tx, m); err != nil {
+				return err
+			}
 		}
 	} else {
 		accounts = []uuid.UUID{m.SenderID()}

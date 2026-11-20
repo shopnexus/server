@@ -9,6 +9,7 @@ import (
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
 	"github.com/shopnexus/server/internal/platform/page"
 	trustdomain "github.com/shopnexus/server/internal/trust/domain"
@@ -39,6 +40,8 @@ type SellerProfile struct {
 	Sold         int             `json:"sold"`
 	OnSale       int             `json:"on_sale"`
 	Followers    int             `json:"followers"`
+	// ReplyTime is "" when the seller has too few answers to tell.
+	ReplyTime chatdomain.ReplyTime `json:"reply_time,omitempty"`
 }
 
 // SellerViewer is the SellerViewer schema in
@@ -50,7 +53,8 @@ type SellerViewer struct {
 	ConversationID uuid.UUID `json:"conversation_id,omitzero"`
 }
 
-// Seller reads the seller's profile and the first page, of the default
+// Seller reads the seller's profile with how soon they usually answer, and
+// the first page, of the default
 // size, of their public listings as search items, each with its distance
 // from near and whether the viewer saved it, and of their reviews as a
 // seller and as a buyer, with both ratings. An
@@ -81,15 +85,19 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, ne
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("count the followers: %w", err)
 	}
+	replyTime, err := s.chats.ReplyTime(ctx, id)
+	if err != nil {
+		return SellerScreen{}, fmt.Errorf("read the reply time: %w", err)
+	}
 	listings, err := s.discovery.SellerListings(ctx, viewer, id, near, page.Request{})
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("list the listings: %w", err)
 	}
-	reviews, err := s.trust.Reviews(ctx, id, trustdomain.RoleSeller, page.Request{})
+	reviews, err := s.trust.Reviews(ctx, viewer, id, trustdomain.RoleSeller, page.Request{})
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("list the reviews: %w", err)
 	}
-	buyerReviews, err := s.trust.Reviews(ctx, id, trustdomain.RoleBuyer, page.Request{})
+	buyerReviews, err := s.trust.Reviews(ctx, viewer, id, trustdomain.RoleBuyer, page.Request{})
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("list the buyer reviews: %w", err)
 	}
@@ -97,6 +105,7 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, ne
 		Seller: SellerProfile{
 			ID: id, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, Bio: seller.Bio, JoinedAt: seller.CreatedAt, LastActiveAt: seller.LastActiveAt,
 			Rating: rating, BuyerRating: buyerRating, Sold: counts.Sold, OnSale: counts.Public, Followers: followers,
+			ReplyTime: replyTime,
 		},
 		Listings: listings, Reviews: reviews, BuyerReviews: buyerReviews,
 	}

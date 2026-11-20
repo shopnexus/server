@@ -52,7 +52,7 @@ func order(t *testing.T, db *pgxpool.Pool, buyer, seller uuid.UUID) (orderID, li
 // from now; an edit before now finds it hidden, so it may change.
 func review(t *testing.T, s repository.Reviews, o, seller, buyer, listing uuid.UUID, stars int) domain.Review {
 	t.Helper()
-	r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, listing, stars, "Ổn", now, postedAt)
+	r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, listing, stars, "Ổn", nil, now, postedAt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestReviews(t *testing.T) {
 	if avg, n, err := s.Summary(ctx, seller, domain.RoleSeller, now); err != nil || n != 2 || avg != 3 {
 		t.Fatalf("summary %v %d %v", avg, n, err)
 	}
-	if err := r1.Edit(5, "Rất tốt", now.Add(-time.Hour)); err != nil {
+	if err := r1.Edit(5, "Rất tốt", nil, now.Add(-time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Save(ctx, &r1, uuid.NewV7()); err != nil {
@@ -139,7 +139,7 @@ func TestReviewWritesConflict(t *testing.T) {
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	o, l := order(t, db, buyer, seller)
 	first := review(t, s, o, seller, buyer, l, 5)
-	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 1, "Lần hai", now, now.Add(time.Hour))
+	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 1, "Lần hai", nil, now, now.Add(time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestReviewWritesConflict(t *testing.T) {
 	if err = s.Save(ctx, &fresh, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
-	if err = stale.Edit(2, "Cũ", now.Add(-30*time.Minute)); err != nil {
+	if err = stale.Edit(2, "Cũ", nil, now.Add(-30*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(ctx, &stale, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
@@ -181,7 +181,7 @@ func TestRevealAndReply(t *testing.T) {
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	o, l := order(t, db, buyer, seller)
 	deadline := now.Add(domain.BlindWindow)
-	first, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 5, "Tốt", deadline, now)
+	first, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 5, "Tốt", nil, deadline, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,14 +196,14 @@ func TestRevealAndReply(t *testing.T) {
 	}
 	// A hidden second review while the first exists is refused.
 	later := now.Add(2 * time.Hour)
-	stale, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", deadline, later)
+	stale, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", nil, deadline, later)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Insert(ctx, stale); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("a hidden second review: %v", err)
 	}
-	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", later, later)
+	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", nil, later, later)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,5 +230,50 @@ func TestRevealAndReply(t *testing.T) {
 	if err = db.QueryRow(ctx, `SELECT count(*) FROM events WHERE kind = 'review.replied' AND subject_id = @id`,
 		pgx.StrictNamedArgs{"id": first.ID()}).Scan(&replied); err != nil || replied != 1 {
 		t.Fatalf("review.replied: %d %v", replied, err)
+	}
+}
+
+// A review keeps its photos in order; helpful marks count once per person,
+// and the viewer's own mark shows in one query over a page.
+func TestReviewPhotosAndHelpfulMarks(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewReviews(db)
+	ctx := context.Background()
+	seller, buyer, reader := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
+	o, l := order(t, db, buyer, seller)
+	photos := []domain.Photo{{UploadID: uuid.NewV7(), PhotoKey: "media/b.jpg", ThumbKey: "media/b_thumb.jpg"}, {UploadID: uuid.NewV7(), PhotoKey: "media/a.jpg", ThumbKey: "media/a_thumb.jpg"}}
+	r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 5, "Như hình", photos, now, postedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Insert(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Get(ctx, r.ID())
+	if err != nil || len(got.Photos()) != 2 || got.Photos()[0] != photos[0] || got.Photos()[1] != photos[1] {
+		t.Fatalf("%+v %v", got.Photos(), err)
+	}
+	for _, who := range []uuid.UUID{reader, reader, buyer} {
+		if err = s.MarkHelpful(ctx, r.ID(), who, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	other := uuid.NewV7()
+	marks, err := s.Helpful(ctx, []uuid.UUID{r.ID(), other}, &reader)
+	if err != nil || len(marks) != 1 || marks[r.ID()] != (repository.HelpfulMarks{Count: 2, Viewer: true}) {
+		t.Fatalf("%+v %v", marks, err)
+	}
+	if marks, err = s.Helpful(ctx, []uuid.UUID{r.ID()}, nil); err != nil || marks[r.ID()] != (repository.HelpfulMarks{Count: 2}) {
+		t.Fatalf("signed out: %+v %v", marks, err)
+	}
+	if err = s.UnmarkHelpful(ctx, r.ID(), reader); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.UnmarkHelpful(ctx, r.ID(), reader); err != nil {
+		t.Fatal(err)
+	}
+	if marks, err = s.Helpful(ctx, []uuid.UUID{r.ID()}, &reader); err != nil || marks[r.ID()] != (repository.HelpfulMarks{Count: 1}) {
+		t.Fatalf("unmarked: %+v %v", marks, err)
 	}
 }

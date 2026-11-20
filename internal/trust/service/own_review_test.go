@@ -35,7 +35,7 @@ func TestOwnReviewUsesOriginalWindowAndMutationBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Hidden past the window, so the window is what locks it.
-	r, err := domain.NewReview(uuid.NewV7(), order, domain.RoleSeller, buyer, seller, facts.ListingID, 5, "", now.Add(domain.EditWindow+time.Hour), now)
+	r, err := domain.NewReview(uuid.NewV7(), order, domain.RoleSeller, buyer, seller, facts.ListingID, 5, "", nil, now.Add(domain.EditWindow+time.Hour), now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestOwnReviewUsesOriginalWindowAndMutationBoundary(t *testing.T) {
 	}
 	now = now.Add(time.Nanosecond)
 	deleted, err := own(buyer)
-	if err != nil || deleted.State != "deleted" || !deleted.Locked || deleted.Stars != nil || deleted.Text != nil || !deleted.CreatedAt.Equal(first) || !errors.Is(r.Edit(4, "", now), domain.ErrLocked) {
+	if err != nil || deleted.State != "deleted" || !deleted.Locked || deleted.Stars != nil || deleted.Text != nil || !deleted.CreatedAt.Equal(first) || !errors.Is(r.Edit(4, "", nil, now), domain.ErrLocked) {
 		t.Fatalf("deleted: %+v %v", deleted, err)
 	}
 	// The review is not the seller's: for them the order has none of their
@@ -93,7 +93,7 @@ func TestOrderReviewsReadsEveryOrderInOneQuery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := domain.NewReview(uuid.NewV7(), reviewed, domain.RoleSeller, buyer, seller, facts.ListingID, 4, "Ổn", now.Add(domain.EditWindow+time.Hour), now)
+	r, err := domain.NewReview(uuid.NewV7(), reviewed, domain.RoleSeller, buyer, seller, facts.ListingID, 4, "Ổn", nil, now.Add(domain.EditWindow+time.Hour), now)
 	if err != nil {
 		t.Fatal(err)
 	}

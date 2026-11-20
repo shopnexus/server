@@ -18,11 +18,12 @@ type OwnReview struct {
 	UpdatedAt   *time.Time `json:"updated_at"`
 	ChangeUntil *time.Time `json:"change_until"`
 	// VisibleAt is when the other side sees it.
-	VisibleAt *time.Time `json:"visible_at"`
-	Locked    bool       `json:"locked"`
-	Stars     *int       `json:"stars,omitempty"`
-	Text      *string    `json:"text,omitempty"`
-	Reply     *Reply     `json:"reply,omitempty"`
+	VisibleAt *time.Time    `json:"visible_at"`
+	Locked    bool          `json:"locked"`
+	Stars     *int          `json:"stars,omitempty"`
+	Text      *string       `json:"text,omitempty"`
+	Reply     *Reply        `json:"reply,omitempty"`
+	Photos    []ReviewPhoto `json:"photos,omitempty"`
 }
 
 // TheirReview is the TheirReview schema: the other side's review of the
@@ -36,7 +37,8 @@ type TheirReview struct {
 	Text      *string    `json:"text,omitempty"`
 	Reply     *Reply     `json:"reply,omitempty"`
 	// CanReply is a visible review without a reply.
-	CanReply bool `json:"can_reply"`
+	CanReply bool          `json:"can_reply"`
+	Photos   []ReviewPhoto `json:"photos,omitempty"`
 }
 
 // OrderReviews are the two reviews of one order as one party sees them.
@@ -70,7 +72,7 @@ func (s *Trust) OrderReviews(ctx context.Context, caller uuid.UUID, orders []uui
 				Locked: r.CanChange(now) != nil, Reply: replyOf(r),
 			}
 			if !r.Deleted() {
-				own.State, own.Stars, own.Text = "active", new(r.Stars()), new(r.Text())
+				own.State, own.Stars, own.Text, own.Photos = "active", new(r.Stars()), new(r.Text()), s.photoViews(r.Photos())
 			}
 			v.Own = own
 		case r.Deleted():
@@ -79,7 +81,7 @@ func (s *Trust) OrderReviews(ctx context.Context, caller uuid.UUID, orders []uui
 			their := &TheirReview{State: "hidden", ID: r.ID(), VisibleAt: r.VisibleAt()}
 			if r.Visible(now) {
 				their.State, their.CreatedAt, their.Stars, their.Text = "visible", new(r.CreatedAt()), new(r.Stars()), new(r.Text())
-				their.Reply, their.CanReply = replyOf(r), !r.Replied()
+				their.Reply, their.CanReply, their.Photos = replyOf(r), !r.Replied(), s.photoViews(r.Photos())
 			}
 			v.Their = their
 		}

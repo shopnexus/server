@@ -18,7 +18,7 @@ func TestRating(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	for _, stars := range []int{4, 5} {
 		_, order := e.completed(t, buyer, seller)
-		if _, err := e.trust.PutReview(ctx, buyer, order, stars, ""); err != nil {
+		if _, err := e.trust.PutReview(ctx, buyer, order, stars, "", nil); err != nil {
 			t.Fatal(err)
 		}
 		e.reveal(t, order)
