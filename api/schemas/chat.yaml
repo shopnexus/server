@@ -294,3 +294,21 @@ Quote:
       description: The first 200 characters.
     photos:
       type: integer
+QuickReplies:
+  type: object
+  additionalProperties: false
+  required: [items]
+  description: |
+    The caller's saved chat answers, in their order, which a composer
+    offers to put in the field. An account that never saved any reads
+    three defaults.
+  properties:
+    items:
+      type: array
+      maxItems: 20
+      items:
+        type: string
+        minLength: 1
+        maxLength: 200
+        pattern: "\\S"
+        description: An answer, with something besides spaces; the server trims it.

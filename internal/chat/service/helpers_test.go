@@ -44,7 +44,7 @@ func newEnv(t *testing.T) env {
 	media := mediatest.Service(db, objectstoretest.New(t), in, p)
 	c := catalogtest.Service(db, accounts, media, in, p)
 	deps := service.Deps{
-		Chats: repository.NewChats(db), Accounts: accounts, Catalog: c, Media: media,
+		Chats: repository.NewChats(db), QuickReplies: repository.NewQuickReplies(db), Accounts: accounts, Catalog: c, Media: media,
 		Ingress: in, Prefix: p, Now: time.Now,
 	}
 	chat := service.New(deps)

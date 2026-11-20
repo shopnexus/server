@@ -355,7 +355,7 @@ internal/account/
 Modules console, media, catalog, deal, chat, trust, discovery and support
 have the same four packages; module agent has them and `mcp`, its MCP
 server (see Console agent); a module that reacts to events adds `worker`,
-as catalog, deal, discovery and notification do. Module `screen` has no
+as catalog, chat, deal, discovery and notification do. Module `screen` has no
 `repository` or `domain`: it only reads the other modules' services (see
 Screen). Module `erasure` has only `service` and `handler`: it calls
 account and deal to delete an account (see Erasure).
@@ -440,6 +440,7 @@ separate work.
 | search history | `search_history` | module discovery; one row per folded query of an account, at most 10; no aggregate, no `write_id` |
 | listing views | `listing_view_marks`, `listing_view_days` | module discovery; a person's last day of opening each listing, and the views per listing and UTC day; no aggregate, no `write_id` |
 | notification settings | `notification_settings` | module notification; one row per account that saved settings; no aggregate, no `write_id`: the last `PUT` wins |
+| quick replies | `quick_replies` | module chat; one row per account that saved its list, `items text[]` in order; no aggregate, no `write_id`: the last `PUT` wins |
 | reply samples | `reply_samples` | module chat; one row per answer that ended a wait, kept 30 days; no aggregate, no `write_id` |
 | helpful marks | `review_helpful` | module trust; one row per person and review; no aggregate, no `write_id` |
 | agent reads | `console_agent_reads` | module agent; one row per read of personal data by an MCP tool, kept 90 days; no aggregate, no `write_id` |
@@ -1826,6 +1827,16 @@ Module `chat` holds conversations (spec:
   follows the rules of any message in a blocked conversation: the
   blocker's inbox and unread count leave the conversation out, and the
   blocked person's keep it.
+- Quick replies (decided 2026-11-20): `GET` and `PUT /v1/me/quick-replies`
+  hold a person's saved answers, which a seller's composer offers to put in
+  the field. `PUT` replaces the list whole, in its order, and answers it
+  trimmed; the spec caps it at 20 answers of 1 to 200 characters with
+  something besides spaces. An account without a row (migration 0068)
+  reads three defaults from `domain.DefaultQuickReplies`, and a read
+  writes no row; an empty list stays empty. `PUT` takes a share lock on the
+  account's row and refuses a tombstone with `session_revoked`, as
+  notification settings do, and chat's worker deletes the row on
+  `account.deleted`.
 
 ### Screen
 
@@ -2206,6 +2217,11 @@ Scam warnings are trust's too (decided 2026-11-11, spec:
   dismisses under the row's lock (`SELECT … FOR UPDATE`), so it never
   answers `try_again`. No read returns a row by `suspect_id`, so the suspect never sees
   a warning about themselves.
+- Each signal names the message it sits under (decided 2026-11-20):
+  `message_id`, the suspect's newest message in the window of the check
+  that found it, which the plan step journals for each side. A client
+  shows the warning under that message, so the warned member sees which
+  message it is about. Signals saved before carry none.
 - Screen reads `trustsvc.ScamWarnings` once per page for the inbox, the
   inbox search and Chat; the stream update `scam_warning` names the
   conversation. `account.deleted` deletes the account's own warnings;
@@ -3231,7 +3247,8 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   discovery deletes the saves, the search history, the hidden listings, the
   search watches and the record of which listings the account opened
   (the view counts stay); notification deletes the notices, push tokens and
-  settings; assist deletes the reads and the waiting transcripts.
+  settings; assist deletes the reads and the waiting transcripts; chat
+  deletes the quick replies.
   Media does nothing: a waiting upload, a video read's frames and a link
   read's copies among them, expires
   within a day anyway, and a draft's photo within 30 days of the draft's

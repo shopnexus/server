@@ -261,6 +261,14 @@ ScamSignal:
     text:
       type: string
       description: Vietnamese, written by the server, as "Tài khoản mới tạo 2 ngày".
+    message_id:
+      type: string
+      format: uuid
+      description: |
+        The other member's newest message in the check that found the
+        signal, so a client shows the warning under it. Absent when the
+        check read no message of theirs, and on signals found before
+        2026-11-20.
 OwnReview:
   type: object
   additionalProperties: false

@@ -118,20 +118,23 @@ func TestWarning(t *testing.T) {
 	w := domain.NewWarning(conversation, victim, suspect)
 
 	// Facts alone raise nothing.
-	if w.Raise(nil, []domain.Signal{newAccount}, t0) || len(w.Signals()) != 0 {
+	if w.Raise(nil, []domain.Signal{newAccount}, t0, nil) || len(w.Signals()) != 0 {
 		t.Fatalf("facts alone: %+v", w.Signals())
 	}
-	// A message code raises the warning and attaches the fact.
-	if !w.Raise([]domain.Code{domain.CodeOffApp, domain.CodePrepayment}, []domain.Signal{newAccount}, t0) {
+	// A message code raises the warning and attaches the fact, both found
+	// at the suspect's message.
+	message := uuid.NewV7()
+	if !w.Raise([]domain.Code{domain.CodeOffApp, domain.CodePrepayment}, []domain.Signal{newAccount}, t0, &message) {
 		t.Fatal("first raise changed nothing")
 	}
 	got := w.Signals()
 	if len(got) != 3 || got[0].Code != domain.CodePrepayment || got[1].Code != domain.CodeOffApp ||
-		got[2].Code != domain.CodeNewAccount || !got[2].FirstSeenAt.Equal(t0) || w.Dismissed() {
+		got[2].Code != domain.CodeNewAccount || !got[2].FirstSeenAt.Equal(t0) || w.Dismissed() ||
+		*got[0].MessageID != message || *got[2].MessageID != message {
 		t.Fatalf("after the first raise: %+v", got)
 	}
 	// The same codes again change nothing; codes are never removed.
-	if w.Raise([]domain.Code{domain.CodePrepayment}, nil, t0.Add(time.Minute)) || len(w.Signals()) != 3 {
+	if w.Raise([]domain.Code{domain.CodePrepayment}, nil, t0.Add(time.Minute), nil) || len(w.Signals()) != 3 {
 		t.Fatalf("again: %+v", w.Signals())
 	}
 	// Dismissing once works, twice changes nothing.
@@ -140,15 +143,16 @@ func TestWarning(t *testing.T) {
 	}
 	// A new fact code does not undo the dismissal.
 	price, _ := domain.PriceBelowSignal(5_000_000, 10_000_000, 6)
-	if !w.Raise([]domain.Code{domain.CodePrepayment}, []domain.Signal{price}, t0.Add(4*time.Minute)) || !w.Dismissed() {
+	if !w.Raise([]domain.Code{domain.CodePrepayment}, []domain.Signal{price}, t0.Add(4*time.Minute), nil) || !w.Dismissed() {
 		t.Fatalf("a new fact: dismissed %v, %+v", w.Dismissed(), w.Signals())
 	}
 	// A new message code does.
-	if !w.Raise([]domain.Code{domain.CodeSensitive}, nil, t0.Add(5*time.Minute)) || w.Dismissed() {
+	if !w.Raise([]domain.Code{domain.CodeSensitive}, nil, t0.Add(5*time.Minute), nil) || w.Dismissed() {
 		t.Fatalf("a new message code: dismissed %v", w.Dismissed())
 	}
 	last := w.Signals()[len(w.Signals())-1]
-	if last.Code != domain.CodeSensitive || !last.FirstSeenAt.Equal(t0.Add(5*time.Minute)) || !w.UpdatedAt().Equal(last.FirstSeenAt) {
+	if last.Code != domain.CodeSensitive || !last.FirstSeenAt.Equal(t0.Add(5*time.Minute)) || !w.UpdatedAt().Equal(last.FirstSeenAt) ||
+		last.MessageID != nil || *w.Signals()[0].MessageID != message {
 		t.Fatalf("last: %+v, updated %v", last, w.UpdatedAt())
 	}
 	// State and Restore round-trip.
@@ -170,10 +174,10 @@ func TestWarningRaisedAfterADismissalMidCheck(t *testing.T) {
 	t.Parallel()
 	t0 := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
 	w := domain.NewWarning(uuid.NewV7(), uuid.NewV7(), uuid.NewV7())
-	w.Raise([]domain.Code{domain.CodeOffApp}, nil, t0)
+	w.Raise([]domain.Code{domain.CodeOffApp}, nil, t0, nil)
 	checkStarted := t0.Add(time.Minute)
 	w.Dismiss(checkStarted.Add(3 * time.Second))
-	if !w.Raise([]domain.Code{domain.CodeSensitive}, nil, checkStarted) || w.Dismissed() {
+	if !w.Raise([]domain.Code{domain.CodeSensitive}, nil, checkStarted, nil) || w.Dismissed() {
 		t.Fatalf("the new code is hidden: %+v", w.State())
 	}
 	if got := w.Signals()[1].FirstSeenAt; !got.After(*w.DismissedAt()) {

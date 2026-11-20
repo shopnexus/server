@@ -43,13 +43,16 @@ type ScamCheck struct {
 
 func (s ScamCheck) ServiceName() string { return s.Prefix + ScamCheckName }
 
-// checkPlan is what the plan step found: whether to run, the members, and
-// the window's messages, oldest first.
+// checkPlan is what the plan step found: whether to run, the members, the
+// window's messages, oldest first, and each member's newest message in it,
+// nil for a member who sent none there.
 type checkPlan struct {
 	Run      bool        `json:"run"`
 	AccountA uuid.UUID   `json:"account_a"`
 	AccountB uuid.UUID   `json:"account_b"`
 	Messages []uuid.UUID `json:"messages"`
+	LastA    *uuid.UUID  `json:"last_a,omitempty"`
+	LastB    *uuid.UUID  `json:"last_b,omitempty"`
 }
 
 // checkVerdict is the classify step's answer, codes only.
@@ -109,8 +112,14 @@ func (s ScamCheck) Run(ctx restate.ObjectContext) error {
 			return checkPlan{}, nil
 		}
 		messages := make([]uuid.UUID, len(w.Lines))
+		var lastA, lastB *uuid.UUID
 		for i, l := range w.Lines {
 			messages[i] = l.ID
+			if l.SenderID == w.AccountA {
+				lastA = &w.Lines[i].ID
+			} else {
+				lastB = &w.Lines[i].ID
+			}
 		}
 		last, count, stepErr := s.Scams.Checked(rc, conversation, at.Add(-24*time.Hour))
 		if stepErr != nil {
@@ -125,7 +134,7 @@ func (s ScamCheck) Run(ctx restate.ObjectContext) error {
 			s.Log.InfoContext(rc, "scam checks capped for the day", "conversation", conversation, "checks", count)
 			return checkPlan{}, nil
 		}
-		return checkPlan{Run: true, AccountA: w.AccountA, AccountB: w.AccountB, Messages: messages}, nil
+		return checkPlan{Run: true, AccountA: w.AccountA, AccountB: w.AccountB, Messages: messages, LastA: lastA, LastB: lastB}, nil
 	})
 	if err != nil {
 		return fmt.Errorf("plan the check: %w", err)
@@ -201,10 +210,11 @@ func (s ScamCheck) Run(ctx restate.ObjectContext) error {
 			codes           []domain.Code
 			facts           []domain.Signal
 			suspect, warned uuid.UUID
+			last            *uuid.UUID
 			writeID         uuid.UUID
 		}{
-			{v.A, facts.A, plan.AccountA, plan.AccountB, writeA},
-			{v.B, facts.B, plan.AccountB, plan.AccountA, writeB},
+			{v.A, facts.A, plan.AccountA, plan.AccountB, plan.LastA, writeA},
+			{v.B, facts.B, plan.AccountB, plan.AccountA, plan.LastB, writeB},
 		} {
 			if len(side.codes) == 0 {
 				continue
@@ -216,7 +226,7 @@ func (s ScamCheck) Run(ctx restate.ObjectContext) error {
 			if getErr != nil {
 				return fmt.Errorf("read the warning: %w", getErr)
 			}
-			if w.Raise(side.codes, side.facts, at) {
+			if w.Raise(side.codes, side.facts, at, side.last) {
 				writes = append(writes, repository.WarningWrite{Warning: &w, WriteID: side.writeID})
 			}
 		}

@@ -225,3 +225,8 @@ type WindowLine struct {
 	Text         string
 	ListingID    *uuid.UUID
 }
+
+// QuickReplies is the QuickReplies schema in api/schemas/chat.yaml.
+type QuickReplies struct {
+	Items []string `json:"items"`
+}
