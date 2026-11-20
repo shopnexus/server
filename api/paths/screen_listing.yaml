@@ -7,8 +7,11 @@ screenListing:
       in another status through GET /v1/listings/{id}. A signed-in reader
       who is not the seller also gets `viewer`, and the read counts as a
       view of the listing, once per reader and UTC day; a signed-out read
-      counts none (GET /v1/screens/my-listings). With a position the view
-      has distance_km, measured as GET /v1/search measures it.
+      counts none (GET /v1/screens/my-listings). A prefetch (Sec-Purpose)
+      counts none either: the client counts the open with
+      PUT /v1/viewed/{listing_id} when the person sees the page. With a
+      position the view has distance_km, measured as GET /v1/search
+      measures it.
     tags: [screen]
     security:
       - {}
@@ -23,6 +26,7 @@ screenListing:
       - $ref: "../parameters/discovery.yaml#/NearLat"
       - $ref: "../parameters/discovery.yaml#/NearLng"
       - $ref: "../parameters/discovery.yaml#/NearCommune"
+      - $ref: "../parameters/common.yaml#/SecPurpose"
     responses:
       "200":
         description: The listing view.

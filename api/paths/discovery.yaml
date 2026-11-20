@@ -335,6 +335,33 @@ hiddenListing:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+viewedListing:
+  put:
+    operationId: markViewed
+    summary: Count the caller's open of someone else's listing on sale, once per UTC day.
+    description: |
+      For a listing view read as a prefetch (Sec-Purpose on
+      GET /v1/screens/listing/{id}), which counts nothing until the person
+      sees it. Any other read of the view counts by itself. The seller's
+      own listing, one not active or reserved and a second open that day
+      count nothing, and each answers 204.
+    tags: [discovery]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: listing_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      "204":
+        description: Counted, or nothing to count.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
 savedAlert:
   put:
     operationId: setSavedAlert

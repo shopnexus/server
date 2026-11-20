@@ -42,25 +42,35 @@ type ListingViewer struct {
 	ConversationID uuid.UUID            `json:"conversation_id,omitzero"`
 }
 
+// ListingRead is what a read of the listing view asks for.
+type ListingRead struct {
+	// Ref is the listing's ID or the slug of its web address.
+	Ref  string
+	Near catalogdomain.Near
+	// Prefetch marks a browser's speculative read, which counts no view:
+	// the person may never open the page.
+	Prefetch bool
+}
+
 // Listing reads the listing signed out, so its seller too gets
 // catalogdomain.ErrNotFound unless it is active or reserved, then its
-// distance from near. A viewer who is not the seller also gets their save,
-// deal and conversation with the seller, and counts a view of the listing.
-// The count is best effort: a failed count is logged, and the view answers
-// all the same. ref is the listing's ID or the slug of its web address.
-func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, ref string, near catalogdomain.Near) (ListingScreen, error) {
-	id, err := uuid.Parse(ref)
+// distance from in.Near. A viewer who is not the seller also gets their
+// save, deal and conversation with the seller, and counts a view of the
+// listing unless the read is a prefetch. The count is best effort: a failed
+// count is logged, and the view answers all the same.
+func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead) (ListingScreen, error) {
+	id, err := uuid.Parse(in.Ref)
 	if err != nil {
-		ids, findErr := s.catalog.IDsBySlug(ctx, []string{ref})
+		ids, findErr := s.catalog.IDsBySlug(ctx, []string{in.Ref})
 		if findErr != nil {
 			return ListingScreen{}, fmt.Errorf("find the listing: %w", findErr)
 		}
 		var ok bool
-		if id, ok = ids[ref]; !ok {
+		if id, ok = ids[in.Ref]; !ok {
 			return ListingScreen{}, catalogdomain.ErrNotFound
 		}
 	}
-	l, distance, err := s.catalog.GetNear(ctx, nil, id, near)
+	l, distance, err := s.catalog.GetNear(ctx, nil, id, in.Near)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the listing: %w", err)
 	}
@@ -98,6 +108,9 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, ref string, nea
 	out.Viewer = &ListingViewer{Saved: saved, ConversationID: conversation}
 	if hasDeal {
 		out.Viewer.Deal = &deal
+	}
+	if in.Prefetch {
+		return out, nil
 	}
 	if err = s.discovery.Viewed(ctx, *viewer, id); err != nil {
 		s.log.WarnContext(ctx, "a listing view went uncounted", "listing", id, "err", err)

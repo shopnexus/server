@@ -109,6 +109,8 @@ a type once and keeps the result in a `sync.Map`.
 middleware works out once per request from `TRUSTED_PROXIES`. On a route
 anyone may call, `httpx.Viewer(r)` is the signed-in caller's account ID, or
 nil signed out.
+`httpx.Prefetch(r)` reports a browser's speculative fetch (`Sec-Purpose`),
+for a read that would otherwise write (see Tin của bạn and listing views).
 
 Every request passes `Trace`, `Recover`, `ResolveClientIP`, CORS and the
 spec validator, in that order, before the router. `Trace` is outermost: it
@@ -3518,7 +3520,8 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-sell.md`.
   already holds a deal to one open order, and a deal whose order was
   cancelled and asked for again lists its buyer once.
 - A view is a signed-in reader other than the seller opening
-  `GET /v1/screens/listing/{id}`; `GET /v1/listings/{id}` is the seller's
+  `GET /v1/screens/listing/{id}`, or reporting the open of a prefetched
+  one; `GET /v1/listings/{id}` is the seller's
   management read and counts nothing, and guests are not counted. It
   counts once per reader, listing and UTC day (`domain.ViewDay` in
   discovery). Discovery owns the counts, beside the saves:
@@ -3544,6 +3547,17 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-sell.md`.
   pgx batch: one round trip in one implicit transaction.
 - The listing view counts after its reads and in the request, and a
   failed count is logged at WARN and leaves the answer as it is.
+- A prefetch counts no view (decided 2026-11-20, for the website's
+  speculation rules). The browser fetches a page it expects the person to
+  open with `Sec-Purpose: prefetch` (`prefetch;prerender` for a
+  prerender), and the website hands the header on to the calls that page
+  makes. `httpx.Prefetch(r)` reads it, true when an item of the list is
+  the token `prefetch`, and the listing view gets it as
+  `ListingRead.Prefetch`: the same answer, no `Viewed`. A prefetched page
+  the person opens reports the open with `PUT /v1/viewed/{listing_id}`,
+  which runs `Viewed` as the view would have. The other reads the listing page makes
+  (search by `like`, the seller's listings and reviews, the account and
+  the badges) write nothing; search remembers only a query.
 - Saves are the saves that stand: the week counts those made since its
   start.
 - A mark names a person and a listing, so discovery's `AccountDeleted`

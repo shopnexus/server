@@ -39,9 +39,10 @@ type Service interface {
 	// 0; viewer is nil when signed out.
 	Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int) (HomeScreen, error)
 	// Listing reads the listing view of a listing on sale, with its
-	// distance from near; viewer is nil when signed out. A signed-in viewer
-	// who is not the seller counts a view of it.
-	Listing(ctx context.Context, viewer *uuid.UUID, ref string, near catalogdomain.Near) (ListingScreen, error)
+	// distance from in.Near; viewer is nil when signed out. A signed-in
+	// viewer who is not the seller counts a view of it, unless the read is
+	// a prefetch.
+	Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead) (ListingScreen, error)
 	// Seller reads the seller view, its listings as search items measured
 	// from near; viewer is nil when signed out.
 	Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error)

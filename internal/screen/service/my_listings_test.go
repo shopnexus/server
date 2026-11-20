@@ -190,7 +190,7 @@ func (e *sellEnv) read(t *testing.T, seller uuid.UUID, pane catalogsvc.Pane, p p
 // open reads the listing view of id as viewer, nil for signed out.
 func (e *sellEnv) open(t *testing.T, viewer *uuid.UUID, id uuid.UUID) {
 	t.Helper()
-	if _, err := e.screen.Listing(context.Background(), viewer, id.String(), catalogdomain.Near{}); err != nil {
+	if _, err := e.screen.Listing(context.Background(), viewer, service.ListingRead{Ref: id.String()}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -423,12 +423,34 @@ func TestListingViewSurvivesAFailedCount(t *testing.T) {
 	seller, ann := accounttest.WithPhone(t, e.db), accounttest.WithPhone(t, e.db)
 	listing := catalogtest.Listing(t, e.db, seller)
 	e.counted.discovery.fail.Store(true)
-	v, err := e.screen.Listing(context.Background(), &ann, listing.String(), catalogdomain.Near{})
+	v, err := e.screen.Listing(context.Background(), &ann, service.ListingRead{Ref: listing.String()})
 	if err != nil || v.Viewer == nil || v.Listing.ID != listing {
 		t.Fatalf("%+v %v", v, err)
 	}
 	e.counted.discovery.fail.Store(false)
 	if it := e.read(t, seller, catalogsvc.PaneOnSale, page.Request{}, 0).Items[0]; it.Views != 0 {
 		t.Fatalf("an uncounted view counts: %+v", it)
+	}
+}
+
+// A prefetch reads the whole view and counts no view; the open the browser
+// reports afterwards counts it.
+func TestListingPrefetchCountsNoView(t *testing.T) {
+	t.Parallel()
+	e := newSellEnv(t)
+	seller, ann := accounttest.WithPhone(t, e.db), accounttest.WithPhone(t, e.db)
+	listing := catalogtest.Listing(t, e.db, seller)
+	v, err := e.screen.Listing(context.Background(), &ann, service.ListingRead{Ref: listing.String(), Prefetch: true})
+	if err != nil || v.Viewer == nil || v.Listing.ID != listing {
+		t.Fatalf("%+v %v", v, err)
+	}
+	if it := e.read(t, seller, catalogsvc.PaneOnSale, page.Request{}, 0).Items[0]; it.Views != 0 {
+		t.Fatalf("a prefetch counts: %+v", it)
+	}
+	if err = e.discovery.Viewed(context.Background(), ann, listing); err != nil {
+		t.Fatal(err)
+	}
+	if it := e.read(t, seller, catalogsvc.PaneOnSale, page.Request{}, 0).Items[0]; it.Views != 1 {
+		t.Fatalf("the reported open: %+v", it)
 	}
 }

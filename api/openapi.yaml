@@ -340,6 +340,8 @@ paths:
     $ref: "paths/discovery.yaml#/savedAlert"
   /v1/hidden/{listing_id}:
     $ref: "paths/discovery.yaml#/hiddenListing"
+  /v1/viewed/{listing_id}:
+    $ref: "paths/discovery.yaml#/viewedListing"
   /v1/support/tickets:
     $ref: "paths/support.yaml#/tickets"
   /v1/support/summary:
