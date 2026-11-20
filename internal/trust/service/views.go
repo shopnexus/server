@@ -168,8 +168,9 @@ type ScamWarningView struct {
 
 // ScamSignalView is the ScamSignal schema.
 type ScamSignalView struct {
-	Code string `json:"code"`
-	Text string `json:"text"`
+	Code      string     `json:"code"`
+	Text      string     `json:"text"`
+	MessageID *uuid.UUID `json:"message_id,omitempty"`
 }
 
 // CaseList is the ReportCaseList schema in api/schemas/console.yaml. Total,

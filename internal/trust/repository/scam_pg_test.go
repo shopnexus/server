@@ -59,7 +59,7 @@ func TestScamWarnings(t *testing.T) {
 		t.Fatalf("no checks: %v %d %v", last, n, err)
 	}
 	w := domain.NewWarning(c.ID, c.AccountB, c.AccountA)
-	w.Raise([]domain.Code{domain.CodePrepayment}, nil, at)
+	w.Raise([]domain.Code{domain.CodePrepayment}, nil, at, nil)
 	ck := check(c, at, []domain.Code{domain.CodePrepayment})
 	writeID := uuid.NewV7()
 	if err := s.Record(ctx, ck, []repository.WarningWrite{{Warning: &w, WriteID: writeID}}, at.Add(-domain.CheckRetention)); err != nil {
@@ -110,7 +110,7 @@ func TestScamWarningsConflict(t *testing.T) {
 	c := conversation(t, db)
 	at := time.Now().UTC().Truncate(time.Microsecond)
 	w := domain.NewWarning(c.ID, c.AccountB, c.AccountA)
-	w.Raise([]domain.Code{domain.CodePrepayment}, nil, at)
+	w.Raise([]domain.Code{domain.CodePrepayment}, nil, at, nil)
 	if err := s.Record(ctx, check(c, at, []domain.Code{domain.CodePrepayment}), []repository.WarningWrite{{Warning: &w, WriteID: uuid.NewV7()}},
 		at.Add(-domain.CheckRetention)); err != nil {
 		t.Fatal(err)
@@ -119,7 +119,7 @@ func TestScamWarningsConflict(t *testing.T) {
 	if _, err := s.Dismiss(ctx, c.ID, c.AccountB, at.Add(time.Minute), uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
-	stale.Raise([]domain.Code{domain.CodeSensitive}, nil, at.Add(2*time.Minute))
+	stale.Raise([]domain.Code{domain.CodeSensitive}, nil, at.Add(2*time.Minute), nil)
 	err := s.Record(ctx, check(c, at.Add(2*time.Minute), []domain.Code{domain.CodeSensitive}),
 		[]repository.WarningWrite{{Warning: &stale, WriteID: uuid.NewV7()}}, at.Add(-domain.CheckRetention))
 	if !errors.Is(err, repository.ErrConflict) {
@@ -130,7 +130,7 @@ func TestScamWarningsConflict(t *testing.T) {
 	}
 	// A new warning where a row exists is a conflict too.
 	dup := domain.NewWarning(c.ID, c.AccountB, c.AccountA)
-	dup.Raise([]domain.Code{domain.CodePressure}, nil, at)
+	dup.Raise([]domain.Code{domain.CodePressure}, nil, at, nil)
 	err = s.Record(ctx, check(c, at, []domain.Code{domain.CodePressure}), []repository.WarningWrite{{Warning: &dup, WriteID: uuid.NewV7()}},
 		at.Add(-domain.CheckRetention))
 	if !errors.Is(err, repository.ErrConflict) {
@@ -147,8 +147,8 @@ func TestScamWarningsDeleteAccount(t *testing.T) {
 	c := conversation(t, db)
 	at := time.Now().UTC().Truncate(time.Microsecond)
 	toB, toA := domain.NewWarning(c.ID, c.AccountB, c.AccountA), domain.NewWarning(c.ID, c.AccountA, c.AccountB)
-	toB.Raise([]domain.Code{domain.CodePrepayment}, nil, at)
-	toA.Raise([]domain.Code{domain.CodeFakeProof}, nil, at)
+	toB.Raise([]domain.Code{domain.CodePrepayment}, nil, at, nil)
+	toA.Raise([]domain.Code{domain.CodeFakeProof}, nil, at, nil)
 	if err := s.Record(ctx, check(c, at, []domain.Code{domain.CodePrepayment}),
 		[]repository.WarningWrite{{Warning: &toB, WriteID: uuid.NewV7()}, {Warning: &toA, WriteID: uuid.NewV7()}},
 		at.Add(-domain.CheckRetention)); err != nil {
@@ -197,7 +197,7 @@ func TestScamWarningsDismiss(t *testing.T) {
 	c := conversation(t, db)
 	at := time.Now().UTC().Truncate(time.Microsecond)
 	w := domain.NewWarning(c.ID, c.AccountB, c.AccountA)
-	w.Raise([]domain.Code{domain.CodePrepayment}, nil, at)
+	w.Raise([]domain.Code{domain.CodePrepayment}, nil, at, nil)
 	if err := s.Record(ctx, check(c, at, []domain.Code{domain.CodePrepayment}), []repository.WarningWrite{{Warning: &w, WriteID: uuid.NewV7()}},
 		at.Add(-domain.CheckRetention)); err != nil {
 		t.Fatal(err)

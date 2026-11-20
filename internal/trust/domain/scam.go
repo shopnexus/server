@@ -69,12 +69,14 @@ var (
 	params = map[Code]string{CodeNewAccount: "days", CodePriceBelow: "percent"}
 )
 
-// Signal is one code of a warning, with the parameters of its text and
-// when a check first found it.
+// Signal is one code of a warning, with the parameters of its text, when a
+// check first found it and the suspect's newest message in that check's
+// window, which signals saved before 2026-11-20 lack.
 type Signal struct {
 	Code        Code           `json:"code"`
 	Params      map[string]int `json:"params,omitempty"`
 	FirstSeenAt time.Time      `json:"first_seen_at"`
+	MessageID   *uuid.UUID     `json:"message_id,omitempty"`
 }
 
 // NewAccountSignal is new_account for an account created at created, when
@@ -295,11 +297,13 @@ func (w *Warning) has(c Code) bool {
 
 // Raise adds the message codes of messages the warning lacks, in the order
 // of MessageCodes, then the fact signals of facts it lacks, each first seen
-// at at, and reports whether the warning changed. Without a message code in
-// messages it adds nothing. A check reads its clock before it calls the
-// model, so a dismissal can land after at; the codes are then first seen a
-// microsecond after the dismissal, since the member dismissed without them.
-func (w *Warning) Raise(messages []Code, facts []Signal, at time.Time) bool {
+// at the time at, and found at message, the suspect's newest message in the
+// check's window (nil when it has none there), and reports whether the
+// warning changed. Without a message code in messages it adds nothing. A check
+// reads its clock before it calls the model, so a dismissal can land after
+// at; the codes are then first seen a microsecond after the dismissal,
+// since the member dismissed without them.
+func (w *Warning) Raise(messages []Code, facts []Signal, at time.Time, message *uuid.UUID) bool {
 	if !slices.ContainsFunc(messages, Code.FromMessages) {
 		return false
 	}
@@ -309,13 +313,13 @@ func (w *Warning) Raise(messages []Code, facts []Signal, at time.Time) bool {
 	changed := false
 	for _, c := range MessageCodes {
 		if slices.Contains(messages, c) && !w.has(c) {
-			w.signals = append(w.signals, Signal{Code: c, FirstSeenAt: at})
+			w.signals = append(w.signals, Signal{Code: c, FirstSeenAt: at, MessageID: message})
 			changed = true
 		}
 	}
 	for _, f := range facts {
 		if !f.Code.FromMessages() && !w.has(f.Code) {
-			f.FirstSeenAt = at
+			f.FirstSeenAt, f.MessageID = at, message
 			w.signals = append(w.signals, f)
 			changed = true
 		}

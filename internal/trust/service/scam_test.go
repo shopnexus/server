@@ -26,7 +26,7 @@ func raise(t *testing.T, e env, c chatdomain.Conversation, victim, suspect uuid.
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.Raise(codes, nil, at)
+	w.Raise(codes, nil, at, nil)
 	ck := domain.Check{
 		ID: uuid.NewV7(), ConversationID: c.ID, MessageIDs: []uuid.UUID{uuid.NewV7()},
 		Classifier: "test", A: codes, B: []domain.Code{}, CreatedAt: at,

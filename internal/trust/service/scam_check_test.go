@@ -176,17 +176,31 @@ func TestScamCheckFactsAloneRaiseNothing(t *testing.T) {
 	}
 }
 
+// A new message runs the check again. Each signal names the suspect's
+// newest message in the window of the check that found it, not the other
+// member's reply after it.
 func TestScamCheckRunsAgainForANewMessage(t *testing.T) {
 	t.Parallel()
 	e := newCheckEnv(t, fakeFacts{})
-	e.say(t, e.c.AccountA, "Chuyển cọc trước nhé")
+	first := e.say(t, e.c.AccountA, "Chuyển cọc trước nhé")
 	e.run(t)
-	e.say(t, e.c.AccountA, "Gửi mình mã OTP")
+	second := e.say(t, e.c.AccountA, "Gửi mình mã OTP")
+	e.say(t, e.c.AccountB, "Để mình xem")
 	e.run(t)
 	w, _ := e.scams.Get(context.Background(), e.c.ID, e.c.AccountB)
-	if seen := e.model.seen(); len(seen) != 2 || len(seen[1].Lines) != 2 || len(w.Signals()) != 3 ||
-		w.Signals()[2].Code != domain.CodeSensitive {
-		t.Fatalf("read %d windows, signals %+v", len(seen), w.Signals())
+	got := w.Signals()
+	if seen := e.model.seen(); len(seen) != 2 || len(seen[1].Lines) != 3 || len(got) != 3 ||
+		got[2].Code != domain.CodeSensitive {
+		t.Fatalf("read %d windows, signals %+v", len(seen), got)
+	}
+	at := func(s domain.Signal) uuid.UUID {
+		if s.MessageID == nil {
+			return uuid.UUID{}
+		}
+		return *s.MessageID
+	}
+	if at(got[0]) != first.ID() || at(got[1]) != first.ID() || at(got[2]) != second.ID() {
+		t.Fatalf("messages %v %v %v, want %v %v %v", at(got[0]), at(got[1]), at(got[2]), first.ID(), first.ID(), second.ID())
 	}
 }
 
