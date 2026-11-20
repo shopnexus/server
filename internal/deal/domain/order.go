@@ -82,13 +82,16 @@ const (
 )
 
 // Shipment is the parcel of a shipped order. Fee is the carrier's, nil
-// while it has none; DeliveredAt is set while the status is delivered.
+// while it has none. PickedUpAt is when the carrier first reported it past
+// pending_pickup, nil while it waits there; DeliveredAt is set while the
+// status is delivered.
 type Shipment struct {
 	Mode         ShipmentMode   `json:"mode"`
 	Carrier      Carrier        `json:"carrier"`
 	TrackingCode string         `json:"tracking_code"`
 	Fee          *int64         `json:"fee,omitempty"`
 	Status       ShipmentStatus `json:"status"`
+	PickedUpAt   *time.Time     `json:"picked_up_at,omitempty"`
 	DeliveredAt  *time.Time     `json:"delivered_at,omitempty"`
 	// Pickup is where the carrier takes a linked shipment's parcel; nil
 	// for a manual one, and for a linked one sent from the carrier's
@@ -190,6 +193,26 @@ type Order struct {
 	RequestedAt  time.Time    `json:"requested_at"`
 	ShippedAt    *time.Time   `json:"shipped_at,omitempty"`
 	ClosedAt     *time.Time   `json:"closed_at,omitempty"`
+}
+
+// DueAt is when a timer moves the order on unless someone acts first:
+// SellerTimeout for a pending order, PickupTimeout for a parcel waiting for
+// pickup, AutoComplete for a delivered one. It is nil when no timer waits.
+func (o Order) DueAt(w Waits) *time.Time {
+	var at time.Time
+	switch sh := o.Shipment; {
+	case o.Status == OrderPending:
+		at = o.RequestedAt.Add(w.Seller)
+	case o.Status != OrderShipped || sh == nil:
+		return nil
+	case sh.Status == ShipmentPendingPickup && o.ShippedAt != nil:
+		at = o.ShippedAt.Add(w.Pickup)
+	case sh.Status == ShipmentDelivered && sh.DeliveredAt != nil:
+		at = sh.DeliveredAt.Add(w.Complete)
+	default:
+		return nil
+	}
+	return &at
 }
 
 // Tracking checks a carrier and a tracking code as the seller typed them:

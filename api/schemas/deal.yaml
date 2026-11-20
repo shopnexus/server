@@ -380,6 +380,10 @@ Shipment:
       description: The carrier's fee in đồng; absent while the carrier has none.
     status:
       $ref: "#/ShipmentStatus"
+    picked_up_at:
+      type: string
+      format: date-time
+      description: When the carrier first reported the parcel past pending_pickup; absent while it waits for pickup.
     delivered_at:
       type: string
       format: date-time
@@ -444,6 +448,14 @@ Order:
     closed_at:
       type: string
       format: date-time
+    due_at:
+      type: string
+      format: date-time
+      description: |
+        When the server moves the order on unless someone acts first: a
+        pending order is cancelled with seller_timeout, a parcel still
+        waiting for pickup is cancelled with pickup_timeout, a delivered
+        one completes. Absent while no such wait runs.
 OrderItem:
   type: object
   additionalProperties: false
@@ -482,6 +494,14 @@ OrderItem:
     closed_at:
       type: string
       format: date-time
+    due_at:
+      type: string
+      format: date-time
+      description: |
+        When the server moves the order on unless someone acts first: a
+        pending order is cancelled with seller_timeout, a parcel still
+        waiting for pickup is cancelled with pickup_timeout, a delivered
+        one completes. Absent while no such wait runs.
     deal_id:
       type: string
       format: uuid

@@ -24,13 +24,19 @@ func TestShipmentUpdated(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.shipped(t, buyer, seller, listing, "SPXREPORT1")
+	// Waiting for pickup, the order is due at the pickup timeout.
+	got := e.get(t, buyer, v.ID)
+	if o := got.Order; o.Shipment.PickedUpAt != nil || o.DueAt == nil || !o.DueAt.Equal(o.ShippedAt.Add(domain.OrderWaits.Pickup)) {
+		t.Fatalf("waiting for pickup: %+v %+v", o, o.Shipment)
+	}
 
 	if err := e.deals.ShipmentUpdated(ctx, "SPXREPORT1", "in_transit"); err != nil {
 		t.Fatal(err)
 	}
-	got := e.get(t, buyer, v.ID)
-	if got.Order.Shipment.Status != domain.ShipmentInTransit || got.Order.Status != domain.OrderShipped {
-		t.Fatalf("in transit: %+v", got.Order)
+	got = e.get(t, buyer, v.ID)
+	if got.Order.Shipment.Status != domain.ShipmentInTransit || got.Order.Status != domain.OrderShipped ||
+		got.Order.Shipment.PickedUpAt == nil || got.Order.DueAt != nil {
+		t.Fatalf("in transit: %+v %+v", got.Order, got.Order.Shipment)
 	}
 	if m := got.Moves[len(got.Moves)-1]; m.Kind != domain.MoveShipmentUpdated || m.By != domain.System {
 		t.Fatalf("%+v", m)

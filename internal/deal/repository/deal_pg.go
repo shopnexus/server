@@ -25,8 +25,8 @@ const dealColumns = `id, conversation_id, listing_id, buyer_id, seller_id, statu
        agreed_price, agreed_at, write_id, created_at, updated_at`
 
 const orderColumns = `o.id, o.code, o.status, o.price, o.recipient_name, o.recipient_phone, o.recipient_street,
-       o.recipient_commune, o.recipient_kind, o.shipment_mode, o.carrier, o.tracking_code, o.fee, o.shipment_status, o.delivered_at,
-       o.pickup_point_id, o.pickup_name, o.pickup_phone, o.pickup_street, o.pickup_commune,
+       o.recipient_commune, o.recipient_kind, o.shipment_mode, o.carrier, o.tracking_code, o.fee, o.shipment_status,
+       o.picked_up_at, o.delivered_at, o.pickup_point_id, o.pickup_name, o.pickup_phone, o.pickup_street, o.pickup_commune,
        o.cancelled_by, o.cancel_reason, o.completed_by, o.requested_at, o.shipped_at, o.closed_at`
 
 // selectDeal reads deals as d with each one's latest order.
@@ -46,7 +46,7 @@ type orderScan struct {
 	kind                           *string
 	mode, carrier, tracking, state *string
 	fee                            *int64
-	deliveredAt                    *time.Time
+	pickedUpAt, deliveredAt        *time.Time
 	pickupPoint, pickupName        *string
 	pickupPhone, pickupStreet      *string
 	pickupCommune                  *string
@@ -59,7 +59,7 @@ type orderScan struct {
 func (o *orderScan) dest() []any {
 	return []any{
 		&o.id, &o.code, &o.status, &o.price, &o.name, &o.phone, &o.street, &o.commune, &o.kind, &o.mode, &o.carrier, &o.tracking,
-		&o.fee, &o.state, &o.deliveredAt, &o.pickupPoint, &o.pickupName, &o.pickupPhone, &o.pickupStreet, &o.pickupCommune,
+		&o.fee, &o.state, &o.pickedUpAt, &o.deliveredAt, &o.pickupPoint, &o.pickupName, &o.pickupPhone, &o.pickupStreet, &o.pickupCommune,
 		&o.cancelledBy, &o.cancelReason, &o.completedBy, &o.requestedAt, &o.shippedAt, &o.closedAt,
 	}
 }
@@ -79,7 +79,7 @@ func (o *orderScan) order() *domain.Order {
 	if o.mode != nil {
 		out.Shipment = &domain.Shipment{
 			Mode: domain.ShipmentMode(*o.mode), Carrier: domain.Carrier(*o.carrier), TrackingCode: *o.tracking,
-			Fee: o.fee, Status: domain.ShipmentStatus(*o.state), DeliveredAt: o.deliveredAt,
+			Fee: o.fee, Status: domain.ShipmentStatus(*o.state), PickedUpAt: o.pickedUpAt, DeliveredAt: o.deliveredAt,
 		}
 		if o.pickupPoint != nil || o.pickupName != nil || o.pickupCommune != nil {
 			out.Shipment.Pickup = &domain.ShipmentPickup{
@@ -214,17 +214,18 @@ SELECT count(*) FROM orders WHERE buyer_id = @buyer AND status = ANY(@open) AND 
 const upsertOrder = `
 INSERT INTO orders (id, deal_id, listing_id, buyer_id, seller_id, status, price, recipient_name, recipient_phone,
                     recipient_street, recipient_commune, recipient_kind, shipment_mode, carrier, tracking_code, fee, shipment_status,
-                    delivered_at, pickup_point_id, pickup_name, pickup_phone, pickup_street, pickup_commune,
+                    picked_up_at, delivered_at, pickup_point_id, pickup_name, pickup_phone, pickup_street, pickup_commune,
                     cancelled_by, cancel_reason, completed_by, requested_at, shipped_at, closed_at)
 VALUES (@id, @deal_id, @listing_id, @buyer_id, @seller_id, @status, @price, @recipient_name, @recipient_phone,
         @recipient_street, @recipient_commune, @recipient_kind, @shipment_mode, @carrier, @tracking_code, @fee, @shipment_status,
-        @delivered_at, @pickup_point_id, @pickup_name, @pickup_phone, @pickup_street, @pickup_commune,
+        @picked_up_at, @delivered_at, @pickup_point_id, @pickup_name, @pickup_phone, @pickup_street, @pickup_commune,
         @cancelled_by, @cancel_reason, @completed_by, @requested_at, @shipped_at, @closed_at)
 ON CONFLICT (id) DO UPDATE
 SET status = excluded.status, shipment_mode = excluded.shipment_mode, carrier = excluded.carrier,
     tracking_code = excluded.tracking_code, fee = excluded.fee, shipment_status = excluded.shipment_status,
-    delivered_at = excluded.delivered_at, pickup_point_id = excluded.pickup_point_id, pickup_name = excluded.pickup_name,
-    pickup_phone = excluded.pickup_phone, pickup_street = excluded.pickup_street, pickup_commune = excluded.pickup_commune,
+    picked_up_at = excluded.picked_up_at, delivered_at = excluded.delivered_at, pickup_point_id = excluded.pickup_point_id,
+    pickup_name = excluded.pickup_name, pickup_phone = excluded.pickup_phone, pickup_street = excluded.pickup_street,
+    pickup_commune = excluded.pickup_commune,
     cancelled_by = excluded.cancelled_by, cancel_reason = excluded.cancel_reason, completed_by = excluded.completed_by,
     shipped_at = excluded.shipped_at, closed_at = excluded.closed_at`
 
@@ -240,13 +241,13 @@ func orderArgs(st domain.DealState, o domain.Order) pgx.StrictNamedArgs {
 		"status": o.Status, "price": o.Price, "recipient_name": o.Recipient.Name,
 		"recipient_phone": o.Recipient.Phone, "recipient_street": o.Recipient.Street,
 		"recipient_commune": o.Recipient.CommuneCode, "recipient_kind": o.Recipient.Kind, "shipment_mode": nil, "carrier": nil, "tracking_code": nil,
-		"fee": nil, "shipment_status": nil, "delivered_at": nil, "pickup_point_id": nil, "pickup_name": nil,
+		"fee": nil, "shipment_status": nil, "picked_up_at": nil, "delivered_at": nil, "pickup_point_id": nil, "pickup_name": nil,
 		"pickup_phone": nil, "pickup_street": nil, "pickup_commune": nil, "cancelled_by": nil, "cancel_reason": nil,
 		"completed_by": nil, "requested_at": o.RequestedAt, "shipped_at": o.ShippedAt, "closed_at": o.ClosedAt,
 	}
 	if s := o.Shipment; s != nil {
 		a["shipment_mode"], a["carrier"], a["tracking_code"] = s.Mode, s.Carrier, s.TrackingCode
-		a["fee"], a["shipment_status"], a["delivered_at"] = s.Fee, s.Status, s.DeliveredAt
+		a["fee"], a["shipment_status"], a["picked_up_at"], a["delivered_at"] = s.Fee, s.Status, s.PickedUpAt, s.DeliveredAt
 		if p := s.Pickup; p != nil {
 			a["pickup_point_id"], a["pickup_name"], a["pickup_phone"] = orNull(p.PointID), orNull(p.Name), orNull(p.Phone)
 			a["pickup_street"], a["pickup_commune"] = orNull(p.Street), orNull(p.CommuneCode)

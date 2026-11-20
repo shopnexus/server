@@ -1433,6 +1433,14 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   2026-11-13, the order of the two reversed from part 1). The waits are `domain.OrderWaits`; tests pass
   short ones, and `service.New` refuses a zero wait. `DealRequestCod`
   sends its timer once its save committed.
+- An order shows when its waiting timer fires as `due_at` (decided
+  2026-11-20): `Order.DueAt` adds `Waits.Seller` to `requested_at`,
+  `Waits.Pickup` to `shipped_at` while the parcel waits for pickup, and
+  `Waits.Complete` to `delivered_at`; nothing is stored. The shipment keeps
+  `picked_up_at` (0071), the first carrier status past `pending_pickup`
+  but `failed`, cleared by a report of `pending_pickup` again, kept
+  across a manual code's correction. 0071 took it from the order's first
+  system `shipment_updated` step, or `shipped_at`.
 - `ShipmentUpdates.Run(tracking code, status)` is the one entry point of
   a carrier's report: the dev endpoint, the carriers' webhooks and the
   poll call it. It moves every shipped order whose shipment has

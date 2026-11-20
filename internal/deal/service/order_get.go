@@ -26,5 +26,5 @@ func (s *Deals) OrderFor(ctx context.Context, viewer, id uuid.UUID) (OrderView, 
 	if viewer == r.BuyerID {
 		by = domain.Buyer
 	}
-	return orderView(r.Order, by, places[r.Order.Recipient.CommuneCode]), r.DealID, nil
+	return orderView(r.Order, by, places[r.Order.Recipient.CommuneCode], s.waits), r.DealID, nil
 }

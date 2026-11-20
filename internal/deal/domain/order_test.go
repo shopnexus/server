@@ -226,14 +226,15 @@ func TestShipTakesTheCarriersWord(t *testing.T) {
 	s := manual()
 	s.Fee = nil
 	must(t, d.Ship(domain.Seller, d.Order().ID, s, onSale, now))
-	if d.Order().Shipment.Fee != nil || last(&d).Amount != 0 {
+	if d.Order().Shipment.Fee != nil || last(&d).Amount != 0 || d.Order().Shipment.PickedUpAt != nil {
 		t.Fatalf("a shipment without a fee: %+v %+v", d.Order().Shipment, last(&d))
 	}
 	d = pending(t)
 	s = manual()
 	s.Status, s.DeliveredAt = domain.ShipmentDelivered, &later
 	must(t, d.Ship(domain.Seller, d.Order().ID, s, onSale, now))
-	if sh := d.Order().Shipment; sh.Status != domain.ShipmentDelivered || sh.DeliveredAt == nil || !sh.DeliveredAt.Equal(now) {
+	if sh := d.Order().Shipment; sh.Status != domain.ShipmentDelivered || sh.DeliveredAt == nil || !sh.DeliveredAt.Equal(now) ||
+		sh.PickedUpAt == nil || !sh.PickedUpAt.Equal(now) {
 		t.Fatalf("a delivered parcel: %+v", sh)
 	}
 }
@@ -281,6 +282,11 @@ func TestEditShipment(t *testing.T) {
 		}
 		must(t, d.EditShipment(domain.Seller, d.Order().ID, edited, later))
 		sh := d.Order().Shipment
+		// A parcel already on its way keeps its pickup time.
+		picked := map[domain.ShipmentStatus]time.Time{domain.ShipmentPendingPickup: later, domain.ShipmentInTransit: now}[status]
+		if sh.PickedUpAt == nil || !sh.PickedUpAt.Equal(picked) {
+			t.Errorf("from %s: picked up at %v, want %v", status, sh.PickedUpAt, picked)
+		}
 		if sh.Mode != domain.ModeManual || sh.Carrier != domain.CarrierGHN || sh.TrackingCode != "GHN0042" ||
 			*sh.Fee != 30_000 || sh.Status != domain.ShipmentInTransit || sh.DeliveredAt != nil {
 			t.Errorf("from %s: %+v", status, sh)
@@ -343,7 +349,8 @@ func TestShipmentUpdated(t *testing.T) {
 	d := shipped(t)
 	id := d.Order().ID
 	changed, err := d.ShipmentUpdated(id, domain.ShipmentInTransit, now)
-	if err != nil || !changed || d.Order().Shipment.Status != domain.ShipmentInTransit {
+	if sh := d.Order().Shipment; err != nil || !changed || sh.Status != domain.ShipmentInTransit ||
+		sh.PickedUpAt == nil || !sh.PickedUpAt.Equal(now) {
 		t.Fatalf("in transit: %v %v %+v", changed, err, d.Order().Shipment)
 	}
 	if m := last(&d); m.Kind != domain.MoveShipmentUpdated || m.By != domain.System {
@@ -354,7 +361,8 @@ func TestShipmentUpdated(t *testing.T) {
 		t.Fatalf("the same status again: %v %v", changed, err)
 	}
 	must(t, func() error { _, e := d.ShipmentUpdated(id, domain.ShipmentDelivered, later); return e }())
-	if sh := d.Order().Shipment; sh.DeliveredAt == nil || !sh.DeliveredAt.Equal(later) || d.Order().Status != domain.OrderShipped {
+	if sh := d.Order().Shipment; sh.DeliveredAt == nil || !sh.DeliveredAt.Equal(later) || d.Order().Status != domain.OrderShipped ||
+		!sh.PickedUpAt.Equal(now) {
 		t.Fatalf("delivered: %+v %+v", sh, d.Order())
 	}
 	must(t, func() error { _, e := d.ShipmentUpdated(id, domain.ShipmentInTransit, later); return e }())
@@ -370,8 +378,27 @@ func TestShipmentUpdated(t *testing.T) {
 	if m := last(&d); m.Kind != domain.MoveFailed || m.By != domain.System {
 		t.Fatalf("%+v", m)
 	}
+	if o.Shipment.PickedUpAt == nil {
+		t.Fatal("a failed parcel lost its pickup time")
+	}
 	if _, err = d.ShipmentUpdated(id, domain.ShipmentDelivered, later); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("a report for a closed order: %v", err)
+	}
+	back := reported(t, domain.ShipmentInTransit)
+	must(t, func() error {
+		_, e := back.ShipmentUpdated(back.Order().ID, domain.ShipmentPendingPickup, later)
+		return e
+	}())
+	if back.Order().Shipment.PickedUpAt != nil {
+		t.Fatal("a parcel back to pending_pickup kept its pickup time")
+	}
+	refused := shipped(t)
+	must(t, func() error {
+		_, e := refused.ShipmentUpdated(refused.Order().ID, domain.ShipmentFailed, later)
+		return e
+	}())
+	if refused.Order().Shipment.PickedUpAt != nil {
+		t.Fatal("a parcel that failed before pickup took a pickup time")
 	}
 	p := pending(t)
 	if _, err = p.ShipmentUpdated(p.Order().ID, domain.ShipmentInTransit, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
@@ -380,6 +407,31 @@ func TestShipmentUpdated(t *testing.T) {
 	s := shipped(t)
 	if _, err = s.ShipmentUpdated(uuid.NewV7(), domain.ShipmentInTransit, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("another order: %v", err)
+	}
+}
+
+// Each wait runs from the time its timer was sent; none runs in transit or
+// once the order closed.
+func TestDueAt(t *testing.T) {
+	t.Parallel()
+	w := domain.Waits{Seller: time.Hour, Pickup: 2 * time.Hour, Complete: 3 * time.Hour, Poll: time.Minute}
+	closed := shipped(t)
+	must(t, closed.ConfirmReceipt(domain.Buyer, closed.Order().ID, later))
+	for name, c := range map[string]struct {
+		d    domain.Deal
+		want *time.Time
+	}{
+		"pending":        {pending(t), new(now.Add(time.Hour))},
+		"pending pickup": {shipped(t), new(now.Add(2 * time.Hour))},
+		"in transit":     {reported(t, domain.ShipmentInTransit), nil},
+		"delivered":      {reported(t, domain.ShipmentDelivered), new(now.Add(3 * time.Hour))},
+		"completed":      {closed, nil},
+		"failed":         {reported(t, domain.ShipmentFailed), nil},
+	} {
+		got := c.d.Order().DueAt(w)
+		if (got == nil) != (c.want == nil) || (got != nil && !got.Equal(*c.want)) {
+			t.Errorf("%s: due at %v, want %v", name, got, c.want)
+		}
 	}
 }
 
