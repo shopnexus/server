@@ -3,6 +3,7 @@
 package domain
 
 import (
+	"cmp"
 	"time"
 	"uuid"
 )
@@ -346,8 +347,8 @@ func (d *Deal) Shippable(by Party, order uuid.UUID, l Listing) error {
 
 // Ship records s, the pending order's shipment as its carrier reads it or
 // as GHTK made it: the order is shipped. A parcel the carrier already
-// reports delivered is delivered at now; one it reports failed is
-// ErrInvalidShipment.
+// reports on its way is picked up at now, one it reports delivered is
+// delivered at now too; one it reports failed is ErrInvalidShipment.
 func (d *Deal) Ship(by Party, order uuid.UUID, s Shipment, l Listing, now time.Time) error {
 	if err := d.Shippable(by, order, l); err != nil {
 		return err
@@ -355,7 +356,10 @@ func (d *Deal) Ship(by Party, order uuid.UUID, s Shipment, l Listing, now time.T
 	if s.Status == ShipmentFailed {
 		return errFailedParcel
 	}
-	s.DeliveredAt = nil
+	s.PickedUpAt, s.DeliveredAt = nil, nil
+	if s.Status != ShipmentPendingPickup {
+		s.PickedUpAt = &now
+	}
 	if s.Status == ShipmentDelivered {
 		s.DeliveredAt = &now
 	}
@@ -372,8 +376,9 @@ func (d *Deal) Ship(by Party, order uuid.UUID, s Shipment, l Listing, now time.T
 // EditShipment puts s, the seller's corrected carrier and code as the
 // carrier reads them, on order's manual shipment: the seller's, on the
 // shipped order, while the parcel waits for pickup or is in transit. A
-// parcel the carrier reports delivered is delivered at now; one it reports
-// failed is ErrInvalidShipment and changes nothing.
+// parcel on its way keeps the time it was picked up, or takes now; one the
+// carrier reports delivered is delivered at now; one it reports failed is
+// ErrInvalidShipment and changes nothing.
 func (d *Deal) EditShipment(by Party, order uuid.UUID, s Shipment, now time.Time) error {
 	o := d.openOrder()
 	if by != Seller || o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil ||
@@ -384,7 +389,11 @@ func (d *Deal) EditShipment(by Party, order uuid.UUID, s Shipment, now time.Time
 	if s.Status == ShipmentFailed {
 		return errFailedParcel
 	}
-	s.Mode, s.DeliveredAt = ModeManual, nil
+	s.Mode, s.PickedUpAt, s.DeliveredAt = ModeManual, nil, nil
+	if s.Status != ShipmentPendingPickup {
+		// A parcel picked up before the correction keeps its time.
+		s.PickedUpAt = cmp.Or(o.Shipment.PickedUpAt, &now)
+	}
 	if s.Status == ShipmentDelivered {
 		s.DeliveredAt = &now
 	}
@@ -405,11 +414,12 @@ func (d *Deal) ConfirmReceipt(by Party, order uuid.UUID, now time.Time) error {
 }
 
 // ShipmentUpdated sets the shipped order's shipment status as its carrier
-// reports it and reports whether anything changed. delivered sets
-// DeliveredAt and leaving it clears it. failed fails the order at once: the
-// deal negotiates again without its agreed price. An order that is not the
-// deal's shipped one, or one without a shipment, is ErrMoveNotAllowed: a
-// late report changes nothing.
+// reports it and reports whether anything changed. The first status past
+// pending_pickup but failed sets PickedUpAt, and pending_pickup clears it;
+// delivered sets DeliveredAt and leaving it clears it. failed fails the
+// order at once: the deal negotiates again without its agreed price. An
+// order that is not the deal's shipped one, or one without a shipment, is
+// ErrMoveNotAllowed: a late report changes nothing.
 func (d *Deal) ShipmentUpdated(order uuid.UUID, status ShipmentStatus, now time.Time) (bool, error) {
 	o := d.openOrder()
 	if o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil {
@@ -420,6 +430,11 @@ func (d *Deal) ShipmentUpdated(order uuid.UUID, status ShipmentStatus, now time.
 	}
 	s := *o.Shipment
 	s.Status, s.DeliveredAt = status, nil
+	if status == ShipmentPendingPickup {
+		s.PickedUpAt = nil
+	} else if s.PickedUpAt == nil && status != ShipmentFailed {
+		s.PickedUpAt = &now
+	}
 	if status == ShipmentDelivered {
 		s.DeliveredAt = &now
 	}

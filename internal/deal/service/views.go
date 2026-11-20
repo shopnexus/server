@@ -42,6 +42,7 @@ type OrderView struct {
 	RequestedAt  time.Time           `json:"requested_at"`
 	ShippedAt    *time.Time          `json:"shipped_at,omitempty"`
 	ClosedAt     *time.Time          `json:"closed_at,omitempty"`
+	DueAt        *time.Time          `json:"due_at,omitempty"`
 }
 
 // RecipientView is where the parcel goes, with the commune's and the
@@ -108,8 +109,9 @@ func listingRef(l catalogsvc.Summary) ListingRef {
 	return ListingRef{ID: l.ID, Slug: l.Slug, Title: l.Title, Price: l.Price, CoverThumbURL: l.CoverThumbURL, Status: l.Status}
 }
 
-// orderView shows o to viewer, with the recipient's commune at place.
-func orderView(o domain.Order, viewer domain.Party, place catalogsvc.Location) OrderView {
+// orderView shows o to viewer, with the recipient's commune at place and
+// the time its timer under w fires.
+func orderView(o domain.Order, viewer domain.Party, place catalogsvc.Location, w domain.Waits) OrderView {
 	r := o.RecipientFor(viewer)
 	// Where the parcel is picked up is the seller's; the buyer reads the
 	// shipment without it.
@@ -126,13 +128,13 @@ func orderView(o domain.Order, viewer domain.Party, place catalogsvc.Location) O
 			Commune: place.Commune.DisplayName, Province: place.Province.DisplayName, Kind: r.Kind,
 		},
 		Shipment: sh, CompletedBy: o.CompletedBy, CancelledBy: o.CancelledBy, CancelReason: o.CancelReason,
-		RequestedAt: o.RequestedAt, ShippedAt: o.ShippedAt, ClosedAt: o.ClosedAt,
+		RequestedAt: o.RequestedAt, ShippedAt: o.ShippedAt, ClosedAt: o.ClosedAt, DueAt: o.DueAt(w),
 	}
 }
 
 // view builds the DealView of d for viewer, one of its sides, from its
-// listing, its moves and the place of its order's recipient.
-func view(viewer uuid.UUID, d domain.Deal, l catalogsvc.Summary, moves []domain.Move, place catalogsvc.Location) DealView {
+// listing, its moves, the place of its order's recipient and the waits.
+func view(viewer uuid.UUID, d domain.Deal, l catalogsvc.Summary, moves []domain.Move, place catalogsvc.Location, w domain.Waits) DealView {
 	by, _ := d.PartyOf(viewer)
 	v := DealView{
 		ID: d.ID(), ConversationID: d.ConversationID(), BuyerID: d.BuyerID(), SellerID: d.SellerID(),
@@ -144,7 +146,7 @@ func view(viewer uuid.UUID, d domain.Deal, l catalogsvc.Summary, moves []domain.
 		v.AgreedPrice = new(d.AgreedPrice())
 	}
 	if o := d.Order(); o != nil {
-		v.Order = new(orderView(*o, by, place))
+		v.Order = new(orderView(*o, by, place, w))
 	}
 	if r, ok := d.OfferRange(by, facts(l)); ok {
 		v.OfferRange = &r
@@ -173,7 +175,7 @@ func (s *Deals) read(ctx context.Context, viewer uuid.UUID, d domain.Deal, l cat
 		}
 		place = places[o.Recipient.CommuneCode]
 	}
-	return view(viewer, d, l, moves[d.ID()], place), nil
+	return view(viewer, d, l, moves[d.ID()], place, s.waits), nil
 }
 
 // OrderFacts is what another module reads of an order: module support

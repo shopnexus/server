@@ -89,7 +89,7 @@ func (s *Deals) views(ctx context.Context, viewer uuid.UUID, deals []domain.Deal
 		if o := deals[i].Order(); o != nil {
 			place = places[o.Recipient.CommuneCode]
 		}
-		items = append(items, view(viewer, deals[i], listings[deals[i].ListingID()], moves[deals[i].ID()], place))
+		items = append(items, view(viewer, deals[i], listings[deals[i].ListingID()], moves[deals[i].ID()], place, s.waits))
 	}
 	return items, nil
 }
@@ -123,7 +123,7 @@ func (s *Deals) ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Part
 			other = r.BuyerID
 		}
 		items = append(items, OrderItem{
-			OrderView: orderView(r.Order, as, places[r.Order.Recipient.CommuneCode]), DealID: r.DealID,
+			OrderView: orderView(r.Order, as, places[r.Order.Recipient.CommuneCode], s.waits), DealID: r.DealID,
 			Listing: listingRef(listings[r.ListingID]), CounterpartID: other,
 		})
 	}
