@@ -99,6 +99,15 @@ type Service interface {
 	// Origin is the point near names, nil for none; a bad point or an
 	// unknown commune is domain.ErrInvalidPosition.
 	Origin(ctx context.Context, near domain.Near) (*domain.Point, error)
+	// Sitemap splits the public listings, and the sellers who have one,
+	// into the parts of the website's sitemap.
+	Sitemap(ctx context.Context) (SitemapView, error)
+	// SitemapListings lists the part of the public listings below cursor,
+	// the zero ID for the first part, newest first.
+	SitemapListings(ctx context.Context, cursor uuid.UUID) ([]SitemapListingView, error)
+	// SitemapSellers lists the part of the sellers with a public listing
+	// below cursor, the zero ID for the first part, newest first.
+	SitemapSellers(ctx context.Context, cursor uuid.UUID) ([]SitemapSellerView, error)
 	// SellerCounts counts a seller's sold listings, the public ones and
 	// those under domain.MaxOnSale.
 	SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCounts, error)

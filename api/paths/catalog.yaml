@@ -624,3 +624,69 @@ listingDraft:
         $ref: "../responses/common.yaml#/BadRequest"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+sitemap:
+  get:
+    operationId: getSitemap
+    summary: The parts of the website's sitemap.
+    description: |
+      Splits the public listings (active and reserved), and the sellers who
+      have one, into parts of at most 10,000, newest first. The website
+      writes one sitemap file per part and reads its entries with the
+      part's cursor. Public, and cacheable for an hour.
+    tags: [catalog, internal]
+    responses:
+      "200":
+        description: The parts, the first of each list without a cursor.
+        headers:
+          Cache-Control:
+            description: public, max-age=3600
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/Sitemap"
+sitemapListings:
+  get:
+    operationId: listSitemapListings
+    summary: One part of the website's sitemap of listings.
+    description: The public listings below the part's cursor, newest first, at most 10,000.
+    tags: [catalog, internal]
+    parameters:
+      - $ref: "../parameters/catalog.yaml#/SitemapCursor"
+    responses:
+      "200":
+        description: The part's listings.
+        headers:
+          Cache-Control:
+            description: public, max-age=3600
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/SitemapListingList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+sitemapSellers:
+  get:
+    operationId: listSitemapSellers
+    summary: One part of the website's sitemap of sellers.
+    description: The sellers with a public listing whose IDs are below the part's cursor, newest first, at most 10,000.
+    tags: [catalog, internal]
+    parameters:
+      - $ref: "../parameters/catalog.yaml#/SitemapCursor"
+    responses:
+      "200":
+        description: The part's sellers.
+        headers:
+          Cache-Control:
+            description: public, max-age=3600
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/SitemapSellerList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"

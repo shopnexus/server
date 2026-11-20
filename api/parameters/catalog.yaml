@@ -1,0 +1,7 @@
+SitemapCursor:
+  name: cursor
+  in: query
+  description: The part's cursor from GET /v1/sitemap; absent for the first part.
+  schema:
+    type: string
+    format: uuid

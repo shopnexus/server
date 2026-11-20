@@ -148,11 +148,12 @@ written (decided 2026-11-17):
   was set is sent, a blank `reason` included, and an unset one is not.
 - The tag `internal` marks the operations the app does not call: the
   console, `/_dashboard/callback`, the carrier webhook, `/healthz`,
-  `/readyz` and the dev routes. `websocket` marks `GET /v1/ws`, which the
-  app opens with its socket code. The two tags are the one list of the
-  routes the app leaves out: its client drops every operation with either
-  tag. Neither tag is in `x-tagGroups`, so the docs list each operation
-  under its module's tag only. kin-openapi v0.151.0, the version `go.mod`
+  `/readyz`, the dev routes and the website's `/v1/sitemap` routes.
+  `websocket` marks `GET /v1/ws`, which the app opens with its socket
+  code. The two tags are the one list of the routes the app leaves out:
+  its client drops every operation with either tag. Neither tag is in
+  `x-tagGroups`, so the docs list each operation under its module's tag
+  only. kin-openapi v0.151.0, the version `go.mod`
   pins, rejects OpenAPI 3.2's tag `kind`, and v0.153.0 rejects it too, so
   the two tags have none. `TestSpecTags` checks that each operation has
   one tag of `x-tagGroups`, that each route above has its tag, and that no
@@ -1209,6 +1210,15 @@ agree during a deploy.
   cap and the sold ones; "Đã bán" counts
   every sold listing, sold through an order or marked by hand (decided
   2026-10-27).
+- `GET /v1/sitemap`, `/v1/sitemap/listings` and `/v1/sitemap/sellers` are
+  public and feed the website's sitemap (decided 2026-11-20). The first
+  splits the public listings, and the sellers who have one, into parts of
+  `sitemapPartSize` (10,000), newest first, each with the cursor its entries
+  are below and its latest `updated_at`; a seller's is that of their latest
+  changed public listing. The other two read one part by that cursor: a
+  listing's slug or a seller's ID, with `updated_at`. Each call counts the
+  parts again, so cursors move as listings come and go; the website caches
+  all three for an hour, as their `Cache-Control` says.
 
 Search vectors (decided 2026-11-09, migration 0024):
 

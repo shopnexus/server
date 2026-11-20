@@ -174,8 +174,9 @@ func TestSpecUseCaseIDs(t *testing.T) {
 // An operation has one tag of x-tagGroups, its section in the reference.
 // internal and websocket are the one list of routes the app's generated
 // client leaves out: internal on the console, the dev routes, the
-// dashboard callback, the carrier webhook and the health checks, websocket
-// on /v1/ws, and neither on any other operation.
+// dashboard callback, the carrier webhook, the health checks and the
+// website's sitemap, websocket on /v1/ws, and neither on any other
+// operation.
 func TestSpecTags(t *testing.T) {
 	t.Parallel()
 	doc, err := api.Load()
@@ -220,7 +221,8 @@ func TestSpecTags(t *testing.T) {
 			}
 			var want []string
 			switch {
-			case strings.HasPrefix(path, "/v1/console/"), strings.HasPrefix(path, "/v1/dev/"), slices.Contains(internal, path):
+			case strings.HasPrefix(path, "/v1/console/"), strings.HasPrefix(path, "/v1/dev/"), strings.HasPrefix(path, "/v1/sitemap"),
+				slices.Contains(internal, path):
 				want = []string{"internal"}
 			case path == "/v1/ws":
 				want = []string{"websocket"}

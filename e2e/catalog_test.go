@@ -12,6 +12,7 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -409,4 +410,33 @@ func TestGuessCategory(t *testing.T) {
 	}
 	check(t, "signed out", call(t, "POST", "/v1/category-guesses", body), 401, "unauthenticated")
 	check(t, "no title", call(t, "POST", "/v1/category-guesses", map[string]any{"title": ""}, bearer(me.AccessToken)), 400, "invalid_request")
+}
+
+// The sitemap names a public listing by its slug and its seller by ID, in
+// the first part of each, and lets a proxy keep the answer an hour.
+func TestSitemap(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	l := activeListing(t, seller.AccessToken, nil)
+	type part struct {
+		Cursor *string `json:"cursor"`
+	}
+	res := call(t, "GET", "/v1/sitemap", nil)
+	parts := expect[struct{ Listings, Sellers []part }](t, res, http.StatusOK)
+	if len(parts.Listings) == 0 || parts.Listings[0].Cursor != nil || len(parts.Sellers) == 0 || parts.Sellers[0].Cursor != nil {
+		t.Fatalf("parts: %s", res.Body)
+	}
+	if got := res.Header.Get("Cache-Control"); got != "public, max-age=3600" {
+		t.Fatalf("Cache-Control: %q", got)
+	}
+	listings := expect[page[struct{ Slug string }]](t, call(t, "GET", "/v1/sitemap/listings", nil), http.StatusOK).Items
+	if !slices.ContainsFunc(listings, func(s struct{ Slug string }) bool { return s.Slug == l.Slug }) {
+		t.Fatalf("%s is not in the first part", l.Slug)
+	}
+	sellers := expect[page[struct{ ID string }]](t, call(t, "GET", "/v1/sitemap/sellers", nil), http.StatusOK).Items
+	if !slices.ContainsFunc(sellers, func(s struct{ ID string }) bool { return s.ID == seller.Account.ID }) {
+		t.Fatalf("seller %s is not in the first part", seller.Account.ID)
+	}
+	check(t, "a bad cursor", call(t, "GET", "/v1/sitemap/listings?cursor=nope", nil), 400, "invalid_request")
+	check(t, "a bad seller cursor", call(t, "GET", "/v1/sitemap/sellers?cursor=nope", nil), 400, "invalid_request")
 }

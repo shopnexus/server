@@ -56,6 +56,38 @@ type Listings interface {
 	// IDsBySeller is a query: the IDs of seller's listings in statuses,
 	// newest first.
 	IDsBySeller(ctx context.Context, seller uuid.UUID, statuses []domain.Status) ([]uuid.UUID, error)
+	// ListingParts is a query: the public listings split into parts of
+	// size, newest first.
+	ListingParts(ctx context.Context, size int) ([]SitemapPart, error)
+	// SellerParts is a query: the sellers with a public listing split into
+	// parts of size, by account ID, newest first.
+	SellerParts(ctx context.Context, size int) ([]SitemapPart, error)
+	// SitemapListings is a query: the public listings with IDs below
+	// before, newest first, at most size.
+	SitemapListings(ctx context.Context, before uuid.UUID, size int) ([]SitemapListing, error)
+	// SitemapSellers is a query: the sellers with a public listing whose
+	// IDs are below before, newest first, at most size.
+	SitemapSellers(ctx context.Context, before uuid.UUID, size int) ([]SitemapSeller, error)
+}
+
+// SitemapPart is one part of a sitemap list: the ID its entries are below,
+// zero for the first part, and the latest change among them.
+type SitemapPart struct {
+	Cursor    uuid.UUID
+	UpdatedAt time.Time
+}
+
+// SitemapListing is a public listing's address parts and its last change.
+type SitemapListing struct {
+	Title, Code string
+	UpdatedAt   time.Time
+}
+
+// SitemapSeller is a seller with a public listing and the latest change to
+// one.
+type SitemapSeller struct {
+	ID        uuid.UUID
+	UpdatedAt time.Time
 }
 
 // Drafts persists listing drafts. Put takes a lock per account, so the
