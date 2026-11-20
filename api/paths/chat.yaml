@@ -308,3 +308,53 @@ unread:
               $ref: "../schemas/chat.yaml#/Unread"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+quickReplies:
+  get:
+    operationId: getQuickReplies
+    summary: The caller's quick replies; an account that never saved any reads the defaults.
+    description: |
+      The defaults are three answers a seller often gives. Reading them
+      writes nothing; the first PUT saves the list.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The quick replies.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chat.yaml#/QuickReplies"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+  put:
+    operationId: putQuickReplies
+    summary: Replace the caller's quick replies.
+    description: |
+      The list replaces the saved one whole, in the order given; an empty
+      list saves no answer, and the defaults do not come back. The last PUT
+      wins.
+    tags: [chat]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/chat.yaml#/QuickReplies"
+    responses:
+      "200":
+        description: The saved quick replies, trimmed.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chat.yaml#/QuickReplies"
+      "400":
+        description: "A malformed body (invalid_request, malformed_json): over 20 answers, or an answer that is blank or over 200 characters."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"

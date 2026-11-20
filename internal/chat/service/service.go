@@ -104,14 +104,24 @@ type Service interface {
 	// listing's title, on the first page only, and a page of their messages
 	// by text; archived conversations are searched too.
 	Search(ctx context.Context, account uuid.UUID, q string, p page.Request) (SearchResult, error)
+	// QuickReplies are account's saved chat answers, the defaults when it
+	// saved none.
+	QuickReplies(ctx context.Context, account uuid.UUID) (QuickReplies, error)
+	// PutQuickReplies replaces account's quick replies with items, each
+	// trimmed, in their order.
+	PutQuickReplies(ctx context.Context, account uuid.UUID, items []string) (QuickReplies, error)
+	// DeleteAccount deletes a deleted account's quick replies; the worker
+	// calls it on account.deleted.
+	DeleteAccount(ctx context.Context, account uuid.UUID) error
 }
 
 // Deps is what New builds Chat from.
 type Deps struct {
-	Chats    repository.Chats
-	Accounts accountsvc.Service
-	Catalog  catalogsvc.Service
-	Media    mediasvc.Service
+	Chats        repository.Chats
+	QuickReplies repository.QuickReplies
+	Accounts     accountsvc.Service
+	Catalog      catalogsvc.Service
+	Media        mediasvc.Service
 	// Ingress and Prefix reach this process's Restate services; media's
 	// MediaProcess runs under the same prefix.
 	Ingress *ingress.Client
@@ -126,6 +136,7 @@ type Deps struct {
 // Chat implements Service in this process.
 type Chat struct {
 	chats    repository.Chats
+	replies  repository.QuickReplies
 	accounts accountsvc.Service
 	catalog  catalogsvc.Service
 	media    mediasvc.Service
@@ -141,7 +152,7 @@ var _ Service = (*Chat)(nil)
 
 func New(d Deps) *Chat {
 	return &Chat{
-		chats: d.Chats, accounts: d.Accounts, catalog: d.Catalog, media: d.Media,
+		chats: d.Chats, replies: d.QuickReplies, accounts: d.Accounts, catalog: d.Catalog, media: d.Media,
 		prefix: d.Prefix, now: d.Now, linkHosts: d.LinkHosts, orders: d.Orders,
 		send: restatex.Caller[SendFlowInput, SendResult]{Ingress: d.Ingress, Service: d.Prefix + messageSend, Handler: "Run"},
 	}

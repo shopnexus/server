@@ -294,6 +294,8 @@ paths:
     $ref: "paths/trust.yaml#/scamWarningDismiss"
   /v1/me/unread:
     $ref: "paths/chat.yaml#/unread"
+  /v1/me/quick-replies:
+    $ref: "paths/chat.yaml#/quickReplies"
   /v1/screens/inbox:
     $ref: "paths/screen_inbox.yaml#/screenInbox"
   /v1/screens/inbox/search:
