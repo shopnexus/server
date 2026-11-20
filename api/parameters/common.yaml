@@ -14,6 +14,18 @@ IdempotencyKeyOptional:
   schema:
     type: string
     format: uuid
+SecPurpose:
+  name: Sec-Purpose
+  in: header
+  required: false
+  description: |
+    The Fetch standard's purpose of the request. A list with the token
+    prefetch, such as prefetch or prefetch;prerender, marks a
+    speculative read: a browser fetching a page the person may not open.
+    Such a read answers as any other and records nothing; the client
+    reports the open when the person sees the page.
+  schema:
+    type: string
 Cursor:
   name: cursor
   in: query

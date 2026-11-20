@@ -5,6 +5,7 @@ import (
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/screen/service"
 )
 
 // listingScreenRequest carries where the reader is, which reaches the service and
@@ -17,14 +18,19 @@ type listingScreenRequest struct {
 	NearCommune string  `json:"-" query:"near_commune"`
 }
 
-// Listing serves GET /v1/screens/listing/{id}, signed in or not.
+// Listing serves GET /v1/screens/listing/{id}, signed in or not. A
+// prefetch (Sec-Purpose) reads the same view and counts no view.
 func (h *Handler) Listing(w http.ResponseWriter, r *http.Request) {
 	var in listingScreenRequest
 	if err := httpx.Bind(r, &in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, err := h.svc.Listing(r.Context(), httpx.Viewer(r), in.Ref, catalogdomain.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune})
+	out, err := h.svc.Listing(r.Context(), httpx.Viewer(r), service.ListingRead{
+		Ref:      in.Ref,
+		Near:     catalogdomain.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune},
+		Prefetch: httpx.Prefetch(r),
+	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
