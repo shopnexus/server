@@ -84,7 +84,7 @@ func Config(tb testing.TB) config.RestateConfig {
 // Every run registers services of its own, and Restate keeps each one in
 // memory until its deployment is deleted.
 func Forget(prefix string) error {
-	return forget(func(d deployment) bool {
+	return deleteDeployments(func(d deployment) bool {
 		return len(d.Services) > 0 && strings.HasPrefix(d.Services[0].Name, prefix)
 	})
 }
@@ -97,9 +97,9 @@ type deployment struct {
 	} `json:"services"`
 }
 
-// forget deletes the deployments that match, forcing out any invocation
+// deleteDeployments deletes the deployments that match, forcing out any invocation
 // a failed test left behind.
-func forget(match func(deployment) bool) error {
+func deleteDeployments(match func(deployment) bool) error {
 	_, adminURL, err := urls()
 	if err != nil {
 		return err
@@ -109,7 +109,7 @@ func forget(match func(deployment) bool) error {
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, admin+"/deployments", http.NoBody)
 	if err != nil {
-		return err
+		return fmt.Errorf("list restate deployments: %w", err)
 	}
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -129,7 +129,7 @@ func forget(match func(deployment) bool) error {
 		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, admin+"/deployments/"+d.ID+"?force=true", http.NoBody)
 		if err != nil {
-			return err
+			return fmt.Errorf("delete restate deployment %s: %w", d.ID, err)
 		}
 		res, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -185,7 +185,7 @@ func Start(tb testing.TB, defs ...restate.ServiceDefinition) *ingress.Client {
 	}
 	// Runs before the endpoint closes: cleanups go last in, first out.
 	tb.Cleanup(func() {
-		if err := forget(func(d deployment) bool { return d.URI == ep.URL() || d.URI == ep.URL()+"/" }); err != nil {
+		if err := deleteDeployments(func(d deployment) bool { return d.URI == ep.URL() || d.URI == ep.URL()+"/" }); err != nil {
 			tb.Error(err)
 		}
 	})
