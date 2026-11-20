@@ -14,14 +14,14 @@ import (
 	"github.com/shopnexus/server/migrations"
 )
 
-// 0071 gives a parcel on its way the time of the carrier's first update,
+// 0070 gives a parcel on its way the time of the carrier's first update,
 // the seller's correction aside, or the shipment's when no update came; a
 // parcel waiting for pickup keeps none.
 func TestOrderPickedUpTakesTheFirstCarrierUpdate(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	db := pgtest.Empty(t)
-	if _, err := postgres.Migrate(ctx, db, before(t, "0071_order_picked_up.sql")); err != nil {
+	if _, err := postgres.Migrate(ctx, db, before(t, "0070_order_picked_up.sql")); err != nil {
 		t.Fatal(err)
 	}
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)

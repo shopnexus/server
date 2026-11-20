@@ -1437,9 +1437,9 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   2026-11-20): `Order.DueAt` adds `Waits.Seller` to `requested_at`,
   `Waits.Pickup` to `shipped_at` while the parcel waits for pickup, and
   `Waits.Complete` to `delivered_at`; nothing is stored. The shipment keeps
-  `picked_up_at` (0071), the first carrier status past `pending_pickup`
+  `picked_up_at` (0070), the first carrier status past `pending_pickup`
   but `failed`, cleared by a report of `pending_pickup` again, kept
-  across a manual code's correction. 0071 took it from the order's first
+  across a manual code's correction. 0070 took it from the order's first
   system `shipment_updated` step, or `shipped_at`.
 - `ShipmentUpdates.Run(tracking code, status)` is the one entry point of
   a carrier's report: the dev endpoint, the carriers' webhooks and the
@@ -1480,7 +1480,7 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
 - A seller's open offers (decided 2026-11-20): `OpenOffers` lists the
   deals on the seller's listings negotiating with the buyer's price open,
   newest offer first by `(open_at, id)` on the partial index
-  `deals_open_offers` (migration 0070). The cursor is a deal ID, and the
+  `deals_open_offers` (migration 0069). The cursor is a deal ID, and the
   next page lists the offers made before that deal's offer; a cursor deal
   whose offer was answered meanwhile starts the page from the newest again,
   and the client drops the rows it already shows. The service cuts the page
