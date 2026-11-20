@@ -57,7 +57,7 @@ services:
       RESTATE_BIFROST__LOCAL__ROCKSDB_DISABLE_WAL_FSYNC: "true"
     volumes:
       - ./.restate/identity.pem:/identity.pem:ro
-    mem_limit: 1536m
+    mem_limit: 3072m
 
   # Object store on tmpfs; each test writes under keys of its own.
   rustfs:
