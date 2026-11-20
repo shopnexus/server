@@ -1468,6 +1468,16 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   only). Unlike the migrations before it, it broke the release before's
   order reads and writes while it rolled out; that was accepted because
   the app was not wired to the server yet.
+- A seller's open offers (decided 2026-11-20): `OpenOffers` lists the
+  deals on the seller's listings negotiating with the buyer's price open,
+  newest offer first by `(open_at, id)` on the partial index
+  `deals_open_offers` (migration 0070). The cursor is a deal ID, and the
+  next page lists the offers made before that deal's offer; a cursor deal
+  whose offer was answered meanwhile starts the page from the newest again,
+  and the client drops the rows it already shows. The service cuts the page
+  from the stored rows, then leaves out an offer a change of the listing
+  voided before the worker recorded it, so the cursor stays right.
+  `CountOpenOffers` counts the stored ones.
 
 ### Shipping
 
@@ -2023,6 +2033,13 @@ page that shows two views calls both at once.
   import notification (notification's worker reads chat). The path and the
   `chat` tag stay as they were, so the app's generated chat client keeps
   `getUnread`.
+  `offers` (2026-11-20) adds the buyers' open offers waiting on the caller
+  as seller, deal's stored count, for the badge of the offers view.
+- `GET /v1/screens/offers?cursor=&limit=` (decided 2026-11-20) is the
+  seller's offers view: each open offer as its `Deal`, with the
+  `offer_range` of the seller's counter, and the buyer as a `Person`. The
+  answers are the deal's own moves; the view reads the page and its buyers
+  in two calls.
 - "Load more" uses the list endpoints, which return the same item shapes
   as the view: `/v1/sellers/{id}/listings` (`SearchItem` cards, like the
   seller view's `listings`), `/v1/sellers/{id}/reviews` and

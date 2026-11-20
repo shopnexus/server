@@ -290,12 +290,15 @@ conversationUnarchive:
 unread:
   get:
     operationId: getUnread
-    summary: Count the caller's unread messages and unread notices.
+    summary: Count the caller's unread messages, unread notices and the offers waiting on them.
     description: |
       unread counts the messages over unarchived pair conversations, as the
       inbox does; notifications counts the unread notices, as Home's
-      notifications_unread does. Module screen serves it, since it reads
-      chat and notification; the chat tag keeps it in the app's chat client.
+      notifications_unread does; offers counts the buyers' open offers on
+      the caller's listings as the deals hold them, so an offer a change of
+      the listing voided counts until the deal records that change. Module
+      screen serves it, since it reads chat, notification and deal; the
+      chat tag keeps it in the app's chat client.
     tags: [chat]
     security:
       - bearerAuth: []

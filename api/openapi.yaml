@@ -240,6 +240,8 @@ paths:
     $ref: "paths/screen_order.yaml#/screenOrders"
   /v1/screens/my-listings:
     $ref: "paths/screen_my_listings.yaml#/screenMyListings"
+  /v1/screens/offers:
+    $ref: "paths/screen_offers.yaml#/screenOffers"
   /v1/screens/cod-setup:
     $ref: "paths/screen_order.yaml#/screenCodSetup"
   /v1/screens/cod-checkout/{deal_id}:

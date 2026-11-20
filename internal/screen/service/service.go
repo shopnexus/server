@@ -33,6 +33,9 @@ type Service interface {
 	// each listing with its views, askers, saves and open order, and the
 	// last seven days of the listings on sale.
 	MyListings(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request) (MyListingsScreen, error)
+	// Offers reads a page of the buyers' open offers on seller's listings,
+	// newest offer first, each with its buyer.
+	Offers(ctx context.Context, seller uuid.UUID, p page.Request) (OffersScreen, error)
 	CodSetup(ctx context.Context, account uuid.UUID) (CodSetupScreen, error)
 	CodCheckout(ctx context.Context, account, deal uuid.UUID, address *uuid.UUID) (CodCheckoutScreen, error)
 	// Home reads the Home view around near, within radiusKm when it is not
@@ -58,8 +61,8 @@ type Service interface {
 	ProfileTasks(ctx context.Context, account uuid.UUID) (ProfileTasksScreen, error)
 	// Reputation reads account's Uy tín của bạn view.
 	Reputation(ctx context.Context, account uuid.UUID) (ReputationScreen, error)
-	// Unread counts account's unread messages, as the inbox does, and
-	// unread notices.
+	// Unread counts account's unread messages, as the inbox does, its
+	// unread notices and the buyers' open offers waiting on it.
 	Unread(ctx context.Context, account uuid.UUID) (Unread, error)
 }
 
