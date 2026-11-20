@@ -96,6 +96,9 @@ type Service interface {
 	// GetNear reads a listing as Get does, with its distance from near in
 	// whole kilometres, nil when near names no position.
 	GetNear(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near domain.Near) (ListingView, *int, error)
+	// GetSold reads a sold listing for anyone; a listing in any other
+	// status is domain.ErrNotFound.
+	GetSold(ctx context.Context, id uuid.UUID) (ListingView, error)
 	// Origin is the point near names, nil for none; a bad point or an
 	// unknown commune is domain.ErrInvalidPosition.
 	Origin(ctx context.Context, near domain.Near) (*domain.Point, error)

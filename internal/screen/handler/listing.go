@@ -37,3 +37,23 @@ func (h *Handler) Listing(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.Respond(w, http.StatusOK, out)
 }
+
+// soldListingRequest names the listing by its ID or slug.
+type soldListingRequest struct {
+	Ref string `json:"-" path:"id"`
+}
+
+// SoldListing serves GET /v1/screens/sold-listing/{id}, signed in or not.
+func (h *Handler) SoldListing(w http.ResponseWriter, r *http.Request) {
+	var in soldListingRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	out, err := h.svc.SoldListing(r.Context(), in.Ref)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, out)
+}

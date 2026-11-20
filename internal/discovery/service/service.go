@@ -26,7 +26,8 @@ type Service interface {
 	Unsave(ctx context.Context, account, listing uuid.UUID) error
 	// IsSaved reports whether account saved listing.
 	IsSaved(ctx context.Context, account, listing uuid.UUID) (bool, error)
-	// Saved lists the account's saves, newest first.
+	// Saved lists the account's saves, those of listings still on sale
+	// first, each newest first.
 	Saved(ctx context.Context, account uuid.UUID, p page.Request) (page.Page[SavedView], error)
 	// Search finds active listings; viewer, nil when signed out, sees which
 	// they saved.

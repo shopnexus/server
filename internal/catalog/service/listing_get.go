@@ -42,6 +42,20 @@ func (c *Catalog) GetNear(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, 
 	return v, new(domain.DistanceKm(*origin, l.Point())), nil
 }
 
+// GetSold reads a listing that sold, through an order or marked by hand.
+// One hidden by ShopNexus after the sale is hidden, so it is
+// domain.ErrNotFound like every other status.
+func (c *Catalog) GetSold(ctx context.Context, id uuid.UUID) (ListingView, error) {
+	l, err := c.listing(ctx, id)
+	if err != nil {
+		return ListingView{}, err
+	}
+	if l.Status() != domain.StatusSold {
+		return ListingView{}, domain.ErrNotFound
+	}
+	return c.view(ctx, l)
+}
+
 // ListMine lists the listings of one of the seller's panes, newest first.
 func (c *Catalog) ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p page.Request) (page.Page[ListingView], error) {
 	statuses := domain.OnSale

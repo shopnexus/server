@@ -43,6 +43,9 @@ type Service interface {
 	// viewer who is not the seller counts a view of it, unless the read is
 	// a prefetch.
 	Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead) (ListingScreen, error)
+	// SoldListing reads the sold listing view of a listing that sold, for
+	// anyone; ref is its ID or slug.
+	SoldListing(ctx context.Context, ref string) (SoldListingScreen, error)
 	// Seller reads the seller view, its listings as search items measured
 	// from near; viewer is nil when signed out.
 	Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error)

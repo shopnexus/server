@@ -1,7 +1,12 @@
 saved:
   get:
     operationId: listSaved
-    summary: List the caller's saved listings, newest save first.
+    summary: List the caller's saved listings, those still on sale first.
+    description: |
+      The saves of listings that are not sold, hidden or deleted come first,
+      then the others, each group newest save first. A listing that sells
+      between two pages moves to the end, so the later pages may show it
+      again or skip a save that moved up.
     tags: [discovery]
     security:
       - bearerAuth: []

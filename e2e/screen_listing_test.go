@@ -122,3 +122,52 @@ func TestListingScreen(t *testing.T) {
 	check(t, "a slug of no listing", call(t, "GET", "/v1/screens/listing/x", nil), 404, "listing_not_found")
 	check(t, "a bad token", call(t, "GET", path, nil, bearer("x")), 401, "")
 }
+
+// soldListingScreen is GET /v1/screens/sold-listing/{id}.
+type soldListingScreen struct {
+	Listing struct {
+		ID           string `json:"id"`
+		Slug         string `json:"slug"`
+		Title        string `json:"title"`
+		Price        int64  `json:"price"`
+		CategoryCode string `json:"category_code"`
+		Condition    string `json:"condition"`
+		Location     struct {
+			Commune struct {
+				DisplayName string `json:"display_name"`
+			} `json:"commune"`
+		} `json:"location"`
+		Photos []struct {
+			URL string `json:"url"`
+		} `json:"photos"`
+		SoldAt string `json:"sold_at"`
+	} `json:"listing"`
+}
+
+func TestSoldListingScreen(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	l := activeListing(t, seller.AccessToken, nil)
+	path := "/v1/screens/sold-listing/" + l.ID
+	check(t, "on sale", call(t, "GET", path, nil), 404, "listing_not_found")
+	expectStatus(t, call(t, "POST", "/v1/listings/"+l.ID+"/mark-sold", nil, bearer(seller.AccessToken)), http.StatusOK)
+	for _, ref := range []string{l.ID, l.Slug} {
+		got := expect[soldListingScreen](t, call(t, "GET", "/v1/screens/sold-listing/"+ref, nil), http.StatusOK).Listing
+		if got.ID != l.ID || got.Slug != l.Slug || got.Title == "" || got.Price != l.Price || got.CategoryCode == "" || got.Condition == "" ||
+			got.Location.Commune.DisplayName == "" || len(got.Photos) == 0 || got.Photos[0].URL == "" || got.SoldAt == "" {
+			t.Fatalf("by %s: %+v", ref, got)
+		}
+	}
+	check(t, "the listing view still refuses it", call(t, "GET", "/v1/screens/listing/"+l.ID, nil), 404, "listing_not_found")
+
+	hidden := activeListing(t, seller.AccessToken, nil).ID
+	expectStatus(t, call(t, "POST", "/v1/listings/"+hidden+"/hide", nil, bearer(seller.AccessToken)), http.StatusOK)
+	check(t, "hidden", call(t, "GET", "/v1/screens/sold-listing/"+hidden, nil), 404, "listing_not_found")
+	check(t, "unknown", call(t, "GET", "/v1/screens/sold-listing/"+uuid.NewV7().String(), nil), 404, "listing_not_found")
+	check(t, "a slug of no listing", call(t, "GET", "/v1/screens/sold-listing/x", nil), 404, "listing_not_found")
+	check(t, "a bad token", call(t, "GET", path, nil, bearer("x")), 401, "")
+
+	// Erasure keeps a sold listing for the buyer's order, not for the public.
+	check(t, "delete the seller", call(t, "DELETE", "/v1/accounts/me", nil, bearer(seller.AccessToken)), 204, "")
+	check(t, "the seller deleted their account", call(t, "GET", path, nil), 404, "listing_not_found")
+}
