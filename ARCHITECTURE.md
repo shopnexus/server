@@ -3341,6 +3341,13 @@ calls it except screen, for the unread counts of Home and
   `golang.org/x/oauth2/google`, or a log sender when `FCM_CREDENTIALS` is
   empty. With `APP_ENV=prod` the server refuses to start on the log
   sender.
+- The website takes pushes too (decided 2026-11-20): a browser puts its
+  FCM token like a phone. One message serves both: its `webpush` block
+  carries the same tag, so a newer push replaces the browser's
+  notification, and `Urgency: high`. The site's service worker shows the
+  notification and opens the page from `target_kind` and `target_id` on
+  its own origin, so the server needs no site address and sets no
+  `fcm_options.link`, which FCM accepts only over https.
 - A suspended account still gets notices, so it learns of the suspension.
 - `POST /v1/notifications/read-all` returns the IDs it marked read, and
   `POST /v1/notifications/unread {ids}` (1 to 500) makes read notices unread
