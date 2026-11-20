@@ -83,6 +83,13 @@ SearchItem:
     cover_thumb_url:
       type: string
       format: uri
+    photo_thumb_urls:
+      type: array
+      maxItems: 5
+      items:
+        type: string
+        format: uri
+      description: The thumbnails of the listing's first five photos in order, the cover first.
     category_code:
       type: string
       description: The listing's subcategory, such as phones.iphone.

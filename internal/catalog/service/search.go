@@ -24,7 +24,13 @@ type SearchCard struct {
 	// km; absent without an origin.
 	DistanceKm *int              `json:"distance_km,omitempty"`
 	PriceDrop  *domain.PriceDrop `json:"price_drop,omitempty"`
+	// PhotoThumbURLs are the thumbnails of the first CardPhotos photos, the
+	// cover first.
+	PhotoThumbURLs []string `json:"photo_thumb_urls,omitempty"`
 }
+
+// CardPhotos is how many photo thumbnails a card carries.
+const CardPhotos = 5
 
 func (c *Catalog) Search(ctx context.Context, s domain.Search) ([]SearchCard, error) {
 	s, err := c.withVectors(ctx, s)
@@ -75,8 +81,14 @@ func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain
 			ID: l.ID(), Slug: l.Slug(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), CategoryCode: l.CategoryCode(),
 			Condition: l.Condition(), AllowOffers: l.AllowOffers(), Commune: places[l.CommuneCode()].Commune.DisplayName,
 		}
-		if ps := l.Photos(); len(ps) > 0 && ps[0].Keys.Photo != "" {
+		ps := l.Photos()
+		if len(ps) > 0 && ps[0].Keys.Photo != "" {
 			out[i].CoverThumbURL = c.media.URL(ps[0].Keys.Thumb)
+		}
+		for _, p := range ps[:min(len(ps), CardPhotos)] {
+			if p.Keys.Photo != "" {
+				out[i].PhotoThumbURLs = append(out[i].PhotoThumbURLs, c.media.URL(p.Keys.Thumb))
+			}
 		}
 		if origin != nil {
 			out[i].DistanceKm = new(domain.DistanceKm(*origin, l.Point()))

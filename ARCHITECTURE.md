@@ -1165,6 +1165,12 @@ agree during a deploy.
   kept. Nothing was backfilled, since no price history existed. The fields
   are on the listing row, so search, the feeds and the seller lists read
   them with no extra query.
+- The search card (`SearchItem`) carries `photo_thumb_urls`, the
+  thumbnails of the listing's first five photos in order, the cover first
+  (decided 2026-11-20), so the website can step through them on hover.
+  The photos are on the listing row that `cards` already reads, so the
+  list costs no query, and thumbnails keep it small. `cover_thumb_url`
+  stays for the app.
 - Each change writes its event in its transaction: `listing.published`,
   `listing.updated`, `listing.hidden`, `listing.unhidden`, `listing.sold`,
   `listing.unsold`, `listing.deleted`; search and recommendations will
