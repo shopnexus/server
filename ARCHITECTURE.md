@@ -1152,7 +1152,7 @@ agree during a deploy.
   catalog spec named `PATCH`; the user chose `PUT` on 2026-10-26, since the
   app sends the whole form.
 - A listing keeps its last price change after it first went on sale
-  (decided 2026-11-20, migration 0067): `listings.previous_price` and
+  (decided 2026-11-20, migration 0066): `listings.previous_price` and
   `price_changed_at`, set by the edit that changes the price. The Listing
   view and the search card (`SearchItem`) carry `price_drop` while that
   change is a drop of at least 5 % (`domain.PriceDropMinPercent`) made less
@@ -2006,7 +2006,7 @@ page that shows two views calls both at once.
   the client words (`minutes` up to 10 minutes, `hour`, `hours` up to 6,
   `day` up to 24), absent below 5 answers in 30 days or past a day. A view
   reads it from a table, not from the messages: chat's repository writes a
-  row of `reply_samples` (migration 0068) in the transaction that makes a
+  row of `reply_samples` (migration 0067) in the transaction that makes a
   message sent, when the message ends a wait, and drops the sender's rows
   older than 30 days. A wait starts at the other member's first message
   after the seller's previous one, when that came at least an hour later
@@ -2016,7 +2016,7 @@ page that shows two views calls both at once.
   seller selling, as for the reply rate, and deal messages count on
   neither side. The read is one indexed `percentile_disc(0.5)` over the
   seller's rows. Unanswered waits count nothing; the reply rate covers
-  those. Migration 0068 fills the last 30 days by the same rule.
+  those. Migration 0067 fills the last 30 days by the same rule.
 - `GET /v1/me/unread` (decided 2026-11-19): `{unread, notifications}`,
   chat's unread total, as the inbox counts it, and notification's unread
   notices, so a badge needs one call. Screen serves it, since chat cannot
@@ -2084,7 +2084,7 @@ Module `trust` holds reviews (spec:
   each try, so a retry must find its photos still free for it) and waits on
   `MediaProcess` for each at once; a refused photo is `invalid_upload`.
   `reviews.photos` keeps `{upload_id, photo_key, thumb_key}` (migration
-  0068), and a delete drops them. `Review`, `OwnReview` and `TheirReview`
+  0067), and a delete drops them. `Review`, `OwnReview` and `TheirReview`
   carry `photos` with public URLs.
 - `PUT /v1/reviews/{id}/helpful` marks a visible review helpful and
   `DELETE` takes the mark back; its reviewer and subject get `own_review`,
