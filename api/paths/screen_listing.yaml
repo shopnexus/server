@@ -4,7 +4,8 @@ screenListing:
     summary: The listing view, a listing on sale with its seller and the reader's ties to it.
     description: |
       Only an active or reserved listing has the view; its seller reads it
-      in another status through GET /v1/listings/{id}. A signed-in reader
+      in another status through GET /v1/listings/{id}, and anyone reads a
+      sold one through GET /v1/screens/sold-listing/{id}. A signed-in reader
       who is not the seller also gets `viewer`, and the read counts as a
       view of the listing, once per reader and UTC day; a signed-out read
       counts none (GET /v1/screens/my-listings). A prefetch (Sec-Purpose)
@@ -44,6 +45,43 @@ screenListing:
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
         description: "No such listing on sale (listing_not_found), for its seller too."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+screenSoldListing:
+  get:
+    operationId: getSoldListingScreen
+    summary: The sold listing view, what anyone still sees of a listing after it sold.
+    description: |
+      A listing marked sold, by hand or through an order, keeps its title,
+      photos, category, condition, place and price, so an old link still
+      shows what it was and leads to similar listings. It has no seller,
+      description or actions, and a read counts no view. A listing in any
+      other status, hidden by ShopNexus after the sale included, has no
+      view.
+    tags: [screen]
+    security:
+      - {}
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The listing's ID, or the slug of its web address (ListingSlug).
+        schema:
+          type: string
+    responses:
+      "200":
+        description: The sold listing view.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/screen_listing.yaml#/SoldListingScreen"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such sold listing (listing_not_found)."
         content:
           application/json:
             schema:

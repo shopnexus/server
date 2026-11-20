@@ -1941,6 +1941,16 @@ page that shows two views calls both at once.
   `viewer {saved, deal, conversation_id}`, where `deal` is deal's
   `DealSummary` of the viewer's deal. A listing that is not public is 404
   for everyone; its seller reads it through `GET /v1/listings/{id}`.
+- `GET /v1/screens/sold-listing/{id}` (signed in or not, decided
+  2026-11-20): a sold listing's title, slug, price, category, condition,
+  place, photos and `sold_at`, so an old link still shows what sold and
+  leads to similar listings. It has no seller, description, specs or
+  viewer, and counts no view. Any other status is 404, a listing held by
+  ShopNexus after the sale (hidden) included, and so is a sold listing
+  whose seller deleted their account: erasure keeps it for the buyer's
+  order, not for the public. It is a view of its own, not a 200 of the
+  listing view, because the app reads that view's 404 as "maybe the
+  seller's own listing" and falls back to `GET /v1/listings/{id}`.
 - `GET /v1/screens/seller/{id}` (signed in or not): the seller's profile
   (account's public fields, catalog's counts, and the rating of the reviews
   page, and the follower count), the first page of the seller's public
@@ -2333,9 +2343,14 @@ Search).
 - A person saves someone else's listing that is active or reserved, at
   most 500; the save keeps the price at that moment. Saving again changes
   nothing.
-- `GET /v1/saved` lists the saves newest first with each listing as it is
-  now. A listing hidden or deleted after the save shows its status alone,
-  since its seller took it down.
+- `GET /v1/saved` lists the saves with each listing as it is now: those
+  of listings still on sale first, then those sold, hidden or deleted,
+  each group newest save first (decided 2026-11-20). The cursor stays the
+  save's ID, and the query reads the cursor save's listing to know its
+  group; a cursor whose save was removed counts as on sale. A listing
+  hidden or deleted after the save shows its status alone, since its
+  seller took it down. The price change since the save is the listing's
+  `price` against `saved_price`; the client shows it.
 - A saved listing carries its `category_code`, `condition` and commune name
   as a search item does (decided 2026-11-15), and a `SearchItem` carries
   `seller_id` and `category_code`, so the app files and groups both without

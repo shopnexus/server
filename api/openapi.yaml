@@ -304,6 +304,8 @@ paths:
     $ref: "paths/screen_home.yaml#/screenHome"
   /v1/screens/listing/{id}:
     $ref: "paths/screen_listing.yaml#/screenListing"
+  /v1/screens/sold-listing/{id}:
+    $ref: "paths/screen_listing.yaml#/screenSoldListing"
   /v1/screens/seller/{id}:
     $ref: "paths/screen_listing.yaml#/screenSeller"
   /v1/screens/profile-tasks:

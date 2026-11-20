@@ -16,6 +16,43 @@ ListingScreen:
       $ref: "#/SellerSummary"
     viewer:
       $ref: "#/ListingViewer"
+SoldListingScreen:
+  type: object
+  additionalProperties: false
+  required: [listing]
+  properties:
+    listing:
+      $ref: "#/SoldListing"
+SoldListing:
+  type: object
+  additionalProperties: false
+  required: [id, slug, title, price, category_code, condition, location, photos, sold_at]
+  description: A sold listing as anyone still sees it.
+  properties:
+    id:
+      type: string
+      format: uuid
+    slug:
+      $ref: "catalog.yaml#/ListingSlug"
+    title:
+      type: string
+    price:
+      type: integer
+      format: int64
+      description: The price the listing asked when it sold; an order's agreed price stays with its two people.
+    category_code:
+      type: string
+    condition:
+      $ref: "catalog.yaml#/Condition"
+    location:
+      $ref: "catalog.yaml#/Location"
+    photos:
+      type: array
+      items:
+        $ref: "catalog.yaml#/Photo"
+    sold_at:
+      type: string
+      format: date-time
 SellerSummary:
   type: object
   additionalProperties: false

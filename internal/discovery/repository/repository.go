@@ -24,9 +24,10 @@ type Saves interface {
 	Remove(ctx context.Context, account, listing uuid.UUID) error
 	// SavedAmong returns which of ids account saved.
 	SavedAmong(ctx context.Context, account uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]bool, error)
-	// List is a query: account's saves with IDs below p.Before(), newest
+	// List is a query: account's saves after the cursor p.Before(), those
+	// whose listing is in a status of last after the others, each newest
 	// first, at most p.Fetch().
-	List(ctx context.Context, account uuid.UUID, p page.Request) ([]Save, error)
+	List(ctx context.Context, account uuid.UUID, last []catalogdomain.Status, p page.Request) ([]Save, error)
 	// Clear deletes every save of the account.
 	Clear(ctx context.Context, account uuid.UUID) error
 	// Get reads one save by its ID.

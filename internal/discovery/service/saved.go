@@ -76,10 +76,14 @@ func (d *Discovery) IsSaved(ctx context.Context, account, listing uuid.UUID) (bo
 // alone, since its seller took it down.
 var takenDown = []catalogdomain.Status{catalogdomain.StatusHidden, catalogdomain.StatusDeleted}
 
-// Saved reads one page of saves, their listings and the communes of the
-// listings it shows, one call each.
+// ended are the statuses whose saves list after the others: the listing
+// sold, or its seller took it down.
+var ended = []catalogdomain.Status{catalogdomain.StatusSold, catalogdomain.StatusHidden, catalogdomain.StatusDeleted}
+
+// Saved reads one page of saves, those of listings still on sale first,
+// their listings and the communes of the listings it shows, one call each.
 func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request) (page.Page[SavedView], error) {
-	rows, err := d.saves.List(ctx, account, p)
+	rows, err := d.saves.List(ctx, account, ended, p)
 	if err != nil {
 		return page.Page[SavedView]{}, fmt.Errorf("list saves: %w", err)
 	}

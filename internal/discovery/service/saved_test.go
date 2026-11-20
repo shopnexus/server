@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 	"testing"
 	"time"
 	"uuid"
@@ -94,6 +95,43 @@ func TestSaveAndList(t *testing.T) {
 	}
 	if p, _ = e.discovery.Saved(ctx, me, page.Request{}); len(p.Items) != 1 {
 		t.Fatalf("after unsave: %+v", p)
+	}
+}
+
+// TestSavedListsEndedLast: a listing that sold or was taken down after the
+// save moves its save after those still on sale, which keep the newest
+// first.
+func TestSavedListsEndedLast(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, me := accounttest.New(t, e.db), accounttest.New(t, e.db)
+	sold, hidden, first, last := catalogtest.Listing(t, e.db, seller), catalogtest.Listing(t, e.db, seller),
+		catalogtest.Listing(t, e.db, seller), catalogtest.Listing(t, e.db, seller)
+	for _, l := range []uuid.UUID{first, sold, hidden, last} {
+		if err := e.discovery.Save(ctx, me, l); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := e.catalog.MarkSold(ctx, seller, sold); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+		t.Fatal(err)
+	}
+	p, err := e.discovery.Saved(ctx, me, page.Request{})
+	if err != nil || len(p.Items) != 4 {
+		t.Fatalf("%+v %v", p, err)
+	}
+	got := make([]uuid.UUID, 0, 4)
+	for _, it := range p.Items {
+		got = append(got, it.ListingID)
+	}
+	if want := []uuid.UUID{last, first, hidden, sold}; !slices.Equal(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	if s := p.Items[3].Listing; s.Status != catalogdomain.StatusSold || s.Title == "" || s.Price == nil {
+		t.Fatalf("a sold save shows its listing: %+v", s)
 	}
 }
 

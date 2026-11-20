@@ -6,6 +6,7 @@ import (
 	"time"
 	"uuid"
 
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatdomain "github.com/shopnexus/server/internal/chat/domain"
@@ -62,16 +63,9 @@ type ListingRead struct {
 // listing unless the read is a prefetch. The count is best effort: a failed
 // count is logged, and the view answers all the same.
 func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead) (ListingScreen, error) {
-	id, err := uuid.Parse(in.Ref)
+	id, err := s.listingID(ctx, in.Ref)
 	if err != nil {
-		ids, findErr := s.catalog.IDsBySlug(ctx, []string{in.Ref})
-		if findErr != nil {
-			return ListingScreen{}, fmt.Errorf("find the listing: %w", findErr)
-		}
-		var ok bool
-		if id, ok = ids[in.Ref]; !ok {
-			return ListingScreen{}, catalogdomain.ErrNotFound
-		}
+		return ListingScreen{}, err
 	}
 	l, distance, err := s.catalog.GetNear(ctx, nil, id, in.Near)
 	if err != nil {
@@ -123,4 +117,66 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead)
 		s.log.WarnContext(ctx, "a listing view went uncounted", "listing", id, "err", err)
 	}
 	return out, nil
+}
+
+// SoldListingScreen is the SoldListingScreen schema in
+// api/schemas/screen_listing.yaml.
+type SoldListingScreen struct {
+	Listing SoldListing `json:"listing"`
+}
+
+// SoldListing is the SoldListing schema in api/schemas/screen_listing.yaml.
+type SoldListing struct {
+	ID           uuid.UUID               `json:"id"`
+	Slug         string                  `json:"slug"`
+	Title        string                  `json:"title"`
+	Price        int64                   `json:"price"`
+	CategoryCode string                  `json:"category_code"`
+	Condition    catalogdomain.Condition `json:"condition"`
+	Location     catalogsvc.Location     `json:"location"`
+	Photos       []catalogsvc.PhotoView  `json:"photos"`
+	SoldAt       time.Time               `json:"sold_at"`
+}
+
+// SoldListing reads what anyone still sees of a sold listing. A listing in
+// another status, or one whose seller deleted their account, is
+// catalogdomain.ErrNotFound: erasure keeps a sold listing for the buyer's
+// order, not for the public.
+func (s *Screen) SoldListing(ctx context.Context, ref string) (SoldListingScreen, error) {
+	id, err := s.listingID(ctx, ref)
+	if err != nil {
+		return SoldListingScreen{}, err
+	}
+	l, err := s.catalog.GetSold(ctx, id)
+	if err != nil {
+		return SoldListingScreen{}, fmt.Errorf("read the listing: %w", err)
+	}
+	seller, err := s.accounts.Get(ctx, l.SellerID)
+	if err != nil {
+		return SoldListingScreen{}, fmt.Errorf("read the seller: %w", err)
+	}
+	if seller.Status == accountdomain.StatusDeleted {
+		return SoldListingScreen{}, catalogdomain.ErrNotFound
+	}
+	return SoldListingScreen{Listing: SoldListing{
+		ID: l.ID, Slug: l.Slug, Title: l.Title, Price: l.Price, CategoryCode: l.CategoryCode, Condition: l.Condition,
+		Location: l.Location, Photos: l.Photos, SoldAt: *l.SoldAt,
+	}}, nil
+}
+
+// listingID is the listing ref names: an ID, or the slug of its web
+// address, found by the code that ends it.
+func (s *Screen) listingID(ctx context.Context, ref string) (uuid.UUID, error) {
+	if id, err := uuid.Parse(ref); err == nil {
+		return id, nil
+	}
+	ids, err := s.catalog.IDsBySlug(ctx, []string{ref})
+	if err != nil {
+		return uuid.UUID{}, fmt.Errorf("find the listing: %w", err)
+	}
+	id, ok := ids[ref]
+	if !ok {
+		return uuid.UUID{}, catalogdomain.ErrNotFound
+	}
+	return id, nil
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/page"
@@ -70,10 +71,24 @@ func (s pgSaves) Remove(ctx context.Context, account, listing uuid.UUID) error {
 	return nil
 }
 
-func (s pgSaves) List(ctx context.Context, account uuid.UUID, p page.Request) ([]Save, error) {
-	rows, err := s.db.Query(ctx, `SELECT id, listing_id, saved_price, created_at, alert_below, account_id FROM saved_listings
-WHERE account_id = @account AND id < @before ORDER BY id DESC LIMIT @limit`,
-		pgx.StrictNamedArgs{"account": account, "before": p.Before(), "limit": p.Fetch()})
+// listSaves orders an account's saves by whether the listing ended (its
+// status is in @last), then newest first. The cursor is the ID of the last
+// save listed, and its listing's status says where to go on; a save
+// removed since counts as one whose listing has not ended.
+const listSaves = `WITH s AS (
+    SELECT s.id, s.listing_id, s.saved_price, s.created_at, s.alert_below, s.account_id, l.status = ANY(@last) AS ended
+    FROM saved_listings s JOIN listings l ON l.id = s.listing_id
+    WHERE s.account_id = @account
+), c AS (
+    SELECT coalesce((SELECT ended FROM s WHERE id = @before), false) AS ended
+)
+SELECT s.id, s.listing_id, s.saved_price, s.created_at, s.alert_below, s.account_id FROM s, c
+WHERE s.ended > c.ended OR (s.ended = c.ended AND s.id < @before)
+ORDER BY s.ended, s.id DESC LIMIT @limit`
+
+func (s pgSaves) List(ctx context.Context, account uuid.UUID, last []catalogdomain.Status, p page.Request) ([]Save, error) {
+	rows, err := s.db.Query(ctx, listSaves,
+		pgx.StrictNamedArgs{"account": account, "last": last, "before": p.Before(), "limit": p.Fetch()})
 	if err != nil {
 		return nil, fmt.Errorf("select saves: %w", err)
 	}
