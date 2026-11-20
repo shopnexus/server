@@ -114,6 +114,7 @@ func setup(closers *[]func()) error {
 	if err != nil {
 		return err
 	}
+	*closers = append(*closers, func() { _ = restatetest.Forget(restateCfg.ServicePrefix) })
 	objectStoreCfg, err := objectstoretest.Config()
 	if err != nil {
 		return err

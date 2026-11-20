@@ -4,10 +4,13 @@ package restatetest
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -58,7 +61,8 @@ func ConfigForMain() (config.RestateConfig, error) {
 	}, nil
 }
 
-// Config is ConfigForMain for one test, which it skips under -short.
+// Config is ConfigForMain for one test, which it skips under -short. The
+// deployments registered under its prefix go when the test ends.
 func Config(tb testing.TB) config.RestateConfig {
 	tb.Helper()
 	if testing.Short() {
@@ -68,7 +72,75 @@ func Config(tb testing.TB) config.RestateConfig {
 	if err != nil {
 		tb.Fatal(err)
 	}
+	tb.Cleanup(func() {
+		if err := Forget(cfg.ServicePrefix); err != nil {
+			tb.Error(err)
+		}
+	})
 	return cfg
+}
+
+// Forget deletes the test stack's deployments whose services carry prefix.
+// Every run registers services of its own, and Restate keeps each one in
+// memory until its deployment is deleted.
+func Forget(prefix string) error {
+	return forget(func(d deployment) bool {
+		return len(d.Services) > 0 && strings.HasPrefix(d.Services[0].Name, prefix)
+	})
+}
+
+type deployment struct {
+	ID       string `json:"id"`
+	URI      string `json:"uri"`
+	Services []struct {
+		Name string `json:"name"`
+	} `json:"services"`
+}
+
+// forget deletes the deployments that match, forcing out any invocation
+// a failed test left behind.
+func forget(match func(deployment) bool) error {
+	_, adminURL, err := urls()
+	if err != nil {
+		return err
+	}
+	admin := strings.TrimRight(adminURL, "/")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, admin+"/deployments", http.NoBody)
+	if err != nil {
+		return err
+	}
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("list restate deployments: %w", err)
+	}
+	var list struct {
+		Deployments []deployment `json:"deployments"`
+	}
+	err = json.NewDecoder(res.Body).Decode(&list)
+	_ = res.Body.Close()
+	if err != nil {
+		return fmt.Errorf("list restate deployments: %w", err)
+	}
+	for _, d := range list.Deployments {
+		if !match(d) {
+			continue
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, admin+"/deployments/"+d.ID+"?force=true", http.NoBody)
+		if err != nil {
+			return err
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return fmt.Errorf("delete restate deployment %s: %w", d.ID, err)
+		}
+		_ = res.Body.Close()
+		if res.StatusCode/100 != 2 && res.StatusCode != http.StatusNotFound {
+			return fmt.Errorf("delete restate deployment %s: %s", d.ID, res.Status)
+		}
+	}
+	return nil
 }
 
 // Ingress is a client of the test stack's Restate ingress. It skips the
@@ -111,5 +183,11 @@ func Start(tb testing.TB, defs ...restate.ServiceDefinition) *ingress.Client {
 	if err := restatex.Register(ctx, cfg.AdminURL, ep.URL()); err != nil {
 		tb.Fatal(err)
 	}
+	// Runs before the endpoint closes: cleanups go last in, first out.
+	tb.Cleanup(func() {
+		if err := forget(func(d deployment) bool { return d.URI == ep.URL() || d.URI == ep.URL()+"/" }); err != nil {
+			tb.Error(err)
+		}
+	})
 	return ingress.NewClient(cfg.IngressURL)
 }
