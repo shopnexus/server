@@ -51,7 +51,10 @@ type ConsoleAccount struct {
 	Status         domain.Status `json:"status"`
 	SuspendedUntil *time.Time    `json:"suspended_until,omitempty"`
 	SuspendReason  string        `json:"suspend_reason,omitempty"`
-	CreatedAt      time.Time     `json:"created_at"`
+	// Contact is the phone number, or the email address without one, so
+	// console members can tell apart accounts that have no name.
+	Contact   string    `json:"contact,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func consoleAccountOf(a domain.Account, now time.Time) ConsoleAccount {

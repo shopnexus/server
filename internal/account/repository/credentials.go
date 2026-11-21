@@ -19,6 +19,9 @@ type Credentials interface {
 	// FindIdentity returns the identity with kind and value and the account
 	// holding it, or ErrNotFound. It is a query, not an aggregate load.
 	FindIdentity(ctx context.Context, kind domain.Kind, value string) (domain.IdentityRef, error)
+	// Contacts is a query: each account's phone number, or its email address
+	// when it has no phone, for the accounts of ids that have either.
+	Contacts(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
 	// Save writes c and replaces its identities when the root still has
 	// c.WriteID() or already has writeID. Otherwise ErrConflict; an identity
 	// another account holds is domain.ErrIdentityTaken.

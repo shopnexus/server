@@ -29,6 +29,10 @@ func (s *Support) consoleTickets(ctx context.Context, ts []repository.Ticket) ([
 	if err != nil {
 		return nil, fmt.Errorf("read the persons: %w", err)
 	}
+	contacts, err := s.accounts.Contacts(ctx, people)
+	if err != nil {
+		return nil, fmt.Errorf("read the persons' contacts: %w", err)
+	}
 	threads, err := s.chats.Threads(ctx, accountdomain.ShopNexusID, convs)
 	if err != nil {
 		return nil, fmt.Errorf("read the chats: %w", err)
@@ -40,8 +44,8 @@ func (s *Support) consoleTickets(ctx context.Context, ts []repository.Ticket) ([
 			return nil, viewErr
 		}
 		c := ConsoleTicket{
-			Ticket: v, Person: person(ts[i].AccountID, accounts[ts[i].AccountID]), LastFrom: ts[i].LastFrom,
-			LastMessageAt: ts[i].LastMessageAt,
+			Ticket: v, Person: person(ts[i].AccountID, accounts[ts[i].AccountID]), PersonContact: contacts[ts[i].AccountID],
+			LastFrom: ts[i].LastFrom, LastMessageAt: ts[i].LastMessageAt,
 		}
 		if last := threads[ts[i].ConversationID].Last; last != nil {
 			c.LastText = last.Text

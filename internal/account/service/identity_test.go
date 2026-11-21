@@ -55,6 +55,10 @@ func TestFindByContactAndIdentities(t *testing.T) {
 			t.Errorf("%q matched: %v %v", q, ok, findErr)
 		}
 	}
+	contacts, err := client.Contacts(ctx, []uuid.UUID{id, b.ID(), uuid.NewV7()})
+	if err != nil || len(contacts) != 2 || contacts[id] != "+84901234567" || contacts[b.ID()] != "ha@example.com" {
+		t.Fatalf("contacts: %v %v", contacts, err)
+	}
 	ids, err := client.Identities(ctx, id)
 	if err != nil || len(ids) != 1 || ids[0].Kind != domain.KindPhone || ids[0].Value != "+84901234567" {
 		t.Fatalf("%+v %v", ids, err)

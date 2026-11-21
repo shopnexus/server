@@ -37,8 +37,16 @@ func newStore(t *testing.T) repository.Accounts {
 // with its clock stopped at t. It signs with testKeys and logs nowhere.
 func at(accounts repository.Accounts, sessions repository.Sessions, t time.Time) *service.Account {
 	return service.New(service.Deps{
-		Accounts: accounts, Sessions: sessions, Signer: domain.NewSigner(testKeys), Now: func() time.Time { return t }, Log: discard,
+		Accounts: accounts, Sessions: sessions, Credentials: noContacts{}, Signer: domain.NewSigner(testKeys), Now: func() time.Time { return t }, Log: discard,
 	})
+}
+
+// noContacts stands in for credentials where a test reads console views
+// only: no account has a contact.
+type noContacts struct{ repository.Credentials }
+
+func (noContacts) Contacts(context.Context, []uuid.UUID) (map[uuid.UUID]string, error) {
+	return map[uuid.UUID]string{}, nil
 }
 
 // seed creates an active account named Linh in s.

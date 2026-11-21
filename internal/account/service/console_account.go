@@ -16,7 +16,37 @@ func (s *Account) ConsoleAccount(ctx context.Context, id uuid.UUID) (ConsoleAcco
 	if err != nil {
 		return ConsoleAccount{}, err
 	}
-	return consoleAccountOf(a, s.now()), nil
+	out := []ConsoleAccount{consoleAccountOf(a, s.now())}
+	if err = s.addContacts(ctx, out); err != nil {
+		return ConsoleAccount{}, err
+	}
+	return out[0], nil
+}
+
+// Contacts returns each account's phone number, or its email address
+// without one, for the accounts of ids that have either.
+func (s *Account) Contacts(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out, err := s.credentials.Contacts(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get contacts: %w", err)
+	}
+	return out, nil
+}
+
+// addContacts fills the Contact of each of list in one query.
+func (s *Account) addContacts(ctx context.Context, list []ConsoleAccount) error {
+	ids := make([]uuid.UUID, len(list))
+	for i := range list {
+		ids[i] = list[i].ID
+	}
+	contacts, err := s.Contacts(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for i := range list {
+		list[i].Contact = contacts[list[i].ID]
+	}
+	return nil
 }
 
 // ConsoleAccountsOf reads the accounts among ids in one query.
@@ -26,9 +56,16 @@ func (s *Account) ConsoleAccountsOf(ctx context.Context, ids []uuid.UUID) (map[u
 		return nil, fmt.Errorf("get accounts: %w", err)
 	}
 	now := s.now()
-	out := make(map[uuid.UUID]ConsoleAccount, len(rows))
+	list := make([]ConsoleAccount, len(rows))
 	for i := range rows {
-		out[rows[i].ID()] = consoleAccountOf(rows[i], now)
+		list[i] = consoleAccountOf(rows[i], now)
+	}
+	if err = s.addContacts(ctx, list); err != nil {
+		return nil, err
+	}
+	out := make(map[uuid.UUID]ConsoleAccount, len(list))
+	for _, a := range list {
+		out[a.ID] = a
 	}
 	return out, nil
 }
@@ -44,6 +81,9 @@ func (s *Account) ConsoleAccounts(ctx context.Context, p page.Request) (page.Pag
 	for i := range list {
 		out = append(out, consoleAccountOf(list[i], now))
 	}
+	if err = s.addContacts(ctx, out); err != nil {
+		return page.Page[ConsoleAccount]{}, err
+	}
 	return page.Of(out, p, func(a ConsoleAccount) uuid.UUID { return a.ID }), nil
 }
 
@@ -58,6 +98,9 @@ func (s *Account) SuspendedAccounts(ctx context.Context, p page.Request) (page.P
 	out := make([]ConsoleAccount, 0, len(list))
 	for i := range list {
 		out = append(out, consoleAccountOf(list[i], now))
+	}
+	if err = s.addContacts(ctx, out); err != nil {
+		return page.Page[ConsoleAccount]{}, err
 	}
 	return page.Of(out, p, func(a ConsoleAccount) uuid.UUID { return a.ID }), nil
 }

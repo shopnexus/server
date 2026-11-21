@@ -134,11 +134,13 @@ type SummaryView struct {
 
 // ConsoleTicket is the ConsoleTicket schema.
 type ConsoleTicket struct {
-	Ticket        TicketView         `json:"ticket"`
-	Person        chatsvc.PersonView `json:"person"`
-	LastText      string             `json:"last_text,omitempty"`
-	LastFrom      domain.From        `json:"last_from"`
-	LastMessageAt time.Time          `json:"last_message_at"`
+	Ticket TicketView         `json:"ticket"`
+	Person chatsvc.PersonView `json:"person"`
+	// PersonContact is the person's phone number or email address.
+	PersonContact string      `json:"person_contact,omitempty"`
+	LastText      string      `json:"last_text,omitempty"`
+	LastFrom      domain.From `json:"last_from"`
+	LastMessageAt time.Time   `json:"last_message_at"`
 }
 
 // ConsoleMessage is the ConsoleMessage schema.

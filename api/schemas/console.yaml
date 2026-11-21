@@ -225,6 +225,9 @@ ConsoleAccount:
       format: date-time
     suspend_reason:
       type: string
+    contact:
+      type: string
+      description: The phone number, or the email address without one, to tell apart accounts that have no name.
     created_at:
       type: string
       format: date-time
@@ -391,6 +394,9 @@ ConsoleTicket:
       $ref: "support.yaml#/Ticket"
     person:
       $ref: "chat.yaml#/Person"
+    person_contact:
+      type: string
+      description: The person's phone number, or email address without one.
     last_text:
       type: string
       description: The last message's text, for the queue row.

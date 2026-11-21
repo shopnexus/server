@@ -115,6 +115,26 @@ func (s pgCredentials) FindIdentity(ctx context.Context, kind domain.Kind, value
 	return ref, nil
 }
 
+func (s pgCredentials) Contacts(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	rows, err := s.db.Query(ctx, `
+SELECT DISTINCT ON (account_id) account_id, identifier FROM identities
+WHERE account_id = ANY(@ids) AND kind IN ('phone', 'email')
+ORDER BY account_id, kind = 'phone' DESC, created_at`, pgx.StrictNamedArgs{"ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("select contacts: %w", err)
+	}
+	out := map[uuid.UUID]string{}
+	var id uuid.UUID
+	var value string
+	if _, err = pgx.ForEachRow(rows, []any{&id, &value}, func() error {
+		out[id] = value
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("scan contacts: %w", err)
+	}
+	return out, nil
+}
+
 func (s pgCredentials) Save(ctx context.Context, c *domain.Credentials, writeID uuid.UUID) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		tag, err := tx.Exec(ctx, `
