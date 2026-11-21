@@ -98,8 +98,9 @@ type Service interface {
 	// module that requires one answers domain.ErrPhoneRequired when it has
 	// not; a Restate step returns the bool, so the flow refuses as data.
 	HasPhone(ctx context.Context, id uuid.UUID) (bool, error)
-	// FindByPhone returns the account holding the phone number q.
-	FindByPhone(ctx context.Context, q string) (uuid.UUID, bool, error)
+	// FindByContact returns the account holding the email address or the
+	// phone number q.
+	FindByContact(ctx context.Context, q string) (uuid.UUID, bool, error)
 	// Identities lists an account's sign-in methods.
 	Identities(ctx context.Context, accountID uuid.UUID) ([]Identity, error)
 	// Me reads the caller's own account with its identities.

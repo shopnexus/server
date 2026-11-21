@@ -11,15 +11,17 @@ import (
 	"github.com/shopnexus/server/internal/platform/contact"
 )
 
-// FindByPhone returns the account holding the phone number q, in any form a
-// person types. A q that is no Vietnamese mobile number, or that no account
-// holds, reports false.
-func (s *Account) FindByPhone(ctx context.Context, q string) (uuid.UUID, bool, error) {
-	addr, err := contact.ParsePhone(q)
+// FindByContact returns the account holding the email address or the phone
+// number q, in any form a person types. A q that is neither, or that no
+// account holds, reports false.
+func (s *Account) FindByContact(ctx context.Context, q string) (uuid.UUID, bool, error) {
+	addr, err := contact.ParseEmail(q)
 	if err != nil {
-		return uuid.UUID{}, false, nil //nolint:nilerr // A q that is no phone number matches no account.
+		if addr, err = contact.ParsePhone(q); err != nil {
+			return uuid.UUID{}, false, nil //nolint:nilerr // A q that is no address matches no account.
+		}
 	}
-	ref, err := s.credentials.FindIdentity(ctx, domain.KindPhone, addr.Value())
+	ref, err := s.credentials.FindIdentity(ctx, domain.Kind(addr.Kind()), addr.Value())
 	if errors.Is(err, repository.ErrNotFound) {
 		return uuid.UUID{}, false, nil
 	}

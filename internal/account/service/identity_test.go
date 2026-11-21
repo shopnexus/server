@@ -13,7 +13,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
-func TestFindByPhoneAndIdentities(t *testing.T) {
+func TestFindByContactAndIdentities(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	ctx := context.Background()
@@ -27,15 +27,31 @@ func TestFindByPhoneAndIdentities(t *testing.T) {
 	if err = creds.SignUp(ctx, a, c); err != nil {
 		t.Fatal(err)
 	}
+	b, err := domain.New(uuid.NewV7(), "Hà", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mail, err := contact.ParseEmail("Ha@Example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = creds.SignUp(ctx, b, domain.NewCredentials(b.ID(), domain.NewIdentity(uuid.NewV7(), mail, now), now)); err != nil {
+		t.Fatal(err)
+	}
 	client := service.New(service.Deps{Credentials: creds})
+	for _, q := range []string{"ha@example.com", " HA@example.com "} {
+		if got, ok, findErr := client.FindByContact(ctx, q); findErr != nil || !ok || got != b.ID() {
+			t.Errorf("%q: %v %v %v", q, got, ok, findErr)
+		}
+	}
 	for _, q := range []string{"0901234567", "+84901234567", "84 901 234 567"} {
-		got, ok, findErr := client.FindByPhone(ctx, q)
+		got, ok, findErr := client.FindByContact(ctx, q)
 		if findErr != nil || !ok || got != id {
 			t.Errorf("%q: %v %v %v", q, got, ok, findErr)
 		}
 	}
 	for _, q := range []string{"0907654321", "nobody@example.com", "not a phone"} {
-		if _, ok, findErr := client.FindByPhone(ctx, q); findErr != nil || ok {
+		if _, ok, findErr := client.FindByContact(ctx, q); findErr != nil || ok {
 			t.Errorf("%q matched: %v %v", q, ok, findErr)
 		}
 	}

@@ -323,7 +323,7 @@ accounts:
     operationId: listConsoleAccounts
     summary: Customer accounts, newest first, or the one q names.
     description: >-
-      q matches an account ID or a phone number in any common form, exactly.
+      q matches an account ID, an email address or a phone number in any common form, exactly.
       status=suspended lists only the accounts whose suspension is in force
       now, the one that ends soonest first and those without an end last,
       and returns their count as total; with q as well, the account q names

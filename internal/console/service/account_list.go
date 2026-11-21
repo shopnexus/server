@@ -12,7 +12,7 @@ import (
 )
 
 // ListAccounts lists accounts newest first or, with in.Q, the one account Q
-// names by ID or phone number. A Q that names nothing gives an empty page.
+// names by ID, email address or phone number. A Q that names nothing gives an empty page.
 // With in.Suspended it lists only accounts suspended now, the suspension
 // that ends soonest first, and counts them; with Q as well, the account Q
 // names only if it is suspended.
@@ -44,7 +44,7 @@ func (s *Console) ListAccounts(ctx context.Context, in AccountQuery, p page.Requ
 	out.Items = []accountsvc.ConsoleAccount{}
 	id, parseErr := uuid.Parse(in.Q)
 	if parseErr != nil {
-		found, ok, err := s.accounts.FindByPhone(ctx, in.Q)
+		found, ok, err := s.accounts.FindByContact(ctx, in.Q)
 		if err != nil {
 			return AccountList{}, fmt.Errorf("find account: %w", err)
 		}
