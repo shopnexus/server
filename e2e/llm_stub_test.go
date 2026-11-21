@@ -17,10 +17,10 @@ type stubModel struct {
 
 // answers are what the model says of a query; any other query gets nothing.
 var answers = map[string]string{
-	"xe dap di lam duoi 3tr": `{"understood":"Xe đạp đi làm, dưới 3 triệu","boosts":[` +
+	"xe dap di lam duoi 3tr": `{"boosts":[` +
 		`{"attr":"phrase","values":["xe đạp đi làm"]},{"attr":"category","values":["vehicles.bicycle"]},` +
 		`{"attr":"price","values":["-3000000"]}],"demotes":[]}`,
-	"may giat cu": `{"understood":"Máy giặt cũ","boosts":[{"attr":"category","values":["home.washer"]}],"demotes":[]}`,
+	"may giat cu": `{"boosts":[{"attr":"category","values":["home.washer"]}],"demotes":[]}`,
 }
 
 func newModel() *stubModel {
@@ -42,7 +42,7 @@ func newModel() *stubModel {
 		m.mu.Unlock()
 		answer, ok := answers[q]
 		if !ok {
-			answer = `{"understood":"","boosts":[],"demotes":[]}`
+			answer = `{"boosts":[],"demotes":[]}`
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{{"message": map[string]string{"content": answer}}},
@@ -53,7 +53,7 @@ func newModel() *stubModel {
 
 func (m *stubModel) url() string { return m.srv.URL }
 
-// asked reports how often the model read the stub's one understood query.
+// asked reports how often the model read the stub's one answered query.
 func (m *stubModel) asked() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()

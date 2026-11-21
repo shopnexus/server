@@ -25,7 +25,7 @@ func TestSearchByPhoto(t *testing.T) {
 	check(t, "someone else's", res, http.StatusUnprocessableEntity, "invalid_upload")
 
 	res, v := search(t, url.Values{"photo": {mine}}, bearer(me.AccessToken))
-	if res.Status != http.StatusOK || v.Understood != "" || len(v.Chips) != 0 {
+	if res.Status != http.StatusOK || len(v.Chips) != 0 {
 		t.Fatalf("a photo search: %d %s", res.Status, res.Body)
 	}
 	if res, _ = search(t, url.Values{"photo": {mine}, "cursor": {"20"}}, bearer(me.AccessToken)); res.Status != http.StatusOK {

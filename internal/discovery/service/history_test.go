@@ -18,7 +18,7 @@ func TestSearchRemembersTheFirstPage(t *testing.T) {
 	ctx := context.Background()
 	me := accounttest.New(t, e.db)
 	bike := e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
-	e.model.answers["xe đạp"] = `{"understood":"Xe đạp","boosts":[{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
+	e.model.answers["xe đạp"] = `{"boosts":[{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
 
 	if _, err := e.discovery.Search(ctx, &me, service.SearchInput{Query: " xe đạp "}); err != nil {
 		t.Fatal(err)

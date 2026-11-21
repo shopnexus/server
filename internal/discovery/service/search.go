@@ -61,7 +61,6 @@ type SearchItem struct {
 type SearchView struct {
 	Items      []SearchItem                  `json:"items"`
 	NextCursor string                        `json:"next_cursor,omitempty"`
-	Understood string                        `json:"understood,omitempty"`
 	Chips      []domain.Chip                 `json:"chips,omitempty"`
 	Counts     []catalogdomain.CategoryCount `json:"counts,omitempty"`
 	// WatchID is the viewer's watch of the query, nil for none.
@@ -224,9 +223,6 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		search.Phrases = append(search.Phrases, c.Phrases...)
 		search.Boosts = append(search.Boosts, c.Boosts...)
 		view.Chips = c.Chips
-		if understood {
-			view.Understood = u.Understood
-		}
 		if !like {
 			// The text vector reads the rewrite, or the raw words when the
 			// model did not answer; the photo list needs the English

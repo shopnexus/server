@@ -47,7 +47,7 @@ func (m *fakeModel) Complete(ctx context.Context, r llm.Request, out any) error 
 		return errors.New("model down")
 	}
 	if answer == "" {
-		answer = `{"understood":"","boosts":[],"demotes":[]}`
+		answer = `{"boosts":[],"demotes":[]}`
 	}
 	return json.Unmarshal([]byte(answer), out)
 }
@@ -75,10 +75,10 @@ func TestSearchUnderstands(t *testing.T) {
 	ctx := context.Background()
 	lamp := e.put(t, "Đèn xe đạp", "sports.other", baDinh)
 	bike := e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
-	e.model.answers["xe dap"] = `{"understood":"Xe đạp","boosts":[{"attr":"phrase","values":["xe đạp"]},` +
+	e.model.answers["xe dap"] = `{"boosts":[{"attr":"phrase","values":["xe đạp"]},` +
 		`{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
 	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"})
-	if err != nil || len(v.Items) != 2 || v.Items[0].ID != bike || v.Items[1].ID != lamp || v.Understood != "Xe đạp" ||
+	if err != nil || len(v.Items) != 2 || v.Items[0].ID != bike || v.Items[1].ID != lamp ||
 		len(v.Chips) != 2 || v.Chips[1].ID != "category-0" {
 		t.Fatalf("%+v %v", v, err)
 	}
@@ -89,7 +89,7 @@ func TestSearchUnderstands(t *testing.T) {
 	if err != nil || e.model.count() != 1 || len(v.Chips) != 1 {
 		t.Fatalf("off: %d %+v %v", e.model.count(), v.Chips, err)
 	}
-	e.model.answers["xe dap ha noi"] = `{"understood":"Xe đạp ở Hà Nội","boosts":[{"attr":"place","values":[" Hà Nội ","Atlantis"]}],"demotes":[]}`
+	e.model.answers["xe dap ha noi"] = `{"boosts":[{"attr":"place","values":[" Hà Nội ","Atlantis"]}],"demotes":[]}`
 	v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap ha noi"})
 	if err != nil || len(v.Chips) != 1 || v.Chips[0].ID != "place-0" || v.Chips[0].Label != "Hà Nội" {
 		t.Fatalf("place: %+v %v", v.Chips, err)
@@ -108,7 +108,7 @@ func TestSearchWithoutTheModel(t *testing.T) {
 			set(e.model)
 			e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
 			v, err := e.discovery.Search(context.Background(), nil, service.SearchInput{Query: "xe đạp"})
-			if err != nil || len(v.Items) != 1 || len(v.Chips) != 0 || v.Understood != "" {
+			if err != nil || len(v.Items) != 1 || len(v.Chips) != 0 {
 				t.Fatalf("%+v %v", v, err)
 			}
 		})
@@ -238,7 +238,7 @@ func TestSearchFindsByMeaning(t *testing.T) {
 	pot := e.put(t, "Nồi cơm điện", "home.kitchen", baDinh)
 	e.vec(t, kid, embedtest.Axis(catalogdomain.TextDims, 0), nil)
 	e.vec(t, pot, embedtest.Axis(catalogdomain.TextDims, 1), nil)
-	e.model.answers["xe dap tre em"] = `{"understood":"Xe đạp trẻ em","rewritten":"xe đạp trẻ em","visual":"",` +
+	e.model.answers["xe dap tre em"] = `{"rewritten":"xe đạp trẻ em","visual":"",` +
 		`"boosts":[{"attr":"phrase","values":["xe đạp trẻ em"]}],"demotes":[]}`
 	e.text.Set("xe đạp trẻ em", embedtest.Axis(catalogdomain.TextDims, 0))
 	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap tre em"})
@@ -259,7 +259,7 @@ func TestSearchWithoutEmbeddingsFallsBackToWords(t *testing.T) {
 	bike := e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
 	e.text.SetFail(errors.New("down"))
 	e.image.SetFail(errors.New("down"))
-	e.model.answers["xe dap"] = `{"understood":"Xe đạp","rewritten":"xe đạp","visual":"a bicycle",` +
+	e.model.answers["xe dap"] = `{"rewritten":"xe đạp","visual":"a bicycle",` +
 		`"boosts":[{"attr":"phrase","values":["xe đạp"]}],"demotes":[]}`
 	v, err := e.discovery.Search(context.Background(), nil, service.SearchInput{Query: "xe dap"})
 	if err != nil || len(v.Items) != 1 || v.Items[0].ID != bike {
@@ -285,7 +285,7 @@ func TestSearchHungEmbeddingsFallBackQuickly(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.put(t, "Ghế gỗ sồi", "furniture.other", baDinh)
-	e.model.answers["ghế gỗ"] = `{"understood":"Ghế gỗ","rewritten":"ghế gỗ","visual":"a wooden chair","boosts":[],"demotes":[]}`
+	e.model.answers["ghế gỗ"] = `{"rewritten":"ghế gỗ","visual":"a wooden chair","boosts":[],"demotes":[]}`
 	e.text.SetSlow(time.Minute)
 	e.image.SetSlow(time.Minute)
 	start := time.Now()
@@ -315,7 +315,7 @@ func TestSearchByPhoto(t *testing.T) {
 	e.image.Set(embed.ImageInput(img), embedtest.Axis(catalogdomain.PhotoDims, 0))
 
 	v, err := e.discovery.Search(ctx, &me, service.SearchInput{Photo: photo})
-	if err != nil || len(v.Items) != 1 || v.Items[0].ID != chair || v.Understood != "" || len(v.Chips) != 0 {
+	if err != nil || len(v.Items) != 1 || v.Items[0].ID != chair || len(v.Chips) != 0 {
 		t.Fatalf("%+v %v", v, err)
 	}
 	if _, err = e.discovery.Search(ctx, &me, service.SearchInput{Photo: photo, Cursor: "1"}); err != nil || e.image.Calls() != 1 {
@@ -390,7 +390,7 @@ func TestSearchWithAnEmbedderOff(t *testing.T) {
 		t.Fatalf("photo search with images off: %v", err)
 	}
 	bike := e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
-	e.model.answers["xe dap"] = `{"understood":"Xe đạp","rewritten":"xe đạp","visual":"a bicycle","boosts":[],"demotes":[]}`
+	e.model.answers["xe dap"] = `{"rewritten":"xe đạp","visual":"a bicycle","boosts":[],"demotes":[]}`
 	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"})
 	if err != nil || len(v.Items) == 0 || v.Items[0].ID != bike {
 		t.Fatalf("q with images off: %+v, %v", v, err)
@@ -401,7 +401,7 @@ func TestSearchWithAnEmbedderOff(t *testing.T) {
 
 	e = newEnv(t, func(d *service.Deps) { d.Text = nil })
 	bike = e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
-	e.model.answers["xe dap"] = `{"understood":"Xe đạp","rewritten":"xe đạp","boosts":[],"demotes":[]}`
+	e.model.answers["xe dap"] = `{"rewritten":"xe đạp","boosts":[],"demotes":[]}`
 	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"}); err != nil || len(v.Items) == 0 || v.Items[0].ID != bike {
 		t.Fatalf("q with text off: %+v, %v", v, err)
 	}

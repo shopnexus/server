@@ -42,7 +42,7 @@ func TestWatchAndSweep(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	me := accounttest.New(t, e.db)
-	e.model.answers["xe đạp"] = `{"understood":"Xe đạp","boosts":[{"attr":"phrase","values":["xe đạp"]}],"demotes":[]}`
+	e.model.answers["xe đạp"] = `{"boosts":[{"attr":"phrase","values":["xe đạp"]}],"demotes":[]}`
 	v, created, err := e.discovery.Watch(ctx, me, service.WatchInput{Query: " xe đạp ", PriceMax: 3_000_000, Near: catalogdomain.Near{Commune: "00004"}})
 	if err != nil || !created || v.Query != "xe đạp" || v.Area == nil || v.Area.CommuneCode != "00004" || v.Area.Name == "" || !v.Alert {
 		t.Fatalf("%+v %v %v", v, created, err)

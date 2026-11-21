@@ -157,9 +157,6 @@ SearchView:
     next_cursor:
       type: string
       description: Present when more listings follow, up to the 500th.
-    understood:
-      type: string
-      description: The model's sentence of what was searched.
     chips:
       type: array
       items:

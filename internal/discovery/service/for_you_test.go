@@ -62,8 +62,8 @@ func TestForYou(t *testing.T) {
 	if err := e.accounts.Block(ctx, seller(blocker), me); err != nil {
 		t.Fatal(err)
 	}
-	e.model.answers["quat"] = `{"understood":"Quạt","boosts":[{"attr":"category","values":["home.fan"]}],"demotes":[]}`
-	e.model.answers["may giat"] = `{"understood":"Máy giặt","boosts":[{"attr":"category","values":["home.washer"]}],"demotes":[]}`
+	e.model.answers["quat"] = `{"boosts":[{"attr":"category","values":["home.fan"]}],"demotes":[]}`
+	e.model.answers["may giat"] = `{"boosts":[{"attr":"category","values":["home.washer"]}],"demotes":[]}`
 
 	// Forty days ago is outside the window: these weigh nothing.
 	clock = time.Now().AddDate(0, 0, -40)

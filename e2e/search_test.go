@@ -25,7 +25,6 @@ type searchCard struct {
 type searchView struct {
 	Items      []searchCard `json:"items"`
 	NextCursor string       `json:"next_cursor"`
-	Understood string       `json:"understood"`
 	Chips      []struct {
 		ID string `json:"id"`
 	} `json:"chips"`
@@ -62,8 +61,8 @@ func TestSearch(t *testing.T) {
 
 	res, v := search(t, query)
 	if res.Status != http.StatusOK || len(v.Items) != 2 || v.Items[0].ID != bike.ID || v.Items[1].ID != lamp.ID ||
-		v.Understood == "" || len(v.Chips) == 0 {
-		t.Fatalf("understood: %d %s", res.Status, res.Body)
+		len(v.Chips) == 0 {
+		t.Fatalf("read by the model: %d %s", res.Status, res.Body)
 	}
 	for _, it := range v.Items {
 		if it.DistanceKm == nil || *it.DistanceKm < 0 || it.SellerID != seller.Account.ID {
