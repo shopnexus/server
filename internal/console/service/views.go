@@ -36,13 +36,16 @@ type MemberView struct {
 	Status       domain.Status `json:"status"`
 	TOTPEnrolled bool          `json:"totp_enrolled"`
 	LockedUntil  *time.Time    `json:"locked_until,omitempty"`
-	CreatedAt    time.Time     `json:"created_at"`
+	// MustChangePassword is true while the member holds a temporary password.
+	MustChangePassword bool       `json:"must_change_password"`
+	LastSignInAt       *time.Time `json:"last_sign_in_at,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
 }
 
 func viewOf(m domain.Member, lockedUntil *time.Time) MemberView {
 	return MemberView{
 		ID: m.ID(), Email: m.Email(), DisplayName: m.DisplayName(), Role: m.Role(), Status: m.Status(),
-		TOTPEnrolled: m.Enrolled(), LockedUntil: lockedUntil, CreatedAt: m.CreatedAt(),
+		TOTPEnrolled: m.Enrolled(), LockedUntil: lockedUntil, MustChangePassword: m.MustChangePassword(), CreatedAt: m.CreatedAt(),
 	}
 }
 

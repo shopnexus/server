@@ -11,19 +11,26 @@ import (
 )
 
 // ListMembers lists members newest first, each with the end of its email's
-// sign-in lock when one is in force. The locks of a page come in one query.
+// sign-in lock when one is in force and its last sign-in. The locks and the
+// sign-ins of a page come in one query each.
 func (s *Console) ListMembers(ctx context.Context, p page.Request) (page.Page[MemberView], error) {
 	rows, err := s.members.List(ctx, p)
 	if err != nil {
 		return page.Page[MemberView]{}, fmt.Errorf("list console members: %w", err)
 	}
 	keys := make([][]byte, len(rows))
+	ids := make([]uuid.UUID, len(rows))
 	for i := range rows {
 		keys[i] = domain.LockKey(s.keys.Locks, rows[i].Email())
+		ids[i] = rows[i].ID()
 	}
 	until, err := s.locks.LockedUntil(ctx, keys, s.now())
 	if err != nil {
 		return page.Page[MemberView]{}, fmt.Errorf("list console login locks: %w", err)
+	}
+	last, err := s.sessions.LastSignIns(ctx, ids)
+	if err != nil {
+		return page.Page[MemberView]{}, fmt.Errorf("list console last sign-ins: %w", err)
 	}
 	views := make([]MemberView, len(rows))
 	for i := range rows {
@@ -32,6 +39,9 @@ func (s *Console) ListMembers(ctx context.Context, p page.Request) (page.Page[Me
 			lockedUntil = &t
 		}
 		views[i] = viewOf(rows[i], lockedUntil)
+		if t, ok := last[rows[i].ID()]; ok {
+			views[i].LastSignInAt = &t
+		}
 	}
 	return page.Of(views, p, func(v MemberView) uuid.UUID { return v.ID }), nil
 }

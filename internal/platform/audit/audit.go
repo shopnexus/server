@@ -55,6 +55,7 @@ const (
 	MemberResetPassword ActionKind = "member.reset_password"
 	MemberResetTOTP     ActionKind = "member.reset_totp"
 	MemberUnlock        ActionKind = "member.unlock"
+	MemberRename        ActionKind = "member.rename"
 	TicketReply         ActionKind = "ticket.reply"
 	TicketResolve       ActionKind = "ticket.resolve"
 	TicketReopen        ActionKind = "ticket.reopen"

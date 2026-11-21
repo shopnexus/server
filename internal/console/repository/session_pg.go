@@ -56,6 +56,26 @@ func (st pgSessions) Live(ctx context.Context, tokenHash []byte, now time.Time) 
 	return g, nil
 }
 
+func (st pgSessions) LastSignIns(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]time.Time, error) {
+	rows, err := st.db.Query(ctx, `
+SELECT member_id, max(created_at) FROM console_sessions WHERE member_id = ANY(@ids) GROUP BY member_id`,
+		pgx.StrictNamedArgs{"ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("select console last sign-ins: %w", err)
+	}
+	out := map[uuid.UUID]time.Time{}
+	var id uuid.UUID
+	var at time.Time
+	_, err = pgx.ForEachRow(rows, []any{&id, &at}, func() error {
+		out[id] = at
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scan console last sign-ins: %w", err)
+	}
+	return out, nil
+}
+
 func (st pgSessions) Revoke(ctx context.Context, id uuid.UUID, now time.Time) error {
 	_, err := st.db.Exec(ctx, `UPDATE console_sessions SET revoked_at = @now WHERE id = @id AND revoked_at IS NULL`,
 		pgx.StrictNamedArgs{"id": id, "now": now})

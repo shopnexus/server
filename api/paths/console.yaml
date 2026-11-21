@@ -176,6 +176,36 @@ members:
         $ref: "../responses/common.yaml#/ConsoleForbidden"
       "409":
         $ref: "../responses/common.yaml#/Conflict"
+member:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  patch:
+    operationId: renameConsoleMember
+    summary: Rename a moderator. Admins only.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/ConsoleMemberID"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/console.yaml#/RenameMemberRequest"
+    responses:
+      "200":
+        description: The member.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/Member"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "403":
+        $ref: "../responses/common.yaml#/ConsoleForbidden"
+      "404":
+        $ref: "../responses/common.yaml#/NotFound"
 memberDisable:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"

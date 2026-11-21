@@ -47,6 +47,7 @@ func (h *Handler) Register(r *httpx.Router) {
 
 	handle("GET /v1/console/members", admin(http.HandlerFunc(h.ListMembers)))
 	handle("POST /v1/console/members", admin(http.HandlerFunc(h.CreateMember)))
+	handle("PATCH /v1/console/members/{id}", admin(http.HandlerFunc(h.RenameMember)))
 	handle("POST /v1/console/members/{id}/disable", admin(http.HandlerFunc(h.DisableMember)))
 	handle("POST /v1/console/members/{id}/enable", admin(http.HandlerFunc(h.EnableMember)))
 	handle("POST /v1/console/members/{id}/unlock", admin(http.HandlerFunc(h.UnlockMember)))

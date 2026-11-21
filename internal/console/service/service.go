@@ -46,6 +46,7 @@ type Service interface {
 	UnlockMember(ctx context.Context, id uuid.UUID, by audit.Actor) (MemberView, error)
 	ResetMemberPassword(ctx context.Context, id uuid.UUID, by audit.Actor) (string, error)
 	ResetMemberTOTP(ctx context.Context, id uuid.UUID, by audit.Actor) (MemberView, error)
+	RenameMember(ctx context.Context, id uuid.UUID, displayName string, by audit.Actor) (MemberView, error)
 	// ListAccounts lists customer accounts, or the one in.Q names; with
 	// in.Suspended, only those suspended now, with their count.
 	ListAccounts(ctx context.Context, in AccountQuery, p page.Request) (AccountList, error)

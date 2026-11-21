@@ -374,6 +374,8 @@ paths:
     $ref: "paths/console.yaml#/mePassword"
   /v1/console/members:
     $ref: "paths/console.yaml#/members"
+  /v1/console/members/{id}:
+    $ref: "paths/console.yaml#/member"
   /v1/console/members/{id}/disable:
     $ref: "paths/console.yaml#/memberDisable"
   /v1/console/members/{id}/enable:

@@ -125,7 +125,7 @@ ChangePasswordRequest:
 Member:
   type: object
   additionalProperties: false
-  required: [id, email, display_name, role, status, totp_enrolled, created_at]
+  required: [id, email, display_name, role, status, totp_enrolled, must_change_password, created_at]
   properties:
     id:
       type: string
@@ -146,6 +146,13 @@ Member:
       type: string
       format: date-time
       description: Present while failed sign-ins lock the member's email.
+    must_change_password:
+      type: boolean
+      description: True while the member holds a temporary password.
+    last_sign_in_at:
+      type: string
+      format: date-time
+      description: The start of the member's newest session, on lists; absent before the first sign-in.
     created_at:
       type: string
       format: date-time
@@ -170,6 +177,15 @@ CreateMemberRequest:
       type: string
       format: email
       maxLength: 254
+    display_name:
+      type: string
+      minLength: 1
+      maxLength: 100
+RenameMemberRequest:
+  type: object
+  additionalProperties: false
+  required: [display_name]
+  properties:
     display_name:
       type: string
       minLength: 1
@@ -295,6 +311,7 @@ Action:
         - member.reset_password
         - member.reset_totp
         - member.unlock
+        - member.rename
         - ticket.reply
         - ticket.resolve
         - ticket.reopen

@@ -77,3 +77,45 @@ func TestUnlockAndList(t *testing.T) {
 		t.Fatalf("%+v %v", acts, err)
 	}
 }
+
+func TestRenameAndLastSignIn(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	fresh, _ := e.create(t, "new@example.com", domain.RoleModerator)
+	_, in := e.enrolled(t, "mod@example.com", domain.RoleModerator)
+	admin, _ := e.create(t, "admin@example.com", domain.RoleAdmin)
+	by := audit.Actor{Kind: audit.ActorMember, MemberID: admin.ID, IP: clientIP}
+
+	v, err := e.at(now).RenameMember(ctx, in.Me.ID, "  Lan Nguyễn ", by)
+	if err != nil || v.DisplayName != "Lan Nguyễn" {
+		t.Fatalf("%+v %v", v, err)
+	}
+	if _, err = e.at(now).RenameMember(ctx, in.Me.ID, " ", by); !errors.Is(err, domain.ErrInvalidMember) {
+		t.Fatalf("a blank name: %v", err)
+	}
+	if _, err = e.at(now).RenameMember(ctx, admin.ID, "Boss", by); !errors.Is(err, domain.ErrAdminManagedByCLI) {
+		t.Fatalf("an admin: %v", err)
+	}
+	acts, err := audit.NewPGStore(e.db).List(ctx, audit.Filter{TargetID: in.Me.ID}, page.Request{Limit: 1})
+	if err != nil || len(acts) == 0 || acts[0].Action != audit.MemberRename || acts[0].Details["to"] != "Lan Nguyễn" {
+		t.Fatalf("%+v %v", acts, err)
+	}
+
+	list, err := e.at(now).ListMembers(ctx, page.Request{Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range list.Items {
+		switch m.ID {
+		case in.Me.ID:
+			if m.LastSignInAt == nil || m.MustChangePassword {
+				t.Errorf("signed in: %+v", m)
+			}
+		case fresh.ID:
+			if m.LastSignInAt != nil || !m.MustChangePassword {
+				t.Errorf("never signed in: %+v", m)
+			}
+		}
+	}
+}

@@ -87,17 +87,18 @@ func NewMember(id uuid.UUID, email, displayName string, role Role, passwordHash 
 	}, nil
 }
 
-func (m *Member) ID() uuid.UUID           { return m.id }
-func (m *Member) Email() string           { return m.email }
-func (m *Member) DisplayName() string     { return m.displayName }
-func (m *Member) Role() Role              { return m.role }
-func (m *Member) Status() Status          { return m.status }
-func (m *Member) PasswordHash() string    { return m.passwordHash }
-func (m *Member) CredentialsVersion() int { return m.credentialsVersion }
-func (m *Member) Enrolled() bool          { return m.totpSecret != nil }
-func (m *Member) Enrolling() bool         { return m.totpPending != nil }
-func (m *Member) CreatedAt() time.Time    { return m.createdAt }
-func (m *Member) WriteID() uuid.UUID      { return m.writeID }
+func (m *Member) ID() uuid.UUID            { return m.id }
+func (m *Member) Email() string            { return m.email }
+func (m *Member) DisplayName() string      { return m.displayName }
+func (m *Member) Role() Role               { return m.role }
+func (m *Member) Status() Status           { return m.status }
+func (m *Member) PasswordHash() string     { return m.passwordHash }
+func (m *Member) CredentialsVersion() int  { return m.credentialsVersion }
+func (m *Member) Enrolled() bool           { return m.totpSecret != nil }
+func (m *Member) MustChangePassword() bool { return m.mustChangePassword }
+func (m *Member) Enrolling() bool          { return m.totpPending != nil }
+func (m *Member) CreatedAt() time.Time     { return m.createdAt }
+func (m *Member) WriteID() uuid.UUID       { return m.writeID }
 
 // MemberState is every stored field of a member, with the TOTP secrets
 // opened. Stores only.
@@ -229,6 +230,17 @@ func (m *Member) Disable(now time.Time) {
 func (m *Member) Enable(now time.Time) {
 	m.status = StatusActive
 	m.updatedAt = now
+}
+
+// Rename sets the display name under NewMember's rules.
+func (m *Member) Rename(displayName string, now time.Time) error {
+	name := strings.TrimSpace(displayName)
+	if n := utf8.RuneCountInString(name); n == 0 || n > maxNameRunes {
+		return ErrInvalidMember
+	}
+	m.displayName = name
+	m.updatedAt = now
+	return nil
 }
 
 // ManagedBy refuses to let anyone but the CLI change an admin.
