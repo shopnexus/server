@@ -76,9 +76,8 @@ type Member struct {
 // sign-in. The first write ID is the id.
 func NewMember(id uuid.UUID, email, displayName string, role Role, passwordHash string, now time.Time) (Member, error) {
 	addr, err := contact.ParseEmail(email)
-	name := strings.TrimSpace(displayName)
-	n := utf8.RuneCountInString(name)
-	if err != nil || n == 0 || n > maxNameRunes || rank(role) == 0 {
+	name, ok := cleanName(displayName)
+	if err != nil || !ok || rank(role) == 0 {
 		return Member{}, ErrInvalidMember
 	}
 	return Member{
@@ -232,10 +231,18 @@ func (m *Member) Enable(now time.Time) {
 	m.updatedAt = now
 }
 
+// cleanName trims a display name and reports whether it has 1 to
+// maxNameRunes runes.
+func cleanName(s string) (string, bool) {
+	name := strings.TrimSpace(s)
+	n := utf8.RuneCountInString(name)
+	return name, n > 0 && n <= maxNameRunes
+}
+
 // Rename sets the display name under NewMember's rules.
 func (m *Member) Rename(displayName string, now time.Time) error {
-	name := strings.TrimSpace(displayName)
-	if n := utf8.RuneCountInString(name); n == 0 || n > maxNameRunes {
+	name, ok := cleanName(displayName)
+	if !ok {
 		return ErrInvalidMember
 	}
 	m.displayName = name

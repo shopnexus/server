@@ -98,7 +98,7 @@ func TestRenameAndLastSignIn(t *testing.T) {
 		t.Fatalf("an admin: %v", err)
 	}
 	acts, err := audit.NewPGStore(e.db).List(ctx, audit.Filter{TargetID: in.Me.ID}, page.Request{Limit: 1})
-	if err != nil || len(acts) == 0 || acts[0].Action != audit.MemberRename || acts[0].Details["to"] != "Lan Nguyễn" {
+	if err != nil || len(acts) == 0 || acts[0].Action != audit.MemberRename || acts[0].Details["to"] != "Lan Nguyễn" || acts[0].Target.Name != "Lan Nguyễn" {
 		t.Fatalf("%+v %v", acts, err)
 	}
 

@@ -42,10 +42,11 @@ type MemberView struct {
 	CreatedAt          time.Time  `json:"created_at"`
 }
 
-func viewOf(m domain.Member, lockedUntil *time.Time) MemberView {
+// viewOf leaves out LockedUntil and LastSignInAt, which ListMembers adds.
+func viewOf(m domain.Member) MemberView {
 	return MemberView{
 		ID: m.ID(), Email: m.Email(), DisplayName: m.DisplayName(), Role: m.Role(), Status: m.Status(),
-		TOTPEnrolled: m.Enrolled(), LockedUntil: lockedUntil, MustChangePassword: m.MustChangePassword(), CreatedAt: m.CreatedAt(),
+		TOTPEnrolled: m.Enrolled(), MustChangePassword: m.MustChangePassword(), CreatedAt: m.CreatedAt(),
 	}
 }
 

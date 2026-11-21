@@ -17,10 +17,5 @@ func (s *Console) RenameMember(ctx context.Context, id uuid.UUID, displayName st
 	if err = m.Rename(displayName, now); err != nil {
 		return MemberView{}, err
 	}
-	entry := audit.Entry{Actor: by, Action: audit.MemberRename, Target: audit.Member(id), At: now,
-		Details: map[string]any{"from": from, "to": m.DisplayName()}}
-	if err = s.members.Save(ctx, &m, uuid.NewV7(), &entry); err != nil {
-		return MemberView{}, saveFailed(err)
-	}
-	return viewOf(m, nil), nil
+	return s.saveManaged(ctx, &m, by, audit.MemberRename, now, map[string]any{"from": from, "to": m.DisplayName()})
 }

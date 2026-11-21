@@ -25,5 +25,5 @@ func (s *Console) CreateMember(ctx context.Context, in CreateMemberInput) (Membe
 	if err != nil {
 		return MemberView{}, "", fmt.Errorf("create console member: %w", err)
 	}
-	return viewOf(m, nil), temp, nil
+	return viewOf(m), temp, nil
 }

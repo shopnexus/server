@@ -20,5 +20,5 @@ func (s *Console) UnlockMember(ctx context.Context, id uuid.UUID, by audit.Actor
 	if err != nil {
 		return MemberView{}, fmt.Errorf("unlock console member: %w", err)
 	}
-	return viewOf(m, nil), nil
+	return viewOf(m), nil
 }

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/console/domain"
@@ -34,11 +33,10 @@ func (s *Console) ListMembers(ctx context.Context, p page.Request) (page.Page[Me
 	}
 	views := make([]MemberView, len(rows))
 	for i := range rows {
-		var lockedUntil *time.Time
+		views[i] = viewOf(rows[i])
 		if t, ok := until[string(keys[i])]; ok {
-			lockedUntil = &t
+			views[i].LockedUntil = &t
 		}
-		views[i] = viewOf(rows[i], lockedUntil)
 		if t, ok := last[rows[i].ID()]; ok {
 			views[i].LastSignInAt = &t
 		}

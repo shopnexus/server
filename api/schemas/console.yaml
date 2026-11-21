@@ -341,6 +341,9 @@ Action:
         id:
           type: string
           format: uuid
+        name:
+          type: string
+          description: A member target's display name.
     details:
       type: object
       description: >-

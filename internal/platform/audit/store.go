@@ -39,6 +39,8 @@ type ActionActor struct {
 type ActionTarget struct {
 	Kind TargetKind `json:"kind"`
 	ID   uuid.UUID  `json:"id"`
+	// Name is a member target's display name.
+	Name string `json:"name,omitempty"`
 }
 
 // Store reads the audit log.
@@ -54,9 +56,10 @@ func NewPGStore(db *pgxpool.Pool) Store { return pgStore{db} }
 
 const listActions = `
 SELECT a.id, a.acted_at, a.actor_kind, a.member_id, coalesce(m.display_name, a.actor_name), coalesce(host(a.ip), ''),
-       a.action_kind, a.target_kind, a.target_id, a.details
+       a.action_kind, a.target_kind, a.target_id, coalesce(t.display_name, ''), a.details
 FROM console_actions a
 LEFT JOIN console_members m ON m.id = a.member_id
+LEFT JOIN console_members t ON a.target_kind = 'member' AND t.id = a.target_id
 WHERE a.id < @before
   AND (@member_id::uuid IS NULL OR a.member_id = @member_id)
   AND (@target_id::uuid IS NULL OR a.target_id = @target_id)
@@ -75,7 +78,7 @@ func (s pgStore) List(ctx context.Context, f Filter, p page.Request) ([]Action, 
 	for rows.Next() {
 		var a Action
 		if err := rows.Scan(&a.ID, &a.At, &a.Actor.Kind, &a.Actor.MemberID, &a.Actor.DisplayName, &a.IP,
-			&a.Action, &a.Target.Kind, &a.Target.ID, &a.Details); err != nil {
+			&a.Action, &a.Target.Kind, &a.Target.ID, &a.Target.Name, &a.Details); err != nil {
 			return nil, fmt.Errorf("read console action: %w", err)
 		}
 		out = append(out, a)

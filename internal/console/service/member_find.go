@@ -20,5 +20,5 @@ func (s *Console) FindMember(ctx context.Context, email string) (MemberView, err
 	if err != nil {
 		return MemberView{}, fmt.Errorf("find console member: %w", err)
 	}
-	return viewOf(m, nil), nil
+	return viewOf(m), nil
 }
