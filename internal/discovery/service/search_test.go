@@ -131,6 +131,7 @@ func TestSearchRefusals(t *testing.T) {
 		"a word for a cursor":         {service.SearchInput{Cursor: "x"}, domain.ErrInvalidCursor},
 		"a cursor past the end":       {service.SearchInput{Cursor: "600"}, domain.ErrInvalidCursor},
 		"a minimum above the maximum": {service.SearchInput{PriceMin: 5_000_000, PriceMax: 1_000_000}, domain.ErrInvalidPriceRange},
+		"an unknown province":         {service.SearchInput{Province: "99"}, catalogdomain.ErrInvalidProvince},
 	} {
 		if _, err := e.discovery.Search(ctx, nil, c.in); !errors.Is(err, c.want) {
 			t.Errorf("%s: %v", name, err)
@@ -173,6 +174,30 @@ func TestSearchPagesCountsAndSaves(t *testing.T) {
 	}
 	if err != nil || saved != 1 {
 		t.Fatalf("saved flags: %+v %v", v, err)
+	}
+}
+
+// A province keeps its listings, with the other filters, and the counts
+// under a root hold to it.
+func TestSearchProvince(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	hanoi := e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
+	e.put(t, "iPhone 12", "phones.iphone", baDinh)
+	saigon := catalogtest.Listing(t, e.db, accounttest.New(t, e.db), func(d *catalogdomain.ListingInput, r *catalogdomain.Refs) {
+		d.CommuneCode, r.CommunePoint = "25747", catalogdomain.Point{Lat: 10.97, Lng: 106.66}
+	})
+	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Province: "79"})
+	if err != nil || len(v.Items) != 1 || v.Items[0].ID != saigon {
+		t.Fatalf("browse: %+v %v", v, err)
+	}
+	v, err = e.discovery.Search(ctx, nil, service.SearchInput{Province: "01", Category: "vehicles", Sort: catalogdomain.SortPriceAsc})
+	if err != nil || len(v.Items) != 1 || v.Items[0].ID != hanoi || len(v.Counts) != 1 || v.Counts[0].Count != 1 {
+		t.Fatalf("a root in Hà Nội: %+v %v", v, err)
+	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Province: "79", Category: "phones"}); err != nil || len(v.Items) != 0 || len(v.Counts) != 0 {
+		t.Fatalf("no phones in TP Hồ Chí Minh: %+v %v", v, err)
 	}
 }
 

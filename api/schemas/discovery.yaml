@@ -167,7 +167,7 @@ SearchView:
       description: The caller's watch of this query; absent signed out or when there is none.
     counts:
       type: array
-      description: With a root category filter, the matches per subcategory.
+      description: With a root category filter, the matches per subcategory, under every other filter, province included.
       items:
         $ref: "#/CategoryCount"
 SearchHistory:

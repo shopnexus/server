@@ -48,8 +48,10 @@ func (s pgListings) parts(ctx context.Context, entries string, size int) ([]Site
 }
 
 func (s pgListings) SitemapListings(ctx context.Context, before uuid.UUID, size int) ([]SitemapListing, error) {
-	rows, err := s.db.Query(ctx, `SELECT title, code, updated_at FROM listings
-WHERE status = ANY(@public) AND id < @before ORDER BY id DESC LIMIT @size`,
+	rows, err := s.db.Query(ctx, `SELECT title, code, updated_at,
+       ARRAY(SELECT p -> 'keys' ->> 'photo' FROM jsonb_array_elements(photos) WITH ORDINALITY AS e (p, n)
+             WHERE p -> 'keys' ->> 'photo' <> '' ORDER BY n)
+FROM listings WHERE status = ANY(@public) AND id < @before ORDER BY id DESC LIMIT @size`,
 		pgx.StrictNamedArgs{"public": domain.Public, "before": before, "size": size})
 	if err != nil {
 		return nil, fmt.Errorf("select sitemap listings: %w", err)
@@ -73,4 +75,32 @@ WHERE status = ANY(@public) AND seller_id < @before GROUP BY seller_id ORDER BY 
 		return nil, fmt.Errorf("read sitemap sellers: %w", err)
 	}
 	return ss, nil
+}
+
+func (s pgListings) SitemapAreas(ctx context.Context, least int) ([]SitemapArea, error) {
+	rows, err := s.db.Query(ctx, `SELECT l.category_root, c.province_code, count(*), max(l.updated_at)
+FROM listings AS l JOIN communes AS c ON c.code = l.commune_code
+WHERE l.status = @active GROUP BY 1, 2 HAVING count(*) >= @min ORDER BY 1, 2`,
+		pgx.StrictNamedArgs{"active": domain.StatusActive, "min": least})
+	if err != nil {
+		return nil, fmt.Errorf("select sitemap areas: %w", err)
+	}
+	as, err := pgx.CollectRows(rows, pgx.RowToStructByPos[SitemapArea])
+	if err != nil {
+		return nil, fmt.Errorf("read sitemap areas: %w", err)
+	}
+	return as, nil
+}
+
+func (s pgListings) WebAddresses(ctx context.Context, ids []uuid.UUID) ([]WebAddress, error) {
+	rows, err := s.db.Query(ctx, `SELECT title, code FROM listings WHERE id = ANY(@ids) AND published_at IS NOT NULL ORDER BY id`,
+		pgx.StrictNamedArgs{"ids": ids})
+	if err != nil {
+		return nil, fmt.Errorf("select web addresses: %w", err)
+	}
+	as, err := pgx.CollectRows(rows, pgx.RowToStructByPos[WebAddress])
+	if err != nil {
+		return nil, fmt.Errorf("read web addresses: %w", err)
+	}
+	return as, nil
 }

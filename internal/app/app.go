@@ -27,6 +27,7 @@ import (
 	"github.com/shopnexus/server/internal/assist"
 	"github.com/shopnexus/server/internal/catalog"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/chat"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	"github.com/shopnexus/server/internal/console"
@@ -54,6 +55,7 @@ import (
 	"github.com/shopnexus/server/internal/provider/embed"
 	"github.com/shopnexus/server/internal/provider/firebase"
 	"github.com/shopnexus/server/internal/provider/google"
+	"github.com/shopnexus/server/internal/provider/indexnow"
 	"github.com/shopnexus/server/internal/provider/llm"
 	"github.com/shopnexus/server/internal/provider/push"
 	"github.com/shopnexus/server/internal/screen"
@@ -391,10 +393,20 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if cfg.AI.EmbedOn() {
 		photos = aisvc.Photos{AI: aiClient, Dims: catalogdomain.PhotoDims, Timeout: cfg.Embed.Timeout}
 	}
+	// The website's pages are under its first origin, which IndexNow is
+	// told of.
+	var website string
+	if len(cfg.ObjectStore.UploadOrigins) > 0 {
+		website = cfg.ObjectStore.UploadOrigins[0]
+	}
 	catalogm := catalog.Mount(d, catalog.Settings{
 		Text:        embedder(cfg.Embed.IndexAPIKey),
 		Image:       photos,
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion, EmbedSlots: cfg.Embed.Slots,
+		IndexNow: catalogsvc.IndexNowSettings{
+			Key: cfg.IndexNowKey, Site: website, Client: indexnow.New(&http.Client{Timeout: 30 * time.Second}, indexnow.Endpoint),
+			Every: catalogsvc.IndexNowEvery,
+		},
 	}, accounts, mediam.Service)
 	// shipping reaches deal through these functions, filled once deal is
 	// mounted, since deal makes its shipments through shipping.

@@ -210,6 +210,10 @@ paths:
     $ref: "paths/catalog.yaml#/sitemapListings"
   /v1/sitemap/sellers:
     $ref: "paths/catalog.yaml#/sitemapSellers"
+  /v1/sitemap/areas:
+    $ref: "paths/catalog.yaml#/sitemapAreas"
+  /v1/sitemap/indexnow:
+    $ref: "paths/catalog.yaml#/sitemapIndexNow"
   /v1/deals:
     $ref: "paths/deal.yaml#/deals"
   /v1/deals/{id}:

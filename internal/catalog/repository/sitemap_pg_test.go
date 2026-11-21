@@ -98,3 +98,64 @@ func TestSitemapParts(t *testing.T) {
 func samePart(a, b repository.SitemapPart) bool {
 	return a.Cursor == b.Cursor && a.UpdatedAt.Equal(b.UpdatedAt)
 }
+
+// A sitemap listing carries its processed photos' keys in order.
+func TestSitemapListingPhotos(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewListings(db)
+	id, at := uuid.NewV7(), time.Now()
+	l := domain.RestoreListing(domain.ListingState{
+		ID: id, SellerID: accounttest.New(t, db), Title: "Ghế gỗ", Price: 500_000, CategoryCode: "furniture.other",
+		Condition: domain.ConditionUsed, CommuneCode: "00004", Status: domain.StatusActive, WriteID: id,
+		Photos: []domain.Photo{
+			{UploadID: uuid.NewV7(), Keys: domain.PhotoKeys{Photo: "media/b.jpg", Thumb: "media/b_t.jpg"}},
+			{UploadID: uuid.NewV7()},
+			{UploadID: uuid.NewV7(), Keys: domain.PhotoKeys{Photo: "media/a.jpg", Thumb: "media/a_t.jpg"}},
+		},
+		CreatedAt: at, UpdatedAt: at, PublishedAt: &at, Lat: 21.03, Lng: 105.85,
+	})
+	if err := s.Insert(ctx, l); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.SitemapListings(ctx, uuid.Max(), 10)
+	if err != nil || len(got) != 1 || !slices.Equal(got[0].Photos, []string{"media/b.jpg", "media/a.jpg"}) {
+		t.Fatalf("%+v %v", got, err)
+	}
+}
+
+// The areas are the root categories and provinces with at least the
+// minimum of active listings, with the latest change among them.
+func TestSitemapAreas(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	hn, hcm := domain.Point{Lat: 21.03, Lng: 105.85}, domain.Point{Lat: 10.97, Lng: 106.66}
+	var newest uuid.UUID
+	for i := range 5 {
+		id := put(t, db, item{title: "Xe đạp", cat: "vehicles.bicycle", price: 1_000_000, point: hn, age: time.Duration(i+1) * time.Hour})
+		if i == 0 {
+			newest = id
+		}
+		put(t, db, item{title: "Xe máy", cat: "vehicles.motorbike", price: 9_000_000, point: hcm, commune: "25747", age: time.Hour})
+	}
+	for range 4 {
+		put(t, db, item{title: "iPhone", cat: "phones.iphone", price: 5_000_000, point: hn})
+	}
+	put(t, db, item{title: "iPhone", cat: "phones.iphone", price: 5_000_000, point: hn, status: domain.StatusReserved})
+	var latest time.Time
+	if err := db.QueryRow(ctx, `SELECT updated_at FROM listings WHERE id = $1`, newest).Scan(&latest); err != nil {
+		t.Fatal(err)
+	}
+	got, err := repository.NewListings(db).SitemapAreas(ctx, 5)
+	if err != nil || len(got) != 2 {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if a := got[0]; a.CategoryRoot != "vehicles" || a.ProvinceCode != "01" || a.Count != 5 || !a.UpdatedAt.Equal(latest) {
+		t.Fatalf("Hà Nội: %+v, want updated %v", a, latest)
+	}
+	if a := got[1]; a.CategoryRoot != "vehicles" || a.ProvinceCode != "79" || a.Count != 5 {
+		t.Fatalf("TP Hồ Chí Minh: %+v", a)
+	}
+}

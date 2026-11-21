@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/repository"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/provider/embed/embedtest"
 )
 
 type item struct {
@@ -24,6 +25,8 @@ type item struct {
 	point  domain.Point
 	age    time.Duration
 	status domain.Status
+	// commune is 00004, in Hà Nội, when empty.
+	commune string
 }
 
 // put stores an item as a published listing of a fresh seller.
@@ -33,11 +36,15 @@ func put(t *testing.T, db *pgxpool.Pool, it item) uuid.UUID {
 	if status == "" {
 		status = domain.StatusActive
 	}
+	commune := it.commune
+	if commune == "" {
+		commune = "00004"
+	}
 	at := time.Now().Add(-it.age)
 	id := uuid.NewV7()
 	l := domain.RestoreListing(domain.ListingState{
 		ID: id, SellerID: accounttest.New(t, db), Title: it.title, Description: it.desc, Price: it.price, CategoryCode: it.cat,
-		Condition: domain.ConditionUsed, AllowOffers: true, CommuneCode: "00004",
+		Condition: domain.ConditionUsed, AllowOffers: true, CommuneCode: commune,
 		Photos: []domain.Photo{{UploadID: uuid.NewV7()}}, Status: status, WriteID: id,
 		CreatedAt: at, UpdatedAt: at, PublishedAt: &at, Lat: it.point.Lat, Lng: it.point.Lng,
 	})
@@ -269,5 +276,70 @@ func TestSearchPointsNewest(t *testing.T) {
 		Sort: domain.SortPointsNewest, Limit: 20, Boosts: []domain.Boost{{Kind: domain.BoostFresh, Since: time.Now(), Weight: 1}},
 	}); err == nil {
 		t.Fatal("a fresh boost was taken")
+	}
+}
+
+// A province keeps the listings of its communes in every kind of search
+// and in counts.
+func TestSearchProvince(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewSearches(db)
+	hn, hcm := domain.Point{Lat: 21.03, Lng: 105.85}, domain.Point{Lat: 10.97, Lng: 106.66}
+	bikeHN := put(t, db, item{title: "Xe đạp Asama", cat: "vehicles.bicycle", price: 1_500_000, point: hn, age: time.Hour})
+	phoneHN := put(t, db, item{title: "iPhone 12", cat: "phones.iphone", price: 7_000_000, point: hn, age: 2 * time.Hour})
+	bikeHCM := put(t, db, item{title: "Xe đạp Giant", cat: "vehicles.bicycle", price: 2_500_000, point: hcm, commune: "25747"})
+	run := func(q domain.Search) []uuid.UUID {
+		t.Helper()
+		q.Limit = 20
+		hits, err := s.Search(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := make([]uuid.UUID, len(hits))
+		for i, h := range hits {
+			out[i] = h.ID
+		}
+		return out
+	}
+	hanoi := domain.Filters{Province: "01"}
+	if got := run(domain.Search{Filters: hanoi, Sort: domain.SortNewest}); !slices.Equal(got, []uuid.UUID{bikeHN, phoneHN}) {
+		t.Fatalf("browse: %v", got)
+	}
+	text := []domain.Phrase{{Text: "xe đạp", Weight: 1}}
+	if got := run(domain.Search{Filters: domain.Filters{Province: "79"}, Phrases: text, Sort: domain.SortRelevance}); !slices.Equal(got, []uuid.UUID{bikeHCM}) {
+		t.Fatalf("phrases: %v", got)
+	}
+	if got := run(domain.Search{Filters: domain.Filters{Province: "01", CategoryRoot: "vehicles"}, Phrases: text}); !slices.Equal(got, []uuid.UUID{bikeHN}) {
+		t.Fatalf("with a root: %v", got)
+	}
+	boosts := []domain.Boost{{Kind: domain.BoostCategory, Code: "phones.iphone", Weight: 1}}
+	if got := run(domain.Search{Filters: hanoi, Sort: domain.SortPointsNewest, Boosts: boosts}); !slices.Equal(got, []uuid.UUID{phoneHN, bikeHN}) {
+		t.Fatalf("points: %v", got)
+	}
+	if got := run(domain.Search{Filters: domain.Filters{Province: "31"}, Sort: domain.SortNewest}); len(got) != 0 {
+		t.Fatalf("a province with none: %v", got)
+	}
+	counts, err := s.Counts(ctx, domain.Search{Filters: domain.Filters{Province: "79"}})
+	if err != nil || !slices.Equal(counts, []domain.CategoryCount{{Code: "vehicles.bicycle", Count: 1}}) {
+		t.Fatalf("counts: %v %v", counts, err)
+	}
+	const td = domain.TextDims
+	vs := repository.NewVectors(db)
+	for _, id := range []uuid.UUID{bikeHN, bikeHCM} {
+		if err = vs.PutText(ctx, id, "t", []byte{1}, embedtest.Axis(td, 0), time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	hybrid := domain.Search{
+		Filters: domain.Filters{Province: "79"}, Phrases: text, Vectors: vecs(embedtest.Axis(td, 0), nil),
+		Weights: domain.Weights{BM25: 1, Text: 1}, Sort: domain.SortRelevance,
+	}
+	if got := run(hybrid); !slices.Equal(got, []uuid.UUID{bikeHCM}) {
+		t.Fatalf("hybrid: %v", got)
+	}
+	if counts, err = s.Counts(ctx, hybrid); err != nil || !slices.Equal(counts, []domain.CategoryCount{{Code: "vehicles.bicycle", Count: 1}}) {
+		t.Fatalf("hybrid counts: %v %v", counts, err)
 	}
 }

@@ -429,13 +429,34 @@ func TestSitemap(t *testing.T) {
 	if got := res.Header.Get("Cache-Control"); got != "public, max-age=3600" {
 		t.Fatalf("Cache-Control: %q", got)
 	}
-	listings := expect[page[struct{ Slug string }]](t, call(t, "GET", "/v1/sitemap/listings", nil), http.StatusOK).Items
-	if !slices.ContainsFunc(listings, func(s struct{ Slug string }) bool { return s.Slug == l.Slug }) {
+	type sitemapListing struct {
+		Slug   string
+		Photos []string
+	}
+	listings := expect[page[sitemapListing]](t, call(t, "GET", "/v1/sitemap/listings", nil), http.StatusOK).Items
+	i := slices.IndexFunc(listings, func(s sitemapListing) bool { return s.Slug == l.Slug })
+	if i < 0 {
 		t.Fatalf("%s is not in the first part", l.Slug)
+	}
+	if len(listings[i].Photos) != 1 || listings[i].Photos[0] != l.Photos[0].URL {
+		t.Fatalf("photos %v, want %s", listings[i].Photos, l.Photos[0].URL)
 	}
 	sellers := expect[page[struct{ ID string }]](t, call(t, "GET", "/v1/sitemap/sellers", nil), http.StatusOK).Items
 	if !slices.ContainsFunc(sellers, func(s struct{ ID string }) bool { return s.ID == seller.Account.ID }) {
 		t.Fatalf("seller %s is not in the first part", seller.Account.ID)
+	}
+	res = call(t, "GET", "/v1/sitemap/areas", nil)
+	expect[page[struct {
+		CategoryCode string `json:"category_code"`
+		ProvinceCode string `json:"province_code"`
+		Count        int
+	}]](t, res, http.StatusOK)
+	if got := res.Header.Get("Cache-Control"); got != "public, max-age=3600" {
+		t.Fatalf("areas Cache-Control: %q", got)
+	}
+	res = call(t, "GET", "/v1/sitemap/indexnow", nil)
+	if k := expect[struct{ Key string }](t, res, http.StatusOK); k.Key != indexNowKey || res.Header.Get("Cache-Control") != "public, max-age=3600" {
+		t.Fatalf("indexnow key: %s %q", res.Body, res.Header.Get("Cache-Control"))
 	}
 	check(t, "a bad cursor", call(t, "GET", "/v1/sitemap/listings?cursor=nope", nil), 400, "invalid_request")
 	check(t, "a bad seller cursor", call(t, "GET", "/v1/sitemap/sellers?cursor=nope", nil), 400, "invalid_request")

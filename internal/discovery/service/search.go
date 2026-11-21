@@ -34,6 +34,7 @@ const (
 type SearchInput struct {
 	Query              string
 	Category           string // a root or a subcategory code
+	Province           string // a province code, empty for every province
 	PriceMin, PriceMax int64
 	Conditions         []catalogdomain.Condition
 	RadiusKm           int
@@ -78,7 +79,7 @@ type SearchView struct {
 // failed write is logged and the search still answers.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
 	if in.Watch != uuid.Nil() {
-		if in.Query != "" || in.Category != "" || in.PriceMin != 0 || in.PriceMax != 0 || len(in.Conditions) > 0 ||
+		if in.Query != "" || in.Category != "" || in.Province != "" || in.PriceMin != 0 || in.PriceMax != 0 || len(in.Conditions) > 0 ||
 			in.RadiusKm != 0 || in.OffersOnly || in.Near != (catalogdomain.Near{}) || in.Photo != uuid.Nil() || in.Like != uuid.Nil() {
 			return SearchView{}, domain.ErrSearchConflict
 		}
@@ -114,6 +115,15 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	if err != nil {
 		return SearchView{}, fmt.Errorf("read the position: %w", err)
 	}
+	if in.Province != "" {
+		provinces, provErr := d.catalog.Provinces(ctx)
+		if provErr != nil {
+			return SearchView{}, fmt.Errorf("read the provinces: %w", provErr)
+		}
+		if !slices.ContainsFunc(provinces, func(p catalogdomain.Province) bool { return p.Code == in.Province }) {
+			return SearchView{}, catalogdomain.ErrInvalidProvince
+		}
+	}
 	offset, limit, err := window(in.Cursor, in.Limit)
 	if err != nil {
 		return SearchView{}, err
@@ -138,7 +148,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	}
 	filters := catalogdomain.Filters{
 		PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions, OffersOnly: in.OffersOnly,
-		Origin: origin, RadiusKm: radius,
+		Origin: origin, RadiusKm: radius, Province: in.Province,
 	}
 	category(&filters, in.Category)
 	search := catalogdomain.Search{Filters: filters, Sort: sort, Offset: offset, Limit: limit + 1}

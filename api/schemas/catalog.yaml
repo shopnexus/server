@@ -455,14 +455,58 @@ SitemapListingList:
 SitemapListing:
   type: object
   additionalProperties: false
-  required: [slug, updated_at]
+  required: [slug, photos, updated_at]
   properties:
     slug:
       type: string
       description: The listing's web address name, /listings/{slug} on the website.
+    photos:
+      type: array
+      description: The public URLs of the listing's processed photos, in order, the cover first; the same URLs as the listing's photos[].url.
+      items:
+        type: string
+        format: uri
     updated_at:
       type: string
       format: date-time
+SitemapAreaList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/SitemapArea"
+SitemapArea:
+  type: object
+  additionalProperties: false
+  required: [category_code, province_code, count, updated_at]
+  description: A root category in a province, with at least 5 listings on sale.
+  properties:
+    category_code:
+      type: string
+      description: A root category code from GET /v1/categories.
+    province_code:
+      type: string
+      description: A province code from GET /v1/regions.
+    count:
+      type: integer
+      minimum: 5
+      description: How many listings of the category are on sale in the province.
+    updated_at:
+      type: string
+      format: date-time
+      description: The latest change to one of those listings.
+IndexNowKey:
+  type: object
+  additionalProperties: false
+  required: [key]
+  properties:
+    key:
+      type: string
+      pattern: "^[a-zA-Z0-9-]{8,128}$"
+      description: The key; the website serves it at /<key>.txt.
 SitemapSellerList:
   type: object
   additionalProperties: false

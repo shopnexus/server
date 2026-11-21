@@ -184,8 +184,8 @@ func (q *query) should(s domain.Search) []string {
 	return out
 }
 
-// where is the search's condition with its exclusions; counts leave the
-// boosts out, since they change no membership.
+// where is the search's condition, the index's and the plain ones; counts
+// leave the boosts out, since they change no membership.
 func (q *query) where(s domain.Search, boosts bool) string {
 	sql := `id @@@ paradedb.boolean(must => ` + array(q.must(s))
 	// Building the boosts adds their parameters, which strict named args
@@ -196,7 +196,7 @@ func (q *query) where(s domain.Search, boosts bool) string {
 		}
 	}
 	sql += `)`
-	if ex := q.exclusions(s, ""); len(ex) > 0 {
+	if ex := q.plain(s, ""); len(ex) > 0 {
 		sql += ` AND ` + strings.Join(ex, " AND ")
 	}
 	return sql
@@ -210,9 +210,9 @@ const distanceSQL = `(12742 * asin(sqrt(power(sin(radians(lat - @olat) / 2), 2)
 // them by listing: about four photos a listing.
 const photoScan = 4 * domain.MaxResults
 
-// filters is the person's filters and the exclusions as plain SQL on the
-// listings alias l, for the vector lists and the boost list. The BM25 list
-// gets the same filters through must.
+// filters is the person's filters and the plain conditions as SQL on the
+// listings alias l, for the vector lists. The BM25 list gets the same
+// filters through must and plain.
 func (q *query) filters(s domain.Search) string {
 	f := s.Filters
 	out := []string{`l.status = ` + q.arg(string(domain.StatusActive), "text")}
@@ -241,14 +241,17 @@ func (q *query) filters(s domain.Search) string {
 	if f.Origin != nil && f.RadiusKm > 0 {
 		out = append(out, distanceSQL+` <= @radius`)
 	}
-	return strings.Join(append(out, q.exclusions(s, "l.")...), " AND ")
+	return strings.Join(append(out, q.plain(s, "l.")...), " AND ")
 }
 
-// exclusions are the plain SQL conditions on the listings alias: the
-// similar-listings source, the IDs filter and the listings and sellers left
-// out.
-func (q *query) exclusions(s domain.Search, alias string) []string {
+// plain is the conditions the index does not hold, as plain SQL on the
+// listings alias: the province, the similar-listings source, the IDs filter
+// and the listings and sellers left out.
+func (q *query) plain(s domain.Search, alias string) []string {
 	var out []string
+	if s.Filters.Province != "" {
+		out = append(out, alias+`commune_code IN (SELECT code FROM communes WHERE province_code = `+q.arg(s.Filters.Province, "text")+`)`)
+	}
 	if s.Like != (uuid.UUID{}) {
 		out = append(out, alias+`id <> `+q.arg(s.Like, "uuid"))
 	}
@@ -434,7 +437,7 @@ func (s pgSearches) pointsNewest(ctx context.Context, in domain.Search) ([]domai
 		}
 	}
 	var shared string
-	if ex := q.exclusions(in, ""); len(ex) > 0 {
+	if ex := q.plain(in, ""); len(ex) > 0 {
 		shared = ` AND ` + strings.Join(ex, " AND ")
 	}
 	if o := in.Filters.Origin; o != nil && in.Filters.RadiusKm > 0 {

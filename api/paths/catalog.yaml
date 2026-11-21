@@ -650,7 +650,7 @@ sitemapListings:
   get:
     operationId: listSitemapListings
     summary: One part of the website's sitemap of listings.
-    description: The public listings below the part's cursor, newest first, at most 10,000.
+    description: The public listings below the part's cursor, newest first, at most 10,000, each with its photo URLs for an image sitemap.
     tags: [catalog, internal]
     parameters:
       - $ref: "../parameters/catalog.yaml#/SitemapCursor"
@@ -690,3 +690,55 @@ sitemapSellers:
               $ref: "../schemas/catalog.yaml#/SitemapSellerList"
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
+sitemapAreas:
+  get:
+    operationId: listSitemapAreas
+    summary: The category and province pairs of the website's landing pages.
+    description: |
+      Each root category and province with at least 5 listings on sale
+      (active), with how many and the latest change to one of them, by
+      category then province. The website builds a landing page per pair,
+      GET /v1/search?category=&province= under it, and lists them in its
+      sitemap. Public, and cacheable for an hour.
+    tags: [catalog, internal]
+    responses:
+      "200":
+        description: The pairs.
+        headers:
+          Cache-Control:
+            description: public, max-age=3600
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/SitemapAreaList"
+sitemapIndexNow:
+  get:
+    operationId: getIndexNowKey
+    summary: The IndexNow key the website serves.
+    description: |
+      The server tells search engines through IndexNow when a listing page
+      changes: goes on sale, is edited, hidden, sold or deleted. It submits
+      https://<website>/listings/<slug> at most once a minute, with the key
+      file at https://<website>/<key>.txt, which the website serves with
+      this key as its whole body. Public, and cacheable for an hour.
+    tags: [catalog, internal]
+    responses:
+      "200":
+        description: The key.
+        headers:
+          Cache-Control:
+            description: public, max-age=3600
+            schema:
+              type: string
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/catalog.yaml#/IndexNowKey"
+      "404":
+        description: "indexnow_off: the server has no IndexNow key."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

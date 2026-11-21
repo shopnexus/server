@@ -14,6 +14,11 @@ import (
 // holds, well under the 50,000 a sitemap may.
 const sitemapPartSize = 10_000
 
+// sitemapAreaMin is how many listings on sale a category needs in a
+// province for the website's landing page of the pair; fewer make a thin
+// page.
+const sitemapAreaMin = 5
+
 // Sitemap counts the parts of the public listings and of their sellers.
 func (c *Catalog) Sitemap(ctx context.Context) (SitemapView, error) {
 	listings, err := c.listings.ListingParts(ctx, sitemapPartSize)
@@ -50,7 +55,11 @@ func (c *Catalog) SitemapListings(ctx context.Context, cursor uuid.UUID) ([]Site
 	}
 	v := make([]SitemapListingView, 0, len(rows))
 	for _, l := range rows {
-		v = append(v, SitemapListingView{Slug: domain.Slug(l.Title, l.Code), UpdatedAt: l.UpdatedAt})
+		photos := make([]string, len(l.Photos))
+		for i, key := range l.Photos {
+			photos[i] = c.media.URL(key)
+		}
+		v = append(v, SitemapListingView{Slug: domain.Slug(l.Title, l.Code), Photos: photos, UpdatedAt: l.UpdatedAt})
 	}
 	return v, nil
 }
@@ -64,6 +73,20 @@ func (c *Catalog) SitemapSellers(ctx context.Context, cursor uuid.UUID) ([]Sitem
 	v := make([]SitemapSellerView, 0, len(rows))
 	for _, s := range rows {
 		v = append(v, SitemapSellerView(s))
+	}
+	return v, nil
+}
+
+// SitemapAreas lists the root categories and provinces with at least
+// sitemapAreaMin listings on sale.
+func (c *Catalog) SitemapAreas(ctx context.Context) ([]SitemapAreaView, error) {
+	rows, err := c.listings.SitemapAreas(ctx, sitemapAreaMin)
+	if err != nil {
+		return nil, fmt.Errorf("list sitemap areas: %w", err)
+	}
+	v := make([]SitemapAreaView, 0, len(rows))
+	for _, a := range rows {
+		v = append(v, SitemapAreaView{CategoryCode: a.CategoryRoot, ProvinceCode: a.ProvinceCode, Count: a.Count, UpdatedAt: a.UpdatedAt})
 	}
 	return v, nil
 }

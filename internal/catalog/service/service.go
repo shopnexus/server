@@ -111,6 +111,12 @@ type Service interface {
 	// SitemapSellers lists the part of the sellers with a public listing
 	// below cursor, the zero ID for the first part, newest first.
 	SitemapSellers(ctx context.Context, cursor uuid.UUID) ([]SitemapSellerView, error)
+	// SitemapAreas lists the root categories and provinces with at least 5
+	// listings on sale, for the website's landing pages.
+	SitemapAreas(ctx context.Context) ([]SitemapAreaView, error)
+	// IndexNowKey is the key the website serves for IndexNow;
+	// domain.ErrIndexNowOff when IndexNow is off.
+	IndexNowKey(ctx context.Context) (string, error)
 	// SellerCounts counts a seller's sold listings, the public ones and
 	// those under domain.MaxOnSale.
 	SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCounts, error)
@@ -208,6 +214,9 @@ type Deps struct {
 	// process.
 	EmbedSlots int
 	Log        *slog.Logger
+	// IndexNow tells search engines of changed listing pages; the zero
+	// value is off.
+	IndexNow IndexNowSettings //exhaustruct:optional
 }
 
 // flowHandler is the handler of every flow service the module calls.
@@ -234,6 +243,7 @@ type Catalog struct {
 	protoLock                 chan struct{}
 	protos                    []domain.CategoryPrototype
 	log                       *slog.Logger
+	indexNow                  IndexNowSettings
 }
 
 var _ Service = (*Catalog)(nil)
@@ -243,7 +253,7 @@ func New(d Deps) *Catalog {
 		listings: d.Listings, drafts: d.Drafts, categories: d.Categories, regions: d.Regions, searches: d.Searches,
 		accounts: d.Accounts, media: d.Media, prefix: d.Prefix, now: d.Now,
 		vectors: d.Vectors, text: d.Text, image: d.Image, textVersion: d.TextVersion, imageVersion: d.ImageVersion,
-		embedSlots: make(chan struct{}, d.EmbedSlots), protoLock: make(chan struct{}, 1), log: d.Log,
+		embedSlots: make(chan struct{}, d.EmbedSlots), protoLock: make(chan struct{}, 1), log: d.Log, indexNow: d.IndexNow,
 		post: restatex.Caller[PostInput, PostResult]{Ingress: d.Ingress, Service: d.Prefix + listingPost, Handler: flowHandler},
 		edit: restatex.Caller[EditInput, EditResult]{Ingress: d.Ingress, Service: d.Prefix + listingEdit, Handler: flowHandler},
 		photoCopy: restatex.Caller[PhotoCopyInput, PhotoCopyResult]{
@@ -268,5 +278,6 @@ func (c *Catalog) Durable() []restate.ServiceDefinition {
 			Text: c.text, Image: c.image, TextVersion: c.textVersion, ImageVersion: c.imageVersion,
 			Slots: c.embedSlots, Log: c.log, Now: c.now,
 		}),
+		restate.Reflect(IndexNow{Prefix: c.prefix, Listings: c.listings, Settings: c.indexNow, Log: c.log}),
 	}
 }

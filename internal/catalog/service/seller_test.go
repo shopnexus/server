@@ -3,10 +3,12 @@ package service_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"uuid"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/platform/page"
@@ -133,8 +135,21 @@ func TestSitemap(t *testing.T) {
 	if err != nil || len(listings) != 1 || listings[0].Slug != l.Slug || !listings[0].UpdatedAt.Equal(m.Listings[0].UpdatedAt) {
 		t.Fatalf("listings: %+v %v, want %s", listings, err, l.Slug)
 	}
+	if len(l.Photos) != 1 || l.Photos[0].URL == "" || !slices.Equal(listings[0].Photos, []string{l.Photos[0].URL}) {
+		t.Fatalf("photos: %v, want those of %+v", listings[0].Photos, l.Photos)
+	}
 	sellers, err := e.catalog.SitemapSellers(ctx, uuid.UUID{})
 	if err != nil || len(sellers) != 1 || sellers[0].ID != seller {
 		t.Fatalf("sellers: %+v %v", sellers, err)
+	}
+	if areas, areasErr := e.catalog.SitemapAreas(ctx); areasErr != nil || len(areas) != 0 {
+		t.Fatalf("one listing makes no area: %+v %v", areas, areasErr)
+	}
+	for range 4 {
+		catalogtest.Listing(t, e.db, seller, func(d *domain.ListingInput, _ *domain.Refs) { d.CategoryCode = "phones.android" })
+	}
+	areas, err := e.catalog.SitemapAreas(ctx)
+	if err != nil || len(areas) != 1 || areas[0].CategoryCode != "phones" || areas[0].ProvinceCode != "01" || areas[0].Count != 5 {
+		t.Fatalf("areas: %+v %v", areas, err)
 	}
 }

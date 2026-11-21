@@ -68,7 +68,16 @@ type Listings interface {
 	// SitemapSellers is a query: the sellers with a public listing whose
 	// IDs are below before, newest first, at most size.
 	SitemapSellers(ctx context.Context, before uuid.UUID, size int) ([]SitemapSeller, error)
+	// SitemapAreas is a query: the root categories and provinces with at
+	// least that many active listings, by category then province.
+	SitemapAreas(ctx context.Context, least int) ([]SitemapArea, error)
+	// WebAddresses is a query: the address parts of the listings among ids
+	// that were ever on sale, in any status now; another ID is left out.
+	WebAddresses(ctx context.Context, ids []uuid.UUID) ([]WebAddress, error)
 }
+
+// WebAddress is what a listing's web address is built from.
+type WebAddress struct{ Title, Code string }
 
 // SitemapPart is one part of a sitemap list: the ID its entries are below,
 // zero for the first part, and the latest change among them.
@@ -77,10 +86,20 @@ type SitemapPart struct {
 	UpdatedAt time.Time
 }
 
-// SitemapListing is a public listing's address parts and its last change.
+// SitemapListing is a public listing's address parts, its last change and
+// the object keys of its processed photos in order.
 type SitemapListing struct {
 	Title, Code string
 	UpdatedAt   time.Time
+	Photos      []string
+}
+
+// SitemapArea is a root category in a province: how many active listings
+// it has and the latest change to one.
+type SitemapArea struct {
+	CategoryRoot, ProvinceCode string
+	Count                      int
+	UpdatedAt                  time.Time
 }
 
 // SitemapSeller is a seller with a public listing and the latest change to

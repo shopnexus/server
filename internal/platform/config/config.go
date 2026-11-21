@@ -12,6 +12,7 @@ import (
 	"math"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -88,6 +89,10 @@ type Config struct {
 	Email       EmailConfig
 	Google      GoogleConfig
 	Carrier     CarrierConfig
+	// IndexNowKey is INDEXNOW_KEY, the key catalog tells search engines
+	// changed listing pages with (8 to 128 letters, digits and dashes).
+	// Empty turns IndexNow off.
+	IndexNowKey string //exhaustruct:optional
 }
 
 // CarrierConfig says where shipments are made and read, on the accounts
@@ -332,6 +337,9 @@ type RestateConfig struct {
 // Every variable must be set; none has a default. A variable documented as
 // allowing empty may be set to the empty string. Load reports every missing
 // or invalid variable in one error.
+// indexNowKey is the shape IndexNow takes for a key.
+var indexNowKey = regexp.MustCompile(`^[a-zA-Z0-9-]{8,128}$`)
+
 func Load(lookup func(string) (string, bool)) (Config, error) {
 	var errs []error
 	// set returns a variable that may be empty.
@@ -648,6 +656,10 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		ServiceName:    need("SERVICE_NAME"),
 		TrustedProxies: proxies,
 		DocsOrigins:    docsOrigins,
+		IndexNowKey:    set("INDEXNOW_KEY"),
+	}
+	if k := cfg.IndexNowKey; k != "" && !indexNowKey.MatchString(k) {
+		errs = append(errs, errors.New("INDEXNOW_KEY: want 8 to 128 letters, digits and dashes, or empty"))
 	}
 
 	prevKey := set("JWT_PREVIOUS_PUBLIC_KEY")

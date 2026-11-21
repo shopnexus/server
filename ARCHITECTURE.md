@@ -1234,6 +1234,38 @@ agree during a deploy.
   listing's slug or a seller's ID, with `updated_at`. Each call counts the
   parts again, so cursors move as listings come and go; the website caches
   all three for an hour, as their `Cache-Control` says.
+- A sitemap listing carries `photos`, the public URLs of its processed
+  photos in order, the cover first, for the website's image sitemap
+  (decided 2026-11-22). The query reads the keys from `listings.photos`
+  with `jsonb_array_elements … WITH ORDINALITY`; a part of 10,000 took
+  34 ms on the dev database (80,642 active listings).
+- `GET /v1/sitemap/areas` lists each root category and province with at
+  least `sitemapAreaMin` (5) active listings, with the count and the
+  latest `updated_at` among them, for the website's landing pages
+  ("Điện thoại · Hà Nội", `GET /v1/search?category=&province=`)
+  (decided 2026-11-22). Fewer than 5 makes a thin page. Active alone
+  counts, since search shows only active listings. One `GROUP BY` over
+  `listings` joined to `communes` took 47 ms on the dev database and gave
+  430 pairs; the website caches it an hour, as the other sitemap calls.
+- IndexNow (decided 2026-11-22): with `INDEXNOW_KEY` set and the first
+  origin of `WEBSITE_ORIGINS` on https, `worker.ListingWatch` hears
+  `listing.published`, `.updated`, `.hidden`, `.unhidden`, `.sold`,
+  `.unsold` and `.deleted` and sends the listing to the Virtual Object
+  `IndexNow` (one key, `listings`). Its state is the queue of listing IDs,
+  each once. An `Add` to an empty queue schedules `Flush` a minute later
+  (`IndexNowEvery`); `Flush` takes up to 10,000, schedules the next when
+  some remain, reads their slugs (only listings that were ever published)
+  and posts `https://<site>/listings/<slug>` to
+  `https://api.indexnow.org/indexnow` with the key file at
+  `https://<site>/<key>.txt`. A 429 or 5xx is retried 5 times from 10 s,
+  doubling; another refusal or the last failure is logged at ERROR and the
+  batch dropped. The listing operation never waits on it. A title edit
+  submits the new slug only; the old address 301s to it. Reserving and
+  releasing are not submitted. `GET /v1/sitemap/indexnow` gives the
+  website the key (404 `indexnow_off` without one), and the website
+  serves it at `/<key>.txt`. The endpoint is a constant, so tests build
+  the client against a stub; locally the origin is http and nothing is
+  submitted.
 
 Search vectors (decided 2026-11-09, migration 0024):
 
@@ -2310,6 +2342,17 @@ Search and the nearby feed (decided 2026-10-27, spec:
 - Distance and freshness score inside the index as range boxes on `lat`,
   `lng` and `published_at`. The nearby feed is the same query with no
   phrase: within 50 km, scored by the rings and freshness alone.
+- `GET /v1/search?province=` keeps the listings whose commune is in that
+  province (decided 2026-11-22), with every other filter and in `counts`;
+  an unknown code is 400 `invalid_province`, and `watch` with it is
+  `search_conflict`. The index holds no province: `Filters.Province` is
+  `commune_code IN (SELECT code FROM communes WHERE province_code = …)`
+  beside the index query, in BM25, the vector lists, the points sort and
+  the counts. Browsing every Hà Nội listing newest first took 44 ms on the
+  dev database against 6 ms without the filter, since ParadeDB's top-K scan
+  stops working with a condition outside the index. A province column in
+  the index would bring it back at the cost of a stored column every
+  listing write sets and an index rebuild.
 - The nearby feed is `GET /v1/search?sort=nearby` (decided 2026-11-10; it
   was `GET /v1/feed/nearby`, which ran the same query on its own path). It
   takes the person's filters and `radius_km`, and with `q`, `photo` or

@@ -57,3 +57,30 @@ func (h *Handler) SitemapSellers(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", sitemapCache)
 	httpx.Respond(w, http.StatusOK, list[service.SitemapSellerView]{Items: v})
 }
+
+// SitemapAreas serves GET /v1/sitemap/areas.
+func (h *Handler) SitemapAreas(w http.ResponseWriter, r *http.Request) {
+	v, err := h.svc.SitemapAreas(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	w.Header().Set("Cache-Control", sitemapCache)
+	httpx.Respond(w, http.StatusOK, list[service.SitemapAreaView]{Items: v})
+}
+
+// indexNowKeyView is the IndexNowKey schema.
+type indexNowKeyView struct {
+	Key string `json:"key"`
+}
+
+// IndexNowKey serves GET /v1/sitemap/indexnow.
+func (h *Handler) IndexNowKey(w http.ResponseWriter, r *http.Request) {
+	key, err := h.svc.IndexNowKey(r.Context())
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	w.Header().Set("Cache-Control", sitemapCache)
+	httpx.Respond(w, http.StatusOK, indexNowKeyView{Key: key})
+}

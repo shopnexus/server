@@ -94,7 +94,9 @@ search:
       with q is kept in the search history, and a signed-in caller never sees
       the listings they hid nor those of an account on either side of their
       blocks. With watch, a watch of the caller's runs its query and filters.
-      photo and watch need a signed-in caller.
+      photo and watch need a signed-in caller. province keeps the listings of
+      one province, in the results and in counts, and goes with every other
+      filter.
     tags: [discovery]
     security:
       - {}
@@ -110,6 +112,12 @@ search:
         description: A root or subcategory code from GET /v1/categories.
         schema:
           type: string
+      - name: province
+        in: query
+        description: A province code from GET /v1/regions, such as 01 for Hà Nội; keeps the listings whose commune is in it. An unknown code is invalid_province.
+        schema:
+          type: string
+          pattern: "^[0-9]{2}$"
       - name: price_min
         in: query
         schema:
@@ -166,7 +174,7 @@ search:
             schema:
               $ref: "../schemas/discovery.yaml#/SearchView"
       "400":
-        description: "A malformed parameter, position_required, invalid_position, invalid_cursor, invalid_price_range, or search_conflict: photo with q or like, sort=nearby with q, photo or like, or watch with any parameter but cursor, limit, sort and off."
+        description: "A malformed parameter, position_required, invalid_position, invalid_province, invalid_cursor, invalid_price_range, or search_conflict: photo with q or like, sort=nearby with q, photo or like, or watch with any parameter but cursor, limit, sort and off."
         content:
           application/json:
             schema:

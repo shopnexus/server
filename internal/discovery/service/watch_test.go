@@ -170,4 +170,7 @@ func TestWatchRefusals(t *testing.T) {
 	if _, err = e.discovery.Search(ctx, &me, service.SearchInput{Watch: v.ID, Query: "x"}); !errors.Is(err, domain.ErrSearchConflict) {
 		t.Fatalf("?watch= with q: %v", err)
 	}
+	if _, err = e.discovery.Search(ctx, &me, service.SearchInput{Watch: v.ID, Province: "01"}); !errors.Is(err, domain.ErrSearchConflict) {
+		t.Fatalf("?watch= with province: %v", err)
+	}
 }

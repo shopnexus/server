@@ -13,4 +13,6 @@ var (
 	ErrNoCommuneNear     = apperr.New(apperr.KindNotFound, "no_commune_near", "no commune lies within 30 km of the point")
 	ErrInvalidPosition   = apperr.New(apperr.KindBadRequest, "invalid_position",
 		"near_lat and near_lng go together, within -90..90 and -180..180, or near_commune names a commune")
+	ErrIndexNowOff     = apperr.New(apperr.KindNotFound, "indexnow_off", "IndexNow is off; no key is served")
+	ErrInvalidProvince = apperr.New(apperr.KindBadRequest, "invalid_province", "province is a province code from GET /v1/regions")
 )

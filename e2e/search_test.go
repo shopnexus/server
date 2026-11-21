@@ -131,6 +131,8 @@ func TestSearchRefusals(t *testing.T) {
 	refused("a word for a cursor", url.Values{"cursor": {"x"}}, "invalid_cursor")
 	refused("an unknown sort", url.Values{"sort": {"cheapest"}}, "")
 	refused("a minimum above the maximum", url.Values{"price_min": {"5000000"}, "price_max": {"1000000"}}, "invalid_price_range")
+	refused("a malformed province", url.Values{"province": {"1"}}, "invalid_request")
+	refused("an unknown province", url.Values{"province": {"99"}}, "invalid_province")
 	if res, v := search(t, url.Values{"q": {"?"}}); res.Status != http.StatusOK || len(v.Items) != 0 {
 		t.Errorf("punctuation: %d %s", res.Status, res.Body)
 	}

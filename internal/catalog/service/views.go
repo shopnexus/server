@@ -203,7 +203,16 @@ type SitemapPartView struct {
 // SitemapListingView is the SitemapListing schema.
 type SitemapListingView struct {
 	Slug      string    `json:"slug"`
+	Photos    []string  `json:"photos"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// SitemapAreaView is the SitemapArea schema.
+type SitemapAreaView struct {
+	CategoryCode string    `json:"category_code"`
+	ProvinceCode string    `json:"province_code"`
+	Count        int       `json:"count"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // SitemapSellerView is the SitemapSeller schema.
