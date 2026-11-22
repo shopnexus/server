@@ -260,16 +260,22 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		d.log.InfoContext(ctx, "search terms", "query", q, "asked", c.Asked, "ran", c.Ran, "lists", search.Weights)
 	}
 
+	// The counts run beside the search: a hybrid count reads its lists at
+	// full depth and is the slower of the two.
+	var countErr error
+	var wg sync.WaitGroup
+	if filters.CategoryRoot != "" {
+		wg.Go(func() { view.Counts, countErr = d.catalog.Counts(ctx, search) })
+	}
 	cards, err := d.catalog.Search(ctx, search)
+	wg.Wait()
 	if err != nil {
 		return SearchView{}, fmt.Errorf("search listings: %w", err)
 	}
-	cards, view.NextCursor = cut(cards, offset, limit)
-	if filters.CategoryRoot != "" {
-		if view.Counts, err = d.catalog.Counts(ctx, search); err != nil {
-			return SearchView{}, fmt.Errorf("count categories: %w", err)
-		}
+	if countErr != nil {
+		return SearchView{}, fmt.Errorf("count categories: %w", countErr)
 	}
+	cards, view.NextCursor = cut(cards, offset, limit)
 	if view.Items, err = d.withSaved(ctx, viewer, cards); err != nil {
 		return SearchView{}, err
 	}

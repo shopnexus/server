@@ -176,3 +176,46 @@ func TestHybridBoostListAndCounts(t *testing.T) {
 		t.Fatalf("%+v %v", counts, err)
 	}
 }
+
+// A relevance page reads a few times its end from each list; other sorts
+// and the counts read every listing the lists find.
+func TestHybridListDepth(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	const td, n = domain.TextDims, 70
+	// A seller lists at most 20.
+	sellers := make([]uuid.UUID, (n+19)/20)
+	for i := range sellers {
+		sellers[i] = accounttest.New(t, db)
+	}
+	all := make([]uuid.UUID, n)
+	for i := range n {
+		// Less alike and cheaper down the list: the cheapest is the last by relevance.
+		all[i] = putHybrid(t, db, sellers[i/20], "Ghế", int64(1_000_000-i*10_000), embedtest.Near(td, 0, 1, 0.95-float64(i)*0.005), nil)
+	}
+	search := func(sort domain.SortOrder, offset int) domain.Search {
+		return domain.Search{
+			Vectors: vecs(embedtest.Axis(td, 0), nil), Weights: domain.Weights{Text: 1},
+			Sort: sort, Offset: offset, Limit: 5,
+		}
+	}
+	searches := repository.NewSearches(db)
+
+	hits, err := searches.Search(ctx, search(domain.SortRelevance, 0))
+	if got := ids(hits); err != nil || !slices.Equal(got, all[:5]) {
+		t.Fatalf("first page: %v %v", got, err)
+	}
+	hits, err = searches.Search(ctx, search(domain.SortRelevance, n-5))
+	if got := ids(hits); err != nil || !slices.Equal(got, all[n-5:]) {
+		t.Fatalf("a deep page reads deeper lists: %v %v", got, err)
+	}
+	hits, err = searches.Search(ctx, search(domain.SortPriceAsc, 0))
+	if got := ids(hits); err != nil || len(got) == 0 || got[0] != all[n-1] {
+		t.Fatalf("price sort orders every candidate: %v %v", got, err)
+	}
+	counts, err := searches.Counts(ctx, search(domain.SortRelevance, 0))
+	if err != nil || len(counts) != 1 || counts[0].Count != n {
+		t.Fatalf("counts: %+v %v", counts, err)
+	}
+}

@@ -206,9 +206,27 @@ func (q *query) where(s domain.Search, boosts bool) string {
 const distanceSQL = `(12742 * asin(sqrt(power(sin(radians(lat - @olat) / 2), 2)
        + cos(radians(@olat)) * cos(radians(lat)) * power(sin(radians(lng - @olng) / 2), 2))))`
 
-// photoScan is how many photo rows the photo list reads before it groups
-// them by listing: about four photos a listing.
-const photoScan = 4 * domain.MaxResults
+// photosPerListing is how many photo rows the photo list reads for each
+// listing it keeps, before it groups them by listing.
+const photosPerListing = 4
+
+// A relevance page needs the top of each list; a listing deep in every list
+// rarely outranks the page. Short lists keep the top-K scans fast: ParadeDB's
+// BM25 took 172 ms at 500 and 44 ms at 100.
+const (
+	listDepthFactor = 3
+	minListDepth    = 60
+)
+
+// listDepth is how many listings each list of a hybrid search reads.
+func listDepth(s domain.Search) int {
+	switch s.Sort { //nolint:exhaustive // relevance and the default read by the page
+	case domain.SortNewest, domain.SortPriceAsc, domain.SortPriceDesc, domain.SortNearest:
+		return domain.MaxResults
+	default:
+		return min(max(listDepthFactor*(s.Offset+s.Limit), minListDepth), domain.MaxResults)
+	}
+}
 
 // filters is the person's filters and the plain conditions as SQL on the
 // listings alias l, for the vector lists. The BM25 list gets the same
@@ -310,9 +328,9 @@ func (q *query) points(boosts []domain.Boost) string {
 }
 
 // hybrid is the WITH clause of a hybrid search: one CTE per list, each at
-// most MaxResults listings ranked from 1, and fused, the weighted RRF score
-// of every listing a list found.
-func (q *query) hybrid(s domain.Search) string {
+// most depth listings ranked from 1, and fused, the weighted RRF score of
+// every listing a list found.
+func (q *query) hybrid(s domain.Search, depth int) string {
 	// Strict named args refuse a parameter the SQL does not use: the origin
 	// goes in only with a radius or the nearest sort, the list size only
 	// with a list.
@@ -324,7 +342,7 @@ func (q *query) hybrid(s domain.Search) string {
 	}
 	var ctes, lists []string
 	share := func(name string, w float64) {
-		q.args["list"] = domain.MaxResults
+		q.args["list"] = depth
 		lists = append(lists, name)
 		ctes = append(ctes, name+`_share AS (SELECT id, `+q.arg(w, "float8")+` / (`+
 			strconv.Itoa(domain.RRFK)+` + rank) AS share FROM `+name+`)`)
@@ -349,7 +367,7 @@ ORDER BY t.embedding <=> @tq::halfvec(1024) LIMIT @list) v)`)
 	}
 	if s.Weights.Photo > 0 && s.Vectors.Photo != nil {
 		q.args["pq"], q.args["pv"], q.args["pmax"], q.args["scan"] =
-			pgvec.Format(s.Vectors.Photo), s.Vectors.PhotoVersion, 1-s.Vectors.PhotoMin, photoScan
+			pgvec.Format(s.Vectors.Photo), s.Vectors.PhotoVersion, 1-s.Vectors.PhotoMin, photosPerListing*depth
 		ctes = append(ctes, `img AS (SELECT id, row_number() OVER (ORDER BY d, id) AS rank FROM (
 SELECT id, min(d) AS d FROM (
     SELECT p.listing_id AS id, p.embedding <=> @pq::halfvec(1152) AS d
@@ -492,7 +510,8 @@ func (s pgSearches) Counts(ctx context.Context, in domain.Search) ([]domain.Cate
 			if _, err := tx.Exec(ctx, `SET LOCAL hnsw.iterative_scan = relaxed_order`); err != nil {
 				return fmt.Errorf("set iterative scan: %w", err)
 			}
-			rows, err := tx.Query(ctx, q.hybrid(in)+`
+			// Counts are over every listing the lists find, at full depth.
+			rows, err := tx.Query(ctx, q.hybrid(in, domain.MaxResults)+`
 SELECT l.category_code, count(*) FROM fused AS f JOIN listings AS l ON l.id = f.id GROUP BY 1 ORDER BY 2 DESC, 1`, q.args)
 			if err != nil {
 				return fmt.Errorf("hybrid counts: %w", err)
@@ -522,7 +541,7 @@ SELECT l.category_code, count(*) FROM fused AS f JOIN listings AS l ON l.id = f.
 
 func (s pgSearches) hybridSearch(ctx context.Context, in domain.Search) ([]domain.Hit, error) {
 	q := query{args: pgx.StrictNamedArgs{"limit": in.Limit, "offset": in.Offset}}
-	sql := q.hybrid(in) + `
+	sql := q.hybrid(in, listDepth(in)) + `
 SELECT l.id, l.lat, l.lng FROM fused AS f JOIN listings AS l ON l.id = f.id`
 	switch in.Sort { //nolint:exhaustive // relevance is the default order
 	case domain.SortNewest:

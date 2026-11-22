@@ -91,9 +91,10 @@ type Search struct {
 	Sort          SortOrder
 	Offset, Limit int
 	// Vectors and Weights make the search hybrid: each list (BM25 on the
-	// phrases, text vectors, photo vectors, boosts) takes at most MaxResults
-	// listings under the filters, and RRF fuses them. Sorts other than
-	// relevance order the fused listings.
+	// phrases, text vectors, photo vectors, boosts) takes listings under the
+	// filters, and RRF fuses them. Sorted by relevance a list reads a few
+	// times the page's end; other sorts order the fused listings, so their
+	// lists read MaxResults.
 	Vectors Vectors
 	Weights Weights
 	// Like is the source of a similar-listings search, zero for none: the
