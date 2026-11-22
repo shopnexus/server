@@ -81,8 +81,9 @@ func route(noted string, r *http.Request) string {
 
 // Trace opens a server span per request, continues an incoming traceparent,
 // names the span by the matched route pattern, records request duration and
-// writes one access log line after the request finishes. It is the outermost
-// middleware, so a request that panicked logs the 500 Recover wrote.
+// writes one access log line after the request finishes, with the client,
+// country and visitor that Visitors noted. It is the outermost middleware,
+// so a request that panicked logs the 500 Recover wrote.
 func Trace(log *slog.Logger) func(http.Handler) http.Handler {
 	tracer := otel.Tracer("github.com/shopnexus/server/internal/platform/httpx")
 	duration := telemetry.Must(otel.Meter("github.com/shopnexus/server/internal/platform/httpx").Float64Histogram(
@@ -100,6 +101,7 @@ func Trace(log *slog.Logger) func(http.Handler) http.Handler {
 			defer span.End()
 			var noted string
 			ctx = context.WithValue(ctx, routeKey{}, &noted)
+			ctx, v := withVisit(ctx)
 
 			w.Header().Set("Trace-Id", span.SpanContext().TraceID().String())
 			sw := &statusWriter{ResponseWriter: w}
@@ -116,17 +118,27 @@ func Trace(log *slog.Logger) func(http.Handler) http.Handler {
 				span.SetName(r.Method + " " + rt)
 				attrs = append(attrs, attribute.String("http.route", rt))
 			}
+			if v.client != "" {
+				attrs = append(attrs, attribute.String("client", v.client))
+			}
 			span.SetAttributes(attrs...)
 			if status >= 500 {
 				span.SetStatus(codes.Error, http.StatusText(status))
 			}
 			duration.Record(ctx, took.Seconds(), metric.WithAttributes(attrs...))
-			log.InfoContext(ctx, "request",
+			args := []any{
 				"method", r.Method,
 				"route", rt,
 				"status", status,
-				"duration_ms", float64(took.Microseconds())/1000,
-			)
+				"duration_ms", float64(took.Microseconds()) / 1000,
+			}
+			if v.client != "" {
+				args = append(args, "client", v.client)
+			}
+			if v.visitor != "" {
+				args = append(args, "visitor", v.visitor, "country", v.country)
+			}
+			log.InfoContext(ctx, "request", args...)
 		})
 	}
 }

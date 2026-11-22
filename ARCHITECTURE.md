@@ -112,11 +112,24 @@ nil signed out.
 `httpx.Prefetch(r)` reports a browser's speculative fetch (`Sec-Purpose`),
 for a read that would otherwise write (see Tin của bạn and listing views).
 
-Every request passes `Trace`, `Recover`, `ResolveClientIP`, CORS and the
-spec validator, in that order, before the router. `Trace` is outermost: it
-opens the span, records the duration and writes the access log line after
-the request, so a request that panicked logs the 500 `Recover` wrote, with
-its trace ID.
+Every request passes `Trace`, `Recover`, `ResolveClientIP`, `Visitors`, CORS
+and the spec validator, in that order, before the router. `Trace` is
+outermost: it opens the span, records the duration and writes the access log
+line after the request, so a request that panicked logs the 500 `Recover`
+wrote, with its trace ID.
+
+`Visitors` notes who called, for Grafana's Users dashboard, which counts
+from the access log in Loki (decided 2026-11-23). The line gets `client`
+(`android` for OkHttp, `website` for Node's fetch or a browser, `console`
+for `/v1/console/`, else `other`), which the request metric carries too,
+and `visitor` with `country`. `visitor` is `a:<account>` or `m:<member>`
+once the auth middleware ran (`authn.Track` hands it a slot), otherwise
+`g:` and 12 hex digits of SHA-256 over the day and the address, so the
+address stays out of the logs. A health probe and a call from a trusted
+proxy itself, such as the website rendering without a buyer, get no
+visitor. `country` comes from `GEOIP_DB`, a MaxMind-format database the
+image carries (`scripts/fetch-geoip.sh`, ip-location-db's CC0
+geo-whois-asn-country); empty logs no country.
 The validator matches only the operations the router serves, so a request
 for a spec route this server does not mount, such as a dev route in
 production, gets the router's 404 for an unknown path whatever its body

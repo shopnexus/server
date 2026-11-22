@@ -30,6 +30,9 @@ type key struct{}
 
 // With returns ctx carrying p.
 func With(ctx context.Context, p Principal) context.Context {
+	if s, ok := ctx.Value(seenKey{}).(*Seen); ok {
+		s.Account = p.AccountID
+	}
 	return context.WithValue(ctx, key{}, p)
 }
 
@@ -55,6 +58,9 @@ type consoleMemberKey struct{}
 
 // WithConsoleMember returns ctx carrying s.
 func WithConsoleMember(ctx context.Context, s ConsoleMember) context.Context {
+	if seen, ok := ctx.Value(seenKey{}).(*Seen); ok {
+		seen.Member = s.MemberID
+	}
 	return context.WithValue(ctx, consoleMemberKey{}, s)
 }
 
@@ -62,4 +68,20 @@ func WithConsoleMember(ctx context.Context, s ConsoleMember) context.Context {
 func ConsoleMemberFrom(ctx context.Context) (ConsoleMember, bool) {
 	s, ok := ctx.Value(consoleMemberKey{}).(ConsoleMember)
 	return s, ok
+}
+
+// Seen is who a request turned out to be. A middleware outside the auth
+// middleware reads it after the handler returns, e.g. for the access log.
+type Seen struct {
+	Account uuid.UUID // set by With
+	Member  uuid.UUID // set by WithConsoleMember
+}
+
+type seenKey struct{}
+
+// Track returns ctx with an empty Seen that With and WithConsoleMember fill
+// in on any context derived from it.
+func Track(ctx context.Context) (context.Context, *Seen) {
+	s := &Seen{}
+	return context.WithValue(ctx, seenKey{}, s), s
 }

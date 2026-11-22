@@ -71,6 +71,9 @@ type Config struct {
 	ServiceName    string // SERVICE_NAME
 	Restate        RestateConfig
 	TrustedProxies []netip.Prefix // TRUSTED_PROXIES: CIDRs whose X-Forwarded-For is believed
+	// GeoIPDB is GEOIP_DB, a country database in MaxMind's format that the
+	// access log reads each visitor's country from. Empty logs no country.
+	GeoIPDB string //exhaustruct:optional
 	// DocsOrigins is DOCS_ORIGINS, the origins of the docs site, comma
 	// separated. Its API playground calls /v1/ from these origins, without
 	// cookies. Empty allows none.
@@ -657,6 +660,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		TrustedProxies: proxies,
 		DocsOrigins:    docsOrigins,
 		IndexNowKey:    set("INDEXNOW_KEY"),
+		GeoIPDB:        set("GEOIP_DB"),
 	}
 	if k := cfg.IndexNowKey; k != "" && !indexNowKey.MatchString(k) {
 		errs = append(errs, errors.New("INDEXNOW_KEY: want 8 to 128 letters, digits and dashes, or empty"))

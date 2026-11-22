@@ -49,6 +49,7 @@ func required() map[string]string {
 		"DOCS_ORIGINS":                 "",
 		"WEBSITE_ORIGINS":              "",
 		"INDEXNOW_KEY":                 "",
+		"GEOIP_DB":                     "",
 		"RESTATE_INGRESS_URL":          "http://restate:8080",
 		"RESTATE_ADMIN_URL":            "http://restate:9070",
 		"RESTATE_LISTEN_ADDR":          "127.0.0.1:9080",
@@ -143,6 +144,7 @@ func TestLoadAllSet(t *testing.T) {
 		"DOCS_ORIGINS":                "https://docs.example.test, http://localhost:4321",
 		"WEBSITE_ORIGINS":             "https://example.test",
 		"INDEXNOW_KEY":                "0123456789abcdef0123456789abcdef",
+		"GEOIP_DB":                    "/geoip/country.mmdb",
 		"JWT_PREVIOUS_KEY_ID":         "old",
 		"JWT_PREVIOUS_PUBLIC_KEY":     b64(prev.JWTKey.Public().(ed25519.PublicKey)),
 		"JWT_ISSUER":                  "iss",
@@ -178,6 +180,7 @@ func TestLoadAllSet(t *testing.T) {
 		},
 		DocsOrigins: []string{"https://docs.example.test", "http://localhost:4321"},
 		IndexNowKey: "0123456789abcdef0123456789abcdef",
+		GeoIPDB:     "/geoip/country.mmdb",
 		Auth: AuthConfig{
 			OTPKey:       testKeys.OTPKey,
 			JWTKeyID:     testKeys.JWTKeyID,

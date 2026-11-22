@@ -2,6 +2,7 @@
 # Module ai links sherpa-onnx and onnxruntime through cgo, so the build has
 # cgo on and the runtime has glibc, the two libraries in /usr/local/lib and
 # ffmpeg. The models are not in the image: /fetch-models.sh fills /models.
+# The access log's country database is in the image, /geoip/country.mmdb.
 FROM golang:1.27.3-trixie AS build
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -15,6 +16,8 @@ RUN CGO_ENABLED=1 go build -trimpath -ldflags="-s -w" -o /out/bin/ ./cmd/... \
 FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg \
  && rm -rf /var/lib/apt/lists/*
+# Every stack's GEOIP_DB names this file.
+RUN --mount=type=bind,source=scripts/fetch-geoip.sh,target=/fetch-geoip.sh sh /fetch-geoip.sh /geoip/country.mmdb
 # The binaries' runpath names the build's module cache; ldconfig makes the
 # loader find the libraries here instead.
 COPY --from=build /out/lib/ /usr/local/lib/

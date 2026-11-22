@@ -42,6 +42,7 @@ import (
 	"github.com/shopnexus/server/internal/notification"
 	"github.com/shopnexus/server/internal/platform/config"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/geoip"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/module"
 	"github.com/shopnexus/server/internal/platform/objectstore"
@@ -78,6 +79,8 @@ type App struct {
 	agent    *agent.Mounted
 	// closeAI releases module ai's models; nil when none are loaded.
 	closeAI func()
+	// geo names the access log's countries; nil without GEOIP_DB.
+	geo *geoip.DB
 	// stop cancels the event bus, the stream hub and the agent's MCP
 	// server, which run in bg.
 	stop context.CancelFunc
@@ -204,6 +207,9 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if err = checkMigrations(ctx, pool); err != nil {
 		return nil, err
 	}
+	if a.geo, err = geoip.Open(cfg.GeoIPDB); err != nil {
+		return nil, fmt.Errorf("GEOIP_DB: %w", err)
+	}
 	doc, err := api.Load()
 	if err != nil {
 		return nil, fmt.Errorf("load api spec: %w", err)
@@ -260,7 +266,8 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	cors := httpx.CORS(cfg.Console.Origin, "/v1/console/")
 	docsCORS := httpx.DocsCORS(cfg.DocsOrigins)
 	clientIP := httpx.ResolveClientIP(cfg.TrustedProxies)
-	a.Handler = httpx.Trace(log)(httpx.Recover(log)(clientIP(cors(docsCORS(validate(a.router))))))
+	visitors := httpx.Visitors(a.geo, cfg.TrustedProxies, time.Now)
+	a.Handler = httpx.Trace(log)(httpx.Recover(log)(clientIP(visitors(cors(docsCORS(validate(a.router)))))))
 	return a, nil
 }
 
@@ -552,7 +559,7 @@ func (a *App) CloseStreams() {
 
 // Close ends the streams, stops the event bus, the stream hub, the agent's
 // MCP server and the Restate endpoint, then releases the models and closes
-// the pool.
+// the pool and the country database.
 func (a *App) Close(ctx context.Context) error {
 	a.CloseStreams()
 	a.stop()
@@ -568,6 +575,9 @@ func (a *App) Close(ctx context.Context) error {
 	}
 	if a.pool != nil {
 		a.pool.Close()
+	}
+	if cerr := a.geo.Close(); cerr != nil {
+		err = errors.Join(err, cerr)
 	}
 	return err
 }
