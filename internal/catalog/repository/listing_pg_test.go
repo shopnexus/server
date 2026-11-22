@@ -339,6 +339,9 @@ func TestCountByStatus(t *testing.T) {
 	if got, err = s.CountCreatedSince(ctx, time.Now().Add(time.Hour)); err != nil || len(got) != 0 {
 		t.Fatalf("created since a later time: %v %v", got, err)
 	}
+	if got, err = s.CountAll(ctx); err != nil || !maps.Equal(got, want) {
+		t.Fatalf("all: %v %v", got, err)
+	}
 }
 
 // Insert gives a listing the first of its ID's codes no listing holds, and

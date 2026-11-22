@@ -53,6 +53,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 		Log: d.Log, Prefix: d.ServicePrefix, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
+	registerGauges(d)
 	w := worker.ScamWorker{Prefix: d.ServicePrefix, Chats: chats, Trust: svc}
 	d.Events.Subscribe(events.MessageSent, w.ServiceName(), "MessageSent")
 	d.Events.Subscribe(events.AccountDeleted, w.ServiceName(), "AccountDeleted")

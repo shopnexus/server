@@ -103,3 +103,12 @@ WHERE id = @id AND withdrawn_at IS NULL`, pgx.StrictNamedArgs{"id": id, "at": at
 	}
 	return nil
 }
+
+func (s pgReports) CountOpen(ctx context.Context) (int, error) {
+	var n int
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM reports WHERE withdrawn_at IS NULL AND resolution_id IS NULL`).
+		Scan(&n); err != nil {
+		return 0, fmt.Errorf("count open reports: %w", err)
+	}
+	return n, nil
+}

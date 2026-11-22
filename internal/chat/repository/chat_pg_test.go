@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"testing"
 	"time"
 	"uuid"
@@ -437,5 +438,18 @@ func TestAQuoteIsStoredAndRead(t *testing.T) {
 	got, err := s.GetMessage(ctx, reply.ID())
 	if err != nil || got.ReplyTo() == nil || *got.ReplyTo() != first.ID() {
 		t.Fatalf("reply_to %v, %v", got.ReplyTo(), err)
+	}
+}
+
+func TestCountByKind(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewChats(db)
+	pair(t, db, s)
+	pair(t, db, s)
+	support(t, db, s)
+	got, err := s.CountByKind(context.Background())
+	if want := map[domain.ConversationKind]int{domain.KindPair: 2, domain.KindSupport: 1}; err != nil || !maps.Equal(got, want) {
+		t.Fatalf("%v %v", got, err)
 	}
 }

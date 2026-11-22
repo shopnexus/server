@@ -178,6 +178,11 @@ func (s pgListings) CountCreatedSince(ctx context.Context, since time.Time) (map
 		pgx.StrictNamedArgs{"since": since}))
 }
 
+// CountAll's GROUP BY reads only listings_seller, which holds the status.
+func (s pgListings) CountAll(ctx context.Context) (map[domain.Status]int, error) {
+	return postgres.Counts[domain.Status](s.db.Query(ctx, `SELECT status, count(*) FROM listings GROUP BY status`))
+}
+
 func (s pgListings) Get(ctx context.Context, id uuid.UUID) (domain.Listing, error) {
 	rows, err := s.db.Query(ctx, `SELECT `+listingColumns+` FROM listings WHERE id = @id`, pgx.StrictNamedArgs{"id": id})
 	if err != nil {

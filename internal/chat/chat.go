@@ -36,6 +36,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, LinkHosts: hostsOf(s.WebsiteOrigins), Orders: s.Orders,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
+	registerGauges(d)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Chats: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
 	return module.Mounted[service.Service]{Services: append(svc.Durable(), restate.Reflect(watch)), Service: svc}

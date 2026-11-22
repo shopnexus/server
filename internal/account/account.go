@@ -52,5 +52,6 @@ func Mount(d module.Deps, s Settings, media mediasvc.Service) module.Mounted[ser
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
+	registerGauges(d)
 	return module.Mounted[service.Service]{Services: svc.Durable(), Service: svc}
 }

@@ -44,6 +44,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasv
 		EmbedSlots: s.EmbedSlots, Log: d.Log, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, IndexNow: s.IndexNow,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
+	registerGauges(d)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Listings: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
 	listings := worker.ListingWatch{Prefix: d.ServicePrefix}

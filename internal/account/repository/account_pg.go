@@ -230,6 +230,15 @@ FROM accounts WHERE id <> @system AND created_at >= @since GROUP BY 1`,
 		pgx.StrictNamedArgs{"now": now, "since": since, "system": domain.ShopNexusID}))
 }
 
+func (s pgAccounts) CountWithPhone(ctx context.Context) (int, error) {
+	var n int
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM identities i JOIN accounts a ON a.id = i.account_id
+WHERE i.kind = 'phone' AND a.status <> 'deleted' AND a.id <> @system`, pgx.StrictNamedArgs{"system": domain.ShopNexusID}).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count accounts with a phone: %w", err)
+	}
+	return n, nil
+}
+
 // lockLiving takes a share lock on account's row and refuses a deleted
 // account with domain.ErrSessionRevoked. A write that checked the account
 // before Erase and commits after it waits for Erase and then sees the

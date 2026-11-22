@@ -12,6 +12,7 @@ import (
 
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/trust/domain"
 )
 
@@ -251,4 +252,8 @@ WHERE review_id = ANY(@reviews) GROUP BY review_id`, pgx.StrictNamedArgs{"review
 		return nil, fmt.Errorf("read helpful marks: %w", err)
 	}
 	return out, nil
+}
+
+func (s pgReviews) CountByRole(ctx context.Context) (map[domain.Role]int, error) {
+	return postgres.Counts[domain.Role](s.db.Query(ctx, `SELECT role, count(*) FROM reviews WHERE deleted_at IS NULL GROUP BY role`))
 }

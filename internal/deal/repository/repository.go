@@ -52,6 +52,9 @@ type Deals interface {
 	// CountOrders is a query: how many orders requested at or after since
 	// are in each status; a status without one is left out.
 	CountOrders(ctx context.Context, since time.Time) (map[domain.OrderStatus]int, error)
+	// CountDeals is a query: how many deals are in each status; a status
+	// without one is left out.
+	CountDeals(ctx context.Context) (map[domain.Status]int, error)
 	// ActiveOf lists the deals, negotiating or agreed, where account is
 	// either side, oldest first.
 	ActiveOf(ctx context.Context, account uuid.UUID) ([]domain.Deal, error)

@@ -12,6 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/shopnexus/server/internal/account/accounttest"
 	"github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/account/repository"
 	"github.com/shopnexus/server/internal/platform/audit"
@@ -476,5 +478,28 @@ func TestBlockedWith(t *testing.T) {
 	slices.SortFunc(want, byID)
 	if err != nil || !slices.Equal(got, want) {
 		t.Fatalf("%v %v", got, err)
+	}
+}
+
+// CountWithPhone counts the accounts with a phone and leaves out a deleted
+// one that still has its identity.
+func TestCountWithPhone(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewAccounts(db)
+	ctx := context.Background()
+	accounttest.WithPhone(t, db)
+	gone := accounttest.WithPhone(t, db)
+	accounttest.New(t, db)
+	if n, err := s.CountWithPhone(ctx); err != nil || n != 2 {
+		t.Fatalf("%d %v", n, err)
+	}
+	if _, err := db.Exec(ctx, `UPDATE accounts
+SET status = 'deleted', deleted_at = now(), display_name = NULL, bio = NULL, avatar_key = NULL WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": gone}); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := s.CountWithPhone(ctx); err != nil || n != 1 {
+		t.Fatalf("after a deletion: %d %v", n, err)
 	}
 }

@@ -57,6 +57,9 @@ type Reviews interface {
 	// whether viewer made each, in one query; a review without marks is
 	// left out. A nil viewer made none.
 	Helpful(ctx context.Context, reviews []uuid.UUID, viewer *uuid.UUID) (map[uuid.UUID]HelpfulMarks, error)
+	// CountByRole is a query: how many reviews not deleted there are in
+	// each role, hidden ones too; a role without one is left out.
+	CountByRole(ctx context.Context) (map[domain.Role]int, error)
 }
 
 // TagCount is how many reviews carry one tag.

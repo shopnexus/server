@@ -177,3 +177,12 @@ func (s pgDrafts) DeleteAll(ctx context.Context, account uuid.UUID) error {
 	}
 	return nil
 }
+
+func (s pgDrafts) CountLive(ctx context.Context, now time.Time) (int, error) {
+	var n int
+	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM listing_drafts WHERE expires_at > @now`, pgx.StrictNamedArgs{"now": now}).
+		Scan(&n); err != nil {
+		return 0, fmt.Errorf("count drafts: %w", err)
+	}
+	return n, nil
+}

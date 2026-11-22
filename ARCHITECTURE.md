@@ -900,6 +900,36 @@ there before the SDK runs. A retried or suspended handler counts once per
 attempt. Durations use `telemetry.Seconds`, the semantic conventions'
 buckets from 5 ms to 10 s (decided 2026-11-23).
 
+### Inventory gauges
+
+Modules account, catalog, deal, chat, trust and support export gauges of
+what the marketplace holds now, for the Grafana dashboard (decided
+2026-11-23). Each module counts its own rows through its repository and
+registers the gauges in its `Mount` (`gauges.go`), so a SERVER_ROLE=ai
+process has none. `telemetry.CountGauges` runs a gauge's query at most
+once per `telemetry.CountEvery`, a minute; the exporter collects every
+10 s and repeats the last answer in between. A failed query keeps the old
+answer and logs one warning until a query succeeds again. A labelled
+gauge has one series per value of its fixed set, 0 included.
+
+- `account.accounts` by status (active, suspended) and
+  `account.accounts.phone_verified`; deleted accounts and ShopNexus's own
+  are left out.
+- `catalog.listings` by status (processing, active, hidden, rejected,
+  reserved, sold) and `catalog.listing_drafts`, the drafts not expired.
+- `deal.deals` by status (negotiating, agreed, sold) and `deal.orders` by
+  status (pending, shipped, completed, failed, cancelled).
+- `chat.conversations` by kind (pair, support). Messages have no index on
+  `created_at`, so there is no gauge of recent messages.
+- `trust.reports.open`, `trust.report_cases.open` and `trust.reviews` by
+  role (seller, buyer), deleted reviews left out.
+- `support.tickets.open`.
+
+Every api process exports the same numbers under its own
+`service.instance.id`, so a panel takes `max` over instances. On the
+development data (110k listings) all queries together take about 100 ms;
+the listings count reads only the index `listings_seller`.
+
 ### Client events
 
 Module `beacon` serves `POST /v1/client-events`, open to anyone: a batch of

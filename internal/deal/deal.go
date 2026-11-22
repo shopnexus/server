@@ -42,6 +42,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 		Waits: waits, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, s.FakeCarrier)
+	registerGauges(d)
 	watch := worker.ListingWatch{Prefix: d.ServicePrefix, Deals: svc}
 	for _, k := range []events.Kind{events.ListingUpdated, events.ListingHidden, events.ListingSold, events.ListingDeleted} {
 		d.Events.Subscribe(k, watch.ServiceName(), "Changed")

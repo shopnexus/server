@@ -15,6 +15,7 @@ import (
 	"github.com/shopnexus/server/internal/chat/domain"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/platform/stream"
 )
 
@@ -604,4 +605,8 @@ func (s pgChats) Unread(ctx context.Context, viewer uuid.UUID) (int, error) {
 		return 0, fmt.Errorf("count unread: %w", err)
 	}
 	return n, nil
+}
+
+func (s pgChats) CountByKind(ctx context.Context) (map[domain.ConversationKind]int, error) {
+	return postgres.Counts[domain.ConversationKind](s.db.Query(ctx, `SELECT kind, count(*) FROM conversations GROUP BY kind`))
 }

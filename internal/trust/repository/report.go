@@ -24,4 +24,6 @@ type Reports interface {
 	// Withdraw marks an open report withdrawn at at; a withdrawn one keeps
 	// its time.
 	Withdraw(ctx context.Context, id uuid.UUID, at time.Time) error
+	// CountOpen counts the reports neither withdrawn nor resolved.
+	CountOpen(ctx context.Context) (int, error)
 }

@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"slices"
 	"testing"
 	"time"
@@ -109,6 +110,9 @@ func TestReviews(t *testing.T) {
 	}
 	if avg, n, _ := s.Summary(ctx, seller, domain.RoleSeller, now); n != 1 || avg != 5 {
 		t.Fatalf("after the delete %v %d", avg, n)
+	}
+	if n, countErr := s.CountByRole(ctx); countErr != nil || !maps.Equal(n, map[domain.Role]int{domain.RoleSeller: 1}) {
+		t.Fatalf("count without the deleted one: %v %v", n, countErr)
 	}
 	if got, err = s.ByOrder(ctx, o2, domain.RoleSeller); err != nil || !got.Deleted() || got.Text() != "" {
 		t.Fatalf("deleted: %+v %v", got.State(), err)

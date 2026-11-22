@@ -50,6 +50,9 @@ type Accounts interface {
 	// are in each status at now, ShopNexus's own account aside; a status
 	// without one is left out. A suspension that ended counts as active.
 	CountByStatus(ctx context.Context, now, since time.Time) (map[domain.Status]int, error)
+	// CountWithPhone is a query: how many accounts not deleted have a
+	// verified phone, ShopNexus's own account aside.
+	CountWithPhone(ctx context.Context) (int, error)
 	// Block records that blocker blocks blocked, as id, and deletes the
 	// follows between the two, both ways; blocking again changes nothing.
 	Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error

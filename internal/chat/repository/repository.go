@@ -106,6 +106,9 @@ type Chats interface {
 	// conversations SearchThreads would consider, IDs below p.Before(),
 	// newest first, at most p.Fetch().
 	SearchMessages(ctx context.Context, viewer uuid.UUID, t Terms, p page.Request) ([]MessageHitRow, error)
+	// CountByKind is a query: how many conversations there are of each
+	// kind; a kind without one is left out.
+	CountByKind(ctx context.Context) (map[domain.ConversationKind]int, error)
 }
 
 // ListingSender is someone who wrote about a listing, since their first

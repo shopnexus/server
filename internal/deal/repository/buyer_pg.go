@@ -38,3 +38,7 @@ func (s pgDeals) CountOrders(ctx context.Context, since time.Time) (map[domain.O
 	return postgres.Counts[domain.OrderStatus](s.db.Query(ctx, `SELECT status, count(*) FROM orders WHERE requested_at >= @since GROUP BY status`,
 		pgx.StrictNamedArgs{"since": since}))
 }
+
+func (s pgDeals) CountDeals(ctx context.Context) (map[domain.Status]int, error) {
+	return postgres.Counts[domain.Status](s.db.Query(ctx, `SELECT status, count(*) FROM deals GROUP BY status`))
+}

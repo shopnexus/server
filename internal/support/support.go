@@ -27,6 +27,7 @@ func Mount(d module.Deps, accounts accountsvc.Service, chats chatsvc.Service, de
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
+	registerGauges(d)
 	w := worker.Worker{Prefix: d.ServicePrefix, Chats: chats, Support: svc}
 	d.Events.Subscribe(events.MessageSent, w.ServiceName(), "MessageSent")
 	d.Events.Subscribe(events.AccountDeleted, w.ServiceName(), "AccountDeleted")

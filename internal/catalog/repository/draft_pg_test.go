@@ -209,3 +209,26 @@ func TestDraftDelete(t *testing.T) {
 		t.Fatalf("after DeleteAll: %d", len(list))
 	}
 }
+
+// CountLive counts every account's drafts that have not expired.
+func TestDraftCountLive(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewDrafts(db)
+	ctx := context.Background()
+	me, them := accounttest.New(t, db), accounttest.New(t, db)
+	for _, put := range []struct {
+		account uuid.UUID
+		at      time.Time
+	}{{me, now}, {me, now.Add(time.Hour)}, {them, now.Add(time.Hour)}} {
+		if _, _, err := s.Put(ctx, put.account, uuid.NewV7(), draftContent(""), put.at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n, err := s.CountLive(ctx, now); err != nil || n != 3 {
+		t.Fatalf("%d %v", n, err)
+	}
+	if n, err := s.CountLive(ctx, now.Add(domain.DraftLife)); err != nil || n != 2 {
+		t.Fatalf("once the first expired: %d %v", n, err)
+	}
+}

@@ -36,6 +36,9 @@ type Listings interface {
 	// since are in each status, deleted ones too; a status without one is
 	// left out.
 	CountCreatedSince(ctx context.Context, since time.Time) (map[domain.Status]int, error)
+	// CountAll is a query: how many listings are in each status, deleted
+	// ones too; a status without one is left out.
+	CountAll(ctx context.Context) (map[domain.Status]int, error)
 	// Get returns ErrNotFound for an unknown id.
 	Get(ctx context.Context, id uuid.UUID) (domain.Listing, error)
 	// GetMany returns the listings among ids in any status and order; an
@@ -132,6 +135,9 @@ type Drafts interface {
 	Delete(ctx context.Context, account, id uuid.UUID) error
 	// DeleteAll deletes account's drafts, for its erasure.
 	DeleteAll(ctx context.Context, account uuid.UUID) error
+	// CountLive is a query: how many drafts, everyone's, have not expired
+	// at now.
+	CountLive(ctx context.Context, now time.Time) (int, error)
 }
 
 // Categories reads the category tree.

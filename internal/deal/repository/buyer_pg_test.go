@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	"github.com/shopnexus/server/internal/deal/domain"
 	"github.com/shopnexus/server/internal/deal/repository"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
@@ -58,5 +59,20 @@ func TestBuyerOrders(t *testing.T) {
 	if want := map[domain.OrderStatus]int{domain.OrderPending: 1, domain.OrderCompleted: 1, domain.OrderFailed: 1}; err != nil ||
 		!maps.Equal(recent, want) {
 		t.Fatalf("recent orders: %v %v", recent, err)
+	}
+}
+
+func TestCountDeals(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewDeals(db)
+	buyer, seller := accounttest.New(t, db), accounttest.New(t, db)
+	inserted(t, db, s, catalogtest.Listing(t, db, seller), buyer, seller)
+	pendingDeal(t, db, s, buyer, seller)
+	soldDeal(t, db, s, buyer, seller)
+	got, err := s.CountDeals(context.Background())
+	if want := map[domain.Status]int{domain.StatusNegotiating: 1, domain.StatusAgreed: 1, domain.StatusSold: 1}; err != nil ||
+		!maps.Equal(got, want) {
+		t.Fatalf("%v %v", got, err)
 	}
 }

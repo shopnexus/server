@@ -92,6 +92,9 @@ func TestCases(t *testing.T) {
 	if n, countErr := cases.CountOpen(ctx); countErr != nil || n != 2 {
 		t.Fatalf("count: %d %v", n, countErr)
 	}
+	if n, countErr := reports.CountOpen(ctx); countErr != nil || n != 5 {
+		t.Fatalf("open reports: %d %v", n, countErr)
+	}
 	if n, countErr := cases.CountByStatus(ctx, time.Time{}); countErr != nil || !maps.Equal(n, map[domain.CaseStatus]int{domain.CaseOpen: 2}) {
 		t.Fatalf("by status: %v %v", n, countErr)
 	}
@@ -112,6 +115,9 @@ func TestCases(t *testing.T) {
 	}
 	if n, _ := cases.CountOpen(ctx); n != 1 {
 		t.Fatalf("count after resolving: %d", n)
+	}
+	if n, _ := reports.CountOpen(ctx); n != 1 {
+		t.Fatalf("open reports after resolving: %d", n)
 	}
 	if n, _ := cases.CountByStatus(ctx, time.Time{}); !maps.Equal(n, map[domain.CaseStatus]int{domain.CaseOpen: 1, domain.CaseResolved: 1}) {
 		t.Fatalf("by status after resolving: %v", n)
