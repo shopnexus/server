@@ -21,13 +21,16 @@ func (h *Handler) Register(r *httpx.Router) {
 	r.HandleFunc("POST /v1/client-events", h.SendClientEvents)
 }
 
-// SendClientEvents serves POST /v1/client-events.
+// SendClientEvents serves POST /v1/client-events. A bot's events are
+// accepted and dropped, so crawlers stay out of the client metrics.
 func (h *Handler) SendClientEvents(w http.ResponseWriter, r *http.Request) {
 	var in service.Batch
 	if err := httpx.Bind(r, &in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	h.svc.Record(r.Context(), in)
+	if !httpx.Bot(r.Context()) {
+		h.svc.Record(r.Context(), in)
+	}
 	w.WriteHeader(http.StatusAccepted)
 }

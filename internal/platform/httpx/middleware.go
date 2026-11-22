@@ -138,6 +138,9 @@ func Trace(log *slog.Logger) func(http.Handler) http.Handler {
 			if v.visitor != "" {
 				args = append(args, "visitor", v.visitor, "country", v.country)
 			}
+			if v.bot {
+				args = append(args, "ua", v.ua)
+			}
 			log.InfoContext(ctx, "request", args...)
 		})
 	}

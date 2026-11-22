@@ -121,13 +121,24 @@ wrote, with its trace ID.
 `Visitors` notes who called, for Grafana's Users dashboard, which counts
 from the access log in Loki (decided 2026-11-23). The line gets `client`
 (`android` for OkHttp, `website` for Node's fetch or a browser, `console`
-for `/v1/console/`, else `other`), which the request metric carries too,
+for `/v1/console/`, `bot`, else `other`), which the request metric carries too,
 and `visitor` with `country`. `visitor` is `a:<account>` or `m:<member>`
 once the auth middleware ran (`authn.Track` hands it a slot), otherwise
 `g:` and 12 hex digits of SHA-256 over the day and the address, so the
 address stays out of the logs. A health probe and a call from a trusted
 proxy itself, such as the website rendering without a buyer, get no
-visitor. `country` comes from `GEOIP_DB`, a MaxMind-format database the
+visitor.
+
+A bot gets `client` `bot`, `visitor` `b:` with the same hash, and `ua`
+with its User-Agent cut to 160 bytes, whoever it signed in as. The
+User-Agent is the request's own, or `X-Forwarded-User-Agent` when a
+trusted proxy sent it: the website forwards its browser's there, since
+its own calls carry Node's. A bot matches a list of crawler, preview,
+headless-browser, scanner and HTTP-library words, or lacks `Mozilla/`
+while forwarded or while its `client` would be `other`. `httpx.Bot(ctx)`
+answers before the handler runs, and `POST /v1/client-events` drops a
+bot's batch with the usual 202. A bot with a browser's User-Agent passes
+as a guest (decided 2026-11-23). `country` comes from `GEOIP_DB`, a MaxMind-format database the
 image carries (`scripts/fetch-geoip.sh`, ip-location-db's CC0
 geo-whois-asn-country); empty logs no country.
 The validator matches only the operations the router serves, so a request

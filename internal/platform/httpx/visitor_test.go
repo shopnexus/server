@@ -21,14 +21,20 @@ import (
 // log line.
 func visitLog(t *testing.T, req *http.Request, trusted []netip.Prefix, signIn func(ctx context.Context)) map[string]any {
 	t.Helper()
-	var buf bytes.Buffer
-	log := telemetry.NewLogger(&buf, "json", slog.LevelInfo)
-	h := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return visitLogHandler(t, req, trusted, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if signIn != nil {
 			signIn(r.Context())
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
+}
+
+// visitLogHandler serves req with h through the API's chain and returns the
+// access log line.
+func visitLogHandler(t *testing.T, req *http.Request, trusted []netip.Prefix, h http.Handler) map[string]any {
+	t.Helper()
+	var buf bytes.Buffer
+	log := telemetry.NewLogger(&buf, "json", slog.LevelInfo)
 	day := func() time.Time { return time.Date(2026, 11, 23, 9, 0, 0, 0, time.UTC) }
 	serve(Trace(log)(ResolveClientIP(trusted)(Visitors(nil, trusted, day)(h))), req)
 	var m map[string]any
