@@ -82,9 +82,12 @@ func TestHomeForYou(t *testing.T) {
 	blocker, _ := newAccount(t)
 	solo, _ := newAccount(t)
 	fresh, _ := newAccount(t)
+	// Each its own title: the feed shows a seller's repeated title once.
+	n := 0
 	post := func(token, category string) string {
 		t.Helper()
-		return activeListing(t, token, map[string]any{"category_code": category}).ID
+		n++
+		return activeListing(t, token, map[string]any{"category_code": category, "title": fmt.Sprintf("Món %d %s", n, category)}).ID
 	}
 	chairOld := post(seller.AccessToken, "baby.highchair")
 	chairNew := post(seller.AccessToken, "baby.highchair")
