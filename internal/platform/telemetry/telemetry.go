@@ -75,8 +75,14 @@ func Setup(ctx context.Context, cfg config.Config, version string) (shutdown fun
 	otel.SetTracerProvider(tp)
 	otel.SetMeterProvider(mp)
 	otel.SetLoggerProvider(lp)
+	clientTracers = newClientTracers(traceExp, string(cfg.Env))
 
 	return func(ctx context.Context) error {
-		return errors.Join(tp.Shutdown(ctx), mp.Shutdown(ctx), lp.Shutdown(ctx))
+		errs := make([]error, 0, 3+len(clientTracers))
+		errs = append(errs, tp.Shutdown(ctx), mp.Shutdown(ctx), lp.Shutdown(ctx))
+		for _, ct := range clientTracers {
+			errs = append(errs, ct.Shutdown(ctx))
+		}
+		return errors.Join(errs...)
 	}, nil
 }

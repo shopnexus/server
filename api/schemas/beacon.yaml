@@ -101,7 +101,15 @@ ClientRequest:
     trace_id:
       type: string
       pattern: "^[0-9a-f]{32}$"
-      description: The response's Trace-Id header, which names the server's trace of the call.
+      description: The trace id the client sent in traceparent, which the response's Trace-Id header repeats.
+    span_id:
+      type: string
+      pattern: "^[0-9a-f]{16}$"
+      description: The parent span id the client sent in traceparent.
+    started_at:
+      type: string
+      format: date-time
+      description: When the client sent the request. With trace_id and span_id, the server records the client's span, under which its own spans of the call hang; one more than an hour old or ahead of the server's clock is left out.
 SearchImpression:
   type: object
   additionalProperties: false

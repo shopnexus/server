@@ -923,6 +923,11 @@ buyer's address, so its beacons count per buyer.
   label values; a path no route serves is `other`. A call with no answer,
   a 5xx or one of 3 s or more also gets a log line `client request` with
   the `Trace-Id` the response carried, which names the server's trace.
+  The app sends a `traceparent` of its own on every call and reports its
+  ids and start time; the server then exports the app's span itself
+  (`telemetry.RecordClientSpan`, service `android`, the app's trace and
+  span ids), so the call's trace has its root and shows the network time.
+  The app exports no spans and Tempo takes none from outside.
 - `search_impression` and `search_click`: counters
   `client.search.impressions` and `client.search.clicks` by app and
   position (1, 2, 3, 4-5, 6-10, 11-20, 21+), and log lines with the

@@ -20,6 +20,6 @@ const (
 
 // Mount registers POST /v1/client-events, rate limited per address.
 func Mount(d module.Deps) {
-	svc := service.New(service.Deps{Route: d.Router.Route, Log: d.Log})
+	svc := service.New(service.Deps{Route: d.Router.Route, Now: d.Now, Log: d.Log})
 	handler.New(svc, d.Log).Register(d.Router, httpx.RateLimit(batchesPerSecond, batchBurst, d.Now, d.Log))
 }

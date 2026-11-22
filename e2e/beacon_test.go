@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"testing"
+	"time"
 	"uuid"
 )
 
@@ -15,7 +16,8 @@ func TestClientEvents(t *testing.T) {
 	events := []map[string]any{
 		{"type": "error", "message": "x is undefined", "page": "/search"},
 		{"type": "vital", "name": "INP", "value": 180, "page": "/listings/[slug]"},
-		{"type": "request", "method": "GET", "path": "/v1/search", "status": 200, "duration_ms": 640, "network": "cellular"},
+		{"type": "request", "method": "GET", "path": "/v1/search", "status": 200, "duration_ms": 640, "network": "cellular",
+			"trace_id": "4bf92f3577b34da6a3ce929d0e0e4736", "span_id": "00f067aa0ba902b7", "started_at": time.Now().UTC().Format(time.RFC3339Nano)},
 		{"type": "search_impression", "search_id": search, "listing_ids": []string{uuid.NewV7().String()}, "offset": 0},
 		{"type": "search_click", "search_id": search, "listing_id": uuid.NewV7().String(), "position": 0},
 	}

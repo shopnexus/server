@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 	"uuid"
 
 	"go.opentelemetry.io/otel"
@@ -59,6 +60,7 @@ func TestRecordTurnsEventsIntoMetricsAndLines(t *testing.T) {
 			}
 			return ""
 		},
+		Now: time.Now,
 		Log: slog.New(slog.NewTextHandler(&logs, nil)),
 	})
 	search := uuid.NewV7()
