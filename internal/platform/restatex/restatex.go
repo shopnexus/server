@@ -51,11 +51,21 @@ func Serve(ctx context.Context, addr, identityKey string, defs ...restate.Servic
 	if err != nil {
 		return nil, fmt.Errorf("listen on %s: %w", addr, err)
 	}
-	e := &Endpoint{srv: &http.Server{Handler: traceInvocations(h), ReadHeaderTimeout: 5 * time.Second}, ln: ln}
+	e := &Endpoint{srv: &http.Server{Handler: fullDuplex(traceInvocations(h)), ReadHeaderTimeout: 5 * time.Second}, ln: ln}
 	// Serve returns http.ErrServerClosed after Close. A listener failure
 	// stops the endpoint, and Restate's calls to it fail.
 	go func() { _ = e.srv.Serve(ln) }()
 	return e, nil
+}
+
+// fullDuplex keeps the request body open after the response starts. The SDK
+// answers before it reads the body to the end, then drains it; HTTP/1.1
+// would close the body first and the SDK would warn on every such call.
+func fullDuplex(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = http.NewResponseController(w).EnableFullDuplex()
+		next.ServeHTTP(w, r)
+	})
 }
 
 // URL is the address Restate calls when RESTATE_ENDPOINT_URL is empty.
