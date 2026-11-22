@@ -174,12 +174,13 @@ type Sale struct {
 }
 
 // Review is one side's review of the other. Role is the role of the person
-// reviewed: RoleSeller is the buyer's review of the seller. Text may be
-// empty. Reply is the reviewed person's one answer.
+// reviewed: RoleSeller is the buyer's review of the seller. Text and Tags
+// may be empty. Reply is the reviewed person's one answer.
 type Review struct {
 	Role  string    `json:"role"`
 	Stars int       `json:"stars"`
 	Text  string    `json:"text"`
+	Tags  []string  `json:"tags,omitempty"`
 	At    time.Time `json:"at"`
 	Reply *Reply    `json:"reply,omitempty"`
 }

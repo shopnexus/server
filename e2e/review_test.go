@@ -10,10 +10,11 @@ import (
 )
 
 type reviewView struct {
-	ID    string `json:"id"`
-	Role  string `json:"role"`
-	Stars int    `json:"stars"`
-	Text  string `json:"text"`
+	ID    string   `json:"id"`
+	Role  string   `json:"role"`
+	Stars int      `json:"stars"`
+	Text  string   `json:"text"`
+	Tags  []string `json:"tags"`
 	Reply *struct {
 		Text string `json:"text"`
 	} `json:"reply"`
@@ -47,9 +48,10 @@ func TestReviews(t *testing.T) {
 		return call(t, "PUT", p, body, bearer(token))
 	}
 
-	check(t, "review", put(buyer.AccessToken, path, map[string]any{"stars": 5, "text": "Đúng mô tả"}), 200, "")
+	check(t, "a buyer's tag on a seller", put(buyer.AccessToken, path, map[string]any{"stars": 5, "tags": []string{"on_time"}}), 422, "invalid_review")
+	check(t, "review", put(buyer.AccessToken, path, map[string]any{"stars": 5, "text": "Đúng mô tả", "tags": []string{"as_described", "quick_reply"}}), 200, "")
 	first := expect[reviewView](t, put(buyer.AccessToken, path, map[string]any{"stars": 4, "text": "Hơi trầy"}), http.StatusOK)
-	if first.Role != "seller" || first.Reply != nil {
+	if first.Role != "seller" || first.Reply != nil || len(first.Tags) != 2 {
 		t.Fatalf("buyer's review: %+v", first)
 	}
 	sellerReviews := "/v1/sellers/" + seller.Account.ID + "/reviews"
@@ -63,8 +65,8 @@ func TestReviews(t *testing.T) {
 	check(t, "reply while hidden", reply(seller.AccessToken, first.ID, map[string]any{"text": "Cảm ơn"}), 409, "review_hidden")
 
 	// The seller's review shows both.
-	second := expect[reviewView](t, put(seller.AccessToken, path, map[string]any{"stars": 5, "text": "Nhận đúng hẹn"}), http.StatusOK)
-	if second.Role != "buyer" {
+	second := expect[reviewView](t, put(seller.AccessToken, path, map[string]any{"stars": 5, "text": "Nhận đúng hẹn", "tags": []string{"on_time"}}), http.StatusOK)
+	if second.Role != "buyer" || len(second.Tags) != 1 {
 		t.Fatalf("seller's review: %+v", second)
 	}
 	got := expect[page[reviewView]](t, call(t, "GET", sellerReviews, nil), http.StatusOK)

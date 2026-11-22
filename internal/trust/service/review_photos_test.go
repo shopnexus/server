@@ -26,29 +26,29 @@ func TestReviewPhotos(t *testing.T) {
 	}
 	a, b := upload(buyer), upload(buyer)
 
-	v, err := e.trust.PutReview(ctx, buyer, order, 5, "Như hình", []uuid.UUID{b, a})
+	v, err := e.trust.PutReview(ctx, buyer, order, 5, "Như hình", nil, []uuid.UUID{b, a})
 	if err != nil || len(v.Photos) != 2 || v.Photos[0].UploadID != b || v.Photos[1].UploadID != a ||
 		!strings.Contains(v.Photos[0].URL, "media/") || v.Photos[0].ThumbURL == v.Photos[0].URL {
 		t.Fatalf("%+v %v", v.Photos, err)
 	}
-	if v, err = e.trust.PutReview(ctx, buyer, order, 4, "Vẫn như hình", nil); err != nil || len(v.Photos) != 2 {
+	if v, err = e.trust.PutReview(ctx, buyer, order, 4, "Vẫn như hình", nil, nil); err != nil || len(v.Photos) != 2 {
 		t.Fatalf("left out: %+v %v", v.Photos, err)
 	}
 	c := upload(buyer)
-	if v, err = e.trust.PutReview(ctx, buyer, order, 4, "", []uuid.UUID{a, c}); err != nil || len(v.Photos) != 2 || v.Photos[1].UploadID != c {
+	if v, err = e.trust.PutReview(ctx, buyer, order, 4, "", nil, []uuid.UUID{a, c}); err != nil || len(v.Photos) != 2 || v.Photos[1].UploadID != c {
 		t.Fatalf("one kept, one new: %+v %v", v.Photos, err)
 	}
 	m, err := e.trust.OrderReviews(ctx, buyer, []uuid.UUID{order})
 	if err != nil || len(m[order].Own.Photos) != 2 {
 		t.Fatalf("own: %+v %v", m[order].Own, err)
 	}
-	if _, err = e.trust.PutReview(ctx, buyer, order, 4, "", []uuid.UUID{upload(seller)}); !errors.Is(err, mediadomain.ErrInvalidUpload) {
+	if _, err = e.trust.PutReview(ctx, buyer, order, 4, "", nil, []uuid.UUID{upload(seller)}); !errors.Is(err, mediadomain.ErrInvalidUpload) {
 		t.Fatalf("someone else's: %v", err)
 	}
-	if v, err = e.trust.PutReview(ctx, buyer, order, 4, "", []uuid.UUID{}); err != nil || len(v.Photos) != 0 {
+	if v, err = e.trust.PutReview(ctx, buyer, order, 4, "", nil, []uuid.UUID{}); err != nil || len(v.Photos) != 0 {
 		t.Fatalf("removed: %+v %v", v.Photos, err)
 	}
-	if _, err = e.trust.PutReview(ctx, buyer, order, 4, "", make([]uuid.UUID, domain.MaxPhotos+1)); err == nil {
+	if _, err = e.trust.PutReview(ctx, buyer, order, 4, "", nil, make([]uuid.UUID, domain.MaxPhotos+1)); err == nil {
 		t.Fatal("five photos")
 	}
 }

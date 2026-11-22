@@ -69,6 +69,7 @@ type ReviewView struct {
 	Role      domain.Role   `json:"role"`
 	Stars     int           `json:"stars"`
 	Text      string        `json:"text"`
+	Tags      []domain.Tag  `json:"tags"`
 	Reviewer  Person        `json:"reviewer"`
 	Listing   ListingRef    `json:"listing"`
 	Reply     *Reply        `json:"reply"`
@@ -98,11 +99,18 @@ type Reply struct {
 	At   time.Time `json:"at"`
 }
 
-// Rating is the Rating schema in api/schemas/trust.yaml: the average stars
-// and the count over a person's visible reviews in one role.
+// Rating is the Rating schema in api/schemas/trust.yaml: the average stars,
+// the count and the tag counts over a person's visible reviews in one role.
 type Rating struct {
-	Average float64 `json:"average"`
-	Count   int     `json:"count"`
+	Average float64    `json:"average"`
+	Count   int        `json:"count"`
+	Tags    []TagCount `json:"tags"`
+}
+
+// TagCount is the RatingTag schema: how many reviews carry a tag.
+type TagCount struct {
+	Tag   domain.Tag `json:"tag"`
+	Count int        `json:"count"`
 }
 
 // views builds the views of reviews as viewer reads them, reading their
@@ -136,7 +144,7 @@ func (s *Trust) views(ctx context.Context, viewer *uuid.UUID, reviews []domain.R
 			helpful.Marked = new(marks[r.ID()].Viewer)
 		}
 		out = append(out, ReviewView{
-			ID: r.ID(), Role: r.Role(), Stars: r.Stars(), Text: r.Text(),
+			ID: r.ID(), Role: r.Role(), Stars: r.Stars(), Text: r.Text(), Tags: tagsOf(r),
 			Reviewer: Person{
 				ID: r.ReviewerID(), DisplayName: reviewer.DisplayName, AvatarURL: reviewer.AvatarURL,
 				Deleted: reviewer.Status == accountdomain.StatusDeleted,
@@ -149,6 +157,14 @@ func (s *Trust) views(ctx context.Context, viewer *uuid.UUID, reviews []domain.R
 		})
 	}
 	return out, nil
+}
+
+// tagsOf is a review's tags; [] without any.
+func tagsOf(r *domain.Review) []domain.Tag {
+	if r.Tags() == nil {
+		return []domain.Tag{}
+	}
+	return r.Tags()
 }
 
 // photoViews are the public addresses of a review's photos; [] without any.

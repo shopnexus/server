@@ -14,6 +14,7 @@ import (
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/platform/contact"
+	trustdomain "github.com/shopnexus/server/internal/trust/domain"
 )
 
 // CheckAccount applies the server's rules for a person: a name of 1 to 50
@@ -113,6 +114,11 @@ func CheckSale(s Sale) error {
 		}
 		if r.Reply != nil && (r.Reply.Text == "" || r.Reply.At.Before(r.At)) {
 			return fmt.Errorf("sale %s: a reply needs text and a time after its review", k)
+		}
+		for i, t := range r.Tags {
+			if !slices.Contains(trustdomain.Role(r.Role).Tags(), trustdomain.Tag(t)) || slices.Contains(r.Tags[:i], t) {
+				return fmt.Errorf("sale %s: tag %q is not one of the %s role's, or comes twice", k, t, r.Role)
+			}
 		}
 	}
 	return nil

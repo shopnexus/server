@@ -45,6 +45,9 @@ type Reviews interface {
 	// Summary is subject's average stars and number of reviews in role,
 	// visible at now and not deleted; no reviews give 0 and 0.
 	Summary(ctx context.Context, subject uuid.UUID, role domain.Role, now time.Time) (average float64, count int, err error)
+	// TagCounts counts each tag over the reviews Summary counts, most
+	// used first, then by tag; a tag no review carries is left out.
+	TagCounts(ctx context.Context, subject uuid.UUID, role domain.Role, now time.Time) ([]TagCount, error)
 	// MarkHelpful records that account found the review helpful; a second
 	// mark changes nothing.
 	MarkHelpful(ctx context.Context, review, account uuid.UUID, at time.Time) error
@@ -54,6 +57,12 @@ type Reviews interface {
 	// whether viewer made each, in one query; a review without marks is
 	// left out. A nil viewer made none.
 	Helpful(ctx context.Context, reviews []uuid.UUID, viewer *uuid.UUID) (map[uuid.UUID]HelpfulMarks, error)
+}
+
+// TagCount is how many reviews carry one tag.
+type TagCount struct {
+	Tag   domain.Tag
+	Count int
 }
 
 // HelpfulMarks are the helpful marks of one review.

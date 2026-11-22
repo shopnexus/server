@@ -10,7 +10,6 @@ import (
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
-	"github.com/shopnexus/server/internal/trust/service"
 )
 
 func TestPutReview(t *testing.T) {
@@ -19,12 +18,12 @@ func TestPutReview(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	_, order := e.completed(t, buyer, seller)
-	v, err := e.trust.PutReview(ctx, buyer, order, 5, "Đúng mô tả", nil)
+	v, err := e.trust.PutReview(ctx, buyer, order, 5, "Đúng mô tả", nil, nil)
 	if err != nil || v.Stars != 5 || v.Role != domain.RoleSeller || v.Reviewer.ID != buyer || v.Reviewer.DisplayName != "Linh" ||
 		v.Listing.Title == "" || v.Reply != nil {
 		t.Fatalf("%+v %v", v, err)
 	}
-	if v, err = e.trust.PutReview(ctx, buyer, order, 4, "Hơi trầy", nil); err != nil || v.Stars != 4 {
+	if v, err = e.trust.PutReview(ctx, buyer, order, 4, "Hơi trầy", nil, nil); err != nil || v.Stars != 4 {
 		t.Fatalf("edit: %+v %v", v, err)
 	}
 	// While hidden, the review is deleted and posted again.
@@ -34,14 +33,14 @@ func TestPutReview(t *testing.T) {
 	if err = e.trust.DeleteReview(ctx, buyer, order); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("delete twice: %v", err)
 	}
-	if v, err = e.trust.PutReview(ctx, buyer, order, 3, "Đăng lại", nil); err != nil || v.Stars != 3 {
+	if v, err = e.trust.PutReview(ctx, buyer, order, 3, "Đăng lại", nil, nil); err != nil || v.Stars != 3 {
 		t.Fatalf("post again: %+v %v", v, err)
 	}
 	// Hidden from the public until the seller reviews too or the window ends.
 	if got, _ := e.trust.Reviews(ctx, nil, seller, domain.RoleSeller, page.Request{}); len(got.Items) != 0 {
 		t.Fatalf("hidden: %+v", got)
 	}
-	if r, _ := e.trust.Rating(ctx, seller, domain.RoleSeller); r != (service.Rating{}) {
+	if r, _ := e.trust.Rating(ctx, seller, domain.RoleSeller); !isRating(r, 0, 0) {
 		t.Fatalf("hidden rating: %+v", r)
 	}
 	e.reveal(t, order)
@@ -49,14 +48,14 @@ func TestPutReview(t *testing.T) {
 	if err != nil || len(got.Items) != 1 || got.Items[0].Text != "Đăng lại" {
 		t.Fatalf("%+v %v", got, err)
 	}
-	if r, rErr := e.trust.Rating(ctx, seller, domain.RoleSeller); rErr != nil || r != (service.Rating{Average: 3, Count: 1}) {
+	if r, rErr := e.trust.Rating(ctx, seller, domain.RoleSeller); rErr != nil || !isRating(r, 3, 1) {
 		t.Fatalf("rating: %+v %v", r, rErr)
 	}
-	if r, _ := e.trust.Rating(ctx, seller, domain.RoleBuyer); r != (service.Rating{}) {
+	if r, _ := e.trust.Rating(ctx, seller, domain.RoleBuyer); !isRating(r, 0, 0) {
 		t.Fatalf("buyer rating of the seller: %+v", r)
 	}
 	// Once it shows, it no longer changes.
-	if _, err = e.trust.PutReview(ctx, buyer, order, 1, "Đổi ý", nil); !errors.Is(err, domain.ErrLocked) {
+	if _, err = e.trust.PutReview(ctx, buyer, order, 1, "Đổi ý", nil, nil); !errors.Is(err, domain.ErrLocked) {
 		t.Fatalf("edit once shown: %v", err)
 	}
 	if err = e.trust.DeleteReview(ctx, buyer, order); !errors.Is(err, domain.ErrLocked) {
@@ -72,7 +71,7 @@ func TestTwoSidesAndReply(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
 	_, order := e.completed(t, buyer, seller)
-	first, err := e.trust.PutReview(ctx, buyer, order, 5, "Nhiệt tình", nil)
+	first, err := e.trust.PutReview(ctx, buyer, order, 5, "Nhiệt tình", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,17 +82,17 @@ func TestTwoSidesAndReply(t *testing.T) {
 	if err != nil || m[order].Own.State != "none" || m[order].Their == nil || m[order].Their.State != "hidden" || m[order].Their.Stars != nil {
 		t.Fatalf("seller before reviewing: %+v %v", m[order], err)
 	}
-	second, err := e.trust.PutReview(ctx, seller, order, 4, "Nhận hàng đúng hẹn", nil)
+	second, err := e.trust.PutReview(ctx, seller, order, 4, "Nhận hàng đúng hẹn", nil, nil)
 	if err != nil || second.Role != domain.RoleBuyer || second.Reviewer.ID != seller {
 		t.Fatalf("seller's review: %+v %v", second, err)
 	}
 	if got, _ := e.trust.Reviews(ctx, nil, buyer, domain.RoleBuyer, page.Request{}); len(got.Items) != 1 {
 		t.Fatalf("buyer's reviews: %+v", got)
 	}
-	if r, _ := e.trust.Rating(ctx, seller, domain.RoleSeller); r != (service.Rating{Average: 5, Count: 1}) {
+	if r, _ := e.trust.Rating(ctx, seller, domain.RoleSeller); !isRating(r, 5, 1) {
 		t.Fatalf("seller rating: %+v", r)
 	}
-	if r, _ := e.trust.Rating(ctx, buyer, domain.RoleBuyer); r != (service.Rating{Average: 4, Count: 1}) {
+	if r, _ := e.trust.Rating(ctx, buyer, domain.RoleBuyer); !isRating(r, 4, 1) {
 		t.Fatalf("buyer rating: %+v", r)
 	}
 	m, err = e.trust.OrderReviews(ctx, seller, []uuid.UUID{order})
@@ -112,7 +111,7 @@ func TestTwoSidesAndReply(t *testing.T) {
 	if _, err = e.trust.ReplyReview(ctx, seller, first.ID, "Lần hai"); !errors.Is(err, domain.ErrReplied) {
 		t.Fatalf("second reply: %v", err)
 	}
-	if _, err = e.trust.PutReview(ctx, buyer, order, 1, "Đổi ý", nil); !errors.Is(err, domain.ErrClosed) {
+	if _, err = e.trust.PutReview(ctx, buyer, order, 1, "Đổi ý", nil, nil); !errors.Is(err, domain.ErrClosed) {
 		t.Fatalf("edit after the reply: %v", err)
 	}
 	if err = e.trust.DeleteReview(ctx, buyer, order); !errors.Is(err, domain.ErrClosed) {
@@ -134,33 +133,33 @@ func TestPutReviewRefusals(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer, stranger := e.person(t), e.person(t), e.person(t)
 	_, completed := e.completed(t, buyer, seller)
-	if _, err := e.trust.PutReview(ctx, stranger, completed, 5, "", nil); !errors.Is(err, domain.ErrOrderNotFound) {
+	if _, err := e.trust.PutReview(ctx, stranger, completed, 5, "", nil, nil); !errors.Is(err, domain.ErrOrderNotFound) {
 		t.Errorf("a stranger: %v", err)
 	}
-	if _, err := e.trust.PutReview(ctx, buyer, uuid.NewV7(), 5, "", nil); !errors.Is(err, domain.ErrOrderNotFound) {
+	if _, err := e.trust.PutReview(ctx, buyer, uuid.NewV7(), 5, "", nil, nil); !errors.Is(err, domain.ErrOrderNotFound) {
 		t.Errorf("unknown order: %v", err)
 	}
 	_, shipped := e.shipped(t, buyer, seller)
 	for name, who := range map[string]uuid.UUID{"buyer": buyer, "seller": seller} {
-		if _, err := e.trust.PutReview(ctx, who, shipped, 5, "", nil); !errors.Is(err, domain.ErrNotDelivered) {
+		if _, err := e.trust.PutReview(ctx, who, shipped, 5, "", nil, nil); !errors.Is(err, domain.ErrNotDelivered) {
 			t.Errorf("shipped, %s: %v", name, err)
 		}
 	}
 	deal, requested := e.pending(t, buyer, seller)
-	if _, err := e.trust.PutReview(ctx, buyer, requested, 5, "", nil); !errors.Is(err, domain.ErrNotDelivered) {
+	if _, err := e.trust.PutReview(ctx, buyer, requested, 5, "", nil, nil); !errors.Is(err, domain.ErrNotDelivered) {
 		t.Errorf("pending: %v", err)
 	}
 	if _, err := e.deals.Cancel(ctx, buyer, deal); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.trust.PutReview(ctx, buyer, requested, 5, "", nil); !errors.Is(err, domain.ErrNotDelivered) {
+	if _, err := e.trust.PutReview(ctx, buyer, requested, 5, "", nil, nil); !errors.Is(err, domain.ErrNotDelivered) {
 		t.Errorf("cancelled: %v", err)
 	}
-	if _, err := e.trust.PutReview(ctx, buyer, completed, 9, "", nil); !errors.Is(err, domain.ErrInvalidReview) {
+	if _, err := e.trust.PutReview(ctx, buyer, completed, 9, "", nil, nil); !errors.Is(err, domain.ErrInvalidReview) {
 		t.Errorf("nine stars: %v", err)
 	}
 	accounttest.Suspend(t, e.accounts, buyer)
-	if _, err := e.trust.PutReview(ctx, buyer, completed, 5, "", nil); !errors.Is(err, accountdomain.ErrSuspended) {
+	if _, err := e.trust.PutReview(ctx, buyer, completed, 5, "", nil, nil); !errors.Is(err, accountdomain.ErrSuspended) {
 		t.Errorf("suspended: %v", err)
 	}
 }
@@ -184,10 +183,10 @@ func TestFailedOrderIsReviewed(t *testing.T) {
 	if err := e.deals.ShipmentUpdated(ctx, "SPX1", "failed"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.trust.PutReview(ctx, seller, order, 1, "Không nhận hàng", nil); err != nil {
+	if _, err := e.trust.PutReview(ctx, seller, order, 1, "Không nhận hàng", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.trust.PutReview(ctx, buyer, order, 3, "", nil); err != nil {
+	if _, err := e.trust.PutReview(ctx, buyer, order, 3, "", nil, nil); err != nil {
 		t.Fatal(err)
 	}
 }

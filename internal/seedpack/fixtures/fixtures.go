@@ -123,6 +123,9 @@ var soldFrom = map[string]string{
 	"AirPods Pro": "p-airpodspro", "iPad Air 4": "p-ipadair", "iPhone 12": "p-iphone12", "Apple Watch S6": "p-watch",
 }
 
+// praised are the tags of each reviews.json review, by its ID.
+var praised = map[string][]string{"r-1": {"as_described", "quick_reply"}, "r-2": {"well_packed"}, "r-4": {"quick_reply"}}
+
 func (b *Builder) Build(_ context.Context, w *seedpack.Writer, p seedpack.Progress) error {
 	if b.fixtures == "" || b.photos == "" {
 		return errors.New("--fixtures and --photos are required")
@@ -297,12 +300,13 @@ func (b *Builder) Build(_ context.Context, w *seedpack.Writer, p seedpack.Progre
 		l.CreatedAt, l.Status = ordered.Add(-10*24*time.Hour), seedpack.StatusSold
 		sale := seedpack.Sale{
 			Listing: l, Buyer: buyer, Price: l.Price / 1000 * 950, OrderedAt: ordered, DeliveredAt: delivered,
-			Reviews: []seedpack.Review{{Role: seedpack.RoleSeller, Stars: r.Stars, Text: r.Text, At: r.At}},
+			Reviews: []seedpack.Review{{Role: seedpack.RoleSeller, Stars: r.Stars, Text: r.Text, Tags: praised[r.ID], At: r.At}},
 		}
 		if i%2 == 0 {
 			sale.Reviews[0].Reply = &seedpack.Reply{Text: "Cảm ơn bạn nhiều, lần sau ủng hộ mình tiếp nha!", At: r.At.Add(3 * time.Hour)}
 			sale.Reviews = append(sale.Reviews, seedpack.Review{
-				Role: seedpack.RoleBuyer, Stars: 5, Text: "Chốt nhanh, nhận hàng đúng hẹn.", At: r.At.Add(time.Hour),
+				Role: seedpack.RoleBuyer, Stars: 5, Text: "Chốt nhanh, nhận hàng đúng hẹn.", Tags: []string{"quick_reply", "on_time"},
+				At: r.At.Add(time.Hour),
 			})
 		}
 		if err := w.Sale(sale); err != nil {

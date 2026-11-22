@@ -55,7 +55,7 @@ review:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "Stars or text break a rule (invalid_review, with fields), or a photo is not one the caller may use (invalid_upload)."
+        description: "Stars, text or tags break a rule (invalid_review, with fields), or a photo is not one the caller may use (invalid_upload)."
         content:
           application/json:
             schema:

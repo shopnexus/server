@@ -12,7 +12,7 @@ func TestReviewFacts(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	_, order := e.completed(t, buyer, seller)
-	first, err := e.trust.PutReview(ctx, buyer, order, 5, "Tốt", nil)
+	first, err := e.trust.PutReview(ctx, buyer, order, 5, "Tốt", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func TestReviewFacts(t *testing.T) {
 		f.ReviewerName == "" || f.ListingTitle == "" || f.HiddenFor <= 0 || f.Revealed != (uuid.UUID{}) {
 		t.Fatalf("first: %+v %v %v", f, ok, err)
 	}
-	second, err := e.trust.PutReview(ctx, seller, order, 4, "", nil)
+	second, err := e.trust.PutReview(ctx, seller, order, 4, "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

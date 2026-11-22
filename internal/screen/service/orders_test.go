@@ -200,7 +200,7 @@ func TestOrdersShowEachSideItsRowsWithTheCounterpart(t *testing.T) {
 	if _, err := e.deals.ConfirmReceipt(ctx, buyer, shipped, uuid.NewV7().String()); err != nil {
 		t.Fatal(err)
 	}
-	review, err := e.trust.PutReview(ctx, buyer, shipped, 5, "Tốt", nil)
+	review, err := e.trust.PutReview(ctx, buyer, shipped, 5, "Tốt", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -19,7 +19,7 @@ func TestReviewHelpful(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer, reader, other := e.person(t), e.person(t), e.person(t), e.person(t)
 	_, order := e.completed(t, buyer, seller)
-	v, err := e.trust.PutReview(ctx, buyer, order, 5, "Tốt", nil)
+	v, err := e.trust.PutReview(ctx, buyer, order, 5, "Tốt", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

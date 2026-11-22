@@ -9,6 +9,17 @@ ReviewDraft:
     text:
       type: string
       description: At most 500 characters after trimming; may be empty.
+    tags:
+      type: array
+      uniqueItems: true
+      description: |
+        Quick chips from ReviewTag, each once. A review of a seller takes
+        as_described, quick_reply and well_packed; one of a buyer takes
+        quick_reply and on_time. Another value, or one of the other role,
+        is a business rule, so 422 invalid_review with a field on tags. []
+        removes them, and leaving the field out keeps the review's tags.
+      items:
+        type: string
     photos:
       type: array
       maxItems: 4
@@ -35,6 +46,12 @@ Review:
       type: integer
     text:
       type: string
+    tags:
+      type: array
+      uniqueItems: true
+      description: The reviewer's chips in their order; empty without any.
+      items:
+        $ref: "#/ReviewTag"
     reviewer:
       type: object
       additionalProperties: false
@@ -114,6 +131,13 @@ ReviewHelpful:
         Whether the reader marked the review helpful; present only when the
         reader may mark it: signed in, and neither its reviewer nor its
         subject.
+ReviewTag:
+  type: string
+  enum: [as_described, quick_reply, well_packed, on_time]
+  description: |
+    A quick chip on a review. About a seller: as_described (Đúng mô tả),
+    quick_reply (Trả lời nhanh), well_packed (Gói kỹ). About a buyer:
+    quick_reply (Trả lời nhanh), on_time (Nhận hàng đúng hẹn).
 ReviewRole:
   type: string
   enum: [seller, buyer]
@@ -160,6 +184,21 @@ Rating:
       description: The average stars over every review of the seller; 0 without reviews.
     count:
       type: integer
+    tags:
+      type: array
+      description: How many of the reviews carry each tag, most used first, then by tag; a tag none carries is left out.
+      items:
+        $ref: "#/RatingTag"
+RatingTag:
+  type: object
+  additionalProperties: false
+  required: [tag, count]
+  properties:
+    tag:
+      $ref: "#/ReviewTag"
+    count:
+      type: integer
+      minimum: 1
 ReportCreate:
   type: object
   additionalProperties: false
@@ -305,6 +344,12 @@ OwnReview:
       maxLength: 500
     reply:
       $ref: "#/ReviewReply"
+    tags:
+      type: array
+      uniqueItems: true
+      description: The review's chips; absent without any and on a deleted review.
+      items:
+        $ref: "#/ReviewTag"
     photos:
       type: array
       maxItems: 4
@@ -341,6 +386,12 @@ TheirReview:
     can_reply:
       type: boolean
       description: Visible and without a reply. A reply closes the review for both sides.
+    tags:
+      type: array
+      uniqueItems: true
+      description: A visible review's chips; absent without any.
+      items:
+        $ref: "#/ReviewTag"
     photos:
       type: array
       maxItems: 4

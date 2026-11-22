@@ -31,8 +31,8 @@ type Service interface {
 	OrderReviews(ctx context.Context, caller uuid.UUID, orders []uuid.UUID) (map[uuid.UUID]OrderReviews, error)
 	// PutReview creates the caller's review of the other party to an
 	// order, or edits it within its 7 days and before a reply. photos are
-	// upload IDs in order; nil keeps the review's photos.
-	PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string, photos []uuid.UUID) (ReviewView, error)
+	// upload IDs in order; nil tags or photos keep the review's.
+	PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string, tags []domain.Tag, photos []uuid.UUID) (ReviewView, error)
 	// DeleteReview removes the caller's review of an order within its 7
 	// days and before a reply.
 	DeleteReview(ctx context.Context, caller, order uuid.UUID) error
@@ -50,8 +50,8 @@ type Service interface {
 	MarkHelpful(ctx context.Context, caller, review uuid.UUID) error
 	// UnmarkHelpful takes the caller's helpful mark back.
 	UnmarkHelpful(ctx context.Context, caller, review uuid.UUID) error
-	// Rating reads the average and count over a person's visible reviews
-	// in one role.
+	// Rating reads the average, count and tag counts over a person's
+	// visible reviews in one role.
 	Rating(ctx context.Context, subject uuid.UUID, role domain.Role) (Rating, error)
 	// Report opens the reporter's report of a listing or an account, or
 	// replaces the reason, note and conversation of their open report of it;

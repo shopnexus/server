@@ -2,6 +2,7 @@ package domain_test
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +19,7 @@ var subject = uuid.NewV7()
 // newReview is a first review still hidden: the other side has not
 // reviewed, and it shows 10 days on, after the edit window.
 func newReview(stars int, text string) (domain.Review, error) {
-	return domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleSeller, uuid.NewV7(), subject, uuid.NewV7(), stars, text, nil,
+	return domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleSeller, uuid.NewV7(), subject, uuid.NewV7(), stars, text, nil, nil,
 		now.Add(10*24*time.Hour), now)
 }
 
@@ -47,6 +48,42 @@ func TestNewReview(t *testing.T) {
 	}
 }
 
+// A review carries distinct tags of its role; a delete drops them.
+func TestTags(t *testing.T) {
+	t.Parallel()
+	review := func(role domain.Role, tags ...domain.Tag) (domain.Review, error) {
+		return domain.NewReview(uuid.NewV7(), uuid.NewV7(), role, uuid.NewV7(), subject, uuid.NewV7(), 5, "", tags, nil,
+			now.Add(10*24*time.Hour), now)
+	}
+	r, err := review(domain.RoleSeller, domain.TagWellPacked, domain.TagAsDescribed)
+	if err != nil || !slices.Equal(r.Tags(), []domain.Tag{domain.TagWellPacked, domain.TagAsDescribed}) {
+		t.Fatalf("%+v %v", r.State(), err)
+	}
+	if _, err = review(domain.RoleBuyer, domain.TagOnTime, domain.TagQuickReply); err != nil {
+		t.Fatalf("buyer tags: %v", err)
+	}
+	for name, c := range map[string]struct {
+		role domain.Role
+		tags []domain.Tag
+	}{
+		"unknown":    {domain.RoleSeller, []domain.Tag{"friendly"}},
+		"other role": {domain.RoleSeller, []domain.Tag{domain.TagOnTime}},
+		"buyer":      {domain.RoleBuyer, []domain.Tag{domain.TagWellPacked}},
+		"twice":      {domain.RoleSeller, []domain.Tag{domain.TagQuickReply, domain.TagQuickReply}},
+	} {
+		_, err := review(c.role, c.tags...)
+		if e, ok := errors.AsType[*apperr.Error](err); !ok || !errors.Is(err, domain.ErrInvalidReview) || e.Fields["tags"] == "" {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if err = r.Edit(4, "", []domain.Tag{domain.TagQuickReply}, nil, now.Add(time.Hour)); err != nil || !slices.Equal(r.Tags(), []domain.Tag{domain.TagQuickReply}) {
+		t.Fatalf("edit: %+v %v", r.State(), err)
+	}
+	if err = r.Delete(now.Add(2 * time.Hour)); err != nil || len(r.Tags()) != 0 {
+		t.Fatalf("delete: %+v %v", r.State(), err)
+	}
+}
+
 func TestEditWindow(t *testing.T) {
 	t.Parallel()
 	r, err := newReview(5, "Tốt")
@@ -54,13 +91,13 @@ func TestEditWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	day := 24 * time.Hour
-	if err = r.Edit(2, "Hỏng sau 3 ngày", nil, now.Add(6*day)); err != nil || r.Stars() != 2 || !r.UpdatedAt().Equal(now.Add(6*day)) {
+	if err = r.Edit(2, "Hỏng sau 3 ngày", nil, nil, now.Add(6*day)); err != nil || r.Stars() != 2 || !r.UpdatedAt().Equal(now.Add(6*day)) {
 		t.Fatalf("day 6: %+v %v", r.State(), err)
 	}
 	if !r.CreatedAt().Equal(now) {
 		t.Fatal("an edit moved the first submission")
 	}
-	if err = r.Edit(1, "", nil, now.Add(8*day)); !errors.Is(err, domain.ErrLocked) {
+	if err = r.Edit(1, "", nil, nil, now.Add(8*day)); !errors.Is(err, domain.ErrLocked) {
 		t.Fatalf("day 8: %v", err)
 	}
 	if err = r.CanChange(now.Add(8 * day)); !errors.Is(err, domain.ErrLocked) {
@@ -74,7 +111,7 @@ func TestEditWindow(t *testing.T) {
 func TestLockedOnceShown(t *testing.T) {
 	t.Parallel()
 	day := 24 * time.Hour
-	r, err := domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleSeller, uuid.NewV7(), subject, uuid.NewV7(), 4, "Ổn", nil,
+	r, err := domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleSeller, uuid.NewV7(), subject, uuid.NewV7(), 4, "Ổn", nil, nil,
 		now.Add(3*day), now)
 	if err != nil {
 		t.Fatal(err)
@@ -82,10 +119,10 @@ func TestLockedOnceShown(t *testing.T) {
 	if got := r.ChangeUntil(); !got.Equal(now.Add(3 * day)) {
 		t.Fatalf("change until %v, want when it shows", got)
 	}
-	if err = r.Edit(5, "Tốt", nil, now.Add(2*day)); err != nil {
+	if err = r.Edit(5, "Tốt", nil, nil, now.Add(2*day)); err != nil {
 		t.Fatalf("hidden on day 2: %v", err)
 	}
-	if err = r.Edit(1, "Tệ", nil, now.Add(3*day)); !errors.Is(err, domain.ErrLocked) {
+	if err = r.Edit(1, "Tệ", nil, nil, now.Add(3*day)); !errors.Is(err, domain.ErrLocked) {
 		t.Fatalf("shown on day 3: %v", err)
 	}
 	if err = r.Delete(now.Add(4 * day)); !errors.Is(err, domain.ErrLocked) {
@@ -110,13 +147,13 @@ func TestDeleteAndRepost(t *testing.T) {
 	if err = r.Delete(now.Add(2 * day)); err != nil || !r.Deleted() || r.Text() != "" {
 		t.Fatalf("delete: %+v %v", r.State(), err)
 	}
-	if err = r.Edit(3, "Đăng lại", nil, now.Add(5*day)); err != nil || r.Deleted() || r.Stars() != 3 || !r.CreatedAt().Equal(now) {
+	if err = r.Edit(3, "Đăng lại", nil, nil, now.Add(5*day)); err != nil || r.Deleted() || r.Stars() != 3 || !r.CreatedAt().Equal(now) {
 		t.Fatalf("repost on day 5: %+v %v", r.State(), err)
 	}
 	if err = r.Delete(now.Add(6 * day)); err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Edit(1, "Lần nữa", nil, now.Add(8*day)); !errors.Is(err, domain.ErrLocked) {
+	if err = r.Edit(1, "Lần nữa", nil, nil, now.Add(8*day)); !errors.Is(err, domain.ErrLocked) {
 		t.Fatalf("repost on day 8: %v", err)
 	}
 	if err = r.Delete(now.Add(8 * day)); !errors.Is(err, domain.ErrLocked) {
@@ -142,7 +179,7 @@ func TestRevealAt(t *testing.T) {
 func TestReply(t *testing.T) {
 	t.Parallel()
 	day := 24 * time.Hour
-	r, err := domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleBuyer, uuid.NewV7(), subject, uuid.NewV7(), 2, "Bom hàng", nil,
+	r, err := domain.NewReview(uuid.NewV7(), uuid.NewV7(), domain.RoleBuyer, uuid.NewV7(), subject, uuid.NewV7(), 2, "Bom hàng", nil, nil,
 		now.Add(3*day), now)
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +205,7 @@ func TestReply(t *testing.T) {
 	if err = r.Reply(subject, "Lần hai", now.Add(4*day)); !errors.Is(err, domain.ErrReplied) {
 		t.Fatalf("second reply: %v", err)
 	}
-	if err = r.Edit(5, "Đổi ý", nil, now.Add(5*day)); !errors.Is(err, domain.ErrClosed) {
+	if err = r.Edit(5, "Đổi ý", nil, nil, now.Add(5*day)); !errors.Is(err, domain.ErrClosed) {
 		t.Fatalf("edit after reply: %v", err)
 	}
 	if err = r.Delete(now.Add(5 * day)); !errors.Is(err, domain.ErrClosed) {

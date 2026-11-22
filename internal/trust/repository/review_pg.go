@@ -19,7 +19,7 @@ type pgReviews struct{ db *pgxpool.Pool }
 
 func NewReviews(db *pgxpool.Pool) Reviews { return pgReviews{db} }
 
-const reviewColumns = `id, order_id, role, reviewer_id, subject_id, listing_id, stars, body, photos, reply, replied_at,
+const reviewColumns = `id, order_id, role, reviewer_id, subject_id, listing_id, stars, body, tags, photos, reply, replied_at,
        visible_at, deleted_at, write_id, created_at, updated_at`
 
 func scanReview(row pgx.Row) (domain.Review, error) {
@@ -28,11 +28,14 @@ func scanReview(row pgx.Row) (domain.Review, error) {
 		reply *string
 	)
 	if err := row.Scan(&st.ID, &st.OrderID, &st.Role, &st.ReviewerID, &st.SubjectID, &st.ListingID, &st.Stars, &st.Text,
-		&st.Photos, &reply, &st.RepliedAt, &st.VisibleAt, &st.DeletedAt, &st.WriteID, &st.CreatedAt, &st.UpdatedAt); err != nil {
+		&st.Tags, &st.Photos, &reply, &st.RepliedAt, &st.VisibleAt, &st.DeletedAt, &st.WriteID, &st.CreatedAt, &st.UpdatedAt); err != nil {
 		return domain.Review{}, fmt.Errorf("scan review: %w", err)
 	}
 	if reply != nil {
 		st.Reply = *reply
+	}
+	if len(st.Tags) == 0 {
+		st.Tags = nil
 	}
 	return domain.RestoreReview(st), nil
 }
@@ -90,12 +93,13 @@ func (s pgReviews) Insert(ctx context.Context, r domain.Review) error {
 			return ErrConflict
 		}
 		tag, err := tx.Exec(ctx, `INSERT INTO reviews (id, order_id, role, reviewer_id, subject_id, listing_id, stars, body,
-       photos, visible_at, deleted_at, write_id, created_at, updated_at)
-VALUES (@id, @order, @role, @reviewer, @subject, @listing, @stars, @body, @photos, @visible_at, @deleted_at, @write_id,
+       tags, photos, visible_at, deleted_at, write_id, created_at, updated_at)
+VALUES (@id, @order, @role, @reviewer, @subject, @listing, @stars, @body, @tags, @photos, @visible_at, @deleted_at, @write_id,
         @created_at, @updated_at)
 ON CONFLICT (order_id, role) DO NOTHING`, pgx.StrictNamedArgs{
 			"id": st.ID, "order": st.OrderID, "role": st.Role, "reviewer": st.ReviewerID, "subject": st.SubjectID,
-			"listing": st.ListingID, "stars": st.Stars, "body": st.Text, "photos": photosOf(st), "visible_at": st.VisibleAt,
+			"listing": st.ListingID, "stars": st.Stars, "body": st.Text, "tags": tagsOf(st), "photos": photosOf(st),
+			"visible_at": st.VisibleAt,
 			"deleted_at": st.DeletedAt,
 			"write_id":   st.WriteID, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
 		})
@@ -129,12 +133,12 @@ func (s pgReviews) Save(ctx context.Context, r *domain.Review, writeID uuid.UUID
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		var hadReply bool
 		err := tx.QueryRow(ctx, `UPDATE reviews new
-SET stars = @stars, body = @body, photos = @photos, deleted_at = @deleted_at, updated_at = @updated_at, reply = @reply,
+SET stars = @stars, body = @body, tags = @tags, photos = @photos, deleted_at = @deleted_at, updated_at = @updated_at, reply = @reply,
     replied_at = @replied_at, write_id = @write_id
 FROM reviews old
 WHERE new.id = @id AND old.id = new.id AND new.write_id = @read_write_id
 RETURNING old.replied_at IS NOT NULL`, pgx.StrictNamedArgs{
-			"id": st.ID, "stars": st.Stars, "body": st.Text, "photos": photosOf(st), "deleted_at": st.DeletedAt, "updated_at": st.UpdatedAt,
+			"id": st.ID, "stars": st.Stars, "body": st.Text, "tags": tagsOf(st), "photos": photosOf(st), "deleted_at": st.DeletedAt, "updated_at": st.UpdatedAt,
 			"reply": reply, "replied_at": st.RepliedAt, "write_id": writeID, "read_write_id": st.WriteID,
 		}).Scan(&hadReply)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -176,6 +180,33 @@ WHERE subject_id = @subject AND role = @role AND deleted_at IS NULL AND visible_
 		return 0, 0, fmt.Errorf("summarize reviews: %w", err)
 	}
 	return average, count, nil
+}
+
+func (s pgReviews) TagCounts(ctx context.Context, subject uuid.UUID, role domain.Role, now time.Time) ([]TagCount, error) {
+	rows, err := s.db.Query(ctx, `SELECT tag, count(*) FROM reviews, unnest(tags) AS tag
+WHERE subject_id = @subject AND role = @role AND deleted_at IS NULL AND visible_at <= @now
+GROUP BY tag ORDER BY count(*) DESC, tag COLLATE "C"`,
+		pgx.StrictNamedArgs{"subject": subject, "role": role, "now": now})
+	if err != nil {
+		return nil, fmt.Errorf("count review tags: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (TagCount, error) {
+		var c TagCount
+		err := row.Scan(&c.Tag, &c.Count)
+		return c, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read review tags: %w", err)
+	}
+	return out, nil
+}
+
+// tagsOf is st's tags for the NOT NULL text[] column: {} without any.
+func tagsOf(st domain.ReviewState) []domain.Tag {
+	if st.Tags == nil {
+		return []domain.Tag{}
+	}
+	return st.Tags
 }
 
 // photosOf is st's photos for the NOT NULL jsonb column: [] without any.

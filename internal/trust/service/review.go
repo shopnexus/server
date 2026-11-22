@@ -24,8 +24,8 @@ var reviewable = []dealdomain.OrderStatus{dealdomain.OrderCompleted, dealdomain.
 // order, then creates their review of the other party, once the order is
 // delivered or failed, or edits it within 7 days and before a reply. Its
 // new photos are attached to the order in media and processed first; nil
-// photos keep the review's.
-func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string, photos []uuid.UUID) (ReviewView, error) {
+// tags or photos keep the review's.
+func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string, tags []domain.Tag, photos []uuid.UUID) (ReviewView, error) {
 	status, err := s.accounts.Status(ctx, caller)
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("read account status: %w", err)
@@ -81,18 +81,21 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 			kept = append(kept, p)
 		}
 	}
+	if tags == nil {
+		tags = r.Tags()
+	}
 	if !found {
 		_, otherErr := s.reviews.ByOrder(ctx, order, role.Other())
 		if otherErr != nil && !errors.Is(otherErr, repository.ErrNotFound) {
 			return ReviewView{}, fmt.Errorf("get the other review: %w", otherErr)
 		}
 		visibleAt := domain.RevealAt(*o.ClosedAt, otherErr == nil, now)
-		if r, err = domain.NewReview(uuid.NewV7(), order, role, caller, subject, o.ListingID, stars, text, kept, visibleAt, now); err != nil {
+		if r, err = domain.NewReview(uuid.NewV7(), order, role, caller, subject, o.ListingID, stars, text, tags, kept, visibleAt, now); err != nil {
 			return ReviewView{}, err
 		}
 		err = s.reviews.Insert(ctx, r)
 	} else {
-		if err = r.Edit(stars, text, kept, now); err != nil {
+		if err = r.Edit(stars, text, tags, kept, now); err != nil {
 			return ReviewView{}, err
 		}
 		err = s.reviews.Save(ctx, &r, uuid.NewV7())

@@ -4,6 +4,7 @@
 package domain
 
 import (
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -53,6 +54,24 @@ func RevealAt(closedAt time.Time, otherSide bool, now time.Time) time.Time {
 	return at
 }
 
+// Tag is a quick chip on a review about the subject's conduct.
+type Tag string
+
+const (
+	TagAsDescribed Tag = "as_described"
+	TagQuickReply  Tag = "quick_reply"
+	TagWellPacked  Tag = "well_packed"
+	TagOnTime      Tag = "on_time"
+)
+
+// Tags are the tags a review in role r may carry, in the order they show.
+func (r Role) Tags() []Tag {
+	if r == RoleSeller {
+		return []Tag{TagAsDescribed, TagQuickReply, TagWellPacked}
+	}
+	return []Tag{TagQuickReply, TagOnTime}
+}
+
 // Photo is one processed photo of a review, by the upload it came from.
 type Photo struct {
 	UploadID uuid.UUID `json:"upload_id"`
@@ -60,9 +79,9 @@ type Photo struct {
 	ThumbKey string    `json:"thumb_key"`
 }
 
-// Review is one side's stars, words and photos about the other side of an
-// order, and the subject's one reply. A deleted review keeps its first
-// submission time and loses its text and photos.
+// Review is one side's stars, words, tags and photos about the other side
+// of an order, and the subject's one reply. A deleted review keeps its
+// first submission time and loses its text, tags and photos.
 type Review struct {
 	id         uuid.UUID
 	orderID    uuid.UUID
@@ -72,6 +91,7 @@ type Review struct {
 	listingID  uuid.UUID
 	stars      int
 	text       string
+	tags       []Tag
 	photos     []Photo
 	reply      string
 	repliedAt  *time.Time
@@ -83,15 +103,16 @@ type Review struct {
 }
 
 // NewReview checks a first review: 1 to 5 stars, up to 500 characters
-// of text after trimming and up to 4 photos. visibleAt comes from RevealAt.
-func NewReview(id, order uuid.UUID, role Role, reviewer, subject, listing uuid.UUID, stars int, text string, photos []Photo,
-	visibleAt, now time.Time,
+// of text after trimming, distinct tags of role.Tags() and up to 4 photos.
+// visibleAt comes from RevealAt.
+func NewReview(id, order uuid.UUID, role Role, reviewer, subject, listing uuid.UUID, stars int, text string, tags []Tag,
+	photos []Photo, visibleAt, now time.Time,
 ) (Review, error) {
 	r := Review{
 		id: id, orderID: order, role: role, reviewerID: reviewer, subjectID: subject, listingID: listing,
 		visibleAt: visibleAt, writeID: id, createdAt: now,
 	}
-	if err := r.set(stars, text, photos, now); err != nil {
+	if err := r.set(stars, text, tags, photos, now); err != nil {
 		return Review{}, err
 	}
 	return r, nil
@@ -119,26 +140,26 @@ func (r *Review) ChangeUntil() time.Time {
 	return r.visibleAt
 }
 
-// Edit replaces the stars, the text and the photos while CanChange allows;
-// a deleted review is posted again.
-func (r *Review) Edit(stars int, text string, photos []Photo, now time.Time) error {
+// Edit replaces the stars, the text, the tags and the photos while
+// CanChange allows; a deleted review is posted again.
+func (r *Review) Edit(stars int, text string, tags []Tag, photos []Photo, now time.Time) error {
 	if err := r.CanChange(now); err != nil {
 		return err
 	}
-	if err := r.set(stars, text, photos, now); err != nil {
+	if err := r.set(stars, text, tags, photos, now); err != nil {
 		return err
 	}
 	r.deletedAt = nil
 	return nil
 }
 
-// Delete takes the review down while CanChange allows and drops its text
-// and photos.
+// Delete takes the review down while CanChange allows and drops its text,
+// tags and photos.
 func (r *Review) Delete(now time.Time) error {
 	if err := r.CanChange(now); err != nil {
 		return err
 	}
-	r.deletedAt, r.text, r.photos, r.updatedAt = &now, "", nil, now
+	r.deletedAt, r.text, r.tags, r.photos, r.updatedAt = &now, "", nil, nil, now
 	return nil
 }
 
@@ -173,7 +194,7 @@ func (r *Review) Deleted() bool { return r.deletedAt != nil }
 // Replied reports whether the subject replied.
 func (r *Review) Replied() bool { return r.repliedAt != nil }
 
-func (r *Review) set(stars int, text string, photos []Photo, now time.Time) error {
+func (r *Review) set(stars int, text string, tags []Tag, photos []Photo, now time.Time) error {
 	e := ErrInvalidReview
 	text = strings.TrimSpace(text)
 	if stars < 1 || stars > MaxStars {
@@ -182,14 +203,36 @@ func (r *Review) set(stars int, text string, photos []Photo, now time.Time) erro
 	if utf8.RuneCountInString(text) > MaxText {
 		e = e.WithField("text", "at most 500 characters")
 	}
+	if !r.role.validTags(tags) {
+		e = e.WithField("tags", "each once, of "+tagList(r.role.Tags()))
+	}
 	if len(photos) > MaxPhotos {
 		e = e.WithField("photos", "at most 4")
 	}
 	if len(e.Fields) > 0 {
 		return e
 	}
-	r.stars, r.text, r.photos, r.updatedAt = stars, text, photos, now
+	r.stars, r.text, r.tags, r.photos, r.updatedAt = stars, text, tags, photos, now
 	return nil
+}
+
+// validTags reports whether tags are distinct tags of role r.
+func (r Role) validTags(tags []Tag) bool {
+	valid := r.Tags()
+	for i, t := range tags {
+		if !slices.Contains(valid, t) || slices.Contains(tags[:i], t) {
+			return false
+		}
+	}
+	return true
+}
+
+func tagList(tags []Tag) string {
+	s := make([]string, len(tags))
+	for i, t := range tags {
+		s[i] = string(t)
+	}
+	return strings.Join(s, ", ")
 }
 
 func (r *Review) ID() uuid.UUID         { return r.id }
@@ -200,6 +243,7 @@ func (r *Review) SubjectID() uuid.UUID  { return r.subjectID }
 func (r *Review) ListingID() uuid.UUID  { return r.listingID }
 func (r *Review) Stars() int            { return r.stars }
 func (r *Review) Text() string          { return r.text }
+func (r *Review) Tags() []Tag           { return r.tags }
 func (r *Review) Photos() []Photo       { return r.photos }
 func (r *Review) ReplyText() string     { return r.reply }
 func (r *Review) RepliedAt() *time.Time { return r.repliedAt }
@@ -218,6 +262,7 @@ type ReviewState struct {
 	ListingID  uuid.UUID
 	Stars      int
 	Text       string
+	Tags       []Tag
 	Photos     []Photo
 	Reply      string
 	RepliedAt  *time.Time
@@ -232,7 +277,7 @@ type ReviewState struct {
 func RestoreReview(st ReviewState) Review {
 	return Review{
 		id: st.ID, orderID: st.OrderID, role: st.Role, reviewerID: st.ReviewerID, subjectID: st.SubjectID,
-		listingID: st.ListingID, stars: st.Stars, text: st.Text, photos: st.Photos, reply: st.Reply, repliedAt: st.RepliedAt,
+		listingID: st.ListingID, stars: st.Stars, text: st.Text, tags: st.Tags, photos: st.Photos, reply: st.Reply, repliedAt: st.RepliedAt,
 		visibleAt: st.VisibleAt, deletedAt: st.DeletedAt, writeID: st.WriteID, createdAt: st.CreatedAt,
 		updatedAt: st.UpdatedAt,
 	}
@@ -242,7 +287,7 @@ func RestoreReview(st ReviewState) Review {
 func (r *Review) State() ReviewState {
 	return ReviewState{
 		ID: r.id, OrderID: r.orderID, Role: r.role, ReviewerID: r.reviewerID, SubjectID: r.subjectID,
-		ListingID: r.listingID, Stars: r.stars, Text: r.text, Photos: r.photos, Reply: r.reply, RepliedAt: r.repliedAt,
+		ListingID: r.listingID, Stars: r.stars, Text: r.text, Tags: r.tags, Photos: r.photos, Reply: r.reply, RepliedAt: r.repliedAt,
 		VisibleAt: r.visibleAt, DeletedAt: r.deletedAt, WriteID: r.writeID, CreatedAt: r.createdAt,
 		UpdatedAt: r.updatedAt,
 	}

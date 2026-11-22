@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 	"uuid"
@@ -52,7 +53,7 @@ func order(t *testing.T, db *pgxpool.Pool, buyer, seller uuid.UUID) (orderID, li
 // from now; an edit before now finds it hidden, so it may change.
 func review(t *testing.T, s repository.Reviews, o, seller, buyer, listing uuid.UUID, stars int) domain.Review {
 	t.Helper()
-	r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, listing, stars, "Ổn", nil, now, postedAt)
+	r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, listing, stars, "Ổn", nil, nil, now, postedAt)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +84,7 @@ func TestReviews(t *testing.T) {
 	if avg, n, err := s.Summary(ctx, seller, domain.RoleSeller, now); err != nil || n != 2 || avg != 3 {
 		t.Fatalf("summary %v %d %v", avg, n, err)
 	}
-	if err := r1.Edit(5, "Rất tốt", nil, now.Add(-time.Hour)); err != nil {
+	if err := r1.Edit(5, "Rất tốt", nil, nil, now.Add(-time.Hour)); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Save(ctx, &r1, uuid.NewV7()); err != nil {
@@ -131,6 +132,60 @@ func TestReviews(t *testing.T) {
 	}
 }
 
+// Tags are stored and edited with the review, and counted over the visible
+// reviews that are not deleted, most used first.
+func TestReviewTags(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewReviews(db)
+	ctx := context.Background()
+	seller := accounttest.New(t, db)
+	var reviews []domain.Review
+	for _, tags := range [][]domain.Tag{
+		{domain.TagWellPacked, domain.TagQuickReply}, {domain.TagQuickReply}, {domain.TagAsDescribed}, nil,
+	} {
+		// A buyer has at most 3 open COD orders, so each order has its own.
+		buyer := accounttest.New(t, db)
+		o, l := order(t, db, buyer, seller)
+		r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 5, "", tags, nil, now, postedAt)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = s.Insert(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+		reviews = append(reviews, r)
+	}
+	got, err := s.Get(ctx, reviews[0].ID())
+	if err != nil || !slices.Equal(got.Tags(), []domain.Tag{domain.TagWellPacked, domain.TagQuickReply}) {
+		t.Fatalf("%+v %v", got.State(), err)
+	}
+	if got, err = s.Get(ctx, reviews[3].ID()); err != nil || got.Tags() != nil {
+		t.Fatalf("no tags: %+v %v", got.State(), err)
+	}
+	if counts, _ := s.TagCounts(ctx, seller, domain.RoleSeller, postedAt); len(counts) != 0 {
+		t.Fatalf("hidden: %+v", counts)
+	}
+	if err = reviews[3].Edit(5, "", []domain.Tag{domain.TagQuickReply}, nil, now.Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err = reviews[2].Delete(now.Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	for i := range reviews[2:] {
+		if err = s.Save(ctx, &reviews[2+i], uuid.NewV7()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := []repository.TagCount{{Tag: domain.TagQuickReply, Count: 3}, {Tag: domain.TagWellPacked, Count: 1}}
+	if counts, err := s.TagCounts(ctx, seller, domain.RoleSeller, now); err != nil || !slices.Equal(counts, want) {
+		t.Fatalf("%+v %v", counts, err)
+	}
+	if counts, err := s.TagCounts(ctx, seller, domain.RoleBuyer, now); err != nil || len(counts) != 0 {
+		t.Fatalf("other role: %+v %v", counts, err)
+	}
+}
+
 func TestReviewWritesConflict(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -139,7 +194,7 @@ func TestReviewWritesConflict(t *testing.T) {
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	o, l := order(t, db, buyer, seller)
 	first := review(t, s, o, seller, buyer, l, 5)
-	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 1, "Lần hai", nil, now, now.Add(time.Hour))
+	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 1, "Lần hai", nil, nil, now, now.Add(time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +212,7 @@ func TestReviewWritesConflict(t *testing.T) {
 	if err = s.Save(ctx, &fresh, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
-	if err = stale.Edit(2, "Cũ", nil, now.Add(-30*time.Minute)); err != nil {
+	if err = stale.Edit(2, "Cũ", nil, nil, now.Add(-30*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(ctx, &stale, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
@@ -181,7 +236,7 @@ func TestRevealAndReply(t *testing.T) {
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	o, l := order(t, db, buyer, seller)
 	deadline := now.Add(domain.BlindWindow)
-	first, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 5, "Tốt", nil, deadline, now)
+	first, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 5, "Tốt", nil, nil, deadline, now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,14 +251,14 @@ func TestRevealAndReply(t *testing.T) {
 	}
 	// A hidden second review while the first exists is refused.
 	later := now.Add(2 * time.Hour)
-	stale, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", nil, deadline, later)
+	stale, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", nil, nil, deadline, later)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Insert(ctx, stale); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("a hidden second review: %v", err)
 	}
-	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", nil, later, later)
+	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", nil, nil, later, later)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +298,7 @@ func TestReviewPhotosAndHelpfulMarks(t *testing.T) {
 	seller, buyer, reader := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
 	o, l := order(t, db, buyer, seller)
 	photos := []domain.Photo{{UploadID: uuid.NewV7(), PhotoKey: "media/b.jpg", ThumbKey: "media/b_thumb.jpg"}, {UploadID: uuid.NewV7(), PhotoKey: "media/a.jpg", ThumbKey: "media/a_thumb.jpg"}}
-	r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 5, "Như hình", photos, now, postedAt)
+	r, err := domain.NewReview(uuid.NewV7(), o, domain.RoleSeller, buyer, seller, l, 5, "Như hình", nil, photos, now, postedAt)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -23,6 +23,7 @@ type OwnReview struct {
 	Stars     *int          `json:"stars,omitempty"`
 	Text      *string       `json:"text,omitempty"`
 	Reply     *Reply        `json:"reply,omitempty"`
+	Tags      []domain.Tag  `json:"tags,omitempty"`
 	Photos    []ReviewPhoto `json:"photos,omitempty"`
 }
 
@@ -38,6 +39,7 @@ type TheirReview struct {
 	Reply     *Reply     `json:"reply,omitempty"`
 	// CanReply is a visible review without a reply.
 	CanReply bool          `json:"can_reply"`
+	Tags     []domain.Tag  `json:"tags,omitempty"`
 	Photos   []ReviewPhoto `json:"photos,omitempty"`
 }
 
@@ -73,6 +75,7 @@ func (s *Trust) OrderReviews(ctx context.Context, caller uuid.UUID, orders []uui
 			}
 			if !r.Deleted() {
 				own.State, own.Stars, own.Text, own.Photos = "active", new(r.Stars()), new(r.Text()), s.photoViews(r.Photos())
+				own.Tags = tagsOf(r)
 			}
 			v.Own = own
 		case r.Deleted():
@@ -82,6 +85,7 @@ func (s *Trust) OrderReviews(ctx context.Context, caller uuid.UUID, orders []uui
 			if r.Visible(now) {
 				their.State, their.CreatedAt, their.Stars, their.Text = "visible", new(r.CreatedAt()), new(r.Stars()), new(r.Text())
 				their.Reply, their.CanReply, their.Photos = replyOf(r), !r.Replied(), s.photoViews(r.Photos())
+				their.Tags = tagsOf(r)
 			}
 			v.Their = their
 		}

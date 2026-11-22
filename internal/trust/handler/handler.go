@@ -40,8 +40,9 @@ type putRequest struct {
 	OrderID uuid.UUID `json:"-"     path:"order_id"`
 	Stars   int       `json:"stars"`
 	Text    string    `json:"text"`
-	// Photos is nil when the body leaves them out, which keeps them.
-	Photos []uuid.UUID `json:"photos"`
+	// Tags and Photos are nil when the body leaves them out, which keeps them.
+	Tags   []domain.Tag `json:"tags"`
+	Photos []uuid.UUID  `json:"photos"`
 }
 
 type orderRequest struct {
@@ -75,7 +76,7 @@ func (h *Handler) PutReview(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.PutReview(r.Context(), p.AccountID, in.OrderID, in.Stars, in.Text, in.Photos)
+	v, err := h.svc.PutReview(r.Context(), p.AccountID, in.OrderID, in.Stars, in.Text, in.Tags, in.Photos)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
