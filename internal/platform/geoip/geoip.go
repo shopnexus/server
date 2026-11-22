@@ -9,6 +9,9 @@ import (
 	"github.com/oschwald/maxminddb-golang/v2"
 )
 
+// cgnat is the shared address space of RFC 6598, which IsPrivate leaves out.
+var cgnat = netip.MustParsePrefix("100.64.0.0/10")
+
 // DB answers country lookups. A nil DB knows no country.
 type DB struct {
 	r *maxminddb.Reader
@@ -28,7 +31,9 @@ func Open(path string) (*DB, error) {
 
 // Country is the ISO 3166 code of ip's country, or "" when unknown.
 func (db *DB) Country(ip netip.Addr) string {
-	if db == nil || !ip.IsValid() {
+	ip = ip.Unmap()
+	// The database puts some private ranges in a country (172.16.0.0/12 in AU).
+	if db == nil || !ip.IsGlobalUnicast() || ip.IsPrivate() || cgnat.Contains(ip) {
 		return ""
 	}
 	// ip-location-db writes country_code; MaxMind's own databases nest it.
@@ -38,7 +43,7 @@ func (db *DB) Country(ip netip.Addr) string {
 			ISO string `maxminddb:"iso_code"`
 		} `maxminddb:"country"`
 	}
-	if err := db.r.Lookup(ip.Unmap()).Decode(&rec); err != nil {
+	if err := db.r.Lookup(ip).Decode(&rec); err != nil {
 		return ""
 	}
 	if rec.Code != "" {
