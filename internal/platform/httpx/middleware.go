@@ -89,6 +89,9 @@ func Trace(log *slog.Logger) func(http.Handler) http.Handler {
 		"http.server.request.duration",
 		metric.WithUnit("s"),
 		metric.WithDescription("Duration of HTTP server requests."),
+		// The SDK's default buckets are for milliseconds; these are the
+		// semantic conventions' buckets in seconds.
+		metric.WithExplicitBucketBoundaries(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10),
 	))
 
 	return func(next http.Handler) http.Handler {

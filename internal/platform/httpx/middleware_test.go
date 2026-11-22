@@ -13,6 +13,8 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
@@ -96,6 +98,37 @@ func TestTraceRouteThroughCopyingMiddleware(t *testing.T) {
 
 	if v, _ := attr(rec.Ended()[0].Attributes(), "http.route"); v.AsString() != "/items/{id}" {
 		t.Fatalf("http.route = %v", v)
+	}
+}
+
+// A fast request lands in a sub-second bucket, so p95 can tell routes apart.
+//
+//nolint:paralleltest // The test installs the global meter provider.
+func TestTraceDurationBucketsInSeconds(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	prev := otel.GetMeterProvider()
+	otel.SetMeterProvider(mp)
+	t.Cleanup(func() {
+		otel.SetMeterProvider(prev)
+		mp.Shutdown(context.Background())
+	})
+	serve(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
+
+	var rm metricdata.ResourceMetrics
+	if err := reader.Collect(t.Context(), &rm); err != nil {
+		t.Fatal(err)
+	}
+	h, ok := rm.ScopeMetrics[0].Metrics[0].Data.(metricdata.Histogram[float64])
+	if !ok {
+		t.Fatalf("data %T", rm.ScopeMetrics[0].Metrics[0].Data)
+	}
+	dp := h.DataPoints[0]
+	if dp.Bounds[0] != 0.005 || dp.Bounds[len(dp.Bounds)-1] != 10 {
+		t.Fatalf("bounds %v", dp.Bounds)
+	}
+	if dp.BucketCounts[0] != 1 {
+		t.Fatalf("bucket counts %v", dp.BucketCounts)
 	}
 }
 
