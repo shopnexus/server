@@ -44,7 +44,7 @@ func TestResendPostsTheMessage(t *testing.T) {
 		_, _ = io.WriteString(w, `{"id":"49a3999c"}`)
 	}))
 	t.Cleanup(srv.Close)
-	s := email.NewResend("re_test", "ShopNexus <no-reply@shopnexus.test>")
+	s := email.NewResend(&http.Client{}, "re_test", "ShopNexus <no-reply@shopnexus.test>")
 	s.URL = srv.URL
 	if err := s.Send(context.Background(), "linh@example.com", "Chủ đề", "Nội dung"); err != nil {
 		t.Fatal(err)
@@ -61,7 +61,7 @@ func TestResendReportsARefusal(t *testing.T) {
 		http.Error(w, `{"message":"domain not verified"}`, http.StatusForbidden)
 	}))
 	t.Cleanup(srv.Close)
-	s := email.NewResend("re_test", "a@b.test")
+	s := email.NewResend(&http.Client{}, "re_test", "a@b.test")
 	s.URL = srv.URL
 	err := s.Send(context.Background(), "linh@example.com", "s", "b")
 	if !errors.Is(err, email.ErrRefused) || !strings.Contains(err.Error(), "403") || !strings.Contains(err.Error(), "domain not verified") {
@@ -76,7 +76,7 @@ func TestResendRetryableFailures(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			http.Error(w, "later", status)
 		}))
-		s := email.NewResend("re_test", "a@b.test")
+		s := email.NewResend(&http.Client{}, "re_test", "a@b.test")
 		s.URL = srv.URL
 		if err := s.Send(context.Background(), "linh@example.com", "s", "b"); err == nil || errors.Is(err, email.ErrRefused) {
 			t.Errorf("%d: %v", status, err)

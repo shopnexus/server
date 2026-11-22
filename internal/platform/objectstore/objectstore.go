@@ -19,6 +19,7 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 var ErrNotFound = errors.New("object not found")
@@ -55,10 +56,16 @@ func clientFor(endpoint string, cfg config.ObjectStoreConfig) (*minio.Client, er
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return nil, fmt.Errorf("object store endpoint %q: want http:// or https:// and a host", endpoint)
 	}
+	secure := u.Scheme == "https"
+	transport, err := minio.DefaultTransport(secure)
+	if err != nil {
+		return nil, fmt.Errorf("object store transport: %w", err)
+	}
 	client, err := minio.New(u.Host, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
-		Secure: u.Scheme == "https",
-		Region: cfg.Region,
+		Creds:     credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
+		Secure:    secure,
+		Region:    cfg.Region,
+		Transport: httpx.Transport(transport),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("object store client: %w", err)

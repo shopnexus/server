@@ -60,8 +60,10 @@ type FCM struct {
 	project  string
 }
 
-// NewFCM signs requests with the service account in credentialsJSON.
-func NewFCM(ctx context.Context, credentialsJSON []byte, projectID string) (*FCM, error) {
+// NewFCM signs requests with the service account in credentialsJSON and
+// sends them, and its token requests, through base.
+func NewFCM(ctx context.Context, base *http.Client, credentialsJSON []byte, projectID string) (*FCM, error) {
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, base)
 	// The type check refuses any credential other than a service account.
 	creds, err := google.CredentialsFromJSONWithType(ctx, credentialsJSON, google.ServiceAccount,
 		"https://www.googleapis.com/auth/firebase.messaging")

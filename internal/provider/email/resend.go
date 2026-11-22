@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 )
 
 // Resend sends through Resend's HTTP API from one address of a domain
@@ -21,8 +20,8 @@ type Resend struct {
 	http   *http.Client
 }
 
-func NewResend(apiKey, from string) *Resend {
-	return &Resend{URL: "https://api.resend.com/emails", apiKey: apiKey, from: from, http: &http.Client{Timeout: 10 * time.Second}}
+func NewResend(client *http.Client, apiKey, from string) *Resend {
+	return &Resend{URL: "https://api.resend.com/emails", apiKey: apiKey, from: from, http: client}
 }
 
 func (s *Resend) Send(ctx context.Context, to, subject, body string) error {

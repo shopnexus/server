@@ -143,7 +143,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	case sender != nil:
 	case len(cfg.Push.Credentials) > 0:
 		// The sender keeps this context to refresh its token, so it is not ctx.
-		fcm, fcmErr := push.NewFCM(context.Background(), cfg.Push.Credentials, cfg.Firebase.ProjectID)
+		fcm, fcmErr := push.NewFCM(context.Background(), httpx.NewClient(0), cfg.Push.Credentials, cfg.Firebase.ProjectID)
 		if fcmErr != nil {
 			return nil, fmt.Errorf("push: %w", fcmErr)
 		}
@@ -157,7 +157,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	switch {
 	case mailer != nil:
 	case cfg.Email.Sender == "resend":
-		mailer = email.NewResend(cfg.Email.ResendAPIKey, cfg.Email.From)
+		mailer = email.NewResend(httpx.NewClient(10*time.Second), cfg.Email.ResendAPIKey, cfg.Email.From)
 	case cfg.Env == config.EnvProd:
 		return nil, errors.New("APP_ENV=prod with EMAIL_SENDER=log; codes would only be logged")
 	default:
@@ -178,7 +178,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		// endpoint is.
 		carriers.WebhookSecrets = map[carrier.Carrier]string{carrier.GHTK: "dev", carrier.GHN: "dev"}
 	case "live":
-		web := &http.Client{Timeout: carrierTimeout}
+		web := httpx.NewClient(carrierTimeout)
 		c := cfg.Carrier
 		carriers.Clients = map[carrier.Carrier]carrier.Client{
 			carrier.GHTK: carrier.GHTKClient{BaseURL: c.GHTKURL, PartnerToken: c.GHTKPartner, ClientSource: c.GHTKSource, HTTP: web},
@@ -217,7 +217,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	}
 
 	a.health(log)
-	in := ingress.NewClient(cfg.Restate.IngressURL)
+	in := ingress.NewClient(cfg.Restate.IngressURL, ingress.WithHttpClient(httpx.NewClient(0)))
 	bus := events.NewBus(pool, in, cfg.Restate.ServicePrefix, time.Now, log)
 	defs, agentm, err := mountModules(a.router, pool, in, bus, a.hub, a.relay, cfg, o.hasher, sender, mailer, carriers, engines, log)
 	if err != nil {
@@ -287,7 +287,7 @@ func newAI(ctx context.Context, cfg config.Config, log *slog.Logger, o options) 
 		return nil, fmt.Errorf("object store: %w", err)
 	}
 	d := module.Deps{
-		Router: a.router, Ingress: ingress.NewClient(cfg.Restate.IngressURL), ServicePrefix: cfg.Restate.ServicePrefix,
+		Router: a.router, Ingress: ingress.NewClient(cfg.Restate.IngressURL, ingress.WithHttpClient(httpx.NewClient(0))), ServicePrefix: cfg.Restate.ServicePrefix,
 		Now: time.Now, Log: log,
 	}
 	aim := ai.Mount(d, ai.Settings{Engines: *engines, Objects: store, Config: cfg.AI})
@@ -386,7 +386,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		}
 		return embed.OpenAI{
 			BaseURL: cfg.Embed.TextBaseURL, APIKey: key, Model: cfg.Embed.TextModel, Dims: catalogdomain.TextDims,
-			HTTP: &http.Client{Timeout: cfg.Embed.Timeout},
+			HTTP: httpx.NewClient(cfg.Embed.Timeout),
 		}
 	}
 	var photos embed.Model
@@ -404,7 +404,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Image:       photos,
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion, EmbedSlots: cfg.Embed.Slots,
 		IndexNow: catalogsvc.IndexNowSettings{
-			Key: cfg.IndexNowKey, Site: website, Client: indexnow.New(&http.Client{Timeout: 30 * time.Second}, indexnow.Endpoint),
+			Key: cfg.IndexNowKey, Site: website, Client: indexnow.New(httpx.NewClient(30*time.Second), indexnow.Endpoint),
 			Every: catalogsvc.IndexNowEvery,
 		},
 	}, accounts, mediam.Service)
@@ -439,13 +439,13 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
 	trustm := trust.Mount(d, trust.Settings{
 		Classifier: trust.LLMClassifier(
-			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: &http.Client{}},
+			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: httpx.NewClient(0)},
 			cfg.Trust.LLMModel, cfg.Trust.CallTimeout, log),
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, accounts, catalogm.Service, dealm.Service, chatm.Service, mediam.Service)
 	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service, trustm.Service,
 		catalogm.Service)
-	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, Effort: cfg.LLM.Effort, HTTP: &http.Client{}}
+	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, Effort: cfg.LLM.Effort, HTTP: httpx.NewClient(0)}
 	discoverym := discovery.Mount(d, discovery.Settings{
 		Model:       model,
 		Text:        embedder(cfg.Embed.SearchAPIKey),
@@ -457,14 +457,14 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		AI: aiClient,
 		Model: llm.OpenAI{
 			BaseURL: cfg.Assist.LLMBaseURL, APIKey: cfg.Assist.LLMAPIKey, Model: cfg.Assist.LLMModel,
-			Effort: cfg.Assist.LLMEffort, HTTP: &http.Client{},
+			Effort: cfg.Assist.LLMEffort, HTTP: httpx.NewClient(0),
 		},
 		Relay:   rel,
 		Text:    embedder(cfg.Embed.SearchAPIKey),
 		Image:   photos,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, CallTimeout: cfg.Assist.CallTimeout,
 		Source: chotot.Client{
-			GatewayURL: cfg.Assist.ChototGatewayURL, CDNURL: cfg.Assist.ChototCDNURL, HTTP: &http.Client{},
+			GatewayURL: cfg.Assist.ChototGatewayURL, CDNURL: cfg.Assist.ChototCDNURL, HTTP: httpx.NewClient(0),
 		},
 	}, accounts, mediam.Service, catalogm.Service, discoverym.Service)
 	updates := stream.PGLog{DB: pool}

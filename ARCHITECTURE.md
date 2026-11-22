@@ -857,6 +857,24 @@ the decisions and the API.
   customer API takes a bearer token, and the console cookie never leaves
   its origin.
 
+### Traces and metrics
+
+Every call this process makes to another service goes through
+`httpx.NewClient`, or `httpx.Transport` for a client that brings its own
+transport (minio). It opens a client span named by method and host, sends
+`traceparent` on, and records `http.client.request.duration` by host, method
+and status, or `error.type` when no answer came. Providers take the client
+from the wiring in `app` and `agent`, and none builds a plain `http.Client`.
+The Restate ingress client is one of them, so Restate carries the request's
+trace to the handler it starts.
+
+`restatex.Serve` opens a server span per handler attempt, named
+`Service/Handler`, and records `restate.invocation.duration`. The SDK reads
+the parent span from `traceparent`, so the endpoint writes its own span
+there before the SDK runs. A retried or suspended handler counts once per
+attempt. Durations use `telemetry.Seconds`, the semantic conventions'
+buckets from 5 ms to 10 s (decided 2026-11-23).
+
 ### Ops dashboards
 
 Grafana, Restate's UI, LiteLLM's UI, RustFS's console, Argo CD and pgweb

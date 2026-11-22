@@ -51,7 +51,7 @@ func Serve(ctx context.Context, addr, identityKey string, defs ...restate.Servic
 	if err != nil {
 		return nil, fmt.Errorf("listen on %s: %w", addr, err)
 	}
-	e := &Endpoint{srv: &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second}, ln: ln}
+	e := &Endpoint{srv: &http.Server{Handler: traceInvocations(h), ReadHeaderTimeout: 5 * time.Second}, ln: ln}
 	// Serve returns http.ErrServerClosed after Close. A listener failure
 	// stops the endpoint, and Restate's calls to it fail.
 	go func() { _ = e.srv.Serve(ln) }()

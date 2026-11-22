@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 const (
@@ -56,7 +57,7 @@ type Set struct {
 
 // New is the key set at url; its HTTP client times out after 5 seconds.
 func New(url string, now func() time.Time, log *slog.Logger) *Set {
-	return &Set{url: url, http: &http.Client{Timeout: fetchTimeout}, now: now, log: log}
+	return &Set{url: url, http: httpx.NewClient(fetchTimeout), now: now, log: log}
 }
 
 // Key returns the key named kid. It fetches when no keys are held, when
