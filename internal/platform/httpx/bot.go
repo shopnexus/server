@@ -14,7 +14,7 @@ const ForwardedUserAgent = "X-Forwarded-User-Agent"
 
 // botUA matches crawlers, link previews, headless browsers, scanners and
 // HTTP libraries. Bots that pose as a browser get past it.
-var botUA = regexp.MustCompile(`(?i)bot\b|bot[/_;-]|crawl|spider|slurp|scrap|archiv|preview|externalhit|headless|lighthouse|pagespeed|phantomjs|selenium|puppeteer|playwright|python|curl|wget|httpie|go-http|java/|apache-http|libwww|perl/|ruby|axios|scan|monitor|uptime|check|validator|feed|^whatsapp|\+https?://`)
+var botUA = regexp.MustCompile(`(?i)bot\b|bot[/_;-]|crawl|spider|slurp|scrap|archiv|preview|externalhit|headless|lighthouse|pagespeed|phantomjs|selenium|puppeteer|playwright|python|curl|wget|httpie|go-http|java/|apache-http|libwww|perl/|ruby|axios|scan|monitor|uptime|check|validator|feed|^whatsapp|\+https?://|googleother|google-|apis-google|mediapartners|externalagent|externalfetcher|-user\b|anthropic|cohere|yandex|baidu|sogou|petalsearch|seznam`)
 
 // A phone brand that botUA's bot\b would catch.
 var botFalse = strings.NewReplacer("cubot", "", "CUBOT", "")
