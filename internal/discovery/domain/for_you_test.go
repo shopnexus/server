@@ -83,3 +83,17 @@ func TestViewedCategory(t *testing.T) {
 		t.Fatalf("no marks: %q", got)
 	}
 }
+
+func TestDistinct(t *testing.T) {
+	t.Parallel()
+	a, b := uuid.NewV7(), uuid.NewV7()
+	type card struct {
+		seller uuid.UUID
+		title  string
+	}
+	got := domain.Distinct([]card{{a, "iPhone 13"}, {a, " iphone  13"}, {b, "iPhone 13"}, {a, "iPhone 14"}},
+		func(c card) (uuid.UUID, string) { return c.seller, c.title })
+	if len(got) != 3 || got[1].seller != b || got[2].title != "iPhone 14" {
+		t.Fatalf("%+v", got)
+	}
+}

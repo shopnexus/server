@@ -7,6 +7,7 @@ import (
 	"uuid"
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/platform/page"
 )
@@ -102,6 +103,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 	if err != nil {
 		return ForYou{}, fmt.Errorf("read the feed: %w", err)
 	}
+	cards = domain.Distinct(cards, cardKey)
 	var out ForYou
 	if out.Items, err = d.withSaved(ctx, viewer, cards); err != nil {
 		return ForYou{}, err
@@ -112,6 +114,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 	if cards, err = d.catalog.Search(ctx, rail); err != nil {
 		return ForYou{}, fmt.Errorf("read the viewed rail: %w", err)
 	}
+	cards = domain.Distinct(cards, cardKey)
 	if len(cards) == 0 {
 		return out, nil
 	}
@@ -122,3 +125,6 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 	out.Viewed = &ViewedRail{Category: rail.Filters.CategoryCode, Items: items}
 	return out, nil
 }
+
+// cardKey is what makes two cards the same listing posted twice.
+func cardKey(c catalogsvc.SearchCard) (uuid.UUID, string) { return c.SellerID, c.Title }

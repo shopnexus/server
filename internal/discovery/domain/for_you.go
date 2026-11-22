@@ -101,3 +101,19 @@ func ViewedCategory(marks []ViewMark) (string, bool) {
 	}
 	return best, best != ""
 }
+
+// Distinct keeps the first of the cards that share a seller and a title
+// (by QueryKey): a seller who posted the same thing twice shows once.
+func Distinct[T any](cards []T, key func(T) (uuid.UUID, string)) []T {
+	seen := make(map[[2]string]bool, len(cards))
+	out := cards[:0:0]
+	for _, c := range cards {
+		seller, title := key(c)
+		k := [2]string{seller.String(), QueryKey(title)}
+		if !seen[k] {
+			seen[k] = true
+			out = append(out, c)
+		}
+	}
+	return out
+}
