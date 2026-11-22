@@ -26,7 +26,10 @@ func (r *Router) Handle(pattern string, h http.Handler) {
 	if !ok {
 		panic("httpx: pattern needs a method: " + pattern)
 	}
-	r.mux.Handle(pattern, h)
+	r.mux.Handle(pattern, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		noteRoute(req, path)
+		h.ServeHTTP(w, req)
+	}))
 	r.routes = append(r.routes, Route{Method: method, Path: path})
 }
 

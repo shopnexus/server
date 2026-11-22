@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -27,9 +28,13 @@ import (
 // trace-context propagator. The returned function flushes and stops them.
 func Setup(ctx context.Context, cfg config.Config, version string) (shutdown func(context.Context) error, err error) {
 	otel.SetTextMapPropagator(propagation.TraceContext{})
+	// The instance id keeps each process its own series; without it two
+	// replicas' counters merge into one that seems to reset at every point.
+	host, _ := os.Hostname()
 	res := resource.NewSchemaless(
 		semconv.ServiceName(cfg.ServiceName),
 		semconv.ServiceVersion(version),
+		semconv.ServiceInstanceID(host),
 		semconv.DeploymentEnvironmentName(string(cfg.Env)),
 	)
 	if cfg.OTLPEndpoint == "" {

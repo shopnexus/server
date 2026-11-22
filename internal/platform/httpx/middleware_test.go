@@ -83,6 +83,22 @@ func TestTraceNamesSpanByRoutePattern(t *testing.T) {
 	}
 }
 
+// A middleware between Trace and the Router copies the request, so the
+// route has to reach Trace some other way than r.Pattern.
+//
+//nolint:paralleltest // The test installs the global tracer provider.
+func TestTraceRouteThroughCopyingMiddleware(t *testing.T) {
+	rec := useRecorder(t)
+	router := NewRouter()
+	router.HandleFunc("GET /items/{id}", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
+	h := ResolveClientIP(nil)(router)
+	serve(Trace(discard())(h), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
+
+	if v, _ := attr(rec.Ended()[0].Attributes(), "http.route"); v.AsString() != "/items/{id}" {
+		t.Fatalf("http.route = %v", v)
+	}
+}
+
 //nolint:paralleltest // The test installs the global tracer provider.
 func TestTraceRecordsHandlerStatus(t *testing.T) {
 	rec := useRecorder(t)

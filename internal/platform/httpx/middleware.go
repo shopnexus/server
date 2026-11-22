@@ -4,6 +4,7 @@ package httpx
 
 import (
 	"bufio"
+	"context"
 	"log/slog"
 	"net"
 	"net/http"
@@ -56,9 +57,22 @@ func (w *statusWriter) code() int {
 	return w.status
 }
 
-// route returns the path part of the pattern the mux matched, or "" when no
-// route matched. Never use r.URL.Path here: one series per ID would follow.
-func route(r *http.Request) string {
+type routeKey struct{}
+
+// noteRoute hands the matched path to the Trace above, which cannot read it
+// from r.Pattern once a middleware between them has copied the request.
+func noteRoute(r *http.Request, path string) {
+	if p, ok := r.Context().Value(routeKey{}).(*string); ok {
+		*p = path
+	}
+}
+
+// route returns the path of the route that matched, or "" when none did.
+// Never use r.URL.Path here: one series per ID would follow.
+func route(noted string, r *http.Request) string {
+	if noted != "" {
+		return noted
+	}
 	if _, path, ok := strings.Cut(r.Pattern, " "); ok {
 		return path
 	}
@@ -83,14 +97,16 @@ func Trace(log *slog.Logger) func(http.Handler) http.Handler {
 			ctx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
 			ctx, span := tracer.Start(ctx, r.Method, trace.WithSpanKind(trace.SpanKindServer))
 			defer span.End()
+			var noted string
+			ctx = context.WithValue(ctx, routeKey{}, &noted)
 
 			w.Header().Set("Trace-Id", span.SpanContext().TraceID().String())
 			sw := &statusWriter{ResponseWriter: w}
-			// The mux writes Pattern on the request it receives, so read it from r2.
+			// A plain mux writes Pattern on the request it receives, so read it from r2.
 			r2 := r.WithContext(ctx)
 			next.ServeHTTP(sw, r2)
 
-			status, rt, took := sw.code(), route(r2), time.Since(start)
+			status, rt, took := sw.code(), route(noted, r2), time.Since(start)
 			attrs := []attribute.KeyValue{
 				attribute.String("http.request.method", r.Method),
 				attribute.Int("http.response.status_code", status),
