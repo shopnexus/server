@@ -1,0 +1,147 @@
+ClientEvents:
+  type: object
+  additionalProperties: false
+  required: [app, events]
+  properties:
+    app:
+      type: string
+      enum: [website, android]
+    events:
+      type: array
+      minItems: 1
+      maxItems: 50
+      items:
+        $ref: "#/ClientEvent"
+ClientEvent:
+  description: One thing the client saw, picked by type.
+  oneOf:
+    - $ref: "#/ClientError"
+    - $ref: "#/WebVital"
+    - $ref: "#/ClientRequest"
+    - $ref: "#/SearchImpression"
+    - $ref: "#/SearchClick"
+  discriminator:
+    propertyName: type
+    mapping:
+      error: "#/ClientError"
+      vital: "#/WebVital"
+      request: "#/ClientRequest"
+      search_impression: "#/SearchImpression"
+      search_click: "#/SearchClick"
+ClientError:
+  type: object
+  additionalProperties: false
+  required: [type, message]
+  description: A script error the page did not catch. The app reports its crashes to Crashlytics instead.
+  properties:
+    type:
+      type: string
+      enum: [error]
+    message:
+      type: string
+      minLength: 1
+      maxLength: 1000
+    stack:
+      type: string
+      maxLength: 8000
+    page:
+      type: string
+      maxLength: 200
+      description: The page's path, without its query.
+WebVital:
+  type: object
+  additionalProperties: false
+  required: [type, name, value]
+  description: A Core Web Vital of one page view, as the web-vitals library reports it.
+  properties:
+    type:
+      type: string
+      enum: [vital]
+    name:
+      type: string
+      enum: [LCP, INP, CLS, FCP, TTFB]
+    value:
+      type: number
+      minimum: 0
+      maximum: 600000
+      description: Milliseconds, or the unitless layout shift score for CLS.
+    page:
+      type: string
+      maxLength: 200
+      description: The page's route, such as /listings/[slug].
+ClientRequest:
+  type: object
+  additionalProperties: false
+  required: [type, method, path, status, duration_ms]
+  description: One API call as the client timed it, network included.
+  properties:
+    type:
+      type: string
+      enum: [request]
+    method:
+      type: string
+      enum: [GET, POST, PUT, PATCH, DELETE]
+    path:
+      type: string
+      pattern: "^/"
+      maxLength: 300
+      description: The request's path, without its query. The server reads the route from it.
+    status:
+      type: integer
+      minimum: 0
+      maximum: 599
+      description: The response's status, 0 when none came.
+    duration_ms:
+      type: number
+      minimum: 0
+      maximum: 600000
+    network:
+      type: string
+      enum: [wifi, cellular, other]
+    trace_id:
+      type: string
+      pattern: "^[0-9a-f]{32}$"
+      description: The response's Trace-Id header, which names the server's trace of the call.
+SearchImpression:
+  type: object
+  additionalProperties: false
+  required: [type, search_id, listing_ids, offset]
+  description: Search results that came into view, in their order on the page.
+  properties:
+    type:
+      type: string
+      enum: [search_impression]
+    search_id:
+      type: string
+      format: uuid
+      description: The search_id of the search response that listed them.
+    listing_ids:
+      type: array
+      minItems: 1
+      maxItems: 100
+      items:
+        type: string
+        format: uuid
+    offset:
+      type: integer
+      minimum: 0
+      description: The position of the first one in the results, from 0.
+SearchClick:
+  type: object
+  additionalProperties: false
+  required: [type, search_id, listing_id, position]
+  description: A search result the person opened.
+  properties:
+    type:
+      type: string
+      enum: [search_click]
+    search_id:
+      type: string
+      format: uuid
+    listing_id:
+      type: string
+      format: uuid
+    position:
+      type: integer
+      minimum: 0
+      description: Its position in the results, from 0.

@@ -371,7 +371,8 @@ server (see Console agent); a module that reacts to events adds `worker`,
 as catalog, chat, deal, discovery and notification do. Module `screen` has no
 `repository` or `domain`: it only reads the other modules' services (see
 Screen). Module `erasure` has only `service` and `handler`: it calls
-account and deal to delete an account (see Erasure).
+account and deal to delete an account (see Erasure). Module `beacon` has
+only `service` and `handler` too (see Client events).
 
 The modules follow the product model in `app/mohinh.md`, not the old
 server's split (decided 2026-10-26). There is no finance module: ShopNexus
@@ -887,6 +888,32 @@ the parent span from `traceparent`, so the endpoint writes its own span
 there before the SDK runs. A retried or suspended handler counts once per
 attempt. Durations use `telemetry.Seconds`, the semantic conventions'
 buckets from 5 ms to 10 s (decided 2026-11-23).
+
+### Client events
+
+Module `beacon` serves `POST /v1/client-events`, open to anyone: a batch of
+up to 50 events from the website or the Android app. It turns them into
+metrics and log lines and keeps no rows (decided 2026-11-23).
+
+- `error`, a script error the website did not catch: counter
+  `client.errors` by app, and a log line `client error` with the page,
+  message and stack. The app sends its crashes to Crashlytics, because its
+  release build is minified and Crashlytics retraces it.
+- `vital`, a Core Web Vital: `client.web_vital.duration` (LCP, INP, FCP and
+  TTFB, in seconds) or `client.web_vital.cls`, by app and name. The page is
+  not a label.
+- `request`, an API call as the client timed it: `client.request.duration`
+  by app, route, method, status and network. The server reads the route
+  from the path through `httpx.Router.Route`, so a client cannot add
+  label values; a path no route serves is `other`. A call with no answer,
+  a 5xx or one of 3 s or more also gets a log line `client request` with
+  the `Trace-Id` the response carried, which names the server's trace.
+- `search_impression` and `search_click`: counters
+  `client.search.impressions` and `client.search.clicks` by app and
+  position (1, 2, 3, 4-5, 6-10, 11-20, 21+), and log lines with the
+  `search_id`. Every `GET /v1/search` response carries a fresh
+  `search_id`, and its `search terms` line logs it beside the query, so
+  Loki joins a click to its query.
 
 ### Ops dashboards
 

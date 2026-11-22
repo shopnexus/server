@@ -25,6 +25,7 @@ import (
 	"github.com/shopnexus/server/internal/ai"
 	aisvc "github.com/shopnexus/server/internal/ai/service"
 	"github.com/shopnexus/server/internal/assist"
+	"github.com/shopnexus/server/internal/beacon"
 	"github.com/shopnexus/server/internal/catalog"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
@@ -443,6 +444,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		accounts, catalogm.Service, chatm.Service)
 	deals = dealm.Service
 	erasure.Mount(d, accounts, dealm.Service)
+	beacon.Mount(d)
 	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
 	trustm := trust.Mount(d, trust.Settings{
 		Classifier: trust.LLMClassifier(

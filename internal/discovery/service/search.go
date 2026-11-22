@@ -60,6 +60,8 @@ type SearchItem struct {
 
 // SearchView is a page of a search.
 type SearchView struct {
+	// SearchID names the response, for the search events clients send back.
+	SearchID   uuid.UUID                     `json:"search_id"`
 	Items      []SearchItem                  `json:"items"`
 	NextCursor string                        `json:"next_cursor,omitempty"`
 	Chips      []domain.Chip                 `json:"chips,omitempty"`
@@ -161,7 +163,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			return SearchView{}, err
 		}
 	}
-	var view SearchView
+	view := SearchView{SearchID: uuid.NewV7()}
 
 	if photo {
 		// Photo search needs the image model; with it off the search is
@@ -257,7 +259,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 				search.Weights = domain.FuseQuery
 			}
 		}
-		d.log.InfoContext(ctx, "search terms", "query", q, "asked", c.Asked, "ran", c.Ran, "lists", search.Weights)
+		d.log.InfoContext(ctx, "search terms", "search_id", view.SearchID, "query", q, "asked", c.Asked, "ran", c.Ran, "lists", search.Weights)
 	}
 
 	// The counts run beside the search: a hybrid count reads its lists at

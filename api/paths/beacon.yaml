@@ -1,0 +1,25 @@
+clientEvents:
+  post:
+    operationId: sendClientEvents
+    summary: Report what a client saw that the server cannot.
+    description: |
+      A batch of up to 50 events from the website or the Android app: a
+      script error, a Core Web Vital, how long a request took on the client,
+      and which search results were shown and which was opened. The server
+      turns them into metrics and log lines and keeps no rows. Anyone may
+      call it, signed in or not.
+    tags: [beacon]
+    security:
+      - {}
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/beacon.yaml#/ClientEvents"
+    responses:
+      "202":
+        description: Recorded.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"

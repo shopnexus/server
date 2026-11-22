@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 )
@@ -34,6 +35,14 @@ func (r *Router) Handle(pattern string, h http.Handler) {
 }
 
 func (r *Router) HandleFunc(pattern string, h http.HandlerFunc) { r.Handle(pattern, h) }
+
+// Route is the path pattern of the route that serves method and path, or ""
+// when none does.
+func (r *Router) Route(method, path string) string {
+	_, pattern := r.mux.Handler(&http.Request{Method: method, URL: &url.URL{Path: path}})
+	_, route, _ := strings.Cut(pattern, " ")
+	return route
+}
 
 // Routes returns the registered routes in registration order.
 func (r *Router) Routes() []Route { return slices.Clone(r.routes) }

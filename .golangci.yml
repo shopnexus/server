@@ -159,6 +159,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/chat/handler
@@ -241,6 +243,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/account/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
@@ -327,6 +331,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/chat/handler
@@ -410,6 +416,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/chat/handler
@@ -435,6 +443,93 @@ linters:
             - pkg: github.com/shopnexus/server/internal/trust/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/agent/mcp
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/catalog/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/chat/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/deal/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/discovery/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/notification/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/shipping/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/support/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/trust/worker
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/erasure/service
+              desc: no module calls erasure; it calls account and deal.
+            - pkg: github.com/shopnexus/server/internal/notification/service
+              desc: only screen calls notification; it hears the others through events.
+            - pkg: github.com/shopnexus/server/internal/screen/service
+              desc: no module calls screen; it reads the others.
+        module beacon:
+          files:
+            - "**/internal/beacon/**"
+            - "!$test"
+          deny:
+            - pkg: github.com/shopnexus/server/internal/account/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/agent/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/assist/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/catalog/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/chat/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/console/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/deal/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/discovery/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/media/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/notification/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/shipping/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/support/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/trust/repository
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/account/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/agent/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/catalog/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/chat/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/console/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/deal/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/discovery/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/erasure/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/media/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/notification/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/screen/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/shipping/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/support/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/trust/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/agent/mcp
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/assist/worker
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/worker
               desc: another module is reached through its service.
@@ -492,6 +587,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/chat/handler
               desc: another module is reached through its service.
@@ -574,6 +671,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/console/handler
@@ -654,6 +753,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
@@ -738,6 +839,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/chat/handler
@@ -818,6 +921,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
@@ -902,6 +1007,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/chat/handler
@@ -982,6 +1089,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
@@ -1066,6 +1175,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/chat/handler
@@ -1147,6 +1258,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/chat/handler
@@ -1225,6 +1338,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
@@ -1307,6 +1422,8 @@ linters:
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
               desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
+              desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/chat/handler
@@ -1387,6 +1504,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: another module is reached through its service.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: another module is reached through its service.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: another module is reached through its service.
@@ -1472,6 +1591,8 @@ linters:
               desc: domain imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/assist/service
               desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server/internal/beacon/service
+              desc: domain imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/catalog/service
               desc: domain imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/chat/service
@@ -1501,6 +1622,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: domain imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: domain imports no layer above it.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: domain imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: domain imports no layer above it.
@@ -1558,6 +1681,8 @@ linters:
               desc: repository imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/assist/service
               desc: repository imports no layer above it.
+            - pkg: github.com/shopnexus/server/internal/beacon/service
+              desc: repository imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/catalog/service
               desc: repository imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/chat/service
@@ -1587,6 +1712,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: repository imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: repository imports no layer above it.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: repository imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: repository imports no layer above it.
@@ -1641,6 +1768,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: service imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: service imports no layer above it.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: service imports no layer above it.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: service imports no layer above it.
@@ -1770,6 +1899,8 @@ linters:
               desc: mcp imports no handler or worker.
             - pkg: github.com/shopnexus/server/internal/assist/handler
               desc: mcp imports no handler or worker.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
+              desc: mcp imports no handler or worker.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: mcp imports no handler or worker.
             - pkg: github.com/shopnexus/server/internal/chat/handler
@@ -1848,6 +1979,8 @@ linters:
             - pkg: github.com/shopnexus/server/internal/agent/handler
               desc: worker reaches data through service, as a handler does.
             - pkg: github.com/shopnexus/server/internal/assist/handler
+              desc: worker reaches data through service, as a handler does.
+            - pkg: github.com/shopnexus/server/internal/beacon/handler
               desc: worker reaches data through service, as a handler does.
             - pkg: github.com/shopnexus/server/internal/catalog/handler
               desc: worker reaches data through service, as a handler does.

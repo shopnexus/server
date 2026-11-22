@@ -148,8 +148,12 @@ CategoryCount:
 SearchView:
   type: object
   additionalProperties: false
-  required: [items]
+  required: [search_id, items]
   properties:
+    search_id:
+      type: string
+      format: uuid
+      description: Names this response; the client sends it back with the search events of POST /v1/client-events.
     items:
       type: array
       items:
