@@ -158,7 +158,7 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 			// completion asks the buyer for a review.
 			t = TypeCompleted
 			if m.By == "system" {
-				p.Seller = f.SellerName
+				p.Seller = named(f.SellerName)
 				// The seller hears that the buyer has it, as from a confirmation.
 				sp := p
 				sp.Actor, sp.Seller = f.BuyerName, ""
@@ -203,7 +203,7 @@ func ListingNotice(seller, listing uuid.UUID, title string, live bool, at time.T
 func FollowedListing(follower, seller uuid.UUID, sellerName string, listing uuid.UUID, title string, at time.Time) Notice {
 	return Notice{
 		Recipient: follower, Type: TypeFollowedListing, CollapseKey: "seller:" + seller.String(), At: at,
-		Params: Params{ListingID: listing, SellerID: seller, Seller: sellerName, Title: title},
+		Params: Params{ListingID: listing, SellerID: seller, Seller: named(sellerName), Title: title},
 	}
 }
 
@@ -400,9 +400,20 @@ var carrierLabels = map[string]string{
 // vietnam is the time zone dates are written in.
 var vietnam = time.FixedZone("ICT", 7*60*60)
 
+// unnamed stands for a person who has not set a display name, as in the apps.
+const unnamed = "Người dùng"
+
+func named(name string) string {
+	if name == "" {
+		return unnamed
+	}
+	return name
+}
+
 // Text writes a notice in Vietnamese; an unknown type has no text.
 func Text(t Type, p Params) string {
 	if d, ok := types[t]; ok {
+		p.Actor = named(p.Actor)
 		return d.text(p)
 	}
 	return ""
@@ -464,6 +475,7 @@ func SupportBody(text string, photos int) string {
 // ChatBody is a chat push's body: the sender and the first 100 characters
 // of the text, or the photos they sent.
 func ChatBody(sender, text string, photos int) string {
+	sender = named(sender)
 	if text != "" {
 		if r := []rune(text); len(r) > chatRunes {
 			text = string(r[:chatRunes])

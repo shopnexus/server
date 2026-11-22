@@ -198,6 +198,16 @@ func TestText(t *testing.T) {
 	if got := domain.ChatBody("Hoàng Nam", "Còn không bạn?", 0); got != "Hoàng Nam: Còn không bạn?" {
 		t.Errorf("chat: %q", got)
 	}
+	// A person without a display name reads as the apps show them.
+	if got := domain.Text(domain.TypeCodRequested, domain.Params{Title: "Xe đạp Asama"}); got != "Người dùng yêu cầu COD Xe đạp Asama" {
+		t.Errorf("unnamed actor: %q", got)
+	}
+	if got := domain.ChatBody("", "Còn không bạn?", 0); got != "Người dùng: Còn không bạn?" {
+		t.Errorf("unnamed chat: %q", got)
+	}
+	if got := domain.FollowedListing(buyer, seller, "", uuid.NewV7(), "Xe đạp Asama", at); domain.Text(got.Type, got.Params) != "Người dùng vừa đăng tin mới: Xe đạp Asama" {
+		t.Errorf("unnamed seller: %q", domain.Text(got.Type, got.Params))
+	}
 	if got := domain.ChatBody("Hoàng Nam", strings.Repeat("ạ", 150), 0); got != "Hoàng Nam: "+strings.Repeat("ạ", 100) {
 		t.Errorf("a long text: %q", got)
 	}
