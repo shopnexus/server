@@ -9,6 +9,7 @@ import (
 
 	"github.com/shopnexus/server/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/deal/domain"
@@ -230,6 +231,42 @@ func TestSuspendedCallerTakesBackOnly(t *testing.T) {
 	if _, err := e.deals.Withdraw(ctx, buyer, v.ID); err != nil {
 		t.Fatalf("withdraw: %v", err)
 	}
+}
+
+// While the seller is away, the buyer's offers and accepts are refused;
+// the seller's moves and a decline go on, and clearing away mode lifts it.
+func TestSellerAwayRefusesTheBuyersBindingMoves(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer, other := e.person(t), e.person(t), e.person(t)
+	listing := catalogtest.Listing(t, e.db, seller)
+	v, ov := e.open(t, buyer, listing), e.open(t, other, listing)
+	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
+	must(t)(e.deals.Offer(ctx, other, ov.ID, 1_000_000))
+	accounttest.Away(t, e.accounts, seller)
+
+	must(t)(e.deals.Offer(ctx, seller, v.ID, 1_300_000))
+	for name, move := range map[string]func() (service.DealView, error){
+		"accept the counter":      func() (service.DealView, error) { return e.deals.Accept(ctx, buyer, v.ID, 1_300_000) },
+		"accept the listed price": func() (service.DealView, error) { return e.deals.Accept(ctx, buyer, v.ID, 1_500_000) },
+		"offer":                   func() (service.DealView, error) { return e.deals.Offer(ctx, buyer, v.ID, 1_100_000) },
+	} {
+		if _, err := move(); !errors.Is(err, domain.ErrSellerAway) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if d, err := e.deals.Decline(ctx, buyer, v.ID); err != nil || d.OpenPrice != nil {
+		t.Fatalf("decline: %+v %v", d, err)
+	}
+	if d, err := e.deals.Accept(ctx, seller, ov.ID, 1_000_000); err != nil || d.Status != domain.StatusAgreed {
+		t.Fatalf("the seller accepts: %+v %v", d, err)
+	}
+
+	if _, err := e.accounts.Update(ctx, seller, accountsvc.UpdateInput{ClearAway: true}); err != nil {
+		t.Fatal(err)
+	}
+	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_100_000))
 }
 
 // UC-DEAL-02 E8 · NFR-CONC-01.

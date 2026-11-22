@@ -11,7 +11,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/events"
 )
 
-// Update changes what in names. A new avatar is attached to the account
+// Update changes what in names, away mode included. A new avatar is attached to the account
 // and processed into a square by media before the save, so the reply
 // carries its URL; a retry with the same upload gets the same square. It is
 // a write, so a suspended account gets ErrSuspended even while its access
@@ -27,6 +27,15 @@ func (s *Account) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Acc
 	}
 	if err = a.Edit(in.DisplayName, in.Bio, now); err != nil {
 		return AccountView{}, err
+	}
+	switch {
+	case in.ClearAway:
+		a.ClearAway(now)
+	case in.AwayUntil != nil:
+		if err = a.SetAway(*in.AwayUntil, now); err != nil {
+			return AccountView{}, err
+		}
+	default: // away mode stays as it is
 	}
 	switch {
 	case in.RemoveAvatar:

@@ -1390,6 +1390,13 @@ listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server-deal-design
   carries `offer_range`, the amounts the viewer's next offer may take, so
   the rule lives only in the server. `accept` carries the price the person
   saw; another price is `price_changed`.
+- While the seller is in away mode (see Account profile and addresses),
+  the buyer's `offer` and `accept` and the COD request are 409
+  `seller_away`: each would bind the seller. The seller's counter and
+  accept, `decline`, `withdraw`, `cancel`, chat and every step of an order
+  already placed go on. `load` reads it through `accountsvc.Service.Away`
+  after the suspension check; `DealRequestCod` reads it in the buyer's
+  step, so a repeated key answers as the first request did.
 - `offer` and `accept` need an active listing and refuse a suspended
   account. `decline`, `withdraw` and `cancel` take a price back and work in
   any state of the listing and for a suspended account.
@@ -1803,6 +1810,18 @@ Decided 2026-10-27 (spec:
   characters, public, no content filter) and `avatar_upload_id` (`null`
   removes the avatar). It writes `account.updated`. A text rule broken is
   `invalid_account` with a field per rule.
+- Away mode (tạm nghỉ, decided 2026-11-23): `PATCH /v1/accounts/me`
+  takes `away_until`, a time after now and at most 30 days ahead
+  (`invalid_account` with field `away_until` otherwise), or `null` to end
+  it. It rides on the profile PATCH rather than an endpoint of its own,
+  since it is one nullable field of the account, set the way the avatar
+  is. `accounts.away_until` (migration 0073) keeps the end; a past end
+  reads as not away, so nothing clears it. `Account`, `MyAccount`, the
+  listing view's `SellerSummary`, the seller view's `SellerProfile` and
+  chat's `Person` (the chat view, the inbox and every other view that
+  shows a person that way) carry `away_until` only while it is in force.
+  `Person` takes it from the accounts its view already reads in one
+  query. Listings stay in search.
 - The address book holds up to 10 addresses per account (name, a
   Vietnamese mobile, street, commune), one of them the default: the first
   address becomes it, and deleting it makes the newest remaining one the

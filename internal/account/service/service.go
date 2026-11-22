@@ -35,14 +35,17 @@ type Service interface {
 	// GetMany reads the accounts among ids, keyed by ID; an unknown ID is
 	// left out.
 	GetMany(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]AccountView, error)
-	// Update changes the display name, bio and avatar of an account that
-	// may write.
+	// Update changes the display name, bio, avatar and away mode of an
+	// account that may write.
 	Update(ctx context.Context, id uuid.UUID, in UpdateInput) (AccountView, error)
 	// Status is the account's status in force now: active, suspended (a
 	// suspension that has not lapsed) or deleted. A module that refuses a
 	// write answers status.Refusal(); a Restate step returns the status, so
 	// the flow can return the refusal as data.
 	Status(ctx context.Context, id uuid.UUID) (domain.Status, error)
+	// Away reports whether the account is in away mode now; deal refuses a
+	// buyer's offer, accept or COD request on its listings then.
+	Away(ctx context.Context, id uuid.UUID) (bool, error)
 	// Erase deletes the account: the row stays without a name, bio or
 	// avatar, its credentials, addresses, blocks and follows go, its
 	// sessions are revoked and account.deleted is written. A suspension in

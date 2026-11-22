@@ -23,7 +23,7 @@ type CodInput struct {
 }
 
 // buyerFacts is what the buyer's step journals: a copy of their address
-// as the recipient, or account's refusal.
+// as the recipient, or account's refusal, or the seller's away mode.
 type buyerFacts struct {
 	Recipient domain.Recipient `json:"recipient"`
 	Refused   *apperr.Error    `json:"refused,omitempty"`
@@ -54,6 +54,16 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 		}
 		if r := status.Refusal(); r != nil {
 			return buyerFacts{Refused: r}, nil
+		}
+		// A new order waits on the seller, who must not be away.
+		if m.By == domain.Buyer {
+			away, awayErr := s.Deals.accounts.Away(rc, m.Deal.SellerID)
+			if awayErr != nil {
+				return buyerFacts{}, fmt.Errorf("read the seller's away mode: %w", awayErr)
+			}
+			if away {
+				return buyerFacts{Refused: domain.ErrSellerAway}, nil
+			}
 		}
 		a, stepErr := s.Deals.accounts.Address(rc, in.Caller, in.AddressID)
 		if stepErr != nil {

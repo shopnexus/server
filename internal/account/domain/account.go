@@ -32,6 +32,9 @@ var ShopNexusID = uuid.MustParse("0193e000-0000-7000-8000-000000000001")
 // signing out everywhere and deleting the account.
 const RecentAuth = 15 * time.Minute
 
+// MaxAway is how far ahead a person may set away mode.
+const MaxAway = 30 * 24 * time.Hour
+
 const (
 	maxNameRunes = 50
 	maxBioRunes  = 200
@@ -55,6 +58,8 @@ type Account struct {
 	lastActiveAt *time.Time
 	// deletedAt is when the person deleted the account; nil while it lives.
 	deletedAt *time.Time
+	// awayUntil ends away mode; nil when not set. A past time is not away.
+	awayUntil *time.Time
 }
 
 // New builds an active account with the caller's id. The display name may
@@ -70,12 +75,12 @@ func New(id uuid.UUID, displayName string, now time.Time) (Account, error) {
 
 // RestoreAccount rebuilds a stored account. Stores only.
 func RestoreAccount(id uuid.UUID, displayName, bio, avatarKey string, status Status, suspendedUntil *time.Time,
-	suspendReason string, writeID uuid.UUID, createdAt, updatedAt time.Time, lastActiveAt, deletedAt *time.Time,
+	suspendReason string, writeID uuid.UUID, createdAt, updatedAt time.Time, lastActiveAt, deletedAt, awayUntil *time.Time,
 ) Account {
 	return Account{
 		id: id, displayName: displayName, bio: bio, avatarKey: avatarKey, status: status,
 		suspendedUntil: suspendedUntil, suspendReason: suspendReason, writeID: writeID, createdAt: createdAt, updatedAt: updatedAt,
-		lastActiveAt: lastActiveAt, deletedAt: deletedAt,
+		lastActiveAt: lastActiveAt, deletedAt: deletedAt, awayUntil: awayUntil,
 	}
 }
 
@@ -90,6 +95,9 @@ func (a *Account) UpdatedAt() time.Time       { return a.updatedAt }
 func (a *Account) LastActiveAt() *time.Time   { return a.lastActiveAt }
 func (a *Account) WriteID() uuid.UUID         { return a.writeID }
 func (a *Account) DeletedAt() *time.Time      { return a.deletedAt }
+
+// StoredAwayUntil is away mode's end as stored, past or not. Stores only.
+func (a *Account) StoredAwayUntil() *time.Time { return a.awayUntil }
 
 // StoredStatus is the status as stored, which Status may read as active once
 // a suspension has lapsed. Stores only.
@@ -168,6 +176,33 @@ func (a *Account) SetAvatar(key string, now time.Time) {
 	a.avatarKey, a.updatedAt = key, now
 }
 
+// SetAway turns away mode on until until, which must lie after now and at
+// most MaxAway ahead.
+func (a *Account) SetAway(until, now time.Time) error {
+	if !until.After(now) {
+		return ErrInvalidAccount.WithField("away_until", "must be in the future")
+	}
+	if until.Sub(now) > MaxAway {
+		return ErrInvalidAccount.WithField("away_until", "at most 30 days ahead")
+	}
+	a.awayUntil, a.updatedAt = &until, now
+	return nil
+}
+
+// ClearAway turns away mode off.
+func (a *Account) ClearAway(now time.Time) { a.awayUntil, a.updatedAt = nil, now }
+
+// AwayUntil is when away mode ends, or nil when it is not in force at now.
+func (a *Account) AwayUntil(now time.Time) *time.Time {
+	if a.awayUntil == nil || !now.Before(*a.awayUntil) {
+		return nil
+	}
+	return a.awayUntil
+}
+
+// Away reports whether away mode is in force at now.
+func (a *Account) Away(now time.Time) bool { return a.AwayUntil(now) != nil }
+
 // Suspend stops the account from writing, until the given time or, with a
 // nil until, until Unsuspend.
 func (a *Account) Suspend(reason string, until *time.Time, now time.Time) error {
@@ -207,7 +242,7 @@ func (a *Account) Delete(now time.Time) (bool, error) {
 		return false, ErrSuspended
 	}
 	a.status, a.deletedAt, a.updatedAt = StatusDeleted, &now, now
-	a.displayName, a.bio, a.avatarKey = "", "", ""
+	a.displayName, a.bio, a.avatarKey, a.awayUntil = "", "", "", nil
 	a.suspendReason, a.suspendedUntil = "", nil
 	return true, nil
 }

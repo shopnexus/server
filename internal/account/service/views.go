@@ -18,6 +18,8 @@ type AccountView struct {
 	AvatarURL   string        `json:"avatar_url,omitempty"`
 	Status      domain.Status `json:"status"`
 	CreatedAt   time.Time     `json:"created_at"`
+	// AwayUntil is set only while away mode is in force.
+	AwayUntil *time.Time `json:"away_until,omitempty"`
 	// LastActiveAt is not in the Account schema; views that show whether a
 	// person is around copy it.
 	LastActiveAt *time.Time `json:"-"`
@@ -25,7 +27,10 @@ type AccountView struct {
 
 // view is a's AccountView, the avatar's URL built from its key.
 func (s *Account) view(a domain.Account, now time.Time) AccountView {
-	v := AccountView{ID: a.ID(), DisplayName: a.DisplayName(), Bio: a.Bio(), Status: a.Status(now), CreatedAt: a.CreatedAt(), LastActiveAt: a.LastActiveAt()}
+	v := AccountView{
+		ID: a.ID(), DisplayName: a.DisplayName(), Bio: a.Bio(), Status: a.Status(now), CreatedAt: a.CreatedAt(),
+		AwayUntil: a.AwayUntil(now), LastActiveAt: a.LastActiveAt(),
+	}
 	if a.AvatarKey() != "" {
 		v.AvatarURL = s.media.URL(a.AvatarKey())
 	}
@@ -40,6 +45,9 @@ type UpdateInput struct {
 	Avatar *uuid.UUID
 	// RemoveAvatar takes the avatar away; Avatar is then nil.
 	RemoveAvatar bool
+	// AwayUntil turns away mode on until then; ClearAway turns it off.
+	AwayUntil *time.Time
+	ClearAway bool
 }
 
 // ConsoleAccount is an account as console members see it: the ConsoleAccount

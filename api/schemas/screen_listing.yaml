@@ -83,6 +83,13 @@ SellerSummary:
         verified. The number itself is never sent.
     reply_time:
       $ref: "#/ReplyTime"
+    away_until:
+      type: string
+      format: date-time
+      description: |
+        When the seller's away mode (tạm nghỉ) ends; absent when they are
+        not away. Until then an offer, an accept or a COD request on their
+        listings answers 409 seller_away.
 ListingViewer:
   type: object
   additionalProperties: false
@@ -167,6 +174,13 @@ SellerProfile:
         When the person last had the app open, to the 30 seconds; absent
         before the first time. The app shows "Đang hoạt động" under 5
         minutes, otherwise how long ago.
+    away_until:
+      type: string
+      format: date-time
+      description: |
+        When the seller's away mode (tạm nghỉ) ends; absent when they are
+        not away. Until then an offer, an accept or a COD request on their
+        listings answers 409 seller_away.
 ReplyTime:
   type: string
   enum: [minutes, hour, hours, day]

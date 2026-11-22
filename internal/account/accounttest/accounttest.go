@@ -64,6 +64,15 @@ func Suspend(t *testing.T, accounts service.Service, id uuid.UUID) {
 	}
 }
 
+// Away puts account id in away mode for a day.
+func Away(t *testing.T, accounts service.Service, id uuid.UUID) {
+	t.Helper()
+	until := time.Now().Add(24 * time.Hour)
+	if _, err := accounts.Update(context.Background(), id, service.UpdateInput{AwayUntil: &until}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func account(t *testing.T) domain.Account {
 	t.Helper()
 	a, err := domain.New(uuid.NewV7(), "Linh", time.Now())

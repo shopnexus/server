@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/account/service"
@@ -10,23 +11,24 @@ import (
 )
 
 type updateRequest struct {
-	DisplayName    *string    `json:"display_name"`
-	Bio            *string    `json:"bio"`
-	AvatarUploadID nullableID `json:"avatar_upload_id"`
+	DisplayName    *string             `json:"display_name"`
+	Bio            *string             `json:"bio"`
+	AvatarUploadID nullable[uuid.UUID] `json:"avatar_upload_id"`
+	AwayUntil      nullable[time.Time] `json:"away_until"`
 }
 
-// nullableID is a body field that may be left out, null or a UUID.
-type nullableID struct {
-	ID   *uuid.UUID
-	Null bool
+// nullable is a body field that may be left out, null or a value.
+type nullable[T any] struct {
+	Value *T
+	Null  bool
 }
 
-func (n *nullableID) UnmarshalJSON(b []byte) error {
+func (n *nullable[T]) UnmarshalJSON(b []byte) error {
 	if string(b) == "null" {
 		n.Null = true
 		return nil
 	}
-	return json.Unmarshal(b, &n.ID)
+	return json.Unmarshal(b, &n.Value)
 }
 
 // Update serves PATCH /v1/accounts/me.
@@ -41,7 +43,8 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := h.svc.Update(r.Context(), p.AccountID, service.UpdateInput{
-		DisplayName: in.DisplayName, Bio: in.Bio, Avatar: in.AvatarUploadID.ID, RemoveAvatar: in.AvatarUploadID.Null,
+		DisplayName: in.DisplayName, Bio: in.Bio, Avatar: in.AvatarUploadID.Value, RemoveAvatar: in.AvatarUploadID.Null,
+		AwayUntil: in.AwayUntil.Value, ClearAway: in.AwayUntil.Null,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

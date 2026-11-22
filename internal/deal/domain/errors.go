@@ -33,4 +33,7 @@ var (
 	// order ships on.
 	errFailedParcel = ErrInvalidShipment.WithField("tracking_code", "the carrier reports this parcel failed")
 	ErrCodLimit     = apperr.New(apperr.KindConflict, "cod_limit_reached", "at most 3 open COD orders")
+	// ErrSellerAway refuses a buyer's offer, accept or COD request while
+	// the seller is in away mode.
+	ErrSellerAway = apperr.New(apperr.KindConflict, "seller_away", "the seller is away; try again after they are back")
 )

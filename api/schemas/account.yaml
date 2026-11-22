@@ -23,6 +23,13 @@ Account:
     created_at:
       type: string
       format: date-time
+    away_until:
+      type: string
+      format: date-time
+      description: |
+        When away mode (tạm nghỉ) ends; absent when the person is not away.
+        Buyers cannot offer, accept or ask for COD on their listings before
+        then.
 MyAccount:
   type: object
   additionalProperties: false
@@ -48,6 +55,13 @@ MyAccount:
     created_at:
       type: string
       format: date-time
+    away_until:
+      type: string
+      format: date-time
+      description: |
+        When away mode (tạm nghỉ) ends; absent when the person is not away.
+        Buyers cannot offer, accept or ask for COD on their listings before
+        then.
     identities:
       type: array
       minItems: 1
@@ -80,8 +94,9 @@ AccountUpdate:
   additionalProperties: false
   minProperties: 1
   description: |
-    The fields to change; at least one. The text rules are business rules:
-    breaking one answers 422 invalid_account with an entry per field.
+    The fields to change; at least one. The text and time rules are
+    business rules: breaking one answers 422 invalid_account with an entry
+    per field.
   properties:
     display_name:
       type: string
@@ -95,6 +110,13 @@ AccountUpdate:
       description: |
         An upload of the caller's, which becomes the avatar once processed
         into a square; null removes the avatar.
+    away_until:
+      type: [string, "null"]
+      format: date-time
+      description: |
+        Turns away mode (tạm nghỉ) on until this time, which must be in the
+        future and at most 30 days ahead (422 invalid_account, field
+        away_until); null turns it off. Away mode ends by itself then.
 BlockCreate:
   type: object
   additionalProperties: false

@@ -18,9 +18,13 @@ me:
         $ref: "../responses/common.yaml#/NotFound"
   patch:
     operationId: updateMyAccount
-    summary: Change the display name, the bio or the avatar.
+    summary: Change the display name, the bio, the avatar or away mode.
     description: |
       A new avatar is processed before the reply, which carries its URL.
+      away_until sets or clears away mode (tạm nghỉ): until then, buyers
+      cannot make an offer, accept a price or ask for COD on the caller's
+      listings (409 seller_away), while chat, the caller's own moves and
+      orders already placed go on.
     tags: [account]
     security:
       - bearerAuth: []
@@ -48,7 +52,7 @@ me:
       "409":
         $ref: "../responses/common.yaml#/Conflict"
       "422":
-        description: "The name or the bio breaks a rule (invalid_account, with fields), or the avatar upload is not the caller's or not a photo media can process (invalid_upload)."
+        description: "The name, the bio or away_until breaks a rule (invalid_account, with fields), or the avatar upload is not the caller's or not a photo media can process (invalid_upload)."
         content:
           application/json:
             schema:

@@ -75,6 +75,13 @@ Person:
     official:
       type: boolean
       description: ShopNexus itself, the other side of every support chat.
+    away_until:
+      type: string
+      format: date-time
+      description: |
+        When the person's away mode (tạm nghỉ) ends; absent when they are
+        not away. Until then a buyer's offer, accept or COD request on
+        their listings answers 409 seller_away.
 MessagePhoto:
   type: object
   additionalProperties: false

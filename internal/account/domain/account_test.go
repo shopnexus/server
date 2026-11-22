@@ -215,3 +215,60 @@ func TestStatusRefusal(t *testing.T) {
 		t.Fatal("deleted")
 	}
 }
+
+// Away mode holds from now until its end, then lapses by itself.
+func TestAwayLapses(t *testing.T) {
+	t.Parallel()
+	a, _ := domain.New(uuid.NewV7(), "Linh", now)
+	if a.Away(now) || a.AwayUntil(now) != nil {
+		t.Fatal("a new account is away")
+	}
+	until := now.Add(48 * time.Hour)
+	later := now.Add(time.Minute)
+	if err := a.SetAway(until, later); err != nil {
+		t.Fatal(err)
+	}
+	if !a.Away(later) || !a.AwayUntil(later).Equal(until) || !a.UpdatedAt().Equal(later) {
+		t.Fatalf("%v %v", a.AwayUntil(later), a.UpdatedAt())
+	}
+	if a.Away(until) || a.AwayUntil(until) != nil || a.StoredAwayUntil() == nil {
+		t.Fatal("away at its end")
+	}
+	a.ClearAway(later)
+	if a.Away(later) || a.StoredAwayUntil() != nil {
+		t.Fatal("still away after ClearAway")
+	}
+}
+
+// The end lies after now and at most 30 days ahead.
+func TestSetAwayRefusesAnEndOutsideTheWindow(t *testing.T) {
+	t.Parallel()
+	a, _ := domain.New(uuid.NewV7(), "Linh", now)
+	for name, until := range map[string]time.Time{
+		"now":     now,
+		"past":    now.Add(-time.Hour),
+		"too far": now.Add(domain.MaxAway + time.Second),
+	} {
+		err := a.SetAway(until, now)
+		if e, ok := errors.AsType[*apperr.Error](err); !ok || !errors.Is(err, domain.ErrInvalidAccount) || e.Fields["away_until"] == "" {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if a.StoredAwayUntil() != nil {
+		t.Fatal("a refused end was kept")
+	}
+	if err := a.SetAway(now.Add(domain.MaxAway), now); err != nil {
+		t.Fatalf("30 days: %v", err)
+	}
+}
+
+func TestDeleteEndsAway(t *testing.T) {
+	t.Parallel()
+	a, _ := domain.New(uuid.NewV7(), "Linh", now)
+	if err := a.SetAway(now.Add(time.Hour), now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Delete(now); err != nil || a.StoredAwayUntil() != nil {
+		t.Fatalf("%v %v", err, a.StoredAwayUntil())
+	}
+}

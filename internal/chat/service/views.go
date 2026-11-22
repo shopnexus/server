@@ -41,6 +41,8 @@ type PersonView struct {
 	Deleted bool `json:"deleted"`
 	// Official is ShopNexus, the other side of every support chat.
 	Official bool `json:"official,omitempty"`
+	// AwayUntil is set only while the person is in away mode.
+	AwayUntil *time.Time `json:"away_until,omitempty"`
 }
 
 // PhotoView is a photo of a message; the URLs are set once it is processed.
@@ -138,11 +140,12 @@ type SearchResult struct {
 	Messages page.Page[MessageHit]
 }
 
-// PersonFromAccount returns an account's public fields and its deleted and official flags.
+// PersonFromAccount returns an account's public fields, away mode included,
+// and its deleted and official flags.
 func PersonFromAccount(id uuid.UUID, a accountsvc.AccountView) PersonView {
 	return PersonView{
 		ID: id, DisplayName: a.DisplayName, AvatarURL: a.AvatarURL, LastActiveAt: a.LastActiveAt,
-		Deleted: a.Status == accountdomain.StatusDeleted, Official: id == accountdomain.ShopNexusID,
+		Deleted: a.Status == accountdomain.StatusDeleted, Official: id == accountdomain.ShopNexusID, AwayUntil: a.AwayUntil,
 	}
 }
 

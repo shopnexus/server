@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/account/domain"
@@ -48,6 +49,38 @@ func TestUpdateRefusedWhileSuspended(t *testing.T) {
 	s.Save(context.Background(), &a, uuid.NewV7(), nil)
 	if _, err := at(s, nil, now).Update(context.Background(), id, service.UpdateInput{DisplayName: new("Minh")}); !errors.Is(err, domain.ErrSuspended) {
 		t.Fatalf("err %v", err)
+	}
+}
+
+// Away mode is stored, read back while in force, gone once it lapses, and
+// cleared with ClearAway.
+func TestUpdateSetsAndClearsAway(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	s := newStore(t)
+	id := seed(t, s)
+	away := func(at time.Time) bool {
+		t.Helper()
+		v, err := service.New(service.Deps{Accounts: s, Now: func() time.Time { return at }}).Away(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	until := now.Add(72 * time.Hour)
+	v, err := at(s, nil, now).Update(ctx, id, service.UpdateInput{AwayUntil: &until})
+	if err != nil || v.AwayUntil == nil || !v.AwayUntil.Equal(until) || !away(now) {
+		t.Fatalf("%+v %v", v, err)
+	}
+	if v, err = at(s, nil, until).Get(ctx, id); err != nil || v.AwayUntil != nil || away(until) {
+		t.Fatalf("at its end: %+v %v", v, err)
+	}
+	if v, err = at(s, nil, now).Update(ctx, id, service.UpdateInput{ClearAway: true}); err != nil || v.AwayUntil != nil || away(now) {
+		t.Fatalf("cleared: %+v %v", v, err)
+	}
+	far := now.Add(31 * 24 * time.Hour)
+	if _, err = at(s, nil, now).Update(ctx, id, service.UpdateInput{AwayUntil: &far}); !errors.Is(err, domain.ErrInvalidAccount) {
+		t.Fatalf("31 days: %v", err)
 	}
 }
 

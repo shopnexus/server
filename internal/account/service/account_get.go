@@ -58,6 +58,14 @@ func (s *Account) Status(ctx context.Context, id uuid.UUID) (domain.Status, erro
 	return a.Status(s.now()), nil
 }
 
+func (s *Account) Away(ctx context.Context, id uuid.UUID) (bool, error) {
+	a, err := s.load(ctx, id)
+	if err != nil {
+		return false, err
+	}
+	return a.Away(s.now()), nil
+}
+
 // load reads an account; an unknown id is domain.ErrAccountNotFound, which
 // a client of Service sees whatever stores the account.
 func (s *Account) load(ctx context.Context, id uuid.UUID) (domain.Account, error) {

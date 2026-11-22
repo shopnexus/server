@@ -45,6 +45,8 @@ type SellerProfile struct {
 	PhoneVerified bool `json:"phone_verified"`
 	// ReplyTime is "" when the seller has too few answers to tell.
 	ReplyTime chatdomain.ReplyTime `json:"reply_time,omitempty"`
+	// AwayUntil is set only while the seller is in away mode.
+	AwayUntil *time.Time `json:"away_until,omitempty"`
 }
 
 // SellerViewer is the SellerViewer schema in
@@ -112,7 +114,7 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, ne
 		Seller: SellerProfile{
 			ID: id, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, Bio: seller.Bio, JoinedAt: seller.CreatedAt, LastActiveAt: seller.LastActiveAt,
 			Rating: rating, BuyerRating: buyerRating, Sold: counts.Sold, OnSale: counts.Public, Followers: followers,
-			PhoneVerified: phoneVerified, ReplyTime: replyTime,
+			PhoneVerified: phoneVerified, ReplyTime: replyTime, AwayUntil: seller.AwayUntil,
 		},
 		Listings: listings, Reviews: reviews, BuyerReviews: buyerReviews,
 	}

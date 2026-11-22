@@ -86,7 +86,8 @@ type moving struct {
 // load reads the caller's deal and its listing for a move, in UC-DEAL-02
 // and UC-DEAL-03. binds refuses a suspended caller: an offer, an accept or
 // a COD request binds them, while a decline, a withdrawal or a cancel takes
-// a price back.
+// a price back. A buyer's binding move also binds the seller, so it is
+// refused while the seller is away.
 func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (moving, error) {
 	d, by, err := s.own(ctx, caller, id)
 	if err != nil {
@@ -100,6 +101,15 @@ func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (mov
 		}
 		if r := status.Refusal(); r != nil {
 			return moving{}, r
+		}
+	}
+	if binds && by == domain.Buyer {
+		away, readErr := s.accounts.Away(ctx, d.SellerID())
+		if readErr != nil {
+			return moving{}, fmt.Errorf("read the seller's away mode: %w", readErr)
+		}
+		if away {
+			return moving{}, domain.ErrSellerAway
 		}
 	}
 	l, err := s.listing(ctx, d.ListingID())

@@ -44,7 +44,7 @@ func (s *Support) consoleTickets(ctx context.Context, ts []repository.Ticket) ([
 			return nil, viewErr
 		}
 		c := ConsoleTicket{
-			Ticket: v, Person: person(ts[i].AccountID, accounts[ts[i].AccountID]), PersonContact: contacts[ts[i].AccountID],
+			Ticket: v, Person: chatsvc.PersonFromAccount(ts[i].AccountID, accounts[ts[i].AccountID]), PersonContact: contacts[ts[i].AccountID],
 			LastFrom: ts[i].LastFrom, LastMessageAt: ts[i].LastMessageAt,
 		}
 		if last := threads[ts[i].ConversationID].Last; last != nil {
@@ -95,7 +95,7 @@ func (s *Support) Detail(ctx context.Context, id uuid.UUID) (ConsoleTicketDetail
 			}
 			o := &ConsoleTicketOrder{
 				ID: *t.OrderID, Title: shown[0].Ticket.Order.Title, Price: f.Price, Status: string(f.Status),
-				Seller: person(f.SellerID, sellers[f.SellerID]), ShippedAt: f.ShippedAt,
+				Seller: chatsvc.PersonFromAccount(f.SellerID, sellers[f.SellerID]), ShippedAt: f.ShippedAt,
 			}
 			if sh := f.Shipment; sh != nil {
 				o.Carrier, o.TrackingCode, o.ShipmentStatus, o.DeliveredAt = string(sh.Carrier), sh.TrackingCode, string(sh.Status), sh.DeliveredAt

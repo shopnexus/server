@@ -258,11 +258,3 @@ func (s *Support) view(ctx context.Context, t repository.Ticket) (TicketView, er
 	v.Order = &o
 	return v, nil
 }
-
-// person shows an account as chat shows the other member.
-func person(id uuid.UUID, a accountsvc.AccountView) chatsvc.PersonView {
-	return chatsvc.PersonView{
-		ID: id, DisplayName: a.DisplayName, AvatarURL: a.AvatarURL, LastActiveAt: a.LastActiveAt,
-		Deleted: a.Status == accountdomain.StatusDeleted, Official: id == accountdomain.ShopNexusID,
-	}
-}

@@ -92,7 +92,8 @@ dealOffer:
     summary: Make an offer, or a counter to the buyer's offer.
     description: |
       The buyer offers; the seller counters the buyer's open offer. The
-      amount must lie inside the deal's offer_range.
+      amount must lie inside the deal's offer_range. A buyer's offer is
+      refused while the seller is in away mode.
     tags: [deal]
     security:
       - bearerAuth: []
@@ -133,7 +134,7 @@ dealOffer:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The deal's state or the caller's side does not allow an offer (move_not_allowed), the listing is not on sale (listing_unavailable), or the other side moved first (deal_changed)."
+        description: "The deal's state or the caller's side does not allow an offer (move_not_allowed), the listing is not on sale (listing_unavailable), the buyer offers while the seller is in away mode (seller_away), or the other side moved first (deal_changed)."
         content:
           application/json:
             schema:
@@ -151,7 +152,8 @@ dealAccept:
     summary: Agree the deal at a price.
     description: |
       The side facing an open price accepts it; the buyer may also accept
-      the listed price at any time while negotiating.
+      the listed price at any time while negotiating. The buyer's accept is
+      refused while the seller is in away mode.
     tags: [deal]
     security:
       - bearerAuth: []
@@ -192,7 +194,7 @@ dealAccept:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "Nothing to accept (move_not_allowed), the listing is not on sale (listing_unavailable), the price has changed (price_changed), or the other side moved first (deal_changed)."
+        description: "Nothing to accept (move_not_allowed), the listing is not on sale (listing_unavailable), the buyer accepts while the seller is in away mode (seller_away), the price has changed (price_changed), or the other side moved first (deal_changed)."
         content:
           application/json:
             schema:
@@ -352,7 +354,8 @@ dealCod:
     summary: Ask for cash on delivery on an agreed deal.
     description: |
       The buyer of an agreed deal with no open order, on a listing on sale,
-      with fewer than 3 open orders, to one of the buyer's addresses. The
+      with fewer than 3 open orders, to one of the buyer's addresses, while
+      the seller is not in away mode. The
       order keeps a copy of the address as its recipient. It starts
       pending; either side may cancel it until the seller creates the
       shipment, and it is cancelled with seller_timeout when the seller has
@@ -400,7 +403,7 @@ dealCod:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The deal is not agreed or has an open order, or the caller is the seller (move_not_allowed); the listing is not on sale (listing_unavailable); the saved pickup is absent (pickup_not_configured); the buyer has 3 open orders (cod_limit_reached); or the deal changed meanwhile (deal_changed)."
+        description: "The deal is not agreed or has an open order, or the caller is the seller (move_not_allowed); the listing is not on sale (listing_unavailable); the saved pickup is absent (pickup_not_configured); the seller is in away mode (seller_away); the buyer has 3 open orders (cod_limit_reached); or the deal changed meanwhile (deal_changed)."
         content:
           application/json:
             schema:

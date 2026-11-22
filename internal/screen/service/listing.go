@@ -38,6 +38,8 @@ type SellerSummary struct {
 	PhoneVerified bool `json:"phone_verified"`
 	// ReplyTime is "" when the seller has too few answers to tell.
 	ReplyTime chatdomain.ReplyTime `json:"reply_time,omitempty"`
+	// AwayUntil is set only while the seller is in away mode.
+	AwayUntil *time.Time `json:"away_until,omitempty"`
 }
 
 // ListingViewer is the ListingViewer schema in
@@ -96,7 +98,7 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead)
 	}
 	out := ListingScreen{Listing: l, DistanceKm: distance, Seller: SellerSummary{
 		ID: l.SellerID, DisplayName: seller.DisplayName, AvatarURL: seller.AvatarURL, JoinedAt: seller.CreatedAt,
-		Rating: rating, Sold: counts.Sold, PhoneVerified: phoneVerified, ReplyTime: replyTime,
+		Rating: rating, Sold: counts.Sold, PhoneVerified: phoneVerified, ReplyTime: replyTime, AwayUntil: seller.AwayUntil,
 	}}
 	if viewer == nil || *viewer == l.SellerID {
 		return out, nil

@@ -10,6 +10,7 @@ import (
 
 	"github.com/shopnexus/server/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/deal/domain"
@@ -179,6 +180,31 @@ func TestRequestCodRefusals(t *testing.T) {
 	fourth := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := e.deals.RequestCod(ctx, buyer, fourth.ID, mine, ""); !errors.Is(err, domain.ErrCodLimit) {
 		t.Errorf("fourth order: %v", err)
+	}
+}
+
+// A COD request waits for the seller to come back from away mode; an order
+// placed before goes on.
+func TestRequestCodRefusedWhileTheSellerIsAway(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	address := e.address(t, buyer)
+	placed := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
+	v := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
+	accounttest.Away(t, e.accounts, seller)
+	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, address, ""); !errors.Is(err, domain.ErrSellerAway) {
+		t.Fatalf("cod: %v", err)
+	}
+	if c, err := e.deals.CancelOrder(ctx, buyer, placed.Order.ID, ""); err != nil || c.Order.Status != domain.OrderCancelled {
+		t.Fatalf("cancel the order placed before: %+v %v", c, err)
+	}
+	if _, err := e.accounts.Update(ctx, seller, accountsvc.UpdateInput{ClearAway: true}); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := e.deals.RequestCod(ctx, buyer, v.ID, address, ""); err != nil || r.Order == nil || r.Order.Status != domain.OrderPending {
+		t.Fatalf("cod once back: %+v %v", r, err)
 	}
 }
 
