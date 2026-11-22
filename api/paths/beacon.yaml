@@ -7,7 +7,8 @@ clientEvents:
       script error, a Core Web Vital, how long a request took on the client,
       and which search results were shown and which was opened. The server
       turns them into metrics and log lines and keeps no rows. Anyone may
-      call it, signed in or not.
+      call it, signed in or not, up to 2 batches a second from one address
+      in bursts of 60.
     tags: [beacon]
     security:
       - {}
@@ -23,3 +24,5 @@ clientEvents:
         description: Recorded.
       "400":
         $ref: "../responses/common.yaml#/BadRequest"
+      "429":
+        $ref: "../responses/common.yaml#/TooManyRequests"

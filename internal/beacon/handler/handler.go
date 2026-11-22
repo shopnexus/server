@@ -16,9 +16,9 @@ type Handler struct {
 
 func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: svc, log: log} }
 
-// Register adds POST /v1/client-events, open to anyone.
-func (h *Handler) Register(r *httpx.Router) {
-	r.HandleFunc("POST /v1/client-events", h.SendClientEvents)
+// Register adds POST /v1/client-events, open to anyone, behind limit.
+func (h *Handler) Register(r *httpx.Router, limit func(http.Handler) http.Handler) {
+	r.Handle("POST /v1/client-events", limit(http.HandlerFunc(h.SendClientEvents)))
 }
 
 // SendClientEvents serves POST /v1/client-events. A bot's events are

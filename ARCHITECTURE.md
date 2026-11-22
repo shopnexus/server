@@ -905,6 +905,10 @@ buckets from 5 ms to 10 s (decided 2026-11-23).
 Module `beacon` serves `POST /v1/client-events`, open to anyone: a batch of
 up to 50 events from the website or the Android app. It turns them into
 metrics and log lines and keeps no rows (decided 2026-11-23).
+`httpx.RateLimit` lets one client address send 2 batches a second in
+bursts of 60 and answers the rest 429 `rate_limited`; each process keeps
+its own token buckets in memory. The website's server forwards the
+buyer's address, so its beacons count per buyer.
 
 - `error`, a script error the website did not catch: counter
   `client.errors` by app, and a log line `client error` with the page,

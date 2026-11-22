@@ -25,4 +25,16 @@ func TestClientEvents(t *testing.T) {
 		{"type": "vital", "name": "LCP", "value": 1, "listing_id": uuid.NewV7().String()},
 	}}), 400, "")
 	check(t, "no events", send(map[string]any{"app": "website", "events": []any{}}), 400, "")
+
+	// One address gets a burst of 60 batches; the e2e calls all come from one.
+	one := map[string]any{"app": "android", "events": events[:1]}
+	for i := range 100 {
+		if res := send(one); res.Status == 429 {
+			check(t, "past the burst", res, 429, "rate_limited")
+			return
+		}
+		if i == 99 {
+			t.Fatal("100 batches in a row were not rate limited")
+		}
+	}
 }
