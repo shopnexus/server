@@ -122,6 +122,7 @@ var conditionLabel = map[catalogdomain.Condition]string{
 // from, nil when they gave no position.
 func Compile(u Understanding, raw string, v Vocabulary, origin *catalogdomain.Point, now time.Time, off []string) Compiled {
 	var c Compiled
+	twin := twins(u, v)
 	for _, group := range []struct {
 		signals []Signal
 		sign    float64
@@ -145,7 +146,8 @@ func Compile(u Understanding, raw string, v Vocabulary, origin *catalogdomain.Po
 				}
 				c.Asked = append(c.Asked, term)
 				id := fmt.Sprintf("%s-%d", s.Attr, i)
-				if group.sign > 0 && slices.Contains(off, id) {
+				first, isTwin := twin[id]
+				if group.sign > 0 && (slices.Contains(off, id) || isTwin && slices.Contains(off, first)) {
 					continue
 				}
 				w := group.sign * position[i]
@@ -154,7 +156,7 @@ func Compile(u Understanding, raw string, v Vocabulary, origin *catalogdomain.Po
 					continue
 				}
 				c.Ran = append(c.Ran, fmt.Sprintf("%s w=%+.2f", term, w))
-				if group.sign > 0 {
+				if group.sign > 0 && !isTwin {
 					chip := Chip{ID: id, Kind: s.Attr, Label: label}
 					if s.Attr == AttrCategory {
 						chip.Code = strings.TrimSpace(value)
@@ -171,6 +173,37 @@ func Compile(u Understanding, raw string, v Vocabulary, origin *catalogdomain.Po
 		c.Phrases = append(c.Phrases, catalogdomain.Phrase{Text: strings.TrimSpace(raw), Weight: RawWeight})
 	}
 	return c
+}
+
+// twins maps a boost's chip ID to an earlier boost chip with the same label,
+// as when the model names "iPhone" as a category and as a phrase. Only the
+// first shows, and turning it off drops both.
+func twins(u Understanding, v Vocabulary) map[string]string {
+	first := map[string]string{}
+	out := map[string]string{}
+	for _, s := range u.Boosts {
+		for i, value := range s.Values[:min(len(s.Values), len(position))] {
+			value = strings.TrimSpace(value)
+			label := value
+			switch s.Attr {
+			case AttrPhrase:
+			case AttrCategory:
+				label = v.Categories[value]
+			default:
+				continue
+			}
+			if label == "" {
+				continue
+			}
+			id, key := fmt.Sprintf("%s-%d", s.Attr, i), QueryKey(label)
+			if f, ok := first[key]; ok {
+				out[id] = f
+			} else {
+				first[key] = id
+			}
+		}
+	}
+	return out
 }
 
 // PlaceNames are the place values of u that Compile looks up in

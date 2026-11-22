@@ -78,15 +78,16 @@ func TestSearchUnderstands(t *testing.T) {
 	e.model.answers["xe dap"] = `{"boosts":[{"attr":"phrase","values":["xe đạp"]},` +
 		`{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
 	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"})
+	// The phrase and the category read "xe đạp" alike, so one chip stands for both.
 	if err != nil || len(v.Items) != 2 || v.Items[0].ID != bike || v.Items[1].ID != lamp ||
-		len(v.Chips) != 2 || v.Chips[1].ID != "category-0" {
+		len(v.Chips) != 1 || v.Chips[0].ID != "phrase-0" {
 		t.Fatalf("%+v %v", v, err)
 	}
 	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "  Xe  DAP "}); err != nil || e.model.count() != 1 {
 		t.Fatalf("the same query again calls the model: %d %v", e.model.count(), err)
 	}
-	v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Off: []string{"category-0"}})
-	if err != nil || e.model.count() != 1 || len(v.Chips) != 1 {
+	v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Off: []string{"phrase-0"}})
+	if err != nil || e.model.count() != 1 || len(v.Chips) != 0 {
 		t.Fatalf("off: %d %+v %v", e.model.count(), v.Chips, err)
 	}
 	e.model.answers["xe dap ha noi"] = `{"boosts":[{"attr":"place","values":[" Hà Nội ","Atlantis"]}],"demotes":[]}`

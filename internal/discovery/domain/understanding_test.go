@@ -144,6 +144,23 @@ func TestCompileDemote(t *testing.T) {
 	}
 }
 
+func TestCompileTwinChips(t *testing.T) {
+	t.Parallel()
+	u := domain.Understanding{Boosts: []domain.Signal{
+		{Attr: domain.AttrCategory, Values: []string{"vehicles.bicycle"}},
+		{Attr: domain.AttrPhrase, Values: []string{"xe ĐẠP"}},
+	}}
+	c := domain.Compile(u, "xe dap", vocab, nil, now, nil)
+	if ids := chipIDs(c); !slices.Equal(ids, []string{"category-0"}) || len(boosts(c, catalogdomain.BoostCategory)) != 1 ||
+		!slices.ContainsFunc(c.Phrases, func(p catalogdomain.Phrase) bool { return p.Text == "xe ĐẠP" }) {
+		t.Fatalf("one chip, both terms: %+v", c)
+	}
+	off := domain.Compile(u, "xe dap", vocab, nil, now, []string{"category-0"})
+	if len(off.Chips) != 0 || len(off.Boosts) != 0 || slices.ContainsFunc(off.Phrases, func(p catalogdomain.Phrase) bool { return p.Text == "xe ĐẠP" }) {
+		t.Fatalf("off drops both: %+v", off)
+	}
+}
+
 func TestCompilePhrases(t *testing.T) {
 	t.Parallel()
 	u := domain.Understanding{Boosts: []domain.Signal{{Attr: domain.AttrPhrase, Values: []string{"xe đạp touring", "xe đạp"}}}}
