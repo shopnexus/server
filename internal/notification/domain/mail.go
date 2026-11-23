@@ -1,38 +1,19 @@
 package domain
 
 import (
-	"embed"
 	"net/url"
-	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/mailview"
 )
 
-//go:embed mail/*.json
-var mailFiles embed.FS
-
-// words is the mail's text in every language, mail/<tag>.json.
-var words = locale.MustLoad(mailFiles, "mail")
-
-// cancelReasons are the reasons whose cancel mail has words of its own; any
-// other names the person who cancelled.
-var cancelReasons = map[string]bool{"shipped_to_another": true, "listing_closed": true, "seller_timeout": true, "pickup_timeout": true}
-
 // Mail is the mail of notice n in language tag: the facts and the one action
 // the recipient needs. Only the types Mailed reports are written here; any
 // other is an empty letter.
 func Mail(n Notice, tag locale.Tag) mailview.Letter {
-	tag = locale.Of(string(tag))
-	p := n.Params
-	say := func(key string, args ...any) string { return words.Say(tag, key, args...) }
-	name := func(s string) string {
-		if s == "" {
-			return say("unnamed")
-		}
-		return s
-	}
+	w := penFor(tag)
+	tag, p, say, name := w.tag, n.Params, w.say, w.name
 	actor := name(p.Actor)
 	l := mailview.Letter{Locale: tag, Art: mailview.ArtVerified, Group: say("group.account"), Why: say("why.account")}
 	order := "/orders"
@@ -93,28 +74,18 @@ func Mail(n Notice, tag locale.Tag) mailview.Letter {
 			l.Lead, l.Rows, l.Note = say("failed.lead.seller"), tracking(), say("failed.note.seller")
 		}
 	case TypeOrderCancelled:
-		lead := say("cancelled.by", actor, p.Title)
-		if cancelReasons[p.Reason] {
-			key := "cancelled." + p.Reason
-			if p.ToSeller && p.Reason == "seller_timeout" {
-				key += ".seller"
-			}
-			lead = say(key, p.Title)
-		}
+		lead := Text(n.Type, p, tag) + "."
 		l.Art, l.Subject, l.Title, l.Lead, l.Action = mailview.ArtSearch, lead, say("cancelled.title"), lead, view
 		if !p.ToSeller {
 			l.Note = say("cancelled.note")
 			l.Action = &mailview.Action{Label: say("cancelled.action"), Path: "/search?q=" + url.QueryEscape(p.Title)}
 		}
 	case TypeSuspended:
-		l.Title = say("suspended.title")
-		if until, err := time.Parse(time.RFC3339, p.Until); err == nil {
-			l.Title = say("suspended.until", locale.Date(tag, until))
-		}
+		l.Title = Text(n.Type, p, tag)
 		l.Art, l.Subject, l.Lead, l.Note = mailview.ArtOffline, l.Title, say("suspended.lead"), say("suspended.note")
 		l.Action = &mailview.Action{Label: say("suspended.action"), Path: "/support"}
 	case TypeUnsuspended:
-		l.Art, l.Title, l.Lead = mailview.ArtPosted, say("unsuspended.title"), say("unsuspended.lead")
+		l.Art, l.Title, l.Lead = mailview.ArtPosted, Text(n.Type, p, tag), say("unsuspended.lead")
 		l.Subject, l.Action = l.Title, &mailview.Action{Label: say("unsuspended.action"), Path: "/"}
 	case TypeOffer, TypeCounter, TypeAgreed, TypeDeclined, TypeAgreementCancelled, TypeOfferVoided, TypeListingLive,
 		TypeListingRejected, TypeFollowedListing, TypeReview, TypeReviewReply, TypeWatchMatched, TypePriceDropped:

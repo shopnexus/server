@@ -30,6 +30,9 @@ func TestMoneyAndDate(t *testing.T) {
 	if got := locale.Money(locale.English, 3_800_000); got != "3,800,000 ₫" {
 		t.Errorf("en %q", got)
 	}
+	if vi, en := locale.Decimal(locale.Vietnamese, 1.25), locale.Decimal(locale.English, 1.25); vi != "1,25" || en != "1.25" {
+		t.Errorf("decimals %q %q", vi, en)
+	}
 	at := time.Date(2026, 11, 29, 20, 0, 0, 0, time.UTC) // 30/11 in Vietnam
 	if vi, en := locale.Date(locale.Vietnamese, at), locale.Date(locale.English, at); vi != "30/11" || en != "Nov 30" {
 		t.Errorf("dates %q %q", vi, en)

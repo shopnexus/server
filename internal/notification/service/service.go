@@ -8,6 +8,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	"github.com/shopnexus/server/internal/notification/domain"
 	"github.com/shopnexus/server/internal/notification/repository"
 	"github.com/shopnexus/server/internal/platform/page"
@@ -15,8 +17,9 @@ import (
 
 // Service is module notification's contract.
 type Service interface {
-	// List reads the account's notices, newest first, and its unread count.
-	List(ctx context.Context, account uuid.UUID, p page.Request) (List, error)
+	// List reads the account's notices, newest first, written in language
+	// tag, and its unread count.
+	List(ctx context.Context, account uuid.UUID, p page.Request, tag locale.Tag) (List, error)
 	Unread(ctx context.Context, account uuid.UUID) (int, error)
 	// Read marks one of the account's notices read; domain.ErrNotFound
 	// otherwise.

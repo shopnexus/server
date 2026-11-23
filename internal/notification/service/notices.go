@@ -7,12 +7,14 @@ import (
 	"strings"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	"github.com/shopnexus/server/internal/notification/domain"
 	"github.com/shopnexus/server/internal/notification/repository"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
-func (s *Notification) List(ctx context.Context, account uuid.UUID, p page.Request) (List, error) {
+func (s *Notification) List(ctx context.Context, account uuid.UUID, p page.Request, tag locale.Tag) (List, error) {
 	rows, err := s.notices.List(ctx, account, p)
 	if err != nil {
 		return List{}, fmt.Errorf("list notices: %w", err)
@@ -25,7 +27,7 @@ func (s *Notification) List(ctx context.Context, account uuid.UUID, p page.Reque
 	for i := range rows {
 		r := &rows[i]
 		items[i] = Item{
-			ID: r.ID, Type: r.Type, Text: domain.Text(r.Type, r.Params), Target: domain.TargetOf(r.Type, r.Params),
+			ID: r.ID, Type: r.Type, Text: domain.Text(r.Type, r.Params, tag), Target: domain.TargetOf(r.Type, r.Params),
 			Unread: !r.Read, At: r.BumpedAt,
 		}
 	}

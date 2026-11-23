@@ -10,6 +10,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	restate "github.com/restatedev/sdk-go"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
@@ -369,9 +371,11 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 	if f.ID == (uuid.UUID{}) {
 		return nil
 	}
-	m := push.Message{
-		Title: "Tin nhắn", Body: domain.ChatBody(f.SenderName, f.Text, f.Photos), Tag: "conversation:" + f.ConversationID.String(),
-		Data: map[string]string{"type": "message", "target_kind": "conversation", "target_id": f.ConversationID.String()},
+	write := func(tag locale.Tag) push.Message {
+		return push.Message{
+			Title: domain.MessageTitle(tag), Body: domain.ChatBody(f.SenderName, f.Text, f.Photos, tag), Tag: "conversation:" + f.ConversationID.String(),
+			Data: map[string]string{"type": "message", "target_kind": "conversation", "target_id": f.ConversationID.String()},
+		}
 	}
 	if f.Kind == chatdomain.KindSupport {
 		// A ticket's chat pushes only to the ticket's owner and opens the
@@ -393,10 +397,14 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 		if ticket == (uuid.UUID{}) {
 			return nil
 		}
-		m.Title, m.Body = "ShopNexus", domain.SupportBody(f.Text, f.Photos)
-		m.Data = map[string]string{"type": "support_message", "target_kind": "ticket", "target_id": ticket.String()}
+		write = func(tag locale.Tag) push.Message {
+			return push.Message{
+				Title: "ShopNexus", Body: domain.SupportBody(f.Text, f.Photos, tag), Tag: "conversation:" + f.ConversationID.String(),
+				Data: map[string]string{"type": "support_message", "target_kind": "ticket", "target_id": ticket.String()},
+			}
+		}
 	}
-	return w.deliver(ctx, f.RecipientID, domain.SwitchMessages, m)
+	return w.deliver(ctx, f.RecipientID, domain.SwitchMessages, write)
 }
 
 // tell writes each notice, then pushes and mails it to its recipient. A
@@ -420,11 +428,13 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 		// the notice is read.
 		tag := "notification:" + id.String()
 		target := domain.TargetOf(n.Type, n.Params)
-		if pushErr := w.deliver(ctx, n.Recipient, domain.SwitchOf(n.Type), push.Message{
-			Title: domain.Title(n.Type), Body: domain.Text(n.Type, n.Params), Tag: tag,
-			Data: map[string]string{
-				"type": string(n.Type), "target_kind": target.Kind, "target_id": target.ID, "notification_id": id.String(),
-			},
+		if pushErr := w.deliver(ctx, n.Recipient, domain.SwitchOf(n.Type), func(lang locale.Tag) push.Message {
+			return push.Message{
+				Title: domain.Title(n.Type, lang), Body: domain.Text(n.Type, n.Params, lang), Tag: tag,
+				Data: map[string]string{
+					"type": string(n.Type), "target_kind": target.Kind, "target_id": target.ID, "notification_id": id.String(),
+				},
+			}
 		}); pushErr != nil {
 			return pushErr
 		}
@@ -473,25 +483,33 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 	return nil
 }
 
-// deliver pushes m to every token of account whose session is still
-// active, one step per token, so a retried send repeats no other. A push
-// the account's settings hold back, by sw or quiet hours, is dropped. The
-// tokens of ended sessions, and those FCM reports dead, are deleted.
-func (w Worker) deliver(ctx restate.Context, account uuid.UUID, sw domain.Switch, m push.Message) error {
-	tokens, err := restate.Run(ctx, func(rc restate.RunContext) ([]service.Token, error) {
+// audience is who a push goes to: the tokens of the account's active
+// sessions, and the language the account reads.
+type audience struct {
+	Tokens []service.Token `json:"tokens"`
+	Locale locale.Tag      `json:"locale"`
+}
+
+// deliver pushes write's message, in the account's language, to every token
+// of account whose session is still active, one step per token, so a
+// retried send repeats no other. A push the account's settings hold back,
+// by sw or quiet hours, is dropped. The tokens of ended sessions, and those
+// FCM reports dead, are deleted.
+func (w Worker) deliver(ctx restate.Context, account uuid.UUID, sw domain.Switch, write func(locale.Tag) push.Message) error {
+	to, err := restate.Run(ctx, func(rc restate.RunContext) (audience, error) {
 		st, stepErr := w.Notices.Settings(rc, account)
 		if stepErr != nil {
-			return nil, fmt.Errorf("read settings: %w", stepErr)
+			return audience{}, fmt.Errorf("read settings: %w", stepErr)
 		}
 		if !st.Pushes(sw, w.Now()) {
-			return nil, nil
+			return audience{}, nil
 		}
 		all, stepErr := w.Notices.Tokens(rc, account)
 		if stepErr != nil {
-			return nil, fmt.Errorf("read tokens: %w", stepErr)
+			return audience{}, fmt.Errorf("read tokens: %w", stepErr)
 		}
 		if len(all) == 0 {
-			return nil, nil
+			return audience{}, nil
 		}
 		sessions := make([]uuid.UUID, len(all))
 		for i, t := range all {
@@ -499,24 +517,32 @@ func (w Worker) deliver(ctx restate.Context, account uuid.UUID, sw domain.Switch
 		}
 		active, stepErr := w.Accounts.ActiveSessions(rc, sessions)
 		if stepErr != nil {
-			return nil, fmt.Errorf("read sessions: %w", stepErr)
+			return audience{}, fmt.Errorf("read sessions: %w", stepErr)
 		}
-		var out []service.Token
+		var out audience
 		for _, t := range all {
 			if active[t.Session] {
-				out = append(out, t)
+				out.Tokens = append(out.Tokens, t)
 				continue
 			}
 			if stepErr = w.Notices.DeleteToken(rc, t.Session); stepErr != nil {
-				return nil, fmt.Errorf("delete an ended session's token: %w", stepErr)
+				return audience{}, fmt.Errorf("delete an ended session's token: %w", stepErr)
 			}
+		}
+		if len(out.Tokens) > 0 {
+			box, readErr := w.Accounts.Mailbox(rc, account)
+			if readErr != nil {
+				return audience{}, fmt.Errorf("read the language: %w", readErr)
+			}
+			out.Locale = box.Locale
 		}
 		return out, nil
 	})
 	if err != nil {
 		return fmt.Errorf("read push tokens: %w", err)
 	}
-	for _, t := range tokens {
+	m := write(to.Locale)
+	for _, t := range to.Tokens {
 		if sendErr := restate.RunVoid(ctx, func(rc restate.RunContext) error {
 			err := w.Push.Send(rc, t.Token, m)
 			switch {

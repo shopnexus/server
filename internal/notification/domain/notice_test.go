@@ -124,7 +124,7 @@ func TestDealFactsOfAnOldJournalEntry(t *testing.T) {
 		"Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9":         got[0],
 		"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ": got[2],
 	} {
-		if text := domain.Text(n.Type, n.Params); text != want {
+		if text := domain.Text(n.Type, n.Params, ""); text != want {
 			t.Errorf("%s: %q", want, text)
 		}
 		if target := domain.TargetOf(n.Type, n.Params); target != (domain.Target{Kind: "deal", ID: deal.String()}) {
@@ -146,8 +146,8 @@ func TestFollowedListing(t *testing.T) {
 	if got := domain.TargetOf(n.Type, n.Params); got.Kind != "listing" || got.ID != listing.String() {
 		t.Fatalf("target %+v", got)
 	}
-	if domain.Title(n.Type) != "Tin đăng" {
-		t.Fatalf("title %q", domain.Title(n.Type))
+	if domain.Title(n.Type, "") != "Tin đăng" {
+		t.Fatalf("title %q", domain.Title(n.Type, ""))
 	}
 }
 
@@ -176,14 +176,14 @@ func TestText(t *testing.T) {
 		"Hoàng Nam trả lời đánh giá của bạn · Xe đạp Asama": domain.ReviewReplied(buyer, "Hoàng Nam", "Xe đạp Asama", order, at),
 		"Hoàng Nam vừa đăng tin mới: Xe đạp Asama":          domain.FollowedListing(buyer, seller, "Hoàng Nam", uuid.NewV7(), "Xe đạp Asama", at),
 	} {
-		if got := domain.Text(n.Type, n.Params); got != want {
+		if got := domain.Text(n.Type, n.Params, ""); got != want {
 			t.Errorf("%s: %q", want, got)
 		}
 	}
 	if got := domain.TargetOf(offer.Type, offer.Params); got.Kind != "deal" || got.ID != offer.Params.DealID.String() {
 		t.Errorf("target: %+v", got)
 	}
-	if got := domain.Title(offer.Type); got != "Trả giá" {
+	if got := domain.Title(offer.Type, ""); got != "Trả giá" {
 		t.Errorf("title: %q", got)
 	}
 	suspended := domain.Suspended(buyer, "", at)
@@ -197,23 +197,23 @@ func TestText(t *testing.T) {
 	if got := domain.TargetOf(domain.TypeReview, domain.Params{SellerID: seller}); got != (domain.Target{Kind: "seller_reviews", ID: seller.String()}) {
 		t.Errorf("old review target: %+v", got)
 	}
-	if got := domain.ChatBody("Hoàng Nam", "Còn không bạn?", 0); got != "Hoàng Nam: Còn không bạn?" {
+	if got := domain.ChatBody("Hoàng Nam", "Còn không bạn?", 0, ""); got != "Hoàng Nam: Còn không bạn?" {
 		t.Errorf("chat: %q", got)
 	}
 	// A person without a display name reads as the apps show them.
-	if got := domain.Text(domain.TypeCodRequested, domain.Params{Title: "Xe đạp Asama"}); got != "Người dùng yêu cầu COD Xe đạp Asama" {
+	if got := domain.Text(domain.TypeCodRequested, domain.Params{Title: "Xe đạp Asama"}, ""); got != "Người dùng yêu cầu COD Xe đạp Asama" {
 		t.Errorf("unnamed actor: %q", got)
 	}
-	if got := domain.ChatBody("", "Còn không bạn?", 0); got != "Người dùng: Còn không bạn?" {
+	if got := domain.ChatBody("", "Còn không bạn?", 0, ""); got != "Người dùng: Còn không bạn?" {
 		t.Errorf("unnamed chat: %q", got)
 	}
-	if got := domain.FollowedListing(buyer, seller, "", uuid.NewV7(), "Xe đạp Asama", at); domain.Text(got.Type, got.Params) != "Người dùng vừa đăng tin mới: Xe đạp Asama" {
-		t.Errorf("unnamed seller: %q", domain.Text(got.Type, got.Params))
+	if got := domain.FollowedListing(buyer, seller, "", uuid.NewV7(), "Xe đạp Asama", at); domain.Text(got.Type, got.Params, "") != "Người dùng vừa đăng tin mới: Xe đạp Asama" {
+		t.Errorf("unnamed seller: %q", domain.Text(got.Type, got.Params, ""))
 	}
-	if got := domain.ChatBody("Hoàng Nam", strings.Repeat("ạ", 150), 0); got != "Hoàng Nam: "+strings.Repeat("ạ", 100) {
+	if got := domain.ChatBody("Hoàng Nam", strings.Repeat("ạ", 150), 0, ""); got != "Hoàng Nam: "+strings.Repeat("ạ", 100) {
 		t.Errorf("a long text: %q", got)
 	}
-	if got := domain.ChatBody("Hoàng Nam", "", 2); got != "Hoàng Nam gửi 2 ảnh" {
+	if got := domain.ChatBody("Hoàng Nam", "", 2, ""); got != "Hoàng Nam gửi 2 ảnh" {
 		t.Errorf("photos: %q", got)
 	}
 }
@@ -222,20 +222,20 @@ func TestWatchAndPriceTexts(t *testing.T) {
 	t.Parallel()
 	watch, listing := uuid.NewV7(), uuid.NewV7()
 	w := domain.WatchMatched(uuid.NewV7(), watch, "xe đạp", 3, time.Now())
-	if got := domain.Text(w.Type, w.Params); got != "Có 3 tin mới cho “xe đạp”" {
+	if got := domain.Text(w.Type, w.Params, ""); got != "Có 3 tin mới cho “xe đạp”" {
 		t.Fatal(got)
 	}
 	if w.CollapseKey != "watch:"+watch.String() || domain.TargetOf(w.Type, w.Params) != (domain.Target{Kind: "search_watch", ID: watch.String()}) {
 		t.Fatalf("%+v", w)
 	}
-	if m := domain.WatchMatched(uuid.NewV7(), watch, "xe đạp", 99, time.Now()); domain.Text(m.Type, m.Params) != "Có 99+ tin mới cho “xe đạp”" {
-		t.Fatal(domain.Text(m.Type, m.Params))
+	if m := domain.WatchMatched(uuid.NewV7(), watch, "xe đạp", 99, time.Now()); domain.Text(m.Type, m.Params, "") != "Có 99+ tin mới cho “xe đạp”" {
+		t.Fatal(domain.Text(m.Type, m.Params, ""))
 	}
 	p := domain.PriceDropped(uuid.NewV7(), listing, "Xe đạp Asama", 1_400_000, 1_500_000, time.Now())
-	if got := domain.Text(p.Type, p.Params); got != "Xe đạp Asama giảm còn 1,4 tr, lúc lưu 1,5 tr" {
+	if got := domain.Text(p.Type, p.Params, ""); got != "Xe đạp Asama giảm còn 1,4 tr, lúc lưu 1,5 tr" {
 		t.Fatal(got)
 	}
-	if p.CollapseKey != "saved:"+listing.String() || domain.TargetOf(p.Type, p.Params).Kind != "listing" || domain.Title(p.Type) != "Đã lưu" {
+	if p.CollapseKey != "saved:"+listing.String() || domain.TargetOf(p.Type, p.Params).Kind != "listing" || domain.Title(p.Type, "") != "Đã lưu" {
 		t.Fatalf("%+v", p)
 	}
 }
@@ -273,7 +273,7 @@ func TestSystemMovesTellTheSellerToo(t *testing.T) {
 			t.Errorf("%s: %+v", name, got)
 			continue
 		}
-		if s, b := domain.Text(got[0].Type, got[0].Params), domain.Text(got[1].Type, got[1].Params); s != c.toSeller || b != c.toBuyer {
+		if s, b := domain.Text(got[0].Type, got[0].Params, ""), domain.Text(got[1].Type, got[1].Params, ""); s != c.toSeller || b != c.toBuyer {
 			t.Errorf("%s: seller %q, buyer %q", name, s, b)
 		}
 	}
@@ -338,6 +338,35 @@ func TestMail(t *testing.T) {
 			if _, err := mailer.Message("a@b.test", "k", l); err != nil {
 				t.Errorf("%s %s: %v", ty, tag, err)
 			}
+		}
+	}
+}
+
+// Every type writes in every language without a broken format, and English
+// reads as English.
+func TestTextInEveryLanguage(t *testing.T) {
+	t.Parallel()
+	p := domain.Params{Title: "Xe đạp", Actor: "Lan", Amount: 1_250_000, SavedPrice: 1_500_000, Carrier: "ghn", Code: "G1", Stars: 5, Query: "xe", Count: 3, Seller: "Nam"}
+	for _, ty := range typeConstants(t) {
+		for _, tag := range locale.Supported {
+			if got := domain.Text(ty, p, tag); got == "" || strings.Contains(got, "%!") || strings.Contains(got, "notice.") {
+				t.Errorf("%s %s: %q", ty, tag, got)
+			}
+			if got := domain.Title(ty, tag); strings.Contains(got, "title.") || strings.Contains(got, "group.") {
+				t.Errorf("%s %s title: %q", ty, tag, got)
+			}
+		}
+	}
+	for got, want := range map[string]string{
+		domain.Text(domain.TypeOffer, p, locale.English):       "Lan offered 1.25M ₫ for Xe đạp",
+		domain.Text(domain.TypeOffer, p, locale.Vietnamese):    "Lan trả 1,25 tr cho Xe đạp",
+		domain.Title(domain.TypeShipped, locale.English):       "Orders",
+		domain.ChatBody("", "", 2, locale.English):             "A ShopNexus user sent 2 photos",
+		domain.MessageTitle(locale.English):                    "Messages",
+		domain.Text(domain.TypeUnsuspended, p, locale.English): "Your account is active again",
+	} {
+		if got != want {
+			t.Errorf("%q, want %q", got, want)
 		}
 	}
 }

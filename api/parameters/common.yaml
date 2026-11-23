@@ -20,10 +20,10 @@ AcceptLanguage:
   required: false
   description: |
     The caller's languages, as browsers and the apps send them. The server
-    writes mail in Vietnamese (vi) or English (en), whichever the header
+    writes in Vietnamese (vi) or English (en), whichever the header
     prefers, and Vietnamese when it names neither. An email code is mailed
-    in the request's language; a sign-in records it as the language of the
-    account's mail.
+    and a page of notices is written in the request's language; a sign-in
+    records it as the language of the account's pushes and mail.
   schema:
     type: string
     example: vi-VN,vi;q=0.9,en;q=0.8

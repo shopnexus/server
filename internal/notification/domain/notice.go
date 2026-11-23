@@ -4,7 +4,6 @@ package domain
 
 import (
 	"strconv"
-	"strings"
 	"time"
 	"uuid"
 
@@ -280,8 +279,9 @@ type Target struct {
 	ID   string `json:"id"`
 }
 
-// group is what notices of a kind share: the push's title, the screen they
-// open, the switch that stops their push and whether they are mailed.
+// group is what notices of a kind share: the key of the push's title, the
+// screen they open, the switch that stops their push and whether they are
+// mailed.
 type group struct {
 	title  string
 	target func(Params) Target
@@ -301,14 +301,14 @@ const (
 )
 
 var (
-	haggling = group{"Trả giá", opens("deal", dealID), SwitchOffers, mailNever}
-	orders   = group{"Đơn hàng", orderTarget, SwitchOrders, mailOrders}
-	listings = group{"Tin đăng", opens("listing", listingID), SwitchNone, mailNever}
-	followed = group{"Tin đăng", opens("listing", listingID), SwitchFollowed, mailNever}
-	reviews  = group{"Đánh giá", reviewTarget, SwitchReviews, mailNever}
-	accounts = group{"Tài khoản", opens("account", func(Params) uuid.UUID { return uuid.UUID{} }), SwitchNone, mailAlways}
-	searches = group{"Tìm kiếm", opens("search_watch", func(p Params) uuid.UUID { return p.WatchID }), SwitchNone, mailNever}
-	saved    = group{"Đã lưu", opens("listing", listingID), SwitchPriceCuts, mailNever}
+	haggling = group{"title.offers", opens("deal", dealID), SwitchOffers, mailNever}
+	orders   = group{"group.orders", orderTarget, SwitchOrders, mailOrders}
+	listings = group{"title.listings", opens("listing", listingID), SwitchNone, mailNever}
+	followed = group{"title.listings", opens("listing", listingID), SwitchFollowed, mailNever}
+	reviews  = group{"title.reviews", reviewTarget, SwitchReviews, mailNever}
+	accounts = group{"group.account", opens("account", func(Params) uuid.UUID { return uuid.UUID{} }), SwitchNone, mailAlways}
+	searches = group{"title.searches", opens("search_watch", func(p Params) uuid.UUID { return p.WatchID }), SwitchNone, mailNever}
+	saved    = group{"title.saved", opens("listing", listingID), SwitchPriceCuts, mailNever}
 )
 
 func dealID(p Params) uuid.UUID    { return p.DealID }
@@ -345,79 +345,71 @@ func reviewTarget(p Params) Target {
 	return Target{Kind: "order", ID: p.OrderID.String()}
 }
 
-// types describes each notice type: its group and its Vietnamese text.
+// types describes each notice type: its group and how its text is written.
 var types = map[Type]struct {
 	group
 
-	text func(Params) string
+	text func(Params, pen) string
 }{
-	TypeOffer: {haggling, func(p Params) string { return p.Actor + " trả " + money(p.Amount) + " cho " + p.Title }},
-	TypeCounter: {haggling, func(p Params) string {
-		return p.Actor + " trả lại " + money(p.Amount) + " cho " + p.Title
+	TypeOffer:    {haggling, func(p Params, w pen) string { return w.say("notice.offer", p.Actor, w.money(p.Amount), p.Title) }},
+	TypeCounter:  {haggling, func(p Params, w pen) string { return w.say("notice.counter", p.Actor, w.money(p.Amount), p.Title) }},
+	TypeAgreed:   {haggling, func(p Params, w pen) string { return w.say("notice.agreed", w.money(p.Amount), p.Title, p.Actor) }},
+	TypeDeclined: {haggling, func(p Params, w pen) string { return w.say("notice.declined", p.Actor, p.Title) }},
+	TypeAgreementCancelled: {haggling, func(p Params, w pen) string {
+		return w.say("notice.agreement_cancelled", p.Actor, p.Title)
 	}},
-	TypeAgreed: {haggling, func(p Params) string { return "Chốt " + money(p.Amount) + " " + p.Title + " với " + p.Actor }},
-	TypeDeclined: {haggling, func(p Params) string {
-		return p.Actor + " không đồng ý giá bạn đề nghị cho " + p.Title
-	}},
-	TypeAgreementCancelled: {haggling, func(p Params) string { return p.Actor + " huỷ giá đã chốt " + p.Title }},
-	TypeOfferVoided: {haggling, func(p Params) string {
+	TypeOfferVoided: {haggling, func(p Params, w pen) string {
 		if p.Move == "listing_closed" {
-			return p.Title + " không còn bán, giá bạn đề nghị hết hiệu lực"
+			return w.say("notice.offer_voided.listing_closed", p.Title)
 		}
-		return p.Title + " đã đổi, giá bạn đề nghị hết hiệu lực"
+		return w.say("notice.offer_voided", p.Title)
 	}},
-	TypeCodRequested: {orders, func(p Params) string { return p.Actor + " yêu cầu COD " + p.Title }},
-	TypeShipped: {orders, func(p Params) string {
-		return p.Actor + " đã gửi " + p.Title + " · " + carrierName(p.Carrier) + " " + p.Code
+	TypeCodRequested: {orders, func(p Params, w pen) string { return w.say("notice.cod_requested", p.Actor, p.Title) }},
+	TypeShipped: {orders, func(p Params, w pen) string {
+		return w.say("notice.shipped", p.Actor, p.Title, carrierName(p.Carrier), p.Code)
 	}},
-	TypeCompleted: {orders, func(p Params) string {
+	TypeCompleted: {orders, func(p Params, w pen) string {
 		if p.Seller != "" {
-			return p.Title + " đã giao. Đánh giá " + p.Seller
+			return w.say("notice.completed.review", p.Title, p.Seller)
 		}
-		return p.Actor + " đã nhận " + p.Title
+		return w.say("notice.completed", p.Actor, p.Title)
 	}},
-	TypeFailed: {orders, func(p Params) string { return p.Title + " giao không thành" }},
-	TypeOrderCancelled: {orders, func(p Params) string {
+	TypeFailed: {orders, func(p Params, w pen) string { return w.say("notice.failed", p.Title) }},
+	TypeOrderCancelled: {orders, func(p Params, w pen) string {
 		switch p.Reason {
-		case "shipped_to_another":
-			return p.Title + " đã gửi cho người khác, đơn của bạn đã huỷ"
-		case "listing_closed":
-			return p.Title + " không còn bán, đơn của bạn đã huỷ"
+		case "shipped_to_another", "listing_closed", "pickup_timeout":
+			return w.say("notice.cancelled."+p.Reason, p.Title)
 		case "seller_timeout":
 			if p.ToSeller {
-				return "Bạn chưa tạo đơn " + p.Title + ", đơn đã huỷ"
+				return w.say("notice.cancelled.seller_timeout.seller", p.Title)
 			}
-			return "Người bán chưa gửi " + p.Title + ", đơn của bạn đã huỷ"
-		case "pickup_timeout":
-			return "Hãng vận chuyển chưa lấy " + p.Title + ", đơn đã huỷ"
+			return w.say("notice.cancelled.seller_timeout", p.Title)
 		default:
-			return p.Actor + " huỷ đơn " + p.Title
+			return w.say("notice.cancelled.by", p.Actor, p.Title)
 		}
 	}},
-	TypeListingLive:     {listings, func(p Params) string { return p.Title + " đã lên" }},
-	TypeListingRejected: {listings, func(p Params) string { return p.Title + " chưa lên được: một ảnh bị từ chối" }},
-	TypeFollowedListing: {followed, func(p Params) string { return p.Seller + " vừa đăng tin mới: " + p.Title }},
-	TypeReview: {reviews, func(p Params) string {
-		return p.Actor + " chấm bạn " + strconv.Itoa(p.Stars) + " sao · " + p.Title
-	}},
-	TypeReviewReply: {reviews, func(p Params) string { return p.Actor + " trả lời đánh giá của bạn · " + p.Title }},
-	TypeSuspended: {accounts, func(p Params) string {
+	TypeListingLive:     {listings, func(p Params, w pen) string { return w.say("notice.listing_live", p.Title) }},
+	TypeListingRejected: {listings, func(p Params, w pen) string { return w.say("notice.listing_rejected", p.Title) }},
+	TypeFollowedListing: {followed, func(p Params, w pen) string { return w.say("notice.followed_listing", p.Seller, p.Title) }},
+	TypeReview:          {reviews, func(p Params, w pen) string { return w.say("notice.review", p.Actor, p.Stars, p.Title) }},
+	TypeReviewReply:     {reviews, func(p Params, w pen) string { return w.say("notice.review_reply", p.Actor, p.Title) }},
+	TypeSuspended: {accounts, func(p Params, w pen) string {
 		until, err := time.Parse(time.RFC3339, p.Until)
 		if err != nil {
-			return "Tài khoản của bạn bị khoá"
+			return w.say("notice.suspended")
 		}
-		return "Tài khoản của bạn bị khoá đến " + locale.Date(locale.Vietnamese, until)
+		return w.say("notice.suspended.until", locale.Date(w.tag, until))
 	}},
-	TypeUnsuspended: {accounts, func(Params) string { return "Tài khoản của bạn đã được mở khoá" }},
-	TypeWatchMatched: {searches, func(p Params) string {
+	TypeUnsuspended: {accounts, func(_ Params, w pen) string { return w.say("notice.unsuspended") }},
+	TypeWatchMatched: {searches, func(p Params, w pen) string {
 		n := strconv.Itoa(p.Count)
 		if p.Count >= 99 {
 			n = "99+"
 		}
-		return "Có " + n + " tin mới cho “" + p.Query + "”"
+		return w.say("notice.watch_matched", n, p.Query)
 	}},
-	TypePriceDropped: {saved, func(p Params) string {
-		return p.Title + " giảm còn " + money(p.Amount) + ", lúc lưu " + money(p.SavedPrice)
+	TypePriceDropped: {saved, func(p Params, w pen) string {
+		return w.say("notice.price_dropped", p.Title, w.money(p.Amount), w.money(p.SavedPrice))
 	}},
 }
 
@@ -438,29 +430,23 @@ func carrierName(code string) string {
 // vietnam is the time zone dates are written in.
 var vietnam = time.FixedZone("ICT", 7*60*60)
 
-// unnamed stands for a person who has not set a display name, as in the apps.
-const unnamed = "Người dùng"
-
-func named(name string) string {
-	if name == "" {
-		return unnamed
-	}
-	return name
-}
-
-// Text writes a notice in Vietnamese; an unknown type has no text.
-func Text(t Type, p Params) string {
+// Text writes a notice in language tag; an unknown type has no text.
+func Text(t Type, p Params, tag locale.Tag) string {
 	if d, ok := types[t]; ok {
-		p.Actor = named(p.Actor)
-		return d.text(p)
+		w := penFor(tag)
+		p.Actor = w.name(p.Actor)
+		return d.text(p, w)
 	}
 	return ""
 }
 
-// Title is a push's title, by the notice's group.
-func Title(t Type) string {
+// MessageTitle is a chat message push's title in language tag.
+func MessageTitle(tag locale.Tag) string { return penFor(tag).say("title.message") }
+
+// Title is a push's title in language tag, by the notice's group.
+func Title(t Type, tag locale.Tag) string {
 	if d, ok := types[t]; ok {
-		return d.title
+		return penFor(tag).say(d.title)
 	}
 	return "ShopNexus"
 }
@@ -482,39 +468,31 @@ func TargetOf(t Type, p Params) Target {
 	return d.target(p)
 }
 
-// money writes an amount the way the app does: "1,2 tr" from a million,
-// "350.000 ₫" below it.
-func money(n int64) string {
-	if n >= 1_000_000 {
-		return strings.Replace(strconv.FormatFloat(float64(n)/1_000_000, 'f', -1, 64), ".", ",", 1) + " tr"
-	}
-	return locale.Money(locale.Vietnamese, n)
-}
-
 // chatRunes is how much of a message a chat push shows.
 const chatRunes = 100
 
 // SupportBody is a support reply's push: the title names ShopNexus, so the
 // body is the text alone, cut as ChatBody cuts it, or the photo count.
-func SupportBody(text string, photos int) string {
+func SupportBody(text string, photos int, tag locale.Tag) string {
 	if text != "" {
 		if r := []rune(text); len(r) > chatRunes {
 			text = string(r[:chatRunes])
 		}
 		return text
 	}
-	return strconv.Itoa(photos) + " ảnh"
+	return penFor(tag).say("support.photos", photos)
 }
 
 // ChatBody is a chat push's body: the sender and the first 100 characters
 // of the text, or the photos they sent.
-func ChatBody(sender, text string, photos int) string {
-	sender = named(sender)
+func ChatBody(sender, text string, photos int, tag locale.Tag) string {
+	w := penFor(tag)
+	sender = w.name(sender)
 	if text != "" {
 		if r := []rune(text); len(r) > chatRunes {
 			text = string(r[:chatRunes])
 		}
 		return sender + ": " + text
 	}
-	return sender + " gửi " + strconv.Itoa(photos) + " ảnh"
+	return w.say("chat.photos", sender, photos)
 }

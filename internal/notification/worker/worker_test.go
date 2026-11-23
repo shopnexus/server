@@ -122,17 +122,19 @@ func (d discovery) PriceDropFacts(_ context.Context, id uuid.UUID) (discoverysvc
 
 // accounts answers that every session but the revoked ones is active, names
 // every account Hoàng Nam, pages followers, the newest follow first, and
-// gives the accounts in emails a mailbox in Vietnamese.
+// gives the accounts in emails a mailbox, in Vietnamese unless locales names
+// another language.
 type accounts struct {
 	accountsvc.Service
 
 	revoked   map[uuid.UUID]bool
 	followers []accountsvc.Follower // oldest follow first
 	emails    map[uuid.UUID]string
+	locales   map[uuid.UUID]locale.Tag
 }
 
 func (a accounts) Mailbox(_ context.Context, id uuid.UUID) (accountsvc.Mailbox, error) {
-	return accountsvc.Mailbox{Address: a.emails[id], Locale: locale.Vietnamese}, nil
+	return accountsvc.Mailbox{Address: a.emails[id], Locale: locale.Of(string(a.locales[id]))}, nil
 }
 
 func (accounts) Get(_ context.Context, id uuid.UUID) (accountsvc.AccountView, error) {
@@ -209,17 +211,12 @@ func (m *mailbox) count() int {
 	return len(m.sent)
 }
 
-// to lists the mails sent to addr.
-func (m *mailbox) to(addr string) []email.Message {
+// all lists the mails sent, oldest first; in these tests only the seller
+// has an address.
+func (m *mailbox) all() []email.Message {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	var out []email.Message
-	for _, msg := range m.sent {
-		if msg.To == addr {
-			out = append(out, msg)
-		}
-	}
-	return out
+	return append([]email.Message(nil), m.sent...)
 }
 
 // noon and night are times on Vietnam's clock outside and inside the
@@ -293,7 +290,7 @@ func (e *env) noticesOf(t *testing.T, account uuid.UUID, n int) []service.Item {
 	t.Helper()
 	var items []service.Item
 	testenv.Eventually(t, 30*time.Second, func() error {
-		l, err := e.notices.List(context.Background(), account, page.Request{})
+		l, err := e.notices.List(context.Background(), account, page.Request{}, "")
 		if err != nil {
 			return err
 		}
@@ -348,7 +345,7 @@ func TestRepublishTellsNoFollower(t *testing.T) {
 	e.noticesOf(t, seller, 1)
 	// ListingPublished sent nothing when the request returned, so nothing can
 	// arrive later.
-	if l, _ := e.notices.List(context.Background(), followers[0], page.Request{}); len(l.Items) != 0 {
+	if l, _ := e.notices.List(context.Background(), followers[0], page.Request{}, ""); len(l.Items) != 0 {
 		t.Fatalf("a republish told a follower: %+v", l)
 	}
 }
@@ -381,7 +378,7 @@ func TestTellFollowerTwiceWritesOneNotice(t *testing.T) {
 		t.Fatal(err)
 	}
 	tell()
-	l, err := e.notices.List(ctx, followers[0], page.Request{})
+	l, err := e.notices.List(ctx, followers[0], page.Request{}, "")
 	if err != nil || len(l.Items) != 1 || l.Unread != 0 || l.Items[0].Type != domain.TypeFollowedListing {
 		t.Fatalf("two runs, one notice: %+v %v", l, err)
 	}
@@ -411,12 +408,12 @@ func TestTellFollower(t *testing.T) {
 	}
 	at := time.Now()
 	tell(hidden, at)
-	if l, _ := e.notices.List(context.Background(), followers[0], page.Request{}); len(l.Items) != 0 {
+	if l, _ := e.notices.List(context.Background(), followers[0], page.Request{}, ""); len(l.Items) != 0 {
 		t.Fatalf("a hidden listing told: %+v", l)
 	}
 	tell(older, at.Add(time.Second))
 	tell(newer, at.Add(2*time.Second))
-	l, err := e.notices.List(context.Background(), followers[0], page.Request{})
+	l, err := e.notices.List(context.Background(), followers[0], page.Request{}, "")
 	if err != nil || len(l.Items) != 1 || l.Unread != 1 || l.Items[0].Text != "Hoàng Nam vừa đăng tin mới: Đàn guitar Yamaha" {
 		t.Fatalf("collapse: %+v %v", l, err)
 	}
@@ -446,7 +443,7 @@ func TestDealMoved(t *testing.T) {
 	}
 	e.deliver(t, "DealMoved", ev)
 	e.deliver(t, "DealMoved", ev)
-	l, err := e.notices.List(context.Background(), f.SellerID, page.Request{})
+	l, err := e.notices.List(context.Background(), f.SellerID, page.Request{}, "")
 	if err != nil || len(l.Items) != 1 || l.Items[0].Type != "offer" {
 		t.Fatalf("one notice: %+v %v", l, err)
 	}
@@ -457,7 +454,7 @@ func TestDealMoved(t *testing.T) {
 		ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: f.DealID, OccurredAt: time.Now(),
 		Payload: map[string]any{"moves": []any{uuid.NewV7().String()}},
 	})
-	if l, _ = e.notices.List(context.Background(), f.SellerID, page.Request{}); len(l.Items) != 1 {
+	if l, _ = e.notices.List(context.Background(), f.SellerID, page.Request{}, ""); len(l.Items) != 1 {
 		t.Fatalf("a move the deal lacks tells no one: %+v", l)
 	}
 	// The deal's notice is still unread, so a second offer rewrites it under
@@ -470,7 +467,7 @@ func TestDealMoved(t *testing.T) {
 		ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: f.DealID, OccurredAt: time.Now(),
 		Payload: map[string]any{"moves": []any{raise.String()}},
 	})
-	if l, _ = e.notices.List(context.Background(), f.SellerID, page.Request{}); len(l.Items) != 1 || e.push.count("seller-phone") != 2 ||
+	if l, _ = e.notices.List(context.Background(), f.SellerID, page.Request{}, ""); len(l.Items) != 1 || e.push.count("seller-phone") != 2 ||
 		e.push.tag["seller-phone"] != tag {
 		t.Fatalf("one notice, a second push with its tag: %+v %d %q", l, e.push.count("seller-phone"), e.push.tag["seller-phone"])
 	}
@@ -613,7 +610,7 @@ func TestLateMoveTellsNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	move(oldest, at.Add(-2*time.Minute))
-	l, err := e.notices.List(ctx, f.SellerID, page.Request{})
+	l, err := e.notices.List(ctx, f.SellerID, page.Request{}, "")
 	if err != nil || len(l.Items) != 1 || l.Unread != 0 || e.push.count("seller-phone") != 1 {
 		t.Fatalf("a move older than a read notice: %+v %v, %d pushes", l, err, e.push.count("seller-phone"))
 	}
@@ -642,7 +639,7 @@ func TestMessageSentPushesOnly(t *testing.T) {
 	if e.push.count("phone") != 1 {
 		t.Fatalf("a message that is gone pushed: %d", e.push.count("phone"))
 	}
-	if l, _ := e.notices.List(context.Background(), recipient, page.Request{}); len(l.Items) != 0 {
+	if l, _ := e.notices.List(context.Background(), recipient, page.Request{}, ""); len(l.Items) != 0 {
 		t.Fatalf("a message lists nothing: %+v", l)
 	}
 }
@@ -730,7 +727,7 @@ func TestAccountDeletedForgetsTheAccount(t *testing.T) {
 		id := uuid.NewV7()
 		e.deliver(t, "AccountDeleted", events.Event{ID: id, Kind: events.AccountDeleted, SubjectID: gone, OccurredAt: time.Now()})
 	}
-	if l, _ := e.notices.List(ctx, gone, page.Request{}); len(l.Items) != 0 {
+	if l, _ := e.notices.List(ctx, gone, page.Request{}, ""); len(l.Items) != 0 {
 		t.Fatalf("notices left: %+v", l)
 	}
 	if tokens, _ := e.notices.Tokens(ctx, gone); len(tokens) != 0 {

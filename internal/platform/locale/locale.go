@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
+	"golang.org/x/text/number"
 )
 
 // Tag is a language the server writes in, as a BCP 47 base tag.
@@ -61,6 +62,12 @@ func Of(s string) Tag {
 // "3.800.000 ₫", "3,800,000 ₫".
 func Money(t Tag, n int64) string {
 	return message.NewPrinter(language.Make(string(t))).Sprintf("%d ₫", n)
+}
+
+// Decimal writes f with t's decimal mark and up to three decimals: "1,25",
+// "1.25".
+func Decimal(t Tag, f float64) string {
+	return message.NewPrinter(language.Make(string(t))).Sprint(number.Decimal(f, number.MaxFractionDigits(3)))
 }
 
 // dates are the day-and-month layouts, in Vietnam time.

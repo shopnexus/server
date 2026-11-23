@@ -43,7 +43,7 @@ func TestSwitchedOffKindListsWithoutPush(t *testing.T) {
 		Payload: map[string]any{"moves": []any{offer.String()}},
 	})
 	e.deliver(t, "MessageSent", events.Event{ID: message.ID, Kind: events.MessageSent, SubjectID: message.ID, OccurredAt: time.Now()})
-	if l, err := e.notices.List(ctx, f.SellerID, page.Request{}); err != nil || len(l.Items) != 1 || l.Items[0].Type != domain.TypeOffer {
+	if l, err := e.notices.List(ctx, f.SellerID, page.Request{}, ""); err != nil || len(l.Items) != 1 || l.Items[0].Type != domain.TypeOffer {
 		t.Fatalf("the offer is listed: %+v %v", l, err)
 	}
 	if n := e.push.count("seller-phone"); n != 0 {
@@ -89,7 +89,7 @@ func TestQuietHoursHoldEveryPush(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.deliver(t, "AccountSuspended", events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: me, OccurredAt: time.Now()})
-	if l, _ := e.notices.List(ctx, me, page.Request{}); len(l.Items) != 1 {
+	if l, _ := e.notices.List(ctx, me, page.Request{}, ""); len(l.Items) != 1 {
 		t.Fatalf("the notice is listed: %+v", l)
 	}
 	if n := e.push.count("phone"); n != 0 {

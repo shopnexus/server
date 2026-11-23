@@ -11,6 +11,7 @@ import (
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/notification/domain"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -71,12 +72,12 @@ func TestOrderNoticesAreMailed(t *testing.T) {
 	}
 	ev := e.moved(t, e.cod, e.offer)
 	e.deliver(t, "DealMoved", ev)
-	got := e.mail.to(sellerMail)
+	got := e.mail.all()
 	if len(got) != 1 || got[0].Subject != "Đức Huy chọn nhận COD Xe đạp Asama" || got[0].Key != ev.ID.String()+"/"+e.f.SellerID.String()+"/0" {
 		t.Fatalf("one COD mail: %+v", got)
 	}
 	e.deliver(t, "AccountSuspended", events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: e.f.BuyerID, OccurredAt: time.Now()})
-	if l, _ := e.notices.List(ctx, e.f.BuyerID, page.Request{}); len(l.Items) != 1 || e.mail.count() != 1 {
+	if l, _ := e.notices.List(ctx, e.f.BuyerID, page.Request{}, ""); len(l.Items) != 1 || e.mail.count() != 1 {
 		t.Fatalf("an account without an address got a mail: %+v, %d mails", l, e.mail.count())
 	}
 }
@@ -93,11 +94,11 @@ func TestOrderEmailsOff(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.moved(t, e.cod)
-	if got := e.mail.to(sellerMail); len(got) != 0 {
+	if got := e.mail.all(); len(got) != 0 {
 		t.Fatalf("order_emails off mailed %+v", got)
 	}
 	e.deliver(t, "AccountUnsuspended", events.Event{ID: uuid.NewV7(), Kind: events.AccountUnsuspended, SubjectID: e.f.SellerID, OccurredAt: time.Now()})
-	if got := e.mail.to(sellerMail); len(got) != 1 || got[0].Subject != "Tài khoản của bạn đã được mở khoá" {
+	if got := e.mail.all(); len(got) != 1 || got[0].Subject != "Tài khoản của bạn đã được mở khoá" {
 		t.Fatalf("the account notice: %+v", got)
 	}
 }
@@ -109,7 +110,28 @@ func TestRefusedMailIsDropped(t *testing.T) {
 	e.mail.refuse = true
 	e.start(t)
 	e.moved(t, e.cod)
-	if l, err := e.notices.List(context.Background(), e.f.SellerID, page.Request{}); err != nil || len(l.Items) != 1 {
+	if l, err := e.notices.List(context.Background(), e.f.SellerID, page.Request{}, ""); err != nil || len(l.Items) != 1 {
 		t.Fatalf("the notice: %+v %v", l, err)
+	}
+}
+
+// A recipient who reads English gets the push and the mail in English.
+func TestEnglishRecipient(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newMailEnv(t)
+	e.worker.Accounts = accounts{
+		emails: map[uuid.UUID]string{e.f.SellerID: sellerMail}, locales: map[uuid.UUID]locale.Tag{e.f.SellerID: locale.English},
+	}
+	e.start(t)
+	if err := e.notices.PutToken(ctx, uuid.NewV7(), e.f.SellerID, "seller-phone"); err != nil {
+		t.Fatal(err)
+	}
+	e.moved(t, e.cod)
+	if e.push.title["seller-phone"] != "Orders" || e.push.body["seller-phone"] != "Đức Huy asked for cash on delivery for Xe đạp Asama" {
+		t.Fatalf("push %q %q", e.push.title["seller-phone"], e.push.body["seller-phone"])
+	}
+	if got := e.mail.all(); len(got) != 1 || got[0].Subject != "Đức Huy chose cash on delivery for Xe đạp Asama" {
+		t.Fatalf("mail %+v", got)
 	}
 }

@@ -8,6 +8,7 @@ notifications:
     parameters:
       - $ref: "../parameters/common.yaml#/Cursor"
       - $ref: "../parameters/common.yaml#/Limit"
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     responses:
       "200":
         description: One page of notices.

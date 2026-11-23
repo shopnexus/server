@@ -3634,7 +3634,7 @@ calls it except screen, for the unread counts of Home and
   reviewer. Both open the order; a review notice from before, with only
   the seller, still opens `seller_reviews`.
 - A notice stores its type and `domain.Params`, JSON with only the keys
-  its type reads; the server writes the Vietnamese text, carrier labels
+  its type reads; the server writes the text in the reader's language, carrier labels
   included, when it lists and when it pushes. Deal and order notices collapse on
   `deal:<id>`, listing notices on `listing:<id>`: a new one replaces the
   recipient's unread notice of the key and moves it up, and a notice
@@ -3794,7 +3794,14 @@ calls it except screen, for the unread counts of Home and
   it with the address through `accountsvc.Mailbox`, and a code mail
   follows its own request's header. `locale.Money` and `locale.Date`
   write amounts and dates per language.
-  Push and listed notice text stay Vietnamese. Advertising mail, if it ever comes, starts off (Decree
+- Notice text in languages (decided 2026-11-23): `GET /v1/notifications`
+  writes each notice in its request's `Accept-Language`; a push is
+  written in the recipient's `accounts.locale`, which `deliver` reads in
+  its token step with the tokens. Push titles, notice text, chat push
+  bodies and mail share `notification/domain/text/<tag>.json`; a notice
+  stores only its type and params, so a stored notice reads in any
+  language. A name kept in params for someone without one stays the
+  Vietnamese placeholder. Advertising mail, if it ever comes, starts off (Decree
   91/2020 wants consent first).
 - Migration 0045 copied each `saved_settings` row with the switch off into
   `notification_settings` as `price_cuts = false`, the rest at the

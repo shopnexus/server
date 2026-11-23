@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	"github.com/shopnexus/server/internal/notification/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
@@ -41,7 +43,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, err := h.svc.List(r.Context(), p.AccountID, in)
+	out, err := h.svc.List(r.Context(), p.AccountID, in, locale.FromRequest(r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

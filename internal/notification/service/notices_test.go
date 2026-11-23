@@ -33,7 +33,7 @@ func TestNotices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	l, err := s.List(ctx, me, page.Request{})
+	l, err := s.List(ctx, me, page.Request{}, "")
 	if err != nil || len(l.Items) != 1 || l.Unread != 1 || l.Items[0].Text != "Đức Huy trả 1,2 tr cho Xe đạp Asama" ||
 		l.Items[0].Target.Kind != "deal" || l.Items[0].Target.ID != deal.String() || !l.Items[0].Unread {
 		t.Fatalf("%+v %v", l, err)
@@ -81,7 +81,7 @@ VALUES (@id, @account, 'shipped', @key, @params, @id, now(), now())`, pgx.Strict
 	}); err != nil {
 		t.Fatal(err)
 	}
-	l, err := s.List(ctx, me, page.Request{})
+	l, err := s.List(ctx, me, page.Request{}, "")
 	if err != nil || len(l.Items) != 1 || l.Items[0].Text != "Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9" ||
 		l.Items[0].Target.Kind != "deal" || l.Items[0].Target.ID != deal.String() {
 		t.Fatalf("%+v %v", l, err)
