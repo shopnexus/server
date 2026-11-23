@@ -1,5 +1,6 @@
-// Package localetest checks that the keys a package's code writes are in its
-// catalog.
+// Package localetest checks a package's catalog against its code: every
+// key the code writes is in every language, and every key in the catalog is
+// written somewhere.
 package localetest
 
 import (
@@ -17,7 +18,9 @@ import (
 
 // Keys fails t for each string literal the non-test Go files in dir pass to
 // one of calls (a function or method name → the argument index of the key)
-// that c lacks in any language. A key built at run time is not checked.
+// that c lacks in any language, and for each key of c that no string
+// literal in those files names, so a key left behind by a change shows. A
+// key built at run time is not checked and would show as unused.
 func Keys(t *testing.T, c locale.Catalog, dir string, calls map[string]int) {
 	t.Helper()
 	entries, err := os.ReadDir(dir)
@@ -25,7 +28,13 @@ func Keys(t *testing.T, c locale.Catalog, dir string, calls map[string]int) {
 		t.Fatal(err)
 	}
 	found := 0
+	literals := map[string]bool{}
 	check := func(n ast.Node) bool {
+		if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+			if s, err := strconv.Unquote(lit.Value); err == nil {
+				literals[s] = true
+			}
+		}
 		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
@@ -68,5 +77,10 @@ func Keys(t *testing.T, c locale.Catalog, dir string, calls map[string]int) {
 	}
 	if found == 0 {
 		t.Fatalf("no keys found in %s", dir)
+	}
+	for key := range c[locale.Supported[0]] {
+		if !literals[key] {
+			t.Errorf("%q is in the catalog but no code in %s writes it", key, dir)
+		}
 	}
 }

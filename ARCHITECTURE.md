@@ -3839,7 +3839,7 @@ calls it except screen, for the unread counts of Home and
   `money.*` and `name.*`. Formats use indexed verbs (`%[1]s`), so a
   language may reorder them. Each catalog's test runs
   `localetest.Keys`, which fails on a key the code writes that a
-  language lacks. Advertising mail, if it ever comes, starts off (Decree
+  language lacks and on a catalog key no code writes. Advertising mail, if it ever comes, starts off (Decree
   91/2020 wants consent first).
 - Migration 0045 copied each `saved_settings` row with the switch off into
   `notification_settings` as `price_cuts = false`, the rest at the
