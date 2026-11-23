@@ -541,6 +541,9 @@ func (s pgRuns) CancelTurn(ctx context.Context, id uuid.UUID, from string, sourc
 		return fmt.Errorf("begin cancel agent turn: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err = touch(ctx, tx, id, at); err != nil {
+		return err
+	}
 	tag, err := tx.Exec(ctx, `UPDATE agent_turns SET status = 'cancelled', finished_at = @at, answer = '', sources = @sources,
     state = state - 'pending_ask'
 WHERE id = @id AND status = @from`, pgx.StrictNamedArgs{"id": id, "from": from, "sources": sources, "at": at})
@@ -553,16 +556,15 @@ WHERE id = @id AND status = @from`, pgx.StrictNamedArgs{"id": id, "from": from, 
 	if _, _, err = appendEvent(ctx, tx, id, "turn.finished", body, at, false, false); err != nil {
 		return err
 	}
-	if err = touch(ctx, tx, id, at); err != nil {
-		return err
-	}
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit cancel agent turn: %w", err)
 	}
 	return nil
 }
 
-// touch moves a turn's conversation's last activity to at.
+// touch moves a turn's conversation's last activity to at. A transaction
+// calls it before it writes the turn: OpenTurn locks the conversation
+// first, and the other order deadlocks with it.
 func touch(ctx context.Context, tx pgx.Tx, turn uuid.UUID, at time.Time) error {
 	if _, err := tx.Exec(ctx, `UPDATE agent_conversations SET last_activity_at = @at
 WHERE id = (SELECT conversation_id FROM agent_turns WHERE id = @turn)`, pgx.StrictNamedArgs{"turn": turn, "at": at}); err != nil {
@@ -579,6 +581,9 @@ func (s pgRuns) CloseStuck(ctx context.Context, id uuid.UUID, segment time.Time,
 		return false, fmt.Errorf("begin close agent turn: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err = touch(ctx, tx, id, at); err != nil {
+		return false, err
+	}
 	tag, err := tx.Exec(ctx, `UPDATE agent_turns SET status = 'failed', error_code = @code, answer = @answer, finished_at = @at,
     latency_ms = COALESCE(latency_ms, 0) + GREATEST(0, (extract(EPOCH FROM @at::timestamptz - run_started_at) * 1000)::bigint)
 WHERE id = @id AND status = 'running' AND run_started_at = @segment`,
@@ -590,9 +595,6 @@ WHERE id = @id AND status = 'running' AND run_started_at = @segment`,
 		return false, nil
 	}
 	if _, _, err = appendEvent(ctx, tx, id, "turn.finished", body, at, false, false); err != nil {
-		return false, err
-	}
-	if err = touch(ctx, tx, id, at); err != nil {
 		return false, err
 	}
 	if err = tx.Commit(ctx); err != nil {
@@ -824,6 +826,9 @@ func (s pgRuns) FinishRun(ctx context.Context, e RunEnd) (bool, error) {
 		return false, fmt.Errorf("begin finish agent run: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	if err = touch(ctx, tx, e.TurnID, e.At); err != nil {
+		return false, err
+	}
 	final := e.Status != "paused" && e.Status != "awaiting_input"
 	var code, provider *string
 	if e.ErrorCode != "" {
@@ -859,9 +864,6 @@ WHERE id = @id AND status = 'running'`, pgx.StrictNamedArgs{
 		if _, _, err = appendEvent(ctx, tx, e.TurnID, e.EventType, e.EventBody, e.At, false, false); err != nil {
 			return false, err
 		}
-	}
-	if err = touch(ctx, tx, e.TurnID, e.At); err != nil {
-		return false, err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return false, fmt.Errorf("commit finish agent run: %w", err)
