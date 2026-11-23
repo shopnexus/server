@@ -5,6 +5,7 @@ import (
 
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -25,7 +26,7 @@ func (h *Handler) MyListings(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, err := h.svc.MyListings(r.Context(), p.AccountID, in.Pane, in.Request)
+	out, err := h.svc.MyListings(r.Context(), p.AccountID, in.Pane, in.Request, locale.Negotiate(w, r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

@@ -111,7 +111,7 @@ ReadDraft:
   description: |
     ListingInput's fields as the read filled them. The model writes only
     the title and the description; catalog guesses the category from them.
-    The seller adds the price, the category's specs (its spec_labels) and
+    The seller adds the price, the category's specs and
     commune_code (and gps when allowed), then posts it to POST /v1/listings.
   properties:
     title:
@@ -192,7 +192,7 @@ PriceGuideRequest:
       type: array
       maxItems: 20
       items:
-        $ref: "catalog.yaml#/Spec"
+        $ref: "catalog.yaml#/SpecInput"
     description:
       type: string
       maxLength: 1500

@@ -26,34 +26,35 @@ import (
 	"github.com/shopnexus/server/internal/provider/embed"
 )
 
-// Service is module catalog's contract.
+// Service is module catalog's contract. A ListingView it returns names its
+// keyed specs in the t its method takes.
 type Service interface {
 	// Post puts a complete listing up for processing. A repeated
 	// idempotencyKey returns the listing it posted.
 	//
 	// UC-LST-01 · NFR-IDEM-01
-	Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.ListingInput) (ListingView, error)
+	Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.ListingInput, t locale.Tag) (ListingView, error)
 	// Edit replaces a listing's content; a repeated idempotencyKey edits
 	// nothing more.
 	//
 	// UC-LST-02 · NFR-IDEM-01
-	Edit(ctx context.Context, seller, id uuid.UUID, idempotencyKey string, d domain.ListingInput) (ListingView, error)
+	Edit(ctx context.Context, seller, id uuid.UUID, idempotencyKey string, d domain.ListingInput, t locale.Tag) (ListingView, error)
 	// Hide takes the seller's active listing off sale.
 	//
 	// UC-LST-02
-	Hide(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
+	Hide(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error)
 	// Unhide puts the seller's hidden listing back on sale.
 	//
 	// UC-LST-02
-	Unhide(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
+	Unhide(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error)
 	// MarkSold records a sale made off the app; UnmarkSold undoes it.
 	//
 	// UC-LST-02
-	MarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
+	MarkSold(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error)
 	// UnmarkSold puts a listing marked sold back on sale.
 	//
 	// UC-LST-02 A2
-	UnmarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error)
+	UnmarkSold(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error)
 	// Delete deletes the seller's listing.
 	//
 	// UC-LST-02
@@ -77,9 +78,9 @@ type Service interface {
 	// UC-LST-01 A4
 	DeleteDraft(ctx context.Context, account, id uuid.UUID) error
 	// Get reads a listing as viewer, nil when signed out, sees it.
-	Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID) (ListingView, error)
+	Get(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, t locale.Tag) (ListingView, error)
 	// ListMine lists one of the seller's panes, newest first.
-	ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p page.Request) (page.Page[ListingView], error)
+	ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p page.Request, t locale.Tag) (page.Page[ListingView], error)
 	// OnSale lists the IDs of the seller's listings in a domain.OnSale
 	// status, newest first.
 	OnSale(ctx context.Context, seller uuid.UUID) ([]uuid.UUID, error)
@@ -96,10 +97,10 @@ type Service interface {
 	SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, except []uuid.UUID, p page.Request) (page.Page[SearchCard], error)
 	// GetNear reads a listing as Get does, with its distance from near in
 	// whole kilometres, nil when near names no position.
-	GetNear(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near domain.Near) (ListingView, *int, error)
+	GetNear(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near domain.Near, t locale.Tag) (ListingView, *int, error)
 	// GetSold reads a sold listing for anyone; a listing in any other
 	// status is domain.ErrNotFound.
-	GetSold(ctx context.Context, id uuid.UUID) (ListingView, error)
+	GetSold(ctx context.Context, id uuid.UUID, t locale.Tag) (ListingView, error)
 	// Origin is the point near names, nil for none; a bad point or an
 	// unknown commune is domain.ErrInvalidPosition.
 	Origin(ctx context.Context, near domain.Near) (*domain.Point, error)
@@ -172,8 +173,13 @@ type Service interface {
 	// Counts counts the listings s matches by category or root.
 	Counts(ctx context.Context, s domain.Search) ([]domain.CategoryCount, error)
 	// EmbeddingText is the text a listing posted from d would be embedded
-	// from, with its category's display name.
+	// from, with its category's display name; d's specs are keyed as
+	// KeySpecs keys them.
 	EmbeddingText(ctx context.Context, d domain.ListingInput) (string, error)
+	// KeySpecs gives specs the keys of the specs the category asks for that
+	// they name, with those specs' Vietnamese names as labels, as a listing
+	// under the category stores them.
+	KeySpecs(ctx context.Context, categoryCode string, specs []domain.Spec) ([]domain.Spec, error)
 	// PriceSample returns the listings like q's vectors with their prices,
 	// days to sell and points, most similar first, at most domain.PriceSampleSize; nil without a vector.
 	PriceSample(ctx context.Context, q PriceQuery) ([]PriceSample, error)

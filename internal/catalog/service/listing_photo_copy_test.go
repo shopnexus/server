@@ -17,6 +17,7 @@ import (
 	"github.com/shopnexus/server/internal/media/mediatest"
 	mediarepo "github.com/shopnexus/server/internal/media/repository"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
 )
 
@@ -35,12 +36,12 @@ func TestCopyPhotosStartsANewListing(t *testing.T) {
 	if err := e.media.SavePhoto(ctx, seller, linked, mediatest.JPEG(t, 64, 48), "image/jpeg", mediadomain.OriginLink); err != nil {
 		t.Fatal(err)
 	}
-	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(e.photo(t, seller), linked))
+	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(e.photo(t, seller), linked), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
 	old := e.settle(t, seller, posted.ID)
-	if _, err = e.catalog.MarkSold(ctx, seller, old.ID); err != nil {
+	if _, err = e.catalog.MarkSold(ctx, seller, old.ID, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 
@@ -71,7 +72,7 @@ func TestCopyPhotosStartsANewListing(t *testing.T) {
 		}
 	}
 
-	again, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(copies[0].UploadID, copies[1].UploadID))
+	again, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(copies[0].UploadID, copies[1].UploadID), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +80,7 @@ func TestCopyPhotosStartsANewListing(t *testing.T) {
 	if l.Status != domain.StatusActive || len(l.Photos) != 2 || l.Photos[0].Copied || !l.Photos[1].Copied || l.Photos[0].URL == "" {
 		t.Fatalf("the new listing: %+v", l)
 	}
-	kept, err := e.catalog.Get(ctx, &seller, old.ID)
+	kept, err := e.catalog.Get(ctx, &seller, old.ID, locale.Vietnamese)
 	if err != nil || kept.Status != domain.StatusSold || len(kept.Photos) != 2 || kept.Photos[0].URL != old.Photos[0].URL {
 		t.Fatalf("the old listing: %+v %v", kept, err)
 	}
@@ -156,7 +157,7 @@ func TestCopyPhotosRetriedStepSavesOnce(t *testing.T) {
 	e := newEnv(t, func(d *service.Deps) { d.Media = &saveThenFail{Service: d.Media} })
 	ctx := context.Background()
 	seller := e.seller(t)
-	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(e.photo(t, seller), e.photo(t, seller)))
+	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(e.photo(t, seller), e.photo(t, seller)), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,10 +182,10 @@ func TestOnSaleListsTheCappedStatuses(t *testing.T) {
 	seller, other := e.seller(t), e.seller(t)
 	sold, hidden, active := e.active(t, seller), e.active(t, seller), e.active(t, seller)
 	e.active(t, other)
-	if _, err := e.catalog.MarkSold(ctx, seller, sold.ID); err != nil {
+	if _, err := e.catalog.MarkSold(ctx, seller, sold.ID, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.catalog.Hide(ctx, seller, hidden.ID); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden.ID, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	ids, err := e.catalog.OnSale(ctx, seller)

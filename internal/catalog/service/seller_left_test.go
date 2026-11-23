@@ -8,6 +8,7 @@ import (
 
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
@@ -18,11 +19,11 @@ func TestSellerLeftDeletesTheListings(t *testing.T) {
 	seller := e.seller(t)
 	active := catalogtest.Listing(t, e.db, seller)
 	hidden := catalogtest.Listing(t, e.db, seller)
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	sold := catalogtest.Listing(t, e.db, seller)
-	if _, err := e.catalog.MarkSold(ctx, seller, sold); err != nil {
+	if _, err := e.catalog.MarkSold(ctx, seller, sold, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	p, err := domain.NewListing(uuid.NewV7(), seller, draft(uuid.NewV7()), domain.Refs{CategoryIsLeaf: true, CommuneExists: true}, time.Now())

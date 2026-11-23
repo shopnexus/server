@@ -16,6 +16,7 @@ import (
 	"github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/provider/carrier"
 )
@@ -225,7 +226,7 @@ func TestShipRefusesAHiddenListing(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.pending(t, buyer, listing)
-	if _, err := e.catalog.Hide(ctx, seller, listing); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, listing, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	for _, in := range []service.ShipmentInput{manual("SPX1"), linked} {

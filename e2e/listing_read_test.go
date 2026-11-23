@@ -45,7 +45,7 @@ type listingRead struct {
 }
 
 // The specs a seller fills for a bicycle and an iPhone, the categories'
-// spec_labels.
+// specs by their Vietnamese names.
 var (
 	bicycleSpecs = []map[string]string{{"label": "Hãng", "value": "Asama"}, {"label": "Loại xe", "value": "Xe đạp phố"}, {"label": "Cỡ khung", "value": "26 inch"}}
 	iphoneSpecs  = []map[string]string{{"label": "Dòng máy", "value": "iPhone 11"}, {"label": "Dung lượng", "value": "64 GB"}, {"label": "Màu", "value": "Trắng"}, {"label": "Pin", "value": "81%"}}

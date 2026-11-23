@@ -146,9 +146,12 @@ type Categories interface {
 	// Tree returns every category named in t, Vietnamese where t has no
 	// name: the roots in order, then each root's subcategories in order.
 	Tree(ctx context.Context, t locale.Tag) ([]domain.Category, error)
-	// Leaf reports whether key is a subcategory, with the spec labels it
-	// requires.
-	Leaf(ctx context.Context, key string) (bool, []string, error)
+	// Leaf reports whether code is a subcategory, with the specs it asks
+	// for, in order.
+	Leaf(ctx context.Context, code string) (bool, []domain.SpecNames, error)
+	// SpecNames names the specs of keys in t, Vietnamese where t has no
+	// name; an unknown key is left out.
+	SpecNames(ctx context.Context, t locale.Tag, keys []string) (map[string]string, error)
 }
 
 // Regions reads the administrative units.

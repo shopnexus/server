@@ -67,12 +67,17 @@ func (a *Assist) PriceGuide(ctx context.Context, account uuid.UUID, in PriceGuid
 		}
 	}
 	origin := catalogdomain.Point{Lat: place.Lat, Lng: place.Lng}
+	// The specs read as the listing would store them: keyed, in Vietnamese.
+	specs, err := a.d.Catalog.KeySpecs(ctx, in.CategoryCode, in.Specs)
+	if err != nil {
+		return PriceGuideView{}, fmt.Errorf("key the specs: %w", err)
+	}
 
 	v := PriceGuideView{
 		Suggestions: []domain.Suggestion{}, Similar: []SimilarView{}, SoldPrices: []int64{}, LivePrices: []int64{},
 	}
 	samples, err := a.d.draftSample(ctx, a.d.Log, account, catalogdomain.ListingInput{
-		Title: in.Title, CategoryCode: in.CategoryCode, Condition: in.Condition, Specs: in.Specs,
+		Title: in.Title, CategoryCode: in.CategoryCode, Condition: in.Condition, Specs: specs,
 		Description: in.Description, Photos: in.Photos,
 	}, started)
 	if err != nil {
@@ -125,7 +130,7 @@ func (a *Assist) PriceGuide(ctx context.Context, account uuid.UUID, in PriceGuid
 
 	var text strings.Builder
 	text.WriteString(in.Title + "\n" + in.Description)
-	for _, s := range in.Specs {
+	for _, s := range specs {
 		text.WriteString("\n" + s.Label + ": " + s.Value)
 	}
 	if v.Watchers, err = a.d.Discovery.Watchers(ctx, account, discoverysvc.WatcherQuery{

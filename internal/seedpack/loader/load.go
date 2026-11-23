@@ -69,6 +69,7 @@ type run struct {
 	follows     accountrepo.Follows
 	uploads     mediarepo.Uploads
 	listings    catalogrepo.Listings
+	categories  catalogrepo.Categories
 	chats       chatrepo.Chats
 	deals       dealrepo.Deals
 
@@ -95,7 +96,7 @@ func (l *Loader) Load(ctx context.Context, pl *Plan, prog seedpack.Progress) (Re
 		Loader: l, pl: pl, prog: prog, name: pl.Pack.Name,
 		accounts: accountrepo.NewAccounts(db), credentials: accountrepo.NewCredentials(db),
 		addresses: accountrepo.NewAddresses(db), follows: accountrepo.NewFollows(db),
-		uploads: mediarepo.NewUploads(db), listings: catalogrepo.NewListings(db),
+		uploads: mediarepo.NewUploads(db), listings: catalogrepo.NewListings(db), categories: catalogrepo.NewCategories(db),
 		chats: chatrepo.NewChats(db), deals: dealrepo.NewDeals(db),
 		people: map[string]seedpack.Account{},
 	}
@@ -313,6 +314,16 @@ func (r *run) build(ctx context.Context, x row) (*catalogdomain.Listing, error) 
 	}
 	place := r.pl.places[x.Commune]
 	refsIn := catalogdomain.Refs{CategoryIsLeaf: true, CommuneExists: true, CommunePoint: catalogdomain.Point{Lat: place.Lat, Lng: place.Lng}}
+	// A pack's listing may lack a spec its category asks for, so the refs
+	// hold the ones it names: those get their keys, and none is missing.
+	_, names, err := r.categories.Leaf(ctx, x.Category)
+	if err != nil {
+		return nil, fmt.Errorf("read the specs of %s: %w", x.Category, err)
+	}
+	keyed := catalogdomain.KeySpecs(in.Specs, names)
+	refsIn.Specs = slices.DeleteFunc(names, func(n catalogdomain.SpecNames) bool {
+		return !slices.ContainsFunc(keyed, func(s catalogdomain.Spec) bool { return s.Key == n.Key })
+	})
 	l, err := catalogdomain.NewListing(x.id, seller, in, refsIn, x.CreatedAt)
 	if err != nil {
 		r.warnf("listing %s: %v", x.Key, err)

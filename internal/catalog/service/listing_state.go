@@ -10,10 +10,11 @@ import (
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/repository"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // Hide is UC-LST-02.
-func (c *Catalog) Hide(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
+func (c *Catalog) Hide(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error) {
 	l, err := c.own(ctx, seller, id)
 	if err != nil {
 		return ListingView{}, err
@@ -22,11 +23,14 @@ func (c *Catalog) Hide(ctx context.Context, seller, id uuid.UUID) (ListingView, 
 	if err = l.Hide(now); err != nil {
 		return ListingView{}, err
 	}
-	return c.save(ctx, l, events.ListingHidden, now)
+	if err = c.save(ctx, l, events.ListingHidden, now); err != nil {
+		return ListingView{}, err
+	}
+	return c.view(ctx, l, t)
 }
 
 // Unhide is UC-LST-02.
-func (c *Catalog) Unhide(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
+func (c *Catalog) Unhide(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error) {
 	l, err := c.own(ctx, seller, id)
 	if err != nil {
 		return ListingView{}, err
@@ -35,11 +39,14 @@ func (c *Catalog) Unhide(ctx context.Context, seller, id uuid.UUID) (ListingView
 	if err = l.Unhide(now); err != nil {
 		return ListingView{}, err
 	}
-	return c.save(ctx, l, events.ListingUnhidden, now)
+	if err = c.save(ctx, l, events.ListingUnhidden, now); err != nil {
+		return ListingView{}, err
+	}
+	return c.view(ctx, l, t)
 }
 
 // MarkSold is UC-LST-02.
-func (c *Catalog) MarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
+func (c *Catalog) MarkSold(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error) {
 	l, err := c.own(ctx, seller, id)
 	if err != nil {
 		return ListingView{}, err
@@ -48,11 +55,14 @@ func (c *Catalog) MarkSold(ctx context.Context, seller, id uuid.UUID) (ListingVi
 	if err = l.MarkSold(now); err != nil {
 		return ListingView{}, err
 	}
-	return c.save(ctx, l, events.ListingSold, now)
+	if err = c.save(ctx, l, events.ListingSold, now); err != nil {
+		return ListingView{}, err
+	}
+	return c.view(ctx, l, t)
 }
 
 // UnmarkSold is UC-LST-02 A2.
-func (c *Catalog) UnmarkSold(ctx context.Context, seller, id uuid.UUID) (ListingView, error) {
+func (c *Catalog) UnmarkSold(ctx context.Context, seller, id uuid.UUID, t locale.Tag) (ListingView, error) {
 	l, err := c.own(ctx, seller, id)
 	if err != nil {
 		return ListingView{}, err
@@ -61,7 +71,10 @@ func (c *Catalog) UnmarkSold(ctx context.Context, seller, id uuid.UUID) (Listing
 	if err = l.UnmarkSold(now); err != nil {
 		return ListingView{}, err
 	}
-	return c.save(ctx, l, events.ListingUnsold, now)
+	if err = c.save(ctx, l, events.ListingUnsold, now); err != nil {
+		return ListingView{}, err
+	}
+	return c.view(ctx, l, t)
 }
 
 // Delete is UC-LST-02.
@@ -74,8 +87,7 @@ func (c *Catalog) Delete(ctx context.Context, seller, id uuid.UUID) error {
 	if err = l.Delete(now); err != nil {
 		return err
 	}
-	_, err = c.save(ctx, l, events.ListingDeleted, now)
-	return err
+	return c.save(ctx, l, events.ListingDeleted, now)
 }
 
 func (c *Catalog) Reserve(ctx context.Context, listingID, orderID uuid.UUID) error {
@@ -88,8 +100,7 @@ func (c *Catalog) Reserve(ctx context.Context, listingID, orderID uuid.UUID) err
 	if err != nil || !changed {
 		return err
 	}
-	_, err = c.save(ctx, l, events.ListingReserved, now)
-	return err
+	return c.save(ctx, l, events.ListingReserved, now)
 }
 
 func (c *Catalog) Release(ctx context.Context, listingID, orderID uuid.UUID) error {
@@ -101,8 +112,7 @@ func (c *Catalog) Release(ctx context.Context, listingID, orderID uuid.UUID) err
 	if !l.Release(orderID, now) {
 		return nil
 	}
-	_, err = c.save(ctx, l, events.ListingReleased, now)
-	return err
+	return c.save(ctx, l, events.ListingReleased, now)
 }
 
 func (c *Catalog) SellTo(ctx context.Context, listingID, orderID uuid.UUID) error {
@@ -114,8 +124,7 @@ func (c *Catalog) SellTo(ctx context.Context, listingID, orderID uuid.UUID) erro
 	if !l.SellTo(orderID, now) {
 		return nil
 	}
-	_, err = c.save(ctx, l, events.ListingSold, now)
-	return err
+	return c.save(ctx, l, events.ListingSold, now)
 }
 
 // listing loads any listing by ID; an unknown one is domain.ErrNotFound.
@@ -130,11 +139,11 @@ func (c *Catalog) listing(ctx context.Context, id uuid.UUID) (domain.Listing, er
 	return l, nil
 }
 
-// save writes a status change of l with the event of that kind and returns
-// the listing's view. A listing written meanwhile is apperr.ErrTryAgain.
-func (c *Catalog) save(ctx context.Context, l domain.Listing, kind events.Kind, now time.Time) (ListingView, error) {
+// save writes a status change of l with the event of that kind. A listing
+// written meanwhile is apperr.ErrTryAgain.
+func (c *Catalog) save(ctx context.Context, l domain.Listing, kind events.Kind, now time.Time) error {
 	if err := c.listings.Save(ctx, &l, uuid.NewV7(), nil, events.Event{ID: uuid.NewV7(), Kind: kind, SubjectID: l.ID(), OccurredAt: now}); err != nil {
-		return ListingView{}, saveErr(err)
+		return saveErr(err)
 	}
-	return c.view(ctx, l)
+	return nil
 }

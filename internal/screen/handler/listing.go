@@ -5,6 +5,7 @@ import (
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/screen/service"
 )
 
@@ -30,6 +31,7 @@ func (h *Handler) Listing(w http.ResponseWriter, r *http.Request) {
 		Ref:      in.Ref,
 		Near:     catalogdomain.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune},
 		Prefetch: httpx.Prefetch(r),
+		Locale:   locale.Negotiate(w, r),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

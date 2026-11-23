@@ -11,6 +11,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -22,11 +23,11 @@ func TestSellerListingsAndCounts(t *testing.T) {
 	ctx := context.Background()
 	seller := e.seller(t)
 	sold := e.active(t, seller).ID
-	if _, err := e.catalog.MarkSold(ctx, seller, sold); err != nil {
+	if _, err := e.catalog.MarkSold(ctx, seller, sold, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	hidden := e.active(t, seller).ID
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	active := e.active(t, seller).ID
@@ -89,7 +90,7 @@ func TestGetNear(t *testing.T) {
 		"its commune":         {domain.Near{Commune: "00004"}, new(0)},
 		"0.05° north, 5.5 km": {domain.Near{Lat: home.Lat + 0.05, Lng: home.Lng}, new(5)},
 	} {
-		v, got, err := e.catalog.GetNear(ctx, nil, id, c.near)
+		v, got, err := e.catalog.GetNear(ctx, nil, id, c.near, locale.Vietnamese)
 		if err != nil || v.ID != id || (got == nil) != (c.want == nil) || (got != nil && *got != *c.want) {
 			t.Errorf("%s: %v %v", name, got, err)
 		}
@@ -99,18 +100,18 @@ func TestGetNear(t *testing.T) {
 		"out of range":       {Lat: 95, Lng: 105},
 		"an unknown commune": {Commune: "nope"},
 	} {
-		if _, _, err := e.catalog.GetNear(ctx, nil, id, near); !errors.Is(err, domain.ErrInvalidPosition) {
+		if _, _, err := e.catalog.GetNear(ctx, nil, id, near, locale.Vietnamese); !errors.Is(err, domain.ErrInvalidPosition) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
-	if _, _, err := e.catalog.GetNear(ctx, nil, uuid.NewV7(), domain.Near{Commune: "nope"}); !errors.Is(err, domain.ErrNotFound) {
+	if _, _, err := e.catalog.GetNear(ctx, nil, uuid.NewV7(), domain.Near{Commune: "nope"}, locale.Vietnamese); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("an unknown listing: %v", err)
 	}
 	hidden := e.active(t, seller).ID
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := e.catalog.GetNear(ctx, nil, hidden, domain.Near{Commune: "nope"}); !errors.Is(err, domain.ErrNotFound) {
+	if _, _, err := e.catalog.GetNear(ctx, nil, hidden, domain.Near{Commune: "nope"}, locale.Vietnamese); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("a hidden listing signed out: %v", err)
 	}
 }
@@ -124,7 +125,7 @@ func TestSitemap(t *testing.T) {
 	seller := e.seller(t)
 	l := e.active(t, seller)
 	hidden := e.active(t, seller).ID
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	m, err := e.catalog.Sitemap(ctx)

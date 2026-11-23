@@ -32,6 +32,9 @@ screenMyListings:
     responses:
       "200":
         description: The view.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:

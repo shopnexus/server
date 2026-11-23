@@ -10,6 +10,7 @@ import (
 
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 var now = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
@@ -376,20 +377,51 @@ func TestPublishedTellsTheFirst(t *testing.T) {
 	}
 }
 
+// storage and color are two specs a category asks for.
+var storage, color = domain.SpecNames{Key: "storage", Names: map[locale.Tag]string{locale.Vietnamese: "Dung lượng", locale.English: "Storage"}},
+	domain.SpecNames{Key: "color", Names: map[locale.Tag]string{locale.Vietnamese: "Màu", locale.English: "Color"}}
+
 func TestCategorySpecsRequired(t *testing.T) {
 	t.Parallel()
-	refs := domain.Refs{CategoryIsLeaf: true, CommuneExists: true, SpecLabels: []string{"Dung lượng", "Màu"}}
+	refs := domain.Refs{CategoryIsLeaf: true, CommuneExists: true, Specs: []domain.SpecNames{storage, color}}
 	_, err := domain.NewListing(uuid.NewV7(), uuid.NewV7(), draft(), refs, now)
 	var e *apperr.Error
 	if !errors.As(err, &e) || !strings.Contains(e.Fields["specs"], "Màu") || strings.Contains(e.Fields["specs"], "Dung lượng") {
 		t.Fatalf("missing Màu: %v", err)
 	}
-	if e.FieldCodes["specs"] != apperr.MissingSpecs || !slices.Equal(e.Details.MissingSpecs, []string{"Màu"}) {
-		t.Fatalf("code %q, details %v", e.FieldCodes["specs"], e.Details.MissingSpecs)
+	if e.FieldCodes["specs"] != apperr.MissingSpecs || !slices.Equal(e.Details.MissingSpecs, []string{"Màu"}) ||
+		!slices.Equal(e.Details.MissingSpecKeys, []string{"color"}) {
+		t.Fatalf("code %q, details %+v", e.FieldCodes["specs"], e.Details)
 	}
-	d := draft()
-	d.Specs = append(d.Specs, domain.Spec{Label: "màu", Value: "Trắng"})
-	if _, err = domain.NewListing(uuid.NewV7(), uuid.NewV7(), d, refs, now); err != nil {
-		t.Fatalf("all filled: %v", err)
+	// A spec by key, by its Vietnamese or English name (case aside), or
+	// one the seller names, stores the same keys and the Vietnamese names.
+	want := []domain.Spec{{Key: "storage", Label: "Dung lượng", Value: "128GB"}, {Key: "color", Label: "Màu", Value: "Trắng"}, {Label: "Hộp", Value: "Còn"}}
+	for name, specs := range map[string][]domain.Spec{
+		"keys":       {{Key: "storage", Value: "128GB"}, {Key: "color", Label: "Colour", Value: "Trắng"}, {Label: "Hộp", Value: "Còn"}},
+		"Vietnamese": {{Label: "Dung lượng", Value: "128GB"}, {Label: "màu", Value: "Trắng"}, {Label: " Hộp ", Value: "Còn"}},
+		"English":    {{Label: "storage", Value: "128GB"}, {Label: "Color", Value: " Trắng"}, {Label: "Hộp", Value: "Còn"}},
+	} {
+		d := draft()
+		d.Specs = specs
+		l, err := domain.NewListing(uuid.NewV7(), uuid.NewV7(), d, refs, now)
+		if err != nil || !slices.Equal(l.Specs(), want) {
+			t.Errorf("%s: %+v %v", name, l.Specs(), err)
+		}
+	}
+	for name, c := range map[string]struct {
+		specs []domain.Spec
+		code  apperr.FieldCode
+	}{
+		"an unknown key":   {[]domain.Spec{{Key: "battery", Value: "90%"}}, apperr.Unknown},
+		"a key twice":      {[]domain.Spec{{Label: "Màu", Value: "Đen"}}, apperr.Duplicate},
+		"no key, no label": {[]domain.Spec{{Value: "Trắng"}}, apperr.Required},
+	} {
+		d := draft()
+		d.Specs = append(d.Specs, domain.Spec{Key: "color", Value: "Trắng"})
+		d.Specs = append(d.Specs, c.specs...)
+		_, err := domain.NewListing(uuid.NewV7(), uuid.NewV7(), d, refs, now)
+		if !errors.As(err, &e) || e.FieldCodes["specs"] != c.code {
+			t.Errorf("%s: %v %v", name, e.FieldCodes, err)
+		}
 	}
 }

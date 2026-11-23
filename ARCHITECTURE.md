@@ -208,9 +208,9 @@ written (decided 2026-11-17):
   `required` on each property it lacks. The app's script drops the
   `oneOf`, so its model has every field optional.
 - No schema that an app operation reaches is a map of any values.
-  `Error.details` lists `retry_after`, `attempts_left`, `reason` and
-  `missing_specs` with `additionalProperties: false`. `apperr.Details` is a
-  struct with the same four fields, set by `WithRetryAfter`,
+  `Error.details` lists `retry_after`, `attempts_left`, `reason`,
+  `missing_spec_keys` and `missing_specs` with `additionalProperties: false`.
+  `apperr.Details` is a struct with the same five fields, set by `WithRetryAfter`,
   `WithAttemptsLeft`, `WithReason` and `WithMissingSpecs`, so a new detail
   is a field in both places. A detail that
   was set is sent, a blank `reason` included, and an unset one is not.
@@ -242,7 +242,8 @@ older clients (decided 2026-11-23, spec
   `too_long`/`too_many` from a size. The spec validator's codes come from
   the keyword it reports (`keywordCodes`). `field_codes` is a second map
   beside `fields`, so older clients and older Restate journals still
-  decode. Missing specs also go in `details.missing_specs`.
+  decode. Missing specs also go in `details.missing_spec_keys`, and their
+  Vietnamese names in `details.missing_specs` for older clients.
 - Photo refusals: `Photo.failure_code` and `Message.failure_code` beside
   `failure`. The upload, the listing's `rejection` and the message keep
   storing the English reason, so no table changed; `media/domain`
@@ -286,7 +287,11 @@ into a response follows the request's `Accept-Language`.
   `new_account` has `.one` and `.other` keys for English. Default quick
   replies read `chat/domain/text/<tag>.json`; the repository's `Get` says
   whether the account saved a list and the service fills the defaults.
-- Still Vietnamese: spec labels (they need stable keys first), regions
+- Spec names: see Catalog. The listing endpoints that return a `Listing`
+  (post, read, edit, hide, unhide, mark sold, unmark sold),
+  `/v1/screens/listing/{id}` and `/v1/screens/my-listings` negotiate too,
+  for the labels of keyed specs.
+- Still Vietnamese: regions
   (proper nouns), the history's stored `category`, chat ref names.
 
 ### Pagination
@@ -1404,6 +1409,34 @@ agree during a deploy.
   `invalid_listing` on `specs`; the seller may add specs of their own, 20
   in all. The seed pack loader passes no labels to `domain.NewListing`, so
   seeded listings may lack them.
+- Spec keys (decided 2026-11-24, migration 0081): a category's specs are
+  keys, `categories.spec_keys` in order. `specs(key, display_name)` holds
+  the Vietnamese name and `spec_names(key, locale, name)` the other
+  languages, as `category_names` does. A label means one key, except three
+  labels that mean two things: "Kích thước" is `screen_size` on monitors and
+  `dimensions` elsewhere, "Môn" is `sport` or `subject`, "Loại máy" is
+  `movement` on watches and `machine_type` elsewhere. `Category.specs` sends
+  `{key, name}` in the request's language; `spec_labels` stays, deprecated,
+  as the Vietnamese names, and the column too, for pods of the release before
+  during a deploy.
+- A request's spec (`SpecInput`) sends a key, or a label alone that
+  `domain.KeySpecs` matches to a key through the category's names in every
+  language, case aside. The listing stores `{key, label, value}` with the
+  Vietnamese name as the label, so embeddings, search and the price guide
+  read Vietnamese as before. A spec with an unknown key, a second spec of
+  one key, or one with neither key nor label is `invalid_listing` on
+  `specs`; a label that names no spec of the category stays the seller's,
+  with no key. Views name keyed specs in the request's language
+  (`SpecNames`, one query a response).
+- 0081 keys the stored specs whose label names a spec of the listing's
+  category, case aside, the first of each key only, and leaves labels as
+  they were, so no text vector changes. Drafts keep the app's `body`
+  unread, so their specs stay labels; posting one keys them. `specs_text`
+  becomes the labels and values without the keys, which are English words
+  a query would match on every listing; the index is built again. The seed
+  loader keys the specs a pack's listing names and checks none of the
+  others, as before. `Refs.SpecLabels` is still filled for a pod of the
+  release before that replays the journal.
 - `POST /v1/category-guesses` (seller-only) and the three reads guess a
   draft's subcategory with `GuessCategory`. It embeds the title and the
   description with the text model and takes the nearest of the category
@@ -2920,7 +2953,7 @@ The video read:
   a guess that fails leaves it empty for the seller to pick.
   `domain.VideoDraft` squeezes the title and cuts it at 70 characters and
   the description at 1,500. The draft is `used`, with no specs, no price
-  and `allow_offers` false; the seller fills the category's `spec_labels`,
+  and `allow_offers` false; the seller fills the category's `specs`,
   the price and the rest. Its photos are the sharpest frame, then the
   others in time order, 6 at most. `found` false or an empty title fails
   the read with `no_item` and the model's `reason` as `failure_reason`. An

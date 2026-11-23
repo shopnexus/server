@@ -14,6 +14,7 @@ import (
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	discoverydomain "github.com/shopnexus/server/internal/discovery/domain"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -49,11 +50,11 @@ type MyListingsItem struct {
 // those listings at once, their views and saves, their deals, and the
 // messages about them. That is four or five calls, whatever the page holds.
 // The week sums the listings on sale, whichever pane the page is.
-func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request) (MyListingsScreen, error) {
+func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request, t locale.Tag) (MyListingsScreen, error) {
 	// Views are stored by UTC day, so the week is the seven UTC days that
 	// end today, for the views, the saves and the askers alike.
 	since := discoverydomain.ViewWeek(s.now())
-	listings, err := s.catalog.ListMine(ctx, seller, pane, p)
+	listings, err := s.catalog.ListMine(ctx, seller, pane, p, t)
 	if err != nil {
 		return MyListingsScreen{}, fmt.Errorf("read the listings: %w", err)
 	}

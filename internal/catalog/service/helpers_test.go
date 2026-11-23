@@ -20,6 +20,7 @@ import (
 	"github.com/shopnexus/server/internal/media/mediatest"
 	mediarepo "github.com/shopnexus/server/internal/media/repository"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
@@ -86,7 +87,7 @@ func draft(photos ...uuid.UUID) domain.ListingInput {
 // post posts a listing with one fresh photo for seller.
 func (e env) post(t *testing.T, seller uuid.UUID) service.ListingView {
 	t.Helper()
-	v, err := e.catalog.Post(context.Background(), seller, uuid.NewV7().String(), draft(e.upload(t, seller, mediatest.JPEG(t, 64, 48))))
+	v, err := e.catalog.Post(context.Background(), seller, uuid.NewV7().String(), draft(e.upload(t, seller, mediatest.JPEG(t, 64, 48))), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +101,7 @@ func (e env) settle(t *testing.T, seller, id uuid.UUID) service.ListingView {
 	var v service.ListingView
 	testenv.Eventually(t, 30*time.Second, func() error {
 		var err error
-		if v, err = e.catalog.Get(context.Background(), &seller, id); err != nil {
+		if v, err = e.catalog.Get(context.Background(), &seller, id, locale.Vietnamese); err != nil {
 			t.Fatal(err)
 		}
 		if v.Status == domain.StatusProcessing {

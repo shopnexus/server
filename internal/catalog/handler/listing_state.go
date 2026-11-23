@@ -7,6 +7,7 @@ import (
 
 	"github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 type listingRequest struct {
@@ -27,7 +28,7 @@ func (h *Handler) UnmarkSold(w http.ResponseWriter, r *http.Request) { h.move(w,
 
 // move serves a status change of the caller's listing.
 func (h *Handler) move(w http.ResponseWriter, r *http.Request,
-	change func(context.Context, uuid.UUID, uuid.UUID) (service.ListingView, error),
+	change func(context.Context, uuid.UUID, uuid.UUID, locale.Tag) (service.ListingView, error),
 ) {
 	p, ok := httpx.Caller(w, r, h.log)
 	if !ok {
@@ -38,7 +39,7 @@ func (h *Handler) move(w http.ResponseWriter, r *http.Request,
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := change(r.Context(), p.AccountID, in.ID)
+	v, err := change(r.Context(), p.AccountID, in.ID, locale.Negotiate(w, r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

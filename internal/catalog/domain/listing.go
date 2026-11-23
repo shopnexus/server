@@ -12,6 +12,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 const (
@@ -78,7 +79,11 @@ type Photo struct {
 	Keys     PhotoKeys `json:"keys"`
 }
 
+// Spec is one of a listing's specs. Key names a spec the category asks for,
+// whose Vietnamese name is then the label; a spec the seller names has no
+// key and keeps their label.
 type Spec struct {
+	Key   string `json:"key,omitempty"`
 	Label string `json:"label"`
 	Value string `json:"value"`
 }
@@ -103,7 +108,10 @@ type ListingInput struct {
 // listing input.
 type Refs struct {
 	CategoryIsLeaf bool
-	// SpecLabels are the specs the category requires.
+	// Specs are the specs the category asks for.
+	Specs []SpecNames
+	// SpecLabels are their Vietnamese names, all a Refs journaled by the
+	// release before spec keys holds; only that release reads them.
 	SpecLabels    []string
 	CommuneExists bool
 	CommunePoint  Point // the chosen commune's point
@@ -186,20 +194,26 @@ func (l *Listing) apply(d ListingInput, refs Refs, now time.Time) error {
 	if len(d.Specs) > MaxSpecs {
 		e = e.WithField("specs", apperr.TooMany, "at most 20")
 	}
-	specs := make([]Spec, 0, len(d.Specs))
-	for _, s := range d.Specs {
-		label, value := strings.TrimSpace(s.Label), strings.TrimSpace(s.Value)
-		if !within(label, MaxSpecText) || !within(value, MaxSpecText) {
+	specs := KeySpecs(d.Specs, refs.Specs)
+	keyed := map[string]bool{}
+	for _, s := range specs {
+		switch {
+		case s.Key != "" && !slices.ContainsFunc(refs.Specs, func(n SpecNames) bool { return n.Key == s.Key }):
+			e = e.WithField("specs", apperr.Unknown, "keys of the category's specs")
+		case s.Key != "" && keyed[s.Key]:
+			e = e.WithField("specs", apperr.Duplicate, "one spec of each key")
+		case !within(s.Label, MaxSpecText) || !within(s.Value, MaxSpecText):
 			code := apperr.TooLong
-			if label == "" || value == "" {
+			if s.Label == "" || s.Value == "" {
 				code = apperr.Required
 			}
-			e = e.WithField("specs", code, "label and value 1 to 50 characters each")
+			e = e.WithField("specs", code, "a key or a label, and a value, 1 to 50 characters each")
+		default:
 		}
-		specs = append(specs, Spec{Label: label, Value: value})
+		keyed[s.Key] = true
 	}
-	if missing := missingSpecs(refs.SpecLabels, specs); len(missing) > 0 {
-		e = e.WithField("specs", apperr.MissingSpecs, "a value for "+strings.Join(missing, ", ")).WithMissingSpecs(missing)
+	if keys, labels := missingSpecs(refs.Specs, specs); len(keys) > 0 {
+		e = e.WithField("specs", apperr.MissingSpecs, "a value for "+strings.Join(labels, ", ")).WithMissingSpecs(keys, labels)
 	}
 	if d.Spot != nil && Distance(*d.Spot, refs.CommunePoint) > MaxGPSKm {
 		e = e.WithField("gps", apperr.OutOfRange, "within 30 km of the commune")
@@ -222,15 +236,42 @@ func (l *Listing) apply(d ListingInput, refs Refs, now time.Time) error {
 	return nil
 }
 
-// missingSpecs are the labels with no spec of that label, case aside.
-func missingSpecs(labels []string, specs []Spec) []string {
-	var out []string
-	for _, l := range labels {
-		if !slices.ContainsFunc(specs, func(s Spec) bool { return strings.EqualFold(s.Label, l) && s.Value != "" }) {
-			out = append(out, l)
+// KeySpecs trims specs and gives each that names a spec of names, by its key
+// or by its name in any language (case aside), that spec's key and its
+// Vietnamese name as the label: the specs as a listing stores them. A key
+// names lacks stays, for the caller to refuse.
+func KeySpecs(specs []Spec, names []SpecNames) []Spec {
+	out := make([]Spec, len(specs))
+	for i, s := range specs {
+		s = Spec{Key: strings.TrimSpace(s.Key), Label: strings.TrimSpace(s.Label), Value: strings.TrimSpace(s.Value)}
+		j := slices.IndexFunc(names, func(n SpecNames) bool {
+			if s.Key != "" {
+				return n.Key == s.Key
+			}
+			for _, name := range n.Names {
+				if strings.EqualFold(name, s.Label) {
+					return true
+				}
+			}
+			return false
+		})
+		if j >= 0 {
+			s.Key, s.Label = names[j].Key, names[j].Names[locale.Vietnamese]
 		}
+		out[i] = s
 	}
 	return out
+}
+
+// missingSpecs are the keys and Vietnamese names of the specs of names that
+// no spec of specs gives a value.
+func missingSpecs(names []SpecNames, specs []Spec) (keys, labels []string) {
+	for _, n := range names {
+		if !slices.ContainsFunc(specs, func(s Spec) bool { return s.Key == n.Key && s.Value != "" }) {
+			keys, labels = append(keys, n.Key), append(labels, n.Names[locale.Vietnamese])
+		}
+	}
+	return keys, labels
 }
 
 func within(s string, maxRunes int) bool {

@@ -19,6 +19,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/testenv"
 	"github.com/shopnexus/server/internal/provider/indexnow"
 )
@@ -98,7 +99,7 @@ func TestIndexNowQueue(t *testing.T) {
 	}
 	slug := func(id uuid.UUID) string {
 		t.Helper()
-		v, err := e.catalog.Get(ctx, &seller, id)
+		v, err := e.catalog.Get(ctx, &seller, id, locale.Vietnamese)
 		if err != nil {
 			t.Fatal(err)
 		}

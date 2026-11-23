@@ -12,6 +12,7 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/chat/domain"
 	"github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -60,7 +61,7 @@ func TestOpenRefusals(t *testing.T) {
 	seller := e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	hidden := catalogtest.Listing(t, e.db, seller)
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	suspended := e.person(t)

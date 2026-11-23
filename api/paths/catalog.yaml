@@ -23,6 +23,9 @@ listings:
     responses:
       "201":
         description: The listing, in processing.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:
@@ -44,7 +47,7 @@ listings:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "A field breaks a rule (invalid_listing, with fields; details.missing_specs when required specs lack a value), or an upload is not the caller's, not uploaded yet, or already used (invalid_upload)."
+        description: "A field breaks a rule (invalid_listing, with fields; details.missing_spec_keys when specs the category asks for lack a value), or an upload is not the caller's, not uploaded yet, or already used (invalid_upload)."
         content:
           application/json:
             schema:
@@ -70,6 +73,9 @@ listing:
     responses:
       "200":
         description: The listing.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:
@@ -112,6 +118,9 @@ listing:
     responses:
       "200":
         description: The listing.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:
@@ -135,7 +144,7 @@ listing:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "A field breaks a rule (invalid_listing, with fields; details.missing_specs when required specs lack a value), or an added upload is not the caller's, not uploaded yet, or already used (invalid_upload)."
+        description: "A field breaks a rule (invalid_listing, with fields; details.missing_spec_keys when specs the category asks for lack a value), or an added upload is not the caller's, not uploaded yet, or already used (invalid_upload)."
         content:
           application/json:
             schema:
@@ -191,6 +200,9 @@ listingHide:
     responses:
       "200":
         description: The listing.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:
@@ -229,6 +241,9 @@ listingUnhide:
     responses:
       "200":
         description: The listing.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:
@@ -267,6 +282,9 @@ listingMarkSold:
     responses:
       "200":
         description: The listing.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:
@@ -305,6 +323,9 @@ listingUnmarkSold:
     responses:
       "200":
         description: The listing.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:

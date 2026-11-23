@@ -55,3 +55,11 @@ func (c *Catalog) EmbeddingText(ctx context.Context, d domain.ListingInput) (str
 	}
 	return d.EmbeddingText(name), nil
 }
+
+func (c *Catalog) KeySpecs(ctx context.Context, categoryCode string, specs []domain.Spec) ([]domain.Spec, error) {
+	_, names, err := c.categories.Leaf(ctx, categoryCode)
+	if err != nil {
+		return nil, fmt.Errorf("read the category's specs: %w", err)
+	}
+	return domain.KeySpecs(specs, names), nil
+}

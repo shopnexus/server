@@ -15,6 +15,7 @@ import (
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/locale"
 	supportdomain "github.com/shopnexus/server/internal/support/domain"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
 	trustdomain "github.com/shopnexus/server/internal/trust/domain"
@@ -244,7 +245,7 @@ func (t tools) listingsOfAccount(ctx context.Context, _ authn.ConsoleMember, in 
 	if pane == "" {
 		pane = catalogsvc.PaneOnSale
 	}
-	p, err := t.d.Catalog.ListMine(ctx, in.AccountID, pane, in.request())
+	p, err := t.d.Catalog.ListMine(ctx, in.AccountID, pane, in.request(), locale.Vietnamese)
 	if err != nil {
 		return listingsOfAccountOut{}, fmt.Errorf("list the listings: %w", err)
 	}

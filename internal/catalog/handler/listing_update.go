@@ -5,6 +5,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 type updateRequest struct {
@@ -25,7 +26,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Edit(r.Context(), p.AccountID, in.ID, in.IdempotencyKey, in.input())
+	v, err := h.svc.Edit(r.Context(), p.AccountID, in.ID, in.IdempotencyKey, in.input(), locale.Negotiate(w, r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

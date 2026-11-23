@@ -18,7 +18,13 @@ func NewCategories(db *pgxpool.Pool) Categories { return pgCategories{db} }
 
 func (s pgCategories) Tree(ctx context.Context, t locale.Tag) ([]domain.Category, error) {
 	rows, err := s.db.Query(ctx, `
-SELECT c.code, coalesce(c.parent_code, ''), coalesce(n.name, c.display_name), c.spec_labels FROM categories c
+SELECT c.code, coalesce(c.parent_code, ''), coalesce(n.name, c.display_name),
+       coalesce((SELECT json_agg(json_build_object('key', s.key, 'name', coalesce(sn.name, s.display_name)) ORDER BY k.i)
+                 FROM unnest(c.spec_keys) WITH ORDINALITY AS k (key, i) JOIN specs s ON s.key = k.key
+                 LEFT JOIN spec_names sn ON sn.key = s.key AND sn.locale = @locale), '[]'),
+       ARRAY(SELECT s.display_name FROM unnest(c.spec_keys) WITH ORDINALITY AS k (key, i)
+             JOIN specs s ON s.key = k.key ORDER BY k.i)
+FROM categories c
 LEFT JOIN categories p ON p.code = c.parent_code
 LEFT JOIN category_names n ON n.code = c.code AND n.locale = @locale
 ORDER BY c.parent_code IS NOT NULL, coalesce(p.sort_order, c.sort_order), c.sort_order`, pgx.StrictNamedArgs{"locale": string(t)})
@@ -32,17 +38,40 @@ ORDER BY c.parent_code IS NOT NULL, coalesce(p.sort_order, c.sort_order), c.sort
 	return out, nil
 }
 
-func (s pgCategories) Leaf(ctx context.Context, code string) (bool, []string, error) {
-	var labels []string
-	err := s.db.QueryRow(ctx, `SELECT spec_labels FROM categories WHERE code = @code AND parent_code IS NOT NULL`,
-		pgx.StrictNamedArgs{"code": code}).Scan(&labels)
+func (s pgCategories) Leaf(ctx context.Context, code string) (bool, []domain.SpecNames, error) {
+	var specs []domain.SpecNames
+	err := s.db.QueryRow(ctx, `
+SELECT coalesce((SELECT json_agg(json_build_object('key', s.key, 'names',
+                    jsonb_build_object(@vi::text, s.display_name) ||
+                    coalesce((SELECT jsonb_object_agg(n.locale, n.name) FROM spec_names n WHERE n.key = s.key), '{}')) ORDER BY k.i)
+                 FROM unnest(c.spec_keys) WITH ORDINALITY AS k (key, i) JOIN specs s ON s.key = k.key), '[]')
+FROM categories c WHERE c.code = @code AND c.parent_code IS NOT NULL`,
+		pgx.StrictNamedArgs{"code": code, "vi": string(locale.Vietnamese)}).Scan(&specs)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil, nil
 	}
 	if err != nil {
 		return false, nil, fmt.Errorf("check category: %w", err)
 	}
-	return true, labels, nil
+	return true, specs, nil
+}
+
+func (s pgCategories) SpecNames(ctx context.Context, t locale.Tag, keys []string) (map[string]string, error) {
+	rows, err := s.db.Query(ctx, `SELECT s.key, coalesce(n.name, s.display_name) FROM specs s
+LEFT JOIN spec_names n ON n.key = s.key AND n.locale = @locale WHERE s.key = ANY(@keys)`,
+		pgx.StrictNamedArgs{"locale": string(t), "keys": keys})
+	if err != nil {
+		return nil, fmt.Errorf("select spec names: %w", err)
+	}
+	out := make(map[string]string, len(keys))
+	var key, name string
+	if _, err = pgx.ForEachRow(rows, []any{&key, &name}, func() error {
+		out[key] = name
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("read spec names: %w", err)
+	}
+	return out, nil
 }
 
 type pgRegions struct{ db *pgxpool.Pool }

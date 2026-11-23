@@ -13,6 +13,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog/repository"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/restatex"
 )
 
@@ -135,7 +136,7 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 // lookUpRefs reads the listing's category and commune.
 func lookUpRefs(ctx restate.Context, categories repository.Categories, regions repository.Regions, d domain.ListingInput) (domain.Refs, error) {
 	refs, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Refs, error) {
-		leaf, labels, stepErr := categories.Leaf(rc, d.CategoryCode)
+		leaf, specs, stepErr := categories.Leaf(rc, d.CategoryCode)
 		if stepErr != nil {
 			return domain.Refs{}, fmt.Errorf("read category: %w", stepErr)
 		}
@@ -143,7 +144,10 @@ func lookUpRefs(ctx restate.Context, categories repository.Categories, regions r
 		if stepErr != nil {
 			return domain.Refs{}, fmt.Errorf("read commune: %w", stepErr)
 		}
-		refs := domain.Refs{CategoryIsLeaf: leaf, SpecLabels: labels}
+		refs := domain.Refs{CategoryIsLeaf: leaf, Specs: specs, SpecLabels: make([]string, len(specs))}
+		for i, sp := range specs {
+			refs.SpecLabels[i] = sp.Names[locale.Vietnamese]
+		}
 		if len(places) == 1 {
 			refs.CommuneExists = true
 			refs.CommunePoint = domain.Point{Lat: places[0].Lat, Lng: places[0].Lng}

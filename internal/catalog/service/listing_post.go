@@ -6,12 +6,13 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // Post is UC-LST-01, step 3: it runs ListingPost once per seller and
 // idempotencyKey, then reads the listing it posted. A repeated key gets the
 // first post's listing as it is now.
-func (c *Catalog) Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.ListingInput) (ListingView, error) {
+func (c *Catalog) Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.ListingInput, t locale.Tag) (ListingView, error) {
 	res, err := c.post.Call(ctx, seller.String()+"/"+idempotencyKey, PostInput{Seller: seller, Listing: d})
 	if err != nil {
 		return ListingView{}, err
@@ -20,5 +21,5 @@ func (c *Catalog) Post(ctx context.Context, seller uuid.UUID, idempotencyKey str
 	if err != nil {
 		return ListingView{}, fmt.Errorf("read the posted listing: %w", err)
 	}
-	return c.view(ctx, l)
+	return c.view(ctx, l, t)
 }

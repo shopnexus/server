@@ -8,6 +8,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
@@ -70,7 +71,7 @@ func TestListingChanged(t *testing.T) {
 	must(t)(e.deals.Offer(ctx, a, da.ID, 900_000))
 
 	before := len(pgtest.EventKinds(t, e.db, db.ID))
-	if _, err := e.catalog.MarkSold(ctx, seller, listing); err != nil {
+	if _, err := e.catalog.MarkSold(ctx, seller, listing, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	e.changed(t, listing)
@@ -96,14 +97,14 @@ func TestListingChangedHidden(t *testing.T) {
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.open(t, buyer, listing)
 	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
-	if _, err := e.catalog.Hide(ctx, seller, listing); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, listing, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	e.changed(t, listing)
 	if v = e.get(t, buyer, v.ID); v.OpenPrice != nil || moveKinds(v)[len(v.Moves)-1] != domain.MoveListingClosed {
 		t.Fatalf("%+v", v)
 	}
-	if _, err := e.catalog.Unhide(ctx, seller, listing); err != nil {
+	if _, err := e.catalog.Unhide(ctx, seller, listing, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	e.changed(t, listing)

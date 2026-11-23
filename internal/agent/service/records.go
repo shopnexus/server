@@ -277,7 +277,7 @@ func (s *Agent) Listing(ctx context.Context, caller authn.ConsoleMember, id uuid
 		return ConsoleListing{}, catalogdomain.ErrNotFound
 	}
 	// Read as its seller reads it, so a hidden or sold listing shows too.
-	l, err := s.catalog.Get(ctx, &sum.SellerID, id)
+	l, err := s.catalog.Get(ctx, &sum.SellerID, id, locale.Vietnamese)
 	if err != nil {
 		return ConsoleListing{}, fmt.Errorf("read the listing: %w", err)
 	}

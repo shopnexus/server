@@ -27,6 +27,7 @@ import (
 	discoveryrepo "github.com/shopnexus/server/internal/discovery/repository"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
 	"github.com/shopnexus/server/internal/media/mediatest"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
@@ -44,9 +45,9 @@ type countedCatalog struct {
 	pages, onSale atomic.Int32
 }
 
-func (c *countedCatalog) ListMine(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request) (page.Page[catalogsvc.ListingView], error) {
+func (c *countedCatalog) ListMine(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request, t locale.Tag) (page.Page[catalogsvc.ListingView], error) {
 	c.pages.Add(1)
-	return c.Service.ListMine(ctx, seller, pane, p)
+	return c.Service.ListMine(ctx, seller, pane, p, t)
 }
 
 func (c *countedCatalog) OnSale(ctx context.Context, seller uuid.UUID) ([]uuid.UUID, error) {
@@ -177,7 +178,7 @@ func (e *sellEnv) take() sellCalls {
 func (e *sellEnv) read(t *testing.T, seller uuid.UUID, pane catalogsvc.Pane, p page.Request, onSale int32) service.MyListingsScreen {
 	t.Helper()
 	e.take()
-	v, err := e.screen.MyListings(context.Background(), seller, pane, p)
+	v, err := e.screen.MyListings(context.Background(), seller, pane, p, locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,10 +261,10 @@ func TestMyListingsCountsEachListing(t *testing.T) {
 	reserved, deleted := catalogtest.Listing(t, e.db, seller), catalogtest.Listing(t, e.db, seller)
 	processing, rejected := e.unpublished(t, seller, false), e.unpublished(t, seller, true)
 	busy := catalogtest.Listing(t, e.db, seller)
-	if _, err := e.catalog.MarkSold(ctx, seller, sold); err != nil {
+	if _, err := e.catalog.MarkSold(ctx, seller, sold, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.catalog.Delete(ctx, seller, deleted); err != nil {
@@ -358,7 +359,7 @@ func TestMyListingsSoldPanePages(t *testing.T) {
 	sold := make([]uuid.UUID, 0, 3)
 	for range 3 {
 		id := catalogtest.Listing(t, e.db, seller)
-		if _, err := e.catalog.MarkSold(ctx, seller, id); err != nil {
+		if _, err := e.catalog.MarkSold(ctx, seller, id, locale.Vietnamese); err != nil {
 			t.Fatal(err)
 		}
 		sold = append(sold, id)

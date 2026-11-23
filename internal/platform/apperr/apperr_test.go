@@ -108,11 +108,11 @@ func TestWithRetryAfterRoundsUp(t *testing.T) {
 // count tell empty, short and long apart.
 func TestMissingSpecsAndLengths(t *testing.T) {
 	t.Parallel()
-	labels := []string{"Màu"}
-	got := apperr.New(apperr.KindInvalid, "invalid_listing", "x").WithMissingSpecs(labels)
-	labels[0] = "changed"
-	if len(got.Details.MissingSpecs) != 1 || got.Details.MissingSpecs[0] != "Màu" {
-		t.Fatalf("missing specs %v", got.Details.MissingSpecs)
+	keys, labels := []string{"color"}, []string{"Màu"}
+	got := apperr.New(apperr.KindInvalid, "invalid_listing", "x").WithMissingSpecs(keys, labels)
+	keys[0], labels[0] = "changed", "changed"
+	if d := got.Details; len(d.MissingSpecs) != 1 || d.MissingSpecs[0] != "Màu" || len(d.MissingSpecKeys) != 1 || d.MissingSpecKeys[0] != "color" {
+		t.Fatalf("missing specs %v %v", d.MissingSpecKeys, d.MissingSpecs)
 	}
 	for _, c := range []struct {
 		got, want apperr.FieldCode

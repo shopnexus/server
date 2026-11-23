@@ -36,8 +36,8 @@ ListingInput:
     specs:
       type: array
       items:
-        $ref: "#/Spec"
-      description: Up to 20 label and value pairs, with one for each of the category's spec_labels.
+        $ref: "#/SpecInput"
+      description: Up to 20 specs, with a value for each of the category's specs.
     gps:
       type: object
       additionalProperties: false
@@ -56,14 +56,38 @@ ListingInput:
           type: number
           minimum: -180
           maximum: 180
+SpecInput:
+  type: object
+  additionalProperties: false
+  required: [value]
+  description: |
+    A spec as a request sends it. A spec the category asks for goes by its
+    key from Category.specs, or by label alone, its name in any language
+    the server writes, case aside; either way the listing stores the key. Any
+    other label is a spec of the seller's own. A spec with neither key nor
+    label, a key the category lacks, or two specs of one key is 422
+    invalid_listing on field specs.
+  properties:
+    key:
+      type: string
+      description: A key of the category's specs, such as brand.
+    label:
+      type: string
+      description: 1 to 50 characters; read only when key is absent.
+    value:
+      type: string
+      description: 1 to 50 characters.
 Spec:
   type: object
   additionalProperties: false
   required: [label, value]
   properties:
+    key:
+      type: string
+      description: The key of a spec the category asks for; absent on a spec the seller named.
     label:
       type: string
-      description: 1 to 50 characters.
+      description: A keyed spec's name in the request's language, as "Hãng" or "Brand"; the seller's own label on the others.
     value:
       type: string
       description: 1 to 50 characters.
@@ -243,7 +267,7 @@ Region:
 Category:
   type: object
   additionalProperties: false
-  required: [code, display_name, spec_labels]
+  required: [code, display_name, specs, spec_labels]
   properties:
     code:
       type: string
@@ -253,11 +277,29 @@ Category:
     display_name:
       type: string
       description: The name in the request's language, as "Điện thoại" or "Phones".
-    spec_labels:
+    specs:
       type: array
       description: The specs a listing under it must fill, in order. Empty on a root and on "Khác".
       items:
+        $ref: "#/CategorySpec"
+    spec_labels:
+      type: array
+      deprecated: true
+      description: The names of specs in Vietnamese, for apps that predate specs.
+      items:
         type: string
+CategorySpec:
+  type: object
+  additionalProperties: false
+  required: [key, name]
+  properties:
+    key:
+      type: string
+      pattern: "^[a-z][a-z0-9_]*$"
+      description: Stays the same in every language, as brand or storage.
+    name:
+      type: string
+      description: In the request's language, as "Hãng" or "Brand".
 CategoryGuessRequest:
   type: object
   additionalProperties: false

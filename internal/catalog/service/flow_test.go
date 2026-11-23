@@ -18,6 +18,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
 )
@@ -74,7 +75,7 @@ func TestPostAtTheCapKeepsTheUploads(t *testing.T) {
 		}
 	}
 	photo := e.upload(t, seller, mediatest.JPEG(t, 64, 48))
-	if _, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(photo)); !errors.Is(err, domain.ErrCapReached) {
+	if _, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(photo), locale.Vietnamese); !errors.Is(err, domain.ErrCapReached) {
 		t.Fatalf("at the cap: %v", err)
 	}
 	if u, _ := mediarepo.NewUploads(e.db).Get(ctx, photo); u.Status() != mediadomain.StatusWaiting {
@@ -91,10 +92,10 @@ func TestRefusedAttachUndoesTheListing(t *testing.T) {
 	ctx := context.Background()
 	seller := e.seller(t)
 	theirs := e.upload(t, e.seller(t), mediatest.JPEG(t, 64, 48))
-	if _, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(theirs)); !errors.Is(err, mediadomain.ErrInvalidUpload) {
+	if _, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(theirs), locale.Vietnamese); !errors.Is(err, mediadomain.ErrInvalidUpload) {
 		t.Fatalf("%v", err)
 	}
-	p, err := e.catalog.ListMine(ctx, seller, service.PaneOnSale, page.Request{})
+	p, err := e.catalog.ListMine(ctx, seller, service.PaneOnSale, page.Request{}, locale.Vietnamese)
 	if err != nil || len(p.Items) != 0 {
 		t.Fatalf("%+v %v", p, err)
 	}
@@ -125,10 +126,10 @@ func TestEditAfterALostRace(t *testing.T) {
 	seller := e.seller(t)
 	v := e.active(t, seller)
 	d := draft(v.Photos[0].UploadID, e.upload(t, seller, mediatest.JPEG(t, 64, 48)))
-	if _, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d); !errors.Is(err, apperr.ErrTryAgain) {
+	if _, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d, locale.Vietnamese); !errors.Is(err, apperr.ErrTryAgain) {
 		t.Fatalf("first try: %v", err)
 	}
-	if _, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d); err != nil {
+	if _, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d, locale.Vietnamese); err != nil {
 		t.Fatalf("second try: %v", err)
 	}
 	if v = e.settle(t, seller, v.ID); v.Status != domain.StatusActive || len(v.Photos) != 2 || v.Photos[1].URL == "" {
@@ -145,7 +146,7 @@ func TestUnmarkSoldHoldsTheCap(t *testing.T) {
 	ctx := context.Background()
 	seller := e.seller(t)
 	sold := e.active(t, seller).ID
-	if _, err := e.catalog.MarkSold(ctx, seller, sold); err != nil {
+	if _, err := e.catalog.MarkSold(ctx, seller, sold, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	for range domain.MaxOnSale {
@@ -157,7 +158,7 @@ func TestUnmarkSoldHoldsTheCap(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := e.catalog.UnmarkSold(ctx, seller, sold); !errors.Is(err, domain.ErrCapReached) {
+	if _, err := e.catalog.UnmarkSold(ctx, seller, sold, locale.Vietnamese); !errors.Is(err, domain.ErrCapReached) {
 		t.Fatalf("%v", err)
 	}
 }
@@ -171,11 +172,11 @@ func TestIdempotencyKeysAreTheSellers(t *testing.T) {
 	ctx := context.Background()
 	key := uuid.NewV7().String()
 	a, b := e.seller(t), e.seller(t)
-	va, err := e.catalog.Post(ctx, a, key, draft(e.upload(t, a, mediatest.JPEG(t, 64, 48))))
+	va, err := e.catalog.Post(ctx, a, key, draft(e.upload(t, a, mediatest.JPEG(t, 64, 48))), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
-	vb, err := e.catalog.Post(ctx, b, key, draft(e.upload(t, b, mediatest.JPEG(t, 64, 48))))
+	vb, err := e.catalog.Post(ctx, b, key, draft(e.upload(t, b, mediatest.JPEG(t, 64, 48))), locale.Vietnamese)
 	if err != nil || vb.ID == va.ID || vb.SellerID != b {
 		t.Fatalf("%+v %v", vb, err)
 	}

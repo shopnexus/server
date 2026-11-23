@@ -14,6 +14,7 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/deal/domain"
 	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
@@ -107,7 +108,7 @@ func TestOpenRefusals(t *testing.T) {
 	hidden := catalogtest.Listing(t, e.db, seller)
 	early := e.person(t)
 	opened := e.open(t, early, hidden)
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	suspended := e.person(t)
@@ -196,7 +197,7 @@ func TestTakeBackOnAHiddenListing(t *testing.T) {
 	v, agreed := e.open(t, buyer, listing), e.open(t, other, listing)
 	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
 	must(t)(e.deals.Accept(ctx, other, agreed.ID, 1_500_000))
-	if _, err := e.catalog.Hide(ctx, seller, listing); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, listing, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.deals.Offer(ctx, seller, v.ID, 1_200_000); !errors.Is(err, domain.ErrListingUnavailable) {

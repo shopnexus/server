@@ -21,6 +21,7 @@ import (
 	"github.com/shopnexus/server/internal/discovery/service"
 	"github.com/shopnexus/server/internal/media/mediatest"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
@@ -115,10 +116,10 @@ func TestSavedListsEndedLast(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := e.catalog.MarkSold(ctx, seller, sold); err != nil {
+	if _, err := e.catalog.MarkSold(ctx, seller, sold, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	p, err := e.discovery.Saved(ctx, me, page.Request{})
@@ -150,7 +151,7 @@ func TestSaveRefusals(t *testing.T) {
 		t.Errorf("unknown: %v", err)
 	}
 	hidden := catalogtest.Listing(t, e.db, seller)
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.discovery.Save(ctx, me, hidden); !errors.Is(err, domain.ErrListingUnavailable) {
@@ -167,7 +168,7 @@ func TestHiddenSaveShowsStatusOnly(t *testing.T) {
 	if err := e.discovery.Save(ctx, me, listing); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.catalog.Hide(ctx, seller, listing); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, listing, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	p, err := e.discovery.Saved(ctx, me, page.Request{})

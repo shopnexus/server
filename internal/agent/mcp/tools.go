@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/provider/carrier"
 )
@@ -336,7 +337,7 @@ func (t tools) listingGet(ctx context.Context, _ authn.ConsoleMember, in listing
 		return listingOut{}, catalogdomain.ErrNotFound
 	}
 	// Read as its seller reads it, so a hidden or sold listing shows too.
-	l, err := t.d.Catalog.Get(ctx, &sum.SellerID, in.ListingID)
+	l, err := t.d.Catalog.Get(ctx, &sum.SellerID, in.ListingID, locale.Vietnamese)
 	if err != nil {
 		return listingOut{}, fmt.Errorf("read the listing: %w", err)
 	}

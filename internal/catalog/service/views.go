@@ -2,11 +2,13 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/catalog/domain"
 	mediadomain "github.com/shopnexus/server/internal/media/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // Pane is one of the seller's lists of their own listings.
@@ -104,24 +106,38 @@ type PhotoView struct {
 	FailureCode mediadomain.FailureCode `json:"failure_code,omitempty"`
 }
 
-// view builds the ListingView of l.
-func (c *Catalog) view(ctx context.Context, l domain.Listing) (ListingView, error) {
-	views, err := c.views(ctx, []domain.Listing{l})
+// view builds the ListingView of l, its specs named in t.
+func (c *Catalog) view(ctx context.Context, l domain.Listing, t locale.Tag) (ListingView, error) {
+	views, err := c.views(ctx, []domain.Listing{l}, t)
 	if err != nil {
 		return ListingView{}, err
 	}
 	return views[0], nil
 }
 
-// views builds the ListingViews of ls, reading their communes in one query.
-func (c *Catalog) views(ctx context.Context, ls []domain.Listing) ([]ListingView, error) {
+// views builds the ListingViews of ls, reading their communes in one query
+// and the names in t of their keyed specs in another. A spec the seller
+// named keeps their label.
+func (c *Catalog) views(ctx context.Context, ls []domain.Listing, t locale.Tag) ([]ListingView, error) {
 	codes := make([]string, 0, len(ls))
+	var keys []string
 	for i := range ls {
 		codes = append(codes, ls[i].CommuneCode())
+		for _, s := range ls[i].Specs() {
+			if s.Key != "" {
+				keys = append(keys, s.Key)
+			}
+		}
 	}
 	places, err := c.Places(ctx, codes)
 	if err != nil {
 		return nil, err
+	}
+	names := map[string]string{}
+	if len(keys) > 0 {
+		if names, err = c.categories.SpecNames(ctx, t, keys); err != nil {
+			return nil, fmt.Errorf("name specs: %w", err)
+		}
 	}
 	now := c.now()
 	out := make([]ListingView, 0, len(ls))
@@ -136,11 +152,17 @@ func (c *Catalog) views(ctx context.Context, ls []domain.Listing) ([]ListingView
 			}
 			photos = append(photos, v)
 		}
+		specs := l.Specs()
+		for j := range specs {
+			if name, ok := names[specs[j].Key]; ok {
+				specs[j].Label = name
+			}
+		}
 		out = append(out, ListingView{
 			ID: l.ID(), Slug: l.Slug(), SellerID: l.SellerID(), Title: l.Title(), Price: l.Price(), Description: l.Description(),
 			CategoryCode: l.CategoryCode(), Condition: l.Condition(), AllowOffers: l.AllowOffers(),
 			Location: places[l.CommuneCode()],
-			Photos:   photos, Specs: l.Specs(), Status: l.Status(),
+			Photos:   photos, Specs: specs, Status: l.Status(),
 			CreatedAt: l.CreatedAt(), UpdatedAt: l.UpdatedAt(), PublishedAt: l.PublishedAt(), SoldAt: l.SoldAt(),
 		})
 		if d, ok := l.PriceDrop(now); ok {

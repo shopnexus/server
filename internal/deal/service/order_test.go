@@ -15,6 +15,7 @@ import (
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/deal/domain"
 	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -168,7 +169,7 @@ func TestRequestCodRefusals(t *testing.T) {
 	}
 	hidden := catalogtest.Listing(t, e.db, seller)
 	hv := e.agreed(t, buyer, hidden)
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.deals.RequestCod(ctx, buyer, hv.ID, mine, ""); !errors.Is(err, domain.ErrListingUnavailable) {
@@ -331,7 +332,7 @@ func TestHidingCancelsRequests(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.pending(t, buyer, listing)
-	if _, err := e.catalog.Hide(context.Background(), seller, listing); err != nil {
+	if _, err := e.catalog.Hide(context.Background(), seller, listing, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	e.changed(t, listing)

@@ -33,7 +33,7 @@ type Service interface {
 	// MyListings reads a page of one of the seller's panes of Tin của bạn,
 	// each listing with its views, askers, saves and open order, and the
 	// last seven days of the listings on sale.
-	MyListings(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request) (MyListingsScreen, error)
+	MyListings(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request, t locale.Tag) (MyListingsScreen, error)
 	// Offers reads a page of the buyers' open offers on seller's listings,
 	// newest offer first, each with its buyer.
 	Offers(ctx context.Context, seller uuid.UUID, p page.Request) (OffersScreen, error)

@@ -73,8 +73,8 @@ func draftWith(photos ...string) map[string]any {
 	}
 }
 
-// specLabels are the spec labels of each category, read once.
-var specLabels = sync.OnceValues(func() (map[string][]string, error) {
+// specKeys are the spec keys of each category, read once.
+var specKeys = sync.OnceValues(func() (map[string][]string, error) {
 	res, err := http.Get(server + "/v1/categories")
 	if err != nil {
 		return nil, err
@@ -82,8 +82,10 @@ var specLabels = sync.OnceValues(func() (map[string][]string, error) {
 	defer func() { _ = res.Body.Close() }()
 	var list struct {
 		Items []struct {
-			Code       string   `json:"code"`
-			SpecLabels []string `json:"spec_labels"`
+			Code  string `json:"code"`
+			Specs []struct {
+				Key string `json:"key"`
+			} `json:"specs"`
 		} `json:"items"`
 	}
 	if err = json.NewDecoder(res.Body).Decode(&list); err != nil {
@@ -91,22 +93,24 @@ var specLabels = sync.OnceValues(func() (map[string][]string, error) {
 	}
 	out := map[string][]string{}
 	for _, c := range list.Items {
-		out[c.Code] = c.SpecLabels
+		for _, sp := range c.Specs {
+			out[c.Code] = append(out[c.Code], sp.Key)
+		}
 	}
 	return out, nil
 })
 
-// withSpecs gives body a spec for each label of its category.
+// withSpecs gives body a spec for each key of its category.
 func withSpecs(t *testing.T, body map[string]any) {
 	t.Helper()
-	labels, err := specLabels()
+	keys, err := specKeys()
 	if err != nil {
 		t.Fatal(err)
 	}
 	code, _ := body["category_code"].(string)
 	specs := []map[string]string{}
-	for _, l := range labels[code] {
-		specs = append(specs, map[string]string{"label": l, "value": "Có"})
+	for _, k := range keys[code] {
+		specs = append(specs, map[string]string{"key": k, "value": "Có"})
 	}
 	body["specs"] = specs
 }
@@ -228,7 +232,7 @@ func TestPostListingRefusals(t *testing.T) {
 	unfilled["specs"] = []map[string]string{{"label": "Hãng", "value": "Asama"}}
 	res = post(unfilled, bearer(token))
 	if e := errorOf(t, res); res.Status != 422 || e.FieldCodes["specs"] != "missing_specs" ||
-		fmt.Sprint(e.Details["missing_specs"]) != "[Loại xe Cỡ khung]" {
+		fmt.Sprint(e.Details["missing_spec_keys"]) != "[vehicle_type frame_size]" || fmt.Sprint(e.Details["missing_specs"]) != "[Loại xe Cỡ khung]" {
 		t.Errorf("missing specs: %d %s", res.Status, res.Body)
 	}
 	other, _ := newAccount(t)
@@ -344,6 +348,75 @@ func TestUpdateListing(t *testing.T) {
 	check(t, "edit a sold listing", call(t, "PUT", path, body, bearer(token), newKey()), 409, "listing_state_conflict")
 	suspend(t, seller.Account.ID)
 	check(t, "suspended", call(t, "PUT", path, body, bearer(token), newKey()), 403, "account_suspended")
+}
+
+// A category's specs go by key, by Vietnamese label or by English label
+// alone, and the listing stores the same keys; a reader sees the labels in
+// their language, and a spec the seller named as they wrote it.
+func TestListingSpecKeys(t *testing.T) {
+	t.Parallel()
+	seller, _ := newAccount(t)
+	token := seller.AccessToken
+	type spec struct {
+		Key   string `json:"key"`
+		Label string `json:"label"`
+		Value string `json:"value"`
+	}
+	type specListing struct {
+		ID    string `json:"id"`
+		Specs []spec `json:"specs"`
+	}
+	english := [2]string{"Accept-Language", "en"}
+	free := map[string]string{"label": "Phanh", "value": "Đĩa"}
+	for name, specs := range map[string][]map[string]string{
+		"keys":              {{"key": "brand", "value": "Asama"}, {"key": "vehicle_type", "value": "Xe đạp phố"}, {"key": "frame_size", "value": "26 inch"}, free},
+		"Vietnamese labels": {{"label": "Hãng", "value": "Asama"}, {"label": "loại xe", "value": "Xe đạp phố"}, {"label": "Cỡ khung", "value": "26 inch"}, free},
+		"English labels":    {{"label": "Brand", "value": "Asama"}, {"label": "Vehicle type", "value": "Xe đạp phố"}, {"label": "frame size", "value": "26 inch"}, free},
+	} {
+		body := draftWith(upload(t, token, photoWithGPS(t)))
+		body["specs"] = specs
+		res := call(t, "POST", "/v1/listings", body, bearer(token), newKey(), english)
+		posted := expect[specListing](t, res, http.StatusCreated)
+		want := []spec{{"brand", "Brand", "Asama"}, {"vehicle_type", "Vehicle type", "Xe đạp phố"}, {"frame_size", "Frame size", "26 inch"}, {"", "Phanh", "Đĩa"}}
+		if !slices.Equal(posted.Specs, want) || res.Header.Get("Vary") != "Accept-Language" {
+			t.Errorf("%s: posted %+v, Vary %q", name, posted.Specs, res.Header.Get("Vary"))
+		}
+		var stored string
+		if err := db.QueryRow(context.Background(), `SELECT string_agg(coalesce(e ->> 'key', '-') || '=' || (e ->> 'label'), ',' ORDER BY i)
+FROM listings, jsonb_array_elements(specs) WITH ORDINALITY AS s (e, i) WHERE id = @id`, pgx.StrictNamedArgs{"id": posted.ID}).Scan(&stored); err != nil ||
+			stored != "brand=Hãng,vehicle_type=Loại xe,frame_size=Cỡ khung,-=Phanh" {
+			t.Errorf("%s: stored %s %v", name, stored, err)
+		}
+		vi := expect[specListing](t, call(t, "GET", "/v1/listings/"+posted.ID, nil, bearer(token)), http.StatusOK)
+		if labels := fmt.Sprint(vi.Specs); labels != "[{brand Hãng Asama} {vehicle_type Loại xe Xe đạp phố} {frame_size Cỡ khung 26 inch} { Phanh Đĩa}]" {
+			t.Errorf("%s: in Vietnamese %s", name, labels)
+		}
+		en := expect[specListing](t, call(t, "GET", "/v1/listings/"+posted.ID, nil, bearer(token), english), http.StatusOK)
+		if !slices.Equal(en.Specs, want) {
+			t.Errorf("%s: in English %+v", name, en.Specs)
+		}
+	}
+	body := draftWith(upload(t, token, photoWithGPS(t)))
+	body["specs"] = []map[string]string{{"key": "brand", "value": "Asama"}, {"key": "color", "value": "Đỏ"}}
+	res := call(t, "POST", "/v1/listings", body, bearer(token), newKey())
+	if e := errorOf(t, res); res.Status != 422 || e.FieldCodes["specs"] != "missing_specs" ||
+		fmt.Sprint(e.Details["missing_spec_keys"]) != "[vehicle_type frame_size]" {
+		t.Errorf("a key the category lacks and missing specs: %d %s", res.Status, res.Body)
+	}
+	type category struct {
+		Code  string `json:"code"`
+		Specs []struct {
+			Key  string `json:"key"`
+			Name string `json:"name"`
+		} `json:"specs"`
+		SpecLabels []string `json:"spec_labels"`
+	}
+	for _, c := range expect[page[category]](t, call(t, "GET", "/v1/categories", nil, english), 200).Items {
+		if c.Code == "vehicles.bicycle" && (fmt.Sprint(c.Specs) != "[{brand Brand} {vehicle_type Vehicle type} {frame_size Frame size}]" ||
+			fmt.Sprint(c.SpecLabels) != "[Hãng Loại xe Cỡ khung]") {
+			t.Errorf("bicycle specs in English: %+v", c)
+		}
+	}
 }
 
 func TestCategoriesAndRegions(t *testing.T) {

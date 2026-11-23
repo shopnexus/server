@@ -61,7 +61,7 @@ const (
 	Unknown      FieldCode = "unknown"       // names nothing that exists
 	Duplicate    FieldCode = "duplicate"     // a list holds an item twice
 	OneOf        FieldCode = "one_of"        // takes exactly one of several fields
-	MissingSpecs FieldCode = "missing_specs" // specs the category requires; details.missing_specs
+	MissingSpecs FieldCode = "missing_specs" // specs the category requires; details.missing_spec_keys
 	ParcelFailed FieldCode = "parcel_failed" // the carrier reports the parcel failed
 	InUse        FieldCode = "in_use"        // something else still uses it
 )
@@ -102,7 +102,9 @@ type Details struct {
 	RetryAfter   *int     `json:"retry_after,omitempty"`   // seconds
 	AttemptsLeft *int     `json:"attempts_left,omitempty"` // guesses a code still takes
 	Reason       *string  `json:"reason,omitempty"`        // a carrier's words
-	MissingSpecs []string `json:"missing_specs,omitempty"` // spec labels a listing lacks
+	MissingSpecs []string `json:"missing_specs,omitempty"` // their Vietnamese names, for older clients
+	// MissingSpecKeys are the keys of the specs a listing lacks.
+	MissingSpecKeys []string `json:"missing_spec_keys,omitempty"`
 }
 
 // ErrTryAgain answers a write that lost a race with another write to the
@@ -187,10 +189,11 @@ func (e *Error) WithAttemptsLeft(n int) *Error {
 	return &c
 }
 
-// WithMissingSpecs returns a copy of e whose missing_specs detail is labels.
-func (e *Error) WithMissingSpecs(labels []string) *Error {
+// WithMissingSpecs returns a copy of e whose missing_spec_keys detail is
+// keys and missing_specs detail is their labels.
+func (e *Error) WithMissingSpecs(keys, labels []string) *Error {
 	c := *e
-	c.Details.MissingSpecs = slices.Clone(labels)
+	c.Details.MissingSpecKeys, c.Details.MissingSpecs = slices.Clone(keys), slices.Clone(labels)
 	return &c
 }
 

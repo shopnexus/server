@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 type postRequest struct {
@@ -23,7 +24,7 @@ func (h *Handler) Post(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Post(r.Context(), p.AccountID, in.IdempotencyKey, in.input())
+	v, err := h.svc.Post(r.Context(), p.AccountID, in.IdempotencyKey, in.input(), locale.Negotiate(w, r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

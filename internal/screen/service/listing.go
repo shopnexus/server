@@ -11,6 +11,7 @@ import (
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	trustdomain "github.com/shopnexus/server/internal/trust/domain"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
@@ -59,6 +60,8 @@ type ListingRead struct {
 	// Prefetch marks a browser's speculative read, which counts no view:
 	// the person may never open the page.
 	Prefetch bool
+	// Locale names the listing's specs.
+	Locale locale.Tag
 }
 
 // Listing reads the listing signed out, so its seller too gets
@@ -72,7 +75,7 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead)
 	if err != nil {
 		return ListingScreen{}, err
 	}
-	l, distance, err := s.catalog.GetNear(ctx, nil, id, in.Near)
+	l, distance, err := s.catalog.GetNear(ctx, nil, id, in.Near, in.Locale)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the listing: %w", err)
 	}
@@ -156,7 +159,7 @@ func (s *Screen) SoldListing(ctx context.Context, ref string) (SoldListingScreen
 	if err != nil {
 		return SoldListingScreen{}, err
 	}
-	l, err := s.catalog.GetSold(ctx, id)
+	l, err := s.catalog.GetSold(ctx, id, locale.Vietnamese) // the sold view shows no specs
 	if err != nil {
 		return SoldListingScreen{}, fmt.Errorf("read the listing: %w", err)
 	}

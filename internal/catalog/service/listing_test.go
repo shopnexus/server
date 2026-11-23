@@ -41,13 +41,13 @@ func TestPostChecksInOrder(t *testing.T) {
 	if _, err := e.accounts.Suspend(ctx, accountsvc.SuspendInput{ID: suspended, Reason: "spam", By: audit.ByCLI("test")}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.catalog.Post(ctx, suspended, uuid.NewV7().String(), bad); !errors.Is(err, accountdomain.ErrSuspended) {
+	if _, err := e.catalog.Post(ctx, suspended, uuid.NewV7().String(), bad, locale.Vietnamese); !errors.Is(err, accountdomain.ErrSuspended) {
 		t.Fatalf("suspended: %v", err)
 	}
-	if _, err := e.catalog.Post(ctx, e.account(t), uuid.NewV7().String(), bad); !errors.Is(err, accountdomain.ErrPhoneRequired) {
+	if _, err := e.catalog.Post(ctx, e.account(t), uuid.NewV7().String(), bad, locale.Vietnamese); !errors.Is(err, accountdomain.ErrPhoneRequired) {
 		t.Fatalf("an account without a phone: %v", err)
 	}
-	if _, err := e.catalog.Post(ctx, e.seller(t), uuid.NewV7().String(), bad); !errors.Is(err, domain.ErrInvalidListing) {
+	if _, err := e.catalog.Post(ctx, e.seller(t), uuid.NewV7().String(), bad, locale.Vietnamese); !errors.Is(err, domain.ErrInvalidListing) {
 		t.Fatalf("a seller with a phone reaches the draft's checks: %v", err)
 	}
 
@@ -61,20 +61,20 @@ func TestPostChecksInOrder(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, err := e.catalog.Post(ctx, full, uuid.NewV7().String(), bad); !errors.Is(err, domain.ErrCapReached) {
+	if _, err := e.catalog.Post(ctx, full, uuid.NewV7().String(), bad, locale.Vietnamese); !errors.Is(err, domain.ErrCapReached) {
 		t.Fatalf("cap: %v", err)
 	}
 
 	seller := e.seller(t)
 	bad.Photos = []uuid.UUID{e.upload(t, seller, mediatest.JPEG(t, 64, 48))}
 	bad.CommuneCode = "99999"
-	_, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), bad)
+	_, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), bad, locale.Vietnamese)
 	if ae, ok := errors.AsType[*apperr.Error](err); !ok || !errors.Is(err, domain.ErrInvalidListing) ||
 		ae.Fields["category_code"] == "" || ae.Fields["commune_code"] == "" {
 		t.Fatalf("bad draft: %v", err)
 	}
 	theirs := e.upload(t, e.seller(t), mediatest.JPEG(t, 64, 48))
-	if _, err = e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(theirs)); !errors.Is(err, mediadomain.ErrInvalidUpload) {
+	if _, err = e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(theirs), locale.Vietnamese); !errors.Is(err, mediadomain.ErrInvalidUpload) {
 		t.Fatalf("someone else's upload: %v", err)
 	}
 }
@@ -90,11 +90,11 @@ func TestPostPublishes(t *testing.T) {
 	seller := e.seller(t)
 	d := draft(e.upload(t, seller, mediatest.JPEG(t, 64, 48)))
 	key := uuid.NewV7().String()
-	posted, err := e.catalog.Post(ctx, seller, key, d)
+	posted, err := e.catalog.Post(ctx, seller, key, d, locale.Vietnamese)
 	if err != nil || posted.Status != domain.StatusProcessing || posted.Location.Province.DisplayName == "" {
 		t.Fatalf("%+v %v", posted, err)
 	}
-	again, err := e.catalog.Post(ctx, seller, key, d)
+	again, err := e.catalog.Post(ctx, seller, key, d, locale.Vietnamese)
 	if err != nil || again.ID != posted.ID {
 		t.Fatalf("repeat: %+v %v", again, err)
 	}
@@ -105,7 +105,7 @@ func TestPostPublishes(t *testing.T) {
 	if got := pgtest.EventKinds(t, e.db, posted.ID); !slices.Equal(got, []string{"listing.published"}) {
 		t.Fatalf("events %v", got)
 	}
-	if _, err = e.catalog.Get(ctx, nil, posted.ID); err != nil {
+	if _, err = e.catalog.Get(ctx, nil, posted.ID, locale.Vietnamese); err != nil {
 		t.Fatalf("a buyer: %v", err)
 	}
 }
@@ -120,7 +120,7 @@ func TestPublishRejects(t *testing.T) {
 	ctx := context.Background()
 	seller := e.seller(t)
 	good, broken := e.upload(t, seller, mediatest.JPEG(t, 64, 48)), e.upload(t, seller, []byte("not a jpeg at all"))
-	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(good, broken))
+	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(good, broken), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,10 +133,10 @@ func TestPublishRejects(t *testing.T) {
 		pgx.StrictNamedArgs{"id": posted.ID}).Scan(&rejected); err != nil || rejected != 1 {
 		t.Fatalf("listing.rejected: %d %v", rejected, err)
 	}
-	if _, err = e.catalog.Get(ctx, nil, posted.ID); !errors.Is(err, domain.ErrNotFound) {
+	if _, err = e.catalog.Get(ctx, nil, posted.ID, locale.Vietnamese); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("a buyer sees a rejected listing: %v", err)
 	}
-	if _, err = e.catalog.Edit(ctx, seller, posted.ID, uuid.NewV7().String(), draft(good)); err != nil {
+	if _, err = e.catalog.Edit(ctx, seller, posted.ID, uuid.NewV7().String(), draft(good), locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	if v = e.settle(t, seller, posted.ID); v.Status != domain.StatusActive {
@@ -156,12 +156,12 @@ func TestEdit(t *testing.T) {
 	v := e.active(t, seller)
 	d := draft(v.Photos[0].UploadID)
 	d.Title = "iPhone 13 zin"
-	edited, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d)
+	edited, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d, locale.Vietnamese)
 	if err != nil || edited.Status != domain.StatusActive || edited.Title != "iPhone 13 zin" {
 		t.Fatalf("%+v %v", edited, err)
 	}
 	d.Photos = append(d.Photos, e.upload(t, seller, mediatest.JPEG(t, 64, 48)))
-	if edited, err = e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d); err != nil || edited.Status != domain.StatusProcessing {
+	if edited, err = e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d, locale.Vietnamese); err != nil || edited.Status != domain.StatusProcessing {
 		t.Fatalf("%+v %v", edited, err)
 	}
 	if v = e.settle(t, seller, v.ID); v.Status != domain.StatusActive || v.Photos[1].URL == "" {
@@ -180,7 +180,7 @@ WHERE subject_id = @id AND kind = 'listing.published' ORDER BY id`, pgx.StrictNa
 	if err != nil || !slices.Equal(firsts, []bool{true, false}) {
 		t.Fatalf("first flags %v %v, want [true false]", firsts, err)
 	}
-	if _, err = e.catalog.Edit(ctx, e.seller(t), v.ID, uuid.NewV7().String(), d); !errors.Is(err, domain.ErrNotFound) {
+	if _, err = e.catalog.Edit(ctx, e.seller(t), v.ID, uuid.NewV7().String(), d, locale.Vietnamese); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another seller: %v", err)
 	}
 }
@@ -195,7 +195,7 @@ func TestEditShowsAPriceDrop(t *testing.T) {
 	v := e.active(t, seller)
 	d := draft(v.Photos[0].UploadID)
 	d.Price = 8_000_000
-	edited, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d)
+	edited, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d, locale.Vietnamese)
 	if err != nil || edited.PriceDrop == nil || edited.PriceDrop.PreviousPrice != v.Price {
 		t.Fatalf("the edit: %+v %v", edited.PriceDrop, err)
 	}
@@ -204,7 +204,7 @@ func TestEditShowsAPriceDrop(t *testing.T) {
 		t.Fatalf("the card: %+v %v", cards.Items, err)
 	}
 	d.Price = 8_500_000
-	if edited, err = e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d); err != nil || edited.PriceDrop != nil {
+	if edited, err = e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d, locale.Vietnamese); err != nil || edited.PriceDrop != nil {
 		t.Fatalf("after a raise: %+v %v", edited.PriceDrop, err)
 	}
 }
@@ -222,12 +222,12 @@ func TestEditRefusesABadListing(t *testing.T) {
 	d := draft(v.Photos[0].UploadID)
 	d.Title = strings.Repeat("x", domain.MaxTitle+1)
 	d.Price = domain.MinPrice - 1_000
-	_, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d)
+	_, err := e.catalog.Edit(ctx, seller, v.ID, uuid.NewV7().String(), d, locale.Vietnamese)
 	if ae, ok := errors.AsType[*apperr.Error](err); !ok || !errors.Is(err, domain.ErrInvalidListing) ||
 		ae.Fields["title"] == "" || ae.Fields["price"] == "" {
 		t.Fatalf("bad edit: %v", err)
 	}
-	got, err := e.catalog.Get(ctx, &seller, v.ID)
+	got, err := e.catalog.Get(ctx, &seller, v.ID, locale.Vietnamese)
 	if err != nil || got.Title != v.Title || got.Price != v.Price || got.Status != domain.StatusActive {
 		t.Fatalf("the listing changed: %+v %v", got, err)
 	}
@@ -244,12 +244,12 @@ func TestTransitions(t *testing.T) {
 	seller := e.seller(t)
 	id := e.active(t, seller).ID
 	other := e.seller(t)
-	if _, err := e.catalog.Hide(ctx, other, id); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.catalog.Hide(ctx, other, id, locale.Vietnamese); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another seller: %v", err)
 	}
 	steps := []struct {
 		name string
-		do   func(context.Context, uuid.UUID, uuid.UUID) (service.ListingView, error)
+		do   func(context.Context, uuid.UUID, uuid.UUID, locale.Tag) (service.ListingView, error)
 		want domain.Status
 	}{
 		{"hide", e.catalog.Hide, domain.StatusHidden},
@@ -258,17 +258,17 @@ func TestTransitions(t *testing.T) {
 		{"unmark sold", e.catalog.UnmarkSold, domain.StatusActive},
 	}
 	for _, s := range steps {
-		if v, err := s.do(ctx, seller, id); err != nil || v.Status != s.want {
+		if v, err := s.do(ctx, seller, id, locale.Vietnamese); err != nil || v.Status != s.want {
 			t.Fatalf("%s: %+v %v", s.name, v, err)
 		}
 	}
-	if _, err := e.catalog.Unhide(ctx, seller, id); !errors.Is(err, domain.ErrStateConflict) {
+	if _, err := e.catalog.Unhide(ctx, seller, id, locale.Vietnamese); !errors.Is(err, domain.ErrStateConflict) {
 		t.Fatalf("unhide active: %v", err)
 	}
 	if err := e.catalog.Delete(ctx, seller, id); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.catalog.Get(ctx, &seller, id); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.catalog.Get(ctx, &seller, id, locale.Vietnamese); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("deleted: %v", err)
 	}
 	want := []string{
@@ -286,19 +286,19 @@ func TestGetHidesFromOthers(t *testing.T) {
 	ctx := context.Background()
 	seller := e.seller(t)
 	id := e.active(t, seller).ID
-	if _, err := e.catalog.Hide(ctx, seller, id); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, id, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
-	if v, err := e.catalog.Get(ctx, &seller, id); err != nil || v.Status != domain.StatusHidden {
+	if v, err := e.catalog.Get(ctx, &seller, id, locale.Vietnamese); err != nil || v.Status != domain.StatusHidden {
 		t.Fatalf("seller: %+v %v", v, err)
 	}
 	other := e.seller(t)
 	for _, viewer := range []*uuid.UUID{nil, &other} {
-		if _, err := e.catalog.Get(ctx, viewer, id); !errors.Is(err, domain.ErrNotFound) {
+		if _, err := e.catalog.Get(ctx, viewer, id, locale.Vietnamese); !errors.Is(err, domain.ErrNotFound) {
 			t.Fatalf("viewer %v: %v", viewer, err)
 		}
 	}
-	if _, err := e.catalog.Get(ctx, nil, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.catalog.Get(ctx, nil, uuid.NewV7(), locale.Vietnamese); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("unknown: %v", err)
 	}
 }
@@ -311,22 +311,22 @@ func TestListMine(t *testing.T) {
 	ctx := context.Background()
 	seller := e.seller(t)
 	sold := e.active(t, seller).ID
-	if _, err := e.catalog.MarkSold(ctx, seller, sold); err != nil {
+	if _, err := e.catalog.MarkSold(ctx, seller, sold, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	hidden := e.active(t, seller).ID
-	if _, err := e.catalog.Hide(ctx, seller, hidden); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	gone := e.active(t, seller).ID
 	if err := e.catalog.Delete(ctx, seller, gone); err != nil {
 		t.Fatal(err)
 	}
-	onSale, err := e.catalog.ListMine(ctx, seller, service.PaneOnSale, page.Request{})
+	onSale, err := e.catalog.ListMine(ctx, seller, service.PaneOnSale, page.Request{}, locale.Vietnamese)
 	if err != nil || len(onSale.Items) != 1 || onSale.Items[0].ID != hidden {
 		t.Fatalf("on sale: %+v %v", onSale, err)
 	}
-	soldPane, err := e.catalog.ListMine(ctx, seller, service.PaneSold, page.Request{})
+	soldPane, err := e.catalog.ListMine(ctx, seller, service.PaneSold, page.Request{}, locale.Vietnamese)
 	if err != nil || len(soldPane.Items) != 1 || soldPane.Items[0].ID != sold {
 		t.Fatalf("sold: %+v %v", soldPane, err)
 	}
@@ -356,7 +356,7 @@ func TestSummariesReadEveryStatus(t *testing.T) {
 	seller := e.seller(t)
 	l := e.active(t, seller)
 	ctx := context.Background()
-	if _, err := e.catalog.Hide(ctx, seller, l.ID); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, l.ID, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	unknown := uuid.NewV7()
@@ -393,25 +393,25 @@ func TestReserveFlow(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if v, err := e.catalog.Get(ctx, nil, l.ID); err != nil || v.Status != domain.StatusReserved {
+	if v, err := e.catalog.Get(ctx, nil, l.ID, locale.Vietnamese); err != nil || v.Status != domain.StatusReserved {
 		t.Fatalf("a stranger reads: %+v %v", v, err)
 	}
 	if got, err := e.catalog.Summaries(ctx, []uuid.UUID{l.ID}); err != nil || got[l.ID].ReservedFor != order {
 		t.Fatalf("summary: %+v %v", got, err)
 	}
-	if _, err := e.catalog.Hide(ctx, seller, l.ID); !errors.Is(err, domain.ErrStateConflict) {
+	if _, err := e.catalog.Hide(ctx, seller, l.ID, locale.Vietnamese); !errors.Is(err, domain.ErrStateConflict) {
 		t.Fatalf("hide: %v", err)
 	}
 	if err := e.catalog.Release(ctx, l.ID, other); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ := e.catalog.Get(ctx, &seller, l.ID); v.Status != domain.StatusReserved {
+	if v, _ := e.catalog.Get(ctx, &seller, l.ID, locale.Vietnamese); v.Status != domain.StatusReserved {
 		t.Fatalf("released for another order: %s", v.Status)
 	}
 	if err := e.catalog.Release(ctx, l.ID, order); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ := e.catalog.Get(ctx, &seller, l.ID); v.Status != domain.StatusActive {
+	if v, _ := e.catalog.Get(ctx, &seller, l.ID, locale.Vietnamese); v.Status != domain.StatusActive {
 		t.Fatalf("release: %s", v.Status)
 	}
 	if err := e.catalog.Reserve(ctx, l.ID, order); err != nil {
@@ -422,7 +422,7 @@ func TestReserveFlow(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if v, _ := e.catalog.Get(ctx, &seller, l.ID); v.Status != domain.StatusSold || v.SoldAt == nil {
+	if v, _ := e.catalog.Get(ctx, &seller, l.ID, locale.Vietnamese); v.Status != domain.StatusSold || v.SoldAt == nil {
 		t.Fatalf("sell: %+v", v)
 	}
 	k := pgtest.EventKinds(t, e.db, l.ID)
@@ -437,7 +437,7 @@ func TestReserveRefuses(t *testing.T) {
 	ctx := context.Background()
 	seller := e.seller(t)
 	l := e.active(t, seller)
-	if _, err := e.catalog.Hide(ctx, seller, l.ID); err != nil {
+	if _, err := e.catalog.Hide(ctx, seller, l.ID, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.catalog.Reserve(ctx, l.ID, uuid.NewV7()); !errors.Is(err, domain.ErrStateConflict) {
@@ -492,7 +492,7 @@ func TestCopiedPhotosAreMarked(t *testing.T) {
 		t.Fatal(err)
 	}
 	own := e.upload(t, seller, mediatest.JPEG(t, 64, 48))
-	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(copied, own))
+	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(copied, own), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,14 +502,14 @@ func TestCopiedPhotosAreMarked(t *testing.T) {
 	}
 	d := draft(copied, own)
 	d.Title = "iPhone 13 128GB, pin 90%"
-	if _, err = e.catalog.Edit(ctx, seller, l.ID, uuid.NewV7().String(), d); err != nil {
+	if _, err = e.catalog.Edit(ctx, seller, l.ID, uuid.NewV7().String(), d, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	l = e.settle(t, seller, l.ID)
 	if !l.Photos[0].Copied || l.Photos[1].Copied {
 		t.Fatalf("after an edit: %+v", l.Photos)
 	}
-	seen, err := e.catalog.Get(ctx, &buyer, l.ID)
+	seen, err := e.catalog.Get(ctx, &buyer, l.ID, locale.Vietnamese)
 	if err != nil || !seen.Photos[0].Copied || seen.Photos[1].Copied {
 		t.Fatalf("as a buyer reads it: %+v %v", seen.Photos, err)
 	}
@@ -532,7 +532,7 @@ func TestHoldAndLift(t *testing.T) {
 	if _, err = e.catalog.Hold(ctx, id, by); !errors.Is(err, domain.ErrStateConflict) {
 		t.Fatalf("hold twice: %v", err)
 	}
-	if _, err = e.catalog.Unhide(ctx, seller, id); !errors.Is(err, domain.ErrHeld) {
+	if _, err = e.catalog.Unhide(ctx, seller, id, locale.Vietnamese); !errors.Is(err, domain.ErrHeld) {
 		t.Fatalf("the seller unhides: %v", err)
 	}
 	if got, err = e.catalog.Lift(ctx, id, by); err != nil || got.Status != domain.StatusActive {
