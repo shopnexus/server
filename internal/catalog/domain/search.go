@@ -47,11 +47,14 @@ type Filters struct {
 // Phrase is text to match in the title, the description and the specs. A
 // negative weight demotes what matches. AllWords makes it match only a
 // listing holding every word of Text in one of the three, as a watch's
-// sweep needs; a ranked phrase matches any of its words.
+// sweep needs; a ranked phrase matches any of its words. Folded matches the
+// three with diacritics folded away, as a person's raw words need: "xe dap"
+// then matches "Xe đạp".
 type Phrase struct {
 	Text     string
 	Weight   float64
 	AllWords bool
+	Folded   bool
 }
 
 // BoostKind is what a boost matches on.

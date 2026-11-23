@@ -146,6 +146,38 @@ func TestSearch(t *testing.T) {
 
 // AllWords needs every word of a phrase in the title, description or specs;
 // the IDs filter and the exclusions hold in BM25 and in browsing.
+// A folded phrase matches the text with diacritics folded away; the same
+// words as written miss a title that has them.
+func TestSearchFolded(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewSearches(db)
+	bike := put(t, db, item{title: "Xe đạp đi làm Asama", cat: "vehicles.bicycle", price: 2_000_000})
+	put(t, db, item{title: "Ổ cứng SSD 512GB", cat: "laptop.parts", price: 900_000, desc: "Đã dùng 2 tháng"})
+	search := func(p domain.Phrase) []uuid.UUID {
+		t.Helper()
+		hits, err := s.Search(ctx, domain.Search{Phrases: []domain.Phrase{p}, Sort: domain.SortRelevance, Limit: 10})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := make([]uuid.UUID, len(hits))
+		for i, h := range hits {
+			out[i] = h.ID
+		}
+		return out
+	}
+	if got := search(domain.Phrase{Text: "dap asama", Weight: 1, Folded: true}); len(got) != 1 || got[0] != bike {
+		t.Fatalf("folded: %v", got)
+	}
+	if got := search(domain.Phrase{Text: "dap", Weight: 1}); len(got) != 0 {
+		t.Fatalf("as written, dap missed đạp: %v", got)
+	}
+	if got := search(domain.Phrase{Text: "xe dap di lam", Weight: 1, Folded: true, AllWords: true}); len(got) != 1 || got[0] != bike {
+		t.Fatalf("every folded word: %v", got)
+	}
+}
+
 func TestSearchAllWordsAndExclusions(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

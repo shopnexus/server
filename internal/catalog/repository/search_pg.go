@@ -109,14 +109,25 @@ func (q *query) must(s domain.Search) []string {
 // fuzzyRunes is the length from which a word may match with one edit.
 const fuzzyRunes = 5
 
+// textFields are the index's title, description and specs fields for p:
+// as written, or with diacritics folded away (migration 0076).
+func textFields(p domain.Phrase) (title, description, specs string) {
+	if p.Folded {
+		return "'title_folded'", "'description_folded'", "'specs_folded'"
+	}
+	return "'title'", "'description'", "'specs_text'"
+}
+
 // phrase matches the title at twice its weight, description and specs at
-// its weight, and the title's long words with one edit at half of it.
+// its weight, and the title's long words with one edit at half of it, in
+// the fields textFields names.
 func (q *query) phrase(p domain.Phrase) []string {
 	text := q.arg(p.Text, "text")
+	title, description, specs := textFields(p)
 	out := []string{
-		`paradedb.boost(` + q.arg(2*p.Weight, "real") + `, paradedb.match('title', ` + text + `))`,
-		`paradedb.boost(` + q.arg(p.Weight, "real") + `, paradedb.match('description', ` + text + `))`,
-		`paradedb.boost(` + q.arg(p.Weight, "real") + `, paradedb.match('specs_text', ` + text + `))`,
+		`paradedb.boost(` + q.arg(2*p.Weight, "real") + `, paradedb.match(` + title + `, ` + text + `))`,
+		`paradedb.boost(` + q.arg(p.Weight, "real") + `, paradedb.match(` + description + `, ` + text + `))`,
+		`paradedb.boost(` + q.arg(p.Weight, "real") + `, paradedb.match(` + specs + `, ` + text + `))`,
 	}
 	var long []string
 	for w := range strings.FieldsSeq(p.Text) {
@@ -125,7 +136,7 @@ func (q *query) phrase(p domain.Phrase) []string {
 		}
 	}
 	if len(long) > 0 {
-		out = append(out, `paradedb.boost(`+q.arg(p.Weight/2, "real")+`, paradedb.match('title', `+
+		out = append(out, `paradedb.boost(`+q.arg(p.Weight/2, "real")+`, paradedb.match(`+title+`, `+
 			q.arg(strings.Join(long, " "), "text")+`, distance => 1))`)
 	}
 	return out
@@ -137,12 +148,13 @@ func (q *query) phrase(p domain.Phrase) []string {
 func (q *query) allWords(p domain.Phrase) string {
 	fields := strings.FieldsFunc(p.Text, func(r rune) bool { return !unicode.IsLetter(r) && !unicode.IsDigit(r) })
 	words := make([]string, 0, len(fields))
+	title, description, specs := textFields(p)
 	for _, w := range fields {
 		text := q.arg(w, "text")
 		words = append(words, `paradedb.boolean(should => `+array([]string{
-			`paradedb.match('title', ` + text + `)`,
-			`paradedb.match('description', ` + text + `)`,
-			`paradedb.match('specs_text', ` + text + `)`,
+			`paradedb.match(` + title + `, ` + text + `)`,
+			`paradedb.match(` + description + `, ` + text + `)`,
+			`paradedb.match(` + specs + `, ` + text + `)`,
 		})+`)`)
 	}
 	if len(words) == 0 {

@@ -123,6 +123,14 @@ func TestSearchGuestSkipsTheModel(t *testing.T) {
 	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1}); err != nil || len(v.Chips) != 0 {
 		t.Fatalf("a guest read the cached answer: %+v %v", v, err)
 	}
+	// A guest's words match the titles with diacritics folded away; a query
+	// the model read matches them as written.
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "dap"}); err != nil || len(v.Items) != 2 {
+		t.Fatalf("guest, folded: %+v %v", v, err)
+	}
+	if v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "dap"}); err != nil || len(v.Items) != 0 {
+		t.Fatalf("signed in, as written: %+v %v", v, err)
+	}
 }
 
 // Past the day's model calls a signed-in search runs on the raw words; a

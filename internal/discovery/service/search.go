@@ -242,6 +242,13 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			}
 		}
 		c := domain.Compile(u, q, vocab, origin, now, in.Off)
+		// The raw words, a guest's or what the model did not read, are often
+		// typed without diacritics; the model's rewrite has them.
+		if !understood {
+			for i := range c.Phrases {
+				c.Phrases[i].Folded = true
+			}
+		}
 		search.Phrases = append(search.Phrases, c.Phrases...)
 		search.Boosts = append(search.Boosts, c.Boosts...)
 		view.Chips = c.Chips

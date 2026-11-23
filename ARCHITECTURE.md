@@ -2485,7 +2485,12 @@ Search and the nearby feed (decided 2026-10-27, spec:
   values count 0.5 and 0.33. A set of sample queries is what would measure
   them. A phrase matches the title at twice its weight, description and
   specs at its weight, and the title's words of 5 letters or more with one
-  edit at half.
+  edit at half. The index holds each of the three twice (migration 0076,
+  decided 2026-11-23): as written, and with diacritics folded away
+  (`title_folded`, `description_folded`, `specs_folded`). The raw words, a
+  guest's or a query the model did not read, match the folded fields, so
+  "xe dap" finds "Xe đạp"; the model's rewrite matches the fields as
+  written, since it has the diacritics.
 - Distance and freshness score inside the index as range boxes on `lat`,
   `lng` and `published_at`. The nearby feed is the same query with no
   phrase: within 50 km, scored by the rings and freshness alone.
