@@ -700,7 +700,10 @@ Email codes:
   `attempts_left`, then `code_locked`; `code_expired` once it expires or a
   newer code to the same address replaces it.
 - `EMAIL_SENDER` is `log` or `resend` (`RESEND_API_KEY`, `EMAIL_FROM`).
-  `APP_ENV=prod` refuses the log sender.
+  `APP_ENV=prod` refuses the log sender. `provider/email.Sender` takes one
+  `Message` (to, subject, text, key); Resend gets the key as its
+  `Idempotency-Key`, so a retried step mails once. A code's key is its
+  challenge ID.
 - `login_total{method}` counts `phone`, `google` and `email`;
   `otp_sent_total` counts mailed codes.
 
@@ -3604,7 +3607,7 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
 ### Notifications
 
 Module `notification` tells people of their deals, orders, listings,
-reviews and account, in a list and by push (decided 2026-10-27, spec:
+reviews and account, in a list, by push and by mail (decided 2026-10-27, spec:
 `~/shopnexus/docs/superpowers/specs/2026-10-27-server-notification-design.md`). No module
 calls it except screen, for the unread counts of Home and
 `GET /v1/me/unread`; depguard holds that.
@@ -3731,8 +3734,9 @@ calls it except screen, for the unread counts of Home and
   once more.
 - Settings (decided 2026-11-14, spec:
   `~/shopnexus/docs/superpowers/specs/2026-11-14-notification-settings-design.md`):
-  `GET` and `PUT /v1/me/notification-settings` hold six switches,
+  `GET` and `PUT /v1/me/notification-settings` hold six push switches,
   `messages`, `offers`, `orders`, `price_cuts`, `followed` and `reviews`,
+  the mail switch `order_emails` (migration 0078, see Mail below),
   and quiet hours `{on, from, to}`, the times as HH:MM in Vietnam time.
   They replaced discovery's `/v1/me/price-cut-alerts`. A switch that is
   off stops the push only, and the notice is still listed; a chat message
@@ -3756,6 +3760,21 @@ calls it except screen, for the unread counts of Home and
   (`Worker.Now`) in its token step, after the notice is written; a push
   held back reads no tokens. E2E's `putToken` also turns quiet
   hours off, so the tests that wait for a push pass at night.
+- Mail (decided 2026-11-23): order notices (the `orders` group: COD
+  request, shipped, completed, failed, cancelled) are mailed while
+  `order_emails` is on, which it is by default; account notices
+  (`suspended`, `unsuspended`) are always mailed. Every other notice is
+  push only: it matters for minutes, and mailing it would teach Gmail to
+  file the domain's mail, codes included, as spam. Mail ignores the push
+  switches and quiet hours. After a notice's push, `tell` skips a type
+  that is never mailed without a step (`domain.Mailed`); otherwise it reads
+  the recipient's settings and email identity in one step and sends in
+  another, keyed `<event id>/<recipient>/<notice index>`; an account without an email
+  identity (phone only, or erased) gets no mail. A refusal is logged and
+  dropped, other failures retry for an hour. `domain.Mail` writes the
+  subject and text from the notice's text; HTML templates come later and
+  replace only it. Advertising mail, if it ever comes, starts off (Decree
+  91/2020 wants consent first).
 - Migration 0045 copied each `saved_settings` row with the switch off into
   `notification_settings` as `price_cuts = false`, the rest at the
   defaults, and dropped `saved_settings`.

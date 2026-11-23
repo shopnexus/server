@@ -281,3 +281,19 @@ func TestSystemMovesTellTheSellerToo(t *testing.T) {
 		t.Errorf("shipped to another: %+v", got)
 	}
 }
+
+// A mail's subject is the notice's text; only an order mail says how to
+// stop it.
+func TestMail(t *testing.T) {
+	t.Parallel()
+	p := domain.Params{Title: "Xe đạp", Actor: "Lan", Carrier: "ghn", Code: "GHN123"}
+	subject, text := domain.Mail(domain.TypeShipped, p)
+	if subject != "Lan đã gửi Xe đạp · GHN GHN123" || !strings.HasPrefix(text, subject+"\n") ||
+		!strings.Contains(text, "tắt email đơn hàng") {
+		t.Fatalf("subject %q, text %q", subject, text)
+	}
+	subject, text = domain.Mail(domain.TypeUnsuspended, domain.Params{})
+	if subject != "Tài khoản của bạn đã được mở khoá" || strings.Contains(text, "tắt email") {
+		t.Fatalf("subject %q, text %q", subject, text)
+	}
+}

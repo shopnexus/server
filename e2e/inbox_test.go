@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"sync"
 	"testing"
+
+	"github.com/shopnexus/server/internal/provider/email"
 )
 
 // inbox keeps every mail the server sends. The send step finishes before
@@ -16,10 +18,10 @@ type inbox struct {
 
 func newInbox() *inbox { return &inbox{msgs: map[string][]string{}} }
 
-func (b *inbox) Send(_ context.Context, to, subject, body string) error {
+func (b *inbox) Send(_ context.Context, m email.Message) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.msgs[to] = append(b.msgs[to], subject+"\n"+body)
+	b.msgs[m.To] = append(b.msgs[m.To], m.Subject+"\n"+m.Text)
 	return nil
 }
 

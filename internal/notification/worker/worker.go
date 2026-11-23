@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 	"uuid"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/shopnexus/server/internal/notification/service"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/provider/email"
 	"github.com/shopnexus/server/internal/provider/push"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
@@ -35,7 +37,7 @@ import (
 // ID then tells no one. A first publication sends each of the seller's
 // followers to TellFollower, one invocation per follower; ListingPublished
 // journals one send per follower. The recipient's settings may hold back
-// a push.
+// a push or a mail.
 type Worker struct {
 	Prefix   string
 	Notices  service.Service
@@ -50,7 +52,9 @@ type Worker struct {
 	// opens.
 	Support supportsvc.Service
 	Push    push.Sender
-	Log     *slog.Logger
+	// Email mails the notices the recipient's settings mail.
+	Email email.Sender
+	Log   *slog.Logger
 	// FollowerPage is how many followers one step reads when a listing
 	// first goes on sale.
 	FollowerPage int
@@ -391,8 +395,8 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 	return w.deliver(ctx, f.RecipientID, domain.SwitchMessages, m)
 }
 
-// tell writes each notice, then pushes it to its recipient. A notice a
-// newer one with its key outran is neither written nor pushed.
+// tell writes each notice, then pushes and mails it to its recipient. A
+// notice a newer one with its key outran is neither written nor sent.
 func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Notice) error {
 	for i := range notices {
 		n := &notices[i]
@@ -419,6 +423,53 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 			},
 		}); pushErr != nil {
 			return pushErr
+		}
+		// A type that is never mailed takes no step. A mailed one reads the
+		// recipient's settings and address in one step and sends in
+		// another, keyed so a retried send mails once; an account without
+		// an address gets none, and a refused mail is dropped.
+		if !domain.Mailed(n.Type) {
+			continue
+		}
+		to, err := restate.Run(ctx, func(rc restate.RunContext) (string, error) {
+			st, stepErr := w.Notices.Settings(rc, n.Recipient)
+			if stepErr != nil {
+				return "", fmt.Errorf("read settings: %w", stepErr)
+			}
+			if !st.Mails(n.Type) {
+				return "", nil
+			}
+			ids, stepErr := w.Accounts.Identities(rc, n.Recipient)
+			if stepErr != nil {
+				return "", fmt.Errorf("read identities: %w", stepErr)
+			}
+			for _, id := range ids {
+				if id.Kind == accountdomain.KindEmail {
+					return id.Value, nil
+				}
+			}
+			return "", nil
+		})
+		if err != nil {
+			return fmt.Errorf("read the mail address: %w", err)
+		}
+		if to == "" {
+			continue
+		}
+		subject, text := domain.Mail(n.Type, n.Params)
+		key := event.String() + "/" + n.Recipient.String() + "/" + strconv.Itoa(i)
+		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
+			sendErr := w.Email.Send(rc, email.Message{To: to, Subject: subject, Text: text, Key: key})
+			if errors.Is(sendErr, email.ErrRefused) {
+				w.Log.WarnContext(rc, "mail refused", "type", n.Type, "err", sendErr)
+				return nil
+			}
+			if sendErr != nil {
+				return fmt.Errorf("send: %w", sendErr)
+			}
+			return nil
+		}, restate.WithMaxRetryDuration(time.Hour)); err != nil {
+			return fmt.Errorf("mail: %w", err)
 		}
 	}
 	return nil

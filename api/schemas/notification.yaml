@@ -91,12 +91,13 @@ ReadAllResult:
 NotificationSettings:
   type: object
   additionalProperties: false
-  required: [messages, offers, orders, price_cuts, followed, reviews, quiet]
+  required: [messages, offers, orders, price_cuts, followed, reviews, order_emails, quiet]
   description: |
-    Which notices push. A switch that is off stops the push only; the notice
-    is still listed. Search watch notices push by each watch's own bell, and
-    the listing and account notices always push. No push goes out during
-    quiet hours.
+    Which notices push, and whether order notices are mailed. A switch that
+    is off stops the push or the mail only; the notice is still listed.
+    Search watch notices push by each watch's own bell, and the listing and
+    account notices always push. Account notices are always mailed too. No
+    push goes out during quiet hours; mail does.
   properties:
     messages:
       type: boolean
@@ -116,6 +117,11 @@ NotificationSettings:
     reviews:
       type: boolean
       description: A review of the caller that shows, or a reply to the caller's review.
+    order_emails:
+      type: boolean
+      description: |
+        Mail each order notice to the account's email address too. An
+        account without one gets no mail.
     quiet:
       $ref: "#/QuietHours"
 QuietHours:

@@ -99,7 +99,7 @@ func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeRes
 			body = "Mã " + code + " dùng để thêm địa chỉ email này vào một tài khoản ShopNexus đang đăng nhập. " +
 				"Nếu bạn không yêu cầu, đừng đưa mã cho ai: người có mã sẽ đăng nhập được bằng email của bạn. Mã hết hạn sau 5 phút."
 		}
-		stepErr := s.Email.Send(rc, in.Email.Value(), subject, body)
+		stepErr := s.Email.Send(rc, email.Message{To: in.Email.Value(), Subject: subject, Text: body, Key: id.String()})
 		if errors.Is(stepErr, email.ErrRefused) {
 			s.Log.WarnContext(rc, "mail refused", "to", in.Email, "err", stepErr)
 			return mailRefused, nil

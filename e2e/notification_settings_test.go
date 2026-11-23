@@ -12,20 +12,21 @@ type quietHours struct {
 }
 
 type notificationSettings struct {
-	Messages  bool       `json:"messages"`
-	Offers    bool       `json:"offers"`
-	Orders    bool       `json:"orders"`
-	PriceCuts bool       `json:"price_cuts"`
-	Followed  bool       `json:"followed"`
-	Reviews   bool       `json:"reviews"`
-	Quiet     quietHours `json:"quiet"`
+	Messages    bool       `json:"messages"`
+	Offers      bool       `json:"offers"`
+	Orders      bool       `json:"orders"`
+	PriceCuts   bool       `json:"price_cuts"`
+	Followed    bool       `json:"followed"`
+	Reviews     bool       `json:"reviews"`
+	OrderEmails bool       `json:"order_emails"`
+	Quiet       quietHours `json:"quiet"`
 }
 
 // defaultSettings is the body of the defaults, for a test to change.
 func defaultSettings() map[string]any {
 	return map[string]any{
 		"messages": true, "offers": true, "orders": true, "price_cuts": true, "followed": true, "reviews": true,
-		"quiet": map[string]any{"on": true, "from": "22:00", "to": "07:00"},
+		"order_emails": true, "quiet": map[string]any{"on": true, "from": "22:00", "to": "07:00"},
 	}
 }
 
@@ -35,18 +36,18 @@ func TestNotificationSettings(t *testing.T) {
 	const path = "/v1/me/notification-settings"
 	got := expect[notificationSettings](t, call(t, "GET", path, nil, bearer(me.AccessToken)), http.StatusOK)
 	if want := (notificationSettings{
-		Messages: true, Offers: true, Orders: true, PriceCuts: true, Followed: true, Reviews: true,
+		Messages: true, Offers: true, Orders: true, PriceCuts: true, Followed: true, Reviews: true, OrderEmails: true,
 		Quiet: quietHours{On: true, From: "22:00", To: "07:00"},
 	}); got != want {
 		t.Fatalf("defaults: %+v", got)
 	}
 
 	body := defaultSettings()
-	body["offers"], body["followed"] = false, false
+	body["offers"], body["followed"], body["order_emails"] = false, false, false
 	body["quiet"] = map[string]any{"on": true, "from": "12:00", "to": "13:30"}
 	put := expect[notificationSettings](t, call(t, "PUT", path, body, bearer(me.AccessToken)), http.StatusOK)
 	got = expect[notificationSettings](t, call(t, "GET", path, nil, bearer(me.AccessToken)), http.StatusOK)
-	if got != put || got.Offers || got.Followed || !got.Messages || got.Quiet != (quietHours{On: true, From: "12:00", To: "13:30"}) {
+	if got != put || got.Offers || got.Followed || got.OrderEmails || !got.Messages || got.Quiet != (quietHours{On: true, From: "12:00", To: "13:30"}) {
 		t.Fatalf("put %+v, then got %+v", put, got)
 	}
 

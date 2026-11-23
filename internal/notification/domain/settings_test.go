@@ -149,6 +149,29 @@ func TestPushes(t *testing.T) {
 	}
 }
 
+// Order and account notices are mailed, whatever the push switches and
+// quiet hours say; order_emails stops the order ones only.
+func TestMails(t *testing.T) {
+	t.Parallel()
+	s := domain.DefaultSettings()
+	s.Orders = false
+	for ty, want := range map[domain.Type]bool{
+		domain.TypeShipped: true, domain.TypeOrderCancelled: true, domain.TypeSuspended: true,
+		domain.TypeUnsuspended: true, domain.TypeOffer: false, domain.TypeReview: false, domain.TypeListingLive: false,
+	} {
+		if got := s.Mails(ty); got != want {
+			t.Errorf("%s: %v, want %v", ty, got, want)
+		}
+	}
+	if !domain.Mailed(domain.TypeShipped) || domain.Mailed(domain.TypeOffer) {
+		t.Error("Mailed disagrees with the groups")
+	}
+	s.OrderEmails = false
+	if s.Mails(domain.TypeCompleted) || !s.Mails(domain.TypeSuspended) {
+		t.Error("order_emails off mailed an order notice, or held an account one")
+	}
+}
+
 func TestSettingsCheck(t *testing.T) {
 	t.Parallel()
 	if err := domain.DefaultSettings().Check(); err != nil {

@@ -19,7 +19,7 @@ func TestLogSenderWritesMessage(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
 	s := email.LogSender{Log: slog.New(slog.NewTextHandler(&buf, nil))}
-	if err := s.Send(context.Background(), "linh@example.com", "Mã xác minh ShopNexus: 583920", "583920"); err != nil {
+	if err := s.Send(context.Background(), email.Message{To: "linh@example.com", Subject: "Mã xác minh ShopNexus: 583920", Text: "583920"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"linh@example.com", "583920"} {
@@ -37,21 +37,21 @@ func TestResendPostsTheMessage(t *testing.T) {
 		Subject string   `json:"subject"`
 		Text    string   `json:"text"`
 	}
-	var auth string
+	var auth, key string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		auth = r.Header.Get("Authorization")
+		auth, key = r.Header.Get("Authorization"), r.Header.Get("Idempotency-Key")
 		_ = json.NewDecoder(r.Body).Decode(&got)
 		_, _ = io.WriteString(w, `{"id":"49a3999c"}`)
 	}))
 	t.Cleanup(srv.Close)
 	s := email.NewResend(&http.Client{}, "re_test", "ShopNexus <no-reply@shopnexus.test>")
 	s.URL = srv.URL
-	if err := s.Send(context.Background(), "linh@example.com", "Chủ đề", "Nội dung"); err != nil {
+	if err := s.Send(context.Background(), email.Message{To: "linh@example.com", Subject: "Chủ đề", Text: "Nội dung", Key: "ev/0"}); err != nil {
 		t.Fatal(err)
 	}
-	if auth != "Bearer re_test" || got.From != "ShopNexus <no-reply@shopnexus.test>" || len(got.To) != 1 ||
+	if auth != "Bearer re_test" || key != "ev/0" || got.From != "ShopNexus <no-reply@shopnexus.test>" || len(got.To) != 1 ||
 		got.To[0] != "linh@example.com" || got.Subject != "Chủ đề" || got.Text != "Nội dung" {
-		t.Fatalf("auth %q, body %+v", auth, got)
+		t.Fatalf("auth %q, key %q, body %+v", auth, key, got)
 	}
 }
 
@@ -63,7 +63,7 @@ func TestResendReportsARefusal(t *testing.T) {
 	t.Cleanup(srv.Close)
 	s := email.NewResend(&http.Client{}, "re_test", "a@b.test")
 	s.URL = srv.URL
-	err := s.Send(context.Background(), "linh@example.com", "s", "b")
+	err := s.Send(context.Background(), email.Message{To: "linh@example.com", Subject: "s", Text: "b"})
 	if !errors.Is(err, email.ErrRefused) || !strings.Contains(err.Error(), "403") || !strings.Contains(err.Error(), "domain not verified") {
 		t.Fatalf("%v", err)
 	}
@@ -78,7 +78,7 @@ func TestResendRetryableFailures(t *testing.T) {
 		}))
 		s := email.NewResend(&http.Client{}, "re_test", "a@b.test")
 		s.URL = srv.URL
-		if err := s.Send(context.Background(), "linh@example.com", "s", "b"); err == nil || errors.Is(err, email.ErrRefused) {
+		if err := s.Send(context.Background(), email.Message{To: "linh@example.com", Subject: "s", Text: "b"}); err == nil || errors.Is(err, email.ErrRefused) {
 			t.Errorf("%d: %v", status, err)
 		}
 		srv.Close()

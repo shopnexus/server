@@ -259,22 +259,34 @@ type Target struct {
 }
 
 // group is what notices of a kind share: the push's title, the screen they
-// open, and the switch that stops their push.
+// open, the switch that stops their push and whether they are mailed.
 type group struct {
 	title  string
 	target func(Params) Target
 	push   Switch
+	mail   mailing
 }
 
+// mailing says which notices are mailed as well as pushed.
+type mailing uint8
+
+const (
+	mailNever mailing = iota
+	// mailOrders mails while the order_emails switch is on.
+	mailOrders
+	// mailAlways mails whatever the settings say.
+	mailAlways
+)
+
 var (
-	haggling = group{"Trả giá", opens("deal", dealID), SwitchOffers}
-	orders   = group{"Đơn hàng", orderTarget, SwitchOrders}
-	listings = group{"Tin đăng", opens("listing", listingID), SwitchNone}
-	followed = group{"Tin đăng", opens("listing", listingID), SwitchFollowed}
-	reviews  = group{"Đánh giá", reviewTarget, SwitchReviews}
-	accounts = group{"Tài khoản", opens("account", func(Params) uuid.UUID { return uuid.UUID{} }), SwitchNone}
-	searches = group{"Tìm kiếm", opens("search_watch", func(p Params) uuid.UUID { return p.WatchID }), SwitchNone}
-	saved    = group{"Đã lưu", opens("listing", listingID), SwitchPriceCuts}
+	haggling = group{"Trả giá", opens("deal", dealID), SwitchOffers, mailNever}
+	orders   = group{"Đơn hàng", orderTarget, SwitchOrders, mailOrders}
+	listings = group{"Tin đăng", opens("listing", listingID), SwitchNone, mailNever}
+	followed = group{"Tin đăng", opens("listing", listingID), SwitchFollowed, mailNever}
+	reviews  = group{"Đánh giá", reviewTarget, SwitchReviews, mailNever}
+	accounts = group{"Tài khoản", opens("account", func(Params) uuid.UUID { return uuid.UUID{} }), SwitchNone, mailAlways}
+	searches = group{"Tìm kiếm", opens("search_watch", func(p Params) uuid.UUID { return p.WatchID }), SwitchNone, mailNever}
+	saved    = group{"Đã lưu", opens("listing", listingID), SwitchPriceCuts, mailNever}
 )
 
 func dealID(p Params) uuid.UUID    { return p.DealID }
@@ -426,6 +438,21 @@ func Title(t Type) string {
 	}
 	return "ShopNexus"
 }
+
+// Mail is the subject and text of a notice's mail: the notice's text and a
+// line on where to see more.
+func Mail(t Type, p Params) (subject, text string) {
+	subject = Text(t, p)
+	text = subject + "\n\nMở ứng dụng ShopNexus để xem chi tiết."
+	if types[t].mail == mailOrders {
+		text += "\nBạn có thể tắt email đơn hàng trong Cài đặt thông báo."
+	}
+	return subject, text
+}
+
+// Mailed reports whether notices of type t are ever mailed; Settings.Mails
+// says whether one is mailed to its recipient.
+func Mailed(t Type) bool { return types[t].mail != mailNever }
 
 // SwitchOf is the switch that stops pushes of type t; SwitchNone for an
 // unknown type.

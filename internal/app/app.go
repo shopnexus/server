@@ -163,7 +163,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	case cfg.Email.Sender == "resend":
 		mailer = email.NewResend(httpx.NewClient(10*time.Second), cfg.Email.ResendAPIKey, cfg.Email.From)
 	case cfg.Env == config.EnvProd:
-		return nil, errors.New("APP_ENV=prod with EMAIL_SENDER=log; codes would only be logged")
+		return nil, errors.New("APP_ENV=prod with EMAIL_SENDER=log; mail would only be logged")
 	default:
 		mailer = email.LogSender{Log: log}
 	}
@@ -490,7 +490,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if cfg.Env != config.EnvProd {
 		router.Handle("POST /v1/dev/updates", d.Protect(stream.DevUpdateHandler(updates, log)))
 	}
-	notificationm := notification.Mount(d, notification.Settings{Push: sender},
+	notificationm := notification.Mount(d, notification.Settings{Push: sender, Email: mailer},
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service, supportm.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
 		supportm.Service, shippingm.Service)

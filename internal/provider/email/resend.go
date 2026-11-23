@@ -24,8 +24,8 @@ func NewResend(client *http.Client, apiKey, from string) *Resend {
 	return &Resend{URL: "https://api.resend.com/emails", apiKey: apiKey, from: from, http: client}
 }
 
-func (s *Resend) Send(ctx context.Context, to, subject, body string) error {
-	payload, err := json.Marshal(map[string]any{"from": s.from, "to": []string{to}, "subject": subject, "text": body})
+func (s *Resend) Send(ctx context.Context, m Message) error {
+	payload, err := json.Marshal(map[string]any{"from": s.from, "to": []string{m.To}, "subject": m.Subject, "text": m.Text})
 	if err != nil {
 		return fmt.Errorf("encode message: %w", err)
 	}
@@ -35,6 +35,9 @@ func (s *Resend) Send(ctx context.Context, to, subject, body string) error {
 	}
 	req.Header.Set("Authorization", "Bearer "+s.apiKey)
 	req.Header.Set("Content-Type", "application/json")
+	if m.Key != "" {
+		req.Header.Set("Idempotency-Key", m.Key)
+	}
 	res, err := s.http.Do(req)
 	if err != nil {
 		return fmt.Errorf("post to resend: %w", err)

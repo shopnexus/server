@@ -27,14 +27,11 @@ import (
 
 var testCodes = domain.NewCodes(make([]byte, 32))
 
-// sentMail is one message a mailbox got.
-type sentMail struct{ to, subject, body string }
-
 // mailbox records mails; failFirst fails the first send once, as a
 // provider timing out would.
 type mailbox struct {
 	mu        sync.Mutex
-	sent      []sentMail
+	sent      []emailprovider.Message
 	failFirst bool
 	// refuse fails every send as a provider does for an address it will
 	// never deliver to.
@@ -43,7 +40,7 @@ type mailbox struct {
 	onFail func()
 }
 
-func (m *mailbox) Send(_ context.Context, to, subject, body string) error {
+func (m *mailbox) Send(_ context.Context, msg emailprovider.Message) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.refuse {
@@ -56,14 +53,14 @@ func (m *mailbox) Send(_ context.Context, to, subject, body string) error {
 		}
 		return errors.New("provider timed out")
 	}
-	m.sent = append(m.sent, sentMail{to, subject, body})
+	m.sent = append(m.sent, msg)
 	return nil
 }
 
-func (m *mailbox) all() []sentMail {
+func (m *mailbox) all() []emailprovider.Message {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return append([]sentMail(nil), m.sent...)
+	return append([]emailprovider.Message(nil), m.sent...)
 }
 
 type emailCodeEnv struct {
@@ -110,8 +107,8 @@ func TestEmailCodeSendMailsTheCode(t *testing.T) {
 	res := e.send(t, "linh@example.com", "203.0.113.1")
 	code := testCodes.For(res.ChallengeID)
 	got := e.mail.all()
-	if res.Refused != nil || len(got) != 1 || got[0].to != "linh@example.com" ||
-		got[0].subject != "Mã xác minh ShopNexus: "+code || !res.ExpiresAt.Equal(now.Add(5*time.Minute)) ||
+	if res.Refused != nil || len(got) != 1 || got[0].To != "linh@example.com" || got[0].Key != res.ChallengeID.String() ||
+		got[0].Subject != "Mã xác minh ShopNexus: "+code || !res.ExpiresAt.Equal(now.Add(5*time.Minute)) ||
 		!res.ResendAt.Equal(now.Add(45*time.Second)) {
 		t.Fatalf("%+v, mails %+v", res, got)
 	}
@@ -158,7 +155,7 @@ func TestEmailCodeSendRetriesTheSameCode(t *testing.T) {
 	e := startEmailCodeSend(t, &mailbox{failFirst: true})
 	res := e.send(t, "linh@example.com", "203.0.113.1")
 	got := e.mail.all()
-	if res.Refused != nil || len(got) != 1 || got[0].subject != "Mã xác minh ShopNexus: "+testCodes.For(res.ChallengeID) {
+	if res.Refused != nil || len(got) != 1 || got[0].Subject != "Mã xác minh ShopNexus: "+testCodes.For(res.ChallengeID) {
 		t.Fatalf("%+v, mails %+v", res, got)
 	}
 }
@@ -196,8 +193,8 @@ func TestEmailCodeSendNamesAnAddIdentityCode(t *testing.T) {
 		Email: email(t, "linh@example.com"), Purpose: domain.PurposeAddIdentity, AccountID: &acc, IP: netip.MustParseAddr("203.0.113.1"),
 	}, restate.WithIdempotencyKey(uuid.NewV7().String()))
 	got := e.mail.all()
-	if err != nil || res.Refused != nil || len(got) != 1 || !strings.Contains(got[0].body, "thêm địa chỉ email này vào một tài khoản") ||
-		strings.HasPrefix(got[0].subject, "Mã xác minh ShopNexus") {
+	if err != nil || res.Refused != nil || len(got) != 1 || !strings.Contains(got[0].Text, "thêm địa chỉ email này vào một tài khoản") ||
+		strings.HasPrefix(got[0].Subject, "Mã xác minh ShopNexus") {
 		t.Fatalf("%+v %v, mails %+v", res, err, got)
 	}
 }

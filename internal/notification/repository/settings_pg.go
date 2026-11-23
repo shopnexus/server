@@ -19,9 +19,9 @@ func NewSettings(db *pgxpool.Pool) Settings { return pgSettings{db} }
 
 func (s pgSettings) Get(ctx context.Context, account uuid.UUID) (domain.Settings, error) {
 	var out domain.Settings
-	err := s.db.QueryRow(ctx, `SELECT messages, offers, orders, price_cuts, followed, reviews, quiet_on, quiet_from, quiet_to
+	err := s.db.QueryRow(ctx, `SELECT messages, offers, orders, price_cuts, followed, reviews, order_emails, quiet_on, quiet_from, quiet_to
 FROM notification_settings WHERE account_id = @account`, pgx.StrictNamedArgs{"account": account}).Scan(
-		&out.Messages, &out.Offers, &out.Orders, &out.PriceCuts, &out.Followed, &out.Reviews,
+		&out.Messages, &out.Offers, &out.Orders, &out.PriceCuts, &out.Followed, &out.Reviews, &out.OrderEmails,
 		&out.Quiet.On, &out.Quiet.From, &out.Quiet.To)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.DefaultSettings(), nil
@@ -48,14 +48,14 @@ func (s pgSettings) Put(ctx context.Context, account uuid.UUID, st domain.Settin
 			return accountdomain.ErrSessionRevoked
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO notification_settings
-    (account_id, messages, offers, orders, price_cuts, followed, reviews, quiet_on, quiet_from, quiet_to)
-VALUES (@account, @messages, @offers, @orders, @price_cuts, @followed, @reviews, @quiet_on, @quiet_from, @quiet_to)
+    (account_id, messages, offers, orders, price_cuts, followed, reviews, order_emails, quiet_on, quiet_from, quiet_to)
+VALUES (@account, @messages, @offers, @orders, @price_cuts, @followed, @reviews, @order_emails, @quiet_on, @quiet_from, @quiet_to)
 ON CONFLICT (account_id) DO UPDATE SET messages = excluded.messages, offers = excluded.offers,
     orders = excluded.orders, price_cuts = excluded.price_cuts, followed = excluded.followed,
-    reviews = excluded.reviews, quiet_on = excluded.quiet_on, quiet_from = excluded.quiet_from,
+    reviews = excluded.reviews, order_emails = excluded.order_emails, quiet_on = excluded.quiet_on, quiet_from = excluded.quiet_from,
     quiet_to = excluded.quiet_to`, pgx.StrictNamedArgs{
 			"account": account, "messages": st.Messages, "offers": st.Offers, "orders": st.Orders,
-			"price_cuts": st.PriceCuts, "followed": st.Followed, "reviews": st.Reviews,
+			"price_cuts": st.PriceCuts, "followed": st.Followed, "reviews": st.Reviews, "order_emails": st.OrderEmails,
 			"quiet_on": st.Quiet.On, "quiet_from": st.Quiet.From, "quiet_to": st.Quiet.To,
 		}); err != nil {
 			return fmt.Errorf("upsert settings: %w", err)

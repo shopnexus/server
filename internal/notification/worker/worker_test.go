@@ -15,6 +15,7 @@ import (
 	"github.com/restatedev/sdk-go/ingress"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
@@ -32,6 +33,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
 	"github.com/shopnexus/server/internal/platform/testenv"
+	"github.com/shopnexus/server/internal/provider/email"
 	"github.com/shopnexus/server/internal/provider/push"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
@@ -118,12 +120,22 @@ func (d discovery) PriceDropFacts(_ context.Context, id uuid.UUID) (discoverysvc
 }
 
 // accounts answers that every session but the revoked ones is active, names
-// every account Hoàng Nam, and pages followers, the newest follow first.
+// every account Hoàng Nam, pages followers, the newest follow first, and
+// gives the accounts in emails an email identity.
 type accounts struct {
 	accountsvc.Service
 
 	revoked   map[uuid.UUID]bool
 	followers []accountsvc.Follower // oldest follow first
+	emails    map[uuid.UUID]string
+}
+
+func (a accounts) Identities(_ context.Context, id uuid.UUID) ([]accountsvc.Identity, error) {
+	out := []accountsvc.Identity{{Kind: accountdomain.KindPhone, Value: "+84901234567"}}
+	if addr, ok := a.emails[id]; ok {
+		out = append(out, accountsvc.Identity{Kind: accountdomain.KindEmail, Value: addr})
+	}
+	return out, nil
 }
 
 func (accounts) Get(_ context.Context, id uuid.UUID) (accountsvc.AccountView, error) {
@@ -177,6 +189,42 @@ func (s *sender) count(token string) int {
 	return s.sent[token]
 }
 
+// mailbox records every mail; refuse fails every send for good.
+type mailbox struct {
+	mu     sync.Mutex
+	sent   []email.Message
+	refuse bool
+}
+
+func (m *mailbox) Send(_ context.Context, msg email.Message) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.refuse {
+		return fmt.Errorf("%w: resend answered 422", email.ErrRefused)
+	}
+	m.sent = append(m.sent, msg)
+	return nil
+}
+
+func (m *mailbox) count() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.sent)
+}
+
+// to lists the mails sent to addr.
+func (m *mailbox) to(addr string) []email.Message {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []email.Message
+	for _, msg := range m.sent {
+		if msg.To == addr {
+			out = append(out, msg)
+		}
+	}
+	return out
+}
+
 // noon and night are times on Vietnam's clock outside and inside the
 // default quiet hours, 22:00 to 07:00. The worker runs at noon unless a
 // test moves it.
@@ -189,6 +237,7 @@ type env struct {
 	db      *pgxpool.Pool
 	notices service.Service
 	push    *sender
+	mail    *mailbox
 	worker  worker.Worker
 	client  *ingress.Client
 }
@@ -200,12 +249,13 @@ func newEnv(t *testing.T, revoked map[uuid.UUID]bool, once map[string]error) env
 	db := pgtest.New(t)
 	notices := service.New(service.Deps{Notices: repository.NewNotices(db), Settings: repository.NewSettings(db), Now: time.Now})
 	s := &sender{sent: map[string]int{}, body: map[string]string{}, title: map[string]string{}, data: map[string]map[string]string{}, tag: map[string]string{}, once: once}
+	m := &mailbox{}
 	w := worker.Worker{
 		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{}, Discovery: discovery{}, Support: support{},
-		Accounts: accounts{revoked: revoked}, Push: s, Log: slog.New(slog.DiscardHandler), FollowerPage: 2,
+		Accounts: accounts{revoked: revoked}, Push: s, Email: m, Log: slog.New(slog.DiscardHandler), FollowerPage: 2,
 		Now: func() time.Time { return noon },
 	}
-	return env{db: db, notices: notices, push: s, worker: w}
+	return env{db: db, notices: notices, push: s, mail: m, worker: w}
 }
 
 func (e *env) start(t *testing.T) {

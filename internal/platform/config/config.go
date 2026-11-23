@@ -139,7 +139,7 @@ type FirebaseConfig struct {
 	TestNumbers   bool   // PNV_TEST_NUMBERS: accept the test numbers of PNV's test mode; never in prod
 }
 
-// EmailConfig picks how the server mails sign-in codes.
+// EmailConfig picks how the server mails sign-in codes and notices.
 type EmailConfig struct {
 	Sender       string // EMAIL_SENDER: log or resend; APP_ENV=prod refuses log
 	ResendAPIKey string // RESEND_API_KEY: required with EMAIL_SENDER=resend, may be empty otherwise

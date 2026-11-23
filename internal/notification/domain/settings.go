@@ -25,16 +25,18 @@ const (
 	SwitchNone Switch = ""
 )
 
-// Settings say which notices push. A switch that is off stops the push
-// only; the notice is still listed.
+// Settings say which notices push, and whether order notices are mailed. A
+// switch that is off stops the push or the mail only; the notice is still
+// listed.
 type Settings struct {
-	Messages  bool  `json:"messages"`
-	Offers    bool  `json:"offers"`
-	Orders    bool  `json:"orders"`
-	PriceCuts bool  `json:"price_cuts"`
-	Followed  bool  `json:"followed"`
-	Reviews   bool  `json:"reviews"`
-	Quiet     Quiet `json:"quiet"`
+	Messages    bool  `json:"messages"`
+	Offers      bool  `json:"offers"`
+	Orders      bool  `json:"orders"`
+	PriceCuts   bool  `json:"price_cuts"`
+	Followed    bool  `json:"followed"`
+	Reviews     bool  `json:"reviews"`
+	OrderEmails bool  `json:"order_emails"`
+	Quiet       Quiet `json:"quiet"`
 }
 
 // Quiet is a daily window without pushes, in Vietnam time, from From up to
@@ -49,7 +51,7 @@ type Quiet struct {
 // on, quiet from 22:00 to 07:00.
 func DefaultSettings() Settings {
 	return Settings{
-		Messages: true, Offers: true, Orders: true, PriceCuts: true, Followed: true, Reviews: true,
+		Messages: true, Offers: true, Orders: true, PriceCuts: true, Followed: true, Reviews: true, OrderEmails: true,
 		Quiet: Quiet{On: true, From: "22:00", To: "07:00"},
 	}
 }
@@ -86,6 +88,14 @@ func (s Settings) Pushes(sw Switch, at time.Time) bool {
 	default:
 	}
 	return on && !s.Quiet.Holds(at)
+}
+
+// Mails reports whether a notice of type t is mailed: an order notice
+// while OrderEmails is on, an account notice always. Quiet hours hold no
+// mail.
+func (s Settings) Mails(t Type) bool {
+	m := types[t].mail
+	return m == mailAlways || m == mailOrders && s.OrderEmails
 }
 
 // Holds reports whether at falls in the window, From included and To not,
