@@ -61,11 +61,14 @@ type SearchItem struct {
 // SearchView is a page of a search.
 type SearchView struct {
 	// SearchID names the response, for the search events clients send back.
-	SearchID   uuid.UUID                     `json:"search_id"`
-	Items      []SearchItem                  `json:"items"`
-	NextCursor string                        `json:"next_cursor,omitempty"`
-	Chips      []domain.Chip                 `json:"chips,omitempty"`
-	Counts     []catalogdomain.CategoryCount `json:"counts,omitempty"`
+	SearchID   uuid.UUID     `json:"search_id"`
+	Items      []SearchItem  `json:"items"`
+	NextCursor string        `json:"next_cursor,omitempty"`
+	Chips      []domain.Chip `json:"chips,omitempty"`
+	// PreviewChips are a guest's first page's chips the model read for the
+	// query when someone signed in searched it; the search did not apply them.
+	PreviewChips []domain.Chip                 `json:"preview_chips,omitempty"`
+	Counts       []catalogdomain.CategoryCount `json:"counts,omitempty"`
 	// WatchID is the viewer's watch of the query, nil for none.
 	WatchID *uuid.UUID `json:"watch_id,omitempty"`
 }
@@ -221,14 +224,18 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		if catErr != nil {
 			return SearchView{}, fmt.Errorf("read categories: %w", catErr)
 		}
-		// A guest searches the raw words and their vector; the model reads
-		// signed-in people's queries. A page after one that searched the raw
-		// words searches them too, so an answer cached in between does not
-		// reorder the pages.
-		var u domain.Understanding
-		understood := false
-		if !raw && viewer != nil {
+		// A guest searches the raw words; the model reads signed-in people's
+		// queries. A page after one that searched the raw words searches them
+		// too, so an answer cached in between does not reorder the pages. A
+		// guest's first page shows, unapplied, the chips of a cached answer.
+		var u, preview domain.Understanding
+		understood, previewed := false, false
+		switch {
+		case viewer != nil && !raw:
 			u, understood = d.understand(ctx, *viewer, q, categories, now)
+		case viewer == nil && in.Cursor == "" && !like:
+			preview, previewed = d.cached(ctx, q, now)
+		default:
 		}
 		raw = !understood
 		names := make(map[string]string, len(categories))
@@ -236,13 +243,16 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			names[c.Code] = c.DisplayName
 		}
 		vocab := domain.Vocabulary{Categories: names}
-		if placeNames := domain.PlaceNames(u); len(placeNames) > 0 {
+		if placeNames := append(domain.PlaceNames(u), domain.PlaceNames(preview)...); len(placeNames) > 0 {
 			var placeErr error
 			if vocab.Places, placeErr = d.catalog.FindPlaces(ctx, placeNames); placeErr != nil {
 				d.log.WarnContext(ctx, "resolve the places", "err", placeErr)
 			}
 		}
 		c := domain.Compile(u, q, vocab, origin, now, in.Off)
+		if previewed {
+			view.PreviewChips = domain.Compile(preview, q, vocab, origin, now, nil).Chips
+		}
 		// The raw words, a guest's or what the model did not read, are often
 		// typed without diacritics; the model's rewrite has them.
 		if !understood {
@@ -346,16 +356,10 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 func (d *Discovery) understand(
 	ctx context.Context, account uuid.UUID, q string, categories []catalogdomain.Category, now time.Time,
 ) (domain.Understanding, bool) {
-	var u domain.Understanding
-	key := domain.QueryKey(q)
-	cached, found, err := d.understandings.Get(ctx, key, domain.PromptVersion, now.Add(-domain.CacheTTL))
-	switch {
-	case err != nil:
-		d.log.WarnContext(ctx, "read the cached understanding", "err", err)
-	case found && json.Unmarshal(cached, &u) == nil:
+	if u, found := d.cached(ctx, q, now); found {
 		return u, true
-	default:
 	}
+	key := domain.QueryKey(q)
 	taken, err := d.modelUses.Take(ctx, account, now, domain.ModelCallsPerDay)
 	if err != nil {
 		d.log.WarnContext(ctx, "count the model call", "err", err)
@@ -394,6 +398,18 @@ func (d *Discovery) understand(
 	case <-ctx.Done():
 		return domain.Understanding{}, false
 	}
+}
+
+// cached is the model's answer for q stored within domain.CacheTTL, and
+// whether there is one. Search and understand call it.
+func (d *Discovery) cached(ctx context.Context, q string, now time.Time) (domain.Understanding, bool) {
+	var u domain.Understanding
+	answer, found, err := d.understandings.Get(ctx, domain.QueryKey(q), domain.PromptVersion, now.Add(-domain.CacheTTL))
+	if err != nil {
+		d.log.WarnContext(ctx, "read the cached understanding", "err", err)
+		return u, false
+	}
+	return u, found && json.Unmarshal(answer, &u) == nil
 }
 
 // category sets f's root or subcategory from a code: a subcategory has a

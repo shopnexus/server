@@ -120,8 +120,15 @@ func TestSearchGuestSkipsTheModel(t *testing.T) {
 	if v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap", Limit: 1}); err != nil || len(v.Chips) != 1 || e.model.count() != 1 {
 		t.Fatalf("signed in: %+v %d %v", v, e.model.count(), err)
 	}
-	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1}); err != nil || len(v.Chips) != 0 {
-		t.Fatalf("a guest read the cached answer: %+v %v", v, err)
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1}); err != nil || len(v.Chips) != 0 ||
+		len(v.PreviewChips) != 1 || v.PreviewChips[0].Label != "Xe đạp" || e.model.count() != 1 {
+		t.Fatalf("a guest gets the cached chips unapplied: %+v %v", v, err)
+	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1, Cursor: v.NextCursor}); err != nil || len(v.PreviewChips) != 0 {
+		t.Fatalf("only the first page previews: %+v %v", v, err)
+	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap moi"}); err != nil || len(v.PreviewChips) != 0 {
+		t.Fatalf("a query nobody signed in searched: %+v %v", v, err)
 	}
 	// A guest's words match the titles with diacritics folded away; a query
 	// the model read matches them as written.

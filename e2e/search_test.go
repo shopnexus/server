@@ -30,6 +30,9 @@ type searchView struct {
 	Chips      []struct {
 		ID string `json:"id"`
 	} `json:"chips"`
+	PreviewChips []struct {
+		Label string `json:"label"`
+	} `json:"preview_chips"`
 	Counts []struct {
 		Category string `json:"category"`
 		Count    int    `json:"count"`
@@ -88,6 +91,10 @@ func TestSearch(t *testing.T) {
 	}
 	if strings.Contains(string(res.Body), `"lat"`) || strings.Contains(string(res.Body), `"lng"`) {
 		t.Fatalf("a point leaked: %s", res.Body)
+	}
+	// Now that the answer is cached, a guest's first page previews its chips unapplied.
+	if _, g := search(t, query); len(g.Chips) != 0 || len(g.PreviewChips) == 0 {
+		t.Fatalf("guest preview: %+v", g)
 	}
 	calls = model.asked()
 	if _, v = search(t, query, me); model.asked() != calls || len(v.Chips) == 0 {

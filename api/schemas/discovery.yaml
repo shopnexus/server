@@ -165,6 +165,15 @@ SearchView:
       type: array
       items:
         $ref: "#/Chip"
+    preview_chips:
+      type: array
+      description: >-
+        Signed out, on a first page with q: the chips the model read for the
+        same query when a signed-in person searched it, from the cache. The
+        search did not apply them; signing in does. Absent when nobody signed
+        in searched the query.
+      items:
+        $ref: "#/Chip"
     watch_id:
       type: string
       format: uuid

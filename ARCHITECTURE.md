@@ -2499,7 +2499,12 @@ Search and the nearby feed (decided 2026-10-27, spec:
   raw words search through BM25 alone, on the folded fields below, with no
   chips and no photo list, and the cursor pins the pages as below. Their
   vector, typed without diacritics, brought listings that shared no word
-  ("Dây da bò" for "xe dap di lam"). The model reads signed-in people's
+  ("Dây da bò" for "xe dap di lam"). A guest's first page carries
+  `preview_chips`: the chips of the cached answer for the same query, when
+  a signed-in person searched it within the cache's 7 days. The search does
+  not apply them; the clients show them locked beside Đăng nhập, and with
+  no cached answer the card has its line of text alone. The preview calls
+  no model. The model reads signed-in people's
   queries, so its cost follows accounts, and the full search is a reason to
   sign in. A guest does not read a cached answer either.
 - A guest's address makes 2 searches with `q` a second, in bursts of 30, and
