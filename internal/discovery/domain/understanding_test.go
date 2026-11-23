@@ -234,7 +234,7 @@ func TestSchemaAsksForRewriteAndVisual(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !slices.Contains(s.Required, "rewritten") || !slices.Contains(s.Required, "visual") ||
-		s.Properties["visual"] == nil || domain.PromptVersion != 2 {
+		s.Properties["visual"] == nil || domain.PromptVersion != 3 {
 		t.Fatalf("%+v v%d", s.Required, domain.PromptVersion)
 	}
 	if p := domain.SystemPrompt(nil, time.Now()); !strings.Contains(p, "rewritten") || !strings.Contains(p, "visual") {

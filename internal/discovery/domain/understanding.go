@@ -13,8 +13,9 @@ import (
 
 // PromptVersion names the prompt and schema below; a change to either bumps
 // it, so cached answers of the old prompt are no longer read.
-// 2 added rewritten and visual (2026-11-09).
-const PromptVersion = 2
+// 2 added rewritten and visual (2026-11-09); 3 is the same prompt read by
+// Gemini 2.5 Flash in place of Claude Haiku (2026-11-23).
+const PromptVersion = 3
 
 const (
 	// ModelTimeout bounds one model call, which a search waits for, and a
