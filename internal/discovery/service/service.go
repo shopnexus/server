@@ -120,13 +120,14 @@ type Deps struct {
 	LLM      llm.Client
 	// Media reads a search photo; Text and Image embed with the search key,
 	// under TextVersion and ImageVersion. TextMin and PhotoMin are the
-	// floors of the vector lists.
-	Media                     mediasvc.Service
-	QueryVectors              repository.QueryVectors
-	PhotoVectors              repository.PhotoVectors
-	Text, Image               embed.Model
-	TextVersion, ImageVersion string
-	TextMin, PhotoMin         float64
+	// floors of the vector lists; LookMin is the photo list's when the
+	// query is the look the model wrote, a text.
+	Media                      mediasvc.Service
+	QueryVectors               repository.QueryVectors
+	PhotoVectors               repository.PhotoVectors
+	Text, Image                embed.Model
+	TextVersion, ImageVersion  string
+	TextMin, PhotoMin, LookMin float64
 	// ModelTimeout is domain.ModelTimeout in production; tests shorten it.
 	ModelTimeout time.Duration
 	Log          *slog.Logger
@@ -135,27 +136,27 @@ type Deps struct {
 
 // Discovery implements Service in this process.
 type Discovery struct {
-	saves                     repository.Saves
-	views                     repository.Views
-	understandings            repository.Understandings
-	history                   repository.History
-	hidden                    repository.Hidden
-	watches                   repository.Watches
-	sweeps                    Sweeper
-	arrivalLag                time.Duration
-	sweepBatch                int
-	catalog                   catalogsvc.Service
-	accounts                  accountsvc.Service
-	llm                       llm.Client
-	media                     mediasvc.Service
-	queryVectors              repository.QueryVectors
-	photoVectors              repository.PhotoVectors
-	text, image               embed.Model
-	textVersion, imageVersion string
-	textMin, photoMin         float64
-	modelTimeout              time.Duration
-	log                       *slog.Logger
-	now                       func() time.Time
+	saves                      repository.Saves
+	views                      repository.Views
+	understandings             repository.Understandings
+	history                    repository.History
+	hidden                     repository.Hidden
+	watches                    repository.Watches
+	sweeps                     Sweeper
+	arrivalLag                 time.Duration
+	sweepBatch                 int
+	catalog                    catalogsvc.Service
+	accounts                   accountsvc.Service
+	llm                        llm.Client
+	media                      mediasvc.Service
+	queryVectors               repository.QueryVectors
+	photoVectors               repository.PhotoVectors
+	text, image                embed.Model
+	textVersion, imageVersion  string
+	textMin, photoMin, lookMin float64
+	modelTimeout               time.Duration
+	log                        *slog.Logger
+	now                        func() time.Time
 }
 
 var _ Service = (*Discovery)(nil)
@@ -166,7 +167,7 @@ func New(d Deps) *Discovery {
 		sweeps: d.Sweeps, arrivalLag: d.ArrivalLag, sweepBatch: d.SweepBatch, catalog: d.Catalog,
 		accounts: d.Accounts, llm: d.LLM,
 		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,
-		textVersion: d.TextVersion, imageVersion: d.ImageVersion, textMin: d.TextMin, photoMin: d.PhotoMin,
+		textVersion: d.TextVersion, imageVersion: d.ImageVersion, textMin: d.TextMin, photoMin: d.PhotoMin, lookMin: d.LookMin,
 		modelTimeout: d.ModelTimeout, log: d.Log, now: d.Now,
 	}
 }

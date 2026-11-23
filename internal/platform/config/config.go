@@ -179,9 +179,11 @@ type EmbedConfig struct {
 	Timeout      time.Duration // EMBED_TIMEOUT: one embedding call
 	Slots        int           // EMBED_SLOTS: embeddings ListingEmbed runs at once in this process
 	// TextMinSimilarity and PhotoMinSimilarity are the cosine a listing needs
-	// to join a vector list.
+	// to join a vector list. LookMinSimilarity is the photo list's floor when
+	// the query is the look the search model wrote, a text.
 	TextMinSimilarity  float64 // EMBED_TEXT_MIN_SIMILARITY, in (0, 1)
 	PhotoMinSimilarity float64 // EMBED_PHOTO_MIN_SIMILARITY, in (0, 1)
+	LookMinSimilarity  float64 // EMBED_LOOK_MIN_SIMILARITY, in (0, 1)
 }
 
 // TextOn says whether text vectors are on; AIConfig.EmbedOn says it of
@@ -202,7 +204,7 @@ type AIConfig struct {
 	// EmbedModel and EmbedDir are AI_EMBED_MODELS, one name=dir of SigLIP 2,
 	// or empty: photo vectors are off and SigLIP 2 is not loaded.
 	EmbedModel, EmbedDir string  //exhaustruct:optional
-	EmbedMaxInputs       int     // AI_EMBED_MAX_INPUTS: images per EmbedImages call
+	EmbedMaxInputs       int     // AI_EMBED_MAX_INPUTS: images and texts per EmbedImages call
 	EmbedMaxConcurrent   int     // AI_EMBED_MAX_CONCURRENT: calls embedding at once
 	EmbedMaxImageMB      int     // AI_EMBED_MAX_IMAGE_MB: one image after base64 decoding
 	FramesMaxConcurrent  int     // AI_FRAMES_MAX_CONCURRENT: videos cut into frames at once
@@ -639,6 +641,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Timeout: duration("EMBED_TIMEOUT"), Slots: positive("EMBED_SLOTS"),
 			TextMinSimilarity:  fractionForKind(textModel, "EMBED_TEXT_MIN_SIMILARITY"),
 			PhotoMinSimilarity: fractionForKind(imageModel, "EMBED_PHOTO_MIN_SIMILARITY"),
+			LookMinSimilarity:  fractionForKind(imageModel, "EMBED_LOOK_MIN_SIMILARITY"),
 		},
 		Assist: AssistConfig{
 			LLMBaseURL: need("ASSIST_LLM_BASE_URL"), LLMAPIKey: need("ASSIST_LLM_API_KEY"), LLMModel: need("ASSIST_LLM_MODEL"),

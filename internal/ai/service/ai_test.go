@@ -106,19 +106,31 @@ func TestEmbedImages(t *testing.T) {
 			vs[i] = []float32{float32(len(img)), 0}
 		}
 		return vs, nil
+	}, EmbedText: func(texts []string) ([][]float32, error) {
+		vs := make([][]float32, len(texts))
+		for i, text := range texts {
+			vs[i] = []float32{0, float32(len(text))}
+		}
+		return vs, nil
 	}}, true)
 	ctx := context.Background()
 	vs, err := c.EmbedImages(ctx, []string{dataURL([]byte("ab")), dataURL([]byte("abcd"))})
 	if err != nil || len(vs) != 2 || vs[0][0] != 2 || vs[1][0] != 4 {
 		t.Fatalf("EmbedImages: %v %v", vs, err)
 	}
+	// A text goes to the text tower and keeps its place among the images.
+	vs, err = c.EmbedImages(ctx, []string{"red bike", dataURL([]byte("abc"))})
+	if err != nil || len(vs) != 2 || vs[0][1] != 8 || vs[1][0] != 3 {
+		t.Fatalf("EmbedImages with a text: %v %v", vs, err)
+	}
 	for name, inputs := range map[string][]string{
-		"none":      {},
-		"too many":  {dataURL([]byte("a")), dataURL([]byte("b")), dataURL([]byte("c"))},
-		"not image": {"xe đạp"},
-		"gif":       {"data:image/gif;base64,AAAA"},
-		"too big":   {dataURL([]byte("123456789"))},
-		"bad b64":   {"data:image/png;base64,%%%"},
+		"none":       {},
+		"too many":   {dataURL([]byte("a")), dataURL([]byte("b")), dataURL([]byte("c"))},
+		"empty text": {"  "},
+		"long text":  {strings.Repeat("a", domain.MaxEmbedText+1)},
+		"gif":        {"data:image/gif;base64,AAAA"},
+		"too big":    {dataURL([]byte("123456789"))},
+		"bad b64":    {"data:image/png;base64,%%%"},
 	} {
 		if _, err = c.EmbedImages(ctx, inputs); !errors.Is(err, domain.ErrRefused) {
 			t.Errorf("%s: %v", name, err)
@@ -126,7 +138,7 @@ func TestEmbedImages(t *testing.T) {
 	}
 	// Photos checks the dimensions and turns a refusal into embed's.
 	photos := service.Photos{AI: c, Dims: 2}
-	if _, err = photos.Embed(ctx, []string{"xe đạp"}); !errors.Is(err, embed.ErrRefused) {
+	if _, err = photos.Embed(ctx, []string{"data:image/gif;base64,AAAA"}); !errors.Is(err, embed.ErrRefused) {
 		t.Fatalf("Photos refusal: %v", err)
 	}
 	if _, err = (service.Photos{AI: c, Dims: 3}).Embed(ctx, []string{dataURL([]byte("ab"))}); err == nil {

@@ -87,6 +87,7 @@ func required() map[string]string {
 		"EMBED_SLOTS":                  "2",
 		"EMBED_TEXT_MIN_SIMILARITY":    "0.45",
 		"EMBED_PHOTO_MIN_SIMILARITY":   "0.6",
+		"EMBED_LOOK_MIN_SIMILARITY":    "0.08",
 		"AI_STT_MODELS":                "gipformer-1.5=/models/gipformer-1.5",
 		"AI_VAD_MODEL":                 "/models/silero_vad.onnx",
 		"AI_NUM_THREADS":               "4",
@@ -204,7 +205,7 @@ func TestLoadAllSet(t *testing.T) {
 			TextBaseURL: "http://openrouter.example.test/v1", TextModel: "embed-text",
 			TextVersion: "bge-m3@5617a9f6", ImageVersion: "siglip2-so400m-patch16-384-fp32@29f74e67",
 			IndexAPIKey: "", SearchAPIKey: "search-key", Timeout: 10 * time.Second, Slots: 2,
-			TextMinSimilarity: 0.45, PhotoMinSimilarity: 0.6,
+			TextMinSimilarity: 0.45, PhotoMinSimilarity: 0.6, LookMinSimilarity: 0.08,
 		},
 		AI: AIConfig{
 			STTModel: "gipformer-1.5", STTDir: "/models/gipformer-1.5", VADModel: "/models/silero_vad.onnx",
@@ -541,7 +542,7 @@ func TestLoadEmbedKindsOff(t *testing.T) {
 	env := required()
 	for _, k := range []string{
 		"EMBED_TEXT_MODEL", "EMBED_TEXT_BASE_URL", "EMBED_TEXT_VERSION", "EMBED_TEXT_MIN_SIMILARITY",
-		"AI_EMBED_MODELS", "EMBED_IMAGE_VERSION", "EMBED_PHOTO_MIN_SIMILARITY",
+		"AI_EMBED_MODELS", "EMBED_IMAGE_VERSION", "EMBED_PHOTO_MIN_SIMILARITY", "EMBED_LOOK_MIN_SIMILARITY",
 	} {
 		env[k] = ""
 	}

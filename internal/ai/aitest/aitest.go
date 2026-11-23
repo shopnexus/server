@@ -49,12 +49,14 @@ func need(t *testing.T, env, dir, sub string) string {
 
 // Fake is module ai's engines for tests, without models: each method reads
 // the file or images it is given and answers with its func. A nil func
-// answers "", no frames or one zero vector of dims per image.
+// answers "", no frames or one zero vector of dims per image; a nil
+// EmbedText refuses every text.
 type Fake struct {
-	Hear  func(file []byte) (string, error)
-	Cut   func(file []byte) (domain.FramesOutput, error)
-	Embed func(images [][]byte) ([][]float32, error)
-	Dims  int
+	Hear      func(file []byte) (string, error)
+	Cut       func(file []byte) (domain.FramesOutput, error)
+	Embed     func(images [][]byte) ([][]float32, error)
+	EmbedText func(texts []string) ([][]float32, error)
+	Dims      int
 }
 
 var (
@@ -94,4 +96,11 @@ func (f Fake) EmbedImages(_ context.Context, images [][]byte) ([][]float32, erro
 		vs[i] = make([]float32, f.Dims)
 	}
 	return vs, nil
+}
+
+func (f Fake) EmbedTexts(_ context.Context, texts []string) ([][]float32, error) {
+	if f.EmbedText == nil {
+		return nil, fmt.Errorf("%w: the fake embeds no text", domain.ErrRefused)
+	}
+	return f.EmbedText(texts)
 }

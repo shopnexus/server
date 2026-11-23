@@ -2526,8 +2526,10 @@ Hybrid search (decided 2026-11-09, spec:
   filters. Weights: `q` 1.0, 1.0, 0.5, 0.75; `like` 0.5, 1.0, 1.0, 0.5;
   `photo` the photo list alone at 1.0.
 - A listing joins a vector list at `EMBED_TEXT_MIN_SIMILARITY` or
-  `EMBED_PHOTO_MIN_SIMILARITY` cosine or more. Sorts other than relevance
-  order the fused listings.
+  `EMBED_PHOTO_MIN_SIMILARITY` cosine or more. When the photo list's query
+  is the model's look, a text, the floor is `EMBED_LOOK_MIN_SIMILARITY`:
+  SigLIP 2 scores a text against a matching photo near 0.1. Sorts other
+  than relevance order the fused listings.
 - One SQL statement holds the lists as CTEs (`bm25`, `txt`, `img`, `boost`,
   then `fused`). Its transaction sets `hnsw.iterative_scan = relaxed_order`,
   so a narrow filter still fills a vector list.

@@ -24,10 +24,11 @@ type Settings struct {
 	// Model reads search queries.
 	Model llm.Client
 	// Text and Image embed with the search key, under the versions; the
-	// floors are the cosine a listing needs to join a vector list.
-	Text, Image               embed.Model
-	TextVersion, ImageVersion string
-	TextMin, PhotoMin         float64
+	// floors are the cosine a listing needs to join a vector list, LookMin
+	// the photo list's when a search's look is the query.
+	Text, Image                embed.Model
+	TextVersion, ImageVersion  string
+	TextMin, PhotoMin, LookMin float64
 }
 
 // Mount registers the discovery endpoints, subscribes the account watch to
@@ -45,7 +46,7 @@ func Mount(
 		ArrivalLag: domain.ArrivalLag, SweepBatch: domain.SweepBatch,
 		QueryVectors: repository.NewQueryVectors(d.Pool), PhotoVectors: repository.NewPhotoVectors(d.Pool),
 		Catalog: catalog, Media: media, LLM: s.Model, Text: s.Text, Image: s.Image,
-		TextVersion: s.TextVersion, ImageVersion: s.ImageVersion, TextMin: s.TextMin, PhotoMin: s.PhotoMin,
+		TextVersion: s.TextVersion, ImageVersion: s.ImageVersion, TextMin: s.TextMin, PhotoMin: s.PhotoMin, LookMin: s.LookMin,
 		ModelTimeout: domain.ModelTimeout, Log: d.Log, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)

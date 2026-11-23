@@ -154,7 +154,7 @@ func setup(closers *[]func()) error {
 		Embed: config.EmbedConfig{
 			TextBaseURL: embedder.url(), TextModel: "embed-text", TextVersion: "text-test", ImageVersion: "image-test",
 			IndexAPIKey: "", SearchAPIKey: "", Timeout: time.Second, Slots: 1,
-			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5,
+			TextMinSimilarity: 0.5, PhotoMinSimilarity: 0.5, LookMinSimilarity: 0.05,
 		},
 		Assist: config.AssistConfig{
 			LLMBaseURL: assistStub.url(), LLMAPIKey: "e2e", LLMModel: "e2e", CallTimeout: 5 * time.Second,

@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -30,10 +31,12 @@ type Framer interface {
 	Extract(ctx context.Context, path string) (domain.FramesOutput, error)
 }
 
-// Images embeds decoded images with SigLIP 2. An image it cannot decode is
+// Images embeds decoded images, and texts that describe a look, with
+// SigLIP 2 into the same space. An image it cannot decode is
 // domain.ErrRefused.
 type Images interface {
 	EmbedImages(ctx context.Context, images [][]byte) ([][]float32, error)
+	EmbedTexts(ctx context.Context, texts []string) ([][]float32, error)
 }
 
 // Objects reads the object store; a missing key is objectstore.ErrNotFound.
@@ -109,8 +112,8 @@ func (a *AI) Frames(ctx restate.Context, in domain.FramesInput) (domain.FramesOu
 	return out, nil
 }
 
-// EmbedImages embeds data URL images, at most MaxInputs of at most
-// MaxImageBytes each.
+// EmbedImages embeds data URL images of at most MaxImageBytes each, and
+// plain texts, at most MaxInputs in all.
 func (a *AI) EmbedImages(ctx restate.Context, in domain.EmbedImagesInput) (domain.EmbedImagesOutput, error) {
 	start := time.Now()
 	vs, err := a.decodeAndEmbed(ctx, in.Inputs)
@@ -130,8 +133,18 @@ func (a *AI) decodeAndEmbed(ctx context.Context, inputs []string) ([][]float32, 
 	case len(inputs) > a.d.MaxInputs:
 		return nil, fmt.Errorf("%w: send at most %d inputs", domain.ErrRefused, a.d.MaxInputs)
 	}
-	images := make([][]byte, len(inputs))
+	var images [][]byte
+	var texts []string
+	var imageAt, textAt []int
 	for i, s := range inputs {
+		if !strings.HasPrefix(s, "data:") {
+			text := strings.TrimSpace(s)
+			if text == "" || utf8.RuneCountInString(text) > domain.MaxEmbedText {
+				return nil, fmt.Errorf("%w: input %d: a text is 1 to %d characters", domain.ErrRefused, i, domain.MaxEmbedText)
+			}
+			texts, textAt = append(texts, text), append(textAt, i)
+			continue
+		}
 		payload, ok := "", false
 		for _, p := range imageTypes {
 			if payload, ok = strings.CutPrefix(s, p); ok {
@@ -151,16 +164,36 @@ func (a *AI) decodeAndEmbed(ctx context.Context, inputs []string) ([][]float32, 
 		if len(b) > a.d.MaxImageBytes {
 			return nil, fmt.Errorf("%w: input %d: the image is larger than %d bytes", domain.ErrRefused, i, a.d.MaxImageBytes)
 		}
-		images[i] = b
+		images, imageAt = append(images, b), append(imageAt, i)
 	}
-	vs, err := a.d.Images.EmbedImages(ctx, images)
+	out := make([][]float32, len(inputs))
+	if len(images) > 0 {
+		vs, err := a.d.Images.EmbedImages(ctx, images)
+		if err = place(out, imageAt, vs, err); err != nil {
+			return nil, err
+		}
+	}
+	if len(texts) > 0 {
+		vs, err := a.d.Images.EmbedTexts(ctx, texts)
+		if err = place(out, textAt, vs, err); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// place puts one run's vectors at their inputs' positions.
+func place(out [][]float32, at []int, vs [][]float32, err error) error {
 	if err != nil {
-		return nil, fmt.Errorf("embed: %w", err)
+		return fmt.Errorf("embed: %w", err)
 	}
-	if len(vs) != len(images) {
-		return nil, fmt.Errorf("%w: %d vectors for %d images", domain.ErrFailed, len(vs), len(images))
+	if len(vs) != len(at) {
+		return fmt.Errorf("%w: %d vectors for %d inputs", domain.ErrFailed, len(vs), len(at))
 	}
-	return vs, nil
+	for i, v := range vs {
+		out[at[i]] = v
+	}
+	return nil
 }
 
 // log writes one line per call, with no word or picture of the person's.

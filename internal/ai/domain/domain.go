@@ -20,6 +20,10 @@ const (
 // MaxFrames is the most frames Frames answers.
 const MaxFrames = 8
 
+// MaxEmbedText is the longest text EmbedImages takes, in characters; the
+// text tower reads 64 tokens.
+const MaxEmbedText = 300
+
 // TranscribeInput names the video or audio to hear by its object store key.
 type TranscribeInput struct {
 	Key string `json:"key"`
@@ -49,8 +53,9 @@ type FramesOutput struct {
 	Frames   []Frame `json:"frames"`
 }
 
-// EmbedImagesInput is up to AI_EMBED_MAX_INPUTS images as data URLs:
-// data:image/jpeg;base64,..., or png or webp.
+// EmbedImagesInput is up to AI_EMBED_MAX_INPUTS images as data URLs
+// (data:image/jpeg;base64,..., or png or webp) or plain texts, which land
+// in the same space as the images.
 type EmbedImagesInput struct {
 	Inputs []string `json:"inputs"`
 }

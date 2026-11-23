@@ -24,8 +24,8 @@ var _ embed.Model = Photos{}
 // maxHalf is the largest magnitude halfvec stores.
 const maxHalf = 65504
 
-// Embed takes images as data URLs, as embed.ImageInput writes them. A
-// refusal is embed.ErrRefused.
+// Embed takes images as data URLs, as embed.ImageInput writes them, and
+// texts as they are, such as a search's look. A refusal is embed.ErrRefused.
 func (p Photos) Embed(ctx context.Context, inputs []string) ([][]float32, error) {
 	ctx, cancel := timeout(ctx, p.Timeout)
 	defer cancel()

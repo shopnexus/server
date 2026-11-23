@@ -251,6 +251,8 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 				wg.Go(func() { search.Vectors.Text = d.queryVector(ectx, d.text, d.textVersion, text) })
 			}
 			if d.image != nil && understood && strings.TrimSpace(u.Visual) != "" {
+				// A text sits far from any photo; the look has its own floor.
+				search.Vectors.PhotoMin = d.lookMin
 				wg.Go(func() { search.Vectors.Photo = d.queryVector(ectx, d.image, d.imageVersion, u.Visual) })
 			}
 			wg.Wait()

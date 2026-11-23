@@ -95,7 +95,7 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 		Text:        text(cfg.Embed.SearchAPIKey),
 		Image:       photos,
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
-		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
+		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, LookMin: cfg.Embed.LookMinSimilarity,
 		ModelTimeout: discoverydomain.ModelTimeout, Log: log, Now: time.Now,
 	})
 

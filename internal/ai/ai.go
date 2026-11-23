@@ -141,3 +141,15 @@ func (m imageEngine) EmbedImages(ctx context.Context, images [][]byte) ([][]floa
 	}
 	return res.Vectors, nil
 }
+
+func (m imageEngine) EmbedTexts(ctx context.Context, texts []string) ([][]float32, error) {
+	in := make([]embed.Input, len(texts))
+	for i, t := range texts {
+		in[i] = embed.Input{Text: t}
+	}
+	res, err := m.e.Embed(ctx, m.model, in)
+	if err != nil {
+		return nil, fmt.Errorf("embed texts: %w", err)
+	}
+	return res.Vectors, nil
+}

@@ -25,8 +25,9 @@ type Service interface {
 	// video at key. An unreadable video is domain.ErrUnreadable; one too
 	// short or too long is domain.ErrTooShort or domain.ErrTooLong.
 	Frames(ctx context.Context, key string) (domain.FramesOutput, error)
-	// EmbedImages returns one SigLIP 2 vector per data URL image, in input
-	// order. A refused input, or photo vectors off, is domain.ErrRefused.
+	// EmbedImages returns one SigLIP 2 vector per data URL image or plain
+	// text, in input order. A refused input, or photo vectors off, is
+	// domain.ErrRefused.
 	EmbedImages(ctx context.Context, inputs []string) ([][]float32, error)
 }
 
