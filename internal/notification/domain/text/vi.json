@@ -16,7 +16,7 @@
   "mail.failed.subject": "%[1]s giao không thành",
   "mail.failed.title": "Giao hàng không thành",
   "mail.footer.settings": "Tắt email đơn COD",
-  "mail.money.seller": "Hãng vận chuyển chuyển tiền hàng cho bạn 1–2 ngày sau khi người mua nhận.",
+  "mail.money.seller": "Hãng vận chuyển gửi tiền hàng cho bạn 1–2 ngày sau khi người mua nhận.",
   "mail.received.action": "Đánh giá người mua",
   "mail.received.lead": "Đơn đã xong. Đánh giá người mua khi bạn rảnh.",
   "mail.received.subject": "%[1]s đã nhận %[2]s",
