@@ -162,7 +162,6 @@ commit. A path no route serves counts as `read` or `write` too.
 | `code` | 1 per 10 s, burst 10 | 1 per 30 s, burst 5 | the two that mail a code |
 | `costly` | 1/s, burst 30 | 1 per 2 s, burst 20 | link previews, listing reads, price guides, carrier quotes and pickups |
 | `telemetry` | 2/s, burst 60 | none | `POST /v1/client-events` |
-| `guest-search` | 2/s, burst 30 | none | a guest's search with `q` |
 | `exempt` | none | none | health checks, carrier webhooks, the dashboards' forwardAuth |
 
 The rate limit middleware, between CORS and the spec validator, finds the
@@ -171,14 +170,15 @@ address; an IPv6 /64 counts as one address. Carrier NAT puts many phones on
 one address, so the address limits are the looser ones. Once the account
 guard or the console's `Require` knows the caller, `httpx.LimitCaller`
 counts the same tier per account or member. `httpx.Limit(tier)` counts a
-tier on part of a route only: discovery applies `guest-search` to a guest's
-`GET /v1/search` with `q`. Past a limit the answer is 429 `rate_limited`
+module's own tier on part of a route, on top of the route's tier, and
+refuses a shared tier's name: discovery's `guest-search` (2/s, burst 30 per
+address) counts a guest's `GET /v1/search` with `q`. Past a limit the answer is 429 `rate_limited`
 with `details.retry_after`, the seconds until the next token, and the
 counter `http.server.rate_limited` grows by tier, route and what was
 counted.
 
-Each process keeps its buckets in memory and drops a bucket once it has
-refilled. Three replicas let an address through about three times as fast;
+Each process keeps its buckets in memory and, once a minute, drops the
+buckets that have refilled. Three replicas let an address through about three times as fast;
 the limits stop floods and loops, and the rules that must hold exactly
 across replicas are quotas a module keeps in Postgres or Restate:
 `otp_limit`, `login_locked`, `read_limit_reached`, `agent_budget`,
@@ -2503,7 +2503,8 @@ Search and the nearby feed (decided 2026-10-27, spec:
   queries, so its cost follows accounts, and the full search is a reason to
   sign in. A guest does not read a cached answer either.
 - A guest's address makes 2 searches with `q` a second, in bursts of 30, and
-  gets 429 `rate_limited` past them (tier `guest-search`, see Rate limits); browsing, `like` and the category pages are not limited, since
+  gets 429 `rate_limited` past them (discovery's tier `guest-search`, see
+  Rate limits); browsing, `like` and the category pages are not limited, since
   they reach no paid model and the website prefetches listing pages;
   the website forwards the visitor's address, which `TRUSTED_PROXIES`
   accepts. A signed-in person's queries reach the model at most 200 times a

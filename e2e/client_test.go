@@ -180,9 +180,18 @@ func callAt(t *testing.T, base, method, path string, body any, headers ...[2]str
 	return Response{Method: method, Path: path, Status: resp.StatusCode, Header: resp.Header, Body: respBody}
 }
 
+// newClient is a fresh client address for X-Forwarded-For, in place of the
+// test's own, which is the same on every run: the email code quota of
+// twenty an hour per address is kept in Postgres.
+func newClient() [2]string {
+	n := seq.Add(1)
+	return [2]string{"X-Forwarded-For", fmt.Sprintf("10.%d.%d.%d", n>>16&255, n>>8&255, n&255)}
+}
+
 // testAddress is t's own client address, an IPv6 /64 hashed from its name,
 // so one test's calls fill only its own rate limit buckets.
 func testAddress(t *testing.T) string {
+	t.Helper()
 	h := fnv.New64a()
 	h.Write([]byte(t.Name()))
 	var a [16]byte

@@ -2,10 +2,12 @@ package api_test
 
 import (
 	"encoding/json"
+	"log/slog"
 	"regexp"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shopnexus/server/api"
 	"github.com/shopnexus/server/internal/platform/httpx"
@@ -180,21 +182,14 @@ func TestSpecRateLimitTiers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := httpx.NewLimits(doc, time.Now, slog.New(slog.DiscardHandler)); err != nil {
+		t.Fatal(err)
+	}
 	exempt := []string{"getHealthz", "getReadyz", "carrierWebhook", "authorizeConsoleDashboard"}
 	var got []string
-	for path, item := range doc.Paths.Map() {
-		for method, op := range item.Operations() {
-			raw, ok := op.Extensions["x-rate-limit"]
-			if !ok {
-				continue
-			}
-			name, _ := raw.(string)
-			if _, ok := httpx.TierNamed(name); !ok {
-				t.Errorf("%s %s: x-rate-limit %v is not a tier", method, path, raw)
-			}
-			if name == httpx.Exempt.Name {
-				got = append(got, op.OperationID)
-			}
+	for _, op := range httpx.Operations(doc) {
+		if op.Extensions["x-rate-limit"] == httpx.Exempt.Name {
+			got = append(got, op.OperationID)
 		}
 	}
 	slices.Sort(got)

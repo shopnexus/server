@@ -3,6 +3,7 @@ package httpx
 import (
 	"context"
 	"fmt"
+	"iter"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -37,7 +38,7 @@ type Tier struct {
 	Address, Caller Rate
 }
 
-// The tiers. An operation's x-rate-limit in api/openapi.yaml names one; an
+// The tiers an operation's x-rate-limit in api/openapi.yaml may name; an
 // operation without it is Read for GET and Write otherwise. Carrier NAT
 // puts many phones on one address, so Address is the looser of the two.
 var (
@@ -48,24 +49,26 @@ var (
 	Costly = Tier{"costly", Rate{1, 30}, Rate{0.5, 20}}     // a model or another site answers
 	// Telemetry is a page's or the app's batch of client events.
 	Telemetry = Tier{"telemetry", Rate{2, 60}, Rate{}}
-	// GuestSearch is a guest's search with q; discovery applies it with Limit.
-	GuestSearch = Tier{"guest-search", Rate{2, 30}, Rate{}}
 	// Exempt counts nothing: health checks, signed webhooks, forwardAuth.
 	Exempt = Tier{Name: "exempt"}
 )
 
-var tiers = map[string]Tier{}
-
-func init() {
-	for _, t := range []Tier{Read, Write, Auth, Code, Costly, Telemetry, GuestSearch, Exempt} {
-		tiers[t.Name] = t
-	}
+var tiers = map[string]Tier{
+	Read.Name: Read, Write.Name: Write, Auth.Name: Auth, Code.Name: Code,
+	Costly.Name: Costly, Telemetry.Name: Telemetry, Exempt.Name: Exempt,
 }
 
-// TierNamed returns the tier x-rate-limit calls name.
-func TierNamed(name string) (Tier, bool) {
-	t, ok := tiers[name]
-	return t, ok
+// Operations yields every operation of doc with its route.
+func Operations(doc *openapi3.T) iter.Seq2[Route, *openapi3.Operation] {
+	return func(yield func(Route, *openapi3.Operation) bool) {
+		for path, item := range doc.Paths.Map() {
+			for method, op := range item.Operations() {
+				if !yield(Route{Method: strings.ToUpper(method), Path: path}, op) {
+					return
+				}
+			}
+		}
+	}
 }
 
 // Limits holds every token bucket of this process; each process counts on
@@ -77,7 +80,7 @@ type Limits struct {
 	refused metric.Int64Counter
 
 	mu      sync.Mutex
-	buckets map[bucketKey]*bucket
+	buckets map[bucketKey]*rate.Limiter
 	swept   time.Time
 }
 
@@ -87,33 +90,25 @@ type bucketKey struct {
 	caller uuid.UUID
 }
 
-type bucket struct {
-	tokens *rate.Limiter
-	last   time.Time
-	full   time.Duration // idle this long, the bucket is full and dropped
-}
-
 // NewLimits reads each operation's x-rate-limit from doc. An unknown tier
 // name is an error.
 func NewLimits(doc *openapi3.T, now func() time.Time, log *slog.Logger) (*Limits, error) {
 	l := &Limits{
-		byRoute: map[Route]Tier{}, now: now, log: log, buckets: map[bucketKey]*bucket{},
-		refused: telemetry.Must(otel.Meter("github.com/shopnexus/server/internal/platform/httpx").Int64Counter(
+		byRoute: map[Route]Tier{}, now: now, log: log, buckets: map[bucketKey]*rate.Limiter{},
+		refused: telemetry.Must(otel.Meter(scope).Int64Counter(
 			"http.server.rate_limited", metric.WithDescription("Requests refused 429 rate_limited, by tier, route and what was counted."))),
 	}
-	for path, item := range doc.Paths.Map() {
-		for method, op := range item.Operations() {
-			raw, ok := op.Extensions["x-rate-limit"]
-			if !ok {
-				continue
-			}
-			name, _ := raw.(string)
-			t, ok := tiers[name]
-			if !ok {
-				return nil, fmt.Errorf("%s %s: x-rate-limit %v is not a tier", method, path, raw)
-			}
-			l.byRoute[Route{Method: strings.ToUpper(method), Path: path}] = t
+	for route, op := range Operations(doc) {
+		raw, ok := op.Extensions["x-rate-limit"]
+		if !ok {
+			continue
 		}
+		name, isString := raw.(string)
+		t, ok := tiers[name]
+		if !isString || !ok {
+			return nil, fmt.Errorf("%s %s: x-rate-limit %v is not a tier", route.Method, route.Path, raw)
+		}
+		l.byRoute[route] = t
 	}
 	return l, nil
 }
@@ -147,7 +142,7 @@ func (l *Limits) Middleware(route func(method, path string) string) func(http.Ha
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			pattern := route(r.Method, r.URL.Path)
 			s := &limitScope{l: l, tier: l.TierOf(r.Method, pattern), route: pattern}
-			if err := s.count(r.Context(), s.tier, bucketKey{addr: addressKey(ClientIP(r))}, "address"); err != nil {
+			if err := s.countAddress(r, s.tier); err != nil {
 				WriteError(w, r, l.log, err)
 				return
 			}
@@ -164,18 +159,22 @@ func LimitCaller(r *http.Request, caller uuid.UUID) error {
 	if !ok {
 		return nil
 	}
-	return s.count(r.Context(), Tier{Name: s.tier.Name, Address: s.tier.Caller}, bucketKey{caller: caller}, "caller")
+	return s.count(r.Context(), s.tier.Caller, bucketKey{tier: s.tier.Name, caller: caller})
 }
 
 // Limit counts the requests it wraps against t by client address, on top
-// of the route's own tier: for a limit that applies to some requests of a
-// route only. It lets everything through outside Limits.Middleware.
-func Limit(t Tier, log *slog.Logger) func(http.Handler) http.Handler {
+// of the route's own tier: a module's limit on some requests of a route.
+// t's name must differ from the shared tiers'. It lets everything through
+// outside Limits.Middleware.
+func Limit(t Tier) func(http.Handler) http.Handler {
+	if _, shared := tiers[t.Name]; shared {
+		panic("httpx: Limit with the shared tier name " + t.Name)
+	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if s, ok := r.Context().Value(limitKey{}).(*limitScope); ok {
-				if err := s.count(r.Context(), t, bucketKey{addr: addressKey(ClientIP(r))}, "address"); err != nil {
-					WriteError(w, r, log, err)
+				if err := s.countAddress(r, t); err != nil {
+					WriteError(w, r, s.l.log, err)
 					return
 				}
 			}
@@ -184,30 +183,37 @@ func Limit(t Tier, log *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// count takes a token for key from t.Address.
-func (s *limitScope) count(ctx context.Context, t Tier, key bucketKey, by string) error {
-	if t.Address == (Rate{}) {
+func (s *limitScope) countAddress(r *http.Request, t Tier) error {
+	return s.count(r.Context(), t.Address, bucketKey{tier: t.Name, addr: addressKey(ClientIP(r))})
+}
+
+// count takes a token for key at limit.
+func (s *limitScope) count(ctx context.Context, limit Rate, key bucketKey) error {
+	if limit == (Rate{}) {
 		return nil
 	}
-	key.tier = t.Name
-	wait, ok := s.l.take(key, t.Address)
+	wait, ok := s.l.take(key, limit)
 	if ok {
 		return nil
 	}
+	by := "address"
+	if key.caller != (uuid.UUID{}) {
+		by = "caller"
+	}
 	s.l.refused.Add(ctx, 1, metric.WithAttributes(
-		attribute.String("tier", t.Name), attribute.String("http.route", s.route), attribute.String("by", by)))
+		attribute.String("tier", key.tier), attribute.String("http.route", s.route), attribute.String("by", by)))
 	return errRateLimited.WithRetryAfter(wait)
 }
 
 // take spends a token from key's bucket, or returns how long until the
-// next one.
+// next one. Once a minute it drops the buckets that have refilled.
 func (l *Limits) take(key bucketKey, r Rate) (time.Duration, bool) {
 	now := l.now()
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if now.Sub(l.swept) > time.Minute {
 		for k, b := range l.buckets {
-			if now.Sub(b.last) > b.full {
+			if b.TokensAt(now) >= float64(b.Burst()) {
 				delete(l.buckets, k)
 			}
 		}
@@ -215,17 +221,13 @@ func (l *Limits) take(key bucketKey, r Rate) (time.Duration, bool) {
 	}
 	b, ok := l.buckets[key]
 	if !ok {
-		b = &bucket{
-			tokens: rate.NewLimiter(rate.Limit(r.PerSecond), r.Burst),
-			full:   time.Duration(float64(r.Burst) / r.PerSecond * float64(time.Second)),
-		}
+		b = rate.NewLimiter(rate.Limit(r.PerSecond), r.Burst)
 		l.buckets[key] = b
 	}
-	b.last = now
-	if b.tokens.AllowN(now, 1) {
+	if b.AllowN(now, 1) {
 		return 0, true
 	}
-	return time.Duration((1 - b.tokens.TokensAt(now)) / r.PerSecond * float64(time.Second)), false
+	return time.Duration((1 - b.TokensAt(now)) / r.PerSecond * float64(time.Second)), false
 }
 
 // addressKey is addr with an IPv6 address cut to its /64, which one

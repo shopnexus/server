@@ -56,6 +56,8 @@ func signInStatus(token string) int {
 	req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server+"/v1/auth/sign-in", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", uuid.NewV7().String())
+	client := newClient()
+	req.Header.Set(client[0], client[1])
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return 0

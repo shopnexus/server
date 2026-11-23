@@ -8,13 +8,6 @@ import (
 // newEmail returns a fresh address.
 func newEmail() string { return fmt.Sprintf("linh%d@e2e.test", seq.Add(1)) }
 
-// newClient is a fresh client address for X-Forwarded-For, so the per-client
-// quota of email codes, twenty an hour, never fills across tests.
-func newClient() [2]string {
-	n := seq.Add(1)
-	return [2]string{"X-Forwarded-For", fmt.Sprintf("10.%d.%d.%d", n>>16&255, n>>8&255, n&255)}
-}
-
 type emailCode struct {
 	ChallengeID string `json:"challenge_id"`
 	ExpiresAt   string `json:"expires_at"`

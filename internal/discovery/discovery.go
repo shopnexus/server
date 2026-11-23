@@ -14,7 +14,6 @@ import (
 	"github.com/shopnexus/server/internal/discovery/worker"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/events"
-	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/module"
 	"github.com/shopnexus/server/internal/provider/embed"
 	"github.com/shopnexus/server/internal/provider/llm"
@@ -50,7 +49,7 @@ func Mount(
 		TextVersion: s.TextVersion, ImageVersion: s.ImageVersion, TextMin: s.TextMin, PhotoMin: s.PhotoMin, LookMin: s.LookMin,
 		ModelTimeout: domain.ModelTimeout, Log: d.Log, Now: d.Now,
 	})
-	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify, httpx.Limit(httpx.GuestSearch, d.Log))
+	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Discovery: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
 	listings := worker.ListingWatch{Prefix: d.ServicePrefix, Discovery: svc}

@@ -2,7 +2,6 @@ package app
 
 import (
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/shopnexus/server/api"
@@ -19,10 +18,8 @@ func TestRoutesMatchSpec(t *testing.T) {
 		t.Fatal(err)
 	}
 	var spec []httpx.Route
-	for path, item := range doc.Paths.Map() {
-		for method := range item.Operations() {
-			spec = append(spec, httpx.Route{Method: strings.ToUpper(method), Path: path})
-		}
+	for r := range httpx.Operations(doc) {
+		spec = append(spec, r)
 	}
 
 	registered := newApp(t).Routes()

@@ -18,12 +18,16 @@ type Handler struct {
 
 func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: svc, log: log} }
 
+// guestSearch rate limits a guest's searches with q per address; browsing,
+// like and signed-in searches are not counted.
+var guestSearch = httpx.Tier{Name: "guest-search", Address: httpx.Rate{PerSecond: 2, Burst: 30}}
+
 // Register adds the discovery endpoints. The saved, hidden and viewed ones
 // and the search history are behind protect; search and a seller's
-// listings read a caller when identify finds one, and limitGuests rate
-// limits a guest's search with q, the one that embeds its words.
-func (h *Handler) Register(r *httpx.Router, protect, identify, limitGuests func(http.Handler) http.Handler) {
-	guest := limitGuests(http.HandlerFunc(h.Search))
+// listings read a caller when identify finds one, and a guest's search
+// with q counts against guestSearch.
+func (h *Handler) Register(r *httpx.Router, protect, identify func(http.Handler) http.Handler) {
+	guest := httpx.Limit(guestSearch)(http.HandlerFunc(h.Search))
 	r.Handle("GET /v1/search", identify(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if httpx.Viewer(req) == nil && req.URL.Query().Get("q") != "" {
 			guest.ServeHTTP(w, req)

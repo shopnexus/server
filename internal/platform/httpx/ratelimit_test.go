@@ -145,17 +145,24 @@ func TestLimitCountsWhatItWraps(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 11, 23, 0, 0, 0, 0, time.UTC)
 	l := limitsFor(t, "exempt", &now)
+	own := Tier{Name: "own", Address: Rate{1, 3}}
 	ok := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusAccepted) })
-	h := ResolveClientIP(nil)(l.Middleware(samePath)(Limit(GuestSearch, discard())(ok)))
+	h := ResolveClientIP(nil)(l.Middleware(samePath)(Limit(own)(ok)))
 	codes := map[int]int{}
-	for range GuestSearch.Address.Burst + 1 {
+	for range own.Address.Burst + 1 {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/op", http.NoBody)
 		req.RemoteAddr = "203.0.113.7:5000"
 		codes[serve(h, req).Code]++
 	}
-	if codes[202] != GuestSearch.Address.Burst || codes[429] != 1 {
+	if codes[202] != own.Address.Burst || codes[429] != 1 {
 		t.Fatalf("codes %v", codes)
 	}
+	defer func() {
+		if recover() == nil {
+			t.Fatal("Limit takes a shared tier's name")
+		}
+	}()
+	Limit(Tier{Name: Write.Name, Address: Rate{1, 1}})
 }
 
 func TestLimitsDropFullBuckets(t *testing.T) {
