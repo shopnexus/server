@@ -20,9 +20,17 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 
 // Register adds the discovery endpoints. The saved, hidden and viewed ones
 // and the search history are behind protect; search and a seller's
-// listings read a caller when identify finds one.
-func (h *Handler) Register(r *httpx.Router, protect, identify func(http.Handler) http.Handler) {
-	r.Handle("GET /v1/search", identify(http.HandlerFunc(h.Search)))
+// listings read a caller when identify finds one, and limitGuests rate
+// limits a search without one.
+func (h *Handler) Register(r *httpx.Router, protect, identify, limitGuests func(http.Handler) http.Handler) {
+	guest := limitGuests(http.HandlerFunc(h.Search))
+	r.Handle("GET /v1/search", identify(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if httpx.Viewer(req) == nil {
+			guest.ServeHTTP(w, req)
+			return
+		}
+		h.Search(w, req)
+	})))
 	r.Handle("GET /v1/sellers/{id}/listings", identify(http.HandlerFunc(h.SellerListings)))
 	r.Handle("POST /v1/search/watches", protect(http.HandlerFunc(h.Watch)))
 	r.Handle("GET /v1/search/watches", protect(http.HandlerFunc(h.Watches)))

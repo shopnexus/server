@@ -64,12 +64,12 @@ func TestQueryVectorsSweep(t *testing.T) {
 	db := pgtest.New(t)
 	ctx := context.Background()
 	c := repository.NewQueryVectors(db)
-	now := time.Now()
+	at := time.Now()
 	day := 24 * time.Hour
 	v := []float32{1, 0}
 	put := func(text string, age time.Duration) {
 		t.Helper()
-		if err := c.Put(ctx, "m1", text, v, now.Add(-age)); err != nil {
+		if err := c.Put(ctx, "m1", text, v, at.Add(-age)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -77,26 +77,26 @@ func TestQueryVectorsSweep(t *testing.T) {
 	put("unread old", 40*day)
 	put("read", 100*day)
 	put("read long ago", 300*day)
-	if _, _, err := c.Get(ctx, "m1", "read", now.Add(-50*day)); err != nil {
+	if _, _, err := c.Get(ctx, "m1", "read", at.Add(-50*day)); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := c.Get(ctx, "m1", "read long ago", now.Add(-200*day)); err != nil {
+	if _, _, err := c.Get(ctx, "m1", "read long ago", at.Add(-200*day)); err != nil {
 		t.Fatal(err)
 	}
-	n, err := c.Sweep(ctx, now, 30*day, 180*day, 10)
+	n, err := c.Sweep(ctx, at, 30*day, 180*day, 10)
 	if err != nil || n != 2 {
 		t.Fatalf("deleted %d, want the unread old and the read long ago: %v", n, err)
 	}
 	for text, want := range map[string]bool{"unread fresh": true, "unread old": false, "read": true, "read long ago": false} {
-		if _, ok, _ := c.Get(ctx, "m1", text, now); ok != want {
+		if _, ok, _ := c.Get(ctx, "m1", text, at); ok != want {
 			t.Errorf("%s kept: %v", text, ok)
 		}
 	}
 	// Past the cap the row read on fewer days goes first.
-	if n, err = c.Sweep(ctx, now, 30*day, 180*day, 1); err != nil || n != 1 {
+	if n, err = c.Sweep(ctx, at, 30*day, 180*day, 1); err != nil || n != 1 {
 		t.Fatalf("cap: %d %v", n, err)
 	}
-	if _, ok, _ := c.Get(ctx, "m1", "read", now); !ok {
+	if _, ok, _ := c.Get(ctx, "m1", "read", at); !ok {
 		t.Fatal("the cap deleted the row a search read")
 	}
 }

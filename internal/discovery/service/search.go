@@ -227,7 +227,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		var u domain.Understanding
 		understood := false
 		if !raw && viewer != nil {
-			u, understood = d.understand(ctx, q, categories, now)
+			u, understood = d.understand(ctx, *viewer, q, categories, now)
 		}
 		raw = !understood
 		names := make(map[string]string, len(categories))
@@ -326,12 +326,16 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	return view, nil
 }
 
-// understand is the model's reading of q, from the cache when the same query
-// was read within domain.CacheTTL, and whether the model answered. The call
-// runs apart from ctx, so a caller gone still caches the answer, and the
-// searches of one query share it. A model that errs or outlasts the timeout
-// gives the zero reading. Search and Watch call it.
-func (d *Discovery) understand(ctx context.Context, q string, categories []catalogdomain.Category, now time.Time) (domain.Understanding, bool) {
+// understand is the model's reading of account's q, from the cache when the
+// same query was read within domain.CacheTTL, and whether the model
+// answered. A call counts against the account's domain.ModelCallsPerDay; past
+// it, or with the count unreadable, the model is not asked. The call runs
+// apart from ctx, so a caller gone still caches the answer, and the searches
+// of one query share it. A model that errs or outlasts the timeout gives the
+// zero reading. Search and Watch call it.
+func (d *Discovery) understand(
+	ctx context.Context, account uuid.UUID, q string, categories []catalogdomain.Category, now time.Time,
+) (domain.Understanding, bool) {
 	var u domain.Understanding
 	key := domain.QueryKey(q)
 	cached, found, err := d.understandings.Get(ctx, key, domain.PromptVersion, now.Add(-domain.CacheTTL))
@@ -342,6 +346,14 @@ func (d *Discovery) understand(ctx context.Context, q string, categories []catal
 		return u, true
 	default:
 	}
+	taken, err := d.modelUses.Take(ctx, account, now, domain.ModelCallsPerDay)
+	if err != nil {
+		d.log.WarnContext(ctx, "count the model call", "err", err)
+	}
+	if !taken {
+		d.log.InfoContext(ctx, "searched without the model", "reason", "the day's model calls are used or uncounted")
+		return domain.Understanding{}, false
+	}
 	read := d.reads.DoChan(key, func() (any, error) {
 		mctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.modelTimeout)
 		defer cancel()
@@ -351,7 +363,7 @@ func (d *Discovery) understand(ctx context.Context, q string, categories []catal
 		}, &answer)
 		if err != nil {
 			d.log.WarnContext(mctx, "the model did not read the query", "err", err)
-			return nil, err
+			return nil, fmt.Errorf("read the query: %w", err)
 		}
 		b, err := json.Marshal(answer)
 		if err == nil {
@@ -367,8 +379,8 @@ func (d *Discovery) understand(ctx context.Context, q string, categories []catal
 		if r.Err != nil {
 			return domain.Understanding{}, false
 		}
-		u, _ = r.Val.(domain.Understanding)
-		return u, true
+		answer, ok := r.Val.(domain.Understanding)
+		return answer, ok
 	case <-ctx.Done():
 		return domain.Understanding{}, false
 	}
@@ -426,7 +438,7 @@ func (d *Discovery) startVectorSweep(ctx context.Context, now time.Time) {
 func (d *Discovery) SweepVectors(ctx context.Context) (int64, error) {
 	n, err := d.queryVectors.Sweep(ctx, d.now(), domain.VectorKeepUnused, domain.VectorKeepUsed, domain.VectorCacheMax)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("sweep the text vectors: %w", err)
 	}
 	d.log.InfoContext(ctx, "swept the text vectors", "deleted", n)
 	return n, nil

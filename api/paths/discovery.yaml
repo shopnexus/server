@@ -82,10 +82,13 @@ search:
     operationId: search
     summary: Search active listings; without q, browse them.
     description: |
-      Three ways to search, all under the person's filters and sorts. With q a
-      model reads the query; BM25 on its words, its Vietnamese rewrite against
-      listing text vectors and its English description against listing photos
-      are fused by weighted RRF. With photo, the photo against listing photos
+      Three ways to search, all under the person's filters and sorts. With q
+      from a signed-in caller a model reads the query; BM25 on its words, its
+      Vietnamese rewrite against listing text vectors and its English
+      description against listing photos are fused by weighted RRF. A guest's
+      q, and a caller's past 200 model reads that UTC day, searches its raw
+      words through BM25 and their text vector, with no chips. A guest's
+      address makes 2 searches a second, in bursts of 30; past them 429. With photo, the photo against listing photos
       alone. With like, the listing's title, text vector and photos. Without
       any, the call browses, newest first by default, and category alone is the
       category page. sort=nearby is the "Gần bạn" feed, which Home's first page
@@ -193,6 +196,8 @@ search:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+      "429":
+        $ref: "../responses/common.yaml#/TooManyRequests"
       "503":
         description: "search_unavailable: the photo could not be embedded; try again."
         content:

@@ -76,6 +76,17 @@ type Views interface {
 	Recent(ctx context.Context, viewer uuid.UUID, from time.Time, limit int) ([]domain.ViewMark, error)
 }
 
+// ModelUses counts the search model's calls for each signed-in person on a
+// UTC day.
+type ModelUses interface {
+	// Take counts one call of account's on now's UTC day and reports true,
+	// or reports false when the account made limit calls that day or is
+	// deleted.
+	Take(ctx context.Context, account uuid.UUID, now time.Time, limit int) (bool, error)
+	// Clear deletes the account's count.
+	Clear(ctx context.Context, account uuid.UUID) error
+}
+
 // Hidden keeps the listings a person hid from their searches.
 type Hidden interface {
 	// Hide hides listing from account's searches as the newest hide, again

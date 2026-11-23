@@ -57,7 +57,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 		Saves: repository.NewSaves(db), Views: repository.NewViews(db), Understandings: repository.NewUnderstandings(db), History: repository.NewHistory(db),
 		Hidden: repository.NewHidden(db), Accounts: acc,
 		Watches: repository.NewWatches(db), Sweeps: sw, ArrivalLag: 0, SweepBatch: domain.SweepBatch,
-		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db),
+		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db), ModelUses: repository.NewModelUses(db),
 		Catalog: c, Media: m, LLM: model, Text: text, Image: image, TextVersion: "text-test", ImageVersion: "image-test",
 		TextMin: 0.5, PhotoMin: 0.5,
 		ModelTimeout: 200 * time.Millisecond, Log: slog.New(slog.DiscardHandler), Now: time.Now,

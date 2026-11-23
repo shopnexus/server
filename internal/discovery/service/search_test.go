@@ -125,6 +125,29 @@ func TestSearchGuestSkipsTheModel(t *testing.T) {
 	}
 }
 
+// Past the day's model calls a signed-in search runs on the raw words; a
+// cached answer still serves.
+func TestSearchStopsAtTheDaysModelCalls(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
+	e.model.answers["xe dap"] = `{"boosts":[{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
+	if _, err := e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.Exec(ctx, `UPDATE search_model_uses SET calls = $1 WHERE account_id = $2`, domain.ModelCallsPerDay, e.me); err != nil {
+		t.Fatal(err)
+	}
+	v, err := e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap cu"})
+	if err != nil || len(v.Chips) != 0 || e.model.count() != 1 {
+		t.Fatalf("past the cap: %+v %d %v", v, e.model.count(), err)
+	}
+	if v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap"}); err != nil || len(v.Chips) != 1 {
+		t.Fatalf("a cached answer past the cap: %+v %v", v, err)
+	}
+}
+
 func TestSearchWithoutTheModel(t *testing.T) {
 	t.Parallel()
 	for name, set := range map[string]func(*fakeModel){

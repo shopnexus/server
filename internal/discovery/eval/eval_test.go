@@ -89,7 +89,7 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 	d := service.New(service.Deps{
 		Saves: repository.NewSaves(db), Understandings: repository.NewUnderstandings(db),
 		History: repository.NewHistory(db), Hidden: repository.NewHidden(db), Watches: repository.NewWatches(db), Accounts: accounttest.Service(db),
-		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db),
+		QueryVectors: repository.NewQueryVectors(db), PhotoVectors: repository.NewPhotoVectors(db), ModelUses: repository.NewModelUses(db),
 		Catalog: c, Media: m,
 		LLM:         llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, Effort: cfg.LLM.Effort, HTTP: &http.Client{}},
 		Text:        text(cfg.Embed.SearchAPIKey),

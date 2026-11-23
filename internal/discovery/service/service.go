@@ -98,8 +98,8 @@ type Service interface {
 	// UTC midnight such as domain.ViewWeek gives. Every ID has an entry.
 	ListingStats(ctx context.Context, ids []uuid.UUID, since time.Time) (map[uuid.UUID]ListingStats, error)
 	// AccountDeleted deletes what discovery keeps of a deleted account: its
-	// saves, history, hides, watches and which listings it opened. The
-	// worker calls it on account.deleted.
+	// saves, history, hides, watches, which listings it opened and its count
+	// of model calls. The worker calls it on account.deleted.
 	AccountDeleted(ctx context.Context, account uuid.UUID) error
 	// SweepVectors deletes the cached text vectors that fell out of use and
 	// returns how many; worker.SearchVectorSweep calls it once a day.
@@ -134,6 +134,8 @@ type Deps struct {
 	Text, Image                embed.Model
 	TextVersion, ImageVersion  string
 	TextMin, PhotoMin, LookMin float64
+	// ModelUses counts the model's calls per person and day.
+	ModelUses repository.ModelUses
 	// ModelTimeout is domain.ModelTimeout in production; tests shorten it.
 	ModelTimeout time.Duration
 	Log          *slog.Logger
@@ -154,6 +156,7 @@ type Discovery struct {
 	catalog                    catalogsvc.Service
 	accounts                   accountsvc.Service
 	llm                        llm.Client
+	modelUses                  repository.ModelUses
 	media                      mediasvc.Service
 	queryVectors               repository.QueryVectors
 	photoVectors               repository.PhotoVectors
@@ -175,7 +178,7 @@ func New(d Deps) *Discovery {
 	return &Discovery{
 		saves: d.Saves, views: d.Views, understandings: d.Understandings, history: d.History, hidden: d.Hidden, watches: d.Watches,
 		sweeps: d.Sweeps, arrivalLag: d.ArrivalLag, sweepBatch: d.SweepBatch, catalog: d.Catalog,
-		accounts: d.Accounts, llm: d.LLM,
+		accounts: d.Accounts, llm: d.LLM, modelUses: d.ModelUses,
 		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,
 		textVersion: d.TextVersion, imageVersion: d.ImageVersion, textMin: d.TextMin, photoMin: d.PhotoMin, lookMin: d.LookMin,
 		modelTimeout: d.ModelTimeout, log: d.Log, now: d.Now,

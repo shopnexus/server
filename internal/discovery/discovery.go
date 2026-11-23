@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/discovery/worker"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/module"
 	"github.com/shopnexus/server/internal/provider/embed"
 	"github.com/shopnexus/server/internal/provider/llm"
@@ -44,12 +45,13 @@ func Mount(
 		Hidden: repository.NewHidden(d.Pool), Accounts: accounts,
 		Watches: repository.NewWatches(d.Pool), Sweeps: service.NewSweeper(d.Ingress, d.ServicePrefix),
 		ArrivalLag: domain.ArrivalLag, SweepBatch: domain.SweepBatch,
-		QueryVectors: repository.NewQueryVectors(d.Pool), PhotoVectors: repository.NewPhotoVectors(d.Pool),
+		QueryVectors: repository.NewQueryVectors(d.Pool), PhotoVectors: repository.NewPhotoVectors(d.Pool), ModelUses: repository.NewModelUses(d.Pool),
 		Catalog: catalog, Media: media, LLM: s.Model, Text: s.Text, Image: s.Image,
 		TextVersion: s.TextVersion, ImageVersion: s.ImageVersion, TextMin: s.TextMin, PhotoMin: s.PhotoMin, LookMin: s.LookMin,
 		ModelTimeout: domain.ModelTimeout, Log: d.Log, Now: d.Now,
 	})
-	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
+	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify,
+		httpx.RateLimit(domain.GuestSearchesPerSecond, domain.GuestSearchBurst, d.Now, d.Log))
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Discovery: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
 	listings := worker.ListingWatch{Prefix: d.ServicePrefix, Discovery: svc}

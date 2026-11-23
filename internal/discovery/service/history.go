@@ -70,5 +70,8 @@ func (d *Discovery) AccountDeleted(ctx context.Context, account uuid.UUID) error
 	if err := d.views.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear views: %w", err)
 	}
+	if err := d.modelUses.Clear(ctx, account); err != nil {
+		return fmt.Errorf("clear model uses: %w", err)
+	}
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"math/rand/v2"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -41,8 +42,13 @@ func band() (lo, hi int64) {
 	return lo, lo + 2000
 }
 
+// search runs a search; a guest's comes from a fresh address, so the guest
+// rate limit never fills across tests.
 func search(t *testing.T, query url.Values, headers ...[2]string) (Response, searchView) {
 	t.Helper()
+	if !slices.ContainsFunc(headers, func(h [2]string) bool { return h[0] == "Authorization" }) {
+		headers = append(headers, newClient())
+	}
 	res := call(t, "GET", "/v1/search?"+query.Encode(), nil, headers...)
 	if res.Status != http.StatusOK {
 		return res, searchView{}
@@ -105,6 +111,25 @@ func TestSearch(t *testing.T) {
 	}
 }
 
+// One guest address gets a burst of 30 searches; a signed-in caller from it
+// is not limited.
+func TestSearchLimitsAGuest(t *testing.T) {
+	t.Parallel()
+	from := newClient()
+	for i := range 60 {
+		res := call(t, "GET", "/v1/search?category=vehicles", nil, from)
+		if res.Status == http.StatusTooManyRequests {
+			check(t, "past the burst", res, http.StatusTooManyRequests, "rate_limited")
+			me, _ := newAccount(t)
+			expectStatus(t, call(t, "GET", "/v1/search?category=vehicles", nil, from, bearer(me.AccessToken)), http.StatusOK)
+			return
+		}
+		if i == 59 {
+			t.Fatal("60 guest searches in a row were not rate limited")
+		}
+	}
+}
+
 func TestSearchCategory(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
@@ -149,13 +174,13 @@ func TestSearchNearby(t *testing.T) {
 	t.Parallel()
 	seller, _ := newAccount(t)
 	activeListing(t, seller.AccessToken, nil)
-	if res := call(t, "GET", "/v1/search?sort=nearby", nil); res.Status != http.StatusBadRequest || errorOf(t, res).Code != "position_required" {
+	if res := call(t, "GET", "/v1/search?sort=nearby", nil, newClient()); res.Status != http.StatusBadRequest || errorOf(t, res).Code != "position_required" {
 		t.Fatalf("no position: %d %s", res.Status, res.Body)
 	}
-	if res := call(t, "GET", "/v1/search?sort=nearby&near_commune=00004&q=gh%E1%BA%BF", nil); res.Status != http.StatusBadRequest || errorOf(t, res).Code != "search_conflict" {
+	if res := call(t, "GET", "/v1/search?sort=nearby&near_commune=00004&q=gh%E1%BA%BF", nil, newClient()); res.Status != http.StatusBadRequest || errorOf(t, res).Code != "search_conflict" {
 		t.Fatalf("with q: %d %s", res.Status, res.Body)
 	}
-	res := call(t, "GET", "/v1/search?sort=nearby&near_commune=00004", nil)
+	res := call(t, "GET", "/v1/search?sort=nearby&near_commune=00004", nil, newClient())
 	v := decode[searchView](t, res)
 	if res.Status != http.StatusOK || len(v.Items) == 0 || v.Items[0].DistanceKm == nil {
 		t.Fatalf("%d %s", res.Status, res.Body)

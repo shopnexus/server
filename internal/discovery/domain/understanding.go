@@ -23,14 +23,22 @@ const (
 	ModelTimeout = 4 * time.Second
 	// CacheTTL is how long an answer is reused for the same query.
 	CacheTTL = 7 * 24 * time.Hour
-	// A text's vector stays VectorKeepUnused after it was embedded when no
-	// search reads it again, and VectorKeepUsed after its last read when one
+	// VectorKeepUnused is how long a text's vector stays after its write when
+	// no search reads it again, VectorKeepUsed after its last read when one
 	// did; past VectorCacheMax rows the least used go first. A read counts
 	// once per VectorTouchEvery, so most reads write nothing.
 	VectorKeepUnused = 30 * 24 * time.Hour
 	VectorKeepUsed   = 180 * 24 * time.Hour
 	VectorCacheMax   = 2_000_000
 	VectorTouchEvery = 24 * time.Hour
+	// ModelCallsPerDay caps the model's reads of one person's queries on a
+	// UTC day; a cached answer does not count. Past it the raw words search.
+	ModelCallsPerDay = 200
+	// GuestSearchesPerSecond is the searches a guest's address makes a
+	// second, in bursts of up to GuestSearchBurst; signed-in searches are not
+	// limited.
+	GuestSearchesPerSecond = 2
+	GuestSearchBurst       = 30
 )
 
 // Attr is what a signal of the model is about.

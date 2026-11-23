@@ -2460,6 +2460,13 @@ Search and the nearby feed (decided 2026-10-27, spec:
   the cursor pins the pages as below. The model reads signed-in people's
   queries, so its cost follows accounts, and the full search is a reason to
   sign in. A guest does not read a cached answer either.
+- A guest's address makes 2 searches a second, in bursts of 30, and gets 429
+  `rate_limited` past them (`domain.GuestSearchesPerSecond`, per process);
+  the website forwards the visitor's address, which `TRUSTED_PROXIES`
+  accepts. A signed-in person's queries reach the model at most 200 times a
+  UTC day (`domain.ModelCallsPerDay`, one row per account in
+  `search_model_uses`, cleared on erasure); a cached answer does not count,
+  and past the cap the raw words search (decided 2026-11-23).
 - The raw query is always a phrase at weight 0.5 unless the model named
   it, so a model that errs or takes longer than 4 seconds leaves the raw
   words to search, with no chips. A search waits for the model's answer
