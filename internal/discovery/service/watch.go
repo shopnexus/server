@@ -104,7 +104,7 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 	if err != nil {
 		return WatchView{}, false, fmt.Errorf("read categories: %w", err)
 	}
-	u, _ := d.understand(ctx, q, categories, now)
+	u, _ := d.understand(ctx, q, categories, now, 0)
 	names := make(map[string]string, len(categories))
 	for _, c := range categories {
 		names[c.Code] = c.DisplayName

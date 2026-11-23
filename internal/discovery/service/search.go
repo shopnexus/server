@@ -75,10 +75,11 @@ type SearchView struct {
 // filters and the boosts the model's answer resolves to. With vectors it
 // fuses BM25, the query's text vector and its visual description by RRF;
 // photo searches by a photo of the viewer's alone, and like by a listing.
-// SortNearby browses by distance and age. A model that errs or takes longer
-// than the timeout leaves out the lists it feeds: q then searches its raw
-// words. A signed-in viewer's first page with q is kept in the history; a
-// failed write is logged and the search still answers.
+// SortNearby browses by distance and age. A model that errs or does not
+// answer within the wait leaves out the lists it feeds: q then searches its
+// raw words, and the cursor keeps the next pages on them. A signed-in
+// viewer's first page with q is kept in the history; a failed write is
+// logged and the search still answers.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
 	if in.Watch != uuid.Nil() {
 		if in.Query != "" || in.Category != "" || in.Province != "" || in.PriceMin != 0 || in.PriceMax != 0 || len(in.Conditions) > 0 ||
@@ -126,7 +127,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			return SearchView{}, catalogdomain.ErrInvalidProvince
 		}
 	}
-	offset, limit, err := window(in.Cursor, in.Limit)
+	offset, limit, raw, err := window(in.Cursor, in.Limit)
 	if err != nil {
 		return SearchView{}, err
 	}
@@ -219,7 +220,14 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		if catErr != nil {
 			return SearchView{}, fmt.Errorf("read categories: %w", catErr)
 		}
-		u, understood := d.understand(ctx, q, categories, now)
+		// A page after one that searched the raw words searches them too, so
+		// an answer cached in between does not reorder the pages.
+		var u domain.Understanding
+		understood := false
+		if !raw {
+			u, understood = d.understand(ctx, q, categories, now, d.modelWait)
+		}
+		raw = !understood
 		names := make(map[string]string, len(categories))
 		for _, c := range categories {
 			names[c.Code] = c.DisplayName
@@ -279,7 +287,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	if countErr != nil {
 		return SearchView{}, fmt.Errorf("count categories: %w", countErr)
 	}
-	cards, view.NextCursor = cut(cards, offset, limit)
+	cards, view.NextCursor = cut(cards, offset, limit, raw)
 	if view.Items, err = d.withSaved(ctx, viewer, cards); err != nil {
 		return SearchView{}, err
 	}
@@ -317,10 +325,14 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 }
 
 // understand is the model's reading of q, from the cache when the same query
-// was read within domain.CacheTTL, and whether the model answered. A model
-// that errs or takes longer than the timeout gives the zero reading. Search
+// was read within domain.CacheTTL, and whether the model answered. The call
+// runs apart from ctx and caches its answer; understand waits for it at most
+// wait, or until it ends when wait is zero, and gives the zero reading when
+// it errs or is still running. Searches of one query share one call. Search
 // and Watch call it.
-func (d *Discovery) understand(ctx context.Context, q string, categories []catalogdomain.Category, now time.Time) (domain.Understanding, bool) {
+func (d *Discovery) understand(
+	ctx context.Context, q string, categories []catalogdomain.Category, now time.Time, wait time.Duration,
+) (domain.Understanding, bool) {
 	var u domain.Understanding
 	key := domain.QueryKey(q)
 	cached, found, err := d.understandings.Get(ctx, key, domain.PromptVersion, now.Add(-domain.CacheTTL))
@@ -331,24 +343,45 @@ func (d *Discovery) understand(ctx context.Context, q string, categories []catal
 		return u, true
 	default:
 	}
-	u = domain.Understanding{}
-	mctx, cancel := context.WithTimeout(ctx, d.modelTimeout)
-	err = d.llm.Complete(mctx, llm.Request{
-		System: domain.SystemPrompt(categories, now), User: q, SchemaName: "search_understanding", Schema: domain.Schema(),
-	}, &u)
-	cancel()
-	if err != nil {
-		d.log.WarnContext(ctx, "the model did not read the query", "err", err)
+	read := d.reads.DoChan(key, func() (any, error) {
+		mctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.modelTimeout)
+		defer cancel()
+		var answer domain.Understanding
+		err := d.llm.Complete(mctx, llm.Request{
+			System: domain.SystemPrompt(categories, now), User: q, SchemaName: "search_understanding", Schema: domain.Schema(),
+		}, &answer)
+		if err != nil {
+			d.log.WarnContext(mctx, "the model did not read the query", "err", err)
+			return nil, err
+		}
+		b, err := json.Marshal(answer)
+		if err == nil {
+			err = d.understandings.Put(mctx, key, domain.PromptVersion, b, now, now.Add(-domain.CacheTTL))
+		}
+		if err != nil {
+			d.log.WarnContext(mctx, "cache the understanding", "err", err)
+		}
+		return answer, nil
+	})
+	var timer <-chan time.Time
+	if wait > 0 {
+		t := time.NewTimer(wait)
+		defer t.Stop()
+		timer = t.C
+	}
+	select {
+	case r := <-read:
+		if r.Err != nil {
+			return domain.Understanding{}, false
+		}
+		u, _ = r.Val.(domain.Understanding)
+		return u, true
+	case <-timer:
+		d.log.InfoContext(ctx, "searched before the model answered", "wait", wait)
+		return domain.Understanding{}, false
+	case <-ctx.Done():
 		return domain.Understanding{}, false
 	}
-	answer, err := json.Marshal(u)
-	if err == nil {
-		err = d.understandings.Put(ctx, key, domain.PromptVersion, answer, now, now.Add(-domain.CacheTTL))
-	}
-	if err != nil {
-		d.log.WarnContext(ctx, "cache the understanding", "err", err)
-	}
-	return u, true
 }
 
 // category sets f's root or subcategory from a code: a subcategory has a
@@ -385,32 +418,42 @@ func (d *Discovery) queryVector(ctx context.Context, m embed.Model, version, tex
 	return vs[0]
 }
 
-// window reads a cursor, the offset of the next page, and clips the limit
-// so a search stops at catalogdomain.MaxResults.
-func window(cursor string, limit int) (offset, size int, err error) {
+// rawMark ends a cursor whose search ran on the raw words.
+const rawMark = "r"
+
+// window reads a cursor, the offset of the next page and whether the pages
+// before searched the raw words, and clips the limit so a search stops at
+// catalogdomain.MaxResults.
+func window(cursor string, limit int) (offset, size int, raw bool, err error) {
 	if cursor != "" {
+		cursor, raw = strings.CutSuffix(cursor, rawMark)
 		offset, err = strconv.Atoi(cursor)
 		if err != nil || offset < 0 || offset >= catalogdomain.MaxResults {
-			return 0, 0, domain.ErrInvalidCursor
+			return 0, 0, false, domain.ErrInvalidCursor
 		}
 	}
 	size = limit
 	if size <= 0 {
 		size = page.DefaultLimit
 	}
-	return offset, min(size, catalogdomain.MaxResults-offset), nil
+	return offset, min(size, catalogdomain.MaxResults-offset), raw, nil
 }
 
 // cut drops the extra card a page read to learn whether another follows,
-// and gives the next page's cursor.
-func cut(cards []catalogsvc.SearchCard, offset, limit int) (kept []catalogsvc.SearchCard, next string) {
+// and gives the next page's cursor, marked when the page searched the raw
+// words.
+func cut(cards []catalogsvc.SearchCard, offset, limit int, raw bool) (kept []catalogsvc.SearchCard, next string) {
 	if len(cards) <= limit {
 		return cards, ""
 	}
 	if offset+limit >= catalogdomain.MaxResults {
 		return cards[:limit], ""
 	}
-	return cards[:limit], strconv.Itoa(offset + limit)
+	next = strconv.Itoa(offset + limit)
+	if raw {
+		next += rawMark
+	}
+	return cards[:limit], next
 }
 
 // withSaved marks the cards the viewer saved, in one read.

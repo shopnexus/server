@@ -17,9 +17,12 @@ import (
 const PromptVersion = 2
 
 const (
-	// ModelTimeout is how long a search waits for the model before it
-	// searches the raw words alone.
+	// ModelTimeout bounds one model call and a search's embeddings.
 	ModelTimeout = 4 * time.Second
+	// ModelWait is how long a search waits for the model before it searches
+	// the raw words alone; the call goes on and caches its answer for the
+	// next search of the query.
+	ModelWait = 600 * time.Millisecond
 	// CacheTTL is how long an answer is reused for the same query.
 	CacheTTL = 7 * 24 * time.Hour
 )

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -19,26 +20,33 @@ import (
 	mediadomain "github.com/shopnexus/server/internal/media/domain"
 	"github.com/shopnexus/server/internal/media/mediatest"
 	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/testenv"
 	"github.com/shopnexus/server/internal/provider/embed"
 	"github.com/shopnexus/server/internal/provider/embed/embedtest"
 	"github.com/shopnexus/server/internal/provider/llm"
 )
 
-// fakeModel answers from a map by the query, counts its calls, and errs or
-// stalls on request.
+// fakeModel answers from a map by the query, counts its calls, and errs,
+// stalls or answers after delay on request.
 type fakeModel struct {
 	mu      sync.Mutex
 	answers map[string]string
 	calls   int
 	fail    bool
 	stall   bool
+	delay   time.Duration
 }
 
 func (m *fakeModel) Complete(ctx context.Context, r llm.Request, out any) error {
 	m.mu.Lock()
 	m.calls++
-	answer, fail, stall := m.answers[r.User], m.fail, m.stall
+	answer, fail, stall, delay := m.answers[r.User], m.fail, m.stall, m.delay
 	m.mu.Unlock()
+	select {
+	case <-time.After(delay):
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 	if stall {
 		<-ctx.Done()
 		return ctx.Err()
@@ -116,6 +124,50 @@ func TestSearchWithoutTheModel(t *testing.T) {
 	}
 }
 
+// A model slower than the wait leaves the first search on the raw words and
+// caches its answer for the next; the pages of that first search stay on the
+// raw words.
+func TestSearchDoesNotWaitForASlowModel(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, func(d *service.Deps) { d.ModelWait = 50 * time.Millisecond })
+	ctx := context.Background()
+	e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
+	e.put(t, "Xe đạp Giant", "vehicles.bicycle", baDinh)
+	e.model.answers["xe dap"] = `{"boosts":[{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
+	e.model.delay = 150 * time.Millisecond
+	var wg sync.WaitGroup
+	views := make([]service.SearchView, 2)
+	for i := range views {
+		wg.Go(func() {
+			v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1})
+			if err != nil {
+				t.Error(err)
+			}
+			views[i] = v
+		})
+	}
+	wg.Wait()
+	for _, v := range views {
+		if len(v.Chips) != 0 || v.NextCursor != "1r" {
+			t.Fatalf("searched before the model answered: %+v", v)
+		}
+	}
+	testenv.Eventually(t, 5*time.Second, func() error {
+		v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1})
+		if err != nil || len(v.Chips) != 1 || v.NextCursor != "1" {
+			return fmt.Errorf("not cached yet: %+v %v", v, err)
+		}
+		return nil
+	})
+	if e.model.count() != 1 {
+		t.Fatalf("two searches of one query called the model %d times", e.model.count())
+	}
+	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1, Cursor: views[0].NextCursor})
+	if err != nil || len(v.Items) != 1 || len(v.Chips) != 0 {
+		t.Fatalf("page 2 of a raw search: %+v %v", v, err)
+	}
+}
+
 func TestSearchRefusals(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -131,6 +183,7 @@ func TestSearchRefusals(t *testing.T) {
 		"an unknown commune":          {service.SearchInput{Near: catalogdomain.Near{Commune: "nope"}}, catalogdomain.ErrInvalidPosition},
 		"a word for a cursor":         {service.SearchInput{Cursor: "x"}, domain.ErrInvalidCursor},
 		"a cursor past the end":       {service.SearchInput{Cursor: "600"}, domain.ErrInvalidCursor},
+		"a mark alone":                {service.SearchInput{Cursor: "r"}, domain.ErrInvalidCursor},
 		"a minimum above the maximum": {service.SearchInput{PriceMin: 5_000_000, PriceMax: 1_000_000}, domain.ErrInvalidPriceRange},
 		"an unknown province":         {service.SearchInput{Province: "99"}, catalogdomain.ErrInvalidProvince},
 	} {

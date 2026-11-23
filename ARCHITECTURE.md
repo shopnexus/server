@@ -2456,8 +2456,12 @@ Search and the nearby feed (decided 2026-10-27, spec:
   category tree, `provinces` and `communes` by name) or dropped, and one
   log line holds what the model asked for and what ran.
 - The raw query is always a phrase at weight 0.5 unless the model named
-  it, so a model that errs or takes longer than 4 seconds leaves the raw
-  words to search, with no chips.
+  it, so a model that errs, or has not answered after 600 ms, leaves the
+  raw words to search, with no chips. The call runs apart from the request
+  for up to 4 seconds and caches its answer, so the next search of the
+  query has it. Searches of one query share one call. A page that searched
+  the raw words ends its cursor with `r`, and the pages after it search the
+  raw words too, even once the answer is cached (decided 2026-11-23).
 - Weights are starting values in BM25 points (a matching short title
   scores about 1 to 7): category and price 1.5, condition and offers 0.75,
   freshness 1.0 (published within 3 days) and 0.5 (within 7), distance
