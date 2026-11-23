@@ -47,7 +47,7 @@ func Mount(
 		QueryVectors: repository.NewQueryVectors(d.Pool), PhotoVectors: repository.NewPhotoVectors(d.Pool),
 		Catalog: catalog, Media: media, LLM: s.Model, Text: s.Text, Image: s.Image,
 		TextVersion: s.TextVersion, ImageVersion: s.ImageVersion, TextMin: s.TextMin, PhotoMin: s.PhotoMin, LookMin: s.LookMin,
-		ModelTimeout: domain.ModelTimeout, ModelWait: domain.ModelWait, Log: d.Log, Now: d.Now,
+		ModelTimeout: domain.ModelTimeout, Log: d.Log, Now: d.Now,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Discovery: svc}

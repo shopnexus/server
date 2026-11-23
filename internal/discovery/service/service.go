@@ -134,11 +134,10 @@ type Deps struct {
 	Text, Image                embed.Model
 	TextVersion, ImageVersion  string
 	TextMin, PhotoMin, LookMin float64
-	// ModelTimeout and ModelWait are domain's in production; tests shorten
-	// the timeout. A zero ModelWait waits for the model's answer.
-	ModelTimeout, ModelWait time.Duration
-	Log                     *slog.Logger
-	Now                     func() time.Time
+	// ModelTimeout is domain.ModelTimeout in production; tests shorten it.
+	ModelTimeout time.Duration
+	Log          *slog.Logger
+	Now          func() time.Time
 }
 
 // Discovery implements Service in this process.
@@ -161,7 +160,7 @@ type Discovery struct {
 	text, image                embed.Model
 	textVersion, imageVersion  string
 	textMin, photoMin, lookMin float64
-	modelTimeout, modelWait    time.Duration
+	modelTimeout               time.Duration
 	// reads joins the searches that wait for the same query's model call.
 	reads singleflight.Group
 	// vectorDay is the last day this process started a vector sweep.
@@ -179,6 +178,6 @@ func New(d Deps) *Discovery {
 		accounts: d.Accounts, llm: d.LLM,
 		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,
 		textVersion: d.TextVersion, imageVersion: d.ImageVersion, textMin: d.TextMin, photoMin: d.PhotoMin, lookMin: d.LookMin,
-		modelTimeout: d.ModelTimeout, modelWait: d.ModelWait, log: d.Log, now: d.Now,
+		modelTimeout: d.ModelTimeout, log: d.Log, now: d.Now,
 	}
 }

@@ -75,9 +75,9 @@ type SearchView struct {
 // filters and the boosts the model's answer resolves to. With vectors it
 // fuses BM25, the query's text vector and its visual description by RRF;
 // photo searches by a photo of the viewer's alone, and like by a listing.
-// SortNearby browses by distance and age. A model that errs or does not
-// answer within the wait leaves out the lists it feeds: q then searches its
-// raw words, and the cursor keeps the next pages on them. A signed-in
+// SortNearby browses by distance and age. A model that errs or outlasts the
+// timeout leaves out the lists it feeds: q then searches its raw words, and
+// the cursor keeps the next pages on them. A signed-in
 // viewer's first page with q is kept in the history; a failed write is
 // logged and the search still answers.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
@@ -225,7 +225,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		var u domain.Understanding
 		understood := false
 		if !raw {
-			u, understood = d.understand(ctx, q, categories, now, d.modelWait)
+			u, understood = d.understand(ctx, q, categories, now)
 		}
 		raw = !understood
 		names := make(map[string]string, len(categories))
@@ -326,13 +326,10 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 
 // understand is the model's reading of q, from the cache when the same query
 // was read within domain.CacheTTL, and whether the model answered. The call
-// runs apart from ctx and caches its answer; understand waits for it at most
-// wait, or until it ends when wait is zero, and gives the zero reading when
-// it errs or is still running. Searches of one query share one call. Search
-// and Watch call it.
-func (d *Discovery) understand(
-	ctx context.Context, q string, categories []catalogdomain.Category, now time.Time, wait time.Duration,
-) (domain.Understanding, bool) {
+// runs apart from ctx, so a caller gone still caches the answer, and the
+// searches of one query share it. A model that errs or outlasts the timeout
+// gives the zero reading. Search and Watch call it.
+func (d *Discovery) understand(ctx context.Context, q string, categories []catalogdomain.Category, now time.Time) (domain.Understanding, bool) {
 	var u domain.Understanding
 	key := domain.QueryKey(q)
 	cached, found, err := d.understandings.Get(ctx, key, domain.PromptVersion, now.Add(-domain.CacheTTL))
@@ -363,12 +360,6 @@ func (d *Discovery) understand(
 		}
 		return answer, nil
 	})
-	var timer <-chan time.Time
-	if wait > 0 {
-		t := time.NewTimer(wait)
-		defer t.Stop()
-		timer = t.C
-	}
 	select {
 	case r := <-read:
 		if r.Err != nil {
@@ -376,9 +367,6 @@ func (d *Discovery) understand(
 		}
 		u, _ = r.Val.(domain.Understanding)
 		return u, true
-	case <-timer:
-		d.log.InfoContext(ctx, "searched before the model answered", "wait", wait)
-		return domain.Understanding{}, false
 	case <-ctx.Done():
 		return domain.Understanding{}, false
 	}

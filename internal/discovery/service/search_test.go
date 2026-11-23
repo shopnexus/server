@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -20,7 +19,6 @@ import (
 	mediadomain "github.com/shopnexus/server/internal/media/domain"
 	"github.com/shopnexus/server/internal/media/mediatest"
 	"github.com/shopnexus/server/internal/platform/authn"
-	"github.com/shopnexus/server/internal/platform/testenv"
 	"github.com/shopnexus/server/internal/provider/embed"
 	"github.com/shopnexus/server/internal/provider/embed/embedtest"
 	"github.com/shopnexus/server/internal/provider/llm"
@@ -124,22 +122,20 @@ func TestSearchWithoutTheModel(t *testing.T) {
 	}
 }
 
-// A model slower than the wait leaves the first search on the raw words and
-// caches its answer for the next; the pages of that first search stay on the
-// raw words.
-func TestSearchDoesNotWaitForASlowModel(t *testing.T) {
+// Searches of one query at once share one model call and all get its
+// answer.
+func TestSearchSharesTheModelCall(t *testing.T) {
 	t.Parallel()
-	e := newEnv(t, func(d *service.Deps) { d.ModelWait = 50 * time.Millisecond })
+	e := newEnv(t)
 	ctx := context.Background()
 	e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
-	e.put(t, "Xe đạp Giant", "vehicles.bicycle", baDinh)
 	e.model.answers["xe dap"] = `{"boosts":[{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
-	e.model.delay = 150 * time.Millisecond
+	e.model.delay = 100 * time.Millisecond
 	var wg sync.WaitGroup
-	views := make([]service.SearchView, 2)
+	views := make([]service.SearchView, 3)
 	for i := range views {
 		wg.Go(func() {
-			v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1})
+			v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"})
 			if err != nil {
 				t.Error(err)
 			}
@@ -148,23 +144,39 @@ func TestSearchDoesNotWaitForASlowModel(t *testing.T) {
 	}
 	wg.Wait()
 	for _, v := range views {
-		if len(v.Chips) != 0 || v.NextCursor != "1r" {
-			t.Fatalf("searched before the model answered: %+v", v)
+		if len(v.Chips) != 1 {
+			t.Fatalf("a search without the answer: %+v", v)
 		}
 	}
-	testenv.Eventually(t, 5*time.Second, func() error {
-		v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1})
-		if err != nil || len(v.Chips) != 1 || v.NextCursor != "1" {
-			return fmt.Errorf("not cached yet: %+v %v", v, err)
-		}
-		return nil
-	})
 	if e.model.count() != 1 {
-		t.Fatalf("two searches of one query called the model %d times", e.model.count())
+		t.Fatalf("three searches of one query called the model %d times", e.model.count())
 	}
-	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1, Cursor: views[0].NextCursor})
-	if err != nil || len(v.Items) != 1 || len(v.Chips) != 0 {
-		t.Fatalf("page 2 of a raw search: %+v %v", v, err)
+}
+
+// The pages of a search the model did not answer stay on the raw words
+// after the model comes back.
+func TestSearchPinsTheRawWords(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
+	e.put(t, "Xe đạp Giant", "vehicles.bicycle", baDinh)
+	e.model.answers["xe dap"] = `{"boosts":[{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
+	e.model.fail = true
+	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1})
+	if err != nil || len(v.Chips) != 0 || v.NextCursor != "1r" {
+		t.Fatalf("page 1 without the model: %+v %v", v, err)
+	}
+	e.model.mu.Lock()
+	e.model.fail = false
+	e.model.mu.Unlock()
+	calls := e.model.count()
+	page, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1, Cursor: v.NextCursor})
+	if err != nil || len(page.Items) != 1 || len(page.Chips) != 0 || e.model.count() != calls {
+		t.Fatalf("page 2 asked the model: %+v %d %v", page, e.model.count(), err)
+	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1}); err != nil || len(v.Chips) != 1 || v.NextCursor != "1" {
+		t.Fatalf("a new search: %+v %v", v, err)
 	}
 }
 
