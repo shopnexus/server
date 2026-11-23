@@ -83,23 +83,45 @@ func TestSearchUnderstands(t *testing.T) {
 	bike := e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
 	e.model.answers["xe dap"] = `{"boosts":[{"attr":"phrase","values":["xe đạp"]},` +
 		`{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
-	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"})
+	v, err := e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap"})
 	// The phrase and the category read "xe đạp" alike, so one chip stands for both.
 	if err != nil || len(v.Items) != 2 || v.Items[0].ID != bike || v.Items[1].ID != lamp ||
 		len(v.Chips) != 1 || v.Chips[0].ID != "phrase-0" {
 		t.Fatalf("%+v %v", v, err)
 	}
-	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "  Xe  DAP "}); err != nil || e.model.count() != 1 {
+	if _, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "  Xe  DAP "}); err != nil || e.model.count() != 1 {
 		t.Fatalf("the same query again calls the model: %d %v", e.model.count(), err)
 	}
-	v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Off: []string{"phrase-0"}})
+	v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap", Off: []string{"phrase-0"}})
 	if err != nil || e.model.count() != 1 || len(v.Chips) != 0 {
 		t.Fatalf("off: %d %+v %v", e.model.count(), v.Chips, err)
 	}
 	e.model.answers["xe dap ha noi"] = `{"boosts":[{"attr":"place","values":[" Hà Nội ","Atlantis"]}],"demotes":[]}`
-	v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap ha noi"})
+	v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap ha noi"})
 	if err != nil || len(v.Chips) != 1 || v.Chips[0].ID != "place-0" || v.Chips[0].Label != "Hà Nội" {
 		t.Fatalf("place: %+v %v", v.Chips, err)
+	}
+}
+
+// A guest's query skips the model: the raw words and their vector search,
+// with no chips, and the cursor keeps the next pages on them.
+func TestSearchGuestSkipsTheModel(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
+	e.put(t, "Xe đạp Giant", "vehicles.bicycle", baDinh)
+	e.model.answers["xe dap"] = `{"boosts":[{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
+	e.text.Set("xe dap", embedtest.Axis(catalogdomain.TextDims, 0))
+	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1})
+	if err != nil || len(v.Items) != 1 || len(v.Chips) != 0 || v.NextCursor != "1r" || e.model.count() != 0 || e.text.Calls() != 1 {
+		t.Fatalf("guest: %+v %d %d %v", v, e.model.count(), e.text.Calls(), err)
+	}
+	if v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap", Limit: 1}); err != nil || len(v.Chips) != 1 || e.model.count() != 1 {
+		t.Fatalf("signed in: %+v %d %v", v, e.model.count(), err)
+	}
+	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1}); err != nil || len(v.Chips) != 0 {
+		t.Fatalf("a guest read the cached answer: %+v %v", v, err)
 	}
 }
 
@@ -114,7 +136,7 @@ func TestSearchWithoutTheModel(t *testing.T) {
 			e := newEnv(t)
 			set(e.model)
 			e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
-			v, err := e.discovery.Search(context.Background(), nil, service.SearchInput{Query: "xe đạp"})
+			v, err := e.discovery.Search(context.Background(), &e.me, service.SearchInput{Query: "xe đạp"})
 			if err != nil || len(v.Items) != 1 || len(v.Chips) != 0 {
 				t.Fatalf("%+v %v", v, err)
 			}
@@ -135,7 +157,7 @@ func TestSearchSharesTheModelCall(t *testing.T) {
 	views := make([]service.SearchView, 3)
 	for i := range views {
 		wg.Go(func() {
-			v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"})
+			v, err := e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap"})
 			if err != nil {
 				t.Error(err)
 			}
@@ -163,7 +185,7 @@ func TestSearchPinsTheRawWords(t *testing.T) {
 	e.put(t, "Xe đạp Giant", "vehicles.bicycle", baDinh)
 	e.model.answers["xe dap"] = `{"boosts":[{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
 	e.model.fail = true
-	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1})
+	v, err := e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap", Limit: 1})
 	if err != nil || len(v.Chips) != 0 || v.NextCursor != "1r" {
 		t.Fatalf("page 1 without the model: %+v %v", v, err)
 	}
@@ -171,11 +193,11 @@ func TestSearchPinsTheRawWords(t *testing.T) {
 	e.model.fail = false
 	e.model.mu.Unlock()
 	calls := e.model.count()
-	page, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1, Cursor: v.NextCursor})
+	page, err := e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap", Limit: 1, Cursor: v.NextCursor})
 	if err != nil || len(page.Items) != 1 || len(page.Chips) != 0 || e.model.count() != calls {
 		t.Fatalf("page 2 asked the model: %+v %d %v", page, e.model.count(), err)
 	}
-	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1}); err != nil || len(v.Chips) != 1 || v.NextCursor != "1" {
+	if v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap", Limit: 1}); err != nil || len(v.Chips) != 1 || v.NextCursor != "1" {
 		t.Fatalf("a new search: %+v %v", v, err)
 	}
 }
@@ -332,17 +354,17 @@ func TestSearchFindsByMeaning(t *testing.T) {
 	e.model.answers["xe dap tre em"] = `{"rewritten":"xe đạp trẻ em","visual":"",` +
 		`"boosts":[{"attr":"phrase","values":["xe đạp trẻ em"]}],"demotes":[]}`
 	e.text.Set("xe đạp trẻ em", embedtest.Axis(catalogdomain.TextDims, 0))
-	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap tre em"})
+	v, err := e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap tre em"})
 	if err != nil || len(v.Items) != 1 || v.Items[0].ID != kid {
 		t.Fatalf("no shared word, found by its text vector: %+v %v", v, err)
 	}
 	if e.image.Calls() != 0 {
 		t.Fatal("an empty visual embeds nothing")
 	}
-	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap tre em", Cursor: "1"}); err != nil || e.text.Calls() != 1 {
+	if _, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap tre em", Cursor: "1"}); err != nil || e.text.Calls() != 1 {
 		t.Fatalf("page 2 embeds again: %d %v", e.text.Calls(), err)
 	}
-	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "noi com"}); err != nil {
+	if _, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "noi com"}); err != nil {
 		t.Fatal(err)
 	}
 	e.sweeps.mu.Lock()
@@ -361,7 +383,7 @@ func TestSearchWithoutEmbeddingsFallsBackToWords(t *testing.T) {
 	e.image.SetFail(errors.New("down"))
 	e.model.answers["xe dap"] = `{"rewritten":"xe đạp","visual":"a bicycle",` +
 		`"boosts":[{"attr":"phrase","values":["xe đạp"]}],"demotes":[]}`
-	v, err := e.discovery.Search(context.Background(), nil, service.SearchInput{Query: "xe dap"})
+	v, err := e.discovery.Search(context.Background(), &e.me, service.SearchInput{Query: "xe dap"})
 	if err != nil || len(v.Items) != 1 || v.Items[0].ID != bike {
 		t.Fatalf("%+v %v", v, err)
 	}
@@ -371,7 +393,7 @@ func TestSearchModelDownEmbedsTheRawQuery(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	e.model.fail = true
-	if _, err := e.discovery.Search(context.Background(), nil, service.SearchInput{Query: "ip13 pm"}); err != nil {
+	if _, err := e.discovery.Search(context.Background(), &e.me, service.SearchInput{Query: "ip13 pm"}); err != nil {
 		t.Fatal(err)
 	}
 	if in := e.text.Inputs(); len(in) != 1 || in[0] != "ip13 pm" || e.image.Calls() != 0 {
@@ -389,7 +411,7 @@ func TestSearchHungEmbeddingsFallBackQuickly(t *testing.T) {
 	e.text.SetSlow(time.Minute)
 	e.image.SetSlow(time.Minute)
 	start := time.Now()
-	v, err := e.discovery.Search(context.Background(), nil, service.SearchInput{Query: "ghế gỗ"})
+	v, err := e.discovery.Search(context.Background(), &e.me, service.SearchInput{Query: "ghế gỗ"})
 	if err != nil || len(v.Items) != 1 {
 		t.Fatalf("%+v %v", v, err)
 	}
@@ -491,7 +513,7 @@ func TestSearchWithAnEmbedderOff(t *testing.T) {
 	}
 	bike := e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
 	e.model.answers["xe dap"] = `{"rewritten":"xe đạp","visual":"a bicycle","boosts":[],"demotes":[]}`
-	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"})
+	v, err := e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap"})
 	if err != nil || len(v.Items) == 0 || v.Items[0].ID != bike {
 		t.Fatalf("q with images off: %+v, %v", v, err)
 	}
@@ -502,7 +524,7 @@ func TestSearchWithAnEmbedderOff(t *testing.T) {
 	e = newEnv(t, func(d *service.Deps) { d.Text = nil })
 	bike = e.put(t, "Xe đạp Asama", "vehicles.bicycle", baDinh)
 	e.model.answers["xe dap"] = `{"rewritten":"xe đạp","boosts":[],"demotes":[]}`
-	if v, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap"}); err != nil || len(v.Items) == 0 || v.Items[0].ID != bike {
+	if v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap"}); err != nil || len(v.Items) == 0 || v.Items[0].ID != bike {
 		t.Fatalf("q with text off: %+v, %v", v, err)
 	}
 	if e.text.Calls() != 0 {

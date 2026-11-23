@@ -75,9 +75,9 @@ type SearchView struct {
 // filters and the boosts the model's answer resolves to. With vectors it
 // fuses BM25, the query's text vector and its visual description by RRF;
 // photo searches by a photo of the viewer's alone, and like by a listing.
-// SortNearby browses by distance and age. A model that errs or outlasts the
-// timeout leaves out the lists it feeds: q then searches its raw words, and
-// the cursor keeps the next pages on them. A signed-in
+// SortNearby browses by distance and age. A guest's q, and a q the model
+// errs on or outlasts the timeout for, searches its raw words without the
+// lists the model feeds, and the cursor keeps the next pages on them. A signed-in
 // viewer's first page with q is kept in the history; a failed write is
 // logged and the search still answers.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
@@ -220,11 +220,13 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		if catErr != nil {
 			return SearchView{}, fmt.Errorf("read categories: %w", catErr)
 		}
-		// A page after one that searched the raw words searches them too, so
-		// an answer cached in between does not reorder the pages.
+		// A guest searches the raw words and their vector; the model reads
+		// signed-in people's queries. A page after one that searched the raw
+		// words searches them too, so an answer cached in between does not
+		// reorder the pages.
 		var u domain.Understanding
 		understood := false
-		if !raw {
+		if !raw && viewer != nil {
 			u, understood = d.understand(ctx, q, categories, now)
 		}
 		raw = !understood

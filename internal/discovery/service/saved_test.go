@@ -37,6 +37,8 @@ type env struct {
 	text, image *embedtest.Model
 	accounts    *accountsvc.Account
 	sweeps      *sweeps
+	// me is a signed-in viewer, whose queries the model reads.
+	me uuid.UUID
 }
 
 // newEnv builds discovery on a database; each option changes its
@@ -64,7 +66,7 @@ func newEnv(t *testing.T, opts ...func(*service.Deps)) env {
 		o(&deps)
 	}
 	d := service.New(deps)
-	return env{db: db, catalog: c, media: m, discovery: d, model: model, text: text, image: image, accounts: acc, sweeps: sw}
+	return env{db: db, catalog: c, media: m, discovery: d, model: model, text: text, image: image, accounts: acc, sweeps: sw, me: accounttest.New(t, db)}
 }
 
 func TestSaveAndList(t *testing.T) {

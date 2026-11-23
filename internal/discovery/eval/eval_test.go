@@ -137,7 +137,8 @@ func TestSearchEval(t *testing.T) { //nolint:paralleltest // one run, against sh
 		var who *uuid.UUID
 		switch q.Kind {
 		case "q":
-			input.Query = q.Q
+			// The model reads a signed-in viewer's query only.
+			input.Query, who = q.Q, &viewer
 		case "photo":
 			input.Photo, who = mediatest.Upload(t, m, viewer, "image/jpeg", read(t, q.Photo)), &viewer
 		case "like":

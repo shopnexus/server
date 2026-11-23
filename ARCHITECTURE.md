@@ -2455,6 +2455,11 @@ Search and the nearby feed (decided 2026-10-27, spec:
   never writes a weight. Every value is resolved against real rows (the
   category tree, `provinces` and `communes` by name) or dropped, and one
   log line holds what the model asked for and what ran.
+- A guest's `q` skips the model (decided 2026-11-23): the raw words search
+  through BM25 and their text vector, with no chips and no photo list, and
+  the cursor pins the pages as below. The model reads signed-in people's
+  queries, so its cost follows accounts, and the full search is a reason to
+  sign in. A guest does not read a cached answer either.
 - The raw query is always a phrase at weight 0.5 unless the model named
   it, so a model that errs or takes longer than 4 seconds leaves the raw
   words to search, with no chips. A search waits for the model's answer

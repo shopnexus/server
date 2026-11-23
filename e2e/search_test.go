@@ -59,7 +59,14 @@ func TestSearch(t *testing.T) {
 	const q = "xe dap di lam duoi 3tr"
 	query := url.Values{"q": {q}, "near_commune": {"00004"}, "price_min": {strconv.FormatInt(lo, 10)}, "price_max": {strconv.FormatInt(hi, 10)}}
 
-	res, v := search(t, query)
+	// A guest's query skips the model.
+	calls := model.asked()
+	if _, v := search(t, query); len(v.Items) != 2 || len(v.Chips) != 0 || model.asked() != calls {
+		t.Fatalf("guest: %d calls, %+v", model.asked()-calls, v)
+	}
+	buyer, _ := newAccount(t)
+	me := bearer(buyer.AccessToken)
+	res, v := search(t, query, me)
 	if res.Status != http.StatusOK || len(v.Items) != 2 || v.Items[0].ID != bike.ID || v.Items[1].ID != lamp.ID ||
 		len(v.Chips) == 0 {
 		t.Fatalf("read by the model: %d %s", res.Status, res.Body)
@@ -75,14 +82,14 @@ func TestSearch(t *testing.T) {
 	if strings.Contains(string(res.Body), `"lat"`) || strings.Contains(string(res.Body), `"lng"`) {
 		t.Fatalf("a point leaked: %s", res.Body)
 	}
-	calls := model.asked()
-	if _, v = search(t, query); model.asked() != calls || len(v.Chips) == 0 {
+	calls = model.asked()
+	if _, v = search(t, query, me); model.asked() != calls || len(v.Chips) == 0 {
 		t.Fatalf("the same query called the model again: %d → %d", calls, model.asked())
 	}
 	off := url.Values{}
 	maps.Copy(off, query)
 	off.Add("off", "category-0")
-	if _, v = search(t, off); model.asked() != calls || len(v.Items) != 2 {
+	if _, v = search(t, off, me); model.asked() != calls || len(v.Items) != 2 {
 		t.Fatalf("off: %d %+v", model.asked(), v)
 	}
 	for _, c := range v.Chips {
@@ -91,9 +98,8 @@ func TestSearch(t *testing.T) {
 		}
 	}
 
-	buyer, _ := newAccount(t)
-	expectStatus(t, call(t, "PUT", "/v1/saved/"+bike.ID, nil, bearer(buyer.AccessToken)), http.StatusNoContent)
-	_, v = search(t, query, bearer(buyer.AccessToken))
+	expectStatus(t, call(t, "PUT", "/v1/saved/"+bike.ID, nil, me), http.StatusNoContent)
+	_, v = search(t, query, me)
 	if len(v.Items) != 2 || !v.Items[0].Saved || v.Items[1].Saved {
 		t.Fatalf("saved flags: %+v", v)
 	}
@@ -108,10 +114,11 @@ func TestSearchCategory(t *testing.T) {
 	if len(v.Items) != 1 || len(v.Counts) != 1 || v.Counts[0].Category != "vehicles.bicycle" || v.Counts[0].Count != 1 {
 		t.Fatalf("%+v", v)
 	}
+	buyer, _ := newAccount(t)
 	res, v := search(t, url.Values{
 		"q": {"xe dap di lam duoi 3tr"}, "category": {"vehicles"},
 		"price_min": {strconv.FormatInt(lo, 10)}, "price_max": {strconv.FormatInt(hi, 10)},
-	})
+	}, bearer(buyer.AccessToken))
 	if res.Status != http.StatusOK || len(v.Counts) != 1 || len(v.Chips) == 0 {
 		t.Fatalf("text on a root category page: %d %s", res.Status, res.Body)
 	}
