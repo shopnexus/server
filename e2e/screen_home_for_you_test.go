@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	discoverydomain "github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
@@ -45,15 +46,19 @@ func cardIDsOf(cards []searchCard) []string {
 }
 
 // newestFirst checks that read gives the first size of the newest listings
-// token's search shows that keep keeps, or all of them when fewer. The two
+// token's search shows that keep keeps, or all of them when fewer, a
+// seller's repeated title once as Home shows it. The two
 // searches around read must agree, or a listing arrived meanwhile and the
 // check runs again.
 func newestFirst(t *testing.T, token string, size int, read func() []string, keep func(searchCard) bool) {
 	t.Helper()
 	newest := func() []string {
 		var out []string
+		seen := map[[2]string]bool{}
 		for _, c := range expect[searchView](t, call(t, "GET", "/v1/search?sort=newest&limit=100", nil, bearer(token)), http.StatusOK).Items {
-			if keep(c) {
+			k := [2]string{c.SellerID, discoverydomain.QueryKey(c.Title)}
+			if keep(c) && !seen[k] {
+				seen[k] = true
 				out = append(out, c.ID)
 			}
 		}

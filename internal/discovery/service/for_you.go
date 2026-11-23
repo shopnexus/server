@@ -44,7 +44,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 		return ForYou{}, fmt.Errorf("read the position: %w", originErr)
 	}
 	feed := catalogdomain.Search{
-		Filters: catalogdomain.Filters{Origin: origin}, Sort: catalogdomain.SortPointsNewest, Limit: page.DefaultLimit,
+		Filters: catalogdomain.Filters{Origin: origin}, Sort: catalogdomain.SortPointsNewest, Limit: overfetch * page.DefaultLimit,
 	}
 	var rail catalogdomain.Search
 	if viewer != nil {
@@ -94,7 +94,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 		if category, ok := domain.ViewedCategory(marks); ok {
 			rail = catalogdomain.Search{
 				Filters: catalogdomain.Filters{CategoryCode: category, Origin: origin}, Sort: catalogdomain.SortNewest,
-				Limit: domain.MaxViewed, ExcludeListings: slices.Concat(hidden, opened), ExcludeSellers: sellers,
+				Limit: overfetch * domain.MaxViewed, ExcludeListings: slices.Concat(hidden, opened), ExcludeSellers: sellers,
 			}
 		}
 	}
@@ -103,7 +103,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 	if err != nil {
 		return ForYou{}, fmt.Errorf("read the feed: %w", err)
 	}
-	cards = domain.Distinct(cards, cardKey)
+	cards = firstDistinct(cards, page.DefaultLimit)
 	var out ForYou
 	if out.Items, err = d.withSaved(ctx, viewer, cards); err != nil {
 		return ForYou{}, err
@@ -114,7 +114,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 	if cards, err = d.catalog.Search(ctx, rail); err != nil {
 		return ForYou{}, fmt.Errorf("read the viewed rail: %w", err)
 	}
-	cards = domain.Distinct(cards, cardKey)
+	cards = firstDistinct(cards, domain.MaxViewed)
 	if len(cards) == 0 {
 		return out, nil
 	}
@@ -124,6 +124,16 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 	}
 	out.Viewed = &ViewedRail{Category: rail.Filters.CategoryCode, Items: items}
 	return out, nil
+}
+
+// overfetch is how many times a page ForYou reads, so the page stays full
+// after a seller's repeated listings fold into one.
+const overfetch = 3
+
+// firstDistinct is the first n of cards once repeats are folded.
+func firstDistinct(cards []catalogsvc.SearchCard, n int) []catalogsvc.SearchCard {
+	cards = domain.Distinct(cards, cardKey)
+	return cards[:min(n, len(cards))]
 }
 
 // cardKey is what makes two cards the same listing posted twice.

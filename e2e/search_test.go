@@ -16,6 +16,7 @@ import (
 type searchCard struct {
 	ID            string `json:"id"`
 	SellerID      string `json:"seller_id"`
+	Title         string `json:"title"`
 	CategoryCode  string `json:"category_code"`
 	CoverThumbURL string `json:"cover_thumb_url"`
 	Commune       string `json:"commune"`
