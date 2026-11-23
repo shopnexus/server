@@ -122,7 +122,7 @@ func TestDealFactsOfAnOldJournalEntry(t *testing.T) {
 	}
 	for want, n := range map[string]domain.Notice{
 		"Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9":         got[0],
-		"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ": got[2],
+		"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã hủy": got[2],
 	} {
 		if text := domain.Text(n.Type, n.Params, ""); text != want {
 			t.Errorf("%s: %q", want, text)
@@ -163,15 +163,15 @@ func TestText(t *testing.T) {
 		"Xe đạp Asama đã giao. Đánh giá Hoàng Nam": domain.FromMoves(
 			facts(domain.Move{Kind: "completed", By: "system"}), at)[1],
 		"Xe đạp Asama giao không thành":                          domain.FromMoves(facts(domain.Move{Kind: "failed", By: "system"}), at)[0],
-		"Xe đạp Asama đã gửi cho người khác, đơn của bạn đã huỷ": cancelled("shipped_to_another"),
-		"Người bán chưa gửi Xe đạp Asama, đơn của bạn đã huỷ":    cancelled("seller_timeout"),
-		"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ":      cancelled("pickup_timeout"),
+		"Xe đạp Asama đã gửi cho người khác, đơn của bạn đã hủy": cancelled("shipped_to_another"),
+		"Người bán chưa gửi Xe đạp Asama, đơn của bạn đã hủy":    cancelled("seller_timeout"),
+		"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã hủy":      cancelled("pickup_timeout"),
 		"Đức Huy trả 1,2 tr cho Xe đạp Asama":                    offer,
 		"Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9": domain.FromMoves(
 			facts(domain.Move{Kind: "shipped", By: "seller", OrderID: order, Carrier: "ghn", TrackingCode: "8A2K9"}), at)[0],
 		"Đức Huy trả 350.000 ₫ cho Xe đạp Asama":            domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 350_000}), at)[0],
-		"Tài khoản của bạn bị khoá đến 3/11":                domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
-		"Tài khoản của bạn bị khoá":                         domain.Suspended(buyer, "", at),
+		"Tài khoản của bạn bị tạm khóa đến 3/11":                domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
+		"Tài khoản của bạn bị tạm khóa":                         domain.Suspended(buyer, "", at),
 		"Đức Huy chấm bạn 5 sao · Xe đạp Asama":             domain.Reviewed(seller, "Đức Huy", "Xe đạp Asama", 5, order, at),
 		"Hoàng Nam trả lời đánh giá của bạn · Xe đạp Asama": domain.ReviewReplied(buyer, "Hoàng Nam", "Xe đạp Asama", order, at),
 		"Hoàng Nam vừa đăng tin mới: Xe đạp Asama":          domain.FollowedListing(buyer, seller, "Hoàng Nam", uuid.NewV7(), "Xe đạp Asama", at),
@@ -258,12 +258,12 @@ func TestSystemMovesTellTheSellerToo(t *testing.T) {
 		"the seller's timeout": {
 			domain.Move{Kind: "order_cancelled", By: "system"},
 			"seller_timeout", domain.TypeOrderCancelled,
-			"Bạn chưa tạo đơn Xe đạp Asama, đơn đã huỷ", "Người bán chưa gửi Xe đạp Asama, đơn của bạn đã huỷ",
+			"Bạn chưa tạo đơn Xe đạp Asama, đơn đã hủy", "Người bán chưa gửi Xe đạp Asama, đơn của bạn đã hủy",
 		},
 		"the pickup timeout": {
 			domain.Move{Kind: "order_cancelled", By: "system"},
 			"pickup_timeout", domain.TypeOrderCancelled,
-			"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ", "Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã huỷ",
+			"Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã hủy", "Hãng vận chuyển chưa lấy Xe đạp Asama, đơn đã hủy",
 		},
 	} {
 		c.move.OrderID, c.move.CancelReason = order, c.reason
@@ -317,11 +317,11 @@ func TestMail(t *testing.T) {
 		t.Fatalf("completed for the buyer %+v", l)
 	}
 	n.Type, n.Params.Reason = domain.TypeOrderCancelled, "made_up"
-	if l = domain.Mail(n, locale.Vietnamese); l.Lead != "Lan huỷ đơn Xe đạp." {
+	if l = domain.Mail(n, locale.Vietnamese); l.Lead != "Lan hủy đơn Xe đạp." {
 		t.Fatalf("a cancel without words of its own %+v", l)
 	}
 	l = domain.Mail(domain.Notice{Type: domain.TypeUnsuspended}, locale.Vietnamese)
-	if l.Subject != "Tài khoản của bạn đã được mở khoá" || l.Footer != nil || l.Item != nil {
+	if l.Subject != "Tài khoản của bạn đã được mở khóa" || l.Footer != nil || l.Item != nil {
 		t.Fatalf("unsuspended %+v", l)
 	}
 	mailer := mailview.Mailer{Site: "https://shopnexus.id.vn"}

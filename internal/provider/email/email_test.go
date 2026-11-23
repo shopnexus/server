@@ -19,7 +19,7 @@ func TestLogSenderWritesMessage(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
 	s := email.LogSender{Log: slog.New(slog.NewTextHandler(&buf, nil))}
-	if err := s.Send(context.Background(), email.Message{To: "linh@example.com", Subject: "Mã xác minh ShopNexus: 583920", Text: "583920"}); err != nil {
+	if err := s.Send(context.Background(), email.Message{To: "linh@example.com", Subject: "Mã OTP ShopNexus: 583920", Text: "583920"}); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{"linh@example.com", "583920"} {

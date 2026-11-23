@@ -112,7 +112,7 @@ func TestEmailCodeSendMailsTheCode(t *testing.T) {
 	code := testCodes.For(res.ChallengeID)
 	got := e.mail.all()
 	if res.Refused != nil || len(got) != 1 || got[0].To != "linh@example.com" || got[0].Key != res.ChallengeID.String() ||
-		got[0].Subject != "Mã xác minh ShopNexus: "+code || !res.ExpiresAt.Equal(now.Add(5*time.Minute)) ||
+		got[0].Subject != "Mã OTP ShopNexus: "+code || !res.ExpiresAt.Equal(now.Add(5*time.Minute)) ||
 		!res.ResendAt.Equal(now.Add(45*time.Second)) {
 		t.Fatalf("%+v, mails %+v", res, got)
 	}
@@ -159,7 +159,7 @@ func TestEmailCodeSendRetriesTheSameCode(t *testing.T) {
 	e := startEmailCodeSend(t, &mailbox{failFirst: true})
 	res := e.send(t, "linh@example.com", "203.0.113.1")
 	got := e.mail.all()
-	if res.Refused != nil || len(got) != 1 || got[0].Subject != "Mã xác minh ShopNexus: "+testCodes.For(res.ChallengeID) {
+	if res.Refused != nil || len(got) != 1 || got[0].Subject != "Mã OTP ShopNexus: "+testCodes.For(res.ChallengeID) {
 		t.Fatalf("%+v, mails %+v", res, got)
 	}
 }
@@ -199,7 +199,7 @@ func TestEmailCodeSendNamesAnAddIdentityCode(t *testing.T) {
 	got := e.mail.all()
 	if err != nil || res.Refused != nil || len(got) != 1 || !strings.Contains(got[0].Text, "thêm linh@example.com vào một tài khoản") ||
 		!strings.Contains(got[0].HTML, "Thêm email vào tài khoản") ||
-		strings.HasPrefix(got[0].Subject, "Mã xác minh ShopNexus") {
+		strings.HasPrefix(got[0].Subject, "Mã OTP ShopNexus") {
 		t.Fatalf("%+v %v, mails %+v", res, err, got)
 	}
 }

@@ -1,15 +1,15 @@
 {
   "add.lead": "Mã này thêm %[1]s vào một tài khoản ShopNexus đang đăng nhập.",
   "add.note": "Người có mã sẽ đăng nhập được bằng email của bạn. Nếu bạn không yêu cầu, đừng đưa mã cho ai.",
-  "add.subject": "Mã thêm email vào tài khoản ShopNexus: %[1]s",
+  "add.subject": "Mã OTP thêm email vào tài khoản ShopNexus: %[1]s",
   "add.title": "Thêm email vào tài khoản",
   "add.why": "Ai đó vừa yêu cầu thêm địa chỉ này vào tài khoản ShopNexus.",
   "expires": "Hết hạn sau 5 phút",
   "group": "Bảo mật",
   "preheader": "Mã %[1]s, hết hạn sau 5 phút. Đừng đưa mã cho ai.",
-  "sign_in.lead": "Nhập mã này trên ứng dụng hoặc trang web để đăng nhập.",
+  "sign_in.lead": "Nhập mã này trong ứng dụng hoặc trên website để đăng nhập.",
   "sign_in.note": "Đừng đưa mã cho ai, kể cả người nói là nhân viên ShopNexus. Nếu bạn không yêu cầu mã, cứ bỏ qua email này.",
-  "sign_in.subject": "Mã xác minh ShopNexus: %[1]s",
-  "sign_in.title": "Mã đăng nhập ShopNexus",
-  "sign_in.why": "Ai đó vừa yêu cầu mã đăng nhập bằng địa chỉ này."
+  "sign_in.subject": "Mã OTP ShopNexus: %[1]s",
+  "sign_in.title": "Mã OTP đăng nhập ShopNexus",
+  "sign_in.why": "Ai đó vừa yêu cầu mã OTP đăng nhập bằng địa chỉ này."
 }

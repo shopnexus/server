@@ -16,12 +16,12 @@ var mailer = mailview.Mailer{Site: "https://shopnexus.id.vn"}
 func TestLetter(t *testing.T) {
 	t.Parallel()
 	l := mailview.Letter{
-		Subject: "Hoàng Nam đã gửi iPhone X", Group: "Đơn hàng", Art: mailview.ArtShipped, Title: "Hoàng Nam đã gửi hàng",
+		Subject: "Hoàng Nam đã gửi iPhone X", Group: "Đơn COD", Art: mailview.ArtShipped, Title: "Hoàng Nam đã gửi hàng",
 		Item:   &mailview.Item{Photo: "https://media.test/cover.jpg", Title: "iPhone X <64GB>", Price: "3.800.000 ₫", Side: "Người bán · Hoàng Nam"},
 		Steps:  &mailview.Steps{Names: []string{"Chốt giá", "Tạo đơn", "Nhận hàng", "Đánh giá"}, At: 2},
 		Rows:   []mailview.Row{{Label: "Mã vận đơn", Value: "S1.A1.17373471", Mono: true}},
-		Action: &mailview.Action{Label: "Xem đơn hàng", Path: "/orders/o1"}, Why: "Bạn có đơn hàng.",
-		Footer: &mailview.Action{Label: "Tắt email đơn hàng", Path: "/notifications#settings"},
+		Action: &mailview.Action{Label: "Xem đơn", Path: "/orders/o1"}, Why: "Bạn có đơn COD.",
+		Footer: &mailview.Action{Label: "Tắt email đơn COD", Path: "/notifications#settings"},
 	}
 	m, err := mailer.Message("linh@example.com", "ev/1", l)
 	if err != nil {
@@ -41,7 +41,7 @@ func TestLetter(t *testing.T) {
 	if m.To != "linh@example.com" || m.Key != "ev/1" || len(m.Inline) != 2 || m.Inline[1].Name != "cod_placed.png" || len(m.Inline[1].Content) == 0 {
 		t.Fatalf("message %+v", m.Inline)
 	}
-	if !strings.Contains(m.Text, "Xem đơn hàng: https://shopnexus.id.vn/orders/o1") || !strings.Contains(m.Text, "Mã vận đơn: S1.A1.17373471") {
+	if !strings.Contains(m.Text, "Xem đơn: https://shopnexus.id.vn/orders/o1") || !strings.Contains(m.Text, "Mã vận đơn: S1.A1.17373471") {
 		t.Fatalf("text %q", m.Text)
 	}
 }

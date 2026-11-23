@@ -528,7 +528,7 @@ func TestOrderMovesTellTheirOwnOrders(t *testing.T) {
 		t.Errorf("the second order's notice: %+v", items[0])
 	}
 	if items[1].Type != "order_cancelled" || items[1].Target != (domain.Target{Kind: "order", ID: first.String()}) ||
-		items[1].Text != "Hoàng Nam huỷ đơn Xe đạp Asama" {
+		items[1].Text != "Hoàng Nam hủy đơn Xe đạp Asama" {
 		t.Errorf("the first order's notice: %+v", items[1])
 	}
 }
@@ -569,10 +569,10 @@ func TestMovesWithoutAnOrderTellOfTheLatest(t *testing.T) {
 		ID: uuid.NewV7(), Kind: events.DealMoved, SubjectID: f.DealID, OccurredAt: at.Add(time.Minute),
 		Payload: map[string]any{"moves": []any{timedOut.String()}},
 	})
-	if n := e.noticesOf(t, f.SellerID, 1)[0]; n.Text != "Bạn chưa tạo đơn Xe đạp Asama, đơn đã huỷ" || n.Target != deal {
+	if n := e.noticesOf(t, f.SellerID, 1)[0]; n.Text != "Bạn chưa tạo đơn Xe đạp Asama, đơn đã hủy" || n.Target != deal {
 		t.Fatalf("the seller's timeout: %+v", n)
 	}
-	if n := e.noticesOf(t, f.BuyerID, 1)[0]; n.Text != "Người bán chưa gửi Xe đạp Asama, đơn của bạn đã huỷ" {
+	if n := e.noticesOf(t, f.BuyerID, 1)[0]; n.Text != "Người bán chưa gửi Xe đạp Asama, đơn của bạn đã hủy" {
 		t.Fatalf("the buyer's timeout: %+v", n)
 	}
 }

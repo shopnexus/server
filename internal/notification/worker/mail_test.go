@@ -98,7 +98,7 @@ func TestOrderEmailsOff(t *testing.T) {
 		t.Fatalf("order_emails off mailed %+v", got)
 	}
 	e.deliver(t, "AccountUnsuspended", events.Event{ID: uuid.NewV7(), Kind: events.AccountUnsuspended, SubjectID: e.f.SellerID, OccurredAt: time.Now()})
-	if got := e.mail.all(); len(got) != 1 || got[0].Subject != "Tài khoản của bạn đã được mở khoá" {
+	if got := e.mail.all(); len(got) != 1 || got[0].Subject != "Tài khoản của bạn đã được mở khóa" {
 		t.Fatalf("the account notice: %+v", got)
 	}
 }
