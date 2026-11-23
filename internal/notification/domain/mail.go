@@ -10,83 +10,120 @@ import (
 
 // Mail is the mail of notice n in language tag: the facts and the one action
 // the recipient needs. Only the types Mailed reports are written here; any
-// other is an empty letter.
+// other is an empty letter. Its text is under mail.* in text/<tag>.json.
 func Mail(n Notice, tag locale.Tag) mailview.Letter {
-	w := penFor(tag)
-	tag, p, say, name := w.tag, n.Params, w.say, w.name
-	actor := name(p.Actor)
-	l := mailview.Letter{Locale: tag, Art: mailview.ArtVerified, Group: say("group.account"), Why: say("why.account")}
+	w := writerFor(tag)
+	p := n.Params
+	actor := w.name(p.Actor)
 	order := "/orders"
 	if p.OrderID != (uuid.UUID{}) {
 		order += "/" + p.OrderID.String()
 	}
+	viewOrder := &mailview.Action{Label: w.say("mail.action.view"), Path: order}
+
+	l := mailview.Letter{
+		Locale: w.tag,
+		Art:    mailview.ArtVerified,
+		Group:  w.say("title.account"),
+		Why:    w.say("mail.why.account"),
+	}
+	// Every order mail shows the listing and links the switch that stops it.
 	if types[n.Type].mail == mailOrders {
-		side := say("side.seller", actor)
+		l.Group = w.say("title.orders")
+		l.Why = w.say("mail.why.orders")
+		l.Footer = &mailview.Action{Label: w.say("mail.footer.settings"), Path: "/notifications#settings"}
+		l.Item = &mailview.Item{Title: p.Title, Side: w.say("mail.side.seller", actor)}
 		if p.ToSeller {
-			side = say("side.buyer", actor)
+			l.Item.Side = w.say("mail.side.buyer", actor)
 		}
-		l.Item = &mailview.Item{Title: p.Title, Side: side}
 		if o := n.Order; o != nil {
 			l.Item.Photo = o.Photo
 			if o.Price > 0 {
-				l.Item.Price = locale.Money(tag, o.Price)
+				l.Item.Price = locale.Money(w.tag, o.Price)
 			}
 		}
-		l.Group, l.Why = say("group.orders"), say("why.orders")
-		l.Footer = &mailview.Action{Label: say("footer.settings"), Path: "/notifications#settings"}
 	}
-	steps := func(at int) *mailview.Steps {
-		return &mailview.Steps{Names: []string{say("steps.agreed"), say("steps.ordered"), say("steps.received"), say("steps.reviewed")}, At: at}
-	}
-	tracking := func() []mailview.Row {
-		if p.Code == "" {
-			return nil
-		}
-		return []mailview.Row{{Label: say("row.carrier"), Value: carrierName(p.Carrier)}, {Label: say("row.code"), Value: p.Code, Mono: true}}
-	}
-	view := &mailview.Action{Label: say("action.view"), Path: order}
+
 	switch n.Type {
-	case TypeCodRequested:
-		l.Art, l.Subject, l.Title = mailview.ArtOrders, say("cod.subject", actor, p.Title), say("cod.title", actor)
-		l.Lead, l.Note, l.Steps = say("cod.lead"), say("money.seller"), steps(1)
-		l.Action = &mailview.Action{Label: say("cod.action"), Path: order}
-	case TypeShipped:
-		l.Art, l.Subject, l.Title = mailview.ArtShipped, say("shipped.subject", actor, p.Title), say("shipped.title", actor)
-		l.Lead, l.Steps, l.Action, l.Rows = say("shipped.lead"), steps(2), view, tracking()
+	case TypeCodRequested: // to the seller
+		l.Art = mailview.ArtOrders
+		l.Subject = w.say("mail.cod.subject", actor, p.Title)
+		l.Title = w.say("mail.cod.title", actor)
+		l.Lead = w.say("mail.cod.lead")
+		l.Steps = w.orderSteps(1)
+		l.Note = w.say("mail.money.seller")
+		l.Action = &mailview.Action{Label: w.say("mail.cod.action"), Path: order}
+
+	case TypeShipped: // to the buyer
+		l.Art = mailview.ArtShipped
+		l.Subject = w.say("mail.shipped.subject", actor, p.Title)
+		l.Title = w.say("mail.shipped.title", actor)
+		l.Lead = w.say("mail.shipped.lead")
+		l.Steps = w.orderSteps(2)
+		l.Rows = w.tracking(p)
 		if o := n.Order; o != nil && o.Price > 0 && o.Fee > 0 {
-			l.Rows = append(l.Rows, mailview.Row{Label: say("row.pay"), Value: locale.Money(tag, o.Price+o.Fee), Strong: true})
+			l.Rows = append(l.Rows, mailview.Row{Label: w.say("mail.row.pay"), Value: locale.Money(w.tag, o.Price+o.Fee), Strong: true})
 		}
+		l.Action = viewOrder
+
 	case TypeCompleted:
-		l.Steps = steps(3)
-		if p.ToSeller {
-			l.Art, l.Subject, l.Title = mailview.ArtDeal, say("received.subject", actor, p.Title), say("received.title", actor)
-			l.Lead, l.Note = say("received.lead"), say("money.seller")
-			l.Action = &mailview.Action{Label: say("received.action"), Path: order}
+		l.Steps = w.orderSteps(3)
+		if p.ToSeller { // the buyer has it
+			l.Art = mailview.ArtDeal
+			l.Subject = w.say("mail.received.subject", actor, p.Title)
+			l.Title = w.say("mail.received.title", actor)
+			l.Lead = w.say("mail.received.lead")
+			l.Note = w.say("mail.money.seller")
+			l.Action = &mailview.Action{Label: w.say("mail.received.action"), Path: order}
 			break
 		}
-		seller := name(p.Seller)
-		l.Art, l.Subject, l.Title = mailview.ArtReceived, say("delivered.subject", p.Title, seller), say("delivered.title")
-		l.Lead, l.Stars = say("delivered.lead", seller), order
+		// To the buyer, asking for a review: the stars are the action.
+		seller := w.name(p.Seller)
+		l.Art = mailview.ArtReceived
+		l.Subject = w.say("mail.delivered.subject", p.Title, seller)
+		l.Title = w.say("mail.delivered.title")
+		l.Lead = w.say("mail.delivered.lead", seller)
+		l.Stars = order
+
 	case TypeFailed:
-		l.Art, l.Subject, l.Title = mailview.ArtNotFound, say("failed.subject", p.Title), say("failed.title")
-		l.Lead, l.Action = say("failed.lead"), view
-		if p.ToSeller {
-			l.Lead, l.Rows, l.Note = say("failed.lead.seller"), tracking(), say("failed.note.seller")
+		l.Art = mailview.ArtNotFound
+		l.Subject = w.say("mail.failed.subject", p.Title)
+		l.Title = w.say("mail.failed.title")
+		l.Lead = w.say("mail.failed.lead")
+		if p.ToSeller { // the parcel comes back
+			l.Lead = w.say("mail.failed.lead.seller")
+			l.Rows = w.tracking(p)
+			l.Note = w.say("mail.failed.note.seller")
 		}
+		l.Action = viewOrder
+
 	case TypeOrderCancelled:
-		lead := Text(n.Type, p, tag) + "."
-		l.Art, l.Subject, l.Title, l.Lead, l.Action = mailview.ArtSearch, lead, say("cancelled.title"), lead, view
+		// The lead is the notice's own sentence, which names the reason.
+		l.Art = mailview.ArtSearch
+		l.Title = w.say("mail.cancelled.title")
+		l.Lead = Text(n.Type, p, w.tag) + "."
+		l.Subject = l.Lead
+		l.Action = viewOrder
 		if !p.ToSeller {
-			l.Note = say("cancelled.note")
-			l.Action = &mailview.Action{Label: say("cancelled.action"), Path: "/search?q=" + url.QueryEscape(p.Title)}
+			l.Note = w.say("mail.cancelled.note")
+			l.Action = &mailview.Action{Label: w.say("mail.cancelled.action"), Path: "/search?q=" + url.QueryEscape(p.Title)}
 		}
+
 	case TypeSuspended:
-		l.Title = Text(n.Type, p, tag)
-		l.Art, l.Subject, l.Lead, l.Note = mailview.ArtOffline, l.Title, say("suspended.lead"), say("suspended.note")
-		l.Action = &mailview.Action{Label: say("suspended.action"), Path: "/support"}
+		l.Art = mailview.ArtOffline
+		l.Title = Text(n.Type, p, w.tag)
+		l.Subject = l.Title
+		l.Lead = w.say("mail.suspended.lead")
+		l.Note = w.say("mail.suspended.note")
+		l.Action = &mailview.Action{Label: w.say("mail.suspended.action"), Path: "/support"}
+
 	case TypeUnsuspended:
-		l.Art, l.Title, l.Lead = mailview.ArtPosted, Text(n.Type, p, tag), say("unsuspended.lead")
-		l.Subject, l.Action = l.Title, &mailview.Action{Label: say("unsuspended.action"), Path: "/"}
+		l.Art = mailview.ArtPosted
+		l.Title = Text(n.Type, p, w.tag)
+		l.Subject = l.Title
+		l.Lead = w.say("mail.unsuspended.lead")
+		l.Action = &mailview.Action{Label: w.say("mail.unsuspended.action"), Path: "/"}
+
 	case TypeOffer, TypeCounter, TypeAgreed, TypeDeclined, TypeAgreementCancelled, TypeOfferVoided, TypeListingLive,
 		TypeListingRejected, TypeFollowedListing, TypeReview, TypeReviewReply, TypeWatchMatched, TypePriceDropped:
 		// Never mailed.
@@ -94,4 +131,24 @@ func Mail(n Notice, tag locale.Tag) mailview.Letter {
 	}
 	l.Preheader = l.Lead
 	return l
+}
+
+// orderSteps are a COD order's four steps, at is the one under way.
+func (w writer) orderSteps(at int) *mailview.Steps {
+	return &mailview.Steps{
+		Names: []string{w.say("mail.steps.agreed"), w.say("mail.steps.ordered"), w.say("mail.steps.received"), w.say("mail.steps.reviewed")},
+		At:    at,
+	}
+}
+
+// tracking is an order's carrier and tracking code as rows; none before it
+// ships.
+func (w writer) tracking(p Params) []mailview.Row {
+	if p.Code == "" {
+		return nil
+	}
+	return []mailview.Row{
+		{Label: w.say("mail.row.carrier"), Value: carrierName(p.Carrier)},
+		{Label: w.say("mail.row.code"), Value: p.Code, Mono: true},
+	}
 }

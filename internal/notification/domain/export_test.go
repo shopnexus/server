@@ -5,3 +5,6 @@ func Described(t Type) bool {
 	_, ok := types[t]
 	return ok
 }
+
+// Words is notification's catalog.
+var Words = words

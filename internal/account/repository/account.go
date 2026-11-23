@@ -65,6 +65,8 @@ type Accounts interface {
 	// SetLocale records the language the account's mail is written in. Like
 	// TouchActive it leaves write_id alone.
 	SetLocale(ctx context.Context, id uuid.UUID, locale string) error
+	// Locale is the language the account's pushes and mail are written in.
+	Locale(ctx context.Context, id uuid.UUID) (string, error)
 	// Mailbox is the account's email address, empty without one, and the
 	// language its mail is written in.
 	Mailbox(ctx context.Context, id uuid.UUID) (address, locale string, err error)

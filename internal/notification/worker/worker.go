@@ -530,11 +530,9 @@ func (w Worker) deliver(ctx restate.Context, account uuid.UUID, sw domain.Switch
 			}
 		}
 		if len(out.Tokens) > 0 {
-			box, readErr := w.Accounts.Mailbox(rc, account)
-			if readErr != nil {
-				return audience{}, fmt.Errorf("read the language: %w", readErr)
+			if out.Locale, stepErr = w.Accounts.Locale(rc, account); stepErr != nil {
+				return audience{}, fmt.Errorf("read the language: %w", stepErr)
 			}
-			out.Locale = box.Locale
 		}
 		return out, nil
 	})

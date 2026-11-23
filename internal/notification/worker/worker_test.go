@@ -133,6 +133,10 @@ type accounts struct {
 	locales   map[uuid.UUID]locale.Tag
 }
 
+func (a accounts) Locale(_ context.Context, id uuid.UUID) (locale.Tag, error) {
+	return locale.Of(string(a.locales[id])), nil
+}
+
 func (a accounts) Mailbox(_ context.Context, id uuid.UUID) (accountsvc.Mailbox, error) {
 	return accountsvc.Mailbox{Address: a.emails[id], Locale: locale.Of(string(a.locales[id]))}, nil
 }

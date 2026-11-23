@@ -526,6 +526,9 @@ func TestMailbox(t *testing.T) {
 	if err := s.SetLocale(ctx, id, "en"); err != nil {
 		t.Fatal(err)
 	}
+	if loc, err := s.Locale(ctx, id); err != nil || loc != "en" {
+		t.Fatalf("locale %q %v", loc, err)
+	}
 	if addr, loc, err := s.Mailbox(ctx, id); err != nil || addr != "linh@example.com" || loc != "en" {
 		t.Fatalf("with an email: %q %q %v", addr, loc, err)
 	}

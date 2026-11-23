@@ -12,6 +12,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	"github.com/shopnexus/server/internal/platform/mailview"
 
 	restate "github.com/restatedev/sdk-go"
@@ -110,6 +112,8 @@ type Service interface {
 	FindByContact(ctx context.Context, q string) (uuid.UUID, bool, error)
 	// Identities lists an account's sign-in methods.
 	Identities(ctx context.Context, accountID uuid.UUID) ([]Identity, error)
+	// Locale is the language the account's pushes and mail are written in.
+	Locale(ctx context.Context, id uuid.UUID) (locale.Tag, error)
 	// Mailbox is where the account's mail goes and the language it is
 	// written in; Address is empty for an account without an email.
 	Mailbox(ctx context.Context, id uuid.UUID) (Mailbox, error)

@@ -13,25 +13,26 @@ var textFiles embed.FS
 // language: text/<tag>.json.
 var words = locale.MustLoad(textFiles, "text")
 
-// pen writes text in one language.
-type pen struct{ tag locale.Tag }
+// writer writes notification's text in one language: the catalog's lines,
+// people's names and amounts.
+type writer struct{ tag locale.Tag }
 
-func penFor(tag locale.Tag) pen { return pen{locale.Of(string(tag))} }
+func writerFor(tag locale.Tag) writer { return writer{locale.Of(string(tag))} }
 
-func (w pen) say(key string, args ...any) string { return words.Say(w.tag, key, args...) }
+func (w writer) say(key string, args ...any) string { return words.Say(w.tag, key, args...) }
 
 // name is a person's display name, or what the apps call someone without
 // one.
-func (w pen) name(s string) string {
+func (w writer) name(s string) string {
 	if s == "" {
-		return w.say("unnamed")
+		return w.say("name.unnamed")
 	}
 	return s
 }
 
 // money writes an amount the way the app does: "1,2 tr" from a million,
 // "350.000 ₫" below it.
-func (w pen) money(n int64) string {
+func (w writer) money(n int64) string {
 	if n >= 1_000_000 {
 		return w.say("money.million", locale.Decimal(w.tag, float64(n)/1_000_000))
 	}
@@ -40,4 +41,4 @@ func (w pen) money(n int64) string {
 
 // named is a name kept with a notice: someone without one keeps the
 // Vietnamese placeholder, as notices stored before languages did.
-func named(name string) string { return penFor(locale.Vietnamese).name(name) }
+func named(name string) string { return writerFor(locale.Vietnamese).name(name) }

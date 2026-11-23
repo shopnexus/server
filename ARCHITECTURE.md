@@ -3801,7 +3801,14 @@ calls it except screen, for the unread counts of Home and
   bodies and mail share `notification/domain/text/<tag>.json`; a notice
   stores only its type and params, so a stored notice reads in any
   language. A name kept in params for someone without one stays the
-  Vietnamese placeholder. Advertising mail, if it ever comes, starts off (Decree
+  Vietnamese placeholder: the completed notice reads a set `Seller` as the
+  review prompt, so params keep the name filled.
+- Catalog keys: `notice.*` (list and push text), `title.*` (push titles
+  and mail headers), `push.*` (chat push bodies), `mail.*` (mail only),
+  `money.*` and `name.*`. Formats use indexed verbs (`%[1]s`), so a
+  language may reorder them. Each catalog's test runs
+  `localetest.Keys`, which fails on a key the code writes that a
+  language lacks. Advertising mail, if it ever comes, starts off (Decree
   91/2020 wants consent first).
 - Migration 0045 copied each `saved_settings` row with the switch off into
   `notification_settings` as `price_cuts = false`, the rest at the

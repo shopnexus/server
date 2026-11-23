@@ -349,6 +349,18 @@ func (s pgAccounts) SetLocale(ctx context.Context, id uuid.UUID, locale string) 
 	return nil
 }
 
+func (s pgAccounts) Locale(ctx context.Context, id uuid.UUID) (string, error) {
+	var locale string
+	err := s.db.QueryRow(ctx, `SELECT locale FROM accounts WHERE id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&locale)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("read locale: %w", err)
+	}
+	return locale, nil
+}
+
 func (s pgAccounts) Mailbox(ctx context.Context, id uuid.UUID) (address, locale string, err error) {
 	err = s.db.QueryRow(ctx, `
 SELECT coalesce((SELECT identifier FROM identities WHERE account_id = a.id AND kind = 'email'), ''), a.locale

@@ -302,11 +302,11 @@ const (
 
 var (
 	haggling = group{"title.offers", opens("deal", dealID), SwitchOffers, mailNever}
-	orders   = group{"group.orders", orderTarget, SwitchOrders, mailOrders}
+	orders   = group{"title.orders", orderTarget, SwitchOrders, mailOrders}
 	listings = group{"title.listings", opens("listing", listingID), SwitchNone, mailNever}
 	followed = group{"title.listings", opens("listing", listingID), SwitchFollowed, mailNever}
 	reviews  = group{"title.reviews", reviewTarget, SwitchReviews, mailNever}
-	accounts = group{"group.account", opens("account", func(Params) uuid.UUID { return uuid.UUID{} }), SwitchNone, mailAlways}
+	accounts = group{"title.account", opens("account", func(Params) uuid.UUID { return uuid.UUID{} }), SwitchNone, mailAlways}
 	searches = group{"title.searches", opens("search_watch", func(p Params) uuid.UUID { return p.WatchID }), SwitchNone, mailNever}
 	saved    = group{"title.saved", opens("listing", listingID), SwitchPriceCuts, mailNever}
 )
@@ -349,36 +349,40 @@ func reviewTarget(p Params) Target {
 var types = map[Type]struct {
 	group
 
-	text func(Params, pen) string
+	text func(Params, writer) string
 }{
-	TypeOffer:    {haggling, func(p Params, w pen) string { return w.say("notice.offer", p.Actor, w.money(p.Amount), p.Title) }},
-	TypeCounter:  {haggling, func(p Params, w pen) string { return w.say("notice.counter", p.Actor, w.money(p.Amount), p.Title) }},
-	TypeAgreed:   {haggling, func(p Params, w pen) string { return w.say("notice.agreed", w.money(p.Amount), p.Title, p.Actor) }},
-	TypeDeclined: {haggling, func(p Params, w pen) string { return w.say("notice.declined", p.Actor, p.Title) }},
-	TypeAgreementCancelled: {haggling, func(p Params, w pen) string {
+	TypeOffer:    {haggling, func(p Params, w writer) string { return w.say("notice.offer", p.Actor, w.money(p.Amount), p.Title) }},
+	TypeCounter:  {haggling, func(p Params, w writer) string { return w.say("notice.counter", p.Actor, w.money(p.Amount), p.Title) }},
+	TypeAgreed:   {haggling, func(p Params, w writer) string { return w.say("notice.agreed", w.money(p.Amount), p.Title, p.Actor) }},
+	TypeDeclined: {haggling, func(p Params, w writer) string { return w.say("notice.declined", p.Actor, p.Title) }},
+	TypeAgreementCancelled: {haggling, func(p Params, w writer) string {
 		return w.say("notice.agreement_cancelled", p.Actor, p.Title)
 	}},
-	TypeOfferVoided: {haggling, func(p Params, w pen) string {
+	TypeOfferVoided: {haggling, func(p Params, w writer) string {
 		if p.Move == "listing_closed" {
 			return w.say("notice.offer_voided.listing_closed", p.Title)
 		}
 		return w.say("notice.offer_voided", p.Title)
 	}},
-	TypeCodRequested: {orders, func(p Params, w pen) string { return w.say("notice.cod_requested", p.Actor, p.Title) }},
-	TypeShipped: {orders, func(p Params, w pen) string {
+	TypeCodRequested: {orders, func(p Params, w writer) string { return w.say("notice.cod_requested", p.Actor, p.Title) }},
+	TypeShipped: {orders, func(p Params, w writer) string {
 		return w.say("notice.shipped", p.Actor, p.Title, carrierName(p.Carrier), p.Code)
 	}},
-	TypeCompleted: {orders, func(p Params, w pen) string {
+	TypeCompleted: {orders, func(p Params, w writer) string {
 		if p.Seller != "" {
 			return w.say("notice.completed.review", p.Title, p.Seller)
 		}
 		return w.say("notice.completed", p.Actor, p.Title)
 	}},
-	TypeFailed: {orders, func(p Params, w pen) string { return w.say("notice.failed", p.Title) }},
-	TypeOrderCancelled: {orders, func(p Params, w pen) string {
+	TypeFailed: {orders, func(p Params, w writer) string { return w.say("notice.failed", p.Title) }},
+	TypeOrderCancelled: {orders, func(p Params, w writer) string {
 		switch p.Reason {
-		case "shipped_to_another", "listing_closed", "pickup_timeout":
-			return w.say("notice.cancelled."+p.Reason, p.Title)
+		case "shipped_to_another":
+			return w.say("notice.cancelled.shipped_to_another", p.Title)
+		case "listing_closed":
+			return w.say("notice.cancelled.listing_closed", p.Title)
+		case "pickup_timeout":
+			return w.say("notice.cancelled.pickup_timeout", p.Title)
 		case "seller_timeout":
 			if p.ToSeller {
 				return w.say("notice.cancelled.seller_timeout.seller", p.Title)
@@ -388,27 +392,27 @@ var types = map[Type]struct {
 			return w.say("notice.cancelled.by", p.Actor, p.Title)
 		}
 	}},
-	TypeListingLive:     {listings, func(p Params, w pen) string { return w.say("notice.listing_live", p.Title) }},
-	TypeListingRejected: {listings, func(p Params, w pen) string { return w.say("notice.listing_rejected", p.Title) }},
-	TypeFollowedListing: {followed, func(p Params, w pen) string { return w.say("notice.followed_listing", p.Seller, p.Title) }},
-	TypeReview:          {reviews, func(p Params, w pen) string { return w.say("notice.review", p.Actor, p.Stars, p.Title) }},
-	TypeReviewReply:     {reviews, func(p Params, w pen) string { return w.say("notice.review_reply", p.Actor, p.Title) }},
-	TypeSuspended: {accounts, func(p Params, w pen) string {
+	TypeListingLive:     {listings, func(p Params, w writer) string { return w.say("notice.listing_live", p.Title) }},
+	TypeListingRejected: {listings, func(p Params, w writer) string { return w.say("notice.listing_rejected", p.Title) }},
+	TypeFollowedListing: {followed, func(p Params, w writer) string { return w.say("notice.followed_listing", p.Seller, p.Title) }},
+	TypeReview:          {reviews, func(p Params, w writer) string { return w.say("notice.review", p.Actor, p.Stars, p.Title) }},
+	TypeReviewReply:     {reviews, func(p Params, w writer) string { return w.say("notice.review_reply", p.Actor, p.Title) }},
+	TypeSuspended: {accounts, func(p Params, w writer) string {
 		until, err := time.Parse(time.RFC3339, p.Until)
 		if err != nil {
 			return w.say("notice.suspended")
 		}
 		return w.say("notice.suspended.until", locale.Date(w.tag, until))
 	}},
-	TypeUnsuspended: {accounts, func(_ Params, w pen) string { return w.say("notice.unsuspended") }},
-	TypeWatchMatched: {searches, func(p Params, w pen) string {
+	TypeUnsuspended: {accounts, func(_ Params, w writer) string { return w.say("notice.unsuspended") }},
+	TypeWatchMatched: {searches, func(p Params, w writer) string {
 		n := strconv.Itoa(p.Count)
 		if p.Count >= 99 {
 			n = "99+"
 		}
 		return w.say("notice.watch_matched", n, p.Query)
 	}},
-	TypePriceDropped: {saved, func(p Params, w pen) string {
+	TypePriceDropped: {saved, func(p Params, w writer) string {
 		return w.say("notice.price_dropped", p.Title, w.money(p.Amount), w.money(p.SavedPrice))
 	}},
 }
@@ -433,7 +437,7 @@ var vietnam = time.FixedZone("ICT", 7*60*60)
 // Text writes a notice in language tag; an unknown type has no text.
 func Text(t Type, p Params, tag locale.Tag) string {
 	if d, ok := types[t]; ok {
-		w := penFor(tag)
+		w := writerFor(tag)
 		p.Actor = w.name(p.Actor)
 		return d.text(p, w)
 	}
@@ -441,12 +445,12 @@ func Text(t Type, p Params, tag locale.Tag) string {
 }
 
 // MessageTitle is a chat message push's title in language tag.
-func MessageTitle(tag locale.Tag) string { return penFor(tag).say("title.message") }
+func MessageTitle(tag locale.Tag) string { return writerFor(tag).say("title.message") }
 
 // Title is a push's title in language tag, by the notice's group.
 func Title(t Type, tag locale.Tag) string {
 	if d, ok := types[t]; ok {
-		return penFor(tag).say(d.title)
+		return writerFor(tag).say(d.title)
 	}
 	return "ShopNexus"
 }
@@ -480,13 +484,13 @@ func SupportBody(text string, photos int, tag locale.Tag) string {
 		}
 		return text
 	}
-	return penFor(tag).say("support.photos", photos)
+	return writerFor(tag).say("push.support_photos", photos)
 }
 
 // ChatBody is a chat push's body: the sender and the first 100 characters
 // of the text, or the photos they sent.
 func ChatBody(sender, text string, photos int, tag locale.Tag) string {
-	w := penFor(tag)
+	w := writerFor(tag)
 	sender = w.name(sender)
 	if text != "" {
 		if r := []rune(text); len(r) > chatRunes {
@@ -494,5 +498,5 @@ func ChatBody(sender, text string, photos int, tag locale.Tag) string {
 		}
 		return sender + ": " + text
 	}
-	return w.say("chat.photos", sender, photos)
+	return w.say("push.chat_photos", sender, photos)
 }

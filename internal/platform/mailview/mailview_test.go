@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/shopnexus/server/internal/platform/locale"
+	"github.com/shopnexus/server/internal/platform/locale/localetest"
 	"github.com/shopnexus/server/internal/platform/mailview"
 )
 
@@ -68,4 +69,10 @@ func TestUnknownArt(t *testing.T) {
 	if _, err := mailer.Message("a@b.test", "", mailview.Letter{Art: "nope"}); err == nil {
 		t.Fatal("rendered without a drawing")
 	}
+}
+
+// Every key the layout writes is in locales/<tag>.json.
+func TestLayoutKeys(t *testing.T) {
+	t.Parallel()
+	localetest.Keys(t, mailview.Words, ".", map[string]int{"Say": 1})
 }

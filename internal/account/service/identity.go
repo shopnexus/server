@@ -51,6 +51,14 @@ func (s *Account) Identities(ctx context.Context, accountID uuid.UUID) ([]Identi
 	return out, nil
 }
 
+func (s *Account) Locale(ctx context.Context, id uuid.UUID) (locale.Tag, error) {
+	tag, err := s.accounts.Locale(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("read locale: %w", err)
+	}
+	return locale.Of(tag), nil
+}
+
 func (s *Account) Mailbox(ctx context.Context, id uuid.UUID) (Mailbox, error) {
 	addr, tag, err := s.accounts.Mailbox(ctx, id)
 	if err != nil {

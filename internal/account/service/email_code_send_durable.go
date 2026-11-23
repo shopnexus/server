@@ -106,15 +106,23 @@ func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeRes
 		}
 		code, tag := s.Codes.For(id), locale.Of(string(in.Locale))
 		say := func(key string, args ...any) string { return mailWords.Say(tag, key, args...) }
-		kind, lead := "sign_in", say("sign_in.lead")
-		if in.Purpose == domain.PurposeAddIdentity {
-			kind, lead = "add", say("add.lead", in.Email.Value())
+		l := mailview.Letter{
+			Locale: tag, Group: say("group"), Art: mailview.ArtVerified, Code: code, CodeNote: say("expires"),
+			Preheader: say("preheader", code),
+			Subject:   say("sign_in.subject", code),
+			Title:     say("sign_in.title"),
+			Lead:      say("sign_in.lead"),
+			Note:      say("sign_in.note"),
+			Why:       say("sign_in.why"),
 		}
-		stepErr := s.Mail.Send(rc, in.Email.Value(), id.String(), mailview.Letter{
-			Locale: tag, Subject: say(kind+".subject", code), Preheader: say("preheader", code), Group: say("group"),
-			Art: mailview.ArtVerified, Title: say(kind + ".title"), Lead: lead, Code: code, CodeNote: say("expires"),
-			Note: say(kind + ".note"), Why: say(kind + ".why"),
-		})
+		if in.Purpose == domain.PurposeAddIdentity {
+			l.Subject = say("add.subject", code)
+			l.Title = say("add.title")
+			l.Lead = say("add.lead", in.Email.Value())
+			l.Note = say("add.note")
+			l.Why = say("add.why")
+		}
+		stepErr := s.Mail.Send(rc, in.Email.Value(), id.String(), l)
 		if errors.Is(stepErr, email.ErrRefused) {
 			s.Log.WarnContext(rc, "mail refused", "to", in.Email, "err", stepErr)
 			return mailRefused, nil
