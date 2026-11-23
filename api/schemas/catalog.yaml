@@ -252,6 +252,7 @@ Category:
       description: Absent on a root. A listing takes a category with a parent.
     display_name:
       type: string
+      description: The name in the request's language, as "Điện thoại" or "Phones".
     spec_labels:
       type: array
       description: The specs a listing under it must fill, in order. Empty on a root and on "Khác".

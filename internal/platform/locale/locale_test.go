@@ -2,6 +2,8 @@ package locale_test
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -21,6 +23,23 @@ func TestMatch(t *testing.T) {
 	}
 	if locale.Of("en") != locale.English || locale.Of("xx") != locale.Vietnamese || locale.Of("") != locale.Vietnamese {
 		t.Error("Of")
+	}
+}
+
+// Negotiate reads the header, falls back to the default and marks the
+// response as varying by it.
+func TestNegotiate(t *testing.T) {
+	t.Parallel()
+	for header, want := range map[string]locale.Tag{"en-GB": locale.English, "": locale.Vietnamese, "ja": locale.Vietnamese} {
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody)
+		r.Header.Set("Accept-Language", header)
+		w := httptest.NewRecorder()
+		if got := locale.Negotiate(w, r); got != want {
+			t.Errorf("%q: %q, want %q", header, got, want)
+		}
+		if got := w.Header().Get("Vary"); got != "Accept-Language" {
+			t.Errorf("%q: Vary %q", header, got)
+		}
 	}
 }
 

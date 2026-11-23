@@ -5,6 +5,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+	"github.com/shopnexus/server/internal/platform/locale/localetest"
 	"github.com/shopnexus/server/internal/trust/domain"
 )
 
@@ -43,27 +45,40 @@ func TestRedact(t *testing.T) {
 func TestSignalText(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
-		s    domain.Signal
-		want string
+		s      domain.Signal
+		vi, en string
 	}{
-		{domain.Signal{Code: domain.CodePrepayment}, "Đòi chuyển tiền hoặc đặt cọc trước"},
-		{domain.Signal{Code: domain.CodeFakeProof}, `Gửi biên lai giả hoặc bảo "chuyển dư, hoàn lại giúp"`},
-		{domain.Signal{Code: domain.CodeNewAccount, Params: map[string]int{"days": 2}}, "Tài khoản mới tạo 2 ngày"},
-		{domain.Signal{Code: domain.CodePriceBelow, Params: map[string]int{"percent": 40}}, "Giá thấp hơn 40% so với tin tương tự"},
-		{domain.Signal{Code: "unknown"}, ""},
+		{domain.Signal{Code: domain.CodePrepayment}, "Đòi chuyển tiền hoặc đặt cọc trước", "Asks for money or a deposit up front"},
+		{domain.Signal{Code: domain.CodeFakeProof}, `Gửi biên lai giả hoặc bảo "chuyển dư, hoàn lại giúp"`, `Sends a fake receipt or says "I sent too much, send it back"`},
+		{domain.Signal{Code: domain.CodeNewAccount, Params: map[string]int{"days": 2}}, "Tài khoản mới tạo 2 ngày", "Account only 2 days old"},
+		{domain.Signal{Code: domain.CodeNewAccount, Params: map[string]int{"days": 1}}, "Tài khoản mới tạo 1 ngày", "Account only 1 day old"},
+		{domain.Signal{Code: domain.CodePriceBelow, Params: map[string]int{"percent": 40}}, "Giá thấp hơn 40% so với tin tương tự", "Price 40% below similar listings"},
+		{domain.Signal{Code: "unknown"}, "", ""},
 	} {
-		if got := c.s.Text(); got != c.want {
-			t.Errorf("%s: %q, want %q", c.s.Code, got, c.want)
+		if got := c.s.Text(locale.Vietnamese); got != c.vi {
+			t.Errorf("%s vi: %q, want %q", c.s.Code, got, c.vi)
+		}
+		if got := c.s.Text(locale.English); got != c.en {
+			t.Errorf("%s en: %q, want %q", c.s.Code, got, c.en)
 		}
 	}
+	if got := (domain.Signal{Code: domain.CodePressure}).Text(""); got != "Hối thúc, ép quyết định ngay" {
+		t.Errorf("no tag: %q", got)
+	}
 	for _, code := range domain.MessageCodes {
-		if (domain.Signal{Code: code}).Text() == "" || !code.FromMessages() {
+		if (domain.Signal{Code: code}).Text(locale.English) == "" || !code.FromMessages() {
 			t.Errorf("message code %s has no text or is not a message code", code)
 		}
 	}
 	if domain.CodeNewAccount.FromMessages() || domain.CodePriceBelow.FromMessages() {
 		t.Error("a fact code counts as a message code")
 	}
+}
+
+// Every key the code writes is in text/<tag>.json.
+func TestTextKeys(t *testing.T) {
+	t.Parallel()
+	localetest.Keys(t, domain.Words, ".", map[string]int{"say": 1})
 }
 
 func TestFactSignals(t *testing.T) {

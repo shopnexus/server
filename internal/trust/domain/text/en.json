@@ -1,0 +1,12 @@
+{
+  "signal.fake_payment_proof": "Sends a fake receipt or says \"I sent too much, send it back\"",
+  "signal.impersonation": "Pretends to be ShopNexus, a bank or a carrier",
+  "signal.new_account.one": "Account only %[1]d day old",
+  "signal.new_account.other": "Account only %[1]d days old",
+  "signal.off_app_contact": "Asks to move to Zalo, Telegram or Facebook",
+  "signal.prepayment_request": "Asks for money or a deposit up front",
+  "signal.pressure": "Rushes you to decide now",
+  "signal.price_far_below": "Price %[1]d%% below similar listings",
+  "signal.sensitive_info_request": "Asks for a sign-in code, password or card details",
+  "signal.suspicious_link": "Sends odd links or fake payment or delivery pages"
+}

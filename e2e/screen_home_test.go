@@ -41,13 +41,20 @@ func TestHomeScreen(t *testing.T) {
 		t.Fatalf("vehicles.bicycle is not counted: %s", res.Body)
 	}
 
-	// Without a position the view still answers, with an empty feed.
-	res = call(t, "GET", "/v1/screens/home", nil)
+	// Without a position the view still answers, with an empty feed. The
+	// categories are named in the request's language.
+	res = call(t, "GET", "/v1/screens/home", nil, [2]string{"Accept-Language", "en"})
 	if bare := decode[struct {
-		Categories []struct{} `json:"categories"`
-		Nearby     searchView `json:"nearby"`
+		Categories []struct {
+			DisplayName string `json:"display_name"`
+			Children    []struct {
+				DisplayName string `json:"display_name"`
+			} `json:"children"`
+		} `json:"categories"`
+		Nearby searchView `json:"nearby"`
 	}](t, res); res.Status != http.StatusOK || len(bare.Categories) != 14 || bare.Nearby.Items == nil || len(bare.Nearby.Items) != 0 ||
-		bare.Nearby.NextCursor != "" {
+		bare.Nearby.NextCursor != "" || bare.Categories[0].DisplayName != "Phones" || bare.Categories[0].Children[0].DisplayName != "iPhone" ||
+		res.Header.Get("Vary") != "Accept-Language" {
 		t.Fatalf("no position: %d %s", res.Status, res.Body)
 	}
 	// radius_km bounds the feed as it bounds the search.

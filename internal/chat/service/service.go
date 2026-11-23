@@ -20,6 +20,7 @@ import (
 	"github.com/shopnexus/server/internal/chat/domain"
 	"github.com/shopnexus/server/internal/chat/repository"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/restatex"
 )
@@ -104,9 +105,9 @@ type Service interface {
 	// listing's title, on the first page only, and a page of their messages
 	// by text; archived conversations are searched too.
 	Search(ctx context.Context, account uuid.UUID, q string, p page.Request) (SearchResult, error)
-	// QuickReplies are account's saved chat answers, the defaults when it
-	// saved none.
-	QuickReplies(ctx context.Context, account uuid.UUID) (QuickReplies, error)
+	// QuickReplies are account's saved chat answers, the defaults in t when
+	// it saved none.
+	QuickReplies(ctx context.Context, account uuid.UUID, t locale.Tag) (QuickReplies, error)
 	// PutQuickReplies replaces account's quick replies with items, each
 	// trimmed, in their order.
 	PutQuickReplies(ctx context.Context, account uuid.UUID, items []string) (QuickReplies, error)

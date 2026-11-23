@@ -11,6 +11,7 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // maxSimilar is how many of the sample a guide shows.
@@ -38,7 +39,7 @@ func (a *Assist) PriceGuide(ctx context.Context, account uuid.UUID, in PriceGuid
 	if r := status.Refusal(); r != nil {
 		return PriceGuideView{}, r
 	}
-	cats, err := a.d.Catalog.Categories(ctx)
+	cats, err := a.d.Catalog.Categories(ctx, locale.Vietnamese)
 	if err != nil {
 		return PriceGuideView{}, fmt.Errorf("read categories: %w", err)
 	}

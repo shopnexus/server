@@ -17,6 +17,7 @@ import (
 
 	accountrepo "github.com/shopnexus/server/internal/account/repository"
 	catalogrepo "github.com/shopnexus/server/internal/catalog/repository"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/objectstore"
 	"github.com/shopnexus/server/internal/seedpack"
 	trustrepo "github.com/shopnexus/server/internal/trust/repository"
@@ -189,7 +190,7 @@ func (l *Loader) Plan(ctx context.Context, p *seedpack.Pack, o Options) (*Plan, 
 	}
 
 	// The stack's categories and communes.
-	tree, err := catalogrepo.NewCategories(l.d.Pool).Tree(ctx)
+	tree, err := catalogrepo.NewCategories(l.d.Pool).Tree(ctx, locale.Vietnamese)
 	if err != nil {
 		return nil, fmt.Errorf("read the categories: %w", err)
 	}

@@ -10,23 +10,22 @@ import (
 
 	"github.com/shopnexus/server/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
-	"github.com/shopnexus/server/internal/chat/domain"
 	"github.com/shopnexus/server/internal/chat/repository"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
-// An account that never saved quick replies reads the defaults and gets no
-// row; a put replaces the list in its order, an empty list stays empty,
-// and Delete brings the defaults back.
+// An account that never saved quick replies reads none and gets no row; a
+// put replaces the list in its order, an empty list stays empty, and
+// Delete forgets it.
 func TestQuickReplies(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	db := pgtest.New(t)
 	s := repository.NewQuickReplies(db)
 	me := accounttest.New(t, db)
-	got, err := s.Get(ctx, me)
-	if err != nil || !slices.Equal(got, domain.DefaultQuickReplies()) {
-		t.Fatalf("defaults: %q %v", got, err)
+	got, saved, err := s.Get(ctx, me)
+	if err != nil || saved || got != nil {
+		t.Fatalf("never saved: %q %v %v", got, saved, err)
 	}
 	var rows int
 	if err = db.QueryRow(ctx, `SELECT count(*) FROM quick_replies`).Scan(&rows); err != nil || rows != 0 {
@@ -36,19 +35,19 @@ func TestQuickReplies(t *testing.T) {
 	if err = s.Put(ctx, me, want); err != nil {
 		t.Fatal(err)
 	}
-	if got, err = s.Get(ctx, me); err != nil || !slices.Equal(got, want) {
+	if got, saved, err = s.Get(ctx, me); err != nil || !saved || !slices.Equal(got, want) {
 		t.Fatalf("put then get: %q %v", got, err)
 	}
 	if err = s.Put(ctx, me, []string{}); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ = s.Get(ctx, me); got == nil || len(got) != 0 {
+	if got, saved, _ = s.Get(ctx, me); !saved || got == nil || len(got) != 0 {
 		t.Fatalf("an empty list: %q", got)
 	}
 	if err = s.Delete(ctx, me); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ = s.Get(ctx, me); !slices.Equal(got, domain.DefaultQuickReplies()) {
+	if got, saved, _ = s.Get(ctx, me); saved {
 		t.Fatalf("after delete: %q", got)
 	}
 }

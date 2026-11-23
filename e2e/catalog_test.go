@@ -348,8 +348,17 @@ func TestUpdateListing(t *testing.T) {
 
 func TestCategoriesAndRegions(t *testing.T) {
 	t.Parallel()
-	if n := len(expect[page[any]](t, call(t, "GET", "/v1/categories", nil), 200).Items); n != 97 {
-		t.Fatalf("categories: %d items", n)
+	type category struct {
+		Code        string `json:"code"`
+		DisplayName string `json:"display_name"`
+	}
+	vi := call(t, "GET", "/v1/categories", nil)
+	if n := len(expect[page[category]](t, vi, 200).Items); n != 97 || vi.Header.Get("Vary") != "Accept-Language" {
+		t.Fatalf("categories: %d items, Vary %q", n, vi.Header.Get("Vary"))
+	}
+	en := expect[page[category]](t, call(t, "GET", "/v1/categories", nil, [2]string{"Accept-Language", "en-GB,en;q=0.9"}), 200).Items
+	if len(en) != 97 || en[0].Code != "phones" || en[0].DisplayName != "Phones" {
+		t.Fatalf("English categories: %+v", en)
 	}
 	if n := len(expect[page[any]](t, call(t, "GET", "/v1/regions", nil), 200).Items); n != 34 {
 		t.Fatalf("provinces: %d items", n)

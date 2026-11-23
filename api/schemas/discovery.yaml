@@ -142,6 +142,9 @@ Chip:
       enum: [phrase, category, price, condition, place, near_me, fresh, offers]
     label:
       type: string
+      description: |
+        In the request's language, as "Dưới 3 triệu" or "Under 3M ₫". A
+        phrase or a place reads as the model wrote it, in Vietnamese.
 CategoryCount:
   type: object
   additionalProperties: false
@@ -216,7 +219,7 @@ SearchHistoryItem:
       description: The query with its first letter upper-cased.
     category:
       type: string
-      description: The category the search understood; absent when none.
+      description: The Vietnamese name of the category the search understood; absent when none.
     photo_url:
       type: string
       format: uri

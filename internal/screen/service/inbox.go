@@ -7,6 +7,7 @@ import (
 
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
 )
@@ -31,7 +32,7 @@ type InboxItem struct {
 // Inbox reads a page of account's conversations, the deals of their pairs,
 // account's scam warnings in them and account's unread count, one call
 // each.
-func (s *Screen) Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request) (InboxScreen, error) {
+func (s *Screen) Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request, t locale.Tag) (InboxScreen, error) {
 	conversations, err := s.chats.Inbox(ctx, account, archived, p)
 	if err != nil {
 		return InboxScreen{}, fmt.Errorf("read inbox: %w", err)
@@ -46,7 +47,7 @@ func (s *Screen) Inbox(ctx context.Context, account uuid.UUID, archived bool, p 
 	if err != nil {
 		return InboxScreen{}, fmt.Errorf("read deals: %w", err)
 	}
-	warnings, err := s.trust.ScamWarnings(ctx, account, ids)
+	warnings, err := s.trust.ScamWarnings(ctx, account, ids, t)
 	if err != nil {
 		return InboxScreen{}, fmt.Errorf("read scam warnings: %w", err)
 	}

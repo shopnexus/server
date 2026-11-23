@@ -15,6 +15,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/repository"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/objectstore"
 	"github.com/shopnexus/server/internal/platform/restatex"
 	"github.com/shopnexus/server/internal/provider/embed"
@@ -82,7 +83,7 @@ func (s ListingEmbed) Refresh(ctx restate.ObjectContext) error {
 		case domain.StatusDeleted, domain.StatusProcessing, domain.StatusRejected:
 			return embedPlan{}, nil
 		}
-		tree, stepErr := s.Categories.Tree(rc)
+		tree, stepErr := s.Categories.Tree(rc, locale.Vietnamese)
 		if stepErr != nil {
 			return embedPlan{}, fmt.Errorf("read categories: %w", stepErr)
 		}

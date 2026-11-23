@@ -316,14 +316,19 @@ quickReplies:
     operationId: getQuickReplies
     summary: The caller's quick replies; an account that never saved any reads the defaults.
     description: |
-      The defaults are three answers a seller often gives. Reading them
-      writes nothing; the first PUT saves the list.
+      The defaults are three answers a seller often gives, in the request's
+      language. Reading them writes nothing; the first PUT saves the list.
     tags: [chat]
     security:
       - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     responses:
       "200":
         description: The quick replies.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:

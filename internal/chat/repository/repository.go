@@ -153,9 +153,9 @@ type MessageHitRow struct {
 // QuickReplies stores each account's quick replies, one row per account
 // that saved them; the last Put wins.
 type QuickReplies interface {
-	// Get returns account's quick replies, domain.DefaultQuickReplies when
-	// it saved none.
-	Get(ctx context.Context, account uuid.UUID) ([]string, error)
+	// Get returns account's quick replies, and false when it never saved
+	// any.
+	Get(ctx context.Context, account uuid.UUID) ([]string, bool, error)
 	// Put replaces account's quick replies; a deleted account is
 	// accountdomain.ErrSessionRevoked.
 	Put(ctx context.Context, account uuid.UUID, items []string) error

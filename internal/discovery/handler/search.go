@@ -7,6 +7,7 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/discovery/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // searchRequest is a search as the query string gives it. The position
@@ -33,7 +34,8 @@ type searchRequest struct {
 	Watch      uuid.UUID                 `json:"-" query:"watch"`
 }
 
-// Search serves GET /v1/search, signed in or not.
+// Search serves GET /v1/search, signed in or not, with chips in the
+// request's language.
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 	var in searchRequest
 	if err := httpx.Bind(r, &in); err != nil {
@@ -44,6 +46,7 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 		Query: in.Query, Category: in.Category, Province: in.Province, PriceMin: in.PriceMin, PriceMax: in.PriceMax, Conditions: in.Conditions,
 		RadiusKm: in.RadiusKm, OffersOnly: in.OffersOnly, Sort: in.Sort, Off: in.Off,
 		Near: catalogdomain.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune}, Cursor: in.Cursor, Limit: in.Limit, Photo: in.Photo, Like: in.Like, Watch: in.Watch,
+		Locale: locale.Negotiate(w, r),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

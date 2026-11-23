@@ -10,6 +10,7 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/shopnexus/server/internal/media/mediatest"
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
@@ -334,7 +336,7 @@ func TestCategoriesAndRegions(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	cats, err := e.catalog.Categories(ctx)
+	cats, err := e.catalog.Categories(ctx, locale.Vietnamese)
 	if err != nil || len(cats) != 97 {
 		t.Fatalf("%d %v", len(cats), err)
 	}

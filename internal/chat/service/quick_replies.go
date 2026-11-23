@@ -6,12 +6,16 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
-func (s *Chat) QuickReplies(ctx context.Context, account uuid.UUID) (QuickReplies, error) {
-	items, err := s.replies.Get(ctx, account)
+func (s *Chat) QuickReplies(ctx context.Context, account uuid.UUID, t locale.Tag) (QuickReplies, error) {
+	items, saved, err := s.replies.Get(ctx, account)
 	if err != nil {
 		return QuickReplies{}, fmt.Errorf("read quick replies: %w", err)
+	}
+	if !saved {
+		items = domain.DefaultQuickReplies(t)
 	}
 	return QuickReplies{Items: items}, nil
 }

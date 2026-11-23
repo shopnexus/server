@@ -50,6 +50,13 @@ func Match(acceptLanguage string) Tag {
 // FromRequest is Match on r's Accept-Language.
 func FromRequest(r *http.Request) Tag { return Match(r.Header.Get("Accept-Language")) }
 
+// Negotiate is the language a response to r is written in, the default when
+// the header names none, and marks the response as varying by the header.
+func Negotiate(w http.ResponseWriter, r *http.Request) Tag {
+	w.Header().Add("Vary", "Accept-Language")
+	return Of(string(FromRequest(r)))
+}
+
 // Of reads a stored tag; an unknown or empty one reads as the default.
 func Of(s string) Tag {
 	if t := Tag(s); slices.Contains(Supported, t) {

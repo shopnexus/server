@@ -12,6 +12,9 @@ notifications:
     responses:
       "200":
         description: One page of notices.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:

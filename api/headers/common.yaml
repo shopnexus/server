@@ -1,0 +1,5 @@
+VaryAcceptLanguage:
+  description: Accept-Language, on a response whose text follows the request's language, so a cache keeps one copy per language.
+  required: true
+  schema:
+    type: string

@@ -44,6 +44,16 @@ func TestScamWarning(t *testing.T) {
 		v.ScamWarning.Dismissed {
 		t.Fatalf("chat: %+v", v.ScamWarning)
 	}
+	// The signals' text follows the request's language.
+	en := call(t, "GET", chatPath, nil, bearer(buyer.AccessToken), [2]string{"Accept-Language", "en-US,en;q=0.9"})
+	for _, s := range expect[chatScreen](t, en, http.StatusOK).ScamWarning.Signals {
+		if s.Code == "prepayment_request" && s.Text != "Asks for money or a deposit up front" {
+			t.Fatalf("English signal %q", s.Text)
+		}
+	}
+	if en.Header.Get("Vary") != "Accept-Language" {
+		t.Fatalf("Vary %q", en.Header.Get("Vary"))
+	}
 	if theirs := inboxRows(t, seller.AccessToken)[buyer.Account.ID]; theirs.ScamWarning != nil {
 		t.Fatalf("the suspect sees %+v", theirs.ScamWarning)
 	}

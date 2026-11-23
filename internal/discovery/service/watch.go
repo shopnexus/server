@@ -12,6 +12,7 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/discovery/repository"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // WatchInput is a search the person follows, as POST /v1/search/watches
@@ -100,7 +101,7 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 		return WatchView{}, false, domain.ErrPositionRequired
 	}
 	now := d.now()
-	categories, err := d.catalog.Categories(ctx)
+	categories, err := d.catalog.Categories(ctx, locale.Vietnamese)
 	if err != nil {
 		return WatchView{}, false, fmt.Errorf("read categories: %w", err)
 	}

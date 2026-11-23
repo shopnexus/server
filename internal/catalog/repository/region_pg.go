@@ -9,16 +9,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 type pgCategories struct{ db *pgxpool.Pool }
 
 func NewCategories(db *pgxpool.Pool) Categories { return pgCategories{db} }
 
-func (s pgCategories) Tree(ctx context.Context) ([]domain.Category, error) {
+func (s pgCategories) Tree(ctx context.Context, t locale.Tag) ([]domain.Category, error) {
 	rows, err := s.db.Query(ctx, `
-SELECT c.code, coalesce(c.parent_code, ''), c.display_name, c.spec_labels FROM categories c LEFT JOIN categories p ON p.code = c.parent_code
-ORDER BY c.parent_code IS NOT NULL, coalesce(p.sort_order, c.sort_order), c.sort_order`)
+SELECT c.code, coalesce(c.parent_code, ''), coalesce(n.name, c.display_name), c.spec_labels FROM categories c
+LEFT JOIN categories p ON p.code = c.parent_code
+LEFT JOIN category_names n ON n.code = c.code AND n.locale = @locale
+ORDER BY c.parent_code IS NOT NULL, coalesce(p.sort_order, c.sort_order), c.sort_order`, pgx.StrictNamedArgs{"locale": string(t)})
 	if err != nil {
 		return nil, fmt.Errorf("select categories: %w", err)
 	}

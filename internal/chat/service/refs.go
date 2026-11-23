@@ -9,6 +9,7 @@ import (
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // RefView is a ShopNexus link in a message as the client draws it, a card in
@@ -142,7 +143,7 @@ func (c *Chat) refs(ctx context.Context, viewer uuid.UUID, views []MessageView) 
 	}
 	names := map[string]string{}
 	if categories {
-		all, err := c.catalog.Categories(ctx)
+		all, err := c.catalog.Categories(ctx, locale.Vietnamese)
 		if err != nil {
 			return fmt.Errorf("read the categories: %w", err)
 		}

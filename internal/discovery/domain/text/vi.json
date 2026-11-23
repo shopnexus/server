@@ -1,0 +1,15 @@
+{
+  "chip.condition.like_new": "Như mới",
+  "chip.condition.new": "Mới",
+  "chip.condition.used": "Đã dùng",
+  "chip.fresh": "Mới đăng",
+  "chip.near_me": "Gần bạn",
+  "chip.offers": "Cho trả giá",
+  "chip.price.between": "%[1]s–%[2]s",
+  "chip.price.from": "Từ %[1]s",
+  "chip.price.million": "%[1]s triệu",
+  "chip.price.million_bare": "%[1]s triệu",
+  "chip.price.thousand": "%[1]s nghìn",
+  "chip.price.thousand_bare": "%[1]s nghìn",
+  "chip.price.under": "Dưới %[1]s"
+}

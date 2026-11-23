@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/provider/carrier"
 	trustdomain "github.com/shopnexus/server/internal/trust/domain"
@@ -382,7 +383,7 @@ const holdHistory = 20
 // categoryName is the display name of the category code, or the code when
 // catalog has no such category.
 func (s *Agent) categoryName(ctx context.Context, code string) (string, error) {
-	cats, err := s.catalog.Categories(ctx)
+	cats, err := s.catalog.Categories(ctx, locale.Vietnamese)
 	if err != nil {
 		return "", fmt.Errorf("read the categories: %w", err)
 	}

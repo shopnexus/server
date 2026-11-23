@@ -8,6 +8,7 @@ import (
 
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/repository"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // PriceQuery is a listing input a price sample is drawn for: its subcategory, its
@@ -42,7 +43,7 @@ func (c *Catalog) PriceSample(ctx context.Context, q PriceQuery) ([]PriceSample,
 }
 
 func (c *Catalog) EmbeddingText(ctx context.Context, d domain.ListingInput) (string, error) {
-	tree, err := c.categories.Tree(ctx)
+	tree, err := c.categories.Tree(ctx, locale.Vietnamese)
 	if err != nil {
 		return "", fmt.Errorf("read categories: %w", err)
 	}

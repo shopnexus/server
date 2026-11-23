@@ -21,9 +21,11 @@ AcceptLanguage:
   description: |
     The caller's languages, as browsers and the apps send them. The server
     writes in Vietnamese (vi) or English (en), whichever the header
-    prefers, and Vietnamese when it names neither. An email code is mailed
-    and a page of notices is written in the request's language; a sign-in
-    records it as the language of the account's pushes and mail.
+    prefers, and Vietnamese when it names neither. An email code is mailed,
+    and the text the server writes in a response (notices, category names,
+    search chips, scam signals, default quick replies) is written, in the
+    request's language; such a response sends Vary: Accept-Language. A
+    sign-in records it as the language of the account's pushes and mail.
   schema:
     type: string
     example: vi-VN,vi;q=0.9,en;q=0.8

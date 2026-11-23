@@ -172,9 +172,13 @@ search:
       - $ref: "../parameters/discovery.yaml#/SearchWatch"
       - $ref: "../parameters/discovery.yaml#/SearchCursor"
       - $ref: "../parameters/common.yaml#/Limit"
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     responses:
       "200":
         description: One page of listings.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:

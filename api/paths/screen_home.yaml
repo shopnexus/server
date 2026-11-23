@@ -18,9 +18,13 @@ screenHome:
       - $ref: "../parameters/discovery.yaml#/NearLng"
       - $ref: "../parameters/discovery.yaml#/NearCommune"
       - $ref: "../parameters/discovery.yaml#/RadiusKm"
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     responses:
       "200":
         description: The Home view.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:

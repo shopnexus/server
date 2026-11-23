@@ -314,7 +314,7 @@ QuickReplies:
   description: |
     The caller's saved chat answers, in their order, which a composer
     offers to put in the field. An account that never saved any reads
-    three defaults.
+    three defaults in the request's language.
   properties:
     items:
       type: array

@@ -19,6 +19,7 @@ import (
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
 	"github.com/shopnexus/server/internal/trust/repository"
@@ -80,8 +81,9 @@ type Service interface {
 	// member by; its reports join the open case.
 	ReopenReportCase(ctx context.Context, account uuid.UUID, by audit.Actor) (CaseDetail, error)
 	// ScamWarnings reads account's scam warnings in the conversations
-	// given, keyed by conversation; one without a warning is left out.
-	ScamWarnings(ctx context.Context, account uuid.UUID, conversations []uuid.UUID) (map[uuid.UUID]ScamWarningView, error)
+	// given, keyed by conversation, with the signals' text in t; one
+	// without a warning is left out.
+	ScamWarnings(ctx context.Context, account uuid.UUID, conversations []uuid.UUID, t locale.Tag) (map[uuid.UUID]ScamWarningView, error)
 	// DismissScamWarning dismisses account's warning in a conversation of
 	// account's, and answers chat's conversation_not_found to anyone but a
 	// member. Without a warning, or dismissed already, it changes nothing.

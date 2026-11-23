@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"uuid"
+
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
-func (t *Trust) ScamWarnings(ctx context.Context, account uuid.UUID, conversations []uuid.UUID) (map[uuid.UUID]ScamWarningView, error) {
+func (t *Trust) ScamWarnings(ctx context.Context, account uuid.UUID, conversations []uuid.UUID, tag locale.Tag) (map[uuid.UUID]ScamWarningView, error) {
 	if len(conversations) == 0 {
 		return map[uuid.UUID]ScamWarningView{}, nil
 	}
@@ -18,7 +20,7 @@ func (t *Trust) ScamWarnings(ctx context.Context, account uuid.UUID, conversatio
 	for id, w := range ws {
 		v := ScamWarningView{Signals: []ScamSignalView{}, Dismissed: w.Dismissed()}
 		for _, s := range w.Signals() {
-			v.Signals = append(v.Signals, ScamSignalView{Code: string(s.Code), Params: s.Params, Text: s.Text(), MessageID: s.MessageID})
+			v.Signals = append(v.Signals, ScamSignalView{Code: string(s.Code), Params: s.Params, Text: s.Text(tag), MessageID: s.MessageID})
 		}
 		out[id] = v
 	}

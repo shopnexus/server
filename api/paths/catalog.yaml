@@ -374,9 +374,14 @@ categories:
     operationId: listCategories
     summary: The category tree.
     tags: [catalog]
+    parameters:
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     responses:
       "200":
         description: Every category.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:

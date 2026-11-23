@@ -16,6 +16,7 @@ import (
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogrepo "github.com/shopnexus/server/internal/catalog/repository"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/objectstore/objectstoretest"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/seedpack"
@@ -131,7 +132,7 @@ func TestLoadPackVectors(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	db := pgtest.New(t)
-	tree, err := catalogrepo.NewCategories(db).Tree(ctx)
+	tree, err := catalogrepo.NewCategories(db).Tree(ctx, locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}

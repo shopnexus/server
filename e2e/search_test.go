@@ -29,7 +29,8 @@ type searchView struct {
 	Items      []searchCard `json:"items"`
 	NextCursor string       `json:"next_cursor"`
 	Chips      []struct {
-		ID string `json:"id"`
+		ID    string `json:"id"`
+		Label string `json:"label"`
 	} `json:"chips"`
 	PreviewChips []struct {
 		Label string `json:"label"`
@@ -100,6 +101,17 @@ func TestSearch(t *testing.T) {
 	calls = model.asked()
 	if _, v = search(t, query, me); model.asked() != calls || len(v.Chips) == 0 {
 		t.Fatalf("the same query called the model again: %d → %d", calls, model.asked())
+	}
+	// The chips follow the request's language; the phrase stays as the
+	// model wrote it.
+	res, v = search(t, query, me, [2]string{"Accept-Language", "en"})
+	labels := make([]string, 0, len(v.Chips))
+	for _, c := range v.Chips {
+		labels = append(labels, c.Label)
+	}
+	if model.asked() != calls || !slices.Equal(labels, []string{"xe đạp đi làm", "Bicycles", "Under 3M ₫"}) ||
+		res.Header.Get("Vary") != "Accept-Language" {
+		t.Fatalf("English chips %q, Vary %q", labels, res.Header.Get("Vary"))
 	}
 	off := url.Values{}
 	maps.Copy(off, query)

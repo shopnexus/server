@@ -10,6 +10,7 @@ import (
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 var (
@@ -74,20 +75,25 @@ func TestCompilePrice(t *testing.T) {
 	t.Parallel()
 	for value, want := range map[string]struct {
 		lo, hi int64
-		label  string
+		vi, en string
 	}{
-		"-3000000":        {0, 3_000_000, "Dưới 3 triệu"},
-		"1000000-2000000": {1_000_000, 2_000_000, "1–2 triệu"},
-		"-500000":         {0, 500_000, "Dưới 500 nghìn"},
-		"5000000-":        {5_000_000, 0, "Từ 5 triệu"},
-		"-1500000":        {0, 1_500_000, "Dưới 1,5 triệu"},
+		"-3000000":        {0, 3_000_000, "Dưới 3 triệu", "Under 3M ₫"},
+		"1000000-2000000": {1_000_000, 2_000_000, "1–2 triệu", "1–2M ₫"},
+		"-500000":         {0, 500_000, "Dưới 500 nghìn", "Under 500K ₫"},
+		"5000000-":        {5_000_000, 0, "Từ 5 triệu", "From 5M ₫"},
+		"-1500000":        {0, 1_500_000, "Dưới 1,5 triệu", "Under 1.5M ₫"},
+		"500000-2000000":  {500_000, 2_000_000, "500 nghìn–2 triệu", "500K–2M ₫"},
 	} {
 		u := domain.Understanding{Boosts: []domain.Signal{{Attr: domain.AttrPrice, Values: []string{value}}}}
-		c := domain.Compile(u, "x", vocab, nil, now, nil)
-		p := boosts(c, catalogdomain.BoostPrice)
-		if len(p) != 1 || p[0].PriceMin != want.lo || p[0].PriceMax != want.hi || !near(p[0].Weight, 1.5) ||
-			len(c.Chips) != 1 || c.Chips[0].Label != want.label {
-			t.Errorf("%s: %+v %+v", value, p, c.Chips)
+		for tag, label := range map[locale.Tag]string{locale.Vietnamese: want.vi, locale.English: want.en} {
+			v := vocab
+			v.Locale = tag
+			c := domain.Compile(u, "x", v, nil, now, nil)
+			p := boosts(c, catalogdomain.BoostPrice)
+			if len(p) != 1 || p[0].PriceMin != want.lo || p[0].PriceMax != want.hi || !near(p[0].Weight, 1.5) ||
+				len(c.Chips) != 1 || c.Chips[0].Label != label {
+				t.Errorf("%s %s: %+v %+v", value, tag, p, c.Chips)
+			}
 		}
 	}
 	for _, bad := range []string{"abc", "-", "3-1", "-x"} {
@@ -133,6 +139,41 @@ func TestCompileFlags(t *testing.T) {
 	if cond := boosts(c, catalogdomain.BoostCondition); len(cond) != 1 || cond[0].Condition != catalogdomain.ConditionLikeNew {
 		t.Fatalf("condition: %+v", cond)
 	}
+	if got := labels(c); !slices.Equal(got, []string{"Mới đăng", "Cho trả giá", "Như mới"}) {
+		t.Fatalf("labels %q", got)
+	}
+}
+
+// Chips read in the vocabulary's language: category names from Labels,
+// the rest from the catalog. Twins still compare the Vietnamese names.
+func TestCompileEnglish(t *testing.T) {
+	t.Parallel()
+	v := vocab
+	v.Locale, v.Labels = locale.English, map[string]string{"vehicles.bicycle": "Bicycles"}
+	u := domain.Understanding{Boosts: []domain.Signal{
+		{Attr: domain.AttrCategory, Values: []string{"vehicles.bicycle", "sports"}},
+		{Attr: domain.AttrPhrase, Values: []string{"xe đạp"}},
+		{Attr: domain.AttrNearMe},
+		{Attr: domain.AttrFresh},
+		{Attr: domain.AttrOffers},
+		{Attr: domain.AttrCondition, Values: []string{"new", "like_new", "used"}},
+	}}
+	c := domain.Compile(u, "x", v, &origin, now, nil)
+	want := []string{"Bicycles", "Thể thao", "Near you", "Just listed", "Open to offers", "New", "Like new", "Used"}
+	if got := labels(c); !slices.Equal(got, want) {
+		t.Fatalf("labels %q, want %q", got, want)
+	}
+	if c.Chips[0].Code != "vehicles.bicycle" {
+		t.Fatalf("%+v", c.Chips[0])
+	}
+}
+
+func labels(c domain.Compiled) []string {
+	out := make([]string, 0, len(c.Chips))
+	for _, ch := range c.Chips {
+		out = append(out, ch.Label)
+	}
+	return out
 }
 
 func TestCompileDemote(t *testing.T) {

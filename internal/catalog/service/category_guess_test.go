@@ -7,6 +7,7 @@ import (
 
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/provider/embed/embedtest"
 )
 
@@ -50,7 +51,7 @@ func TestGuessCategoryOff(t *testing.T) {
 func TestKeywordsNameLeavesOfTheTree(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
-	tree, err := e.catalog.Categories(context.Background())
+	tree, err := e.catalog.Categories(context.Background(), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}

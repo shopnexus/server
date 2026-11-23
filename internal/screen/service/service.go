@@ -16,6 +16,7 @@ import (
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
 	notificationsvc "github.com/shopnexus/server/internal/notification/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
@@ -40,7 +41,7 @@ type Service interface {
 	CodCheckout(ctx context.Context, account, deal uuid.UUID, address *uuid.UUID) (CodCheckoutScreen, error)
 	// Home reads the Home view around near, within radiusKm when it is not
 	// 0; viewer is nil when signed out.
-	Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int) (HomeScreen, error)
+	Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int, t locale.Tag) (HomeScreen, error)
 	// Listing reads the listing view of a listing on sale, with its
 	// distance from in.Near; viewer is nil when signed out. A signed-in
 	// viewer who is not the seller counts a view of it, unless the read is
@@ -52,14 +53,16 @@ type Service interface {
 	// Seller reads the seller view, its listings as search items measured
 	// from near; viewer is nil when signed out.
 	Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error)
-	// Inbox reads a page of account's inbox view, archived or not.
-	Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request) (InboxScreen, error)
+	// Inbox reads a page of account's inbox view, archived or not, scam
+	// signals written in t.
+	Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request, t locale.Tag) (InboxScreen, error)
 	// InboxSearch reads the inbox search view: the conversations matching q
 	// with their pairs' deals, on the first page only, and a page of
-	// matching messages.
-	InboxSearch(ctx context.Context, account uuid.UUID, q string, p page.Request) (InboxSearchScreen, error)
-	// Chat reads the chat view of a conversation of account's.
-	Chat(ctx context.Context, account, conversation uuid.UUID) (ChatScreen, error)
+	// matching messages. Scam signals are written in t.
+	InboxSearch(ctx context.Context, account uuid.UUID, q string, p page.Request, t locale.Tag) (InboxSearchScreen, error)
+	// Chat reads the chat view of a conversation of account's, scam
+	// signals written in t.
+	Chat(ctx context.Context, account, conversation uuid.UUID, t locale.Tag) (ChatScreen, error)
 	// ProfileTasks reads account's Hoàn thiện hồ sơ view.
 	ProfileTasks(ctx context.Context, account uuid.UUID) (ProfileTasksScreen, error)
 	// Reputation reads account's Uy tín của bạn view.

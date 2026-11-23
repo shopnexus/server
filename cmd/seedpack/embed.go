@@ -14,6 +14,7 @@ import (
 	aiembed "github.com/shopnexus/server/internal/ai/embed"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogrepo "github.com/shopnexus/server/internal/catalog/repository"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/provider/embed"
 	"github.com/shopnexus/server/internal/seedpack"
 )
@@ -137,7 +138,7 @@ func embedText(ctx context.Context, s *stack, p *seedpack.Pack, batch int, missi
 		BaseURL: cfg.TextBaseURL, APIKey: cfg.IndexAPIKey, Model: cfg.TextModel, Dims: catalogdomain.TextDims,
 		HTTP: &http.Client{Timeout: cfg.Timeout},
 	}
-	tree, err := catalogrepo.NewCategories(s.pool).Tree(ctx)
+	tree, err := catalogrepo.NewCategories(s.pool).Tree(ctx, locale.Vietnamese)
 	if err != nil {
 		return 0, fmt.Errorf("read the categories: %w", err)
 	}

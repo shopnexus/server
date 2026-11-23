@@ -2,10 +2,14 @@ package repository_test
 
 import (
 	"context"
+	"slices"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/repository"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
@@ -46,9 +50,10 @@ func TestPlaces(t *testing.T) {
 
 func TestCategories(t *testing.T) {
 	t.Parallel()
-	s := repository.NewCategories(pgtest.New(t))
+	db := pgtest.New(t)
+	s := repository.NewCategories(db)
 	ctx := context.Background()
-	tree, err := s.Tree(ctx)
+	tree, err := s.Tree(ctx, locale.Vietnamese)
 	if err != nil || len(tree) != 97 || tree[0].Code != "phones" || tree[0].ParentCode != "" {
 		t.Fatalf("%d categories, first %+v, %v", len(tree), tree[0], err)
 	}
@@ -63,6 +68,32 @@ func TestCategories(t *testing.T) {
 	for _, c := range tree {
 		if c.SpecLabels == nil {
 			t.Errorf("%s: nil spec labels", c.Code)
+		}
+	}
+	// Every category has a name in every language, so none reads Vietnamese
+	// in English.
+	for _, tag := range locale.Supported[1:] {
+		var missing []string
+		if err = db.QueryRow(ctx, `SELECT coalesce(array_agg(c.code), '{}') FROM categories c
+LEFT JOIN category_names n ON n.code = c.code AND n.locale = @locale WHERE n.code IS NULL`,
+			pgx.StrictNamedArgs{"locale": string(tag)}).Scan(&missing); err != nil || len(missing) > 0 {
+			t.Errorf("%s lacks %v, %v", tag, missing, err)
+		}
+	}
+	en, err := s.Tree(ctx, locale.English)
+	if err != nil || len(en) != len(tree) {
+		t.Fatalf("%d English categories, %v", len(en), err)
+	}
+	names := map[string]string{}
+	for i, c := range en {
+		if c.Code != tree[i].Code || !slices.Equal(c.SpecLabels, tree[i].SpecLabels) {
+			t.Errorf("%d: %s, want %s", i, c.Code, tree[i].Code)
+		}
+		names[c.Code] = c.DisplayName
+	}
+	for code, want := range map[string]string{"phones": "Phones", "fashion": "Fashion", "phones.other": "Other", "other.other": "Other"} {
+		if names[code] != want {
+			t.Errorf("%s: %q, want %q", code, names[code], want)
 		}
 	}
 }

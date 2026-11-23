@@ -1,0 +1,12 @@
+{
+  "signal.fake_payment_proof": "Gửi biên lai giả hoặc bảo \"chuyển dư, hoàn lại giúp\"",
+  "signal.impersonation": "Mạo danh ShopNexus, ngân hàng hoặc hãng vận chuyển",
+  "signal.new_account.one": "Tài khoản mới tạo %[1]d ngày",
+  "signal.new_account.other": "Tài khoản mới tạo %[1]d ngày",
+  "signal.off_app_contact": "Rủ chuyển sang Zalo, Telegram, Facebook",
+  "signal.prepayment_request": "Đòi chuyển tiền hoặc đặt cọc trước",
+  "signal.pressure": "Hối thúc, ép quyết định ngay",
+  "signal.price_far_below": "Giá thấp hơn %[1]d%% so với tin tương tự",
+  "signal.sensitive_info_request": "Xin mã OTP, mật khẩu hoặc thông tin thẻ",
+  "signal.suspicious_link": "Gửi link lạ, giả trang thanh toán hoặc giao hàng"
+}

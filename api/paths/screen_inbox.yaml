@@ -16,9 +16,13 @@ screenInbox:
           type: boolean
       - $ref: "../parameters/common.yaml#/Cursor"
       - $ref: "../parameters/common.yaml#/Limit"
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     responses:
       "200":
         description: One page of the inbox.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:
@@ -52,9 +56,13 @@ screenInboxSearch:
           type: string
       - $ref: "../parameters/common.yaml#/Cursor"
       - $ref: "../parameters/common.yaml#/Limit"
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     responses:
       "200":
         description: The matches.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:
@@ -86,9 +94,13 @@ screenChat:
         schema:
           type: string
           format: uuid
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     responses:
       "200":
         description: The chat.
+        headers:
+          Vary:
+            $ref: "../headers/common.yaml#/VaryAcceptLanguage"
         content:
           application/json:
             schema:

@@ -6,6 +6,7 @@ import (
 	"uuid"
 
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -19,7 +20,7 @@ type InboxSearchScreen struct {
 
 // InboxSearch reads chat's search, the deals of the threads' pairs and the
 // caller's scam warnings in the threads.
-func (s *Screen) InboxSearch(ctx context.Context, account uuid.UUID, q string, p page.Request) (InboxSearchScreen, error) {
+func (s *Screen) InboxSearch(ctx context.Context, account uuid.UUID, q string, p page.Request, t locale.Tag) (InboxSearchScreen, error) {
 	found, err := s.chats.Search(ctx, account, q, p)
 	if err != nil {
 		return InboxSearchScreen{}, fmt.Errorf("search the inbox: %w", err)
@@ -34,7 +35,7 @@ func (s *Screen) InboxSearch(ctx context.Context, account uuid.UUID, q string, p
 	if err != nil {
 		return InboxSearchScreen{}, fmt.Errorf("read deals: %w", err)
 	}
-	warnings, err := s.trust.ScamWarnings(ctx, account, ids)
+	warnings, err := s.trust.ScamWarnings(ctx, account, ids, t)
 	if err != nil {
 		return InboxSearchScreen{}, fmt.Errorf("read scam warnings: %w", err)
 	}

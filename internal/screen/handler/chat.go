@@ -5,6 +5,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 type chatScreenRequest struct {
@@ -22,7 +23,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, err := h.svc.Chat(r.Context(), p.AccountID, in.ConversationID)
+	out, err := h.svc.Chat(r.Context(), p.AccountID, in.ConversationID, locale.Negotiate(w, r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

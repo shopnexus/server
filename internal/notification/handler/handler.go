@@ -43,7 +43,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, err := h.svc.List(r.Context(), p.AccountID, in, locale.FromRequest(r))
+	out, err := h.svc.List(r.Context(), p.AccountID, in, locale.Negotiate(w, r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

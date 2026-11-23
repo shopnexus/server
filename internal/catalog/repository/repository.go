@@ -11,6 +11,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -142,9 +143,9 @@ type Drafts interface {
 
 // Categories reads the category tree.
 type Categories interface {
-	// Tree returns every category: the roots in order, then each root's
-	// subcategories in order.
-	Tree(ctx context.Context) ([]domain.Category, error)
+	// Tree returns every category named in t, Vietnamese where t has no
+	// name: the roots in order, then each root's subcategories in order.
+	Tree(ctx context.Context, t locale.Tag) ([]domain.Category, error)
 	// Leaf reports whether key is a subcategory, with the spec labels it
 	// requires.
 	Leaf(ctx context.Context, key string) (bool, []string, error)

@@ -315,7 +315,7 @@ ScamSignal:
           description: How far the price is under similar listings, in percent, rounded down.
     text:
       type: string
-      description: Vietnamese, written by the server, as "Tài khoản mới tạo 2 ngày". Kept for older clients; a client writes its own from code and params.
+      description: Written by the server in the request's language, as "Tài khoản mới tạo 2 ngày" or "Account only 2 days old". Kept for older clients; a client writes its own from code and params.
     message_id:
       type: string
       format: uuid

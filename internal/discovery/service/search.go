@@ -16,6 +16,7 @@ import (
 	"github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/discovery/repository"
 	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/provider/embed"
 	"github.com/shopnexus/server/internal/provider/llm"
@@ -48,6 +49,8 @@ type SearchInput struct {
 	// Watch is a watch of the viewer's, zero for none; it brings its query
 	// and filters, and goes with Sort, Off, Cursor and Limit alone.
 	Watch uuid.UUID
+	// Locale is the language of the chips; empty reads as the default.
+	Locale locale.Tag
 }
 
 // SearchItem is a listing of a search page, and whether the viewer saved
@@ -218,9 +221,11 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		}
 	}
 
+	// names are the categories' Vietnamese names, by code.
+	var names map[string]string
 	if q != "" {
 		now := d.now()
-		categories, catErr := d.catalog.Categories(ctx)
+		categories, catErr := d.catalog.Categories(ctx, locale.Vietnamese)
 		if catErr != nil {
 			return SearchView{}, fmt.Errorf("read categories: %w", catErr)
 		}
@@ -238,11 +243,21 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		default:
 		}
 		raw = !understood
-		names := make(map[string]string, len(categories))
+		names = make(map[string]string, len(categories))
 		for _, c := range categories {
 			names[c.Code] = c.DisplayName
 		}
-		vocab := domain.Vocabulary{Categories: names}
+		vocab := domain.Vocabulary{Categories: names, Locale: in.Locale}
+		if in.Locale != "" && in.Locale != locale.Vietnamese {
+			named, nameErr := d.catalog.Categories(ctx, in.Locale)
+			if nameErr != nil {
+				return SearchView{}, fmt.Errorf("read category names: %w", nameErr)
+			}
+			vocab.Labels = make(map[string]string, len(named))
+			for _, c := range named {
+				vocab.Labels[c.Code] = c.DisplayName
+			}
+		}
 		if placeNames := append(domain.PlaceNames(u), domain.PlaceNames(preview)...); len(placeNames) > 0 {
 			var placeErr error
 			if vocab.Places, placeErr = d.catalog.FindPlaces(ctx, placeNames); placeErr != nil {
@@ -314,10 +329,11 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		return SearchView{}, err
 	}
 	if viewer != nil && q != "" && in.Cursor == "" {
+		// The history keeps the Vietnamese name, whatever the chip says.
 		entry := repository.HistoryEntry{Query: q, SearchedAt: d.now()}
 		for _, c := range view.Chips {
 			if c.Kind == domain.AttrCategory {
-				entry.Category, entry.CategoryCode = c.Label, c.Code
+				entry.Category, entry.CategoryCode = names[c.Code], c.Code
 				break
 			}
 		}

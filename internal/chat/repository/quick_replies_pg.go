@@ -10,24 +10,22 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
-	"github.com/shopnexus/server/internal/chat/domain"
 )
 
 type pgQuickReplies struct{ db *pgxpool.Pool }
 
 func NewQuickReplies(db *pgxpool.Pool) QuickReplies { return pgQuickReplies{db} }
 
-func (s pgQuickReplies) Get(ctx context.Context, account uuid.UUID) ([]string, error) {
-	var items []string
-	err := s.db.QueryRow(ctx, `SELECT items FROM quick_replies WHERE account_id = @account`,
+func (s pgQuickReplies) Get(ctx context.Context, account uuid.UUID) (items []string, saved bool, err error) {
+	err = s.db.QueryRow(ctx, `SELECT items FROM quick_replies WHERE account_id = @account`,
 		pgx.StrictNamedArgs{"account": account}).Scan(&items)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return domain.DefaultQuickReplies(), nil
+		return nil, false, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("read quick replies: %w", err)
+		return nil, false, fmt.Errorf("read quick replies: %w", err)
 	}
-	return items, nil
+	return items, true, nil
 }
 
 // Put takes a share lock on the account's row, as every write that keeps a

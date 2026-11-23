@@ -257,6 +257,38 @@ older clients (decided 2026-11-23, spec
   `writer.money` (money_short). A case changes in the umbrella's file
   first and is copied here.
 
+### Server text in languages
+
+Phase 2 of the same spec (decided 2026-11-23): the text the server writes
+into a response follows the request's `Accept-Language`.
+
+- `locale.Negotiate(w, r)` picks the language (Vietnamese when the header
+  names neither) and adds `Vary: Accept-Language`. The handlers that call
+  it: `GET /v1/categories`, `/v1/screens/home`, `/v1/search`,
+  `/v1/me/quick-replies`, `/v1/screens/inbox`, `/v1/screens/inbox/search`,
+  `/v1/screens/chat/{id}` and `/v1/notifications`. Their 200 declares the
+  header, required (`headers/common.yaml`), so e2e checks it.
+- Category names: `category_names(code, locale, name)` (migration 0080)
+  holds a row per category and language other than Vietnamese, which stays
+  `categories.display_name`. A table, not a `name_en` column, so a language
+  is rows and no table change. `Tree(ctx, tag)` falls back to Vietnamese on
+  a missing row, and the repository test fails on one, so a migration that
+  adds a category adds its names. Whatever a model reads or is stored
+  (embedding text, the category guess, the price sample, discovery's prompt
+  and vocabulary, the search history, chat refs, the agent) asks for
+  `locale.Vietnamese`.
+- Search chips: `discovery/domain/text/<tag>.json`, chosen by
+  `Vocabulary.Locale`. A category chip shows `Vocabulary.Labels`, while
+  twins and the history compare the Vietnamese names; phrases and places
+  stay as the model wrote them. Prices read "Dưới 3 triệu", "500 nghìn–2
+  triệu" and "Under 3M ₫", "500K–2M ₫", the number from `locale.Decimal`.
+- Scam signals: `Signal.Text(tag)` reads `trust/domain/text/<tag>.json`;
+  `new_account` has `.one` and `.other` keys for English. Default quick
+  replies read `chat/domain/text/<tag>.json`; the repository's `Get` says
+  whether the account saved a list and the service fills the defaults.
+- Still Vietnamese: spec labels (they need stable keys first), regions
+  (proper nouns), the history's stored `category`, chat ref names.
+
 ### Pagination
 
 A list endpoint pages by keyset over UUIDv7 IDs, newest first. Its handler
@@ -2089,8 +2121,8 @@ Module `chat` holds conversations (spec:
   the field. `PUT` replaces the list whole, in its order, and answers it
   trimmed; the spec caps it at 20 answers of 1 to 200 characters with
   something besides spaces. An account without a row (migration 0068)
-  reads three defaults from `domain.DefaultQuickReplies`, and a read
-  writes no row; an empty list stays empty. `PUT` takes a share lock on the
+  reads three defaults from `domain.DefaultQuickReplies` in the request's
+  language, and a read writes no row; an empty list stays empty. `PUT` takes a share lock on the
   account's row and refuses a tombstone with `session_revoked`, as
   notification settings do, and chat's worker deletes the row on
   `account.deleted`.
@@ -2714,8 +2746,8 @@ Search history (decided 2026-11-10, spec:
   search with `q`, after the search has answered. A search with `photo` or
   `like`, a later page and a signed-out search keep nothing. A failed write
   is logged at WARN and the search still answers 200.
-- An entry holds the query as typed (trimmed), the label of the first
-  category chip and its code (see Screen, Dành cho bạn), and the first
+- An entry holds the query as typed (trimmed), the Vietnamese name of the
+  first category chip and its code (see Screen, Dành cho bạn), and the first
   card's `cover_thumb_url`, all as text.
   `domain.HistoryKey` folds case, spaces and Vietnamese marks (đ as d), so
   "Xe Đạp" and "xe dap" are one entry. Searching it again gives the row a

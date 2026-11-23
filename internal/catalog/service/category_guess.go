@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // guessBatch is how many category texts go in one embedding call.
@@ -41,7 +42,7 @@ func (c *Catalog) prototypes(ctx context.Context) ([]domain.CategoryPrototype, e
 	if c.protos != nil {
 		return c.protos, nil
 	}
-	tree, err := c.categories.Tree(ctx)
+	tree, err := c.categories.Tree(ctx, locale.Vietnamese)
 	if err != nil {
 		return nil, fmt.Errorf("read categories: %w", err)
 	}

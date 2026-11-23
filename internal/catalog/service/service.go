@@ -20,6 +20,7 @@ import (
 	"github.com/shopnexus/server/internal/catalog/repository"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/restatex"
 	"github.com/shopnexus/server/internal/provider/embed"
@@ -158,7 +159,8 @@ type Service interface {
 	// domain.ErrNoCommuneNear when that point is farther than
 	// domain.MaxGPSKm.
 	Locate(ctx context.Context, p domain.Point) (Location, error)
-	Categories(ctx context.Context) ([]domain.Category, error)
+	// Categories is the category tree named in t.
+	Categories(ctx context.Context, t locale.Tag) ([]domain.Category, error)
 	// GuessCategory is the subcategory a listing's title and description
 	// read as; "" when both are blank or the text model is off.
 	GuessCategory(ctx context.Context, title, description string) (string, error)

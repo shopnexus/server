@@ -9,6 +9,7 @@ import (
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	dealdomain "github.com/shopnexus/server/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
 	trustdomain "github.com/shopnexus/server/internal/trust/domain"
@@ -37,7 +38,7 @@ type ChatScreen struct {
 // ticket, and for a seller the other member's rating as a buyer; for an
 // account outside the conversation it returns chat's
 // ErrNotFound (conversation_not_found).
-func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID) (ChatScreen, error) {
+func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID, t locale.Tag) (ChatScreen, error) {
 	conv, err := s.chats.Get(ctx, account, conversation)
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read conversation: %w", err)
@@ -54,7 +55,7 @@ func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID) (Cha
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read messages: %w", err)
 	}
-	warnings, err := s.trust.ScamWarnings(ctx, account, []uuid.UUID{conversation})
+	warnings, err := s.trust.ScamWarnings(ctx, account, []uuid.UUID{conversation}, t)
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read the scam warning: %w", err)
 	}

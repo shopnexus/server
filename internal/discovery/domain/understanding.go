@@ -9,6 +9,7 @@ import (
 	"time"
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // PromptVersion names the prompt and schema below; a change to either bumps
@@ -70,9 +71,17 @@ type Understanding struct {
 	Demotes []Signal `json:"demotes"`
 }
 
-// Vocabulary resolves what the model named against real rows.
+// Vocabulary resolves what the model named against real rows, and says the
+// chips in a language.
 type Vocabulary struct {
-	Categories map[string]string // code → display name, roots and subcategories
+	// Categories maps each code, roots and subcategories, to its Vietnamese
+	// name, the one phrases and the search history compare.
+	Categories map[string]string
+	// Labels maps codes to the names chips show in Locale; a code it lacks
+	// shows its Vietnamese name.
+	Labels map[string]string
+	// Locale is the language of the chips; empty reads as the default.
+	Locale locale.Tag
 	// Places are the points of the place names in the understanding, as
 	// PlaceNames gives them; a name with no single place is missing.
 	Places map[string]catalogdomain.Point
@@ -122,10 +131,6 @@ var freshness = []struct {
 	age   time.Duration
 	share float64
 }{{3 * 24 * time.Hour, 1}, {7 * 24 * time.Hour, 0.5}}
-
-var conditionLabel = map[catalogdomain.Condition]string{
-	catalogdomain.ConditionNew: "Mới", catalogdomain.ConditionLikeNew: "Như mới", catalogdomain.ConditionUsed: "Đã dùng",
-}
 
 // Compile resolves u into phrases and boosts. A value that does not resolve
 // is dropped: a page missing one signal is still worth serving. raw, the
@@ -241,6 +246,7 @@ func flag(a Attr) bool { return a == AttrNearMe || a == AttrFresh || a == AttrOf
 // add turns one value into terms at scale w (the sign times the position)
 // and returns its chip's label, or false when it does not resolve.
 func (c *Compiled) add(a Attr, value string, w float64, v Vocabulary, origin *catalogdomain.Point, now time.Time) (string, bool) {
+	say := writer{locale.Of(string(v.Locale))}
 	switch a {
 	case AttrPhrase:
 		if value == "" {
@@ -258,6 +264,9 @@ func (c *Compiled) add(a Attr, value string, w float64, v Vocabulary, origin *ca
 			kind = catalogdomain.BoostCategory
 		}
 		c.Boosts = append(c.Boosts, catalogdomain.Boost{Kind: kind, Code: value, Weight: w * weight[AttrCategory]})
+		if label, ok := v.Labels[value]; ok {
+			name = label
+		}
 		return name, true
 	case AttrPrice:
 		lo, hi, ok := priceRange(value)
@@ -267,10 +276,10 @@ func (c *Compiled) add(a Attr, value string, w float64, v Vocabulary, origin *ca
 		c.Boosts = append(c.Boosts, catalogdomain.Boost{
 			Kind: catalogdomain.BoostPrice, PriceMin: lo, PriceMax: hi, Weight: w * weight[AttrPrice],
 		})
-		return priceLabel(lo, hi), true
+		return say.price(lo, hi), true
 	case AttrCondition:
 		cond := catalogdomain.Condition(value)
-		label, ok := conditionLabel[cond]
+		label, ok := say.condition(cond)
 		if !ok {
 			return "", false
 		}
@@ -290,13 +299,13 @@ func (c *Compiled) add(a Attr, value string, w float64, v Vocabulary, origin *ca
 			return "", false
 		}
 		c.Boosts = append(c.Boosts, ringsAround(*origin, w)...)
-		return "Gần bạn", true
+		return say.say("chip.near_me"), true
 	case AttrFresh:
 		c.Boosts = append(c.Boosts, freshBoosts(now, w)...)
-		return "Mới đăng", true
+		return say.say("chip.fresh"), true
 	case AttrOffers:
 		c.Boosts = append(c.Boosts, catalogdomain.Boost{Kind: catalogdomain.BoostOffers, Weight: w * weight[AttrOffers]})
-		return "Cho trả giá", true
+		return say.say("chip.offers"), true
 	default:
 		return "", false
 	}
@@ -348,37 +357,6 @@ func priceRange(s string) (lo, hi int64, ok bool) {
 	}
 	return lo, hi, true
 }
-
-// priceLabel writes a range as a chip says it: "Dưới 3 triệu", "1–2 triệu",
-// "Từ 5 triệu".
-func priceLabel(lo, hi int64) string {
-	switch {
-	case lo == 0:
-		return "Dưới " + money(hi)
-	case hi == 0:
-		return "Từ " + money(lo)
-	case unit(lo) == unit(hi):
-		return number(lo) + "–" + money(hi)
-	default:
-		return money(lo) + "–" + money(hi)
-	}
-}
-
-func unit(n int64) string {
-	if n >= 1_000_000 {
-		return "triệu"
-	}
-	return "nghìn"
-}
-
-func number(n int64) string {
-	if n >= 1_000_000 {
-		return strings.Replace(strconv.FormatFloat(float64(n)/1_000_000, 'f', -1, 64), ".", ",", 1)
-	}
-	return strconv.FormatInt(n/1000, 10)
-}
-
-func money(n int64) string { return number(n) + " " + unit(n) }
 
 // QueryKey is a query as the cache keys it: lowercase, whitespace collapsed.
 func QueryKey(q string) string { return strings.ToLower(strings.Join(strings.Fields(q), " ")) }

@@ -7,6 +7,7 @@ import (
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // HomeCategory is a root of the category tree with its active listings
@@ -48,11 +49,11 @@ type HomeViewed struct {
 // near within radiusKm (the search's own radius when 0), and discovery's
 // ForYou measured from near. Without a position the nearby feed is empty;
 // radiusKm without one is the search's
-// discoverydomain.ErrPositionRequired.
-func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int) (HomeScreen, error) {
+// discoverydomain.ErrPositionRequired. Categories are named in t.
+func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int, t locale.Tag) (HomeScreen, error) {
 	out := HomeScreen{Nearby: discoverysvc.SearchView{Items: []discoverysvc.SearchItem{}}}
 	if near != (catalogdomain.Near{}) || radiusKm > 0 {
-		nearby, err := s.discovery.Search(ctx, viewer, discoverysvc.SearchInput{Near: near, RadiusKm: radiusKm, Sort: discoverysvc.SortNearby})
+		nearby, err := s.discovery.Search(ctx, viewer, discoverysvc.SearchInput{Near: near, RadiusKm: radiusKm, Sort: discoverysvc.SortNearby, Locale: t})
 		if err != nil {
 			return HomeScreen{}, fmt.Errorf("read the nearby feed: %w", err)
 		}
@@ -63,7 +64,7 @@ func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain
 		return HomeScreen{}, fmt.Errorf("read the for-you feed: %w", err)
 	}
 	out.ForYou = forYou.Items
-	tree, err := s.catalog.Categories(ctx)
+	tree, err := s.catalog.Categories(ctx, t)
 	if err != nil {
 		return HomeScreen{}, fmt.Errorf("read categories: %w", err)
 	}

@@ -10,6 +10,7 @@ import (
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 	chatrepo "github.com/shopnexus/server/internal/chat/repository"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/trust/domain"
 	"github.com/shopnexus/server/internal/trust/repository"
 	"github.com/shopnexus/server/internal/trust/service"
@@ -52,7 +53,7 @@ func TestScamWarningsView(t *testing.T) {
 	e := newEnv(t)
 	c := pairOf(t, e)
 	raise(t, e, c, c.AccountB, c.AccountA, []domain.Code{domain.CodeOffApp, domain.CodePrepayment}, time.Now())
-	got, err := e.trust.ScamWarnings(ctx, c.AccountB, []uuid.UUID{c.ID, uuid.NewV7()})
+	got, err := e.trust.ScamWarnings(ctx, c.AccountB, []uuid.UUID{c.ID, uuid.NewV7()}, locale.Vietnamese)
 	if err != nil || len(got) != 1 {
 		t.Fatalf("%v %v", got, err)
 	}
@@ -61,10 +62,13 @@ func TestScamWarningsView(t *testing.T) {
 		v.Signals[0].Text != "Đòi chuyển tiền hoặc đặt cọc trước" {
 		t.Fatalf("%+v", v)
 	}
-	if mine, _ := e.trust.ScamWarnings(ctx, c.AccountA, []uuid.UUID{c.ID}); len(mine) != 0 {
+	if en, _ := e.trust.ScamWarnings(ctx, c.AccountB, []uuid.UUID{c.ID}, locale.English); en[c.ID].Signals[0].Text != "Asks for money or a deposit up front" {
+		t.Fatalf("en %+v", en[c.ID])
+	}
+	if mine, _ := e.trust.ScamWarnings(ctx, c.AccountA, []uuid.UUID{c.ID}, locale.Vietnamese); len(mine) != 0 {
 		t.Fatalf("the suspect sees %+v", mine)
 	}
-	if none, err := e.trust.ScamWarnings(ctx, c.AccountB, nil); err != nil || len(none) != 0 {
+	if none, err := e.trust.ScamWarnings(ctx, c.AccountB, nil, locale.Vietnamese); err != nil || len(none) != 0 {
 		t.Fatalf("no conversations: %v %v", none, err)
 	}
 }
@@ -84,12 +88,12 @@ func TestDismissScamWarning(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got, _ := e.trust.ScamWarnings(ctx, c.AccountB, []uuid.UUID{c.ID}); !got[c.ID].Dismissed {
+	if got, _ := e.trust.ScamWarnings(ctx, c.AccountB, []uuid.UUID{c.ID}, locale.Vietnamese); !got[c.ID].Dismissed {
 		t.Fatalf("%+v", got)
 	}
 	// A new message code brings it back.
 	raise(t, e, c, c.AccountB, c.AccountA, []domain.Code{domain.CodeSensitive}, time.Now().Add(time.Minute))
-	if got, _ := e.trust.ScamWarnings(ctx, c.AccountB, []uuid.UUID{c.ID}); got[c.ID].Dismissed {
+	if got, _ := e.trust.ScamWarnings(ctx, c.AccountB, []uuid.UUID{c.ID}, locale.Vietnamese); got[c.ID].Dismissed {
 		t.Fatalf("after a new code: %+v", got)
 	}
 	// The suspect has no warning to dismiss; that is fine.
@@ -111,7 +115,7 @@ func TestDeleteScamWarnings(t *testing.T) {
 	if err := e.trust.DeleteScamWarnings(ctx, c.AccountB); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := e.trust.ScamWarnings(ctx, c.AccountB, []uuid.UUID{c.ID}); len(got) != 0 {
+	if got, _ := e.trust.ScamWarnings(ctx, c.AccountB, []uuid.UUID{c.ID}, locale.Vietnamese); len(got) != 0 {
 		t.Fatalf("%+v", got)
 	}
 }

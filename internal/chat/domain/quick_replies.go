@@ -1,15 +1,24 @@
 package domain
 
-import "strings"
+import (
+	"embed"
+	"strings"
+
+	"github.com/shopnexus/server/internal/platform/locale"
+)
+
+//go:embed text/*.json
+var textFiles embed.FS
+
+// words is chat's text, the default quick replies, in every language:
+// text/<tag>.json.
+var words = locale.MustLoad(textFiles, "text")
 
 // DefaultQuickReplies are the quick replies of an account that never saved
-// any: answers a seller often gives.
-func DefaultQuickReplies() []string {
-	return []string{
-		"Còn bạn ơi.",
-		"Bạn xem hàng giờ nào tiện? Mình rảnh buổi tối.",
-		"Giá đã tốt rồi, mình bớt thêm không nhiều được bạn nhé.",
-	}
+// any, in t: answers a seller often gives.
+func DefaultQuickReplies(t locale.Tag) []string {
+	say := func(key string) string { return words.Say(locale.Of(string(t)), key) }
+	return []string{say("reply.still_available"), say("reply.viewing"), say("reply.price")}
 }
 
 // TrimQuickReplies returns each answer without the spaces around it, in the

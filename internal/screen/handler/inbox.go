@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -24,7 +25,7 @@ func (h *Handler) Inbox(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, err := h.svc.Inbox(r.Context(), p.AccountID, in.Archived, in.Request)
+	out, err := h.svc.Inbox(r.Context(), p.AccountID, in.Archived, in.Request, locale.Negotiate(w, r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
@@ -49,7 +50,7 @@ func (h *Handler) InboxSearch(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, err := h.svc.InboxSearch(r.Context(), p.AccountID, in.Q, in.Request)
+	out, err := h.svc.InboxSearch(r.Context(), p.AccountID, in.Q, in.Request, locale.Negotiate(w, r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -9,6 +8,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 	"uuid"
+
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // Code names one sign of a scam. A classifier reads the message codes from
@@ -52,23 +53,6 @@ const (
 	PriceSampleMin = 5
 )
 
-// texts are the Vietnamese texts of the codes; params names the one
-// parameter of a code whose text has one.
-var (
-	texts = map[Code]string{
-		CodePrepayment:    "Đòi chuyển tiền hoặc đặt cọc trước",
-		CodeOffApp:        "Rủ chuyển sang Zalo, Telegram, Facebook",
-		CodeLink:          "Gửi link lạ, giả trang thanh toán hoặc giao hàng",
-		CodeSensitive:     "Xin mã OTP, mật khẩu hoặc thông tin thẻ",
-		CodeImpersonation: "Mạo danh ShopNexus, ngân hàng hoặc hãng vận chuyển",
-		CodeFakeProof:     `Gửi biên lai giả hoặc bảo "chuyển dư, hoàn lại giúp"`,
-		CodePressure:      "Hối thúc, ép quyết định ngay",
-		CodeNewAccount:    "Tài khoản mới tạo %d ngày",
-		CodePriceBelow:    "Giá thấp hơn %d%% so với tin tương tự",
-	}
-	params = map[Code]string{CodeNewAccount: "days", CodePriceBelow: "percent"}
-)
-
 // Signal is one code of a warning, with the parameters of its text, when a
 // check first found it and the suspect's newest message in that check's
 // window, which signals saved before 2026-11-20 lack.
@@ -103,13 +87,34 @@ func PriceBelowSignal(price, median int64, size int) (Signal, bool) {
 	return Signal{Code: CodePriceBelow, Params: map[string]int{"percent": percent}}, true
 }
 
-// Text is the signal's Vietnamese text; empty for an unknown code.
-func (s Signal) Text() string {
-	t := texts[s.Code]
-	if p, ok := params[s.Code]; ok {
-		return fmt.Sprintf(t, s.Params[p])
+// Text is the signal's text in t, with its params; empty for an unknown
+// code.
+func (s Signal) Text(t locale.Tag) string {
+	switch s.Code {
+	case CodePrepayment:
+		return say(t, "signal.prepayment_request")
+	case CodeOffApp:
+		return say(t, "signal.off_app_contact")
+	case CodeLink:
+		return say(t, "signal.suspicious_link")
+	case CodeSensitive:
+		return say(t, "signal.sensitive_info_request")
+	case CodeImpersonation:
+		return say(t, "signal.impersonation")
+	case CodeFakeProof:
+		return say(t, "signal.fake_payment_proof")
+	case CodePressure:
+		return say(t, "signal.pressure")
+	case CodeNewAccount:
+		if days := s.Params["days"]; days != 1 {
+			return say(t, "signal.new_account.other", days)
+		}
+		return say(t, "signal.new_account.one", 1)
+	case CodePriceBelow:
+		return say(t, "signal.price_far_below", s.Params["percent"])
+	default:
+		return ""
 	}
-	return t
 }
 
 // Side is a member's place in a conversation: a for account_a, b for
