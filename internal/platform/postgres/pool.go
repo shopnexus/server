@@ -5,6 +5,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
@@ -13,12 +14,24 @@ import (
 	"github.com/shopnexus/server/internal/platform/telemetry"
 )
 
+// Option changes the pool's settings before it opens.
+type Option func(*pgxpool.Config)
+
+// MaxConns caps the connections the pool opens. Without it pgx opens at
+// most max(4, CPUs), or pool_max_conns from the url.
+func MaxConns(n int) Option {
+	return func(c *pgxpool.Config) { c.MaxConns = int32(min(n, math.MaxInt32)) } //nolint:gosec // clamped to int32 first
+}
+
 // NewPool opens a pool on url with the query tracer and pool metrics
 // installed, and checks that the database answers.
-func NewPool(ctx context.Context, url string) (*pgxpool.Pool, error) {
+func NewPool(ctx context.Context, url string, opts ...Option) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, fmt.Errorf("parse database url: %w", err)
+	}
+	for _, o := range opts {
+		o(cfg)
 	}
 	cfg.ConnConfig.Tracer = tracer{}
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)

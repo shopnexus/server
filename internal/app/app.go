@@ -195,7 +195,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	default:
 		return nil, fmt.Errorf("CARRIER=%q: want fake, none or live", cfg.Carrier.Mode)
 	}
-	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
+	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL, postgres.MaxConns(cfg.DatabaseMaxConns))
 	if err != nil {
 		return nil, fmt.Errorf("connect to postgres: %w", err)
 	}

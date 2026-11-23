@@ -61,16 +61,19 @@ func (r Role) ServesAI() bool { return r != RoleAPI }
 // Config holds every setting the server reads. Modules receive the parts they
 // need through their constructors and never read the environment themselves.
 type Config struct {
-	Env            Env
-	Role           Role       //exhaustruct:optional SERVER_ROLE; the zero value is all
-	HTTPAddr       string     // HTTP_ADDR
-	LogLevel       slog.Level // LOG_LEVEL: debug | info | warn | error
-	LogFormat      LogFormat
-	DatabaseURL    string // DATABASE_URL
-	OTLPEndpoint   string // OTEL_EXPORTER_OTLP_ENDPOINT; empty disables export
-	ServiceName    string // SERVICE_NAME
-	Restate        RestateConfig
-	TrustedProxies []netip.Prefix // TRUSTED_PROXIES: CIDRs whose X-Forwarded-For is believed
+	Env         Env
+	Role        Role       //exhaustruct:optional SERVER_ROLE; the zero value is all
+	HTTPAddr    string     // HTTP_ADDR
+	LogLevel    slog.Level // LOG_LEVEL: debug | info | warn | error
+	LogFormat   LogFormat
+	DatabaseURL string // DATABASE_URL
+	// DatabaseMaxConns is DATABASE_MAX_CONNS, the most connections this
+	// process's pool opens. Every replica opens its own pool.
+	DatabaseMaxConns int
+	OTLPEndpoint     string // OTEL_EXPORTER_OTLP_ENDPOINT; empty disables export
+	ServiceName      string // SERVICE_NAME
+	Restate          RestateConfig
+	TrustedProxies   []netip.Prefix // TRUSTED_PROXIES: CIDRs whose X-Forwarded-For is believed
 	// GeoIPDB is GEOIP_DB, a country database in MaxMind's format that the
 	// access log reads each visitor's country from. Empty logs no country.
 	GeoIPDB string //exhaustruct:optional
@@ -570,13 +573,14 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	}
 
 	cfg := Config{
-		Env:         Env(oneOf("APP_ENV", string(EnvDev), string(EnvTest), string(EnvProd))),
-		Role:        role,
-		AI:          ai,
-		HTTPAddr:    need("HTTP_ADDR"),
-		LogLevel:    logLevel,
-		LogFormat:   LogFormat(oneOf("LOG_FORMAT", string(LogText), string(LogJSON))),
-		DatabaseURL: need("DATABASE_URL"),
+		Env:              Env(oneOf("APP_ENV", string(EnvDev), string(EnvTest), string(EnvProd))),
+		Role:             role,
+		AI:               ai,
+		HTTPAddr:         need("HTTP_ADDR"),
+		LogLevel:         logLevel,
+		LogFormat:        LogFormat(oneOf("LOG_FORMAT", string(LogText), string(LogJSON))),
+		DatabaseURL:      need("DATABASE_URL"),
+		DatabaseMaxConns: positive("DATABASE_MAX_CONNS"),
 		Restate: RestateConfig{
 			IngressURL:    need("RESTATE_INGRESS_URL"),
 			AdminURL:      need("RESTATE_ADMIN_URL"),
