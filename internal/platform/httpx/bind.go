@@ -59,7 +59,7 @@ func Bind[T any](r *http.Request, dst *T) error {
 				continue
 			}
 			if err := f.parse(rv.FieldByIndex(f.index), raw); err != nil {
-				return errInvalidRequest.WithField(f.name, "invalid").WithCause(err)
+				return errInvalidRequest.WithField(f.name, apperr.Invalid, "invalid").WithCause(err)
 			}
 		}
 	}

@@ -13,7 +13,7 @@ import (
 // older journal still decodes.
 func TestRefusedJournalShape(t *testing.T) {
 	t.Parallel()
-	errGone := apperr.New(apperr.KindConflict, "gone", "the thing is gone").WithField("id", "gone")
+	errGone := apperr.New(apperr.KindConflict, "gone", "the thing is gone").WithField("id", apperr.Unknown, "gone")
 	cases := []struct {
 		in   restatex.Refused
 		want string
@@ -21,7 +21,7 @@ func TestRefusedJournalShape(t *testing.T) {
 		{restatex.Refused{}, `{}`},
 		{
 			restatex.Refused{Refusal: errGone},
-			`{"refused":{"kind":4,"code":"gone","message":"the thing is gone","fields":{"id":"gone"}}}`,
+			`{"refused":{"kind":4,"code":"gone","message":"the thing is gone","fields":{"id":"gone"},"field_codes":{"id":"unknown"}}}`,
 		},
 	}
 	for _, c := range cases {

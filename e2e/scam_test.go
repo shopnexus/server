@@ -34,6 +34,11 @@ func TestScamWarning(t *testing.T) {
 	if row.ScamWarning.Dismissed || row.ScamWarning.Signals[0].Text == "" {
 		t.Fatalf("%+v", row.ScamWarning)
 	}
+	for _, s := range row.ScamWarning.Signals {
+		if (s.Code == "new_account") != (s.Params["days"] >= 1) {
+			t.Fatalf("%s params %v", s.Code, s.Params)
+		}
+	}
 	chatPath := "/v1/screens/chat/" + c.ID
 	if v := expect[chatScreen](t, call(t, "GET", chatPath, nil, bearer(buyer.AccessToken)), http.StatusOK); v.ScamWarning == nil ||
 		v.ScamWarning.Dismissed {

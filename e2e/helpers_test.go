@@ -51,9 +51,10 @@ func check(t *testing.T, name string, res Response, status int, code string) {
 }
 
 type apiError struct {
-	Code    string            `json:"code"`
-	Fields  map[string]string `json:"fields"`
-	Details map[string]any    `json:"details"`
+	Code       string            `json:"code"`
+	Fields     map[string]string `json:"fields"`
+	FieldCodes map[string]string `json:"field_codes"`
+	Details    map[string]any    `json:"details"`
 }
 
 // errorOf decodes the shared error format.

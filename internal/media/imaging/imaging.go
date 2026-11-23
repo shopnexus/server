@@ -36,7 +36,7 @@ const (
 )
 
 // RefusedError is a photo processing refuses; its message is the reason the
-// seller sees.
+// seller sees, one of domain's, which domain.FailureCodeOf reads as a code.
 type RefusedError struct{ reason string }
 
 func (e RefusedError) Error() string { return e.reason }
@@ -69,10 +69,10 @@ func Process(r io.Reader, contentType string, shape domain.Shape) (photo, thumb 
 		return nil, nil, fmt.Errorf("read the upload: %w", err)
 	}
 	if int64(len(raw)) > domain.MaxPhotoBytes {
-		return nil, nil, RefusedError{"the file is larger than 15 MB"}
+		return nil, nil, RefusedError{domain.ReasonTooLarge}
 	}
 	if !matchesType(raw, contentType) {
-		return nil, nil, RefusedError{"the file is not a " + contentType + " image"}
+		return nil, nil, RefusedError{domain.WrongType(contentType)}
 	}
 	// The decoder of the declared type only: a PNG uploaded as a JPEG is
 	// refused, as the magic bytes already showed.
@@ -86,15 +86,15 @@ func Process(r io.Reader, contentType string, shape domain.Shape) (photo, thumb 
 	}
 	cfg, err := decodeConfig(bytes.NewReader(raw))
 	if err != nil {
-		return nil, nil, RefusedError{"the image cannot be read"}
+		return nil, nil, RefusedError{domain.ReasonUnreadable}
 	}
 	pixels := int64(cfg.Width) * int64(cfg.Height)
 	if cfg.Width <= 0 || cfg.Height <= 0 || pixels > maxPixels || pixels*bytesPerPixel(cfg.ColorModel) > maxDecoded {
-		return nil, nil, RefusedError{"the image is too large; at most 40 megapixels, 20 at 16 bits a channel"}
+		return nil, nil, RefusedError{domain.ReasonTooManyPixels}
 	}
 	img, err := decode(bytes.NewReader(raw))
 	if err != nil {
-		return nil, nil, RefusedError{"the image cannot be read"}
+		return nil, nil, RefusedError{domain.ReasonUnreadable}
 	}
 	if shape == domain.ShapeSquare {
 		// The middle square of the stored pixels, turned, is the middle

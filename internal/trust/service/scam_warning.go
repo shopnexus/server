@@ -18,7 +18,7 @@ func (t *Trust) ScamWarnings(ctx context.Context, account uuid.UUID, conversatio
 	for id, w := range ws {
 		v := ScamWarningView{Signals: []ScamSignalView{}, Dismissed: w.Dismissed()}
 		for _, s := range w.Signals() {
-			v.Signals = append(v.Signals, ScamSignalView{Code: string(s.Code), Text: s.Text(), MessageID: s.MessageID})
+			v.Signals = append(v.Signals, ScamSignalView{Code: string(s.Code), Params: s.Params, Text: s.Text(), MessageID: s.MessageID})
 		}
 		out[id] = v
 	}

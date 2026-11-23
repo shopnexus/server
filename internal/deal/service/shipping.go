@@ -73,7 +73,7 @@ func (s *Deals) place(ctx context.Context, name, phone, street, commune string) 
 func (s *Deals) pickupFrom(ctx context.Context, seller uuid.UUID, point string, address uuid.UUID) (*domain.ShipmentPickup, error) {
 	switch {
 	case point != "" && address != uuid.Nil():
-		return nil, domain.ErrInvalidShipment.WithField("pickup_from", "carrier_pickup_id or address_id, not both")
+		return nil, domain.ErrInvalidShipment.WithField("pickup_from", apperr.OneOf, "carrier_pickup_id or address_id, not both")
 	case point != "":
 		return &domain.ShipmentPickup{PointID: point}, nil
 	case address != uuid.Nil():

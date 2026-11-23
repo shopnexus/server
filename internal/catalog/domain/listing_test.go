@@ -384,6 +384,9 @@ func TestCategorySpecsRequired(t *testing.T) {
 	if !errors.As(err, &e) || !strings.Contains(e.Fields["specs"], "Màu") || strings.Contains(e.Fields["specs"], "Dung lượng") {
 		t.Fatalf("missing Màu: %v", err)
 	}
+	if e.FieldCodes["specs"] != apperr.MissingSpecs || !slices.Equal(e.Details.MissingSpecs, []string{"Màu"}) {
+		t.Fatalf("code %q, details %v", e.FieldCodes["specs"], e.Details.MissingSpecs)
+	}
 	d := draft()
 	d.Specs = append(d.Specs, domain.Spec{Label: "màu", Value: "Trắng"})
 	if _, err = domain.NewListing(uuid.NewV7(), uuid.NewV7(), d, refs, now); err != nil {

@@ -11,7 +11,7 @@ import (
 // errPhotoTooLarge answers a photo over domain.MaxPhotoBytes: the schema's
 // maximum is the video's, so the handler holds the photo's.
 var errPhotoTooLarge = apperr.New(apperr.KindBadRequest, "invalid_request", "a photo is at most 15 MB").
-	WithField("size", "maximum")
+	WithField("size", apperr.OutOfRange, "maximum")
 
 type createUploadRequest struct {
 	ContentType string `json:"content_type"`

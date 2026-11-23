@@ -162,7 +162,8 @@ func TestAddressRefusals(t *testing.T) {
 		body := addressBody()
 		body["kind"] = kind
 		res = call(t, "POST", "/v1/addresses", body, bearer(me.AccessToken), newKey())
-		if e := errorOf(t, res); res.Status != 422 || e.Code != "invalid_address" || len(e.Fields) != 1 || e.Fields["kind"] == "" {
+		if e := errorOf(t, res); res.Status != 422 || e.Code != "invalid_address" || len(e.Fields) != 1 || e.Fields["kind"] == "" ||
+			e.FieldCodes["kind"] != "not_allowed" {
 			t.Errorf("add kind %q: %d %s", kind, res.Status, res.Body)
 		}
 		res = call(t, "PUT", path, body, bearer(me.AccessToken))

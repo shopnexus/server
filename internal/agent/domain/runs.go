@@ -126,14 +126,14 @@ var (
 // member is trusted, so phrases that read as instructions pass.
 func CleanInput(text string) (string, error) {
 	if strings.TrimSpace(text) == "" {
-		return "", ErrRequestInvalid.WithField("text", "empty")
+		return "", ErrRequestInvalid.WithField("text", apperr.Required, "empty")
 	}
 	if utf8.RuneCountInString(text) > MaxInput {
 		return "", ErrInputRejected
 	}
 	clean := tags.ReplaceAllString(controls.ReplaceAllString(zeroWidth.ReplaceAllString(text, ""), ""), "")
 	if strings.TrimSpace(clean) == "" {
-		return "", ErrRequestInvalid.WithField("text", "empty")
+		return "", ErrRequestInvalid.WithField("text", apperr.Required, "empty")
 	}
 	return clean, nil
 }

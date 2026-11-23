@@ -221,8 +221,15 @@ func TestPostListingRefusals(t *testing.T) {
 	cheap["price"] = 9_999
 	res := post(cheap, bearer(token))
 	check(t, "too cheap", res, 422, "invalid_listing")
-	if res.Status == 422 && errorOf(t, res).Fields["price"] == "" {
+	if e := errorOf(t, res); res.Status == 422 && (e.Fields["price"] == "" || e.FieldCodes["price"] != "out_of_range") {
 		t.Errorf("no price field: %s", res.Body)
+	}
+	unfilled := draftWith(upload(t, token, photo))
+	unfilled["specs"] = []map[string]string{{"label": "Hãng", "value": "Asama"}}
+	res = post(unfilled, bearer(token))
+	if e := errorOf(t, res); res.Status != 422 || e.FieldCodes["specs"] != "missing_specs" ||
+		fmt.Sprint(e.Details["missing_specs"]) != "[Loại xe Cỡ khung]" {
+		t.Errorf("missing specs: %d %s", res.Status, res.Body)
 	}
 	other, _ := newAccount(t)
 	check(t, "another account's upload", post(draftWith(upload(t, other.AccessToken, photo)), bearer(token)),
@@ -384,7 +391,7 @@ func TestListingGPS(t *testing.T) {
 	body := draftWith(upload(t, seller.AccessToken, photoWithGPS(t)))
 	body["gps"] = map[string]any{"lat": 10.77, "lng": 106.70} // TP.HCM; commune 00004 is in Hà Nội
 	res := call(t, "POST", "/v1/listings", body, bearer(seller.AccessToken), newKey())
-	if e := errorOf(t, res); res.Status != 422 || e.Code != "invalid_listing" || e.Fields["gps"] == "" {
+	if e := errorOf(t, res); res.Status != 422 || e.Code != "invalid_listing" || e.FieldCodes["gps"] != "out_of_range" {
 		t.Fatalf("far: %d %s", res.Status, res.Body)
 	}
 	body = draftWith(upload(t, seller.AccessToken, photoWithGPS(t)))

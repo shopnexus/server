@@ -53,8 +53,9 @@ func cards(t *testing.T, name string, got page[searchCard], seller string, near 
 	if len(got.Items) != len(want) {
 		t.Fatalf("%s: %+v, want %v", name, got, want)
 	}
-	for i, c := range got.Items {
-		if c.ID != want[i] || c.SellerID != seller || c.CoverThumbURL == "" || c.Commune == "" ||
+	for i := range got.Items {
+		c := &got.Items[i]
+		if c.ID != want[i] || c.SellerID != seller || c.CoverThumbURL == "" || c.Commune == "" || c.CommuneCode == "" ||
 			c.Saved != slices.Contains(saved, c.ID) || (c.DistanceKm != nil) != near || (near && *c.DistanceKm != 0) {
 			t.Fatalf("%s: card %d is %+v", name, i, c)
 		}

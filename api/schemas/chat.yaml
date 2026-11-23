@@ -131,7 +131,10 @@ Message:
       description: Only the sender sees a processing or failed message.
     failure:
       type: string
-      description: Why media refused a photo, on a failed message.
+      description: Why media refused a photo, on a failed message, in English.
+    failure_code:
+      type: string
+      description: failure as a code, as Photo.failure_code in catalog.yaml.
     reply_to:
       $ref: "#/Quote"
     deal:

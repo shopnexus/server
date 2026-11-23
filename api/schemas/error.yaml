@@ -18,7 +18,22 @@ Error:
           description: English, for developers.
         fields:
           type: object
-          description: One entry per invalid field, keyed by its JSON path.
+          description: One entry per invalid field, keyed by its JSON path, in English for developers.
+          additionalProperties:
+            type: string
+        field_codes:
+          type: object
+          description: |
+            The code of each entry in fields, by the same keys, so a client
+            writes the problem in its own words: required, too_short,
+            too_long (text), too_few, too_many (lists), out_of_range,
+            off_step (an amount between two steps), invalid (type or
+            format), not_allowed (a value the field does not take there),
+            unknown (names nothing that exists, or a property the schema
+            lacks), duplicate, one_of (takes exactly one of several fields),
+            missing_specs (with details.missing_specs), parcel_failed or
+            in_use. More may come; a client reads an unknown code as
+            invalid.
           additionalProperties:
             type: string
         details:
@@ -37,6 +52,12 @@ Error:
             reason:
               type: string
               description: What the carrier answered, in its words and language, sent with carrier_refused.
+            missing_specs:
+              type: array
+              minItems: 1
+              items:
+                type: string
+              description: The spec labels the listing's category requires that it lacks, in the category's order, sent with invalid_listing when field_codes.specs is missing_specs.
         trace_id:
           type: string
           description: Equals the Trace-Id response header.

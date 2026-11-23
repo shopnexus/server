@@ -13,6 +13,7 @@ import (
 
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/authn"
 )
 
@@ -38,7 +39,7 @@ func (s *Agent) Events(ctx context.Context, caller authn.ConsoleMember, turn uui
 	if lastEventID != "" {
 		n, err := strconv.ParseInt(lastEventID, 10, 64)
 		if err != nil || n < 0 {
-			return nil, domain.ErrRequestInvalid.WithField("last_event_id", "not_a_seq")
+			return nil, domain.ErrRequestInvalid.WithField("last_event_id", apperr.Invalid, "not_a_seq")
 		}
 		after = n
 	}

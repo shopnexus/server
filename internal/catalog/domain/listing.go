@@ -10,6 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 	"uuid"
+
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 const (
@@ -158,43 +160,49 @@ func (l *Listing) apply(d ListingInput, refs Refs, now time.Time) error {
 	e := ErrInvalidListing
 	title := strings.TrimSpace(d.Title)
 	if n := utf8.RuneCountInString(title); n < 1 || n > MaxTitle {
-		e = e.WithField("title", "1 to 70 characters")
+		e = e.WithField("title", apperr.Length(n, 1, MaxTitle), "1 to 70 characters")
 	}
 	if d.Price < MinPrice || d.Price > MaxPrice {
-		e = e.WithField("price", "10,000 to 1,000,000,000 đồng")
+		e = e.WithField("price", apperr.OutOfRange, "10,000 to 1,000,000,000 đồng")
 	}
 	description := strings.TrimSpace(d.Description)
 	if utf8.RuneCountInString(description) > MaxDescription {
-		e = e.WithField("description", "at most 1,500 characters")
+		e = e.WithField("description", apperr.TooLong, "at most 1,500 characters")
 	}
 	if !refs.CategoryIsLeaf {
-		e = e.WithField("category_code", "a subcategory")
+		e = e.WithField("category_code", apperr.NotAllowed, "a subcategory")
 	}
 	if !refs.CommuneExists {
-		e = e.WithField("commune_code", "a commune of the administrative list")
+		e = e.WithField("commune_code", apperr.Unknown, "a commune of the administrative list")
 	}
 	if d.Condition != ConditionNew && d.Condition != ConditionLikeNew && d.Condition != ConditionUsed {
-		e = e.WithField("condition", "new, like_new or used")
+		e = e.WithField("condition", apperr.NotAllowed, "new, like_new or used")
 	}
-	if len(d.Photos) < 1 || len(d.Photos) > MaxPhotos || duplicates(d) {
-		e = e.WithField("photos", "1 to 10 distinct photos")
+	if code := apperr.Count(len(d.Photos), 1, MaxPhotos); code != "" {
+		e = e.WithField("photos", code, "1 to 10 distinct photos")
+	} else if duplicates(d) {
+		e = e.WithField("photos", apperr.Duplicate, "1 to 10 distinct photos")
 	}
 	if len(d.Specs) > MaxSpecs {
-		e = e.WithField("specs", "at most 20")
+		e = e.WithField("specs", apperr.TooMany, "at most 20")
 	}
 	specs := make([]Spec, 0, len(d.Specs))
 	for _, s := range d.Specs {
 		label, value := strings.TrimSpace(s.Label), strings.TrimSpace(s.Value)
 		if !within(label, MaxSpecText) || !within(value, MaxSpecText) {
-			e = e.WithField("specs", "label and value 1 to 50 characters each")
+			code := apperr.TooLong
+			if label == "" || value == "" {
+				code = apperr.Required
+			}
+			e = e.WithField("specs", code, "label and value 1 to 50 characters each")
 		}
 		specs = append(specs, Spec{Label: label, Value: value})
 	}
 	if missing := missingSpecs(refs.SpecLabels, specs); len(missing) > 0 {
-		e = e.WithField("specs", "a value for "+strings.Join(missing, ", "))
+		e = e.WithField("specs", apperr.MissingSpecs, "a value for "+strings.Join(missing, ", ")).WithMissingSpecs(missing)
 	}
 	if d.Spot != nil && Distance(*d.Spot, refs.CommunePoint) > MaxGPSKm {
-		e = e.WithField("gps", "within 30 km of the commune")
+		e = e.WithField("gps", apperr.OutOfRange, "within 30 km of the commune")
 	}
 	if len(e.Fields) > 0 {
 		return e

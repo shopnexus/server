@@ -44,6 +44,9 @@ SavedListing:
         commune:
           type: string
           description: The name of the listing's commune.
+        commune_code:
+          type: string
+          description: The code of the listing's commune, as in /v1/regions/{province_code}/communes.
         status:
           $ref: "catalog.yaml#/ListingStatus"
 SavedList:
@@ -62,7 +65,7 @@ SavedList:
 SearchItem:
   type: object
   additionalProperties: false
-  required: [id, slug, seller_id, title, price, category_code, condition, allow_offers, commune, saved]
+  required: [id, slug, seller_id, title, price, category_code, condition, allow_offers, commune, commune_code, saved]
   description: |
     A listing as a browse surface shows it: a search page, Home's nearby
     feed and the seller view. It carries no point of the listing.
@@ -100,6 +103,9 @@ SearchItem:
     commune:
       type: string
       description: The name of the listing's commune.
+    commune_code:
+      type: string
+      description: The code of the listing's commune, as in /v1/regions/{province_code}/communes.
     price_drop:
       $ref: "catalog.yaml#/PriceDrop"
     distance_km:

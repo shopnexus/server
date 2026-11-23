@@ -97,7 +97,7 @@ func (s *Agent) checkModel(ctx context.Context, required []string, model string)
 	}
 	for _, t := range required {
 		if !slices.ContainsFunc(tags, func(k repository.Tag) bool { return k.Name == t }) {
-			return domain.ErrTagUnknown.WithField("required_tags", t)
+			return domain.ErrTagUnknown.WithField("required_tags", apperr.Unknown, t)
 		}
 	}
 	modelTags, err := s.settings.ModelTags(ctx)
@@ -105,7 +105,7 @@ func (s *Agent) checkModel(ctx context.Context, required []string, model string)
 		return fmt.Errorf("read the model tags: %w", err)
 	}
 	if missing := domain.MissingTags(required, modelTags[model]); len(missing) > 0 {
-		return domain.ErrModelLacksTags.WithField("model", strings.Join(missing, ", "))
+		return domain.ErrModelLacksTags.WithField("model", apperr.NotAllowed, strings.Join(missing, ", "))
 	}
 	return nil
 }
@@ -245,7 +245,7 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 	}
 	if in.MonthlyBudgetUSD.Set {
 		if v := in.MonthlyBudgetUSD.Value; v != nil && *v < 0 {
-			return AgentView{}, domain.ErrAgentInvalid.WithField("monthly_budget_usd", "negative")
+			return AgentView{}, domain.ErrAgentInvalid.WithField("monthly_budget_usd", apperr.OutOfRange, "negative")
 		}
 		a.MonthlyBudgetUSD, details["monthly_budget_usd"] = in.MonthlyBudgetUSD.Value, in.MonthlyBudgetUSD.Value
 		if err = s.applyBudget(ctx, a, a.MonthlyBudgetUSD); err != nil {

@@ -294,3 +294,18 @@ func TestGone(t *testing.T) {
 		t.Fatal("another owner's upload is gone")
 	}
 }
+
+// A stored reason reads as its code, the type named in wrong_type aside.
+func TestFailureCodeOf(t *testing.T) {
+	t.Parallel()
+	for reason, want := range map[string]domain.FailureCode{
+		"": "", domain.ReasonTooLarge: domain.FailTooLarge, domain.WrongType("image/png"): domain.FailWrongType,
+		domain.ReasonUnreadable: domain.FailUnreadable, domain.ReasonTooManyPixels: domain.FailTooManyPixels,
+		domain.ReasonUnknownUpload: domain.FailUnknownUpload, domain.ReasonNotAttached: domain.FailNotAttached,
+		"something else": domain.FailOther,
+	} {
+		if got := domain.FailureCodeOf(reason); got != want {
+			t.Errorf("%q: %q, want %q", reason, got, want)
+		}
+	}
+}

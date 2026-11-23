@@ -50,7 +50,7 @@ func TestFailedPhoto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := e.settled(t, buyer, c.ID, m.ID); got.Status != domain.StatusFailed || got.Failure == "" {
+	if got := e.settled(t, buyer, c.ID, m.ID); got.Status != domain.StatusFailed || got.FailureCode != mediadomain.FailWrongType {
 		t.Fatalf("%+v", got)
 	}
 	if len(e.messages(t, seller, c.ID)) != 1 {

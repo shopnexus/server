@@ -12,6 +12,7 @@ import (
 	"uuid"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 const (
@@ -78,12 +79,16 @@ func NewMessage(id, conversation, sender uuid.UUID, body string, photos []uuid.U
 	e := ErrInvalidMessage
 	body = strings.TrimSpace(body)
 	n := utf8.RuneCountInString(body)
-	if n > MaxText || (n == 0 && len(photos) == 0 && !opensTicket) {
-		e = e.WithField("text", "1 to 1,000 characters, or photos")
+	if n > MaxText {
+		e = e.WithField("text", apperr.TooLong, "1 to 1,000 characters, or photos")
+	} else if n == 0 && len(photos) == 0 && !opensTicket {
+		e = e.WithField("text", apperr.Required, "1 to 1,000 characters, or photos")
 	}
 	sorted := slices.SortedFunc(slices.Values(photos), func(a, b uuid.UUID) int { return bytes.Compare(a[:], b[:]) })
-	if len(photos) > MaxPhotos || len(slices.Compact(sorted)) != len(photos) {
-		e = e.WithField("photos", "up to 4 uploads, each once")
+	if len(photos) > MaxPhotos {
+		e = e.WithField("photos", apperr.TooMany, "up to 4 uploads, each once")
+	} else if len(slices.Compact(sorted)) != len(photos) {
+		e = e.WithField("photos", apperr.Duplicate, "up to 4 uploads, each once")
 	}
 	if len(e.Fields) > 0 {
 		return Message{}, e

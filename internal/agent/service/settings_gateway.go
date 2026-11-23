@@ -11,6 +11,7 @@ import (
 
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/provider/litellm"
@@ -270,7 +271,7 @@ func (s *Agent) inUse(ctx context.Context, st state, provider string, models []s
 		}
 		others := slices.DeleteFunc(st.providersOf(a.Model), func(c litellm.Credential) bool { return c.Name == provider })
 		if len(others) == 0 {
-			return domain.ErrProviderInUse.WithField("agent", a.Name)
+			return domain.ErrProviderInUse.WithField("agent", apperr.InUse, a.Name)
 		}
 	}
 	return nil

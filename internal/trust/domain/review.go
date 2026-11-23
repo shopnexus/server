@@ -9,6 +9,8 @@ import (
 	"time"
 	"unicode/utf8"
 	"uuid"
+
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // Role is the side of the order the subject of a review was on.
@@ -177,8 +179,8 @@ func (r *Review) Reply(by uuid.UUID, text string, now time.Time) error {
 		return ErrReplied
 	}
 	text = strings.TrimSpace(text)
-	if text == "" || utf8.RuneCountInString(text) > MaxText {
-		return ErrInvalidReview.WithField("text", "1 to 500 characters")
+	if n := utf8.RuneCountInString(text); n < 1 || n > MaxText {
+		return ErrInvalidReview.WithField("text", apperr.Length(n, 1, MaxText), "1 to 500 characters")
 	}
 	r.reply, r.repliedAt = text, &now
 	return nil
@@ -198,16 +200,16 @@ func (r *Review) set(stars int, text string, tags []Tag, photos []Photo, now tim
 	e := ErrInvalidReview
 	text = strings.TrimSpace(text)
 	if stars < 1 || stars > MaxStars {
-		e = e.WithField("stars", "1 to 5")
+		e = e.WithField("stars", apperr.OutOfRange, "1 to 5")
 	}
 	if utf8.RuneCountInString(text) > MaxText {
-		e = e.WithField("text", "at most 500 characters")
+		e = e.WithField("text", apperr.TooLong, "at most 500 characters")
 	}
 	if !r.role.validTags(tags) {
-		e = e.WithField("tags", "each once, of "+tagList(r.role.Tags()))
+		e = e.WithField("tags", apperr.NotAllowed, "each once, of "+tagList(r.role.Tags()))
 	}
 	if len(photos) > MaxPhotos {
-		e = e.WithField("photos", "at most 4")
+		e = e.WithField("photos", apperr.TooMany, "at most 4")
 	}
 	if len(e.Fields) > 0 {
 		return e

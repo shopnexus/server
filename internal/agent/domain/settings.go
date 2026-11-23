@@ -69,7 +69,7 @@ func (l Limits) Check(kind AgentKind) (Limits, error) {
 	}
 	if (l.DeadlineS != 0 && (l.DeadlineS < MinDeadlineS || l.DeadlineS > MaxDeadlineS)) || l.MaxModelCalls < 0 ||
 		l.ContextWindow < 0 || l.ToolTimeoutS < 0 || l.ToolAttempts < 0 || l.MaxTokens < 0 || l.TimeoutS < 0 {
-		return l, ErrAgentInvalid.WithField("limits", "out_of_range")
+		return l, ErrAgentInvalid.WithField("limits", apperr.OutOfRange, "out_of_range")
 	}
 	return l, nil
 }

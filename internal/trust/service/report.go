@@ -8,6 +8,7 @@ import (
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
 	"github.com/shopnexus/server/internal/trust/repository"
@@ -26,7 +27,7 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 		return ReportView{}, false, r
 	}
 	if (in.ListingID == uuid.UUID{}) == (in.AccountID == uuid.UUID{}) {
-		return ReportView{}, false, domain.ErrInvalidReport.WithField("target", "exactly one of listing_id and account_id")
+		return ReportView{}, false, domain.ErrInvalidReport.WithField("target", apperr.OneOf, "exactly one of listing_id and account_id")
 	}
 	if in.AccountID == accountdomain.ShopNexusID {
 		return ReportView{}, false, accountdomain.ErrSystemAccount
@@ -50,7 +51,7 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 			return ReportView{}, false, fmt.Errorf("find the pair's conversation: %w", cerr)
 		}
 		if pair != in.ConversationID {
-			return ReportView{}, false, domain.ErrInvalidReport.WithField("conversation_id", "the reporter's conversation with the account")
+			return ReportView{}, false, domain.ErrInvalidReport.WithField("conversation_id", apperr.NotAllowed, "the reporter's conversation with the account")
 		}
 	}
 	r, err := domain.NewReport(uuid.NewV7(), reporter, account, in.ListingID, in.ConversationID, in.Reason, in.Note, s.now())

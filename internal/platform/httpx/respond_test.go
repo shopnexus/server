@@ -17,10 +17,11 @@ import (
 
 type errorBody struct {
 	Error struct {
-		Code    string            `json:"code"`
-		Message string            `json:"message"`
-		Fields  map[string]string `json:"fields"`
-		TraceID string            `json:"trace_id"`
+		Code       string            `json:"code"`
+		Message    string            `json:"message"`
+		Fields     map[string]string `json:"fields"`
+		FieldCodes map[string]string `json:"field_codes"`
+		TraceID    string            `json:"trace_id"`
 	} `json:"error"`
 }
 
@@ -75,9 +76,9 @@ func TestWriteErrorMapsKinds(t *testing.T) {
 
 func TestWriteErrorUnwrapsAppError(t *testing.T) {
 	t.Parallel()
-	rec, _ := failWith(t, fmt.Errorf("place order: %w", apperr.New(apperr.KindConflict, "phone_taken", "taken").WithField("phone", "taken")))
+	rec, _ := failWith(t, fmt.Errorf("place order: %w", apperr.New(apperr.KindConflict, "phone_taken", "taken").WithField("phone", apperr.InUse, "taken")))
 	b := decodeError(t, rec)
-	if rec.Code != 409 || b.Error.Code != "phone_taken" || b.Error.Fields["phone"] != "taken" {
+	if rec.Code != 409 || b.Error.Code != "phone_taken" || b.Error.Fields["phone"] != "taken" || b.Error.FieldCodes["phone"] != "in_use" {
 		t.Fatalf("%d %+v", rec.Code, b)
 	}
 }

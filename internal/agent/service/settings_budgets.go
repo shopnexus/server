@@ -69,7 +69,7 @@ func (s *Agent) UpdateRotation(ctx context.Context, caller authn.ConsoleMember, 
 	if in.RoutingStrategy != nil {
 		if !slices.Contains(RoutingStrategies, *in.RoutingStrategy) {
 			return Rotation{}, apperr.New(apperr.KindInvalid, "ai_rotation_invalid", "no such routing strategy").
-				WithField("routing_strategy", "unknown")
+				WithField("routing_strategy", apperr.NotAllowed, "unknown")
 		}
 		set["routing_strategy"] = *in.RoutingStrategy
 	}
@@ -161,7 +161,7 @@ func (s *Agent) UpdateBudgets(ctx context.Context, caller authn.ConsoleMember, i
 	defer cancel()
 	for _, p := range in.Agents {
 		if v := p.MonthlyBudgetUSD.Value; v != nil && *v < 0 {
-			return Budgets{}, domain.ErrAgentInvalid.WithField("monthly_budget_usd", "negative")
+			return Budgets{}, domain.ErrAgentInvalid.WithField("monthly_budget_usd", apperr.OutOfRange, "negative")
 		}
 		if _, err := s.UpdateAgent(ctx, caller, p.AgentID, AgentPatch{MonthlyBudgetUSD: p.MonthlyBudgetUSD}); err != nil {
 			return Budgets{}, err
@@ -180,7 +180,7 @@ func (s *Agent) UpdateBudgets(ctx context.Context, caller authn.ConsoleMember, i
 	}
 	if in.OnCap != nil {
 		if *in.OnCap != OnCapStop && *in.OnCap != OnCapAlert {
-			return Budgets{}, domain.ErrAgentInvalid.WithField("on_cap", "unknown")
+			return Budgets{}, domain.ErrAgentInvalid.WithField("on_cap", apperr.NotAllowed, "unknown")
 		}
 		set.OnCap, details["on_cap"] = *in.OnCap, *in.OnCap
 	}
@@ -205,7 +205,7 @@ func (s *Agent) UpdateBudgets(ctx context.Context, caller authn.ConsoleMember, i
 	}
 	for _, v := range []*float64{set.MonthlyCapUSD, set.ModeratorDailyUSD, set.AdminDailyUSD} {
 		if v != nil && *v < 0 {
-			return Budgets{}, domain.ErrAgentInvalid.WithField("budget", "negative")
+			return Budgets{}, domain.ErrAgentInvalid.WithField("budget", apperr.OutOfRange, "negative")
 		}
 	}
 	if daily {

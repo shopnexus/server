@@ -148,7 +148,7 @@ func control(d Deps) http.Handler {
 			after, err = strconv.ParseInt(r.URL.Query().Get("after"), 10, 64)
 		}
 		if err != nil || after < 0 {
-			httpx.WriteError(w, r, d.Log, domain.ErrRequestInvalid.WithField("after", "not_a_seq"))
+			httpx.WriteError(w, r, d.Log, domain.ErrRequestInvalid.WithField("after", apperr.Invalid, "not_a_seq"))
 			return
 		}
 		out, err := d.Agent.TurnControl(r.Context(), id, after)

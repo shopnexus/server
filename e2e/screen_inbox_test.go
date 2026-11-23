@@ -57,8 +57,9 @@ type chatScreen struct {
 
 type scamWarning struct {
 	Signals []struct {
-		Code string `json:"code"`
-		Text string `json:"text"`
+		Code   string         `json:"code"`
+		Params map[string]int `json:"params"`
+		Text   string         `json:"text"`
 	} `json:"signals"`
 	Dismissed bool `json:"dismissed"`
 }

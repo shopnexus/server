@@ -6,6 +6,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
@@ -40,7 +41,7 @@ func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, ide
 			return DealView{}, draftErr
 		}
 		if in.SavedPickup && (in.PickupPointID != "" || in.PickupAddressID != uuid.Nil()) {
-			return DealView{}, domain.ErrInvalidShipment.WithField("pickup_from", "oneOf")
+			return DealView{}, domain.ErrInvalidShipment.WithField("pickup_from", apperr.OneOf, "oneOf")
 		}
 		from, fromErr := s.pickupFrom(ctx, caller, in.PickupPointID, in.PickupAddressID)
 		if fromErr != nil {

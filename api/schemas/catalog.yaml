@@ -208,7 +208,15 @@ Photo:
       description: A 400 px thumbnail; set once processed.
     failure:
       type: string
-      description: Why processing refused the photo, on a rejected listing.
+      description: Why processing refused the photo, on a rejected listing, in English.
+    failure_code:
+      type: string
+      description: |
+        failure as a code, for a client to write in its own words:
+        too_large, wrong_type, unreadable, too_many_pixels (over 40
+        megapixels, or 20 at 16 bits a channel), unknown_upload,
+        not_attached or other. More may come; a client reads an unknown
+        code as other.
 Location:
   type: object
   additionalProperties: false

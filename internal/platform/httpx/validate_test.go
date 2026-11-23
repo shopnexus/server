@@ -79,7 +79,7 @@ func TestShortNameIsInvalidRequest(t *testing.T) {
 	t.Parallel()
 	rec := post(t, thingsServer(t), `{"name":"a"}`)
 	b := decodeError(t, rec)
-	if rec.Code != 400 || b.Error.Code != "invalid_request" || b.Error.Fields["name"] != "minLength" {
+	if rec.Code != 400 || b.Error.Code != "invalid_request" || b.Error.Fields["name"] != "minLength" || b.Error.FieldCodes["name"] != "too_short" {
 		t.Fatalf("%d %+v", rec.Code, b)
 	}
 }
@@ -88,7 +88,7 @@ func TestUnknownFieldIsInvalidRequest(t *testing.T) {
 	t.Parallel()
 	rec := post(t, thingsServer(t), `{"name":"ab","extra":1}`)
 	b := decodeError(t, rec)
-	if rec.Code != 400 || b.Error.Code != "invalid_request" || b.Error.Fields["extra"] != "additionalProperties" {
+	if rec.Code != 400 || b.Error.Code != "invalid_request" || b.Error.Fields["extra"] != "additionalProperties" || b.Error.FieldCodes["extra"] != "unknown" {
 		t.Fatalf("%d %+v", rec.Code, b)
 	}
 }
@@ -163,7 +163,7 @@ func TestMalformedJSON(t *testing.T) {
 func TestEmptyBodyIsInvalidRequest(t *testing.T) {
 	t.Parallel()
 	rec := post(t, thingsServer(t), ``)
-	if b := decodeError(t, rec); rec.Code != 400 || b.Error.Code != "invalid_request" || b.Error.Fields["body"] != "required" {
+	if b := decodeError(t, rec); rec.Code != 400 || b.Error.Code != "invalid_request" || b.Error.Fields["body"] != "required" || b.Error.FieldCodes["body"] != "required" {
 		t.Fatalf("%d %+v", rec.Code, b)
 	}
 }

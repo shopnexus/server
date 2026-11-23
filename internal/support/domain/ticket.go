@@ -15,6 +15,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	chatdomain "github.com/shopnexus/server/internal/chat/domain"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // Kind is what a ticket is about.
@@ -83,25 +84,25 @@ func NewTicket(kind, carrierName, body string, photos int, order *uuid.UUID) (Dr
 	switch d.Kind {
 	case KindNotReceived:
 		if order == nil {
-			e = e.WithField("order_id", "the order whose parcel did not arrive")
+			e = e.WithField("order_id", apperr.Required, "the order whose parcel did not arrive")
 		}
 	case KindCarrierRequest:
 		if n := utf8.RuneCountInString(d.CarrierName); n < 1 || n > maxCarrierName {
-			e = e.WithField("carrier_name", "1 to 50 characters")
+			e = e.WithField("carrier_name", apperr.Length(n, 1, maxCarrierName), "1 to 50 characters")
 		}
 		d.CarrierKey = CarrierKey(d.CarrierName)
 	case KindOther:
 		if d.Body == "" && photos == 0 {
-			e = e.WithField("text", "1 to 1,000 characters, or a photo")
+			e = e.WithField("text", apperr.Required, "1 to 1,000 characters, or a photo")
 		}
 	default:
-		e = e.WithField("kind", "not_received, carrier_request or other")
+		e = e.WithField("kind", apperr.NotAllowed, "not_received, carrier_request or other")
 	}
 	if d.Kind != KindNotReceived && order != nil {
-		e = e.WithField("order_id", "only for not_received")
+		e = e.WithField("order_id", apperr.NotAllowed, "only for not_received")
 	}
 	if utf8.RuneCountInString(d.Body) > chatdomain.MaxText {
-		e = e.WithField("text", "1 to 1,000 characters")
+		e = e.WithField("text", apperr.TooLong, "1 to 1,000 characters")
 	}
 	if len(e.Fields) > 0 {
 		return Draft{}, e

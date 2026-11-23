@@ -97,7 +97,7 @@ func TestProcessMemory(t *testing.T) { //nolint:paralleltest // Measures the pro
 func TestProcessRefusesDeepImages(t *testing.T) {
 	t.Parallel()
 	_, _, err := imaging.Process(bytes.NewReader(mediatest.PNGHeader(6000, 5000, 16)), "image/png", domain.ShapePhoto)
-	if !strings.Contains(imaging.Refusal(err), "too large") {
+	if domain.FailureCodeOf(imaging.Refusal(err)) != domain.FailTooManyPixels {
 		t.Fatalf("16-bit: %v", err)
 	}
 	_, _, err = imaging.Process(bytes.NewReader(mediatest.PNGHeader(6000, 5000, 8)), "image/png", domain.ShapePhoto)

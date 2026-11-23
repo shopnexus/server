@@ -6,6 +6,8 @@ import (
 	"time"
 	"unicode/utf8"
 	"uuid"
+
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 const (
@@ -222,10 +224,10 @@ func Tracking(carrier, code string) (Carrier, string, error) {
 	e := ErrInvalidShipment
 	c, code := Carrier(carrier), strings.TrimSpace(code)
 	if !slices.Contains(carriers, c) {
-		e = e.WithField("carrier", "ghtk, ghn, spx, jt or viettel_post")
+		e = e.WithField("carrier", apperr.NotAllowed, "ghtk, ghn, spx, jt or viettel_post")
 	}
 	if n := utf8.RuneCountInString(code); n < 1 || n > maxTrackingCode {
-		e = e.WithField("tracking_code", "1 to 50 characters")
+		e = e.WithField("tracking_code", apperr.Length(n, 1, maxTrackingCode), "1 to 50 characters")
 	}
 	if len(e.Fields) > 0 {
 		return "", "", e
@@ -240,16 +242,16 @@ func NewLinkedDraft(carrier, service string, weightGrams int, pickup string) (Li
 	e := ErrInvalidShipment
 	c, s, p := Carrier(carrier), LinkedService(service), Pickup(pickup)
 	if c != CarrierGHTK && c != CarrierGHN {
-		e = e.WithField("carrier", "ghtk or ghn")
+		e = e.WithField("carrier", apperr.NotAllowed, "ghtk or ghn")
 	}
 	if s != ServiceStandard && s != ServiceExpress {
-		e = e.WithField("service", "standard or express")
+		e = e.WithField("service", apperr.NotAllowed, "standard or express")
 	}
 	if weightGrams < 1 || weightGrams > MaxWeight {
-		e = e.WithField("weight_grams", "1 to 20,000 grams")
+		e = e.WithField("weight_grams", apperr.OutOfRange, "1 to 20,000 grams")
 	}
 	if p != PickupHome && p != PickupPostOffice {
-		e = e.WithField("pickup", "home or post_office")
+		e = e.WithField("pickup", apperr.NotAllowed, "home or post_office")
 	}
 	if len(e.Fields) > 0 {
 		return LinkedDraft{}, e

@@ -44,7 +44,7 @@ listings:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "A field breaks a rule (invalid_listing, with fields), or an upload is not the caller's, not uploaded yet, or already used (invalid_upload)."
+        description: "A field breaks a rule (invalid_listing, with fields; details.missing_specs when required specs lack a value), or an upload is not the caller's, not uploaded yet, or already used (invalid_upload)."
         content:
           application/json:
             schema:
@@ -135,7 +135,7 @@ listing:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "A field breaks a rule (invalid_listing, with fields), or an added upload is not the caller's, not uploaded yet, or already used (invalid_upload)."
+        description: "A field breaks a rule (invalid_listing, with fields; details.missing_specs when required specs lack a value), or an added upload is not the caller's, not uploaded yet, or already used (invalid_upload)."
         content:
           application/json:
             schema:

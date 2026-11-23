@@ -150,9 +150,9 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	case !in.Opening && f.Conversation == nil:
 		refused = domain.ErrNotFound
 	case !in.Opening && in.ListingID != nil && (f.Listing == nil || !f.Conversation.Has(f.Listing.SellerID)):
-		refused = domain.ErrInvalidMessage.WithField("listing_id", "a listing of either member")
+		refused = domain.ErrInvalidMessage.WithField("listing_id", apperr.NotAllowed, "a listing of either member")
 	case in.ReplyTo != nil && !f.ReplyOK:
-		refused = domain.ErrInvalidMessage.WithField("reply_to", "a sent message of this conversation, not a deal message")
+		refused = domain.ErrInvalidMessage.WithField("reply_to", apperr.NotAllowed, "a sent message of this conversation, not a deal message")
 	case f.Blocked:
 		refused = accountdomain.ErrBlocked
 	case f.OtherDeleted:

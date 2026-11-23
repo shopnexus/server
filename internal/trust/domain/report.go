@@ -6,6 +6,8 @@ import (
 	"time"
 	"unicode/utf8"
 	"uuid"
+
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // Reason is why a listing or an account is reported. Condition and price
@@ -63,13 +65,13 @@ func NewReport(id, reporter, account, listing, conversation uuid.UUID, reason Re
 	e := ErrInvalidReport
 	note = strings.TrimSpace(note)
 	if !slices.Contains(reasons, reason) {
-		e = e.WithField("reason", "banned, fake, scam or other")
+		e = e.WithField("reason", apperr.NotAllowed, "banned, fake, scam or other")
 	}
 	if utf8.RuneCountInString(note) > MaxNote {
-		e = e.WithField("note", "at most 500 characters")
+		e = e.WithField("note", apperr.TooLong, "at most 500 characters")
 	}
 	if conversation != (uuid.UUID{}) && listing != (uuid.UUID{}) {
-		e = e.WithField("conversation_id", "only with account_id")
+		e = e.WithField("conversation_id", apperr.NotAllowed, "only with account_id")
 	}
 	if len(e.Fields) > 0 {
 		return Report{}, e

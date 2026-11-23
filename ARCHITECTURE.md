@@ -208,10 +208,11 @@ written (decided 2026-11-17):
   `required` on each property it lacks. The app's script drops the
   `oneOf`, so its model has every field optional.
 - No schema that an app operation reaches is a map of any values.
-  `Error.details` lists `retry_after`, `attempts_left` and `reason` with
-  `additionalProperties: false`. `apperr.Details` is a struct with the same
-  three fields as pointers, set by `WithRetryAfter`, `WithAttemptsLeft` and
-  `WithReason`, so a new detail is a field in both places. A detail that
+  `Error.details` lists `retry_after`, `attempts_left`, `reason` and
+  `missing_specs` with `additionalProperties: false`. `apperr.Details` is a
+  struct with the same four fields, set by `WithRetryAfter`,
+  `WithAttemptsLeft`, `WithReason` and `WithMissingSpecs`, so a new detail
+  is a field in both places. A detail that
   was set is sent, a blank `reason` included, and an unset one is not.
 - The tag `internal` marks the operations the app does not call: the
   console, `/_dashboard/callback`, the carrier webhook, `/healthz`,
@@ -225,6 +226,36 @@ written (decided 2026-11-17):
   the two tags have none. `TestSpecTags` checks that each operation has
   one tag of `x-tagGroups`, that each route above has its tag, and that no
   other operation has either.
+
+### Codes beside text
+
+A client writes a sentence itself from a code and its numbers wherever
+it can; the server's English or Vietnamese text stays beside the code for
+older clients (decided 2026-11-23, spec
+`~/shopnexus/docs/superpowers/specs/2026-11-23-i18n-design.md`).
+
+- Error fields: `field_codes` maps each key of `fields` to an
+  `apperr.FieldCode` (`required`, `too_long`, `out_of_range`,
+  `not_allowed`, `missing_specs`, ...; the list is in `error.yaml`).
+  `WithField(name, code, text)` takes both, and `apperr.Length` and
+  `apperr.Count` pick `required`, `too_short`/`too_few` or
+  `too_long`/`too_many` from a size. The spec validator's codes come from
+  the keyword it reports (`keywordCodes`). `field_codes` is a second map
+  beside `fields`, so older clients and older Restate journals still
+  decode. Missing specs also go in `details.missing_specs`.
+- Photo refusals: `Photo.failure_code` and `Message.failure_code` beside
+  `failure`. The upload, the listing's `rejection` and the message keep
+  storing the English reason, so no table changed; `media/domain`
+  holds the reasons and `FailureCodeOf` reads a code from one, which gives
+  photos refused earlier a code too.
+- `ScamSignal.params` sends the numbers of the stored signal's text
+  (`days`, `percent`), as an object with those two properties.
+- `SearchItem` and the saved listing send `commune_code` beside the name.
+- Formatting: `locale/testdata/format-cases.json` copies the umbrella's
+  `docs/i18n/format-cases.json`; `localetest.FormatCases` reads it for
+  `locale`'s test (money, decimal, day_month) and notification's
+  `writer.money` (money_short). A case changes in the umbrella's file
+  first and is copied here.
 
 ### Pagination
 

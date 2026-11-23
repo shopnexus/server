@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/provider/carrier"
 	"github.com/shopnexus/server/internal/shipping/domain"
@@ -108,7 +109,7 @@ func (h *Handler) Link(w http.ResponseWriter, r *http.Request) {
 	}
 	ghtkBody := in.Email != "" || in.Password != ""
 	if (in.Carrier == string(carrier.GHTK) && !ghtkBody) || (in.Carrier == string(carrier.GHN) && ghtkBody) {
-		httpx.WriteError(w, r, h.log, domain.ErrInvalidCarrier.WithField("body", "carrier"))
+		httpx.WriteError(w, r, h.log, domain.ErrInvalidCarrier.WithField("body", apperr.NotAllowed, "carrier"))
 		return
 	}
 	v, err := h.svc.Link(r.Context(), p.AccountID, in.Carrier,

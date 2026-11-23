@@ -68,7 +68,7 @@ type Account struct {
 func New(id uuid.UUID, displayName string, now time.Time) (Account, error) {
 	name := strings.TrimSpace(displayName)
 	if utf8.RuneCountInString(name) > maxNameRunes {
-		return Account{}, ErrInvalidAccount.WithField("display_name", "at most 50 characters")
+		return Account{}, ErrInvalidAccount.WithField("display_name", apperr.TooLong, "at most 50 characters")
 	}
 	return Account{id: id, displayName: name, status: StatusActive, writeID: id, createdAt: now, updatedAt: now}, nil
 }
@@ -155,13 +155,13 @@ func (a *Account) Edit(displayName, bio *string, now time.Time) error {
 	if displayName != nil {
 		name = strings.TrimSpace(*displayName)
 		if n := utf8.RuneCountInString(name); n < 1 || n > maxNameRunes {
-			e = e.WithField("display_name", "1 to 50 characters")
+			e = e.WithField("display_name", apperr.Length(n, 1, maxNameRunes), "1 to 50 characters")
 		}
 	}
 	if bio != nil {
 		about = strings.TrimSpace(*bio)
 		if utf8.RuneCountInString(about) > maxBioRunes {
-			e = e.WithField("bio", "at most 200 characters")
+			e = e.WithField("bio", apperr.TooLong, "at most 200 characters")
 		}
 	}
 	if len(e.Fields) > 0 {
@@ -180,10 +180,10 @@ func (a *Account) SetAvatar(key string, now time.Time) {
 // most MaxAway ahead.
 func (a *Account) SetAway(until, now time.Time) error {
 	if !until.After(now) {
-		return ErrInvalidAccount.WithField("away_until", "must be in the future")
+		return ErrInvalidAccount.WithField("away_until", apperr.OutOfRange, "must be in the future")
 	}
 	if until.Sub(now) > MaxAway {
-		return ErrInvalidAccount.WithField("away_until", "at most 30 days ahead")
+		return ErrInvalidAccount.WithField("away_until", apperr.OutOfRange, "at most 30 days ahead")
 	}
 	a.awayUntil, a.updatedAt = &until, now
 	return nil

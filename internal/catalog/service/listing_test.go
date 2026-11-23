@@ -123,7 +123,7 @@ func TestPublishRejects(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := e.settle(t, seller, posted.ID)
-	if v.Status != domain.StatusRejected || v.Photos[1].Failure == "" || v.Photos[0].Failure != "" {
+	if v.Status != domain.StatusRejected || v.Photos[1].Failure == "" || v.Photos[1].FailureCode != mediadomain.FailWrongType || v.Photos[0].Failure != "" {
 		t.Fatalf("%+v", v)
 	}
 	var rejected int

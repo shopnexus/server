@@ -1,10 +1,12 @@
 package locale_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
 	"github.com/shopnexus/server/internal/platform/locale"
+	"github.com/shopnexus/server/internal/platform/locale/localetest"
 )
 
 func TestMatch(t *testing.T) {
@@ -36,5 +38,46 @@ func TestMoneyAndDate(t *testing.T) {
 	at := time.Date(2026, 11, 29, 20, 0, 0, 0, time.UTC) // 30/11 in Vietnam
 	if vi, en := locale.Date(locale.Vietnamese, at), locale.Date(locale.English, at); vi != "30/11" || en != "Nov 30" {
 		t.Errorf("dates %q %q", vi, en)
+	}
+}
+
+// The server writes the shared cases as the app and the website do.
+func TestFormatCases(t *testing.T) {
+	t.Parallel()
+	write := map[string]func(t *testing.T, tag locale.Tag, input json.RawMessage) string{
+		"money": func(t *testing.T, tag locale.Tag, input json.RawMessage) string {
+			t.Helper()
+			var n int64
+			mustDecode(t, input, &n)
+			return locale.Money(tag, n)
+		},
+		"decimal": func(t *testing.T, tag locale.Tag, input json.RawMessage) string {
+			t.Helper()
+			var f float64
+			mustDecode(t, input, &f)
+			return locale.Decimal(tag, f)
+		},
+		"day_month": func(t *testing.T, tag locale.Tag, input json.RawMessage) string {
+			t.Helper()
+			var at time.Time
+			mustDecode(t, input, &at)
+			return locale.Date(tag, at)
+		},
+	}
+	for kind, f := range write {
+		for _, c := range localetest.FormatCases(t, kind) {
+			for tag, want := range c.Want {
+				if got := f(t, tag, c.Input); got != want {
+					t.Errorf("%s %s %s: %q, want %q", kind, c.Input, tag, got, want)
+				}
+			}
+		}
+	}
+}
+
+func mustDecode(t *testing.T, raw json.RawMessage, v any) {
+	t.Helper()
+	if err := json.Unmarshal(raw, v); err != nil {
+		t.Fatal(err)
 	}
 }

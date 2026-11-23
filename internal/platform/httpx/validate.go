@@ -103,7 +103,8 @@ func ValidateRequests(doc *openapi3.T, served []Route, log *slog.Logger) (func(h
 // toAppError turns kin-openapi's validation errors into one invalid_request
 // error with a field entry per problem, or malformed_json for a body that
 // does not parse. A field's problem is the schema keyword it broke
-// (minLength, required, additionalProperties, ...).
+// (minLength, required, additionalProperties, ...), and its code is the
+// keyword's in keywordCodes, else invalid.
 //
 // The kin-openapi error is not kept as the cause: it embeds the request value,
 // which may be a password, a token or a TOTP code, and causes are logged.
@@ -133,7 +134,24 @@ func toAppError(err error) error {
 	}
 	out := *errInvalidRequest
 	out.Fields = fields
+	out.FieldCodes = make(map[string]apperr.FieldCode, len(fields))
+	for name, keyword := range fields {
+		code, ok := keywordCodes[keyword]
+		if !ok {
+			code = apperr.Invalid
+		}
+		out.FieldCodes[name] = code
+	}
 	return &out
+}
+
+// keywordCodes are the field codes of the schema keywords a value can break.
+var keywordCodes = map[string]apperr.FieldCode{
+	"required": apperr.Required, "minLength": apperr.TooShort, "maxLength": apperr.TooLong,
+	"minItems": apperr.TooFew, "maxItems": apperr.TooMany, "minProperties": apperr.TooFew, "maxProperties": apperr.TooMany,
+	"minimum": apperr.OutOfRange, "maximum": apperr.OutOfRange, "exclusiveMinimum": apperr.OutOfRange, "exclusiveMaximum": apperr.OutOfRange,
+	"multipleOf": apperr.OffStep, "uniqueItems": apperr.Duplicate, "additionalProperties": apperr.Unknown,
+	"enum": apperr.NotAllowed, "const": apperr.NotAllowed, "oneOf": apperr.OneOf, "anyOf": apperr.OneOf,
 }
 
 // addProblems puts the field problem of the schema error err in fields. A

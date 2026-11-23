@@ -3,6 +3,7 @@ package apperr_test
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -31,7 +32,7 @@ func TestErrorWrapsAndUnwraps(t *testing.T) {
 func TestErrorsIsComparesCode(t *testing.T) {
 	t.Parallel()
 	sentinel := apperr.New(apperr.KindNotFound, "account_not_found", "account not found")
-	err := fmt.Errorf("load: %w", sentinel.WithField("id", "unknown"))
+	err := fmt.Errorf("load: %w", sentinel.WithField("id", apperr.Unknown, "unknown"))
 	if !errors.Is(err, sentinel) {
 		t.Fatal("a copy with fields should still match its sentinel")
 	}
@@ -43,16 +44,16 @@ func TestErrorsIsComparesCode(t *testing.T) {
 func TestWithFieldCopies(t *testing.T) {
 	t.Parallel()
 	base := apperr.New(apperr.KindInvalid, "invalid", "bad")
-	a := base.WithField("x", "missing")
-	if base.Fields != nil {
+	a := base.WithField("x", apperr.Required, "missing")
+	if base.Fields != nil || base.FieldCodes != nil {
 		t.Fatal("WithField mutated the receiver")
 	}
-	if a.Fields["x"] != "missing" {
-		t.Fatalf("fields %v", a.Fields)
+	if a.Fields["x"] != "missing" || a.FieldCodes["x"] != apperr.Required {
+		t.Fatalf("fields %v codes %v", a.Fields, a.FieldCodes)
 	}
-	b := a.WithField("y", "short")
-	if len(a.Fields) != 1 || len(b.Fields) != 2 {
-		t.Fatalf("a %v b %v", a.Fields, b.Fields)
+	b := a.WithField("y", apperr.TooShort, "short")
+	if len(a.Fields) != 1 || len(b.Fields) != 2 || len(a.FieldCodes) != 1 || len(b.FieldCodes) != 2 {
+		t.Fatalf("a %v b %v", a.FieldCodes, b.FieldCodes)
 	}
 }
 
@@ -60,7 +61,7 @@ func TestDetailsCopy(t *testing.T) {
 	t.Parallel()
 	base := apperr.New(apperr.KindInvalid, "invalid_code", "the code does not match")
 	got := base.WithAttemptsLeft(4)
-	if got.Details.AttemptsLeft == nil || *got.Details.AttemptsLeft != 4 || base.Details != (apperr.Details{}) || !errors.Is(got, base) {
+	if got.Details.AttemptsLeft == nil || *got.Details.AttemptsLeft != 4 || !reflect.ValueOf(base.Details).IsZero() || !errors.Is(got, base) {
 		t.Fatalf("copy %+v, base %+v", got.Details, base.Details)
 	}
 	again := got.WithReason("")
@@ -72,7 +73,7 @@ func TestDetailsCopy(t *testing.T) {
 func TestWithCauseCopies(t *testing.T) {
 	t.Parallel()
 	cause := errors.New("db down")
-	base := apperr.New(apperr.KindInternal, "internal", "x").WithField("id", "unknown")
+	base := apperr.New(apperr.KindInternal, "internal", "x").WithField("id", apperr.Unknown, "unknown")
 	got := base.WithCause(cause)
 	if base.Err != nil || !errors.Is(got, cause) || !errors.Is(got, base) || got.Fields["id"] != "unknown" {
 		t.Fatalf("got %+v, base %+v", got, base)
@@ -98,7 +99,35 @@ func TestWithRetryAfterRoundsUp(t *testing.T) {
 			t.Errorf("%s: %v, want %d", wait, got, want)
 		}
 	}
-	if base.Details != (apperr.Details{}) {
+	if !reflect.ValueOf(base.Details).IsZero() {
 		t.Fatalf("the sentinel changed: %+v", base.Details)
+	}
+}
+
+// A missing spec list is the error's own, and the codes of a length or a
+// count tell empty, short and long apart.
+func TestMissingSpecsAndLengths(t *testing.T) {
+	t.Parallel()
+	labels := []string{"Màu"}
+	got := apperr.New(apperr.KindInvalid, "invalid_listing", "x").WithMissingSpecs(labels)
+	labels[0] = "changed"
+	if len(got.Details.MissingSpecs) != 1 || got.Details.MissingSpecs[0] != "Màu" {
+		t.Fatalf("missing specs %v", got.Details.MissingSpecs)
+	}
+	for _, c := range []struct {
+		got, want apperr.FieldCode
+	}{
+		{apperr.Length(0, 1, 50), apperr.Required},
+		{apperr.Length(2, 3, 50), apperr.TooShort},
+		{apperr.Length(51, 1, 50), apperr.TooLong},
+		{apperr.Length(50, 1, 50), ""},
+		{apperr.Length(0, 0, 50), ""},
+		{apperr.Count(0, 1, 10), apperr.Required},
+		{apperr.Count(11, 1, 10), apperr.TooMany},
+		{apperr.Count(1, 2, 10), apperr.TooFew},
+	} {
+		if c.got != c.want {
+			t.Errorf("got %q, want %q", c.got, c.want)
+		}
 	}
 }

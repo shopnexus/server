@@ -20,6 +20,7 @@ type searchCard struct {
 	CategoryCode  string `json:"category_code"`
 	CoverThumbURL string `json:"cover_thumb_url"`
 	Commune       string `json:"commune"`
+	CommuneCode   string `json:"commune_code"`
 	DistanceKm    *int   `json:"distance_km"`
 	Saved         bool   `json:"saved"`
 }

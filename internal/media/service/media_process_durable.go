@@ -100,14 +100,14 @@ func (s MediaProcess) Run(ctx restate.Context, id uuid.UUID) (ProcessResult, err
 	u := l.Upload
 	switch {
 	case !l.Found:
-		return ProcessResult{Status: domain.StatusFailed, Failure: "unknown upload"}, nil
+		return ProcessResult{Status: domain.StatusFailed, Failure: domain.ReasonUnknownUpload}, nil
 	case u.Status() == domain.StatusReady || u.Status() == domain.StatusFailed:
 		return ProcessResult{
 			Status: u.Status(), PhotoKey: u.PhotoKey(), ThumbKey: u.ThumbKey(), Failure: u.Failure(),
 			Copied: u.Origin() == domain.OriginLink,
 		}, nil
 	case u.Status() != domain.StatusAttached:
-		return ProcessResult{Status: domain.StatusFailed, Failure: "the upload is not attached"}, nil
+		return ProcessResult{Status: domain.StatusFailed, Failure: domain.ReasonNotAttached}, nil
 	}
 
 	out, err := restate.Run(ctx, func(rc restate.RunContext) (processed, error) {

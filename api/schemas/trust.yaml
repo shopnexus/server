@@ -297,9 +297,25 @@ ScamSignal:
         sensitive_info_request, impersonation, fake_payment_proof, pressure,
         new_account or price_far_below. More may come; the app shows an
         unknown code with the Info icon.
+    params:
+      type: object
+      additionalProperties: false
+      description: |
+        The numbers the code's sentence uses, so a client writes it from
+        code and params: days on new_account, percent on price_far_below.
+        Absent on a code whose sentence has none.
+      properties:
+        days:
+          type: integer
+          minimum: 1
+          description: Whole days since the account was created.
+        percent:
+          type: integer
+          minimum: 1
+          description: How far the price is under similar listings, in percent, rounded down.
     text:
       type: string
-      description: Vietnamese, written by the server, as "Tài khoản mới tạo 2 ngày".
+      description: Vietnamese, written by the server, as "Tài khoản mới tạo 2 ngày". Kept for older clients; a client writes its own from code and params.
     message_id:
       type: string
       format: uuid

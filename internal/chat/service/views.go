@@ -9,6 +9,7 @@ import (
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/chat/domain"
+	mediadomain "github.com/shopnexus/server/internal/media/domain"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
@@ -64,7 +65,9 @@ type MessageView struct {
 	Refs      []RefView            `json:"refs,omitempty"`
 	Status    domain.MessageStatus `json:"status"`
 	Failure   string               `json:"failure,omitempty"`
-	CreatedAt time.Time            `json:"created_at"`
+	// FailureCode is Failure as a code.
+	FailureCode mediadomain.FailureCode `json:"failure_code,omitempty"`
+	CreatedAt   time.Time               `json:"created_at"`
 }
 
 // MessageDealView is the move a deal message is about: the MessageDeal
@@ -204,7 +207,7 @@ func (c *Chat) messageView(m domain.Message) MessageView {
 	}
 	v := MessageView{
 		ID: m.ID(), SenderID: m.SenderID(), Text: m.Body(), Photos: photos, ListingID: m.ListingID(),
-		Status: m.Status(), Failure: m.Failure(), CreatedAt: m.CreatedAt(),
+		Status: m.Status(), Failure: m.Failure(), FailureCode: mediadomain.FailureCodeOf(m.Failure()), CreatedAt: m.CreatedAt(),
 	}
 	if d := m.Deal(); d != nil {
 		v.Deal = &MessageDealView{DealID: d.DealID, Move: MoveView{Kind: d.Kind, By: d.By, At: m.CreatedAt()}}

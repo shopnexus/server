@@ -31,7 +31,7 @@ var (
 	ErrCarrierAddressUnknown = apperr.New(apperr.KindInvalid, "carrier_address_unknown", "the carrier does not know the address")
 	// errFailedParcel is a parcel the carrier reports failed, which no
 	// order ships on.
-	errFailedParcel = ErrInvalidShipment.WithField("tracking_code", "the carrier reports this parcel failed")
+	errFailedParcel = ErrInvalidShipment.WithField("tracking_code", apperr.ParcelFailed, "the carrier reports this parcel failed")
 	ErrCodLimit     = apperr.New(apperr.KindConflict, "cod_limit_reached", "at most 3 open COD orders")
 	// ErrSellerAway refuses a buyer's offer, accept or COD request while
 	// the seller is in away mode.

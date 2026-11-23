@@ -3,6 +3,7 @@ package domain
 import (
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/contact"
 )
 
@@ -21,7 +22,7 @@ func (s *Settings) Normalize() error {
 	}
 	phone, err := contact.ParsePhone(s.Pickup.Phone)
 	if err != nil {
-		return ErrInvalidSettings.WithField("phone", "Vietnamese mobile")
+		return ErrInvalidSettings.WithField("phone", apperr.Invalid, "Vietnamese mobile")
 	}
 	s.Pickup = &SavedPickup{AddressID: s.Pickup.AddressID, Phone: phone.Value()}
 	return nil

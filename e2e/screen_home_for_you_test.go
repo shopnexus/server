@@ -39,8 +39,8 @@ func home(t *testing.T, token, query string) (homeForYou, Response) {
 
 func cardIDsOf(cards []searchCard) []string {
 	out := make([]string, len(cards))
-	for i, c := range cards {
-		out[i] = c.ID
+	for i := range cards {
+		out[i] = cards[i].ID
 	}
 	return out
 }
@@ -55,9 +55,11 @@ func newestFirst(t *testing.T, token string, size int, read func() []string, kee
 	newest := func() []string {
 		var out []string
 		seen := map[[2]string]bool{}
-		for _, c := range expect[searchView](t, call(t, "GET", "/v1/search?sort=newest&limit=100", nil, bearer(token)), http.StatusOK).Items {
+		items := expect[searchView](t, call(t, "GET", "/v1/search?sort=newest&limit=100", nil, bearer(token)), http.StatusOK).Items
+		for i := range items {
+			c := &items[i]
 			k := [2]string{c.SellerID, discoverydomain.QueryKey(c.Title)}
-			if keep(c) && !seen[k] {
+			if keep(*c) && !seen[k] {
 				seen[k] = true
 				out = append(out, c.ID)
 			}

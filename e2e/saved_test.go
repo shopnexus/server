@@ -14,6 +14,7 @@ type savedListing struct {
 		CategoryCode string `json:"category_code"`
 		Condition    string `json:"condition"`
 		Commune      string `json:"commune"`
+		CommuneCode  string `json:"commune_code"`
 		Status       string `json:"status"`
 	} `json:"listing"`
 }
@@ -29,7 +30,8 @@ func TestSaved(t *testing.T) {
 	check(t, "save again", call(t, "PUT", path, nil, bearer(me.AccessToken)), 204, "")
 	res := call(t, "GET", "/v1/saved", nil, bearer(me.AccessToken))
 	if got := decode[page[savedListing]](t, res); res.Status != http.StatusOK || len(got.Items) != 1 || got.Items[0].Listing.Title == "" ||
-		got.Items[0].Listing.CategoryCode != "vehicles.bicycle" || got.Items[0].Listing.Condition != "used" || got.Items[0].Listing.Commune == "" {
+		got.Items[0].Listing.CategoryCode != "vehicles.bicycle" || got.Items[0].Listing.Condition != "used" || got.Items[0].Listing.Commune == "" ||
+		got.Items[0].Listing.CommuneCode != "00004" {
 		t.Fatalf("list: %d %s", res.Status, res.Body)
 	}
 	expectStatus(t, call(t, "POST", "/v1/listings/"+l.ID+"/hide", nil, bearer(seller.AccessToken)), http.StatusOK)

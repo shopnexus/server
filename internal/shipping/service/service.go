@@ -13,6 +13,7 @@ import (
 	"uuid"
 
 	accountsvc "github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/provider/carrier"
 	"github.com/shopnexus/server/internal/shipping/domain"
 	"github.com/shopnexus/server/internal/shipping/repository"
@@ -243,13 +244,13 @@ func (s *Shipping) Quote(ctx context.Context, owner uuid.UUID, c string, in Quot
 	}
 	invalid := domain.ErrInvalidShipment
 	if in.Service != "standard" && in.Service != "express" {
-		invalid = invalid.WithField("service", "oneOf")
+		invalid = invalid.WithField("service", apperr.NotAllowed, "oneOf")
 	}
 	if in.WeightGrams < 1 || in.WeightGrams > maxWeightGrams {
-		invalid = invalid.WithField("weight_grams", "range")
+		invalid = invalid.WithField("weight_grams", apperr.OutOfRange, "range")
 	}
 	if (in.PickupPointID != "" && in.AddressID != uuid.Nil()) || (in.SavedPickup && (in.PickupPointID != "" || in.AddressID != uuid.Nil())) {
-		invalid = invalid.WithField("pickup_from", "oneOf")
+		invalid = invalid.WithField("pickup_from", apperr.OneOf, "oneOf")
 	}
 	if len(invalid.Fields) > 0 {
 		return 0, invalid

@@ -10,6 +10,7 @@ import (
 	"github.com/shopnexus/server/internal/assist/domain"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // maxSimilar is how many of the sample a guide shows.
@@ -50,10 +51,10 @@ func (a *Assist) PriceGuide(ctx context.Context, account uuid.UUID, in PriceGuid
 	if !leaf || !communeOK {
 		e := catalogdomain.ErrInvalidListing
 		if !leaf {
-			e = e.WithField("category_code", "a subcategory")
+			e = e.WithField("category_code", apperr.NotAllowed, "a subcategory")
 		}
 		if !communeOK {
-			e = e.WithField("commune_code", "a commune of the administrative list")
+			e = e.WithField("commune_code", apperr.Unknown, "a commune of the administrative list")
 		}
 		return PriceGuideView{}, e
 	}

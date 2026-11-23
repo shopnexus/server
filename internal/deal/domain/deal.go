@@ -6,6 +6,8 @@ import (
 	"cmp"
 	"time"
 	"uuid"
+
+	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
 // Step is the unit of every offer and counter, in đồng.
@@ -230,10 +232,10 @@ func (d *Deal) Offer(by Party, amount int64, l Listing, now time.Time) error {
 		return ErrMoveNotAllowed
 	}
 	if amount%Step != 0 {
-		return ErrInvalidAmount.WithField("amount", "step")
+		return ErrInvalidAmount.WithField("amount", apperr.OffStep, "step")
 	}
 	if amount < r.Min || amount > r.Max {
-		return ErrInvalidAmount.WithField("amount", "out_of_range")
+		return ErrInvalidAmount.WithField("amount", apperr.OutOfRange, "out_of_range")
 	}
 	kind := MoveOffer
 	if by == Seller {

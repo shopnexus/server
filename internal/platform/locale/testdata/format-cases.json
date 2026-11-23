@@ -1,0 +1,16 @@
+{
+  "note": "Formatting every platform agrees on. The server (platform/locale), the app (core:model Formats) and the website (src/i18n/format.ts) each test against these cases. relative takes seconds before now.",
+  "cases": [
+    { "kind": "money", "input": 3800000, "vi": "3.800.000 ₫", "en": "3,800,000 ₫" },
+    { "kind": "money", "input": 850000, "vi": "850.000 ₫", "en": "850,000 ₫" },
+    { "kind": "money_short", "input": 1250000, "vi": "1,25 tr", "en": "1.25M ₫" },
+    { "kind": "money_short", "input": 12500000, "vi": "12,5 tr", "en": "12.5M ₫" },
+    { "kind": "decimal", "input": 4.8, "vi": "4,8", "en": "4.8" },
+    { "kind": "day_month", "input": "2026-11-30T07:00:00+07:00", "vi": "30/11", "en": "Nov 30" },
+    { "kind": "time", "input": "2026-11-30T14:05:00+07:00", "vi": "14:05", "en": "14:05" },
+    { "kind": "relative", "input": 20, "vi": "vừa xong", "en": "just now" },
+    { "kind": "relative", "input": 180, "vi": "3 phút trước", "en": "3 minutes ago" },
+    { "kind": "relative", "input": 3600, "vi": "1 giờ trước", "en": "1 hour ago" },
+    { "kind": "relative", "input": 259200, "vi": "3 ngày trước", "en": "3 days ago" }
+  ]
+}

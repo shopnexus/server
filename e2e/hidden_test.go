@@ -14,8 +14,8 @@ func searchIDs(t *testing.T, token, query string) []string {
 	res := call(t, "GET", "/v1/search?"+query, nil, bearer(token))
 	got := expect[searchView](t, res, http.StatusOK)
 	out := make([]string, len(got.Items))
-	for i, it := range got.Items {
-		out[i] = it.ID
+	for i := range got.Items {
+		out[i] = got.Items[i].ID
 	}
 	return out
 }

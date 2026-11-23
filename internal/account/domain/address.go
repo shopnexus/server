@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/contact"
 )
 
@@ -112,20 +113,20 @@ func checkAddress(d AddressDraft, communeExists bool) (AddressDraft, error) {
 	e := ErrInvalidAddress
 	d.Name, d.Street = strings.TrimSpace(d.Name), strings.TrimSpace(d.Street)
 	if n := utf8.RuneCountInString(d.Name); n < 1 || n > maxAddressName {
-		e = e.WithField("name", "1 to 50 characters")
+		e = e.WithField("name", apperr.Length(n, 1, maxAddressName), "1 to 50 characters")
 	}
 	p, err := contact.ParsePhone(d.Phone)
 	if err != nil {
-		e = e.WithField("phone", "a Vietnamese mobile number")
+		e = e.WithField("phone", apperr.Invalid, "a Vietnamese mobile number")
 	}
 	if n := utf8.RuneCountInString(d.Street); n < 1 || n > maxStreet {
-		e = e.WithField("street", "1 to 200 characters")
+		e = e.WithField("street", apperr.Length(n, 1, maxStreet), "1 to 200 characters")
 	}
 	if !communeExists {
-		e = e.WithField("commune_code", "a commune code from the administrative list")
+		e = e.WithField("commune_code", apperr.Unknown, "a commune code from the administrative list")
 	}
 	if !slices.Contains(addressKinds, d.Kind) {
-		e = e.WithField("kind", "home, work or other")
+		e = e.WithField("kind", apperr.NotAllowed, "home, work or other")
 	}
 	if len(e.Fields) > 0 {
 		return AddressDraft{}, e
