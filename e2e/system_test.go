@@ -26,11 +26,11 @@ func TestReadyz(t *testing.T) {
 func TestReadyzDown(t *testing.T) {
 	t.Parallel()
 	cfg := config.Config{
-		DatabaseURL: pgtest.New(t).Config().ConnString(),
-		Restate:     restatetest.Config(t),
-		Auth:        keys,
-		Console:     config.ConsoleConfig{Key: config.NewConsoleKey(), Origin: "http://console.e2e"},
-		Carrier:     config.CarrierConfig{Mode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
+		DatabaseURL: pgtest.New(t).Config().ConnString(), DatabaseMaxConns: 20,
+		Restate: restatetest.Config(t),
+		Auth:    keys,
+		Console: config.ConsoleConfig{Key: config.NewConsoleKey(), Origin: "http://console.e2e"},
+		Carrier: config.CarrierConfig{Mode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
 	}
 	objectStore, err := objectstoretest.Config()
 	if err != nil {

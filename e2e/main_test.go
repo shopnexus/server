@@ -142,7 +142,7 @@ func setup(closers *[]func()) error {
 	// 503 the spec declares; the firebase tests check PNV tokens.
 	issuer.SetPNVDown(true)
 	cfg := config.Config{
-		DatabaseURL: pool.Config().ConnString(),
+		DatabaseURL: pool.Config().ConnString(), DatabaseMaxConns: 20,
 		ObjectStore: websiteAt(objectStoreCfg),
 		Restate:     restateCfg,
 		Auth:        keys,
