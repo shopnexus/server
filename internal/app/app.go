@@ -15,6 +15,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/mailview"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
@@ -381,10 +383,11 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if len(cfg.ObjectStore.UploadOrigins) > 0 {
 		website = cfg.ObjectStore.UploadOrigins[0]
 	}
+	mail := mailview.Mailer{Email: mailer, Site: website}
 	accountm := account.Mount(d,
 		account.Settings{
 			Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log),
-			Google: google.NewVerifier(cfg.Google, time.Now, log), Email: mailer, Site: website,
+			Google: google.NewVerifier(cfg.Google, time.Now, log), Mail: mail,
 		}, mediam.Service)
 	accounts := accountm.Service
 	consoleKeys, err := consolesvc.NewKeys(cfg.Console, hasher)
@@ -490,7 +493,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if cfg.Env != config.EnvProd {
 		router.Handle("POST /v1/dev/updates", d.Protect(stream.DevUpdateHandler(updates, log)))
 	}
-	notificationm := notification.Mount(d, notification.Settings{Push: sender, Email: mailer, Site: website},
+	notificationm := notification.Mount(d, notification.Settings{Push: sender, Mail: mail},
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service, supportm.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
 		supportm.Service, shippingm.Service)

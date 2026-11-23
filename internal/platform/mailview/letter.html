@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{.Lang}}">
+<html lang="{{.Locale}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,14 +20,14 @@
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px">
   <tr><td style="padding:0 8px 16px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td style="vertical-align:middle"><img src="{{.Logo}}" width="28" height="28" alt="ShopNexus" style="display:inline-block;vertical-align:middle;border-radius:8px"><span style="font:700 17px/28px 'Be Vietnam Pro',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#121817;vertical-align:middle;margin-left:8px">ShopNexus</span></td>
+      <td style="vertical-align:middle"><img src="cid:logo" width="28" height="28" alt="ShopNexus" style="display:inline-block;vertical-align:middle;border-radius:8px"><span style="font:700 17px/28px 'Be Vietnam Pro',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#121817;vertical-align:middle;margin-left:8px">ShopNexus</span></td>
       <td align="right" style="vertical-align:middle;font:500 13px/18px 'Be Vietnam Pro',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#6E7977">{{.Group}}</td>
     </tr></table>
   </td></tr>
   <tr><td style="background:#FFFFFF;border:1px solid #E1E6E4;border-radius:24px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr><td align="center" style="background:#DDEFEB;padding:24px 24px 0;border-radius:24px 24px 0 0">
-        <img src="{{.Picture}}" width="168" height="168" alt="" style="display:block;width:168px;height:168px">
+        <img src="cid:art" width="168" height="168" alt="" style="display:block;width:168px;height:168px">
       </td></tr>
       <tr><td class="inner" style="padding:28px 32px 32px;font-family:'Be Vietnam Pro',-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
         <div style="font-size:24px;line-height:32px;font-weight:600;color:#121817">{{.Title}}</div>
@@ -36,13 +36,13 @@
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px"><tr>
           <td align="center" style="background:#DDEFEB;border-radius:20px;padding:22px 16px">
             <div style="font-size:40px;line-height:48px;font-weight:600;letter-spacing:6px;color:#005049">{{.CodeHead}}<span style="display:inline-block;width:14px"></span>{{.CodeTail}}</div>
-            <div style="font-size:13px;line-height:18px;color:#3E4947;margin-top:6px">{{index .Words "code.expires"}}</div>
+            {{- if .CodeNote}}<div style="font-size:13px;line-height:18px;color:#3E4947;margin-top:6px">{{.CodeNote}}</div>{{end}}
           </td></tr></table>
 {{- end}}
 {{- if .StarList}}
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px auto 0"><tr>
 {{- range .StarList}}
-          <td style="padding:0 4px"><a id="star-{{.N}}" href="{{.URL}}" style="display:block;width:44px;height:44px;border-radius:22px;background:#DDEFEB;color:#066A61;font-size:24px;line-height:44px;text-align:center;text-decoration:none">★</a></td>
+          <td style="padding:0 4px"><a href="{{.}}" style="display:block;width:44px;height:44px;border-radius:22px;background:#DDEFEB;color:#066A61;font-size:24px;line-height:44px;text-align:center;text-decoration:none">★</a></td>
 {{- end}}
         </tr></table>
 {{- end}}
@@ -63,13 +63,13 @@
 {{- range .StepList}}
           <td width="25%" style="vertical-align:top;text-align:center;padding:0">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-              <td style="padding:0"><div style="height:2px;background:{{.Left}}"></div></td>
+              <td style="padding:0"><div style="height:2px;background:{{if .First}}transparent{{else if .Reached}}#066A61{{else}}#E1E6E4{{end}}"></div></td>
               <td width="24" style="padding:0">
               {{- if .Done}}<div style="width:24px;height:24px;border-radius:12px;background:#066A61;color:#FFFFFF;font-size:13px;line-height:24px;font-weight:700;text-align:center">✓</div>
               {{- else if .Current}}<div style="width:20px;height:20px;border-radius:12px;border:2px solid #066A61;background:#FFFFFF"><div style="width:8px;height:8px;border-radius:4px;background:#066A61;margin:6px auto 0"></div></div>
               {{- else}}<div style="width:20px;height:20px;border-radius:12px;border:2px solid #E1E6E4;background:#FFFFFF"></div>{{end}}
               </td>
-              <td style="padding:0"><div style="height:2px;background:{{.Right}}"></div></td>
+              <td style="padding:0"><div style="height:2px;background:{{if .Last}}transparent{{else if .Done}}#066A61{{else}}#E1E6E4{{end}}"></div></td>
             </tr></table>
             <div style="font-size:12px;line-height:16px;font-weight:{{if .Current}}600{{else}}500{{end}};color:{{if .Reached}}#121817{{else}}#6E7977{{end}};margin-top:8px">{{.Name}}</div>
           </td>
@@ -93,7 +93,7 @@
 {{- end}}
 {{- if .ActionURL}}
         <table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 0"><tr>
-          <td style="border-radius:9999px;background:#005049"><a id="action" href="{{.ActionURL}}" style="display:inline-block;padding:14px 32px;font-size:15px;line-height:20px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:9999px">{{.Action.Label}}</a></td>
+          <td style="border-radius:9999px;background:#005049"><a href="{{.ActionURL}}" style="display:inline-block;padding:14px 32px;font-size:15px;line-height:20px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:9999px">{{.Action.Label}}</a></td>
         </tr></table>
 {{- end}}
       </td></tr>
@@ -101,10 +101,10 @@
   </td></tr>
   <tr><td align="center" style="padding:24px 16px 0;font:400 13px/20px 'Be Vietnam Pro',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#6E7977">
     {{.Why}}
-    {{- if .HelpURL}}<br>
-    {{- if .SettingsURL}}<a id="settings" href="{{.SettingsURL}}" style="color:#3E4947;text-decoration:underline">{{index .Words "footer.settings"}}</a> &nbsp;·&nbsp; {{end -}}
-    <a id="help" href="{{.HelpURL}}" style="color:#3E4947;text-decoration:underline">{{index .Words "footer.help"}}</a>{{end}}
-    <div style="margin-top:16px;font-size:12px;line-height:16px;font-weight:500">{{index .Words "footer.tagline"}}</div>
+    {{- if .Site}}<br>
+    {{- if .FooterURL}}<a href="{{.FooterURL}}" style="color:#3E4947;text-decoration:underline">{{.Footer.Label}}</a> &nbsp;·&nbsp; {{end -}}
+    <a href="{{.Site}}/help" style="color:#3E4947;text-decoration:underline">{{.Help}}</a>{{end}}
+    <div style="margin-top:16px;font-size:12px;line-height:16px;font-weight:500">{{.Tagline}}</div>
   </td></tr>
 </table>
 </td></tr>

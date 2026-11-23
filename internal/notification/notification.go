@@ -20,8 +20,8 @@ import (
 	"github.com/shopnexus/server/internal/notification/service"
 	"github.com/shopnexus/server/internal/notification/worker"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/mailview"
 	"github.com/shopnexus/server/internal/platform/module"
-	"github.com/shopnexus/server/internal/provider/email"
 	"github.com/shopnexus/server/internal/provider/push"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
@@ -34,10 +34,8 @@ const followerPage = 500
 type Settings struct {
 	// Push delivers the pushes.
 	Push push.Sender
-	// Email delivers the mails, whose links go to Site, the website's
-	// origin.
-	Email email.Sender
-	Site  string
+	// Mail delivers the mails.
+	Mail mailview.Mailer
 }
 
 // Mount registers the notification endpoints and subscribes the worker to
@@ -51,7 +49,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	w := worker.Worker{
 		Prefix: d.ServicePrefix, Notices: svc, Deals: deals, Chats: chats, Catalog: catalog,
-		Trust: trust, Accounts: accounts, Discovery: discovery, Support: support, Push: s.Push, Email: s.Email, Site: s.Site, Log: d.Log, FollowerPage: followerPage, Now: d.Now,
+		Trust: trust, Accounts: accounts, Discovery: discovery, Support: support, Push: s.Push, Mail: s.Mail, Log: d.Log, FollowerPage: followerPage, Now: d.Now,
 	}
 	for kind, h := range map[events.Kind]string{
 		events.DealMoved: "DealMoved", events.MessageSent: "MessageSent", events.ListingPublished: "ListingPublished",

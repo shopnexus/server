@@ -51,12 +51,12 @@ func (s *Account) Identities(ctx context.Context, accountID uuid.UUID) ([]Identi
 	return out, nil
 }
 
-func (s *Account) Mailbox(ctx context.Context, id uuid.UUID) (Mailbox, bool, error) {
+func (s *Account) Mailbox(ctx context.Context, id uuid.UUID) (Mailbox, error) {
 	addr, tag, err := s.accounts.Mailbox(ctx, id)
 	if err != nil {
-		return Mailbox{}, false, fmt.Errorf("read mailbox: %w", err)
+		return Mailbox{}, fmt.Errorf("read mailbox: %w", err)
 	}
-	return Mailbox{Address: addr, Locale: locale.Of(tag)}, addr != "", nil
+	return Mailbox{Address: addr, Locale: locale.Of(tag)}, nil
 }
 
 // HasPhone reports whether the account signs in with a phone number, which

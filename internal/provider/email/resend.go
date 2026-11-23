@@ -3,7 +3,6 @@ package email
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,23 +24,36 @@ func NewResend(client *http.Client, apiKey, from string) *Resend {
 	return &Resend{URL: "https://api.resend.com/emails", apiKey: apiKey, from: from, http: client}
 }
 
+// resendBody is the emails endpoint's request; Content goes as base64.
+type resendBody struct {
+	From        string       `json:"from"`
+	To          []string     `json:"to"`
+	Subject     string       `json:"subject"`
+	Text        string       `json:"text"`
+	HTML        string       `json:"html,omitempty"`
+	Attachments []resendFile `json:"attachments,omitempty"`
+}
+
+type resendFile struct {
+	Filename  string `json:"filename"`
+	Content   []byte `json:"content"`
+	ContentID string `json:"content_id"`
+}
+
 func (s *Resend) Send(ctx context.Context, m Message) error {
-	body := map[string]any{"from": s.from, "to": []string{m.To}, "subject": m.Subject, "text": m.Text}
-	if m.HTML != "" {
-		body["html"] = m.HTML
+	files := make([]resendFile, len(m.Inline))
+	for i, f := range m.Inline {
+		files[i] = resendFile{Filename: f.Name, Content: f.Content, ContentID: f.CID}
 	}
-	if len(m.Inline) > 0 {
-		files := make([]map[string]string, len(m.Inline))
-		for i, f := range m.Inline {
-			files[i] = map[string]string{"filename": f.Name, "content": base64.StdEncoding.EncodeToString(f.Content), "content_id": f.CID}
-		}
-		body["attachments"] = files
-	}
-	payload, err := json.Marshal(body)
-	if err != nil {
+	// HTML goes as written: escaping <, > and & for JSON would add a fifth
+	// to the body for nothing.
+	var payload bytes.Buffer
+	enc := json.NewEncoder(&payload)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(resendBody{From: s.from, To: []string{m.To}, Subject: m.Subject, Text: m.Text, HTML: m.HTML, Attachments: files}); err != nil {
 		return fmt.Errorf("encode message: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL, bytes.NewReader(payload))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.URL, &payload)
 	if err != nil {
 		return fmt.Errorf("build request: %w", err)
 	}

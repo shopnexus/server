@@ -58,11 +58,9 @@ type EmailCodeSend struct {
 	Quotas     repository.Quotas
 	Challenges repository.Challenges
 	Codes      domain.Codes
-	Email      email.Sender
-	// Site is the website's origin the mail's footer links to.
-	Site string
-	Now  func() time.Time
-	Log  *slog.Logger
+	Mail       mailview.Mailer
+	Now        func() time.Time
+	Log        *slog.Logger
 }
 
 // mailOutcome is how the mail step ended.
@@ -106,25 +104,17 @@ func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeRes
 		if !s.Now().Before(c.ExpiresAt()) {
 			return mailExpired, nil
 		}
-		code := s.Codes.For(id)
-		say := func(key string, args ...any) string { return mailWords.Say(in.Locale, key, args...) }
-		kind := "sign_in"
+		code, tag := s.Codes.For(id), locale.Of(string(in.Locale))
+		say := func(key string, args ...any) string { return mailWords.Say(tag, key, args...) }
+		kind, lead := "sign_in", say("sign_in.lead")
 		if in.Purpose == domain.PurposeAddIdentity {
-			kind = "add"
+			kind, lead = "add", say("add.lead", in.Email.Value())
 		}
-		l := mailview.Letter{
-			Locale: in.Locale, Site: s.Site, Subject: say(kind+".subject", code), Preheader: say("preheader", code),
-			Group: say("group"), Art: mailview.ArtVerified, Title: say(kind + ".title"), Lead: say(kind + ".lead"),
-			Code: code, Note: say(kind + ".note"), Why: say(kind + ".why"),
-		}
-		if kind == "add" {
-			l.Lead = say("add.lead", in.Email.Value())
-		}
-		m, stepErr := l.Message(in.Email.Value(), id.String())
-		if stepErr != nil {
-			return "", fmt.Errorf("render the code: %w", stepErr)
-		}
-		stepErr = s.Email.Send(rc, m)
+		stepErr := s.Mail.Send(rc, in.Email.Value(), id.String(), mailview.Letter{
+			Locale: tag, Subject: say(kind+".subject", code), Preheader: say("preheader", code), Group: say("group"),
+			Art: mailview.ArtVerified, Title: say(kind + ".title"), Lead: lead, Code: code, CodeNote: say("expires"),
+			Note: say(kind + ".note"), Why: say(kind + ".why"),
+		})
 		if errors.Is(stepErr, email.ErrRefused) {
 			s.Log.WarnContext(rc, "mail refused", "to", in.Email, "err", stepErr)
 			return mailRefused, nil

@@ -1,11 +1,4 @@
 {
-  "steps.agreed": "Chốt giá",
-  "steps.ordered": "Tạo đơn",
-  "steps.received": "Nhận hàng",
-  "steps.reviewed": "Đánh giá",
-  "code.expires": "Hết hạn sau 5 phút",
-  "footer.settings": "Tắt email đơn hàng",
-  "footer.help": "Trợ giúp",
-  "footer.tagline": "ShopNexus · Đồ cũ giá tốt, xem hàng rồi mới trả",
-  "text.review": "Đánh giá"
+  "help": "Trợ giúp",
+  "tagline": "ShopNexus · Đồ cũ giá tốt, xem hàng rồi mới trả"
 }

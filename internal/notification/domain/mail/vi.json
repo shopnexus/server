@@ -1,6 +1,4 @@
 {
-  "money.group": ".",
-  "date": "2/1",
   "group.orders": "Đơn hàng",
   "group.account": "Tài khoản",
   "why.orders": "Bạn nhận email này vì có đơn hàng trên ShopNexus.",
@@ -48,5 +46,10 @@
   "unsuspended.title": "Tài khoản của bạn đã được mở khoá",
   "unsuspended.lead": "Bạn lại đăng tin, nhắn tin và trả giá được như trước.",
   "unsuspended.action": "Mở ShopNexus",
-  "unnamed": "Người dùng"
+  "unnamed": "Người dùng",
+  "steps.agreed": "Chốt giá",
+  "steps.ordered": "Tạo đơn",
+  "steps.received": "Nhận hàng",
+  "steps.reviewed": "Đánh giá",
+  "footer.settings": "Tắt email đơn hàng"
 }

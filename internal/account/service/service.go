@@ -12,6 +12,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/mailview"
+
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
@@ -23,7 +25,6 @@ import (
 	"github.com/shopnexus/server/internal/platform/contact"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/restatex"
-	"github.com/shopnexus/server/internal/provider/email"
 )
 
 // Service is module account's contract.
@@ -110,8 +111,8 @@ type Service interface {
 	// Identities lists an account's sign-in methods.
 	Identities(ctx context.Context, accountID uuid.UUID) ([]Identity, error)
 	// Mailbox is where the account's mail goes and the language it is
-	// written in; found is false for an account without an email address.
-	Mailbox(ctx context.Context, id uuid.UUID) (box Mailbox, found bool, err error)
+	// written in; Address is empty for an account without an email.
+	Mailbox(ctx context.Context, id uuid.UUID) (Mailbox, error)
 	// Me reads the caller's own account with its identities.
 	Me(ctx context.Context, id uuid.UUID) (MeView, error)
 	// AddIdentity adds the identity kind an account lacks, from a proof.
@@ -191,8 +192,7 @@ type Deps struct {
 	Challenges  repository.Challenges
 	Quotas      repository.Quotas
 	Codes       domain.Codes
-	Email       email.Sender
-	Site        string
+	Mail        mailview.Mailer
 	Media       mediasvc.Service
 	// Ingress and Prefix reach this process's Restate services.
 	Ingress *ingress.Client
@@ -214,8 +214,7 @@ type Account struct {
 	challenges  repository.Challenges
 	quotas      repository.Quotas
 	codes       domain.Codes
-	email       email.Sender
-	site        string
+	mail        mailview.Mailer
 	media       mediasvc.Service
 	prefix      string
 	now         func() time.Time
@@ -236,7 +235,7 @@ const runHandler = "Run"
 func New(d Deps) *Account {
 	return &Account{
 		accounts: d.Accounts, follows: d.Follows, addresses: d.Addresses, credentials: d.Credentials, sessions: d.Sessions, signer: d.Signer, phones: d.Phones,
-		google: d.Google, challenges: d.Challenges, quotas: d.Quotas, codes: d.Codes, email: d.Email, site: d.Site,
+		google: d.Google, challenges: d.Challenges, quotas: d.Quotas, codes: d.Codes, mail: d.Mail,
 		media: d.Media, prefix: d.Prefix, now: d.Now, log: d.Log,
 		signIn: restatex.Caller[ProvenSignIn, SignInResult]{Ingress: d.Ingress, Service: d.Prefix + signInService, Handler: runHandler},
 		emailCodeSend: restatex.Caller[EmailCodeInput, EmailCodeResult]{
@@ -256,7 +255,7 @@ func (s *Account) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
 		restate.Reflect(SignIn{Prefix: s.prefix, Accounts: s.accounts, Credentials: s.credentials, Challenges: s.challenges, Now: s.now}),
 		restate.Reflect(EmailCodeSend{
-			Prefix: s.prefix, Quotas: s.quotas, Challenges: s.challenges, Codes: s.codes, Email: s.email, Site: s.site, Now: s.now, Log: s.log,
+			Prefix: s.prefix, Quotas: s.quotas, Challenges: s.challenges, Codes: s.codes, Mail: s.mail, Now: s.now, Log: s.log,
 		}),
 		restate.Reflect(AddIdentity{Prefix: s.prefix, Challenges: s.challenges, Credentials: s.credentials, Now: s.now}),
 		restate.Reflect(Reauthenticate{Prefix: s.prefix, Credentials: s.credentials, Challenges: s.challenges, Now: s.now}),

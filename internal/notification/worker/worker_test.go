@@ -29,6 +29,7 @@ import (
 	"github.com/shopnexus/server/internal/notification/worker"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/locale"
+	"github.com/shopnexus/server/internal/platform/mailview"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
@@ -130,9 +131,8 @@ type accounts struct {
 	emails    map[uuid.UUID]string
 }
 
-func (a accounts) Mailbox(_ context.Context, id uuid.UUID) (accountsvc.Mailbox, bool, error) {
-	addr, ok := a.emails[id]
-	return accountsvc.Mailbox{Address: addr, Locale: locale.Vietnamese}, ok, nil
+func (a accounts) Mailbox(_ context.Context, id uuid.UUID) (accountsvc.Mailbox, error) {
+	return accountsvc.Mailbox{Address: a.emails[id], Locale: locale.Vietnamese}, nil
 }
 
 func (accounts) Get(_ context.Context, id uuid.UUID) (accountsvc.AccountView, error) {
@@ -249,7 +249,7 @@ func newEnv(t *testing.T, revoked map[uuid.UUID]bool, once map[string]error) env
 	m := &mailbox{}
 	w := worker.Worker{
 		Prefix: restatetest.Prefix(), Notices: notices, Deals: deals{}, Chats: chats{}, Catalog: catalog{}, Trust: trust{}, Discovery: discovery{}, Support: support{},
-		Accounts: accounts{revoked: revoked}, Push: s, Email: m, Log: slog.New(slog.DiscardHandler), FollowerPage: 2,
+		Accounts: accounts{revoked: revoked}, Push: s, Mail: mailview.Mailer{Email: m}, Log: slog.New(slog.DiscardHandler), FollowerPage: 2,
 		Now: func() time.Time { return noon },
 	}
 	return env{db: db, notices: notices, push: s, mail: m, worker: w}

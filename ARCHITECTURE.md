@@ -3776,19 +3776,24 @@ calls it except screen, for the unread counts of Home and
 - Mail layout and languages (decided 2026-11-23, design in
   `.superdesign/`): `internal/platform/mailview` renders a `Letter` (a
   mascot drawing, title, lead, then the blocks a mail uses: code, stars,
-  listing, the four order steps, rows, note, one button) with
+  listing, steps, rows, note, one button, a footer link) with
   `html/template` into HTML with tables and inline styles, plus a
   plain-text part. The logo and the drawings are PNGs embedded in the
-  binary and sent inline (`cid:`), so mail needs no image host; links go
-  to the first of `WEBSITE_ORIGINS`. Text lives in `<tag>.json` catalogs
+  binary and sent inline (`cid:`), so mail needs no image host. One
+  `mailview.Mailer` (the email sender and the first of `WEBSITE_ORIGINS`,
+  which links go to) is built in `app` and handed to account and
+  notification. An order notice's mail facts (cover, price, fee) ride on
+  `Notice.Order`, which is not stored. Text lives in `<tag>.json` catalogs
   next to the code that writes it (`mailview/locales`,
   `notification/domain/mail`, `account/service/mail`), loaded by
   `platform/locale`, which refuses a catalog whose languages have
   different keys; adding a language is a file per catalog and a tag in
   `locale.Supported`. Supported: vi (default) and en. A sign-in records
   the `Accept-Language` it came with as `accounts.locale` (migration
-  0079); notice mail reads it with the address through
-  `accountsvc.Mailbox`, and a code mail follows its own request's header.
+  0079), unless the header names no supported language; notice mail reads
+  it with the address through `accountsvc.Mailbox`, and a code mail
+  follows its own request's header. `locale.Money` and `locale.Date`
+  write amounts and dates per language.
   Push and listed notice text stay Vietnamese. Advertising mail, if it ever comes, starts off (Decree
   91/2020 wants consent first).
 - Migration 0045 copied each `saved_settings` row with the switch off into

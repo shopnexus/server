@@ -1,6 +1,4 @@
 {
-  "money.group": ",",
-  "date": "Jan 2",
   "group.orders": "Orders",
   "group.account": "Account",
   "why.orders": "You get this email because you have an order on ShopNexus.",
@@ -48,5 +46,10 @@
   "unsuspended.title": "Your account is active again",
   "unsuspended.lead": "You can post, message and make offers again.",
   "unsuspended.action": "Open ShopNexus",
-  "unnamed": "A ShopNexus user"
+  "unnamed": "A ShopNexus user",
+  "steps.agreed": "Price agreed",
+  "steps.ordered": "Order made",
+  "steps.received": "Received",
+  "steps.reviewed": "Reviewed",
+  "footer.settings": "Turn off order emails"
 }

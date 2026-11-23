@@ -24,6 +24,7 @@ import (
 	"github.com/shopnexus/server/internal/notification/domain"
 	"github.com/shopnexus/server/internal/notification/service"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/mailview"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/provider/email"
 	"github.com/shopnexus/server/internal/provider/push"
@@ -52,11 +53,9 @@ type Worker struct {
 	// opens.
 	Support supportsvc.Service
 	Push    push.Sender
-	// Email mails the notices the recipient's settings mail, with links on
-	// Site, the website's origin.
-	Email email.Sender
-	Site  string
-	Log   *slog.Logger
+	// Mail sends the notices the recipient's settings mail.
+	Mail mailview.Mailer
+	Log  *slog.Logger
 	// FollowerPage is how many followers one step reads when a listing
 	// first goes on sale.
 	FollowerPage int
@@ -84,18 +83,13 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 			Title: facts.ListingTitle, BuyerName: facts.BuyerName, SellerName: facts.SellerName, Photo: facts.ListingPhoto,
 		}
 		if o := facts.Order; o != nil {
-			out.Carrier, out.TrackingCode, out.CancelReason = orderFacts(*o)
+			out.Carrier, out.TrackingCode, out.CancelReason, _, _ = orderFacts(*o)
 		}
 		for _, m := range facts.Moves {
 			mv := domain.Move{Kind: string(m.Kind), By: string(m.By), Amount: m.Amount}
 			if m.OrderID != nil {
 				mv.OrderID = *m.OrderID
-				o := facts.Orders[*m.OrderID]
-				mv.Carrier, mv.TrackingCode, mv.CancelReason = orderFacts(o)
-				mv.Price = o.Price
-				if o.Shipment != nil && o.Shipment.Fee != nil {
-					mv.Fee = *o.Shipment.Fee
-				}
+				mv.Carrier, mv.TrackingCode, mv.CancelReason, mv.Price, mv.Fee = orderFacts(facts.Orders[*m.OrderID])
 			}
 			out.Moves = append(out.Moves, mv)
 		}
@@ -110,13 +104,16 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 	return w.tell(ctx, e.ID, domain.FromMoves(f, e.OccurredAt))
 }
 
-// orderFacts is what an order notice tells of o: its shipment's carrier and
-// tracking code, and why it was cancelled.
-func orderFacts(o dealdomain.Order) (carrier, code, reason string) {
-	if o.Shipment != nil {
-		carrier, code = string(o.Shipment.Carrier), o.Shipment.TrackingCode
+// orderFacts is what an order notice tells of o: its shipment's carrier,
+// tracking code and fee, why it was cancelled, and its price.
+func orderFacts(o dealdomain.Order) (carrier, code, reason string, price, fee int64) {
+	if s := o.Shipment; s != nil {
+		carrier, code = string(s.Carrier), s.TrackingCode
+		if s.Fee != nil {
+			fee = *s.Fee
+		}
 	}
-	return carrier, code, string(o.CancelReason)
+	return carrier, code, string(o.CancelReason), o.Price, fee
 }
 
 // FollowerNotice is what TellFollower needs: the event the listing went on
@@ -446,7 +443,7 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 			if !st.Mails(n.Type) {
 				return accountsvc.Mailbox{}, nil
 			}
-			b, _, stepErr := w.Accounts.Mailbox(rc, n.Recipient)
+			b, stepErr := w.Accounts.Mailbox(rc, n.Recipient)
 			if stepErr != nil {
 				return accountsvc.Mailbox{}, fmt.Errorf("read the mailbox: %w", stepErr)
 			}
@@ -460,11 +457,7 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 		}
 		key := event.String() + "/" + n.Recipient.String() + "/" + strconv.Itoa(i)
 		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-			m, renderErr := domain.Mail(n.Type, n.Params, w.Site, box.Locale).Message(box.Address, key)
-			if renderErr != nil {
-				return fmt.Errorf("render: %w", renderErr)
-			}
-			sendErr := w.Email.Send(rc, m)
+			sendErr := w.Mail.Send(rc, box.Address, key, domain.Mail(*n, box.Locale))
 			if errors.Is(sendErr, email.ErrRefused) {
 				w.Log.WarnContext(rc, "mail refused", "type", n.Type, "err", sendErr)
 				return nil

@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/shopnexus/server/internal/platform/mailview"
+
 	"github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/account/handler"
 	"github.com/shopnexus/server/internal/account/repository"
@@ -16,7 +18,6 @@ import (
 	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/config"
 	"github.com/shopnexus/server/internal/platform/module"
-	"github.com/shopnexus/server/internal/provider/email"
 )
 
 // Settings is what account's Mount takes beyond module.Deps.
@@ -24,10 +25,8 @@ type Settings struct {
 	Keys   config.AuthConfig
 	Phones service.TokenVerifier
 	Google service.TokenVerifier
-	// Email mails sign-in codes; their footer links to Site, the website's
-	// origin.
-	Email email.Sender
-	Site  string
+	// Mail mails sign-in codes.
+	Mail mailview.Mailer
 }
 
 // Guards returns the middlewares app puts in module.Deps: protect requires a
@@ -50,7 +49,7 @@ func Mount(d module.Deps, s Settings, media mediasvc.Service) module.Mounted[ser
 	svc := service.New(service.Deps{
 		Accounts: repository.NewAccounts(d.Pool), Follows: repository.NewFollows(d.Pool), Addresses: repository.NewAddresses(d.Pool), Credentials: repository.NewCredentials(d.Pool),
 		Sessions: repository.NewSessions(d.Pool), Signer: domain.NewSigner(s.Keys), Phones: s.Phones, Google: s.Google, Media: media,
-		Challenges: repository.NewChallenges(d.Pool), Quotas: repository.NewQuotas(d.Pool), Codes: domain.NewCodes(s.Keys.OTPKey), Email: s.Email, Site: s.Site,
+		Challenges: repository.NewChallenges(d.Pool), Quotas: repository.NewQuotas(d.Pool), Codes: domain.NewCodes(s.Keys.OTPKey), Mail: s.Mail,
 		Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)

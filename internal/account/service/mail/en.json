@@ -10,5 +10,6 @@
   "add.lead": "This code adds %s to a ShopNexus account that is signed in.",
   "add.note": "Whoever has this code can sign in with your email. If you did not ask for it, do not give it to anyone.",
   "add.why": "Someone asked to add this address to a ShopNexus account.",
-  "preheader": "Code %s, expires in 5 minutes. Do not share it."
+  "preheader": "Code %s, expires in 5 minutes. Do not share it.",
+  "expires": "Expires in 5 minutes"
 }

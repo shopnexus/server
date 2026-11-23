@@ -8,6 +8,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
@@ -57,6 +59,8 @@ type Notice struct {
 	CollapseKey string
 	Params      Params
 	At          time.Time
+	// Order is set on an order notice, for its mail.
+	Order *OrderFacts
 }
 
 // Params are what a notice's text and target are written from, stored as
@@ -93,11 +97,14 @@ type Params struct {
 	Count   int       `json:"count,omitempty"`
 	// SavedPrice is the listing's price when the recipient saved it.
 	SavedPrice int64 `json:"saved_price,omitempty"`
-	// Photo, Price and Fee are an order notice's listing cover, the order's
-	// price and the carrier's fee, for its mail.
-	Photo string `json:"photo,omitempty"`
-	Price int64  `json:"price,omitempty"`
-	Fee   int64  `json:"fee,omitempty"`
+}
+
+// OrderFacts are what an order notice's mail shows beyond its params: the
+// listing's cover, the order's price and the carrier's fee, 0 when not
+// known yet. They are not stored.
+type OrderFacts struct {
+	Photo      string
+	Price, Fee int64
 }
 
 // Move is a deal move as notification reads it. A step of an order names
@@ -144,8 +151,9 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 			to, actor = f.BuyerID, f.SellerName
 		}
 		p := Params{DealID: f.DealID, OrderID: m.OrderID, Title: f.Title, Actor: actor, Amount: m.Amount}
+		var order *OrderFacts
 		if m.OrderID != (uuid.UUID{}) {
-			p.Photo, p.Price, p.Fee, p.ToSeller = f.Photo, m.Price, m.Fee, to == f.SellerID
+			p.ToSeller, order = to == f.SellerID, &OrderFacts{Photo: f.Photo, Price: m.Price, Fee: m.Fee}
 		}
 		var t Type
 		switch m.Kind {
@@ -174,14 +182,14 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 				// The seller hears that the buyer has it, as from a confirmation.
 				sp := p
 				sp.Actor, sp.Seller, sp.ToSeller = f.BuyerName, "", true
-				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at})
+				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at, Order: order})
 			}
 		case "failed":
 			// A failed delivery tells the seller too: the parcel comes back.
 			t, p.Carrier, p.Code = TypeFailed, carrier, code
 			sp := p
 			sp.Actor, sp.ToSeller = f.BuyerName, true
-			out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at})
+			out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at, Order: order})
 		case "order_cancelled":
 			t, p.Reason = TypeOrderCancelled, reason
 			// A timeout puts the seller's listing back on sale; the seller hears
@@ -189,12 +197,12 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 			if m.By == "system" && (p.Reason == "seller_timeout" || p.Reason == "pickup_timeout") {
 				sp := p
 				sp.Actor, sp.ToSeller = f.BuyerName, true
-				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at})
+				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at, Order: order})
 			}
 		default:
 			continue
 		}
-		out = append(out, Notice{Recipient: to, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: p, At: at})
+		out = append(out, Notice{Recipient: to, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: p, At: at, Order: order})
 	}
 	return out
 }
@@ -360,11 +368,7 @@ var types = map[Type]struct {
 	}},
 	TypeCodRequested: {orders, func(p Params) string { return p.Actor + " yêu cầu COD " + p.Title }},
 	TypeShipped: {orders, func(p Params) string {
-		carrier, ok := carrierLabels[p.Carrier]
-		if !ok {
-			carrier = p.Carrier
-		}
-		return p.Actor + " đã gửi " + p.Title + " · " + carrier + " " + p.Code
+		return p.Actor + " đã gửi " + p.Title + " · " + carrierName(p.Carrier) + " " + p.Code
 	}},
 	TypeCompleted: {orders, func(p Params) string {
 		if p.Seller != "" {
@@ -402,7 +406,7 @@ var types = map[Type]struct {
 		if err != nil {
 			return "Tài khoản của bạn bị khoá"
 		}
-		return "Tài khoản của bạn bị khoá đến " + until.In(vietnam).Format("2/1")
+		return "Tài khoản của bạn bị khoá đến " + locale.Date(locale.Vietnamese, until)
 	}},
 	TypeUnsuspended: {accounts, func(Params) string { return "Tài khoản của bạn đã được mở khoá" }},
 	TypeWatchMatched: {searches, func(p Params) string {
@@ -417,10 +421,18 @@ var types = map[Type]struct {
 	}},
 }
 
-// carrierLabels name the carriers by their codes; an older notice may store
-// a label, which reads as itself.
+// carrierLabels name the carriers by their codes.
 var carrierLabels = map[string]string{
 	"ghtk": "GHTK", "ghn": "GHN", "spx": "SPX", "jt": "J&T", "viettel_post": "Viettel Post",
+}
+
+// carrierName names a carrier by its code; an older notice may store a
+// label, which reads as itself.
+func carrierName(code string) string {
+	if name, ok := carrierLabels[code]; ok {
+		return name
+	}
+	return code
 }
 
 // vietnam is the time zone dates are written in.
@@ -476,20 +488,7 @@ func money(n int64) string {
 	if n >= 1_000_000 {
 		return strings.Replace(strconv.FormatFloat(float64(n)/1_000_000, 'f', -1, 64), ".", ",", 1) + " tr"
 	}
-	return vnd(n)
-}
-
-// vnd writes an amount in full: "3.800.000 ₫".
-func vnd(n int64) string {
-	s := strconv.FormatInt(n, 10)
-	var b strings.Builder
-	for i, r := range s {
-		if i > 0 && (len(s)-i)%3 == 0 {
-			b.WriteByte('.')
-		}
-		b.WriteRune(r)
-	}
-	return b.String() + " ₫"
+	return locale.Money(locale.Vietnamese, n)
 }
 
 // chatRunes is how much of a message a chat push shows.

@@ -10,5 +10,6 @@
   "add.lead": "Mã này thêm %s vào một tài khoản ShopNexus đang đăng nhập.",
   "add.note": "Người có mã sẽ đăng nhập được bằng email của bạn. Nếu bạn không yêu cầu, đừng đưa mã cho ai.",
   "add.why": "Ai đó vừa yêu cầu thêm địa chỉ này vào tài khoản ShopNexus.",
-  "preheader": "Mã %s, hết hạn sau 5 phút. Đừng đưa mã cho ai."
+  "preheader": "Mã %s, hết hạn sau 5 phút. Đừng đưa mã cho ai.",
+  "expires": "Hết hạn sau 5 phút"
 }

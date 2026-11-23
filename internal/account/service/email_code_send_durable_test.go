@@ -11,6 +11,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/mailview"
+
 	"github.com/shopnexus/server/internal/platform/locale"
 
 	restate "github.com/restatedev/sdk-go"
@@ -78,7 +80,7 @@ func startEmailCodeSend(t *testing.T, mail *mailbox) *emailCodeEnv {
 	clock := restatetest.NewClock(now)
 	svc := service.EmailCodeSend{
 		Prefix: restatetest.Prefix(), Quotas: repository.NewQuotas(db), Challenges: repository.NewChallenges(db),
-		Codes: testCodes, Email: mail, Now: clock.Now, Log: discard,
+		Codes: testCodes, Mail: mailview.Mailer{Email: mail}, Now: clock.Now, Log: discard,
 	}
 	client := restatetest.Start(t, restate.Reflect(svc))
 	return &emailCodeEnv{

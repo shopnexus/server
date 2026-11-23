@@ -1,17 +1,19 @@
-// Package locale names the languages the server writes text in and picks
-// one from a request's Accept-Language.
+// Package locale names the languages the server writes text in, picks one
+// from a request's Accept-Language, and writes amounts and dates in it.
 package locale
 
 import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"maps"
+	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 // Tag is a language the server writes in, as a BCP 47 base tag.
@@ -25,71 +27,82 @@ const (
 // Supported lists the languages; the first is the default.
 var Supported = []Tag{Vietnamese, English}
 
-var matcher = language.NewMatcher([]language.Tag{language.Vietnamese, language.English})
-
-// Match picks the supported language an Accept-Language header prefers;
-// Vietnamese for an empty or unmatched header.
-func Match(acceptLanguage string) Tag {
-	tags, _, err := language.ParseAcceptLanguage(acceptLanguage)
-	if err != nil || len(tags) == 0 {
-		return Vietnamese
+var matcher = func() language.Matcher {
+	tags := make([]language.Tag, len(Supported))
+	for i, t := range Supported {
+		tags[i] = language.Make(string(t))
 	}
+	return language.NewMatcher(tags)
+}()
+
+// Match picks the supported language an Accept-Language header prefers,
+// or "" when it names none; Of reads "" as the default.
+func Match(acceptLanguage string) Tag {
+	tags, _, _ := language.ParseAcceptLanguage(acceptLanguage) // a bad header names no language
 	_, i, confidence := matcher.Match(tags...)
 	if confidence == language.No {
-		return Vietnamese
+		return ""
 	}
 	return Supported[i]
 }
 
-// Of reads a stored tag; an unknown one reads as Vietnamese.
+// FromRequest is Match on r's Accept-Language.
+func FromRequest(r *http.Request) Tag { return Match(r.Header.Get("Accept-Language")) }
+
+// Of reads a stored tag; an unknown or empty one reads as the default.
 func Of(s string) Tag {
 	if t := Tag(s); slices.Contains(Supported, t) {
 		return t
 	}
-	return Vietnamese
+	return Supported[0]
 }
+
+// Money writes an amount of đồng in full, grouped as t groups digits:
+// "3.800.000 ₫", "3,800,000 ₫".
+func Money(t Tag, n int64) string {
+	return message.NewPrinter(language.Make(string(t))).Sprintf("%d ₫", n)
+}
+
+// dates are the day-and-month layouts, in Vietnam time.
+var dates = map[Tag]string{Vietnamese: "2/1", English: "Jan 2"}
+
+var vietnam = time.FixedZone("ICT", 7*60*60)
+
+// Date writes the day and month of at, on Vietnam's clock.
+func Date(t Tag, at time.Time) string { return at.In(vietnam).Format(dates[Of(string(t))]) }
 
 // Catalog is one package's text in every supported language: <tag>.json
 // files of key → fmt format.
 type Catalog map[Tag]map[string]string
 
-// Load reads <tag>.json from dir of fsys for every supported language and
-// fails unless each file has the default's keys, no more and no fewer.
-func Load(fsys embed.FS, dir string) (Catalog, error) {
+// MustLoad reads <tag>.json from dir of fsys for every supported language
+// and panics unless each file has the default's keys, no more and no fewer.
+func MustLoad(fsys embed.FS, dir string) Catalog {
 	c := Catalog{}
 	for _, t := range Supported {
-		b, err := fs.ReadFile(fsys, dir+"/"+string(t)+".json")
+		b, err := fsys.ReadFile(dir + "/" + string(t) + ".json")
 		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", t, err)
+			panic(fmt.Sprintf("locale: read %s: %v", t, err))
 		}
 		m := map[string]string{}
 		if err = json.Unmarshal(b, &m); err != nil {
-			return nil, fmt.Errorf("parse %s: %w", t, err)
+			panic(fmt.Sprintf("locale: parse %s/%s.json: %v", dir, t, err))
 		}
 		c[t] = m
 	}
 	want := slices.Sorted(maps.Keys(c[Supported[0]]))
 	for _, t := range Supported[1:] {
 		if got := slices.Sorted(maps.Keys(c[t])); !slices.Equal(got, want) {
-			return nil, fmt.Errorf("%s.json has keys %s, %s.json %s", t, strings.Join(got, ","), Supported[0], strings.Join(want, ","))
+			panic(fmt.Sprintf("locale: %s/%s.json has keys %s, %s.json %s", dir, t, strings.Join(got, ","), Supported[0], strings.Join(want, ",")))
 		}
-	}
-	return c, nil
-}
-
-// MustLoad is Load for a package variable.
-func MustLoad(fsys embed.FS, dir string) Catalog {
-	c, err := Load(fsys, dir)
-	if err != nil {
-		panic(err)
 	}
 	return c
 }
 
-// Say writes key in t with args; an unknown t reads as Vietnamese, and a
-// key the catalog lacks is itself.
+// Say writes key in t, a supported tag, with args; a key the catalog lacks
+// is itself.
 func (c Catalog) Say(t Tag, key string, args ...any) string {
-	f, ok := c[Of(string(t))][key]
+	f, ok := c[t][key]
 	if !ok {
 		return key
 	}

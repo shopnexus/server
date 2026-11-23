@@ -129,7 +129,8 @@ type SignInInput struct {
 	IdempotencyKey string
 	Proof          Proof
 	DeviceName     string
-	// Locale is the caller's language, which the account's mail follows.
+	// Locale is the caller's language, which the account's mail follows;
+	// empty when the caller names none.
 	Locale locale.Tag
 }
 
