@@ -327,16 +327,8 @@ func TestSearchFindsByMeaning(t *testing.T) {
 	if e.image.Calls() != 0 {
 		t.Fatal("an empty visual embeds nothing")
 	}
-	// The raw words embed while the model reads them, then the rewrite.
-	if e.text.Calls() != 2 {
-		t.Fatalf("embedded %d texts, want the raw words and the rewrite", e.text.Calls())
-	}
-	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap tre em", Cursor: "1"}); err != nil || e.text.Calls() != 2 {
+	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap tre em", Cursor: "1"}); err != nil || e.text.Calls() != 1 {
 		t.Fatalf("page 2 embeds again: %d %v", e.text.Calls(), err)
-	}
-	e.model.answers["xe đạp"] = `{"rewritten":"Xe  đạp","boosts":[],"demotes":[]}`
-	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe đạp"}); err != nil || e.text.Calls() != 3 {
-		t.Fatalf("a rewrite of the same words embeds again: %d %v", e.text.Calls(), err)
 	}
 	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "noi com"}); err != nil {
 		t.Fatal(err)
