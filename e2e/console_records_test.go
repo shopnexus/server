@@ -21,7 +21,7 @@ func TestConsoleRecordPages(t *testing.T) {
 	l := activeListing(t, seller.AccessToken, nil)
 	order := shippedOrder(t, seller.AccessToken, buyer.AccessToken, l.ID).Order
 	tk := openTicket(t, buyer.AccessToken, map[string]any{
-		"kind": "not_received", "order_id": order.ID, "body": "GHTK báo đã giao mà mình chưa nhận",
+		"kind": "not_received", "order_id": order.ID, "text": "GHTK báo đã giao mà mình chưa nhận",
 	}, http.StatusCreated)
 	other := activeListing(t, seller.AccessToken, nil)
 	reporter, _ := newAccount(t)
