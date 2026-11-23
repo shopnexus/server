@@ -24,7 +24,7 @@ func (s *Account) SendEmailCode(ctx context.Context, in SendEmailCodeInput) (Ema
 		purpose, owner, accountID = domain.PurposeAddIdentity, in.Caller.AccountID.String(), &in.Caller.AccountID
 	}
 	res, err := s.emailCodeSend.Call(ctx, owner+"/"+addr.Value()+"/"+in.IdempotencyKey,
-		EmailCodeInput{Email: addr, Purpose: purpose, AccountID: accountID, IP: in.IP})
+		EmailCodeInput{Email: addr, Purpose: purpose, AccountID: accountID, IP: in.IP, Locale: in.Locale})
 	if err != nil {
 		return EmailCodeView{}, err
 	}

@@ -1,7 +1,9 @@
 package e2e
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -50,4 +52,23 @@ func TestSendMyEmailCode(t *testing.T) {
 	check(t, "invalid email", send("x@y", newKey(), bearer(me.AccessToken)), 422, "invalid_email")
 	check(t, "no key", send(newEmail(), bearer(me.AccessToken)), 400, "")
 	check(t, "signed out", send(newEmail(), newKey()), 401, "")
+}
+
+// A caller whose Accept-Language prefers English gets the code in English,
+// and signing in records English as the account's mail language.
+func TestMailLanguageFollowsAcceptLanguage(t *testing.T) {
+	t.Parallel()
+	addr, english := newEmail(), [2]string{"Accept-Language", "en-US,en;q=0.9"}
+	n := mails.count(addr)
+	c := expect[emailCode](t, call(t, "POST", "/v1/auth/email-codes", map[string]string{"email": addr}, newKey(), newClient(), english), 200)
+	if mail := mails.last(t, addr); !strings.HasPrefix(mail, "Your ShopNexus code: ") {
+		t.Fatalf("mail %q", mail)
+	}
+	s := expect[signIn](t, call(t, "POST", "/v1/auth/sign-in",
+		map[string]any{"email_code": map[string]string{"challenge_id": c.ChallengeID, "code": mails.code(t, addr, n+1)}, "device_name": "e2e"},
+		newKey(), english), 200)
+	var tag string
+	if err := db.QueryRow(context.Background(), `SELECT locale FROM accounts WHERE id = $1`, s.Account.ID).Scan(&tag); err != nil || tag != "en" {
+		t.Fatalf("locale %q %v", tag, err)
+	}
 }

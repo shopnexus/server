@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	"github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/account/repository"
 	"github.com/shopnexus/server/internal/platform/contact"
@@ -47,6 +49,14 @@ func (s *Account) Identities(ctx context.Context, accountID uuid.UUID) ([]Identi
 		out = append(out, Identity{Kind: i.Kind(), Value: i.Value()})
 	}
 	return out, nil
+}
+
+func (s *Account) Mailbox(ctx context.Context, id uuid.UUID) (Mailbox, bool, error) {
+	addr, tag, err := s.accounts.Mailbox(ctx, id)
+	if err != nil {
+		return Mailbox{}, false, fmt.Errorf("read mailbox: %w", err)
+	}
+	return Mailbox{Address: addr, Locale: locale.Of(tag)}, addr != "", nil
 }
 
 // HasPhone reports whether the account signs in with a phone number, which

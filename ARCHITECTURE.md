@@ -3772,8 +3772,24 @@ calls it except screen, for the unread counts of Home and
   another, keyed `<event id>/<recipient>/<notice index>`; an account without an email
   identity (phone only, or erased) gets no mail. A refusal is logged and
   dropped, other failures retry for an hour. `domain.Mail` writes the
-  subject and text from the notice's text; HTML templates come later and
-  replace only it. Advertising mail, if it ever comes, starts off (Decree
+  mail as a `mailview.Letter` in the recipient's language.
+- Mail layout and languages (decided 2026-11-23, design in
+  `.superdesign/`): `internal/platform/mailview` renders a `Letter` (a
+  mascot drawing, title, lead, then the blocks a mail uses: code, stars,
+  listing, the four order steps, rows, note, one button) with
+  `html/template` into HTML with tables and inline styles, plus a
+  plain-text part. The logo and the drawings are PNGs embedded in the
+  binary and sent inline (`cid:`), so mail needs no image host; links go
+  to the first of `WEBSITE_ORIGINS`. Text lives in `<tag>.json` catalogs
+  next to the code that writes it (`mailview/locales`,
+  `notification/domain/mail`, `account/service/mail`), loaded by
+  `platform/locale`, which refuses a catalog whose languages have
+  different keys; adding a language is a file per catalog and a tag in
+  `locale.Supported`. Supported: vi (default) and en. A sign-in records
+  the `Accept-Language` it came with as `accounts.locale` (migration
+  0079); notice mail reads it with the address through
+  `accountsvc.Mailbox`, and a code mail follows its own request's header.
+  Push and listed notice text stay Vietnamese. Advertising mail, if it ever comes, starts off (Decree
   91/2020 wants consent first).
 - Migration 0045 copied each `saved_settings` row with the switch off into
   `notification_settings` as `price_cuts = false`, the rest at the

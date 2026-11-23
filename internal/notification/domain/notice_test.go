@@ -8,6 +8,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/notification/domain"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 var (
@@ -282,18 +283,54 @@ func TestSystemMovesTellTheSellerToo(t *testing.T) {
 	}
 }
 
-// A mail's subject is the notice's text; only an order mail says how to
-// stop it.
+// An order mail's subject is the notice's text; its letter carries the
+// listing, the steps, the tracking rows and the order's link, and the
+// settings link. An account mail has no settings link.
 func TestMail(t *testing.T) {
 	t.Parallel()
-	p := domain.Params{Title: "Xe đạp", Actor: "Lan", Carrier: "ghn", Code: "GHN123"}
-	subject, text := domain.Mail(domain.TypeShipped, p)
-	if subject != "Lan đã gửi Xe đạp · GHN GHN123" || !strings.HasPrefix(text, subject+"\n") ||
-		!strings.Contains(text, "tắt email đơn hàng") {
-		t.Fatalf("subject %q, text %q", subject, text)
+	order := uuid.NewV7()
+	p := domain.Params{
+		OrderID: order, Title: "Xe đạp", Actor: "Lan", Carrier: "ghn", Code: "GHN123", Photo: "https://m.test/c.jpg",
+		Price: 1_200_000, Fee: 22_000,
 	}
-	subject, text = domain.Mail(domain.TypeUnsuspended, domain.Params{})
-	if subject != "Tài khoản của bạn đã được mở khoá" || strings.Contains(text, "tắt email") {
-		t.Fatalf("subject %q, text %q", subject, text)
+	l := domain.Mail(domain.TypeShipped, p, "https://shopnexus.id.vn", locale.Vietnamese)
+	if l.Subject != "Lan đã gửi Xe đạp" || l.Title != "Lan đã gửi hàng" || !l.Settings ||
+		l.Item == nil || l.Item.Price != "1.200.000 ₫" || l.Item.Side != "Người bán · Lan" || l.Item.Photo != p.Photo ||
+		l.Steps == nil || l.Steps.Done != 2 || l.Action == nil || l.Action.Path != "/orders/"+order.String() {
+		t.Fatalf("shipped %+v", l)
+	}
+	if len(l.Rows) != 3 || l.Rows[1].Value != "GHN123" || l.Rows[2].Value != "1.222.000 ₫" {
+		t.Fatalf("rows %+v", l.Rows)
+	}
+	p.ToSeller = true
+	if l = domain.Mail(domain.TypeCompleted, p, "", locale.Vietnamese); l.Title != "Lan đã nhận hàng" || l.Item.Side != "Người mua · Lan" || l.Stars != "" {
+		t.Fatalf("completed for the seller %+v", l)
+	}
+	p.ToSeller, p.Seller = false, "Nam"
+	if l = domain.Mail(domain.TypeCompleted, p, "", locale.Vietnamese); l.Stars != "/orders/"+order.String() || l.Action != nil {
+		t.Fatalf("completed for the buyer %+v", l)
+	}
+	en := domain.Mail(domain.TypeShipped, p, "", locale.English)
+	if en.Title != "Lan shipped your order" || en.Item.Price != "1,200,000 ₫" || en.Rows[0].Label != "Carrier" {
+		t.Fatalf("shipped in English %+v", en)
+	}
+	l = domain.Mail(domain.TypeUnsuspended, domain.Params{}, "", locale.Vietnamese)
+	if l.Subject != "Tài khoản của bạn đã được mở khoá" || l.Settings || l.Item != nil {
+		t.Fatalf("unsuspended %+v", l)
+	}
+	// Every mailed type renders.
+	for _, ty := range []domain.Type{
+		domain.TypeCodRequested, domain.TypeShipped, domain.TypeCompleted, domain.TypeFailed,
+		domain.TypeOrderCancelled, domain.TypeSuspended, domain.TypeUnsuspended,
+	} {
+		for _, tag := range locale.Supported {
+			l := domain.Mail(ty, p, "https://shopnexus.id.vn", tag)
+			if strings.Contains(l.Subject+l.Title+l.Lead+l.Note, "%!") {
+				t.Errorf("%s %s: a format went wrong: %+v", ty, tag, l)
+			}
+			if _, err := l.Message("a@b.test", "k"); err != nil {
+				t.Errorf("%s %s: %v", ty, tag, err)
+			}
+		}
 	}
 }

@@ -32,10 +32,16 @@ func TestLogSenderWritesMessage(t *testing.T) {
 func TestResendPostsTheMessage(t *testing.T) {
 	t.Parallel()
 	var got struct {
-		From    string   `json:"from"`
-		To      []string `json:"to"`
-		Subject string   `json:"subject"`
-		Text    string   `json:"text"`
+		From        string   `json:"from"`
+		To          []string `json:"to"`
+		Subject     string   `json:"subject"`
+		Text        string   `json:"text"`
+		HTML        string   `json:"html"`
+		Attachments []struct {
+			Filename  string `json:"filename"`
+			Content   string `json:"content"`
+			ContentID string `json:"content_id"`
+		} `json:"attachments"`
 	}
 	var auth, key string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,11 +52,16 @@ func TestResendPostsTheMessage(t *testing.T) {
 	t.Cleanup(srv.Close)
 	s := email.NewResend(&http.Client{}, "re_test", "ShopNexus <no-reply@shopnexus.test>")
 	s.URL = srv.URL
-	if err := s.Send(context.Background(), email.Message{To: "linh@example.com", Subject: "Chủ đề", Text: "Nội dung", Key: "ev/0"}); err != nil {
+	if err := s.Send(context.Background(), email.Message{
+		To: "linh@example.com", Subject: "Chủ đề", Text: "Nội dung", HTML: `<img src="cid:logo">`, Key: "ev/0",
+		Inline: []email.Inline{{CID: "logo", Name: "logo.png", Content: []byte("png")}},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	if auth != "Bearer re_test" || key != "ev/0" || got.From != "ShopNexus <no-reply@shopnexus.test>" || len(got.To) != 1 ||
-		got.To[0] != "linh@example.com" || got.Subject != "Chủ đề" || got.Text != "Nội dung" {
+		got.To[0] != "linh@example.com" || got.Subject != "Chủ đề" || got.Text != "Nội dung" ||
+		got.HTML != `<img src="cid:logo">` || len(got.Attachments) != 1 || got.Attachments[0].ContentID != "logo" ||
+		got.Attachments[0].Filename != "logo.png" || got.Attachments[0].Content != "cG5n" {
 		t.Fatalf("auth %q, key %q, body %+v", auth, key, got)
 	}
 }

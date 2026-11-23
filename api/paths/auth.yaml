@@ -15,6 +15,7 @@ signIn:
     tags: [auth]
     parameters:
       - $ref: "../parameters/common.yaml#/IdempotencyKey"
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     requestBody:
       required: true
       content:
@@ -236,6 +237,7 @@ emailCodes:
     tags: [auth]
     parameters:
       - $ref: "../parameters/common.yaml#/IdempotencyKey"
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     requestBody:
       required: true
       content:

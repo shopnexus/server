@@ -72,7 +72,7 @@ func TestOrderNoticesAreMailed(t *testing.T) {
 	ev := e.moved(t, e.cod, e.offer)
 	e.deliver(t, "DealMoved", ev)
 	got := e.mail.to(sellerMail)
-	if len(got) != 1 || got[0].Subject != "Đức Huy yêu cầu COD Xe đạp Asama" || got[0].Key != ev.ID.String()+"/"+e.f.SellerID.String()+"/0" {
+	if len(got) != 1 || got[0].Subject != "Đức Huy chọn nhận COD Xe đạp Asama" || got[0].Key != ev.ID.String()+"/"+e.f.SellerID.String()+"/0" {
 		t.Fatalf("one COD mail: %+v", got)
 	}
 	e.deliver(t, "AccountSuspended", events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: e.f.BuyerID, OccurredAt: time.Now()})

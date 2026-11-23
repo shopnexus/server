@@ -52,8 +52,10 @@ type Worker struct {
 	// opens.
 	Support supportsvc.Service
 	Push    push.Sender
-	// Email mails the notices the recipient's settings mail.
+	// Email mails the notices the recipient's settings mail, with links on
+	// Site, the website's origin.
 	Email email.Sender
+	Site  string
 	Log   *slog.Logger
 	// FollowerPage is how many followers one step reads when a listing
 	// first goes on sale.
@@ -79,7 +81,7 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 		}
 		out := domain.DealFacts{
 			DealID: facts.DealID, BuyerID: facts.BuyerID, SellerID: facts.SellerID,
-			Title: facts.ListingTitle, BuyerName: facts.BuyerName, SellerName: facts.SellerName,
+			Title: facts.ListingTitle, BuyerName: facts.BuyerName, SellerName: facts.SellerName, Photo: facts.ListingPhoto,
 		}
 		if o := facts.Order; o != nil {
 			out.Carrier, out.TrackingCode, out.CancelReason = orderFacts(*o)
@@ -88,7 +90,12 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 			mv := domain.Move{Kind: string(m.Kind), By: string(m.By), Amount: m.Amount}
 			if m.OrderID != nil {
 				mv.OrderID = *m.OrderID
-				mv.Carrier, mv.TrackingCode, mv.CancelReason = orderFacts(facts.Orders[*m.OrderID])
+				o := facts.Orders[*m.OrderID]
+				mv.Carrier, mv.TrackingCode, mv.CancelReason = orderFacts(o)
+				mv.Price = o.Price
+				if o.Shipment != nil && o.Shipment.Fee != nil {
+					mv.Fee = *o.Shipment.Fee
+				}
 			}
 			out.Moves = append(out.Moves, mv)
 		}
@@ -425,41 +432,39 @@ func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Noti
 			return pushErr
 		}
 		// A type that is never mailed takes no step. A mailed one reads the
-		// recipient's settings and address in one step and sends in
+		// recipient's settings, address and language in one step and sends in
 		// another, keyed so a retried send mails once; an account without
 		// an address gets none, and a refused mail is dropped.
 		if !domain.Mailed(n.Type) {
 			continue
 		}
-		to, err := restate.Run(ctx, func(rc restate.RunContext) (string, error) {
+		box, err := restate.Run(ctx, func(rc restate.RunContext) (accountsvc.Mailbox, error) {
 			st, stepErr := w.Notices.Settings(rc, n.Recipient)
 			if stepErr != nil {
-				return "", fmt.Errorf("read settings: %w", stepErr)
+				return accountsvc.Mailbox{}, fmt.Errorf("read settings: %w", stepErr)
 			}
 			if !st.Mails(n.Type) {
-				return "", nil
+				return accountsvc.Mailbox{}, nil
 			}
-			ids, stepErr := w.Accounts.Identities(rc, n.Recipient)
+			b, _, stepErr := w.Accounts.Mailbox(rc, n.Recipient)
 			if stepErr != nil {
-				return "", fmt.Errorf("read identities: %w", stepErr)
+				return accountsvc.Mailbox{}, fmt.Errorf("read the mailbox: %w", stepErr)
 			}
-			for _, id := range ids {
-				if id.Kind == accountdomain.KindEmail {
-					return id.Value, nil
-				}
-			}
-			return "", nil
+			return b, nil
 		})
 		if err != nil {
 			return fmt.Errorf("read the mail address: %w", err)
 		}
-		if to == "" {
+		if box.Address == "" {
 			continue
 		}
-		subject, text := domain.Mail(n.Type, n.Params)
 		key := event.String() + "/" + n.Recipient.String() + "/" + strconv.Itoa(i)
 		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-			sendErr := w.Email.Send(rc, email.Message{To: to, Subject: subject, Text: text, Key: key})
+			m, renderErr := domain.Mail(n.Type, n.Params, w.Site, box.Locale).Message(box.Address, key)
+			if renderErr != nil {
+				return fmt.Errorf("render: %w", renderErr)
+			}
+			sendErr := w.Email.Send(rc, m)
 			if errors.Is(sendErr, email.ErrRefused) {
 				w.Log.WarnContext(rc, "mail refused", "type", n.Type, "err", sendErr)
 				return nil

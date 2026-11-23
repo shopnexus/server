@@ -81,8 +81,7 @@ type Params struct {
 	Carrier string `json:"carrier,omitempty"`
 	Code    string `json:"code,omitempty"`
 	Reason  string `json:"reason,omitempty"`
-	// ToSeller marks the seller's copy of a notice both sides get with
-	// their own words.
+	// ToSeller marks an order notice to the seller.
 	ToSeller bool `json:"to_seller,omitempty"`
 	Stars    int  `json:"stars,omitempty"`
 	// Until is the end of a suspension in RFC 3339, empty for none.
@@ -94,6 +93,11 @@ type Params struct {
 	Count   int       `json:"count,omitempty"`
 	// SavedPrice is the listing's price when the recipient saved it.
 	SavedPrice int64 `json:"saved_price,omitempty"`
+	// Photo, Price and Fee are an order notice's listing cover, the order's
+	// price and the carrier's fee, for its mail.
+	Photo string `json:"photo,omitempty"`
+	Price int64  `json:"price,omitempty"`
+	Fee   int64  `json:"fee,omitempty"`
 }
 
 // Move is a deal move as notification reads it. A step of an order names
@@ -106,6 +110,9 @@ type Move struct {
 	OrderID uuid.UUID
 
 	Carrier, TrackingCode, CancelReason string
+	// Price and Fee are the order's price and the carrier's fee, 0 when
+	// the fee is not known yet.
+	Price, Fee int64
 }
 
 // DealFacts is what a deal's new moves tell. Carrier, TrackingCode and
@@ -116,7 +123,9 @@ type Move struct {
 type DealFacts struct {
 	DealID, BuyerID, SellerID    uuid.UUID
 	Title, BuyerName, SellerName string
-	Moves                        []Move
+	// Photo is the listing's cover thumbnail.
+	Photo string
+	Moves []Move
 
 	Carrier, TrackingCode, CancelReason string
 }
@@ -135,6 +144,9 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 			to, actor = f.BuyerID, f.SellerName
 		}
 		p := Params{DealID: f.DealID, OrderID: m.OrderID, Title: f.Title, Actor: actor, Amount: m.Amount}
+		if m.OrderID != (uuid.UUID{}) {
+			p.Photo, p.Price, p.Fee, p.ToSeller = f.Photo, m.Price, m.Fee, to == f.SellerID
+		}
 		var t Type
 		switch m.Kind {
 		case "offer":
@@ -161,20 +173,22 @@ func FromMoves(f DealFacts, at time.Time) []Notice {
 				p.Seller = named(f.SellerName)
 				// The seller hears that the buyer has it, as from a confirmation.
 				sp := p
-				sp.Actor, sp.Seller = f.BuyerName, ""
+				sp.Actor, sp.Seller, sp.ToSeller = f.BuyerName, "", true
 				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at})
 			}
 		case "failed":
 			// A failed delivery tells the seller too: the parcel comes back.
-			t = TypeFailed
-			out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: p, At: at})
+			t, p.Carrier, p.Code = TypeFailed, carrier, code
+			sp := p
+			sp.Actor, sp.ToSeller = f.BuyerName, true
+			out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at})
 		case "order_cancelled":
 			t, p.Reason = TypeOrderCancelled, reason
 			// A timeout puts the seller's listing back on sale; the seller hears
 			// of it too.
 			if m.By == "system" && (p.Reason == "seller_timeout" || p.Reason == "pickup_timeout") {
 				sp := p
-				sp.ToSeller = true
+				sp.Actor, sp.ToSeller = f.BuyerName, true
 				out = append(out, Notice{Recipient: f.SellerID, Type: t, CollapseKey: "deal:" + f.DealID.String(), Params: sp, At: at})
 			}
 		default:
@@ -439,17 +453,6 @@ func Title(t Type) string {
 	return "ShopNexus"
 }
 
-// Mail is the subject and text of a notice's mail: the notice's text and a
-// line on where to see more.
-func Mail(t Type, p Params) (subject, text string) {
-	subject = Text(t, p)
-	text = subject + "\n\nMở ứng dụng ShopNexus để xem chi tiết."
-	if types[t].mail == mailOrders {
-		text += "\nBạn có thể tắt email đơn hàng trong Cài đặt thông báo."
-	}
-	return subject, text
-}
-
 // Mailed reports whether notices of type t are ever mailed; Settings.Mails
 // says whether one is mailed to its recipient.
 func Mailed(t Type) bool { return types[t].mail != mailNever }
@@ -473,6 +476,11 @@ func money(n int64) string {
 	if n >= 1_000_000 {
 		return strings.Replace(strconv.FormatFloat(float64(n)/1_000_000, 'f', -1, 64), ".", ",", 1) + " tr"
 	}
+	return vnd(n)
+}
+
+// vnd writes an amount in full: "3.800.000 ₫".
+func vnd(n int64) string {
 	s := strconv.FormatInt(n, 10)
 	var b strings.Builder
 	for i, r := range s {

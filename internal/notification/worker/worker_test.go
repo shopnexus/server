@@ -15,7 +15,6 @@ import (
 	"github.com/restatedev/sdk-go/ingress"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
-	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
@@ -29,6 +28,7 @@ import (
 	"github.com/shopnexus/server/internal/notification/service"
 	"github.com/shopnexus/server/internal/notification/worker"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
@@ -121,7 +121,7 @@ func (d discovery) PriceDropFacts(_ context.Context, id uuid.UUID) (discoverysvc
 
 // accounts answers that every session but the revoked ones is active, names
 // every account Hoàng Nam, pages followers, the newest follow first, and
-// gives the accounts in emails an email identity.
+// gives the accounts in emails a mailbox in Vietnamese.
 type accounts struct {
 	accountsvc.Service
 
@@ -130,12 +130,9 @@ type accounts struct {
 	emails    map[uuid.UUID]string
 }
 
-func (a accounts) Identities(_ context.Context, id uuid.UUID) ([]accountsvc.Identity, error) {
-	out := []accountsvc.Identity{{Kind: accountdomain.KindPhone, Value: "+84901234567"}}
-	if addr, ok := a.emails[id]; ok {
-		out = append(out, accountsvc.Identity{Kind: accountdomain.KindEmail, Value: addr})
-	}
-	return out, nil
+func (a accounts) Mailbox(_ context.Context, id uuid.UUID) (accountsvc.Mailbox, bool, error) {
+	addr, ok := a.emails[id]
+	return accountsvc.Mailbox{Address: addr, Locale: locale.Vietnamese}, ok, nil
 }
 
 func (accounts) Get(_ context.Context, id uuid.UUID) (accountsvc.AccountView, error) {

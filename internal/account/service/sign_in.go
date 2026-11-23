@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/platform/apperr"
@@ -38,6 +39,9 @@ func (s *Account) SignIn(ctx context.Context, in SignInInput) (SignedIn, error) 
 	// gets its session.
 	if !codeMatch {
 		return SignedIn{}, domain.ErrCodeExpired
+	}
+	if err = s.accounts.SetLocale(ctx, res.AccountID, string(in.Locale)); err != nil {
+		return SignedIn{}, fmt.Errorf("record the locale: %w", err)
 	}
 	tokens, err := s.issueSession(ctx, res.SessionID, res.AccountID, in.DeviceName)
 	if err != nil {

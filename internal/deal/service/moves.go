@@ -17,7 +17,9 @@ import (
 type MoveFacts struct {
 	DealID, BuyerID, SellerID           uuid.UUID
 	ListingTitle, BuyerName, SellerName string
-	Moves                               []domain.Move
+	// ListingPhoto is the listing's cover thumbnail URL.
+	ListingPhoto string
+	Moves        []domain.Move
 	// Order is the deal's latest order, nil before the first.
 	Order *domain.Order
 	// Orders holds the latest order and every order a move names, by ID.
@@ -64,7 +66,7 @@ func (s *Deals) Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (M
 	}
 	f := MoveFacts{
 		DealID: dealID, BuyerID: st.BuyerID, SellerID: st.SellerID,
-		ListingTitle: listing.Title, BuyerName: people[st.BuyerID].DisplayName,
+		ListingTitle: listing.Title, ListingPhoto: listing.CoverThumbURL, BuyerName: people[st.BuyerID].DisplayName,
 		SellerName: people[st.SellerID].DisplayName, Moves: moves, Order: d.Order(), Orders: orders,
 	}
 	return f, true, nil

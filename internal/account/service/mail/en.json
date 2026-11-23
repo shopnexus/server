@@ -1,0 +1,14 @@
+{
+  "group": "Security",
+  "sign_in.subject": "Your ShopNexus code: %s",
+  "sign_in.title": "Your ShopNexus sign-in code",
+  "sign_in.lead": "Enter this code in the app or on the website to sign in.",
+  "sign_in.note": "Do not give the code to anyone, even someone who says they work for ShopNexus. If you did not ask for it, ignore this email.",
+  "sign_in.why": "Someone asked for a sign-in code for this address.",
+  "add.subject": "Your code to add this email to ShopNexus: %s",
+  "add.title": "Add this email to an account",
+  "add.lead": "This code adds %s to a ShopNexus account that is signed in.",
+  "add.note": "Whoever has this code can sign in with your email. If you did not ask for it, do not give it to anyone.",
+  "add.why": "Someone asked to add this address to a ShopNexus account.",
+  "preheader": "Code %s, expires in 5 minutes. Do not share it."
+}

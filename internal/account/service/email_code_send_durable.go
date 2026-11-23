@@ -1,6 +1,7 @@
 package service
 
 import (
+	"embed"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -8,12 +9,15 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	restate "github.com/restatedev/sdk-go"
 
 	"github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/account/repository"
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/contact"
+	"github.com/shopnexus/server/internal/platform/mailview"
 	"github.com/shopnexus/server/internal/platform/restatex"
 	"github.com/shopnexus/server/internal/provider/email"
 )
@@ -25,6 +29,9 @@ type EmailCodeInput struct {
 	Purpose   domain.Purpose  `json:"purpose"`
 	AccountID *uuid.UUID      `json:"account_id,omitempty"`
 	IP        netip.Addr      `json:"ip"`
+	// Locale is the language of the mail; a journal entry from before reads
+	// as Vietnamese.
+	Locale locale.Tag `json:"locale,omitempty"`
 }
 
 // EmailCodeResult names the challenge the code belongs to. A refusal
@@ -38,6 +45,12 @@ type EmailCodeResult struct {
 
 func (r EmailCodeResult) Refusal() *apperr.Error { return r.Refused }
 
+//go:embed mail/*.json
+var mailFiles embed.FS
+
+// mailWords is the code mail's text in every language, mail/<tag>.json.
+var mailWords = locale.MustLoad(mailFiles, "mail")
+
 // EmailCodeSend mails sign-in and add-identity codes. It knows nothing of
 // accounts, so its answer is the same whether or not one holds the address.
 type EmailCodeSend struct {
@@ -46,8 +59,10 @@ type EmailCodeSend struct {
 	Challenges repository.Challenges
 	Codes      domain.Codes
 	Email      email.Sender
-	Now        func() time.Time
-	Log        *slog.Logger
+	// Site is the website's origin the mail's footer links to.
+	Site string
+	Now  func() time.Time
+	Log  *slog.Logger
 }
 
 // mailOutcome is how the mail step ended.
@@ -92,14 +107,24 @@ func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeRes
 			return mailExpired, nil
 		}
 		code := s.Codes.For(id)
-		subject := "Mã xác minh ShopNexus: " + code
-		body := "Mã xác minh ShopNexus của bạn là " + code + ". Mã hết hạn sau 5 phút. Không chia sẻ mã này với ai."
+		say := func(key string, args ...any) string { return mailWords.Say(in.Locale, key, args...) }
+		kind := "sign_in"
 		if in.Purpose == domain.PurposeAddIdentity {
-			subject = "Mã thêm email vào tài khoản ShopNexus: " + code
-			body = "Mã " + code + " dùng để thêm địa chỉ email này vào một tài khoản ShopNexus đang đăng nhập. " +
-				"Nếu bạn không yêu cầu, đừng đưa mã cho ai: người có mã sẽ đăng nhập được bằng email của bạn. Mã hết hạn sau 5 phút."
+			kind = "add"
 		}
-		stepErr := s.Email.Send(rc, email.Message{To: in.Email.Value(), Subject: subject, Text: body, Key: id.String()})
+		l := mailview.Letter{
+			Locale: in.Locale, Site: s.Site, Subject: say(kind+".subject", code), Preheader: say("preheader", code),
+			Group: say("group"), Art: mailview.ArtVerified, Title: say(kind + ".title"), Lead: say(kind + ".lead"),
+			Code: code, Note: say(kind + ".note"), Why: say(kind + ".why"),
+		}
+		if kind == "add" {
+			l.Lead = say("add.lead", in.Email.Value())
+		}
+		m, stepErr := l.Message(in.Email.Value(), id.String())
+		if stepErr != nil {
+			return "", fmt.Errorf("render the code: %w", stepErr)
+		}
+		stepErr = s.Email.Send(rc, m)
 		if errors.Is(stepErr, email.ErrRefused) {
 			s.Log.WarnContext(rc, "mail refused", "to", in.Email, "err", stepErr)
 			return mailRefused, nil

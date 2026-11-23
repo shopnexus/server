@@ -375,10 +375,16 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		return nil, nil, fmt.Errorf("object store: %w", err)
 	}
 	mediam := media.Mount(d, media.Settings{Store: store})
+	// The website's pages are under its first origin, which IndexNow is
+	// told of and mail links to.
+	var website string
+	if len(cfg.ObjectStore.UploadOrigins) > 0 {
+		website = cfg.ObjectStore.UploadOrigins[0]
+	}
 	accountm := account.Mount(d,
 		account.Settings{
 			Keys: cfg.Auth, Phones: firebase.NewPhoneVerifier(cfg.Firebase, time.Now, log),
-			Google: google.NewVerifier(cfg.Google, time.Now, log), Email: mailer,
+			Google: google.NewVerifier(cfg.Google, time.Now, log), Email: mailer, Site: website,
 		}, mediam.Service)
 	accounts := accountm.Service
 	consoleKeys, err := consolesvc.NewKeys(cfg.Console, hasher)
@@ -404,12 +410,6 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	var photos embed.Model
 	if cfg.AI.EmbedOn() {
 		photos = aisvc.Photos{AI: aiClient, Dims: catalogdomain.PhotoDims, Timeout: cfg.Embed.Timeout}
-	}
-	// The website's pages are under its first origin, which IndexNow is
-	// told of.
-	var website string
-	if len(cfg.ObjectStore.UploadOrigins) > 0 {
-		website = cfg.ObjectStore.UploadOrigins[0]
 	}
 	catalogm := catalog.Mount(d, catalog.Settings{
 		Text:        embedder(cfg.Embed.IndexAPIKey),
@@ -490,7 +490,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	if cfg.Env != config.EnvProd {
 		router.Handle("POST /v1/dev/updates", d.Protect(stream.DevUpdateHandler(updates, log)))
 	}
-	notificationm := notification.Mount(d, notification.Settings{Push: sender, Email: mailer},
+	notificationm := notification.Mount(d, notification.Settings{Push: sender, Email: mailer, Site: website},
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service, supportm.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
 		supportm.Service, shippingm.Service)

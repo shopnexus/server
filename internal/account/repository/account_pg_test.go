@@ -503,3 +503,33 @@ SET status = 'deleted', deleted_at = now(), display_name = NULL, bio = NULL, ava
 		t.Fatalf("after a deletion: %d %v", n, err)
 	}
 }
+
+// An account reads Vietnamese until SetLocale, and its mailbox has an
+// address once it has an email identity.
+func TestMailbox(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewAccounts(db)
+	id := seed(t, s)
+	if addr, loc, err := s.Mailbox(ctx, id); err != nil || addr != "" || loc != "vi" {
+		t.Fatalf("new account: %q %q %v", addr, loc, err)
+	}
+	for _, q := range []string{
+		`INSERT INTO credentials (account_id, write_id) VALUES (@id, @id)`,
+		`INSERT INTO identities (id, account_id, kind, identifier) VALUES (@id, @id, 'email', 'linh@example.com')`,
+	} {
+		if _, err := db.Exec(ctx, q, pgx.StrictNamedArgs{"id": id}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.SetLocale(ctx, id, "en"); err != nil {
+		t.Fatal(err)
+	}
+	if addr, loc, err := s.Mailbox(ctx, id); err != nil || addr != "linh@example.com" || loc != "en" {
+		t.Fatalf("with an email: %q %q %v", addr, loc, err)
+	}
+	if addr, loc, err := s.Mailbox(ctx, uuid.NewV7()); err != nil || addr != "" || loc != "" {
+		t.Fatalf("unknown account: %q %q %v", addr, loc, err)
+	}
+}

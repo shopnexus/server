@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="{{.Lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>{{.Subject}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  @media (max-width: 480px) {
+    .wrap { padding: 16px 8px 32px !important; }
+    .inner { padding: 0 20px 28px !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#EDF1EF">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0">{{.Preheader}}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EDF1EF">
+<tr><td align="center" class="wrap" style="padding:32px 16px 40px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px">
+  <tr><td style="padding:0 8px 16px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="vertical-align:middle"><img src="{{.Logo}}" width="28" height="28" alt="ShopNexus" style="display:inline-block;vertical-align:middle;border-radius:8px"><span style="font:700 17px/28px 'Be Vietnam Pro',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#121817;vertical-align:middle;margin-left:8px">ShopNexus</span></td>
+      <td align="right" style="vertical-align:middle;font:500 13px/18px 'Be Vietnam Pro',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#6E7977">{{.Group}}</td>
+    </tr></table>
+  </td></tr>
+  <tr><td style="background:#FFFFFF;border:1px solid #E1E6E4;border-radius:24px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr><td align="center" style="background:#DDEFEB;padding:24px 24px 0;border-radius:24px 24px 0 0">
+        <img src="{{.Picture}}" width="168" height="168" alt="" style="display:block;width:168px;height:168px">
+      </td></tr>
+      <tr><td class="inner" style="padding:28px 32px 32px;font-family:'Be Vietnam Pro',-apple-system,'Segoe UI',Roboto,Arial,sans-serif">
+        <div style="font-size:24px;line-height:32px;font-weight:600;color:#121817">{{.Title}}</div>
+        <div style="font-size:16px;line-height:24px;color:#3E4947;margin-top:8px">{{.Lead}}</div>
+{{- if .CodeHead}}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px"><tr>
+          <td align="center" style="background:#DDEFEB;border-radius:20px;padding:22px 16px">
+            <div style="font-size:40px;line-height:48px;font-weight:600;letter-spacing:6px;color:#005049">{{.CodeHead}}<span style="display:inline-block;width:14px"></span>{{.CodeTail}}</div>
+            <div style="font-size:13px;line-height:18px;color:#3E4947;margin-top:6px">{{index .Words "code.expires"}}</div>
+          </td></tr></table>
+{{- end}}
+{{- if .StarList}}
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px auto 0"><tr>
+{{- range .StarList}}
+          <td style="padding:0 4px"><a id="star-{{.N}}" href="{{.URL}}" style="display:block;width:44px;height:44px;border-radius:22px;background:#DDEFEB;color:#066A61;font-size:24px;line-height:44px;text-align:center;text-decoration:none">★</a></td>
+{{- end}}
+        </tr></table>
+{{- end}}
+{{- with .Item}}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px;border-collapse:separate;border:1px solid #E1E6E4;border-radius:16px"><tr>
+          {{- if .Photo}}
+          <td width="64" style="padding:12px 0 12px 12px;vertical-align:middle"><img src="{{.Photo}}" width="64" height="64" alt="" style="display:block;width:64px;height:64px;border-radius:12px;object-fit:cover"></td>
+          {{- end}}
+          <td style="padding:12px 14px;vertical-align:middle">
+            <div style="font-size:15px;line-height:22px;font-weight:600;color:#121817">{{.Title}}</div>
+            {{- if .Price}}<div style="font-size:15px;line-height:22px;font-weight:600;color:#121817">{{.Price}}</div>{{end}}
+            <div style="font-size:13px;line-height:18px;color:#6E7977">{{.Side}}</div>
+          </td>
+        </tr></table>
+{{- end}}
+{{- if .StepList}}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px"><tr>
+{{- range .StepList}}
+          <td width="25%" style="vertical-align:top;text-align:center;padding:0">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+              <td style="padding:0"><div style="height:2px;background:{{.Left}}"></div></td>
+              <td width="24" style="padding:0">
+              {{- if .Done}}<div style="width:24px;height:24px;border-radius:12px;background:#066A61;color:#FFFFFF;font-size:13px;line-height:24px;font-weight:700;text-align:center">✓</div>
+              {{- else if .Current}}<div style="width:20px;height:20px;border-radius:12px;border:2px solid #066A61;background:#FFFFFF"><div style="width:8px;height:8px;border-radius:4px;background:#066A61;margin:6px auto 0"></div></div>
+              {{- else}}<div style="width:20px;height:20px;border-radius:12px;border:2px solid #E1E6E4;background:#FFFFFF"></div>{{end}}
+              </td>
+              <td style="padding:0"><div style="height:2px;background:{{.Right}}"></div></td>
+            </tr></table>
+            <div style="font-size:12px;line-height:16px;font-weight:{{if .Current}}600{{else}}500{{end}};color:{{if .Reached}}#121817{{else}}#6E7977{{end}};margin-top:8px">{{.Name}}</div>
+          </td>
+{{- end}}
+        </tr></table>
+{{- end}}
+{{- if .Rows}}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px">
+{{- range $i, $r := .Rows}}
+          <tr>
+            <td style="{{if $i}}border-top:1px solid #E1E6E4;{{end}}padding:12px 0;font-size:14px;line-height:20px;color:#6E7977">{{$r.Label}}</td>
+            <td align="right" style="{{if $i}}border-top:1px solid #E1E6E4;{{end}}padding:12px 0;font-size:14px;line-height:20px;color:#121817;font-weight:{{if $r.Strong}}600{{else}}500{{end}}{{if $r.Mono}};font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace{{end}}">{{$r.Value}}</td>
+          </tr>
+{{- end}}
+        </table>
+{{- end}}
+{{- if .Note}}
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:20px"><tr>
+          <td style="background:#F1F4F2;border-radius:16px;padding:14px 16px;font-size:14px;line-height:20px;color:#3E4947">{{.Note}}</td>
+        </tr></table>
+{{- end}}
+{{- if .ActionURL}}
+        <table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px auto 0"><tr>
+          <td style="border-radius:9999px;background:#005049"><a id="action" href="{{.ActionURL}}" style="display:inline-block;padding:14px 32px;font-size:15px;line-height:20px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:9999px">{{.Action.Label}}</a></td>
+        </tr></table>
+{{- end}}
+      </td></tr>
+    </table>
+  </td></tr>
+  <tr><td align="center" style="padding:24px 16px 0;font:400 13px/20px 'Be Vietnam Pro',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#6E7977">
+    {{.Why}}
+    {{- if .HelpURL}}<br>
+    {{- if .SettingsURL}}<a id="settings" href="{{.SettingsURL}}" style="color:#3E4947;text-decoration:underline">{{index .Words "footer.settings"}}</a> &nbsp;·&nbsp; {{end -}}
+    <a id="help" href="{{.HelpURL}}" style="color:#3E4947;text-decoration:underline">{{index .Words "footer.help"}}</a>{{end}}
+    <div style="margin-top:16px;font-size:12px;line-height:16px;font-weight:500">{{index .Words "footer.tagline"}}</div>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

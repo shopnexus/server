@@ -43,3 +43,14 @@ func (b *inbox) code(t *testing.T, to string, nth int) string {
 	}
 	return codeIn.FindString(b.msgs[to][nth-1])
 }
+
+// last returns the newest mail to "to": its subject, a newline and its text.
+func (b *inbox) last(t *testing.T, to string) string {
+	t.Helper()
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if len(b.msgs[to]) == 0 {
+		t.Fatalf("%s got no mail", to)
+	}
+	return b.msgs[to][len(b.msgs[to])-1]
+}

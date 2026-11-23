@@ -1,0 +1,14 @@
+{
+  "group": "Bảo mật",
+  "sign_in.subject": "Mã xác minh ShopNexus: %s",
+  "sign_in.title": "Mã đăng nhập ShopNexus",
+  "sign_in.lead": "Nhập mã này trên ứng dụng hoặc trang web để đăng nhập.",
+  "sign_in.note": "Đừng đưa mã cho ai, kể cả người nói là nhân viên ShopNexus. Nếu bạn không yêu cầu mã, cứ bỏ qua email này.",
+  "sign_in.why": "Ai đó vừa yêu cầu mã đăng nhập bằng địa chỉ này.",
+  "add.subject": "Mã thêm email vào tài khoản ShopNexus: %s",
+  "add.title": "Thêm email vào tài khoản",
+  "add.lead": "Mã này thêm %s vào một tài khoản ShopNexus đang đăng nhập.",
+  "add.note": "Người có mã sẽ đăng nhập được bằng email của bạn. Nếu bạn không yêu cầu, đừng đưa mã cho ai.",
+  "add.why": "Ai đó vừa yêu cầu thêm địa chỉ này vào tài khoản ShopNexus.",
+  "preheader": "Mã %s, hết hạn sau 5 phút. Đừng đưa mã cho ai."
+}

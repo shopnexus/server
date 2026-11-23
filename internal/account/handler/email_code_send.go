@@ -3,6 +3,8 @@ package handler
 import (
 	"net/http"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	"github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
@@ -21,6 +23,7 @@ func (h *Handler) SendEmailCode(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err := h.svc.SendEmailCode(r.Context(), service.SendEmailCodeInput{
 		IdempotencyKey: in.IdempotencyKey, Email: in.Email, IP: httpx.ClientIP(r),
+		Locale: locale.Match(r.Header.Get("Accept-Language")),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
@@ -42,6 +45,7 @@ func (h *Handler) SendMyEmailCode(w http.ResponseWriter, r *http.Request) {
 	}
 	v, err := h.svc.SendEmailCode(r.Context(), service.SendEmailCodeInput{
 		IdempotencyKey: in.IdempotencyKey, Email: in.Email, Caller: &p, IP: httpx.ClientIP(r),
+		Locale: locale.Match(r.Header.Get("Accept-Language")),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

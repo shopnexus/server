@@ -341,6 +341,27 @@ WHERE blocker_id = @blocker AND id < @before ORDER BY id DESC LIMIT @limit`,
 	return blocks, nil
 }
 
+func (s pgAccounts) SetLocale(ctx context.Context, id uuid.UUID, locale string) error {
+	if _, err := s.db.Exec(ctx, `UPDATE accounts SET locale = @locale WHERE id = @id AND locale <> @locale`,
+		pgx.StrictNamedArgs{"id": id, "locale": locale}); err != nil {
+		return fmt.Errorf("set locale: %w", err)
+	}
+	return nil
+}
+
+func (s pgAccounts) Mailbox(ctx context.Context, id uuid.UUID) (address, locale string, err error) {
+	err = s.db.QueryRow(ctx, `
+SELECT coalesce((SELECT identifier FROM identities WHERE account_id = a.id AND kind = 'email'), ''), a.locale
+FROM accounts a WHERE a.id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&address, &locale)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", nil
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("read mailbox: %w", err)
+	}
+	return address, locale, nil
+}
+
 func (s pgAccounts) TouchActive(ctx context.Context, id uuid.UUID, at time.Time) error {
 	if _, err := s.db.Exec(ctx, `
 UPDATE accounts SET last_active_at = @at

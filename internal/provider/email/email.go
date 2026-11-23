@@ -11,14 +11,24 @@ import (
 // address it rejects; sending it again fails again.
 var ErrRefused = errors.New("email: refused")
 
-// Message is one mail to one address. Key, when set, names the message: a
+// Message is one mail to one address: plain text, and HTML when set, with
+// the images the HTML shows by cid:. Key, when set, names the message: a
 // provider that honours it sends a message with a key it saw in the last
 // day only once, so a retried step does not mail twice.
 type Message struct {
 	To      string
 	Subject string
 	Text    string
+	HTML    string
+	Inline  []Inline
 	Key     string
+}
+
+// Inline is an image the HTML shows as cid:<CID>.
+type Inline struct {
+	CID     string
+	Name    string
+	Content []byte
 }
 
 // Sender delivers one message.

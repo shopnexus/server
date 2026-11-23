@@ -152,6 +152,7 @@ myEmailCodes:
       - bearerAuth: []
     parameters:
       - $ref: "../parameters/common.yaml#/IdempotencyKey"
+      - $ref: "../parameters/common.yaml#/AcceptLanguage"
     requestBody:
       required: true
       content:

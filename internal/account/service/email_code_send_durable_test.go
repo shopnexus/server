@@ -11,6 +11,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
@@ -193,8 +195,23 @@ func TestEmailCodeSendNamesAnAddIdentityCode(t *testing.T) {
 		Email: email(t, "linh@example.com"), Purpose: domain.PurposeAddIdentity, AccountID: &acc, IP: netip.MustParseAddr("203.0.113.1"),
 	}, restate.WithIdempotencyKey(uuid.NewV7().String()))
 	got := e.mail.all()
-	if err != nil || res.Refused != nil || len(got) != 1 || !strings.Contains(got[0].Text, "thêm địa chỉ email này vào một tài khoản") ||
+	if err != nil || res.Refused != nil || len(got) != 1 || !strings.Contains(got[0].Text, "thêm linh@example.com vào một tài khoản") ||
+		!strings.Contains(got[0].HTML, "Thêm email vào tài khoản") ||
 		strings.HasPrefix(got[0].Subject, "Mã xác minh ShopNexus") {
+		t.Fatalf("%+v %v, mails %+v", res, err, got)
+	}
+}
+
+// A code asked for in English is mailed in English.
+func TestEmailCodeSendInEnglish(t *testing.T) {
+	t.Parallel()
+	e := startEmailCodeSend(t, &mailbox{})
+	res, err := e.run.Request(context.Background(), service.EmailCodeInput{
+		Email: email(t, "linh@example.com"), Purpose: domain.PurposeSignIn, IP: netip.MustParseAddr("203.0.113.9"), Locale: locale.English,
+	}, restate.WithIdempotencyKey(uuid.NewV7().String()))
+	got := e.mail.all()
+	if err != nil || res.Refused != nil || len(got) != 1 || got[0].Subject != "Your ShopNexus code: "+testCodes.For(res.ChallengeID) ||
+		!strings.Contains(got[0].HTML, `lang="en"`) || !strings.Contains(got[0].HTML, "Expires in 5 minutes") {
 		t.Fatalf("%+v %v, mails %+v", res, err, got)
 	}
 }

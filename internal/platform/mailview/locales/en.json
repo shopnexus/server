@@ -1,0 +1,11 @@
+{
+  "steps.agreed": "Price agreed",
+  "steps.ordered": "Order made",
+  "steps.received": "Received",
+  "steps.reviewed": "Reviewed",
+  "code.expires": "Expires in 5 minutes",
+  "footer.settings": "Turn off order emails",
+  "footer.help": "Help",
+  "footer.tagline": "ShopNexus · Good prices on used things, check before you pay",
+  "text.review": "Review"
+}

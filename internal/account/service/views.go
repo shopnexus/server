@@ -5,6 +5,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/locale"
+
 	"github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/authn"
@@ -127,6 +129,8 @@ type SignInInput struct {
 	IdempotencyKey string
 	Proof          Proof
 	DeviceName     string
+	// Locale is the caller's language, which the account's mail follows.
+	Locale locale.Tag
 }
 
 // SignedIn is the SignIn response in api/schemas/auth.yaml.
@@ -158,6 +162,12 @@ type Identity struct {
 	Value string      `json:"value"`
 }
 
+// Mailbox is an account's email address and the language of its mail.
+type Mailbox struct {
+	Address string     `json:"address"`
+	Locale  locale.Tag `json:"locale"`
+}
+
 // SendEmailCodeInput is an address as the person typed it. Caller is the
 // signed-in caller for an add-identity code and nil for a sign-in code.
 type SendEmailCodeInput struct {
@@ -165,6 +175,8 @@ type SendEmailCodeInput struct {
 	Email          string
 	Caller         *authn.Principal
 	IP             netip.Addr
+	// Locale is the language the code's mail is written in.
+	Locale locale.Tag
 }
 
 // EmailCodeView is the EmailCode schema in api/schemas/auth.yaml.

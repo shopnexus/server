@@ -62,6 +62,12 @@ type Accounts interface {
 	// seconds older, so devices of one account do not pile up writes. It
 	// leaves write_id alone: it is no change of the aggregate's.
 	TouchActive(ctx context.Context, id uuid.UUID, at time.Time) error
+	// SetLocale records the language the account's mail is written in. Like
+	// TouchActive it leaves write_id alone.
+	SetLocale(ctx context.Context, id uuid.UUID, locale string) error
+	// Mailbox is the account's email address, empty without one, and the
+	// language its mail is written in.
+	Mailbox(ctx context.Context, id uuid.UUID) (address, locale string, err error)
 	// Blocked reports a block between a and b, in either direction.
 	Blocked(ctx context.Context, a, b uuid.UUID) (bool, error)
 	// BlockedWith lists the accounts that block account or that account

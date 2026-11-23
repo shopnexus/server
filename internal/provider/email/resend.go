@@ -3,6 +3,7 @@ package email
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,7 +26,18 @@ func NewResend(client *http.Client, apiKey, from string) *Resend {
 }
 
 func (s *Resend) Send(ctx context.Context, m Message) error {
-	payload, err := json.Marshal(map[string]any{"from": s.from, "to": []string{m.To}, "subject": m.Subject, "text": m.Text})
+	body := map[string]any{"from": s.from, "to": []string{m.To}, "subject": m.Subject, "text": m.Text}
+	if m.HTML != "" {
+		body["html"] = m.HTML
+	}
+	if len(m.Inline) > 0 {
+		files := make([]map[string]string, len(m.Inline))
+		for i, f := range m.Inline {
+			files[i] = map[string]string{"filename": f.Name, "content": base64.StdEncoding.EncodeToString(f.Content), "content_id": f.CID}
+		}
+		body["attachments"] = files
+	}
+	payload, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("encode message: %w", err)
 	}
