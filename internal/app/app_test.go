@@ -36,7 +36,7 @@ func testConfig(t *testing.T) config.Config {
 	keys := config.NewAuthKeys()
 	keys.Issuer, keys.Audience = "server-test", "shopnexus-app-test"
 	return config.Config{
-		DatabaseURL: pgtest.New(t).Config().ConnString(),
+		DatabaseURL: pgtest.New(t).Config().ConnString(), DatabaseMaxConns: 20,
 		Restate:     restatetest.Config(t),
 		Auth:        keys,
 		Console:     config.ConsoleConfig{Key: config.NewConsoleKey(), Origin: "http://console.test"},
