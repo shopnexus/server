@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"os"
 	"strings"
@@ -16,11 +15,9 @@ import (
 
 	"github.com/restatedev/sdk-go/ingress"
 
-	"github.com/shopnexus/server/internal/account/domain"
-	"github.com/shopnexus/server/internal/account/repository"
+	"github.com/shopnexus/server/internal/account/devauth"
 	"github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/platform/config"
-	"github.com/shopnexus/server/internal/platform/contact"
 	"github.com/shopnexus/server/internal/platform/objectstore"
 	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/seedpack"
@@ -36,18 +33,6 @@ type member struct {
 
 	id    string
 	token string
-}
-
-// phoneAsToken proves the phone number its token spells. Only devseed uses
-// it; the server checks phone tokens with Firebase.
-type phoneAsToken struct{}
-
-func (phoneAsToken) Verify(_ context.Context, token string) (contact.Address, error) {
-	addr, err := contact.ParsePhone(token)
-	if err != nil {
-		return contact.Address{}, fmt.Errorf("phone token %q: %w", token, err)
-	}
-	return addr, nil
 }
 
 func main() {
@@ -108,11 +93,10 @@ func run(ctx context.Context) error {
 
 	// Sign everyone in, and link GHTK through the fake carrier for every
 	// seller.
-	accounts := service.New(service.Deps{
-		Accounts: repository.NewAccounts(pool), Credentials: repository.NewCredentials(pool), Sessions: repository.NewSessions(pool),
-		Signer: domain.NewSigner(cfg.Auth), Phones: phoneAsToken{}, Ingress: ingress.NewClient(cfg.Restate.IngressURL),
-		Prefix: cfg.Restate.ServicePrefix, Now: time.Now, Log: slog.Default(),
-	})
+	accounts, err := devauth.Accounts(cfg, pool)
+	if err != nil {
+		return fmt.Errorf("account service: %w", err)
+	}
 	people, err := p.Accounts()
 	if err != nil {
 		return err

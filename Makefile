@@ -1,4 +1,4 @@
-.PHONY: env run test down depguard models search-eval
+.PHONY: env run test down depguard models search-eval loadtest loadtest-sessions
 
 TEST_STACK := docker compose -f docker-compose.test.yml
 
@@ -55,3 +55,20 @@ search-eval: env models
 	$(TEST_STACK) up -d --wait --force-recreate restate
 	@until curl -sf http://127.0.0.1:56571/health >/dev/null; do sleep 0.5; done
 	go test -tags eval -run TestSearchEval -count=1 -v -timeout 60m ./internal/discovery/eval/
+
+K6 := grafana/k6:2.3.0
+# The settings loadtest/lib/config.js reads, passed on when set.
+LOADTEST_VARS := BASE_URL PROFILE GUEST_RATE MEMBER_RATE SOCKETS TIME_SCALE THINK_SCALE SOCKET_MINUTES SESSIONS_FILE SPREAD_ADDRESSES
+LOADTEST_NETWORK ?= host
+
+# Runs the k6 load test in loadtest/ (its README.md), against make run's
+# server unless BASE_URL says otherwise:
+#   make loadtest PROFILE=load GUEST_RATE=20 MEMBER_RATE=5 SOCKETS=500
+loadtest:
+	docker run --rm --network $(LOADTEST_NETWORK) -v $(CURDIR)/loadtest:/loadtest -w /loadtest \
+		$(foreach v,$(LOADTEST_VARS),$(if $($(v)),-e $(v)=$($(v)))) $(K6) run main.js
+
+# Signs in the sessions the signed-in VUs use, SESSIONS of them across
+# ACCOUNTS accounts, into loadtest/sessions.json. Run it before each run.
+loadtest-sessions: env
+	go run ./cmd/loadsessions -accounts $(or $(ACCOUNTS),200) -sessions $(or $(SESSIONS),1000) > loadtest/sessions.json

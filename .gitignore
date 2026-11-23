@@ -26,6 +26,7 @@
 !/go.mod
 !/go.sum
 !/internal/
+!/loadtest/
 !/migrations/
 !/scripts/
 
