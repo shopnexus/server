@@ -86,8 +86,10 @@ search:
       from a signed-in caller a model reads the query; BM25 on its words, its
       Vietnamese rewrite against listing text vectors and its English
       description against listing photos are fused by weighted RRF. A guest's
-      q, and a caller's past 200 model reads that UTC day, searches its raw
-      words through BM25 and their text vector, with no chips. A guest's
+      q searches its raw words through BM25 alone, on the listing text with
+      diacritics folded away and one edit allowed in long words; a caller's
+      q past 200 model reads that UTC day adds their text vector. Neither
+      has chips. A guest's
       address makes 2 searches with q a second, in bursts of 30; past them
       429. With photo, the photo against listing photos
       alone. With like, the listing's title, text vector and photos. Without

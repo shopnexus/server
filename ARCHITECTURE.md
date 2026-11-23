@@ -2455,9 +2455,11 @@ Search and the nearby feed (decided 2026-10-27, spec:
   never writes a weight. Every value is resolved against real rows (the
   category tree, `provinces` and `communes` by name) or dropped, and one
   log line holds what the model asked for and what ran.
-- A guest's `q` skips the model (decided 2026-11-23): the raw words search
-  through BM25 and their text vector, with no chips and no photo list, and
-  the cursor pins the pages as below. The model reads signed-in people's
+- A guest's `q` skips the model and the embedding (decided 2026-11-23): the
+  raw words search through BM25 alone, on the folded fields below, with no
+  chips and no photo list, and the cursor pins the pages as below. Their
+  vector, typed without diacritics, brought listings that shared no word
+  ("Dây da bò" for "xe dap di lam"). The model reads signed-in people's
   queries, so its cost follows accounts, and the full search is a reason to
   sign in. A guest does not read a cached answer either.
 - A guest's address makes 2 searches with `q` a second, in bursts of 30, and

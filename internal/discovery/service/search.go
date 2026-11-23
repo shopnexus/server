@@ -77,7 +77,8 @@ type SearchView struct {
 // photo searches by a photo of the viewer's alone, and like by a listing.
 // SortNearby browses by distance and age. A guest's q, and a q the model
 // errs on or outlasts the timeout for, searches its raw words without the
-// lists the model feeds, and the cursor keeps the next pages on them. A signed-in
+// lists the model feeds, and the cursor keeps the next pages on them; a
+// guest's q embeds nothing either. A signed-in
 // viewer's first page with q is kept in the history; a failed write is
 // logged and the search still answers.
 func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInput) (SearchView, error) {
@@ -252,7 +253,9 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		search.Phrases = append(search.Phrases, c.Phrases...)
 		search.Boosts = append(search.Boosts, c.Boosts...)
 		view.Chips = c.Chips
-		if !like {
+		// A guest's words search through BM25 alone: their vector, typed
+		// without diacritics, brought listings that share no word.
+		if !like && viewer != nil {
 			// The text vector reads the rewrite, or the raw words when the
 			// model did not answer; the photo list needs the English
 			// description, which only the model gives.

@@ -103,8 +103,8 @@ func TestSearchUnderstands(t *testing.T) {
 	}
 }
 
-// A guest's query skips the model: the raw words and their vector search,
-// with no chips, and the cursor keeps the next pages on them.
+// A guest's query skips the model and the embedding: the raw words search
+// through BM25, with no chips, and the cursor keeps the next pages on them.
 func TestSearchGuestSkipsTheModel(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -114,7 +114,7 @@ func TestSearchGuestSkipsTheModel(t *testing.T) {
 	e.model.answers["xe dap"] = `{"boosts":[{"attr":"category","values":["vehicles.bicycle"]}],"demotes":[]}`
 	e.text.Set("xe dap", embedtest.Axis(catalogdomain.TextDims, 0))
 	v, err := e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap", Limit: 1})
-	if err != nil || len(v.Items) != 1 || len(v.Chips) != 0 || v.NextCursor != "1r" || e.model.count() != 0 || e.text.Calls() != 1 {
+	if err != nil || len(v.Items) != 1 || len(v.Chips) != 0 || v.NextCursor != "1r" || e.model.count() != 0 || e.text.Calls() != 0 {
 		t.Fatalf("guest: %+v %d %d %v", v, e.model.count(), e.text.Calls(), err)
 	}
 	if v, err = e.discovery.Search(ctx, &e.me, service.SearchInput{Query: "xe dap", Limit: 1}); err != nil || len(v.Chips) != 1 || e.model.count() != 1 {
