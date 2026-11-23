@@ -2586,10 +2586,20 @@ Search).
 - Each save has a UUIDv7 `id`, so the list pages by it. The 500-save cap
   is counted under `pg_advisory_xact_lock` on the account.
 
-- `search_query_vectors` caches the vector of a text the search embedded,
-  for 7 days, keyed by the normalized text (the rewrite, the raw query when
-  the model failed, or the visual description), the prompt version and the
-  model version.
+- `search_text_vectors` caches the vector of a text the search embedded
+  (the rewrite, the raw query when the model failed, or the visual
+  description), keyed by the embedding model's version and the SHA-256 of
+  the normalized text (decided 2026-11-23; it replaced
+  `search_query_vectors`, which kept a row 7 days from its write and keyed
+  it by the prompt version too). A vector never changes for its key, so a
+  row leaves by use: 30 days after its write when no search read it again,
+  180 days after its last read otherwise, and past 2,000,000 rows the rows
+  read on the fewest days go first. A read counts at most once a day
+  (`hits`, `last_used_at`), so most reads write nothing. The first search
+  that writes a vector on a UTC day sends `SearchVectorSweep`, keyed by the
+  day, which applies those rules. The table is unlogged: a crash empties
+  it and searches embed again. A vector is about 2 KB, so 2,000,000 rows
+  take about 4 GB.
 - `search_photo_vectors` caches a search photo's vector until its upload
   expires; each write deletes the expired rows, and each read checks the
   upload again.

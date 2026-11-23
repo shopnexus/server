@@ -17,8 +17,16 @@ import (
 
 // sweeps records the watches Schedule was called with.
 type sweeps struct {
-	mu  sync.Mutex
-	ids []uuid.UUID
+	mu   sync.Mutex
+	ids  []uuid.UUID
+	days []string
+}
+
+func (s *sweeps) SweepVectors(_ context.Context, day string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.days = append(s.days, day)
+	return nil
 }
 
 func (s *sweeps) Schedule(_ context.Context, id uuid.UUID) error {

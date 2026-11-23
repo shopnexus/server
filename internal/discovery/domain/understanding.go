@@ -25,6 +25,14 @@ const (
 	ModelWait = 600 * time.Millisecond
 	// CacheTTL is how long an answer is reused for the same query.
 	CacheTTL = 7 * 24 * time.Hour
+	// A text's vector stays VectorKeepUnused after it was embedded when no
+	// search reads it again, and VectorKeepUsed after its last read when one
+	// did; past VectorCacheMax rows the least used go first. A read counts
+	// once per VectorTouchEvery, so most reads write nothing.
+	VectorKeepUnused = 30 * 24 * time.Hour
+	VectorKeepUsed   = 180 * 24 * time.Hour
+	VectorCacheMax   = 2_000_000
+	VectorTouchEvery = 24 * time.Hour
 )
 
 // Attr is what a signal of the model is about.

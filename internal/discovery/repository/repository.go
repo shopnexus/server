@@ -136,10 +136,18 @@ type Understandings interface {
 	Put(ctx context.Context, key string, version int, answer json.RawMessage, at, expired time.Time) error
 }
 
-// QueryVectors caches the vectors of texts a search embedded. It records no account.
+// QueryVectors caches the vectors of texts a search embedded, by the
+// model's version and the normalized text. It records no account.
 type QueryVectors interface {
-	Get(ctx context.Context, key string, promptVersion int, model string, since time.Time) ([]float32, bool, error)
-	Put(ctx context.Context, key string, promptVersion int, model string, v []float32, at, expired time.Time) error
+	// Get returns the vector of text under model and counts a use at now,
+	// at most once per domain.VectorTouchEvery.
+	Get(ctx context.Context, model, text string, now time.Time) ([]float32, bool, error)
+	// Put stores the vector of text under model, replacing any.
+	Put(ctx context.Context, model, text string, v []float32, now time.Time) error
+	// Sweep deletes the rows unused for keepUnused that no search read
+	// again, those unused for keepUsed, and then the least used rows past
+	// limit, and returns how many it deleted.
+	Sweep(ctx context.Context, now time.Time, keepUnused, keepUsed time.Duration, limit int) (int64, error)
 }
 
 // PhotoVectors caches the vector of a search photo until its upload expires.

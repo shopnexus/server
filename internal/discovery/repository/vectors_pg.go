@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/platform/pgvec"
 )
 
@@ -17,42 +19,72 @@ type pgQueryVectors struct{ db *pgxpool.Pool }
 
 func NewQueryVectors(db *pgxpool.Pool) QueryVectors { return pgQueryVectors{db} }
 
-func (s pgQueryVectors) Get(ctx context.Context, key string, promptVersion int, model string, since time.Time) (vec []float32, found bool, err error) {
-	var text string
-	err = s.db.QueryRow(ctx, `SELECT embedding::text FROM search_query_vectors
-WHERE query_key = @key AND prompt_version = @version AND model_version = @model AND created_at >= @since`,
-		pgx.StrictNamedArgs{"key": key, "version": promptVersion, "model": model, "since": since}).Scan(&text)
+func textHash(text string) []byte {
+	h := sha256.Sum256([]byte(domain.QueryKey(text)))
+	return h[:]
+}
+
+func (s pgQueryVectors) Get(ctx context.Context, model, text string, now time.Time) (vec []float32, found bool, err error) {
+	var (
+		v    string
+		used time.Time
+	)
+	args := pgx.StrictNamedArgs{"model": model, "hash": textHash(text)}
+	err = s.db.QueryRow(ctx, `SELECT embedding::text, last_used_at FROM search_text_vectors
+WHERE model_version = @model AND text_hash = @hash`, args).Scan(&v, &used)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, false, nil
 	}
 	if err != nil {
-		return nil, false, fmt.Errorf("read query vector: %w", err)
+		return nil, false, fmt.Errorf("read text vector: %w", err)
 	}
-	if vec, err = pgvec.Parse(text); err != nil {
+	if vec, err = pgvec.Parse(v); err != nil {
 		return nil, false, fmt.Errorf("read the cached vector: %w", err)
+	}
+	if now.Sub(used) >= domain.VectorTouchEvery {
+		args["now"] = now
+		if _, err = s.db.Exec(ctx, `UPDATE search_text_vectors SET last_used_at = @now, hits = hits + 1
+WHERE model_version = @model AND text_hash = @hash`, args); err != nil {
+			return nil, false, fmt.Errorf("count a use of the text vector: %w", err)
+		}
 	}
 	return vec, true, nil
 }
 
-func (s pgQueryVectors) Put(ctx context.Context, key string, promptVersion int, model string, v []float32, at, expired time.Time) error {
+func (s pgQueryVectors) Put(ctx context.Context, model, text string, v []float32, now time.Time) error {
+	_, err := s.db.Exec(ctx, `INSERT INTO search_text_vectors (model_version, text_hash, embedding, created_at, last_used_at)
+VALUES (@model, @hash, @v::halfvec, @now, @now)
+ON CONFLICT (model_version, text_hash) DO UPDATE SET embedding = excluded.embedding`,
+		pgx.StrictNamedArgs{"model": model, "hash": textHash(text), "v": pgvec.Format(v), "now": now})
+	if err != nil {
+		return fmt.Errorf("store text vector: %w", err)
+	}
+	return nil
+}
+
+func (s pgQueryVectors) Sweep(ctx context.Context, now time.Time, keepUnused, keepUsed time.Duration, limit int) (int64, error) {
+	var n int64
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM search_query_vectors WHERE created_at < @expired`,
-			pgx.StrictNamedArgs{"expired": expired}); err != nil {
-			return fmt.Errorf("delete expired: %w", err)
-		}
-		_, err := tx.Exec(ctx, `INSERT INTO search_query_vectors (query_key, prompt_version, model_version, embedding, created_at)
-VALUES (@key, @version, @model, @v::halfvec, @at)
-ON CONFLICT (query_key, prompt_version, model_version) DO UPDATE SET embedding = excluded.embedding, created_at = excluded.created_at`,
-			pgx.StrictNamedArgs{"key": key, "version": promptVersion, "model": model, "v": pgvec.Format(v), "at": at})
+		tag, err := tx.Exec(ctx, `DELETE FROM search_text_vectors
+WHERE last_used_at < @used OR (hits = 0 AND last_used_at < @unused)`,
+			pgx.StrictNamedArgs{"used": now.Add(-keepUsed), "unused": now.Add(-keepUnused)})
 		if err != nil {
-			return fmt.Errorf("insert: %w", err)
+			return fmt.Errorf("delete the unused: %w", err)
 		}
+		n = tag.RowsAffected()
+		tag, err = tx.Exec(ctx, `DELETE FROM search_text_vectors WHERE ctid IN (
+	SELECT ctid FROM search_text_vectors ORDER BY hits, last_used_at
+	LIMIT greatest((SELECT count(*) FROM search_text_vectors) - @max, 0))`, pgx.StrictNamedArgs{"max": limit})
+		if err != nil {
+			return fmt.Errorf("delete past the cap: %w", err)
+		}
+		n += tag.RowsAffected()
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("store query vector: %w", err)
+		return 0, fmt.Errorf("sweep text vectors: %w", err)
 	}
-	return nil
+	return n, nil
 }
 
 type pgPhotoVectors struct{ db *pgxpool.Pool }

@@ -395,12 +395,11 @@ func category(f *catalogdomain.Filters, code string) {
 }
 
 // queryVector embeds a search text with m, from the cache when the same text
-// was embedded under version within domain.CacheTTL. A model that fails
+// was embedded under version and the row is still kept. A model that fails
 // gives nil, and the search runs without that list.
 func (d *Discovery) queryVector(ctx context.Context, m embed.Model, version, text string) []float32 {
 	now := d.now()
-	key := domain.QueryKey(text)
-	v, found, err := d.queryVectors.Get(ctx, key, domain.PromptVersion, version, now.Add(-domain.CacheTTL))
+	v, found, err := d.queryVectors.Get(ctx, version, text, now)
 	if err != nil {
 		d.log.WarnContext(ctx, "read the cached query vector", "err", err)
 	}
@@ -412,10 +411,35 @@ func (d *Discovery) queryVector(ctx context.Context, m embed.Model, version, tex
 		d.log.WarnContext(ctx, "embed the query", "version", version, "err", err)
 		return nil
 	}
-	if err = d.queryVectors.Put(ctx, key, domain.PromptVersion, version, vs[0], now, now.Add(-domain.CacheTTL)); err != nil {
+	if err = d.queryVectors.Put(ctx, version, text, vs[0], now); err != nil {
 		d.log.WarnContext(ctx, "cache the query vector", "err", err)
 	}
+	d.startVectorSweep(ctx, now)
 	return vs[0]
+}
+
+// startVectorSweep starts the day's sweep of the text vectors once per
+// process and day, after a write; Restate runs one per day.
+func (d *Discovery) startVectorSweep(ctx context.Context, now time.Time) {
+	day := now.UTC().Format(time.DateOnly)
+	if d.sweeps == nil || d.vectorDay.Swap(day) == day {
+		return
+	}
+	if err := d.sweeps.SweepVectors(ctx, day); err != nil {
+		d.vectorDay.Store("")
+		d.log.WarnContext(ctx, "start the vector sweep", "err", err)
+	}
+}
+
+// SweepVectors deletes the text vectors that fell out of use and the least
+// used past domain.VectorCacheMax.
+func (d *Discovery) SweepVectors(ctx context.Context) (int64, error) {
+	n, err := d.queryVectors.Sweep(ctx, d.now(), domain.VectorKeepUnused, domain.VectorKeepUsed, domain.VectorCacheMax)
+	if err != nil {
+		return 0, err
+	}
+	d.log.InfoContext(ctx, "swept the text vectors", "deleted", n)
+	return n, nil
 }
 
 // rawMark ends a cursor whose search ran on the raw words.

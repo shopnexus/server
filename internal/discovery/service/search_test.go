@@ -330,6 +330,15 @@ func TestSearchFindsByMeaning(t *testing.T) {
 	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "xe dap tre em", Cursor: "1"}); err != nil || e.text.Calls() != 1 {
 		t.Fatalf("page 2 embeds again: %d %v", e.text.Calls(), err)
 	}
+	if _, err = e.discovery.Search(ctx, nil, service.SearchInput{Query: "noi com"}); err != nil {
+		t.Fatal(err)
+	}
+	e.sweeps.mu.Lock()
+	days := e.sweeps.days
+	e.sweeps.mu.Unlock()
+	if len(days) != 1 || days[0] != time.Now().UTC().Format(time.DateOnly) {
+		t.Fatalf("two writes of a day start one vector sweep: %v", days)
+	}
 }
 
 func TestSearchWithoutEmbeddingsFallsBackToWords(t *testing.T) {

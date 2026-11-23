@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"sync/atomic"
 	"time"
 	"uuid"
 
@@ -100,6 +101,9 @@ type Service interface {
 	// saves, history, hides, watches and which listings it opened. The
 	// worker calls it on account.deleted.
 	AccountDeleted(ctx context.Context, account uuid.UUID) error
+	// SweepVectors deletes the cached text vectors that fell out of use and
+	// returns how many; worker.SearchVectorSweep calls it once a day.
+	SweepVectors(ctx context.Context) (int64, error)
 }
 
 // Deps is what New builds Discovery from.
@@ -160,8 +164,10 @@ type Discovery struct {
 	modelTimeout, modelWait    time.Duration
 	// reads joins the searches that wait for the same query's model call.
 	reads singleflight.Group
-	log   *slog.Logger
-	now   func() time.Time
+	// vectorDay is the last day this process started a vector sweep.
+	vectorDay atomic.Value
+	log       *slog.Logger
+	now       func() time.Time
 }
 
 var _ Service = (*Discovery)(nil)

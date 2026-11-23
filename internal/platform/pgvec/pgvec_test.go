@@ -49,7 +49,7 @@ func TestHalfvecAcceptsTheForm(t *testing.T) {
 func TestTablesExist(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
-	for _, table := range []string{"listing_text_vectors", "listing_photo_vectors", "search_photo_vectors", "search_query_vectors"} {
+	for _, table := range []string{"listing_text_vectors", "listing_photo_vectors", "search_photo_vectors", "search_text_vectors"} {
 		var n int
 		if err := db.QueryRow(context.Background(), `SELECT count(*) FROM `+table).Scan(&n); err != nil {
 			t.Errorf("%s: %v", table, err)

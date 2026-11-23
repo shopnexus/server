@@ -56,8 +56,11 @@ func Mount(
 	d.Events.Subscribe(events.ListingPublished, listings.ServiceName(), "Published")
 	d.Events.Subscribe(events.ListingUpdated, listings.ServiceName(), "Updated")
 	sweep := worker.SearchWatchSweep{Prefix: d.ServicePrefix, Discovery: svc, Every: domain.SweepEvery}
+	vectors := worker.SearchVectorSweep{Prefix: d.ServicePrefix, Discovery: svc}
 	return module.Mounted[service.Service]{
-		Services: []restate.ServiceDefinition{restate.Reflect(watch), restate.Reflect(listings), restate.Reflect(sweep)},
-		Service:  svc,
+		Services: []restate.ServiceDefinition{
+			restate.Reflect(watch), restate.Reflect(listings), restate.Reflect(sweep), restate.Reflect(vectors),
+		},
+		Service: svc,
 	}
 }
