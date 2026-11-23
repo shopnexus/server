@@ -220,6 +220,18 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		if catErr != nil {
 			return SearchView{}, fmt.Errorf("read categories: %w", catErr)
 		}
+		// The raw words embed while the model reads them: the vector is ready
+		// when the model does not answer in time, or rewrites the query to
+		// the same words.
+		var (
+			rawVector []float32
+			rawEmbed  sync.WaitGroup
+		)
+		rctx, rcancel := context.WithTimeout(ctx, d.modelTimeout)
+		defer rcancel()
+		if !like && d.text != nil {
+			rawEmbed.Go(func() { rawVector = d.queryVector(rctx, d.text, d.textVersion, q) })
+		}
 		// A page after one that searched the raw words searches them too, so
 		// an answer cached in between does not reorder the pages.
 		var u domain.Understanding
@@ -245,18 +257,15 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		view.Chips = c.Chips
 		if !like {
 			// The text vector reads the rewrite, or the raw words when the
-			// model did not answer; the photo list needs the English
-			// description, which only the model gives.
-			text := q
-			if understood && strings.TrimSpace(u.Rewritten) != "" {
-				text = u.Rewritten
-			}
-			// Both embeds run at once under the model timeout, so a hung
-			// alias costs the search that much and its list is left out.
+			// model did not answer or kept them; the photo list needs the
+			// English description, which only the model gives.
+			rewrite := understood && strings.TrimSpace(u.Rewritten) != "" && domain.QueryKey(u.Rewritten) != domain.QueryKey(q)
+			// The embeds run at once under the model timeout, so a hung alias
+			// costs the search that much and its list is left out.
 			ectx, cancel := context.WithTimeout(ctx, d.modelTimeout)
 			var wg sync.WaitGroup
-			if d.text != nil {
-				wg.Go(func() { search.Vectors.Text = d.queryVector(ectx, d.text, d.textVersion, text) })
+			if d.text != nil && rewrite {
+				wg.Go(func() { search.Vectors.Text = d.queryVector(ectx, d.text, d.textVersion, u.Rewritten) })
 			}
 			if d.image != nil && understood && strings.TrimSpace(u.Visual) != "" {
 				// A text sits far from any photo; the look has its own floor.
@@ -264,7 +273,11 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 				wg.Go(func() { search.Vectors.Photo = d.queryVector(ectx, d.image, d.imageVersion, u.Visual) })
 			}
 			wg.Wait()
+			rawEmbed.Wait()
 			cancel()
+			if !rewrite {
+				search.Vectors.Text = rawVector
+			}
 			if search.Vectors.Text != nil || search.Vectors.Photo != nil {
 				search.Weights = domain.FuseQuery
 			}
