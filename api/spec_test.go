@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/shopnexus/server/api"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 func TestSpecValid(t *testing.T) {
@@ -168,6 +169,38 @@ func TestSpecUseCaseIDs(t *testing.T) {
 	}
 	if tagged == 0 {
 		t.Error("no operation has x-uc")
+	}
+}
+
+// x-rate-limit names a tier of httpx. An exempt operation counts nothing,
+// so adding one means adding it here too.
+func TestSpecRateLimitTiers(t *testing.T) {
+	t.Parallel()
+	doc, err := api.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	exempt := []string{"getHealthz", "getReadyz", "carrierWebhook", "authorizeConsoleDashboard"}
+	var got []string
+	for path, item := range doc.Paths.Map() {
+		for method, op := range item.Operations() {
+			raw, ok := op.Extensions["x-rate-limit"]
+			if !ok {
+				continue
+			}
+			name, _ := raw.(string)
+			if _, ok := httpx.TierNamed(name); !ok {
+				t.Errorf("%s %s: x-rate-limit %v is not a tier", method, path, raw)
+			}
+			if name == httpx.Exempt.Name {
+				got = append(got, op.OperationID)
+			}
+		}
+	}
+	slices.Sort(got)
+	slices.Sort(exempt)
+	if !slices.Equal(got, exempt) {
+		t.Errorf("exempt operations %v, want %v", got, exempt)
 	}
 }
 

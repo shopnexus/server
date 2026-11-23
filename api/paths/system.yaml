@@ -1,6 +1,7 @@
 healthz:
   get:
     operationId: getHealthz
+    x-rate-limit: exempt
     summary: "Liveness: the process is up."
     tags: [system, internal]
     responses:
@@ -13,6 +14,7 @@ healthz:
 readyz:
   get:
     operationId: getReadyz
+    x-rate-limit: exempt
     summary: "Readiness: the process can reach its dependencies."
     tags: [system, internal]
     responses:

@@ -1,6 +1,7 @@
 clientEvents:
   post:
     operationId: sendClientEvents
+    x-rate-limit: telemetry
     summary: Report what a client saw that the server cannot.
     description: |
       A batch of up to 50 events from the website or the Android app: a

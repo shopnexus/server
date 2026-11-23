@@ -28,7 +28,7 @@ func TestClientEvents(t *testing.T) {
 	}}), 400, "")
 	check(t, "no events", send(map[string]any{"app": "website", "events": []any{}}), 400, "")
 
-	// One address gets a burst of 60 batches; the e2e calls all come from one.
+	// One address gets a burst of 60 batches; a test's calls all come from one.
 	one := map[string]any{"app": "android", "events": events[:1]}
 	for i := range 100 {
 		if res := send(one); res.Status == 429 {

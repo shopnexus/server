@@ -28,7 +28,7 @@ func FromConsole(log *slog.Logger) func(http.Handler) http.Handler {
 
 // Require lets a request through only with the cookie of a live session
 // whose member holds at least floor's role; svc.Authenticate reads both on
-// every request.
+// every request. The member counts against the route's rate limit tier.
 func Require(svc service.Service, log *slog.Logger, floor domain.Role) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +44,10 @@ func Require(svc service.Service, log *slog.Logger, floor domain.Role) func(http
 			}
 			if !g.Role.AtLeast(floor) {
 				httpx.WriteError(w, r, log, domain.ErrConsoleForbidden)
+				return
+			}
+			if err := httpx.LimitCaller(r, g.MemberID); err != nil {
+				httpx.WriteError(w, r, log, err)
 				return
 			}
 			caller := authn.ConsoleMember{MemberID: g.MemberID, SessionID: g.SessionID, Role: string(g.Role), IP: httpx.ClientIP(r)}

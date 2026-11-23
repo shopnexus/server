@@ -1,6 +1,7 @@
 signIn:
   post:
     operationId: signIn
+    x-rate-limit: auth
     summary: Sign in, or sign up on first use, with a phone number Firebase verified, a Google account or an email code.
     description: |
       phone_token is what Firebase returned for the number: the ID token of
@@ -136,6 +137,7 @@ currentSession:
 reauthenticate:
   post:
     operationId: reauthenticateSession
+    x-rate-limit: auth
     summary: Prove again that the caller holds the account, for the calls that need a sign-in within 15 minutes.
     description: |
       Takes a proof as signIn does: a phone_token, a google_token or an
@@ -224,6 +226,7 @@ session:
 emailCodes:
   post:
     operationId: sendEmailCode
+    x-rate-limit: code
     summary: Mail a six-digit code to sign in, or sign up on first use, with an email address.
     description: |
       The reply is the same whether or not an account holds the address.

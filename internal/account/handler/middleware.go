@@ -12,8 +12,9 @@ import (
 )
 
 // Protect checks the bearer token and puts the principal in the request
-// context. It reads no database: a signed-out session's access token works
-// until it expires, and write use cases check the account themselves.
+// context, and counts the caller against the route's rate limit tier. It
+// reads no database: a signed-out session's access token works until it
+// expires, and write use cases check the account themselves.
 func Protect(v domain.Verifier, now func() time.Time, log *slog.Logger) func(http.Handler) http.Handler {
 	return guard(v, now, log, true)
 }
@@ -39,6 +40,9 @@ func guard(v domain.Verifier, now func() time.Time, log *slog.Logger, required b
 				return
 			}
 			p, err := v.Verify(token, now())
+			if err == nil {
+				err = httpx.LimitCaller(r, p.AccountID)
+			}
 			if err != nil {
 				httpx.WriteError(w, r, log, err)
 				return

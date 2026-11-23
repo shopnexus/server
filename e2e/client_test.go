@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strings"
 	"sync"
@@ -133,6 +136,7 @@ func callAt(t *testing.T, base, method, path string, body any, headers ...[2]str
 	if body != nil {
 		req.Header.Set("Content-Type", contentType)
 	}
+	req.Header.Set("X-Forwarded-For", testAddress(t))
 	for _, h := range headers {
 		switch h[0] {
 		case "": // bearer("") for a call signed out
@@ -174,4 +178,15 @@ func callAt(t *testing.T, base, method, path string, body any, headers ...[2]str
 	record(route.Operation.OperationID, resp.StatusCode)
 
 	return Response{Method: method, Path: path, Status: resp.StatusCode, Header: resp.Header, Body: respBody}
+}
+
+// testAddress is t's own client address, an IPv6 /64 hashed from its name,
+// so one test's calls fill only its own rate limit buckets.
+func testAddress(t *testing.T) string {
+	h := fnv.New64a()
+	h.Write([]byte(t.Name()))
+	var a [16]byte
+	binary.BigEndian.PutUint64(a[:8], h.Sum64())
+	a[0], a[15] = 0xfd, 1
+	return netip.AddrFrom16(a).String()
 }

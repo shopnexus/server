@@ -247,6 +247,10 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	if err != nil {
 		return nil, fmt.Errorf("build request validator: %w", err)
 	}
+	limits, err := httpx.NewLimits(doc, time.Now, log)
+	if err != nil {
+		return nil, fmt.Errorf("read rate limits: %w", err)
+	}
 	if a.endpoint, err = startRestate(ctx, cfg.Restate, log, defs); err != nil {
 		return nil, err
 	}
@@ -268,7 +272,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	docsCORS := httpx.DocsCORS(cfg.DocsOrigins)
 	clientIP := httpx.ResolveClientIP(cfg.TrustedProxies)
 	visitors := httpx.Visitors(a.geo, cfg.TrustedProxies, time.Now)
-	a.Handler = httpx.Trace(log)(httpx.Recover(log)(clientIP(visitors(cors(docsCORS(validate(a.router)))))))
+	a.Handler = httpx.Trace(log)(httpx.Recover(log)(clientIP(visitors(cors(docsCORS(limits.Middleware(a.router.Route)(validate(a.router))))))))
 	return a, nil
 }
 

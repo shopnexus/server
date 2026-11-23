@@ -50,8 +50,7 @@ func Mount(
 		TextVersion: s.TextVersion, ImageVersion: s.ImageVersion, TextMin: s.TextMin, PhotoMin: s.PhotoMin, LookMin: s.LookMin,
 		ModelTimeout: domain.ModelTimeout, Log: d.Log, Now: d.Now,
 	})
-	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify,
-		httpx.RateLimit(domain.GuestSearchesPerSecond, domain.GuestSearchBurst, d.Now, d.Log))
+	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify, httpx.Limit(httpx.GuestSearch, d.Log))
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Discovery: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
 	listings := worker.ListingWatch{Prefix: d.ServicePrefix, Discovery: svc}

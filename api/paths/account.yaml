@@ -141,6 +141,7 @@ myIdentities:
 myEmailCodes:
   post:
     operationId: sendMyEmailCode
+    x-rate-limit: code
     summary: Mail a six-digit code that adds this email address to the caller's account.
     description: |
       The code works only for the caller's account, through

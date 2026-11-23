@@ -3,6 +3,7 @@ login:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: consoleLogin
+    x-rate-limit: auth
     summary: Sign a console member in.
     description: |
       Every call sends the email and password. The first sign-in takes up to
@@ -49,6 +50,7 @@ loginTotpEnrollment:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
   post:
     operationId: consoleLoginTotpEnrollment
+    x-rate-limit: auth
     summary: Start TOTP enrollment during the first sign-in.
     description: |
       Only a member without TOTP may call it; a second call replaces the
@@ -507,6 +509,7 @@ dashboardTickets:
 dashboardAuth:
   get:
     operationId: authorizeConsoleDashboard
+    x-rate-limit: exempt
     summary: Traefik's forwardAuth check in front of every ops dashboard.
     description: |
       Traefik calls it with the dashboard request's Cookie and its

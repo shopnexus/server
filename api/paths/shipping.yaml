@@ -94,6 +94,7 @@ carrierAccount:
 carrierPickups:
   get:
     operationId: listCarrierPickups
+    x-rate-limit: costly
     summary: The pickup points the caller registered at the carrier, read from it.
     tags: [shipping]
     security:
@@ -135,6 +136,7 @@ carrierPickups:
 shipmentQuote:
   get:
     operationId: quoteShipment
+    x-rate-limit: costly
     summary: The carrier's fee for a linked shipment of a pending order, read-only.
     description: |
       The seller, before making a linked shipment. The fee depends on the
@@ -225,6 +227,7 @@ shipmentQuote:
 carrierWebhook:
   post:
     operationId: carrierWebhook
+    x-rate-limit: exempt
     x-uc: [UC-DEAL-05]
     summary: A carrier's status report.
     description: |

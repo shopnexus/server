@@ -112,8 +112,8 @@ nil signed out.
 `httpx.Prefetch(r)` reports a browser's speculative fetch (`Sec-Purpose`),
 for a read that would otherwise write (see Tin của bạn and listing views).
 
-Every request passes `Trace`, `Recover`, `ResolveClientIP`, `Visitors`, CORS
-and the spec validator, in that order, before the router. `Trace` is
+Every request passes `Trace`, `Recover`, `ResolveClientIP`, `Visitors`, CORS,
+the rate limit and the spec validator, in that order, before the router. `Trace` is
 outermost: it opens the span, records the duration and writes the access log
 line after the request, so a request that panicked logs the 500 `Recover`
 wrote, with its trace ID.
@@ -145,6 +145,47 @@ The validator matches only the operations the router serves, so a request
 for a spec route this server does not mount, such as a dev route in
 production, gets the router's 404 for an unknown path whatever its body
 (decided 2026-11-15).
+
+### Rate limits
+
+Every route has a rate limit tier, and the tiers are one table in
+`internal/platform/httpx/ratelimit.go` (decided 2026-11-23). An operation
+names its tier in the spec with `x-rate-limit`; without it, GET is `read`
+and every other method `write`, so a new route is limited from its first
+commit. A path no route serves counts as `read` or `write` too.
+
+| Tier | Per address | Per caller | Operations |
+|---|---|---|---|
+| `read` | 50/s, burst 1,000 | 20/s, burst 400 | GET by default |
+| `write` | 10/s, burst 200 | 5/s, burst 100 | other methods by default |
+| `auth` | 1/s, burst 60 | 1 per 5 s, burst 10 | sign-in, reauthentication, console login |
+| `code` | 1 per 10 s, burst 10 | 1 per 30 s, burst 5 | the two that mail a code |
+| `costly` | 1/s, burst 30 | 1 per 2 s, burst 20 | link previews, listing reads, price guides, carrier quotes and pickups |
+| `telemetry` | 2/s, burst 60 | none | `POST /v1/client-events` |
+| `guest-search` | 2/s, burst 30 | none | a guest's search with `q` |
+| `exempt` | none | none | health checks, carrier webhooks, the dashboards' forwardAuth |
+
+The rate limit middleware, between CORS and the spec validator, finds the
+route with `Router.Route` and counts the request against its tier by client
+address; an IPv6 /64 counts as one address. Carrier NAT puts many phones on
+one address, so the address limits are the looser ones. Once the account
+guard or the console's `Require` knows the caller, `httpx.LimitCaller`
+counts the same tier per account or member. `httpx.Limit(tier)` counts a
+tier on part of a route only: discovery applies `guest-search` to a guest's
+`GET /v1/search` with `q`. Past a limit the answer is 429 `rate_limited`
+with `details.retry_after`, the seconds until the next token, and the
+counter `http.server.rate_limited` grows by tier, route and what was
+counted.
+
+Each process keeps its buckets in memory and drops a bucket once it has
+refilled. Three replicas let an address through about three times as fast;
+the limits stop floods and loops, and the rules that must hold exactly
+across replicas are quotas a module keeps in Postgres or Restate:
+`otp_limit`, `login_locked`, `read_limit_reached`, `agent_budget`,
+`too_many_tickets`. `TestSpecRateLimitTiers` refuses an unknown tier name
+and holds the list of `exempt` operations, and `NewLimits` refuses an
+unknown name at startup. The e2e suite gives each test its own IPv6 /64 in
+`X-Forwarded-For`, so tests running together do not share buckets.
 
 ### Spec shapes for generated clients
 
@@ -935,9 +976,8 @@ the listings count reads only the index `listings_seller`.
 Module `beacon` serves `POST /v1/client-events`, open to anyone: a batch of
 up to 50 events from the website or the Android app. It turns them into
 metrics and log lines and keeps no rows (decided 2026-11-23).
-`httpx.RateLimit` lets one client address send 2 batches a second in
-bursts of 60 and answers the rest 429 `rate_limited`; each process keeps
-its own token buckets in memory. The website's server forwards the
+Its rate limit tier, `telemetry`, lets one client address send 2 batches a
+second in bursts of 60 (see Rate limits). The website's server forwards the
 buyer's address, so its beacons count per buyer.
 
 - `error`, a script error the website did not catch: counter
@@ -2463,8 +2503,7 @@ Search and the nearby feed (decided 2026-10-27, spec:
   queries, so its cost follows accounts, and the full search is a reason to
   sign in. A guest does not read a cached answer either.
 - A guest's address makes 2 searches with `q` a second, in bursts of 30, and
-  gets 429 `rate_limited` past them (`domain.GuestSearchesPerSecond`, per
-  process); browsing, `like` and the category pages are not limited, since
+  gets 429 `rate_limited` past them (tier `guest-search`, see Rate limits); browsing, `like` and the category pages are not limited, since
   they reach no paid model and the website prefetches listing pages;
   the website forwards the visitor's address, which `TRUSTED_PROXIES`
   accepts. A signed-in person's queries reach the model at most 200 times a
@@ -2906,8 +2945,8 @@ bạn", and nothing compares the listing's owner with the account.
 - `POST /v1/link-previews {url}` answers at once with the listing's title,
   price, first photo on the CDN and photo count, for the card under the
   paste field. It stores nothing and needs no phone; it is POST so the link
-  stays out of access logs. Chợ Tốt down is `source_unavailable` 503. It has
-  no rate limit yet.
+  stays out of access logs. Chợ Tốt down is `source_unavailable` 503. Its
+  rate limit tier is `costly`.
 - `{link}` takes what the seller pasted, at most 2,048 characters;
   `not_a_link` and `unsupported_source` answer before the account checks.
   Restate service `LinkRead.Start` refuses a suspended account and one
@@ -2949,8 +2988,7 @@ prices any draft for the app's "Giá" step, with or without a read:
 
 - `POST /v1/price-guides` takes the draft's title, category, condition,
   specs, description, commune and up to 3 photos, answers 200 and stores
-  nothing. It has no cap of its own; the general rate limit in the
-  checklist will cover it. Checks, in order: `account_suspended` 403,
+  nothing. It has no cap of its own; its rate limit tier is `costly`. Checks, in order: `account_suspended` 403,
   `invalid_listing` 422 for a category that is not a subcategory or an
   unknown commune, and `invalid_upload` 422 for a photo that is not a
   waiting upload of the caller's. The photos are checked before any model

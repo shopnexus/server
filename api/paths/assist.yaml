@@ -1,6 +1,7 @@
 linkPreviews:
   post:
     operationId: previewLink
+    x-rate-limit: costly
     x-uc: [UC-LST-01]
     summary: Preview the listing a pasted link names.
     description: |
@@ -54,6 +55,7 @@ linkPreviews:
 listingReads:
   post:
     operationId: createListingRead
+    x-rate-limit: costly
     x-uc: [UC-LST-01]
     summary: Read a video, a photo or the seller's Chợ Tốt listing into a listing draft.
     description: |
@@ -190,6 +192,7 @@ listingReadEvents:
 priceGuides:
   post:
     operationId: createPriceGuide
+    x-rate-limit: costly
     x-uc: [UC-LST-01]
     summary: Price a listing draft against similar listings and the buyers watching for it.
     description: |

@@ -38,6 +38,10 @@ info:
       codes it can return. `trace_id` equals the `Trace-Id` header.
     - A resource the caller may not see is 404, the same as one that does not
       exist.
+    - Any operation answers 429 `rate_limited`, with `details.retry_after` in
+      seconds, when one address or one signed-in caller sends faster than its
+      tier allows. `x-rate-limit` names an operation's tier; without it, GET
+      is `read` and every other method `write`.
 
     ## Live updates
 
