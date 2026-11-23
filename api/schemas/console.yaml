@@ -427,7 +427,7 @@ ConsoleTicketList:
 ConsoleFeedback:
   type: object
   additionalProperties: false
-  required: [feedback, account_id, contact, root_id]
+  required: [feedback, account_id, contact, source, root_id]
   properties:
     feedback:
       $ref: "feedback.yaml#/Feedback"
@@ -439,10 +439,15 @@ ConsoleFeedback:
       $ref: "feedback.yaml#/FeedbackDevice"
     screen:
       type: string
-      description: The app screen it was sent from.
+      description: The app screen or the website's route it was sent from.
     contact:
       type: boolean
       description: Whether ShopNexus may ask the person more, through Hỗ trợ.
+    source:
+      $ref: "feedback.yaml#/FeedbackSource"
+    page_url:
+      type: string
+      description: The website's page it was sent on.
     root_id:
       type: string
       format: uuid

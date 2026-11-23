@@ -48,13 +48,23 @@ const (
 	MaxPhotos = 3
 	maxNote   = 80
 	maxVer    = 20
+	maxURL    = 500
 )
 
-// Device is the phone a feedback was sent from.
+// Source is where a feedback was sent from.
+type Source string
+
+const (
+	SourceApp Source = "app"
+	SourceWeb Source = "web"
+)
+
+// Device is the phone or browser a feedback was sent from. A browser has no
+// app version.
 type Device struct {
 	Model      string `json:"model"`
 	OS         string `json:"os"`
-	AppVersion string `json:"app_version"`
+	AppVersion string `json:"app_version,omitempty"`
 }
 
 // Photo is one processed screenshot, by the upload it came from.
@@ -65,7 +75,7 @@ type Photo struct {
 }
 
 // Draft is feedback as its person sent it, checked. Mood 0 and an empty
-// Kind or Text mean none.
+// Kind, Text, Screen or PageURL mean none; Source is app unless web.
 type Draft struct {
 	Mood    int
 	Kind    Kind
@@ -74,17 +84,20 @@ type Draft struct {
 	Device  *Device
 	Screen  string
 	Contact bool
+	Source  Source
+	PageURL string
 }
 
 // NewFeedback checks feedback: it needs a mood or a text that is not
-// blank. The text is trimmed. Every broken field is named.
-func NewFeedback(mood int, kind, text string, photos []uuid.UUID, device *Device, screen string, contact bool) (Draft, error) {
+// blank. Text, screen and page are trimmed. Every broken field is named.
+func NewFeedback(in Draft) (Draft, error) {
 	e := ErrInvalid
-	d := Draft{
-		Mood: mood, Kind: Kind(kind), Text: strings.TrimSpace(text), Photos: photos, Device: device,
-		Screen: strings.TrimSpace(screen), Contact: contact,
+	d := in
+	d.Text, d.Screen, d.PageURL = strings.TrimSpace(in.Text), strings.TrimSpace(in.Screen), strings.TrimSpace(in.PageURL)
+	if d.Source == "" {
+		d.Source = SourceApp
 	}
-	if mood < 0 || mood > 5 {
+	if d.Mood < 0 || d.Mood > 5 {
 		e = e.WithField("mood", apperr.OutOfRange, "1 to 5")
 	}
 	switch d.Kind {
@@ -95,11 +108,17 @@ func NewFeedback(mood int, kind, text string, photos []uuid.UUID, device *Device
 	if n := utf8.RuneCountInString(d.Text); n > MaxText {
 		e = e.WithField("text", apperr.TooLong, "at most 1,000 characters")
 	}
-	if mood == 0 && d.Text == "" {
+	if d.Mood == 0 && d.Text == "" {
 		e = e.WithField("text", apperr.Required, "a mood or a text")
 	}
-	if len(photos) > MaxPhotos {
+	if len(d.Photos) > MaxPhotos {
 		e = e.WithField("photos", apperr.TooMany, "at most 3 photos")
+	}
+	if d.Source != SourceApp && d.Source != SourceWeb {
+		e = e.WithField("source", apperr.NotAllowed, "app or web")
+	}
+	if utf8.RuneCountInString(d.PageURL) > maxURL {
+		e = e.WithField("page_url", apperr.TooLong, "at most 500 characters")
 	}
 	if len(e.Fields) > 0 {
 		return Draft{}, e

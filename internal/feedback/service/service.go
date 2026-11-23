@@ -50,6 +50,8 @@ type SendInput struct {
 	Device  *domain.Device
 	Screen  string
 	Contact bool
+	Source  string
+	PageURL string
 }
 
 // StatusInput is the ConsoleFeedbackStatus schema.
@@ -96,6 +98,8 @@ type ConsoleFeedback struct {
 	Device    *domain.Device `json:"device,omitempty"`
 	Screen    string         `json:"screen,omitempty"`
 	Contact   bool           `json:"contact"`
+	Source    domain.Source  `json:"source"`
+	PageURL   string         `json:"page_url,omitempty"`
 	RootID    uuid.UUID      `json:"root_id"`
 }
 
@@ -145,6 +149,7 @@ func (s *Feedback) view(f repository.Feedback) FeedbackView {
 // console shows f for staff.
 func (s *Feedback) console(f repository.Feedback) ConsoleFeedback {
 	return ConsoleFeedback{
-		Feedback: s.view(f), AccountID: f.AccountID, Device: f.Device, Screen: f.Screen, Contact: f.Contact, RootID: f.RootID,
+		Feedback: s.view(f), AccountID: f.AccountID, Device: f.Device, Screen: f.Screen, Contact: f.Contact,
+		Source: f.Source, PageURL: f.PageURL, RootID: f.RootID,
 	}
 }

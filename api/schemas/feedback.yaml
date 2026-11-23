@@ -7,15 +7,20 @@ FeedbackStatus:
   description: |
     sent until staff read it; seen once they did; in_progress while ShopNexus
     works on it; shipped once a version has it.
+FeedbackSource:
+  type: string
+  enum: [app, web]
+  description: Where it was sent from, the app or the website; app when absent.
 FeedbackDevice:
   type: object
   additionalProperties: false
-  required: [model, os, app_version]
-  description: The phone it was sent from, for staff.
+  required: [model, os]
+  description: The phone or browser it was sent from, for staff.
   properties:
     model:
       type: string
       maxLength: 100
+      description: The phone, or the browser with its version.
       example: Pixel 9
     os:
       type: string
@@ -24,6 +29,7 @@ FeedbackDevice:
     app_version:
       type: string
       maxLength: 40
+      description: The app's version; none from a browser.
       example: "2.5.0"
 FeedbackDraft:
   type: object
@@ -57,11 +63,18 @@ FeedbackDraft:
     screen:
       type: string
       maxLength: 60
-      description: The app screen it was sent from, for staff.
+      description: The app screen or the website's route it was sent from, for staff.
       example: search_results
     contact:
       type: boolean
       description: Whether ShopNexus may ask the person more, through Hỗ trợ.
+    source:
+      $ref: "#/FeedbackSource"
+    page_url:
+      type: string
+      maxLength: 500
+      description: The website's page it was sent on, with the browser info; trimmed.
+      example: https://shopnexus.id.vn/search?q=laptop
 FeedbackPhoto:
   type: object
   additionalProperties: false

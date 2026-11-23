@@ -12,28 +12,39 @@ import (
 
 func TestNewFeedback(t *testing.T) {
 	t.Parallel()
-	d, err := domain.NewFeedback(0, "idea", "  Thêm bộ lọc size khung  ", nil, nil, " search_results ", true)
-	if err != nil || d.Text != "Thêm bộ lọc size khung" || d.Screen != "search_results" || d.Kind != domain.KindIdea {
+	d, err := domain.NewFeedback(domain.Draft{Kind: "idea", Text: "  Thêm bộ lọc size khung  ", Screen: " search_results ", Contact: true})
+	if err != nil || d.Text != "Thêm bộ lọc size khung" || d.Screen != "search_results" || d.Kind != domain.KindIdea || d.Source != domain.SourceApp {
 		t.Fatalf("%+v %v", d, err)
 	}
-	if d, err = domain.NewFeedback(4, "", "   ", nil, nil, "", false); err != nil || d.Text != "" || d.Mood != 4 {
+	if d, err = domain.NewFeedback(domain.Draft{Mood: 4, Text: "   "}); err != nil || d.Text != "" || d.Mood != 4 {
 		t.Fatalf("a mood alone: %+v %v", d, err)
+	}
+	d, err = domain.NewFeedback(domain.Draft{Mood: 5, Source: domain.SourceWeb, PageURL: " https://shopnexus.id.vn/search?q=laptop "})
+	if err != nil || d.Source != domain.SourceWeb || d.PageURL != "https://shopnexus.id.vn/search?q=laptop" {
+		t.Fatalf("from the website: %+v %v", d, err)
 	}
 	for name, c := range map[string]struct {
 		mood   int
 		kind   string
 		text   string
 		photos int
+		source string
+		page   string
 		field  string
 		code   apperr.FieldCode
 	}{
-		"neither":    {text: "  ", field: "text", code: apperr.Required},
-		"mood of 6":  {mood: 6, text: "x", field: "mood", code: apperr.OutOfRange},
-		"other kind": {mood: 1, kind: "rant", field: "kind", code: apperr.NotAllowed},
-		"long text":  {text: strings.Repeat("a", domain.MaxText+1), field: "text", code: apperr.TooLong},
-		"4 photos":   {mood: 2, photos: 4, field: "photos", code: apperr.TooMany},
+		"neither":      {text: "  ", field: "text", code: apperr.Required},
+		"mood of 6":    {mood: 6, text: "x", field: "mood", code: apperr.OutOfRange},
+		"other kind":   {mood: 1, kind: "rant", field: "kind", code: apperr.NotAllowed},
+		"long text":    {text: strings.Repeat("a", domain.MaxText+1), field: "text", code: apperr.TooLong},
+		"4 photos":     {mood: 2, photos: 4, field: "photos", code: apperr.TooMany},
+		"other source": {mood: 3, source: "tv", field: "source", code: apperr.NotAllowed},
+		"long page":    {mood: 3, source: "web", page: strings.Repeat("a", 501), field: "page_url", code: apperr.TooLong},
 	} {
-		_, err = domain.NewFeedback(c.mood, c.kind, c.text, make([]uuid.UUID, c.photos), nil, "", false)
+		_, err = domain.NewFeedback(domain.Draft{
+			Mood: c.mood, Kind: domain.Kind(c.kind), Text: c.text, Photos: make([]uuid.UUID, c.photos),
+			Source: domain.Source(c.source), PageURL: c.page,
+		})
 		var e *apperr.Error
 		if !errors.As(err, &e) || !errors.Is(err, domain.ErrInvalid) || e.FieldCodes[c.field] != c.code {
 			t.Errorf("%s: %v", name, err)

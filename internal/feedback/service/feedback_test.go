@@ -88,6 +88,30 @@ func TestSendAndMine(t *testing.T) {
 	}
 }
 
+// Feedback from the website keeps its page and a browser without an app
+// version, for staff.
+func TestSendFromTheWebsite(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	svc, person, _ := newService(t, false)
+	v, _, err := svc.Send(ctx, person(), uuid.NewV7(), service.SendInput{
+		Mood: 2, Screen: "search", Source: "web", PageURL: "https://shopnexus.id.vn/search?q=laptop",
+		Device: &domain.Device{Model: "Chrome 132", OS: "Windows 11"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	q, err := svc.Queue(ctx, nil, page.Request{Limit: 5})
+	if err != nil || len(q.Items) != 1 {
+		t.Fatalf("queue: %+v %v", q, err)
+	}
+	c := q.Items[0]
+	if c.Feedback.ID != v.ID || c.Source != domain.SourceWeb || c.PageURL != "https://shopnexus.id.vn/search?q=laptop" ||
+		c.Device == nil || c.Device.Model != "Chrome 132" || c.Device.AppVersion != "" {
+		t.Fatalf("%+v", c)
+	}
+}
+
 // Screenshots are processed through media, kept in order, and refused
 // when they are another's.
 func TestSendPhotos(t *testing.T) {

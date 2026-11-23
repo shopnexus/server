@@ -34,7 +34,8 @@ VALUES (uuidv7(), @person, 'Lọc khu vực hay nhảy về Q.1', uuidv7(), now(
 		pgx.StrictNamedArgs{"person": person}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := postgres.Migrate(ctx, db, migrations.FS); err != nil {
+	// 0082 brings a feedback table of its own back.
+	if _, err := postgres.Migrate(ctx, db, before(t, "0082_feedback.sql")); err != nil {
 		t.Fatalf("0044 on a database with feedback: %v", err)
 	}
 	var kind, status, body, convKind string

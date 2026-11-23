@@ -24,7 +24,7 @@ func NewStore(db *pgxpool.Pool) Store { return pgStore{db} }
 // A group's size less one is the rows that point at its root.
 const columns = `f.id, f.account_id, coalesce(f.mood, 0), coalesce(f.kind, ''), coalesce(f.body, ''), f.photos,
        f.device_model IS NOT NULL, coalesce(f.device_model, ''), coalesce(f.device_os, ''), coalesce(f.app_version, ''),
-       coalesce(f.screen, ''), f.contact, f.status, coalesce(f.status_note, ''), coalesce(f.shipped_version, ''), f.status_at,
+       coalesce(f.screen, ''), f.contact, f.source, coalesce(f.page_url, ''), f.status, coalesce(f.status_note, ''), coalesce(f.shipped_version, ''), f.status_at,
        coalesce(f.root_id, f.id), (SELECT count(*) FROM feedback g WHERE g.root_id = coalesce(f.root_id, f.id)),
        coalesce(f.reply_body, ''), f.replied_at, f.hearted, f.created_at`
 
@@ -35,7 +35,7 @@ func scan(row pgx.CollectableRow) (Feedback, error) {
 		d         domain.Device
 	)
 	if err := row.Scan(&f.ID, &f.AccountID, &f.Mood, &f.Kind, &f.Text, &f.Photos, &hasDevice, &d.Model, &d.OS, &d.AppVersion,
-		&f.Screen, &f.Contact, &f.Status, &f.StatusNote, &f.ShippedVersion, &f.StatusAt, &f.RootID, &f.Others,
+		&f.Screen, &f.Contact, &f.Source, &f.PageURL, &f.Status, &f.StatusNote, &f.ShippedVersion, &f.StatusAt, &f.RootID, &f.Others,
 		&f.Reply, &f.RepliedAt, &f.Hearted, &f.CreatedAt); err != nil {
 		return Feedback{}, fmt.Errorf("scan feedback: %w", err)
 	}
@@ -138,21 +138,26 @@ func (s pgStore) Insert(ctx context.Context, f Feedback, key uuid.UUID, since ti
 		}
 		var model, os, version, mood any
 		if d := f.Device; d != nil {
-			model, os, version = d.Model, d.OS, d.AppVersion
+			model, os, version = d.Model, d.OS, orNull(d.AppVersion)
 		}
 		if f.Mood != 0 {
 			mood = f.Mood
+		}
+		source := f.Source
+		if source == "" {
+			source = domain.SourceApp
 		}
 		photos := f.Photos
 		if photos == nil {
 			photos = []domain.Photo{}
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO feedback (id, account_id, request_key, mood, kind, body, photos, device_model, device_os,
-    app_version, screen, contact, status, status_at, hearted, created_at)
-VALUES (@id, @account, @key, @mood, @kind, @body, @photos, @model, @os, @version, @screen, @contact, 'sent', @at, false, @at)`,
+    app_version, screen, contact, source, page_url, status, status_at, hearted, created_at)
+VALUES (@id, @account, @key, @mood, @kind, @body, @photos, @model, @os, @version, @screen, @contact, @source, @page, 'sent', @at, false, @at)`,
 			pgx.StrictNamedArgs{
 				"id": f.ID, "account": f.AccountID, "key": key, "mood": mood, "kind": orNull(string(f.Kind)), "body": orNull(f.Text),
 				"photos": photos, "model": model, "os": os, "version": version, "screen": orNull(f.Screen), "contact": f.Contact,
+				"source": string(source), "page": orNull(f.PageURL),
 				"at": f.CreatedAt,
 			}); err != nil {
 			return fmt.Errorf("insert feedback: %w", err)

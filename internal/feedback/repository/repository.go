@@ -23,6 +23,8 @@ type Feedback struct {
 	Device         *domain.Device
 	Screen         string
 	Contact        bool
+	Source         domain.Source
+	PageURL        string
 	Status         domain.Status
 	StatusNote     string
 	ShippedVersion string

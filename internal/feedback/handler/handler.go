@@ -34,6 +34,8 @@ type sendRequest struct {
 	Device  *domain.Device `json:"device"`
 	Screen  string         `json:"screen"`
 	Contact bool           `json:"contact"`
+	Source  string         `json:"source"`
+	PageURL string         `json:"page_url"`
 }
 
 // Send serves POST /v1/feedback: 201 for new feedback, 200 for the one the
@@ -50,6 +52,7 @@ func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
 	}
 	out, existed, err := h.svc.Send(r.Context(), p.AccountID, in.Key, service.SendInput{
 		Mood: in.Mood, Kind: in.Kind, Text: in.Text, Photos: in.Photos, Device: in.Device, Screen: in.Screen, Contact: in.Contact,
+		Source: in.Source, PageURL: in.PageURL,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

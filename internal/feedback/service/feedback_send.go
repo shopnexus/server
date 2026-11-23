@@ -14,7 +14,10 @@ import (
 // refuses past the day's limit, processes the screenshots, then stores it.
 // The key holds the photos in media, so a retry finds them its own.
 func (s *Feedback) Send(ctx context.Context, account, key uuid.UUID, in SendInput) (FeedbackView, bool, error) {
-	d, err := domain.NewFeedback(in.Mood, in.Kind, in.Text, in.Photos, in.Device, in.Screen, in.Contact)
+	d, err := domain.NewFeedback(domain.Draft{
+		Mood: in.Mood, Kind: domain.Kind(in.Kind), Text: in.Text, Photos: in.Photos, Device: in.Device, Screen: in.Screen,
+		Contact: in.Contact, Source: domain.Source(in.Source), PageURL: in.PageURL,
+	})
 	if err != nil {
 		return FeedbackView{}, false, err
 	}
@@ -46,7 +49,7 @@ func (s *Feedback) Send(ctx context.Context, account, key uuid.UUID, in SendInpu
 	}
 	f, existed, err := s.store.Insert(ctx, repository.Feedback{
 		ID: uuid.NewV7(), AccountID: account, Mood: d.Mood, Kind: d.Kind, Text: d.Text, Photos: photos, Device: d.Device,
-		Screen: d.Screen, Contact: d.Contact, CreatedAt: now,
+		Screen: d.Screen, Contact: d.Contact, Source: d.Source, PageURL: d.PageURL, CreatedAt: now,
 	}, key, since)
 	if err != nil {
 		return FeedbackView{}, false, fmt.Errorf("store the feedback: %w", err)
