@@ -1,5 +1,6 @@
 // Package audit records what console members and the CLI did to accounts,
-// to console members, to support tickets, to report cases and to listings.
+// to console members, to support tickets, to report cases, to listings and
+// to feedback.
 // An adapter writes an Entry with Insert inside the transaction of the
 // change it records, so the change and its record commit together or not
 // at all.
@@ -78,6 +79,13 @@ const (
 	AIBudgets        ActionKind = "ai.budgets"
 	// DashboardFloor changes the lowest role that opens ops dashboards.
 	DashboardFloor ActionKind = "dashboard.floor"
+	// FeedbackStatus and the feedback.* kinds after it are staff's work on
+	// feedback: its group's status, the reply, the heart and joining groups.
+	FeedbackStatus  ActionKind = "feedback.status"
+	FeedbackReply   ActionKind = "feedback.reply"
+	FeedbackHeart   ActionKind = "feedback.heart"
+	FeedbackUnheart ActionKind = "feedback.unheart"
+	FeedbackSameAs  ActionKind = "feedback.same_as"
 )
 
 type TargetKind string
@@ -96,6 +104,7 @@ const (
 	TargetAISettings TargetKind = "ai_settings"
 	// TargetDashboard is an ops dashboard, named by its app.
 	TargetDashboard TargetKind = "dashboard"
+	TargetFeedback  TargetKind = "feedback"
 )
 
 // Target is what an action changed.
@@ -109,6 +118,8 @@ func Member(id uuid.UUID) Target  { return Target{Kind: TargetMember, ID: id} }
 func Ticket(id uuid.UUID) Target  { return Target{Kind: TargetTicket, ID: id} }
 func Listing(id uuid.UUID) Target { return Target{Kind: TargetListing, ID: id} }
 func AIAgent(id uuid.UUID) Target { return Target{Kind: TargetAIAgent, ID: id} }
+
+func Feedback(id uuid.UUID) Target { return Target{Kind: TargetFeedback, ID: id} }
 
 // AIProvider is the provider named name.
 func AIProvider(name string) Target {

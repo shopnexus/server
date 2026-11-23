@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/console/handler"
 	"github.com/shopnexus/server/internal/console/repository"
 	"github.com/shopnexus/server/internal/console/service"
+	feedbacksvc "github.com/shopnexus/server/internal/feedback/service"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/config"
 	"github.com/shopnexus/server/internal/platform/module"
@@ -52,13 +53,13 @@ type Mounted struct {
 
 // Mount registers the console endpoints and the ops dashboards' callback.
 // accounts reaches the customer data of module account, support the
-// tickets module support keeps, trust the report cases and catalog the
-// listings members hide.
-func Mount(d module.Deps, s Settings, accounts accountsvc.Service, support supportsvc.Service, trust trustsvc.Service,
-	catalog catalogsvc.Service,
+// tickets module support keeps, feedback what people tell ShopNexus, trust
+// the report cases and catalog the listings members hide.
+func Mount(d module.Deps, s Settings, accounts accountsvc.Service, support supportsvc.Service, feedback feedbacksvc.Service,
+	trust trustsvc.Service, catalog catalogsvc.Service,
 ) Mounted {
 	svc := NewService(d.Pool, s, accounts, d.Now)
-	handler.New(svc, support, trust, catalog, d.Log).Register(d.Router)
+	handler.New(svc, support, feedback, trust, catalog, d.Log).Register(d.Router)
 	fromConsole, mod := handler.FromConsole(d.Log), handler.Require(svc, d.Log, domain.RoleModerator)
 	admin := handler.Require(svc, d.Log, domain.RoleAdmin)
 	return Mounted{

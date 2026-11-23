@@ -1,8 +1,8 @@
 // Package notification tells people what happened to their deals, orders,
-// listings, reviews and account, of new listings by the sellers they follow
-// and by their search watches, and of price drops on their saves, in a list,
-// by push and, for orders and the account, by mail, from the events of the
-// other modules. Each person's settings say which kinds push, when pushes
+// listings, reviews, feedback and account, of new listings by the sellers
+// they follow and by their search watches, and of price drops on their
+// saves, in a list, by push and, for orders and the account, by mail, from
+// the events of the other modules. Each person's settings say which kinds push, when pushes
 // wait for morning and whether order notices are mailed.
 // Only screen calls it, for Home's unread count.
 package notification
@@ -15,6 +15,7 @@ import (
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
+	feedbacksvc "github.com/shopnexus/server/internal/feedback/service"
 	"github.com/shopnexus/server/internal/notification/handler"
 	"github.com/shopnexus/server/internal/notification/repository"
 	"github.com/shopnexus/server/internal/notification/service"
@@ -43,13 +44,13 @@ type Settings struct {
 // services.
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service,
 	deals dealsvc.Service, trust trustsvc.Service, chats chatsvc.Service, discovery discoverysvc.Service,
-	support supportsvc.Service,
+	support supportsvc.Service, feedback feedbacksvc.Service,
 ) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{Notices: repository.NewNotices(d.Pool), Settings: repository.NewSettings(d.Pool), Now: d.Now})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	w := worker.Worker{
 		Prefix: d.ServicePrefix, Notices: svc, Deals: deals, Chats: chats, Catalog: catalog,
-		Trust: trust, Accounts: accounts, Discovery: discovery, Support: support, Push: s.Push, Mail: s.Mail, Log: d.Log, FollowerPage: followerPage, Now: d.Now,
+		Trust: trust, Accounts: accounts, Discovery: discovery, Support: support, Feedback: feedback, Push: s.Push, Mail: s.Mail, Log: d.Log, FollowerPage: followerPage, Now: d.Now,
 	}
 	for kind, h := range map[events.Kind]string{
 		events.DealMoved: "DealMoved", events.MessageSent: "MessageSent", events.ListingPublished: "ListingPublished",
@@ -58,6 +59,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 		events.AccountSuspended: "AccountSuspended", events.AccountUnsuspended: "AccountUnsuspended",
 		events.AccountDeleted: "AccountDeleted", events.SearchWatchMatched: "SearchWatchMatched",
 		events.SavedPriceDropped: "SavedPriceDropped",
+		events.FeedbackMoved:     "FeedbackMoved", events.FeedbackReplied: "FeedbackReplied",
 	} {
 		d.Events.Subscribe(kind, w.ServiceName(), h)
 	}

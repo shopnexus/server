@@ -46,6 +46,10 @@ const (
 	// SearchWatchMatched is a sweep that found new listings for a watch with
 	// its alert on; the payload's count is the watch's new_count after it.
 	SearchWatchMatched Kind = "search_watch.matched"
+	// FeedbackMoved is a feedback whose status staff moved to in_progress
+	// or shipped; FeedbackReplied is ShopNexus's first reply to one.
+	FeedbackMoved   Kind = "feedback.moved"
+	FeedbackReplied Kind = "feedback.replied"
 )
 
 // Event is what happened to which aggregate. It is thin: a subscriber reads

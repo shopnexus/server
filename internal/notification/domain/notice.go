@@ -47,6 +47,10 @@ const (
 	TypeUnsuspended        Type = "unsuspended"
 	TypeWatchMatched       Type = "watch_matched"
 	TypePriceDropped       Type = "price_dropped"
+	// TypeFeedbackMoved tells of a feedback moved to in_progress or
+	// shipped, TypeFeedbackReplied of ShopNexus's first reply to one.
+	TypeFeedbackMoved   Type = "feedback_moved"
+	TypeFeedbackReplied Type = "feedback_replied"
 )
 
 // Notice is one thing to tell one person. Params hold what its text is
@@ -96,6 +100,13 @@ type Params struct {
 	Count   int       `json:"count,omitempty"`
 	// SavedPrice is the listing's price when the recipient saved it.
 	SavedPrice int64 `json:"saved_price,omitempty"`
+	// FeedbackID, Status, Version and Excerpt are a feedback notice's: the
+	// feedback, the status it moved to, the version that has it and the
+	// start of ShopNexus's reply.
+	FeedbackID uuid.UUID `json:"feedback_id,omitzero"`
+	Status     string    `json:"status,omitempty"`
+	Version    string    `json:"version,omitempty"`
+	Excerpt    string    `json:"excerpt,omitempty"`
 }
 
 // OrderFacts are what an order notice's mail shows beyond its params: the
@@ -273,6 +284,27 @@ func Unsuspended(account uuid.UUID, at time.Time) Notice {
 	return Notice{Recipient: account, Type: TypeUnsuspended, At: at}
 }
 
+// FeedbackMoved tells a feedback's owner that ShopNexus works on it, or
+// that version has it; version may be empty.
+func FeedbackMoved(owner, feedback uuid.UUID, status, version string, at time.Time) Notice {
+	return Notice{
+		Recipient: owner, Type: TypeFeedbackMoved, CollapseKey: "feedback:" + feedback.String(), At: at,
+		Params: Params{FeedbackID: feedback, Status: status, Version: version},
+	}
+}
+
+// FeedbackReplied tells a feedback's owner of ShopNexus's reply, by its
+// first 100 characters.
+func FeedbackReplied(owner, feedback uuid.UUID, reply string, at time.Time) Notice {
+	if r := []rune(reply); len(r) > chatRunes {
+		reply = string(r[:chatRunes])
+	}
+	return Notice{
+		Recipient: owner, Type: TypeFeedbackReplied, CollapseKey: "feedback:" + feedback.String(), At: at,
+		Params: Params{FeedbackID: feedback, Excerpt: reply},
+	}
+}
+
 // Target is the screen a notice opens.
 type Target struct {
 	Kind string `json:"kind"`
@@ -309,6 +341,7 @@ var (
 	accounts = group{"title.account", opens("account", func(Params) uuid.UUID { return uuid.UUID{} }), SwitchNone, mailAlways}
 	searches = group{"title.searches", opens("search_watch", func(p Params) uuid.UUID { return p.WatchID }), SwitchNone, mailNever}
 	saved    = group{"title.saved", opens("listing", listingID), SwitchPriceCuts, mailNever}
+	feedback = group{"title.feedback", opens("feedback", func(p Params) uuid.UUID { return p.FeedbackID }), SwitchNone, mailNever}
 )
 
 func dealID(p Params) uuid.UUID    { return p.DealID }
@@ -415,6 +448,17 @@ var types = map[Type]struct {
 	TypePriceDropped: {saved, func(p Params, w writer) string {
 		return w.say("notice.price_dropped", p.Title, w.money(p.Amount), w.money(p.SavedPrice))
 	}},
+	TypeFeedbackMoved: {feedback, func(p Params, w writer) string {
+		switch {
+		case p.Status != "shipped":
+			return w.say("notice.feedback_moved.in_progress")
+		case p.Version != "":
+			return w.say("notice.feedback_moved.shipped.version", p.Version)
+		default:
+			return w.say("notice.feedback_moved.shipped")
+		}
+	}},
+	TypeFeedbackReplied: {feedback, func(p Params, w writer) string { return w.say("notice.feedback_replied", p.Excerpt) }},
 }
 
 // carrierLabels name the carriers by their codes.

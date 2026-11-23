@@ -1,0 +1,63 @@
+feedback:
+  get:
+    operationId: listMyFeedback
+    summary: The caller's feedback, newest first.
+    tags: [feedback]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: At most 100; a person sends few.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/feedback.yaml#/FeedbackList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+  post:
+    operationId: sendFeedback
+    summary: Send feedback to ShopNexus.
+    description: |
+      Feedback needs no answer, unlike a ticket. It needs a mood or a text.
+      At most 20 in 24 hours. A repeated Idempotency-Key returns the feedback
+      its first request made. A suspended account may send feedback.
+    tags: [feedback]
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKey"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/feedback.yaml#/FeedbackDraft"
+    responses:
+      "200":
+        description: The feedback this key already made.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/feedback.yaml#/Feedback"
+      "201":
+        description: Sent.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/feedback.yaml#/Feedback"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "422":
+        description: "No mood and no text (invalid_feedback, with fields), or a photo that is not the caller's or was refused (invalid_upload)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "429":
+        description: "20 feedback in the last 24 hours (too_many_feedback)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

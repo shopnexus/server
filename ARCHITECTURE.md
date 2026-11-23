@@ -485,10 +485,10 @@ internal/account/
   account.go         Mount: builds the layers, returns service.Service
 ```
 
-Modules console, media, catalog, deal, chat, trust, discovery and support
-have the same four packages; module agent has them and `mcp`, its MCP
+Modules console, media, catalog, deal, chat, trust, discovery, support and
+feedback have the same four packages; module agent has them and `mcp`, its MCP
 server (see Console agent); a module that reacts to events adds `worker`,
-as catalog, chat, deal, discovery and notification do. Module `screen` has no
+as catalog, chat, deal, discovery, notification, support and feedback do. Module `screen` has no
 `repository` or `domain`: it only reads the other modules' services (see
 Screen). Module `erasure` has only `service` and `handler`: it calls
 account and deal to delete an account (see Erasure). Module `beacon` has
@@ -570,7 +570,7 @@ separate work.
 | `Listing` | `listings` | module catalog; photos and specs are `jsonb` columns, read and written with the row |
 | `ListingDraft` | `listing_drafts` | module catalog; `photos uuid[]`, `body text` the app owns; no `write_id`: the last write wins |
 | `Address` | `addresses` | module account; one row per address, `write_id`; `recipient_name` keeps the keyword `name` out of the columns |
-| feedback | `feedback` | module support; one row per feedback, `request_key` unique per account; no aggregate, no `write_id` |
+| feedback | `feedback` | module feedback; one row per feedback, `request_key` unique per account, `root_id` names its group's root; no aggregate, no `write_id`: a group's writes take one advisory lock |
 | search history | `search_history` | module discovery; one row per folded query of an account, at most 10; no aggregate, no `write_id` |
 | listing views | `listing_view_marks`, `listing_view_days` | module discovery; a person's last day of opening each listing, and the views per listing and UTC day; no aggregate, no `write_id` |
 | notification settings | `notification_settings` | module notification; one row per account that saved settings; no aggregate, no `write_id`: the last `PUT` wins |
@@ -3180,7 +3180,8 @@ Module `support` keeps tickets, what people ask ShopNexus (spec:
 `~/shopnexus/docs/superpowers/specs/2026-11-13-support-tickets-design.md`,
 decided 2026-11-13). It replaced the feedback of 2026-11-10: migration 0044
 turned each feedback row into an open ticket of kind `other` and dropped
-the table, `POST /v1/feedback` and `GET /v1/console/feedback`.
+the table, `POST /v1/feedback` and `GET /v1/console/feedback`. Feedback came
+back on 2026-11-24 as a module of its own (see Feedback).
 
 - Every ticket is its own chat between the person and the system account
   ShopNexus, `accountdomain.ShopNexusID`, which 0044 made with no identity
@@ -3222,12 +3223,59 @@ the table, `POST /v1/feedback` and `GET /v1/console/feedback`.
   reopen write `ticket.reply`, `ticket.resolve` and `ticket.reopen` to the
   audit log with `target_kind = ticket`.
 - The console's routes are console's (`/v1/console/support/*`), calling
-  `supportsvc.Service`, as feedback did. Support mounts after chat and deal,
+  `supportsvc.Service`. Support mounts after chat and deal,
   and before console and screen; screen's chat screen adds the ticket of a
   support chat (`ChatScreen.ticket`), since chat does not import support.
 - The ShopNexus account cannot be suspended, unsuspended, erased, blocked
   or reported (409 `account_is_system`), and the console's account list
   leaves it out.
+
+### Feedback
+
+Module `feedback` keeps what people tell ShopNexus from Góp ý (decided
+2026-11-24). Feedback needs no answer; a question for ShopNexus is a
+support ticket of kind `other`.
+
+- `POST /v1/feedback` takes a mood (1 to 5), a kind (`bug`, `idea`,
+  `praise`), a text of at most 1,000 characters, up to 3 screenshots, the
+  phone (`device`, absent when the person turned "Gửi kèm thông tin máy"
+  off), the app screen it was sent from and `contact`, whether ShopNexus may
+  ask more through Hỗ trợ. It needs a mood or a text that is not blank
+  (422 `invalid_feedback`). It is a direct use case: the key is stored as
+  `request_key`, unique per account, and a repeated key returns the first
+  feedback with 200. The screenshots go through media's `Service.Photos`
+  with the key as holder, so a retry finds them its own. At most 20 in 24
+  hours (429 `too_many_feedback`), counted again under an advisory lock on
+  the account at the insert. A suspended account may send feedback; the
+  insert takes a share lock on the account's row and refuses a tombstone.
+- `GET /v1/feedback` lists the caller's newest 100, with no paging. Each
+  shows its status (`sent`, `seen`, `in_progress`, `shipped`), staff's short
+  note and the shipped version, `others` (the rest of its group),
+  ShopNexus's one reply and whether staff hearted it.
+- Staff work feedback through console's routes (`/v1/console/feedback…`,
+  moderators and admins), which call `feedbacksvc.Service`: the queue
+  (keyset, newest first, by status), the status of a group, the reply, the
+  heart and `same-as`. Each write is a row in the audit log with
+  `target_kind = feedback` (`feedback.status`, `feedback.reply`,
+  `feedback.heart`, `feedback.unheart`, `feedback.same_as`); migration 0082
+  added the target kind. The console has no feedback page as of 2026-11-24.
+- A group is flat: `root_id` names the root, NULL on the root itself.
+  Joining a root moves the feedback joined to it as well, and the moved
+  feedback take the group's status, note and version. Every row keeps the
+  group's status, so a list reads one row per feedback. Writes on groups
+  take one advisory lock for all groups; staff make few.
+- A status set on any feedback of a group applies to the whole group, and
+  `status_at` moves on each row whose status changed. Each row that moved
+  to `in_progress` or `shipped` writes `feedback.moved` in the same
+  transaction; the first reply writes `feedback.replied`. Notification's
+  worker reads `feedbacksvc.Facts` in one step and writes
+  `feedback_moved` ("ShopNexus đang làm điều bạn góp ý", "Điều bạn góp ý
+  đã có trong bản 2.5") or `feedback_replied` (the reply's first 100
+  characters), targeting `{kind: feedback}` and collapsing on
+  `feedback:<id>`. Both always push and are never mailed. A feedback
+  moved back to `sent` or `seen` before the worker reads it tells no one.
+- `account.deleted` deletes the account's feedback in the module's worker.
+  A group whose root goes gets its oldest remaining feedback as root.
 
 ### Console agent
 
@@ -3713,7 +3761,8 @@ calls it except screen, for the unread counts of Home and
   repeated write adds none), `listing.published`, `listing.rejected`,
   `review.posted` (event ID = review ID, first submission only),
   `review.replied` (event ID = the reply's write ID),
-  `account.suspended` (payload `until`) and `account.unsuspended`.
+  `account.suspended` (payload `until`), `account.unsuspended`, and
+  `feedback.moved` and `feedback.replied` (see Feedback).
 - The Restate service `NotificationWorker` has a handler per kind. Each
   reads the facts through the source module's service in one step
   (`dealsvc.Moves`, `chatsvc.MessageFacts`, `trustsvc.ReviewFacts`,
@@ -3841,7 +3890,8 @@ calls it except screen, for the unread counts of Home and
   Each notice group in `types` names its switch, and `domain.SwitchOf`
   reads it; `followed_listing` has a group of its own for `followed`.
   `watch_matched` keeps its watch's bell, and `listing_live`,
-  `listing_rejected`, `suspended` and `unsuspended` always push.
+  `listing_rejected`, `suspended`, `unsuspended`, `feedback_moved` and
+  `feedback_replied` always push.
   `TestEveryTypeIsDescribed` reads the `Type` constants from the package's
   source and fails on a type `types` lacks.
 - While quiet hours are on and Vietnam's clock is in `[from, to)`, no push

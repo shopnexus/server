@@ -333,6 +333,11 @@ Action:
         - ai.rotation
         - ai.budgets
         - dashboard.floor
+        - feedback.status
+        - feedback.reply
+        - feedback.heart
+        - feedback.unheart
+        - feedback.same_as
     target:
       type: object
       additionalProperties: false
@@ -340,7 +345,7 @@ Action:
       properties:
         kind:
           type: string
-          enum: [account, member, ticket, listing, ai_provider, ai_model, ai_agent, ai_settings, dashboard]
+          enum: [account, member, ticket, listing, ai_provider, ai_model, ai_agent, ai_settings, dashboard, feedback]
         id:
           type: string
           format: uuid
@@ -419,6 +424,76 @@ ConsoleTicketList:
     next_cursor:
       type: string
       format: uuid
+ConsoleFeedback:
+  type: object
+  additionalProperties: false
+  required: [feedback, account_id, contact, root_id]
+  properties:
+    feedback:
+      $ref: "feedback.yaml#/Feedback"
+    account_id:
+      type: string
+      format: uuid
+      description: Who sent it.
+    device:
+      $ref: "feedback.yaml#/FeedbackDevice"
+    screen:
+      type: string
+      description: The app screen it was sent from.
+    contact:
+      type: boolean
+      description: Whether ShopNexus may ask the person more, through Hỗ trợ.
+    root_id:
+      type: string
+      format: uuid
+      description: The root of its group; its own id for a root.
+ConsoleFeedbackList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/ConsoleFeedback"
+    next_cursor:
+      type: string
+      format: uuid
+ConsoleFeedbackStatus:
+  type: object
+  additionalProperties: false
+  required: [status]
+  properties:
+    status:
+      $ref: "feedback.yaml#/FeedbackStatus"
+    note:
+      type: string
+      minLength: 1
+      maxLength: 80
+      description: The short note the app shows with the status.
+    version:
+      type: string
+      minLength: 1
+      maxLength: 20
+      description: The app version that has it; only with shipped.
+ConsoleFeedbackReply:
+  type: object
+  additionalProperties: false
+  required: [text]
+  properties:
+    text:
+      type: string
+      minLength: 1
+      maxLength: 1000
+ConsoleFeedbackSameAs:
+  type: object
+  additionalProperties: false
+  required: [feedback_id]
+  properties:
+    feedback_id:
+      type: string
+      format: uuid
+      description: A feedback of the group to join.
 ConsoleMessage:
   type: object
   additionalProperties: false

@@ -89,6 +89,9 @@ tags:
   - name: support
     x-displayName: Support
     description: Tickets the caller opens with ShopNexus and their chat.
+  - name: feedback
+    x-displayName: Feedback
+    description: Feedback the caller sends ShopNexus, which needs no answer, and what became of it.
   - name: notification
     x-displayName: Notifications
     description: The caller's notices, their read state, push tokens and notification settings.
@@ -123,7 +126,7 @@ x-tagGroups:
   - name: Deals
     tags: [chat, deal, shipping]
   - name: After the sale
-    tags: [trust, support, notification, stream]
+    tags: [trust, support, feedback, notification, stream]
   - name: App screens
     tags: [screen]
   - name: Staff console
@@ -375,6 +378,8 @@ paths:
     $ref: "paths/support.yaml#/summary"
   /v1/support/orders/{order_id}/ticket:
     $ref: "paths/support.yaml#/orderTicket"
+  /v1/feedback:
+    $ref: "paths/feedback.yaml#/feedback"
   /v1/console/login:
     $ref: "paths/console.yaml#/login"
   /v1/console/login/totp-enrollment:
@@ -415,6 +420,16 @@ paths:
     $ref: "paths/console.yaml#/supportTicketReopen"
   /v1/console/support/summary:
     $ref: "paths/console.yaml#/supportSummary"
+  /v1/console/feedback:
+    $ref: "paths/console.yaml#/feedbackQueue"
+  /v1/console/feedback/{id}/status:
+    $ref: "paths/console.yaml#/feedbackStatus"
+  /v1/console/feedback/{id}/reply:
+    $ref: "paths/console.yaml#/feedbackReply"
+  /v1/console/feedback/{id}/heart:
+    $ref: "paths/console.yaml#/feedbackHeart"
+  /v1/console/feedback/{id}/same-as:
+    $ref: "paths/console.yaml#/feedbackSameAs"
   /v1/console/reports:
     $ref: "paths/console.yaml#/reportCases"
   /v1/console/reports/{account_id}:

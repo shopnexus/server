@@ -94,11 +94,6 @@ func TestSpecHasTheSupportRoutes(t *testing.T) {
 			}
 		}
 	}
-	for _, gone := range []string{"/v1/feedback", "/v1/console/feedback"} {
-		if doc.Paths.Find(gone) != nil {
-			t.Errorf("%s should be gone", gone)
-		}
-	}
 	draft := doc.Paths.Find("/v1/conversations/{id}/messages").Post.RequestBody.Value.Content.Get("application/json").Schema.Value
 	if draft.Properties["reply_to"] == nil {
 		t.Error("MessageDraft needs reply_to")
@@ -106,6 +101,41 @@ func TestSpecHasTheSupportRoutes(t *testing.T) {
 	message := doc.Paths.Find("/v1/conversations/{id}/messages").Post.Responses.Status(201).Value.Content.Get("application/json").Schema.Value
 	if message.Properties["reply_to"] == nil {
 		t.Error("Message needs reply_to")
+	}
+}
+
+// Feedback is its own module since 2026-11-24, not a support ticket.
+func TestSpecHasTheFeedbackRoutes(t *testing.T) {
+	t.Parallel()
+	doc, err := api.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, ops := range map[string][]string{
+		"/v1/feedback":                      {"GET", "POST"},
+		"/v1/console/feedback":              {"GET"},
+		"/v1/console/feedback/{id}/status":  {"POST"},
+		"/v1/console/feedback/{id}/reply":   {"POST"},
+		"/v1/console/feedback/{id}/heart":   {"PUT", "DELETE"},
+		"/v1/console/feedback/{id}/same-as": {"POST"},
+	} {
+		item := doc.Paths.Find(path)
+		if item == nil {
+			t.Errorf("%s missing", path)
+			continue
+		}
+		for _, op := range ops {
+			if item.GetOperation(op) == nil {
+				t.Errorf("%s %s missing", op, path)
+			}
+		}
+	}
+	if t.Failed() {
+		return
+	}
+	draft := doc.Paths.Find("/v1/feedback").Post.RequestBody.Value.Content.Get("application/json").Schema.Value
+	if draft.AdditionalProperties.Has == nil || *draft.AdditionalProperties.Has || !slices.Equal(draft.Required, []string{"contact"}) {
+		t.Errorf("FeedbackDraft: closed, contact required; got %v %v", draft.AdditionalProperties.Has, draft.Required)
 	}
 }
 

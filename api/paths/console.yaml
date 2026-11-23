@@ -816,6 +816,198 @@ supportSummary:
               $ref: "../schemas/console.yaml#/ConsoleSupportSummary"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
+feedbackQueue:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listConsoleFeedback
+    summary: Feedback, newest first.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/FeedbackStatusQuery"
+      - $ref: "../parameters/common.yaml#/Cursor"
+      - $ref: "../parameters/common.yaml#/Limit"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleFeedbackList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+feedbackStatus:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: setConsoleFeedbackStatus
+    summary: Set the status of a feedback's whole group.
+    description: |
+      Sets the status, note and version of the feedback, its group's root and
+      every feedback joined to it. A note or version left out or blank is
+      cleared. A move to in_progress or shipped tells each owner whose status
+      changed.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/ConsoleFeedbackID"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/console.yaml#/ConsoleFeedbackStatus"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleFeedback"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such feedback (feedback_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "A version without shipped (invalid_feedback, with fields)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+feedbackReply:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: replyConsoleFeedback
+    summary: Set ShopNexus's one reply to a feedback.
+    description: A second call replaces the text. Only the first tells the owner.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/ConsoleFeedbackID"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/console.yaml#/ConsoleFeedbackReply"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleFeedback"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such feedback (feedback_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "A blank text (invalid_feedback, with fields)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+feedbackHeart:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+    - $ref: "../parameters/common.yaml#/ConsoleFeedbackID"
+  put:
+    operationId: heartConsoleFeedback
+    summary: Heart a feedback.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleFeedback"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such feedback (feedback_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: unheartConsoleFeedback
+    summary: Take a feedback's heart back.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleFeedback"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such feedback (feedback_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+feedbackSameAs:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  post:
+    operationId: joinConsoleFeedback
+    summary: Join a feedback to another's group.
+    description: |
+      Groups are flat: each feedback points at its group's root. Joining a
+      root moves the feedback joined to it too. The moved feedback take the
+      group's status, note and version.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/ConsoleFeedbackID"
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/console.yaml#/ConsoleFeedbackSameAs"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleFeedback"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such feedback, either one (feedback_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "feedback_id is the feedback itself (invalid_feedback, with fields)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
 reportCases:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"

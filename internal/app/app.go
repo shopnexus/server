@@ -41,6 +41,7 @@ import (
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/discovery"
 	"github.com/shopnexus/server/internal/erasure"
+	"github.com/shopnexus/server/internal/feedback"
 	"github.com/shopnexus/server/internal/media"
 	"github.com/shopnexus/server/internal/notification"
 	"github.com/shopnexus/server/internal/platform/config"
@@ -453,13 +454,14 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	erasure.Mount(d, accounts, dealm.Service)
 	beacon.Mount(d)
 	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
+	feedbackm := feedback.Mount(d, mediam.Service)
 	trustm := trust.Mount(d, trust.Settings{
 		Classifier: trust.LLMClassifier(
 			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: httpx.NewClient(0)},
 			cfg.Trust.LLMModel, cfg.Trust.CallTimeout, log),
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, accounts, catalogm.Service, dealm.Service, chatm.Service, mediam.Service)
-	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service, trustm.Service,
+	consolem := console.Mount(d, console.Settings{Keys: consoleKeys, Config: cfg.Console}, accounts, supportm.Service, feedbackm.Service, trustm.Service,
 		catalogm.Service)
 	model := llm.OpenAI{BaseURL: cfg.LLM.BaseURL, APIKey: cfg.LLM.APIKey, Model: cfg.LLM.Model, Effort: cfg.LLM.Effort, HTTP: httpx.NewClient(0)}
 	discoverym := discovery.Mount(d, discovery.Settings{
@@ -494,7 +496,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		router.Handle("POST /v1/dev/updates", d.Protect(stream.DevUpdateHandler(updates, log)))
 	}
 	notificationm := notification.Mount(d, notification.Settings{Push: sender, Mail: mail},
-		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service, supportm.Service)
+		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service, supportm.Service, feedbackm.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
 		supportm.Service, shippingm.Service)
 	agentm, agentErr := agent.Mount(d, agent.Settings{
@@ -504,7 +506,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		return nil, nil, fmt.Errorf("agent: %w", agentErr)
 	}
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, shippingm.Services, dealm.Services, discoverym.Services,
-		chatm.Services, supportm.Services, trustm.Services, notificationm.Services, assistm.Services, aiServices), agentm, nil
+		chatm.Services, supportm.Services, feedbackm.Services, trustm.Services, notificationm.Services, assistm.Services, aiServices), agentm, nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

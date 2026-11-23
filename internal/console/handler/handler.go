@@ -9,6 +9,7 @@ import (
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/console/domain"
 	"github.com/shopnexus/server/internal/console/service"
+	feedbacksvc "github.com/shopnexus/server/internal/feedback/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
@@ -16,16 +17,20 @@ import (
 
 type Handler struct {
 	svc service.Service
-	// support works the tickets module support keeps, trust the report
-	// cases, and catalog the listings members hide.
-	support supportsvc.Service
-	trust   trustsvc.Service
-	catalog catalogsvc.Service
-	log     *slog.Logger
+	// support works the tickets module support keeps, feedback what people
+	// tell ShopNexus, trust the report cases, and catalog the listings
+	// members hide.
+	support  supportsvc.Service
+	feedback feedbacksvc.Service
+	trust    trustsvc.Service
+	catalog  catalogsvc.Service
+	log      *slog.Logger
 }
 
-func New(svc service.Service, support supportsvc.Service, trust trustsvc.Service, catalog catalogsvc.Service, log *slog.Logger) *Handler {
-	return &Handler{svc: svc, support: support, trust: trust, catalog: catalog, log: log}
+func New(svc service.Service, support supportsvc.Service, feedback feedbacksvc.Service, trust trustsvc.Service, catalog catalogsvc.Service,
+	log *slog.Logger,
+) *Handler {
+	return &Handler{svc: svc, support: support, feedback: feedback, trust: trust, catalog: catalog, log: log}
 }
 
 // Register adds the console endpoints. Every one under /v1/console but
@@ -67,6 +72,13 @@ func (h *Handler) Register(r *httpx.Router) {
 	handle("POST /v1/console/support/tickets/{id}/resolve", mod(http.HandlerFunc(h.ResolveTicket)))
 	handle("POST /v1/console/support/tickets/{id}/reopen", mod(http.HandlerFunc(h.ReopenTicket)))
 	handle("GET /v1/console/support/summary", mod(http.HandlerFunc(h.SupportSummary)))
+
+	handle("GET /v1/console/feedback", mod(http.HandlerFunc(h.ListFeedback)))
+	handle("POST /v1/console/feedback/{id}/status", mod(http.HandlerFunc(h.SetFeedbackStatus)))
+	handle("POST /v1/console/feedback/{id}/reply", mod(http.HandlerFunc(h.ReplyFeedback)))
+	handle("PUT /v1/console/feedback/{id}/heart", mod(http.HandlerFunc(h.HeartFeedback)))
+	handle("DELETE /v1/console/feedback/{id}/heart", mod(http.HandlerFunc(h.UnheartFeedback)))
+	handle("POST /v1/console/feedback/{id}/same-as", mod(http.HandlerFunc(h.JoinFeedback)))
 
 	handle("GET /v1/console/reports", mod(http.HandlerFunc(h.ListReportCases)))
 	handle("GET /v1/console/reports/{account_id}", mod(http.HandlerFunc(h.GetReportCase)))

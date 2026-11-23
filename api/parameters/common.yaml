@@ -101,6 +101,20 @@ TicketKindQuery:
   required: false
   schema:
     $ref: "../schemas/support.yaml#/TicketKind"
+ConsoleFeedbackID:
+  name: id
+  in: path
+  required: true
+  schema:
+    type: string
+    format: uuid
+FeedbackStatusQuery:
+  name: status
+  in: query
+  required: false
+  description: Only feedback of this status.
+  schema:
+    $ref: "../schemas/feedback.yaml#/FeedbackStatus"
 AgentConversationID:
   name: id
   in: path

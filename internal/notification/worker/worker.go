@@ -23,6 +23,7 @@ import (
 	dealdomain "github.com/shopnexus/server/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
+	feedbacksvc "github.com/shopnexus/server/internal/feedback/service"
 	"github.com/shopnexus/server/internal/notification/domain"
 	"github.com/shopnexus/server/internal/notification/service"
 	"github.com/shopnexus/server/internal/platform/events"
@@ -54,7 +55,10 @@ type Worker struct {
 	// Support gives the ticket of a support chat, which the chat's push
 	// opens.
 	Support supportsvc.Service
-	Push    push.Sender
+	// Feedback gives the facts of a feedback whose status moved or that
+	// ShopNexus replied to.
+	Feedback feedbacksvc.Service
+	Push     push.Sender
 	// Mail sends the notices the recipient's settings mail.
 	Mail mailview.Mailer
 	Log  *slog.Logger
@@ -327,6 +331,41 @@ func (w Worker) SavedPriceDropped(ctx restate.Context, e events.Event) error {
 	return w.tell(ctx, e.ID, []domain.Notice{
 		domain.PriceDropped(f.Account, f.ListingID, f.Title, int64(price), f.SavedPrice, e.OccurredAt),
 	})
+}
+
+// FeedbackMoved tells a feedback's owner that ShopNexus works on it or
+// shipped it. A feedback gone, or moved on to another status since,
+// tells no one.
+func (w Worker) FeedbackMoved(ctx restate.Context, e events.Event) error {
+	f, err := w.feedbackFacts(ctx, e.SubjectID)
+	if err != nil || f.ID == (uuid.UUID{}) || !f.Status.Tells() {
+		return err
+	}
+	return w.tell(ctx, e.ID, []domain.Notice{domain.FeedbackMoved(f.Owner, f.ID, string(f.Status), f.Version, e.OccurredAt)})
+}
+
+// FeedbackReplied tells a feedback's owner of ShopNexus's reply.
+func (w Worker) FeedbackReplied(ctx restate.Context, e events.Event) error {
+	f, err := w.feedbackFacts(ctx, e.SubjectID)
+	if err != nil || f.ID == (uuid.UUID{}) || f.Reply == "" {
+		return err
+	}
+	return w.tell(ctx, e.ID, []domain.Notice{domain.FeedbackReplied(f.Owner, f.ID, f.Reply, e.OccurredAt)})
+}
+
+// feedbackFacts reads a feedback's facts in one step; zero for a gone one.
+func (w Worker) feedbackFacts(ctx restate.Context, id uuid.UUID) (feedbacksvc.Facts, error) {
+	f, err := restate.Run(ctx, func(rc restate.RunContext) (feedbacksvc.Facts, error) {
+		facts, _, stepErr := w.Feedback.Facts(rc, id)
+		if stepErr != nil {
+			return feedbacksvc.Facts{}, fmt.Errorf("read feedback: %w", stepErr)
+		}
+		return facts, nil // zero for a gone feedback
+	})
+	if err != nil {
+		return feedbacksvc.Facts{}, fmt.Errorf("read the feedback: %w", err)
+	}
+	return f, nil
 }
 
 // AccountSuspended tells the account it is suspended.

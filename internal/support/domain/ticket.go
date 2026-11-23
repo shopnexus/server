@@ -27,7 +27,8 @@ const (
 	// KindCarrierRequest is a seller asking for a carrier ShopNexus cannot
 	// read yet.
 	KindCarrierRequest Kind = "carrier_request"
-	// KindOther is anything else, feedback included.
+	// KindOther is anything else a person asks ShopNexus. Feedback, which
+	// needs no answer, is module feedback's.
 	KindOther Kind = "other"
 )
 

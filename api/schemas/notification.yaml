@@ -11,10 +11,10 @@ Target:
   properties:
     kind:
       type: string
-      enum: [deal, order, listing, seller_reviews, account, search_watch]
+      enum: [deal, order, listing, seller_reviews, account, search_watch, feedback]
     id:
       type: string
-      description: The deal, order, listing, seller or search watch; empty for the account.
+      description: The deal, order, listing, seller, search watch or feedback; empty for the account.
 Notification:
   type: object
   additionalProperties: false
@@ -27,7 +27,7 @@ Notification:
       type: string
       enum: [offer, counter, agreed, declined, agreement_cancelled, offer_voided, cod_requested, shipped, completed,
         failed, order_cancelled, listing_live, listing_rejected, followed_listing, review, review_reply, suspended, unsuspended,
-        watch_matched, price_dropped]
+        watch_matched, price_dropped, feedback_moved, feedback_replied]
     text:
       type: string
       description: What the notice says, in the language Accept-Language prefers.

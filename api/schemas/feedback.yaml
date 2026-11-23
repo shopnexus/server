@@ -1,0 +1,154 @@
+FeedbackKind:
+  type: string
+  enum: [bug, idea, praise]
+FeedbackStatus:
+  type: string
+  enum: [sent, seen, in_progress, shipped]
+  description: |
+    sent until staff read it; seen once they did; in_progress while ShopNexus
+    works on it; shipped once a version has it.
+FeedbackDevice:
+  type: object
+  additionalProperties: false
+  required: [model, os, app_version]
+  description: The phone it was sent from, for staff.
+  properties:
+    model:
+      type: string
+      maxLength: 100
+      example: Pixel 9
+    os:
+      type: string
+      maxLength: 40
+      example: Android 16
+    app_version:
+      type: string
+      maxLength: 40
+      example: "2.5.0"
+FeedbackDraft:
+  type: object
+  additionalProperties: false
+  required: [contact]
+  description: |
+    Feedback needs a mood or a text that is not blank (invalid_feedback, with
+    fields).
+  properties:
+    mood:
+      type: integer
+      minimum: 1
+      maximum: 5
+      description: The face the person picked, 1 (Tệ) to 5 (Tuyệt).
+    kind:
+      $ref: "#/FeedbackKind"
+    text:
+      type: string
+      maxLength: 1000
+      description: Trimmed; a blank text counts as none.
+    photos:
+      type: array
+      maxItems: 3
+      uniqueItems: true
+      description: Screenshots, as photo uploads of the caller's.
+      items:
+        type: string
+        format: uuid
+    device:
+      $ref: "#/FeedbackDevice"
+    screen:
+      type: string
+      maxLength: 60
+      description: The app screen it was sent from, for staff.
+      example: search_results
+    contact:
+      type: boolean
+      description: Whether ShopNexus may ask the person more, through Hỗ trợ.
+FeedbackPhoto:
+  type: object
+  additionalProperties: false
+  required: [upload_id, url, thumb_url]
+  properties:
+    upload_id:
+      type: string
+      format: uuid
+    url:
+      type: string
+      format: uri
+      description: The photo, at most 1600 px on its long side.
+    thumb_url:
+      type: string
+      format: uri
+      description: A 400 px thumbnail.
+FeedbackReply:
+  type: object
+  additionalProperties: false
+  required: [text, at]
+  description: ShopNexus's one reply.
+  properties:
+    text:
+      type: string
+    at:
+      type: string
+      format: date-time
+Feedback:
+  type: object
+  additionalProperties: false
+  required: [id, photos, status, others, hearted, created_at, status_at]
+  properties:
+    id:
+      type: string
+      format: uuid
+    mood:
+      type: integer
+      minimum: 1
+      maximum: 5
+      description: Absent when the person picked none.
+    kind:
+      $ref: "#/FeedbackKind"
+    text:
+      type: string
+      description: Absent when the person wrote none.
+    photos:
+      type: array
+      description: The screenshots in their order; empty without any.
+      items:
+        $ref: "#/FeedbackPhoto"
+    status:
+      $ref: "#/FeedbackStatus"
+    status_note:
+      type: string
+      maxLength: 80
+      description: |
+        Staff's short note on the status: for in_progress something like
+        "Dự kiến bản 2.6", for shipped the headline, like "Bộ lọc Size khung
+        đã có".
+    shipped_version:
+      type: string
+      maxLength: 20
+      description: The app version that has it, with shipped.
+      example: "2.5"
+    others:
+      type: integer
+      minimum: 0
+      description: How many other people's feedback staff joined to this one, for "Bạn và 12 người khác".
+    reply:
+      $ref: "#/FeedbackReply"
+    hearted:
+      type: boolean
+      description: Staff hearted it; the app shows it on praise.
+    created_at:
+      type: string
+      format: date-time
+    status_at:
+      type: string
+      format: date-time
+      description: When the status last changed; created_at at first.
+FeedbackList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      description: The caller's feedback, newest first, at most 100.
+      items:
+        $ref: "#/Feedback"

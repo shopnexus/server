@@ -170,8 +170,8 @@ func TestText(t *testing.T) {
 		"Hoàng Nam đã gửi Xe đạp Asama · GHN 8A2K9": domain.FromMoves(
 			facts(domain.Move{Kind: "shipped", By: "seller", OrderID: order, Carrier: "ghn", TrackingCode: "8A2K9"}), at)[0],
 		"Đức Huy trả 350.000 ₫ cho Xe đạp Asama":            domain.FromMoves(facts(domain.Move{Kind: "offer", By: "buyer", Amount: 350_000}), at)[0],
-		"Tài khoản của bạn bị tạm khóa đến 3/11":                domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
-		"Tài khoản của bạn bị tạm khóa":                         domain.Suspended(buyer, "", at),
+		"Tài khoản của bạn bị tạm khóa đến 3/11":            domain.Suspended(buyer, "2026-11-03T08:00:00Z", at),
+		"Tài khoản của bạn bị tạm khóa":                     domain.Suspended(buyer, "", at),
 		"Đức Huy chấm bạn 5 sao · Xe đạp Asama":             domain.Reviewed(seller, "Đức Huy", "Xe đạp Asama", 5, order, at),
 		"Hoàng Nam trả lời đánh giá của bạn · Xe đạp Asama": domain.ReviewReplied(buyer, "Hoàng Nam", "Xe đạp Asama", order, at),
 		"Hoàng Nam vừa đăng tin mới: Xe đạp Asama":          domain.FollowedListing(buyer, seller, "Hoàng Nam", uuid.NewV7(), "Xe đạp Asama", at),
@@ -367,6 +367,39 @@ func TestTextInEveryLanguage(t *testing.T) {
 	} {
 		if got != want {
 			t.Errorf("%q, want %q", got, want)
+		}
+	}
+}
+
+// Feedback notices read by status and version, open the feedback, collapse
+// on it, push without a switch and are never mailed.
+func TestFeedbackNotices(t *testing.T) {
+	t.Parallel()
+	id := uuid.NewV7()
+	long := strings.Repeat("ạ", 120)
+	for want, c := range map[string]struct {
+		n   domain.Notice
+		tag locale.Tag
+	}{
+		"ShopNexus đang làm điều bạn góp ý":             {domain.FeedbackMoved(buyer, id, "in_progress", "", at), ""},
+		"Điều bạn góp ý đã có trong bản 2.5":            {domain.FeedbackMoved(buyer, id, "shipped", "2.5", at), ""},
+		"Điều bạn góp ý đã có":                          {domain.FeedbackMoved(buyer, id, "shipped", "", at), ""},
+		"Your suggestion is in version 2.5":             {domain.FeedbackMoved(buyer, id, "shipped", "2.5", at), locale.English},
+		"ShopNexus trả lời góp ý của bạn: “Cảm ơn bạn”": {domain.FeedbackReplied(buyer, id, "Cảm ơn bạn", at), ""},
+		"ShopNexus trả lời góp ý của bạn: “" + long[:len("ạ")*100] + "”": {
+			domain.FeedbackReplied(buyer, id, long, at), "",
+		},
+	} {
+		if got := domain.Text(c.n.Type, c.n.Params, c.tag); got != want {
+			t.Errorf("%s: %q", want, got)
+		}
+		if c.n.CollapseKey != "feedback:"+id.String() || domain.TargetOf(c.n.Type, c.n.Params) != (domain.Target{Kind: "feedback", ID: id.String()}) {
+			t.Errorf("%s: key %q, target %+v", want, c.n.CollapseKey, domain.TargetOf(c.n.Type, c.n.Params))
+		}
+	}
+	for _, ty := range []domain.Type{domain.TypeFeedbackMoved, domain.TypeFeedbackReplied} {
+		if domain.SwitchOf(ty) != domain.SwitchNone || domain.Mailed(ty) || domain.Title(ty, "") != "Góp ý" || domain.Title(ty, locale.English) != "Feedback" {
+			t.Errorf("%s: switch %q, mailed %v, title %q", ty, domain.SwitchOf(ty), domain.Mailed(ty), domain.Title(ty, ""))
 		}
 	}
 }

@@ -125,7 +125,8 @@ func Mail(n Notice, tag locale.Tag) mailview.Letter {
 		l.Action = &mailview.Action{Label: w.say("mail.unsuspended.action"), Path: "/"}
 
 	case TypeOffer, TypeCounter, TypeAgreed, TypeDeclined, TypeAgreementCancelled, TypeOfferVoided, TypeListingLive,
-		TypeListingRejected, TypeFollowedListing, TypeReview, TypeReviewReply, TypeWatchMatched, TypePriceDropped:
+		TypeListingRejected, TypeFollowedListing, TypeReview, TypeReviewReply, TypeWatchMatched, TypePriceDropped,
+		TypeFeedbackMoved, TypeFeedbackReplied:
 		// Never mailed.
 	default:
 	}
