@@ -88,7 +88,8 @@ search:
       description against listing photos are fused by weighted RRF. A guest's
       q, and a caller's past 200 model reads that UTC day, searches its raw
       words through BM25 and their text vector, with no chips. A guest's
-      address makes 2 searches a second, in bursts of 30; past them 429. With photo, the photo against listing photos
+      address makes 2 searches with q a second, in bursts of 30; past them
+      429. With photo, the photo against listing photos
       alone. With like, the listing's title, text vector and photos. Without
       any, the call browses, newest first by default, and category alone is the
       category page. sort=nearby is the "Gần bạn" feed, which Home's first page

@@ -34,9 +34,9 @@ const (
 	// ModelCallsPerDay caps the model's reads of one person's queries on a
 	// UTC day; a cached answer does not count. Past it the raw words search.
 	ModelCallsPerDay = 200
-	// GuestSearchesPerSecond is the searches a guest's address makes a
-	// second, in bursts of up to GuestSearchBurst; signed-in searches are not
-	// limited.
+	// GuestSearchesPerSecond is the searches with q a guest's address makes
+	// a second, in bursts of up to GuestSearchBurst; browsing, like and
+	// signed-in searches are not limited.
 	GuestSearchesPerSecond = 2
 	GuestSearchBurst       = 30
 )

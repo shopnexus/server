@@ -2460,8 +2460,10 @@ Search and the nearby feed (decided 2026-10-27, spec:
   the cursor pins the pages as below. The model reads signed-in people's
   queries, so its cost follows accounts, and the full search is a reason to
   sign in. A guest does not read a cached answer either.
-- A guest's address makes 2 searches a second, in bursts of 30, and gets 429
-  `rate_limited` past them (`domain.GuestSearchesPerSecond`, per process);
+- A guest's address makes 2 searches with `q` a second, in bursts of 30, and
+  gets 429 `rate_limited` past them (`domain.GuestSearchesPerSecond`, per
+  process); browsing, `like` and the category pages are not limited, since
+  they reach no paid model and the website prefetches listing pages;
   the website forwards the visitor's address, which `TRUSTED_PROXIES`
   accepts. A signed-in person's queries reach the model at most 200 times a
   UTC day (`domain.ModelCallsPerDay`, one row per account in

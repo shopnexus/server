@@ -111,21 +111,22 @@ func TestSearch(t *testing.T) {
 	}
 }
 
-// One guest address gets a burst of 30 searches; a signed-in caller from it
-// is not limited.
+// One guest address gets a burst of 30 searches with q; browsing and a
+// signed-in caller from it are not limited.
 func TestSearchLimitsAGuest(t *testing.T) {
 	t.Parallel()
 	from := newClient()
 	for i := range 60 {
-		res := call(t, "GET", "/v1/search?category=vehicles", nil, from)
+		res := call(t, "GET", "/v1/search?q=xe", nil, from)
 		if res.Status == http.StatusTooManyRequests {
 			check(t, "past the burst", res, http.StatusTooManyRequests, "rate_limited")
+			expectStatus(t, call(t, "GET", "/v1/search?category=vehicles", nil, from), http.StatusOK)
 			me, _ := newAccount(t)
-			expectStatus(t, call(t, "GET", "/v1/search?category=vehicles", nil, from, bearer(me.AccessToken)), http.StatusOK)
+			expectStatus(t, call(t, "GET", "/v1/search?q=xe", nil, from, bearer(me.AccessToken)), http.StatusOK)
 			return
 		}
 		if i == 59 {
-			t.Fatal("60 guest searches in a row were not rate limited")
+			t.Fatal("60 guest searches with q in a row were not rate limited")
 		}
 	}
 }

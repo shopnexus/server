@@ -21,11 +21,11 @@ func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: 
 // Register adds the discovery endpoints. The saved, hidden and viewed ones
 // and the search history are behind protect; search and a seller's
 // listings read a caller when identify finds one, and limitGuests rate
-// limits a search without one.
+// limits a guest's search with q, the one that embeds its words.
 func (h *Handler) Register(r *httpx.Router, protect, identify, limitGuests func(http.Handler) http.Handler) {
 	guest := limitGuests(http.HandlerFunc(h.Search))
 	r.Handle("GET /v1/search", identify(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if httpx.Viewer(req) == nil {
+		if httpx.Viewer(req) == nil && req.URL.Query().Get("q") != "" {
 			guest.ServeHTTP(w, req)
 			return
 		}
