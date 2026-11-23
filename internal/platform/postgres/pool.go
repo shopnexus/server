@@ -38,6 +38,7 @@ func registerPoolMetrics(pool *pgxpool.Pool) {
 	acquired := telemetry.Must(m.Int64ObservableGauge("db.client.connection.acquired", metric.WithDescription("Connections in use.")))
 	idle := telemetry.Must(m.Int64ObservableGauge("db.client.connection.idle", metric.WithDescription("Idle connections.")))
 	total := telemetry.Must(m.Int64ObservableGauge("db.client.connection.total", metric.WithDescription("Open connections.")))
+	maxConns := telemetry.Must(m.Int64ObservableGauge("db.client.connection.max", metric.WithDescription("Most connections the pool opens.")))
 	wait := telemetry.Must(m.Float64ObservableCounter("db.client.connection.wait_time", metric.WithUnit("s"),
 		metric.WithDescription("Total time spent waiting to acquire a connection.")))
 	telemetry.Must(m.RegisterCallback(func(_ context.Context, o metric.Observer) error {
@@ -45,7 +46,8 @@ func registerPoolMetrics(pool *pgxpool.Pool) {
 		o.ObserveInt64(acquired, int64(s.AcquiredConns()))
 		o.ObserveInt64(idle, int64(s.IdleConns()))
 		o.ObserveInt64(total, int64(s.TotalConns()))
+		o.ObserveInt64(maxConns, int64(s.MaxConns()))
 		o.ObserveFloat64(wait, s.AcquireDuration().Seconds())
 		return nil
-	}, acquired, idle, total, wait))
+	}, acquired, idle, total, maxConns, wait))
 }

@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
@@ -66,8 +67,15 @@ func Setup(ctx context.Context, cfg config.Config, version string) (shutdown fun
 	)
 	mp := sdkmetric.NewMeterProvider(
 		sdkmetric.WithResource(res),
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExp, sdkmetric.WithInterval(10*time.Second))),
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExp, sdkmetric.WithInterval(10*time.Second),
+			sdkmetric.WithProducer(runtime.NewProducer()))),
 	)
+	// Goroutines, heap, GOMAXPROCS and scheduler wait, plus CPU and memory
+	// against the container's limits: the dashboard's saturation row.
+	if err := runtime.Start(runtime.WithMeterProvider(mp)); err != nil {
+		return nil, fmt.Errorf("start runtime metrics: %w", err)
+	}
+	registerProcessMetrics(mp)
 	lp := sdklog.NewLoggerProvider(
 		sdklog.WithResource(res),
 		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExp)),
