@@ -1,0 +1,83 @@
+{
+ "schemaVersion": 1,
+ "targets": {
+  "email": {
+   "targetKind": "new-ui",
+   "authoringMode": "direct-import",
+   "projectId": "46854d87-b0a2-44e8-9015-e73e5f75b048",
+   "activeDraftId": "d7b62f02-fcde-4825-bd6e-fc57a823aeeb",
+   "designSystemPath": ".superdesign/design-system.md",
+   "contextFiles": [
+    ".superdesign/design-system.md",
+    ".superdesign/tools/build_email.py"
+   ],
+   "fingerprints": {
+    ".superdesign/design-system.md": "7411756a8558510e9dad1d42a6fde5c1bc47e8d4a5f7b559786e42a515102fae",
+    ".superdesign/tools/build_email.py": "8d17dbf61dcb4c37c000184fe55f0804126746f58e57c48ca1d19bc549311725"
+   },
+   "brandAssets": {
+    "logo": {
+     "assetKey": "brand-web-brand_mark.png"
+    }
+   },
+   "drafts": {
+    "411fa67c-4c57-4720-9ed2-77c190f54d19": {
+     "title": "Email · Mã đăng nhập",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    },
+    "f55a792f-aa2a-4a24-8b16-1fcccd3bc4ee": {
+     "title": "Email · Mã thêm email",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    },
+    "d4e10a41-e035-477a-b372-ff49c36b2606": {
+     "title": "Email · Đơn COD mới (người bán)",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    },
+    "d7b62f02-fcde-4825-bd6e-fc57a823aeeb": {
+     "title": "Email · Đã gửi hàng (người mua)",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    },
+    "cb967cd1-ff83-4d9f-ba67-40506c2f29c8": {
+     "title": "Email · Đã giao (người mua)",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    },
+    "4aa7c5c5-19bf-4b29-90e7-b2f1e1162bc0": {
+     "title": "Email · Người mua đã nhận (người bán)",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    },
+    "3df65872-7240-4d0b-b5b7-b2cfca8e11c6": {
+     "title": "Email · Giao không thành (người bán)",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    },
+    "80fb958e-ce0a-4210-a39e-0ff23cd3963f": {
+     "title": "Email · Đơn đã huỷ (người mua)",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    },
+    "050736a2-6dc4-4f41-94fb-c41996d877f8": {
+     "title": "Email · Tài khoản bị khoá",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    },
+    "b7f103cf-27c0-404c-8180-6b0d2e9b91d0": {
+     "title": "Email · Tài khoản đã mở khoá",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    },
+    "8bb2a496-1e88-4787-a007-f7a0fed69c24": {
+     "title": "Email · Đã gửi hàng (trên điện thoại)",
+     "currentVersion": 1,
+     "visualDirection": "mint hero band, white card, teal pill CTA"
+    }
+   },
+   "note": "One draft per mail; tools/build_email.py writes mockups/<name>.html, re-import with --into <id> from tools/drafts.json."
+  }
+ }
+}

@@ -10,6 +10,7 @@
 !/.golangci.yml
 !/.sqlfluff
 !/.sqlfluffignore
+!/.superdesign/
 !/ARCHITECTURE.md
 !/AGENTS.md
 !/Dockerfile
@@ -34,3 +35,4 @@ tmp/
 bin/
 .restate/
 .zed
+__pycache__/
