@@ -115,6 +115,13 @@ FeedbackStatusQuery:
   description: Only feedback of this status.
   schema:
     $ref: "../schemas/feedback.yaml#/FeedbackStatus"
+FeedbackKindQuery:
+  name: kind
+  in: query
+  required: false
+  description: Only feedback of this kind.
+  schema:
+    $ref: "../schemas/feedback.yaml#/FeedbackKind"
 AgentConversationID:
   name: id
   in: path

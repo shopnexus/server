@@ -6,6 +6,7 @@ package feedback
 import (
 	restate "github.com/restatedev/sdk-go"
 
+	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/feedback/handler"
 	"github.com/shopnexus/server/internal/feedback/repository"
 	"github.com/shopnexus/server/internal/feedback/service"
@@ -18,8 +19,8 @@ import (
 // Mount registers the /v1/feedback endpoints, subscribes the worker to
 // account.deleted, and returns its Restate service and the Service console
 // and notification reach feedback through.
-func Mount(d module.Deps, media mediasvc.Service) module.Mounted[service.Service] {
-	svc := service.New(service.Deps{Store: repository.NewStore(d.Pool), Media: media, Now: d.Now})
+func Mount(d module.Deps, media mediasvc.Service, accounts accountsvc.Service) module.Mounted[service.Service] {
+	svc := service.New(service.Deps{Store: repository.NewStore(d.Pool), Media: media, Accounts: accounts, Now: d.Now})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	w := worker.Worker{Prefix: d.ServicePrefix, Feedback: svc}
 	d.Events.Subscribe(events.AccountDeleted, w.ServiceName(), "AccountDeleted")

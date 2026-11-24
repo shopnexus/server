@@ -37,6 +37,46 @@ type Feedback struct {
 	CreatedAt      time.Time
 }
 
+// Group is a group's root with its figures: its size, how many gave each
+// mood (Moods[0] is mood 1), how many came from the app and the web, and
+// how many were sent on each of the last seven days, oldest first.
+type Group struct {
+	Root  Feedback
+	Size  int
+	Moods [5]int
+	App   int
+	Web   int
+	Days  [7]int
+}
+
+// Summary is what was sent in a period: per day, oldest first, the mood's
+// mean (0 for a day with none) and the count; the mood's mean over the
+// period and over the one before it (0 for none); the counts by source and
+// kind; the feedback still sent; the groups shipped in it and the feedback
+// in them; and the screens sent from most, with their counts.
+type Summary struct {
+	DayMood       []float64
+	DaySent       []int
+	Mood          float64
+	MoodBefore    float64
+	Sent          int
+	App           int
+	Web           int
+	Bugs          int
+	Ideas         int
+	Praise        int
+	Waiting       int
+	ShippedGroups int
+	ShippedPeople int
+	Screens       []Screen
+}
+
+// Screen is an app screen or a website route and how much was sent from it.
+type Screen struct {
+	Screen string
+	Count  int
+}
+
 // Store stores feedback. The writes on groups (SetStatus, Join, Forget)
 // take one lock for all groups, so two of them never interleave; staff
 // make few.
@@ -56,9 +96,17 @@ type Store interface {
 	Get(ctx context.Context, id uuid.UUID) (Feedback, error)
 	// OfAccount reads account's newest feedback, at most limit.
 	OfAccount(ctx context.Context, account uuid.UUID, limit int) ([]Feedback, error)
-	// Queue reads feedback of status, any when nil, newest first, below
-	// p's cursor, at most p.Fetch().
-	Queue(ctx context.Context, status *domain.Status, p page.Request) ([]Feedback, error)
+	// Queue reads feedback of status and kind, any when nil, newest first,
+	// below p's cursor, at most p.Fetch().
+	Queue(ctx context.Context, status *domain.Status, kind *domain.Kind, p page.Request) ([]Feedback, error)
+	// Group reads the feedback of root's group, the root included, newest
+	// first, at most limit.
+	Group(ctx context.Context, root uuid.UUID, limit int) ([]Feedback, error)
+	// Groups reads the roots of kind, any when nil, largest group first,
+	// at most limit, each with its group's figures up to now.
+	Groups(ctx context.Context, kind *domain.Kind, limit int, now time.Time) ([]Group, error)
+	// Summary counts the feedback sent in [since, now).
+	Summary(ctx context.Context, since, now time.Time) (Summary, error)
 	// SetStatus sets c on id's whole group, status_at moving where the
 	// status changed, with a feedback.moved event for each row that moved
 	// to a status that tells, and the audit row. It returns id's row.

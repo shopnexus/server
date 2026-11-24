@@ -19,5 +19,5 @@ func (s *Feedback) SameAs(ctx context.Context, id, other uuid.UUID, by audit.Act
 	if err != nil {
 		return ConsoleFeedback{}, fmt.Errorf("join: %w", err)
 	}
-	return s.console(f), nil
+	return s.console(ctx, f)
 }

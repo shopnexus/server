@@ -13,5 +13,5 @@ func (s *Feedback) Heart(ctx context.Context, id uuid.UUID, hearted bool, by aud
 	if err != nil {
 		return ConsoleFeedback{}, fmt.Errorf("heart: %w", err)
 	}
-	return s.console(f), nil
+	return s.console(ctx, f)
 }

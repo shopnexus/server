@@ -827,6 +827,7 @@ feedbackQueue:
       - consoleAuth: []
     parameters:
       - $ref: "../parameters/common.yaml#/FeedbackStatusQuery"
+      - $ref: "../parameters/common.yaml#/FeedbackKindQuery"
       - $ref: "../parameters/common.yaml#/Cursor"
       - $ref: "../parameters/common.yaml#/Limit"
     responses:
@@ -836,6 +837,70 @@ feedbackQueue:
           application/json:
             schema:
               $ref: "../schemas/console.yaml#/ConsoleFeedbackList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+feedbackDetail:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getConsoleFeedback
+    summary: A feedback with the rest of its group.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/ConsoleFeedbackID"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/ConsoleFeedbackDetail"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No such feedback (feedback_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+feedbackGroups:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: listConsoleFeedbackGroups
+    summary: Feedback groups, largest first, with their figures.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/FeedbackKindQuery"
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/FeedbackGroupList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+feedbackSummary:
+  parameters:
+    - $ref: "../parameters/common.yaml#/ConsoleCSRF"
+  get:
+    operationId: getConsoleFeedbackSummary
+    summary: What was sent in the last 30 days.
+    tags: [console, internal]
+    security:
+      - consoleAuth: []
+    responses:
+      "200":
+        description: Done.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/console.yaml#/FeedbackSummary"
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
 feedbackStatus:

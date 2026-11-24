@@ -422,6 +422,12 @@ paths:
     $ref: "paths/console.yaml#/supportSummary"
   /v1/console/feedback:
     $ref: "paths/console.yaml#/feedbackQueue"
+  /v1/console/feedback/groups:
+    $ref: "paths/console.yaml#/feedbackGroups"
+  /v1/console/feedback/summary:
+    $ref: "paths/console.yaml#/feedbackSummary"
+  /v1/console/feedback/{id}:
+    $ref: "paths/console.yaml#/feedbackDetail"
   /v1/console/feedback/{id}/status:
     $ref: "paths/console.yaml#/feedbackStatus"
   /v1/console/feedback/{id}/reply:

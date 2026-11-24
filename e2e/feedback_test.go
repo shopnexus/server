@@ -77,7 +77,46 @@ func TestFeedbackFromSendToShipped(t *testing.T) {
 	if !found {
 		t.Fatalf("queue %+v", queue.Items)
 	}
-	expectStatus(t, consoleCall(t, consoleSession{}, "GET", "/v1/console/feedback", nil), http.StatusUnauthorized)
+	type person struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	detail := expect[struct {
+		Item struct {
+			Feedback feedbackBody `json:"feedback"`
+			Person   person       `json:"person"`
+		} `json:"item"`
+		Group []struct {
+			Feedback feedbackBody `json:"feedback"`
+		} `json:"group"`
+	}](t, consoleCall(t, mod, "GET", "/v1/console/feedback/"+theirs.ID, nil), http.StatusOK)
+	if detail.Item.Person.ID != other.Account.ID || detail.Item.Person.Status != "active" || len(detail.Group) != 1 || detail.Group[0].Feedback.ID != mine.ID {
+		t.Fatalf("detail %+v", detail)
+	}
+	groups := expect[struct {
+		Items []struct {
+			Root struct {
+				Feedback feedbackBody `json:"feedback"`
+			} `json:"root"`
+			Size int `json:"size"`
+		} `json:"items"`
+	}](t, consoleCall(t, mod, "GET", "/v1/console/feedback/groups?kind=idea", nil), http.StatusOK)
+	found = false
+	for _, g := range groups.Items {
+		found = found || (g.Root.Feedback.ID == mine.ID && g.Size == 2)
+	}
+	if !found {
+		t.Fatalf("groups %+v", groups.Items)
+	}
+	if sum := expect[struct {
+		Sent    int   `json:"sent"`
+		DaySent []int `json:"day_sent"`
+	}](t, consoleCall(t, mod, "GET", "/v1/console/feedback/summary", nil), http.StatusOK); sum.Sent < 2 || len(sum.DaySent) != 30 {
+		t.Fatalf("summary %+v", sum)
+	}
+	for _, p := range []string{"/v1/console/feedback", "/v1/console/feedback/groups", "/v1/console/feedback/summary", "/v1/console/feedback/" + mine.ID} {
+		expectStatus(t, consoleCall(t, consoleSession{}, "GET", p, nil), http.StatusUnauthorized)
+	}
 }
 
 // Every refusal the feedback operations declare.
@@ -112,6 +151,7 @@ func TestFeedbackRefusals(t *testing.T) {
 		check(t, c.method+" "+c.path+" of none", consoleCall(t, mod, c.method, none+c.path, c.body), 404, "feedback_not_found")
 		expectStatus(t, consoleCall(t, consoleSession{}, c.method, "/v1/console/feedback/"+f.ID+c.path, c.body), http.StatusUnauthorized)
 	}
+	check(t, "GET of none", consoleCall(t, mod, "GET", none, nil), 404, "feedback_not_found")
 	one := "/v1/console/feedback/" + f.ID
 	check(t, "a version without shipped", consoleCall(t, mod, "POST", one+"/status", map[string]any{"status": "in_progress", "version": "2.6"}),
 		422, "invalid_feedback")

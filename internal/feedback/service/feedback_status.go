@@ -20,5 +20,5 @@ func (s *Feedback) SetStatus(ctx context.Context, id uuid.UUID, in StatusInput, 
 	if err != nil {
 		return ConsoleFeedback{}, fmt.Errorf("set the status: %w", err)
 	}
-	return s.console(f), nil
+	return s.console(ctx, f)
 }

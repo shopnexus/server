@@ -454,7 +454,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	erasure.Mount(d, accounts, dealm.Service)
 	beacon.Mount(d)
 	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
-	feedbackm := feedback.Mount(d, mediam.Service)
+	feedbackm := feedback.Mount(d, mediam.Service, accounts)
 	trustm := trust.Mount(d, trust.Settings{
 		Classifier: trust.LLMClassifier(
 			llm.OpenAI{BaseURL: cfg.Trust.LLMBaseURL, APIKey: cfg.Trust.LLMAPIKey, Model: cfg.Trust.LLMModel, HTTP: httpx.NewClient(0)},

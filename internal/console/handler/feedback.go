@@ -13,6 +13,7 @@ import (
 
 type feedbackQueueRequest struct {
 	Status string    `json:"-" query:"status"`
+	Kind   string    `json:"-" query:"kind"`
 	Cursor uuid.UUID `json:"-" query:"cursor"`
 	Limit  int       `json:"-" query:"limit"`
 }
@@ -28,7 +29,65 @@ func (h *Handler) ListFeedback(w http.ResponseWriter, r *http.Request) {
 	if in.Status != "" {
 		status = new(feedbackdomain.Status(in.Status))
 	}
-	out, err := h.feedback.Queue(r.Context(), status, page.Request{Cursor: in.Cursor, Limit: in.Limit})
+	var kind *feedbackdomain.Kind
+	if in.Kind != "" {
+		kind = new(feedbackdomain.Kind(in.Kind))
+	}
+	out, err := h.feedback.Queue(r.Context(), status, kind, page.Request{Cursor: in.Cursor, Limit: in.Limit})
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, out)
+}
+
+type feedbackRequest struct {
+	ID uuid.UUID `json:"-" path:"id"`
+}
+
+// GetFeedback serves GET /v1/console/feedback/{id}.
+func (h *Handler) GetFeedback(w http.ResponseWriter, r *http.Request) {
+	var in feedbackRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	out, err := h.feedback.Detail(r.Context(), in.ID)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, out)
+}
+
+type feedbackGroupsRequest struct {
+	Kind string `json:"-" query:"kind"`
+}
+
+// ListFeedbackGroups serves GET /v1/console/feedback/groups.
+func (h *Handler) ListFeedbackGroups(w http.ResponseWriter, r *http.Request) {
+	var in feedbackGroupsRequest
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	var kind *feedbackdomain.Kind
+	if in.Kind != "" {
+		kind = new(feedbackdomain.Kind(in.Kind))
+	}
+	out, err := h.feedback.Groups(r.Context(), kind)
+	if err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
+	}
+	httpx.Respond(w, http.StatusOK, struct {
+		Items []feedbacksvc.GroupView `json:"items"`
+	}{out})
+}
+
+// FeedbackSummary serves GET /v1/console/feedback/summary.
+func (h *Handler) FeedbackSummary(w http.ResponseWriter, r *http.Request) {
+	out, err := h.feedback.Summary(r.Context())
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
@@ -85,10 +144,6 @@ func (h *Handler) ReplyFeedback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Respond(w, http.StatusOK, out)
-}
-
-type feedbackRequest struct {
-	ID uuid.UUID `json:"-" path:"id"`
 }
 
 // HeartFeedback serves PUT /v1/console/feedback/{id}/heart.

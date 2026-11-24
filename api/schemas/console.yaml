@@ -427,7 +427,7 @@ ConsoleTicketList:
 ConsoleFeedback:
   type: object
   additionalProperties: false
-  required: [feedback, account_id, contact, source, root_id]
+  required: [feedback, account_id, person, contact, source, root_id]
   properties:
     feedback:
       $ref: "feedback.yaml#/Feedback"
@@ -435,6 +435,8 @@ ConsoleFeedback:
       type: string
       format: uuid
       description: Who sent it.
+    person:
+      $ref: "#/FeedbackPerson"
     device:
       $ref: "feedback.yaml#/FeedbackDevice"
     screen:
@@ -464,6 +466,128 @@ ConsoleFeedbackList:
     next_cursor:
       type: string
       format: uuid
+FeedbackPerson:
+  type: object
+  additionalProperties: false
+  required: [id, display_name, status]
+  properties:
+    id:
+      type: string
+      format: uuid
+    display_name:
+      type: string
+      description: Empty for a person without a name or a deleted account.
+    contact:
+      type: string
+      description: The phone number, or the email address without one.
+    status:
+      type: string
+      enum: [active, suspended, deleted]
+ConsoleFeedbackDetail:
+  type: object
+  additionalProperties: false
+  required: [item, group]
+  properties:
+    item:
+      $ref: "#/ConsoleFeedback"
+    group:
+      type: array
+      maxItems: 50
+      description: The rest of its group, the root included, newest first.
+      items:
+        $ref: "#/ConsoleFeedback"
+FeedbackGroup:
+  type: object
+  additionalProperties: false
+  required: [root, size, moods, app, web, days]
+  properties:
+    root:
+      $ref: "#/ConsoleFeedback"
+    size:
+      type: integer
+      description: The feedback in the group, the root included.
+    moods:
+      type: array
+      minItems: 5
+      maxItems: 5
+      items:
+        type: integer
+      description: How many gave each mood, 1 to 5.
+    app:
+      type: integer
+    web:
+      type: integer
+    days:
+      type: array
+      minItems: 7
+      maxItems: 7
+      items:
+        type: integer
+      description: Sent on each of the last seven days, oldest first.
+FeedbackGroupList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      maxItems: 100
+      items:
+        $ref: "#/FeedbackGroup"
+FeedbackScreenCount:
+  type: object
+  additionalProperties: false
+  required: [screen, count]
+  properties:
+    screen:
+      type: string
+    count:
+      type: integer
+FeedbackSummary:
+  type: object
+  additionalProperties: false
+  required: [day_mood, day_sent, mood, mood_before, sent, app, web, bugs, ideas, praise, waiting, shipped_groups, shipped_people, screens]
+  description: The last 30 days; a mood of 0 is none.
+  properties:
+    day_mood:
+      type: array
+      items:
+        type: number
+      description: Each day's mean mood, oldest first.
+    day_sent:
+      type: array
+      items:
+        type: integer
+    mood:
+      type: number
+    mood_before:
+      type: number
+      description: The mean mood of the 30 days before.
+    sent:
+      type: integer
+    app:
+      type: integer
+    web:
+      type: integer
+    bugs:
+      type: integer
+    ideas:
+      type: integer
+    praise:
+      type: integer
+    waiting:
+      type: integer
+      description: Feedback still sent, at any age.
+    shipped_groups:
+      type: integer
+    shipped_people:
+      type: integer
+      description: The feedback in the groups shipped.
+    screens:
+      type: array
+      maxItems: 6
+      items:
+        $ref: "#/FeedbackScreenCount"
 ConsoleFeedbackStatus:
   type: object
   additionalProperties: false

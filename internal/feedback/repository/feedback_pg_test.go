@@ -136,15 +136,15 @@ func TestOfAccountAndQueue(t *testing.T) {
 	if _, err = s.SetStatus(ctx, a.ID, domain.StatusChange{Status: domain.StatusSeen}, cli, at); err != nil {
 		t.Fatal(err)
 	}
-	all, err := s.Queue(ctx, nil, page.Request{Limit: 2})
+	all, err := s.Queue(ctx, nil, nil, page.Request{Limit: 2})
 	if err != nil || len(all) != 3 || all[0].ID != c.ID || all[1].ID != b.ID {
 		t.Fatalf("queue: %+v %v", all, err)
 	}
 	seen := domain.StatusSeen
-	if got, _ := s.Queue(ctx, &seen, page.Request{}); len(got) != 1 || got[0].ID != a.ID {
+	if got, _ := s.Queue(ctx, &seen, nil, page.Request{}); len(got) != 1 || got[0].ID != a.ID {
 		t.Fatalf("seen: %+v", got)
 	}
-	if got, _ := s.Queue(ctx, nil, page.Request{Cursor: b.ID}); len(got) != 1 || got[0].ID != a.ID {
+	if got, _ := s.Queue(ctx, nil, nil, page.Request{Cursor: b.ID}); len(got) != 1 || got[0].ID != a.ID {
 		t.Fatalf("below b: %+v", got)
 	}
 }
@@ -290,5 +290,57 @@ func TestForget(t *testing.T) {
 	}
 	if err := s.Forget(ctx, gone); err != nil {
 		t.Fatalf("twice: %v", err)
+	}
+}
+
+// Group reads a group with its root, Groups lists roots largest first
+// with their figures, and Summary counts a period against the one before.
+func TestGroupFigures(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewStore(db)
+	put := func(mood int, kind domain.Kind, source domain.Source, screen string, made time.Time) repository.Feedback {
+		f, _, err := s.Insert(ctx, repository.Feedback{
+			ID: uuid.NewV7(), AccountID: accounttest.New(t, db), Mood: mood, Kind: kind, Source: source, Screen: screen, CreatedAt: made,
+		}, uuid.NewV7(), made.Add(-domain.Window))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f
+	}
+	day := 24 * time.Hour
+	root := put(4, domain.KindIdea, domain.SourceWeb, "/search", at.Add(-3*day))
+	a, b := put(5, domain.KindIdea, domain.SourceApp, "SearchResults", at.Add(-time.Hour)), put(4, domain.KindIdea, domain.SourceWeb, "/search", at.Add(-2*time.Hour))
+	lone := put(2, domain.KindBug, domain.SourceApp, "Map", at.Add(-40*day))
+	for _, f := range []repository.Feedback{a, b} {
+		if _, err := s.Join(ctx, f.ID, root.ID, cli, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	group, err := s.Group(ctx, root.ID, 10)
+	if err != nil || len(group) != 3 || group[0].ID != b.ID || group[2].ID != root.ID {
+		t.Fatalf("group: %+v %v", group, err)
+	}
+	gs, err := s.Groups(ctx, nil, 10, at)
+	if err != nil || len(gs) != 2 || gs[0].Root.ID != root.ID || gs[0].Size != 3 || gs[0].Moods != [5]int{0, 0, 0, 2, 1} ||
+		gs[0].App != 1 || gs[0].Web != 2 || gs[0].Days != [7]int{0, 0, 0, 0, 1, 0, 2} || gs[1].Root.ID != lone.ID {
+		t.Fatalf("groups: %+v %v", gs, err)
+	}
+	bug := domain.KindBug
+	if gs, _ = s.Groups(ctx, &bug, 10, at); len(gs) != 1 || gs[0].Root.ID != lone.ID {
+		t.Fatalf("bugs: %+v", gs)
+	}
+	if got, _ := s.Queue(ctx, nil, &bug, page.Request{}); len(got) != 1 || got[0].ID != lone.ID {
+		t.Fatalf("bug queue: %+v", got)
+	}
+	if _, err = s.SetStatus(ctx, root.ID, domain.StatusChange{Status: domain.StatusShipped}, cli, at.Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	m, err := s.Summary(ctx, at.Add(-30*day), at)
+	if err != nil || m.Sent != 3 || m.App != 1 || m.Web != 2 || m.Ideas != 3 || m.Bugs != 0 || m.Mood < 4.3 || m.Mood > 4.4 ||
+		m.MoodBefore != 2 || m.Waiting != 1 || m.ShippedGroups != 1 || m.ShippedPeople != 3 || len(m.DayMood) != 30 ||
+		m.DaySent[29] != 2 || m.DaySent[27] != 1 || len(m.Screens) != 2 || m.Screens[0] != (repository.Screen{Screen: "/search", Count: 2}) {
+		t.Fatalf("summary: %+v %v", m, err)
 	}
 }

@@ -5,9 +5,12 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 	"uuid"
 
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/feedback/domain"
 	"github.com/shopnexus/server/internal/feedback/repository"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
@@ -26,8 +29,17 @@ type Service interface {
 	Facts(ctx context.Context, id uuid.UUID) (Facts, bool, error)
 	// AccountDeleted deletes a deleted account's feedback.
 	AccountDeleted(ctx context.Context, account uuid.UUID) error
-	// Queue lists feedback of status, any when nil, newest first, for staff.
-	Queue(ctx context.Context, status *domain.Status, p page.Request) (page.Page[ConsoleFeedback], error)
+	// Queue lists feedback of status and kind, any when nil, newest first,
+	// for staff.
+	Queue(ctx context.Context, status *domain.Status, kind *domain.Kind, p page.Request) (page.Page[ConsoleFeedback], error)
+	// Detail reads id with the rest of its group, newest first, at most
+	// GroupLimit.
+	Detail(ctx context.Context, id uuid.UUID) (ConsoleFeedbackDetail, error)
+	// Groups lists the groups of kind, any when nil, largest first, at most
+	// GroupsLimit.
+	Groups(ctx context.Context, kind *domain.Kind) ([]GroupView, error)
+	// Summary counts the feedback of the last SummaryDays days.
+	Summary(ctx context.Context) (SummaryView, error)
 	// SetStatus sets a status, note and version on id's whole group.
 	SetStatus(ctx context.Context, id uuid.UUID, in StatusInput, by audit.Actor) (ConsoleFeedback, error)
 	// Reply sets ShopNexus's one reply to id; a second call replaces it.
@@ -38,8 +50,16 @@ type Service interface {
 	SameAs(ctx context.Context, id, other uuid.UUID, by audit.Actor) (ConsoleFeedback, error)
 }
 
-// MineLimit is how much feedback Mine lists.
-const MineLimit = 100
+const (
+	// MineLimit is how much feedback Mine lists.
+	MineLimit = 100
+	// GroupLimit is how much of a group Detail reads.
+	GroupLimit = 50
+	// GroupsLimit is how many groups Groups lists.
+	GroupsLimit = 100
+	// SummaryDays is the period Summary counts.
+	SummaryDays = 30
+)
 
 // SendInput is the FeedbackDraft schema; Mood 0 is none.
 type SendInput struct {
@@ -91,16 +111,66 @@ type FeedbackView struct {
 	StatusAt       time.Time     `json:"status_at"`
 }
 
+// PersonView is the FeedbackPerson schema: who sent a feedback.
+type PersonView struct {
+	ID          uuid.UUID `json:"id"`
+	DisplayName string    `json:"display_name"`
+	// Contact is the phone number, or the email address without one.
+	Contact string               `json:"contact,omitempty"`
+	Status  accountdomain.Status `json:"status"`
+}
+
 // ConsoleFeedback is the ConsoleFeedback schema.
 type ConsoleFeedback struct {
 	Feedback  FeedbackView   `json:"feedback"`
 	AccountID uuid.UUID      `json:"account_id"`
+	Person    PersonView     `json:"person"`
 	Device    *domain.Device `json:"device,omitempty"`
 	Screen    string         `json:"screen,omitempty"`
 	Contact   bool           `json:"contact"`
 	Source    domain.Source  `json:"source"`
 	PageURL   string         `json:"page_url,omitempty"`
 	RootID    uuid.UUID      `json:"root_id"`
+}
+
+// ConsoleFeedbackDetail is the ConsoleFeedbackDetail schema.
+type ConsoleFeedbackDetail struct {
+	Item  ConsoleFeedback   `json:"item"`
+	Group []ConsoleFeedback `json:"group"`
+}
+
+// GroupView is the FeedbackGroup schema.
+type GroupView struct {
+	Root  ConsoleFeedback `json:"root"`
+	Size  int             `json:"size"`
+	Moods [5]int          `json:"moods"`
+	App   int             `json:"app"`
+	Web   int             `json:"web"`
+	Days  [7]int          `json:"days"`
+}
+
+// ScreenCount is the FeedbackScreenCount schema.
+type ScreenCount struct {
+	Screen string `json:"screen"`
+	Count  int    `json:"count"`
+}
+
+// SummaryView is the FeedbackSummary schema; a mood of 0 is none.
+type SummaryView struct {
+	DayMood       []float64     `json:"day_mood"`
+	DaySent       []int         `json:"day_sent"`
+	Mood          float64       `json:"mood"`
+	MoodBefore    float64       `json:"mood_before"`
+	Sent          int           `json:"sent"`
+	App           int           `json:"app"`
+	Web           int           `json:"web"`
+	Bugs          int           `json:"bugs"`
+	Ideas         int           `json:"ideas"`
+	Praise        int           `json:"praise"`
+	Waiting       int           `json:"waiting"`
+	ShippedGroups int           `json:"shipped_groups"`
+	ShippedPeople int           `json:"shipped_people"`
+	Screens       []ScreenCount `json:"screens"`
 }
 
 // Facts are what a feedback notice is written from.
@@ -114,21 +184,25 @@ type Facts struct {
 
 // Deps is what New builds Feedback from.
 type Deps struct {
-	Store repository.Store
-	Media mediasvc.Service
-	Now   func() time.Time
+	Store    repository.Store
+	Media    mediasvc.Service
+	Accounts accountsvc.Service
+	Now      func() time.Time
 }
 
 // Feedback implements Service in this process.
 type Feedback struct {
-	store repository.Store
-	media mediasvc.Service
-	now   func() time.Time
+	store    repository.Store
+	media    mediasvc.Service
+	accounts accountsvc.Service
+	now      func() time.Time
 }
 
 var _ Service = (*Feedback)(nil)
 
-func New(d Deps) *Feedback { return &Feedback{store: d.Store, media: d.Media, now: d.Now} }
+func New(d Deps) *Feedback {
+	return &Feedback{store: d.Store, media: d.Media, accounts: d.Accounts, now: d.Now}
+}
 
 // view shows f with its photos' public addresses.
 func (s *Feedback) view(f repository.Feedback) FeedbackView {
@@ -146,10 +220,37 @@ func (s *Feedback) view(f repository.Feedback) FeedbackView {
 	return v
 }
 
-// console shows f for staff.
-func (s *Feedback) console(f repository.Feedback) ConsoleFeedback {
-	return ConsoleFeedback{
-		Feedback: s.view(f), AccountID: f.AccountID, Device: f.Device, Screen: f.Screen, Contact: f.Contact,
-		Source: f.Source, PageURL: f.PageURL, RootID: f.RootID,
+// consoles shows fs for staff, with their persons read in one query each.
+func (s *Feedback) consoles(ctx context.Context, fs []repository.Feedback) ([]ConsoleFeedback, error) {
+	ids := make([]uuid.UUID, 0, len(fs))
+	for i := range fs {
+		ids = append(ids, fs[i].AccountID)
 	}
+	accounts, err := s.accounts.GetMany(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("read the persons: %w", err)
+	}
+	contacts, err := s.accounts.Contacts(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("read the persons' contacts: %w", err)
+	}
+	out := make([]ConsoleFeedback, 0, len(fs))
+	for i := range fs {
+		f, a := fs[i], accounts[fs[i].AccountID]
+		out = append(out, ConsoleFeedback{
+			Feedback: s.view(f), AccountID: f.AccountID, Device: f.Device, Screen: f.Screen, Contact: f.Contact,
+			Source: f.Source, PageURL: f.PageURL, RootID: f.RootID,
+			Person: PersonView{ID: f.AccountID, DisplayName: a.DisplayName, Contact: contacts[f.AccountID], Status: a.Status},
+		})
+	}
+	return out, nil
+}
+
+// console shows f for staff.
+func (s *Feedback) console(ctx context.Context, f repository.Feedback) (ConsoleFeedback, error) {
+	out, err := s.consoles(ctx, []repository.Feedback{f})
+	if err != nil {
+		return ConsoleFeedback{}, err
+	}
+	return out[0], nil
 }

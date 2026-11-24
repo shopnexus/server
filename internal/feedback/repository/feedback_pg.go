@@ -28,15 +28,19 @@ const columns = `f.id, f.account_id, coalesce(f.mood, 0), coalesce(f.kind, ''), 
        coalesce(f.root_id, f.id), (SELECT count(*) FROM feedback g WHERE g.root_id = coalesce(f.root_id, f.id)),
        coalesce(f.reply_body, ''), f.replied_at, f.hearted, f.created_at`
 
-func scan(row pgx.CollectableRow) (Feedback, error) {
+func scan(row pgx.CollectableRow) (Feedback, error) { return scanWith(row) }
+
+// scanWith scans columns into a Feedback, then the row's further columns
+// into extra.
+func scanWith(row pgx.CollectableRow, extra ...any) (Feedback, error) {
 	var (
 		f         Feedback
 		hasDevice bool
 		d         domain.Device
 	)
-	if err := row.Scan(&f.ID, &f.AccountID, &f.Mood, &f.Kind, &f.Text, &f.Photos, &hasDevice, &d.Model, &d.OS, &d.AppVersion,
+	if err := row.Scan(append([]any{&f.ID, &f.AccountID, &f.Mood, &f.Kind, &f.Text, &f.Photos, &hasDevice, &d.Model, &d.OS, &d.AppVersion,
 		&f.Screen, &f.Contact, &f.Source, &f.PageURL, &f.Status, &f.StatusNote, &f.ShippedVersion, &f.StatusAt, &f.RootID, &f.Others,
-		&f.Reply, &f.RepliedAt, &f.Hearted, &f.CreatedAt); err != nil {
+		&f.Reply, &f.RepliedAt, &f.Hearted, &f.CreatedAt}, extra...)...); err != nil {
 		return Feedback{}, fmt.Errorf("scan feedback: %w", err)
 	}
 	if hasDevice {
@@ -199,9 +203,113 @@ func (s pgStore) OfAccount(ctx context.Context, account uuid.UUID, limit int) ([
 		pgx.StrictNamedArgs{"account": account, "limit": limit})
 }
 
-func (s pgStore) Queue(ctx context.Context, status *domain.Status, p page.Request) ([]Feedback, error) {
-	return read(ctx, s.db, `WHERE (@status::text IS NULL OR f.status = @status) AND f.id < @before ORDER BY f.id DESC LIMIT @limit`,
-		pgx.StrictNamedArgs{"status": status, "before": p.Before(), "limit": p.Fetch()})
+func (s pgStore) Queue(ctx context.Context, status *domain.Status, kind *domain.Kind, p page.Request) ([]Feedback, error) {
+	return read(ctx, s.db, `WHERE (@status::text IS NULL OR f.status = @status) AND (@kind::text IS NULL OR f.kind = @kind)
+  AND f.id < @before ORDER BY f.id DESC LIMIT @limit`,
+		pgx.StrictNamedArgs{"status": status, "kind": kind, "before": p.Before(), "limit": p.Fetch()})
+}
+
+func (s pgStore) Group(ctx context.Context, root uuid.UUID, limit int) ([]Feedback, error) {
+	return read(ctx, s.db, `WHERE coalesce(f.root_id, f.id) = @root ORDER BY f.id DESC LIMIT @limit`,
+		pgx.StrictNamedArgs{"root": root, "limit": limit})
+}
+
+func (s pgStore) Groups(ctx context.Context, kind *domain.Kind, limit int, now time.Time) ([]Group, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+columns+`, g.size, g.moods, g.app, g.web, g.days FROM feedback f
+CROSS JOIN LATERAL (
+    SELECT count(*) AS size,
+           ARRAY[count(*) FILTER (WHERE m.mood = 1), count(*) FILTER (WHERE m.mood = 2), count(*) FILTER (WHERE m.mood = 3),
+                 count(*) FILTER (WHERE m.mood = 4), count(*) FILTER (WHERE m.mood = 5)] AS moods,
+           count(*) FILTER (WHERE m.source = 'app') AS app, count(*) FILTER (WHERE m.source = 'web') AS web,
+           ARRAY(SELECT count(*) FILTER (WHERE m2.created_at >= @now::timestamptz - (d + 1) * interval '1 day' AND m2.created_at < @now::timestamptz - d * interval '1 day')
+                 FROM generate_series(6, 0, -1) AS d LEFT JOIN feedback m2 ON coalesce(m2.root_id, m2.id) = f.id
+                 GROUP BY d ORDER BY d DESC) AS days
+    FROM feedback m WHERE coalesce(m.root_id, m.id) = f.id
+) g
+WHERE f.root_id IS NULL AND (@kind::text IS NULL OR f.kind = @kind)
+ORDER BY g.size DESC, f.id DESC LIMIT @limit`, pgx.StrictNamedArgs{"kind": kind, "limit": limit, "now": now})
+	if err != nil {
+		return nil, fmt.Errorf("select groups: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Group, error) {
+		var (
+			g     Group
+			moods []int
+			days  []int
+			err   error
+		)
+		if g.Root, err = scanWith(row, &g.Size, &moods, &g.App, &g.Web, &days); err != nil {
+			return Group{}, err
+		}
+		copy(g.Moods[:], moods)
+		copy(g.Days[:], days)
+		return g, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read groups: %w", err)
+	}
+	return out, nil
+}
+
+// summaryScreens is how many screens Summary lists.
+const summaryScreens = 6
+
+func (s pgStore) Summary(ctx context.Context, since, now time.Time) (Summary, error) {
+	var out Summary
+	args := pgx.StrictNamedArgs{"since": since, "now": now, "before": since.Add(-now.Sub(since))}
+	err := s.db.QueryRow(ctx, `SELECT
+    coalesce(avg(mood) FILTER (WHERE created_at >= @since), 0)::float8,
+    coalesce(avg(mood) FILTER (WHERE created_at < @since), 0)::float8,
+    count(*) FILTER (WHERE created_at >= @since),
+    count(*) FILTER (WHERE created_at >= @since AND source = 'app'),
+    count(*) FILTER (WHERE created_at >= @since AND source = 'web'),
+    count(*) FILTER (WHERE created_at >= @since AND kind = 'bug'),
+    count(*) FILTER (WHERE created_at >= @since AND kind = 'idea'),
+    count(*) FILTER (WHERE created_at >= @since AND kind = 'praise'),
+    (SELECT count(*) FROM feedback WHERE status = 'sent'),
+    (SELECT count(DISTINCT coalesce(root_id, id)) FROM feedback WHERE status = 'shipped' AND status_at >= @since AND status_at <= @now),
+    (SELECT count(*) FROM feedback WHERE status = 'shipped' AND status_at >= @since AND status_at <= @now)
+FROM feedback WHERE created_at >= @before AND created_at <= @now`, args).Scan(
+		&out.Mood, &out.MoodBefore, &out.Sent, &out.App, &out.Web, &out.Bugs, &out.Ideas, &out.Praise, &out.Waiting,
+		&out.ShippedGroups, &out.ShippedPeople)
+	if err != nil {
+		return Summary{}, fmt.Errorf("count feedback: %w", err)
+	}
+	// Days run from since; the last ends at now, which it holds.
+	rows, err := s.db.Query(ctx, `WITH n AS (SELECT ceil(extract(epoch FROM @now::timestamptz - @since::timestamptz) / 86400)::int AS days)
+SELECT coalesce(avg(f.mood), 0)::float8, count(f.id)
+FROM n CROSS JOIN generate_series(0, n.days - 1) AS d
+LEFT JOIN feedback f ON f.created_at >= @since::timestamptz + d * interval '1 day'
+  AND (f.created_at < @since::timestamptz + (d + 1) * interval '1 day' OR (d = n.days - 1 AND f.created_at <= @now::timestamptz))
+GROUP BY d ORDER BY d`, pgx.StrictNamedArgs{"since": since, "now": now})
+	if err != nil {
+		return Summary{}, fmt.Errorf("count days: %w", err)
+	}
+	for rows.Next() {
+		var (
+			m float64
+			n int
+		)
+		if err = rows.Scan(&m, &n); err != nil {
+			rows.Close()
+			return Summary{}, fmt.Errorf("scan a day: %w", err)
+		}
+		out.DayMood, out.DaySent = append(out.DayMood, m), append(out.DaySent, n)
+	}
+	if err = rows.Err(); err != nil {
+		return Summary{}, fmt.Errorf("read days: %w", err)
+	}
+	rows, err = s.db.Query(ctx, `SELECT screen, count(*) FROM feedback
+WHERE created_at >= @since AND created_at <= @now AND screen IS NOT NULL
+GROUP BY screen ORDER BY count(*) DESC, screen LIMIT @screens`, pgx.StrictNamedArgs{"since": since, "now": now, "screens": summaryScreens})
+	if err != nil {
+		return Summary{}, fmt.Errorf("count screens: %w", err)
+	}
+	out.Screens, err = pgx.CollectRows(rows, pgx.RowToStructByPos[Screen])
+	if err != nil {
+		return Summary{}, fmt.Errorf("read screens: %w", err)
+	}
+	return out, nil
 }
 
 // rootOf is the root of id's group and whether id is that root;

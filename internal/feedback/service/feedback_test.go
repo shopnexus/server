@@ -33,7 +33,7 @@ func newService(t *testing.T, photos bool) (*service.Feedback, func() uuid.UUID,
 	t.Helper()
 	db := pgtest.New(t)
 	var media *mediasvc.Media
-	d := service.Deps{Store: repository.NewStore(db), Now: func() time.Time { return now }}
+	d := service.Deps{Store: repository.NewStore(db), Accounts: accounttest.Service(db), Now: func() time.Time { return now }}
 	if photos {
 		in, p := restatetest.Ingress(t), restatetest.Prefix()
 		media = mediatest.Service(db, objectstoretest.New(t), in, p)
@@ -101,7 +101,7 @@ func TestSendFromTheWebsite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	q, err := svc.Queue(ctx, nil, page.Request{Limit: 5})
+	q, err := svc.Queue(ctx, nil, nil, page.Request{Limit: 5})
 	if err != nil || len(q.Items) != 1 {
 		t.Fatalf("queue: %+v %v", q, err)
 	}
@@ -176,9 +176,21 @@ func TestStaff(t *testing.T) {
 		t.Fatalf("heart: %+v %v", c, err)
 	}
 	shipped := domain.StatusShipped
-	q, err := svc.Queue(ctx, &shipped, page.Request{Limit: 1})
+	q, err := svc.Queue(ctx, &shipped, nil, page.Request{Limit: 1})
 	if err != nil || len(q.Items) != 1 || q.Items[0].Feedback.ID != theirs.ID || q.NextCursor == nil {
 		t.Fatalf("queue: %+v %v", q, err)
+	}
+	d, err := svc.Detail(ctx, theirs.ID)
+	if err != nil || d.Item.Feedback.ID != theirs.ID || d.Item.Person.ID != other || d.Item.Person.Status != "active" ||
+		len(d.Group) != 1 || d.Group[0].Feedback.ID != mine.ID {
+		t.Fatalf("detail: %+v %v", d, err)
+	}
+	gs, err := svc.Groups(ctx, nil)
+	if err != nil || len(gs) != 1 || gs[0].Root.Feedback.ID != mine.ID || gs[0].Size != 2 || gs[0].Root.Person.ID != owner {
+		t.Fatalf("groups: %+v %v", gs, err)
+	}
+	if m, err := svc.Summary(ctx); err != nil || m.Sent != 2 || m.Ideas != 2 || m.ShippedGroups != 1 || len(m.DaySent) != service.SummaryDays {
+		t.Fatalf("summary: %+v %v", m, err)
 	}
 	if err = svc.AccountDeleted(ctx, owner); err != nil {
 		t.Fatal(err)

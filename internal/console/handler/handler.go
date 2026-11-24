@@ -74,6 +74,9 @@ func (h *Handler) Register(r *httpx.Router) {
 	handle("GET /v1/console/support/summary", mod(http.HandlerFunc(h.SupportSummary)))
 
 	handle("GET /v1/console/feedback", mod(http.HandlerFunc(h.ListFeedback)))
+	handle("GET /v1/console/feedback/groups", mod(http.HandlerFunc(h.ListFeedbackGroups)))
+	handle("GET /v1/console/feedback/summary", mod(http.HandlerFunc(h.FeedbackSummary)))
+	handle("GET /v1/console/feedback/{id}", mod(http.HandlerFunc(h.GetFeedback)))
 	handle("POST /v1/console/feedback/{id}/status", mod(http.HandlerFunc(h.SetFeedbackStatus)))
 	handle("POST /v1/console/feedback/{id}/reply", mod(http.HandlerFunc(h.ReplyFeedback)))
 	handle("PUT /v1/console/feedback/{id}/heart", mod(http.HandlerFunc(h.HeartFeedback)))
