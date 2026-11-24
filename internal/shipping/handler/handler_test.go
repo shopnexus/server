@@ -94,6 +94,28 @@ func TestGHTKReportAsFormAndJSON(t *testing.T) {
 	}
 }
 
+// Only switch_status moves a GHN shipment; a fee or COD event's Status may be stale.
+func TestGHNReportMovesOnlyOnSwitchStatus(t *testing.T) {
+	t.Parallel()
+	svc := &shipping{}
+	r := httpx.NewRouter()
+	handler.New(svc, map[carrier.Carrier]string{carrier.GHN: "g1"}, slog.New(slog.DiscardHandler)).Register(r, func(h http.Handler) http.Handler { return h })
+	for _, body := range []string{
+		`{"OrderCode":"LY9VHQ","Type":"switch_status","Status":"picked","ShopID":241112}`,
+		`{"OrderCode":"LY9VHQ","Type":"update_fee","Status":"picked","TotalFee":20900}`,
+		`{"OrderCode":"LY9VHQ","Type":"cod","Status":"delivered"}`,
+		`{"OrderCode":"LY9VHQ","Type":"Switch_status","Status":"delivered"}`,
+	} {
+		if w := call(t, r, "POST", "/v1/carriers/ghn/webhook/g1", "application/json", body); w.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", body, w.Code, w.Body)
+		}
+	}
+	want := []string{"ghn LY9VHQ in_transit", "ghn LY9VHQ delivered"}
+	if strings.Join(svc.reported, "|") != strings.Join(want, "|") {
+		t.Fatalf("%v", svc.reported)
+	}
+}
+
 func TestAShipperNoticeOrAnUnreadableReportMovesNothing(t *testing.T) {
 	t.Parallel()
 	svc := &shipping{}

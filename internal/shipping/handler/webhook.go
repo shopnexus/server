@@ -51,7 +51,8 @@ func (h *Handler) Webhook(w http.ResponseWriter, r *http.Request) {
 
 // readReport reads a report's tracking code and status. moved is false for
 // a status that moves no shipment. GHTK posts a form or JSON with label_id
-// and status_id; GHN posts JSON with OrderCode and Status.
+// and status_id; GHN posts JSON with OrderCode and Status. Only GHN's
+// switch_status moves: its other events carry a Status that may be stale.
 func readReport(c carrier.Carrier, r *http.Request) (code string, status carrier.Status, moved bool, err error) {
 	body, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, maxReport))
 	if err != nil {
@@ -94,6 +95,9 @@ func readReport(c carrier.Carrier, r *http.Request) (code string, status carrier
 	case carrier.GHN:
 		code = fields["OrderCode"]
 		status, moved = carrier.GHNStatus(fields["Status"])
+		if t := fields["Type"]; t != "" && !strings.EqualFold(t, "switch_status") {
+			moved = false
+		}
 	default:
 		return "", "", false, fmt.Errorf("no reports from %s", c)
 	}

@@ -1838,6 +1838,9 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   else. The fake of each carrier links any account but the password or
   token `wrong`, texts a code to any phone but one ending in `0000`, takes
   any code but `wrong`, and its webhooks take the secret `dev`.
+- Only GHN's `switch_status` event moves a shipment: GHN's other events
+  (fee, weight, COD) carry the Status of their own moment, which may be
+  stale by the time they arrive, and a shipment may move back.
 - The webhooks are `POST /v1/carriers/{ghtk|ghn}/webhook/{secret}`, for
   each carrier with a secret set. The secret in the path is the only
   check, compared in constant time; a wrong one is 404. GHTK posts a form
