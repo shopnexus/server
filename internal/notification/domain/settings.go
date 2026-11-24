@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // ErrInvalidQuietHours is quiet hours that start when they end, or a time
@@ -107,7 +108,7 @@ func (q Quiet) Holds(at time.Time) bool {
 	if !q.On || !okFrom || !okTo {
 		return false
 	}
-	local := at.In(vietnam)
+	local := at.In(locale.Vietnam)
 	m := local.Hour()*60 + local.Minute()
 	if from < to {
 		return from <= m && m < to

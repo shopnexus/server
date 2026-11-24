@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/deal/domain"
@@ -21,4 +22,15 @@ func (s *Deals) ShipmentUpdated(ctx context.Context, trackingCode, status string
 		return err
 	}
 	return nil
+}
+
+func (s *Deals) ShipmentCarrier(ctx context.Context, trackingCode string) (string, error) {
+	rows, err := s.deals.OrdersWithCode(ctx, trackingCode)
+	if err != nil {
+		return "", fmt.Errorf("find the orders: %w", err)
+	}
+	if len(rows) == 0 || rows[0].Order.Shipment == nil {
+		return "", domain.ErrShipmentNotFound
+	}
+	return string(rows[0].Order.Shipment.Carrier), nil
 }

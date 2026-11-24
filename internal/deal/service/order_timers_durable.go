@@ -173,17 +173,18 @@ func (s OrderTimers) Poll(ctx restate.Context, ref OrderRef) error {
 // order moved.
 func (s OrderTimers) readMoved(ctx restate.Context, seller uuid.UUID, sh domain.Shipment) (moved bool, err error) {
 	read, err := restate.Run(ctx, func(rc restate.RunContext) (domain.ShipmentStatus, error) {
-		p, readErr := s.Deals.shipping.Lookup(rc, seller, carrier.Carrier(sh.Carrier), sh.TrackingCode)
+		p, readErr := s.Deals.shipping.Track(rc, seller, carrier.Carrier(sh.Carrier), sh.TrackingCode)
 		if errors.Is(readErr, carrier.ErrNotFound) || refusedBy(readErr) {
 			return "", nil
 		}
 		if readErr != nil {
 			return "", fmt.Errorf("read %s: %w", sh.TrackingCode, readErr)
 		}
-		if !p.Moved {
+		st, moves := p.Step.Status()
+		if !moves {
 			return "", nil
 		}
-		return domain.ShipmentStatus(p.Status), nil
+		return domain.ShipmentStatus(st), nil
 	})
 	if err != nil {
 		return false, fmt.Errorf("read the shipment at %s: %w", sh.Carrier, err)

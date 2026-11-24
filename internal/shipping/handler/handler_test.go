@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -35,8 +34,17 @@ func (s *shipping) SendOTP(_ context.Context, c, phone string) error {
 	return nil
 }
 
-func (s *shipping) Reported(_ context.Context, c carrier.Carrier, code string, st carrier.Status) error {
-	s.reported = append(s.reported, string(c)+" "+code+" "+string(st))
+// Reported records "carrier media body"; a body "unread" does not read.
+func (s *shipping) Reported(_ context.Context, c carrier.Carrier, contentType string, body []byte) error {
+	if string(body) == "unread" {
+		return domain.ErrReportUnread
+	}
+	s.reported = append(s.reported, string(c)+" "+contentType+" "+string(body))
+	return nil
+}
+
+func (s *shipping) DevReported(_ context.Context, code string, ev carrier.Event) error {
+	s.reported = append(s.reported, "dev "+code+" "+string(ev.Step)+" "+ev.Reason)
 	return nil
 }
 
@@ -61,7 +69,7 @@ func router(svc *shipping) *httpx.Router {
 		})
 	}
 	secrets := map[carrier.Carrier]string{carrier.GHTK: "s3cret", carrier.GHN: ""}
-	handler.New(svc, secrets, slog.New(slog.DiscardHandler)).Register(r, protect)
+	handler.New(svc, secrets, slog.New(slog.DiscardHandler)).Register(r, protect, true)
 	return r
 }
 
@@ -76,56 +84,30 @@ func call(t *testing.T, r http.Handler, method, path, contentType, body string) 
 	return w
 }
 
-func TestGHTKReportAsFormAndJSON(t *testing.T) {
+// The webhook hands the carrier's report to the service as it came, and
+// answers 200 to one that does not read, so the carrier does not resend.
+func TestTheWebhookPassesTheReportOn(t *testing.T) {
 	t.Parallel()
 	svc := &shipping{}
 	r := router(svc)
-	form := url.Values{"label_id": {"S1.A1.2001297581"}, "partner_id": {"SN-100001"}, "status_id": {"5"}, "reason_code": {""}}
-	if w := call(t, r, "POST", "/v1/carriers/ghtk/webhook/s3cret", "application/x-www-form-urlencoded", form.Encode()); w.Code != http.StatusOK {
-		t.Fatalf("form: %d %s", w.Code, w.Body)
-	}
-	if w := call(t, r, "POST", "/v1/carriers/ghtk/webhook/s3cret", "application/json",
-		`{"label_id":"S1.A1.2001297581","partner_id":"SN-100001","status_id":3,"action_time":"2026-11-13T09:00:00+07:00"}`); w.Code != http.StatusOK {
-		t.Fatalf("json: %d %s", w.Code, w.Body)
-	}
-	want := []string{"ghtk S1.A1.2001297581 delivered", "ghtk S1.A1.2001297581 in_transit"}
-	if strings.Join(svc.reported, "|") != strings.Join(want, "|") {
-		t.Fatalf("%v", svc.reported)
-	}
-}
-
-// Only switch_status moves a GHN shipment; a fee or COD event's Status may be stale.
-func TestGHNReportMovesOnlyOnSwitchStatus(t *testing.T) {
-	t.Parallel()
-	svc := &shipping{}
-	r := httpx.NewRouter()
-	handler.New(svc, map[carrier.Carrier]string{carrier.GHN: "g1"}, slog.New(slog.DiscardHandler)).Register(r, func(h http.Handler) http.Handler { return h })
-	for _, body := range []string{
-		`{"OrderCode":"LY9VHQ","Type":"switch_status","Status":"picked","ShopID":241112}`,
-		`{"OrderCode":"LY9VHQ","Type":"update_fee","Status":"picked","TotalFee":20900}`,
-		`{"OrderCode":"LY9VHQ","Type":"cod","Status":"delivered"}`,
-		`{"OrderCode":"LY9VHQ","Type":"Switch_status","Status":"delivered"}`,
-	} {
-		if w := call(t, r, "POST", "/v1/carriers/ghn/webhook/g1", "application/json", body); w.Code != http.StatusOK {
+	for _, body := range []string{"label_id=S1&status_id=5", "unread"} {
+		if w := call(t, r, "POST", "/v1/carriers/ghtk/webhook/s3cret", "application/x-www-form-urlencoded", body); w.Code != http.StatusOK {
 			t.Fatalf("%s: %d %s", body, w.Code, w.Body)
 		}
 	}
-	want := []string{"ghn LY9VHQ in_transit", "ghn LY9VHQ delivered"}
-	if strings.Join(svc.reported, "|") != strings.Join(want, "|") {
+	if len(svc.reported) != 1 || svc.reported[0] != "ghtk application/x-www-form-urlencoded label_id=S1&status_id=5" {
 		t.Fatalf("%v", svc.reported)
 	}
 }
 
-func TestAShipperNoticeOrAnUnreadableReportMovesNothing(t *testing.T) {
+func TestTheDevRouteTakesAStep(t *testing.T) {
 	t.Parallel()
 	svc := &shipping{}
 	r := router(svc)
-	for _, body := range []string{`{"label_id":"S1","status_id":123}`, `{"label_id":"S1","status_id":-1}`, `{"status_id":5}`, `not json`} {
-		if w := call(t, r, "POST", "/v1/carriers/ghtk/webhook/s3cret", "application/json", body); w.Code != http.StatusOK {
-			t.Errorf("%s: %d", body, w.Code)
-		}
+	if w := call(t, r, "POST", "/v1/dev/shipments/GHN-1/status", "application/json", `{"step":"delivery_failed","reason":"Không liên lạc được"}`); w.Code != http.StatusNoContent {
+		t.Fatalf("%d %s", w.Code, w.Body)
 	}
-	if len(svc.reported) != 0 {
+	if len(svc.reported) != 1 || svc.reported[0] != "dev GHN-1 delivery_failed Không liên lạc được" {
 		t.Fatalf("%v", svc.reported)
 	}
 }

@@ -38,7 +38,7 @@ func TestFakeReadsEveryCodeButNotFound(t *testing.T) {
 	ctx := context.Background()
 	f := carrier.Fake{Carrier: carrier.GHN}
 	p, err := f.Lookup(ctx, carrier.Account{}, "GHN0123")
-	if err != nil || p.Status != carrier.StatusPendingPickup || p.Fee == nil || *p.Fee != 22_000 || p.COD != 1_500_000 ||
+	if err != nil || p.Status() != carrier.StatusPendingPickup || p.Step != "" || p.Fee == nil || *p.Fee != 22_000 || p.COD != 1_500_000 ||
 		p.RecipientName == "" || p.District == "" {
 		t.Fatalf("%+v %v", p, err)
 	}

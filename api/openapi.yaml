@@ -265,7 +265,7 @@ paths:
   /v1/shipments/lookup:
     $ref: "paths/deal.yaml#/shipmentLookup"
   /v1/dev/shipments/{code}/status:
-    $ref: "paths/deal.yaml#/devShipmentStatus"
+    $ref: "paths/shipping.yaml#/devShipmentStatus"
   /v1/carrier-accounts:
     $ref: "paths/shipping.yaml#/carrierAccounts"
   /v1/carrier-accounts/{carrier}:

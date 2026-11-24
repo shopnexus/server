@@ -30,6 +30,13 @@ type AccountView struct {
 	LinkedAt time.Time `json:"linked_at"`
 }
 
+// Tracking is the Tracking schema: the step a parcel is at, empty before
+// its carrier reported one, and its events, newest first.
+type Tracking struct {
+	Step   carrier.Step    `json:"step,omitempty"`
+	Events []carrier.Event `json:"events"`
+}
+
 // QuoteRequest is GET /v1/shipments/quote's query: an order of the
 // caller's and the linked shipment they consider.
 type QuoteRequest struct {
@@ -61,6 +68,9 @@ type Deals struct {
 	// QuoteFacts reads an order of the caller's, and the caller's address
 	// when it is not the zero ID.
 	QuoteFacts func(ctx context.Context, caller, order, address uuid.UUID) (QuoteFacts, error)
+	// ShipmentCarrier is the carrier of the orders whose shipment has
+	// code, closed ones too; NotFound when none has.
+	ShipmentCarrier func(ctx context.Context, code string) (string, error)
 	// NotFound is deal's error for a code no order has.
 	NotFound error
 }
@@ -69,6 +79,7 @@ type Deps struct {
 	Settings  repository.Settings
 	Customers accountsvc.Service
 	Accounts  repository.Accounts
+	Events    repository.Events
 	// Clients holds one client per carrier; empty is CARRIER=none.
 	Clients map[carrier.Carrier]carrier.Client
 	// Key seals the tokens, 32 bytes.
@@ -102,9 +113,22 @@ type Service interface {
 	Create(ctx context.Context, seller uuid.UUID, c carrier.Carrier, in carrier.CreateInput) (carrier.Created, error)
 	Lookup(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
 	Cancel(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) error
-	// Reported takes a carrier's report of a status; a code no order has
-	// changes nothing.
-	Reported(ctx context.Context, c carrier.Carrier, code string, s carrier.Status) error
+	// Track is Lookup for an order's own shipment: it also keeps the
+	// events the carrier tells, and its Step is the timeline's newest, the
+	// one a report moves the order to.
+	Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
+	// Reported reads carrier c's webhook, keeps the events it tells of a
+	// parcel and moves its orders to the status of its newest step. A code
+	// no order has changes nothing; a report that does not read is
+	// domain.ErrReportUnread.
+	Reported(ctx context.Context, c carrier.Carrier, contentType string, body []byte) error
+	// DevReported is a report as the dev endpoint makes it, for the fake
+	// carrier: the carrier is the order's, and a code no order has is
+	// deal's shipment_not_found.
+	DevReported(ctx context.Context, code string, ev carrier.Event) error
+	// Tracking is a parcel's timeline as the carriers reported it: its
+	// steps, and for the seller also the weight, fee and COD paid out.
+	Tracking(ctx context.Context, c, code string, seller bool) (Tracking, error)
 	// AccountDeleted drops the account's carrier accounts.
 	AccountDeleted(ctx context.Context, owner uuid.UUID) error
 }
@@ -364,15 +388,110 @@ func (s *Shipping) Cancel(ctx context.Context, seller uuid.UUID, c carrier.Carri
 	return carrierError(cl.Cancel(ctx, a, code))
 }
 
-func (s *Shipping) Reported(ctx context.Context, c carrier.Carrier, code string, st carrier.Status) error {
-	err := s.d.Deals.ShipmentUpdated(ctx, code, string(st))
-	if errors.Is(err, s.d.Deals.NotFound) {
+func (s *Shipping) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
+	p, err := s.Lookup(ctx, seller, c, code)
+	if err != nil {
+		return carrier.Parcel{}, err
+	}
+	if _, err = s.keep(ctx, string(c), code, p.Events); err != nil {
+		return carrier.Parcel{}, err
+	}
+	t, err := s.Tracking(ctx, string(c), code, false)
+	if err != nil {
+		return carrier.Parcel{}, err
+	}
+	if t.Step != "" {
+		p.Step = t.Step
+	}
+	return p, nil
+}
+
+func (s *Shipping) Reported(ctx context.Context, c carrier.Carrier, contentType string, body []byte) error {
+	cl, err := s.client(string(c))
+	if err != nil {
+		return err
+	}
+	r, ok := cl.(carrier.Reporter)
+	if !ok {
+		return fmt.Errorf("%w: %s posts none", domain.ErrReportUnread, c)
+	}
+	code, evs, err := r.Report(contentType, body, s.d.Now())
+	if err != nil {
+		return fmt.Errorf("%w: %w", domain.ErrReportUnread, err)
+	}
+	if len(evs) == 0 {
+		return nil
+	}
+	owner, err := s.d.Deals.ShipmentCarrier(ctx, code)
+	if errors.Is(err, s.d.Deals.NotFound) || (err == nil && owner != string(c)) {
 		return nil
 	}
 	if err != nil {
+		return fmt.Errorf("find %s %s: %w", c, code, err)
+	}
+	return s.report(ctx, string(c), code, evs)
+}
+
+func (s *Shipping) DevReported(ctx context.Context, code string, ev carrier.Event) error {
+	c, err := s.d.Deals.ShipmentCarrier(ctx, code)
+	if err != nil {
+		return fmt.Errorf("find %s: %w", code, err)
+	}
+	return s.report(ctx, c, code, []carrier.Event{ev})
+}
+
+// report keeps evs and, when a new step among them is the parcel's
+// newest, moves the orders to its status. A late step only joins the
+// timeline.
+func (s *Shipping) report(ctx context.Context, c, code string, evs []carrier.Event) error {
+	stepped, err := s.keep(ctx, c, code, evs)
+	if err != nil || stepped.IsZero() {
+		return err
+	}
+	t, err := s.Tracking(ctx, c, code, false)
+	if err != nil {
+		return err
+	}
+	st, moves := t.Step.Status()
+	if !moves || t.Events[0].At.After(stepped) {
+		return nil
+	}
+	err = s.d.Deals.ShipmentUpdated(ctx, code, string(st))
+	if err != nil && !errors.Is(err, s.d.Deals.NotFound) {
 		return fmt.Errorf("%s reported %s %s: %w", c, code, st, err)
 	}
 	return nil
+}
+
+// keep stores evs and returns when the newest new step among them was,
+// zero for none.
+func (s *Shipping) keep(ctx context.Context, c, code string, evs []carrier.Event) (stepped time.Time, err error) {
+	for i := range evs {
+		ev := &evs[i]
+		kept, addErr := s.d.Events.Add(ctx, c, code, *ev)
+		if addErr != nil {
+			return time.Time{}, fmt.Errorf("keep %s %s: %w", c, code, addErr)
+		}
+		if kept && ev.Kind == carrier.KindStep && ev.At.After(stepped) {
+			stepped = ev.At
+		}
+	}
+	return stepped, nil
+}
+
+func (s *Shipping) Tracking(ctx context.Context, c, code string, seller bool) (Tracking, error) {
+	evs, err := s.d.Events.List(ctx, c, code, !seller)
+	if err != nil {
+		return Tracking{}, fmt.Errorf("read the events of %s %s: %w", c, code, err)
+	}
+	t := Tracking{Events: evs}
+	for i := range evs {
+		if evs[i].Kind == carrier.KindStep {
+			t.Step = evs[i].Step
+			break
+		}
+	}
+	return t, nil
 }
 
 func (s *Shipping) AccountDeleted(ctx context.Context, owner uuid.UUID) error {

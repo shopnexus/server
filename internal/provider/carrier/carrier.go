@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -129,17 +130,25 @@ type Created struct {
 }
 
 // Parcel is what a carrier tells of a shipment: the recipient's name as
-// ShopNexus masks it, where it goes, the COD amount, the status, and the
-// fee, nil while the carrier tells none. Moved is false for a status that
-// moves nothing (delays, notices, a cancel), which reads as pending_pickup
-// for a new shipment and must not move one already on its way.
+// ShopNexus masks it, where it goes, the COD amount, the fee, nil while the
+// carrier tells none, the step it is at, empty for a status that maps to
+// none, and the events the carrier keeps of it, oldest first.
 type Parcel struct {
 	RecipientName string
 	District      string
 	COD           int64
-	Status        Status
-	Moved         bool
 	Fee           *int64
+	Step          Step
+	Events        []Event
+}
+
+// Status is the order's status at the parcel's step: pending_pickup for a
+// step that moves nothing, which a new shipment reads as.
+func (p Parcel) Status() Status {
+	if s, ok := p.Step.Status(); ok {
+		return s
+	}
+	return StatusPendingPickup
 }
 
 // Client is one carrier, called with a seller's account.
@@ -166,6 +175,13 @@ type Client interface {
 type Texter interface {
 	// SendOTP texts the code; ErrPhoneUnknown when no account has phone.
 	SendOTP(ctx context.Context, phone string) error
+}
+
+// Reporter is a carrier that posts webhooks. Report reads one: the
+// parcel's code and the events it tells, none for one that tells nothing
+// kept. contentType is the request's; now stands in for a time it lacks.
+type Reporter interface {
+	Report(contentType string, body []byte, now time.Time) (code string, evs []Event, err error)
 }
 
 // mask keeps each word's first letter: "Vân Nguyễn" → "V** N*****".

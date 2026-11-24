@@ -28,8 +28,9 @@ func New(svc service.Service, secrets map[carrier.Carrier]string, log *slog.Logg
 }
 
 // Register adds the account, pickup and quote endpoints behind protect, and
-// the webhooks open to the carriers.
-func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
+// the webhooks open to the carriers. With the fake carrier it also adds the
+// dev endpoint that moves the fake's parcels, open to anyone.
+func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler, fakeCarrier bool) {
 	r.Handle("PUT /v1/me/shipping-settings", protect(http.HandlerFunc(h.PutSettings)))
 	r.Handle("GET /v1/carrier-accounts", protect(http.HandlerFunc(h.List)))
 	r.Handle("PUT /v1/carrier-accounts/{carrier}", protect(http.HandlerFunc(h.Link)))
@@ -38,6 +39,9 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("GET /v1/carrier-accounts/{carrier}/pickups", protect(http.HandlerFunc(h.Pickups)))
 	r.Handle("GET /v1/shipments/quote", protect(http.HandlerFunc(h.Quote)))
 	r.Handle("POST /v1/carriers/{carrier}/webhook/{secret}", http.HandlerFunc(h.Webhook))
+	if fakeCarrier {
+		r.Handle("POST /v1/dev/shipments/{code}/status", http.HandlerFunc(h.DevReport))
+	}
 }
 
 type carrierPath struct {

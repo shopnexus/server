@@ -1,6 +1,14 @@
 package domain
 
-import "github.com/shopnexus/server/internal/platform/apperr"
+import (
+	"errors"
+
+	"github.com/shopnexus/server/internal/platform/apperr"
+)
+
+// ErrReportUnread is a carrier's webhook that does not read: the webhook
+// answers it 200 all the same, so the carrier does not resend.
+var ErrReportUnread = errors.New("shipping: the carrier's report does not read")
 
 var (
 	ErrPickupNotConfigured = apperr.New(apperr.KindConflict, "pickup_not_configured", "save a pickup address and contact phone first")

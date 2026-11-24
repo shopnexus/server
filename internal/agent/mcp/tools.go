@@ -296,7 +296,7 @@ func (t tools) orderGet(ctx context.Context, _ authn.ConsoleMember, in orderIn) 
 		out.CarrierError = apperr.From(err).Code
 		return out, nil
 	}
-	out.CarrierNow = &carrierNow{Status: string(p.Status), Fee: p.Fee}
+	out.CarrierNow = &carrierNow{Status: string(p.Status()), Fee: p.Fee}
 	return out, nil
 }
 

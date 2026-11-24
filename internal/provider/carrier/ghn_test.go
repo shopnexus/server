@@ -59,7 +59,7 @@ func ghnServer(t *testing.T) carrier.GHNClient {
 			fail(w, http.StatusBadRequest, "ORDER_NOT_FOUND")
 			return
 		}
-		_, _ = w.Write([]byte(`{"code":200,"message":"Success","data":{"order_code":"5ENLKKHD","client_order_code":"SN-100001","status":"delivered","to_name":"Vân Nguyễn","to_phone":"0911222333","to_address":"1 Lê Duẩn, Phường Bến Nghé, TP. Hồ Chí Minh","cod_amount":47000,"weight":800}}`))
+		_, _ = w.Write([]byte(`{"code":200,"message":"Success","data":{"order_code":"5ENLKKHD","client_order_code":"SN-100001","status":"delivered","to_name":"Vân Nguyễn","to_phone":"0911222333","to_address":"1 Lê Duẩn, Phường Bến Nghé, TP. Hồ Chí Minh","cod_amount":47000,"weight":800,"log":[{"status":"picked","updated_date":"2026-11-24T02:00:00Z"},{"status":"delivered","updated_date":"2026-11-25T03:30:00Z"}]}}`))
 	})
 	affiliate := func(w http.ResponseWriter, r *http.Request) (phone, otp string, shop int64, ok bool) {
 		if r.Header.Get("Token") != "partner-token" {
@@ -270,7 +270,7 @@ func TestGHNShipsReadsAndCancels(t *testing.T) {
 		t.Fatalf("no route: %v", err)
 	}
 	p, err := g.Lookup(ctx, acc, "5ENLKKHD")
-	if err != nil || p.Status != carrier.StatusDelivered || p.COD != 47_000 || p.RecipientName != "V** N*****" ||
+	if err != nil || p.Step != carrier.StepDelivered || len(p.Events) != 2 || p.Events[1].CarrierStatus != "delivered" || p.COD != 47_000 || p.RecipientName != "V** N*****" ||
 		p.District != "1 Lê Duẩn, Phường Bến Nghé, TP. Hồ Chí Minh" {
 		t.Fatalf("%+v %v", p, err)
 	}

@@ -259,8 +259,7 @@ func NewLinkedDraft(carrier, service string, weightGrams int, pickup string) (Li
 	return LinkedDraft{Carrier: c, Service: s, WeightGrams: weightGrams, Pickup: p}, nil
 }
 
-// ParseShipmentStatus reads a status a carrier, or the dev endpoint,
-// reports.
+// ParseShipmentStatus reads a status module shipping reports.
 func ParseShipmentStatus(s string) (ShipmentStatus, error) {
 	st := ShipmentStatus(s)
 	switch st {

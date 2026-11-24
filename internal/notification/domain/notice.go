@@ -475,9 +475,6 @@ func carrierName(code string) string {
 	return code
 }
 
-// vietnam is the time zone dates are written in.
-var vietnam = time.FixedZone("ICT", 7*60*60)
-
 // Text writes a notice in language tag; an unknown type has no text.
 func Text(t Type, p Params, tag locale.Tag) string {
 	if d, ok := types[t]; ok {

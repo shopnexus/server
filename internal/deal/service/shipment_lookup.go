@@ -35,6 +35,6 @@ func (s *Deals) LookupShipment(ctx context.Context, caller uuid.UUID, carrierCod
 	}
 	return ShipmentPreview{
 		Carrier: c, TrackingCode: code, RecipientName: p.RecipientName, District: p.District, CODAmount: p.COD,
-		Status: domain.ShipmentStatus(p.Status), Fee: p.Fee,
+		Status: domain.ShipmentStatus(p.Status()), Fee: p.Fee,
 	}, nil
 }

@@ -22,6 +22,9 @@ type Shipping interface {
 	SavedPickup(ctx context.Context, seller uuid.UUID) (shippingsvc.Pickup, error)
 	Create(ctx context.Context, seller uuid.UUID, c carrier.Carrier, in carrier.CreateInput) (carrier.Created, error)
 	Lookup(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
+	// Track is Lookup for the order's own shipment, which also keeps the
+	// carrier's events for the parcel's timeline.
+	Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
 	Cancel(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) error
 }
 

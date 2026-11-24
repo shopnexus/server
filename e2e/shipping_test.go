@@ -151,3 +151,32 @@ func TestQuoteAndPickups(t *testing.T) {
 		t.Fatalf("%+v %+v", sh, sh.Pickup)
 	}
 }
+
+// A seller links GHN by the code GHN texted: the fake knows no number
+// ending 0000 and takes any code but "wrong". Texting is rate tier code.
+func TestGHNLinksByATextedCode(t *testing.T) {
+	t.Parallel()
+	me, phone := newAccount(t)
+	auth := bearer(me.AccessToken)
+	check(t, "signed out", call(t, "POST", "/v1/carrier-accounts/ghn/otp", map[string]any{"phone": phone}), 401, "unauthenticated")
+	check(t, "no phone", call(t, "POST", "/v1/carrier-accounts/ghn/otp", map[string]any{}, auth), 400, "")
+	check(t, "a number GHN does not know", call(t, "POST", "/v1/carrier-accounts/ghn/otp", map[string]any{"phone": "+84900000000"}, auth),
+		422, "carrier_phone_unknown")
+	expectStatus(t, call(t, "POST", "/v1/carrier-accounts/ghn/otp", map[string]any{"phone": phone}, auth), http.StatusNoContent)
+	check(t, "a wrong code", call(t, "PUT", "/v1/carrier-accounts/ghn", map[string]any{"phone": phone, "otp": "wrong"}, auth),
+		422, "carrier_otp_invalid")
+	if a := expect[carrierAccount](t, call(t, "PUT", "/v1/carrier-accounts/ghn", map[string]any{"phone": phone, "otp": "123456"}, auth),
+		http.StatusOK); a.Carrier != "ghn" || a.ShopCode == "" {
+		t.Fatalf("%+v", a)
+	}
+	for i := range 20 {
+		res := call(t, "POST", "/v1/carrier-accounts/ghn/otp", map[string]any{"phone": phone}, auth)
+		if res.Status == http.StatusTooManyRequests {
+			check(t, "past the burst", res, 429, "rate_limited")
+			return
+		}
+		if i == 19 {
+			t.Fatalf("never limited: %d", res.Status)
+		}
+	}
+}

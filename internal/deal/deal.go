@@ -19,13 +19,11 @@ import (
 )
 
 // Settings is what deal needs beyond the shared dependencies: module
-// shipping, which makes and reads shipments on the seller's accounts,
-// whether the carriers are the fake, whose shipments the dev endpoint
-// moves, and how often a shipped order's shipment is read again.
+// shipping, which makes and reads shipments on the seller's accounts, and
+// how often a shipped order's shipment is read again.
 type Settings struct {
-	Shipping    service.Shipping
-	FakeCarrier bool
-	PollEvery   time.Duration
+	Shipping  service.Shipping
+	PollEvery time.Duration
 }
 
 // Mount registers the deal endpoints, subscribes the listing watch to the
@@ -41,7 +39,7 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catal
 		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Catalog: catalog, Chats: chats, Shipping: s.Shipping,
 		Waits: waits, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})
-	handler.New(svc, d.Log).Register(d.Router, d.Protect, s.FakeCarrier)
+	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	registerGauges(d)
 	watch := worker.ListingWatch{Prefix: d.ServicePrefix, Deals: svc}
 	for _, k := range []events.Kind{events.ListingUpdated, events.ListingHidden, events.ListingSold, events.ListingDeleted} {

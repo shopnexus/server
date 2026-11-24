@@ -32,6 +32,10 @@ func (Linked) Lookup(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code s
 	return p, nil
 }
 
+func (l Linked) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
+	return l.Lookup(ctx, seller, c, code)
+}
+
 func (Linked) Cancel(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) error {
 	if err := (carrier.Fake{Carrier: c}).Cancel(ctx, carrier.Account{}, code); err != nil {
 		return fmt.Errorf("fake %s: %w", c, err)

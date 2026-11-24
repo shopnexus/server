@@ -91,6 +91,10 @@ func (*recording) Lookup(ctx context.Context, _ uuid.UUID, c carrier.Carrier, co
 	return carrier.Fake{Carrier: c}.Lookup(ctx, carrier.Account{}, code)
 }
 
+func (r *recording) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
+	return r.Lookup(ctx, seller, c, code)
+}
+
 func (*recording) Cancel(context.Context, uuid.UUID, carrier.Carrier, string) error { return nil }
 
 // UC-DEAL-04 · ADR-0001.
@@ -243,20 +247,20 @@ func TestPickupTimeoutReleasesBeforeCallingOff(t *testing.T) {
 	}
 }
 
-// reporting is a carrier whose parcels all read the status last set, as a
-// status it maps; a nil status is one it does not map, which moves nothing.
+// reporting is a carrier whose parcels all read the step last set; a nil
+// step is a status it does not map, which moves nothing.
 type reporting struct {
 	carrier.Fake
 
-	status *atomic.Pointer[carrier.Status]
-	reads  *atomic.Int32
+	step  *atomic.Pointer[carrier.Step]
+	reads *atomic.Int32
 }
 
 func (r reporting) Lookup(ctx context.Context, a carrier.Account, code string) (carrier.Parcel, error) {
 	r.reads.Add(1)
 	p, err := r.Fake.Lookup(ctx, a, code)
-	if s := r.status.Load(); s != nil {
-		p.Status, p.Moved = *s, true
+	if s := r.step.Load(); s != nil {
+		p.Step = *s
 	}
 	return p, err
 }
@@ -270,7 +274,7 @@ func TestThePollIgnoresAStatusThatMovesNothing(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	c := reporting{Carrier: carrier.GHTK, status: &atomic.Pointer[carrier.Status]{}, reads: &atomic.Int32{}}
+	c := reporting{Carrier: carrier.GHTK, step: &atomic.Pointer[carrier.Step]{}, reads: &atomic.Int32{}}
 	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Poll, w.Complete = 300*time.Millisecond, 3*time.Second }), linkedAt{c})
 	seller, buyer := e.person(t), e.person(t)
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
@@ -298,14 +302,14 @@ func TestThePollMovesAShipmentAndStopsWhenItCloses(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	c := reporting{Carrier: carrier.GHTK, status: &atomic.Pointer[carrier.Status]{}, reads: &atomic.Int32{}}
+	c := reporting{Carrier: carrier.GHTK, step: &atomic.Pointer[carrier.Step]{}, reads: &atomic.Int32{}}
 	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Poll = 500 * time.Millisecond }), linkedAt{c})
 	seller, buyer := e.person(t), e.person(t)
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), service.ShipmentInput{Mode: "manual", Carrier: "ghtk", TrackingCode: "S1.POLL"}); err != nil {
 		t.Fatal(err)
 	}
-	c.status.Store(new(carrier.StatusInTransit))
+	c.step.Store(new(carrier.StepTransporting))
 	testenv.Eventually(t, 15*time.Second, func() error {
 		if s := e.get(t, buyer, v.ID).Order.Shipment.Status; s != domain.ShipmentInTransit {
 			return fmt.Errorf("shipment %s", s)
@@ -316,7 +320,7 @@ func TestThePollMovesAShipmentAndStopsWhenItCloses(t *testing.T) {
 	if err := deals.ShipmentUpdated(ctx, "S1.POLL", "delivered"); err != nil {
 		t.Fatal(err)
 	}
-	c.status.Store(new(carrier.StatusDelivered))
+	c.step.Store(new(carrier.StepDelivered))
 	moves := len(e.get(t, buyer, v.ID).Moves)
 	time.Sleep(1500 * time.Millisecond)
 	if got := e.get(t, buyer, v.ID); len(got.Moves) != moves || got.Order.Shipment.Status != domain.ShipmentDelivered {
@@ -362,7 +366,7 @@ func TestPickupTimeoutReadsTheCarrierFirst(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	c := reporting{Carrier: carrier.GHTK, status: &atomic.Pointer[carrier.Status]{}, reads: &atomic.Int32{}}
+	c := reporting{Carrier: carrier.GHTK, step: &atomic.Pointer[carrier.Step]{}, reads: &atomic.Int32{}}
 	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Pickup = time.Second }), linkedAt{c})
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
@@ -370,7 +374,7 @@ func TestPickupTimeoutReadsTheCarrierFirst(t *testing.T) {
 	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked); err != nil {
 		t.Fatal(err)
 	}
-	c.status.Store(new(carrier.StatusInTransit))
+	c.step.Store(new(carrier.StepTransporting))
 	testenv.Eventually(t, 15*time.Second, func() error {
 		if s := e.get(t, buyer, v.ID).Order.Shipment.Status; s != domain.ShipmentInTransit {
 			return fmt.Errorf("shipment %s", s)

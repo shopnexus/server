@@ -52,7 +52,7 @@ type deliveredCarrier struct{ carrier.Fake }
 
 func (deliveredCarrier) Lookup(ctx context.Context, a carrier.Account, code string) (carrier.Parcel, error) {
 	p, err := carrier.Fake{}.Lookup(ctx, a, code)
-	p.Status = carrier.StatusDelivered
+	p.Step = carrier.StepDelivered
 	return p, err
 }
 

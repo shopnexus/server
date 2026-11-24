@@ -80,10 +80,11 @@ func Decimal(t Tag, f float64) string {
 // dates are the day-and-month layouts, in Vietnam time.
 var dates = map[Tag]string{Vietnamese: "2/1", English: "Jan 2"}
 
-var vietnam = time.FixedZone("ICT", 7*60*60)
+// Vietnam is Vietnam's time zone, UTC+7 all year.
+var Vietnam = time.FixedZone("ICT", 7*60*60)
 
 // Date writes the day and month of at, on Vietnam's clock.
-func Date(t Tag, at time.Time) string { return at.In(vietnam).Format(dates[Of(string(t))]) }
+func Date(t Tag, at time.Time) string { return at.In(Vietnam).Format(dates[Of(string(t))]) }
 
 // Catalog is one package's text in every supported language: <tag>.json
 // files of key → fmt format.

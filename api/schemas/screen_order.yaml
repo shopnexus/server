@@ -21,6 +21,9 @@ OrderScreen:
       anyOf:
         - $ref: "support.yaml#/Ticket"
         - type: "null"
+    tracking:
+      $ref: "shipping.yaml#/Tracking"
+      description: The shipment's timeline; absent until its carrier reports something. The buyer gets the steps only.
 OrdersScreen:
   type: object
   additionalProperties: false
