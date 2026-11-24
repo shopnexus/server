@@ -330,14 +330,6 @@ ShipmentPreview:
       type: integer
       format: int64
       description: The carrier's fee in đồng; absent while the carrier has none.
-ShipmentStatusChange:
-  type: object
-  additionalProperties: false
-  required: [status]
-  properties:
-    status:
-      type: string
-      description: pending_pickup, in_transit, delivered or failed; another value is 422 invalid_status.
 Recipient:
   type: object
   additionalProperties: false

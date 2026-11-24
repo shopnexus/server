@@ -339,3 +339,39 @@ shippingSettings:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+devShipmentStatus:
+  post:
+    operationId: setShipmentStatus
+    summary: Report a step of every shipment with a tracking code, as its carrier would.
+    description: |
+      Served only with CARRIER=fake, which the dev and test stacks run, to
+      anyone, since the fake carrier's parcels move only through it.
+      Production does not serve it. The step joins the parcel's timeline
+      and moves its orders as a carrier's report does: delivered completes
+      the order 3 days later unless the buyer confirms first; returning or
+      returned fails it at once and releases the listing. A closed order
+      changes nothing.
+    tags: [shipping, internal]
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/shipping.yaml#/DevShipmentReport"
+    responses:
+      "204":
+        description: Taken, whether or not an order changed.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "404":
+        description: "No order has a shipment with the tracking code (shipment_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

@@ -71,7 +71,7 @@ func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, ide
 			return DealView{}, readErr
 		}
 		flow.Manual = &domain.Shipment{
-			Mode: domain.ModeManual, Carrier: c, TrackingCode: code, Fee: p.Fee, Status: domain.ShipmentStatus(p.Status),
+			Mode: domain.ModeManual, Carrier: c, TrackingCode: code, Fee: p.Fee, Status: domain.ShipmentStatus(p.Status()),
 		}
 	}
 	deal, err := s.orderDeal(ctx, caller, order)

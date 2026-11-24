@@ -173,6 +173,10 @@ func (l linkedAt) Lookup(ctx context.Context, _ uuid.UUID, c carrier.Carrier, co
 	return l.client(c).Lookup(ctx, carrier.Account{}, code)
 }
 
+func (l linkedAt) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
+	return l.Lookup(ctx, seller, c, code)
+}
+
 func (l linkedAt) Cancel(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) error {
 	return l.client(c).Cancel(ctx, carrier.Account{}, code)
 }
@@ -183,6 +187,10 @@ type refusing struct{ err error }
 
 func (r refusing) Create(context.Context, uuid.UUID, carrier.Carrier, carrier.CreateInput) (carrier.Created, error) {
 	return carrier.Created{}, r.err
+}
+
+func (r refusing) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
+	return r.Lookup(ctx, seller, c, code)
 }
 
 func (r refusing) Lookup(context.Context, uuid.UUID, carrier.Carrier, string) (carrier.Parcel, error) {

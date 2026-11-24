@@ -134,3 +134,83 @@ SavedPickup:
     phone:
       type: string
       description: A Vietnamese mobile normalized to +84 on save; invalid values are 422 invalid_shipping_settings with field phone.
+ShipmentStep:
+  type: string
+  enum: [ready_to_pick, picking, pickup_failed, picked, at_hub, transporting, out_for_delivery, delivery_failed, delivered, returning, returned, cancelled, lost]
+  description: |
+    Where the parcel is, in the same words for every carrier, finer than
+    ShipmentStatus. ready_to_pick, picking and pickup_failed are
+    pending_pickup; picked, at_hub, transporting, out_for_delivery and
+    delivery_failed are in_transit, since the carrier tries a failed
+    delivery again; delivered is delivered; returning and returned are
+    failed. cancelled and lost move no order.
+TrackingEvent:
+  type: object
+  additionalProperties: false
+  required: [at, kind]
+  description: One thing the carrier reported of the parcel. Fields the carrier did not send are absent.
+  properties:
+    at:
+      type: string
+      format: date-time
+      description: When it happened, as the carrier tells it.
+    kind:
+      type: string
+      enum: [step, weight, fee, cod, cod_transfer]
+      description: step is a move of the parcel; weight, fee and cod a new weight in grams, fee or COD amount in đồng; cod_transfer the COD paid out to the seller. The buyer sees only steps.
+    step:
+      $ref: "#/ShipmentStep"
+      description: Present on a step.
+    carrier_status:
+      type: string
+      description: The carrier's own status code on a step, such as GHN's storing or GHTK's 9, for a client that tells more than the step.
+    reason:
+      type: string
+      description: The carrier's words on a failed pickup or delivery, a return or a delay.
+    reason_code:
+      type: string
+    warehouse:
+      type: string
+      description: The carrier's hub the parcel is at.
+    shipper_name:
+      type: string
+    shipper_phone:
+      type: string
+    proof_url:
+      type: string
+      description: The carrier's photo of the delivery.
+    amount:
+      type: integer
+      format: int64
+      description: The weight in grams, or the fee, the COD or the COD paid out in đồng.
+Tracking:
+  type: object
+  additionalProperties: false
+  required: [events]
+  description: The parcel's timeline as its carrier reported it, through webhooks and the poll.
+  properties:
+    step:
+      $ref: "#/ShipmentStep"
+      description: The newest step; absent before the carrier reported one.
+    events:
+      type: array
+      description: Newest first.
+      items:
+        $ref: "#/TrackingEvent"
+DevShipmentReport:
+  type: object
+  additionalProperties: false
+  required: [step]
+  properties:
+    step:
+      $ref: "#/ShipmentStep"
+    reason:
+      type: string
+    warehouse:
+      type: string
+    shipper_name:
+      type: string
+    shipper_phone:
+      type: string
+    proof_url:
+      type: string

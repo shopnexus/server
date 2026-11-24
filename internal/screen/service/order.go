@@ -9,6 +9,7 @@ import (
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	dealdomain "github.com/shopnexus/server/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
+	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 	supportdomain "github.com/shopnexus/server/internal/support/domain"
 	supportsvc "github.com/shopnexus/server/internal/support/service"
 	trustsvc "github.com/shopnexus/server/internal/trust/service"
@@ -22,6 +23,8 @@ type OrderScreen struct {
 	Counterpart chatsvc.PersonView    `json:"counterpart"`
 	OwnReview   trustsvc.OwnReview    `json:"own_review"`
 	TheirReview *trustsvc.TheirReview `json:"their_review"`
+	// Tracking is absent until the carrier reports something.
+	Tracking *shippingsvc.Tracking `json:"tracking,omitempty"`
 }
 
 type BuyerOrderView struct {
@@ -50,6 +53,18 @@ func (s *Screen) Order(ctx context.Context, account, order uuid.UUID) (OrderScre
 		return OrderScreen{}, fmt.Errorf("read the reviews: %w", err)
 	}
 	out := OrderScreen{Order: o, Deal: d, Counterpart: person, OwnReview: reviews[order].Own, TheirReview: reviews[order].Their}
+	if sh := o.Shipment; sh != nil {
+		t, trackErr := s.shipping.Tracking(ctx, string(sh.Carrier), sh.TrackingCode)
+		if trackErr != nil {
+			return OrderScreen{}, fmt.Errorf("read the tracking: %w", trackErr)
+		}
+		if d.Role == dealdomain.Buyer {
+			t = t.ForBuyer()
+		}
+		if len(t.Events) > 0 {
+			out.Tracking = &t
+		}
+	}
 	if d.Role == dealdomain.Buyer {
 		out.BuyerOrderView = &BuyerOrderView{}
 		ticket, ticketErr := s.support.OfOrder(ctx, account, order)

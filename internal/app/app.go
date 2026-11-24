@@ -172,7 +172,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	}
 	// carriers holds one client per carrier, and the secret in each
 	// carrier's webhook path; none has no client and no webhook.
-	carriers := shipping.Settings{Key: cfg.Carrier.TokenKey}
+	carriers := shipping.Settings{Key: cfg.Carrier.TokenKey, FakeCarrier: cfg.Carrier.Mode == "fake"}
 	switch cfg.Carrier.Mode {
 	case "fake":
 		if cfg.Env == config.EnvProd {
@@ -439,7 +439,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 			}
 			return shippingsvc.QuoteFacts{Recipient: to, Pickup: from, Price: price}, nil
 		},
-		NotFound: dealdomain.ErrShipmentNotFound,
+		ShipmentCarrier: func(ctx context.Context, code string) (string, error) { return deals.ShipmentCarrier(ctx, code) },
+		NotFound:        dealdomain.ErrShipmentNotFound,
 	}
 	shippingm := shipping.Mount(d, carriers, accounts)
 	// A deal opens the pair's conversation and writes its moves there, so
@@ -448,7 +449,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	chatm := chat.Mount(d, chat.Settings{WebsiteOrigins: cfg.ObjectStore.UploadOrigins, Orders: func(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]chatsvc.OrderRef, error) {
 		return orderRefs(ctx, deals, ids)
 	}}, accounts, catalogm.Service, mediam.Service)
-	dealm := deal.Mount(d, deal.Settings{Shipping: shippingm.Service, FakeCarrier: cfg.Carrier.Mode == "fake", PollEvery: cfg.Carrier.PollEvery},
+	dealm := deal.Mount(d, deal.Settings{Shipping: shippingm.Service, PollEvery: cfg.Carrier.PollEvery},
 		accounts, catalogm.Service, chatm.Service)
 	deals = dealm.Service
 	erasure.Mount(d, accounts, dealm.Service)

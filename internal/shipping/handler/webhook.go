@@ -2,19 +2,15 @@ package handler
 
 import (
 	"crypto/subtle"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net/http"
-	"net/url"
-	"strconv"
-	"strings"
+	"time"
 
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/provider/carrier"
+	"github.com/shopnexus/server/internal/shipping/domain"
 )
 
 // maxReport caps a report's body; GHTK's and GHN's are a few hundred bytes.
@@ -34,75 +30,55 @@ func (h *Handler) Webhook(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, errNoRoute)
 		return
 	}
-	code, status, moved, err := readReport(c, r)
+	body, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, maxReport))
+	var code string
+	var evs []carrier.Event
+	if err == nil {
+		code, evs, err = carrier.ReadReport(c, r.Header.Get("Content-Type"), body, time.Now())
+	}
 	if err != nil {
 		h.log.WarnContext(r.Context(), "carrier report not read", "carrier", c, "err", err)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	if moved {
-		if err = h.svc.Reported(r.Context(), c, code, status); err != nil {
-			httpx.WriteError(w, r, h.log, err)
-			return
-		}
+	if err = h.svc.Reported(r.Context(), c, code, evs); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 }
 
-// readReport reads a report's tracking code and status. moved is false for
-// a status that moves no shipment. GHTK posts a form or JSON with label_id
-// and status_id; GHN posts JSON with OrderCode and Status. Only GHN's
-// switch_status moves: its other events carry a Status that may be stale.
-func readReport(c carrier.Carrier, r *http.Request) (code string, status carrier.Status, moved bool, err error) {
-	body, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, maxReport))
-	if err != nil {
-		return "", "", false, fmt.Errorf("read the report: %w", err)
+type devReport struct {
+	Code         string `json:"-"                       path:"code"`
+	Step         string `json:"step"`
+	Reason       string `json:"reason,omitempty"`
+	Warehouse    string `json:"warehouse,omitempty"`
+	ShipperName  string `json:"shipper_name,omitempty"`
+	ShipperPhone string `json:"shipper_phone,omitempty"`
+	ProofURL     string `json:"proof_url,omitempty"`
+}
+
+// DevReport serves POST /v1/dev/shipments/{code}/status, which Register
+// adds only for the fake carrier: a step of the parcel's, as its carrier
+// would report it.
+func (h *Handler) DevReport(w http.ResponseWriter, r *http.Request) {
+	var in devReport
+	if err := httpx.Bind(r, &in); err != nil {
+		httpx.WriteError(w, r, h.log, err)
+		return
 	}
-	fields := map[string]string{}
-	media, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
-	if media == "application/json" {
-		var raw map[string]any
-		if err = json.Unmarshal(body, &raw); err != nil {
-			return "", "", false, fmt.Errorf("decode the report: %w", err)
-		}
-		// GHTK sends status_id as 5 or "5".
-		for k, v := range raw {
-			switch v := v.(type) {
-			case string:
-				fields[k] = v
-			case float64:
-				fields[k] = strconv.FormatFloat(v, 'f', -1, 64)
-			default:
-			}
-		}
-	} else {
-		values, perr := url.ParseQuery(string(body))
-		if perr != nil {
-			return "", "", false, fmt.Errorf("decode the report: %w", perr)
-		}
-		for k := range values {
-			fields[k] = values.Get(k)
-		}
+	st, ok := carrier.ParseStep(in.Step)
+	if !ok {
+		httpx.WriteError(w, r, h.log, domain.ErrInvalidStep)
+		return
 	}
-	switch c {
-	case carrier.GHTK:
-		code = fields["label_id"]
-		id, perr := strconv.Atoi(strings.TrimSpace(fields["status_id"]))
-		if perr != nil {
-			return "", "", false, fmt.Errorf("read status_id: %w", perr)
-		}
-		status, moved = carrier.GHTKStatus(id)
-	case carrier.GHN:
-		code = fields["OrderCode"]
-		status, moved = carrier.GHNStatus(fields["Status"])
-		if t := fields["Type"]; t != "" && !strings.EqualFold(t, "switch_status") {
-			moved = false
-		}
-	default:
-		return "", "", false, fmt.Errorf("no reports from %s", c)
+	ev := carrier.Event{
+		Kind: carrier.KindStep, Step: st, CarrierStatus: string(st), Reason: in.Reason, Warehouse: in.Warehouse,
+		ShipperName: in.ShipperName, ShipperPhone: in.ShipperPhone, ProofURL: in.ProofURL,
 	}
-	if code == "" {
-		return "", "", false, errors.New("the report names no code")
+	if err := h.svc.DevReported(r.Context(), in.Code, ev); err != nil {
+		httpx.WriteError(w, r, h.log, fmt.Errorf("dev report: %w", err))
+		return
 	}
-	return code, status, moved, nil
+	w.WriteHeader(http.StatusNoContent)
 }

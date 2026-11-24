@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // GHTKClient makes and reads shipments at GHTK with each seller's shop token.
@@ -224,6 +225,7 @@ func (g GHTKClient) Lookup(ctx context.Context, a Account, code string) (Parcel,
 			Address  string  `json:"address"`
 			ShipFee  flexInt `json:"ship_money"`
 			PickCash flexInt `json:"pick_money"`
+			Modified string  `json:"modified"`
 		} `json:"order"`
 	}
 	if err := g.do(ctx, http.MethodGet, "/services/shipment/v2/"+url.PathEscape(code), a.Token, nil, &out); err != nil {
@@ -232,15 +234,16 @@ func (g GHTKClient) Lookup(ctx context.Context, a Account, code string) (Parcel,
 	if !out.Success {
 		return Parcel{}, ErrNotFound
 	}
-	status, moved := GHTKStatus(int(out.Order.Status))
-	if !moved {
-		status = StatusPendingPickup
-	}
 	fee := int64(out.Order.ShipFee)
-	return Parcel{
-		RecipientName: mask(out.Order.Name), District: out.Order.Address, COD: int64(out.Order.PickCash), Status: status, Moved: moved,
-		Fee: &fee,
-	}, nil
+	p := Parcel{RecipientName: mask(out.Order.Name), District: out.Order.Address, COD: int64(out.Order.PickCash), Fee: &fee}
+	// GHTK tells only the status it is at now.
+	if st, ok := GHTKStep(int(out.Order.Status)); ok {
+		p.Step = st
+		p.Events = []Event{{
+			At: readTime(out.Order.Modified, time.Now()), Kind: KindStep, Step: st, CarrierStatus: strconv.Itoa(int(out.Order.Status)),
+		}}
+	}
+	return p, nil
 }
 
 // Cancel calls the order off by its label. GHTK's samples use GET where

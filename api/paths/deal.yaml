@@ -648,47 +648,6 @@ shipmentLookup:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-devShipmentStatus:
-  post:
-    operationId: setShipmentStatus
-    summary: Set the status of every shipment with a tracking code, as its carrier would.
-    description: |
-      Served only with CARRIER=fake, which the dev and test stacks run, to
-      anyone, since the fake carrier's shipments move only through it.
-      Production runs CARRIER=none and does not serve it. It calls the entry point the real
-      carriers' reports will use. A closed order changes nothing.
-      delivered completes the order 3 days later unless the buyer
-      confirms first; failed fails it at once and releases the listing.
-    tags: [deal, internal]
-    parameters:
-      - name: code
-        in: path
-        required: true
-        schema:
-          type: string
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: "../schemas/deal.yaml#/ShipmentStatusChange"
-    responses:
-      "204":
-        description: Taken, whether or not an order changed.
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "404":
-        description: "No order has a shipment with the tracking code (shipment_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "422":
-        description: "The status is not pending_pickup, in_transit, delivered or failed (invalid_status)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
 orderCancel:
   post:
     operationId: cancelOrder

@@ -70,8 +70,7 @@ func (Fake) Lookup(_ context.Context, _ Account, code string) (Parcel, error) {
 		return Parcel{}, ErrNotFound
 	}
 	return Parcel{
-		RecipientName: "Ng*** V** A", District: "Quận 1, TP. Hồ Chí Minh", COD: 1_500_000,
-		Status: StatusPendingPickup, Fee: new(int64(fakeFee)),
+		RecipientName: "Ng*** V** A", District: "Quận 1, TP. Hồ Chí Minh", COD: 1_500_000, Fee: new(int64(fakeFee)),
 	}, nil
 }
 

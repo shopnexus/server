@@ -16,10 +16,8 @@ type Handler struct {
 
 func New(svc service.Service, log *slog.Logger) *Handler { return &Handler{svc: svc, log: log} }
 
-// Register adds the deal endpoints, all behind protect. With the fake
-// carrier it also adds the dev endpoint that moves the fake's shipments,
-// open to anyone.
-func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler, fakeCarrier bool) {
+// Register adds the deal endpoints, all behind protect.
+func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Handler) {
 	r.Handle("POST /v1/deals", protect(http.HandlerFunc(h.Open)))
 	r.Handle("GET /v1/deals/{id}", protect(http.HandlerFunc(h.Get)))
 	r.Handle("POST /v1/deals/{id}/offer", protect(http.HandlerFunc(h.Offer)))
@@ -34,7 +32,4 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 	r.Handle("POST /v1/orders/{order_id}/cancel", protect(http.HandlerFunc(h.CancelOrder)))
 	r.Handle("POST /v1/orders/{order_id}/confirm", protect(http.HandlerFunc(h.ConfirmReceipt)))
 	r.Handle("GET /v1/shipments/lookup", protect(http.HandlerFunc(h.LookupShipment)))
-	if fakeCarrier {
-		r.Handle("POST /v1/dev/shipments/{code}/status", http.HandlerFunc(h.SetShipmentStatus))
-	}
 }

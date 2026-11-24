@@ -25,4 +25,6 @@ var (
 	// ErrInvalidShipment is a shipment to price that breaks a rule; deal
 	// answers a shipment to make with the same code.
 	ErrInvalidShipment = apperr.New(apperr.KindInvalid, "invalid_shipment", "the shipment breaks a rule; see fields")
+	// ErrInvalidStep is a step the dev endpoint does not know.
+	ErrInvalidStep = apperr.New(apperr.KindInvalid, "invalid_step", "the step is not one of ShipmentStep")
 )

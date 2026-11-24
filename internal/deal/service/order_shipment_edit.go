@@ -47,7 +47,7 @@ func (s *Deals) EditShipment(ctx context.Context, caller, order uuid.UUID, carri
 		return DealView{}, err
 	}
 	if err = m.deal.EditShipment(m.by, order, domain.Shipment{
-		Mode: domain.ModeManual, Carrier: c, TrackingCode: code, Fee: p.Fee, Status: domain.ShipmentStatus(p.Status),
+		Mode: domain.ModeManual, Carrier: c, TrackingCode: code, Fee: p.Fee, Status: domain.ShipmentStatus(p.Status()),
 	}, m.now); err != nil {
 		return DealView{}, err
 	}

@@ -73,11 +73,11 @@ func editShipment(t *testing.T, token, id string, body any) Response {
 	return call(t, "PUT", "/v1/orders/"+id+"/shipment", body, bearer(token))
 }
 
-// setShipmentStatus reports status for code through the fake carrier's
-// dev endpoint, as its carrier would.
-func setShipmentStatus(t *testing.T, code, status string) Response {
+// setShipmentStatus reports step for code through the fake carrier's dev
+// endpoint, as its carrier would.
+func setShipmentStatus(t *testing.T, code, step string) Response {
 	t.Helper()
-	return call(t, "POST", "/v1/dev/shipments/"+code+"/status", map[string]any{"status": status})
+	return call(t, "POST", "/v1/dev/shipments/"+code+"/status", map[string]any{"step": step})
 }
 
 func listingStatus(t *testing.T, token, id string) string {
@@ -144,14 +144,24 @@ func TestOrderDelivered(t *testing.T) {
 	code := trackingCode()
 	d := orderMoved(t, seller.AccessToken, pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID).Order.ID,
 		"shipment", shipmentBody(code))
-	expectStatus(t, setShipmentStatus(t, code, "in_transit"), http.StatusNoContent)
+	expectStatus(t, setShipmentStatus(t, code, "transporting"), http.StatusNoContent)
 	if got := getDeal(t, buyer.AccessToken, d.ID); got.Order.Status != "shipped" || got.Order.Shipment.Status != "in_transit" {
 		t.Fatalf("in transit: %+v", got.Order)
+	}
+	// A failed attempt stays in transit: the carrier tries again.
+	missed := map[string]any{"step": "delivery_failed", "reason": "Không liên lạc được người nhận"}
+	expectStatus(t, call(t, "POST", "/v1/dev/shipments/"+code+"/status", missed), http.StatusNoContent)
+	if got := getDeal(t, buyer.AccessToken, d.ID); got.Order.Status != "shipped" || got.Order.Shipment.Status != "in_transit" {
+		t.Fatalf("a failed attempt: %+v", got.Order)
 	}
 	expectStatus(t, setShipmentStatus(t, code, "delivered"), http.StatusNoContent)
 	got := getDeal(t, buyer.AccessToken, d.ID)
 	if got.Order.Status != "shipped" || got.Order.Shipment.Status != "delivered" || got.Order.Shipment.DeliveredAt == "" {
 		t.Fatalf("delivered: %+v", got.Order)
+	}
+	tr := orderScreen(t, buyer.AccessToken, d.Order.ID).Tracking
+	if tr == nil || tr.Step != "delivered" || len(tr.Events) != 3 || tr.Events[1]["reason"] != "Không liên lạc được người nhận" {
+		t.Fatalf("tracking: %+v", tr)
 	}
 	if got = orderMoved(t, buyer.AccessToken, d.Order.ID, "confirm", nil); got.Status != "sold" || got.Order.Status != "completed" {
 		t.Fatalf("confirm: %+v", got)
@@ -168,7 +178,7 @@ func TestOrderFailed(t *testing.T) {
 	l := activeListing(t, seller.AccessToken, nil)
 	code := trackingCode()
 	d := orderMoved(t, seller.AccessToken, pendingOrder(t, buyer.AccessToken, l.ID).Order.ID, "shipment", shipmentBody(code))
-	expectStatus(t, setShipmentStatus(t, code, "failed"), http.StatusNoContent)
+	expectStatus(t, setShipmentStatus(t, code, "returned"), http.StatusNoContent)
 	got := getDeal(t, buyer.AccessToken, d.ID)
 	if got.Order.Status != "failed" || got.Status != "negotiating" || got.AgreedPrice != 0 {
 		t.Fatalf("failed: %+v", got)
@@ -252,8 +262,8 @@ func TestDevShipmentStatus(t *testing.T) {
 	code := trackingCode()
 	orderMoved(t, seller.AccessToken, pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID).Order.ID,
 		"shipment", shipmentBody(code))
-	check(t, "an unknown status", setShipmentStatus(t, code, "returned"), 422, "invalid_status")
-	check(t, "no status", call(t, "POST", "/v1/dev/shipments/"+code+"/status", map[string]any{}), 400, "")
+	check(t, "a status for a step", setShipmentStatus(t, code, "failed"), 400, "")
+	check(t, "no step", call(t, "POST", "/v1/dev/shipments/"+code+"/status", map[string]any{}), 400, "")
 }
 
 func TestOrderEarlierRefused(t *testing.T) {
@@ -263,7 +273,7 @@ func TestOrderEarlierRefused(t *testing.T) {
 	l := activeListing(t, seller.AccessToken, nil)
 	code := trackingCode()
 	first := orderMoved(t, seller.AccessToken, pendingOrder(t, buyer.AccessToken, l.ID).Order.ID, "shipment", shipmentBody(code))
-	expectStatus(t, setShipmentStatus(t, code, "failed"), http.StatusNoContent)
+	expectStatus(t, setShipmentStatus(t, code, "returned"), http.StatusNoContent)
 	moved(t, buyer.AccessToken, first.ID, "accept", map[string]any{"price": 1_500_000})
 	second := moved(t, buyer.AccessToken, first.ID, "cod", codBody(deliveryAddress(t, buyer.AccessToken)))
 	orderMoved(t, seller.AccessToken, second.Order.ID, "shipment", shipmentBody(trackingCode()))

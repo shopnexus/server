@@ -123,7 +123,7 @@ func TestOrderStepMessages(t *testing.T) {
 	code := trackingCode()
 	pending := pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
 	orderMoved(t, seller.AccessToken, pending.Order.ID, "shipment", shipmentBody(code))
-	expectStatus(t, setShipmentStatus(t, code, "in_transit"), http.StatusNoContent)
+	expectStatus(t, setShipmentStatus(t, code, "transporting"), http.StatusNoContent)
 	kinds, items := dealMoves(t, buyer.AccessToken, pending.ConversationID, 4)
 	if !slices.Equal(kinds, []string{"shipment_updated", "shipped", "cod_requested", "accept"}) {
 		t.Fatalf("kinds %v", kinds)

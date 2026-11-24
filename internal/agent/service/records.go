@@ -260,7 +260,7 @@ func (s *Agent) Order(ctx context.Context, caller authn.ConsoleMember, id uuid.U
 		out.CarrierError = apperr.From(err).Code
 		return out, nil
 	}
-	out.CarrierNow = &CarrierNow{Status: string(p.Status), Fee: p.Fee}
+	out.CarrierNow = &CarrierNow{Status: string(p.Status()), Fee: p.Fee}
 	return out, nil
 }
 

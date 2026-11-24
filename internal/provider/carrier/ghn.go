@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // GHNClient makes and reads shipments at GHN with each seller's token and
@@ -306,6 +307,10 @@ func (g GHNClient) Lookup(ctx context.Context, a Account, code string) (Parcel, 
 		ToName  string `json:"to_name"`
 		Address string `json:"to_address"`
 		COD     int64  `json:"cod_amount"`
+		Log     []struct {
+			Status string `json:"status"`
+			At     string `json:"updated_date"`
+		} `json:"log"`
 	}
 	err := g.do(ctx, http.MethodPost, "/v2/shipping-order/detail", a, false, map[string]string{"order_code": code}, &out)
 	// The code is the only thing detail takes, so any 400 is a code the
@@ -316,11 +321,15 @@ func (g GHNClient) Lookup(ctx context.Context, a Account, code string) (Parcel, 
 	if err != nil {
 		return Parcel{}, err
 	}
-	status, moved := GHNStatus(out.Status)
-	if !moved {
-		status = StatusPendingPickup
+	p := Parcel{RecipientName: mask(out.ToName), District: out.Address, COD: out.COD}
+	p.Step, _ = GHNStep(out.Status)
+	now := time.Now()
+	for _, l := range out.Log {
+		if st, ok := GHNStep(l.Status); ok {
+			p.Events = append(p.Events, Event{At: readTime(l.At, now), Kind: KindStep, Step: st, CarrierStatus: l.Status})
+		}
 	}
-	return Parcel{RecipientName: mask(out.ToName), District: out.Address, COD: out.COD, Status: status, Moved: moved}, nil
+	return p, nil
 }
 
 func (g GHNClient) Cancel(ctx context.Context, a Account, code string) error {

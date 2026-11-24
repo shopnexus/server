@@ -40,6 +40,12 @@ func (d *deals) funcs() service.Deals {
 		QuoteFacts: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (service.QuoteFacts, error) {
 			return service.QuoteFacts{Recipient: carrier.Place{Name: "Hân", Commune: "Phường Bến Nghé", Province: "TP. Hồ Chí Minh"}, Price: 1_500_000}, nil
 		},
+		ShipmentCarrier: func(_ context.Context, code string) (string, error) {
+			if code == "UNKNOWN" {
+				return "", errNoOrder
+			}
+			return "ghtk", nil
+		},
 		NotFound: errNoOrder,
 	}
 }
@@ -65,7 +71,9 @@ func newEnv(t *testing.T, clients map[carrier.Carrier]carrier.Client) env {
 	t.Helper()
 	db := pgtest.New(t)
 	e := env{rows: repository.NewAccounts(db), deals: &deals{open: map[string]bool{}}, key: newKey(t), owner: accounttest.New(t, db)}
-	e.svc = service.New(service.Deps{Accounts: e.rows, Clients: clients, Key: e.key, Deals: e.deals.funcs(), Now: time.Now})
+	e.svc = service.New(service.Deps{
+		Accounts: e.rows, Events: repository.NewEvents(db), Clients: clients, Key: e.key, Deals: e.deals.funcs(), Now: time.Now,
+	})
 	return e
 }
 
@@ -241,18 +249,52 @@ func TestQuoteChecksTheShipmentThenAsksTheCarrier(t *testing.T) {
 	}
 }
 
-func TestReportedMovesTheOrderAndIgnoresUnknownCodes(t *testing.T) {
+// A report keeps its events once and moves the order to the status of the
+// parcel's newest step. A failed delivery stays in transit; a repeat, a
+// late step, a code no order has or another carrier's code moves nothing.
+//
+// UC-DEAL-05.
+func TestReportedKeepsTheTimelineAndMovesToTheNewestStep(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	e := newEnv(t, fakes())
-	if err := e.svc.Reported(ctx, carrier.GHTK, "S1.A1", carrier.StatusDelivered); err != nil {
-		t.Fatal(err)
+	code := "S1." + uuid.NewV7().String()
+	t0 := time.Date(2026, 11, 24, 9, 0, 0, 0, time.UTC)
+	picked := carrier.Event{At: t0, Kind: carrier.KindStep, Step: carrier.StepPicked, CarrierStatus: "3"}
+	weight := carrier.Event{At: t0, Kind: carrier.KindWeight, Amount: 800}
+	late := carrier.Event{At: t0.Add(-time.Hour), Kind: carrier.KindStep, Step: carrier.StepReadyToPick, CarrierStatus: "2"}
+	missed := carrier.Event{
+		At: t0.Add(time.Hour), Kind: carrier.KindStep, Step: carrier.StepDeliveryFailed, CarrierStatus: "9", Reason: "Không liên lạc được",
 	}
-	if err := e.svc.Reported(ctx, carrier.GHTK, "UNKNOWN", carrier.StatusDelivered); err != nil {
-		t.Fatalf("an unknown code: %v", err)
+	for _, r := range []struct {
+		c   carrier.Carrier
+		cd  string
+		evs []carrier.Event
+	}{
+		{carrier.GHTK, code, []carrier.Event{picked, weight}},
+		{carrier.GHTK, code, []carrier.Event{picked, weight}},
+		{carrier.GHTK, code, []carrier.Event{late}},
+		{carrier.GHTK, code, []carrier.Event{missed}},
+		{carrier.GHN, code, []carrier.Event{{At: t0.Add(2 * time.Hour), Kind: carrier.KindStep, Step: carrier.StepReturned}}},
+		{carrier.GHTK, "UNKNOWN", []carrier.Event{picked}},
+	} {
+		if err := e.svc.Reported(ctx, r.c, r.cd, r.evs); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if len(e.deals.reported) != 1 || e.deals.reported[0] != "S1.A1 delivered" {
+	if want := code + " in_transit|" + code + " in_transit"; strings.Join(e.deals.reported, "|") != want {
 		t.Fatalf("%v", e.deals.reported)
+	}
+	got, err := e.svc.Tracking(ctx, "ghtk", code)
+	if err != nil || got.Step != carrier.StepDeliveryFailed || len(got.Events) != 4 ||
+		got.Events[0].Reason != "Không liên lạc được" || got.Events[3].Step != carrier.StepReadyToPick {
+		t.Fatalf("%+v %v", got, err)
+	}
+	if b := got.ForBuyer(); len(b.Events) != 3 || b.Step != got.Step {
+		t.Fatalf("the buyer sees the weight: %+v", b)
+	}
+	if err = e.svc.DevReported(ctx, "UNKNOWN", picked); !errors.Is(err, errNoOrder) {
+		t.Fatalf("a code no order has: %v", err)
 	}
 }
 

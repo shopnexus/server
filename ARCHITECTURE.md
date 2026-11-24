@@ -1740,9 +1740,10 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   and answers `shipment_not_found` 404 when no order has the code.
 - Deal makes, reads and cancels shipments through `service.Shipping`,
   module shipping's three calls with the seller's ID, and maps its
-  refusals to its own errors of the same codes. With `CARRIER=fake` the
-  server serves `POST /v1/dev/shipments/{code}/status {status}` to anyone,
-  and `APP_ENV=prod` refuses it. With `none` (production until the GHTK
+  refusals to its own errors of the same codes. With `CARRIER=fake`
+  shipping serves `POST /v1/dev/shipments/{code}/status {step}` to anyone,
+  a step as the order's carrier would report it, and `APP_ENV=prod`
+  refuses it. With `none` (production until the GHTK
   partner contract) the dev endpoint is not registered, and the lookup and
   both shipment endpoints answer 503 `carrier_unavailable` for any order; a
   linked shipment gives back the listing it held. Confirmations, cancels,
@@ -1822,10 +1823,8 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   back by that code, so a retry finds the order the first try made.
 - `provider/carrier` has one client per carrier, each called with the
   seller's `Account{Token, ShopCode}`: `Link`, `Pickups`, `Quote`,
-  `Create`, `Lookup`, `Cancel`. GHTK's codes 3 and 4 map to `in_transit`,
-  5 and 6 to `delivered`, 9, 20 and 21 to `failed`; the rest, the
-  shipper's notices among them, move nothing. GHN's statuses map the same
-  way. A cancel after pickup is `ErrNotCancellable`. GHTK's order and
+  `Create`, `Lookup`, `Cancel`. A cancel after pickup is
+  `ErrNotCancellable`. GHTK's order and
   GHN's `client_order_code` are the ShopNexus order code, so a retried
   create finds the first one. GHN takes addresses as commune and province
   names (its two-level scheme, `is_new_to_address`), and the quote is
@@ -1838,9 +1837,26 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   else. The fake of each carrier links any account but the password or
   token `wrong`, texts a code to any phone but one ending in `0000`, takes
   any code but `wrong`, and its webhooks take the secret `dev`.
-- Only GHN's `switch_status` event moves a shipment: GHN's other events
-  (fee, weight, COD) carry the Status of their own moment, which may be
-  stale by the time they arrive, and a shipment may move back.
+- Each carrier's status maps to a `carrier.Step`, the same words for every
+  carrier (`ready_to_pick` … `delivered`, `returning`, `returned`,
+  `cancelled`, `lost`), and a step to one of the order's four statuses.
+  A failed delivery stays `in_transit`, since the carrier tries again;
+  only `returning` and `returned` fail the order. `cancelled` and `lost`
+  move none. GHTK's shipper notices map to no step. A new carrier adds
+  its map in `step.go` and its report reader in `report.go`.
+- Shipping keeps what the carriers report in `shipment_events` (0085),
+  by carrier and tracking code: steps with the carrier's own status,
+  reason, hub, shipper and delivery photo, and the new weight, fee, COD
+  and COD payout. An event that repeats one kept (same kind, step, status
+  and amount within ten minutes, or the newest of its kind) is dropped, so
+  a webhook and the poll that read the same status keep one row. A report
+  for a code no order has, or one at another carrier, keeps nothing. The
+  order screen returns the timeline as `tracking`, newest first; the buyer
+  gets the steps only.
+- A new step that is the parcel's newest moves its orders to that step's
+  status; a late one only joins the timeline. Only GHN's `create` and
+  `switch_status` tell a step: its fee, weight and COD events carry the
+  Status of their own moment, which may be stale when they arrive.
 - The webhooks are `POST /v1/carriers/{ghtk|ghn}/webhook/{secret}`, for
   each carrier with a secret set. The secret in the path is the only
   check, compared in constant time; a wrong one is 404. GHTK posts a form
@@ -1848,11 +1864,12 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   code no order has or a body that does not read, since GHTK sends again
   on anything else and the poll covers a lost report.
 - The poll is a delayed send to deal's `OrderTimers.Poll`, which the
-  shipment starts. It reads the order's current code from its carrier and
-  moves the order through `ShipmentUpdates` when the status differs, then
-  sends itself again until the order closes. A status the carrier does not
-  map (`Parcel.Moved` false: a delay, a notice, a cancel) moves nothing, so
-  the poll never takes a parcel back to `pending_pickup`. A correction of a
+  shipment starts. It reads the order's current code through shipping's
+  `Track`, which keeps the carrier's history (GHN's `log`, GHTK's current
+  status) in the timeline, and moves the order through `ShipmentUpdates`
+  when the status differs, then sends itself again until the order
+  closes. A status that maps to no step, or a step that moves none,
+  moves nothing. A correction of a
   manual code needs no poll of its own. The pickup timeout reads the
   carrier the same way first, and a parcel picked up since the last poll
   moves the order instead of cancelling it.

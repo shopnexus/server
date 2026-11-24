@@ -131,6 +131,9 @@ type Service interface {
 	//
 	// UC-DEAL-05 · NFR-IDEM-01
 	ShipmentUpdated(ctx context.Context, trackingCode, status string) error
+	// ShipmentCarrier is the carrier of the orders, closed ones too, whose
+	// shipment has trackingCode; domain.ErrShipmentNotFound for none.
+	ShipmentCarrier(ctx context.Context, trackingCode string) (string, error)
 	// Order reads one order for another module: its two sides, its
 	// listing and its status; false for an unknown one.
 	Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, error)

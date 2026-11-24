@@ -174,15 +174,12 @@ func TestGHTKShipsReadsAndCancels(t *testing.T) {
 		t.Fatalf("a retry of a made order: %+v %v", c, err)
 	}
 	p, err := g.Lookup(ctx, acc, "S1.A1.17373471")
-	if err != nil || p.Status != carrier.StatusDelivered || p.COD != 47_000 || p.Fee == nil || *p.Fee != 16_500 ||
+	if err != nil || p.Step != carrier.StepDelivered || len(p.Events) != 1 || p.Events[0].CarrierStatus != "5" || p.COD != 47_000 || p.Fee == nil || *p.Fee != 16_500 ||
 		p.RecipientName != "V** N*****" || p.District != "123 nguyễn chí thanh Quận 1, TP Hồ Chí Minh" {
 		t.Fatalf("%+v %v", p, err)
 	}
-	if !p.Moved {
-		t.Fatal("a delivered parcel reads as moving nothing")
-	}
-	if late, _ := g.Lookup(ctx, acc, "S1.LATE"); late.Moved || late.Status != carrier.StatusPendingPickup {
-		t.Fatalf("delayed delivery (10) moved the parcel: %+v", late)
+	if late, _ := g.Lookup(ctx, acc, "S1.LATE"); late.Step != carrier.StepDeliveryFailed || late.Status() != carrier.StatusInTransit {
+		t.Fatalf("delayed delivery (10): %+v", late)
 	}
 	if _, err = g.Lookup(ctx, acc, "S1.OTHER"); !errors.Is(err, carrier.ErrNotFound) {
 		t.Fatalf("unknown: %v", err)

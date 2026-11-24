@@ -1,5 +1,5 @@
-// Package repository stores module shipping's carrier accounts in
-// Postgres. Each method is one statement.
+// Package repository stores module shipping's carrier accounts, settings
+// and the carriers' events in Postgres. Each method is one statement.
 package repository
 
 import (
@@ -7,6 +7,8 @@ import (
 	"errors"
 	"time"
 	"uuid"
+
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 var ErrNotFound = errors.New("shipping: not found")
@@ -35,4 +37,15 @@ type Accounts interface {
 	Delete(ctx context.Context, owner uuid.UUID, carrier string) (bool, error)
 	// DeleteAll unlinks every account of the owner's.
 	DeleteAll(ctx context.Context, owner uuid.UUID) error
+}
+
+// Events keeps what the carriers reported of their parcels, by carrier and
+// tracking code.
+type Events interface {
+	// Add keeps ev, received at received, unless it repeats one kept: the
+	// same kind, step, carrier status and amount within ten minutes, or the
+	// newest event of its kind. false when it was a repeat.
+	Add(ctx context.Context, c, code string, ev carrier.Event, received time.Time) (bool, error)
+	// List is a parcel's events, oldest first.
+	List(ctx context.Context, c, code string) ([]carrier.Event, error)
 }

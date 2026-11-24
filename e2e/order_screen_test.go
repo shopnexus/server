@@ -26,6 +26,10 @@ type selectedOrderScreen struct {
 	OwnReview   *ownReview      `json:"own_review"`
 	TheirReview *theirReview    `json:"their_review"`
 	Ticket      json.RawMessage `json:"ticket"`
+	Tracking    *struct {
+		Step   string           `json:"step"`
+		Events []map[string]any `json:"events"`
+	} `json:"tracking"`
 }
 
 // theirReview is the TheirReview schema.

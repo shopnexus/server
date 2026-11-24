@@ -129,17 +129,25 @@ type Created struct {
 }
 
 // Parcel is what a carrier tells of a shipment: the recipient's name as
-// ShopNexus masks it, where it goes, the COD amount, the status, and the
-// fee, nil while the carrier tells none. Moved is false for a status that
-// moves nothing (delays, notices, a cancel), which reads as pending_pickup
-// for a new shipment and must not move one already on its way.
+// ShopNexus masks it, where it goes, the COD amount, the fee, nil while the
+// carrier tells none, the step it is at, empty for a status that maps to
+// none, and the events the carrier keeps of it, oldest first.
 type Parcel struct {
 	RecipientName string
 	District      string
 	COD           int64
-	Status        Status
-	Moved         bool
 	Fee           *int64
+	Step          Step
+	Events        []Event
+}
+
+// Status is the order's status at the parcel's step: pending_pickup for a
+// step that moves nothing, which a new shipment reads as.
+func (p Parcel) Status() Status {
+	if s, ok := p.Step.Status(); ok {
+		return s
+	}
+	return StatusPendingPickup
 }
 
 // Client is one carrier, called with a seller's account.
