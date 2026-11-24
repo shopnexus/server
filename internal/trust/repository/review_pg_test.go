@@ -38,10 +38,7 @@ func order(t *testing.T, db *pgxpool.Pool, buyer, seller uuid.UUID) (orderID, li
 	}
 	onSale := dealdomain.Listing{Price: 1_500_000, Status: dealdomain.ListingActive}
 	r := dealdomain.Recipient{Name: "Hân", Phone: "+84912345678", Street: "12 Lý Thường Kiệt", CommuneCode: "00004", Kind: dealdomain.AddressHome}
-	if err := d.Accept(dealdomain.Buyer, 1_500_000, onSale, now); err != nil {
-		t.Fatal(err)
-	}
-	if err := d.RequestCod(dealdomain.Buyer, uuid.NewV7(), r, onSale, now); err != nil {
+	if err := d.RequestCod(dealdomain.Buyer, uuid.NewV7(), 1_500_000, r, onSale, now); err != nil {
 		t.Fatal(err)
 	}
 	if err := deals.Save(ctx, &d, uuid.NewV7()); err != nil {

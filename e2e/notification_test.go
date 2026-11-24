@@ -208,8 +208,7 @@ func TestOrderNoticesOpenTheirOwnOrder(t *testing.T) {
 	moved(t, buyer.AccessToken, first.ID, "cancel", nil)
 	newestNotice(t, seller.AccessToken, "order_cancelled")
 	expect[readAllResult](t, call(t, "POST", "/v1/notifications/read-all", nil, bearer(seller.AccessToken)), http.StatusOK)
-	moved(t, buyer.AccessToken, first.ID, "accept", map[string]any{"price": 1_500_000})
-	second := moved(t, buyer.AccessToken, first.ID, "cod", codBody(deliveryAddress(t, buyer.AccessToken)))
+	second := moved(t, buyer.AccessToken, first.ID, "cod", codBody(1_500_000, deliveryAddress(t, buyer.AccessToken)))
 	if second.Order.ID == first.Order.ID {
 		t.Fatalf("one order: %s", first.Order.ID)
 	}

@@ -184,14 +184,12 @@ func run(ctx context.Context) error {
 	if err = c.call(ctx, linh.token, http.MethodPost, "/v1/deals", map[string]any{"listing_id": ids["p-iphone12"]}, &bought); err != nil {
 		return fmt.Errorf("open the second deal: %w", err)
 	}
-	if err = c.call(ctx, linh.token, http.MethodPost, "/v1/deals/"+bought.ID+"/accept", map[string]any{"price": 6_900_000}, nil); err != nil {
-		return fmt.Errorf("accept the price: %w", err)
-	}
 	address, err := c.address(ctx, linh)
 	if err != nil {
 		return err
 	}
-	if err = c.call(ctx, linh.token, http.MethodPost, "/v1/deals/"+bought.ID+"/cod", map[string]any{"address_id": address}, &bought); err != nil {
+	cod := map[string]any{"price": 6_900_000, "address_id": address}
+	if err = c.call(ctx, linh.token, http.MethodPost, "/v1/deals/"+bought.ID+"/cod", cod, &bought); err != nil {
 		return fmt.Errorf("request COD: %w", err)
 	}
 	err = c.call(ctx, nam.token, http.MethodPost, "/v1/orders/"+bought.Order.ID+"/shipment", map[string]any{

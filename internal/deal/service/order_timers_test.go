@@ -75,8 +75,8 @@ func TestSellerTimeoutCancels(t *testing.T) {
 	e := newEnv(t)
 	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Seller = time.Second }), linkedAt{})
 	seller, buyer := e.person(t), e.person(t)
-	v := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
-	if _, err := deals.RequestCod(context.Background(), buyer, v.ID, e.address(t, buyer), ""); err != nil {
+	v := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
+	if _, err := deals.RequestCod(context.Background(), buyer, v.ID, 1_500_000, e.address(t, buyer), ""); err != nil {
 		t.Fatal(err)
 	}
 	got := e.until(t, seller, v.ID, domain.OrderCancelled)
@@ -205,8 +205,7 @@ func TestTimersLeaveAnOrderThatMovedOn(t *testing.T) {
 	// timer cancels it.
 	first := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	must(t)(e.deals.Cancel(ctx, buyer, first.ID))
-	must(t)(e.deals.Accept(ctx, buyer, first.ID, 1_500_000))
-	second, err := e.deals.RequestCod(ctx, buyer, first.ID, e.address(t, buyer), "")
+	second, err := e.deals.RequestCod(ctx, buyer, first.ID, 1_500_000, e.address(t, buyer), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,8 +225,8 @@ func TestTimersWorkWithoutACarrier(t *testing.T) {
 	ctx := context.Background()
 	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Seller = time.Second }), refusing{errShippingUnavailable})
 	seller, buyer := e.person(t), e.person(t)
-	v := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
-	if _, err := deals.RequestCod(ctx, buyer, v.ID, e.address(t, buyer), ""); err != nil {
+	v := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
+	if _, err := deals.RequestCod(ctx, buyer, v.ID, 1_500_000, e.address(t, buyer), ""); err != nil {
 		t.Fatal(err)
 	}
 	if got := e.until(t, buyer, v.ID, domain.OrderCancelled); got.Order.CancelReason != domain.CancelSellerTimeout {

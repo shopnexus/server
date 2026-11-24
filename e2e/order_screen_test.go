@@ -68,8 +68,7 @@ func TestSelectedOrderAndScopedCancel(t *testing.T) {
 		t.Fatalf("counterpart: %+v", first.Counterpart)
 	}
 	orderMoved(t, buyer.AccessToken, old, "cancel", nil)
-	moved(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000})
-	current := moved(t, buyer.AccessToken, d.ID, "cod", codBody(deliveryAddress(t, buyer.AccessToken)))
+	current := moved(t, buyer.AccessToken, d.ID, "cod", codBody(1_500_000, deliveryAddress(t, buyer.AccessToken)))
 	read := orderScreen(t, seller.AccessToken, old)
 	if read.Order.ID != old || read.Order.Status != "cancelled" || read.Deal.Order.ID != current.Order.ID || read.OwnReview == nil || read.OwnReview.State != "none" || read.TheirReview != nil || len(read.Ticket) != 0 || read.Order.Recipient["phone"] != nil || read.Order.Recipient["street"] != nil {
 		t.Fatalf("historical seller view: %+v", read)

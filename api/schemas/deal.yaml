@@ -219,8 +219,13 @@ DealList:
 CodRequest:
   type: object
   additionalProperties: false
-  required: [address_id]
+  required: [price, address_id]
   properties:
+    price:
+      type: integer
+      format: int64
+      minimum: 1
+      description: The price the buyer saw. On an agreed deal, the agreed price. On a deal still negotiating, the listed price or the seller's open counter; the order agrees the deal at it. Any other price is price_changed.
     address_id:
       type: string
       format: uuid

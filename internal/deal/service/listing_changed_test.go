@@ -40,7 +40,8 @@ func TestListingChanged(t *testing.T) {
 	listing := catalogtest.Listing(t, e.db, seller)
 	da, db := e.open(t, a, listing), e.open(t, b, listing)
 	must(t)(e.deals.Offer(ctx, a, da.ID, 1_000_000))
-	must(t)(e.deals.Accept(ctx, b, db.ID, 1_500_000))
+	must(t)(e.deals.Offer(ctx, b, db.ID, 1_200_000))
+	must(t)(e.deals.Accept(ctx, seller, db.ID, 1_200_000))
 
 	e.edit(t, listing, func(d *catalogdomain.ListingInput) { d.Price = 1_400_000 })
 	e.changed(t, listing)

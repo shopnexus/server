@@ -151,9 +151,9 @@ dealAccept:
     x-uc: [UC-DEAL-02]
     summary: Agree the deal at a price.
     description: |
-      The side facing an open price accepts it; the buyer may also accept
-      the listed price at any time while negotiating. The buyer's accept is
-      refused while the seller is in away mode.
+      The side facing an open price accepts it. The buyer takes the
+      listed price by asking for COD at it (POST /v1/deals/{id}/cod). The
+      buyer's accept is refused while the seller is in away mode.
     tags: [deal]
     security:
       - bearerAuth: []
@@ -351,12 +351,16 @@ dealCod:
   post:
     operationId: requestCod
     x-uc: [UC-DEAL-03]
-    summary: Ask for cash on delivery on an agreed deal.
+    summary: Order the listing with cash on delivery, at the price the buyer saw.
     description: |
-      The buyer of an agreed deal with no open order, on a listing on sale,
-      with fewer than 3 open orders, to one of the buyer's addresses, while
-      the seller is not in away mode. The
-      order keeps a copy of the address as its recipient. It starts
+      Mua ngay. On an agreed deal the price is the agreed one. On a deal
+      still negotiating it is the listed price or the seller's open
+      counter, and the order agrees the deal at it in the same save, with
+      no accept move; a lower price is an offer (POST
+      /v1/deals/{id}/offer). The buyer of a deal with no open order, on a
+      listing on sale, with fewer than 3 open orders, to one of the
+      buyer's addresses, while the seller is not in away mode. The order
+      keeps a copy of the address as its recipient. It starts
       pending; either side may cancel it until the seller creates the
       shipment, and it is cancelled with seller_timeout when the seller has
       created none 3 days later. A repeated Idempotency-Key of the caller
@@ -403,7 +407,7 @@ dealCod:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The deal is not agreed or has an open order, or the caller is the seller (move_not_allowed); the listing is not on sale (listing_unavailable); the saved pickup is absent (pickup_not_configured); the seller is in away mode (seller_away); the buyer has 3 open orders (cod_limit_reached); or the deal changed meanwhile (deal_changed)."
+        description: "The deal is sold or has an open order, or the caller is the seller (move_not_allowed); the price is not the one on offer (price_changed); the listing is not on sale (listing_unavailable); the saved pickup is absent (pickup_not_configured); the seller is in away mode (seller_away); the buyer has 3 open orders (cod_limit_reached); or the deal changed meanwhile (deal_changed)."
         content:
           application/json:
             schema:

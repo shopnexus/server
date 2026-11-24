@@ -74,7 +74,8 @@ func TestMoveRules(t *testing.T) {
 	}
 	agreed := func(t *testing.T, d *domain.Deal) {
 		t.Helper()
-		must(t, d.Accept(domain.Buyer, 1_500_000, onSale, now))
+		offered(t, d)
+		must(t, d.Accept(domain.Seller, 1_000_000, onSale, now))
 	}
 	none := func(*testing.T, *domain.Deal) {}
 	cases := []struct {
@@ -86,11 +87,12 @@ func TestMoveRules(t *testing.T) {
 		{"the seller offers first", none, func(d *domain.Deal) error { return d.Offer(domain.Seller, 1_200_000, onSale, now) }, domain.ErrMoveNotAllowed},
 		{"the buyer offers twice", offered, func(d *domain.Deal) error { return d.Offer(domain.Buyer, 1_100_000, onSale, now) }, domain.ErrMoveNotAllowed},
 		{"the seller counters twice", countered, func(d *domain.Deal) error { return d.Offer(domain.Seller, 1_400_000, onSale, now) }, domain.ErrMoveNotAllowed},
-		{"the buyer accepts their own offer", offered, func(d *domain.Deal) error { return d.Accept(domain.Buyer, 1_000_000, onSale, now) }, domain.ErrPriceChanged},
+		{"the buyer accepts their own offer", offered, func(d *domain.Deal) error { return d.Accept(domain.Buyer, 1_000_000, onSale, now) }, domain.ErrMoveNotAllowed},
 		{"the seller accepts with no offer", none, func(d *domain.Deal) error { return d.Accept(domain.Seller, 1_500_000, onSale, now) }, domain.ErrMoveNotAllowed},
 		{"the seller accepts their own counter", countered, func(d *domain.Deal) error { return d.Accept(domain.Seller, 1_300_000, onSale, now) }, domain.ErrMoveNotAllowed},
 		{"the seller accepts a stale offer", offered, func(d *domain.Deal) error { return d.Accept(domain.Seller, 900_000, onSale, now) }, domain.ErrPriceChanged},
-		{"the buyer accepts an old listed price", none, func(d *domain.Deal) error { return d.Accept(domain.Buyer, 1_400_000, onSale, now) }, domain.ErrPriceChanged},
+		{"the buyer accepts the listed price", none, func(d *domain.Deal) error { return d.Accept(domain.Buyer, 1_500_000, onSale, now) }, domain.ErrMoveNotAllowed},
+		{"the buyer accepts the listed price over their offer", offered, func(d *domain.Deal) error { return d.Accept(domain.Buyer, 1_500_000, onSale, now) }, domain.ErrMoveNotAllowed},
 		{"the buyer declines their own offer", offered, func(d *domain.Deal) error { return d.Decline(domain.Buyer, now) }, domain.ErrMoveNotAllowed},
 		{"decline with nothing open", none, func(d *domain.Deal) error { return d.Decline(domain.Seller, now) }, domain.ErrMoveNotAllowed},
 		{"the seller withdraws the buyer's offer", offered, func(d *domain.Deal) error { return d.Withdraw(domain.Seller, now) }, domain.ErrMoveNotAllowed},
@@ -128,16 +130,16 @@ func TestAllowedMoves(t *testing.T) {
 	must(t, d.Offer(domain.Seller, 1_300_000, onSale, now))
 	must(t, d.Decline(domain.Buyer, now))
 	must(t, d.Offer(domain.Buyer, 1_100_000, onSale, now))
-	// The buyer takes the listed price over their own open offer.
-	must(t, d.Accept(domain.Buyer, 1_500_000, onSale, now))
+	must(t, d.Accept(domain.Seller, 1_100_000, onSale, now))
 	must(t, d.Cancel(domain.Seller, now))
 	if d.Status() != domain.StatusNegotiating || d.AgreedPrice() != 0 || d.AgreedAt() != nil || d.OpenPrice() != nil {
 		t.Fatalf("%+v", d.State())
 	}
+	// The buyer takes the listed price by ordering, offers or not.
 	fixed := newDeal()
-	must(t, fixed.Accept(domain.Buyer, 1_500_000, domain.Listing{Price: 1_500_000, Status: domain.ListingActive}, now))
+	must(t, fixed.RequestCod(domain.Buyer, uuid.NewV7(), 1_500_000, recipient, domain.Listing{Price: 1_500_000, Status: domain.ListingActive}, now))
 	odd := newDeal()
-	must(t, odd.Accept(domain.Buyer, 10_500, domain.Listing{Price: 10_500, AllowOffers: true, Status: domain.ListingActive}, now))
+	must(t, odd.RequestCod(domain.Buyer, uuid.NewV7(), 10_500, recipient, domain.Listing{Price: 10_500, AllowOffers: true, Status: domain.ListingActive}, now))
 }
 
 // UC-DEAL-02 E6 · BR-DEAL-03.
@@ -267,8 +269,7 @@ func TestListingChanged(t *testing.T) {
 
 func TestListingGoneEndsTheAgreement(t *testing.T) {
 	t.Parallel()
-	d := newDeal()
-	must(t, d.Accept(domain.Buyer, 1_500_000, onSale, now))
+	d := agreed(t)
 	d.Saved(uuid.NewV7())
 	if d.ListingChanged(domain.Listing{Price: 1_500_000, AllowOffers: true, Status: domain.ListingHidden}, now) {
 		t.Fatal("a hidden listing ended the agreement")
@@ -317,7 +318,10 @@ func TestStaleOpenPrice(t *testing.T) {
 		if d.OpenFor(off) != nil {
 			t.Fatal("the view shows a voided offer")
 		}
-		must(t, d.Accept(domain.Buyer, 1_500_000, off, now))
+		if err := d.Accept(domain.Buyer, 1_500_000, off, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+			t.Fatalf("buyer accepts the listed price: %v", err)
+		}
+		must(t, d.RequestCod(domain.Buyer, uuid.NewV7(), 1_500_000, recipient, off, now))
 	})
 	t.Run("price drop", func(t *testing.T) {
 		t.Parallel()

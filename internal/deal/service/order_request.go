@@ -9,8 +9,8 @@ import (
 // idempotencyKey (NFR-IDEM-01), or on every call without a key, then reads
 // the deal. The order keeps a copy of the address, so a later edit or
 // delete of it leaves the order as it was.
-func (s *Deals) RequestCod(ctx context.Context, caller, id, addressID uuid.UUID, idempotencyKey string) (DealView, error) {
-	in := CodInput{Caller: caller, DealID: id, AddressID: addressID}
+func (s *Deals) RequestCod(ctx context.Context, caller, id uuid.UUID, price int64, addressID uuid.UUID, idempotencyKey string) (DealView, error) {
+	in := CodInput{Caller: caller, DealID: id, Price: price, AddressID: addressID}
 	if _, err := s.requestCod.Call(ctx, invocationKey(caller, idempotencyKey), in); err != nil {
 		return DealView{}, err
 	}

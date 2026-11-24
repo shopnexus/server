@@ -22,8 +22,7 @@ func TestCancelSelectedOrderDoesNotCancelItsReplacement(t *testing.T) {
 		t.Fatal(err)
 	}
 	must(t)(e.deals.CancelOrder(ctx, buyer, d.Order.ID, ""))
-	must(t)(e.deals.Accept(ctx, buyer, d.ID, 1_500_000))
-	replacement, err := e.deals.RequestCod(ctx, buyer, d.ID, e.address(t, buyer), "")
+	replacement, err := e.deals.RequestCod(ctx, buyer, d.ID, 1_500_000, e.address(t, buyer), "")
 	if err != nil {
 		t.Fatal(err)
 	}

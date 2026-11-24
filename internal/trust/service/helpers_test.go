@@ -70,16 +70,13 @@ func (e env) person(t *testing.T) uuid.UUID {
 	return accounttest.WithPhone(t, e.db)
 }
 
-// pending puts a listing of seller's on sale, agrees a deal on it between
-// buyer and seller and asks for COD, returning the deal and its order.
+// pending puts a listing of seller's on sale and has buyer ask for COD on
+// it at the listed price, returning the deal and its order.
 func (e env) pending(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
 	t.Helper()
 	ctx := context.Background()
 	d, _, err := e.deals.Open(ctx, buyer, catalogtest.Listing(t, e.db, seller))
 	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err = e.deals.Accept(ctx, buyer, d.ID, 1_500_000); err != nil {
 		t.Fatal(err)
 	}
 	a, err := e.accounts.CreateAddress(ctx, buyer, uuid.NewV7(), accountdomain.AddressDraft{
@@ -88,7 +85,7 @@ func (e env) pending(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UU
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := e.deals.RequestCod(ctx, buyer, d.ID, a.ID, "")
+	v, err := e.deals.RequestCod(ctx, buyer, d.ID, 1_500_000, a.ID, "")
 	if err != nil {
 		t.Fatal(err)
 	}

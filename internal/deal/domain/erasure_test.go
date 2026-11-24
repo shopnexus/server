@@ -14,10 +14,9 @@ func TestPartyLeft(t *testing.T) {
 		t.Fatalf("pending: %+v", req.State())
 	}
 
-	agreed := newDeal()
-	must(t, agreed.Accept(domain.Buyer, 1_500_000, onSale, now))
-	if !agreed.PartyLeft(now) || agreed.Status() != domain.StatusNegotiating || agreed.AgreedPrice() != 0 {
-		t.Fatalf("agreed: %+v", agreed.State())
+	settled := agreed(t)
+	if !settled.PartyLeft(now) || settled.Status() != domain.StatusNegotiating || settled.AgreedPrice() != 0 {
+		t.Fatalf("agreed: %+v", settled.State())
 	}
 
 	offered := newDeal()

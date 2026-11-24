@@ -139,8 +139,7 @@ func TestCodCheckoutUsesOnlyBuyerState(t *testing.T) {
 	if got := getDeal(t, buyer.AccessToken, d.ID); got.Status != "negotiating" || got.Order != nil {
 		t.Fatalf("GET mutated deal: %+v", got)
 	}
-	moved(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000})
-	moved(t, buyer.AccessToken, d.ID, "cod", codBody(first.ID))
+	moved(t, buyer.AccessToken, d.ID, "cod", codBody(1_500_000, first.ID))
 	if read("").CodOrders.Used != 1 || read("").ShippingEstimate != nil {
 		t.Fatal("COD cap or estimate")
 	}

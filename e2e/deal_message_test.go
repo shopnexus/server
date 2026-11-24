@@ -124,11 +124,11 @@ func TestOrderStepMessages(t *testing.T) {
 	pending := pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
 	orderMoved(t, seller.AccessToken, pending.Order.ID, "shipment", shipmentBody(code))
 	expectStatus(t, setShipmentStatus(t, code, "in_transit"), http.StatusNoContent)
-	kinds, items := dealMoves(t, buyer.AccessToken, pending.ConversationID, 4)
-	if !slices.Equal(kinds, []string{"shipment_updated", "shipped", "cod_requested", "accept"}) {
+	kinds, items := dealMoves(t, buyer.AccessToken, pending.ConversationID, 3)
+	if !slices.Equal(kinds, []string{"shipment_updated", "shipped", "cod_requested"}) {
 		t.Fatalf("kinds %v", kinds)
 	}
-	senders := []string{shopNexusID, seller.Account.ID, buyer.Account.ID, buyer.Account.ID}
+	senders := []string{shopNexusID, seller.Account.ID, buyer.Account.ID}
 	for i, m := range items {
 		if m.SenderID != senders[i] || (i == 0 && m.Deal.Move.By != "system") {
 			t.Errorf("%s: %+v %+v", kinds[i], m, m.Deal)
@@ -137,7 +137,7 @@ func TestOrderStepMessages(t *testing.T) {
 	if row := inboxRows(t, buyer.AccessToken)[seller.Account.ID]; row.Unread != 2 || row.LastMessage.ID != items[0].ID {
 		t.Fatalf("the buyer's row: %+v", row)
 	}
-	if row := inboxRows(t, seller.AccessToken)[buyer.Account.ID]; row.Unread != 3 {
+	if row := inboxRows(t, seller.AccessToken)[buyer.Account.ID]; row.Unread != 2 {
 		t.Fatalf("the seller's row: %+v", row)
 	}
 }

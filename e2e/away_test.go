@@ -66,7 +66,8 @@ func TestAwayMode(t *testing.T) {
 	}
 	d := openDeal(t, buyer.AccessToken, l.ID, http.StatusCreated)
 	check(t, "offer", dealCall(t, buyer.AccessToken, d.ID, "offer", map[string]any{"amount": 1_000_000}), 409, "seller_away")
-	check(t, "buy at the listed price", dealCall(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000}), 409, "seller_away")
+	check(t, "buy at the listed price", dealCall(t, buyer.AccessToken, d.ID, "cod", codBody(1_500_000, deliveryAddress(t, buyer.AccessToken))),
+		409, "seller_away")
 
 	if v := expect[awayView](t, setAway(nil), http.StatusOK); v.AwayUntil != nil {
 		t.Fatalf("clear: %+v", v)
@@ -77,8 +78,9 @@ func TestAwayMode(t *testing.T) {
 	if v := read(buyer.AccessToken, "/v1/screens/chat/"+conv.ID); v.Other.AwayUntil != nil {
 		t.Errorf("chat screen after clearing: %+v", v)
 	}
-	moved(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000})
+	moved(t, buyer.AccessToken, d.ID, "offer", map[string]any{"amount": 1_200_000})
+	moved(t, seller.AccessToken, d.ID, "accept", map[string]any{"price": 1_200_000})
 	expectStatus(t, setAway(until.Format(time.RFC3339)), http.StatusOK)
-	check(t, "cod", call(t, "POST", "/v1/deals/"+d.ID+"/cod", codBody(deliveryAddress(t, buyer.AccessToken)),
+	check(t, "cod", call(t, "POST", "/v1/deals/"+d.ID+"/cod", codBody(1_200_000, deliveryAddress(t, buyer.AccessToken)),
 		bearer(buyer.AccessToken), newKey()), 409, "seller_away")
 }

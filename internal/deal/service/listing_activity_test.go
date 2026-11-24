@@ -83,8 +83,7 @@ func TestListingActivityOneRowPerDeal(t *testing.T) {
 	listing := catalogtest.Listing(t, e.db, seller)
 	first := e.pending(t, buyer, listing)
 	must(t)(e.deals.CancelOrder(ctx, buyer, first.Order.ID, ""))
-	must(t)(e.deals.Accept(ctx, buyer, first.ID, 1_500_000))
-	again, err := e.deals.RequestCod(ctx, buyer, first.ID, e.address(t, buyer), "")
+	again, err := e.deals.RequestCod(ctx, buyer, first.ID, 1_500_000, e.address(t, buyer), "")
 	if err != nil {
 		t.Fatal(err)
 	}

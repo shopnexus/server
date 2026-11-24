@@ -89,12 +89,14 @@ type Service interface {
 	//
 	// UC-DEAL-02 · UC-DEAL-06
 	Cancel(ctx context.Context, caller, id uuid.UUID) (DealView, error)
-	// RequestCod asks for cash on delivery on the buyer's agreed deal, to
-	// a copy of one of the buyer's addresses. A repeated idempotencyKey of
-	// the same caller runs nothing more; an empty one runs every call.
+	// RequestCod asks for cash on delivery at price, the price the buyer
+	// saw (agreed, listed or the seller's counter), to a copy of one of the
+	// buyer's addresses; a deal still negotiating agrees in the same save.
+	// A repeated idempotencyKey of the same caller runs nothing more; an
+	// empty one runs every call.
 	//
 	// UC-DEAL-03 · NFR-IDEM-01
-	RequestCod(ctx context.Context, caller, id, addressID uuid.UUID, idempotencyKey string) (DealView, error)
+	RequestCod(ctx context.Context, caller, id uuid.UUID, price int64, addressID uuid.UUID, idempotencyKey string) (DealView, error)
 	// CreateShipment ships a pending order: a manual shipment, read from its
 	// carrier, or a linked one, made at GHTK. It holds the listing and
 	// returns the order's deal. A repeated idempotencyKey of the same caller

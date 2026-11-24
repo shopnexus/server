@@ -444,7 +444,12 @@ func (r *run) deal(s saleRow, conversation uuid.UUID, shipped, completed time.Ti
 	if ad := b.Address; ad != nil {
 		to.Street, to.CommuneCode, to.Kind = ad.Street, ad.Commune, dealdomain.AddressKind(ad.Kind)
 	}
-	if err := d.RequestCod(dealdomain.Buyer, uuid.NewV7(), to, dl, s.sale.OrderedAt); err != nil {
+	// A sale at the listed price agrees it with the order.
+	price := dl.Price
+	if d.Status() == dealdomain.StatusAgreed {
+		price = d.AgreedPrice()
+	}
+	if err := d.RequestCod(dealdomain.Buyer, uuid.NewV7(), price, to, dl, s.sale.OrderedAt); err != nil {
 		return d, fmt.Errorf("request COD: %w", err)
 	}
 	order := d.Order().ID
@@ -465,7 +470,7 @@ func (r *run) deal(s saleRow, conversation uuid.UUID, shipped, completed time.Ti
 }
 
 // agree brings the deal to the sale's price: the buyer offers it and the
-// seller accepts, or the buyer takes the listed price when no offer fits.
+// seller accepts. When no offer fits, the order takes the listed price.
 func agree(d *dealdomain.Deal, dl dealdomain.Listing, price int64, ordered time.Time) error {
 	if price < dl.Price && dl.AllowOffers {
 		if rng, ok := d.OfferRange(dealdomain.Buyer, dl); ok {
@@ -478,9 +483,6 @@ func agree(d *dealdomain.Deal, dl dealdomain.Listing, price int64, ordered time.
 			}
 			return nil
 		}
-	}
-	if err := d.Accept(dealdomain.Buyer, dl.Price, dl, ordered.Add(-time.Hour)); err != nil {
-		return fmt.Errorf("accept: %w", err)
 	}
 	return nil
 }

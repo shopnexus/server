@@ -88,7 +88,7 @@ func TestPostMoves(t *testing.T) {
 			}
 		}
 	}
-	if len(want) != 5 {
+	if len(want) != 4 {
 		t.Fatalf("%d moves to post", len(want))
 	}
 	p, err := e.chats.Messages(ctx, buyer, sold.ConversationID, page.Request{})

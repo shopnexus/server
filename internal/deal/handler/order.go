@@ -11,6 +11,7 @@ import (
 type codRequest struct {
 	ID             uuid.UUID `json:"-"                 path:"id"`
 	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
+	Price          int64     `json:"price"`
 	AddressID      uuid.UUID `json:"address_id"`
 }
 
@@ -25,7 +26,7 @@ func (h *Handler) RequestCod(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.RequestCod(r.Context(), p.AccountID, in.ID, in.AddressID, in.IdempotencyKey)
+	v, err := h.svc.RequestCod(r.Context(), p.AccountID, in.ID, in.Price, in.AddressID, in.IdempotencyKey)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

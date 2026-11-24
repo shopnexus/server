@@ -1550,15 +1550,16 @@ listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server-deal-design
   nothing, and an open price has no expiry (decided 2026-10-26).
 - Moves: the buyer offers with nothing open or under the seller's counter;
   the seller counters the buyer's open offer; the side facing an open price
-  accepts or declines it; its maker withdraws it; the buyer accepts the
-  listed price at any time while negotiating; either side cancels an
-  agreement, and the deal negotiates again (decided 2026-10-26).
+  accepts or declines it; its maker withdraws it; either side cancels an
+  agreement, and the deal negotiates again (decided 2026-10-26). The buyer
+  takes the listed price by asking for COD at it (decided 2026-11-24, see
+  the COD request below).
 - Amounts are whole đồng in multiples of 1,000. An offer is at least half
   the listed price rounded up to 1,000 and below the counter or the listed
   price; a counter is above the offer and below the listed price. The view
   carries `offer_range`, the amounts the viewer's next offer may take, so
-  the rule lives only in the server. `accept` carries the price the person
-  saw; another price is `price_changed`.
+  the rule lives only in the server. `accept` and the COD request carry the
+  price the person saw; another price is `price_changed`.
 - While the seller is in away mode (see Account profile and addresses),
   the buyer's `offer` and `accept` and the COD request are 409
   `seller_away`: each would bind the seller. The seller's counter and
@@ -1755,6 +1756,13 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
 - The buyer always reads the recipient in full; the seller reads it in
   full except on a cancelled order, which keeps only the name and the
   commune.
+- `POST /v1/deals/{id}/cod` carries `price`, the price the buyer saw
+  (Mua ngay, decided 2026-11-24): the agreed price, or on a deal still
+  negotiating the listed price or the seller's open counter, which the
+  order agrees in the same save with one `cod_requested` move and no
+  `accept`, so buying at the listed price leaves no agreed deal without an
+  order. Any other price is `price_changed`; a sold deal, an open order or
+  the seller is `move_not_allowed`.
 - `POST /v1/deals/{id}/cod` takes an `address_id` from the buyer's address
   book, never a free-form recipient, so the app sends only addresses the
   book checked (decided 2026-10-27). The order copies the address, so

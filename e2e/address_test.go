@@ -254,8 +254,7 @@ func TestOrderKeepsItsRecipient(t *testing.T) {
 	work["kind"] = "work"
 	address := expect[addressView](t, call(t, "POST", "/v1/addresses", work, bearer(buyer.AccessToken), newKey()), http.StatusCreated)
 	d := openDeal(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID, http.StatusCreated)
-	moved(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000})
-	moved(t, buyer.AccessToken, d.ID, "cod", codBody(address.ID))
+	moved(t, buyer.AccessToken, d.ID, "cod", codBody(1_500_000, address.ID))
 	res := call(t, "PUT", "/v1/addresses/"+address.ID,
 		map[string]any{"name": "Minh", "phone": "0987654321", "street": "1 Lê Lợi", "commune_code": "00004", "kind": "home"},
 		bearer(buyer.AccessToken))

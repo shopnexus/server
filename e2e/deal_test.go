@@ -175,7 +175,7 @@ func TestDealRefusals(t *testing.T) {
 	check(t, "offer as a stranger", dealCall(t, stranger.AccessToken, d.ID, "offer", map[string]any{"amount": 1_000_000}), 404, "deal_not_found")
 	check(t, "offer signed out", dealCall(t, "", d.ID, "offer", map[string]any{"amount": 1_000_000}), 401, "unauthenticated")
 	check(t, "offer a bad amount", dealCall(t, buyer.AccessToken, d.ID, "offer", map[string]any{"amount": "x"}), 400, "")
-	check(t, "accept a changed price", dealCall(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_400_000}), 409, "price_changed")
+	check(t, "accept the listed price", dealCall(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000}), 409, "move_not_allowed")
 	check(t, "accept as a stranger", dealCall(t, stranger.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000}), 404, "deal_not_found")
 	check(t, "accept signed out", dealCall(t, "", d.ID, "accept", map[string]any{"price": 1_500_000}), 401, "unauthenticated")
 	check(t, "accept a bad id", dealCall(t, buyer.AccessToken, "not-a-uuid", "accept", map[string]any{"price": 1_500_000}), 400, "")

@@ -246,8 +246,8 @@ func (d *Deal) Offer(by Party, amount int64, l Listing, now time.Time) error {
 	return nil
 }
 
-// Accept agrees the deal at price, the price the person saw: the other
-// side's open price or, for the buyer, the listed price.
+// Accept agrees the deal at price, the other side's open price the person
+// saw. The buyer takes the listed price by ordering (RequestCod).
 func (d *Deal) Accept(by Party, price int64, l Listing, now time.Time) error {
 	if l.Status != ListingActive {
 		return ErrListingUnavailable
@@ -259,8 +259,8 @@ func (d *Deal) Accept(by Party, price int64, l Listing, now time.Time) error {
 	facing := open != nil && open.By != by
 	voided := open == nil && d.open != nil && d.open.By != by
 	switch {
-	case facing && price == open.Amount, by == Buyer && price == l.Price:
-	case facing || voided || by == Buyer:
+	case facing && price == open.Amount:
+	case facing || voided:
 		return ErrPriceChanged
 	default:
 		return ErrMoveNotAllowed
@@ -319,17 +319,28 @@ func (d *Deal) Cancel(by Party, now time.Time) error {
 	return nil
 }
 
-// RequestCod asks for cash on delivery to r at the agreed price; the
-// order takes the ID order, which the caller picks.
-func (d *Deal) RequestCod(by Party, order uuid.UUID, r Recipient, l Listing, now time.Time) error {
-	if by != Buyer || d.status != StatusAgreed || d.openOrder() != nil {
+// RequestCod asks for cash on delivery to r at price, the price the buyer
+// saw: the agreed price or, on a deal still negotiating, the listed price
+// or the seller's open counter, which the order agrees in the same move.
+// The order takes the ID order, which the caller picks.
+func (d *Deal) RequestCod(by Party, order uuid.UUID, price int64, r Recipient, l Listing, now time.Time) error {
+	if by != Buyer || d.status == StatusSold || d.openOrder() != nil {
 		return ErrMoveNotAllowed
 	}
 	if l.Status != ListingActive {
 		return ErrListingUnavailable
 	}
-	d.order = &Order{ID: order, Status: OrderPending, Price: d.agreedPrice, Recipient: r, RequestedAt: now}
-	d.record(MoveCodRequested, by, d.agreedPrice, now)
+	if d.status == StatusNegotiating {
+		open := d.live(l)
+		if price != l.Price && (open == nil || open.By != Seller || price != open.Amount) {
+			return ErrPriceChanged
+		}
+		d.status, d.agreedPrice, d.agreedAt, d.open = StatusAgreed, price, &now, nil
+	} else if price != d.agreedPrice {
+		return ErrPriceChanged
+	}
+	d.order = &Order{ID: order, Status: OrderPending, Price: price, Recipient: r, RequestedAt: now}
+	d.record(MoveCodRequested, by, price, now)
 	return nil
 }
 

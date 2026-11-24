@@ -133,8 +133,8 @@ func (e *env) take() calls {
 	}
 }
 
-// pending has buyer agree a deal on a new listing of seller's and ask for
-// COD to the address given, returning the order.
+// pending has buyer ask for COD on a new listing of seller's at the listed
+// price, to the address given, returning the order.
 func (e *env) pending(t *testing.T, buyer, seller, address uuid.UUID) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
@@ -142,10 +142,7 @@ func (e *env) pending(t *testing.T, buyer, seller, address uuid.UUID) uuid.UUID 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = e.deals.Accept(ctx, buyer, d.ID, 1_500_000); err != nil {
-		t.Fatal(err)
-	}
-	v, err := e.deals.RequestCod(ctx, buyer, d.ID, address, "")
+	v, err := e.deals.RequestCod(ctx, buyer, d.ID, 1_500_000, address, "")
 	if err != nil {
 		t.Fatal(err)
 	}

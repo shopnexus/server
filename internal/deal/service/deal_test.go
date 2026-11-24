@@ -91,7 +91,8 @@ func TestTwoBuyersDealApart(t *testing.T) {
 	seller, one, two := e.person(t), e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	first, second := e.open(t, one, listing), e.open(t, two, listing)
-	must(t)(e.deals.Accept(ctx, one, first.ID, 1_500_000))
+	must(t)(e.deals.Offer(ctx, one, first.ID, 1_200_000))
+	must(t)(e.deals.Accept(ctx, seller, first.ID, 1_200_000))
 	if v := e.get(t, two, second.ID); v.Status != domain.StatusNegotiating {
 		t.Fatalf("%+v", v)
 	}
@@ -169,6 +170,10 @@ func TestStrangerSeesNoDeal(t *testing.T) {
 	}
 }
 
+// A new listed price voids the seller's counter at once: the buyer's
+// accept of it, and an order at it or at the old listed price, are
+// price_changed; an order at the new listed price agrees the deal.
+//
 // UC-DEAL-02 E7.
 func TestAcceptAfterThePriceChanged(t *testing.T) {
 	t.Parallel()
@@ -177,12 +182,20 @@ func TestAcceptAfterThePriceChanged(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.open(t, buyer, listing)
+	address := e.address(t, buyer)
+	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
+	must(t)(e.deals.Offer(ctx, seller, v.ID, 1_300_000))
 	e.edit(t, listing, func(d *catalogdomain.ListingInput) { d.Price = 1_400_000 })
-	if _, err := e.deals.Accept(ctx, buyer, v.ID, 1_500_000); !errors.Is(err, domain.ErrPriceChanged) {
-		t.Fatalf("old price: %v", err)
+	if _, err := e.deals.Accept(ctx, buyer, v.ID, 1_300_000); !errors.Is(err, domain.ErrPriceChanged) {
+		t.Fatalf("accept the old counter: %v", err)
 	}
-	agreed, err := e.deals.Accept(ctx, buyer, v.ID, 1_400_000)
-	if err != nil || agreed.Status != domain.StatusAgreed || *agreed.AgreedPrice != 1_400_000 {
+	for _, old := range []int64{1_300_000, 1_500_000} {
+		if _, err := e.deals.RequestCod(ctx, buyer, v.ID, old, address, ""); !errors.Is(err, domain.ErrPriceChanged) {
+			t.Fatalf("order at %d: %v", old, err)
+		}
+	}
+	agreed, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_400_000, address, "")
+	if err != nil || agreed.Status != domain.StatusAgreed || *agreed.AgreedPrice != 1_400_000 || agreed.Order.Price != 1_400_000 {
 		t.Fatalf("%+v %v", agreed, err)
 	}
 }
@@ -196,7 +209,8 @@ func TestTakeBackOnAHiddenListing(t *testing.T) {
 	listing := catalogtest.Listing(t, e.db, seller)
 	v, agreed := e.open(t, buyer, listing), e.open(t, other, listing)
 	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
-	must(t)(e.deals.Accept(ctx, other, agreed.ID, 1_500_000))
+	must(t)(e.deals.Offer(ctx, other, agreed.ID, 1_100_000))
+	must(t)(e.deals.Accept(ctx, seller, agreed.ID, 1_100_000))
 	if _, err := e.catalog.Hide(ctx, seller, listing, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
@@ -243,15 +257,18 @@ func TestSellerAwayRefusesTheBuyersBindingMoves(t *testing.T) {
 	seller, buyer, other := e.person(t), e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v, ov := e.open(t, buyer, listing), e.open(t, other, listing)
+	address := e.address(t, buyer)
 	must(t)(e.deals.Offer(ctx, buyer, v.ID, 1_000_000))
 	must(t)(e.deals.Offer(ctx, other, ov.ID, 1_000_000))
 	accounttest.Away(t, e.accounts, seller)
 
 	must(t)(e.deals.Offer(ctx, seller, v.ID, 1_300_000))
 	for name, move := range map[string]func() (service.DealView, error){
-		"accept the counter":      func() (service.DealView, error) { return e.deals.Accept(ctx, buyer, v.ID, 1_300_000) },
-		"accept the listed price": func() (service.DealView, error) { return e.deals.Accept(ctx, buyer, v.ID, 1_500_000) },
-		"offer":                   func() (service.DealView, error) { return e.deals.Offer(ctx, buyer, v.ID, 1_100_000) },
+		"accept the counter": func() (service.DealView, error) { return e.deals.Accept(ctx, buyer, v.ID, 1_300_000) },
+		"order at the listed price": func() (service.DealView, error) {
+			return e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, "")
+		},
+		"offer": func() (service.DealView, error) { return e.deals.Offer(ctx, buyer, v.ID, 1_100_000) },
 	} {
 		if _, err := move(); !errors.Is(err, domain.ErrSellerAway) {
 			t.Errorf("%s: %v", name, err)

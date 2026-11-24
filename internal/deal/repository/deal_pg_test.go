@@ -109,14 +109,14 @@ WHERE subject_id = @id AND kind = 'deal.moved'`, pgx.StrictNamedArgs{"id": d.ID(
 		t.Fatalf("events: %d %v", n, err)
 	}
 
-	if err = got.Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
+	if err = got.Accept(domain.Seller, 1_000_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	agreed, err := s.Get(ctx, d.ID())
-	if err != nil || agreed.Status() != domain.StatusAgreed || agreed.AgreedPrice() != 1_500_000 ||
+	if err != nil || agreed.Status() != domain.StatusAgreed || agreed.AgreedPrice() != 1_000_000 ||
 		agreed.AgreedAt() == nil || agreed.OpenPrice() != nil {
 		t.Fatalf("%+v %v", agreed.State(), err)
 	}
@@ -205,15 +205,12 @@ func TestListByPartyAndOfListing(t *testing.T) {
 	}
 }
 
-// pendingDeal stores a deal on a new listing of seller's, agreed and with
-// a pending order.
+// pendingDeal stores a deal on a new listing of seller's whose buyer
+// ordered at the listed price.
 func pendingDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, seller uuid.UUID) domain.Deal {
 	t.Helper()
 	d := inserted(t, db, s, catalogtest.Listing(t, db, seller), buyer, seller)
-	if err := d.Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
-		t.Fatal(err)
-	}
-	if err := d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now); err != nil {
+	if err := d.RequestCod(domain.Buyer, uuid.NewV7(), 1_500_000, recipient, onSale, now); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Save(context.Background(), &d, uuid.NewV7()); err != nil {
@@ -326,10 +323,7 @@ func TestCodLimitHoldsUnderRace(t *testing.T) {
 		ds := make([]domain.Deal, 2)
 		for i := range ds {
 			ds[i] = inserted(t, db, s, catalogtest.Listing(t, db, seller), buyer, seller)
-			if err := ds[i].Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
-				t.Fatal(err)
-			}
-			if err := ds[i].RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now); err != nil {
+			if err := ds[i].RequestCod(domain.Buyer, uuid.NewV7(), 1_500_000, recipient, onSale, now); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -364,10 +358,7 @@ func TestOneShippedOrderPerListing(t *testing.T) {
 	results := make([]error, 0, 2)
 	for range 2 {
 		d := inserted(t, db, s, listing, accounttest.New(t, db), seller)
-		if err = d.Accept(domain.Buyer, 1_500_000, onSale, now); err != nil {
-			t.Fatal(err)
-		}
-		if err = d.RequestCod(domain.Buyer, uuid.NewV7(), recipient, onSale, now); err != nil {
+		if err = d.RequestCod(domain.Buyer, uuid.NewV7(), 1_500_000, recipient, onSale, now); err != nil {
 			t.Fatal(err)
 		}
 		if err = s.Save(ctx, &d, uuid.NewV7()); err != nil {

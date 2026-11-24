@@ -11,8 +11,10 @@ import (
 	"github.com/shopnexus/server/internal/platform/testenv"
 )
 
-// codBody asks for COD to address.
-func codBody(address string) map[string]any { return map[string]any{"address_id": address} }
+// codBody asks for COD at price, the price the buyer saw, to address.
+func codBody(price int64, address string) map[string]any {
+	return map[string]any{"price": price, "address_id": address}
+}
 
 // trackingCode is a GHTK code no other test ships under: the e2e tests
 // share one database, and a carrier's report moves every order with its
@@ -38,13 +40,12 @@ type shipmentPreview struct {
 	Fee           *int64 `json:"fee"`
 }
 
-// pendingOrder opens buyer's deal on listing, agrees the listed price and
-// asks for COD to buyer's default address.
+// pendingOrder opens buyer's deal on listing and asks for COD at the listed
+// price to buyer's default address.
 func pendingOrder(t *testing.T, buyer, listing string) dealView {
 	t.Helper()
 	d := openDeal(t, buyer, listing, http.StatusCreated)
-	moved(t, buyer, d.ID, "accept", map[string]any{"price": 1_500_000})
-	return moved(t, buyer, d.ID, "cod", codBody(deliveryAddress(t, buyer)))
+	return moved(t, buyer, d.ID, "cod", codBody(1_500_000, deliveryAddress(t, buyer)))
 }
 
 // orderCall posts to /v1/orders/{id}/{action} as token, signed out when it
@@ -180,8 +181,7 @@ func TestOrderFailed(t *testing.T) {
 	if got = getDeal(t, buyer.AccessToken, d.ID); got.Order.Status != "failed" {
 		t.Fatalf("a late report: %+v", got.Order)
 	}
-	moved(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000})
-	again := moved(t, buyer.AccessToken, d.ID, "cod", codBody(deliveryAddress(t, buyer.AccessToken)))
+	again := moved(t, buyer.AccessToken, d.ID, "cod", codBody(1_500_000, deliveryAddress(t, buyer.AccessToken)))
 	if again.Order.Status != "pending" || again.Order.ID == d.Order.ID {
 		t.Fatalf("buy again: %+v", again.Order)
 	}
@@ -264,8 +264,7 @@ func TestOrderEarlierRefused(t *testing.T) {
 	code := trackingCode()
 	first := orderMoved(t, seller.AccessToken, pendingOrder(t, buyer.AccessToken, l.ID).Order.ID, "shipment", shipmentBody(code))
 	expectStatus(t, setShipmentStatus(t, code, "failed"), http.StatusNoContent)
-	moved(t, buyer.AccessToken, first.ID, "accept", map[string]any{"price": 1_500_000})
-	second := moved(t, buyer.AccessToken, first.ID, "cod", codBody(deliveryAddress(t, buyer.AccessToken)))
+	second := moved(t, buyer.AccessToken, first.ID, "cod", codBody(1_500_000, deliveryAddress(t, buyer.AccessToken)))
 	orderMoved(t, seller.AccessToken, second.Order.ID, "shipment", shipmentBody(trackingCode()))
 	check(t, "confirm the failed order", orderCall(t, buyer.AccessToken, first.Order.ID, "confirm", nil), 409, "move_not_allowed")
 	check(t, "ship the failed order", orderCall(t, seller.AccessToken, first.Order.ID, "shipment", shipmentBody(trackingCode())),
@@ -284,27 +283,28 @@ func TestOrderRefusals(t *testing.T) {
 
 	home := deliveryAddress(t, buyer.AccessToken)
 	open := openDeal(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID, http.StatusCreated)
-	check(t, "cod signed out", dealCall(t, "", open.ID, "cod", codBody(home)), 401, "unauthenticated")
-	check(t, "cod a bad id", dealCall(t, buyer.AccessToken, "not-a-uuid", "cod", codBody(home)), 400, "")
-	check(t, "cod a bad address id", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody("not-a-uuid")), 400, "")
-	check(t, "cod as a stranger", dealCall(t, stranger.AccessToken, open.ID, "cod", codBody(home)), 404, "deal_not_found")
-	check(t, "cod not agreed", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(home)), 409, "move_not_allowed")
-	moved(t, buyer.AccessToken, open.ID, "accept", map[string]any{"price": 1_500_000})
-	check(t, "cod to someone else's address", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(newAddress(t, stranger.AccessToken).ID)),
+	check(t, "cod signed out", dealCall(t, "", open.ID, "cod", codBody(1_500_000, home)), 401, "unauthenticated")
+	check(t, "cod a bad id", dealCall(t, buyer.AccessToken, "not-a-uuid", "cod", codBody(1_500_000, home)), 400, "")
+	check(t, "cod a bad address id", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(1_500_000, "not-a-uuid")), 400, "")
+	check(t, "cod as a stranger", dealCall(t, stranger.AccessToken, open.ID, "cod", codBody(1_500_000, home)), 404, "deal_not_found")
+	check(t, "cod at a price not on offer", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(1_400_000, home)), 409, "price_changed")
+	check(t, "cod as the seller", dealCall(t, seller.AccessToken, open.ID, "cod", codBody(1_500_000, deliveryAddress(t, seller.AccessToken))),
+		409, "move_not_allowed")
+	check(t, "cod without a price", dealCall(t, buyer.AccessToken, open.ID, "cod", map[string]any{"address_id": home}), 400, "")
+	check(t, "cod to someone else's address", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(1_500_000, newAddress(t, stranger.AccessToken).ID)),
 		404, "address_not_found")
 	gone := newAddress(t, buyer.AccessToken).ID
 	expectStatus(t, call(t, "DELETE", "/v1/addresses/"+gone, nil, bearer(buyer.AccessToken)), http.StatusNoContent)
-	check(t, "cod to a deleted address", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(gone)), 404, "address_not_found")
+	check(t, "cod to a deleted address", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(1_500_000, gone)), 404, "address_not_found")
 	late, _ := newAccount(t)
 	ld := openDeal(t, late.AccessToken, activeListing(t, seller.AccessToken, nil).ID, http.StatusCreated)
-	moved(t, late.AccessToken, ld.ID, "accept", map[string]any{"price": 1_500_000})
 	lateHome := deliveryAddress(t, late.AccessToken)
 	suspend(t, late.Account.ID)
-	check(t, "cod suspended", dealCall(t, late.AccessToken, ld.ID, "cod", codBody(lateHome)), 403, "account_suspended")
+	check(t, "cod suspended", dealCall(t, late.AccessToken, ld.ID, "cod", codBody(1_500_000, lateHome)), 403, "account_suspended")
 	for range 2 {
 		pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
 	}
-	check(t, "a fourth order", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(home)), 409, "cod_limit_reached")
+	check(t, "a fourth order", dealCall(t, buyer.AccessToken, open.ID, "cod", codBody(1_500_000, home)), 409, "cod_limit_reached")
 
 	o := d.Order.ID
 	body := shipmentBody(trackingCode())
@@ -333,8 +333,7 @@ func TestCodAndCancelRepeatAKey(t *testing.T) {
 	seller, _ := newAccount(t)
 	buyer, _ := newAccount(t)
 	d := openDeal(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID, http.StatusCreated)
-	moved(t, buyer.AccessToken, d.ID, "accept", map[string]any{"price": 1_500_000})
-	cod, body := newKey(), codBody(deliveryAddress(t, buyer.AccessToken))
+	cod, body := newKey(), codBody(1_500_000, deliveryAddress(t, buyer.AccessToken))
 	first := expect[dealView](t, call(t, "POST", "/v1/deals/"+d.ID+"/cod", body, bearer(buyer.AccessToken), cod), http.StatusOK)
 	again := expect[dealView](t, call(t, "POST", "/v1/deals/"+d.ID+"/cod", body, bearer(buyer.AccessToken), cod), http.StatusOK)
 	if first.Order == nil || again.Order == nil || again.Order.ID != first.Order.ID {

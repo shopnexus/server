@@ -167,8 +167,8 @@ func TestALinkedShipmentTellsTheShipperWhatThePlaceIs(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		v := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
-		if v, err = e.deals.RequestCod(ctx, buyer, v.ID, a.ID, ""); err != nil || v.Order.Recipient.Kind != domain.AddressKind(kind) {
+		v := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
+		if v, err = e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, a.ID, ""); err != nil || v.Order.Recipient.Kind != domain.AddressKind(kind) {
 			t.Fatalf("%s: %+v %v", kind, v.Order, err)
 		}
 		in := service.ShipmentInput{Mode: "linked", Carrier: "ghtk", Service: "standard", WeightGrams: 800, Pickup: "home"}

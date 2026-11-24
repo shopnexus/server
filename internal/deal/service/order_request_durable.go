@@ -14,11 +14,12 @@ import (
 // dealRequestCod is the DealRequestCod service's name without the prefix.
 const dealRequestCod = "DealRequestCod"
 
-// CodInput names the buyer, the agreed deal and the address the order
-// goes to.
+// CodInput names the buyer, the deal, the price the buyer saw and the
+// address the order goes to.
 type CodInput struct {
 	Caller    uuid.UUID `json:"caller"`
 	DealID    uuid.UUID `json:"deal_id"`
+	Price     int64     `json:"price"`
 	AddressID uuid.UUID `json:"address_id"`
 }
 
@@ -29,7 +30,8 @@ type buyerFacts struct {
 	Refused   *apperr.Error    `json:"refused,omitempty"`
 }
 
-// DealRequestCod makes the pending order of an agreed deal, to a copy of
+// DealRequestCod makes the pending order of a deal at the price the buyer
+// saw, agreeing it when it still negotiates, to a copy of
 // one of the buyer's addresses, then schedules the seller's timeout.
 type DealRequestCod struct{ Deals *Deals }
 
@@ -84,7 +86,7 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 	// store's, which counts open orders in the save (BR-DEAL-06).
 	d := domain.RestoreDeal(m.Deal)
 	order := restatex.NewID(ctx, at)
-	if err = d.RequestCod(m.By, order, b.Recipient, facts(m.Listing), at); err != nil {
+	if err = d.RequestCod(m.By, order, in.Price, b.Recipient, facts(m.Listing), at); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
 	refused, err := saveStep(ctx, s.Deals.deals, &d, restatex.NewID(ctx, at), restatex.NewID(ctx, at), at)

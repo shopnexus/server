@@ -208,7 +208,7 @@ func (e *sellEnv) address(t *testing.T, owner uuid.UUID) uuid.UUID {
 	return a.ID
 }
 
-// pending has buyer agree a deal on listing and ask for COD.
+// pending has buyer ask for COD on listing at the listed price.
 func (e *sellEnv) pending(t *testing.T, buyer, listing uuid.UUID) dealsvc.DealView {
 	t.Helper()
 	ctx := context.Background()
@@ -216,10 +216,7 @@ func (e *sellEnv) pending(t *testing.T, buyer, listing uuid.UUID) dealsvc.DealVi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = e.deals.Accept(ctx, buyer, d.ID, 1_500_000); err != nil {
-		t.Fatal(err)
-	}
-	v, err := e.deals.RequestCod(ctx, buyer, d.ID, e.address(t, buyer), "")
+	v, err := e.deals.RequestCod(ctx, buyer, d.ID, 1_500_000, e.address(t, buyer), "")
 	if err != nil {
 		t.Fatal(err)
 	}
