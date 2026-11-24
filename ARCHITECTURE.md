@@ -1842,8 +1842,9 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   `cancelled`, `lost`), and a step to one of the order's four statuses.
   A failed delivery stays `in_transit`, since the carrier tries again;
   only `returning` and `returned` fail the order. `cancelled` and `lost`
-  move none. GHTK's shipper notices map to no step. A new carrier adds
-  its map in `step.go` and its report reader in `report.go`.
+  move none. GHTK's shipper notices map to no step. Each client keeps its
+  carrier's map and its webhook reader (`carrier.Reporter`); a new carrier
+  is one more client file.
 - Shipping keeps what the carriers report in `shipment_events` (0085),
   by carrier and tracking code: steps with the carrier's own status,
   reason, hub, shipper and delivery photo, and the new weight, fee, COD

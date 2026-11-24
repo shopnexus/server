@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // fakeFee is what the fake charges for any parcel, in đồng.
@@ -15,8 +17,9 @@ const fakeFee = 22_000
 // the password, token or code "wrong", texts a code to any phone but one
 // ending in 0000, knows every code but those that start
 // with NOTFOUND, reads each as the same parcel waiting for pickup, and
-// makes codes from the order code, so a retry gets the same one. With
-// CARRIER=fake the dev endpoint moves its shipments.
+// makes codes from the order code, so a retry gets the same one. It reads
+// reports as its carrier posts them. With CARRIER=fake the dev endpoint
+// moves its parcels.
 type Fake struct{ Carrier Carrier }
 
 var (
@@ -75,3 +78,14 @@ func (Fake) Lookup(_ context.Context, _ Account, code string) (Parcel, error) {
 }
 
 func (Fake) Cancel(context.Context, Account, string) error { return nil }
+
+// Report reads a report as the carrier the fake stands in for posts it.
+func (f Fake) Report(contentType string, body []byte, now time.Time) (string, []Event, error) {
+	switch f.Carrier {
+	case GHTK:
+		return GHTKClient{}.Report(contentType, body, now)
+	case GHN:
+		return GHNClient{}.Report(contentType, body, now)
+	}
+	return "", nil, fmt.Errorf("no reports from %s", f.Carrier)
+}

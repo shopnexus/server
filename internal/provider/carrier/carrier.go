@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -174,6 +175,13 @@ type Client interface {
 type Texter interface {
 	// SendOTP texts the code; ErrPhoneUnknown when no account has phone.
 	SendOTP(ctx context.Context, phone string) error
+}
+
+// Reporter is a carrier that posts webhooks. Report reads one: the
+// parcel's code and the events it tells, none for one that tells nothing
+// kept. contentType is the request's; now stands in for a time it lacks.
+type Reporter interface {
+	Report(contentType string, body []byte, now time.Time) (code string, evs []Event, err error)
 }
 
 // mask keeps each word's first letter: "Vân Nguyễn" → "V** N*****".

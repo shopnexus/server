@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,14 +16,14 @@ func NewEvents(db *pgxpool.Pool) Events { return pgEvents{db} }
 
 const eventColumns = `at, kind, step, carrier_status, reason, reason_code, warehouse, shipper_name, shipper_phone, proof_url, amount`
 
-func (s pgEvents) Add(ctx context.Context, c, code string, ev carrier.Event, received time.Time) (bool, error) {
+func (s pgEvents) Add(ctx context.Context, c, code string, ev carrier.Event) (bool, error) {
 	var step *string
 	if ev.Step != "" {
 		step = new(string(ev.Step))
 	}
 	tag, err := s.db.Exec(ctx, `INSERT INTO shipment_events (carrier, tracking_code, `+eventColumns+`, received_at)
 SELECT @carrier, @code, @at, @kind, @step, @status, @reason, @reason_code, @warehouse, @shipper_name, @shipper_phone,
-       @proof_url, @amount, @received
+       @proof_url, @amount, now()
 WHERE NOT EXISTS (
     SELECT 1 FROM shipment_events AS e
     WHERE e.carrier = @carrier AND e.tracking_code = @code AND e.kind = @kind AND e.step IS NOT DISTINCT FROM @step
@@ -40,7 +39,7 @@ WHERE NOT EXISTS (
 )`, pgx.StrictNamedArgs{
 		"carrier": c, "code": code, "at": ev.At, "kind": string(ev.Kind), "step": step, "status": ev.CarrierStatus,
 		"reason": ev.Reason, "reason_code": ev.ReasonCode, "warehouse": ev.Warehouse, "shipper_name": ev.ShipperName,
-		"shipper_phone": ev.ShipperPhone, "proof_url": ev.ProofURL, "amount": ev.Amount, "received": received,
+		"shipper_phone": ev.ShipperPhone, "proof_url": ev.ProofURL, "amount": ev.Amount,
 	})
 	if err != nil {
 		return false, fmt.Errorf("insert shipment event: %w", err)
@@ -48,9 +47,10 @@ WHERE NOT EXISTS (
 	return tag.RowsAffected() == 1, nil
 }
 
-func (s pgEvents) List(ctx context.Context, c, code string) ([]carrier.Event, error) {
+func (s pgEvents) List(ctx context.Context, c, code string, stepsOnly bool) ([]carrier.Event, error) {
 	rows, err := s.db.Query(ctx, `SELECT `+eventColumns+` FROM shipment_events
-WHERE carrier = @carrier AND tracking_code = @code ORDER BY at, id`, pgx.StrictNamedArgs{"carrier": c, "code": code})
+WHERE carrier = @carrier AND tracking_code = @code AND (kind = 'step' OR NOT @steps)
+ORDER BY at DESC, id DESC`, pgx.StrictNamedArgs{"carrier": c, "code": code, "steps": stepsOnly})
 	if err != nil {
 		return nil, fmt.Errorf("select shipment events: %w", err)
 	}

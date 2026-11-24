@@ -2,6 +2,7 @@ package handler
 
 import (
 	"crypto/subtle"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,17 +32,15 @@ func (h *Handler) Webhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, maxReport))
-	var code string
-	var evs []carrier.Event
 	if err == nil {
-		code, evs, err = carrier.ReadReport(c, r.Header.Get("Content-Type"), body, time.Now())
+		err = h.svc.Reported(r.Context(), c, r.Header.Get("Content-Type"), body)
 	}
-	if err != nil {
+	if errors.Is(err, domain.ErrReportUnread) || (err != nil && body == nil) {
 		h.log.WarnContext(r.Context(), "carrier report not read", "carrier", c, "err", err)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	if err = h.svc.Reported(r.Context(), c, code, evs); err != nil {
+	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
@@ -49,32 +48,27 @@ func (h *Handler) Webhook(w http.ResponseWriter, r *http.Request) {
 }
 
 type devReport struct {
-	Code         string `json:"-"                       path:"code"`
-	Step         string `json:"step"`
-	Reason       string `json:"reason,omitempty"`
-	Warehouse    string `json:"warehouse,omitempty"`
-	ShipperName  string `json:"shipper_name,omitempty"`
-	ShipperPhone string `json:"shipper_phone,omitempty"`
-	ProofURL     string `json:"proof_url,omitempty"`
+	Code         string       `json:"-"             path:"code"`
+	Step         carrier.Step `json:"step"`
+	Reason       string       `json:"reason"`
+	Warehouse    string       `json:"warehouse"`
+	ShipperName  string       `json:"shipper_name"`
+	ShipperPhone string       `json:"shipper_phone"`
+	ProofURL     string       `json:"proof_url"`
 }
 
 // DevReport serves POST /v1/dev/shipments/{code}/status, which Register
 // adds only for the fake carrier: a step of the parcel's, as its carrier
-// would report it.
+// would report it now.
 func (h *Handler) DevReport(w http.ResponseWriter, r *http.Request) {
 	var in devReport
 	if err := httpx.Bind(r, &in); err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	st, ok := carrier.ParseStep(in.Step)
-	if !ok {
-		httpx.WriteError(w, r, h.log, domain.ErrInvalidStep)
-		return
-	}
 	ev := carrier.Event{
-		Kind: carrier.KindStep, Step: st, CarrierStatus: string(st), Reason: in.Reason, Warehouse: in.Warehouse,
-		ShipperName: in.ShipperName, ShipperPhone: in.ShipperPhone, ProofURL: in.ProofURL,
+		At: time.Now(), Kind: carrier.KindStep, Step: in.Step, CarrierStatus: string(in.Step), Reason: in.Reason,
+		Warehouse: in.Warehouse, ShipperName: in.ShipperName, ShipperPhone: in.ShipperPhone, ProofURL: in.ProofURL,
 	}
 	if err := h.svc.DevReported(r.Context(), in.Code, ev); err != nil {
 		httpx.WriteError(w, r, h.log, fmt.Errorf("dev report: %w", err))

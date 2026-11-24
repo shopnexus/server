@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -237,7 +238,7 @@ func (g GHTKClient) Lookup(ctx context.Context, a Account, code string) (Parcel,
 	fee := int64(out.Order.ShipFee)
 	p := Parcel{RecipientName: mask(out.Order.Name), District: out.Order.Address, COD: int64(out.Order.PickCash), Fee: &fee}
 	// GHTK tells only the status it is at now.
-	if st, ok := GHTKStep(int(out.Order.Status)); ok {
+	if st, ok := ghtkSteps[int(out.Order.Status)]; ok {
 		p.Step = st
 		p.Events = []Event{{
 			At: readTime(out.Order.Modified, time.Now()), Kind: KindStep, Step: st, CarrierStatus: strconv.Itoa(int(out.Order.Status)),
@@ -272,4 +273,43 @@ func ghtkTransport(service string) string {
 		return "fly"
 	}
 	return "road"
+}
+
+// ghtkSteps maps GHTK's status_id. The shipper's notices (123, 127, 128,
+// 45, 49, 410) come before GHTK's own status and map to none.
+var ghtkSteps = map[int]Step{
+	-1: StepCancelled, 1: StepReadyToPick, 2: StepReadyToPick, 12: StepPicking,
+	7: StepPickupFailed, 8: StepPickupFailed, 3: StepPicked, 4: StepOutForDelivery,
+	9: StepDeliveryFailed, 10: StepDeliveryFailed, 5: StepDelivered, 6: StepDelivered,
+	20: StepReturning, 11: StepReturned, 21: StepReturned, 13: StepLost,
+}
+
+// Report reads label_id and status_id, a form or JSON, with the weight in
+// kg, the fee and the COD that each report repeats.
+func (GHTKClient) Report(contentType string, body []byte, now time.Time) (string, []Event, error) {
+	f, err := reportFields(contentType, body)
+	if err != nil {
+		return "", nil, err
+	}
+	if f["label_id"] == "" {
+		return "", nil, errNoCode
+	}
+	id, err := strconv.Atoi(strings.TrimSpace(f["status_id"]))
+	if err != nil {
+		return "", nil, fmt.Errorf("read status_id: %w", err)
+	}
+	at := readTime(f["action_time"], now)
+	var evs []Event
+	if st, ok := ghtkSteps[id]; ok {
+		evs = append(evs, Event{
+			At: at, Kind: KindStep, Step: st, CarrierStatus: strconv.Itoa(id),
+			Reason: f["reason"], ReasonCode: f["reason_code"],
+		})
+	}
+	if kg, ok := number(f["weight"]); ok {
+		evs = append(evs, Event{At: at, Kind: KindWeight, Amount: int64(math.Round(kg * 1000))})
+	}
+	evs = appendAmount(evs, at, KindFee, f["fee"])
+	evs = appendAmount(evs, at, KindCOD, f["pick_money"])
+	return f["label_id"], evs, nil
 }

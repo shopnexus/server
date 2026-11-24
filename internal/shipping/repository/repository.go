@@ -42,10 +42,11 @@ type Accounts interface {
 // Events keeps what the carriers reported of their parcels, by carrier and
 // tracking code.
 type Events interface {
-	// Add keeps ev, received at received, unless it repeats one kept: the
-	// same kind, step, carrier status and amount within ten minutes, or the
-	// newest event of its kind. false when it was a repeat.
-	Add(ctx context.Context, c, code string, ev carrier.Event, received time.Time) (bool, error)
-	// List is a parcel's events, oldest first.
-	List(ctx context.Context, c, code string) ([]carrier.Event, error)
+	// Add keeps ev unless it repeats one kept: the same kind, step, carrier
+	// status and amount within ten minutes, or the newest event of its
+	// kind. false when it was a repeat.
+	Add(ctx context.Context, c, code string, ev carrier.Event) (bool, error)
+	// List is a parcel's events, newest first; its steps alone when
+	// stepsOnly.
+	List(ctx context.Context, c, code string, stepsOnly bool) ([]carrier.Event, error)
 }

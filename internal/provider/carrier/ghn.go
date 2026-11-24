@@ -322,10 +322,10 @@ func (g GHNClient) Lookup(ctx context.Context, a Account, code string) (Parcel, 
 		return Parcel{}, err
 	}
 	p := Parcel{RecipientName: mask(out.ToName), District: out.Address, COD: out.COD}
-	p.Step, _ = GHNStep(out.Status)
+	p.Step = ghnSteps[out.Status]
 	now := time.Now()
 	for _, l := range out.Log {
-		if st, ok := GHNStep(l.Status); ok {
+		if st, ok := ghnSteps[l.Status]; ok {
 			p.Events = append(p.Events, Event{At: readTime(l.At, now), Kind: KindStep, Step: st, CarrierStatus: l.Status})
 		}
 	}
@@ -348,4 +348,51 @@ func (g GHNClient) Cancel(ctx context.Context, a Account, code string) error {
 		return ErrNotCancellable
 	}
 	return nil
+}
+
+// ghnSteps maps GHN's order status; exception maps to none.
+var ghnSteps = map[string]Step{
+	"ready_to_pick": StepReadyToPick, "picking": StepPicking, "money_collect_picking": StepPicking,
+	"picked": StepPicked, "storing": StepAtHub, "sorting": StepAtHub, "transporting": StepTransporting,
+	"delivering": StepOutForDelivery, "money_collect_delivering": StepOutForDelivery,
+	"delivery_fail": StepDeliveryFailed, "delivered": StepDelivered,
+	"waiting_to_return": StepReturning, "return": StepReturning, "return_transporting": StepReturning,
+	"return_sorting": StepReturning, "returning": StepReturning, "return_fail": StepReturning,
+	"returned": StepReturned, "cancel": StepCancelled, "lost": StepLost, "damage": StepLost,
+}
+
+// Report reads GHN's JSON by OrderCode and Type: a create or a
+// switch_status tells a step, update_weight, update_fee and update_cod an
+// amount. A paid-out COD comes with CODTransferDate on any of them.
+func (GHNClient) Report(contentType string, body []byte, now time.Time) (string, []Event, error) {
+	f, err := reportFields(contentType, body)
+	if err != nil {
+		return "", nil, err
+	}
+	if f["OrderCode"] == "" {
+		return "", nil, errNoCode
+	}
+	at := readTime(f["Time"], now)
+	var evs []Event
+	switch strings.ToLower(f["Type"]) {
+	case "", "create", "switch_status":
+		if st, ok := ghnSteps[f["Status"]]; ok {
+			evs = append(evs, Event{
+				At: at, Kind: KindStep, Step: st, CarrierStatus: f["Status"],
+				Reason: f["Reason"], ReasonCode: f["ReasonCode"], Warehouse: f["Warehouse"],
+				ShipperName: f["ShipperName"], ShipperPhone: f["ShipperPhone"], ProofURL: f["PodURL"],
+			})
+		}
+	case "update_weight":
+		evs = appendAmount(evs, at, KindWeight, f["Weight"])
+	case "update_fee":
+		evs = appendAmount(evs, at, KindFee, f["TotalFee"])
+	case "update_cod":
+		evs = appendAmount(evs, at, KindCOD, f["CODAmount"])
+	default: // another Type tells nothing kept
+	}
+	if paid := f["CODTransferDate"]; paid != "" {
+		evs = appendAmount(evs, readTime(paid, now), KindCODTransfer, f["CODAmount"])
+	}
+	return f["OrderCode"], evs, nil
 }

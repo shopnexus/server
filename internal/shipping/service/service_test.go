@@ -259,41 +259,39 @@ func TestReportedKeepsTheTimelineAndMovesToTheNewestStep(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t, fakes())
 	code := "S1." + uuid.NewV7().String()
-	t0 := time.Date(2026, 11, 24, 9, 0, 0, 0, time.UTC)
-	picked := carrier.Event{At: t0, Kind: carrier.KindStep, Step: carrier.StepPicked, CarrierStatus: "3"}
-	weight := carrier.Event{At: t0, Kind: carrier.KindWeight, Amount: 800}
-	late := carrier.Event{At: t0.Add(-time.Hour), Kind: carrier.KindStep, Step: carrier.StepReadyToPick, CarrierStatus: "2"}
-	missed := carrier.Event{
-		At: t0.Add(time.Hour), Kind: carrier.KindStep, Step: carrier.StepDeliveryFailed, CarrierStatus: "9", Reason: "Không liên lạc được",
+	ghtk := func(id int, at, extra string) string {
+		return fmt.Sprintf(`{"label_id":%q,"status_id":%d,"action_time":%q%s}`, code, id, at, extra)
 	}
 	for _, r := range []struct {
-		c   carrier.Carrier
-		cd  string
-		evs []carrier.Event
+		c    carrier.Carrier
+		body string
 	}{
-		{carrier.GHTK, code, []carrier.Event{picked, weight}},
-		{carrier.GHTK, code, []carrier.Event{picked, weight}},
-		{carrier.GHTK, code, []carrier.Event{late}},
-		{carrier.GHTK, code, []carrier.Event{missed}},
-		{carrier.GHN, code, []carrier.Event{{At: t0.Add(2 * time.Hour), Kind: carrier.KindStep, Step: carrier.StepReturned}}},
-		{carrier.GHTK, "UNKNOWN", []carrier.Event{picked}},
+		{carrier.GHTK, ghtk(3, "2026-11-24T09:00:00Z", `,"weight":0.8`)},
+		{carrier.GHTK, ghtk(3, "2026-11-24T09:00:00Z", `,"weight":0.8`)},
+		{carrier.GHTK, ghtk(2, "2026-11-24T08:00:00Z", "")},
+		{carrier.GHTK, ghtk(9, "2026-11-24T10:00:00Z", `,"reason":"Không liên lạc được"`)},
+		{carrier.GHN, fmt.Sprintf(`{"OrderCode":%q,"Status":"returned"}`, code)},
+		{carrier.GHTK, `{"label_id":"UNKNOWN","status_id":3}`},
 	} {
-		if err := e.svc.Reported(ctx, r.c, r.cd, r.evs); err != nil {
-			t.Fatal(err)
+		if err := e.svc.Reported(ctx, r.c, "application/json", []byte(r.body)); err != nil {
+			t.Fatalf("%s: %v", r.body, err)
 		}
+	}
+	if err := e.svc.Reported(ctx, carrier.GHTK, "application/json", []byte("not json")); !errors.Is(err, domain.ErrReportUnread) {
+		t.Fatalf("an unreadable report: %v", err)
 	}
 	if want := code + " in_transit|" + code + " in_transit"; strings.Join(e.deals.reported, "|") != want {
 		t.Fatalf("%v", e.deals.reported)
 	}
-	got, err := e.svc.Tracking(ctx, "ghtk", code)
-	if err != nil || got.Step != carrier.StepDeliveryFailed || len(got.Events) != 4 ||
-		got.Events[0].Reason != "Không liên lạc được" || got.Events[3].Step != carrier.StepReadyToPick {
-		t.Fatalf("%+v %v", got, err)
+	all, err := e.svc.Tracking(ctx, "ghtk", code, true)
+	if err != nil || all.Step != carrier.StepDeliveryFailed || len(all.Events) != 4 ||
+		all.Events[0].Reason != "Không liên lạc được" || all.Events[3].Step != carrier.StepReadyToPick {
+		t.Fatalf("%+v %v", all, err)
 	}
-	if b := got.ForBuyer(); len(b.Events) != 3 || b.Step != got.Step {
+	if b, _ := e.svc.Tracking(ctx, "ghtk", code, false); len(b.Events) != 3 || b.Step != all.Step {
 		t.Fatalf("the buyer sees the weight: %+v", b)
 	}
-	if err = e.svc.DevReported(ctx, "UNKNOWN", picked); !errors.Is(err, errNoOrder) {
+	if err = e.svc.DevReported(ctx, "UNKNOWN", carrier.Event{At: time.Now(), Kind: carrier.KindStep, Step: carrier.StepPicked}); !errors.Is(err, errNoOrder) {
 		t.Fatalf("a code no order has: %v", err)
 	}
 }

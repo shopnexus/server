@@ -54,12 +54,9 @@ func (s *Screen) Order(ctx context.Context, account, order uuid.UUID) (OrderScre
 	}
 	out := OrderScreen{Order: o, Deal: d, Counterpart: person, OwnReview: reviews[order].Own, TheirReview: reviews[order].Their}
 	if sh := o.Shipment; sh != nil {
-		t, trackErr := s.shipping.Tracking(ctx, string(sh.Carrier), sh.TrackingCode)
+		t, trackErr := s.shipping.Tracking(ctx, string(sh.Carrier), sh.TrackingCode, d.Role == dealdomain.Seller)
 		if trackErr != nil {
 			return OrderScreen{}, fmt.Errorf("read the tracking: %w", trackErr)
-		}
-		if d.Role == dealdomain.Buyer {
-			t = t.ForBuyer()
 		}
 		if len(t.Events) > 0 {
 			out.Tracking = &t

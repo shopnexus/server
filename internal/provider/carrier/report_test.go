@@ -27,6 +27,7 @@ func TestReadReportTellsStepsAndAmounts(t *testing.T) {
 			},
 		},
 		"a GHTK shipper's notice": {carrier.GHTK, "application/json", `{"label_id":"S1","status_id":"123"}`, nil},
+		"a GHN exception":         {carrier.GHN, "application/json", `{"OrderCode":"LY9VHQ","Type":"switch_status","Status":"exception"}`, nil},
 		"a GHN switch_status": {
 			carrier.GHN, "application/json",
 			`{"OrderCode":"LY9VHQ","Type":"switch_status","Status":"storing","Time":"2026-11-24T09:00:00Z","Warehouse":"Bưu Cục Quận 1"}`,
@@ -45,7 +46,7 @@ func TestReadReportTellsStepsAndAmounts(t *testing.T) {
 			},
 		},
 	} {
-		code, evs, err := carrier.ReadReport(c.carrier, c.media, []byte(c.body), now)
+		code, evs, err := carrier.Fake{Carrier: c.carrier}.Report(c.media, []byte(c.body), now)
 		if err != nil || code == "" || len(evs) != len(c.want) {
 			t.Errorf("%s: %q %+v %v", name, code, evs, err)
 			continue
@@ -61,7 +62,7 @@ func TestReadReportTellsStepsAndAmounts(t *testing.T) {
 		}
 	}
 	for _, body := range []string{`{"status_id":5}`, `not json`} {
-		if _, _, err := carrier.ReadReport(carrier.GHTK, "application/json", []byte(body), now); err == nil {
+		if _, _, err := (carrier.GHTKClient{}).Report("application/json", []byte(body), now); err == nil {
 			t.Errorf("%s was read", body)
 		}
 	}
@@ -83,11 +84,5 @@ func TestStepsMapToTheOrderStatus(t *testing.T) {
 		if got, ok := st.Status(); ok {
 			t.Errorf("%q moves the order to %s", st, got)
 		}
-	}
-	if s, ok := carrier.GHNStep("exception"); ok {
-		t.Errorf("exception maps to %s", s)
-	}
-	if s, ok := carrier.GHTKStep(10); !ok || s != carrier.StepDeliveryFailed {
-		t.Errorf("GHTK 10: %s %v", s, ok)
 	}
 }

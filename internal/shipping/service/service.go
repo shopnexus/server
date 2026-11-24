@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 	"uuid"
@@ -36,18 +35,6 @@ type AccountView struct {
 type Tracking struct {
 	Step   carrier.Step    `json:"step,omitempty"`
 	Events []carrier.Event `json:"events"`
-}
-
-// ForBuyer keeps the steps: the weight, the fee and the COD paid out are
-// the seller's business.
-func (t Tracking) ForBuyer() Tracking {
-	out := Tracking{Step: t.Step, Events: make([]carrier.Event, 0, len(t.Events))}
-	for i := range t.Events {
-		if t.Events[i].Kind == carrier.KindStep {
-			out.Events = append(out.Events, t.Events[i])
-		}
-	}
-	return out
 }
 
 // QuoteRequest is GET /v1/shipments/quote's query: an order of the
@@ -127,17 +114,21 @@ type Service interface {
 	Lookup(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
 	Cancel(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) error
 	// Track is Lookup for an order's own shipment: it also keeps the
-	// events the carrier tells, for the parcel's timeline.
+	// events the carrier tells, and its Step is the timeline's newest, the
+	// one a report moves the order to.
 	Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
-	// Reported keeps a carrier's events of a parcel and moves its orders to
-	// the status of its newest step; a code no order has changes nothing.
-	Reported(ctx context.Context, c carrier.Carrier, code string, evs []carrier.Event) error
-	// DevReported is Reported as the dev endpoint calls it, for the fake
+	// Reported reads carrier c's webhook, keeps the events it tells of a
+	// parcel and moves its orders to the status of its newest step. A code
+	// no order has changes nothing; a report that does not read is
+	// domain.ErrReportUnread.
+	Reported(ctx context.Context, c carrier.Carrier, contentType string, body []byte) error
+	// DevReported is a report as the dev endpoint makes it, for the fake
 	// carrier: the carrier is the order's, and a code no order has is
 	// deal's shipment_not_found.
 	DevReported(ctx context.Context, code string, ev carrier.Event) error
-	// Tracking is a parcel's timeline as the carriers reported it.
-	Tracking(ctx context.Context, c, code string) (Tracking, error)
+	// Tracking is a parcel's timeline as the carriers reported it: its
+	// steps, and for the seller also the weight, fee and COD paid out.
+	Tracking(ctx context.Context, c, code string, seller bool) (Tracking, error)
 	// AccountDeleted drops the account's carrier accounts.
 	AccountDeleted(ctx context.Context, owner uuid.UUID) error
 }
@@ -405,10 +396,29 @@ func (s *Shipping) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrie
 	if _, err = s.keep(ctx, string(c), code, p.Events); err != nil {
 		return carrier.Parcel{}, err
 	}
+	t, err := s.Tracking(ctx, string(c), code, false)
+	if err != nil {
+		return carrier.Parcel{}, err
+	}
+	if t.Step != "" {
+		p.Step = t.Step
+	}
 	return p, nil
 }
 
-func (s *Shipping) Reported(ctx context.Context, c carrier.Carrier, code string, evs []carrier.Event) error {
+func (s *Shipping) Reported(ctx context.Context, c carrier.Carrier, contentType string, body []byte) error {
+	cl, err := s.client(string(c))
+	if err != nil {
+		return err
+	}
+	r, ok := cl.(carrier.Reporter)
+	if !ok {
+		return fmt.Errorf("%w: %s posts none", domain.ErrReportUnread, c)
+	}
+	code, evs, err := r.Report(contentType, body, s.d.Now())
+	if err != nil {
+		return fmt.Errorf("%w: %w", domain.ErrReportUnread, err)
+	}
 	if len(evs) == 0 {
 		return nil
 	}
@@ -419,16 +429,13 @@ func (s *Shipping) Reported(ctx context.Context, c carrier.Carrier, code string,
 	if err != nil {
 		return fmt.Errorf("find %s %s: %w", c, code, err)
 	}
-	return s.report(ctx, owner, code, evs)
+	return s.report(ctx, string(c), code, evs)
 }
 
 func (s *Shipping) DevReported(ctx context.Context, code string, ev carrier.Event) error {
 	c, err := s.d.Deals.ShipmentCarrier(ctx, code)
 	if err != nil {
 		return fmt.Errorf("find %s: %w", code, err)
-	}
-	if ev.At.IsZero() {
-		ev.At = s.d.Now()
 	}
 	return s.report(ctx, c, code, []carrier.Event{ev})
 }
@@ -441,17 +448,12 @@ func (s *Shipping) report(ctx context.Context, c, code string, evs []carrier.Eve
 	if err != nil || stepped.IsZero() {
 		return err
 	}
-	t, err := s.Tracking(ctx, c, code)
+	t, err := s.Tracking(ctx, c, code, false)
 	if err != nil {
 		return err
 	}
-	for i := range t.Events {
-		if t.Events[i].Kind == carrier.KindStep && t.Events[i].At.After(stepped) {
-			return nil
-		}
-	}
 	st, moves := t.Step.Status()
-	if !moves {
+	if !moves || t.Events[0].At.After(stepped) {
 		return nil
 	}
 	err = s.d.Deals.ShipmentUpdated(ctx, code, string(st))
@@ -464,10 +466,9 @@ func (s *Shipping) report(ctx context.Context, c, code string, evs []carrier.Eve
 // keep stores evs and returns when the newest new step among them was,
 // zero for none.
 func (s *Shipping) keep(ctx context.Context, c, code string, evs []carrier.Event) (stepped time.Time, err error) {
-	now := s.d.Now()
 	for i := range evs {
 		ev := &evs[i]
-		kept, addErr := s.d.Events.Add(ctx, c, code, *ev, now)
+		kept, addErr := s.d.Events.Add(ctx, c, code, *ev)
 		if addErr != nil {
 			return time.Time{}, fmt.Errorf("keep %s %s: %w", c, code, addErr)
 		}
@@ -478,17 +479,17 @@ func (s *Shipping) keep(ctx context.Context, c, code string, evs []carrier.Event
 	return stepped, nil
 }
 
-func (s *Shipping) Tracking(ctx context.Context, c, code string) (Tracking, error) {
-	evs, err := s.d.Events.List(ctx, c, code)
+func (s *Shipping) Tracking(ctx context.Context, c, code string, seller bool) (Tracking, error) {
+	evs, err := s.d.Events.List(ctx, c, code, !seller)
 	if err != nil {
 		return Tracking{}, fmt.Errorf("read the events of %s %s: %w", c, code, err)
 	}
-	t := Tracking{Events: make([]carrier.Event, 0, len(evs))}
-	for i := range slices.Backward(evs) {
-		if t.Step == "" && evs[i].Kind == carrier.KindStep {
+	t := Tracking{Events: evs}
+	for i := range evs {
+		if evs[i].Kind == carrier.KindStep {
 			t.Step = evs[i].Step
+			break
 		}
-		t.Events = append(t.Events, evs[i])
 	}
 	return t, nil
 }
