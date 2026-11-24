@@ -14,6 +14,7 @@ import (
 
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/contact"
 	"github.com/shopnexus/server/internal/provider/carrier"
 	"github.com/shopnexus/server/internal/shipping/domain"
 	"github.com/shopnexus/server/internal/shipping/repository"
@@ -83,6 +84,8 @@ type Service interface {
 	SavedPickup(ctx context.Context, owner uuid.UUID) (Pickup, error)
 	// Accounts lists the owner's linked accounts, without their tokens.
 	Accounts(ctx context.Context, owner uuid.UUID) ([]AccountView, error)
+	// SendOTP has carrier c text phone the code Link takes; only GHN does.
+	SendOTP(ctx context.Context, c, phone string) error
 	// Link checks the credentials at carrier c and keeps the token sealed,
 	// replacing an account linked there before.
 	Link(ctx context.Context, owner uuid.UUID, c string, cr carrier.Credentials) (AccountView, error)
@@ -146,6 +149,9 @@ func (s *Shipping) account(ctx context.Context, owner uuid.UUID, c string) (carr
 	if err != nil {
 		return nil, carrier.Account{}, fmt.Errorf("read the %s account of %s: %w", c, owner, err)
 	}
+	if row.Token == nil {
+		return cl, carrier.Account{ShopCode: row.ShopCode}, nil
+	}
 	token, err := domain.Open(s.d.Key, row.Token, row.Nonce)
 	if err != nil {
 		return nil, carrier.Account{}, domain.ErrRelinkNeeded.WithCause(fmt.Errorf("open the %s token of %s: %w", c, owner, err))
@@ -163,6 +169,10 @@ func carrierError(err error) error {
 		return domain.ErrLoginFailed
 	case errors.Is(err, carrier.ErrAddressUnknown):
 		return domain.ErrAddressUnknown
+	case errors.Is(err, carrier.ErrPhoneUnknown):
+		return domain.ErrPhoneUnknown
+	case errors.Is(err, carrier.ErrOTPInvalid):
+		return domain.ErrOTPInvalid
 	case errors.Is(err, carrier.ErrRefused):
 		reason := strings.TrimSpace(strings.TrimPrefix(err.Error(), carrier.ErrRefused.Error()+":"))
 		return domain.ErrCarrierRefused.WithReason(reason).WithCause(err)
@@ -182,20 +192,51 @@ func (s *Shipping) Accounts(ctx context.Context, owner uuid.UUID) ([]AccountView
 	return views, nil
 }
 
+// mobile is raw as +84 and nine digits, or carrier_phone_unknown.
+func mobile(raw string) (string, error) {
+	p, err := contact.ParsePhone(raw)
+	if err != nil {
+		return "", domain.ErrPhoneUnknown.WithField("phone", apperr.Invalid, "format")
+	}
+	return p.Value(), nil
+}
+
+func (s *Shipping) SendOTP(ctx context.Context, c, phone string) error {
+	cl, err := s.client(c)
+	if err != nil {
+		return err
+	}
+	t, ok := cl.(carrier.Texter)
+	if !ok || c != string(carrier.GHN) {
+		return domain.ErrInvalidCarrier
+	}
+	if phone, err = mobile(phone); err != nil {
+		return err
+	}
+	return carrierError(t.SendOTP(ctx, phone))
+}
+
 func (s *Shipping) Link(ctx context.Context, owner uuid.UUID, c string, cr carrier.Credentials) (AccountView, error) {
 	cl, err := s.client(c)
 	if err != nil {
 		return AccountView{}, err
 	}
+	if cr.OTP != "" {
+		if cr.Phone, err = mobile(cr.Phone); err != nil {
+			return AccountView{}, err
+		}
+	}
 	l, err := cl.Link(ctx, cr)
 	if err != nil {
 		return AccountView{}, carrierError(err)
 	}
-	sealed, nonce, err := domain.Seal(s.d.Key, l.Token)
-	if err != nil {
-		return AccountView{}, err
+	row := repository.Row{AccountID: owner, Carrier: c, ShopCode: l.ShopCode, LinkedAt: s.d.Now().UTC()}
+	// A shop ShopNexus joined keeps no token of its own.
+	if l.Token != "" {
+		if row.Token, row.Nonce, err = domain.Seal(s.d.Key, l.Token); err != nil {
+			return AccountView{}, err
+		}
 	}
-	row := repository.Row{AccountID: owner, Carrier: c, ShopCode: l.ShopCode, Token: sealed, Nonce: nonce, LinkedAt: s.d.Now().UTC()}
 	if err = s.d.Accounts.Put(ctx, row); err != nil {
 		return AccountView{}, fmt.Errorf("store the %s account: %w", c, err)
 	}
@@ -270,16 +311,36 @@ func (s *Shipping) Quote(ctx context.Context, owner uuid.UUID, c string, in Quot
 	if err != nil {
 		return 0, err
 	}
+	from, err := s.joinedPickup(ctx, owner, a, carrier.Pickup{PointID: in.PickupPointID, Place: facts.Pickup})
+	if err != nil {
+		return 0, err
+	}
 	fee, err := cl.Quote(ctx, a, carrier.QuoteInput{
-		Recipient: facts.Recipient, Pickup: carrier.Pickup{PointID: in.PickupPointID, Place: facts.Pickup},
+		Recipient: facts.Recipient, Pickup: from,
 		WeightGrams: in.WeightGrams, Service: in.Service, Value: facts.Price,
 	})
 	return fee, carrierError(err)
 }
 
+// joinedPickup is the saved pickup for a shop ShopNexus joined and no
+// place asked: that shop's own address at GHN is only a fallback.
+func (s *Shipping) joinedPickup(ctx context.Context, owner uuid.UUID, a carrier.Account, p carrier.Pickup) (carrier.Pickup, error) {
+	if a.Token != "" || p.Place != nil {
+		return p, nil
+	}
+	sp, err := s.SavedPickup(ctx, owner)
+	if err != nil {
+		return carrier.Pickup{}, err
+	}
+	return carrier.Pickup{Place: &carrier.Place{Name: sp.Name, Phone: sp.Phone, Street: sp.Street, Commune: sp.Commune, Province: sp.Province}}, nil
+}
+
 func (s *Shipping) Create(ctx context.Context, seller uuid.UUID, c carrier.Carrier, in carrier.CreateInput) (carrier.Created, error) {
 	cl, a, err := s.account(ctx, seller, string(c))
 	if err != nil {
+		return carrier.Created{}, err
+	}
+	if in.Pickup, err = s.joinedPickup(ctx, seller, a, in.Pickup); err != nil {
 		return carrier.Created{}, err
 	}
 	created, err := cl.Create(ctx, a, in)

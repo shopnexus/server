@@ -98,6 +98,41 @@ func TestLinkStoresASealedTokenAndShowsTheShopCode(t *testing.T) {
 	}
 }
 
+func TestLinkByACodeKeepsNoToken(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t, fakes())
+	if err := e.svc.SendOTP(ctx, "ghn", "0356 875 408"); err != nil {
+		t.Fatal(err)
+	}
+	for name, c := range map[string]struct {
+		carrier, phone string
+		want           error
+	}{
+		"GHTK":           {"ghtk", "0356875408", domain.ErrInvalidCarrier},
+		"not a mobile":   {"ghn", "12345", domain.ErrPhoneUnknown},
+		"no GHN account": {"ghn", "0356870000", domain.ErrPhoneUnknown},
+	} {
+		if err := e.svc.SendOTP(ctx, c.carrier, c.phone); !errors.Is(err, c.want) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if _, err := e.svc.Link(ctx, e.owner, "ghn", carrier.Credentials{Phone: "0356875408", OTP: "wrong"}); !errors.Is(err, domain.ErrOTPInvalid) {
+		t.Fatalf("a wrong code: %v", err)
+	}
+	v, err := e.svc.Link(ctx, e.owner, "ghn", carrier.Credentials{Phone: "0356875408", OTP: "860228"})
+	if err != nil || v.ShopCode == "" {
+		t.Fatalf("%+v %v", v, err)
+	}
+	if row, _ := e.rows.Get(ctx, e.owner, "ghn"); row.Token != nil || row.Nonce != nil {
+		t.Fatalf("kept a token %+v", row)
+	}
+	// The shop is called with ShopNexus's token: an empty one.
+	if _, err = e.svc.Pickups(ctx, e.owner, "ghn"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestAWrongPasswordIsLoginFailed(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t, fakes())

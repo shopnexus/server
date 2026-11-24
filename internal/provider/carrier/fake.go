@@ -12,17 +12,35 @@ import (
 const fakeFee = 22_000
 
 // Fake is one carrier in development and tests. It links any account but
-// the password or token "wrong", knows every code but those that start
+// the password, token or code "wrong", texts a code to any phone but one
+// ending in 0000, knows every code but those that start
 // with NOTFOUND, reads each as the same parcel waiting for pickup, and
 // makes codes from the order code, so a retry gets the same one. With
 // CARRIER=fake the dev endpoint moves its shipments.
 type Fake struct{ Carrier Carrier }
 
-var _ Client = Fake{}
+var (
+	_ Client = Fake{}
+	_ Texter = Fake{}
+)
+
+func (Fake) SendOTP(_ context.Context, phone string) error {
+	if strings.HasSuffix(phone, "0000") {
+		return ErrPhoneUnknown
+	}
+	return nil
+}
 
 func (f Fake) Link(_ context.Context, c Credentials) (Linked, error) {
 	if c.Password == "wrong" || c.Token == "wrong" {
 		return Linked{}, ErrLoginFailed
+	}
+	if c.OTP == "wrong" {
+		return Linked{}, ErrOTPInvalid
+	}
+	if c.OTP != "" {
+		sum := sha256.Sum256([]byte(c.Phone))
+		return Linked{ShopCode: strconv.Itoa(int(binary.BigEndian.Uint16(sum[:2])))}, nil
 	}
 	if f.Carrier == GHN {
 		return Linked{ShopCode: c.ShopID, Token: "fake-ghn-" + c.Token}, nil

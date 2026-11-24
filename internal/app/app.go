@@ -189,7 +189,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 		c := cfg.Carrier
 		carriers.Clients = map[carrier.Carrier]carrier.Client{
 			carrier.GHTK: carrier.GHTKClient{BaseURL: c.GHTKURL, PartnerToken: c.GHTKPartner, ClientSource: c.GHTKSource, HTTP: web},
-			carrier.GHN:  carrier.GHNClient{BaseURL: c.GHNURL, HTTP: web},
+			carrier.GHN:  carrier.GHNClient{BaseURL: c.GHNURL, PartnerToken: c.GHNPartner, HTTP: web},
 		}
 		carriers.WebhookSecrets = map[carrier.Carrier]string{carrier.GHTK: c.GHTKWebhook, carrier.GHN: c.GHNWebhook}
 	case "none":

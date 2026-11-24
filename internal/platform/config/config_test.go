@@ -38,6 +38,7 @@ func required() map[string]string {
 		"GHTK_CLIENT_SOURCE":           "",
 		"GHTK_WEBHOOK_SECRET":          "",
 		"GHN_API_URL":                  "",
+		"GHN_PARTNER_TOKEN":            "",
 		"GHN_WEBHOOK_SECRET":           "",
 		"HTTP_ADDR":                    ":8080",
 		"LOG_LEVEL":                    "info",
@@ -509,12 +510,13 @@ func TestLoadCarrierLive(t *testing.T) {
 	live := map[string]string{
 		"GHTK_API_URL": "https://services-staging.ghtklab.com", "GHTK_PARTNER_TOKEN": "partner", "GHTK_CLIENT_SOURCE": "S1",
 		"GHTK_WEBHOOK_SECRET": "w1", "GHN_API_URL": "https://dev-online-gateway.ghn.vn/shiip/public-api", "GHN_WEBHOOK_SECRET": "w2",
+		"GHN_PARTNER_TOKEN": "ghn-partner",
 	}
 	env := required()
 	env["CARRIER"] = "live"
 	maps.Copy(env, live)
 	cfg, err := Load(lookup(env))
-	if err != nil || cfg.Carrier.Mode != "live" || cfg.Carrier.GHTKPartner != "partner" || cfg.Carrier.GHNURL != live["GHN_API_URL"] {
+	if err != nil || cfg.Carrier.Mode != "live" || cfg.Carrier.GHTKPartner != "partner" || cfg.Carrier.GHNURL != live["GHN_API_URL"] || cfg.Carrier.GHNPartner != "ghn-partner" {
 		t.Fatalf("%+v %v", cfg.Carrier, err)
 	}
 	for key := range live {

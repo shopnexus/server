@@ -28,7 +28,9 @@ carrierAccount:
     description: |
       GHTK: the seller's email and password, exchanged at once for the
       shop's token through GHTK's partner API; the password is not stored.
-      GHN: the seller's token and ShopId, checked against GHN's shop list.
+      GHN: the seller's token and ShopId, checked against GHN's shop list;
+      or the phone and the code from POST .../otp, with which GHN makes the
+      seller a shop that ShopNexus is staff of, so no token is kept.
       The token is stored encrypted and never returned.
     tags: [shipping]
     security:
@@ -51,7 +53,7 @@ carrierAccount:
       "401":
         $ref: "../responses/common.yaml#/Unauthorized"
       "422":
-        description: "The carrier refused the account (carrier_login_failed), or the carrier is not ghtk or ghn, or the body is the other carrier's (invalid_carrier)."
+        description: "The carrier refused the account (carrier_login_failed), the code is wrong or expired (carrier_otp_invalid), the phone has no GHN account or is not a mobile (carrier_phone_unknown), GHN refused for a reason of its own (carrier_refused), or the carrier is not ghtk or ghn, or the body is the other carrier's (invalid_carrier)."
         content:
           application/json:
             schema:
@@ -87,6 +89,48 @@ carrierAccount:
               $ref: "../schemas/error.yaml#/Error"
       "422":
         description: "Not ghtk or ghn (invalid_carrier)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+carrierOTP:
+  post:
+    operationId: sendCarrierOTP
+    x-rate-limit: code
+    summary: Have GHN text the code that links the seller's GHN account.
+    tags: [shipping]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: carrier
+        in: path
+        required: true
+        description: ghn; another value is 422 invalid_carrier.
+        schema:
+          type: string
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/shipping.yaml#/CarrierOTPRequest"
+    responses:
+      "204":
+        description: GHN texted the code; it lasts 10 minutes.
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "422":
+        description: "No GHN account has the phone, or it is not a mobile (carrier_phone_unknown), or the carrier is not ghn (invalid_carrier)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "429":
+        $ref: "../responses/common.yaml#/TooManyRequests"
+      "503":
+        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
         content:
           application/json:
             schema:

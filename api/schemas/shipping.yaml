@@ -28,15 +28,18 @@ CarrierAccountList:
 CarrierLogin:
   type: object
   additionalProperties: false
-  description: GHTK takes the seller's email and password; GHN takes the seller's API token and ShopId. A body holds one pair and nothing of the other.
+  description: GHTK takes the seller's email and password; GHN takes the seller's API token and ShopId, or the phone of the seller's GHN account and the code GHN texted to it. A body holds one pair and nothing of the others.
   oneOf:
     - required: [email, password]
     - required: [token, shop_id]
+    - required: [phone, otp]
   dependentRequired:
     email: [password]
     password: [email]
     token: [shop_id]
     shop_id: [token]
+    phone: [otp]
+    otp: [phone]
   properties:
     email:
       type: string
@@ -58,6 +61,26 @@ CarrierLogin:
       minLength: 1
       maxLength: 50
       description: GHN's ShopId.
+    phone:
+      type: string
+      minLength: 1
+      maxLength: 20
+      description: The phone of the seller's GHN account, sent to POST /v1/carrier-accounts/ghn/otp first.
+    otp:
+      type: string
+      minLength: 4
+      maxLength: 10
+      description: The code GHN texted to phone; GHN makes the seller a shop with ShopNexus as its staff.
+CarrierOTPRequest:
+  type: object
+  additionalProperties: false
+  required: [phone]
+  properties:
+    phone:
+      type: string
+      minLength: 1
+      maxLength: 20
+      description: The phone of the seller's GHN account, a Vietnamese mobile.
 PickupPoint:
   type: object
   additionalProperties: false

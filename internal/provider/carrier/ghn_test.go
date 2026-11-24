@@ -20,12 +20,14 @@ func ghnServer(t *testing.T) carrier.GHNClient {
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(`{"code":` + map[int]string{400: "400", 401: "401"}[status] + `,"message":"refused","code_message":"` + codeMessage + `","data":null}`))
 	}
+	// The seller's token owns shop 885; ShopNexus's is staff of 241109.
 	shop := func(w http.ResponseWriter, r *http.Request, needShop bool) bool {
-		if r.Header.Get("Token") != "ghn-token" {
+		ownShop := map[string]string{"ghn-token": "885", "partner-token": "241109"}[r.Header.Get("Token")]
+		if ownShop == "" {
 			fail(w, http.StatusUnauthorized, "")
 			return false
 		}
-		if needShop && r.Header.Get("Shopid") != "885" {
+		if needShop && r.Header.Get("Shopid") != ownShop {
 			fail(w, http.StatusBadRequest, "CLIENT_NOT_OWNER_OF_SHOP")
 			return false
 		}
@@ -33,6 +35,10 @@ func ghnServer(t *testing.T) carrier.GHNClient {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /shiip/public-api/v2/shop/all", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Token") == "partner-token" {
+			_, _ = w.Write([]byte(`{"code":200,"message":"Success","data":{"shops":[{"_id":241000,"phone":"0356875408"},{"_id":241109,"phone":"0356875408"},{"_id":241200,"phone":"0911000000"}]}}`))
+			return
+		}
 		if shop(w, r, false) {
 			_, _ = w.Write([]byte(`{"code":200,"message":"Success","data":{"last_offset":885,"shops":[{"_id":885,"name":"Kho Bình Thạnh","phone":"0987654321","address":"12 Nguyễn Gia Trí, Bình Thạnh","ward_code":"20308","district_id":1462,"status":1}]}}`))
 		}
@@ -54,6 +60,46 @@ func ghnServer(t *testing.T) carrier.GHNClient {
 			return
 		}
 		_, _ = w.Write([]byte(`{"code":200,"message":"Success","data":{"order_code":"5ENLKKHD","client_order_code":"SN-100001","status":"delivered","to_name":"Vân Nguyễn","to_phone":"0911222333","to_address":"1 Lê Duẩn, Phường Bến Nghé, TP. Hồ Chí Minh","cod_amount":47000,"weight":800}}`))
+	})
+	affiliate := func(w http.ResponseWriter, r *http.Request) (phone, otp string, shop int64, ok bool) {
+		if r.Header.Get("Token") != "partner-token" {
+			fail(w, http.StatusUnauthorized, "")
+			return "", "", 0, false
+		}
+		var in struct {
+			Phone  string `json:"phone"`
+			OTP    string `json:"otp"`
+			ShopID int64  `json:"shop_id"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&in)
+		if in.Phone != "0356875408" && in.Phone != "0356870001" {
+			fail(w, http.StatusBadRequest, "USER_ERR_COMMON")
+			return "", "", 0, false
+		}
+		if in.OTP != "" && in.OTP != "111111" {
+			fail(w, http.StatusBadRequest, "OTP_NOT_VALID")
+			return "", "", 0, false
+		}
+		return in.Phone, in.OTP, in.ShopID, true
+	}
+	mux.HandleFunc("POST /shiip/public-api/v2/shop/affiliateOTP", func(w http.ResponseWriter, r *http.Request) {
+		if _, _, _, ok := affiliate(w, r); ok {
+			_, _ = w.Write([]byte(`{"code":200,"message":"Success","data":{"TTL":600}}`))
+		}
+	})
+	// ShopNexus is staff of 241000 and 241109, both 0356875408's.
+	mux.HandleFunc("POST /shiip/public-api/v2/shop/affiliateCreateWithShop", func(w http.ResponseWriter, r *http.Request) {
+		if _, _, shop, ok := affiliate(w, r); ok {
+			if shop != 241109 {
+				t.Errorf("joined %d, not the newest shop", shop)
+			}
+			fail(w, http.StatusBadRequest, "CLIENT_HAVE_EXISTED")
+		}
+	})
+	mux.HandleFunc("POST /shiip/public-api/v2/shop/affiliateCreate", func(w http.ResponseWriter, r *http.Request) {
+		if _, _, _, ok := affiliate(w, r); ok {
+			_, _ = w.Write([]byte(`{"code":200,"message":"Success","data":{"client_id":2551400,"shop_id":241300}}`))
+		}
 	})
 	order := func(w http.ResponseWriter, r *http.Request, preview bool) {
 		if !shop(w, r, true) {
@@ -81,6 +127,16 @@ func ghnServer(t *testing.T) carrier.GHNClient {
 		if !preview && (in["client_order_code"] != "SN-100001" || in["cod_amount"] != float64(47_000) ||
 			in["note"] != "Địa chỉ công ty: giao giờ hành chính") {
 			t.Errorf("order body %+v", in)
+		}
+		// A place is the sender and the return address, in the two-level scheme.
+		if in["from_name"] != nil {
+			for _, side := range []string{"from", "return"} {
+				if in[side+"_name"] != "Tú" || in[side+"_phone"] != "0909000111" || in[side+"_address"] != "5 Phan Xích Long" ||
+					in[side+"_ward_name"] != "Phường Cầu Kiệu" || in[side+"_province_name"] != "TP. Hồ Chí Minh" ||
+					in[side+"_district_name"] != "" || fmt.Sprint(in["is_new_"+side+"_address"]) != "true" {
+					t.Errorf("%s of %+v", side, in)
+				}
+			}
 		}
 		if _, has := in["note"]; preview && has {
 			t.Errorf("a preview with a note: %+v", in)
@@ -122,7 +178,47 @@ func ghnServer(t *testing.T) carrier.GHNClient {
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	return carrier.GHNClient{BaseURL: srv.URL + "/shiip/public-api", HTTP: srv.Client()}
+	return carrier.GHNClient{BaseURL: srv.URL + "/shiip/public-api", PartnerToken: "partner-token", HTTP: srv.Client()}
+}
+
+func TestGHNLinksByATextedCode(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	g := ghnServer(t)
+	if err := g.SendOTP(ctx, "+84356875408"); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.SendOTP(ctx, "+84911000000"); !errors.Is(err, carrier.ErrPhoneUnknown) {
+		t.Fatalf("a phone without a GHN account: %v", err)
+	}
+	// A phone with no shop ShopNexus joined gets a new one.
+	l, err := g.Link(ctx, carrier.Credentials{Phone: "+84356870001", OTP: "111111"})
+	if err != nil || l != (carrier.Linked{ShopCode: "241300"}) {
+		t.Fatalf("%+v %v", l, err)
+	}
+	// Joined before: the newest shop of that phone's, no second one.
+	if l, err = g.Link(ctx, carrier.Credentials{Phone: "+84356875408", OTP: "111111"}); err != nil || l != (carrier.Linked{ShopCode: "241109"}) {
+		t.Fatalf("joined before: %+v %v", l, err)
+	}
+	for _, phone := range []string{"+84356875408", "+84356870001"} {
+		if _, err = g.Link(ctx, carrier.Credentials{Phone: phone, OTP: "999999"}); !errors.Is(err, carrier.ErrOTPInvalid) {
+			t.Fatalf("a wrong code for %s: %v", phone, err)
+		}
+	}
+	// The joined shop ships on ShopNexus's token, from the pickup place.
+	acc := carrier.Account{ShopCode: "241109"}
+	var pts []carrier.PickupPoint
+	if pts, err = g.Pickups(ctx, acc); err != nil || len(pts) != 0 {
+		t.Fatalf("pickups %+v %v", pts, err)
+	}
+	from := carrier.Place{Name: "Tú", Phone: "0909000111", Street: "5 Phan Xích Long", Commune: "Phường Cầu Kiệu", Province: "TP. Hồ Chí Minh"}
+	c, err := g.Create(ctx, acc, carrier.CreateInput{
+		OrderCode: "SN-100001", Recipient: benNghe, Pickup: carrier.Pickup{Place: &from}, Item: "Ghế gỗ",
+		COD: 47_000, WeightGrams: 800, Service: "standard", Option: "home", Note: "Địa chỉ công ty: giao giờ hành chính",
+	})
+	if err != nil || c.TrackingCode != "5ENLKKHD" {
+		t.Fatalf("%+v %v", c, err)
+	}
 }
 
 func TestGHNLinksWithAShopOfTheToken(t *testing.T) {

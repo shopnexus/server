@@ -204,7 +204,7 @@ written (decided 2026-11-17):
   `dependentRequired` keeps the sets apart where a field of one set could
   join another. `ListingReadRequest` takes `transcript` only with `video`;
   in `CarrierLogin`, GHTK's `email` and `password` need each other, and so
-  do GHN's `token` and `shop_id`. A body that breaks it is 400 with
+  do GHN's `token` and `shop_id`, and its `phone` and `otp`. A body that breaks it is 400 with
   `required` on each property it lacks. The app's script drops the
   `oneOf`, so its model has every field optional.
 - No schema that an app operation reaches is a map of any values.
@@ -1795,7 +1795,16 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   password, traded at once for the shop's token through GHTK's B2C
   endpoint with ShopNexus's partner token; the password goes no further.
   GHN takes the seller's token and ShopId, linked when the ShopId is one
-  of the token's shops. The token is sealed with AES-GCM under
+  of the token's shops. Or GHN takes a phone and the code GHN texted to it
+  (`POST /v1/carrier-accounts/ghn/otp`, rate tier `code`): GHN's affiliate
+  API, called with ShopNexus's own token `GHN_PARTNER_TOKEN`, makes the
+  seller a new shop with ShopNexus as staff, or rejoins the newest shop of
+  that phone ShopNexus is already staff of, so linking again makes no
+  second shop; GHN checks the code first either way. ShopNexus's default
+  shop at GHN needs a pickup address, the fallback for a new shop's. That row keeps no token
+  (migration 0084) and is called with the partner token; it offers no
+  pickup point, so its shipments send the pickup place as sender and
+  return address. The token is sealed with AES-GCM under
   `CARRIER_TOKEN_KEY`, a key of its own that `make env` writes, with a
   fresh nonce per seal; it is never returned or logged. A token sealed
   under another environment's key does not open: the call fails without
@@ -1823,11 +1832,12 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   GHN's preview, since its fee API still wants district IDs.
 - `CARRIER` is `fake`, `none` or `live`. `live` needs `GHTK_API_URL`,
   `GHTK_PARTNER_TOKEN`, `GHTK_CLIENT_SOURCE`, `GHTK_WEBHOOK_SECRET`,
-  `GHN_API_URL` and `GHN_WEBHOOK_SECRET`; `fake` and `none` refuse them,
+  `GHN_API_URL`, `GHN_PARTNER_TOKEN` and `GHN_WEBHOOK_SECRET`; `fake` and `none` refuse them,
   so a stack never half-points at a real carrier. `none` is an empty
   client map: every call answers `carrier_unavailable` before anything
   else. The fake of each carrier links any account but the password or
-  token `wrong`, and its webhooks take the secret `dev`.
+  token `wrong`, texts a code to any phone but one ending in `0000`, takes
+  any code but `wrong`, and its webhooks take the secret `dev`.
 - The webhooks are `POST /v1/carriers/{ghtk|ghn}/webhook/{secret}`, for
   each carrier with a secret set. The secret in the path is the only
   check, compared in constant time; a wrong one is 404. GHTK posts a form

@@ -27,6 +27,12 @@ type shipping struct {
 	reported []string
 	linked   []carrier.Credentials
 	unlinked []string
+	texted   []string
+}
+
+func (s *shipping) SendOTP(_ context.Context, c, phone string) error {
+	s.texted = append(s.texted, c+" "+phone)
+	return nil
 }
 
 func (s *shipping) Reported(_ context.Context, c carrier.Carrier, code string, st carrier.Status) error {
@@ -129,8 +135,27 @@ func TestLinkTakesTheCarriersOwnBody(t *testing.T) {
 		!strings.Contains(w.Body.String(), "invalid_carrier") {
 		t.Fatalf("GHN's body for GHTK: %d %s", w.Code, w.Body)
 	}
-	if len(svc.linked) != 1 || svc.linked[0] != (carrier.Credentials{Email: "a@b.vn", Password: "secret"}) {
+	if w = call(t, r, "PUT", "/v1/carrier-accounts/ghn", "application/json", `{"phone":"0356875408","otp":"860228"}`); w.Code != http.StatusOK {
+		t.Fatalf("GHN by a code: %d %s", w.Code, w.Body)
+	}
+	if w = call(t, r, "PUT", "/v1/carrier-accounts/ghtk", "application/json", `{"email":"a@b.vn","password":"x","otp":"1"}`); w.Code < 400 {
+		t.Fatalf("GHN's code for GHTK: %d %s", w.Code, w.Body)
+	}
+	want := []carrier.Credentials{{Email: "a@b.vn", Password: "secret"}, {Phone: "0356875408", OTP: "860228"}}
+	if len(svc.linked) != 2 || svc.linked[0] != want[0] || svc.linked[1] != want[1] {
 		t.Fatalf("%+v", svc.linked)
+	}
+}
+
+func TestSendOTP(t *testing.T) {
+	t.Parallel()
+	svc := &shipping{}
+	r := router(svc)
+	if w := call(t, r, "POST", "/v1/carrier-accounts/ghn/otp", "application/json", `{"phone":"0356875408"}`); w.Code != http.StatusNoContent {
+		t.Fatalf("%d %s", w.Code, w.Body)
+	}
+	if len(svc.texted) != 1 || svc.texted[0] != "ghn 0356875408" {
+		t.Fatalf("%+v", svc.texted)
 	}
 }
 

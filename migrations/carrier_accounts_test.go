@@ -31,6 +31,16 @@ func TestCarrierAccounts(t *testing.T) {
 			t.Errorf("%s was stored", name)
 		}
 	}
+	// A shop joined by a code keeps no token, and only at GHN.
+	other := accounttest.New(t, db)
+	const tokenless = `INSERT INTO carrier_accounts (account_id, carrier, shop_code, linked_at)
+VALUES (@account, @carrier, '241109', now())`
+	if _, err := db.Exec(ctx, tokenless, pgx.NamedArgs{"account": other, "carrier": "ghn"}); err != nil {
+		t.Fatalf("a GHN shop without a token: %v", err)
+	}
+	if _, err := db.Exec(ctx, tokenless, pgx.NamedArgs{"account": other, "carrier": "ghtk"}); err == nil {
+		t.Error("a GHTK account without a token was stored")
+	}
 }
 
 // A linked shipment keeps a carrier's pickup point or a copy of an

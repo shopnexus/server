@@ -47,23 +47,30 @@ var (
 	// ErrAddressUnknown is an address the carrier does not deliver to or
 	// does not know.
 	ErrAddressUnknown = errors.New("carrier: the carrier does not know the address")
+	// ErrPhoneUnknown is a phone number with no account at the carrier.
+	ErrPhoneUnknown = errors.New("carrier: no account at the carrier has this phone")
+	// ErrOTPInvalid is a wrong or expired code the carrier texted.
+	ErrOTPInvalid = errors.New("carrier: the code is wrong or expired")
 )
 
 // Credentials are what a seller types to link an account: GHTK's email and
-// password, or GHN's token and ShopId.
+// password, GHN's token and ShopId, or a phone at GHN and the code GHN
+// texted to it.
 type Credentials struct {
 	Email, Password string
 	Token, ShopID   string
+	Phone, OTP      string
 }
 
-// Account is a linked account as the clients use it.
+// Account is a linked account as the clients use it. An empty Token is a
+// GHN shop ShopNexus joined as staff, called with ShopNexus's token.
 type Account struct {
 	Token    string
 	ShopCode string
 }
 
 // Linked is what linking returns: the shop code to show and the token to
-// keep.
+// keep, empty for a shop ShopNexus joined as staff.
 type Linked struct {
 	ShopCode string
 	Token    string
@@ -152,6 +159,13 @@ type Client interface {
 	// Cancel calls a shipment off; ErrNotCancellable once the carrier has
 	// the parcel. A second call changes nothing.
 	Cancel(ctx context.Context, a Account, code string) error
+}
+
+// Texter is a carrier that links a seller's account by a code it texts to
+// the seller's phone.
+type Texter interface {
+	// SendOTP texts the code; ErrPhoneUnknown when no account has phone.
+	SendOTP(ctx context.Context, phone string) error
 }
 
 // mask keeps each word's first letter: "Vân Nguyễn" → "V** N*****".

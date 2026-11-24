@@ -14,6 +14,8 @@ var (
 	// its code with deal's error of the same meaning.
 	ErrUnavailable    = apperr.New(apperr.KindUnavailable, "carrier_unavailable", "no carrier makes or reads shipments here")
 	ErrAddressUnknown = apperr.New(apperr.KindInvalid, "carrier_address_unknown", "the carrier does not know the address")
+	ErrPhoneUnknown   = apperr.New(apperr.KindInvalid, "carrier_phone_unknown", "no account at the carrier has this phone")
+	ErrOTPInvalid     = apperr.New(apperr.KindInvalid, "carrier_otp_invalid", "the code is wrong or expired")
 	// ErrCarrierRefused is a request the carrier refused; its detail
 	// reason carries the carrier's words.
 	ErrCarrierRefused = apperr.New(apperr.KindInvalid, "carrier_refused", "the carrier refused the request; see reason")

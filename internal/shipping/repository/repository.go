@@ -11,7 +11,8 @@ import (
 
 var ErrNotFound = errors.New("shipping: not found")
 
-// Row is a linked carrier account as stored: the token is sealed.
+// Row is a linked carrier account as stored: the token is sealed, nil for
+// a GHN shop ShopNexus joined as staff.
 type Row struct {
 	AccountID uuid.UUID
 	Carrier   string

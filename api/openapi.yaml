@@ -270,6 +270,8 @@ paths:
     $ref: "paths/shipping.yaml#/carrierAccounts"
   /v1/carrier-accounts/{carrier}:
     $ref: "paths/shipping.yaml#/carrierAccount"
+  /v1/carrier-accounts/{carrier}/otp:
+    $ref: "paths/shipping.yaml#/carrierOTP"
   /v1/carrier-accounts/{carrier}/pickups:
     $ref: "paths/shipping.yaml#/carrierPickups"
   /v1/shipments/quote:

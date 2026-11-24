@@ -9,15 +9,21 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // GHNClient makes and reads shipments at GHN with each seller's token and
 // ShopId. BaseURL ends in /shiip/public-api. Addresses go as names in
 // GHN's two-level scheme (commune and province), so no district is needed.
+// PartnerToken is ShopNexus's own GHN token: it links a seller's shop by a
+// texted code and calls the shops ShopNexus joined that way.
 type GHNClient struct {
-	BaseURL string
-	HTTP    *http.Client
+	BaseURL      string
+	PartnerToken string
+	HTTP         *http.Client
 }
+
+var _ Texter = GHNClient{}
 
 var _ Client = GHNClient{}
 
@@ -48,7 +54,11 @@ func (g GHNClient) do(ctx context.Context, method, path string, a Account, shop 
 	if err != nil {
 		return fmt.Errorf("build GHN %s: %w", path, err)
 	}
-	req.Header.Set("Token", a.Token)
+	token := a.Token
+	if token == "" {
+		token = g.PartnerToken
+	}
+	req.Header.Set("Token", token)
 	if shop {
 		req.Header.Set("Shopid", a.ShopCode)
 	}
@@ -109,8 +119,12 @@ func (g GHNClient) shops(ctx context.Context, token string) ([]ghnShop, error) {
 	return out.Shops, nil
 }
 
-// Link checks that the ShopId is one of the token's shops.
+// Link checks that the ShopId is one of the token's shops, or with a code
+// joins the seller's GHN account through ShopNexus's.
 func (g GHNClient) Link(ctx context.Context, c Credentials) (Linked, error) {
+	if c.OTP != "" {
+		return g.join(ctx, c.Phone, c.OTP)
+	}
 	shops, err := g.shops(ctx, c.Token)
 	if e, ok := errors.AsType[ghnError](err); ok && e.status == http.StatusUnauthorized {
 		return Linked{}, ErrLoginFailed
@@ -126,8 +140,84 @@ func (g GHNClient) Link(ctx context.Context, c Credentials) (Linked, error) {
 	return Linked{}, ErrLoginFailed
 }
 
-// Pickups is the linked shop: at GHN a shop is a pickup address.
+// ghnPhone is phone as GHN takes it, 0 and nine digits.
+func ghnPhone(phone string) string {
+	if rest, ok := strings.CutPrefix(phone, "+84"); ok {
+		return "0" + rest
+	}
+	return phone
+}
+
+// SendOTP has GHN text the owner of phone the code that join takes.
+func (g GHNClient) SendOTP(ctx context.Context, phone string) error {
+	var out json.RawMessage
+	err := g.do(ctx, http.MethodPost, "/v2/shop/affiliateOTP", Account{}, false,
+		map[string]string{"phone": ghnPhone(phone), "language": "vi"}, &out)
+	if codeMessage(err) == "USER_ERR_COMMON" {
+		return ErrPhoneUnknown
+	}
+	return err
+}
+
+// join links the seller's newest shop that ShopNexus is staff of, or
+// makes one. A new shop's address is the seller's GHN default, else
+// ShopNexus's; orders send their own. GHN checks the code first.
+func (g GHNClient) join(ctx context.Context, phone, otp string) (Linked, error) {
+	phone = ghnPhone(phone)
+	shops, err := g.shops(ctx, "")
+	if err != nil {
+		return Linked{}, err
+	}
+	var id int64
+	for _, s := range shops {
+		if s.Phone == phone && s.ID > id {
+			id = s.ID
+		}
+	}
+	if id != 0 {
+		var none json.RawMessage
+		err = g.do(ctx, http.MethodPost, "/v2/shop/affiliateCreateWithShop", Account{}, false,
+			map[string]any{"phone": phone, "otp": otp, "shop_id": id, "language": "vi"}, &none)
+		switch codeMessage(err) {
+		case "OTP_NOT_VALID":
+			return Linked{}, ErrOTPInvalid
+		case "CLIENT_HAVE_EXISTED":
+			return Linked{ShopCode: strconv.FormatInt(id, 10)}, nil
+		case "":
+			if err != nil {
+				return Linked{}, err
+			}
+			return Linked{ShopCode: strconv.FormatInt(id, 10)}, nil
+		default:
+			// Gone or no longer the phone's: a new shop below.
+		}
+	}
+	var out struct {
+		ShopID int64 `json:"shop_id"`
+	}
+	err = g.do(ctx, http.MethodPost, "/v2/shop/affiliateCreate", Account{}, false,
+		map[string]string{"phone": phone, "otp": otp, "language": "vi"}, &out)
+	switch codeMessage(err) {
+	case "":
+		if err != nil {
+			return Linked{}, err
+		}
+		return Linked{ShopCode: strconv.FormatInt(out.ShopID, 10)}, nil
+	case "OTP_NOT_VALID":
+		return Linked{}, ErrOTPInvalid
+	case "USER_ERR_COMMON":
+		return Linked{}, ErrPhoneUnknown
+	default:
+		return Linked{}, refusal(err)
+	}
+}
+
+// Pickups is the linked shop: at GHN a shop is a pickup address. A shop
+// ShopNexus joined has none to offer, its address being a fallback.
 func (g GHNClient) Pickups(ctx context.Context, a Account) ([]PickupPoint, error) {
+	if a.Token == "" {
+		return []PickupPoint{}, nil
+	}
 	shops, err := g.shops(ctx, a.Token)
 	if err != nil {
 		return nil, err
@@ -145,7 +235,7 @@ func (g GHNClient) Pickups(ctx context.Context, a Account) ([]PickupPoint, error
 func ghnOrderBody(code string, to Place, from Pickup, item string, cod int64, weight int, note string) map[string]any {
 	body := map[string]any{
 		"payment_type_id": 2, "required_note": "CHOXEMHANGKHONGTHU", "service_type_id": 2,
-		"to_name": to.Name, "to_phone": to.Phone, "to_address": to.Street,
+		"to_name": to.Name, "to_phone": ghnPhone(to.Phone), "to_address": to.Street,
 		"to_ward_name": to.Commune, "to_province_name": to.Province, "to_district_name": "", "is_new_to_address": true,
 		"cod_amount": cod, "weight": weight, "content": item,
 		"items": []map[string]any{{"name": item, "quantity": 1, "weight": weight}},
@@ -156,9 +246,13 @@ func ghnOrderBody(code string, to Place, from Pickup, item string, cod int64, we
 	if note != "" {
 		body["note"] = note
 	}
+	// A place is the sender and the return address, both two-level.
 	if p := from.Place; p != nil {
-		body["from_name"], body["from_phone"], body["from_address"] = p.Name, p.Phone, p.Street
-		body["from_ward_name"], body["from_province_name"] = p.Commune, p.Province
+		for _, side := range []string{"from", "return"} {
+			body[side+"_name"], body[side+"_phone"], body[side+"_address"] = p.Name, ghnPhone(p.Phone), p.Street
+			body[side+"_ward_name"], body[side+"_province_name"], body[side+"_district_name"] = p.Commune, p.Province, ""
+			body["is_new_"+side+"_address"] = true
+		}
 	}
 	return body
 }

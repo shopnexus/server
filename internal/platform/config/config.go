@@ -123,6 +123,7 @@ type CarrierConfig struct {
 	GHTKSource  string //exhaustruct:optional GHTK_CLIENT_SOURCE: ShopNexus's partner code
 	GHTKWebhook string //exhaustruct:optional GHTK_WEBHOOK_SECRET: the secret in GHTK's webhook path
 	GHNURL      string //exhaustruct:optional GHN_API_URL: ends in /shiip/public-api
+	GHNPartner  string //exhaustruct:optional GHN_PARTNER_TOKEN: ShopNexus's own GHN token
 	GHNWebhook  string //exhaustruct:optional GHN_WEBHOOK_SECRET: the secret in GHN's webhook path
 }
 
@@ -632,7 +633,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Mode: oneOf("CARRIER", "fake", "none", "live"), TokenKey: decodeKey("CARRIER_TOKEN_KEY", 32, true),
 			PollEvery: duration("CARRIER_POLL_EVERY"),
 			GHTKURL:   set("GHTK_API_URL"), GHTKPartner: set("GHTK_PARTNER_TOKEN"), GHTKSource: set("GHTK_CLIENT_SOURCE"),
-			GHTKWebhook: set("GHTK_WEBHOOK_SECRET"), GHNURL: set("GHN_API_URL"), GHNWebhook: set("GHN_WEBHOOK_SECRET"),
+			GHTKWebhook: set("GHTK_WEBHOOK_SECRET"), GHNURL: set("GHN_API_URL"), GHNPartner: set("GHN_PARTNER_TOKEN"), GHNWebhook: set("GHN_WEBHOOK_SECRET"),
 		},
 		LLM: LLMConfig{
 			BaseURL: need("LLM_BASE_URL"), APIKey: need("LLM_API_KEY"), Model: need("LLM_MODEL"),
@@ -698,7 +699,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	c := cfg.Carrier
 	for key, v := range map[string]string{
 		"GHTK_API_URL": c.GHTKURL, "GHTK_PARTNER_TOKEN": c.GHTKPartner, "GHTK_CLIENT_SOURCE": c.GHTKSource,
-		"GHTK_WEBHOOK_SECRET": c.GHTKWebhook, "GHN_API_URL": c.GHNURL, "GHN_WEBHOOK_SECRET": c.GHNWebhook,
+		"GHTK_WEBHOOK_SECRET": c.GHTKWebhook, "GHN_API_URL": c.GHNURL, "GHN_PARTNER_TOKEN": c.GHNPartner, "GHN_WEBHOOK_SECRET": c.GHNWebhook,
 	} {
 		switch {
 		case c.Mode == "live" && v == "":
