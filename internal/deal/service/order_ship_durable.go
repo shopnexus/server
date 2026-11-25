@@ -185,7 +185,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	mine := d.Order().Shipment
 	shipped := cur.ID == in.OrderID && cur.Status == domain.OrderShipped
 	if mine.Mode == domain.ModeLinked && (!shipped || cur.Shipment == nil || cur.Shipment.TrackingCode != mine.TrackingCode) {
-		if err = callOffStep(ctx, s.Deals.shipping, in.Caller, *mine); err != nil {
+		if err = callOffStep(ctx, s.Deals.shipping, s.Deals.log, in.Caller, *mine); err != nil {
 			return FlowResult{}, err
 		}
 	}

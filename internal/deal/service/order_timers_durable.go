@@ -99,7 +99,7 @@ func (s OrderTimers) PickupTimeout(ctx restate.Context, ref OrderRef) error {
 			return err
 		}
 		if sh := d.Order().Shipment; sh.Mode == domain.ModeLinked {
-			if err = callOffStep(ctx, s.Deals.shipping, m.Deal.SellerID, *sh); err != nil {
+			if err = callOffStep(ctx, s.Deals.shipping, s.Deals.log, m.Deal.SellerID, *sh); err != nil {
 				return err
 			}
 		}

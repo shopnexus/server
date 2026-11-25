@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 	"uuid"
 
@@ -137,12 +138,19 @@ func sellStep(ctx restate.Context, catalog catalogsvc.Service, listing, order uu
 }
 
 // callOffStep cancels a linked shipment at its carrier in one journaled
-// step. A parcel the carrier already has or lost, or a refusal of
-// shipping's, leaves nothing to call off.
-func callOffStep(ctx restate.Context, shipping Shipping, seller uuid.UUID, sh domain.Shipment) error {
+// step. A parcel the carrier lost leaves nothing to call off. A parcel it
+// has picked up, or a refusal of shipping's such as a carrier to link
+// again, may still ship: the step logs it for support and goes on, since
+// a retry would not change the answer.
+func callOffStep(ctx restate.Context, shipping Shipping, log *slog.Logger, seller uuid.UUID, sh domain.Shipment) error {
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
 		callErr := shipping.Cancel(rc, seller, carrier.Carrier(sh.Carrier), sh.TrackingCode)
-		if callErr == nil || errors.Is(callErr, carrier.ErrNotCancellable) || errors.Is(callErr, carrier.ErrNotFound) || restatex.IsRefusal(callErr) {
+		switch {
+		case callErr == nil, errors.Is(callErr, carrier.ErrNotFound):
+			return nil
+		case errors.Is(callErr, carrier.ErrNotCancellable), restatex.IsRefusal(callErr):
+			log.WarnContext(rc, "shipment not called off; the parcel may still ship",
+				"seller", seller, "carrier", sh.Carrier, "tracking_code", sh.TrackingCode, "err", callErr)
 			return nil
 		}
 		return fmt.Errorf("cancel %s: %w", sh.TrackingCode, callErr)
