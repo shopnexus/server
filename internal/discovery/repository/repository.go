@@ -6,6 +6,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 	"uuid"
 
@@ -13,6 +14,10 @@ import (
 	"github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/platform/page"
 )
+
+// errGone aborts a batched write whose account is deleted; a write that
+// skips such an account quietly maps it to nil after the rollback.
+var errGone = errors.New("discovery: account gone")
 
 // Saves persists the listings people save.
 type Saves interface {

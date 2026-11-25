@@ -46,46 +46,44 @@ func (s pgWatches) Put(ctx context.Context, w Watch) (Watch, bool, error) {
 		created bool
 	)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		alive, err := postgres.LockLiving(ctx, tx, w.Account)
-		if err != nil {
-			return err
-		}
-		if !alive {
-			return accountdomain.ErrSessionRevoked
-		}
-		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('watches:' || @account::text))`,
-			pgx.StrictNamedArgs{"account": w.Account}); err != nil {
-			return fmt.Errorf("lock account: %w", err)
-		}
 		filters := pgx.StrictNamedArgs{
 			"account": w.Account, "key": domain.HistoryKey(w.Query), "query": w.Query, "phrases": w.Phrases,
 			"category": w.Category, "price_min": w.PriceMin, "price_max": w.PriceMax, "conditions": w.Conditions,
 			"offers_only": w.OffersOnly, "commune": w.Commune, "radius": w.RadiusKm,
 		}
-		rows, err := tx.Query(ctx, `UPDATE search_watches SET `+watchFilters+`, new_count = 0
+		var (
+			updated []Watch
+			n       int
+		)
+		b := &pgx.Batch{}
+		postgres.QueueLockLiving(b, w.Account, accountdomain.ErrSessionRevoked)
+		b.Queue(`SELECT pg_advisory_xact_lock(hashtext('watches:' || @account::text))`, pgx.StrictNamedArgs{"account": w.Account})
+		b.Queue(`UPDATE search_watches SET `+watchFilters+`, new_count = 0
 WHERE account_id = @account AND query_key = @key
-RETURNING `+watchColumns, filters)
-		if err != nil {
-			return fmt.Errorf("update watch: %w", err)
-		}
-		updated, err := collectWatches(rows)
-		if err != nil {
+RETURNING `+watchColumns, filters).Query(func(rows pgx.Rows) error {
+			var err error
+			updated, err = collectWatches(rows)
 			return err
+		})
+		b.Queue(`SELECT count(*) FROM search_watches WHERE account_id = @account`,
+			pgx.StrictNamedArgs{"account": w.Account}).QueryRow(func(row pgx.Row) error {
+			if err := row.Scan(&n); err != nil {
+				return fmt.Errorf("count watches: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // wrapped below
 		}
 		if len(updated) == 1 {
 			out = updated[0]
 			return nil
 		}
-		var n int
-		if err = tx.QueryRow(ctx, `SELECT count(*) FROM search_watches WHERE account_id = @account`,
-			pgx.StrictNamedArgs{"account": w.Account}).Scan(&n); err != nil {
-			return fmt.Errorf("count watches: %w", err)
-		}
 		if n >= domain.MaxWatches {
 			return domain.ErrWatchLimit
 		}
 		filters["id"], filters["at"] = w.ID, w.CreatedAt
-		rows, err = tx.Query(ctx, `INSERT INTO search_watches (id, account_id, query_key, query, phrases, category,
+		rows, err := tx.Query(ctx, `INSERT INTO search_watches (id, account_id, query_key, query, phrases, category,
     price_min, price_max, conditions, offers_only, commune_code, radius_km, alert, new_count, last_arrival, created_at)
 VALUES (@id, @account, @key, @query, @phrases, NULLIF(@category, ''), NULLIF(@price_min::bigint, 0),
     NULLIF(@price_max::bigint, 0), @conditions, @offers_only, NULLIF(@commune, ''), NULLIF(@radius::int, 0), true, 0,
@@ -175,19 +173,13 @@ func (s pgWatches) Clear(ctx context.Context, account uuid.UUID) error {
 }
 
 func (s pgWatches) Arrive(ctx context.Context, listing uuid.UUID) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO listing_arrivals (listing_id) VALUES (@listing) ON CONFLICT (listing_id) DO NOTHING`,
-			pgx.StrictNamedArgs{"listing": listing}); err != nil {
-			return fmt.Errorf("insert arrival: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM listing_arrivals WHERE seq IN (
+	b := &pgx.Batch{}
+	b.Queue(`INSERT INTO listing_arrivals (listing_id) VALUES (@listing) ON CONFLICT (listing_id) DO NOTHING`,
+		pgx.StrictNamedArgs{"listing": listing})
+	b.Queue(`DELETE FROM listing_arrivals WHERE seq IN (
     SELECT seq FROM listing_arrivals WHERE arrived_at < now() - make_interval(secs => @keep) ORDER BY seq LIMIT 1000)`,
-			pgx.StrictNamedArgs{"keep": domain.KeepArrivals.Seconds()}); err != nil {
-			return fmt.Errorf("delete old arrivals: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
+		pgx.StrictNamedArgs{"keep": domain.KeepArrivals.Seconds()})
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("arrive: %w", err)
 	}
 	return nil
@@ -232,9 +224,11 @@ WHERE id = @id AND last_arrival = @prev RETURNING new_count, alert`,
 		if n == 0 || !alert {
 			return nil
 		}
-		return events.Insert(ctx, tx, events.Event{
+		b := &pgx.Batch{}
+		events.Queue(b, events.Event{
 			ID: uuid.NewV7(), Kind: events.SearchWatchMatched, SubjectID: id, Payload: map[string]any{"count": count}, OccurredAt: at,
 		})
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return false, fmt.Errorf("sweep watch: %w", err)

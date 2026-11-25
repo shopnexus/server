@@ -24,25 +24,23 @@ func NewSaves(db *pgxpool.Pool) Saves { return pgSaves{db} }
 
 func (s pgSaves) Save(ctx context.Context, id, account, listing uuid.UUID, price int64, at time.Time) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		alive, err := postgres.LockLiving(ctx, tx, account)
-		if err != nil {
-			return err
-		}
-		if !alive {
-			return accountdomain.ErrSessionRevoked
-		}
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext(@account::text))`,
-			pgx.StrictNamedArgs{"account": account}); err != nil {
-			return fmt.Errorf("lock account: %w", err)
-		}
 		var (
 			saved bool
 			n     int
 		)
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM saved_listings WHERE account_id = @account AND listing_id = @listing),
+		b := &pgx.Batch{}
+		postgres.QueueLockLiving(b, account, accountdomain.ErrSessionRevoked)
+		b.Queue(`SELECT pg_advisory_xact_lock(hashtext(@account::text))`, pgx.StrictNamedArgs{"account": account})
+		b.Queue(`SELECT EXISTS (SELECT 1 FROM saved_listings WHERE account_id = @account AND listing_id = @listing),
        (SELECT count(*) FROM saved_listings WHERE account_id = @account)`,
-			pgx.StrictNamedArgs{"account": account, "listing": listing}).Scan(&saved, &n); err != nil {
-			return fmt.Errorf("count saves: %w", err)
+			pgx.StrictNamedArgs{"account": account, "listing": listing}).QueryRow(func(row pgx.Row) error {
+			if err := row.Scan(&saved, &n); err != nil {
+				return fmt.Errorf("count saves: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // wrapped below
 		}
 		if saved {
 			return nil
@@ -158,21 +156,24 @@ func (s pgSaves) PriceMoved(ctx context.Context, listing uuid.UUID, price int64,
 	var told []uuid.UUID
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		args := pgx.StrictNamedArgs{"listing": listing, "price": price}
-		if _, err := tx.Exec(ctx, `UPDATE saved_listings s SET alerted_price = NULL
+		b := &pgx.Batch{}
+		b.Queue(`UPDATE saved_listings s SET alerted_price = NULL
 WHERE s.listing_id = @listing AND s.alerted_price IS NOT NULL
-  AND `+alertLevel+` <= @price`, args); err != nil {
-			return fmt.Errorf("reset alerts: %w", err)
-		}
-		rows, err := tx.Query(ctx, `UPDATE saved_listings s SET alerted_price = @price
+  AND `+alertLevel+` <= @price`, args)
+		b.Queue(`UPDATE saved_listings s SET alerted_price = @price
 WHERE s.listing_id = @listing AND `+alertLevel+` > @price
   AND (s.alerted_price IS NULL OR s.alerted_price > @price)
-RETURNING s.id`, args)
-		if err != nil {
-			return fmt.Errorf("tell alerts: %w", err)
+RETURNING s.id`, args).Query(func(rows pgx.Rows) error {
+			var err error
+			if told, err = pgx.CollectRows(rows, pgx.RowTo[uuid.UUID]); err != nil {
+				return fmt.Errorf("tell alerts: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // wrapped below
 		}
-		if told, err = pgx.CollectRows(rows, pgx.RowTo[uuid.UUID]); err != nil {
-			return fmt.Errorf("read alerts: %w", err)
-		}
+		// The events need the told IDs, so they go in a second batch.
 		evs := make([]events.Event, len(told))
 		for i, id := range told {
 			evs[i] = events.Event{
@@ -180,7 +181,9 @@ RETURNING s.id`, args)
 				Payload: map[string]any{"price": price}, OccurredAt: at,
 			}
 		}
-		return events.Insert(ctx, tx, evs...)
+		b = &pgx.Batch{}
+		events.Queue(b, evs...)
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return 0, fmt.Errorf("price moved: %w", err)

@@ -31,6 +31,9 @@ VALUES (@id, @account_id, @source, @media_id, @link_site, @link_list_id, @link_u
      WHERE account_id = @account_id AND request_key = @request_key AND @source::text = 'video'),
     @status, NULLIF(@failure, ''), NULLIF(@failure_reason, ''), @photos, @draft, @contact_removed, @estimate, @created_at, @expires_at, @write_id)`
 
+// errSaved aborts a save whose row is at its write ID already.
+var errSaved = errors.New("assist: saved already")
+
 const saveRead = `
 UPDATE listing_reads SET status = @status, failure = NULLIF(@failure, ''),
     failure_reason = NULLIF(@failure_reason, ''), link_photos = @link_photos, photos = @photos,
@@ -98,28 +101,27 @@ func (s pgListingReads) Insert(ctx context.Context, r domain.ListingRead, reques
 		return fmt.Errorf("delete stale transcripts: %w", err)
 	}
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		// A share lock on the account's row: an insert that commits after
-		// Erase waits for it and sees the tombstone.
-		living, txErr := postgres.LockLiving(ctx, tx, st.AccountID)
-		if txErr != nil {
-			return txErr
-		}
-		if !living {
-			return accountdomain.ErrSessionRevoked
-		}
-		if _, txErr = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('listing_reads:' || @source || ':' || @account::text))`,
-			pgx.StrictNamedArgs{"source": string(st.Source), "account": st.AccountID}); txErr != nil {
-			return fmt.Errorf("lock reads: %w", txErr)
-		}
 		var (
 			stored bool
 			n      int
 		)
-		if txErr = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM listing_reads WHERE id = @id),
+		b := &pgx.Batch{}
+		// A share lock on the account's row: an insert that commits after
+		// Erase waits for it and sees the tombstone.
+		postgres.QueueLockLiving(b, st.AccountID, accountdomain.ErrSessionRevoked)
+		b.Queue(`SELECT pg_advisory_xact_lock(hashtext('listing_reads:' || @source || ':' || @account::text))`,
+			pgx.StrictNamedArgs{"source": string(st.Source), "account": st.AccountID})
+		b.Queue(`SELECT EXISTS (SELECT 1 FROM listing_reads WHERE id = @id),
        (SELECT count(*) FROM listing_reads WHERE account_id = @account AND source = @source AND created_at > @since)`,
 			pgx.StrictNamedArgs{"id": st.ID, "account": st.AccountID, "source": string(st.Source), "since": st.CreatedAt.Add(-domain.ReadWindow)}).
-			Scan(&stored, &n); txErr != nil {
-			return fmt.Errorf("count reads: %w", txErr)
+			QueryRow(func(row pgx.Row) error {
+				if scanErr := row.Scan(&stored, &n); scanErr != nil {
+					return fmt.Errorf("count reads: %w", scanErr)
+				}
+				return nil
+			})
+		if txErr := tx.SendBatch(ctx, b).Close(); txErr != nil {
+			return txErr //nolint:wrapcheck // wrapped below
 		}
 		if stored {
 			return nil
@@ -127,15 +129,13 @@ func (s pgListingReads) Insert(ctx context.Context, r domain.ListingRead, reques
 		if n >= st.Source.Cap() {
 			return domain.ErrReadLimit
 		}
-		if _, txErr = tx.Exec(ctx, insertRead, a); txErr != nil {
-			return fmt.Errorf("insert read: %w", txErr)
-		}
-		if _, txErr = tx.Exec(ctx, `DELETE FROM listing_read_transcripts WHERE account_id = @account AND request_key = @key`,
-			pgx.StrictNamedArgs{"account": st.AccountID, "key": requestKey}); txErr != nil {
-			return fmt.Errorf("delete the waiting transcript: %w", txErr)
-		}
 		id := st.ID
-		return stream.Notify(ctx, tx, []uuid.UUID{st.AccountID}, stream.Hint{Kind: stream.KindListingRead, ListingReadID: &id})
+		b = &pgx.Batch{}
+		b.Queue(insertRead, a)
+		b.Queue(`DELETE FROM listing_read_transcripts WHERE account_id = @account AND request_key = @key`,
+			pgx.StrictNamedArgs{"account": st.AccountID, "key": requestKey})
+		stream.Queue(b, []uuid.UUID{st.AccountID}, stream.Hint{Kind: stream.KindListingRead, ListingReadID: &id})
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("insert listing read: %w", err)
@@ -153,23 +153,29 @@ func (s pgListingReads) Save(ctx context.Context, r *domain.ListingRead, writeID
 		delete(a, k)
 	}
 	a["read_write_id"], a["write_id"] = st.WriteID, writeID
-	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		// A retried step finds its own write and notifies no second time.
+	id := st.ID
+	b := &pgx.Batch{}
+	b.Queue(saveRead, a).QueryRow(func(row pgx.Row) error {
 		var saved bool
-		txErr := tx.QueryRow(ctx, saveRead, a).Scan(&saved)
-		if errors.Is(txErr, pgx.ErrNoRows) {
+		scanErr := row.Scan(&saved)
+		if errors.Is(scanErr, pgx.ErrNoRows) {
 			return ErrConflict
 		}
-		if txErr != nil {
-			return fmt.Errorf("update read: %w", txErr)
+		if scanErr != nil {
+			return fmt.Errorf("update read: %w", scanErr)
 		}
 		if saved {
-			return nil
+			return errSaved
 		}
-		id := st.ID
-		return stream.Notify(ctx, tx, []uuid.UUID{st.AccountID}, stream.Hint{Kind: stream.KindListingRead, ListingReadID: &id})
+		return nil
 	})
-	if err != nil {
+	stream.Queue(b, []uuid.UUID{st.AccountID}, stream.Hint{Kind: stream.KindListingRead, ListingReadID: &id})
+	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
+	})
+	// A retried step finds its row at writeID, written from the same journaled
+	// read: the rollback drops only its second notice.
+	if err != nil && !errors.Is(err, errSaved) {
 		return fmt.Errorf("save listing read: %w", err)
 	}
 	r.Saved(writeID)
@@ -254,18 +260,10 @@ func (s pgListingReads) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s pgListingReads) DeleteAccount(ctx context.Context, account uuid.UUID) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		for _, q := range []string{
-			`DELETE FROM listing_reads WHERE account_id = @account`,
-			`DELETE FROM listing_read_transcripts WHERE account_id = @account`,
-		} {
-			if _, txErr := tx.Exec(ctx, q, pgx.StrictNamedArgs{"account": account}); txErr != nil {
-				return fmt.Errorf("%s: %w", q, txErr)
-			}
-		}
-		return nil
-	})
-	if err != nil {
+	b := &pgx.Batch{}
+	b.Queue(`DELETE FROM listing_reads WHERE account_id = @account`, pgx.StrictNamedArgs{"account": account})
+	b.Queue(`DELETE FROM listing_read_transcripts WHERE account_id = @account`, pgx.StrictNamedArgs{"account": account})
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("delete the account's reads: %w", err)
 	}
 	return nil

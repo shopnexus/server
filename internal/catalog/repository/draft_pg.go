@@ -32,51 +32,47 @@ func scanDraft(row pgx.CollectableRow) (domain.ListingDraft, error) {
 }
 
 // deleteExpired deletes account's drafts that expired by now. Put and List
-// run it first.
-func deleteExpired(ctx context.Context, tx pgx.Tx, account uuid.UUID, now time.Time) error {
-	if _, err := tx.Exec(ctx, `DELETE FROM listing_drafts WHERE account_id = @account AND expires_at <= @now`,
-		pgx.StrictNamedArgs{"account": account, "now": now}); err != nil {
-		return fmt.Errorf("delete expired drafts: %w", err)
-	}
-	return nil
+// queue it first.
+func deleteExpired(b *pgx.Batch, account uuid.UUID, now time.Time) {
+	b.Queue(`DELETE FROM listing_drafts WHERE account_id = @account AND expires_at <= @now`,
+		pgx.StrictNamedArgs{"account": account, "now": now})
 }
 
 func (s pgDrafts) Put(ctx context.Context, account, id uuid.UUID, c domain.DraftContent, now time.Time) (domain.ListingDraft, bool, error) {
 	var out domain.ListingDraft
 	var created bool
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('drafts:' || @account::text))`,
-			pgx.StrictNamedArgs{"account": account}); err != nil {
-			return fmt.Errorf("lock drafts: %w", err)
-		}
+		var (
+			stored *domain.ListingDraft
+			count  int
+		)
+		b := &pgx.Batch{}
+		b.Queue(`SELECT pg_advisory_xact_lock(hashtext('drafts:' || @account::text))`, pgx.StrictNamedArgs{"account": account})
 		// A write that commits after Erase waits for it here and then finds
 		// the tombstone.
-		living, err := postgres.LockLiving(ctx, tx, account)
+		postgres.QueueLockLiving(b, account, accountdomain.ErrSessionRevoked)
+		deleteExpired(b, account, now)
+		b.Queue(`SELECT `+draftColumns+` FROM listing_drafts WHERE id = @id FOR UPDATE`,
+			pgx.StrictNamedArgs{"id": id}).Query(func(rows pgx.Rows) error {
+			found, err := pgx.CollectRows(rows, scanDraft)
+			if err != nil {
+				return fmt.Errorf("read draft: %w", err)
+			}
+			if len(found) == 1 {
+				stored = &found[0]
+			}
+			return nil
+		})
+		b.Queue(`SELECT count(*) FROM listing_drafts WHERE account_id = @account`,
+			pgx.StrictNamedArgs{"account": account}).QueryRow(func(row pgx.Row) error {
+			if err := row.Scan(&count); err != nil {
+				return fmt.Errorf("count drafts: %w", err)
+			}
+			return nil
+		})
+		err := tx.SendBatch(ctx, b).Close()
 		if err != nil {
-			return err
-		}
-		if !living {
-			return accountdomain.ErrSessionRevoked
-		}
-		if err = deleteExpired(ctx, tx, account, now); err != nil {
-			return err
-		}
-		rows, err := tx.Query(ctx, `SELECT `+draftColumns+` FROM listing_drafts WHERE id = @id FOR UPDATE`,
-			pgx.StrictNamedArgs{"id": id})
-		if err != nil {
-			return fmt.Errorf("select draft: %w", err)
-		}
-		found, err := pgx.CollectRows(rows, scanDraft)
-		if err != nil {
-			return fmt.Errorf("read draft: %w", err)
-		}
-		var stored *domain.ListingDraft
-		count := 0
-		if len(found) == 1 {
-			stored = &found[0]
-		} else if err = tx.QueryRow(ctx, `SELECT count(*) FROM listing_drafts WHERE account_id = @account`,
-			pgx.StrictNamedArgs{"account": account}).Scan(&count); err != nil {
-			return fmt.Errorf("count drafts: %w", err)
+			return err //nolint:wrapcheck // wrapped below
 		}
 		if err = domain.CheckPut(stored, account, count); err != nil {
 			return err
@@ -125,20 +121,19 @@ WHERE id = @id AND account_id = @account`, a); err != nil {
 
 func (s pgDrafts) List(ctx context.Context, account uuid.UUID, now time.Time) ([]domain.ListingDraft, error) {
 	var out []domain.ListingDraft
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := deleteExpired(ctx, tx, account, now); err != nil {
-			return err
-		}
-		rows, err := tx.Query(ctx, `SELECT `+draftColumns+` FROM listing_drafts WHERE account_id = @account
-ORDER BY updated_at DESC, id DESC LIMIT @limit`, pgx.StrictNamedArgs{"account": account, "limit": domain.MaxDrafts})
-		if err != nil {
-			return fmt.Errorf("select drafts: %w", err)
-		}
-		if out, err = pgx.CollectRows(rows, scanDraft); err != nil {
-			return fmt.Errorf("read drafts: %w", err)
-		}
-		return nil
-	})
+	// One implicit transaction on the pool: nothing in it aborts.
+	b := &pgx.Batch{}
+	deleteExpired(b, account, now)
+	b.Queue(`SELECT `+draftColumns+` FROM listing_drafts WHERE account_id = @account
+ORDER BY updated_at DESC, id DESC LIMIT @limit`, pgx.StrictNamedArgs{"account": account, "limit": domain.MaxDrafts}).
+		Query(func(rows pgx.Rows) error {
+			var err error
+			if out, err = pgx.CollectRows(rows, scanDraft); err != nil {
+				return fmt.Errorf("read drafts: %w", err)
+			}
+			return nil
+		})
+	err := s.db.SendBatch(ctx, b).Close()
 	if err != nil {
 		return nil, fmt.Errorf("list drafts: %w", err)
 	}

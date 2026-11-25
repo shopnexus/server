@@ -514,26 +514,30 @@ func collectHits(rows pgx.Rows) ([]domain.Hit, error) {
 	return hits, nil
 }
 
+// iterativeScan queues the setting the hybrid lists need: they filter after
+// the vector index, so the scan keeps reading it until a list is full. The
+// local value lasts until the batch's implicit transaction ends.
+func iterativeScan(b *pgx.Batch) {
+	b.Queue(`SELECT set_config('hnsw.iterative_scan', 'relaxed_order', true)`)
+}
+
 func (s pgSearches) Counts(ctx context.Context, in domain.Search) ([]domain.CategoryCount, error) {
 	if in.Hybrid() {
 		q := query{args: pgx.StrictNamedArgs{}}
 		var counts []domain.CategoryCount
-		err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-			if _, err := tx.Exec(ctx, `SET LOCAL hnsw.iterative_scan = relaxed_order`); err != nil {
-				return fmt.Errorf("set iterative scan: %w", err)
-			}
-			// Counts are over every listing the lists find, at full depth.
-			rows, err := tx.Query(ctx, q.hybrid(in, domain.MaxResults)+`
-SELECT l.category_code, count(*) FROM fused AS f JOIN listings AS l ON l.id = f.id GROUP BY 1 ORDER BY 2 DESC, 1`, q.args)
-			if err != nil {
-				return fmt.Errorf("hybrid counts: %w", err)
-			}
-			if counts, err = pgx.CollectRows(rows, pgx.RowToStructByPos[domain.CategoryCount]); err != nil {
-				return fmt.Errorf("read counts: %w", err)
-			}
-			return nil
-		})
-		if err != nil {
+		b := &pgx.Batch{}
+		iterativeScan(b)
+		// Counts are over every listing the lists find, at full depth.
+		b.Queue(q.hybrid(in, domain.MaxResults)+`
+SELECT l.category_code, count(*) FROM fused AS f JOIN listings AS l ON l.id = f.id GROUP BY 1 ORDER BY 2 DESC, 1`, q.args).
+			Query(func(rows pgx.Rows) error {
+				var err error
+				if counts, err = pgx.CollectRows(rows, pgx.RowToStructByPos[domain.CategoryCount]); err != nil {
+					return fmt.Errorf("read counts: %w", err)
+				}
+				return nil
+			})
+		if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 			return nil, fmt.Errorf("count: %w", err)
 		}
 		return counts, nil
@@ -568,20 +572,14 @@ SELECT l.id, l.lat, l.lng FROM fused AS f JOIN listings AS l ON l.id = f.id`
 		sql += ` ORDER BY f.score DESC, l.id`
 	}
 	var hits []domain.Hit
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		// The vector lists filter after the index; iterative scans keep
-		// reading the index until a list is full or max_scan_tuples is read.
-		if _, err := tx.Exec(ctx, `SET LOCAL hnsw.iterative_scan = relaxed_order`); err != nil {
-			return fmt.Errorf("set iterative scan: %w", err)
-		}
-		rows, err := tx.Query(ctx, sql+` LIMIT @limit OFFSET @offset`, q.args)
-		if err != nil {
-			return fmt.Errorf("hybrid search: %w", err)
-		}
+	b := &pgx.Batch{}
+	iterativeScan(b)
+	b.Queue(sql+` LIMIT @limit OFFSET @offset`, q.args).Query(func(rows pgx.Rows) error {
+		var err error
 		hits, err = collectHits(rows)
 		return err
 	})
-	if err != nil {
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
 	return hits, nil

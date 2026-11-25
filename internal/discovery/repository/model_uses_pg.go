@@ -29,15 +29,13 @@ RETURNING calls`
 
 func (s pgModelUses) Take(ctx context.Context, account uuid.UUID, now time.Time, limit int) (bool, error) {
 	taken := false
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		alive, err := postgres.LockLiving(ctx, tx, account)
-		if err != nil || !alive {
-			return err
-		}
+	b := &pgx.Batch{}
+	postgres.QueueLockLiving(b, account, errGone)
+	b.Queue(takeModelUse, pgx.StrictNamedArgs{
+		"account": account, "day": now.UTC().Format(time.DateOnly), "limit": limit,
+	}).QueryRow(func(row pgx.Row) error {
 		var calls int
-		err = tx.QueryRow(ctx, takeModelUse, pgx.StrictNamedArgs{
-			"account": account, "day": now.UTC().Format(time.DateOnly), "limit": limit,
-		}).Scan(&calls)
+		err := row.Scan(&calls)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -47,6 +45,13 @@ func (s pgModelUses) Take(ctx context.Context, account uuid.UUID, now time.Time,
 		taken = true
 		return nil
 	})
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
+	})
+	// A deleted account takes no use, and that is no error.
+	if errors.Is(err, errGone) {
+		return false, nil
+	}
 	if err != nil {
 		return false, fmt.Errorf("take a model use: %w", err)
 	}

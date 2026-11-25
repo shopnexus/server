@@ -220,6 +220,9 @@ func TestSaveUnderTheWriteID(t *testing.T) {
 	if err := reads.Save(ctx, &retried, w); err != nil { // the same step retried
 		t.Fatalf("retried save: %v", err)
 	}
+	if p, err := (stream.PGLog{DB: db}).Since(ctx, me, 0, 10); err != nil || len(p.Updates) != 2 {
+		t.Fatalf("the insert and one save notify, the retry not: %+v %v", p, err)
+	}
 	if err := reads.Save(ctx, &stale, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("a save from an old copy: %v", err)
 	}
