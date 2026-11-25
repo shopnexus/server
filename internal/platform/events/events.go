@@ -50,6 +50,12 @@ const (
 	// or shipped; FeedbackReplied is ShopNexus's first reply to one.
 	FeedbackMoved   Kind = "feedback.moved"
 	FeedbackReplied Kind = "feedback.replied"
+	// ChototLinkImported is a check of a Chợ Tốt link that brought new
+	// listings over; the payload's count is how many.
+	ChototLinkImported Kind = "chotot_link.imported"
+	// ChototImportSold is a copy of a Chợ Tốt listing sold here while the
+	// listing is still on Chợ Tốt, for a reminder to hide it there.
+	ChototImportSold Kind = "chotot_import.sold"
 )
 
 // Event is what happened to which aggregate. It is thin: a subscriber reads
