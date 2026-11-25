@@ -377,7 +377,7 @@ agents:
   post:
     operationId: createAIAgent
     summary: "Make a console agent. Admins only; each change is a console action."
-    description: "The model must carry the required tags. The alias gets one deployment per provider of the model and joins the agent service's key."
+    description: "The model must carry the required tags. The agent is saved first; then the alias gets one deployment per provider of the model and joins the agent service's key. After 503 the same create again answers the saved agent and writes LiteLLM."
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -423,7 +423,7 @@ agent:
   patch:
     operationId: updateAIAgent
     summary: "Change an agent. Admins only; each change is a console action."
-    description: "A new model rewrites the alias's deployments, so the code that calls it needs no deploy; new instructions are a new version."
+    description: "The agent is saved first; then a new model rewrites the alias's deployments, so the code that calls it needs no deploy, and a budget goes to LiteLLM. After 503 the same change again writes LiteLLM. New instructions are a new version."
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -597,7 +597,7 @@ budgets:
   patch:
     operationId: updateAIBudgets
     summary: "Set agents' monthly budgets and the members' daily budget. Admins only; each change is a console action."
-    description: "An app agent's budget is its LiteLLM keys'; a console agent's is its alias's budget on the agent service's key; a member's is a LiteLLM end-user budget of one day."
+    description: "An app agent's budget is its LiteLLM keys'; a console agent's is its alias's budget on the agent service's key; a member's is a LiteLLM end-user budget of one day. The settings are saved before LiteLLM takes them, so after 503 the same change again writes them to LiteLLM."
     tags: [console, internal]
     security:
       - consoleAuth: []
@@ -621,11 +621,13 @@ budgets:
       "403":
         $ref: "../responses/common.yaml#/ConsoleForbidden"
       "404":
-        description: "No such agent (ai_agent_not_found)."
+        description: "No such agent (ai_agent_not_found) or console member (member_not_found)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
+      "409":
+        $ref: "../responses/common.yaml#/Conflict"
       "503":
         $ref: "../responses/common.yaml#/AIGatewayUnavailable"
 spend:

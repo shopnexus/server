@@ -220,6 +220,23 @@ func (s *Agent) writeAlias(ctx context.Context, st state, alias, model string) e
 	return nil
 }
 
+// aliasServes says whether alias has a deployment and each one the server
+// wrote serves model. One of LiteLLM's config is left to a new model, since
+// its route need not name the agent's model.
+func (st state) aliasServes(alias, model string) bool {
+	n := 0
+	for _, d := range st.deps {
+		if d.ModelName != alias {
+			continue
+		}
+		if role(d) == roleAlias && d.InfoString("model") != model {
+			return false
+		}
+		n++
+	}
+	return n > 0
+}
+
 // cost is the price on provider's catalog deployment of model.
 func (st state) cost(provider, model string) litellm.Params {
 	for _, d := range st.deps {

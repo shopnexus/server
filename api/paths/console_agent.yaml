@@ -66,10 +66,13 @@ conversations:
     description: |
       A record has one conversation, shared by every member: the first call
       for a subject makes it, and later calls answer the same one. Without a
-      subject the conversation is new and the caller's.
+      subject the conversation is new and the caller's; a repeated
+      Idempotency-Key answers the conversation its first call made.
     tags: [console, internal]
     security:
       - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKeyOptional"
     requestBody:
       required: true
       content:
@@ -196,10 +199,13 @@ conversationTurns:
       run step by step. Closing the stream does not stop the run. The
       attachments are kept on the turn, each record once; the run is told
       the kind and id of every record the conversation's questions
-      mention, without the labels.
+      mention, without the labels. A repeated Idempotency-Key answers the
+      turn its first call opened and starts no run.
     tags: [console, internal]
     security:
       - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKeyOptional"
     requestBody:
       required: true
       content:
@@ -424,10 +430,13 @@ turnSteer:
       before its next model call (steer.read names the step). Sent to a
       paused turn it continues the run (turn.resumed with by steer). An
       update that carries an attachment, a skill or another agent is a new
-      question instead.
+      question instead. A repeated Idempotency-Key answers the steer its
+      first call sent and sends nothing.
     tags: [console, internal]
     security:
       - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKeyOptional"
     requestBody:
       required: true
       content:
@@ -564,9 +573,12 @@ skills:
   post:
     operationId: createConsoleAgentSkill
     summary: Save a skill, a question with {{variables}}, for every member.
+    description: A repeated Idempotency-Key answers the skill its first call saved.
     tags: [console, internal]
     security:
       - consoleAuth: []
+    parameters:
+      - $ref: "../parameters/common.yaml#/IdempotencyKeyOptional"
     requestBody:
       required: true
       content:
@@ -657,7 +669,7 @@ skill:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "Another skill has this slug (agent_skill_taken)."
+        description: "Another skill has this slug (agent_skill_taken), or the skill changed meanwhile (try_again)."
         content:
           application/json:
             schema:

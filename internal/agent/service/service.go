@@ -66,8 +66,9 @@ type Service interface {
 	Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, lastEventID string) (io.ReadCloser, error)
 	// Control pauses, stops, continues or ends a turn's run.
 	Control(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, c Control) (TurnState, error)
-	// Steer gives a run text to read before its next model call.
-	Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, text string) (Steering, error)
+	// Steer gives a run text to read before its next model call; a key
+	// caller used answers its steer.
+	Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, text string, key *uuid.UUID) (Steering, error)
 	// Turn reads a turn.
 	Turn(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Turn, error)
 	// Answer answers a turn's clarifying questions.

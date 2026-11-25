@@ -407,7 +407,7 @@ func TestControlQueueAndLiveStream(t *testing.T) {
 	if _, err = s.Control(ctx, lan, started.TurnID, service.ControlPause); err != nil {
 		t.Fatal(err)
 	}
-	steer, err := s.Steer(ctx, lan, started.TurnID, "Chỉ Hà Nội")
+	steer, err := s.Steer(ctx, lan, started.TurnID, "Chỉ Hà Nội", nil)
 	if err != nil || steer.Resumed {
 		t.Fatalf("steer %+v %v", steer, err)
 	}

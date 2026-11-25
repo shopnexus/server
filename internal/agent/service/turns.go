@@ -10,6 +10,7 @@ import (
 
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/authn"
 )
 
@@ -70,7 +71,9 @@ func (s *Agent) Control(ctx context.Context, caller authn.ConsoleMember, turn uu
 		if t.Status != domain.TurnRunning {
 			return TurnState{}, domain.ErrTurnState
 		}
-		err = s.runs.AddInput(ctx, repository.Input{ID: uuid.NewV7(), TurnID: turn, Kind: string(c), CreatedAt: s.now()})
+		err = s.runs.AddInput(ctx, repository.Input{
+			ID: uuid.NewV7(), TurnID: turn, Kind: string(c), CreatedAt: s.now(), MemberID: caller.MemberID,
+		})
 		if errors.Is(err, repository.ErrState) {
 			return TurnState{}, domain.ErrTurnState
 		}
@@ -111,11 +114,17 @@ func (s *Agent) Control(ctx context.Context, caller authn.ConsoleMember, turn uu
 }
 
 // Steer is UC-MOD-08's steering: text a running run reads before its next
-// model call, or that continues a paused run.
-func (s *Agent) Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, text string) (Steering, error) {
+// model call, or that continues a paused run. A key the member used
+// answers its steer and sends nothing.
+func (s *Agent) Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, text string, key *uuid.UUID) (Steering, error) {
 	t, err := s.visibleTurn(ctx, caller, turn)
 	if err != nil {
 		return Steering{}, err
+	}
+	if key != nil {
+		if st, ok, keyErr := s.steerOfKey(ctx, caller, *key); keyErr != nil || ok {
+			return st, keyErr
+		}
 	}
 	now := s.now()
 	if !s.limiter.allow(caller.MemberID, now) {
@@ -131,24 +140,48 @@ func (s *Agent) Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid
 	if err != nil {
 		return Steering{}, err
 	}
-	in := repository.Input{ID: uuid.NewV7(), TurnID: turn, Kind: "steer", Text: clean, CreatedAt: now}
+	in := repository.Input{
+		ID: uuid.NewV7(), TurnID: turn, Kind: "steer", Text: clean, CreatedAt: now, MemberID: caller.MemberID, RequestKey: key,
+	}
 	switch t.Status {
 	case domain.TurnRunning:
 		err = s.runs.AddInput(ctx, in)
-		if errors.Is(err, repository.ErrState) {
-			return Steering{}, domain.ErrTurnState
-		}
-		if err != nil {
-			return Steering{}, fmt.Errorf("send the steer: %w", err)
-		}
-		return Steering{SteerID: in.ID, TurnID: turn}, nil
 	case domain.TurnPaused:
-		if err = s.resume(ctx, caller, t, "steer", &in, ""); err != nil {
-			return Steering{}, err
-		}
-		return Steering{SteerID: in.ID, TurnID: turn, Resumed: true}, nil
+		in.Resumed = true
+		err = s.resume(ctx, caller, t, "steer", &in, "")
+	default:
+		return Steering{}, domain.ErrTurnState
 	}
-	return Steering{}, domain.ErrTurnState
+	if err != nil && key != nil {
+		// A racing retry of the key lost to the first, which may have moved
+		// the turn on; answer the first.
+		if st, ok, keyErr := s.steerOfKey(ctx, caller, *key); keyErr == nil && ok {
+			return st, nil
+		}
+	}
+	switch {
+	case errors.Is(err, repository.ErrState):
+		return Steering{}, domain.ErrTurnState
+	case errors.Is(err, repository.ErrKeyUsed):
+		return Steering{}, apperr.ErrTryAgain
+	case err != nil && t.Status == domain.TurnRunning:
+		return Steering{}, fmt.Errorf("send the steer: %w", err)
+	case err != nil:
+		return Steering{}, err
+	}
+	return Steering{SteerID: in.ID, TurnID: turn, Resumed: in.Resumed}, nil
+}
+
+// steerOfKey reads the steer caller sent with key, when there is one.
+func (s *Agent) steerOfKey(ctx context.Context, caller authn.ConsoleMember, key uuid.UUID) (Steering, bool, error) {
+	in, err := s.runs.InputByKey(ctx, caller.MemberID, key)
+	if errors.Is(err, repository.ErrNotFound) {
+		return Steering{}, false, nil
+	}
+	if err != nil {
+		return Steering{}, false, fmt.Errorf("read the key's steer: %w", err)
+	}
+	return Steering{SteerID: in.ID, TurnID: in.TurnID, Resumed: in.Resumed}, true, nil
 }
 
 // Answer gives a turn that waits on the agent's clarifying questions the
@@ -177,7 +210,10 @@ func (s *Agent) Answer(ctx context.Context, caller authn.ConsoleMember, turn uui
 		return TurnState{}, fmt.Errorf("encode the answers: %w", err)
 	}
 	now := s.now()
-	in := repository.Input{ID: uuid.NewV7(), TurnID: turn, Kind: "answers", Text: text, Answers: raw, ReadAt: &now, CreatedAt: now}
+	in := repository.Input{
+		ID: uuid.NewV7(), TurnID: turn, Kind: "answers", Text: text, Answers: raw, ReadAt: &now, CreatedAt: now,
+		MemberID: caller.MemberID,
+	}
 	if err = s.resume(ctx, caller, t, "input", &in, text); err != nil {
 		return TurnState{}, err
 	}

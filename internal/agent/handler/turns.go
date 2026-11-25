@@ -108,14 +108,15 @@ func (h *Handler) control(c service.Control) http.HandlerFunc {
 }
 
 type steerRequest struct {
-	ID   uuid.UUID `json:"-"    path:"id"`
-	Text string    `json:"text"`
+	ID   uuid.UUID  `json:"-"                 path:"id"`
+	Key  *uuid.UUID `header:"Idempotency-Key" json:"-"`
+	Text string     `json:"text"`
 }
 
 // Steer serves POST /v1/console/agent/turns/{id}/steer.
 func (h *Handler) Steer(w http.ResponseWriter, r *http.Request) {
 	serve(h, w, r, http.StatusAccepted, func(c authn.ConsoleMember, in steerRequest) (service.Steering, error) {
-		return h.svc.Steer(r.Context(), c, in.ID, in.Text)
+		return h.svc.Steer(r.Context(), c, in.ID, in.Text, in.Key)
 	})
 }
 
@@ -161,11 +162,14 @@ func (h *Handler) ListSkills(w http.ResponseWriter, r *http.Request) {
 
 type skillCreateRequest struct {
 	service.SkillInput
+
+	Key *uuid.UUID `header:"Idempotency-Key" json:"-"`
 }
 
 // CreateSkill serves POST /v1/console/agent/skills.
 func (h *Handler) CreateSkill(w http.ResponseWriter, r *http.Request) {
 	serve(h, w, r, http.StatusCreated, func(c authn.ConsoleMember, in skillCreateRequest) (service.Skill, error) {
+		in.SkillInput.Key = in.Key
 		return h.svc.CreateSkill(r.Context(), c, in.SkillInput)
 	})
 }

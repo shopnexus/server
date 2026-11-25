@@ -9,6 +9,7 @@ import (
 
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/authn"
 )
 
@@ -50,8 +51,13 @@ func (s *Agent) Skills(ctx context.Context, _ authn.ConsoleMember) ([]Skill, err
 }
 
 // CreateSkill saves a skill made by caller; the slug is the name in
-// lower-case ASCII when it has none.
+// lower-case ASCII when it has none. A key caller used answers its skill.
 func (s *Agent) CreateSkill(ctx context.Context, caller authn.ConsoleMember, in SkillInput) (Skill, error) {
+	if in.Key != nil {
+		if v, ok, err := s.skillOfKey(ctx, caller, *in.Key); err != nil || ok {
+			return v, err
+		}
+	}
 	slug := in.Slug
 	if slug == "" {
 		slug = domain.SlugOf(in.Name)
@@ -67,12 +73,36 @@ func (s *Agent) CreateSkill(ctx context.Context, caller authn.ConsoleMember, in 
 	now := s.now().UTC()
 	sk := repository.Skill{
 		ID: uuid.NewV7(), CreatedBy: caller.MemberID, Name: name, Slug: slug, Description: in.Description, Prompt: prompt,
-		Variables: vars, CreatedAt: now, UpdatedAt: now,
+		Variables: vars, CreatedAt: now, UpdatedAt: now, RequestKey: in.Key, WriteID: uuid.NewV7(),
 	}
-	if err = s.saveSkill(ctx, sk); err != nil {
-		return Skill{}, err
+	err = s.runs.CreateSkill(ctx, sk)
+	if err != nil && in.Key != nil {
+		// A racing retry of the key lost to the first; answer the first.
+		if v, ok, keyErr := s.skillOfKey(ctx, caller, *in.Key); keyErr == nil && ok {
+			return v, nil
+		}
+	}
+	switch {
+	case errors.Is(err, repository.ErrTaken):
+		return Skill{}, domain.ErrSkillTaken
+	case errors.Is(err, repository.ErrKeyUsed):
+		return Skill{}, apperr.ErrTryAgain
+	case err != nil:
+		return Skill{}, fmt.Errorf("create the skill: %w", err)
 	}
 	return skillView(sk), nil
+}
+
+// skillOfKey reads the skill caller made with key, when there is one.
+func (s *Agent) skillOfKey(ctx context.Context, caller authn.ConsoleMember, key uuid.UUID) (Skill, bool, error) {
+	sk, err := s.runs.SkillByKey(ctx, caller.MemberID, key)
+	if errors.Is(err, repository.ErrNotFound) {
+		return Skill{}, false, nil
+	}
+	if err != nil {
+		return Skill{}, false, fmt.Errorf("read the key's skill: %w", err)
+	}
+	return skillView(sk), true, nil
 }
 
 // UpdateSkill changes the fields in sets; only its creator or an admin may.
@@ -104,9 +134,17 @@ func (s *Agent) UpdateSkill(ctx context.Context, caller authn.ConsoleMember, id 
 	if sk.Variables, err = json.Marshal(orEmpty(vars)); err != nil {
 		return Skill{}, fmt.Errorf("encode the variables: %w", err)
 	}
-	sk.UpdatedAt = s.now().UTC()
-	if err = s.saveSkill(ctx, sk); err != nil {
-		return Skill{}, err
+	read := sk.WriteID
+	sk.UpdatedAt, sk.WriteID = s.now().UTC(), uuid.NewV7()
+	switch err = s.runs.UpdateSkill(ctx, sk, read); {
+	case errors.Is(err, repository.ErrNotFound):
+		return Skill{}, domain.ErrSkillNotFound
+	case errors.Is(err, repository.ErrConflict):
+		return Skill{}, apperr.ErrTryAgain
+	case errors.Is(err, repository.ErrTaken):
+		return Skill{}, domain.ErrSkillTaken
+	case err != nil:
+		return Skill{}, fmt.Errorf("update the skill: %w", err)
 	}
 	return skillView(sk), nil
 }
@@ -135,17 +173,6 @@ func (s *Agent) ownSkill(ctx context.Context, caller authn.ConsoleMember, id uui
 		return repository.Skill{}, domain.ErrForbidden
 	}
 	return sk, nil
-}
-
-func (s *Agent) saveSkill(ctx context.Context, sk repository.Skill) error {
-	err := s.runs.SaveSkill(ctx, sk)
-	if errors.Is(err, repository.ErrTaken) {
-		return domain.ErrSkillTaken
-	}
-	if err != nil {
-		return fmt.Errorf("save the skill: %w", err)
-	}
-	return nil
 }
 
 // orEmpty is vars, or an empty list for none.

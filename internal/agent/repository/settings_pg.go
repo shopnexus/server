@@ -60,6 +60,9 @@ JOIN ai_tags AS t ON t.tag_name = m.tag_name ORDER BY m.model_id, t.sort_order`)
 
 func (s pgSettings) SetModelTags(ctx context.Context, model string, tags []string, e audit.Entry) error {
 	b := &pgx.Batch{}
+	// Two sets of one model take turns, else each delete misses the other's
+	// insert and the model ends with both lists.
+	postgres.QueueLock(b, "model_tags", model)
 	b.Queue(`DELETE FROM ai_model_tags WHERE model_id = @model`, pgx.StrictNamedArgs{"model": model}).Fn = postgres.ExecAs("delete model tags", nil)
 	b.Queue(`INSERT INTO ai_model_tags (model_id, tag_name) SELECT @model, unnest(@tags::text[])
 ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"model": model, "tags": tags}).Fn = func(br pgx.BatchResults) error {
@@ -73,7 +76,10 @@ ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"model": model, "tags": tags}).Fn =
 		return nil
 	}
 	audit.Queue(b, e)
-	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
+	})
+	if err != nil {
 		return fmt.Errorf("set model tags: %w", err)
 	}
 	return nil
@@ -234,8 +240,8 @@ func (s pgSettings) Record(ctx context.Context, e audit.Entry) error {
 func (s pgSettings) BudgetSettings(ctx context.Context) (BudgetSettings, error) {
 	var b BudgetSettings
 	if err := s.db.QueryRow(ctx, `SELECT monthly_cap_usd::float8, alert_pct, on_cap, moderator_daily_usd::float8,
-    admin_daily_usd::float8, updated_by, updated_at FROM ai_budget_settings`).Scan(&b.MonthlyCapUSD, &b.AlertPct, &b.OnCap,
-		&b.ModeratorDailyUSD, &b.AdminDailyUSD, &b.UpdatedBy, &b.UpdatedAt); err != nil {
+    admin_daily_usd::float8, updated_by, updated_at, write_id FROM ai_budget_settings`).Scan(&b.MonthlyCapUSD, &b.AlertPct,
+		&b.OnCap, &b.ModeratorDailyUSD, &b.AdminDailyUSD, &b.UpdatedBy, &b.UpdatedAt, &b.WriteID); err != nil {
 		return BudgetSettings{}, fmt.Errorf("select budget settings: %w", err)
 	}
 	rows, err := s.db.Query(ctx, `SELECT member_id, daily_usd::float8 FROM ai_member_budgets ORDER BY member_id`)
@@ -255,13 +261,14 @@ func (s pgSettings) BudgetSettings(ctx context.Context) (BudgetSettings, error) 
 	return b, nil
 }
 
-func (s pgSettings) SaveBudgetSettings(ctx context.Context, bs BudgetSettings, e audit.Entry) error {
+func (s pgSettings) SaveBudgetSettings(ctx context.Context, bs BudgetSettings, readWriteID uuid.UUID, e audit.Entry) error {
 	b := &pgx.Batch{}
 	b.Queue(`UPDATE ai_budget_settings SET monthly_cap_usd = @cap, alert_pct = @alert, on_cap = @on_cap,
-    moderator_daily_usd = @moderator, admin_daily_usd = @admin, updated_by = @by, updated_at = @at`, pgx.StrictNamedArgs{
+    moderator_daily_usd = @moderator, admin_daily_usd = @admin, updated_by = @by, updated_at = @at, write_id = @write_id
+WHERE write_id = @read_write_id OR write_id = @write_id`, pgx.StrictNamedArgs{
 		"cap": bs.MonthlyCapUSD, "alert": bs.AlertPct, "on_cap": bs.OnCap, "moderator": bs.ModeratorDailyUSD,
-		"admin": bs.AdminDailyUSD, "by": bs.UpdatedBy, "at": bs.UpdatedAt,
-	}).Fn = postgres.ExecAs("update budget settings", nil)
+		"admin": bs.AdminDailyUSD, "by": bs.UpdatedBy, "at": bs.UpdatedAt, "write_id": bs.WriteID, "read_write_id": readWriteID,
+	}).Fn = postgres.ExecAs("update budget settings", ErrConflict)
 	if bs.SetMembers {
 		b.Queue(`DELETE FROM ai_member_budgets`).Fn = postgres.ExecAs("delete member budgets", nil)
 		members := make([]uuid.UUID, len(bs.Members))
@@ -283,7 +290,10 @@ SELECT member_id, daily_usd, @by, @at FROM unnest(@members::uuid[], @usd::float8
 		}
 	}
 	audit.Queue(b, e)
-	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
+	})
+	if err != nil {
 		return fmt.Errorf("save budget settings: %w", err)
 	}
 	return nil

@@ -38,14 +38,16 @@ type fakeLiteLLM struct {
 	customers    map[string]string
 	logs         []map[string]any
 	down         bool
+	// fail answers 502 to the calls it holds, as "METHOD /path".
+	fail map[string]bool
 }
 
 func newFakeLiteLLM(t *testing.T) *fakeLiteLLM {
 	t.Helper()
 	f := &fakeLiteLLM{
 		creds: map[string]litellm.Credential{}, budget: map[string]map[string]any{}, listed: map[string][]string{},
-		customers: map[string]string{},
-		router:    map[string]any{"routing_strategy": "simple-shuffle", "num_retries": 2.0},
+		customers: map[string]string{}, fail: map[string]bool{},
+		router: map[string]any{"routing_strategy": "simple-shuffle", "num_retries": 2.0},
 		keys: []map[string]any{
 			{
 				"token": "hash-agent", "key_alias": "agent", "models": []any{"console-agent"}, "spend": 1.5,
@@ -80,7 +82,7 @@ func newFakeLiteLLM(t *testing.T) *fakeLiteLLM {
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		if f.down {
+		if f.down || f.fail[r.Method+" "+r.URL.Path] {
 			w.WriteHeader(http.StatusBadGateway)
 			return
 		}
@@ -344,6 +346,17 @@ func (f *fakeLiteLLM) aliases(alias string) []string {
 	}
 	slices.Sort(out)
 	return out
+}
+
+// failing makes the calls named fail, or all of them pass again when none
+// is named.
+func (f *fakeLiteLLM) failing(calls ...string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	clear(f.fail)
+	for _, c := range calls {
+		f.fail[c] = true
+	}
 }
 
 // key reads the key with alias.

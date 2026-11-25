@@ -2,11 +2,13 @@ package e2e
 
 import (
 	"context"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -118,7 +120,13 @@ func TestAISettings(t *testing.T) {
 	if agent.Kind != "console" || agent.Model != model || *agent.MonthlyBudgetUSD != 5 {
 		t.Fatalf("agent %+v", agent)
 	}
-	check(t, "the same alias", consoleCall(t, minh, "POST", settings+"/agents", agentBody), 409, "ai_agent_taken")
+	// The same request again answers the agent it made; another name on the alias is refused.
+	if again := expect[aiAgent](t, consoleCall(t, minh, "POST", settings+"/agents", agentBody), 201); again.ID != agent.ID {
+		t.Fatalf("the same request: %+v", again)
+	}
+	taken := maps.Clone(agentBody)
+	taken["name"] = "Other " + suffix
+	check(t, "the same alias", consoleCall(t, minh, "POST", settings+"/agents", taken), 409, "ai_agent_taken")
 	check(t, "a model without the tags", consoleCall(t, minh, "POST", settings+"/agents", map[string]any{
 		"name": "Seer " + suffix, "alias": "seer-" + suffix, "model": model, "required_tags": []string{"Vision"},
 	}), 422, "ai_model_lacks_tags")
@@ -430,4 +438,35 @@ func signInMemberAt(t *testing.T, base string, svc *consolesvc.Console, role con
 	}, csrf)
 	expectStatus(t, res, http.StatusOK)
 	return sessionCookieOf(t, res).Value
+}
+
+// Budget saves racing on the one settings row each get 200 or 409
+// try_again, and at least one wins.
+func TestAIBudgetsRace(t *testing.T) { //nolint:paralleltest // The other settings tests read the row.
+	minh := signInMember(t, consoledomain.RoleAdmin)
+	statuses := make(chan int, 20)
+	var wg sync.WaitGroup
+	for i := range 20 {
+		wg.Go(func() {
+			res := consoleCall(t, minh, "PATCH", settings+"/budgets", map[string]any{"alert_pct": 50 + i})
+			if res.Status == 409 && errorOf(t, res).Code != "try_again" {
+				t.Errorf("409 with %s", res.Body)
+			}
+			statuses <- res.Status
+		})
+	}
+	wg.Wait()
+	close(statuses)
+	won := 0
+	for s := range statuses {
+		if s != 200 && s != 409 {
+			t.Fatalf("status %d", s)
+		}
+		if s == 200 {
+			won++
+		}
+	}
+	if won == 0 {
+		t.Fatal("no save won")
+	}
 }

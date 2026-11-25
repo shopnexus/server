@@ -70,18 +70,22 @@ func oneConversation(rows pgx.Rows, err error) (Conversation, error) {
 
 func (s pgRuns) OpenConversation(ctx context.Context, c Conversation) (Conversation, error) {
 	var kind *string
+	key := c.RequestKey
 	if c.SubjectKind != "" {
-		kind = &c.SubjectKind
+		kind, key = &c.SubjectKind, nil
 	}
+	// The insert claims the subject or the member's request key; a claimed
+	// one inserts nothing and the read below finds its conversation.
 	if _, err := s.db.Exec(ctx, `INSERT INTO agent_conversations (id, member_id, subject_kind, subject_id, status, created_at,
-    updated_at, last_activity_at)
-VALUES (@id, @member, @kind, @subject, 'active', @at, @at, @at) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{
-		"id": c.ID, "member": c.MemberID, "kind": kind, "subject": c.SubjectID, "at": c.CreatedAt,
+    updated_at, last_activity_at, request_key)
+VALUES (@id, @member, @kind, @subject, 'active', @at, @at, @at, @key) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{
+		"id": c.ID, "member": c.MemberID, "kind": kind, "subject": c.SubjectID, "at": c.CreatedAt, "key": key,
 	}); err != nil {
 		return Conversation{}, fmt.Errorf("insert agent conversation: %w", err)
 	}
 	if kind == nil {
-		return s.Conversation(ctx, c.ID)
+		return oneConversation(s.db.Query(ctx, `SELECT `+conversationColumns+` FROM agent_conversations
+WHERE id = @id OR (member_id = @member AND request_key = @key)`, pgx.StrictNamedArgs{"id": c.ID, "member": c.MemberID, "key": key}))
 	}
 	return oneConversation(s.db.Query(ctx, `SELECT `+conversationColumns+` FROM agent_conversations
 WHERE subject_kind = @kind AND subject_id = @subject`, pgx.StrictNamedArgs{"kind": kind, "subject": c.SubjectID}))
@@ -164,19 +168,24 @@ WHERE id = @id AND (subject_kind IS NOT NULL OR member_id = @member) FOR UPDATE`
 		return nil
 	})
 	b.Queue(`INSERT INTO agent_turns (id, conversation_id, member_id, ordinal, status, question, agent_id,
-    agent_name, model_alias, started_at, run_started_at, deadline_ms, attachments)
+    agent_name, model_alias, started_at, run_started_at, deadline_ms, attachments, request_key)
 SELECT @id, @conversation, @member, COALESCE(max(ordinal), -1) + 1, 'running', @question, @agent_id, @agent_name, @alias,
-    @at, @at, @deadline, COALESCE(@attachments::jsonb, '[]')
-FROM agent_turns WHERE conversation_id = @conversation`, pgx.StrictNamedArgs{
+    @at, @at, @deadline, COALESCE(@attachments::jsonb, '[]'), @key
+FROM agent_turns WHERE conversation_id = @conversation
+ON CONFLICT (member_id, request_key) WHERE request_key IS NOT NULL DO NOTHING`, pgx.StrictNamedArgs{
 		"id": t.ID, "conversation": t.ConversationID, "member": t.MemberID, "question": t.Question, "agent_id": t.AgentID,
 		"agent_name": t.AgentName, "alias": t.ModelAlias, "at": t.StartedAt, "deadline": t.DeadlineMS, "attachments": t.Attachments,
+		"key": t.RequestKey,
 	}).Fn = func(br pgx.BatchResults) error {
-		_, err := br.Exec()
+		tag, err := br.Exec()
 		if isUnique(err) {
 			return ErrBusy
 		}
 		if err != nil {
 			return fmt.Errorf("insert agent turn: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrKeyUsed
 		}
 		return nil
 	}
@@ -252,6 +261,15 @@ func (s pgRuns) Turn(ctx context.Context, id uuid.UUID) (Turn, error) {
 	return collectTurn(rows)
 }
 
+func (s pgRuns) TurnByKey(ctx context.Context, member, key uuid.UUID) (Turn, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+turnColumns+turnFrom+` WHERE t.member_id = @member AND t.request_key = @key`,
+		pgx.StrictNamedArgs{"member": member, "key": key})
+	if err != nil {
+		return Turn{}, fmt.Errorf("select agent turn by key: %w", err)
+	}
+	return collectTurn(rows)
+}
+
 func (s pgRuns) Turns(ctx context.Context, conversation uuid.UUID) ([]Turn, error) {
 	rows, err := s.db.Query(ctx, `SELECT `+turnColumns+turnFrom+` WHERE t.conversation_id = @id ORDER BY t.ordinal`,
 		pgx.StrictNamedArgs{"id": conversation})
@@ -265,11 +283,12 @@ func (s pgRuns) Turns(ctx context.Context, conversation uuid.UUID) ([]Turn, erro
 	return out, nil
 }
 
-const inputColumns = `seq, id, turn_id, kind, COALESCE(input_text, ''), answers, read_at, created_at`
+const inputColumns = `seq, id, turn_id, kind, COALESCE(input_text, ''), answers, read_at, created_at, resumed`
 
 func scanInput(r pgx.CollectableRow) (Input, error) {
 	var in Input
-	if err := r.Scan(&in.Seq, &in.ID, &in.TurnID, &in.Kind, &in.Text, &in.Answers, &in.ReadAt, &in.CreatedAt); err != nil {
+	if err := r.Scan(&in.Seq, &in.ID, &in.TurnID, &in.Kind, &in.Text, &in.Answers, &in.ReadAt, &in.CreatedAt,
+		&in.Resumed); err != nil {
 		return in, fmt.Errorf("scan agent turn input: %w", err)
 	}
 	return in, nil
@@ -283,6 +302,28 @@ func collectInputs(rows pgx.Rows) ([]Input, error) {
 		return nil, fmt.Errorf("read agent turn inputs: %w", err)
 	}
 	return out, nil
+}
+
+// insertInput stores an input; a request key its member used inserts
+// nothing.
+const insertInput = `INSERT INTO agent_turn_inputs (id, turn_id, kind, input_text, answers, read_at, created_at,
+    member_id, request_key, resumed)
+VALUES (@id, @turn, @kind, @text, @answers, @read_at, @at, @member, @key, @resumed)
+ON CONFLICT (member_id, request_key) WHERE request_key IS NOT NULL DO NOTHING`
+
+func inputArgs(in Input) pgx.StrictNamedArgs {
+	var text *string
+	if in.Text != "" {
+		text = &in.Text
+	}
+	var member *uuid.UUID
+	if in.MemberID != uuid.Nil() {
+		member = &in.MemberID
+	}
+	return pgx.StrictNamedArgs{
+		"id": in.ID, "turn": in.TurnID, "kind": in.Kind, "text": text, "answers": in.Answers, "read_at": in.ReadAt,
+		"at": in.CreatedAt, "member": member, "key": in.RequestKey, "resumed": in.Resumed,
+	}
 }
 
 func inputs(ctx context.Context, db querier, query string, args pgx.StrictNamedArgs) ([]Input, error) {
@@ -456,15 +497,7 @@ FROM agent_turns AS t WHERE t.id = @id FOR UPDATE`, pgx.StrictNamedArgs{"id": r.
 	answers := false
 	if in := r.Input; in != nil {
 		answers = in.Kind == "answers"
-		var text *string
-		if in.Text != "" {
-			text = &in.Text
-		}
-		b.Queue(`INSERT INTO agent_turn_inputs (id, turn_id, kind, input_text, answers, read_at, created_at)
-VALUES (@id, @turn, @kind, @text, @answers, @read_at, @at)`, pgx.StrictNamedArgs{
-			"id": in.ID, "turn": in.TurnID, "kind": in.Kind, "text": text, "answers": in.Answers, "read_at": in.ReadAt,
-			"at": in.CreatedAt,
-		}).Fn = postgres.ExecAs("insert agent turn input", nil)
+		b.Queue(insertInput, inputArgs(*in)).Fn = postgres.ExecAs("insert agent turn input", ErrKeyUsed)
 	}
 	b.Queue(`UPDATE agent_turns SET status = 'running', run_started_at = @at, finished_at = NULL, error_code = NULL,
     answer = CASE WHEN @clear THEN NULL ELSE answer END, blocks = CASE WHEN @clear THEN NULL ELSE blocks END,
@@ -621,23 +654,42 @@ ORDER BY run_started_at LIMIT @limit`, pgx.StrictNamedArgs{"at": at, "grace": gr
 }
 
 func (s pgRuns) AddInput(ctx context.Context, in Input) error {
-	var text *string
-	if in.Text != "" {
-		text = &in.Text
-	}
-	tag, err := s.db.Exec(ctx, `INSERT INTO agent_turn_inputs (id, turn_id, kind, input_text, answers, read_at, created_at)
-SELECT @id, @turn, @kind, @text, @answers, @read_at, @at WHERE EXISTS (
-    SELECT 1 FROM agent_turns WHERE id = @turn AND status = 'running')`, pgx.StrictNamedArgs{
-		"id": in.ID, "turn": in.TurnID, "kind": in.Kind, "text": text, "answers": in.Answers, "read_at": in.ReadAt,
-		"at": in.CreatedAt,
-	})
-	if err != nil {
-		return fmt.Errorf("insert agent turn input: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrState
+	b := &pgx.Batch{}
+	// The seq is taken under the turn's lock, so inputs commit in seq order
+	// and a poll after a seq never skips one that commits later.
+	b.Queue(`SELECT status FROM agent_turns WHERE id = @turn FOR UPDATE`, pgx.StrictNamedArgs{"turn": in.TurnID}).
+		QueryRow(func(row pgx.Row) error {
+			var status string
+			err := row.Scan(&status)
+			if errors.Is(err, pgx.ErrNoRows) || err == nil && status != "running" {
+				return ErrState
+			}
+			if err != nil {
+				return fmt.Errorf("lock agent turn: %w", err)
+			}
+			return nil
+		})
+	b.Queue(insertInput, inputArgs(in)).Fn = postgres.ExecAs("insert agent turn input", ErrKeyUsed)
+	if err := sendInTx(ctx, s.db, b); err != nil {
+		return fmt.Errorf("add agent turn input: %w", err)
 	}
 	return nil
+}
+
+func (s pgRuns) InputByKey(ctx context.Context, member, key uuid.UUID) (Input, error) {
+	rows, err := s.db.Query(ctx, selectInputs+`member_id = @member AND request_key = @key`,
+		pgx.StrictNamedArgs{"member": member, "key": key})
+	if err != nil {
+		return Input{}, fmt.Errorf("select agent turn input by key: %w", err)
+	}
+	in, err := pgx.CollectExactlyOneRow(rows, scanInput)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Input{}, ErrNotFound
+	}
+	if err != nil {
+		return Input{}, fmt.Errorf("read agent turn input: %w", err)
+	}
+	return in, nil
 }
 
 func (s pgRuns) Control(ctx context.Context, turn uuid.UUID, after int64, limit int) ([]Input, bool, error) {
@@ -905,12 +957,13 @@ WHERE document_id = @id ORDER BY version_no DESC`, pgx.StrictNamedArgs{"id": id}
 	return d, nil
 }
 
-const skillColumns = `id, created_by, skill_name, slug, description, prompt, skill_variables, created_at, updated_at`
+const skillColumns = `id, created_by, skill_name, slug, description, prompt, skill_variables, created_at, updated_at,
+    request_key, write_id`
 
 func scanSkill(r pgx.CollectableRow) (Skill, error) {
 	var sk Skill
 	if err := r.Scan(&sk.ID, &sk.CreatedBy, &sk.Name, &sk.Slug, &sk.Description, &sk.Prompt, &sk.Variables, &sk.CreatedAt,
-		&sk.UpdatedAt); err != nil {
+		&sk.UpdatedAt, &sk.RequestKey, &sk.WriteID); err != nil {
 		return sk, fmt.Errorf("scan agent skill: %w", err)
 	}
 	return sk, nil
@@ -929,7 +982,15 @@ func (s pgRuns) Skills(ctx context.Context) ([]Skill, error) {
 }
 
 func (s pgRuns) Skill(ctx context.Context, id uuid.UUID) (Skill, error) {
-	rows, err := s.db.Query(ctx, `SELECT `+skillColumns+` FROM agent_skills WHERE id = @id`, pgx.StrictNamedArgs{"id": id})
+	return oneSkill(s.db.Query(ctx, `SELECT `+skillColumns+` FROM agent_skills WHERE id = @id`, pgx.StrictNamedArgs{"id": id}))
+}
+
+func (s pgRuns) SkillByKey(ctx context.Context, member, key uuid.UUID) (Skill, error) {
+	return oneSkill(s.db.Query(ctx, `SELECT `+skillColumns+` FROM agent_skills WHERE created_by = @member AND request_key = @key`,
+		pgx.StrictNamedArgs{"member": member, "key": key}))
+}
+
+func oneSkill(rows pgx.Rows, err error) (Skill, error) {
 	if err != nil {
 		return Skill{}, fmt.Errorf("select agent skill: %w", err)
 	}
@@ -943,23 +1004,54 @@ func (s pgRuns) Skill(ctx context.Context, id uuid.UUID) (Skill, error) {
 	return sk, nil
 }
 
-func (s pgRuns) SaveSkill(ctx context.Context, sk Skill) error {
-	_, err := s.db.Exec(ctx, `INSERT INTO agent_skills (id, created_by, skill_name, slug, description, prompt, skill_variables,
-    created_at, updated_at)
-VALUES (@id, @by, @name, @slug, @description, @prompt, @variables, @created_at, @updated_at)
-ON CONFLICT (id) DO UPDATE SET skill_name = EXCLUDED.skill_name, slug = EXCLUDED.slug, description = EXCLUDED.description,
-    prompt = EXCLUDED.prompt, skill_variables = EXCLUDED.skill_variables, updated_at = EXCLUDED.updated_at`,
-		pgx.StrictNamedArgs{
-			"id": sk.ID, "by": sk.CreatedBy, "name": sk.Name, "slug": sk.Slug, "description": sk.Description, "prompt": sk.Prompt,
-			"variables": sk.Variables, "created_at": sk.CreatedAt, "updated_at": sk.UpdatedAt,
-		})
+func skillArgs(sk Skill) pgx.StrictNamedArgs {
+	return pgx.StrictNamedArgs{
+		"id": sk.ID, "name": sk.Name, "slug": sk.Slug, "description": sk.Description, "prompt": sk.Prompt,
+		"variables": sk.Variables, "updated_at": sk.UpdatedAt, "write_id": sk.WriteID,
+	}
+}
+
+func (s pgRuns) CreateSkill(ctx context.Context, sk Skill) error {
+	args := skillArgs(sk)
+	args["by"], args["created_at"], args["key"] = sk.CreatedBy, sk.CreatedAt, sk.RequestKey
+	tag, err := s.db.Exec(ctx, `INSERT INTO agent_skills (id, created_by, skill_name, slug, description, prompt, skill_variables,
+    created_at, updated_at, request_key, write_id)
+VALUES (@id, @by, @name, @slug, @description, @prompt, @variables, @created_at, @updated_at, @key, @write_id)
+ON CONFLICT (created_by, request_key) WHERE request_key IS NOT NULL DO NOTHING`, args)
 	if isUnique(err) {
 		return ErrTaken
 	}
 	if err != nil {
-		return fmt.Errorf("save agent skill: %w", err)
+		return fmt.Errorf("insert agent skill: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrKeyUsed
 	}
 	return nil
+}
+
+func (s pgRuns) UpdateSkill(ctx context.Context, sk Skill, readWriteID uuid.UUID) error {
+	args := skillArgs(sk)
+	args["read_write_id"] = readWriteID
+	// The read after the update sees the table as it was, so a skill that
+	// is gone is told apart from one that changed.
+	var saved, exists bool
+	err := s.db.QueryRow(ctx, `WITH saved AS (
+    UPDATE agent_skills SET skill_name = @name, slug = @slug, description = @description, prompt = @prompt,
+        skill_variables = @variables, updated_at = @updated_at, write_id = @write_id
+    WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id) RETURNING id)
+SELECT EXISTS (SELECT 1 FROM saved), EXISTS (SELECT 1 FROM agent_skills WHERE id = @id)`, args).Scan(&saved, &exists)
+	switch {
+	case isUnique(err):
+		return ErrTaken
+	case err != nil:
+		return fmt.Errorf("update agent skill: %w", err)
+	case saved:
+		return nil
+	case !exists:
+		return ErrNotFound
+	}
+	return ErrConflict
 }
 
 func (s pgRuns) DeleteSkill(ctx context.Context, id uuid.UUID) error {

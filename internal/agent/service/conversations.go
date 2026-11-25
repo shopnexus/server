@@ -56,14 +56,14 @@ func (s *Agent) Conversations(ctx context.Context, caller authn.ConsoleMember, q
 
 // CreateConversation is UC-MOD-08 step 1: the member opens the record's
 // conversation, which every member shares and the first member makes, or
-// a new one of their own.
+// a new one of their own, which a key the member used answers.
 func (s *Agent) CreateConversation(ctx context.Context, caller authn.ConsoleMember, in NewConversation) (Conversation, error) {
 	if (in.SubjectKind == "") != (in.SubjectID == nil) {
 		return Conversation{}, domain.ErrInvalidSubject
 	}
 	c, err := s.runs.OpenConversation(ctx, repository.Conversation{
 		ID: uuid.NewV7(), MemberID: caller.MemberID, SubjectKind: string(in.SubjectKind), SubjectID: in.SubjectID,
-		CreatedAt: s.now().UTC(),
+		CreatedAt: s.now().UTC(), RequestKey: in.Key,
 	})
 	if err != nil {
 		return Conversation{}, fmt.Errorf("open the conversation: %w", err)

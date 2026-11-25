@@ -134,6 +134,7 @@ func (h *Handler) ListConversations(w http.ResponseWriter, r *http.Request) {
 type createRequest struct {
 	SubjectKind domain.SubjectKind `json:"subject_kind"`
 	SubjectID   *uuid.UUID         `json:"subject_id"`
+	Key         *uuid.UUID         `header:"Idempotency-Key" json:"-"`
 }
 
 // CreateConversation serves POST /v1/console/agent/conversations.
@@ -172,13 +173,15 @@ func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
 type askRequest struct {
 	service.NewTurn
 
-	ID uuid.UUID `json:"-" path:"id"`
+	ID  uuid.UUID  `json:"-"                 path:"id"`
+	Key *uuid.UUID `header:"Idempotency-Key" json:"-"`
 }
 
 // Ask serves POST /v1/console/agent/conversations/{id}/turns: 202 with
 // the turn, whose run the console follows on its events.
 func (h *Handler) Ask(w http.ResponseWriter, r *http.Request) {
 	serve(h, w, r, http.StatusAccepted, func(c authn.ConsoleMember, in askRequest) (service.TurnStarted, error) {
+		in.NewTurn.Key = in.Key
 		return h.svc.Ask(r.Context(), c, in.ID, in.NewTurn)
 	})
 }

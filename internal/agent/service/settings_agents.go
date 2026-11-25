@@ -110,9 +110,10 @@ func (s *Agent) checkModel(ctx context.Context, required []string, model string)
 	return nil
 }
 
-// CreateAgent makes a console agent: its alias's deployments for its
-// model, the alias in the agent service's key with its budget, then the
-// row and its first version.
+// CreateAgent makes a console agent: the row and its first version, then
+// LiteLLM from the row: its alias's deployments for its model, the alias
+// in the agent service's key and its budget. The same create again finds
+// the row and writes LiteLLM again, so a create LiteLLM failed is retried.
 func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in NewAgent) (AgentView, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
@@ -123,23 +124,6 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 	}
 	if in.Name == "" || !domain.ValidAlias(in.Alias) || (in.MonthlyBudgetUSD != nil && *in.MonthlyBudgetUSD < 0) {
 		return AgentView{}, domain.ErrAgentInvalid
-	}
-	all, err := s.settings.Agents(ctx)
-	if err != nil {
-		return AgentView{}, fmt.Errorf("list the agents: %w", err)
-	}
-	if slices.ContainsFunc(all, func(a repository.Agent) bool { return a.Name == in.Name || a.Alias == in.Alias }) {
-		return AgentView{}, domain.ErrAgentTaken
-	}
-	if err = s.checkModel(ctx, in.RequiredTags, in.Model); err != nil {
-		return AgentView{}, err
-	}
-	st, err := s.readState(ctx)
-	if err != nil {
-		return AgentView{}, err
-	}
-	if slices.ContainsFunc(st.deps, func(d litellm.Deployment) bool { return d.ModelName == in.Alias }) {
-		return AgentView{}, domain.ErrAgentTaken
 	}
 	enabled := true
 	if in.Enabled != nil {
@@ -152,14 +136,35 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 		Tools: nonNil(in.Tools), Limits: limits, MonthlyBudgetUSD: in.MonthlyBudgetUSD, KeyAliases: []string{consoleKey},
 		Enabled: enabled, UpdatedBy: &by, UpdatedAt: s.now(), WriteID: uuid.NewV7(),
 	}
-	if err = s.writeAlias(ctx, st, a.Alias, a.Model); err != nil {
+	all, err := s.settings.Agents(ctx)
+	if err != nil {
+		return AgentView{}, fmt.Errorf("list the agents: %w", err)
+	}
+	if i := slices.IndexFunc(all, func(o repository.Agent) bool { return o.Name == a.Name || o.Alias == a.Alias }); i >= 0 {
+		if !sameAgent(all[i], a) {
+			return AgentView{}, domain.ErrAgentTaken
+		}
+		// A retry of this create: the row is there, LiteLLM may lack it.
+		saved, applyErr := s.applyAgent(ctx, all[i], nil, false, true)
+		if applyErr != nil {
+			return AgentView{}, applyErr
+		}
+		return agentView(saved), nil
+	}
+	if err = s.checkModel(ctx, a.RequiredTags, a.Model); err != nil {
 		return AgentView{}, err
 	}
-	if err = s.allowAlias(ctx, a.Alias); err != nil {
+	st, err := s.readState(ctx)
+	if err != nil {
 		return AgentView{}, err
 	}
-	if err = s.applyBudget(ctx, a, a.MonthlyBudgetUSD); err != nil {
-		return AgentView{}, err
+	if len(st.providersOf(a.Model)) == 0 {
+		return AgentView{}, domain.ErrModelNotFound
+	}
+	// An alias in LiteLLM that no agent has is another's, such as one of
+	// LiteLLM's config.
+	if slices.ContainsFunc(st.deps, func(d litellm.Deployment) bool { return d.ModelName == a.Alias }) {
+		return AgentView{}, domain.ErrAgentTaken
 	}
 	err = s.settings.CreateAgent(ctx, a, audit.Entry{
 		Actor: audit.ByMember(caller), Action: audit.AIAgentCreate, Target: audit.AIAgent(a.ID),
@@ -171,12 +176,29 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 	if err != nil {
 		return AgentView{}, fmt.Errorf("create the agent: %w", err)
 	}
-	return agentView(a), nil
+	saved, err := s.applyAgent(ctx, a, &st, false, true)
+	if err != nil {
+		return AgentView{}, err
+	}
+	return agentView(saved), nil
 }
 
+// sameAgent says whether a stored agent is what a create makes, so the
+// create is a retry.
+func sameAgent(stored, made repository.Agent) bool {
+	return stored.Kind == made.Kind && stored.Name == made.Name && stored.Alias == made.Alias &&
+		stored.Icon == made.Icon && stored.Purpose == made.Purpose && slices.Equal(stored.RequiredTags, made.RequiredTags) &&
+		stored.Model == made.Model && stored.Instructions == made.Instructions && slices.Equal(stored.Tools, made.Tools) &&
+		stored.Limits == made.Limits && sameBudget(stored.MonthlyBudgetUSD, made.MonthlyBudgetUSD) &&
+		stored.Enabled == made.Enabled
+}
+
+func sameBudget(a, b *float64) bool { return (a == nil) == (b == nil) && (a == nil || *a == *b) }
+
 // UpdateAgent changes an agent. An app agent takes a model, limits and a
-// budget only. A new model rewrites the alias's deployments, a new budget
-// goes to LiteLLM, and new instructions are a new version.
+// budget only. The row is saved first; a change of model or budget then
+// goes to LiteLLM from the saved row, and new instructions are a new
+// version. The same change again writes LiteLLM again.
 func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID, in AgentPatch) (AgentView, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
@@ -231,26 +253,25 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 			return AgentView{}, err
 		}
 	}
-	if newModel {
-		st, stateErr := s.readState(ctx)
+	var st *state
+	if in.Model != nil {
+		cur, stateErr := s.readState(ctx)
 		if stateErr != nil {
 			return AgentView{}, stateErr
 		}
-		// The alias's deployments become one per provider of the new
-		// model, so the code that calls the alias needs no deploy.
-		if err = s.writeAlias(ctx, st, a.Alias, a.Model); err != nil {
-			return AgentView{}, err
+		if newModel && len(cur.providersOf(a.Model)) == 0 {
+			return AgentView{}, domain.ErrModelNotFound
 		}
-		details["model"] = a.Model
+		st = &cur
+		if newModel {
+			details["model"] = a.Model
+		}
 	}
 	if in.MonthlyBudgetUSD.Set {
 		if v := in.MonthlyBudgetUSD.Value; v != nil && *v < 0 {
 			return AgentView{}, domain.ErrAgentInvalid.WithField("monthly_budget_usd", apperr.OutOfRange, "negative")
 		}
 		a.MonthlyBudgetUSD, details["monthly_budget_usd"] = in.MonthlyBudgetUSD.Value, in.MonthlyBudgetUSD.Value
-		if err = s.applyBudget(ctx, a, a.MonthlyBudgetUSD); err != nil {
-			return AgentView{}, err
-		}
 	}
 	by := caller.MemberID
 	a.UpdatedBy, a.UpdatedAt, a.WriteID = &by, s.now(), uuid.NewV7()
@@ -265,7 +286,58 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 	case err != nil:
 		return AgentView{}, fmt.Errorf("save the agent: %w", err)
 	}
+	if in.Model == nil && !in.MonthlyBudgetUSD.Set {
+		return agentView(a), nil
+	}
+	if a, err = s.applyAgent(ctx, a, st, newModel, in.MonthlyBudgetUSD.Set); err != nil {
+		return AgentView{}, err
+	}
 	return agentView(a), nil
+}
+
+// applyRounds bounds how often applyAgent follows saves that landed while
+// it wrote LiteLLM.
+const applyRounds = 3
+
+// applyAgent writes LiteLLM from a's row: the alias's deployments for a
+// new model or when they serve another, a console agent's alias in the
+// agent service's key, and with budget its monthly budget. When another
+// save landed meanwhile it applies that row too, so LiteLLM ends on the
+// newest; st is LiteLLM's state when the caller has just read it.
+func (s *Agent) applyAgent(ctx context.Context, a repository.Agent, st *state, newModel, budget bool) (repository.Agent, error) {
+	for range applyRounds {
+		if st == nil {
+			read, err := s.readState(ctx)
+			if err != nil {
+				return a, err
+			}
+			st = &read
+		}
+		if newModel || !st.aliasServes(a.Alias, a.Model) {
+			if err := s.writeAlias(ctx, *st, a.Alias, a.Model); err != nil {
+				return a, err
+			}
+		}
+		if a.Kind == domain.AgentConsole {
+			if err := s.allowAlias(ctx, a.Alias); err != nil {
+				return a, err
+			}
+		}
+		if budget {
+			if err := s.applyBudget(ctx, a, a.MonthlyBudgetUSD); err != nil {
+				return a, err
+			}
+		}
+		cur, err := s.agentOf(ctx, a.ID)
+		if err != nil {
+			return a, err
+		}
+		if cur.WriteID == a.WriteID {
+			return cur, nil
+		}
+		a, st, newModel, budget = cur, nil, false, true
+	}
+	return a, nil
 }
 
 // allowAlias adds alias to the agent service's key, when that key names

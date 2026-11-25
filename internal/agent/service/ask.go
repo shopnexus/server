@@ -10,6 +10,7 @@ import (
 
 	"github.com/shopnexus/server/internal/agent/domain"
 	"github.com/shopnexus/server/internal/agent/repository"
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/authn"
 )
 
@@ -18,8 +19,14 @@ import (
 // running and starts its run on the agent service, which streams the run
 // back; the console follows it through Events. The agent reads through
 // the MCP server's read-only tools and holds no write tool, so a question
-// changes no business data.
+// changes no business data. A key the member used answers its turn and
+// starts no run.
 func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversation uuid.UUID, in NewTurn) (TurnStarted, error) {
+	if in.Key != nil {
+		if started, ok, err := s.turnOfKey(ctx, caller, *in.Key); err != nil || ok {
+			return started, err
+		}
+	}
 	id := domain.ConsoleAssistant
 	if in.AgentID != nil {
 		id = *in.AgentID
@@ -86,9 +93,15 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	t := repository.Turn{
 		ID: uuid.NewV7(), ConversationID: conversation, MemberID: caller.MemberID, Question: text, AgentID: a.ID.String(),
 		AgentName: a.Name, ModelAlias: a.Alias, StartedAt: now, RunStartedAt: now, DeadlineMS: deadline.Milliseconds(),
-		SubjectKind: c.SubjectKind, SubjectID: c.SubjectID, Attachments: attachments,
+		SubjectKind: c.SubjectKind, SubjectID: c.SubjectID, Attachments: attachments, RequestKey: in.Key,
 	}
 	switch err = s.runs.OpenTurn(ctx, t, caller.MemberID); {
+	case errors.Is(err, repository.ErrKeyUsed):
+		// A racing retry of the key lost to the first; answer the first.
+		if started, ok, keyErr := s.turnOfKey(ctx, caller, *in.Key); keyErr != nil || ok {
+			return started, keyErr
+		}
+		return TurnStarted{}, apperr.ErrTryAgain
 	case errors.Is(err, repository.ErrNotFound):
 		return TurnStarted{}, domain.ErrConversationNotFound
 	case errors.Is(err, repository.ErrClosed):
@@ -128,4 +141,16 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	}
 	s.launch(ctx, segment{turn: t.ID, conversation: conversation, member: caller.MemberID, start: now}, stream, cancel)
 	return TurnStarted{ConversationID: conversation, TurnID: t.ID}, nil
+}
+
+// turnOfKey reads the turn caller opened with key, when there is one.
+func (s *Agent) turnOfKey(ctx context.Context, caller authn.ConsoleMember, key uuid.UUID) (TurnStarted, bool, error) {
+	t, err := s.runs.TurnByKey(ctx, caller.MemberID, key)
+	if errors.Is(err, repository.ErrNotFound) {
+		return TurnStarted{}, false, nil
+	}
+	if err != nil {
+		return TurnStarted{}, false, fmt.Errorf("read the key's turn: %w", err)
+	}
+	return TurnStarted{ConversationID: t.ConversationID, TurnID: t.ID}, true, nil
 }

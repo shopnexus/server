@@ -41,6 +41,9 @@ var (
 	ErrBusy = errors.New("agent repository: unfinished turn")
 	// ErrState is a turn not in the status the write needs.
 	ErrState = errors.New("agent repository: turn state")
+	// ErrKeyUsed is a create whose member's request key a row already
+	// claimed; the write did nothing.
+	ErrKeyUsed = errors.New("agent repository: request key used")
 )
 
 // ConversationFilter picks the conversations of a list: with SubjectKind
@@ -66,6 +69,9 @@ type Conversation struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	LastActivityAt time.Time
+	// RequestKey is the creator's Idempotency-Key, kept for a conversation
+	// without a subject.
+	RequestKey *uuid.UUID
 }
 
 // Usage is a turn's run totals.
@@ -106,6 +112,8 @@ type Turn struct {
 	State          json.RawMessage
 	// Attachments are the records the member mentioned in the question.
 	Attachments []domain.Attachment
+	// RequestKey is the asking member's Idempotency-Key.
+	RequestKey *uuid.UUID
 
 	Latest      bool
 	Owner       uuid.UUID
@@ -123,6 +131,11 @@ type Input struct {
 	Answers   json.RawMessage
 	ReadAt    *time.Time
 	CreatedAt time.Time
+	// MemberID sent the input, with RequestKey, their Idempotency-Key;
+	// Resumed is a steer that continued a paused run.
+	MemberID   uuid.UUID
+	RequestKey *uuid.UUID
+	Resumed    bool
 }
 
 // Event is an agent_turn_events row.
@@ -225,6 +238,8 @@ type Skill struct {
 	Variables   json.RawMessage
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	RequestKey  *uuid.UUID
+	WriteID     uuid.UUID
 }
 
 // History is a terminal turn as a new run replays it, with its read
@@ -355,7 +370,8 @@ type MemberCount struct {
 // A turn's event takes the turn's next event_seq and rings agent_turn.
 type Runs interface {
 	// OpenConversation returns c's subject's conversation, made from c the
-	// first time, or inserts c when it has no subject.
+	// first time, or inserts c when it has no subject; a request key c's
+	// member already used answers that key's conversation.
 	OpenConversation(ctx context.Context, c Conversation) (Conversation, error)
 	// Conversations lists the active conversations f picks for member,
 	// newest activity first.
@@ -373,6 +389,8 @@ type Runs interface {
 	// conversation t's question as title when it has none. ErrNotFound for
 	// a conversation member may not see, ErrClosed, ErrBusy.
 	OpenTurn(ctx context.Context, t Turn, member uuid.UUID) error
+	// TurnByKey reads the turn member opened with key, or ErrNotFound.
+	TurnByKey(ctx context.Context, member, key uuid.UUID) (Turn, error)
 	// DeleteTurn deletes a turn whose run never started.
 	DeleteTurn(ctx context.Context, id uuid.UUID) error
 	// Turn reads a turn, ErrNotFound when it does not exist.
@@ -407,8 +425,12 @@ type Runs interface {
 	// grace at at.
 	StuckTurns(ctx context.Context, at time.Time, grace time.Duration, limit int) ([]Stuck, error)
 
-	// AddInput stores in for a running turn; ErrState when it is not.
+	// AddInput stores in for a running turn under the turn's row lock, so
+	// inputs commit in seq order; ErrState when it is not running,
+	// ErrKeyUsed when in's request key has an input.
 	AddInput(ctx context.Context, in Input) error
+	// InputByKey reads the input member sent with key, or ErrNotFound.
+	InputByKey(ctx context.Context, member, key uuid.UUID) (Input, error)
 	// Control lists a turn's pauses, stops and steers after seq, and
 	// whether it runs; a missing turn does not.
 	Control(ctx context.Context, turn uuid.UUID, after int64, limit int) ([]Input, bool, error)
@@ -448,8 +470,15 @@ type Runs interface {
 	Skills(ctx context.Context) ([]Skill, error)
 	// Skill reads one.
 	Skill(ctx context.Context, id uuid.UUID) (Skill, error)
-	// SaveSkill inserts or replaces sk; ErrTaken for a slug in use.
-	SaveSkill(ctx context.Context, sk Skill) error
+	// CreateSkill inserts sk; ErrTaken for a slug in use, ErrKeyUsed when
+	// its creator's request key has a skill.
+	CreateSkill(ctx context.Context, sk Skill) error
+	// SkillByKey reads the skill member made with key, or ErrNotFound.
+	SkillByKey(ctx context.Context, member, key uuid.UUID) (Skill, error)
+	// UpdateSkill writes sk over the row read with readWriteID, which sk's
+	// WriteID replaces; ErrNotFound when it is gone, ErrConflict when it
+	// changed, ErrTaken for a slug in use.
+	UpdateSkill(ctx context.Context, sk Skill, readWriteID uuid.UUID) error
 	// DeleteSkill deletes one.
 	DeleteSkill(ctx context.Context, id uuid.UUID) error
 

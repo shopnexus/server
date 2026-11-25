@@ -13,7 +13,7 @@ import (
 var (
 	// ErrNotFound is an agent that does not exist.
 	ErrNotFound = errors.New("agent repository: not found")
-	// ErrConflict is a save of an agent that changed since it was read.
+	// ErrConflict is a save of a row that changed since it was read.
 	ErrConflict = errors.New("agent repository: conflict")
 	// ErrTaken is another agent's name or alias.
 	ErrTaken = errors.New("agent repository: name or alias taken")
@@ -89,9 +89,11 @@ type Settings interface { //nolint:interfacebloat // module agent's one store of
 	// BudgetSettings reads the one row of ai_budget_settings and the
 	// members' own daily budgets.
 	BudgetSettings(ctx context.Context) (BudgetSettings, error)
-	// SaveBudgetSettings writes b, and replaces the members' own budgets
-	// with b.Members when b.SetMembers, with e in the same transaction.
-	SaveBudgetSettings(ctx context.Context, b BudgetSettings, e audit.Entry) error
+	// SaveBudgetSettings writes b over the row read with readWriteID,
+	// which b's WriteID replaces, and replaces the members' own budgets with
+	// b.Members when b.SetMembers, with e in the same transaction.
+	// ErrConflict when the row changed, ErrNotFound for an unknown member.
+	SaveBudgetSettings(ctx context.Context, b BudgetSettings, readWriteID uuid.UUID, e audit.Entry) error
 }
 
 // BudgetSettings is the AI spend's monthly cap, its alert and what the cap
@@ -108,6 +110,7 @@ type BudgetSettings struct {
 	SetMembers bool
 	UpdatedBy  *uuid.UUID
 	UpdatedAt  time.Time
+	WriteID    uuid.UUID
 }
 
 // MemberBudget is a member's own daily budget.

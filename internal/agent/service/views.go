@@ -116,6 +116,8 @@ type ConversationQuery struct {
 type NewConversation struct {
 	SubjectKind domain.SubjectKind `json:"subject_kind,omitempty"`
 	SubjectID   *uuid.UUID         `json:"subject_id,omitempty"`
+	// Key is the Idempotency-Key, for a conversation without a subject.
+	Key *uuid.UUID `json:"-"`
 }
 
 // NewTurn is the AgentQuestion schema: the question, the console agent
@@ -126,6 +128,8 @@ type NewTurn struct {
 	AgentID     *uuid.UUID   `json:"agent_id,omitempty"`
 	Attachments []Attachment `json:"attachments,omitempty"`
 	SkillID     *uuid.UUID   `json:"skill_id,omitempty"`
+	// Key is the Idempotency-Key, which the turn claims.
+	Key *uuid.UUID `json:"-"`
 }
 
 // Attachment is a record or a document a question is about.
@@ -251,6 +255,8 @@ type SkillInput struct {
 	Description string          `json:"description,omitempty"`
 	Prompt      string          `json:"prompt"`
 	Variables   []SkillVariable `json:"variables,omitempty"`
+	// Key is the Idempotency-Key, which the skill claims.
+	Key *uuid.UUID `json:"-"`
 }
 
 // SkillPatch changes the fields it sets.

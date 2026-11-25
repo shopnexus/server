@@ -153,9 +153,10 @@ func (s *Agent) Budgets(ctx context.Context) (Budgets, error) {
 }
 
 // UpdateBudgets sets agents' monthly budgets, the month's cap with its
-// alert, and the members' daily budgets. A change to the daily budgets is
-// written to LiteLLM at once: the role budgets, a budget per member with
-// one of their own, and each member's end user on the budget that applies.
+// alert, and the members' daily budgets. The row is saved first; a change
+// to the daily budgets then goes to LiteLLM from it: the role budgets, a
+// budget per member with one of their own, and each member's end user on
+// the budget that applies. The same change again writes LiteLLM again.
 func (s *Agent) UpdateBudgets(ctx context.Context, caller authn.ConsoleMember, in BudgetsPatch) (Budgets, error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*gatewayTimeout)
 	defer cancel()
@@ -208,25 +209,46 @@ func (s *Agent) UpdateBudgets(ctx context.Context, caller authn.ConsoleMember, i
 			return Budgets{}, domain.ErrAgentInvalid.WithField("budget", apperr.OutOfRange, "negative")
 		}
 	}
-	if daily {
-		if err = s.applyMemberBudgets(ctx, set); err != nil {
-			return Budgets{}, err
-		}
-	}
-	by := caller.MemberID
-	set.UpdatedBy, set.UpdatedAt = &by, s.now()
-	err = s.settings.SaveBudgetSettings(ctx, set, audit.Entry{
+	by, read := caller.MemberID, set.WriteID
+	set.UpdatedBy, set.UpdatedAt, set.WriteID = &by, s.now(), uuid.NewV7()
+	err = s.settings.SaveBudgetSettings(ctx, set, read, audit.Entry{
 		Actor: audit.ByMember(caller), Action: audit.AIBudgets, Target: audit.AISettings("budgets"), Details: details,
 		At: set.UpdatedAt,
 	})
-	if errors.Is(err, repository.ErrNotFound) {
+	switch {
+	case errors.Is(err, repository.ErrNotFound):
 		return Budgets{}, domain.ErrMemberNotFound
-	}
-	if err != nil {
+	case errors.Is(err, repository.ErrConflict):
+		return Budgets{}, apperr.ErrTryAgain
+	case err != nil:
 		return Budgets{}, fmt.Errorf("save the budget settings: %w", err)
 	}
 	s.forgetMemberBudgets()
+	if daily {
+		if err = s.applySavedBudgets(ctx, set); err != nil {
+			return Budgets{}, err
+		}
+	}
 	return s.Budgets(ctx)
+}
+
+// applySavedBudgets writes set's daily budgets to LiteLLM, and the newer
+// row's when another save landed meanwhile, so LiteLLM ends on the newest.
+func (s *Agent) applySavedBudgets(ctx context.Context, set repository.BudgetSettings) error {
+	for range applyRounds {
+		if err := s.applyMemberBudgets(ctx, set); err != nil {
+			return err
+		}
+		cur, err := s.settings.BudgetSettings(ctx)
+		if err != nil {
+			return fmt.Errorf("read the budget settings: %w", err)
+		}
+		if cur.WriteID == set.WriteID {
+			return nil
+		}
+		set = cur
+	}
+	return nil
 }
 
 // applyMemberBudgets writes set's daily budgets to LiteLLM: the two role
