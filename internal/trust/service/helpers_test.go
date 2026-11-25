@@ -92,13 +92,12 @@ func (e env) pending(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UU
 	return d.ID, v.Order.ID
 }
 
-// shipped is a pending order the seller shipped under SPX1 with the fake
-// carrier.
+// shipped is a pending order the seller shipped on the fake GHTK.
 func (e env) shipped(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
 	t.Helper()
 	deal, order = e.pending(t, buyer, seller)
 	if _, err := e.deals.CreateShipment(context.Background(), seller, order, uuid.NewV7().String(), dealsvc.ShipmentInput{
-		Mode: "manual", Carrier: "spx", TrackingCode: "SPX1",
+		Carrier: "ghtk", Service: "standard", WeightGrams: 800, Pickup: "home",
 	}); err != nil {
 		t.Fatal(err)
 	}

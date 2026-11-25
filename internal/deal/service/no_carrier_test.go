@@ -22,8 +22,8 @@ func (e env) noCarrier(t *testing.T) *service.Deals {
 	return start(t, deps)
 }
 
-// Without a carrier no shipment is made, read or corrected, and a linked
-// one gives the listing back; the moves that need no carrier work as ever.
+// Without a carrier no shipment is made, and the refused one gives the
+// listing back; the moves that need no carrier work as ever.
 //
 // UC-DEAL-04 E2.
 func TestNoCarrier(t *testing.T) {
@@ -34,31 +34,22 @@ func TestNoCarrier(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.pending(t, buyer, listing)
-	unavailable := func(name string, err error) {
-		t.Helper()
-		if !errors.Is(err, domain.ErrCarrierUnavailable) || apperr.From(err).Kind != apperr.KindUnavailable {
-			t.Errorf("%s: %v", name, err)
-		}
+	_, err := none.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
+	if !errors.Is(err, domain.ErrCarrierUnavailable) || apperr.From(err).Kind != apperr.KindUnavailable {
+		t.Fatalf("a shipment: %v", err)
 	}
-	_, err := none.LookupShipment(ctx, seller, "spx", "SPX1")
-	unavailable("a lookup", err)
-	_, err = none.CreateShipment(ctx, seller, v.Order.ID, key(), manual("SPX1"))
-	unavailable("a manual shipment", err)
-	_, err = none.CreateShipment(ctx, seller, uuid.NewV7(), key(), manual("SPX1"))
-	unavailable("a manual shipment of an unknown order", err)
-	_, err = none.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
-	unavailable("a linked shipment", err)
 	if st, held := e.summary(t, listing); st != catalogdomain.StatusActive || held != (uuid.UUID{}) {
-		t.Fatalf("the linked shipment kept the listing: %s for %s", st, held)
+		t.Fatalf("the refused shipment kept the listing: %s for %s", st, held)
 	}
 	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderPending {
 		t.Fatalf("a refused shipment moved the order: %+v", got.Order)
 	}
+	if _, err = none.CreateShipment(ctx, seller, uuid.NewV7(), key(), linked); !errors.Is(err, domain.ErrOrderNotFound) {
+		t.Fatalf("a shipment of an unknown order: %v", err)
+	}
 
-	// An order the fake shipped is corrected nowhere, and confirmed as ever.
-	shipped := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPXNONE1")
-	_, err = none.EditShipment(ctx, seller, shipped.Order.ID, "ghn", "GHN1")
-	unavailable("a correction", err)
+	// An order the fake shipped is confirmed as ever.
+	shipped := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller))
 	if c, confirmErr := none.ConfirmReceipt(ctx, buyer, shipped.Order.ID, key()); confirmErr != nil || c.Order.Status != domain.OrderCompleted {
 		t.Fatalf("confirm: %+v %v", c.Order, confirmErr)
 	}

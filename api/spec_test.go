@@ -49,17 +49,11 @@ func TestSpecHasTheCarrierRoutes(t *testing.T) {
 		}
 	}
 	draft := doc.Paths.Find("/v1/orders/{order_id}/shipment").Post.RequestBody.Value.Content.Get("application/json").Schema.Value
-	var linkedDraft bool
-	for _, s := range draft.OneOf {
-		if _, ok := s.Value.Properties["pickup_from"]; ok {
-			linkedDraft = true
-			if !slices.Contains(s.Value.Required, "carrier") {
-				t.Error("a linked draft does not require carrier")
-			}
-		}
+	if _, ok := draft.Properties["pickup_from"]; !ok || !slices.Contains(draft.Required, "carrier") {
+		t.Error("the shipment draft lacks pickup_from or does not require carrier")
 	}
-	if !linkedDraft {
-		t.Error("no shipment draft has pickup_from")
+	if _, ok := draft.Properties["mode"]; ok {
+		t.Error("the shipment draft still takes a mode")
 	}
 }
 

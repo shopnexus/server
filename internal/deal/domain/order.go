@@ -2,9 +2,7 @@ package domain
 
 import (
 	"slices"
-	"strings"
 	"time"
-	"unicode/utf8"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/apperr"
@@ -17,8 +15,7 @@ const (
 	// BuyerPeriod is how far back a buyer's figures reach.
 	BuyerPeriod = 90 * 24 * time.Hour
 	// MaxWeight is the heaviest parcel a linked shipment takes, in grams.
-	MaxWeight       = 20_000
-	maxTrackingCode = 50
+	MaxWeight = 20_000
 )
 
 type OrderStatus string
@@ -62,10 +59,9 @@ const (
 	CarrierViettelPost Carrier = "viettel_post"
 )
 
-var carriers = []Carrier{CarrierGHTK, CarrierGHN, CarrierSPX, CarrierJT, CarrierViettelPost}
-
 // ShipmentMode says who made the shipment: the server on the seller's
-// linked account at GHTK or GHN, or the seller on a carrier's own app.
+// linked account at GHTK or GHN, or, on an order shipped before manual
+// shipments were dropped, the seller on a carrier's own app.
 type ShipmentMode string
 
 const (
@@ -96,8 +92,8 @@ type Shipment struct {
 	PickedUpAt   *time.Time     `json:"picked_up_at,omitempty"`
 	DeliveredAt  *time.Time     `json:"delivered_at,omitempty"`
 	// Pickup is where the carrier takes a linked shipment's parcel; nil
-	// for a manual one, and for a linked one sent from the carrier's
-	// default pickup point.
+	// for one sent from the carrier's default pickup point, and for a
+	// manual one.
 	Pickup *ShipmentPickup `json:"pickup,omitempty"`
 }
 
@@ -129,9 +125,9 @@ const (
 	PickupPostOffice Pickup = "post_office"
 )
 
-// LinkedDraft is what the seller picks for a linked shipment; the server
-// makes the shipment at GHTK.
-type LinkedDraft struct {
+// ShipmentDraft is what the seller picks for a shipment; the server makes
+// it on the seller's account at the carrier.
+type ShipmentDraft struct {
 	Carrier     Carrier       `json:"carrier"`
 	Service     LinkedService `json:"service"`
 	WeightGrams int           `json:"weight_grams"`
@@ -213,28 +209,9 @@ func (o Order) DueAt(w Waits) *time.Time {
 	return &at
 }
 
-// Tracking checks a carrier and a tracking code as the seller typed them:
-// a carrier ShopNexus reads, and 1 to 50 characters once trimmed. It
-// returns the code trimmed.
-func Tracking(carrier, code string) (Carrier, string, error) {
-	e := ErrInvalidShipment
-	c, code := Carrier(carrier), strings.TrimSpace(code)
-	if !slices.Contains(carriers, c) {
-		e = e.WithField("carrier", apperr.NotAllowed, "ghtk, ghn, spx, jt or viettel_post")
-	}
-	if n := utf8.RuneCountInString(code); n < 1 || n > maxTrackingCode {
-		e = e.WithField("tracking_code", apperr.Length(n, 1, maxTrackingCode), "1 to 50 characters")
-	}
-	if len(e.Fields) > 0 {
-		return "", "", e
-	}
-	return c, code, nil
-}
-
-// NewLinkedDraft checks what the seller picked for a linked shipment: a
-// carrier a seller can link, GHTK or GHN, the service, the weight and the
-// pickup.
-func NewLinkedDraft(carrier, service string, weightGrams int, pickup string) (LinkedDraft, error) {
+// NewShipmentDraft checks what the seller picked for a shipment: a carrier
+// a seller can link, GHTK or GHN, the service, the weight and the pickup.
+func NewShipmentDraft(carrier, service string, weightGrams int, pickup string) (ShipmentDraft, error) {
 	e := ErrInvalidShipment
 	c, s, p := Carrier(carrier), LinkedService(service), Pickup(pickup)
 	if c != CarrierGHTK && c != CarrierGHN {
@@ -250,9 +227,9 @@ func NewLinkedDraft(carrier, service string, weightGrams int, pickup string) (Li
 		e = e.WithField("pickup", apperr.NotAllowed, "home or post_office")
 	}
 	if len(e.Fields) > 0 {
-		return LinkedDraft{}, e
+		return ShipmentDraft{}, e
 	}
-	return LinkedDraft{Carrier: c, Service: s, WeightGrams: weightGrams, Pickup: p}, nil
+	return ShipmentDraft{Carrier: c, Service: s, WeightGrams: weightGrams, Pickup: p}, nil
 }
 
 // ParseShipmentStatus reads a status module shipping reports.

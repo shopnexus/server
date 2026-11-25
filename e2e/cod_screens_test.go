@@ -77,7 +77,7 @@ func TestCodSetupAndSavedPickup(t *testing.T) {
 	expectStatus(t, call(t, "GET", query, nil, auth), 200)
 	check(t, "exclusive quote selectors", call(t, "GET", query+"&address_id="+url.QueryEscape(address.ID), nil, auth), 422, "invalid_shipment")
 	check(t, "buyer cannot quote", call(t, "GET", query, nil, bearer(buyer.AccessToken)), 404, "order_not_found")
-	ship := map[string]any{"mode": "linked", "carrier": "ghtk", "service": "standard", "weight_grams": 800, "pickup": "home", "pickup_from": map[string]any{"saved_pickup": true, "address_id": address.ID}}
+	ship := map[string]any{"carrier": "ghtk", "service": "standard", "weight_grams": 800, "pickup": "home", "pickup_from": map[string]any{"saved_pickup": true, "address_id": address.ID}}
 	check(t, "exclusive create selectors", orderCall(t, seller.AccessToken, d.Order.ID, "shipment", ship), 422, "invalid_shipment")
 	ship["pickup_from"] = map[string]any{"saved_pickup": true}
 	orderMoved(t, seller.AccessToken, d.Order.ID, "shipment", ship)
@@ -161,7 +161,7 @@ func TestSavedPickupHTTPRetryAfterLostResponse(t *testing.T) {
 			expectStatus(t, call(t, "PUT", "/v1/me/shipping-settings", pickupPreference(address.ID, "0987654321"), auth), 200)
 			d := pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
 			path := "/v1/orders/" + d.Order.ID + "/shipment"
-			body := map[string]any{"mode": "linked", "carrier": "ghtk", "service": "standard", "weight_grams": 800, "pickup": "home", "pickup_from": map[string]any{"saved_pickup": true}}
+			body := map[string]any{"carrier": "ghtk", "service": "standard", "weight_grams": 800, "pickup": "home", "pickup_from": map[string]any{"saved_pickup": true}}
 			requestKey := newKey()
 			expectStatus(t, call(t, "POST", path, body, auth, requestKey), 200)
 			stored := orderScreen(t, seller.AccessToken, d.Order.ID)

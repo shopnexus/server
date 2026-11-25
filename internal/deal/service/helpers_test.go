@@ -169,12 +169,8 @@ func (l linkedAt) Create(ctx context.Context, _ uuid.UUID, c carrier.Carrier, in
 	return l.client(c).Create(ctx, carrier.Account{}, in)
 }
 
-func (l linkedAt) Lookup(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
+func (l linkedAt) Track(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
 	return l.client(c).Lookup(ctx, carrier.Account{}, code)
-}
-
-func (l linkedAt) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
-	return l.Lookup(ctx, seller, c, code)
 }
 
 func (l linkedAt) Cancel(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) error {
@@ -189,11 +185,7 @@ func (r refusing) Create(context.Context, uuid.UUID, carrier.Carrier, carrier.Cr
 	return carrier.Created{}, r.err
 }
 
-func (r refusing) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
-	return r.Lookup(ctx, seller, c, code)
-}
-
-func (r refusing) Lookup(context.Context, uuid.UUID, carrier.Carrier, string) (carrier.Parcel, error) {
+func (r refusing) Track(context.Context, uuid.UUID, carrier.Carrier, string) (carrier.Parcel, error) {
 	return carrier.Parcel{}, r.err
 }
 

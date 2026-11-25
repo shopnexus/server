@@ -24,16 +24,12 @@ func (Linked) Create(ctx context.Context, _ uuid.UUID, c carrier.Carrier, in car
 	return made, nil
 }
 
-func (Linked) Lookup(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
+func (Linked) Track(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
 	p, err := carrier.Fake{Carrier: c}.Lookup(ctx, carrier.Account{}, code)
 	if err != nil {
 		return carrier.Parcel{}, fmt.Errorf("fake %s: %w", c, err)
 	}
 	return p, nil
-}
-
-func (l Linked) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
-	return l.Lookup(ctx, seller, c, code)
 }
 
 func (Linked) Cancel(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) error {

@@ -418,24 +418,19 @@ orderShipment:
     x-uc: [UC-DEAL-04]
     summary: Create the shipment of a pending order.
     description: |
-      The seller, in one commit. manual: the seller made the shipment on
-      the carrier's own app and types its code; the server reads it with
-      the seller's account at that carrier. linked: the server makes it on
-      the seller's account at the carrier asked, GHTK or GHN, picked up
-      where pickup_from says. A saved_pickup selection is resolved and
-      journaled after the seller and order checks. A retry with the same
-      caller and Idempotency-Key recovers that invocation even if the saved
+      The seller, in one commit. The server makes the shipment on the
+      seller's account at the carrier asked, GHTK or GHN, picked up where
+      pickup_from says. A saved_pickup selection is resolved and journaled
+      after the seller and order checks. A retry with the same caller and
+      Idempotency-Key recovers that invocation even if the saved
       preference or address has since been removed. The order is shipped,
-      the listing is reserved for it, and
+      its parcel waiting for pickup, the listing is reserved for it, and
       other buyers' pending orders on the listing are cancelled with
-      shipped_to_another. A parcel the carrier reports delivered ships
-      delivered. Checks, in order: the shipment's fields, for a manual one
-      the carrier's answer, then the order is the caller's, the order's
-      state, the listing, and for a linked one the carrier's answer. A
-      carrier the caller has not linked is 409 carrier_not_linked, once the
-      order is found to be the caller's to ship. A stack
-      without a carrier (CARRIER=none, production for now) answers 503
-      carrier_unavailable.
+      shipped_to_another. Checks, in order: the shipment's fields, then the
+      order is the caller's, the order's state, the listing, and the
+      carrier's answer. A carrier the caller has not linked is 409
+      carrier_not_linked. A stack without a carrier (CARRIER=none,
+      production for now) answers 503 carrier_unavailable.
     tags: [deal]
     security:
       - bearerAuth: []
@@ -477,67 +472,7 @@ orderShipment:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "The shipment breaks a rule, the carrier's report of a failed parcel included (invalid_shipment, with fields); the carrier does not know the tracking code (shipment_not_found); the carrier does not know the recipient's or the pickup's address (carrier_address_unknown); or the carrier refused the shipment, its words in details.reason (carrier_refused)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "503":
-        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-  put:
-    operationId: editShipment
-    x-uc: [UC-DEAL-04]
-    summary: Correct the carrier and tracking code of a manual shipment.
-    description: |
-      The seller, while the shipment is pending_pickup or in_transit. The
-      server reads the new code with the seller's account at that carrier,
-      as on creation, and takes its status. Checks, in order: the carrier and the code, the
-      carrier's answer, then the order is the caller's and its state.
-    tags: [deal]
-    security:
-      - bearerAuth: []
-    parameters:
-      - name: order_id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            $ref: "../schemas/deal.yaml#/TrackingCode"
-    responses:
-      "200":
-        description: The order's deal.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/deal.yaml#/Deal"
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "404":
-        description: "No such order of the caller's (order_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "409":
-        description: "The order is not shipped, its shipment is linked or no longer pending_pickup or in_transit, or the caller is the buyer (move_not_allowed); the deal changed meanwhile (deal_changed); or the caller has not linked that carrier, or must link it again because its token no longer opens (carrier_not_linked, carrier_relink_needed)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "422":
-        description: "The carrier or the code breaks a rule, the carrier's report of a failed parcel included (invalid_shipment, with fields), or the carrier does not know the tracking code (shipment_not_found)."
+        description: "The shipment breaks a rule (invalid_shipment, with fields); the carrier does not know the recipient's or the pickup's address (carrier_address_unknown); or the carrier refused the shipment, its words in details.reason (carrier_refused)."
         content:
           application/json:
             schema:
@@ -587,67 +522,6 @@ orderConfirm:
               $ref: "../schemas/error.yaml#/Error"
       "409":
         description: "The order is not the deal's shipped one, or the caller is the seller (move_not_allowed); or the deal changed meanwhile (deal_changed)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-shipmentLookup:
-  get:
-    operationId: lookupShipment
-    x-uc: [UC-DEAL-04]
-    summary: Read a shipment from its carrier, for the seller's preview.
-    description: |
-      Before the seller confirms a manual shipment or a corrected code.
-      The code is read with the caller's own account at that carrier. The
-      app warns, and does not block, when cod_amount differs from the
-      agreed price.
-    tags: [deal]
-    security:
-      - bearerAuth: []
-    parameters:
-      - name: carrier
-        in: query
-        required: true
-        description: ghtk, ghn, spx, jt or viettel_post; another value is 422 invalid_shipment.
-        schema:
-          type: string
-      - name: code
-        in: query
-        required: true
-        description: The tracking code, 1 to 50 characters once trimmed.
-        schema:
-          type: string
-    responses:
-      "200":
-        description: The shipment as its carrier reads it.
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/deal.yaml#/ShipmentPreview"
-      "400":
-        $ref: "../responses/common.yaml#/BadRequest"
-      "401":
-        $ref: "../responses/common.yaml#/Unauthorized"
-      "404":
-        description: "The carrier does not know the tracking code (shipment_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "422":
-        description: "The carrier or the code breaks a rule (invalid_shipment, with fields)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "409":
-        description: "The caller has not linked that carrier, or must link it again (carrier_not_linked, carrier_relink_needed)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "503":
-        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
         content:
           application/json:
             schema:

@@ -97,29 +97,19 @@ type Service interface {
 	//
 	// UC-DEAL-03 · NFR-IDEM-01
 	RequestCod(ctx context.Context, caller, id uuid.UUID, price int64, addressID uuid.UUID, idempotencyKey string) (DealView, error)
-	// CreateShipment ships a pending order: a manual shipment, read from its
-	// carrier, or a linked one, made at GHTK. It holds the listing and
-	// returns the order's deal. A repeated idempotencyKey of the same caller
-	// runs nothing more.
+	// CreateShipment ships a pending order with a shipment made on the
+	// seller's account at GHTK or GHN. It holds the listing and returns the
+	// order's deal. A repeated idempotencyKey of the same caller runs
+	// nothing more.
 	//
 	// UC-DEAL-04 · NFR-IDEM-01
 	CreateShipment(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, in ShipmentInput) (DealView, error)
-	// EditShipment puts the seller's corrected carrier and code, read again
-	// from the carrier, on a manual shipment and returns the order's deal.
-	//
-	// UC-DEAL-04 A3
-	EditShipment(ctx context.Context, caller, order uuid.UUID, carrierCode, trackingCode string) (DealView, error)
 	// ConfirmReceipt completes a shipped order on its buyer's word, sells
 	// the listing and returns the order's deal. A repeated idempotencyKey
 	// of the same caller runs nothing more.
 	//
 	// UC-DEAL-05 A2 · NFR-IDEM-01
 	ConfirmReceipt(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
-	// LookupShipment reads a shipment with the caller's account at its
-	// carrier, for the seller's preview of a manual shipment.
-	//
-	// UC-DEAL-04
-	LookupShipment(ctx context.Context, caller uuid.UUID, carrierCode, trackingCode string) (ShipmentPreview, error)
 	// OpenShipmentsAt tells whether a shipped order of the seller's has a
 	// shipment at carrier; module shipping refuses to unlink it then.
 	OpenShipmentsAt(ctx context.Context, seller uuid.UUID, carrier string) (bool, error)

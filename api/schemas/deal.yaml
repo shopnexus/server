@@ -233,39 +233,13 @@ CodRequest:
 Carrier:
   type: string
   enum: [ghtk, ghn, spx, jt, viettel_post]
-  description: The carriers ShopNexus can read; there is no other.
+  description: A shipment's carrier. New shipments are at ghtk or ghn; spx, jt and viettel_post appear only on manual shipments from before 2026-11-25.
 ShipmentDraft:
-  description: A manual shipment the seller made on a carrier's own app, or a linked one to make on the seller's account at GHTK or GHN.
-  oneOf:
-    - $ref: "#/ManualShipmentDraft"
-    - $ref: "#/LinkedShipmentDraft"
-  discriminator:
-    propertyName: mode
-    mapping:
-      manual: "#/ManualShipmentDraft"
-      linked: "#/LinkedShipmentDraft"
-ManualShipmentDraft:
   type: object
   additionalProperties: false
-  required: [mode, carrier, tracking_code]
+  required: [carrier, service, weight_grams, pickup]
+  description: A shipment to make on the seller's account at GHTK or GHN.
   properties:
-    mode:
-      type: string
-      enum: [manual]
-    carrier:
-      type: string
-      description: ghtk, ghn, spx, jt or viettel_post; another value is 422 invalid_shipment. The code is read with the caller's account at that carrier, so only a linked carrier works (409 carrier_not_linked).
-    tracking_code:
-      type: string
-      description: 1 to 50 characters once trimmed. A code the carrier does not know is 422 shipment_not_found.
-LinkedShipmentDraft:
-  type: object
-  additionalProperties: false
-  required: [mode, carrier, service, weight_grams, pickup]
-  properties:
-    mode:
-      type: string
-      enum: [linked]
     carrier:
       type: string
       description: ghtk or ghn, a carrier the caller linked; another value is 422 invalid_shipment, an unlinked one 409 carrier_not_linked.
@@ -294,47 +268,10 @@ LinkedShipmentDraft:
           type: string
           format: uuid
           description: An address of the caller's from GET /v1/addresses.
-TrackingCode:
-  type: object
-  additionalProperties: false
-  required: [carrier, tracking_code]
-  description: A manual shipment's corrected carrier and code.
-  properties:
-    carrier:
-      type: string
-      description: ghtk, ghn, spx, jt or viettel_post; another value is 422 invalid_shipment.
-    tracking_code:
-      type: string
-      description: 1 to 50 characters once trimmed.
 ShipmentStatus:
   type: string
   enum: [pending_pickup, in_transit, delivered, failed]
   description: Where the parcel is, as its carrier reports it.
-ShipmentPreview:
-  type: object
-  additionalProperties: false
-  required: [carrier, tracking_code, recipient_name, district, cod_amount, status]
-  description: A shipment as its carrier reads it, before the seller confirms it.
-  properties:
-    carrier:
-      $ref: "#/Carrier"
-    tracking_code:
-      type: string
-    recipient_name:
-      type: string
-      description: As the carrier masks it.
-    district:
-      type: string
-    cod_amount:
-      type: integer
-      format: int64
-      description: What the carrier collects at the door, in đồng.
-    status:
-      $ref: "#/ShipmentStatus"
-    fee:
-      type: integer
-      format: int64
-      description: The carrier's fee in đồng; absent while the carrier has none.
 Recipient:
   type: object
   additionalProperties: false
@@ -366,7 +303,7 @@ Shipment:
     mode:
       type: string
       enum: [linked, manual]
-      description: linked is made on the seller's account at GHTK or GHN; manual, on a carrier's own app and typed by the seller.
+      description: linked is made on the seller's account at GHTK or GHN. manual is an order shipped before 2026-11-25, which the seller made on a carrier's own app and typed the code of; no new shipment is manual.
     carrier:
       $ref: "#/Carrier"
     tracking_code:

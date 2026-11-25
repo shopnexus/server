@@ -65,12 +65,11 @@ func TestAnUnlinkedSellerCannotShip(t *testing.T) {
 	buyer, _ := newAccount(t)
 	o := pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID).Order.ID
 	expectStatus(t, call(t, "DELETE", "/v1/carrier-accounts/ghtk", nil, bearer(seller.AccessToken)), http.StatusNoContent)
-	check(t, "a manual shipment", orderCall(t, seller.AccessToken, o, "shipment", shipmentBody(trackingCode())), 409, "carrier_not_linked")
-	check(t, "a linked shipment", orderCall(t, seller.AccessToken, o, "shipment", linkedBody), 409, "carrier_not_linked")
-	check(t, "a lookup", call(t, "GET", "/v1/shipments/lookup?carrier=ghtk&code=S1", nil, bearer(seller.AccessToken)), 409, "carrier_not_linked")
-	shipped := orderMoved(t, seller.AccessToken, o, "shipment", map[string]any{"mode": "manual", "carrier": "ghn", "tracking_code": "GHN" + trackingCode()})
-	check(t, "a correction to GHTK", editShipment(t, seller.AccessToken, shipped.Order.ID,
-		map[string]any{"carrier": "ghtk", "tracking_code": "S1"}), 409, "carrier_not_linked")
+	check(t, "a shipment", orderCall(t, seller.AccessToken, o, "shipment", linkedBody), 409, "carrier_not_linked")
+	ghn := map[string]any{"carrier": "ghn", "service": "standard", "weight_grams": 800, "pickup": "home"}
+	if d := orderMoved(t, seller.AccessToken, o, "shipment", ghn); d.Order.Shipment.Carrier != "ghn" {
+		t.Fatalf("at the carrier still linked: %+v", d.Order.Shipment)
+	}
 }
 
 func TestWebhooks(t *testing.T) {
@@ -143,7 +142,7 @@ func TestQuoteAndPickups(t *testing.T) {
 	// A linked shipment from one of the seller's addresses keeps a copy of it.
 	from := deliveryAddress(t, seller.AccessToken)
 	body := map[string]any{
-		"mode": "linked", "carrier": "ghn", "service": "express", "weight_grams": 1200, "pickup": "home",
+		"carrier": "ghn", "service": "express", "weight_grams": 1200, "pickup": "home",
 		"pickup_from": map[string]any{"address_id": from},
 	}
 	d := orderMoved(t, seller.AccessToken, o.Order.ID, "shipment", body)

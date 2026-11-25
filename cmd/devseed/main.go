@@ -193,7 +193,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("request COD: %w", err)
 	}
 	err = c.call(ctx, nam.token, http.MethodPost, "/v1/orders/"+bought.Order.ID+"/shipment", map[string]any{
-		"mode": "manual", "carrier": "ghtk", "tracking_code": "SEED" + strings.ToUpper(bought.Order.ID[len(bought.Order.ID)-8:]),
+		"carrier": "ghtk", "service": "standard", "weight_grams": 400, "pickup": "home",
 	}, nil, "Idempotency-Key", uuid.NewV7().String())
 	if err != nil {
 		return fmt.Errorf("ship: %w", err)

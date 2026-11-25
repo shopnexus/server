@@ -269,7 +269,7 @@ func TestMyListingsCountsEachListing(t *testing.T) {
 	}
 	shipped := e.pending(t, shipper, reserved)
 	if _, err := e.deals.CreateShipment(ctx, seller, shipped.Order.ID, uuid.NewV7().String(), dealsvc.ShipmentInput{
-		Mode: "linked", Carrier: "ghn", Service: "express", WeightGrams: 2_000, Pickup: "home", PickupAddressID: e.address(t, seller),
+		Carrier: "ghn", Service: "express", WeightGrams: 2_000, Pickup: "home", PickupAddressID: e.address(t, seller),
 	}); err != nil {
 		t.Fatal(err)
 	}

@@ -52,16 +52,6 @@ func soon(set func(*domain.Waits)) domain.Waits {
 	return w
 }
 
-// deliveredCarrier is the fake carrier reading every parcel delivered, as
-// a carrier does for a code the seller typed after the parcel arrived.
-type deliveredCarrier struct{ carrier.Fake }
-
-func (deliveredCarrier) Lookup(ctx context.Context, a carrier.Account, code string) (carrier.Parcel, error) {
-	p, err := carrier.Fake{}.Lookup(ctx, a, code)
-	p.Step = carrier.StepDelivered
-	return p, err
-}
-
 // until reads deal id as viewer until its order has status.
 func (e env) until(t *testing.T, viewer, id uuid.UUID, status domain.OrderStatus) service.DealView {
 	t.Helper()
@@ -133,10 +123,11 @@ func TestAutoCompletes(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.pending(t, buyer, listing)
-	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), manual("SPXAUTO1")); err != nil {
+	s, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := deals.ShipmentUpdated(ctx, "spx", "SPXAUTO1", "delivered"); err != nil {
+	if err = report(ctx, deals, s, "delivered"); err != nil {
 		t.Fatal(err)
 	}
 	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderShipped || got.Order.Shipment.Status != domain.ShipmentDelivered ||
@@ -155,20 +146,6 @@ func TestAutoCompletes(t *testing.T) {
 	})
 }
 
-// UC-DEAL-04 A2.
-func TestShipADeliveredParcelCompletes(t *testing.T) {
-	t.Parallel()
-	e := newEnv(t)
-	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Complete = time.Second }), linkedAt{deliveredCarrier{}})
-	seller, buyer := e.person(t), e.person(t)
-	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
-	s, err := deals.CreateShipment(context.Background(), seller, v.Order.ID, key(), manual("SPXLATE1"))
-	if err != nil || s.Order.Shipment.Status != domain.ShipmentDelivered || s.Order.Shipment.DeliveredAt == nil {
-		t.Fatalf("%+v %v", s.Order, err)
-	}
-	e.until(t, buyer, v.ID, domain.OrderCompleted)
-}
-
 func TestTimersLeaveAnOrderThatMovedOn(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -184,12 +161,12 @@ func TestTimersLeaveAnOrderThatMovedOn(t *testing.T) {
 		}
 	}
 
-	shipped := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPXMOVED1")
+	shipped := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller))
 	fire("SellerTimeout", ref(shipped))
 	fire("AutoComplete", ref(shipped))
 	unchanged("a shipment waiting for pickup", shipped)
 
-	if err := deals.ShipmentUpdated(ctx, "spx", "SPXMOVED1", "in_transit"); err != nil {
+	if err := report(ctx, deals, shipped, "in_transit"); err != nil {
 		t.Fatal(err)
 	}
 	transit := e.get(t, buyer, shipped.ID)
@@ -197,7 +174,7 @@ func TestTimersLeaveAnOrderThatMovedOn(t *testing.T) {
 	fire("AutoComplete", ref(transit))
 	unchanged("a parcel in transit", transit)
 
-	if err := deals.ShipmentUpdated(ctx, "spx", "SPXMOVED1", "delivered"); err != nil {
+	if err := report(ctx, deals, shipped, "delivered"); err != nil {
 		t.Fatal(err)
 	}
 	must(t)(e.deals.ConfirmReceipt(ctx, buyer, shipped.Order.ID, key()))
@@ -238,8 +215,8 @@ func TestTimersWorkWithoutACarrier(t *testing.T) {
 	if got := e.until(t, buyer, v.ID, domain.OrderCancelled); got.Order.CancelReason != domain.CancelSellerTimeout {
 		t.Fatalf("%+v", got.Order)
 	}
-	shipped := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPXNONE2")
-	if err := deals.ShipmentUpdated(ctx, "spx", "SPXNONE2", "failed"); err != nil {
+	shipped := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller))
+	if err := report(ctx, deals, shipped, "failed"); err != nil {
 		t.Fatal(err)
 	}
 	if got := e.get(t, buyer, shipped.ID); got.Order.Status != domain.OrderFailed {

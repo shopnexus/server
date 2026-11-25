@@ -8,14 +8,12 @@ import (
 	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
-// ShipmentInput is a shipment as the seller sends it: manual with its carrier
-// and code, or linked with its carrier, service, weight and pickup selection.
-// The selection may name a carrier point, an owned address or saved pickup;
-// omitting it uses the carrier's default.
+// ShipmentInput is a shipment as the seller sends it: its carrier,
+// service, weight and pickup selection. The selection may name a carrier
+// point, an owned address or saved pickup; omitting it uses the carrier's
+// default.
 type ShipmentInput struct {
-	Mode            string
 	Carrier         string
-	TrackingCode    string
 	Service         string
 	WeightGrams     int
 	Pickup          string
@@ -24,42 +22,28 @@ type ShipmentInput struct {
 	SavedPickup     bool
 }
 
-// CreateShipment is UC-DEAL-04, step 1: it checks the shipment and reads a
-// manual one with the caller's account at its carrier, then runs DealShip
-// on the caller's order once per caller and idempotencyKey (A1,
+// CreateShipment is UC-DEAL-04, step 1: it checks the draft, then runs
+// DealShip on the caller's order once per caller and idempotencyKey (A1,
 // NFR-IDEM-01). It copies an explicit book address before the flow;
 // DealShip resolves a saved pickup in a journaled step after its order
 // checks.
 func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, in ShipmentInput) (DealView, error) {
-	flow := FlowInput{Caller: caller, OrderID: order}
-	if in.Mode == string(domain.ModeLinked) {
-		// E6: a draft that breaks a rule.
-		linked, draftErr := domain.NewLinkedDraft(in.Carrier, in.Service, in.WeightGrams, in.Pickup)
-		if draftErr != nil {
-			return DealView{}, draftErr
-		}
-		if in.SavedPickup && (in.PickupPointID != "" || in.PickupAddressID != uuid.Nil()) {
-			return DealView{}, domain.ErrInvalidShipment.WithField("pickup_from", apperr.OneOf, "oneOf")
-		}
-		from, fromErr := s.pickupFrom(ctx, caller, in.PickupPointID, in.PickupAddressID)
-		if fromErr != nil {
-			return DealView{}, fromErr
-		}
-		flow.SavedPickup = in.SavedPickup
-		linked.From = from
-		flow.Linked = &linked
-	} else {
-		manual, readErr := s.manualShipment(ctx, caller, order, in.Carrier, in.TrackingCode)
-		if readErr != nil {
-			return DealView{}, readErr
-		}
-		flow.Manual = &manual
+	// E6: a draft that breaks a rule.
+	draft, err := domain.NewShipmentDraft(in.Carrier, in.Service, in.WeightGrams, in.Pickup)
+	if err != nil {
+		return DealView{}, err
+	}
+	if in.SavedPickup && (in.PickupPointID != "" || in.PickupAddressID != uuid.Nil()) {
+		return DealView{}, domain.ErrInvalidShipment.WithField("pickup_from", apperr.OneOf, "oneOf")
+	}
+	if draft.From, err = s.pickupFrom(ctx, caller, in.PickupPointID, in.PickupAddressID); err != nil {
+		return DealView{}, err
 	}
 	deal, err := s.orderDeal(ctx, caller, order)
 	if err != nil {
 		return DealView{}, err
 	}
-	flow.DealID = deal
+	flow := FlowInput{Caller: caller, DealID: deal, OrderID: order, Draft: &draft, SavedPickup: in.SavedPickup}
 	if _, err = s.ship.Call(ctx, invocationKey(caller, idempotencyKey), flow); err != nil {
 		return DealView{}, err
 	}

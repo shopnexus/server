@@ -31,8 +31,7 @@ Error:
             format), not_allowed (a value the field does not take there),
             unknown (names nothing that exists, or a property the schema
             lacks), duplicate, one_of (takes exactly one of several fields),
-            missing_specs (with details.missing_spec_keys), parcel_failed or
-            in_use. More may come; a client reads an unknown code as
+            missing_specs (with details.missing_spec_keys) or in_use. More may come; a client reads an unknown code as
             invalid.
           additionalProperties:
             type: string

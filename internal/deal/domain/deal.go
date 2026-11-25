@@ -3,7 +3,6 @@
 package domain
 
 import (
-	"cmp"
 	"time"
 	"uuid"
 
@@ -358,24 +357,13 @@ func (d *Deal) Shippable(by Party, order uuid.UUID, l Listing) error {
 	return nil
 }
 
-// Ship records s, the pending order's shipment as its carrier reads it or
-// as GHTK made it: the order is shipped. A parcel the carrier already
-// reports on its way is picked up at now, one it reports delivered is
-// delivered at now too; one it reports failed is ErrInvalidShipment.
+// Ship records s, the shipment the carrier just made for the pending
+// order: the order is shipped and its parcel waits for pickup.
 func (d *Deal) Ship(by Party, order uuid.UUID, s Shipment, l Listing, now time.Time) error {
 	if err := d.Shippable(by, order, l); err != nil {
 		return err
 	}
-	if s.Status == ShipmentFailed {
-		return errFailedParcel
-	}
-	s.PickedUpAt, s.DeliveredAt = nil, nil
-	if s.Status != ShipmentPendingPickup {
-		s.PickedUpAt = &now
-	}
-	if s.Status == ShipmentDelivered {
-		s.DeliveredAt = &now
-	}
+	s.Status, s.PickedUpAt, s.DeliveredAt = ShipmentPendingPickup, nil, nil
 	o := d.order
 	o.Status, o.Shipment, o.ShippedAt = OrderShipped, &s, &now
 	var fee int64
@@ -383,35 +371,6 @@ func (d *Deal) Ship(by Party, order uuid.UUID, s Shipment, l Listing, now time.T
 		fee = *s.Fee
 	}
 	d.record(MoveShipped, by, fee, now)
-	return nil
-}
-
-// EditShipment puts s, the seller's corrected carrier and code as the
-// carrier reads them, on order's manual shipment: the seller's, on the
-// shipped order, while the parcel waits for pickup or is in transit. A
-// parcel on its way keeps the time it was picked up, or takes now; one the
-// carrier reports delivered is delivered at now; one it reports failed is
-// ErrInvalidShipment and changes nothing.
-func (d *Deal) EditShipment(by Party, order uuid.UUID, s Shipment, now time.Time) error {
-	o := d.openOrder()
-	if by != Seller || o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil ||
-		o.Shipment.Mode != ModeManual ||
-		(o.Shipment.Status != ShipmentPendingPickup && o.Shipment.Status != ShipmentInTransit) {
-		return ErrMoveNotAllowed
-	}
-	if s.Status == ShipmentFailed {
-		return errFailedParcel
-	}
-	s.Mode, s.PickedUpAt, s.DeliveredAt = ModeManual, nil, nil
-	if s.Status != ShipmentPendingPickup {
-		// A parcel picked up before the correction keeps its time.
-		s.PickedUpAt = cmp.Or(o.Shipment.PickedUpAt, &now)
-	}
-	if s.Status == ShipmentDelivered {
-		s.DeliveredAt = &now
-	}
-	d.order.Shipment = &s
-	d.record(MoveShipmentUpdated, by, 0, now)
 	return nil
 }
 

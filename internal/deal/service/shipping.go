@@ -21,22 +21,21 @@ import (
 type Shipping interface {
 	SavedPickup(ctx context.Context, seller uuid.UUID) (shippingsvc.Pickup, error)
 	Create(ctx context.Context, seller uuid.UUID, c carrier.Carrier, in carrier.CreateInput) (carrier.Created, error)
-	Lookup(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
-	// Track is Lookup for the order's own shipment, which also keeps the
-	// carrier's events for the parcel's timeline.
+	// Track reads the order's shipment with the seller's account at its
+	// carrier and keeps the carrier's events for the parcel's timeline.
 	Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
 	Cancel(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) error
 }
 
-// shippingError turns shipping's errors into deal's answers: notFound for
-// a code the carrier does not know, and a carrier refusal as its bare
-// sentinel. Anything else is wrapped as is.
-func shippingError(err, notFound error) error {
+// shippingError turns shipping's answer to a Create into deal's: a place
+// the carrier does not know is domain.ErrCarrierAddressUnknown, and a
+// refusal of shipping's its bare sentinel. Anything else is wrapped as is.
+func shippingError(err error) error {
 	switch {
 	case err == nil:
 		return nil
 	case errors.Is(err, carrier.ErrNotFound):
-		return notFound
+		return domain.ErrCarrierAddressUnknown
 	case errors.Is(err, carrier.ErrUnavailable), errors.Is(err, domain.ErrCarrierUnavailable):
 		return domain.ErrCarrierUnavailable
 	case errors.Is(err, domain.ErrCarrierNotLinked):
@@ -45,32 +44,6 @@ func shippingError(err, notFound error) error {
 		return domain.ErrCarrierAddressUnknown
 	}
 	return fmt.Errorf("carrier: %w", err)
-}
-
-// manualShipment reads a manual shipment's carrier and code with the
-// caller's account at the carrier. A code the carrier does not know is
-// domain.ErrShipmentUnknown (E1) and a stack without a carrier
-// domain.ErrCarrierUnavailable (E2), for any order. A carrier the caller
-// has not linked (E3) comes after the order check, since a stranger or the
-// buyer links nothing and gets their order answer first.
-func (s *Deals) manualShipment(ctx context.Context, caller, order uuid.UUID, carrierCode, trackingCode string) (domain.Shipment, error) {
-	c, code, err := domain.Tracking(carrierCode, trackingCode)
-	if err != nil {
-		return domain.Shipment{}, err
-	}
-	p, err := s.shipping.Lookup(ctx, caller, carrier.Carrier(c), code)
-	err = shippingError(err, domain.ErrShipmentUnknown)
-	if errors.Is(err, domain.ErrCarrierNotLinked) {
-		if orderErr := s.checkSeller(ctx, caller, order); orderErr != nil {
-			return domain.Shipment{}, orderErr
-		}
-	}
-	if err != nil {
-		return domain.Shipment{}, err
-	}
-	return domain.Shipment{
-		Mode: domain.ModeManual, Carrier: c, TrackingCode: code, Fee: p.Fee, Status: domain.ShipmentStatus(p.Status()),
-	}, nil
 }
 
 // deliveryNotes tell the carrier's shipper what the recipient's place is,

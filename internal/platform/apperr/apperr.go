@@ -62,7 +62,6 @@ const (
 	Duplicate    FieldCode = "duplicate"     // a list holds an item twice
 	OneOf        FieldCode = "one_of"        // takes exactly one of several fields
 	MissingSpecs FieldCode = "missing_specs" // specs the category requires; details.missing_spec_keys
-	ParcelFailed FieldCode = "parcel_failed" // the carrier reports the parcel failed
 	InUse        FieldCode = "in_use"        // something else still uses it
 )
 

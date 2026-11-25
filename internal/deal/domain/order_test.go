@@ -5,7 +5,6 @@ import (
 	"errors"
 	"reflect"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 	"uuid"
@@ -28,12 +27,10 @@ var recipient = domain.Recipient{
 // later is a moment after now, for moves that must not take now's time.
 var later = now.Add(time.Hour)
 
-// manual is a manual shipment as its carrier reads it: waiting for pickup,
-// with a fee.
-func manual() domain.Shipment {
+// linked is a shipment GHTK just made, with a fee.
+func linked() domain.Shipment {
 	return domain.Shipment{
-		Mode: domain.ModeManual, Carrier: domain.CarrierSPX, TrackingCode: "SPXVN0123456789",
-		Fee: new(int64(22_000)), Status: domain.ShipmentPendingPickup,
+		Mode: domain.ModeLinked, Carrier: domain.CarrierGHTK, TrackingCode: "S1.A1.17373471", Fee: new(int64(22_000)),
 	}
 }
 
@@ -54,11 +51,11 @@ func pending(t *testing.T) domain.Deal {
 	return d
 }
 
-// shipped is a pending deal the seller shipped manually.
+// shipped is a pending deal the seller shipped.
 func shipped(t *testing.T) domain.Deal {
 	t.Helper()
 	d := pending(t)
-	must(t, d.Ship(domain.Seller, d.Order().ID, manual(), onSale, now))
+	must(t, d.Ship(domain.Seller, d.Order().ID, linked(), onSale, now))
 	return d
 }
 
@@ -86,38 +83,14 @@ func last(d *domain.Deal) domain.Move {
 	return p[len(p)-1]
 }
 
-func TestTracking(t *testing.T) {
-	t.Parallel()
-	for _, c := range []domain.Carrier{domain.CarrierGHTK, domain.CarrierGHN, domain.CarrierSPX, domain.CarrierJT, domain.CarrierViettelPost} {
-		got, code, err := domain.Tracking(string(c), "  X1 ")
-		if err != nil || got != c || code != "X1" {
-			t.Errorf("%s: %s %q %v", c, got, code, err)
-		}
-	}
-	if _, code, err := domain.Tracking("ghn", strings.Repeat("ạ", 50)); err != nil || code == "" {
-		t.Errorf("50 characters: %v", err)
-	}
-	for _, c := range []struct{ carrier, code, field string }{
-		{"other", "X1", "carrier"},
-		{"pigeon", "X1", "carrier"},
-		{"ghn", "", "tracking_code"},
-		{"ghn", "   ", "tracking_code"},
-		{"ghn", strings.Repeat("x", 51), "tracking_code"},
-	} {
-		if _, _, err := domain.Tracking(c.carrier, c.code); !errors.Is(err, domain.ErrInvalidShipment) || field(err, c.field) == "" {
-			t.Errorf("%+v: %v", c, err)
-		}
-	}
-}
-
-func TestNewLinkedDraft(t *testing.T) {
+func TestNewShipmentDraft(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
 		carrier, service string
 		weight           int
 		pickup           string
 	}{{"ghtk", "standard", 800, "home"}, {"ghn", "express", 20_000, "post_office"}, {"ghtk", "standard", 1, "home"}} {
-		got, err := domain.NewLinkedDraft(c.carrier, c.service, c.weight, c.pickup)
+		got, err := domain.NewShipmentDraft(c.carrier, c.service, c.weight, c.pickup)
 		if err != nil || string(got.Carrier) != c.carrier || string(got.Service) != c.service || got.WeightGrams != c.weight ||
 			string(got.Pickup) != c.pickup {
 			t.Errorf("%+v: %+v %v", c, got, err)
@@ -136,7 +109,7 @@ func TestNewLinkedDraft(t *testing.T) {
 		{"ghtk", "standard", 20_001, "home", "weight_grams"},
 		{"ghtk", "standard", 800, "door", "pickup"},
 	} {
-		if _, err := domain.NewLinkedDraft(c.carrier, c.service, c.weight, c.pickup); !errors.Is(err, domain.ErrInvalidShipment) || field(err, c.field) == "" {
+		if _, err := domain.NewShipmentDraft(c.carrier, c.service, c.weight, c.pickup); !errors.Is(err, domain.ErrInvalidShipment) || field(err, c.field) == "" {
 			t.Errorf("%+v: %v", c, err)
 		}
 	}
@@ -171,23 +144,18 @@ func TestOrderLifecycle(t *testing.T) {
 	if err := d.RequestCod(domain.Buyer, uuid.NewV7(), 1_200_000, recipient, onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("second request: %v", err)
 	}
-	if err := d.Ship(domain.Buyer, o.ID, manual(), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if err := d.Ship(domain.Buyer, o.ID, linked(), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("buyer ships: %v", err)
 	}
-	if err := d.Ship(domain.Seller, o.ID, manual(), reserved, now); !errors.Is(err, domain.ErrListingUnavailable) {
+	if err := d.Ship(domain.Seller, o.ID, linked(), reserved, now); !errors.Is(err, domain.ErrListingUnavailable) {
 		t.Fatalf("ship a reserved listing: %v", err)
-	}
-	failed := manual()
-	failed.Status = domain.ShipmentFailed
-	if err := d.Ship(domain.Seller, o.ID, failed, onSale, now); !errors.Is(err, domain.ErrInvalidShipment) || field(err, "tracking_code") == "" {
-		t.Fatalf("ship a failed parcel: %v", err)
 	}
 	if err := d.ConfirmReceipt(domain.Buyer, o.ID, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("confirm a pending order: %v", err)
 	}
-	must(t, d.Ship(domain.Seller, o.ID, manual(), onSale, now))
-	if o = d.Order(); o.Status != domain.OrderShipped || o.Shipment == nil || o.Shipment.TrackingCode != "SPXVN0123456789" ||
-		o.Shipment.DeliveredAt != nil || o.ShippedAt == nil {
+	must(t, d.Ship(domain.Seller, o.ID, linked(), onSale, now))
+	if o = d.Order(); o.Status != domain.OrderShipped || o.Shipment == nil || o.Shipment.TrackingCode != "S1.A1.17373471" ||
+		o.Shipment.Status != domain.ShipmentPendingPickup || o.Shipment.DeliveredAt != nil || o.ShippedAt == nil {
 		t.Fatalf("%+v", o)
 	}
 	if m := last(&d); m.Kind != domain.MoveShipped || m.By != domain.Seller || m.Amount != 22_000 {
@@ -319,22 +287,21 @@ func TestRequestCodRefusals(t *testing.T) {
 	}
 }
 
-func TestShipTakesTheCarriersWord(t *testing.T) {
+func TestShipWaitsForPickup(t *testing.T) {
 	t.Parallel()
 	d := pending(t)
-	s := manual()
+	s := linked()
 	s.Fee = nil
 	must(t, d.Ship(domain.Seller, d.Order().ID, s, onSale, now))
-	if d.Order().Shipment.Fee != nil || last(&d).Amount != 0 || d.Order().Shipment.PickedUpAt != nil {
+	if d.Order().Shipment.Fee != nil || last(&d).Amount != 0 {
 		t.Fatalf("a shipment without a fee: %+v %+v", d.Order().Shipment, last(&d))
 	}
 	d = pending(t)
-	s = manual()
-	s.Status, s.DeliveredAt = domain.ShipmentDelivered, &later
+	s = linked()
+	s.Status, s.PickedUpAt, s.DeliveredAt = domain.ShipmentDelivered, &later, &later
 	must(t, d.Ship(domain.Seller, d.Order().ID, s, onSale, now))
-	if sh := d.Order().Shipment; sh.Status != domain.ShipmentDelivered || sh.DeliveredAt == nil || !sh.DeliveredAt.Equal(now) ||
-		sh.PickedUpAt == nil || !sh.PickedUpAt.Equal(now) {
-		t.Fatalf("a delivered parcel: %+v", sh)
+	if sh := d.Order().Shipment; sh.Status != domain.ShipmentPendingPickup || sh.PickedUpAt != nil || sh.DeliveredAt != nil {
+		t.Fatalf("a new shipment that is not waiting for pickup: %+v", sh)
 	}
 }
 
@@ -365,67 +332,6 @@ func TestShippable(t *testing.T) {
 	s := shipped(t)
 	if err := s.Shippable(domain.Seller, s.Order().ID, onSale); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("a shipped order: %v", err)
-	}
-}
-
-func TestEditShipment(t *testing.T) {
-	t.Parallel()
-	edited := domain.Shipment{
-		Mode: domain.ModeLinked, Carrier: domain.CarrierGHN, TrackingCode: "GHN0042",
-		Fee: new(int64(30_000)), Status: domain.ShipmentInTransit,
-	}
-	for _, status := range []domain.ShipmentStatus{domain.ShipmentPendingPickup, domain.ShipmentInTransit} {
-		d := shipped(t)
-		if status != domain.ShipmentPendingPickup {
-			d = reported(t, status)
-		}
-		must(t, d.EditShipment(domain.Seller, d.Order().ID, edited, later))
-		sh := d.Order().Shipment
-		// A parcel already on its way keeps its pickup time.
-		picked := map[domain.ShipmentStatus]time.Time{domain.ShipmentPendingPickup: later, domain.ShipmentInTransit: now}[status]
-		if sh.PickedUpAt == nil || !sh.PickedUpAt.Equal(picked) {
-			t.Errorf("from %s: picked up at %v, want %v", status, sh.PickedUpAt, picked)
-		}
-		if sh.Mode != domain.ModeManual || sh.Carrier != domain.CarrierGHN || sh.TrackingCode != "GHN0042" ||
-			*sh.Fee != 30_000 || sh.Status != domain.ShipmentInTransit || sh.DeliveredAt != nil {
-			t.Errorf("from %s: %+v", status, sh)
-		}
-		if m := last(&d); m.Kind != domain.MoveShipmentUpdated || m.By != domain.Seller {
-			t.Errorf("from %s: %+v", status, m)
-		}
-	}
-	d := shipped(t)
-	delivered := edited
-	delivered.Status = domain.ShipmentDelivered
-	must(t, d.EditShipment(domain.Seller, d.Order().ID, delivered, later))
-	if sh := d.Order().Shipment; sh.DeliveredAt == nil || !sh.DeliveredAt.Equal(later) {
-		t.Fatalf("edited to a delivered parcel: %+v", sh)
-	}
-	d = shipped(t)
-	failed := edited
-	failed.Status = domain.ShipmentFailed
-	if err := d.EditShipment(domain.Seller, d.Order().ID, failed, later); !errors.Is(err, domain.ErrInvalidShipment) ||
-		d.Order().Shipment.TrackingCode != "SPXVN0123456789" {
-		t.Fatalf("edited to a failed parcel: %v %+v", err, d.Order().Shipment)
-	}
-	linked := pending(t)
-	l := manual()
-	l.Mode, l.Carrier = domain.ModeLinked, domain.CarrierGHTK
-	must(t, linked.Ship(domain.Seller, linked.Order().ID, l, onSale, now))
-	for name, c := range map[string]struct {
-		d     domain.Deal
-		by    domain.Party
-		order func(domain.Deal) uuid.UUID
-	}{
-		"the buyer":         {shipped(t), domain.Buyer, func(d domain.Deal) uuid.UUID { return d.Order().ID }},
-		"another order":     {shipped(t), domain.Seller, func(domain.Deal) uuid.UUID { return uuid.NewV7() }},
-		"a linked shipment": {linked, domain.Seller, func(d domain.Deal) uuid.UUID { return d.Order().ID }},
-		"a delivered one":   {reported(t, domain.ShipmentDelivered), domain.Seller, func(d domain.Deal) uuid.UUID { return d.Order().ID }},
-		"a pending order":   {pending(t), domain.Seller, func(d domain.Deal) uuid.UUID { return d.Order().ID }},
-	} {
-		if err := c.d.EditShipment(c.by, c.order(c.d), edited, later); !errors.Is(err, domain.ErrMoveNotAllowed) {
-			t.Errorf("%s: %v", name, err)
-		}
 	}
 }
 
@@ -616,10 +522,10 @@ func TestFailedNegotiatesAgain(t *testing.T) {
 	if d.Order().ID == first || d.Order().Status != domain.OrderPending {
 		t.Fatalf("%+v", d.Order())
 	}
-	if err := d.Ship(domain.Seller, first, manual(), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if err := d.Ship(domain.Seller, first, linked(), onSale, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("ship the failed order: %v", err)
 	}
-	must(t, d.Ship(domain.Seller, d.Order().ID, manual(), onSale, now))
+	must(t, d.Ship(domain.Seller, d.Order().ID, linked(), onSale, now))
 	if _, err := d.ShipmentUpdated(first, domain.ShipmentDelivered, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("a report for the failed order: %v", err)
 	}
@@ -663,7 +569,7 @@ func TestOrderStepsNameTheirOrder(t *testing.T) {
 	must(t, d.Accept(domain.Seller, 1_200_000, onSale, later))
 	must(t, d.RequestCod(domain.Buyer, uuid.NewV7(), 1_200_000, recipient, onSale, later))
 	second := d.Order().ID
-	must(t, d.Ship(domain.Seller, second, manual(), onSale, later))
+	must(t, d.Ship(domain.Seller, second, linked(), onSale, later))
 	want := map[domain.MoveKind][]uuid.UUID{
 		domain.MoveOffer: {{}}, domain.MoveAccept: {{}}, domain.MoveCodRequested: {first, second},
 		domain.MoveOrderCancelled: {first}, domain.MoveShipped: {second},
@@ -779,7 +685,7 @@ func TestShippedDealRoundTripsThroughJSON(t *testing.T) {
 	}
 	back := domain.RestoreDeal(st)
 	sh := back.Order().Shipment
-	if sh == nil || sh.Mode != domain.ModeManual || *sh.Fee != 22_000 || sh.DeliveredAt == nil || !sh.DeliveredAt.Equal(now) {
+	if sh == nil || sh.Mode != domain.ModeLinked || *sh.Fee != 22_000 || sh.DeliveredAt == nil || !sh.DeliveredAt.Equal(now) {
 		t.Fatalf("%s", b)
 	}
 }

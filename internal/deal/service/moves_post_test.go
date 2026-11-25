@@ -53,8 +53,8 @@ func TestPostMoves(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	bike := catalogtest.Listing(t, e.db, seller)
-	sold := e.shipped(t, buyer, seller, bike, "SPXCHAT1")
-	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXCHAT1", "in_transit"); err != nil {
+	sold := e.shipped(t, buyer, seller, bike)
+	if err := report(ctx, e.deals, sold, "in_transit"); err != nil {
 		t.Fatal(err)
 	}
 	lamp := catalogtest.Listing(t, e.db, seller)

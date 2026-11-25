@@ -280,7 +280,7 @@ func TestShipCancelsOtherPendingOrders(t *testing.T) {
 	seller, one, two := e.person(t), e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	first, second := e.pending(t, one, listing), e.pending(t, two, listing)
-	must(t)(e.deals.CreateShipment(ctx, seller, first.Order.ID, key(), manual("SPXVN0123")))
+	must(t)(e.deals.CreateShipment(ctx, seller, first.Order.ID, key(), linked))
 	if v := e.get(t, two, second.ID); v.Order.Status != domain.OrderCancelled || v.Order.CancelReason != domain.CancelShippedToAnother ||
 		v.Status != domain.StatusNegotiating {
 		t.Fatalf("other buyer: %+v %s", v.Order, v.Status)
@@ -392,9 +392,9 @@ func TestOrderFactsCarryTheShipmentAndWhoCompleted(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
-	v := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPX0042")
+	v := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller))
 	f, ok, err := e.deals.Order(ctx, v.Order.ID)
-	if err != nil || !ok || f.Shipment == nil || f.Shipment.TrackingCode != "SPX0042" || f.Code == "" || f.Price == 0 ||
+	if err != nil || !ok || f.Shipment == nil || f.Shipment.TrackingCode != v.Order.Shipment.TrackingCode || f.Code == "" || f.Price == 0 ||
 		f.ShippedAt == nil || f.CompletedBy != "" {
 		t.Fatalf("shipped: %+v %v %v", f, ok, err)
 	}

@@ -16,11 +16,8 @@ var (
 	ErrOwnListing         = apperr.New(apperr.KindConflict, "own_listing", "a seller cannot open a deal on their own listing")
 	ErrChanged            = apperr.New(apperr.KindConflict, "deal_changed", "the other side moved first; read the deal again")
 	ErrInvalidShipment    = apperr.New(apperr.KindInvalid, "invalid_shipment", "the shipment breaks a rule; see fields")
-	// ErrShipmentUnknown is a tracking code the carrier does not know, on a
-	// shipment being created or corrected.
-	ErrShipmentUnknown = apperr.New(apperr.KindInvalid, "shipment_not_found", "the carrier does not know the tracking code")
-	// ErrShipmentNotFound is a tracking code nothing knows: the carrier, on
-	// a lookup, or every order, on a carrier's report.
+	// ErrShipmentNotFound is a shipment no order has, on a carrier's
+	// report.
 	ErrShipmentNotFound = apperr.New(apperr.KindNotFound, "shipment_not_found", "no such shipment")
 	ErrInvalidStatus    = apperr.New(apperr.KindInvalid, "invalid_status", "the status is not pending_pickup, in_transit, delivered or failed")
 	// ErrCarrierUnavailable is module shipping's error for a stack without
@@ -32,10 +29,7 @@ var (
 	// ErrCarrierAddressUnknown is module shipping's error for an address
 	// the carrier does not know.
 	ErrCarrierAddressUnknown = shippingdomain.ErrAddressUnknown
-	// errFailedParcel is a parcel the carrier reports failed, which no
-	// order ships on.
-	errFailedParcel = ErrInvalidShipment.WithField("tracking_code", apperr.ParcelFailed, "the carrier reports this parcel failed")
-	ErrCodLimit     = apperr.New(apperr.KindConflict, "cod_limit_reached", "at most 3 open COD orders")
+	ErrCodLimit              = apperr.New(apperr.KindConflict, "cod_limit_reached", "at most 3 open COD orders")
 	// ErrSellerAway refuses a buyer's offer, accept or COD request while
 	// the seller is in away mode.
 	ErrSellerAway = apperr.New(apperr.KindConflict, "seller_away", "the seller is away; try again after they are back")

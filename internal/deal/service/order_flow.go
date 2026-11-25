@@ -21,15 +21,14 @@ import (
 )
 
 // FlowInput names the order a flow moves, its deal and the caller. A
-// shipment carries either its manual shipment, read from the carrier, or
-// what the seller picked for a linked one.
+// shipment carries what the seller picked for it, and whether its pickup
+// is the seller's saved one.
 type FlowInput struct {
-	SavedPickup bool                `json:"saved_pickup,omitempty"`
-	Caller      uuid.UUID           `json:"caller"`
-	DealID      uuid.UUID           `json:"deal_id"`
-	OrderID     uuid.UUID           `json:"order_id"`
-	Manual      *domain.Shipment    `json:"manual,omitempty"`
-	Linked      *domain.LinkedDraft `json:"linked,omitempty"`
+	SavedPickup bool                  `json:"saved_pickup,omitempty"`
+	Caller      uuid.UUID             `json:"caller"`
+	DealID      uuid.UUID             `json:"deal_id"`
+	OrderID     uuid.UUID             `json:"order_id"`
+	Draft       *domain.ShipmentDraft `json:"draft,omitempty"`
 }
 
 // FlowResult carries a flow's refusal, or none.
@@ -175,26 +174,6 @@ func (s *Deals) orderDeal(ctx context.Context, caller, order uuid.UUID) (uuid.UU
 		return uuid.Nil(), domain.ErrOrderNotFound
 	}
 	return r.DealID, nil
-}
-
-// checkSeller tells whether the caller is the order's seller: someone
-// else's order is domain.ErrOrderNotFound, the caller's purchase
-// domain.ErrMoveNotAllowed.
-func (s *Deals) checkSeller(ctx context.Context, caller, order uuid.UUID) error {
-	r, err := s.deals.Order(ctx, order)
-	if errors.Is(err, repository.ErrNotFound) {
-		return domain.ErrOrderNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("get order: %w", err)
-	}
-	switch caller {
-	case r.SellerID:
-		return nil
-	case r.BuyerID:
-		return domain.ErrMoveNotAllowed
-	}
-	return domain.ErrOrderNotFound
 }
 
 // systemLoadStep reads a deal and its listing for a move of the system's

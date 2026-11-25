@@ -26,8 +26,8 @@ import (
 	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 )
 
-// A seller who has not linked the carrier makes, reads and corrects
-// nothing there, and a linked shipment refused so gives the listing back.
+// A seller who has not linked the carrier makes nothing there, and the
+// refused shipment gives the listing back.
 //
 // UC-DEAL-04 E3.
 func TestAnUnlinkedCarrierIsRefused(t *testing.T) {
@@ -40,25 +40,12 @@ func TestAnUnlinkedCarrierIsRefused(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	v := e.pending(t, buyer, listing)
-	notLinked := func(name string, err error) {
-		t.Helper()
-		if !errors.Is(err, domain.ErrCarrierNotLinked) {
-			t.Errorf("%s: %v", name, err)
-		}
+	if _, err := unlinked.CreateShipment(ctx, seller, v.Order.ID, key(), linked); !errors.Is(err, domain.ErrCarrierNotLinked) {
+		t.Fatal(err)
 	}
-	_, err := unlinked.LookupShipment(ctx, seller, "ghtk", "S1")
-	notLinked("a lookup", err)
-	_, err = unlinked.CreateShipment(ctx, seller, v.Order.ID, key(), manual("SPX1"))
-	notLinked("a manual shipment", err)
-	_, err = unlinked.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
-	notLinked("a linked shipment", err)
 	if st, held := e.summary(t, listing); st != catalogdomain.StatusActive || held != (uuid.UUID{}) {
 		t.Fatalf("the refused shipment kept the listing: %s for %s", st, held)
 	}
-	shipped := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPXLINK1")
-	_, err = unlinked.EditShipment(ctx, seller, shipped.Order.ID, "ghn", "GHN1")
-	notLinked("a correction", err)
-
 	// The order is found, and its seller is the caller, before any carrier
 	// is asked: a stranger's or the buyer's account links nothing.
 	stranger := e.person(t)
@@ -66,11 +53,8 @@ func TestAnUnlinkedCarrierIsRefused(t *testing.T) {
 		caller uuid.UUID
 		want   error
 	}{"a stranger": {stranger, domain.ErrOrderNotFound}, "the buyer": {buyer, domain.ErrMoveNotAllowed}} {
-		if _, err = unlinked.CreateShipment(ctx, c.caller, v.Order.ID, key(), manual("SPX1")); !errors.Is(err, c.want) {
+		if _, err := unlinked.CreateShipment(ctx, c.caller, v.Order.ID, key(), linked); !errors.Is(err, c.want) {
 			t.Errorf("%s ships: %v", name, err)
-		}
-		if _, err = unlinked.EditShipment(ctx, c.caller, shipped.Order.ID, "ghn", "GHN1"); !errors.Is(err, c.want) {
-			t.Errorf("%s corrects: %v", name, err)
 		}
 	}
 }
@@ -88,12 +72,8 @@ func (r *recording) Create(ctx context.Context, _ uuid.UUID, c carrier.Carrier, 
 	return carrier.Fake{Carrier: c}.Create(ctx, carrier.Account{}, in)
 }
 
-func (*recording) Lookup(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
+func (*recording) Track(ctx context.Context, _ uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
 	return carrier.Fake{Carrier: c}.Lookup(ctx, carrier.Account{}, code)
-}
-
-func (r *recording) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error) {
-	return r.Lookup(ctx, seller, c, code)
 }
 
 func (*recording) Cancel(context.Context, uuid.UUID, carrier.Carrier, string) error { return nil }
@@ -110,7 +90,7 @@ func TestALinkedShipmentGoesToTheCarrierAskedWithItsPickup(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	from := e.address(t, seller)
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
-	in := service.ShipmentInput{Mode: "linked", Carrier: "ghn", Service: "express", WeightGrams: 2_000, Pickup: "home", PickupAddressID: from}
+	in := service.ShipmentInput{Carrier: "ghn", Service: "express", WeightGrams: 2_000, Pickup: "home", PickupAddressID: from}
 	s, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), in)
 	if err != nil {
 		t.Fatal(err)
@@ -133,7 +113,7 @@ func TestALinkedShipmentGoesToTheCarrierAskedWithItsPickup(t *testing.T) {
 	}
 
 	point := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
-	in = service.ShipmentInput{Mode: "linked", Carrier: "ghtk", Service: "standard", WeightGrams: 800, Pickup: "home", PickupPointID: "88256"}
+	in = service.ShipmentInput{Carrier: "ghtk", Service: "standard", WeightGrams: 800, Pickup: "home", PickupPointID: "88256"}
 	if s, err = deals.CreateShipment(ctx, seller, point.Order.ID, key(), in); err != nil ||
 		*s.Order.Shipment.Pickup != (domain.ShipmentPickup{PointID: "88256"}) {
 		t.Fatalf("%+v %v", s.Order.Shipment, err)
@@ -176,7 +156,7 @@ func TestALinkedShipmentTellsTheShipperWhatThePlaceIs(t *testing.T) {
 		if v, err = e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, a.ID, ""); err != nil || v.Order.Recipient.Kind != domain.AddressKind(kind) {
 			t.Fatalf("%s: %+v %v", kind, v.Order, err)
 		}
-		in := service.ShipmentInput{Mode: "linked", Carrier: "ghtk", Service: "standard", WeightGrams: 800, Pickup: "home"}
+		in := service.ShipmentInput{Carrier: "ghtk", Service: "standard", WeightGrams: 800, Pickup: "home"}
 		if _, err = deals.CreateShipment(ctx, seller, v.Order.ID, key(), in); err != nil {
 			t.Fatal(err)
 		}
@@ -279,10 +259,11 @@ func TestThePollIgnoresAStatusThatMovesNothing(t *testing.T) {
 	deals, _ := e.polled(t, soon(func(w *domain.Waits) { w.Complete = 3 * time.Second }), 300*time.Millisecond, linkedAt{c})
 	seller, buyer := e.person(t), e.person(t)
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
-	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), service.ShipmentInput{Mode: "manual", Carrier: "ghtk", TrackingCode: "S1.LATE"}); err != nil {
+	s, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := deals.ShipmentUpdated(ctx, "ghtk", "S1.LATE", "delivered"); err != nil {
+	if err := report(ctx, deals, s, "delivered"); err != nil {
 		t.Fatal(err)
 	}
 	testenv.Eventually(t, 15*time.Second, func() error {
@@ -307,7 +288,8 @@ func TestThePollMovesAShipmentAndStopsWhenItCloses(t *testing.T) {
 	deals, _ := e.polled(t, domain.OrderWaits, 500*time.Millisecond, linkedAt{c})
 	seller, buyer := e.person(t), e.person(t)
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
-	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), service.ShipmentInput{Mode: "manual", Carrier: "ghtk", TrackingCode: "S1.POLL"}); err != nil {
+	s, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
+	if err != nil {
 		t.Fatal(err)
 	}
 	c.step.Store(new(carrier.StepTransporting))
@@ -318,7 +300,7 @@ func TestThePollMovesAShipmentAndStopsWhenItCloses(t *testing.T) {
 		return nil
 	})
 	// A report gets there first; the poll then reads what the order has.
-	if err := deals.ShipmentUpdated(ctx, "ghtk", "S1.POLL", "delivered"); err != nil {
+	if err := report(ctx, deals, s, "delivered"); err != nil {
 		t.Fatal(err)
 	}
 	c.step.Store(new(carrier.StepDelivered))
@@ -341,8 +323,8 @@ func TestOpenShipmentsAtAndQuoteFacts(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
-	e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPXOPEN1")
-	for c, want := range map[string]bool{"spx": true, "ghtk": false} {
+	e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller))
+	for c, want := range map[string]bool{"ghtk": true, "ghn": false} {
 		if open, err := e.deals.OpenShipmentsAt(ctx, seller, c); err != nil || open != want {
 			t.Errorf("%s: %v %v", c, open, err)
 		}

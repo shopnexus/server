@@ -262,8 +262,6 @@ paths:
     $ref: "paths/screen_order.yaml#/screenCodCheckout"
   /v1/me/shipping-settings:
     $ref: "paths/shipping.yaml#/shippingSettings"
-  /v1/shipments/lookup:
-    $ref: "paths/deal.yaml#/shipmentLookup"
   /v1/dev/shipments/{code}/status:
     $ref: "paths/shipping.yaml#/devShipmentStatus"
   /v1/carrier-accounts:

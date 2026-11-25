@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/deal/repository"
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // UC-DEAL-05 A1, E2 · NFR-IDEM-01.
@@ -23,14 +24,14 @@ func TestShipmentUpdated(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
-	v := e.shipped(t, buyer, seller, listing, "SPXREPORT1")
+	v := e.shipped(t, buyer, seller, listing)
 	// Waiting for pickup, the order is due at the pickup timeout.
 	got := e.get(t, buyer, v.ID)
 	if o := got.Order; o.Shipment.PickedUpAt != nil || o.DueAt == nil || !o.DueAt.Equal(o.ShippedAt.Add(domain.OrderWaits.Pickup)) {
 		t.Fatalf("waiting for pickup: %+v %+v", o, o.Shipment)
 	}
 
-	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXREPORT1", "in_transit"); err != nil {
+	if err := report(ctx, e.deals, v, "in_transit"); err != nil {
 		t.Fatal(err)
 	}
 	got = e.get(t, buyer, v.ID)
@@ -41,14 +42,14 @@ func TestShipmentUpdated(t *testing.T) {
 	if m := got.Moves[len(got.Moves)-1]; m.Kind != domain.MoveShipmentUpdated || m.By != domain.System {
 		t.Fatalf("%+v", m)
 	}
-	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXREPORT1", "in_transit"); err != nil {
+	if err := report(ctx, e.deals, v, "in_transit"); err != nil {
 		t.Fatal(err)
 	}
 	if n := countMoves(moveKinds(e.get(t, buyer, v.ID)), domain.MoveShipmentUpdated); n != 1 {
 		t.Fatalf("the same report twice made %d moves", n)
 	}
 
-	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXREPORT1", "failed"); err != nil {
+	if err := report(ctx, e.deals, v, "failed"); err != nil {
 		t.Fatal(err)
 	}
 	got = e.get(t, buyer, v.ID)
@@ -60,18 +61,21 @@ func TestShipmentUpdated(t *testing.T) {
 		t.Fatalf("listing %s for %s", st, held)
 	}
 	moves := len(got.Moves)
-	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXREPORT1", "delivered"); err != nil {
+	if err := report(ctx, e.deals, v, "delivered"); err != nil {
 		t.Fatalf("a late report: %v", err)
 	}
 	if got = e.get(t, buyer, v.ID); got.Order.Status != domain.OrderFailed || len(got.Moves) != moves {
 		t.Fatalf("a late report moved the order: %+v", got.Order)
 	}
 
-	err := e.deals.ShipmentUpdated(ctx, "spx", "SPXNOBODY", "delivered")
+	err := e.deals.ShipmentUpdated(ctx, "ghtk", "GHTK-NOBODY", "delivered")
 	if !errors.Is(err, domain.ErrShipmentNotFound) || apperr.From(err).Kind != apperr.KindNotFound {
 		t.Fatalf("an unknown code: %v", err)
 	}
-	if err = e.deals.ShipmentUpdated(ctx, "spx", "SPXREPORT1", "returned"); !errors.Is(err, domain.ErrInvalidStatus) {
+	if err = e.deals.ShipmentUpdated(ctx, "ghn", v.Order.Shipment.TrackingCode, "delivered"); !errors.Is(err, domain.ErrShipmentNotFound) {
+		t.Fatalf("the code at another carrier: %v", err)
+	}
+	if err = report(ctx, e.deals, v, "returned"); !errors.Is(err, domain.ErrInvalidStatus) {
 		t.Fatalf("an unknown status: %v", err)
 	}
 	// Mua lại: the buyer asks for COD again on the same deal.
@@ -81,6 +85,14 @@ func TestShipmentUpdated(t *testing.T) {
 	}
 }
 
+// oneParcel is the fake GHTK making every shipment under one code, as a
+// manual shipment of two items in one parcel did before 2026-11-25.
+type oneParcel struct{ carrier.Fake }
+
+func (oneParcel) Create(context.Context, carrier.Account, carrier.CreateInput) (carrier.Created, error) {
+	return carrier.Created{TrackingCode: "GHTK-PARCEL1", Fee: 22_000}, nil
+}
+
 // UC-DEAL-05.
 func TestOneParcelTwoOrders(t *testing.T) {
 	t.Parallel()
@@ -88,9 +100,13 @@ func TestOneParcelTwoOrders(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	first, second := catalogtest.Listing(t, e.db, seller), catalogtest.Listing(t, e.db, seller)
-	a := e.shipped(t, buyer, seller, first, "SPXPARCEL1")
-	b := e.shipped(t, buyer, seller, second, "SPXPARCEL1")
-	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXPARCEL1", "failed"); err != nil {
+	deps := e.deps
+	deps.Shipping = linkedAt{oneParcel{carrier.Fake{Carrier: carrier.GHTK}}}
+	deals := start(t, deps)
+	a, b := e.pending(t, buyer, first), e.pending(t, buyer, second)
+	must(t)(deals.CreateShipment(ctx, seller, a.Order.ID, key(), linked))
+	must(t)(deals.CreateShipment(ctx, seller, b.Order.ID, key(), linked))
+	if err := e.deals.ShipmentUpdated(ctx, "ghtk", "GHTK-PARCEL1", "failed"); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range []struct {
@@ -135,10 +151,10 @@ func TestShipmentUpdateLosesToAConfirm(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	seller, buyer := e.person(t), e.person(t)
-	v := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPXRACE1")
+	v := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller))
 	deps := e.deps
 	deps.Deals = confirmFirst{Deals: e.repo, fired: &atomic.Bool{}}
-	if err := start(t, deps).ShipmentUpdated(context.Background(), "spx", "SPXRACE1", "in_transit"); err != nil {
+	if err := report(context.Background(), start(t, deps), v, "in_transit"); err != nil {
 		t.Fatalf("the report: %v", err)
 	}
 	got := e.get(t, buyer, v.ID)

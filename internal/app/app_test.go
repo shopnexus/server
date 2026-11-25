@@ -249,7 +249,7 @@ func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
 	t.Cleanup(func() { a.Close(context.Background()) })
 	routes := a.Routes()
 	if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/shipments/{code}/status"}) ||
-		!slices.Contains(routes, httpx.Route{Method: "GET", Path: "/v1/shipments/lookup"}) ||
+		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/orders/{order_id}/shipment"}) ||
 		!slices.Contains(routes, httpx.Route{Method: "PUT", Path: "/v1/carrier-accounts/{carrier}"}) ||
 		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/carriers/{carrier}/webhook/{secret}"}) ||
 		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/updates"}) {

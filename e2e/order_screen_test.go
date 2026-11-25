@@ -178,7 +178,7 @@ func TestOrdersScreen(t *testing.T) {
 	nobody, _ := newAccount(t)
 	shipped := orderMoved(t, seller.AccessToken, pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID).Order.ID,
 		"shipment", map[string]any{
-			"mode": "linked", "carrier": "ghn", "service": "express", "weight_grams": 1200, "pickup": "home",
+			"carrier": "ghn", "service": "express", "weight_grams": 1200, "pickup": "home",
 			"pickup_from": map[string]any{"address_id": deliveryAddress(t, seller.AccessToken)},
 		}).Order.ID
 	orderMoved(t, buyer.AccessToken, shipped, "confirm", nil)

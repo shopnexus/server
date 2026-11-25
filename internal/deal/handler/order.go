@@ -34,14 +34,11 @@ func (h *Handler) RequestCod(w http.ResponseWriter, r *http.Request) {
 	httpx.Respond(w, http.StatusOK, v)
 }
 
-// shipmentRequest is ShipmentDraft: the request validator lets through
-// the fields of one mode only.
+// shipmentRequest is ShipmentDraft.
 type shipmentRequest struct {
 	OrderID        uuid.UUID `json:"-"                 path:"order_id"`
 	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
-	Mode           string    `json:"mode"`
 	Carrier        string    `json:"carrier"`
-	TrackingCode   string    `json:"tracking_code"`
 	Service        string    `json:"service"`
 	WeightGrams    int       `json:"weight_grams"`
 	Pickup         string    `json:"pickup"`
@@ -50,12 +47,6 @@ type shipmentRequest struct {
 		CarrierPickupID string    `json:"carrier_pickup_id"`
 		AddressID       uuid.UUID `json:"address_id"`
 	} `json:"pickup_from"`
-}
-
-type trackingRequest struct {
-	OrderID      uuid.UUID `json:"-"             path:"order_id"`
-	Carrier      string    `json:"carrier"`
-	TrackingCode string    `json:"tracking_code"`
 }
 
 type confirmRequest struct {
@@ -74,33 +65,11 @@ func (h *Handler) CreateShipment(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	ship := service.ShipmentInput{
-		Mode: in.Mode, Carrier: in.Carrier, TrackingCode: in.TrackingCode,
-		Service: in.Service, WeightGrams: in.WeightGrams, Pickup: in.Pickup,
-	}
+	ship := service.ShipmentInput{Carrier: in.Carrier, Service: in.Service, WeightGrams: in.WeightGrams, Pickup: in.Pickup}
 	if f := in.PickupFrom; f != nil {
 		ship.PickupPointID, ship.PickupAddressID, ship.SavedPickup = f.CarrierPickupID, f.AddressID, f.SavedPickup
 	}
 	v, err := h.svc.CreateShipment(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey, ship)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
-}
-
-// EditShipment serves PUT /v1/orders/{order_id}/shipment.
-func (h *Handler) EditShipment(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in trackingRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.EditShipment(r.Context(), p.AccountID, in.OrderID, in.Carrier, in.TrackingCode)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

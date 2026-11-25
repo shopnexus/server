@@ -454,11 +454,13 @@ func (r *run) deal(s saleRow, conversation uuid.UUID, shipped, completed time.Ti
 	}
 	order := d.Order().ID
 	err := d.Ship(dealdomain.Seller, order, dealdomain.Shipment{
-		Mode: dealdomain.ModeManual, Carrier: dealdomain.CarrierGHTK, Status: dealdomain.ShipmentInTransit,
-		TrackingCode: "SEED" + order.String()[24:],
+		Mode: dealdomain.ModeLinked, Carrier: dealdomain.CarrierGHTK, TrackingCode: "SEED" + order.String()[24:],
 	}, dl, shipped)
 	if err != nil {
 		return d, fmt.Errorf("ship: %w", err)
+	}
+	if _, err = d.ShipmentUpdated(order, dealdomain.ShipmentInTransit, shipped); err != nil {
+		return d, fmt.Errorf("pick up: %w", err)
 	}
 	if _, err = d.ShipmentUpdated(order, dealdomain.ShipmentDelivered, s.sale.DeliveredAt); err != nil {
 		return d, fmt.Errorf("deliver: %w", err)

@@ -30,7 +30,7 @@ func TestListingActivity(t *testing.T) {
 
 	early := e.pending(t, first, twoPending)
 	e.pending(t, second, twoPending)
-	sent := e.shipped(t, third, seller, shipped, "S1")
+	sent := e.shipped(t, third, seller, shipped)
 	e.open(t, first, talked)
 	gone := e.pending(t, second, cancelled)
 	must(t)(e.deals.CancelOrder(ctx, seller, gone.Order.ID, ""))
