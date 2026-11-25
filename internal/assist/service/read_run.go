@@ -88,7 +88,7 @@ func (x *readRun) end(at time.Time) error {
 	return err
 }
 
-// fail ends the read failed.
+// fail is UC-LST-01 A1: the read ends failed.
 func (x *readRun) fail(at time.Time, f domain.Failure, reason string) error {
 	// A1: the read fails and the seller fills the form by hand.
 	if err := x.r.Fail(f, reason); err != nil {
