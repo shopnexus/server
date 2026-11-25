@@ -24,7 +24,7 @@ func TestFindByContactAndIdentities(t *testing.T) {
 	id := a.ID()
 	creds := repository.NewCredentials(db)
 	c := domain.NewCredentials(id, domain.NewIdentity(uuid.NewV7(), phone(t, "0901234567"), now), now)
-	if err = creds.SignUp(ctx, a, c); err != nil {
+	if err = creds.SignUp(ctx, a, c, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	b, err := domain.New(uuid.NewV7(), "Hà", now)
@@ -35,7 +35,7 @@ func TestFindByContactAndIdentities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = creds.SignUp(ctx, b, domain.NewCredentials(b.ID(), domain.NewIdentity(uuid.NewV7(), mail, now), now)); err != nil {
+	if err = creds.SignUp(ctx, b, domain.NewCredentials(b.ID(), domain.NewIdentity(uuid.NewV7(), mail, now), now), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	client := service.New(service.Deps{Credentials: creds})
@@ -78,7 +78,7 @@ func TestHasPhone(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = creds.SignUp(context.Background(), a, domain.NewCredentials(a.ID(), domain.NewIdentity(uuid.NewV7(), addr, now), now)); err != nil {
+		if err = creds.SignUp(context.Background(), a, domain.NewCredentials(a.ID(), domain.NewIdentity(uuid.NewV7(), addr, now), now), uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		return a.ID()

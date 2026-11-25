@@ -116,7 +116,7 @@ func run(ctx context.Context) error {
 	for i := range people {
 		a := &people[i]
 		signed, signErr := accounts.SignIn(ctx, service.SignInInput{
-			IdempotencyKey: uuid.NewV7().String(), Proof: service.Proof{PhoneToken: a.Phone}, DeviceName: "devseed",
+			Key: uuid.NewV7(), Proof: service.Proof{PhoneToken: a.Phone}, DeviceName: "devseed",
 		})
 		if signErr != nil {
 			return fmt.Errorf("sign in %s: %w", a.Key, signErr)

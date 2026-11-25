@@ -27,8 +27,8 @@ func TestSignUpByGoogle(t *testing.T) {
 	}
 }
 
-// A key replayed with a wrong code gets no session, though Restate answers
-// it with the first run's result.
+// A key sent again with a wrong code gets no session, though the first
+// request under it consumed the code.
 func TestSignInByEmailReplayWithAWrongCode(t *testing.T) {
 	t.Parallel()
 	id, code := sendEmailCode(t, newEmail())

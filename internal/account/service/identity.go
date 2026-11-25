@@ -43,12 +43,17 @@ func (s *Account) Identities(ctx context.Context, accountID uuid.UUID) ([]Identi
 	if err != nil {
 		return nil, fmt.Errorf("get credentials: %w", err)
 	}
-	ids := cr.Identities()
+	return identitiesOf(cr), nil
+}
+
+// identitiesOf lists c's identities as a reply shows them.
+func identitiesOf(c domain.Credentials) []Identity {
+	ids := c.Identities()
 	out := make([]Identity, 0, len(ids))
 	for _, i := range ids {
 		out = append(out, Identity{Kind: i.Kind(), Value: i.Value()})
 	}
-	return out, nil
+	return out
 }
 
 func (s *Account) Locale(ctx context.Context, id uuid.UUID) (locale.Tag, error) {

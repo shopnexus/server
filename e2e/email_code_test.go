@@ -37,6 +37,19 @@ func TestSendEmailCode(t *testing.T) {
 	check(t, "no key", call(t, "POST", "/v1/auth/email-codes", map[string]string{"email": newEmail()}, newClient()), 400, "")
 }
 
+// A retry of the key answers with the first challenge and mails nothing more.
+func TestSendEmailCodeRetriedKey(t *testing.T) {
+	t.Parallel()
+	addr, key := newEmail(), newKey()
+	send := func() emailCode {
+		return expect[emailCode](t, call(t, "POST", "/v1/auth/email-codes", map[string]string{"email": addr}, key, newClient()), 200)
+	}
+	first, again := send(), send()
+	if again.ChallengeID != first.ChallengeID || mails.count(addr) != 1 {
+		t.Fatalf("first %+v, again %+v, mails %d", first, again, mails.count(addr))
+	}
+}
+
 func TestSendMyEmailCode(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)

@@ -37,39 +37,28 @@ func (s *Account) Reauthenticate(ctx context.Context, in ReauthenticateInput) (d
 		return domain.AccessToken{}, err
 	}
 
-	// The key holds the session, so another caller's key runs apart, and
-	// the proven address or the code's challenge, as SignIn's does.
-	var (
-		run       = ReauthenticateRun{AccountID: in.Caller.AccountID}
-		key       string
-		codeMatch = true
-	)
+	run := ReauthenticateRun{AccountID: in.Caller.AccountID, Key: in.Key}
 	if in.Proof.EmailCode != nil {
-		g, match, guessErr := s.guessFor(ctx, *in.Proof.EmailCode)
+		g, guessErr := s.guessFor(ctx, *in.Proof.EmailCode)
 		if guessErr != nil {
 			return domain.AccessToken{}, guessErr
 		}
-		run.Guess, key, codeMatch = &g, sess.ID().String()+"/"+g.ChallengeID.String()+"/"+in.IdempotencyKey, match
+		run.Guess = &g
 	} else {
 		addr, verifyErr := s.verifyToken(ctx, in.Proof, apperr.KindInvalid)
 		if verifyErr != nil {
 			return domain.AccessToken{}, verifyErr
 		}
-		run.Address, key = &addr, sess.ID().String()+"/"+string(addr.Kind())+":"+addr.Value()+"/"+in.IdempotencyKey
+		run.Address = &addr
 	}
-	res, err := s.reauthenticate.Call(ctx, key, run)
+	res, err := s.reauthenticate.Call(ctx, "", run)
 	if err != nil {
 		return domain.AccessToken{}, err
 	}
-	// A repeated key returns the first run's result; only the right code
-	// renews the session.
-	if !codeMatch {
-		return domain.AccessToken{}, domain.ErrCodeExpired
-	}
 
-	// A repeated key sets the first run's time again, which never moves
-	// auth_time back. The session must still be usable at res.At, the time
-	// the proof was checked; on a first run that is later than now.
+	// auth_time only moves forward, so a retry of the request is harmless.
+	// The session must still be usable at res.At, the time the proof was
+	// checked, which is later than now.
 	renewed, err := s.sessions.Reauthenticate(ctx, sess.ID(), res.At)
 	if errors.Is(err, repository.ErrNotFound) {
 		// It expired or went idle by res.At, or was signed out since the

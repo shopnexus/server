@@ -20,27 +20,46 @@ type pgChallenges struct{ db *pgxpool.Pool }
 func NewChallenges(db *pgxpool.Pool) Challenges { return pgChallenges{db} }
 
 const createChallenge = `
-INSERT INTO otp_challenges (id, purpose, kind, destination, account_id, code_hash, ip, expires_at, created_at, write_id)
-VALUES (@id, @purpose, @kind, @destination, @account_id, @code_hash, @ip, @expires_at, @created_at, @write_id)
-ON CONFLICT (id) DO NOTHING`
+INSERT INTO otp_challenges (id, purpose, kind, destination, account_id, code_hash, ip, expires_at, created_at, request_key, write_id)
+VALUES (@id, @purpose, @kind, @destination, @account_id, @code_hash, @ip, @expires_at, @created_at, @request_key, @write_id)
+ON CONFLICT DO NOTHING`
 
-func (s pgChallenges) Create(ctx context.Context, c domain.Challenge) error {
-	_, err := s.db.Exec(ctx, createChallenge, pgx.StrictNamedArgs{
+func (s pgChallenges) Create(ctx context.Context, c domain.Challenge, key uuid.UUID) (uuid.UUID, error) {
+	var requestKey *uuid.UUID
+	if key != uuid.Nil() {
+		requestKey = &key
+	}
+	b := &pgx.Batch{}
+	b.Queue(createChallenge, pgx.StrictNamedArgs{
 		"id": c.ID(), "purpose": c.Purpose(), "kind": c.Destination().Kind(), "destination": c.Destination().Value(),
 		"account_id": c.AccountID(), "code_hash": c.CodeHash(), "ip": c.IP(),
-		"expires_at": c.ExpiresAt(), "created_at": c.CreatedAt(), "write_id": c.WriteID(),
+		"expires_at": c.ExpiresAt(), "created_at": c.CreatedAt(), "request_key": requestKey, "write_id": c.WriteID(),
 	})
-	if err != nil {
-		return fmt.Errorf("insert challenge: %w", err)
+	var id uuid.UUID
+	b.Queue(`SELECT id FROM otp_challenges WHERE id = @id OR (destination = @destination AND request_key = @request_key)`,
+		pgx.StrictNamedArgs{"id": c.ID(), "destination": c.Destination().Value(), "request_key": requestKey}).
+		QueryRow(func(row pgx.Row) error { return row.Scan(&id) })
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+		return uuid.Nil(), fmt.Errorf("insert challenge: %w", err)
 	}
-	return nil
+	return id, nil
 }
 
-const getChallenge = `
-SELECT id, purpose, kind, destination, account_id, code_hash, attempts, ip, expires_at, created_at, consumed_at, write_id
-FROM otp_challenges WHERE id = @id`
+const challengeColumns = `id, purpose, kind, destination, account_id, code_hash, attempts, ip, expires_at, created_at,
+       consumed_at, write_id`
 
 func (s pgChallenges) Get(ctx context.Context, id uuid.UUID) (domain.Challenge, error) {
+	return scanChallenge(s.db.QueryRow(ctx, `SELECT `+challengeColumns+` FROM otp_challenges WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": id}))
+}
+
+func (s pgChallenges) ByKey(ctx context.Context, dest contact.Address, key uuid.UUID) (domain.Challenge, error) {
+	return scanChallenge(s.db.QueryRow(ctx, `SELECT `+challengeColumns+`
+FROM otp_challenges WHERE destination = @destination AND request_key = @request_key`,
+		pgx.StrictNamedArgs{"destination": dest.Value(), "request_key": key}))
+}
+
+func scanChallenge(row pgx.Row) (domain.Challenge, error) {
 	var (
 		cid, writeID         uuid.UUID
 		purpose              domain.Purpose
@@ -53,7 +72,7 @@ func (s pgChallenges) Get(ctx context.Context, id uuid.UUID) (domain.Challenge, 
 		expiresAt, createdAt time.Time
 		consumedAt           *time.Time
 	)
-	err := s.db.QueryRow(ctx, getChallenge, pgx.StrictNamedArgs{"id": id}).Scan(&cid, &purpose, &kind, &dest, &accountID, &codeHash,
+	err := row.Scan(&cid, &purpose, &kind, &dest, &accountID, &codeHash,
 		&attempts, &ip, &expiresAt, &createdAt, &consumedAt, &writeID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Challenge{}, ErrNotFound

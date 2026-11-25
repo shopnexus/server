@@ -42,11 +42,11 @@ func TestAddingAnIdentityNeedsARecentSignInAndAWritableAccount(t *testing.T) {
 		"a sign-in 16 minutes ago": {caller(active, 16*time.Minute), domain.ErrReauthRequired},
 		"a deleted account":        {caller(deleted, time.Minute), domain.ErrSessionRevoked},
 	} {
-		if _, err := svc.AddIdentity(ctx, service.AddIdentityInput{IdempotencyKey: "k", Caller: c.caller, Proof: service.Proof{PhoneToken: "t"}}); !errors.Is(err, c.want) {
+		if _, err := svc.AddIdentity(ctx, service.AddIdentityInput{Key: uuid.NewV7(), Caller: c.caller, Proof: service.Proof{PhoneToken: "t"}}); !errors.Is(err, c.want) {
 			t.Errorf("add identity, %s: %v", name, err)
 		}
 		p := c.caller
-		if _, err := svc.SendEmailCode(ctx, service.SendEmailCodeInput{IdempotencyKey: "k", Email: "linh@example.com", Caller: &p}); !errors.Is(err, c.want) {
+		if _, err := svc.SendEmailCode(ctx, service.SendEmailCodeInput{Key: uuid.NewV7(), Email: "linh@example.com", Caller: &p}); !errors.Is(err, c.want) {
 			t.Errorf("send email code, %s: %v", name, err)
 		}
 	}

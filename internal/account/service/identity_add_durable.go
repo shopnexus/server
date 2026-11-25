@@ -16,11 +16,12 @@ import (
 )
 
 // AddIdentityRun is a proven address, or a guess at an add_identity code,
-// for the account AccountID.
+// for the account AccountID. Key is the client's Idempotency-Key.
 type AddIdentityRun struct {
 	AccountID uuid.UUID        `json:"account_id"`
 	Address   *contact.Address `json:"address,omitempty"`
 	Guess     *CodeGuess       `json:"guess,omitempty"`
+	Key       uuid.UUID        `json:"key,omitzero"`
 }
 
 // AddIdentityResult lists the account's identities after the add. A refusal
@@ -68,11 +69,11 @@ func (s AddIdentity) Run(ctx restate.Context, in AddIdentityRun) (AddIdentityRes
 	}
 	var addr contact.Address
 	if in.Guess != nil {
-		proved, refused, judgeErr := judgeGuess(ctx, s.Challenges, *in.Guess, domain.PurposeAddIdentity, &in.AccountID, at)
+		proved, refused, judgeErr := judgeGuess(ctx, s.Challenges, *in.Guess, domain.PurposeAddIdentity, &in.AccountID, in.Key, at)
 		if judgeErr != nil || refused != nil {
 			return AddIdentityResult{Refused: refused}, judgeErr
 		}
-		addr = proved
+		addr = proved.Address
 	} else {
 		addr = *in.Address
 	}
@@ -95,10 +96,18 @@ func (s AddIdentity) Run(ctx restate.Context, in AddIdentityRun) (AddIdentityRes
 		return AddIdentityResult{Refused: domain.ErrSessionRevoked}, nil
 	}
 	c := l.Credentials
+	// The save's write ID derives from the request key, so a retry of the
+	// request finds its identity added and answers as the first did.
+	w := restatex.NewID(ctx, at)
+	if in.Key != uuid.Nil() {
+		w = restatex.DerivedID("identity-add", in.AccountID.String(), in.Key.String())
+	}
+	if c.WriteID() == w {
+		return AddIdentityResult{Identities: identitiesOf(c)}, nil
+	}
 	if added := c.Add(domain.NewIdentity(restatex.NewID(ctx, at), addr, at)); added != nil {
 		return AddIdentityResult{Refused: apperr.From(added)}, nil
 	}
-	w := restatex.NewID(ctx, at)
 	outcome, err := restate.Run(ctx, func(rc restate.RunContext) (saveOutcome, error) {
 		c := c // Save sets the write ID on its copy; c outside stays as journaled
 		stepErr := s.Credentials.Save(rc, &c, w)
@@ -124,10 +133,5 @@ func (s AddIdentity) Run(ctx restate.Context, in AddIdentityRun) (AddIdentityRes
 	case saved:
 	default:
 	}
-	ids := c.Identities()
-	out := make([]Identity, 0, len(ids))
-	for _, i := range ids {
-		out = append(out, Identity{Kind: i.Kind(), Value: i.Value()})
-	}
-	return AddIdentityResult{Identities: out}, nil
+	return AddIdentityResult{Identities: identitiesOf(c)}, nil
 }

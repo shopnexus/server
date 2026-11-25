@@ -47,7 +47,7 @@ func (e *addEnv) account(t *testing.T, addr contact.Address) uuid.UUID {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = e.credentials.SignUp(context.Background(), a, domain.NewCredentials(a.ID(), domain.NewIdentity(uuid.NewV7(), addr, now), now)); err != nil {
+	if err = e.credentials.SignUp(context.Background(), a, domain.NewCredentials(a.ID(), domain.NewIdentity(uuid.NewV7(), addr, now), now), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return a.ID()
@@ -61,7 +61,7 @@ func (e *addEnv) addChallenge(t *testing.T, owner uuid.UUID, to string) *service
 	dest := email(t, to)
 	hash := testCodes.Hash(dest, testCodes.For(id))
 	c := domain.NewChallenge(id, domain.PurposeAddIdentity, dest, &owner, netip.MustParseAddr("127.0.0.1"), hash, now)
-	if err := e.challenges.Create(context.Background(), c); err != nil {
+	if _, err := e.challenges.Create(context.Background(), c, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return &service.CodeGuess{ChallengeID: id, CodeHash: hash}
@@ -97,6 +97,18 @@ func TestAddIdentityByEmailCode(t *testing.T) {
 	res := e.run(t, service.AddIdentityRun{AccountID: acc, Guess: e.addChallenge(t, acc, "linh@example.com")})
 	if res.Refused != nil || len(res.Identities) != 2 {
 		t.Fatalf("%+v", res)
+	}
+}
+
+// A retry of the request key, its code consumed, answers as the first did.
+func TestAddIdentityRetriedKey(t *testing.T) {
+	t.Parallel()
+	e := startAddIdentity(t)
+	acc := e.account(t, phone(t, "0901234567"))
+	in := service.AddIdentityRun{AccountID: acc, Guess: e.addChallenge(t, acc, "linh@example.com"), Key: uuid.NewV7()}
+	first, again := e.run(t, in), e.run(t, in)
+	if first.Refused != nil || again.Refused != nil || len(again.Identities) != 2 {
+		t.Fatalf("first %+v, again %+v", first, again)
 	}
 }
 

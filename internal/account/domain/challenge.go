@@ -133,6 +133,15 @@ func (c *Challenge) Verify(codeHash []byte, now time.Time) error {
 	return c.verdict()
 }
 
+// Repeat repeats what the last counted guess decided, for a retry of the
+// request that made it: nil only when that guess consumed c with codeHash.
+func (c *Challenge) Repeat(codeHash []byte) error {
+	if c.consumedAt != nil && !hmac.Equal(codeHash, c.codeHash) {
+		return ErrCodeExpired
+	}
+	return c.verdict()
+}
+
 // verdict is what the last counted guess decided: nil when it consumed c.
 func (c *Challenge) verdict() error {
 	switch {

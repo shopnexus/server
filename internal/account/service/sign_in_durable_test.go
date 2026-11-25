@@ -85,20 +85,25 @@ func TestSignInCreatesThenFindsTheAccount(t *testing.T) {
 	first := e.signIn(t, "0901234567")
 	second := e.signIn(t, "+84 90 123 4567")
 	if first.Refused != nil || !first.IsNew || second.Refused != nil || second.IsNew || second.AccountID != first.AccountID ||
-		first.SessionID == second.SessionID || e.count(t, "accounts") != 1 || e.count(t, "identities") != 1 {
+		e.count(t, "accounts") != 1 || e.count(t, "identities") != 1 {
 		t.Fatalf("first %+v, second %+v", first, second)
 	}
 }
 
-func TestSignInReplayedKey(t *testing.T) {
+// A retry of the sign-up's key is a new invocation that finds the account
+// and answers is_new as the first did; another key's sign-in is not new.
+func TestSignInRetriedKey(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
-	key := uuid.NewV7().String()
-	in := service.ProvenSignIn{Address: new(phone(t, "0901234567"))}
-	a, err1 := e.run.Request(context.Background(), in, restate.WithIdempotencyKey(key))
-	b, err2 := e.run.Request(context.Background(), in, restate.WithIdempotencyKey(key))
-	if err1 != nil || err2 != nil || a.AccountID != b.AccountID || a.SessionID != b.SessionID || e.count(t, "accounts") != 1 {
+	in := service.ProvenSignIn{Address: new(phone(t, "0901234567")), Key: uuid.NewV7()}
+	a, err1 := e.run.Request(context.Background(), in)
+	b, err2 := e.run.Request(context.Background(), in)
+	if err1 != nil || err2 != nil || a.AccountID != b.AccountID || !a.IsNew || !b.IsNew || e.count(t, "accounts") != 1 {
 		t.Fatalf("a %+v %v, b %+v %v", a, err1, b, err2)
+	}
+	in.Key = uuid.NewV7()
+	if c, err := e.run.Request(context.Background(), in); err != nil || c.AccountID != a.AccountID || c.IsNew {
+		t.Fatalf("another key: %+v %v", c, err)
 	}
 }
 
@@ -129,8 +134,8 @@ type credentialsCommitThenFail struct {
 	restatetest.CommitThenFail
 }
 
-func (c *credentialsCommitThenFail) SignUp(ctx context.Context, a domain.Account, cr domain.Credentials) error {
-	return c.After(c.Credentials.SignUp(ctx, a, cr))
+func (c *credentialsCommitThenFail) SignUp(ctx context.Context, a domain.Account, cr domain.Credentials, key uuid.UUID) error {
+	return c.After(c.Credentials.SignUp(ctx, a, cr, key))
 }
 
 func TestSignInSurvivesCommitThenFail(t *testing.T) {
@@ -145,7 +150,7 @@ func TestSignInSurvivesCommitThenFail(t *testing.T) {
 // takenCredentials refuses every new identity.
 type takenCredentials struct{ repository.Credentials }
 
-func (takenCredentials) SignUp(context.Context, domain.Account, domain.Credentials) error {
+func (takenCredentials) SignUp(context.Context, domain.Account, domain.Credentials, uuid.UUID) error {
 	return domain.ErrIdentityTaken
 }
 
@@ -161,15 +166,8 @@ func TestSignInMintsV7IDs(t *testing.T) {
 	t.Parallel()
 	e := startSignIn(t)
 	first := e.signIn(t, "0901234567")
-	e.clock.Add(time.Second)
-	second := e.signIn(t, "0901234567")
-	for _, id := range []uuid.UUID{first.AccountID, first.SessionID, second.SessionID} {
-		if id[6]>>4 != 7 {
-			t.Fatalf("%s is version %d", id, id[6]>>4)
-		}
-	}
-	if second.SessionID.Compare(first.SessionID) <= 0 {
-		t.Fatal("a later session sorts first")
+	if id := first.AccountID; id[6]>>4 != 7 {
+		t.Fatalf("%s is version %d", id, id[6]>>4)
 	}
 }
 
@@ -194,7 +192,7 @@ func (e *signInEnv) challenge(t *testing.T, to string, purpose domain.Purpose, o
 	dest := email(t, to)
 	code = testCodes.For(id)
 	c = domain.NewChallenge(id, purpose, dest, owner, netip.MustParseAddr("127.0.0.1"), testCodes.Hash(dest, code), e.clock.Now())
-	if err := e.challenges.Create(context.Background(), c); err != nil {
+	if _, err := e.challenges.Create(context.Background(), c, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return c, code

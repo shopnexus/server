@@ -41,7 +41,7 @@ func WithPhone(t *testing.T, db *pgxpool.Pool) uuid.UUID {
 	a := account(t)
 	now := time.Now()
 	c := domain.NewCredentials(a.ID(), domain.NewIdentity(uuid.NewV7(), phone, now), now)
-	if err := repository.NewCredentials(db).SignUp(context.Background(), a, c); err != nil {
+	if err := repository.NewCredentials(db).SignUp(context.Background(), a, c, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return a.ID()

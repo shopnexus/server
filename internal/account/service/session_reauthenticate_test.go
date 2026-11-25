@@ -64,11 +64,11 @@ func startReauthCase(t *testing.T, clock func() time.Time) *reauthCase {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = deps.Credentials.SignUp(context.Background(), a, domain.NewCredentials(a.ID(), domain.NewIdentity(uuid.NewV7(), addr, now), now)); err != nil {
+	if err = deps.Credentials.SignUp(context.Background(), a, domain.NewCredentials(a.ID(), domain.NewIdentity(uuid.NewV7(), addr, now), now), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	sess, _ := domain.NewSession(uuid.NewV7(), a.ID(), "Pixel 9", now, now)
-	if _, err = deps.Sessions.Create(context.Background(), sess); err != nil {
+	if _, err = deps.Sessions.Create(context.Background(), sess, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return &reauthCase{
@@ -79,7 +79,7 @@ func startReauthCase(t *testing.T, clock func() time.Time) *reauthCase {
 
 func (c *reauthCase) reauth() (domain.AccessToken, error) {
 	return c.svc.Reauthenticate(context.Background(), service.ReauthenticateInput{
-		IdempotencyKey: uuid.NewV7().String(), Caller: c.caller, Proof: service.Proof{PhoneToken: "t"},
+		Key: uuid.NewV7(), Caller: c.caller, Proof: service.Proof{PhoneToken: "t"},
 	})
 }
 

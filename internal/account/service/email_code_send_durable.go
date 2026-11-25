@@ -23,7 +23,8 @@ import (
 )
 
 // EmailCodeInput is an address to mail a code to. AccountID names the
-// account an add_identity code is for and is nil for sign_in.
+// account an add_identity code is for and is nil for sign_in. Key is the
+// client's Idempotency-Key.
 type EmailCodeInput struct {
 	Email     contact.Address `json:"email"`
 	Purpose   domain.Purpose  `json:"purpose"`
@@ -32,6 +33,7 @@ type EmailCodeInput struct {
 	// Locale is the language of the mail; a journal entry from before reads
 	// as Vietnamese.
 	Locale locale.Tag `json:"locale,omitempty"`
+	Key    uuid.UUID  `json:"key,omitzero"`
 }
 
 // EmailCodeResult names the challenge the code belongs to. A refusal
@@ -95,8 +97,21 @@ func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeRes
 	// mails the same code, and the code is never stored or journaled.
 	id := restatex.NewID(ctx, at)
 	c := domain.NewChallenge(id, in.Purpose, in.Email, in.AccountID, in.IP, s.Codes.Hash(in.Email, s.Codes.For(id)), at)
-	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Challenges.Create(rc, c) }); err != nil {
+	stored, err := restate.Run(ctx, func(rc restate.RunContext) (uuid.UUID, error) {
+		return s.Challenges.Create(rc, c, in.Key)
+	})
+	if err != nil {
 		return EmailCodeResult{}, fmt.Errorf("create challenge: %w", err)
+	}
+	if stored != id {
+		// A retry of the key raced the first request, which mails its code.
+		first, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Challenge, error) {
+			return s.Challenges.Get(rc, stored)
+		})
+		if err != nil {
+			return EmailCodeResult{}, fmt.Errorf("get the key's challenge: %w", err)
+		}
+		return EmailCodeResult{ChallengeID: stored, ExpiresAt: first.ExpiresAt(), ResendAt: first.CreatedAt().Add(resend.Window)}, nil
 	}
 	// A retry after the code expired mails nothing, and a provider that
 	// refuses the message for good ends the send: retrying would never stop.

@@ -33,7 +33,7 @@ func TestPGChallenges(t *testing.T) {
 	create := func(t *testing.T, s repository.Challenges, dest contact.Address, purpose domain.Purpose, when time.Time) domain.Challenge {
 		t.Helper()
 		c := domain.NewChallenge(uuid.NewV7(), purpose, dest, nil, ip, []byte("hash-"+when.String()), when)
-		if err := s.Create(ctx, c); err != nil {
+		if _, err := s.Create(ctx, c, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		return c
@@ -46,7 +46,7 @@ func TestPGChallenges(t *testing.T) {
 		s := repository.NewChallenges(db)
 		acc := accounttest.New(t, db)
 		c := domain.NewChallenge(uuid.NewV7(), domain.PurposeAddIdentity, addr, &acc, ip, []byte{1}, at)
-		if err := s.Create(ctx, c); err != nil {
+		if _, err := s.Create(ctx, c, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		got, err := s.Get(ctx, c.ID())
@@ -73,7 +73,7 @@ func TestPGChallenges(t *testing.T) {
 		t.Parallel()
 		s := newStore(t)
 		c := create(t, s, addr, domain.PurposeSignIn, at)
-		if err := s.Create(ctx, domain.NewChallenge(c.ID(), domain.PurposeSignIn, other, nil, ip, []byte("x"), at)); err != nil {
+		if _, err := s.Create(ctx, domain.NewChallenge(c.ID(), domain.PurposeSignIn, other, nil, ip, []byte("x"), at), uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		got, err := s.Get(ctx, c.ID())
@@ -123,7 +123,7 @@ func TestPGChallenges(t *testing.T) {
 		elsewhere := create(t, s, other, domain.PurposeSignIn, at.Add(2*time.Second))
 		acc := accounttest.New(t, db)
 		add := domain.NewChallenge(uuid.NewV7(), domain.PurposeAddIdentity, addr, &acc, ip, []byte("x"), at.Add(3*time.Second))
-		if err := s.Create(ctx, add); err != nil {
+		if _, err := s.Create(ctx, add, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		for _, c := range []struct {

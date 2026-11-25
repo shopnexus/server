@@ -206,7 +206,7 @@ func (r *run) person(ctx context.Context, a seedpack.Account) error {
 		return nil
 	}
 	creds := accountdomain.NewCredentials(id, accountdomain.NewIdentity(seedpack.ID(r.name, "identity", a.Key, at), phone, at), at)
-	if err = r.credentials.SignUp(ctx, acc, creds); errors.Is(err, accountdomain.ErrIdentityTaken) {
+	if err = r.credentials.SignUp(ctx, acc, creds, uuid.Nil()); errors.Is(err, accountdomain.ErrIdentityTaken) {
 		r.warnf("person %s: another account holds %s", a.Key, a.Phone)
 		r.count(&r.res.People, false)
 		return nil

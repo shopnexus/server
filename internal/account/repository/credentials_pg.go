@@ -56,13 +56,20 @@ func queueUpsertIdentities(b *pgx.Batch, accountID uuid.UUID, ids []domain.Ident
 	}
 }
 
-func (s pgCredentials) SignUp(ctx context.Context, a domain.Account, c domain.Credentials) error {
+func (s pgCredentials) SignUp(ctx context.Context, a domain.Account, c domain.Credentials, key uuid.UUID) error {
+	var requestKey *uuid.UUID
+	if key != uuid.Nil() {
+		requestKey = &key
+	}
 	b := &pgx.Batch{}
 	queueInsertAccount(b, a)
 	queue(b, "insert credentials", `
-INSERT INTO credentials (account_id, write_id, updated_at) VALUES (@account_id, @write_id, @updated_at)
+INSERT INTO credentials (account_id, write_id, updated_at, request_key)
+VALUES (@account_id, @write_id, @updated_at, @request_key)
 ON CONFLICT (account_id) DO NOTHING`,
-		pgx.StrictNamedArgs{"account_id": c.AccountID(), "write_id": c.WriteID(), "updated_at": c.UpdatedAt()}, nil)
+		pgx.StrictNamedArgs{
+			"account_id": c.AccountID(), "write_id": c.WriteID(), "updated_at": c.UpdatedAt(), "request_key": requestKey,
+		}, nil)
 	queueUpsertIdentities(b, c.AccountID(), c.Identities())
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		return tx.SendBatch(ctx, b).Close()
@@ -71,6 +78,16 @@ ON CONFLICT (account_id) DO NOTHING`,
 		return fmt.Errorf("sign up: %w", err)
 	}
 	return nil
+}
+
+func (s pgCredentials) SignedUpWith(ctx context.Context, accountID, key uuid.UUID) (bool, error) {
+	var signedUp bool
+	err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM credentials WHERE account_id = @account_id AND request_key = @key)`,
+		pgx.StrictNamedArgs{"account_id": accountID, "key": key}).Scan(&signedUp)
+	if err != nil {
+		return false, fmt.Errorf("select sign-up key: %w", err)
+	}
+	return signedUp, nil
 }
 
 func (s pgCredentials) Get(ctx context.Context, accountID uuid.UUID) (domain.Credentials, error) {

@@ -123,12 +123,12 @@ type EmailCode struct {
 	Code        string
 }
 
-// SignInInput is a proof. A repeated IdempotencyKey with a proof of the same
+// SignInInput is a proof. A repeated Key with a proof of the same
 // address gets the first request's account and session.
 type SignInInput struct {
-	IdempotencyKey string
-	Proof          Proof
-	DeviceName     string
+	Key        uuid.UUID
+	Proof      Proof
+	DeviceName string
 	// Locale is the caller's language, which the account's mail follows;
 	// empty when the caller names none.
 	Locale locale.Tag
@@ -172,10 +172,10 @@ type Mailbox struct {
 // SendEmailCodeInput is an address as the person typed it. Caller is the
 // signed-in caller for an add-identity code and nil for a sign-in code.
 type SendEmailCodeInput struct {
-	IdempotencyKey string
-	Email          string
-	Caller         *authn.Principal
-	IP             netip.Addr
+	Key    uuid.UUID
+	Email  string
+	Caller *authn.Principal
+	IP     netip.Addr
 	// Locale is the language the code's mail is written in.
 	Locale locale.Tag
 }
@@ -189,17 +189,17 @@ type EmailCodeView struct {
 
 // AddIdentityInput is a proof of the kind the caller's account lacks.
 type AddIdentityInput struct {
-	IdempotencyKey string
-	Caller         authn.Principal
-	Proof          Proof
+	Key    uuid.UUID
+	Caller authn.Principal
+	Proof  Proof
 }
 
 // ReauthenticateInput is a proof that must name an identity of the
 // caller's account.
 type ReauthenticateInput struct {
-	IdempotencyKey string
-	Caller         authn.Principal
-	Proof          Proof
+	Key    uuid.UUID
+	Caller authn.Principal
+	Proof  Proof
 }
 
 // IdentitiesView is the Identities schema in api/schemas/account.yaml.

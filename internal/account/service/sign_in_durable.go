@@ -17,18 +17,19 @@ import (
 
 // ProvenSignIn is an address a token proved outside Restate, or a guess at
 // an email code for the flow to judge. Neither the token nor the code
-// enters Restate, whose journal the admin API can read.
+// enters Restate, whose journal the admin API can read. Key is the client's
+// Idempotency-Key.
 type ProvenSignIn struct {
 	Address *contact.Address `json:"address,omitempty"`
 	Guess   *CodeGuess       `json:"guess,omitempty"`
+	Key     uuid.UUID        `json:"key,omitzero"`
 }
 
-// SignInResult names the account and the session Account.SignIn issues tokens
-// for. Tokens never enter Restate. A refusal travels as data.
+// SignInResult names the account Account.SignIn starts a session of. Tokens
+// never enter Restate. A refusal travels as data.
 type SignInResult struct {
 	AccountID uuid.UUID     `json:"account_id"`
 	IsNew     bool          `json:"is_new"`
-	SessionID uuid.UUID     `json:"session_id"`
 	Refused   *apperr.Error `json:"refused,omitempty"`
 }
 
@@ -58,6 +59,13 @@ type foundIdentity struct {
 	Found bool               `json:"found"`
 }
 
+// accountStatus is the found account's status, and whether its sign-up
+// carried this request's key.
+type accountStatus struct {
+	Status   domain.Status `json:"status"`
+	SignedUp bool          `json:"signed_up"`
+}
+
 // findIdentity looks up the identity of addr in a step. SignIn and
 // Reauthenticate call it.
 func findIdentity(ctx restate.Context, credentials repository.Credentials, addr contact.Address) (foundIdentity, error) {
@@ -84,11 +92,11 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 	}
 	var addr contact.Address
 	if in.Guess != nil {
-		proved, refused, judgeErr := judgeGuess(ctx, s.Challenges, *in.Guess, domain.PurposeSignIn, nil, at)
+		proved, refused, judgeErr := judgeGuess(ctx, s.Challenges, *in.Guess, domain.PurposeSignIn, nil, in.Key, at)
 		if judgeErr != nil || refused != nil {
 			return SignInResult{Refused: refused}, judgeErr
 		}
-		addr = proved
+		addr = proved.Address
 	} else {
 		addr = *in.Address
 	}
@@ -97,22 +105,27 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 	if err != nil {
 		return SignInResult{}, err
 	}
-	sessionID := restatex.NewID(ctx, at)
 
 	if f.Found {
 		// Only a person who just proved they hold the identity gets here, so
 		// account_suspended is safe to reveal.
-		status, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Status, error) {
+		// A retry of the sign-up that made the account answers is_new as
+		// the first request did.
+		st, err := restate.Run(ctx, func(rc restate.RunContext) (accountStatus, error) {
 			a, stepErr := s.Accounts.Get(rc, f.Ref.AccountID)
 			if stepErr != nil {
-				return "", fmt.Errorf("get account status: %w", stepErr)
+				return accountStatus{}, fmt.Errorf("get account status: %w", stepErr)
 			}
-			return a.Status(at), nil
+			signedUp, stepErr := s.Credentials.SignedUpWith(rc, f.Ref.AccountID, in.Key)
+			if stepErr != nil {
+				return accountStatus{}, fmt.Errorf("check the sign-up key: %w", stepErr)
+			}
+			return accountStatus{Status: a.Status(at), SignedUp: signedUp}, nil
 		})
 		if err != nil {
 			return SignInResult{}, fmt.Errorf("get account status: %w", err)
 		}
-		switch status {
+		switch st.Status {
 		case domain.StatusSuspended:
 			return SignInResult{Refused: domain.ErrSuspended}, nil
 		case domain.StatusDeleted:
@@ -138,7 +151,7 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 		}); err != nil {
 			return SignInResult{}, fmt.Errorf("mark identity used: %w", err)
 		}
-		return SignInResult{AccountID: f.Ref.AccountID, SessionID: sessionID}, nil
+		return SignInResult{AccountID: f.Ref.AccountID, IsNew: st.SignedUp}, nil
 	}
 
 	accountID, identityID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)
@@ -148,7 +161,7 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 	}
 	c := domain.NewCredentials(accountID, domain.NewIdentity(identityID, addr, at), at)
 	taken, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
-		return restatex.Outcome(s.Credentials.SignUp(rc, a, c), domain.ErrIdentityTaken)
+		return restatex.Outcome(s.Credentials.SignUp(rc, a, c, in.Key), domain.ErrIdentityTaken)
 	})
 	if err != nil {
 		return SignInResult{}, fmt.Errorf("create account: %w", err)
@@ -158,5 +171,5 @@ func (s SignIn) Run(ctx restate.Context, in ProvenSignIn) (SignInResult, error) 
 		// insert, and the transaction wrote nothing: the client tries again.
 		return SignInResult{Refused: apperr.ErrTryAgain}, nil
 	}
-	return SignInResult{AccountID: accountID, IsNew: true, SessionID: sessionID}, nil
+	return SignInResult{AccountID: accountID, IsNew: true}, nil
 }

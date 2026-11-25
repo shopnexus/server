@@ -33,7 +33,7 @@ func newRefreshEnv(t *testing.T) *refreshEnv {
 	t.Helper()
 	db := pgtest.New(t)
 	e := &refreshEnv{db: db, sessions: repository.NewSessions(db), accounts: repository.NewAccounts(db), acc: accounttest.New(t, db), sid: uuid.NewV7()}
-	tokens, err := service.IssueSession(at(nil, e.sessions, now), context.Background(), e.sid, e.acc, "Pixel 9")
+	tokens, err := service.IssueSession(at(nil, e.sessions, now), context.Background(), e.sid, e.acc, uuid.Nil(), "Pixel 9")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestRefreshRefusals(t *testing.T) {
 func TestRefreshOfASuspendedAccountAnswersItsRetries(t *testing.T) {
 	t.Parallel()
 	e := newRefreshEnv(t)
-	signedOut, err := service.IssueSession(at(nil, e.sessions, now), context.Background(), uuid.NewV7(), e.acc, "Pixel 8")
+	signedOut, err := service.IssueSession(at(nil, e.sessions, now), context.Background(), uuid.NewV7(), e.acc, uuid.Nil(), "Pixel 8")
 	if err != nil {
 		t.Fatal(err)
 	}

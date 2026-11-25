@@ -11,24 +11,25 @@ import (
 	"github.com/shopnexus/server/internal/platform/apperr"
 )
 
-// issueSession starts session id and signs its first access token. When the
-// session exists already, because the client replayed an Idempotency-Key, it
-// rotates the refresh token instead, so the replay also gets working tokens.
-// SignIn calls it after the SignIn service.
-func (s *Account) issueSession(ctx context.Context, id, accountID uuid.UUID, deviceName string) (domain.Tokens, error) {
+// issueSession starts session id of the account and signs its first access
+// token. When the account has the session of key already, because the client
+// sent the sign-in again, it rotates that session's refresh token instead,
+// so the retry also gets working tokens. SignIn calls it after the SignIn
+// service.
+func (s *Account) issueSession(ctx context.Context, id, accountID, key uuid.UUID, deviceName string) (domain.Tokens, error) {
 	now := s.now()
 	sess, refresh := domain.NewSession(id, accountID, deviceName, now, now)
-	created, err := s.sessions.Create(ctx, sess)
+	stored, err := s.sessions.Create(ctx, sess, key)
 	if err != nil {
 		return domain.Tokens{}, fmt.Errorf("create session: %w", err)
 	}
-	if !created {
-		if sess, err = s.sessions.Get(ctx, id); err != nil {
+	if stored != sess.ID() {
+		if sess, err = s.sessions.Get(ctx, stored); err != nil {
 			return domain.Tokens{}, fmt.Errorf("get session: %w", err)
 		}
-		// A replay must not bring back a session that was signed out since.
+		// A retry must not bring back a session that was signed out since.
 		if err = sess.Usable(now); err != nil {
-			return domain.Tokens{}, fmt.Errorf("replayed session: %w", err)
+			return domain.Tokens{}, fmt.Errorf("retried session: %w", err)
 		}
 		refresh = sess.Rotate(now)
 		if err = s.sessions.Save(ctx, &sess, uuid.NewV7()); err != nil {

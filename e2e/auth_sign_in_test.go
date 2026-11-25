@@ -26,12 +26,15 @@ func TestSignUpThenSignIn(t *testing.T) {
 	}
 }
 
+// A retry of the key gets the first session with a new refresh token, and
+// a retried sign-up still answers is_new.
 func TestSignInReplayedKeyGetsTheSameSession(t *testing.T) {
 	t.Parallel()
 	token, key := issuer.SMSToken(newPhone()), newKey()
 	a, b := signInCall(t, token, key), signInCall(t, token, key)
 	sa, sb := decode[signIn](t, a), decode[signIn](t, b)
-	if a.Status != 200 || b.Status != 200 || sa.Account != sb.Account || sb.RefreshToken == sa.RefreshToken {
+	if a.Status != 200 || b.Status != 200 || sa.Account.ID != sb.Account.ID || !sa.Account.IsNew || !sb.Account.IsNew ||
+		sb.RefreshToken == sa.RefreshToken || sessionOf(t, sa.AccessToken) != sessionOf(t, sb.AccessToken) {
 		t.Fatalf("a %d %s, b %d %s", a.Status, a.Body, b.Status, b.Body)
 	}
 	expectStatus(t, refresh(t, sb.RefreshToken), 200) // the replay's refresh token

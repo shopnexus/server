@@ -9,16 +9,15 @@ import (
 )
 
 // AddIdentity checks the caller and the proof, then has the AddIdentity
-// service add the address to the caller's account. The key holds the
-// account, so another account's key runs apart; a repeated key answers the
-// owner with their own identities, so no code check follows the call.
+// service add the address to the caller's account. A retry of the
+// Idempotency-Key answers with the account's identities.
 func (s *Account) AddIdentity(ctx context.Context, in AddIdentityInput) (IdentitiesView, error) {
 	if err := s.mayAddIdentity(ctx, in.Caller); err != nil {
 		return IdentitiesView{}, err
 	}
-	run := AddIdentityRun{AccountID: in.Caller.AccountID}
+	run := AddIdentityRun{AccountID: in.Caller.AccountID, Key: in.Key}
 	if in.Proof.EmailCode != nil {
-		g, _, err := s.guessFor(ctx, *in.Proof.EmailCode)
+		g, err := s.guessFor(ctx, *in.Proof.EmailCode)
 		if err != nil {
 			return IdentitiesView{}, err
 		}
@@ -30,7 +29,7 @@ func (s *Account) AddIdentity(ctx context.Context, in AddIdentityInput) (Identit
 		}
 		run.Address = &addr
 	}
-	res, err := s.addIdentity.Call(ctx, in.Caller.AccountID.String()+"/"+in.IdempotencyKey, run)
+	res, err := s.addIdentity.Call(ctx, "", run)
 	if err != nil {
 		return IdentitiesView{}, err
 	}

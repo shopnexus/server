@@ -21,7 +21,7 @@ func devices(t *testing.T, s repository.Sessions, acc uuid.UUID, n int, when tim
 	out := make([]authn.Principal, 0, n)
 	for range n {
 		id := uuid.NewV7()
-		if _, err := service.IssueSession(at(nil, s, when), context.Background(), id, acc, "Pixel 9"); err != nil {
+		if _, err := service.IssueSession(at(nil, s, when), context.Background(), id, acc, uuid.Nil(), "Pixel 9"); err != nil {
 			t.Fatal(err)
 		}
 		out = append(out, authn.Principal{AccountID: acc, SessionID: id, AuthTime: when})

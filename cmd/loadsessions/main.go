@@ -72,7 +72,7 @@ func run(ctx context.Context, accounts, sessions int) error {
 	signIn := func(ctx context.Context, i int) error {
 		phone := fmt.Sprintf("+8490998%04d", i%accounts)
 		signed, err := svc.SignIn(ctx, service.SignInInput{
-			IdempotencyKey: uuid.NewV7().String(), Proof: service.Proof{PhoneToken: phone}, DeviceName: "loadtest",
+			Key: uuid.NewV7(), Proof: service.Proof{PhoneToken: phone}, DeviceName: "loadtest",
 		})
 		if err != nil {
 			return fmt.Errorf("sign in %s: %w", phone, err)

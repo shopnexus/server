@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/locale"
 
@@ -15,8 +16,8 @@ import (
 type signInRequest struct {
 	proofBody
 
-	IdempotencyKey string `header:"Idempotency-Key" json:"-"`
-	DeviceName     string `json:"device_name"`
+	Key        uuid.UUID `header:"Idempotency-Key" json:"-"`
+	DeviceName string    `json:"device_name"`
 }
 
 // SignIn serves POST /v1/auth/sign-in. Every request counts in login_total
@@ -32,7 +33,7 @@ func (h *Handler) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := h.svc.SignIn(r.Context(), service.SignInInput{
-		IdempotencyKey: in.IdempotencyKey, Proof: in.proof(), DeviceName: in.DeviceName,
+		Key: in.Key, Proof: in.proof(), DeviceName: in.DeviceName,
 		Locale: locale.FromRequest(r),
 	})
 	if err != nil {

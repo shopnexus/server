@@ -29,8 +29,8 @@ func TestPGSessions(t *testing.T) {
 	create := func(t *testing.T, s repository.Sessions, acc uuid.UUID, at time.Time) (domain.Session, string) {
 		t.Helper()
 		sess, token := domain.NewSession(uuid.NewV7(), acc, "Pixel 9", at, at)
-		if created, err := s.Create(ctx, sess); err != nil || !created {
-			t.Fatalf("create: %v %v", created, err)
+		if stored, err := s.Create(ctx, sess, uuid.NewV7()); err != nil || stored != sess.ID() {
+			t.Fatalf("create: %v %v", stored, err)
 		}
 		return sess, token
 	}
@@ -54,8 +54,8 @@ func TestPGSessions(t *testing.T) {
 		s, newAccount := newSessions(t)
 		acc := newAccount()
 		sess, token := create(t, s, acc, now)
-		if created, err := s.Create(ctx, sess); err != nil || created {
-			t.Fatalf("second create: %v %v", created, err)
+		if stored, err := s.Create(ctx, sess, uuid.Nil()); err != nil || stored != sess.ID() {
+			t.Fatalf("second create: %v %v", stored, err)
 		}
 		got, err := s.Get(ctx, sess.ID())
 		if err != nil || got.AccountID() != acc || got.DeviceName() != "Pixel 9" || !got.AuthTime().Equal(now) ||

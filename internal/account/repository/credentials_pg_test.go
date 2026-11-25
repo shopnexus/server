@@ -38,7 +38,7 @@ func TestPGCredentials(t *testing.T) {
 		t.Helper()
 		acc := newAccount(t)
 		c := domain.NewCredentials(acc.ID(), domain.NewIdentity(uuid.NewV7(), a, now), now)
-		if err := s.SignUp(ctx, acc, c); err != nil {
+		if err := s.SignUp(ctx, acc, c, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		return c
@@ -121,7 +121,7 @@ func TestPGCredentials(t *testing.T) {
 		acc := newAccount(t)
 		c := domain.NewCredentials(acc.ID(), domain.NewIdentity(uuid.NewV7(), phone, now), now)
 		for n := range 2 {
-			if err := s.SignUp(ctx, acc, c); err != nil {
+			if err := s.SignUp(ctx, acc, c, uuid.Nil()); err != nil {
 				t.Fatalf("create %d: %v", n, err)
 			}
 		}
@@ -133,7 +133,7 @@ func TestPGCredentials(t *testing.T) {
 		first := fresh(t, s, phone)
 		loser := newAccount(t)
 		second := domain.NewCredentials(loser.ID(), domain.NewIdentity(uuid.NewV7(), phone, now), now)
-		if err := s.SignUp(ctx, loser, second); !errors.Is(err, domain.ErrIdentityTaken) {
+		if err := s.SignUp(ctx, loser, second, uuid.Nil()); !errors.Is(err, domain.ErrIdentityTaken) {
 			t.Fatalf("duplicate: %v", err)
 		}
 		if got, _ := s.Get(ctx, first.AccountID()); !got.Identities()[0].LastUsedAt().Equal(now) {

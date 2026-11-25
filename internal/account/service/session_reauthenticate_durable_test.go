@@ -54,7 +54,7 @@ func (e *reauthEnv) account(t *testing.T, addr contact.Address) uuid.UUID {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = e.credentials.SignUp(context.Background(), a, domain.NewCredentials(a.ID(), domain.NewIdentity(uuid.NewV7(), addr, now), now)); err != nil {
+	if err = e.credentials.SignUp(context.Background(), a, domain.NewCredentials(a.ID(), domain.NewIdentity(uuid.NewV7(), addr, now), now), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return a.ID()
@@ -68,7 +68,7 @@ func (e *reauthEnv) challenge(t *testing.T, to string, purpose domain.Purpose, o
 	dest := email(t, to)
 	hash := testCodes.Hash(dest, testCodes.For(id))
 	c := domain.NewChallenge(id, purpose, dest, owner, netip.MustParseAddr("127.0.0.1"), hash, e.clock.Now())
-	if err := e.challenges.Create(context.Background(), c); err != nil {
+	if _, err := e.challenges.Create(context.Background(), c, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return &service.CodeGuess{ChallengeID: id, CodeHash: hash}
@@ -202,19 +202,22 @@ func TestReauthenticateSurvivesCommitThenFail(t *testing.T) {
 	}
 }
 
-// A repeated key returns the time the first run journaled; a new key
-// checks the proof again at the clock's time.
-func TestReauthenticateReplayedKeyKeepsTheJournaledTime(t *testing.T) {
+// A retry of the request key finds its own guess saved and proves again
+// without counting; a wrong code under that key is code_expired.
+func TestReauthenticateRetriedKeyProvesAgain(t *testing.T) {
 	t.Parallel()
 	e := startReauthenticate(t)
-	me := e.account(t, phone(t, "0901234567"))
-	in := service.ReauthenticateRun{AccountID: me, Address: new(phone(t, "0901234567"))}
-	key := uuid.NewV7().String()
-	first := e.request(t, key, in)
-	e.clock.Add(time.Hour)
-	again := e.request(t, key, in)
-	fresh := e.reauth(t, in)
-	if !first.At.Equal(now) || !again.At.Equal(now) || !fresh.At.Equal(now.Add(time.Hour)) {
-		t.Fatalf("first %v, again %v, fresh %v", first.At, again.At, fresh.At)
+	me := e.account(t, email(t, "linh@example.com"))
+	g := e.challenge(t, "linh@example.com", domain.PurposeSignIn, nil)
+	in := service.ReauthenticateRun{AccountID: me, Guess: g, Key: uuid.NewV7()}
+	first, again := e.reauth(t, in), e.reauth(t, in)
+	wrong := in
+	wrong.Guess = &service.CodeGuess{ChallengeID: g.ChallengeID, CodeHash: []byte("wrong")}
+	if first.Refused != nil || again.Refused != nil {
+		t.Fatalf("first %+v, again %+v", first, again)
+	}
+	reauthRefused(t, e.reauth(t, wrong), "code_expired")
+	if c, err := e.challenges.Get(context.Background(), g.ChallengeID); err != nil || c.Attempts() != 0 {
+		t.Fatalf("attempts %d: %v", c.Attempts(), err)
 	}
 }

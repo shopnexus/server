@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"uuid"
 
 	"github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
@@ -10,7 +11,7 @@ import (
 type addIdentityRequest struct {
 	proofBody
 
-	IdempotencyKey string `header:"Idempotency-Key" json:"-"`
+	Key uuid.UUID `header:"Idempotency-Key" json:"-"`
 }
 
 // AddIdentity serves POST /v1/accounts/me/identities.
@@ -25,7 +26,7 @@ func (h *Handler) AddIdentity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := h.svc.AddIdentity(r.Context(), service.AddIdentityInput{
-		IdempotencyKey: in.IdempotencyKey, Caller: p, Proof: in.proof(),
+		Key: in.Key, Caller: p, Proof: in.proof(),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

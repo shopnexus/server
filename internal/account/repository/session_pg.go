@@ -43,19 +43,29 @@ func scanSession(row pgx.Row) (domain.Session, error) {
 }
 
 const createSession = `
-INSERT INTO sessions (id, account_id, refresh_hash, device_name, auth_time, created_at, last_used_at, expires_at, write_id)
-VALUES (@id, @account_id, @refresh_hash, NULLIF(@device_name, ''), @auth_time, @created_at, @created_at, @expires_at, @id)
-ON CONFLICT (id) DO NOTHING`
+INSERT INTO sessions (id, account_id, refresh_hash, device_name, auth_time, created_at, last_used_at, expires_at, request_key, write_id)
+VALUES (@id, @account_id, @refresh_hash, NULLIF(@device_name, ''), @auth_time, @created_at, @created_at, @expires_at,
+        @request_key, @id)
+ON CONFLICT DO NOTHING`
 
-func (s pgSessions) Create(ctx context.Context, x domain.Session) (bool, error) {
-	tag, err := s.db.Exec(ctx, createSession, pgx.StrictNamedArgs{
-		"id": x.ID(), "account_id": x.AccountID(), "refresh_hash": x.RefreshHash(), "device_name": x.DeviceName(),
-		"auth_time": x.AuthTime(), "created_at": x.CreatedAt(), "expires_at": x.ExpiresAt(),
-	})
-	if err != nil {
-		return false, fmt.Errorf("insert session: %w", err)
+func (s pgSessions) Create(ctx context.Context, x domain.Session, key uuid.UUID) (uuid.UUID, error) {
+	var requestKey *uuid.UUID
+	if key != uuid.Nil() {
+		requestKey = &key
 	}
-	return tag.RowsAffected() == 1, nil
+	b := &pgx.Batch{}
+	b.Queue(createSession, pgx.StrictNamedArgs{
+		"id": x.ID(), "account_id": x.AccountID(), "refresh_hash": x.RefreshHash(), "device_name": x.DeviceName(),
+		"auth_time": x.AuthTime(), "created_at": x.CreatedAt(), "expires_at": x.ExpiresAt(), "request_key": requestKey,
+	})
+	var id uuid.UUID
+	b.Queue(`SELECT id FROM sessions WHERE id = @id OR (account_id = @account_id AND request_key = @request_key)`,
+		pgx.StrictNamedArgs{"id": x.ID(), "account_id": x.AccountID(), "request_key": requestKey}).
+		QueryRow(func(row pgx.Row) error { return row.Scan(&id) })
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+		return uuid.Nil(), fmt.Errorf("insert session: %w", err)
+	}
+	return id, nil
 }
 
 func (s pgSessions) Get(ctx context.Context, id uuid.UUID) (domain.Session, error) {

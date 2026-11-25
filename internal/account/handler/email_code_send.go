@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/locale"
 
@@ -10,8 +11,8 @@ import (
 )
 
 type emailCodeRequest struct {
-	IdempotencyKey string `header:"Idempotency-Key" json:"-"`
-	Email          string `json:"email"`
+	Key   uuid.UUID `header:"Idempotency-Key" json:"-"`
+	Email string    `json:"email"`
 }
 
 // SendEmailCode serves POST /v1/auth/email-codes.
@@ -22,7 +23,7 @@ func (h *Handler) SendEmailCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := h.svc.SendEmailCode(r.Context(), service.SendEmailCodeInput{
-		IdempotencyKey: in.IdempotencyKey, Email: in.Email, IP: httpx.ClientIP(r),
+		Key: in.Key, Email: in.Email, IP: httpx.ClientIP(r),
 		Locale: locale.FromRequest(r),
 	})
 	if err != nil {
@@ -44,7 +45,7 @@ func (h *Handler) SendMyEmailCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := h.svc.SendEmailCode(r.Context(), service.SendEmailCodeInput{
-		IdempotencyKey: in.IdempotencyKey, Email: in.Email, Caller: &p, IP: httpx.ClientIP(r),
+		Key: in.Key, Email: in.Email, Caller: &p, IP: httpx.ClientIP(r),
 		Locale: locale.FromRequest(r),
 	})
 	if err != nil {

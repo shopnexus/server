@@ -19,8 +19,10 @@ type ActiveSession struct {
 
 // Sessions persists sessions.
 type Sessions interface {
-	// Create inserts s and reports whether it did; false means the id exists.
-	Create(ctx context.Context, s domain.Session) (bool, error)
+	// Create inserts s unless the account has a session of key, and returns
+	// the ID of the session stored: s.ID() or the earlier one. uuid.Nil()
+	// claims no key.
+	Create(ctx context.Context, s domain.Session, key uuid.UUID) (uuid.UUID, error)
 	Get(ctx context.Context, id uuid.UUID) (domain.Session, error)
 	FindByRefresh(ctx context.Context, hash []byte) (domain.Session, error)
 	// FindByPrevRefresh finds the session a rotated token belonged to.
