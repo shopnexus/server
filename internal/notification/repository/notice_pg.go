@@ -33,62 +33,108 @@ DO UPDATE SET notice_type = excluded.notice_type, params = excluded.params, even
 WHERE notifications.bumped_at <= excluded.bumped_at
 RETURNING id`
 
+// Add reads what decides the write in one batch: the event's notice and
+// a newer one with the key. The write follows in a second; a notice with a
+// key learns its ID from the upsert, so its update takes a third.
 func (s pgNotices) Add(ctx context.Context, event uuid.UUID, n domain.Notice, expired time.Time) (uuid.UUID, bool, error) {
 	var id uuid.UUID
 	late := false
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `SELECT id FROM notifications WHERE account_id = @account AND event_id = @event`,
-			pgx.StrictNamedArgs{"account": n.Recipient, "event": event}).Scan(&id)
-		if err == nil {
-			return nil
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("read the event's notice: %w", err)
-		}
-		if _, err = tx.Exec(ctx, `DELETE FROM notifications WHERE account_id = @account AND created_at < @expired`,
-			pgx.StrictNamedArgs{"account": n.Recipient, "expired": expired}); err != nil {
-			return fmt.Errorf("delete old notices: %w", err)
-		}
+		var written, newer bool
+		b := &pgx.Batch{}
+		b.Queue(`SELECT id FROM notifications WHERE account_id = @account AND event_id = @event`,
+			pgx.StrictNamedArgs{"account": n.Recipient, "event": event}).QueryRow(func(row pgx.Row) error {
+			return scanFound(row, &written, "read the event's notice", &id)
+		})
 		if n.CollapseKey != "" {
 			// A newer notice with the key, read or unread, already told the
 			// recipient more than this one would.
-			var newest time.Time
-			err = tx.QueryRow(ctx, `SELECT id, bumped_at FROM notifications
-WHERE account_id = @account AND collapse_key = @key ORDER BY bumped_at DESC LIMIT 1`,
-				pgx.StrictNamedArgs{"account": n.Recipient, "key": n.CollapseKey}).Scan(&id, &newest)
-			switch {
-			case err == nil && newest.After(n.At):
-				late = true
-				return nil
-			case err != nil && !errors.Is(err, pgx.ErrNoRows):
-				return fmt.Errorf("read the newest notice with the key: %w", err)
-			}
+			var newest uuid.UUID
+			b.Queue(`SELECT id FROM notifications WHERE account_id = @account AND collapse_key = @key AND bumped_at > @at
+ORDER BY bumped_at DESC LIMIT 1`, pgx.StrictNamedArgs{"account": n.Recipient, "key": n.CollapseKey, "at": n.At}).
+				QueryRow(func(row pgx.Row) error {
+					if err := scanFound(row, &newer, "read the newest notice with the key", &newest); err != nil || !newer {
+						return err
+					}
+					if !written {
+						id = newest
+					}
+					return nil
+				})
 		}
-		err = tx.QueryRow(ctx, insertNotice, pgx.StrictNamedArgs{
-			"id": uuid.NewV7(), "account": n.Recipient, "type": n.Type, "key": n.CollapseKey, "params": n.Params,
-			"event": event, "at": n.At,
-		}).Scan(&id)
-		if errors.Is(err, pgx.ErrNoRows) {
-			// A newer notice with the key landed after the read above and
-			// stays as it is. Nothing changed, so the recipient's log gets
-			// no update.
-			late = true
-			if err = tx.QueryRow(ctx, `SELECT id FROM notifications
-WHERE account_id = @account AND collapse_key = @key AND read_at IS NULL`,
-				pgx.StrictNamedArgs{"account": n.Recipient, "key": n.CollapseKey}).Scan(&id); err != nil {
-				return fmt.Errorf("read the newer notice: %w", err)
-			}
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("read notices: %w", err)
+		}
+		if written {
 			return nil
 		}
-		if err != nil {
-			return fmt.Errorf("upsert notice: %w", err)
+		if newer {
+			late = true
+			return nil
 		}
-		return stream.Notify(ctx, tx, []uuid.UUID{n.Recipient}, stream.Hint{Kind: stream.KindNotification, NotificationID: &id})
+		fresh := uuid.NewV7()
+		var unread uuid.UUID
+		b = &pgx.Batch{}
+		b.Queue(`DELETE FROM notifications WHERE account_id = @account AND created_at < @expired`,
+			pgx.StrictNamedArgs{"account": n.Recipient, "expired": expired})
+		b.Queue(insertNotice, pgx.StrictNamedArgs{
+			"id": fresh, "account": n.Recipient, "type": n.Type, "key": n.CollapseKey, "params": n.Params,
+			"event": event, "at": n.At,
+		}).QueryRow(func(row pgx.Row) error {
+			var upserted bool
+			err := scanFound(row, &upserted, "upsert notice", &id)
+			// A newer notice with the key landed after the read above and
+			// stays as it is.
+			late = err == nil && !upserted
+			return err
+		})
+		if n.CollapseKey == "" {
+			// Nothing collapses a notice without a key, so it is fresh.
+			stream.Queue(b, []uuid.UUID{n.Recipient}, stream.Hint{Kind: stream.KindNotification, NotificationID: &fresh})
+		} else {
+			b.Queue(`SELECT id FROM notifications WHERE account_id = @account AND collapse_key = @key AND read_at IS NULL`,
+				pgx.StrictNamedArgs{"account": n.Recipient, "key": n.CollapseKey}).QueryRow(func(row pgx.Row) error {
+				if err := row.Scan(&unread); err != nil {
+					return fmt.Errorf("read the unread notice: %w", err)
+				}
+				return nil
+			})
+		}
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("write notice: %w", err)
+		}
+		if late {
+			// Nothing changed, so the recipient's log gets no update.
+			id = unread
+			return nil
+		}
+		if n.CollapseKey == "" {
+			return nil
+		}
+		b = &pgx.Batch{}
+		stream.Queue(b, []uuid.UUID{n.Recipient}, stream.Hint{Kind: stream.KindNotification, NotificationID: &id})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("notify: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return uuid.UUID{}, false, fmt.Errorf("add notice: %w", err)
 	}
 	return id, late, nil
+}
+
+// scanFound scans row into dest and tells in found whether there was one.
+func scanFound(row pgx.Row, found *bool, what string, dest ...any) error {
+	err := row.Scan(dest...)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", what, err)
+	}
+	*found = true
+	return nil
 }
 
 func (s pgNotices) List(ctx context.Context, account uuid.UUID, p page.Request) ([]Row, error) {
@@ -179,22 +225,16 @@ func (s pgNotices) MarkUnread(ctx context.Context, account uuid.UUID, ids []uuid
 }
 
 func (s pgNotices) PutToken(ctx context.Context, session, account uuid.UUID, token string, at time.Time) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		// The phone signed in again, maybe to another account; the old
-		// session no longer reaches it.
-		if _, err := tx.Exec(ctx, `DELETE FROM push_tokens WHERE token = @token AND session_id <> @session`,
-			pgx.StrictNamedArgs{"token": token, "session": session}); err != nil {
-			return fmt.Errorf("take the token from other sessions: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO push_tokens (session_id, account_id, token, updated_at)
+	b := &pgx.Batch{}
+	// The phone signed in again, maybe to another account; the old session
+	// no longer reaches it.
+	b.Queue(`DELETE FROM push_tokens WHERE token = @token AND session_id <> @session`,
+		pgx.StrictNamedArgs{"token": token, "session": session})
+	b.Queue(`INSERT INTO push_tokens (session_id, account_id, token, updated_at)
 VALUES (@session, @account, @token, @at)
 ON CONFLICT (session_id) DO UPDATE SET token = excluded.token, updated_at = excluded.updated_at`,
-			pgx.StrictNamedArgs{"session": session, "account": account, "token": token, "at": at}); err != nil {
-			return fmt.Errorf("upsert token: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
+		pgx.StrictNamedArgs{"session": session, "account": account, "token": token, "at": at})
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("put token: %w", err)
 	}
 	return nil
@@ -209,19 +249,15 @@ func (s pgNotices) DeleteToken(ctx context.Context, session uuid.UUID) error {
 }
 
 func (s pgNotices) Forget(ctx context.Context, account uuid.UUID) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		for _, q := range []string{
-			`DELETE FROM notifications WHERE account_id = @account`,
-			`DELETE FROM push_tokens WHERE account_id = @account`,
-			`DELETE FROM notification_settings WHERE account_id = @account`,
-		} {
-			if _, err := tx.Exec(ctx, q, pgx.StrictNamedArgs{"account": account}); err != nil {
-				return fmt.Errorf("forget: %w", err)
-			}
-		}
-		return nil
-	})
-	if err != nil {
+	b := &pgx.Batch{}
+	for _, q := range []string{
+		`DELETE FROM notifications WHERE account_id = @account`,
+		`DELETE FROM push_tokens WHERE account_id = @account`,
+		`DELETE FROM notification_settings WHERE account_id = @account`,
+	} {
+		b.Queue(q, pgx.StrictNamedArgs{"account": account})
+	}
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("forget account: %w", err)
 	}
 	return nil
