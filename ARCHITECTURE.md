@@ -358,7 +358,10 @@ return tx.SendBatch(ctx, b).Close()
 Each platform `Queue` wraps its own statement's error ("insert events"),
 and queues nothing for an empty list. A repository's own statements use
 `postgres.ExecAs(what, none)` as their `Fn`: it names the failure and, with
-a non-nil `none`, aborts when no row was touched. Migrations stay one
+a non-nil `none`, aborts when no row was touched. An advisory lock is
+`postgres.QueueLock(b, scope, ids...)` (or `QueueLockShared`), keyed
+`scope:id:…`, so two modules' locks never share a key; a test refuses a
+raw `pg_advisory_xact_lock` anywhere else. Migrations stay one
 transaction each with plain `Exec`, since a migration file holds several
 statements, which the extended protocol of a batch refuses.
 
