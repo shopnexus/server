@@ -43,16 +43,6 @@ type LinkSourceView struct {
 	PhotoCount int    `json:"photo_count,omitempty"`
 }
 
-// LinkPreviewView is the LinkPreview schema: the card before a read.
-type LinkPreviewView struct {
-	Site       string `json:"site"`
-	URL        string `json:"url"`
-	Title      string `json:"title"`
-	Price      *int64 `json:"price"`
-	CoverURL   string `json:"cover_url"`
-	PhotoCount int    `json:"photo_count"`
-}
-
 // PriceGuideView is the PriceGuide schema.
 type PriceGuideView struct {
 	Estimate    *domain.Estimate       `json:"estimate"`

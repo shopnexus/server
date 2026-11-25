@@ -209,41 +209,6 @@ func TestGetLinkRead(t *testing.T) {
 	}
 }
 
-// UC-LST-01 A2.
-func TestPreviewLink(t *testing.T) {
-	t.Parallel()
-	e := newEnv(t)
-	ctx := context.Background()
-	me := accounttest.New(t, e.db) // a preview needs no phone
-	p, err := e.assist.PreviewLink(ctx, me, iphoneLink)
-	if err != nil || p.Site != "chotot.com" || p.URL != "https://www.chotot.com/119482736.htm" || p.Title != "iPhone 11 64GB trắng pin 81% zin all" ||
-		p.Price == nil || *p.Price != 4_500_000 || p.CoverURL != photoURL(0) || p.PhotoCount != 5 {
-		t.Fatalf("%+v %v", p, err)
-	}
-	if _, err = e.assist.PreviewLink(ctx, me, "iphone"); !errors.Is(err, domain.ErrNotALink) {
-		t.Fatalf("not a link: %v", err)
-	}
-	e.source.mu.Lock()
-	e.source.adErr = chotot.ErrNotFound
-	e.source.mu.Unlock()
-	if _, err = e.assist.PreviewLink(ctx, me, iphoneLink); !errors.Is(err, domain.ErrListingNotFound) {
-		t.Fatalf("no such listing: %v", err)
-	}
-	for _, cause := range []error{chotot.ErrUnavailable, chotot.ErrFormat} {
-		e.source.mu.Lock()
-		e.source.adErr = cause
-		e.source.mu.Unlock()
-		if _, err = e.assist.PreviewLink(ctx, me, iphoneLink); !errors.Is(err, domain.ErrSourceUnavailable) {
-			t.Fatalf("%v: %v", cause, err)
-		}
-	}
-	suspended := accounttest.New(t, e.db)
-	accounttest.Suspend(t, e.accounts, suspended)
-	if _, err = e.assist.PreviewLink(ctx, suspended, iphoneLink); err == nil || apperr.From(err).Code != "account_suspended" {
-		t.Fatalf("suspended: %v", err)
-	}
-}
-
 // A deleted account's link reads go with its video reads.
 func TestDeleteAccountDeletesLinkReads(t *testing.T) {
 	t.Parallel()

@@ -57,11 +57,6 @@ type Service interface {
 	//
 	// UC-LST-01
 	WatchRead(ctx context.Context, account, id uuid.UUID, emit func(ReadEvent) error) error
-	// PreviewLink reads the listing a pasted link names, for the card the
-	// app shows before the read, and stores nothing.
-	//
-	// UC-LST-01 A2
-	PreviewLink(ctx context.Context, account uuid.UUID, link string) (LinkPreviewView, error)
 	// FillAd writes the listing draft of a seller's Chợ Tốt listing, for
 	// module chotot's import, and stores nothing.
 	FillAd(ctx context.Context, ad chotot.Ad) (AdFill, error)

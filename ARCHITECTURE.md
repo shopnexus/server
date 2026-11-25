@@ -3335,11 +3335,8 @@ bạn", and nothing compares the listing's owner with the account.
   and rewrites the link to `https://www.chotot.com/<id>.htm`. Text that is
   not an http or https URL is `not_a_link` 422; another site, or no listing
   ID, is `unsupported_source` 422.
-- `POST /v1/link-previews {url}` answers at once with the listing's title,
-  price, first photo on the CDN and photo count, for the card under the
-  paste field. It stores nothing and needs no phone; it is POST so the link
-  stays out of access logs. Chợ Tốt down is `source_unavailable` 503. Its
-  rate limit tier is `costly`.
+- `POST /v1/link-previews`, the card under the paste field, was removed
+  on 2026-11-26: the app dropped link pasting and nothing else called it.
 - `{link}` takes what the seller pasted, at most 2,048 characters;
   `not_a_link` and `unsupported_source` answer before the account checks.
   Restate service `LinkRead.Start` refuses a suspended account and one

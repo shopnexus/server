@@ -306,41 +306,6 @@ Watcher:
       format: int64
     offers_only:
       type: boolean
-LinkRequest:
-  type: object
-  additionalProperties: false
-  required: [url]
-  properties:
-    url:
-      type: string
-      maxLength: 2048
-      description: The link the seller pasted to their own listing.
-LinkPreview:
-  type: object
-  additionalProperties: false
-  required: [site, url, title, price, cover_url, photo_count]
-  properties:
-    site:
-      type: string
-      enum: [chotot.com]
-    url:
-      type: string
-      format: uri
-      description: The link without what tracks the share, as https://www.chotot.com/<list id>.htm.
-    title:
-      type: string
-      description: The listing's title as Chợ Tốt shows it.
-    price:
-      type: [integer, "null"]
-      format: int64
-      description: Whole đồng; null when the listing has no price between 10,000 and 1,000,000,000.
-    cover_url:
-      type: string
-      format: uri
-      description: The listing's first photo on Chợ Tốt's CDN.
-    photo_count:
-      type: integer
-      minimum: 1
 LinkSource:
   type: object
   description: A link read's listing.

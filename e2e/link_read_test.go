@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -117,33 +116,4 @@ FROM generate_series(1, 30)`, pgx.StrictNamedArgs{"account": busy.Account.ID}); 
 		t.Fatal(err)
 	}
 	check(t, "thirty reads", post(busy.AccessToken, map[string]any{"link": iphoneURL(iphoneListing)}, newKey()), 429, "read_limit_reached")
-}
-
-func TestPreviewLink(t *testing.T) {
-	t.Parallel()
-	me, _ := newAccount(t)
-	preview := func(token string, body any) Response {
-		return call(t, "POST", "/v1/link-previews", body, bearer(token))
-	}
-	p := expect[struct {
-		Site       string `json:"site"`
-		URL        string `json:"url"`
-		Title      string `json:"title"`
-		Price      *int64 `json:"price"`
-		CoverURL   string `json:"cover_url"`
-		PhotoCount int    `json:"photo_count"`
-	}](t, preview(me.AccessToken, map[string]any{"url": iphoneURL(iphoneListing)}), http.StatusOK)
-	if p.Site != "chotot.com" || p.Title != "iPhone 11 64GB trắng pin 81% zin all" || p.Price == nil || *p.Price != 4_500_000 ||
-		p.PhotoCount != 3 || !strings.HasPrefix(p.CoverURL, chototStub.url()) {
-		t.Fatalf("%+v", p)
-	}
-	check(t, "signed out", call(t, "POST", "/v1/link-previews", map[string]any{"url": iphoneURL(iphoneListing)}), 401, "unauthenticated")
-	check(t, "no url", preview(me.AccessToken, map[string]any{}), 400, "")
-	check(t, "not a link", preview(me.AccessToken, map[string]any{"url": "iphone"}), 422, "not_a_link")
-	check(t, "nhatot", preview(me.AccessToken, map[string]any{"url": "https://nhatot.com/119482736.htm"}), 422, "unsupported_source")
-	check(t, "no such listing", preview(me.AccessToken, map[string]any{"url": iphoneURL(119400404)}), 404, "listing_not_found")
-	check(t, "Chợ Tốt down", preview(me.AccessToken, map[string]any{"url": iphoneURL(downListing)}), 503, "source_unavailable")
-	suspended, _ := newAccount(t)
-	suspend(t, suspended.Account.ID)
-	check(t, "suspended", preview(suspended.AccessToken, map[string]any{"url": iphoneURL(iphoneListing)}), 403, "account_suspended")
 }

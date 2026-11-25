@@ -185,8 +185,6 @@ paths:
     $ref: "paths/assist.yaml#/listingRead"
   /v1/listing-reads/{id}/events:
     $ref: "paths/assist.yaml#/listingReadEvents"
-  /v1/link-previews:
-    $ref: "paths/assist.yaml#/linkPreviews"
   /v1/price-guides:
     $ref: "paths/assist.yaml#/priceGuides"
   /v1/me/chotot:

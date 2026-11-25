@@ -16,8 +16,6 @@ var (
 
 	ErrNotALink          = apperr.New(apperr.KindInvalid, "not_a_link", "the text is not an http or https link")
 	ErrUnsupportedSource = apperr.New(apperr.KindInvalid, "unsupported_source", "only a listing on chotot.com can be read")
-	ErrListingNotFound   = apperr.New(apperr.KindNotFound, "listing_not_found", "Chợ Tốt has no such listing on sale")
-	ErrSourceUnavailable = apperr.New(apperr.KindUnavailable, "source_unavailable", "Chợ Tốt did not answer; try again")
 	// ErrNotReading is a change of a read that has ended. The flow never
 	// makes one; it is a bug if it shows.
 	ErrNotReading = errors.New("assist: the read has ended")
