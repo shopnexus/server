@@ -1,0 +1,255 @@
+ChototCode:
+  type: object
+  additionalProperties: false
+  required: [code, expires_at]
+  description: |
+    The code the seller puts in their Chợ Tốt profile's "Giới thiệu về
+    trang" to show the profile is theirs. An account has one live code; it
+    lasts 30 minutes, and asking again before then answers the same code.
+  properties:
+    code:
+      type: string
+      pattern: "^SN-[2-9A-HJKMNP-Z]{6}$"
+      description: SN- and six characters without 0, O, 1, I or L.
+      example: SN-7K3Q9M
+    expires_at:
+      type: string
+      format: date-time
+ChototLinkRequest:
+  type: object
+  additionalProperties: false
+  required: [profile_url]
+  properties:
+    profile_url:
+      type: string
+      minLength: 1
+      maxLength: 2048
+      description: The profile's address as Chợ Tốt shares it, https://www.chotot.com/user/<id>, with or without www, the scheme or a query.
+ChototSettingsPatch:
+  type: object
+  additionalProperties: false
+  minProperties: 1
+  description: The settings to change; the others keep their values.
+  properties:
+    auto_import:
+      type: boolean
+    follow_updates:
+      type: boolean
+    remind_hide:
+      type: boolean
+ChototLink:
+  type: object
+  additionalProperties: false
+  required: [oid, name, avatar_url, profile_url, linked_at, checked_at, imported, waiting, auto_import, follow_updates,
+    remind_hide]
+  description: |
+    The caller's linked Chợ Tốt profile. ShopNexus only reads Chợ Tốt and
+    never writes to it. The settings start on.
+  properties:
+    oid:
+      type: string
+      description: The profile's ID on Chợ Tốt, 32 hex digits.
+    name:
+      type: string
+      description: The profile's display name, as Chợ Tốt showed it when it was last read.
+    avatar_url:
+      type: [string, "null"]
+      description: The profile's photo on Chợ Tốt; null without one.
+    profile_url:
+      type: string
+      description: https://www.chotot.com/user/<oid>.
+    linked_at:
+      type: string
+      format: date-time
+    checked_at:
+      type: [string, "null"]
+      format: date-time
+      description: When ShopNexus last read the profile's listings in the background, about once an hour; null before the first time.
+    imported:
+      type: integer
+      minimum: 0
+      description: The profile's listings brought over and not deleted on ShopNexus, drafts included.
+    waiting:
+      type: [integer, "null"]
+      minimum: 0
+      description: The profile's listings on sale that could still be brought over, as of the last read; null before one.
+    auto_import:
+      type: boolean
+      description: Bring the profile's new listings over on their own, and notify the seller (chotot_imported).
+    follow_updates:
+      type: boolean
+      description: When a listing on Chợ Tốt is sold or hidden, hide its copy here; when its price changes, change the copy's price.
+    remind_hide:
+      type: boolean
+      description: When a copy here sells, notify the seller to hide the listing on Chợ Tốt (chotot_sold_here).
+ChototState:
+  type: object
+  additionalProperties: false
+  required: [link]
+  properties:
+    link:
+      anyOf:
+        - $ref: "#/ChototLink"
+        - type: "null"
+      description: The caller's linked profile; null when none is linked.
+ChototDraft:
+  type: object
+  additionalProperties: false
+  required: [title, price, description, category_code, condition, specs, photos]
+  description: |
+    The listing an import could not post, as far as it was filled, for the
+    posting form. Its photos are kept for 30 days.
+  properties:
+    title:
+      type: string
+    price:
+      type: [integer, "null"]
+      format: int64
+      description: The listing's price on Chợ Tốt; null when it is outside 10,000 to 1,000,000,000 đồng.
+    description:
+      type: string
+    category_code:
+      type: [string, "null"]
+      description: The subcategory guessed from the title and description; null when no guess came.
+    condition:
+      $ref: "catalog.yaml#/Condition"
+    specs:
+      type: array
+      items:
+        $ref: "catalog.yaml#/Spec"
+    photos:
+      type: array
+      items:
+        $ref: "catalog.yaml#/ListingDraftPhoto"
+ChototImport:
+  type: object
+  additionalProperties: false
+  required: [list_id, state, listing_id, review, missing_spec_keys, reason, draft, updated_at]
+  description: |
+    What became of bringing one Chợ Tốt listing over. Each listing is
+    brought over once per account: importing it again answers this.
+
+    - importing: still running.
+    - listed: posted as listing_id, published like any post. review names
+      the fields the import set without the listing on Chợ Tốt stating
+      them (condition, set to used), for the seller to check; it empties
+      once the seller edits the listing.
+    - draft: the listing rules refused to post it; review names the fields
+      to fill (from invalid_listing), and missing_spec_keys the specs the
+      category asks for. draft holds what was filled. POST
+      /v1/me/chotot/ads/{list_id}/listing posts it.
+    - skipped: not brought over this time; reason says why
+      (listing_cap_reached, account_suspended, phone_required, ad_gone, not_yours,
+      unavailable). It may be imported again.
+    - unsupported: never brought over; reason is real_estate, no_item (not
+      one item for sale) or no_photos.
+  properties:
+    list_id:
+      type: integer
+      format: int64
+    state:
+      type: string
+      enum: [importing, listed, draft, skipped, unsupported]
+    listing_id:
+      type: [string, "null"]
+      format: uuid
+    review:
+      type: array
+      items:
+        type: string
+      description: Field names of ListingInput.
+    missing_spec_keys:
+      type: array
+      items:
+        type: string
+    reason:
+      type: [string, "null"]
+    draft:
+      anyOf:
+        - $ref: "#/ChototDraft"
+        - type: "null"
+    updated_at:
+      type: string
+      format: date-time
+ChototImportList:
+  type: object
+  additionalProperties: false
+  required: [items]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/ChototImport"
+ChototImportRequest:
+  type: object
+  additionalProperties: false
+  required: [list_ids]
+  properties:
+    list_ids:
+      type: array
+      minItems: 1
+      maxItems: 20
+      uniqueItems: true
+      items:
+        type: integer
+        format: int64
+        minimum: 1
+ChototAd:
+  type: object
+  additionalProperties: false
+  required: [list_id, title, price, thumb_url, url, state, reason, listing_id, import]
+  description: |
+    One of the linked profile's listings on sale on Chợ Tốt.
+
+    - importable: may be brought over.
+    - importing: being brought over.
+    - imported: brought over; listing_id is the copy, null while it waits
+      as a draft (see import).
+    - already_here: a listing of the caller's on ShopNexus, listing_id, has
+      the same title and price, so it is not offered.
+    - unsupported: reason real_estate (Nhà Tốt), no_item or no_photos.
+  properties:
+    list_id:
+      type: integer
+      format: int64
+    title:
+      type: string
+      description: The listing's title on Chợ Tốt.
+    price:
+      type: [integer, "null"]
+      format: int64
+      description: Null when the listing shows no price.
+    thumb_url:
+      type: [string, "null"]
+      description: The cover on Chợ Tốt's CDN.
+    url:
+      type: string
+      description: https://www.chotot.com/<list_id>.htm
+    state:
+      type: string
+      enum: [importable, importing, imported, already_here, unsupported]
+    reason:
+      type: [string, "null"]
+      description: Why it is unsupported, or why the last import skipped it.
+    listing_id:
+      type: [string, "null"]
+      format: uuid
+    import:
+      anyOf:
+        - $ref: "#/ChototImport"
+        - type: "null"
+      description: The caller's import of it, when there was one.
+ChototAdList:
+  type: object
+  additionalProperties: false
+  required: [items, room]
+  properties:
+    items:
+      type: array
+      items:
+        $ref: "#/ChototAd"
+      description: Newest first, at most 200.
+    room:
+      type: integer
+      minimum: 0
+      description: How many more listings the caller can put on sale before the cap of 20.

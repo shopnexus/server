@@ -33,6 +33,7 @@ import (
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/chat"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	chototmodule "github.com/shopnexus/server/internal/chotot"
 	"github.com/shopnexus/server/internal/console"
 	consoledomain "github.com/shopnexus/server/internal/console/domain"
 	consolesvc "github.com/shopnexus/server/internal/console/service"
@@ -464,6 +465,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		TextVersion: cfg.Embed.TextVersion, ImageVersion: cfg.Embed.ImageVersion,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, LookMin: cfg.Embed.LookMinSimilarity,
 	}, catalogm.Service, mediam.Service, accounts)
+	chototClient := chotot.Client{GatewayURL: cfg.Assist.ChototGatewayURL, CDNURL: cfg.Assist.ChototCDNURL, HTTP: httpx.NewClient(0)}
 	assistm := assist.Mount(d, assist.Settings{
 		AI: aiClient,
 		Model: llm.OpenAI{
@@ -474,10 +476,10 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		Text:    embedder(cfg.Embed.SearchAPIKey),
 		Image:   photos,
 		TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity, CallTimeout: cfg.Assist.CallTimeout,
-		Source: chotot.Client{
-			GatewayURL: cfg.Assist.ChototGatewayURL, CDNURL: cfg.Assist.ChototCDNURL, HTTP: httpx.NewClient(0),
-		},
+		Source: chototClient,
 	}, accounts, mediam.Service, catalogm.Service, discoverym.Service)
+	chototm := chototmodule.Mount(d, chototmodule.Settings{Source: chototClient, CallTimeout: cfg.Assist.CallTimeout},
+		accounts, catalogm.Service, mediam.Service, assistm.Service)
 	updates := stream.PGLog{DB: pool}
 	access := socketAccess{accounts: accounts, chats: chatm.Service}
 	hub.KeepActive(access)
@@ -501,7 +503,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		return nil, nil, fmt.Errorf("agent: %w", agentErr)
 	}
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, shippingm.Services, dealm.Services, discoverym.Services,
-		chatm.Services, supportm.Services, feedbackm.Services, trustm.Services, notificationm.Services, assistm.Services, aiServices,
+		chatm.Services, supportm.Services, feedbackm.Services, trustm.Services, notificationm.Services, assistm.Services, chototm.Services, aiServices,
 		agentm.Services), agentm, nil
 }
 

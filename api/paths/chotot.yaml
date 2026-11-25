@@ -1,0 +1,268 @@
+chototCodes:
+  post:
+    operationId: createChototCode
+    summary: The code that links the caller's Chợ Tốt profile.
+    description: |
+      The live code when the caller has one, otherwise a new one for 30
+      minutes. The seller puts it in their profile's "Giới thiệu về trang"
+      and sends the profile's address with PUT /v1/me/chotot.
+    tags: [chotot]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The live code.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chotot.yaml#/ChototCode"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+chotot:
+  get:
+    operationId: getChotot
+    summary: The caller's linked Chợ Tốt profile, if any.
+    tags: [chotot]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The link, or null when none is linked. It reads ShopNexus only, never Chợ Tốt.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chotot.yaml#/ChototState"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+  put:
+    operationId: linkChotot
+    x-rate-limit: costly
+    summary: Link the Chợ Tốt profile whose bio holds the caller's code.
+    description: |
+      Reads the profile from Chợ Tốt and links it when its "Giới thiệu về
+      trang" holds the caller's live code, case, spaces and dashes aside.
+      The code is used up; the seller may then take it out of the bio.
+
+      A profile maps to one ShopNexus account. Linking one that another
+      account linked moves it here, since the code proves who holds it, and
+      that account's link is removed; its imported listings stay and stop
+      following Chợ Tốt. Linking another profile replaces the caller's.
+      Linking the same profile again keeps its settings. Listings already on
+      Chợ Tốt at linking are not imported on their own: only newer ones are,
+      while auto_import is on.
+
+      Checks, in order: invalid_profile_url, code_expired (no live code),
+      chotot_profile_not_found, chotot_unavailable, code_not_found.
+    tags: [chotot]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/chotot.yaml#/ChototLinkRequest"
+    responses:
+      "200":
+        description: The linked profile.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chotot.yaml#/ChototLink"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "Chợ Tốt has no such profile (chotot_profile_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "Not a Chợ Tốt profile's address (invalid_profile_url); no live code, so ask for a new one (code_expired); or the profile's bio does not hold the code (code_not_found), with details.profile, the profile's name and avatar, so the app shows which profile it read."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: "Chợ Tốt did not answer (chotot_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  patch:
+    operationId: updateChotot
+    summary: Change the link's settings.
+    tags: [chotot]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/chotot.yaml#/ChototSettingsPatch"
+    responses:
+      "200":
+        description: The link with its settings.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chotot.yaml#/ChototLink"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No profile is linked (chotot_not_linked)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+  delete:
+    operationId: unlinkChotot
+    summary: Unlink the caller's Chợ Tốt profile.
+    description: Imported listings stay on ShopNexus and stop following Chợ Tốt. Also 204 when none is linked.
+    tags: [chotot]
+    security:
+      - bearerAuth: []
+    responses:
+      "204":
+        description: Unlinked.
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+chototAds:
+  get:
+    operationId: listChototAds
+    x-rate-limit: costly
+    summary: The linked profile's listings on sale on Chợ Tốt, each with what it is on ShopNexus.
+    description: |
+      Reads Chợ Tốt each call. The app polls it after POST
+      /v1/me/chotot/imports until no listing is importing; the imports with
+      review or a draft are what needs the seller ("Cần bạn xem").
+    tags: [chotot]
+    security:
+      - bearerAuth: []
+    responses:
+      "200":
+        description: The listings, newest first.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chotot.yaml#/ChototAdList"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No profile is linked (chotot_not_linked)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "503":
+        description: "Chợ Tốt did not answer (chotot_unavailable)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+chototImports:
+  post:
+    operationId: importChototAds
+    x-rate-limit: costly
+    summary: Bring the chosen Chợ Tốt listings over as listings.
+    description: |
+      Starts one import per listing and answers at once. An import reads
+      the listing from Chợ Tốt, checks it is the linked profile's, fills the
+      title, description, category, condition and specs as a link read
+      does, copies its photos (copied: true), takes the commune of the
+      caller's default address (or of their newest listing), and posts it
+      like POST /v1/listings. Each listing is imported once per account:
+      a listing already listed, a draft or one still importing answers as
+      it is, so a retried request needs no Idempotency-Key. A listing of
+      another profile is skipped as not_yours.
+    tags: [chotot]
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/chotot.yaml#/ChototImportRequest"
+    responses:
+      "202":
+        description: Each chosen listing's import as it is now, in the order asked.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chotot.yaml#/ChototImportList"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "404":
+        description: "No profile is linked (chotot_not_linked)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+chototAdListing:
+  post:
+    operationId: postChototDraft
+    summary: Post an imported listing that waits as a draft, with the fields the seller filled.
+    description: |
+      The body is the whole listing, as for POST /v1/listings; the draft's
+      photos are the caller's uploads. A listing already posted answers its
+      import as it is. Refusals are those of POST /v1/listings.
+    tags: [chotot]
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: list_id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/catalog.yaml#/ListingInput"
+    responses:
+      "200":
+        description: The import, listed.
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/chotot.yaml#/ChototImport"
+      "400":
+        $ref: "../responses/common.yaml#/BadRequest"
+      "401":
+        $ref: "../responses/common.yaml#/Unauthorized"
+      "403":
+        description: "The account is suspended (account_suspended), or has no phone to sign in with (phone_required)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "404":
+        description: "No profile is linked (chotot_not_linked), or no import of that listing waits as a draft (chotot_draft_not_found)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "409":
+        description: "The seller has 20 listings on sale (listing_cap_reached)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"
+      "422":
+        description: "A field breaks a rule (invalid_listing, with fields and details.missing_spec_keys), or an upload is not the caller's or already used (invalid_upload)."
+        content:
+          application/json:
+            schema:
+              $ref: "../schemas/error.yaml#/Error"

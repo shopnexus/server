@@ -71,6 +71,9 @@ tags:
   - name: assist
     x-displayName: Listing assist
     description: Fill a listing draft from a video, photos or a Chợ Tốt link, and price it against similar listings.
+  - name: chotot
+    x-displayName: Chợ Tốt
+    description: Link the caller's Chợ Tốt profile, bring its listings over, and keep the copies in step with Chợ Tốt.
   - name: discovery
     x-displayName: Search and saved listings
     description: Search and browse listings, saved listings, recent searches and a seller's public listings.
@@ -122,7 +125,7 @@ x-tagGroups:
   - name: Accounts
     tags: [auth, account, media]
   - name: Listings and search
-    tags: [catalog, assist, discovery]
+    tags: [catalog, assist, chotot, discovery]
   - name: Deals
     tags: [chat, deal, shipping]
   - name: After the sale
@@ -186,6 +189,16 @@ paths:
     $ref: "paths/assist.yaml#/linkPreviews"
   /v1/price-guides:
     $ref: "paths/assist.yaml#/priceGuides"
+  /v1/me/chotot:
+    $ref: "paths/chotot.yaml#/chotot"
+  /v1/me/chotot/codes:
+    $ref: "paths/chotot.yaml#/chototCodes"
+  /v1/me/chotot/ads:
+    $ref: "paths/chotot.yaml#/chototAds"
+  /v1/me/chotot/ads/{list_id}/listing:
+    $ref: "paths/chotot.yaml#/chototAdListing"
+  /v1/me/chotot/imports:
+    $ref: "paths/chotot.yaml#/chototImports"
   /v1/listings:
     $ref: "paths/catalog.yaml#/listings"
   /v1/listings/{id}:

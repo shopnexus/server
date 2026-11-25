@@ -57,6 +57,16 @@ Error:
               items:
                 type: string
               description: The keys of the specs the listing's category asks for that it lacks, in the category's order, sent with invalid_listing when field_codes.specs is missing_specs.
+            profile:
+              type: object
+              additionalProperties: false
+              required: [name, avatar_url]
+              description: The Chợ Tốt profile the server read, sent with code_not_found.
+              properties:
+                name:
+                  type: string
+                avatar_url:
+                  type: [string, "null"]
         trace_id:
           type: string
           description: Equals the Trace-Id response header.

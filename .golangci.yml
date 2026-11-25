@@ -222,6 +222,7 @@ linters:
         - .WithRetryAfter(
         - .WithAttemptsLeft(
         - .WithReason(
+        - .WithProfile(
         - .WithField(
         - .WithCause(
         - httpx.Bind[

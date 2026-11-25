@@ -103,6 +103,14 @@ type Details struct {
 	Reason       *string `json:"reason,omitempty"`        // a carrier's words
 	// MissingSpecKeys are the keys of the specs a listing lacks.
 	MissingSpecKeys []string `json:"missing_spec_keys,omitempty"`
+	// Profile is the profile on another site that the server read.
+	Profile *Profile `json:"profile,omitempty"`
+}
+
+// Profile is a person's profile on another site, by its name and photo.
+type Profile struct {
+	Name      string  `json:"name"`
+	AvatarURL *string `json:"avatar_url"`
 }
 
 // ErrTryAgain answers a write that lost a race with another write to the
@@ -192,6 +200,13 @@ func (e *Error) WithAttemptsLeft(n int) *Error {
 func (e *Error) WithMissingSpecs(keys []string) *Error {
 	c := *e
 	c.Details.MissingSpecKeys = slices.Clone(keys)
+	return &c
+}
+
+// WithProfile returns a copy of e whose profile detail is p.
+func (e *Error) WithProfile(p Profile) *Error {
+	c := *e
+	c.Details.Profile = &p
 	return &c
 }
 
