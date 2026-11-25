@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgSettings struct{ db *pgxpool.Pool }
@@ -57,19 +58,9 @@ JOIN ai_tags AS t ON t.tag_name = m.tag_name ORDER BY m.model_id, t.sort_order`)
 	return out, nil
 }
 
-// execAs runs a queued statement and wraps its error with what it does.
-func execAs(what string) func(pgx.BatchResults) error {
-	return func(br pgx.BatchResults) error {
-		if _, err := br.Exec(); err != nil {
-			return fmt.Errorf("%s: %w", what, err)
-		}
-		return nil
-	}
-}
-
 func (s pgSettings) SetModelTags(ctx context.Context, model string, tags []string, e audit.Entry) error {
 	b := &pgx.Batch{}
-	b.Queue(`DELETE FROM ai_model_tags WHERE model_id = @model`, pgx.StrictNamedArgs{"model": model}).Fn = execAs("delete model tags")
+	b.Queue(`DELETE FROM ai_model_tags WHERE model_id = @model`, pgx.StrictNamedArgs{"model": model}).Fn = postgres.ExecAs("delete model tags", nil)
 	b.Queue(`INSERT INTO ai_model_tags (model_id, tag_name) SELECT @model, unnest(@tags::text[])
 ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"model": model, "tags": tags}).Fn = func(br pgx.BatchResults) error {
 		_, err := br.Exec()
@@ -151,7 +142,7 @@ func queueVersion(b *pgx.Batch, a Agent) {
 	b.Queue(`INSERT INTO ai_agent_versions (agent_id, version_no, instructions, created_by, created_at)
 VALUES (@id, @version, @instructions, @by, @at) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{
 		"id": a.ID, "version": a.InstructionsVersion, "instructions": a.Instructions, "by": a.UpdatedBy, "at": a.UpdatedAt,
-	}).Fn = execAs("insert agent version")
+	}).Fn = postgres.ExecAs("insert agent version", nil)
 }
 
 func (s pgSettings) CreateAgent(ctx context.Context, a Agent, e audit.Entry) error {
@@ -270,9 +261,9 @@ func (s pgSettings) SaveBudgetSettings(ctx context.Context, bs BudgetSettings, e
     moderator_daily_usd = @moderator, admin_daily_usd = @admin, updated_by = @by, updated_at = @at`, pgx.StrictNamedArgs{
 		"cap": bs.MonthlyCapUSD, "alert": bs.AlertPct, "on_cap": bs.OnCap, "moderator": bs.ModeratorDailyUSD,
 		"admin": bs.AdminDailyUSD, "by": bs.UpdatedBy, "at": bs.UpdatedAt,
-	}).Fn = execAs("update budget settings")
+	}).Fn = postgres.ExecAs("update budget settings", nil)
 	if bs.SetMembers {
-		b.Queue(`DELETE FROM ai_member_budgets`).Fn = execAs("delete member budgets")
+		b.Queue(`DELETE FROM ai_member_budgets`).Fn = postgres.ExecAs("delete member budgets", nil)
 		members := make([]uuid.UUID, len(bs.Members))
 		usd := make([]float64, len(bs.Members))
 		for i, m := range bs.Members {

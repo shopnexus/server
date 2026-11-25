@@ -18,7 +18,7 @@ var at = time.Date(2026, 10, 26, 9, 0, 0, 0, time.UTC)
 
 func insert(t *testing.T, db *pgxpool.Pool, e events.Event) error {
 	t.Helper()
-	return pgx.BeginFunc(context.Background(), db, func(tx pgx.Tx) error { return events.Insert(context.Background(), tx, e) })
+	return pgx.BeginFunc(context.Background(), db, func(tx pgx.Tx) error { return queue(context.Background(), tx, e) })
 }
 
 func TestInsertCommitsWithItsTransaction(t *testing.T) {
@@ -28,7 +28,7 @@ func TestInsertCommitsWithItsTransaction(t *testing.T) {
 	e := events.Event{ID: uuid.NewV7(), Kind: events.AccountUpdated, SubjectID: uuid.NewV7(), OccurredAt: at}
 	rollback := errors.New("roll back")
 	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error {
-		if err := events.Insert(ctx, tx, e); err != nil {
+		if err := queue(ctx, tx, e); err != nil {
 			return err
 		}
 		return rollback
@@ -120,4 +120,10 @@ func TestQueueWritesEveryEvent(t *testing.T) {
 		pgx.StrictNamedArgs{"id": subject}).Scan(&n, &price); err != nil || n != 2 || price != 5 {
 		t.Fatalf("%d %v %v", n, price, err)
 	}
+}
+
+func queue(ctx context.Context, tx pgx.Tx, evs ...events.Event) error {
+	b := &pgx.Batch{}
+	events.Queue(b, evs...)
+	return tx.SendBatch(ctx, b).Close()
 }

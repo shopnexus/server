@@ -14,6 +14,7 @@ import (
 	"github.com/shopnexus/server/internal/deal/domain"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/platform/stream"
 )
 
@@ -270,16 +271,6 @@ func orderArgs(st domain.DealState, o domain.Order) pgx.StrictNamedArgs {
 	return a
 }
 
-// execAs runs a queued statement and wraps its error with what it does.
-func execAs(what string) func(pgx.BatchResults) error {
-	return func(br pgx.BatchResults) error {
-		if _, err := br.Exec(); err != nil {
-			return fmt.Errorf("%s: %w", what, err)
-		}
-		return nil
-	}
-}
-
 func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error {
 	st := d.State()
 	a := dealArgs(st)
@@ -309,7 +300,7 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 			// batch breaks here.
 			var n int
 			b.Queue(`SELECT pg_advisory_xact_lock(hashtext(@buyer::text))`, pgx.StrictNamedArgs{"buyer": st.BuyerID}).
-				Fn = execAs("lock buyer")
+				Fn = postgres.ExecAs("lock buyer", nil)
 			b.Queue(countOpenOrders, pgx.StrictNamedArgs{"buyer": st.BuyerID, "id": o.ID, "open": domain.OpenStatuses}).
 				QueryRow(func(row pgx.Row) error {
 					if err := row.Scan(&n); err != nil {
@@ -326,7 +317,7 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 			b = &pgx.Batch{}
 		}
 		if o != nil {
-			b.Queue(upsertOrder, orderArgs(st, *o)).Fn = execAs("write order")
+			b.Queue(upsertOrder, orderArgs(st, *o)).Fn = postgres.ExecAs("write order", nil)
 		}
 		if moves := d.Pending(); len(moves) > 0 {
 			ids := make([]uuid.UUID, len(moves))
@@ -344,7 +335,7 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 			b.Queue(insertMoves, pgx.StrictNamedArgs{
 				"deal_id": st.ID, "ids": ids, "kinds": kinds, "by_parties": parties, "amounts": amounts,
 				"moved_at": at, "order_ids": orders,
-			}).Fn = execAs("insert moves")
+			}).Fn = postgres.ExecAs("insert moves", nil)
 		}
 		// The moves' IDs ride on deal.moved, so a subscriber reads exactly
 		// the moves of this save. The copy leaves the caller's events alone.

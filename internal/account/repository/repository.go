@@ -4,9 +4,10 @@ package repository
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 var (
@@ -17,14 +18,5 @@ var (
 // queue adds sql to b; its failure names what. A non-nil none is the
 // error when the statement touches no row, so the batch must run in a tx.
 func queue(b *pgx.Batch, what, sql string, args pgx.StrictNamedArgs, none error) {
-	b.Queue(sql, args).Fn = func(br pgx.BatchResults) error {
-		tag, err := br.Exec()
-		if err != nil {
-			return fmt.Errorf("%s: %w", what, err)
-		}
-		if none != nil && tag.RowsAffected() == 0 {
-			return none
-		}
-		return nil
-	}
+	b.Queue(sql, args).Fn = postgres.ExecAs(what, none)
 }

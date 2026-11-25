@@ -164,7 +164,7 @@ func (e *socketEnv) notify(t *testing.T, account uuid.UUID, n int) {
 	t.Helper()
 	err := pgx.BeginFunc(context.Background(), e.db, func(tx pgx.Tx) error {
 		for range n {
-			if err := stream.Notify(context.Background(), tx, []uuid.UUID{account}, dealHint()); err != nil {
+			if err := queue(context.Background(), tx, []uuid.UUID{account}, dealHint()); err != nil {
 				return err
 			}
 		}

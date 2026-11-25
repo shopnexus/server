@@ -13,6 +13,7 @@ import (
 	"github.com/shopnexus/server/internal/console/domain"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/platform/secret"
 )
 
@@ -162,16 +163,7 @@ func (s pgMembers) Save(ctx context.Context, m *domain.Member, writeID uuid.UUID
 		"status": st.Status, "password_hash": st.PasswordHash, "must_change_password": st.MustChangePassword,
 		"credentials_version": st.CredentialsVersion, "totp_secret": s.sealed(st.ID, st.TOTPSecret),
 		"totp_pending_secret": s.sealed(st.ID, st.TOTPPending), "totp_last_step": st.TOTPLastStep, "updated_at": st.UpdatedAt,
-	}).Fn = func(br pgx.BatchResults) error {
-		tag, err := br.Exec()
-		if err != nil {
-			return fmt.Errorf("update console member: %w", err)
-		}
-		if tag.RowsAffected() == 0 {
-			return ErrConflict
-		}
-		return nil
-	}
+	}).Fn = postgres.ExecAs("update console member", ErrConflict)
 	if entry != nil {
 		audit.Queue(b, *entry)
 	}

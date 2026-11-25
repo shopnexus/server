@@ -215,17 +215,7 @@ GROUP BY `+group+`, r.listing_id`, pgx.StrictNamedArgs{"keys": keys})
 // account wait for each other.
 func lockCase(b *pgx.Batch, account uuid.UUID) {
 	b.Queue(`SELECT pg_advisory_xact_lock(hashtext('report_case:' || @account::text))`,
-		pgx.StrictNamedArgs{"account": account}).Fn = execAs("lock the case")
-}
-
-// execAs runs a queued statement and wraps its error with what it does.
-func execAs(what string) func(pgx.BatchResults) error {
-	return func(br pgx.BatchResults) error {
-		if _, err := br.Exec(); err != nil {
-			return fmt.Errorf("%s: %w", what, err)
-		}
-		return nil
-	}
+		pgx.StrictNamedArgs{"account": account}).Fn = postgres.ExecAs("lock the case", nil)
 }
 
 // openReports are the reports of an account's open case.
@@ -245,7 +235,7 @@ SELECT @id, @account, @outcome, @member, @at WHERE EXISTS (SELECT 1 FROM reports
 			return nil
 		})
 		b.Queue(`UPDATE reports SET resolution_id = @id WHERE `+openReports,
-			pgx.StrictNamedArgs{"id": r.ID, "account": account}).Fn = execAs("resolve reports")
+			pgx.StrictNamedArgs{"id": r.ID, "account": account}).Fn = postgres.ExecAs("resolve reports", nil)
 		audit.Queue(b, entry)
 		return tx.SendBatch(ctx, b).Close()
 	})
@@ -278,7 +268,7 @@ ORDER BY resolved_at DESC, id DESC LIMIT 1`, pgx.StrictNamedArgs{"account": acco
 		}
 		b = &pgx.Batch{}
 		b.Queue(`UPDATE report_resolutions SET reopened_at = @at WHERE id = @id`,
-			pgx.StrictNamedArgs{"id": id, "at": at}).Fn = execAs("reopen resolution")
+			pgx.StrictNamedArgs{"id": id, "at": at}).Fn = postgres.ExecAs("reopen resolution", nil)
 		// A report whose reporter has reported the same target again since
 		// stays with the reopened resolution: the newer one stands for it.
 		b.Queue(`UPDATE reports r SET resolution_id = NULL

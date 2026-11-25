@@ -7,11 +7,11 @@
 package stream
 
 import (
-	"context"
-	"fmt"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 const (
@@ -82,17 +82,5 @@ func Queue(b *pgx.Batch, accounts []uuid.UUID, h Hint) {
 		"accounts": accounts, "kind": h.Kind, "conversation": h.ConversationID, "message": h.MessageID,
 		"deal": h.DealID, "notification": h.NotificationID, "listing_read": h.ListingReadID,
 		"channel": channel, "hint": h,
-	}).Fn = func(br pgx.BatchResults) error {
-		if _, err := br.Exec(); err != nil {
-			return fmt.Errorf("append updates: %w", err)
-		}
-		return nil
-	}
-}
-
-// Notify runs Queue's statement in tx, the transaction of the change.
-func Notify(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h Hint) error {
-	b := &pgx.Batch{}
-	Queue(b, accounts, h)
-	return tx.SendBatch(ctx, b).Close() //nolint:wrapcheck // Queue's statement wraps its own error.
+	}).Fn = postgres.ExecAs("append updates", nil)
 }

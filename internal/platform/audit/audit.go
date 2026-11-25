@@ -6,9 +6,7 @@
 package audit
 
 import (
-	"context"
 	"crypto/sha256"
-	"fmt"
 	"net/netip"
 	"time"
 	"uuid"
@@ -16,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type ActorKind string
@@ -193,20 +192,7 @@ func Queue(b *pgx.Batch, entries ...Entry) {
 		"ids": ids, "actor_kinds": actorKinds, "member_ids": memberIDs, "actor_names": actorNames, "session_ids": sessionIDs,
 		"ips": ips, "action_kinds": actionKinds, "target_kinds": targetKinds, "target_ids": targetIDs, "details": details,
 		"acted_at": actedAt,
-	}).Fn = func(br pgx.BatchResults) error {
-		if _, err := br.Exec(); err != nil {
-			return fmt.Errorf("insert console actions: %w", err)
-		}
-		return nil
-	}
-}
-
-// Insert writes e in tx, the transaction of the change it records, with
-// Queue's statement.
-func Insert(ctx context.Context, tx pgx.Tx, e Entry) error {
-	b := &pgx.Batch{}
-	Queue(b, e)
-	return tx.SendBatch(ctx, b).Close() //nolint:wrapcheck // Queue's statement wraps its own error.
+	}).Fn = postgres.ExecAs("insert console actions", nil)
 }
 
 func nullID(id uuid.UUID) any {

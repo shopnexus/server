@@ -11,6 +11,7 @@ import (
 
 	"github.com/shopnexus/server/internal/console/domain"
 	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgLocks struct{ db *pgxpool.Pool }
@@ -86,12 +87,7 @@ func (s pgLocks) Clear(ctx context.Context, key []byte, now time.Time) error {
 func (s pgLocks) Unlock(ctx context.Context, key []byte, now time.Time, e audit.Entry) error {
 	// No check aborts, so the batch commits as one on the pool.
 	b := &pgx.Batch{}
-	b.Queue(clearLock, pgx.StrictNamedArgs{"email_hash": key, "now": now}).Fn = func(br pgx.BatchResults) error {
-		if _, err := br.Exec(); err != nil {
-			return fmt.Errorf("clear console login lock: %w", err)
-		}
-		return nil
-	}
+	b.Queue(clearLock, pgx.StrictNamedArgs{"email_hash": key, "now": now}).Fn = postgres.ExecAs("clear console login lock", nil)
 	audit.Queue(b, e)
 	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("unlock console login: %w", err)

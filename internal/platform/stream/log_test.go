@@ -21,7 +21,7 @@ func notify(t *testing.T, db *pgxpool.Pool, accounts []uuid.UUID, h stream.Hint,
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = stream.Notify(ctx, tx, accounts, h); err != nil {
+	if err = queue(ctx, tx, accounts, h); err != nil {
 		t.Fatal(err)
 	}
 	if commit {
@@ -94,7 +94,7 @@ func TestNotifyDoesNotDeadlock(t *testing.T) {
 		wg.Go(func() {
 			for range 30 {
 				if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error {
-					return stream.Notify(ctx, tx, pair, dealHint())
+					return queue(ctx, tx, pair, dealHint())
 				}); err != nil {
 					errs <- err
 					return
@@ -126,13 +126,13 @@ func TestSeqBecomesVisibleInCommitOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = stream.Notify(ctx, tx1, []uuid.UUID{a}, first); err != nil {
+	if err = queue(ctx, tx1, []uuid.UUID{a}, first); err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
 	go func() {
 		done <- pgx.BeginFunc(ctx, db, func(tx2 pgx.Tx) error {
-			return stream.Notify(ctx, tx2, []uuid.UUID{a}, dealHint())
+			return queue(ctx, tx2, []uuid.UUID{a}, dealHint())
 		})
 	}()
 	select {
@@ -216,4 +216,10 @@ func TestListingReadUpdate(t *testing.T) {
 	if u := p.Updates[0]; u.Kind != "listing_read" || u.ListingReadID == nil || *u.ListingReadID != read || u.DealID != nil {
 		t.Fatalf("update %+v", u)
 	}
+}
+
+func queue(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h stream.Hint) error {
+	b := &pgx.Batch{}
+	stream.Queue(b, accounts, h)
+	return tx.SendBatch(ctx, b).Close()
 }

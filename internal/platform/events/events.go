@@ -4,12 +4,12 @@
 package events
 
 import (
-	"context"
-	"fmt"
 	"time"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 // Kind is what happened, in the form aggregate.past_tense.
@@ -97,18 +97,5 @@ func Queue(b *pgx.Batch, evs ...Event) {
 	}
 	b.Queue(insertEvents, pgx.StrictNamedArgs{
 		"ids": ids, "kinds": kinds, "subjects": subjects, "payloads": payloads, "occurred_at": occurred,
-	}).Fn = func(br pgx.BatchResults) error {
-		if _, err := br.Exec(); err != nil {
-			return fmt.Errorf("insert events: %w", err)
-		}
-		return nil
-	}
-}
-
-// Insert writes evs in tx, the transaction of the change, with Queue's
-// statement.
-func Insert(ctx context.Context, tx pgx.Tx, evs ...Event) error {
-	b := &pgx.Batch{}
-	Queue(b, evs...)
-	return tx.SendBatch(ctx, b).Close() //nolint:wrapcheck // Queue's statement wraps its own error.
+	}).Fn = postgres.ExecAs("insert events", nil)
 }

@@ -40,12 +40,7 @@ func (s pgSettings) Put(ctx context.Context, owner uuid.UUID, st domain.Settings
 	b := &pgx.Batch{}
 	postgres.QueueLockLiving(b, owner, accountdomain.ErrSessionRevoked)
 	if st.Pickup == nil {
-		b.Queue(`DELETE FROM shipping_settings WHERE account_id = @owner`, pgx.StrictNamedArgs{"owner": owner}).Fn = func(br pgx.BatchResults) error {
-			if _, err := br.Exec(); err != nil {
-				return fmt.Errorf("clear shipping settings: %w", err)
-			}
-			return nil
-		}
+		b.Queue(`DELETE FROM shipping_settings WHERE account_id = @owner`, pgx.StrictNamedArgs{"owner": owner}).Fn = postgres.ExecAs("clear shipping settings", nil)
 	} else {
 		// The address must be the owner's; its key share keeps it until commit.
 		b.Queue(`INSERT INTO shipping_settings (account_id, address_id, phone)

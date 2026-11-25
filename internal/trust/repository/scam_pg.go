@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/platform/stream"
 	"github.com/shopnexus/server/internal/trust/domain"
 )
@@ -72,16 +73,7 @@ SET signals = EXCLUDED.signals, dismissed_at = EXCLUDED.dismissed_at, updated_at
 WHERE scam_warnings.write_id = @read_write_id OR scam_warnings.write_id = @write_id`, pgx.StrictNamedArgs{
 		"conversation": st.ConversationID, "account": st.AccountID, "suspect": st.SuspectID, "signals": st.Signals,
 		"dismissed_at": st.DismissedAt, "updated_at": st.UpdatedAt, "write_id": writeID, "read_write_id": st.WriteID,
-	}).Fn = func(br pgx.BatchResults) error {
-		tag, err := br.Exec()
-		if err != nil {
-			return fmt.Errorf("upsert scam warning: %w", err)
-		}
-		if tag.RowsAffected() == 0 {
-			return ErrConflict
-		}
-		return nil
-	}
+	}).Fn = postgres.ExecAs("upsert scam warning", ErrConflict)
 	conversation := st.ConversationID
 	stream.Queue(b, []uuid.UUID{st.AccountID}, stream.Hint{Kind: stream.KindScamWarning, ConversationID: &conversation})
 }
@@ -105,7 +97,7 @@ ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 			"id": c.ID, "conversation": c.ConversationID, "messages": c.MessageIDs,
 			"classifier": c.Classifier, "prompt_version": c.PromptVersion, "codes_a": codeStrings(c.A), "codes_b": codeStrings(c.B),
 			"created_at": c.CreatedAt,
-		}).Fn = execAs("insert scam check")
+		}).Fn = postgres.ExecAs("insert scam check", nil)
 		// At most the conversation's two sides: one statement each reads
 		// clearer than an unnest with a per-row conflict check.
 		for _, w := range ws {
@@ -113,7 +105,7 @@ ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 		}
 		b.Queue(`DELETE FROM scam_checks WHERE id IN (
     SELECT id FROM scam_checks WHERE created_at < @before ORDER BY created_at LIMIT @limit)`,
-			pgx.StrictNamedArgs{"before": pruneBefore, "limit": pruneBatch}).Fn = execAs("prune scam checks")
+			pgx.StrictNamedArgs{"before": pruneBefore, "limit": pruneBatch}).Fn = postgres.ExecAs("prune scam checks", nil)
 		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {

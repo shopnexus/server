@@ -82,7 +82,7 @@ func (s pgReviews) Insert(ctx context.Context, r domain.Review) error {
 		// One order's two reviews are written one at a time, so the second
 		// always sees the first.
 		b.Queue(`SELECT pg_advisory_xact_lock(hashtextextended(@order::text, 0))`,
-			pgx.StrictNamedArgs{"order": st.OrderID}).Fn = execAs("lock the order's reviews")
+			pgx.StrictNamedArgs{"order": st.OrderID}).Fn = postgres.ExecAs("lock the order's reviews", nil)
 		b.Queue(`SELECT EXISTS (SELECT 1 FROM reviews WHERE order_id = @order AND role <> @role)`,
 			pgx.StrictNamedArgs{"order": st.OrderID, "role": st.Role}).QueryRow(func(row pgx.Row) error {
 			var other bool
@@ -105,18 +105,9 @@ ON CONFLICT (order_id, role) DO NOTHING`, pgx.StrictNamedArgs{
 			"visible_at": st.VisibleAt,
 			"deleted_at": st.DeletedAt,
 			"write_id":   st.WriteID, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
-		}).Fn = func(br pgx.BatchResults) error {
-			tag, err := br.Exec()
-			if err != nil {
-				return fmt.Errorf("insert review: %w", err)
-			}
-			if tag.RowsAffected() == 0 {
-				return ErrConflict
-			}
-			return nil
-		}
+		}).Fn = postgres.ExecAs("insert review", ErrConflict)
 		b.Queue(`UPDATE reviews SET visible_at = @at WHERE order_id = @order AND role <> @role AND visible_at > @at`,
-			pgx.StrictNamedArgs{"order": st.OrderID, "role": st.Role, "at": st.CreatedAt}).Fn = execAs("reveal the other side's review")
+			pgx.StrictNamedArgs{"order": st.OrderID, "role": st.Role, "at": st.CreatedAt}).Fn = postgres.ExecAs("reveal the other side's review", nil)
 		events.Queue(b, events.Event{ID: st.ID, Kind: events.ReviewPosted, SubjectID: st.ID, OccurredAt: st.CreatedAt})
 		return tx.SendBatch(ctx, b).Close()
 	})
@@ -143,16 +134,7 @@ SET stars = @stars, body = @body, tags = @tags, photos = @photos, deleted_at = @
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, pgx.StrictNamedArgs{
 			"id": st.ID, "stars": st.Stars, "body": st.Text, "tags": tagsOf(st), "photos": photosOf(st), "deleted_at": st.DeletedAt, "updated_at": st.UpdatedAt,
 			"reply": reply, "replied_at": st.RepliedAt, "write_id": writeID, "read_write_id": st.WriteID,
-		}).Fn = func(br pgx.BatchResults) error {
-			tag, err := br.Exec()
-			if err != nil {
-				return fmt.Errorf("save review: %w", err)
-			}
-			if tag.RowsAffected() == 0 {
-				return ErrConflict
-			}
-			return nil
-		}
+		}).Fn = postgres.ExecAs("save review", ErrConflict)
 		// A replied review never changes again, so a save with a reply is
 		// the reply itself or its retry, which the write ID as event ID keeps
 		// at one event.

@@ -356,9 +356,9 @@ return tx.SendBatch(ctx, b).Close()
 ```
 
 Each platform `Queue` wraps its own statement's error ("insert events"),
-and queues nothing for an empty list. `events.Insert`, `stream.Notify` and
-`audit.Insert` run that one statement in a transaction for callers not yet
-moved to `Queue`; they go once no caller is left. Migrations stay one
+and queues nothing for an empty list. A repository's own statements use
+`postgres.ExecAs(what, none)` as their `Fn`: it names the failure and, with
+a non-nil `none`, aborts when no row was touched. Migrations stay one
 transaction each with plain `Exec`, since a migration file holds several
 statements, which the extended protocol of a batch refuses.
 

@@ -88,7 +88,7 @@ func TestNotifyRingsOnCommitOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = stream.Notify(ctx, tx, []uuid.UUID{b, a, b}, committed); err != nil {
+	if err = queue(ctx, tx, []uuid.UUID{b, a, b}, committed); err != nil {
 		t.Fatal(err)
 	}
 	silent(t, rings) // not before the commit

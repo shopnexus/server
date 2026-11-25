@@ -321,7 +321,7 @@ func (s pgTickets) Messaged(ctx context.Context, conversation, message uuid.UUID
 // recordMessage records a message in ticket @id once. It moves the ticket's
 // last message and, when @reopen asks and the owner @account lives, reopens
 // the ticket with its event; the share lock on the owner works as
-// postgres.LockLiving's. It selects whether it reopened.
+// postgres.QueueLockLiving's. It selects whether it reopened.
 const recordMessage = `
 WITH receipt AS (
     INSERT INTO ticket_message_receipts (message_id, ticket_id) VALUES (@message, @id)

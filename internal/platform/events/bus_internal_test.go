@@ -31,7 +31,7 @@ func TestResendAfterACrashDeliversOnce(t *testing.T) {
 	bus.Subscribe(AccountUpdated, c.ServiceName(), "Handle")
 	restatetest.Start(t, bus.Definition(), restate.Reflect(c))
 	e := Event{ID: uuid.NewV7(), Kind: AccountUpdated, SubjectID: uuid.NewV7(), Payload: map[string]any{}, OccurredAt: time.Now().UTC().Truncate(time.Microsecond)}
-	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { return Insert(ctx, tx, e) }); err != nil {
+	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { b := &pgx.Batch{}; Queue(b, e); return tx.SendBatch(ctx, b).Close() }); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ingress.ServiceSend[Event](in, bus.service(), deliverHandler).
@@ -77,7 +77,7 @@ func TestSendTimesOut(t *testing.T) {
 	bus := NewBus(db, ingress.NewClient("http://"+ln.Addr().String()), "silent_", time.Now, slog.New(slog.DiscardHandler))
 	bus.Subscribe(AccountUpdated, "Silent", "Handle")
 	e := Event{ID: uuid.NewV7(), Kind: AccountUpdated, SubjectID: uuid.NewV7(), OccurredAt: time.Now()}
-	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { return Insert(ctx, tx, e) }); err != nil {
+	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { b := &pgx.Batch{}; Queue(b, e); return tx.SendBatch(ctx, b).Close() }); err != nil {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
@@ -102,7 +102,7 @@ func TestRefusedEventBacksOff(t *testing.T) {
 	bus := NewBus(db, restatetest.Ingress(t), restatetest.Prefix(), time.Now, slog.New(slog.DiscardHandler))
 	bus.Subscribe(AccountUpdated, "Anyone", "Handle")
 	e := Event{ID: uuid.NewV7(), Kind: AccountUpdated, SubjectID: uuid.NewV7(), OccurredAt: time.Now()}
-	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { return Insert(ctx, tx, e) }); err != nil {
+	if err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { b := &pgx.Batch{}; Queue(b, e); return tx.SendBatch(ctx, b).Close() }); err != nil {
 		t.Fatal(err)
 	}
 	state := func() (attempts int, waits bool) {
