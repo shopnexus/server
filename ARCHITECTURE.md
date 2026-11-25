@@ -94,7 +94,11 @@ test names.
 
 A handler is a method of the module's `handler.Handler` and runs in one
 order: `httpx.Caller` on a signed-in route, `httpx.Bind` for the request, one
-`Service` method, then `httpx.Respond` or `httpx.WriteError`. Its request
+`Service` method, then `httpx.Respond` or `httpx.WriteError`.
+`httpx.Serve`, `ServeCaller` and `ServeConsole` run that order for a
+handler whose status is fixed, so such a handler is one call; a handler
+whose status depends on the result, or that sets cookies or streams, is
+written out. Its request
 struct is unexported and lives in its file; the response is the view the
 service returns.
 `httpx.Bind(r, &in)` fills a request struct. A field tagged `path`, `query` or
@@ -548,13 +552,16 @@ the figures from the modules that hold them (see Screen). Followed
 searches, price alerts,
 "Dành cho bạn" and vector search are in `discovery`, beside search and
 the nearby feed. Imports run one way, `handler` and `worker` →
-`service` → `repository` → `domain`, and depguard rules in `.golangci.yml`
-refuse an import against it.
+`service` → `repository` → `domain`, and a test, `internal/layers_test.go`,
+refuses an import against it.
 
 An entity keeps its fields unexported, so a repository in another package
 rebuilds one through `Restore…` (`RestoreAccount`, `RestoreCredentials`; a
 member through `domain.MemberState`) and records a write with
-`Saved(writeID)`; only repositories call either.
+`Saved(writeID)`; only repositories call either. The entity holds its
+exported `…State` struct in one unexported field, so `Restore…` wraps the
+state and `State()` returns a copy of it; nothing lists the fields twice.
+A service holds its `Deps` the same way, beside the state it derives.
 
 One binary serves the HTTP API on `:8080` and the Restate endpoint on `:9080`.
 A module's `Mount` takes `module.Deps` (router, pool, Restate ingress and
@@ -1580,8 +1587,7 @@ agree during a deploy.
   becomes the labels and values without the keys, which are English words
   a query would match on every listing; the index is built again. The seed
   loader keys the specs a pack's listing names and checks none of the
-  others, as before. `Refs.SpecLabels` is still filled for a pod of the
-  release before that replays the journal.
+  others, as before.
 - `POST /v1/category-guesses` (seller-only) and the three reads guess a
   draft's subcategory with `GuessCategory`. It embeds the title and the
   description with the text model and takes the nearest of the category
@@ -1964,11 +1970,11 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
 
 - Module shipping owns the sellers' carrier accounts, the carrier
   clients and the carriers' webhooks. Deal imports it, as
-  `deal/service.Shipping`; shipping never imports deal. The app wiring
-  hands shipping four functions of deal's (`ShipmentUpdated`,
-  `ShipmentKnown`, `OpenShipmentsAt`, `QuoteFacts`) and deal's not-found
-  error, closed over
-  the deal service that is mounted after it.
+  `deal/service.Shipping`; shipping never imports deal. Shipping states
+  what it needs of deal as an interface, `shippingsvc.Deals`
+  (`ShipmentUpdated`, `ShipmentKnown`, `OpenShipmentsAt`, `QuoteFacts`), and
+  takes deal's not-found error as `Settings.DealNotFound`; app passes deal's
+  service through a holder it fills once deal is mounted after shipping.
 - A seller links GHTK and GHN, at most one account each
   (`carrier_accounts`, migration 0043). GHTK takes the seller's email and
   password, traded at once for the shop's token through GHTK's B2C
@@ -2527,7 +2533,7 @@ page that shows two views calls both at once.
   own list is `GET /v1/screens/my-listings` (see Tin của bạn and listing
   views).
 - Screen owns no table. Each view is one method of its service that reads
-  the other modules' services top to bottom; depguard forbids every other
+  the other modules' services top to bottom; the layer test forbids every other
   module to import it, so it adds no dependency between the others.
 - `GET /v1/screens/listing/{id}` (signed in or not): the public listing,
   the seller's summary and, for a signed-in viewer who is not the seller,
@@ -3180,7 +3186,8 @@ Spam and scam detection is moderation and goes to trust; the two share
 - `POST /v1/listing-reads` takes one of `{video, transcript?}`, `{photo}`
   and `{link}` with an `Idempotency-Key`, and answers 202 with the read.
   Each source has its own Restate service, `VideoRead`, `PhotoRead` and
-  `LinkRead`, whose handlers read top to bottom; all three keep
+  `LinkRead`, whose handlers share the opening steps of a Start
+  (`openRead`) and the load, save and end of a Run (`readRun`); all three keep
   `domain.ListingRead` in table `listing_reads`, which has each source's
   own columns. The caps are 30 video reads, 60 photo reads and 30 link
   reads in 24 hours, each counted under an advisory lock on the
@@ -3600,7 +3607,7 @@ streams each run segment back (spec:
   service, the read record and the AI settings over LiteLLM) and
   `repository` (`console_agent_reads`, the `ai_*` tables and the
   `agent_*` run tables). `mcp` is
-  a layer of its own in depguard: it imports a module's service and
+  a layer of its own in the layer test: it imports a module's service and
   domain, as a handler does, and nothing imports it but the module's
   `Mount`. `Mount` takes `module.Deps`, `Settings`, console's moderator
   and admin guards and service, and the services of support, account,
@@ -3751,9 +3758,11 @@ the table again at each ring; every 15 s without one it sends
 lists the types. The stream ends after `turn.finished`, `turn.paused` or
 `clarify`, or 10 s after the turn stopped running with nothing new; after
 Continue, answers or an update to a paused turn the console opens it again
-from its last seq. The handler flushes at each blank line, lifts the HTTP
-server's 30-second write deadline with `http.ResponseController`, and
-sends `Cache-Control: no-cache` and `X-Accel-Buffering: no`. A member who
+from its last seq. The service calls the handler's emit with each event
+and keep-alive; before the first, the handler lifts the HTTP server's
+30-second write deadline with `http.ResponseController` and sends
+`Cache-Control: no-cache` and `X-Accel-Buffering: no`, and it flushes
+after each. A member who
 closes the tab ends the stream; the run goes on.
 
 The admin's tool, guardrail and usage figures read `agent_tool_calls`,
@@ -4107,7 +4116,7 @@ Module `notification` tells people of their deals, orders, listings,
 reviews and account, in a list, by push and by mail (decided 2026-10-27, spec:
 `~/shopnexus/docs/superpowers/specs/2026-10-27-server-notification-design.md`). No module
 calls it except screen, for the unread counts of Home and
-`GET /v1/me/unread`; depguard holds that.
+`GET /v1/me/unread`; the layer test holds that.
 
 - It hears events: `deal.moved` (whose payload now lists the IDs of the
   moves the save wrote), `message.sent` (event ID = message ID, so a
@@ -4605,9 +4614,9 @@ random bits hash the pack's name and the row's key, so a second load skips
 what is there and lists ordered by ID keep the pack's dates. Order and move
 IDs are the deal entity's own UUIDv7s at load time. `wipe` deletes the pack's
 accounts and every row that refers to them, following the schema's foreign
-keys, then their uploads' objects. Reviews go through `loader.ReviewWriter`;
-today it keeps the buyer's review of the seller and drops the seller's review
-of the buyer and the replies.
+keys, then their uploads' objects. Reviews go through `loader.ReviewWriter`,
+which writes both sides' reviews and their replies through trust's `Review`,
+in the order they were posted.
 
 `go run ./cmd/devseed` loads the demo pack, `cmd/devseed/data/demo` (12
 people, 44 listings, 4 sold items, 5 follows, 2.1 MB), which
@@ -4645,19 +4654,17 @@ formatting. The rules that shape the code:
   tests and by other test-support packages, whose files match
   `**/internal/**/*test/*.go`. `catalogtest` builds catalog on `embedtest`'s
   fakes.
-- depguard: a module's domain, repository and service import no layer above
-  them, a handler, a worker or module agent's `mcp` imports no repository,
+- The layer test (`internal/layers_test.go`): a module's domain,
+  repository and service import no layer above them, a handler, a worker or module agent's `mcp` imports no repository,
   nothing imports a worker or `mcp`, and production code reaches another
   module only through its `service`. An error a client sees, such
   as `account_not_found`, lives in `domain` for that reason. A worker's
   tests may build its module's repositories.
-- The module and layer rules of depguard sit between the
-  `# BEGIN depguardgen` and `# END depguardgen` lines of `.golangci.yml`.
-  `make depguard` (`go run ./cmd/depguardgen -root .`) writes them from the
-  modules and layer packages under `internal/`, naming only packages that
-  exist; the policy itself is in `cmd/depguardgen/main.go`. Run it after
-  adding a module or a layer package: the test in `cmd/depguardgen` fails
-  while the rules are stale, so `make test` catches it.
+- The module and layer rules are a test, `internal/layers_test.go`: it
+  lists the packages under `internal/` with `go list`, reads each file's
+  imports and fails on one the rules refuse, naming the file. The policy
+  (`layerRules`, `otherModuleDenied`, `serviceCallers`) is in the test, and
+  a new module or layer package is covered without a step of its own.
 - interfacebloat skips a module's `Service` in `service/service.go` and the
   store in `repository/repository.go`: a `Service` lists every use case, and
   a module that keeps its tables in one store lists every query there.
