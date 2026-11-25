@@ -77,9 +77,12 @@ type Deals interface {
 	CountOpenOffers(ctx context.Context, seller uuid.UUID) (int, error)
 	// Order returns one order with its deal, or ErrNotFound.
 	Order(ctx context.Context, id uuid.UUID) (OrderRow, error)
-	// OrdersWithCode returns the orders, in any status, whose shipment has
-	// the tracking code, oldest first.
-	OrdersWithCode(ctx context.Context, code string) ([]OrderRow, error)
+	// OrdersWithCode returns the orders, in any status, whose shipment is
+	// at carrier c with the tracking code, oldest first.
+	OrdersWithCode(ctx context.Context, c, code string) ([]OrderRow, error)
+	// HasShipment tells whether an order, in any status, has a shipment at
+	// carrier c with the tracking code.
+	HasShipment(ctx context.Context, c, code string) (bool, error)
 	// Between returns the deals of a and b on either side, newest first.
 	Between(ctx context.Context, a, b uuid.UUID) ([]domain.Deal, error)
 	// OfPairs returns, for viewer and each of others, the pair's deals on

@@ -128,14 +128,15 @@ type Service interface {
 	// the pickup unless address is the zero ID, and the price.
 	QuoteFacts(ctx context.Context, caller, order, address uuid.UUID) (to carrier.Place, from *carrier.Place, price int64, err error)
 	// ShipmentUpdated sets the status of every shipped order whose
-	// shipment has trackingCode, as its carrier reports it. A closed order
-	// changes nothing; no order with the code is domain.ErrShipmentNotFound.
+	// shipment is at carrier c with trackingCode, as the carrier reports
+	// it. A closed order changes nothing; no such order is
+	// domain.ErrShipmentNotFound.
 	//
 	// UC-DEAL-05 · NFR-IDEM-01
-	ShipmentUpdated(ctx context.Context, trackingCode, status string) error
-	// ShipmentCarrier is the carrier of the orders, closed ones too, whose
-	// shipment has trackingCode; domain.ErrShipmentNotFound for none.
-	ShipmentCarrier(ctx context.Context, trackingCode string) (string, error)
+	ShipmentUpdated(ctx context.Context, c, trackingCode, status string) error
+	// ShipmentKnown tells whether an order, closed ones too, has a
+	// shipment at carrier c with trackingCode.
+	ShipmentKnown(ctx context.Context, c, trackingCode string) (bool, error)
 	// Order reads one order for another module: its two sides, its
 	// listing and its status; false for an unknown one.
 	Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, error)

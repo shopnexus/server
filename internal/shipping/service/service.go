@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 	"uuid"
@@ -60,18 +62,18 @@ type QuoteFacts struct {
 // Deals is what shipping asks of module deal, which it does not import:
 // the app wiring closes these over deal's service.
 type Deals struct {
-	// ShipmentUpdated moves the orders whose shipment has code; NotFound
-	// when none has.
-	ShipmentUpdated func(ctx context.Context, code, status string) error
+	// ShipmentUpdated moves the orders whose shipment is at carrier c with
+	// code; NotFound when none is.
+	ShipmentUpdated func(ctx context.Context, c, code, status string) error
 	// OpenShipmentsAt tells whether a shipped order of the seller's is at
 	// carrier c.
 	OpenShipmentsAt func(ctx context.Context, seller uuid.UUID, c string) (bool, error)
 	// QuoteFacts reads an order of the caller's, and the caller's address
 	// when it is not the zero ID.
 	QuoteFacts func(ctx context.Context, caller, order, address uuid.UUID) (QuoteFacts, error)
-	// ShipmentCarrier is the carrier of the orders whose shipment has
-	// code, closed ones too; NotFound when none has.
-	ShipmentCarrier func(ctx context.Context, code string) (string, error)
+	// ShipmentKnown tells whether an order, closed ones too, has a
+	// shipment at carrier c with code.
+	ShipmentKnown func(ctx context.Context, c, code string) (bool, error)
 	// NotFound is deal's error for a code no order has.
 	NotFound error
 }
@@ -421,25 +423,30 @@ func (s *Shipping) Reported(ctx context.Context, c carrier.Carrier, contentType 
 	if len(evs) == 0 {
 		return nil
 	}
-	owner, err := s.d.Deals.ShipmentCarrier(ctx, code)
-	if errors.Is(err, s.d.Deals.NotFound) || (err == nil && owner != string(c)) {
-		return nil
-	}
+	known, err := s.d.Deals.ShipmentKnown(ctx, string(c), code)
 	if err != nil {
 		return fmt.Errorf("find %s %s: %w", c, code, err)
+	}
+	if !known {
+		return nil // a parcel the seller made outside ShopNexus
 	}
 	return s.report(ctx, string(c), code, evs)
 }
 
-// DevReported reports ev on the parcel with code as of now, as the fake
-// carrier would.
+// DevReported reports ev as of now on the parcel with code at whichever
+// fake carrier made it, as that carrier would.
 func (s *Shipping) DevReported(ctx context.Context, code string, ev carrier.Event) error {
 	ev.At = s.d.Now()
-	c, err := s.d.Deals.ShipmentCarrier(ctx, code)
-	if err != nil {
-		return fmt.Errorf("find %s: %w", code, err)
+	for _, c := range slices.Sorted(maps.Keys(s.d.Clients)) {
+		known, err := s.d.Deals.ShipmentKnown(ctx, string(c), code)
+		if err != nil {
+			return fmt.Errorf("find %s %s: %w", c, code, err)
+		}
+		if known {
+			return s.report(ctx, string(c), code, []carrier.Event{ev})
+		}
 	}
-	return s.report(ctx, c, code, []carrier.Event{ev})
+	return fmt.Errorf("find %s: %w", code, s.d.Deals.NotFound)
 }
 
 // report keeps evs and, when a new step among them is the parcel's
@@ -458,7 +465,7 @@ func (s *Shipping) report(ctx context.Context, c, code string, evs []carrier.Eve
 	if !moves || t.Events[0].At.After(stepped) {
 		return nil
 	}
-	err = s.d.Deals.ShipmentUpdated(ctx, code, string(st))
+	err = s.d.Deals.ShipmentUpdated(ctx, c, code, string(st))
 	if err != nil && !errors.Is(err, s.d.Deals.NotFound) {
 		return fmt.Errorf("%s reported %s %s: %w", c, code, st, err)
 	}

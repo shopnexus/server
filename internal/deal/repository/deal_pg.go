@@ -550,8 +550,9 @@ func (s pgDeals) Order(ctx context.Context, id uuid.UUID) (OrderRow, error) {
 	return r, nil
 }
 
-func (s pgDeals) OrdersWithCode(ctx context.Context, code string) ([]OrderRow, error) {
-	rows, err := s.db.Query(ctx, selectOrder+`WHERE o.tracking_code = @code ORDER BY o.id`, pgx.StrictNamedArgs{"code": code})
+func (s pgDeals) OrdersWithCode(ctx context.Context, c, code string) ([]OrderRow, error) {
+	rows, err := s.db.Query(ctx, selectOrder+`WHERE o.carrier = @carrier AND o.tracking_code = @code ORDER BY o.id`,
+		pgx.StrictNamedArgs{"carrier": c, "code": code})
 	if err != nil {
 		return nil, fmt.Errorf("select orders: %w", err)
 	}
@@ -560,4 +561,13 @@ func (s pgDeals) OrdersWithCode(ctx context.Context, code string) ([]OrderRow, e
 		return nil, fmt.Errorf("read orders: %w", err)
 	}
 	return out, nil
+}
+
+func (s pgDeals) HasShipment(ctx context.Context, c, code string) (bool, error) {
+	var has bool
+	if err := s.db.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orders WHERE carrier = @carrier AND tracking_code = @code)`,
+		pgx.StrictNamedArgs{"carrier": c, "code": code}).Scan(&has); err != nil {
+		return false, fmt.Errorf("find the shipment: %w", err)
+	}
+	return has, nil
 }

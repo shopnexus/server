@@ -433,7 +433,9 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	// mounted, since deal makes its shipments through shipping.
 	var deals dealsvc.Service
 	carriers.Deals = shippingsvc.Deals{
-		ShipmentUpdated: func(ctx context.Context, code, status string) error { return deals.ShipmentUpdated(ctx, code, status) },
+		ShipmentUpdated: func(ctx context.Context, c, code, status string) error {
+			return deals.ShipmentUpdated(ctx, c, code, status)
+		},
 		OpenShipmentsAt: func(ctx context.Context, seller uuid.UUID, c string) (bool, error) {
 			return deals.OpenShipmentsAt(ctx, seller, c)
 		},
@@ -444,8 +446,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 			}
 			return shippingsvc.QuoteFacts{Recipient: to, Pickup: from, Price: price}, nil
 		},
-		ShipmentCarrier: func(ctx context.Context, code string) (string, error) { return deals.ShipmentCarrier(ctx, code) },
-		NotFound:        dealdomain.ErrShipmentNotFound,
+		ShipmentKnown: func(ctx context.Context, c, code string) (bool, error) { return deals.ShipmentKnown(ctx, c, code) },
+		NotFound:      dealdomain.ErrShipmentNotFound,
 	}
 	shippingm := shipping.Mount(d, carriers, accounts)
 	// A deal opens the pair's conversation and writes its moves there, so

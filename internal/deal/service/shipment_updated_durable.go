@@ -13,9 +13,10 @@ import (
 // shipmentUpdates is the ShipmentUpdates service's name without the prefix.
 const shipmentUpdates = "ShipmentUpdates"
 
-// ShipmentSignal is a carrier's word on a shipment: its tracking code and
-// its new status.
+// ShipmentSignal is a carrier's word on a shipment: the carrier, the
+// tracking code there and its new status.
 type ShipmentSignal struct {
+	Carrier      domain.Carrier        `json:"carrier"`
 	TrackingCode string                `json:"tracking_code"`
 	Status       domain.ShipmentStatus `json:"status"`
 }
@@ -28,9 +29,9 @@ type ShipmentResult struct {
 func (r ShipmentResult) Refusal() *apperr.Error { return r.Refused }
 
 // ShipmentUpdates is the one entry point of a carrier's word on a
-// shipment: the dev endpoint calls it, and the carriers' webhooks and
-// polling will. It moves every shipped order whose shipment has the code,
-// two items in one parcel included, and changes nothing on a closed order.
+// shipment: the carriers' webhooks, the poll and the dev endpoint. It
+// moves every shipped order whose shipment is that parcel, two items in
+// one parcel included, and changes nothing on a closed order.
 // A failure releases the listing; a delivery schedules the completion.
 type ShipmentUpdates struct{ Deals *Deals }
 
@@ -43,7 +44,7 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 		return ShipmentResult{}, err
 	}
 	refs, err := restate.Run(ctx, func(rc restate.RunContext) ([]OrderRef, error) {
-		rows, stepErr := s.Deals.deals.OrdersWithCode(rc, in.TrackingCode)
+		rows, stepErr := s.Deals.deals.OrdersWithCode(rc, string(in.Carrier), in.TrackingCode)
 		if stepErr != nil {
 			return nil, fmt.Errorf("find the orders: %w", stepErr)
 		}

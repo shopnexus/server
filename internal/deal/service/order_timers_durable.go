@@ -184,7 +184,7 @@ func (s OrderTimers) readMoved(ctx restate.Context, seller uuid.UUID, sh domain.
 		return false, nil
 	}
 	if _, err = restate.Service[ShipmentResult](ctx, s.Deals.prefix+shipmentUpdates, flowHandler).
-		Request(ShipmentSignal{TrackingCode: sh.TrackingCode, Status: read}); err != nil {
+		Request(ShipmentSignal{Carrier: sh.Carrier, TrackingCode: sh.TrackingCode, Status: read}); err != nil {
 		return false, fmt.Errorf("move the order: %w", err)
 	}
 	return true, nil
