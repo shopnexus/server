@@ -206,14 +206,19 @@ SET title = @title, price = @price, description = @description, category_code = 
     updated_at = @updated_at, lat = @lat, lng = @lng,
     published_at = @published_at, sold_at = @sold_at, deleted_at = @deleted_at, held_at = @held_at, write_id = @write_id,
     previous_price = @previous_price, price_changed_at = @price_changed_at
-WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
-  AND (status = ANY(@on_sale) OR NOT @status = ANY(@on_sale)
-       OR (SELECT count(*) FROM listings o WHERE o.seller_id = listings.seller_id AND o.status = ANY(@on_sale)) < @limit)`
+WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
+
+// atCap is true when a listing going on sale would exceed the cap; one on
+// sale already counts itself.
+const atCap = `
+SELECT count(*) >= @limit FROM listings
+WHERE seller_id = @seller AND status = ANY(@on_sale)
+  AND NOT EXISTS (SELECT 1 FROM listings WHERE id = @id AND status = ANY(@on_sale))`
 
 func (s pgListings) Save(ctx context.Context, l *domain.Listing, writeID uuid.UUID, entry *audit.Entry, evs ...events.Event) error {
 	st := l.State()
 	a := args(st)
-	a["read_write_id"], a["write_id"], a["on_sale"], a["limit"] = st.WriteID, writeID, domain.OnSale, domain.MaxOnSale
+	a["read_write_id"], a["write_id"] = st.WriteID, writeID
 	delete(a, "seller_id")
 	delete(a, "created_at")
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
@@ -221,23 +226,21 @@ func (s pgListings) Save(ctx context.Context, l *domain.Listing, writeID uuid.UU
 			if err := lockSeller(ctx, tx, st.SellerID); err != nil {
 				return err
 			}
+			var full bool
+			if err := tx.QueryRow(ctx, atCap, pgx.StrictNamedArgs{
+				"id": st.ID, "seller": st.SellerID, "on_sale": domain.OnSale, "limit": domain.MaxOnSale,
+			}).Scan(&full); err != nil {
+				return fmt.Errorf("count listings on sale: %w", err)
+			}
+			if full {
+				return domain.ErrCapReached
+			}
 		}
 		tag, err := tx.Exec(ctx, saveListing, a)
 		if err != nil {
 			return fmt.Errorf("update listing: %w", err)
 		}
 		if tag.RowsAffected() == 0 {
-			// The write ID matches, so the cap refused the listing back on
-			// sale; otherwise someone wrote it meanwhile.
-			var current bool
-			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM listings
-WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id))`,
-				pgx.StrictNamedArgs{"id": st.ID, "read_write_id": st.WriteID, "write_id": writeID}).Scan(&current); err != nil {
-				return fmt.Errorf("check listing: %w", err)
-			}
-			if current {
-				return domain.ErrCapReached
-			}
 			return ErrConflict
 		}
 		if entry != nil {

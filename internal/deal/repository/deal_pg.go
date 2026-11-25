@@ -201,7 +201,8 @@ UPDATE deals
 SET status = @status, open_by = @open_by, open_amount = @open_amount, open_at = @open_at,
     listed_price = @listed_price, agreed_price = @agreed_price, agreed_at = @agreed_at,
     updated_at = @updated_at, write_id = @write_id
-WHERE id = @id AND write_id = @read_write_id`
+WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
+RETURNING old.write_id = @write_id`
 
 const insertMove = `
 INSERT INTO deal_moves (id, deal_id, kind, by_party, amount, moved_at, order_id)
@@ -274,20 +275,16 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 		delete(a, k)
 	}
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, saveDeal, a)
+		var saved bool
+		err := tx.QueryRow(ctx, saveDeal, a).Scan(&saved)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrConflict
+		}
 		if err != nil {
 			return fmt.Errorf("update deal: %w", err)
 		}
-		if tag.RowsAffected() == 0 {
-			var saved bool
-			if err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM deals WHERE id = @id AND write_id = @write_id)`,
-				pgx.StrictNamedArgs{"id": st.ID, "write_id": writeID}).Scan(&saved); err != nil {
-				return fmt.Errorf("check deal: %w", err)
-			}
-			if saved {
-				return errSaved
-			}
-			return ErrConflict
+		if saved {
+			return errSaved
 		}
 		if o := st.Order; o != nil {
 			if o.Status == domain.OrderPending {

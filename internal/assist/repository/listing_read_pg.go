@@ -36,7 +36,8 @@ UPDATE listing_reads SET status = @status, failure = NULLIF(@failure, ''),
     failure_reason = NULLIF(@failure_reason, ''), link_photos = @link_photos, photos = @photos,
     draft = @draft, contact_removed = @contact_removed, estimate = @estimate, write_id = @write_id,
     transcript = CASE WHEN @status::text = 'reading' THEN transcript END
-WHERE id = @id AND write_id = @read_write_id`
+WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
+RETURNING old.write_id = @write_id`
 
 // readArgs are a read's columns. A step not reached yet is NULL, which a
 // nil []byte or pointer encodes, and so is a column of another source.
@@ -153,21 +154,17 @@ func (s pgListingReads) Save(ctx context.Context, r *domain.ListingRead, writeID
 	}
 	a["read_write_id"], a["write_id"] = st.WriteID, writeID
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, txErr := tx.Exec(ctx, saveRead, a)
+		// A retried step finds its own write and notifies no second time.
+		var saved bool
+		txErr := tx.QueryRow(ctx, saveRead, a).Scan(&saved)
+		if errors.Is(txErr, pgx.ErrNoRows) {
+			return ErrConflict
+		}
 		if txErr != nil {
 			return fmt.Errorf("update read: %w", txErr)
 		}
-		if tag.RowsAffected() == 0 {
-			// A retried step finds its own write; anything else is a race.
-			var saved bool
-			if txErr = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM listing_reads WHERE id = @id AND write_id = @write_id)`,
-				pgx.StrictNamedArgs{"id": st.ID, "write_id": writeID}).Scan(&saved); txErr != nil {
-				return fmt.Errorf("check read: %w", txErr)
-			}
-			if saved {
-				return nil
-			}
-			return ErrConflict
+		if saved {
+			return nil
 		}
 		id := st.ID
 		return stream.Notify(ctx, tx, []uuid.UUID{st.AccountID}, stream.Hint{Kind: stream.KindListingRead, ListingReadID: &id})
