@@ -8,6 +8,7 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
@@ -81,6 +82,35 @@ func one(ctx context.Context, q querier, id uuid.UUID) (Feedback, error) {
 	return fs[0], nil
 }
 
+// queueRead queues into b the feedback where selects; out holds it once b
+// is sent.
+func queueRead(b *pgx.Batch, where string, args pgx.StrictNamedArgs, out *[]Feedback) {
+	b.Queue(`SELECT `+columns+` FROM feedback f `+where, args).Query(func(rows pgx.Rows) error {
+		fs, err := pgx.CollectRows(rows, scan)
+		if err != nil {
+			return fmt.Errorf("read feedback: %w", err)
+		}
+		*out = fs
+		return nil
+	})
+}
+
+// queueOne queues into b the read of the feedback id; out holds it once b
+// is sent, and b fails with domain.ErrNotFound for none.
+func queueOne(b *pgx.Batch, id uuid.UUID, out *Feedback) {
+	b.Queue(`SELECT `+columns+` FROM feedback f WHERE f.id = @id`, pgx.StrictNamedArgs{"id": id}).Query(func(rows pgx.Rows) error {
+		f, err := pgx.CollectOneRow(rows, scan)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("read feedback: %w", err)
+		}
+		*out = f
+		return nil
+	})
+}
+
 // orNull is s, or NULL for an empty s.
 func orNull(s string) any {
 	if s == "" {
@@ -98,45 +128,40 @@ func memberOf(a audit.Actor) any {
 }
 
 // lockGroups serialises every write on groups.
-func lockGroups(ctx context.Context, tx pgx.Tx) error {
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('feedback:groups'))`); err != nil {
-		return fmt.Errorf("lock groups: %w", err)
-	}
-	return nil
-}
+const lockGroups = `SELECT pg_advisory_xact_lock(hashtext('feedback:groups'))`
 
+// Insert reads the account's prior feedback and count under the account's
+// locks in one batch, and writes and reads back the feedback in another.
 func (s pgStore) Insert(ctx context.Context, f Feedback, key uuid.UUID, since time.Time) (Feedback, bool, error) {
 	var (
 		out     Feedback
 		existed bool
 	)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		var (
+			prior []Feedback
+			n     int
+		)
+		b := &pgx.Batch{}
 		// A share lock on the account: a send racing its deletion lands
 		// before it, and the worker's Forget removes it, or sees the tombstone.
-		living, err := postgres.LockLiving(ctx, tx, f.AccountID)
-		if err != nil {
-			return err
-		}
-		if !living {
-			return accountdomain.ErrSessionRevoked
-		}
-		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('feedback:' || @account::text))`,
-			pgx.StrictNamedArgs{"account": f.AccountID}); err != nil {
-			return fmt.Errorf("lock the account's feedback: %w", err)
-		}
-		prior, err := read(ctx, tx, `WHERE f.account_id = @account AND f.request_key = @key`,
-			pgx.StrictNamedArgs{"account": f.AccountID, "key": key})
-		if err != nil {
-			return err
+		postgres.QueueLockLiving(b, f.AccountID, accountdomain.ErrSessionRevoked)
+		b.Queue(`SELECT pg_advisory_xact_lock(hashtext('feedback:' || @account::text))`, pgx.StrictNamedArgs{"account": f.AccountID})
+		queueRead(b, `WHERE f.account_id = @account AND f.request_key = @key`,
+			pgx.StrictNamedArgs{"account": f.AccountID, "key": key}, &prior)
+		b.Queue(`SELECT count(*) FROM feedback WHERE account_id = @account AND created_at > @since`,
+			pgx.StrictNamedArgs{"account": f.AccountID, "since": since}).QueryRow(func(row pgx.Row) error {
+			if err := row.Scan(&n); err != nil {
+				return fmt.Errorf("count feedback: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("read prior feedback: %w", err)
 		}
 		if len(prior) > 0 {
 			out, existed = prior[0], true
 			return nil
-		}
-		var n int
-		if err = tx.QueryRow(ctx, `SELECT count(*) FROM feedback WHERE account_id = @account AND created_at > @since`,
-			pgx.StrictNamedArgs{"account": f.AccountID, "since": since}).Scan(&n); err != nil {
-			return fmt.Errorf("count feedback: %w", err)
 		}
 		if n >= domain.DailyLimit {
 			return domain.ErrTooMany
@@ -156,7 +181,8 @@ func (s pgStore) Insert(ctx context.Context, f Feedback, key uuid.UUID, since ti
 		if photos == nil {
 			photos = []domain.Photo{}
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO feedback (id, account_id, request_key, mood, kind, body, photos, device_model, device_os,
+		b = &pgx.Batch{}
+		b.Queue(`INSERT INTO feedback (id, account_id, request_key, mood, kind, body, photos, device_model, device_os,
     app_version, screen, contact, source, page_url, status, status_at, hearted, created_at)
 VALUES (@id, @account, @key, @mood, @kind, @body, @photos, @model, @os, @version, @screen, @contact, @source, @page, 'sent', @at, false, @at)`,
 			pgx.StrictNamedArgs{
@@ -164,11 +190,12 @@ VALUES (@id, @account, @key, @mood, @kind, @body, @photos, @model, @os, @version
 				"photos": photos, "model": model, "os": os, "version": version, "screen": orNull(f.Screen), "contact": f.Contact,
 				"source": string(source), "page": orNull(f.PageURL),
 				"at": f.CreatedAt,
-			}); err != nil {
+			})
+		queueOne(b, f.ID, &out)
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
 			return fmt.Errorf("insert feedback: %w", err)
 		}
-		out, err = one(ctx, tx, f.ID)
-		return err
+		return nil
 	})
 	if err != nil {
 		return Feedback{}, false, fmt.Errorf("send feedback: %w", err)
@@ -313,77 +340,74 @@ GROUP BY screen ORDER BY count(*) DESC, screen LIMIT @screens`, pgx.StrictNamedA
 	return out, nil
 }
 
-// rootOf is the root of id's group and whether id is that root;
-// domain.ErrNotFound for no such feedback.
-func rootOf(ctx context.Context, tx pgx.Tx, id uuid.UUID) (root uuid.UUID, isRoot bool, err error) {
-	err = tx.QueryRow(ctx, `SELECT coalesce(root_id, id), root_id IS NULL FROM feedback WHERE id = @id`,
-		pgx.StrictNamedArgs{"id": id}).Scan(&root, &isRoot)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return uuid.UUID{}, false, domain.ErrNotFound
-	}
-	if err != nil {
-		return uuid.UUID{}, false, fmt.Errorf("read the group: %w", err)
-	}
-	return root, isRoot, nil
+// groupRow is a row a move locks, with its status before the move and its
+// group's root.
+type groupRow struct {
+	ID     uuid.UUID
+	Status domain.Status
+	Root   uuid.UUID
 }
 
-// move sets root, c and, where the status changed, status_at on the rows
-// where selects, and writes feedback.moved for each row that moved to a
-// status that tells.
-func move(ctx context.Context, tx pgx.Tx, where string, args pgx.StrictNamedArgs, root uuid.UUID, c domain.StatusChange, at time.Time) error {
-	rows, err := tx.Query(ctx, `SELECT id, status FROM feedback `+where+` FOR UPDATE`, args)
-	if err != nil {
-		return fmt.Errorf("lock the group: %w", err)
-	}
-	before, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct {
-		ID     uuid.UUID
-		Status domain.Status
-	}])
-	if err != nil {
-		return fmt.Errorf("read the group: %w", err)
-	}
-	ids := make([]uuid.UUID, 0, len(before))
+// queueLock queues into b the lock of the rows where selects; rows holds
+// them once b is sent.
+func queueLock(b *pgx.Batch, where string, args pgx.StrictNamedArgs, rows *[]groupRow) {
+	b.Queue(`SELECT id, status, coalesce(root_id, id) FROM feedback `+where+` FOR UPDATE`, args).Query(func(r pgx.Rows) error {
+		locked, err := pgx.CollectRows(r, pgx.RowToStructByPos[groupRow])
+		if err != nil {
+			return fmt.Errorf("lock the group: %w", err)
+		}
+		*rows = locked
+		return nil
+	})
+}
+
+// queueMove queues into b the update that sets root, c and, where the
+// status changed, status_at on rows, and feedback.moved for each row that
+// moved to a status that tells.
+func queueMove(b *pgx.Batch, rows []groupRow, root uuid.UUID, c domain.StatusChange, at time.Time) {
+	ids := make([]uuid.UUID, 0, len(rows))
 	var evs []events.Event
-	for _, r := range before {
+	for _, r := range rows {
 		ids = append(ids, r.ID)
 		if r.Status != c.Status && c.Status.Tells() {
 			evs = append(evs, events.Event{ID: uuid.NewV7(), Kind: events.FeedbackMoved, SubjectID: r.ID, OccurredAt: at})
 		}
 	}
-	if _, err = tx.Exec(ctx, `UPDATE feedback SET root_id = nullif(@root, id), status = @status, status_note = @note,
+	b.Queue(`UPDATE feedback SET root_id = nullif(@root, id), status = @status, status_note = @note,
     shipped_version = @version, status_at = CASE WHEN status <> @status THEN @at ELSE status_at END
 WHERE id = ANY(@ids)`, pgx.StrictNamedArgs{
 		"root": root, "status": c.Status, "note": orNull(c.Note), "version": orNull(c.Version), "at": at, "ids": ids,
-	}); err != nil {
-		return fmt.Errorf("update the group: %w", err)
-	}
-	if err = events.Insert(ctx, tx, evs...); err != nil {
-		return fmt.Errorf("write events: %w", err)
-	}
-	return nil
+	})
+	events.Queue(b, evs...)
 }
 
+// SetStatus locks id's group in one batch, then moves it, audits and reads
+// id back in another.
 func (s pgStore) SetStatus(ctx context.Context, id uuid.UUID, c domain.StatusChange, actor audit.Actor, at time.Time) (Feedback, error) {
 	var out Feedback
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockGroups(ctx, tx); err != nil {
-			return err
+		var rows []groupRow
+		b := &pgx.Batch{}
+		b.Queue(lockGroups)
+		queueLock(b, `WHERE id = (SELECT coalesce(root_id, id) FROM feedback WHERE id = @id)
+   OR root_id = (SELECT coalesce(root_id, id) FROM feedback WHERE id = @id)`, pgx.StrictNamedArgs{"id": id}, &rows)
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("lock the group: %w", err)
 		}
-		root, _, err := rootOf(ctx, tx, id)
-		if err != nil {
-			return err
+		if len(rows) == 0 {
+			return domain.ErrNotFound
 		}
-		if err = move(ctx, tx, `WHERE id = @root OR root_id = @root`, pgx.StrictNamedArgs{"root": root}, root, c, at); err != nil {
-			return err
-		}
-		if err = audit.Insert(ctx, tx, audit.Entry{
+		b = &pgx.Batch{}
+		queueMove(b, rows, rows[0].Root, c, at)
+		audit.Queue(b, audit.Entry{
 			Actor: actor, Action: audit.FeedbackStatus, Target: audit.Feedback(id), At: at,
 			Details: map[string]any{"status": c.Status, "note": c.Note, "version": c.Version},
-		}); err != nil {
-			return fmt.Errorf("audit: %w", err)
+		})
+		queueOne(b, id, &out)
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("move the group: %w", err)
 		}
-		out, err = one(ctx, tx, id)
-		return err
+		return nil
 	})
 	if err != nil {
 		return Feedback{}, fmt.Errorf("set the status: %w", err)
@@ -403,22 +427,20 @@ func (s pgStore) Reply(ctx context.Context, id uuid.UUID, text string, actor aud
 		if err != nil {
 			return fmt.Errorf("lock feedback: %w", err)
 		}
-		if _, err = tx.Exec(ctx, `UPDATE feedback SET reply_body = @text, replied_at = @at, replied_by = @member WHERE id = @id`,
-			pgx.StrictNamedArgs{"id": id, "text": text, "at": at, "member": memberOf(actor)}); err != nil {
+		b := &pgx.Batch{}
+		b.Queue(`UPDATE feedback SET reply_body = @text, replied_at = @at, replied_by = @member WHERE id = @id`,
+			pgx.StrictNamedArgs{"id": id, "text": text, "at": at, "member": memberOf(actor)})
+		if first {
+			events.Queue(b, events.Event{ID: uuid.NewV7(), Kind: events.FeedbackReplied, SubjectID: id, OccurredAt: at})
+		}
+		audit.Queue(b, audit.Entry{
+			Actor: actor, Action: audit.FeedbackReply, Target: audit.Feedback(id), At: at, Details: map[string]any{"first": first},
+		})
+		queueOne(b, id, &out)
+		if err = tx.SendBatch(ctx, b).Close(); err != nil {
 			return fmt.Errorf("update feedback: %w", err)
 		}
-		if first {
-			if err = events.Insert(ctx, tx, events.Event{ID: uuid.NewV7(), Kind: events.FeedbackReplied, SubjectID: id, OccurredAt: at}); err != nil {
-				return fmt.Errorf("write event: %w", err)
-			}
-		}
-		if err = audit.Insert(ctx, tx, audit.Entry{
-			Actor: actor, Action: audit.FeedbackReply, Target: audit.Feedback(id), At: at, Details: map[string]any{"first": first},
-		}); err != nil {
-			return fmt.Errorf("audit: %w", err)
-		}
-		out, err = one(ctx, tx, id)
-		return err
+		return nil
 	})
 	if err != nil {
 		return Feedback{}, fmt.Errorf("reply to feedback: %w", err)
@@ -426,25 +448,35 @@ func (s pgStore) Reply(ctx context.Context, id uuid.UUID, text string, actor aud
 	return out, nil
 }
 
+// Heart reads the feedback back with its update; only a change gets an
+// audit row, in a second batch.
 func (s pgStore) Heart(ctx context.Context, id uuid.UUID, hearted bool, actor audit.Actor, at time.Time) (Feedback, error) {
 	var out Feedback
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `UPDATE feedback SET hearted = @hearted WHERE id = @id AND hearted <> @hearted`,
-			pgx.StrictNamedArgs{"id": id, "hearted": hearted})
-		if err != nil {
+		var changed bool
+		b := &pgx.Batch{}
+		b.Queue(`UPDATE feedback SET hearted = @hearted WHERE id = @id AND hearted <> @hearted`,
+			pgx.StrictNamedArgs{"id": id, "hearted": hearted}).Exec(func(t pgconn.CommandTag) error {
+			changed = t.RowsAffected() > 0
+			return nil
+		})
+		queueOne(b, id, &out)
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
 			return fmt.Errorf("update feedback: %w", err)
 		}
-		if tag.RowsAffected() > 0 {
-			action := audit.FeedbackHeart
-			if !hearted {
-				action = audit.FeedbackUnheart
-			}
-			if err = audit.Insert(ctx, tx, audit.Entry{Actor: actor, Action: action, Target: audit.Feedback(id), At: at}); err != nil {
-				return fmt.Errorf("audit: %w", err)
-			}
+		if !changed {
+			return nil
 		}
-		out, err = one(ctx, tx, id)
-		return err
+		action := audit.FeedbackHeart
+		if !hearted {
+			action = audit.FeedbackUnheart
+		}
+		b = &pgx.Batch{}
+		audit.Queue(b, audit.Entry{Actor: actor, Action: action, Target: audit.Feedback(id), At: at})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("audit: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return Feedback{}, fmt.Errorf("heart feedback: %w", err)
@@ -452,42 +484,57 @@ func (s pgStore) Heart(ctx context.Context, id uuid.UUID, hearted bool, actor au
 	return out, nil
 }
 
+// Join reads both groups in one batch; a join across groups then locks
+// the rows that move, which depend on whether id is its group's root, and
+// moves them in two more.
 func (s pgStore) Join(ctx context.Context, id, other uuid.UUID, actor audit.Actor, at time.Time) (Feedback, error) {
 	var out Feedback
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockGroups(ctx, tx); err != nil {
+		var (
+			from, to uuid.UUID
+			isRoot   bool
+			c        domain.StatusChange
+		)
+		b := &pgx.Batch{}
+		b.Queue(lockGroups)
+		b.Queue(`SELECT coalesce(root_id, id), root_id IS NULL FROM feedback WHERE id = @id`,
+			pgx.StrictNamedArgs{"id": id}).QueryRow(func(row pgx.Row) error {
+			return scanGroup(row, &from, &isRoot)
+		})
+		b.Queue(`SELECT r.id, r.status, coalesce(r.status_note, ''), coalesce(r.shipped_version, '')
+FROM feedback f JOIN feedback r ON r.id = coalesce(f.root_id, f.id) WHERE f.id = @id`,
+			pgx.StrictNamedArgs{"id": other}).QueryRow(func(row pgx.Row) error {
+			return scanGroup(row, &to, &c.Status, &c.Note, &c.Version)
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("read the groups: %w", err)
+		}
+		if from == to {
+			var err error
+			out, err = one(ctx, tx, id)
 			return err
 		}
-		from, isRoot, err := rootOf(ctx, tx, id)
-		if err != nil {
-			return err
+		var rows []groupRow
+		where := `WHERE id = @id`
+		if isRoot {
+			where = `WHERE id = @id OR root_id = @id`
 		}
-		to, _, err := rootOf(ctx, tx, other)
-		if err != nil {
-			return err
+		b = &pgx.Batch{}
+		queueLock(b, where, pgx.StrictNamedArgs{"id": id}, &rows)
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("lock the group: %w", err)
 		}
-		if from != to {
-			var c domain.StatusChange
-			if err = tx.QueryRow(ctx, `SELECT status, coalesce(status_note, ''), coalesce(shipped_version, '') FROM feedback WHERE id = @id`,
-				pgx.StrictNamedArgs{"id": to}).Scan(&c.Status, &c.Note, &c.Version); err != nil {
-				return fmt.Errorf("read the group's status: %w", err)
-			}
-			where := `WHERE id = @id`
-			if isRoot {
-				where = `WHERE id = @id OR root_id = @id`
-			}
-			if err = move(ctx, tx, where, pgx.StrictNamedArgs{"id": id}, to, c, at); err != nil {
-				return err
-			}
-			if err = audit.Insert(ctx, tx, audit.Entry{
-				Actor: actor, Action: audit.FeedbackSameAs, Target: audit.Feedback(id), At: at,
-				Details: map[string]any{"feedback_id": other},
-			}); err != nil {
-				return fmt.Errorf("audit: %w", err)
-			}
+		b = &pgx.Batch{}
+		queueMove(b, rows, to, c, at)
+		audit.Queue(b, audit.Entry{
+			Actor: actor, Action: audit.FeedbackSameAs, Target: audit.Feedback(id), At: at,
+			Details: map[string]any{"feedback_id": other},
+		})
+		queueOne(b, id, &out)
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("move the group: %w", err)
 		}
-		out, err = one(ctx, tx, id)
-		return err
+		return nil
 	})
 	if err != nil {
 		return Feedback{}, fmt.Errorf("join feedback: %w", err)
@@ -495,35 +542,36 @@ func (s pgStore) Join(ctx context.Context, id, other uuid.UUID, actor audit.Acto
 	return out, nil
 }
 
-func (s pgStore) Forget(ctx context.Context, account uuid.UUID) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockGroups(ctx, tx); err != nil {
-			return err
-		}
-		// The oldest of another's feedback in each group the account's
-		// feedback is the root of.
-		rows, err := tx.Query(ctx, `SELECT DISTINCT ON (g.root_id) g.root_id, g.id
-FROM feedback r JOIN feedback g ON g.root_id = r.id AND g.account_id <> @account
-WHERE r.account_id = @account AND r.root_id IS NULL ORDER BY g.root_id, g.id`, pgx.StrictNamedArgs{"account": account})
-		if err != nil {
-			return fmt.Errorf("find heirs: %w", err)
-		}
-		heirs, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct{ Root, Heir uuid.UUID }])
-		if err != nil {
-			return fmt.Errorf("read heirs: %w", err)
-		}
-		for _, h := range heirs {
-			if _, err = tx.Exec(ctx, `UPDATE feedback SET root_id = nullif(@heir, id) WHERE root_id = @root AND account_id <> @account`,
-				pgx.StrictNamedArgs{"heir": h.Heir, "root": h.Root, "account": account}); err != nil {
-				return fmt.Errorf("move a group to its heir: %w", err)
-			}
-		}
-		if _, err = tx.Exec(ctx, `DELETE FROM feedback WHERE account_id = @account`, pgx.StrictNamedArgs{"account": account}); err != nil {
-			return fmt.Errorf("delete feedback: %w", err)
-		}
-		return nil
-	})
+// scanGroup scans a row about a feedback's group into dest;
+// domain.ErrNotFound for no such feedback.
+func scanGroup(row pgx.Row, dest ...any) error {
+	err := row.Scan(dest...)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrNotFound
+	}
 	if err != nil {
+		return fmt.Errorf("read the group: %w", err)
+	}
+	return nil
+}
+
+// moveToHeirs hands each group the account's feedback is the root of to
+// the oldest of another's feedback in it.
+const moveToHeirs = `
+UPDATE feedback f SET root_id = nullif(h.heir, f.id)
+FROM (
+    SELECT DISTINCT ON (g.root_id) g.root_id AS root, g.id AS heir
+    FROM feedback r JOIN feedback g ON g.root_id = r.id AND g.account_id <> @account
+    WHERE r.account_id = @account AND r.root_id IS NULL ORDER BY g.root_id, g.id
+) h
+WHERE f.root_id = h.root AND f.account_id <> @account`
+
+func (s pgStore) Forget(ctx context.Context, account uuid.UUID) error {
+	b := &pgx.Batch{}
+	b.Queue(lockGroups)
+	b.Queue(moveToHeirs, pgx.StrictNamedArgs{"account": account})
+	b.Queue(`DELETE FROM feedback WHERE account_id = @account`, pgx.StrictNamedArgs{"account": account})
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("forget the account's feedback: %w", err)
 	}
 	return nil
