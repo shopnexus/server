@@ -31,8 +31,8 @@ func (s IndexNowSettings) On() bool {
 }
 
 func (c *Catalog) IndexNowKey(_ context.Context) (string, error) {
-	if c.indexNow.Key == "" {
+	if c.d.IndexNow.Key == "" {
 		return "", domain.ErrIndexNowOff
 	}
-	return c.indexNow.Key, nil
+	return c.d.IndexNow.Key, nil
 }

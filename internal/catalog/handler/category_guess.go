@@ -20,19 +20,12 @@ type categoryGuess struct {
 
 // GuessCategory serves POST /v1/category-guesses.
 func (h *Handler) GuessCategory(w http.ResponseWriter, r *http.Request) {
-	var in categoryGuessRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	code, err := h.svc.GuessCategory(r.Context(), in.Title, in.Description)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out := categoryGuess{}
-	if code != "" {
-		out.CategoryCode = &code
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in categoryGuessRequest) (categoryGuess, error) {
+		code, err := h.svc.GuessCategory(r.Context(), in.Title, in.Description)
+		out := categoryGuess{}
+		if code != "" {
+			out.CategoryCode = &code
+		}
+		return out, err
+	})
 }

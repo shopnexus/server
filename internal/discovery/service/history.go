@@ -25,7 +25,7 @@ type HistoryItem struct {
 }
 
 func (d *Discovery) History(ctx context.Context, account uuid.UUID) (HistoryView, error) {
-	entries, err := d.history.List(ctx, account)
+	entries, err := d.d.History.List(ctx, account)
 	if err != nil {
 		return HistoryView{}, fmt.Errorf("read history: %w", err)
 	}
@@ -41,36 +41,36 @@ func (d *Discovery) History(ctx context.Context, account uuid.UUID) (HistoryView
 }
 
 func (d *Discovery) ForgetSearch(ctx context.Context, account, id uuid.UUID) error {
-	if err := d.history.Forget(ctx, account, id); err != nil {
+	if err := d.d.History.Forget(ctx, account, id); err != nil {
 		return fmt.Errorf("forget search: %w", err)
 	}
 	return nil
 }
 
 func (d *Discovery) ClearHistory(ctx context.Context, account uuid.UUID) error {
-	if err := d.history.Clear(ctx, account); err != nil {
+	if err := d.d.History.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear history: %w", err)
 	}
 	return nil
 }
 
 func (d *Discovery) AccountDeleted(ctx context.Context, account uuid.UUID) error {
-	if err := d.saves.Clear(ctx, account); err != nil {
+	if err := d.d.Saves.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear saves: %w", err)
 	}
-	if err := d.history.Clear(ctx, account); err != nil {
+	if err := d.d.History.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear history: %w", err)
 	}
-	if err := d.hidden.Clear(ctx, account); err != nil {
+	if err := d.d.Hidden.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear hides: %w", err)
 	}
-	if err := d.watches.Clear(ctx, account); err != nil {
+	if err := d.d.Watches.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear watches: %w", err)
 	}
-	if err := d.views.Clear(ctx, account); err != nil {
+	if err := d.d.Views.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear views: %w", err)
 	}
-	if err := d.modelUses.Clear(ctx, account); err != nil {
+	if err := d.d.ModelUses.Clear(ctx, account); err != nil {
 		return fmt.Errorf("clear model uses: %w", err)
 	}
 	return nil

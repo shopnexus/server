@@ -97,9 +97,7 @@ func (s pgVectors) Source(ctx context.Context, listing uuid.UUID, textVersion, p
 
 func (s pgVectors) Embeddable(ctx context.Context) ([]uuid.UUID, error) {
 	rows, err := s.db.Query(ctx, `SELECT id FROM listings WHERE NOT (status = ANY(@skip)) ORDER BY id`,
-		pgx.StrictNamedArgs{"skip": []string{
-			string(domain.StatusDeleted), string(domain.StatusProcessing), string(domain.StatusRejected),
-		}})
+		pgx.StrictNamedArgs{"skip": []domain.Status{domain.StatusDeleted, domain.StatusProcessing, domain.StatusRejected}})
 	if err != nil {
 		return nil, fmt.Errorf("list listings: %w", err)
 	}

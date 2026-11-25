@@ -23,11 +23,11 @@ func (m *Media) Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.
 // to the store with the type and size it declared. The changed uploads
 // save under writeID, which the caller mints so a retry sends the same.
 func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape domain.Shape, ids []uuid.UUID, writeID uuid.UUID) error {
-	now := m.now()
+	now := m.d.Now()
 	ids = slices.Clone(ids)
 	slices.SortFunc(ids, uuid.UUID.Compare)
 	ids = slices.Compact(ids)
-	found, err := m.uploads.GetMany(ctx, ids)
+	found, err := m.d.Uploads.GetMany(ctx, ids)
 	if err != nil {
 		return fmt.Errorf("get uploads: %w", err)
 	}
@@ -52,7 +52,7 @@ func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape dom
 	if len(ups) == 0 {
 		return nil
 	}
-	if err = m.uploads.SaveAll(ctx, ups, writeID); err != nil {
+	if err = m.d.Uploads.SaveAll(ctx, ups, writeID); err != nil {
 		if errors.Is(err, repository.ErrConflict) {
 			return apperr.ErrTryAgain
 		}
@@ -65,7 +65,7 @@ func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape dom
 // size it declared; anything else is domain.ErrInvalidUpload. attachAs and
 // Extend call it for each upload they change.
 func (m *Media) checkStored(ctx context.Context, u *domain.Upload) error {
-	size, contentType, err := m.store.Stat(ctx, u.Key())
+	size, contentType, err := m.d.Store.Stat(ctx, u.Key())
 	if errors.Is(err, objectstore.ErrNotFound) {
 		return domain.ErrInvalidUpload
 	}

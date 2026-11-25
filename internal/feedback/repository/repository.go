@@ -55,26 +55,26 @@ type Group struct {
 // kind; the feedback still sent; the groups shipped in it and the feedback
 // in them; and the screens sent from most, with their counts.
 type Summary struct {
-	DayMood       []float64
-	DaySent       []int
-	Mood          float64
-	MoodBefore    float64
-	Sent          int
-	App           int
-	Web           int
-	Bugs          int
-	Ideas         int
-	Praise        int
-	Waiting       int
-	ShippedGroups int
-	ShippedPeople int
-	Screens       []Screen
+	DayMood       []float64 `json:"day_mood"`
+	DaySent       []int     `json:"day_sent"`
+	Mood          float64   `json:"mood"`
+	MoodBefore    float64   `json:"mood_before"`
+	Sent          int       `json:"sent"`
+	App           int       `json:"app"`
+	Web           int       `json:"web"`
+	Bugs          int       `json:"bugs"`
+	Ideas         int       `json:"ideas"`
+	Praise        int       `json:"praise"`
+	Waiting       int       `json:"waiting"`
+	ShippedGroups int       `json:"shipped_groups"`
+	ShippedPeople int       `json:"shipped_people"`
+	Screens       []Screen  `json:"screens"`
 }
 
 // Screen is an app screen or a website route and how much was sent from it.
 type Screen struct {
-	Screen string
-	Count  int
+	Screen string `json:"screen"`
+	Count  int    `json:"count"`
 }
 
 // Store stores feedback. The writes on groups (SetStatus, Join, Forget)

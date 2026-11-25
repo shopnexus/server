@@ -14,7 +14,6 @@ import (
 	"github.com/shopnexus/server/internal/catalog/repository"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/apperr"
-	"github.com/shopnexus/server/internal/platform/locale"
 	"github.com/shopnexus/server/internal/platform/restatex"
 )
 
@@ -173,10 +172,7 @@ func lookUpRefs(ctx restate.Context, categories repository.Categories, regions r
 		if stepErr != nil {
 			return domain.Refs{}, fmt.Errorf("read commune: %w", stepErr)
 		}
-		refs := domain.Refs{CategoryIsLeaf: leaf, Specs: specs, SpecLabels: make([]string, len(specs))}
-		for i, sp := range specs {
-			refs.SpecLabels[i] = sp.Names[locale.Vietnamese]
-		}
+		refs := domain.Refs{CategoryIsLeaf: leaf, Specs: specs}
 		if len(places) == 1 {
 			refs.CommuneExists = true
 			refs.CommunePoint = domain.Point{Lat: places[0].Lat, Lng: places[0].Lng}

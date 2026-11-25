@@ -30,18 +30,18 @@ type ReviewFacts struct {
 // ReviewFacts reads a review for its notifications; a deleted or unknown
 // one is false.
 func (s *Trust) ReviewFacts(ctx context.Context, id uuid.UUID) (ReviewFacts, bool, error) {
-	r, err := s.reviews.Get(ctx, id)
+	r, err := s.d.Reviews.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && r.Deleted()) {
 		return ReviewFacts{}, false, nil
 	}
 	if err != nil {
 		return ReviewFacts{}, false, fmt.Errorf("read review: %w", err)
 	}
-	people, err := s.accounts.GetMany(ctx, []uuid.UUID{r.ReviewerID(), r.SubjectID()})
+	people, err := s.d.Accounts.GetMany(ctx, []uuid.UUID{r.ReviewerID(), r.SubjectID()})
 	if err != nil {
 		return ReviewFacts{}, false, fmt.Errorf("read the people: %w", err)
 	}
-	listing, _, err := s.catalog.Summary(ctx, r.ListingID())
+	listing, _, err := s.d.Catalog.Summary(ctx, r.ListingID())
 	if err != nil {
 		return ReviewFacts{}, false, fmt.Errorf("read listing: %w", err)
 	}
@@ -50,10 +50,10 @@ func (s *Trust) ReviewFacts(ctx context.Context, id uuid.UUID) (ReviewFacts, boo
 		ReviewerName: people[r.ReviewerID()].DisplayName, SubjectName: people[r.SubjectID()].DisplayName,
 		ListingTitle: listing.Title, Stars: r.Stars(), VisibleAt: r.VisibleAt(),
 	}
-	if now := s.now(); !r.Visible(now) {
+	if now := s.d.Now(); !r.Visible(now) {
 		out.HiddenFor = r.VisibleAt().Sub(now)
 	}
-	other, err := s.reviews.ByOrder(ctx, r.OrderID(), r.Role().Other())
+	other, err := s.d.Reviews.ByOrder(ctx, r.OrderID(), r.Role().Other())
 	switch {
 	case errors.Is(err, repository.ErrNotFound):
 	case err != nil:

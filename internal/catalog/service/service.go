@@ -233,36 +233,21 @@ const flowHandler = "Run"
 
 // Catalog implements Service in this process.
 type Catalog struct {
-	listings                  repository.Listings
-	drafts                    repository.Drafts
-	categories                repository.Categories
-	regions                   repository.Regions
-	searches                  repository.Searches
-	accounts                  accountsvc.Service
-	media                     mediasvc.Service
-	prefix                    string
-	now                       func() time.Time
-	post                      restatex.Caller[PostInput, PostResult]
-	edit                      restatex.Caller[EditInput, EditResult]
-	photoCopy                 restatex.Caller[PhotoCopyInput, PhotoCopyResult]
-	vectors                   repository.Vectors
-	text, image               embed.Model
-	textVersion, imageVersion string
-	embedSlots                chan struct{}
-	protoLock                 chan struct{}
-	protos                    []domain.CategoryPrototype
-	log                       *slog.Logger
-	indexNow                  IndexNowSettings
+	d          Deps
+	post       restatex.Caller[PostInput, PostResult]
+	edit       restatex.Caller[EditInput, EditResult]
+	photoCopy  restatex.Caller[PhotoCopyInput, PhotoCopyResult]
+	embedSlots chan struct{}
+	protoLock  chan struct{}
+	protos     []domain.CategoryPrototype
 }
 
 var _ Service = (*Catalog)(nil)
 
 func New(d Deps) *Catalog {
 	return &Catalog{
-		listings: d.Listings, drafts: d.Drafts, categories: d.Categories, regions: d.Regions, searches: d.Searches,
-		accounts: d.Accounts, media: d.Media, prefix: d.Prefix, now: d.Now,
-		vectors: d.Vectors, text: d.Text, image: d.Image, textVersion: d.TextVersion, imageVersion: d.ImageVersion,
-		embedSlots: make(chan struct{}, d.EmbedSlots), protoLock: make(chan struct{}, 1), log: d.Log, indexNow: d.IndexNow,
+		d:          d,
+		embedSlots: make(chan struct{}, d.EmbedSlots), protoLock: make(chan struct{}, 1),
 		post: restatex.Caller[PostInput, PostResult]{Ingress: d.Ingress, Service: d.Prefix + listingPost, Handler: flowHandler},
 		edit: restatex.Caller[EditInput, EditResult]{Ingress: d.Ingress, Service: d.Prefix + listingEdit, Handler: flowHandler},
 		photoCopy: restatex.Caller[PhotoCopyInput, PhotoCopyResult]{
@@ -274,19 +259,19 @@ func New(d Deps) *Catalog {
 // Durable returns module catalog's Restate services, for Mount to bind.
 func (c *Catalog) Durable() []restate.ServiceDefinition {
 	deps := flowDeps{
-		Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Regions: c.regions,
-		Accounts: c.accounts, Media: c.media, Now: c.now,
+		Prefix: c.d.Prefix, Listings: c.d.Listings, Categories: c.d.Categories, Regions: c.d.Regions,
+		Accounts: c.d.Accounts, Media: c.d.Media, Now: c.d.Now,
 	}
 	return []restate.ServiceDefinition{
 		restate.Reflect(ListingPost{deps}),
 		restate.Reflect(ListingEdit{deps}),
-		restate.Reflect(ListingPublish{Prefix: c.prefix, Listings: c.listings, Now: c.now}),
-		restate.Reflect(ListingPhotoCopy{Prefix: c.prefix, Listings: c.listings, Media: c.media}),
+		restate.Reflect(ListingPublish{Prefix: c.d.Prefix, Listings: c.d.Listings, Now: c.d.Now}),
+		restate.Reflect(ListingPhotoCopy{Prefix: c.d.Prefix, Listings: c.d.Listings, Media: c.d.Media}),
 		restate.Reflect(ListingEmbed{
-			Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Vectors: c.vectors, Media: c.media,
-			Text: c.text, Image: c.image, TextVersion: c.textVersion, ImageVersion: c.imageVersion,
-			Slots: c.embedSlots, Log: c.log, Now: c.now,
+			Prefix: c.d.Prefix, Listings: c.d.Listings, Categories: c.d.Categories, Vectors: c.d.Vectors, Media: c.d.Media,
+			Text: c.d.Text, Image: c.d.Image, TextVersion: c.d.TextVersion, ImageVersion: c.d.ImageVersion,
+			Slots: c.embedSlots, Log: c.d.Log, Now: c.d.Now,
 		}),
-		restate.Reflect(IndexNow{Prefix: c.prefix, Listings: c.listings, Settings: c.indexNow, Log: c.log}),
+		restate.Reflect(IndexNow{Prefix: c.d.Prefix, Listings: c.d.Listings, Settings: c.d.IndexNow, Log: c.d.Log}),
 	}
 }

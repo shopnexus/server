@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
+	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/discovery/repository"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
@@ -19,7 +20,7 @@ import (
 
 func watch(account uuid.UUID, q string) repository.Watch {
 	return repository.Watch{
-		ID: uuid.NewV7(), Account: account, Query: q, Phrases: []string{q}, Conditions: []string{},
+		ID: uuid.NewV7(), Account: account, Query: q, Phrases: []string{q}, Conditions: []catalogdomain.Condition{},
 		Alert: true, CreatedAt: now,
 	}
 }
@@ -214,10 +215,12 @@ func TestWatchCandidates(t *testing.T) {
 	blocked, me := accounttest.New(t, db), accounttest.New(t, db)
 	put(a, "any", func(*repository.Watch) {})
 	put(a, "root", func(w *repository.Watch) { w.Category = "vehicles" })
-	put(a, "leaf", func(w *repository.Watch) { w.Category, w.Conditions = "vehicles.bicycle", []string{"used", "like_new"} })
+	put(a, "leaf", func(w *repository.Watch) {
+		w.Category, w.Conditions = "vehicles.bicycle", []catalogdomain.Condition{catalogdomain.ConditionUsed, catalogdomain.ConditionLikeNew}
+	})
 	put(b, "near", func(w *repository.Watch) { w.Commune, w.RadiusKm, w.PriceMax = "00004", 5, 2_000_000 })
 	put(b, "other leaf", func(w *repository.Watch) { w.Category = "vehicles.motorbike" })
-	put(b, "new only", func(w *repository.Watch) { w.Conditions = []string{"new"} })
+	put(b, "new only", func(w *repository.Watch) { w.Conditions = []catalogdomain.Condition{catalogdomain.ConditionNew} })
 	put(blocked, "blocked", func(*repository.Watch) {})
 	put(me, "mine", func(*repository.Watch) {})
 	put(c, "suspended", func(*repository.Watch) {})

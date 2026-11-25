@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -14,36 +15,14 @@ type alertRequest struct {
 
 // SetAlert serves PUT /v1/saved/{listing_id}/alert.
 func (h *Handler) SetAlert(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in alertRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.SetAlert(r.Context(), p.AccountID, in.ListingID, in.Below); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in alertRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.SetAlert(r.Context(), p.AccountID, in.ListingID, in.Below)
+	})
 }
 
 // ClearAlert serves DELETE /v1/saved/{listing_id}/alert.
 func (h *Handler) ClearAlert(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in listingRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.ClearAlert(r.Context(), p.AccountID, in.ListingID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in listingRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.ClearAlert(r.Context(), p.AccountID, in.ListingID)
+	})
 }

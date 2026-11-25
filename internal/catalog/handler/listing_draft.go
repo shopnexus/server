@@ -6,6 +6,7 @@ import (
 
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -47,51 +48,22 @@ func (h *Handler) PutDraft(w http.ResponseWriter, r *http.Request) {
 
 // ListDrafts serves GET /v1/listing-drafts.
 func (h *Handler) ListDrafts(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	items, err := h.svc.ListDrafts(r.Context(), p.AccountID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, list[service.DraftView]{Items: items})
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, _ httpx.None) (list[service.DraftView], error) {
+		items, err := h.svc.ListDrafts(r.Context(), p.AccountID)
+		return list[service.DraftView]{Items: items}, err
+	})
 }
 
 // GetDraft serves GET /v1/listing-drafts/{id}.
 func (h *Handler) GetDraft(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in listingRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.GetDraft(r.Context(), p.AccountID, in.ID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in listingRequest) (service.DraftView, error) {
+		return h.svc.GetDraft(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 // DeleteDraft serves DELETE /v1/listing-drafts/{id}.
 func (h *Handler) DeleteDraft(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in listingRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.DeleteDraft(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in listingRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.DeleteDraft(r.Context(), p.AccountID, in.ID)
+	})
 }

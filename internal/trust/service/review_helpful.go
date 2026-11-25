@@ -14,28 +14,28 @@ import (
 // reviewer and its subject get domain.ErrOwnReview; a hidden, deleted or
 // unknown review is domain.ErrNotFound.
 func (s *Trust) MarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
-	status, err := s.accounts.Status(ctx, caller)
+	status, err := s.d.Accounts.Status(ctx, caller)
 	if err != nil {
 		return fmt.Errorf("read account status: %w", err)
 	}
 	if r := status.Refusal(); r != nil {
 		return r
 	}
-	r, err := s.reviews.Get(ctx, id)
+	r, err := s.d.Reviews.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("get review: %w", err)
 	}
-	now := s.now()
+	now := s.d.Now()
 	if r.Deleted() || !r.Visible(now) {
 		return domain.ErrNotFound
 	}
 	if caller == r.ReviewerID() || caller == r.SubjectID() {
 		return domain.ErrOwnReview
 	}
-	err = s.reviews.MarkHelpful(ctx, id, caller, now)
+	err = s.d.Reviews.MarkHelpful(ctx, id, caller, now)
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrNotFound
 	}
@@ -48,14 +48,14 @@ func (s *Trust) MarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
 // UnmarkHelpful takes the caller's helpful mark back; without one it
 // changes nothing.
 func (s *Trust) UnmarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
-	status, err := s.accounts.Status(ctx, caller)
+	status, err := s.d.Accounts.Status(ctx, caller)
 	if err != nil {
 		return fmt.Errorf("read account status: %w", err)
 	}
 	if r := status.Refusal(); r != nil {
 		return r
 	}
-	if err = s.reviews.UnmarkHelpful(ctx, id, caller); err != nil {
+	if err = s.d.Reviews.UnmarkHelpful(ctx, id, caller); err != nil {
 		return fmt.Errorf("unmark helpful: %w", err)
 	}
 	return nil

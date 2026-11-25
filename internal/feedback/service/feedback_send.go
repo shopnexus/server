@@ -13,24 +13,21 @@ import (
 // Send checks the feedback, returns the key's feedback when there is one,
 // refuses past the day's limit, processes the screenshots, then stores it.
 // The key holds the photos in media, so a retry finds them its own.
-func (s *Feedback) Send(ctx context.Context, account, key uuid.UUID, in SendInput) (FeedbackView, bool, error) {
-	d, err := domain.NewFeedback(domain.Draft{
-		Mood: in.Mood, Kind: domain.Kind(in.Kind), Text: in.Text, Photos: in.Photos, Device: in.Device, Screen: in.Screen,
-		Contact: in.Contact, Source: domain.Source(in.Source), PageURL: in.PageURL,
-	})
+func (s *Feedback) Send(ctx context.Context, account, key uuid.UUID, in domain.Draft) (FeedbackView, bool, error) {
+	d, err := domain.NewFeedback(in)
 	if err != nil {
 		return FeedbackView{}, false, err
 	}
-	prior, err := s.store.ByKey(ctx, account, key)
+	prior, err := s.d.Store.ByKey(ctx, account, key)
 	if err == nil {
 		return s.view(prior), true, nil
 	}
 	if !errors.Is(err, domain.ErrNotFound) {
 		return FeedbackView{}, false, fmt.Errorf("read the key's feedback: %w", err)
 	}
-	now := s.now()
+	now := s.d.Now()
 	since := now.Add(-domain.Window)
-	n, err := s.store.SentSince(ctx, account, since)
+	n, err := s.d.Store.SentSince(ctx, account, since)
 	if err != nil {
 		return FeedbackView{}, false, fmt.Errorf("count feedback: %w", err)
 	}
@@ -39,7 +36,7 @@ func (s *Feedback) Send(ctx context.Context, account, key uuid.UUID, in SendInpu
 	}
 	photos := make([]domain.Photo, 0, len(d.Photos))
 	if len(d.Photos) > 0 {
-		processed, photoErr := s.media.Photos(ctx, account, key, d.Photos)
+		processed, photoErr := s.d.Media.Photos(ctx, account, key, d.Photos)
 		if photoErr != nil {
 			return FeedbackView{}, false, fmt.Errorf("process the photos: %w", photoErr)
 		}
@@ -47,7 +44,7 @@ func (s *Feedback) Send(ctx context.Context, account, key uuid.UUID, in SendInpu
 			photos = append(photos, domain.Photo{UploadID: id, PhotoKey: processed[id].PhotoKey, ThumbKey: processed[id].ThumbKey})
 		}
 	}
-	f, existed, err := s.store.Insert(ctx, repository.Feedback{
+	f, existed, err := s.d.Store.Insert(ctx, repository.Feedback{
 		ID: uuid.NewV7(), AccountID: account, Mood: d.Mood, Kind: d.Kind, Text: d.Text, Photos: photos, Device: d.Device,
 		Screen: d.Screen, Contact: d.Contact, Source: d.Source, PageURL: d.PageURL, CreatedAt: now,
 	}, key, since)

@@ -20,7 +20,7 @@ type ListingStats struct {
 // (domain.ViewDay). The listing's seller and a deleted account count
 // nothing.
 func (d *Discovery) Viewed(ctx context.Context, viewer, listing uuid.UUID) error {
-	if err := d.views.Record(ctx, listing, viewer, domain.ViewDay(d.now())); err != nil {
+	if err := d.d.Views.Record(ctx, listing, viewer, domain.ViewDay(d.d.Now())); err != nil {
 		return fmt.Errorf("count the view: %w", err)
 	}
 	return nil
@@ -29,11 +29,11 @@ func (d *Discovery) Viewed(ctx context.Context, viewer, listing uuid.UUID) error
 // ListingStats reads the views and the saves of the listings among ids in
 // one query each.
 func (d *Discovery) ListingStats(ctx context.Context, ids []uuid.UUID, since time.Time) (map[uuid.UUID]ListingStats, error) {
-	views, err := d.views.Counts(ctx, ids, domain.ViewDay(since))
+	views, err := d.d.Views.Counts(ctx, ids, domain.ViewDay(since))
 	if err != nil {
 		return nil, fmt.Errorf("count views: %w", err)
 	}
-	saves, err := d.saves.Counts(ctx, ids, since)
+	saves, err := d.d.Saves.Counts(ctx, ids, since)
 	if err != nil {
 		return nil, fmt.Errorf("count saves: %w", err)
 	}

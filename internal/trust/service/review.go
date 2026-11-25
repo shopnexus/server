@@ -27,7 +27,7 @@ var reviewable = []dealdomain.OrderStatus{dealdomain.OrderCompleted, dealdomain.
 // tags or photos keep the review's. A review that already holds the
 // request, as a retry or a double tap finds it, is answered as it is.
 func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string, tags []domain.Tag, photos []uuid.UUID) (ReviewView, error) {
-	status, err := s.accounts.Status(ctx, caller)
+	status, err := s.d.Accounts.Status(ctx, caller)
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("read account status: %w", err)
 	}
@@ -38,8 +38,8 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 	if err != nil {
 		return ReviewView{}, err
 	}
-	now := s.now()
-	r, err := s.reviews.ByOrder(ctx, order, role)
+	now := s.d.Now()
+	r, err := s.d.Reviews.ByOrder(ctx, order, role)
 	found := err == nil
 	switch {
 	case errors.Is(err, repository.ErrNotFound):
@@ -71,7 +71,7 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 		}
 		var processed map[uuid.UUID]mediasvc.ProcessResult
 		if len(fresh) > 0 {
-			if processed, err = s.media.Photos(ctx, caller, order, fresh); err != nil {
+			if processed, err = s.d.Media.Photos(ctx, caller, order, fresh); err != nil {
 				return ReviewView{}, fmt.Errorf("process the photos: %w", err)
 			}
 		}
@@ -88,7 +88,7 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 		tags = r.Tags()
 	}
 	if !found {
-		_, otherErr := s.reviews.ByOrder(ctx, order, role.Other())
+		_, otherErr := s.d.Reviews.ByOrder(ctx, order, role.Other())
 		if otherErr != nil && !errors.Is(otherErr, repository.ErrNotFound) {
 			return ReviewView{}, fmt.Errorf("get the other review: %w", otherErr)
 		}
@@ -96,16 +96,16 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 		if r, err = domain.NewReview(uuid.NewV7(), order, role, caller, subject, o.ListingID, stars, text, tags, kept, visibleAt, now); err != nil {
 			return ReviewView{}, err
 		}
-		err = s.reviews.Insert(ctx, r)
+		err = s.d.Reviews.Insert(ctx, r)
 	} else {
 		if err = r.Edit(stars, text, tags, kept, now); err != nil {
 			return ReviewView{}, err
 		}
-		err = s.reviews.Save(ctx, &r, uuid.NewV7())
+		err = s.d.Reviews.Save(ctx, &r, uuid.NewV7())
 	}
 	if errors.Is(err, repository.ErrConflict) {
 		// A double tap's twin may have written the same review.
-		if again, getErr := s.reviews.ByOrder(ctx, order, role); getErr == nil && again.Holds(stars, text, tags, photos) {
+		if again, getErr := s.d.Reviews.ByOrder(ctx, order, role); getErr == nil && again.Holds(stars, text, tags, photos) {
 			return s.reviewView(ctx, caller, again)
 		}
 		return ReviewView{}, apperr.ErrTryAgain
@@ -129,7 +129,7 @@ func (s *Trust) reviewView(ctx context.Context, caller uuid.UUID, r domain.Revie
 // its first submission and before a reply; a review posted again later
 // keeps that start. The caller's review deleted already is done (a retry).
 func (s *Trust) DeleteReview(ctx context.Context, caller, order uuid.UUID) error {
-	status, err := s.accounts.Status(ctx, caller)
+	status, err := s.d.Accounts.Status(ctx, caller)
 	if err != nil {
 		return fmt.Errorf("read account status: %w", err)
 	}
@@ -140,7 +140,7 @@ func (s *Trust) DeleteReview(ctx context.Context, caller, order uuid.UUID) error
 	if err != nil {
 		return err
 	}
-	r, err := s.reviews.ByOrder(ctx, order, role)
+	r, err := s.d.Reviews.ByOrder(ctx, order, role)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && r.ReviewerID() != caller) {
 		return domain.ErrNotFound
 	}
@@ -150,12 +150,12 @@ func (s *Trust) DeleteReview(ctx context.Context, caller, order uuid.UUID) error
 	if r.Deleted() {
 		return nil
 	}
-	if err = r.Delete(s.now()); err != nil {
+	if err = r.Delete(s.d.Now()); err != nil {
 		return err
 	}
-	err = s.reviews.Save(ctx, &r, uuid.NewV7())
+	err = s.d.Reviews.Save(ctx, &r, uuid.NewV7())
 	if errors.Is(err, repository.ErrConflict) {
-		if again, getErr := s.reviews.ByOrder(ctx, order, role); getErr == nil && again.Deleted() {
+		if again, getErr := s.d.Reviews.ByOrder(ctx, order, role); getErr == nil && again.Deleted() {
 			return nil
 		}
 		return apperr.ErrTryAgain
@@ -170,29 +170,29 @@ func (s *Trust) DeleteReview(ctx context.Context, caller, order uuid.UUID) error
 // closes it. Anyone but the subject gets review_not_found. The same reply
 // there already is answered as it is (a retry).
 func (s *Trust) ReplyReview(ctx context.Context, caller, id uuid.UUID, text string) (ReviewView, error) {
-	status, err := s.accounts.Status(ctx, caller)
+	status, err := s.d.Accounts.Status(ctx, caller)
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("read account status: %w", err)
 	}
 	if r := status.Refusal(); r != nil {
 		return ReviewView{}, r
 	}
-	r, err := s.reviews.Get(ctx, id)
+	r, err := s.d.Reviews.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return ReviewView{}, domain.ErrNotFound
 	}
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("get review: %w", err)
 	}
-	if err = r.Reply(caller, text, s.now()); err != nil {
+	if err = r.Reply(caller, text, s.d.Now()); err != nil {
 		if errors.Is(err, domain.ErrReplied) && r.HasReply(text) {
 			return s.reviewView(ctx, caller, r)
 		}
 		return ReviewView{}, err
 	}
-	err = s.reviews.Save(ctx, &r, uuid.NewV7())
+	err = s.d.Reviews.Save(ctx, &r, uuid.NewV7())
 	if errors.Is(err, repository.ErrConflict) {
-		if again, getErr := s.reviews.Get(ctx, id); getErr == nil && again.SubjectID() == caller && again.HasReply(text) {
+		if again, getErr := s.d.Reviews.Get(ctx, id); getErr == nil && again.SubjectID() == caller && again.HasReply(text) {
 			return s.reviewView(ctx, caller, again)
 		}
 		return ReviewView{}, apperr.ErrTryAgain
@@ -207,10 +207,10 @@ func (s *Trust) ReplyReview(ctx context.Context, caller, id uuid.UUID, text stri
 // newest first, with viewer's helpful marks. An unknown account is
 // accountdomain.ErrAccountNotFound.
 func (s *Trust) Reviews(ctx context.Context, viewer *uuid.UUID, subject uuid.UUID, role domain.Role, p page.Request) (page.Page[ReviewView], error) {
-	if _, err := s.accounts.Get(ctx, subject); err != nil {
+	if _, err := s.d.Accounts.Get(ctx, subject); err != nil {
 		return page.Page[ReviewView]{}, fmt.Errorf("read the account: %w", err)
 	}
-	rows, err := s.reviews.OfSubject(ctx, subject, role, s.now(), p)
+	rows, err := s.d.Reviews.OfSubject(ctx, subject, role, s.d.Now(), p)
 	if err != nil {
 		return page.Page[ReviewView]{}, fmt.Errorf("list reviews: %w", err)
 	}
@@ -225,7 +225,7 @@ func (s *Trust) Reviews(ctx context.Context, viewer *uuid.UUID, subject uuid.UUI
 // review the caller writes and its subject; any other order is
 // domain.ErrOrderNotFound, so an order's existence does not leak.
 func (s *Trust) partyOrder(ctx context.Context, caller, order uuid.UUID) (dealsvc.OrderFacts, domain.Role, uuid.UUID, error) {
-	o, found, err := s.deals.Order(ctx, order)
+	o, found, err := s.d.Deals.Order(ctx, order)
 	if err != nil {
 		return dealsvc.OrderFacts{}, "", uuid.UUID{}, fmt.Errorf("get order: %w", err)
 	}

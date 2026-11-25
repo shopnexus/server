@@ -26,15 +26,15 @@ func (s *Support) consoleTickets(ctx context.Context, ts []repository.Ticket) ([
 	for i := range ts {
 		people, convs = append(people, ts[i].AccountID), append(convs, ts[i].ConversationID)
 	}
-	accounts, err := s.accounts.GetMany(ctx, people)
+	accounts, err := s.d.Accounts.GetMany(ctx, people)
 	if err != nil {
 		return nil, fmt.Errorf("read the persons: %w", err)
 	}
-	contacts, err := s.accounts.Contacts(ctx, people)
+	contacts, err := s.d.Accounts.Contacts(ctx, people)
 	if err != nil {
 		return nil, fmt.Errorf("read the persons' contacts: %w", err)
 	}
-	threads, err := s.chats.Threads(ctx, accountdomain.ShopNexusID, convs)
+	threads, err := s.d.Chats.Threads(ctx, accountdomain.ShopNexusID, convs)
 	if err != nil {
 		return nil, fmt.Errorf("read the chats: %w", err)
 	}
@@ -57,7 +57,7 @@ func (s *Support) consoleTickets(ctx context.Context, ts []repository.Ticket) ([
 }
 
 func (s *Support) Queue(ctx context.Context, status domain.Status, kind *domain.Kind, p page.Request) (page.Page[ConsoleTicket], error) {
-	ts, err := s.tickets.Queue(ctx, status, kind, p)
+	ts, err := s.d.Tickets.Queue(ctx, status, kind, p)
 	if err != nil {
 		return page.Page[ConsoleTicket]{}, fmt.Errorf("read the queue: %w", err)
 	}
@@ -69,7 +69,7 @@ func (s *Support) Queue(ctx context.Context, status domain.Status, kind *domain.
 }
 
 func (s *Support) Detail(ctx context.Context, id uuid.UUID) (ConsoleTicketDetail, error) {
-	t, err := s.tickets.Get(ctx, id)
+	t, err := s.d.Tickets.Get(ctx, id)
 	if err != nil {
 		return ConsoleTicketDetail{}, fmt.Errorf("read the ticket: %w", err)
 	}
@@ -77,7 +77,7 @@ func (s *Support) Detail(ctx context.Context, id uuid.UUID) (ConsoleTicketDetail
 	if err != nil {
 		return ConsoleTicketDetail{}, err
 	}
-	who, err := s.accounts.GetMany(ctx, []uuid.UUID{t.AccountID})
+	who, err := s.d.Accounts.GetMany(ctx, []uuid.UUID{t.AccountID})
 	if err != nil {
 		return ConsoleTicketDetail{}, fmt.Errorf("read the person: %w", err)
 	}
@@ -85,12 +85,12 @@ func (s *Support) Detail(ctx context.Context, id uuid.UUID) (ConsoleTicketDetail
 		Ticket: shown[0], PersonStatus: who[t.AccountID].Status, JoinedAt: who[t.AccountID].CreatedAt, Others: []TicketView{},
 	}
 	if t.OrderID != nil {
-		f, ok, readErr := s.deals.Order(ctx, *t.OrderID)
+		f, ok, readErr := s.d.Deals.Order(ctx, *t.OrderID)
 		if readErr != nil {
 			return ConsoleTicketDetail{}, fmt.Errorf("read the order: %w", readErr)
 		}
 		if ok {
-			sellers, sellerErr := s.accounts.GetMany(ctx, []uuid.UUID{f.SellerID})
+			sellers, sellerErr := s.d.Accounts.GetMany(ctx, []uuid.UUID{f.SellerID})
 			if sellerErr != nil {
 				return ConsoleTicketDetail{}, fmt.Errorf("read the seller: %w", sellerErr)
 			}
@@ -105,13 +105,13 @@ func (s *Support) Detail(ctx context.Context, id uuid.UUID) (ConsoleTicketDetail
 		}
 	}
 	if t.Kind == domain.KindCarrierRequest {
-		n, countErr := s.tickets.SameCarrier(ctx, domain.CarrierKey(t.CarrierName), s.now().Add(-domain.SameCarrierWindow))
+		n, countErr := s.d.Tickets.SameCarrier(ctx, domain.CarrierKey(t.CarrierName), s.d.Now().Add(-domain.SameCarrierWindow))
 		if countErr != nil {
 			return ConsoleTicketDetail{}, fmt.Errorf("count requests for the carrier: %w", countErr)
 		}
 		out.SameCarrier30d = &n
 	}
-	others, err := s.tickets.OfAccount(ctx, t.AccountID)
+	others, err := s.d.Tickets.OfAccount(ctx, t.AccountID)
 	if err != nil {
 		return ConsoleTicketDetail{}, fmt.Errorf("read the person's tickets: %w", err)
 	}
@@ -130,7 +130,7 @@ func (s *Support) Detail(ctx context.Context, id uuid.UUID) (ConsoleTicketDetail
 	}
 	// A member opening the ticket reads its chat for ShopNexus, so the person sees "Đã xem".
 	if newest := out.Messages.Items; len(newest) > 0 && newest[0].Message.Status == chatdomain.StatusSent {
-		if err = s.chats.Read(ctx, accountdomain.ShopNexusID, t.ConversationID, newest[0].Message.ID); err != nil {
+		if err = s.d.Chats.Read(ctx, accountdomain.ShopNexusID, t.ConversationID, newest[0].Message.ID); err != nil {
 			return ConsoleTicketDetail{}, fmt.Errorf("mark the chat read: %w", err)
 		}
 	}
@@ -138,11 +138,11 @@ func (s *Support) Detail(ctx context.Context, id uuid.UUID) (ConsoleTicketDetail
 }
 
 func (s *Support) Messages(ctx context.Context, id uuid.UUID, p page.Request) (page.Page[ConsoleMessage], error) {
-	t, err := s.tickets.Get(ctx, id)
+	t, err := s.d.Tickets.Get(ctx, id)
 	if err != nil {
 		return page.Page[ConsoleMessage]{}, fmt.Errorf("read the ticket: %w", err)
 	}
-	msgs, err := s.chats.Messages(ctx, accountdomain.ShopNexusID, t.ConversationID, p)
+	msgs, err := s.d.Chats.Messages(ctx, accountdomain.ShopNexusID, t.ConversationID, p)
 	if err != nil {
 		return page.Page[ConsoleMessage]{}, fmt.Errorf("read the chat: %w", err)
 	}
@@ -150,7 +150,7 @@ func (s *Support) Messages(ctx context.Context, id uuid.UUID, p page.Request) (p
 	for i := range msgs.Items {
 		ids = append(ids, msgs.Items[i].ID)
 	}
-	replies, err := s.tickets.Members(ctx, ids)
+	replies, err := s.d.Tickets.Members(ctx, ids)
 	if err != nil {
 		return page.Page[ConsoleMessage]{}, fmt.Errorf("read who replied: %w", err)
 	}
@@ -163,18 +163,18 @@ func (s *Support) Messages(ctx context.Context, id uuid.UUID, p page.Request) (p
 }
 
 func (s *Support) Reply(ctx context.Context, id, key uuid.UUID, in ReplyInput, by audit.Actor) (ConsoleMessage, error) {
-	t, err := s.tickets.Get(ctx, id)
+	t, err := s.d.Tickets.Get(ctx, id)
 	if err != nil {
 		return ConsoleMessage{}, fmt.Errorf("read the ticket: %w", err)
 	}
-	m, err := s.chats.Send(ctx, accountdomain.ShopNexusID, t.ConversationID, key, chatsvc.SendInput{Text: in.Body, ReplyTo: in.ReplyTo})
+	m, err := s.d.Chats.Send(ctx, accountdomain.ShopNexusID, t.ConversationID, key, chatsvc.SendInput{Text: in.Body, ReplyTo: in.ReplyTo})
 	if err != nil {
 		return ConsoleMessage{}, fmt.Errorf("send the reply: %w", err)
 	}
-	if err = s.tickets.RecordReply(ctx, t.ID, m.ID, &by, s.now()); err != nil {
+	if err = s.d.Tickets.RecordReply(ctx, t.ID, m.ID, &by, s.d.Now()); err != nil {
 		return ConsoleMessage{}, fmt.Errorf("record the reply: %w", err)
 	}
-	replies, err := s.tickets.Members(ctx, []uuid.UUID{m.ID})
+	replies, err := s.d.Tickets.Members(ctx, []uuid.UUID{m.ID})
 	if err != nil {
 		return ConsoleMessage{}, fmt.Errorf("read who replied: %w", err)
 	}
@@ -182,7 +182,7 @@ func (s *Support) Reply(ctx context.Context, id, key uuid.UUID, in ReplyInput, b
 }
 
 func (s *Support) Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error) {
-	t, err := s.tickets.Get(ctx, id)
+	t, err := s.d.Tickets.Get(ctx, id)
 	if err != nil {
 		return ConsoleTicket{}, fmt.Errorf("read the ticket: %w", err)
 	}
@@ -192,7 +192,7 @@ func (s *Support) Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (Co
 		// resolving: the retry sends it once, and a ticket reopened and
 		// resolved again sends it again.
 		key := restatex.DerivedID("resolve", t.ID.String(), strconv.Itoa(len(t.Events)+1))
-		m, sendErr := s.chats.Send(ctx, accountdomain.ShopNexusID, t.ConversationID, key,
+		m, sendErr := s.d.Chats.Send(ctx, accountdomain.ShopNexusID, t.ConversationID, key,
 			chatsvc.SendInput{Text: "Đã ghi nhận hãng " + t.CarrierName + "."})
 		switch {
 		case errors.Is(sendErr, accountdomain.ErrAccountDeleted):
@@ -200,12 +200,12 @@ func (s *Support) Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (Co
 		case sendErr != nil:
 			return ConsoleTicket{}, fmt.Errorf("send the note: %w", sendErr)
 		default:
-			if err = s.tickets.RecordReply(ctx, t.ID, m.ID, nil, s.now()); err != nil {
+			if err = s.d.Tickets.RecordReply(ctx, t.ID, m.ID, nil, s.d.Now()); err != nil {
 				return ConsoleTicket{}, fmt.Errorf("record the note: %w", err)
 			}
 		}
 	}
-	if t, err = s.tickets.Resolve(ctx, id, uuid.NewV7(), &by, s.now()); err != nil {
+	if t, err = s.d.Tickets.Resolve(ctx, id, uuid.NewV7(), &by, s.d.Now()); err != nil {
 		return ConsoleTicket{}, fmt.Errorf("resolve the ticket: %w", err)
 	}
 	shown, err := s.consoleTickets(ctx, []repository.Ticket{t})
@@ -216,7 +216,7 @@ func (s *Support) Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (Co
 }
 
 func (s *Support) Reopen(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error) {
-	t, err := s.tickets.Reopen(ctx, id, uuid.NewV7(), &by, s.now())
+	t, err := s.d.Tickets.Reopen(ctx, id, uuid.NewV7(), &by, s.d.Now())
 	if err != nil {
 		return ConsoleTicket{}, fmt.Errorf("reopen the ticket: %w", err)
 	}
@@ -231,7 +231,7 @@ func (s *Support) Reopen(ctx context.Context, id uuid.UUID, by audit.Actor) (Con
 const TicketsOfLimit = 50
 
 func (s *Support) TicketsOf(ctx context.Context, account uuid.UUID) ([]ConsoleTicket, error) {
-	ts, err := s.tickets.Involving(ctx, account, TicketsOfLimit)
+	ts, err := s.d.Tickets.Involving(ctx, account, TicketsOfLimit)
 	if err != nil {
 		return nil, fmt.Errorf("read the account's tickets: %w", err)
 	}
@@ -239,7 +239,7 @@ func (s *Support) TicketsOf(ctx context.Context, account uuid.UUID) ([]ConsoleTi
 }
 
 func (s *Support) OpenCount(ctx context.Context) (int, error) {
-	n, err := s.tickets.CountOpen(ctx)
+	n, err := s.d.Tickets.CountOpen(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("count open tickets: %w", err)
 	}
@@ -247,7 +247,7 @@ func (s *Support) OpenCount(ctx context.Context) (int, error) {
 }
 
 func (s *Support) CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error) {
-	n, err := s.tickets.CountByStatus(ctx, since)
+	n, err := s.d.Tickets.CountByStatus(ctx, since)
 	if err != nil {
 		return nil, fmt.Errorf("count tickets: %w", err)
 	}

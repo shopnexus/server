@@ -74,18 +74,19 @@ type Photo struct {
 	ThumbKey string    `json:"thumb_key"`
 }
 
-// Draft is feedback as its person sent it, checked. Mood 0 and an empty
-// Kind, Text, Screen or PageURL mean none; Source is app unless web.
+// Draft is feedback as its person sends it, the FeedbackDraft schema; once
+// NewFeedback checked it, Source is app unless web. Mood 0 and an empty
+// Kind, Text, Screen or PageURL mean none.
 type Draft struct {
-	Mood    int
-	Kind    Kind
-	Text    string
-	Photos  []uuid.UUID
-	Device  *Device
-	Screen  string
-	Contact bool
-	Source  Source
-	PageURL string
+	Mood    int         `json:"mood"`
+	Kind    Kind        `json:"kind"`
+	Text    string      `json:"text"`
+	Photos  []uuid.UUID `json:"photos"`
+	Device  *Device     `json:"device"`
+	Screen  string      `json:"screen"`
+	Contact bool        `json:"contact"`
+	Source  Source      `json:"source"`
+	PageURL string      `json:"page_url"`
 }
 
 // NewFeedback checks feedback: it needs a mood or a text that is not

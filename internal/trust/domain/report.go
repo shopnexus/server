@@ -32,18 +32,7 @@ const MaxNote = 500
 // report only, is the reporter's conversation with the account; zero when
 // none was named.
 type Report struct {
-	id             uuid.UUID
-	reporterID     uuid.UUID
-	accountID      uuid.UUID
-	listingID      uuid.UUID
-	conversationID uuid.UUID
-	reason         Reason
-	note           string
-	createdAt      time.Time
-	updatedAt      time.Time
-	withdrawnAt    *time.Time
-	// resolved is set once a console member resolved the report's case.
-	resolved bool
+	s ReportState
 }
 
 // ReportStatus is where a report stands for its reporter.
@@ -76,30 +65,30 @@ func NewReport(id, reporter, account, listing, conversation uuid.UUID, reason Re
 	if len(e.Fields) > 0 {
 		return Report{}, e
 	}
-	return Report{
-		id: id, reporterID: reporter, accountID: account, listingID: listing, conversationID: conversation,
-		reason: reason, note: note, createdAt: now, updatedAt: now,
-	}, nil
+	return Report{s: ReportState{
+		ID: id, ReporterID: reporter, AccountID: account, ListingID: listing, ConversationID: conversation,
+		Reason: reason, Note: note, CreatedAt: now, UpdatedAt: now,
+	}}, nil
 }
 
-func (r *Report) ID() uuid.UUID             { return r.id }
-func (r *Report) ReporterID() uuid.UUID     { return r.reporterID }
-func (r *Report) AccountID() uuid.UUID      { return r.accountID }
-func (r *Report) ListingID() uuid.UUID      { return r.listingID }
-func (r *Report) ConversationID() uuid.UUID { return r.conversationID }
-func (r *Report) Reason() Reason            { return r.reason }
-func (r *Report) Note() string              { return r.note }
-func (r *Report) CreatedAt() time.Time      { return r.createdAt }
-func (r *Report) UpdatedAt() time.Time      { return r.updatedAt }
-func (r *Report) WithdrawnAt() *time.Time   { return r.withdrawnAt }
+func (r *Report) ID() uuid.UUID             { return r.s.ID }
+func (r *Report) ReporterID() uuid.UUID     { return r.s.ReporterID }
+func (r *Report) AccountID() uuid.UUID      { return r.s.AccountID }
+func (r *Report) ListingID() uuid.UUID      { return r.s.ListingID }
+func (r *Report) ConversationID() uuid.UUID { return r.s.ConversationID }
+func (r *Report) Reason() Reason            { return r.s.Reason }
+func (r *Report) Note() string              { return r.s.Note }
+func (r *Report) CreatedAt() time.Time      { return r.s.CreatedAt }
+func (r *Report) UpdatedAt() time.Time      { return r.s.UpdatedAt }
+func (r *Report) WithdrawnAt() *time.Time   { return r.s.WithdrawnAt }
 
 // Status is withdrawn once the reporter withdrew the report, else resolved
 // once its case was resolved, else open.
 func (r *Report) Status() ReportStatus {
 	switch {
-	case r.withdrawnAt != nil:
+	case r.s.WithdrawnAt != nil:
 		return ReportWithdrawn
-	case r.resolved:
+	case r.s.Resolved:
 		return ReportResolved
 	}
 	return ReportOpen
@@ -117,23 +106,12 @@ type ReportState struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	WithdrawnAt    *time.Time
-	Resolved       bool
+	// Resolved is set once a console member resolved the report's case.
+	Resolved bool
 }
 
 // RestoreReport rebuilds a stored report. Stores only.
-func RestoreReport(st ReportState) Report {
-	return Report{
-		id: st.ID, reporterID: st.ReporterID, accountID: st.AccountID, listingID: st.ListingID,
-		conversationID: st.ConversationID, reason: st.Reason, note: st.Note, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt, withdrawnAt: st.WithdrawnAt,
-		resolved: st.Resolved,
-	}
-}
+func RestoreReport(st ReportState) Report { return Report{s: st} }
 
 // State returns every stored field. Stores only.
-func (r *Report) State() ReportState {
-	return ReportState{
-		ID: r.id, ReporterID: r.reporterID, AccountID: r.accountID, ListingID: r.listingID,
-		ConversationID: r.conversationID, Reason: r.reason, Note: r.note, CreatedAt: r.createdAt, UpdatedAt: r.updatedAt, WithdrawnAt: r.withdrawnAt,
-		Resolved: r.resolved,
-	}
-}
+func (r *Report) State() ReportState { return r.s }

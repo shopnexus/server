@@ -30,19 +30,19 @@ type Watcher struct {
 }
 
 func (d *Discovery) Watchers(ctx context.Context, seller uuid.UUID, q WatcherQuery) ([]Watcher, error) {
-	blocks, err := d.accounts.BlockedWith(ctx, seller)
+	blocks, err := d.d.Accounts.BlockedWith(ctx, seller)
 	if err != nil {
 		return nil, fmt.Errorf("read blocks: %w", err)
 	}
 	root, _, _ := strings.Cut(q.CategoryCode, ".")
-	candidates, err := d.watches.Candidates(ctx, repository.CandidateFilter{
+	candidates, err := d.d.Watches.Candidates(ctx, repository.CandidateFilter{
 		CategoryCode: q.CategoryCode, CategoryRoot: root, Condition: string(q.Condition),
 		Exclude: append([]uuid.UUID{seller}, blocks...), Limit: domain.MaxWatcherCandidates,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read watch candidates: %w", err)
 	}
-	words, err := d.catalog.Words(ctx, q.Text)
+	words, err := d.d.Catalog.Words(ctx, q.Text)
 	if err != nil {
 		return nil, fmt.Errorf("split the listing's words: %w", err)
 	}

@@ -259,11 +259,7 @@ func (q *query) filters(s domain.Search) string {
 		out = append(out, `l.price <= `+q.arg(f.PriceMax, "bigint"))
 	}
 	if len(f.Conditions) > 0 {
-		conds := make([]string, len(f.Conditions))
-		for i, c := range f.Conditions {
-			conds[i] = string(c)
-		}
-		out = append(out, `l.condition = ANY(`+q.arg(conds, "text[]")+`)`)
+		out = append(out, `l.condition = ANY(`+q.arg(f.Conditions, "text[]")+`)`)
 	}
 	if f.OffersOnly {
 		out = append(out, `l.allow_offers`)

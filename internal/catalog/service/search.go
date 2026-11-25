@@ -38,7 +38,7 @@ func (c *Catalog) Search(ctx context.Context, s domain.Search) ([]SearchCard, er
 	if err != nil {
 		return nil, err
 	}
-	hits, err := c.searches.Search(ctx, s)
+	hits, err := c.d.Searches.Search(ctx, s)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
@@ -46,7 +46,7 @@ func (c *Catalog) Search(ctx context.Context, s domain.Search) ([]SearchCard, er
 	for i, h := range hits {
 		ids[i] = h.ID
 	}
-	ls, err := c.listings.GetMany(ctx, ids)
+	ls, err := c.d.Listings.GetMany(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("read listings: %w", err)
 	}
@@ -74,7 +74,7 @@ func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain
 	if err != nil {
 		return nil, err
 	}
-	now := c.now()
+	now := c.d.Now()
 	out := make([]SearchCard, len(ls))
 	for i := range ls {
 		l := &ls[i]
@@ -85,11 +85,11 @@ func (c *Catalog) cards(ctx context.Context, ls []domain.Listing, origin *domain
 		}
 		ps := l.Photos()
 		if len(ps) > 0 && ps[0].Keys.Photo != "" {
-			out[i].CoverThumbURL = c.media.URL(ps[0].Keys.Thumb)
+			out[i].CoverThumbURL = c.d.Media.URL(ps[0].Keys.Thumb)
 		}
 		for _, p := range ps[:min(len(ps), CardPhotos)] {
 			if p.Keys.Photo != "" {
-				out[i].PhotoThumbURLs = append(out[i].PhotoThumbURLs, c.media.URL(p.Keys.Thumb))
+				out[i].PhotoThumbURLs = append(out[i].PhotoThumbURLs, c.d.Media.URL(p.Keys.Thumb))
 			}
 		}
 		if origin != nil {
@@ -107,7 +107,7 @@ func (c *Catalog) Counts(ctx context.Context, s domain.Search) ([]domain.Categor
 	if err != nil {
 		return nil, err
 	}
-	counts, err := c.searches.Counts(ctx, s)
+	counts, err := c.d.Searches.Counts(ctx, s)
 	if err != nil {
 		return nil, fmt.Errorf("count listings: %w", err)
 	}
@@ -115,7 +115,7 @@ func (c *Catalog) Counts(ctx context.Context, s domain.Search) ([]domain.Categor
 }
 
 func (c *Catalog) FindPlaces(ctx context.Context, names []string) (map[string]domain.Point, error) {
-	found, err := c.regions.FindPlaces(ctx, names)
+	found, err := c.d.Regions.FindPlaces(ctx, names)
 	if err != nil {
 		return nil, fmt.Errorf("find places: %w", err)
 	}
@@ -133,10 +133,10 @@ func (c *Catalog) FindPlaces(ctx context.Context, names []string) (map[string]do
 // leaves its lists out, and BM25 and the boosts answer.
 func (c *Catalog) withVectors(ctx context.Context, s domain.Search) (domain.Search, error) {
 	if s.Hybrid() {
-		s.Vectors.TextVersion, s.Vectors.PhotoVersion = c.textVersion, c.imageVersion
+		s.Vectors.TextVersion, s.Vectors.PhotoVersion = c.d.TextVersion, c.d.ImageVersion
 	}
 	if s.Like != (uuid.UUID{}) {
-		text, photo, err := c.vectors.Source(ctx, s.Like, c.textVersion, c.imageVersion)
+		text, photo, err := c.d.Vectors.Source(ctx, s.Like, c.d.TextVersion, c.d.ImageVersion)
 		if err != nil {
 			return s, fmt.Errorf("read the source's vectors: %w", err)
 		}
@@ -146,7 +146,7 @@ func (c *Catalog) withVectors(ctx context.Context, s domain.Search) (domain.Sear
 }
 
 func (c *Catalog) Words(ctx context.Context, text string) ([]string, error) {
-	words, err := c.searches.Words(ctx, text)
+	words, err := c.d.Searches.Words(ctx, text)
 	if err != nil {
 		return nil, fmt.Errorf("split words: %w", err)
 	}

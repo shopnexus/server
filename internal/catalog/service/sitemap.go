@@ -21,11 +21,11 @@ const sitemapAreaMin = 5
 
 // Sitemap counts the parts of the public listings and of their sellers.
 func (c *Catalog) Sitemap(ctx context.Context) (SitemapView, error) {
-	listings, err := c.listings.ListingParts(ctx, sitemapPartSize)
+	listings, err := c.d.Listings.ListingParts(ctx, sitemapPartSize)
 	if err != nil {
 		return SitemapView{}, fmt.Errorf("count listing parts: %w", err)
 	}
-	sellers, err := c.listings.SellerParts(ctx, sitemapPartSize)
+	sellers, err := c.d.Listings.SellerParts(ctx, sitemapPartSize)
 	if err != nil {
 		return SitemapView{}, fmt.Errorf("count seller parts: %w", err)
 	}
@@ -49,7 +49,7 @@ func partView(p repository.SitemapPart) SitemapPartView {
 
 // SitemapListings reads one part of the public listings as web addresses.
 func (c *Catalog) SitemapListings(ctx context.Context, cursor uuid.UUID) ([]SitemapListingView, error) {
-	rows, err := c.listings.SitemapListings(ctx, page.Request{Cursor: cursor}.Before(), sitemapPartSize)
+	rows, err := c.d.Listings.SitemapListings(ctx, page.Request{Cursor: cursor}.Before(), sitemapPartSize)
 	if err != nil {
 		return nil, fmt.Errorf("list sitemap listings: %w", err)
 	}
@@ -57,7 +57,7 @@ func (c *Catalog) SitemapListings(ctx context.Context, cursor uuid.UUID) ([]Site
 	for _, l := range rows {
 		photos := make([]string, len(l.Photos))
 		for i, key := range l.Photos {
-			photos[i] = c.media.URL(key)
+			photos[i] = c.d.Media.URL(key)
 		}
 		v = append(v, SitemapListingView{Slug: domain.Slug(l.Title, l.Code), Photos: photos, UpdatedAt: l.UpdatedAt})
 	}
@@ -66,7 +66,7 @@ func (c *Catalog) SitemapListings(ctx context.Context, cursor uuid.UUID) ([]Site
 
 // SitemapSellers reads one part of the sellers with a public listing.
 func (c *Catalog) SitemapSellers(ctx context.Context, cursor uuid.UUID) ([]SitemapSellerView, error) {
-	rows, err := c.listings.SitemapSellers(ctx, page.Request{Cursor: cursor}.Before(), sitemapPartSize)
+	rows, err := c.d.Listings.SitemapSellers(ctx, page.Request{Cursor: cursor}.Before(), sitemapPartSize)
 	if err != nil {
 		return nil, fmt.Errorf("list sitemap sellers: %w", err)
 	}
@@ -80,7 +80,7 @@ func (c *Catalog) SitemapSellers(ctx context.Context, cursor uuid.UUID) ([]Sitem
 // SitemapAreas lists the root categories and provinces with at least
 // sitemapAreaMin listings on sale.
 func (c *Catalog) SitemapAreas(ctx context.Context) ([]SitemapAreaView, error) {
-	rows, err := c.listings.SitemapAreas(ctx, sitemapAreaMin)
+	rows, err := c.d.Listings.SitemapAreas(ctx, sitemapAreaMin)
 	if err != nil {
 		return nil, fmt.Errorf("list sitemap areas: %w", err)
 	}

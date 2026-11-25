@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
@@ -50,37 +51,14 @@ func (h *Handler) Report(w http.ResponseWriter, r *http.Request) {
 
 // MyReports serves GET /v1/reports.
 func (h *Handler) MyReports(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in page.Request
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.MyReports(r.Context(), p.AccountID, in)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in page.Request) (page.Page[service.ReportView], error) {
+		return h.svc.MyReports(r.Context(), p.AccountID, in)
+	})
 }
 
 // WithdrawReport serves DELETE /v1/reports/{id}.
 func (h *Handler) WithdrawReport(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in reportIDRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.WithdrawReport(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in reportIDRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.WithdrawReport(r.Context(), p.AccountID, in.ID)
+	})
 }

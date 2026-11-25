@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/support/service"
 )
@@ -63,30 +64,17 @@ func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 
 // List serves GET /v1/support/tickets.
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	items, err := h.svc.Mine(r.Context(), p.AccountID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, map[string]any{"items": items})
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, _ httpx.None) (map[string]any, error) {
+		items, err := h.svc.Mine(r.Context(), p.AccountID)
+		return map[string]any{"items": items}, err
+	})
 }
 
 // Summary serves GET /v1/support/summary.
 func (h *Handler) Summary(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	out, err := h.svc.Summary(r.Context(), p.AccountID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, _ httpx.None) (service.SummaryView, error) {
+		return h.svc.Summary(r.Context(), p.AccountID)
+	})
 }
 
 type orderRequest struct {
@@ -95,19 +83,7 @@ type orderRequest struct {
 
 // OfOrder serves GET /v1/support/orders/{order_id}/ticket.
 func (h *Handler) OfOrder(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in orderRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.OfOrder(r.Context(), p.AccountID, in.OrderID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in orderRequest) (service.TicketView, error) {
+		return h.svc.OfOrder(r.Context(), p.AccountID, in.OrderID)
+	})
 }

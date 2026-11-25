@@ -39,7 +39,7 @@ type ViewedRail struct {
 // Both leave out the viewer's own listings and the ones search leaves out,
 // and measure each card from near when it names a position.
 func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near) (ForYou, error) {
-	origin, originErr := d.catalog.Origin(ctx, near)
+	origin, originErr := d.d.Catalog.Origin(ctx, near)
 	if originErr != nil {
 		return ForYou{}, fmt.Errorf("read the position: %w", originErr)
 	}
@@ -53,16 +53,16 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 			return ForYou{}, err
 		}
 		sellers = append(sellers, *viewer)
-		since := domain.ForYouSince(d.now())
-		marks, err := d.views.Recent(ctx, *viewer, since, domain.MaxViewSignals)
+		since := domain.ForYouSince(d.d.Now())
+		marks, err := d.d.Views.Recent(ctx, *viewer, since, domain.MaxViewSignals)
 		if err != nil {
 			return ForYou{}, fmt.Errorf("read views: %w", err)
 		}
-		saves, err := d.saves.Recent(ctx, *viewer, since, domain.MaxSaveSignals)
+		saves, err := d.d.Saves.Recent(ctx, *viewer, since, domain.MaxSaveSignals)
 		if err != nil {
 			return ForYou{}, fmt.Errorf("read saves: %w", err)
 		}
-		history, err := d.history.List(ctx, *viewer)
+		history, err := d.d.History.List(ctx, *viewer)
 		if err != nil {
 			return ForYou{}, fmt.Errorf("read the search history: %w", err)
 		}
@@ -70,7 +70,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 		for i, m := range marks {
 			opened[i] = m.Listing
 		}
-		listings, err := d.catalog.Summaries(ctx, slices.Concat(opened, saves))
+		listings, err := d.d.Catalog.Summaries(ctx, slices.Concat(opened, saves))
 		if err != nil {
 			return ForYou{}, fmt.Errorf("read the listings of the signals: %w", err)
 		}
@@ -99,7 +99,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 		}
 	}
 
-	cards, err := d.catalog.Search(ctx, feed)
+	cards, err := d.d.Catalog.Search(ctx, feed)
 	if err != nil {
 		return ForYou{}, fmt.Errorf("read the feed: %w", err)
 	}
@@ -111,7 +111,7 @@ func (d *Discovery) ForYou(ctx context.Context, viewer *uuid.UUID, near catalogd
 	if rail.Filters.CategoryCode == "" {
 		return out, nil
 	}
-	if cards, err = d.catalog.Search(ctx, rail); err != nil {
+	if cards, err = d.d.Catalog.Search(ctx, rail); err != nil {
 		return ForYou{}, fmt.Errorf("read the viewed rail: %w", err)
 	}
 	cards = firstDistinct(cards, domain.MaxViewed)

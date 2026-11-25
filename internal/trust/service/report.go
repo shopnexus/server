@@ -19,7 +19,7 @@ import (
 // named conversation is the pair's, then opens the report or updates the
 // open one.
 func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) (ReportView, bool, error) {
-	status, err := s.accounts.Status(ctx, reporter)
+	status, err := s.d.Accounts.Status(ctx, reporter)
 	if err != nil {
 		return ReportView{}, false, fmt.Errorf("read account status: %w", err)
 	}
@@ -34,7 +34,7 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 	}
 	account := in.AccountID
 	if in.ListingID != (uuid.UUID{}) {
-		l, found, lerr := s.catalog.Summary(ctx, in.ListingID)
+		l, found, lerr := s.d.Catalog.Summary(ctx, in.ListingID)
 		if lerr != nil {
 			return ReportView{}, false, fmt.Errorf("read listing: %w", lerr)
 		}
@@ -42,11 +42,11 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 			return ReportView{}, false, catalogdomain.ErrNotFound
 		}
 		account = l.SellerID
-	} else if _, err = s.accounts.Get(ctx, account); err != nil {
+	} else if _, err = s.d.Accounts.Get(ctx, account); err != nil {
 		return ReportView{}, false, fmt.Errorf("read account: %w", err)
 	}
 	if in.ConversationID != (uuid.UUID{}) && in.ListingID == (uuid.UUID{}) {
-		pair, cerr := s.chats.ConversationWith(ctx, reporter, account)
+		pair, cerr := s.d.Chats.ConversationWith(ctx, reporter, account)
 		if cerr != nil {
 			return ReportView{}, false, fmt.Errorf("find the pair's conversation: %w", cerr)
 		}
@@ -54,11 +54,11 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 			return ReportView{}, false, domain.ErrInvalidReport.WithField("conversation_id", apperr.NotAllowed, "the reporter's conversation with the account")
 		}
 	}
-	r, err := domain.NewReport(uuid.NewV7(), reporter, account, in.ListingID, in.ConversationID, in.Reason, in.Note, s.now())
+	r, err := domain.NewReport(uuid.NewV7(), reporter, account, in.ListingID, in.ConversationID, in.Reason, in.Note, s.d.Now())
 	if err != nil {
 		return ReportView{}, false, err
 	}
-	r, added, err := s.reports.Open(ctx, r)
+	r, added, err := s.d.Reports.Open(ctx, r)
 	if err != nil {
 		return ReportView{}, false, fmt.Errorf("open report: %w", err)
 	}
@@ -67,7 +67,7 @@ func (s *Trust) Report(ctx context.Context, reporter uuid.UUID, in ReportInput) 
 
 // MyReports lists a page of the reporter's reports, newest first.
 func (s *Trust) MyReports(ctx context.Context, reporter uuid.UUID, p page.Request) (page.Page[ReportView], error) {
-	rows, err := s.reports.ListMine(ctx, reporter, p)
+	rows, err := s.d.Reports.ListMine(ctx, reporter, p)
 	if err != nil {
 		return page.Page[ReportView]{}, fmt.Errorf("list reports: %w", err)
 	}
@@ -82,21 +82,21 @@ func (s *Trust) MyReports(ctx context.Context, reporter uuid.UUID, p page.Reques
 // WithdrawReport withdraws the reporter's report; anyone else's, or an
 // unknown ID, is domain.ErrReportNotFound.
 func (s *Trust) WithdrawReport(ctx context.Context, reporter, id uuid.UUID) error {
-	status, err := s.accounts.Status(ctx, reporter)
+	status, err := s.d.Accounts.Status(ctx, reporter)
 	if err != nil {
 		return fmt.Errorf("read account status: %w", err)
 	}
 	if refusal := status.Refusal(); refusal != nil {
 		return refusal
 	}
-	r, err := s.reports.Get(ctx, id)
+	r, err := s.d.Reports.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && r.ReporterID() != reporter) {
 		return domain.ErrReportNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("get report: %w", err)
 	}
-	if err = s.reports.Withdraw(ctx, id, s.now()); err != nil {
+	if err = s.d.Reports.Withdraw(ctx, id, s.d.Now()); err != nil {
 		return fmt.Errorf("withdraw report: %w", err)
 	}
 	return nil

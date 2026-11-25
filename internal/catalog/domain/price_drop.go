@@ -18,19 +18,19 @@ type PriceDrop struct {
 
 // PriceDrop is the listing's last price change while it shows at now.
 func (l *Listing) PriceDrop(now time.Time) (PriceDrop, bool) {
-	if l.priceChangedAt == nil || now.Sub(*l.priceChangedAt) >= PriceDropShownFor ||
-		(l.previousPrice-l.price)*100 < l.previousPrice*PriceDropMinPercent {
+	if l.s.PriceChangedAt == nil || now.Sub(*l.s.PriceChangedAt) >= PriceDropShownFor ||
+		(l.s.PreviousPrice-l.s.Price)*100 < l.s.PreviousPrice*PriceDropMinPercent {
 		return PriceDrop{}, false
 	}
-	return PriceDrop{PreviousPrice: l.previousPrice, DroppedAt: *l.priceChangedAt}, true
+	return PriceDrop{PreviousPrice: l.s.PreviousPrice, DroppedAt: *l.s.PriceChangedAt}, true
 }
 
 // repriced records that the price changed from was at now. A raise less
 // than PriceDropShownFor old is not a price to drop from, so raising and
 // then lowering shows no drop the buyer never had.
 func (l *Listing) repriced(was int64, now time.Time) {
-	if l.priceChangedAt != nil && now.Sub(*l.priceChangedAt) < PriceDropShownFor && l.previousPrice < was {
-		was = l.previousPrice
+	if l.s.PriceChangedAt != nil && now.Sub(*l.s.PriceChangedAt) < PriceDropShownFor && l.s.PreviousPrice < was {
+		was = l.s.PreviousPrice
 	}
-	l.previousPrice, l.priceChangedAt = was, &now
+	l.s.PreviousPrice, l.s.PriceChangedAt = was, &now
 }

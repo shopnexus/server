@@ -14,16 +14,16 @@ import (
 // transaction: an extension whose write then fails only keeps a photo
 // longer.
 func (c *Catalog) PutDraft(ctx context.Context, account, id uuid.UUID, content domain.DraftContent) (DraftView, bool, error) {
-	now := c.now()
-	gone, err := c.media.Gone(ctx, account, content.Photos)
+	now := c.d.Now()
+	gone, err := c.d.Media.Gone(ctx, account, content.Photos)
 	if err != nil {
 		return DraftView{}, false, fmt.Errorf("find the photos that are gone: %w", err)
 	}
 	content.Photos = domain.KeepPhotos(content.Photos, gone)
-	if err = c.media.Extend(ctx, account, content.Photos); err != nil {
+	if err = c.d.Media.Extend(ctx, account, content.Photos); err != nil {
 		return DraftView{}, false, fmt.Errorf("keep the photos: %w", err)
 	}
-	d, created, err := c.drafts.Put(ctx, account, id, content, now)
+	d, created, err := c.d.Drafts.Put(ctx, account, id, content, now)
 	if err != nil {
 		return DraftView{}, false, fmt.Errorf("put draft: %w", err)
 	}
@@ -35,7 +35,7 @@ func (c *Catalog) PutDraft(ctx context.Context, account, id uuid.UUID, content d
 // first, once their expired drafts are deleted. A photo a listing took or
 // that expired is left out of the answer, without a write to the draft.
 func (c *Catalog) ListDrafts(ctx context.Context, account uuid.UUID) ([]DraftView, error) {
-	ds, err := c.drafts.List(ctx, account, c.now())
+	ds, err := c.d.Drafts.List(ctx, account, c.d.Now())
 	if err != nil {
 		return nil, fmt.Errorf("list drafts: %w", err)
 	}
@@ -43,7 +43,7 @@ func (c *Catalog) ListDrafts(ctx context.Context, account uuid.UUID) ([]DraftVie
 	for i := range ds {
 		all = append(all, ds[i].Photos()...)
 	}
-	gone, err := c.media.Gone(ctx, account, all)
+	gone, err := c.d.Media.Gone(ctx, account, all)
 	if err != nil {
 		return nil, fmt.Errorf("find the photos that are gone: %w", err)
 	}
@@ -59,11 +59,11 @@ func (c *Catalog) ListDrafts(ctx context.Context, account uuid.UUID) ([]DraftVie
 // GetDraft is UC-LST-01 A4: it reads the caller's draft id, leaving out a
 // photo a listing took or that expired, as ListDrafts does.
 func (c *Catalog) GetDraft(ctx context.Context, account, id uuid.UUID) (DraftView, error) {
-	d, err := c.drafts.Get(ctx, account, id, c.now())
+	d, err := c.d.Drafts.Get(ctx, account, id, c.d.Now())
 	if err != nil {
 		return DraftView{}, fmt.Errorf("get draft: %w", err)
 	}
-	gone, err := c.media.Gone(ctx, account, d.Photos())
+	gone, err := c.d.Media.Gone(ctx, account, d.Photos())
 	if err != nil {
 		return DraftView{}, fmt.Errorf("find the photos that are gone: %w", err)
 	}
@@ -74,7 +74,7 @@ func (c *Catalog) GetDraft(ctx context.Context, account, id uuid.UUID) (DraftVie
 // account's draft, or none, changes nothing. Its photos expire on their
 // own.
 func (c *Catalog) DeleteDraft(ctx context.Context, account, id uuid.UUID) error {
-	if err := c.drafts.Delete(ctx, account, id); err != nil {
+	if err := c.d.Drafts.Delete(ctx, account, id); err != nil {
 		return fmt.Errorf("delete draft: %w", err)
 	}
 	return nil
@@ -91,7 +91,7 @@ func (c *Catalog) draftView(ctx context.Context, d domain.ListingDraft, gone []u
 		Photos: make([]DraftPhotoView, 0, len(photos)), UpdatedAt: d.UpdatedAt(), ExpiresAt: d.ExpiresAt(),
 	}
 	for _, id := range photos {
-		url, err := c.media.PresignPhoto(ctx, id)
+		url, err := c.d.Media.PresignPhoto(ctx, id)
 		if err != nil {
 			return DraftView{}, fmt.Errorf("presign a photo: %w", err)
 		}

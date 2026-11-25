@@ -20,11 +20,11 @@ func (m *Media) Extend(ctx context.Context, owner uuid.UUID, ids []uuid.UUID) er
 	if len(ids) == 0 {
 		return nil
 	}
-	now := m.now()
+	now := m.d.Now()
 	ids = slices.Clone(ids)
 	slices.SortFunc(ids, uuid.UUID.Compare)
 	ids = slices.Compact(ids)
-	found, err := m.uploads.GetMany(ctx, ids)
+	found, err := m.d.Uploads.GetMany(ctx, ids)
 	if err != nil {
 		return fmt.Errorf("get uploads: %w", err)
 	}
@@ -42,7 +42,7 @@ func (m *Media) Extend(ctx context.Context, owner uuid.UUID, ids []uuid.UUID) er
 		}
 		ups[i] = u
 	}
-	if err = m.uploads.SaveAll(ctx, ups, uuid.NewV7()); err != nil {
+	if err = m.d.Uploads.SaveAll(ctx, ups, uuid.NewV7()); err != nil {
 		if errors.Is(err, repository.ErrConflict) {
 			return apperr.ErrTryAgain
 		}
@@ -58,8 +58,8 @@ func (m *Media) Gone(ctx context.Context, owner uuid.UUID, ids []uuid.UUID) ([]u
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	now := m.now()
-	found, err := m.uploads.GetMany(ctx, ids)
+	now := m.d.Now()
+	found, err := m.d.Uploads.GetMany(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("get uploads: %w", err)
 	}

@@ -54,11 +54,11 @@ type OrderReviews struct {
 // party caller sees them, keyed by order. The caller must be a party to
 // each order; screen checks that first.
 func (s *Trust) OrderReviews(ctx context.Context, caller uuid.UUID, orders []uuid.UUID) (map[uuid.UUID]OrderReviews, error) {
-	rows, err := s.reviews.OfOrders(ctx, orders)
+	rows, err := s.d.Reviews.OfOrders(ctx, orders)
 	if err != nil {
 		return nil, fmt.Errorf("read the orders' reviews: %w", err)
 	}
-	now := s.now()
+	now := s.d.Now()
 	out := make(map[uuid.UUID]OrderReviews, len(orders))
 	for _, o := range orders {
 		out[o] = OrderReviews{Own: OwnReview{State: "none"}}

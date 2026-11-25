@@ -18,7 +18,7 @@ func (c *Catalog) CopyPhotos(ctx context.Context, seller, id, key uuid.UUID) ([]
 	}
 	out := make([]DraftPhotoView, 0, len(res.Uploads))
 	for _, upload := range res.Uploads {
-		url, presignErr := c.media.PresignPhoto(ctx, upload)
+		url, presignErr := c.d.Media.PresignPhoto(ctx, upload)
 		if presignErr != nil {
 			return nil, fmt.Errorf("presign a copy: %w", presignErr)
 		}

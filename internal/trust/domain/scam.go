@@ -242,13 +242,7 @@ func Redact(text string) string {
 // member, the suspect: the signals found, in the order found, and when the
 // member last dismissed it.
 type Warning struct {
-	conversationID uuid.UUID
-	accountID      uuid.UUID
-	suspectID      uuid.UUID
-	signals        []Signal
-	dismissedAt    *time.Time
-	updatedAt      time.Time
-	writeID        uuid.UUID
+	s WarningState
 }
 
 // WarningState is a Warning's fields, for repositories.
@@ -265,39 +259,36 @@ type WarningState struct {
 // NewWarning starts account's warning about suspect in conversation, with
 // no signal and no write ID.
 func NewWarning(conversation, account, suspect uuid.UUID) Warning {
-	return Warning{conversationID: conversation, accountID: account, suspectID: suspect}
+	return Warning{s: WarningState{ConversationID: conversation, AccountID: account, SuspectID: suspect}}
 }
 
 // RestoreWarning rebuilds a stored warning; only repositories call it.
 func RestoreWarning(st WarningState) Warning {
-	return Warning{
-		conversationID: st.ConversationID, accountID: st.AccountID, suspectID: st.SuspectID,
-		signals: slices.Clone(st.Signals), dismissedAt: st.DismissedAt, updatedAt: st.UpdatedAt, writeID: st.WriteID,
-	}
+	st.Signals = slices.Clone(st.Signals)
+	return Warning{s: st}
 }
 
 func (w *Warning) State() WarningState {
-	return WarningState{
-		ConversationID: w.conversationID, AccountID: w.accountID, SuspectID: w.suspectID,
-		Signals: slices.Clone(w.signals), DismissedAt: w.dismissedAt, UpdatedAt: w.updatedAt, WriteID: w.writeID,
-	}
+	st := w.s
+	st.Signals = slices.Clone(st.Signals)
+	return st
 }
 
 // Saved records that the warning was written under writeID; only
 // repositories call it.
-func (w *Warning) Saved(writeID uuid.UUID) { w.writeID = writeID }
+func (w *Warning) Saved(writeID uuid.UUID) { w.s.WriteID = writeID }
 
-func (w *Warning) ConversationID() uuid.UUID { return w.conversationID }
-func (w *Warning) AccountID() uuid.UUID      { return w.accountID }
-func (w *Warning) SuspectID() uuid.UUID      { return w.suspectID }
-func (w *Warning) Signals() []Signal         { return slices.Clone(w.signals) }
-func (w *Warning) DismissedAt() *time.Time   { return w.dismissedAt }
-func (w *Warning) UpdatedAt() time.Time      { return w.updatedAt }
-func (w *Warning) WriteID() uuid.UUID        { return w.writeID }
+func (w *Warning) ConversationID() uuid.UUID { return w.s.ConversationID }
+func (w *Warning) AccountID() uuid.UUID      { return w.s.AccountID }
+func (w *Warning) SuspectID() uuid.UUID      { return w.s.SuspectID }
+func (w *Warning) Signals() []Signal         { return slices.Clone(w.s.Signals) }
+func (w *Warning) DismissedAt() *time.Time   { return w.s.DismissedAt }
+func (w *Warning) UpdatedAt() time.Time      { return w.s.UpdatedAt }
+func (w *Warning) WriteID() uuid.UUID        { return w.s.WriteID }
 
 // has reports whether the warning holds code c.
 func (w *Warning) has(c Code) bool {
-	return slices.ContainsFunc(w.signals, func(s Signal) bool { return s.Code == c })
+	return slices.ContainsFunc(w.s.Signals, func(s Signal) bool { return s.Code == c })
 }
 
 // Raise adds the message codes of messages the warning lacks, in the order
@@ -312,25 +303,25 @@ func (w *Warning) Raise(messages []Code, facts []Signal, at time.Time, message *
 	if !slices.ContainsFunc(messages, Code.FromMessages) {
 		return false
 	}
-	if w.dismissedAt != nil && !at.After(*w.dismissedAt) {
-		at = w.dismissedAt.Add(time.Microsecond)
+	if w.s.DismissedAt != nil && !at.After(*w.s.DismissedAt) {
+		at = w.s.DismissedAt.Add(time.Microsecond)
 	}
 	changed := false
 	for _, c := range MessageCodes {
 		if slices.Contains(messages, c) && !w.has(c) {
-			w.signals = append(w.signals, Signal{Code: c, FirstSeenAt: at, MessageID: message})
+			w.s.Signals = append(w.s.Signals, Signal{Code: c, FirstSeenAt: at, MessageID: message})
 			changed = true
 		}
 	}
 	for _, f := range facts {
 		if !f.Code.FromMessages() && !w.has(f.Code) {
 			f.FirstSeenAt, f.MessageID = at, message
-			w.signals = append(w.signals, f)
+			w.s.Signals = append(w.s.Signals, f)
 			changed = true
 		}
 	}
 	if changed {
-		w.updatedAt = at
+		w.s.UpdatedAt = at
 	}
 	return changed
 }
@@ -338,21 +329,21 @@ func (w *Warning) Raise(messages []Code, facts []Signal, at time.Time, message *
 // Dismissed holds after a dismissal that no message code has been found
 // since.
 func (w *Warning) Dismissed() bool {
-	if w.dismissedAt == nil {
+	if w.s.DismissedAt == nil {
 		return false
 	}
-	return !slices.ContainsFunc(w.signals, func(s Signal) bool {
-		return s.Code.FromMessages() && s.FirstSeenAt.After(*w.dismissedAt)
+	return !slices.ContainsFunc(w.s.Signals, func(s Signal) bool {
+		return s.Code.FromMessages() && s.FirstSeenAt.After(*w.s.DismissedAt)
 	})
 }
 
 // Dismiss records a dismissal at at. A warning without signals, or one
 // dismissed already, does not change; Dismiss reports whether it changed.
 func (w *Warning) Dismiss(at time.Time) bool {
-	if len(w.signals) == 0 || w.Dismissed() {
+	if len(w.s.Signals) == 0 || w.Dismissed() {
 		return false
 	}
-	w.dismissedAt, w.updatedAt = &at, at
+	w.s.DismissedAt, w.s.UpdatedAt = &at, at
 	return true
 }
 

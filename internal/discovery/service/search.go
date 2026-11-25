@@ -96,7 +96,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		if viewer == nil {
 			return SearchView{}, authn.ErrUnauthenticated
 		}
-		w, found, err := d.watches.Get(ctx, in.Watch)
+		w, found, err := d.d.Watches.Get(ctx, in.Watch)
 		if err != nil {
 			return SearchView{}, fmt.Errorf("read the watch: %w", err)
 		}
@@ -105,10 +105,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		}
 		in.Query, in.Category, in.PriceMin, in.PriceMax = w.Query, w.Category, w.PriceMin, w.PriceMax
 		in.OffersOnly, in.RadiusKm, in.Near = w.OffersOnly, w.RadiusKm, catalogdomain.Near{Commune: w.Commune}
-		in.Conditions = make([]catalogdomain.Condition, len(w.Conditions))
-		for i, c := range w.Conditions {
-			in.Conditions[i] = catalogdomain.Condition(c)
-		}
+		in.Conditions = w.Conditions
 	}
 	q := strings.TrimSpace(in.Query)
 	photo, like := in.Photo != uuid.Nil(), in.Like != uuid.Nil()
@@ -121,12 +118,12 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	if photo && viewer == nil {
 		return SearchView{}, authn.ErrUnauthenticated
 	}
-	origin, err := d.catalog.Origin(ctx, in.Near)
+	origin, err := d.d.Catalog.Origin(ctx, in.Near)
 	if err != nil {
 		return SearchView{}, fmt.Errorf("read the position: %w", err)
 	}
 	if in.Province != "" {
-		provinces, provErr := d.catalog.Provinces(ctx)
+		provinces, provErr := d.d.Catalog.Provinces(ctx)
 		if provErr != nil {
 			return SearchView{}, fmt.Errorf("read the provinces: %w", provErr)
 		}
@@ -163,9 +160,9 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	category(&filters, in.Category)
 	search := catalogdomain.Search{Filters: filters, Sort: sort, Offset: offset, Limit: limit + 1}
 	if sort == SortNearby {
-		search.Sort, search.Boosts = catalogdomain.SortRelevance, domain.NearbyBoosts(*origin, d.now())
+		search.Sort, search.Boosts = catalogdomain.SortRelevance, domain.NearbyBoosts(*origin, d.d.Now())
 	}
-	search.Vectors.TextMin, search.Vectors.PhotoMin = d.textMin, d.photoMin
+	search.Vectors.TextMin, search.Vectors.PhotoMin = d.d.TextMin, d.d.PhotoMin
 	if viewer != nil {
 		if search.ExcludeListings, search.ExcludeSellers, err = d.exclusions(ctx, *viewer); err != nil {
 			return SearchView{}, err
@@ -176,38 +173,38 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	if photo {
 		// Photo search needs the image model; with it off the search is
 		// unavailable, as when the model fails.
-		if d.image == nil {
+		if d.d.Image == nil {
 			return SearchView{}, domain.ErrSearchUnavailable
 		}
-		now := d.now()
-		up, upErr := d.media.QueryUpload(ctx, *viewer, in.Photo)
+		now := d.d.Now()
+		up, upErr := d.d.Media.QueryUpload(ctx, *viewer, in.Photo)
 		if upErr != nil {
 			return SearchView{}, fmt.Errorf("check the search photo: %w", upErr)
 		}
-		vec, found, cacheErr := d.photoVectors.Get(ctx, in.Photo, d.imageVersion, now)
+		vec, found, cacheErr := d.d.PhotoVectors.Get(ctx, in.Photo, d.d.ImageVersion, now)
 		if cacheErr != nil {
-			d.log.WarnContext(ctx, "read the cached photo vector", "err", cacheErr)
+			d.d.Log.WarnContext(ctx, "read the cached photo vector", "err", cacheErr)
 		}
 		if !found {
-			img, imgErr := d.media.QueryImage(ctx, *viewer, in.Photo)
+			img, imgErr := d.d.Media.QueryImage(ctx, *viewer, in.Photo)
 			if imgErr != nil {
 				return SearchView{}, fmt.Errorf("read the search photo: %w", imgErr)
 			}
-			vs, embedErr := d.image.Embed(ctx, []string{embed.ImageInput(img)})
+			vs, embedErr := d.d.Image.Embed(ctx, []string{embed.ImageInput(img)})
 			if embedErr != nil {
-				d.log.WarnContext(ctx, "embed the search photo", "err", embedErr)
+				d.d.Log.WarnContext(ctx, "embed the search photo", "err", embedErr)
 				return SearchView{}, domain.ErrSearchUnavailable
 			}
 			vec = vs[0]
-			if putErr := d.photoVectors.Put(ctx, in.Photo, d.imageVersion, vec, up.ExpiresAt, now); putErr != nil {
-				d.log.WarnContext(ctx, "cache the photo vector", "err", putErr)
+			if putErr := d.d.PhotoVectors.Put(ctx, in.Photo, d.d.ImageVersion, vec, up.ExpiresAt, now); putErr != nil {
+				d.d.Log.WarnContext(ctx, "cache the photo vector", "err", putErr)
 			}
 		}
 		search.Vectors.Photo, search.Weights = vec, domain.FusePhoto
 	}
 
 	if like {
-		src, ok, srcErr := d.catalog.Summary(ctx, in.Like)
+		src, ok, srcErr := d.d.Catalog.Summary(ctx, in.Like)
 		if srcErr != nil {
 			return SearchView{}, fmt.Errorf("read the source listing: %w", srcErr)
 		}
@@ -224,8 +221,8 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	// names are the categories' Vietnamese names, by code.
 	var names map[string]string
 	if q != "" {
-		now := d.now()
-		categories, catErr := d.catalog.Categories(ctx, locale.Vietnamese)
+		now := d.d.Now()
+		categories, catErr := d.d.Catalog.Categories(ctx, locale.Vietnamese)
 		if catErr != nil {
 			return SearchView{}, fmt.Errorf("read categories: %w", catErr)
 		}
@@ -249,7 +246,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		}
 		vocab := domain.Vocabulary{Categories: names, Locale: in.Locale}
 		if in.Locale != "" && in.Locale != locale.Vietnamese {
-			named, nameErr := d.catalog.Categories(ctx, in.Locale)
+			named, nameErr := d.d.Catalog.Categories(ctx, in.Locale)
 			if nameErr != nil {
 				return SearchView{}, fmt.Errorf("read category names: %w", nameErr)
 			}
@@ -260,8 +257,8 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		}
 		if placeNames := append(domain.PlaceNames(u), domain.PlaceNames(preview)...); len(placeNames) > 0 {
 			var placeErr error
-			if vocab.Places, placeErr = d.catalog.FindPlaces(ctx, placeNames); placeErr != nil {
-				d.log.WarnContext(ctx, "resolve the places", "err", placeErr)
+			if vocab.Places, placeErr = d.d.Catalog.FindPlaces(ctx, placeNames); placeErr != nil {
+				d.d.Log.WarnContext(ctx, "resolve the places", "err", placeErr)
 			}
 		}
 		c := domain.Compile(u, q, vocab, origin, now, in.Off)
@@ -290,15 +287,15 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 			}
 			// Both embeds run at once under the model timeout, so a hung
 			// alias costs the search that much and its list is left out.
-			ectx, cancel := context.WithTimeout(ctx, d.modelTimeout)
+			ectx, cancel := context.WithTimeout(ctx, d.d.ModelTimeout)
 			var wg sync.WaitGroup
-			if d.text != nil {
-				wg.Go(func() { search.Vectors.Text = d.queryVector(ectx, d.text, d.textVersion, text) })
+			if d.d.Text != nil {
+				wg.Go(func() { search.Vectors.Text = d.queryVector(ectx, d.d.Text, d.d.TextVersion, text) })
 			}
-			if d.image != nil && understood && strings.TrimSpace(u.Visual) != "" {
+			if d.d.Image != nil && understood && strings.TrimSpace(u.Visual) != "" {
 				// A text sits far from any photo; the look has its own floor.
-				search.Vectors.PhotoMin = d.lookMin
-				wg.Go(func() { search.Vectors.Photo = d.queryVector(ectx, d.image, d.imageVersion, u.Visual) })
+				search.Vectors.PhotoMin = d.d.LookMin
+				wg.Go(func() { search.Vectors.Photo = d.queryVector(ectx, d.d.Image, d.d.ImageVersion, u.Visual) })
 			}
 			wg.Wait()
 			cancel()
@@ -306,7 +303,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 				search.Weights = domain.FuseQuery
 			}
 		}
-		d.log.InfoContext(ctx, "search terms", "search_id", view.SearchID, "query", q, "asked", c.Asked, "ran", c.Ran, "lists", search.Weights)
+		d.d.Log.InfoContext(ctx, "search terms", "search_id", view.SearchID, "query", q, "asked", c.Asked, "ran", c.Ran, "lists", search.Weights)
 	}
 
 	// The counts run beside the search: a hybrid count reads its lists at
@@ -314,9 +311,9 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	var countErr error
 	var wg sync.WaitGroup
 	if filters.CategoryRoot != "" {
-		wg.Go(func() { view.Counts, countErr = d.catalog.Counts(ctx, search) })
+		wg.Go(func() { view.Counts, countErr = d.d.Catalog.Counts(ctx, search) })
 	}
-	cards, err := d.catalog.Search(ctx, search)
+	cards, err := d.d.Catalog.Search(ctx, search)
 	wg.Wait()
 	if err != nil {
 		return SearchView{}, fmt.Errorf("search listings: %w", err)
@@ -330,7 +327,7 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 	}
 	if viewer != nil && q != "" && in.Cursor == "" {
 		// The history keeps the Vietnamese name, whatever the chip says.
-		entry := repository.HistoryEntry{Query: q, SearchedAt: d.now()}
+		entry := repository.HistoryEntry{Query: q, SearchedAt: d.d.Now()}
 		for _, c := range view.Chips {
 			if c.Kind == domain.AttrCategory {
 				entry.Category, entry.CategoryCode = names[c.Code], c.Code
@@ -340,23 +337,23 @@ func (d *Discovery) Search(ctx context.Context, viewer *uuid.UUID, in SearchInpu
 		if len(view.Items) > 0 {
 			entry.PhotoURL = view.Items[0].CoverThumbURL
 		}
-		if err = d.history.Remember(ctx, *viewer, entry); err != nil {
-			d.log.WarnContext(ctx, "remember the search", "err", err)
+		if err = d.d.History.Remember(ctx, *viewer, entry); err != nil {
+			d.d.Log.WarnContext(ctx, "remember the search", "err", err)
 		}
 	}
 	if viewer != nil && q != "" {
-		id, found, keyErr := d.watches.ByKey(ctx, *viewer, domain.HistoryKey(q))
+		id, found, keyErr := d.d.Watches.ByKey(ctx, *viewer, domain.HistoryKey(q))
 		switch {
 		case keyErr != nil:
-			d.log.WarnContext(ctx, "read the watch of the query", "err", keyErr)
+			d.d.Log.WarnContext(ctx, "read the watch of the query", "err", keyErr)
 		case found:
 			view.WatchID = &id
 		default:
 		}
 	}
 	if in.Watch != uuid.Nil() && in.Cursor == "" {
-		if err = d.watches.Seen(ctx, *viewer, in.Watch); err != nil {
-			d.log.WarnContext(ctx, "see the watch", "err", err)
+		if err = d.d.Watches.Seen(ctx, *viewer, in.Watch); err != nil {
+			d.d.Log.WarnContext(ctx, "see the watch", "err", err)
 		}
 	}
 	return view, nil
@@ -376,31 +373,31 @@ func (d *Discovery) understand(
 		return u, true
 	}
 	key := domain.QueryKey(q)
-	taken, err := d.modelUses.Take(ctx, account, now, domain.ModelCallsPerDay)
+	taken, err := d.d.ModelUses.Take(ctx, account, now, domain.ModelCallsPerDay)
 	if err != nil {
-		d.log.WarnContext(ctx, "count the model call", "err", err)
+		d.d.Log.WarnContext(ctx, "count the model call", "err", err)
 	}
 	if !taken {
-		d.log.InfoContext(ctx, "searched without the model", "reason", "the day's model calls are used or uncounted")
+		d.d.Log.InfoContext(ctx, "searched without the model", "reason", "the day's model calls are used or uncounted")
 		return domain.Understanding{}, false
 	}
 	read := d.reads.DoChan(key, func() (any, error) {
-		mctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.modelTimeout)
+		mctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.d.ModelTimeout)
 		defer cancel()
 		var answer domain.Understanding
-		err := d.llm.Complete(mctx, llm.Request{
+		err := d.d.LLM.Complete(mctx, llm.Request{
 			System: domain.SystemPrompt(categories, now), User: q, SchemaName: "search_understanding", Schema: domain.Schema(),
 		}, &answer)
 		if err != nil {
-			d.log.WarnContext(mctx, "the model did not read the query", "err", err)
+			d.d.Log.WarnContext(mctx, "the model did not read the query", "err", err)
 			return nil, fmt.Errorf("read the query: %w", err)
 		}
 		b, err := json.Marshal(answer)
 		if err == nil {
-			err = d.understandings.Put(mctx, key, domain.PromptVersion, b, now, now.Add(-domain.CacheTTL))
+			err = d.d.Understandings.Put(mctx, key, domain.PromptVersion, b, now, now.Add(-domain.CacheTTL))
 		}
 		if err != nil {
-			d.log.WarnContext(mctx, "cache the understanding", "err", err)
+			d.d.Log.WarnContext(mctx, "cache the understanding", "err", err)
 		}
 		return answer, nil
 	})
@@ -420,9 +417,9 @@ func (d *Discovery) understand(
 // whether there is one. Search and understand call it.
 func (d *Discovery) cached(ctx context.Context, q string, now time.Time) (domain.Understanding, bool) {
 	var u domain.Understanding
-	answer, found, err := d.understandings.Get(ctx, domain.QueryKey(q), domain.PromptVersion, now.Add(-domain.CacheTTL))
+	answer, found, err := d.d.Understandings.Get(ctx, domain.QueryKey(q), domain.PromptVersion, now.Add(-domain.CacheTTL))
 	if err != nil {
-		d.log.WarnContext(ctx, "read the cached understanding", "err", err)
+		d.d.Log.WarnContext(ctx, "read the cached understanding", "err", err)
 		return u, false
 	}
 	return u, found && json.Unmarshal(answer, &u) == nil
@@ -442,21 +439,21 @@ func category(f *catalogdomain.Filters, code string) {
 // was embedded under version and the row is still kept. A model that fails
 // gives nil, and the search runs without that list.
 func (d *Discovery) queryVector(ctx context.Context, m embed.Model, version, text string) []float32 {
-	now := d.now()
-	v, found, err := d.queryVectors.Get(ctx, version, text, now)
+	now := d.d.Now()
+	v, found, err := d.d.QueryVectors.Get(ctx, version, text, now)
 	if err != nil {
-		d.log.WarnContext(ctx, "read the cached query vector", "err", err)
+		d.d.Log.WarnContext(ctx, "read the cached query vector", "err", err)
 	}
 	if found {
 		return v
 	}
 	vs, err := m.Embed(ctx, []string{text})
 	if err != nil {
-		d.log.WarnContext(ctx, "embed the query", "version", version, "err", err)
+		d.d.Log.WarnContext(ctx, "embed the query", "version", version, "err", err)
 		return nil
 	}
-	if err = d.queryVectors.Put(ctx, version, text, vs[0], now); err != nil {
-		d.log.WarnContext(ctx, "cache the query vector", "err", err)
+	if err = d.d.QueryVectors.Put(ctx, version, text, vs[0], now); err != nil {
+		d.d.Log.WarnContext(ctx, "cache the query vector", "err", err)
 	}
 	d.startVectorSweep(ctx, now)
 	return vs[0]
@@ -466,23 +463,23 @@ func (d *Discovery) queryVector(ctx context.Context, m embed.Model, version, tex
 // process and day, after a write; Restate runs one per day.
 func (d *Discovery) startVectorSweep(ctx context.Context, now time.Time) {
 	day := now.UTC().Format(time.DateOnly)
-	if d.sweeps == nil || d.vectorDay.Swap(day) == day {
+	if d.d.Sweeps == nil || d.vectorDay.Swap(day) == day {
 		return
 	}
-	if err := d.sweeps.SweepVectors(ctx, day); err != nil {
+	if err := d.d.Sweeps.SweepVectors(ctx, day); err != nil {
 		d.vectorDay.Store("")
-		d.log.WarnContext(ctx, "start the vector sweep", "err", err)
+		d.d.Log.WarnContext(ctx, "start the vector sweep", "err", err)
 	}
 }
 
 // SweepVectors deletes the text vectors that fell out of use and the least
 // used past domain.VectorCacheMax.
 func (d *Discovery) SweepVectors(ctx context.Context) (int64, error) {
-	n, err := d.queryVectors.Sweep(ctx, d.now(), domain.VectorKeepUnused, domain.VectorKeepUsed, domain.VectorCacheMax)
+	n, err := d.d.QueryVectors.Sweep(ctx, d.d.Now(), domain.VectorKeepUnused, domain.VectorKeepUsed, domain.VectorCacheMax)
 	if err != nil {
 		return 0, fmt.Errorf("sweep the text vectors: %w", err)
 	}
-	d.log.InfoContext(ctx, "swept the text vectors", "deleted", n)
+	d.d.Log.InfoContext(ctx, "swept the text vectors", "deleted", n)
 	return n, nil
 }
 
@@ -537,7 +534,7 @@ func (d *Discovery) withSaved(ctx context.Context, viewer *uuid.UUID, cards []ca
 	for i := range cards {
 		ids[i] = cards[i].ID
 	}
-	saved, err := d.saves.SavedAmong(ctx, *viewer, ids)
+	saved, err := d.d.Saves.SavedAmong(ctx, *viewer, ids)
 	if err != nil {
 		return nil, fmt.Errorf("read saves: %w", err)
 	}

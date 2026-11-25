@@ -15,7 +15,7 @@ import (
 )
 
 func (c *Catalog) ReportedListings(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]ReportedListing, error) {
-	rows, err := c.listings.GetMany(ctx, ids)
+	rows, err := c.d.Listings.GetMany(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("get listings: %w", err)
 	}
@@ -41,11 +41,11 @@ func (c *Catalog) Hold(ctx context.Context, id uuid.UUID, by audit.Actor) (Repor
 	if l.SellerID() == accountdomain.ShopNexusID {
 		return ReportedListing{}, accountdomain.ErrSystemAccount
 	}
-	now := c.now()
+	now := c.d.Now()
 	if err = l.Hold(now); err != nil {
 		return ReportedListing{}, err
 	}
-	err = c.listings.Save(ctx, &l, uuid.NewV7(), &audit.Entry{
+	err = c.d.Listings.Save(ctx, &l, uuid.NewV7(), &audit.Entry{
 		Actor: by, Action: audit.ListingHide, Target: audit.Listing(id), Details: map[string]any{"account_id": l.SellerID()}, At: now,
 	}, events.Event{ID: uuid.NewV7(), Kind: events.ListingHidden, SubjectID: id, OccurredAt: now})
 	if err != nil {
@@ -65,7 +65,7 @@ func (c *Catalog) Lift(ctx context.Context, id uuid.UUID, by audit.Actor) (Repor
 	if l.Status() == domain.StatusDeleted {
 		return ReportedListing{}, domain.ErrNotFound
 	}
-	now := c.now()
+	now := c.d.Now()
 	if err = l.Lift(now); err != nil {
 		return ReportedListing{}, err
 	}
@@ -73,7 +73,7 @@ func (c *Catalog) Lift(ctx context.Context, id uuid.UUID, by audit.Actor) (Repor
 	if l.Status() == domain.StatusActive {
 		evs = append(evs, events.Event{ID: uuid.NewV7(), Kind: events.ListingUnhidden, SubjectID: id, OccurredAt: now})
 	}
-	err = c.listings.Save(ctx, &l, uuid.NewV7(), &audit.Entry{
+	err = c.d.Listings.Save(ctx, &l, uuid.NewV7(), &audit.Entry{
 		Actor: by, Action: audit.ListingUnhide, Target: audit.Listing(id), Details: map[string]any{"account_id": l.SellerID()}, At: now,
 	}, evs...)
 	if err != nil {
@@ -86,7 +86,7 @@ func (c *Catalog) Lift(ctx context.Context, id uuid.UUID, by audit.Actor) (Repor
 func (c *Catalog) reported(l *domain.Listing) ReportedListing {
 	r := ReportedListing{ID: l.ID(), Title: l.Title(), Price: l.Price(), Status: l.Status(), CreatedAt: l.CreatedAt()}
 	if p := l.Photos(); len(p) > 0 && p[0].Keys.Thumb != "" {
-		r.PhotoURL = c.media.URL(p[0].Keys.Thumb)
+		r.PhotoURL = c.d.Media.URL(p[0].Keys.Thumb)
 	}
 	return r
 }

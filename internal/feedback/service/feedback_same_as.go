@@ -15,7 +15,7 @@ func (s *Feedback) SameAs(ctx context.Context, id, other uuid.UUID, by audit.Act
 	if id == other {
 		return ConsoleFeedback{}, domain.ErrInvalid.WithField("feedback_id", apperr.NotAllowed, "another feedback")
 	}
-	f, err := s.store.Join(ctx, id, other, by, s.now())
+	f, err := s.d.Store.Join(ctx, id, other, by, s.d.Now())
 	if err != nil {
 		return ConsoleFeedback{}, fmt.Errorf("join: %w", err)
 	}

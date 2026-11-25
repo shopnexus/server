@@ -6,6 +6,7 @@ import (
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -53,16 +54,9 @@ func (h *Handler) Watch(w http.ResponseWriter, r *http.Request) {
 
 // Watches serves GET /v1/search/watches.
 func (h *Handler) Watches(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	out, err := h.svc.Watches(r.Context(), p.AccountID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, _ httpx.None) (service.WatchList, error) {
+		return h.svc.Watches(r.Context(), p.AccountID)
+	})
 }
 
 type watchIDRequest struct {
@@ -71,54 +65,21 @@ type watchIDRequest struct {
 
 // Unwatch serves DELETE /v1/search/watches/{id}.
 func (h *Handler) Unwatch(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in watchIDRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.Unwatch(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in watchIDRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.Unwatch(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 // Mute serves POST /v1/search/watches/{id}/mute.
 func (h *Handler) Mute(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in watchIDRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.SetWatchAlert(r.Context(), p.AccountID, in.ID, false); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in watchIDRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.SetWatchAlert(r.Context(), p.AccountID, in.ID, false)
+	})
 }
 
 // Unmute serves POST /v1/search/watches/{id}/unmute.
 func (h *Handler) Unmute(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in watchIDRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.SetWatchAlert(r.Context(), p.AccountID, in.ID, true); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in watchIDRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.SetWatchAlert(r.Context(), p.AccountID, in.ID, true)
+	})
 }

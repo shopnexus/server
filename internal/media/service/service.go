@@ -88,16 +88,12 @@ type Deps struct {
 	Now     func() time.Time
 }
 
-// Media implements Service in this process.
 // processSlots is how many photos the process decodes at once.
 const processSlots = 2
 
+// Media implements Service in this process.
 type Media struct {
-	uploads repository.Uploads
-	store   *objectstore.Store
-	ingress *ingress.Client
-	prefix  string
-	now     func() time.Time
+	d       Deps
 	slots   chan struct{}
 	process restatex.Caller[uuid.UUID, ProcessResult]
 }
@@ -106,7 +102,7 @@ var _ Service = (*Media)(nil)
 
 func New(d Deps) *Media {
 	return &Media{
-		uploads: d.Uploads, store: d.Store, ingress: d.Ingress, prefix: d.Prefix, now: d.Now,
+		d:       d,
 		slots:   make(chan struct{}, processSlots),
 		process: restatex.Caller[uuid.UUID, ProcessResult]{Ingress: d.Ingress, Service: d.Prefix + mediaProcess, Handler: "Run"},
 	}
@@ -115,13 +111,13 @@ func New(d Deps) *Media {
 // Durable returns module media's Restate services, for Mount to bind.
 func (m *Media) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
-		restate.Reflect(MediaExpire{Prefix: m.prefix, Uploads: m.uploads, Store: m.store, Now: m.now}),
-		restate.Reflect(MediaProcess{Prefix: m.prefix, Uploads: m.uploads, Store: m.store, Now: m.now, Slots: m.slots}),
-		restate.Reflect(MediaRelease{Prefix: m.prefix, Uploads: m.uploads, Store: m.store, Now: m.now}),
+		restate.Reflect(MediaExpire{Prefix: m.d.Prefix, Uploads: m.d.Uploads, Store: m.d.Store, Now: m.d.Now}),
+		restate.Reflect(MediaProcess{Prefix: m.d.Prefix, Uploads: m.d.Uploads, Store: m.d.Store, Now: m.d.Now, Slots: m.slots}),
+		restate.Reflect(MediaRelease{Prefix: m.d.Prefix, Uploads: m.d.Uploads, Store: m.d.Store, Now: m.d.Now}),
 	}
 }
 
-func (m *Media) URL(key string) string { return m.store.PublicURL(key) }
+func (m *Media) URL(key string) string { return m.d.Store.PublicURL(key) }
 
 // UploadTicket is the UploadTicket schema in api/schemas/media.yaml.
 type UploadTicket struct {

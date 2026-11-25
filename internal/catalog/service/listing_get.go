@@ -63,7 +63,7 @@ func (c *Catalog) ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p p
 	if pane == PaneSold {
 		statuses = []domain.Status{domain.StatusSold}
 	}
-	rows, err := c.listings.ListBySeller(ctx, seller, statuses, nil, p)
+	rows, err := c.d.Listings.ListBySeller(ctx, seller, statuses, nil, p)
 	if err != nil {
 		return page.Page[ListingView]{}, fmt.Errorf("list listings: %w", err)
 	}
@@ -77,7 +77,7 @@ func (c *Catalog) ListMine(ctx context.Context, seller uuid.UUID, pane Pane, p p
 // OnSale lists the IDs of the seller's listings in a domain.OnSale status,
 // newest first: at most domain.MaxOnSale, since the cap holds them.
 func (c *Catalog) OnSale(ctx context.Context, seller uuid.UUID) ([]uuid.UUID, error) {
-	ids, err := c.listings.IDsBySeller(ctx, seller, domain.OnSale)
+	ids, err := c.d.Listings.IDsBySeller(ctx, seller, domain.OnSale)
 	if err != nil {
 		return nil, fmt.Errorf("list listings on sale: %w", err)
 	}
@@ -91,7 +91,7 @@ func (c *Catalog) IDsBySlug(ctx context.Context, slugs []string) (map[string]uui
 			codes = append(codes, code)
 		}
 	}
-	ids, err := c.listings.IDsByCode(ctx, codes)
+	ids, err := c.d.Listings.IDsByCode(ctx, codes)
 	if err != nil {
 		return nil, fmt.Errorf("find listing codes: %w", err)
 	}
@@ -107,7 +107,7 @@ func (c *Catalog) IDsBySlug(ctx context.Context, slugs []string) (map[string]uui
 // Summaries reads listings in any status, deleted included, for other
 // modules.
 func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]Summary, error) {
-	rows, err := c.listings.GetMany(ctx, ids)
+	rows, err := c.d.Listings.GetMany(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("get listings: %w", err)
 	}
@@ -120,7 +120,7 @@ func (c *Catalog) Summaries(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID
 			CommuneCode: l.CommuneCode(),
 		}
 		if p := l.Photos(); len(p) > 0 && p[0].Keys.Thumb != "" {
-			s.CoverThumbURL = c.media.URL(p[0].Keys.Thumb)
+			s.CoverThumbURL = c.d.Media.URL(p[0].Keys.Thumb)
 		}
 		out[l.ID()] = s
 	}

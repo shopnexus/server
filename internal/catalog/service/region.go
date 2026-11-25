@@ -10,7 +10,7 @@ import (
 )
 
 func (c *Catalog) Provinces(ctx context.Context) ([]domain.Province, error) {
-	ps, err := c.regions.Provinces(ctx)
+	ps, err := c.d.Regions.Provinces(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read provinces: %w", err)
 	}
@@ -20,7 +20,7 @@ func (c *Catalog) Provinces(ctx context.Context) ([]domain.Province, error) {
 // Communes returns a province's communes by display name; an unknown province has
 // none.
 func (c *Catalog) Communes(ctx context.Context, provinceCode string) ([]domain.Commune, error) {
-	cs, err := c.regions.Communes(ctx, provinceCode)
+	cs, err := c.d.Regions.Communes(ctx, provinceCode)
 	if err != nil {
 		return nil, fmt.Errorf("read communes: %w", err)
 	}
@@ -30,7 +30,7 @@ func (c *Catalog) Communes(ctx context.Context, provinceCode string) ([]domain.C
 // Places reads the communes among codes with their provinces in one query,
 // asking for each code once.
 func (c *Catalog) Places(ctx context.Context, codes []string) (map[string]Location, error) {
-	rows, err := c.regions.Places(ctx, slices.Compact(slices.Sorted(slices.Values(codes))))
+	rows, err := c.d.Regions.Places(ctx, slices.Compact(slices.Sorted(slices.Values(codes))))
 	if err != nil {
 		return nil, fmt.Errorf("get communes: %w", err)
 	}
@@ -67,7 +67,7 @@ func (c *Catalog) Origin(ctx context.Context, near domain.Near) (*domain.Point, 
 }
 
 func (c *Catalog) Locate(ctx context.Context, p domain.Point) (Location, error) {
-	place, err := c.regions.Nearest(ctx, p)
+	place, err := c.d.Regions.Nearest(ctx, p)
 	if err != nil {
 		return Location{}, fmt.Errorf("find the commune: %w", err)
 	}

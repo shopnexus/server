@@ -83,10 +83,6 @@ The pack is a directory, a URL of a .tar (downloaded once into
 				there = fmt.Sprintf("%s people · %s listings · %s sold are there already and are skipped",
 					count(plan.People.There), count(plan.Listings.There), count(plan.Sold.There))
 			}
-			dropped := ""
-			if plan.ReviewsDropped > 0 {
-				dropped = count(plan.ReviewsDropped) + " buyer reviews and replies: today's schema keeps only the buyer's review of the seller"
-			}
 			u.summary("seedpack load", [][2]string{
 				{labelPack, fmt.Sprintf("%s %s (%s)", m.Name, m.Version, m.License)},
 				{"Source", m.Source},
@@ -94,7 +90,6 @@ The pack is a directory, a URL of a .tar (downloaded once into
 				{"Writes", writes},
 				{"There", there},
 				{"Vectors", "text: " + plan.TextVectors + " · photo: " + plan.PhotoVectors},
-				{"Dropped", dropped},
 				{"Skipped", strings.Join(plan.Skipped, " · ")},
 			})
 			if dryRun {

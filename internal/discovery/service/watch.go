@@ -82,13 +82,13 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 	}
 	// The search's rules check the place; a GPS point then becomes its
 	// nearest commune, since a watch keeps a commune and no point.
-	origin, err := d.catalog.Origin(ctx, in.Near)
+	origin, err := d.d.Catalog.Origin(ctx, in.Near)
 	if err != nil {
 		return WatchView{}, false, fmt.Errorf("read the place: %w", err)
 	}
 	commune := in.Near.Commune
 	if origin != nil && (in.Near.Lat != 0 || in.Near.Lng != 0) {
-		loc, locErr := d.catalog.Locate(ctx, *origin)
+		loc, locErr := d.d.Catalog.Locate(ctx, *origin)
 		if errors.Is(locErr, catalogdomain.ErrNoCommuneNear) {
 			return WatchView{}, false, catalogdomain.ErrInvalidPosition
 		}
@@ -100,8 +100,8 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 	if in.RadiusKm > 0 && commune == "" {
 		return WatchView{}, false, domain.ErrPositionRequired
 	}
-	now := d.now()
-	categories, err := d.catalog.Categories(ctx, locale.Vietnamese)
+	now := d.d.Now()
+	categories, err := d.d.Catalog.Categories(ctx, locale.Vietnamese)
 	if err != nil {
 		return WatchView{}, false, fmt.Errorf("read categories: %w", err)
 	}
@@ -116,17 +116,13 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 			phrases = append(phrases, p.Text)
 		}
 	}
-	conditions := make([]string, len(in.Conditions))
-	for i, c := range in.Conditions {
-		conditions[i] = string(c)
-	}
 	id := uuid.NewV7()
-	if err = d.sweeps.Schedule(ctx, id); err != nil {
+	if err = d.d.Sweeps.Schedule(ctx, id); err != nil {
 		return WatchView{}, false, fmt.Errorf("start the sweeps: %w", err)
 	}
-	w, created, err := d.watches.Put(ctx, repository.Watch{
+	w, created, err := d.d.Watches.Put(ctx, repository.Watch{
 		ID: id, Account: account, Query: q, Phrases: phrases, Category: in.Category, PriceMin: in.PriceMin,
-		PriceMax: in.PriceMax, Conditions: conditions, OffersOnly: in.OffersOnly, Commune: commune,
+		PriceMax: in.PriceMax, Conditions: append([]catalogdomain.Condition{}, in.Conditions...), OffersOnly: in.OffersOnly, Commune: commune,
 		RadiusKm: in.RadiusKm, Alert: true, CreatedAt: now,
 	})
 	if err != nil {
@@ -140,7 +136,7 @@ func (d *Discovery) Watch(ctx context.Context, account uuid.UUID, in WatchInput)
 }
 
 func (d *Discovery) Watches(ctx context.Context, account uuid.UUID) (WatchList, error) {
-	ws, err := d.watches.List(ctx, account)
+	ws, err := d.d.Watches.List(ctx, account)
 	if err != nil {
 		return WatchList{}, fmt.Errorf("list watches: %w", err)
 	}
@@ -152,7 +148,7 @@ func (d *Discovery) Watches(ctx context.Context, account uuid.UUID) (WatchList, 
 }
 
 func (d *Discovery) SetWatchAlert(ctx context.Context, account, id uuid.UUID, on bool) error {
-	found, err := d.watches.SetAlert(ctx, account, id, on)
+	found, err := d.d.Watches.SetAlert(ctx, account, id, on)
 	if err != nil {
 		return fmt.Errorf("set watch alert: %w", err)
 	}
@@ -163,21 +159,21 @@ func (d *Discovery) SetWatchAlert(ctx context.Context, account, id uuid.UUID, on
 }
 
 func (d *Discovery) Unwatch(ctx context.Context, account, id uuid.UUID) error {
-	if err := d.watches.Delete(ctx, account, id); err != nil {
+	if err := d.d.Watches.Delete(ctx, account, id); err != nil {
 		return fmt.Errorf("unwatch: %w", err)
 	}
 	return nil
 }
 
 func (d *Discovery) ListingArrived(ctx context.Context, listing uuid.UUID) error {
-	if err := d.watches.Arrive(ctx, listing); err != nil {
+	if err := d.d.Watches.Arrive(ctx, listing); err != nil {
 		return fmt.Errorf("record the arrival: %w", err)
 	}
 	return nil
 }
 
 func (d *Discovery) WatchFacts(ctx context.Context, id uuid.UUID) (WatchFacts, bool, error) {
-	w, found, err := d.watches.Get(ctx, id)
+	w, found, err := d.d.Watches.Get(ctx, id)
 	if err != nil {
 		return WatchFacts{}, false, fmt.Errorf("read the watch: %w", err)
 	}
@@ -193,14 +189,14 @@ func (d *Discovery) WatchFacts(ctx context.Context, id uuid.UUID) (WatchFacts, b
 // the move reads the next arrivals; one before it finds the mark where it
 // was. Swept writes the event that tells the watcher.
 func (d *Discovery) Sweep(ctx context.Context, id uuid.UUID) (Swept, error) {
-	w, found, err := d.watches.Get(ctx, id)
+	w, found, err := d.d.Watches.Get(ctx, id)
 	if err != nil {
 		return Swept{}, fmt.Errorf("read the watch: %w", err)
 	}
 	if !found {
 		return Swept{}, nil
 	}
-	arrivals, err := d.watches.Arrivals(ctx, w.LastArrival, d.arrivalLag, d.sweepBatch)
+	arrivals, err := d.d.Watches.Arrivals(ctx, w.LastArrival, d.d.ArrivalLag, d.d.SweepBatch)
 	if err != nil {
 		return Swept{}, fmt.Errorf("read arrivals: %w", err)
 	}
@@ -216,16 +212,15 @@ func (d *Discovery) Sweep(ctx context.Context, id uuid.UUID) (Swept, error) {
 		return Swept{}, err
 	}
 	search := catalogdomain.Search{
-		Filters: catalogdomain.Filters{PriceMin: w.PriceMin, PriceMax: w.PriceMax, OffersOnly: w.OffersOnly, IDs: ids},
-		Sort:    catalogdomain.SortNewest, Limit: len(ids),
+		Filters: catalogdomain.Filters{
+			PriceMin: w.PriceMin, PriceMax: w.PriceMax, Conditions: w.Conditions, OffersOnly: w.OffersOnly, IDs: ids,
+		},
+		Sort: catalogdomain.SortNewest, Limit: len(ids),
 		ExcludeListings: hidden, ExcludeSellers: append(sellers, w.Account),
 	}
 	category(&search.Filters, w.Category)
-	for _, c := range w.Conditions {
-		search.Filters.Conditions = append(search.Filters.Conditions, catalogdomain.Condition(c))
-	}
 	if w.Commune != "" && w.RadiusKm > 0 {
-		places, placeErr := d.catalog.Places(ctx, []string{w.Commune})
+		places, placeErr := d.d.Catalog.Places(ctx, []string{w.Commune})
 		if placeErr != nil {
 			return Swept{}, fmt.Errorf("read the commune: %w", placeErr)
 		}
@@ -239,14 +234,14 @@ func (d *Discovery) Sweep(ctx context.Context, id uuid.UUID) (Swept, error) {
 	if len(search.Phrases) == 0 {
 		search.Phrases = []catalogdomain.Phrase{{Text: w.Query, Weight: 1, AllWords: true}}
 	}
-	cards, err := d.catalog.Search(ctx, search)
+	cards, err := d.d.Catalog.Search(ctx, search)
 	if err != nil {
 		return Swept{}, fmt.Errorf("match the arrivals: %w", err)
 	}
-	if _, err = d.watches.Swept(ctx, id, w.LastArrival, arrivals[len(arrivals)-1].Seq, len(cards), d.now()); err != nil {
+	if _, err = d.d.Watches.Swept(ctx, id, w.LastArrival, arrivals[len(arrivals)-1].Seq, len(cards), d.d.Now()); err != nil {
 		return Swept{}, fmt.Errorf("move the watch: %w", err)
 	}
-	return Swept{Found: true, Full: len(arrivals) == d.sweepBatch}, nil
+	return Swept{Found: true, Full: len(arrivals) == d.d.SweepBatch}, nil
 }
 
 // watchViews names the watches' communes in one read; Watch and Watches
@@ -258,7 +253,7 @@ func (d *Discovery) watchViews(ctx context.Context, ws []repository.Watch) ([]Wa
 			codes = append(codes, ws[i].Commune)
 		}
 	}
-	places, err := d.catalog.Places(ctx, codes)
+	places, err := d.d.Catalog.Places(ctx, codes)
 	if err != nil {
 		return nil, fmt.Errorf("read communes: %w", err)
 	}
@@ -267,10 +262,9 @@ func (d *Discovery) watchViews(ctx context.Context, ws []repository.Watch) ([]Wa
 		w := &ws[i]
 		v := WatchView{
 			ID: w.ID, Query: w.Query, RadiusKm: w.RadiusKm, NewCount: w.NewCount, Alert: w.Alert, CreatedAt: w.CreatedAt,
-			Filters: WatchFilters{Category: w.Category, PriceMin: w.PriceMin, PriceMax: w.PriceMax, OffersOnly: w.OffersOnly},
-		}
-		for _, c := range w.Conditions {
-			v.Filters.Conditions = append(v.Filters.Conditions, catalogdomain.Condition(c))
+			Filters: WatchFilters{
+				Category: w.Category, PriceMin: w.PriceMin, PriceMax: w.PriceMax, Conditions: w.Conditions, OffersOnly: w.OffersOnly,
+			},
 		}
 		if loc, ok := places[w.Commune]; ok {
 			v.Area = &WatchArea{CommuneCode: w.Commune, Name: loc.Commune.DisplayName}

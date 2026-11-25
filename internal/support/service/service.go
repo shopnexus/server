@@ -202,22 +202,15 @@ type Deps struct {
 
 // Support implements Service in this process.
 type Support struct {
-	tickets  repository.Tickets
-	accounts accountsvc.Service
-	chats    chatsvc.Service
-	deals    Deals
-	listings Listings
-	prefix   string
-	now      func() time.Time
-	open     restatex.Caller[OpenFlowInput, OpenResult]
+	d    Deps
+	open restatex.Caller[OpenFlowInput, OpenResult]
 }
 
 var _ Service = (*Support)(nil)
 
 func New(d Deps) *Support {
 	return &Support{
-		tickets: d.Tickets, accounts: d.Accounts, chats: d.Chats, deals: d.Deals, listings: d.Listings,
-		prefix: d.Prefix, now: d.Now,
+		d:    d,
 		open: restatex.Caller[OpenFlowInput, OpenResult]{Ingress: d.Ingress, Service: d.Prefix + ticketOpen, Handler: "Run"},
 	}
 }
@@ -239,13 +232,13 @@ func (s *Support) view(ctx context.Context, t repository.Ticket) (TicketView, er
 	if t.OrderID == nil {
 		return v, nil
 	}
-	f, ok, err := s.deals.Order(ctx, *t.OrderID)
+	f, ok, err := s.d.Deals.Order(ctx, *t.OrderID)
 	if err != nil {
 		return TicketView{}, fmt.Errorf("read the order: %w", err)
 	}
 	o := TicketOrder{ID: *t.OrderID}
 	if ok {
-		l, found, readErr := s.listings.Summary(ctx, f.ListingID)
+		l, found, readErr := s.d.Listings.Summary(ctx, f.ListingID)
 		if readErr != nil {
 			return TicketView{}, fmt.Errorf("read the listing: %w", readErr)
 		}

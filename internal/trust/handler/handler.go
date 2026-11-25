@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
@@ -67,111 +68,46 @@ type replyRequest struct {
 
 // PutReview serves PUT /v1/orders/{order_id}/review.
 func (h *Handler) PutReview(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in putRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.PutReview(r.Context(), p.AccountID, in.OrderID, in.Stars, in.Text, in.Tags, in.Photos)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in putRequest) (service.ReviewView, error) {
+		return h.svc.PutReview(r.Context(), p.AccountID, in.OrderID, in.Stars, in.Text, in.Tags, in.Photos)
+	})
 }
 
 // DeleteReview serves DELETE /v1/orders/{order_id}/review.
 func (h *Handler) DeleteReview(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in orderRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.DeleteReview(r.Context(), p.AccountID, in.OrderID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in orderRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.DeleteReview(r.Context(), p.AccountID, in.OrderID)
+	})
 }
 
 // ReplyReview serves POST /v1/reviews/{id}/reply.
 func (h *Handler) ReplyReview(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in replyRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.ReplyReview(r.Context(), p.AccountID, in.ID, in.Text)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in replyRequest) (service.ReviewView, error) {
+		return h.svc.ReplyReview(r.Context(), p.AccountID, in.ID, in.Text)
+	})
 }
 
 // MarkHelpful serves PUT /v1/reviews/{id}/helpful.
 func (h *Handler) MarkHelpful(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in reviewRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.MarkHelpful(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in reviewRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.MarkHelpful(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 // UnmarkHelpful serves DELETE /v1/reviews/{id}/helpful.
 func (h *Handler) UnmarkHelpful(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in reviewRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.UnmarkHelpful(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in reviewRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.UnmarkHelpful(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 // Reviews serves GET /v1/accounts/{id}/reviews to anyone, and
 // GET /v1/sellers/{id}/reviews, which has no role and reads the seller's.
 func (h *Handler) Reviews(w http.ResponseWriter, r *http.Request) {
-	var in reviewsRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if in.Role == "" {
-		in.Role = domain.RoleSeller
-	}
-	v, err := h.svc.Reviews(r.Context(), httpx.Viewer(r), in.ID, in.Role, in.Request)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in reviewsRequest) (page.Page[service.ReviewView], error) {
+		if in.Role == "" {
+			in.Role = domain.RoleSeller
+		}
+		return h.svc.Reviews(r.Context(), httpx.Viewer(r), in.ID, in.Role, in.Request)
+	})
 }

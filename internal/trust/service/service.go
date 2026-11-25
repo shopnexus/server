@@ -120,48 +120,30 @@ type Deps struct {
 
 // Trust implements Service in this process.
 type Trust struct {
-	reviews    repository.Reviews
-	reports    repository.Reports
-	cases      repository.Cases
-	accounts   accountsvc.Service
-	catalog    catalogsvc.Service
-	deals      dealsvc.Service
-	media      mediasvc.Service
-	chats      chatsvc.Service
-	scams      repository.ScamWarnings
-	classifier Classifier
-	facts      []FactSource
-	log        *slog.Logger
-	prefix     string
-	now        func() time.Time
+	d Deps
 }
 
 var _ Service = (*Trust)(nil)
 
-func New(d Deps) *Trust {
-	return &Trust{
-		reviews: d.Reviews, reports: d.Reports, cases: d.Cases, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, media: d.Media, chats: d.Chats,
-		scams: d.Scams, classifier: d.Classifier, facts: d.Facts, log: d.Log, prefix: d.Prefix, now: d.Now,
-	}
-}
+func New(d Deps) *Trust { return &Trust{d: d} }
 
 // Durable returns module trust's Restate services, for Mount to bind.
 func (t *Trust) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{restate.Reflect(ScamCheck{
-		Prefix: t.prefix, Chats: t.chats, Scams: t.scams, Classifier: t.classifier, Facts: t.facts, Log: t.log, Now: t.now,
+		Prefix: t.d.Prefix, Chats: t.d.Chats, Scams: t.d.Scams, Classifier: t.d.Classifier, Facts: t.d.Facts, Log: t.d.Log, Now: t.d.Now,
 	})}
 }
 
 // ClearAccount clears a deleted account's trust rows; each write is
 // idempotent, so a retried run changes nothing more.
 func (t *Trust) ClearAccount(ctx context.Context, account uuid.UUID) error {
-	if err := t.scams.DeleteAccount(ctx, account); err != nil {
+	if err := t.d.Scams.DeleteAccount(ctx, account); err != nil {
 		return fmt.Errorf("delete scam warnings: %w", err)
 	}
-	if err := t.reports.WithdrawAll(ctx, account, t.now()); err != nil {
+	if err := t.d.Reports.WithdrawAll(ctx, account, t.d.Now()); err != nil {
 		return fmt.Errorf("withdraw reports: %w", err)
 	}
-	if err := t.reviews.UnmarkAll(ctx, account); err != nil {
+	if err := t.d.Reviews.UnmarkAll(ctx, account); err != nil {
 		return fmt.Errorf("unmark helpful: %w", err)
 	}
 	return nil

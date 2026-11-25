@@ -25,12 +25,12 @@ type SellerCounts struct {
 // account is read only for an empty page, since a listing shows the seller
 // exists.
 func (c *Catalog) SellerListings(ctx context.Context, seller uuid.UUID, near domain.Near, except []uuid.UUID, p page.Request) (page.Page[SearchCard], error) {
-	rows, err := c.listings.ListBySeller(ctx, seller, domain.Public, except, p)
+	rows, err := c.d.Listings.ListBySeller(ctx, seller, domain.Public, except, p)
 	if err != nil {
 		return page.Page[SearchCard]{}, fmt.Errorf("list listings: %w", err)
 	}
 	if len(rows) == 0 {
-		if _, err = c.accounts.Get(ctx, seller); err != nil {
+		if _, err = c.d.Accounts.Get(ctx, seller); err != nil {
 			return page.Page[SearchCard]{}, fmt.Errorf("read the seller: %w", err)
 		}
 	}
@@ -50,11 +50,11 @@ func (c *Catalog) SellerListings(ctx context.Context, seller uuid.UUID, near dom
 // or marked by hand and deleted since or not, the public ones and those
 // under the cap.
 func (c *Catalog) SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCounts, error) {
-	n, err := c.listings.CountByStatus(ctx, seller)
+	n, err := c.d.Listings.CountByStatus(ctx, seller)
 	if err != nil {
 		return SellerCounts{}, fmt.Errorf("count listings: %w", err)
 	}
-	sold, err := c.listings.CountSold(ctx, seller)
+	sold, err := c.d.Listings.CountSold(ctx, seller)
 	if err != nil {
 		return SellerCounts{}, fmt.Errorf("count sold listings: %w", err)
 	}
@@ -66,7 +66,7 @@ func (c *Catalog) SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCou
 }
 
 func (c *Catalog) CountByStatus(ctx context.Context, since time.Time) (map[domain.Status]int, error) {
-	n, err := c.listings.CountCreatedSince(ctx, since)
+	n, err := c.d.Listings.CountCreatedSince(ctx, since)
 	if err != nil {
 		return nil, fmt.Errorf("count listings: %w", err)
 	}

@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -31,13 +30,12 @@ const listingColumns = `id, seller_id, title, price, description, category_code,
 
 func scanListing(row pgx.CollectableRow) (domain.Listing, error) {
 	var (
-		st                   domain.ListingState
-		photos, specs, rejec []byte
-		reservedFor          *uuid.UUID
-		previousPrice        *int64
+		st            domain.ListingState
+		reservedFor   *uuid.UUID
+		previousPrice *int64
 	)
 	if err := row.Scan(&st.ID, &st.SellerID, &st.Title, &st.Price, &st.Description, &st.CategoryCode, &st.Condition,
-		&st.AllowOffers, &st.CommuneCode, &photos, &specs, &st.Status, &rejec, &reservedFor, &st.WriteID, &st.CreatedAt,
+		&st.AllowOffers, &st.CommuneCode, &st.Photos, &st.Specs, &st.Status, &st.Rejection, &reservedFor, &st.WriteID, &st.CreatedAt,
 		&st.UpdatedAt, &st.PublishedAt, &st.SoldAt, &st.DeletedAt, &st.Lat, &st.Lng, &st.HeldAt, &previousPrice, &st.PriceChangedAt,
 		&st.SoldOrder, &st.Code); err != nil {
 		return domain.Listing{}, fmt.Errorf("scan listing: %w", err)
@@ -47,17 +45,6 @@ func scanListing(row pgx.CollectableRow) (domain.Listing, error) {
 	}
 	if previousPrice != nil {
 		st.PreviousPrice = *previousPrice
-	}
-	for _, f := range []struct {
-		raw []byte
-		dst any
-	}{{photos, &st.Photos}, {specs, &st.Specs}, {rejec, &st.Rejection}} {
-		if f.raw == nil {
-			continue
-		}
-		if err := json.Unmarshal(f.raw, f.dst); err != nil {
-			return domain.Listing{}, fmt.Errorf("decode listing json: %w", err)
-		}
 	}
 	return domain.RestoreListing(st), nil
 }
@@ -206,7 +193,7 @@ func (s pgListings) CountSold(ctx context.Context, seller uuid.UUID) (int, error
 	var n int
 	err := s.db.QueryRow(ctx, `SELECT count(*) FROM listings
 WHERE seller_id = @seller AND status = ANY(@statuses) AND sold_at IS NOT NULL`, pgx.StrictNamedArgs{
-		"seller": seller, "statuses": []string{string(domain.StatusSold), string(domain.StatusDeleted)},
+		"seller": seller, "statuses": []domain.Status{domain.StatusSold, domain.StatusDeleted},
 	}).Scan(&n)
 	if err != nil {
 		return 0, fmt.Errorf("count sold listings: %w", err)

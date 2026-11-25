@@ -53,26 +53,25 @@ func scanWith(row pgx.CollectableRow, extra ...any) (Feedback, error) {
 	return f, nil
 }
 
-// querier is a pool or a transaction.
-type querier interface {
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+// batcher is a pool or a transaction.
+type batcher interface {
+	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
 }
 
-func read(ctx context.Context, q querier, where string, args pgx.StrictNamedArgs) ([]Feedback, error) {
-	rows, err := q.Query(ctx, `SELECT `+columns+` FROM feedback f `+where, args)
-	if err != nil {
+// read selects the feedback where matches, in a batch of its own.
+func read(ctx context.Context, q batcher, where string, args pgx.StrictNamedArgs) ([]Feedback, error) {
+	var out []Feedback
+	b := &pgx.Batch{}
+	queueRead(b, where, args, &out)
+	if err := q.SendBatch(ctx, b).Close(); err != nil {
 		return nil, fmt.Errorf("select feedback: %w", err)
-	}
-	out, err := pgx.CollectRows(rows, scan)
-	if err != nil {
-		return nil, fmt.Errorf("read feedback: %w", err)
 	}
 	return out, nil
 }
 
-// one reads the feedback id; domain.ErrNotFound for none.
-func one(ctx context.Context, q querier, id uuid.UUID) (Feedback, error) {
-	fs, err := read(ctx, q, `WHERE f.id = @id`, pgx.StrictNamedArgs{"id": id})
+// one reads the single feedback where matches; domain.ErrNotFound for none.
+func one(ctx context.Context, q batcher, where string, args pgx.StrictNamedArgs) (Feedback, error) {
+	fs, err := read(ctx, q, where, args)
 	if err != nil {
 		return Feedback{}, err
 	}
@@ -193,15 +192,8 @@ VALUES (@id, @account, @key, @mood, @kind, @body, @photos, @model, @os, @version
 }
 
 func (s pgStore) ByKey(ctx context.Context, account, key uuid.UUID) (Feedback, error) {
-	fs, err := read(ctx, s.db, `WHERE f.account_id = @account AND f.request_key = @key`,
+	return one(ctx, s.db, `WHERE f.account_id = @account AND f.request_key = @key`,
 		pgx.StrictNamedArgs{"account": account, "key": key})
-	if err != nil {
-		return Feedback{}, err
-	}
-	if len(fs) == 0 {
-		return Feedback{}, domain.ErrNotFound
-	}
-	return fs[0], nil
 }
 
 func (s pgStore) SentSince(ctx context.Context, account uuid.UUID, since time.Time) (int, error) {
@@ -213,7 +205,9 @@ func (s pgStore) SentSince(ctx context.Context, account uuid.UUID, since time.Ti
 	return n, nil
 }
 
-func (s pgStore) Get(ctx context.Context, id uuid.UUID) (Feedback, error) { return one(ctx, s.db, id) }
+func (s pgStore) Get(ctx context.Context, id uuid.UUID) (Feedback, error) {
+	return one(ctx, s.db, `WHERE f.id = @id`, pgx.StrictNamedArgs{"id": id})
+}
 
 func (s pgStore) OfAccount(ctx context.Context, account uuid.UUID, limit int) ([]Feedback, error) {
 	return read(ctx, s.db, `WHERE f.account_id = @account ORDER BY f.created_at DESC, f.id DESC LIMIT @limit`,
@@ -500,7 +494,7 @@ FROM feedback f JOIN feedback r ON r.id = coalesce(f.root_id, f.id) WHERE f.id =
 		}
 		if from == to {
 			var err error
-			out, err = one(ctx, tx, id)
+			out, err = one(ctx, tx, `WHERE f.id = @id`, pgx.StrictNamedArgs{"id": id})
 			return err
 		}
 		var rows []groupRow

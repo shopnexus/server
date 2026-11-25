@@ -135,11 +135,11 @@ func (c *Catalog) views(ctx context.Context, ls []domain.Listing, t locale.Tag) 
 	}
 	names := map[string]string{}
 	if len(keys) > 0 {
-		if names, err = c.categories.SpecNames(ctx, t, keys); err != nil {
+		if names, err = c.d.Categories.SpecNames(ctx, t, keys); err != nil {
 			return nil, fmt.Errorf("name specs: %w", err)
 		}
 	}
-	now := c.now()
+	now := c.d.Now()
 	out := make([]ListingView, 0, len(ls))
 	for i := range ls {
 		l := &ls[i]
@@ -148,7 +148,7 @@ func (c *Catalog) views(ctx context.Context, ls []domain.Listing, t locale.Tag) 
 			reason := l.Rejection()[p.UploadID]
 			v := PhotoView{UploadID: p.UploadID, Copied: p.Keys.Copied, Failure: reason, FailureCode: mediadomain.FailureCodeOf(reason)}
 			if p.Keys.Photo != "" {
-				v.URL, v.ThumbURL = c.media.URL(p.Keys.Photo), c.media.URL(p.Keys.Thumb)
+				v.URL, v.ThumbURL = c.d.Media.URL(p.Keys.Photo), c.d.Media.URL(p.Keys.Thumb)
 			}
 			photos = append(photos, v)
 		}

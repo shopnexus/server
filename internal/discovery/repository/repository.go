@@ -182,7 +182,7 @@ type Watch struct {
 	Category    string
 	PriceMin    int64
 	PriceMax    int64
-	Conditions  []string
+	Conditions  []catalogdomain.Condition
 	OffersOnly  bool
 	Commune     string
 	RadiusKm    int

@@ -12,7 +12,7 @@ func (t *Trust) ScamWarnings(ctx context.Context, account uuid.UUID, conversatio
 	if len(conversations) == 0 {
 		return map[uuid.UUID]ScamWarningView{}, nil
 	}
-	ws, err := t.scams.Of(ctx, account, conversations)
+	ws, err := t.d.Scams.Of(ctx, account, conversations)
 	if err != nil {
 		return nil, fmt.Errorf("read scam warnings: %w", err)
 	}
@@ -28,10 +28,10 @@ func (t *Trust) ScamWarnings(ctx context.Context, account uuid.UUID, conversatio
 }
 
 func (t *Trust) DismissScamWarning(ctx context.Context, account, conversation uuid.UUID) error {
-	if _, err := t.chats.Get(ctx, account, conversation); err != nil {
+	if _, err := t.d.Chats.Get(ctx, account, conversation); err != nil {
 		return fmt.Errorf("read conversation: %w", err)
 	}
-	if _, err := t.scams.Dismiss(ctx, conversation, account, t.now(), uuid.NewV7()); err != nil {
+	if _, err := t.d.Scams.Dismiss(ctx, conversation, account, t.d.Now(), uuid.NewV7()); err != nil {
 		return fmt.Errorf("dismiss scam warning: %w", err)
 	}
 	return nil

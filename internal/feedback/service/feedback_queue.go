@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Feedback) Queue(ctx context.Context, status *domain.Status, kind *domain.Kind, p page.Request) (page.Page[ConsoleFeedback], error) {
-	fs, err := s.store.Queue(ctx, status, kind, p)
+	fs, err := s.d.Store.Queue(ctx, status, kind, p)
 	if err != nil {
 		return page.Page[ConsoleFeedback]{}, fmt.Errorf("read feedback: %w", err)
 	}
@@ -23,11 +23,11 @@ func (s *Feedback) Queue(ctx context.Context, status *domain.Status, kind *domai
 }
 
 func (s *Feedback) Detail(ctx context.Context, id uuid.UUID) (ConsoleFeedbackDetail, error) {
-	f, err := s.store.Get(ctx, id)
+	f, err := s.d.Store.Get(ctx, id)
 	if err != nil {
 		return ConsoleFeedbackDetail{}, fmt.Errorf("read the feedback: %w", err)
 	}
-	group, err := s.store.Group(ctx, f.RootID, GroupLimit+1)
+	group, err := s.d.Store.Group(ctx, f.RootID, GroupLimit+1)
 	if err != nil {
 		return ConsoleFeedbackDetail{}, fmt.Errorf("read the group: %w", err)
 	}
@@ -45,7 +45,7 @@ func (s *Feedback) Detail(ctx context.Context, id uuid.UUID) (ConsoleFeedbackDet
 }
 
 func (s *Feedback) Groups(ctx context.Context, kind *domain.Kind) ([]GroupView, error) {
-	gs, err := s.store.Groups(ctx, kind, GroupsLimit, s.now())
+	gs, err := s.d.Store.Groups(ctx, kind, GroupsLimit, s.d.Now())
 	if err != nil {
 		return nil, fmt.Errorf("read groups: %w", err)
 	}
@@ -66,18 +66,10 @@ func (s *Feedback) Groups(ctx context.Context, kind *domain.Kind) ([]GroupView, 
 }
 
 func (s *Feedback) Summary(ctx context.Context) (SummaryView, error) {
-	now := s.now()
-	m, err := s.store.Summary(ctx, now.AddDate(0, 0, -SummaryDays), now)
+	now := s.d.Now()
+	m, err := s.d.Store.Summary(ctx, now.AddDate(0, 0, -SummaryDays), now)
 	if err != nil {
 		return SummaryView{}, fmt.Errorf("count feedback: %w", err)
 	}
-	screens := make([]ScreenCount, 0, len(m.Screens))
-	for _, c := range m.Screens {
-		screens = append(screens, ScreenCount{Screen: c.Screen, Count: c.Count})
-	}
-	return SummaryView{
-		DayMood: m.DayMood, DaySent: m.DaySent, Mood: m.Mood, MoodBefore: m.MoodBefore, Sent: m.Sent, App: m.App, Web: m.Web,
-		Bugs: m.Bugs, Ideas: m.Ideas, Praise: m.Praise, Waiting: m.Waiting, ShippedGroups: m.ShippedGroups,
-		ShippedPeople: m.ShippedPeople, Screens: screens,
-	}, nil
+	return m, nil
 }

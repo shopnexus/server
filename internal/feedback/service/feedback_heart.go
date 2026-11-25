@@ -9,7 +9,7 @@ import (
 )
 
 func (s *Feedback) Heart(ctx context.Context, id uuid.UUID, hearted bool, by audit.Actor) (ConsoleFeedback, error) {
-	f, err := s.store.Heart(ctx, id, hearted, by, s.now())
+	f, err := s.d.Store.Heart(ctx, id, hearted, by, s.d.Now())
 	if err != nil {
 		return ConsoleFeedback{}, fmt.Errorf("heart: %w", err)
 	}

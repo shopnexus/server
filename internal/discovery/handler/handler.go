@@ -7,6 +7,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/discovery/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
 )
@@ -60,55 +61,21 @@ type listingRequest struct {
 
 // Save serves PUT /v1/saved/{listing_id}.
 func (h *Handler) Save(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in listingRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.Save(r.Context(), p.AccountID, in.ListingID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in listingRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.Save(r.Context(), p.AccountID, in.ListingID)
+	})
 }
 
 // Unsave serves DELETE /v1/saved/{listing_id}.
 func (h *Handler) Unsave(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in listingRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.Unsave(r.Context(), p.AccountID, in.ListingID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in listingRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.Unsave(r.Context(), p.AccountID, in.ListingID)
+	})
 }
 
 // Saved serves GET /v1/saved.
 func (h *Handler) Saved(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in page.Request
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.Saved(r.Context(), p.AccountID, in)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in page.Request) (page.Page[service.SavedView], error) {
+		return h.svc.Saved(r.Context(), p.AccountID, in)
+	})
 }

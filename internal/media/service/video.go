@@ -28,7 +28,7 @@ func (m *Media) SavePhoto(ctx context.Context, owner, id uuid.UUID, data []byte,
 	if origin == domain.OriginApp {
 		return domain.ErrInvalidUpload
 	}
-	existing, err := m.uploads.Get(ctx, id)
+	existing, err := m.d.Uploads.Get(ctx, id)
 	switch {
 	case err == nil && existing.OwnerID() != owner:
 		return domain.ErrInvalidUpload
@@ -37,18 +37,18 @@ func (m *Media) SavePhoto(ctx context.Context, owner, id uuid.UUID, data []byte,
 	case err != nil && !errors.Is(err, repository.ErrNotFound):
 		return fmt.Errorf("get upload: %w", err)
 	}
-	u, err := domain.NewUpload(id, owner, contentType, int64(len(data)), origin, m.now())
+	u, err := domain.NewUpload(id, owner, contentType, int64(len(data)), origin, m.d.Now())
 	if err != nil {
 		return err
 	}
-	if _, err = ingress.ServiceSend[uuid.UUID](m.ingress, m.prefix+mediaExpire, "Run").
+	if _, err = ingress.ServiceSend[uuid.UUID](m.d.Ingress, m.d.Prefix+mediaExpire, "Run").
 		Send(ctx, id, restate.WithDelay(domain.ExpireAfter), restate.WithIdempotencyKey(id.String())); err != nil {
 		return fmt.Errorf("schedule the photo's expiry: %w", err)
 	}
-	if err = m.store.Put(ctx, u.Key(), u.ContentType(), bytes.NewReader(data), u.Size()); err != nil {
+	if err = m.d.Store.Put(ctx, u.Key(), u.ContentType(), bytes.NewReader(data), u.Size()); err != nil {
 		return fmt.Errorf("put the photo: %w", err)
 	}
-	if err = m.uploads.Create(ctx, u); err != nil {
+	if err = m.d.Uploads.Create(ctx, u); err != nil {
 		return fmt.Errorf("create upload: %w", err)
 	}
 	return nil
@@ -60,7 +60,7 @@ func (m *Media) HoldVideo(ctx context.Context, owner, holder, id, writeID uuid.U
 }
 
 func (m *Media) VideoKey(ctx context.Context, id uuid.UUID) (string, error) {
-	u, err := m.uploads.Get(ctx, id)
+	u, err := m.d.Uploads.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return "", objectstore.ErrNotFound
 	}
@@ -74,7 +74,7 @@ func (m *Media) VideoKey(ctx context.Context, id uuid.UUID) (string, error) {
 }
 
 func (m *Media) PresignPhoto(ctx context.Context, id uuid.UUID) (string, error) {
-	url, err := m.store.PresignGet(ctx, domain.UploadKey(id), photoTTL)
+	url, err := m.d.Store.PresignGet(ctx, domain.UploadKey(id), photoTTL)
 	if err != nil {
 		return "", fmt.Errorf("presign the photo: %w", err)
 	}
@@ -85,20 +85,20 @@ func (m *Media) PresignPhoto(ctx context.Context, id uuid.UUID) (string, error) 
 // failed save finds the row still held, deletes nothing that is there, and
 // saves.
 func (m *Media) Consume(ctx context.Context, id, writeID uuid.UUID) error {
-	u, err := m.uploads.Get(ctx, id)
+	u, err := m.d.Uploads.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("get upload: %w", err)
 	}
-	if !u.Consume(m.now()) {
+	if !u.Consume(m.d.Now()) {
 		return nil
 	}
-	if err = m.store.Delete(ctx, u.Key()); err != nil {
+	if err = m.d.Store.Delete(ctx, u.Key()); err != nil {
 		return fmt.Errorf("delete the video: %w", err)
 	}
-	if err = m.uploads.Save(ctx, &u, writeID); err != nil {
+	if err = m.d.Uploads.Save(ctx, &u, writeID); err != nil {
 		if errors.Is(err, repository.ErrConflict) {
 			return apperr.ErrTryAgain
 		}

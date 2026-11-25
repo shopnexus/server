@@ -16,7 +16,7 @@ import (
 // DeletedUploads returns the uploads listing id gave up when it was
 // deleted; none for an unknown listing or one not deleted.
 func (c *Catalog) DeletedUploads(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
-	l, err := c.listings.Get(ctx, id)
+	l, err := c.d.Listings.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return nil, nil
 	}
@@ -37,23 +37,23 @@ var leftBehind = []domain.Status{domain.StatusProcessing, domain.StatusActive, d
 // page again. The drafts' photos expire on their own; the listings' go on
 // listing.deleted (worker.ListingWatch).
 func (c *Catalog) SellerLeft(ctx context.Context, seller uuid.UUID) error {
-	if err := c.drafts.DeleteAll(ctx, seller); err != nil {
+	if err := c.d.Drafts.DeleteAll(ctx, seller); err != nil {
 		return fmt.Errorf("delete drafts: %w", err)
 	}
 	for {
-		ls, err := c.listings.ListBySeller(ctx, seller, leftBehind, nil, page.Request{Limit: 100})
+		ls, err := c.d.Listings.ListBySeller(ctx, seller, leftBehind, nil, page.Request{Limit: 100})
 		if err != nil {
 			return fmt.Errorf("list listings: %w", err)
 		}
 		if len(ls) == 0 {
 			return nil
 		}
-		now := c.now()
+		now := c.d.Now()
 		for i := range ls {
 			if err = ls[i].Delete(now); err != nil {
 				return fmt.Errorf("delete listing %s: %w", ls[i].ID(), err)
 			}
-			err = c.listings.Save(ctx, &ls[i], uuid.NewV7(), nil,
+			err = c.d.Listings.Save(ctx, &ls[i], uuid.NewV7(), nil,
 				events.Event{ID: uuid.NewV7(), Kind: events.ListingDeleted, SubjectID: ls[i].ID(), OccurredAt: now})
 			if errors.Is(err, repository.ErrConflict) {
 				return apperr.ErrTryAgain

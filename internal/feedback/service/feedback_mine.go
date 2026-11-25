@@ -7,7 +7,7 @@ import (
 )
 
 func (s *Feedback) Mine(ctx context.Context, account uuid.UUID) ([]FeedbackView, error) {
-	fs, err := s.store.OfAccount(ctx, account, MineLimit)
+	fs, err := s.d.Store.OfAccount(ctx, account, MineLimit)
 	if err != nil {
 		return nil, fmt.Errorf("read feedback: %w", err)
 	}

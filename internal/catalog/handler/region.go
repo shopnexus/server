@@ -4,17 +4,16 @@ import (
 	"net/http"
 
 	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // Provinces serves GET /v1/regions.
 func (h *Handler) Provinces(w http.ResponseWriter, r *http.Request) {
-	ps, err := h.svc.Provinces(r.Context())
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, list[domain.Province]{Items: ps})
+	httpx.Serve(w, r, h.log, http.StatusOK, func(httpx.None) (list[domain.Province], error) {
+		ps, err := h.svc.Provinces(r.Context())
+		return list[domain.Province]{Items: ps}, err
+	})
 }
 
 type communesRequest struct {
@@ -23,17 +22,10 @@ type communesRequest struct {
 
 // Communes serves GET /v1/regions/{province_code}/communes.
 func (h *Handler) Communes(w http.ResponseWriter, r *http.Request) {
-	var in communesRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	cs, err := h.svc.Communes(r.Context(), in.ProvinceCode)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, list[domain.Commune]{Items: cs})
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in communesRequest) (list[domain.Commune], error) {
+		cs, err := h.svc.Communes(r.Context(), in.ProvinceCode)
+		return list[domain.Commune]{Items: cs}, err
+	})
 }
 
 type nearestRequest struct {
@@ -44,15 +36,7 @@ type nearestRequest struct {
 // Nearest serves GET /v1/regions/nearest. The spec makes lat and lng
 // required and bounds them; the point is not logged.
 func (h *Handler) Nearest(w http.ResponseWriter, r *http.Request) {
-	var in nearestRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	loc, err := h.svc.Locate(r.Context(), domain.Point{Lat: in.Lat, Lng: in.Lng})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, loc)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in nearestRequest) (service.Location, error) {
+		return h.svc.Locate(r.Context(), domain.Point{Lat: in.Lat, Lng: in.Lng})
+	})
 }

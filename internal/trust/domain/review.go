@@ -85,23 +85,7 @@ type Photo struct {
 // of an order, and the subject's one reply. A deleted review keeps its
 // first submission time and loses its text, tags and photos.
 type Review struct {
-	id         uuid.UUID
-	orderID    uuid.UUID
-	role       Role
-	reviewerID uuid.UUID
-	subjectID  uuid.UUID
-	listingID  uuid.UUID
-	stars      int
-	text       string
-	tags       []Tag
-	photos     []Photo
-	reply      string
-	repliedAt  *time.Time
-	visibleAt  time.Time
-	deletedAt  *time.Time
-	writeID    uuid.UUID
-	createdAt  time.Time
-	updatedAt  time.Time
+	s ReviewState
 }
 
 // NewReview checks a first review: 1 to 5 stars, up to 500 characters
@@ -110,10 +94,10 @@ type Review struct {
 func NewReview(id, order uuid.UUID, role Role, reviewer, subject, listing uuid.UUID, stars int, text string, tags []Tag,
 	photos []Photo, visibleAt, now time.Time,
 ) (Review, error) {
-	r := Review{
-		id: id, orderID: order, role: role, reviewerID: reviewer, subjectID: subject, listingID: listing,
-		visibleAt: visibleAt, writeID: id, createdAt: now,
-	}
+	r := Review{s: ReviewState{
+		ID: id, OrderID: order, Role: role, ReviewerID: reviewer, SubjectID: subject, ListingID: listing,
+		VisibleAt: visibleAt, WriteID: id, CreatedAt: now,
+	}}
 	if err := r.set(stars, text, tags, photos, now); err != nil {
 		return Review{}, err
 	}
@@ -124,10 +108,10 @@ func NewReview(id, order uuid.UUID, role Role, reviewer, subject, listing uuid.U
 // review shows or EditWindow has passed since the first submission: a side
 // that read the other's stars cannot change its own.
 func (r *Review) CanChange(now time.Time) error {
-	if r.repliedAt != nil {
+	if r.s.RepliedAt != nil {
 		return ErrClosed
 	}
-	if r.Visible(now) || now.Sub(r.createdAt) > EditWindow {
+	if r.Visible(now) || now.Sub(r.s.CreatedAt) > EditWindow {
 		return ErrLocked
 	}
 	return nil
@@ -136,10 +120,10 @@ func (r *Review) CanChange(now time.Time) error {
 // ChangeUntil is the last moment CanChange allows, short of a reply: when
 // the review shows, or the end of EditWindow if that comes first.
 func (r *Review) ChangeUntil() time.Time {
-	if end := r.createdAt.Add(EditWindow); end.Before(r.visibleAt) {
+	if end := r.s.CreatedAt.Add(EditWindow); end.Before(r.s.VisibleAt) {
 		return end
 	}
-	return r.visibleAt
+	return r.s.VisibleAt
 }
 
 // Edit replaces the stars, the text, the tags and the photos while
@@ -151,7 +135,7 @@ func (r *Review) Edit(stars int, text string, tags []Tag, photos []Photo, now ti
 	if err := r.set(stars, text, tags, photos, now); err != nil {
 		return err
 	}
-	r.deletedAt = nil
+	r.s.DeletedAt = nil
 	return nil
 }
 
@@ -161,7 +145,7 @@ func (r *Review) Delete(now time.Time) error {
 	if err := r.CanChange(now); err != nil {
 		return err
 	}
-	r.deletedAt, r.text, r.tags, r.photos, r.updatedAt = &now, "", nil, nil, now
+	r.s.DeletedAt, r.s.Text, r.s.Tags, r.s.Photos, r.s.UpdatedAt = &now, "", nil, nil, now
 	return nil
 }
 
@@ -169,20 +153,20 @@ func (r *Review) Delete(now time.Time) error {
 // they can see. Anyone else gets ErrNotFound, so a hidden review does not
 // leak. After it the review is closed.
 func (r *Review) Reply(by uuid.UUID, text string, now time.Time) error {
-	if by != r.subjectID || r.Deleted() {
+	if by != r.s.SubjectID || r.Deleted() {
 		return ErrNotFound
 	}
 	if !r.Visible(now) {
 		return ErrHidden
 	}
-	if r.repliedAt != nil {
+	if r.s.RepliedAt != nil {
 		return ErrReplied
 	}
 	text = strings.TrimSpace(text)
 	if n := utf8.RuneCountInString(text); n < 1 || n > MaxText {
 		return ErrInvalidReview.WithField("text", apperr.Length(n, 1, MaxText), "1 to 500 characters")
 	}
-	r.reply, r.repliedAt = text, &now
+	r.s.Reply, r.s.RepliedAt = text, &now
 	return nil
 }
 
@@ -190,30 +174,30 @@ func (r *Review) Reply(by uuid.UUID, text string, now time.Time) error {
 // tags and photo uploads, nil tags or photos matching any: a retried put
 // that finds it answers r as it is (K2).
 func (r *Review) Holds(stars int, text string, tags []Tag, photos []uuid.UUID) bool {
-	if r.Deleted() || stars != r.stars || strings.TrimSpace(text) != r.text || (tags != nil && !slices.Equal(tags, r.tags)) {
+	if r.Deleted() || stars != r.s.Stars || strings.TrimSpace(text) != r.s.Text || (tags != nil && !slices.Equal(tags, r.s.Tags)) {
 		return false
 	}
 	if photos == nil {
 		return true
 	}
-	return slices.EqualFunc(photos, r.photos, func(id uuid.UUID, p Photo) bool { return id == p.UploadID })
+	return slices.EqualFunc(photos, r.s.Photos, func(id uuid.UUID, p Photo) bool { return id == p.UploadID })
 }
 
 // HasReply reports whether r already carries this reply, so a retried
 // reply answers r as it is.
 func (r *Review) HasReply(text string) bool {
-	return r.repliedAt != nil && r.reply == strings.TrimSpace(text)
+	return r.s.RepliedAt != nil && r.s.Reply == strings.TrimSpace(text)
 }
 
 // Visible reports whether the subject and the public see the review at
 // now; its reviewer always does.
-func (r *Review) Visible(now time.Time) bool { return !r.visibleAt.After(now) }
+func (r *Review) Visible(now time.Time) bool { return !r.s.VisibleAt.After(now) }
 
 // Deleted reports whether the reviewer took the review down.
-func (r *Review) Deleted() bool { return r.deletedAt != nil }
+func (r *Review) Deleted() bool { return r.s.DeletedAt != nil }
 
 // Replied reports whether the subject replied.
-func (r *Review) Replied() bool { return r.repliedAt != nil }
+func (r *Review) Replied() bool { return r.s.RepliedAt != nil }
 
 func (r *Review) set(stars int, text string, tags []Tag, photos []Photo, now time.Time) error {
 	e := ErrInvalidReview
@@ -224,8 +208,8 @@ func (r *Review) set(stars int, text string, tags []Tag, photos []Photo, now tim
 	if utf8.RuneCountInString(text) > MaxText {
 		e = e.WithField("text", apperr.TooLong, "at most 500 characters")
 	}
-	if !r.role.validTags(tags) {
-		e = e.WithField("tags", apperr.NotAllowed, "each once, of "+tagList(r.role.Tags()))
+	if !r.s.Role.validTags(tags) {
+		e = e.WithField("tags", apperr.NotAllowed, "each once, of "+tagList(r.s.Role.Tags()))
 	}
 	if len(photos) > MaxPhotos {
 		e = e.WithField("photos", apperr.TooMany, "at most 4")
@@ -233,7 +217,7 @@ func (r *Review) set(stars int, text string, tags []Tag, photos []Photo, now tim
 	if len(e.Fields) > 0 {
 		return e
 	}
-	r.stars, r.text, r.tags, r.photos, r.updatedAt = stars, text, tags, photos, now
+	r.s.Stars, r.s.Text, r.s.Tags, r.s.Photos, r.s.UpdatedAt = stars, text, tags, photos, now
 	return nil
 }
 
@@ -256,22 +240,22 @@ func tagList(tags []Tag) string {
 	return strings.Join(s, ", ")
 }
 
-func (r *Review) ID() uuid.UUID         { return r.id }
-func (r *Review) OrderID() uuid.UUID    { return r.orderID }
-func (r *Review) Role() Role            { return r.role }
-func (r *Review) ReviewerID() uuid.UUID { return r.reviewerID }
-func (r *Review) SubjectID() uuid.UUID  { return r.subjectID }
-func (r *Review) ListingID() uuid.UUID  { return r.listingID }
-func (r *Review) Stars() int            { return r.stars }
-func (r *Review) Text() string          { return r.text }
-func (r *Review) Tags() []Tag           { return r.tags }
-func (r *Review) Photos() []Photo       { return r.photos }
-func (r *Review) ReplyText() string     { return r.reply }
-func (r *Review) RepliedAt() *time.Time { return r.repliedAt }
-func (r *Review) VisibleAt() time.Time  { return r.visibleAt }
-func (r *Review) CreatedAt() time.Time  { return r.createdAt }
-func (r *Review) UpdatedAt() time.Time  { return r.updatedAt }
-func (r *Review) WriteID() uuid.UUID    { return r.writeID }
+func (r *Review) ID() uuid.UUID         { return r.s.ID }
+func (r *Review) OrderID() uuid.UUID    { return r.s.OrderID }
+func (r *Review) Role() Role            { return r.s.Role }
+func (r *Review) ReviewerID() uuid.UUID { return r.s.ReviewerID }
+func (r *Review) SubjectID() uuid.UUID  { return r.s.SubjectID }
+func (r *Review) ListingID() uuid.UUID  { return r.s.ListingID }
+func (r *Review) Stars() int            { return r.s.Stars }
+func (r *Review) Text() string          { return r.s.Text }
+func (r *Review) Tags() []Tag           { return r.s.Tags }
+func (r *Review) Photos() []Photo       { return r.s.Photos }
+func (r *Review) ReplyText() string     { return r.s.Reply }
+func (r *Review) RepliedAt() *time.Time { return r.s.RepliedAt }
+func (r *Review) VisibleAt() time.Time  { return r.s.VisibleAt }
+func (r *Review) CreatedAt() time.Time  { return r.s.CreatedAt }
+func (r *Review) UpdatedAt() time.Time  { return r.s.UpdatedAt }
+func (r *Review) WriteID() uuid.UUID    { return r.s.WriteID }
 
 // ReviewState is every stored field of a review. Stores only.
 type ReviewState struct {
@@ -295,24 +279,10 @@ type ReviewState struct {
 }
 
 // RestoreReview rebuilds a stored review. Stores only.
-func RestoreReview(st ReviewState) Review {
-	return Review{
-		id: st.ID, orderID: st.OrderID, role: st.Role, reviewerID: st.ReviewerID, subjectID: st.SubjectID,
-		listingID: st.ListingID, stars: st.Stars, text: st.Text, tags: st.Tags, photos: st.Photos, reply: st.Reply, repliedAt: st.RepliedAt,
-		visibleAt: st.VisibleAt, deletedAt: st.DeletedAt, writeID: st.WriteID, createdAt: st.CreatedAt,
-		updatedAt: st.UpdatedAt,
-	}
-}
+func RestoreReview(st ReviewState) Review { return Review{s: st} }
 
 // State returns every stored field. Stores only.
-func (r *Review) State() ReviewState {
-	return ReviewState{
-		ID: r.id, OrderID: r.orderID, Role: r.role, ReviewerID: r.reviewerID, SubjectID: r.subjectID,
-		ListingID: r.listingID, Stars: r.stars, Text: r.text, Tags: r.tags, Photos: r.photos, Reply: r.reply, RepliedAt: r.repliedAt,
-		VisibleAt: r.visibleAt, DeletedAt: r.deletedAt, WriteID: r.writeID, CreatedAt: r.createdAt,
-		UpdatedAt: r.updatedAt,
-	}
-}
+func (r *Review) State() ReviewState { return r.s }
 
 // Saved records that a store wrote r under writeID. Stores only.
-func (r *Review) Saved(writeID uuid.UUID) { r.writeID = writeID }
+func (r *Review) Saved(writeID uuid.UUID) { r.s.WriteID = writeID }

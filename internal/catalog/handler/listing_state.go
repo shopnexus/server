@@ -6,6 +6,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/catalog/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/locale"
 )
@@ -30,37 +31,14 @@ func (h *Handler) UnmarkSold(w http.ResponseWriter, r *http.Request) { h.move(w,
 func (h *Handler) move(w http.ResponseWriter, r *http.Request,
 	change func(context.Context, uuid.UUID, uuid.UUID, locale.Tag) (service.ListingView, error),
 ) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in listingRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := change(r.Context(), p.AccountID, in.ID, locale.Negotiate(w, r))
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in listingRequest) (service.ListingView, error) {
+		return change(r.Context(), p.AccountID, in.ID, locale.Negotiate(w, r))
+	})
 }
 
 // Delete serves DELETE /v1/listings/{id}.
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in listingRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.Delete(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in listingRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.Delete(r.Context(), p.AccountID, in.ID)
+	})
 }

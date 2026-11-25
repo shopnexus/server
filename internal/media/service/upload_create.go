@@ -21,19 +21,19 @@ const (
 // expiry is scheduled with Restate before the row exists, so no upload is
 // left without one; an expiry that finds no row does nothing.
 func (m *Media) CreateUpload(ctx context.Context, owner uuid.UUID, contentType string, size int64) (UploadTicket, error) {
-	now := m.now()
+	now := m.d.Now()
 	u, err := domain.NewUpload(uuid.NewV7(), owner, contentType, size, domain.OriginApp, now)
 	if err != nil {
 		return UploadTicket{}, err
 	}
-	if _, err = ingress.ServiceSend[uuid.UUID](m.ingress, m.prefix+mediaExpire, "Run").
+	if _, err = ingress.ServiceSend[uuid.UUID](m.d.Ingress, m.d.Prefix+mediaExpire, "Run").
 		Send(ctx, u.ID(), restate.WithDelay(domain.ExpireAfter), restate.WithIdempotencyKey(u.ID().String())); err != nil {
 		return UploadTicket{}, fmt.Errorf("schedule the upload's expiry: %w", err)
 	}
-	if err = m.uploads.Create(ctx, u); err != nil {
+	if err = m.d.Uploads.Create(ctx, u); err != nil {
 		return UploadTicket{}, fmt.Errorf("create upload: %w", err)
 	}
-	url, headers, err := m.store.PresignPut(ctx, u.Key(), contentType, size, putTTL)
+	url, headers, err := m.d.Store.PresignPut(ctx, u.Key(), contentType, size, putTTL)
 	if err != nil {
 		return UploadTicket{}, fmt.Errorf("presign the upload: %w", err)
 	}

@@ -16,7 +16,7 @@ func (s *Feedback) SetStatus(ctx context.Context, id uuid.UUID, in StatusInput, 
 	if err != nil {
 		return ConsoleFeedback{}, err
 	}
-	f, err := s.store.SetStatus(ctx, id, c, by, s.now())
+	f, err := s.d.Store.SetStatus(ctx, id, c, by, s.d.Now())
 	if err != nil {
 		return ConsoleFeedback{}, fmt.Errorf("set the status: %w", err)
 	}

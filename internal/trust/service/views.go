@@ -123,15 +123,15 @@ func (s *Trust) views(ctx context.Context, viewer *uuid.UUID, reviews []domain.R
 		ids = append(ids, reviews[i].ID())
 		listingIDs, reviewerIDs = append(listingIDs, reviews[i].ListingID()), append(reviewerIDs, reviews[i].ReviewerID())
 	}
-	marks, err := s.reviews.Helpful(ctx, ids, viewer)
+	marks, err := s.d.Reviews.Helpful(ctx, ids, viewer)
 	if err != nil {
 		return nil, fmt.Errorf("read the helpful marks: %w", err)
 	}
-	listings, err := s.catalog.Summaries(ctx, listingIDs)
+	listings, err := s.d.Catalog.Summaries(ctx, listingIDs)
 	if err != nil {
 		return nil, fmt.Errorf("read listings: %w", err)
 	}
-	reviewers, err := s.accounts.GetMany(ctx, reviewerIDs)
+	reviewers, err := s.d.Accounts.GetMany(ctx, reviewerIDs)
 	if err != nil {
 		return nil, fmt.Errorf("read the reviewers: %w", err)
 	}
@@ -171,7 +171,7 @@ func tagsOf(r *domain.Review) []domain.Tag {
 func (s *Trust) photoViews(photos []domain.Photo) []ReviewPhoto {
 	out := make([]ReviewPhoto, 0, len(photos))
 	for _, p := range photos {
-		out = append(out, ReviewPhoto{UploadID: p.UploadID, URL: s.media.URL(p.PhotoKey), ThumbURL: s.media.URL(p.ThumbKey)})
+		out = append(out, ReviewPhoto{UploadID: p.UploadID, URL: s.d.Media.URL(p.PhotoKey), ThumbURL: s.d.Media.URL(p.ThumbKey)})
 	}
 	return out
 }

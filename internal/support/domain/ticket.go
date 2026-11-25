@@ -6,16 +6,12 @@ package domain
 import (
 	"strings"
 	"time"
-	"unicode"
 	"unicode/utf8"
 	"uuid"
 
-	"golang.org/x/text/runes"
-	"golang.org/x/text/transform"
-	"golang.org/x/text/unicode/norm"
-
 	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/textkey"
 )
 
 // Kind is what a ticket is about.
@@ -115,17 +111,8 @@ func NewTicket(kind, carrierName, body string, photos int, order *uuid.UUID) (Dr
 }
 
 // CarrierKey folds a carrier's name as discovery's HistoryKey folds a
-// query: lowercase, spaces collapsed, Vietnamese marks dropped, đ as d, so
-// "Giao Hàng  Nhanh" and "giao hang nhanh" count as one carrier.
-func CarrierKey(name string) string {
-	key := strings.ToLower(strings.Join(strings.Fields(name), " "))
-	// A transformer keeps state, so each call builds its own.
-	folded, _, err := transform.String(transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC), key)
-	if err != nil {
-		folded = key
-	}
-	return strings.ReplaceAll(folded, "đ", "d")
-}
+// query, so "Giao Hàng  Nhanh" and "giao hang nhanh" count as one carrier.
+func CarrierKey(name string) string { return textkey.Fold(name) }
 
 // OrderCheck is what a report needs of an order, as module deal tells it.
 type OrderCheck struct {

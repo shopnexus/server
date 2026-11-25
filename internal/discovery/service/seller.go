@@ -17,11 +17,11 @@ func (d *Discovery) SellerListings(ctx context.Context, viewer *uuid.UUID, selle
 	var hidden []uuid.UUID
 	if viewer != nil {
 		var err error
-		if hidden, err = d.hidden.List(ctx, *viewer); err != nil {
+		if hidden, err = d.d.Hidden.List(ctx, *viewer); err != nil {
 			return page.Page[SearchItem]{}, fmt.Errorf("read hides: %w", err)
 		}
 	}
-	cards, err := d.catalog.SellerListings(ctx, seller, near, hidden, p)
+	cards, err := d.d.Catalog.SellerListings(ctx, seller, near, hidden, p)
 	if err != nil {
 		return page.Page[SearchItem]{}, err //nolint:wrapcheck // catalog names its failed step and the caller names this one.
 	}

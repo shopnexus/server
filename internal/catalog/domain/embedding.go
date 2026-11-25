@@ -22,7 +22,7 @@ var conditionWords = map[Condition]string{ConditionNew: "Mới", ConditionLikeNe
 // the category's name, the condition, each spec as "label: value" and the
 // description, one per line, cut at EmbeddingTextMax characters.
 func (l *Listing) EmbeddingText(category string) string {
-	return embeddingText(l.title, category, l.condition, l.specs, l.description)
+	return embeddingText(l.s.Title, category, l.s.Condition, l.s.Specs, l.s.Description)
 }
 
 // EmbeddingText is the text a listing posted from d would be embedded from,
@@ -64,7 +64,7 @@ func TextHash(version, text string) []byte {
 // order.
 func (l *Listing) ProcessedPhotos() []string {
 	var out []string
-	for _, p := range l.photos {
+	for _, p := range l.s.Photos {
 		if p.Keys.Photo != "" {
 			out = append(out, p.Keys.Photo)
 		}

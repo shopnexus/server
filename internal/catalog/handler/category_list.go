@@ -10,10 +10,8 @@ import (
 
 // Categories serves GET /v1/categories, named in the request's language.
 func (h *Handler) Categories(w http.ResponseWriter, r *http.Request) {
-	cats, err := h.svc.Categories(r.Context(), locale.Negotiate(w, r))
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, list[domain.Category]{Items: cats})
+	httpx.Serve(w, r, h.log, http.StatusOK, func(httpx.None) (list[domain.Category], error) {
+		cats, err := h.svc.Categories(r.Context(), locale.Negotiate(w, r))
+		return list[domain.Category]{Items: cats}, err
+	})
 }

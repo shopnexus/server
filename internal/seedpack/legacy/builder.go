@@ -26,12 +26,6 @@ import (
 	"github.com/shopnexus/server/internal/seedpack/corpus"
 )
 
-// ExportSQL makes the export schema the builder reads, run on a copy of
-// the old database.
-//
-//go:embed export.sql
-var ExportSQL string
-
 // TextModel is the old database's dense vector: BGE-M3 at the version the
 // server embeds with.
 const TextModel = "bge-m3@5617a9f61b028005a4858fdac845db406aefb181"

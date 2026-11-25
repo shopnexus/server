@@ -39,7 +39,7 @@ type SavedListing struct {
 }
 
 func (d *Discovery) Save(ctx context.Context, account, listing uuid.UUID) error {
-	l, ok, err := d.catalog.Summary(ctx, listing)
+	l, ok, err := d.d.Catalog.Summary(ctx, listing)
 	if err != nil {
 		return fmt.Errorf("read listing: %w", err)
 	}
@@ -52,21 +52,21 @@ func (d *Discovery) Save(ctx context.Context, account, listing uuid.UUID) error 
 		return domain.ErrListingUnavailable
 	default:
 	}
-	if err = d.saves.Save(ctx, uuid.NewV7(), account, listing, l.Price, d.now()); err != nil {
+	if err = d.d.Saves.Save(ctx, uuid.NewV7(), account, listing, l.Price, d.d.Now()); err != nil {
 		return fmt.Errorf("save: %w", err)
 	}
 	return nil
 }
 
 func (d *Discovery) Unsave(ctx context.Context, account, listing uuid.UUID) error {
-	if err := d.saves.Remove(ctx, account, listing); err != nil {
+	if err := d.d.Saves.Remove(ctx, account, listing); err != nil {
 		return fmt.Errorf("unsave: %w", err)
 	}
 	return nil
 }
 
 func (d *Discovery) IsSaved(ctx context.Context, account, listing uuid.UUID) (bool, error) {
-	saved, err := d.saves.SavedAmong(ctx, account, []uuid.UUID{listing})
+	saved, err := d.d.Saves.SavedAmong(ctx, account, []uuid.UUID{listing})
 	if err != nil {
 		return false, fmt.Errorf("read save: %w", err)
 	}
@@ -84,7 +84,7 @@ var ended = []catalogdomain.Status{catalogdomain.StatusSold, catalogdomain.Statu
 // Saved reads one page of saves, those of listings still on sale first,
 // their listings and the communes of the listings it shows, one call each.
 func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request) (page.Page[SavedView], error) {
-	rows, err := d.saves.List(ctx, account, ended, p)
+	rows, err := d.d.Saves.List(ctx, account, ended, p)
 	if err != nil {
 		return page.Page[SavedView]{}, fmt.Errorf("list saves: %w", err)
 	}
@@ -92,7 +92,7 @@ func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request
 	for _, r := range rows {
 		ids = append(ids, r.ListingID)
 	}
-	listings, err := d.catalog.Summaries(ctx, ids)
+	listings, err := d.d.Catalog.Summaries(ctx, ids)
 	if err != nil {
 		return page.Page[SavedView]{}, fmt.Errorf("read listings: %w", err)
 	}
@@ -102,7 +102,7 @@ func (d *Discovery) Saved(ctx context.Context, account uuid.UUID, p page.Request
 			codes = append(codes, l.CommuneCode)
 		}
 	}
-	places, err := d.catalog.Places(ctx, codes)
+	places, err := d.d.Catalog.Places(ctx, codes)
 	if err != nil {
 		return page.Page[SavedView]{}, fmt.Errorf("read communes: %w", err)
 	}

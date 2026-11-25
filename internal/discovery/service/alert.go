@@ -24,7 +24,7 @@ func (d *Discovery) SetAlert(ctx context.Context, account, listing uuid.UUID, be
 	if err := d.Save(ctx, account, listing); err != nil {
 		return err
 	}
-	found, err := d.saves.SetAlert(ctx, account, listing, &below)
+	found, err := d.d.Saves.SetAlert(ctx, account, listing, &below)
 	if err != nil {
 		return fmt.Errorf("set alert: %w", err)
 	}
@@ -35,7 +35,7 @@ func (d *Discovery) SetAlert(ctx context.Context, account, listing uuid.UUID, be
 }
 
 func (d *Discovery) ClearAlert(ctx context.Context, account, listing uuid.UUID) error {
-	if _, err := d.saves.SetAlert(ctx, account, listing, nil); err != nil {
+	if _, err := d.d.Saves.SetAlert(ctx, account, listing, nil); err != nil {
 		return fmt.Errorf("clear alert: %w", err)
 	}
 	return nil
@@ -44,28 +44,28 @@ func (d *Discovery) ClearAlert(ctx context.Context, account, listing uuid.UUID) 
 // PriceMoved reads the listing as it is now, so events out of order or late
 // tell at the current price; a listing off sale tells no one.
 func (d *Discovery) PriceMoved(ctx context.Context, listing uuid.UUID) error {
-	l, ok, err := d.catalog.Summary(ctx, listing)
+	l, ok, err := d.d.Catalog.Summary(ctx, listing)
 	if err != nil {
 		return fmt.Errorf("read listing: %w", err)
 	}
 	if !ok || l.Status != catalogdomain.StatusActive {
 		return nil
 	}
-	if _, err = d.saves.PriceMoved(ctx, listing, l.Price, d.now()); err != nil {
+	if _, err = d.d.Saves.PriceMoved(ctx, listing, l.Price, d.d.Now()); err != nil {
 		return fmt.Errorf("weigh the saves: %w", err)
 	}
 	return nil
 }
 
 func (d *Discovery) PriceDropFacts(ctx context.Context, id uuid.UUID) (PriceDropFacts, bool, error) {
-	s, found, err := d.saves.Get(ctx, id)
+	s, found, err := d.d.Saves.Get(ctx, id)
 	if err != nil {
 		return PriceDropFacts{}, false, fmt.Errorf("read save: %w", err)
 	}
 	if !found {
 		return PriceDropFacts{}, false, nil
 	}
-	l, ok, err := d.catalog.Summary(ctx, s.ListingID)
+	l, ok, err := d.d.Catalog.Summary(ctx, s.ListingID)
 	if err != nil {
 		return PriceDropFacts{}, false, fmt.Errorf("read listing: %w", err)
 	}

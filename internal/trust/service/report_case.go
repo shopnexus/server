@@ -27,12 +27,12 @@ func (s *Trust) ReportCases(ctx context.Context, status domain.CaseStatus, p pag
 		err error
 	)
 	if status == domain.CaseResolved {
-		cs, err = s.cases.Resolved(ctx, p)
+		cs, err = s.d.Cases.Resolved(ctx, p)
 	} else {
-		cs, err = s.cases.Open(ctx, p)
+		cs, err = s.d.Cases.Open(ctx, p)
 		if err == nil {
 			var n int
-			n, err = s.cases.CountOpen(ctx)
+			n, err = s.d.Cases.CountOpen(ctx)
 			out.Total = &n
 		}
 	}
@@ -49,11 +49,11 @@ func (s *Trust) ReportCases(ctx context.Context, status domain.CaseStatus, p pag
 			listings = append(listings, ranked[0])
 		}
 	}
-	accounts, err := s.accounts.ConsoleAccountsOf(ctx, ids)
+	accounts, err := s.d.Accounts.ConsoleAccountsOf(ctx, ids)
 	if err != nil {
 		return CaseList{}, fmt.Errorf("read the accounts: %w", err)
 	}
-	shown, err := s.catalog.ReportedListings(ctx, listings)
+	shown, err := s.d.Catalog.ReportedListings(ctx, listings)
 	if err != nil {
 		return CaseList{}, fmt.Errorf("read the listings: %w", err)
 	}
@@ -76,14 +76,14 @@ func (s *Trust) ReportCases(ctx context.Context, status domain.CaseStatus, p pag
 // resolved case; an account nobody has reported, withdrawn reports aside,
 // is domain.ErrCaseNotFound.
 func (s *Trust) ReportCase(ctx context.Context, account uuid.UUID) (CaseDetail, error) {
-	c, rs, err := s.cases.Current(ctx, account)
+	c, rs, err := s.d.Cases.Current(ctx, account)
 	if errors.Is(err, repository.ErrNotFound) {
 		return CaseDetail{}, domain.ErrCaseNotFound
 	}
 	if err != nil {
 		return CaseDetail{}, fmt.Errorf("read the case: %w", err)
 	}
-	a, err := s.accounts.ConsoleAccount(ctx, account)
+	a, err := s.d.Accounts.ConsoleAccount(ctx, account)
 	if err != nil {
 		return CaseDetail{}, fmt.Errorf("read the account: %w", err)
 	}
@@ -91,12 +91,12 @@ func (s *Trust) ReportCase(ctx context.Context, account uuid.UUID) (CaseDetail, 
 	for i := range rs {
 		reporters = append(reporters, rs[i].ReporterID())
 	}
-	people, err := s.accounts.GetMany(ctx, reporters)
+	people, err := s.d.Accounts.GetMany(ctx, reporters)
 	if err != nil {
 		return CaseDetail{}, fmt.Errorf("read the reporters: %w", err)
 	}
 	ranked := domain.RankListings(c.Listings)
-	shown, err := s.catalog.ReportedListings(ctx, ranked)
+	shown, err := s.d.Catalog.ReportedListings(ctx, ranked)
 	if err != nil {
 		return CaseDetail{}, fmt.Errorf("read the listings: %w", err)
 	}
@@ -128,13 +128,13 @@ func (s *Trust) ResolveReportCase(ctx context.Context, account uuid.UUID, outcom
 	if account == accountdomain.ShopNexusID {
 		return CaseDetail{}, accountdomain.ErrSystemAccount
 	}
-	now := s.now()
+	now := s.d.Now()
 	action := audit.ReportResolve
 	if outcome == domain.OutcomeDismissed {
 		action = audit.ReportDismiss
 	}
 	id := uuid.NewV7()
-	err := s.cases.Resolve(ctx, account, repository.Resolution{ID: id, Outcome: outcome, MemberID: by.MemberID, At: now}, audit.Entry{
+	err := s.d.Cases.Resolve(ctx, account, repository.Resolution{ID: id, Outcome: outcome, MemberID: by.MemberID, At: now}, audit.Entry{
 		Actor: by, Action: action, Target: audit.Account(account), Details: map[string]any{"resolution_id": id}, At: now,
 	})
 	if err != nil {
@@ -152,8 +152,8 @@ func (s *Trust) ReopenReportCase(ctx context.Context, account uuid.UUID, by audi
 	if account == accountdomain.ShopNexusID {
 		return CaseDetail{}, accountdomain.ErrSystemAccount
 	}
-	now := s.now()
-	err := s.cases.Reopen(ctx, account, now, audit.Entry{Actor: by, Action: audit.ReportReopen, Target: audit.Account(account), At: now})
+	now := s.d.Now()
+	err := s.d.Cases.Reopen(ctx, account, now, audit.Entry{Actor: by, Action: audit.ReportReopen, Target: audit.Account(account), At: now})
 	if errors.Is(err, repository.ErrConflict) {
 		return CaseDetail{}, apperr.ErrTryAgain
 	}
@@ -164,7 +164,7 @@ func (s *Trust) ReopenReportCase(ctx context.Context, account uuid.UUID, by audi
 }
 
 func (s *Trust) CountReportCases(ctx context.Context, since time.Time) (map[domain.CaseStatus]int, error) {
-	n, err := s.cases.CountByStatus(ctx, since)
+	n, err := s.d.Cases.CountByStatus(ctx, since)
 	if err != nil {
 		return nil, fmt.Errorf("count the cases: %w", err)
 	}

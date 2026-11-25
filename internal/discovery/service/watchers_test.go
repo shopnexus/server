@@ -27,7 +27,7 @@ func TestWatchers(t *testing.T) {
 	put := func(account uuid.UUID, q string, change func(*repository.Watch)) {
 		t.Helper()
 		w := repository.Watch{
-			ID: uuid.NewV7(), Account: account, Query: q, Phrases: []string{q}, Conditions: []string{}, Alert: true,
+			ID: uuid.NewV7(), Account: account, Query: q, Phrases: []string{q}, Conditions: []catalogdomain.Condition{}, Alert: true,
 			CreatedAt: time.Now(),
 		}
 		change(&w)
@@ -86,7 +86,7 @@ func TestWatchersMeasureACircle(t *testing.T) {
 	ctx := context.Background()
 	buyer, seller := accounttest.New(t, e.db), accounttest.New(t, e.db)
 	w := repository.Watch{
-		ID: uuid.NewV7(), Account: buyer, Query: "xe đạp", Phrases: []string{"xe đạp"}, Conditions: []string{}, Alert: true,
+		ID: uuid.NewV7(), Account: buyer, Query: "xe đạp", Phrases: []string{"xe đạp"}, Conditions: []catalogdomain.Condition{}, Alert: true,
 		Commune: "00008", RadiusKm: 2, CreatedAt: time.Now(),
 	}
 	if _, _, err := repository.NewWatches(e.db).Put(ctx, w); err != nil {

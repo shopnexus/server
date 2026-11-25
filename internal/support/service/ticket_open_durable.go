@@ -60,7 +60,7 @@ type inserted struct {
 // the key answers the refusal.
 type TicketOpen struct{ Support *Support }
 
-func (o TicketOpen) ServiceName() string { return o.Support.prefix + ticketOpen }
+func (o TicketOpen) ServiceName() string { return o.Support.d.Prefix + ticketOpen }
 
 func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, error) {
 	s := o.Support
@@ -68,13 +68,13 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 	if err != nil {
 		return OpenResult{Refused: apperr.From(err)}, nil
 	}
-	at, err := restatex.Now(ctx, s.now)
+	at, err := restatex.Now(ctx, s.d.Now)
 	if err != nil {
 		return OpenResult{}, err
 	}
 	ticketID, conversationID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)
 	f, err := restate.Run(ctx, func(rc restate.RunContext) (openFacts, error) {
-		status, stepErr := s.accounts.Status(rc, in.Account)
+		status, stepErr := s.d.Accounts.Status(rc, in.Account)
 		if stepErr != nil {
 			return openFacts{}, fmt.Errorf("read account status: %w", stepErr)
 		}
@@ -83,7 +83,7 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 			return openFacts{Refused: r}, nil
 		}
 		if draft.Kind == domain.KindNotReceived {
-			existing, getErr := s.tickets.ByOrder(rc, in.Account, *draft.OrderID)
+			existing, getErr := s.d.Tickets.ByOrder(rc, in.Account, *draft.OrderID)
 			if getErr == nil {
 				return openFacts{Existing: &existing.ID}, nil
 			}
@@ -93,7 +93,7 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 		}
 		// Refused here, a request past the limit opens no chat; the insert
 		// counts again under the account's lock.
-		n, countErr := s.tickets.OpenedSince(rc, in.Account, at.Add(-24*time.Hour))
+		n, countErr := s.d.Tickets.OpenedSince(rc, in.Account, at.Add(-24*time.Hour))
 		if countErr != nil {
 			return openFacts{}, fmt.Errorf("count the day's tickets: %w", countErr)
 		}
@@ -103,7 +103,7 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 		if draft.Kind != domain.KindNotReceived {
 			return openFacts{}, nil
 		}
-		order, ok, readErr := s.deals.Order(rc, *draft.OrderID)
+		order, ok, readErr := s.d.Deals.Order(rc, *draft.OrderID)
 		if readErr != nil {
 			return openFacts{}, fmt.Errorf("read the order: %w", readErr)
 		}
@@ -128,7 +128,7 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 		return OpenResult{TicketID: *f.Existing, Existed: true}, nil
 	}
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		if _, openErr := s.chats.OpenSupport(rc, in.Account, conversationID); openErr != nil {
+		if _, openErr := s.d.Chats.OpenSupport(rc, in.Account, conversationID); openErr != nil {
 			return fmt.Errorf("open: %w", openErr)
 		}
 		return nil
@@ -136,7 +136,7 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 		return OpenResult{}, fmt.Errorf("open the support chat: %w", err)
 	}
 	ins, err := restate.Run(ctx, func(rc restate.RunContext) (inserted, error) {
-		t, existed, insErr := s.tickets.Insert(rc, repository.Ticket{
+		t, existed, insErr := s.d.Tickets.Insert(rc, repository.Ticket{
 			ID: ticketID, AccountID: in.Account, ConversationID: conversationID, Kind: draft.Kind, OrderID: draft.OrderID,
 			SellerID: f.SellerID, CarrierName: draft.CarrierName, OpenedAt: at,
 		}, in.Key, draft.CarrierKey, at.Add(-24*time.Hour))
@@ -155,13 +155,13 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 	// retry's of this key, whose run sends the first message: our chat goes.
 	if ins.Refused != nil || ins.Existed || ins.TicketID != ticketID {
 		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-			return s.chats.DropSupport(rc, conversationID)
+			return s.d.Chats.DropSupport(rc, conversationID)
 		}); err != nil {
 			return OpenResult{}, fmt.Errorf("drop the support chat: %w", err)
 		}
 		return OpenResult(ins), nil
 	}
-	sent, err := restate.Service[chatsvc.SendResult](ctx, s.prefix+chatsvc.MessageSendName, "Run").
+	sent, err := restate.Service[chatsvc.SendResult](ctx, s.d.Prefix+chatsvc.MessageSendName, "Run").
 		Request(chatsvc.SendFlowInput{Sender: in.Account, Key: in.Key, ConversationID: conversationID, Text: draft.Body, Photos: in.Input.Photos, OpensTicket: true})
 	if err != nil {
 		return OpenResult{}, fmt.Errorf("send the first message: %w", err)
@@ -170,17 +170,17 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 	// meanwhile) leaves no ticket: the key's retry runs again and is refused.
 	if sent.Refused != nil {
 		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-			if wErr := s.tickets.Withdraw(rc, ticketID, in.Account, conversationID); wErr != nil {
+			if wErr := s.d.Tickets.Withdraw(rc, ticketID, in.Account, conversationID); wErr != nil {
 				return fmt.Errorf("withdraw the ticket: %w", wErr)
 			}
-			return s.chats.DropSupport(rc, conversationID)
+			return s.d.Chats.DropSupport(rc, conversationID)
 		}); err != nil {
 			return OpenResult{}, fmt.Errorf("withdraw the empty ticket: %w", err)
 		}
 		return OpenResult{Refused: sent.Refused}, nil
 	}
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		return s.tickets.SetFirstMessage(rc, ticketID, sent.MessageID)
+		return s.d.Tickets.SetFirstMessage(rc, ticketID, sent.MessageID)
 	}); err != nil {
 		return OpenResult{}, fmt.Errorf("record the first message: %w", err)
 	}

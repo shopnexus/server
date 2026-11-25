@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Support) Mine(ctx context.Context, account uuid.UUID) ([]TicketListItem, error) {
-	ts, err := s.tickets.OfAccount(ctx, account)
+	ts, err := s.d.Tickets.OfAccount(ctx, account)
 	if err != nil {
 		return nil, fmt.Errorf("read tickets: %w", err)
 	}
@@ -19,7 +19,7 @@ func (s *Support) Mine(ctx context.Context, account uuid.UUID) ([]TicketListItem
 	for i := range ts {
 		ids = append(ids, ts[i].ConversationID)
 	}
-	threads, err := s.chats.Threads(ctx, account, ids)
+	threads, err := s.d.Chats.Threads(ctx, account, ids)
 	if err != nil {
 		return nil, fmt.Errorf("read the chats: %w", err)
 	}
@@ -62,7 +62,7 @@ func (s *Support) Summary(ctx context.Context, account uuid.UUID) (SummaryView, 
 }
 
 func (s *Support) OfOrder(ctx context.Context, account, order uuid.UUID) (TicketView, error) {
-	t, err := s.tickets.ByOrder(ctx, account, order)
+	t, err := s.d.Tickets.ByOrder(ctx, account, order)
 	if err != nil {
 		return TicketView{}, fmt.Errorf("find the order's ticket: %w", err)
 	}
@@ -70,7 +70,7 @@ func (s *Support) OfOrder(ctx context.Context, account, order uuid.UUID) (Ticket
 }
 
 func (s *Support) OfConversation(ctx context.Context, account, conversation uuid.UUID) (TicketView, bool, error) {
-	t, err := s.tickets.ByConversation(ctx, conversation)
+	t, err := s.d.Tickets.ByConversation(ctx, conversation)
 	if errors.Is(err, domain.ErrNotFound) {
 		return TicketView{}, false, nil
 	}
@@ -89,14 +89,14 @@ func (s *Support) Messaged(ctx context.Context, conversation, message uuid.UUID,
 	if fromPerson {
 		from = domain.FromPerson
 	}
-	if _, err := s.tickets.Messaged(ctx, conversation, message, from, at); err != nil {
+	if _, err := s.d.Tickets.Messaged(ctx, conversation, message, from, at); err != nil {
 		return fmt.Errorf("record the message: %w", err)
 	}
 	return nil
 }
 
 func (s *Support) AccountDeleted(ctx context.Context, account, event uuid.UUID, at time.Time) error {
-	if err := s.tickets.ResolveAllOf(ctx, account, event, at); err != nil {
+	if err := s.d.Tickets.ResolveAllOf(ctx, account, event, at); err != nil {
 		return fmt.Errorf("resolve the account's tickets: %w", err)
 	}
 	return nil

@@ -27,14 +27,12 @@ type DraftContent struct {
 // ListingDraft is a listing its seller started and has not posted, kept
 // for their other devices. The last write wins.
 type ListingDraft struct {
-	id, accountID                   uuid.UUID
-	content                         DraftContent
-	createdAt, updatedAt, expiresAt time.Time
+	s ListingDraftState
 }
 
 // NewListingDraft starts account's draft id.
 func NewListingDraft(id, account uuid.UUID, c DraftContent, now time.Time) ListingDraft {
-	d := ListingDraft{id: id, accountID: account, createdAt: now}
+	d := ListingDraft{s: ListingDraftState{ID: id, AccountID: account, CreatedAt: now}}
 	d.Replace(c, now)
 	return d
 }
@@ -42,17 +40,17 @@ func NewListingDraft(id, account uuid.UUID, c DraftContent, now time.Time) Listi
 // Replace writes c over the draft, which then lives DraftLife from now.
 func (d *ListingDraft) Replace(c DraftContent, now time.Time) {
 	c.Photos = KeepPhotos(c.Photos, nil)
-	d.content, d.updatedAt, d.expiresAt = c, now, now.Add(DraftLife)
+	d.s.Content, d.s.UpdatedAt, d.s.ExpiresAt = c, now, now.Add(DraftLife)
 }
 
-func (d *ListingDraft) ID() uuid.UUID        { return d.id }
-func (d *ListingDraft) AccountID() uuid.UUID { return d.accountID }
-func (d *ListingDraft) Photos() []uuid.UUID  { return slices.Clone(d.content.Photos) }
-func (d *ListingDraft) CreatedAt() time.Time { return d.createdAt }
-func (d *ListingDraft) UpdatedAt() time.Time { return d.updatedAt }
-func (d *ListingDraft) ExpiresAt() time.Time { return d.expiresAt }
+func (d *ListingDraft) ID() uuid.UUID        { return d.s.ID }
+func (d *ListingDraft) AccountID() uuid.UUID { return d.s.AccountID }
+func (d *ListingDraft) Photos() []uuid.UUID  { return slices.Clone(d.s.Content.Photos) }
+func (d *ListingDraft) CreatedAt() time.Time { return d.s.CreatedAt }
+func (d *ListingDraft) UpdatedAt() time.Time { return d.s.UpdatedAt }
+func (d *ListingDraft) ExpiresAt() time.Time { return d.s.ExpiresAt }
 func (d *ListingDraft) Content() DraftContent {
-	c := d.content
+	c := d.s.Content
 	c.Photos = slices.Clone(c.Photos)
 	return c
 }
@@ -63,7 +61,7 @@ func (d *ListingDraft) Content() DraftContent {
 // create needs a free place.
 func CheckPut(stored *ListingDraft, account uuid.UUID, count int) error {
 	switch {
-	case stored != nil && stored.accountID != account:
+	case stored != nil && stored.s.AccountID != account:
 		return ErrDraftNotFound
 	case stored == nil && count >= MaxDrafts:
 		return ErrDraftLimitReached
@@ -90,17 +88,11 @@ type ListingDraftState struct {
 }
 
 // RestoreListingDraft rebuilds a stored draft. Stores only.
-func RestoreListingDraft(st ListingDraftState) ListingDraft {
-	return ListingDraft{
-		id: st.ID, accountID: st.AccountID, content: st.Content,
-		createdAt: st.CreatedAt, updatedAt: st.UpdatedAt, expiresAt: st.ExpiresAt,
-	}
-}
+func RestoreListingDraft(st ListingDraftState) ListingDraft { return ListingDraft{s: st} }
 
 // State returns every stored field. Stores only.
 func (d *ListingDraft) State() ListingDraftState {
-	return ListingDraftState{
-		ID: d.id, AccountID: d.accountID, Content: d.Content(),
-		CreatedAt: d.createdAt, UpdatedAt: d.updatedAt, ExpiresAt: d.expiresAt,
-	}
+	st := d.s
+	st.Content = d.Content()
+	return st
 }

@@ -16,14 +16,14 @@ const guessBatch = 64
 // the nearest category text's subcategory.
 func (c *Catalog) GuessCategory(ctx context.Context, title, description string) (string, error) {
 	text := domain.GuessText(title, description)
-	if text == "" || c.text == nil {
+	if text == "" || c.d.Text == nil {
 		return "", nil
 	}
 	protos, err := c.prototypes(ctx)
 	if err != nil {
 		return "", err
 	}
-	vs, err := c.text.Embed(ctx, []string{text})
+	vs, err := c.d.Text.Embed(ctx, []string{text})
 	if err != nil {
 		return "", fmt.Errorf("embed the listing's text: %w", err)
 	}
@@ -42,14 +42,14 @@ func (c *Catalog) prototypes(ctx context.Context) ([]domain.CategoryPrototype, e
 	if c.protos != nil {
 		return c.protos, nil
 	}
-	tree, err := c.categories.Tree(ctx, locale.Vietnamese)
+	tree, err := c.d.Categories.Tree(ctx, locale.Vietnamese)
 	if err != nil {
 		return nil, fmt.Errorf("read categories: %w", err)
 	}
 	texts, codes := domain.GuessTexts(tree)
 	protos := make([]domain.CategoryPrototype, 0, len(texts))
 	for i, chunk := range slices.Collect(slices.Chunk(texts, guessBatch)) {
-		vs, embedErr := c.text.Embed(ctx, chunk)
+		vs, embedErr := c.d.Text.Embed(ctx, chunk)
 		if embedErr != nil {
 			return nil, fmt.Errorf("embed the category texts: %w", embedErr)
 		}

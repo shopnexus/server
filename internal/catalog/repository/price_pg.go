@@ -20,7 +20,7 @@ import (
 func (s pgVectors) PriceSample(ctx context.Context, f PriceFilter) ([]domain.PriceSample, error) {
 	args := pgx.StrictNamedArgs{
 		"category": f.CategoryCode, "condition": string(f.Condition), "exclude": f.Exclude,
-		"sold": []string{string(domain.StatusSold), string(domain.StatusDeleted)}, "on_sale": []string{string(domain.StatusActive), string(domain.StatusReserved)},
+		"sold": []domain.Status{domain.StatusSold, domain.StatusDeleted}, "on_sale": []domain.Status{domain.StatusActive, domain.StatusReserved},
 		"sold_since": f.SoldSince, "on_sale_since": f.OnSaleSince, "limit": f.Limit,
 	}
 	var lists []string

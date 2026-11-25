@@ -9,6 +9,7 @@ import (
 
 	"github.com/shopnexus/server/internal/feedback/domain"
 	"github.com/shopnexus/server/internal/feedback/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -26,16 +27,9 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 }
 
 type sendRequest struct {
-	Key     uuid.UUID      `header:"Idempotency-Key" json:"-"`
-	Mood    int            `json:"mood"`
-	Kind    string         `json:"kind"`
-	Text    string         `json:"text"`
-	Photos  []uuid.UUID    `json:"photos"`
-	Device  *domain.Device `json:"device"`
-	Screen  string         `json:"screen"`
-	Contact bool           `json:"contact"`
-	Source  string         `json:"source"`
-	PageURL string         `json:"page_url"`
+	domain.Draft
+
+	Key uuid.UUID `header:"Idempotency-Key" json:"-"`
 }
 
 // Send serves POST /v1/feedback: 201 for new feedback, 200 for the one the
@@ -50,10 +44,7 @@ func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, existed, err := h.svc.Send(r.Context(), p.AccountID, in.Key, service.SendInput{
-		Mood: in.Mood, Kind: in.Kind, Text: in.Text, Photos: in.Photos, Device: in.Device, Screen: in.Screen, Contact: in.Contact,
-		Source: in.Source, PageURL: in.PageURL,
-	})
+	out, existed, err := h.svc.Send(r.Context(), p.AccountID, in.Key, in.Draft)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
@@ -67,14 +58,8 @@ func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
 
 // Mine serves GET /v1/feedback.
 func (h *Handler) Mine(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	items, err := h.svc.Mine(r.Context(), p.AccountID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, map[string]any{"items": items})
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, _ httpx.None) (map[string]any, error) {
+		items, err := h.svc.Mine(r.Context(), p.AccountID)
+		return map[string]any{"items": items}, err
+	})
 }

@@ -18,14 +18,14 @@ func (s *Support) Open(ctx context.Context, account, key uuid.UUID, in OpenInput
 		return TicketView{}, false, err
 	}
 	var existed bool
-	t, err := s.tickets.ByKey(ctx, account, key)
+	t, err := s.d.Tickets.ByKey(ctx, account, key)
 	if errors.Is(err, domain.ErrNotFound) {
 		res, callErr := s.open.Call(ctx, OpenFlowInput{Account: account, Key: key, Input: in})
 		if callErr != nil {
 			return TicketView{}, false, callErr
 		}
 		existed = res.Existed
-		t, err = s.tickets.Get(ctx, res.TicketID)
+		t, err = s.d.Tickets.Get(ctx, res.TicketID)
 		// A racing retry answered a ticket its first run then withdrew.
 		if errors.Is(err, domain.ErrNotFound) {
 			return TicketView{}, false, apperr.ErrTryAgain

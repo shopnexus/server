@@ -22,7 +22,7 @@ import (
 type Service interface {
 	// Send stores account's feedback under key, or returns the feedback
 	// the key made already, with existed true.
-	Send(ctx context.Context, account, key uuid.UUID, in SendInput) (FeedbackView, bool, error)
+	Send(ctx context.Context, account, key uuid.UUID, in domain.Draft) (FeedbackView, bool, error)
 	// Mine lists account's newest feedback, at most MineLimit.
 	Mine(ctx context.Context, account uuid.UUID) ([]FeedbackView, error)
 	// Facts reads what notification tells of a feedback; false for none.
@@ -60,19 +60,6 @@ const (
 	// SummaryDays is the period Summary counts.
 	SummaryDays = 30
 )
-
-// SendInput is the FeedbackDraft schema; Mood 0 is none.
-type SendInput struct {
-	Mood    int
-	Kind    string
-	Text    string
-	Photos  []uuid.UUID
-	Device  *domain.Device
-	Screen  string
-	Contact bool
-	Source  string
-	PageURL string
-}
 
 // StatusInput is the ConsoleFeedbackStatus schema.
 type StatusInput struct {
@@ -149,29 +136,8 @@ type GroupView struct {
 	Days  [7]int          `json:"days"`
 }
 
-// ScreenCount is the FeedbackScreenCount schema.
-type ScreenCount struct {
-	Screen string `json:"screen"`
-	Count  int    `json:"count"`
-}
-
 // SummaryView is the FeedbackSummary schema; a mood of 0 is none.
-type SummaryView struct {
-	DayMood       []float64     `json:"day_mood"`
-	DaySent       []int         `json:"day_sent"`
-	Mood          float64       `json:"mood"`
-	MoodBefore    float64       `json:"mood_before"`
-	Sent          int           `json:"sent"`
-	App           int           `json:"app"`
-	Web           int           `json:"web"`
-	Bugs          int           `json:"bugs"`
-	Ideas         int           `json:"ideas"`
-	Praise        int           `json:"praise"`
-	Waiting       int           `json:"waiting"`
-	ShippedGroups int           `json:"shipped_groups"`
-	ShippedPeople int           `json:"shipped_people"`
-	Screens       []ScreenCount `json:"screens"`
-}
+type SummaryView = repository.Summary
 
 // Facts are what a feedback notice is written from.
 type Facts struct {
@@ -192,17 +158,12 @@ type Deps struct {
 
 // Feedback implements Service in this process.
 type Feedback struct {
-	store    repository.Store
-	media    mediasvc.Service
-	accounts accountsvc.Service
-	now      func() time.Time
+	d Deps
 }
 
 var _ Service = (*Feedback)(nil)
 
-func New(d Deps) *Feedback {
-	return &Feedback{store: d.Store, media: d.Media, accounts: d.Accounts, now: d.Now}
-}
+func New(d Deps) *Feedback { return &Feedback{d: d} }
 
 // view shows f with its photos' public addresses.
 func (s *Feedback) view(f repository.Feedback) FeedbackView {
@@ -212,7 +173,7 @@ func (s *Feedback) view(f repository.Feedback) FeedbackView {
 		CreatedAt: f.CreatedAt, StatusAt: f.StatusAt,
 	}
 	for _, p := range f.Photos {
-		v.Photos = append(v.Photos, PhotoView{UploadID: p.UploadID, URL: s.media.URL(p.PhotoKey), ThumbURL: s.media.URL(p.ThumbKey)})
+		v.Photos = append(v.Photos, PhotoView{UploadID: p.UploadID, URL: s.d.Media.URL(p.PhotoKey), ThumbURL: s.d.Media.URL(p.ThumbKey)})
 	}
 	if f.RepliedAt != nil {
 		v.Reply = &ReplyView{Text: f.Reply, At: *f.RepliedAt}
@@ -226,11 +187,11 @@ func (s *Feedback) consoles(ctx context.Context, fs []repository.Feedback) ([]Co
 	for i := range fs {
 		ids = append(ids, fs[i].AccountID)
 	}
-	accounts, err := s.accounts.GetMany(ctx, ids)
+	accounts, err := s.d.Accounts.GetMany(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("read the persons: %w", err)
 	}
-	contacts, err := s.accounts.Contacts(ctx, ids)
+	contacts, err := s.d.Accounts.Contacts(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("read the persons' contacts: %w", err)
 	}

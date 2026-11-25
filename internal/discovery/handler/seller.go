@@ -5,6 +5,7 @@ import (
 	"uuid"
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/discovery/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
 )
@@ -22,16 +23,8 @@ type sellerListingsRequest struct {
 
 // SellerListings serves GET /v1/sellers/{id}/listings, signed in or not.
 func (h *Handler) SellerListings(w http.ResponseWriter, r *http.Request) {
-	var in sellerListingsRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	near := catalogdomain.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune}
-	out, err := h.svc.SellerListings(r.Context(), httpx.Viewer(r), in.ID, near, in.Request)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in sellerListingsRequest) (page.Page[service.SearchItem], error) {
+		near := catalogdomain.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune}
+		return h.svc.SellerListings(r.Context(), httpx.Viewer(r), in.ID, near, in.Request)
+	})
 }

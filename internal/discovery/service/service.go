@@ -144,43 +144,13 @@ type Deps struct {
 
 // Discovery implements Service in this process.
 type Discovery struct {
-	saves                      repository.Saves
-	views                      repository.Views
-	understandings             repository.Understandings
-	history                    repository.History
-	hidden                     repository.Hidden
-	watches                    repository.Watches
-	sweeps                     Sweeper
-	arrivalLag                 time.Duration
-	sweepBatch                 int
-	catalog                    catalogsvc.Service
-	accounts                   accountsvc.Service
-	llm                        llm.Client
-	modelUses                  repository.ModelUses
-	media                      mediasvc.Service
-	queryVectors               repository.QueryVectors
-	photoVectors               repository.PhotoVectors
-	text, image                embed.Model
-	textVersion, imageVersion  string
-	textMin, photoMin, lookMin float64
-	modelTimeout               time.Duration
+	d Deps
 	// reads joins the searches that wait for the same query's model call.
 	reads singleflight.Group
 	// vectorDay is the last day this process started a vector sweep.
 	vectorDay atomic.Value
-	log       *slog.Logger
-	now       func() time.Time
 }
 
 var _ Service = (*Discovery)(nil)
 
-func New(d Deps) *Discovery {
-	return &Discovery{
-		saves: d.Saves, views: d.Views, understandings: d.Understandings, history: d.History, hidden: d.Hidden, watches: d.Watches,
-		sweeps: d.Sweeps, arrivalLag: d.ArrivalLag, sweepBatch: d.SweepBatch, catalog: d.Catalog,
-		accounts: d.Accounts, llm: d.LLM, modelUses: d.ModelUses,
-		media: d.Media, queryVectors: d.QueryVectors, photoVectors: d.PhotoVectors, text: d.Text, image: d.Image,
-		textVersion: d.TextVersion, imageVersion: d.ImageVersion, textMin: d.TextMin, photoMin: d.PhotoMin, lookMin: d.LookMin,
-		modelTimeout: d.ModelTimeout, log: d.Log, now: d.Now,
-	}
-}
+func New(d Deps) *Discovery { return &Discovery{d: d} }

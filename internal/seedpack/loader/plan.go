@@ -86,20 +86,17 @@ func (o Options) runs(stage string) bool { return len(o.Only) == 0 || slices.Con
 
 // Plan is what a load would write, for the summary before it does.
 type Plan struct {
-	Pack     seedpack.Manifest `json:"pack"`
-	Dir      string            `json:"dir"`
-	People   Count             `json:"people"`
-	Listings Count             `json:"listings"`
-	Photos   int               `json:"photos"`
-	Sold     Count             `json:"sold"`
-	// Reviews are those the ReviewWriter keeps; Dropped those it cannot
-	// store yet.
-	Reviews        int      `json:"reviews"`
-	ReviewsDropped int      `json:"reviews_dropped"`
-	Follows        int      `json:"follows"`
-	TextVectors    string   `json:"text_vectors"`
-	PhotoVectors   string   `json:"photo_vectors"`
-	Skipped        []string `json:"skipped,omitempty"`
+	Pack         seedpack.Manifest `json:"pack"`
+	Dir          string            `json:"dir"`
+	People       Count             `json:"people"`
+	Listings     Count             `json:"listings"`
+	Photos       int               `json:"photos"`
+	Sold         Count             `json:"sold"`
+	Reviews      int               `json:"reviews"`
+	Follows      int               `json:"follows"`
+	TextVectors  string            `json:"text_vectors"`
+	PhotoVectors string            `json:"photo_vectors"`
+	Skipped      []string          `json:"skipped,omitempty"`
 
 	src         *seedpack.Pack
 	opts        Options
@@ -336,9 +333,7 @@ func (l *Loader) Plan(ctx context.Context, p *seedpack.Pack, o Options) (*Plan, 
 	for i := range pl.sales {
 		s := &pl.sales[i]
 		pl.Photos += photoCount(s.sale.Listing.Photos, o.FirstPhotoOnly)
-		kept, dropped := l.d.Reviews.Keeps(s.sale.Reviews)
-		pl.Reviews += kept
-		pl.ReviewsDropped += dropped
+		pl.Reviews += len(s.sale.Reviews)
 	}
 	pl.Follows = len(pl.followLines)
 	pl.TextVectors, pl.textOn = vectorMode(o.Vectors, p.Manifest.Vectors.Text, l.d.TextVersion, p.Has(seedpack.TextVectors))

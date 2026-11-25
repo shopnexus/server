@@ -27,10 +27,8 @@ type Sold struct {
 
 // ReviewWriter writes the reviews of one sale.
 type ReviewWriter interface {
-	// Keeps says how many of reviews Write stores and how many it drops.
-	Keeps(reviews []seedpack.Review) (kept, dropped int)
-	// Write stores the reviews it keeps, skipping those already there, and
-	// returns how many it wrote.
+	// Write stores the reviews, skipping those already there, and returns
+	// how many it wrote.
 	Write(ctx context.Context, s Sold, reviews []seedpack.Review) (int, error)
 }
 
@@ -40,8 +38,6 @@ type ReviewWriter interface {
 type Reviews struct {
 	Reviews trustrepo.Reviews
 }
-
-func (Reviews) Keeps(reviews []seedpack.Review) (kept, dropped int) { return len(reviews), 0 }
 
 func (w Reviews) Write(ctx context.Context, s Sold, reviews []seedpack.Review) (int, error) {
 	reviews = slices.Clone(reviews)

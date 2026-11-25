@@ -51,7 +51,7 @@ func TestSendAndMine(t *testing.T) {
 	svc, person, _ := newService(t, false)
 	me := person()
 	key := uuid.NewV7()
-	in := service.SendInput{
+	in := domain.Draft{
 		Mood: 4, Kind: "idea", Text: "  Thêm bộ lọc size khung ", Screen: "search_results", Contact: true,
 		Device: &domain.Device{Model: "Pixel 9", OS: "Android 16", AppVersion: "2.5.0"},
 	}
@@ -60,19 +60,19 @@ func TestSendAndMine(t *testing.T) {
 		v.Status != domain.StatusSent || !v.StatusAt.Equal(now) || !v.CreatedAt.Equal(now) || v.Photos == nil || v.Reply != nil {
 		t.Fatalf("%+v %v %v", v, existed, err)
 	}
-	again, existed, err := svc.Send(ctx, me, key, service.SendInput{Mood: 1})
+	again, existed, err := svc.Send(ctx, me, key, domain.Draft{Mood: 1})
 	if err != nil || !existed || again.ID != v.ID || again.Mood != 4 {
 		t.Fatalf("a repeated key: %+v %v %v", again, existed, err)
 	}
-	if _, _, err = svc.Send(ctx, me, uuid.NewV7(), service.SendInput{Text: "   "}); !errors.Is(err, domain.ErrInvalid) {
+	if _, _, err = svc.Send(ctx, me, uuid.NewV7(), domain.Draft{Text: "   "}); !errors.Is(err, domain.ErrInvalid) {
 		t.Fatalf("neither mood nor text: %v", err)
 	}
 	for range domain.DailyLimit - 1 {
-		if _, _, err = svc.Send(ctx, me, uuid.NewV7(), service.SendInput{Mood: 3}); err != nil {
+		if _, _, err = svc.Send(ctx, me, uuid.NewV7(), domain.Draft{Mood: 3}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, _, err = svc.Send(ctx, me, uuid.NewV7(), service.SendInput{Mood: 3}); !errors.Is(err, domain.ErrTooMany) {
+	if _, _, err = svc.Send(ctx, me, uuid.NewV7(), domain.Draft{Mood: 3}); !errors.Is(err, domain.ErrTooMany) {
 		t.Fatalf("the 21st: %v", err)
 	}
 	// A key the account used still answers past the limit.
@@ -94,7 +94,7 @@ func TestSendFromTheWebsite(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	svc, person, _ := newService(t, false)
-	v, _, err := svc.Send(ctx, person(), uuid.NewV7(), service.SendInput{
+	v, _, err := svc.Send(ctx, person(), uuid.NewV7(), domain.Draft{
 		Mood: 2, Screen: "search", Source: "web", PageURL: "https://shopnexus.id.vn/search?q=laptop",
 		Device: &domain.Device{Model: "Chrome 132", OS: "Windows 11"},
 	})
@@ -122,13 +122,13 @@ func TestSendPhotos(t *testing.T) {
 	a := mediatest.Upload(t, media, me, "image/jpeg", mediatest.JPEG(t, 800, 600))
 	b := mediatest.Upload(t, media, me, "image/jpeg", mediatest.JPEG(t, 600, 800))
 	key := uuid.NewV7()
-	v, _, err := svc.Send(ctx, me, key, service.SendInput{Text: "Nút Lưu bị che", Kind: "bug", Photos: []uuid.UUID{b, a}})
+	v, _, err := svc.Send(ctx, me, key, domain.Draft{Text: "Nút Lưu bị che", Kind: "bug", Photos: []uuid.UUID{b, a}})
 	if err != nil || len(v.Photos) != 2 || v.Photos[0].UploadID != b || v.Photos[1].UploadID != a ||
 		!strings.Contains(v.Photos[0].URL, "media/") || v.Photos[0].URL == v.Photos[0].ThumbURL {
 		t.Fatalf("%+v %v", v.Photos, err)
 	}
 	theirs := mediatest.Upload(t, media, person(), "image/jpeg", mediatest.JPEG(t, 400, 400))
-	if _, _, err = svc.Send(ctx, me, uuid.NewV7(), service.SendInput{Mood: 1, Photos: []uuid.UUID{theirs}}); !errors.Is(err, mediadomain.ErrInvalidUpload) {
+	if _, _, err = svc.Send(ctx, me, uuid.NewV7(), domain.Draft{Mood: 1, Photos: []uuid.UUID{theirs}}); !errors.Is(err, mediadomain.ErrInvalidUpload) {
 		t.Fatalf("another's photo: %v", err)
 	}
 }
@@ -140,11 +140,11 @@ func TestStaff(t *testing.T) {
 	ctx := context.Background()
 	svc, person, _ := newService(t, false)
 	owner, other := person(), person()
-	mine, _, err := svc.Send(ctx, owner, uuid.NewV7(), service.SendInput{Kind: "idea", Text: "Lọc theo size khung"})
+	mine, _, err := svc.Send(ctx, owner, uuid.NewV7(), domain.Draft{Kind: "idea", Text: "Lọc theo size khung"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	theirs, _, err := svc.Send(ctx, other, uuid.NewV7(), service.SendInput{Kind: "idea", Text: "Cần lọc size xe đạp"})
+	theirs, _, err := svc.Send(ctx, other, uuid.NewV7(), domain.Draft{Kind: "idea", Text: "Cần lọc size xe đạp"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,7 +15,7 @@ func (s *Feedback) Reply(ctx context.Context, id uuid.UUID, text string, by audi
 	if err != nil {
 		return ConsoleFeedback{}, err
 	}
-	f, err := s.store.Reply(ctx, id, text, by, s.now())
+	f, err := s.d.Store.Reply(ctx, id, text, by, s.d.Now())
 	if err != nil {
 		return ConsoleFeedback{}, fmt.Errorf("reply: %w", err)
 	}

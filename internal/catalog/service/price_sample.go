@@ -29,10 +29,10 @@ type PriceQuery struct {
 type PriceSample = domain.PriceSample
 
 func (c *Catalog) PriceSample(ctx context.Context, q PriceQuery) ([]PriceSample, error) {
-	samples, err := c.vectors.PriceSample(ctx, repository.PriceFilter{
+	samples, err := c.d.Vectors.PriceSample(ctx, repository.PriceFilter{
 		Exclude: q.Exclude, CategoryCode: q.CategoryCode, Condition: q.Condition,
-		Text: q.Text, TextVersion: c.textVersion, TextMin: q.TextMin,
-		Photo: q.Photo, PhotoVersion: c.imageVersion, PhotoMin: q.PhotoMin,
+		Text: q.Text, TextVersion: c.d.TextVersion, TextMin: q.TextMin,
+		Photo: q.Photo, PhotoVersion: c.d.ImageVersion, PhotoMin: q.PhotoMin,
 		SoldSince: q.Now.Add(-domain.PriceSoldWindow), OnSaleSince: q.Now.Add(-domain.PriceOnSaleWindow),
 		Limit: domain.PriceSampleSize,
 	})
@@ -43,7 +43,7 @@ func (c *Catalog) PriceSample(ctx context.Context, q PriceQuery) ([]PriceSample,
 }
 
 func (c *Catalog) EmbeddingText(ctx context.Context, d domain.ListingInput) (string, error) {
-	tree, err := c.categories.Tree(ctx, locale.Vietnamese)
+	tree, err := c.d.Categories.Tree(ctx, locale.Vietnamese)
 	if err != nil {
 		return "", fmt.Errorf("read categories: %w", err)
 	}
@@ -57,7 +57,7 @@ func (c *Catalog) EmbeddingText(ctx context.Context, d domain.ListingInput) (str
 }
 
 func (c *Catalog) KeySpecs(ctx context.Context, categoryCode string, specs []domain.Spec) ([]domain.Spec, error) {
-	_, names, err := c.categories.Leaf(ctx, categoryCode)
+	_, names, err := c.d.Categories.Leaf(ctx, categoryCode)
 	if err != nil {
 		return nil, fmt.Errorf("read the category's specs: %w", err)
 	}

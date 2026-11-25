@@ -109,56 +109,20 @@ type ListingInput struct {
 type Refs struct {
 	CategoryIsLeaf bool
 	// Specs are the specs the category asks for.
-	Specs []SpecNames
-	// SpecLabels are their Vietnamese names, all a Refs journaled by the
-	// release before spec keys holds; only that release reads them.
-	SpecLabels    []string
+	Specs         []SpecNames
 	CommuneExists bool
 	CommunePoint  Point // the chosen commune's point
 }
 
-// Listing is one item on sale.
+// Listing is one item on sale. Its fields are its stored state.
 type Listing struct {
-	id           uuid.UUID
-	sellerID     uuid.UUID
-	title        string
-	price        int64
-	description  string
-	categoryCode string
-	condition    Condition
-	allowOffers  bool
-	communeCode  string
-	point        Point
-	photos       []Photo
-	specs        []Spec
-	status       Status
-	rejection    map[uuid.UUID]string
-	reservedFor  uuid.UUID
-	writeID      uuid.UUID
-	createdAt    time.Time
-	updatedAt    time.Time
-	publishedAt  *time.Time
-	soldAt       *time.Time
-	deletedAt    *time.Time
-	// heldAt is when a console member hid the listing; nil when no member
-	// holds it.
-	heldAt *time.Time
-	// soldOrder is the order SellTo sold the listing through; nil for a
-	// sale off the app.
-	soldOrder *uuid.UUID
-	// code ends the web address; the store sets it on insert, so a new
-	// listing has none until it is read back.
-	code string
-	// previousPrice is the price the last change after publication counts
-	// from (see repriced), made at priceChangedAt; 0 and nil before one.
-	previousPrice  int64
-	priceChangedAt *time.Time
+	s ListingState
 }
 
 // NewListing checks d and starts the listing in processing. The first write
 // ID is the id.
 func NewListing(id, seller uuid.UUID, d ListingInput, refs Refs, now time.Time) (Listing, error) {
-	l := Listing{id: id, sellerID: seller, status: StatusProcessing, writeID: id, createdAt: now}
+	l := Listing{s: ListingState{ID: id, SellerID: seller, Status: StatusProcessing, WriteID: id, CreatedAt: now}}
 	if err := l.apply(d, refs, now); err != nil {
 		return Listing{}, err
 	}
@@ -229,13 +193,13 @@ func (l *Listing) apply(d ListingInput, refs Refs, now time.Time) error {
 		photos[i] = Photo{UploadID: id, Keys: l.keysOf(id)}
 	}
 	if d.Spot != nil {
-		l.point = *d.Spot
-	} else if l.point == (Point{}) || l.communeCode != d.CommuneCode {
-		l.point = refs.CommunePoint
+		l.setPoint(*d.Spot)
+	} else if l.Point() == (Point{}) || l.s.CommuneCode != d.CommuneCode {
+		l.setPoint(refs.CommunePoint)
 	}
-	l.title, l.price, l.description = title, d.Price, description
-	l.categoryCode, l.condition, l.allowOffers, l.communeCode = d.CategoryCode, d.Condition, d.AllowOffers, d.CommuneCode
-	l.photos, l.specs, l.updatedAt = photos, specs, now
+	l.s.Title, l.s.Price, l.s.Description = title, d.Price, description
+	l.s.CategoryCode, l.s.Condition, l.s.AllowOffers, l.s.CommuneCode = d.CategoryCode, d.Condition, d.AllowOffers, d.CommuneCode
+	l.s.Photos, l.s.Specs, l.s.UpdatedAt = photos, specs, now
 	return nil
 }
 
@@ -297,7 +261,7 @@ func duplicates(d ListingInput) bool {
 // keysOf returns the keys of upload id when the listing already holds it
 // processed.
 func (l *Listing) keysOf(id uuid.UUID) PhotoKeys {
-	for _, p := range l.photos {
+	for _, p := range l.s.Photos {
 		if p.UploadID == id {
 			return p.Keys
 		}
@@ -305,38 +269,38 @@ func (l *Listing) keysOf(id uuid.UUID) PhotoKeys {
 	return PhotoKeys{}
 }
 
-func (l *Listing) ID() uuid.UUID       { return l.id }
-func (l *Listing) SellerID() uuid.UUID { return l.sellerID }
-func (l *Listing) Title() string       { return l.title }
+func (l *Listing) ID() uuid.UUID       { return l.s.ID }
+func (l *Listing) SellerID() uuid.UUID { return l.s.SellerID }
+func (l *Listing) Title() string       { return l.s.Title }
 
 // Slug is the last part of the listing's web address: Slug(title, code).
-func (l *Listing) Slug() string         { return Slug(l.title, l.code) }
-func (l *Listing) Price() int64         { return l.price }
-func (l *Listing) Description() string  { return l.description }
-func (l *Listing) CategoryCode() string { return l.categoryCode }
-func (l *Listing) Condition() Condition { return l.condition }
-func (l *Listing) AllowOffers() bool    { return l.allowOffers }
-func (l *Listing) CommuneCode() string  { return l.communeCode }
+func (l *Listing) Slug() string         { return Slug(l.s.Title, l.s.Code) }
+func (l *Listing) Price() int64         { return l.s.Price }
+func (l *Listing) Description() string  { return l.s.Description }
+func (l *Listing) CategoryCode() string { return l.s.CategoryCode }
+func (l *Listing) Condition() Condition { return l.s.Condition }
+func (l *Listing) AllowOffers() bool    { return l.s.AllowOffers }
+func (l *Listing) CommuneCode() string  { return l.s.CommuneCode }
 
 // Point is where distance is measured from. Server only: no view carries it.
-func (l *Listing) Point() Point                    { return l.point }
-func (l *Listing) Photos() []Photo                 { return append([]Photo{}, l.photos...) }
-func (l *Listing) Specs() []Spec                   { return append([]Spec{}, l.specs...) }
-func (l *Listing) Status() Status                  { return l.status }
-func (l *Listing) Rejection() map[uuid.UUID]string { return l.rejection }
-func (l *Listing) ReservedFor() uuid.UUID          { return l.reservedFor }
-func (l *Listing) WriteID() uuid.UUID              { return l.writeID }
-func (l *Listing) CreatedAt() time.Time            { return l.createdAt }
-func (l *Listing) UpdatedAt() time.Time            { return l.updatedAt }
-func (l *Listing) PublishedAt() *time.Time         { return l.publishedAt }
-func (l *Listing) SoldAt() *time.Time              { return l.soldAt }
-func (l *Listing) SoldOrder() *uuid.UUID           { return l.soldOrder }
-func (l *Listing) HeldAt() *time.Time              { return l.heldAt }
+func (l *Listing) Point() Point                    { return Point{Lat: l.s.Lat, Lng: l.s.Lng} }
+func (l *Listing) Photos() []Photo                 { return append([]Photo{}, l.s.Photos...) }
+func (l *Listing) Specs() []Spec                   { return append([]Spec{}, l.s.Specs...) }
+func (l *Listing) Status() Status                  { return l.s.Status }
+func (l *Listing) Rejection() map[uuid.UUID]string { return l.s.Rejection }
+func (l *Listing) ReservedFor() uuid.UUID          { return l.s.ReservedFor }
+func (l *Listing) WriteID() uuid.UUID              { return l.s.WriteID }
+func (l *Listing) CreatedAt() time.Time            { return l.s.CreatedAt }
+func (l *Listing) UpdatedAt() time.Time            { return l.s.UpdatedAt }
+func (l *Listing) PublishedAt() *time.Time         { return l.s.PublishedAt }
+func (l *Listing) SoldAt() *time.Time              { return l.s.SoldAt }
+func (l *Listing) SoldOrder() *uuid.UUID           { return l.s.SoldOrder }
+func (l *Listing) HeldAt() *time.Time              { return l.s.HeldAt }
 
 // Uploads returns the upload IDs of the listing's photos.
 func (l *Listing) Uploads() []uuid.UUID {
-	out := make([]uuid.UUID, len(l.photos))
-	for i, p := range l.photos {
+	out := make([]uuid.UUID, len(l.s.Photos))
+	for i, p := range l.s.Photos {
 		out[i] = p.UploadID
 	}
 	return out
@@ -346,11 +310,11 @@ func (l *Listing) Uploads() []uuid.UUID {
 // every photo but a processed cover, which its orders, deals and chats
 // still show. Any other listing shows them all.
 func (l *Listing) DeletedUploads() []uuid.UUID {
-	if l.status != StatusDeleted {
+	if l.s.Status != StatusDeleted {
 		return nil
 	}
 	ids := l.Uploads()
-	if len(l.photos) > 0 && l.photos[0].Keys.Photo != "" {
+	if len(l.s.Photos) > 0 && l.s.Photos[0].Keys.Photo != "" {
 		return ids[1:]
 	}
 	return ids
@@ -359,7 +323,7 @@ func (l *Listing) DeletedUploads() []uuid.UUID {
 // PendingUploads returns the uploads of the photos not processed yet.
 func (l *Listing) PendingUploads() []uuid.UUID {
 	var out []uuid.UUID
-	for _, p := range l.photos {
+	for _, p := range l.s.Photos {
 		if p.Keys.Photo == "" {
 			out = append(out, p.UploadID)
 		}
@@ -372,18 +336,18 @@ func (l *Listing) PendingUploads() []uuid.UUID {
 // processing. Sold, deleted and reserved listings cannot be edited. A new
 // price on a published listing is kept for PriceDrop.
 func (l *Listing) Edit(d ListingInput, refs Refs, now time.Time) error {
-	if l.status == StatusSold || l.status == StatusDeleted || l.status == StatusReserved {
+	if l.s.Status == StatusSold || l.s.Status == StatusDeleted || l.s.Status == StatusReserved {
 		return ErrStateConflict
 	}
-	was := l.price
+	was := l.s.Price
 	if err := l.apply(d, refs, now); err != nil {
 		return err
 	}
-	if l.publishedAt != nil && l.price != was {
+	if l.s.PublishedAt != nil && l.s.Price != was {
 		l.repriced(was, now)
 	}
-	if len(l.PendingUploads()) > 0 || l.status == StatusRejected {
-		l.status, l.rejection = StatusProcessing, nil
+	if len(l.PendingUploads()) > 0 || l.s.Status == StatusRejected {
+		l.s.Status, l.s.Rejection = StatusProcessing, nil
 	}
 	return nil
 }
@@ -392,14 +356,14 @@ func (l *Listing) Edit(d ListingInput, refs Refs, now time.Time) error {
 // on sale, or hidden while a member holds it. It reports whether this is
 // the listing's first publication.
 func (l *Listing) Published(keys map[uuid.UUID]PhotoKeys, now time.Time) (first bool) {
-	for i := range l.photos {
-		if k, ok := keys[l.photos[i].UploadID]; ok {
-			l.photos[i].Keys = k
+	for i := range l.s.Photos {
+		if k, ok := keys[l.s.Photos[i].UploadID]; ok {
+			l.s.Photos[i].Keys = k
 		}
 	}
-	l.status, l.rejection, l.updatedAt = l.onSale(), nil, now
-	if l.publishedAt == nil {
-		l.publishedAt = &now
+	l.s.Status, l.s.Rejection, l.s.UpdatedAt = l.onSale(), nil, now
+	if l.s.PublishedAt == nil {
+		l.s.PublishedAt = &now
 		return true
 	}
 	return false
@@ -408,7 +372,7 @@ func (l *Listing) Published(keys map[uuid.UUID]PhotoKeys, now time.Time) (first 
 // Rejected records why processing refused uploads; the seller edits the
 // listing to try again.
 func (l *Listing) Rejected(reasons map[uuid.UUID]string, now time.Time) {
-	l.status, l.rejection, l.updatedAt = StatusRejected, reasons, now
+	l.s.Status, l.s.Rejection, l.s.UpdatedAt = StatusRejected, reasons, now
 }
 
 func (l *Listing) Hide(now time.Time) error { return l.move(StatusActive, StatusHidden, now) }
@@ -416,7 +380,7 @@ func (l *Listing) Hide(now time.Time) error { return l.move(StatusActive, Status
 // Unhide puts the seller's hidden listing back on sale; one a console
 // member holds is ErrHeld.
 func (l *Listing) Unhide(now time.Time) error {
-	if l.heldAt != nil {
+	if l.s.HeldAt != nil {
 		return ErrHeld
 	}
 	return l.move(StatusHidden, StatusActive, now)
@@ -425,30 +389,30 @@ func (l *Listing) Unhide(now time.Time) error {
 // Hold is a console member hiding an active or hidden listing until Lift;
 // the seller cannot unhide it meanwhile. A held listing is ErrStateConflict.
 func (l *Listing) Hold(now time.Time) error {
-	if l.heldAt != nil || (l.status != StatusActive && l.status != StatusHidden) {
+	if l.s.HeldAt != nil || (l.s.Status != StatusActive && l.s.Status != StatusHidden) {
 		return ErrStateConflict
 	}
-	l.status, l.heldAt, l.updatedAt = StatusHidden, &now, now
+	l.s.Status, l.s.HeldAt, l.s.UpdatedAt = StatusHidden, &now, now
 	return nil
 }
 
 // Lift ends a member's hold, and puts a listing still hidden back on sale.
 // A listing nobody holds is ErrStateConflict.
 func (l *Listing) Lift(now time.Time) error {
-	if l.heldAt == nil {
+	if l.s.HeldAt == nil {
 		return ErrStateConflict
 	}
-	if l.status == StatusHidden {
-		l.status = StatusActive
+	if l.s.Status == StatusHidden {
+		l.s.Status = StatusActive
 	}
-	l.heldAt, l.updatedAt = nil, now
+	l.s.HeldAt, l.s.UpdatedAt = nil, now
 	return nil
 }
 
 // onSale is the status a listing goes back on sale with: hidden while a
 // member holds it.
 func (l *Listing) onSale() Status {
-	if l.heldAt != nil {
+	if l.s.HeldAt != nil {
 		return StatusHidden
 	}
 	return StatusActive
@@ -456,73 +420,73 @@ func (l *Listing) onSale() Status {
 
 // MarkSold records a sale made off the app, of an active or hidden listing.
 func (l *Listing) MarkSold(now time.Time) error {
-	if l.status != StatusActive && l.status != StatusHidden {
+	if l.s.Status != StatusActive && l.s.Status != StatusHidden {
 		return ErrStateConflict
 	}
-	l.status, l.soldAt, l.updatedAt = StatusSold, &now, now
+	l.s.Status, l.s.SoldAt, l.s.UpdatedAt = StatusSold, &now, now
 	return nil
 }
 
 // UnmarkSold undoes MarkSold; the listing is on sale again, or hidden while
 // a member holds it. A listing sold through an order stays sold.
 func (l *Listing) UnmarkSold(now time.Time) error {
-	if l.soldOrder != nil {
+	if l.s.SoldOrder != nil {
 		return ErrStateConflict
 	}
 	if err := l.move(StatusSold, l.onSale(), now); err != nil {
 		return err
 	}
-	l.soldAt = nil
+	l.s.SoldAt = nil
 	return nil
 }
 
 // Delete removes the listing from every view but the database.
 func (l *Listing) Delete(now time.Time) error {
-	if l.status == StatusDeleted || l.status == StatusReserved {
+	if l.s.Status == StatusDeleted || l.s.Status == StatusReserved {
 		return ErrStateConflict
 	}
-	l.status, l.deletedAt, l.updatedAt = StatusDeleted, &now, now
+	l.s.Status, l.s.DeletedAt, l.s.UpdatedAt = StatusDeleted, &now, now
 	return nil
 }
 
 // Reserve holds an active listing for an order. Holding it again for the
 // same order changes nothing and reports false.
 func (l *Listing) Reserve(order uuid.UUID, now time.Time) (bool, error) {
-	if l.status == StatusReserved && l.reservedFor == order {
+	if l.s.Status == StatusReserved && l.s.ReservedFor == order {
 		return false, nil
 	}
-	if l.status != StatusActive {
+	if l.s.Status != StatusActive {
 		return false, ErrStateConflict
 	}
-	l.status, l.reservedFor, l.updatedAt = StatusReserved, order, now
+	l.s.Status, l.s.ReservedFor, l.s.UpdatedAt = StatusReserved, order, now
 	return true, nil
 }
 
 // Release puts a listing held for order back on sale and reports whether
 // it did; a listing held for another order, or not held, stays as it is.
 func (l *Listing) Release(order uuid.UUID, now time.Time) bool {
-	if l.status != StatusReserved || l.reservedFor != order {
+	if l.s.Status != StatusReserved || l.s.ReservedFor != order {
 		return false
 	}
-	l.status, l.reservedFor, l.updatedAt = StatusActive, uuid.UUID{}, now
+	l.s.Status, l.s.ReservedFor, l.s.UpdatedAt = StatusActive, uuid.UUID{}, now
 	return true
 }
 
 // SellTo marks a listing held for order sold, recording the order, and
 // reports whether it did.
 func (l *Listing) SellTo(order uuid.UUID, now time.Time) bool {
-	if l.status != StatusReserved || l.reservedFor != order {
+	if l.s.Status != StatusReserved || l.s.ReservedFor != order {
 		return false
 	}
-	l.status, l.reservedFor, l.soldOrder, l.soldAt, l.updatedAt = StatusSold, uuid.UUID{}, &order, &now, now
+	l.s.Status, l.s.ReservedFor, l.s.SoldOrder, l.s.SoldAt, l.s.UpdatedAt = StatusSold, uuid.UUID{}, &order, &now, now
 	return true
 }
 
 func (l *Listing) move(from, to Status, now time.Time) error {
-	if l.status != from {
+	if l.s.Status != from {
 		return ErrStateConflict
 	}
-	l.status, l.updatedAt = to, now
+	l.s.Status, l.s.UpdatedAt = to, now
 	return nil
 }
 
@@ -559,31 +523,15 @@ type ListingState struct {
 }
 
 // RestoreListing rebuilds a stored listing. Stores only.
-func RestoreListing(st ListingState) Listing {
-	return Listing{
-		id: st.ID, sellerID: st.SellerID, title: st.Title, price: st.Price, description: st.Description,
-		categoryCode: st.CategoryCode, condition: st.Condition, allowOffers: st.AllowOffers, communeCode: st.CommuneCode,
-		photos: st.Photos, specs: st.Specs, status: st.Status, rejection: st.Rejection, reservedFor: st.ReservedFor,
-		soldOrder: st.SoldOrder, writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
-		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt, heldAt: st.HeldAt, point: Point{Lat: st.Lat, Lng: st.Lng}, code: st.Code,
-		previousPrice: st.PreviousPrice, priceChangedAt: st.PriceChangedAt,
-	}
-}
+func RestoreListing(st ListingState) Listing { return Listing{s: st} }
 
 // State returns every stored field. Stores only.
-func (l *Listing) State() ListingState {
-	return ListingState{
-		ID: l.id, SellerID: l.sellerID, Title: l.title, Price: l.price, Description: l.description,
-		CategoryCode: l.categoryCode, Condition: l.condition, AllowOffers: l.allowOffers, CommuneCode: l.communeCode,
-		Photos: l.photos, Specs: l.specs, Status: l.status, Rejection: l.rejection,
-		ReservedFor: l.reservedFor, SoldOrder: l.soldOrder, WriteID: l.writeID, CreatedAt: l.createdAt, UpdatedAt: l.updatedAt,
-		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt, HeldAt: l.heldAt, Lat: l.point.Lat, Lng: l.point.Lng, Code: l.code,
-		PreviousPrice: l.previousPrice, PriceChangedAt: l.priceChangedAt,
-	}
-}
+func (l *Listing) State() ListingState { return l.s }
+
+func (l *Listing) setPoint(p Point) { l.s.Lat, l.s.Lng = p.Lat, p.Lng }
 
 // Saved records that a store wrote l under writeID. Stores only.
-func (l *Listing) Saved(writeID uuid.UUID) { l.writeID = writeID }
+func (l *Listing) Saved(writeID uuid.UUID) { l.s.WriteID = writeID }
 
 // MarshalJSON lets a Restate step return a listing for its journal.
 func (l Listing) MarshalJSON() ([]byte, error) { return json.Marshal(l.State()) }
