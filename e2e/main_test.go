@@ -171,7 +171,7 @@ func setup(closers *[]func()) error {
 		Firebase: issuer.Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@e2e.test>"},
 		Google:   google.Config(),
-		Carrier:  config.CarrierConfig{Mode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
+		Carrier:  config.CarrierConfig{GHTKMode: "fake", GHNMode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
 		// The website's origin is http, so no listing change is submitted.
 		IndexNowKey: indexNowKey,
 		// Tests may set X-Forwarded-For.

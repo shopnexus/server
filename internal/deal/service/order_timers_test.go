@@ -200,8 +200,8 @@ func TestTimersLeaveAnOrderThatMovedOn(t *testing.T) {
 	}
 }
 
-// Production runs without a carrier (CARRIER=none): the timers and the
-// carrier's entry point need none.
+// Production runs both carriers off (CARRIER_GHTK and CARRIER_GHN): the
+// timers and the carrier's entry point need none.
 func TestTimersWorkWithoutACarrier(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

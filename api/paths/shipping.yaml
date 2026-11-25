@@ -59,7 +59,7 @@ carrierAccount:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "503":
-        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        description: "The stack runs the carrier off (carrier_unavailable)."
         content:
           application/json:
             schema:
@@ -130,7 +130,7 @@ carrierOTP:
       "429":
         $ref: "../responses/common.yaml#/TooManyRequests"
       "503":
-        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        description: "The stack runs the carrier off (carrier_unavailable)."
         content:
           application/json:
             schema:
@@ -172,7 +172,7 @@ carrierPickups:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "503":
-        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        description: "The stack runs the carrier off (carrier_unavailable)."
         content:
           application/json:
             schema:
@@ -263,7 +263,7 @@ shipmentQuote:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "503":
-        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        description: "The stack runs the carrier off (carrier_unavailable)."
         content:
           application/json:
             schema:
@@ -344,8 +344,9 @@ devShipmentStatus:
     operationId: setShipmentStatus
     summary: Report a step of every shipment with a tracking code, as its carrier would.
     description: |
-      Served only with CARRIER=fake, which the dev and test stacks run, to
-      anyone, since the fake carrier's parcels move only through it.
+      Served only while a carrier is the fake, as on the dev and test
+      stacks, to anyone, since the fake's parcels move only through it; a
+      live carrier's parcels never move through it.
       Production does not serve it. The step joins the parcel's timeline
       and moves its orders as a carrier's report does: delivered completes
       the order 3 days later unless the buyer confirms first; returning or

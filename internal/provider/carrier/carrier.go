@@ -12,13 +12,18 @@ import (
 )
 
 // Carrier is a carrier's code: ghtk, ghn, spx, jt or viettel_post. Only
-// GHTK and GHN have a client.
+// GHTK and GHN have a client, which each stack runs live, fake or off
+// (CARRIER_GHTK, CARRIER_GHN).
 type Carrier string
 
 const (
 	GHTK Carrier = "ghtk"
 	GHN  Carrier = "ghn"
 )
+
+// HasClient tells whether c is a carrier with a client, whether or not
+// this stack runs it.
+func (c Carrier) HasClient() bool { return c == GHTK || c == GHN }
 
 // Status is where a parcel is, in ShopNexus's words.
 type Status string
@@ -34,9 +39,9 @@ var (
 	// ErrNotFound is a tracking code the seller's account at the carrier
 	// does not know.
 	ErrNotFound = errors.New("carrier: no such shipment in this account")
-	// ErrUnavailable is a stack without a carrier, CARRIER=none: nothing
-	// makes or reads shipments there.
-	ErrUnavailable = errors.New("carrier: no carrier in this stack")
+	// ErrUnavailable is a carrier this stack runs off: nothing makes or
+	// reads shipments there.
+	ErrUnavailable = errors.New("carrier: this stack runs the carrier off")
 	// ErrLoginFailed is an account the carrier refused to link.
 	ErrLoginFailed = errors.New("carrier: the carrier refused the account")
 	// ErrNotCancellable is a shipment the carrier has already picked up.

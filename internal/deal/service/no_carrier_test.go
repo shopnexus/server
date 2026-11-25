@@ -14,7 +14,7 @@ import (
 )
 
 // noCarrier serves a second deal service on e's database with module
-// shipping as it answers with CARRIER=none, production's.
+// shipping as it answers with both carriers off, production's.
 func (e env) noCarrier(t *testing.T) *service.Deals {
 	t.Helper()
 	deps := e.deps

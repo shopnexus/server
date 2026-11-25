@@ -1739,17 +1739,18 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
 - Deal makes, tracks and cancels shipments through `service.Shipping`,
   module shipping's `Create`, `Track` and `Cancel` with the seller's ID
   (and `SavedPickup` for a saved pickup), and maps its
-  refusals to its own errors of the same codes. With `CARRIER=fake`
-  shipping serves `POST /v1/dev/shipments/{code}/status {step}` to anyone,
-  a step as the order's carrier would report it, and `APP_ENV=prod`
-  refuses it. With `none` (production until the GHTK
-  partner contract) the dev endpoint is not registered, and a shipment
-  answers 503 `carrier_unavailable` once its order checks pass, giving
-  back the listing it held. Confirmations, cancels, COD requests, the
+  refusals to its own errors of the same codes. While a carrier is
+  `fake` shipping serves `POST /v1/dev/shipments/{code}/status {step}` to
+  anyone, a step as the order's fake carrier would report it (a live
+  carrier's parcels never move through it), and `APP_ENV=prod` refuses
+  `fake`. With no fake carrier the dev endpoint is not registered. A
+  shipment at a carrier the stack runs `off` (both, in production for
+  now) answers 503 `carrier_unavailable` once its order checks pass,
+  giving back the listing it held. Confirmations, cancels, COD requests, the
   timers and `ShipmentUpdates` need no carrier. The order checks come
   before any carrier call, so a stranger reads `order_not_found` and the
-  buyer `move_not_allowed` whatever the carrier. The chart sets the carrier in each
-  stack's values file and none in `values.yaml`.
+  buyer `move_not_allowed` whatever the carrier. The chart sets each
+  carrier's switch in each stack's values file and none in `values.yaml`.
 - The buyer always reads the recipient in full; the seller reads it in
   full except on a cancelled order, which keeps only the name and the
   commune.
@@ -1834,14 +1835,26 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   create finds the first one. GHN takes addresses as commune and province
   names (its two-level scheme, `is_new_to_address`), and the quote is
   GHN's preview, since its fee API still wants district IDs.
-- `CARRIER` is `fake`, `none` or `live`. `live` needs `GHTK_API_URL`,
-  `GHTK_PARTNER_TOKEN`, `GHTK_CLIENT_SOURCE`, `GHTK_WEBHOOK_SECRET`,
-  `GHN_API_URL`, `GHN_PARTNER_TOKEN` and `GHN_WEBHOOK_SECRET`; `fake` and `none` refuse them,
-  so a stack never half-points at a real carrier. `none` is an empty
-  client map: every call answers `carrier_unavailable` before anything
-  else. The fake of each carrier links any account but the password or
+- Each carrier has its own switch, `CARRIER_GHTK` and `CARRIER_GHN`, each
+  `live`, `fake` or `off` and required (decided 2026-11-25; it replaced
+  one `CARRIER` for both, which made production run GHN off for want of
+  the GHTK contract). `live` needs that carrier's settings and only them:
+  `GHTK_API_URL`, `GHTK_PARTNER_TOKEN`, `GHTK_CLIENT_SOURCE` and
+  `GHTK_WEBHOOK_SECRET`, or `GHN_API_URL`, `GHN_PARTNER_TOKEN` and
+  `GHN_WEBHOOK_SECRET`; `fake` and `off` refuse them, so a stack never
+  half-points at a real carrier. The client map holds the carriers not
+  `off`, and it is the set a seller can link: a carrier with a client
+  (`carrier.HasClient`, the API's `LinkedCarrier`) that the stack runs
+  `off` answers `carrier_unavailable`, another code `invalid_carrier`
+  (or `carrier_not_linked` where deal asks for a shipment). Unlinking
+  needs no client, so an account at a carrier turned off can still be
+  dropped. No endpoint lists the carriers a stack runs yet. The fake of
+  each carrier links any account but the password or
   token `wrong`, texts a code to any phone but one ending in `0000`, takes
-  any code but `wrong`, and its webhooks take the secret `dev`.
+  any code but `wrong`, and its webhooks take the secret `dev`. In the
+  chart a live carrier's URL (and GHTK's client source) comes from the
+  stack's values, its partner token and webhook secret from the
+  `server-secrets` SealedSecret.
 - Each carrier's status maps to a `carrier.Step`, the same words for every
   carrier (`ready_to_pick` … `delivered`, `returning`, `returned`,
   `cancelled`, `lost`), and a step to one of the order's four statuses.
@@ -4082,7 +4095,7 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-orders.md`.
 - `GET /v1/screens/cod-checkout/{deal_id}?address_id=` is buyer-only and
   returns the `Deal`, public seller, selected or default owned address,
   COD cap `{used,max}` and `shipping_estimate`. The estimate is null on
-  every call, whatever `CARRIER` is and whether the seller linked a
+  every call, whatever carriers the stack runs and whether the seller linked a
   carrier, until a pre-order estimator is defined: a quote needs the
   order's weight and the seller's carrier, which the checkout does not
   have (checked 2026-11-19). An empty book gives a null address;

@@ -83,7 +83,8 @@ type Deps struct {
 	Customers accountsvc.Service
 	Accounts  repository.Accounts
 	Events    repository.Events
-	// Clients holds one client per carrier; empty is CARRIER=none.
+	// Clients holds a client for each carrier this stack runs; a carrier
+	// off has none.
 	Clients map[carrier.Carrier]carrier.Client
 	// Tokens seals the carrier tokens.
 	Tokens *secret.Box
@@ -142,20 +143,17 @@ var _ Service = (*Shipping)(nil)
 
 func New(d Deps) *Shipping { return &Shipping{d: d} }
 
-// linkable tells the carriers a seller can link.
-func linkable(c string) bool { return c == string(carrier.GHTK) || c == string(carrier.GHN) }
-
-// client is carrier c's client: ErrUnavailable with no clients at all,
-// before anything else, and ErrInvalidCarrier for a carrier without one.
+// client is carrier c's client, so the carriers a seller can link are the
+// ones this stack runs. A carrier it runs off is ErrUnavailable, a code
+// with no client at all ErrInvalidCarrier.
 func (s *Shipping) client(c string) (carrier.Client, error) {
-	if len(s.d.Clients) == 0 {
+	if cl, ok := s.d.Clients[carrier.Carrier(c)]; ok {
+		return cl, nil
+	}
+	if carrier.Carrier(c).HasClient() {
 		return nil, domain.ErrUnavailable
 	}
-	cl, ok := s.d.Clients[carrier.Carrier(c)]
-	if !ok {
-		return nil, domain.ErrInvalidCarrier
-	}
-	return cl, nil
+	return nil, domain.ErrInvalidCarrier
 }
 
 // account is the client of c and the owner's account there, its token
@@ -268,8 +266,10 @@ func (s *Shipping) Link(ctx context.Context, owner uuid.UUID, c string, cr carri
 	return AccountView{Carrier: c, ShopCode: row.ShopCode, LinkedAt: row.LinkedAt}, nil
 }
 
+// Unlink needs no client, so an account at a carrier this stack runs off
+// can still be dropped.
 func (s *Shipping) Unlink(ctx context.Context, owner uuid.UUID, c string) error {
-	if !linkable(c) {
+	if !carrier.Carrier(c).HasClient() {
 		return domain.ErrInvalidCarrier
 	}
 	open, err := s.d.Deals.OpenShipmentsAt(ctx, owner, c)
@@ -434,10 +434,14 @@ func (s *Shipping) Reported(ctx context.Context, c carrier.Carrier, contentType 
 }
 
 // DevReported reports ev as of now on the parcel with code at whichever
-// fake carrier made it, as that carrier would.
+// fake carrier made it, as that carrier would. A live carrier's parcels
+// move only by its own reports.
 func (s *Shipping) DevReported(ctx context.Context, code string, ev carrier.Event) error {
 	ev.At = s.d.Now()
 	for _, c := range slices.Sorted(maps.Keys(s.d.Clients)) {
+		if _, fake := s.d.Clients[c].(carrier.Fake); !fake {
+			continue
+		}
 		known, err := s.d.Deals.ShipmentKnown(ctx, string(c), code)
 		if err != nil {
 			return fmt.Errorf("find %s %s: %w", c, code, err)

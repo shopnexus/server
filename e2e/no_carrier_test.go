@@ -17,7 +17,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/restatex/restatetest"
 )
 
-// A stack without a carrier, as production runs, answers 503
+// A stack with both carriers off, as production runs, answers 503
 // carrier_unavailable on every carrier call; a shipment checks its order
 // first. The second server has a database of its own, so its event bus
 // drains no one else's events; the shared server's access token holds
@@ -27,7 +27,7 @@ func TestNoCarrier(t *testing.T) {
 	cfg := serverConfig
 	store := pgtest.New(t)
 	cfg.DatabaseURL, cfg.Restate = store.Config().ConnString(), restatetest.Config(t)
-	cfg.Carrier.Mode = "none"
+	cfg.Carrier.GHTKMode, cfg.Carrier.GHNMode = "off", "off"
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones), app.WithEmailSender(mails), app.WithPasswordHasher(consoledomain.Fast), fakeAI())
 	if err != nil {

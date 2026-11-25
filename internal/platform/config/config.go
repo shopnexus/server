@@ -104,27 +104,29 @@ type Config struct {
 // CarrierConfig says where shipments are made and read, on the accounts
 // sellers link at GHTK and GHN. The tokens and the key are never logged.
 type CarrierConfig struct {
-	// Mode is CARRIER: fake (dev and test) links any account but the
-	// password or token "wrong" and knows every tracking code but those
-	// that start with NOTFOUND, and with it the server serves the dev
-	// endpoint that moves its shipments; APP_ENV=prod refuses it. none
-	// (production until the GHTK partner contract) makes and reads no
-	// shipment. live calls GHTK and GHN.
-	Mode string
+	// GHTKMode and GHNMode are CARRIER_GHTK and CARRIER_GHN, each live,
+	// fake or off. fake (dev and test) links any account but the password
+	// or token "wrong" and knows every tracking code but those that start
+	// with NOTFOUND, and with it the server serves the dev endpoint that
+	// moves its shipments; APP_ENV=prod refuses it. off makes and reads no
+	// shipment at that carrier. live calls the carrier with its settings.
+	GHTKMode string
+	GHNMode  string
 	// TokenKey is CARRIER_TOKEN_KEY: base64 of 32 bytes, the AES-GCM key
 	// of the carrier tokens sellers link; one per environment.
 	TokenKey []byte
 	// PollEvery is CARRIER_POLL_EVERY: how often a shipped order's
 	// shipment is read from its carrier, under the carriers' reports.
 	PollEvery time.Duration
-	// With CARRIER=live only, empty otherwise.
+	// With CARRIER_GHTK=live only, empty otherwise.
 	GHTKURL     string //exhaustruct:optional GHTK_API_URL
 	GHTKPartner string //exhaustruct:optional GHTK_PARTNER_TOKEN: ShopNexus's B2C token
 	GHTKSource  string //exhaustruct:optional GHTK_CLIENT_SOURCE: ShopNexus's partner code
 	GHTKWebhook string //exhaustruct:optional GHTK_WEBHOOK_SECRET: the secret in GHTK's webhook path
-	GHNURL      string //exhaustruct:optional GHN_API_URL: ends in /shiip/public-api
-	GHNPartner  string //exhaustruct:optional GHN_PARTNER_TOKEN: ShopNexus's own GHN token
-	GHNWebhook  string //exhaustruct:optional GHN_WEBHOOK_SECRET: the secret in GHN's webhook path
+	// With CARRIER_GHN=live only, empty otherwise.
+	GHNURL     string //exhaustruct:optional GHN_API_URL: ends in /shiip/public-api
+	GHNPartner string //exhaustruct:optional GHN_PARTNER_TOKEN: ShopNexus's own GHN token
+	GHNWebhook string //exhaustruct:optional GHN_WEBHOOK_SECRET: the secret in GHN's webhook path
 }
 
 // PushConfig says how pushes reach phones. Empty credentials mean the log
@@ -630,9 +632,9 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		},
 		Google: GoogleConfig{ClientID: set("GOOGLE_CLIENT_ID"), JWKSURL: need("GOOGLE_JWKS_URL")},
 		Carrier: CarrierConfig{
-			Mode: oneOf("CARRIER", "fake", "none", "live"), TokenKey: decodeKey("CARRIER_TOKEN_KEY", 32, true),
-			PollEvery: duration("CARRIER_POLL_EVERY"),
-			GHTKURL:   set("GHTK_API_URL"), GHTKPartner: set("GHTK_PARTNER_TOKEN"), GHTKSource: set("GHTK_CLIENT_SOURCE"),
+			GHTKMode: oneOf("CARRIER_GHTK", "live", "fake", "off"), GHNMode: oneOf("CARRIER_GHN", "live", "fake", "off"),
+			TokenKey: decodeKey("CARRIER_TOKEN_KEY", 32, true), PollEvery: duration("CARRIER_POLL_EVERY"),
+			GHTKURL: set("GHTK_API_URL"), GHTKPartner: set("GHTK_PARTNER_TOKEN"), GHTKSource: set("GHTK_CLIENT_SOURCE"),
 			GHTKWebhook: set("GHTK_WEBHOOK_SECRET"), GHNURL: set("GHN_API_URL"), GHNPartner: set("GHN_PARTNER_TOKEN"), GHNWebhook: set("GHN_WEBHOOK_SECRET"),
 		},
 		LLM: LLMConfig{
@@ -694,19 +696,26 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		// Unset outside prod, or set and well formed.
 	}
 
-	// live needs every GHTK and GHN setting; fake and none take none, so a
+	// A carrier live needs all its settings; fake and off take none, so a
 	// stack never half-points at a real carrier.
 	c := cfg.Carrier
-	for key, v := range map[string]string{
-		"GHTK_API_URL": c.GHTKURL, "GHTK_PARTNER_TOKEN": c.GHTKPartner, "GHTK_CLIENT_SOURCE": c.GHTKSource,
-		"GHTK_WEBHOOK_SECRET": c.GHTKWebhook, "GHN_API_URL": c.GHNURL, "GHN_PARTNER_TOKEN": c.GHNPartner, "GHN_WEBHOOK_SECRET": c.GHNWebhook,
+	for _, sw := range []struct {
+		key, mode string
+		settings  map[string]string
+	}{
+		{"CARRIER_GHTK", c.GHTKMode, map[string]string{
+			"GHTK_API_URL": c.GHTKURL, "GHTK_PARTNER_TOKEN": c.GHTKPartner, "GHTK_CLIENT_SOURCE": c.GHTKSource, "GHTK_WEBHOOK_SECRET": c.GHTKWebhook,
+		}},
+		{"CARRIER_GHN", c.GHNMode, map[string]string{"GHN_API_URL": c.GHNURL, "GHN_PARTNER_TOKEN": c.GHNPartner, "GHN_WEBHOOK_SECRET": c.GHNWebhook}},
 	} {
-		switch {
-		case c.Mode == "live" && v == "":
-			errs = append(errs, fmt.Errorf("%s is required with CARRIER=live", key))
-		case c.Mode != "live" && v != "":
-			errs = append(errs, fmt.Errorf("%s is set only with CARRIER=live", key))
-		default:
+		for key, v := range sw.settings {
+			switch {
+			case sw.mode == "live" && v == "":
+				errs = append(errs, fmt.Errorf("%s is required with %s=live", key, sw.key))
+			case sw.mode != "live" && v != "":
+				errs = append(errs, fmt.Errorf("%s is set only with %s=live", key, sw.key))
+			default:
+			}
 		}
 	}
 
