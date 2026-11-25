@@ -2335,8 +2335,8 @@ linters:
         - .WithField(
         - .WithCause(
         - httpx.Bind[
-        # These wrap their own errors ("read clock", "insert event",
-        # "insert console action", "config", "lock account"); a caller has
+        # These wrap their own errors ("read clock", "insert events",
+        # "insert console actions", "config", "lock account"); a caller has
         # nothing to add.
         - config.FromDotEnv(
         - restatex.Now(

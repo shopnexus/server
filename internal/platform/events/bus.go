@@ -254,17 +254,16 @@ func (b *Bus) dispatch(ctx context.Context) (int, error) {
 			})
 		}
 		sendErr = sends.Wait()
+		marks := &pgx.Batch{}
 		if len(refused) > 0 {
-			if _, err = tx.Exec(ctx, backOff, pgx.StrictNamedArgs{"now": b.now(), "ids": refused}); err != nil {
-				return fmt.Errorf("back off refused events: %w", err)
-			}
+			marks.Queue(backOff, pgx.StrictNamedArgs{"now": b.now(), "ids": refused})
 		}
-		if len(sent) == 0 {
-			return nil
+		if len(sent) > 0 {
+			marks.Queue(`UPDATE events SET dispatched_at = @at WHERE id = ANY(@ids)`,
+				pgx.StrictNamedArgs{"at": b.now(), "ids": sent})
 		}
-		if _, err = tx.Exec(ctx, `UPDATE events SET dispatched_at = @at WHERE id = ANY(@ids)`,
-			pgx.StrictNamedArgs{"at": b.now(), "ids": sent}); err != nil {
-			return fmt.Errorf("mark events dispatched: %w", err)
+		if err = tx.SendBatch(ctx, marks).Close(); err != nil {
+			return fmt.Errorf("mark events: %w", err)
 		}
 		marked = len(sent)
 		return nil

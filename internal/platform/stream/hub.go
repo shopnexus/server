@@ -116,7 +116,7 @@ func (h *Hub) Close() {
 
 // Typing rings to, at once, that the other member types in conversation.
 func (h *Hub) Typing(ctx context.Context, to, conversation uuid.UUID) error {
-	if err := h.bell.Ring(ctx, nil, []Target{{Account: to}}, Hint{Kind: KindTyping, ConversationID: &conversation}); err != nil {
+	if err := h.bell.Ring(ctx, []Target{{Account: to}}, Hint{Kind: KindTyping, ConversationID: &conversation}); err != nil {
 		return fmt.Errorf("ring typing: %w", err)
 	}
 	return nil
@@ -148,7 +148,7 @@ func (h *Hub) Run(ctx context.Context) error {
 			if !h.heard.Swap(false) {
 				h.resync()
 			}
-			if err := h.bell.Ring(ctx, nil, nil, Hint{Kind: kindProbe}); err != nil && ctx.Err() == nil {
+			if err := h.bell.Ring(ctx, nil, Hint{Kind: kindProbe}); err != nil && ctx.Err() == nil {
 				h.log.WarnContext(ctx, "stream: probe the bell", "err", err)
 			}
 			h.touch(ctx)

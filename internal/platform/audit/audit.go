@@ -1,9 +1,8 @@
 // Package audit records what console members and the CLI did to accounts,
 // to console members, to support tickets, to report cases, to listings and
 // to feedback.
-// An adapter writes an Entry with Insert inside the transaction of the
-// change it records, so the change and its record commit together or not
-// at all.
+// A repository queues an Entry with Queue in the batch of the change it
+// records, so the change and its record commit together or not at all.
 package audit
 
 import (
@@ -163,25 +162,51 @@ type Entry struct {
 	At      time.Time
 }
 
-const insertAction = `
+const insertActions = `
 INSERT INTO console_actions (id, actor_kind, member_id, actor_name, session_id, ip, action_kind, target_kind, target_id, details, acted_at)
-VALUES (@id, @actor_kind, @member_id, @actor_name, @session_id, @ip, @action_kind, @target_kind, @target_id, @details, @acted_at)`
+SELECT id, actor_kind, member_id, actor_name, session_id, ip, action_kind, target_kind, target_id, details, acted_at
+FROM unnest(@ids::uuid[], @actor_kinds::text[], @member_ids::uuid[], @actor_names::text[], @session_ids::uuid[],
+    @ips::inet[], @action_kinds::text[], @target_kinds::text[], @target_ids::uuid[], @details::jsonb[], @acted_at::timestamptz[])
+    AS a(id, actor_kind, member_id, actor_name, session_id, ip, action_kind, target_kind, target_id, details, acted_at)`
 
-// Insert writes e in tx, the transaction of the change it records.
+// Queue adds to b one statement that writes entries, so they commit with
+// the change they record. No entries queues nothing.
+func Queue(b *pgx.Batch, entries ...Entry) {
+	if len(entries) == 0 {
+		return
+	}
+	n := len(entries)
+	ids, memberIDs, sessionIDs, targetIDs := make([]uuid.UUID, n), make([]any, n), make([]any, n), make([]uuid.UUID, n)
+	actorKinds, actorNames, actionKinds, targetKinds := make([]string, n), make([]any, n), make([]string, n), make([]string, n)
+	ips, details, actedAt := make([]any, n), make([]map[string]any, n), make([]time.Time, n)
+	for i := range entries {
+		e := &entries[i]
+		ids[i], actorKinds[i], memberIDs[i] = uuid.NewV7(), string(e.Actor.Kind), nullID(e.Actor.MemberID)
+		actorNames[i], sessionIDs[i], ips[i] = nullText(e.Actor.Name), nullID(e.Actor.SessionID), nullIP(e.Actor.IP)
+		actionKinds[i], targetKinds[i], targetIDs[i] = string(e.Action), string(e.Target.Kind), e.Target.ID
+		details[i], actedAt[i] = e.Details, e.At
+		if details[i] == nil {
+			details[i] = map[string]any{}
+		}
+	}
+	b.Queue(insertActions, pgx.StrictNamedArgs{
+		"ids": ids, "actor_kinds": actorKinds, "member_ids": memberIDs, "actor_names": actorNames, "session_ids": sessionIDs,
+		"ips": ips, "action_kinds": actionKinds, "target_kinds": targetKinds, "target_ids": targetIDs, "details": details,
+		"acted_at": actedAt,
+	}).Fn = func(br pgx.BatchResults) error {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("insert console actions: %w", err)
+		}
+		return nil
+	}
+}
+
+// Insert writes e in tx, the transaction of the change it records, with
+// Queue's statement.
 func Insert(ctx context.Context, tx pgx.Tx, e Entry) error {
-	details := e.Details
-	if details == nil {
-		details = map[string]any{}
-	}
-	_, err := tx.Exec(ctx, insertAction, pgx.StrictNamedArgs{
-		"id": uuid.NewV7(), "actor_kind": e.Actor.Kind, "member_id": nullID(e.Actor.MemberID),
-		"actor_name": nullText(e.Actor.Name), "session_id": nullID(e.Actor.SessionID), "ip": nullIP(e.Actor.IP),
-		"action_kind": e.Action, "target_kind": e.Target.Kind, "target_id": e.Target.ID, "details": details, "acted_at": e.At,
-	})
-	if err != nil {
-		return fmt.Errorf("insert console action: %w", err)
-	}
-	return nil
+	b := &pgx.Batch{}
+	Queue(b, e)
+	return tx.SendBatch(ctx, b).Close() //nolint:wrapcheck // Queue's statement wraps its own error.
 }
 
 func nullID(id uuid.UUID) any {

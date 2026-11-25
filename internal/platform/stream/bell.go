@@ -27,17 +27,16 @@ type Target struct {
 // ring only says that something new is there, so a lost ring costs a read
 // of the log, never an update.
 type Bell interface {
-	// Ring sends h to targets. With tx it rings when tx commits and never on
-	// rollback; with nil it rings at once.
-	Ring(ctx context.Context, tx pgx.Tx, targets []Target, h Hint) error
+	// Ring sends h to targets at once. A ring for an update in the log
+	// travels in the update's statement instead (see Queue).
+	Ring(ctx context.Context, targets []Target, h Hint) error
 	// Listen calls deliver for each ring until ctx is done, and resync each
 	// time it starts to listen, since rings sent before then are lost.
 	Listen(ctx context.Context, deliver func([]Target, Hint), resync func())
 }
 
 // PGBell rings on Postgres channel stream with pg_notify: every replica
-// hears every ring and hands it to its own connections. Ring with a
-// transaction needs neither field.
+// hears every ring and hands it to its own connections.
 type PGBell struct {
 	DB  *pgxpool.Pool
 	Log *slog.Logger
@@ -45,22 +44,19 @@ type PGBell struct {
 
 var _ Bell = PGBell{}
 
-// ring is a ring as it travels on the channel.
+// ring is a ring as it travels on the channel; appendUpdates builds the
+// same JSON.
 type ring struct {
 	Targets []Target `json:"targets"`
 	Hint    Hint     `json:"hint"`
 }
 
-func (b PGBell) Ring(ctx context.Context, tx pgx.Tx, targets []Target, h Hint) error {
+func (b PGBell) Ring(ctx context.Context, targets []Target, h Hint) error {
 	payload, err := json.Marshal(ring{Targets: targets, Hint: h})
 	if err != nil {
 		return fmt.Errorf("encode ring: %w", err)
 	}
-	var db postgres.Execer = b.DB
-	if tx != nil {
-		db = tx
-	}
-	if _, err = db.Exec(ctx, `SELECT pg_notify(@channel, @payload)`,
+	if _, err = b.DB.Exec(ctx, `SELECT pg_notify(@channel, @payload)`,
 		pgx.StrictNamedArgs{"channel": channel, "payload": string(payload)}); err != nil {
 		return fmt.Errorf("ring: %w", err)
 	}

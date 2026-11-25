@@ -8,8 +8,6 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/jackc/pgx/v5"
-
 	"github.com/shopnexus/server/internal/platform/stream"
 )
 
@@ -23,7 +21,7 @@ type fakeBell struct {
 	rung      []stream.Target
 }
 
-func (b *fakeBell) Ring(_ context.Context, _ pgx.Tx, targets []stream.Target, _ stream.Hint) error {
+func (b *fakeBell) Ring(_ context.Context, targets []stream.Target, _ stream.Hint) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.rung = append(b.rung, targets...)
