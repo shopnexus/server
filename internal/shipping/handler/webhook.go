@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/httpx"
@@ -67,7 +66,7 @@ func (h *Handler) DevReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ev := carrier.Event{
-		At: time.Now(), Kind: carrier.KindStep, Step: in.Step, CarrierStatus: string(in.Step), Reason: in.Reason,
+		Kind: carrier.KindStep, Step: in.Step, CarrierStatus: string(in.Step), Reason: in.Reason,
 		Warehouse: in.Warehouse, ShipperName: in.ShipperName, ShipperPhone: in.ShipperPhone, ProofURL: in.ProofURL,
 	}
 	if err := h.svc.DevReported(r.Context(), in.Code, ev); err != nil {

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"uuid"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/restatedev/sdk-go/ingress"
 
 	"github.com/shopnexus/server/internal/deal/domain"
-	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // EditShipment is UC-DEAL-04 A3: it checks the corrected carrier and code
@@ -21,21 +19,8 @@ import (
 // linked is domain.ErrCarrierNotLinked once the order is the caller's to
 // ship; a deal the other side moved meanwhile is domain.ErrChanged.
 func (s *Deals) EditShipment(ctx context.Context, caller, order uuid.UUID, carrierCode, trackingCode string) (DealView, error) {
-	c, code, err := domain.Tracking(carrierCode, trackingCode)
+	manual, err := s.manualShipment(ctx, caller, order, carrierCode, trackingCode)
 	if err != nil {
-		return DealView{}, err
-	}
-	p, err := s.shipping.Lookup(ctx, caller, carrier.Carrier(c), code)
-	err = shippingError(err, domain.ErrShipmentUnknown)
-	if err != nil && !errors.Is(err, domain.ErrCarrierNotLinked) {
-		return DealView{}, err
-	}
-	// A stranger, or the buyer, links nothing: their order answer comes
-	// before the carrier's.
-	if err != nil {
-		if orderErr := s.checkSeller(ctx, caller, order); orderErr != nil {
-			return DealView{}, orderErr
-		}
 		return DealView{}, err
 	}
 	deal, err := s.orderDeal(ctx, caller, order)
@@ -46,9 +31,7 @@ func (s *Deals) EditShipment(ctx context.Context, caller, order uuid.UUID, carri
 	if err != nil {
 		return DealView{}, err
 	}
-	if err = m.deal.EditShipment(m.by, order, domain.Shipment{
-		Mode: domain.ModeManual, Carrier: c, TrackingCode: code, Fee: p.Fee, Status: domain.ShipmentStatus(p.Status()),
-	}, m.now); err != nil {
+	if err = m.deal.EditShipment(m.by, order, manual, m.now); err != nil {
 		return DealView{}, err
 	}
 	if m.deal.Order().Shipment.Status == domain.ShipmentDelivered {

@@ -198,8 +198,8 @@ func carrierError(err error) error {
 	case errors.Is(err, carrier.ErrOTPInvalid):
 		return domain.ErrOTPInvalid
 	case errors.Is(err, carrier.ErrRefused):
-		reason := strings.TrimSpace(strings.TrimPrefix(err.Error(), carrier.ErrRefused.Error()+":"))
-		return domain.ErrCarrierRefused.WithReason(reason).WithCause(err)
+		r, _ := errors.AsType[carrier.RefusedError](err)
+		return domain.ErrCarrierRefused.WithReason(strings.TrimSpace(r.Reason)).WithCause(err)
 	}
 	return err
 }
@@ -329,7 +329,7 @@ func (s *Shipping) Quote(ctx context.Context, owner uuid.UUID, c string, in Quot
 		if pickupErr != nil {
 			return 0, pickupErr
 		}
-		facts.Pickup = &carrier.Place{Name: p.Name, Phone: p.Phone, Street: p.Street, Commune: p.Commune, Province: p.Province}
+		facts.Pickup = p.Place()
 	}
 	_, a, err := s.account(ctx, owner, c)
 	if err != nil {
@@ -356,7 +356,7 @@ func (s *Shipping) joinedPickup(ctx context.Context, owner uuid.UUID, a carrier.
 	if err != nil {
 		return carrier.Pickup{}, err
 	}
-	return carrier.Pickup{Place: &carrier.Place{Name: sp.Name, Phone: sp.Phone, Street: sp.Street, Commune: sp.Commune, Province: sp.Province}}, nil
+	return carrier.Pickup{Place: sp.Place()}, nil
 }
 
 func (s *Shipping) Create(ctx context.Context, seller uuid.UUID, c carrier.Carrier, in carrier.CreateInput) (carrier.Created, error) {
@@ -432,7 +432,10 @@ func (s *Shipping) Reported(ctx context.Context, c carrier.Carrier, contentType 
 	return s.report(ctx, string(c), code, evs)
 }
 
+// DevReported reports ev on the parcel with code as of now, as the fake
+// carrier would.
 func (s *Shipping) DevReported(ctx context.Context, code string, ev carrier.Event) error {
+	ev.At = s.d.Now()
 	c, err := s.d.Deals.ShipmentCarrier(ctx, code)
 	if err != nil {
 		return fmt.Errorf("find %s: %w", code, err)

@@ -14,7 +14,7 @@ func (s *Deals) ConfirmReceipt(ctx context.Context, caller, order uuid.UUID, ide
 		return DealView{}, err
 	}
 	in := FlowInput{Caller: caller, DealID: deal, OrderID: order}
-	if _, err = s.confirm.Call(ctx, caller.String()+"/"+idempotencyKey, in); err != nil {
+	if _, err = s.confirm.Call(ctx, invocationKey(caller, idempotencyKey), in); err != nil {
 		return DealView{}, err
 	}
 	return s.Get(ctx, caller, deal)

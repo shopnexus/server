@@ -16,6 +16,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/restatex"
+	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // FlowInput names the order a flow moves, its deal and the caller. A
@@ -68,11 +69,13 @@ func loadStep(ctx restate.Context, s *Deals, caller, id uuid.UUID) (loaded, erro
 	return out, nil
 }
 
-// saveStep saves d under writeID with deal.moved as eventID in one
-// journaled step. A deal changed meanwhile is domain.ErrChanged and a
-// fourth open order domain.ErrCodLimit, as data;
-// a retry of a save that committed writes nothing more.
-func saveStep(ctx restate.Context, deals repository.Deals, d *domain.Deal, writeID, eventID uuid.UUID, at time.Time) (*apperr.Error, error) {
+// saveStep saves d with its deal.moved event in one journaled step, under
+// a write ID and an event ID minted from the journal. A deal changed
+// meanwhile is domain.ErrChanged and a fourth open order
+// domain.ErrCodLimit, as data; a retry of a save that committed writes
+// nothing more.
+func saveStep(ctx restate.Context, deals repository.Deals, d *domain.Deal, at time.Time) (*apperr.Error, error) {
+	writeID, eventID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)
 	out, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
 		stepErr := deals.Save(rc, d, writeID, events.Event{ID: eventID, Kind: events.DealMoved, SubjectID: d.ID(), OccurredAt: at})
 		if errors.Is(stepErr, repository.ErrConflict) {
@@ -129,6 +132,22 @@ func sellStep(ctx restate.Context, catalog catalogsvc.Service, listing, order uu
 		return catalog.SellTo(rc, listing, order)
 	}); err != nil {
 		return fmt.Errorf("sell the listing: %w", err)
+	}
+	return nil
+}
+
+// callOffStep cancels a linked shipment at its carrier in one journaled
+// step. A parcel the carrier already has or lost, or a refusal of
+// shipping's, leaves nothing to call off.
+func callOffStep(ctx restate.Context, shipping Shipping, seller uuid.UUID, sh domain.Shipment) error {
+	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
+		callErr := shipping.Cancel(rc, seller, carrier.Carrier(sh.Carrier), sh.TrackingCode)
+		if callErr == nil || errors.Is(callErr, carrier.ErrNotCancellable) || errors.Is(callErr, carrier.ErrNotFound) || restatex.IsRefusal(callErr) {
+			return nil
+		}
+		return fmt.Errorf("cancel %s: %w", sh.TrackingCode, callErr)
+	}); err != nil {
+		return fmt.Errorf("call off the shipment at %s: %w", sh.Carrier, err)
 	}
 	return nil
 }

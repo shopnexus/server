@@ -89,7 +89,7 @@ func (g GHNClient) do(ctx context.Context, method, path string, a Account, shop 
 // 401 (a token GHN does not take), and err otherwise.
 func refusal(err error) error {
 	if e, ok := errors.AsType[ghnError](err); ok && e.status >= 400 && e.status < 500 && e.status != http.StatusUnauthorized {
-		return fmt.Errorf("%w: %s", ErrRefused, e.codeMessage)
+		return RefusedError{Reason: e.codeMessage}
 	}
 	return err
 }

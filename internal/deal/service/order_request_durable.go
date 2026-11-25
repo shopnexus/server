@@ -89,7 +89,7 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 	if err = d.RequestCod(m.By, order, in.Price, b.Recipient, facts(m.Listing), at); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
-	refused, err := saveStep(ctx, s.Deals.deals, &d, restatex.NewID(ctx, at), restatex.NewID(ctx, at), at)
+	refused, err := saveStep(ctx, s.Deals.deals, &d, at)
 	if err != nil || refused != nil {
 		return FlowResult{Refused: refused}, err
 	}

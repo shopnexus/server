@@ -47,7 +47,7 @@ func (s OrderTimers) SellerTimeout(ctx restate.Context, ref OrderRef) error {
 		if errors.Is(d.SellerTimeout(ref.OrderID, at), domain.ErrMoveNotAllowed) {
 			return nil // the order moved on
 		}
-		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, restatex.NewID(ctx, at), restatex.NewID(ctx, at), at)
+		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, at)
 		if saveErr != nil {
 			return saveErr
 		}
@@ -88,7 +88,7 @@ func (s OrderTimers) PickupTimeout(ctx restate.Context, ref OrderRef) error {
 		if errors.Is(d.PickupTimeout(ref.OrderID, at), domain.ErrMoveNotAllowed) {
 			return nil // the order moved on
 		}
-		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, restatex.NewID(ctx, at), restatex.NewID(ctx, at), at)
+		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, at)
 		if saveErr != nil {
 			return saveErr
 		}
@@ -99,17 +99,8 @@ func (s OrderTimers) PickupTimeout(ctx restate.Context, ref OrderRef) error {
 			return err
 		}
 		if sh := d.Order().Shipment; sh.Mode == domain.ModeLinked {
-			if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-				callErr := s.Deals.shipping.Cancel(rc, m.Deal.SellerID, carrier.Carrier(sh.Carrier), sh.TrackingCode)
-				if errors.Is(callErr, carrier.ErrNotCancellable) || errors.Is(callErr, carrier.ErrNotFound) || refusedBy(callErr) {
-					return nil // the order is cancelled either way
-				}
-				if callErr != nil {
-					return fmt.Errorf("cancel %s: %w", sh.TrackingCode, callErr)
-				}
-				return nil
-			}); err != nil {
-				return fmt.Errorf("call off the shipment at %s: %w", sh.Carrier, err)
+			if err = callOffStep(ctx, s.Deals.shipping, m.Deal.SellerID, *sh); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -133,7 +124,7 @@ func (s OrderTimers) AutoComplete(ctx restate.Context, ref OrderRef) error {
 		if errors.Is(d.AutoComplete(ref.OrderID, at), domain.ErrMoveNotAllowed) {
 			return nil // the order moved on
 		}
-		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, restatex.NewID(ctx, at), restatex.NewID(ctx, at), at)
+		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, at)
 		if saveErr != nil {
 			return saveErr
 		}
@@ -174,7 +165,7 @@ func (s OrderTimers) Poll(ctx restate.Context, ref OrderRef) error {
 func (s OrderTimers) readMoved(ctx restate.Context, seller uuid.UUID, sh domain.Shipment) (moved bool, err error) {
 	read, err := restate.Run(ctx, func(rc restate.RunContext) (domain.ShipmentStatus, error) {
 		p, readErr := s.Deals.shipping.Track(rc, seller, carrier.Carrier(sh.Carrier), sh.TrackingCode)
-		if errors.Is(readErr, carrier.ErrNotFound) || refusedBy(readErr) {
+		if errors.Is(readErr, carrier.ErrNotFound) || restatex.IsRefusal(readErr) {
 			return "", nil
 		}
 		if readErr != nil {

@@ -33,6 +33,6 @@ func (s DealCancelOrder) Run(ctx restate.Context, in FlowInput) (FlowResult, err
 	if err = d.CancelPendingOrder(m.By, in.OrderID, at); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
-	refused, err := saveStep(ctx, s.Deals.deals, &d, restatex.NewID(ctx, at), restatex.NewID(ctx, at), at)
+	refused, err := saveStep(ctx, s.Deals.deals, &d, at)
 	return FlowResult{Refused: refused}, err
 }

@@ -45,11 +45,12 @@ func (s *Deals) ListMine(ctx context.Context, viewer uuid.UUID, as domain.Party,
 	if err != nil {
 		return page.Page[DealView]{}, fmt.Errorf("list deals: %w", err)
 	}
-	items, err := s.views(ctx, viewer, rows)
+	kept := page.Of(rows, p, func(d domain.Deal) uuid.UUID { return d.ID() })
+	items, err := s.views(ctx, viewer, kept.Items)
 	if err != nil {
 		return page.Page[DealView]{}, err
 	}
-	return page.Of(items, p, func(v DealView) uuid.UUID { return v.ID }), nil
+	return page.Page[DealView]{Items: items, NextCursor: kept.NextCursor}, nil
 }
 
 // OpenOffers reads one page of the buyers' open offers on seller's

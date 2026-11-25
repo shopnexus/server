@@ -2,12 +2,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/deal/domain"
 	"github.com/shopnexus/server/internal/platform/apperr"
-	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
 // ShipmentInput is a shipment as the seller sends it: manual with its carrier
@@ -51,35 +49,18 @@ func (s *Deals) CreateShipment(ctx context.Context, caller, order uuid.UUID, ide
 		linked.From = from
 		flow.Linked = &linked
 	} else {
-		c, code, trackErr := domain.Tracking(in.Carrier, in.TrackingCode)
-		if trackErr != nil {
-			return DealView{}, trackErr
-		}
-		// E1 a code the carrier does not know, E2 no carrier in the stack,
-		// E3 a carrier the caller has not linked.
-		p, readErr := s.shipping.Lookup(ctx, caller, carrier.Carrier(c), code)
-		readErr = shippingError(readErr, domain.ErrShipmentUnknown)
-		if readErr != nil && !errors.Is(readErr, domain.ErrCarrierNotLinked) {
-			return DealView{}, readErr
-		}
-		// A stranger, or the buyer, links nothing: their order answer
-		// comes before the carrier's.
+		manual, readErr := s.manualShipment(ctx, caller, order, in.Carrier, in.TrackingCode)
 		if readErr != nil {
-			if err := s.checkSeller(ctx, caller, order); err != nil {
-				return DealView{}, err
-			}
 			return DealView{}, readErr
 		}
-		flow.Manual = &domain.Shipment{
-			Mode: domain.ModeManual, Carrier: c, TrackingCode: code, Fee: p.Fee, Status: domain.ShipmentStatus(p.Status()),
-		}
+		flow.Manual = &manual
 	}
 	deal, err := s.orderDeal(ctx, caller, order)
 	if err != nil {
 		return DealView{}, err
 	}
 	flow.DealID = deal
-	if _, err = s.ship.Call(ctx, caller.String()+"/"+idempotencyKey, flow); err != nil {
+	if _, err = s.ship.Call(ctx, invocationKey(caller, idempotencyKey), flow); err != nil {
 		return DealView{}, err
 	}
 	return s.Get(ctx, caller, deal)

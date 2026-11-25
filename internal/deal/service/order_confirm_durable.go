@@ -32,7 +32,7 @@ func (s DealConfirm) Run(ctx restate.Context, in FlowInput) (FlowResult, error) 
 	if err = d.ConfirmReceipt(m.By, in.OrderID, at); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
-	refused, err := saveStep(ctx, s.Deals.deals, &d, restatex.NewID(ctx, at), restatex.NewID(ctx, at), at)
+	refused, err := saveStep(ctx, s.Deals.deals, &d, at)
 	if err != nil || refused != nil {
 		return FlowResult{Refused: refused}, err
 	}

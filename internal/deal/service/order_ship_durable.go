@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 
 	restate "github.com/restatedev/sdk-go"
@@ -66,7 +65,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		if in.SavedPickup {
 			resolved, pickupErr := restate.Run(ctx, func(rc restate.RunContext) (resolvedPickup, error) {
 				p, stepErr := s.Deals.shipping.SavedPickup(rc, in.Caller)
-				if refusedBy(stepErr) {
+				if restatex.IsRefusal(stepErr) {
 					return resolvedPickup{Refused: apperr.From(stepErr)}, nil
 				}
 				if stepErr != nil {
@@ -113,7 +112,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 				WeightGrams: draft.WeightGrams, Service: string(draft.Service), Option: string(draft.Pickup),
 				Note: deliveryNotes[r.Kind],
 			})
-			if stepErr = shippingError(stepErr, domain.ErrCarrierAddressUnknown); refusedBy(stepErr) {
+			if stepErr = shippingError(stepErr, domain.ErrCarrierAddressUnknown); restatex.IsRefusal(stepErr) {
 				return madeShipment{Refused: apperr.From(stepErr)}, nil
 			}
 			if stepErr != nil {
@@ -142,7 +141,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		}
 	}
 	// 4. The order is shipped.
-	refused, err = saveStep(ctx, s.Deals.deals, &d, restatex.NewID(ctx, at), restatex.NewID(ctx, at), at)
+	refused, err = saveStep(ctx, s.Deals.deals, &d, at)
 	if err != nil {
 		return FlowResult{}, err
 	}
@@ -186,17 +185,8 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	mine := d.Order().Shipment
 	shipped := cur.ID == in.OrderID && cur.Status == domain.OrderShipped
 	if mine.Mode == domain.ModeLinked && (!shipped || cur.Shipment == nil || cur.Shipment.TrackingCode != mine.TrackingCode) {
-		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-			callErr := s.Deals.shipping.Cancel(rc, in.Caller, carrier.Carrier(mine.Carrier), mine.TrackingCode)
-			if errors.Is(callErr, carrier.ErrNotCancellable) || errors.Is(callErr, carrier.ErrNotFound) || refusedBy(callErr) {
-				return nil // the carrier has the parcel, or it is not ours to call off any more
-			}
-			if callErr != nil {
-				return fmt.Errorf("cancel %s: %w", mine.TrackingCode, callErr)
-			}
-			return nil
-		}); err != nil {
-			return FlowResult{}, fmt.Errorf("call off the shipment at %s: %w", mine.Carrier, err)
+		if err = callOffStep(ctx, s.Deals.shipping, in.Caller, *mine); err != nil {
+			return FlowResult{}, err
 		}
 	}
 	if shipped {

@@ -18,8 +18,20 @@ type Refused struct {
 // refusal and comes back as data, and any other error is a fault for
 // Restate to retry.
 func AsRefusal(err error) (Refused, error) {
-	if e, ok := errors.AsType[*apperr.Error](err); ok && e.Kind != apperr.KindInternal {
+	if e, ok := refusal(err); ok {
 		return Refused{Refusal: e}, nil
 	}
 	return Refused{}, err
+}
+
+// IsRefusal tells a business refusal, as AsRefusal takes one, from a
+// fault that a step retries.
+func IsRefusal(err error) bool {
+	_, ok := refusal(err)
+	return ok
+}
+
+func refusal(err error) (*apperr.Error, bool) {
+	e, ok := errors.AsType[*apperr.Error](err)
+	return e, ok && e.Kind != apperr.KindInternal
 }

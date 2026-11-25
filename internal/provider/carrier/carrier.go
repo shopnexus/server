@@ -54,6 +54,13 @@ var (
 	ErrOTPInvalid = errors.New("carrier: the code is wrong or expired")
 )
 
+// RefusedError is ErrRefused with the carrier's own words as its Reason.
+type RefusedError struct{ Reason string }
+
+func (e RefusedError) Error() string { return ErrRefused.Error() + ": " + e.Reason }
+
+func (RefusedError) Is(target error) bool { return target == ErrRefused }
+
 // Credentials are what a seller types to link an account: GHTK's email and
 // password, GHN's token and ShopId, or a phone at GHN and the code GHN
 // texted to it.

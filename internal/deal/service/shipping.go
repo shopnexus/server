@@ -14,9 +14,9 @@ import (
 )
 
 // Shipping is what deal asks of module shipping: shipments on the seller's
-// linked account at a carrier. Its refusals carry the codes of deal's
-// errors of the same meaning: carrier_unavailable, carrier_not_linked,
-// carrier_address_unknown; carrier.ErrNotFound and
+// linked account at a carrier. Its refusals are shipping's errors, which
+// deal names domain.ErrCarrierUnavailable, ErrCarrierNotLinked and
+// ErrCarrierAddressUnknown; carrier.ErrNotFound and
 // carrier.ErrNotCancellable come back as they are.
 type Shipping interface {
 	SavedPickup(ctx context.Context, seller uuid.UUID) (shippingsvc.Pickup, error)
@@ -28,9 +28,9 @@ type Shipping interface {
 	Cancel(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) error
 }
 
-// shippingError turns shipping's errors into deal's: notFound for a code
-// the carrier does not know, and a refusal of shipping's as deal's error
-// of the same code. Anything else is wrapped as is.
+// shippingError turns shipping's errors into deal's answers: notFound for
+// a code the carrier does not know, and a carrier refusal as its bare
+// sentinel. Anything else is wrapped as is.
 func shippingError(err, notFound error) error {
 	switch {
 	case err == nil:
@@ -47,11 +47,30 @@ func shippingError(err, notFound error) error {
 	return fmt.Errorf("carrier: %w", err)
 }
 
-// refusedBy tells a refusal of shipping's, which ends a request, from a
-// failure, which a durable step retries.
-func refusedBy(err error) bool {
-	var e *apperr.Error
-	return errors.As(err, &e) && e.Kind != apperr.KindInternal
+// manualShipment reads a manual shipment's carrier and code with the
+// caller's account at the carrier. A code the carrier does not know is
+// domain.ErrShipmentUnknown (E1) and a stack without a carrier
+// domain.ErrCarrierUnavailable (E2), for any order. A carrier the caller
+// has not linked (E3) comes after the order check, since a stranger or the
+// buyer links nothing and gets their order answer first.
+func (s *Deals) manualShipment(ctx context.Context, caller, order uuid.UUID, carrierCode, trackingCode string) (domain.Shipment, error) {
+	c, code, err := domain.Tracking(carrierCode, trackingCode)
+	if err != nil {
+		return domain.Shipment{}, err
+	}
+	p, err := s.shipping.Lookup(ctx, caller, carrier.Carrier(c), code)
+	err = shippingError(err, domain.ErrShipmentUnknown)
+	if errors.Is(err, domain.ErrCarrierNotLinked) {
+		if orderErr := s.checkSeller(ctx, caller, order); orderErr != nil {
+			return domain.Shipment{}, orderErr
+		}
+	}
+	if err != nil {
+		return domain.Shipment{}, err
+	}
+	return domain.Shipment{
+		Mode: domain.ModeManual, Carrier: c, TrackingCode: code, Fee: p.Fee, Status: domain.ShipmentStatus(p.Status()),
+	}, nil
 }
 
 // deliveryNotes tell the carrier's shipper what the recipient's place is,

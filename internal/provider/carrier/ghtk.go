@@ -129,7 +129,7 @@ func (g GHTKClient) Pickups(ctx context.Context, a Account) ([]PickupPoint, erro
 		return nil, err
 	}
 	if !out.Success {
-		return nil, fmt.Errorf("%w: %s", ErrRefused, out.Message)
+		return nil, RefusedError{Reason: out.Message}
 	}
 	pts := make([]PickupPoint, 0, len(out.Data))
 	for _, p := range out.Data {
@@ -213,7 +213,7 @@ func (g GHTKClient) Create(ctx context.Context, a Account, in CreateInput) (Crea
 		// A retry: the first try made it. Its fee comes with the next read.
 		return Created{TrackingCode: out.Error.Label}, nil
 	}
-	return Created{}, fmt.Errorf("%w: %s", ErrRefused, out.Message)
+	return Created{}, RefusedError{Reason: out.Message}
 }
 
 func (g GHTKClient) Lookup(ctx context.Context, a Account, code string) (Parcel, error) {
@@ -265,7 +265,7 @@ func (g GHTKClient) Cancel(ctx context.Context, a Account, code string) error {
 	case strings.Contains(out.Message, "không thể hủy"):
 		return ErrNotCancellable
 	}
-	return fmt.Errorf("%w: %s", ErrRefused, out.Message)
+	return RefusedError{Reason: out.Message}
 }
 
 func ghtkTransport(service string) string {

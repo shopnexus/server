@@ -7,6 +7,7 @@ import (
 	"uuid"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/provider/carrier"
 	"github.com/shopnexus/server/internal/shipping/domain"
 )
 
@@ -17,6 +18,11 @@ type Pickup struct {
 	CommuneCode string
 	Commune     string
 	Province    string
+}
+
+// Place is the pickup by names, as the carriers take it.
+func (p Pickup) Place() *carrier.Place {
+	return &carrier.Place{Name: p.Name, Phone: p.Phone, Street: p.Street, Commune: p.Commune, Province: p.Province}
 }
 
 func (s *Shipping) Settings(ctx context.Context, owner uuid.UUID) (domain.Settings, error) {

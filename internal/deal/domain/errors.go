@@ -1,6 +1,9 @@
 package domain
 
-import "github.com/shopnexus/server/internal/platform/apperr"
+import (
+	"github.com/shopnexus/server/internal/platform/apperr"
+	shippingdomain "github.com/shopnexus/server/internal/shipping/domain"
+)
 
 var (
 	ErrOrdersOpen         = apperr.New(apperr.KindConflict, "orders_open", "an order of the account is pending or shipped")
@@ -20,15 +23,15 @@ var (
 	// a lookup, or every order, on a carrier's report.
 	ErrShipmentNotFound = apperr.New(apperr.KindNotFound, "shipment_not_found", "no such shipment")
 	ErrInvalidStatus    = apperr.New(apperr.KindInvalid, "invalid_status", "the status is not pending_pickup, in_transit, delivered or failed")
-	// ErrCarrierUnavailable is a stack without a carrier (CARRIER=none):
-	// no shipment can be made, read or corrected there.
-	ErrCarrierUnavailable = apperr.New(apperr.KindUnavailable, "carrier_unavailable", "no carrier makes or reads shipments here")
-	// ErrCarrierNotLinked is a carrier the seller has not linked: module
-	// shipping reads and makes shipments only with the seller's own account.
-	ErrCarrierNotLinked = apperr.New(apperr.KindConflict, "carrier_not_linked", "the caller has not linked that carrier")
-	// ErrCarrierAddressUnknown is a recipient or pickup address the carrier
-	// does not deliver to or does not know.
-	ErrCarrierAddressUnknown = apperr.New(apperr.KindInvalid, "carrier_address_unknown", "the carrier does not know the address")
+	// ErrCarrierUnavailable is module shipping's error for a stack without
+	// a carrier (CARRIER=none).
+	ErrCarrierUnavailable = shippingdomain.ErrUnavailable
+	// ErrCarrierNotLinked is module shipping's error for a carrier the
+	// seller has not linked.
+	ErrCarrierNotLinked = shippingdomain.ErrNotLinked
+	// ErrCarrierAddressUnknown is module shipping's error for an address
+	// the carrier does not know.
+	ErrCarrierAddressUnknown = shippingdomain.ErrAddressUnknown
 	// errFailedParcel is a parcel the carrier reports failed, which no
 	// order ships on.
 	errFailedParcel = ErrInvalidShipment.WithField("tracking_code", apperr.ParcelFailed, "the carrier reports this parcel failed")
