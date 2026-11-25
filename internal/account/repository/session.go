@@ -38,9 +38,9 @@ type Sessions interface {
 	// token.
 	Reauthenticate(ctx context.Context, id uuid.UUID, at time.Time) (domain.Session, error)
 	// RevokeOthers signs out every open session of the account but keep in
-	// one statement and gives each a new write ID, so a refresh racing it
+	// one statement and gives each writeID, so a refresh racing it
 	// conflicts.
-	RevokeOthers(ctx context.Context, accountID, keep uuid.UUID, now time.Time) error
+	RevokeOthers(ctx context.Context, accountID, keep uuid.UUID, now time.Time, writeID uuid.UUID) error
 	// ActiveAmong returns which of ids are usable at now: neither revoked,
 	// expired nor idle past domain.SessionIdleLimit.
 	ActiveAmong(ctx context.Context, ids []uuid.UUID, now time.Time) (map[uuid.UUID]bool, error)

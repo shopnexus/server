@@ -200,7 +200,7 @@ func TestRefreshRacingAReauthenticationSignsTheNewAuthTime(t *testing.T) {
 type othersSignedOutFirst struct{ repository.Sessions }
 
 func (l othersSignedOutFirst) Save(ctx context.Context, s *domain.Session, w uuid.UUID) error {
-	if err := l.Sessions.RevokeOthers(ctx, s.AccountID(), uuid.NewV7(), now); err != nil {
+	if err := l.Sessions.RevokeOthers(ctx, s.AccountID(), uuid.NewV7(), now, uuid.NewV7()); err != nil {
 		return err
 	}
 	return l.Sessions.Save(ctx, s, w)

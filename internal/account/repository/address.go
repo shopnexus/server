@@ -30,13 +30,13 @@ type Addresses interface {
 	// domain.ErrSessionRevoked; Save then calls a.StoredAsDefault, and a
 	// conflict moves nothing.
 	Save(ctx context.Context, a *domain.Address, writeID uuid.UUID, makeDefault bool) error
-	// SetDefault makes id owner's default; ErrNotFound when owner has no
-	// such address.
-	SetDefault(ctx context.Context, owner, id uuid.UUID) error
+	// SetDefault makes id owner's default, giving both rows it changes
+	// writeID; ErrNotFound when owner has no such address.
+	SetDefault(ctx context.Context, owner, id, writeID uuid.UUID) error
 	// Delete removes the row; when it was the default, the newest remaining
-	// address becomes the default. ErrNotFound when owner has no such
-	// address.
-	Delete(ctx context.Context, owner, id uuid.UUID) error
+	// address becomes the default under writeID. ErrNotFound when owner has
+	// no such address.
+	Delete(ctx context.Context, owner, id, writeID uuid.UUID) error
 	// List is a query: owner's addresses with their places, the default
 	// first, then the newest.
 	List(ctx context.Context, owner uuid.UUID) ([]PlacedAddress, error)

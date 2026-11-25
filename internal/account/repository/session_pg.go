@@ -100,11 +100,11 @@ WHERE id = @id AND revoked_at IS NULL AND expires_at > @at AND last_used_at > @i
 RETURNING `+sessionColumns, pgx.StrictNamedArgs{"id": id, "at": at, "idle_since": at.Add(-domain.SessionIdleLimit)}))
 }
 
-func (s pgSessions) RevokeOthers(ctx context.Context, accountID, keep uuid.UUID, now time.Time) error {
+func (s pgSessions) RevokeOthers(ctx context.Context, accountID, keep uuid.UUID, now time.Time, writeID uuid.UUID) error {
 	_, err := s.db.Exec(ctx, `
-UPDATE sessions SET revoked_at = @now, revoke_reason = @reason, write_id = uuidv7()
+UPDATE sessions SET revoked_at = @now, revoke_reason = @reason, write_id = @write_id
 WHERE account_id = @account_id AND id <> @keep AND revoked_at IS NULL`,
-		pgx.StrictNamedArgs{"account_id": accountID, "keep": keep, "now": now, "reason": string(domain.RevokedSignOut)})
+		pgx.StrictNamedArgs{"account_id": accountID, "keep": keep, "now": now, "reason": string(domain.RevokedSignOut), "write_id": writeID})
 	if err != nil {
 		return fmt.Errorf("revoke sessions: %w", err)
 	}

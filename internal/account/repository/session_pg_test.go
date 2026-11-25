@@ -110,7 +110,7 @@ func TestPGSessions(t *testing.T) {
 		b, _ := create(t, s, acc, now)
 		kept, _ := create(t, s, acc, now)
 		c, _ := create(t, s, other, now)
-		if err := s.RevokeOthers(ctx, acc, kept.ID(), now); err != nil {
+		if err := s.RevokeOthers(ctx, acc, kept.ID(), now, uuid.NewV7()); err != nil {
 			t.Fatal(err)
 		}
 		for _, x := range []struct {

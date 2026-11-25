@@ -24,7 +24,7 @@ func (s *Account) DeleteOtherSessions(ctx context.Context, p authn.Principal) er
 	if now.Sub(p.AuthTime) > domain.RecentAuth {
 		return domain.ErrReauthRequired
 	}
-	if err := s.sessions.RevokeOthers(ctx, p.AccountID, p.SessionID, now); err != nil {
+	if err := s.sessions.RevokeOthers(ctx, p.AccountID, p.SessionID, now, uuid.NewV7()); err != nil {
 		return fmt.Errorf("revoke the other sessions: %w", err)
 	}
 	return nil

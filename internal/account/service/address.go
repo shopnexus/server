@@ -133,7 +133,7 @@ func (s *Account) UpdateAddress(ctx context.Context, owner, id uuid.UUID, d doma
 }
 
 func (s *Account) SetDefaultAddress(ctx context.Context, owner, id uuid.UUID) error {
-	err := s.addresses.SetDefault(ctx, owner, id)
+	err := s.addresses.SetDefault(ctx, owner, id, uuid.NewV7())
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrAddressNotFound
 	}
@@ -144,7 +144,7 @@ func (s *Account) SetDefaultAddress(ctx context.Context, owner, id uuid.UUID) er
 }
 
 func (s *Account) DeleteAddress(ctx context.Context, owner, id uuid.UUID) error {
-	err := s.addresses.Delete(ctx, owner, id)
+	err := s.addresses.Delete(ctx, owner, id, uuid.NewV7())
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrAddressNotFound
 	}

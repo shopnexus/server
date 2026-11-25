@@ -46,11 +46,12 @@ func lockBook(ctx context.Context, tx pgx.Tx, owner uuid.UUID) error {
 }
 
 // clearDefault takes the default from owner's address that holds it, unless
-// that is keep. It runs before another address becomes the default, since
-// the unique index on the default is checked row by row.
-func clearDefault(ctx context.Context, tx pgx.Tx, owner, keep uuid.UUID) error {
-	if _, err := tx.Exec(ctx, `UPDATE addresses SET is_default = false, write_id = uuidv7()
-WHERE account_id = @account AND is_default AND id <> @keep`, pgx.StrictNamedArgs{"account": owner, "keep": keep}); err != nil {
+// that is keep, under writeID. It runs before another address becomes the
+// default, since the unique index on the default is checked row by row.
+func clearDefault(ctx context.Context, tx pgx.Tx, owner, keep, writeID uuid.UUID) error {
+	if _, err := tx.Exec(ctx, `UPDATE addresses SET is_default = false, write_id = @write_id
+WHERE account_id = @account AND is_default AND id <> @keep`,
+		pgx.StrictNamedArgs{"account": owner, "keep": keep, "write_id": writeID}); err != nil {
 		return fmt.Errorf("clear the default: %w", err)
 	}
 	return nil
@@ -88,7 +89,7 @@ FROM addresses a WHERE a.account_id = @account AND a.request_key = @key`,
 		}
 		isDefault = n == 0 || makeDefault
 		if isDefault {
-			if err := clearDefault(ctx, tx, a.AccountID(), a.ID()); err != nil {
+			if err := clearDefault(ctx, tx, a.AccountID(), a.ID(), a.WriteID()); err != nil {
 				return err
 			}
 		}
@@ -168,7 +169,7 @@ func (s pgAddresses) Save(ctx context.Context, a *domain.Address, writeID uuid.U
 		}
 		// Setting the default leaves the row's write_id at writeID, which
 		// a takes below.
-		if err = clearDefault(ctx, tx, a.AccountID(), a.ID()); err != nil {
+		if err = clearDefault(ctx, tx, a.AccountID(), a.ID(), writeID); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE addresses SET is_default = true WHERE id = @id`, pgx.StrictNamedArgs{"id": a.ID()}); err != nil {
@@ -187,7 +188,7 @@ func (s pgAddresses) Save(ctx context.Context, a *domain.Address, writeID uuid.U
 	return nil
 }
 
-func (s pgAddresses) SetDefault(ctx context.Context, owner, id uuid.UUID) error {
+func (s pgAddresses) SetDefault(ctx context.Context, owner, id, writeID uuid.UUID) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		if err := lockBook(ctx, tx, owner); err != nil {
 			return err
@@ -204,11 +205,11 @@ func (s pgAddresses) SetDefault(ctx context.Context, owner, id uuid.UUID) error 
 		if isDefault {
 			return nil
 		}
-		if err = clearDefault(ctx, tx, owner, id); err != nil {
+		if err = clearDefault(ctx, tx, owner, id, writeID); err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, `UPDATE addresses SET is_default = true, write_id = uuidv7() WHERE id = @id`,
-			pgx.StrictNamedArgs{"id": id}); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE addresses SET is_default = true, write_id = @write_id WHERE id = @id`,
+			pgx.StrictNamedArgs{"id": id, "write_id": writeID}); err != nil {
 			return fmt.Errorf("set the default: %w", err)
 		}
 		return nil
@@ -219,7 +220,7 @@ func (s pgAddresses) SetDefault(ctx context.Context, owner, id uuid.UUID) error 
 	return nil
 }
 
-func (s pgAddresses) Delete(ctx context.Context, owner, id uuid.UUID) error {
+func (s pgAddresses) Delete(ctx context.Context, owner, id, writeID uuid.UUID) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		if err := lockBook(ctx, tx, owner); err != nil {
 			return err
@@ -236,9 +237,9 @@ func (s pgAddresses) Delete(ctx context.Context, owner, id uuid.UUID) error {
 		if !wasDefault {
 			return nil
 		}
-		if _, err = tx.Exec(ctx, `UPDATE addresses SET is_default = true, write_id = uuidv7()
+		if _, err = tx.Exec(ctx, `UPDATE addresses SET is_default = true, write_id = @write_id
 WHERE id = (SELECT id FROM addresses WHERE account_id = @account ORDER BY id DESC LIMIT 1)`,
-			pgx.StrictNamedArgs{"account": owner}); err != nil {
+			pgx.StrictNamedArgs{"account": owner, "write_id": writeID}); err != nil {
 			return fmt.Errorf("move the default: %w", err)
 		}
 		return nil

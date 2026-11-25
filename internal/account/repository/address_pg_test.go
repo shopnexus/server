@@ -131,7 +131,7 @@ func TestSaveAddressWriteID(t *testing.T) {
 	}
 	// Moving the default is a write too: a save read before it conflicts.
 	other := insert(t, book, me, 1)[0]
-	if err = book.SetDefault(ctx, me, other.ID()); err != nil {
+	if err = book.SetDefault(ctx, me, other.ID(), uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	if err = book.Save(ctx, &a, uuid.NewV7(), false); !errors.Is(err, repository.ErrConflict) {
@@ -180,17 +180,17 @@ func TestSetDefaultAddress(t *testing.T) {
 	me, other := seed(t, s), seed(t, s)
 	as := insert(t, book, me, 3)
 	for range 2 {
-		if err := book.SetDefault(ctx, me, as[1].ID()); err != nil {
+		if err := book.SetDefault(ctx, me, as[1].ID(), uuid.NewV7()); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if d := defaults(t, book, me); len(d) != 1 || d[0] != as[1].ID() {
 		t.Fatalf("defaults %v", d)
 	}
-	if err := book.SetDefault(ctx, other, as[2].ID()); !errors.Is(err, repository.ErrNotFound) {
+	if err := book.SetDefault(ctx, other, as[2].ID(), uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("someone else's: %v", err)
 	}
-	if err := book.SetDefault(ctx, me, uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {
+	if err := book.SetDefault(ctx, me, uuid.NewV7(), uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("an unknown one: %v", err)
 	}
 	if d := defaults(t, book, me); len(d) != 1 || d[0] != as[1].ID() {
@@ -204,28 +204,28 @@ func TestDeleteAddressMovesTheDefault(t *testing.T) {
 	ctx := context.Background()
 	me, other := seed(t, s), seed(t, s)
 	as := insert(t, book, me, 3)
-	if err := book.Delete(ctx, other, as[0].ID()); !errors.Is(err, repository.ErrNotFound) {
+	if err := book.Delete(ctx, other, as[0].ID(), uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("someone else's: %v", err)
 	}
-	if err := book.Delete(ctx, me, as[1].ID()); err != nil {
+	if err := book.Delete(ctx, me, as[1].ID(), uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	if d := defaults(t, book, me); len(d) != 1 || d[0] != as[0].ID() {
 		t.Fatalf("deleting another address moved the default: %v", d)
 	}
-	if err := book.Delete(ctx, me, as[0].ID()); err != nil {
+	if err := book.Delete(ctx, me, as[0].ID(), uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	if d := defaults(t, book, me); len(d) != 1 || d[0] != as[2].ID() {
 		t.Fatalf("the newest remaining is the default: %v", d)
 	}
-	if err := book.Delete(ctx, me, as[0].ID()); !errors.Is(err, repository.ErrNotFound) {
+	if err := book.Delete(ctx, me, as[0].ID(), uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("deleting again: %v", err)
 	}
 	if _, err := book.Get(ctx, me, as[0].ID()); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("the row is gone: %v", err)
 	}
-	if err := book.Delete(ctx, me, as[2].ID()); err != nil {
+	if err := book.Delete(ctx, me, as[2].ID(), uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	if fresh := insert(t, book, me, 1)[0]; !fresh.IsDefault() {
@@ -278,7 +278,7 @@ func TestInsertAsDefault(t *testing.T) {
 	if old, err := book.Get(ctx, me, first.ID()); err != nil || old.WriteID() == first.WriteID() {
 		t.Fatalf("the old default keeps its write ID: %v", err)
 	}
-	if err := book.SetDefault(ctx, me, first.ID()); err != nil {
+	if err := book.SetDefault(ctx, me, first.ID(), uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	again := address(t, me)

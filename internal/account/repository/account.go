@@ -34,7 +34,7 @@ type Accounts interface {
 	// Erase saves a deleted account as Save does and, in the same
 	// transaction, deletes its credentials with their identities, its
 	// addresses, the blocks and follows either way, and revokes its
-	// sessions, then writes evs. A stale write is ErrConflict and writes
+	// sessions under writeID too, then writes evs. A stale write is ErrConflict and writes
 	// none of it.
 	Erase(ctx context.Context, a *domain.Account, writeID uuid.UUID, evs ...events.Event) error
 	// List is a query: accounts with IDs below p.Before(), newest first, at
