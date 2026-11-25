@@ -48,7 +48,8 @@ func (s *Account) Suspend(ctx context.Context, in SuspendInput) (ConsoleAccount,
 	return r, nil
 }
 
-// Unsuspend lifts a suspension and records account.unsuspend for by.
+// Unsuspend lifts a suspension and records account.unsuspend for by. An
+// account not suspended answers its current view and writes nothing.
 func (s *Account) Unsuspend(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleAccount, error) {
 	if id == domain.ShopNexusID {
 		return ConsoleAccount{}, domain.ErrSystemAccount
@@ -58,7 +59,13 @@ func (s *Account) Unsuspend(ctx context.Context, id uuid.UUID, by audit.Actor) (
 	if err != nil {
 		return ConsoleAccount{}, err
 	}
-	a.Unsuspend(now)
+	changed, err := a.Unsuspend(now)
+	if err != nil {
+		return ConsoleAccount{}, err
+	}
+	if !changed {
+		return consoleAccountOf(a, now), nil
+	}
 	err = s.accounts.Save(ctx, &a, uuid.NewV7(), &audit.Entry{
 		Actor: by, Action: audit.AccountUnsuspend, Target: audit.Account(id), At: now,
 	}, events.Event{ID: uuid.NewV7(), Kind: events.AccountUnsuspended, SubjectID: id, OccurredAt: now})

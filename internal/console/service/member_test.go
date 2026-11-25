@@ -7,6 +7,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/shopnexus/server/internal/console/domain"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/authn"
@@ -30,6 +32,32 @@ func TestAdminCannotTouchAnAdmin(t *testing.T) {
 	}
 	if _, err := e.at(now).EnableMember(ctx, uuid.NewV7(), audit.ByCLI("root")); !errors.Is(err, domain.ErrMemberNotFound) {
 		t.Fatalf("an unknown id: %v", err)
+	}
+}
+
+// A repeated disable or enable writes no second audit row.
+func TestDisableAndEnableOnlyOnce(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	v, _ := e.create(t, "mod@example.com", domain.RoleModerator)
+	for range 2 {
+		if _, err := e.at(now).DisableMember(ctx, v.ID, audit.ByCLI("root")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for range 2 {
+		if _, err := e.at(now).EnableMember(ctx, v.ID, audit.ByCLI("root")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var disables, enables int
+	if err := e.db.QueryRow(ctx, `SELECT count(*) FILTER (WHERE action_kind = 'member.disable'), count(*) FILTER (WHERE action_kind = 'member.enable')
+FROM console_actions WHERE target_id = @id`, pgx.StrictNamedArgs{"id": v.ID}).Scan(&disables, &enables); err != nil {
+		t.Fatal(err)
+	}
+	if disables != 1 || enables != 1 {
+		t.Fatalf("disables %d, enables %d", disables, enables)
 	}
 }
 

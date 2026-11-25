@@ -139,9 +139,26 @@ func TestUnsuspend(t *testing.T) {
 	t.Parallel()
 	a, _ := domain.New(uuid.NewV7(), "Linh", now)
 	a.Suspend("scam", nil, now)
-	a.Unsuspend(now)
+	if changed, err := a.Unsuspend(now); !changed || err != nil {
+		t.Fatalf("%v %v", changed, err)
+	}
 	if a.CanWrite(now) != nil || a.SuspendReason() != "" || a.SuspendedUntil() != nil {
 		t.Fatalf("%+v", a)
+	}
+	if changed, err := a.Unsuspend(now); changed || err != nil {
+		t.Fatalf("an active account: %v %v", changed, err)
+	}
+}
+
+func TestUnsuspendRefusesADeletedAccount(t *testing.T) {
+	t.Parallel()
+	a, _ := domain.New(uuid.NewV7(), "Linh", now)
+	a.Delete(now)
+	if changed, err := a.Unsuspend(now); changed || !errors.Is(err, domain.ErrAccountNotFound) {
+		t.Fatalf("%v %v", changed, err)
+	}
+	if a.StoredStatus() != domain.StatusDeleted {
+		t.Fatalf("status %s", a.StoredStatus())
 	}
 }
 

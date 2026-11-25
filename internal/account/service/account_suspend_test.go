@@ -103,6 +103,32 @@ func TestUseCasesPublish(t *testing.T) {
 	}
 }
 
+// Unsuspending an account not suspended writes nothing; a deleted one is
+// refused.
+func TestUnsuspendWithoutASuspension(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewAccounts(db)
+	ctx := context.Background()
+	id := seed(t, s)
+	r, err := at(s, nil, now).Unsuspend(ctx, id, audit.ByCLI("test"))
+	if err != nil || r.Status != domain.StatusActive {
+		t.Fatalf("%+v %v", r, err)
+	}
+	var n int
+	if err = db.QueryRow(ctx, `SELECT (SELECT count(*) FROM console_actions WHERE target_id = @id) + (SELECT count(*) FROM events WHERE subject_id = @id)`,
+		pgx.StrictNamedArgs{"id": id}).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("rows %d %v", n, err)
+	}
+	gone := seed(t, s)
+	if err = at(s, nil, now).Erase(ctx, gone); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = at(s, nil, now).Unsuspend(ctx, gone, audit.ByCLI("test")); !errors.Is(err, domain.ErrAccountNotFound) {
+		t.Fatalf("a deleted account: %v", err)
+	}
+}
+
 func TestShopNexusCannotBeSuspended(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)

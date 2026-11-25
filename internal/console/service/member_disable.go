@@ -14,13 +14,16 @@ import (
 
 // DisableMember stops a member signing in and, by moving the credentials
 // version, ends every session; enabling the member later brings none back.
+// A member already disabled (or, for EnableMember, active) writes nothing.
 func (s *Console) DisableMember(ctx context.Context, id uuid.UUID, by audit.Actor) (MemberView, error) {
 	m, err := s.loadManaged(ctx, id, by)
 	if err != nil {
 		return MemberView{}, err
 	}
 	now := s.now()
-	m.Disable(now)
+	if !m.Disable(now) {
+		return viewOf(m), nil
+	}
 	return s.saveManaged(ctx, &m, by, audit.MemberDisable, now, nil)
 }
 
@@ -31,7 +34,9 @@ func (s *Console) EnableMember(ctx context.Context, id uuid.UUID, by audit.Actor
 		return MemberView{}, err
 	}
 	now := s.now()
-	m.Enable(now)
+	if !m.Enable(now) {
+		return viewOf(m), nil
+	}
 	return s.saveManaged(ctx, &m, by, audit.MemberEnable, now, nil)
 }
 

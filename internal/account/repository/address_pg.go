@@ -39,7 +39,7 @@ func scanAddress(row pgx.Row, extra ...any) (domain.Address, error) {
 
 // queueLockBook takes owner's advisory lock until the tx ends.
 func queueLockBook(b *pgx.Batch, owner uuid.UUID) {
-	queue(b, "lock account", `SELECT pg_advisory_xact_lock(hashtext(@account::text))`, pgx.StrictNamedArgs{"account": owner}, nil)
+	postgres.QueueLock(b, "addresses", owner)
 }
 
 // queueClearDefault takes the default from owner's address that holds it,

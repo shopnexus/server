@@ -16,10 +16,14 @@ func (s *Account) Block(ctx context.Context, blocker, blocked uuid.UUID) error {
 	if blocked == domain.ShopNexusID {
 		return domain.ErrSystemAccount
 	}
-	if _, err := s.load(ctx, blocked); err != nil {
+	other, err := s.load(ctx, blocked)
+	if err != nil {
 		return err
 	}
-	if err := s.accounts.Block(ctx, uuid.NewV7(), blocker, blocked, s.now()); err != nil {
+	if other.StoredStatus() == domain.StatusDeleted {
+		return domain.ErrAccountDeleted
+	}
+	if err = s.accounts.Block(ctx, uuid.NewV7(), blocker, blocked, s.now()); err != nil {
 		return fmt.Errorf("block: %w", err)
 	}
 	return nil

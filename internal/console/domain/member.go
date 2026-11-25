@@ -219,16 +219,25 @@ func (m *Member) ResetTOTP(now time.Time) {
 }
 
 // Disable stops the member signing in and ends every session; Enable does
-// not bring the sessions back.
-func (m *Member) Disable(now time.Time) {
+// not bring the sessions back. Each reports false when the member already
+// is in that status, and changes nothing then.
+func (m *Member) Disable(now time.Time) bool {
+	if m.status == StatusDisabled {
+		return false
+	}
 	m.status = StatusDisabled
 	m.credentialsVersion++
 	m.updatedAt = now
+	return true
 }
 
-func (m *Member) Enable(now time.Time) {
+func (m *Member) Enable(now time.Time) bool {
+	if m.status == StatusActive {
+		return false
+	}
 	m.status = StatusActive
 	m.updatedAt = now
+	return true
 }
 
 // cleanName trims a display name and reports whether it has 1 to

@@ -11,6 +11,7 @@ import (
 
 	"github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgFollows struct{ db *pgxpool.Pool }
@@ -20,10 +21,12 @@ func NewFollows(db *pgxpool.Pool) Follows { return pgFollows{db} }
 
 func (s pgFollows) Follow(ctx context.Context, id, follower, followed uuid.UUID, at time.Time) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		// The follower's lock keeps the cap; the pair's keeps out a block.
+		// The rows' share locks keep a follow from outliving an erasure, the
+		// follower's lock keeps the cap and the pair's keeps out a block.
 		b := &pgx.Batch{}
-		queue(b, "lock follower", `SELECT pg_advisory_xact_lock(hashtext('follows:' || @follower::text))`,
-			pgx.StrictNamedArgs{"follower": follower}, nil)
+		postgres.QueueLockLiving(b, follower, domain.ErrSessionRevoked)
+		postgres.QueueLockLiving(b, followed, domain.ErrAccountDeleted)
+		postgres.QueueLock(b, "follows", follower)
 		queueLockPair(b, follower, followed)
 		var (
 			blocked, following bool

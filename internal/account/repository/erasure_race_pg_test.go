@@ -68,3 +68,31 @@ func TestDeletedAccountTakesNoDefault(t *testing.T) {
 		t.Fatalf("defaults %v", d)
 	}
 }
+
+// A follow or block that passed the service's checks before either account
+// was deleted, and commits after, writes no row.
+func TestDeletedAccountGetsNoTies(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	accounts, follows := repository.NewAccounts(db), repository.NewFollows(db)
+	gone, other := seed(t, accounts), seed(t, accounts)
+	markDeleted(t, db, gone)
+
+	if err := follows.Follow(ctx, uuid.NewV7(), gone, other, now); !errors.Is(err, domain.ErrSessionRevoked) {
+		t.Fatalf("a follow by a deleted account: %v", err)
+	}
+	if err := follows.Follow(ctx, uuid.NewV7(), other, gone, now); !errors.Is(err, domain.ErrAccountDeleted) {
+		t.Fatalf("a follow of a deleted account: %v", err)
+	}
+	if err := accounts.Block(ctx, uuid.NewV7(), other, gone, now); !errors.Is(err, domain.ErrAccountDeleted) {
+		t.Fatalf("a block of a deleted account: %v", err)
+	}
+	if err := follows.Follow(ctx, uuid.NewV7(), other, uuid.NewV7(), now); !errors.Is(err, domain.ErrAccountDeleted) {
+		t.Fatalf("a follow of a missing account: %v", err)
+	}
+	if n := count(t, db, `SELECT (SELECT count(*) FROM account_follows WHERE follower_id = @id OR followed_id = @id)
+    + (SELECT count(*) FROM account_blocks WHERE blocker_id = @id OR blocked_id = @id)`, gone); n != 0 {
+		t.Fatalf("ties of the tombstone: %d", n)
+	}
+}

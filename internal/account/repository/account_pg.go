@@ -228,13 +228,14 @@ WHERE i.kind = 'phone' AND a.status <> 'deleted' AND a.id <> @system`, pgx.Stric
 // either order, so a follow written beside a block cannot outlive it.
 func queueLockPair(batch *pgx.Batch, a, b uuid.UUID) {
 	lo, hi := min(a.String(), b.String()), max(a.String(), b.String())
-	queue(batch, "lock pair", `SELECT pg_advisory_xact_lock(hashtext('pair:' || @pair))`,
-		pgx.StrictNamedArgs{"pair": lo + "/" + hi}, nil)
+	postgres.QueueLock(batch, "pair", lo, hi)
 }
 
 func (s pgAccounts) Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error {
 	b := &pgx.Batch{}
+	// Both rows' share locks keep a block from outliving either erasure.
 	postgres.QueueLockLiving(b, blocker, domain.ErrSessionRevoked)
+	postgres.QueueLockLiving(b, blocked, domain.ErrAccountDeleted)
 	queueLockPair(b, blocker, blocked)
 	queue(b, "insert block", `INSERT INTO account_blocks (id, blocker_id, blocked_id, created_at)
 VALUES (@id, @blocker, @blocked, @at) ON CONFLICT (blocker_id, blocked_id) DO NOTHING`,

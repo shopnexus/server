@@ -120,8 +120,10 @@ func TestVersionMovesWithCredentials(t *testing.T) {
 	t.Parallel()
 	m := newMember(t, domain.RoleModerator)
 	v := m.CredentialsVersion()
-	m.Disable(now)
-	m.Enable(now)
+	// Each reports only a change; a second Disable moves no version.
+	if m.Enable(now) || !m.Disable(now) || m.Disable(now) || !m.Enable(now) || m.Enable(now) {
+		t.Fatal("Disable and Enable report only a change")
+	}
 	m.ResetTOTP(now)
 	m.ResetPassword(domain.Fast.Hash("temporary-two"), now)
 	if m.CredentialsVersion() != v+3 || m.Status() != domain.StatusActive || m.Next() != domain.StepChangePassword || m.Enrolled() {

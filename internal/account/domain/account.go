@@ -223,12 +223,20 @@ func (a *Account) Suspend(reason string, until *time.Time, now time.Time) error 
 	return nil
 }
 
-// Unsuspend lifts a suspension.
-func (a *Account) Unsuspend(now time.Time) {
+// Unsuspend lifts a suspension in force. A deleted account answers
+// ErrAccountNotFound, as Suspend does; one not suspended reports false.
+func (a *Account) Unsuspend(now time.Time) (bool, error) {
+	if a.status == StatusDeleted {
+		return false, ErrAccountNotFound
+	}
+	if !a.Suspended(now) {
+		return false, nil
+	}
 	a.status = StatusActive
 	a.suspendReason = ""
 	a.suspendedUntil = nil
 	a.updatedAt = now
+	return true, nil
 }
 
 // Delete ends the account: its name, bio and avatar go and it writes no

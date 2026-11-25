@@ -40,6 +40,20 @@ func TestBlock(t *testing.T) {
 	}
 }
 
+func TestBlockADeletedAccount(t *testing.T) {
+	t.Parallel()
+	s := newStore(t)
+	ctx := context.Background()
+	svc := at(s, nil, now)
+	me, gone := seed(t, s), seed(t, s)
+	if err := svc.Erase(ctx, gone); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Block(ctx, me, gone); !errors.Is(err, domain.ErrAccountDeleted) {
+		t.Fatalf("block a deleted account: %v", err)
+	}
+}
+
 func TestShopNexusCannotBeBlocked(t *testing.T) {
 	t.Parallel()
 	s := newStore(t)

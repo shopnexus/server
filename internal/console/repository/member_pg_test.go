@@ -128,7 +128,7 @@ func TestSaveConflictWritesNoAudit(t *testing.T) {
 	if err := s.Save(ctx, &m, uuid.NewV7(), &e); err != nil {
 		t.Fatal(err)
 	}
-	stale.Enable(now)
+	stale.Disable(now)
 	if err := s.Save(ctx, &stale, uuid.NewV7(), &e); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("stale save: %v", err)
 	}
