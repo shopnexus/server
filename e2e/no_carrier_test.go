@@ -38,6 +38,9 @@ func TestNoCarrier(t *testing.T) {
 	t.Cleanup(srv.Close)
 	me, _ := newAccount(t)
 	auth, order := bearer(me.AccessToken), uuid.NewV7().String()
+	if l := expect[struct{ Linkable []string }](t, callAt(t, srv.URL, "GET", "/v1/carrier-accounts", nil, auth), http.StatusOK); l.Linkable == nil || len(l.Linkable) != 0 {
+		t.Fatalf("the carriers to link: %+v", l.Linkable)
+	}
 	check(t, "linking", callAt(t, srv.URL, "PUT", "/v1/carrier-accounts/ghtk", map[string]any{"email": "a@b.vn", "password": "x"}, auth),
 		503, "carrier_unavailable")
 	check(t, "texting a code", callAt(t, srv.URL, "POST", "/v1/carrier-accounts/ghn/otp", map[string]any{"phone": "+84912345678"}, auth),

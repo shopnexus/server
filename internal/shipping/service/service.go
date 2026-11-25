@@ -33,6 +33,13 @@ type AccountView struct {
 	LinkedAt time.Time `json:"linked_at"`
 }
 
+// AccountList is the CarrierAccountList schema: the owner's linked
+// accounts and the carriers this stack runs, in code order.
+type AccountList struct {
+	Items    []AccountView     `json:"items"`
+	Linkable []carrier.Carrier `json:"linkable"`
+}
+
 // Tracking is the Tracking schema: the step a parcel is at, empty before
 // its carrier reported one, and its events, newest first.
 type Tracking struct {
@@ -97,8 +104,9 @@ type Service interface {
 	Settings(ctx context.Context, owner uuid.UUID) (domain.Settings, error)
 	PutSettings(ctx context.Context, owner uuid.UUID, st domain.Settings) (domain.Settings, error)
 	SavedPickup(ctx context.Context, owner uuid.UUID) (Pickup, error)
-	// Accounts lists the owner's linked accounts, without their tokens.
-	Accounts(ctx context.Context, owner uuid.UUID) ([]AccountView, error)
+	// Accounts lists the owner's linked accounts, without their tokens, and
+	// the carriers they can link: those with a client on this stack.
+	Accounts(ctx context.Context, owner uuid.UUID) (AccountList, error)
 	// SendOTP has carrier c text phone the code Link takes; only GHN does.
 	SendOTP(ctx context.Context, c, phone string) error
 	// Link checks the credentials at carrier c and keeps the token sealed,
@@ -205,16 +213,20 @@ func carrierError(err error) error {
 	return err
 }
 
-func (s *Shipping) Accounts(ctx context.Context, owner uuid.UUID) ([]AccountView, error) {
+func (s *Shipping) Accounts(ctx context.Context, owner uuid.UUID) (AccountList, error) {
 	rows, err := s.d.Accounts.List(ctx, owner)
 	if err != nil {
-		return nil, fmt.Errorf("list the carrier accounts: %w", err)
+		return AccountList{}, fmt.Errorf("list the carrier accounts: %w", err)
 	}
 	views := make([]AccountView, 0, len(rows))
 	for _, r := range rows {
 		views = append(views, AccountView{Carrier: r.Carrier, ShopCode: r.ShopCode, LinkedAt: r.LinkedAt})
 	}
-	return views, nil
+	linkable := slices.Sorted(maps.Keys(s.d.Clients))
+	if linkable == nil {
+		linkable = []carrier.Carrier{}
+	}
+	return AccountList{Items: views, Linkable: linkable}, nil
 }
 
 // mobile is raw as +84 and nine digits, or carrier_phone_unknown.

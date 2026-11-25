@@ -11,10 +11,10 @@ import (
 )
 
 type CodSetupScreen struct {
-	Account         accountsvc.MeView         `json:"account"`
-	Addresses       []accountsvc.AddressView  `json:"addresses"`
-	Settings        shippingdomain.Settings   `json:"settings"`
-	CarrierAccounts []shippingsvc.AccountView `json:"carrier_accounts"`
+	Account         accountsvc.MeView        `json:"account"`
+	Addresses       []accountsvc.AddressView `json:"addresses"`
+	Settings        shippingdomain.Settings  `json:"settings"`
+	CarrierAccounts shippingsvc.AccountList  `json:"carrier_accounts"`
 }
 
 func (s *Screen) CodSetup(ctx context.Context, account uuid.UUID) (CodSetupScreen, error) {

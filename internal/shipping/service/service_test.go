@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -103,7 +104,8 @@ func TestLinkStoresASealedTokenAndShowsTheShopCode(t *testing.T) {
 		t.Fatal(err)
 	}
 	list, err := e.svc.Accounts(ctx, e.owner)
-	if err != nil || len(list) != 2 || list[0].Carrier != "ghn" || list[0].ShopCode != "885" || list[1].Carrier != "ghtk" {
+	if err != nil || len(list.Items) != 2 || list.Items[0].Carrier != "ghn" || list.Items[0].ShopCode != "885" || list.Items[1].Carrier != "ghtk" ||
+		!slices.Equal(list.Linkable, []carrier.Carrier{carrier.GHN, carrier.GHTK}) {
 		t.Fatalf("%+v %v", list, err)
 	}
 }
@@ -150,7 +152,7 @@ func TestAWrongPasswordIsLoginFailed(t *testing.T) {
 	if !errors.Is(err, domain.ErrLoginFailed) {
 		t.Fatalf("%v", err)
 	}
-	if list, _ := e.svc.Accounts(context.Background(), e.owner); len(list) != 0 {
+	if list, _ := e.svc.Accounts(context.Background(), e.owner); len(list.Items) != 0 {
 		t.Fatalf("linked %+v", list)
 	}
 }
@@ -237,6 +239,9 @@ func TestOneCarrierOff(t *testing.T) {
 	}
 	if _, err := e.svc.Create(ctx, e.owner, carrier.GHTK, carrier.CreateInput{}); !errors.Is(err, domain.ErrUnavailable) {
 		t.Fatalf("a shipment at ghtk off: %v", err)
+	}
+	if list, err := e.svc.Accounts(ctx, e.owner); err != nil || len(list.Items) != 2 || !slices.Equal(list.Linkable, []carrier.Carrier{carrier.GHN}) {
+		t.Fatalf("ghtk off is not linkable: %+v %v", list, err)
 	}
 	if err := e.svc.Unlink(ctx, e.owner, "ghtk"); err != nil {
 		t.Fatalf("unlink ghtk off: %v", err)
@@ -345,7 +350,7 @@ func TestAccountDeletedDropsTheTokens(t *testing.T) {
 	if err := e.svc.AccountDeleted(ctx, e.owner); err != nil {
 		t.Fatal(err)
 	}
-	if list, _ := e.svc.Accounts(ctx, e.owner); len(list) != 0 {
+	if list, _ := e.svc.Accounts(ctx, e.owner); len(list.Items) != 0 {
 		t.Fatalf("%+v", list)
 	}
 }

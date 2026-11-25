@@ -3,6 +3,7 @@ package e2e
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -11,6 +12,12 @@ import (
 type carrierAccount struct {
 	Carrier  string `json:"carrier"`
 	ShopCode string `json:"shop_code"`
+}
+
+// carrierAccountList is the CarrierAccountList schema.
+type carrierAccountList struct {
+	Items    []carrierAccount `json:"items"`
+	Linkable []string         `json:"linkable"`
 }
 
 // linkCarriers links the fake GHTK and GHN to the account with token; a
@@ -27,8 +34,9 @@ func TestLinkListUnlink(t *testing.T) {
 	t.Parallel()
 	me, _ := newAccount(t)
 	auth := bearer(me.AccessToken)
-	if l := expect[struct{ Items []carrierAccount }](t, call(t, "GET", "/v1/carrier-accounts", nil, auth), http.StatusOK); len(l.Items) != 0 {
-		t.Fatalf("a new account has %+v", l.Items)
+	if l := expect[carrierAccountList](t, call(t, "GET", "/v1/carrier-accounts", nil, auth), http.StatusOK); len(l.Items) != 0 ||
+		!slices.Equal(l.Linkable, []string{"ghn", "ghtk"}) {
+		t.Fatalf("a new account has %+v", l)
 	}
 	check(t, "a wrong password", call(t, "PUT", "/v1/carrier-accounts/ghtk", map[string]any{"email": "a@b.vn", "password": "wrong"}, auth),
 		422, "carrier_login_failed")
@@ -41,7 +49,7 @@ func TestLinkListUnlink(t *testing.T) {
 	check(t, "list signed out", call(t, "GET", "/v1/carrier-accounts", nil), 401, "unauthenticated")
 	linkCarriers(t, me.AccessToken)
 	res := call(t, "GET", "/v1/carrier-accounts", nil, auth)
-	l := expect[struct{ Items []carrierAccount }](t, res, http.StatusOK)
+	l := expect[carrierAccountList](t, res, http.StatusOK)
 	if len(l.Items) != 2 || l.Items[0] != (carrierAccount{"ghn", "885412"}) || l.Items[1].Carrier != "ghtk" ||
 		!strings.HasPrefix(l.Items[1].ShopCode, "S") || strings.Contains(string(res.Body), "fake-gh") {
 		t.Fatalf("%s", res.Body)

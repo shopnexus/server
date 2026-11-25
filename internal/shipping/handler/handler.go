@@ -73,10 +73,6 @@ type quoteRequest struct {
 	AddressID     uuid.UUID `json:"-" query:"address_id"`
 }
 
-type accountList struct {
-	Items []service.AccountView `json:"items"`
-}
-
 type pickupPoint struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
@@ -98,12 +94,12 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	views, err := h.svc.Accounts(r.Context(), p.AccountID)
+	list, err := h.svc.Accounts(r.Context(), p.AccountID)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	httpx.Respond(w, http.StatusOK, accountList{Items: views})
+	httpx.Respond(w, http.StatusOK, list)
 }
 
 // Link serves PUT /v1/carrier-accounts/{carrier}. GHTK takes an email and

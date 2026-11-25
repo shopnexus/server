@@ -19,12 +19,17 @@ CarrierAccount:
 CarrierAccountList:
   type: object
   additionalProperties: false
-  required: [items]
+  required: [items, linkable]
   properties:
     items:
       type: array
       items:
         $ref: "#/CarrierAccount"
+    linkable:
+      type: array
+      description: The carriers this stack runs, the ones a seller can link now, in code order. A carrier it runs off is absent; an account kept there is still in items.
+      items:
+        $ref: "#/LinkedCarrier"
 CarrierLogin:
   type: object
   additionalProperties: false

@@ -1,13 +1,13 @@
 carrierAccounts:
   get:
     operationId: listCarrierAccounts
-    summary: The carrier accounts the caller linked.
+    summary: The carrier accounts the caller linked, and the carriers they can link.
     tags: [shipping]
     security:
       - bearerAuth: []
     responses:
       "200":
-        description: Linked accounts, GHN before GHTK, in code order.
+        description: Linked accounts, GHN before GHTK, in code order, and the carriers this stack runs.
         content:
           application/json:
             schema:
