@@ -67,7 +67,7 @@ func TestConsoleAgentConversations(t *testing.T) {
 	if events := waitTurn(t, lan, started.TurnID); !strings.Contains(events, `"type":"turn.finished"`) {
 		t.Fatalf("events %s", events)
 	}
-	if asked := agentStub.lastAsked(); asked != [2]string{lan.ID, "moderator"} {
+	if asked := agentStub.askedBy(started.TurnID); asked != [2]string{lan.ID, "moderator"} {
 		t.Fatalf("the agent heard %v, want %s as moderator", asked, lan.ID)
 	}
 	detail := expect[struct {
