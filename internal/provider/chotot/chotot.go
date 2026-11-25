@@ -1,7 +1,8 @@
-// Package chotot reads one listing from Chợ Tốt's public gateway and its
-// photos from Chợ Tốt's CDN, for a seller who copies their own listing to
-// ShopNexus. It keeps the item and drops the seller: the name, phone,
-// address and coordinates are never decoded.
+// Package chotot reads a seller's profile and listings from Chợ Tốt's
+// public gateway and their photos from Chợ Tốt's CDN, for a seller who
+// brings their own listings to ShopNexus. It keeps the items and drops what
+// places or reaches the seller: phone, address, coordinates and identity
+// numbers are never decoded.
 package chotot
 
 import (
@@ -18,8 +19,8 @@ import (
 
 var (
 	// ErrNotFound is a listing the gateway does not have, or has but not on
-	// sale (hidden, expired, sold).
-	ErrNotFound = errors.New("chotot: no such listing on sale")
+	// sale (hidden, expired, sold), or a profile it does not have.
+	ErrNotFound = errors.New("chotot: no such listing on sale or profile")
 	// ErrUnavailable is a gateway or CDN that did not answer or answered
 	// 5xx, 403 or 429, or a gateway that redirected: try again later.
 	ErrUnavailable = errors.New("chotot: did not answer")
@@ -38,9 +39,17 @@ var (
 const (
 	// MaxImageBytes is the largest photo copied, the largest upload too.
 	MaxImageBytes = 15 << 20
-	// maxAdBytes caps a gateway answer; a listing is a few kilobytes.
-	maxAdBytes = 1 << 20
-	userAgent  = "ShopNexus-LinkRead/1"
+	// maxAdBytes caps a gateway answer; a listing is a few kilobytes, a page
+	// of a seller's listings a few hundred.
+	maxAdBytes = 2 << 20
+	userAgent  = "ShopNexus-Chotot/1"
+	// MaxAds is how many of a seller's listings Ads reads, newest first.
+	MaxAds = 200
+	// adsPage is how many listings one call of Ads asks for.
+	adsPage = 50
+	// RealEstateFrom and RealEstateTo bound Nhà Tốt's categories, real
+	// estate, which ShopNexus does not sell.
+	RealEstateFrom, RealEstateTo = 1000, 1999
 )
 
 // Param is one of the listing's structured fields, such as "Dung lượng":
@@ -50,10 +59,13 @@ type Param struct {
 	Value string `json:"value"`
 }
 
-// Ad is what a link read keeps of a listing. Price is 0 when the listing
-// has none.
+// Ad is what ShopNexus keeps of a listing. Price is 0 when the listing has
+// none. AccountOID names the seller's profile, so a caller checks whose
+// listing it is.
 type Ad struct {
 	ListID       int64    `json:"list_id"`
+	AccountOID   string   `json:"account_oid"`
+	Category     int      `json:"category"`
 	Subject      string   `json:"subject"`
 	Body         string   `json:"body"`
 	Price        int64    `json:"price"`
@@ -81,34 +93,15 @@ func placesSeller(id string) bool {
 
 // Ad reads listing listID, decoding the fields of Ad and no others.
 func (c Client) Ad(ctx context.Context, listID int64) (Ad, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
-		strings.TrimRight(c.GatewayURL, "/")+"/v1/public/ad-listing/"+strconv.FormatInt(listID, 10), http.NoBody)
+	body, err := c.get(ctx, "/v1/public/ad-listing/"+strconv.FormatInt(listID, 10))
 	if err != nil {
-		return Ad{}, fmt.Errorf("build request: %w", err)
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", userAgent)
-	res, err := c.do(req)
-	if err != nil {
-		return Ad{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
-	}
-	defer func() { _ = res.Body.Close() }()
-	if res.StatusCode == http.StatusNotFound {
-		return Ad{}, ErrNotFound
-	}
-	if res.StatusCode != http.StatusOK {
-		return Ad{}, fmt.Errorf("%w: the gateway answered %d", ErrUnavailable, res.StatusCode)
-	}
-	body, err := io.ReadAll(io.LimitReader(res.Body, maxAdBytes+1))
-	if err != nil {
-		return Ad{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
-	}
-	if len(body) > maxAdBytes {
-		return Ad{}, fmt.Errorf("%w: over %d bytes", ErrFormat, maxAdBytes)
+		return Ad{}, err
 	}
 	var raw struct {
 		Ad struct {
 			ListID       int64    `json:"list_id"`
+			AccountOID   string   `json:"account_oid"`
+			Category     int      `json:"category"`
 			Subject      string   `json:"subject"`
 			Body         string   `json:"body"`
 			Price        int64    `json:"price"`
@@ -133,8 +126,8 @@ func (c Client) Ad(ctx context.Context, listID int64) (Ad, error) {
 		return Ad{}, fmt.Errorf("%w: no list_id, subject or images", ErrFormat)
 	}
 	out := Ad{
-		ListID: a.ListID, Subject: a.Subject, Body: a.Body, Price: a.Price, CategoryName: a.CategoryName,
-		Images: a.Images, Params: []Param{},
+		ListID: a.ListID, AccountOID: strings.ToLower(a.AccountOID), Category: a.Category, Subject: a.Subject, Body: a.Body, Price: a.Price,
+		CategoryName: a.CategoryName, Images: a.Images, Params: []Param{},
 	}
 	for _, p := range raw.Parameters {
 		if placesSeller(p.ID) || strings.TrimSpace(p.Label) == "" || strings.TrimSpace(p.Value) == "" {
@@ -143,6 +136,131 @@ func (c Client) Ad(ctx context.Context, listID int64) (Ad, error) {
 		out.Params = append(out.Params, Param{Label: p.Label, Value: p.Value})
 	}
 	return out, nil
+}
+
+// Profile is what ShopNexus keeps of a seller's profile. AccountID is the
+// number Chợ Tốt lists the seller's listings by; Description is the
+// profile's "Giới thiệu về trang", empty when the seller wrote none.
+type Profile struct {
+	OID         string `json:"oid"`
+	AccountID   int64  `json:"account_id"`
+	Name        string `json:"name"`
+	AvatarURL   string `json:"avatar_url"`
+	Description string `json:"description"`
+}
+
+// Profile reads the profile oid names, decoding the fields of Profile and
+// no others: never the phone, address or identity numbers it also holds.
+func (c Client) Profile(ctx context.Context, oid string) (Profile, error) {
+	body, err := c.get(ctx, "/v1/public/profile/"+url.PathEscape(oid))
+	if err != nil {
+		return Profile{}, err
+	}
+	var raw struct {
+		AccountOID  string `json:"account_oid"`
+		AccountID   int64  `json:"account_id"`
+		FullName    string `json:"full_name"`
+		Avatar      string `json:"avatar"`
+		Description string `json:"description"`
+	}
+	if err = json.Unmarshal(body, &raw); err != nil {
+		return Profile{}, fmt.Errorf("%w: %w", ErrFormat, err)
+	}
+	if !strings.EqualFold(raw.AccountOID, oid) || raw.AccountID <= 0 {
+		return Profile{}, fmt.Errorf("%w: no account_oid or account_id", ErrFormat)
+	}
+	return Profile{
+		OID: strings.ToLower(raw.AccountOID), AccountID: raw.AccountID, Name: strings.TrimSpace(raw.FullName),
+		AvatarURL: raw.Avatar, Description: raw.Description,
+	}, nil
+}
+
+// Listed is one of a seller's listings on sale as the gateway lists them.
+// Thumb is the cover's small photo on the CDN.
+type Listed struct {
+	ListID       int64  `json:"list_id"`
+	Subject      string `json:"subject"`
+	Price        int64  `json:"price"`
+	Category     int    `json:"category"`
+	CategoryName string `json:"category_name"`
+	Thumb        string `json:"thumb"`
+}
+
+// Ads reads the listings on sale of the seller Chợ Tốt numbers accountID,
+// newest first, at most MaxAds. A listing of another profile than oid, or
+// not active, is left out: the gateway's filter is not trusted alone.
+func (c Client) Ads(ctx context.Context, accountID int64, oid string) ([]Listed, error) {
+	out := []Listed{}
+	for offset := 0; offset < MaxAds; offset += adsPage {
+		body, err := c.get(ctx, fmt.Sprintf("/v1/public/ad-listing?account_id=%d&limit=%d&o=%d", accountID, adsPage, offset))
+		if err != nil {
+			return nil, err
+		}
+		var raw struct {
+			Ads []struct {
+				ListID       int64  `json:"list_id"`
+				AccountOID   string `json:"account_oid"`
+				Subject      string `json:"subject"`
+				Price        int64  `json:"price"`
+				Category     int    `json:"category"`
+				CategoryName string `json:"category_name"`
+				Image        string `json:"image"`
+				Status       string `json:"status"`
+			} `json:"ads"`
+			Total *int `json:"total"`
+		}
+		if err = json.Unmarshal(body, &raw); err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrFormat, err)
+		}
+		if raw.Total == nil {
+			return nil, fmt.Errorf("%w: no total", ErrFormat)
+		}
+		for _, a := range raw.Ads {
+			if a.ListID <= 0 || !strings.EqualFold(a.AccountOID, oid) || a.Status != "active" || strings.TrimSpace(a.Subject) == "" {
+				continue
+			}
+			out = append(out, Listed{
+				ListID: a.ListID, Subject: a.Subject, Price: a.Price, Category: a.Category, CategoryName: a.CategoryName, Thumb: a.Image,
+			})
+		}
+		if len(raw.Ads) < adsPage || offset+adsPage >= *raw.Total {
+			break
+		}
+	}
+	return out, nil
+}
+
+// RealEstate reports a category of Nhà Tốt's.
+func RealEstate(category int) bool { return category >= RealEstateFrom && category <= RealEstateTo }
+
+// get reads path on the gateway: 404 is ErrNotFound; any other answer but
+// 200, a redirect or no answer is ErrUnavailable.
+func (c Client) get(ctx context.Context, path string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(c.GatewayURL, "/")+path, http.NoBody)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", userAgent)
+	res, err := c.do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
+	}
+	defer func() { _ = res.Body.Close() }()
+	if res.StatusCode == http.StatusNotFound {
+		return nil, ErrNotFound
+	}
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("%w: the gateway answered %d", ErrUnavailable, res.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(res.Body, maxAdBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
+	}
+	if len(body) > maxAdBytes {
+		return nil, fmt.Errorf("%w: over %d bytes", ErrFormat, maxAdBytes)
+	}
+	return body, nil
 }
 
 // Image reads one of a listing's photos and returns it with its content
@@ -192,7 +310,7 @@ func (c Client) Image(ctx context.Context, raw string) (photo []byte, contentTyp
 func (c Client) do(req *http.Request) (*http.Response, error) {
 	hc := *c.HTTP
 	hc.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	// Ad asks CHOTOT_GATEWAY_URL, and Image only a URL whose scheme and host
+	// get asks CHOTOT_GATEWAY_URL, and Image only a URL whose scheme and host
 	// it checked against CHOTOT_CDN_URL.
 	res, err := hc.Do(req) //nolint:gosec // see above
 	if err != nil {
