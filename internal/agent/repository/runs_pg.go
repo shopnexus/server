@@ -146,48 +146,60 @@ FROM agent_conversations AS c WHERE c.id = @id FOR UPDATE`, pgx.StrictNamedArgs{
 }
 
 func (s pgRuns) OpenTurn(ctx context.Context, t Turn, member uuid.UUID) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin open agent turn: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	var status string
-	err = tx.QueryRow(ctx, `SELECT status FROM agent_conversations
+	b := &pgx.Batch{}
+	b.Queue(`SELECT status FROM agent_conversations
 WHERE id = @id AND (subject_kind IS NOT NULL OR member_id = @member) FOR UPDATE`,
-		pgx.StrictNamedArgs{"id": t.ConversationID, "member": member}).Scan(&status)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("lock agent conversation: %w", err)
-	}
-	if status != "active" {
-		return ErrClosed
-	}
-	_, err = tx.Exec(ctx, `INSERT INTO agent_turns (id, conversation_id, member_id, ordinal, status, question, agent_id,
+		pgx.StrictNamedArgs{"id": t.ConversationID, "member": member}).QueryRow(func(row pgx.Row) error {
+		var status string
+		err := row.Scan(&status)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return fmt.Errorf("lock agent conversation: %w", err)
+		}
+		if status != "active" {
+			return ErrClosed
+		}
+		return nil
+	})
+	b.Queue(`INSERT INTO agent_turns (id, conversation_id, member_id, ordinal, status, question, agent_id,
     agent_name, model_alias, started_at, run_started_at, deadline_ms, attachments)
 SELECT @id, @conversation, @member, COALESCE(max(ordinal), -1) + 1, 'running', @question, @agent_id, @agent_name, @alias,
     @at, @at, @deadline, COALESCE(@attachments::jsonb, '[]')
 FROM agent_turns WHERE conversation_id = @conversation`, pgx.StrictNamedArgs{
 		"id": t.ID, "conversation": t.ConversationID, "member": t.MemberID, "question": t.Question, "agent_id": t.AgentID,
 		"agent_name": t.AgentName, "alias": t.ModelAlias, "at": t.StartedAt, "deadline": t.DeadlineMS, "attachments": t.Attachments,
-	})
-	if isUnique(err) {
-		return ErrBusy
+	}).Fn = func(br pgx.BatchResults) error {
+		_, err := br.Exec()
+		if isUnique(err) {
+			return ErrBusy
+		}
+		if err != nil {
+			return fmt.Errorf("insert agent turn: %w", err)
+		}
+		return nil
 	}
-	if err != nil {
-		return fmt.Errorf("insert agent turn: %w", err)
-	}
-	if _, err = tx.Exec(ctx, `UPDATE agent_conversations SET last_activity_at = @at,
+	b.Queue(`UPDATE agent_conversations SET last_activity_at = @at,
     title = COALESCE(title, left(@question, 80)) WHERE id = @id`,
-		pgx.StrictNamedArgs{"id": t.ConversationID, "at": t.StartedAt, "question": t.Question}); err != nil {
-		return fmt.Errorf("touch agent conversation: %w", err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit open agent turn: %w", err)
+		pgx.StrictNamedArgs{"id": t.ConversationID, "at": t.StartedAt, "question": t.Question}).Fn = execAs("touch agent conversation")
+	if err := sendInTx(ctx, s.db, b); err != nil {
+		return fmt.Errorf("open agent turn: %w", err)
 	}
 	return nil
 }
+
+// sendInTx sends b in a transaction, so a callback that fails it undoes
+// all of it.
+func sendInTx(ctx context.Context, db *pgxpool.Pool, b *pgx.Batch) error {
+	return pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error { //nolint:wrapcheck // Each statement wraps its own error.
+		return tx.SendBatch(ctx, b).Close()
+	})
+}
+
+// errSkip ends a batch whose guarded write found nothing to do; its tx
+// rolls back and the method reports that it did not write.
+var errSkip = errors.New("agent: nothing to write")
 
 func (s pgRuns) DeleteTurn(ctx context.Context, id uuid.UUID) error {
 	if _, err := s.db.Exec(ctx, `DELETE FROM agent_turns WHERE id = @id`, pgx.StrictNamedArgs{"id": id}); err != nil {
@@ -218,11 +230,10 @@ func scanTurn(r pgx.CollectableRow) (Turn, error) {
 	return t, nil
 }
 
-func turnOf(ctx context.Context, db querier, id uuid.UUID) (Turn, error) {
-	rows, err := db.Query(ctx, `SELECT `+turnColumns+turnFrom+` WHERE t.id = @id`, pgx.StrictNamedArgs{"id": id})
-	if err != nil {
-		return Turn{}, fmt.Errorf("select agent turn: %w", err)
-	}
+const selectTurn = `SELECT ` + turnColumns + turnFrom + ` WHERE t.id = @id`
+
+// collectTurn reads the one turn of rows, or ErrNotFound.
+func collectTurn(rows pgx.Rows) (Turn, error) {
 	t, err := pgx.CollectExactlyOneRow(rows, scanTurn)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Turn{}, ErrNotFound
@@ -233,7 +244,13 @@ func turnOf(ctx context.Context, db querier, id uuid.UUID) (Turn, error) {
 	return t, nil
 }
 
-func (s pgRuns) Turn(ctx context.Context, id uuid.UUID) (Turn, error) { return turnOf(ctx, s.db, id) }
+func (s pgRuns) Turn(ctx context.Context, id uuid.UUID) (Turn, error) {
+	rows, err := s.db.Query(ctx, selectTurn, pgx.StrictNamedArgs{"id": id})
+	if err != nil {
+		return Turn{}, fmt.Errorf("select agent turn: %w", err)
+	}
+	return collectTurn(rows)
+}
 
 func (s pgRuns) Turns(ctx context.Context, conversation uuid.UUID) ([]Turn, error) {
 	rows, err := s.db.Query(ctx, `SELECT `+turnColumns+turnFrom+` WHERE t.conversation_id = @id ORDER BY t.ordinal`,
@@ -258,16 +275,22 @@ func scanInput(r pgx.CollectableRow) (Input, error) {
 	return in, nil
 }
 
-func inputs(ctx context.Context, db querier, query string, args pgx.StrictNamedArgs) ([]Input, error) {
-	rows, err := db.Query(ctx, `SELECT `+inputColumns+` FROM agent_turn_inputs WHERE `+query, args)
-	if err != nil {
-		return nil, fmt.Errorf("select agent turn inputs: %w", err)
-	}
+const selectInputs = `SELECT ` + inputColumns + ` FROM agent_turn_inputs WHERE `
+
+func collectInputs(rows pgx.Rows) ([]Input, error) {
 	out, err := pgx.CollectRows(rows, scanInput)
 	if err != nil {
 		return nil, fmt.Errorf("read agent turn inputs: %w", err)
 	}
 	return out, nil
+}
+
+func inputs(ctx context.Context, db querier, query string, args pgx.StrictNamedArgs) ([]Input, error) {
+	rows, err := db.Query(ctx, selectInputs+query, args)
+	if err != nil {
+		return nil, fmt.Errorf("select agent turn inputs: %w", err)
+	}
+	return collectInputs(rows)
 }
 
 func (s pgRuns) Steers(ctx context.Context, turns []uuid.UUID) (map[uuid.UUID][]Input, error) {
@@ -349,12 +372,12 @@ FROM agent_tool_calls WHERE turn_id = ANY(@turns) AND status IN ('success', 'fai
 	return out, nil
 }
 
-func documentRefs(ctx context.Context, db querier, conversation uuid.UUID) ([]DocumentRef, error) {
-	rows, err := db.Query(ctx, `SELECT id, latest_version FROM agent_documents WHERE conversation_id = @id ORDER BY created_at, id`,
-		pgx.StrictNamedArgs{"id": conversation})
-	if err != nil {
-		return nil, fmt.Errorf("select agent documents: %w", err)
-	}
+// documentsOf selects the documents of the conversation expression c.
+func documentsOf(c string) string {
+	return `SELECT id, latest_version FROM agent_documents WHERE conversation_id = ` + c + ` ORDER BY created_at, id`
+}
+
+func collectDocumentRefs(rows pgx.Rows) ([]DocumentRef, error) {
 	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (DocumentRef, error) {
 		var d DocumentRef
 		if scanErr := r.Scan(&d.ID, &d.LatestVersion); scanErr != nil {
@@ -369,20 +392,24 @@ func documentRefs(ctx context.Context, db querier, conversation uuid.UUID) ([]Do
 }
 
 func (s pgRuns) Documents(ctx context.Context, conversation uuid.UUID) ([]DocumentRef, error) {
-	return documentRefs(ctx, s.db, conversation)
+	rows, err := s.db.Query(ctx, documentsOf(`@id`), pgx.StrictNamedArgs{"id": conversation})
+	if err != nil {
+		return nil, fmt.Errorf("select agent documents: %w", err)
+	}
+	return collectDocumentRefs(rows)
 }
 
-func mentions(ctx context.Context, db querier, turn uuid.UUID, limit int) ([]domain.Attachment, error) {
-	rows, err := db.Query(ctx, `SELECT kind, id FROM (
+// selectMentions reads the attachments of @turn's conversation, @turn's
+// first, up to @limit.
+const selectMentions = `SELECT kind, id FROM (
     SELECT DISTINCT ON (e.a->>'kind', e.a->>'id') e.a->>'kind' AS kind, (e.a->>'id')::uuid AS id, t.id = @turn AS current,
         t.ordinal, e.n
     FROM agent_turns AS t CROSS JOIN LATERAL jsonb_array_elements(t.attachments) WITH ORDINALITY AS e(a, n)
     WHERE t.conversation_id = (SELECT conversation_id FROM agent_turns WHERE id = @turn)
     ORDER BY e.a->>'kind', e.a->>'id', t.id = @turn DESC, t.ordinal DESC, e.n
-) AS m ORDER BY current DESC, ordinal DESC, n LIMIT @limit`, pgx.StrictNamedArgs{"turn": turn, "limit": limit})
-	if err != nil {
-		return nil, fmt.Errorf("select agent mentions: %w", err)
-	}
+) AS m ORDER BY current DESC, ordinal DESC, n LIMIT @limit`
+
+func collectMentions(rows pgx.Rows) ([]domain.Attachment, error) {
 	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (domain.Attachment, error) {
 		var a domain.Attachment
 		if scanErr := r.Scan(&a.Kind, &a.ID); scanErr != nil {
@@ -397,178 +424,164 @@ func mentions(ctx context.Context, db querier, turn uuid.UUID, limit int) ([]dom
 }
 
 func (s pgRuns) Mentions(ctx context.Context, turn uuid.UUID, limit int) ([]domain.Attachment, error) {
-	return mentions(ctx, s.db, turn, limit)
-}
-
-func insertInput(ctx context.Context, db querier, in Input) error {
-	var text *string
-	if in.Text != "" {
-		text = &in.Text
+	rows, err := s.db.Query(ctx, selectMentions, pgx.StrictNamedArgs{"turn": turn, "limit": limit})
+	if err != nil {
+		return nil, fmt.Errorf("select agent mentions: %w", err)
 	}
-	if _, err := db.Exec(ctx, `INSERT INTO agent_turn_inputs (id, turn_id, kind, input_text, answers, read_at, created_at)
-VALUES (@id, @turn, @kind, @text, @answers, @read_at, @at)`, pgx.StrictNamedArgs{
-		"id": in.ID, "turn": in.TurnID, "kind": in.Kind, "text": text, "answers": in.Answers, "read_at": in.ReadAt,
-		"at": in.CreatedAt,
-	}); err != nil {
-		return fmt.Errorf("insert agent turn input: %w", err)
-	}
-	return nil
+	return collectMentions(rows)
 }
 
 func (s pgRuns) ResumeTurn(ctx context.Context, r Resume) (Resumed, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return Resumed{}, fmt.Errorf("begin resume agent turn: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	var ok bool
-	err = tx.QueryRow(ctx, `SELECT t.status = @from AND (t.status IN ('paused', 'awaiting_input') OR (
+	// The state check only aborts, so the writes and the reads of the
+	// resumed turn ride in its batch.
+	b := &pgx.Batch{}
+	b.Queue(`SELECT t.status = @from AND (t.status IN ('paused', 'awaiting_input') OR (
     NOT EXISTS (SELECT 1 FROM agent_turns AS l WHERE l.conversation_id = t.conversation_id AND l.ordinal > t.ordinal)
     AND NOT EXISTS (SELECT 1 FROM agent_turns AS o WHERE o.conversation_id = t.conversation_id
         AND o.status IN ('running', 'paused', 'awaiting_input'))))
-FROM agent_turns AS t WHERE t.id = @id FOR UPDATE`, pgx.StrictNamedArgs{"id": r.TurnID, "from": r.From}).Scan(&ok)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Resumed{}, ErrNotFound
-	}
-	if err != nil {
-		return Resumed{}, fmt.Errorf("lock agent turn: %w", err)
-	}
-	if !ok {
-		return Resumed{}, ErrState
-	}
-	answers := false
-	if r.Input != nil {
-		answers = r.Input.Kind == "answers"
-		if err = insertInput(ctx, tx, *r.Input); err != nil {
-			return Resumed{}, err
+FROM agent_turns AS t WHERE t.id = @id FOR UPDATE`, pgx.StrictNamedArgs{"id": r.TurnID, "from": r.From}).QueryRow(func(row pgx.Row) error {
+		var ok bool
+		err := row.Scan(&ok)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
 		}
+		if err != nil {
+			return fmt.Errorf("lock agent turn: %w", err)
+		}
+		if !ok {
+			return ErrState
+		}
+		return nil
+	})
+	answers := false
+	if in := r.Input; in != nil {
+		answers = in.Kind == "answers"
+		var text *string
+		if in.Text != "" {
+			text = &in.Text
+		}
+		b.Queue(`INSERT INTO agent_turn_inputs (id, turn_id, kind, input_text, answers, read_at, created_at)
+VALUES (@id, @turn, @kind, @text, @answers, @read_at, @at)`, pgx.StrictNamedArgs{
+			"id": in.ID, "turn": in.TurnID, "kind": in.Kind, "text": text, "answers": in.Answers, "read_at": in.ReadAt,
+			"at": in.CreatedAt,
+		}).Fn = execAs("insert agent turn input")
 	}
-	_, err = tx.Exec(ctx, `UPDATE agent_turns SET status = 'running', run_started_at = @at, finished_at = NULL, error_code = NULL,
+	b.Queue(`UPDATE agent_turns SET status = 'running', run_started_at = @at, finished_at = NULL, error_code = NULL,
     answer = CASE WHEN @clear THEN NULL ELSE answer END, blocks = CASE WHEN @clear THEN NULL ELSE blocks END,
     state = CASE WHEN @answers THEN state - 'pending_ask' ELSE state END
-WHERE id = @id`, pgx.StrictNamedArgs{"id": r.TurnID, "at": r.At, "clear": r.ClearAnswer, "answers": answers})
-	if isUnique(err) {
-		return Resumed{}, ErrState
-	}
-	if err != nil {
-		return Resumed{}, fmt.Errorf("resume agent turn: %w", err)
+WHERE id = @id`, pgx.StrictNamedArgs{"id": r.TurnID, "at": r.At, "clear": r.ClearAnswer, "answers": answers}).
+		Fn = func(br pgx.BatchResults) error {
+		_, err := br.Exec()
+		if isUnique(err) {
+			return ErrState
+		}
+		if err != nil {
+			return fmt.Errorf("resume agent turn: %w", err)
+		}
+		return nil
 	}
 	var out Resumed
-	if out.Turn, err = turnOf(ctx, tx, r.TurnID); err != nil {
-		return Resumed{}, err
-	}
-	if out.Steers, err = inputs(ctx, tx, `turn_id = @id AND kind = 'steer' AND read_at IS NULL ORDER BY seq`,
-		pgx.StrictNamedArgs{"id": r.TurnID}); err != nil {
-		return Resumed{}, err
-	}
-	if err = tx.QueryRow(ctx, `SELECT COALESCE(max(seq), 0) FROM agent_turn_inputs WHERE turn_id = @id`,
-		pgx.StrictNamedArgs{"id": r.TurnID}).Scan(&out.ControlAfter); err != nil {
-		return Resumed{}, fmt.Errorf("read agent control seq: %w", err)
-	}
-	if out.Documents, err = documentRefs(ctx, tx, out.Turn.ConversationID); err != nil {
-		return Resumed{}, err
-	}
-	if out.Mentions, err = mentions(ctx, tx, r.TurnID, domain.MaxMentions); err != nil {
-		return Resumed{}, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return Resumed{}, fmt.Errorf("commit resume agent turn: %w", err)
+	id := pgx.StrictNamedArgs{"id": r.TurnID}
+	b.Queue(selectTurn, id).Query(func(rows pgx.Rows) (err error) {
+		out.Turn, err = collectTurn(rows)
+		return err
+	})
+	b.Queue(selectInputs+`turn_id = @id AND kind = 'steer' AND read_at IS NULL ORDER BY seq`, id).
+		Query(func(rows pgx.Rows) (err error) {
+			out.Steers, err = collectInputs(rows)
+			return err
+		})
+	b.Queue(`SELECT COALESCE(max(seq), 0) FROM agent_turn_inputs WHERE turn_id = @id`, id).QueryRow(func(row pgx.Row) error {
+		if err := row.Scan(&out.ControlAfter); err != nil {
+			return fmt.Errorf("read agent control seq: %w", err)
+		}
+		return nil
+	})
+	b.Queue(documentsOf(`(SELECT conversation_id FROM agent_turns WHERE id = @id)`), id).Query(func(rows pgx.Rows) (err error) {
+		out.Documents, err = collectDocumentRefs(rows)
+		return err
+	})
+	b.Queue(selectMentions, pgx.StrictNamedArgs{"turn": r.TurnID, "limit": domain.MaxMentions}).
+		Query(func(rows pgx.Rows) (err error) {
+			out.Mentions, err = collectMentions(rows)
+			return err
+		})
+	if err := sendInTx(ctx, s.db, b); err != nil {
+		return Resumed{}, fmt.Errorf("resume agent turn: %w", err)
 	}
 	return out, nil
 }
 
 func (s pgRuns) RestoreTurn(ctx context.Context, before Turn, input *uuid.UUID) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin restore agent turn: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
 	var code *string
 	if before.ErrorCode != "" {
 		code = &before.ErrorCode
 	}
-	if _, err = tx.Exec(ctx, `UPDATE agent_turns SET status = @status, run_started_at = @run_started_at,
+	b := &pgx.Batch{}
+	b.Queue(`UPDATE agent_turns SET status = @status, run_started_at = @run_started_at,
     finished_at = @finished_at, error_code = @code, answer = @answer, blocks = @blocks, state = @state
 WHERE id = @id AND status = 'running'`, pgx.StrictNamedArgs{
 		"id": before.ID, "status": before.Status, "run_started_at": before.RunStartedAt, "finished_at": before.FinishedAt,
 		"code": code, "answer": before.Answer, "blocks": before.Blocks, "state": before.State,
-	}); err != nil {
-		return fmt.Errorf("restore agent turn: %w", err)
-	}
+	}).Fn = execAs("restore agent turn")
 	if input != nil {
-		if _, err = tx.Exec(ctx, `DELETE FROM agent_turn_inputs WHERE id = @id`, pgx.StrictNamedArgs{"id": *input}); err != nil {
-			return fmt.Errorf("delete agent turn input: %w", err)
-		}
+		b.Queue(`DELETE FROM agent_turn_inputs WHERE id = @id`, pgx.StrictNamedArgs{"id": *input}).Fn = execAs("delete agent turn input")
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit restore agent turn: %w", err)
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+		return fmt.Errorf("restore agent turn: %w", err)
 	}
 	return nil
 }
 
 // appendEvent writes an event with the turn's next seq and rings it, only
-// while the turn runs when running is set; false when it did not write.
-func appendEvent(ctx context.Context, tx pgx.Tx, turn uuid.UUID, typ string, body json.RawMessage, at time.Time,
-	running, wrote bool,
-) (Event, bool, error) {
+// while the turn runs when @running is set; no row when it did not write.
+const appendEvent = `WITH next AS (
+    UPDATE agent_turns SET event_seq = event_seq + 1, wrote = wrote OR @wrote
+    WHERE id = @turn AND (NOT @running OR status = 'running') RETURNING event_seq),
+added AS (
+    INSERT INTO agent_turn_events (turn_id, seq, event_type, body, occurred_at)
+    SELECT @turn, event_seq, @type, @body, @at FROM next RETURNING seq)
+SELECT seq, pg_notify(@channel, @ring) FROM added`
+
+// eventArgs are appendEvent's arguments; a nil body is an empty object.
+func eventArgs(turn uuid.UUID, typ string, body json.RawMessage, at time.Time, running, wrote bool) pgx.StrictNamedArgs {
 	if body == nil {
 		body = json.RawMessage(`{}`)
 	}
-	e := Event{TurnID: turn, Type: typ, Body: body, At: at}
-	err := tx.QueryRow(ctx, `WITH next AS (
-    UPDATE agent_turns SET event_seq = event_seq + 1, wrote = wrote OR @wrote
-    WHERE id = @turn AND (NOT @running OR status = 'running') RETURNING event_seq)
-INSERT INTO agent_turn_events (turn_id, seq, event_type, body, occurred_at)
-SELECT @turn, event_seq, @type, @body, @at FROM next RETURNING seq`, pgx.StrictNamedArgs{
+	return pgx.StrictNamedArgs{
 		"turn": turn, "type": typ, "body": body, "at": at, "running": running, "wrote": wrote,
-	}).Scan(&e.Seq)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return Event{}, false, nil
+		"channel": turnChannel, "ring": turn.String(),
 	}
-	if err != nil {
-		return Event{}, false, fmt.Errorf("insert agent turn event: %w", err)
-	}
-	if _, err = tx.Exec(ctx, `SELECT pg_notify(@channel, @turn)`,
-		pgx.StrictNamedArgs{"channel": turnChannel, "turn": turn.String()}); err != nil {
-		return Event{}, false, fmt.Errorf("ring agent turn: %w", err)
-	}
-	return e, true, nil
+}
+
+// touch moves a turn's conversation's last activity to at. A batch queues
+// it before it writes the turn: OpenTurn locks the conversation first, and
+// the other order deadlocks with it.
+func touch(b *pgx.Batch, turn uuid.UUID, at time.Time) {
+	b.Queue(`UPDATE agent_conversations SET last_activity_at = @at
+WHERE id = (SELECT conversation_id FROM agent_turns WHERE id = @turn)`, pgx.StrictNamedArgs{"turn": turn, "at": at}).
+		Fn = execAs("touch agent conversation")
 }
 
 func (s pgRuns) CancelTurn(ctx context.Context, id uuid.UUID, from string, sources, body json.RawMessage, at time.Time) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin cancel agent turn: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err = touch(ctx, tx, id, at); err != nil {
-		return err
-	}
-	tag, err := tx.Exec(ctx, `UPDATE agent_turns SET status = 'cancelled', finished_at = @at, answer = '', sources = @sources,
+	b := &pgx.Batch{}
+	touch(b, id, at)
+	b.Queue(`UPDATE agent_turns SET status = 'cancelled', finished_at = @at, answer = '', sources = @sources,
     state = state - 'pending_ask'
-WHERE id = @id AND status = @from`, pgx.StrictNamedArgs{"id": id, "from": from, "sources": sources, "at": at})
-	if err != nil {
+WHERE id = @id AND status = @from`, pgx.StrictNamedArgs{"id": id, "from": from, "sources": sources, "at": at}).
+		Fn = func(br pgx.BatchResults) error {
+		tag, err := br.Exec()
+		if err != nil {
+			return fmt.Errorf("cancel agent turn: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrState
+		}
+		return nil
+	}
+	b.Queue(appendEvent, eventArgs(id, "turn.finished", body, at, false, false)).Fn = execAs("insert agent turn event")
+	if err := sendInTx(ctx, s.db, b); err != nil {
 		return fmt.Errorf("cancel agent turn: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrState
-	}
-	if _, _, err = appendEvent(ctx, tx, id, "turn.finished", body, at, false, false); err != nil {
-		return err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit cancel agent turn: %w", err)
-	}
-	return nil
-}
-
-// touch moves a turn's conversation's last activity to at. A transaction
-// calls it before it writes the turn: OpenTurn locks the conversation
-// first, and the other order deadlocks with it.
-func touch(ctx context.Context, tx pgx.Tx, turn uuid.UUID, at time.Time) error {
-	if _, err := tx.Exec(ctx, `UPDATE agent_conversations SET last_activity_at = @at
-WHERE id = (SELECT conversation_id FROM agent_turns WHERE id = @turn)`, pgx.StrictNamedArgs{"turn": turn, "at": at}); err != nil {
-		return fmt.Errorf("touch agent conversation: %w", err)
 	}
 	return nil
 }
@@ -576,29 +589,28 @@ WHERE id = (SELECT conversation_id FROM agent_turns WHERE id = @turn)`, pgx.Stri
 func (s pgRuns) CloseStuck(ctx context.Context, id uuid.UUID, segment time.Time, code, answer string, body json.RawMessage,
 	at time.Time,
 ) (bool, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return false, fmt.Errorf("begin close agent turn: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err = touch(ctx, tx, id, at); err != nil {
-		return false, err
-	}
-	tag, err := tx.Exec(ctx, `UPDATE agent_turns SET status = 'failed', error_code = @code, answer = @answer, finished_at = @at,
+	b := &pgx.Batch{}
+	touch(b, id, at)
+	b.Queue(`UPDATE agent_turns SET status = 'failed', error_code = @code, answer = @answer, finished_at = @at,
     latency_ms = COALESCE(latency_ms, 0) + GREATEST(0, (extract(EPOCH FROM @at::timestamptz - run_started_at) * 1000)::bigint)
 WHERE id = @id AND status = 'running' AND run_started_at = @segment`,
-		pgx.StrictNamedArgs{"id": id, "segment": segment, "code": code, "answer": answer, "at": at})
-	if err != nil {
-		return false, fmt.Errorf("close agent turn: %w", err)
+		pgx.StrictNamedArgs{"id": id, "segment": segment, "code": code, "answer": answer, "at": at}).Fn = func(br pgx.BatchResults) error {
+		tag, err := br.Exec()
+		if err != nil {
+			return fmt.Errorf("close agent turn: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return errSkip
+		}
+		return nil
 	}
-	if tag.RowsAffected() == 0 {
+	b.Queue(appendEvent, eventArgs(id, "turn.finished", body, at, false, false)).Fn = execAs("insert agent turn event")
+	err := sendInTx(ctx, s.db, b)
+	if errors.Is(err, errSkip) {
 		return false, nil
 	}
-	if _, _, err = appendEvent(ctx, tx, id, "turn.finished", body, at, false, false); err != nil {
-		return false, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("commit close agent turn: %w", err)
+	if err != nil {
+		return false, fmt.Errorf("close agent turn: %w", err)
 	}
 	return true, nil
 }
@@ -661,20 +673,16 @@ func (s pgRuns) Control(ctx context.Context, turn uuid.UUID, after int64, limit 
 }
 
 func (s pgRuns) AppendEvent(ctx context.Context, turn uuid.UUID, typ string, body json.RawMessage, at time.Time) (Event, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return Event{}, fmt.Errorf("begin agent turn event: %w", err)
+	if body == nil {
+		body = json.RawMessage(`{}`)
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	e, ok, err := appendEvent(ctx, tx, turn, typ, body, at, false, false)
-	if err != nil {
-		return Event{}, err
-	}
-	if !ok {
+	e := Event{TurnID: turn, Type: typ, Body: body, At: at}
+	err := s.db.QueryRow(ctx, appendEvent, eventArgs(turn, typ, body, at, false, false)).Scan(&e.Seq, nil)
+	if errors.Is(err, pgx.ErrNoRows) {
 		return Event{}, ErrNotFound
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return Event{}, fmt.Errorf("commit agent turn event: %w", err)
+	if err != nil {
+		return Event{}, fmt.Errorf("insert agent turn event: %w", err)
 	}
 	return e, nil
 }
@@ -682,23 +690,38 @@ func (s pgRuns) AppendEvent(ctx context.Context, turn uuid.UUID, typ string, bod
 func (s pgRuns) AppendRunEvent(ctx context.Context, turn uuid.UUID, typ string, body json.RawMessage, wrote bool,
 	steer *uuid.UUID, at time.Time,
 ) (bool, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return false, fmt.Errorf("begin agent run event: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	_, ok, err := appendEvent(ctx, tx, turn, typ, body, at, true, wrote)
-	if err != nil || !ok {
-		return false, err
-	}
-	if steer != nil {
-		if _, err = tx.Exec(ctx, `UPDATE agent_turn_inputs SET read_at = @at
-WHERE id = @id AND turn_id = @turn AND read_at IS NULL`, pgx.StrictNamedArgs{"id": *steer, "turn": turn, "at": at}); err != nil {
-			return false, fmt.Errorf("mark agent steer read: %w", err)
+	a := eventArgs(turn, typ, body, at, true, wrote)
+	if steer == nil {
+		err := s.db.QueryRow(ctx, appendEvent, a).Scan(nil, nil)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
 		}
+		if err != nil {
+			return false, fmt.Errorf("insert agent turn event: %w", err)
+		}
+		return true, nil
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("commit agent run event: %w", err)
+	// The steer counts as read only with the event that answers it.
+	b := &pgx.Batch{}
+	b.Queue(appendEvent, a).QueryRow(func(row pgx.Row) error {
+		err := row.Scan(nil, nil)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errSkip
+		}
+		if err != nil {
+			return fmt.Errorf("insert agent turn event: %w", err)
+		}
+		return nil
+	})
+	b.Queue(`UPDATE agent_turn_inputs SET read_at = @at
+WHERE id = @id AND turn_id = @turn AND read_at IS NULL`, pgx.StrictNamedArgs{"id": *steer, "turn": turn, "at": at}).
+		Fn = execAs("mark agent steer read")
+	err := sendInTx(ctx, s.db, b)
+	if errors.Is(err, errSkip) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("append agent run event: %w", err)
 	}
 	return true, nil
 }
@@ -731,27 +754,19 @@ WHERE id = @id AND status = 'running'`, pgx.StrictNamedArgs{"id": turn, "state":
 }
 
 func (s pgRuns) SaveToolCall(ctx context.Context, w ToolWrite) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin agent tool call: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	tag, err := tx.Exec(ctx, `UPDATE agent_turns SET wrote = TRUE WHERE id = @turn AND status = 'running'`,
-		pgx.StrictNamedArgs{"turn": w.TurnID})
-	if err != nil {
-		return fmt.Errorf("mark agent turn wrote: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return nil
-	}
 	if w.Input == nil {
 		w.Input = json.RawMessage(`{}`)
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO agent_tool_calls AS c (id, turn_id, tool_use_id, tool_name, tool_label, tool_source,
+	// The call is kept only while its turn runs, which the turn's update
+	// returns.
+	if _, err := s.db.Exec(ctx, `WITH turn AS (
+    UPDATE agent_turns SET wrote = TRUE WHERE id = @turn AND status = 'running' RETURNING id)
+INSERT INTO agent_tool_calls AS c (id, turn_id, tool_use_id, tool_name, tool_label, tool_source,
     tool_input, tool_output, result_content, output_spilled, status, latency_ms, attempts, attempt_errors, tool_timing,
     created_at, finished_at)
-VALUES (@id, @turn, @use, @tool, @label, @source, @input, @output, @content, COALESCE(@spilled, FALSE), @status, @latency,
-    COALESCE(@attempts, 0), @attempt_errors, @timing, @at, @finished_at)
+SELECT @id, turn.id, @use, @tool, @label, @source, @input, @output, @content, COALESCE(@spilled, FALSE), @status, @latency,
+    COALESCE(@attempts, 0), @attempt_errors, @timing, @at, @finished_at
+FROM turn
 ON CONFLICT (turn_id, tool_use_id) DO UPDATE SET tool_name = EXCLUDED.tool_name,
     tool_label = COALESCE(@label, c.tool_label), tool_source = COALESCE(@source, c.tool_source),
     tool_input = EXCLUDED.tool_input, tool_output = COALESCE(@output, c.tool_output),
@@ -765,70 +780,61 @@ WHERE c.status IN ('pending', 'running') OR EXCLUDED.status NOT IN ('pending', '
 		"latency": w.LatencyMS, "attempts": w.Attempts, "attempt_errors": w.AttemptErrors, "timing": w.Timing, "at": w.At,
 		"finished_at": w.FinishedAt,
 	}); err != nil {
-		return fmt.Errorf("upsert agent tool call: %w", err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit agent tool call: %w", err)
+		return fmt.Errorf("save agent tool call: %w", err)
 	}
 	return nil
 }
 
 func (s pgRuns) WriteDocument(ctx context.Context, w DocumentWrite) (bool, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return false, fmt.Errorf("begin agent document: %w", err)
+	b := &pgx.Batch{}
+	b.Queue(`SELECT EXISTS (SELECT 1 FROM agent_turns WHERE id = @turn AND status = 'running')`,
+		pgx.StrictNamedArgs{"turn": w.TurnID}).QueryRow(func(row pgx.Row) error {
+		var running bool
+		if err := row.Scan(&running); err != nil {
+			return fmt.Errorf("read agent turn status: %w", err)
+		}
+		if !running {
+			return errSkip
+		}
+		return nil
+	})
+	q := `UPDATE agent_documents SET latest_version = @version, title = @title, turn_id = @turn, updated_at = @at
+WHERE id = @id AND conversation_id = @conversation AND latest_version = @version - 1`
+	a := pgx.StrictNamedArgs{
+		"id": w.ID, "conversation": w.ConversationID, "turn": w.TurnID, "version": w.Version, "title": w.Title, "at": w.At,
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	var running bool
-	if err = tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM agent_turns WHERE id = @turn AND status = 'running')`,
-		pgx.StrictNamedArgs{"turn": w.TurnID}).Scan(&running); err != nil {
-		return false, fmt.Errorf("read agent turn status: %w", err)
-	}
-	if !running {
-		return false, nil
-	}
-	var tag pgconn.CommandTag
 	if w.Version == 1 {
-		tag, err = tx.Exec(ctx, `INSERT INTO agent_documents (id, conversation_id, turn_id, title, latest_version, created_by,
-    created_at, updated_at)
-VALUES (@id, @conversation, @turn, @title, 1, @member, @at, @at) ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
-			"id": w.ID, "conversation": w.ConversationID, "turn": w.TurnID, "member": w.MemberID, "title": w.Title, "at": w.At,
-		})
-	} else {
-		tag, err = tx.Exec(ctx, `UPDATE agent_documents SET latest_version = @version, title = @title, turn_id = @turn,
-    updated_at = @at
-WHERE id = @id AND conversation_id = @conversation AND latest_version = @version - 1`, pgx.StrictNamedArgs{
-			"id": w.ID, "conversation": w.ConversationID, "turn": w.TurnID, "version": w.Version, "title": w.Title, "at": w.At,
-		})
+		q = `INSERT INTO agent_documents (id, conversation_id, turn_id, title, latest_version, created_by, created_at, updated_at)
+VALUES (@id, @conversation, @turn, @title, 1, @member, @at, @at) ON CONFLICT (id) DO NOTHING`
+		delete(a, "version")
+		a["member"] = w.MemberID
 	}
-	if err != nil {
-		return false, fmt.Errorf("write agent document: %w", err)
+	b.Queue(q, a).Fn = func(br pgx.BatchResults) error {
+		tag, err := br.Exec()
+		if err != nil {
+			return fmt.Errorf("write agent document: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return errSkip
+		}
+		return nil
 	}
-	if tag.RowsAffected() == 0 {
-		return false, nil
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO agent_document_versions (document_id, version_no, title, sections, turn_id,
+	b.Queue(`INSERT INTO agent_document_versions (document_id, version_no, title, sections, turn_id,
     created_by, created_at)
 VALUES (@id, @version, @title, @sections, @turn, @member, @at)`, pgx.StrictNamedArgs{
 		"id": w.ID, "version": w.Version, "title": w.Title, "sections": w.Sections, "turn": w.TurnID, "member": w.MemberID, "at": w.At,
-	}); err != nil {
-		return false, fmt.Errorf("insert agent document version: %w", err)
+	}).Fn = execAs("insert agent document version")
+	err := sendInTx(ctx, s.db, b)
+	if errors.Is(err, errSkip) {
+		return false, nil
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("commit agent document: %w", err)
+	if err != nil {
+		return false, fmt.Errorf("write agent document: %w", err)
 	}
 	return true, nil
 }
 
 func (s pgRuns) FinishRun(ctx context.Context, e RunEnd) (bool, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return false, fmt.Errorf("begin finish agent run: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err = touch(ctx, tx, e.TurnID, e.At); err != nil {
-		return false, err
-	}
 	final := e.Status != "paused" && e.Status != "awaiting_input"
 	var code, provider *string
 	if e.ErrorCode != "" {
@@ -841,7 +847,9 @@ func (s pgRuns) FinishRun(ctx context.Context, e RunEnd) (bool, error) {
 	if final {
 		finished = &e.At
 	}
-	tag, err := tx.Exec(ctx, `UPDATE agent_turns SET status = @status, error_code = @code,
+	b := &pgx.Batch{}
+	touch(b, e.TurnID, e.At)
+	b.Queue(`UPDATE agent_turns SET status = @status, error_code = @code,
     answer = CASE WHEN @final THEN @answer ELSE answer END, blocks = CASE WHEN @final THEN @blocks ELSE blocks END,
     sources = COALESCE(@sources, sources), input_tokens = @input, output_tokens = @output, cache_read_tokens = @cache_read,
     cache_write_tokens = @cache_write, cost_usd = @cost, first_token_ms = COALESCE(@first_token, first_token_ms),
@@ -853,20 +861,25 @@ WHERE id = @id AND status = 'running'`, pgx.StrictNamedArgs{
 		"cache_read": e.Usage.CacheReadTokens, "cache_write": e.Usage.CacheWriteTokens, "cost": e.Usage.CostUSD,
 		"first_token": e.Usage.FirstTokenMS, "provider": provider, "latency": e.LatencyMS, "wrote": e.Wrote,
 		"state": e.State, "finished_at": finished,
-	})
-	if err != nil {
-		return false, fmt.Errorf("finish agent run: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return false, nil
+	}).Fn = func(br pgx.BatchResults) error {
+		tag, err := br.Exec()
+		if err != nil {
+			return fmt.Errorf("finish agent run: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return errSkip
+		}
+		return nil
 	}
 	if e.EventType != "" {
-		if _, _, err = appendEvent(ctx, tx, e.TurnID, e.EventType, e.EventBody, e.At, false, false); err != nil {
-			return false, err
-		}
+		b.Queue(appendEvent, eventArgs(e.TurnID, e.EventType, e.EventBody, e.At, false, false)).Fn = execAs("insert agent turn event")
 	}
-	if err = tx.Commit(ctx); err != nil {
-		return false, fmt.Errorf("commit finish agent run: %w", err)
+	err := sendInTx(ctx, s.db, b)
+	if errors.Is(err, errSkip) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("finish agent run: %w", err)
 	}
 	return true, nil
 }

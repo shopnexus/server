@@ -57,27 +57,33 @@ JOIN ai_tags AS t ON t.tag_name = m.tag_name ORDER BY m.model_id, t.sort_order`)
 	return out, nil
 }
 
+// execAs runs a queued statement and wraps its error with what it does.
+func execAs(what string) func(pgx.BatchResults) error {
+	return func(br pgx.BatchResults) error {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("%s: %w", what, err)
+		}
+		return nil
+	}
+}
+
 func (s pgSettings) SetModelTags(ctx context.Context, model string, tags []string, e audit.Entry) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin model tags: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err = tx.Exec(ctx, `DELETE FROM ai_model_tags WHERE model_id = @model`, pgx.StrictNamedArgs{"model": model}); err != nil {
-		return fmt.Errorf("delete model tags: %w", err)
-	}
-	if _, err = tx.Exec(ctx, `INSERT INTO ai_model_tags (model_id, tag_name) SELECT @model, unnest(@tags::text[])
-ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"model": model, "tags": tags}); err != nil {
+	b := &pgx.Batch{}
+	b.Queue(`DELETE FROM ai_model_tags WHERE model_id = @model`, pgx.StrictNamedArgs{"model": model}).Fn = execAs("delete model tags")
+	b.Queue(`INSERT INTO ai_model_tags (model_id, tag_name) SELECT @model, unnest(@tags::text[])
+ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"model": model, "tags": tags}).Fn = func(br pgx.BatchResults) error {
+		_, err := br.Exec()
 		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23503" {
 			return ErrUnknownTag
 		}
-		return fmt.Errorf("insert model tags: %w", err)
+		if err != nil {
+			return fmt.Errorf("insert model tags: %w", err)
+		}
+		return nil
 	}
-	if err = audit.Insert(ctx, tx, e); err != nil {
-		return fmt.Errorf("record model tags: %w", err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit model tags: %w", err)
+	audit.Queue(b, e)
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+		return fmt.Errorf("set model tags: %w", err)
 	}
 	return nil
 }
@@ -139,78 +145,69 @@ func taken(err error) error {
 	return err
 }
 
-func insertVersion(ctx context.Context, tx pgx.Tx, a Agent) error {
-	_, err := tx.Exec(ctx, `INSERT INTO ai_agent_versions (agent_id, version_no, instructions, created_by, created_at)
+// queueVersion queues the add of a's instructions as a version, unless
+// that version exists.
+func queueVersion(b *pgx.Batch, a Agent) {
+	b.Queue(`INSERT INTO ai_agent_versions (agent_id, version_no, instructions, created_by, created_at)
 VALUES (@id, @version, @instructions, @by, @at) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{
 		"id": a.ID, "version": a.InstructionsVersion, "instructions": a.Instructions, "by": a.UpdatedBy, "at": a.UpdatedAt,
-	})
-	if err != nil {
-		return fmt.Errorf("insert agent version: %w", err)
-	}
-	return nil
+	}).Fn = execAs("insert agent version")
 }
 
 func (s pgSettings) CreateAgent(ctx context.Context, a Agent, e audit.Entry) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin create agent: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err = tx.Exec(ctx, `INSERT INTO ai_agents (id, agent_kind, display_name, model_alias, icon, purpose, required_tags,
+	b := &pgx.Batch{}
+	b.Queue(`INSERT INTO ai_agents (id, agent_kind, display_name, model_alias, icon, purpose, required_tags,
     model_id, instructions, instructions_version, tools, limits, monthly_budget_usd, key_aliases, enabled, updated_by,
     updated_at, write_id)
 VALUES (@id, @kind, @name, @alias, @icon, @purpose, @required, @model, @instructions, @version, @tools, @limits, @budget,
-    @keys, @enabled, @by, @at, @write_id)`, agentArgs(a)); err != nil {
-		if errors.Is(taken(err), ErrTaken) {
-			return ErrTaken
+    @keys, @enabled, @by, @at, @write_id)`, agentArgs(a)).Fn = func(br pgx.BatchResults) error {
+		if _, err := br.Exec(); err != nil {
+			if errors.Is(taken(err), ErrTaken) {
+				return ErrTaken
+			}
+			return fmt.Errorf("insert ai agent: %w", err)
 		}
-		return fmt.Errorf("insert ai agent: %w", err)
+		return nil
 	}
-	if err = insertVersion(ctx, tx, a); err != nil {
-		return err
-	}
-	if err = audit.Insert(ctx, tx, e); err != nil {
-		return fmt.Errorf("record agent create: %w", err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit create agent: %w", err)
+	queueVersion(b, a)
+	audit.Queue(b, e)
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+		return fmt.Errorf("create agent: %w", err)
 	}
 	return nil
 }
 
 func (s pgSettings) SaveAgent(ctx context.Context, a Agent, readWriteID uuid.UUID, e audit.Entry) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin save agent: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
 	args := agentArgs(a)
 	delete(args, "kind")
 	delete(args, "alias")
 	delete(args, "keys")
 	args["read_write_id"] = readWriteID
-	tag, err := tx.Exec(ctx, `UPDATE ai_agents SET display_name = @name, icon = @icon, purpose = @purpose,
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		b := &pgx.Batch{}
+		b.Queue(`UPDATE ai_agents SET display_name = @name, icon = @icon, purpose = @purpose,
     required_tags = @required, model_id = @model, instructions = @instructions, instructions_version = @version,
     tools = @tools, limits = @limits, monthly_budget_usd = @budget, enabled = @enabled, updated_by = @by,
     updated_at = @at, write_id = @write_id
-WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, args)
-	if err != nil {
-		if errors.Is(taken(err), ErrTaken) {
-			return ErrTaken
+WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, args).Fn = func(br pgx.BatchResults) error {
+			tag, err := br.Exec()
+			if err != nil {
+				if errors.Is(taken(err), ErrTaken) {
+					return ErrTaken
+				}
+				return fmt.Errorf("update ai agent: %w", err)
+			}
+			if tag.RowsAffected() == 0 {
+				return ErrConflict
+			}
+			return nil
 		}
-		return fmt.Errorf("update ai agent: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrConflict
-	}
-	if err = insertVersion(ctx, tx, a); err != nil {
-		return err
-	}
-	if err = audit.Insert(ctx, tx, e); err != nil {
-		return fmt.Errorf("record agent update: %w", err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit save agent: %w", err)
+		queueVersion(b, a)
+		audit.Queue(b, e)
+		return tx.SendBatch(ctx, b).Close()
+	})
+	if err != nil {
+		return fmt.Errorf("save agent: %w", err)
 	}
 	return nil
 }
@@ -235,16 +232,10 @@ WHERE agent_id = @id ORDER BY version_no DESC`, pgx.StrictNamedArgs{"id": id})
 }
 
 func (s pgSettings) Record(ctx context.Context, e audit.Entry) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin record: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err = audit.Insert(ctx, tx, e); err != nil {
+	b := &pgx.Batch{}
+	audit.Queue(b, e)
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("record ai settings change: %w", err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit record: %w", err)
 	}
 	return nil
 }
@@ -273,40 +264,36 @@ func (s pgSettings) BudgetSettings(ctx context.Context) (BudgetSettings, error) 
 	return b, nil
 }
 
-func (s pgSettings) SaveBudgetSettings(ctx context.Context, b BudgetSettings, e audit.Entry) error {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin budget settings: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if _, err = tx.Exec(ctx, `UPDATE ai_budget_settings SET monthly_cap_usd = @cap, alert_pct = @alert, on_cap = @on_cap,
+func (s pgSettings) SaveBudgetSettings(ctx context.Context, bs BudgetSettings, e audit.Entry) error {
+	b := &pgx.Batch{}
+	b.Queue(`UPDATE ai_budget_settings SET monthly_cap_usd = @cap, alert_pct = @alert, on_cap = @on_cap,
     moderator_daily_usd = @moderator, admin_daily_usd = @admin, updated_by = @by, updated_at = @at`, pgx.StrictNamedArgs{
-		"cap": b.MonthlyCapUSD, "alert": b.AlertPct, "on_cap": b.OnCap, "moderator": b.ModeratorDailyUSD,
-		"admin": b.AdminDailyUSD, "by": b.UpdatedBy, "at": b.UpdatedAt,
-	}); err != nil {
-		return fmt.Errorf("update budget settings: %w", err)
-	}
-	if b.SetMembers {
-		if _, err = tx.Exec(ctx, `DELETE FROM ai_member_budgets`); err != nil {
-			return fmt.Errorf("delete member budgets: %w", err)
+		"cap": bs.MonthlyCapUSD, "alert": bs.AlertPct, "on_cap": bs.OnCap, "moderator": bs.ModeratorDailyUSD,
+		"admin": bs.AdminDailyUSD, "by": bs.UpdatedBy, "at": bs.UpdatedAt,
+	}).Fn = execAs("update budget settings")
+	if bs.SetMembers {
+		b.Queue(`DELETE FROM ai_member_budgets`).Fn = execAs("delete member budgets")
+		members := make([]uuid.UUID, len(bs.Members))
+		usd := make([]float64, len(bs.Members))
+		for i, m := range bs.Members {
+			members[i], usd[i] = m.MemberID, m.DailyUSD
 		}
-		for _, m := range b.Members {
-			if _, err = tx.Exec(ctx, `INSERT INTO ai_member_budgets (member_id, daily_usd, updated_by, updated_at)
-VALUES (@member, @usd, @by, @at)`, pgx.StrictNamedArgs{
-				"member": m.MemberID, "usd": m.DailyUSD, "by": b.UpdatedBy, "at": b.UpdatedAt,
-			}); err != nil {
-				if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23503" {
-					return ErrNotFound
-				}
-				return fmt.Errorf("insert member budget: %w", err)
+		b.Queue(`INSERT INTO ai_member_budgets (member_id, daily_usd, updated_by, updated_at)
+SELECT member_id, daily_usd, @by, @at FROM unnest(@members::uuid[], @usd::float8[]) AS m(member_id, daily_usd)`,
+			pgx.StrictNamedArgs{"members": members, "usd": usd, "by": bs.UpdatedBy, "at": bs.UpdatedAt}).Fn = func(br pgx.BatchResults) error {
+			_, err := br.Exec()
+			if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23503" {
+				return ErrNotFound
 			}
+			if err != nil {
+				return fmt.Errorf("insert member budgets: %w", err)
+			}
+			return nil
 		}
 	}
-	if err = audit.Insert(ctx, tx, e); err != nil {
-		return fmt.Errorf("record budget settings: %w", err)
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit budget settings: %w", err)
+	audit.Queue(b, e)
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+		return fmt.Errorf("save budget settings: %w", err)
 	}
 	return nil
 }
