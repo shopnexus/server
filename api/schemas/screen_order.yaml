@@ -70,9 +70,7 @@ CodSetupScreen:
     settings:
       $ref: "shipping.yaml#/ShippingSettings"
     carrier_accounts:
-      type: array
-      items:
-        $ref: "shipping.yaml#/CarrierAccount"
+      $ref: "shipping.yaml#/CarrierAccountList"
 CodCheckoutScreen:
   type: object
   additionalProperties: false

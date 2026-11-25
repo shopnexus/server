@@ -1896,7 +1896,9 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   `off` answers `carrier_unavailable`, another code `invalid_carrier`
   (or `carrier_not_linked` where deal asks for a shipment). Unlinking
   needs no client, so an account at a carrier turned off can still be
-  dropped. No endpoint lists the carriers a stack runs yet. The fake of
+  dropped. `GET /v1/carrier-accounts` (and the COD setup screen, which
+  embeds the same `CarrierAccountList`) returns that set as `linkable`, in
+  code order, so the clients offer only those (decided 2026-11-25). The fake of
   each carrier links any account but the password or
   token `wrong`, texts a code to any phone but one ending in `0000`, takes
   any code but `wrong`, and its webhooks take the secret `dev`. In the

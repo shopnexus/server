@@ -15,10 +15,10 @@ type shippingSettings struct {
 }
 
 type codSetupScreen struct {
-	Account         map[string]any   `json:"account"`
-	Addresses       []addressView    `json:"addresses"`
-	Settings        shippingSettings `json:"settings"`
-	CarrierAccounts []carrierAccount `json:"carrier_accounts"`
+	Account         map[string]any     `json:"account"`
+	Addresses       []addressView      `json:"addresses"`
+	Settings        shippingSettings   `json:"settings"`
+	CarrierAccounts carrierAccountList `json:"carrier_accounts"`
 }
 
 type codCheckoutScreen struct {
@@ -49,7 +49,7 @@ func TestCodSetupAndSavedPickup(t *testing.T) {
 		return expect[codSetupScreen](t, call(t, "GET", "/v1/screens/cod-setup", nil, auth), 200)
 	}
 	empty := setup()
-	if len(empty.Addresses) != 0 || empty.Settings.Pickup != nil || len(empty.CarrierAccounts) != 0 || empty.Account["identities"] == nil {
+	if len(empty.Addresses) != 0 || empty.Settings.Pickup != nil || len(empty.CarrierAccounts.Items) != 0 || len(empty.CarrierAccounts.Linkable) != 2 || empty.Account["identities"] == nil {
 		t.Fatalf("setup: %+v", empty)
 	}
 	check(t, "setup signed out", call(t, "GET", "/v1/screens/cod-setup", nil), 401, "unauthenticated")
@@ -70,7 +70,7 @@ func TestCodSetupAndSavedPickup(t *testing.T) {
 	expectStatus(t, call(t, "PUT", "/v1/addresses/"+address.ID, body, auth), 200)
 	expectStatus(t, call(t, "PATCH", "/v1/accounts/me", map[string]any{"display_name": "Tên lấy hàng"}, auth), 200)
 	d := pendingOrder(t, buyer.AccessToken, activeListing(t, seller.AccessToken, nil).ID)
-	if len(setup().CarrierAccounts) != 2 || setup().Settings.Pickup.AddressID != address.ID || setup().Addresses[0].Street != "15 Lê Lợi" {
+	if len(setup().CarrierAccounts.Items) != 2 || setup().Settings.Pickup.AddressID != address.ID || setup().Addresses[0].Street != "15 Lê Lợi" {
 		t.Fatal("setup did not compose saved state")
 	}
 	query := "/v1/shipments/quote?order_id=" + d.Order.ID + "&carrier=ghtk&service=standard&weight_grams=800&saved_pickup=true"
