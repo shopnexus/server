@@ -16,7 +16,7 @@ func (s *Deals) ShipmentUpdated(ctx context.Context, c, trackingCode, status str
 		return err
 	}
 	in := ShipmentSignal{Carrier: domain.Carrier(c), TrackingCode: trackingCode, Status: st}
-	if _, err = s.shipment.Call(ctx, "", in); err != nil {
+	if _, err = s.shipment.Call(ctx, in); err != nil {
 		return err
 	}
 	return nil

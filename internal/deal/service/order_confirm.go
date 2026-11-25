@@ -13,7 +13,7 @@ func (s *Deals) ConfirmReceipt(ctx context.Context, caller, order, key uuid.UUID
 		return DealView{}, err
 	}
 	in := FlowInput{Caller: caller, Key: key, DealID: deal, OrderID: order}
-	if _, err = s.confirm.Call(ctx, "", in); err != nil {
+	if _, err = s.confirm.Call(ctx, in); err != nil {
 		return DealView{}, err
 	}
 	return s.Get(ctx, caller, deal)

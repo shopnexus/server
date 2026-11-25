@@ -10,7 +10,7 @@ import (
 // leaves the order as it was.
 func (s *Deals) RequestCod(ctx context.Context, caller, id uuid.UUID, price int64, addressID, key uuid.UUID) (DealView, error) {
 	in := CodInput{Caller: caller, DealID: id, Price: price, AddressID: addressID, Key: key}
-	if _, err := s.requestCod.Call(ctx, "", in); err != nil {
+	if _, err := s.requestCod.Call(ctx, in); err != nil {
 		return DealView{}, err
 	}
 	return s.Get(ctx, caller, id)

@@ -12,7 +12,7 @@ func (a *Assist) StartPhotoRead(ctx context.Context, account, key, photo uuid.UU
 	if v, ok, err := a.readOfKey(ctx, account, key); ok || err != nil {
 		return v, err
 	}
-	res, err := a.startPhoto.Call(ctx, "", StartPhotoInput{Account: account, Key: key, Photo: photo})
+	res, err := a.startPhoto.Call(ctx, StartPhotoInput{Account: account, Key: key, Photo: photo})
 	if err != nil {
 		return ListingReadView{}, err
 	}

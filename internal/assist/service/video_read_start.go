@@ -22,7 +22,7 @@ func (a *Assist) StartVideoRead(ctx context.Context, account, key, video uuid.UU
 			return ListingReadView{}, fmt.Errorf("keep the transcript: %w", err)
 		}
 	}
-	res, err := a.startVideo.Call(ctx, "", StartInput{Account: account, Video: video, Key: key})
+	res, err := a.startVideo.Call(ctx, StartInput{Account: account, Video: video, Key: key})
 	// The insert took the transcript in, or nothing will: a retry answered
 	// with the first read, or a refused start. A transient failure that loses
 	// it leaves the read to hear the video's sound.

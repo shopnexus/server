@@ -7,6 +7,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	restate "github.com/restatedev/sdk-go"
+
 	"github.com/shopnexus/server/internal/media/domain"
 )
 
@@ -22,7 +24,7 @@ func (m *Media) Photos(ctx context.Context, owner, holder uuid.UUID, ids []uuid.
 	g, gctx := errgroup.WithContext(ctx)
 	for i, id := range ids {
 		g.Go(func() error {
-			res, err := m.process.Call(gctx, id.String(), id)
+			res, err := m.process.Call(gctx, id, restate.WithIdempotencyKey(id.String()))
 			if err != nil {
 				return fmt.Errorf("process photo %s: %w", id, err)
 			}

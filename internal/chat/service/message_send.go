@@ -24,7 +24,7 @@ func (c *Chat) Open(ctx context.Context, buyer, key uuid.UUID, in OpenInput) (Co
 	if !errors.Is(err, repository.ErrNotFound) {
 		return ConversationView{}, fmt.Errorf("find the key's message: %w", err)
 	}
-	res, err := c.send.Call(ctx, "", SendFlowInput{
+	res, err := c.send.Call(ctx, SendFlowInput{
 		Sender: buyer, Key: key, Opening: true, ListingID: &in.ListingID, Text: in.Text, Photos: in.Photos,
 	})
 	if err != nil {
@@ -43,7 +43,7 @@ func (c *Chat) Send(ctx context.Context, sender, conversation, key uuid.UUID, in
 	}
 	m, err := c.chats.MessageByKey(ctx, sender, key)
 	if errors.Is(err, repository.ErrNotFound) {
-		res, callErr := c.send.Call(ctx, "", SendFlowInput{
+		res, callErr := c.send.Call(ctx, SendFlowInput{
 			Sender: sender, Key: key, ConversationID: conversation, ListingID: in.ListingID, Text: in.Text, Photos: in.Photos,
 			ReplyTo: in.ReplyTo, OpensTicket: in.OpensTicket,
 		})

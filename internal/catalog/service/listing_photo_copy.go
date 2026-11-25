@@ -12,7 +12,7 @@ import (
 // same uploads with fresh URLs. Another seller's listing, or a deleted
 // one, is domain.ErrNotFound.
 func (c *Catalog) CopyPhotos(ctx context.Context, seller, id, key uuid.UUID) ([]DraftPhotoView, error) {
-	res, err := c.photoCopy.Call(ctx, "", PhotoCopyInput{Seller: seller, Listing: id, Key: key})
+	res, err := c.photoCopy.Call(ctx, PhotoCopyInput{Seller: seller, Listing: id, Key: key})
 	if err != nil {
 		return nil, err
 	}

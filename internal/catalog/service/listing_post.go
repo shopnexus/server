@@ -17,7 +17,7 @@ import (
 func (c *Catalog) Post(ctx context.Context, seller, key uuid.UUID, d domain.ListingInput, t locale.Tag) (ListingView, error) {
 	id, err := c.listings.ByKey(ctx, seller, key)
 	if errors.Is(err, repository.ErrNotFound) {
-		res, callErr := c.post.Call(ctx, "", PostInput{Seller: seller, Key: key, Listing: d})
+		res, callErr := c.post.Call(ctx, PostInput{Seller: seller, Key: key, Listing: d})
 		if callErr != nil {
 			return ListingView{}, callErr
 		}

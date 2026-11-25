@@ -51,7 +51,7 @@ func (s *Account) Reauthenticate(ctx context.Context, in ReauthenticateInput) (d
 		}
 		run.Address = &addr
 	}
-	res, err := s.reauthenticate.Call(ctx, "", run)
+	res, err := s.reauthenticate.Call(ctx, run)
 	if err != nil {
 		return domain.AccessToken{}, err
 	}

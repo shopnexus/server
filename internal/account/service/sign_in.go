@@ -25,7 +25,7 @@ func (s *Account) SignIn(ctx context.Context, in SignInInput) (SignedIn, error) 
 		}
 		run.Address = &addr
 	}
-	res, err := s.signIn.Call(ctx, "", run)
+	res, err := s.signIn.Call(ctx, run)
 	if err != nil {
 		return SignedIn{}, err
 	}

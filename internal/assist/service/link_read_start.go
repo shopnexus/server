@@ -18,7 +18,7 @@ func (a *Assist) StartLinkRead(ctx context.Context, account, key uuid.UUID, link
 	if v, ok, keyErr := a.readOfKey(ctx, account, key); ok || keyErr != nil {
 		return v, keyErr
 	}
-	res, err := a.startLink.Call(ctx, "", StartLinkInput{Account: account, Key: key, Link: l})
+	res, err := a.startLink.Call(ctx, StartLinkInput{Account: account, Key: key, Link: l})
 	if err != nil {
 		return ListingReadView{}, err
 	}

@@ -19,7 +19,7 @@ func (s *Support) Open(ctx context.Context, account, key uuid.UUID, in OpenInput
 	var existed bool
 	t, err := s.tickets.ByKey(ctx, account, key)
 	if errors.Is(err, domain.ErrNotFound) {
-		res, callErr := s.open.Call(ctx, "", OpenFlowInput{Account: account, Key: key, Input: in})
+		res, callErr := s.open.Call(ctx, OpenFlowInput{Account: account, Key: key, Input: in})
 		if callErr != nil {
 			return TicketView{}, false, callErr
 		}

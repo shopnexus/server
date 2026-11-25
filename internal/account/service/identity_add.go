@@ -29,7 +29,7 @@ func (s *Account) AddIdentity(ctx context.Context, in AddIdentityInput) (Identit
 		}
 		run.Address = &addr
 	}
-	res, err := s.addIdentity.Call(ctx, "", run)
+	res, err := s.addIdentity.Call(ctx, run)
 	if err != nil {
 		return IdentitiesView{}, err
 	}

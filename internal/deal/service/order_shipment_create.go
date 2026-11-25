@@ -43,7 +43,7 @@ func (s *Deals) CreateShipment(ctx context.Context, caller, order, key uuid.UUID
 		return DealView{}, err
 	}
 	flow := FlowInput{Caller: caller, Key: key, DealID: deal, OrderID: order, Draft: &draft, SavedPickup: in.SavedPickup}
-	if _, err = s.ship.Call(ctx, "", flow); err != nil {
+	if _, err = s.ship.Call(ctx, flow); err != nil {
 		return DealView{}, err
 	}
 	return s.Get(ctx, caller, deal)

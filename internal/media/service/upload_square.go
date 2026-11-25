@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"uuid"
 
+	restate "github.com/restatedev/sdk-go"
+
 	"github.com/shopnexus/server/internal/media/domain"
 )
 
@@ -16,7 +18,7 @@ func (m *Media) Square(ctx context.Context, owner, holder, id uuid.UUID) (string
 	if err := m.attachAs(ctx, owner, holder, domain.ShapeSquare, []uuid.UUID{id}); err != nil {
 		return "", err
 	}
-	res, err := m.process.Call(ctx, id.String(), id)
+	res, err := m.process.Call(ctx, id, restate.WithIdempotencyKey(id.String()))
 	if err != nil {
 		return "", fmt.Errorf("process the square: %w", err)
 	}

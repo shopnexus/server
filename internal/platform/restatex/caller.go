@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	restate "github.com/restatedev/sdk-go"
 	"github.com/restatedev/sdk-go/ingress"
 
 	"github.com/shopnexus/server/internal/platform/apperr"
@@ -28,12 +27,12 @@ type Caller[I any, O Refusable] struct {
 }
 
 // Call waits up to CallTimeout and returns the service's refusal as the
-// error. A repeated idempotencyKey gets the first call's result.
-func (c Caller[I, O]) Call(ctx context.Context, idempotencyKey string, in I) (O, error) {
+// error. The flow dedupes by its rows' keys, so a call carries no Restate
+// idempotency key unless opts give one.
+func (c Caller[I, O]) Call(ctx context.Context, in I, opts ...ingress.RequestOption) (O, error) {
 	ctx, cancel := context.WithTimeout(ctx, CallTimeout)
 	defer cancel()
-	res, err := ingress.Service[I, O](c.Ingress, c.Service, c.Handler).
-		Request(ctx, in, restate.WithIdempotencyKey(idempotencyKey))
+	res, err := ingress.Service[I, O](c.Ingress, c.Service, c.Handler).Request(ctx, in, opts...)
 	if err != nil {
 		return res, fmt.Errorf("call %s/%s: %w", c.Service, c.Handler, err)
 	}

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 	"time"
-	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -39,10 +38,10 @@ func TestCallerReturnsTheRefusal(t *testing.T) {
 	t.Parallel()
 	g := gate{prefix: restatetest.Prefix()}
 	c := restatex.Caller[string, passed]{Ingress: restatetest.Start(t, restate.Reflect(g)), Service: g.ServiceName(), Handler: "Pass"}
-	if v, err := c.Call(t.Context(), uuid.NewV7().String(), "ok"); err != nil || v.Value != "passed" {
+	if v, err := c.Call(t.Context(), "ok"); err != nil || v.Value != "passed" {
 		t.Fatalf("admitted: %+v %v", v, err)
 	}
-	_, err := c.Call(t.Context(), uuid.NewV7().String(), "no")
+	_, err := c.Call(t.Context(), "no")
 	e, ok := errors.AsType[*apperr.Error](err)
 	if !ok || e.Kind != apperr.KindRateLimited || e.Code != "otp_limit" || e.Details.RetryAfter == nil || *e.Details.RetryAfter != 7 {
 		t.Fatalf("refused: %#v", err)

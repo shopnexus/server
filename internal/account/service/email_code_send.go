@@ -33,7 +33,7 @@ func (s *Account) SendEmailCode(ctx context.Context, in SendEmailCodeInput) (Ema
 	if !errors.Is(err, repository.ErrNotFound) {
 		return EmailCodeView{}, fmt.Errorf("find the key's challenge: %w", err)
 	}
-	res, err := s.emailCodeSend.Call(ctx, "", EmailCodeInput{Email: addr, Purpose: purpose, AccountID: accountID, IP: in.IP, Locale: in.Locale, Key: in.Key})
+	res, err := s.emailCodeSend.Call(ctx, EmailCodeInput{Email: addr, Purpose: purpose, AccountID: accountID, IP: in.IP, Locale: in.Locale, Key: in.Key})
 	if err != nil {
 		return EmailCodeView{}, err
 	}
