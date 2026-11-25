@@ -98,10 +98,9 @@ func Count(n, minimum, maximum int) FieldCode {
 // in api/schemas/error.yaml. A detail that was set is sent, even 0 or "";
 // a nil one is not, and an error with none sends no details.
 type Details struct {
-	RetryAfter   *int     `json:"retry_after,omitempty"`   // seconds
-	AttemptsLeft *int     `json:"attempts_left,omitempty"` // guesses a code still takes
-	Reason       *string  `json:"reason,omitempty"`        // a carrier's words
-	MissingSpecs []string `json:"missing_specs,omitempty"` // their Vietnamese names, for older clients
+	RetryAfter   *int    `json:"retry_after,omitempty"`   // seconds
+	AttemptsLeft *int    `json:"attempts_left,omitempty"` // guesses a code still takes
+	Reason       *string `json:"reason,omitempty"`        // a carrier's words
 	// MissingSpecKeys are the keys of the specs a listing lacks.
 	MissingSpecKeys []string `json:"missing_spec_keys,omitempty"`
 }
@@ -189,10 +188,10 @@ func (e *Error) WithAttemptsLeft(n int) *Error {
 }
 
 // WithMissingSpecs returns a copy of e whose missing_spec_keys detail is
-// keys and missing_specs detail is their labels.
-func (e *Error) WithMissingSpecs(keys, labels []string) *Error {
+// keys.
+func (e *Error) WithMissingSpecs(keys []string) *Error {
 	c := *e
-	c.Details.MissingSpecKeys, c.Details.MissingSpecs = slices.Clone(keys), slices.Clone(labels)
+	c.Details.MissingSpecKeys = slices.Clone(keys)
 	return &c
 }
 

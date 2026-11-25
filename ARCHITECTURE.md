@@ -208,9 +208,9 @@ written (decided 2026-11-17):
   `required` on each property it lacks. The app's script drops the
   `oneOf`, so its model has every field optional.
 - No schema that an app operation reaches is a map of any values.
-  `Error.details` lists `retry_after`, `attempts_left`, `reason`,
-  `missing_spec_keys` and `missing_specs` with `additionalProperties: false`.
-  `apperr.Details` is a struct with the same five fields, set by `WithRetryAfter`,
+  `Error.details` lists `retry_after`, `attempts_left`, `reason` and
+  `missing_spec_keys` with `additionalProperties: false`.
+  `apperr.Details` is a struct with the same four fields, set by `WithRetryAfter`,
   `WithAttemptsLeft`, `WithReason` and `WithMissingSpecs`, so a new detail
   is a field in both places. A detail that
   was set is sent, a blank `reason` included, and an unset one is not.
@@ -242,8 +242,7 @@ older clients (decided 2026-11-23, spec
   `too_long`/`too_many` from a size. The spec validator's codes come from
   the keyword it reports (`keywordCodes`). `field_codes` is a second map
   beside `fields`, so older clients and older Restate journals still
-  decode. Missing specs also go in `details.missing_spec_keys`, and their
-  Vietnamese names in `details.missing_specs` for older clients.
+  decode. Missing specs also go in `details.missing_spec_keys`.
 - Photo refusals: `Photo.failure_code` and `Message.failure_code` beside
   `failure`. The upload, the listing's `rejection` and the message keep
   storing the English reason, so no table changed; `media/domain`

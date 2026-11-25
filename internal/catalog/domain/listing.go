@@ -213,7 +213,7 @@ func (l *Listing) apply(d ListingInput, refs Refs, now time.Time) error {
 		keyed[s.Key] = true
 	}
 	if keys, labels := missingSpecs(refs.Specs, specs); len(keys) > 0 {
-		e = e.WithField("specs", apperr.MissingSpecs, "a value for "+strings.Join(labels, ", ")).WithMissingSpecs(keys, labels)
+		e = e.WithField("specs", apperr.MissingSpecs, "a value for "+strings.Join(labels, ", ")).WithMissingSpecs(keys)
 	}
 	if d.Spot != nil && Distance(*d.Spot, refs.CommunePoint) > MaxGPSKm {
 		e = e.WithField("gps", apperr.OutOfRange, "within 30 km of the commune")

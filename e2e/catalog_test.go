@@ -234,7 +234,7 @@ func TestPostListingRefusals(t *testing.T) {
 	unfilled["specs"] = []map[string]string{{"label": "Hãng", "value": "Asama"}}
 	res = post(unfilled, bearer(token))
 	if e := errorOf(t, res); res.Status != 422 || e.FieldCodes["specs"] != "missing_specs" ||
-		fmt.Sprint(e.Details["missing_spec_keys"]) != "[vehicle_type frame_size]" || fmt.Sprint(e.Details["missing_specs"]) != "[Loại xe Cỡ khung]" {
+		fmt.Sprint(e.Details["missing_spec_keys"]) != "[vehicle_type frame_size]" || e.Details["missing_specs"] != nil {
 		t.Errorf("missing specs: %d %s", res.Status, res.Body)
 	}
 	other, _ := newAccount(t)
