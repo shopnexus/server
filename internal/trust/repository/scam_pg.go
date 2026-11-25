@@ -58,8 +58,8 @@ WHERE account_id = @account AND conversation_id = ANY(@conversations)`, pgx.Stri
 	return out, nil
 }
 
-// putWarning writes w under writeID when its row has w.WriteID(), or adds
-// it when it has none and no row exists, then notifies its account.
+// putWarning writes w under writeID when its row has w.WriteID() or already
+// writeID, or adds it when no row exists, then notifies its account.
 func putWarning(ctx context.Context, tx pgx.Tx, w *domain.Warning, writeID uuid.UUID) error {
 	st := w.State()
 	tag, err := tx.Exec(ctx, `INSERT INTO scam_warnings (`+warningColumns+`)
@@ -67,9 +67,9 @@ VALUES (@conversation, @account, @suspect, @signals::jsonb, @dismissed_at, @upda
 ON CONFLICT (conversation_id, account_id) DO UPDATE
 SET signals = EXCLUDED.signals, dismissed_at = EXCLUDED.dismissed_at, updated_at = EXCLUDED.updated_at,
     write_id = EXCLUDED.write_id
-WHERE scam_warnings.write_id = @old`, pgx.StrictNamedArgs{
+WHERE scam_warnings.write_id = @read_write_id OR scam_warnings.write_id = @write_id`, pgx.StrictNamedArgs{
 		"conversation": st.ConversationID, "account": st.AccountID, "suspect": st.SuspectID, "signals": st.Signals,
-		"dismissed_at": st.DismissedAt, "updated_at": st.UpdatedAt, "write_id": writeID, "old": st.WriteID,
+		"dismissed_at": st.DismissedAt, "updated_at": st.UpdatedAt, "write_id": writeID, "read_write_id": st.WriteID,
 	})
 	if err != nil {
 		return fmt.Errorf("upsert scam warning: %w", err)

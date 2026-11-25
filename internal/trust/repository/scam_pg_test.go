@@ -111,9 +111,15 @@ func TestScamWarningsConflict(t *testing.T) {
 	at := time.Now().UTC().Truncate(time.Microsecond)
 	w := domain.NewWarning(c.ID, c.AccountB, c.AccountA)
 	w.Raise([]domain.Code{domain.CodePrepayment}, nil, at, nil)
-	if err := s.Record(ctx, check(c, at, []domain.Code{domain.CodePrepayment}), []repository.WarningWrite{{Warning: &w, WriteID: uuid.NewV7()}},
+	replay, first, firstCheck := w, uuid.NewV7(), check(c, at, []domain.Code{domain.CodePrepayment})
+	if err := s.Record(ctx, firstCheck, []repository.WarningWrite{{Warning: &w, WriteID: first}},
 		at.Add(-domain.CheckRetention)); err != nil {
 		t.Fatal(err)
+	}
+	// A retry of the same write finds its own write ID.
+	if err := s.Record(ctx, firstCheck, []repository.WarningWrite{{Warning: &replay, WriteID: first}},
+		at.Add(-domain.CheckRetention)); err != nil {
+		t.Fatalf("a retried record: %v", err)
 	}
 	stale, _ := s.Get(ctx, c.ID, c.AccountB)
 	if _, err := s.Dismiss(ctx, c.ID, c.AccountB, at.Add(time.Minute), uuid.NewV7()); err != nil {

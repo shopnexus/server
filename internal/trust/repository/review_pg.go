@@ -133,11 +133,10 @@ func (s pgReviews) Save(ctx context.Context, r *domain.Review, writeID uuid.UUID
 	}
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		var hadReply bool
-		err := tx.QueryRow(ctx, `UPDATE reviews new
+		err := tx.QueryRow(ctx, `UPDATE reviews
 SET stars = @stars, body = @body, tags = @tags, photos = @photos, deleted_at = @deleted_at, updated_at = @updated_at, reply = @reply,
     replied_at = @replied_at, write_id = @write_id
-FROM reviews old
-WHERE new.id = @id AND old.id = new.id AND new.write_id = @read_write_id
+WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
 RETURNING old.replied_at IS NOT NULL`, pgx.StrictNamedArgs{
 			"id": st.ID, "stars": st.Stars, "body": st.Text, "tags": tagsOf(st), "photos": photosOf(st), "deleted_at": st.DeletedAt, "updated_at": st.UpdatedAt,
 			"reply": reply, "replied_at": st.RepliedAt, "write_id": writeID, "read_write_id": st.WriteID,

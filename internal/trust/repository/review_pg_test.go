@@ -210,8 +210,13 @@ func TestReviewWritesConflict(t *testing.T) {
 	if err = fresh.Delete(now.Add(-time.Hour)); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Save(ctx, &fresh, uuid.NewV7()); err != nil {
+	replay, w := fresh, uuid.NewV7()
+	if err = s.Save(ctx, &fresh, w); err != nil {
 		t.Fatal(err)
+	}
+	// A retry of the same save finds its own write ID.
+	if err = s.Save(ctx, &replay, w); err != nil {
+		t.Fatalf("a retried save: %v", err)
 	}
 	if err = stale.Edit(2, "Cũ", nil, nil, now.Add(-30*time.Minute)); err != nil {
 		t.Fatal(err)

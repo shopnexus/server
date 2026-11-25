@@ -34,9 +34,10 @@ type Reviews interface {
 	// An order with a review in the role is ErrConflict, and so is a
 	// hidden r when the other role's review exists.
 	Insert(ctx context.Context, r domain.Review) error
-	// Save writes r when its row still has r.WriteID(), then sets its
-	// write ID to writeID; otherwise ErrConflict and nothing is written.
-	// A first reply also writes review.replied with writeID as its ID.
+	// Save writes r when its row still has r.WriteID() or already has
+	// writeID, then sets its write ID to writeID; otherwise ErrConflict and
+	// nothing is written. A first reply also writes review.replied with
+	// writeID as its ID, once.
 	Save(ctx context.Context, r *domain.Review, writeID uuid.UUID) error
 	// OfSubject is a query: subject's reviews in role, visible at now and
 	// not deleted, with IDs below p.Before(), newest first, at most

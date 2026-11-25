@@ -19,8 +19,8 @@ type ScamWarnings interface {
 	// Record writes check c once by its ID, each warning of ws under its
 	// WriteID with an update to the warning's account, and deletes up to
 	// 1,000 checks created before pruneBefore, in one transaction. A warning
-	// whose row has another write ID than its own, or a new one whose row
-	// exists, is ErrConflict and nothing is written.
+	// whose row has neither its own write ID nor its WriteID, which a retry
+	// finds, is ErrConflict and nothing is written.
 	Record(ctx context.Context, c domain.Check, ws []WarningWrite, pruneBefore time.Time) error
 	// Dismiss dismisses account's warning in conversation at at, under
 	// writeID, with an update to account. It holds the row's lock from the
