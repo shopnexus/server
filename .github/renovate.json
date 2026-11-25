@@ -26,40 +26,5 @@
       "automerge": false,
       "groupName": "compose images"
     }
-  ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/^\\.github/workflows/build\\.yml$/"
-      ],
-      "matchStrings": [
-        "golangci-lint-action@\\S+\\s+with: \\{ version: (?<currentValue>v[0-9.]+) \\}"
-      ],
-      "depNameTemplate": "golangci/golangci-lint",
-      "datasourceTemplate": "github-releases"
-    },
-    {
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/^\\.github/workflows/build\\.yml$/"
-      ],
-      "matchStrings": [
-        "golang\\.org/x/vuln/cmd/govulncheck@(?<currentValue>v[0-9.]+)"
-      ],
-      "depNameTemplate": "golang.org/x/vuln",
-      "datasourceTemplate": "go"
-    },
-    {
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/^\\.github/workflows/build\\.yml$/"
-      ],
-      "matchStrings": [
-        "sqlfluff==(?<currentValue>[0-9.]+)"
-      ],
-      "depNameTemplate": "sqlfluff",
-      "datasourceTemplate": "pypi"
-    }
   ]
 }

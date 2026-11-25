@@ -1,0 +1,15 @@
+name: Security
+
+# The umbrella's checks of the workflows and of new commits for secrets.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+jobs:
+  security:
+    permissions:
+      contents: read
+    uses: shopnexus/shopnexus/.github/workflows/security.yml@main
