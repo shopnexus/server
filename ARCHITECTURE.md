@@ -1637,32 +1637,29 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   which needs no Restate. A completed order makes the deal `sold`; a
   failure or a cancel makes it negotiate again without its agreed price.
 - The seller ships with a shipment, which replaced the waybill on
-  2026-11-12. `linked`: the server makes it on the seller's account at
-  GHTK or GHN (service `standard` or `express`, 1 to 20,000 g, pickup at
-  `home` or at a `post_office`), picked up at one of the carrier's pickup
-  points or at one of the seller's addresses, which the order copies.
-  `manual`: the seller made it on a carrier's own app and types the code;
-  the server reads it with the seller's account at that carrier, and a code
-  the account does not know is 422 `shipment_not_found`. A carrier the
-  seller has not linked is 409 `carrier_not_linked` (see Shipping). The carriers are `ghtk`, `ghn`, `spx`,
-  `jt` and `viettel_post`, the ones ShopNexus can read; there is no
-  "other". The fee is the carrier's, null while it has none. The
-  shipment's status is the carrier's: `pending_pickup`, `in_transit`,
-  `delivered`, `failed`. A parcel the carrier already reports failed is
-  refused (`invalid_shipment`); one it reports delivered ships delivered.
+  2026-11-12. The server makes it on the seller's account at GHTK or GHN
+  (service `standard` or `express`, 1 to 20,000 g, pickup at `home` or at
+  a `post_office`), picked up at one of the carrier's pickup points or at
+  one of the seller's addresses, which the order copies. A carrier the
+  seller has not linked is 409 `carrier_not_linked` (see Shipping). The
+  fee is the carrier's, null while it has none. The shipment's status is
+  the carrier's: `pending_pickup`, `in_transit`, `delivered`, `failed`; a
+  new shipment waits for pickup.
+- Manual shipments, made by the seller on a carrier's own app and typed in
+  by code, were dropped on 2026-11-25 along with correcting their code and
+  the lookup that previewed one. Orders shipped that way keep their rows:
+  `Shipment.mode` is still `linked` or `manual`, `Carrier` still lists
+  `spx`, `jt` and `viettel_post`, and the poll and `ShipmentUpdates` move
+  an open manual order like a linked one, by carrier and code. No
+  migration rewrote them.
 - Who closes an order: the buyer with `confirm`, at any time while it is
   shipped, or the system 3 days after the carrier reports it delivered.
   The carrier's `failed` fails it at once and releases the listing. After
-  the shipment the seller's only move is correcting a manual shipment's
-  carrier and code while it is `pending_pickup` or `in_transit`.
-- `POST /v1/orders/{order_id}/shipment` takes `{mode: manual, carrier,
-  tracking_code}` or `{mode: linked, carrier, service, weight_grams, pickup,
-  pickup_from}`; its
-  `mode` is the discriminator of a `oneOf`, and every other rule is the domain's
-  422 `invalid_shipment` with fields. `PUT` on the same path corrects a
-  manual shipment; `POST /v1/orders/{order_id}/confirm` is the buyer's;
-  `GET /v1/shipments/lookup?carrier=&code=` is the seller's preview. The
-  order moves take the order's ID (decided 2026-11-10), and the domain
+  the shipment the seller has no move on the order.
+- `POST /v1/orders/{order_id}/shipment` takes `ShipmentDraft`, `{carrier,
+  service, weight_grams, pickup, pickup_from}`; every rule past the schema
+  is the domain's 422 `invalid_shipment` with fields.
+  `POST /v1/orders/{order_id}/confirm` is the buyer's. The order moves take the order's ID (decided 2026-11-10), and the domain
   move refuses an order that is not the deal's open one with
   `move_not_allowed`. An unknown order, or one the caller is neither side
   of, is `order_not_found` 404. `POST /v1/deals/{id}/cod` stays on the
@@ -1671,8 +1668,8 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   ones (migration 0011, with an index on `(deal_id, id)` for the latest
   order every deal read joins). `Deals.Save` writes deal, order, moves and
   `deal.moved` in one transaction. Each order step is a move:
-  `cod_requested`, `shipped`, `shipment_updated` (a carrier's report or
-  the seller's corrected code), `completed`, `failed`, `order_cancelled`;
+  `cod_requested`, `shipped`, `shipment_updated` (a carrier's report,
+  or on an old manual order the seller's corrected code), `completed`, `failed`, `order_cancelled`;
   cancel reasons are `buyer`, `seller`, `seller_timeout`, `pickup_timeout`,
   `shipped_to_another` and `listing_closed`. Order changes have no event
   kind of their own: they ride on `deal.moved` as these moves, which
@@ -1681,16 +1678,16 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
 - A buyer has at most 3 orders pending or shipped; `Save` counts them
   under `pg_advisory_xact_lock` on the buyer and refuses the fourth with
   `cod_limit_reached`.
-- A suspended account cannot ask for COD; a shipment, a corrected code, a
-  confirmation and a cancel finish or take back an order already under
+- A suspended account cannot ask for COD; a shipment, a confirmation and
+  a cancel finish or take back an order already under
   way, and refuse no one for a suspension.
 - The shipment and the confirmation change the listing, so they run as
   Restate flows, `DealShip` and `DealConfirm`, with the invocation key
-  `<caller id>/<Idempotency-Key>`. `DealShip` checks a manual shipment
-  whole, or a linked one's order and listing, reserves the listing, makes
-  a linked shipment through shipping, then saves. A refusal of shipping's
-  gives the listing back. When the save loses a race it releases the
-  listing and calls off a linked shipment the order did not take. `DealConfirm` saves, then sells the listing.
+  `<caller id>/<Idempotency-Key>`. `DealShip` checks the order and the
+  listing, reserves the listing, makes the shipment through shipping, then
+  saves. A refusal of shipping's gives the listing back. When the save
+  loses a race it releases the listing and calls off the shipment the
+  order did not take. `DealConfirm` saves, then sells the listing.
 - The COD request and the order's cancel run as the flows
   `DealRequestCod` and `DealCancelOrder` (decided 2026-11-19), so a
   repeated `Idempotency-Key` answers as the first request did: its
@@ -1731,28 +1728,27 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   `Waits.Pickup` to `shipped_at` while the parcel waits for pickup, and
   `Waits.Complete` to `delivered_at`; nothing is stored. The shipment keeps
   `picked_up_at` (0070), the first carrier status past `pending_pickup`
-  but `failed`, cleared by a report of `pending_pickup` again, kept
-  across a manual code's correction. 0070 took it from the order's first
+  but `failed`, cleared by a report of `pending_pickup` again. 0070 took it from the order's first
   system `shipment_updated` step, or `shipped_at`.
-- `ShipmentUpdates.Run(tracking code, status)` is the one entry point of
-  a carrier's report: the dev endpoint, the carriers' webhooks and the
-  poll call it. It moves every shipped order whose shipment has
-  the code (two items in one parcel), changes nothing on a closed order,
-  and answers `shipment_not_found` 404 when no order has the code.
-- Deal makes, reads and cancels shipments through `service.Shipping`,
-  module shipping's three calls with the seller's ID, and maps its
+- `ShipmentUpdates.Run(carrier, tracking code, status)` is the one entry
+  point of a carrier's report: the dev endpoint, the carriers' webhooks
+  and the poll call it. It moves every shipped order whose shipment is at
+  that carrier with the code (two items in one parcel, which only old
+  manual shipments have), changes nothing on a closed order, and answers
+  `shipment_not_found` 404 when no order has it.
+- Deal makes, tracks and cancels shipments through `service.Shipping`,
+  module shipping's `Create`, `Track` and `Cancel` with the seller's ID
+  (and `SavedPickup` for a saved pickup), and maps its
   refusals to its own errors of the same codes. With `CARRIER=fake`
   shipping serves `POST /v1/dev/shipments/{code}/status {step}` to anyone,
   a step as the order's carrier would report it, and `APP_ENV=prod`
   refuses it. With `none` (production until the GHTK
-  partner contract) the dev endpoint is not registered, and the lookup and
-  both shipment endpoints answer 503 `carrier_unavailable` for any order; a
-  linked shipment gives back the listing it held. Confirmations, cancels,
-  COD requests, the timers and `ShipmentUpdates` need no carrier. A manual
-  shipment's carrier and code are read before the order is looked up, so a
-  stack without a carrier refuses before it reads an order; an unlinked
-  carrier waits for the order check, so a stranger reads `order_not_found`
-  and the buyer `move_not_allowed`. The chart sets the carrier in each
+  partner contract) the dev endpoint is not registered, and a shipment
+  answers 503 `carrier_unavailable` once its order checks pass, giving
+  back the listing it held. Confirmations, cancels, COD requests, the
+  timers and `ShipmentUpdates` need no carrier. The order checks come
+  before any carrier call, so a stranger reads `order_not_found` and the
+  buyer `move_not_allowed` whatever the carrier. The chart sets the carrier in each
   stack's values file and none in `values.yaml`.
 - The buyer always reads the recipient in full; the seller reads it in
   full except on a cancelled order, which keeps only the name and the
@@ -1796,8 +1792,9 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
 - Module shipping owns the sellers' carrier accounts, the carrier
   clients and the carriers' webhooks. Deal imports it, as
   `deal/service.Shipping`; shipping never imports deal. The app wiring
-  hands shipping three functions of deal's (`ShipmentUpdated`,
-  `OpenShipmentsAt`, `QuoteFacts`) and deal's not-found error, closed over
+  hands shipping four functions of deal's (`ShipmentUpdated`,
+  `ShipmentKnown`, `OpenShipmentsAt`, `QuoteFacts`) and deal's not-found
+  error, closed over
   the deal service that is mounted after it.
 - A seller links GHTK and GHN, at most one account each
   (`carrier_accounts`, migration 0043). GHTK takes the seller's email and
@@ -1878,8 +1875,7 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   status) in the timeline, and moves the order through `ShipmentUpdates`
   when the status differs, then sends itself again until the order
   closes. A status that maps to no step, or a step that moves none,
-  moves nothing. A correction of a
-  manual code needs no poll of its own. The pickup timeout reads the
+  moves nothing. The pickup timeout reads the
   carrier the same way first, and a parcel picked up since the last poll
   moves the order instead of cancelling it.
 - The webhook operation declares no request body, so the request
