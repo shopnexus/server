@@ -30,7 +30,7 @@ type deals struct {
 
 func (d *deals) funcs() service.Deals {
 	return service.Deals{
-		ShipmentUpdated: func(_ context.Context, code, status string) error {
+		ShipmentUpdated: func(_ context.Context, _, code, status string) error {
 			if code == "UNKNOWN" {
 				return errNoOrder
 			}
@@ -41,11 +41,8 @@ func (d *deals) funcs() service.Deals {
 		QuoteFacts: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (service.QuoteFacts, error) {
 			return service.QuoteFacts{Recipient: carrier.Place{Name: "Hân", Commune: "Phường Bến Nghé", Province: "TP. Hồ Chí Minh"}, Price: 1_500_000}, nil
 		},
-		ShipmentCarrier: func(_ context.Context, code string) (string, error) {
-			if code == "UNKNOWN" {
-				return "", errNoOrder
-			}
-			return "ghtk", nil
+		ShipmentKnown: func(_ context.Context, c, code string) (bool, error) {
+			return c == "ghtk" && code != "UNKNOWN", nil
 		},
 		NotFound: errNoOrder,
 	}

@@ -412,12 +412,12 @@ func TestOrdersWithCode(t *testing.T) {
 	a, b := ship("SPX-ONE"), ship("SPX-ONE")
 	ship("SPX-TWO")
 	pendingDeal(t, db, s, accounttest.New(t, db), seller)
-	rows, err := s.OrdersWithCode(ctx, "SPX-ONE")
+	rows, err := s.OrdersWithCode(ctx, "spx", "SPX-ONE")
 	if err != nil || len(rows) != 2 || rows[0].DealID != a.ID() || rows[1].DealID != b.ID() ||
 		rows[0].Order.Shipment == nil || rows[0].Order.Shipment.TrackingCode != "SPX-ONE" {
 		t.Fatalf("%+v %v", rows, err)
 	}
-	if rows, err = s.OrdersWithCode(ctx, "SPX-NONE"); err != nil || len(rows) != 0 {
+	if rows, err = s.OrdersWithCode(ctx, "spx", "SPX-NONE"); err != nil || len(rows) != 0 {
 		t.Fatalf("an unknown code: %+v %v", rows, err)
 	}
 }

@@ -30,7 +30,7 @@ func TestShipmentUpdated(t *testing.T) {
 		t.Fatalf("waiting for pickup: %+v %+v", o, o.Shipment)
 	}
 
-	if err := e.deals.ShipmentUpdated(ctx, "SPXREPORT1", "in_transit"); err != nil {
+	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXREPORT1", "in_transit"); err != nil {
 		t.Fatal(err)
 	}
 	got = e.get(t, buyer, v.ID)
@@ -41,14 +41,14 @@ func TestShipmentUpdated(t *testing.T) {
 	if m := got.Moves[len(got.Moves)-1]; m.Kind != domain.MoveShipmentUpdated || m.By != domain.System {
 		t.Fatalf("%+v", m)
 	}
-	if err := e.deals.ShipmentUpdated(ctx, "SPXREPORT1", "in_transit"); err != nil {
+	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXREPORT1", "in_transit"); err != nil {
 		t.Fatal(err)
 	}
 	if n := countMoves(moveKinds(e.get(t, buyer, v.ID)), domain.MoveShipmentUpdated); n != 1 {
 		t.Fatalf("the same report twice made %d moves", n)
 	}
 
-	if err := e.deals.ShipmentUpdated(ctx, "SPXREPORT1", "failed"); err != nil {
+	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXREPORT1", "failed"); err != nil {
 		t.Fatal(err)
 	}
 	got = e.get(t, buyer, v.ID)
@@ -60,18 +60,18 @@ func TestShipmentUpdated(t *testing.T) {
 		t.Fatalf("listing %s for %s", st, held)
 	}
 	moves := len(got.Moves)
-	if err := e.deals.ShipmentUpdated(ctx, "SPXREPORT1", "delivered"); err != nil {
+	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXREPORT1", "delivered"); err != nil {
 		t.Fatalf("a late report: %v", err)
 	}
 	if got = e.get(t, buyer, v.ID); got.Order.Status != domain.OrderFailed || len(got.Moves) != moves {
 		t.Fatalf("a late report moved the order: %+v", got.Order)
 	}
 
-	err := e.deals.ShipmentUpdated(ctx, "SPXNOBODY", "delivered")
+	err := e.deals.ShipmentUpdated(ctx, "spx", "SPXNOBODY", "delivered")
 	if !errors.Is(err, domain.ErrShipmentNotFound) || apperr.From(err).Kind != apperr.KindNotFound {
 		t.Fatalf("an unknown code: %v", err)
 	}
-	if err = e.deals.ShipmentUpdated(ctx, "SPXREPORT1", "returned"); !errors.Is(err, domain.ErrInvalidStatus) {
+	if err = e.deals.ShipmentUpdated(ctx, "spx", "SPXREPORT1", "returned"); !errors.Is(err, domain.ErrInvalidStatus) {
 		t.Fatalf("an unknown status: %v", err)
 	}
 	// Mua lại: the buyer asks for COD again on the same deal.
@@ -90,7 +90,7 @@ func TestOneParcelTwoOrders(t *testing.T) {
 	first, second := catalogtest.Listing(t, e.db, seller), catalogtest.Listing(t, e.db, seller)
 	a := e.shipped(t, buyer, seller, first, "SPXPARCEL1")
 	b := e.shipped(t, buyer, seller, second, "SPXPARCEL1")
-	if err := e.deals.ShipmentUpdated(ctx, "SPXPARCEL1", "failed"); err != nil {
+	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXPARCEL1", "failed"); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range []struct {
@@ -138,7 +138,7 @@ func TestShipmentUpdateLosesToAConfirm(t *testing.T) {
 	v := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPXRACE1")
 	deps := e.deps
 	deps.Deals = confirmFirst{Deals: e.repo, fired: &atomic.Bool{}}
-	if err := start(t, deps).ShipmentUpdated(context.Background(), "SPXRACE1", "in_transit"); err != nil {
+	if err := start(t, deps).ShipmentUpdated(context.Background(), "spx", "SPXRACE1", "in_transit"); err != nil {
 		t.Fatalf("the report: %v", err)
 	}
 	got := e.get(t, buyer, v.ID)

@@ -282,7 +282,7 @@ func TestThePollIgnoresAStatusThatMovesNothing(t *testing.T) {
 	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), service.ShipmentInput{Mode: "manual", Carrier: "ghtk", TrackingCode: "S1.LATE"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := deals.ShipmentUpdated(ctx, "S1.LATE", "delivered"); err != nil {
+	if err := deals.ShipmentUpdated(ctx, "ghtk", "S1.LATE", "delivered"); err != nil {
 		t.Fatal(err)
 	}
 	testenv.Eventually(t, 15*time.Second, func() error {
@@ -318,7 +318,7 @@ func TestThePollMovesAShipmentAndStopsWhenItCloses(t *testing.T) {
 		return nil
 	})
 	// A report gets there first; the poll then reads what the order has.
-	if err := deals.ShipmentUpdated(ctx, "S1.POLL", "delivered"); err != nil {
+	if err := deals.ShipmentUpdated(ctx, "ghtk", "S1.POLL", "delivered"); err != nil {
 		t.Fatal(err)
 	}
 	c.step.Store(new(carrier.StepDelivered))

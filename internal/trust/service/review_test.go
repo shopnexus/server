@@ -180,7 +180,7 @@ func TestFailedOrderIsReviewed(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	_, order := e.shipped(t, buyer, seller)
-	if err := e.deals.ShipmentUpdated(ctx, "SPX1", "failed"); err != nil {
+	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPX1", "failed"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.trust.PutReview(ctx, seller, order, 1, "Không nhận hàng", nil, nil); err != nil {

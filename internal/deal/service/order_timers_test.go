@@ -136,7 +136,7 @@ func TestAutoCompletes(t *testing.T) {
 	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), manual("SPXAUTO1")); err != nil {
 		t.Fatal(err)
 	}
-	if err := deals.ShipmentUpdated(ctx, "SPXAUTO1", "delivered"); err != nil {
+	if err := deals.ShipmentUpdated(ctx, "spx", "SPXAUTO1", "delivered"); err != nil {
 		t.Fatal(err)
 	}
 	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderShipped || got.Order.Shipment.Status != domain.ShipmentDelivered ||
@@ -189,7 +189,7 @@ func TestTimersLeaveAnOrderThatMovedOn(t *testing.T) {
 	fire("AutoComplete", ref(shipped))
 	unchanged("a shipment waiting for pickup", shipped)
 
-	if err := deals.ShipmentUpdated(ctx, "SPXMOVED1", "in_transit"); err != nil {
+	if err := deals.ShipmentUpdated(ctx, "spx", "SPXMOVED1", "in_transit"); err != nil {
 		t.Fatal(err)
 	}
 	transit := e.get(t, buyer, shipped.ID)
@@ -197,7 +197,7 @@ func TestTimersLeaveAnOrderThatMovedOn(t *testing.T) {
 	fire("AutoComplete", ref(transit))
 	unchanged("a parcel in transit", transit)
 
-	if err := deals.ShipmentUpdated(ctx, "SPXMOVED1", "delivered"); err != nil {
+	if err := deals.ShipmentUpdated(ctx, "spx", "SPXMOVED1", "delivered"); err != nil {
 		t.Fatal(err)
 	}
 	must(t)(e.deals.ConfirmReceipt(ctx, buyer, shipped.Order.ID, key()))
@@ -239,7 +239,7 @@ func TestTimersWorkWithoutACarrier(t *testing.T) {
 		t.Fatalf("%+v", got.Order)
 	}
 	shipped := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller), "SPXNONE2")
-	if err := deals.ShipmentUpdated(ctx, "SPXNONE2", "failed"); err != nil {
+	if err := deals.ShipmentUpdated(ctx, "spx", "SPXNONE2", "failed"); err != nil {
 		t.Fatal(err)
 	}
 	if got := e.get(t, buyer, shipped.ID); got.Order.Status != domain.OrderFailed {

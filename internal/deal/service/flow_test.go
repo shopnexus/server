@@ -387,7 +387,7 @@ func TestConfirmRefusesAFailedOrder(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	first := e.shipped(t, buyer, seller, listing, "SPXFIRST1")
-	if err := e.deals.ShipmentUpdated(ctx, "SPXFIRST1", "failed"); err != nil {
+	if err := e.deals.ShipmentUpdated(ctx, "spx", "SPXFIRST1", "failed"); err != nil {
 		t.Fatal(err)
 	}
 	second, err := e.deals.RequestCod(ctx, buyer, first.ID, 1_500_000, e.address(t, buyer), "")
