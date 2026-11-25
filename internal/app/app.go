@@ -171,35 +171,37 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, opts ...Optio
 	default:
 		mailer = email.LogSender{Log: log}
 	}
-	// carriers holds one client per carrier, and the secret in each
-	// carrier's webhook path; none has no client and no webhook.
+	// carriers holds a client for each carrier its switch turns on, and the
+	// secret in that carrier's webhook path; a carrier off has neither.
 	tokens, err := secret.New(cfg.Carrier.TokenKey)
 	if err != nil {
 		return nil, fmt.Errorf("CARRIER_TOKEN_KEY: %w", err)
 	}
-	carriers := shipping.Settings{Tokens: tokens, FakeCarrier: cfg.Carrier.Mode == "fake"}
-	switch cfg.Carrier.Mode {
-	case "fake":
-		if cfg.Env == config.EnvProd {
-			return nil, errors.New("APP_ENV=prod with CARRIER=fake; anyone could move shipments through the dev endpoint")
+	carriers := shipping.Settings{Tokens: tokens, Clients: map[carrier.Carrier]carrier.Client{}, WebhookSecrets: map[carrier.Carrier]string{}}
+	web, c := httpx.NewClient(carrierTimeout), cfg.Carrier
+	for _, sw := range []struct {
+		name      carrier.Carrier
+		key, mode string
+		live      carrier.Client
+		webhook   string
+	}{
+		{carrier.GHTK, "CARRIER_GHTK", c.GHTKMode, carrier.GHTKClient{BaseURL: c.GHTKURL, PartnerToken: c.GHTKPartner, ClientSource: c.GHTKSource, HTTP: web}, c.GHTKWebhook},
+		{carrier.GHN, "CARRIER_GHN", c.GHNMode, carrier.GHNClient{BaseURL: c.GHNURL, PartnerToken: c.GHNPartner, HTTP: web}, c.GHNWebhook},
+	} {
+		switch sw.mode {
+		case "fake":
+			if cfg.Env == config.EnvProd {
+				return nil, fmt.Errorf("APP_ENV=prod with %s=fake; anyone could move shipments through the dev endpoint", sw.key)
+			}
+			// The fake's webhook is open to anyone who knows "dev", as its
+			// dev endpoint is.
+			carriers.Clients[sw.name], carriers.WebhookSecrets[sw.name] = carrier.Fake{Carrier: sw.name}, "dev"
+		case "live":
+			carriers.Clients[sw.name], carriers.WebhookSecrets[sw.name] = sw.live, sw.webhook
+		case "off":
+		default:
+			return nil, fmt.Errorf("%s=%q: want live, fake or off", sw.key, sw.mode)
 		}
-		carriers.Clients = map[carrier.Carrier]carrier.Client{
-			carrier.GHTK: carrier.Fake{Carrier: carrier.GHTK}, carrier.GHN: carrier.Fake{Carrier: carrier.GHN},
-		}
-		// The fake's webhooks are open to anyone who knows "dev", as its dev
-		// endpoint is.
-		carriers.WebhookSecrets = map[carrier.Carrier]string{carrier.GHTK: "dev", carrier.GHN: "dev"}
-	case "live":
-		web := httpx.NewClient(carrierTimeout)
-		c := cfg.Carrier
-		carriers.Clients = map[carrier.Carrier]carrier.Client{
-			carrier.GHTK: carrier.GHTKClient{BaseURL: c.GHTKURL, PartnerToken: c.GHTKPartner, ClientSource: c.GHTKSource, HTTP: web},
-			carrier.GHN:  carrier.GHNClient{BaseURL: c.GHNURL, PartnerToken: c.GHNPartner, HTTP: web},
-		}
-		carriers.WebhookSecrets = map[carrier.Carrier]string{carrier.GHTK: c.GHTKWebhook, carrier.GHN: c.GHNWebhook}
-	case "none":
-	default:
-		return nil, fmt.Errorf("CARRIER=%q: want fake, none or live", cfg.Carrier.Mode)
 	}
 	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL, postgres.MaxConns(cfg.DatabaseMaxConns))
 	if err != nil {

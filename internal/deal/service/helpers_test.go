@@ -191,9 +191,9 @@ func (r refusing) Track(context.Context, uuid.UUID, carrier.Carrier, string) (ca
 
 func (r refusing) Cancel(context.Context, uuid.UUID, carrier.Carrier, string) error { return r.err }
 
-// errShippingUnavailable is module shipping's answer with CARRIER=none; it
+// errShippingUnavailable is module shipping's answer for a carrier off; it
 // shares its code with deal's error.
-var errShippingUnavailable = apperr.New(apperr.KindUnavailable, "carrier_unavailable", "no carrier makes or reads shipments here")
+var errShippingUnavailable = apperr.New(apperr.KindUnavailable, "carrier_unavailable", "this stack runs the carrier off")
 
 // errShippingNotLinked is module shipping's answer for a carrier the seller
 // has not linked.

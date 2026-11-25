@@ -20,8 +20,8 @@ var (
 	// report.
 	ErrShipmentNotFound = apperr.New(apperr.KindNotFound, "shipment_not_found", "no such shipment")
 	ErrInvalidStatus    = apperr.New(apperr.KindInvalid, "invalid_status", "the status is not pending_pickup, in_transit, delivered or failed")
-	// ErrCarrierUnavailable is module shipping's error for a stack without
-	// a carrier (CARRIER=none).
+	// ErrCarrierUnavailable is module shipping's error for a carrier the
+	// stack runs off (CARRIER_GHTK or CARRIER_GHN).
 	ErrCarrierUnavailable = shippingdomain.ErrUnavailable
 	// ErrCarrierNotLinked is module shipping's error for a carrier the
 	// seller has not linked.

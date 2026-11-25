@@ -198,7 +198,7 @@ func TestNotLinkedAndNoCarrier(t *testing.T) {
 	}
 	none := newEnv(t, map[carrier.Carrier]carrier.Client{})
 	for name, err := range map[string]error{
-		"link":   func() error { _, err := none.svc.Link(ctx, none.owner, "spx", carrier.Credentials{}); return err }(),
+		"link":   func() error { _, err := none.svc.Link(ctx, none.owner, "ghtk", carrier.Credentials{}); return err }(),
 		"lookup": func() error { _, err := none.svc.Lookup(ctx, none.owner, carrier.GHTK, "S1"); return err }(),
 		"create": func() error {
 			_, err := none.svc.Create(ctx, none.owner, carrier.GHN, carrier.CreateInput{})
@@ -213,6 +213,43 @@ func TestNotLinkedAndNoCarrier(t *testing.T) {
 		if !errors.Is(err, domain.ErrUnavailable) {
 			t.Errorf("%s with no carrier: %v", name, err)
 		}
+	}
+}
+
+// Each carrier is on or off by itself: with GHN alone a seller links GHN,
+// GHTK answers carrier_unavailable, an account kept at GHTK can still be
+// dropped, and a code with no client stays invalid_carrier.
+func TestOneCarrierOff(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t, map[carrier.Carrier]carrier.Client{carrier.GHN: carrier.Fake{Carrier: carrier.GHN}})
+	if _, err := e.svc.Link(ctx, e.owner, "ghn", carrier.Credentials{Token: "t", ShopID: "885"}); err != nil {
+		t.Fatalf("ghn: %v", err)
+	}
+	if _, err := e.svc.Link(ctx, e.owner, "ghtk", carrier.Credentials{Email: "a@b.vn", Password: "x"}); !errors.Is(err, domain.ErrUnavailable) {
+		t.Fatalf("ghtk off: %v", err)
+	}
+	if _, err := e.svc.Link(ctx, e.owner, "spx", carrier.Credentials{}); !errors.Is(err, domain.ErrInvalidCarrier) {
+		t.Fatalf("spx: %v", err)
+	}
+	if err := e.rows.Put(ctx, repository.Row{AccountID: e.owner, Carrier: "ghtk", ShopCode: "S1", Token: e.key.Seal([]byte("t"), nil), LinkedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.svc.Create(ctx, e.owner, carrier.GHTK, carrier.CreateInput{}); !errors.Is(err, domain.ErrUnavailable) {
+		t.Fatalf("a shipment at ghtk off: %v", err)
+	}
+	if err := e.svc.Unlink(ctx, e.owner, "ghtk"); err != nil {
+		t.Fatalf("unlink ghtk off: %v", err)
+	}
+}
+
+// The dev endpoint moves a fake carrier's parcels only, never a live one's.
+func TestDevReportedSkipsALiveCarrier(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t, map[carrier.Carrier]carrier.Client{carrier.GHTK: refuser{carrier.Fake{Carrier: carrier.GHTK}}})
+	err := e.svc.DevReported(context.Background(), "S1", carrier.Event{Kind: carrier.KindStep, Step: carrier.StepPicked})
+	if !errors.Is(err, errNoOrder) || len(e.deals.reported) != 0 {
+		t.Fatalf("%v %v", err, e.deals.reported)
 	}
 }
 

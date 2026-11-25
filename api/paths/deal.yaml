@@ -429,7 +429,7 @@ orderShipment:
       shipped_to_another. Checks, in order: the shipment's fields, then the
       order is the caller's, the order's state, the listing, and the
       carrier's answer. A carrier the caller has not linked is 409
-      carrier_not_linked. A stack without a carrier (CARRIER=none,
+      carrier_not_linked. A carrier the stack runs off (both are off in
       production for now) answers 503 carrier_unavailable.
     tags: [deal]
     security:
@@ -478,7 +478,7 @@ orderShipment:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "503":
-        description: "The stack has no carrier, CARRIER=none (carrier_unavailable)."
+        description: "The stack runs the carrier off (carrier_unavailable)."
         content:
           application/json:
             schema:

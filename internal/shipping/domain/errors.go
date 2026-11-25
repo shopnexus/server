@@ -20,8 +20,9 @@ var (
 	ErrInvalidCarrier      = apperr.New(apperr.KindInvalid, "invalid_carrier", "the carrier is not ghtk or ghn")
 	ErrShipmentsOpen       = apperr.New(apperr.KindConflict, "shipments_open", "a shipment at that carrier is still open")
 	ErrAccountNotFound     = apperr.New(apperr.KindNotFound, "carrier_account_not_found", "no account linked at that carrier")
-	// ErrUnavailable is a stack without a carrier, CARRIER=none.
-	ErrUnavailable    = apperr.New(apperr.KindUnavailable, "carrier_unavailable", "no carrier makes or reads shipments here")
+	// ErrUnavailable is a carrier this stack runs off (CARRIER_GHTK or
+	// CARRIER_GHN off).
+	ErrUnavailable    = apperr.New(apperr.KindUnavailable, "carrier_unavailable", "this stack runs the carrier off")
 	ErrAddressUnknown = apperr.New(apperr.KindInvalid, "carrier_address_unknown", "the carrier does not know the address")
 	ErrPhoneUnknown   = apperr.New(apperr.KindInvalid, "carrier_phone_unknown", "no account at the carrier has this phone")
 	ErrOTPInvalid     = apperr.New(apperr.KindInvalid, "carrier_otp_invalid", "the code is wrong or expired")

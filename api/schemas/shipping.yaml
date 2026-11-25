@@ -1,7 +1,7 @@
 LinkedCarrier:
   type: string
   enum: [ghtk, ghn]
-  description: The carriers a seller can link. The other carriers in Carrier cannot be linked yet.
+  description: The carriers with a client. A seller links those the stack runs; one it runs off answers 503 carrier_unavailable. The other carriers in Carrier cannot be linked yet.
 CarrierAccount:
   type: object
   additionalProperties: false

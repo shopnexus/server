@@ -15,7 +15,7 @@ import (
 const dealShip = "DealShip"
 
 // madeShipment is what the step that makes a linked shipment journals: the
-// carrier's answer, or shipping's refusal (no carrier in the stack, the
+// carrier's answer, or shipping's refusal (the carrier off in the stack, the
 // carrier not linked, an address the carrier does not know).
 type madeShipment struct {
 	Created carrier.Created `json:"created"`

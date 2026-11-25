@@ -63,7 +63,7 @@ func testConfig(t *testing.T) config.Config {
 		Firebase: firebasetest.New(t).Config(false),
 		Email:    config.EmailConfig{Sender: "log", ResendAPIKey: "", From: "ShopNexus <no-reply@shopnexus.test>"},
 		Google:   googletest.New(t).Config(),
-		Carrier:  config.CarrierConfig{Mode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
+		Carrier:  config.CarrierConfig{GHTKMode: "fake", GHNMode: "fake", TokenKey: config.NewConsoleKey(), PollEvery: time.Hour},
 	}
 }
 
@@ -218,42 +218,49 @@ func TestCloseStopsTheEventBus(t *testing.T) {
 func TestNewRefusesAnUnknownCarrier(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
-	cfg.Carrier.Mode = "pigeon"
-	if _, err := New(context.Background(), cfg, discard()); err == nil || !strings.Contains(err.Error(), "CARRIER") {
+	cfg.Carrier.GHNMode = "pigeon"
+	if _, err := New(context.Background(), cfg, discard()); err == nil || !strings.Contains(err.Error(), "CARRIER_GHN") {
 		t.Fatalf("err %v", err)
 	}
 }
 
-// With the fake carrier anyone may move shipments through the dev
-// endpoint, so production refuses it.
+// With a fake carrier anyone may move shipments through the dev endpoint,
+// so production refuses one, whatever the other carrier runs.
 func TestNewRefusesTheFakeCarrierInProd(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
-	cfg.Env, cfg.Email.Sender, cfg.Email.ResendAPIKey = "prod", "resend", "re_test"
+	cfg.Env, cfg.Email.Sender, cfg.Email.ResendAPIKey, cfg.Carrier.GHTKMode = "prod", "resend", "re_test", "off"
 	_, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}))
-	if err == nil || !strings.Contains(err.Error(), "CARRIER") {
+	if err == nil || !strings.Contains(err.Error(), "CARRIER_GHN=fake") {
 		t.Fatalf("err %v", err)
 	}
 }
 
-// Without a carrier the dev endpoint that moves shipments is not served;
-// the shipment routes are, and so is the dev endpoint that logs updates.
-func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
+// Without a fake carrier the dev endpoint that moves shipments is not
+// served, both carriers off or GHN live alone; the shipment routes are, and
+// so is the dev endpoint that logs updates.
+func TestNoFakeCarrierServesNoDevEndpoint(t *testing.T) {
 	t.Parallel()
-	cfg := testConfig(t)
-	cfg.Carrier.Mode = "none"
-	a, err := New(context.Background(), cfg, discard(), withFakeAI())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { a.Close(context.Background()) })
-	routes := a.Routes()
-	if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/shipments/{code}/status"}) ||
-		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/orders/{order_id}/shipment"}) ||
-		!slices.Contains(routes, httpx.Route{Method: "PUT", Path: "/v1/carrier-accounts/{carrier}"}) ||
-		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/carriers/{carrier}/webhook/{secret}"}) ||
-		!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/updates"}) {
-		t.Fatalf("routes %v", routes)
+	for name, c := range map[string]config.CarrierConfig{
+		"both off": {GHTKMode: "off", GHNMode: "off"},
+		"GHN live": {GHTKMode: "off", GHNMode: "live", GHNURL: "http://127.0.0.1:1", GHNPartner: "partner", GHNWebhook: "secret"},
+	} {
+		cfg := testConfig(t)
+		c.TokenKey, c.PollEvery = cfg.Carrier.TokenKey, cfg.Carrier.PollEvery
+		cfg.Carrier = c
+		a, err := New(context.Background(), cfg, discard(), withFakeAI())
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		t.Cleanup(func() { a.Close(context.Background()) })
+		routes := a.Routes()
+		if slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/shipments/{code}/status"}) ||
+			!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/orders/{order_id}/shipment"}) ||
+			!slices.Contains(routes, httpx.Route{Method: "PUT", Path: "/v1/carrier-accounts/{carrier}"}) ||
+			!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/carriers/{carrier}/webhook/{secret}"}) ||
+			!slices.Contains(routes, httpx.Route{Method: "POST", Path: "/v1/dev/updates"}) {
+			t.Fatalf("%s: routes %v", name, routes)
+		}
 	}
 }
 
@@ -263,7 +270,8 @@ func TestNoCarrierServesNoDevEndpoint(t *testing.T) {
 func TestProdServesNoDevRoute(t *testing.T) {
 	t.Parallel()
 	cfg := testConfig(t)
-	cfg.Env, cfg.Email.Sender, cfg.Email.ResendAPIKey, cfg.Carrier.Mode = "prod", "resend", "re_test", "none"
+	cfg.Env, cfg.Email.Sender, cfg.Email.ResendAPIKey = "prod", "resend", "re_test"
+	cfg.Carrier.GHTKMode, cfg.Carrier.GHNMode = "off", "off"
 	a, err := New(context.Background(), cfg, discard(), WithPushSender(quietPush{}), withFakeAI())
 	if err != nil {
 		t.Fatal(err)

@@ -18,8 +18,8 @@ const fakeFee = 22_000
 // ending in 0000, knows every code but those that start
 // with NOTFOUND, reads each as the same parcel waiting for pickup, and
 // makes codes from the order code, so a retry gets the same one. It reads
-// reports as its carrier posts them. With CARRIER=fake the dev endpoint
-// moves its parcels.
+// reports as its carrier posts them. With CARRIER_GHTK or CARRIER_GHN
+// fake the dev endpoint moves its parcels.
 type Fake struct{ Carrier Carrier }
 
 var (
