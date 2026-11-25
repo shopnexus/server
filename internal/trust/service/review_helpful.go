@@ -35,7 +35,11 @@ func (s *Trust) MarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
 	if caller == r.ReviewerID() || caller == r.SubjectID() {
 		return domain.ErrOwnReview
 	}
-	if err = s.reviews.MarkHelpful(ctx, id, caller, now); err != nil {
+	err = s.reviews.MarkHelpful(ctx, id, caller, now)
+	if errors.Is(err, repository.ErrNotFound) {
+		return domain.ErrNotFound
+	}
+	if err != nil {
 		return fmt.Errorf("mark helpful: %w", err)
 	}
 	return nil
@@ -44,7 +48,14 @@ func (s *Trust) MarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
 // UnmarkHelpful takes the caller's helpful mark back; without one it
 // changes nothing.
 func (s *Trust) UnmarkHelpful(ctx context.Context, caller, id uuid.UUID) error {
-	if err := s.reviews.UnmarkHelpful(ctx, id, caller); err != nil {
+	status, err := s.accounts.Status(ctx, caller)
+	if err != nil {
+		return fmt.Errorf("read account status: %w", err)
+	}
+	if r := status.Refusal(); r != nil {
+		return r
+	}
+	if err = s.reviews.UnmarkHelpful(ctx, id, caller); err != nil {
 		return fmt.Errorf("unmark helpful: %w", err)
 	}
 	return nil

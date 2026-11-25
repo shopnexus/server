@@ -82,6 +82,13 @@ func (s *Trust) MyReports(ctx context.Context, reporter uuid.UUID, p page.Reques
 // WithdrawReport withdraws the reporter's report; anyone else's, or an
 // unknown ID, is domain.ErrReportNotFound.
 func (s *Trust) WithdrawReport(ctx context.Context, reporter, id uuid.UUID) error {
+	status, err := s.accounts.Status(ctx, reporter)
+	if err != nil {
+		return fmt.Errorf("read account status: %w", err)
+	}
+	if refusal := status.Refusal(); refusal != nil {
+		return refusal
+	}
 	r, err := s.reports.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && r.ReporterID() != reporter) {
 		return domain.ErrReportNotFound

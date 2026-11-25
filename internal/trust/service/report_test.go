@@ -85,6 +85,9 @@ func TestReport(t *testing.T) {
 	if _, _, err = e.trust.Report(ctx, reporter, service.ReportInput{AccountID: seller, Reason: domain.ReasonFake}); !errors.Is(err, accountdomain.ErrSuspended) {
 		t.Fatalf("suspended: %v", err)
 	}
+	if err = e.trust.WithdrawReport(ctx, reporter, person.ID); !errors.Is(err, accountdomain.ErrSuspended) {
+		t.Fatalf("suspended withdraw: %v", err)
+	}
 }
 
 // A deleted listing cannot be reported; a hidden one can.

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/postgres"
@@ -138,6 +139,12 @@ WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, pgx.Str
 			"id": st.ID, "stars": st.Stars, "body": st.Text, "tags": tagsOf(st), "photos": photosOf(st), "deleted_at": st.DeletedAt, "updated_at": st.UpdatedAt,
 			"reply": reply, "replied_at": st.RepliedAt, "write_id": writeID, "read_write_id": st.WriteID,
 		}).Fn = postgres.ExecAs("save review", ErrConflict)
+		// A deleted review keeps no helpful marks; MarkHelpful's share lock
+		// on the row orders a racing mark before or after this.
+		if st.DeletedAt != nil {
+			b.Queue(`DELETE FROM review_helpful WHERE review_id = @id`, pgx.StrictNamedArgs{"id": st.ID}).
+				Fn = postgres.ExecAs("drop helpful marks", nil)
+		}
 		// A replied review never changes again, so a save with a reply is
 		// the reply itself or its retry, which the write ID as event ID keeps
 		// at one event.
@@ -214,9 +221,39 @@ func photosOf(st domain.ReviewState) []domain.Photo {
 }
 
 func (s pgReviews) MarkHelpful(ctx context.Context, review, account uuid.UUID, at time.Time) error {
-	if _, err := s.db.Exec(ctx, `INSERT INTO review_helpful (review_id, account_id, created_at) VALUES (@review, @account, @at)
-ON CONFLICT (review_id, account_id) DO NOTHING`, pgx.StrictNamedArgs{"review": review, "account": account, "at": at}); err != nil {
+	var found bool
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		b := &pgx.Batch{}
+		// The account's and the review's share locks order the mark against
+		// Erase and a delete in flight; it then sees the tombstone or deleted_at.
+		postgres.QueueLockLiving(b, account, accountdomain.ErrSessionRevoked)
+		b.Queue(`WITH r AS (SELECT id FROM reviews WHERE id = @review AND deleted_at IS NULL FOR SHARE),
+mark AS (INSERT INTO review_helpful (review_id, account_id, created_at) SELECT id, @account, @at FROM r
+         ON CONFLICT (review_id, account_id) DO NOTHING)
+SELECT EXISTS (SELECT 1 FROM r)`, pgx.StrictNamedArgs{"review": review, "account": account, "at": at}).QueryRow(func(row pgx.Row) error {
+			if scanErr := row.Scan(&found); scanErr != nil {
+				return fmt.Errorf("mark helpful: %w", scanErr)
+			}
+			return nil
+		})
+		return tx.SendBatch(ctx, b).Close()
+	})
+	if errors.Is(err, accountdomain.ErrSessionRevoked) {
+		return accountdomain.ErrSessionRevoked
+	}
+	if err != nil {
 		return fmt.Errorf("mark helpful: %w", err)
+	}
+	if !found {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s pgReviews) UnmarkAll(ctx context.Context, account uuid.UUID) error {
+	if _, err := s.db.Exec(ctx, `DELETE FROM review_helpful WHERE account_id = @account`,
+		pgx.StrictNamedArgs{"account": account}); err != nil {
+		return fmt.Errorf("unmark the account's helpful marks: %w", err)
 	}
 	return nil
 }

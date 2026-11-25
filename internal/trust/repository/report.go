@@ -14,7 +14,8 @@ import (
 type Reports interface {
 	// Open adds r or, when its reporter has an open report of the same
 	// target that no case resolved, replaces that report's reason, note and conversation with r's;
-	// it returns the stored report and whether it was added.
+	// it returns the stored report and whether it was added. A deleted
+	// reporter is accountdomain.ErrSessionRevoked and nothing is written.
 	Open(ctx context.Context, r domain.Report) (domain.Report, bool, error)
 	// Get returns a report, open or withdrawn, or ErrNotFound.
 	Get(ctx context.Context, id uuid.UUID) (domain.Report, error)
@@ -24,6 +25,9 @@ type Reports interface {
 	// Withdraw marks an open report withdrawn at at; a withdrawn one keeps
 	// its time.
 	Withdraw(ctx context.Context, id uuid.UUID, at time.Time) error
+	// WithdrawAll withdraws a deleted reporter's reports that no case
+	// resolved, at at, and blanks their notes; a second call changes nothing.
+	WithdrawAll(ctx context.Context, reporter uuid.UUID, at time.Time) error
 	// CountOpen counts the reports neither withdrawn nor resolved.
 	CountOpen(ctx context.Context) (int, error)
 }

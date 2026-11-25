@@ -15,8 +15,8 @@ import (
 	"github.com/shopnexus/server/internal/trust/service"
 )
 
-// ScamWorker starts a scam check after each message with text and deletes
-// a deleted account's warnings. Mount subscribes MessageSent to
+// ScamWorker starts a scam check after each message with text and clears
+// a deleted account's trust rows. Mount subscribes MessageSent to
 // message.sent and AccountDeleted to account.deleted.
 type ScamWorker struct {
 	Prefix string
@@ -50,10 +50,11 @@ func (w ScamWorker) MessageSent(ctx restate.Context, e events.Event) error {
 	return nil
 }
 
-// AccountDeleted deletes the warnings of the account e names.
+// AccountDeleted clears the trust rows of the account e names: its
+// warnings, its helpful marks and its unresolved reports.
 func (w ScamWorker) AccountDeleted(ctx restate.Context, e events.Event) error {
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		return w.Trust.DeleteScamWarnings(rc, e.SubjectID)
+		return w.Trust.ClearAccount(rc, e.SubjectID)
 	}); err != nil {
 		return fmt.Errorf("account %s left: %w", e.SubjectID, err)
 	}

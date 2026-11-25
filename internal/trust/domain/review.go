@@ -186,6 +186,25 @@ func (r *Review) Reply(by uuid.UUID, text string, now time.Time) error {
 	return nil
 }
 
+// Holds reports whether r, not deleted, already has these stars, text,
+// tags and photo uploads, nil tags or photos matching any: a retried put
+// that finds it answers r as it is (K2).
+func (r *Review) Holds(stars int, text string, tags []Tag, photos []uuid.UUID) bool {
+	if r.Deleted() || stars != r.stars || strings.TrimSpace(text) != r.text || (tags != nil && !slices.Equal(tags, r.tags)) {
+		return false
+	}
+	if photos == nil {
+		return true
+	}
+	return slices.EqualFunc(photos, r.photos, func(id uuid.UUID, p Photo) bool { return id == p.UploadID })
+}
+
+// HasReply reports whether r already carries this reply, so a retried
+// reply answers r as it is.
+func (r *Review) HasReply(text string) bool {
+	return r.repliedAt != nil && r.reply == strings.TrimSpace(text)
+}
+
 // Visible reports whether the subject and the public see the review at
 // now; its reviewer always does.
 func (r *Review) Visible(now time.Time) bool { return !r.visibleAt.After(now) }

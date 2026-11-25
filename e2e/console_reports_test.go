@@ -132,7 +132,11 @@ func TestConsoleReportCases(t *testing.T) {
 	if d.Resolution == nil || d.Resolution.Outcome != "dismissed" || d.Resolution.By.MemberID != mod.ID || d.Resolution.By.DisplayName != "E2E Member" {
 		t.Fatalf("dismiss: %+v", d)
 	}
-	check(t, "dismiss twice", consoleCall(t, mod, "POST", path+"/dismiss", nil), http.StatusConflict, "report_case_not_open")
+	// A retry of the same outcome answers the case as it is.
+	if again := expect[reportCaseDetail](t, consoleCall(t, mod, "POST", path+"/dismiss", nil), http.StatusOK); again.Resolution == nil ||
+		again.Resolution.At != d.Resolution.At {
+		t.Fatalf("dismiss twice: %+v", again)
+	}
 	check(t, "resolve a dismissed case", consoleCall(t, mod, "POST", path+"/resolve", nil), http.StatusConflict, "report_case_not_open")
 	if _, cases, _ = reportCases(t, mod, "open"); cases[seller.Account.ID].Reports != 0 {
 		t.Fatalf("the dismissed case is still open: %+v", cases[seller.Account.ID])

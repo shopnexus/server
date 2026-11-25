@@ -226,8 +226,34 @@ const openReports = `account_id = @account AND withdrawn_at IS NULL AND resoluti
 
 func (s pgCases) Resolve(ctx context.Context, account uuid.UUID, r Resolution, entry audit.Entry) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		// Whether a case is open, and the outcome Current shows, decide the
+		// writes, so the batch breaks after them.
+		var (
+			open bool
+			last *domain.Outcome
+		)
+		args := pgx.StrictNamedArgs{"account": account}
 		b := &pgx.Batch{}
 		lockCase(b, account)
+		b.Queue(`SELECT EXISTS (SELECT 1 FROM reports WHERE `+openReports+`),
+       (SELECT s.outcome FROM report_resolutions s WHERE s.account_id = @account AND s.reopened_at IS NULL AND `+standing+`
+        ORDER BY s.resolved_at DESC, s.id DESC LIMIT 1)`, args).QueryRow(func(row pgx.Row) error {
+			if err := row.Scan(&open, &last); err != nil {
+				return fmt.Errorf("read the case: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // Each statement wraps its own error.
+		}
+		if !open {
+			// A retry finds the case it resolved (K2).
+			if last != nil && *last == r.Outcome {
+				return nil
+			}
+			return domain.ErrCaseNotOpen
+		}
+		b = &pgx.Batch{}
 		b.Queue(`INSERT INTO report_resolutions (id, account_id, outcome, member_id, resolved_at)
 SELECT @id, @account, @outcome, @member, @at WHERE EXISTS (SELECT 1 FROM reports WHERE `+openReports+`)`, pgx.StrictNamedArgs{
 			"id": r.ID, "account": account, "outcome": r.Outcome, "member": r.MemberID, "at": r.At,

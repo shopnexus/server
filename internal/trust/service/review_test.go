@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 	"uuid"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
@@ -30,8 +31,12 @@ func TestPutReview(t *testing.T) {
 	if err = e.trust.DeleteReview(ctx, buyer, order); err != nil {
 		t.Fatal(err)
 	}
-	if err = e.trust.DeleteReview(ctx, buyer, order); !errors.Is(err, domain.ErrNotFound) {
+	// A retried delete finds its review gone; the seller has none to delete.
+	if err = e.trust.DeleteReview(ctx, buyer, order); err != nil {
 		t.Fatalf("delete twice: %v", err)
+	}
+	if err = e.trust.DeleteReview(ctx, seller, order); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("the seller's delete: %v", err)
 	}
 	if v, err = e.trust.PutReview(ctx, buyer, order, 3, "Đăng lại", nil, nil); err != nil || v.Stars != 3 {
 		t.Fatalf("post again: %+v %v", v, err)
@@ -60,6 +65,68 @@ func TestPutReview(t *testing.T) {
 	}
 	if err = e.trust.DeleteReview(ctx, buyer, order); !errors.Is(err, domain.ErrLocked) {
 		t.Fatalf("delete once shown: %v", err)
+	}
+}
+
+// A retry of a put or a reply whose first try landed answers the review as
+// it is; a different put or reply is still refused.
+func TestReviewRetries(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	_, order := e.completed(t, buyer, seller)
+	if _, err := e.trust.PutReview(ctx, seller, order, 4, "Nhận đúng hẹn", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	// The seller reviewed, so the buyer's review shows at once.
+	tags := []domain.Tag{domain.TagAsDescribed}
+	first, err := e.trust.PutReview(ctx, buyer, order, 5, "Đúng mô tả", tags, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := e.trust.PutReview(ctx, buyer, order, 5, " Đúng mô tả ", tags, []uuid.UUID{})
+	if err != nil || again.ID != first.ID || again.Stars != 5 {
+		t.Fatalf("retry: %+v %v", again, err)
+	}
+	if again, err = e.trust.PutReview(ctx, buyer, order, 5, "Đúng mô tả", nil, nil); err != nil || again.ID != first.ID {
+		t.Fatalf("retry keeping tags: %+v %v", again, err)
+	}
+	for name, put := range map[string]func() error{
+		"stars": func() error {
+			_, perr := e.trust.PutReview(ctx, buyer, order, 4, "Đúng mô tả", tags, nil)
+			return perr
+		},
+		"text": func() error { _, perr := e.trust.PutReview(ctx, buyer, order, 5, "Khác", tags, nil); return perr },
+		"tags": func() error {
+			_, perr := e.trust.PutReview(ctx, buyer, order, 5, "Đúng mô tả", []domain.Tag{}, nil)
+			return perr
+		},
+		"photos": func() error {
+			_, perr := e.trust.PutReview(ctx, buyer, order, 5, "Đúng mô tả", tags, []uuid.UUID{uuid.NewV7()})
+			return perr
+		},
+	} {
+		if perr := put(); !errors.Is(perr, domain.ErrLocked) {
+			t.Errorf("another %s: %v", name, perr)
+		}
+	}
+	replied, err := e.trust.ReplyReview(ctx, seller, first.ID, "Cảm ơn")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again, err = e.trust.ReplyReview(ctx, seller, first.ID, "Cảm ơn "); err != nil || again.Reply == nil || again.Reply.Text != replied.Reply.Text {
+		t.Fatalf("reply retry: %+v %v", again, err)
+	}
+	if _, err = e.trust.ReplyReview(ctx, seller, first.ID, "Lần hai"); !errors.Is(err, domain.ErrReplied) {
+		t.Fatalf("second reply: %v", err)
+	}
+	if _, err = e.trust.ReplyReview(ctx, buyer, first.ID, "Cảm ơn"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("the reviewer's reply: %v", err)
+	}
+	var replies int
+	if err = e.db.QueryRow(ctx, `SELECT count(*) FROM events WHERE kind = 'review.replied' AND subject_id = $1`, first.ID).Scan(&replies); err != nil || replies != 1 {
+		t.Fatalf("review.replied: %d %v", replies, err)
 	}
 }
 
@@ -162,6 +229,12 @@ func TestPutReviewRefusals(t *testing.T) {
 	if _, err := e.trust.PutReview(ctx, buyer, completed, 5, "", nil, nil); !errors.Is(err, accountdomain.ErrSuspended) {
 		t.Errorf("suspended: %v", err)
 	}
+	if err := e.trust.DeleteReview(ctx, buyer, completed); !errors.Is(err, accountdomain.ErrSuspended) {
+		t.Errorf("suspended delete: %v", err)
+	}
+	if err := e.trust.UnmarkHelpful(ctx, buyer, uuid.NewV7()); !errors.Is(err, accountdomain.ErrSuspended) {
+		t.Errorf("suspended unmark: %v", err)
+	}
 }
 
 func TestReviewsOfAStranger(t *testing.T) {
@@ -184,7 +257,7 @@ func TestFailedOrderIsReviewed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = e.deals.ShipmentUpdated(ctx, string(f.Shipment.Carrier), f.Shipment.TrackingCode, "failed"); err != nil {
+	if err = e.deals.ShipmentUpdated(ctx, string(f.Shipment.Carrier), f.Shipment.TrackingCode, "failed", time.Time{}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.trust.PutReview(ctx, seller, order, 1, "Không nhận hàng", nil, nil); err != nil {

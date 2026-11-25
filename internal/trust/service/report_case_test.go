@@ -82,6 +82,16 @@ func TestReportCase(t *testing.T) {
 		mine.Items[1].Status != domain.ReportResolved {
 		t.Fatalf("other's reports: %+v %v", mine, err)
 	}
+	// A retry whose first try landed finds the case resolved so.
+	if d, err = e.trust.ResolveReportCase(ctx, seller, domain.OutcomeDismissed, e.member(t, "Mai")); err != nil ||
+		d.Resolution == nil || d.Resolution.By.MemberID != lan.MemberID {
+		t.Fatalf("dismiss again: %+v %v", d, err)
+	}
+	var resolutions int
+	if err = e.db.QueryRow(ctx, `SELECT count(*) FROM report_resolutions WHERE account_id = @account`,
+		pgx.StrictNamedArgs{"account": seller}).Scan(&resolutions); err != nil || resolutions != 1 {
+		t.Fatalf("resolutions: %d %v", resolutions, err)
+	}
 	if _, err = e.trust.ResolveReportCase(ctx, seller, domain.OutcomeActioned, lan); !errors.Is(err, domain.ErrCaseNotOpen) {
 		t.Fatalf("resolve a resolved case: %v", err)
 	}

@@ -48,7 +48,7 @@ func (c checks) Run(ctx restate.ObjectContext) error {
 	return nil
 }
 
-// eraser records DeleteScamWarnings.
+// eraser records ClearAccount.
 type eraser struct {
 	service.Service
 
@@ -56,7 +56,7 @@ type eraser struct {
 	deleted *[]uuid.UUID
 }
 
-func (e eraser) DeleteScamWarnings(_ context.Context, id uuid.UUID) error {
+func (e eraser) ClearAccount(_ context.Context, id uuid.UUID) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	*e.deleted = append(*e.deleted, id)

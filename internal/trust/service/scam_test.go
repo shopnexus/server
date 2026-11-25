@@ -7,10 +7,12 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 	chatrepo "github.com/shopnexus/server/internal/chat/repository"
 	"github.com/shopnexus/server/internal/platform/locale"
+	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/trust/domain"
 	"github.com/shopnexus/server/internal/trust/repository"
 	"github.com/shopnexus/server/internal/trust/service"
@@ -106,17 +108,66 @@ func TestDismissScamWarning(t *testing.T) {
 	}
 }
 
-func TestDeleteScamWarnings(t *testing.T) {
+// A deleted account loses its warnings and helpful marks, and its
+// unresolved reports are withdrawn without their notes; a resolved one stays.
+func TestClearAccount(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	e := newEnv(t)
 	c := pairOf(t, e)
-	raise(t, e, c, c.AccountB, c.AccountA, []domain.Code{domain.CodePrepayment}, time.Now())
-	if err := e.trust.DeleteScamWarnings(ctx, c.AccountB); err != nil {
+	gone := c.AccountB
+	raise(t, e, c, gone, c.AccountA, []domain.Code{domain.CodePrepayment}, time.Now())
+	seller, buyer, other := e.person(t), e.person(t), e.person(t)
+	report := func(in service.ReportInput) service.ReportView {
+		t.Helper()
+		v, _, err := e.trust.Report(ctx, gone, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	open := report(service.ReportInput{ListingID: catalogtest.Listing(t, e.db, seller), Reason: domain.ReasonScam, Note: "Đòi cọc"})
+	withdrawn := report(service.ReportInput{AccountID: seller, Reason: domain.ReasonFake, Note: "Hàng giả"})
+	if err := e.trust.WithdrawReport(ctx, gone, withdrawn.ID); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := e.trust.ScamWarnings(ctx, c.AccountB, []uuid.UUID{c.ID}, locale.Vietnamese); len(got) != 0 {
-		t.Fatalf("%+v", got)
+	resolved := report(service.ReportInput{AccountID: other, Reason: domain.ReasonFake, Note: "Giả mạo"})
+	if _, err := e.trust.ResolveReportCase(ctx, other, domain.OutcomeDismissed, e.member(t, "Lan")); err != nil {
+		t.Fatal(err)
+	}
+	_, order := e.completed(t, buyer, seller)
+	v, err := e.trust.PutReview(ctx, buyer, order, 5, "Tốt", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.reveal(t, order)
+	if err = e.trust.MarkHelpful(ctx, gone, v.ID); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err = e.trust.ClearAccount(ctx, gone); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got, _ := e.trust.ScamWarnings(ctx, gone, []uuid.UUID{c.ID}, locale.Vietnamese); len(got) != 0 {
+		t.Fatalf("warnings: %+v", got)
+	}
+	mine, err := e.trust.MyReports(ctx, gone, page.Request{})
+	if err != nil || len(mine.Items) != 3 {
+		t.Fatalf("%+v %v", mine, err)
+	}
+	for _, r := range mine.Items {
+		want, note := domain.ReportWithdrawn, ""
+		if r.ID == resolved.ID {
+			want, note = domain.ReportResolved, "Giả mạo"
+		}
+		if r.Status != want || r.Note != note {
+			t.Errorf("report %v (open %v): %+v", r.ID, r.ID == open.ID, r)
+		}
+	}
+	got, err := e.trust.Reviews(ctx, nil, seller, domain.RoleSeller, page.Request{})
+	if err != nil || len(got.Items) != 1 || got.Items[0].Helpful.Count != 0 {
+		t.Fatalf("helpful: %+v %v", got, err)
 	}
 }
 

@@ -58,8 +58,8 @@ type Cases interface {
 	// when the account has neither.
 	Current(ctx context.Context, account uuid.UUID) (Case, []domain.Report, error)
 	// Resolve stamps account's open reports with r and writes entry in the
-	// same transaction; without an open report it is domain.ErrCaseNotOpen
-	// and nothing is written.
+	// same transaction. Without an open report nothing is written: nil when
+	// the resolution Current shows has r's outcome, else ErrCaseNotOpen.
 	Resolve(ctx context.Context, account uuid.UUID, r Resolution, entry audit.Entry) error
 	// Reopen marks account's latest resolution reopened, at the time given,
 	// and opens its reports again, except those whose reporter has a newer

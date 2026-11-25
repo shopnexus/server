@@ -7,6 +7,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 	"uuid"
@@ -88,8 +89,9 @@ type Service interface {
 	// account's, and answers chat's conversation_not_found to anyone but a
 	// member. Without a warning, or dismissed already, it changes nothing.
 	DismissScamWarning(ctx context.Context, account, conversation uuid.UUID) error
-	// DeleteScamWarnings deletes a deleted account's own warnings.
-	DeleteScamWarnings(ctx context.Context, account uuid.UUID) error
+	// ClearAccount deletes a deleted account's own scam warnings and helpful
+	// marks, and withdraws its unresolved reports with their notes blanked.
+	ClearAccount(ctx context.Context, account uuid.UUID) error
 }
 
 // Deps is what New builds Trust from.
@@ -148,4 +150,19 @@ func (t *Trust) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{restate.Reflect(ScamCheck{
 		Prefix: t.prefix, Chats: t.chats, Scams: t.scams, Classifier: t.classifier, Facts: t.facts, Log: t.log, Now: t.now,
 	})}
+}
+
+// ClearAccount clears a deleted account's trust rows; each write is
+// idempotent, so a retried run changes nothing more.
+func (t *Trust) ClearAccount(ctx context.Context, account uuid.UUID) error {
+	if err := t.scams.DeleteAccount(ctx, account); err != nil {
+		return fmt.Errorf("delete scam warnings: %w", err)
+	}
+	if err := t.reports.WithdrawAll(ctx, account, t.now()); err != nil {
+		return fmt.Errorf("withdraw reports: %w", err)
+	}
+	if err := t.reviews.UnmarkAll(ctx, account); err != nil {
+		return fmt.Errorf("unmark helpful: %w", err)
+	}
+	return nil
 }

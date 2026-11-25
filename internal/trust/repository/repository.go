@@ -1,7 +1,6 @@
 // Package repository stores module trust's reviews, reports and scam
-// warnings in Postgres. Each method is one statement, except the review's
-// Insert and the scam warnings' Record and Save, which write in one
-// transaction.
+// warnings in Postgres. A write that checks or locks before it writes runs
+// in one transaction; the rest are one statement.
 package repository
 
 import (
@@ -37,7 +36,7 @@ type Reviews interface {
 	// Save writes r when its row still has r.WriteID() or already has
 	// writeID, then sets its write ID to writeID; otherwise ErrConflict and
 	// nothing is written. A first reply also writes review.replied with
-	// writeID as its ID, once.
+	// writeID as its ID, once; a deleted r loses its helpful marks.
 	Save(ctx context.Context, r *domain.Review, writeID uuid.UUID) error
 	// OfSubject is a query: subject's reviews in role, visible at now and
 	// not deleted, with IDs below p.Before(), newest first, at most
@@ -50,8 +49,11 @@ type Reviews interface {
 	// used first, then by tag; a tag no review carries is left out.
 	TagCounts(ctx context.Context, subject uuid.UUID, role domain.Role, now time.Time) ([]TagCount, error)
 	// MarkHelpful records that account found the review helpful; a second
-	// mark changes nothing.
+	// mark changes nothing. A deleted or unknown review is ErrNotFound, a
+	// deleted account accountdomain.ErrSessionRevoked.
 	MarkHelpful(ctx context.Context, review, account uuid.UUID, at time.Time) error
+	// UnmarkAll takes back every helpful mark of a deleted account.
+	UnmarkAll(ctx context.Context, account uuid.UUID) error
 	// UnmarkHelpful takes account's mark back; an absent one is fine.
 	UnmarkHelpful(ctx context.Context, review, account uuid.UUID) error
 	// Helpful counts the helpful marks of the reviews given and tells

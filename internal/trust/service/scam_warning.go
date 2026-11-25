@@ -36,10 +36,3 @@ func (t *Trust) DismissScamWarning(ctx context.Context, account, conversation uu
 	}
 	return nil
 }
-
-func (t *Trust) DeleteScamWarnings(ctx context.Context, account uuid.UUID) error {
-	if err := t.scams.DeleteAccount(ctx, account); err != nil {
-		return fmt.Errorf("delete scam warnings: %w", err)
-	}
-	return nil
-}

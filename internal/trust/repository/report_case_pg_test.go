@@ -113,6 +113,11 @@ func TestCases(t *testing.T) {
 		entry); !errors.Is(err, domain.ErrCaseNotOpen) {
 		t.Fatalf("resolve twice: %v", err)
 	}
+	// The same outcome again is a retry whose first try landed: no new row.
+	if err = cases.Resolve(ctx, seller, repository.Resolution{ID: uuid.NewV7(), Outcome: domain.OutcomeDismissed, MemberID: lan, At: resolution.At},
+		entry); err != nil {
+		t.Fatalf("retry: %v", err)
+	}
 	if n, _ := cases.CountOpen(ctx); n != 1 {
 		t.Fatalf("count after resolving: %d", n)
 	}

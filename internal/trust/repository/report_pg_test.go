@@ -11,7 +11,9 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
+	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 	"github.com/shopnexus/server/internal/trust/domain"
 	"github.com/shopnexus/server/internal/trust/repository"
@@ -133,5 +135,85 @@ func TestReportConversation(t *testing.T) {
 	}
 	if got := open(uuid.UUID{}); got.ConversationID() != (uuid.UUID{}) {
 		t.Fatalf("again without one: %+v", got.State())
+	}
+}
+
+// WithdrawAll withdraws a reporter's unresolved reports with blank notes,
+// keeps an earlier withdrawal's time and leaves a resolved report alone.
+func TestWithdrawAll(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s, cases := repository.NewReports(db), repository.NewCases(db)
+	reporter, seller, other := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
+	at := time.Now().UTC().Truncate(time.Microsecond)
+	open := func(account, listing uuid.UUID, note string) domain.Report {
+		t.Helper()
+		r, err := domain.NewReport(uuid.NewV7(), reporter, account, listing, uuid.UUID{}, domain.ReasonScam, note, at)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r, _, err = s.Open(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+		return r
+	}
+	resolved := open(other, uuid.UUID{}, "Giả mạo")
+	lan := member(t, db, "Lan")
+	if err := cases.Resolve(ctx, other, repository.Resolution{ID: uuid.NewV7(), Outcome: domain.OutcomeDismissed, MemberID: lan, At: at}, audit.Entry{
+		Actor: audit.Actor{Kind: audit.ActorMember, MemberID: lan}, Action: audit.ReportDismiss, Target: audit.Account(other), At: at,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	listed := open(seller, catalogtest.Listing(t, db, seller), "Đòi cọc")
+	earlier := open(seller, uuid.UUID{}, "Hàng giả")
+	if err := s.Withdraw(ctx, earlier.ID(), at.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := s.WithdrawAll(ctx, reporter, at.Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for id, want := range map[uuid.UUID]time.Time{listed.ID(): at.Add(time.Hour), earlier.ID(): at.Add(time.Minute)} {
+		got, err := s.Get(ctx, id)
+		if err != nil || got.WithdrawnAt() == nil || !got.WithdrawnAt().Equal(want) || got.Note() != "" {
+			t.Errorf("%v: %+v %v", id, got.State(), err)
+		}
+	}
+	if got, err := s.Get(ctx, resolved.ID()); err != nil || got.Status() != domain.ReportResolved || got.Note() != "Giả mạo" {
+		t.Errorf("resolved: %+v %v", got.State(), err)
+	}
+}
+
+// A report or a helpful mark that reaches the store after Erase finds the
+// tombstone and writes nothing.
+func TestDeletedAccountWritesNothing(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	reports, reviews := repository.NewReports(db), repository.NewReviews(db)
+	seller, buyer, gone := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
+	o, l := order(t, db, buyer, seller)
+	rv := review(t, reviews, o, seller, buyer, l, 5)
+	if _, err := db.Exec(ctx, `UPDATE accounts
+SET status = 'deleted', deleted_at = now(), display_name = NULL, bio = NULL, avatar_key = NULL WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": gone}); err != nil {
+		t.Fatal(err)
+	}
+	r, err := domain.NewReport(uuid.NewV7(), gone, seller, uuid.UUID{}, uuid.UUID{}, domain.ReasonScam, "Đòi cọc", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = reports.Open(ctx, r); !errors.Is(err, accountdomain.ErrSessionRevoked) {
+		t.Errorf("report: %v", err)
+	}
+	if err = reviews.MarkHelpful(ctx, rv.ID(), gone, now); !errors.Is(err, accountdomain.ErrSessionRevoked) {
+		t.Errorf("mark: %v", err)
+	}
+	var n int
+	if err = db.QueryRow(ctx, `SELECT (SELECT count(*) FROM reports WHERE reporter_id = @id) + (SELECT count(*) FROM review_helpful WHERE account_id = @id)`,
+		pgx.StrictNamedArgs{"id": gone}).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("rows: %d %v", n, err)
 	}
 }

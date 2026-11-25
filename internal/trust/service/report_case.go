@@ -121,8 +121,9 @@ func (s *Trust) ReportCase(ctx context.Context, account uuid.UUID) (CaseDetail, 
 
 // ResolveReportCase closes account's open case with outcome for the member
 // by, recording report.dismiss or report.resolve in the same transaction.
-// Without an open case it is domain.ErrCaseNotOpen; the ShopNexus account
-// is accountdomain.ErrSystemAccount.
+// Without an open case it answers the latest resolved one when that has
+// outcome (a retry), else domain.ErrCaseNotOpen; the ShopNexus account is
+// accountdomain.ErrSystemAccount.
 func (s *Trust) ResolveReportCase(ctx context.Context, account uuid.UUID, outcome domain.Outcome, by audit.Actor) (CaseDetail, error) {
 	if account == accountdomain.ShopNexusID {
 		return CaseDetail{}, accountdomain.ErrSystemAccount

@@ -10,7 +10,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/trust/domain"
 )
 
@@ -58,16 +60,33 @@ func (s pgReports) Open(ctx context.Context, r domain.Report) (domain.Report, bo
 	if st.ConversationID != (uuid.UUID{}) {
 		conversation = &st.ConversationID
 	}
-	var added bool
-	got, err := scanReport(s.db.QueryRow(ctx, `INSERT INTO reports (`+reportColumns+`)
+	var (
+		got   domain.Report
+		added bool
+	)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		b := &pgx.Batch{}
+		// A report that commits after Erase waits for it here and finds the
+		// tombstone, so none outlives the worker's WithdrawAll.
+		postgres.QueueLockLiving(b, st.ReporterID, accountdomain.ErrSessionRevoked)
+		b.Queue(`INSERT INTO reports (`+reportColumns+`)
 VALUES (@id, @reporter, @account, @listing, @conversation, @reason, @note, @created_at, @updated_at, NULL)
 ON CONFLICT `+target+` DO UPDATE
 SET reason = EXCLUDED.reason, note = EXCLUDED.note, conversation_id = EXCLUDED.conversation_id,
     updated_at = EXCLUDED.updated_at
 RETURNING `+reportSelect+`, xmax = 0`, pgx.StrictNamedArgs{
-		"id": st.ID, "reporter": st.ReporterID, "account": st.AccountID, "listing": listing, "conversation": conversation, "reason": st.Reason,
-		"note": st.Note, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
-	}), &added)
+			"id": st.ID, "reporter": st.ReporterID, "account": st.AccountID, "listing": listing, "conversation": conversation, "reason": st.Reason,
+			"note": st.Note, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
+		}).QueryRow(func(row pgx.Row) error {
+			var scanErr error
+			got, scanErr = scanReport(row, &added)
+			return scanErr
+		})
+		return tx.SendBatch(ctx, b).Close()
+	})
+	if errors.Is(err, accountdomain.ErrSessionRevoked) {
+		return domain.Report{}, false, accountdomain.ErrSessionRevoked
+	}
 	if err != nil {
 		return domain.Report{}, false, fmt.Errorf("upsert report: %w", err)
 	}
@@ -100,6 +119,15 @@ func (s pgReports) Withdraw(ctx context.Context, id uuid.UUID, at time.Time) err
 	if _, err := s.db.Exec(ctx, `UPDATE reports SET withdrawn_at = @at, updated_at = @at
 WHERE id = @id AND withdrawn_at IS NULL`, pgx.StrictNamedArgs{"id": id, "at": at}); err != nil {
 		return fmt.Errorf("withdraw report: %w", err)
+	}
+	return nil
+}
+
+func (s pgReports) WithdrawAll(ctx context.Context, reporter uuid.UUID, at time.Time) error {
+	if _, err := s.db.Exec(ctx, `UPDATE reports SET withdrawn_at = coalesce(withdrawn_at, @at), note = '', updated_at = @at
+WHERE reporter_id = @reporter AND resolution_id IS NULL AND (withdrawn_at IS NULL OR note <> '')`,
+		pgx.StrictNamedArgs{"reporter": reporter, "at": at}); err != nil {
+		return fmt.Errorf("withdraw the reporter's reports: %w", err)
 	}
 	return nil
 }

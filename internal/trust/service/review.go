@@ -24,7 +24,8 @@ var reviewable = []dealdomain.OrderStatus{dealdomain.OrderCompleted, dealdomain.
 // order, then creates their review of the other party, once the order is
 // delivered or failed, or edits it within 7 days and before a reply. Its
 // new photos are attached to the order in media and processed first; nil
-// tags or photos keep the review's.
+// tags or photos keep the review's. A review that already holds the
+// request, as a retry or a double tap finds it, is answered as it is.
 func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars int, text string, tags []domain.Tag, photos []uuid.UUID) (ReviewView, error) {
 	status, err := s.accounts.Status(ctx, caller)
 	if err != nil {
@@ -47,6 +48,8 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 		}
 	case err != nil:
 		return ReviewView{}, fmt.Errorf("get review: %w", err)
+	case r.Holds(stars, text, tags, photos):
+		return s.reviewView(ctx, caller, r)
 	default:
 		if err = r.CanChange(now); err != nil {
 			return ReviewView{}, err
@@ -101,11 +104,20 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 		err = s.reviews.Save(ctx, &r, uuid.NewV7())
 	}
 	if errors.Is(err, repository.ErrConflict) {
+		// A double tap's twin may have written the same review.
+		if again, getErr := s.reviews.ByOrder(ctx, order, role); getErr == nil && again.Holds(stars, text, tags, photos) {
+			return s.reviewView(ctx, caller, again)
+		}
 		return ReviewView{}, apperr.ErrTryAgain
 	}
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("save review: %w", err)
 	}
+	return s.reviewView(ctx, caller, r)
+}
+
+// reviewView is r as the caller reads it.
+func (s *Trust) reviewView(ctx context.Context, caller uuid.UUID, r domain.Review) (ReviewView, error) {
 	views, err := s.views(ctx, &caller, []domain.Review{r})
 	if err != nil {
 		return ReviewView{}, err
@@ -115,24 +127,37 @@ func (s *Trust) PutReview(ctx context.Context, caller, order uuid.UUID, stars in
 
 // DeleteReview takes the caller's review of an order down within 7 days of
 // its first submission and before a reply; a review posted again later
-// keeps that start.
+// keeps that start. The caller's review deleted already is done (a retry).
 func (s *Trust) DeleteReview(ctx context.Context, caller, order uuid.UUID) error {
+	status, err := s.accounts.Status(ctx, caller)
+	if err != nil {
+		return fmt.Errorf("read account status: %w", err)
+	}
+	if r := status.Refusal(); r != nil {
+		return r
+	}
 	_, role, _, err := s.partyOrder(ctx, caller, order)
 	if err != nil {
 		return err
 	}
 	r, err := s.reviews.ByOrder(ctx, order, role)
-	if errors.Is(err, repository.ErrNotFound) || (err == nil && r.Deleted()) {
+	if errors.Is(err, repository.ErrNotFound) || (err == nil && r.ReviewerID() != caller) {
 		return domain.ErrNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("get review: %w", err)
+	}
+	if r.Deleted() {
+		return nil
 	}
 	if err = r.Delete(s.now()); err != nil {
 		return err
 	}
 	err = s.reviews.Save(ctx, &r, uuid.NewV7())
 	if errors.Is(err, repository.ErrConflict) {
+		if again, getErr := s.reviews.ByOrder(ctx, order, role); getErr == nil && again.Deleted() {
+			return nil
+		}
 		return apperr.ErrTryAgain
 	}
 	if err != nil {
@@ -142,7 +167,8 @@ func (s *Trust) DeleteReview(ctx context.Context, caller, order uuid.UUID) error
 }
 
 // ReplyReview writes the subject's one reply to a visible review, which
-// closes it. Anyone but the subject gets review_not_found.
+// closes it. Anyone but the subject gets review_not_found. The same reply
+// there already is answered as it is (a retry).
 func (s *Trust) ReplyReview(ctx context.Context, caller, id uuid.UUID, text string) (ReviewView, error) {
 	status, err := s.accounts.Status(ctx, caller)
 	if err != nil {
@@ -159,20 +185,22 @@ func (s *Trust) ReplyReview(ctx context.Context, caller, id uuid.UUID, text stri
 		return ReviewView{}, fmt.Errorf("get review: %w", err)
 	}
 	if err = r.Reply(caller, text, s.now()); err != nil {
+		if errors.Is(err, domain.ErrReplied) && r.HasReply(text) {
+			return s.reviewView(ctx, caller, r)
+		}
 		return ReviewView{}, err
 	}
 	err = s.reviews.Save(ctx, &r, uuid.NewV7())
 	if errors.Is(err, repository.ErrConflict) {
+		if again, getErr := s.reviews.Get(ctx, id); getErr == nil && again.SubjectID() == caller && again.HasReply(text) {
+			return s.reviewView(ctx, caller, again)
+		}
 		return ReviewView{}, apperr.ErrTryAgain
 	}
 	if err != nil {
 		return ReviewView{}, fmt.Errorf("save reply: %w", err)
 	}
-	views, err := s.views(ctx, &caller, []domain.Review{r})
-	if err != nil {
-		return ReviewView{}, err
-	}
-	return views[0], nil
+	return s.reviewView(ctx, caller, r)
 }
 
 // Reviews reads one page of the visible reviews of subject in role,

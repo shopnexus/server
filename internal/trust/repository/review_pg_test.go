@@ -349,3 +349,40 @@ func TestReviewPhotosAndHelpfulMarks(t *testing.T) {
 		t.Fatalf("unmarked: %+v %v", marks, err)
 	}
 }
+
+// A delete drops the review's helpful marks and no mark lands on it after;
+// UnmarkAll takes one account's marks back.
+func TestHelpfulMarksOfADeletedReview(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewReviews(db)
+	ctx := context.Background()
+	seller, buyer, reader, gone := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
+	o, l := order(t, db, buyer, seller)
+	r := review(t, s, o, seller, buyer, l, 4)
+	for _, who := range []uuid.UUID{reader, gone} {
+		if err := s.MarkHelpful(ctx, r.ID(), who, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.UnmarkAll(ctx, gone); err != nil {
+		t.Fatal(err)
+	}
+	if marks, err := s.Helpful(ctx, []uuid.UUID{r.ID()}, &gone); err != nil || marks[r.ID()] != (repository.HelpfulMarks{Count: 1}) {
+		t.Fatalf("after UnmarkAll: %+v %v", marks, err)
+	}
+	if err := r.Delete(now.Add(-time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(ctx, &r, uuid.NewV7()); err != nil {
+		t.Fatal(err)
+	}
+	if marks, err := s.Helpful(ctx, []uuid.UUID{r.ID()}, nil); err != nil || len(marks) != 0 {
+		t.Fatalf("after the delete: %+v %v", marks, err)
+	}
+	for name, id := range map[string]uuid.UUID{"deleted": r.ID(), "unknown": uuid.NewV7()} {
+		if err := s.MarkHelpful(ctx, id, reader, now); !errors.Is(err, repository.ErrNotFound) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+}
