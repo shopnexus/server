@@ -1,9 +1,11 @@
 package restatex
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 	"uuid"
 
@@ -12,7 +14,7 @@ import (
 
 // CallTimeout bounds how long an HTTP handler waits for a service. The
 // invocation goes on after a timeout, and the app's retry with the same
-// Idempotency-Key picks up its result.
+// Idempotency-Key finds the rows it claimed.
 const CallTimeout = 15 * time.Second
 
 // Now returns now() from a journaled step, so a replay sees the same time.
@@ -41,6 +43,18 @@ func NewID(ctx restate.Context, at time.Time) uuid.UUID {
 	copy(id[6:14], b[8:16])
 	copy(id[14:16], b[22:24])
 	id[6] = 0x70 | id[6]&0x0f
+	id[8] = 0x80 | id[8]&0x3f
+	return id
+}
+
+// DerivedID is a UUIDv8 that only its parts make: the dedupe key of a row
+// that no journal holds an ID for, such as a copy keyed by the client's
+// request, so a retry that derives it again finds the same row.
+func DerivedID(parts ...string) uuid.UUID {
+	h := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+	var id uuid.UUID
+	copy(id[:], h[:16])
+	id[6] = 0x80 | id[6]&0x0f
 	id[8] = 0x80 | id[8]&0x3f
 	return id
 }

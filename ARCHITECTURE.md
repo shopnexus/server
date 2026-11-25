@@ -385,8 +385,8 @@ Only flows that need durability run as Restate services. Other use cases are
 called directly from HTTP handlers with `context.Context`, so reads and
 refresh keep working when Restate is down.
 
-- The client's `Idempotency-Key` is the idempotency key of the invocation. A
-  repeated key returns the first result and runs no step again.
+- A flow dedupes by the keys of the rows it writes (see Dedupe), so a
+  call through `restatex.Caller` carries no Restate idempotency key.
 - A `restate.Run` step only reads or writes a store, so any error it returns
   is a fault that Restate retries. Every business decision is taken in the
   handler between steps, on values a step returned and the journal kept.
@@ -424,8 +424,8 @@ refresh keep working when Restate is down.
   step by `restatex.NewID(ctx, at)`, a UUIDv7 built from the journaled clock
   and the invocation's deterministic random generator (`restate.UUID` gives
   version 4, which would break the spec's time-ordered cursors). Inserts use
-  `ON CONFLICT (id) DO NOTHING`. The same ID is the idempotency key sent to a
-  payment provider.
+  `ON CONFLICT (id) DO NOTHING`. Domain code never mints an ID inside a
+  step.
 - Module account's Restate services, `SignIn`, `EmailCodeSend` and
   `AddIdentity`, live in `account/service/*_durable.go`. The `Account`
   methods in front of them call them through `restatex.Caller`, and
@@ -674,32 +674,78 @@ too, such as revoking sessions or moving an address's default, which
 give every row they change the caller's N. Zero rows is the module's
 `ErrConflict` and nothing else, so a check such as the listing cap runs
 before the update; a save that must skip its side effects on a retry
-reads `RETURNING old.write_id = @write_id`. After the save the aggregate
-carries N (`Saved(N)`).
+reads `RETURNING old.write_id = @write_id` (K2's state compare, see
+Dedupe). After the save the aggregate carries N (`Saved(N)`).
 
 Accepted risk: when a step commits, the process dies before Restate journals
 the result, and another writer commits before the retry, the retry gets
 `ErrConflict` although its change landed. The service handles it like any
 conflict: read again and decide.
 
-`write_id` differs from the client's `Idempotency-Key`, which names a whole
-invocation so Restate runs it once.
+### Dedupe
+
+One standard for every write a retry can repeat (decided 2026-11-25). It
+replaces the Restate idempotency keys the use cases sent.
+
+- K1, create. Every created row has a dedupe key that a UNIQUE constraint
+  holds, claimed with `INSERT ... ON CONFLICT DO NOTHING` before any
+  outside side effect. Zero rows inserted answers the existing row as the
+  same response. The key is:
+  - an outside fact: its natural columns as a composite UNIQUE, such as an
+    identity's `(kind, value)`, never a joined string;
+  - a client request: `(account_id, request_key)`, where `request_key` is
+    the `Idempotency-Key` header. The use case looks the key up before it
+    calls a flow, and the flow's insert claims it, so a racing retry finds
+    the first row and answers with it;
+  - an internal step: an ID minted in an earlier journaled step
+    (`restatex.NewID`) or passed in, with `ON CONFLICT (id) DO NOTHING`.
+    Rows one request makes several of outside a journal, such as photo
+    copies, take `restatex.DerivedID(parts...)`, a UUIDv8 of the request
+    key and the row's place.
+- K2, change. A change to an existing row is the `write_id` save plus a
+  state compare: a retry of the same request answers success with the
+  current view, and a different move that conflicts still gets its error.
+  Where the request leaves no row of its own, the save's write ID derives
+  from the request key, so a retry finds its own write: a code guess, an
+  added identity. A deal's moves keep `request_key`, and a move the
+  caller's key already made answers without moving again.
+- K3, outside calls carry our key. Resend gets `Idempotency-Key` (the
+  challenge ID, or event, recipient and index); GHTK's order ID and GHN's
+  `client_order_code` are the order code, and GHN's create reads back by
+  it. FCM takes none: `collapse_key` and `tag` replace a repeated push,
+  and the worker's Restate key is the event and the follower. The model,
+  embedding, chotot and IndexNow calls read or are idempotent; GHN's
+  affiliate link rejoins the shop it made. There are no payments.
+- Restate idempotency keys stay where they are K1's internal-step form:
+  the events bus (`Events.Deliver` under the event ID), `MediaProcess`
+  under the upload ID (a retry and a run under way share one processing),
+  delayed expiry sends under the upload or read, `ListingPublish` under
+  the listing and write ID, `MessagePublish` under the message ID, the
+  notification fan-out under the event and follower, and the sweeper.
+- `shipment_events` keeps no UNIQUE on the time: a webhook and a poll date
+  one event from different fields (GHTK's webhook `action_time`, its poll
+  `order.modified`; GHN's webhook `Time`, its poll `log[].updated_date`),
+  and an unreadable time is now. `Events.Add` keeps the content compare
+  within `sameEventWindow` (10 minutes) or against the newest event of its
+  kind, under `pg_advisory_xact_lock` per carrier and tracking code, so a
+  racing webhook and poll take turns.
 
 ### Idempotency-Key
 
-Every endpoint that invokes a Restate service requires an `Idempotency-Key`
-header (a UUID) and passes it as the invocation's idempotency key. A repeated
-key attaches to the first run and returns its result, so a retried tap gets
-the same answer. `PATCH /v1/accounts/me` with an avatar is the exception: it
-calls `MediaProcess` keyed by the upload ID, which already makes a repeat
-attach to the first run. `POST /v1/deals/{id}/cod` and
+Every endpoint that runs a Restate flow requires an `Idempotency-Key`
+header (a UUID): the `request_key` of what the request creates or moves.
+A repeated key answers with the first request's row, so a retried tap gets
+the same answer. `POST /v1/deals/{id}/cod` and
 `POST /v1/orders/{order_id}/cancel` take the header as optional (decided
-2026-11-19), since app versions from before send none: with a key they
-run once per caller and key, and without one every request runs its own
-invocation. Sign-in puts the verified number in the key and
-listing posts put the seller, so a key sent with another number's token or
-by another seller runs apart. A reauthentication puts the caller's session
-and the proven address in it.
+2026-11-19), since app versions from before send none: without one every
+request moves on its own. A key is scoped to the caller, so another
+account's key never finds the row. Sign-in claims the session
+`(account_id, request_key)`, and `credentials.request_key` keeps the
+sign-up's key, so its retry answers `is_new: true` again; a code mail
+claims the challenge
+`(destination, request_key)`. `PUT /v1/listings/{id}` takes no key: a
+retry writes the same content again. Endpoints without the header keep
+minted IDs and their natural uniques.
 
 ### Sign-in
 
@@ -727,10 +773,8 @@ is an email identity signs in to that account.
    `provider/google.Verifier` and becomes a proven address. An email code
    becomes a `CodeGuess`: the challenge ID and `HMAC(OTP_KEY, address,
    code)`, never the code.
-2. It calls Restate service `SignIn`, handler `Run`, with `ProvenSignIn`.
-   The invocation key is `<kind>:<value>/<Idempotency-Key>` for a token
-   and `<challenge_id>/<Idempotency-Key>` for a code, so a key sent again
-   with another person's proof runs apart.
+2. It calls Restate service `SignIn`, handler `Run`, with `ProvenSignIn`
+   and the request key.
 3. For a code, `judgeGuess` reads the challenge in one step and saves the
    counted guess in the next. A challenge that is unknown, not the newest
    for its address and purpose, of purpose `add_identity`, expired or out
@@ -743,13 +787,12 @@ is an email identity signs in to that account.
      identity, in one step and one transaction. `ErrIdentityTaken` writes
      nothing (see Durable flows).
 5. `Account.SignIn` issues the session after the Restate service returns,
-   with the session ID the service chose. Restate answers a repeated key
-   with the first result whatever the request carries, so for a code the
-   use case also compares the request's hash with the challenge's and
-   answers `code_expired` when they differ. When the same key comes back
-   with a valid proof, that session exists, so `SignIn` rotates its
-   refresh token and returns new tokens for it; a session signed out since
-   answers `session_revoked`.
+   claiming `(account_id, request_key)`. When the same key comes back with
+   a valid proof, that session exists, so `SignIn` rotates its refresh
+   token and returns new tokens for it; a session signed out since answers
+   `session_revoked`. A code's guess saves under a write ID the request key
+   derives, so the retry finds the code consumed by itself and proves
+   again; with another code it is `code_expired`.
 
 The phone token checks live in `internal/provider/firebase`:
 
@@ -827,11 +870,12 @@ Email codes:
 
 `POST /v1/accounts/me/identities` takes a proof of the kind the account
 lacks: a phone token for an email-only account, a Google token or an
-`add_identity` code for a phone-only one. Restate service `AddIdentity`,
-key `<account_id>/<Idempotency-Key>`, judges a code with `judgeGuess`
+`add_identity` code for a phone-only one. Restate service `AddIdentity`
+judges a code with `judgeGuess`
 (the challenge must be of this account), reads the `Credentials` in a step,
-`Add`s the identity between steps and saves it in the next. A kind the
-account holds is 409 `identity_kind_taken`; a value another account holds
+`Add`s the identity between steps and saves it in the next, under a
+write ID the request key derives, so a retry answers with the
+identities. A kind the account holds is 409 `identity_kind_taken`; a value another account holds
 is 409 `identity_taken`; a lost race is `try_again`. Accounts are never
 merged, and no endpoint changes or removes an identity, so adding one and
 mailing the code that adds an email (`POST /v1/accounts/me/email-codes`)
@@ -865,17 +909,16 @@ an empty account.
   session (`Usable`: 401 `session_revoked` or `session_expired`). It checks
   a token outside Restate as `SignIn` does, or hashes a code into a
   `CodeGuess`.
-- Restate service `Reauthenticate` runs under the key
-  `<session_id>/<kind>:<value>/<Idempotency-Key>`, or
-  `<session_id>/<challenge_id>/<Idempotency-Key>` for a code. It judges a
+- Restate service `Reauthenticate` judges a
   code with `judgeGuess` for purpose `sign_in`, so the code comes from
   `POST /v1/auth/email-codes` with that endpoint's quotas and five guesses.
   Then `findIdentity`, the step `SignIn` also runs, looks the address up.
   An identity of another account and an address no identity holds both
   answer 403 `wrong_account`, so the answer does not tell whether an
   address is registered. The service writes only the counted guess and
-  returns `at`, the time it checked the proof. A repeated key with another
-  code is `code_expired`, as for sign-in.
+  returns `at`, the time it checked the proof. A retry of the key proves
+  at the first check's time, so a used code cannot renew the sign-in
+  again; with another code it is `code_expired`, as for sign-in.
 - `Sessions.Reauthenticate` sets `auth_time = greatest(auth_time, at)` in
   one statement that keeps `write_id`, on the session if it is not revoked
   and at `at` neither past `SessionMaxAge` nor idle past
@@ -887,8 +930,7 @@ an empty account.
   signs with the new time. A session that the update misses is
   `session_expired` when `Usable(at)` fails on the session as first read,
   which covers one that ended while the code was judged, and
-  `session_revoked` otherwise. A repeated key writes the first run's `at`
-  again, which does not move `auth_time`.
+  `session_revoked` otherwise.
 - The reply is `AccessToken`, an access token for the same session signed
   with the new `auth_time`. The middleware reads `auth_time` from the
   access token and from no database (see Session use cases), so the app
@@ -1373,10 +1415,9 @@ agree during a deploy.
   reserved listing counts toward the cap and shows in the `on_sale` pane;
   the seller cannot hide, edit, mark sold or delete it.
 - Posting and editing run as Restate services, `ListingPost` and
-  `ListingEdit`, through `restatex.Caller`. `POST /v1/listings` and
-  `PUT /v1/listings/{id}` take an `Idempotency-Key`, and the invocation's
-  key is `<seller id>/<Idempotency-Key>`: Restate scopes a key to the
-  service, so the seller in it keeps two sellers' keys apart.
+  `ListingEdit`, through `restatex.Caller`. `POST /v1/listings` takes an
+  `Idempotency-Key`, claimed as `(seller_id, request_key)` in the insert
+  that also holds the cap, so two sellers' keys stay apart.
 - `ListingPost` checks, in order: account suspended, 20 listings in
   processing, active, hidden or rejected, then the fields. The category and
   commune lookups reach the domain as `domain.Refs`, so one
@@ -1730,17 +1771,17 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   a cancel finish or take back an order already under
   way, and refuse no one for a suspension.
 - The shipment and the confirmation change the listing, so they run as
-  Restate flows, `DealShip` and `DealConfirm`, with the invocation key
-  `<caller id>/<Idempotency-Key>`. `DealShip` checks the order and the
-  listing, reserves the listing, makes the shipment through shipping, then
+  Restate flows, `DealShip` and `DealConfirm`. A move keeps the caller's
+  key in `deal_moves.request_key`, unique per deal and party, and a flow
+  whose key already moved answers without moving. `DealShip` checks the
+  order and the listing, reserves the listing, makes the shipment through shipping, then
   saves. A refusal of shipping's gives the listing back. When the save
   loses a race it releases the listing and calls off the shipment the
   order did not take. `DealConfirm` saves, then sells the listing.
 - The COD request and the order's cancel run as the flows
   `DealRequestCod` and `DealCancelOrder` (decided 2026-11-19), so a
-  repeated `Idempotency-Key` answers as the first request did: its
-  refusal again, or the deal read anew. The key is optional on both; an
-  empty one gives the invocation no key. `DealRequestCod` loads the deal,
+  repeated `Idempotency-Key` answers with the deal read anew. The key is
+  optional on both; without one every request moves on its own. `DealRequestCod` loads the deal,
   then reads the buyer's status and address in one step, makes the order
   under an ID from `restatex.NewID` (domain `RequestCod` takes the ID, as
   the timer after the save names it, and a replay must name the same
@@ -1917,8 +1958,9 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   by carrier and tracking code: steps with the carrier's own status,
   reason, hub, shipper and delivery photo, and the new weight, fee, COD
   and COD payout. An event that repeats one kept (same kind, step, status
-  and amount within ten minutes, or the newest of its kind) is dropped, so
-  a webhook and the poll that read the same status keep one row. A report
+  and amount within ten minutes, or the newest of its kind) is dropped
+  under the parcel's advisory lock, so a webhook and the poll that read the
+  same status keep one row (see Dedupe). A report
   for a code no order has, or one at another carrier, keeps nothing. The
   order screen returns the timeline as `tracking`, newest first; the buyer
   gets the steps only.
@@ -2163,9 +2205,9 @@ Module `chat` holds conversations (spec:
 - A message has text of 1 to 1,000 characters, up to 4 photos, or both,
   and may name a listing of either member. Messages cannot be edited or
   deleted.
-- Every send runs as the Restate flow `MessageSend` with the key `<sender
-  id>/<Idempotency-Key>`, text messages included, so a retried tap sends
-  one message. One step reads what the send depends on (status, a phone
+- Every send runs as the Restate flow `MessageSend`, text messages
+  included, and the message claims `(sender_id, request_key)`, so a
+  retried tap sends one message. One step reads what the send depends on (status, a phone
   when opening, listing, conversation, block) and the flow decides between steps; then
   steps open the pair's conversation, add the message and attach its
   photos to it in media (holder: the message), deleting the message again
@@ -3033,7 +3075,7 @@ Spam and scam detection is moderation and goes to trust; the two share
 The video read:
 
 - `{video}` takes one of the caller's video uploads. Restate service
-  `VideoRead.Start`, key `<account id>/<Idempotency-Key>`, refuses a
+  `VideoRead.Start` refuses a
   suspended account and one without a phone (`phone_required`, as a listing
   post does: a read exists to post a listing, and accounts made of an email
   alone would otherwise reach the model), then inserts the row. The insert's transaction takes
@@ -3301,9 +3343,10 @@ back on 2026-11-24 as a module of its own (see Feedback).
   for one carrier) and `other` (needs a first message, a text or a photo).
   `TicketOpen` takes the first message as a message does, `text` and
   `photos`.
-- `POST /v1/support/tickets` runs the Restate flow `TicketOpen` under
-  `<account>/<Idempotency-Key>`. One step reads the account (a suspended
-  one may still open a ticket), the order's ticket and the order through
+- `POST /v1/support/tickets` runs the Restate flow `TicketOpen`, and the
+  ticket and its first message claim the request key. One step reads the
+  account (a suspended one may still open a ticket), the order's ticket
+  and the order through
   deal; then steps open the support chat, insert the ticket under
   `pg_advisory_xact_lock` on the account (at most 10 in 24 hours, 429
   `too_many_tickets`), send the person's first message through chat's
@@ -4141,8 +4184,8 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-orders.md`.
   the current display name, saved contact phone and current owned address.
   Deal resolves a saved pickup in a journaled step after checking the seller,
   selected pending order and listing, and before reserving the listing. A
-  retry with the same caller and `Idempotency-Key` reuses that invocation's
-  snapshot and outcome after the preference or address is removed. Quotes
+  retry with the same caller and `Idempotency-Key` whose shipment landed
+  answers from the order, after the preference or address is removed too. Quotes
   read the current preference on every request. An absent preference on a
   new valid shipment request is `pickup_not_configured`; omitting all
   selectors keeps the carrier's default.
@@ -4271,14 +4314,15 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-sell.md`.
   number of opens.
 - `POST /v1/listings/{id}/photo-copies` serves Đăng lại. It takes an
   `Idempotency-Key` and runs the Restate service `ListingPhotoCopy`
-  through `restatex.Caller`, keyed `<seller id>/<listing id>/<key>`, so a
+  through `restatex.Caller`. Each copy's upload ID is
+  `restatex.DerivedID` of the seller, listing, key and place, so a
   repeated key returns the first run's uploads and the same key on
-  another listing runs apart (decided 2026-11-16, after the branch's
+  another listing makes its own (decided 2026-11-16, after the branch's
   review, which found that a retried tap made a second set). A step reads
   the listing, refusing another seller's or a deleted one with
   `listing_not_found`. Then one step per processed photo, one at a time,
   reads it with media's `ReadPhoto` and saves it with `SavePhoto` under
-  an ID `restatex.NewID` minted before the step, so a retried step writes
+  that ID, so a retried step writes
   the same object and inserts nothing; the bytes never enter the journal.
   A copy's origin is `listing`, or `link` for a photo first copied from
   another site, so the new listing marks it copied. `Catalog.CopyPhotos`
@@ -4439,7 +4483,7 @@ Plan 2 settled these details on Restate 1.8.0 and Go SDK v1.1.0.
   change again (finding I1 of the plan 2 review). The read, decide, save
   split of Durable flows replaced that on 2026-10-21.
 - Restate answers a repeated `Idempotency-Key` with the first result,
-  whatever the new request carries. Sign-in therefore puts the verified
-  number in the key, and a replay never revives a session that was signed
-  out since.
+  whatever the new request carries. Sign-in therefore put the verified
+  number in the key, and a replay never revived a session that was signed
+  out since. Dedupe replaced those keys with row keys on 2026-11-25.
 
