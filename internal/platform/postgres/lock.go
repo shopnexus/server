@@ -10,17 +10,18 @@ import (
 // QueueLock queues a transaction-scoped advisory lock on scope and ids,
 // keyed "scope:id:…", so locks of two scopes never share a key.
 func QueueLock(b *pgx.Batch, scope string, ids ...any) {
-	queueLock(b, "pg_advisory_xact_lock", scope, ids)
+	lockAs(b, "pg_advisory_xact_lock", scope, ids)
 }
 
 // QueueLockShared is QueueLock's shared mode: shared holders run together
 // and wait only for an exclusive one.
 func QueueLockShared(b *pgx.Batch, scope string, ids ...any) {
-	queueLock(b, "pg_advisory_xact_lock_shared", scope, ids)
+	lockAs(b, "pg_advisory_xact_lock_shared", scope, ids)
 }
 
-func queueLock(b *pgx.Batch, fn, scope string, ids []any) {
-	parts := []string{scope}
+func lockAs(b *pgx.Batch, fn, scope string, ids []any) {
+	parts := make([]string, 0, 1+len(ids))
+	parts = append(parts, scope)
 	for _, id := range ids {
 		parts = append(parts, fmt.Sprint(id))
 	}
