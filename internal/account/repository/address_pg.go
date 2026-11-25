@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgAddresses struct{ db *pgxpool.Pool }
@@ -36,25 +37,19 @@ func scanAddress(row pgx.Row, extra ...any) (domain.Address, error) {
 	return domain.RestoreAddress(id, owner, d, isDefault, writeID, createdAt), nil
 }
 
-// lockBook takes owner's advisory lock until tx ends.
-func lockBook(ctx context.Context, tx pgx.Tx, owner uuid.UUID) error {
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext(@account::text))`,
-		pgx.StrictNamedArgs{"account": owner}); err != nil {
-		return fmt.Errorf("lock account: %w", err)
-	}
-	return nil
+// queueLockBook takes owner's advisory lock until the tx ends.
+func queueLockBook(b *pgx.Batch, owner uuid.UUID) {
+	queue(b, "lock account", `SELECT pg_advisory_xact_lock(hashtext(@account::text))`, pgx.StrictNamedArgs{"account": owner}, nil)
 }
 
-// clearDefault takes the default from owner's address that holds it, unless
-// that is keep, under writeID. It runs before another address becomes the
-// default, since the unique index on the default is checked row by row.
-func clearDefault(ctx context.Context, tx pgx.Tx, owner, keep, writeID uuid.UUID) error {
-	if _, err := tx.Exec(ctx, `UPDATE addresses SET is_default = false, write_id = @write_id
+// queueClearDefault takes the default from owner's address that holds it,
+// unless that is keep, under writeID. It runs before another address
+// becomes the default, since the unique index on the default is checked
+// row by row.
+func queueClearDefault(b *pgx.Batch, owner, keep, writeID uuid.UUID) {
+	queue(b, "clear the default", `UPDATE addresses SET is_default = false, write_id = @write_id
 WHERE account_id = @account AND is_default AND id <> @keep`,
-		pgx.StrictNamedArgs{"account": owner, "keep": keep, "write_id": writeID}); err != nil {
-		return fmt.Errorf("clear the default: %w", err)
-	}
-	return nil
+		pgx.StrictNamedArgs{"account": owner, "keep": keep, "write_id": writeID}, nil)
 }
 
 func (s pgAddresses) Insert(ctx context.Context, key uuid.UUID, a *domain.Address, makeDefault bool) error {
@@ -63,47 +58,53 @@ func (s pgAddresses) Insert(ctx context.Context, key uuid.UUID, a *domain.Addres
 		stored    *domain.Address
 	)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockLiving(ctx, tx, a.AccountID()); err != nil {
-			return err
-		}
-		if err := lockBook(ctx, tx, a.AccountID()); err != nil {
-			return err
-		}
-		got, err := scanAddress(tx.QueryRow(ctx, `SELECT `+addressColumns+`
+		b := &pgx.Batch{}
+		postgres.QueueLockLiving(b, a.AccountID(), domain.ErrSessionRevoked)
+		queueLockBook(b, a.AccountID())
+		b.Queue(`SELECT `+addressColumns+`
 FROM addresses a WHERE a.account_id = @account AND a.request_key = @key`,
-			pgx.StrictNamedArgs{"account": a.AccountID(), "key": key}))
-		if err == nil {
+			pgx.StrictNamedArgs{"account": a.AccountID(), "key": key}).QueryRow(func(row pgx.Row) error {
+			got, err := scanAddress(row)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil
+			}
+			if err != nil {
+				return fmt.Errorf("select the key's address: %w", err)
+			}
 			stored = &got
 			return nil
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("select the key's address: %w", err)
-		}
+		})
 		var n int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM addresses WHERE account_id = @account`,
-			pgx.StrictNamedArgs{"account": a.AccountID()}).Scan(&n); err != nil {
-			return fmt.Errorf("count addresses: %w", err)
+		b.Queue(`SELECT count(*) FROM addresses WHERE account_id = @account`,
+			pgx.StrictNamedArgs{"account": a.AccountID()}).QueryRow(func(row pgx.Row) error {
+			if err := row.Scan(&n); err != nil {
+				return fmt.Errorf("count addresses: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // the queued statements wrap their own errors.
+		}
+		if stored != nil {
+			return nil
 		}
 		if n >= domain.MaxAddresses {
 			return domain.ErrAddressLimit
 		}
 		isDefault = n == 0 || makeDefault
+		b = &pgx.Batch{}
 		if isDefault {
-			if err := clearDefault(ctx, tx, a.AccountID(), a.ID(), a.WriteID()); err != nil {
-				return err
-			}
+			queueClearDefault(b, a.AccountID(), a.ID(), a.WriteID())
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO addresses
+		queue(b, "insert address", `INSERT INTO addresses
     (id, account_id, recipient_name, phone, street, commune_code, kind, is_default, request_key, write_id, created_at)
 VALUES (@id, @account, @name, @phone, @street, @commune_code, @kind, @is_default, @key, @write_id, @created_at)`,
 			pgx.StrictNamedArgs{
 				"id": a.ID(), "account": a.AccountID(), "name": a.Name(), "phone": a.Phone(), "street": a.Street(),
 				"commune_code": a.CommuneCode(), "kind": a.Kind(), "is_default": isDefault, "key": key, "write_id": a.WriteID(),
 				"created_at": a.CreatedAt(),
-			}); err != nil {
-			return fmt.Errorf("insert address: %w", err)
-		}
-		return nil
+			}, nil)
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("add address: %w", err)
@@ -153,29 +154,16 @@ func (s pgAddresses) Save(ctx context.Context, a *domain.Address, writeID uuid.U
 		a.Saved(writeID)
 		return nil
 	}
+	// Setting the default leaves the row's write_id at writeID, which a
+	// takes below.
+	b := &pgx.Batch{}
+	postgres.QueueLockLiving(b, a.AccountID(), domain.ErrSessionRevoked)
+	queueLockBook(b, a.AccountID())
+	queue(b, "update address", saveAddress, args, ErrConflict)
+	queueClearDefault(b, a.AccountID(), a.ID(), writeID)
+	queue(b, "set the default", `UPDATE addresses SET is_default = true WHERE id = @id`, pgx.StrictNamedArgs{"id": a.ID()}, nil)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockLiving(ctx, tx, a.AccountID()); err != nil {
-			return err
-		}
-		if err := lockBook(ctx, tx, a.AccountID()); err != nil {
-			return err
-		}
-		tag, err := tx.Exec(ctx, saveAddress, args)
-		if err != nil {
-			return fmt.Errorf("update address: %w", err)
-		}
-		if tag.RowsAffected() == 0 {
-			return ErrConflict
-		}
-		// Setting the default leaves the row's write_id at writeID, which
-		// a takes below.
-		if err = clearDefault(ctx, tx, a.AccountID(), a.ID(), writeID); err != nil {
-			return err
-		}
-		if _, err = tx.Exec(ctx, `UPDATE addresses SET is_default = true WHERE id = @id`, pgx.StrictNamedArgs{"id": a.ID()}); err != nil {
-			return fmt.Errorf("set the default: %w", err)
-		}
-		return nil
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if errors.Is(err, ErrConflict) {
 		return ErrConflict
@@ -190,29 +178,31 @@ func (s pgAddresses) Save(ctx context.Context, a *domain.Address, writeID uuid.U
 
 func (s pgAddresses) SetDefault(ctx context.Context, owner, id, writeID uuid.UUID) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockBook(ctx, tx, owner); err != nil {
-			return err
-		}
+		b := &pgx.Batch{}
+		queueLockBook(b, owner)
 		var isDefault bool
-		err := tx.QueryRow(ctx, `SELECT is_default FROM addresses WHERE id = @id AND account_id = @account`,
-			pgx.StrictNamedArgs{"id": id, "account": owner}).Scan(&isDefault)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
-		if err != nil {
-			return fmt.Errorf("select address: %w", err)
+		b.Queue(`SELECT is_default FROM addresses WHERE id = @id AND account_id = @account`,
+			pgx.StrictNamedArgs{"id": id, "account": owner}).QueryRow(func(row pgx.Row) error {
+			err := row.Scan(&isDefault)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			if err != nil {
+				return fmt.Errorf("select address: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // the queued statements wrap their own errors.
 		}
 		if isDefault {
 			return nil
 		}
-		if err = clearDefault(ctx, tx, owner, id, writeID); err != nil {
-			return err
-		}
-		if _, err = tx.Exec(ctx, `UPDATE addresses SET is_default = true, write_id = @write_id WHERE id = @id`,
-			pgx.StrictNamedArgs{"id": id, "write_id": writeID}); err != nil {
-			return fmt.Errorf("set the default: %w", err)
-		}
-		return nil
+		b = &pgx.Batch{}
+		queueClearDefault(b, owner, id, writeID)
+		queue(b, "set the default", `UPDATE addresses SET is_default = true, write_id = @write_id WHERE id = @id`,
+			pgx.StrictNamedArgs{"id": id, "write_id": writeID}, nil)
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("set default address: %w", err)
@@ -222,22 +212,27 @@ func (s pgAddresses) SetDefault(ctx context.Context, owner, id, writeID uuid.UUI
 
 func (s pgAddresses) Delete(ctx context.Context, owner, id, writeID uuid.UUID) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockBook(ctx, tx, owner); err != nil {
-			return err
-		}
+		b := &pgx.Batch{}
+		queueLockBook(b, owner)
 		var wasDefault bool
-		err := tx.QueryRow(ctx, `DELETE FROM addresses WHERE id = @id AND account_id = @account RETURNING is_default`,
-			pgx.StrictNamedArgs{"id": id, "account": owner}).Scan(&wasDefault)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
-		if err != nil {
-			return fmt.Errorf("delete address: %w", err)
+		b.Queue(`DELETE FROM addresses WHERE id = @id AND account_id = @account RETURNING is_default`,
+			pgx.StrictNamedArgs{"id": id, "account": owner}).QueryRow(func(row pgx.Row) error {
+			err := row.Scan(&wasDefault)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrNotFound
+			}
+			if err != nil {
+				return fmt.Errorf("delete address: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // the queued statements wrap their own errors.
 		}
 		if !wasDefault {
 			return nil
 		}
-		if _, err = tx.Exec(ctx, `UPDATE addresses SET is_default = true, write_id = @write_id
+		if _, err := tx.Exec(ctx, `UPDATE addresses SET is_default = true, write_id = @write_id
 WHERE id = (SELECT id FROM addresses WHERE account_id = @account ORDER BY id DESC LIMIT 1)`,
 			pgx.StrictNamedArgs{"account": owner, "write_id": writeID}); err != nil {
 			return fmt.Errorf("move the default: %w", err)

@@ -17,44 +17,55 @@ type pgCredentials struct{ db *pgxpool.Pool }
 
 func NewCredentials(db *pgxpool.Pool) Credentials { return pgCredentials{db} }
 
-// upsertIdentity inserts an identity or refreshes its last_used_at. The WHERE
-// keeps another account's identity untouched, and then no row comes back.
-const upsertIdentity = `
+// upsertIdentities inserts identities or refreshes their last_used_at.
+// The WHERE keeps another account's identity untouched, and then its row
+// does not come back.
+const upsertIdentities = `
 INSERT INTO identities (id, account_id, kind, identifier, last_used_at, created_at)
-VALUES (@id, @account_id, @kind, @identifier, @last_used_at, @created_at)
+SELECT id, @account_id, kind, identifier, last_used_at, created_at
+FROM unnest(@ids::uuid[], @kinds::text[], @identifiers::text[], @last_used_at::timestamptz[], @created_at::timestamptz[])
+    AS i(id, kind, identifier, last_used_at, created_at)
 ON CONFLICT (kind, identifier) DO UPDATE SET last_used_at = EXCLUDED.last_used_at
 WHERE identities.account_id = EXCLUDED.account_id
-RETURNING account_id`
+RETURNING id`
 
-func upsertIdentities(ctx context.Context, tx pgx.Tx, accountID uuid.UUID, ids []domain.Identity) error {
-	for _, i := range ids {
-		var owner uuid.UUID
-		err := tx.QueryRow(ctx, upsertIdentity, pgx.StrictNamedArgs{
-			"id": i.ID(), "account_id": accountID, "kind": i.Kind(), "identifier": i.Value(),
-			"last_used_at": i.LastUsedAt(), "created_at": i.CreatedAt(),
-		}).Scan(&owner)
-		if errors.Is(err, pgx.ErrNoRows) {
+// queueUpsertIdentities queues the upsert of ids; one taken by another
+// account is ErrIdentityTaken, so the batch runs in a tx.
+func queueUpsertIdentities(b *pgx.Batch, accountID uuid.UUID, ids []domain.Identity) {
+	n := len(ids)
+	idents, kinds, values := make([]uuid.UUID, n), make([]string, n), make([]string, n)
+	lastUsed, created := make([]*time.Time, n), make([]time.Time, n)
+	for k, i := range ids {
+		idents[k], kinds[k], values[k], lastUsed[k], created[k] = i.ID(), string(i.Kind()), i.Value(), i.LastUsedAt(), i.CreatedAt()
+	}
+	b.Queue(upsertIdentities, pgx.StrictNamedArgs{
+		"account_id": accountID, "ids": idents, "kinds": kinds, "identifiers": values, "last_used_at": lastUsed, "created_at": created,
+	}).Fn = func(br pgx.BatchResults) error {
+		rows, err := br.Query()
+		if err != nil {
+			return fmt.Errorf("upsert identities: %w", err)
+		}
+		got, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+		if err != nil {
+			return fmt.Errorf("upsert identities: %w", err)
+		}
+		if len(got) < n {
 			return domain.ErrIdentityTaken
 		}
-		if err != nil {
-			return fmt.Errorf("upsert identity: %w", err)
-		}
+		return nil
 	}
-	return nil
 }
 
 func (s pgCredentials) SignUp(ctx context.Context, a domain.Account, c domain.Credentials) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := insertAccount(ctx, tx, a); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `
+	b := &pgx.Batch{}
+	queueInsertAccount(b, a)
+	queue(b, "insert credentials", `
 INSERT INTO credentials (account_id, write_id, updated_at) VALUES (@account_id, @write_id, @updated_at)
 ON CONFLICT (account_id) DO NOTHING`,
-			pgx.StrictNamedArgs{"account_id": c.AccountID(), "write_id": c.WriteID(), "updated_at": c.UpdatedAt()}); err != nil {
-			return fmt.Errorf("insert credentials: %w", err)
-		}
-		return upsertIdentities(ctx, tx, c.AccountID(), c.Identities())
+		pgx.StrictNamedArgs{"account_id": c.AccountID(), "write_id": c.WriteID(), "updated_at": c.UpdatedAt()}, nil)
+	queueUpsertIdentities(b, c.AccountID(), c.Identities())
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("sign up: %w", err)
@@ -136,28 +147,22 @@ ORDER BY account_id, kind = 'phone' DESC, created_at`, pgx.StrictNamedArgs{"ids"
 }
 
 func (s pgCredentials) Save(ctx context.Context, c *domain.Credentials, writeID uuid.UUID) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `
+	identities := c.Identities()
+	keep := make([]uuid.UUID, len(identities))
+	for n, i := range identities {
+		keep[n] = i.ID()
+	}
+	b := &pgx.Batch{}
+	queue(b, "update credentials", `
 UPDATE credentials SET write_id = @write_id, updated_at = @updated_at
 WHERE account_id = @account_id AND (write_id = @read_write_id OR write_id = @write_id)`, pgx.StrictNamedArgs{
-			"account_id": c.AccountID(), "read_write_id": c.WriteID(), "write_id": writeID, "updated_at": c.UpdatedAt(),
-		})
-		if err != nil {
-			return fmt.Errorf("update credentials: %w", err)
-		}
-		if tag.RowsAffected() == 0 {
-			return ErrConflict
-		}
-		identities := c.Identities()
-		keep := make([]uuid.UUID, len(identities))
-		for n, i := range identities {
-			keep[n] = i.ID()
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM identities WHERE account_id = @account_id AND NOT (id = ANY(@keep))`,
-			pgx.StrictNamedArgs{"account_id": c.AccountID(), "keep": keep}); err != nil {
-			return fmt.Errorf("delete removed identities: %w", err)
-		}
-		return upsertIdentities(ctx, tx, c.AccountID(), identities)
+		"account_id": c.AccountID(), "read_write_id": c.WriteID(), "write_id": writeID, "updated_at": c.UpdatedAt(),
+	}, ErrConflict)
+	queue(b, "delete removed identities", `DELETE FROM identities WHERE account_id = @account_id AND NOT (id = ANY(@keep))`,
+		pgx.StrictNamedArgs{"account_id": c.AccountID(), "keep": keep}, nil)
+	queueUpsertIdentities(b, c.AccountID(), identities)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("save credentials: %w", err)
