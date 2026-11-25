@@ -111,6 +111,8 @@ func TestMessagesAndInbox(t *testing.T) {
 	if len(rows) != 1 || rows[0].Last.ID() != first.ID() || rows[0].Other != b || rows[0].Unread != 0 {
 		t.Fatalf("a's inbox: %+v", rows)
 	}
+	late := domain.RestoreMessage(photo.State())
+	late.Failed("late")
 	photo.Published(map[uuid.UUID]domain.Photo{photo.UploadIDs()[0]: {PhotoKey: "media/p.jpg", ThumbKey: "media/p_thumb.jpg"}})
 	if err := s.SaveMessage(ctx, photo); err != nil {
 		t.Fatal(err)
@@ -128,8 +130,11 @@ func TestMessagesAndInbox(t *testing.T) {
 	if n, _ := s.Unread(ctx, a); n != 0 {
 		t.Fatalf("unread after reading: %d", n)
 	}
-	if err := s.SaveMessage(ctx, photo); err != nil {
-		t.Fatal(err)
+	// A message no longer processing is saved again by nobody.
+	for _, again := range []domain.Message{photo, late} {
+		if err := s.SaveMessage(ctx, again); !errors.Is(err, repository.ErrNotFound) {
+			t.Fatalf("save a sent message: %v", err)
+		}
 	}
 	var sent int
 	if err := db.QueryRow(ctx, `SELECT count(*) FROM events WHERE kind = 'message.sent' AND id = ANY(@ids)`,

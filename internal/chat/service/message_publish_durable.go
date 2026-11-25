@@ -11,6 +11,7 @@ import (
 	"github.com/shopnexus/server/internal/chat/repository"
 	mediadomain "github.com/shopnexus/server/internal/media/domain"
 	mediasvc "github.com/shopnexus/server/internal/media/service"
+	"github.com/shopnexus/server/internal/platform/restatex"
 )
 
 // messagePublish is the MessagePublish service's name without the prefix.
@@ -68,7 +69,10 @@ func (s MessagePublish) Run(ctx restate.Context, id uuid.UUID) error {
 	} else {
 		m.Published(keys)
 	}
-	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Chat.chats.SaveMessage(rc, m) }); err != nil {
+	// A message published already, by a retry, or gone meanwhile stays as it is.
+	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
+		return restatex.Ignore(s.Chat.chats.SaveMessage(rc, m), repository.ErrNotFound)
+	}); err != nil {
 		return fmt.Errorf("save message: %w", err)
 	}
 	return nil

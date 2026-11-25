@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/notification/domain"
 	"github.com/shopnexus/server/internal/notification/repository"
 	"github.com/shopnexus/server/internal/platform/page"
@@ -30,16 +31,16 @@ func TestCollapse(t *testing.T) {
 	s := repository.NewNotices(db)
 	me := accounttest.New(t, db)
 	expired := now.Add(-domain.Retention)
-	first, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 100, now), expired)
+	first, _, err := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:1", 100, now), expired)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 200, now.Add(time.Minute)), expired)
+	second, _, err := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:1", 200, now.Add(time.Minute)), expired)
 	if err != nil || second != first {
 		t.Fatalf("an unread notice collapses: %v %v", second, err)
 	}
 	var late bool
-	if _, late, err = s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 50, now.Add(-time.Minute)), expired); err != nil || !late {
+	if _, late, err = s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:1", 50, now.Add(-time.Minute)), expired); err != nil || !late {
 		t.Fatalf("an older event is late: %v %v", late, err)
 	}
 	rows, err := s.List(ctx, me, page.Request{})
@@ -49,7 +50,7 @@ func TestCollapse(t *testing.T) {
 	if err = s.Read(ctx, me, first, now); err != nil {
 		t.Fatal(err)
 	}
-	third, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 300, now.Add(2*time.Minute)), expired)
+	third, _, err := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:1", 300, now.Add(2*time.Minute)), expired)
 	if err != nil || third == first {
 		t.Fatalf("a read notice starts a new one: %v %v", third, err)
 	}
@@ -59,7 +60,7 @@ func TestCollapse(t *testing.T) {
 	if _, err = s.ReadAll(ctx, me, now); err != nil {
 		t.Fatal(err)
 	}
-	if _, late, err = s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 250, now.Add(time.Minute)), expired); err != nil || !late {
+	if _, late, err = s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:1", 250, now.Add(time.Minute)), expired); err != nil || !late {
 		t.Fatalf("an event older than a read notice is late: %v %v", late, err)
 	}
 	if n, _ := s.Unread(ctx, me); n != 0 {
@@ -75,21 +76,21 @@ func TestAddOnceAndPrune(t *testing.T) {
 	me, other := accounttest.New(t, db), accounttest.New(t, db)
 	event := uuid.NewV7()
 	review := domain.Notice{Recipient: me, Type: domain.TypeReview, At: now}
-	a, _, err := s.Add(ctx, event, review, now.Add(-domain.Retention))
+	a, _, err := s.Add(ctx, event, uuid.NewV7(), review, now.Add(-domain.Retention))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if b, _, again := s.Add(ctx, event, review, now.Add(-domain.Retention)); again != nil || b != a {
+	if b, _, again := s.Add(ctx, event, uuid.NewV7(), review, now.Add(-domain.Retention)); again != nil || b != a {
 		t.Fatalf("a redelivered event: %v %v", b, again)
 	}
 	old := now.Add(-100 * 24 * time.Hour)
 	for _, who := range []uuid.UUID{me, other} {
-		if _, _, err = s.Add(ctx, uuid.NewV7(), domain.Notice{Recipient: who, Type: domain.TypeReview, At: old},
+		if _, _, err = s.Add(ctx, uuid.NewV7(), uuid.NewV7(), domain.Notice{Recipient: who, Type: domain.TypeReview, At: old},
 			old.Add(-domain.Retention)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, _, err = s.Add(ctx, uuid.NewV7(), review, now.Add(-domain.Retention)); err != nil {
+	if _, _, err = s.Add(ctx, uuid.NewV7(), uuid.NewV7(), review, now.Add(-domain.Retention)); err != nil {
 		t.Fatal(err)
 	}
 	mine, _ := s.List(ctx, me, page.Request{})
@@ -107,7 +108,7 @@ func TestReadAndList(t *testing.T) {
 	me, stranger := accounttest.New(t, db), accounttest.New(t, db)
 	ids := make([]uuid.UUID, 0, 3)
 	for i := range 3 {
-		id, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "", int64(i), now.Add(time.Duration(i)*time.Minute)), now.Add(-domain.Retention))
+		id, _, err := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "", int64(i), now.Add(time.Duration(i)*time.Minute)), now.Add(-domain.Retention))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -188,7 +189,7 @@ func TestForget(t *testing.T) {
 	s := repository.NewNotices(db)
 	me, other := accounttest.New(t, db), accounttest.New(t, db)
 	for _, to := range []uuid.UUID{me, other} {
-		if _, _, err := s.Add(ctx, uuid.NewV7(), notice(to, "", 1, now), now.Add(-domain.Retention)); err != nil {
+		if _, _, err := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(to, "", 1, now), now.Add(-domain.Retention)); err != nil {
 			t.Fatal(err)
 		}
 		if err := s.PutToken(ctx, uuid.NewV7(), to, "token-"+to.String(), now); err != nil {
@@ -219,14 +220,14 @@ func TestReadAllReturnsItsIDs(t *testing.T) {
 	s := repository.NewNotices(db)
 	me := accounttest.New(t, db)
 	expired := now.Add(-domain.Retention)
-	read, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 100, now), expired)
+	read, _, err := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:1", 100, now), expired)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err = s.Read(ctx, me, read, now); err != nil {
 		t.Fatal(err)
 	}
-	unread, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "deal:2", 100, now), expired)
+	unread, _, err := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:2", 100, now), expired)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +251,7 @@ func TestMarkUnreadCollapse(t *testing.T) {
 	expired := now.Add(-domain.Retention)
 	add := func(to uuid.UUID, key string, at time.Time) uuid.UUID {
 		t.Helper()
-		id, _, err := s.Add(ctx, uuid.NewV7(), notice(to, key, 100, at), expired)
+		id, _, err := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(to, key, 100, at), expired)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -262,7 +263,7 @@ func TestMarkUnreadCollapse(t *testing.T) {
 	older, newer := add(me, "deal:1", now), add(me, "deal:1", now.Add(time.Minute))
 	keyless := add(me, "", now)
 	covered := add(me, "deal:2", now)
-	if _, _, err := s.Add(ctx, uuid.NewV7(), notice(me, "deal:2", 200, now.Add(time.Minute)), expired); err != nil {
+	if _, _, err := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:2", 200, now.Add(time.Minute)), expired); err != nil {
 		t.Fatal(err)
 	}
 	theirs := add(other, "", now)
@@ -320,7 +321,7 @@ VALUES (@id, @account, 'offer', 'deal:1', '{}', @event, @at, @at)`,
 	}
 	done := make(chan added, 1)
 	go func() {
-		id, late, addErr := s.Add(ctx, uuid.NewV7(), notice(me, "deal:1", 100, now), now.Add(-domain.Retention))
+		id, late, addErr := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:1", 100, now), now.Add(-domain.Retention))
 		done <- added{id, late, addErr}
 	}()
 	// Add's insert waits on the uncommitted notice's key.
@@ -346,5 +347,64 @@ WHERE datname = current_database() AND wait_event_type = 'Lock'`).Scan(&waiting)
 	if err = db.QueryRow(ctx, `SELECT count(*) FROM account_updates WHERE account_id = @account`,
 		pgx.StrictNamedArgs{"account": me}).Scan(&updates); err != nil || updates != 0 {
 		t.Fatalf("updates %d: %v", updates, err)
+	}
+}
+
+// A notice first made before the retention but bumped since stays.
+func TestPruneByBump(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewNotices(db)
+	me := accounttest.New(t, db)
+	old := now.Add(-100 * 24 * time.Hour)
+	kept, _, err := s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:1", 100, old), old.Add(-domain.Retention))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bumped := old.Add(50 * 24 * time.Hour)
+	if _, _, err = s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "deal:1", 200, bumped), bumped.Add(-domain.Retention)); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = s.Add(ctx, uuid.NewV7(), uuid.NewV7(), notice(me, "", 1, now), now.Add(-domain.Retention)); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := s.List(ctx, me, page.Request{})
+	if err != nil || len(rows) != 2 || rows[1].ID != kept {
+		t.Fatalf("the bumped notice is pruned: %+v %v", rows, err)
+	}
+}
+
+// A new notice takes the caller's ID, so a retried write lands the same row.
+func TestAddTakesTheCallersID(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewNotices(db)
+	me := accounttest.New(t, db)
+	fresh := uuid.NewV7()
+	id, _, err := s.Add(ctx, uuid.NewV7(), fresh, notice(me, "", 1, now), now.Add(-domain.Retention))
+	if err != nil || id != fresh {
+		t.Fatalf("add: %v %v", id, err)
+	}
+}
+
+// A token put for an account deleted since the caller's checks writes nothing.
+func TestTokenOfADeletedAccount(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	ctx := context.Background()
+	s := repository.NewNotices(db)
+	gone := accounttest.New(t, db)
+	if _, err := db.Exec(ctx, `UPDATE accounts
+SET status = 'deleted', deleted_at = now(), display_name = NULL, bio = NULL, avatar_key = NULL WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": gone}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PutToken(ctx, uuid.NewV7(), gone, "phone", now); !errors.Is(err, accountdomain.ErrSessionRevoked) {
+		t.Fatalf("put: %v", err)
+	}
+	if got, err := s.Tokens(ctx, gone); err != nil || len(got) != 0 {
+		t.Fatalf("tokens: %+v %v", got, err)
 	}
 }

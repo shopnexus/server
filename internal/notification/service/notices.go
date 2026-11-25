@@ -80,8 +80,8 @@ func (s *Notification) PutToken(ctx context.Context, session, account uuid.UUID,
 	return nil
 }
 
-func (s *Notification) Record(ctx context.Context, event uuid.UUID, n domain.Notice) (Recorded, error) {
-	id, late, err := s.notices.Add(ctx, event, n, n.At.Add(-domain.Retention))
+func (s *Notification) Record(ctx context.Context, event, fresh uuid.UUID, n domain.Notice) (Recorded, error) {
+	id, late, err := s.notices.Add(ctx, event, fresh, n, n.At.Add(-domain.Retention))
 	if err != nil {
 		return Recorded{}, fmt.Errorf("record notice: %w", err)
 	}

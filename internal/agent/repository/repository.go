@@ -156,8 +156,10 @@ type ToolCall struct {
 // ToolWrite is a tool call as a run reports it; a nil field keeps what
 // the row has.
 type ToolWrite struct {
-	ID            uuid.UUID
-	TurnID        uuid.UUID
+	ID     uuid.UUID
+	TurnID uuid.UUID
+	// Segment is the run_started_at of the segment that reports the call.
+	Segment       time.Time
 	ToolUseID     string
 	Tool          string
 	Label         *string
@@ -204,6 +206,7 @@ type DocumentWrite struct {
 	ID             uuid.UUID
 	ConversationID uuid.UUID
 	TurnID         uuid.UUID
+	Segment        time.Time
 	MemberID       uuid.UUID
 	Version        int
 	Title          string
@@ -278,6 +281,7 @@ type DocumentRef struct {
 // none), its answer for a final status, its totals and the closing event.
 type RunEnd struct {
 	TurnID    uuid.UUID
+	Segment   time.Time
 	Status    string
 	ErrorCode string
 	Answer    string
@@ -411,23 +415,28 @@ type Runs interface {
 
 	// AppendEvent writes an event whatever the turn's status.
 	AppendEvent(ctx context.Context, turn uuid.UUID, typ string, body json.RawMessage, at time.Time) (Event, error)
-	// AppendRunEvent writes a run's event while the turn runs, marks it
-	// wrote when wrote is set, and marks the steer read when steer is set;
-	// false when the turn no longer runs.
-	AppendRunEvent(ctx context.Context, turn uuid.UUID, typ string, body json.RawMessage, wrote bool, steer *uuid.UUID,
-		at time.Time) (bool, error)
+	// The writes of a run below take the segment that started at segment
+	// (or the write's Segment) and change nothing once the turn no longer
+	// runs that segment, so a late stream cannot write into a resumed turn.
+
+	// AppendRunEvent writes a run's event, marks the turn wrote when wrote
+	// is set, and marks the steer read when steer is set; false when the
+	// turn no longer runs the segment.
+	AppendRunEvent(ctx context.Context, turn uuid.UUID, segment time.Time, typ string, body json.RawMessage, wrote bool,
+		steer *uuid.UUID, at time.Time) (bool, error)
 	// Events lists a turn's events after seq, at most limit.
 	Events(ctx context.Context, turn uuid.UUID, after int64, limit int) ([]Event, error)
-	// Checkpoint stores a running turn's state.
-	Checkpoint(ctx context.Context, turn uuid.UUID, state json.RawMessage, wrote bool) error
-	// SaveToolCall upserts w while its turn runs; a finished call does not
-	// go back to pending or running.
+	// Checkpoint stores a running segment's state.
+	Checkpoint(ctx context.Context, turn uuid.UUID, segment time.Time, state json.RawMessage, wrote bool) error
+	// SaveToolCall upserts w while its segment runs; a finished call does
+	// not go back to pending or running.
 	SaveToolCall(ctx context.Context, w ToolWrite) error
-	// WriteDocument stores a write while its turn runs; false when the
-	// document is not the conversation's or its version is not next.
+	// WriteDocument stores a write while its segment runs; false when it
+	// does not, or the document is not the conversation's or its version
+	// is not next.
 	WriteDocument(ctx context.Context, w DocumentWrite) (bool, error)
-	// FinishRun applies e to a running turn and writes its event; false
-	// when the turn no longer runs.
+	// FinishRun applies e to a turn running e's segment and writes its
+	// event; false when the turn no longer runs it.
 	FinishRun(ctx context.Context, e RunEnd) (bool, error)
 
 	// ToolCall reads a tool call of a conversation member may see.

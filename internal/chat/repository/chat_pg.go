@@ -317,15 +317,21 @@ func (s pgChats) SaveMessage(ctx context.Context, m domain.Message) error {
 	}
 	var accounts []uuid.UUID
 	b := &pgx.Batch{}
-	b.Queue(`UPDATE messages SET photos = @photos, status = @status, failure = @failure WHERE id = @id`,
-		pgx.StrictNamedArgs{"id": st.ID, "photos": photosOf(st), "status": st.Status, "failure": failure})
+	// Only a processing message moves on; a message already published,
+	// failed or gone aborts before its follow-up writes.
+	b.Queue(`UPDATE messages SET photos = @photos, status = @status, failure = @failure
+WHERE id = @id AND status = 'processing'`,
+		pgx.StrictNamedArgs{"id": st.ID, "photos": photosOf(st), "status": st.Status, "failure": failure}).Fn = postgres.ExecAs("update message", ErrNotFound)
 	queueMembers(b, m, &accounts)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		if err := tx.SendBatch(ctx, b).Close(); err != nil {
-			return fmt.Errorf("update message: %w", err)
+			return fmt.Errorf("save message: %w", err)
 		}
 		return written(ctx, tx, m, accounts)
 	})
+	if errors.Is(err, ErrNotFound) {
+		return ErrNotFound
+	}
 	if err != nil {
 		return fmt.Errorf("save message: %w", err)
 	}

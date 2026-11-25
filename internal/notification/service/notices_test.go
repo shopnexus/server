@@ -26,7 +26,7 @@ func TestNotices(t *testing.T) {
 	s := service.New(service.Deps{Notices: store, Now: time.Now})
 	me, stranger := accounttest.New(t, db), accounttest.New(t, db)
 	deal := uuid.NewV7()
-	id, _, err := store.Add(ctx, uuid.NewV7(), domain.Notice{
+	id, _, err := store.Add(ctx, uuid.NewV7(), uuid.NewV7(), domain.Notice{
 		Recipient: me, Type: domain.TypeOffer, CollapseKey: "deal:" + deal.String(), At: time.Now(),
 		Params: domain.Params{DealID: deal, Actor: "Đức Huy", Amount: 1_200_000, Title: "Xe đạp Asama"},
 	}, time.Now().Add(-domain.Retention))

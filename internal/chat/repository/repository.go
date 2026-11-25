@@ -50,7 +50,8 @@ type Chats interface {
 	// GetMessages reads messages by id; an unknown id is left out.
 	GetMessages(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]domain.Message, error)
 	// SaveMessage writes a processed or failed message, moves the last
-	// message when it is sent and newer, and notifies as AddMessage.
+	// message when it is sent and newer, and notifies as AddMessage. A
+	// message no longer processing, or gone, is ErrNotFound and writes nothing.
 	SaveMessage(ctx context.Context, m domain.Message) error
 	// Members returns the conversation's members by account, in one read.
 	Members(ctx context.Context, conversation uuid.UUID) (map[uuid.UUID]domain.Member, error)

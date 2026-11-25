@@ -11,8 +11,10 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/notification/domain"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/platform/stream"
 )
 
@@ -36,7 +38,7 @@ RETURNING id`
 // Add reads what decides the write in one batch: the event's notice and
 // a newer one with the key. The write follows in a second; a notice with a
 // key learns its ID from the upsert, so its update takes a third.
-func (s pgNotices) Add(ctx context.Context, event uuid.UUID, n domain.Notice, expired time.Time) (uuid.UUID, bool, error) {
+func (s pgNotices) Add(ctx context.Context, event, fresh uuid.UUID, n domain.Notice, expired time.Time) (uuid.UUID, bool, error) {
 	var id uuid.UUID
 	late := false
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
@@ -72,10 +74,10 @@ ORDER BY bumped_at DESC LIMIT 1`, pgx.StrictNamedArgs{"account": n.Recipient, "k
 			late = true
 			return nil
 		}
-		fresh := uuid.NewV7()
 		var unread uuid.UUID
 		b = &pgx.Batch{}
-		b.Queue(`DELETE FROM notifications WHERE account_id = @account AND created_at < @expired`,
+		// A collapsed notice keeps its first created_at, so age is bumped_at.
+		b.Queue(`DELETE FROM notifications WHERE account_id = @account AND bumped_at < @expired`,
 			pgx.StrictNamedArgs{"account": n.Recipient, "expired": expired})
 		b.Queue(insertNotice, pgx.StrictNamedArgs{
 			"id": fresh, "account": n.Recipient, "type": n.Type, "key": n.CollapseKey, "params": n.Params,
@@ -224,8 +226,11 @@ func (s pgNotices) MarkUnread(ctx context.Context, account uuid.UUID, ids []uuid
 	return nil
 }
 
+// PutToken takes a share lock on the account's row first, as Settings.Put
+// does, so a token racing the account's deletion is forgotten or refused.
 func (s pgNotices) PutToken(ctx context.Context, session, account uuid.UUID, token string, at time.Time) error {
 	b := &pgx.Batch{}
+	postgres.QueueLockLiving(b, account, accountdomain.ErrSessionRevoked)
 	// The phone signed in again, maybe to another account; the old session
 	// no longer reaches it.
 	b.Queue(`DELETE FROM push_tokens WHERE token = @token AND session_id <> @session`,
@@ -234,7 +239,10 @@ func (s pgNotices) PutToken(ctx context.Context, session, account uuid.UUID, tok
 VALUES (@session, @account, @token, @at)
 ON CONFLICT (session_id) DO UPDATE SET token = excluded.token, updated_at = excluded.updated_at`,
 		pgx.StrictNamedArgs{"session": session, "account": account, "token": token, "at": at})
-	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+	// QueueLockLiving's callback aborts, so the batch needs a transaction.
+	if err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
+	}); err != nil {
 		return fmt.Errorf("put token: %w", err)
 	}
 	return nil

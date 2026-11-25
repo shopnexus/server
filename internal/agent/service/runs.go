@@ -297,7 +297,7 @@ var writes = map[string]bool{
 }
 
 // applyLine applies one line of seg's stream and says whether it was the
-// end. A line for a turn that no longer runs changes nothing.
+// end. A line for a turn that no longer runs seg changes nothing.
 func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, error) {
 	var l runLine
 	if err := json.Unmarshal(raw, &l); err != nil {
@@ -315,7 +315,7 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 				steer = &b.SteerID
 			}
 		}
-		if _, err := s.runs.AppendRunEvent(ctx, seg.turn, l.Type, l.Body, writes[l.Type], steer, now); err != nil {
+		if _, err := s.runs.AppendRunEvent(ctx, seg.turn, seg.start, l.Type, l.Body, writes[l.Type], steer, now); err != nil {
 			return false, fmt.Errorf("append %s: %w", l.Type, err)
 		}
 	case "checkpoint":
@@ -323,12 +323,12 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 			Wrote bool `json:"wrote"`
 		}
 		_ = json.Unmarshal(l.State, &st)
-		if err := s.runs.Checkpoint(ctx, seg.turn, l.State, st.Wrote); err != nil {
+		if err := s.runs.Checkpoint(ctx, seg.turn, seg.start, l.State, st.Wrote); err != nil {
 			return false, fmt.Errorf("store a checkpoint: %w", err)
 		}
 	case "tool_call":
 		if err := s.runs.SaveToolCall(ctx, repository.ToolWrite{
-			ID: l.ID, TurnID: seg.turn, ToolUseID: l.ToolUseID, Tool: l.Tool, Label: l.Label, Source: l.Source, Input: l.Input,
+			ID: l.ID, TurnID: seg.turn, Segment: seg.start, ToolUseID: l.ToolUseID, Tool: l.Tool, Label: l.Label, Source: l.Source, Input: l.Input,
 			Output: outputOf(l.Output), Content: nullable(l.Content), OutputSpilled: l.OutputSpilled, Status: l.Status,
 			LatencyMS: rounded(l.LatencyMS), Attempts: l.Attempts, AttemptErrors: nullable(l.AttemptErrors),
 			Timing: nullable(l.Timing), FinishedAt: l.FinishedAt, At: now,
@@ -337,7 +337,7 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 		}
 	case "document":
 		ok, err := s.runs.WriteDocument(ctx, repository.DocumentWrite{
-			ID: l.DocumentID, ConversationID: seg.conversation, TurnID: seg.turn, MemberID: seg.member, Version: l.Version,
+			ID: l.DocumentID, ConversationID: seg.conversation, TurnID: seg.turn, Segment: seg.start, MemberID: seg.member, Version: l.Version,
 			Title: l.Title, Sections: l.Sections, At: now,
 		})
 		if err != nil {
@@ -353,7 +353,7 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 			return false, fmt.Errorf("an end line with status %q", l.Status)
 		}
 		e := repository.RunEnd{
-			TurnID: seg.turn, Status: status, Answer: l.Answer, Blocks: nullable(l.Blocks), Sources: nullable(l.Sources),
+			TurnID: seg.turn, Segment: seg.start, Status: status, Answer: l.Answer, Blocks: nullable(l.Blocks), Sources: nullable(l.Sources),
 			Usage: repository.Usage{
 				InputTokens: int64(l.Usage.InputTokens), OutputTokens: int64(l.Usage.OutputTokens),
 				CacheReadTokens: int64(l.Usage.CacheReadTokens), CacheWriteTokens: int64(l.Usage.CacheWriteTokens),

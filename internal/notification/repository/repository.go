@@ -20,10 +20,11 @@ type Notices interface {
 	// Add writes n for event and returns its ID. It collapses on the
 	// recipient's unread notice with the same key, writes nothing for an
 	// event already written for the recipient, deletes the recipient's
-	// notices from before expired, and notifies the stream, in one
+	// notices last bumped before expired, and notifies the stream, in one
 	// transaction. When the recipient has a newer notice with the key, read
 	// or unread, Add writes nothing and returns that notice's ID and late.
-	Add(ctx context.Context, event uuid.UUID, n domain.Notice, expired time.Time) (id uuid.UUID, late bool, err error)
+	// A new notice takes fresh, minted by the caller so a retry reuses it.
+	Add(ctx context.Context, event, fresh uuid.UUID, n domain.Notice, expired time.Time) (id uuid.UUID, late bool, err error)
 	// List is a query: the account's notices, newest bumped first, below
 	// p's cursor, at most p.Fetch().
 	List(ctx context.Context, account uuid.UUID, p page.Request) ([]Row, error)
@@ -38,7 +39,8 @@ type Notices interface {
 	// notice. Other IDs are skipped.
 	MarkUnread(ctx context.Context, account uuid.UUID, ids []uuid.UUID) error
 	// PutToken stores the push token of a session, replacing any, and takes
-	// the token from every other session.
+	// the token from every other session. A deleted account is
+	// accountdomain.ErrSessionRevoked.
 	PutToken(ctx context.Context, session, account uuid.UUID, token string, at time.Time) error
 	// DeleteToken forgets a session's token; an absent one is fine.
 	DeleteToken(ctx context.Context, session uuid.UUID) error

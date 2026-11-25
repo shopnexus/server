@@ -451,8 +451,14 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 func (w Worker) tell(ctx restate.Context, event uuid.UUID, notices []domain.Notice) error {
 	for i := range notices {
 		n := &notices[i]
+		// Minted in a step of its own, from the wall clock so notices with
+		// one bump time list in write order, and a retried write keeps it.
+		fresh, err := restate.Run(ctx, func(restate.RunContext) (uuid.UUID, error) { return uuid.NewV7(), nil })
+		if err != nil {
+			return fmt.Errorf("mint a notice ID: %w", err)
+		}
 		rec, err := restate.Run(ctx, func(rc restate.RunContext) (service.Recorded, error) {
-			return w.Notices.Record(rc, event, *n)
+			return w.Notices.Record(rc, event, fresh, *n)
 		})
 		if err != nil {
 			return fmt.Errorf("write a notice: %w", err)

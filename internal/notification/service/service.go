@@ -45,9 +45,9 @@ type Service interface {
 	// settings; the worker calls it on account.deleted.
 	Forget(ctx context.Context, account uuid.UUID) error
 
-	// Record writes a notice the worker decided, for event; see
-	// repository.Notices.Add.
-	Record(ctx context.Context, event uuid.UUID, n domain.Notice) (Recorded, error)
+	// Record writes a notice the worker decided, for event, with fresh as
+	// a new notice's ID; see repository.Notices.Add.
+	Record(ctx context.Context, event, fresh uuid.UUID, n domain.Notice) (Recorded, error)
 	// Tokens lists the account's push tokens by session.
 	Tokens(ctx context.Context, account uuid.UUID) ([]Token, error)
 }

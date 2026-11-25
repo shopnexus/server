@@ -716,7 +716,7 @@ func TestAccountDeletedForgetsTheAccount(t *testing.T) {
 	e.start(t)
 	ctx := context.Background()
 	gone := accounttest.New(t, e.db)
-	if _, err := e.notices.Record(ctx, uuid.NewV7(), domain.Suspended(gone, "", time.Now())); err != nil {
+	if _, err := e.notices.Record(ctx, uuid.NewV7(), uuid.NewV7(), domain.Suspended(gone, "", time.Now())); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.notices.PutToken(ctx, uuid.NewV7(), gone, "phone"); err != nil {
