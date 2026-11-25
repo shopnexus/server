@@ -465,6 +465,9 @@ type Runs interface {
 	// BlankAccountOutputs blanks the outputs and result contents of the
 	// tool calls in the conversation about account.
 	BlankAccountOutputs(ctx context.Context, account uuid.UUID) error
+	// DeleteIdleConversations deletes at most limit conversations with no
+	// activity since before, with all they hold, and returns how many.
+	DeleteIdleConversations(ctx context.Context, before time.Time, limit int) (int, error)
 
 	// ToolCall reads a tool call of a conversation member may see.
 	ToolCall(ctx context.Context, id, member uuid.UUID) (ToolCall, error)

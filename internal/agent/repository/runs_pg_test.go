@@ -236,3 +236,93 @@ VALUES (@id, @email, 'Lan', 'moderator', 'active', 'x', false, 1, 0, @at, @at, @
 		t.Errorf("a blanked call %+v %v", tc, readErr)
 	}
 }
+
+// The sweep deletes a conversation idle past the cutoff with every row it
+// holds, and keeps one with recent activity.
+func TestDeleteIdleConversations(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	member := uuid.NewV7()
+	if _, err := db.Exec(ctx, `
+INSERT INTO console_members (id, email, display_name, console_role, status, password_hash, must_change_password,
+                           credentials_version, totp_last_step, created_at, updated_at, write_id)
+VALUES (@id, @email, 'Lan', 'moderator', 'active', 'x', false, 1, 0, @at, @at, @id)`,
+		pgx.StrictNamedArgs{"id": member, "email": member.String() + "@console.test", "at": now}); err != nil {
+		t.Fatal(err)
+	}
+	s := repository.NewRuns(db, slog.New(slog.DiscardHandler))
+	fill := func() (uuid.UUID, uuid.UUID) {
+		c, err := s.OpenConversation(ctx, repository.Conversation{ID: uuid.NewV7(), MemberID: member, CreatedAt: now})
+		if err != nil {
+			t.Fatal(err)
+		}
+		turn := repository.Turn{
+			ID: uuid.NewV7(), ConversationID: c.ID, MemberID: member, Question: "?", AgentID: "a", AgentName: "a",
+			ModelAlias: "m", StartedAt: now, RunStartedAt: now, DeadlineMS: 60000,
+		}
+		if err = s.OpenTurn(ctx, turn, member); err != nil {
+			t.Fatal(err)
+		}
+		if ok, werr := s.AppendRunEvent(ctx, turn.ID, now, "text.delta", nil, true, nil, now); werr != nil || !ok {
+			t.Fatalf("an event: %v %v", ok, werr)
+		}
+		if err = s.AddInput(ctx, repository.Input{ID: uuid.NewV7(), TurnID: turn.ID, Kind: "steer", Text: "x", CreatedAt: now, MemberID: member}); err != nil {
+			t.Fatal(err)
+		}
+		if err = s.SaveToolCall(ctx, repository.ToolWrite{
+			ID: uuid.NewV7(), TurnID: turn.ID, Segment: now, ToolUseID: "u1", Tool: "ticket_get", Status: "success", At: now,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if ok, werr := s.WriteDocument(ctx, repository.DocumentWrite{
+			ID: uuid.NewV7(), ConversationID: c.ID, TurnID: turn.ID, Segment: now, MemberID: member, Version: 1,
+			Title: "d", Sections: json.RawMessage(`[]`), At: now,
+		}); werr != nil || !ok {
+			t.Fatalf("a document: %v %v", ok, werr)
+		}
+		if _, err = s.FinishRun(ctx, repository.RunEnd{TurnID: turn.ID, Segment: now, Status: "succeeded", Answer: "x", At: now}); err != nil {
+			t.Fatal(err)
+		}
+		return c.ID, turn.ID
+	}
+	idle, idleTurn := fill()
+	live, liveTurn := fill()
+	if _, err := db.Exec(ctx, `UPDATE agent_conversations SET last_activity_at = @at WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": idle, "at": now.Add(-181 * 24 * time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	rows := func(conversation, turn uuid.UUID) int {
+		var n int
+		if err := db.QueryRow(ctx, `SELECT
+    (SELECT count(*) FROM agent_conversations WHERE id = @c) +
+    (SELECT count(*) FROM agent_turns WHERE id = @t) +
+    (SELECT count(*) FROM agent_turn_events WHERE turn_id = @t) +
+    (SELECT count(*) FROM agent_turn_inputs WHERE turn_id = @t) +
+    (SELECT count(*) FROM agent_tool_calls WHERE turn_id = @t) +
+    (SELECT count(*) FROM agent_documents WHERE conversation_id = @c OR turn_id = @t) +
+    (SELECT count(*) FROM agent_document_versions WHERE turn_id = @t OR document_id IN (
+        SELECT id FROM agent_documents WHERE conversation_id = @c))`,
+			pgx.StrictNamedArgs{"c": conversation, "t": turn}).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	full := rows(live, liveTurn)
+	if got := rows(idle, idleTurn); got != full || full != 7 {
+		t.Fatalf("before the sweep: idle %d, live %d", got, full)
+	}
+	before := now.Add(-180 * 24 * time.Hour)
+	if n, err := s.DeleteIdleConversations(ctx, before, 10); err != nil || n != 1 {
+		t.Fatalf("the sweep: %d %v", n, err)
+	}
+	if n, err := s.DeleteIdleConversations(ctx, before, 10); err != nil || n != 0 {
+		t.Fatalf("a second sweep: %d %v", n, err)
+	}
+	if got := rows(idle, idleTurn); got != 0 {
+		t.Errorf("the idle conversation left %d rows", got)
+	}
+	if got := rows(live, liveTurn); got != full {
+		t.Errorf("the live conversation has %d rows, want %d", got, full)
+	}
+}

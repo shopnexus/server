@@ -3874,7 +3874,14 @@ tool, input, status and timing (a partial index on the calls not blanked
 yet, migration 0098). A new run's history replays such a call as "Result
 no longer kept". The sweep runs at start and every hour in the MCP
 server's `Run`, as the events cleanup does in the bus, and deletes or
-blanks 10,000 rows at a time. Listing the
+blanks 10,000 rows at a time. The same sweep then deletes the
+conversations with no activity for 180 days, 100 at a time
+(`ConversationsKeptFor`, index `agent_conversations_idle`, migration 0099):
+the foreign keys cascade to their turns, tool calls, turn events, inputs,
+documents and document versions, so nothing of the conversation stays.
+Every turn write moves `last_activity_at` first, and the delete skips a
+conversation a write holds. A conversation about a ticket, case or account
+opens anew the next time a member asks about it. Listing the
 reads for admins comes with the console's audit pages.
 
 ### AI settings

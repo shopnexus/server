@@ -908,6 +908,18 @@ func (s pgRuns) BlankOutputsBefore(ctx context.Context, before time.Time, limit 
 	return int(tag.RowsAffected()), nil
 }
 
+// DeleteIdleConversations skips a conversation a write holds: every turn
+// write touches its conversation first.
+func (s pgRuns) DeleteIdleConversations(ctx context.Context, before time.Time, limit int) (int, error) {
+	tag, err := s.db.Exec(ctx, `DELETE FROM agent_conversations WHERE id IN (
+    SELECT id FROM agent_conversations WHERE last_activity_at < @before LIMIT @limit FOR UPDATE SKIP LOCKED)`,
+		pgx.StrictNamedArgs{"before": before, "limit": limit})
+	if err != nil {
+		return 0, fmt.Errorf("delete idle agent conversations: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
 func (s pgRuns) BlankAccountOutputs(ctx context.Context, account uuid.UUID) error {
 	if _, err := s.db.Exec(ctx, `UPDATE agent_tool_calls SET tool_output = NULL, result_content = NULL
 WHERE turn_id IN (SELECT t.id FROM agent_turns AS t JOIN agent_conversations AS c ON c.id = t.conversation_id

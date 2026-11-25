@@ -24,10 +24,16 @@ func (s *Agent) RecordRead(ctx context.Context, member uuid.UUID, tool string, k
 	return nil
 }
 
+// conversationBatch is how many conversations one delete takes; each
+// cascades to its turns, calls, events and documents.
+const conversationBatch = 100
+
 // SweepReads deletes reads past ReadsKeptFor and blanks the tool outputs
-// as old, which hold what the tools read, sweepBatch at a time.
+// as old, which hold what the tools read, sweepBatch at a time; then it
+// deletes the conversations idle past ConversationsKeptFor.
 func (s *Agent) SweepReads(ctx context.Context) error {
-	before := s.now().Add(-ReadsKeptFor)
+	now := s.now()
+	before := now.Add(-ReadsKeptFor)
 	for {
 		n, err := s.reads.DeleteBefore(ctx, before, sweepBatch)
 		if err != nil {
@@ -43,6 +49,16 @@ func (s *Agent) SweepReads(ctx context.Context) error {
 			return fmt.Errorf("sweep the agent's tool outputs: %w", err)
 		}
 		if n < sweepBatch {
+			break
+		}
+	}
+	idle := now.Add(-ConversationsKeptFor)
+	for {
+		n, err := s.runs.DeleteIdleConversations(ctx, idle, conversationBatch)
+		if err != nil {
+			return fmt.Errorf("sweep the agent's idle conversations: %w", err)
+		}
+		if n < conversationBatch {
 			return nil
 		}
 	}
