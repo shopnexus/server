@@ -11,9 +11,9 @@ import (
 	"github.com/shopnexus/server/internal/platform/events"
 )
 
-// AccountWatch deletes a deleted account's quick replies: Mount subscribes
-// Deleted to account.deleted. Its messages stay, as the other member's
-// conversation does.
+// AccountWatch deletes a deleted account's quick replies and reply samples:
+// Mount subscribes Deleted to account.deleted. Its messages stay, as the
+// other member's conversation does.
 type AccountWatch struct {
 	Prefix string
 	Chats  service.Service
@@ -21,7 +21,8 @@ type AccountWatch struct {
 
 func (w AccountWatch) ServiceName() string { return w.Prefix + "ChatAccountWatch" }
 
-// Deleted deletes the quick replies of the account e names.
+// Deleted deletes the quick replies and reply samples of the account e
+// names.
 func (w AccountWatch) Deleted(ctx restate.Context, e events.Event) error {
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
 		return w.Chats.DeleteAccount(rc, e.SubjectID)

@@ -106,6 +106,8 @@ type Chats interface {
 	// after since, and their median wait; none give 0 and 0. Each sent
 	// message writes its sender's sample when it ends a wait.
 	ReplyWait(ctx context.Context, account uuid.UUID, since time.Time) (samples int, median time.Duration, err error)
+	// DeleteReplySamples deletes account's reply samples.
+	DeleteReplySamples(ctx context.Context, account uuid.UUID) error
 	// ListingSenders reads, for each of seller's listings among ids, the
 	// people other than seller who wrote to seller about it in their pair
 	// conversation, with their first such message's time, earliest first.

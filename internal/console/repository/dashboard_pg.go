@@ -47,10 +47,11 @@ WITH ticket AS (
     WHERE t.token_hash = @ticket_hash AND t.app = @app AND t.used_at IS NULL AND t.expires_at > @now
       AND s.id = t.session_id AND `+sessionLives+`
     RETURNING t.session_id, s.expires_at
+), granted AS (
+    INSERT INTO console_dashboard_sessions (token_hash, session_id, app, created_at)
+    SELECT @token_hash, ticket.session_id, @app, @now FROM ticket
 )
-INSERT INTO console_dashboard_sessions (token_hash, session_id, app, created_at, expires_at)
-SELECT @token_hash, ticket.session_id, @app, @now, ticket.expires_at FROM ticket
-RETURNING expires_at`, pgx.StrictNamedArgs{
+SELECT expires_at FROM ticket`, pgx.StrictNamedArgs{
 		"ticket_hash": ticketHash, "token_hash": tokenHash, "app": app, "now": now,
 	}).Scan(&expiresAt)
 	if errors.Is(err, pgx.ErrNoRows) {

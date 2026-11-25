@@ -77,8 +77,10 @@ ORDER BY bumped_at DESC LIMIT 1`, pgx.StrictNamedArgs{"account": n.Recipient, "k
 		var unread uuid.UUID
 		b = &pgx.Batch{}
 		// A collapsed notice keeps its first created_at, so age is bumped_at.
+		// Up to trimNotices of anyone's go too, a silent account's among them.
 		b.Queue(`DELETE FROM notifications WHERE account_id = @account AND bumped_at < @expired`,
 			pgx.StrictNamedArgs{"account": n.Recipient, "expired": expired})
+		b.Queue(trimExpired, pgx.StrictNamedArgs{"expired": expired, "limit": trimNotices})
 		b.Queue(insertNotice, pgx.StrictNamedArgs{
 			"id": fresh, "account": n.Recipient, "type": n.Type, "key": n.CollapseKey, "params": n.Params,
 			"event": event, "at": n.At,
@@ -138,6 +140,17 @@ func scanFound(row pgx.Row, found *bool, what string, dest ...any) error {
 	*found = true
 	return nil
 }
+
+// trimNotices is how many expired notices of any account one new notice
+// deletes; a notice adds at most one row.
+const trimNotices = 100
+
+// trimExpired reads through notifications_bumped; SKIP LOCKED keeps two
+// writes from waiting on each other.
+const trimExpired = `
+DELETE FROM notifications WHERE id IN (
+    SELECT id FROM notifications WHERE bumped_at < @expired
+    LIMIT @limit FOR UPDATE SKIP LOCKED)`
 
 func (s pgNotices) List(ctx context.Context, account uuid.UUID, p page.Request) ([]Row, error) {
 	args := pgx.StrictNamedArgs{"account": account, "fetch": p.Fetch()}

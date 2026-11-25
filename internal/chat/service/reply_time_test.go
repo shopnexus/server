@@ -6,6 +6,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/shopnexus/server/internal/account/accounttest"
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	"github.com/shopnexus/server/internal/chat/domain"
@@ -75,4 +77,50 @@ func TestReplyTime(t *testing.T) {
 		say(thread(t, db, now, seller, buyer, line{buyer, day, mine}), seller, day-3*hour)
 	}
 	want("nine answers", domain.ReplyHours)
+}
+
+// A sent message trims anyone's samples past 30 days, so a silent seller's
+// go too, and the account's deletion takes its own.
+func TestReplySamplesLeave(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	now := time.Now().Truncate(time.Second)
+	chats := repository.NewChats(db)
+	s := service.New(service.Deps{Chats: chats, QuickReplies: repository.NewQuickReplies(db), Now: func() time.Time { return now }})
+	answer := func(seller uuid.UUID, ago time.Duration) {
+		t.Helper()
+		buyer := accounttest.New(t, db)
+		conv := thread(t, db, now, seller, buyer, line{buyer, ago + time.Minute, catalogtest.Listing(t, db, seller)})
+		m := domain.RestoreMessage(domain.MessageState{
+			ID: uuid.NewV7(), ConversationID: conv, SenderID: seller, Body: "Còn ạ", Status: domain.StatusSent, CreatedAt: now.Add(-ago),
+		})
+		if _, err := chats.AddMessage(ctx, m, uuid.Nil()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	samples := func(account uuid.UUID) int {
+		t.Helper()
+		var n int
+		if err := db.QueryRow(ctx, `SELECT count(*) FROM reply_samples WHERE account_id = @account`,
+			pgx.StrictNamedArgs{"account": account}).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	quiet, busy := accounttest.New(t, db), accounttest.New(t, db)
+	answer(quiet, 40*24*time.Hour)
+	if n := samples(quiet); n != 1 {
+		t.Fatalf("%d samples before the trim", n)
+	}
+	answer(busy, 0)
+	if q, b := samples(quiet), samples(busy); q != 0 || b != 1 {
+		t.Fatalf("after another's send: quiet %d, busy %d", q, b)
+	}
+	if err := s.DeleteAccount(ctx, busy); err != nil {
+		t.Fatal(err)
+	}
+	if n := samples(busy); n != 0 {
+		t.Fatalf("%d samples after the deletion", n)
+	}
 }

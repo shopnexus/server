@@ -21,7 +21,7 @@ func TestPutQuickReplies(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	db := pgtest.New(t)
-	s := service.New(service.Deps{QuickReplies: repository.NewQuickReplies(db), Now: time.Now})
+	s := service.New(service.Deps{Chats: repository.NewChats(db), QuickReplies: repository.NewQuickReplies(db), Now: time.Now})
 	me := accounttest.New(t, db)
 	if got, err := s.QuickReplies(ctx, me, locale.English); err != nil || !slices.Equal(got.Items, domain.DefaultQuickReplies(locale.English)) {
 		t.Fatalf("defaults: %q %v", got.Items, err)

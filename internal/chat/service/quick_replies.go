@@ -32,5 +32,8 @@ func (s *Chat) DeleteAccount(ctx context.Context, account uuid.UUID) error {
 	if err := s.replies.Delete(ctx, account); err != nil {
 		return fmt.Errorf("delete quick replies: %w", err)
 	}
+	if err := s.chats.DeleteReplySamples(ctx, account); err != nil {
+		return fmt.Errorf("delete reply samples: %w", err)
+	}
 	return nil
 }

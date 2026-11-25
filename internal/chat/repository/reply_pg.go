@@ -102,16 +102,35 @@ WHERE c.id = @conversation AND c.kind = 'pair' AND w.asked_at IS NOT NULL
                   WHERE n.conversation_id = c.id AND n.sender_id <> @sender AND l.seller_id = @sender))
 ON CONFLICT (message_id) DO NOTHING`
 
-// queueSample queues into b m's reply sample, if it is one, and the drop of
-// its sender's samples older than domain.ReplyTimePeriod, so the table holds
-// the period.
+// trimSamples is how many expired samples one sent message deletes. A
+// message adds at most one, so the table holds the period plus what
+// expired since the last message.
+const trimSamples = 100
+
+// trimExpired deletes samples past the period, anyone's, through
+// reply_samples_answered; SKIP LOCKED keeps two sends from waiting on each
+// other.
+const trimExpired = `
+DELETE FROM reply_samples WHERE message_id IN (
+    SELECT message_id FROM reply_samples WHERE answered_at < @before
+    LIMIT @limit FOR UPDATE SKIP LOCKED)`
+
+// queueSample queues into b m's reply sample, if it is one, and the trim of
+// the samples older than domain.ReplyTimePeriod, a silent account's too.
 func queueSample(b *pgx.Batch, m domain.Message) {
 	b.Queue(replySample, pgx.StrictNamedArgs{
 		"id": m.ID(), "sender": m.SenderID(), "conversation": m.ConversationID(), "at": m.CreatedAt(),
 		"gap": domain.ReplyGap.Seconds(),
 	})
-	b.Queue(`DELETE FROM reply_samples WHERE account_id = @sender AND answered_at < @before`,
-		pgx.StrictNamedArgs{"sender": m.SenderID(), "before": m.CreatedAt().Add(-domain.ReplyTimePeriod)})
+	b.Queue(trimExpired, pgx.StrictNamedArgs{"before": m.CreatedAt().Add(-domain.ReplyTimePeriod), "limit": trimSamples})
+}
+
+func (s pgChats) DeleteReplySamples(ctx context.Context, account uuid.UUID) error {
+	if _, err := s.db.Exec(ctx, `DELETE FROM reply_samples WHERE account_id = @account`,
+		pgx.StrictNamedArgs{"account": account}); err != nil {
+		return fmt.Errorf("delete reply samples: %w", err)
+	}
+	return nil
 }
 
 func (s pgChats) ReplyWait(ctx context.Context, account uuid.UUID, since time.Time) (samples int, median time.Duration, err error) {

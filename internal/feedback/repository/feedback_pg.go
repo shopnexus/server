@@ -119,14 +119,6 @@ func orNull(s string) any {
 	return s
 }
 
-// memberOf is the member who acted, or NULL for the CLI.
-func memberOf(a audit.Actor) any {
-	if a.Kind != audit.ActorMember {
-		return nil
-	}
-	return a.MemberID
-}
-
 // Insert reads the account's prior feedback and count under the account's
 // locks in one batch, and writes and reads back the feedback in another.
 func (s pgStore) Insert(ctx context.Context, f Feedback, key uuid.UUID, since time.Time) (Feedback, bool, error) {
@@ -425,8 +417,8 @@ func (s pgStore) Reply(ctx context.Context, id uuid.UUID, text string, actor aud
 			return fmt.Errorf("lock feedback: %w", err)
 		}
 		b := &pgx.Batch{}
-		b.Queue(`UPDATE feedback SET reply_body = @text, replied_at = @at, replied_by = @member WHERE id = @id`,
-			pgx.StrictNamedArgs{"id": id, "text": text, "at": at, "member": memberOf(actor)})
+		b.Queue(`UPDATE feedback SET reply_body = @text, replied_at = @at WHERE id = @id`,
+			pgx.StrictNamedArgs{"id": id, "text": text, "at": at})
 		if first {
 			events.Queue(b, events.Event{ID: uuid.NewV7(), Kind: events.FeedbackReplied, SubjectID: id, OccurredAt: at})
 		}

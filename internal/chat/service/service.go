@@ -116,8 +116,8 @@ type Service interface {
 	// PutQuickReplies replaces account's quick replies with items, each
 	// trimmed, in their order.
 	PutQuickReplies(ctx context.Context, account uuid.UUID, items []string) (QuickReplies, error)
-	// DeleteAccount deletes a deleted account's quick replies; the worker
-	// calls it on account.deleted.
+	// DeleteAccount deletes a deleted account's quick replies and reply
+	// samples; the worker calls it on account.deleted.
 	DeleteAccount(ctx context.Context, account uuid.UUID) error
 }
 

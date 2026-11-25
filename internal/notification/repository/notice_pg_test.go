@@ -68,6 +68,8 @@ func TestCollapse(t *testing.T) {
 	}
 }
 
+// A redelivered event adds nothing; a new notice deletes the expired ones,
+// the recipient's and a silent account's.
 func TestAddOnceAndPrune(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -95,8 +97,8 @@ func TestAddOnceAndPrune(t *testing.T) {
 	}
 	mine, _ := s.List(ctx, me, page.Request{})
 	theirs, _ := s.List(ctx, other, page.Request{})
-	if len(mine) != 2 || len(theirs) != 1 {
-		t.Fatalf("prune deletes only the recipient's old notices: %d %d", len(mine), len(theirs))
+	if len(mine) != 2 || len(theirs) != 0 {
+		t.Fatalf("prune deletes the recipient's and a silent account's old notices: %d %d", len(mine), len(theirs))
 	}
 }
 
