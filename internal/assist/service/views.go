@@ -74,3 +74,14 @@ type SimilarView struct {
 	Km         int                     `json:"km"`
 	DaysToSell *int                    `json:"days_to_sell,omitempty"`
 }
+
+// AdFill is the draft of a seller's Chợ Tốt listing. Guessed names the
+// fields the fill set without the listing stating them, such as the
+// condition; NoItem is the model's reason when the listing sells no one
+// item, and the draft is empty then.
+type AdFill struct {
+	Draft          domain.Draft `json:"draft"`
+	ContactRemoved bool         `json:"contact_removed"`
+	Guessed        []string     `json:"guessed"`
+	NoItem         string       `json:"no_item,omitempty"`
+}

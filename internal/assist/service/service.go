@@ -62,6 +62,9 @@ type Service interface {
 	//
 	// UC-LST-01 A2
 	PreviewLink(ctx context.Context, account uuid.UUID, link string) (LinkPreviewView, error)
+	// FillAd writes the listing draft of a seller's Chợ Tốt listing, for
+	// module chotot's import, and stores nothing.
+	FillAd(ctx context.Context, ad chotot.Ad) (AdFill, error)
 	// PriceGuide prices a draft against the listings most like it and the
 	// search watches it would match, and stores nothing.
 	//
