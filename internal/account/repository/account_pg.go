@@ -23,22 +23,20 @@ type pgAccounts struct{ db *pgxpool.Pool }
 func NewAccounts(db *pgxpool.Pool) Accounts { return pgAccounts{db} }
 
 func (s pgAccounts) Create(ctx context.Context, a domain.Account) error {
-	return insertAccount(ctx, s.db, a)
+	b := &pgx.Batch{}
+	queueInsertAccount(b, a)
+	return s.db.SendBatch(ctx, b).Close() //nolint:wrapcheck // the statement wraps its own error.
 }
 
-// insertAccount inserts a; the same id again does nothing. Create and
+// queueInsertAccount inserts a; the same id again does nothing. Create and
 // Credentials.SignUp call it.
-func insertAccount(ctx context.Context, q postgres.Execer, a domain.Account) error {
-	_, err := q.Exec(ctx, `
+func queueInsertAccount(b *pgx.Batch, a domain.Account) {
+	queue(b, "insert account", `
 INSERT INTO accounts (id, display_name, status, write_id, created_at, updated_at)
 VALUES (@id, NULLIF(@display_name, ''), @status, @write_id, @now, @now)
 ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 		"id": a.ID(), "display_name": a.DisplayName(), "status": a.StoredStatus(), "write_id": a.WriteID(), "now": a.CreatedAt(),
-	})
-	if err != nil {
-		return fmt.Errorf("insert account: %w", err)
-	}
-	return nil
+	}, nil)
 }
 
 // accountColumns are the columns scanAccount reads.
@@ -82,26 +80,26 @@ SET display_name = NULLIF(@display_name, ''), bio = NULLIF(@bio, ''), avatar_key
     write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
+// queueSaveAccount queues a's update under writeID; no row is ErrConflict,
+// so the batch runs in a tx.
+func queueSaveAccount(b *pgx.Batch, a *domain.Account, writeID uuid.UUID) {
+	queue(b, "update account", saveAccount, pgx.StrictNamedArgs{
+		"id": a.ID(), "read_write_id": a.WriteID(), "write_id": writeID,
+		"display_name": a.DisplayName(), "bio": a.Bio(), "avatar_key": a.AvatarKey(), "status": a.StoredStatus(),
+		"suspended_until": a.SuspendedUntil(), "suspend_reason": a.SuspendReason(), "updated_at": a.UpdatedAt(),
+		"deleted_at": a.DeletedAt(), "away_until": a.StoredAwayUntil(),
+	}, ErrConflict)
+}
+
 func (s pgAccounts) Save(ctx context.Context, a *domain.Account, writeID uuid.UUID, entry *audit.Entry, evs ...events.Event) error {
+	b := &pgx.Batch{}
+	queueSaveAccount(b, a, writeID)
+	if entry != nil {
+		audit.Queue(b, *entry)
+	}
+	events.Queue(b, evs...)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, saveAccount, pgx.StrictNamedArgs{
-			"id": a.ID(), "read_write_id": a.WriteID(), "write_id": writeID,
-			"display_name": a.DisplayName(), "bio": a.Bio(), "avatar_key": a.AvatarKey(), "status": a.StoredStatus(),
-			"suspended_until": a.SuspendedUntil(), "suspend_reason": a.SuspendReason(), "updated_at": a.UpdatedAt(),
-			"deleted_at": a.DeletedAt(), "away_until": a.StoredAwayUntil(),
-		})
-		if err != nil {
-			return fmt.Errorf("update account: %w", err)
-		}
-		if tag.RowsAffected() == 0 {
-			return ErrConflict
-		}
-		if entry != nil {
-			if err := audit.Insert(ctx, tx, *entry); err != nil {
-				return err
-			}
-		}
-		return events.Insert(ctx, tx, evs...)
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("save account: %w", err)
@@ -125,30 +123,17 @@ WHERE subject IN (SELECT 'dest:' || identifier FROM identities WHERE account_id 
 }
 
 func (s pgAccounts) Erase(ctx context.Context, a *domain.Account, writeID uuid.UUID, evs ...events.Event) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, saveAccount, pgx.StrictNamedArgs{
-			"id": a.ID(), "read_write_id": a.WriteID(), "write_id": writeID,
-			"display_name": a.DisplayName(), "bio": a.Bio(), "avatar_key": a.AvatarKey(), "status": a.StoredStatus(),
-			"suspended_until": a.SuspendedUntil(), "suspend_reason": a.SuspendReason(), "updated_at": a.UpdatedAt(),
-			"deleted_at": a.DeletedAt(), "away_until": a.StoredAwayUntil(),
-		})
-		if err != nil {
-			return fmt.Errorf("update account: %w", err)
-		}
-		if tag.RowsAffected() == 0 {
-			return ErrConflict
-		}
-		for _, q := range eraseAccount {
-			if _, err = tx.Exec(ctx, q, pgx.StrictNamedArgs{"id": a.ID()}); err != nil {
-				return fmt.Errorf("erase: %w", err)
-			}
-		}
-		if _, err = tx.Exec(ctx, `UPDATE sessions SET revoked_at = @now, revoke_reason = @reason, write_id = @write_id
+	b := &pgx.Batch{}
+	queueSaveAccount(b, a, writeID)
+	for _, q := range eraseAccount {
+		queue(b, "erase", q, pgx.StrictNamedArgs{"id": a.ID()}, nil)
+	}
+	queue(b, "revoke sessions", `UPDATE sessions SET revoked_at = @now, revoke_reason = @reason, write_id = @write_id
 WHERE account_id = @id AND revoked_at IS NULL`,
-			pgx.StrictNamedArgs{"id": a.ID(), "now": a.UpdatedAt(), "reason": string(domain.RevokedDeleted), "write_id": writeID}); err != nil {
-			return fmt.Errorf("revoke sessions: %w", err)
-		}
-		return events.Insert(ctx, tx, evs...)
+		pgx.StrictNamedArgs{"id": a.ID(), "now": a.UpdatedAt(), "reason": string(domain.RevokedDeleted), "write_id": writeID}, nil)
+	events.Queue(b, evs...)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("erase account: %w", err)
@@ -239,56 +224,26 @@ WHERE i.kind = 'phone' AND a.status <> 'deleted' AND a.id <> @system`, pgx.Stric
 	return n, nil
 }
 
-// lockLiving takes a share lock on account's row and refuses a deleted
-// account with domain.ErrSessionRevoked. A write that checked the account
-// before Erase and commits after it waits for Erase and then sees the
-// tombstone, so no new row of the account outlives the deletion. An unknown
-// account passes; the foreign keys answer for it.
-func lockLiving(ctx context.Context, tx pgx.Tx, account uuid.UUID) error {
-	var status domain.Status
-	err := tx.QueryRow(ctx, `SELECT status FROM accounts WHERE id = @id FOR SHARE`, pgx.StrictNamedArgs{"id": account}).Scan(&status)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("lock account: %w", err)
-	}
-	if status == domain.StatusDeleted {
-		return domain.ErrSessionRevoked
-	}
-	return nil
-}
-
-// lockPair serialises the follows and blocks between a and b, in either
-// order, so a follow written beside a block cannot outlive it.
-func lockPair(ctx context.Context, tx pgx.Tx, a, b uuid.UUID) error {
+// queueLockPair serialises the follows and blocks between a and b, in
+// either order, so a follow written beside a block cannot outlive it.
+func queueLockPair(batch *pgx.Batch, a, b uuid.UUID) {
 	lo, hi := min(a.String(), b.String()), max(a.String(), b.String())
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('pair:' || @pair))`,
-		pgx.StrictNamedArgs{"pair": lo + "/" + hi}); err != nil {
-		return fmt.Errorf("lock pair: %w", err)
-	}
-	return nil
+	queue(batch, "lock pair", `SELECT pg_advisory_xact_lock(hashtext('pair:' || @pair))`,
+		pgx.StrictNamedArgs{"pair": lo + "/" + hi}, nil)
 }
 
 func (s pgAccounts) Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockLiving(ctx, tx, blocker); err != nil {
-			return err
-		}
-		if err := lockPair(ctx, tx, blocker, blocked); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO account_blocks (id, blocker_id, blocked_id, created_at)
+	b := &pgx.Batch{}
+	postgres.QueueLockLiving(b, blocker, domain.ErrSessionRevoked)
+	queueLockPair(b, blocker, blocked)
+	queue(b, "insert block", `INSERT INTO account_blocks (id, blocker_id, blocked_id, created_at)
 VALUES (@id, @blocker, @blocked, @at) ON CONFLICT (blocker_id, blocked_id) DO NOTHING`,
-			pgx.StrictNamedArgs{"id": id, "blocker": blocker, "blocked": blocked, "at": at}); err != nil {
-			return fmt.Errorf("insert block: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM account_follows
+		pgx.StrictNamedArgs{"id": id, "blocker": blocker, "blocked": blocked, "at": at}, nil)
+	queue(b, "delete follows", `DELETE FROM account_follows
 WHERE (follower_id = @blocker AND followed_id = @blocked) OR (follower_id = @blocked AND followed_id = @blocker)`,
-			pgx.StrictNamedArgs{"blocker": blocker, "blocked": blocked}); err != nil {
-			return fmt.Errorf("delete follows: %w", err)
-		}
-		return nil
+		pgx.StrictNamedArgs{"blocker": blocker, "blocked": blocked}, nil)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("block: %w", err)

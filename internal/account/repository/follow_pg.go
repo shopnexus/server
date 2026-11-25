@@ -21,24 +21,27 @@ func NewFollows(db *pgxpool.Pool) Follows { return pgFollows{db} }
 func (s pgFollows) Follow(ctx context.Context, id, follower, followed uuid.UUID, at time.Time) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		// The follower's lock keeps the cap; the pair's keeps out a block.
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('follows:' || @follower::text))`,
-			pgx.StrictNamedArgs{"follower": follower}); err != nil {
-			return fmt.Errorf("lock follower: %w", err)
-		}
-		if err := lockPair(ctx, tx, follower, followed); err != nil {
-			return err
-		}
+		b := &pgx.Batch{}
+		queue(b, "lock follower", `SELECT pg_advisory_xact_lock(hashtext('follows:' || @follower::text))`,
+			pgx.StrictNamedArgs{"follower": follower}, nil)
+		queueLockPair(b, follower, followed)
 		var (
 			blocked, following bool
 			n                  int
 		)
-		if err := tx.QueryRow(ctx, `SELECT
+		b.Queue(`SELECT
     EXISTS (SELECT 1 FROM account_blocks
             WHERE (blocker_id = @a AND blocked_id = @b) OR (blocker_id = @b AND blocked_id = @a)),
     EXISTS (SELECT 1 FROM account_follows WHERE follower_id = @a AND followed_id = @b),
     (SELECT count(*) FROM account_follows WHERE follower_id = @a)`,
-			pgx.StrictNamedArgs{"a": follower, "b": followed}).Scan(&blocked, &following, &n); err != nil {
-			return fmt.Errorf("read the follow's facts: %w", err)
+			pgx.StrictNamedArgs{"a": follower, "b": followed}).QueryRow(func(row pgx.Row) error {
+			if err := row.Scan(&blocked, &following, &n); err != nil {
+				return fmt.Errorf("read the follow's facts: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // the queued statements wrap their own errors.
 		}
 		switch {
 		case blocked:
