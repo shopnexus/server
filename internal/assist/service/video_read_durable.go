@@ -33,8 +33,9 @@ const maxFrames = aidomain.MaxFrames
 type StartInput struct {
 	Account uuid.UUID `json:"account"`
 	Video   uuid.UUID `json:"video"`
-	// RequestKey names the phone's transcript waiting for this read.
-	RequestKey string `json:"request_key"`
+	// Key is the account's request key, which the read claims and the
+	// phone's transcript waits under.
+	Key uuid.UUID `json:"request_key"`
 }
 
 // Where the fill's transcript came from, for the prompt and the log line.
@@ -130,14 +131,12 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 	}
 	id := restatex.NewID(ctx, at)
 	read := domain.NewVideoRead(id, in.Account, in.Video, at)
-	inserted, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		return restatex.AsRefusal(s.Reads.Insert(rc, read, in.RequestKey))
-	})
-	if err != nil {
-		return StartResult{}, fmt.Errorf("insert read: %w", err)
+	ins, err := insertStep(ctx, s.Reads, read, in.Key)
+	if err != nil || ins.Refused != nil {
+		return StartResult{Refused: ins.Refused}, err
 	}
-	if inserted.Refusal != nil {
-		return StartResult{Refused: inserted.Refusal}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
+	if ins.ID != id {
+		return StartResult{ReadID: ins.ID}, nil
 	}
 	held, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
 		holdErr := s.Media.HoldVideo(rc, in.Account, id, in.Video)

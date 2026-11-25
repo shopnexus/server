@@ -53,10 +53,10 @@ func TestListingReadInsertGetAndNotify(t *testing.T) {
 		domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), now),
 		domain.NewLinkRead(uuid.NewV7(), me, link, now),
 	} {
-		if err := reads.Insert(ctx, r, ""); err != nil {
+		if _, err := reads.Insert(ctx, r, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
-		if err := reads.Insert(ctx, r, ""); err != nil { // a retried step
+		if _, err := reads.Insert(ctx, r, uuid.Nil()); err != nil { // a retried step
 			t.Fatalf("second insert: %v", err)
 		}
 		got, err := reads.Get(ctx, r.ID())
@@ -82,19 +82,19 @@ func TestCapsPerSource(t *testing.T) {
 	reads := repository.NewListingReads(db)
 	me := accounttest.New(t, db)
 	for range domain.PhotoCap {
-		if err := reads.Insert(ctx, domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), now), ""); err != nil {
+		if _, err := reads.Insert(ctx, domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), now), uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := reads.Insert(ctx, domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), now), ""); !errors.Is(err, domain.ErrReadLimit) {
+	if _, err := reads.Insert(ctx, domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), now), uuid.Nil()); !errors.Is(err, domain.ErrReadLimit) {
 		t.Fatalf("photo read %d: %v", domain.PhotoCap+1, err)
 	}
-	if err := reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now), ""); err != nil {
+	if _, err := reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now), uuid.Nil()); err != nil {
 		t.Fatalf("a video read past the photo cap: %v", err)
 	}
 	// Reads older than the window no longer count.
 	later := now.Add(domain.ReadWindow + time.Minute)
-	if err := reads.Insert(ctx, domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), later), ""); err != nil {
+	if _, err := reads.Insert(ctx, domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), later), uuid.Nil()); err != nil {
 		t.Fatalf("a photo read a day later: %v", err)
 	}
 }
@@ -108,28 +108,28 @@ SET status = 'deleted', deleted_at = now(), display_name = NULL, bio = NULL, ava
 		pgx.StrictNamedArgs{"id": me}); err != nil {
 		t.Fatal(err)
 	}
-	err := repository.NewListingReads(db).Insert(context.Background(), domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), now), "")
+	_, err := repository.NewListingReads(db).Insert(context.Background(), domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), now), uuid.Nil())
 	if !errors.Is(err, accountdomain.ErrSessionRevoked) {
 		t.Fatalf("%v", err)
 	}
 }
 
 // The waiting transcript moves into its video read once; a later insert
-// under the same key finds nothing, and stale waits are pruned.
+// under the same key gives back that read, and stale waits are pruned.
 func TestTranscriptMovesOnce(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	ctx := context.Background()
 	reads := repository.NewListingReads(db)
-	me := accounttest.New(t, db)
-	if err := reads.PutTranscript(ctx, me, "key-1", "Xe đạp Asama, một triệu hai.", now); err != nil {
+	me, key1, key2 := accounttest.New(t, db), uuid.NewV7(), uuid.NewV7()
+	if err := reads.PutTranscript(ctx, me, key1.String(), "Xe đạp Asama, một triệu hai.", now); err != nil {
 		t.Fatal(err)
 	}
 	if err := reads.PutTranscript(ctx, me, "stale", "cũ", now.Add(-domain.TranscriptWait-time.Second)); err != nil {
 		t.Fatal(err)
 	}
 	r := domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now)
-	if err := reads.Insert(ctx, r, "key-1"); err != nil {
+	if _, err := reads.Insert(ctx, r, key1); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := reads.Transcript(ctx, r.ID()); err != nil || got != "Xe đạp Asama, một triệu hai." {
@@ -139,18 +139,18 @@ func TestTranscriptMovesOnce(t *testing.T) {
 		t.Fatalf("%d transcripts still waiting", n)
 	}
 	other := domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now)
-	if err := reads.Insert(ctx, other, "key-1"); err != nil {
-		t.Fatal(err)
+	if id, err := reads.Insert(ctx, other, key1); err != nil || id != r.ID() {
+		t.Fatalf("a second read under the key: %s %v", id, err)
 	}
-	if got, err := reads.Transcript(ctx, other.ID()); err != nil || got != "" {
-		t.Fatalf("a second read took %q: %v", got, err)
+	if id, err := reads.ByKey(ctx, me, key1); err != nil || id != r.ID() {
+		t.Fatalf("by key: %s %v", id, err)
 	}
 	// A photo read never takes a transcript, even under a key that has one.
-	if err := reads.PutTranscript(ctx, me, "key-2", "nghe được", now); err != nil {
+	if err := reads.PutTranscript(ctx, me, key2.String(), "nghe được", now); err != nil {
 		t.Fatal(err)
 	}
 	p := domain.NewPhotoRead(uuid.NewV7(), me, uuid.NewV7(), now)
-	if err := reads.Insert(ctx, p, "key-2"); err != nil {
+	if _, err := reads.Insert(ctx, p, key2); err != nil {
 		t.Fatalf("a photo read under a transcript's key: %v", err)
 	}
 	if s := transcriptOf(t, db, p.ID()); s != nil {
@@ -164,12 +164,12 @@ func TestSaveDropsTheTranscriptAtTheEnd(t *testing.T) {
 	db := pgtest.New(t)
 	ctx := context.Background()
 	reads := repository.NewListingReads(db)
-	me := accounttest.New(t, db)
-	if err := reads.PutTranscript(ctx, me, "k", "một triệu hai", now); err != nil {
+	me, key := accounttest.New(t, db), uuid.NewV7()
+	if err := reads.PutTranscript(ctx, me, key.String(), "một triệu hai", now); err != nil {
 		t.Fatal(err)
 	}
 	r := domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now)
-	if err := reads.Insert(ctx, r, "k"); err != nil {
+	if _, err := reads.Insert(ctx, r, key); err != nil {
 		t.Fatal(err)
 	}
 	at := 1.5
@@ -205,7 +205,7 @@ func TestSaveUnderTheWriteID(t *testing.T) {
 	reads := repository.NewListingReads(db)
 	me := accounttest.New(t, db)
 	r := domain.NewLinkRead(uuid.NewV7(), me, link, now)
-	if err := reads.Insert(ctx, r, ""); err != nil {
+	if _, err := reads.Insert(ctx, r, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	stale := r
@@ -245,7 +245,7 @@ func TestDeleteAccountsReadsAndTranscripts(t *testing.T) {
 	reads := repository.NewListingReads(db)
 	me, other := accounttest.New(t, db), accounttest.New(t, db)
 	for _, a := range []uuid.UUID{me, other} {
-		if err := reads.Insert(ctx, domain.NewPhotoRead(uuid.NewV7(), a, uuid.NewV7(), now), ""); err != nil {
+		if _, err := reads.Insert(ctx, domain.NewPhotoRead(uuid.NewV7(), a, uuid.NewV7(), now), uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		if err := reads.PutTranscript(ctx, a, "k", "x", now); err != nil {
@@ -276,14 +276,14 @@ func TestRefusedInsertPrunesStaleTranscripts(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range domain.VideoCap {
-		if err := reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now), "x"); err != nil {
+		if _, err := reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now), uuid.NewV7()); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if err := reads.PutTranscript(ctx, me, "stale", "cũ", now.Add(-domain.TranscriptWait-time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	if err := reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now), "y"); !errors.Is(err, domain.ErrReadLimit) {
+	if _, err := reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), me, uuid.NewV7(), now), uuid.NewV7()); !errors.Is(err, domain.ErrReadLimit) {
 		t.Fatalf("%v", err)
 	}
 	if n := waiting(t, db, me); n != 0 {

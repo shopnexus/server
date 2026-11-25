@@ -12,11 +12,11 @@ import (
 // startReadRequest is ListingReadRequest; the request validator lets
 // exactly one source through.
 type startReadRequest struct {
-	Video          *uuid.UUID `json:"video"`
-	Photo          *uuid.UUID `json:"photo"`
-	Link           *string    `json:"link"`
-	Transcript     string     `json:"transcript"`
-	IdempotencyKey string     `header:"Idempotency-Key" json:"-"`
+	Video      *uuid.UUID `json:"video"`
+	Photo      *uuid.UUID `json:"photo"`
+	Link       *string    `json:"link"`
+	Transcript string     `json:"transcript"`
+	Key        uuid.UUID  `header:"Idempotency-Key" json:"-"`
 }
 
 // StartRead serves POST /v1/listing-reads.
@@ -36,11 +36,11 @@ func (h *Handler) StartRead(w http.ResponseWriter, r *http.Request) {
 	)
 	switch {
 	case in.Video != nil:
-		v, err = h.svc.StartVideoRead(r.Context(), p.AccountID, in.IdempotencyKey, *in.Video, in.Transcript)
+		v, err = h.svc.StartVideoRead(r.Context(), p.AccountID, in.Key, *in.Video, in.Transcript)
 	case in.Photo != nil:
-		v, err = h.svc.StartPhotoRead(r.Context(), p.AccountID, in.IdempotencyKey, *in.Photo)
+		v, err = h.svc.StartPhotoRead(r.Context(), p.AccountID, in.Key, *in.Photo)
 	case in.Link != nil:
-		v, err = h.svc.StartLinkRead(r.Context(), p.AccountID, in.IdempotencyKey, *in.Link)
+		v, err = h.svc.StartLinkRead(r.Context(), p.AccountID, in.Key, *in.Link)
 	default:
 		err = domain.ErrNoSource
 	}

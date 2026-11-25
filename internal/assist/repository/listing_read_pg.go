@@ -25,14 +25,12 @@ func NewListingReads(db *pgxpool.Pool) ListingReads { return pgListingReads{db} 
 // request key, for a video read only.
 const insertRead = `
 INSERT INTO listing_reads (id, account_id, source, media_id, link_site, link_list_id, link_url, link_photos, transcript,
-    status, failure, failure_reason, photos, draft, contact_removed, estimate, created_at, expires_at, write_id)
+    status, failure, failure_reason, photos, draft, contact_removed, estimate, created_at, expires_at, write_id, request_key)
 VALUES (@id, @account_id, @source, @media_id, @link_site, @link_list_id, @link_url, @link_photos,
     (SELECT text FROM listing_read_transcripts
-     WHERE account_id = @account_id AND request_key = @request_key AND @source::text = 'video'),
-    @status, NULLIF(@failure, ''), NULLIF(@failure_reason, ''), @photos, @draft, @contact_removed, @estimate, @created_at, @expires_at, @write_id)`
-
-// errSaved aborts a save whose row is at its write ID already.
-var errSaved = errors.New("assist: saved already")
+     WHERE account_id = @account_id AND request_key = @transcript_key AND @source::text = 'video'),
+    @status, NULLIF(@failure, ''), NULLIF(@failure_reason, ''), @photos, @draft, @contact_removed, @estimate, @created_at,
+    @expires_at, @write_id, @request_key)`
 
 const saveRead = `
 UPDATE listing_reads SET status = @status, failure = NULLIF(@failure, ''),
@@ -41,6 +39,9 @@ UPDATE listing_reads SET status = @status, failure = NULLIF(@failure, ''),
     transcript = CASE WHEN @status::text = 'reading' THEN transcript END
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
 RETURNING old.write_id = @write_id`
+
+// errSaved aborts a save whose row is at its write ID already.
+var errSaved = errors.New("assist: saved already")
 
 // readArgs are a read's columns. A step not reached yet is NULL, which a
 // nil []byte or pointer encodes, and so is a column of another source.
@@ -88,21 +89,25 @@ func readArgs(st domain.ListingReadState) (pgx.StrictNamedArgs, error) {
 	}, nil
 }
 
-func (s pgListingReads) Insert(ctx context.Context, r domain.ListingRead, requestKey string) error {
+func (s pgListingReads) Insert(ctx context.Context, r domain.ListingRead, key uuid.UUID) (uuid.UUID, error) {
 	st := r.State()
 	a, err := readArgs(st)
 	if err != nil {
-		return err
+		return uuid.Nil(), err
 	}
-	a["request_key"] = requestKey
+	a["request_key"], a["transcript_key"] = nil, key.String()
+	if key != uuid.Nil() {
+		a["request_key"] = key
+	}
 	// Stale waits go outside the transaction, so a refused insert prunes them too.
 	if _, err = s.db.Exec(ctx, `DELETE FROM listing_read_transcripts WHERE created_at < @stale`,
 		pgx.StrictNamedArgs{"stale": st.CreatedAt.Add(-domain.TranscriptWait)}); err != nil {
-		return fmt.Errorf("delete stale transcripts: %w", err)
+		return uuid.Nil(), fmt.Errorf("delete stale transcripts: %w", err)
 	}
+	id := st.ID
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		var (
-			stored bool
+			stored *uuid.UUID
 			n      int
 		)
 		b := &pgx.Batch{}
@@ -111,9 +116,12 @@ func (s pgListingReads) Insert(ctx context.Context, r domain.ListingRead, reques
 		postgres.QueueLockLiving(b, st.AccountID, accountdomain.ErrSessionRevoked)
 		b.Queue(`SELECT pg_advisory_xact_lock(hashtext('listing_reads:' || @source || ':' || @account::text))`,
 			pgx.StrictNamedArgs{"source": string(st.Source), "account": st.AccountID})
-		b.Queue(`SELECT EXISTS (SELECT 1 FROM listing_reads WHERE id = @id),
+		b.Queue(`SELECT (SELECT id FROM listing_reads WHERE id = @id OR (account_id = @account AND request_key = @key) LIMIT 1),
        (SELECT count(*) FROM listing_reads WHERE account_id = @account AND source = @source AND created_at > @since)`,
-			pgx.StrictNamedArgs{"id": st.ID, "account": st.AccountID, "source": string(st.Source), "since": st.CreatedAt.Add(-domain.ReadWindow)}).
+			pgx.StrictNamedArgs{
+				"id": st.ID, "account": st.AccountID, "key": a["request_key"], "source": string(st.Source),
+				"since": st.CreatedAt.Add(-domain.ReadWindow),
+			}).
 			QueryRow(func(row pgx.Row) error {
 				if scanErr := row.Scan(&stored, &n); scanErr != nil {
 					return fmt.Errorf("count reads: %w", scanErr)
@@ -123,24 +131,38 @@ func (s pgListingReads) Insert(ctx context.Context, r domain.ListingRead, reques
 		if txErr := tx.SendBatch(ctx, b).Close(); txErr != nil {
 			return txErr //nolint:wrapcheck // wrapped below
 		}
-		if stored {
+		// The row of a retried step, or of this key's first request.
+		if stored != nil {
+			id = *stored
 			return nil
 		}
 		if n >= st.Source.Cap() {
 			return domain.ErrReadLimit
 		}
-		id := st.ID
 		b = &pgx.Batch{}
 		b.Queue(insertRead, a)
 		b.Queue(`DELETE FROM listing_read_transcripts WHERE account_id = @account AND request_key = @key`,
-			pgx.StrictNamedArgs{"account": st.AccountID, "key": requestKey})
+			pgx.StrictNamedArgs{"account": st.AccountID, "key": key.String()})
 		stream.Queue(b, []uuid.UUID{st.AccountID}, stream.Hint{Kind: stream.KindListingRead, ListingReadID: &id})
 		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
-		return fmt.Errorf("insert listing read: %w", err)
+		return uuid.Nil(), fmt.Errorf("insert listing read: %w", err)
 	}
-	return nil
+	return id, nil
+}
+
+func (s pgListingReads) ByKey(ctx context.Context, account, key uuid.UUID) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := s.db.QueryRow(ctx, `SELECT id FROM listing_reads WHERE account_id = @account AND request_key = @key`,
+		pgx.StrictNamedArgs{"account": account, "key": key}).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil(), domain.ErrNotFound
+	}
+	if err != nil {
+		return uuid.Nil(), fmt.Errorf("select the key's read: %w", err)
+	}
+	return id, nil
 }
 
 func (s pgListingReads) Save(ctx context.Context, r *domain.ListingRead, writeID uuid.UUID) error {

@@ -22,6 +22,7 @@ const photoRead = "PhotoRead"
 
 type StartPhotoInput struct {
 	Account uuid.UUID `json:"account"`
+	Key     uuid.UUID `json:"key,omitzero"`
 	Photo   uuid.UUID `json:"photo"`
 }
 
@@ -69,14 +70,12 @@ func (s PhotoRead) Start(ctx restate.Context, in StartPhotoInput) (StartResult, 
 	}
 	id := restatex.NewID(ctx, at)
 	read := domain.NewPhotoRead(id, in.Account, in.Photo, at)
-	inserted, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		return restatex.AsRefusal(s.Reads.Insert(rc, read, ""))
-	})
-	if err != nil {
-		return StartResult{}, fmt.Errorf("insert read: %w", err)
+	ins, err := insertStep(ctx, s.Reads, read, in.Key)
+	if err != nil || ins.Refused != nil {
+		return StartResult{Refused: ins.Refused}, err
 	}
-	if inserted.Refusal != nil {
-		return StartResult{Refused: inserted.Refusal}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
+	if ins.ID != id {
+		return StartResult{ReadID: ins.ID}, nil
 	}
 	// The photo must be the caller's, waiting, before its expiry and in the
 	// store as declared: what a search by photo takes.

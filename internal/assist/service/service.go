@@ -26,22 +26,22 @@ const startHandler = "Start"
 
 // Service is module assist's contract.
 type Service interface {
-	// StartVideoRead runs VideoRead.Start once per account and
-	// idempotencyKey and returns the read as it is then. transcript is what
-	// the phone heard; blank is none, and the server hears the video then.
+	// StartVideoRead starts a read of the video, once per account and key,
+	// and returns the read as it is then. transcript is what the phone
+	// heard; blank is none, and the server hears the video then.
 	//
 	// UC-LST-01
-	StartVideoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, video uuid.UUID, transcript string) (ListingReadView, error)
-	// StartPhotoRead runs PhotoRead.Start once per account and
-	// idempotencyKey and returns the read as it is then.
+	StartVideoRead(ctx context.Context, account, key, video uuid.UUID, transcript string) (ListingReadView, error)
+	// StartPhotoRead starts a read of the photo, once per account and key,
+	// and returns the read as it is then.
 	//
 	// UC-LST-01
-	StartPhotoRead(ctx context.Context, account uuid.UUID, idempotencyKey string, photo uuid.UUID) (ListingReadView, error)
-	// StartLinkRead parses the link, runs LinkRead.Start once per account
-	// and idempotencyKey and returns the read as it is then.
+	StartPhotoRead(ctx context.Context, account, key, photo uuid.UUID) (ListingReadView, error)
+	// StartLinkRead parses the link and starts a read of it, once per
+	// account and key, and returns the read as it is then.
 	//
 	// UC-LST-01 A2
-	StartLinkRead(ctx context.Context, account uuid.UUID, idempotencyKey, link string) (ListingReadView, error)
+	StartLinkRead(ctx context.Context, account, key uuid.UUID, link string) (ListingReadView, error)
 	// GetRead returns one of account's reads of any source. Another
 	// account's, an unknown one and one past its expiry are
 	// domain.ErrNotFound.

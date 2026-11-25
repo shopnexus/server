@@ -211,7 +211,7 @@ func TestStartReadRefusals(t *testing.T) {
 		return n
 	}
 	start := func(account, video uuid.UUID) error {
-		_, err := e.assist.StartVideoRead(ctx, account, uuid.NewV7().String(), video, "")
+		_, err := e.assist.StartVideoRead(ctx, account, uuid.NewV7(), video, "")
 		return err
 	}
 
@@ -235,7 +235,7 @@ func TestStartReadRefusals(t *testing.T) {
 
 	busy := accounttest.WithPhone(t, e.db)
 	for range domain.VideoCap {
-		if err := e.reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now()), ""); err != nil {
+		if _, err := e.reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now()), uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -267,7 +267,7 @@ func TestStartReadRace(t *testing.T) {
 	errs := make(chan error, 2)
 	for range 2 {
 		go func() {
-			_, err := e.assist.StartVideoRead(ctx, me, uuid.NewV7().String(), video, "")
+			_, err := e.assist.StartVideoRead(ctx, me, uuid.NewV7(), video, "")
 			errs <- err
 		}()
 	}
@@ -298,7 +298,7 @@ func TestStartReadTwice(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	me := accounttest.WithPhone(t, e.db)
-	key, video := uuid.NewV7().String(), e.video(t, me)
+	key, video := uuid.NewV7(), e.video(t, me)
 	first, err := e.assist.StartVideoRead(ctx, me, key, video, "")
 	if err != nil {
 		t.Fatal(err)
@@ -436,7 +436,7 @@ func TestStartReadRetriesALostHold(t *testing.T) {
 	hold := &flakyHold{}
 	e := newEnv(t, func(x *env) { hold.Service = x.media; x.deps.Media = hold })
 	me := accounttest.WithPhone(t, e.db)
-	if _, err := e.assist.StartVideoRead(context.Background(), me, uuid.NewV7().String(), e.video(t, me), ""); err != nil {
+	if _, err := e.assist.StartVideoRead(context.Background(), me, uuid.NewV7(), e.video(t, me), ""); err != nil {
 		t.Fatalf("start: %v", err)
 	}
 }
@@ -469,7 +469,7 @@ func TestReadWithThePhonesTranscript(t *testing.T) {
 	e := newEnv(t)
 	seller := accounttest.WithPhone(t, e.db)
 	heard := "Xe đạp Asama còn mới, mình bán một triệu hai, có thương lượng."
-	v := e.end(t, seller, e.startHeard(t, seller, uuid.NewV7().String(), heard).ID)
+	v := e.end(t, seller, e.startHeard(t, seller, uuid.NewV7(), heard).ID)
 	if v.Status != domain.StatusDone {
 		t.Fatalf("%+v", v)
 	}
@@ -493,7 +493,7 @@ func TestBlankTranscriptReadsTheSound(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	seller := accounttest.WithPhone(t, e.db)
-	v := e.end(t, seller, e.startHeard(t, seller, uuid.NewV7().String(), " \n\t ").ID)
+	v := e.end(t, seller, e.startHeard(t, seller, uuid.NewV7(), " \n\t ").ID)
 	_, _, user := e.model.asked()
 	if v.Status != domain.StatusDone || e.stt.called() != 1 || !strings.Contains(user, transcript) {
 		t.Fatalf("%+v, stt %d, asked %q", v, e.stt.called(), user)
@@ -506,7 +506,7 @@ func TestRepeatedKeyKeepsTheFirstTranscript(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	seller := accounttest.WithPhone(t, e.db)
-	key := uuid.NewV7().String()
+	key := uuid.NewV7()
 	video := e.video(t, seller)
 	first, err := e.assist.StartVideoRead(context.Background(), seller, key, video, "lần đầu: một triệu hai")
 	if err != nil {
@@ -540,7 +540,7 @@ func TestNoTranscriptWaitsAfterTheStart(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	seller := accounttest.WithPhone(t, e.db)
-	key, video := uuid.NewV7().String(), e.video(t, seller)
+	key, video := uuid.NewV7(), e.video(t, seller)
 	if _, err := e.assist.StartVideoRead(ctx, seller, key, video, "lần đầu"); err != nil {
 		t.Fatal(err)
 	}
@@ -553,11 +553,11 @@ func TestNoTranscriptWaitsAfterTheStart(t *testing.T) {
 
 	busy := accounttest.WithPhone(t, e.db)
 	for range domain.VideoCap {
-		if err := e.reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now()), ""); err != nil {
+		if _, err := e.reads.Insert(ctx, domain.NewVideoRead(uuid.NewV7(), busy, uuid.NewV7(), e.clock.Now()), uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := e.assist.StartVideoRead(ctx, busy, uuid.NewV7().String(), e.video(t, busy), "một triệu hai"); !errors.Is(err, domain.ErrReadLimit) {
+	if _, err := e.assist.StartVideoRead(ctx, busy, uuid.NewV7(), e.video(t, busy), "một triệu hai"); !errors.Is(err, domain.ErrReadLimit) {
 		t.Fatalf("a read past the cap: %v", err)
 	}
 	if n := waitingTranscripts(t, e, busy); n != 0 {

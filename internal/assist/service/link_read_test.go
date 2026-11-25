@@ -155,7 +155,7 @@ func TestStartLinkReadRefusals(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	start := func(account uuid.UUID, link string) error {
-		_, err := e.assist.StartLinkRead(ctx, account, uuid.NewV7().String(), link)
+		_, err := e.assist.StartLinkRead(ctx, account, uuid.NewV7(), link)
 		return err
 	}
 	me := accounttest.WithPhone(t, e.db)
@@ -165,7 +165,7 @@ func TestStartLinkReadRefusals(t *testing.T) {
 	if err := start(me, "https://www.facebook.com/groups/passdophcm/posts/2048817356"); !errors.Is(err, domain.ErrUnsupportedSource) {
 		t.Fatalf("facebook: %v", err)
 	}
-	key := uuid.NewV7().String()
+	key := uuid.NewV7()
 	first, err := e.assist.StartLinkRead(ctx, me, key, iphoneLink)
 	if err != nil {
 		t.Fatal(err)
@@ -177,7 +177,7 @@ func TestStartLinkReadRefusals(t *testing.T) {
 	busy := accounttest.WithPhone(t, e.db)
 	for range domain.LinkCap {
 		link, _ := domain.ParseLink(iphoneLink)
-		if err = e.reads.Insert(ctx, domain.NewLinkRead(uuid.NewV7(), busy, link, e.clock.Now()), ""); err != nil {
+		if _, err = e.reads.Insert(ctx, domain.NewLinkRead(uuid.NewV7(), busy, link, e.clock.Now()), uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 	}

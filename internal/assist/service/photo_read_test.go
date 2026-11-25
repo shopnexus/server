@@ -102,7 +102,7 @@ func TestPhotoReadOfAPostedPhoto(t *testing.T) {
 	seller := accounttest.WithPhone(t, e.db)
 	photo := e.photo(t, seller)
 	r := domain.NewPhotoRead(uuid.NewV7(), seller, photo, e.clock.Now())
-	if err := e.reads.Insert(ctx, r, ""); err != nil {
+	if _, err := e.reads.Insert(ctx, r, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.db.Exec(ctx, `UPDATE uploads SET status = 'attached', holder_id = gen_random_uuid(), shape = 'photo' WHERE id = @id`,
@@ -129,7 +129,7 @@ func TestPhotoReadRefusals(t *testing.T) {
 		"a video":              e.video(t, seller),
 		"no such upload":       uuid.NewV7(),
 	} {
-		if _, err := e.assist.StartPhotoRead(context.Background(), seller, uuid.NewV7().String(), photo); !errors.Is(err, mediadomain.ErrInvalidUpload) {
+		if _, err := e.assist.StartPhotoRead(context.Background(), seller, uuid.NewV7(), photo); !errors.Is(err, mediadomain.ErrInvalidUpload) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}

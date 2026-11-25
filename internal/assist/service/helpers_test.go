@@ -128,7 +128,7 @@ func (e env) video(t *testing.T, owner uuid.UUID) uuid.UUID {
 // start starts a read of a fresh video of owner's.
 func (e env) start(t *testing.T, owner uuid.UUID) service.ListingReadView {
 	t.Helper()
-	v, err := e.assist.StartVideoRead(context.Background(), owner, uuid.NewV7().String(), e.video(t, owner), "")
+	v, err := e.assist.StartVideoRead(context.Background(), owner, uuid.NewV7(), e.video(t, owner), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func (e env) start(t *testing.T, owner uuid.UUID) service.ListingReadView {
 
 // startHeard starts a read of a fresh video of owner's with the phone's
 // transcript, under key.
-func (e env) startHeard(t *testing.T, owner uuid.UUID, key, transcript string) service.ListingReadView {
+func (e env) startHeard(t *testing.T, owner, key uuid.UUID, transcript string) service.ListingReadView {
 	t.Helper()
 	v, err := e.assist.StartVideoRead(context.Background(), owner, key, e.video(t, owner), transcript)
 	if err != nil {
@@ -393,7 +393,7 @@ const iphoneLink = "https://www.chotot.com/tp-ho-chi-minh/quan-binh-thanh/mua-ba
 // startLink starts a read of the fake listing as owner.
 func (e env) startLink(t *testing.T, owner uuid.UUID) service.ListingReadView {
 	t.Helper()
-	v, err := e.assist.StartLinkRead(context.Background(), owner, uuid.NewV7().String(), iphoneLink)
+	v, err := e.assist.StartLinkRead(context.Background(), owner, uuid.NewV7(), iphoneLink)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -430,7 +430,7 @@ func (e env) photo(t *testing.T, owner uuid.UUID) uuid.UUID {
 // startPhoto starts a read of photo as owner.
 func (e env) startPhoto(t *testing.T, owner, photo uuid.UUID) service.ListingReadView {
 	t.Helper()
-	v, err := e.assist.StartPhotoRead(context.Background(), owner, uuid.NewV7().String(), photo)
+	v, err := e.assist.StartPhotoRead(context.Background(), owner, uuid.NewV7(), photo)
 	if err != nil {
 		t.Fatal(err)
 	}

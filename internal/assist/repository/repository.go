@@ -21,11 +21,16 @@ type ListingReads interface {
 	// accountdomain.ErrSessionRevoked, and counts the account's reads of
 	// r's source in the last domain.ReadWindow before r's start one insert
 	// at a time: r.Source().Cap() of them is domain.ErrReadLimit. A video
-	// read takes in the transcript waiting under its account and
-	// requestKey and deletes it; every insert deletes the waiting
-	// transcripts older than domain.TranscriptWait. A read already stored
-	// passes without a count or a notice, so a retried step succeeds.
-	Insert(ctx context.Context, r domain.ListingRead, requestKey string) error
+	// read takes in the transcript waiting under its account and key and
+	// deletes it; every insert deletes the waiting transcripts older than
+	// domain.TranscriptWait. The read claims the account's request key,
+	// uuid.Nil() for none. A read already stored, or one that holds the
+	// key, passes without a count or a notice and Insert returns its ID, so
+	// a retried step or request finds the first read.
+	Insert(ctx context.Context, r domain.ListingRead, key uuid.UUID) (uuid.UUID, error)
+	// ByKey returns the ID of the read account started with key, or
+	// domain.ErrNotFound.
+	ByKey(ctx context.Context, account, key uuid.UUID) (uuid.UUID, error)
 	// Save writes r as writeID when the row still has r's write ID, notifies
 	// the account and records writeID on r. An ended read's transcript
 	// becomes NULL. A row already at writeID passes without a notice; any
