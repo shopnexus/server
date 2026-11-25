@@ -33,11 +33,9 @@ type Settings struct {
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, catalog catalogsvc.Service,
 	chats chatsvc.Service,
 ) module.Mounted[service.Service] {
-	waits := domain.OrderWaits
-	waits.Poll = s.PollEvery
 	svc := service.New(service.Deps{
 		Deals: repository.NewDeals(d.Pool), Accounts: accounts, Catalog: catalog, Chats: chats, Shipping: s.Shipping,
-		Waits: waits, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
+		Waits: domain.OrderWaits, PollEvery: s.PollEvery, Ingress: d.Ingress, Prefix: d.ServicePrefix, Now: d.Now, Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect)
 	registerGauges(d)

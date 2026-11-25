@@ -20,7 +20,6 @@ type Row struct {
 	Carrier   string
 	ShopCode  string
 	Token     []byte
-	Nonce     []byte
 	LinkedAt  time.Time
 }
 

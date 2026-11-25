@@ -19,7 +19,7 @@ func TestAccountsPutListAndDelete(t *testing.T) {
 	owner, other := accounttest.New(t, db), accounttest.New(t, db)
 	at := time.Date(2026, 11, 13, 9, 0, 0, 0, time.UTC)
 	row := func(c, shop string) repository.Row {
-		return repository.Row{AccountID: owner, Carrier: c, ShopCode: shop, Token: []byte("sealed-" + shop), Nonce: []byte("n"), LinkedAt: at}
+		return repository.Row{AccountID: owner, Carrier: c, ShopCode: shop, Token: []byte("sealed-" + shop), LinkedAt: at}
 	}
 	if _, err := accounts.Get(ctx, owner, "ghtk"); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("nothing linked: %v", err)

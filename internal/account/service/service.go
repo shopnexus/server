@@ -54,8 +54,8 @@ type Service interface {
 	// sessions are revoked and account.deleted is written. A suspension in
 	// force is domain.ErrSuspended; a deleted account changes nothing.
 	Erase(ctx context.Context, id uuid.UUID) error
-	// Touch records that the person has the app open now.
-	Touch(ctx context.Context, id uuid.UUID) error
+	// Touch records that the people of ids have the app open now.
+	Touch(ctx context.Context, ids []uuid.UUID) error
 	// ConsoleAccount reads one account as console members see it.
 	ConsoleAccount(ctx context.Context, id uuid.UUID) (ConsoleAccount, error)
 	// ConsoleAccountsOf reads the accounts among ids as console members see

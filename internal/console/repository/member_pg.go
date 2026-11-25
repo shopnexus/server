@@ -2,8 +2,6 @@ package repository
 
 import (
 	"context"
-	"crypto/cipher"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"uuid"
@@ -15,16 +13,17 @@ import (
 	"github.com/shopnexus/server/internal/console/domain"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/secret"
 )
 
 // pgMembers seals TOTP secrets with AES-GCM, binding each ciphertext to its
 // member's id, so a secret copied to another row does not open.
 type pgMembers struct {
 	db   *pgxpool.Pool
-	seal cipher.AEAD
+	seal *secret.Box
 }
 
-func NewMembers(db *pgxpool.Pool, seal cipher.AEAD) Members { return pgMembers{db: db, seal: seal} }
+func NewMembers(db *pgxpool.Pool, seal *secret.Box) Members { return pgMembers{db: db, seal: seal} }
 
 const columns = `id, email, display_name, console_role, status, password_hash, must_change_password, credentials_version,
        totp_secret, totp_pending_secret, totp_last_step, created_at, updated_at, write_id`
@@ -33,20 +32,14 @@ func (s pgMembers) sealed(id uuid.UUID, plain []byte) []byte {
 	if plain == nil {
 		return nil
 	}
-	nonce := make([]byte, s.seal.NonceSize())
-	rand.Read(nonce)
-	return s.seal.Seal(nonce, nonce, plain, id[:])
+	return s.seal.Seal(plain, id[:])
 }
 
 func (s pgMembers) open(id uuid.UUID, sealed []byte) ([]byte, error) {
 	if sealed == nil {
 		return nil, nil
 	}
-	n := s.seal.NonceSize()
-	if len(sealed) < n {
-		return nil, errors.New("sealed secret too short")
-	}
-	plain, err := s.seal.Open(nil, sealed[:n], sealed[n:], id[:])
+	plain, err := s.seal.Open(sealed, id[:])
 	if err != nil {
 		return nil, fmt.Errorf("open totp secret: %w", err)
 	}
@@ -56,15 +49,15 @@ func (s pgMembers) open(id uuid.UUID, sealed []byte) ([]byte, error) {
 // scan reads columns and opens the TOTP secrets.
 func (s pgMembers) scan(row pgx.CollectableRow) (domain.Member, error) {
 	var (
-		st              domain.MemberState
-		secret, pending []byte
+		st            domain.MemberState
+		totp, pending []byte
 	)
 	err := row.Scan(&st.ID, &st.Email, &st.DisplayName, &st.Role, &st.Status, &st.PasswordHash, &st.MustChangePassword,
-		&st.CredentialsVersion, &secret, &pending, &st.TOTPLastStep, &st.CreatedAt, &st.UpdatedAt, &st.WriteID)
+		&st.CredentialsVersion, &totp, &pending, &st.TOTPLastStep, &st.CreatedAt, &st.UpdatedAt, &st.WriteID)
 	if err != nil {
 		return domain.Member{}, fmt.Errorf("scan console member: %w", err)
 	}
-	if st.TOTPSecret, err = s.open(st.ID, secret); err != nil {
+	if st.TOTPSecret, err = s.open(st.ID, totp); err != nil {
 		return domain.Member{}, err
 	}
 	if st.TOTPPending, err = s.open(st.ID, pending); err != nil {

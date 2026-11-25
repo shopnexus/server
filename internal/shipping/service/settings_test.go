@@ -88,7 +88,7 @@ func TestAJoinedShopShipsFromTheSavedPickup(t *testing.T) {
 	ghn := &spy{Carrier: carrier.GHN}
 	svc := service.New(service.Deps{
 		Customers: accounts, Settings: repository.NewSettings(db), Accounts: repository.NewAccounts(db),
-		Clients: map[carrier.Carrier]carrier.Client{carrier.GHN: ghn}, Key: make([]byte, 32), Now: time.Now,
+		Clients: map[carrier.Carrier]carrier.Client{carrier.GHN: ghn}, Tokens: newKey(t), Now: time.Now,
 	})
 	if _, err := svc.Link(ctx, owner, "ghn", carrier.Credentials{Phone: "0356875408", OTP: "860228"}); err != nil {
 		t.Fatal(err)

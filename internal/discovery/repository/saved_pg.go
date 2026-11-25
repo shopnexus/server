@@ -15,6 +15,7 @@ import (
 	"github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgSaves struct{ db *pgxpool.Pool }
@@ -23,7 +24,7 @@ func NewSaves(db *pgxpool.Pool) Saves { return pgSaves{db} }
 
 func (s pgSaves) Save(ctx context.Context, id, account, listing uuid.UUID, price int64, at time.Time) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		alive, err := living(ctx, tx, account)
+		alive, err := postgres.LockLiving(ctx, tx, account)
 		if err != nil {
 			return err
 		}

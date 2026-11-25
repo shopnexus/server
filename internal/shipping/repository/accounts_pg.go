@@ -14,11 +14,11 @@ type pgAccounts struct{ db *pgxpool.Pool }
 
 func NewAccounts(db *pgxpool.Pool) Accounts { return pgAccounts{db} }
 
-const accountColumns = `account_id, carrier, shop_code, token, nonce, linked_at`
+const accountColumns = `account_id, carrier, shop_code, token, linked_at`
 
 func scanAccount(row pgx.Row) (Row, error) {
 	var r Row
-	if err := row.Scan(&r.AccountID, &r.Carrier, &r.ShopCode, &r.Token, &r.Nonce, &r.LinkedAt); err != nil {
+	if err := row.Scan(&r.AccountID, &r.Carrier, &r.ShopCode, &r.Token, &r.LinkedAt); err != nil {
 		return Row{}, fmt.Errorf("scan carrier account: %w", err)
 	}
 	return r, nil
@@ -26,11 +26,11 @@ func scanAccount(row pgx.Row) (Row, error) {
 
 func (s pgAccounts) Put(ctx context.Context, r Row) error {
 	if _, err := s.db.Exec(ctx, `INSERT INTO carrier_accounts (`+accountColumns+`)
-VALUES (@account, @carrier, @shop, @token, @nonce, @linked_at)
+VALUES (@account, @carrier, @shop, @token, @linked_at)
 ON CONFLICT (account_id, carrier) DO UPDATE
-SET shop_code = EXCLUDED.shop_code, token = EXCLUDED.token, nonce = EXCLUDED.nonce, linked_at = EXCLUDED.linked_at`,
+SET shop_code = EXCLUDED.shop_code, token = EXCLUDED.token, linked_at = EXCLUDED.linked_at`,
 		pgx.StrictNamedArgs{
-			"account": r.AccountID, "carrier": r.Carrier, "shop": r.ShopCode, "token": r.Token, "nonce": r.Nonce, "linked_at": r.LinkedAt,
+			"account": r.AccountID, "carrier": r.Carrier, "shop": r.ShopCode, "token": r.Token, "linked_at": r.LinkedAt,
 		}); err != nil {
 		return fmt.Errorf("upsert carrier account: %w", err)
 	}

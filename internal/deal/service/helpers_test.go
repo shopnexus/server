@@ -56,7 +56,7 @@ func newEnv(t *testing.T) env {
 	})
 	repo := repository.NewDeals(db)
 	deps := service.Deps{
-		Deals: repo, Accounts: accounts, Catalog: c, Chats: chats, Shipping: linkedAt{}, Waits: domain.OrderWaits, Ingress: in,
+		Deals: repo, Accounts: accounts, Catalog: c, Chats: chats, Shipping: linkedAt{}, Waits: domain.OrderWaits, PollEvery: 2 * time.Hour, Ingress: in,
 		Now: time.Now, Log: slog.New(slog.DiscardHandler),
 	}
 	return env{

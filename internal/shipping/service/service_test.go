@@ -12,6 +12,7 @@ import (
 
 	"github.com/shopnexus/server/internal/account/accounttest"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/secret"
 	"github.com/shopnexus/server/internal/provider/carrier"
 	"github.com/shopnexus/server/internal/shipping/domain"
 	"github.com/shopnexus/server/internal/shipping/repository"
@@ -54,17 +55,21 @@ type env struct {
 	svc   *service.Shipping
 	rows  repository.Accounts
 	deals *deals
-	key   []byte
+	key   *secret.Box
 	owner uuid.UUID
 }
 
-func newKey(t *testing.T) []byte {
+func newKey(t *testing.T) *secret.Box {
 	t.Helper()
 	k := make([]byte, 32)
 	if _, err := rand.Read(k); err != nil {
 		t.Fatal(err)
 	}
-	return k
+	box, err := secret.New(k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return box
 }
 
 func newEnv(t *testing.T, clients map[carrier.Carrier]carrier.Client) env {
@@ -72,7 +77,7 @@ func newEnv(t *testing.T, clients map[carrier.Carrier]carrier.Client) env {
 	db := pgtest.New(t)
 	e := env{rows: repository.NewAccounts(db), deals: &deals{open: map[string]bool{}}, key: newKey(t), owner: accounttest.New(t, db)}
 	e.svc = service.New(service.Deps{
-		Accounts: e.rows, Events: repository.NewEvents(db), Clients: clients, Key: e.key, Deals: e.deals.funcs(), Now: time.Now,
+		Accounts: e.rows, Events: repository.NewEvents(db), Clients: clients, Tokens: e.key, Deals: e.deals.funcs(), Now: time.Now,
 	})
 	return e
 }
@@ -93,8 +98,8 @@ func TestLinkStoresASealedTokenAndShowsTheShopCode(t *testing.T) {
 	if err != nil || strings.Contains(string(row.Token), "fake-ghtk-an@shop.vn") {
 		t.Fatalf("stored %q %v", row.Token, err)
 	}
-	token, err := domain.Open(e.key, row.Token, row.Nonce)
-	if err != nil || token != "fake-ghtk-an@shop.vn" {
+	token, err := e.key.Open(row.Token, nil)
+	if err != nil || string(token) != "fake-ghtk-an@shop.vn" {
 		t.Fatalf("opened %q %v", token, err)
 	}
 	if _, err = e.svc.Link(ctx, e.owner, "ghn", carrier.Credentials{Token: "t", ShopID: "885"}); err != nil {
@@ -132,7 +137,7 @@ func TestLinkByACodeKeepsNoToken(t *testing.T) {
 	if err != nil || v.ShopCode == "" {
 		t.Fatalf("%+v %v", v, err)
 	}
-	if row, _ := e.rows.Get(ctx, e.owner, "ghn"); row.Token != nil || row.Nonce != nil {
+	if row, _ := e.rows.Get(ctx, e.owner, "ghn"); row.Token != nil {
 		t.Fatalf("kept a token %+v", row)
 	}
 	// The shop is called with ShopNexus's token: an empty one.
@@ -224,7 +229,7 @@ func TestQuoteChecksTheShipmentThenAsksTheCarrier(t *testing.T) {
 	}
 	// Someone else's order is not found before the carrier is asked about.
 	theirs := newEnv(t, fakes())
-	theirs.svc = service.New(service.Deps{Accounts: theirs.rows, Clients: fakes(), Key: theirs.key, Now: time.Now, Deals: service.Deals{
+	theirs.svc = service.New(service.Deps{Accounts: theirs.rows, Clients: fakes(), Tokens: theirs.key, Now: time.Now, Deals: service.Deals{
 		QuoteFacts: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (service.QuoteFacts, error) {
 			return service.QuoteFacts{}, errNoOrder
 		},
@@ -315,15 +320,12 @@ func TestAWrongKeyTokenIsAnErrorWithoutTheToken(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	e := newEnv(t, fakes())
-	sealed, nonce, err := domain.Seal(newKey(t), "token-of-another-stack")
-	if err != nil {
+	sealed := newKey(t).Seal([]byte("token-of-another-stack"), nil)
+	if err := e.rows.Put(ctx, repository.Row{AccountID: e.owner, Carrier: "ghtk", ShopCode: "S1", Token: sealed, LinkedAt: time.Now()}); err != nil {
 		t.Fatal(err)
 	}
-	if err = e.rows.Put(ctx, repository.Row{AccountID: e.owner, Carrier: "ghtk", ShopCode: "S1", Token: sealed, Nonce: nonce, LinkedAt: time.Now()}); err != nil {
-		t.Fatal(err)
-	}
-	_, err = e.svc.Lookup(ctx, e.owner, carrier.GHTK, "S1.A1")
-	if !errors.Is(err, domain.ErrRelinkNeeded) || !errors.Is(err, domain.ErrSealedToken) || strings.Contains(err.Error(), "token-of-another-stack") {
+	_, err := e.svc.Lookup(ctx, e.owner, carrier.GHTK, "S1.A1")
+	if !errors.Is(err, domain.ErrRelinkNeeded) || !errors.Is(err, secret.ErrOpen) || strings.Contains(err.Error(), "token-of-another-stack") {
 		t.Fatalf("%v", err)
 	}
 	// Linking again replaces the token that does not open.

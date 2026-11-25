@@ -1919,9 +1919,12 @@ everything after each reconnect and deploy).
   queues each ring for the connections of its accounts, 16 at most. A full
   queue, or a `LISTEN` connection opened again after a loss, marks a
   connection behind, and the connection reads the log from the last seq it
-  sent. Each connection also reads the log every minute, so a ring lost
-  without a sign (a `LISTEN` connection that died in silence and has not
-  failed yet) costs at most a minute. The hub prunes updates older than 30 days every hour, 10,000 at a
+  sent. Every minute the hub rings a probe to itself; a probe it did not
+  hear back means a `LISTEN` connection that died in silence, and every
+  connection of the replica reads the log, so such a lost ring costs at
+  most two minutes. A connection reads the log on no timer of its own
+  (decided 2026-11-25: one read per connection per minute was ~330
+  queries a second at 10,000 open apps). The hub prunes updates older than 30 days every hour, 10,000 at a
   time; `account_update_seqs` is never pruned.
 - On connect, `GET /v1/ws?since=` sends the log after `since` in pages of
   500, or `reset` with the current seq when the log no longer holds what
@@ -1962,8 +1965,10 @@ everything after each reconnect and deploy).
   `RegisterOnShutdown`. `Hub.Close` makes every connection close with 1001,
   and the apps reconnect to another instance with their seq and lose
   nothing.
-- `accounts.last_active_at` is written by the socket at connect, at close
-  and every minute (the same tick that reads the log), and not when it is under 30 seconds old; it leaves
+- `accounts.last_active_at` is written by the socket at connect and at
+  close, and by the hub every minute for all the accounts connected to the
+  replica in one `UPDATE … WHERE id = ANY(…)` that locks in ID order and
+  skips locked rows; not when it is under 30 seconds old. It leaves
   `write_id` alone. The chat views and the seller page show it.
 - `platform/stream` reaches the modules through `stream.Access`, which
   `app` adapts from account and chat.

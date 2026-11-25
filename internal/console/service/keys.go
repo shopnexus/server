@@ -1,8 +1,6 @@
 package service
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/hkdf"
 	"crypto/rand"
 	"crypto/sha256"
@@ -10,11 +8,12 @@ import (
 
 	"github.com/shopnexus/server/internal/console/domain"
 	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/secret"
 )
 
 // Keys is what module console seals and hashes with.
 type Keys struct {
-	Secrets cipher.AEAD // seals TOTP secrets at rest
+	Secrets *secret.Box // seals TOTP secrets at rest
 	Locks   []byte      // the HMAC key of sign-in lock keys
 	Hasher  domain.Hasher
 	dummy   string // a hash no password matches, verified for unknown emails
@@ -31,13 +30,9 @@ func NewKeys(cfg config.ConsoleConfig, h domain.Hasher) (Keys, error) {
 	if err != nil {
 		return Keys{}, fmt.Errorf("derive the lock key: %w", err)
 	}
-	block, err := aes.NewCipher(sealKey)
+	box, err := secret.New(sealKey)
 	if err != nil {
 		return Keys{}, fmt.Errorf("totp cipher: %w", err)
 	}
-	aead, err := cipher.NewGCM(block)
-	if err != nil {
-		return Keys{}, fmt.Errorf("totp cipher: %w", err)
-	}
-	return Keys{Secrets: aead, Locks: lockKey, Hasher: h, dummy: h.Hash(rand.Text())}, nil
+	return Keys{Secrets: box, Locks: lockKey, Hasher: h, dummy: h.Hash(rand.Text())}, nil
 }

@@ -52,10 +52,12 @@ func (f *fakeAccess) peerCount() int {
 	return f.peerCalls
 }
 
-func (f *fakeAccess) Touch(_ context.Context, account uuid.UUID) error {
+func (f *fakeAccess) Touch(_ context.Context, accounts []uuid.UUID) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.touched[account]++
+	for _, a := range accounts {
+		f.touched[a]++
+	}
 	return nil
 }
 
@@ -82,16 +84,23 @@ type socketEnv struct {
 	tokens map[string]authn.Principal
 }
 
-// newSocketEnv starts the socket with a 300 ms tick; opts change it before
-// it serves.
+// newSocketEnv starts the socket on a hub that probes every 300 ms; opts
+// change it before it serves.
 func newSocketEnv(t *testing.T, opts ...func(*stream.Socket)) *socketEnv {
 	t.Helper()
 	db := pgtest.New(t)
+	return newSocketEnvOn(t, db, stream.PGBell{DB: db, Log: discard}, opts...)
+}
+
+// newSocketEnvOn is newSocketEnv with the hub on bell.
+func newSocketEnvOn(t *testing.T, db *pgxpool.Pool, bell stream.Bell, opts ...func(*stream.Socket)) *socketEnv {
+	t.Helper()
 	e := &socketEnv{
 		db: db, tokens: map[string]authn.Principal{},
 		access: &fakeAccess{suspended: map[uuid.UUID]bool{}, peers: map[uuid.UUID]uuid.UUID{}, touched: map[uuid.UUID]int{}},
 	}
-	e.hub = stream.NewHub(stream.PGBell{DB: db, Log: discard}, stream.PGLog{DB: db}, time.Now, discard)
+	e.hub = stream.NewHub(bell, stream.PGLog{DB: db}, 300*time.Millisecond, time.Now, discard)
+	e.hub.KeepActive(e.access)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
@@ -109,7 +118,7 @@ func newSocketEnv(t *testing.T, opts ...func(*stream.Socket)) *socketEnv {
 	}
 	socket := stream.Socket{
 		Hub: e.hub, Updates: stream.PGLog{DB: db}, Access: e.access, Verify: verify,
-		Tick: 300 * time.Millisecond, Now: time.Now, Log: discard,
+		Now: time.Now, Log: discard,
 	}
 	for _, opt := range opts {
 		opt(&socket)
@@ -546,10 +555,20 @@ func TestFrameFloodCloses1008(t *testing.T) {
 	}
 }
 
-// An update whose ring was lost reaches the app at the next tick.
+// deafBell rings but hears nothing, as a LISTEN connection that died in
+// silence.
+type deafBell struct{ stream.PGBell }
+
+func (deafBell) Listen(ctx context.Context, _ func([]stream.Target, stream.Hint), _ func()) {
+	<-ctx.Done()
+}
+
+// An update whose ring was lost on a deaf bell reaches the app once the
+// hub misses its probe.
 func TestSocketRechecksTheLogWithoutARing(t *testing.T) {
 	t.Parallel()
-	e := newSocketEnv(t)
+	db := pgtest.New(t)
+	e := newSocketEnvOn(t, db, deafBell{stream.PGBell{DB: db, Log: discard}})
 	a := uuid.NewV7()
 	cl := e.dial(t, e.token(a, time.Hour), "")
 	expectFrame(t, cl.next(t), "ready", 0)

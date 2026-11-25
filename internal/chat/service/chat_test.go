@@ -198,7 +198,7 @@ func TestGetShowsWhenTheOtherWasActive(t *testing.T) {
 	if err != nil || got.Other.LastActiveAt != nil {
 		t.Fatalf("before: %+v %v", got.Other, err)
 	}
-	if err = e.accounts.Touch(ctx, buyer); err != nil {
+	if err = e.accounts.Touch(ctx, []uuid.UUID{buyer}); err != nil {
 		t.Fatal(err)
 	}
 	if got, err = e.chat.Get(ctx, seller, c.ID); err != nil || got.Other.LastActiveAt == nil {

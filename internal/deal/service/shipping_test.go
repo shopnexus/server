@@ -18,6 +18,7 @@ import (
 	"github.com/shopnexus/server/internal/deal/domain"
 	"github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/secret"
 	"github.com/shopnexus/server/internal/platform/testenv"
 	"github.com/shopnexus/server/internal/provider/carrier"
 	shippingdomain "github.com/shopnexus/server/internal/shipping/domain"
@@ -275,7 +276,7 @@ func TestThePollIgnoresAStatusThatMovesNothing(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	c := reporting{Carrier: carrier.GHTK, step: &atomic.Pointer[carrier.Step]{}, reads: &atomic.Int32{}}
-	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Poll, w.Complete = 300*time.Millisecond, 3*time.Second }), linkedAt{c})
+	deals, _ := e.polled(t, soon(func(w *domain.Waits) { w.Complete = 3 * time.Second }), 300*time.Millisecond, linkedAt{c})
 	seller, buyer := e.person(t), e.person(t)
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), service.ShipmentInput{Mode: "manual", Carrier: "ghtk", TrackingCode: "S1.LATE"}); err != nil {
@@ -303,7 +304,7 @@ func TestThePollMovesAShipmentAndStopsWhenItCloses(t *testing.T) {
 	e := newEnv(t)
 	ctx := context.Background()
 	c := reporting{Carrier: carrier.GHTK, step: &atomic.Pointer[carrier.Step]{}, reads: &atomic.Int32{}}
-	deals, _ := e.timed(t, soon(func(w *domain.Waits) { w.Poll = 500 * time.Millisecond }), linkedAt{c})
+	deals, _ := e.polled(t, domain.OrderWaits, 500*time.Millisecond, linkedAt{c})
 	seller, buyer := e.person(t), e.person(t)
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), service.ShipmentInput{Mode: "manual", Carrier: "ghtk", TrackingCode: "S1.POLL"}); err != nil {
@@ -427,14 +428,18 @@ func TestSavedPickupShipmentReplayAfterPreferenceRemoval(t *testing.T) {
 			if _, err := rand.Read(tokenKey); err != nil {
 				t.Fatal(err)
 			}
-			shipping := shippingsvc.New(shippingsvc.Deps{
-				Accounts: shippingrepo.NewAccounts(e.db), Settings: shippingrepo.NewSettings(e.db), Customers: e.accounts,
-				Clients: map[carrier.Carrier]carrier.Client{carrier.GHTK: carrier.Fake{Carrier: carrier.GHTK}}, Key: tokenKey, Now: time.Now,
-			})
-			if _, err := shipping.Link(ctx, seller, "ghtk", carrier.Credentials{Email: "seller@test.invalid", Password: "test"}); err != nil {
+			tokens, err := secret.New(tokenKey)
+			if err != nil {
 				t.Fatal(err)
 			}
-			if _, err := shipping.PutSettings(ctx, seller, shippingdomain.Settings{Pickup: &shippingdomain.SavedPickup{AddressID: address, Phone: "0987654321"}}); err != nil {
+			shipping := shippingsvc.New(shippingsvc.Deps{
+				Accounts: shippingrepo.NewAccounts(e.db), Settings: shippingrepo.NewSettings(e.db), Customers: e.accounts,
+				Clients: map[carrier.Carrier]carrier.Client{carrier.GHTK: carrier.Fake{Carrier: carrier.GHTK}}, Tokens: tokens, Now: time.Now,
+			})
+			if _, err = shipping.Link(ctx, seller, "ghtk", carrier.Credentials{Email: "seller@test.invalid", Password: "test"}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = shipping.PutSettings(ctx, seller, shippingdomain.Settings{Pickup: &shippingdomain.SavedPickup{AddressID: address, Phone: "0987654321"}}); err != nil {
 				t.Fatal(err)
 			}
 			deps := e.deps

@@ -149,14 +149,10 @@ type Waits struct {
 	Pickup time.Duration
 	// Complete is how long a delivered parcel waits for the buyer's word.
 	Complete time.Duration
-	// Poll is how often a shipped order's shipment is read from its
-	// carrier, under the carrier's reports: CARRIER_POLL_EVERY.
-	Poll time.Duration
 }
 
-// OrderWaits are the waits of every order: 3 days each, and a read of the
-// shipment every 2 hours.
-var OrderWaits = Waits{Seller: 72 * time.Hour, Pickup: 72 * time.Hour, Complete: 72 * time.Hour, Poll: 2 * time.Hour}
+// OrderWaits are the waits of every order: 3 days each.
+var OrderWaits = Waits{Seller: 72 * time.Hour, Pickup: 72 * time.Hour, Complete: 72 * time.Hour}
 
 // AddressKind is what the recipient's place is, copied from the address
 // book: an office (work) takes parcels in office hours.

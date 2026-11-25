@@ -153,7 +153,7 @@ func (s OrderTimers) Poll(ctx restate.Context, ref OrderRef) error {
 	if _, err = s.readMoved(ctx, m.Deal.SellerID, *o.Shipment); err != nil {
 		return err
 	}
-	restate.ServiceSend(ctx, s.ServiceName(), "Poll").Send(ref, restate.WithDelay(s.Deals.waits.Poll))
+	restate.ServiceSend(ctx, s.ServiceName(), "Poll").Send(ref, restate.WithDelay(s.Deals.pollEvery))
 	return nil
 }
 

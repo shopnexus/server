@@ -9,6 +9,7 @@ import (
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/module"
+	"github.com/shopnexus/server/internal/platform/secret"
 	"github.com/shopnexus/server/internal/provider/carrier"
 	"github.com/shopnexus/server/internal/shipping/handler"
 	"github.com/shopnexus/server/internal/shipping/repository"
@@ -20,8 +21,8 @@ import (
 type Settings struct {
 	// Clients holds one client per carrier; empty is CARRIER=none.
 	Clients map[carrier.Carrier]carrier.Client
-	// Key seals the carrier tokens, CARRIER_TOKEN_KEY.
-	Key []byte
+	// Tokens seals the carrier tokens under CARRIER_TOKEN_KEY.
+	Tokens *secret.Box
 	// WebhookSecrets is the secret in each carrier's webhook path; a
 	// carrier without one has no webhook.
 	WebhookSecrets map[carrier.Carrier]string
@@ -34,7 +35,7 @@ type Settings struct {
 // Mount registers the routes, subscribes the account watch to
 // account.deleted, and returns shipping's Restate services and Service.
 func Mount(d module.Deps, s Settings, customers accountsvc.Service) module.Mounted[service.Service] {
-	svc := service.New(service.Deps{Settings: repository.NewSettings(d.Pool), Customers: customers, Accounts: repository.NewAccounts(d.Pool), Events: repository.NewEvents(d.Pool), Clients: s.Clients, Key: s.Key, Deals: s.Deals, Now: d.Now})
+	svc := service.New(service.Deps{Settings: repository.NewSettings(d.Pool), Customers: customers, Accounts: repository.NewAccounts(d.Pool), Events: repository.NewEvents(d.Pool), Clients: s.Clients, Tokens: s.Tokens, Deals: s.Deals, Now: d.Now})
 	handler.New(svc, s.WebhookSecrets, d.Log).Register(d.Router, d.Protect, s.FakeCarrier)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Shipping: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")

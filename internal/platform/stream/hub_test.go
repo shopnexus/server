@@ -54,7 +54,7 @@ func (l *fakeLog) Prune(context.Context, time.Time) (int64, error) {
 func runningHub(t *testing.T) (*stream.Hub, *fakeBell, *fakeLog) {
 	t.Helper()
 	bell, log := &fakeBell{listening: make(chan struct{})}, &fakeLog{}
-	h := stream.NewHub(bell, log, time.Now, discard)
+	h := stream.NewHub(bell, log, time.Hour, time.Now, discard)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {

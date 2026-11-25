@@ -374,11 +374,16 @@ FROM accounts a WHERE a.id = @id`, pgx.StrictNamedArgs{"id": id}).Scan(&address,
 	return address, locale, nil
 }
 
-func (s pgAccounts) TouchActive(ctx context.Context, id uuid.UUID, at time.Time) error {
+func (s pgAccounts) TouchActive(ctx context.Context, ids []uuid.UUID, at time.Time) error {
+	// The rows lock in ID order, so two replicas touching their accounts
+	// cannot deadlock.
 	if _, err := s.db.Exec(ctx, `
 UPDATE accounts SET last_active_at = @at
-WHERE id = @id AND (last_active_at IS NULL OR last_active_at < @at::timestamptz - interval '30 seconds')`,
-		pgx.StrictNamedArgs{"id": id, "at": at}); err != nil {
+WHERE id IN (
+    SELECT id FROM accounts
+    WHERE id = ANY(@ids) AND (last_active_at IS NULL OR last_active_at < @at::timestamptz - interval '30 seconds')
+    ORDER BY id FOR NO KEY UPDATE SKIP LOCKED)`,
+		pgx.StrictNamedArgs{"ids": ids, "at": at}); err != nil {
 		return fmt.Errorf("touch account: %w", err)
 	}
 	return nil

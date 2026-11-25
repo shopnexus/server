@@ -13,6 +13,7 @@ import (
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgDrafts struct{ db *pgxpool.Pool }
@@ -50,14 +51,12 @@ func (s pgDrafts) Put(ctx context.Context, account, id uuid.UUID, c domain.Draft
 		}
 		// A write that commits after Erase waits for it here and then finds
 		// the tombstone.
-		var deleted bool
-		err := tx.QueryRow(ctx, `SELECT status = 'deleted' FROM accounts WHERE id = @account FOR SHARE`,
-			pgx.StrictNamedArgs{"account": account}).Scan(&deleted)
-		if errors.Is(err, pgx.ErrNoRows) || (err == nil && deleted) {
-			return accountdomain.ErrSessionRevoked
-		}
+		living, err := postgres.LockLiving(ctx, tx, account)
 		if err != nil {
-			return fmt.Errorf("lock account: %w", err)
+			return err
+		}
+		if !living {
+			return accountdomain.ErrSessionRevoked
 		}
 		if err = deleteExpired(ctx, tx, account, now); err != nil {
 			return err

@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"testing"
+	"uuid"
 )
 
 func TestTouch(t *testing.T) {
@@ -10,7 +11,7 @@ func TestTouch(t *testing.T) {
 	s := newStore(t)
 	svc := at(s, nil, now)
 	id := seed(t, s)
-	if err := svc.Touch(context.Background(), id); err != nil {
+	if err := svc.Touch(context.Background(), []uuid.UUID{id}); err != nil {
 		t.Fatal(err)
 	}
 	v, err := svc.Get(context.Background(), id)

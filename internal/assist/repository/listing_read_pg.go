@@ -13,6 +13,7 @@ import (
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/assist/domain"
+	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/platform/stream"
 )
 
@@ -98,13 +99,11 @@ func (s pgListingReads) Insert(ctx context.Context, r domain.ListingRead, reques
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		// A share lock on the account's row: an insert that commits after
 		// Erase waits for it and sees the tombstone.
-		var deleted bool
-		txErr := tx.QueryRow(ctx, `SELECT status = 'deleted' FROM accounts WHERE id = @id FOR SHARE`,
-			pgx.StrictNamedArgs{"id": st.AccountID}).Scan(&deleted)
-		if txErr != nil && !errors.Is(txErr, pgx.ErrNoRows) {
-			return fmt.Errorf("lock account: %w", txErr)
+		living, txErr := postgres.LockLiving(ctx, tx, st.AccountID)
+		if txErr != nil {
+			return txErr
 		}
-		if deleted {
+		if !living {
 			return accountdomain.ErrSessionRevoked
 		}
 		if _, txErr = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('listing_reads:' || @source || ':' || @account::text))`,

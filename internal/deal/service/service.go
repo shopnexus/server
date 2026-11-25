@@ -193,6 +193,9 @@ type Deps struct {
 	// Waits are how long the system waits before it moves an order on:
 	// domain.OrderWaits outside tests. New refuses a zero wait.
 	Waits domain.Waits
+	// PollEvery is how often a shipped order's shipment is read from its
+	// carrier, under the carrier's reports: CARRIER_POLL_EVERY.
+	PollEvery time.Duration
 	// Ingress and Prefix reach this process's Restate services.
 	Ingress *ingress.Client
 	Prefix  string
@@ -211,12 +214,14 @@ type Deals struct {
 	chats    chatsvc.Service
 	shipping Shipping
 	waits    domain.Waits
-	ingress  *ingress.Client
-	prefix   string
-	now      func() time.Time
-	log      *slog.Logger
-	ship     restatex.Caller[FlowInput, FlowResult]
-	confirm  restatex.Caller[FlowInput, FlowResult]
+	// pollEvery is Deps.PollEvery.
+	pollEvery time.Duration
+	ingress   *ingress.Client
+	prefix    string
+	now       func() time.Time
+	log       *slog.Logger
+	ship      restatex.Caller[FlowInput, FlowResult]
+	confirm   restatex.Caller[FlowInput, FlowResult]
 	// requestCod and cancelOrder run DealRequestCod and DealCancelOrder.
 	requestCod  restatex.Caller[CodInput, FlowResult]
 	cancelOrder restatex.Caller[FlowInput, FlowResult]
@@ -228,11 +233,11 @@ var _ Service = (*Deals)(nil)
 // New builds Deals. A zero wait would move every order on the moment it
 // is made, so New panics on one.
 func New(d Deps) *Deals {
-	if d.Waits.Seller <= 0 || d.Waits.Pickup <= 0 || d.Waits.Complete <= 0 || d.Waits.Poll <= 0 {
-		panic("deal: Deps.Waits needs every wait; pass domain.OrderWaits")
+	if d.Waits.Seller <= 0 || d.Waits.Pickup <= 0 || d.Waits.Complete <= 0 || d.PollEvery <= 0 {
+		panic("deal: Deps.Waits needs every wait, domain.OrderWaits, and Deps.PollEvery a period")
 	}
 	return &Deals{
-		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, chats: d.Chats, shipping: d.Shipping, waits: d.Waits, ingress: d.Ingress,
+		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, chats: d.Chats, shipping: d.Shipping, waits: d.Waits, pollEvery: d.PollEvery, ingress: d.Ingress,
 		prefix: d.Prefix, now: d.Now, log: d.Log,
 		ship:        restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: flowHandler},
 		confirm:     restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealConfirm, Handler: flowHandler},

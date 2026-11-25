@@ -11,6 +11,7 @@ import (
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/notification/domain"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgSettings struct{ db *pgxpool.Pool }
@@ -38,13 +39,11 @@ FROM notification_settings WHERE account_id = @account`, pgx.StrictNamedArgs{"ac
 // tombstone.
 func (s pgSettings) Put(ctx context.Context, account uuid.UUID, st domain.Settings) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		var deleted bool
-		err := tx.QueryRow(ctx, `SELECT status = 'deleted' FROM accounts WHERE id = @id FOR SHARE`,
-			pgx.StrictNamedArgs{"id": account}).Scan(&deleted)
+		living, err := postgres.LockLiving(ctx, tx, account)
 		if err != nil {
-			return fmt.Errorf("lock account: %w", err)
+			return err
 		}
-		if deleted {
+		if !living {
 			return accountdomain.ErrSessionRevoked
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO notification_settings

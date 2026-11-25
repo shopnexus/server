@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
+	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 	"uuid"
 )
@@ -14,6 +17,8 @@ const (
 	// connection reads the log instead.
 	queue      = 16
 	pruneEvery = time.Hour
+	// kindProbe is the hub's own ring; it reaches no connection.
+	kindProbe = "probe"
 )
 
 // Event is what the hub hands a connection: an update at Seq, or typing
@@ -52,17 +57,27 @@ type Hub struct {
 	now     func() time.Time
 	log     *slog.Logger
 	done    chan struct{}
-	mu      sync.Mutex
-	subs    map[uuid.UUID]map[*Sub]struct{}
-	closed  bool
+	// probeEvery is how often the hub rings itself to check that it still
+	// hears the bell, and touches the accounts connected to it.
+	probeEvery time.Duration
+	// active is set by KeepActive before Run.
+	active Active
+	heard  atomic.Bool
+	mu     sync.Mutex
+	subs   map[uuid.UUID]map[*Sub]struct{}
+	closed bool
 }
 
-func NewHub(bell Bell, updates UpdateLog, now func() time.Time, log *slog.Logger) *Hub {
+func NewHub(bell Bell, updates UpdateLog, probeEvery time.Duration, now func() time.Time, log *slog.Logger) *Hub {
 	return &Hub{
-		bell: bell, updates: updates, now: now, log: log,
+		bell: bell, updates: updates, probeEvery: probeEvery, now: now, log: log,
 		done: make(chan struct{}), subs: map[uuid.UUID]map[*Sub]struct{}{},
 	}
 }
+
+// KeepActive has Run touch the accounts connected to the hub every
+// probeEvery, in one write for them all. It is called before Run.
+func (h *Hub) KeepActive(a Active) { h.active = a }
 
 // Subscribe returns a subscription to account's events until stop is
 // called.
@@ -107,23 +122,59 @@ func (h *Hub) Typing(ctx context.Context, to, conversation uuid.UUID) error {
 	return nil
 }
 
-// Run listens for rings, and prunes the log at start and every hour, until
-// ctx is done; then it returns nil.
+// Run listens for rings, prunes the log at start and every hour, and
+// probes the bell and touches the connected accounts every probeEvery,
+// until ctx is done; then it returns nil.
 func (h *Hub) Run(ctx context.Context) error {
 	var listening sync.WaitGroup
 	listening.Go(func() { h.bell.Listen(ctx, h.deliver, h.resync) })
 	defer listening.Wait()
-	tick := time.NewTicker(pruneEvery)
-	defer tick.Stop()
+	prune := time.NewTicker(pruneEvery)
+	defer prune.Stop()
+	probe := time.NewTicker(h.probeEvery)
+	defer probe.Stop()
+	h.heard.Store(true)
+	h.prune(ctx)
 	for {
-		if _, err := h.updates.Prune(ctx, h.now().Add(-keepUpdates)); err != nil && ctx.Err() == nil {
-			h.log.WarnContext(ctx, "stream: prune the update log", "err", err)
-		}
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-tick.C:
+		case <-prune.C:
+			h.prune(ctx)
+		case <-probe.C:
+			// A probe not heard back means a LISTEN connection that died in
+			// silence: every connection reads the log, so a lost ring costs
+			// at most one probe.
+			if !h.heard.Swap(false) {
+				h.resync()
+			}
+			if err := h.bell.Ring(ctx, nil, nil, Hint{Kind: kindProbe}); err != nil && ctx.Err() == nil {
+				h.log.WarnContext(ctx, "stream: probe the bell", "err", err)
+			}
+			h.touch(ctx)
 		}
+	}
+}
+
+func (h *Hub) prune(ctx context.Context) {
+	if _, err := h.updates.Prune(ctx, h.now().Add(-keepUpdates)); err != nil && ctx.Err() == nil {
+		h.log.WarnContext(ctx, "stream: prune the update log", "err", err)
+	}
+}
+
+// touch records that the accounts connected to the hub are active.
+func (h *Hub) touch(ctx context.Context) {
+	if h.active == nil {
+		return
+	}
+	h.mu.Lock()
+	accounts := slices.Collect(maps.Keys(h.subs))
+	h.mu.Unlock()
+	if len(accounts) == 0 {
+		return
+	}
+	if err := h.active.Touch(ctx, accounts); err != nil && ctx.Err() == nil {
+		h.log.WarnContext(ctx, "stream: touch the connected accounts", "err", err)
 	}
 }
 
@@ -131,6 +182,10 @@ func (h *Hub) Run(ctx context.Context) error {
 // waiting. An update that does not fit marks the subscription behind; a
 // typing event that does not fit is dropped.
 func (h *Hub) deliver(targets []Target, hint Hint) {
+	if hint.Kind == kindProbe {
+		h.heard.Store(true)
+		return
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for _, t := range targets {

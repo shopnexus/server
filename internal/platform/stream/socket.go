@@ -51,8 +51,12 @@ type Access interface {
 	// Peer returns whom account's typing in conversation reaches: the other
 	// member, when account is a member and neither blocks the other.
 	Peer(ctx context.Context, account, conversation uuid.UUID) (other uuid.UUID, ok bool, err error)
-	// Touch records that account has the app open now.
-	Touch(ctx context.Context, account uuid.UUID) error
+	Active
+}
+
+// Active records that accounts have the app open now.
+type Active interface {
+	Touch(ctx context.Context, accounts []uuid.UUID) error
 }
 
 // Socket serves GET /v1/ws behind SubprotocolToken and the auth middleware.
@@ -63,9 +67,6 @@ type Socket struct {
 	// Verify checks the tokens a connection renews itself with, as the auth
 	// middleware checked the first.
 	Verify func(token string, now time.Time) (authn.Principal, error)
-	// Tick is how often a connection records that the person is active and
-	// reads the log, in case a ring was lost.
-	Tick time.Duration
 	// Origins are the website's origins (WEBSITE_ORIGINS), whose browsers
 	// may open the socket. A request without Origin, as the app's, is let in.
 	Origins []string
@@ -275,20 +276,20 @@ func (s Socket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = s.Access.Touch(ctx, p.AccountID); err != nil {
+	// The hub touches the account every probeEvery while it is connected;
+	// these mark the connection's start and end.
+	if err = s.Access.Touch(ctx, []uuid.UUID{p.AccountID}); err != nil {
 		s.Log.WarnContext(ctx, "stream: touch", "err", err)
 	}
 	defer func() {
 		touchCtx, done := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 		defer done()
-		if touchErr := s.Access.Touch(touchCtx, p.AccountID); touchErr != nil {
+		if touchErr := s.Access.Touch(touchCtx, []uuid.UUID{p.AccountID}); touchErr != nil {
 			s.Log.WarnContext(touchCtx, "stream: touch", "err", touchErr)
 		}
 	}()
 	expiry := time.NewTimer(p.ExpiresAt.Sub(s.Now()))
 	defer expiry.Stop()
-	tick := time.NewTicker(s.Tick)
-	defer tick.Stop()
 	typed := map[uuid.UUID]time.Time{}
 	peers := map[uuid.UUID]peer{}
 	for {
@@ -301,15 +302,6 @@ func (s Socket) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-expiry.C:
 			_ = c.Close(CloseToken, "token_expired")
 			return
-		case <-tick.C:
-			if err = s.Access.Touch(ctx, p.AccountID); err != nil && ctx.Err() == nil {
-				s.Log.WarnContext(ctx, "stream: touch", "err", err)
-			}
-			// A ring lost without a sign, as on a LISTEN connection that died
-			// in silence, costs at most one tick.
-			if !catchUp() {
-				return
-			}
 		case <-sub.Behind():
 			if !catchUp() {
 				return

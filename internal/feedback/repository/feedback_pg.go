@@ -15,6 +15,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgStore struct{ db *pgxpool.Pool }
@@ -38,9 +39,11 @@ func scanWith(row pgx.CollectableRow, extra ...any) (Feedback, error) {
 		hasDevice bool
 		d         domain.Device
 	)
-	if err := row.Scan(append([]any{&f.ID, &f.AccountID, &f.Mood, &f.Kind, &f.Text, &f.Photos, &hasDevice, &d.Model, &d.OS, &d.AppVersion,
+	if err := row.Scan(append([]any{
+		&f.ID, &f.AccountID, &f.Mood, &f.Kind, &f.Text, &f.Photos, &hasDevice, &d.Model, &d.OS, &d.AppVersion,
 		&f.Screen, &f.Contact, &f.Source, &f.PageURL, &f.Status, &f.StatusNote, &f.ShippedVersion, &f.StatusAt, &f.RootID, &f.Others,
-		&f.Reply, &f.RepliedAt, &f.Hearted, &f.CreatedAt}, extra...)...); err != nil {
+		&f.Reply, &f.RepliedAt, &f.Hearted, &f.CreatedAt,
+	}, extra...)...); err != nil {
 		return Feedback{}, fmt.Errorf("scan feedback: %w", err)
 	}
 	if hasDevice {
@@ -110,13 +113,11 @@ func (s pgStore) Insert(ctx context.Context, f Feedback, key uuid.UUID, since ti
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		// A share lock on the account: a send racing its deletion lands
 		// before it, and the worker's Forget removes it, or sees the tombstone.
-		var deleted bool
-		err := tx.QueryRow(ctx, `SELECT status = 'deleted' FROM accounts WHERE id = @id FOR SHARE`,
-			pgx.StrictNamedArgs{"id": f.AccountID}).Scan(&deleted)
+		living, err := postgres.LockLiving(ctx, tx, f.AccountID)
 		if err != nil {
-			return fmt.Errorf("lock account: %w", err)
+			return err
 		}
-		if deleted {
+		if !living {
 			return accountdomain.ErrSessionRevoked
 		}
 		if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('feedback:' || @account::text))`,

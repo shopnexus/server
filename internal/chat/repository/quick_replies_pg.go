@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgQuickReplies struct{ db *pgxpool.Pool }
@@ -33,13 +34,11 @@ func (s pgQuickReplies) Get(ctx context.Context, account uuid.UUID) (items []str
 // before it, and the worker's Delete removes it, or sees the tombstone.
 func (s pgQuickReplies) Put(ctx context.Context, account uuid.UUID, items []string) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		var deleted bool
-		err := tx.QueryRow(ctx, `SELECT status = 'deleted' FROM accounts WHERE id = @id FOR SHARE`,
-			pgx.StrictNamedArgs{"id": account}).Scan(&deleted)
+		living, err := postgres.LockLiving(ctx, tx, account)
 		if err != nil {
-			return fmt.Errorf("lock account: %w", err)
+			return err
 		}
-		if deleted {
+		if !living {
 			return accountdomain.ErrSessionRevoked
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO quick_replies (account_id, items) VALUES (@account, @items)

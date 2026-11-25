@@ -3,8 +3,6 @@ package repository_test
 import (
 	"bytes"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
 	"errors"
 	"testing"
@@ -18,21 +16,18 @@ import (
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
+	"github.com/shopnexus/server/internal/platform/secret"
 )
 
-func sealer(t *testing.T) cipher.AEAD {
+func sealer(t *testing.T) *secret.Box {
 	t.Helper()
 	key := make([]byte, 32)
 	rand.Read(key)
-	block, err := aes.NewCipher(key)
+	box, err := secret.New(key)
 	if err != nil {
 		t.Fatal(err)
 	}
-	aead, err := cipher.NewGCM(block)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return aead
+	return box
 }
 
 func newStore(t *testing.T) (repository.Members, *pgxpool.Pool) {
@@ -103,8 +98,8 @@ func TestSecretsAreSealed(t *testing.T) {
 	ctx := context.Background()
 	m := newMember(t, domain.RoleModerator)
 	created(t, s, m)
-	secret := domain.NewTOTPSecret()
-	m.StartEnrollment(secret, now)
+	totp := domain.NewTOTPSecret()
+	m.StartEnrollment(totp, now)
 	if err := s.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
 		t.Fatal(err)
 	}
@@ -112,12 +107,12 @@ func TestSecretsAreSealed(t *testing.T) {
 	if err := db.QueryRow(ctx, `SELECT totp_pending_secret FROM console_members WHERE id = @id`, pgx.StrictNamedArgs{"id": m.ID()}).Scan(&raw); err != nil {
 		t.Fatal(err)
 	}
-	if bytes.Contains(raw, secret) || len(raw) <= len(secret) {
-		t.Fatal("the secret is stored in the clear")
+	if bytes.Contains(raw, totp) || len(raw) <= len(totp) {
+		t.Fatal("the totp is stored in the clear")
 	}
 	got, _ := s.Get(ctx, m.ID())
-	if err := got.AcceptCode(domain.Code(secret, now), now); err != nil {
-		t.Fatalf("the sealed secret does not open: %v", err)
+	if err := got.AcceptCode(domain.Code(totp, now), now); err != nil {
+		t.Fatalf("the sealed totp does not open: %v", err)
 	}
 }
 

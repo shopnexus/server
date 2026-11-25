@@ -15,6 +15,7 @@ import (
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/contact"
+	"github.com/shopnexus/server/internal/platform/secret"
 	"github.com/shopnexus/server/internal/provider/carrier"
 	"github.com/shopnexus/server/internal/shipping/domain"
 	"github.com/shopnexus/server/internal/shipping/repository"
@@ -82,10 +83,10 @@ type Deps struct {
 	Events    repository.Events
 	// Clients holds one client per carrier; empty is CARRIER=none.
 	Clients map[carrier.Carrier]carrier.Client
-	// Key seals the tokens, 32 bytes.
-	Key   []byte
-	Deals Deals
-	Now   func() time.Time
+	// Tokens seals the carrier tokens.
+	Tokens *secret.Box
+	Deals  Deals
+	Now    func() time.Time
 }
 
 // Service is module shipping's contract.
@@ -176,11 +177,11 @@ func (s *Shipping) account(ctx context.Context, owner uuid.UUID, c string) (carr
 	if row.Token == nil {
 		return cl, carrier.Account{ShopCode: row.ShopCode}, nil
 	}
-	token, err := domain.Open(s.d.Key, row.Token, row.Nonce)
+	token, err := s.d.Tokens.Open(row.Token, nil)
 	if err != nil {
 		return nil, carrier.Account{}, domain.ErrRelinkNeeded.WithCause(fmt.Errorf("open the %s token of %s: %w", c, owner, err))
 	}
-	return cl, carrier.Account{Token: token, ShopCode: row.ShopCode}, nil
+	return cl, carrier.Account{Token: string(token), ShopCode: row.ShopCode}, nil
 }
 
 // carrierError turns a client's error into the API's; carrier.ErrNotFound
@@ -257,9 +258,7 @@ func (s *Shipping) Link(ctx context.Context, owner uuid.UUID, c string, cr carri
 	row := repository.Row{AccountID: owner, Carrier: c, ShopCode: l.ShopCode, LinkedAt: s.d.Now().UTC()}
 	// A shop ShopNexus joined keeps no token of its own.
 	if l.Token != "" {
-		if row.Token, row.Nonce, err = domain.Seal(s.d.Key, l.Token); err != nil {
-			return AccountView{}, err
-		}
+		row.Token = s.d.Tokens.Seal([]byte(l.Token), nil)
 	}
 	if err = s.d.Accounts.Put(ctx, row); err != nil {
 		return AccountView{}, fmt.Errorf("store the %s account: %w", c, err)

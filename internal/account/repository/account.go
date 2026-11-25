@@ -58,10 +58,12 @@ type Accounts interface {
 	Block(ctx context.Context, id, blocker, blocked uuid.UUID, at time.Time) error
 	// Unblock lifts the block; an absent one is fine.
 	Unblock(ctx context.Context, blocker, blocked uuid.UUID) error
-	// TouchActive sets last_active_at to at unless it is less than 30
-	// seconds older, so devices of one account do not pile up writes. It
-	// leaves write_id alone: it is no change of the aggregate's.
-	TouchActive(ctx context.Context, id uuid.UUID, at time.Time) error
+	// TouchActive sets the last_active_at of ids to at unless it is less
+	// than 30 seconds older, so devices of one account do not pile up
+	// writes. An account locked by another write is skipped: the next
+	// touch catches up. It leaves write_id alone: it is no change of the
+	// aggregate's.
+	TouchActive(ctx context.Context, ids []uuid.UUID, at time.Time) error
 	// SetLocale records the language the account's mail is written in. Like
 	// TouchActive it leaves write_id alone.
 	SetLocale(ctx context.Context, id uuid.UUID, locale string) error

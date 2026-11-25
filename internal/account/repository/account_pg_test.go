@@ -361,7 +361,7 @@ func TestTouchActive(t *testing.T) {
 		{at.Add(10 * time.Second), at}, // under 30 s later: not written
 		{at.Add(31 * time.Second), at.Add(31 * time.Second)},
 	} {
-		if err = s.TouchActive(ctx, id, c.touch); err != nil {
+		if err = s.TouchActive(ctx, []uuid.UUID{id}, c.touch); err != nil {
 			t.Fatal(err)
 		}
 		a, getErr := s.Get(ctx, id)

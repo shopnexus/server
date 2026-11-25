@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
+	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/shipping/domain"
 )
 
@@ -37,13 +38,11 @@ func (s pgSettings) Get(ctx context.Context, owner uuid.UUID) (domain.Settings, 
 
 func (s pgSettings) Put(ctx context.Context, owner uuid.UUID, st domain.Settings) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		var deleted bool
-		err := tx.QueryRow(ctx, `SELECT status = 'deleted' FROM accounts WHERE id = @owner FOR SHARE`,
-			pgx.StrictNamedArgs{"owner": owner}).Scan(&deleted)
+		living, err := postgres.LockLiving(ctx, tx, owner)
 		if err != nil {
-			return fmt.Errorf("lock account: %w", err)
+			return err
 		}
-		if deleted {
+		if !living {
 			return accountdomain.ErrSessionRevoked
 		}
 		if st.Pickup == nil {

@@ -25,8 +25,14 @@ import (
 // OrderTimers handlers now, as Restate does when a wait ends.
 func (e env) timed(t *testing.T, w domain.Waits, c service.Shipping) (deals *service.Deals, fire func(handler string, ref service.OrderRef)) {
 	t.Helper()
+	return e.polled(t, w, e.deps.PollEvery, c)
+}
+
+// polled is timed with the shipment read every poll.
+func (e env) polled(t *testing.T, w domain.Waits, poll time.Duration, c service.Shipping) (deals *service.Deals, fire func(handler string, ref service.OrderRef)) {
+	t.Helper()
 	deps := e.deps
-	deps.Waits, deps.Shipping, deps.Prefix = w, c, restatetest.Prefix()
+	deps.Waits, deps.PollEvery, deps.Shipping, deps.Prefix = w, poll, c, restatetest.Prefix()
 	d := service.New(deps)
 	in := restatetest.Start(t, d.Durable()...)
 	return d, func(handler string, ref service.OrderRef) {

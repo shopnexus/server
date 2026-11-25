@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgModelUses struct{ db *pgxpool.Pool }
@@ -28,7 +30,7 @@ RETURNING calls`
 func (s pgModelUses) Take(ctx context.Context, account uuid.UUID, now time.Time, limit int) (bool, error) {
 	taken := false
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		alive, err := living(ctx, tx, account)
+		alive, err := postgres.LockLiving(ctx, tx, account)
 		if err != nil || !alive {
 			return err
 		}

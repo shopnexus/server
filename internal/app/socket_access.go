@@ -38,8 +38,8 @@ func (a socketAccess) Peer(ctx context.Context, account, conversation uuid.UUID)
 	return other, ok, nil
 }
 
-func (a socketAccess) Touch(ctx context.Context, account uuid.UUID) error {
-	if err := a.accounts.Touch(ctx, account); err != nil {
+func (a socketAccess) Touch(ctx context.Context, accounts []uuid.UUID) error {
+	if err := a.accounts.Touch(ctx, accounts); err != nil {
 		return fmt.Errorf("touch: %w", err)
 	}
 	return nil

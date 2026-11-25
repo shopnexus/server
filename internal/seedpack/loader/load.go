@@ -231,7 +231,7 @@ func (r *run) person(ctx context.Context, a seedpack.Account) error {
 		}
 	}
 	if a.LastActiveAt != nil {
-		if err = r.accounts.TouchActive(ctx, id, *a.LastActiveAt); err != nil {
+		if err = r.accounts.TouchActive(ctx, []uuid.UUID{id}, *a.LastActiveAt); err != nil {
 			return fmt.Errorf("last activity of %s: %w", a.Key, err)
 		}
 	}

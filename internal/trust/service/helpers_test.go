@@ -53,7 +53,7 @@ func newEnv(t *testing.T) env {
 	})
 	deals := dealsvc.New(dealsvc.Deps{
 		Deals: dealrepo.NewDeals(db), Accounts: accounts, Catalog: c, Chats: chats, Shipping: shippingtest.Linked{},
-		Waits: dealdomain.OrderWaits, Ingress: in, Prefix: p, Now: time.Now, Log: slog.New(slog.DiscardHandler),
+		Waits: dealdomain.OrderWaits, PollEvery: 2 * time.Hour, Ingress: in, Prefix: p, Now: time.Now, Log: slog.New(slog.DiscardHandler),
 	})
 	restatetest.Start(t, slices.Concat(deals.Durable(), media.Durable(), chats.Durable())...)
 	scams := repository.NewScamWarnings(db)

@@ -10,6 +10,7 @@ import (
 
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgHidden struct{ db *pgxpool.Pool }
@@ -24,7 +25,7 @@ DELETE FROM hidden_listings WHERE account_id = @account AND id NOT IN (
 
 func (s pgHidden) Hide(ctx context.Context, account, listing uuid.UUID) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		alive, err := living(ctx, tx, account)
+		alive, err := postgres.LockLiving(ctx, tx, account)
 		if err != nil {
 			return err
 		}

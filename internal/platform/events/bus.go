@@ -15,6 +15,7 @@ import (
 	"github.com/restatedev/sdk-go/ingress"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/shopnexus/server/internal/platform/postgres"
 )
@@ -25,6 +26,8 @@ const (
 	// sendTimeout bounds one send, so a Restate that stops answering ends
 	// the round instead of holding its transaction open.
 	sendTimeout = 5 * time.Second
+	// sendsAtOnce bounds the sends of one round in flight.
+	sendsAtOnce = 16
 	keepFor     = 7 * 24 * time.Hour
 	cleanEvery  = time.Hour
 	deleteBatch = 10_000
@@ -193,13 +196,15 @@ UPDATE events SET attempts = attempts + 1,
        next_attempt_at = @now::timestamptz + least(interval '1 second' * power(2, attempts), interval '1 hour')
 WHERE id = ANY(@ids)`
 
-// dispatch sends one batch to Events.Deliver, one send per event, and
-// marks what Restate took, in one transaction, so two buses never hold the
-// same event; it returns how many it marked. An event whose kind has no
-// subscriber is marked without a send. When the ingress refuses an event
-// (4xx), the event backs off and the batch goes on. Any other failed send
-// (Restate unreachable, silent past sendTimeout, 5xx) ends the batch.
-// Events not marked are sent again later under the same key.
+// dispatch sends one batch to Events.Deliver, sendsAtOnce sends at a
+// time, and marks what Restate took, in one transaction, so two buses
+// never hold the same event; it returns how many it marked. An event whose
+// kind has no subscriber is marked without a send. When the ingress
+// refuses an event (4xx), the event backs off. Any other failed send
+// (Restate unreachable, silent past sendTimeout, 5xx) leaves its event
+// unmarked, stops the sends not started yet, and is returned. Events not
+// marked are sent again later under the same key; subscribers do not
+// depend on the order.
 func (b *Bus) dispatch(ctx context.Context) (int, error) {
 	b.mu.Lock()
 	subs := b.subs
@@ -217,29 +222,38 @@ func (b *Bus) dispatch(ctx context.Context) (int, error) {
 		if err != nil {
 			return fmt.Errorf("read pending events: %w", err)
 		}
-		sent := make([]uuid.UUID, 0, len(pending))
-		var refused []uuid.UUID
+		var (
+			mu            sync.Mutex
+			sent, refused []uuid.UUID
+		)
+		sends, sendsCtx := errgroup.WithContext(ctx)
+		sends.SetLimit(sendsAtOnce)
 		for _, e := range pending {
 			if len(subs[e.Kind]) == 0 {
 				sent = append(sent, e.ID)
 				continue
 			}
-			sendCtx, cancel := context.WithTimeout(ctx, sendTimeout)
-			_, err = ingress.ServiceSend[Event](b.ingress, b.service(), deliverHandler).
-				Send(sendCtx, e, restate.WithIdempotencyKey(e.ID.String()))
-			cancel()
-			if ie, ok := errors.AsType[ingress.Error](err); ok && ie.Code() >= 400 && ie.Code() < 500 {
-				b.log.ErrorContext(ctx, "events: Restate refused an event", "event_id", e.ID, "kind", e.Kind, "err", err)
-				refused = append(refused, e.ID)
-				continue
-			}
-			if err != nil {
-				sendErr = err
-				break
-			}
-			dispatched.Add(ctx, 1, metric.WithAttributes(attribute.String("kind", string(e.Kind))))
-			sent = append(sent, e.ID)
+			sends.Go(func() error {
+				sendCtx, cancel := context.WithTimeout(sendsCtx, sendTimeout)
+				_, callErr := ingress.ServiceSend[Event](b.ingress, b.service(), deliverHandler).
+					Send(sendCtx, e, restate.WithIdempotencyKey(e.ID.String()))
+				cancel()
+				mu.Lock()
+				defer mu.Unlock()
+				if ie, ok := errors.AsType[ingress.Error](callErr); ok && ie.Code() >= 400 && ie.Code() < 500 {
+					b.log.ErrorContext(ctx, "events: Restate refused an event", "event_id", e.ID, "kind", e.Kind, "err", callErr)
+					refused = append(refused, e.ID)
+					return nil
+				}
+				if callErr != nil {
+					return fmt.Errorf("send %s: %w", e.ID, callErr)
+				}
+				dispatched.Add(ctx, 1, metric.WithAttributes(attribute.String("kind", string(e.Kind))))
+				sent = append(sent, e.ID)
+				return nil
+			})
 		}
+		sendErr = sends.Wait()
 		if len(refused) > 0 {
 			if _, err = tx.Exec(ctx, backOff, pgx.StrictNamedArgs{"now": b.now(), "ids": refused}); err != nil {
 				return fmt.Errorf("back off refused events: %w", err)

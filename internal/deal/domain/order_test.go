@@ -513,7 +513,7 @@ func TestShipmentUpdated(t *testing.T) {
 // once the order closed.
 func TestDueAt(t *testing.T) {
 	t.Parallel()
-	w := domain.Waits{Seller: time.Hour, Pickup: 2 * time.Hour, Complete: 3 * time.Hour, Poll: time.Minute}
+	w := domain.Waits{Seller: time.Hour, Pickup: 2 * time.Hour, Complete: 3 * time.Hour}
 	closed := shipped(t)
 	must(t, closed.ConfirmReceipt(domain.Buyer, closed.Order().ID, later))
 	for name, c := range map[string]struct {

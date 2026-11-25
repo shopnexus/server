@@ -13,6 +13,7 @@ import (
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/discovery/domain"
 	"github.com/shopnexus/server/internal/platform/events"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgWatches struct{ db *pgxpool.Pool }
@@ -45,7 +46,7 @@ func (s pgWatches) Put(ctx context.Context, w Watch) (Watch, bool, error) {
 		created bool
 	)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		alive, err := living(ctx, tx, w.Account)
+		alive, err := postgres.LockLiving(ctx, tx, w.Account)
 		if err != nil {
 			return err
 		}

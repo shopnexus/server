@@ -1,3 +1,5 @@
+// Package domain holds module shipping's rules and the errors the module
+// answers with.
 package domain
 
 import (

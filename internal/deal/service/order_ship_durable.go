@@ -158,7 +158,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "PickupTimeout").
 			Send(ref, restate.WithDelay(s.Deals.waits.Pickup))
 		restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "Poll").
-			Send(ref, restate.WithDelay(s.Deals.waits.Poll))
+			Send(ref, restate.WithDelay(s.Deals.pollEvery))
 		// A2
 		if d.Order().Shipment.Status == domain.ShipmentDelivered {
 			restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "AutoComplete").

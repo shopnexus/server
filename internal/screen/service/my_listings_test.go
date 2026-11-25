@@ -143,7 +143,7 @@ func newSellEnv(t *testing.T) *sellEnv {
 	})
 	e.deals = dealsvc.New(dealsvc.Deps{
 		Deals: dealrepo.NewDeals(db), Accounts: e.accounts, Catalog: e.catalog, Chats: e.chats, Shipping: shippingtest.Linked{},
-		Waits: dealdomain.OrderWaits, Ingress: in, Prefix: p, Now: time.Now, Log: slog.New(slog.DiscardHandler),
+		Waits: dealdomain.OrderWaits, PollEvery: 2 * time.Hour, Ingress: in, Prefix: p, Now: time.Now, Log: slog.New(slog.DiscardHandler),
 	})
 	restatetest.Start(t, slices.Concat(e.deals.Durable(), media.Durable(), e.chats.Durable())...)
 	e.discovery = discoverysvc.New(discoverysvc.Deps{
