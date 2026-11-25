@@ -95,8 +95,8 @@ func (s *Support) Messaged(ctx context.Context, conversation, message uuid.UUID,
 	return nil
 }
 
-func (s *Support) AccountDeleted(ctx context.Context, account uuid.UUID, at time.Time) error {
-	if err := s.tickets.ResolveAllOf(ctx, account, at); err != nil {
+func (s *Support) AccountDeleted(ctx context.Context, account, event uuid.UUID, at time.Time) error {
+	if err := s.tickets.ResolveAllOf(ctx, account, event, at); err != nil {
 		return fmt.Errorf("resolve the account's tickets: %w", err)
 	}
 	return nil

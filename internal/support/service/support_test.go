@@ -377,7 +377,7 @@ func TestAccountDeletedKeepsDelayedFirstDeliveryResolved(t *testing.T) {
 		t.Fatal(err)
 	}
 	resolvedAt := openedAt.Add(5 * time.Minute)
-	if err = e.support.AccountDeleted(t.Context(), owner, resolvedAt); err != nil {
+	if err = e.support.AccountDeleted(t.Context(), owner, uuid.NewV7(), resolvedAt); err != nil {
 		t.Fatal(err)
 	}
 	if err = e.support.Messaged(t.Context(), tk.ConversationID, msg.ID, true, clock.Now()); err != nil {

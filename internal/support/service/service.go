@@ -43,8 +43,9 @@ type Service interface {
 	// Messaged records a message of a support chat at at: the person's
 	// message reopens a resolved ticket, ShopNexus's marks it answered.
 	Messaged(ctx context.Context, conversation, message uuid.UUID, fromPerson bool, at time.Time) error
-	// AccountDeleted resolves a deleted account's open tickets.
-	AccountDeleted(ctx context.Context, account uuid.UUID, at time.Time) error
+	// AccountDeleted resolves a deleted account's open tickets; event is the
+	// account.deleted event's ID, from which the tickets' events derive.
+	AccountDeleted(ctx context.Context, account, event uuid.UUID, at time.Time) error
 	// Queue lists tickets of status, of kind when kind is set, newest
 	// activity first, for console members.
 	Queue(ctx context.Context, status domain.Status, kind *domain.Kind, p page.Request) (page.Page[ConsoleTicket], error)

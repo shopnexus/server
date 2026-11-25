@@ -176,7 +176,7 @@ func TestAPersonsMessageReopens(t *testing.T) {
 	s := repository.NewTickets(db)
 	person := accounttest.New(t, db)
 	tk := open(t, s, ticket(t, db, person, domain.KindOther, nil, ""))
-	if _, err := s.Resolve(ctx, tk.ID, nil, at); err != nil {
+	if _, err := s.Resolve(ctx, tk.ID, uuid.NewV7(), nil, at); err != nil {
 		t.Fatal(err)
 	}
 	reopened, err := s.Messaged(ctx, tk.ConversationID, uuid.NewV7(), domain.FromShopNexus, at)
@@ -206,17 +206,17 @@ func TestResolveWritesTheAudit(t *testing.T) {
 	s := repository.NewTickets(db)
 	person, lan := accounttest.New(t, db), member(t, db, "Lan")
 	tk := open(t, s, ticket(t, db, person, domain.KindOther, nil, ""))
-	got, err := s.Resolve(ctx, tk.ID, actor(lan), at)
+	got, err := s.Resolve(ctx, tk.ID, uuid.NewV7(), actor(lan), at)
 	if err != nil || got.Status != domain.StatusResolved || got.ResolvedBy == nil || *got.ResolvedBy != lan {
 		t.Fatalf("%+v %v", got, err)
 	}
-	if _, err = s.Resolve(ctx, tk.ID, actor(lan), at); !errors.Is(err, domain.ErrNotAllowed) {
+	if _, err = s.Resolve(ctx, tk.ID, uuid.NewV7(), actor(lan), at); !errors.Is(err, domain.ErrNotAllowed) {
 		t.Fatalf("twice: %v", err)
 	}
-	if _, err = s.Reopen(ctx, tk.ID, actor(lan), at); err != nil {
+	if _, err = s.Reopen(ctx, tk.ID, uuid.NewV7(), actor(lan), at); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.Resolve(ctx, uuid.NewV7(), actor(lan), at); !errors.Is(err, domain.ErrNotFound) {
+	if _, err = s.Resolve(ctx, uuid.NewV7(), uuid.NewV7(), actor(lan), at); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("no ticket: %v", err)
 	}
 	var n int
@@ -303,13 +303,26 @@ func TestResolveAllOfAnAccount(t *testing.T) {
 	db := pgtest.New(t)
 	s := repository.NewTickets(db)
 	person := accounttest.New(t, db)
+	first := open(t, s, ticket(t, db, person, domain.KindOther, nil, ""))
 	open(t, s, ticket(t, db, person, domain.KindOther, nil, ""))
-	open(t, s, ticket(t, db, person, domain.KindOther, nil, ""))
-	if err := s.ResolveAllOf(ctx, person, at); err != nil {
+	deleted := uuid.NewV7()
+	if err := s.ResolveAllOf(ctx, person, deleted, at); err != nil {
 		t.Fatal(err)
 	}
 	if n, _ := s.CountOpenOf(ctx, person); n != 0 {
 		t.Fatalf("still open %d", n)
+	}
+	// A retry after a member reopened one resolves it again; its event,
+	// derived from the same deletion, is there already.
+	if _, err := s.Reopen(ctx, first.ID, uuid.NewV7(), nil, at.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ResolveAllOf(ctx, person, deleted, at.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Get(ctx, first.ID)
+	if err != nil || got.Status != domain.StatusResolved || len(got.Events) != 3 {
+		t.Fatalf("retried: %+v %v", got, err)
 	}
 }
 

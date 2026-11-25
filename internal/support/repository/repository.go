@@ -59,7 +59,8 @@ type Tickets interface {
 	// OpenedSince counts the tickets account opened after since, without
 	// the lock: the check before Insert, which counts again under it.
 	OpenedSince(ctx context.Context, account uuid.UUID, since time.Time) (int, error)
-	// SetFirstMessage records the message the ticket's card is.
+	// SetFirstMessage records the message the ticket's card is, sent or still
+	// processing; a sent one is recorded as Messaged would.
 	SetFirstMessage(ctx context.Context, id, message uuid.UUID) error
 	// Get reads a ticket; domain.ErrNotFound for none.
 	Get(ctx context.Context, id uuid.UUID) (Ticket, error)
@@ -92,11 +93,11 @@ type Tickets interface {
 	// owner has not been deleted. Replays and messages at or before
 	// resolution leave its status alone.
 	Messaged(ctx context.Context, conversation, message uuid.UUID, from domain.From, at time.Time) (bool, error)
-	// Resolve and Reopen set the ticket's status with its event and, when
-	// actor is a member, the audit row. A ticket in that status already is
-	// domain.ErrNotAllowed.
-	Resolve(ctx context.Context, id uuid.UUID, actor *audit.Actor, at time.Time) (Ticket, error)
-	Reopen(ctx context.Context, id uuid.UUID, actor *audit.Actor, at time.Time) (Ticket, error)
+	// Resolve and Reopen set the ticket's status with its event, whose ID is
+	// event, and, when actor is a member, the audit row. A ticket in that
+	// status already is domain.ErrNotAllowed.
+	Resolve(ctx context.Context, id, event uuid.UUID, actor *audit.Actor, at time.Time) (Ticket, error)
+	Reopen(ctx context.Context, id, event uuid.UUID, actor *audit.Actor, at time.Time) (Ticket, error)
 	// RecordReply records who wrote message, a ShopNexus message of the
 	// ticket: actor's member with its ticket.reply audit row, or nobody for
 	// an automatic one (nil actor).
@@ -104,6 +105,7 @@ type Tickets interface {
 	// Members reads who wrote each of messages; a message with no reply row
 	// is absent.
 	Members(ctx context.Context, messages []uuid.UUID) (map[uuid.UUID]Reply, error)
-	// ResolveAllOf resolves an account's open tickets, by nobody.
-	ResolveAllOf(ctx context.Context, account uuid.UUID, at time.Time) error
+	// ResolveAllOf resolves an account's open tickets, by nobody; each
+	// ticket's event ID derives from event, so a retry repeats them.
+	ResolveAllOf(ctx context.Context, account, event uuid.UUID, at time.Time) error
 }

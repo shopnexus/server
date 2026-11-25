@@ -264,6 +264,11 @@ func TestRevealAndReply(t *testing.T) {
 	if err = s.Insert(ctx, stale); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("a hidden second review: %v", err)
 	}
+	// An edit that read the first review hidden must not land once it shows.
+	hidden, err := s.ByOrder(ctx, o, domain.RoleSeller)
+	if err != nil {
+		t.Fatal(err)
+	}
 	second, err := domain.NewReview(uuid.NewV7(), o, domain.RoleBuyer, seller, buyer, l, 4, "", nil, nil, later, later)
 	if err != nil {
 		t.Fatal(err)
@@ -272,8 +277,14 @@ func TestRevealAndReply(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := s.ByOrder(ctx, o, domain.RoleSeller)
-	if err != nil || !got.VisibleAt().Equal(later) {
+	if err != nil || !got.VisibleAt().Equal(later) || got.WriteID() != second.WriteID() {
 		t.Fatalf("revealed: %+v %v", got.State(), err)
+	}
+	if err = hidden.Edit(1, "Đổi ý", nil, nil, now.Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.Save(ctx, &hidden, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
+		t.Fatalf("an edit read before the reveal: %v", err)
 	}
 	if list, _ := s.OfSubject(ctx, buyer, domain.RoleBuyer, later, page.Request{}); len(list) != 1 || list[0].ID() != second.ID() {
 		t.Fatalf("buyer's reviews: %d", len(list))

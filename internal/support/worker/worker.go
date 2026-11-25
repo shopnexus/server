@@ -49,7 +49,7 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 // AccountDeleted resolves the account's open tickets.
 func (w Worker) AccountDeleted(ctx restate.Context, e events.Event) error {
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		if err := w.Support.AccountDeleted(rc, e.SubjectID, e.OccurredAt); err != nil {
+		if err := w.Support.AccountDeleted(rc, e.SubjectID, e.ID, e.OccurredAt); err != nil {
 			return fmt.Errorf("resolve tickets: %w", err)
 		}
 		return nil

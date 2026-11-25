@@ -39,7 +39,7 @@ func TestTicketUpdatesAreOwnerOnlyAndReplaySafe(t *testing.T) {
 	if err = s.SetFirstMessage(ctx, tk.ID, initial); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.Resolve(ctx, tk.ID, nil, at.Add(time.Minute)); err != nil {
+	if _, err = s.Resolve(ctx, tk.ID, uuid.NewV7(), nil, at.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	if reopened, recvErr := s.Messaged(ctx, tk.ConversationID, initial, domain.FromPerson, at); recvErr != nil || reopened {
@@ -49,16 +49,16 @@ func TestTicketUpdatesAreOwnerOnlyAndReplaySafe(t *testing.T) {
 	if reopened, recvErr := s.Messaged(ctx, tk.ConversationID, next, domain.FromPerson, at.Add(2*time.Minute)); recvErr != nil || !reopened {
 		t.Fatalf("new reply: %v %v", reopened, recvErr)
 	}
-	if _, err = s.Resolve(ctx, tk.ID, nil, at.Add(3*time.Minute)); err != nil {
+	if _, err = s.Resolve(ctx, tk.ID, uuid.NewV7(), nil, at.Add(3*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	if reopened, recvErr := s.Messaged(ctx, tk.ConversationID, next, domain.FromPerson, at.Add(2*time.Minute)); recvErr != nil || reopened {
 		t.Fatalf("replayed reply: %v %v", reopened, recvErr)
 	}
-	if _, err = s.Reopen(ctx, tk.ID, nil, at.Add(4*time.Minute)); err != nil {
+	if _, err = s.Reopen(ctx, tk.ID, uuid.NewV7(), nil, at.Add(4*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.ResolveAllOf(ctx, owner, at.Add(5*time.Minute)); err != nil {
+	if err = s.ResolveAllOf(ctx, owner, uuid.NewV7(), at.Add(5*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	log := stream.PGLog{DB: db}
@@ -85,7 +85,7 @@ func TestTicketNotifyFailureRollsBackStatusEventAndReceipt(t *testing.T) {
 	s := repository.NewTickets(db)
 	owner := accounttest.New(t, db)
 	tk := open(t, s, ticket(t, db, owner, domain.KindOther, nil, ""))
-	if _, err := s.Resolve(ctx, tk.ID, nil, at); err != nil {
+	if _, err := s.Resolve(ctx, tk.ID, uuid.NewV7(), nil, at); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(ctx, `CREATE FUNCTION refuse_ticket_hint() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test hint failure'; END $$;
@@ -126,7 +126,7 @@ func TestTicketMessageReplayCannotUndoConcurrentResolution(t *testing.T) {
 	s := repository.NewTickets(db)
 	owner := accounttest.New(t, db)
 	tk := open(t, s, ticket(t, db, owner, domain.KindOther, nil, ""))
-	if _, err := s.Resolve(ctx, tk.ID, nil, at); err != nil {
+	if _, err := s.Resolve(ctx, tk.ID, uuid.NewV7(), nil, at); err != nil {
 		t.Fatal(err)
 	}
 	msg := uuid.NewV7()
@@ -136,7 +136,11 @@ func TestTicketMessageReplayCannotUndoConcurrentResolution(t *testing.T) {
 	start := make(chan struct{})
 	errs := make(chan error, 2)
 	var wg sync.WaitGroup
-	wg.Go(func() { <-start; _, err := s.Resolve(ctx, tk.ID, nil, at.Add(2*time.Minute)); errs <- err })
+	wg.Go(func() {
+		<-start
+		_, err := s.Resolve(ctx, tk.ID, uuid.NewV7(), nil, at.Add(2*time.Minute))
+		errs <- err
+	})
 	wg.Go(func() {
 		<-start
 		_, err := s.Messaged(ctx, tk.ConversationID, msg, domain.FromPerson, at.Add(time.Minute))
@@ -189,10 +193,10 @@ func TestDelayedTicketMessageCannotUndoResolution(t *testing.T) {
 				if err := accounttest.Service(db).Erase(ctx, owner); err != nil {
 					t.Fatal(err)
 				}
-				if err := repo.ResolveAllOf(ctx, owner, resolvedAt); err != nil {
+				if err := repo.ResolveAllOf(ctx, owner, uuid.NewV7(), resolvedAt); err != nil {
 					t.Fatal(err)
 				}
-			} else if _, err := repo.Resolve(ctx, tk.ID, actor(member(t, db, "Lan")), resolvedAt); err != nil {
+			} else if _, err := repo.Resolve(ctx, tk.ID, uuid.NewV7(), actor(member(t, db, "Lan")), resolvedAt); err != nil {
 				t.Fatal(err)
 			}
 			reopened, err := repo.Messaged(ctx, tk.ConversationID, msg, domain.FromPerson, msgAt)
@@ -292,7 +296,7 @@ func TestInitialMessageAfterResolutionReopensInEitherHandlerOrder(t *testing.T) 
 			repo := repository.NewTickets(db)
 			owner := accounttest.New(t, db)
 			tk := open(t, repo, ticket(t, db, owner, domain.KindOther, nil, ""))
-			if _, err := repo.Resolve(ctx, tk.ID, nil, at.Add(time.Minute)); err != nil {
+			if _, err := repo.Resolve(ctx, tk.ID, uuid.NewV7(), nil, at.Add(time.Minute)); err != nil {
 				t.Fatal(err)
 			}
 			sentAt := at.Add(time.Hour)
@@ -349,5 +353,41 @@ CREATE TRIGGER refuse_ticket_hint BEFORE INSERT ON account_updates FOR EACH ROW 
 	got, err = repo.Get(ctx, tk.ID)
 	if err != nil || got.FirstMessageID == nil || !got.LastMessageAt.Equal(sentAt) {
 		t.Fatalf("attachment retry: %+v %v", got, err)
+	}
+}
+
+// A photo first message is still processing when the flow records it: it is
+// the card at once, and the worker records it in the ticket once it is sent.
+func TestProcessingFirstMessageIsTheCard(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	db := pgtest.New(t)
+	repo := repository.NewTickets(db)
+	owner := accounttest.New(t, db)
+	tk := open(t, repo, ticket(t, db, owner, domain.KindOther, nil, ""))
+	sentAt := at.Add(time.Hour)
+	msg := messageAt(t, db, tk.ConversationID, owner, sentAt)
+	if _, err := db.Exec(ctx, `UPDATE messages SET status = 'processing' WHERE id = @id`, pgx.StrictNamedArgs{"id": msg}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SetFirstMessage(ctx, tk.ID, msg); err != nil {
+		t.Fatal(err)
+	}
+	got, err := repo.Get(ctx, tk.ID)
+	if err != nil || got.FirstMessageID == nil || *got.FirstMessageID != msg || !got.LastMessageAt.Equal(at) {
+		t.Fatalf("processing first message: %+v %v", got, err)
+	}
+	var receipts int
+	if err = db.QueryRow(ctx, `SELECT count(*) FROM ticket_message_receipts WHERE message_id = @id`, pgx.StrictNamedArgs{"id": msg}).Scan(&receipts); err != nil || receipts != 0 {
+		t.Fatalf("a message not sent was recorded: %d %v", receipts, err)
+	}
+	if _, err = db.Exec(ctx, `UPDATE messages SET status = 'sent' WHERE id = @id`, pgx.StrictNamedArgs{"id": msg}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = repo.Messaged(ctx, tk.ConversationID, msg, domain.FromPerson, sentAt); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = repo.Get(ctx, tk.ID); err != nil || !got.LastMessageAt.Equal(sentAt) || got.LastFrom != domain.FromPerson {
+		t.Fatalf("sent first message: %+v %v", got, err)
 	}
 }

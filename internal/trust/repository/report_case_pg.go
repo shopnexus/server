@@ -38,6 +38,10 @@ FROM reports r
 WHERE r.withdrawn_at IS NULL AND r.resolution_id IS NULL AND (@account::uuid IS NULL OR r.account_id = @account)
 GROUP BY r.account_id`
 
+// standing holds for a resolution s with a report not withdrawn: only those
+// are cases.
+const standing = `EXISTS (SELECT 1 FROM reports r WHERE r.resolution_id = s.id AND r.withdrawn_at IS NULL)`
+
 // resolvedCases is every resolved case not reopened, or account's alone
 // when @account is set: its account and resolution's ID, caseCounts, then
 // the resolution.
@@ -111,7 +115,7 @@ func (s pgCases) CountByStatus(ctx context.Context, since time.Time) (map[domain
     UNION ALL
     SELECT 'resolved', count(*) FROM report_resolutions s
     WHERE s.reopened_at IS NULL AND s.resolved_at >= @since
-      AND EXISTS (SELECT 1 FROM reports r WHERE r.resolution_id = s.id AND r.withdrawn_at IS NULL)
+      AND `+standing+`
 ) c WHERE n > 0`, pgx.StrictNamedArgs{"since": since}))
 }
 
@@ -214,8 +218,7 @@ GROUP BY `+group+`, r.listing_id`, pgx.StrictNamedArgs{"keys": keys})
 // lockCase queues the lock that makes the resolves and reopens of one
 // account wait for each other.
 func lockCase(b *pgx.Batch, account uuid.UUID) {
-	b.Queue(`SELECT pg_advisory_xact_lock(hashtext('report_case:' || @account::text))`,
-		pgx.StrictNamedArgs{"account": account}).Fn = postgres.ExecAs("lock the case", nil)
+	postgres.QueueLock(b, "report_case", account)
 }
 
 // openReports are the reports of an account's open case.
@@ -252,8 +255,10 @@ func (s pgCases) Reopen(ctx context.Context, account uuid.UUID, at time.Time, en
 		var id uuid.UUID
 		b := &pgx.Batch{}
 		lockCase(b, account)
-		b.Queue(`SELECT id FROM report_resolutions WHERE account_id = @account AND reopened_at IS NULL
-ORDER BY resolved_at DESC, id DESC LIMIT 1`, pgx.StrictNamedArgs{"account": account}).QueryRow(func(row pgx.Row) error {
+		// The resolution Current shows: one with a report not withdrawn.
+		b.Queue(`SELECT s.id FROM report_resolutions s WHERE s.account_id = @account AND s.reopened_at IS NULL
+  AND `+standing+`
+ORDER BY s.resolved_at DESC, s.id DESC LIMIT 1`, pgx.StrictNamedArgs{"account": account}).QueryRow(func(row pgx.Row) error {
 			err := row.Scan(&id)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return domain.ErrCaseNotResolved

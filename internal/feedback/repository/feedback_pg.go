@@ -127,9 +127,6 @@ func memberOf(a audit.Actor) any {
 	return a.MemberID
 }
 
-// lockGroups serialises every write on groups.
-const lockGroups = `SELECT pg_advisory_xact_lock(hashtext('feedback:groups'))`
-
 // Insert reads the account's prior feedback and count under the account's
 // locks in one batch, and writes and reads back the feedback in another.
 func (s pgStore) Insert(ctx context.Context, f Feedback, key uuid.UUID, since time.Time) (Feedback, bool, error) {
@@ -146,7 +143,7 @@ func (s pgStore) Insert(ctx context.Context, f Feedback, key uuid.UUID, since ti
 		// A share lock on the account: a send racing its deletion lands
 		// before it, and the worker's Forget removes it, or sees the tombstone.
 		postgres.QueueLockLiving(b, f.AccountID, accountdomain.ErrSessionRevoked)
-		b.Queue(`SELECT pg_advisory_xact_lock(hashtext('feedback:' || @account::text))`, pgx.StrictNamedArgs{"account": f.AccountID})
+		postgres.QueueLock(b, "feedback", f.AccountID)
 		queueRead(b, `WHERE f.account_id = @account AND f.request_key = @key`,
 			pgx.StrictNamedArgs{"account": f.AccountID, "key": key}, &prior)
 		b.Queue(`SELECT count(*) FROM feedback WHERE account_id = @account AND created_at > @since`,
@@ -388,7 +385,7 @@ func (s pgStore) SetStatus(ctx context.Context, id uuid.UUID, c domain.StatusCha
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		var rows []groupRow
 		b := &pgx.Batch{}
-		b.Queue(lockGroups)
+		postgres.QueueLock(b, "feedback_groups")
 		queueLock(b, `WHERE id = (SELECT coalesce(root_id, id) FROM feedback WHERE id = @id)
    OR root_id = (SELECT coalesce(root_id, id) FROM feedback WHERE id = @id)`, pgx.StrictNamedArgs{"id": id}, &rows)
 		if err := tx.SendBatch(ctx, b).Close(); err != nil {
@@ -496,7 +493,7 @@ func (s pgStore) Join(ctx context.Context, id, other uuid.UUID, actor audit.Acto
 			c        domain.StatusChange
 		)
 		b := &pgx.Batch{}
-		b.Queue(lockGroups)
+		postgres.QueueLock(b, "feedback_groups")
 		b.Queue(`SELECT coalesce(root_id, id), root_id IS NULL FROM feedback WHERE id = @id`,
 			pgx.StrictNamedArgs{"id": id}).QueryRow(func(row pgx.Row) error {
 			return scanGroup(row, &from, &isRoot)
@@ -568,7 +565,7 @@ WHERE f.root_id = h.root AND f.account_id <> @account`
 
 func (s pgStore) Forget(ctx context.Context, account uuid.UUID) error {
 	b := &pgx.Batch{}
-	b.Queue(lockGroups)
+	postgres.QueueLock(b, "feedback_groups")
 	b.Queue(moveToHeirs, pgx.StrictNamedArgs{"account": account})
 	b.Queue(`DELETE FROM feedback WHERE account_id = @account`, pgx.StrictNamedArgs{"account": account})
 	if err := s.db.SendBatch(ctx, b).Close(); err != nil {

@@ -47,7 +47,7 @@ func (r *recorder) Messaged(_ context.Context, conversation, _ uuid.UUID, fromPe
 	return nil
 }
 
-func (r *recorder) AccountDeleted(_ context.Context, account uuid.UUID, _ time.Time) error {
+func (r *recorder) AccountDeleted(_ context.Context, account, _ uuid.UUID, _ time.Time) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.deleted = append(r.deleted, account)

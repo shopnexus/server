@@ -184,3 +184,47 @@ WHERE target_kind = 'account' AND target_id = @id ORDER BY id`, pgx.StrictNamedA
 		t.Fatalf("resolve an unknown account: %v", err)
 	}
 }
+
+// Reopen picks the resolution Current shows: a later one whose reports were
+// all withdrawn is no case, so the one before it reopens.
+func TestReopenSkipsWithdrawnResolution(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	reports, cases := repository.NewReports(db), repository.NewCases(db)
+	seller, r1, r2 := accounttest.New(t, db), accounttest.New(t, db), accounttest.New(t, db)
+	lan := member(t, db, "Lan")
+	by := audit.Actor{Kind: audit.ActorMember, MemberID: lan}
+	start := time.Now().UTC().Truncate(time.Microsecond)
+	resolve := func(reporter uuid.UUID, at time.Time) (domain.Report, repository.Resolution) {
+		t.Helper()
+		r, err := domain.NewReport(uuid.NewV7(), reporter, seller, uuid.UUID{}, uuid.UUID{}, domain.ReasonScam, "", at)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r, _, err = reports.Open(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+		res := repository.Resolution{ID: uuid.NewV7(), Outcome: domain.OutcomeDismissed, MemberID: lan, At: at.Add(time.Minute)}
+		if err = cases.Resolve(ctx, seller, res, audit.Entry{Actor: by, Action: audit.ReportDismiss, Target: audit.Account(seller), At: res.At}); err != nil {
+			t.Fatal(err)
+		}
+		return r, res
+	}
+	kept, older := resolve(r1, start)
+	gone, _ := resolve(r2, start.Add(time.Hour))
+	if err := reports.Withdraw(ctx, gone.ID(), start.Add(2*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if current, _, err := cases.Current(ctx, seller); err != nil || current.Resolution == nil || current.Resolution.ID != older.ID {
+		t.Fatalf("current: %+v %v", current, err)
+	}
+	at := start.Add(3 * time.Hour)
+	if err := cases.Reopen(ctx, seller, at, audit.Entry{Actor: by, Action: audit.ReportReopen, Target: audit.Account(seller), At: at}); err != nil {
+		t.Fatal(err)
+	}
+	current, rs, err := cases.Current(ctx, seller)
+	if err != nil || current.Resolution != nil || len(rs) != 1 || rs[0].ID() != kept.ID() {
+		t.Fatalf("reopened: %+v %v %v", current, rs, err)
+	}
+}

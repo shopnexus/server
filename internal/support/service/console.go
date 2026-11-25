@@ -205,7 +205,7 @@ func (s *Support) Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (Co
 			}
 		}
 	}
-	if t, err = s.tickets.Resolve(ctx, id, &by, s.now()); err != nil {
+	if t, err = s.tickets.Resolve(ctx, id, uuid.NewV7(), &by, s.now()); err != nil {
 		return ConsoleTicket{}, fmt.Errorf("resolve the ticket: %w", err)
 	}
 	shown, err := s.consoleTickets(ctx, []repository.Ticket{t})
@@ -216,7 +216,7 @@ func (s *Support) Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (Co
 }
 
 func (s *Support) Reopen(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error) {
-	t, err := s.tickets.Reopen(ctx, id, &by, s.now())
+	t, err := s.tickets.Reopen(ctx, id, uuid.NewV7(), &by, s.now())
 	if err != nil {
 		return ConsoleTicket{}, fmt.Errorf("reopen the ticket: %w", err)
 	}

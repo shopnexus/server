@@ -81,8 +81,7 @@ func (s pgReviews) Insert(ctx context.Context, r domain.Review) error {
 		b := &pgx.Batch{}
 		// One order's two reviews are written one at a time, so the second
 		// always sees the first.
-		b.Queue(`SELECT pg_advisory_xact_lock(hashtextextended(@order::text, 0))`,
-			pgx.StrictNamedArgs{"order": st.OrderID}).Fn = postgres.ExecAs("lock the order's reviews", nil)
+		postgres.QueueLock(b, "reviews", st.OrderID)
 		b.Queue(`SELECT EXISTS (SELECT 1 FROM reviews WHERE order_id = @order AND role <> @role)`,
 			pgx.StrictNamedArgs{"order": st.OrderID, "role": st.Role}).QueryRow(func(row pgx.Row) error {
 			var other bool
@@ -106,8 +105,12 @@ ON CONFLICT (order_id, role) DO NOTHING`, pgx.StrictNamedArgs{
 			"deleted_at": st.DeletedAt,
 			"write_id":   st.WriteID, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
 		}).Fn = postgres.ExecAs("insert review", ErrConflict)
-		b.Queue(`UPDATE reviews SET visible_at = @at WHERE order_id = @order AND role <> @role AND visible_at > @at`,
-			pgx.StrictNamedArgs{"order": st.OrderID, "role": st.Role, "at": st.CreatedAt}).Fn = postgres.ExecAs("reveal the other side's review", nil)
+		// The reveal is a write to the other review: its new write ID fails a
+		// Save that read it hidden.
+		b.Queue(`UPDATE reviews SET visible_at = @at, write_id = @write_id
+WHERE order_id = @order AND role <> @role AND visible_at > @at`,
+			pgx.StrictNamedArgs{"order": st.OrderID, "role": st.Role, "at": st.CreatedAt, "write_id": st.WriteID}).
+			Fn = postgres.ExecAs("reveal the other side's review", nil)
 		events.Queue(b, events.Event{ID: st.ID, Kind: events.ReviewPosted, SubjectID: st.ID, OccurredAt: st.CreatedAt})
 		return tx.SendBatch(ctx, b).Close()
 	})

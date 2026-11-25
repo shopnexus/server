@@ -74,7 +74,9 @@ func (w Reviews) Write(ctx context.Context, s Sold, reviews []seedpack.Review) (
 	// A second review revealed the first at its own time.
 	if len(written) == 2 && len(reviews) == 2 {
 		st := written[0].State()
-		st.VisibleAt = minTime(st.VisibleAt, reviews[1].At)
+		if reviews[1].At.Before(st.VisibleAt) {
+			st.VisibleAt, st.WriteID = reviews[1].At, written[1].State().WriteID
+		}
 		written[0] = trustdomain.RestoreReview(st)
 	}
 	for i := range written {
@@ -91,11 +93,4 @@ func (w Reviews) Write(ctx context.Context, s Sold, reviews []seedpack.Review) (
 		}
 	}
 	return len(written), nil
-}
-
-func minTime(a, b time.Time) time.Time {
-	if b.Before(a) {
-		return b
-	}
-	return a
 }
