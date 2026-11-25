@@ -32,7 +32,7 @@ func report(ctx context.Context, d *service.Deals, v service.DealView, status st
 // reportAt is report of a step that happened at.
 func reportAt(ctx context.Context, d *service.Deals, v service.DealView, status string, at time.Time) error {
 	sh := v.Order.Shipment
-	return d.ShipmentUpdated(ctx, string(sh.Carrier), sh.TrackingCode, status, at)
+	return d.ShipmentUpdated(ctx, string(sh.Carrier), sh.TrackingCode, status, at, nil)
 }
 
 func key() uuid.UUID { return uuid.NewV7() }

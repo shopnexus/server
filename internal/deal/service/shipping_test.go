@@ -187,10 +187,11 @@ type pickedUp struct {
 }
 
 func (p pickedUp) Cancel(context.Context, carrier.Account, string) error {
-	p.asked.Add(1)
+	// released is set before asked, so a test that sees the call sees it.
 	if st, _ := p.e.summary(p.t, p.listing); st == catalogdomain.StatusActive {
 		p.released.Store(true)
 	}
+	p.asked.Add(1)
 	return carrier.ErrNotCancellable
 }
 

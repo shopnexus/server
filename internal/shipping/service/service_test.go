@@ -23,7 +23,7 @@ import (
 var errNoOrder = errors.New("deal: no order has the code")
 
 // deals plays module deal: open shipments are the set given, every
-// reported code is recorded with its status and step time, and a code in
+// reported code is recorded with its status, step time and fee, and a code in
 // unknown has no order yet. fails moves fail that many times first.
 type deals struct {
 	open     map[string]bool
@@ -36,7 +36,7 @@ var errMoveFailed = errors.New("deal: the move failed")
 
 func (d *deals) funcs() service.Deals {
 	return service.Deals{
-		ShipmentUpdated: func(_ context.Context, _, code, status string, at time.Time) error {
+		ShipmentUpdated: func(_ context.Context, _, code, status string, at time.Time, fee *int64) error {
 			if code == "UNKNOWN" {
 				return errNoOrder
 			}
@@ -44,7 +44,11 @@ func (d *deals) funcs() service.Deals {
 				d.fails--
 				return errMoveFailed
 			}
-			d.reported = append(d.reported, code+" "+status+" "+at.UTC().Format("15:04"))
+			r := code + " " + status + " " + at.UTC().Format("15:04")
+			if fee != nil {
+				r += fmt.Sprintf(" %d", *fee)
+			}
+			d.reported = append(d.reported, r)
 			return nil
 		},
 		OpenShipmentsAt: func(_ context.Context, _ uuid.UUID, c string) (bool, error) { return d.open[c], nil },
@@ -426,8 +430,33 @@ func TestReportedMovesAfterAnEarlyOrFailedReport(t *testing.T) {
 	if err := e.svc.Reported(ctx, carrier.GHTK, "application/json", []byte(fee)); err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{code + " in_transit 09:00"}; !slices.Equal(e.deals.reported, want) {
+	if want := []string{code + " in_transit 09:00 30000"}; !slices.Equal(e.deals.reported, want) {
 		t.Fatalf("%v", e.deals.reported)
+	}
+}
+
+// Track keeps the carrier's fee as a fee event, once while it stays the
+// same, and answers the timeline's newest fee.
+func TestTrackKeepsTheFee(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t, fakes())
+	if _, err := e.svc.Link(ctx, e.owner, "ghn", carrier.Credentials{Token: "t", ShopID: "885"}); err != nil {
+		t.Fatal(err)
+	}
+	code := "GHN-" + uuid.NewV7().String()
+	for range 2 {
+		p, err := e.svc.Track(ctx, e.owner, carrier.GHN, code)
+		if err != nil || p.Fee == nil || *p.Fee != 22_000 {
+			t.Fatalf("%+v %v", p, err)
+		}
+	}
+	kept, err := e.svc.Tracking(ctx, "ghn", code, true)
+	if err != nil || len(kept.Events) != 1 || kept.Events[0].Kind != carrier.KindFee || kept.Fee == nil || *kept.Fee != 22_000 {
+		t.Fatalf("%+v %v", kept, err)
+	}
+	if b, _ := e.svc.Tracking(ctx, "ghn", code, false); len(b.Events) != 0 || b.Fee != nil {
+		t.Fatalf("the buyer sees the fee: %+v", b)
 	}
 }
 

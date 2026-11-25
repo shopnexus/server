@@ -118,12 +118,13 @@ type Service interface {
 	QuoteFacts(ctx context.Context, caller, order, address uuid.UUID) (to carrier.Place, from *carrier.Place, price int64, err error)
 	// ShipmentUpdated sets the status of every shipped order whose
 	// shipment is at carrier c with trackingCode, as the carrier reports
-	// it of a step that happened at, zero for now. A closed order, or a
-	// step no newer than the order's, changes nothing; no such order is
-	// domain.ErrShipmentNotFound.
+	// it of a step that happened at, zero for now, and its fee to fee
+	// when not nil. A closed order changes nothing, a step no newer than
+	// the order's moves no status, and one older lands no fee; no such
+	// order is domain.ErrShipmentNotFound.
 	//
 	// UC-DEAL-05 · NFR-IDEM-01
-	ShipmentUpdated(ctx context.Context, c, trackingCode, status string, at time.Time) error
+	ShipmentUpdated(ctx context.Context, c, trackingCode, status string, at time.Time, fee *int64) error
 	// ShipmentKnown tells whether an order, closed ones too, has a
 	// shipment at carrier c with trackingCode.
 	ShipmentKnown(ctx context.Context, c, trackingCode string) (bool, error)

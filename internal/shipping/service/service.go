@@ -42,10 +42,12 @@ type AccountList struct {
 
 // Tracking is the Tracking schema: the step a parcel is at, empty before
 // its carrier reported one, and its events, newest first. StepAt is when
-// that step happened.
+// that step happened; Fee is the newest fee event's, nil without one or
+// in a buyer's read, which lists steps only.
 type Tracking struct {
 	Step   carrier.Step    `json:"step,omitempty"`
 	StepAt time.Time       `json:"-"`
+	Fee    *int64          `json:"-"`
 	Events []carrier.Event `json:"events"`
 }
 
@@ -72,8 +74,9 @@ type QuoteFacts struct {
 // the app wiring closes these over deal's service.
 type Deals struct {
 	// ShipmentUpdated moves the orders whose shipment is at carrier c with
-	// code to status, of a step that happened at; NotFound when none is.
-	ShipmentUpdated func(ctx context.Context, c, code, status string, at time.Time) error
+	// code to status, of a step that happened at, and to fee when not nil;
+	// NotFound when none is.
+	ShipmentUpdated func(ctx context.Context, c, code, status string, at time.Time, fee *int64) error
 	// OpenShipmentsAt tells whether a shipped order of the seller's is at
 	// carrier c.
 	OpenShipmentsAt func(ctx context.Context, seller uuid.UUID, c string) (bool, error)
@@ -129,11 +132,13 @@ type Service interface {
 	Lookup(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
 	Cancel(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) error
 	// Track is Lookup for an order's own shipment: it also keeps the
-	// events the carrier tells, and its Step and StepAt are the timeline's
-	// newest, the one a report moves the order to.
+	// events the carrier tells, its fee as a fee event, and its Step,
+	// StepAt and Fee are the timeline's newest, the ones a report moves
+	// the order to.
 	Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
 	// Reported reads carrier c's webhook, keeps the events it tells of a
-	// parcel and moves its orders to the status of its newest step. A code
+	// parcel and moves its orders to the status of its newest step and
+	// its newest fee. A code
 	// no order has keeps its events and moves nothing; a report that does
 	// not read is domain.ErrReportUnread.
 	Reported(ctx context.Context, c carrier.Carrier, contentType string, body []byte) error
@@ -426,16 +431,22 @@ func (s *Shipping) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrie
 	if err != nil {
 		return carrier.Parcel{}, err
 	}
-	if err = s.keep(ctx, string(c), code, p.Events); err != nil {
+	evs := p.Events
+	if p.Fee != nil {
+		// Kept like a reported fee: one equal to the newest is dropped.
+		evs = append(slices.Clone(evs), carrier.Event{At: s.d.Now(), Kind: carrier.KindFee, Amount: *p.Fee})
+	}
+	if err = s.keep(ctx, string(c), code, evs); err != nil {
 		return carrier.Parcel{}, err
 	}
-	t, err := s.Tracking(ctx, string(c), code, false)
+	t, err := s.Tracking(ctx, string(c), code, true)
 	if err != nil {
 		return carrier.Parcel{}, err
 	}
 	if t.Step != "" {
 		p.Step, p.StepAt = t.Step, t.StepAt
 	}
+	p.Fee = t.Fee
 	return p, nil
 }
 
@@ -494,11 +505,12 @@ func (s *Shipping) DevReported(ctx context.Context, code string, ev carrier.Even
 }
 
 // move sends the parcel's orders the status of the timeline's newest
-// step, whether this report kept it or an earlier one did: ShipmentUpdated
-// ignores a step no newer than the order's, so a resend moves an order
-// whose first move failed, and a late step changes nothing.
+// step and its newest fee, whether this report kept them or an earlier one
+// did: ShipmentUpdated ignores a step no newer than the order's, so a
+// resend moves an order whose first move failed, and a late step changes
+// nothing.
 func (s *Shipping) move(ctx context.Context, c, code string) error {
-	t, err := s.Tracking(ctx, c, code, false)
+	t, err := s.Tracking(ctx, c, code, true)
 	if err != nil {
 		return err
 	}
@@ -506,7 +518,7 @@ func (s *Shipping) move(ctx context.Context, c, code string) error {
 	if !moves {
 		return nil
 	}
-	err = s.d.Deals.ShipmentUpdated(ctx, c, code, string(st), t.StepAt)
+	err = s.d.Deals.ShipmentUpdated(ctx, c, code, string(st), t.StepAt, t.Fee)
 	if err != nil && !errors.Is(err, s.d.Deals.NotFound) {
 		return fmt.Errorf("%s reported %s %s: %w", c, code, st, err)
 	}
@@ -530,9 +542,12 @@ func (s *Shipping) Tracking(ctx context.Context, c, code string, seller bool) (T
 	}
 	t := Tracking{Events: evs}
 	for i := range evs {
-		if evs[i].Kind == carrier.KindStep {
+		switch {
+		case evs[i].Kind == carrier.KindStep && t.Step == "":
 			t.Step, t.StepAt = evs[i].Step, evs[i].At
-			break
+		case evs[i].Kind == carrier.KindFee && t.Fee == nil:
+			t.Fee = new(evs[i].Amount)
+		default: // an older step or fee, or another kind
 		}
 	}
 	return t, nil

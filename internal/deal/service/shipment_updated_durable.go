@@ -17,12 +17,14 @@ const shipmentUpdates = "ShipmentUpdates"
 
 // ShipmentSignal is a carrier's word on a shipment: the carrier, the
 // tracking code there, its new status and when the carrier's step
-// happened, zero for the time the signal is handled.
+// happened, zero for the time the signal is handled. Fee is the carrier's
+// newest fee, nil when it told none.
 type ShipmentSignal struct {
 	Carrier      domain.Carrier        `json:"carrier"`
 	TrackingCode string                `json:"tracking_code"`
 	Status       domain.ShipmentStatus `json:"status"`
 	At           time.Time             `json:"at,omitzero"`
+	Fee          *int64                `json:"fee,omitempty"`
 }
 
 // ShipmentResult carries ShipmentUpdates' refusal, or none.
@@ -36,8 +38,9 @@ func (r ShipmentResult) Refusal() *apperr.Error { return r.Refused }
 // shipment: the carriers' webhooks, the poll and the dev endpoint. It
 // moves every shipped order whose shipment is that parcel, two items in
 // one parcel included, and changes nothing on a closed order or with a
-// step no newer than the order's. A failure releases the listing, a
-// delivery schedules the completion and a pickup the transit timeout.
+// step no newer than the order's; a signal's fee replaces the order's
+// without a move. A failure releases the listing, a delivery schedules
+// the completion and a pickup the transit timeout.
 type ShipmentUpdates struct{ Deals *Deals }
 
 func (s ShipmentUpdates) ServiceName() string { return s.Deals.prefix + shipmentUpdates }
@@ -83,9 +86,11 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 				before = *o.Shipment
 			}
 			// A1 · NFR-IDEM-01: the same report twice, or an older one,
-			// changes nothing.
+			// changes nothing. The fee goes first, so a failing report
+			// still lands it.
+			feeChanged := in.Fee != nil && d.FeeReported(ref.OrderID, *in.Fee, stepAt)
 			changed, moveErr := d.ShipmentReported(ref.OrderID, in.Status, stepAt, at)
-			if moveErr != nil || !changed {
+			if moveErr != nil || (!changed && !feeChanged) {
 				break // a closed order, or nothing new
 			}
 			refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)

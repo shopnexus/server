@@ -454,6 +454,40 @@ func TestShipmentReportedInOrder(t *testing.T) {
 	}
 }
 
+// A carrier's newer fee replaces the stored one without a move; the same
+// fee again, a report older than the stored step or a closed order
+// changes nothing.
+func TestFeeReported(t *testing.T) {
+	t.Parallel()
+	d := shipped(t)
+	id, moves := d.Order().ID, len(d.Pending())
+	if !d.FeeReported(id, 30_400, now) || *d.Order().Shipment.Fee != 30_400 || len(d.Pending()) != moves {
+		t.Fatalf("a new fee: %+v %d moves", d.Order().Shipment, len(d.Pending()))
+	}
+	if d.FeeReported(id, 30_400, later) {
+		t.Fatal("the same fee changed the order")
+	}
+	must(t, func() error { _, e := d.ShipmentReported(id, domain.ShipmentInTransit, later, later); return e }())
+	if d.FeeReported(id, 16_500, now) || *d.Order().Shipment.Fee != 30_400 {
+		t.Fatalf("an older report's fee landed: %+v", d.Order().Shipment)
+	}
+	if !d.FeeReported(id, 16_500, later) || *d.Order().Shipment.Fee != 16_500 {
+		t.Fatalf("a fee of the stored step: %+v", d.Order().Shipment)
+	}
+	none := pending(t)
+	s := linked()
+	s.Fee = nil
+	must(t, none.Ship(domain.Seller, none.Order().ID, s, onSale, now))
+	if !none.FeeReported(none.Order().ID, 22_000, now) || *none.Order().Shipment.Fee != 22_000 {
+		t.Fatalf("a first fee: %+v", none.Order().Shipment)
+	}
+	closed := reported(t, domain.ShipmentFailed)
+	open := pending(t)
+	if closed.FeeReported(closed.Order().ID, 1, later) || open.FeeReported(open.Order().ID, 1, now) {
+		t.Fatal("a fee moved an order that is not shipped")
+	}
+}
+
 // A parcel the carrier cancelled or lost fails an order it picked up; one
 // still waiting for pickup stays, for the pickup timeout to cancel.
 func TestShipmentLost(t *testing.T) {

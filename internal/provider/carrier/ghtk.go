@@ -44,6 +44,14 @@ func (n *flexInt) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// int64 is n in đồng, nil for a field GHTK left out.
+func (n *flexInt) int64() *int64 {
+	if n == nil {
+		return nil
+	}
+	return new(int64(*n))
+}
+
 type ghtkReply struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
@@ -195,8 +203,8 @@ func (g GHTKClient) Create(ctx context.Context, a Account, in CreateInput) (Crea
 		ghtkReply
 
 		Order struct {
-			Label string  `json:"label"`
-			Fee   flexInt `json:"fee"`
+			Label string   `json:"label"`
+			Fee   *flexInt `json:"fee"`
 		} `json:"order"`
 		Error struct {
 			Code  string `json:"code"`
@@ -208,7 +216,7 @@ func (g GHTKClient) Create(ctx context.Context, a Account, in CreateInput) (Crea
 	}
 	switch {
 	case out.Success:
-		return Created{TrackingCode: out.Order.Label, Fee: int64(out.Order.Fee)}, nil
+		return Created{TrackingCode: out.Order.Label, Fee: out.Order.Fee.int64()}, nil
 	case out.Error.Code == "ORDER_ID_EXIST" && out.Error.Label != "":
 		// A retry: the first try made it. Its fee comes with the next read.
 		return Created{TrackingCode: out.Error.Label}, nil
@@ -221,12 +229,12 @@ func (g GHTKClient) Lookup(ctx context.Context, a Account, code string) (Parcel,
 		ghtkReply
 
 		Order struct {
-			Status   flexInt `json:"status"`
-			Name     string  `json:"customer_fullname"`
-			Address  string  `json:"address"`
-			ShipFee  flexInt `json:"ship_money"`
-			PickCash flexInt `json:"pick_money"`
-			Modified string  `json:"modified"`
+			Status   flexInt  `json:"status"`
+			Name     string   `json:"customer_fullname"`
+			Address  string   `json:"address"`
+			ShipFee  *flexInt `json:"ship_money"`
+			PickCash flexInt  `json:"pick_money"`
+			Modified string   `json:"modified"`
 		} `json:"order"`
 	}
 	if err := g.do(ctx, http.MethodGet, "/services/shipment/v2/"+url.PathEscape(code), a.Token, nil, &out); err != nil {
@@ -235,8 +243,7 @@ func (g GHTKClient) Lookup(ctx context.Context, a Account, code string) (Parcel,
 	if !out.Success {
 		return Parcel{}, ErrNotFound
 	}
-	fee := int64(out.Order.ShipFee)
-	p := Parcel{RecipientName: mask(out.Order.Name), District: out.Order.Address, COD: int64(out.Order.PickCash), Fee: &fee}
+	p := Parcel{RecipientName: mask(out.Order.Name), District: out.Order.Address, COD: int64(out.Order.PickCash), Fee: out.Order.ShipFee.int64()}
 	// GHTK tells only the status it is at now.
 	if st, ok := ghtkSteps[int(out.Order.Status)]; ok {
 		p.Step = st

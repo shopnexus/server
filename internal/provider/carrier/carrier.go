@@ -138,11 +138,12 @@ type QuoteInput struct {
 	Value int64
 }
 
-// Created is a new shipment's tracking code and fee, in đồng. ShopCode
-// is the seller's shop it was made at, which module shipping fills.
+// Created is a new shipment's tracking code and fee, in đồng, nil when
+// the carrier's answer tells none. ShopCode is the seller's shop it was
+// made at, which module shipping fills.
 type Created struct {
 	TrackingCode string `json:"tracking_code"`
-	Fee          int64  `json:"fee"`
+	Fee          *int64 `json:"fee,omitempty"`
 	ShopCode     string `json:"shop_code,omitempty"`
 }
 

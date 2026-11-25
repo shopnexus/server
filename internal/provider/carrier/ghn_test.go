@@ -251,7 +251,7 @@ func TestGHNShipsReadsAndCancels(t *testing.T) {
 		COD: 47_000, WeightGrams: 800, Service: "standard", Option: "home", Note: "Địa chỉ công ty: giao giờ hành chính",
 	}
 	c, err := g.Create(ctx, acc, in)
-	if err != nil || c != (carrier.Created{TrackingCode: "5ENLKKHD", Fee: 33_000}) {
+	if err != nil || c.TrackingCode != "5ENLKKHD" || c.Fee == nil || *c.Fee != 33_000 || c.ShopCode != "" {
 		t.Fatalf("%+v %v", c, err)
 	}
 	bad := in
@@ -262,7 +262,8 @@ func TestGHNShipsReadsAndCancels(t *testing.T) {
 	// GHN refuses a client_order_code it has: the first try made the order.
 	dup := in
 	dup.OrderCode = "SN-DUP"
-	if c, err = g.Create(ctx, acc, dup); err != nil || c.TrackingCode != "5DUPLKHD" {
+	// Its detail tells no fee, so the shipment has none yet.
+	if c, err = g.Create(ctx, acc, dup); err != nil || c.TrackingCode != "5DUPLKHD" || c.Fee != nil {
 		t.Fatalf("a retry of a made order: %+v %v", c, err)
 	}
 	in.Recipient.Province = "Nowhere"

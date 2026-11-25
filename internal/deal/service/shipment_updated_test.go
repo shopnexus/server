@@ -70,11 +70,11 @@ func TestShipmentUpdated(t *testing.T) {
 		t.Fatalf("a late report moved the order: %+v", got.Order)
 	}
 
-	err := e.deals.ShipmentUpdated(ctx, "ghtk", "GHTK-NOBODY", "delivered", time.Time{})
+	err := e.deals.ShipmentUpdated(ctx, "ghtk", "GHTK-NOBODY", "delivered", time.Time{}, nil)
 	if !errors.Is(err, domain.ErrShipmentNotFound) || apperr.From(err).Kind != apperr.KindNotFound {
 		t.Fatalf("an unknown code: %v", err)
 	}
-	if err = e.deals.ShipmentUpdated(ctx, "ghn", v.Order.Shipment.TrackingCode, "delivered", time.Time{}); !errors.Is(err, domain.ErrShipmentNotFound) {
+	if err = e.deals.ShipmentUpdated(ctx, "ghn", v.Order.Shipment.TrackingCode, "delivered", time.Time{}, nil); !errors.Is(err, domain.ErrShipmentNotFound) {
 		t.Fatalf("the code at another carrier: %v", err)
 	}
 	if err = report(ctx, e.deals, v, "returned"); !errors.Is(err, domain.ErrInvalidStatus) {
@@ -92,7 +92,7 @@ func TestShipmentUpdated(t *testing.T) {
 type oneParcel struct{ carrier.Fake }
 
 func (oneParcel) Create(context.Context, carrier.Account, carrier.CreateInput) (carrier.Created, error) {
-	return carrier.Created{TrackingCode: "GHTK-PARCEL1", Fee: 22_000}, nil
+	return carrier.Created{TrackingCode: "GHTK-PARCEL1", Fee: new(int64(22_000))}, nil
 }
 
 // UC-DEAL-05.
@@ -108,7 +108,7 @@ func TestOneParcelTwoOrders(t *testing.T) {
 	a, b := e.pending(t, buyer, first), e.pending(t, buyer, second)
 	must(t)(deals.CreateShipment(ctx, seller, a.Order.ID, key(), linked))
 	must(t)(deals.CreateShipment(ctx, seller, b.Order.ID, key(), linked))
-	if err := e.deals.ShipmentUpdated(ctx, "ghtk", "GHTK-PARCEL1", "failed", time.Time{}); err != nil {
+	if err := e.deals.ShipmentUpdated(ctx, "ghtk", "GHTK-PARCEL1", "failed", time.Time{}, nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range []struct {
@@ -275,5 +275,59 @@ VALUES (@seller, 'ghtk', 'S1', '\x01', now())`, pgx.StrictNamedArgs{"seller": se
 	s, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
 	if err != nil || s.Order.Status != domain.OrderShipped {
 		t.Fatalf("at the linked shop: %+v %v", s.Order, err)
+	}
+}
+
+// noFee is the fake GHTK answering a create without a fee, as GHTK
+// answers a retry of a create that landed.
+type noFee struct{ carrier.Fake }
+
+func (f noFee) Create(ctx context.Context, a carrier.Account, in carrier.CreateInput) (carrier.Created, error) {
+	c, err := f.Fake.Create(ctx, a, in)
+	c.Fee = nil
+	return c, err
+}
+
+// A shipment made without a fee stores none; a report's fee replaces the
+// order's, and a report older than the order's step lands none.
+//
+// UC-DEAL-05 A1.
+func TestShipmentFee(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	deps := e.deps
+	deps.Shipping = linkedAt{noFee{carrier.Fake{Carrier: carrier.GHTK}}}
+	deals := start(t, deps)
+	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
+	v, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored *int64
+	if err = e.db.QueryRow(ctx, `SELECT fee FROM orders WHERE id = @id`, pgx.StrictNamedArgs{"id": v.Order.ID}).Scan(&stored); err != nil || stored != nil {
+		t.Fatalf("a shipment without a fee stored %v %v", stored, err)
+	}
+	sh := v.Order.Shipment
+	t1 := time.Now().Add(-time.Hour).UTC()
+	for _, r := range []struct {
+		at   time.Time
+		fee  int64
+		want int64
+	}{
+		{t1, 30_400, 30_400},
+		{t1, 31_000, 31_000},                   // a fee alone, at the stored step
+		{t1.Add(-time.Minute), 16_500, 31_000}, // an older report
+	} {
+		if err = e.deals.ShipmentUpdated(ctx, string(sh.Carrier), sh.TrackingCode, "pending_pickup", r.at, new(r.fee)); err != nil {
+			t.Fatal(err)
+		}
+		if got := e.get(t, buyer, v.ID).Order.Shipment.Fee; got == nil || *got != r.want {
+			t.Fatalf("fee %d at %s: got %v", r.fee, r.at, got)
+		}
+	}
+	if n := countMoves(moveKinds(e.get(t, buyer, v.ID)), domain.MoveShipmentUpdated); n != 0 {
+		t.Fatalf("a fee made %d moves", n)
 	}
 }

@@ -55,13 +55,13 @@ func TestFakeMakesOneCodePerOrder(t *testing.T) {
 	f := carrier.Fake{Carrier: carrier.GHN}
 	in := carrier.CreateInput{OrderCode: "SN-100001", COD: 1_500_000, WeightGrams: 800, Service: "standard", Option: "home"}
 	a, err := f.Create(ctx, carrier.Account{}, in)
-	if err != nil || !strings.HasPrefix(a.TrackingCode, "GHN-") || a.Fee != 22_000 {
+	if err != nil || !strings.HasPrefix(a.TrackingCode, "GHN-") || a.Fee == nil || *a.Fee != 22_000 {
 		t.Fatalf("%+v %v", a, err)
 	}
 	if _, err = strconv.ParseUint(strings.TrimPrefix(a.TrackingCode, "GHN-"), 10, 64); err != nil {
 		t.Fatalf("%s is not GHN- and a number", a.TrackingCode)
 	}
-	if b, _ := f.Create(ctx, carrier.Account{}, in); b != a {
+	if b, _ := f.Create(ctx, carrier.Account{}, in); b.TrackingCode != a.TrackingCode || *b.Fee != *a.Fee {
 		t.Fatalf("a retry made %+v after %+v", b, a)
 	}
 	in.OrderCode = "SN-100002"

@@ -65,7 +65,7 @@ func (Fake) Quote(context.Context, Account, QuoteInput) (int64, error) { return 
 func (f Fake) Create(_ context.Context, _ Account, in CreateInput) (Created, error) {
 	sum := sha256.Sum256([]byte(in.OrderCode))
 	n := binary.BigEndian.Uint32(sum[:4])
-	return Created{TrackingCode: strings.ToUpper(string(f.Carrier)) + "-" + strconv.FormatUint(uint64(n), 10), Fee: fakeFee}, nil
+	return Created{TrackingCode: strings.ToUpper(string(f.Carrier)) + "-" + strconv.FormatUint(uint64(n), 10), Fee: new(int64(fakeFee))}, nil
 }
 
 func (Fake) Lookup(_ context.Context, _ Account, code string) (Parcel, error) {

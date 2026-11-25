@@ -435,8 +435,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	// mounted, since deal makes its shipments through shipping.
 	var deals dealsvc.Service
 	carriers.Deals = shippingsvc.Deals{
-		ShipmentUpdated: func(ctx context.Context, c, code, status string, at time.Time) error {
-			return deals.ShipmentUpdated(ctx, c, code, status, at)
+		ShipmentUpdated: func(ctx context.Context, c, code, status string, at time.Time, fee *int64) error {
+			return deals.ShipmentUpdated(ctx, c, code, status, at, fee)
 		},
 		OpenShipmentsAt: func(ctx context.Context, seller uuid.UUID, c string) (bool, error) {
 			return deals.OpenShipmentsAt(ctx, seller, c)
@@ -518,7 +518,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		return nil, nil, fmt.Errorf("agent: %w", agentErr)
 	}
 	return slices.Concat(accountm.Services, mediam.Services, catalogm.Services, shippingm.Services, dealm.Services, discoverym.Services,
-		chatm.Services, supportm.Services, feedbackm.Services, trustm.Services, notificationm.Services, assistm.Services, aiServices), agentm, nil
+		chatm.Services, supportm.Services, feedbackm.Services, trustm.Services, notificationm.Services, assistm.Services, aiServices,
+		agentm.Services), agentm, nil
 }
 
 func startRestate(ctx context.Context, cfg config.RestateConfig, log *slog.Logger, defs []restate.ServiceDefinition) (*restatex.Endpoint, error) {

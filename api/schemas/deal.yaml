@@ -311,7 +311,7 @@ Shipment:
     fee:
       type: integer
       format: int64
-      description: The carrier's fee in đồng; absent while the carrier has none.
+      description: The carrier's newest fee in đồng, from its reports and the poll; absent while the carrier has told none.
     status:
       $ref: "#/ShipmentStatus"
     picked_up_at:

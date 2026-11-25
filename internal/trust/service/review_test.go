@@ -257,7 +257,7 @@ func TestFailedOrderIsReviewed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = e.deals.ShipmentUpdated(ctx, string(f.Shipment.Carrier), f.Shipment.TrackingCode, "failed", time.Time{}); err != nil {
+	if err = e.deals.ShipmentUpdated(ctx, string(f.Shipment.Carrier), f.Shipment.TrackingCode, "failed", time.Time{}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.trust.PutReview(ctx, seller, order, 1, "Không nhận hàng", nil, nil); err != nil {

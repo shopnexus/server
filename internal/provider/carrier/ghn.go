@@ -258,9 +258,11 @@ func ghnOrderBody(code string, to Place, from Pickup, item string, cod int64, we
 	return body
 }
 
+// ghnOrder is GHN's answer to a create or a preview; TotalFee is nil
+// when GHN left it out.
 type ghnOrder struct {
 	OrderCode string `json:"order_code"`
-	TotalFee  int64  `json:"total_fee"`
+	TotalFee  *int64 `json:"total_fee"`
 }
 
 // Quote prices the shipment with GHN's preview, which takes the create
@@ -275,7 +277,10 @@ func (g GHNClient) Quote(ctx context.Context, a Account, in QuoteInput) (int64, 
 	if err != nil {
 		return 0, refusal(err)
 	}
-	return out.TotalFee, nil
+	if out.TotalFee == nil {
+		return 0, nil
+	}
+	return *out.TotalFee, nil
 }
 
 // Create makes the order with ShopNexus's order code as client_order_code.

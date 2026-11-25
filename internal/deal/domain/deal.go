@@ -439,6 +439,27 @@ func (d *Deal) ShipmentReported(order uuid.UUID, status ShipmentStatus, at, now 
 	return true, nil
 }
 
+// FeeReported sets the shipped order's shipment fee to fee, the carrier's
+// newest, from a report of a step that happened at, and reports whether
+// it changed. A report older than the stored step changes nothing, as in
+// ShipmentReported; a closed order keeps its fee. It writes no move.
+func (d *Deal) FeeReported(order uuid.UUID, fee int64, at time.Time) bool {
+	o := d.openOrder()
+	if o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil {
+		return false
+	}
+	if st := o.Shipment.StatusAt; st != nil && at.Before(*st) {
+		return false
+	}
+	if f := o.Shipment.Fee; f != nil && *f == fee {
+		return false
+	}
+	s := *o.Shipment
+	s.Fee = &fee
+	o.Shipment = &s
+	return true
+}
+
 // failOrder fails the shipped order: the deal negotiates again.
 func (d *Deal) failOrder(now time.Time) {
 	d.order.Status, d.order.ClosedAt = OrderFailed, &now

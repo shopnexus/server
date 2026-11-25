@@ -183,7 +183,7 @@ func (s OrderTimers) TransitTimeout(ctx restate.Context, ref OrderRef) error {
 		return err
 	}
 	if !r.Gone {
-		if r.Status != "" && r.Status != o.Shipment.Status {
+		if (r.Status != "" && r.Status != o.Shipment.Status) || r.newFee(*o.Shipment) {
 			if err = s.move(ctx, *o.Shipment, r); err != nil {
 				return err
 			}
@@ -212,12 +212,18 @@ func (s OrderTimers) TransitTimeout(ctx restate.Context, ref OrderRef) error {
 
 // carrierRead is what a read of a shipment at its carrier journals: the
 // status its newest step moves an order to and when the step happened,
-// empty when it tells none, or Gone for a parcel the carrier no longer
-// knows or reports cancelled or lost.
+// empty when it tells none, the newest fee, nil for none, or Gone for a
+// parcel the carrier no longer knows or reports cancelled or lost.
 type carrierRead struct {
 	Status domain.ShipmentStatus `json:"status,omitempty"`
 	At     time.Time             `json:"at,omitzero"`
+	Fee    *int64                `json:"fee,omitempty"`
 	Gone   bool                  `json:"gone,omitempty"`
+}
+
+// newFee reports whether r tells a fee sh does not have.
+func (r carrierRead) newFee(sh domain.Shipment) bool {
+	return r.Status != "" && r.Fee != nil && (sh.Fee == nil || *sh.Fee != *r.Fee)
 }
 
 // read reads sh from its carrier with the seller's account in one
@@ -239,7 +245,7 @@ func (s OrderTimers) read(ctx restate.Context, seller uuid.UUID, sh domain.Shipm
 		if !moves {
 			return carrierRead{}, nil
 		}
-		return carrierRead{Status: domain.ShipmentStatus(st), At: p.StepAt, Gone: st == carrier.StatusLost}, nil
+		return carrierRead{Status: domain.ShipmentStatus(st), At: p.StepAt, Fee: p.Fee, Gone: st == carrier.StatusLost}, nil
 	})
 	if err != nil {
 		return carrierRead{}, fmt.Errorf("read the shipment at %s: %w", sh.Carrier, err)
@@ -250,27 +256,29 @@ func (s OrderTimers) read(ctx restate.Context, seller uuid.UUID, sh domain.Shipm
 // move sends ShipmentUpdates what the carrier read tells of sh.
 func (s OrderTimers) move(ctx restate.Context, sh domain.Shipment, r carrierRead) error {
 	if _, err := restate.Service[ShipmentResult](ctx, s.Deals.prefix+shipmentUpdates, flowHandler).
-		Request(ShipmentSignal{Carrier: sh.Carrier, TrackingCode: sh.TrackingCode, Status: r.Status, At: r.At}); err != nil {
+		Request(ShipmentSignal{Carrier: sh.Carrier, TrackingCode: sh.TrackingCode, Status: r.Status, At: r.At, Fee: r.Fee}); err != nil {
 		return fmt.Errorf("move the order: %w", err)
 	}
 	return nil
 }
 
 // readMoved reads sh from its carrier with the seller's account and, when
-// the carrier reports a status that moves it to another, moves the order
-// through ShipmentUpdates. A status the carrier does not map, a code it
-// lost, a parcel cancelled or lost before the pickup, or a refusal of
-// shipping's moves nothing. moved tells whether the order moved.
+// the carrier reports a status that moves it to another or a new fee,
+// moves the order through ShipmentUpdates. A status the carrier does not
+// map, a code it lost, a parcel cancelled or lost before the pickup, or a
+// refusal of shipping's moves nothing. moved tells whether the status
+// moved; a new fee alone is not a move.
 func (s OrderTimers) readMoved(ctx restate.Context, seller uuid.UUID, sh domain.Shipment) (moved bool, err error) {
 	r, err := s.read(ctx, seller, sh)
 	if err != nil {
 		return false, err
 	}
-	if r.Status == "" || r.Status == sh.Status || (r.Status == domain.ShipmentLost && sh.PickedUpAt == nil) {
+	moved = r.Status != "" && r.Status != sh.Status && (r.Status != domain.ShipmentLost || sh.PickedUpAt != nil)
+	if !moved && !r.newFee(sh) {
 		return false, nil
 	}
 	if err = s.move(ctx, sh, r); err != nil {
 		return false, err
 	}
-	return true, nil
+	return moved, nil
 }

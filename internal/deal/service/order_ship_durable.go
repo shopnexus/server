@@ -124,7 +124,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	// Shippable passed on this deal and listing, so Ship takes it.
 	if err = d.Ship(m.By, in.OrderID, domain.Shipment{
 		Mode: domain.ModeLinked, Carrier: draft.Carrier, TrackingCode: made.Created.TrackingCode,
-		Fee: &made.Created.Fee, Pickup: draft.From, ShopCode: made.Created.ShopCode,
+		Fee: made.Created.Fee, Pickup: draft.From, ShopCode: made.Created.ShopCode,
 	}, facts(m.Listing), at); err != nil {
 		return FlowResult{}, fmt.Errorf("ship the order: %w", err)
 	}

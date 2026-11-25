@@ -157,7 +157,7 @@ func TestGHTKShipsReadsAndCancels(t *testing.T) {
 		COD: 47_000, WeightGrams: 800, Service: "express", Option: "home", Note: "Địa chỉ công ty: giao giờ hành chính",
 	}
 	c, err := g.Create(ctx, acc, in)
-	if err != nil || c.TrackingCode != "S1.A1.2001297581" || c.Fee != 30_400 {
+	if err != nil || c.TrackingCode != "S1.A1.2001297581" || c.Fee == nil || *c.Fee != 30_400 {
 		t.Fatalf("%+v %v", c, err)
 	}
 	quiet := in
@@ -170,7 +170,7 @@ func TestGHTKShipsReadsAndCancels(t *testing.T) {
 		t.Fatalf("a refused order: %v", err)
 	}
 	in.OrderCode = "SN-DUP"
-	if c, err = g.Create(ctx, acc, in); err != nil || c.TrackingCode != "S1.A1.111" {
+	if c, err = g.Create(ctx, acc, in); err != nil || c.TrackingCode != "S1.A1.111" || c.Fee != nil {
 		t.Fatalf("a retry of a made order: %+v %v", c, err)
 	}
 	p, err := g.Lookup(ctx, acc, "S1.A1.17373471")
