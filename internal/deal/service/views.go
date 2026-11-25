@@ -115,10 +115,14 @@ func orderView(o domain.Order, viewer domain.Party, place catalogsvc.Location, w
 	r := o.RecipientFor(viewer)
 	// Where the parcel is picked up is the seller's; the buyer reads the
 	// shipment without it.
+	// The step's time and the shop are the server's own.
 	sh := o.Shipment
-	if sh != nil && sh.Pickup != nil && viewer != domain.Seller {
+	if sh != nil {
 		copied := *sh
-		copied.Pickup = nil
+		copied.StatusAt, copied.ShopCode = nil, ""
+		if viewer != domain.Seller {
+			copied.Pickup = nil
+		}
 		sh = &copied
 	}
 	return OrderView{

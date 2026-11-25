@@ -435,8 +435,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	// mounted, since deal makes its shipments through shipping.
 	var deals dealsvc.Service
 	carriers.Deals = shippingsvc.Deals{
-		ShipmentUpdated: func(ctx context.Context, c, code, status string) error {
-			return deals.ShipmentUpdated(ctx, c, code, status)
+		ShipmentUpdated: func(ctx context.Context, c, code, status string, at time.Time) error {
+			return deals.ShipmentUpdated(ctx, c, code, status, at)
 		},
 		OpenShipmentsAt: func(ctx context.Context, seller uuid.UUID, c string) (bool, error) {
 			return deals.OpenShipmentsAt(ctx, seller, c)

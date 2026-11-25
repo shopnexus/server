@@ -8,6 +8,8 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/shopnexus/server/internal/catalog/catalogtest"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/deal/domain"
@@ -68,11 +70,11 @@ func TestShipmentUpdated(t *testing.T) {
 		t.Fatalf("a late report moved the order: %+v", got.Order)
 	}
 
-	err := e.deals.ShipmentUpdated(ctx, "ghtk", "GHTK-NOBODY", "delivered")
+	err := e.deals.ShipmentUpdated(ctx, "ghtk", "GHTK-NOBODY", "delivered", time.Time{})
 	if !errors.Is(err, domain.ErrShipmentNotFound) || apperr.From(err).Kind != apperr.KindNotFound {
 		t.Fatalf("an unknown code: %v", err)
 	}
-	if err = e.deals.ShipmentUpdated(ctx, "ghn", v.Order.Shipment.TrackingCode, "delivered"); !errors.Is(err, domain.ErrShipmentNotFound) {
+	if err = e.deals.ShipmentUpdated(ctx, "ghn", v.Order.Shipment.TrackingCode, "delivered", time.Time{}); !errors.Is(err, domain.ErrShipmentNotFound) {
 		t.Fatalf("the code at another carrier: %v", err)
 	}
 	if err = report(ctx, e.deals, v, "returned"); !errors.Is(err, domain.ErrInvalidStatus) {
@@ -106,7 +108,7 @@ func TestOneParcelTwoOrders(t *testing.T) {
 	a, b := e.pending(t, buyer, first), e.pending(t, buyer, second)
 	must(t)(deals.CreateShipment(ctx, seller, a.Order.ID, key(), linked))
 	must(t)(deals.CreateShipment(ctx, seller, b.Order.ID, key(), linked))
-	if err := e.deals.ShipmentUpdated(ctx, "ghtk", "GHTK-PARCEL1", "failed"); err != nil {
+	if err := e.deals.ShipmentUpdated(ctx, "ghtk", "GHTK-PARCEL1", "failed", time.Time{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range []struct {
@@ -161,5 +163,117 @@ func TestShipmentUpdateLosesToAConfirm(t *testing.T) {
 	if got.Order.Status != domain.OrderCompleted || got.Order.Shipment.Status != domain.ShipmentPendingPickup ||
 		countMoves(moveKinds(got), domain.MoveShipmentUpdated) != 0 {
 		t.Fatalf("%+v", got.Order)
+	}
+}
+
+// A report older than the order's last one lands nowhere: a late
+// pending_pickup leaves a parcel picked up, so the pickup timeout cannot
+// cancel it.
+//
+// UC-DEAL-05 A1.
+func TestAnOlderReportChangesNothing(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	v := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller))
+	at := time.Now()
+	if err := reportAt(ctx, e.deals, v, "in_transit", at); err != nil {
+		t.Fatal(err)
+	}
+	moves := len(e.get(t, buyer, v.ID).Moves)
+	for _, old := range []time.Time{at, at.Add(-time.Minute)} {
+		if err := reportAt(ctx, e.deals, v, "pending_pickup", old); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := e.get(t, buyer, v.ID)
+	if sh := got.Order.Shipment; sh.Status != domain.ShipmentInTransit || sh.PickedUpAt == nil || len(got.Moves) != moves {
+		t.Fatalf("an older report: %+v", sh)
+	}
+	if err := reportAt(ctx, e.deals, v, "delivered", at.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if sh := e.get(t, buyer, v.ID).Order.Shipment; sh.Status != domain.ShipmentDelivered {
+		t.Fatalf("a newer report: %+v", sh)
+	}
+}
+
+// A parcel the carrier lost after the pickup fails the order and puts the
+// listing back on sale; one lost before it stays for the pickup timeout.
+//
+// UC-DEAL-05 E2.
+func TestALostParcelFailsAnOrderPickedUp(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	listing := catalogtest.Listing(t, e.db, seller)
+	v := e.shipped(t, buyer, seller, listing)
+	if err := report(ctx, e.deals, v, "lost"); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderShipped || got.Order.Shipment.Status != domain.ShipmentPendingPickup {
+		t.Fatalf("lost before the pickup: %+v", got.Order)
+	}
+	if err := report(ctx, e.deals, v, "in_transit"); err != nil {
+		t.Fatal(err)
+	}
+	if err := report(ctx, e.deals, v, "lost"); err != nil {
+		t.Fatal(err)
+	}
+	got := e.get(t, buyer, v.ID)
+	if got.Order.Status != domain.OrderFailed || got.Order.Shipment.Status != domain.ShipmentFailed || got.Status != domain.StatusNegotiating ||
+		got.Moves[len(got.Moves)-1].Kind != domain.MoveFailed {
+		t.Fatalf("lost after the pickup: %+v", got)
+	}
+	if st, _ := e.summary(t, listing); st != catalogdomain.StatusActive {
+		t.Fatalf("listing %s", st)
+	}
+}
+
+// atShop is the fake carrier making each shipment at shop S1, as module
+// shipping does with the seller's linked account.
+type atShop struct{ linkedAt }
+
+func (a atShop) Create(ctx context.Context, seller uuid.UUID, c carrier.Carrier, in carrier.CreateInput) (carrier.Created, error) {
+	made, err := a.linkedAt.Create(ctx, seller, c, in)
+	made.ShopCode = "S1"
+	return made, err
+}
+
+// A shipment whose seller unlinked the carrier, or linked another shop,
+// while it was made does not ship the order: the listing goes back, and
+// the shipment, which the seller's account no longer reaches, is left to
+// the seller at that shop.
+//
+// UC-DEAL-04 E7.
+func TestAShipmentAtAShopNoLongerLinkedIsRefused(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	cancels := &atomic.Int32{}
+	deps := e.deps
+	deps.Shipping = atShop{linkedAt{countingCarrier{Carrier: carrier.GHTK, cancels: cancels}}}
+	deals := start(t, deps)
+	seller, buyer := e.person(t), e.person(t)
+	listing := catalogtest.Listing(t, e.db, seller)
+	v := e.pending(t, buyer, listing)
+	if _, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked); !errors.Is(err, domain.ErrCarrierNotLinked) {
+		t.Fatalf("no account at the shop: %v", err)
+	}
+	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderPending {
+		t.Fatalf("%+v", got.Order)
+	}
+	if st, _ := e.summary(t, listing); st != catalogdomain.StatusActive || cancels.Load() != 0 {
+		t.Fatalf("listing %s, %d cancels", st, cancels.Load())
+	}
+	if _, err := e.db.Exec(ctx, `INSERT INTO carrier_accounts (account_id, carrier, shop_code, token, linked_at)
+VALUES (@seller, 'ghtk', 'S1', '\x01', now())`, pgx.StrictNamedArgs{"seller": seller}); err != nil {
+		t.Fatal(err)
+	}
+	s, err := deals.CreateShipment(ctx, seller, v.Order.ID, key(), linked)
+	if err != nil || s.Order.Status != domain.OrderShipped {
+		t.Fatalf("at the linked shop: %+v %v", s.Order, err)
 	}
 }

@@ -118,11 +118,12 @@ type Service interface {
 	QuoteFacts(ctx context.Context, caller, order, address uuid.UUID) (to carrier.Place, from *carrier.Place, price int64, err error)
 	// ShipmentUpdated sets the status of every shipped order whose
 	// shipment is at carrier c with trackingCode, as the carrier reports
-	// it. A closed order changes nothing; no such order is
+	// it of a step that happened at, zero for now. A closed order, or a
+	// step no newer than the order's, changes nothing; no such order is
 	// domain.ErrShipmentNotFound.
 	//
 	// UC-DEAL-05 · NFR-IDEM-01
-	ShipmentUpdated(ctx context.Context, c, trackingCode, status string) error
+	ShipmentUpdated(ctx context.Context, c, trackingCode, status string, at time.Time) error
 	// ShipmentKnown tells whether an order, closed ones too, has a
 	// shipment at carrier c with trackingCode.
 	ShipmentKnown(ctx context.Context, c, trackingCode string) (bool, error)
@@ -223,7 +224,7 @@ var _ Service = (*Deals)(nil)
 // New builds Deals. A zero wait would move every order on the moment it
 // is made, so New panics on one.
 func New(d Deps) *Deals {
-	if d.Waits.Seller <= 0 || d.Waits.Pickup <= 0 || d.Waits.Complete <= 0 || d.PollEvery <= 0 {
+	if d.Waits.Seller <= 0 || d.Waits.Pickup <= 0 || d.Waits.Complete <= 0 || d.Waits.Transit <= 0 || d.PollEvery <= 0 {
 		panic("deal: Deps.Waits needs every wait, domain.OrderWaits, and Deps.PollEvery a period")
 	}
 	return &Deals{

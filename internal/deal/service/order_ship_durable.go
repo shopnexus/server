@@ -32,8 +32,10 @@ type resolvedPickup struct {
 // carrier; a refusal of shipping's gives the listing back. It gives the
 // listing back, and calls off the shipment the order did not take, when
 // the order's save loses to anything but another shipment of the same
-// order. Once shipped, it cancels the listing's other pending orders and
-// schedules the pickup timeout and the first poll of the shipment.
+// order. The save checks the seller still links the shop the shipment was
+// made at; when not, the shipment is logged, not called off. Once
+// shipped, it cancels the listing's other pending orders and schedules the
+// pickup timeout and the first poll of the shipment.
 type DealShip struct{ Deals *Deals }
 
 func (s DealShip) ServiceName() string { return s.Deals.prefix + dealShip }
@@ -122,7 +124,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	// Shippable passed on this deal and listing, so Ship takes it.
 	if err = d.Ship(m.By, in.OrderID, domain.Shipment{
 		Mode: domain.ModeLinked, Carrier: draft.Carrier, TrackingCode: made.Created.TrackingCode,
-		Fee: &made.Created.Fee, Pickup: draft.From,
+		Fee: &made.Created.Fee, Pickup: draft.From, ShopCode: made.Created.ShopCode,
 	}, facts(m.Listing), at); err != nil {
 		return FlowResult{}, fmt.Errorf("ship the order: %w", err)
 	}
@@ -165,10 +167,16 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	}
 	mine := d.Order().Shipment
 	shipped := cur.ID == in.OrderID && cur.Status == domain.OrderShipped
-	if !shipped || cur.Shipment == nil || cur.Shipment.TrackingCode != mine.TrackingCode {
+	switch {
+	case refused.Code == domain.ErrCarrierNotLinked.Code:
+		// The seller's account there no longer reaches the parcel.
+		s.Deals.log.WarnContext(ctx, "shipment made at a shop the seller no longer links; not called off",
+			"seller", in.Caller, "carrier", mine.Carrier, "shop", mine.ShopCode, "tracking_code", mine.TrackingCode)
+	case !shipped || cur.Shipment == nil || cur.Shipment.TrackingCode != mine.TrackingCode:
 		if err = callOffStep(ctx, s.Deals.shipping, s.Deals.log, in.Caller, *mine); err != nil {
 			return FlowResult{}, err
 		}
+	default: // the order shipped with this parcel
 	}
 	if shipped {
 		return FlowResult{}, nil

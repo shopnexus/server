@@ -231,5 +231,90 @@ func TestNewRefusesAZeroWait(t *testing.T) {
 			t.Fatal("New took a zero wait")
 		}
 	}()
-	service.New(service.Deps{Waits: domain.Waits{Seller: time.Hour, Complete: time.Hour}})
+	service.New(service.Deps{Waits: domain.Waits{Seller: time.Hour, Pickup: time.Hour, Complete: time.Hour}, PollEvery: time.Hour})
+}
+
+// reading is the fake GHTK reading every parcel at step, or not at all
+// when gone.
+type reading struct {
+	carrier.Fake
+
+	step carrier.Step
+	gone bool
+}
+
+func (r reading) Lookup(ctx context.Context, a carrier.Account, code string) (carrier.Parcel, error) {
+	if r.gone {
+		return carrier.Parcel{}, carrier.ErrNotFound
+	}
+	p, err := r.Fake.Lookup(ctx, a, code)
+	p.Step = r.step
+	return p, err
+}
+
+// The transit timeout fails an order whose carrier no longer knows the
+// parcel, or reports it lost, and puts the listing back; a parcel still
+// moving moves the order and keeps it.
+//
+// UC-DEAL-05 E2.
+func TestTransitTimeout(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller, buyer := e.person(t), e.person(t)
+	ref := func(v service.DealView) service.OrderRef { return service.OrderRef{DealID: v.ID, OrderID: v.Order.ID} }
+	inTransit := func() (service.DealView, uuid.UUID) {
+		t.Helper()
+		listing := catalogtest.Listing(t, e.db, seller)
+		v := e.shipped(t, buyer, seller, listing)
+		if err := report(ctx, e.deals, v, "in_transit"); err != nil {
+			t.Fatal(err)
+		}
+		return v, listing
+	}
+	for name, c := range map[string]reading{
+		"not found": {Fake: carrier.Fake{Carrier: carrier.GHTK}, gone: true},
+		"lost":      {Fake: carrier.Fake{Carrier: carrier.GHTK}, step: carrier.StepLost},
+		"cancelled": {Fake: carrier.Fake{Carrier: carrier.GHTK}, step: carrier.StepCancelled},
+	} {
+		_, fire := e.timed(t, domain.OrderWaits, linkedAt{c})
+		v, listing := inTransit()
+		fire("TransitTimeout", ref(v))
+		got := e.get(t, buyer, v.ID)
+		if got.Order.Status != domain.OrderFailed || got.Order.Shipment.Status != domain.ShipmentFailed ||
+			got.Moves[len(got.Moves)-1].Kind != domain.MoveFailed {
+			t.Errorf("%s: %+v", name, got.Order)
+		}
+		if st, _ := e.summary(t, listing); st != catalogdomain.StatusActive {
+			t.Errorf("%s: listing %s", name, st)
+		}
+	}
+	_, fire := e.timed(t, domain.OrderWaits, linkedAt{reading{Carrier: carrier.GHTK, step: carrier.StepDelivered}})
+	v, _ := inTransit()
+	fire("TransitTimeout", ref(v))
+	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderShipped || got.Order.Shipment.Status != domain.ShipmentDelivered {
+		t.Fatalf("a parcel still moving: %+v", got.Order)
+	}
+	// A delivered order is AutoComplete's: the timeout leaves it.
+	_, fire = e.timed(t, domain.OrderWaits, linkedAt{reading{Carrier: carrier.GHTK, gone: true}})
+	fire("TransitTimeout", ref(v))
+	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderShipped {
+		t.Fatalf("a delivered order: %+v", got.Order)
+	}
+}
+
+// A parcel the carrier cancelled before the pickup leaves the order to
+// the pickup timeout, which cancels it as before.
+//
+// UC-DEAL-06 A2.
+func TestPickupTimeoutCancelsACancelledParcel(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	_, fire := e.timed(t, domain.OrderWaits, linkedAt{reading{Carrier: carrier.GHTK, step: carrier.StepCancelled}})
+	seller, buyer := e.person(t), e.person(t)
+	v := e.shipped(t, buyer, seller, catalogtest.Listing(t, e.db, seller))
+	fire("PickupTimeout", service.OrderRef{DealID: v.ID, OrderID: v.Order.ID})
+	if got := e.get(t, buyer, v.ID); got.Order.Status != domain.OrderCancelled || got.Order.CancelReason != domain.CancelPickupTimeout {
+		t.Fatalf("%+v", got.Order)
+	}
 }

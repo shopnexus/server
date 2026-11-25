@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"time"
 	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
@@ -15,11 +16,13 @@ import (
 const shipmentUpdates = "ShipmentUpdates"
 
 // ShipmentSignal is a carrier's word on a shipment: the carrier, the
-// tracking code there and its new status.
+// tracking code there, its new status and when the carrier's step
+// happened, zero for the time the signal is handled.
 type ShipmentSignal struct {
 	Carrier      domain.Carrier        `json:"carrier"`
 	TrackingCode string                `json:"tracking_code"`
 	Status       domain.ShipmentStatus `json:"status"`
+	At           time.Time             `json:"at,omitzero"`
 }
 
 // ShipmentResult carries ShipmentUpdates' refusal, or none.
@@ -32,8 +35,9 @@ func (r ShipmentResult) Refusal() *apperr.Error { return r.Refused }
 // ShipmentUpdates is the one entry point of a carrier's word on a
 // shipment: the carriers' webhooks, the poll and the dev endpoint. It
 // moves every shipped order whose shipment is that parcel, two items in
-// one parcel included, and changes nothing on a closed order.
-// A failure releases the listing; a delivery schedules the completion.
+// one parcel included, and changes nothing on a closed order or with a
+// step no newer than the order's. A failure releases the listing, a
+// delivery schedules the completion and a pickup the transit timeout.
 type ShipmentUpdates struct{ Deals *Deals }
 
 func (s ShipmentUpdates) ServiceName() string { return s.Deals.prefix + shipmentUpdates }
@@ -44,6 +48,12 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 	if err != nil {
 		return ShipmentResult{}, err
 	}
+	stepAt := in.At
+	if stepAt.IsZero() {
+		stepAt = at
+	}
+	// The store keeps microseconds, so a resend compares equal.
+	stepAt = stepAt.Truncate(time.Microsecond)
 	refs, err := restate.Run(ctx, func(rc restate.RunContext) ([]OrderRef, error) {
 		rows, stepErr := s.Deals.deals.OrdersWithCode(rc, string(in.Carrier), in.TrackingCode)
 		if stepErr != nil {
@@ -68,8 +78,13 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 				return ShipmentResult{}, loadErr
 			}
 			d := domain.RestoreDeal(m.Deal)
-			// A1 · NFR-IDEM-01: the same status twice changes nothing.
-			changed, moveErr := d.ShipmentUpdated(ref.OrderID, in.Status, at)
+			var before domain.Shipment
+			if o := d.Order(); o != nil && o.Shipment != nil {
+				before = *o.Shipment
+			}
+			// A1 · NFR-IDEM-01: the same report twice, or an older one,
+			// changes nothing.
+			changed, moveErr := d.ShipmentReported(ref.OrderID, in.Status, stepAt, at)
 			if moveErr != nil || !changed {
 				break // a closed order, or nothing new
 			}
@@ -80,15 +95,22 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 			if refused != nil {
 				continue // the deal moved meanwhile: read it again
 			}
-			// E2 · BR-DEAL-08: a parcel refused at the door fails the order
-			// and puts the listing back on sale.
-			if d.Order().Status == domain.OrderFailed {
+			// E2 · BR-DEAL-08: a parcel refused at the door, or lost after
+			// the pickup, fails the order and puts the listing back on sale.
+			after := d.Order().Shipment
+			switch {
+			case d.Order().Status == domain.OrderFailed:
 				if err = releaseStep(ctx, s.Deals.catalog, m.Listing.ID, ref.OrderID); err != nil {
 					return ShipmentResult{}, err
 				}
-			} else if in.Status == domain.ShipmentDelivered { // A4
+			case after.Status == before.Status: // a newer step of the same status
+			case after.Status == domain.ShipmentDelivered: // A4
 				restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "AutoComplete").
 					Send(ref, restate.WithDelay(s.Deals.waits.Complete))
+			case after.Status == domain.ShipmentInTransit:
+				restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "TransitTimeout").
+					Send(ref, restate.WithDelay(s.Deals.waits.Transit))
+			default: // pending pickup, or lost before it: PickupTimeout waits
 			}
 			break
 		}

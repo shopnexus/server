@@ -8,6 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgAccounts struct{ db *pgxpool.Pool }
@@ -24,17 +26,44 @@ func scanAccount(row pgx.Row) (Row, error) {
 	return r, nil
 }
 
-func (s pgAccounts) Put(ctx context.Context, r Row) error {
-	if _, err := s.db.Exec(ctx, `INSERT INTO carrier_accounts (`+accountColumns+`)
+// lockAccount is the lock module deal's save of a shipment takes too.
+func lockAccount(b *pgx.Batch, owner uuid.UUID, carrier string) {
+	postgres.QueueLock(b, "carrier_account", owner, carrier)
+}
+
+func (s pgAccounts) Put(ctx context.Context, r Row, open Guard) error {
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		// The shop read decides whether the guard runs, so the batch breaks.
+		b := &pgx.Batch{}
+		lockAccount(b, r.AccountID, r.Carrier)
+		var shop *string
+		b.Queue(`SELECT shop_code FROM carrier_accounts WHERE account_id = @owner AND carrier = @carrier`,
+			pgx.StrictNamedArgs{"owner": r.AccountID, "carrier": r.Carrier}).QueryRow(func(row pgx.Row) error {
+			if err := row.Scan(&shop); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("read carrier account: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // Each statement wraps its own error.
+		}
+		if shop != nil && *shop != r.ShopCode {
+			if err := open(ctx); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO carrier_accounts (`+accountColumns+`)
 VALUES (@account, @carrier, @shop, @token, @linked_at)
 ON CONFLICT (account_id, carrier) DO UPDATE
 SET shop_code = EXCLUDED.shop_code, token = EXCLUDED.token, linked_at = EXCLUDED.linked_at`,
-		pgx.StrictNamedArgs{
-			"account": r.AccountID, "carrier": r.Carrier, "shop": r.ShopCode, "token": r.Token, "linked_at": r.LinkedAt,
-		}); err != nil {
-		return fmt.Errorf("upsert carrier account: %w", err)
-	}
-	return nil
+			pgx.StrictNamedArgs{
+				"account": r.AccountID, "carrier": r.Carrier, "shop": r.ShopCode, "token": r.Token, "linked_at": r.LinkedAt,
+			}); err != nil {
+			return fmt.Errorf("upsert carrier account: %w", err)
+		}
+		return nil
+	})
+	return err //nolint:wrapcheck // The callback wraps its own errors.
 }
 
 func (s pgAccounts) Get(ctx context.Context, owner uuid.UUID, carrier string) (Row, error) {
@@ -59,13 +88,26 @@ WHERE account_id = @owner ORDER BY carrier`, pgx.StrictNamedArgs{"owner": owner}
 	return out, nil
 }
 
-func (s pgAccounts) Delete(ctx context.Context, owner uuid.UUID, carrier string) (bool, error) {
-	tag, err := s.db.Exec(ctx, `DELETE FROM carrier_accounts WHERE account_id = @owner AND carrier = @carrier`,
-		pgx.StrictNamedArgs{"owner": owner, "carrier": carrier})
-	if err != nil {
-		return false, fmt.Errorf("delete carrier account: %w", err)
-	}
-	return tag.RowsAffected() > 0, nil
+func (s pgAccounts) Delete(ctx context.Context, owner uuid.UUID, carrier string, open Guard) (bool, error) {
+	var deleted bool
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		b := &pgx.Batch{}
+		lockAccount(b, owner, carrier)
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // QueueLock wraps its own error.
+		}
+		if err := open(ctx); err != nil {
+			return err
+		}
+		tag, err := tx.Exec(ctx, `DELETE FROM carrier_accounts WHERE account_id = @owner AND carrier = @carrier`,
+			pgx.StrictNamedArgs{"owner": owner, "carrier": carrier})
+		if err != nil {
+			return fmt.Errorf("delete carrier account: %w", err)
+		}
+		deleted = tag.RowsAffected() > 0
+		return nil
+	})
+	return deleted, err //nolint:wrapcheck // The callback wraps its own errors.
 }
 
 func (s pgAccounts) DeleteAll(ctx context.Context, owner uuid.UUID) error {

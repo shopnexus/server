@@ -86,3 +86,23 @@ func TestStepsMapToTheOrderStatus(t *testing.T) {
 		}
 	}
 }
+
+// A parcel cancelled or lost reports lost; every other step reports its
+// status, and no step none.
+func TestStepReported(t *testing.T) {
+	t.Parallel()
+	for step, want := range map[carrier.Step]carrier.Status{
+		carrier.StepCancelled: carrier.StatusLost, carrier.StepLost: carrier.StatusLost,
+		carrier.StepPicked: carrier.StatusInTransit, carrier.StepReturned: carrier.StatusFailed,
+	} {
+		if got, ok := step.Reported(); !ok || got != want {
+			t.Errorf("%s: %s %v", step, got, ok)
+		}
+		if st, _ := step.Status(); st == carrier.StatusLost {
+			t.Errorf("%s reads as lost", step)
+		}
+	}
+	if _, ok := carrier.Step("").Reported(); ok {
+		t.Error("no step reports a status")
+	}
+}

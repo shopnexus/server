@@ -16,6 +16,9 @@ import (
 var (
 	ErrNotFound = errors.New("deal: not found")
 	ErrConflict = errors.New("deal: changed meanwhile")
+	// ErrAccountChanged is a shipment whose seller unlinked the carrier, or
+	// linked another shop there, since it was made.
+	ErrAccountChanged = errors.New("deal: the carrier account changed")
 )
 
 // Deals persists deals and their moves.
@@ -33,7 +36,8 @@ type Deals interface {
 	// save: Save writes nothing more and returns nil. Its moves take IDs
 	// derived from writeID. Otherwise ErrConflict and nothing is written. The moves carry key, the party's Idempotency-Key, or none
 	// for uuid.Nil(); a key another move of the party's on the deal holds
-	// is ErrConflict too. A pending order beyond the buyer's
+	// is ErrConflict too. A save that ships the order at a shop the seller
+	// no longer links there is ErrAccountChanged. A pending order beyond the buyer's
 	// domain.MaxOpenOrders is domain.ErrCodLimit; concurrent saves for one
 	// buyer count one at a time.
 	Save(ctx context.Context, d *domain.Deal, writeID, key uuid.UUID, evs ...events.Event) error

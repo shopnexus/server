@@ -432,3 +432,57 @@ func TestOrdersWithCode(t *testing.T) {
 		t.Fatalf("an unknown code: %+v %v", rows, err)
 	}
 }
+
+// A save that ships at a shop checks, under the carrier account's lock,
+// that the seller still links that shop there; the shop and the step's
+// time come back with the order.
+func TestSaveShipsOnlyAtALinkedShop(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewDeals(db)
+	ctx := context.Background()
+	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
+	link := func(shop string) {
+		t.Helper()
+		if _, err := db.Exec(ctx, `INSERT INTO carrier_accounts (account_id, carrier, shop_code, token, linked_at)
+VALUES (@seller, 'ghtk', @shop, '\x01', now())
+ON CONFLICT (account_id, carrier) DO UPDATE SET shop_code = EXCLUDED.shop_code`,
+			pgx.StrictNamedArgs{"seller": seller, "shop": shop}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ship := func() (domain.Deal, error) {
+		t.Helper()
+		d := pendingDeal(t, db, s, buyer, seller)
+		sh := domain.Shipment{Mode: domain.ModeLinked, Carrier: domain.CarrierGHTK, TrackingCode: "GHTK-" + uuid.NewV7().String(), ShopCode: "S1"}
+		if err := d.Ship(domain.Seller, d.Order().ID, sh, onSale, now); err != nil {
+			t.Fatal(err)
+		}
+		err := s.Save(ctx, &d, uuid.NewV7(), uuid.Nil())
+		return d, err
+	}
+	if _, err := ship(); !errors.Is(err, repository.ErrAccountChanged) {
+		t.Fatalf("no account: %v", err)
+	}
+	link("S2")
+	if _, err := ship(); !errors.Is(err, repository.ErrAccountChanged) {
+		t.Fatalf("another shop: %v", err)
+	}
+	link("S1")
+	d, err := ship()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = d.ShipmentReported(d.Order().ID, domain.ShipmentInTransit, now.Add(time.Hour), now); err != nil {
+		t.Fatal(err)
+	}
+	// A later save of the shipped order checks nothing more.
+	link("S2")
+	if err = s.Save(ctx, &d, uuid.NewV7(), uuid.Nil()); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Get(ctx, d.ID())
+	if sh := got.Order().Shipment; err != nil || sh.ShopCode != "S1" || sh.StatusAt == nil || !sh.StatusAt.Equal(now.Add(time.Hour)) {
+		t.Fatalf("%+v %v", sh, err)
+	}
+}

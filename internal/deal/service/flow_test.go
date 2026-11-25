@@ -23,10 +23,16 @@ import (
 // linked is a shipment to make on the seller's GHTK account.
 var linked = service.ShipmentInput{Carrier: "ghtk", Service: "standard", WeightGrams: 800, Pickup: "home"}
 
-// report moves v's shipment to status as its carrier would report it.
+// report moves v's shipment to status as its carrier would report it, of
+// a step that happened now.
 func report(ctx context.Context, d *service.Deals, v service.DealView, status string) error {
+	return reportAt(ctx, d, v, status, time.Time{})
+}
+
+// reportAt is report of a step that happened at.
+func reportAt(ctx context.Context, d *service.Deals, v service.DealView, status string, at time.Time) error {
 	sh := v.Order.Shipment
-	return d.ShipmentUpdated(ctx, string(sh.Carrier), sh.TrackingCode, status)
+	return d.ShipmentUpdated(ctx, string(sh.Carrier), sh.TrackingCode, status, at)
 }
 
 func key() uuid.UUID { return uuid.NewV7() }

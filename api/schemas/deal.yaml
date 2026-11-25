@@ -340,8 +340,9 @@ OrderStatus:
     pending: the buyer asked for COD; either side may cancel. shipped: the
     seller created the shipment; the listing is reserved. completed: the
     buyer confirmed receipt, or 3 days passed after the carrier reported
-    the parcel delivered. failed: the carrier reported the delivery
-    failed; the deal negotiates again. cancelled: before the shipment, or
+    the parcel delivered. failed: the carrier returned the parcel,
+    or lost or cancelled it after the pickup, or knew it no more 30 days
+    into transit; the deal negotiates again. cancelled: before the shipment, or
     by the pickup timeout.
 Order:
   type: object

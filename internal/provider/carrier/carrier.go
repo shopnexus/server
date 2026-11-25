@@ -33,6 +33,9 @@ const (
 	StatusInTransit     Status = "in_transit"
 	StatusDelivered     Status = "delivered"
 	StatusFailed        Status = "failed"
+	// StatusLost is a report only: the carrier cancelled or lost the
+	// parcel. No parcel reads as it.
+	StatusLost Status = "lost"
 )
 
 var (
@@ -135,22 +138,26 @@ type QuoteInput struct {
 	Value int64
 }
 
-// Created is a new shipment's tracking code and fee, in đồng.
+// Created is a new shipment's tracking code and fee, in đồng. ShopCode
+// is the seller's shop it was made at, which module shipping fills.
 type Created struct {
 	TrackingCode string `json:"tracking_code"`
 	Fee          int64  `json:"fee"`
+	ShopCode     string `json:"shop_code,omitempty"`
 }
 
 // Parcel is what a carrier tells of a shipment: the recipient's name as
 // ShopNexus masks it, where it goes, the COD amount, the fee, nil while the
 // carrier tells none, the step it is at, empty for a status that maps to
-// none, and the events the carrier keeps of it, oldest first.
+// none, and the events the carrier keeps of it, oldest first. StepAt is
+// when the step happened, zero when no event tells.
 type Parcel struct {
 	RecipientName string
 	District      string
 	COD           int64
 	Fee           *int64
 	Step          Step
+	StepAt        time.Time
 	Events        []Event
 }
 

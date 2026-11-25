@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"time"
 	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
@@ -157,35 +158,119 @@ func (s OrderTimers) Poll(ctx restate.Context, ref OrderRef) error {
 	return nil
 }
 
+// TransitTimeout fails a shipped order whose carrier, Waits.Transit after
+// the parcel went in transit, no longer knows it or reports it cancelled
+// or lost; it gives the listing back. A carrier still moving the parcel
+// moves the order as a report would, and the timeout waits again. A read
+// that tells nothing, such as a carrier to link again, waits again too.
+func (s OrderTimers) TransitTimeout(ctx restate.Context, ref OrderRef) error {
+	at, err := restatex.Now(ctx, s.Deals.now)
+	if err != nil {
+		return err
+	}
+	m, err := systemLoadStep(ctx, s.Deals, ref.DealID)
+	if err != nil {
+		return err
+	}
+	first := domain.RestoreDeal(m.Deal)
+	o := first.Order()
+	if o == nil || o.ID != ref.OrderID || o.Status != domain.OrderShipped || o.Shipment == nil ||
+		o.Shipment.Status == domain.ShipmentDelivered {
+		return nil // the order moved on
+	}
+	r, err := s.read(ctx, m.Deal.SellerID, *o.Shipment)
+	if err != nil {
+		return err
+	}
+	if !r.Gone {
+		if r.Status != "" && r.Status != o.Shipment.Status {
+			if err = s.move(ctx, *o.Shipment, r); err != nil {
+				return err
+			}
+		}
+		restate.ServiceSend(ctx, s.ServiceName(), "TransitTimeout").Send(ref, restate.WithDelay(s.Deals.waits.Transit))
+		return nil
+	}
+	for {
+		m, err = systemLoadStep(ctx, s.Deals, ref.DealID)
+		if err != nil {
+			return err
+		}
+		d := domain.RestoreDeal(m.Deal)
+		if errors.Is(d.TransitTimeout(ref.OrderID, at), domain.ErrMoveNotAllowed) {
+			return nil // the order moved on
+		}
+		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)
+		if saveErr != nil {
+			return saveErr
+		}
+		if refused == nil {
+			return releaseStep(ctx, s.Deals.catalog, m.Listing.ID, ref.OrderID)
+		}
+	}
+}
+
+// carrierRead is what a read of a shipment at its carrier journals: the
+// status its newest step moves an order to and when the step happened,
+// empty when it tells none, or Gone for a parcel the carrier no longer
+// knows or reports cancelled or lost.
+type carrierRead struct {
+	Status domain.ShipmentStatus `json:"status,omitempty"`
+	At     time.Time             `json:"at,omitzero"`
+	Gone   bool                  `json:"gone,omitempty"`
+}
+
+// read reads sh from its carrier with the seller's account in one
+// journaled step. A refusal of shipping's, such as a carrier to link
+// again, tells nothing.
+func (s OrderTimers) read(ctx restate.Context, seller uuid.UUID, sh domain.Shipment) (carrierRead, error) {
+	r, err := restate.Run(ctx, func(rc restate.RunContext) (carrierRead, error) {
+		p, readErr := s.Deals.shipping.Track(rc, seller, carrier.Carrier(sh.Carrier), sh.TrackingCode)
+		if errors.Is(readErr, carrier.ErrNotFound) {
+			return carrierRead{Gone: true}, nil
+		}
+		if restatex.IsRefusal(readErr) {
+			return carrierRead{}, nil
+		}
+		if readErr != nil {
+			return carrierRead{}, fmt.Errorf("read %s: %w", sh.TrackingCode, readErr)
+		}
+		st, moves := p.Step.Reported()
+		if !moves {
+			return carrierRead{}, nil
+		}
+		return carrierRead{Status: domain.ShipmentStatus(st), At: p.StepAt, Gone: st == carrier.StatusLost}, nil
+	})
+	if err != nil {
+		return carrierRead{}, fmt.Errorf("read the shipment at %s: %w", sh.Carrier, err)
+	}
+	return r, nil
+}
+
+// move sends ShipmentUpdates what the carrier read tells of sh.
+func (s OrderTimers) move(ctx restate.Context, sh domain.Shipment, r carrierRead) error {
+	if _, err := restate.Service[ShipmentResult](ctx, s.Deals.prefix+shipmentUpdates, flowHandler).
+		Request(ShipmentSignal{Carrier: sh.Carrier, TrackingCode: sh.TrackingCode, Status: r.Status, At: r.At}); err != nil {
+		return fmt.Errorf("move the order: %w", err)
+	}
+	return nil
+}
+
 // readMoved reads sh from its carrier with the seller's account and, when
 // the carrier reports a status that moves it to another, moves the order
 // through ShipmentUpdates. A status the carrier does not map, a code it
-// lost, or a refusal of shipping's moves nothing. moved tells whether the
-// order moved.
+// lost, a parcel cancelled or lost before the pickup, or a refusal of
+// shipping's moves nothing. moved tells whether the order moved.
 func (s OrderTimers) readMoved(ctx restate.Context, seller uuid.UUID, sh domain.Shipment) (moved bool, err error) {
-	read, err := restate.Run(ctx, func(rc restate.RunContext) (domain.ShipmentStatus, error) {
-		p, readErr := s.Deals.shipping.Track(rc, seller, carrier.Carrier(sh.Carrier), sh.TrackingCode)
-		if errors.Is(readErr, carrier.ErrNotFound) || restatex.IsRefusal(readErr) {
-			return "", nil
-		}
-		if readErr != nil {
-			return "", fmt.Errorf("read %s: %w", sh.TrackingCode, readErr)
-		}
-		st, moves := p.Step.Status()
-		if !moves {
-			return "", nil
-		}
-		return domain.ShipmentStatus(st), nil
-	})
+	r, err := s.read(ctx, seller, sh)
 	if err != nil {
-		return false, fmt.Errorf("read the shipment at %s: %w", sh.Carrier, err)
+		return false, err
 	}
-	if read == "" || read == sh.Status {
+	if r.Status == "" || r.Status == sh.Status || (r.Status == domain.ShipmentLost && sh.PickedUpAt == nil) {
 		return false, nil
 	}
-	if _, err = restate.Service[ShipmentResult](ctx, s.Deals.prefix+shipmentUpdates, flowHandler).
-		Request(ShipmentSignal{Carrier: sh.Carrier, TrackingCode: sh.TrackingCode, Status: read}); err != nil {
-		return false, fmt.Errorf("move the order: %w", err)
+	if err = s.move(ctx, sh, r); err != nil {
+		return false, err
 	}
 	return true, nil
 }

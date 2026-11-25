@@ -23,8 +23,8 @@ const (
 )
 
 // Status is the order's status at step; false for a step that moves no
-// order (cancelled, lost, or none). A failed delivery is still in transit:
-// the carrier tries again, and only a return fails the order.
+// order (cancelled, lost, or none; see Reported). A failed delivery is
+// still in transit: the carrier tries again, and a return fails the order.
 func (s Step) Status() (Status, bool) {
 	switch s {
 	case StepReadyToPick, StepPicking, StepPickupFailed:
@@ -39,6 +39,16 @@ func (s Step) Status() (Status, bool) {
 	default: // none
 	}
 	return "", false
+}
+
+// Reported is the status a report of s sends module deal: Status, or
+// StatusLost for a parcel the carrier cancelled or lost, which fails an
+// order picked up and moves one still waiting for pickup nowhere.
+func (s Step) Reported() (Status, bool) {
+	if s == StepCancelled || s == StepLost {
+		return StatusLost, true
+	}
+	return s.Status()
 }
 
 // EventKind is what an event tells: a step, or a new weight, fee or COD

@@ -41,9 +41,11 @@ type AccountList struct {
 }
 
 // Tracking is the Tracking schema: the step a parcel is at, empty before
-// its carrier reported one, and its events, newest first.
+// its carrier reported one, and its events, newest first. StepAt is when
+// that step happened.
 type Tracking struct {
 	Step   carrier.Step    `json:"step,omitempty"`
+	StepAt time.Time       `json:"-"`
 	Events []carrier.Event `json:"events"`
 }
 
@@ -70,8 +72,8 @@ type QuoteFacts struct {
 // the app wiring closes these over deal's service.
 type Deals struct {
 	// ShipmentUpdated moves the orders whose shipment is at carrier c with
-	// code; NotFound when none is.
-	ShipmentUpdated func(ctx context.Context, c, code, status string) error
+	// code to status, of a step that happened at; NotFound when none is.
+	ShipmentUpdated func(ctx context.Context, c, code, status string, at time.Time) error
 	// OpenShipmentsAt tells whether a shipped order of the seller's is at
 	// carrier c.
 	OpenShipmentsAt func(ctx context.Context, seller uuid.UUID, c string) (bool, error)
@@ -110,7 +112,8 @@ type Service interface {
 	// SendOTP has carrier c text phone the code Link takes; only GHN does.
 	SendOTP(ctx context.Context, c, phone string) error
 	// Link checks the credentials at carrier c and keeps the token sealed,
-	// replacing an account linked there before.
+	// replacing an account linked there before; a new shop is refused while
+	// a shipment of the owner's is open there.
 	Link(ctx context.Context, owner uuid.UUID, c string, cr carrier.Credentials) (AccountView, error)
 	// Unlink drops the owner's account at c, refused while a shipment of
 	// theirs is open there.
@@ -126,13 +129,13 @@ type Service interface {
 	Lookup(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
 	Cancel(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) error
 	// Track is Lookup for an order's own shipment: it also keeps the
-	// events the carrier tells, and its Step is the timeline's newest, the
-	// one a report moves the order to.
+	// events the carrier tells, and its Step and StepAt are the timeline's
+	// newest, the one a report moves the order to.
 	Track(ctx context.Context, seller uuid.UUID, c carrier.Carrier, code string) (carrier.Parcel, error)
 	// Reported reads carrier c's webhook, keeps the events it tells of a
 	// parcel and moves its orders to the status of its newest step. A code
-	// no order has changes nothing; a report that does not read is
-	// domain.ErrReportUnread.
+	// no order has keeps its events and moves nothing; a report that does
+	// not read is domain.ErrReportUnread.
 	Reported(ctx context.Context, c carrier.Carrier, contentType string, body []byte) error
 	// DevReported is a report as the dev endpoint makes it, for the fake
 	// carrier: the carrier is the order's, and a code no order has is
@@ -272,7 +275,12 @@ func (s *Shipping) Link(ctx context.Context, owner uuid.UUID, c string, cr carri
 	if l.Token != "" {
 		row.Token = s.d.Tokens.Seal([]byte(l.Token), nil)
 	}
-	if err = s.d.Accounts.Put(ctx, row); err != nil {
+	// Another shop would read the open parcels with a token that does not
+	// know them.
+	if err = s.d.Accounts.Put(ctx, row, s.noneOpen(owner, c)); errors.Is(err, domain.ErrShipmentsOpen) {
+		return AccountView{}, err //nolint:wrapcheck // The refusal goes out as it is.
+	}
+	if err != nil {
 		return AccountView{}, fmt.Errorf("store the %s account: %w", c, err)
 	}
 	return AccountView{Carrier: c, ShopCode: row.ShopCode, LinkedAt: row.LinkedAt}, nil
@@ -284,14 +292,10 @@ func (s *Shipping) Unlink(ctx context.Context, owner uuid.UUID, c string) error 
 	if !carrier.Carrier(c).HasClient() {
 		return domain.ErrInvalidCarrier
 	}
-	open, err := s.d.Deals.OpenShipmentsAt(ctx, owner, c)
-	if err != nil {
-		return fmt.Errorf("read the open shipments at %s: %w", c, err)
+	deleted, err := s.d.Accounts.Delete(ctx, owner, c, s.noneOpen(owner, c))
+	if errors.Is(err, domain.ErrShipmentsOpen) {
+		return err //nolint:wrapcheck // The refusal goes out as it is.
 	}
-	if open {
-		return domain.ErrShipmentsOpen
-	}
-	deleted, err := s.d.Accounts.Delete(ctx, owner, c)
 	if err != nil {
 		return fmt.Errorf("unlink %s: %w", c, err)
 	}
@@ -299,6 +303,21 @@ func (s *Shipping) Unlink(ctx context.Context, owner uuid.UUID, c string) error 
 		return domain.ErrAccountNotFound
 	}
 	return nil
+}
+
+// noneOpen is the guard of a write that changes the owner's shop at c:
+// ErrShipmentsOpen while a shipped order of theirs is there.
+func (s *Shipping) noneOpen(owner uuid.UUID, c string) repository.Guard {
+	return func(ctx context.Context) error {
+		open, err := s.d.Deals.OpenShipmentsAt(ctx, owner, c)
+		if err != nil {
+			return fmt.Errorf("read the open shipments at %s: %w", c, err)
+		}
+		if open {
+			return domain.ErrShipmentsOpen
+		}
+		return nil
+	}
 }
 
 func (s *Shipping) Pickups(ctx context.Context, owner uuid.UUID, c string) ([]carrier.PickupPoint, error) {
@@ -381,6 +400,7 @@ func (s *Shipping) Create(ctx context.Context, seller uuid.UUID, c carrier.Carri
 		return carrier.Created{}, err
 	}
 	created, err := cl.Create(ctx, a, in)
+	created.ShopCode = a.ShopCode
 	return created, carrierError(err)
 }
 
@@ -406,7 +426,7 @@ func (s *Shipping) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrie
 	if err != nil {
 		return carrier.Parcel{}, err
 	}
-	if _, err = s.keep(ctx, string(c), code, p.Events); err != nil {
+	if err = s.keep(ctx, string(c), code, p.Events); err != nil {
 		return carrier.Parcel{}, err
 	}
 	t, err := s.Tracking(ctx, string(c), code, false)
@@ -414,7 +434,7 @@ func (s *Shipping) Track(ctx context.Context, seller uuid.UUID, c carrier.Carrie
 		return carrier.Parcel{}, err
 	}
 	if t.Step != "" {
-		p.Step = t.Step
+		p.Step, p.StepAt = t.Step, t.StepAt
 	}
 	return p, nil
 }
@@ -435,14 +455,19 @@ func (s *Shipping) Reported(ctx context.Context, c carrier.Carrier, contentType 
 	if len(evs) == 0 {
 		return nil
 	}
+	// The secret vouches for the carrier, so the events are kept before
+	// DealShip saves the code; the next report or poll moves the order.
+	if err = s.keep(ctx, string(c), code, evs); err != nil {
+		return err
+	}
 	known, err := s.d.Deals.ShipmentKnown(ctx, string(c), code)
 	if err != nil {
 		return fmt.Errorf("find %s %s: %w", c, code, err)
 	}
 	if !known {
-		return nil // a parcel the seller made outside ShopNexus
+		return nil // no order has it yet, or the seller made it outside ShopNexus
 	}
-	return s.report(ctx, string(c), code, evs)
+	return s.move(ctx, string(c), code)
 }
 
 // DevReported reports ev as of now on the parcel with code at whichever
@@ -459,49 +484,43 @@ func (s *Shipping) DevReported(ctx context.Context, code string, ev carrier.Even
 			return fmt.Errorf("find %s %s: %w", c, code, err)
 		}
 		if known {
-			return s.report(ctx, string(c), code, []carrier.Event{ev})
+			if err = s.keep(ctx, string(c), code, []carrier.Event{ev}); err != nil {
+				return err
+			}
+			return s.move(ctx, string(c), code)
 		}
 	}
 	return fmt.Errorf("find %s: %w", code, s.d.Deals.NotFound)
 }
 
-// report keeps evs and, when a new step among them is the parcel's
-// newest, moves the orders to its status. A late step only joins the
-// timeline.
-func (s *Shipping) report(ctx context.Context, c, code string, evs []carrier.Event) error {
-	stepped, err := s.keep(ctx, c, code, evs)
-	if err != nil || stepped.IsZero() {
-		return err
-	}
+// move sends the parcel's orders the status of the timeline's newest
+// step, whether this report kept it or an earlier one did: ShipmentUpdated
+// ignores a step no newer than the order's, so a resend moves an order
+// whose first move failed, and a late step changes nothing.
+func (s *Shipping) move(ctx context.Context, c, code string) error {
 	t, err := s.Tracking(ctx, c, code, false)
 	if err != nil {
 		return err
 	}
-	st, moves := t.Step.Status()
-	if !moves || t.Events[0].At.After(stepped) {
+	st, moves := t.Step.Reported()
+	if !moves {
 		return nil
 	}
-	err = s.d.Deals.ShipmentUpdated(ctx, c, code, string(st))
+	err = s.d.Deals.ShipmentUpdated(ctx, c, code, string(st), t.StepAt)
 	if err != nil && !errors.Is(err, s.d.Deals.NotFound) {
 		return fmt.Errorf("%s reported %s %s: %w", c, code, st, err)
 	}
 	return nil
 }
 
-// keep stores evs and returns when the newest new step among them was,
-// zero for none.
-func (s *Shipping) keep(ctx context.Context, c, code string, evs []carrier.Event) (stepped time.Time, err error) {
+// keep stores evs; an event that repeats one kept is dropped.
+func (s *Shipping) keep(ctx context.Context, c, code string, evs []carrier.Event) error {
 	for i := range evs {
-		ev := &evs[i]
-		kept, addErr := s.d.Events.Add(ctx, c, code, *ev)
-		if addErr != nil {
-			return time.Time{}, fmt.Errorf("keep %s %s: %w", c, code, addErr)
-		}
-		if kept && ev.Kind == carrier.KindStep && ev.At.After(stepped) {
-			stepped = ev.At
+		if _, err := s.d.Events.Add(ctx, c, code, evs[i]); err != nil {
+			return fmt.Errorf("keep %s %s: %w", c, code, err)
 		}
 	}
-	return stepped, nil
+	return nil
 }
 
 func (s *Shipping) Tracking(ctx context.Context, c, code string, seller bool) (Tracking, error) {
@@ -512,7 +531,7 @@ func (s *Shipping) Tracking(ctx context.Context, c, code string, seller bool) (T
 	t := Tracking{Events: evs}
 	for i := range evs {
 		if evs[i].Kind == carrier.KindStep {
-			t.Step = evs[i].Step
+			t.Step, t.StepAt = evs[i].Step, evs[i].At
 			break
 		}
 	}

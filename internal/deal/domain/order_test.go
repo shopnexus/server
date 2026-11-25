@@ -362,19 +362,24 @@ func TestShipmentUpdated(t *testing.T) {
 		t.Fatalf("%+v", m)
 	}
 	moves := len(d.Pending())
-	if changed, err = d.ShipmentUpdated(id, domain.ShipmentInTransit, later); err != nil || changed || len(d.Pending()) != moves {
-		t.Fatalf("the same status again: %v %v", changed, err)
+	// The same status at a newer step moves StatusAt and makes no move.
+	if changed, err = d.ShipmentUpdated(id, domain.ShipmentInTransit, later); err != nil || !changed || len(d.Pending()) != moves ||
+		!d.Order().Shipment.StatusAt.Equal(later) {
+		t.Fatalf("the same status again: %v %v %+v", changed, err, d.Order().Shipment)
 	}
-	must(t, func() error { _, e := d.ShipmentUpdated(id, domain.ShipmentDelivered, later); return e }())
-	if sh := d.Order().Shipment; sh.DeliveredAt == nil || !sh.DeliveredAt.Equal(later) || d.Order().Status != domain.OrderShipped ||
+	at := later.Add(time.Hour)
+	must(t, func() error { _, e := d.ShipmentUpdated(id, domain.ShipmentDelivered, at); return e }())
+	if sh := d.Order().Shipment; sh.DeliveredAt == nil || !sh.DeliveredAt.Equal(at) || d.Order().Status != domain.OrderShipped ||
 		!sh.PickedUpAt.Equal(now) {
 		t.Fatalf("delivered: %+v %+v", sh, d.Order())
 	}
-	must(t, func() error { _, e := d.ShipmentUpdated(id, domain.ShipmentInTransit, later); return e }())
+	at = at.Add(time.Hour)
+	must(t, func() error { _, e := d.ShipmentUpdated(id, domain.ShipmentInTransit, at); return e }())
 	if d.Order().Shipment.DeliveredAt != nil {
 		t.Fatal("a parcel back in transit kept its delivery time")
 	}
-	must(t, func() error { _, e := d.ShipmentUpdated(id, domain.ShipmentFailed, later); return e }())
+	at = at.Add(time.Hour)
+	must(t, func() error { _, e := d.ShipmentUpdated(id, domain.ShipmentFailed, at); return e }())
 	o := d.Order()
 	if o.Status != domain.OrderFailed || o.ClosedAt == nil || o.Shipment.Status != domain.ShipmentFailed ||
 		d.Status() != domain.StatusNegotiating || d.AgreedPrice() != 0 || d.AgreedAt() != nil {
@@ -386,7 +391,7 @@ func TestShipmentUpdated(t *testing.T) {
 	if o.Shipment.PickedUpAt == nil {
 		t.Fatal("a failed parcel lost its pickup time")
 	}
-	if _, err = d.ShipmentUpdated(id, domain.ShipmentDelivered, later); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if _, err = d.ShipmentUpdated(id, domain.ShipmentDelivered, at.Add(time.Hour)); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("a report for a closed order: %v", err)
 	}
 	back := reported(t, domain.ShipmentInTransit)
@@ -411,6 +416,80 @@ func TestShipmentUpdated(t *testing.T) {
 	}
 	s := shipped(t)
 	if _, err = s.ShipmentUpdated(uuid.NewV7(), domain.ShipmentInTransit, now); !errors.Is(err, domain.ErrMoveNotAllowed) {
+		t.Fatalf("another order: %v", err)
+	}
+}
+
+// A report of a step no newer than the stored one changes nothing: a late
+// pending_pickup leaves a parcel picked up, and a late in_transit leaves it
+// delivered. At an equal time the stored status stays.
+//
+// UC-DEAL-05 A1.
+func TestShipmentReportedInOrder(t *testing.T) {
+	t.Parallel()
+	d := shipped(t)
+	id := d.Order().ID
+	t1, t2, t3 := now.Add(time.Hour), now.Add(2*time.Hour), now.Add(3*time.Hour)
+	run := now.Add(5 * time.Hour)
+	for _, r := range []struct {
+		status  domain.ShipmentStatus
+		at      time.Time
+		changed bool
+		want    domain.ShipmentStatus
+	}{
+		{domain.ShipmentInTransit, t2, true, domain.ShipmentInTransit},
+		{domain.ShipmentPendingPickup, t1, false, domain.ShipmentInTransit},
+		{domain.ShipmentDelivered, t2, false, domain.ShipmentInTransit},
+		{domain.ShipmentDelivered, t3, true, domain.ShipmentDelivered},
+		{domain.ShipmentInTransit, t2, false, domain.ShipmentDelivered},
+		{domain.ShipmentDelivered, t3, false, domain.ShipmentDelivered},
+	} {
+		changed, err := d.ShipmentReported(id, r.status, r.at, run)
+		if sh := d.Order().Shipment; err != nil || changed != r.changed || sh.Status != r.want {
+			t.Fatalf("%s at %s: %v %v %+v", r.status, r.at, changed, err, sh)
+		}
+	}
+	if sh := d.Order().Shipment; sh.PickedUpAt == nil || sh.DeliveredAt == nil || !sh.StatusAt.Equal(t3) {
+		t.Fatalf("%+v", sh)
+	}
+}
+
+// A parcel the carrier cancelled or lost fails an order it picked up; one
+// still waiting for pickup stays, for the pickup timeout to cancel.
+func TestShipmentLost(t *testing.T) {
+	t.Parallel()
+	waiting := shipped(t)
+	changed, err := waiting.ShipmentReported(waiting.Order().ID, domain.ShipmentLost, later, later)
+	if err != nil || changed || waiting.Order().Status != domain.OrderShipped || len(waiting.Pending()) != 2 {
+		t.Fatalf("before the pickup: %v %v %+v", changed, err, waiting.Order())
+	}
+	picked := reported(t, domain.ShipmentInTransit)
+	changed, err = picked.ShipmentReported(picked.Order().ID, domain.ShipmentLost, later, later)
+	o := picked.Order()
+	if err != nil || !changed || o.Status != domain.OrderFailed || o.Shipment.Status != domain.ShipmentFailed ||
+		picked.Status() != domain.StatusNegotiating || last(&picked).Kind != domain.MoveFailed {
+		t.Fatalf("after the pickup: %v %v %+v", changed, err, o)
+	}
+}
+
+// The transit timeout fails a shipped order that is not delivered.
+func TestTransitTimeout(t *testing.T) {
+	t.Parallel()
+	d := reported(t, domain.ShipmentInTransit)
+	must(t, d.TransitTimeout(d.Order().ID, later))
+	if o := d.Order(); o.Status != domain.OrderFailed || o.Shipment.Status != domain.ShipmentFailed || !o.ClosedAt.Equal(later) ||
+		last(&d).Kind != domain.MoveFailed || d.Status() != domain.StatusNegotiating {
+		t.Fatalf("%+v", o)
+	}
+	for name, d := range map[string]domain.Deal{
+		"delivered": reported(t, domain.ShipmentDelivered), "failed": reported(t, domain.ShipmentFailed), "pending": pending(t),
+	} {
+		if err := d.TransitTimeout(d.Order().ID, later); !errors.Is(err, domain.ErrMoveNotAllowed) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	d = reported(t, domain.ShipmentInTransit)
+	if err := d.TransitTimeout(uuid.NewV7(), later); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("another order: %v", err)
 	}
 }

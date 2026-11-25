@@ -1,5 +1,5 @@
 // Package repository stores module shipping's carrier accounts, settings
-// and the carriers' events in Postgres. Each method is one statement.
+// and the carriers' events in Postgres. Each method is one transaction.
 package repository
 
 import (
@@ -23,17 +23,23 @@ type Row struct {
 	LinkedAt  time.Time
 }
 
+// Guard runs under the lock of an owner's carrier account, before a write
+// that changes its shop; its error refuses the write. Module deal's save
+// of a shipment takes the same lock, so no shipment lands in between.
+type Guard func(ctx context.Context) error
+
 // Accounts persists carrier accounts, one per account and carrier.
 type Accounts interface {
-	// Put links r, replacing the account's earlier one at r.Carrier.
-	Put(ctx context.Context, r Row) error
+	// Put links r, replacing the account's earlier one at r.Carrier; when
+	// that one is at another shop, open guards the write.
+	Put(ctx context.Context, r Row, open Guard) error
 	// Get returns the owner's account at carrier, or ErrNotFound.
 	Get(ctx context.Context, owner uuid.UUID, carrier string) (Row, error)
 	// List is a query: the owner's accounts in carrier order.
 	List(ctx context.Context, owner uuid.UUID) ([]Row, error)
-	// Delete unlinks the owner's account at carrier; false when there was
-	// none.
-	Delete(ctx context.Context, owner uuid.UUID, carrier string) (bool, error)
+	// Delete unlinks the owner's account at carrier once open passes;
+	// false when there was none.
+	Delete(ctx context.Context, owner uuid.UUID, carrier string, open Guard) (bool, error)
 	// DeleteAll unlinks every account of the owner's.
 	DeleteAll(ctx context.Context, owner uuid.UUID) error
 }

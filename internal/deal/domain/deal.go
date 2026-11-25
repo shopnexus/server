@@ -386,22 +386,42 @@ func (d *Deal) ConfirmReceipt(by Party, order uuid.UUID, now time.Time) error {
 	return nil
 }
 
-// ShipmentUpdated sets the shipped order's shipment status as its carrier
-// reports it and reports whether anything changed. The first status past
-// pending_pickup but failed sets PickedUpAt, and pending_pickup clears it;
-// delivered sets DeliveredAt and leaving it clears it. failed fails the
-// order at once: the deal negotiates again without its agreed price. An
-// order that is not the deal's shipped one, or one without a shipment, is
-// ErrMoveNotAllowed: a late report changes nothing.
+// ShipmentUpdated is ShipmentReported of a step that happened now.
 func (d *Deal) ShipmentUpdated(order uuid.UUID, status ShipmentStatus, now time.Time) (bool, error) {
+	return d.ShipmentReported(order, status, now, now)
+}
+
+// ShipmentReported sets the shipped order's shipment status as its carrier
+// reports it, of a step that happened at, and reports whether anything
+// changed. A report no newer than the stored one changes nothing; the same
+// status at a newer time only moves StatusAt. The first status past
+// pending_pickup but failed sets PickedUpAt, and pending_pickup clears it;
+// delivered sets DeliveredAt and leaving it clears it. failed, or lost
+// after the pickup, fails the order at once: the deal negotiates again
+// without its agreed price. lost before the pickup moves nothing, so the
+// pickup timeout cancels the order. An order that is not the deal's
+// shipped one, or one without a shipment, is ErrMoveNotAllowed: a late
+// report changes nothing.
+func (d *Deal) ShipmentReported(order uuid.UUID, status ShipmentStatus, at, now time.Time) (bool, error) {
 	o := d.openOrder()
 	if o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil {
 		return false, ErrMoveNotAllowed
 	}
-	if o.Shipment.Status == status {
+	if st := o.Shipment.StatusAt; st != nil && !at.After(*st) {
 		return false, nil
 	}
+	if status == ShipmentLost {
+		if o.Shipment.PickedUpAt == nil {
+			return false, nil
+		}
+		status = ShipmentFailed
+	}
 	s := *o.Shipment
+	s.StatusAt = &at
+	o.Shipment = &s
+	if s.Status == status {
+		return true, nil // a newer step of the same status: no move
+	}
 	s.Status, s.DeliveredAt = status, nil
 	if status == ShipmentPendingPickup {
 		s.PickedUpAt = nil
@@ -411,15 +431,35 @@ func (d *Deal) ShipmentUpdated(order uuid.UUID, status ShipmentStatus, now time.
 	if status == ShipmentDelivered {
 		s.DeliveredAt = &now
 	}
-	o.Shipment = &s
 	if status == ShipmentFailed {
-		o.Status, o.ClosedAt = OrderFailed, &now
-		d.reopen()
-		d.record(MoveFailed, System, 0, now)
+		d.failOrder(now)
 		return true, nil
 	}
 	d.record(MoveShipmentUpdated, System, 0, now)
 	return true, nil
+}
+
+// failOrder fails the shipped order: the deal negotiates again.
+func (d *Deal) failOrder(now time.Time) {
+	d.order.Status, d.order.ClosedAt = OrderFailed, &now
+	d.reopen()
+	d.record(MoveFailed, System, 0, now)
+}
+
+// TransitTimeout fails order when it is shipped and its carrier no longer
+// knows the parcel Waits.Transit after the pickup; a delivered or closed
+// order is ErrMoveNotAllowed.
+func (d *Deal) TransitTimeout(order uuid.UUID, now time.Time) error {
+	o := d.openOrder()
+	if o == nil || o.ID != order || o.Status != OrderShipped || o.Shipment == nil ||
+		o.Shipment.Status == ShipmentDelivered {
+		return ErrMoveNotAllowed
+	}
+	s := *o.Shipment
+	s.Status, s.DeliveredAt = ShipmentFailed, nil
+	o.Shipment = &s
+	d.failOrder(now)
+	return nil
 }
 
 // SellerTimeout cancels order when it is still the deal's pending order;

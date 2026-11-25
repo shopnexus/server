@@ -21,13 +21,31 @@ func TestAccountsPutListAndDelete(t *testing.T) {
 	row := func(c, shop string) repository.Row {
 		return repository.Row{AccountID: owner, Carrier: c, ShopCode: shop, Token: []byte("sealed-" + shop), LinkedAt: at}
 	}
+	errOpen := errors.New("a shipment is open")
+	guards := 0
+	open := func(context.Context) error { guards++; return errOpen }
+	pass := func(context.Context) error { guards++; return nil }
 	if _, err := accounts.Get(ctx, owner, "ghtk"); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("nothing linked: %v", err)
 	}
-	for _, r := range []repository.Row{row("ghtk", "S1"), row("ghn", "885"), row("ghtk", "S2")} {
-		if err := accounts.Put(ctx, r); err != nil {
+	// A first link and one at the same shop need no guard.
+	for _, r := range []repository.Row{row("ghtk", "S1"), row("ghn", "885"), row("ghtk", "S1")} {
+		if err := accounts.Put(ctx, r, open); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if guards != 0 {
+		t.Fatalf("%d guards ran", guards)
+	}
+	// Another shop runs the guard, which can refuse it.
+	if err := accounts.Put(ctx, row("ghtk", "S2"), open); !errors.Is(err, errOpen) {
+		t.Fatalf("another shop while open: %v", err)
+	}
+	if got, _ := accounts.Get(ctx, owner, "ghtk"); got.ShopCode != "S1" {
+		t.Fatalf("the refused shop was written: %+v", got)
+	}
+	if err := accounts.Put(ctx, row("ghtk", "S2"), pass); err != nil {
+		t.Fatal(err)
 	}
 	got, err := accounts.Get(ctx, owner, "ghtk")
 	if err != nil || got.ShopCode != "S2" || string(got.Token) != "sealed-S2" || !got.LinkedAt.Equal(at) {
@@ -40,11 +58,14 @@ func TestAccountsPutListAndDelete(t *testing.T) {
 	if list, _ = accounts.List(ctx, other); len(list) != 0 {
 		t.Fatalf("another account's list %+v", list)
 	}
-	deleted, err := accounts.Delete(ctx, owner, "ghn")
+	if _, err = accounts.Delete(ctx, owner, "ghn", open); !errors.Is(err, errOpen) {
+		t.Fatalf("delete while open: %v", err)
+	}
+	deleted, err := accounts.Delete(ctx, owner, "ghn", pass)
 	if err != nil || !deleted {
 		t.Fatalf("delete %v %v", deleted, err)
 	}
-	if deleted, _ := accounts.Delete(ctx, owner, "ghn"); deleted {
+	if deleted, _ := accounts.Delete(ctx, owner, "ghn", pass); deleted {
 		t.Fatal("deleted twice")
 	}
 	if err = accounts.DeleteAll(ctx, owner); err != nil {

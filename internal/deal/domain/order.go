@@ -77,12 +77,17 @@ const (
 	ShipmentInTransit     ShipmentStatus = "in_transit"
 	ShipmentDelivered     ShipmentStatus = "delivered"
 	ShipmentFailed        ShipmentStatus = "failed"
+	// ShipmentLost is a report only, never stored: the carrier cancelled
+	// or lost the parcel. It fails an order picked up and moves no other.
+	ShipmentLost ShipmentStatus = "lost"
 )
 
 // Shipment is the parcel of a shipped order. Fee is the carrier's, nil
 // while it has none. PickedUpAt is when the carrier first reported it past
 // pending_pickup, nil while it waits there; DeliveredAt is set while the
-// status is delivered.
+// status is delivered. StatusAt is when the carrier's step behind Status
+// happened, nil before its first report; ShopCode is the carrier shop a
+// linked shipment was made at. The API shows neither.
 type Shipment struct {
 	Mode         ShipmentMode   `json:"mode"`
 	Carrier      Carrier        `json:"carrier"`
@@ -91,6 +96,8 @@ type Shipment struct {
 	Status       ShipmentStatus `json:"status"`
 	PickedUpAt   *time.Time     `json:"picked_up_at,omitempty"`
 	DeliveredAt  *time.Time     `json:"delivered_at,omitempty"`
+	StatusAt     *time.Time     `json:"status_at,omitempty"`
+	ShopCode     string         `json:"shop_code,omitempty"`
 	// Pickup is where the carrier takes a linked shipment's parcel; nil
 	// for one sent from the carrier's default pickup point, and for a
 	// manual one.
@@ -145,10 +152,16 @@ type Waits struct {
 	Pickup time.Duration
 	// Complete is how long a delivered parcel waits for the buyer's word.
 	Complete time.Duration
+	// Transit is how long a picked-up parcel goes before the carrier is
+	// asked whether it still moves.
+	Transit time.Duration
 }
 
-// OrderWaits are the waits of every order: 3 days each.
-var OrderWaits = Waits{Seller: 72 * time.Hour, Pickup: 72 * time.Hour, Complete: 72 * time.Hour}
+// TransitWait is Waits.Transit for every order.
+const TransitWait = 30 * 24 * time.Hour
+
+// OrderWaits are the waits of every order: 3 days each, and TransitWait.
+var OrderWaits = Waits{Seller: 72 * time.Hour, Pickup: 72 * time.Hour, Complete: 72 * time.Hour, Transit: TransitWait}
 
 // AddressKind is what the recipient's place is, copied from the address
 // book: an office (work) takes parcels in office hours.
@@ -232,11 +245,12 @@ func NewShipmentDraft(carrier, service string, weightGrams int, pickup string) (
 	return ShipmentDraft{Carrier: c, Service: s, WeightGrams: weightGrams, Pickup: p}, nil
 }
 
-// ParseShipmentStatus reads a status module shipping reports.
+// ParseShipmentStatus reads a status module shipping reports, lost
+// included.
 func ParseShipmentStatus(s string) (ShipmentStatus, error) {
 	st := ShipmentStatus(s)
 	switch st {
-	case ShipmentPendingPickup, ShipmentInTransit, ShipmentDelivered, ShipmentFailed:
+	case ShipmentPendingPickup, ShipmentInTransit, ShipmentDelivered, ShipmentFailed, ShipmentLost:
 		return st, nil
 	}
 	return "", ErrInvalidStatus

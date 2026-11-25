@@ -22,20 +22,29 @@ import (
 
 var errNoOrder = errors.New("deal: no order has the code")
 
-// deals plays module deal: open shipments are the set given, and every
-// reported code is recorded.
+// deals plays module deal: open shipments are the set given, every
+// reported code is recorded with its status and step time, and a code in
+// unknown has no order yet. fails moves fail that many times first.
 type deals struct {
 	open     map[string]bool
+	unknown  map[string]bool
+	fails    int
 	reported []string
 }
 
+var errMoveFailed = errors.New("deal: the move failed")
+
 func (d *deals) funcs() service.Deals {
 	return service.Deals{
-		ShipmentUpdated: func(_ context.Context, _, code, status string) error {
+		ShipmentUpdated: func(_ context.Context, _, code, status string, at time.Time) error {
 			if code == "UNKNOWN" {
 				return errNoOrder
 			}
-			d.reported = append(d.reported, code+" "+status)
+			if d.fails > 0 {
+				d.fails--
+				return errMoveFailed
+			}
+			d.reported = append(d.reported, code+" "+status+" "+at.UTC().Format("15:04"))
 			return nil
 		},
 		OpenShipmentsAt: func(_ context.Context, _ uuid.UUID, c string) (bool, error) { return d.open[c], nil },
@@ -43,7 +52,7 @@ func (d *deals) funcs() service.Deals {
 			return service.QuoteFacts{Recipient: carrier.Place{Name: "Hân", Commune: "Phường Bến Nghé", Province: "TP. Hồ Chí Minh"}, Price: 1_500_000}, nil
 		},
 		ShipmentKnown: func(_ context.Context, c, code string) (bool, error) {
-			return c == "ghtk" && code != "UNKNOWN", nil
+			return c == "ghtk" && code != "UNKNOWN" && !d.unknown[code], nil
 		},
 		NotFound: errNoOrder,
 	}
@@ -73,7 +82,7 @@ func newKey(t *testing.T) *secret.Box {
 func newEnv(t *testing.T, clients map[carrier.Carrier]carrier.Client) env {
 	t.Helper()
 	db := pgtest.New(t)
-	e := env{rows: repository.NewAccounts(db), deals: &deals{open: map[string]bool{}}, key: newKey(t), owner: accounttest.New(t, db)}
+	e := env{rows: repository.NewAccounts(db), deals: &deals{open: map[string]bool{}, unknown: map[string]bool{}}, key: newKey(t), owner: accounttest.New(t, db)}
 	e.svc = service.New(service.Deps{
 		Accounts: e.rows, Events: repository.NewEvents(db), Clients: clients, Tokens: e.key, Deals: e.deals.funcs(), Now: time.Now,
 	})
@@ -181,6 +190,46 @@ func TestUnlinkCountsOnlyThatCarrier(t *testing.T) {
 	}
 }
 
+// While a shipment is open at a carrier, linking there again keeps to the
+// same shop: another shop's token would not know the open parcels.
+func TestRelinkToAnotherShopWaitsForTheOpenShipments(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t, fakes())
+	first, err := e.svc.Link(ctx, e.owner, "ghn", carrier.Credentials{Token: "t", ShopID: "885"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.deals.open["ghn"] = true
+	if _, err = e.svc.Link(ctx, e.owner, "ghn", carrier.Credentials{Token: "t2", ShopID: "886"}); !errors.Is(err, domain.ErrShipmentsOpen) {
+		t.Fatalf("another shop while open: %v", err)
+	}
+	if v, err := e.svc.Link(ctx, e.owner, "ghn", carrier.Credentials{Token: "t2", ShopID: "885"}); err != nil || v.ShopCode != first.ShopCode {
+		t.Fatalf("the same shop again: %+v %v", v, err)
+	}
+	if row, _ := e.rows.Get(ctx, e.owner, "ghn"); row.ShopCode != "885" {
+		t.Fatalf("stored %+v", row)
+	}
+	e.deals.open["ghn"] = false
+	if v, err := e.svc.Link(ctx, e.owner, "ghn", carrier.Credentials{Token: "t2", ShopID: "886"}); err != nil || v.ShopCode != "886" {
+		t.Fatalf("another shop once closed: %+v %v", v, err)
+	}
+}
+
+// A shipment is made at the shop the seller links, and says so.
+func TestCreateNamesTheShop(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t, fakes())
+	if _, err := e.svc.Link(ctx, e.owner, "ghn", carrier.Credentials{Token: "t", ShopID: "885"}); err != nil {
+		t.Fatal(err)
+	}
+	made, err := e.svc.Create(ctx, e.owner, carrier.GHN, carrier.CreateInput{OrderCode: "SN-1"})
+	if err != nil || made.ShopCode != "885" || made.TrackingCode == "" {
+		t.Fatalf("%+v %v", made, err)
+	}
+}
+
 func TestNotLinkedAndNoCarrier(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -234,7 +283,7 @@ func TestOneCarrierOff(t *testing.T) {
 	if _, err := e.svc.Link(ctx, e.owner, "spx", carrier.Credentials{}); !errors.Is(err, domain.ErrInvalidCarrier) {
 		t.Fatalf("spx: %v", err)
 	}
-	if err := e.rows.Put(ctx, repository.Row{AccountID: e.owner, Carrier: "ghtk", ShopCode: "S1", Token: e.key.Seal([]byte("t"), nil), LinkedAt: time.Now()}); err != nil {
+	if err := e.rows.Put(ctx, repository.Row{AccountID: e.owner, Carrier: "ghtk", ShopCode: "S1", Token: e.key.Seal([]byte("t"), nil), LinkedAt: time.Now()}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.svc.Create(ctx, e.owner, carrier.GHTK, carrier.CreateInput{}); !errors.Is(err, domain.ErrUnavailable) {
@@ -293,9 +342,10 @@ func TestQuoteChecksTheShipmentThenAsksTheCarrier(t *testing.T) {
 	}
 }
 
-// A report keeps its events once and moves the order to the status of the
-// parcel's newest step. A failed delivery stays in transit; a repeat, a
-// late step, a code no order has or another carrier's code moves nothing.
+// A report keeps its events once and sends the order the status of the
+// parcel's newest step with its time, a repeat or a late step too, which
+// deal ignores. A failed delivery stays in transit. A code no order has,
+// or another carrier's code, keeps its events and moves nothing.
 //
 // UC-DEAL-05.
 func TestReportedKeepsTheTimelineAndMovesToTheNewestStep(t *testing.T) {
@@ -324,8 +374,17 @@ func TestReportedKeepsTheTimelineAndMovesToTheNewestStep(t *testing.T) {
 	if err := e.svc.Reported(ctx, carrier.GHTK, "application/json", []byte("not json")); !errors.Is(err, domain.ErrReportUnread) {
 		t.Fatalf("an unreadable report: %v", err)
 	}
-	if want := code + " in_transit|" + code + " in_transit"; strings.Join(e.deals.reported, "|") != want {
+	want := []string{code + " in_transit 09:00", code + " in_transit 09:00", code + " in_transit 09:00", code + " in_transit 10:00"}
+	if !slices.Equal(e.deals.reported, want) {
 		t.Fatalf("%v", e.deals.reported)
+	}
+	for c, n := range map[string]int{"ghn": 1} {
+		if kept, _ := e.svc.Tracking(ctx, c, code, true); len(kept.Events) != n {
+			t.Errorf("%s keeps %+v", c, kept)
+		}
+	}
+	if kept, _ := e.svc.Tracking(ctx, "ghtk", "UNKNOWN", true); len(kept.Events) != 1 {
+		t.Errorf("a code no order has keeps %+v", kept)
 	}
 	all, err := e.svc.Tracking(ctx, "ghtk", code, true)
 	if err != nil || all.Step != carrier.StepDeliveryFailed || len(all.Events) != 4 ||
@@ -337,6 +396,38 @@ func TestReportedKeepsTheTimelineAndMovesToTheNewestStep(t *testing.T) {
 	}
 	if err = e.svc.DevReported(ctx, "UNKNOWN", carrier.Event{At: time.Now(), Kind: carrier.KindStep, Step: carrier.StepPicked}); !errors.Is(err, errNoOrder) {
 		t.Fatalf("a code no order has: %v", err)
+	}
+}
+
+// A step the webhook brings before DealShip saved its code is kept, and
+// the next report moves the order to it. A move that failed is sent
+// again when the carrier resends the report, though nothing new is kept.
+//
+// UC-DEAL-05.
+func TestReportedMovesAfterAnEarlyOrFailedReport(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t, fakes())
+	code := "S1." + uuid.NewV7().String()
+	picked := fmt.Sprintf(`{"label_id":%q,"status_id":3,"action_time":"2026-11-24T09:00:00Z"}`, code)
+	fee := fmt.Sprintf(`{"label_id":%q,"status_id":123,"fee":30000,"action_time":"2026-11-24T09:30:00Z"}`, code)
+	e.deals.unknown[code] = true
+	if err := e.svc.Reported(ctx, carrier.GHTK, "application/json", []byte(picked)); err != nil {
+		t.Fatal(err)
+	}
+	if len(e.deals.reported) != 0 {
+		t.Fatalf("moved before the order had the code: %v", e.deals.reported)
+	}
+	delete(e.deals.unknown, code)
+	e.deals.fails = 1
+	if err := e.svc.Reported(ctx, carrier.GHTK, "application/json", []byte(fee)); !errors.Is(err, errMoveFailed) {
+		t.Fatalf("a failed move: %v", err)
+	}
+	if err := e.svc.Reported(ctx, carrier.GHTK, "application/json", []byte(fee)); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{code + " in_transit 09:00"}; !slices.Equal(e.deals.reported, want) {
+		t.Fatalf("%v", e.deals.reported)
 	}
 }
 
@@ -360,7 +451,7 @@ func TestAWrongKeyTokenIsAnErrorWithoutTheToken(t *testing.T) {
 	ctx := context.Background()
 	e := newEnv(t, fakes())
 	sealed := newKey(t).Seal([]byte("token-of-another-stack"), nil)
-	if err := e.rows.Put(ctx, repository.Row{AccountID: e.owner, Carrier: "ghtk", ShopCode: "S1", Token: sealed, LinkedAt: time.Now()}); err != nil {
+	if err := e.rows.Put(ctx, repository.Row{AccountID: e.owner, Carrier: "ghtk", ShopCode: "S1", Token: sealed, LinkedAt: time.Now()}, nil); err != nil {
 		t.Fatal(err)
 	}
 	_, err := e.svc.Lookup(ctx, e.owner, carrier.GHTK, "S1.A1")

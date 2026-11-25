@@ -85,8 +85,9 @@ func loadStep(ctx restate.Context, s *Deals, caller, id, key uuid.UUID) (loaded,
 // saveStep saves d with its deal.moved event in one journaled step, under
 // a write ID and an event ID minted from the journal, its moves keyed by
 // the request's key or [uuid.Nil] for the system's. A deal changed
-// meanwhile is domain.ErrChanged and a fourth open order
-// domain.ErrCodLimit, as data; a retry of a save that committed writes
+// meanwhile is domain.ErrChanged, a fourth open order domain.ErrCodLimit
+// and a shipment at a shop the seller no longer links
+// domain.ErrCarrierNotLinked, as data; a retry of a save that committed writes
 // nothing more.
 func saveStep(ctx restate.Context, deals repository.Deals, d *domain.Deal, key uuid.UUID, at time.Time) (*apperr.Error, error) {
 	writeID, eventID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)
@@ -98,6 +99,11 @@ func saveStep(ctx restate.Context, deals repository.Deals, d *domain.Deal, key u
 		// BR-DEAL-06: only a new pending order meets the cap.
 		if errors.Is(stepErr, domain.ErrCodLimit) {
 			return restatex.Refused{Refusal: domain.ErrCodLimit}, nil
+		}
+		// The seller unlinked the carrier, or linked another shop, since
+		// the shipment was made.
+		if errors.Is(stepErr, repository.ErrAccountChanged) {
+			return restatex.Refused{Refusal: domain.ErrCarrierNotLinked}, nil
 		}
 		if stepErr != nil {
 			return restatex.Refused{}, fmt.Errorf("save deal: %w", stepErr)
