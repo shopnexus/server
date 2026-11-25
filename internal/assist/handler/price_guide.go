@@ -6,6 +6,7 @@ import (
 
 	"github.com/shopnexus/server/internal/assist/service"
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -23,22 +24,10 @@ type priceGuideRequest struct {
 
 // PriceGuide serves POST /v1/price-guides.
 func (h *Handler) PriceGuide(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in priceGuideRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.PriceGuide(r.Context(), p.AccountID, service.PriceGuideInput{
-		Title: in.Title, CategoryCode: in.CategoryCode, Condition: in.Condition, Specs: in.Specs,
-		Description: in.Description, CommuneCode: in.CommuneCode, Photos: in.Photos,
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in priceGuideRequest) (service.PriceGuideView, error) {
+		return h.svc.PriceGuide(r.Context(), p.AccountID, service.PriceGuideInput{
+			Title: in.Title, CategoryCode: in.CategoryCode, Condition: in.Condition, Specs: in.Specs,
+			Description: in.Description, CommuneCode: in.CommuneCode, Photos: in.Photos,
+		})
 	})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
 }

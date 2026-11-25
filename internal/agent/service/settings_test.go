@@ -567,7 +567,7 @@ func TestUsageToolsAndGuardrails(t *testing.T) {
 	}
 	tools, err := s.Tools(ctx, admin, "7d")
 	if err != nil || len(tools.Items) != 1 || tools.Items[0].DisplayName != "Ticket" || tools.Items[0].Calls != 1 ||
-		*tools.Items[0].P50MS != 80 || len(tools.Items[0].Days) != 7 || len(tools.Recent) != 1 || *tools.Recent[0].MemberID != moderator {
+		*tools.Items[0].P50MS != 80 || len(tools.Items[0].Days) != 7 || len(tools.Recent) != 1 || tools.Recent[0].MemberID != moderator {
 		t.Fatalf("tools %+v %v", tools, err)
 	}
 	guards, err := s.Guardrails(ctx, admin, "bogus")

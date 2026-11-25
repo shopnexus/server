@@ -59,31 +59,31 @@ type Cap struct {
 // buyer, and the listing and COD caps with the caller's use. A deleted
 // account is accountdomain.ErrSessionRevoked, from Me.
 func (s *Screen) Reputation(ctx context.Context, account uuid.UUID) (ReputationScreen, error) {
-	me, err := s.accounts.Me(ctx, account)
+	me, err := s.d.Accounts.Me(ctx, account)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("read the account: %w", err)
 	}
-	rating, err := s.trust.Rating(ctx, account, trustdomain.RoleSeller)
+	rating, err := s.d.Trust.Rating(ctx, account, trustdomain.RoleSeller)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("read the rating: %w", err)
 	}
-	buyerRating, err := s.trust.Rating(ctx, account, trustdomain.RoleBuyer)
+	buyerRating, err := s.d.Trust.Rating(ctx, account, trustdomain.RoleBuyer)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("read the buyer rating: %w", err)
 	}
-	counts, err := s.catalog.SellerCounts(ctx, account)
+	counts, err := s.d.Catalog.SellerCounts(ctx, account)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("count the listings: %w", err)
 	}
-	followers, err := s.accounts.FollowerCount(ctx, account)
+	followers, err := s.d.Accounts.FollowerCount(ctx, account)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("count the followers: %w", err)
 	}
-	reply, err := s.chats.ReplyRate(ctx, account)
+	reply, err := s.d.Chats.ReplyRate(ctx, account)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("read the reply rate: %w", err)
 	}
-	orders, err := s.deals.BuyerOrders(ctx, account)
+	orders, err := s.d.Deals.BuyerOrders(ctx, account)
 	if err != nil {
 		return ReputationScreen{}, fmt.Errorf("count the orders: %w", err)
 	}

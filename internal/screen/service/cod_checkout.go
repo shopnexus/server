@@ -25,7 +25,7 @@ type CodCheckoutScreen struct {
 }
 
 func (s *Screen) CodCheckout(ctx context.Context, account, deal uuid.UUID, address *uuid.UUID) (CodCheckoutScreen, error) {
-	d, err := s.deals.Get(ctx, account, deal)
+	d, err := s.d.Deals.Get(ctx, account, deal)
 	if err != nil {
 		return CodCheckoutScreen{}, fmt.Errorf("read deal: %w", err)
 	}
@@ -34,13 +34,13 @@ func (s *Screen) CodCheckout(ctx context.Context, account, deal uuid.UUID, addre
 	}
 	var selected *accountsvc.AddressView
 	if address != nil {
-		a, addressErr := s.accounts.Address(ctx, account, *address)
+		a, addressErr := s.d.Accounts.Address(ctx, account, *address)
 		if addressErr != nil {
 			return CodCheckoutScreen{}, fmt.Errorf("read selected address: %w", addressErr)
 		}
 		selected = &a
 	} else {
-		book, bookErr := s.accounts.Addresses(ctx, account)
+		book, bookErr := s.d.Accounts.Addresses(ctx, account)
 		if bookErr != nil {
 			return CodCheckoutScreen{}, fmt.Errorf("read address book: %w", bookErr)
 		}
@@ -52,7 +52,7 @@ func (s *Screen) CodCheckout(ctx context.Context, account, deal uuid.UUID, addre
 	if err != nil {
 		return CodCheckoutScreen{}, err
 	}
-	orders, err := s.deals.BuyerOrders(ctx, account)
+	orders, err := s.d.Deals.BuyerOrders(ctx, account)
 	if err != nil {
 		return CodCheckoutScreen{}, fmt.Errorf("count COD orders: %w", err)
 	}

@@ -328,31 +328,32 @@ type ToolTotal struct {
 	P50MS  *float64
 }
 
-// RecentCall is a tool call for the stats' recent list.
+// RecentCall is a tool call for the stats' recent list, as the stats send
+// it.
 type RecentCall struct {
-	CallID     uuid.UUID
-	TurnID     uuid.UUID
-	MemberID   uuid.UUID
-	Tool       string
-	Label      string
-	DurationMS *int64
-	Status     string
-	At         time.Time
+	CallID     uuid.UUID `json:"call_id"`
+	TurnID     uuid.UUID `json:"turn_id"`
+	MemberID   uuid.UUID `json:"member_id"`
+	Tool       string    `json:"tool"`
+	Label      string    `json:"label"`
+	DurationMS *int64    `json:"duration_ms,omitempty"`
+	Status     string    `json:"status"`
+	At         time.Time `json:"at"`
 }
 
-// RuleCount is how often a guardrail rule acted.
+// RuleCount is how often a guardrail rule acted, as the stats send it.
 type RuleCount struct {
-	Rule  string
-	Count int
+	Rule  string `json:"rule"`
+	Count int    `json:"count"`
 }
 
-// RecentGuardrail is one guardrail event.
+// RecentGuardrail is one guardrail event, as the stats send it.
 type RecentGuardrail struct {
-	Rule     string
-	Detail   string
-	MemberID uuid.UUID
-	TurnID   uuid.UUID
-	At       time.Time
+	Rule     string    `json:"rule"`
+	Detail   string    `json:"detail"`
+	MemberID uuid.UUID `json:"member_id"`
+	TurnID   uuid.UUID `json:"turn_id"`
+	At       time.Time `json:"at"`
 }
 
 // MemberCount is a member's turns since a moment.

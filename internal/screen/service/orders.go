@@ -37,7 +37,7 @@ type OrdersScreenItem struct {
 // parties, account's reviews of the orders and the side's count, one call
 // each.
 func (s *Screen) Orders(ctx context.Context, account uuid.UUID, as dealdomain.Party, p page.Request) (OrdersScreen, error) {
-	orders, err := s.deals.ListOrders(ctx, account, as, p)
+	orders, err := s.d.Deals.ListOrders(ctx, account, as, p)
 	if err != nil {
 		return OrdersScreen{}, fmt.Errorf("read orders: %w", err)
 	}
@@ -55,14 +55,14 @@ func (s *Screen) Orders(ctx context.Context, account uuid.UUID, as dealdomain.Pa
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		if as == dealdomain.Seller {
-			n, countErr := s.deals.AwaitingShipment(gctx, account)
+			n, countErr := s.d.Deals.AwaitingShipment(gctx, account)
 			if countErr != nil {
 				return fmt.Errorf("count pending sales: %w", countErr)
 			}
 			out.AwaitingShipment = &n
 			return nil
 		}
-		n, countErr := s.deals.BuyerOrders(gctx, account)
+		n, countErr := s.d.Deals.BuyerOrders(gctx, account)
 		if countErr != nil {
 			return fmt.Errorf("count COD orders: %w", countErr)
 		}
@@ -71,14 +71,14 @@ func (s *Screen) Orders(ctx context.Context, account uuid.UUID, as dealdomain.Pa
 	})
 	g.Go(func() error {
 		var peopleErr error
-		if people, peopleErr = s.accounts.GetMany(gctx, others); peopleErr != nil {
+		if people, peopleErr = s.d.Accounts.GetMany(gctx, others); peopleErr != nil {
 			return fmt.Errorf("read people: %w", peopleErr)
 		}
 		return nil
 	})
 	g.Go(func() error {
 		var reviewsErr error
-		if reviews, reviewsErr = s.trust.OrderReviews(gctx, account, ids); reviewsErr != nil {
+		if reviews, reviewsErr = s.d.Trust.OrderReviews(gctx, account, ids); reviewsErr != nil {
 			return fmt.Errorf("read own reviews: %w", reviewsErr)
 		}
 		return nil

@@ -87,16 +87,7 @@ type DayCalls struct {
 }
 
 // ToolRecent is one recent tool call.
-type ToolRecent struct {
-	CallID     uuid.UUID  `json:"call_id"`
-	TurnID     uuid.UUID  `json:"turn_id"`
-	MemberID   *uuid.UUID `json:"member_id,omitempty"`
-	Tool       string     `json:"tool"`
-	Label      string     `json:"label"`
-	DurationMS *int       `json:"duration_ms,omitempty"`
-	Status     string     `json:"status"`
-	At         time.Time  `json:"at"`
-}
+type ToolRecent = repository.RecentCall
 
 // GuardrailStats is the AIGuardrailStats schema, the agent's own.
 type GuardrailStats struct {
@@ -105,35 +96,21 @@ type GuardrailStats struct {
 }
 
 // GuardrailCount is how often a rule acted.
-type GuardrailCount struct {
-	Rule  string `json:"rule"`
-	Count int    `json:"count"`
-}
+type GuardrailCount = repository.RuleCount
 
 // GuardrailNotice is one time a rule acted.
-type GuardrailNotice struct {
-	Rule     string     `json:"rule"`
-	Detail   string     `json:"detail"`
-	MemberID *uuid.UUID `json:"member_id,omitempty"`
-	TurnID   *uuid.UUID `json:"turn_id,omitempty"`
-	At       time.Time  `json:"at"`
-}
+type GuardrailNotice = repository.RecentGuardrail
 
 // turnStats counts the console turns of a range by agent and by member.
 type turnStats struct {
 	ByAgent  []agentTurns
-	ByMember []memberTurns
+	ByMember []repository.MemberCount
 }
 
 type agentTurns struct {
 	AgentID  string
 	Requests int
 	Days     []DayCount
-}
-
-type memberTurns struct {
-	MemberID uuid.UUID
-	Requests int
 }
 
 // rangeOf is the days of rng when Spend takes it, else of 7d.
@@ -186,12 +163,12 @@ func byDay(rows []repository.DayCount, dates []string) map[string][]int {
 // turnsOf counts the console turns of the last n days by agent and by
 // member.
 func (s *Agent) turnsOf(ctx context.Context, n int) (turnStats, error) {
-	from, dates := rangeDays(s.now(), n)
-	days, err := s.runs.AgentDays(ctx, from)
+	from, dates := rangeDays(s.d.Now(), n)
+	days, err := s.d.Runs.AgentDays(ctx, from)
 	if err != nil {
 		return turnStats{}, fmt.Errorf("count the turns by agent: %w", err)
 	}
-	members, err := s.runs.MemberTurns(ctx, from)
+	members, err := s.d.Runs.MemberTurns(ctx, from)
 	if err != nil {
 		return turnStats{}, fmt.Errorf("count the turns by member: %w", err)
 	}
@@ -210,9 +187,7 @@ func (s *Agent) turnsOf(ctx context.Context, n int) (turnStats, error) {
 		}
 		return strings.Compare(a.AgentID, b.AgentID)
 	})
-	for _, m := range members {
-		out.ByMember = append(out.ByMember, memberTurns{MemberID: m.MemberID, Requests: m.Count})
-	}
+	out.ByMember = members
 	return out, nil
 }
 
@@ -233,7 +208,7 @@ func (s *Agent) ProviderModels(ctx context.Context, id string) ([]AvailableModel
 	if st, err = s.ensureLister(ctx, st, st.providerOf(c)); err != nil {
 		return nil, err
 	}
-	tags, err := s.settings.ModelTags(ctx)
+	tags, err := s.d.Settings.ModelTags(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read the model tags: %w", err)
 	}
@@ -311,7 +286,7 @@ func (s *Agent) ensureLister(ctx context.Context, st state, p Provider) (state, 
 	if slices.ContainsFunc(st.deps, func(d litellm.Deployment) bool { return d.ModelName == lister }) {
 		return st, nil
 	}
-	if err := s.gateway.AddDeployment(ctx, litellm.Deployment{
+	if err := s.d.Gateway.AddDeployment(ctx, litellm.Deployment{
 		ModelName: lister,
 		Params:    litellm.Params{Model: route(p.Kind, "*"), Credential: p.ID},
 		Info:      map[string]any{roleKey: roleLister, "provider": p.ID},
@@ -331,8 +306,8 @@ func (s *Agent) ProviderHealth(ctx context.Context) ([]ProviderHealth, error) {
 	if err != nil {
 		return nil, err
 	}
-	now := s.now()
-	logs, err := s.gateway.SpendLogs(ctx, now.Add(-24*time.Hour), now)
+	now := s.d.Now()
+	logs, err := s.d.Gateway.SpendLogs(ctx, now.Add(-24*time.Hour), now)
 	if err != nil {
 		return nil, gatewayError(err)
 	}
@@ -401,7 +376,7 @@ func (s *Agent) AgentUsage(ctx context.Context, _ authn.ConsoleMember, rng strin
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
 	n := rangeOf(rng)
-	agents, err := s.settings.Agents(ctx)
+	agents, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list the agents: %w", err)
 	}
@@ -409,8 +384,8 @@ func (s *Agent) AgentUsage(ctx context.Context, _ authn.ConsoleMember, rng strin
 	if err != nil {
 		return nil, err
 	}
-	end := s.now().UTC()
-	acts, err := s.gateway.DailyActivity(ctx, "/user", end.AddDate(0, 0, -(n-1)).Format(time.DateOnly), end.Format(time.DateOnly))
+	end := s.d.Now().UTC()
+	acts, err := s.d.Gateway.DailyActivity(ctx, "/user", end.AddDate(0, 0, -(n-1)).Format(time.DateOnly), end.Format(time.DateOnly))
 	if err != nil {
 		return nil, gatewayError(err)
 	}
@@ -443,7 +418,7 @@ func (s *Agent) AgentUsage(ctx context.Context, _ authn.ConsoleMember, rng strin
 // range, from LiteLLM's end users, with their questions; members with
 // neither are left out.
 func (s *Agent) memberSpend(ctx context.Context, rng, start, end string) ([]MemberSpend, error) {
-	acts, err := s.gateway.DailyActivity(ctx, "/customer", start, end)
+	acts, err := s.d.Gateway.DailyActivity(ctx, "/customer", start, end)
 	if err != nil {
 		return nil, gatewayError(err)
 	}
@@ -465,7 +440,7 @@ func (s *Agent) memberSpend(ctx context.Context, rng, start, end string) ([]Memb
 		}
 		for _, t := range turns.ByMember {
 			if t.MemberID == m.ID {
-				ms.Requests += t.Requests
+				ms.Requests += t.Count
 			}
 		}
 		if ms.USD > 0 || ms.Requests > 0 {
@@ -490,21 +465,21 @@ func (s *Agent) memberSpend(ctx context.Context, rng, start, end string) ([]Memb
 // calls with their turn's member.
 func (s *Agent) Tools(ctx context.Context, _ authn.ConsoleMember, rng string) (ToolStats, error) {
 	n := rangeOf(rng)
-	from, dates := rangeDays(s.now(), n)
-	totals, err := s.runs.ToolTotals(ctx, from)
+	from, dates := rangeDays(s.d.Now(), n)
+	totals, err := s.d.Runs.ToolTotals(ctx, from)
 	if err != nil {
 		return ToolStats{}, fmt.Errorf("count the tool calls: %w", err)
 	}
-	days, err := s.runs.ToolDays(ctx, from)
+	days, err := s.d.Runs.ToolDays(ctx, from)
 	if err != nil {
 		return ToolStats{}, fmt.Errorf("count the tool calls by day: %w", err)
 	}
-	recent, err := s.runs.RecentCalls(ctx, from, recentStats)
+	recent, err := s.d.Runs.RecentCalls(ctx, from, recentStats)
 	if err != nil {
 		return ToolStats{}, fmt.Errorf("list the recent tool calls: %w", err)
 	}
 	daysOf := byDay(days, dates)
-	out := ToolStats{Items: make([]ToolStat, 0, len(totals)), Recent: make([]ToolRecent, 0, len(recent))}
+	out := ToolStats{Items: make([]ToolStat, 0, len(totals)), Recent: append(make([]ToolRecent, 0, len(recent)), recent...)}
 	for _, t := range totals {
 		item := ToolStat{Name: t.Name, DisplayName: domain.ToolTitles[t.Name], Calls: t.Calls, Failed: t.Failed, Days: []DayCalls{}}
 		if item.DisplayName == "" {
@@ -522,14 +497,6 @@ func (s *Agent) Tools(ctx context.Context, _ authn.ConsoleMember, rng string) (T
 		}
 		out.Items = append(out.Items, item)
 	}
-	for i := range recent {
-		r := &recent[i]
-		v := ToolRecent{CallID: r.CallID, TurnID: r.TurnID, MemberID: &r.MemberID, Tool: r.Tool, Label: r.Label, Status: r.Status, At: r.At}
-		if r.DurationMS != nil {
-			v.DurationMS = new(int(*r.DurationMS))
-		}
-		out.Recent = append(out.Recent, v)
-	}
 	return out, nil
 }
 
@@ -537,22 +504,18 @@ func (s *Agent) Tools(ctx context.Context, _ authn.ConsoleMember, rng string) (T
 // each rule acted, and the newest events.
 func (s *Agent) Guardrails(ctx context.Context, _ authn.ConsoleMember, rng string) (GuardrailStats, error) {
 	n := rangeOf(rng)
-	from, _ := rangeDays(s.now(), n)
-	rules, err := s.runs.GuardrailRules(ctx, from)
+	from, _ := rangeDays(s.d.Now(), n)
+	rules, err := s.d.Runs.GuardrailRules(ctx, from)
 	if err != nil {
 		return GuardrailStats{}, fmt.Errorf("count the guardrail events: %w", err)
 	}
-	recent, err := s.runs.RecentGuardrails(ctx, from, recentStats)
+	recent, err := s.d.Runs.RecentGuardrails(ctx, from, recentStats)
 	if err != nil {
 		return GuardrailStats{}, fmt.Errorf("list the recent guardrail events: %w", err)
 	}
-	out := GuardrailStats{Items: make([]GuardrailCount, 0, len(rules)), Recent: make([]GuardrailNotice, 0, len(recent))}
-	for _, r := range rules {
-		out.Items = append(out.Items, GuardrailCount{Rule: r.Rule, Count: r.Count})
-	}
-	for i := range recent {
-		r := &recent[i]
-		out.Recent = append(out.Recent, GuardrailNotice{Rule: r.Rule, Detail: r.Detail, MemberID: &r.MemberID, TurnID: &r.TurnID, At: r.At})
-	}
-	return out, nil
+	// The lists stay [] when empty.
+	return GuardrailStats{
+		Items:  append(make([]GuardrailCount, 0, len(rules)), rules...),
+		Recent: append(make([]GuardrailNotice, 0, len(recent)), recent...),
+	}, nil
 }

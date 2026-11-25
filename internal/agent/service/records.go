@@ -174,14 +174,14 @@ type PriceGuide struct {
 // and rating, and the support tickets about the order, whose last lines it
 // records as read for caller.
 func (s *Agent) Order(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConsoleOrder, error) {
-	f, ok, err := s.deals.Order(ctx, id)
+	f, ok, err := s.d.Deals.Order(ctx, id)
 	if err != nil {
 		return ConsoleOrder{}, fmt.Errorf("read the order: %w", err)
 	}
 	if !ok {
 		return ConsoleOrder{}, dealdomain.ErrOrderNotFound
 	}
-	l, _, err := s.catalog.Summary(ctx, f.ListingID)
+	l, _, err := s.d.Catalog.Summary(ctx, f.ListingID)
 	if err != nil {
 		return ConsoleOrder{}, fmt.Errorf("read the listing: %w", err)
 	}
@@ -189,19 +189,19 @@ func (s *Agent) Order(ctx context.Context, caller authn.ConsoleMember, id uuid.U
 	if err != nil {
 		return ConsoleOrder{}, err
 	}
-	buyer, err := s.accounts.ConsoleAccount(ctx, f.BuyerID)
+	buyer, err := s.d.Accounts.ConsoleAccount(ctx, f.BuyerID)
 	if err != nil {
 		return ConsoleOrder{}, fmt.Errorf("read the buyer: %w", err)
 	}
-	seller, err := s.accounts.ConsoleAccount(ctx, f.SellerID)
+	seller, err := s.d.Accounts.ConsoleAccount(ctx, f.SellerID)
 	if err != nil {
 		return ConsoleOrder{}, fmt.Errorf("read the seller: %w", err)
 	}
-	counts, err := s.catalog.SellerCounts(ctx, f.SellerID)
+	counts, err := s.d.Catalog.SellerCounts(ctx, f.SellerID)
 	if err != nil {
 		return ConsoleOrder{}, fmt.Errorf("count the seller's listings: %w", err)
 	}
-	rating, err := s.trust.Rating(ctx, f.SellerID, trustdomain.RoleSeller)
+	rating, err := s.d.Trust.Rating(ctx, f.SellerID, trustdomain.RoleSeller)
 	if err != nil {
 		return ConsoleOrder{}, fmt.Errorf("read the seller's rating: %w", err)
 	}
@@ -221,7 +221,7 @@ func (s *Agent) Order(ctx context.Context, caller authn.ConsoleMember, id uuid.U
 	}
 	// The buyer opens a ticket about an order; the seller's list holds the
 	// tickets on orders they sold.
-	tickets, err := s.support.TicketsOf(ctx, f.BuyerID)
+	tickets, err := s.d.Support.TicketsOf(ctx, f.BuyerID)
 	if err != nil {
 		return ConsoleOrder{}, fmt.Errorf("read the order's tickets: %w", err)
 	}
@@ -255,7 +255,7 @@ func (s *Agent) Order(ctx context.Context, caller authn.ConsoleMember, id uuid.U
 		return out, nil
 	}
 	// The recipient's name the carrier returns stays out too.
-	p, err := s.shipping.Lookup(ctx, f.SellerID, carrier.Carrier(sh.Carrier), sh.TrackingCode)
+	p, err := s.d.Shipping.Lookup(ctx, f.SellerID, carrier.Carrier(sh.Carrier), sh.TrackingCode)
 	if err != nil {
 		out.CarrierError = apperr.From(err).Code
 		return out, nil
@@ -269,7 +269,7 @@ func (s *Agent) Order(ctx context.Context, caller authn.ConsoleMember, id uuid.U
 // counts, the member who hid it, the reports about it in the seller's
 // report case, which it records as read for caller, and its price guide.
 func (s *Agent) Listing(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConsoleListing, error) {
-	sum, ok, err := s.catalog.Summary(ctx, id)
+	sum, ok, err := s.d.Catalog.Summary(ctx, id)
 	if err != nil {
 		return ConsoleListing{}, fmt.Errorf("read the listing: %w", err)
 	}
@@ -277,7 +277,7 @@ func (s *Agent) Listing(ctx context.Context, caller authn.ConsoleMember, id uuid
 		return ConsoleListing{}, catalogdomain.ErrNotFound
 	}
 	// Read as its seller reads it, so a hidden or sold listing shows too.
-	l, err := s.catalog.Get(ctx, &sum.SellerID, id, locale.Vietnamese)
+	l, err := s.d.Catalog.Get(ctx, &sum.SellerID, id, locale.Vietnamese)
 	if err != nil {
 		return ConsoleListing{}, fmt.Errorf("read the listing: %w", err)
 	}
@@ -285,11 +285,11 @@ func (s *Agent) Listing(ctx context.Context, caller authn.ConsoleMember, id uuid
 	if err != nil {
 		return ConsoleListing{}, err
 	}
-	seller, err := s.accounts.ConsoleAccount(ctx, l.SellerID)
+	seller, err := s.d.Accounts.ConsoleAccount(ctx, l.SellerID)
 	if err != nil {
 		return ConsoleListing{}, fmt.Errorf("read the seller: %w", err)
 	}
-	counts, err := s.catalog.SellerCounts(ctx, l.SellerID)
+	counts, err := s.d.Catalog.SellerCounts(ctx, l.SellerID)
 	if err != nil {
 		return ConsoleListing{}, fmt.Errorf("count the seller's listings: %w", err)
 	}
@@ -321,7 +321,7 @@ func (s *Agent) Listing(ctx context.Context, caller authn.ConsoleMember, id uuid
 			out.Hidden = &hold
 		}
 	}
-	c, err := s.trust.ReportCase(ctx, l.SellerID)
+	c, err := s.d.Trust.ReportCase(ctx, l.SellerID)
 	switch {
 	case errors.Is(err, trustdomain.ErrCaseNotFound):
 	case err != nil:
@@ -345,7 +345,7 @@ func (s *Agent) Listing(ctx context.Context, caller authn.ConsoleMember, id uuid
 			}
 		}
 	}
-	m, ok, err := s.catalog.MarketPrice(ctx, id, s.textMin, s.photoMin)
+	m, ok, err := s.d.Catalog.MarketPrice(ctx, id, s.d.TextMin, s.d.PhotoMin)
 	if err != nil {
 		return ConsoleListing{}, fmt.Errorf("price the listing: %w", err)
 	}
@@ -360,7 +360,7 @@ func (s *Agent) Listing(ctx context.Context, caller authn.ConsoleMember, id uuid
 // listing.hide in the audit log; ok is false when an unhide is later, or
 // none is there, as for a listing its seller hid.
 func (s *Agent) holdOf(ctx context.Context, listing uuid.UUID) (hold ListingHold, ok bool, err error) {
-	acts, err := s.console.ListActions(ctx, audit.Filter{TargetID: listing}, page.Request{Limit: holdHistory})
+	acts, err := s.d.Console.ListActions(ctx, audit.Filter{TargetID: listing}, page.Request{Limit: holdHistory})
 	if err != nil {
 		return ListingHold{}, false, fmt.Errorf("read the listing's console actions: %w", err)
 	}
@@ -383,7 +383,7 @@ const holdHistory = 20
 // categoryName is the display name of the category code, or the code when
 // catalog has no such category.
 func (s *Agent) categoryName(ctx context.Context, code string) (string, error) {
-	cats, err := s.catalog.Categories(ctx, locale.Vietnamese)
+	cats, err := s.d.Catalog.Categories(ctx, locale.Vietnamese)
 	if err != nil {
 		return "", fmt.Errorf("read the categories: %w", err)
 	}

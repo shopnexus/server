@@ -24,11 +24,6 @@ var ConsoleAssistant = uuid.MustParse("0193e000-0000-7000-8000-00000000a101")
 // TagKind is a tag's kind: a model's type or something it can do.
 type TagKind string
 
-const (
-	TagType       TagKind = "type"
-	TagCapability TagKind = "capability"
-)
-
 // ProviderMode says how a provider's models are kept: the ones an admin
 // picked, or every model the provider lists, synced every 6 hours.
 type ProviderMode string

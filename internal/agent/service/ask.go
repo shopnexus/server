@@ -31,7 +31,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	if in.AgentID != nil {
 		id = *in.AgentID
 	}
-	a, err := s.settings.Agent(ctx, id)
+	a, err := s.d.Settings.Agent(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && a.Kind != domain.AgentConsole) {
 		return TurnStarted{}, domain.ErrAgentNotFound
 	}
@@ -41,7 +41,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	if !a.Enabled {
 		return TurnStarted{}, domain.ErrAgentDisabled
 	}
-	set, err := s.settings.BudgetSettings(ctx)
+	set, err := s.d.Settings.BudgetSettings(ctx)
 	if err != nil {
 		return TurnStarted{}, fmt.Errorf("read the budget settings: %w", err)
 	}
@@ -50,7 +50,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 		return TurnStarted{}, domain.ErrBudget
 	}
 	s.ensureMemberBudget(ctx, set, caller)
-	c, err := s.runs.Conversation(ctx, conversation)
+	c, err := s.d.Runs.Conversation(ctx, conversation)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && !visible(c, caller)) {
 		return TurnStarted{}, domain.ErrConversationNotFound
 	}
@@ -59,7 +59,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	}
 	var skill *runSkill
 	if in.SkillID != nil {
-		sk, skillErr := s.runs.Skill(ctx, *in.SkillID)
+		sk, skillErr := s.d.Runs.Skill(ctx, *in.SkillID)
 		if errors.Is(skillErr, repository.ErrNotFound) {
 			return TurnStarted{}, domain.ErrSkillInvalid
 		}
@@ -68,7 +68,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 		}
 		skill = &runSkill{ID: sk.ID, Name: sk.Name, Prompt: sk.Prompt}
 	}
-	now := s.now().UTC().Truncate(time.Microsecond)
+	now := s.d.Now().UTC().Truncate(time.Microsecond)
 	if !s.limiter.allow(caller.MemberID, now) {
 		return TurnStarted{}, domain.ErrRateLimited
 	}
@@ -92,7 +92,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 		AgentName: a.Name, ModelAlias: a.Alias, StartedAt: now, RunStartedAt: now, DeadlineMS: deadline.Milliseconds(),
 		SubjectKind: c.SubjectKind, SubjectID: c.SubjectID, Attachments: attachments, RequestKey: in.Key,
 	}
-	switch err = s.runs.OpenTurn(ctx, t, caller.MemberID); {
+	switch err = s.d.Runs.OpenTurn(ctx, t, caller.MemberID); {
 	case errors.Is(err, repository.ErrKeyUsed):
 		// A racing retry of the key lost to the first; answer the first.
 		if started, ok, keyErr := s.turnOfKey(ctx, caller, *in.Key); keyErr != nil || ok {
@@ -111,14 +111,14 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	// conversation mentions. · ADR-0003
 	// A1 past the agent's deadline the run ends TIMED_OUT with what it
 	// found, and the member may continue it.
-	history, err := s.runs.History(ctx, conversation, historyTurns)
+	history, err := s.d.Runs.History(ctx, conversation, historyTurns)
 	var docs []repository.DocumentRef
 	if err == nil {
-		docs, err = s.runs.Documents(ctx, conversation)
+		docs, err = s.d.Runs.Documents(ctx, conversation)
 	}
 	var mentions []domain.Attachment
 	if err == nil {
-		mentions, err = s.runs.Mentions(ctx, t.ID, domain.MaxMentions)
+		mentions, err = s.d.Runs.Mentions(ctx, t.ID, domain.MaxMentions)
 	}
 	var stream io.ReadCloser
 	var cancel context.CancelFunc
@@ -129,15 +129,15 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 		stream, cancel, err = s.startRun(ctx, req, deadline)
 	}
 	if err != nil {
-		if delErr := s.runs.DeleteTurn(context.WithoutCancel(ctx), t.ID); delErr != nil {
-			s.log.WarnContext(ctx, "agent: delete a turn whose run did not start", "turn_id", t.ID, "err", delErr)
+		if delErr := s.d.Runs.DeleteTurn(context.WithoutCancel(ctx), t.ID); delErr != nil {
+			s.d.Log.WarnContext(ctx, "agent: delete a turn whose run did not start", "turn_id", t.ID, "err", delErr)
 		}
 		return TurnStarted{}, err
 	}
 	// The conversation takes the question's time and title only once the
 	// run started, so a failed start leaves it as it was.
-	if err = s.runs.TouchConversation(ctx, conversation, text, now); err != nil {
-		s.log.WarnContext(ctx, "agent: touch a conversation whose run started", "conversation_id", conversation, "err", err)
+	if err = s.d.Runs.TouchConversation(ctx, conversation, text, now); err != nil {
+		s.d.Log.WarnContext(ctx, "agent: touch a conversation whose run started", "conversation_id", conversation, "err", err)
 	}
 	s.launch(ctx, segment{turn: t.ID, conversation: conversation, member: caller.MemberID, start: now}, stream, cancel)
 	return TurnStarted{ConversationID: conversation, TurnID: t.ID}, nil
@@ -145,7 +145,7 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 
 // turnOfKey reads the turn caller opened with key, when there is one.
 func (s *Agent) turnOfKey(ctx context.Context, caller authn.ConsoleMember, key uuid.UUID) (TurnStarted, bool, error) {
-	t, err := s.runs.TurnByKey(ctx, caller.MemberID, key)
+	t, err := s.d.Runs.TurnByKey(ctx, caller.MemberID, key)
 	if errors.Is(err, repository.ErrNotFound) {
 		return TurnStarted{}, false, nil
 	}

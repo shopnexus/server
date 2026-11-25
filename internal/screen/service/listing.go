@@ -75,27 +75,27 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead)
 	if err != nil {
 		return ListingScreen{}, err
 	}
-	l, distance, err := s.catalog.GetNear(ctx, nil, id, in.Near, in.Locale)
+	l, distance, err := s.d.Catalog.GetNear(ctx, nil, id, in.Near, in.Locale)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the listing: %w", err)
 	}
-	seller, err := s.accounts.Get(ctx, l.SellerID)
+	seller, err := s.d.Accounts.Get(ctx, l.SellerID)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the seller: %w", err)
 	}
-	rating, err := s.trust.Rating(ctx, l.SellerID, trustdomain.RoleSeller)
+	rating, err := s.d.Trust.Rating(ctx, l.SellerID, trustdomain.RoleSeller)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the rating: %w", err)
 	}
-	counts, err := s.catalog.SellerCounts(ctx, l.SellerID)
+	counts, err := s.d.Catalog.SellerCounts(ctx, l.SellerID)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("count the listings: %w", err)
 	}
-	replyTime, err := s.chats.ReplyTime(ctx, l.SellerID)
+	replyTime, err := s.d.Chats.ReplyTime(ctx, l.SellerID)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the reply time: %w", err)
 	}
-	phoneVerified, err := s.accounts.HasPhone(ctx, l.SellerID)
+	phoneVerified, err := s.d.Accounts.HasPhone(ctx, l.SellerID)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the phone identity: %w", err)
 	}
@@ -106,15 +106,15 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead)
 	if viewer == nil || *viewer == l.SellerID {
 		return out, nil
 	}
-	saved, err := s.discovery.IsSaved(ctx, *viewer, id)
+	saved, err := s.d.Discovery.IsSaved(ctx, *viewer, id)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the save: %w", err)
 	}
-	deal, hasDeal, err := s.deals.BuyerSummary(ctx, *viewer, id)
+	deal, hasDeal, err := s.d.Deals.BuyerSummary(ctx, *viewer, id)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the deal: %w", err)
 	}
-	conversation, err := s.chats.ConversationWith(ctx, *viewer, l.SellerID)
+	conversation, err := s.d.Chats.ConversationWith(ctx, *viewer, l.SellerID)
 	if err != nil {
 		return ListingScreen{}, fmt.Errorf("read the conversation: %w", err)
 	}
@@ -125,8 +125,8 @@ func (s *Screen) Listing(ctx context.Context, viewer *uuid.UUID, in ListingRead)
 	if in.Prefetch {
 		return out, nil
 	}
-	if err = s.discovery.Viewed(ctx, *viewer, id); err != nil {
-		s.log.WarnContext(ctx, "a listing view went uncounted", "listing", id, "err", err)
+	if err = s.d.Discovery.Viewed(ctx, *viewer, id); err != nil {
+		s.d.Log.WarnContext(ctx, "a listing view went uncounted", "listing", id, "err", err)
 	}
 	return out, nil
 }
@@ -159,11 +159,11 @@ func (s *Screen) SoldListing(ctx context.Context, ref string) (SoldListingScreen
 	if err != nil {
 		return SoldListingScreen{}, err
 	}
-	l, err := s.catalog.GetSold(ctx, id, locale.Vietnamese) // the sold view shows no specs
+	l, err := s.d.Catalog.GetSold(ctx, id, locale.Vietnamese) // the sold view shows no specs
 	if err != nil {
 		return SoldListingScreen{}, fmt.Errorf("read the listing: %w", err)
 	}
-	seller, err := s.accounts.Get(ctx, l.SellerID)
+	seller, err := s.d.Accounts.Get(ctx, l.SellerID)
 	if err != nil {
 		return SoldListingScreen{}, fmt.Errorf("read the seller: %w", err)
 	}
@@ -182,7 +182,7 @@ func (s *Screen) listingID(ctx context.Context, ref string) (uuid.UUID, error) {
 	if id, err := uuid.Parse(ref); err == nil {
 		return id, nil
 	}
-	ids, err := s.catalog.IDsBySlug(ctx, []string{ref})
+	ids, err := s.d.Catalog.IDsBySlug(ctx, []string{ref})
 	if err != nil {
 		return uuid.UUID{}, fmt.Errorf("find the listing: %w", err)
 	}

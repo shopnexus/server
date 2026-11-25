@@ -26,7 +26,7 @@ type OffersScreenItem struct {
 // Offers reads a page of the buyers' open offers on seller's listings,
 // then their buyers.
 func (s *Screen) Offers(ctx context.Context, seller uuid.UUID, p page.Request) (OffersScreen, error) {
-	offers, err := s.deals.OpenOffers(ctx, seller, p)
+	offers, err := s.d.Deals.OpenOffers(ctx, seller, p)
 	if err != nil {
 		return OffersScreen{}, fmt.Errorf("read open offers: %w", err)
 	}
@@ -34,7 +34,7 @@ func (s *Screen) Offers(ctx context.Context, seller uuid.UUID, p page.Request) (
 	for i := range offers.Items {
 		buyers = append(buyers, offers.Items[i].BuyerID)
 	}
-	people, err := s.accounts.GetMany(ctx, buyers)
+	people, err := s.d.Accounts.GetMany(ctx, buyers)
 	if err != nil {
 		return OffersScreen{}, fmt.Errorf("read buyers: %w", err)
 	}

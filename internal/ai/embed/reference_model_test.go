@@ -22,11 +22,11 @@ func embedReference(t *testing.T, e *Embedder, ref reference) (imgs, txts [][]fl
 	for _, tx := range ref.Texts {
 		in = append(in, Input{Text: tx.Text})
 	}
-	res, err := e.Embed(context.Background(), e.Models()[0], in)
+	vs, err := e.Embed(context.Background(), in)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return res.Vectors[:len(ref.Images)], res.Vectors[len(ref.Images):]
+	return vs[:len(ref.Images)], vs[len(ref.Images):]
 }
 
 func cosine(a, b []float32) float64 {

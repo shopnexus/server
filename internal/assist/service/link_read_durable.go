@@ -10,9 +10,7 @@ import (
 
 	restate "github.com/restatedev/sdk-go"
 
-	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/assist/domain"
-	"github.com/shopnexus/server/internal/assist/repository"
 	mediadomain "github.com/shopnexus/server/internal/media/domain"
 	"github.com/shopnexus/server/internal/platform/restatex"
 	"github.com/shopnexus/server/internal/provider/chotot"
@@ -60,102 +58,31 @@ type readListing struct {
 // Start checks the account and inserts the read under the daily cap, each
 // a step, then sends Run and the delayed Expire.
 func (s LinkRead) Start(ctx restate.Context, in StartLinkInput) (StartResult, error) {
-	at, err := restatex.Now(ctx, s.Now)
+	o, err := s.openRead(ctx, in.Account, in.Key, func(id uuid.UUID, at time.Time) domain.ListingRead {
+		return domain.NewLinkRead(id, in.Account, in.Link, at)
+	})
 	if err != nil {
 		return StartResult{}, err
 	}
-	status, err := restate.Run(ctx, func(rc restate.RunContext) (accountdomain.Status, error) {
-		return s.Accounts.Status(rc, in.Account)
-	})
-	if err != nil {
-		return StartResult{}, fmt.Errorf("read account status: %w", err)
+	if o.Answer != nil {
+		return *o.Answer, nil
 	}
-	if r := status.Refusal(); r != nil {
-		return StartResult{Refused: r}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
-	}
-	// A read exists to post a listing, and posting needs a phone.
-	hasPhone, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
-		return s.Accounts.HasPhone(rc, in.Account)
-	})
-	if err != nil {
-		return StartResult{}, fmt.Errorf("read the account's phone: %w", err)
-	}
-	if !hasPhone {
-		return StartResult{Refused: accountdomain.ErrPhoneRequired}, nil
-	}
-	id := restatex.NewID(ctx, at)
-	read := domain.NewLinkRead(id, in.Account, in.Link, at)
-	ins, err := insertStep(ctx, s.Reads, read, in.Key)
-	if err != nil || ins.Refused != nil {
-		return StartResult{Refused: ins.Refused}, err
-	}
-	if ins.ID != id {
-		return StartResult{ReadID: ins.ID}, nil
-	}
-	restate.ServiceSend(ctx, s.Prefix+linkRead, "Expire").
-		Send(id, restate.WithDelay(domain.KeepFor), restate.WithIdempotencyKey(id.String()))
-	restate.ServiceSend(ctx, s.Prefix+linkRead, "Run").Send(id, restate.WithIdempotencyKey(id.String()))
-	return StartResult{ReadID: id}, nil
+	sendRun(ctx, s.Prefix+linkRead, o.ID, o.ID)
+	return StartResult{ReadID: o.ID}, nil
 }
 
 // Run is UC-LST-01 A2: a read step that streams the model's text to the
 // relay, then the copy step, saving after each. Past the deadline the read
 // fails with unavailable.
 func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
-	var err error
-	loaded, err := restate.Run(ctx, func(rc restate.RunContext) (loadedRead, error) {
-		r, stepErr := s.Reads.Get(rc, id)
-		if errors.Is(stepErr, domain.ErrNotFound) {
-			return loadedRead{}, nil
-		}
-		if stepErr != nil {
-			return loadedRead{}, fmt.Errorf("get read: %w", stepErr)
-		}
-		return loadedRead{Read: r, Found: true}, nil
-	})
-	if err != nil {
-		return fmt.Errorf("load read: %w", err)
-	}
-	if !loaded.Found || loaded.Read.Status() != domain.StatusReading {
-		return nil
-	}
-	r := loaded.Read
-	deadline := r.CreatedAt().Add(domain.Deadline)
-
-	// save writes r under a new write ID and keeps the saved copy, so the
-	// next save carries its write ID.
-	save := func(at time.Time) (gone bool, err error) {
-		w := restatex.NewID(ctx, at)
-		out, saveErr := restate.Run(ctx, func(rc restate.RunContext) (savedRead, error) {
-			c := r // Save sets the write ID on its copy; r outside stays as journaled
-			lost, stepErr := restatex.Outcome(s.Reads.Save(rc, &c, w), repository.ErrConflict)
-			if stepErr != nil {
-				return savedRead{}, fmt.Errorf("save read: %w", stepErr)
-			}
-			return savedRead{Read: c, Gone: lost}, nil
-		})
-		if saveErr != nil {
-			return false, fmt.Errorf("save read: %w", saveErr)
-		}
-		r = out.Read
-		return out.Gone, nil
-	}
-	fail := func(at time.Time, f domain.Failure, reason string) error {
-		// A1: the read fails and the seller fills the form by hand.
-		if failErr := r.Fail(f, reason); failErr != nil {
-			return fmt.Errorf("fail read: %w", failErr)
-		}
-		_, saveErr := save(at)
-		s.relayEnd(ctx, id)
-		return saveErr
-	}
-
-	at, err := restatex.Now(ctx, s.Now)
-	if err != nil {
+	run, ok, err := s.loadRun(ctx, id)
+	if err != nil || !ok {
 		return err
 	}
-	if !at.Before(deadline) {
-		return fail(at, domain.FailUnavailable, pastDeadline)
+	r, deadline := &run.r, run.deadline
+	at, done, err := run.tick()
+	if done {
+		return err
 	}
 	read, err := restate.Run(ctx, func(rc restate.RunContext) (readListing, error) {
 		started := time.Now()
@@ -199,23 +126,20 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return readListing{Draft: d, ContactRemoved: removed, Images: images, PhotoCount: len(ad.Images)}, nil
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
-		return fail(at, domain.FailUnavailable, modelReason(err))
+		return run.fail(at, domain.FailUnavailable, modelReason(err))
 	}
 	if read.Failure != "" {
-		return fail(at, read.Failure, read.Reason)
+		return run.fail(at, read.Failure, read.Reason)
 	}
 	if err = r.SetLinkPhotos(read.PhotoCount); err != nil {
 		return fmt.Errorf("set photo count: %w", err)
 	}
-	if gone, saveErr := save(at); saveErr != nil || gone {
+	if gone, saveErr := run.save(at); saveErr != nil || gone {
 		return saveErr
 	}
 
-	if at, err = restatex.Now(ctx, s.Now); err != nil {
+	if at, done, err = run.tick(); done {
 		return err
-	}
-	if !at.Before(deadline) {
-		return fail(at, domain.FailUnavailable, pastDeadline)
 	}
 	ids := make([]uuid.UUID, len(read.Images))
 	for i := range ids {
@@ -284,10 +208,10 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 		}
 	}, restate.WithMaxRetryDuration(deadline.Sub(at)), restate.WithMaxRetryAttempts(modelAttempts))
 	if err != nil {
-		return fail(at, domain.FailUnavailable, "")
+		return run.fail(at, domain.FailUnavailable, "")
 	}
 	if copied.Failure != "" {
-		return fail(at, copied.Failure, "")
+		return run.fail(at, copied.Failure, "")
 	}
 	d := read.Draft
 	d.Photos = copied.Uploads
@@ -301,19 +225,9 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if err = r.SetDraft(d, read.ContactRemoved); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}
-	if err = r.Finish(); err != nil {
-		return fmt.Errorf("finish read: %w", err)
-	}
-	_, err = save(at)
-	s.relayEnd(ctx, id)
-	return err
+	return run.finish(at)
 }
 
 // Expire deletes a read a day after it started. Copies not posted expire
 // with their uploads.
-func (s LinkRead) Expire(ctx restate.Context, id uuid.UUID) error {
-	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Reads.Delete(rc, id) }); err != nil {
-		return fmt.Errorf("delete read: %w", err)
-	}
-	return nil
-}
+func (s LinkRead) Expire(ctx restate.Context, id uuid.UUID) error { return s.expireRead(ctx, id) }

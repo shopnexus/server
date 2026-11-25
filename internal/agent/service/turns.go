@@ -31,7 +31,7 @@ const rateLimitedDetail = "More than 30 messages a minute; the update was not se
 
 // visibleTurn reads a turn of a conversation caller may open.
 func (s *Agent) visibleTurn(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (repository.Turn, error) {
-	t, err := s.runs.Turn(ctx, id)
+	t, err := s.d.Runs.Turn(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && t.SubjectKind == "" && t.Owner != caller.MemberID) {
 		return repository.Turn{}, domain.ErrTurnNotFound
 	}
@@ -48,7 +48,7 @@ func (s *Agent) Turn(ctx context.Context, caller authn.ConsoleMember, id uuid.UU
 	if err != nil {
 		return Turn{}, err
 	}
-	steers, err := s.runs.Steers(ctx, []uuid.UUID{id})
+	steers, err := s.d.Runs.Steers(ctx, []uuid.UUID{id})
 	if err != nil {
 		return Turn{}, fmt.Errorf("read the turn's steers: %w", err)
 	}
@@ -71,8 +71,8 @@ func (s *Agent) Control(ctx context.Context, caller authn.ConsoleMember, turn uu
 		if t.Status != domain.TurnRunning {
 			return TurnState{}, domain.ErrTurnState
 		}
-		err = s.runs.AddInput(ctx, repository.Input{
-			ID: uuid.NewV7(), TurnID: turn, Kind: string(c), CreatedAt: s.now(), MemberID: caller.MemberID,
+		err = s.d.Runs.AddInput(ctx, repository.Input{
+			ID: uuid.NewV7(), TurnID: turn, Kind: string(c), CreatedAt: s.d.Now(), MemberID: caller.MemberID,
 		})
 		if errors.Is(err, repository.ErrState) {
 			return TurnState{}, domain.ErrTurnState
@@ -101,7 +101,7 @@ func (s *Agent) Control(ctx context.Context, caller authn.ConsoleMember, turn uu
 		if encErr != nil {
 			return TurnState{}, fmt.Errorf("encode turn.finished: %w", encErr)
 		}
-		err = s.runs.CancelTurn(ctx, turn, t.Status, sources, body, s.now())
+		err = s.d.Runs.CancelTurn(ctx, turn, t.Status, sources, body, s.d.Now())
 		if errors.Is(err, repository.ErrState) {
 			return TurnState{}, domain.ErrTurnState
 		}
@@ -126,12 +126,12 @@ func (s *Agent) Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid
 			return st, keyErr
 		}
 	}
-	now := s.now()
+	now := s.d.Now()
 	if !s.limiter.allow(caller.MemberID, now) {
 		if t.Status == domain.TurnRunning || t.Status == domain.TurnPaused {
 			body, _ := json.Marshal(map[string]string{"rule": "rate_limited", "detail": rateLimitedDetail})
-			if _, evErr := s.runs.AppendEvent(ctx, turn, "guardrail", body, now); evErr != nil {
-				s.log.WarnContext(ctx, "agent: write a guardrail event", "turn_id", turn, "err", evErr)
+			if _, evErr := s.d.Runs.AppendEvent(ctx, turn, "guardrail", body, now); evErr != nil {
+				s.d.Log.WarnContext(ctx, "agent: write a guardrail event", "turn_id", turn, "err", evErr)
 			}
 		}
 		return Steering{}, domain.ErrRateLimited
@@ -145,7 +145,7 @@ func (s *Agent) Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid
 	}
 	switch t.Status {
 	case domain.TurnRunning:
-		err = s.runs.AddInput(ctx, in)
+		err = s.d.Runs.AddInput(ctx, in)
 	case domain.TurnPaused:
 		in.Resumed = true
 		err = s.resume(ctx, caller, t, "steer", &in, "")
@@ -174,7 +174,7 @@ func (s *Agent) Steer(ctx context.Context, caller authn.ConsoleMember, turn uuid
 
 // steerOfKey reads the steer caller sent with key, when there is one.
 func (s *Agent) steerOfKey(ctx context.Context, caller authn.ConsoleMember, key uuid.UUID) (Steering, bool, error) {
-	in, err := s.runs.InputByKey(ctx, caller.MemberID, key)
+	in, err := s.d.Runs.InputByKey(ctx, caller.MemberID, key)
 	if errors.Is(err, repository.ErrNotFound) {
 		return Steering{}, false, nil
 	}
@@ -209,7 +209,7 @@ func (s *Agent) Answer(ctx context.Context, caller authn.ConsoleMember, turn uui
 	if err != nil {
 		return TurnState{}, fmt.Errorf("encode the answers: %w", err)
 	}
-	now := s.now()
+	now := s.d.Now()
 	in := repository.Input{
 		ID: uuid.NewV7(), TurnID: turn, Kind: "answers", Text: text, Answers: raw, ReadAt: &now, CreatedAt: now,
 		MemberID: caller.MemberID,
@@ -228,8 +228,8 @@ func (s *Agent) Answer(ctx context.Context, caller authn.ConsoleMember, turn uui
 func (s *Agent) resume(ctx context.Context, caller authn.ConsoleMember, t repository.Turn, by string, in *repository.Input,
 	answers string,
 ) error {
-	now := s.now().UTC().Truncate(time.Microsecond)
-	res, err := s.runs.ResumeTurn(ctx, repository.Resume{
+	now := s.d.Now().UTC().Truncate(time.Microsecond)
+	res, err := s.d.Runs.ResumeTurn(ctx, repository.Resume{
 		TurnID: t.ID, From: t.Status, At: now, Input: in,
 		ClearAnswer: t.Status == domain.TurnFailed || t.Status == domain.TurnTimedOut,
 	})
@@ -249,7 +249,7 @@ func (s *Agent) resume(ctx context.Context, caller authn.ConsoleMember, t reposi
 	}
 	req.Steers = steers
 	if id, parseErr := uuid.Parse(t.AgentID); parseErr == nil {
-		if a, agentErr := s.settings.Agent(ctx, id); agentErr == nil {
+		if a, agentErr := s.d.Settings.Agent(ctx, id); agentErr == nil {
 			req.AgentConfig = configOf(a)
 		}
 	}
@@ -259,14 +259,14 @@ func (s *Agent) resume(ctx context.Context, caller authn.ConsoleMember, t reposi
 		if in != nil {
 			input = &in.ID
 		}
-		if restoreErr := s.runs.RestoreTurn(context.WithoutCancel(ctx), t, input); restoreErr != nil {
-			s.log.WarnContext(ctx, "agent: put back a turn whose run did not start", "turn_id", t.ID, "err", restoreErr)
+		if restoreErr := s.d.Runs.RestoreTurn(context.WithoutCancel(ctx), t, input); restoreErr != nil {
+			s.d.Log.WarnContext(ctx, "agent: put back a turn whose run did not start", "turn_id", t.ID, "err", restoreErr)
 		}
 		return err
 	}
 	body, _ := json.Marshal(map[string]string{"by": by})
-	if _, err = s.runs.AppendEvent(ctx, t.ID, "turn.resumed", body, now); err != nil {
-		s.log.WarnContext(ctx, "agent: write turn.resumed", "turn_id", t.ID, "err", err)
+	if _, err = s.d.Runs.AppendEvent(ctx, t.ID, "turn.resumed", body, now); err != nil {
+		s.d.Log.WarnContext(ctx, "agent: write turn.resumed", "turn_id", t.ID, "err", err)
 	}
 	s.launch(ctx, segment{turn: t.ID, conversation: t.ConversationID, member: caller.MemberID, start: res.Turn.RunStartedAt},
 		stream, cancel)
@@ -284,7 +284,7 @@ func configOf(a repository.Agent) *AgentConfig {
 // TurnControl is what a running segment polls: the pauses, stops and
 // steers after a seq, and whether the turn still runs.
 func (s *Agent) TurnControl(ctx context.Context, turn uuid.UUID, after int64) (TurnControl, error) {
-	list, running, err := s.runs.Control(ctx, turn, after, controlPage)
+	list, running, err := s.d.Runs.Control(ctx, turn, after, controlPage)
 	if err != nil {
 		return TurnControl{}, fmt.Errorf("read the turn's control: %w", err)
 	}
@@ -306,7 +306,7 @@ const controlPage = 100
 // ToolCall reads one tool call of a turn in full: its input, its output
 // and its timing, for the console's tool panel.
 func (s *Agent) ToolCall(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ToolCall, error) {
-	tc, err := s.runs.ToolCall(ctx, id, caller.MemberID)
+	tc, err := s.d.Runs.ToolCall(ctx, id, caller.MemberID)
 	if errors.Is(err, repository.ErrNotFound) {
 		return ToolCall{}, domain.ErrToolCallNotFound
 	}
@@ -339,7 +339,7 @@ func (s *Agent) ToolCall(ctx context.Context, caller authn.ConsoleMember, id uui
 
 // Document reads a document a turn wrote, with every version.
 func (s *Agent) Document(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (Document, error) {
-	d, err := s.runs.Document(ctx, id, caller.MemberID)
+	d, err := s.d.Runs.Document(ctx, id, caller.MemberID)
 	if errors.Is(err, repository.ErrNotFound) {
 		return Document{}, domain.ErrDocumentNotFound
 	}

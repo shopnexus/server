@@ -22,15 +22,15 @@ func (s *Agent) Models(ctx context.Context) (ModelList, error) {
 	if err != nil {
 		return ModelList{}, err
 	}
-	tags, err := s.settings.Tags(ctx)
+	tags, err := s.d.Settings.Tags(ctx)
 	if err != nil {
 		return ModelList{}, fmt.Errorf("read the tags: %w", err)
 	}
-	modelTags, err := s.settings.ModelTags(ctx)
+	modelTags, err := s.d.Settings.ModelTags(ctx)
 	if err != nil {
 		return ModelList{}, fmt.Errorf("read the model tags: %w", err)
 	}
-	agents, err := s.settings.Agents(ctx)
+	agents, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return ModelList{}, fmt.Errorf("read the agents: %w", err)
 	}
@@ -105,9 +105,9 @@ func (s *Agent) SetModelTags(ctx context.Context, caller authn.ConsoleMember, mo
 	}
 	slices.Sort(tags)
 	tags = slices.Compact(tags)
-	err := s.settings.SetModelTags(ctx, model, tags, audit.Entry{
+	err := s.d.Settings.SetModelTags(ctx, model, tags, audit.Entry{
 		Actor: audit.ByMember(caller), Action: audit.AIModelTags, Target: audit.AIModel(model),
-		Details: map[string]any{"model": model, "tags": tags}, At: s.now(),
+		Details: map[string]any{"model": model, "tags": tags}, At: s.d.Now(),
 	})
 	if errors.Is(err, repository.ErrUnknownTag) {
 		return nil, domain.ErrTagUnknown
@@ -115,7 +115,7 @@ func (s *Agent) SetModelTags(ctx context.Context, caller authn.ConsoleMember, mo
 	if err != nil {
 		return nil, fmt.Errorf("set model tags: %w", err)
 	}
-	all, err := s.settings.ModelTags(ctx)
+	all, err := s.d.Settings.ModelTags(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("read the model tags: %w", err)
 	}

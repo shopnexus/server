@@ -16,15 +16,15 @@ type Unread struct {
 // Unread reads chat's unread total, the inbox's, then the unread notices,
 // then the open offers on account's listings.
 func (s *Screen) Unread(ctx context.Context, account uuid.UUID) (Unread, error) {
-	messages, err := s.chats.Unread(ctx, account)
+	messages, err := s.d.Chats.Unread(ctx, account)
 	if err != nil {
 		return Unread{}, fmt.Errorf("count unread messages: %w", err)
 	}
-	notices, err := s.notices.Unread(ctx, account)
+	notices, err := s.d.Notifications.Unread(ctx, account)
 	if err != nil {
 		return Unread{}, fmt.Errorf("count unread notices: %w", err)
 	}
-	offers, err := s.deals.OpenOfferCount(ctx, account)
+	offers, err := s.d.Deals.OpenOfferCount(ctx, account)
 	if err != nil {
 		return Unread{}, fmt.Errorf("count open offers: %w", err)
 	}

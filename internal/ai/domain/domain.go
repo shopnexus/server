@@ -65,6 +65,13 @@ type EmbedImagesOutput struct {
 	Vectors [][]float32 `json:"vectors"`
 }
 
+// EmbedItem is one input of EmbedImages as the model takes it: a decoded
+// image when Image is non-nil, else a text.
+type EmbedItem struct {
+	Image []byte
+	Text  string
+}
+
 // The errors service ai ends a call with, as terminal errors. Each has its
 // own code, so the client gets the same error back.
 var (

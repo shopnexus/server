@@ -6,6 +6,7 @@ import (
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/platform/httpx"
+	"github.com/shopnexus/server/internal/screen/service"
 )
 
 // sellerScreenRequest carries where the reader is, which reaches the service and
@@ -19,15 +20,7 @@ type sellerScreenRequest struct {
 
 // Seller serves GET /v1/screens/seller/{id}, signed in or not.
 func (h *Handler) Seller(w http.ResponseWriter, r *http.Request) {
-	var in sellerScreenRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.Seller(r.Context(), httpx.Viewer(r), in.ID, catalogdomain.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in sellerScreenRequest) (service.SellerScreen, error) {
+		return h.svc.Seller(r.Context(), httpx.Viewer(r), in.ID, catalogdomain.Near{Lat: in.NearLat, Lng: in.NearLng, Commune: in.NearCommune})
+	})
 }

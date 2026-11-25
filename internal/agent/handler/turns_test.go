@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -22,27 +21,24 @@ import (
 
 var member = authn.ConsoleMember{MemberID: uuid.NewV7(), Role: "moderator"}
 
-// events is a service whose Events is the pipe it holds for turn, after
+// events is a service whose Events emits what feed does for turn, after
 // the Last-Event-ID it got.
 type events struct {
 	service.Service
 
 	turn  uuid.UUID
-	body  io.ReadCloser
+	feed  func(ctx context.Context, emit func(service.TurnEvent) error) error
 	after chan string
 }
 
-// Events closes the stream when ctx ends, as the service's does.
-func (e events) Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, last string) (io.ReadCloser, error) {
+func (e events) Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, last string,
+	emit func(service.TurnEvent) error,
+) error {
 	if turn != e.turn || caller != member {
-		return nil, domain.ErrTurnNotFound
+		return domain.ErrTurnNotFound
 	}
 	e.after <- last
-	go func() {
-		<-ctx.Done()
-		_ = e.body.Close()
-	}()
-	return e.body, nil
+	return e.feed(ctx, emit)
 }
 
 // serverOn serves the agent endpoints over svc as a signed-in moderator,
@@ -63,26 +59,41 @@ func serverOn(t *testing.T, svc service.Service) *httptest.Server {
 	return srv
 }
 
-// The stream reaches the console event by event as the service writes it,
+// The stream reaches the console event by event as the service emits it,
 // with the stream's headers and the member's Last-Event-ID, past the
-// server's write timeout; closing the console's side closes the service's
+// server's write timeout; closing the console's side ends the service's
 // stream. UC-MOD-08.
 func TestEventsStream(t *testing.T) {
 	t.Parallel()
 	turn := uuid.NewV7()
-	r, w := io.Pipe()
-	svc := events{turn: turn, body: r, after: make(chan string, 1)}
+	closed := make(chan error, 1)
+	feed := func(ctx context.Context, emit func(service.TurnEvent) error) error {
+		if err := emit(service.TurnEvent{Retry: 2 * time.Second}); err != nil {
+			return err
+		}
+		if err := emit(service.TurnEvent{Seq: 42, Type: "step.started", Data: []byte(`{"seq":42,"title":"Read"}`)}); err != nil {
+			return err
+		}
+		// Past the server's 500 ms write timeout.
+		time.Sleep(700 * time.Millisecond)
+		if err := emit(service.TurnEvent{Seq: 43, Type: "step.done", Data: []byte(`{"seq":43}`)}); err != nil {
+			return err
+		}
+		for ctx.Err() == nil {
+			if err := emit(service.TurnEvent{KeepAlive: true}); err != nil {
+				closed <- err
+				return err
+			}
+		}
+		closed <- ctx.Err()
+		return nil
+	}
+	svc := events{turn: turn, feed: feed, after: make(chan string, 1)}
 	srv := serverOn(t, svc)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL+"/v1/console/agent/turns/"+turn.String()+"/events", http.NoBody)
 	req.Header.Set("Last-Event-ID", "41")
-	go func() {
-		_, _ = io.WriteString(w, "id: 42\nevent: step.started\ndata: {\"seq\":42,\"title\":\"Read\"}\n\n")
-		// Past the server's 500 ms write timeout.
-		time.Sleep(700 * time.Millisecond)
-		_, _ = io.WriteString(w, "id: 43\ndata: {\"seq\":43}\n\n")
-	}()
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -93,26 +104,22 @@ func TestEventsStream(t *testing.T) {
 		t.Fatalf("%d %v", res.StatusCode, res.Header)
 	}
 	lines := bufio.NewReader(res.Body)
-	if first := readEvent(t, lines); !strings.Contains(first, "id: 42") || !strings.Contains(first, `"title":"Read"`) {
+	if retry := readEvent(t, lines); retry != "retry: 2000\n" {
+		t.Fatalf("retry %q", retry)
+	}
+	if first := readEvent(t, lines); first != "id: 42\nevent: step.started\ndata: {\"seq\":42,\"title\":\"Read\"}\n" {
 		t.Fatalf("first event %q", first)
 	}
-	if second := readEvent(t, lines); !strings.Contains(second, "id: 43") {
+	if second := readEvent(t, lines); second != "id: 43\nevent: step.done\ndata: {\"seq\":43}\n" {
 		t.Fatalf("second event %q", second)
 	}
+	if ping := readEvent(t, lines); ping != ": keep-alive\n" {
+		t.Fatalf("keep-alive %q", ping)
+	}
 	cancel()
-	closed := make(chan error, 1)
-	go func() {
-		for {
-			if _, writeErr := io.WriteString(w, "id: 44\n\n"); writeErr != nil {
-				closed <- writeErr
-				return
-			}
-		}
-	}()
 	select {
 	case <-closed:
 	case <-time.After(3 * time.Second):
-		_ = w.Close()
 		t.Fatal("the service's stream stayed open after the console closed its side")
 	}
 }

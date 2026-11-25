@@ -93,24 +93,11 @@ type Deps struct {
 
 // Screen implements Service in this process.
 type Screen struct {
-	shipping  shippingsvc.Service
-	accounts  accountsvc.Service
-	catalog   catalogsvc.Service
-	deals     dealsvc.Service
-	trust     trustsvc.Service
-	chats     chatsvc.Service
-	discovery discoverysvc.Service
-	notices   notificationsvc.Service
-	support   supportsvc.Service
-	now       func() time.Time
-	log       *slog.Logger
+	d Deps
 }
 
 var _ Service = (*Screen)(nil)
 
 func New(d Deps) *Screen {
-	return &Screen{
-		accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals, trust: d.Trust, discovery: d.Discovery, chats: d.Chats, notices: d.Notifications,
-		support: d.Support, shipping: d.Shipping, now: d.Now, log: d.Log,
-	}
+	return &Screen{d: d}
 }

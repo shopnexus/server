@@ -58,10 +58,7 @@ type Draft struct {
 
 type EstimateSource string
 
-const (
-	SourceMarket EstimateSource = "market"
-	SourceModel  EstimateSource = "model"
-)
+const SourceMarket EstimateSource = "market"
 
 // Estimate is a reference price range in whole đồng.
 type Estimate struct {

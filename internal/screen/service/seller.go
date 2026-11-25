@@ -67,46 +67,46 @@ type SellerViewer struct {
 // gets whether a block stands between the two, whether they follow the
 // seller, and their conversation.
 func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, near catalogdomain.Near) (SellerScreen, error) {
-	seller, err := s.accounts.Get(ctx, id)
+	seller, err := s.d.Accounts.Get(ctx, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the seller: %w", err)
 	}
 	if seller.Status == accountdomain.StatusDeleted {
 		return SellerScreen{}, accountdomain.ErrAccountNotFound
 	}
-	counts, err := s.catalog.SellerCounts(ctx, id)
+	counts, err := s.d.Catalog.SellerCounts(ctx, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("count the listings: %w", err)
 	}
-	rating, err := s.trust.Rating(ctx, id, trustdomain.RoleSeller)
+	rating, err := s.d.Trust.Rating(ctx, id, trustdomain.RoleSeller)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the rating: %w", err)
 	}
-	buyerRating, err := s.trust.Rating(ctx, id, trustdomain.RoleBuyer)
+	buyerRating, err := s.d.Trust.Rating(ctx, id, trustdomain.RoleBuyer)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the buyer rating: %w", err)
 	}
-	followers, err := s.accounts.FollowerCount(ctx, id)
+	followers, err := s.d.Accounts.FollowerCount(ctx, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("count the followers: %w", err)
 	}
-	replyTime, err := s.chats.ReplyTime(ctx, id)
+	replyTime, err := s.d.Chats.ReplyTime(ctx, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the reply time: %w", err)
 	}
-	phoneVerified, err := s.accounts.HasPhone(ctx, id)
+	phoneVerified, err := s.d.Accounts.HasPhone(ctx, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the phone identity: %w", err)
 	}
-	listings, err := s.discovery.SellerListings(ctx, viewer, id, near, page.Request{})
+	listings, err := s.d.Discovery.SellerListings(ctx, viewer, id, near, page.Request{})
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("list the listings: %w", err)
 	}
-	reviews, err := s.trust.Reviews(ctx, viewer, id, trustdomain.RoleSeller, page.Request{})
+	reviews, err := s.d.Trust.Reviews(ctx, viewer, id, trustdomain.RoleSeller, page.Request{})
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("list the reviews: %w", err)
 	}
-	buyerReviews, err := s.trust.Reviews(ctx, viewer, id, trustdomain.RoleBuyer, page.Request{})
+	buyerReviews, err := s.d.Trust.Reviews(ctx, viewer, id, trustdomain.RoleBuyer, page.Request{})
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("list the buyer reviews: %w", err)
 	}
@@ -121,15 +121,15 @@ func (s *Screen) Seller(ctx context.Context, viewer *uuid.UUID, id uuid.UUID, ne
 	if viewer == nil || *viewer == id {
 		return out, nil
 	}
-	blocked, err := s.accounts.Blocked(ctx, *viewer, id)
+	blocked, err := s.d.Accounts.Blocked(ctx, *viewer, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the blocks: %w", err)
 	}
-	following, err := s.accounts.Following(ctx, *viewer, id)
+	following, err := s.d.Accounts.Following(ctx, *viewer, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the follow: %w", err)
 	}
-	conversation, err := s.chats.ConversationWith(ctx, *viewer, id)
+	conversation, err := s.d.Chats.ConversationWith(ctx, *viewer, id)
 	if err != nil {
 		return SellerScreen{}, fmt.Errorf("read the conversation: %w", err)
 	}

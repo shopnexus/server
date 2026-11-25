@@ -6,6 +6,7 @@ import (
 
 	"github.com/shopnexus/server/internal/agent/service"
 	"github.com/shopnexus/server/internal/platform/authn"
+	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 type providerRequest struct {
@@ -14,7 +15,7 @@ type providerRequest struct {
 
 // ListProviders serves GET /v1/console/settings/providers.
 func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, _ none) (items[service.Provider], error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(_ authn.ConsoleMember, _ httpx.None) (items[service.Provider], error) {
 		return listOf(h.svc.Providers(r.Context()))
 	})
 }
@@ -25,7 +26,7 @@ type providerCreateRequest struct {
 
 // CreateProvider serves POST /v1/console/settings/providers.
 func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusCreated, func(c authn.ConsoleMember, in providerCreateRequest) (service.Provider, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusCreated, func(c authn.ConsoleMember, in providerCreateRequest) (service.Provider, error) {
 		return h.svc.CreateProvider(r.Context(), c, in.NewProvider)
 	})
 }
@@ -38,15 +39,15 @@ type providerPatchRequest struct {
 
 // UpdateProvider serves PATCH /v1/console/settings/providers/{id}.
 func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in providerPatchRequest) (service.Provider, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in providerPatchRequest) (service.Provider, error) {
 		return h.svc.UpdateProvider(r.Context(), c, in.ID, in.ProviderPatch)
 	})
 }
 
 // DeleteProvider serves DELETE /v1/console/settings/providers/{id}.
 func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusNoContent, func(c authn.ConsoleMember, in providerRequest) (none, error) {
-		return none{}, h.svc.DeleteProvider(r.Context(), c, in.ID)
+	httpx.ServeConsole(w, r, h.log, http.StatusNoContent, func(c authn.ConsoleMember, in providerRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.DeleteProvider(r.Context(), c, in.ID)
 	})
 }
 
@@ -59,7 +60,7 @@ type providerModelRequest struct {
 
 // AddProviderModel serves POST /v1/console/settings/providers/{id}/models.
 func (h *Handler) AddProviderModel(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in providerModelRequest) (service.Provider, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in providerModelRequest) (service.Provider, error) {
 		return h.svc.AddProviderModel(r.Context(), c, in.ID, in.Model, in.InPerMTok, in.OutPerMTok)
 	})
 }
@@ -73,7 +74,7 @@ type providerModelPathRequest struct {
 // /v1/console/settings/providers/{id}/models?model=, the model in the
 // query since it may hold a slash.
 func (h *Handler) RemoveProviderModel(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in providerModelPathRequest) (service.Provider, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in providerModelPathRequest) (service.Provider, error) {
 		return h.svc.RemoveProviderModel(r.Context(), c, in.ID, in.Model)
 	})
 }
@@ -85,14 +86,14 @@ type providerTestRequest struct {
 
 // TestProvider serves POST /v1/console/settings/providers/{id}/test.
 func (h *Handler) TestProvider(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, in providerTestRequest) (service.ProviderTest, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(_ authn.ConsoleMember, in providerTestRequest) (service.ProviderTest, error) {
 		return h.svc.TestProvider(r.Context(), in.ID, in.Model)
 	})
 }
 
 // ListModels serves GET /v1/console/settings/models.
 func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, _ none) (service.ModelList, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(_ authn.ConsoleMember, _ httpx.None) (service.ModelList, error) {
 		return h.svc.Models(r.Context())
 	})
 }
@@ -114,14 +115,14 @@ func tagsOf(model string) func([]string, error) (modelTags, error) {
 
 // SetModelTags serves PUT /v1/console/settings/models/tags.
 func (h *Handler) SetModelTags(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in modelTagsRequest) (modelTags, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in modelTagsRequest) (modelTags, error) {
 		return tagsOf(in.Model)(h.svc.SetModelTags(r.Context(), c, in.Model, in.Tags))
 	})
 }
 
 // ListAgents serves GET /v1/console/settings/agents.
 func (h *Handler) ListAgents(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, _ none) (items[service.AgentView], error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(_ authn.ConsoleMember, _ httpx.None) (items[service.AgentView], error) {
 		return listOf(h.svc.Agents(r.Context()))
 	})
 }
@@ -132,7 +133,7 @@ type agentCreateRequest struct {
 
 // CreateAgent serves POST /v1/console/settings/agents.
 func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusCreated, func(c authn.ConsoleMember, in agentCreateRequest) (service.AgentView, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusCreated, func(c authn.ConsoleMember, in agentCreateRequest) (service.AgentView, error) {
 		return h.svc.CreateAgent(r.Context(), c, in.NewAgent)
 	})
 }
@@ -145,21 +146,21 @@ type agentPatchRequest struct {
 
 // UpdateAgent serves PATCH /v1/console/settings/agents/{id}.
 func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in agentPatchRequest) (service.AgentView, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in agentPatchRequest) (service.AgentView, error) {
 		return h.svc.UpdateAgent(r.Context(), c, in.ID, in.AgentPatch)
 	})
 }
 
 // AgentVersions serves GET /v1/console/settings/agents/{id}/versions.
 func (h *Handler) AgentVersions(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, in idRequest) (items[service.AgentVersion], error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(_ authn.ConsoleMember, in idRequest) (items[service.AgentVersion], error) {
 		return listOf(h.svc.AgentVersions(r.Context(), in.ID))
 	})
 }
 
 // GetRotation serves GET /v1/console/settings/rotation.
 func (h *Handler) GetRotation(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, _ none) (service.Rotation, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(_ authn.ConsoleMember, _ httpx.None) (service.Rotation, error) {
 		return h.svc.Rotation(r.Context())
 	})
 }
@@ -170,14 +171,14 @@ type rotationRequest struct {
 
 // UpdateRotation serves PATCH /v1/console/settings/rotation.
 func (h *Handler) UpdateRotation(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in rotationRequest) (service.Rotation, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in rotationRequest) (service.Rotation, error) {
 		return h.svc.UpdateRotation(r.Context(), c, in.RotationPatch)
 	})
 }
 
 // GetBudgets serves GET /v1/console/settings/budgets.
 func (h *Handler) GetBudgets(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, _ none) (service.Budgets, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(_ authn.ConsoleMember, _ httpx.None) (service.Budgets, error) {
 		return h.svc.Budgets(r.Context())
 	})
 }
@@ -188,7 +189,7 @@ type budgetsRequest struct {
 
 // UpdateBudgets serves PATCH /v1/console/settings/budgets.
 func (h *Handler) UpdateBudgets(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in budgetsRequest) (service.Budgets, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in budgetsRequest) (service.Budgets, error) {
 		return h.svc.UpdateBudgets(r.Context(), c, in.BudgetsPatch)
 	})
 }
@@ -199,42 +200,42 @@ type spendRequest struct {
 
 // GetSpend serves GET /v1/console/settings/spend.
 func (h *Handler) GetSpend(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (service.Spend, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (service.Spend, error) {
 		return h.svc.Spend(r.Context(), c, in.Range)
 	})
 }
 
 // ProviderModels serves GET /v1/console/settings/providers/{id}/models.
 func (h *Handler) ProviderModels(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, in providerRequest) (items[service.AvailableModel], error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(_ authn.ConsoleMember, in providerRequest) (items[service.AvailableModel], error) {
 		return listOf(h.svc.ProviderModels(r.Context(), in.ID))
 	})
 }
 
 // ProviderHealth serves GET /v1/console/settings/providers/health.
 func (h *Handler) ProviderHealth(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(_ authn.ConsoleMember, _ none) (items[service.ProviderHealth], error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(_ authn.ConsoleMember, _ httpx.None) (items[service.ProviderHealth], error) {
 		return listOf(h.svc.ProviderHealth(r.Context()))
 	})
 }
 
 // AgentUsage serves GET /v1/console/settings/agents/usage.
 func (h *Handler) AgentUsage(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (items[service.AgentUsage], error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (items[service.AgentUsage], error) {
 		return listOf(h.svc.AgentUsage(r.Context(), c, in.Range))
 	})
 }
 
 // Tools serves GET /v1/console/settings/tools.
 func (h *Handler) Tools(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (service.ToolStats, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (service.ToolStats, error) {
 		return h.svc.Tools(r.Context(), c, in.Range)
 	})
 }
 
 // Guardrails serves GET /v1/console/settings/guardrails.
 func (h *Handler) Guardrails(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (service.GuardrailStats, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in spendRequest) (service.GuardrailStats, error) {
 		return h.svc.Guardrails(r.Context(), c, in.Range)
 	})
 }

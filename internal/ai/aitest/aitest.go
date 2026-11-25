@@ -87,7 +87,45 @@ func (f Fake) Extract(_ context.Context, path string) (domain.FramesOutput, erro
 	return f.Cut(b)
 }
 
-func (f Fake) EmbedImages(_ context.Context, images [][]byte) ([][]float32, error) {
+// EmbedImages answers the images with Embed and the texts with EmbedText,
+// each in one call, images first, and puts the vectors back in input order.
+func (f Fake) EmbedImages(_ context.Context, inputs []domain.EmbedItem) ([][]float32, error) {
+	var images [][]byte
+	var texts []string
+	var imageAt, textAt []int
+	for i, in := range inputs {
+		if in.Image != nil {
+			images, imageAt = append(images, in.Image), append(imageAt, i)
+		} else {
+			texts, textAt = append(texts, in.Text), append(textAt, i)
+		}
+	}
+	out := make([][]float32, len(inputs))
+	if len(images) > 0 {
+		vs, err := f.images(images)
+		if err != nil {
+			return nil, err
+		}
+		if err = place(out, imageAt, vs); err != nil {
+			return nil, err
+		}
+	}
+	if len(texts) > 0 {
+		if f.EmbedText == nil {
+			return nil, fmt.Errorf("%w: the fake embeds no text", domain.ErrRefused)
+		}
+		vs, err := f.EmbedText(texts)
+		if err != nil {
+			return nil, err
+		}
+		if err = place(out, textAt, vs); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+func (f Fake) images(images [][]byte) ([][]float32, error) {
 	if f.Embed != nil {
 		return f.Embed(images)
 	}
@@ -98,9 +136,13 @@ func (f Fake) EmbedImages(_ context.Context, images [][]byte) ([][]float32, erro
 	return vs, nil
 }
 
-func (f Fake) EmbedTexts(_ context.Context, texts []string) ([][]float32, error) {
-	if f.EmbedText == nil {
-		return nil, fmt.Errorf("%w: the fake embeds no text", domain.ErrRefused)
+// place puts one func's vectors at their inputs' places.
+func place(out [][]float32, at []int, vs [][]float32) error {
+	if len(vs) != len(at) {
+		return fmt.Errorf("%w: %d vectors for %d inputs", domain.ErrFailed, len(vs), len(at))
 	}
-	return f.EmbedText(texts)
+	for i, v := range vs {
+		out[at[i]] = v
+	}
+	return nil
 }

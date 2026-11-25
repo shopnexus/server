@@ -32,11 +32,11 @@ type BuyerOrderView struct {
 }
 
 func (s *Screen) Order(ctx context.Context, account, order uuid.UUID) (OrderScreen, error) {
-	o, dealID, err := s.deals.OrderFor(ctx, account, order)
+	o, dealID, err := s.d.Deals.OrderFor(ctx, account, order)
 	if err != nil {
 		return OrderScreen{}, fmt.Errorf("read selected order: %w", err)
 	}
-	d, err := s.deals.Get(ctx, account, dealID)
+	d, err := s.d.Deals.Get(ctx, account, dealID)
 	if err != nil {
 		return OrderScreen{}, fmt.Errorf("read current deal: %w", err)
 	}
@@ -48,13 +48,13 @@ func (s *Screen) Order(ctx context.Context, account, order uuid.UUID) (OrderScre
 	if err != nil {
 		return OrderScreen{}, err
 	}
-	reviews, err := s.trust.OrderReviews(ctx, account, []uuid.UUID{order})
+	reviews, err := s.d.Trust.OrderReviews(ctx, account, []uuid.UUID{order})
 	if err != nil {
 		return OrderScreen{}, fmt.Errorf("read the reviews: %w", err)
 	}
 	out := OrderScreen{Order: o, Deal: d, Counterpart: person, OwnReview: reviews[order].Own, TheirReview: reviews[order].Their}
 	if sh := o.Shipment; sh != nil {
-		t, trackErr := s.shipping.Tracking(ctx, string(sh.Carrier), sh.TrackingCode, d.Role == dealdomain.Seller)
+		t, trackErr := s.d.Shipping.Tracking(ctx, string(sh.Carrier), sh.TrackingCode, d.Role == dealdomain.Seller)
 		if trackErr != nil {
 			return OrderScreen{}, fmt.Errorf("read the tracking: %w", trackErr)
 		}
@@ -64,7 +64,7 @@ func (s *Screen) Order(ctx context.Context, account, order uuid.UUID) (OrderScre
 	}
 	if d.Role == dealdomain.Buyer {
 		out.BuyerOrderView = &BuyerOrderView{}
-		ticket, ticketErr := s.support.OfOrder(ctx, account, order)
+		ticket, ticketErr := s.d.Support.OfOrder(ctx, account, order)
 		if ticketErr != nil && !errors.Is(ticketErr, supportdomain.ErrNotFound) {
 			return OrderScreen{}, fmt.Errorf("read order ticket: %w", ticketErr)
 		}
@@ -76,7 +76,7 @@ func (s *Screen) Order(ctx context.Context, account, order uuid.UUID) (OrderScre
 }
 
 func (s *Screen) person(ctx context.Context, id uuid.UUID) (chatsvc.PersonView, error) {
-	a, err := s.accounts.Get(ctx, id)
+	a, err := s.d.Accounts.Get(ctx, id)
 	if err != nil {
 		return chatsvc.PersonView{}, fmt.Errorf("read person: %w", err)
 	}

@@ -1,7 +1,6 @@
 package service_test
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -351,15 +350,16 @@ func TestBrokenRunContinues(t *testing.T) {
 	if v.ErrorCode != "" || v.Answer != "Đã đọc [1]." {
 		t.Errorf("the continued turn %+v", v)
 	}
-	body, err := s.Events(ctx, lan, started.TurnID, "")
-	if err != nil {
+	var all strings.Builder
+	if err = s.Events(ctx, lan, started.TurnID, "", func(e service.TurnEvent) error {
+		_, _ = fmt.Fprintf(&all, "event: %s\ndata: %s\n\n", e.Type, e.Data)
+		return nil
+	}); err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = body.Close() }()
-	all, _ := io.ReadAll(body)
 	for _, want := range []string{"event: step.started", `"failure":"agent_stuck"`, `"by":"continue"`, `"status":"SUCCEEDED"`} {
-		if !strings.Contains(string(all), want) {
-			t.Errorf("the events lack %s: %s", want, all)
+		if !strings.Contains(all.String(), want) {
+			t.Errorf("the events lack %s: %s", want, all.String())
 		}
 	}
 }
@@ -385,25 +385,25 @@ func TestControlQueueAndLiveStream(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	body, err := s.Events(ctx, lan, started.TurnID, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = body.Close() }()
-	events := bufio.NewReader(body)
+	events := make(chan service.TurnEvent)
+	ended := make(chan error, 1)
+	go func() {
+		defer close(events)
+		ended <- s.Events(ctx, lan, started.TurnID, "", func(e service.TurnEvent) error {
+			events <- e
+			return nil
+		})
+	}()
 	readUntil := func(want string) {
 		t.Helper()
-		for {
-			line, readErr := events.ReadString('\n')
-			if readErr != nil {
-				t.Fatalf("no %s: %v", want, readErr)
-			}
-			if strings.HasPrefix(line, want) {
+		for e := range events {
+			if e.Type == want {
 				return
 			}
 		}
+		t.Fatalf("no %s: %v", want, <-ended)
 	}
-	readUntil("event: turn.started")
+	readUntil("turn.started")
 	if _, err = s.Control(ctx, lan, started.TurnID, service.ControlPause); err != nil {
 		t.Fatal(err)
 	}
@@ -420,9 +420,12 @@ func TestControlQueueAndLiveStream(t *testing.T) {
 		t.Errorf("after the last seq %+v", after)
 	}
 	release <- steer.SteerID.String()
-	readUntil("event: steer.read")
-	readUntil("event: turn.finished")
-	if _, err = events.ReadString('\n'); err != nil && !errors.Is(err, io.EOF) {
+	readUntil("steer.read")
+	readUntil("turn.finished")
+	for e := range events {
+		t.Errorf("after turn.finished: %+v", e)
+	}
+	if err = <-ended; err != nil {
 		t.Errorf("after turn.finished: %v", err)
 	}
 	v := waitFor(t, s, lan, started.TurnID, "succeeded")

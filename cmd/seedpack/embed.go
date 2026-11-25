@@ -240,9 +240,7 @@ func embedPhotos(ctx context.Context, s *stack, p *seedpack.Pack, u *ui) (int, e
 		return 0, err
 	}
 	keys := photoKeys(listings, sales)
-	em, err := aiembed.New(aiembed.Config{
-		Models: map[string]string{ai.EmbedModel: ai.EmbedDir}, NumThreads: ai.NumThreads, MaxConcurrent: ai.EmbedMaxConcurrent,
-	})
+	em, err := aiembed.New(aiembed.Config{Dir: ai.EmbedDir, NumThreads: ai.NumThreads, MaxConcurrent: ai.EmbedMaxConcurrent})
 	if err != nil {
 		return 0, fmt.Errorf("load %s: %w", ai.EmbedModel, err)
 	}
@@ -262,12 +260,12 @@ func embedPhotos(ctx context.Context, s *stack, p *seedpack.Pack, u *ui) (int, e
 		if readErr != nil {
 			return pf.Done, readErr
 		}
-		res, embedErr := em.Embed(ctx, ai.EmbedModel, []aiembed.Input{{Image: photo}})
+		vs, embedErr := em.Embed(ctx, []aiembed.Input{{Image: photo}})
 		if errors.Is(embedErr, aiembed.ErrBadImage) {
 			u.Warnf("photo %s: %v", keys[pf.Done].Photo, embedErr)
 		} else if embedErr != nil {
 			return pf.Done, fmt.Errorf("embed photo %s: %w", keys[pf.Done].Photo, embedErr)
-		} else if err = m.SetRow(pf.Done, res.Vectors[0]); err != nil {
+		} else if err = m.SetRow(pf.Done, vs[0]); err != nil {
 			return pf.Done, err
 		}
 		bar.Add(1)

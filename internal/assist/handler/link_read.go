@@ -3,6 +3,8 @@ package handler
 import (
 	"net/http"
 
+	"github.com/shopnexus/server/internal/assist/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -12,19 +14,7 @@ type linkRequest struct {
 
 // PreviewLink serves POST /v1/link-previews.
 func (h *Handler) PreviewLink(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in linkRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.PreviewLink(r.Context(), p.AccountID, in.URL)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in linkRequest) (service.LinkPreviewView, error) {
+		return h.svc.PreviewLink(r.Context(), p.AccountID, in.URL)
+	})
 }

@@ -1,7 +1,6 @@
 package embed
 
 import (
-	"context"
 	"sync"
 	"testing"
 )
@@ -12,7 +11,7 @@ const minCosine = 0.999
 
 func newEmbedder(t *testing.T, concurrent int) *Embedder {
 	t.Helper()
-	e, err := New(Config{Models: map[string]string{modelName: modelDir(t)}, NumThreads: 2, MaxConcurrent: concurrent})
+	e, err := New(Config{Dir: modelDir(t), NumThreads: 2, MaxConcurrent: concurrent})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,21 +40,6 @@ func TestEmbedMatchesTransformers(t *testing.T) { //nolint:paralleltest // loads
 	}
 	if !sameRankings(imgs, txts, ref) {
 		t.Error("a text ranks the images in another order than transformers")
-	}
-}
-
-func TestEmbedCountsUsage(t *testing.T) { //nolint:paralleltest // loads the model; tests in parallel would each hold a copy
-	ref := loadReference(t)
-	e := newEmbedder(t, 1)
-	res, err := e.Embed(context.Background(), modelName, []Input{{Text: ref.Texts[0].Text}, {Text: ref.Texts[7].Text}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if want := ref.Texts[0].Tokens + ref.Texts[7].Tokens; res.Tokens != want {
-		t.Errorf("tokens = %d, want %d", res.Tokens, want)
-	}
-	if ref.Texts[7].Tokens != maxTextTokens {
-		t.Errorf("the long text counts %d, want %d", ref.Texts[7].Tokens, maxTextTokens)
 	}
 }
 

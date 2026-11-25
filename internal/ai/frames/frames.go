@@ -17,6 +17,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/shopnexus/server/internal/ai/domain"
 )
 
 // MinSeconds is the shortest video the app takes.
@@ -49,49 +51,33 @@ type Config struct {
 	MinSharpness float64
 }
 
-// Frame is a kept frame: its time in the video, its score and its JPEG.
-type Frame struct {
-	AtSeconds, Sharpness float64
-	JPEG                 []byte
-}
-
-// Result is the video's duration, the kept frames in time order, and the
-// counts for the log: frames decoded, dropped as blurred, and span winners
-// dropped as duplicates.
-type Result struct {
-	Duration                     float64
-	Frames                       []Frame
-	Decoded, Blurred, Duplicates int
-}
-
-// Extract reads the video at path. It takes a path because an mp4 with its
-// moov atom at the end needs a seekable input.
-func Extract(ctx context.Context, path string, c Config) (Result, error) {
+// Extract reads the video at path and returns its duration and the kept
+// frames in time order; the duration is set on an error past the probe. It
+// takes a path because an mp4 with its moov atom at the end needs a
+// seekable input.
+func Extract(ctx context.Context, path string, c Config) (domain.FramesOutput, error) {
 	duration, err := probe(ctx, path)
 	if err != nil {
-		return Result{}, err
+		return domain.FramesOutput{}, err
 	}
 	switch {
 	case duration < c.MinSeconds:
-		return Result{Duration: duration}, ErrTooShort
+		return domain.FramesOutput{Duration: duration}, ErrTooShort
 	case duration > c.MaxSeconds:
-		return Result{Duration: duration}, ErrTooLong
+		return domain.FramesOutput{Duration: duration}, ErrTooLong
 	}
 	sel := newSelector(duration, c.MinSharpness)
 	if err := decode(ctx, path, c.MaxSeconds, sel.offer); err != nil {
-		return Result{Duration: duration}, err
+		return domain.FramesOutput{Duration: duration}, err
 	}
-	kept, dups := sel.pick()
-	res := Result{
-		Duration: duration, Frames: make([]Frame, 0, len(kept)),
-		Decoded: sel.decoded, Blurred: sel.blurred, Duplicates: dups,
-	}
+	kept := sel.pick()
+	res := domain.FramesOutput{Duration: duration, Frames: make([]domain.Frame, 0, len(kept))}
 	for _, k := range kept {
 		b, err := encodeJPEG(k)
 		if err != nil {
-			return Result{Duration: duration}, fmt.Errorf("encode frame: %w", err)
+			return domain.FramesOutput{Duration: duration}, fmt.Errorf("encode frame: %w", err)
 		}
-		res.Frames = append(res.Frames, Frame{AtSeconds: k.at, Sharpness: k.sharpness, JPEG: b})
+		res.Frames = append(res.Frames, domain.Frame{AtSeconds: k.at, Sharpness: k.sharpness, JPEG: b})
 	}
 	return res, nil
 }
@@ -230,11 +216,10 @@ type candidate struct {
 // frame at or above the floor, so at most keep full frames stay in memory,
 // plus the sharpest frame overall.
 type selector struct {
-	spanSeconds      float64
-	minSharpness     float64
-	spans            [keep]*candidate
-	sharpest         *candidate
-	decoded, blurred int
+	spanSeconds  float64
+	minSharpness float64
+	spans        [keep]*candidate
+	sharpest     *candidate
 }
 
 func newSelector(duration, minSharpness float64) *selector {
@@ -242,12 +227,10 @@ func newSelector(duration, minSharpness float64) *selector {
 }
 
 func (s *selector) offer(c *candidate) {
-	s.decoded++
 	if s.sharpest == nil || c.sharpness > s.sharpest.sharpness {
 		s.sharpest = c
 	}
 	if c.sharpness < s.minSharpness {
-		s.blurred++
 		return
 	}
 	i := min(int(c.at/s.spanSeconds), keep-1)
@@ -256,11 +239,11 @@ func (s *selector) offer(c *candidate) {
 	}
 }
 
-// pick returns the frames to keep in time order, and how many span winners
-// were dropped as near-duplicates of a sharper one. When every frame is
-// under the floor it keeps the sharpest frame: a plain item on a plain table
-// scores low everywhere.
-func (s *selector) pick() (kept []*candidate, dups int) {
+// pick returns the frames to keep in time order, dropping a span winner
+// that is a near-duplicate of a sharper one. When every frame is under the
+// floor it keeps the sharpest frame: a plain item on a plain table scores
+// low everywhere.
+func (s *selector) pick() (kept []*candidate) {
 	var winners []*candidate
 	for _, c := range s.spans {
 		if c != nil {
@@ -269,23 +252,22 @@ func (s *selector) pick() (kept []*candidate, dups int) {
 	}
 	if len(winners) == 0 {
 		if s.sharpest == nil {
-			return nil, 0
+			return nil
 		}
-		return []*candidate{s.sharpest}, 0
+		return []*candidate{s.sharpest}
 	}
 	slices.SortFunc(winners, func(a, b *candidate) int { return cmp.Compare(b.sharpness, a.sharpness) })
 next:
 	for _, c := range winners {
 		for _, k := range kept {
 			if distance(c.hash, k.hash) <= dupDistance {
-				dups++
 				continue next
 			}
 		}
 		kept = append(kept, c)
 	}
 	slices.SortFunc(kept, func(a, b *candidate) int { return cmp.Compare(a.at, b.at) })
-	return kept, dups
+	return kept
 }
 
 func encodeJPEG(c *candidate) ([]byte, error) {

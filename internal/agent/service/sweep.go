@@ -17,7 +17,7 @@ const stuckGrace = 30 * time.Second
 // stuckGrace as agent_stuck, with turn.finished, so the conversation takes
 // questions again; a turn that wrote something can be continued.
 func (s *Agent) SweepTurns(ctx context.Context) error {
-	stuck, err := s.runs.StuckTurns(ctx, s.now(), stuckGrace, 100)
+	stuck, err := s.d.Runs.StuckTurns(ctx, s.d.Now(), stuckGrace, 100)
 	if err != nil {
 		return fmt.Errorf("find stuck turns: %w", err)
 	}

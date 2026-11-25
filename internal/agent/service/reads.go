@@ -16,8 +16,8 @@ const sweepBatch = 10_000
 // RecordRead is UC-MOD-08 step 3: an MCP tool records what it read of
 // people for the member who asked, before it answers (NFR-PRIV-02).
 func (s *Agent) RecordRead(ctx context.Context, member uuid.UUID, tool string, kind domain.SubjectKind, ids []uuid.UUID) error {
-	if err := s.reads.Insert(ctx, repository.Read{
-		ID: uuid.NewV7(), MemberID: member, Tool: tool, SubjectKind: kind, SubjectIDs: ids, At: s.now(),
+	if err := s.d.Reads.Insert(ctx, repository.Read{
+		ID: uuid.NewV7(), MemberID: member, Tool: tool, SubjectKind: kind, SubjectIDs: ids, At: s.d.Now(),
 	}); err != nil {
 		return fmt.Errorf("record the agent's read: %w", err)
 	}
@@ -32,10 +32,10 @@ const conversationBatch = 100
 // as old, which hold what the tools read, sweepBatch at a time; then it
 // deletes the conversations idle past ConversationsKeptFor.
 func (s *Agent) SweepReads(ctx context.Context) error {
-	now := s.now()
+	now := s.d.Now()
 	before := now.Add(-ReadsKeptFor)
 	for {
-		n, err := s.reads.DeleteBefore(ctx, before, sweepBatch)
+		n, err := s.d.Reads.DeleteBefore(ctx, before, sweepBatch)
 		if err != nil {
 			return fmt.Errorf("sweep the agent's reads: %w", err)
 		}
@@ -44,7 +44,7 @@ func (s *Agent) SweepReads(ctx context.Context) error {
 		}
 	}
 	for {
-		n, err := s.runs.BlankOutputsBefore(ctx, before, sweepBatch)
+		n, err := s.d.Runs.BlankOutputsBefore(ctx, before, sweepBatch)
 		if err != nil {
 			return fmt.Errorf("sweep the agent's tool outputs: %w", err)
 		}
@@ -54,7 +54,7 @@ func (s *Agent) SweepReads(ctx context.Context) error {
 	}
 	idle := now.Add(-ConversationsKeptFor)
 	for {
-		n, err := s.runs.DeleteIdleConversations(ctx, idle, conversationBatch)
+		n, err := s.d.Runs.DeleteIdleConversations(ctx, idle, conversationBatch)
 		if err != nil {
 			return fmt.Errorf("sweep the agent's idle conversations: %w", err)
 		}
@@ -67,7 +67,7 @@ func (s *Agent) SweepReads(ctx context.Context) error {
 // AccountDeleted blanks the tool outputs of the conversation about a
 // deleted account; the worker calls it on account.deleted.
 func (s *Agent) AccountDeleted(ctx context.Context, account uuid.UUID) error {
-	if err := s.runs.BlankAccountOutputs(ctx, account); err != nil {
+	if err := s.d.Runs.BlankAccountOutputs(ctx, account); err != nil {
 		return fmt.Errorf("blank the deleted account's tool outputs: %w", err)
 	}
 	return nil

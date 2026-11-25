@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strings"
 	"testing"
+	"time"
 	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
@@ -137,11 +138,11 @@ func TestEmbedImages(t *testing.T) {
 		}
 	}
 	// Photos checks the dimensions and turns a refusal into embed's.
-	photos := service.Photos{AI: c, Dims: 2}
+	photos := service.Photos{AI: c, Dims: 2, Timeout: time.Minute}
 	if _, err = photos.Embed(ctx, []string{"data:image/gif;base64,AAAA"}); !errors.Is(err, embed.ErrRefused) {
 		t.Fatalf("Photos refusal: %v", err)
 	}
-	if _, err = (service.Photos{AI: c, Dims: 3}).Embed(ctx, []string{dataURL([]byte("ab"))}); err == nil {
+	if _, err = (service.Photos{AI: c, Dims: 3, Timeout: time.Minute}).Embed(ctx, []string{dataURL([]byte("ab"))}); err == nil {
 		t.Fatal("Photos took 2 dimensions for 3")
 	}
 }

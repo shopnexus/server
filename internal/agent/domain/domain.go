@@ -17,8 +17,7 @@ const (
 var (
 	ErrUnavailable = apperr.New(apperr.KindUnavailable, "agent_unavailable",
 		"the agent cannot be reached; the rest of the console works without it")
-	ErrTimeout = apperr.New(apperr.KindTimeout, "agent_timeout", "the agent did not answer in time; ask again")
-	ErrBudget  = apperr.New(apperr.KindRateLimited, "agent_budget",
+	ErrBudget = apperr.New(apperr.KindRateLimited, "agent_budget",
 		"the agent's budget for today is spent; the rest of the console works without it")
 	ErrConversationNotFound = apperr.New(apperr.KindNotFound, "agent_conversation_not_found",
 		"no such conversation, or not one this member may open")

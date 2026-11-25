@@ -27,6 +27,43 @@ func gen(t *testing.T, name string, args ...string) string {
 // gblur sigma 50 (under 10).
 var cfg = Config{MinSeconds: MinSeconds, MaxSeconds: 35, MinSharpness: 50}
 
+// decoded runs decode over f and returns the frames it gave and how many
+// of them score under cfg's floor.
+func decoded(t *testing.T, f string) (n, blurred int) {
+	t.Helper()
+	err := decode(t.Context(), f, cfg.MaxSeconds, func(c *candidate) {
+		n++
+		if c.sharpness < cfg.MinSharpness {
+			blurred++
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n, blurred
+}
+
+// winners counts the spans of f that have a frame over cfg's floor: the
+// frames pick weighs against each other.
+func winners(t *testing.T, f string) int {
+	t.Helper()
+	d, err := probe(t.Context(), f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sel := newSelector(d, cfg.MinSharpness)
+	if err = decode(t.Context(), f, cfg.MaxSeconds, sel.offer); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, c := range sel.spans {
+		if c != nil {
+			n++
+		}
+	}
+	return n
+}
+
 func size(t *testing.T, b []byte) (w, h int) {
 	t.Helper()
 	img, err := jpeg.Decode(bytes.NewReader(b))
@@ -46,8 +83,8 @@ func TestExtractScalesALandscapeVideo(t *testing.T) {
 	if res.Duration < 9.9 || res.Duration > 10.1 {
 		t.Errorf("duration = %v, want 10", res.Duration)
 	}
-	if res.Decoded != 20 {
-		t.Errorf("decoded = %d, want 20 (2 a second)", res.Decoded)
+	if n, _ := decoded(t, f); n != 20 {
+		t.Errorf("decoded = %d, want 20 (2 a second)", n)
 	}
 	if n := len(res.Frames); n < 1 || n > keep {
 		t.Fatalf("frames = %d, want 1 to %d", n, keep)
@@ -124,8 +161,8 @@ func TestExtractDropsBlurredFrames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Decoded != 16 || res.Blurred != 8 {
-		t.Errorf("decoded %d, blurred %d, want 16 and 8", res.Decoded, res.Blurred)
+	if n, blurred := decoded(t, f); n != 16 || blurred != 8 {
+		t.Errorf("decoded %d, blurred %d, want 16 and 8", n, blurred)
 	}
 	if len(res.Frames) == 0 {
 		t.Fatal("no frames")
@@ -145,8 +182,8 @@ func TestExtractKeepsOneFrameOfAStillVideo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Frames) != 1 || res.Duplicates != keep-1 {
-		t.Errorf("frames %d, duplicates %d, want 1 and %d", len(res.Frames), res.Duplicates, keep-1)
+	if w := winners(t, f); len(res.Frames) != 1 || w != keep {
+		t.Errorf("frames %d of %d span winners, want 1 of %d", len(res.Frames), w, keep)
 	}
 }
 
@@ -159,8 +196,8 @@ func TestExtractKeepsTheSharpestFrameWhenAllAreBlurred(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(res.Frames) != 1 || res.Blurred != res.Decoded {
-		t.Errorf("frames %d, blurred %d of %d, want 1 frame and every frame blurred", len(res.Frames), res.Blurred, res.Decoded)
+	if n, blurred := decoded(t, f); len(res.Frames) != 1 || blurred != n {
+		t.Errorf("frames %d, blurred %d of %d, want 1 frame and every frame blurred", len(res.Frames), blurred, n)
 	}
 }
 
@@ -222,9 +259,9 @@ func TestPickKeepsTheSharpestFrameOfEachSpan(t *testing.T) {
 	for i := range 16 {
 		s.offer(cand(float64(i)/2, float64(100+i%2), spanHash(i/2)))
 	}
-	kept, dups := s.pick()
-	if len(kept) != keep || dups != 0 || s.decoded != 16 || s.blurred != 0 {
-		t.Fatalf("kept %d, dups %d, decoded %d, blurred %d", len(kept), dups, s.decoded, s.blurred)
+	kept := s.pick()
+	if len(kept) != keep {
+		t.Fatalf("kept %d, want %d", len(kept), keep)
 	}
 	for i, c := range kept {
 		if want := float64(i) + 0.5; c.at != want {
@@ -237,7 +274,7 @@ func TestPickPutsTheLastFrameInTheLastSpan(t *testing.T) {
 	t.Parallel()
 	s := newSelector(8, 10)
 	s.offer(cand(8, 100, 1))
-	kept, _ := s.pick()
+	kept := s.pick()
 	if len(kept) != 1 || s.spans[keep-1] == nil {
 		t.Errorf("a frame at the very end is lost: kept %d", len(kept))
 	}
@@ -249,9 +286,9 @@ func TestPickDropsBlurredFrames(t *testing.T) {
 	s.offer(cand(0, 5, spanHash(0)))
 	s.offer(cand(1, 50, spanHash(1)))
 	s.offer(cand(2, 9.9, spanHash(2)))
-	kept, _ := s.pick()
-	if len(kept) != 1 || kept[0].at != 1 || s.blurred != 2 {
-		t.Errorf("kept %d (first at %v), blurred %d", len(kept), kept[0].at, s.blurred)
+	kept := s.pick()
+	if len(kept) != 1 || kept[0].at != 1 {
+		t.Errorf("kept %d (first at %v), want the frame at 1 s", len(kept), kept[0].at)
 	}
 }
 
@@ -261,9 +298,9 @@ func TestPickDropsANearDuplicateKeepingTheSharper(t *testing.T) {
 	s.offer(cand(0, 50, 0b1111_0000))
 	s.offer(cand(2, 80, 0b1111_0111)) // 3 bits away
 	s.offer(cand(4, 60, spanHash(5)))
-	kept, dups := s.pick()
-	if dups != 1 || len(kept) != 2 || kept[0].at != 2 || kept[1].at != 4 {
-		t.Errorf("kept %v, dups %d; want the frames at 2 s and 4 s in time order", kept, dups)
+	kept := s.pick()
+	if len(kept) != 2 || kept[0].at != 2 || kept[1].at != 4 {
+		t.Errorf("kept %v; want the frames at 2 s and 4 s in time order", kept)
 	}
 }
 
@@ -273,15 +310,15 @@ func TestPickKeepsTheSharpestWhenEveryFrameIsBlurred(t *testing.T) {
 	s.offer(cand(0, 2, 1))
 	s.offer(cand(1, 7, 2))
 	s.offer(cand(2, 3, 3))
-	kept, dups := s.pick()
-	if len(kept) != 1 || kept[0].at != 1 || dups != 0 {
-		t.Errorf("kept %v, dups %d; want the frame at 1 s", kept, dups)
+	kept := s.pick()
+	if len(kept) != 1 || kept[0].at != 1 {
+		t.Errorf("kept %v; want the frame at 1 s", kept)
 	}
 }
 
 func TestPickWithNoFrame(t *testing.T) {
 	t.Parallel()
-	if kept, dups := newSelector(8, 10).pick(); kept != nil || dups != 0 {
-		t.Errorf("kept %v, dups %d", kept, dups)
+	if kept := newSelector(8, 10).pick(); kept != nil {
+		t.Errorf("kept %v", kept)
 	}
 }

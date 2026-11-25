@@ -4,7 +4,6 @@ package embed
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -12,20 +11,17 @@ import (
 	"slices"
 
 	ort "github.com/yalue/onnxruntime_go"
+
+	"github.com/shopnexus/server/internal/ai/domain"
 )
 
 const (
 	// Dimensions of the vectors.
 	Dimensions = 1152
-	// ImageTokens is what one image counts in usage: its 24x24 patches.
-	ImageTokens = 576
 
 	visionInput, visionOutput = "pixel_values", "pooler_output"
 	textInput, textOutput     = "input_ids", "pooler_output"
 )
-
-// ErrUnknownModel means the request names a model the service does not have.
-var ErrUnknownModel = errors.New("unknown model")
 
 // InputError says which input was refused.
 type InputError struct {
@@ -38,25 +34,15 @@ func (e *InputError) Unwrap() error { return e.Err }
 
 // Config of an Embedder.
 type Config struct {
-	// Models maps a name to a folder holding vision_model.onnx,
-	// text_model.onnx (with its .onnx_data when it has one) and
-	// tokenizer.model.
-	Models        map[string]string
+	// Dir holds vision_model.onnx, text_model.onnx (with its .onnx_data
+	// when it has one) and tokenizer.model.
+	Dir           string
 	NumThreads    int
 	MaxConcurrent int
 }
 
 // Input is one thing to embed: Image when non-nil, else Text.
-type Input struct {
-	Image []byte
-	Text  string
-}
-
-// Result of one Embed call.
-type Result struct {
-	Vectors [][]float32
-	Tokens  int
-}
+type Input = domain.EmbedItem
 
 type model struct {
 	vision, text *ort.DynamicAdvancedSession
@@ -66,25 +52,20 @@ type model struct {
 // Embedder is safe for concurrent use: onnxruntime sessions run
 // concurrently, and at most MaxConcurrent calls embed at once.
 type Embedder struct {
-	models map[string]*model
-	slots  chan struct{}
+	m     *model
+	slots chan struct{}
 }
 
-// New loads every model. It fails when a file is missing or does not load.
+// New loads the model. It fails when a file is missing or does not load.
 func New(c Config) (*Embedder, error) {
 	if err := initORT(); err != nil {
 		return nil, err
 	}
-	e := &Embedder{models: map[string]*model{}, slots: make(chan struct{}, c.MaxConcurrent)}
-	for name, dir := range c.Models {
-		m, err := load(dir, c.NumThreads)
-		if err != nil {
-			e.Close()
-			return nil, fmt.Errorf("model %s: %w", name, err)
-		}
-		e.models[name] = m
+	m, err := load(c.Dir, c.NumThreads)
+	if err != nil {
+		return nil, err
 	}
-	return e, nil
+	return &Embedder{m: m, slots: make(chan struct{}, c.MaxConcurrent)}, nil
 }
 
 func load(dir string, threads int) (*model, error) {
@@ -122,90 +103,72 @@ func load(dir string, threads int) (*model, error) {
 	return m, nil
 }
 
-// HasModel says whether name is loaded.
-func (e *Embedder) HasModel(name string) bool { _, ok := e.models[name]; return ok }
-
-// Models lists the loaded names, sorted.
-func (e *Embedder) Models() []string {
-	names := make([]string, 0, len(e.models))
-	for n := range e.models {
-		names = append(names, n)
-	}
-	slices.Sort(names)
-	return names
-}
-
-// Embed embeds every input of one request: the images in one run of the
-// vision tower, the texts in one run of the text tower. It waits for a slot
-// first. A refused image is an *InputError wrapping ErrBadImage, before any
-// run.
-func (e *Embedder) Embed(ctx context.Context, name string, in []Input) (Result, error) {
-	m, ok := e.models[name]
-	if !ok {
-		return Result{}, ErrUnknownModel
-	}
+// Embed embeds every input of one request, a vector each in input order:
+// the images in one run of the vision tower, the texts in one run of the
+// text tower. It waits for a slot first. A refused image is an
+// *InputError wrapping ErrBadImage, before any run.
+func (e *Embedder) Embed(ctx context.Context, in []Input) ([][]float32, error) {
+	m := e.m
 	// Decoding and tokenizing run under the slot too, so the slots bound the
 	// memory a request holds, and a caller gone while it waited starts
 	// nothing.
 	select {
 	case e.slots <- struct{}{}:
 	case <-ctx.Done():
-		return Result{}, fmt.Errorf("wait for a slot: %w", ctx.Err())
+		return nil, fmt.Errorf("wait for a slot: %w", ctx.Err())
 	}
 	defer func() { <-e.slots }()
 	if err := ctx.Err(); err != nil {
-		return Result{}, fmt.Errorf("wait for a slot: %w", err)
+		return nil, fmt.Errorf("wait for a slot: %w", err)
 	}
 	var (
 		imgIdx, txtIdx []int
 		pix            []float32
 		ids            []int64
-		res            = Result{Vectors: make([][]float32, len(in))}
+		vectors        = make([][]float32, len(in))
 	)
 	for i, x := range in {
 		if x.Image != nil {
 			p, err := pixels(x.Image)
 			if err != nil {
-				return Result{}, &InputError{Index: i, Err: err}
+				return nil, &InputError{Index: i, Err: err}
 			}
 			pix = append(pix, p...)
 			imgIdx = append(imgIdx, i)
-			res.Tokens += ImageTokens
 			continue
 		}
-		t, n := m.tok.ids(x.Text)
+		t, _ := m.tok.ids(x.Text)
 		ids = append(ids, t...)
 		txtIdx = append(txtIdx, i)
-		res.Tokens += n
 	}
 
 	if len(imgIdx) > 0 {
 		in, err := ort.NewTensor(ort.NewShape(int64(len(imgIdx)), 3, imageSide, imageSide), pix)
 		if err != nil {
-			return Result{}, fmt.Errorf("image tensor: %w", err)
+			return nil, fmt.Errorf("image tensor: %w", err)
 		}
 		vecs, err := run(m.vision, in, len(imgIdx))
 		if err != nil {
-			return Result{}, fmt.Errorf("vision tower: %w", err)
+			return nil, fmt.Errorf("vision tower: %w", err)
 		}
 		for k, i := range imgIdx {
-			res.Vectors[i] = vecs[k]
+			vectors[i] = vecs[k]
 		}
 	}
 	if len(txtIdx) > 0 {
 		in, err := ort.NewTensor(ort.NewShape(int64(len(txtIdx)), maxTextTokens), ids)
 		if err != nil {
-			return Result{}, fmt.Errorf("text tensor: %w", err)
+			return nil, fmt.Errorf("text tensor: %w", err)
 		}
 		vecs, err := run(m.text, in, len(txtIdx))
 		if err != nil {
-			return Result{}, fmt.Errorf("text tower: %w", err)
+			return nil, fmt.Errorf("text tower: %w", err)
 		}
 		for k, i := range txtIdx {
-			res.Vectors[i] = vecs[k]
+			vectors[i] = vecs[k]
 		}
 	}
-	return res, nil
+	return vectors, nil
 }
 
 // run runs one tower on a batch and returns n normalized vectors. It takes
@@ -248,10 +211,8 @@ func normalize(v []float32) {
 	}
 }
 
-// Close releases every session.
+// Close releases the sessions.
 func (e *Embedder) Close() {
-	for _, m := range e.models {
-		_ = m.vision.Destroy()
-		_ = m.text.Destroy()
-	}
+	_ = e.m.vision.Destroy()
+	_ = e.m.text.Destroy()
 }

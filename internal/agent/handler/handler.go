@@ -76,32 +76,6 @@ func (h *Handler) Register(r *httpx.Router, moderator, admin func(http.Handler) 
 	adm("GET /v1/console/settings/guardrails", h.Guardrails)
 }
 
-// serve runs one endpoint in the handlers' order: the console caller, Bind
-// for the request, the use case, then Respond with status or WriteError.
-func serve[In, Out any](h *Handler, w http.ResponseWriter, r *http.Request, status int,
-	run func(caller authn.ConsoleMember, in In) (Out, error),
-) {
-	caller, ok := httpx.ConsoleCaller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in In
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := run(caller, in)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if status == http.StatusNoContent {
-		w.WriteHeader(status)
-		return
-	}
-	httpx.Respond(w, status, out)
-}
-
 // items is a list response, {items}.
 type items[T any] struct {
 	Items []T `json:"items"`
@@ -109,9 +83,6 @@ type items[T any] struct {
 
 // listOf is a use case's list as a list response.
 func listOf[T any](out []T, err error) (items[T], error) { return items[T]{out}, err }
-
-// none is a request or answer without fields.
-type none struct{}
 
 type idRequest struct {
 	ID uuid.UUID `json:"-" path:"id"`
@@ -126,7 +97,7 @@ type listRequest struct {
 
 // ListConversations serves GET /v1/console/agent/conversations.
 func (h *Handler) ListConversations(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in listRequest) (items[service.Conversation], error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in listRequest) (items[service.Conversation], error) {
 		return listOf(h.svc.Conversations(r.Context(), c, service.ConversationQuery(in)))
 	})
 }
@@ -139,14 +110,14 @@ type createRequest struct {
 
 // CreateConversation serves POST /v1/console/agent/conversations.
 func (h *Handler) CreateConversation(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in createRequest) (service.Conversation, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in createRequest) (service.Conversation, error) {
 		return h.svc.CreateConversation(r.Context(), c, service.NewConversation(in))
 	})
 }
 
 // GetConversation serves GET /v1/console/agent/conversations/{id}.
 func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in idRequest) (service.ConversationDetail, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in idRequest) (service.ConversationDetail, error) {
 		return h.svc.Conversation(r.Context(), c, in.ID)
 	})
 }
@@ -158,15 +129,15 @@ type renameRequest struct {
 
 // RenameConversation serves PATCH /v1/console/agent/conversations/{id}.
 func (h *Handler) RenameConversation(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusOK, func(c authn.ConsoleMember, in renameRequest) (service.Conversation, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(c authn.ConsoleMember, in renameRequest) (service.Conversation, error) {
 		return h.svc.RenameConversation(r.Context(), c, in.ID, in.Title)
 	})
 }
 
 // DeleteConversation serves DELETE /v1/console/agent/conversations/{id}.
 func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusNoContent, func(c authn.ConsoleMember, in idRequest) (none, error) {
-		return none{}, h.svc.DeleteConversation(r.Context(), c, in.ID)
+	httpx.ServeConsole(w, r, h.log, http.StatusNoContent, func(c authn.ConsoleMember, in idRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.DeleteConversation(r.Context(), c, in.ID)
 	})
 }
 
@@ -180,7 +151,7 @@ type askRequest struct {
 // Ask serves POST /v1/console/agent/conversations/{id}/turns: 202 with
 // the turn, whose run the console follows on its events.
 func (h *Handler) Ask(w http.ResponseWriter, r *http.Request) {
-	serve(h, w, r, http.StatusAccepted, func(c authn.ConsoleMember, in askRequest) (service.TurnStarted, error) {
+	httpx.ServeConsole(w, r, h.log, http.StatusAccepted, func(c authn.ConsoleMember, in askRequest) (service.TurnStarted, error) {
 		in.NewTurn.Key = in.Key
 		return h.svc.Ask(r.Context(), c, in.ID, in.NewTurn)
 	})

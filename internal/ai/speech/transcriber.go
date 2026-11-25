@@ -6,32 +6,20 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	sherpa "github.com/k2-fsa/sherpa-onnx-go/sherpa_onnx"
 )
 
-// ErrUnknownModel means the request names a model the service does not have.
-var ErrUnknownModel = errors.New("unknown model")
-
 // Config of a Transcriber.
 type Config struct {
-	// Models maps a model name to a folder holding encoder.onnx, decoder.onnx,
-	// joiner.onnx and tokens.txt of a transducer such as Gipformer.
-	Models          map[string]string
+	// Dir holds encoder.onnx, decoder.onnx, joiner.onnx and tokens.txt of
+	// a transducer such as Gipformer.
+	Dir             string
 	VADModel        string // path of silero_vad.onnx
 	NumThreads      int
 	MaxConcurrent   int
 	MaxAudioSeconds int
-}
-
-// Result of one transcription.
-type Result struct {
-	Text          string
-	AudioSeconds  float64 // length of the decoded audio
-	SpeechSeconds float64 // length of the pieces VAD found
-	Pieces        int
 }
 
 // Silero VAD settings. A piece ends at a silence of 0.5 s or at 20 s,
@@ -46,22 +34,21 @@ const (
 )
 
 // Transcriber turns files into text. It is safe for concurrent use: one
-// recognizer per model serves every request, and at most MaxConcurrent
-// requests decode at once.
+// recognizer serves every request, and at most MaxConcurrent requests
+// decode at once.
 type Transcriber struct {
-	recognizers map[string]*sherpa.OfflineRecognizer
-	vad         sherpa.VadModelConfig
-	maxSeconds  int
-	slots       chan struct{}
+	rec        *sherpa.OfflineRecognizer
+	vad        sherpa.VadModelConfig
+	maxSeconds int
+	slots      chan struct{}
 }
 
-// New loads every model. It fails when a file is missing or a model does not
-// load.
+// New loads the model. It fails when a file is missing or the model does
+// not load.
 func New(c Config) (*Transcriber, error) {
 	t := &Transcriber{
-		recognizers: map[string]*sherpa.OfflineRecognizer{},
-		maxSeconds:  c.MaxAudioSeconds,
-		slots:       make(chan struct{}, c.MaxConcurrent),
+		maxSeconds: c.MaxAudioSeconds,
+		slots:      make(chan struct{}, c.MaxConcurrent),
 	}
 	t.vad = sherpa.VadModelConfig{SampleRate: SampleRate, NumThreads: 1, Provider: "cpu"}
 	t.vad.SileroVad = sherpa.SileroVadModelConfig{
@@ -81,29 +68,23 @@ func New(c Config) (*Transcriber, error) {
 	}
 	sherpa.DeleteVoiceActivityDetector(probe)
 
-	for name, dir := range c.Models {
-		files := map[string]string{}
-		for _, f := range []string{"encoder.onnx", "decoder.onnx", "joiner.onnx", "tokens.txt"} {
-			files[f] = filepath.Join(dir, f)
-			if err := exists(files[f]); err != nil {
-				t.Close()
-				return nil, fmt.Errorf("model %s: %w", name, err)
-			}
+	files := map[string]string{}
+	for _, f := range []string{"encoder.onnx", "decoder.onnx", "joiner.onnx", "tokens.txt"} {
+		files[f] = filepath.Join(c.Dir, f)
+		if err := exists(files[f]); err != nil {
+			return nil, err
 		}
-		cfg := sherpa.OfflineRecognizerConfig{DecodingMethod: "greedy_search"}
-		cfg.FeatConfig = sherpa.FeatureConfig{SampleRate: SampleRate, FeatureDim: 80}
-		cfg.ModelConfig.Transducer = sherpa.OfflineTransducerModelConfig{
-			Encoder: files["encoder.onnx"], Decoder: files["decoder.onnx"], Joiner: files["joiner.onnx"],
-		}
-		cfg.ModelConfig.Tokens = files["tokens.txt"]
-		cfg.ModelConfig.NumThreads = c.NumThreads
-		cfg.ModelConfig.Provider = "cpu"
-		r := sherpa.NewOfflineRecognizer(&cfg)
-		if r == nil {
-			t.Close()
-			return nil, fmt.Errorf("model %s: cannot load it from %s", name, dir)
-		}
-		t.recognizers[name] = r
+	}
+	cfg := sherpa.OfflineRecognizerConfig{DecodingMethod: "greedy_search"}
+	cfg.FeatConfig = sherpa.FeatureConfig{SampleRate: SampleRate, FeatureDim: 80}
+	cfg.ModelConfig.Transducer = sherpa.OfflineTransducerModelConfig{
+		Encoder: files["encoder.onnx"], Decoder: files["decoder.onnx"], Joiner: files["joiner.onnx"],
+	}
+	cfg.ModelConfig.Tokens = files["tokens.txt"]
+	cfg.ModelConfig.NumThreads = c.NumThreads
+	cfg.ModelConfig.Provider = "cpu"
+	if t.rec = sherpa.NewOfflineRecognizer(&cfg); t.rec == nil {
+		return nil, fmt.Errorf("cannot load the model from %s", c.Dir)
 	}
 	return t, nil
 }
@@ -115,47 +96,26 @@ func exists(path string) error {
 	return nil
 }
 
-// HasModel reports whether name is one of the loaded models.
-func (t *Transcriber) HasModel(name string) bool {
-	_, ok := t.recognizers[name]
-	return ok
-}
-
-// Models lists the loaded model names, sorted.
-func (t *Transcriber) Models() []string {
-	names := make([]string, 0, len(t.recognizers))
-	for n := range t.recognizers {
-		names = append(names, n)
-	}
-	slices.Sort(names)
-	return names
-}
-
 // Transcribe decodes the file at path and returns its text in lower case. It
 // waits for a free slot while ctx lasts.
-func (t *Transcriber) Transcribe(ctx context.Context, model, path string) (Result, error) {
-	rec, ok := t.recognizers[model]
-	if !ok {
-		return Result{}, fmt.Errorf("%w %q", ErrUnknownModel, model)
-	}
+func (t *Transcriber) Transcribe(ctx context.Context, path string) (string, error) {
 	select {
 	case t.slots <- struct{}{}:
 	case <-ctx.Done():
-		return Result{}, fmt.Errorf("wait for a slot: %w", ctx.Err())
+		return "", fmt.Errorf("wait for a slot: %w", ctx.Err())
 	}
 	defer func() { <-t.slots }()
 
 	samples, err := Decode(ctx, path, t.maxSeconds)
 	if err != nil {
-		return Result{}, err
+		return "", err
 	}
 	pieces, err := t.split(samples)
 	if err != nil {
-		return Result{}, err
+		return "", err
 	}
-	res := Result{AudioSeconds: float64(len(samples)) / SampleRate, Pieces: len(pieces)}
 	if len(pieces) == 0 {
-		return res, nil
+		return "", nil
 	}
 
 	// Each piece decodes alone. On 2026-11-09, two concurrent 288 s requests
@@ -163,15 +123,13 @@ func (t *Transcriber) Transcribe(ctx context.Context, model, path string) (Resul
 	// piece per call held about 1 GiB and took 4.3 s per request against 6.1 s.
 	texts := make([]string, len(pieces))
 	for i, p := range pieces {
-		s := sherpa.NewOfflineStream(rec)
+		s := sherpa.NewOfflineStream(t.rec)
 		s.AcceptWaveform(SampleRate, p)
-		rec.Decode(s)
+		t.rec.Decode(s)
 		texts[i] = s.GetResult().Text
 		sherpa.DeleteOfflineStream(s)
-		res.SpeechSeconds += float64(len(p)) / SampleRate
 	}
-	res.Text = strings.Join(strings.Fields(strings.ToLower(strings.Join(texts, " "))), " ")
-	return res, nil
+	return strings.Join(strings.Fields(strings.ToLower(strings.Join(texts, " "))), " "), nil
 }
 
 // split returns the speech in samples as pieces of at most vadMaxSpeech
@@ -201,10 +159,10 @@ func (t *Transcriber) split(samples []float32) ([][]float32, error) {
 	return pieces, nil
 }
 
-// Close frees the models.
+// Close frees the model.
 func (t *Transcriber) Close() {
-	for name, r := range t.recognizers {
-		sherpa.DeleteOfflineRecognizer(r)
-		delete(t.recognizers, name)
+	if t.rec != nil {
+		sherpa.DeleteOfflineRecognizer(t.rec)
+		t.rec = nil
 	}
 }

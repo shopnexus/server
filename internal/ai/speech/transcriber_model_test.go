@@ -28,7 +28,7 @@ func newTranscriber(t *testing.T, maxConcurrent, maxSeconds int) *Transcriber {
 	t.Helper()
 	models := aitest.ModelsDir(t, "gipformer-1.5")
 	tr, err := New(Config{
-		Models:          map[string]string{"gipformer-1.5": filepath.Join(models, "gipformer-1.5")},
+		Dir:             filepath.Join(models, "gipformer-1.5"),
 		VADModel:        filepath.Join(models, "silero_vad.onnx"),
 		NumThreads:      2,
 		MaxConcurrent:   maxConcurrent,
@@ -39,6 +39,24 @@ func newTranscriber(t *testing.T, maxConcurrent, maxSeconds int) *Transcriber {
 	}
 	t.Cleanup(tr.Close)
 	return tr
+}
+
+// pieces is how Transcribe splits the file at path: the pieces VAD found,
+// and the seconds of audio decoded and of speech in the pieces.
+func pieces(t *testing.T, tr *Transcriber, path string) (n int, audio, speech float64) {
+	t.Helper()
+	samples, err := Decode(t.Context(), path, tr.maxSeconds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ps, err := tr.split(samples)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range ps {
+		speech += float64(len(p)) / SampleRate
+	}
+	return len(ps), float64(len(samples)) / SampleRate, speech
 }
 
 func wav(t *testing.T, name string) string {
@@ -99,16 +117,16 @@ func TestTranscribeEachClip(t *testing.T) { //nolint:paralleltest // loads the m
 	tr := newTranscriber(t, 1, 300)
 	for name, words := range keywords { //nolint:paralleltest // one transcriber, one slot
 		t.Run(name, func(t *testing.T) {
-			r, err := tr.Transcribe(context.Background(), "gipformer-1.5", wav(t, name))
+			text, err := tr.Transcribe(context.Background(), wav(t, name))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if r.Text != strings.ToLower(r.Text) {
-				t.Errorf("text %q is not lower case", r.Text)
+			if text != strings.ToLower(text) {
+				t.Errorf("text %q is not lower case", text)
 			}
-			hasAll(t, r.Text, words)
-			if r.Pieces != 1 {
-				t.Errorf("pieces = %d, want 1", r.Pieces)
+			hasAll(t, text, words)
+			if n, _, _ := pieces(t, tr, wav(t, name)); n != 1 {
+				t.Errorf("pieces = %d, want 1", n)
 			}
 		})
 	}
@@ -116,21 +134,23 @@ func TestTranscribeEachClip(t *testing.T) { //nolint:paralleltest // loads the m
 
 func TestLongVideoIsSplitAtSilences(t *testing.T) { //nolint:paralleltest // loads the model; tests in parallel would each hold a copy
 	tr := newTranscriber(t, 1, 300)
-	r, err := tr.Transcribe(context.Background(), "gipformer-1.5", long(t))
+	f := long(t)
+	text, err := tr.Transcribe(context.Background(), f)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Pieces < 6 {
-		t.Errorf("pieces = %d, want at least 6", r.Pieces)
+	n, audio, speech := pieces(t, tr, f)
+	if n < 6 {
+		t.Errorf("pieces = %d, want at least 6", n)
 	}
-	if r.AudioSeconds < 30 || r.AudioSeconds > 34 {
-		t.Errorf("audio seconds = %v, want about 32", r.AudioSeconds)
+	if audio < 30 || audio > 34 {
+		t.Errorf("audio seconds = %v, want about 32", audio)
 	}
-	if r.SpeechSeconds <= 0 || r.SpeechSeconds >= r.AudioSeconds {
-		t.Errorf("speech seconds = %v of %v", r.SpeechSeconds, r.AudioSeconds)
+	if speech <= 0 || speech >= audio {
+		t.Errorf("speech seconds = %v of %v", speech, audio)
 	}
 	for _, words := range keywords {
-		hasAll(t, r.Text, words)
+		hasAll(t, text, words)
 	}
 }
 
@@ -141,28 +161,18 @@ func TestSilenceGivesEmptyText(t *testing.T) { //nolint:paralleltest // loads th
 		"-f", "lavfi", "-i", "anullsrc=r=16000:cl=mono:d=3", "-c:a", "aac", f).CombinedOutput(); err != nil {
 		t.Fatalf("ffmpeg: %v\n%s", err, b)
 	}
-	r, err := tr.Transcribe(context.Background(), "gipformer-1.5", f)
+	text, err := tr.Transcribe(context.Background(), f)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Text != "" || r.Pieces != 0 {
-		t.Errorf("result = %+v, want no text and no pieces", r)
-	}
-}
-
-func TestUnknownModel(t *testing.T) { //nolint:paralleltest // loads the model; tests in parallel would each hold a copy
-	tr := newTranscriber(t, 1, 300)
-	if tr.HasModel("whisper-1") {
-		t.Error("HasModel(whisper-1) = true")
-	}
-	if _, err := tr.Transcribe(context.Background(), "whisper-1", wav(t, "0.wav")); !errors.Is(err, ErrUnknownModel) {
-		t.Errorf("err = %v, want ErrUnknownModel", err)
+	if n, _, _ := pieces(t, tr, f); text != "" || n != 0 {
+		t.Errorf("text %q of %d pieces, want no text and no pieces", text, n)
 	}
 }
 
 func TestTooLong(t *testing.T) { //nolint:paralleltest // loads the model; tests in parallel would each hold a copy
 	tr := newTranscriber(t, 1, 10)
-	if _, err := tr.Transcribe(context.Background(), "gipformer-1.5", long(t)); !errors.Is(err, ErrTooLong) {
+	if _, err := tr.Transcribe(context.Background(), long(t)); !errors.Is(err, ErrTooLong) {
 		t.Errorf("err = %v, want ErrTooLong", err)
 	}
 }
@@ -173,7 +183,7 @@ func TestWaitsForASlot(t *testing.T) { //nolint:paralleltest // loads the model;
 	tr.slots <- struct{}{} // the only slot is taken
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	if _, err := tr.Transcribe(ctx, "gipformer-1.5", wav(t, "0.wav")); !errors.Is(err, context.DeadlineExceeded) {
+	if _, err := tr.Transcribe(ctx, wav(t, "0.wav")); !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("err = %v, want context.DeadlineExceeded", err)
 	}
 	<-tr.slots
@@ -183,7 +193,7 @@ func TestWaitsForASlot(t *testing.T) { //nolint:paralleltest // loads the model;
 func TestConcurrentRequestsAgree(t *testing.T) { //nolint:paralleltest // loads the model; tests in parallel would each hold a copy
 	tr := newTranscriber(t, 4, 300)
 	f := long(t)
-	want, err := tr.Transcribe(context.Background(), "gipformer-1.5", f)
+	want, err := tr.Transcribe(context.Background(), f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,13 +201,13 @@ func TestConcurrentRequestsAgree(t *testing.T) { //nolint:paralleltest // loads 
 	for range 8 {
 		wg.Go(func() {
 			for range 2 {
-				got, err := tr.Transcribe(context.Background(), "gipformer-1.5", f)
+				got, err := tr.Transcribe(context.Background(), f)
 				if err != nil {
 					t.Error(err)
 					return
 				}
-				if got.Text != want.Text {
-					t.Errorf("concurrent text %q, want %q", got.Text, want.Text)
+				if got != want {
+					t.Errorf("concurrent text %q, want %q", got, want)
 				}
 			}
 		})

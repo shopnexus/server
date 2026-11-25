@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"slices"
 	"strings"
 	"time"
 
@@ -23,7 +22,7 @@ const SyncEvery = 6 * time.Hour
 func (s *Agent) SyncProviders(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 4*gatewayTimeout)
 	defer cancel()
-	creds, err := s.gateway.Credentials(ctx)
+	creds, err := s.d.Gateway.Credentials(ctx)
 	if err != nil {
 		return gatewayError(err)
 	}
@@ -47,18 +46,8 @@ func (s *Agent) syncProvider(ctx context.Context, p Provider) (Provider, error) 
 	if err != nil {
 		return Provider{}, err
 	}
-	lister := p.ID + "/*"
-	if !slices.ContainsFunc(st.deps, func(d litellm.Deployment) bool { return d.ModelName == lister }) {
-		if err = s.gateway.AddDeployment(ctx, litellm.Deployment{
-			ModelName: lister,
-			Params:    litellm.Params{Model: route(p.Kind, "*"), Credential: p.ID},
-			Info:      map[string]any{roleKey: roleLister, "provider": p.ID},
-		}); err != nil {
-			return Provider{}, gatewayError(err)
-		}
-		if st, err = s.readState(ctx); err != nil {
-			return Provider{}, err
-		}
+	if st, err = s.ensureLister(ctx, st, p); err != nil {
+		return Provider{}, err
 	}
 	have := map[string]bool{}
 	for _, d := range st.deps {
@@ -67,7 +56,7 @@ func (s *Agent) syncProvider(ctx context.Context, p Provider) (Provider, error) 
 		}
 		model := d.InfoString("model")
 		if have[model] {
-			if err = s.gateway.DeleteDeployment(ctx, d.ID()); err != nil {
+			if err = s.d.Gateway.DeleteDeployment(ctx, d.ID()); err != nil {
 				return Provider{}, gatewayError(err)
 			}
 			continue
@@ -79,13 +68,13 @@ func (s *Agent) syncProvider(ctx context.Context, p Provider) (Provider, error) 
 		if !ok || model == "*" || model == "" || role(d) != roleLister || have[model] {
 			continue
 		}
-		if err = s.gateway.AddDeployment(ctx, catalogDeployment(p, model, litellm.Params{})); err != nil {
+		if err = s.d.Gateway.AddDeployment(ctx, catalogDeployment(p, model, litellm.Params{})); err != nil {
 			return Provider{}, gatewayError(err)
 		}
 		have[model] = true
 	}
-	now := s.now().UTC().Format(time.RFC3339)
-	if err = s.gateway.UpdateCredential(ctx, litellm.Credential{
+	now := s.d.Now().UTC().Format(time.RFC3339)
+	if err = s.d.Gateway.UpdateCredential(ctx, litellm.Credential{
 		Name: p.ID, DisplayName: p.Name, Info: map[string]any{infoSyncedAt: now},
 	}); err != nil {
 		return Provider{}, gatewayError(err)

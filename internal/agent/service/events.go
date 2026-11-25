@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"strconv"
 	"sync"
 	"time"
@@ -30,58 +29,57 @@ const (
 // stopEvents end a stream: the run stopped writing until someone acts.
 var stopEvents = map[string]bool{"turn.finished": true, "turn.paused": true, "clarify": true}
 
-// Events is UC-MOD-08 step 3 as the member watches it: a turn's events as
-// text/event-stream, replayed after lastEventID (a seq) and then followed
-// as agent_turn rings. The caller copies the body and closes it, which
-// ends the stream and not the run.
-func (s *Agent) Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, lastEventID string) (io.ReadCloser, error) {
+// TurnEvent is one thing a turn's event stream sends: first the delay a
+// browser waits before it reconnects, then stored events and keep-alives.
+type TurnEvent struct {
+	Retry     time.Duration
+	KeepAlive bool
+	// Seq, Type and Data are a stored event; Data is {seq, type, at, ...body}.
+	Seq  int64
+	Type string
+	Data []byte
+}
+
+// retryAfter is the reconnect delay a stream opens with.
+const retryAfter = 2 * time.Second
+
+// Events is UC-MOD-08 step 3 as the member watches it: emit gets a turn's
+// events, replayed after lastEventID (a seq) and then followed as
+// agent_turn rings. An error before the first emit refuses the stream;
+// ctx ending ends the stream and not the run.
+func (s *Agent) Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, lastEventID string,
+	emit func(TurnEvent) error,
+) error {
 	var after int64
 	if lastEventID != "" {
 		n, err := strconv.ParseInt(lastEventID, 10, 64)
 		if err != nil || n < 0 {
-			return nil, domain.ErrRequestInvalid.WithField("last_event_id", apperr.Invalid, "not_a_seq")
+			return domain.ErrRequestInvalid.WithField("last_event_id", apperr.Invalid, "not_a_seq")
 		}
 		after = n
 	}
 	if _, err := s.visibleTurn(ctx, caller, turn); err != nil {
-		return nil, err
+		return err
 	}
-	ctx, cancel := context.WithCancel(ctx)
 	ring, leave := s.hub.subscribe(turn)
-	r, w := io.Pipe()
-	go func() {
-		defer leave()
-		w.CloseWithError(s.follow(ctx, turn, after, ring, w))
-	}()
-	return stream{ReadCloser: r, cancel: cancel}, nil
+	defer leave()
+	return s.follow(ctx, turn, after, ring, emit)
 }
 
-// stream is an open event stream; Close ends it.
-type stream struct {
-	io.ReadCloser
-
-	cancel context.CancelFunc
-}
-
-func (s stream) Close() error {
-	s.cancel()
-	return s.ReadCloser.Close() //nolint:wrapcheck // Close of the pipe, as an io.ReadCloser passes it on.
-}
-
-// follow writes turn's events after seq after to w until a stop event, or
-// until the turn stopped running and stayed silent idleClose, or ctx ends.
-func (s *Agent) follow(ctx context.Context, turn uuid.UUID, after int64, ring <-chan struct{}, w io.Writer) error {
+// follow emits turn's events after seq after until a stop event, or until
+// the turn stopped running and stayed silent idleClose, or ctx ends.
+func (s *Agent) follow(ctx context.Context, turn uuid.UUID, after int64, ring <-chan struct{}, emit func(TurnEvent) error) error {
 	last, lastType := after, ""
 	deliver := func() (int, error) {
 		n := 0
 		for {
-			events, err := s.runs.Events(ctx, turn, last, eventPage)
+			events, err := s.d.Runs.Events(ctx, turn, last, eventPage)
 			if err != nil {
 				return n, fmt.Errorf("read the turn's events: %w", err)
 			}
 			for _, e := range events {
-				if _, err = w.Write(frame(e)); err != nil {
-					return n, err //nolint:wrapcheck // The reader went away.
+				if err = emit(TurnEvent{Seq: e.Seq, Type: e.Type, Data: eventData(e)}); err != nil {
+					return n, err
 				}
 				last, lastType = e.Seq, e.Type
 				n++
@@ -92,17 +90,17 @@ func (s *Agent) follow(ctx context.Context, turn uuid.UUID, after int64, ring <-
 		}
 	}
 	running := func() bool {
-		t, err := s.runs.Turn(ctx, turn)
+		t, err := s.d.Runs.Turn(ctx, turn)
 		return err == nil && t.Status == domain.TurnRunning
 	}
-	if _, err := io.WriteString(w, "retry: 2000\n\n"); err != nil {
-		return nil
+	if err := emit(TurnEvent{Retry: retryAfter}); err != nil {
+		return err
 	}
 	if _, err := deliver(); err != nil {
 		return err
 	}
 	if lastType == "" && last > 0 {
-		if prev, err := s.runs.Events(ctx, turn, last-1, 1); err == nil && len(prev) == 1 {
+		if prev, err := s.d.Runs.Events(ctx, turn, last-1, 1); err == nil && len(prev) == 1 {
 			lastType = prev[0].Type
 		}
 	}
@@ -128,8 +126,8 @@ func (s *Agent) follow(ctx context.Context, turn uuid.UUID, after int64, ring <-
 				idleSince = time.Time{}
 			}
 		case <-timer.C:
-			if _, err := io.WriteString(w, ": keep-alive\n\n"); err != nil {
-				return nil
+			if err := emit(TurnEvent{KeepAlive: true}); err != nil {
+				return err
 			}
 			n, err := deliver()
 			if err != nil {
@@ -151,9 +149,8 @@ func (s *Agent) follow(ctx context.Context, turn uuid.UUID, after int64, ring <-
 	}
 }
 
-// frame is one event as a server-sent event: id is the seq, data is
-// {seq, type, at, ...body}.
-func frame(e repository.Event) []byte {
+// eventData is an event's data line: {seq, type, at, ...body}.
+func eventData(e repository.Event) []byte {
 	head, _ := json.Marshal(struct {
 		Seq  int64  `json:"seq"`
 		Type string `json:"type"`
@@ -169,8 +166,7 @@ func frame(e repository.Event) []byte {
 			data = append(append(data, ','), inner...)
 		}
 	}
-	data = append(data, '}')
-	return fmt.Appendf(nil, "id: %d\nevent: %s\ndata: %s\n\n", e.Seq, e.Type, data)
+	return append(data, '}')
 }
 
 // hub hands the agent_turn rings this replica hears to its open streams
@@ -230,5 +226,5 @@ func (h *hub) ringAll() {
 // FollowTurns hands this replica's streams the agent_turn rings until ctx
 // is done.
 func (s *Agent) FollowTurns(ctx context.Context) {
-	s.runs.ListenTurns(ctx, s.hub.ring, s.hub.ringAll)
+	s.d.Runs.ListenTurns(ctx, s.hub.ring, s.hub.ringAll)
 }

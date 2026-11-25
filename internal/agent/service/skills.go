@@ -27,7 +27,7 @@ func skillView(sk repository.Skill) Skill {
 
 // Skill reads one skill.
 func (s *Agent) Skill(ctx context.Context, _ authn.ConsoleMember, id uuid.UUID) (Skill, error) {
-	sk, err := s.runs.Skill(ctx, id)
+	sk, err := s.d.Runs.Skill(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return Skill{}, domain.ErrSkillNotFound
 	}
@@ -39,7 +39,7 @@ func (s *Agent) Skill(ctx context.Context, _ authn.ConsoleMember, id uuid.UUID) 
 
 // Skills lists every skill by name; each is shared with every member.
 func (s *Agent) Skills(ctx context.Context, _ authn.ConsoleMember) ([]Skill, error) {
-	list, err := s.runs.Skills(ctx)
+	list, err := s.d.Runs.Skills(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list the skills: %w", err)
 	}
@@ -70,12 +70,12 @@ func (s *Agent) CreateSkill(ctx context.Context, caller authn.ConsoleMember, in 
 	if err != nil {
 		return Skill{}, fmt.Errorf("encode the variables: %w", err)
 	}
-	now := s.now().UTC()
+	now := s.d.Now().UTC()
 	sk := repository.Skill{
 		ID: uuid.NewV7(), CreatedBy: caller.MemberID, Name: name, Slug: slug, Description: in.Description, Prompt: prompt,
 		Variables: vars, CreatedAt: now, UpdatedAt: now, RequestKey: in.Key, WriteID: uuid.NewV7(),
 	}
-	err = s.runs.CreateSkill(ctx, sk)
+	err = s.d.Runs.CreateSkill(ctx, sk)
 	if err != nil && in.Key != nil {
 		// A racing retry of the key lost to the first; answer the first.
 		if v, ok, keyErr := s.skillOfKey(ctx, caller, *in.Key); keyErr == nil && ok {
@@ -95,7 +95,7 @@ func (s *Agent) CreateSkill(ctx context.Context, caller authn.ConsoleMember, in 
 
 // skillOfKey reads the skill caller made with key, when there is one.
 func (s *Agent) skillOfKey(ctx context.Context, caller authn.ConsoleMember, key uuid.UUID) (Skill, bool, error) {
-	sk, err := s.runs.SkillByKey(ctx, caller.MemberID, key)
+	sk, err := s.d.Runs.SkillByKey(ctx, caller.MemberID, key)
 	if errors.Is(err, repository.ErrNotFound) {
 		return Skill{}, false, nil
 	}
@@ -135,8 +135,8 @@ func (s *Agent) UpdateSkill(ctx context.Context, caller authn.ConsoleMember, id 
 		return Skill{}, fmt.Errorf("encode the variables: %w", err)
 	}
 	read := sk.WriteID
-	sk.UpdatedAt, sk.WriteID = s.now().UTC(), uuid.NewV7()
-	switch err = s.runs.UpdateSkill(ctx, sk, read); {
+	sk.UpdatedAt, sk.WriteID = s.d.Now().UTC(), uuid.NewV7()
+	switch err = s.d.Runs.UpdateSkill(ctx, sk, read); {
 	case errors.Is(err, repository.ErrNotFound):
 		return Skill{}, domain.ErrSkillNotFound
 	case errors.Is(err, repository.ErrConflict):
@@ -154,7 +154,7 @@ func (s *Agent) DeleteSkill(ctx context.Context, caller authn.ConsoleMember, id 
 	if _, err := s.ownSkill(ctx, caller, id); err != nil {
 		return err
 	}
-	if err := s.runs.DeleteSkill(ctx, id); err != nil {
+	if err := s.d.Runs.DeleteSkill(ctx, id); err != nil {
 		return fmt.Errorf("delete the skill: %w", err)
 	}
 	return nil
@@ -162,7 +162,7 @@ func (s *Agent) DeleteSkill(ctx context.Context, caller authn.ConsoleMember, id 
 
 // ownSkill reads a skill caller may change: their own, any for an admin.
 func (s *Agent) ownSkill(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (repository.Skill, error) {
-	sk, err := s.runs.Skill(ctx, id)
+	sk, err := s.d.Runs.Skill(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return repository.Skill{}, domain.ErrSkillNotFound
 	}

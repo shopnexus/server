@@ -53,18 +53,18 @@ type HomeViewed struct {
 func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain.Near, radiusKm int, t locale.Tag) (HomeScreen, error) {
 	out := HomeScreen{Nearby: discoverysvc.SearchView{Items: []discoverysvc.SearchItem{}}}
 	if near != (catalogdomain.Near{}) || radiusKm > 0 {
-		nearby, err := s.discovery.Search(ctx, viewer, discoverysvc.SearchInput{Near: near, RadiusKm: radiusKm, Sort: discoverysvc.SortNearby, Locale: t})
+		nearby, err := s.d.Discovery.Search(ctx, viewer, discoverysvc.SearchInput{Near: near, RadiusKm: radiusKm, Sort: discoverysvc.SortNearby, Locale: t})
 		if err != nil {
 			return HomeScreen{}, fmt.Errorf("read the nearby feed: %w", err)
 		}
 		out.Nearby = nearby
 	}
-	forYou, err := s.discovery.ForYou(ctx, viewer, near)
+	forYou, err := s.d.Discovery.ForYou(ctx, viewer, near)
 	if err != nil {
 		return HomeScreen{}, fmt.Errorf("read the for-you feed: %w", err)
 	}
 	out.ForYou = forYou.Items
-	tree, err := s.catalog.Categories(ctx, t)
+	tree, err := s.d.Catalog.Categories(ctx, t)
 	if err != nil {
 		return HomeScreen{}, fmt.Errorf("read categories: %w", err)
 	}
@@ -77,7 +77,7 @@ func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain
 		}
 	}
 	// A listing takes a subcategory, so a root's count is its children's.
-	counts, err := s.catalog.Counts(ctx, catalogdomain.Search{})
+	counts, err := s.d.Catalog.Counts(ctx, catalogdomain.Search{})
 	if err != nil {
 		return HomeScreen{}, fmt.Errorf("count listings: %w", err)
 	}
@@ -86,7 +86,7 @@ func (s *Screen) Home(ctx context.Context, viewer *uuid.UUID, near catalogdomain
 		byCode[c.Code] = c.Count
 	}
 	if viewer != nil {
-		if out.NotificationsUnread, err = s.notices.Unread(ctx, *viewer); err != nil {
+		if out.NotificationsUnread, err = s.d.Notifications.Unread(ctx, *viewer); err != nil {
 			return HomeScreen{}, fmt.Errorf("count unread notices: %w", err)
 		}
 	}

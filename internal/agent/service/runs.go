@@ -174,16 +174,16 @@ func (s *Agent) startRun(ctx context.Context, req runRequest, deadline time.Dura
 		return nil, nil, fmt.Errorf("encode the run request: %w", err)
 	}
 	runCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), deadline+readGrace)
-	r, err := http.NewRequestWithContext(runCtx, http.MethodPost, strings.TrimSuffix(s.baseURL, "/")+"/runs", bytes.NewReader(body))
+	r, err := http.NewRequestWithContext(runCtx, http.MethodPost, strings.TrimSuffix(s.d.BaseURL, "/")+"/runs", bytes.NewReader(body))
 	if err != nil {
 		cancel()
 		return nil, nil, fmt.Errorf("build the run request: %w", err)
 	}
-	r.Header.Set("Authorization", "Bearer "+s.token)
+	r.Header.Set("Authorization", "Bearer "+s.d.Token)
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Accept", "application/x-ndjson")
 	opened := time.AfterFunc(openWait, cancel)
-	res, err := s.http.Do(r)
+	res, err := s.d.HTTP.Do(r)
 	if !opened.Stop() {
 		cancel()
 		if res != nil {
@@ -280,17 +280,17 @@ func (s *Agent) readRun(ctx context.Context, seg segment, body io.ReadCloser, ca
 		}
 		var err error
 		if ended, err = s.applyLine(ctx, seg, line); err != nil {
-			s.log.WarnContext(ctx, "agent: apply a run line", "turn_id", seg.turn, "err", err)
+			s.d.Log.WarnContext(ctx, "agent: apply a run line", "turn_id", seg.turn, "err", err)
 		}
 	}
 	if err := lines.Err(); err != nil && !ended {
-		s.log.WarnContext(ctx, "agent: read a run's stream", "turn_id", seg.turn, "err", err)
+		s.d.Log.WarnContext(ctx, "agent: read a run's stream", "turn_id", seg.turn, "err", err)
 	}
 	if !ended {
 		closeCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), openWait)
 		defer stop()
 		if err := s.closeStuck(closeCtx, seg.turn, seg.start); err != nil {
-			s.log.WarnContext(ctx, "agent: close a run whose stream broke", "turn_id", seg.turn, "err", err)
+			s.d.Log.WarnContext(ctx, "agent: close a run whose stream broke", "turn_id", seg.turn, "err", err)
 		}
 	}
 }
@@ -307,7 +307,7 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 	if err := json.Unmarshal(raw, &l); err != nil {
 		return false, fmt.Errorf("decode a run line: %w", err)
 	}
-	now := s.now()
+	now := s.d.Now()
 	switch l.Kind {
 	case "event":
 		var steer *uuid.UUID
@@ -319,7 +319,7 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 				steer = &b.SteerID
 			}
 		}
-		if _, err := s.runs.AppendRunEvent(ctx, seg.turn, seg.start, l.Type, l.Body, writes[l.Type], steer, now); err != nil {
+		if _, err := s.d.Runs.AppendRunEvent(ctx, seg.turn, seg.start, l.Type, l.Body, writes[l.Type], steer, now); err != nil {
 			return false, fmt.Errorf("append %s: %w", l.Type, err)
 		}
 	case "checkpoint":
@@ -327,11 +327,11 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 			Wrote bool `json:"wrote"`
 		}
 		_ = json.Unmarshal(l.State, &st)
-		if err := s.runs.Checkpoint(ctx, seg.turn, seg.start, l.State, st.Wrote); err != nil {
+		if err := s.d.Runs.Checkpoint(ctx, seg.turn, seg.start, l.State, st.Wrote); err != nil {
 			return false, fmt.Errorf("store a checkpoint: %w", err)
 		}
 	case "tool_call":
-		if err := s.runs.SaveToolCall(ctx, repository.ToolWrite{
+		if err := s.d.Runs.SaveToolCall(ctx, repository.ToolWrite{
 			ID: l.ID, TurnID: seg.turn, Segment: seg.start, ToolUseID: l.ToolUseID, Tool: l.Tool, Label: l.Label, Input: l.Input,
 			Output: outputOf(l.Output), Content: nullable(l.Content), OutputSpilled: l.OutputSpilled, Status: l.Status,
 			LatencyMS: rounded(l.LatencyMS), Attempts: l.Attempts, AttemptErrors: nullable(l.AttemptErrors),
@@ -340,7 +340,7 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 			return false, fmt.Errorf("store a tool call: %w", err)
 		}
 	case "document":
-		ok, err := s.runs.WriteDocument(ctx, repository.DocumentWrite{
+		ok, err := s.d.Runs.WriteDocument(ctx, repository.DocumentWrite{
 			ID: l.DocumentID, ConversationID: seg.conversation, TurnID: seg.turn, Segment: seg.start, MemberID: seg.member, Version: l.Version,
 			Title: l.Title, Sections: l.Sections, At: now,
 		})
@@ -348,7 +348,7 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 			return false, fmt.Errorf("store a document: %w", err)
 		}
 		if !ok {
-			s.log.WarnContext(ctx, "agent: a document write was left out", "turn_id", seg.turn, "document_id", l.DocumentID,
+			s.d.Log.WarnContext(ctx, "agent: a document write was left out", "turn_id", seg.turn, "document_id", l.DocumentID,
 				"version", l.Version)
 		}
 	case "end":
@@ -371,7 +371,7 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 		if l.Event != nil {
 			e.EventType, e.EventBody = l.Event.Type, l.Event.Body
 		}
-		if _, err := s.runs.FinishRun(ctx, e); err != nil {
+		if _, err := s.d.Runs.FinishRun(ctx, e); err != nil {
 			return false, fmt.Errorf("finish the run: %w", err)
 		}
 		return true, nil
@@ -421,7 +421,7 @@ func rounded(f *float64) *int64 {
 // start as failed with agent_stuck: its stream broke, or the sweep found
 // it past its deadline.
 func (s *Agent) closeStuck(ctx context.Context, id uuid.UUID, start time.Time) error {
-	t, err := s.runs.Turn(ctx, id)
+	t, err := s.d.Runs.Turn(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return nil
 	}
@@ -438,7 +438,7 @@ func (s *Agent) closeStuck(ctx context.Context, id uuid.UUID, start time.Time) e
 	if err != nil {
 		return fmt.Errorf("encode turn.finished: %w", err)
 	}
-	if _, err = s.runs.CloseStuck(ctx, id, start, domain.FailStuck, domain.FailureAnswers[domain.FailStuck], body, s.now()); err != nil {
+	if _, err = s.d.Runs.CloseStuck(ctx, id, start, domain.FailStuck, domain.FailureAnswers[domain.FailStuck], body, s.d.Now()); err != nil {
 		return fmt.Errorf("close the turn: %w", err)
 	}
 	return nil

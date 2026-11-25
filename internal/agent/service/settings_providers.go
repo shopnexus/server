@@ -65,7 +65,7 @@ func (s *Agent) CreateProvider(ctx context.Context, caller authn.ConsoleMember, 
 		Name: in.ID, DisplayName: name, Values: values,
 		Info: map[string]any{infoKind: in.Kind, infoBaseURL: in.BaseURL, infoWeight: w, infoOrder: o, infoMode: string(in.Mode)},
 	}
-	if err = s.gateway.CreateCredential(ctx, cred); err != nil {
+	if err = s.d.Gateway.CreateCredential(ctx, cred); err != nil {
 		return Provider{}, gatewayError(err)
 	}
 	p := st.providerOf(cred)
@@ -140,7 +140,7 @@ func (s *Agent) UpdateProvider(ctx context.Context, caller authn.ConsoleMember, 
 		}
 		patch.Info[infoEnabled], details["enabled"] = *in.Enabled, *in.Enabled
 	}
-	if err = s.gateway.UpdateCredential(ctx, patch); err != nil {
+	if err = s.d.Gateway.UpdateCredential(ctx, patch); err != nil {
 		return Provider{}, gatewayError(err)
 	}
 	if in.Weight != nil || in.Order != nil || in.Enabled != nil {
@@ -181,12 +181,12 @@ func (s *Agent) DeleteProvider(ctx context.Context, caller authn.ConsoleMember, 
 	}
 	for _, d := range st.deps {
 		if d.InfoString("provider") == id && d.ID() != "" && role(d) != "" {
-			if err = s.gateway.DeleteDeployment(ctx, d.ID()); err != nil {
+			if err = s.d.Gateway.DeleteDeployment(ctx, d.ID()); err != nil {
 				return gatewayError(err)
 			}
 		}
 	}
-	if err = s.gateway.DeleteCredential(ctx, id); err != nil && !errors.Is(err, litellm.ErrNotFound) {
+	if err = s.d.Gateway.DeleteCredential(ctx, id); err != nil && !errors.Is(err, litellm.ErrNotFound) {
 		return gatewayError(err)
 	}
 	return s.record(ctx, caller, audit.AIProviderDelete, audit.AIProvider(id), map[string]any{"provider": id})
@@ -207,7 +207,7 @@ func (s *Agent) AddProviderModel(ctx context.Context, caller authn.ConsoleMember
 	}
 	p := st.providerOf(c)
 	if !slices.Contains(p.Models, model) {
-		if err = s.gateway.AddDeployment(ctx, catalogDeployment(p, model, litellm.Params{
+		if err = s.d.Gateway.AddDeployment(ctx, catalogDeployment(p, model, litellm.Params{
 			InputCost: perToken(in), OutputCost: perToken(out),
 		})); err != nil {
 			return Provider{}, gatewayError(err)
@@ -248,7 +248,7 @@ func (s *Agent) RemoveProviderModel(ctx context.Context, caller authn.ConsoleMem
 	for _, d := range st.deps {
 		r := role(d)
 		if (r == roleCatalog || r == roleAlias) && d.InfoString("provider") == id && d.InfoString("model") == model {
-			if err = s.gateway.DeleteDeployment(ctx, d.ID()); err != nil {
+			if err = s.d.Gateway.DeleteDeployment(ctx, d.ID()); err != nil {
 				return Provider{}, gatewayError(err)
 			}
 		}
@@ -284,11 +284,11 @@ func (s *Agent) TestProvider(ctx context.Context, id, model string) (ProviderTes
 		model = p.Models[0]
 	}
 	mode := "chat"
-	if tags, tagErr := s.settings.ModelTags(ctx); tagErr == nil && slices.Contains(tags[model], "Embedding") {
+	if tags, tagErr := s.d.Settings.ModelTags(ctx); tagErr == nil && slices.Contains(tags[model], "Embedding") {
 		mode = "embedding"
 	}
 	start := time.Now()
-	res, err := s.gateway.TestConnection(ctx, route(p.Kind, model), id, mode)
+	res, err := s.d.Gateway.TestConnection(ctx, route(p.Kind, model), id, mode)
 	if err != nil {
 		return ProviderTest{}, gatewayError(err)
 	}

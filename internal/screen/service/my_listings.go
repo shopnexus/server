@@ -53,8 +53,8 @@ type MyListingsItem struct {
 func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request, t locale.Tag) (MyListingsScreen, error) {
 	// Views are stored by UTC day, so the week is the seven UTC days that
 	// end today, for the views, the saves and the askers alike.
-	since := discoverydomain.ViewWeek(s.now())
-	listings, err := s.catalog.ListMine(ctx, seller, pane, p, t)
+	since := discoverydomain.ViewWeek(s.d.Now())
+	listings, err := s.d.Catalog.ListMine(ctx, seller, pane, p, t)
 	if err != nil {
 		return MyListingsScreen{}, fmt.Errorf("read the listings: %w", err)
 	}
@@ -66,7 +66,7 @@ func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogs
 	// every listing on sale.
 	onSale := shown
 	if pane != catalogsvc.PaneOnSale || p.Cursor != (uuid.UUID{}) || listings.NextCursor != nil {
-		if onSale, err = s.catalog.OnSale(ctx, seller); err != nil {
+		if onSale, err = s.d.Catalog.OnSale(ctx, seller); err != nil {
 			return MyListingsScreen{}, fmt.Errorf("read the listings on sale: %w", err)
 		}
 	}
@@ -86,21 +86,21 @@ func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogs
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		var statsErr error
-		if stats, statsErr = s.discovery.ListingStats(gctx, ids, since); statsErr != nil {
+		if stats, statsErr = s.d.Discovery.ListingStats(gctx, ids, since); statsErr != nil {
 			return fmt.Errorf("read the views and saves: %w", statsErr)
 		}
 		return nil
 	})
 	g.Go(func() error {
 		var dealsErr error
-		if activity, dealsErr = s.deals.ListingActivity(gctx, seller, ids); dealsErr != nil {
+		if activity, dealsErr = s.d.Deals.ListingActivity(gctx, seller, ids); dealsErr != nil {
 			return fmt.Errorf("read the deals: %w", dealsErr)
 		}
 		return nil
 	})
 	g.Go(func() error {
 		var chatErr error
-		if wrote, chatErr = s.chats.ListingAskers(gctx, seller, ids); chatErr != nil {
+		if wrote, chatErr = s.d.Chats.ListingAskers(gctx, seller, ids); chatErr != nil {
 			return fmt.Errorf("read who wrote: %w", chatErr)
 		}
 		return nil

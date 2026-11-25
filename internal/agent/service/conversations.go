@@ -41,7 +41,7 @@ func (s *Agent) Conversations(ctx context.Context, caller authn.ConsoleMember, q
 	if mention && (q.MentionID == nil || !slices.Contains(domain.AttachmentKinds, q.MentionKind) || q.SubjectKind != "") {
 		return nil, domain.ErrRequestInvalid
 	}
-	list, err := s.runs.Conversations(ctx, caller.MemberID, repository.ConversationFilter{
+	list, err := s.d.Runs.Conversations(ctx, caller.MemberID, repository.ConversationFilter{
 		SubjectKind: string(q.SubjectKind), SubjectID: q.SubjectID, MentionKind: q.MentionKind, MentionID: q.MentionID,
 	}, listLimit)
 	if err != nil {
@@ -61,9 +61,9 @@ func (s *Agent) CreateConversation(ctx context.Context, caller authn.ConsoleMemb
 	if (in.SubjectKind == "") != (in.SubjectID == nil) {
 		return Conversation{}, domain.ErrInvalidSubject
 	}
-	c, err := s.runs.OpenConversation(ctx, repository.Conversation{
+	c, err := s.d.Runs.OpenConversation(ctx, repository.Conversation{
 		ID: uuid.NewV7(), MemberID: caller.MemberID, SubjectKind: string(in.SubjectKind), SubjectID: in.SubjectID,
-		CreatedAt: s.now().UTC(), RequestKey: in.Key,
+		CreatedAt: s.d.Now().UTC(), RequestKey: in.Key,
 	})
 	if err != nil {
 		return Conversation{}, fmt.Errorf("open the conversation: %w", err)
@@ -74,14 +74,14 @@ func (s *Agent) CreateConversation(ctx context.Context, caller authn.ConsoleMemb
 // Conversation is UC-MOD-08 step 1: the member reads a conversation, each
 // question with the member who asked it.
 func (s *Agent) Conversation(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) (ConversationDetail, error) {
-	c, err := s.runs.Conversation(ctx, id)
+	c, err := s.d.Runs.Conversation(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && !visible(c, caller)) {
 		return ConversationDetail{}, domain.ErrConversationNotFound
 	}
 	if err != nil {
 		return ConversationDetail{}, fmt.Errorf("read the conversation: %w", err)
 	}
-	turns, err := s.runs.Turns(ctx, id)
+	turns, err := s.d.Runs.Turns(ctx, id)
 	if err != nil {
 		return ConversationDetail{}, fmt.Errorf("read the conversation's turns: %w", err)
 	}
@@ -89,7 +89,7 @@ func (s *Agent) Conversation(ctx context.Context, caller authn.ConsoleMember, id
 	for i := range turns {
 		ids = append(ids, turns[i].ID)
 	}
-	steers, err := s.runs.Steers(ctx, ids)
+	steers, err := s.d.Runs.Steers(ctx, ids)
 	if err != nil {
 		return ConversationDetail{}, fmt.Errorf("read the turns' steers: %w", err)
 	}
@@ -104,7 +104,7 @@ func (s *Agent) Conversation(ctx context.Context, caller authn.ConsoleMember, id
 // admin; a shared one is an admin's (agent_forbidden), another member's
 // own is not found, as for reading.
 func (s *Agent) changeable(ctx context.Context, caller authn.ConsoleMember, id uuid.UUID) error {
-	c, err := s.runs.Conversation(ctx, id)
+	c, err := s.d.Runs.Conversation(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrConversationNotFound
 	}
@@ -130,7 +130,7 @@ func (s *Agent) RenameConversation(ctx context.Context, caller authn.ConsoleMemb
 	if err := s.changeable(ctx, caller, id); err != nil {
 		return Conversation{}, err
 	}
-	c, err := s.runs.RenameConversation(ctx, id, title, s.now().UTC())
+	c, err := s.d.Runs.RenameConversation(ctx, id, title, s.d.Now().UTC())
 	if errors.Is(err, repository.ErrNotFound) {
 		return Conversation{}, domain.ErrConversationNotFound
 	}
@@ -146,7 +146,7 @@ func (s *Agent) DeleteConversation(ctx context.Context, caller authn.ConsoleMemb
 	if err := s.changeable(ctx, caller, id); err != nil {
 		return err
 	}
-	switch err := s.runs.DeleteConversation(ctx, id); {
+	switch err := s.d.Runs.DeleteConversation(ctx, id); {
 	case errors.Is(err, repository.ErrNotFound):
 		return domain.ErrConversationNotFound
 	case errors.Is(err, repository.ErrBusy):

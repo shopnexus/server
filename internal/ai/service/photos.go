@@ -16,7 +16,7 @@ import (
 type Photos struct {
 	AI      Service
 	Dims    int           // the length every vector must have
-	Timeout time.Duration // one call; zero waits as long as ctx
+	Timeout time.Duration // one call
 }
 
 var _ embed.Model = Photos{}
@@ -27,7 +27,7 @@ const maxHalf = 65504
 // Embed takes images as data URLs, as embed.ImageInput writes them, and
 // texts as they are, such as a search's look. A refusal is embed.ErrRefused.
 func (p Photos) Embed(ctx context.Context, inputs []string) ([][]float32, error) {
-	ctx, cancel := timeout(ctx, p.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, p.Timeout)
 	defer cancel()
 	vs, err := p.AI.EmbedImages(ctx, inputs)
 	if errors.Is(err, domain.ErrRefused) {
@@ -48,12 +48,4 @@ func (p Photos) Embed(ctx context.Context, inputs []string) ([][]float32, error)
 		}
 	}
 	return vs, nil
-}
-
-// timeout bounds ctx by d when d is positive.
-func timeout(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
-	if d <= 0 {
-		return context.WithCancel(ctx)
-	}
-	return context.WithTimeout(ctx, d)
 }

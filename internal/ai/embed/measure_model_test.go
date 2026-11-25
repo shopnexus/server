@@ -17,7 +17,7 @@ import (
 func TestMeasure(t *testing.T) {
 	ref := loadReference(t)
 	for dir := range strings.SplitSeq(os.Getenv("AI_TEST_SIGLIP_DIRS"), ",") {
-		e, err := New(Config{Models: map[string]string{"m": filepath.Join(dir, "siglip2-so400m-patch16-384")}, NumThreads: 4, MaxConcurrent: 1})
+		e, err := New(Config{Dir: filepath.Join(dir, "siglip2-so400m-patch16-384"), NumThreads: 4, MaxConcurrent: 1})
 		if err != nil {
 			t.Fatal(err)
 		}

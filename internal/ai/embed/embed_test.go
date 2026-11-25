@@ -34,7 +34,7 @@ func TestInputErrorUnwraps(t *testing.T) {
 
 func TestNewRefusesAMissingFolder(t *testing.T) {
 	t.Parallel()
-	_, err := New(Config{Models: map[string]string{"x": t.TempDir()}, NumThreads: 1, MaxConcurrent: 1})
+	_, err := New(Config{Dir: t.TempDir(), NumThreads: 1, MaxConcurrent: 1})
 	if err == nil {
 		t.Fatal("New loaded a folder with no model")
 	}
@@ -45,11 +45,11 @@ func TestNewRefusesAMissingFolder(t *testing.T) {
 // context's error.
 func TestEmbedDecodesUnderTheSlot(t *testing.T) {
 	t.Parallel()
-	e := &Embedder{models: map[string]*model{"m": {}}, slots: make(chan struct{}, 1)}
+	e := &Embedder{m: &model{}, slots: make(chan struct{}, 1)}
 	e.slots <- struct{}{}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err := e.Embed(ctx, "m", []Input{{Image: []byte("not an image")}})
+	_, err := e.Embed(ctx, []Input{{Image: []byte("not an image")}})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}
@@ -59,27 +59,12 @@ func TestEmbedDecodesUnderTheSlot(t *testing.T) {
 // has no sessions, so a run would panic).
 func TestEmbedLeftCallerStartsNoRun(t *testing.T) {
 	t.Parallel()
-	e := &Embedder{models: map[string]*model{"m": {}}, slots: make(chan struct{}, 1)}
+	e := &Embedder{m: &model{}, slots: make(chan struct{}, 1)}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	for range 50 {
-		if _, err := e.Embed(ctx, "m", []Input{{Text: "a"}}); !errors.Is(err, context.Canceled) {
+		if _, err := e.Embed(ctx, []Input{{Text: "a"}}); !errors.Is(err, context.Canceled) {
 			t.Fatalf("err = %v, want context.Canceled", err)
 		}
-	}
-}
-
-func TestNewWithNoModels(t *testing.T) {
-	t.Parallel()
-	e, err := New(Config{NumThreads: 1, MaxConcurrent: 1})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer e.Close()
-	if e.HasModel("siglip2-so400m-patch16-384") || len(e.Models()) != 0 {
-		t.Errorf("models = %v, want none", e.Models())
-	}
-	if _, err := e.Embed(context.Background(), "siglip2-so400m-patch16-384", []Input{{Text: "a"}}); !errors.Is(err, ErrUnknownModel) {
-		t.Errorf("Embed = %v, want ErrUnknownModel", err)
 	}
 }

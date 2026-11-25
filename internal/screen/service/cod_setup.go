@@ -18,19 +18,19 @@ type CodSetupScreen struct {
 }
 
 func (s *Screen) CodSetup(ctx context.Context, account uuid.UUID) (CodSetupScreen, error) {
-	me, err := s.accounts.Me(ctx, account)
+	me, err := s.d.Accounts.Me(ctx, account)
 	if err != nil {
 		return CodSetupScreen{}, fmt.Errorf("read account: %w", err)
 	}
-	book, err := s.accounts.Addresses(ctx, account)
+	book, err := s.d.Accounts.Addresses(ctx, account)
 	if err != nil {
 		return CodSetupScreen{}, fmt.Errorf("read addresses: %w", err)
 	}
-	settings, err := s.shipping.Settings(ctx, account)
+	settings, err := s.d.Shipping.Settings(ctx, account)
 	if err != nil {
 		return CodSetupScreen{}, fmt.Errorf("read shipping settings: %w", err)
 	}
-	carriers, err := s.shipping.Accounts(ctx, account)
+	carriers, err := s.d.Shipping.Accounts(ctx, account)
 	if err != nil {
 		return CodSetupScreen{}, fmt.Errorf("read carrier accounts: %w", err)
 	}

@@ -6,7 +6,6 @@ package service
 
 import (
 	"context"
-	"io"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -60,10 +59,11 @@ type Service interface {
 	//
 	// UC-MOD-08 · BR-MOD-03 · ADR-0003
 	Ask(ctx context.Context, caller authn.ConsoleMember, conversation uuid.UUID, in NewTurn) (TurnStarted, error)
-	// Events opens a turn's event stream after lastEventID.
+	// Events calls emit with a turn's events after lastEventID until the
+	// stream ends; an error before the first emit refuses the stream.
 	//
 	// UC-MOD-08
-	Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, lastEventID string) (io.ReadCloser, error)
+	Events(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, lastEventID string, emit func(TurnEvent) error) error
 	// Control pauses, stops, continues or ends a turn's run.
 	Control(ctx context.Context, caller authn.ConsoleMember, turn uuid.UUID, c Control) (TurnState, error)
 	// Steer gives a run text to read before its next model call; a key
@@ -215,30 +215,13 @@ type Deps struct {
 
 // Agent implements Service in this process.
 type Agent struct {
-	reads    repository.Reads
-	settings repository.Settings
-	runs     repository.Runs
-	gateway  litellm.Admin
-	console  consolesvc.Service
-	accounts accountsvc.Service
-	catalog  catalogsvc.Service
-	deals    dealsvc.Service
-	shipping shippingsvc.Service
-	support  supportsvc.Service
-	trust    trustsvc.Service
-	textMin  float64
-	photoMin float64
+	d Deps
 	// mu guards the month's spend the cap check reuses and the budget
 	// each member's end user was put on.
 	mu       sync.Mutex
 	month    float64
 	monthAt  time.Time
 	budgetOf map[uuid.UUID]string
-	baseURL  string
-	token    string
-	http     *http.Client
-	now      func() time.Time
-	log      *slog.Logger
 	limiter  *limiter
 	hub      *hub
 }
@@ -249,9 +232,5 @@ func New(d Deps) *Agent {
 	if d.Log == nil {
 		d.Log = slog.New(slog.DiscardHandler)
 	}
-	return &Agent{
-		reads: d.Reads, settings: d.Settings, gateway: d.Gateway, console: d.Console, accounts: d.Accounts, catalog: d.Catalog, deals: d.Deals,
-		shipping: d.Shipping, support: d.Support, trust: d.Trust, textMin: d.TextMin, photoMin: d.PhotoMin, budgetOf: map[uuid.UUID]string{}, baseURL: d.BaseURL, token: d.Token, http: d.HTTP, now: d.Now,
-		runs: d.Runs, log: d.Log, limiter: newLimiter(), hub: newHub(),
-	}
+	return &Agent{d: d, budgetOf: map[uuid.UUID]string{}, limiter: newLimiter(), hub: newHub()}
 }

@@ -33,7 +33,7 @@ type InboxItem struct {
 // account's scam warnings in them and account's unread count, one call
 // each.
 func (s *Screen) Inbox(ctx context.Context, account uuid.UUID, archived bool, p page.Request, t locale.Tag) (InboxScreen, error) {
-	conversations, err := s.chats.Inbox(ctx, account, archived, p)
+	conversations, err := s.d.Chats.Inbox(ctx, account, archived, p)
 	if err != nil {
 		return InboxScreen{}, fmt.Errorf("read inbox: %w", err)
 	}
@@ -43,15 +43,15 @@ func (s *Screen) Inbox(ctx context.Context, account uuid.UUID, archived bool, p 
 		others = append(others, conversations.Items[i].Other.ID)
 		ids = append(ids, conversations.Items[i].ID)
 	}
-	deals, err := s.deals.PairSummaries(ctx, account, others)
+	deals, err := s.d.Deals.PairSummaries(ctx, account, others)
 	if err != nil {
 		return InboxScreen{}, fmt.Errorf("read deals: %w", err)
 	}
-	warnings, err := s.trust.ScamWarnings(ctx, account, ids, t)
+	warnings, err := s.d.Trust.ScamWarnings(ctx, account, ids, t)
 	if err != nil {
 		return InboxScreen{}, fmt.Errorf("read scam warnings: %w", err)
 	}
-	unread, err := s.chats.Unread(ctx, account)
+	unread, err := s.d.Chats.Unread(ctx, account)
 	if err != nil {
 		return InboxScreen{}, fmt.Errorf("count unread: %w", err)
 	}

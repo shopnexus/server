@@ -45,7 +45,7 @@ var RoutingStrategies = []string{"simple-shuffle", "least-busy", "latency-based-
 func (s *Agent) Rotation(ctx context.Context) (Rotation, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
-	cur, err := s.gateway.RouterSettings(ctx)
+	cur, err := s.d.Gateway.RouterSettings(ctx)
 	if err != nil {
 		return Rotation{}, gatewayError(err)
 	}
@@ -86,7 +86,7 @@ func (s *Agent) UpdateRotation(ctx context.Context, caller authn.ConsoleMember, 
 		set["timeout"] = *in.TimeoutS
 	}
 	if len(set) > 0 {
-		if err := s.gateway.UpdateRouterSettings(ctx, set); err != nil {
+		if err := s.d.Gateway.UpdateRouterSettings(ctx, set); err != nil {
 			return Rotation{}, gatewayError(err)
 		}
 		if err := s.record(ctx, caller, audit.AIRotation, audit.AISettings("rotation"), set); err != nil {
@@ -101,7 +101,7 @@ func (s *Agent) UpdateRotation(ctx context.Context, caller authn.ConsoleMember, 
 func (s *Agent) Budgets(ctx context.Context) (Budgets, error) {
 	ctx, cancel := context.WithTimeout(ctx, gatewayTimeout)
 	defer cancel()
-	agents, err := s.settings.Agents(ctx)
+	agents, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return Budgets{}, fmt.Errorf("list the agents: %w", err)
 	}
@@ -113,7 +113,7 @@ func (s *Agent) Budgets(ctx context.Context) (Budgets, error) {
 		for _, alias := range a.KeyAliases {
 			ks, ok := keys[alias]
 			if !ok {
-				if ks, err = s.gateway.KeysByAlias(ctx, alias); err != nil {
+				if ks, err = s.d.Gateway.KeysByAlias(ctx, alias); err != nil {
 					return Budgets{}, gatewayError(err)
 				}
 				keys[alias] = ks
@@ -131,7 +131,7 @@ func (s *Agent) Budgets(ctx context.Context) (Budgets, error) {
 		}
 		out.Agents = append(out.Agents, b)
 	}
-	set, err := s.settings.BudgetSettings(ctx)
+	set, err := s.d.Settings.BudgetSettings(ctx)
 	if err != nil {
 		return Budgets{}, fmt.Errorf("read the budget settings: %w", err)
 	}
@@ -168,7 +168,7 @@ func (s *Agent) UpdateBudgets(ctx context.Context, caller authn.ConsoleMember, i
 			return Budgets{}, err
 		}
 	}
-	set, err := s.settings.BudgetSettings(ctx)
+	set, err := s.d.Settings.BudgetSettings(ctx)
 	if err != nil {
 		return Budgets{}, fmt.Errorf("read the budget settings: %w", err)
 	}
@@ -210,8 +210,8 @@ func (s *Agent) UpdateBudgets(ctx context.Context, caller authn.ConsoleMember, i
 		}
 	}
 	by, read := caller.MemberID, set.WriteID
-	set.UpdatedBy, set.UpdatedAt, set.WriteID = &by, s.now(), uuid.NewV7()
-	err = s.settings.SaveBudgetSettings(ctx, set, read, audit.Entry{
+	set.UpdatedBy, set.UpdatedAt, set.WriteID = &by, s.d.Now(), uuid.NewV7()
+	err = s.d.Settings.SaveBudgetSettings(ctx, set, read, audit.Entry{
 		Actor: audit.ByMember(caller), Action: audit.AIBudgets, Target: audit.AISettings("budgets"), Details: details,
 		At: set.UpdatedAt,
 	})
@@ -239,7 +239,7 @@ func (s *Agent) applySavedBudgets(ctx context.Context, set repository.BudgetSett
 		if err := s.applyMemberBudgets(ctx, set); err != nil {
 			return err
 		}
-		cur, err := s.settings.BudgetSettings(ctx)
+		cur, err := s.d.Settings.BudgetSettings(ctx)
 		if err != nil {
 			return fmt.Errorf("read the budget settings: %w", err)
 		}
@@ -262,16 +262,16 @@ func (s *Agent) applyMemberBudgets(ctx context.Context, set repository.BudgetSet
 		budgets[memberPrefix+m.MemberID.String()] = new(m.DailyUSD)
 	}
 	for id, most := range budgets {
-		if err := s.gateway.SaveBudget(ctx, litellm.Budget{ID: id, Max: most, Duration: &day}); err != nil {
+		if err := s.d.Gateway.SaveBudget(ctx, litellm.Budget{ID: id, Max: most, Duration: &day}); err != nil {
 			return gatewayError(err)
 		}
 	}
-	keys, err := s.gateway.KeysByAlias(ctx, consoleKey)
+	keys, err := s.d.Gateway.KeysByAlias(ctx, consoleKey)
 	if err != nil {
 		return gatewayError(err)
 	}
 	for _, k := range keys {
-		if err = s.gateway.UpdateKey(ctx, k.Token, map[string]any{"end_user_budget_id": moderatorBudget}); err != nil {
+		if err = s.d.Gateway.UpdateKey(ctx, k.Token, map[string]any{"end_user_budget_id": moderatorBudget}); err != nil {
 			return gatewayError(err)
 		}
 	}
@@ -281,7 +281,7 @@ func (s *Agent) applyMemberBudgets(ctx context.Context, set repository.BudgetSet
 	}
 	for i := range members {
 		m := &members[i]
-		if err = s.gateway.SetEndUserBudget(ctx, m.ID.String(), budgetOf(set, m.ID, string(m.Role))); err != nil {
+		if err = s.d.Gateway.SetEndUserBudget(ctx, m.ID.String(), budgetOf(set, m.ID, string(m.Role))); err != nil {
 			return gatewayError(err)
 		}
 	}
@@ -312,7 +312,7 @@ func (s *Agent) members(ctx context.Context) ([]consolesvc.MemberView, error) {
 	var out []consolesvc.MemberView
 	req := page.Request{Limit: 100}
 	for {
-		p, err := s.console.ListMembers(ctx, req)
+		p, err := s.d.Console.ListMembers(ctx, req)
 		if err != nil {
 			return nil, fmt.Errorf("list the console members: %w", err)
 		}
@@ -331,7 +331,7 @@ const monthCacheFor = time.Minute
 // monthSpent is LiteLLM's spend since the first of this month (UTC), kept
 // a minute for the turns' cap check; fresh reads it again.
 func (s *Agent) monthSpent(ctx context.Context, fresh bool) (float64, error) {
-	now := s.now()
+	now := s.d.Now()
 	s.mu.Lock()
 	if !fresh && now.Sub(s.monthAt) < monthCacheFor {
 		v := s.month
@@ -341,7 +341,7 @@ func (s *Agent) monthSpent(ctx context.Context, fresh bool) (float64, error) {
 	s.mu.Unlock()
 	utc := now.UTC()
 	first := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
-	days, err := s.gateway.DailySpend(ctx, first.Format(time.DateOnly), utc.Format(time.DateOnly))
+	days, err := s.d.Gateway.DailySpend(ctx, first.Format(time.DateOnly), utc.Format(time.DateOnly))
 	if err != nil {
 		return 0, gatewayError(err)
 	}
@@ -381,7 +381,7 @@ func (s *Agent) ensureMemberBudget(ctx context.Context, set repository.BudgetSet
 	if done {
 		return
 	}
-	if err := s.gateway.SetEndUserBudget(ctx, caller.MemberID.String(), want); err != nil {
+	if err := s.d.Gateway.SetEndUserBudget(ctx, caller.MemberID.String(), want); err != nil {
 		return
 	}
 	s.mu.Lock()
@@ -409,7 +409,7 @@ func (s *Agent) Spend(ctx context.Context, _ authn.ConsoleMember, rng string) (S
 	if !ok {
 		rng, days = "30d", SpendRanges["30d"]
 	}
-	end := s.now().UTC()
+	end := s.d.Now().UTC()
 	start := end.AddDate(0, 0, -(days - 1))
 	out := Spend{Range: rng, Start: start.Format(time.DateOnly), End: end.Format(time.DateOnly), Days: []SpendDay{}}
 	members, err := s.memberSpend(ctx, rng, out.Start, out.End)
@@ -417,11 +417,11 @@ func (s *Agent) Spend(ctx context.Context, _ authn.ConsoleMember, rng string) (S
 		return Spend{}, err
 	}
 	out.Members = members
-	got, err := s.gateway.DailySpend(ctx, out.Start, out.End)
+	got, err := s.d.Gateway.DailySpend(ctx, out.Start, out.End)
 	if err != nil {
 		return Spend{}, gatewayError(err)
 	}
-	agents, err := s.settings.Agents(ctx)
+	agents, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return Spend{}, fmt.Errorf("list the agents: %w", err)
 	}

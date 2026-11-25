@@ -41,7 +41,7 @@ func agentView(a repository.Agent) AgentView {
 
 // Agents lists every agent, app agents first.
 func (s *Agent) Agents(ctx context.Context) ([]AgentView, error) {
-	rows, err := s.settings.Agents(ctx)
+	rows, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list the agents: %w", err)
 	}
@@ -56,7 +56,7 @@ func (s *Agent) Agents(ctx context.Context) ([]AgentView, error) {
 // ConsoleAgents lists the console agents a member may pick: those turned
 // on, the Console assistant marked as the default.
 func (s *Agent) ConsoleAgents(ctx context.Context) ([]ConsoleAgent, error) {
-	rows, err := s.settings.Agents(ctx)
+	rows, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list the agents: %w", err)
 	}
@@ -77,7 +77,7 @@ func (s *Agent) AgentVersions(ctx context.Context, id uuid.UUID) ([]AgentVersion
 	if _, err := s.agentOf(ctx, id); err != nil {
 		return nil, err
 	}
-	rows, err := s.settings.Versions(ctx, id)
+	rows, err := s.d.Settings.Versions(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("list the agent's versions: %w", err)
 	}
@@ -91,7 +91,7 @@ func (s *Agent) AgentVersions(ctx context.Context, id uuid.UUID) ([]AgentVersion
 // checkModel refuses a model that lacks a tag the agent requires, or a tag
 // that is not in ai_tags.
 func (s *Agent) checkModel(ctx context.Context, required []string, model string) error {
-	tags, err := s.settings.Tags(ctx)
+	tags, err := s.d.Settings.Tags(ctx)
 	if err != nil {
 		return fmt.Errorf("read the tags: %w", err)
 	}
@@ -100,7 +100,7 @@ func (s *Agent) checkModel(ctx context.Context, required []string, model string)
 			return domain.ErrTagUnknown.WithField("required_tags", apperr.Unknown, t)
 		}
 	}
-	modelTags, err := s.settings.ModelTags(ctx)
+	modelTags, err := s.d.Settings.ModelTags(ctx)
 	if err != nil {
 		return fmt.Errorf("read the model tags: %w", err)
 	}
@@ -134,9 +134,9 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 		ID: uuid.NewV7(), Kind: domain.AgentConsole, Name: in.Name, Alias: in.Alias, Icon: in.Icon, Purpose: in.Purpose,
 		RequiredTags: nonNil(in.RequiredTags), Model: in.Model, Instructions: in.Instructions, InstructionsVersion: 1,
 		Tools: nonNil(in.Tools), Limits: limits, MonthlyBudgetUSD: in.MonthlyBudgetUSD, KeyAliases: []string{consoleKey},
-		Enabled: enabled, UpdatedBy: &by, UpdatedAt: s.now(), WriteID: uuid.NewV7(),
+		Enabled: enabled, UpdatedBy: &by, UpdatedAt: s.d.Now(), WriteID: uuid.NewV7(),
 	}
-	all, err := s.settings.Agents(ctx)
+	all, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return AgentView{}, fmt.Errorf("list the agents: %w", err)
 	}
@@ -166,7 +166,7 @@ func (s *Agent) CreateAgent(ctx context.Context, caller authn.ConsoleMember, in 
 	if slices.ContainsFunc(st.deps, func(d litellm.Deployment) bool { return d.ModelName == a.Alias }) {
 		return AgentView{}, domain.ErrAgentTaken
 	}
-	err = s.settings.CreateAgent(ctx, a, audit.Entry{
+	err = s.d.Settings.CreateAgent(ctx, a, audit.Entry{
 		Actor: audit.ByMember(caller), Action: audit.AIAgentCreate, Target: audit.AIAgent(a.ID),
 		Details: map[string]any{"name": a.Name, "alias": a.Alias, "model": a.Model}, At: a.UpdatedAt,
 	})
@@ -275,8 +275,8 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 		a.MonthlyBudgetUSD, details["monthly_budget_usd"] = in.MonthlyBudgetUSD.Value, in.MonthlyBudgetUSD.Value
 	}
 	by := caller.MemberID
-	a.UpdatedBy, a.UpdatedAt, a.WriteID = &by, s.now(), uuid.NewV7()
-	err = s.settings.SaveAgent(ctx, a, read, newVersion, audit.Entry{
+	a.UpdatedBy, a.UpdatedAt, a.WriteID = &by, s.d.Now(), uuid.NewV7()
+	err = s.d.Settings.SaveAgent(ctx, a, read, newVersion, audit.Entry{
 		Actor: audit.ByMember(caller), Action: audit.AIAgentUpdate, Target: audit.AIAgent(a.ID), Details: details, At: a.UpdatedAt,
 	})
 	switch {
@@ -344,7 +344,7 @@ func (s *Agent) applyAgent(ctx context.Context, a repository.Agent, st *state, n
 // allowAlias adds alias to the agent service's key, when that key names
 // its models; a key with no list may call every model already.
 func (s *Agent) allowAlias(ctx context.Context, alias string) error {
-	keys, err := s.gateway.KeysByAlias(ctx, consoleKey)
+	keys, err := s.d.Gateway.KeysByAlias(ctx, consoleKey)
 	if err != nil {
 		return gatewayError(err)
 	}
@@ -352,7 +352,7 @@ func (s *Agent) allowAlias(ctx context.Context, alias string) error {
 		if len(k.Models) == 0 || slices.Contains(k.Models, alias) {
 			continue
 		}
-		if err = s.gateway.UpdateKey(ctx, k.Token, map[string]any{"models": append(k.Models, alias)}); err != nil {
+		if err = s.d.Gateway.UpdateKey(ctx, k.Token, map[string]any{"models": append(k.Models, alias)}); err != nil {
 			return gatewayError(err)
 		}
 	}
@@ -364,7 +364,7 @@ func (s *Agent) allowAlias(ctx context.Context, alias string) error {
 // its alias's budget on the agent service's key.
 func (s *Agent) applyBudget(ctx context.Context, a repository.Agent, budget *float64) error {
 	for _, alias := range a.KeyAliases {
-		keys, err := s.gateway.KeysByAlias(ctx, alias)
+		keys, err := s.d.Gateway.KeysByAlias(ctx, alias)
 		if err != nil {
 			return gatewayError(err)
 		}
@@ -386,7 +386,7 @@ func (s *Agent) applyBudget(ctx context.Context, a repository.Agent, budget *flo
 				}
 				fields["model_max_budget"] = per
 			}
-			if err = s.gateway.UpdateKey(ctx, k.Token, fields); err != nil {
+			if err = s.d.Gateway.UpdateKey(ctx, k.Token, fields); err != nil {
 				return gatewayError(err)
 			}
 		}

@@ -39,27 +39,27 @@ type ChatScreen struct {
 // account outside the conversation it returns chat's
 // ErrNotFound (conversation_not_found).
 func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID, t locale.Tag) (ChatScreen, error) {
-	conv, err := s.chats.Get(ctx, account, conversation)
+	conv, err := s.d.Chats.Get(ctx, account, conversation)
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read conversation: %w", err)
 	}
-	blocked, err := s.accounts.Blocked(ctx, account, conv.Other.ID)
+	blocked, err := s.d.Accounts.Blocked(ctx, account, conv.Other.ID)
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("check block: %w", err)
 	}
-	deals, err := s.deals.Between(ctx, account, conv.Other.ID)
+	deals, err := s.d.Deals.Between(ctx, account, conv.Other.ID)
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read deals: %w", err)
 	}
-	messages, err := s.chats.Messages(ctx, account, conversation, page.Request{})
+	messages, err := s.d.Chats.Messages(ctx, account, conversation, page.Request{})
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read messages: %w", err)
 	}
-	warnings, err := s.trust.ScamWarnings(ctx, account, []uuid.UUID{conversation}, t)
+	warnings, err := s.d.Trust.ScamWarnings(ctx, account, []uuid.UUID{conversation}, t)
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read the scam warning: %w", err)
 	}
-	ticket, isTicket, err := s.support.OfConversation(ctx, account, conversation)
+	ticket, isTicket, err := s.d.Support.OfConversation(ctx, account, conversation)
 	if err != nil {
 		return ChatScreen{}, fmt.Errorf("read the ticket: %w", err)
 	}
@@ -71,7 +71,7 @@ func (s *Screen) Chat(ctx context.Context, account, conversation uuid.UUID, t lo
 		out.Ticket = &ticket
 	}
 	if slices.ContainsFunc(deals, func(d dealsvc.DealView) bool { return d.Role == dealdomain.Seller }) {
-		rating, ratingErr := s.trust.Rating(ctx, conv.Other.ID, trustdomain.RoleBuyer)
+		rating, ratingErr := s.d.Trust.Rating(ctx, conv.Other.ID, trustdomain.RoleBuyer)
 		if ratingErr != nil {
 			return ChatScreen{}, fmt.Errorf("read the buyer rating: %w", ratingErr)
 		}

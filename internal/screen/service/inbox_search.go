@@ -21,7 +21,7 @@ type InboxSearchScreen struct {
 // InboxSearch reads chat's search, the deals of the threads' pairs and the
 // caller's scam warnings in the threads.
 func (s *Screen) InboxSearch(ctx context.Context, account uuid.UUID, q string, p page.Request, t locale.Tag) (InboxSearchScreen, error) {
-	found, err := s.chats.Search(ctx, account, q, p)
+	found, err := s.d.Chats.Search(ctx, account, q, p)
 	if err != nil {
 		return InboxSearchScreen{}, fmt.Errorf("search the inbox: %w", err)
 	}
@@ -31,11 +31,11 @@ func (s *Screen) InboxSearch(ctx context.Context, account uuid.UUID, q string, p
 		others = append(others, found.Threads[i].Other.ID)
 		ids = append(ids, found.Threads[i].ID)
 	}
-	deals, err := s.deals.PairSummaries(ctx, account, others)
+	deals, err := s.d.Deals.PairSummaries(ctx, account, others)
 	if err != nil {
 		return InboxSearchScreen{}, fmt.Errorf("read deals: %w", err)
 	}
-	warnings, err := s.trust.ScamWarnings(ctx, account, ids, t)
+	warnings, err := s.d.Trust.ScamWarnings(ctx, account, ids, t)
 	if err != nil {
 		return InboxSearchScreen{}, fmt.Errorf("read scam warnings: %w", err)
 	}

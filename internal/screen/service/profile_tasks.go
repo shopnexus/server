@@ -38,11 +38,11 @@ const (
 // and the default address, nil when the book is empty. A deleted account is
 // accountdomain.ErrSessionRevoked, from Me.
 func (s *Screen) ProfileTasks(ctx context.Context, account uuid.UUID) (ProfileTasksScreen, error) {
-	me, err := s.accounts.Me(ctx, account)
+	me, err := s.d.Accounts.Me(ctx, account)
 	if err != nil {
 		return ProfileTasksScreen{}, fmt.Errorf("read the account: %w", err)
 	}
-	book, err := s.accounts.Addresses(ctx, account)
+	book, err := s.d.Accounts.Addresses(ctx, account)
 	if err != nil {
 		return ProfileTasksScreen{}, fmt.Errorf("read the address book: %w", err)
 	}

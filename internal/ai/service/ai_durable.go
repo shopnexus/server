@@ -32,11 +32,10 @@ type Framer interface {
 }
 
 // Images embeds decoded images, and texts that describe a look, with
-// SigLIP 2 into the same space. An image it cannot decode is
-// domain.ErrRefused.
+// SigLIP 2 into the same space, a vector per input in input order. An
+// image it cannot decode is domain.ErrRefused.
 type Images interface {
-	EmbedImages(ctx context.Context, images [][]byte) ([][]float32, error)
-	EmbedTexts(ctx context.Context, texts []string) ([][]float32, error)
+	EmbedImages(ctx context.Context, inputs []domain.EmbedItem) ([][]float32, error)
 }
 
 // Objects reads the object store; a missing key is objectstore.ErrNotFound.
@@ -133,16 +132,14 @@ func (a *AI) decodeAndEmbed(ctx context.Context, inputs []string) ([][]float32, 
 	case len(inputs) > a.d.MaxInputs:
 		return nil, fmt.Errorf("%w: send at most %d inputs", domain.ErrRefused, a.d.MaxInputs)
 	}
-	var images [][]byte
-	var texts []string
-	var imageAt, textAt []int
+	items := make([]domain.EmbedItem, len(inputs))
 	for i, s := range inputs {
 		if !strings.HasPrefix(s, "data:") {
 			text := strings.TrimSpace(s)
 			if text == "" || utf8.RuneCountInString(text) > domain.MaxEmbedText {
 				return nil, fmt.Errorf("%w: input %d: a text is 1 to %d characters", domain.ErrRefused, i, domain.MaxEmbedText)
 			}
-			texts, textAt = append(texts, text), append(textAt, i)
+			items[i] = domain.EmbedItem{Text: text}
 			continue
 		}
 		payload, ok := "", false
@@ -164,36 +161,16 @@ func (a *AI) decodeAndEmbed(ctx context.Context, inputs []string) ([][]float32, 
 		if len(b) > a.d.MaxImageBytes {
 			return nil, fmt.Errorf("%w: input %d: the image is larger than %d bytes", domain.ErrRefused, i, a.d.MaxImageBytes)
 		}
-		images, imageAt = append(images, b), append(imageAt, i)
+		items[i] = domain.EmbedItem{Image: b}
 	}
-	out := make([][]float32, len(inputs))
-	if len(images) > 0 {
-		vs, err := a.d.Images.EmbedImages(ctx, images)
-		if err = place(out, imageAt, vs, err); err != nil {
-			return nil, err
-		}
-	}
-	if len(texts) > 0 {
-		vs, err := a.d.Images.EmbedTexts(ctx, texts)
-		if err = place(out, textAt, vs, err); err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
-}
-
-// place puts one run's vectors at their inputs' positions.
-func place(out [][]float32, at []int, vs [][]float32, err error) error {
+	vs, err := a.d.Images.EmbedImages(ctx, items)
 	if err != nil {
-		return fmt.Errorf("embed: %w", err)
+		return nil, fmt.Errorf("embed: %w", err)
 	}
-	if len(vs) != len(at) {
-		return fmt.Errorf("%w: %d vectors for %d inputs", domain.ErrFailed, len(vs), len(at))
+	if len(vs) != len(items) {
+		return nil, fmt.Errorf("%w: %d vectors for %d inputs", domain.ErrFailed, len(vs), len(items))
 	}
-	for i, v := range vs {
-		out[at[i]] = v
-	}
-	return nil
+	return vs, nil
 }
 
 // log writes one line per call, with no word or picture of the person's.

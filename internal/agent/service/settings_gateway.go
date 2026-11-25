@@ -67,11 +67,11 @@ type state struct {
 }
 
 func (s *Agent) readState(ctx context.Context) (state, error) {
-	creds, err := s.gateway.Credentials(ctx)
+	creds, err := s.d.Gateway.Credentials(ctx)
 	if err != nil {
 		return state{}, gatewayError(err)
 	}
-	deps, err := s.gateway.Deployments(ctx)
+	deps, err := s.d.Gateway.Deployments(ctx)
 	if err != nil {
 		return state{}, gatewayError(err)
 	}
@@ -201,7 +201,7 @@ func (s *Agent) writeAlias(ctx context.Context, st state, alias, model string) e
 		p := st.providerOf(c)
 		w, o := p.Weight, p.Order
 		cost := st.cost(p.ID, model)
-		if err := s.gateway.AddDeployment(ctx, litellm.Deployment{
+		if err := s.d.Gateway.AddDeployment(ctx, litellm.Deployment{
 			ModelName: alias,
 			Params: litellm.Params{
 				Model: route(p.Kind, model), Credential: p.ID, Weight: &w, Order: &o,
@@ -213,7 +213,7 @@ func (s *Agent) writeAlias(ctx context.Context, st state, alias, model string) e
 		}
 	}
 	for _, id := range old {
-		if err := s.gateway.DeleteDeployment(ctx, id); err != nil {
+		if err := s.d.Gateway.DeleteDeployment(ctx, id); err != nil {
 			return gatewayError(err)
 		}
 	}
@@ -251,7 +251,7 @@ func (st state) cost(provider, model string) litellm.Params {
 // serves, after the provider's weight, order or models changed. An agent
 // whose model no provider serves any more keeps its deployments.
 func (s *Agent) rewriteAliases(ctx context.Context, provider string) error {
-	agents, err := s.settings.Agents(ctx)
+	agents, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return fmt.Errorf("read the agents: %w", err)
 	}
@@ -277,7 +277,7 @@ func (s *Agent) rewriteAliases(ctx context.Context, provider string) error {
 // inUse refuses to take model away from provider when an agent's model
 // would be left with no provider.
 func (s *Agent) inUse(ctx context.Context, st state, provider string, models []string) error {
-	agents, err := s.settings.Agents(ctx)
+	agents, err := s.d.Settings.Agents(ctx)
 	if err != nil {
 		return fmt.Errorf("read the agents: %w", err)
 	}
@@ -298,8 +298,8 @@ func (s *Agent) inUse(ctx context.Context, st state, provider string, models []s
 func (s *Agent) record(ctx context.Context, caller authn.ConsoleMember, action audit.ActionKind, target audit.Target,
 	details map[string]any,
 ) error {
-	if err := s.settings.Record(ctx, audit.Entry{
-		Actor: audit.ByMember(caller), Action: action, Target: target, Details: details, At: s.now(),
+	if err := s.d.Settings.Record(ctx, audit.Entry{
+		Actor: audit.ByMember(caller), Action: action, Target: target, Details: details, At: s.d.Now(),
 	}); err != nil {
 		return fmt.Errorf("record %s: %w", action, err)
 	}
@@ -308,7 +308,7 @@ func (s *Agent) record(ctx context.Context, caller authn.ConsoleMember, action a
 
 // agentOf maps the repository's not found.
 func (s *Agent) agentOf(ctx context.Context, id uuid.UUID) (repository.Agent, error) {
-	a, err := s.settings.Agent(ctx, id)
+	a, err := s.d.Settings.Agent(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return repository.Agent{}, domain.ErrAgentNotFound
 	}
