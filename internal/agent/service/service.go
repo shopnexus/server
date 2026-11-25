@@ -164,13 +164,19 @@ type Service interface {
 	//
 	// UC-MOD-08 · NFR-PRIV-02
 	RecordRead(ctx context.Context, member uuid.UUID, tool string, kind domain.SubjectKind, ids []uuid.UUID) error
-	// SweepReads deletes the reads older than ReadsKeptFor.
+	// SweepReads deletes the reads older than ReadsKeptFor and blanks the
+	// tool outputs as old.
 	//
 	// NFR-PRIV-02
 	SweepReads(ctx context.Context) error
+	// AccountDeleted blanks the tool outputs of the conversation about a
+	// deleted account; the worker calls it on account.deleted, and a
+	// second call finds nothing.
+	AccountDeleted(ctx context.Context, account uuid.UUID) error
 }
 
-// ReadsKeptFor is how long a read of personal data stays recorded.
+// ReadsKeptFor is how long a read of personal data stays recorded, and a
+// tool call's output kept.
 const ReadsKeptFor = 90 * 24 * time.Hour
 
 // Deps is what New builds Agent from.

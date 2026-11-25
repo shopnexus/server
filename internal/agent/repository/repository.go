@@ -35,8 +35,6 @@ type Reads interface {
 
 // The errors of Runs beside ErrNotFound and ErrTaken.
 var (
-	// ErrClosed is a conversation that is archived or closed.
-	ErrClosed = errors.New("agent repository: conversation closed")
 	// ErrBusy is a conversation that has an unfinished turn.
 	ErrBusy = errors.New("agent repository: unfinished turn")
 	// ErrState is a turn not in the status the write needs.
@@ -65,7 +63,6 @@ type Conversation struct {
 	SubjectKind    string
 	SubjectID      *uuid.UUID
 	Title          string
-	Status         string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	LastActivityAt time.Time
@@ -176,7 +173,6 @@ type ToolWrite struct {
 	ToolUseID     string
 	Tool          string
 	Label         *string
-	Source        *string
 	Input         json.RawMessage
 	Output        *string
 	Content       json.RawMessage
@@ -373,7 +369,7 @@ type Runs interface {
 	// first time, or inserts c when it has no subject; a request key c's
 	// member already used answers that key's conversation.
 	OpenConversation(ctx context.Context, c Conversation) (Conversation, error)
-	// Conversations lists the active conversations f picks for member,
+	// Conversations lists the conversations f picks for member,
 	// newest activity first.
 	Conversations(ctx context.Context, member uuid.UUID, f ConversationFilter, limit int) ([]Conversation, error)
 	// Conversation reads one, ErrNotFound when it does not exist.
@@ -385,10 +381,12 @@ type Runs interface {
 	DeleteConversation(ctx context.Context, id uuid.UUID) error
 
 	// OpenTurn inserts t running in its conversation under the
-	// conversation's lock, with the next ordinal, and gives the
-	// conversation t's question as title when it has none. ErrNotFound for
-	// a conversation member may not see, ErrClosed, ErrBusy.
+	// conversation's lock, with the next ordinal. ErrNotFound for a
+	// conversation member may not see, ErrBusy.
 	OpenTurn(ctx context.Context, t Turn, member uuid.UUID) error
+	// TouchConversation moves a conversation's last activity to at unless
+	// it is later, and gives it question as title when it has none.
+	TouchConversation(ctx context.Context, id uuid.UUID, question string, at time.Time) error
 	// TurnByKey reads the turn member opened with key, or ErrNotFound.
 	TurnByKey(ctx context.Context, member, key uuid.UUID) (Turn, error)
 	// DeleteTurn deletes a turn whose run never started.
@@ -460,6 +458,13 @@ type Runs interface {
 	// FinishRun applies e to a turn running e's segment and writes its
 	// event; false when the turn no longer runs it.
 	FinishRun(ctx context.Context, e RunEnd) (bool, error)
+
+	// BlankOutputsBefore blanks the output and result content of at most
+	// limit tool calls made before before, and returns how many.
+	BlankOutputsBefore(ctx context.Context, before time.Time, limit int) (int, error)
+	// BlankAccountOutputs blanks the outputs and result contents of the
+	// tool calls in the conversation about account.
+	BlankAccountOutputs(ctx context.Context, account uuid.UUID) error
 
 	// ToolCall reads a tool call of a conversation member may see.
 	ToolCall(ctx context.Context, id, member uuid.UUID) (ToolCall, error)

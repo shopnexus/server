@@ -28,8 +28,6 @@ var (
 		"the question is longer than 2000 characters; shorten it")
 	ErrTurnInProgress = apperr.New(apperr.KindConflict, "agent_turn_in_progress",
 		"the agent is still answering in this conversation; wait for it")
-	ErrConversationClosed = apperr.New(apperr.KindConflict, "agent_conversation_closed",
-		"the conversation is closed; start another")
 )
 
 // ErrInvalidSubject answers a subject id without its kind, and a new

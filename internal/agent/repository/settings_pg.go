@@ -85,8 +85,11 @@ ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"model": model, "tags": tags}).Fn =
 	return nil
 }
 
-const agentColumns = `id, agent_kind, display_name, model_alias, icon, purpose, required_tags, model_id, instructions,
-    instructions_version, tools, limits, monthly_budget_usd::float8, key_aliases, enabled, updated_by, updated_at, write_id`
+// selectAgents reads the agents with their latest version's instructions.
+const selectAgents = `SELECT a.id, a.agent_kind, a.display_name, a.model_alias, a.icon, a.purpose, a.required_tags, a.model_id,
+    v.instructions, a.instructions_version, a.tools, a.limits, a.monthly_budget_usd::float8, a.key_aliases, a.enabled,
+    a.updated_by, a.updated_at, a.write_id
+FROM ai_agents AS a JOIN ai_agent_versions AS v ON v.agent_id = a.id AND v.version_no = a.instructions_version`
 
 func scanAgent(r pgx.CollectableRow) (Agent, error) {
 	var a Agent
@@ -99,7 +102,7 @@ func scanAgent(r pgx.CollectableRow) (Agent, error) {
 }
 
 func (s pgSettings) Agents(ctx context.Context) ([]Agent, error) {
-	rows, err := s.db.Query(ctx, `SELECT `+agentColumns+` FROM ai_agents ORDER BY agent_kind, display_name`)
+	rows, err := s.db.Query(ctx, selectAgents+` ORDER BY a.agent_kind, a.display_name`)
 	if err != nil {
 		return nil, fmt.Errorf("select ai agents: %w", err)
 	}
@@ -111,7 +114,7 @@ func (s pgSettings) Agents(ctx context.Context) ([]Agent, error) {
 }
 
 func (s pgSettings) Agent(ctx context.Context, id uuid.UUID) (Agent, error) {
-	rows, err := s.db.Query(ctx, `SELECT `+agentColumns+` FROM ai_agents WHERE id = @id`, pgx.StrictNamedArgs{"id": id})
+	rows, err := s.db.Query(ctx, selectAgents+` WHERE a.id = @id`, pgx.StrictNamedArgs{"id": id})
 	if err != nil {
 		return Agent{}, fmt.Errorf("select ai agent: %w", err)
 	}
@@ -128,7 +131,7 @@ func (s pgSettings) Agent(ctx context.Context, id uuid.UUID) (Agent, error) {
 func agentArgs(a Agent) pgx.StrictNamedArgs {
 	return pgx.StrictNamedArgs{
 		"id": a.ID, "kind": a.Kind, "name": a.Name, "alias": a.Alias, "icon": a.Icon, "purpose": a.Purpose,
-		"required": a.RequiredTags, "model": a.Model, "instructions": a.Instructions, "version": a.InstructionsVersion,
+		"required": a.RequiredTags, "model": a.Model, "version": a.InstructionsVersion,
 		"tools": a.Tools, "limits": a.Limits, "budget": a.MonthlyBudgetUSD, "keys": a.KeyAliases, "enabled": a.Enabled,
 		"by": a.UpdatedBy, "at": a.UpdatedAt, "write_id": a.WriteID,
 	}
@@ -142,11 +145,11 @@ func taken(err error) error {
 	return err
 }
 
-// queueVersion queues the add of a's instructions as a version, unless
-// that version exists.
+// queueVersion queues the insert of a's instructions as its version; a
+// version that exists fails the batch.
 func queueVersion(b *pgx.Batch, a Agent) {
 	b.Queue(`INSERT INTO ai_agent_versions (agent_id, version_no, instructions, created_by, created_at)
-VALUES (@id, @version, @instructions, @by, @at) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{
+VALUES (@id, @version, @instructions, @by, @at)`, pgx.StrictNamedArgs{
 		"id": a.ID, "version": a.InstructionsVersion, "instructions": a.Instructions, "by": a.UpdatedBy, "at": a.UpdatedAt,
 	}).Fn = postgres.ExecAs("insert agent version", nil)
 }
@@ -154,9 +157,9 @@ VALUES (@id, @version, @instructions, @by, @at) ON CONFLICT DO NOTHING`, pgx.Str
 func (s pgSettings) CreateAgent(ctx context.Context, a Agent, e audit.Entry) error {
 	b := &pgx.Batch{}
 	b.Queue(`INSERT INTO ai_agents (id, agent_kind, display_name, model_alias, icon, purpose, required_tags,
-    model_id, instructions, instructions_version, tools, limits, monthly_budget_usd, key_aliases, enabled, updated_by,
+    model_id, instructions_version, tools, limits, monthly_budget_usd, key_aliases, enabled, updated_by,
     updated_at, write_id)
-VALUES (@id, @kind, @name, @alias, @icon, @purpose, @required, @model, @instructions, @version, @tools, @limits, @budget,
+VALUES (@id, @kind, @name, @alias, @icon, @purpose, @required, @model, @version, @tools, @limits, @budget,
     @keys, @enabled, @by, @at, @write_id)`, agentArgs(a)).Fn = func(br pgx.BatchResults) error {
 		if _, err := br.Exec(); err != nil {
 			if errors.Is(taken(err), ErrTaken) {
@@ -174,7 +177,7 @@ VALUES (@id, @kind, @name, @alias, @icon, @purpose, @required, @model, @instruct
 	return nil
 }
 
-func (s pgSettings) SaveAgent(ctx context.Context, a Agent, readWriteID uuid.UUID, e audit.Entry) error {
+func (s pgSettings) SaveAgent(ctx context.Context, a Agent, readWriteID uuid.UUID, newVersion bool, e audit.Entry) error {
 	args := agentArgs(a)
 	delete(args, "kind")
 	delete(args, "alias")
@@ -183,7 +186,7 @@ func (s pgSettings) SaveAgent(ctx context.Context, a Agent, readWriteID uuid.UUI
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		b := &pgx.Batch{}
 		b.Queue(`UPDATE ai_agents SET display_name = @name, icon = @icon, purpose = @purpose,
-    required_tags = @required, model_id = @model, instructions = @instructions, instructions_version = @version,
+    required_tags = @required, model_id = @model, instructions_version = @version,
     tools = @tools, limits = @limits, monthly_budget_usd = @budget, enabled = @enabled, updated_by = @by,
     updated_at = @at, write_id = @write_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, args).Fn = func(br pgx.BatchResults) error {
@@ -199,7 +202,9 @@ WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, args).F
 			}
 			return nil
 		}
-		queueVersion(b, a)
+		if newVersion {
+			queueVersion(b, a)
+		}
 		audit.Queue(b, e)
 		return tx.SendBatch(ctx, b).Close()
 	})

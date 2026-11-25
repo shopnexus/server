@@ -152,3 +152,87 @@ VALUES (@id, @email, 'Lan', 'moderator', 'active', 'x', false, 1, 0, @at, @at, @
 		t.Errorf("an input to no turn: %v", err)
 	}
 }
+
+// The sweep blanks only old outputs, in batches, and an account's erasure
+// blanks the outputs of the conversation about it; the calls stay.
+func TestBlankToolOutputs(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	member, account := uuid.NewV7(), uuid.NewV7()
+	if _, err := db.Exec(ctx, `
+INSERT INTO console_members (id, email, display_name, console_role, status, password_hash, must_change_password,
+                           credentials_version, totp_last_step, created_at, updated_at, write_id)
+VALUES (@id, @email, 'Lan', 'moderator', 'active', 'x', false, 1, 0, @at, @at, @id)`,
+		pgx.StrictNamedArgs{"id": member, "email": member.String() + "@console.test", "at": now}); err != nil {
+		t.Fatal(err)
+	}
+	s := repository.NewRuns(db, slog.New(slog.DiscardHandler))
+	own, err := s.OpenConversation(ctx, repository.Conversation{ID: uuid.NewV7(), MemberID: member, CreatedAt: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	about, err := s.OpenConversation(ctx, repository.Conversation{
+		ID: uuid.NewV7(), MemberID: member, SubjectKind: "account", SubjectID: &account, CreatedAt: now,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := now.Add(-91 * 24 * time.Hour)
+	calls := map[string]uuid.UUID{}
+	for _, c := range []struct {
+		name         string
+		conversation uuid.UUID
+		at           time.Time
+	}{{"old1", own.ID, old}, {"old2", own.ID, old}, {"new", own.ID, now}, {"about", about.ID, now}} {
+		turn := repository.Turn{
+			ID: uuid.NewV7(), ConversationID: c.conversation, MemberID: member, Question: "?", AgentID: "a", AgentName: "a",
+			ModelAlias: "m", StartedAt: c.at, RunStartedAt: c.at, DeadlineMS: 60000,
+		}
+		if err = s.OpenTurn(ctx, turn, member); err != nil {
+			t.Fatal(err)
+		}
+		calls[c.name] = uuid.NewV7()
+		if err = s.SaveToolCall(ctx, repository.ToolWrite{
+			ID: calls[c.name], TurnID: turn.ID, Segment: c.at, ToolUseID: "u1", Tool: "ticket_get", Status: "success",
+			Output: new(`{"text":"Lan's phone"}`), Content: json.RawMessage(`[{"text":"Lan's phone"}]`), At: c.at,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = s.FinishRun(ctx, repository.RunEnd{TurnID: turn.ID, Segment: c.at, Status: "succeeded", Answer: "x", At: c.at}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	kept := func(name string) bool {
+		var output, content bool
+		if scanErr := db.QueryRow(ctx, `SELECT tool_output IS NOT NULL, result_content IS NOT NULL FROM agent_tool_calls WHERE id = @id`,
+			pgx.StrictNamedArgs{"id": calls[name]}).Scan(&output, &content); scanErr != nil {
+			t.Fatal(scanErr)
+		}
+		if output != content {
+			t.Errorf("%s keeps its output %v and its content %v", name, output, content)
+		}
+		return output
+	}
+	before := now.Add(-90 * 24 * time.Hour)
+	if n, blankErr := s.BlankOutputsBefore(ctx, before, 1); blankErr != nil || n != 1 {
+		t.Fatalf("a batch of one: %d %v", n, blankErr)
+	}
+	if n, blankErr := s.BlankOutputsBefore(ctx, before, 10); blankErr != nil || n != 1 {
+		t.Fatalf("the rest: %d %v", n, blankErr)
+	}
+	if kept("old1") || kept("old2") || !kept("new") || !kept("about") {
+		t.Error("the sweep blanked the wrong calls")
+	}
+	for range 2 {
+		if err = s.BlankAccountOutputs(ctx, account); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if kept("about") || !kept("new") {
+		t.Error("the erasure blanked the wrong calls")
+	}
+	if tc, readErr := s.ToolCall(ctx, calls["about"], member); readErr != nil || tc.Output != nil || tc.Status != "success" {
+		t.Errorf("a blanked call %+v %v", tc, readErr)
+	}
+}

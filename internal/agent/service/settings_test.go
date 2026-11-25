@@ -72,8 +72,8 @@ func seedRuns(t *testing.T, db *pgxpool.Pool, admin uuid.UUID) {
 VALUES (@mod, 'lan@console.test', 'Lan', 'moderator', 'active', 'x', false, 1, 0, @at, @at, @mod)`,
 			pgx.StrictNamedArgs{"mod": moderator, "at": at},
 		},
-		{`INSERT INTO agent_conversations (id, member_id, status, created_at, updated_at, last_activity_at)
-VALUES (@c, @mod, 'active', @at, @at, @at)`, pgx.StrictNamedArgs{"c": conversation, "mod": moderator, "at": at}},
+		{`INSERT INTO agent_conversations (id, member_id, created_at, updated_at, last_activity_at)
+VALUES (@c, @mod, @at, @at, @at)`, pgx.StrictNamedArgs{"c": conversation, "mod": moderator, "at": at}},
 		{`INSERT INTO agent_turns (id, conversation_id, member_id, ordinal, status, question, agent_id, started_at, run_started_at,
     deadline_ms)
 SELECT CASE WHEN n = 0 THEN @first::uuid ELSE uuidv7() END, @c, CASE WHEN n < 3 THEN @mod::uuid ELSE @admin::uuid END, n, 'succeeded', '?',
@@ -283,6 +283,19 @@ func TestAgentRules(t *testing.T) {
 	if err != nil || len(versions) != 2 || versions[0].Version != 2 || versions[0].Instructions != "Be brief." ||
 		*versions[0].CreatedBy != admin.MemberID || versions[1].CreatedBy != nil {
 		t.Fatalf("versions %+v %v", versions, err)
+	}
+	// A version that exists with other text refuses the save.
+	if _, err = db.Exec(ctx, `INSERT INTO ai_agent_versions (agent_id, version_no, instructions, created_at)
+VALUES (@id, 3, 'Stray.', now())`, pgx.StrictNamedArgs{"id": domain.ConsoleAssistant}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.UpdateAgent(ctx, admin, domain.ConsoleAssistant, service.AgentPatch{Instructions: new("Be kind.")}); err == nil {
+		t.Error("a clashing version was saved")
+	}
+	if a, readErr := s.Agents(ctx); readErr != nil || !slices.ContainsFunc(a, func(v service.AgentView) bool {
+		return v.ID == domain.ConsoleAssistant && v.InstructionsVersion == 2 && v.Instructions == "Be brief."
+	}) {
+		t.Errorf("the agent after a clash %+v %v", a, readErr)
 	}
 	if _, err = s.UpdateAgent(ctx, admin, uuid.NewV7(), service.AgentPatch{}); !errors.Is(err, domain.ErrAgentNotFound) {
 		t.Errorf("an unknown agent: %v", err)

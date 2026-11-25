@@ -239,7 +239,8 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 	if in.Enabled != nil {
 		a.Enabled, details["enabled"] = *in.Enabled, *in.Enabled
 	}
-	if in.Instructions != nil && *in.Instructions != a.Instructions {
+	newVersion := in.Instructions != nil && *in.Instructions != a.Instructions
+	if newVersion {
 		a.Instructions = *in.Instructions
 		a.InstructionsVersion++
 		details["instructions_version"] = a.InstructionsVersion
@@ -275,7 +276,7 @@ func (s *Agent) UpdateAgent(ctx context.Context, caller authn.ConsoleMember, id 
 	}
 	by := caller.MemberID
 	a.UpdatedBy, a.UpdatedAt, a.WriteID = &by, s.now(), uuid.NewV7()
-	err = s.settings.SaveAgent(ctx, a, read, audit.Entry{
+	err = s.settings.SaveAgent(ctx, a, read, newVersion, audit.Entry{
 		Actor: audit.ByMember(caller), Action: audit.AIAgentUpdate, Target: audit.AIAgent(a.ID), Details: details, At: a.UpdatedAt,
 	})
 	switch {

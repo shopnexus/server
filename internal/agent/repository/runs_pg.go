@@ -42,12 +42,12 @@ func isUnique(err error) bool {
 	return ok && pgErr.Code == "23505"
 }
 
-const conversationColumns = `id, member_id, COALESCE(subject_kind, ''), subject_id, COALESCE(title, ''), status, created_at,
+const conversationColumns = `id, member_id, COALESCE(subject_kind, ''), subject_id, COALESCE(title, ''), created_at,
     updated_at, last_activity_at`
 
 func scanConversation(r pgx.CollectableRow) (Conversation, error) {
 	var c Conversation
-	if err := r.Scan(&c.ID, &c.MemberID, &c.SubjectKind, &c.SubjectID, &c.Title, &c.Status, &c.CreatedAt, &c.UpdatedAt,
+	if err := r.Scan(&c.ID, &c.MemberID, &c.SubjectKind, &c.SubjectID, &c.Title, &c.CreatedAt, &c.UpdatedAt,
 		&c.LastActivityAt); err != nil {
 		return c, fmt.Errorf("scan agent conversation: %w", err)
 	}
@@ -76,9 +76,9 @@ func (s pgRuns) OpenConversation(ctx context.Context, c Conversation) (Conversat
 	}
 	// The insert claims the subject or the member's request key; a claimed
 	// one inserts nothing and the read below finds its conversation.
-	if _, err := s.db.Exec(ctx, `INSERT INTO agent_conversations (id, member_id, subject_kind, subject_id, status, created_at,
+	if _, err := s.db.Exec(ctx, `INSERT INTO agent_conversations (id, member_id, subject_kind, subject_id, created_at,
     updated_at, last_activity_at, request_key)
-VALUES (@id, @member, @kind, @subject, 'active', @at, @at, @at, @key) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{
+VALUES (@id, @member, @kind, @subject, @at, @at, @at, @key) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{
 		"id": c.ID, "member": c.MemberID, "kind": kind, "subject": c.SubjectID, "at": c.CreatedAt, "key": key,
 	}); err != nil {
 		return Conversation{}, fmt.Errorf("insert agent conversation: %w", err)
@@ -93,7 +93,7 @@ WHERE subject_kind = @kind AND subject_id = @subject`, pgx.StrictNamedArgs{"kind
 
 func (s pgRuns) Conversations(ctx context.Context, member uuid.UUID, f ConversationFilter, limit int) ([]Conversation, error) {
 	rows, err := s.db.Query(ctx, `SELECT `+conversationColumns+` FROM agent_conversations
-WHERE status = 'active' AND CASE WHEN @kind = '' THEN subject_kind IS NULL AND member_id = @member
+WHERE CASE WHEN @kind = '' THEN subject_kind IS NULL AND member_id = @member
         AND (@mention_kind = '' OR id IN (SELECT conversation_id FROM agent_turns
             WHERE attachments @> jsonb_build_array(jsonb_build_object('kind', @mention_kind::text, 'id', @mention_id::uuid))))
     ELSE subject_kind = @kind AND (@subject::uuid IS NULL OR subject_id = @subject) END
@@ -151,22 +151,9 @@ FROM agent_conversations AS c WHERE c.id = @id FOR UPDATE`, pgx.StrictNamedArgs{
 
 func (s pgRuns) OpenTurn(ctx context.Context, t Turn, member uuid.UUID) error {
 	b := &pgx.Batch{}
-	b.Queue(`SELECT status FROM agent_conversations
+	b.Queue(`SELECT FROM agent_conversations
 WHERE id = @id AND (subject_kind IS NOT NULL OR member_id = @member) FOR UPDATE`,
-		pgx.StrictNamedArgs{"id": t.ConversationID, "member": member}).QueryRow(func(row pgx.Row) error {
-		var status string
-		err := row.Scan(&status)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrNotFound
-		}
-		if err != nil {
-			return fmt.Errorf("lock agent conversation: %w", err)
-		}
-		if status != "active" {
-			return ErrClosed
-		}
-		return nil
-	})
+		pgx.StrictNamedArgs{"id": t.ConversationID, "member": member}).Fn = postgres.ExecAs("lock agent conversation", ErrNotFound)
 	b.Queue(`INSERT INTO agent_turns (id, conversation_id, member_id, ordinal, status, question, agent_id,
     agent_name, model_alias, started_at, run_started_at, deadline_ms, attachments, request_key)
 SELECT @id, @conversation, @member, COALESCE(max(ordinal), -1) + 1, 'running', @question, @agent_id, @agent_name, @alias,
@@ -189,11 +176,17 @@ ON CONFLICT (member_id, request_key) WHERE request_key IS NOT NULL DO NOTHING`, 
 		}
 		return nil
 	}
-	b.Queue(`UPDATE agent_conversations SET last_activity_at = @at,
-    title = COALESCE(title, left(@question, 80)) WHERE id = @id`,
-		pgx.StrictNamedArgs{"id": t.ConversationID, "at": t.StartedAt, "question": t.Question}).Fn = postgres.ExecAs("touch agent conversation", nil)
 	if err := sendInTx(ctx, s.db, b); err != nil {
 		return fmt.Errorf("open agent turn: %w", err)
+	}
+	return nil
+}
+
+func (s pgRuns) TouchConversation(ctx context.Context, id uuid.UUID, question string, at time.Time) error {
+	if _, err := s.db.Exec(ctx, `UPDATE agent_conversations SET last_activity_at = GREATEST(last_activity_at, @at),
+    title = COALESCE(title, left(@question, 80)) WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": id, "at": at, "question": question}); err != nil {
+		return fmt.Errorf("touch agent conversation: %w", err)
 	}
 	return nil
 }
@@ -800,21 +793,20 @@ func (s pgRuns) SaveToolCall(ctx context.Context, w ToolWrite) error {
 	if _, err := s.db.Exec(ctx, `WITH turn AS (
     UPDATE agent_turns SET wrote = TRUE WHERE id = @turn AND status = 'running' AND run_started_at = @segment
     RETURNING id)
-INSERT INTO agent_tool_calls AS c (id, turn_id, tool_use_id, tool_name, tool_label, tool_source,
+INSERT INTO agent_tool_calls AS c (id, turn_id, tool_use_id, tool_name, tool_label,
     tool_input, tool_output, result_content, output_spilled, status, latency_ms, attempts, attempt_errors, tool_timing,
     created_at, finished_at)
-SELECT @id, turn.id, @use, @tool, @label, @source, @input, @output, @content, COALESCE(@spilled, FALSE), @status, @latency,
+SELECT @id, turn.id, @use, @tool, @label, @input, @output, @content, COALESCE(@spilled, FALSE), @status, @latency,
     COALESCE(@attempts, 0), @attempt_errors, @timing, @at, @finished_at
 FROM turn
 ON CONFLICT (turn_id, tool_use_id) DO UPDATE SET tool_name = EXCLUDED.tool_name,
-    tool_label = COALESCE(@label, c.tool_label), tool_source = COALESCE(@source, c.tool_source),
-    tool_input = EXCLUDED.tool_input, tool_output = COALESCE(@output, c.tool_output),
+    tool_label = COALESCE(@label, c.tool_label), tool_input = EXCLUDED.tool_input, tool_output = COALESCE(@output, c.tool_output),
     result_content = COALESCE(@content, c.result_content), output_spilled = COALESCE(@spilled, c.output_spilled),
     status = EXCLUDED.status, latency_ms = COALESCE(@latency, c.latency_ms), attempts = COALESCE(@attempts, c.attempts),
     attempt_errors = COALESCE(@attempt_errors, c.attempt_errors), tool_timing = COALESCE(@timing, c.tool_timing),
     finished_at = COALESCE(@finished_at, c.finished_at)
 WHERE c.status IN ('pending', 'running') OR EXCLUDED.status NOT IN ('pending', 'running')`, pgx.StrictNamedArgs{
-		"id": w.ID, "turn": w.TurnID, "segment": w.Segment, "use": w.ToolUseID, "tool": w.Tool, "label": w.Label, "source": w.Source,
+		"id": w.ID, "turn": w.TurnID, "segment": w.Segment, "use": w.ToolUseID, "tool": w.Tool, "label": w.Label,
 		"input": w.Input, "output": w.Output, "content": w.Content, "spilled": w.OutputSpilled, "status": w.Status,
 		"latency": w.LatencyMS, "attempts": w.Attempts, "attempt_errors": w.AttemptErrors, "timing": w.Timing, "at": w.At,
 		"finished_at": w.FinishedAt,
@@ -903,6 +895,27 @@ WHERE id = @id AND status = 'running' AND run_started_at = @segment`, pgx.Strict
 		return false, fmt.Errorf("finish agent run: %w", err)
 	}
 	return true, nil
+}
+
+func (s pgRuns) BlankOutputsBefore(ctx context.Context, before time.Time, limit int) (int, error) {
+	tag, err := s.db.Exec(ctx, `UPDATE agent_tool_calls SET tool_output = NULL, result_content = NULL WHERE id IN (
+    SELECT id FROM agent_tool_calls
+    WHERE created_at < @before AND (tool_output IS NOT NULL OR result_content IS NOT NULL) LIMIT @limit)`,
+		pgx.StrictNamedArgs{"before": before, "limit": limit})
+	if err != nil {
+		return 0, fmt.Errorf("blank old agent tool outputs: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+func (s pgRuns) BlankAccountOutputs(ctx context.Context, account uuid.UUID) error {
+	if _, err := s.db.Exec(ctx, `UPDATE agent_tool_calls SET tool_output = NULL, result_content = NULL
+WHERE turn_id IN (SELECT t.id FROM agent_turns AS t JOIN agent_conversations AS c ON c.id = t.conversation_id
+        WHERE c.subject_kind = 'account' AND c.subject_id = @account)
+    AND (tool_output IS NOT NULL OR result_content IS NOT NULL)`, pgx.StrictNamedArgs{"account": account}); err != nil {
+		return fmt.Errorf("blank the account's agent tool outputs: %w", err)
+	}
+	return nil
 }
 
 // visible is the condition that the conversation c may be seen by @member.

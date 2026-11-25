@@ -230,8 +230,8 @@ conversationTurns:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "A turn is still running in this conversation (agent_turn_in_progress), the conversation is
-          closed (agent_conversation_closed) or the agent is turned off (ai_agent_disabled)."
+        description: "A turn is still running in this conversation (agent_turn_in_progress) or the agent is turned
+          off (ai_agent_disabled)."
         content:
           application/json:
             schema:

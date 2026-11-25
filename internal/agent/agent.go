@@ -12,15 +12,19 @@ import (
 	"net/http"
 	"time"
 
+	restate "github.com/restatedev/sdk-go"
+
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/agent/handler"
 	"github.com/shopnexus/server/internal/agent/mcp"
 	"github.com/shopnexus/server/internal/agent/repository"
 	"github.com/shopnexus/server/internal/agent/service"
+	"github.com/shopnexus/server/internal/agent/worker"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	consolesvc "github.com/shopnexus/server/internal/console/service"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	"github.com/shopnexus/server/internal/platform/config"
+	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/module"
 	"github.com/shopnexus/server/internal/provider/litellm"
@@ -30,8 +34,8 @@ import (
 )
 
 const (
-	// sweepEvery is how often reads past service.ReadsKeptFor are deleted,
-	// as the events are.
+	// sweepEvery is how often reads past service.ReadsKeptFor are deleted
+	// and tool outputs as old blanked, as the events are.
 	sweepEvery = time.Hour
 	// stopWait bounds the MCP server's shutdown.
 	stopWait = 10 * time.Second
@@ -47,10 +51,11 @@ type Settings struct {
 	TextMin, PhotoMin float64
 }
 
-// Mounted is the agent module as app runs it: its Service, and Run, which
-// serves the MCP server until app stops.
+// Mounted is the agent module as app runs it: its Service, its Restate
+// services, and Run, which serves the MCP server until app stops.
 type Mounted struct {
 	Service  service.Service
+	Services []restate.ServiceDefinition
 	listener net.Listener
 	mcp      http.Handler
 	d        module.Deps
@@ -60,7 +65,8 @@ type Mounted struct {
 // guard of a moderator's route, and the AI settings behind admin, builds the
 // MCP server over the services of console, support, account, catalog,
 // deal, shipping and trust, and opens its listener at AGENT_MCP_ADDR, so an
-// address in use stops the start.
+// address in use stops the start. Its worker blanks the tool outputs about
+// a deleted account.
 func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.Handler, consoles consolesvc.Service,
 	support supportsvc.Service, accounts accountsvc.Service, catalog catalogsvc.Service, deals dealsvc.Service,
 	shipping shippingsvc.Service, trust trustsvc.Service,
@@ -74,6 +80,8 @@ func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.H
 		Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, moderator, admin)
+	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Agent: svc}
+	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
 	h := mcp.Handler(mcp.Deps{
 		Token: s.Config.MCPToken, Console: consoles, Agent: svc,
 		Support: support, Accounts: accounts, Catalog: catalog, Deals: deals, Shipping: shipping, Trust: trust,
@@ -83,14 +91,17 @@ func Mount(d module.Deps, s Settings, moderator, admin func(http.Handler) http.H
 	if err != nil {
 		return nil, fmt.Errorf("listen for MCP at AGENT_MCP_ADDR: %w", err)
 	}
-	return &Mounted{Service: svc, listener: l, mcp: httpx.Trace(d.Log)(httpx.Recover(d.Log)(h)), d: d}, nil
+	return &Mounted{
+		Service: svc, Services: []restate.ServiceDefinition{restate.Reflect(watch)}, listener: l,
+		mcp: httpx.Trace(d.Log)(httpx.Recover(d.Log)(h)), d: d,
+	}, nil
 }
 
 // Addr is where the MCP server listens, for a test that listens on port 0.
 func (m *Mounted) Addr() net.Addr { return m.listener.Addr() }
 
 // Run serves the MCP server, hands the turns' event streams their rings,
-// sweeps old reads at start and every hour, closes stuck turns at start
+// sweeps old reads and tool outputs at start and every hour, closes stuck turns at start
 // and every minute, and syncs the models of the providers in sync mode at
 // start and every 6 hours, until ctx is done; then it waits for the calls
 // in flight and returns nil.

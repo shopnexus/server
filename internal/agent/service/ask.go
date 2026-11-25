@@ -57,9 +57,6 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 	if err != nil {
 		return TurnStarted{}, fmt.Errorf("read the conversation: %w", err)
 	}
-	if c.Status != "active" {
-		return TurnStarted{}, domain.ErrConversationClosed
-	}
 	var skill *runSkill
 	if in.SkillID != nil {
 		sk, skillErr := s.runs.Skill(ctx, *in.SkillID)
@@ -104,8 +101,6 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 		return TurnStarted{}, apperr.ErrTryAgain
 	case errors.Is(err, repository.ErrNotFound):
 		return TurnStarted{}, domain.ErrConversationNotFound
-	case errors.Is(err, repository.ErrClosed):
-		return TurnStarted{}, domain.ErrConversationClosed
 	case errors.Is(err, repository.ErrBusy):
 		return TurnStarted{}, domain.ErrTurnInProgress
 	case err != nil:
@@ -138,6 +133,11 @@ func (s *Agent) Ask(ctx context.Context, caller authn.ConsoleMember, conversatio
 			s.log.WarnContext(ctx, "agent: delete a turn whose run did not start", "turn_id", t.ID, "err", delErr)
 		}
 		return TurnStarted{}, err
+	}
+	// The conversation takes the question's time and title only once the
+	// run started, so a failed start leaves it as it was.
+	if err = s.runs.TouchConversation(ctx, conversation, text, now); err != nil {
+		s.log.WarnContext(ctx, "agent: touch a conversation whose run started", "conversation_id", conversation, "err", err)
 	}
 	s.launch(ctx, segment{turn: t.ID, conversation: conversation, member: caller.MemberID, start: now}, stream, cancel)
 	return TurnStarted{ConversationID: conversation, TurnID: t.ID}, nil

@@ -145,8 +145,13 @@ func historyOf(turns []repository.History) []historyTurn {
 			content := e.Content
 			if content == nil {
 				text := e.Text
-				if text == "" {
+				switch {
+				case text == "" && status == "success":
+					// The output was blanked after ReadsKeptFor or the account's erasure.
+					text = "Result no longer kept"
+				case text == "":
 					text = "Tool unavailable"
+				default: // the tool's own text
 				}
 				content, _ = json.Marshal([]map[string]string{{"text": text}})
 			}
@@ -215,7 +220,6 @@ type runLine struct {
 	ToolUseID     string          `json:"tool_use_id"`
 	Tool          string          `json:"tool"`
 	Label         *string         `json:"label"`
-	Source        *string         `json:"source"`
 	Input         json.RawMessage `json:"input"`
 	Status        string          `json:"status"`
 	Output        json.RawMessage `json:"output"`
@@ -328,7 +332,7 @@ func (s *Agent) applyLine(ctx context.Context, seg segment, raw []byte) (bool, e
 		}
 	case "tool_call":
 		if err := s.runs.SaveToolCall(ctx, repository.ToolWrite{
-			ID: l.ID, TurnID: seg.turn, Segment: seg.start, ToolUseID: l.ToolUseID, Tool: l.Tool, Label: l.Label, Source: l.Source, Input: l.Input,
+			ID: l.ID, TurnID: seg.turn, Segment: seg.start, ToolUseID: l.ToolUseID, Tool: l.Tool, Label: l.Label, Input: l.Input,
 			Output: outputOf(l.Output), Content: nullable(l.Content), OutputSpilled: l.OutputSpilled, Status: l.Status,
 			LatencyMS: rounded(l.LatencyMS), Attempts: l.Attempts, AttemptErrors: nullable(l.AttemptErrors),
 			Timing: nullable(l.Timing), FinishedAt: l.FinishedAt, At: now,

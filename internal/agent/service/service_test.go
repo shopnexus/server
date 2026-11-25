@@ -247,7 +247,7 @@ func TestAskRunsTheTurn(t *testing.T) {
 }
 
 // A refused run, a busy conversation and the input guard reach the member
-// as their codes, and a refused run leaves no turn. UC-MOD-08.
+// as their codes, and a refused run leaves no turn and no title. UC-MOD-08.
 func TestAskRefusals(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -277,8 +277,8 @@ func TestAskRefusals(t *testing.T) {
 	if _, err = s.Ask(ctx, lan, c.ID, service.NewTurn{Text: "?"}); !errors.Is(err, domain.ErrUnavailable) {
 		t.Errorf("a refused run: %v", err)
 	}
-	if detail, _ := s.Conversation(ctx, lan, c.ID); len(detail.Turns) != 0 {
-		t.Errorf("a refused run left %+v", detail.Turns)
+	if detail, _ := s.Conversation(ctx, lan, c.ID); len(detail.Turns) != 0 || detail.Title != "" || !detail.UpdatedAt.Equal(c.UpdatedAt) {
+		t.Errorf("a refused run left %+v", detail)
 	}
 	mu.Lock()
 	refuse = false

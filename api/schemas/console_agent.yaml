@@ -335,7 +335,9 @@ AgentToolCall:
     input:
       description: The arguments the model gave, as JSON.
     output:
-      description: The tool's result as JSON, once it has one.
+      description: >-
+        The tool's result as JSON, once it has one; absent 90 days after the call, and once the account the
+        conversation is about is deleted.
     output_spilled:
       type: boolean
       description: The output was too long to keep whole.

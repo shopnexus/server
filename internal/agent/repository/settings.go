@@ -28,7 +28,7 @@ type Tag struct {
 	Sort int
 }
 
-// Agent is a row of ai_agents.
+// Agent is a row of ai_agents with its latest version's instructions.
 type Agent struct {
 	ID                  uuid.UUID
 	Kind                domain.AgentKind
@@ -77,10 +77,10 @@ type Settings interface { //nolint:interfacebloat // module agent's one store of
 	// alias is ErrTaken.
 	CreateAgent(ctx context.Context, a Agent, e audit.Entry) error
 	// SaveAgent writes a over the row read with readWriteID, which a's
-	// WriteID replaces, and adds a version when a's instructions version
-	// is new. ErrConflict when the row changed, ErrTaken on another
-	// agent's name.
-	SaveAgent(ctx context.Context, a Agent, readWriteID uuid.UUID, e audit.Entry) error
+	// WriteID replaces, and with newVersion adds a's instructions as version
+	// a.InstructionsVersion, which must not exist. ErrConflict when the row
+	// changed, ErrTaken on another agent's name.
+	SaveAgent(ctx context.Context, a Agent, readWriteID uuid.UUID, newVersion bool, e audit.Entry) error
 	// Versions lists an agent's versions, newest first.
 	Versions(ctx context.Context, id uuid.UUID) ([]Version, error)
 	// Record writes a console action on its own, for a change made in
