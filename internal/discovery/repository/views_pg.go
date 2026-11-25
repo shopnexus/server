@@ -85,16 +85,10 @@ WHERE viewer_id = @viewer AND viewed_on >= @from::date ORDER BY viewed_on DESC, 
 }
 
 func (s pgViews) Clear(ctx context.Context, viewer uuid.UUID) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(`+viewsLock+`)`, pgx.StrictNamedArgs{"viewer": viewer}); err != nil {
-			return fmt.Errorf("lock the viewer's marks: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `DELETE FROM listing_view_marks WHERE viewer_id = @viewer`, pgx.StrictNamedArgs{"viewer": viewer}); err != nil {
-			return fmt.Errorf("delete marks: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
+	b := &pgx.Batch{}
+	b.Queue(`SELECT pg_advisory_xact_lock(`+viewsLock+`)`, pgx.StrictNamedArgs{"viewer": viewer})
+	b.Queue(`DELETE FROM listing_view_marks WHERE viewer_id = @viewer`, pgx.StrictNamedArgs{"viewer": viewer})
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("clear views: %w", err)
 	}
 	return nil

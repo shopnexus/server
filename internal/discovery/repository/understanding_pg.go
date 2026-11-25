@@ -29,20 +29,13 @@ WHERE query_key = @key AND prompt_version = @version AND created_at >= @since`,
 }
 
 func (s pgUnderstandings) Put(ctx context.Context, key string, version int, answer json.RawMessage, at, expired time.Time) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM search_understandings WHERE created_at < @expired`,
-			pgx.StrictNamedArgs{"expired": expired}); err != nil {
-			return fmt.Errorf("delete expired: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO search_understandings (query_key, prompt_version, answer, created_at)
+	b := &pgx.Batch{}
+	b.Queue(`DELETE FROM search_understandings WHERE created_at < @expired`, pgx.StrictNamedArgs{"expired": expired})
+	b.Queue(`INSERT INTO search_understandings (query_key, prompt_version, answer, created_at)
 VALUES (@key, @version, @answer, @at)
 ON CONFLICT (query_key, prompt_version) DO UPDATE SET answer = excluded.answer, created_at = excluded.created_at`,
-			pgx.StrictNamedArgs{"key": key, "version": version, "answer": answer, "at": at}); err != nil {
-			return fmt.Errorf("insert answer: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
+		pgx.StrictNamedArgs{"key": key, "version": version, "answer": answer, "at": at})
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("store answer: %w", err)
 	}
 	return nil

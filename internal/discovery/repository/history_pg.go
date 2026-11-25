@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"uuid"
 
@@ -30,23 +31,18 @@ DELETE FROM search_history WHERE account_id = @account AND id NOT IN (
     SELECT id FROM search_history WHERE account_id = @account ORDER BY id DESC LIMIT @keep)`
 
 func (s pgHistory) Remember(ctx context.Context, account uuid.UUID, e HistoryEntry) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		alive, err := postgres.LockLiving(ctx, tx, account)
-		if err != nil || !alive {
-			return err
-		}
-		if _, err := tx.Exec(ctx, rememberSearch, pgx.StrictNamedArgs{
-			"id": uuid.NewV7(), "account": account, "key": domain.HistoryKey(e.Query), "query": e.Query,
-			"category": e.Category, "category_code": e.CategoryCode, "photo_url": e.PhotoURL, "at": e.SearchedAt,
-		}); err != nil {
-			return fmt.Errorf("upsert search: %w", err)
-		}
-		if _, err := tx.Exec(ctx, trimHistory, pgx.StrictNamedArgs{"account": account, "keep": domain.MaxHistory}); err != nil {
-			return fmt.Errorf("trim history: %w", err)
-		}
-		return nil
+	b := &pgx.Batch{}
+	postgres.QueueLockLiving(b, account, errGone)
+	b.Queue(rememberSearch, pgx.StrictNamedArgs{
+		"id": uuid.NewV7(), "account": account, "key": domain.HistoryKey(e.Query), "query": e.Query,
+		"category": e.Category, "category_code": e.CategoryCode, "photo_url": e.PhotoURL, "at": e.SearchedAt,
 	})
-	if err != nil {
+	b.Queue(trimHistory, pgx.StrictNamedArgs{"account": account, "keep": domain.MaxHistory})
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
+	})
+	// A deleted account's search is not kept, and that is no error.
+	if err != nil && !errors.Is(err, errGone) {
 		return fmt.Errorf("remember search: %w", err)
 	}
 	return nil

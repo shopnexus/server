@@ -24,23 +24,14 @@ DELETE FROM hidden_listings WHERE account_id = @account AND id NOT IN (
     SELECT id FROM hidden_listings WHERE account_id = @account ORDER BY id DESC LIMIT @keep)`
 
 func (s pgHidden) Hide(ctx context.Context, account, listing uuid.UUID) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		alive, err := postgres.LockLiving(ctx, tx, account)
-		if err != nil {
-			return err
-		}
-		if !alive {
-			return accountdomain.ErrSessionRevoked
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO hidden_listings (id, account_id, listing_id) VALUES (@id, @account, @listing)
+	b := &pgx.Batch{}
+	postgres.QueueLockLiving(b, account, accountdomain.ErrSessionRevoked)
+	b.Queue(`INSERT INTO hidden_listings (id, account_id, listing_id) VALUES (@id, @account, @listing)
 ON CONFLICT (account_id, listing_id) DO UPDATE SET id = excluded.id`,
-			pgx.StrictNamedArgs{"id": uuid.NewV7(), "account": account, "listing": listing}); err != nil {
-			return fmt.Errorf("upsert hide: %w", err)
-		}
-		if _, err := tx.Exec(ctx, trimHidden, pgx.StrictNamedArgs{"account": account, "keep": domain.MaxHidden}); err != nil {
-			return fmt.Errorf("trim hides: %w", err)
-		}
-		return nil
+		pgx.StrictNamedArgs{"id": uuid.NewV7(), "account": account, "listing": listing})
+	b.Queue(trimHidden, pgx.StrictNamedArgs{"account": account, "keep": domain.MaxHidden})
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("hide listing: %w", err)

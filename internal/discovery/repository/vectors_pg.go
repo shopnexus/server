@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server/internal/discovery/domain"
@@ -64,24 +65,18 @@ ON CONFLICT (model_version, text_hash) DO UPDATE SET embedding = excluded.embedd
 
 func (s pgQueryVectors) Sweep(ctx context.Context, now time.Time, keepUnused, keepUsed time.Duration, limit int) (int64, error) {
 	var n int64
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `DELETE FROM search_text_vectors
-WHERE last_used_at < @used OR (hits = 0 AND last_used_at < @unused)`,
-			pgx.StrictNamedArgs{"used": now.Add(-keepUsed), "unused": now.Add(-keepUnused)})
-		if err != nil {
-			return fmt.Errorf("delete the unused: %w", err)
-		}
-		n = tag.RowsAffected()
-		tag, err = tx.Exec(ctx, `DELETE FROM search_text_vectors WHERE ctid IN (
-	SELECT ctid FROM search_text_vectors ORDER BY hits, last_used_at
-	LIMIT greatest((SELECT count(*) FROM search_text_vectors) - @max, 0))`, pgx.StrictNamedArgs{"max": limit})
-		if err != nil {
-			return fmt.Errorf("delete past the cap: %w", err)
-		}
+	count := func(tag pgconn.CommandTag) error {
 		n += tag.RowsAffected()
 		return nil
-	})
-	if err != nil {
+	}
+	b := &pgx.Batch{}
+	b.Queue(`DELETE FROM search_text_vectors
+WHERE last_used_at < @used OR (hits = 0 AND last_used_at < @unused)`,
+		pgx.StrictNamedArgs{"used": now.Add(-keepUsed), "unused": now.Add(-keepUnused)}).Exec(count)
+	b.Queue(`DELETE FROM search_text_vectors WHERE ctid IN (
+	SELECT ctid FROM search_text_vectors ORDER BY hits, last_used_at
+	LIMIT greatest((SELECT count(*) FROM search_text_vectors) - @max, 0))`, pgx.StrictNamedArgs{"max": limit}).Exec(count)
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return 0, fmt.Errorf("sweep text vectors: %w", err)
 	}
 	return n, nil
@@ -109,21 +104,13 @@ WHERE upload_id = @id AND model_version = @model AND expires_at > @now`,
 }
 
 func (s pgPhotoVectors) Put(ctx context.Context, upload uuid.UUID, model string, v []float32, expires, now time.Time) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM search_photo_vectors WHERE expires_at <= @now`,
-			pgx.StrictNamedArgs{"now": now}); err != nil {
-			return fmt.Errorf("delete expired: %w", err)
-		}
-		_, err := tx.Exec(ctx, `INSERT INTO search_photo_vectors (upload_id, model_version, embedding, expires_at)
+	b := &pgx.Batch{}
+	b.Queue(`DELETE FROM search_photo_vectors WHERE expires_at <= @now`, pgx.StrictNamedArgs{"now": now})
+	b.Queue(`INSERT INTO search_photo_vectors (upload_id, model_version, embedding, expires_at)
 VALUES (@id, @model, @v::halfvec(1152), @expires)
 ON CONFLICT (upload_id) DO UPDATE SET model_version = excluded.model_version, embedding = excluded.embedding, expires_at = excluded.expires_at`,
-			pgx.StrictNamedArgs{"id": upload, "model": model, "v": pgvec.Format(v), "expires": expires})
-		if err != nil {
-			return fmt.Errorf("insert: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
+		pgx.StrictNamedArgs{"id": upload, "model": model, "v": pgvec.Format(v), "expires": expires})
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("store photo vector: %w", err)
 	}
 	return nil
