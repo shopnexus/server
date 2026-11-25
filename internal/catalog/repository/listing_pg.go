@@ -10,6 +10,7 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server/internal/catalog/domain"
@@ -91,11 +92,8 @@ func args(st domain.ListingState) pgx.StrictNamedArgs {
 // lockSeller makes the inserts and saves that may add to a seller's
 // listings on sale wait for each other, so a count they read stays true
 // until they commit.
-func lockSeller(ctx context.Context, tx pgx.Tx, seller uuid.UUID) error {
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext(@seller::text))`, pgx.StrictNamedArgs{"seller": seller}); err != nil {
-		return fmt.Errorf("lock seller: %w", err)
-	}
-	return nil
+func lockSeller(b *pgx.Batch, seller uuid.UUID) {
+	b.Queue(`SELECT pg_advisory_xact_lock(hashtext(@seller::text))`, pgx.StrictNamedArgs{"seller": seller})
 }
 
 // insertListing adds the row unless the seller is at the cap, with the
@@ -113,16 +111,19 @@ ON CONFLICT (id) DO NOTHING`
 func (s pgListings) Insert(ctx context.Context, l domain.Listing) error {
 	st := l.State()
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockSeller(ctx, tx, st.SellerID); err != nil {
-			return err
-		}
 		a := args(st)
 		a["on_sale"], a["limit"] = domain.OnSale, domain.MaxOnSale
-		tag, err := tx.Exec(ctx, insertListing, a)
-		if err != nil {
-			return fmt.Errorf("insert listing: %w", err)
+		var inserted int64
+		b := &pgx.Batch{}
+		lockSeller(b, st.SellerID)
+		b.Queue(insertListing, a).Exec(func(tag pgconn.CommandTag) error {
+			inserted = tag.RowsAffected()
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // wrapped below
 		}
-		if tag.RowsAffected() == 0 {
+		if inserted == 0 {
 			var exists bool
 			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM listings WHERE id = @id)`, pgx.StrictNamedArgs{"id": st.ID}).Scan(&exists); err != nil {
 				return fmt.Errorf("check listing: %w", err)
@@ -221,34 +222,35 @@ func (s pgListings) Save(ctx context.Context, l *domain.Listing, writeID uuid.UU
 	a["read_write_id"], a["write_id"] = st.WriteID, writeID
 	delete(a, "seller_id")
 	delete(a, "created_at")
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if slices.Contains(domain.OnSale, st.Status) {
-			if err := lockSeller(ctx, tx, st.SellerID); err != nil {
-				return err
-			}
+	// The cap and the write_id checks only abort, so one batch carries it all.
+	b := &pgx.Batch{}
+	if slices.Contains(domain.OnSale, st.Status) {
+		lockSeller(b, st.SellerID)
+		b.Queue(atCap, pgx.StrictNamedArgs{
+			"id": st.ID, "seller": st.SellerID, "on_sale": domain.OnSale, "limit": domain.MaxOnSale,
+		}).QueryRow(func(row pgx.Row) error {
 			var full bool
-			if err := tx.QueryRow(ctx, atCap, pgx.StrictNamedArgs{
-				"id": st.ID, "seller": st.SellerID, "on_sale": domain.OnSale, "limit": domain.MaxOnSale,
-			}).Scan(&full); err != nil {
+			if err := row.Scan(&full); err != nil {
 				return fmt.Errorf("count listings on sale: %w", err)
 			}
 			if full {
 				return domain.ErrCapReached
 			}
-		}
-		tag, err := tx.Exec(ctx, saveListing, a)
-		if err != nil {
-			return fmt.Errorf("update listing: %w", err)
-		}
+			return nil
+		})
+	}
+	b.Queue(saveListing, a).Exec(func(tag pgconn.CommandTag) error {
 		if tag.RowsAffected() == 0 {
 			return ErrConflict
 		}
-		if entry != nil {
-			if err := audit.Insert(ctx, tx, *entry); err != nil {
-				return err
-			}
-		}
-		return events.Insert(ctx, tx, evs...)
+		return nil
+	})
+	if entry != nil {
+		audit.Queue(b, *entry)
+	}
+	events.Queue(b, evs...)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("save listing: %w", err)

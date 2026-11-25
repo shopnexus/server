@@ -2805,8 +2805,10 @@ Hybrid search (decided 2026-11-09, spec:
   SigLIP 2 scores a text against a matching photo near 0.1. Sorts other
   than relevance order the fused listings.
 - One SQL statement holds the lists as CTEs (`bm25`, `txt`, `img`, `boost`,
-  then `fused`). Its transaction sets `hnsw.iterative_scan = relaxed_order`,
-  so a narrow filter still fills a vector list.
+  then `fused`). A batch on the pool sends it after
+  `set_config('hnsw.iterative_scan', 'relaxed_order', true)`, which lasts
+  for the batch's implicit transaction (`SET LOCAL` warns outside BEGIN), so a
+  narrow filter still fills a vector list.
 - `like` reads the source's text vector and the normalized mean of its photo
   vectors, its title as a phrase, and boosts for its subcategory and a price
   band of ±30 %; it leaves out the source and the viewer's own listings.
