@@ -414,7 +414,7 @@ func (r *run) sale(ctx context.Context, s saleRow) error {
 		if o := got.Order(); o != nil {
 			order = o.ID
 		}
-	} else if err = r.deals.Save(ctx, &d, seedpack.ID(r.name, "deal-save", s.sale.Listing.Key, completed)); err != nil {
+	} else if err = r.deals.Save(ctx, &d, seedpack.ID(r.name, "deal-save", s.sale.Listing.Key, completed), uuid.Nil()); err != nil {
 		return fmt.Errorf("deal of %s: %w", s.sale.Listing.Key, err)
 	}
 	n, err := r.d.Reviews.Write(ctx, Sold{

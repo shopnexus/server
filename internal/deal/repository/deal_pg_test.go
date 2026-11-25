@@ -79,12 +79,16 @@ func TestSaveWritesMovesAndEvent(t *testing.T) {
 	if err := d.Offer(domain.Buyer, 1_000_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	offer := d.Pending()[0].ID
-	if err := s.Save(ctx, &d, uuid.NewV7(), moved(d.ID())); err != nil {
+	if err := s.Save(ctx, &d, uuid.NewV7(), uuid.Nil(), moved(d.ID())); err != nil {
 		t.Fatal(err)
 	}
+	stored, err := s.Moves(ctx, []uuid.UUID{d.ID()})
+	if err != nil || len(stored[d.ID()]) != 1 {
+		t.Fatalf("moves: %+v %v", stored, err)
+	}
+	offer := stored[d.ID()][0].ID
 	var carried []string
-	if err := db.QueryRow(ctx, `SELECT ARRAY(SELECT jsonb_array_elements_text(payload->'moves')) FROM events
+	if err = db.QueryRow(ctx, `SELECT ARRAY(SELECT jsonb_array_elements_text(payload->'moves')) FROM events
 WHERE subject_id = @id AND kind = 'deal.moved'`, pgx.StrictNamedArgs{"id": d.ID()}).Scan(&carried); err != nil ||
 		len(carried) != 1 || carried[0] != offer.String() {
 		t.Fatalf("deal.moved carries the moves: %v %v", carried, err)
@@ -112,7 +116,7 @@ WHERE subject_id = @id AND kind = 'deal.moved'`, pgx.StrictNamedArgs{"id": d.ID(
 	if err = got.Accept(domain.Seller, 1_000_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+	if err = s.Save(ctx, &got, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	agreed, err := s.Get(ctx, d.ID())
@@ -123,7 +127,7 @@ WHERE subject_id = @id AND kind = 'deal.moved'`, pgx.StrictNamedArgs{"id": d.ID(
 	if err = agreed.Cancel(domain.Seller, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Save(ctx, &agreed, uuid.NewV7()); err != nil {
+	if err = s.Save(ctx, &agreed, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	cancelled, err := s.Get(ctx, d.ID())
@@ -154,13 +158,13 @@ func TestSaveRefusesAStaleDeal(t *testing.T) {
 	if err = first.Offer(domain.Buyer, 1_000_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Save(ctx, &first, uuid.NewV7()); err != nil {
+	if err = s.Save(ctx, &first, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	if err = second.Offer(domain.Buyer, 1_100_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Save(ctx, &second, uuid.NewV7()); !errors.Is(err, repository.ErrConflict) {
+	if err = s.Save(ctx, &second, uuid.NewV7(), uuid.Nil()); !errors.Is(err, repository.ErrConflict) {
 		t.Fatalf("stale save: %v", err)
 	}
 	moves, err := s.Moves(ctx, []uuid.UUID{d.ID()})
@@ -213,7 +217,7 @@ func pendingDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, sell
 	if err := d.RequestCod(domain.Buyer, uuid.NewV7(), 1_500_000, recipient, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(context.Background(), &d, uuid.NewV7()); err != nil {
+	if err := s.Save(context.Background(), &d, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return d
@@ -243,7 +247,7 @@ func TestOrderRoundTrip(t *testing.T) {
 	if err = got.Ship(domain.Seller, o.ID, sent, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+	if err = s.Save(ctx, &got, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	if got, err = s.Get(ctx, d.ID()); err != nil || got.Order().Shipment == nil || *got.Order().Shipment != sent ||
@@ -263,7 +267,7 @@ func TestOrderRoundTrip(t *testing.T) {
 	if _, err = got.ShipmentUpdated(o.ID, domain.ShipmentDelivered, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+	if err = s.Save(ctx, &got, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	if got, err = s.Get(ctx, d.ID()); err != nil || got.Order().Shipment.Status != domain.ShipmentDelivered ||
@@ -273,7 +277,7 @@ func TestOrderRoundTrip(t *testing.T) {
 	if err = got.ConfirmReceipt(domain.Buyer, o.ID, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+	if err = s.Save(ctx, &got, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	if got, err = s.Get(ctx, d.ID()); err != nil || got.Status() != domain.StatusSold || got.AgreedPrice() != 1_500_000 ||
@@ -290,19 +294,25 @@ func TestSaveTwiceWritesOnce(t *testing.T) {
 	seller, buyer := accounttest.New(t, db), accounttest.New(t, db)
 	d := inserted(t, db, s, catalogtest.Listing(t, db, seller), buyer, seller)
 	before := d.State()
-	writeID := uuid.NewV7()
+	writeID, key := uuid.NewV7(), uuid.NewV7()
 	for range 2 {
 		again := domain.RestoreDeal(before)
 		if err := again.Offer(domain.Buyer, 1_000_000, onSale, now); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.Save(ctx, &again, writeID, moved(d.ID())); err != nil {
+		if err := s.Save(ctx, &again, writeID, key, moved(d.ID())); err != nil {
 			t.Fatal(err)
 		}
 	}
 	moves, err := s.Moves(ctx, []uuid.UUID{d.ID()})
 	if err != nil || len(moves[d.ID()]) != 1 {
 		t.Fatalf("%+v %v", moves, err)
+	}
+	if ok, movedErr := s.Moved(ctx, d.ID(), domain.Buyer, key); !ok || movedErr != nil {
+		t.Fatalf("the key's move: %v %v", ok, movedErr)
+	}
+	if ok, movedErr := s.Moved(ctx, d.ID(), domain.Seller, key); ok || movedErr != nil {
+		t.Fatalf("the other party's key: %v %v", ok, movedErr)
 	}
 	var n int
 	if err = db.QueryRow(ctx, `SELECT count(*) FROM events WHERE subject_id = @id`, pgx.StrictNamedArgs{"id": d.ID()}).Scan(&n); err != nil || n != 1 {
@@ -330,7 +340,7 @@ func TestCodLimitHoldsUnderRace(t *testing.T) {
 		errs := make([]error, 2)
 		var wg sync.WaitGroup
 		for i := range ds {
-			wg.Go(func() { errs[i] = s.Save(ctx, &ds[i], uuid.NewV7()) })
+			wg.Go(func() { errs[i] = s.Save(ctx, &ds[i], uuid.NewV7(), uuid.Nil()) })
 		}
 		wg.Wait()
 		return errs
@@ -361,13 +371,13 @@ func TestOneShippedOrderPerListing(t *testing.T) {
 		if err = d.RequestCod(domain.Buyer, uuid.NewV7(), 1_500_000, recipient, onSale, now); err != nil {
 			t.Fatal(err)
 		}
-		if err = s.Save(ctx, &d, uuid.NewV7()); err != nil {
+		if err = s.Save(ctx, &d, uuid.NewV7(), uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		if err = d.Ship(domain.Seller, d.Order().ID, sent, onSale, now); err != nil {
 			t.Fatal(err)
 		}
-		results = append(results, s.Save(ctx, &d, uuid.NewV7()))
+		results = append(results, s.Save(ctx, &d, uuid.NewV7(), uuid.Nil()))
 	}
 	if results[0] != nil || results[1] == nil {
 		t.Fatalf("%v", results)
@@ -403,7 +413,7 @@ func TestOrdersWithCode(t *testing.T) {
 		if err := d.Ship(domain.Seller, d.Order().ID, sent, onSale, now); err != nil {
 			t.Fatal(err)
 		}
-		if err := s.Save(ctx, &d, uuid.NewV7()); err != nil {
+		if err := s.Save(ctx, &d, uuid.NewV7(), uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		return d

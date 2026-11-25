@@ -3,14 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
-	"uuid"
 
 	"github.com/shopnexus/server/internal/deal/domain"
 )
 
 // ShipmentUpdated is UC-DEAL-05, a carrier's report: it checks status and
-// runs ShipmentUpdates for the parcel at carrier c. A report is not
-// idempotent, so each call takes a key of its own; the same status twice
+// runs ShipmentUpdates for the parcel at carrier c. The same status twice
 // changes nothing the second time (A1).
 func (s *Deals) ShipmentUpdated(ctx context.Context, c, trackingCode, status string) error {
 	st, err := domain.ParseShipmentStatus(status)
@@ -18,7 +16,7 @@ func (s *Deals) ShipmentUpdated(ctx context.Context, c, trackingCode, status str
 		return err
 	}
 	in := ShipmentSignal{Carrier: domain.Carrier(c), TrackingCode: trackingCode, Status: st}
-	if _, err = s.shipment.Call(ctx, uuid.NewV7().String(), in); err != nil {
+	if _, err = s.shipment.Call(ctx, "", in); err != nil {
 		return err
 	}
 	return nil

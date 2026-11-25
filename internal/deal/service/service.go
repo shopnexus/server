@@ -32,11 +32,11 @@ type Service interface {
 	// CancelOrder cancels the caller's pending order, as its buyer or its
 	// seller, and drops the agreed price.
 	//
-	// A repeated idempotencyKey of the same caller runs nothing more; an
-	// empty one runs every call.
+	// A repeated key of the same caller moves nothing more; uuid.Nil()
+	// runs every call.
 	//
 	// UC-DEAL-06 · NFR-IDEM-01
-	CancelOrder(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
+	CancelOrder(ctx context.Context, caller, order, key uuid.UUID) (DealView, error)
 	// Open returns the buyer's deal on a listing, or starts one in the
 	// pair's conversation; created reports a new deal.
 	//
@@ -92,24 +92,23 @@ type Service interface {
 	// RequestCod asks for cash on delivery at price, the price the buyer
 	// saw (agreed, listed or the seller's counter), to a copy of one of the
 	// buyer's addresses; a deal still negotiating agrees in the same save.
-	// A repeated idempotencyKey of the same caller runs nothing more; an
-	// empty one runs every call.
+	// A repeated key of the same caller moves nothing more; uuid.Nil()
+	// runs every call.
 	//
 	// UC-DEAL-03 · NFR-IDEM-01
-	RequestCod(ctx context.Context, caller, id uuid.UUID, price int64, addressID uuid.UUID, idempotencyKey string) (DealView, error)
+	RequestCod(ctx context.Context, caller, id uuid.UUID, price int64, addressID, key uuid.UUID) (DealView, error)
 	// CreateShipment ships a pending order with a shipment made on the
 	// seller's account at GHTK or GHN. It holds the listing and returns the
-	// order's deal. A repeated idempotencyKey of the same caller runs
-	// nothing more.
+	// order's deal. A repeated key of the same caller moves nothing more.
 	//
 	// UC-DEAL-04 · NFR-IDEM-01
-	CreateShipment(ctx context.Context, caller, order uuid.UUID, idempotencyKey string, in ShipmentInput) (DealView, error)
+	CreateShipment(ctx context.Context, caller, order, key uuid.UUID, in ShipmentInput) (DealView, error)
 	// ConfirmReceipt completes a shipped order on its buyer's word, sells
-	// the listing and returns the order's deal. A repeated idempotencyKey
-	// of the same caller runs nothing more.
+	// the listing and returns the order's deal. A repeated key of the same
+	// caller moves nothing more.
 	//
 	// UC-DEAL-05 A2 · NFR-IDEM-01
-	ConfirmReceipt(ctx context.Context, caller, order uuid.UUID, idempotencyKey string) (DealView, error)
+	ConfirmReceipt(ctx context.Context, caller, order, key uuid.UUID) (DealView, error)
 	// OpenShipmentsAt tells whether a shipped order of the seller's has a
 	// shipment at carrier; module shipping refuses to unlink it then.
 	OpenShipmentsAt(ctx context.Context, seller uuid.UUID, carrier string) (bool, error)
@@ -277,16 +276,6 @@ func (s *Deals) own(ctx context.Context, caller, id uuid.UUID) (domain.Deal, dom
 		return domain.Deal{}, "", domain.ErrNotFound
 	}
 	return d, by, nil
-}
-
-// invocationKey is the Restate idempotency key of a caller's
-// Idempotency-Key, which runs apart from another caller's same key; an
-// empty key gives none, so every call runs.
-func invocationKey(caller uuid.UUID, idempotencyKey string) string {
-	if idempotencyKey == "" {
-		return ""
-	}
-	return caller.String() + "/" + idempotencyKey
 }
 
 // moved is the event of a deal's new moves.

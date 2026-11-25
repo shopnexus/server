@@ -47,7 +47,7 @@ func (s OrderTimers) SellerTimeout(ctx restate.Context, ref OrderRef) error {
 		if errors.Is(d.SellerTimeout(ref.OrderID, at), domain.ErrMoveNotAllowed) {
 			return nil // the order moved on
 		}
-		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, at)
+		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)
 		if saveErr != nil {
 			return saveErr
 		}
@@ -88,7 +88,7 @@ func (s OrderTimers) PickupTimeout(ctx restate.Context, ref OrderRef) error {
 		if errors.Is(d.PickupTimeout(ref.OrderID, at), domain.ErrMoveNotAllowed) {
 			return nil // the order moved on
 		}
-		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, at)
+		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)
 		if saveErr != nil {
 			return saveErr
 		}
@@ -124,7 +124,7 @@ func (s OrderTimers) AutoComplete(ctx restate.Context, ref OrderRef) error {
 		if errors.Is(d.AutoComplete(ref.OrderID, at), domain.ErrMoveNotAllowed) {
 			return nil // the order moved on
 		}
-		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, at)
+		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)
 		if saveErr != nil {
 			return saveErr
 		}

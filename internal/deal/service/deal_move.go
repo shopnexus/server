@@ -124,7 +124,7 @@ func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (mov
 // needs a read back. A deal the other side moved meanwhile is
 // domain.ErrChanged (UC-DEAL-02 E8, NFR-CONC-01).
 func (s *Deals) save(ctx context.Context, caller uuid.UUID, m moving) (DealView, error) {
-	err := s.deals.Save(ctx, &m.deal, uuid.NewV7(), moved(m.deal.ID(), m.now))
+	err := s.deals.Save(ctx, &m.deal, uuid.NewV7(), uuid.Nil(), moved(m.deal.ID(), m.now))
 	if errors.Is(err, repository.ErrConflict) {
 		return DealView{}, domain.ErrChanged
 	}

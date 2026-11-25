@@ -14,13 +14,14 @@ import (
 // dealRequestCod is the DealRequestCod service's name without the prefix.
 const dealRequestCod = "DealRequestCod"
 
-// CodInput names the buyer, the deal, the price the buyer saw and the
-// address the order goes to.
+// CodInput names the buyer, the deal, the price the buyer saw, the
+// address the order goes to and the buyer's request key, if any.
 type CodInput struct {
 	Caller    uuid.UUID `json:"caller"`
 	DealID    uuid.UUID `json:"deal_id"`
 	Price     int64     `json:"price"`
 	AddressID uuid.UUID `json:"address_id"`
+	Key       uuid.UUID `json:"key,omitzero"`
 }
 
 // buyerFacts is what the buyer's step journals: a copy of their address
@@ -43,8 +44,9 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 	if err != nil {
 		return FlowResult{}, err
 	}
-	m, err := loadStep(ctx, s.Deals, in.Caller, in.DealID)
-	if err != nil || m.Refused != nil {
+	// A retry of a request that made its order answers as the first did.
+	m, err := loadStep(ctx, s.Deals, in.Caller, in.DealID, in.Key)
+	if err != nil || m.Refused != nil || m.Moved {
 		return FlowResult{Refused: m.Refused}, err
 	}
 	// E1 · BR-MOD-02, and E2: someone else's address is
@@ -86,13 +88,14 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 		return FlowResult{Refused: b.Refused}, nil //nolint:nilerr // A business refusal goes back as data.
 	}
 	// 2. The pending order; E4 and E5 are the domain's refusals, E3 the
-	// store's, which counts open orders in the save (BR-DEAL-06).
+	// store's, which counts open orders in the save (BR-DEAL-06). The
+	// move claims the request key in the same save.
 	d := domain.RestoreDeal(m.Deal)
 	order := restatex.NewID(ctx, at)
 	if err = d.RequestCod(m.By, order, in.Price, b.Recipient, facts(m.Listing), at); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
-	refused, err := saveStep(ctx, s.Deals.deals, &d, at)
+	refused, err := saveStep(ctx, s.Deals.deals, &d, in.Key, at)
 	if err != nil || refused != nil {
 		return FlowResult{Refused: refused}, err
 	}

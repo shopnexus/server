@@ -190,11 +190,11 @@ func TestAcceptAfterThePriceChanged(t *testing.T) {
 		t.Fatalf("accept the old counter: %v", err)
 	}
 	for _, old := range []int64{1_300_000, 1_500_000} {
-		if _, err := e.deals.RequestCod(ctx, buyer, v.ID, old, address, ""); !errors.Is(err, domain.ErrPriceChanged) {
+		if _, err := e.deals.RequestCod(ctx, buyer, v.ID, old, address, uuid.Nil()); !errors.Is(err, domain.ErrPriceChanged) {
 			t.Fatalf("order at %d: %v", old, err)
 		}
 	}
-	agreed, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_400_000, address, "")
+	agreed, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_400_000, address, uuid.Nil())
 	if err != nil || agreed.Status != domain.StatusAgreed || *agreed.AgreedPrice != 1_400_000 || agreed.Order.Price != 1_400_000 {
 		t.Fatalf("%+v %v", agreed, err)
 	}
@@ -266,7 +266,7 @@ func TestSellerAwayRefusesTheBuyersBindingMoves(t *testing.T) {
 	for name, move := range map[string]func() (service.DealView, error){
 		"accept the counter": func() (service.DealView, error) { return e.deals.Accept(ctx, buyer, v.ID, 1_300_000) },
 		"order at the listed price": func() (service.DealView, error) {
-			return e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, "")
+			return e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, uuid.Nil())
 		},
 		"offer": func() (service.DealView, error) { return e.deals.Offer(ctx, buyer, v.ID, 1_100_000) },
 	} {

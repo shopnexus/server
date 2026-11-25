@@ -29,7 +29,7 @@ func report(ctx context.Context, d *service.Deals, v service.DealView, status st
 	return d.ShipmentUpdated(ctx, string(sh.Carrier), sh.TrackingCode, status)
 }
 
-func key() string { return uuid.NewV7().String() }
+func key() uuid.UUID { return uuid.NewV7() }
 
 // summary reads listing through catalog.
 func (e env) summary(t *testing.T, listing uuid.UUID) (catalogdomain.Status, uuid.UUID) {
@@ -169,7 +169,7 @@ type cancelFirst struct {
 	fired *atomic.Bool
 }
 
-func (c cancelFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error {
+func (c cancelFirst) Save(ctx context.Context, d *domain.Deal, writeID, key uuid.UUID, evs ...events.Event) error {
 	if o := d.Order(); o != nil && o.Status == domain.OrderShipped && c.fired.CompareAndSwap(false, true) {
 		cur, err := c.Deals.Get(ctx, d.ID())
 		if err != nil {
@@ -178,11 +178,11 @@ func (c cancelFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID
 		if err = cur.Cancel(domain.Buyer, time.Now()); err != nil {
 			return err
 		}
-		if err = c.Deals.Save(ctx, &cur, uuid.NewV7()); err != nil {
+		if err = c.Deals.Save(ctx, &cur, uuid.NewV7(), uuid.Nil()); err != nil {
 			return err
 		}
 	}
-	return c.Deals.Save(ctx, d, writeID, evs...)
+	return c.Deals.Save(ctx, d, writeID, key, evs...)
 }
 
 // UC-DEAL-04 E7 · NFR-CONC-01.
@@ -260,7 +260,7 @@ type shipFirst struct {
 	fired *atomic.Bool
 }
 
-func (c shipFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error {
+func (c shipFirst) Save(ctx context.Context, d *domain.Deal, writeID, key uuid.UUID, evs ...events.Event) error {
 	if o := d.Order(); o != nil && o.Status == domain.OrderShipped && c.fired.CompareAndSwap(false, true) {
 		cur, err := c.Deals.Get(ctx, d.ID())
 		if err != nil {
@@ -270,11 +270,11 @@ func (c shipFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, 
 		if err = cur.Ship(domain.Seller, cur.Order().ID, *o.Shipment, listing, time.Now()); err != nil {
 			return err
 		}
-		if err = c.Deals.Save(ctx, &cur, uuid.NewV7()); err != nil {
+		if err = c.Deals.Save(ctx, &cur, uuid.NewV7(), uuid.Nil()); err != nil {
 			return err
 		}
 	}
-	return c.Deals.Save(ctx, d, writeID, evs...)
+	return c.Deals.Save(ctx, d, writeID, key, evs...)
 }
 
 // UC-DEAL-04 · NFR-CONC-01.
@@ -307,7 +307,7 @@ func TestConfirmRefusesAFailedOrder(t *testing.T) {
 	if err := report(ctx, e.deals, first, "failed"); err != nil {
 		t.Fatal(err)
 	}
-	second, err := e.deals.RequestCod(ctx, buyer, first.ID, 1_500_000, e.address(t, buyer), "")
+	second, err := e.deals.RequestCod(ctx, buyer, first.ID, 1_500_000, e.address(t, buyer), uuid.Nil())
 	if err != nil || second.Order.ID == first.Order.ID {
 		t.Fatalf("second order: %+v %v", second.Order, err)
 	}

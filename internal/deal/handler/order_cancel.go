@@ -8,8 +8,8 @@ import (
 )
 
 type cancelOrderRequest struct {
-	OrderID        uuid.UUID `json:"-"                 path:"order_id"`
-	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
+	OrderID uuid.UUID `json:"-"                 path:"order_id"`
+	Key     uuid.UUID `header:"Idempotency-Key" json:"-"`
 }
 
 // CancelOrder serves POST /v1/orders/{order_id}/cancel.
@@ -23,7 +23,7 @@ func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.CancelOrder(r.Context(), p.AccountID, in.OrderID, in.IdempotencyKey)
+	v, err := h.svc.CancelOrder(r.Context(), p.AccountID, in.OrderID, in.Key)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

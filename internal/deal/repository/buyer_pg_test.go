@@ -35,7 +35,7 @@ func TestBuyerOrders(t *testing.T) {
 	if _, err := failed.ShipmentUpdated(failed.Order().ID, domain.ShipmentFailed, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &failed, uuid.NewV7()); err != nil {
+	if err := s.Save(ctx, &failed, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	old := pendingDeal(t, db, s, buyer, seller)

@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/shopnexus/server/internal/deal/domain"
@@ -104,6 +105,14 @@ func deref(p *string) string {
 		return ""
 	}
 	return *p
+}
+
+// orNullID is id, or NULL for [uuid.Nil].
+func orNullID(id uuid.UUID) any {
+	if id == uuid.Nil() {
+		return nil
+	}
+	return id
 }
 
 // orNull is s, or NULL for "".
@@ -207,8 +216,8 @@ RETURNING old.write_id = @write_id`
 
 // insertMoves writes a save's moves in one statement.
 const insertMoves = `
-INSERT INTO deal_moves (id, deal_id, kind, by_party, amount, moved_at, order_id)
-SELECT id, @deal_id, kind, by_party, amount, moved_at, order_id
+INSERT INTO deal_moves (id, deal_id, kind, by_party, amount, moved_at, order_id, request_key)
+SELECT id, @deal_id, kind, by_party, amount, moved_at, order_id, @request_key
 FROM unnest(@ids::uuid[], @kinds::text[], @by_parties::text[], @amounts::bigint[], @moved_at::timestamptz[], @order_ids::uuid[])
     AS m(id, kind, by_party, amount, moved_at, order_id)
 ON CONFLICT (id) DO NOTHING`
@@ -271,7 +280,7 @@ func orderArgs(st domain.DealState, o domain.Order) pgx.StrictNamedArgs {
 	return a
 }
 
-func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error {
+func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID, key uuid.UUID, evs ...events.Event) error {
 	st := d.State()
 	a := dealArgs(st)
 	a["read_write_id"], a["write_id"] = st.WriteID, writeID
@@ -319,22 +328,30 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 		if o != nil {
 			b.Queue(upsertOrder, orderArgs(st, *o)).Fn = postgres.ExecAs("write order", nil)
 		}
-		if moves := d.Pending(); len(moves) > 0 {
-			ids := make([]uuid.UUID, len(moves))
+		// A move's ID is the write ID with the move's place in the save as
+		// its 12 random_a bits, so a retried save writes the same moves and
+		// they still sort by time.
+		moves := d.Pending()
+		ids := make([]uuid.UUID, len(moves))
+		for i := range moves {
+			ids[i] = writeID
+			ids[i][6], ids[i][7] = 0x70|byte(i>>8)&0x0f, byte(i)
+		}
+		if len(moves) > 0 {
 			kinds := make([]string, len(moves))
 			parties := make([]string, len(moves))
 			amounts := make([]*int64, len(moves))
 			at := make([]time.Time, len(moves))
 			orders := make([]*uuid.UUID, len(moves))
 			for i, m := range moves {
-				ids[i], kinds[i], parties[i], at[i], orders[i] = m.ID, string(m.Kind), string(m.By), m.At, m.OrderID
+				kinds[i], parties[i], at[i], orders[i] = string(m.Kind), string(m.By), m.At, m.OrderID
 				if m.Amount != 0 {
 					amounts[i] = &m.Amount
 				}
 			}
 			b.Queue(insertMoves, pgx.StrictNamedArgs{
 				"deal_id": st.ID, "ids": ids, "kinds": kinds, "by_parties": parties, "amounts": amounts,
-				"moved_at": at, "order_ids": orders,
+				"moved_at": at, "order_ids": orders, "request_key": orNullID(key),
 			}).Fn = postgres.ExecAs("insert moves", nil)
 		}
 		// The moves' IDs ride on deal.moved, so a subscriber reads exactly
@@ -342,17 +359,22 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 		out := slices.Clone(evs)
 		for i := range out {
 			if out[i].Kind == events.DealMoved {
-				ids := make([]string, 0, len(d.Pending()))
-				for _, m := range d.Pending() {
-					ids = append(ids, m.ID.String())
+				names := make([]string, len(ids))
+				for j, id := range ids {
+					names[j] = id.String()
 				}
-				out[i].Payload = map[string]any{"moves": ids}
+				out[i].Payload = map[string]any{"moves": names}
 			}
 		}
 		events.Queue(b, out...)
 		stream.Queue(b, []uuid.UUID{st.BuyerID, st.SellerID}, stream.Hint{Kind: stream.KindDeal, DealID: &st.ID})
 		return tx.SendBatch(ctx, b).Close()
 	})
+	// Another move of the party's on the deal holds the key: a client that
+	// sent one key for two requests.
+	if e, ok := errors.AsType[*pgconn.PgError](err); ok && e.ConstraintName == "deal_moves_request_key" {
+		return ErrConflict
+	}
 	if err != nil && !errors.Is(err, errSaved) {
 		return fmt.Errorf("save deal: %w", err)
 	}
@@ -565,6 +587,16 @@ func (s pgDeals) Order(ctx context.Context, id uuid.UUID) (OrderRow, error) {
 		return OrderRow{}, fmt.Errorf("read order: %w", err)
 	}
 	return r, nil
+}
+
+func (s pgDeals) Moved(ctx context.Context, deal uuid.UUID, by domain.Party, key uuid.UUID) (bool, error) {
+	var moved bool
+	if err := s.db.QueryRow(ctx, `SELECT EXISTS (
+    SELECT 1 FROM deal_moves WHERE deal_id = @deal AND by_party = @by AND request_key = @key)`,
+		pgx.StrictNamedArgs{"deal": deal, "by": string(by), "key": key}).Scan(&moved); err != nil {
+		return false, fmt.Errorf("find the key's move: %w", err)
+	}
+	return moved, nil
 }
 
 func (s pgDeals) OrdersWithCode(ctx context.Context, c, code string) ([]OrderRow, error) {

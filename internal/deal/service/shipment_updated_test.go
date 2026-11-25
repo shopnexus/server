@@ -79,7 +79,7 @@ func TestShipmentUpdated(t *testing.T) {
 		t.Fatalf("an unknown status: %v", err)
 	}
 	// Mua lại: the buyer asks for COD again on the same deal.
-	again, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, e.address(t, buyer), "")
+	again, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, e.address(t, buyer), uuid.Nil())
 	if err != nil || again.Order.Status != domain.OrderPending || again.Order.ID == v.Order.ID {
 		t.Fatalf("buy again: %+v %v", again.Order, err)
 	}
@@ -130,7 +130,7 @@ type confirmFirst struct {
 	fired *atomic.Bool
 }
 
-func (c confirmFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error {
+func (c confirmFirst) Save(ctx context.Context, d *domain.Deal, writeID, key uuid.UUID, evs ...events.Event) error {
 	if o := d.Order(); o != nil && o.Status == domain.OrderShipped && o.Shipment.Status == domain.ShipmentInTransit &&
 		c.fired.CompareAndSwap(false, true) {
 		cur, err := c.Deals.Get(ctx, d.ID())
@@ -140,11 +140,11 @@ func (c confirmFirst) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUI
 		if err = cur.ConfirmReceipt(domain.Buyer, cur.Order().ID, time.Now()); err != nil {
 			return err
 		}
-		if err = c.Deals.Save(ctx, &cur, uuid.NewV7()); err != nil {
+		if err = c.Deals.Save(ctx, &cur, uuid.NewV7(), uuid.Nil()); err != nil {
 			return err
 		}
 	}
-	return c.Deals.Save(ctx, d, writeID, evs...)
+	return c.Deals.Save(ctx, d, writeID, key, evs...)
 }
 
 func TestShipmentUpdateLosesToAConfirm(t *testing.T) {

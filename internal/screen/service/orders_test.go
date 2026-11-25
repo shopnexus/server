@@ -142,7 +142,7 @@ func (e *env) pending(t *testing.T, buyer, seller, address uuid.UUID) uuid.UUID 
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := e.deals.RequestCod(ctx, buyer, d.ID, 1_500_000, address, "")
+	v, err := e.deals.RequestCod(ctx, buyer, d.ID, 1_500_000, address, uuid.Nil())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,16 +185,16 @@ func TestOrdersShowEachSideItsRowsWithTheCounterpart(t *testing.T) {
 	seller, other, buyer := accounttest.WithPhone(t, e.db), accounttest.WithPhone(t, e.db), accounttest.WithPhone(t, e.db)
 	to := e.address(t, buyer)
 	shipped := e.pending(t, buyer, seller, to)
-	if _, err := e.deals.CreateShipment(ctx, seller, shipped, uuid.NewV7().String(), dealsvc.ShipmentInput{
+	if _, err := e.deals.CreateShipment(ctx, seller, shipped, uuid.NewV7(), dealsvc.ShipmentInput{
 		Carrier: "ghn", Service: "express", WeightGrams: 2_000, Pickup: "home", PickupAddressID: e.address(t, seller),
 	}); err != nil {
 		t.Fatal(err)
 	}
 	cancelled := e.pending(t, buyer, other, to)
-	if _, err := e.deals.CancelOrder(ctx, buyer, cancelled, ""); err != nil {
+	if _, err := e.deals.CancelOrder(ctx, buyer, cancelled, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.deals.ConfirmReceipt(ctx, buyer, shipped, uuid.NewV7().String()); err != nil {
+	if _, err := e.deals.ConfirmReceipt(ctx, buyer, shipped, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	review, err := e.trust.PutReview(ctx, buyer, shipped, 5, "Tốt", nil, nil)

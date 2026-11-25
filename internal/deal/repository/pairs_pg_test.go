@@ -27,7 +27,7 @@ func soldDeal(t *testing.T, db *pgxpool.Pool, s repository.Deals, buyer, seller 
 	if err := d.ConfirmReceipt(domain.Buyer, d.Order().ID, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(context.Background(), &d, uuid.NewV7()); err != nil {
+	if err := s.Save(context.Background(), &d, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return d
@@ -49,7 +49,7 @@ func TestOfPairs(t *testing.T) {
 	if err := open.Offer(domain.Buyer, 1_000_000, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &open, uuid.NewV7()); err != nil {
+	if err := s.Save(ctx, &open, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 

@@ -50,7 +50,7 @@ func (e env) agreed(t *testing.T, buyer, listing uuid.UUID) service.DealView {
 func (e env) pending(t *testing.T, buyer, listing uuid.UUID) service.DealView {
 	t.Helper()
 	v := e.open(t, buyer, listing)
-	r, err := e.deals.RequestCod(context.Background(), buyer, v.ID, 1_500_000, e.address(t, buyer), "")
+	r, err := e.deals.RequestCod(context.Background(), buyer, v.ID, 1_500_000, e.address(t, buyer), uuid.Nil())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,14 +83,14 @@ func TestRequestCod(t *testing.T) {
 	c := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
 	must(t)(e.deals.Offer(context.Background(), buyer, c.ID, 1_000_000))
 	must(t)(e.deals.Offer(context.Background(), seller, c.ID, 1_300_000))
-	if r, err := e.deals.RequestCod(context.Background(), buyer, c.ID, 1_300_000, e.address(t, buyer), ""); err != nil ||
+	if r, err := e.deals.RequestCod(context.Background(), buyer, c.ID, 1_300_000, e.address(t, buyer), uuid.Nil()); err != nil ||
 		r.Order == nil || r.Order.Price != 1_300_000 || r.AgreedPrice == nil || *r.AgreedPrice != 1_300_000 || r.OpenPrice != nil {
 		t.Fatalf("at the counter: %+v %v", r, err)
 	}
 
 	// On a deal agreed before, at the agreed price.
 	a := e.agreed(t, buyer, catalogtest.Listing(t, e.db, seller))
-	if r, err := e.deals.RequestCod(context.Background(), buyer, a.ID, 1_200_000, e.address(t, buyer), ""); err != nil ||
+	if r, err := e.deals.RequestCod(context.Background(), buyer, a.ID, 1_200_000, e.address(t, buyer), uuid.Nil()); err != nil ||
 		r.Order == nil || r.Order.Price != 1_200_000 {
 		t.Fatalf("agreed: %+v %v", r, err)
 	}
@@ -107,7 +107,7 @@ func TestCodAndCancelWithAKey(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	v := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
-	address, request, cancel := e.address(t, buyer), uuid.NewV7().String(), uuid.NewV7().String()
+	address, request, cancel := e.address(t, buyer), uuid.NewV7(), uuid.NewV7()
 	first, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, request)
 	if err != nil || first.Order == nil || first.Order.Status != domain.OrderPending {
 		t.Fatalf("first request: %+v %v", first.Order, err)
@@ -116,9 +116,9 @@ func TestCodAndCancelWithAKey(t *testing.T) {
 	if err != nil || again.Order == nil || again.Order.ID != first.Order.ID {
 		t.Fatalf("repeated request: %+v %v", again.Order, err)
 	}
-	for _, key := range []string{"", uuid.NewV7().String()} {
+	for _, key := range []uuid.UUID{uuid.Nil(), uuid.NewV7()} {
 		if _, err = e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, key); !errors.Is(err, domain.ErrMoveNotAllowed) {
-			t.Fatalf("a second request with key %q: %v", key, err)
+			t.Fatalf("a second request with key %v: %v", key, err)
 		}
 	}
 	if _, err = e.deals.CancelOrder(ctx, seller, first.Order.ID, cancel); err != nil {
@@ -127,7 +127,7 @@ func TestCodAndCancelWithAKey(t *testing.T) {
 	if done, cancelErr := e.deals.CancelOrder(ctx, seller, first.Order.ID, cancel); cancelErr != nil || done.Order.Status != domain.OrderCancelled {
 		t.Fatalf("repeated cancel: %+v %v", done.Order, cancelErr)
 	}
-	if _, err = e.deals.CancelOrder(ctx, seller, first.Order.ID, ""); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if _, err = e.deals.CancelOrder(ctx, seller, first.Order.ID, uuid.Nil()); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Fatalf("a cancel without a key: %v", err)
 	}
 	// The buyer's same key is a run of its own, refused on the cancelled
@@ -150,7 +150,7 @@ func TestOrderKeepsItsRecipient(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	address := e.address(t, buyer)
 	v := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
-	must(t)(e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, ""))
+	must(t)(e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, uuid.Nil()))
 	if _, err := e.accounts.UpdateAddress(ctx, buyer, address, accountdomain.AddressDraft{
 		Name: "Minh", Phone: "0987654321", Street: "1 Lê Lợi", CommuneCode: "00004", Kind: accountdomain.AddressHome,
 	}, false); err != nil {
@@ -175,26 +175,26 @@ func TestRequestCodRefusals(t *testing.T) {
 	suspended := e.person(t)
 	sv := e.open(t, suspended, catalogtest.Listing(t, e.db, seller))
 	accounttest.Suspend(t, e.accounts, suspended)
-	if _, err := e.deals.RequestCod(ctx, suspended, sv.ID, 1_500_000, e.address(t, suspended), ""); !errors.Is(err, accountdomain.ErrSuspended) {
+	if _, err := e.deals.RequestCod(ctx, suspended, sv.ID, 1_500_000, e.address(t, suspended), uuid.Nil()); !errors.Is(err, accountdomain.ErrSuspended) {
 		t.Errorf("suspended: %v", err)
 	}
 
 	buyer := e.person(t)
 	mine := e.address(t, buyer)
 	v := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
-	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, e.address(t, seller), ""); !errors.Is(err, accountdomain.ErrAddressNotFound) {
+	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, e.address(t, seller), uuid.Nil()); !errors.Is(err, accountdomain.ErrAddressNotFound) {
 		t.Errorf("someone else's address: %v", err)
 	}
-	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, uuid.NewV7(), ""); !errors.Is(err, accountdomain.ErrAddressNotFound) {
+	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, uuid.NewV7(), uuid.Nil()); !errors.Is(err, accountdomain.ErrAddressNotFound) {
 		t.Errorf("an unknown address: %v", err)
 	}
-	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_400_000, mine, ""); !errors.Is(err, domain.ErrPriceChanged) {
+	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_400_000, mine, uuid.Nil()); !errors.Is(err, domain.ErrPriceChanged) {
 		t.Errorf("a price not on offer: %v", err)
 	}
 	if got := e.get(t, buyer, v.ID); got.Status != domain.StatusNegotiating || got.Order != nil {
 		t.Errorf("a refused price changed the deal: %+v", got)
 	}
-	if _, err := e.deals.RequestCod(ctx, v.SellerID, v.ID, 1_500_000, e.address(t, seller), ""); !errors.Is(err, domain.ErrMoveNotAllowed) {
+	if _, err := e.deals.RequestCod(ctx, v.SellerID, v.ID, 1_500_000, e.address(t, seller), uuid.Nil()); !errors.Is(err, domain.ErrMoveNotAllowed) {
 		t.Errorf("the seller: %v", err)
 	}
 	hidden := catalogtest.Listing(t, e.db, seller)
@@ -202,14 +202,14 @@ func TestRequestCodRefusals(t *testing.T) {
 	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := e.deals.RequestCod(ctx, buyer, hv.ID, 1_500_000, mine, ""); !errors.Is(err, domain.ErrListingUnavailable) {
+	if _, err := e.deals.RequestCod(ctx, buyer, hv.ID, 1_500_000, mine, uuid.Nil()); !errors.Is(err, domain.ErrListingUnavailable) {
 		t.Errorf("hidden listing: %v", err)
 	}
 	for range domain.MaxOpenOrders {
 		e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	}
 	fourth := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
-	if _, err := e.deals.RequestCod(ctx, buyer, fourth.ID, 1_500_000, mine, ""); !errors.Is(err, domain.ErrCodLimit) {
+	if _, err := e.deals.RequestCod(ctx, buyer, fourth.ID, 1_500_000, mine, uuid.Nil()); !errors.Is(err, domain.ErrCodLimit) {
 		t.Errorf("fourth order: %v", err)
 	}
 }
@@ -225,16 +225,16 @@ func TestRequestCodRefusedWhileTheSellerIsAway(t *testing.T) {
 	placed := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	v := e.open(t, buyer, catalogtest.Listing(t, e.db, seller))
 	accounttest.Away(t, e.accounts, seller)
-	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, ""); !errors.Is(err, domain.ErrSellerAway) {
+	if _, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, uuid.Nil()); !errors.Is(err, domain.ErrSellerAway) {
 		t.Fatalf("cod: %v", err)
 	}
-	if c, err := e.deals.CancelOrder(ctx, buyer, placed.Order.ID, ""); err != nil || c.Order.Status != domain.OrderCancelled {
+	if c, err := e.deals.CancelOrder(ctx, buyer, placed.Order.ID, uuid.Nil()); err != nil || c.Order.Status != domain.OrderCancelled {
 		t.Fatalf("cancel the order placed before: %+v %v", c, err)
 	}
 	if _, err := e.accounts.Update(ctx, seller, accountsvc.UpdateInput{ClearAway: true}); err != nil {
 		t.Fatal(err)
 	}
-	if r, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, ""); err != nil || r.Order == nil || r.Order.Status != domain.OrderPending {
+	if r, err := e.deals.RequestCod(ctx, buyer, v.ID, 1_500_000, address, uuid.Nil()); err != nil || r.Order == nil || r.Order.Status != domain.OrderPending {
 		t.Fatalf("cod once back: %+v %v", r, err)
 	}
 }

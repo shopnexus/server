@@ -33,7 +33,7 @@ func TestListingActivity(t *testing.T) {
 	sent := e.shipped(t, third, seller, shipped)
 	e.open(t, first, talked)
 	gone := e.pending(t, second, cancelled)
-	must(t)(e.deals.CancelOrder(ctx, seller, gone.Order.ID, ""))
+	must(t)(e.deals.CancelOrder(ctx, seller, gone.Order.ID, uuid.Nil()))
 	e.open(t, first, foreign)
 
 	got, err := e.deals.ListingActivity(ctx, seller, []uuid.UUID{twoPending, shipped, talked, cancelled, foreign, uuid.NewV7()})
@@ -82,8 +82,8 @@ func TestListingActivityOneRowPerDeal(t *testing.T) {
 	seller, buyer := e.person(t), e.person(t)
 	listing := catalogtest.Listing(t, e.db, seller)
 	first := e.pending(t, buyer, listing)
-	must(t)(e.deals.CancelOrder(ctx, buyer, first.Order.ID, ""))
-	again, err := e.deals.RequestCod(ctx, buyer, first.ID, 1_500_000, e.address(t, buyer), "")
+	must(t)(e.deals.CancelOrder(ctx, buyer, first.Order.ID, uuid.Nil()))
+	again, err := e.deals.RequestCod(ctx, buyer, first.ID, 1_500_000, e.address(t, buyer), uuid.Nil())
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -30,11 +30,16 @@ type Deals interface {
 	// Save writes d, its latest order, its pending moves and evs when its
 	// row still has the write ID d was read with, then sets its write ID. A
 	// row that already has writeID was written by an earlier try of this
-	// save: Save writes nothing more and returns nil. Otherwise ErrConflict
-	// and nothing is written. A pending order beyond the buyer's
+	// save: Save writes nothing more and returns nil. Its moves take IDs
+	// derived from writeID. Otherwise ErrConflict and nothing is written. The moves carry key, the party's Idempotency-Key, or none
+	// for uuid.Nil(); a key another move of the party's on the deal holds
+	// is ErrConflict too. A pending order beyond the buyer's
 	// domain.MaxOpenOrders is domain.ErrCodLimit; concurrent saves for one
 	// buyer count one at a time.
-	Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error
+	Save(ctx context.Context, d *domain.Deal, writeID, key uuid.UUID, evs ...events.Event) error
+	// Moved reports whether a move of by's on the deal carries key: the
+	// request with that key has moved it already.
+	Moved(ctx context.Context, deal uuid.UUID, by domain.Party, key uuid.UUID) (bool, error)
 	// OfListing returns every deal on a listing, oldest first.
 	OfListing(ctx context.Context, listingID uuid.UUID) ([]domain.Deal, error)
 	// OnListings is a query: the deals on seller's listings among ids,

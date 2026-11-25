@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
 
@@ -72,7 +73,7 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 			if moveErr != nil || !changed {
 				break // a closed order, or nothing new
 			}
-			refused, saveErr := saveStep(ctx, s.Deals.deals, &d, at)
+			refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)
 			if saveErr != nil {
 				return ShipmentResult{}, saveErr
 			}

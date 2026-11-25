@@ -85,7 +85,7 @@ func (e env) pending(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UU
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := e.deals.RequestCod(ctx, buyer, d.ID, 1_500_000, a.ID, "")
+	v, err := e.deals.RequestCod(ctx, buyer, d.ID, 1_500_000, a.ID, uuid.Nil())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func (e env) pending(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UU
 func (e env) shipped(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
 	t.Helper()
 	deal, order = e.pending(t, buyer, seller)
-	if _, err := e.deals.CreateShipment(context.Background(), seller, order, uuid.NewV7().String(), dealsvc.ShipmentInput{
+	if _, err := e.deals.CreateShipment(context.Background(), seller, order, uuid.NewV7(), dealsvc.ShipmentInput{
 		Carrier: "ghtk", Service: "standard", WeightGrams: 800, Pickup: "home",
 	}); err != nil {
 		t.Fatal(err)
@@ -108,7 +108,7 @@ func (e env) shipped(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UU
 func (e env) completed(t *testing.T, buyer, seller uuid.UUID) (deal, order uuid.UUID) {
 	t.Helper()
 	deal, order = e.shipped(t, buyer, seller)
-	if _, err := e.deals.ConfirmReceipt(context.Background(), buyer, order, uuid.NewV7().String()); err != nil {
+	if _, err := e.deals.ConfirmReceipt(context.Background(), buyer, order, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	return deal, order

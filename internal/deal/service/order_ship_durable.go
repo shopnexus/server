@@ -44,8 +44,9 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	if err != nil {
 		return FlowResult{}, err
 	}
-	m, err := loadStep(ctx, s.Deals, in.Caller, in.DealID)
-	if err != nil || m.Refused != nil {
+	// A1: a retry of a shipment that landed answers as the first did.
+	m, err := loadStep(ctx, s.Deals, in.Caller, in.DealID, in.Key)
+	if err != nil || m.Refused != nil || m.Moved {
 		return FlowResult{Refused: m.Refused}, err
 	}
 	d := domain.RestoreDeal(m.Deal)
@@ -126,7 +127,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		return FlowResult{}, fmt.Errorf("ship the order: %w", err)
 	}
 	// 4. The order is shipped.
-	refused, err = saveStep(ctx, s.Deals.deals, &d, at)
+	refused, err = saveStep(ctx, s.Deals.deals, &d, in.Key, at)
 	if err != nil {
 		return FlowResult{}, err
 	}

@@ -47,10 +47,10 @@ func TestMovesNameTheirOrders(t *testing.T) {
 	ctx := context.Background()
 	seller, buyer := e.person(t), e.person(t)
 	first := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
-	must(t)(e.deals.CancelOrder(ctx, buyer, first.Order.ID, ""))
+	must(t)(e.deals.CancelOrder(ctx, buyer, first.Order.ID, uuid.Nil()))
 	must(t)(e.deals.Offer(ctx, buyer, first.ID, 1_200_000))
 	must(t)(e.deals.Accept(ctx, seller, first.ID, 1_200_000))
-	second, err := e.deals.RequestCod(ctx, buyer, first.ID, 1_200_000, e.address(t, buyer), "")
+	second, err := e.deals.RequestCod(ctx, buyer, first.ID, 1_200_000, e.address(t, buyer), uuid.Nil())
 	if err != nil {
 		t.Fatal(err)
 	}

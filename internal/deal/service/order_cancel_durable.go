@@ -23,8 +23,9 @@ func (s DealCancelOrder) Run(ctx restate.Context, in FlowInput) (FlowResult, err
 	if err != nil {
 		return FlowResult{}, err
 	}
-	m, err := loadStep(ctx, s.Deals, in.Caller, in.DealID)
-	if err != nil || m.Refused != nil {
+	// A retry of a cancel that landed answers as the first did.
+	m, err := loadStep(ctx, s.Deals, in.Caller, in.DealID, in.Key)
+	if err != nil || m.Refused != nil || m.Moved {
 		return FlowResult{Refused: m.Refused}, err
 	}
 	d := domain.RestoreDeal(m.Deal)
@@ -33,6 +34,6 @@ func (s DealCancelOrder) Run(ctx restate.Context, in FlowInput) (FlowResult, err
 	if err = d.CancelPendingOrder(m.By, in.OrderID, at); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
-	refused, err := saveStep(ctx, s.Deals.deals, &d, at)
+	refused, err := saveStep(ctx, s.Deals.deals, &d, in.Key, at)
 	return FlowResult{Refused: refused}, err
 }

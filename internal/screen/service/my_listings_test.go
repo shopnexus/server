@@ -216,7 +216,7 @@ func (e *sellEnv) pending(t *testing.T, buyer, listing uuid.UUID) dealsvc.DealVi
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := e.deals.RequestCod(ctx, buyer, d.ID, 1_500_000, e.address(t, buyer), "")
+	v, err := e.deals.RequestCod(ctx, buyer, d.ID, 1_500_000, e.address(t, buyer), uuid.Nil())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,7 +268,7 @@ func TestMyListingsCountsEachListing(t *testing.T) {
 		t.Fatal(err)
 	}
 	shipped := e.pending(t, shipper, reserved)
-	if _, err := e.deals.CreateShipment(ctx, seller, shipped.Order.ID, uuid.NewV7().String(), dealsvc.ShipmentInput{
+	if _, err := e.deals.CreateShipment(ctx, seller, shipped.Order.ID, uuid.NewV7(), dealsvc.ShipmentInput{
 		Carrier: "ghn", Service: "express", WeightGrams: 2_000, Pickup: "home", PickupAddressID: e.address(t, seller),
 	}); err != nil {
 		t.Fatal(err)

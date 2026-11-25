@@ -24,7 +24,7 @@ func offered(t *testing.T, db *pgxpool.Pool, s repository.Deals, seller uuid.UUI
 	if err := d.Offer(domain.Buyer, 1_000_000, onSale, now.Add(after)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(context.Background(), &d, uuid.NewV7()); err != nil {
+	if err := s.Save(context.Background(), &d, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return d
@@ -45,7 +45,7 @@ func TestOpenOffers(t *testing.T) {
 	if err := countered.Offer(domain.Seller, 1_200_000, onSale, now.Add(5*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &countered, uuid.NewV7()); err != nil {
+	if err := s.Save(ctx, &countered, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	pendingDeal(t, db, s, accounttest.New(t, db), seller)
@@ -85,7 +85,7 @@ func TestOpenOffers(t *testing.T) {
 	if err := c.Decline(domain.Seller, now.Add(7*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Save(ctx, &c, uuid.NewV7()); err != nil {
+	if err := s.Save(ctx, &c, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	want("after the answered c", page.Request{Cursor: c.ID()}, b, a)

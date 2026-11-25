@@ -20,12 +20,13 @@ import (
 	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
-// FlowInput names the order a flow moves, its deal and the caller. A
-// shipment carries what the seller picked for it, and whether its pickup
-// is the seller's saved one.
+// FlowInput names the order a flow moves, its deal, the caller and the
+// caller's request key, if any. A shipment carries what the seller picked
+// for it, and whether its pickup is the seller's saved one.
 type FlowInput struct {
 	SavedPickup bool                  `json:"saved_pickup,omitempty"`
 	Caller      uuid.UUID             `json:"caller"`
+	Key         uuid.UUID             `json:"key,omitzero"`
 	DealID      uuid.UUID             `json:"deal_id"`
 	OrderID     uuid.UUID             `json:"order_id"`
 	Draft       *domain.ShipmentDraft `json:"draft,omitempty"`
@@ -40,15 +41,18 @@ func (r FlowResult) Refusal() *apperr.Error { return r.Refused }
 
 // loaded is a deal as a flow's first step journals it: its state, the
 // caller's side and its listing, or the refusal of a caller who is no side.
+// Moved says the request's key is on a move of the caller's already.
 type loaded struct {
 	Deal    domain.DealState   `json:"deal"`
 	By      domain.Party       `json:"by"`
 	Listing catalogsvc.Summary `json:"listing"`
+	Moved   bool               `json:"moved,omitempty"`
 	Refused *apperr.Error      `json:"refused,omitempty"`
 }
 
-// loadStep reads the caller's deal and its listing in one journaled step.
-func loadStep(ctx restate.Context, s *Deals, caller, id uuid.UUID) (loaded, error) {
+// loadStep reads the caller's deal and its listing in one journaled step,
+// and whether the request with key moved the deal already (NFR-IDEM-01).
+func loadStep(ctx restate.Context, s *Deals, caller, id, key uuid.UUID) (loaded, error) {
 	out, err := restate.Run(ctx, func(rc restate.RunContext) (loaded, error) {
 		d, by, stepErr := s.own(rc, caller, id)
 		if errors.Is(stepErr, domain.ErrNotFound) {
@@ -56,6 +60,15 @@ func loadStep(ctx restate.Context, s *Deals, caller, id uuid.UUID) (loaded, erro
 		}
 		if stepErr != nil {
 			return loaded{}, stepErr
+		}
+		if key != uuid.Nil() {
+			moved, movedErr := s.deals.Moved(rc, id, by, key)
+			if movedErr != nil {
+				return loaded{}, fmt.Errorf("find the key's move: %w", movedErr)
+			}
+			if moved {
+				return loaded{Moved: true}, nil
+			}
 		}
 		l, stepErr := s.listing(rc, d.ListingID())
 		if stepErr != nil {
@@ -70,14 +83,15 @@ func loadStep(ctx restate.Context, s *Deals, caller, id uuid.UUID) (loaded, erro
 }
 
 // saveStep saves d with its deal.moved event in one journaled step, under
-// a write ID and an event ID minted from the journal. A deal changed
+// a write ID and an event ID minted from the journal, its moves keyed by
+// the request's key or [uuid.Nil] for the system's. A deal changed
 // meanwhile is domain.ErrChanged and a fourth open order
 // domain.ErrCodLimit, as data; a retry of a save that committed writes
 // nothing more.
-func saveStep(ctx restate.Context, deals repository.Deals, d *domain.Deal, at time.Time) (*apperr.Error, error) {
+func saveStep(ctx restate.Context, deals repository.Deals, d *domain.Deal, key uuid.UUID, at time.Time) (*apperr.Error, error) {
 	writeID, eventID := restatex.NewID(ctx, at), restatex.NewID(ctx, at)
 	out, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		stepErr := deals.Save(rc, d, writeID, events.Event{ID: eventID, Kind: events.DealMoved, SubjectID: d.ID(), OccurredAt: at})
+		stepErr := deals.Save(rc, d, writeID, key, events.Event{ID: eventID, Kind: events.DealMoved, SubjectID: d.ID(), OccurredAt: at})
 		if errors.Is(stepErr, repository.ErrConflict) {
 			return restatex.Refused{Refusal: domain.ErrChanged}, nil
 		}

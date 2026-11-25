@@ -29,7 +29,7 @@ func (s *Deals) AccountDeleted(ctx context.Context, account uuid.UUID) error {
 		if !deals[i].PartyLeft(now) {
 			continue
 		}
-		if err = s.deals.Save(ctx, &deals[i], uuid.NewV7(), moved(deals[i].ID(), now)); err != nil {
+		if err = s.deals.Save(ctx, &deals[i], uuid.NewV7(), uuid.Nil(), moved(deals[i].ID(), now)); err != nil {
 			return fmt.Errorf("save deal: %w", err)
 		}
 	}

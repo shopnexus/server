@@ -24,7 +24,7 @@ func shipLinked(t *testing.T, s repository.Deals, d domain.Deal, c domain.Carrie
 	if err = got.Ship(domain.Seller, got.Order().ID, sent, onSale, now); err != nil {
 		t.Fatal(err)
 	}
-	if err = s.Save(ctx, &got, uuid.NewV7()); err != nil {
+	if err = s.Save(ctx, &got, uuid.NewV7(), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return got

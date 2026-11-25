@@ -73,7 +73,8 @@ const (
 // on shipped the carrier's fee when it gave one. OrderID is the order a
 // step of an order belongs to; nil on any other move, and on an order step
 // that the release before wrote or that migration 0052 could not match to
-// its order.
+// its order. A pending move has no ID: the store derives it from the
+// save's write ID, so a retried save writes the same move.
 type Move struct {
 	ID      uuid.UUID
 	Kind    MoveKind
@@ -559,7 +560,7 @@ func (d *Deal) reopen() { d.status, d.agreedPrice, d.agreedAt = StatusNegotiatin
 // record adds a move to the ones the next save writes. A step of an order
 // names the deal's latest order, the one it moved.
 func (d *Deal) record(kind MoveKind, by Party, amount int64, now time.Time) {
-	m := Move{ID: uuid.NewV7(), Kind: kind, By: by, Amount: amount, At: now}
+	m := Move{Kind: kind, By: by, Amount: amount, At: now}
 	if kind.OfOrder() {
 		m.OrderID = new(d.order.ID)
 	}
