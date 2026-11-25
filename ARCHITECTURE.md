@@ -730,7 +730,7 @@ replaces the Restate idempotency keys the use cases sent.
   `order.modified`; GHN's webhook `Time`, its poll `log[].updated_date`),
   and an unreadable time is now. `Events.Add` keeps the content compare
   within `sameEventWindow` (10 minutes) or against the newest event of its
-  kind, under `pg_advisory_xact_lock` per carrier and tracking code, so a
+  kind, under an advisory lock per carrier and tracking code, so a
   racing webhook and poll take turns.
 
 ### Idempotency-Key
@@ -1263,11 +1263,13 @@ once a listing draft extended it.
   needed: a photo two drafts name lives until the later one's end.
 - `Gone(owner, ids)` names those of the owner's uploads that a holder took,
   that expired or wait past `expires_at`, and the IDs with no row.
-- `Attach(owner, holder, ids)` gives the uploads to a holder, such as a
+- `Attach(owner, holder, ids, writeID)` gives the uploads to a holder, such as a
   listing, all or none: each must be the owner's and either held by that
   holder already or waiting and present in the store with the declared type
   and size. Otherwise `invalid_upload`. An upload the holder already holds
   passes, so a retried attach succeeds; `uploads.holder_id` records it.
+  The changed uploads save under the caller's write ID: a flow mints it
+  before the step, `Square` and `Photos` (direct use cases) mint their own.
 - `MediaProcess.Run(upload_id)` processes an attached upload in one step:
   it checks the magic bytes against the type, reads the dimensions from the
   header and refuses more than 40 megapixels, or more than 160 MB of decoded
@@ -1315,11 +1317,12 @@ Listing reads use four more (decided 2026-11-10 for the video read, spec:
 
 - A video upload serves a video read only: `Attach`, `Square`,
   `QueryUpload` and `QueryImage` refuse it with `invalid_upload`.
-  `HoldVideo(owner, holder, id)` gives it to a read: the owner's, waiting
+  `HoldVideo(owner, holder, id, writeID)` gives it to a read: the owner's, waiting
   or already the holder's, before its expiry, in the store as declared. It
   records `shape = video`. `OpenVideo` reads the object for the read's
-  flow. `Consume` deletes the object and sets status `consumed`; a second
-  call changes nothing.
+  flow. `Consume(id, writeID)` deletes the object and sets status
+  `consumed`; a second call changes nothing. The read's flow mints both
+  write IDs before their steps.
 - `SavePhoto(owner, id, bytes, contentType, origin)` writes a photo the
   server made or copied to `uploads/<id>` and inserts a waiting upload of
   the owner, with its 24-hour `MediaExpire`: a video read's frame (`origin
@@ -1360,7 +1363,7 @@ agree during a deploy.
   404 `draft_not_found`. It deletes nothing: an expired draft goes on
   the account's next list or PUT.
 - An account keeps 20 drafts (`draft_limit_reached` on a 21st create),
-  counted under `pg_advisory_xact_lock(hashtext('drafts:' || account))`
+  counted under the `drafts` lock on the account
   with a share lock on the account's row; a deleted account's write is
   `session_revoked`, a suspended account still writes its drafts. A draft
   lives 30 days after its last write (`domain.DraftLife`), and the
@@ -1400,6 +1403,10 @@ agree during a deploy.
   sold. Active and reserved are public. An edit that adds an upload, or an
   edit of a rejected listing, returns the listing to processing; an edit
   of a sold, deleted or reserved listing is `listing_state_conflict`.
+- A listing sold through an order keeps the order in `sold_order_id`
+  (migration 0092, kept when it is deleted); one marked sold by hand has
+  none. `unmark-sold` undoes only a sale by hand: an order's sale is
+  `listing_state_conflict`, so the item cannot be sold twice.
 - A console member hides a listing with `POST /v1/console/listings/{id}/hide`
   (`Service.Hold`, decided 2026-11-17): an active listing, or one its seller
   hid, goes hidden and `listings.held_at` is set (migration 0055). While it
@@ -1413,7 +1420,8 @@ agree during a deploy.
   `reserved_for` names the order (migration 0010). `Service.Reserve`,
   `Release` and `SellTo` take the listing and the order, so module deal's
   flows can repeat them: reserving again for the same order, releasing for
-  another order and selling an already sold listing change nothing. They
+  another order and selling an already sold listing change nothing.
+  `SellTo` saves under a write ID the flow mints before its step. They
   write `listing.reserved`, `listing.released` and `listing.sold`. A
   reserved listing counts toward the cap and shows in the `on_sale` pane;
   the seller cannot hide, edit, mark sold or delete it.
@@ -1424,9 +1432,11 @@ agree during a deploy.
 - `ListingPost` checks, in order: account suspended, 20 listings in
   processing, active, hidden or rejected, then the fields. The category and
   commune lookups reach the domain as `domain.Refs`, so one
-  `invalid_listing` lists every field. It inserts the row under
-  `pg_advisory_xact_lock(hashtext(seller_id))`, which holds the cap when
-  posts race, then attaches the uploads to the listing. A cap reached at the insert refuses before any upload is taken;
+  `invalid_listing` lists every field. It inserts the row in one
+  transaction under a share lock on the seller's `accounts` row (an erased
+  seller is `session_revoked`) and `postgres.QueueLock(b, "listings",
+  seller)`, which holds the cap when posts race, then attaches the uploads
+  to the listing under a write ID minted before the step. A cap reached at the insert refuses before any upload is taken;
   an attach that refuses deletes the row again (`Listings.Discard`). The
   last step sends `ListingPublish`, journaled like the rest.
 - `ListingEdit` loads the seller's listing, edits it, attaches the uploads
@@ -1768,7 +1778,7 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   notification reads. The order's code `SN-100001` comes from the sequence
   `order_codes`, so a use case reads the deal back after its save.
 - A buyer has at most 3 orders pending or shipped; `Save` counts them
-  under `pg_advisory_xact_lock` on the buyer and refuses the fourth with
+  under an advisory lock on the buyer and refuses the fourth with
   `cod_limit_reached`.
 - A suspended account cannot ask for COD; a shipment, a confirmation and
   a cancel finish or take back an order already under
@@ -2106,13 +2116,13 @@ Follows live beside blocks (decided 2026-11-10, spec:
   one pair of generic handlers (`handler/tie.go`) serves both. A `Follow`
   row has the fields of a `Block` row plus `avatar_url`.
 - Any account can be followed. A follower follows at most 1,000 accounts
-  (`follow_limit_reached`), counted under `pg_advisory_xact_lock` on
-  `'follows:' || follower`. A suspended follower gets 403
+  (`follow_limit_reached`), counted under an advisory lock on
+  `follows:<follower>`. A suspended follower gets 403
   `account_suspended`.
 - A block deletes the follows between the two, both ways, in its
   transaction. While a block stands, following is 403 `blocked`, and
   unblocking restores nothing. A follow and a block of the same two
-  accounts take one lock on the pair (`'pair:' || lo/hi`), so a follow
+  accounts take one lock on the pair (`pair:<lo>:<hi>`), so a follow
   written beside a block cannot outlive it.
 - `repository.Follows` holds the follow statements; `Accounts.Block`
   deletes from `account_follows` itself.
@@ -2151,7 +2161,7 @@ Decided 2026-10-27 (spec:
   per account, and a repeated key returns the address its first request
   added, at the cap too. A retry after that address was deleted adds it
   again.
-- Insert, set-default and delete run under `pg_advisory_xact_lock` on the
+- Insert, set-default and delete run under an advisory lock on the
   account, which keeps the cap and the single default; a partial unique
   index on `(account_id) WHERE is_default` backs the second. An edit checks
   `write_id` and is `try_again` after a race.
@@ -2240,7 +2250,9 @@ Module `chat` holds conversations (spec:
   reads the listing as it is now.
 - A photo message is `processing` until `MessagePublish` has its photos
   through `MediaProcess`, then `sent` or `failed`. Only its sender sees it
-  until it is sent.
+  until it is sent. The save moves only a message still `processing`; one
+  published already or gone writes nothing more (no last-message move, no
+  `message.sent`), and `MessagePublish` ends as done.
 - Each member has a read marker, which only a newer message moves, and an
   archive, each written by a statement of its own (`MarkRead` moves the
   marker only when the message is newer), so two devices never undo each other. The next sent message that becomes the last one
@@ -2663,7 +2675,7 @@ Reports are trust's too (decided 2026-11-10, spec:
   resolution `reopened_at` and opens its reports again (409
   `report_case_not_resolved`), except one whose reporter has reported the
   same target since, which stays with the reopened resolution. Each runs
-  under `pg_advisory_xact_lock` on the account and writes `report.dismiss`,
+  under an advisory lock on the account and writes `report.dismiss`,
   `report.resolve` or `report.reopen` (target the account,
   `details.resolution_id`) in its transaction. The ShopNexus account is
   `account_is_system`. Console mounts after trust and catalog, whose
@@ -2903,7 +2915,7 @@ Search).
   `seller_id` and `category_code`, so the app files and groups both without
   reading each listing.
 - Each save has a UUIDv7 `id`, so the list pages by it. The 500-save cap
-  is counted under `pg_advisory_xact_lock` on the account.
+  is counted under an advisory lock on the account.
 
 - `search_text_vectors` caches the vector of a text the search embedded
   (the rewrite, the raw query when the model failed, or the visual
@@ -2987,7 +2999,7 @@ Search watches (decided 2026-11-11, same spec):
 - `POST /v1/search/watches` follows a `q` with its filters (category,
   price range, conditions, offers only) and a place. An account has one
   watch per `domain.HistoryKey` and at most 20 (`watch_limit_reached`,
-  counted under `pg_advisory_xact_lock` on `'watches:' || account`). The
+  counted under an advisory lock on `watches:<account>`). The
   same words again take the new filters, keep the ID and set `new_count` to
   0, with 200; a new watch is 201. `GET` lists them, `DELETE /{id}` forgets
   one, and `/mute` and `/unmute` set `alert`.
@@ -3054,7 +3066,7 @@ Spam and scam detection is moderation and goes to trust; the two share
   `LinkRead`, whose handlers read top to bottom; all three keep
   `domain.ListingRead` in table `listing_reads`, which has each source's
   own columns. The caps are 30 video reads, 60 photo reads and 30 link
-  reads in 24 hours, each counted under `pg_advisory_xact_lock` on the
+  reads in 24 hours, each counted under an advisory lock on the
   account and the source, all `read_limit_reached` 429. A body naming none
   or two sources is `invalid_request` 400. `GET /v1/listing-reads/{id}`
   builds one view for every source and is `listing_read_not_found` 404 for
@@ -3083,7 +3095,7 @@ The video read:
   post does: a read exists to post a listing, and accounts made of an email
   alone would otherwise reach the model), then inserts the row. The insert's transaction takes
   a share lock on the caller's `accounts` row (a tombstone is
-  `session_revoked`) and `pg_advisory_xact_lock` on the account, and counts
+  `session_revoked`) and an advisory lock on the account, and counts
   the account's video reads of the last 24 hours. `Start`
   then holds the video (another holder is `invalid_upload`, and the row is
   deleted again; a hold that loses a race to another start's save runs
@@ -3351,7 +3363,7 @@ back on 2026-11-24 as a module of its own (see Feedback).
   account (a suspended one may still open a ticket), the order's ticket
   and the order through
   deal; then steps open the support chat, insert the ticket under
-  `pg_advisory_xact_lock` on the account (at most 10 in 24 hours, 429
+  an advisory lock on the account (at most 10 in 24 hours, 429
   `too_many_tickets`), send the person's first message through chat's
   `MessageSend` with `OpensTicket` so it may carry no text, and record it as
   `first_message_id`, which the app draws as the ticket's card; Hỗ trợ's
@@ -3554,7 +3566,9 @@ keywords are `input_text`, `provider_name`, `tool_input`, `tool_output`,
   mention.
 - On 200 the server reads the NDJSON lines in the background on the same
   replica, until 60 s past the segment's deadline, each in its own
-  transaction and only while the turn is `running`: `event` takes the
+  transaction and only while the turn is `running` with the segment's
+  `run_started_at`, so a late line from a segment the sweep closed cannot
+  write into a resumed turn: `event` takes the
   turn's next `event_seq` and rings `pg_notify('agent_turn', turn_id)`
   (`steer.read` marks its steer read); `checkpoint` stores `state`;
   `tool_call` upserts by `(turn_id, tool_use_id)` and never moves a
@@ -3942,7 +3956,10 @@ calls it except screen, for the unread counts of Home and
   unread notice; the upsert's guard on `bumped_at` covers the race between
   two events of one key. A redelivered event writes nothing (the row
   records its `event_id`). A recipient's
-  notices older than 90 days are deleted when they get a new one.
+  notices last bumped more than 90 days ago are deleted when they get a
+  new one (`notifications_list` serves it). The worker mints a new
+  notice's ID from the wall clock in a step of its own before the step that
+  writes it, so notices with one bump time list in write order.
 - A notice's push has the Android tag and FCM collapse key
   `notification:<id>` (decided 2026-11-17). An unread notice keeps its ID
   when a newer event of its collapse key rewrites it, so the new push
@@ -3999,7 +4016,8 @@ calls it except screen, for the unread counts of Home and
 - A push token belongs to a sign-in session (`push_tokens.session_id`).
   Putting a token takes it from every other session that had it, so a
   phone signed in to a second account stops getting the first account's
-  pushes.
+  pushes. The put takes the share lock on the account's row first
+  (`QueueLockLiving`), so a deleted account gets `session_revoked`.
   Before a push the worker asks account which of the recipient's sessions are
   active and deletes the others' tokens, which covers sign-out, revocation,
   refresh reuse, expiry and 30 days idle with one read. Each token is sent in a step of
@@ -4288,7 +4306,7 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-sell.md`.
   branch's review), where the writes of Erasure take a share lock: a
   listing open is a hot read, and the share lock would make every open
   write the account's tuple and wait on `TouchActive`. A shared advisory
-  lock on the viewer (`hashtext('views:' || viewer)`) takes its place,
+  lock on the viewer (`views:<viewer>`) takes its place,
   and `Views.Clear` takes it exclusively before it deletes. A record in
   flight when the account is deleted holds the lock, so the erasure's
   `Clear` waits for it to commit and deletes its mark; a record that
