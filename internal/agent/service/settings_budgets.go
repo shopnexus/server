@@ -257,7 +257,8 @@ func (s *Agent) applyMemberBudgets(ctx context.Context, set repository.BudgetSet
 	if err != nil {
 		return err
 	}
-	for _, m := range members {
+	for i := range members {
+		m := &members[i]
 		if err = s.gateway.SetEndUserBudget(ctx, m.ID.String(), budgetOf(set, m.ID, string(m.Role))); err != nil {
 			return gatewayError(err)
 		}

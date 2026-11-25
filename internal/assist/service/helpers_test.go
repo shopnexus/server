@@ -280,6 +280,7 @@ func (m *fakeModel) Stream(_ context.Context, r llm.Request, onText func(string)
 		answer = m.link
 	case strings.HasPrefix(r.User, "The seller's photo"):
 		answer = m.photo
+	default:
 	}
 	err, gap := m.err, m.gap
 	m.mu.Unlock()

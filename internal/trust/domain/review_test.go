@@ -71,9 +71,9 @@ func TestTags(t *testing.T) {
 		"buyer":      {domain.RoleBuyer, []domain.Tag{domain.TagWellPacked}},
 		"twice":      {domain.RoleSeller, []domain.Tag{domain.TagQuickReply, domain.TagQuickReply}},
 	} {
-		_, err := review(c.role, c.tags...)
-		if e, ok := errors.AsType[*apperr.Error](err); !ok || !errors.Is(err, domain.ErrInvalidReview) || e.Fields["tags"] == "" {
-			t.Errorf("%s: %v", name, err)
+		_, tagErr := review(c.role, c.tags...)
+		if e, ok := errors.AsType[*apperr.Error](tagErr); !ok || !errors.Is(tagErr, domain.ErrInvalidReview) || e.Fields["tags"] == "" {
+			t.Errorf("%s: %v", name, tagErr)
 		}
 	}
 	if err = r.Edit(4, "", []domain.Tag{domain.TagQuickReply}, nil, now.Add(time.Hour)); err != nil || !slices.Equal(r.Tags(), []domain.Tag{domain.TagQuickReply}) {

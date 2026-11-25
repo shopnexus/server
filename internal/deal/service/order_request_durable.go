@@ -55,7 +55,7 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 			return buyerFacts{}, fmt.Errorf("read account status: %w", stepErr)
 		}
 		if r := status.Refusal(); r != nil {
-			return buyerFacts{Refused: r}, nil
+			return buyerFacts{Refused: r}, nil //nolint:nilerr // A business refusal goes back as data.
 		}
 		// A new order waits on the seller, who must not be away.
 		if m.By == domain.Buyer {
@@ -70,7 +70,10 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 		a, stepErr := s.Deals.accounts.Address(rc, in.Caller, in.AddressID)
 		if stepErr != nil {
 			refused, faultErr := restatex.AsRefusal(stepErr)
-			return buyerFacts{Refused: refused.Refusal}, faultErr
+			if faultErr != nil {
+				return buyerFacts{}, fmt.Errorf("read the address: %w", faultErr)
+			}
+			return buyerFacts{Refused: refused.Refusal}, nil
 		}
 		return buyerFacts{Recipient: domain.Recipient{
 			Name: a.Name, Phone: a.Phone, Street: a.Street, CommuneCode: a.CommuneCode, Kind: domain.AddressKind(a.Kind),
@@ -80,7 +83,7 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 		return FlowResult{}, fmt.Errorf("read the buyer: %w", err)
 	}
 	if b.Refused != nil {
-		return FlowResult{Refused: b.Refused}, nil
+		return FlowResult{Refused: b.Refused}, nil //nolint:nilerr // A business refusal goes back as data.
 	}
 	// 2. The pending order; E4 and E5 are the domain's refusals, E3 the
 	// store's, which counts open orders in the save (BR-DEAL-06).

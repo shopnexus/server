@@ -82,8 +82,8 @@ func TestRatingTags(t *testing.T) {
 		e.reveal(t, o)
 	}
 	want := []service.TagCount{{Tag: domain.TagWellPacked, Count: 2}, {Tag: domain.TagAsDescribed, Count: 1}, {Tag: domain.TagQuickReply, Count: 1}}
-	if r, err := e.trust.Rating(ctx, seller, domain.RoleSeller); err != nil || !isRating(r, 5, 3, want...) {
-		t.Fatalf("%+v %v", r, err)
+	if r, ratingErr := e.trust.Rating(ctx, seller, domain.RoleSeller); ratingErr != nil || !isRating(r, 5, 3, want...) {
+		t.Fatalf("%+v %v", r, ratingErr)
 	}
 	m, err := e.trust.OrderReviews(ctx, seller, orders[:1])
 	if their := m[orders[0]].Their; err != nil || their == nil || !slices.Equal(their.Tags, tags[0]) {

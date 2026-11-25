@@ -3,6 +3,7 @@ package telemetry
 import "testing"
 
 func TestParseCgroupBytes(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want int64

@@ -234,13 +234,13 @@ ORDER BY g.size DESC, f.id DESC LIMIT @limit`, pgx.StrictNamedArgs{"kind": kind,
 	}
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Group, error) {
 		var (
-			g     Group
-			moods []int
-			days  []int
-			err   error
+			g       Group
+			moods   []int
+			days    []int
+			scanErr error
 		)
-		if g.Root, err = scanWith(row, &g.Size, &moods, &g.App, &g.Web, &days); err != nil {
-			return Group{}, err
+		if g.Root, scanErr = scanWith(row, &g.Size, &moods, &g.App, &g.Web, &days); scanErr != nil {
+			return Group{}, scanErr
 		}
 		copy(g.Moods[:], moods)
 		copy(g.Days[:], days)

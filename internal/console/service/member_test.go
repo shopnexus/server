@@ -116,6 +116,7 @@ func TestRenameAndLastSignIn(t *testing.T) {
 			if m.LastSignInAt != nil || !m.MustChangePassword {
 				t.Errorf("never signed in: %+v", m)
 			}
+		default:
 		}
 	}
 }

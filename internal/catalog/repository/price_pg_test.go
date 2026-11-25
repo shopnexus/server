@@ -95,11 +95,11 @@ func TestPriceSample(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	now := time.Now()
+	at := time.Now()
 	f := repository.PriceFilter{
 		Exclude: me, CategoryCode: "vehicles.bicycle", Condition: domain.ConditionUsed,
 		Text: axis, TextVersion: "t1", TextMin: 0.45, Photo: photo, PhotoVersion: "p1", PhotoMin: 0.6,
-		SoldSince: now.Add(-domain.PriceSoldWindow), OnSaleSince: now.Add(-domain.PriceOnSaleWindow), Limit: 30,
+		SoldSince: at.Add(-domain.PriceSoldWindow), OnSaleSince: at.Add(-domain.PriceOnSaleWindow), Limit: 30,
 	}
 	got, err := vs.PriceSample(ctx, f)
 	if err != nil {

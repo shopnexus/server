@@ -141,7 +141,7 @@ func TestReviewTags(t *testing.T) {
 	s := repository.NewReviews(db)
 	ctx := context.Background()
 	seller := accounttest.New(t, db)
-	var reviews []domain.Review
+	reviews := make([]domain.Review, 0, 4)
 	for _, tags := range [][]domain.Tag{
 		{domain.TagWellPacked, domain.TagQuickReply}, {domain.TagQuickReply}, {domain.TagAsDescribed}, nil,
 	} {

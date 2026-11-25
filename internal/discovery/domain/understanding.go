@@ -206,6 +206,8 @@ func twins(u Understanding, v Vocabulary) map[string]string {
 			case AttrPhrase:
 			case AttrCategory:
 				label = v.Categories[value]
+			case AttrPrice, AttrCondition, AttrPlace, AttrNearMe, AttrFresh, AttrOffers:
+				continue
 			default:
 				continue
 			}

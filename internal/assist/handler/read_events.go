@@ -68,6 +68,8 @@ func writeEvent(w http.ResponseWriter, name string, v any) error {
 	if err != nil {
 		return fmt.Errorf("encode event: %w", err)
 	}
-	_, err = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, b)
-	return err
+	if _, err = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, b); err != nil {
+		return fmt.Errorf("write event: %w", err)
+	}
+	return nil
 }

@@ -189,8 +189,8 @@ func TestStaff(t *testing.T) {
 	if err != nil || len(gs) != 1 || gs[0].Root.Feedback.ID != mine.ID || gs[0].Size != 2 || gs[0].Root.Person.ID != owner {
 		t.Fatalf("groups: %+v %v", gs, err)
 	}
-	if m, err := svc.Summary(ctx); err != nil || m.Sent != 2 || m.Ideas != 2 || m.ShippedGroups != 1 || len(m.DaySent) != service.SummaryDays {
-		t.Fatalf("summary: %+v %v", m, err)
+	if m, sumErr := svc.Summary(ctx); sumErr != nil || m.Sent != 2 || m.Ideas != 2 || m.ShippedGroups != 1 || len(m.DaySent) != service.SummaryDays {
+		t.Fatalf("summary: %+v %v", m, sumErr)
 	}
 	if err = svc.AccountDeleted(ctx, owner); err != nil {
 		t.Fatal(err)

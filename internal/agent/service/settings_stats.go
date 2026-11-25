@@ -457,7 +457,8 @@ func (s *Agent) memberSpend(ctx context.Context, rng, start, end string) ([]Memb
 		return nil, err
 	}
 	out := make([]MemberSpend, 0, len(members))
-	for _, m := range members {
+	for i := range members {
+		m := &members[i]
 		ms := MemberSpend{MemberID: m.ID, DisplayName: m.DisplayName}
 		for _, act := range acts {
 			ms.USD += act.ByEntity[m.ID.String()].Spend

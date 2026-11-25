@@ -9,7 +9,7 @@ import (
 )
 
 type renameMemberRequest struct {
-	ID          uuid.UUID `json:"-" path:"id"`
+	ID          uuid.UUID `json:"-"            path:"id"`
 	DisplayName string    `json:"display_name"`
 }
 

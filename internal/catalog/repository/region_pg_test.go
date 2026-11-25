@@ -62,9 +62,9 @@ func TestCategories(t *testing.T) {
 			t.Errorf("%s: %v", key, got)
 		}
 	}
-	if _, specs, err := s.Leaf(ctx, "phones.iphone"); err != nil || len(specs) != 4 || specs[0].Key != "model" ||
+	if _, specs, leafErr := s.Leaf(ctx, "phones.iphone"); leafErr != nil || len(specs) != 4 || specs[0].Key != "model" ||
 		specs[0].Names[locale.Vietnamese] != "Dòng máy" || specs[0].Names[locale.English] != "Model" {
-		t.Errorf("iphone specs %v, %v", specs, err)
+		t.Errorf("iphone specs %v, %v", specs, leafErr)
 	}
 	// spec_labels, which the release before reads, names the keys in
 	// Vietnamese, and every key a category asks for is named in every

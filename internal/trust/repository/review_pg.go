@@ -193,8 +193,10 @@ GROUP BY tag ORDER BY count(*) DESC, tag COLLATE "C"`,
 	}
 	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (TagCount, error) {
 		var c TagCount
-		err := row.Scan(&c.Tag, &c.Count)
-		return c, err
+		if scanErr := row.Scan(&c.Tag, &c.Count); scanErr != nil {
+			return TagCount{}, fmt.Errorf("scan review tag: %w", scanErr)
+		}
+		return c, nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read review tags: %w", err)

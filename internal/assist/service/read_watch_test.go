@@ -41,7 +41,9 @@ func TestWatchReadSendsTheText(t *testing.T) {
 			texts = append(texts, *ev.Text)
 		}
 	}
-	if len(texts) < 2 || !strings.HasPrefix("iPhone 11 Trắng", texts[0].Title) ||
+	// The first text may carry only the start of the title.
+	title := "iPhone 11 Trắng"
+	if len(texts) < 2 || !strings.HasPrefix(title, texts[0].Title) ||
 		texts[len(texts)-1].Description != "iPhone 11 màu trắng, mặt lưng kính, cụm 2 camera sau." {
 		t.Fatalf("texts %+v", texts)
 	}

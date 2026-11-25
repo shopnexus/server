@@ -178,7 +178,7 @@ func TestPrepareAllowsTheWebsiteToPut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Prepare(t.Context()); err != nil {
+	if err = s.Prepare(t.Context()); err != nil {
 		t.Fatal(err)
 	}
 	u, _, err := s.PresignPut(t.Context(), "uploads/"+uuid.NewV7().String(), "image/jpeg", 10, time.Minute)

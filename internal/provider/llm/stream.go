@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -65,5 +66,5 @@ func (c OpenAI) Stream(ctx context.Context, r Request, onText func(string)) (str
 	if err = sc.Err(); err != nil {
 		return "", fmt.Errorf("read stream: %w", err)
 	}
-	return "", fmt.Errorf("stream ended without [DONE]")
+	return "", errors.New("stream ended without [DONE]")
 }

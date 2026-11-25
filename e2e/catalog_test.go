@@ -107,10 +107,12 @@ func withSpecs(t *testing.T, body map[string]any) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	code, _ := body["category_code"].(string)
 	specs := []map[string]string{}
-	for _, k := range keys[code] {
-		specs = append(specs, map[string]string{"key": k, "value": "Có"})
+	if code, ok := body["category_code"].(string); ok {
+		specs = make([]map[string]string, 0, len(keys[code]))
+		for _, k := range keys[code] {
+			specs = append(specs, map[string]string{"key": k, "value": "Có"})
+		}
 	}
 	body["specs"] = specs
 }

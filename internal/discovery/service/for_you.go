@@ -137,4 +137,4 @@ func firstDistinct(cards []catalogsvc.SearchCard, n int) []catalogsvc.SearchCard
 }
 
 // cardKey is what makes two cards the same listing posted twice.
-func cardKey(c catalogsvc.SearchCard) (uuid.UUID, string) { return c.SellerID, c.Title }
+func cardKey(c catalogsvc.SearchCard) (seller uuid.UUID, title string) { return c.SellerID, c.Title }

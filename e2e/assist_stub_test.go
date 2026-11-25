@@ -78,6 +78,7 @@ func newAssist() *stubAssist {
 					answer = bicyclePhotoText
 				case p.Type == "text" && strings.Contains(p.Text, "không có gì"):
 					answer = noItemText
+				default:
 				}
 			}
 			writeStubStream(w, answer)

@@ -703,7 +703,7 @@ func TestSubprotocolToken(t *testing.T) {
 			h := stream.SubprotocolToken(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 				got = r.Header.Get("Authorization")
 			}))
-			r := httptest.NewRequest(http.MethodGet, "/v1/ws", nil)
+			r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/ws", http.NoBody)
 			if tc.auth != "" {
 				r.Header.Set("Authorization", tc.auth)
 			}
