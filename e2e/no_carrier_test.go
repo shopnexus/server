@@ -25,8 +25,8 @@ import (
 func TestNoCarrier(t *testing.T) {
 	t.Parallel()
 	cfg := serverConfig
-	db := pgtest.New(t)
-	cfg.DatabaseURL, cfg.Restate = db.Config().ConnString(), restatetest.Config(t)
+	store := pgtest.New(t)
+	cfg.DatabaseURL, cfg.Restate = store.Config().ConnString(), restatetest.Config(t)
 	cfg.Carrier.Mode = "none"
 	a, err := app.New(context.Background(), cfg, discard,
 		app.WithPushSender(phones), app.WithEmailSender(mails), app.WithPasswordHasher(consoledomain.Fast), fakeAI())
@@ -52,8 +52,8 @@ func TestNoCarrier(t *testing.T) {
 
 	// A pending order in the second database: its people and listing are
 	// written there, and their tokens signed with the shared keys.
-	seller, buyer := accounttest.WithPhone(t, db), accounttest.WithPhone(t, db)
-	listing := catalogtest.Listing(t, db, seller)
+	seller, buyer := accounttest.WithPhone(t, store), accounttest.WithPhone(t, store)
+	listing := catalogtest.Listing(t, store, seller)
 	as := func(id uuid.UUID) [2]string {
 		t.Helper()
 		now := time.Now()
