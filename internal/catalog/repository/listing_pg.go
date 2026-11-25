@@ -200,6 +200,20 @@ func (s pgListings) CountByStatus(ctx context.Context, seller uuid.UUID) (map[do
 		pgx.StrictNamedArgs{"seller": seller}))
 }
 
+// CountSold reads listings_seller: a sold listing stays sold or deleted,
+// and deleting keeps sold_at.
+func (s pgListings) CountSold(ctx context.Context, seller uuid.UUID) (int, error) {
+	var n int
+	err := s.db.QueryRow(ctx, `SELECT count(*) FROM listings
+WHERE seller_id = @seller AND status = ANY(@statuses) AND sold_at IS NOT NULL`, pgx.StrictNamedArgs{
+		"seller": seller, "statuses": []string{string(domain.StatusSold), string(domain.StatusDeleted)},
+	}).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("count sold listings: %w", err)
+	}
+	return n, nil
+}
+
 func (s pgListings) CountCreatedSince(ctx context.Context, since time.Time) (map[domain.Status]int, error) {
 	return postgres.Counts[domain.Status](s.db.Query(ctx, `SELECT status, count(*) FROM listings WHERE created_at >= @since GROUP BY status`,
 		pgx.StrictNamedArgs{"since": since}))

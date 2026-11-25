@@ -16,7 +16,8 @@ import (
 )
 
 // A seller's public list holds the active and reserved listings as cards,
-// newest first, and the counts set them apart from the sold ones.
+// newest first, and the counts set them apart from the sold ones, a sold
+// listing deleted since among them.
 func TestSellerListingsAndCounts(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -25,6 +26,15 @@ func TestSellerListingsAndCounts(t *testing.T) {
 	sold := e.active(t, seller).ID
 	if _, err := e.catalog.MarkSold(ctx, seller, sold, locale.Vietnamese); err != nil {
 		t.Fatal(err)
+	}
+	soldDeleted := e.active(t, seller).ID
+	if _, err := e.catalog.MarkSold(ctx, seller, soldDeleted, locale.Vietnamese); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []uuid.UUID{soldDeleted, e.active(t, seller).ID} {
+		if err := e.catalog.Delete(ctx, seller, id); err != nil {
+			t.Fatal(err)
+		}
 	}
 	hidden := e.active(t, seller).ID
 	if _, err := e.catalog.Hide(ctx, seller, hidden, locale.Vietnamese); err != nil {
@@ -54,7 +64,7 @@ func TestSellerListingsAndCounts(t *testing.T) {
 	if _, err = e.catalog.SellerListings(ctx, seller, domain.Near{Commune: "nope"}, nil, page.Request{}); !errors.Is(err, domain.ErrInvalidPosition) {
 		t.Fatalf("an unknown commune: %v", err)
 	}
-	if got, err := e.catalog.SellerCounts(ctx, seller); err != nil || got != (service.SellerCounts{Sold: 1, Public: 2, OnSale: 3}) {
+	if got, err := e.catalog.SellerCounts(ctx, seller); err != nil || got != (service.SellerCounts{Sold: 2, Public: 2, OnSale: 3}) {
 		t.Fatalf("counts: %+v %v", got, err)
 	}
 	for name, near := range map[string]domain.Near{"no position": {}, "an unknown commune": {Commune: "nope"}} {

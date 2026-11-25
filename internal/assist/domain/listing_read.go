@@ -61,8 +61,8 @@ type Photo struct {
 }
 
 // ListingRead is one read of a seller's video, photo or listing elsewhere.
-// It moves from reading to done or failed; its photos, draft and estimate
-// fill in as the steps finish. A video or photo read names its upload
+// It moves from reading to done or failed; its photos and draft fill in
+// as the steps finish. A video or photo read names its upload
 // (media), a link read its link and the photos the old listing has.
 type ListingRead struct {
 	id, accountID        uuid.UUID
@@ -76,7 +76,6 @@ type ListingRead struct {
 	photos               []Photo
 	draft                *Draft
 	contactRemoved       bool
-	estimate             *Estimate
 	createdAt, expiresAt time.Time
 	writeID              uuid.UUID
 }
@@ -140,15 +139,6 @@ func (r *ListingRead) Draft() *Draft {
 	return &d
 }
 
-// Estimate is a copy of the range, nil before the end and when there is none.
-func (r *ListingRead) Estimate() *Estimate {
-	if r.estimate == nil {
-		return nil
-	}
-	e := *r.estimate
-	return &e
-}
-
 func (r *ListingRead) SetPhotos(photos []Photo) error {
 	if r.status != StatusReading {
 		return ErrNotReading
@@ -180,16 +170,12 @@ func (r *ListingRead) SetDraft(d Draft, contactRemoved bool) error {
 	return nil
 }
 
-// Finish ends the read with its range, nil when there is none.
-func (r *ListingRead) Finish(e *Estimate) error {
+// Finish ends the read; the seller prices the draft.
+func (r *ListingRead) Finish() error {
 	if r.status != StatusReading {
 		return ErrNotReading
 	}
 	r.status = StatusDone
-	if e != nil {
-		c := *e
-		r.estimate = &c
-	}
 	return nil
 }
 
@@ -230,7 +216,6 @@ type ListingReadState struct {
 	Photos         []Photo   `json:"photos"`
 	Draft          *Draft    `json:"draft"`
 	ContactRemoved bool      `json:"contact_removed"`
-	Estimate       *Estimate `json:"estimate"`
 	CreatedAt      time.Time `json:"created_at"`
 	ExpiresAt      time.Time `json:"expires_at"`
 	WriteID        uuid.UUID `json:"write_id"`
@@ -241,7 +226,7 @@ func RestoreListingRead(st ListingReadState) ListingRead {
 	return ListingRead{
 		id: st.ID, accountID: st.AccountID, source: st.Source, media: st.Media, link: st.Link, linkPhotos: st.LinkPhotos,
 		status: st.Status, failure: st.Failure, reason: st.FailureReason, photos: st.Photos, draft: st.Draft, contactRemoved: st.ContactRemoved,
-		estimate: st.Estimate, createdAt: st.CreatedAt, expiresAt: st.ExpiresAt, writeID: st.WriteID,
+		createdAt: st.CreatedAt, expiresAt: st.ExpiresAt, writeID: st.WriteID,
 	}
 }
 
@@ -250,7 +235,7 @@ func (r *ListingRead) State() ListingReadState {
 	return ListingReadState{
 		ID: r.id, AccountID: r.accountID, Source: r.source, Media: r.media, Link: r.link, LinkPhotos: r.linkPhotos,
 		Status: r.status, Failure: r.failure, FailureReason: r.reason, Photos: r.Photos(), Draft: r.Draft(), ContactRemoved: r.contactRemoved,
-		Estimate: r.Estimate(), CreatedAt: r.createdAt, ExpiresAt: r.expiresAt, WriteID: r.writeID,
+		CreatedAt: r.createdAt, ExpiresAt: r.expiresAt, WriteID: r.writeID,
 	}
 }
 

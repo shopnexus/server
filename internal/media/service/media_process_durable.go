@@ -118,6 +118,9 @@ func (s MediaProcess) Run(ctx restate.Context, id uuid.UUID) (ProcessResult, err
 			return processed{}, fmt.Errorf("wait for a processing slot: %w", rc.Err())
 		}
 		r, stepErr := s.Store.Get(rc, u.Key())
+		if errors.Is(stepErr, objectstore.ErrNotFound) {
+			return processed{Failure: domain.ReasonNotAttached}, nil // released meanwhile
+		}
 		if stepErr != nil {
 			return processed{}, fmt.Errorf("read the upload: %w", stepErr)
 		}
@@ -129,14 +132,13 @@ func (s MediaProcess) Run(ctx restate.Context, id uuid.UUID) (ProcessResult, err
 		if stepErr != nil {
 			return processed{}, fmt.Errorf("decode the upload: %w", stepErr)
 		}
-		photoKey := "media/" + id.String() + ".jpg"
+		photoKey, thumbKey := domain.PublicKeys(id)
 		if stepErr = s.Store.Put(rc, photoKey, "image/jpeg", bytes.NewReader(photo), int64(len(photo))); stepErr != nil {
 			return processed{}, fmt.Errorf("write the photo: %w", stepErr)
 		}
 		if thumb == nil { // a square has no thumbnail
 			return processed{PhotoKey: photoKey}, nil
 		}
-		thumbKey := "media/" + id.String() + "_thumb.jpg"
 		if stepErr = s.Store.Put(rc, thumbKey, "image/jpeg", bytes.NewReader(thumb), int64(len(thumb))); stepErr != nil {
 			return processed{}, fmt.Errorf("write the thumbnail: %w", stepErr)
 		}

@@ -35,6 +35,24 @@ type loadedListing struct {
 	Found   bool           `json:"found"`
 }
 
+// loadListing reads listing id in one step; an unknown one is not Found.
+func loadListing(ctx restate.Context, listings repository.Listings, id uuid.UUID) (loadedListing, error) {
+	ld, err := restate.Run(ctx, func(rc restate.RunContext) (loadedListing, error) {
+		l, err := listings.Get(rc, id)
+		if errors.Is(err, repository.ErrNotFound) {
+			return loadedListing{}, nil
+		}
+		if err != nil {
+			return loadedListing{}, fmt.Errorf("get listing: %w", err)
+		}
+		return loadedListing{Listing: l, Found: true}, nil
+	})
+	if err != nil {
+		return loadedListing{}, fmt.Errorf("load listing %s: %w", id, err)
+	}
+	return ld, nil
+}
+
 // Run is UC-LST-01, step 5: it processes every upload the listing holds
 // unprocessed, through MediaProcess with the upload ID as idempotency key,
 // so two runs share one processing. A listing that changed meanwhile is
@@ -44,16 +62,7 @@ func (s ListingPublish) Run(ctx restate.Context, id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	ld, err := restate.Run(ctx, func(rc restate.RunContext) (loadedListing, error) {
-		l, stepErr := s.Listings.Get(rc, id)
-		if errors.Is(stepErr, repository.ErrNotFound) {
-			return loadedListing{}, nil
-		}
-		if stepErr != nil {
-			return loadedListing{}, fmt.Errorf("get listing: %w", stepErr)
-		}
-		return loadedListing{Listing: l, Found: true}, nil
-	})
+	ld, err := loadListing(ctx, s.Listings, id)
 	if err != nil {
 		return fmt.Errorf("load listing: %w", err)
 	}

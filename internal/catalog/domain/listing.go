@@ -342,6 +342,20 @@ func (l *Listing) Uploads() []uuid.UUID {
 	return out
 }
 
+// DeletedUploads returns the uploads a deleted listing no longer shows:
+// every photo but a processed cover, which its orders, deals and chats
+// still show. Any other listing shows them all.
+func (l *Listing) DeletedUploads() []uuid.UUID {
+	if l.status != StatusDeleted {
+		return nil
+	}
+	ids := l.Uploads()
+	if len(l.photos) > 0 && l.photos[0].Keys.Photo != "" {
+		return ids[1:]
+	}
+	return ids
+}
+
 // PendingUploads returns the uploads of the photos not processed yet.
 func (l *Listing) PendingUploads() []uuid.UUID {
 	var out []uuid.UUID

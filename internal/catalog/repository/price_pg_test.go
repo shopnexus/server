@@ -58,9 +58,9 @@ func prices(samples []domain.PriceSample) []int64 {
 }
 
 // A price sample takes listings of the category and condition, sold within
-// 180 days or on sale and published within 90, at or above a floor on its
-// text or its best photo, under the current versions, not the excluded
-// seller's; the most similar first.
+// 180 days (deleted since or not) or on sale and published within 90, at or
+// above a floor on its text or its best photo, under the current versions,
+// not the excluded seller's; the most similar first.
 func TestPriceSample(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
@@ -79,6 +79,10 @@ func TestPriceSample(t *testing.T) {
 	sold := priced(t, db, seller, 1_400_000, axis, nil)
 	exec(t, db, `UPDATE listings SET status = 'sold', sold_at = now() - interval '10 days',
     published_at = now() - interval '10 days' - interval '36 hours' WHERE id = $1`, sold)
+	soldDeleted := priced(t, db, seller, 1_450_000, axis, nil)
+	exec(t, db, `UPDATE listings SET status = 'deleted', sold_at = now() - interval '5 days', deleted_at = now() WHERE id = $1`, soldDeleted)
+	deleted := priced(t, db, seller, 1_460_000, axis, nil)
+	exec(t, db, `UPDATE listings SET status = 'deleted', deleted_at = now() WHERE id = $1`, deleted)
 	soldLongAgo := priced(t, db, seller, 1_500_000, axis, nil)
 	exec(t, db, `UPDATE listings SET status = 'sold', sold_at = now() - interval '200 days' WHERE id = $1`, soldLongAgo)
 	old := priced(t, db, seller, 1_600_000, axis, nil)
@@ -105,11 +109,11 @@ func TestPriceSample(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []int64{1_000_000, 1_200_000, 1_400_000, 1_800_000, 1_100_000}; !slices.Equal(prices(got), want) {
+	if want := []int64{1_000_000, 1_200_000, 1_400_000, 1_450_000, 1_800_000, 1_100_000}; !slices.Equal(prices(got), want) {
 		t.Fatalf("%v, want %v", prices(got), want)
 	}
 	for _, s := range got {
-		if s.Sold != (s.Price == 1_400_000) {
+		if s.Sold != (s.Price == 1_400_000 || s.Price == 1_450_000) {
 			t.Fatalf("sold flag: %+v", s)
 		}
 	}

@@ -441,3 +441,32 @@ func TestCategorySpecsRequired(t *testing.T) {
 		}
 	}
 }
+
+// A deleted listing gives up every photo but a processed cover, which its
+// orders still show; one deleted while processing gives up all.
+func TestDeletedUploads(t *testing.T) {
+	t.Parallel()
+	l := newListing(t)
+	ids := l.Uploads()
+	if got := l.DeletedUploads(); got != nil {
+		t.Fatalf("a listing not deleted: %v", got)
+	}
+	processing := l
+	if err := processing.Delete(now); err != nil {
+		t.Fatal(err)
+	}
+	if got := processing.DeletedUploads(); !slices.Equal(got, ids) {
+		t.Fatalf("deleted while processing: %v, want %v", got, ids)
+	}
+	keys := map[uuid.UUID]domain.PhotoKeys{}
+	for _, id := range ids {
+		keys[id] = domain.PhotoKeys{Photo: "media/" + id.String() + ".jpg", Thumb: "media/" + id.String() + "_thumb.jpg"}
+	}
+	l.Published(keys, now)
+	if err := l.Delete(now); err != nil {
+		t.Fatal(err)
+	}
+	if got := l.DeletedUploads(); !slices.Equal(got, ids[1:]) {
+		t.Fatalf("deleted on sale: %v, want %v", got, ids[1:])
+	}
+}

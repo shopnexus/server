@@ -1,6 +1,6 @@
 // Package service holds module media's use cases: presigned uploads,
-// attaching them to what uses them, and the Restate services that process
-// and expire them.
+// attaching them to what uses them, and the Restate services that process,
+// expire and release them.
 package service
 
 import (
@@ -117,6 +117,7 @@ func (m *Media) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
 		restate.Reflect(MediaExpire{Prefix: m.prefix, Uploads: m.uploads, Store: m.store, Now: m.now}),
 		restate.Reflect(MediaProcess{Prefix: m.prefix, Uploads: m.uploads, Store: m.store, Now: m.now, Slots: m.slots}),
+		restate.Reflect(MediaRelease{Prefix: m.prefix, Uploads: m.uploads, Store: m.store, Now: m.now}),
 	}
 }
 

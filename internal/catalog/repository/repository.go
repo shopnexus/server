@@ -38,6 +38,9 @@ type Listings interface {
 	// CountByStatus is a query: how many listings seller has in each
 	// status; a status without one is left out.
 	CountByStatus(ctx context.Context, seller uuid.UUID) (map[domain.Status]int, error)
+	// CountSold is a query: how many listings seller sold, those deleted
+	// since included.
+	CountSold(ctx context.Context, seller uuid.UUID) (int, error)
 	// CountCreatedSince is a query: how many listings created at or after
 	// since are in each status, deleted ones too; a status without one is
 	// left out.

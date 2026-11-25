@@ -12,13 +12,15 @@ import (
 )
 
 // PriceSample measures exact distances on the candidates of one category
-// and condition, a set small enough that no vector index is needed. Strict
-// named args refuse an unused parameter, so each side's arguments go in
-// with its list.
+// and condition (listings_price_sample), a set small enough that no vector
+// index is needed. A sale counts by sold_at, so a sold listing deleted
+// since still prices; naming its statuses keeps the planner's estimate.
+// Strict named args refuse an unused parameter, so each side's arguments
+// go in with its list.
 func (s pgVectors) PriceSample(ctx context.Context, f PriceFilter) ([]domain.PriceSample, error) {
 	args := pgx.StrictNamedArgs{
 		"category": f.CategoryCode, "condition": string(f.Condition), "exclude": f.Exclude,
-		"sold": string(domain.StatusSold), "on_sale": []string{string(domain.StatusActive), string(domain.StatusReserved)},
+		"sold": []string{string(domain.StatusSold), string(domain.StatusDeleted)}, "on_sale": []string{string(domain.StatusActive), string(domain.StatusReserved)},
 		"sold_since": f.SoldSince, "on_sale_since": f.OnSaleSince, "limit": f.Limit,
 	}
 	var lists []string
@@ -38,9 +40,9 @@ WHERE p.model_version = @pv AND p.embedding <=> @pq::halfvec(1152) <= @pmax`)
 		return nil, nil
 	}
 	rows, err := s.db.Query(ctx, `WITH candidates AS (
-SELECT id, price, status = @sold AS sold, published_at, sold_at, lat, lng FROM listings
+SELECT id, price, sold_at IS NOT NULL AS sold, published_at, sold_at, lat, lng FROM listings
 WHERE category_code = @category AND condition = @condition AND seller_id <> @exclude
-  AND ((status = @sold AND sold_at >= @sold_since) OR (status = ANY(@on_sale) AND published_at >= @on_sale_since))),
+  AND ((status = ANY(@sold) AND sold_at >= @sold_since) OR (status = ANY(@on_sale) AND published_at >= @on_sale_since))),
 near AS (SELECT id, min(d) AS d FROM (`+strings.Join(lists, "\nUNION ALL\n")+`) v GROUP BY id)
 SELECT c.id, c.price, c.sold,
     CASE WHEN c.sold THEN greatest(1, ceil(extract(epoch FROM c.sold_at - c.published_at) / 86400))::int ELSE 0 END,

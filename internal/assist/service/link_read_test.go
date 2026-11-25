@@ -21,7 +21,7 @@ import (
 	"github.com/shopnexus/server/internal/provider/llm"
 )
 
-// A link read goes through read, copy and estimate, notifies after each
+// A link read goes through read and copy, notifies after each
 // step, copies the photos as the seller's, and takes the phone out.
 //
 // UC-LST-01 A2.

@@ -309,3 +309,41 @@ func TestFailureCodeOf(t *testing.T) {
 		}
 	}
 }
+
+// Only the holder releases its photo, attached, ready or failed, once; a
+// waiting photo, a video and a released photo stay, and nothing attaches it
+// again.
+func TestRelease(t *testing.T) {
+	t.Parallel()
+	owner, holder := uuid.NewV7(), uuid.NewV7()
+	waiting := newPhoto(owner)
+	if waiting.Release(uuid.UUID{}, now) || waiting.Status() != domain.StatusWaiting {
+		t.Fatalf("a waiting photo: %s", waiting.Status())
+	}
+	for name, end := range map[string]func(*domain.Upload){
+		"attached": func(*domain.Upload) {},
+		"ready":    func(u *domain.Upload) { u.Processed("media/p.jpg", "media/t.jpg", now) },
+		"failed":   func(u *domain.Upload) { u.Failed(domain.ReasonUnreadable, now) },
+	} {
+		u := newPhoto(owner)
+		_, _ = u.Attach(owner, holder, domain.ShapePhoto, now)
+		end(&u)
+		if u.Release(uuid.NewV7(), now) {
+			t.Fatalf("%s: another holder released it", name)
+		}
+		if !u.Release(holder, now) || u.Status() != domain.StatusReleased {
+			t.Fatalf("%s: %s", name, u.Status())
+		}
+		if u.Release(holder, now) {
+			t.Fatalf("%s: released twice", name)
+		}
+		if _, err := u.Attach(owner, holder, domain.ShapePhoto, now); !errors.Is(err, domain.ErrInvalidUpload) {
+			t.Fatalf("%s: attached again: %v", name, err)
+		}
+	}
+	video, _ := domain.NewUpload(uuid.NewV7(), owner, domain.ContentTypeMP4, 10, domain.OriginApp, now)
+	_, _ = video.Attach(owner, holder, domain.ShapeVideo, now)
+	if video.Release(holder, now) {
+		t.Fatal("a held video was released")
+	}
+}

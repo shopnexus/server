@@ -36,8 +36,8 @@ func IsVideo(contentType string) bool {
 
 // Status is where an upload is: waiting for its PUT and an attach, attached
 // to a listing and being processed, ready or failed when processed, expired
-// when nothing attached it in time, or consumed when it was a video and the
-// read that held it ended.
+// when nothing attached it in time, consumed when it was a video and the
+// read that held it ended, or released when its holder no longer shows it.
 type Status string
 
 const (
@@ -47,6 +47,7 @@ const (
 	StatusFailed   Status = "failed"
 	StatusExpired  Status = "expired"
 	StatusConsumed Status = "consumed"
+	StatusReleased Status = "released"
 )
 
 // Shape is what processing makes of an upload: a photo at most 1600 px on
@@ -138,12 +139,18 @@ func UploadKey(id uuid.UUID) string { return "uploads/" + id.String() }
 // Key is where the client puts the original.
 func (u *Upload) Key() string { return UploadKey(u.id) }
 
+// PublicKeys are where processing puts upload id's photo, or square, and
+// thumbnail under the public media/.
+func PublicKeys(id uuid.UUID) (photo, thumb string) {
+	return "media/" + id.String() + ".jpg", "media/" + id.String() + "_thumb.jpg"
+}
+
 // Attach gives a waiting upload of owner to holder, such as a listing, to
 // be processed into shape, and reports whether it changed the upload. A
 // video goes only in shape video and a photo never does; a video past its
 // expiry is refused even while it still waits. An upload holder already
 // holds in that shape stays as it is, so a retried attach succeeds; an
-// expired or consumed upload is never held again.
+// expired, consumed or released upload is never held again.
 func (u *Upload) Attach(owner, holder uuid.UUID, shape Shape, now time.Time) (bool, error) {
 	if owner != u.ownerID || IsVideo(u.contentType) != (shape == ShapeVideo) {
 		return false, ErrInvalidUpload
@@ -155,7 +162,8 @@ func (u *Upload) Attach(owner, holder uuid.UUID, shape Shape, now time.Time) (bo
 		u.status, u.holderID, u.shape, u.updatedAt = StatusAttached, holder, shape, now
 		return true, nil
 	}
-	if u.status != StatusExpired && u.status != StatusConsumed && u.holderID == holder && u.shape == shape {
+	if u.status != StatusExpired && u.status != StatusConsumed && u.status != StatusReleased &&
+		u.holderID == holder && u.shape == shape {
 		return false, nil
 	}
 	return false, ErrInvalidUpload
@@ -193,6 +201,18 @@ func (u *Upload) Consume(now time.Time) bool {
 	return true
 }
 
+// Release ends a photo holder holds once holder no longer shows it, and
+// reports whether it did; a video, another holder's upload or one already
+// ended stays as it is.
+func (u *Upload) Release(holder uuid.UUID, now time.Time) bool {
+	if u.holderID != holder || u.shape == ShapeVideo ||
+		(u.status != StatusAttached && u.status != StatusReady && u.status != StatusFailed) {
+		return false
+	}
+	u.status, u.updatedAt = StatusReleased, now
+	return true
+}
+
 // Extend keeps a waiting photo of owner's for their drafts: its expiry
 // moves to ExtendFor from now, unless it is later already. Nothing brings
 // it in. Another owner's upload, a video, or a photo that is not waiting
@@ -217,7 +237,7 @@ func (u *Upload) Gone(owner uuid.UUID, now time.Time) bool {
 	if u.status == StatusWaiting {
 		return !now.Before(u.expiresAt)
 	}
-	return true // attached, ready, failed, expired, consumed
+	return true // attached, ready, failed, expired, consumed, released
 }
 
 // UploadState is every stored field of an upload. Stores only.

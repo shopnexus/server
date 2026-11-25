@@ -47,14 +47,19 @@ func (c *Catalog) SellerListings(ctx context.Context, seller uuid.UUID, near dom
 }
 
 // SellerCounts counts the seller's sold listings, whether through an order
-// or marked by hand, the public ones and those under the cap.
+// or marked by hand and deleted since or not, the public ones and those
+// under the cap.
 func (c *Catalog) SellerCounts(ctx context.Context, seller uuid.UUID) (SellerCounts, error) {
 	n, err := c.listings.CountByStatus(ctx, seller)
 	if err != nil {
 		return SellerCounts{}, fmt.Errorf("count listings: %w", err)
 	}
+	sold, err := c.listings.CountSold(ctx, seller)
+	if err != nil {
+		return SellerCounts{}, fmt.Errorf("count sold listings: %w", err)
+	}
 	return SellerCounts{
-		Sold:   n[domain.StatusSold],
+		Sold:   sold,
 		Public: domain.CountIn(n, domain.Public),
 		OnSale: domain.CountIn(n, domain.OnSale),
 	}, nil

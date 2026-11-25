@@ -99,7 +99,10 @@ func TestViewsCountPublicListingsOnly(t *testing.T) {
 	ids := make([]uuid.UUID, 0, len(statuses))
 	for _, st := range statuses {
 		id := catalogtest.Listing(t, db, seller)
-		if _, err := db.Exec(ctx, `UPDATE listings SET status = @status WHERE id = @id`, pgx.StrictNamedArgs{"status": st, "id": id}); err != nil {
+		if _, err := db.Exec(ctx, `UPDATE listings SET status = @status,
+    reserved_for = CASE WHEN @status::text = 'reserved' THEN gen_random_uuid() END,
+    sold_at = CASE WHEN @status::text = 'sold' THEN now() END, deleted_at = CASE WHEN @status::text = 'deleted' THEN now() END
+WHERE id = @id`, pgx.StrictNamedArgs{"status": st, "id": id}); err != nil {
 			t.Fatal(err)
 		}
 		if err := v.Record(ctx, id, ann, day); err != nil {

@@ -1,9 +1,9 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"slices"
+	"time"
 	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
@@ -11,6 +11,7 @@ import (
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/repository"
+	mediasvc "github.com/shopnexus/server/internal/media/service"
 	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/restatex"
@@ -33,15 +34,28 @@ type EditResult struct {
 
 func (r EditResult) Refusal() *apperr.Error { return r.Refused }
 
+// tidyAfter is how long uploads an edit attached and then lost its save
+// with wait for the seller's retry, as long as an upload waits for an attach.
+const tidyAfter = 24 * time.Hour
+
+// TidyInput names the uploads an edit of listing ID attached before it
+// lost its save.
+type TidyInput struct {
+	ID      uuid.UUID   `json:"id"`
+	Uploads []uuid.UUID `json:"uploads"`
+}
+
 // ListingEdit replaces a listing's content, attaches the uploads the edit
-// adds and, when the listing is left in processing, starts ListingPublish.
+// adds, has media release the ones it drops and, when the listing is left
+// in processing, starts ListingPublish.
 type ListingEdit struct{ flowDeps }
 
 func (s ListingEdit) ServiceName() string { return s.Prefix + listingEdit }
 
 // Run is UC-LST-02, step 3: it edits the seller's listing. Uploads attached
 // by an edit that then lost a race stay with the listing, so the client's
-// next try attaches them again without a refusal.
+// next try attaches them again without a refusal; Tidy releases those the
+// listing still lacks tidyAfter later.
 func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) {
 	at, err := restatex.Now(ctx, s.Now)
 	if err != nil {
@@ -56,16 +70,7 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 	if r := status.Refusal(); r != nil {
 		return EditResult{Refused: r}, nil //nolint:nilerr // A refusal goes back as data; the flow did not fail.
 	}
-	ld, err := restate.Run(ctx, func(rc restate.RunContext) (loadedListing, error) {
-		l, stepErr := s.Listings.Get(rc, in.ID)
-		if errors.Is(stepErr, repository.ErrNotFound) {
-			return loadedListing{}, nil
-		}
-		if stepErr != nil {
-			return loadedListing{}, fmt.Errorf("get listing: %w", stepErr)
-		}
-		return loadedListing{Listing: l, Found: true}, nil
-	})
+	ld, err := loadListing(ctx, s.Listings, in.ID)
 	if err != nil {
 		return EditResult{}, fmt.Errorf("load listing: %w", err)
 	}
@@ -81,7 +86,8 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 	if err = l.Edit(in.Listing, refs, at); err != nil {
 		return EditResult{Refused: apperr.From(err)}, nil
 	}
-	if added := slices.DeleteFunc(slices.Clone(in.Listing.Photos), func(u uuid.UUID) bool { return slices.Contains(before, u) }); len(added) > 0 {
+	added := slices.DeleteFunc(slices.Clone(in.Listing.Photos), func(u uuid.UUID) bool { return slices.Contains(before, u) })
+	if len(added) > 0 {
 		refused, attachErr := attach(ctx, s.Media, in.Seller, in.ID, added, restatex.NewID(ctx, at))
 		if attachErr != nil || refused != nil {
 			return EditResult{Refused: refused}, attachErr
@@ -97,12 +103,28 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 		return EditResult{}, fmt.Errorf("save listing: %w", err)
 	}
 	if lost {
+		if len(added) > 0 {
+			restate.ServiceSend(ctx, s.ServiceName(), "Tidy").Send(TidyInput{ID: in.ID, Uploads: added}, restate.WithDelay(tidyAfter))
+		}
 		return EditResult{Refused: apperr.ErrTryAgain}, nil
 	}
+	mediasvc.Release(ctx, s.Prefix, in.ID, slices.DeleteFunc(before, func(u uuid.UUID) bool { return slices.Contains(in.Listing.Photos, u) }))
 	if l.Status() == domain.StatusProcessing {
 		startPublish(ctx, s.Prefix, in.ID, w)
 	} else {
 		startEmbed(ctx, s.Prefix, in.ID)
 	}
 	return EditResult{}, nil
+}
+
+// Tidy releases the uploads of in that listing in.ID does not show: an
+// edit attached them and lost its save, and no retry saved them since.
+func (s ListingEdit) Tidy(ctx restate.Context, in TidyInput) error {
+	ld, err := loadListing(ctx, s.Listings, in.ID)
+	if err != nil {
+		return fmt.Errorf("load listing: %w", err)
+	}
+	shown := ld.Listing.Uploads()
+	mediasvc.Release(ctx, s.Prefix, in.ID, slices.DeleteFunc(slices.Clone(in.Uploads), func(u uuid.UUID) bool { return slices.Contains(shown, u) }))
+	return nil
 }

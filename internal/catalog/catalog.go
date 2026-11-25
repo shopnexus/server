@@ -33,8 +33,8 @@ var indexNowKinds = []events.Kind{
 }
 
 // Mount registers the catalog endpoints, subscribes the account watch to
-// account.deleted and, with IndexNow on, the listing watch to
-// indexNowKinds, and returns catalog's Restate services and the Service
+// account.deleted, the listing watch to listing.deleted and, with IndexNow
+// on, to indexNowKinds, and returns catalog's Restate services and the Service
 // other modules read listings through.
 func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasvc.Service) module.Mounted[service.Service] {
 	svc := service.New(service.Deps{
@@ -47,7 +47,8 @@ func Mount(d module.Deps, s Settings, accounts accountsvc.Service, media mediasv
 	registerGauges(d)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Listings: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")
-	listings := worker.ListingWatch{Prefix: d.ServicePrefix}
+	listings := worker.ListingWatch{Prefix: d.ServicePrefix, Listings: svc}
+	d.Events.Subscribe(events.ListingDeleted, listings.ServiceName(), "Deleted")
 	if s.IndexNow.On() {
 		for _, kind := range indexNowKinds {
 			d.Events.Subscribe(kind, listings.ServiceName(), "Changed")

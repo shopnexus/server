@@ -205,7 +205,7 @@ func (s PhotoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if err = r.SetDraft(fill.Draft, false); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}
-	if err = r.Finish(nil); err != nil {
+	if err = r.Finish(); err != nil {
 		return fmt.Errorf("finish read: %w", err)
 	}
 	_, err = save(at)

@@ -40,7 +40,7 @@ func TestNewReadsCarryTheirSource(t *testing.T) {
 	}
 	for _, r := range []domain.ListingRead{v, p, l} {
 		if r.Status() != domain.StatusReading || r.WriteID() != id || !r.ExpiresAt().Equal(at.Add(24*time.Hour)) ||
-			r.Photos() != nil || r.Draft() != nil || r.Estimate() != nil {
+			r.Photos() != nil || r.Draft() != nil {
 			t.Fatalf("%s %+v", r.Source(), r.State())
 		}
 	}
@@ -117,7 +117,7 @@ func TestReadRoundTripsThroughJSON(t *testing.T) {
 	if err := r.SetDraft(domain.Draft{Title: "Xe đạp", Price: &price, Photos: []uuid.UUID{photos[1].UploadID}}, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.Finish(&domain.Estimate{Low: 1, Median: 2, High: 3, Source: domain.SourceModel}); err != nil {
+	if err := r.Finish(); err != nil {
 		t.Fatal(err)
 	}
 	b, err := json.Marshal(r)
@@ -130,7 +130,7 @@ func TestReadRoundTripsThroughJSON(t *testing.T) {
 	}
 	got := back.Photos()
 	if back.Source() != domain.SourceVideo || back.Status() != domain.StatusDone || len(got) != 2 ||
-		got[0].AtSeconds == nil || *got[0].AtSeconds != 0 || back.Draft().Title != "Xe đạp" || back.Estimate().Median != 2 {
+		got[0].AtSeconds == nil || *got[0].AtSeconds != 0 || back.Draft().Title != "Xe đạp" {
 		t.Fatalf("%s", b)
 	}
 }

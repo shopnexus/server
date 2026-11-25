@@ -301,7 +301,7 @@ func (s LinkRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if err = r.SetDraft(d, read.ContactRemoved); err != nil {
 		return fmt.Errorf("set draft: %w", err)
 	}
-	if err = r.Finish(nil); err != nil {
+	if err = r.Finish(); err != nil {
 		return fmt.Errorf("finish read: %w", err)
 	}
 	_, err = save(at)

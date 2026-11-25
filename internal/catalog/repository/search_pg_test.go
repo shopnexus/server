@@ -42,10 +42,14 @@ func put(t *testing.T, db *pgxpool.Pool, it item) uuid.UUID {
 	}
 	at := time.Now().Add(-it.age)
 	id := uuid.NewV7()
+	var order uuid.UUID // a reserved listing names its order
+	if status == domain.StatusReserved {
+		order = uuid.NewV7()
+	}
 	l := domain.RestoreListing(domain.ListingState{
 		ID: id, SellerID: accounttest.New(t, db), Title: it.title, Description: it.desc, Price: it.price, CategoryCode: it.cat,
 		Condition: domain.ConditionUsed, AllowOffers: true, CommuneCode: commune,
-		Photos: []domain.Photo{{UploadID: uuid.NewV7()}}, Status: status, WriteID: id,
+		Photos: []domain.Photo{{UploadID: uuid.NewV7()}}, Status: status, ReservedFor: order, WriteID: id,
 		CreatedAt: at, UpdatedAt: at, PublishedAt: &at, Lat: it.point.Lat, Lng: it.point.Lng,
 	})
 	if _, err := repository.NewListings(db).Insert(context.Background(), l, uuid.Nil()); err != nil {
