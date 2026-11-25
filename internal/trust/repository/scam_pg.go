@@ -58,11 +58,13 @@ WHERE account_id = @account AND conversation_id = ANY(@conversations)`, pgx.Stri
 	return out, nil
 }
 
-// putWarning writes w under writeID when its row has w.WriteID() or already
-// writeID, or adds it when no row exists, then notifies its account.
-func putWarning(ctx context.Context, tx pgx.Tx, w *domain.Warning, writeID uuid.UUID) error {
+// queueWarning queues the write of w under writeID when its row has
+// w.WriteID() or already writeID, or its add when no row exists, and the
+// notice to its account. b must go in a tx: a lost race fails it with
+// ErrConflict.
+func queueWarning(b *pgx.Batch, w *domain.Warning, writeID uuid.UUID) {
 	st := w.State()
-	tag, err := tx.Exec(ctx, `INSERT INTO scam_warnings (`+warningColumns+`)
+	b.Queue(`INSERT INTO scam_warnings (`+warningColumns+`)
 VALUES (@conversation, @account, @suspect, @signals::jsonb, @dismissed_at, @updated_at, @write_id)
 ON CONFLICT (conversation_id, account_id) DO UPDATE
 SET signals = EXCLUDED.signals, dismissed_at = EXCLUDED.dismissed_at, updated_at = EXCLUDED.updated_at,
@@ -70,19 +72,18 @@ SET signals = EXCLUDED.signals, dismissed_at = EXCLUDED.dismissed_at, updated_at
 WHERE scam_warnings.write_id = @read_write_id OR scam_warnings.write_id = @write_id`, pgx.StrictNamedArgs{
 		"conversation": st.ConversationID, "account": st.AccountID, "suspect": st.SuspectID, "signals": st.Signals,
 		"dismissed_at": st.DismissedAt, "updated_at": st.UpdatedAt, "write_id": writeID, "read_write_id": st.WriteID,
-	})
-	if err != nil {
-		return fmt.Errorf("upsert scam warning: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrConflict
+	}).Fn = func(br pgx.BatchResults) error {
+		tag, err := br.Exec()
+		if err != nil {
+			return fmt.Errorf("upsert scam warning: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return ErrConflict
+		}
+		return nil
 	}
 	conversation := st.ConversationID
-	if err = stream.Notify(ctx, tx, []uuid.UUID{st.AccountID},
-		stream.Hint{Kind: stream.KindScamWarning, ConversationID: &conversation}); err != nil {
-		return fmt.Errorf("notify the scam warning: %w", err)
-	}
-	return nil
+	stream.Queue(b, []uuid.UUID{st.AccountID}, stream.Hint{Kind: stream.KindScamWarning, ConversationID: &conversation})
 }
 
 // codeStrings turns codes into the text[] of a check.
@@ -96,27 +97,24 @@ func codeStrings(codes []domain.Code) []string {
 
 func (s pgScamWarnings) Record(ctx context.Context, c domain.Check, ws []WarningWrite, pruneBefore time.Time) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO scam_checks (id, conversation_id, message_ids, classifier, prompt_version, codes_a,
+		b := &pgx.Batch{}
+		b.Queue(`INSERT INTO scam_checks (id, conversation_id, message_ids, classifier, prompt_version, codes_a,
     codes_b, created_at)
 VALUES (@id, @conversation, @messages, @classifier, @prompt_version, @codes_a, @codes_b, @created_at)
 ON CONFLICT (id) DO NOTHING`, pgx.StrictNamedArgs{
 			"id": c.ID, "conversation": c.ConversationID, "messages": c.MessageIDs,
 			"classifier": c.Classifier, "prompt_version": c.PromptVersion, "codes_a": codeStrings(c.A), "codes_b": codeStrings(c.B),
 			"created_at": c.CreatedAt,
-		}); err != nil {
-			return fmt.Errorf("insert scam check: %w", err)
-		}
+		}).Fn = execAs("insert scam check")
+		// At most the conversation's two sides: one statement each reads
+		// clearer than an unnest with a per-row conflict check.
 		for _, w := range ws {
-			if err := putWarning(ctx, tx, w.Warning, w.WriteID); err != nil {
-				return err
-			}
+			queueWarning(b, w.Warning, w.WriteID)
 		}
-		if _, err := tx.Exec(ctx, `DELETE FROM scam_checks WHERE id IN (
+		b.Queue(`DELETE FROM scam_checks WHERE id IN (
     SELECT id FROM scam_checks WHERE created_at < @before ORDER BY created_at LIMIT @limit)`,
-			pgx.StrictNamedArgs{"before": pruneBefore, "limit": pruneBatch}); err != nil {
-			return fmt.Errorf("prune scam checks: %w", err)
-		}
-		return nil
+			pgx.StrictNamedArgs{"before": pruneBefore, "limit": pruneBatch}).Fn = execAs("prune scam checks")
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("record scam check: %w", err)
@@ -142,7 +140,9 @@ WHERE conversation_id = @conversation AND account_id = @account FOR UPDATE`, pgx
 			return nil
 		}
 		changed = true
-		return putWarning(ctx, tx, &w, writeID)
+		b := &pgx.Batch{}
+		queueWarning(b, &w, writeID)
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return false, fmt.Errorf("dismiss scam warning: %w", err)

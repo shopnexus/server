@@ -211,40 +211,43 @@ GROUP BY `+group+`, r.listing_id`, pgx.StrictNamedArgs{"keys": keys})
 	return nil
 }
 
-// lockCase makes the resolves and reopens of one account wait for each
-// other.
-func lockCase(ctx context.Context, tx pgx.Tx, account uuid.UUID) error {
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext('report_case:' || @account::text))`,
-		pgx.StrictNamedArgs{"account": account}); err != nil {
-		return fmt.Errorf("lock the case: %w", err)
-	}
-	return nil
+// lockCase queues the lock that makes the resolves and reopens of one
+// account wait for each other.
+func lockCase(b *pgx.Batch, account uuid.UUID) {
+	b.Queue(`SELECT pg_advisory_xact_lock(hashtext('report_case:' || @account::text))`,
+		pgx.StrictNamedArgs{"account": account}).Fn = execAs("lock the case")
 }
+
+// execAs runs a queued statement and wraps its error with what it does.
+func execAs(what string) func(pgx.BatchResults) error {
+	return func(br pgx.BatchResults) error {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("%s: %w", what, err)
+		}
+		return nil
+	}
+}
+
+// openReports are the reports of an account's open case.
+const openReports = `account_id = @account AND withdrawn_at IS NULL AND resolution_id IS NULL`
 
 func (s pgCases) Resolve(ctx context.Context, account uuid.UUID, r Resolution, entry audit.Entry) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockCase(ctx, tx, account); err != nil {
-			return err
-		}
-		var open bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM reports
-WHERE account_id = @account AND withdrawn_at IS NULL AND resolution_id IS NULL)`, pgx.StrictNamedArgs{"account": account}).Scan(&open); err != nil {
-			return fmt.Errorf("find the open case: %w", err)
-		}
-		if !open {
-			return domain.ErrCaseNotOpen
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO report_resolutions (id, account_id, outcome, member_id, resolved_at)
-VALUES (@id, @account, @outcome, @member, @at)`, pgx.StrictNamedArgs{
+		b := &pgx.Batch{}
+		lockCase(b, account)
+		b.Queue(`INSERT INTO report_resolutions (id, account_id, outcome, member_id, resolved_at)
+SELECT @id, @account, @outcome, @member, @at WHERE EXISTS (SELECT 1 FROM reports WHERE `+openReports+`)`, pgx.StrictNamedArgs{
 			"id": r.ID, "account": account, "outcome": r.Outcome, "member": r.MemberID, "at": r.At,
-		}); err != nil {
-			return fmt.Errorf("insert resolution: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `UPDATE reports SET resolution_id = @id
-WHERE account_id = @account AND withdrawn_at IS NULL AND resolution_id IS NULL`, pgx.StrictNamedArgs{"id": r.ID, "account": account}); err != nil {
-			return fmt.Errorf("resolve reports: %w", err)
-		}
-		return audit.Insert(ctx, tx, entry)
+		}).Exec(func(t pgconn.CommandTag) error {
+			if t.RowsAffected() == 0 {
+				return domain.ErrCaseNotOpen
+			}
+			return nil
+		})
+		b.Queue(`UPDATE reports SET resolution_id = @id WHERE `+openReports,
+			pgx.StrictNamedArgs{"id": r.ID, "account": account}).Fn = execAs("resolve reports")
+		audit.Queue(b, entry)
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("resolve the case: %w", err)
@@ -254,40 +257,51 @@ WHERE account_id = @account AND withdrawn_at IS NULL AND resolution_id IS NULL`,
 
 func (s pgCases) Reopen(ctx context.Context, account uuid.UUID, at time.Time, entry audit.Entry) error {
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if err := lockCase(ctx, tx, account); err != nil {
-			return err
-		}
+		// The latest resolution's ID is in every write that follows, so the
+		// batch breaks after it.
 		var id uuid.UUID
-		err := tx.QueryRow(ctx, `SELECT id FROM report_resolutions WHERE account_id = @account AND reopened_at IS NULL
-ORDER BY resolved_at DESC, id DESC LIMIT 1`, pgx.StrictNamedArgs{"account": account}).Scan(&id)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return domain.ErrCaseNotResolved
+		b := &pgx.Batch{}
+		lockCase(b, account)
+		b.Queue(`SELECT id FROM report_resolutions WHERE account_id = @account AND reopened_at IS NULL
+ORDER BY resolved_at DESC, id DESC LIMIT 1`, pgx.StrictNamedArgs{"account": account}).QueryRow(func(row pgx.Row) error {
+			err := row.Scan(&id)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return domain.ErrCaseNotResolved
+			}
+			if err != nil {
+				return fmt.Errorf("find the latest resolution: %w", err)
+			}
+			return nil
+		})
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
+			return err //nolint:wrapcheck // Each statement wraps its own error.
 		}
-		if err != nil {
-			return fmt.Errorf("find the latest resolution: %w", err)
-		}
-		if _, err = tx.Exec(ctx, `UPDATE report_resolutions SET reopened_at = @at WHERE id = @id`,
-			pgx.StrictNamedArgs{"id": id, "at": at}); err != nil {
-			return fmt.Errorf("reopen resolution: %w", err)
-		}
+		b = &pgx.Batch{}
+		b.Queue(`UPDATE report_resolutions SET reopened_at = @at WHERE id = @id`,
+			pgx.StrictNamedArgs{"id": id, "at": at}).Fn = execAs("reopen resolution")
 		// A report whose reporter has reported the same target again since
 		// stays with the reopened resolution: the newer one stands for it.
-		if _, err = tx.Exec(ctx, `UPDATE reports r SET resolution_id = NULL
+		b.Queue(`UPDATE reports r SET resolution_id = NULL
 WHERE r.resolution_id = @id
   AND NOT EXISTS (SELECT 1 FROM reports o
                   WHERE o.reporter_id = r.reporter_id AND o.account_id = r.account_id
                     AND o.listing_id IS NOT DISTINCT FROM r.listing_id
-                    AND o.withdrawn_at IS NULL AND o.resolution_id IS NULL)`, pgx.StrictNamedArgs{"id": id}); err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+                    AND o.withdrawn_at IS NULL AND o.resolution_id IS NULL)`, pgx.StrictNamedArgs{"id": id}).
+			Fn = func(br pgx.BatchResults) error {
+			_, err := br.Exec()
+			if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23505" {
 				return ErrConflict
 			}
-			return fmt.Errorf("reopen reports: %w", err)
+			if err != nil {
+				return fmt.Errorf("reopen reports: %w", err)
+			}
+			return nil
 		}
 		details := map[string]any{"resolution_id": id}
 		maps.Copy(details, entry.Details)
 		entry.Details = details
-		return audit.Insert(ctx, tx, entry)
+		audit.Queue(b, entry)
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("reopen the case: %w", err)
