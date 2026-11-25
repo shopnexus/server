@@ -28,7 +28,7 @@ func TestSearchCards(t *testing.T) {
 			Condition: domain.ConditionUsed, CommuneCode: "00004", Photos: []domain.Photo{{UploadID: uuid.NewV7()}},
 			Status: domain.StatusActive, WriteID: id, CreatedAt: at, UpdatedAt: at, PublishedAt: &at, Lat: p.Lat, Lng: p.Lng,
 		})
-		if err := e.listings.Insert(ctx, l); err != nil {
+		if _, err := e.listings.Insert(ctx, l, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		return id
@@ -74,7 +74,7 @@ func TestCardPhotoThumbs(t *testing.T) {
 			Condition: domain.ConditionUsed, CommuneCode: "00004", Photos: photos,
 			Status: domain.StatusActive, WriteID: id, CreatedAt: at, UpdatedAt: at, PublishedAt: &at,
 		})
-		if err := e.listings.Insert(ctx, l); err != nil {
+		if _, err := e.listings.Insert(ctx, l, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		return id

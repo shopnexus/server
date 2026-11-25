@@ -43,7 +43,7 @@ func TestSaveHoldWithItsAuditRow(t *testing.T) {
 	s := repository.NewListings(db)
 	ctx := context.Background()
 	l := listing(t, accounttest.New(t, db))
-	if err := s.Insert(ctx, l); err != nil {
+	if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	l.Published(nil, now)
@@ -72,13 +72,36 @@ func TestSaveHoldWithItsAuditRow(t *testing.T) {
 	}
 }
 
+// A request key the seller posted with gives back that listing, and
+// another post under it inserts nothing.
+func TestInsertClaimsTheRequestKey(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewListings(db)
+	ctx := context.Background()
+	seller, key := accounttest.New(t, db), uuid.NewV7()
+	first := listing(t, seller)
+	for _, l := range []domain.Listing{first, first, listing(t, seller)} {
+		if id, err := s.Insert(ctx, l, key); err != nil || id != first.ID() {
+			t.Fatalf("insert under the key: %s %v", id, err)
+		}
+	}
+	if id, err := s.ByKey(ctx, seller, key); err != nil || id != first.ID() {
+		t.Fatalf("by key: %s %v", id, err)
+	}
+	other := listing(t, accounttest.New(t, db))
+	if id, err := s.Insert(ctx, other, key); err != nil || id != other.ID() {
+		t.Fatalf("another seller's same key: %s %v", id, err)
+	}
+}
+
 func TestInsertGetSave(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	s := repository.NewListings(db)
 	ctx := context.Background()
 	l := listing(t, accounttest.New(t, db))
-	if err := s.Insert(ctx, l); err != nil {
+	if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.Get(ctx, l.ID())
@@ -88,7 +111,7 @@ func TestInsertGetSave(t *testing.T) {
 	if _, err := s.Get(ctx, uuid.NewV7()); !errors.Is(err, repository.ErrNotFound) {
 		t.Fatalf("unknown: %v", err)
 	}
-	if err := s.Insert(ctx, l); err != nil {
+	if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 		t.Fatalf("a retried insert: %v", err)
 	}
 	got.Published(map[uuid.UUID]domain.PhotoKeys{got.Photos()[0].UploadID: {Photo: "media/a.jpg", Thumb: "media/a_thumb.jpg"}}, now)
@@ -129,7 +152,7 @@ func TestCapHoldsUnderRace(t *testing.T) {
 	)
 	for range 30 {
 		wg.Go(func() {
-			err := s.Insert(context.Background(), listing(t, seller))
+			_, err := s.Insert(context.Background(), listing(t, seller), uuid.Nil())
 			mu.Lock()
 			defer mu.Unlock()
 			switch {
@@ -157,12 +180,12 @@ func TestListBySeller(t *testing.T) {
 	ids := make([]uuid.UUID, 0, 3)
 	for range 3 {
 		l := listing(t, seller)
-		if err := s.Insert(ctx, l); err != nil {
+		if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		ids = append(ids, l.ID())
 	}
-	if err := s.Insert(ctx, listing(t, accounttest.New(t, db))); err != nil {
+	if _, err := s.Insert(ctx, listing(t, accounttest.New(t, db)), uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	first, err := s.ListBySeller(ctx, seller, domain.OnSale, nil, page.Request{Limit: 2})
@@ -191,7 +214,7 @@ func TestSaveBackOnSaleHoldsTheCap(t *testing.T) {
 	ctx := context.Background()
 	seller := accounttest.New(t, db)
 	sold := listing(t, seller)
-	if err := s.Insert(ctx, sold); err != nil {
+	if _, err := s.Insert(ctx, sold, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	sold.Published(map[uuid.UUID]domain.PhotoKeys{}, now)
@@ -204,7 +227,7 @@ func TestSaveBackOnSaleHoldsTheCap(t *testing.T) {
 	others := make([]domain.Listing, 0, domain.MaxOnSale)
 	for range domain.MaxOnSale {
 		l := listing(t, seller)
-		if err := s.Insert(ctx, l); err != nil {
+		if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		others = append(others, l)
@@ -234,7 +257,7 @@ func TestDiscard(t *testing.T) {
 	s := repository.NewListings(db)
 	ctx := context.Background()
 	l := listing(t, accounttest.New(t, db))
-	if err := s.Insert(ctx, l); err != nil {
+	if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	for range 2 {
@@ -255,7 +278,7 @@ func TestGetMany(t *testing.T) {
 	seller := accounttest.New(t, db)
 	a, b := listing(t, seller), listing(t, seller)
 	for _, l := range []domain.Listing{a, b} {
-		if err := s.Insert(ctx, l); err != nil {
+		if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -271,7 +294,7 @@ func TestReservedRoundTrip(t *testing.T) {
 	s := repository.NewListings(db)
 	ctx := context.Background()
 	l := listing(t, accounttest.New(t, db))
-	if err := s.Insert(ctx, l); err != nil {
+	if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	l.Published(map[uuid.UUID]domain.PhotoKeys{}, now)
@@ -306,7 +329,7 @@ func TestCountByStatus(t *testing.T) {
 	put := func(seller uuid.UUID, change func(l *domain.Listing)) {
 		t.Helper()
 		l := listing(t, seller)
-		if err := s.Insert(ctx, l); err != nil {
+		if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		if change == nil {
@@ -353,7 +376,7 @@ func TestInsertGivesAFreeCode(t *testing.T) {
 	ctx := context.Background()
 	seller := accounttest.New(t, db)
 	a, b := listing(t, seller), listing(t, seller)
-	if err := s.Insert(ctx, a); err != nil {
+	if _, err := s.Insert(ctx, a, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	// a takes the code b would get first.
@@ -361,7 +384,7 @@ func TestInsertGivesAFreeCode(t *testing.T) {
 		pgx.StrictNamedArgs{"a": a.ID(), "b": b.ID()}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Insert(ctx, b); err != nil {
+	if _, err := s.Insert(ctx, b, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.Get(ctx, b.ID())
@@ -390,7 +413,7 @@ func TestSaveKeepsThePriceChange(t *testing.T) {
 	ctx := context.Background()
 	seller := accounttest.New(t, db)
 	l := listing(t, seller)
-	if err := s.Insert(ctx, l); err != nil {
+	if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	l.Published(nil, now)

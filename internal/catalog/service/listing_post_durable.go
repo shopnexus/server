@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"time"
 	"uuid"
@@ -22,6 +23,8 @@ const listingPost = "ListingPost"
 
 type PostInput struct {
 	Seller uuid.UUID `json:"seller"`
+	// Key is the seller's Idempotency-Key, which the row claims.
+	Key uuid.UUID `json:"key,omitzero"`
 	// The wire key stays "draft" so old and new pods agree during a deploy.
 	Listing domain.ListingInput `json:"draft"`
 }
@@ -33,6 +36,13 @@ type PostResult struct {
 }
 
 func (r PostResult) Refusal() *apperr.Error { return r.Refused }
+
+// insertedListing is the insert step's outcome: the listing that holds the
+// request's key, or the cap reached.
+type insertedListing struct {
+	ID     uuid.UUID `json:"id"`
+	Capped bool      `json:"capped,omitempty"`
+}
 
 // flowDeps is what ListingPost and ListingEdit are built from.
 type flowDeps struct {
@@ -107,15 +117,27 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 		return PostResult{Refused: apperr.From(err)}, nil
 	}
 
-	// E2 · NFR-CONC-01: a post racing this one may fill the cap first.
-	capped, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
-		return restatex.Outcome(s.Listings.Insert(rc, l), domain.ErrCapReached)
+	// E2 · NFR-CONC-01: a post racing this one may fill the cap first. A
+	// racing retry of this request may have claimed its key: its listing
+	// is the answer (NFR-IDEM-01).
+	ins, err := restate.Run(ctx, func(rc restate.RunContext) (insertedListing, error) {
+		got, stepErr := s.Listings.Insert(rc, l, in.Key)
+		if errors.Is(stepErr, domain.ErrCapReached) {
+			return insertedListing{Capped: true}, nil
+		}
+		if stepErr != nil {
+			return insertedListing{}, fmt.Errorf("insert listing: %w", stepErr)
+		}
+		return insertedListing{ID: got}, nil
 	})
 	if err != nil {
 		return PostResult{}, fmt.Errorf("insert listing: %w", err)
 	}
-	if capped {
+	if ins.Capped {
 		return PostResult{Refused: domain.ErrCapReached}, nil
+	}
+	if ins.ID != id {
+		return PostResult{ListingID: ins.ID}, nil
 	}
 	// E8: an upload that is not the seller's, or not waiting, undoes the row.
 	refused, err := attach(ctx, s.Media, in.Seller, id, in.Listing.Photos)

@@ -345,7 +345,7 @@ func (r *run) listing(ctx context.Context, x row) error {
 			return fmt.Errorf("hide %s: %w", x.Key, err)
 		}
 	}
-	if err = r.listings.Insert(ctx, *l); errors.Is(err, catalogdomain.ErrCapReached) {
+	if _, err = r.listings.Insert(ctx, *l, uuid.Nil()); errors.Is(err, catalogdomain.ErrCapReached) {
 		r.warnf("listing %s: its seller has %d listings on sale already", x.Key, catalogdomain.MaxOnSale)
 		r.count(&r.res.Listings, false)
 		return nil
@@ -387,7 +387,7 @@ func (r *run) sale(ctx context.Context, s saleRow) error {
 		r.count(&r.res.Sold, false)
 		return nil
 	}
-	if err = r.listings.Insert(ctx, *l); errors.Is(err, catalogdomain.ErrCapReached) {
+	if _, err = r.listings.Insert(ctx, *l, uuid.Nil()); errors.Is(err, catalogdomain.ErrCapReached) {
 		r.warnf("sale %s: its seller has %d listings on sale already", s.sale.Listing.Key, catalogdomain.MaxOnSale)
 		r.count(&r.res.Sold, false)
 		return nil

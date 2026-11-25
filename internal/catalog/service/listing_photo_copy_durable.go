@@ -3,7 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
-	"time"
+	"strconv"
 	"uuid"
 
 	restate "github.com/restatedev/sdk-go"
@@ -20,10 +20,12 @@ import (
 // prefix.
 const listingPhotoCopy = "ListingPhotoCopy"
 
-// PhotoCopyInput names the seller and the listing whose photos are copied.
+// PhotoCopyInput names the seller, the listing whose photos are copied and
+// the seller's request key.
 type PhotoCopyInput struct {
 	Seller  uuid.UUID `json:"seller"`
 	Listing uuid.UUID `json:"listing"`
+	Key     uuid.UUID `json:"key"`
 }
 
 // PhotoCopyResult names the new uploads, in the listing's photo order, or
@@ -48,21 +50,17 @@ type ListingPhotoCopy struct {
 	Prefix   string
 	Listings repository.Listings
 	Media    mediasvc.Service
-	Now      func() time.Time
 }
 
 func (s ListingPhotoCopy) ServiceName() string { return s.Prefix + listingPhotoCopy }
 
 // Run is UC-LST-01 A5: it reads the listing in one step, then copies one
-// photo per step, one at a time. Each upload ID is minted before its step,
-// so a retried step writes the same object and inserts no second upload;
-// the photo's bytes never enter the journal. A photo first copied from
+// photo per step, one at a time. Each upload ID derives from the request's
+// key and the photo's place, so a retried step or request writes the same
+// object and inserts no second upload; the photo's bytes never enter the
+// journal. A photo first copied from
 // another site keeps that origin, so the new listing marks it copied too.
 func (s ListingPhotoCopy) Run(ctx restate.Context, in PhotoCopyInput) (PhotoCopyResult, error) {
-	at, err := restatex.Now(ctx, s.Now)
-	if err != nil {
-		return PhotoCopyResult{}, err
-	}
 	src, err := restate.Run(ctx, func(rc restate.RunContext) (photoSource, error) {
 		l, getErr := s.Listings.Get(rc, in.Listing)
 		if errors.Is(getErr, repository.ErrNotFound) {
@@ -90,7 +88,7 @@ func (s ListingPhotoCopy) Run(ctx restate.Context, in PhotoCopyInput) (PhotoCopy
 	}
 	out := PhotoCopyResult{Uploads: make([]uuid.UUID, 0, len(src.Photos))}
 	for i, k := range src.Photos {
-		upload := restatex.NewID(ctx, at)
+		upload := restatex.DerivedID("photo-copy", in.Seller.String(), in.Listing.String(), in.Key.String(), strconv.Itoa(i))
 		origin := mediadomain.OriginListing
 		if k.Copied {
 			origin = mediadomain.OriginLink

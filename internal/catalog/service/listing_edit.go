@@ -9,10 +9,10 @@ import (
 	"github.com/shopnexus/server/internal/platform/locale"
 )
 
-// Edit is UC-LST-02: it runs ListingEdit once per seller and
-// idempotencyKey, then reads the listing.
-func (c *Catalog) Edit(ctx context.Context, seller, id uuid.UUID, idempotencyKey string, d domain.ListingInput, t locale.Tag) (ListingView, error) {
-	if _, err := c.edit.Call(ctx, seller.String()+"/"+idempotencyKey, EditInput{Seller: seller, ID: id, Listing: d}); err != nil {
+// Edit is UC-LST-02: it runs ListingEdit, then reads the listing. A retry
+// writes the same content again.
+func (c *Catalog) Edit(ctx context.Context, seller, id uuid.UUID, d domain.ListingInput, t locale.Tag) (ListingView, error) {
+	if _, err := c.edit.Call(ctx, "", EditInput{Seller: seller, ID: id, Listing: d}); err != nil {
 		return ListingView{}, err
 	}
 	l, err := c.own(ctx, seller, id)

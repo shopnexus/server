@@ -11,8 +11,7 @@ import (
 type updateRequest struct {
 	listingBody
 
-	ID             uuid.UUID `json:"-"                 path:"id"`
-	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
+	ID uuid.UUID `json:"-" path:"id"`
 }
 
 // Update serves PUT /v1/listings/{id}.
@@ -26,7 +25,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Edit(r.Context(), p.AccountID, in.ID, in.IdempotencyKey, in.input(), locale.Negotiate(w, r))
+	v, err := h.svc.Edit(r.Context(), p.AccountID, in.ID, in.input(), locale.Negotiate(w, r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

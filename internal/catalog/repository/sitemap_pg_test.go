@@ -26,7 +26,7 @@ func TestSitemapParts(t *testing.T) {
 	put := func(seller uuid.UUID, m int, move func(*domain.Listing, time.Time)) domain.Listing {
 		t.Helper()
 		l := listing(t, seller)
-		if err := s.Insert(ctx, l); err != nil {
+		if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 		if move != nil {
@@ -116,7 +116,7 @@ func TestSitemapListingPhotos(t *testing.T) {
 		},
 		CreatedAt: at, UpdatedAt: at, PublishedAt: &at, Lat: 21.03, Lng: 105.85,
 	})
-	if err := s.Insert(ctx, l); err != nil {
+	if _, err := s.Insert(ctx, l, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.SitemapListings(ctx, uuid.Max(), 10)

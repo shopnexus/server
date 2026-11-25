@@ -68,7 +68,7 @@ func TestTextEditEmbedsNoPhoto(t *testing.T) {
 	vectors(t, e, v.ID, 1)
 	d := draft(v.Photos[0].UploadID) // the same photo; name the field as ListingView has it
 	d.Description = "Máy zin, mới thay pin"
-	if _, err := e.catalog.Edit(context.Background(), seller, v.ID, uuid.NewV7().String(), d, locale.Vietnamese); err != nil {
+	if _, err := e.catalog.Edit(context.Background(), seller, v.ID, d, locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	testenv.Eventually(t, 20*time.Second, func() error {
@@ -93,7 +93,7 @@ func TestBurstOfEditsEmbedsEachPhotoOnce(t *testing.T) {
 	for i := range 5 {
 		d := draft(v.Photos[0].UploadID)
 		d.Description = fmt.Sprintf("lần %d", i)
-		if _, err := e.catalog.Edit(context.Background(), seller, v.ID, uuid.NewV7().String(), d, locale.Vietnamese); err != nil {
+		if _, err := e.catalog.Edit(context.Background(), seller, v.ID, d, locale.Vietnamese); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -111,7 +111,7 @@ func TestReplacedPhotoLosesItsVector(t *testing.T) {
 	v := e.post(t, seller)
 	before := vectors(t, e, v.ID, 1)
 	fresh := e.upload(t, seller, mediatest.JPEG(t, 80, 60))
-	if _, err := e.catalog.Edit(context.Background(), seller, v.ID, uuid.NewV7().String(), draft(fresh), locale.Vietnamese); err != nil {
+	if _, err := e.catalog.Edit(context.Background(), seller, v.ID, draft(fresh), locale.Vietnamese); err != nil {
 		t.Fatal(err)
 	}
 	testenv.Eventually(t, 20*time.Second, func() error {

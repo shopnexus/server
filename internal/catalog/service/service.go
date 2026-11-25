@@ -29,16 +29,16 @@ import (
 // Service is module catalog's contract. A ListingView it returns names its
 // keyed specs in the t its method takes.
 type Service interface {
-	// Post puts a complete listing up for processing. A repeated
-	// idempotencyKey returns the listing it posted.
+	// Post puts a complete listing up for processing. A repeated key
+	// returns the listing it posted.
 	//
 	// UC-LST-01 · NFR-IDEM-01
-	Post(ctx context.Context, seller uuid.UUID, idempotencyKey string, d domain.ListingInput, t locale.Tag) (ListingView, error)
-	// Edit replaces a listing's content; a repeated idempotencyKey edits
-	// nothing more.
+	Post(ctx context.Context, seller, key uuid.UUID, d domain.ListingInput, t locale.Tag) (ListingView, error)
+	// Edit replaces a listing's content; the same content again writes the
+	// same listing.
 	//
 	// UC-LST-02 · NFR-IDEM-01
-	Edit(ctx context.Context, seller, id uuid.UUID, idempotencyKey string, d domain.ListingInput, t locale.Tag) (ListingView, error)
+	Edit(ctx context.Context, seller, id uuid.UUID, d domain.ListingInput, t locale.Tag) (ListingView, error)
 	// Hide takes the seller's active listing off sale.
 	//
 	// UC-LST-02
@@ -86,11 +86,11 @@ type Service interface {
 	OnSale(ctx context.Context, seller uuid.UUID) ([]uuid.UUID, error)
 	// CopyPhotos copies the processed photos of one of the seller's
 	// listings into new waiting uploads of the seller's, for a new listing;
-	// a repeated idempotencyKey returns the same uploads. Another seller's
-	// listing, or a deleted one, is domain.ErrNotFound.
+	// a repeated key returns the same uploads. Another seller's listing, or
+	// a deleted one, is domain.ErrNotFound.
 	//
 	// UC-LST-01 A5
-	CopyPhotos(ctx context.Context, seller, id uuid.UUID, idempotencyKey string) ([]DraftPhotoView, error)
+	CopyPhotos(ctx context.Context, seller, id, key uuid.UUID) ([]DraftPhotoView, error)
 	// SellerListings lists what anyone sees of a seller's listings, except
 	// the IDs in except, as cards, newest first, each measured from near
 	// when it names a position.
@@ -280,7 +280,7 @@ func (c *Catalog) Durable() []restate.ServiceDefinition {
 		restate.Reflect(ListingPost{deps}),
 		restate.Reflect(ListingEdit{deps}),
 		restate.Reflect(ListingPublish{Prefix: c.prefix, Listings: c.listings, Now: c.now}),
-		restate.Reflect(ListingPhotoCopy{Prefix: c.prefix, Listings: c.listings, Media: c.media, Now: c.now}),
+		restate.Reflect(ListingPhotoCopy{Prefix: c.prefix, Listings: c.listings, Media: c.media}),
 		restate.Reflect(ListingEmbed{
 			Prefix: c.prefix, Listings: c.listings, Categories: c.categories, Vectors: c.vectors, Media: c.media,
 			Text: c.text, Image: c.image, TextVersion: c.textVersion, ImageVersion: c.imageVersion,

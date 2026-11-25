@@ -30,7 +30,7 @@ func TestSellerLeftDeletesTheListings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = e.listings.Insert(ctx, p); err != nil {
+	if _, err = e.listings.Insert(ctx, p, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	other := catalogtest.Listing(t, e.db, e.seller(t))

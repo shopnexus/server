@@ -238,7 +238,7 @@ func (e *sellEnv) unpublished(t *testing.T, seller uuid.UUID, rejected bool) uui
 	if rejected {
 		l.Rejected(map[uuid.UUID]string{photo: "not a photo"}, time.Now())
 	}
-	if err = e.listings.Insert(context.Background(), l); err != nil {
+	if _, err = e.listings.Insert(context.Background(), l, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return l.ID()

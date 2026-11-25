@@ -22,11 +22,16 @@ var (
 
 // Listings persists listings.
 type Listings interface {
-	// Insert adds l unless its seller already has domain.MaxOnSale listings
-	// in a domain.OnSale status, which is domain.ErrCapReached.
-	// Inserting the same ID again does nothing. Concurrent inserts and
+	// Insert adds l under the seller's request key, uuid.Nil() for none,
+	// and returns its ID, unless its seller already has domain.MaxOnSale
+	// listings in a domain.OnSale status, which is domain.ErrCapReached.
+	// Inserting the same ID again, or a key the seller's listing holds,
+	// inserts nothing and returns that listing's ID. Concurrent inserts and
 	// saves for one seller run one at a time, so the cap holds.
-	Insert(ctx context.Context, l domain.Listing) error
+	Insert(ctx context.Context, l domain.Listing, key uuid.UUID) (uuid.UUID, error)
+	// ByKey returns the ID of the seller's listing posted with key, or
+	// ErrNotFound.
+	ByKey(ctx context.Context, seller, key uuid.UUID) (uuid.UUID, error)
 	// Discard deletes the row of a listing the post flow inserted and could
 	// not finish; only that compensation calls it. An absent row is fine.
 	Discard(ctx context.Context, id uuid.UUID) error

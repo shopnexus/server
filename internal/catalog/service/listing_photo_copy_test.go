@@ -36,7 +36,7 @@ func TestCopyPhotosStartsANewListing(t *testing.T) {
 	if err := e.media.SavePhoto(ctx, seller, linked, mediatest.JPEG(t, 64, 48), "image/jpeg", mediadomain.OriginLink); err != nil {
 		t.Fatal(err)
 	}
-	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(e.photo(t, seller), linked), locale.Vietnamese)
+	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7(), draft(e.photo(t, seller), linked), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestCopyPhotosStartsANewListing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	copies, err := e.catalog.CopyPhotos(ctx, seller, old.ID, uuid.NewV7().String())
+	copies, err := e.catalog.CopyPhotos(ctx, seller, old.ID, uuid.NewV7())
 	if err != nil || len(copies) != 2 {
 		t.Fatalf("%+v %v", copies, err)
 	}
@@ -72,7 +72,7 @@ func TestCopyPhotosStartsANewListing(t *testing.T) {
 		}
 	}
 
-	again, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(copies[0].UploadID, copies[1].UploadID), locale.Vietnamese)
+	again, err := e.catalog.Post(ctx, seller, uuid.NewV7(), draft(copies[0].UploadID, copies[1].UploadID), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,13 +97,13 @@ func TestCopyPhotosRefusals(t *testing.T) {
 	ctx := context.Background()
 	seller, other := e.seller(t), e.seller(t)
 	l := e.active(t, seller)
-	if _, err := e.catalog.CopyPhotos(ctx, other, l.ID, uuid.NewV7().String()); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.catalog.CopyPhotos(ctx, other, l.ID, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another seller: %v", err)
 	}
-	if _, err := e.catalog.CopyPhotos(ctx, seller, uuid.NewV7(), uuid.NewV7().String()); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := e.catalog.CopyPhotos(ctx, seller, uuid.NewV7(), uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("an unknown listing: %v", err)
 	}
-	key := uuid.NewV7().String()
+	key := uuid.NewV7()
 	first, err := e.catalog.CopyPhotos(ctx, seller, l.ID, key)
 	if err != nil {
 		t.Fatal(err)
@@ -112,7 +112,7 @@ func TestCopyPhotosRefusals(t *testing.T) {
 	if err != nil || len(first) != 1 || len(again) != 1 || again[0].UploadID != first[0].UploadID {
 		t.Fatalf("the same key: %+v %+v %v", first, again, err)
 	}
-	fresh, err := e.catalog.CopyPhotos(ctx, seller, l.ID, uuid.NewV7().String())
+	fresh, err := e.catalog.CopyPhotos(ctx, seller, l.ID, uuid.NewV7())
 	if err != nil || len(fresh) != 1 || fresh[0].UploadID == first[0].UploadID {
 		t.Fatalf("a new key: %+v %+v %v", first, fresh, err)
 	}
@@ -122,17 +122,17 @@ func TestCopyPhotosRefusals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = e.listings.Insert(ctx, processing); err != nil {
+	if _, err = e.listings.Insert(ctx, processing, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
-	if got, copyErr := e.catalog.CopyPhotos(ctx, seller, processing.ID(), uuid.NewV7().String()); copyErr != nil || len(got) != 0 {
+	if got, copyErr := e.catalog.CopyPhotos(ctx, seller, processing.ID(), uuid.NewV7()); copyErr != nil || len(got) != 0 {
 		t.Fatalf("a listing in processing: %+v %v", got, copyErr)
 	}
 
 	if err = e.catalog.Delete(ctx, seller, l.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = e.catalog.CopyPhotos(ctx, seller, l.ID, uuid.NewV7().String()); !errors.Is(err, domain.ErrNotFound) {
+	if _, err = e.catalog.CopyPhotos(ctx, seller, l.ID, uuid.NewV7()); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("a deleted listing: %v", err)
 	}
 }
@@ -157,12 +157,12 @@ func TestCopyPhotosRetriedStepSavesOnce(t *testing.T) {
 	e := newEnv(t, func(d *service.Deps) { d.Media = &saveThenFail{Service: d.Media} })
 	ctx := context.Background()
 	seller := e.seller(t)
-	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7().String(), draft(e.photo(t, seller), e.photo(t, seller)), locale.Vietnamese)
+	posted, err := e.catalog.Post(ctx, seller, uuid.NewV7(), draft(e.photo(t, seller), e.photo(t, seller)), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}
 	l := e.settle(t, seller, posted.ID)
-	copies, err := e.catalog.CopyPhotos(ctx, seller, l.ID, uuid.NewV7().String())
+	copies, err := e.catalog.CopyPhotos(ctx, seller, l.ID, uuid.NewV7())
 	if err != nil || len(copies) != 2 {
 		t.Fatalf("%+v %v", copies, err)
 	}

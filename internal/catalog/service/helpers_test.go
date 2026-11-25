@@ -87,7 +87,7 @@ func draft(photos ...uuid.UUID) domain.ListingInput {
 // post posts a listing with one fresh photo for seller.
 func (e env) post(t *testing.T, seller uuid.UUID) service.ListingView {
 	t.Helper()
-	v, err := e.catalog.Post(context.Background(), seller, uuid.NewV7().String(), draft(e.upload(t, seller, mediatest.JPEG(t, 64, 48))), locale.Vietnamese)
+	v, err := e.catalog.Post(context.Background(), seller, uuid.NewV7(), draft(e.upload(t, seller, mediatest.JPEG(t, 64, 48))), locale.Vietnamese)
 	if err != nil {
 		t.Fatal(err)
 	}

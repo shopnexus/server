@@ -61,7 +61,7 @@ func Listing(tb testing.TB, db *pgxpool.Pool, seller uuid.UUID, change ...func(*
 		tb.Fatal(err)
 	}
 	l.Published(map[uuid.UUID]domain.PhotoKeys{photo: {Photo: "media/a.jpg", Thumb: "media/a_thumb.jpg"}}, now)
-	if err = repository.NewListings(db).Insert(context.Background(), l); err != nil {
+	if _, err = repository.NewListings(db).Insert(context.Background(), l, uuid.Nil()); err != nil {
 		tb.Fatal(err)
 	}
 	return l.ID()

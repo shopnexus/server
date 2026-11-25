@@ -96,48 +96,66 @@ func lockSeller(b *pgx.Batch, seller uuid.UUID) {
 	b.Queue(`SELECT pg_advisory_xact_lock(hashtext(@seller::text))`, pgx.StrictNamedArgs{"seller": seller})
 }
 
-// insertListing adds the row unless the seller is at the cap, with the
-// first of the ID's codes (listing_code, migration 0064) no listing holds.
+// insertListing adds the row unless the seller is at the cap or has the
+// row or its request key already, with the first of the ID's codes
+// (listing_code, migration 0064) no listing holds.
 const insertListing = `
-INSERT INTO listings (` + listingColumns + `)
+INSERT INTO listings (` + listingColumns + `, request_key)
 SELECT @id, @seller_id, @title, @price, @description, @category_code, @condition, @allow_offers, @commune_code,
        @photos, @specs, @status, @rejection, @reserved_for, @write_id, @created_at, @updated_at, @published_at, @sold_at,
        @deleted_at, @lat, @lng, @held_at, @previous_price, @price_changed_at,
        (SELECT c FROM generate_series(0, 15) a, listing_code(@id, a) c
-        WHERE NOT EXISTS (SELECT 1 FROM listings WHERE code = c) ORDER BY a LIMIT 1)
+        WHERE NOT EXISTS (SELECT 1 FROM listings WHERE code = c) ORDER BY a LIMIT 1),
+       @request_key
 WHERE (SELECT count(*) FROM listings WHERE seller_id = @seller_id AND status = ANY(@on_sale)) < @limit
+  AND NOT EXISTS (SELECT 1 FROM listings WHERE ` + listingOfKey + `)
 ON CONFLICT (id) DO NOTHING`
 
-func (s pgListings) Insert(ctx context.Context, l domain.Listing) error {
+// listingOfKey finds the row of an insert or of its request key.
+const listingOfKey = `id = @id OR (seller_id = @seller_id AND request_key = @request_key)`
+
+func (s pgListings) Insert(ctx context.Context, l domain.Listing, key uuid.UUID) (uuid.UUID, error) {
 	st := l.State()
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		a := args(st)
-		a["on_sale"], a["limit"] = domain.OnSale, domain.MaxOnSale
-		var inserted int64
-		b := &pgx.Batch{}
-		lockSeller(b, st.SellerID)
-		b.Queue(insertListing, a).Exec(func(tag pgconn.CommandTag) error {
-			inserted = tag.RowsAffected()
-			return nil
-		})
-		if err := tx.SendBatch(ctx, b).Close(); err != nil {
-			return err //nolint:wrapcheck // wrapped below
+	a := args(st)
+	a["on_sale"], a["limit"], a["request_key"] = domain.OnSale, domain.MaxOnSale, nil
+	if key != uuid.Nil() {
+		a["request_key"] = key
+	}
+	var id uuid.UUID
+	b := &pgx.Batch{}
+	// The seller's lock holds until the batch's implicit transaction ends,
+	// so the cap and the key are read one insert at a time.
+	lockSeller(b, st.SellerID)
+	b.Queue(insertListing, a).Fn = postgres.ExecAs("insert listing", nil)
+	b.Queue(`SELECT id FROM listings WHERE `+listingOfKey, pgx.StrictNamedArgs{
+		"id": st.ID, "seller_id": st.SellerID, "request_key": a["request_key"],
+	}).QueryRow(func(row pgx.Row) error {
+		err := row.Scan(&id)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrCapReached
 		}
-		if inserted == 0 {
-			var exists bool
-			if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM listings WHERE id = @id)`, pgx.StrictNamedArgs{"id": st.ID}).Scan(&exists); err != nil {
-				return fmt.Errorf("check listing: %w", err)
-			}
-			if !exists {
-				return domain.ErrCapReached
-			}
+		if err != nil {
+			return fmt.Errorf("read listing: %w", err)
 		}
 		return nil
 	})
-	if err != nil {
-		return fmt.Errorf("insert listing: %w", err)
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+		return uuid.Nil(), fmt.Errorf("insert listing: %w", err)
 	}
-	return nil
+	return id, nil
+}
+
+func (s pgListings) ByKey(ctx context.Context, seller, key uuid.UUID) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := s.db.QueryRow(ctx, `SELECT id FROM listings WHERE seller_id = @seller AND request_key = @key`,
+		pgx.StrictNamedArgs{"seller": seller, "key": key}).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil(), ErrNotFound
+	}
+	if err != nil {
+		return uuid.Nil(), fmt.Errorf("select listing of key: %w", err)
+	}
+	return id, nil
 }
 
 func (s pgListings) IDsByCode(ctx context.Context, codes []string) (map[string]uuid.UUID, error) {

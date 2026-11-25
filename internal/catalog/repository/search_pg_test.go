@@ -48,7 +48,7 @@ func put(t *testing.T, db *pgxpool.Pool, it item) uuid.UUID {
 		Photos: []domain.Photo{{UploadID: uuid.NewV7()}}, Status: status, WriteID: id,
 		CreatedAt: at, UpdatedAt: at, PublishedAt: &at, Lat: it.point.Lat, Lng: it.point.Lng,
 	})
-	if err := repository.NewListings(db).Insert(context.Background(), l); err != nil {
+	if _, err := repository.NewListings(db).Insert(context.Background(), l, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return id

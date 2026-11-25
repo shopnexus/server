@@ -9,8 +9,8 @@ import (
 )
 
 type photoCopyRequest struct {
-	ID             uuid.UUID `json:"-"                 path:"id"`
-	IdempotencyKey string    `header:"Idempotency-Key" json:"-"`
+	ID  uuid.UUID `json:"-"                 path:"id"`
+	Key uuid.UUID `header:"Idempotency-Key" json:"-"`
 }
 
 // CopyPhotos serves POST /v1/listings/{id}/photo-copies.
@@ -24,7 +24,7 @@ func (h *Handler) CopyPhotos(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	copies, err := h.svc.CopyPhotos(r.Context(), p.AccountID, in.ID, in.IdempotencyKey)
+	copies, err := h.svc.CopyPhotos(r.Context(), p.AccountID, in.ID, in.Key)
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return

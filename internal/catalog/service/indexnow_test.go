@@ -76,7 +76,7 @@ func TestIndexNowQueue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = e.listings.Insert(ctx, draft); err != nil {
+	if _, err = e.listings.Insert(ctx, draft, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	add := func(id uuid.UUID) {

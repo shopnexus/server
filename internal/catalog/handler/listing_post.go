@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/locale"
@@ -10,7 +11,7 @@ import (
 type postRequest struct {
 	listingBody
 
-	IdempotencyKey string `header:"Idempotency-Key" json:"-"`
+	Key uuid.UUID `header:"Idempotency-Key" json:"-"`
 }
 
 // Post serves POST /v1/listings.
@@ -24,7 +25,7 @@ func (h *Handler) Post(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Post(r.Context(), p.AccountID, in.IdempotencyKey, in.input(), locale.Negotiate(w, r))
+	v, err := h.svc.Post(r.Context(), p.AccountID, in.Key, in.input(), locale.Negotiate(w, r))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)
 		return
