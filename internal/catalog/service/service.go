@@ -59,6 +59,9 @@ type Service interface {
 	//
 	// UC-LST-02
 	Delete(ctx context.Context, seller, id uuid.UUID) error
+	// Reprice sets the price of the seller's listing alone, for a listing
+	// that follows the seller's listing elsewhere.
+	Reprice(ctx context.Context, seller, id uuid.UUID, price int64) error
 	// PutDraft writes the caller's draft id, the last write winning, and
 	// returns it as stored and whether it was created.
 	//

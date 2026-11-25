@@ -570,3 +570,31 @@ func TestHoldAndLift(t *testing.T) {
 		t.Fatalf("reported listings: %+v %v", reported, err)
 	}
 }
+
+// Reprice changes the seller's listing's price alone with listing.updated;
+// the same price writes nothing, and another seller's listing is not
+// found.
+func TestReprice(t *testing.T) {
+	t.Parallel()
+	e := newEnv(t)
+	ctx := context.Background()
+	seller := e.seller(t)
+	v := e.active(t, seller)
+	if err := e.catalog.Reprice(ctx, seller, v.ID, v.Price); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.catalog.Reprice(ctx, seller, v.ID, 8_000_000); err != nil {
+		t.Fatal(err)
+	}
+	got, err := e.catalog.Get(ctx, &seller, v.ID, locale.Vietnamese)
+	if err != nil || got.Price != 8_000_000 || got.Title != v.Title || got.PriceDrop == nil {
+		t.Fatalf("%+v %v", got, err)
+	}
+	kinds := pgtest.EventKinds(t, e.db, v.ID)
+	if updated := len(slices.DeleteFunc(slices.Clone(kinds), func(k string) bool { return k != "listing.updated" })); updated != 1 {
+		t.Fatalf("events %v", kinds)
+	}
+	if err = e.catalog.Reprice(ctx, e.seller(t), v.ID, 7_000_000); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("another seller: %v", err)
+	}
+}

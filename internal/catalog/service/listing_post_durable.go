@@ -161,6 +161,18 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	return PostResult{ListingID: id}, nil
 }
 
+// PostFrom runs ListingPost from another module's Restate flow and returns
+// its result, a refusal as data. The call is journaled and in.Key claims
+// the listing, so a retried flow posts once. prefix is the calling flow's
+// service prefix.
+func PostFrom(ctx restate.Context, prefix string, in PostInput) (PostResult, error) {
+	res, err := restate.Service[PostResult](ctx, prefix+listingPost, flowHandler).Request(in)
+	if err != nil {
+		return PostResult{}, fmt.Errorf("post listing: %w", err)
+	}
+	return res, nil
+}
+
 // lookUpRefs reads the listing's category and commune.
 func lookUpRefs(ctx restate.Context, categories repository.Categories, regions repository.Regions, d domain.ListingInput) (domain.Refs, error) {
 	refs, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Refs, error) {

@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -81,5 +82,32 @@ func TestPriceDropBeforePublication(t *testing.T) {
 	reprice(t, &l, 8_000_000, now)
 	if got, ok := l.PriceDrop(now); ok {
 		t.Fatalf("shows %+v", got)
+	}
+}
+
+// Reprice changes the price alone and keeps the drop an edit would show;
+// a price out of range or a listing past sale refuses.
+func TestReprice(t *testing.T) {
+	t.Parallel()
+	l := published(t)
+	at := now.Add(time.Hour)
+	if changed, err := l.Reprice(l.Price(), at); err != nil || changed {
+		t.Fatalf("the same price: %v %v", changed, err)
+	}
+	title := l.Title()
+	if changed, err := l.Reprice(9_000_000, at); err != nil || !changed || l.Price() != 9_000_000 || l.Title() != title || !l.UpdatedAt().Equal(at) {
+		t.Fatalf("a drop: %v %v %+v", changed, err, l.State())
+	}
+	if d, ok := l.PriceDrop(at); !ok || d.PreviousPrice != 9_500_000 {
+		t.Fatalf("drop %+v %v", d, ok)
+	}
+	if _, err := l.Reprice(domain.MinPrice-1, at); !errors.Is(err, domain.ErrInvalidListing) {
+		t.Fatalf("too low: %v", err)
+	}
+	if err := l.MarkSold(at); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := l.Reprice(8_000_000, at); !errors.Is(err, domain.ErrStateConflict) {
+		t.Fatalf("sold: %v", err)
 	}
 }

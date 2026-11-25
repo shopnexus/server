@@ -86,6 +86,21 @@ func (c *Catalog) move(ctx context.Context, seller, id uuid.UUID, o op) (domain.
 	return l, c.save(ctx, l, kind, now, uuid.NewV7())
 }
 
+// Reprice sets the price of the seller's listing alone, as an edit of the
+// price would, with listing.updated; the same price writes nothing.
+func (c *Catalog) Reprice(ctx context.Context, seller, id uuid.UUID, price int64) error {
+	l, err := c.own(ctx, seller, id)
+	if err != nil {
+		return err
+	}
+	now := c.d.Now()
+	changed, err := l.Reprice(price, now)
+	if err != nil || !changed {
+		return err
+	}
+	return c.save(ctx, l, events.ListingUpdated, now, uuid.NewV7())
+}
+
 func (c *Catalog) Reserve(ctx context.Context, listingID, orderID uuid.UUID) error {
 	l, err := c.listing(ctx, listingID)
 	if err != nil {

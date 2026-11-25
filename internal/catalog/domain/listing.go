@@ -352,6 +352,26 @@ func (l *Listing) Edit(d ListingInput, refs Refs, now time.Time) error {
 	return nil
 }
 
+// Reprice sets the price alone, as an edit that changes only the price
+// does, and reports whether it changed.
+func (l *Listing) Reprice(price int64, now time.Time) (bool, error) {
+	if l.s.Status == StatusSold || l.s.Status == StatusDeleted || l.s.Status == StatusReserved {
+		return false, ErrStateConflict
+	}
+	if price < MinPrice || price > MaxPrice {
+		return false, ErrInvalidListing.WithField("price", apperr.OutOfRange, "10,000 to 1,000,000,000 đồng")
+	}
+	if price == l.s.Price {
+		return false, nil
+	}
+	was := l.s.Price
+	l.s.Price, l.s.UpdatedAt = price, now
+	if l.s.PublishedAt != nil {
+		l.repriced(was, now)
+	}
+	return true, nil
+}
+
 // Published records the keys of the processed uploads and puts the listing
 // on sale, or hidden while a member holds it. It reports whether this is
 // the listing's first publication.
