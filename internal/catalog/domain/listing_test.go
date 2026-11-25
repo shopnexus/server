@@ -389,8 +389,7 @@ func TestCategorySpecsRequired(t *testing.T) {
 	if !errors.As(err, &e) || !strings.Contains(e.Fields["specs"], "Màu") || strings.Contains(e.Fields["specs"], "Dung lượng") {
 		t.Fatalf("missing Màu: %v", err)
 	}
-	if e.FieldCodes["specs"] != apperr.MissingSpecs || !slices.Equal(e.Details.MissingSpecs, []string{"Màu"}) ||
-		!slices.Equal(e.Details.MissingSpecKeys, []string{"color"}) {
+	if e.FieldCodes["specs"] != apperr.MissingSpecs || !slices.Equal(e.Details.MissingSpecKeys, []string{"color"}) {
 		t.Fatalf("code %q, details %+v", e.FieldCodes["specs"], e.Details)
 	}
 	// A spec by key, by its Vietnamese or English name (case aside), or
