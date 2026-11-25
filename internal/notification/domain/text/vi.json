@@ -50,6 +50,8 @@
   "notice.cancelled.seller_timeout": "Người bán chưa gửi %[1]s, đơn của bạn đã hủy",
   "notice.cancelled.seller_timeout.seller": "Bạn chưa tạo đơn %[1]s, đơn đã hủy",
   "notice.cancelled.shipped_to_another": "%[1]s đã gửi cho người khác, đơn của bạn đã hủy",
+  "notice.chotot_imported": "Đã lấy %[1]d tin mới từ Chợ Tốt",
+  "notice.chotot_sold_here": "%[1]s đã bán trên ShopNexus, nhớ ẩn tin trên Chợ Tốt",
   "notice.cod_requested": "%[1]s yêu cầu COD %[2]s",
   "notice.completed": "%[1]s đã nhận %[2]s",
   "notice.completed.review": "%[1]s đã giao. Đánh giá %[2]s",

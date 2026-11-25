@@ -11,10 +11,10 @@ Target:
   properties:
     kind:
       type: string
-      enum: [deal, order, listing, seller_reviews, account, search_watch, feedback]
+      enum: [deal, order, listing, seller_reviews, account, search_watch, feedback, chotot, chotot_ad]
     id:
       type: string
-      description: The deal, order, listing, seller, search watch or feedback; empty for the account.
+      description: The deal, order, listing, seller, search watch or feedback; empty for the account and chotot, the Chợ Tốt link; for chotot_ad, the listing's address on Chợ Tốt, https://www.chotot.com/<list_id>.htm.
 Notification:
   type: object
   additionalProperties: false
@@ -27,7 +27,7 @@ Notification:
       type: string
       enum: [offer, counter, agreed, declined, agreement_cancelled, offer_voided, cod_requested, shipped, completed,
         failed, order_cancelled, listing_live, listing_rejected, followed_listing, review, review_reply, suspended, unsuspended,
-        watch_matched, price_dropped, feedback_moved, feedback_replied]
+        watch_matched, price_dropped, feedback_moved, feedback_replied, chotot_imported, chotot_sold_here]
     text:
       type: string
       description: What the notice says, in the language Accept-Language prefers.

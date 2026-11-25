@@ -7,9 +7,9 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/shopnexus/server/internal/platform/locale"
-
+	chototdomain "github.com/shopnexus/server/internal/chotot/domain"
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/locale"
 )
 
 // Retention is how long a notice is kept.
@@ -51,6 +51,11 @@ const (
 	// shipped, TypeFeedbackReplied of ShopNexus's first reply to one.
 	TypeFeedbackMoved   Type = "feedback_moved"
 	TypeFeedbackReplied Type = "feedback_replied"
+	// TypeChototImported tells of listings a Chợ Tốt link brought over on
+	// its own, TypeChototSoldHere of a copy sold here whose listing is
+	// still on Chợ Tốt.
+	TypeChototImported Type = "chotot_imported"
+	TypeChototSoldHere Type = "chotot_sold_here"
 )
 
 // Notice is one thing to tell one person. Params hold what its text is
@@ -107,6 +112,8 @@ type Params struct {
 	Status     string    `json:"status,omitempty"`
 	Version    string    `json:"version,omitempty"`
 	Excerpt    string    `json:"excerpt,omitempty"`
+	// ListID is a listing on Chợ Tốt.
+	ListID int64 `json:"list_id,omitempty"`
 }
 
 // OrderFacts are what an order notice's mail shows beyond its params: the
@@ -256,6 +263,22 @@ func PriceDropped(recipient, listing uuid.UUID, title string, price, saved int64
 	}
 }
 
+// ChototImported tells a seller how many listings their Chợ Tốt link
+// brought over; a newer one replaces the unread notice.
+func ChototImported(recipient uuid.UUID, count int, at time.Time) Notice {
+	return Notice{
+		Recipient: recipient, Type: TypeChototImported, CollapseKey: "chotot_imported", At: at, Params: Params{Count: count},
+	}
+}
+
+// ChototSoldHere reminds a seller to hide on Chợ Tốt the listing whose
+// copy sold here.
+func ChototSoldHere(recipient, listing uuid.UUID, title string, listID int64, at time.Time) Notice {
+	return Notice{
+		Recipient: recipient, Type: TypeChototSoldHere, At: at, Params: Params{ListingID: listing, Title: title, ListID: listID},
+	}
+}
+
 // Reviewed tells the subject of a review, once it shows, that the other
 // side of an order reviewed them.
 func Reviewed(subject uuid.UUID, reviewerName, title string, stars int, order uuid.UUID, at time.Time) Notice {
@@ -332,16 +355,25 @@ const (
 	mailAlways
 )
 
+// titleListings titles the pushes about the recipient's listings.
+const titleListings = "title.listings"
+
 var (
 	haggling = group{"title.offers", opens("deal", dealID), SwitchOffers, mailNever}
 	orders   = group{"title.orders", orderTarget, SwitchOrders, mailOrders}
-	listings = group{"title.listings", opens("listing", listingID), SwitchNone, mailNever}
-	followed = group{"title.listings", opens("listing", listingID), SwitchFollowed, mailNever}
+	listings = group{titleListings, opens("listing", listingID), SwitchNone, mailNever}
+	followed = group{titleListings, opens("listing", listingID), SwitchFollowed, mailNever}
 	reviews  = group{"title.reviews", reviewTarget, SwitchReviews, mailNever}
 	accounts = group{"title.account", opens("account", func(Params) uuid.UUID { return uuid.UUID{} }), SwitchNone, mailAlways}
 	searches = group{"title.searches", opens("search_watch", func(p Params) uuid.UUID { return p.WatchID }), SwitchNone, mailNever}
 	saved    = group{"title.saved", opens("listing", listingID), SwitchPriceCuts, mailNever}
 	feedback = group{"title.feedback", opens("feedback", func(p Params) uuid.UUID { return p.FeedbackID }), SwitchNone, mailNever}
+	// chototLink opens the Chợ Tốt link, chototAd the listing on Chợ Tốt.
+	chototLink = group{titleListings, func(Params) Target { return Target{Kind: "chotot"} }, SwitchNone, mailNever}
+	chototAd   = group{
+		titleListings, func(p Params) Target { return Target{Kind: "chotot_ad", ID: chototdomain.AdURL(p.ListID)} },
+		SwitchNone, mailNever,
+	}
 )
 
 func dealID(p Params) uuid.UUID    { return p.DealID }
@@ -459,6 +491,8 @@ var types = map[Type]struct {
 		}
 	}},
 	TypeFeedbackReplied: {feedback, func(p Params, w writer) string { return w.say("notice.feedback_replied", p.Excerpt) }},
+	TypeChototImported:  {chototLink, func(p Params, w writer) string { return w.say("notice.chotot_imported", p.Count) }},
+	TypeChototSoldHere:  {chototAd, func(p Params, w writer) string { return w.say("notice.chotot_sold_here", p.Title) }},
 }
 
 // carrierLabels name the carriers by their codes.

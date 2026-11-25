@@ -20,6 +20,7 @@ import (
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatdomain "github.com/shopnexus/server/internal/chat/domain"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	chototsvc "github.com/shopnexus/server/internal/chotot/service"
 	dealdomain "github.com/shopnexus/server/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
@@ -58,7 +59,9 @@ type Worker struct {
 	// Feedback gives the facts of a feedback whose status moved or that
 	// ShopNexus replied to.
 	Feedback feedbacksvc.Service
-	Push     push.Sender
+	// Chotot gives the facts of Chợ Tốt links and sold copies.
+	Chotot chototsvc.Service
+	Push   push.Sender
 	// Mail sends the notices the recipient's settings mail.
 	Mail mailview.Mailer
 	Log  *slog.Logger
@@ -289,6 +292,31 @@ func (w Worker) SavedPriceDropped(ctx restate.Context, e events.Event) error {
 	return w.tell(ctx, e.ID, []domain.Notice{
 		domain.PriceDropped(f.Account, f.ListingID, f.Title, int64(price), f.SavedPrice, e.OccurredAt),
 	})
+}
+
+// ChototImported tells a seller how many listings their Chợ Tốt link
+// brought over; a gone link tells no one.
+func (w Worker) ChototImported(ctx restate.Context, e events.Event) error {
+	count, _ := e.Payload["count"].(float64) //nolint:revive // every check that imported carries its count
+	f, err := read(ctx, "chotot link", func(rc restate.RunContext) (chototsvc.LinkFacts, bool, error) {
+		return w.Chotot.LinkFacts(rc, e.SubjectID)
+	})
+	if err != nil || f.ID == (uuid.UUID{}) {
+		return err
+	}
+	return w.tell(ctx, e.ID, []domain.Notice{domain.ChototImported(f.Account, int(count), e.OccurredAt)})
+}
+
+// ChototSold reminds a seller to hide on Chợ Tốt the listing whose copy
+// sold here.
+func (w Worker) ChototSold(ctx restate.Context, e events.Event) error {
+	f, err := read(ctx, "chotot import", func(rc restate.RunContext) (chototsvc.SaleFacts, bool, error) {
+		return w.Chotot.SaleFacts(rc, e.SubjectID)
+	})
+	if err != nil || f.ID == (uuid.UUID{}) {
+		return err
+	}
+	return w.tell(ctx, e.ID, []domain.Notice{domain.ChototSoldHere(f.Account, f.ListingID, f.Title, f.ListID, e.OccurredAt)})
 }
 
 // FeedbackMoved tells a feedback's owner that ShopNexus works on it or

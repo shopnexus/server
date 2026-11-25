@@ -493,7 +493,8 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		router.Handle("POST /v1/dev/updates", d.Protect(stream.DevUpdateHandler(updates, log)))
 	}
 	notificationm := notification.Mount(d, notification.Settings{Push: sender, Mail: mail},
-		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service, supportm.Service, feedbackm.Service)
+		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service, supportm.Service, feedbackm.Service,
+		chototm.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
 		supportm.Service, shippingm.Service)
 	agentm, agentErr := agent.Mount(d, agent.Settings{

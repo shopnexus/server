@@ -50,6 +50,8 @@
   "notice.cancelled.seller_timeout": "The seller did not ship %[1]s, so your order was cancelled",
   "notice.cancelled.seller_timeout.seller": "You did not make the order for %[1]s, so it was cancelled",
   "notice.cancelled.shipped_to_another": "%[1]s went to another buyer, so your order was cancelled",
+  "notice.chotot_imported": "Brought %[1]d new listings over from Chợ Tốt",
+  "notice.chotot_sold_here": "%[1]s sold on ShopNexus. Remember to hide it on Chợ Tốt",
   "notice.cod_requested": "%[1]s asked for cash on delivery for %[2]s",
   "notice.completed": "%[1]s received %[2]s",
   "notice.completed.review": "%[1]s was delivered. Review %[2]s",
