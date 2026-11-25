@@ -1,0 +1,65 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "local>shopnexus/shopnexus//.github/renovate/default.json5"
+  ],
+  "packageRules": [
+    {
+      "description": "CI runs no Go tests, so only patch updates of modules merge by themselves.",
+      "matchManagers": [
+        "gomod"
+      ],
+      "matchUpdateTypes": [
+        "minor"
+      ],
+      "matchPackageNames": [
+        "!github.com/restatedev/**"
+      ],
+      "groupName": "go minor",
+      "automerge": false
+    },
+    {
+      "description": "The compose stacks follow the umbrella's images, which a person merges.",
+      "matchManagers": [
+        "docker-compose"
+      ],
+      "automerge": false,
+      "groupName": "compose images"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/build\\.yml$/"
+      ],
+      "matchStrings": [
+        "golangci-lint-action@\\S+\\s+with: \\{ version: (?<currentValue>v[0-9.]+) \\}"
+      ],
+      "depNameTemplate": "golangci/golangci-lint",
+      "datasourceTemplate": "github-releases"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/build\\.yml$/"
+      ],
+      "matchStrings": [
+        "golang\\.org/x/vuln/cmd/govulncheck@(?<currentValue>v[0-9.]+)"
+      ],
+      "depNameTemplate": "golang.org/x/vuln",
+      "datasourceTemplate": "go"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/build\\.yml$/"
+      ],
+      "matchStrings": [
+        "sqlfluff==(?<currentValue>[0-9.]+)"
+      ],
+      "depNameTemplate": "sqlfluff",
+      "datasourceTemplate": "pypi"
+    }
+  ]
+}
