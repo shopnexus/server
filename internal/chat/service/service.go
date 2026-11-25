@@ -29,11 +29,12 @@ import (
 type Service interface {
 	// Open starts the buyer's conversation with a listing's seller, or
 	// reuses the pair's, and sends the first message about the listing. A
-	// repeated idempotencyKey of the same buyer sends nothing more.
-	Open(ctx context.Context, buyer uuid.UUID, idempotencyKey string, in OpenInput) (ConversationView, error)
+	// repeated key of the same buyer sends nothing more.
+	Open(ctx context.Context, buyer, key uuid.UUID, in OpenInput) (ConversationView, error)
 	// Send sends a message in a conversation of the sender's; a repeated
-	// idempotencyKey of the same sender sends nothing more.
-	Send(ctx context.Context, sender, conversation uuid.UUID, idempotencyKey string, in SendInput) (MessageView, error)
+	// key of the same sender sends nothing more and returns the first
+	// message.
+	Send(ctx context.Context, sender, conversation, key uuid.UUID, in SendInput) (MessageView, error)
 	// Read moves account's read marker to message when message is newer,
 	// and clears account's unread mark.
 	Read(ctx context.Context, account, conversation, message uuid.UUID) error

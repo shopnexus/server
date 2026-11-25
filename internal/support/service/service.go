@@ -56,7 +56,7 @@ type Service interface {
 	Messages(ctx context.Context, id uuid.UUID, p page.Request) (page.Page[ConsoleMessage], error)
 	// Reply sends a message as ShopNexus in a ticket's chat for member by,
 	// once per key.
-	Reply(ctx context.Context, id uuid.UUID, key string, in ReplyInput, by audit.Actor) (ConsoleMessage, error)
+	Reply(ctx context.Context, id, key uuid.UUID, in ReplyInput, by audit.Actor) (ConsoleMessage, error)
 	// Resolve marks a ticket resolved; a carrier request's chat gets
 	// "Đã ghi nhận hãng <name>.".
 	Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (ConsoleTicket, error)

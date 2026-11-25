@@ -284,7 +284,7 @@ func TestMyListingsCountsEachListing(t *testing.T) {
 	e.open(t, nil, busy)
 	order := e.pending(t, ann, busy)
 	for _, who := range []uuid.UUID{bao, ann} {
-		if _, err := e.chats.Open(ctx, who, uuid.NewV7().String(), chatsvc.OpenInput{ListingID: busy, Text: "Còn không?"}); err != nil {
+		if _, err := e.chats.Open(ctx, who, uuid.NewV7(), chatsvc.OpenInput{ListingID: busy, Text: "Còn không?"}); err != nil {
 			t.Fatal(err)
 		}
 	}

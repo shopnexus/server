@@ -151,11 +151,13 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 	if err != nil {
 		return OpenResult{}, fmt.Errorf("insert the ticket: %w", err)
 	}
-	if ins.Refused != nil || ins.Existed {
+	// Another request's ticket of the order, or a racing retry's of this
+	// key, whose run sends the first message.
+	if ins.Refused != nil || ins.Existed || ins.TicketID != ticketID {
 		return OpenResult(ins), nil //nolint:nilerr // As above.
 	}
 	sent, err := restate.Service[chatsvc.SendResult](ctx, s.prefix+chatsvc.MessageSendName, "Run").
-		Request(chatsvc.SendFlowInput{Sender: in.Account, ConversationID: conversationID, Text: draft.Body, Photos: in.Input.Photos, OpensTicket: true})
+		Request(chatsvc.SendFlowInput{Sender: in.Account, Key: in.Key, ConversationID: conversationID, Text: draft.Body, Photos: in.Input.Photos, OpensTicket: true})
 	if err != nil {
 		return OpenResult{}, fmt.Errorf("send the first message: %w", err)
 	}

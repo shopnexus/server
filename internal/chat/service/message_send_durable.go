@@ -20,11 +20,12 @@ import (
 const messageSend = "MessageSend"
 
 // SendFlowInput is one send: into ConversationID, or, when Opening, into
-// the pair of the sender and the seller of ListingID. ReplyTo is the
-// message it quotes; OpensTicket lets a support ticket's first message
-// carry no text.
+// the pair of the sender and the seller of ListingID. Key is the sender's
+// request key, which the message claims. ReplyTo is the message it quotes;
+// OpensTicket lets a support ticket's first message carry no text.
 type SendFlowInput struct {
 	Sender         uuid.UUID   `json:"sender"`
+	Key            uuid.UUID   `json:"key,omitzero"`
 	ConversationID uuid.UUID   `json:"conversation_id"`
 	Opening        bool        `json:"opening"`
 	ListingID      *uuid.UUID  `json:"listing_id,omitempty"`
@@ -177,8 +178,16 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	if err != nil {
 		return SendResult{Refused: apperr.From(err)}, nil
 	}
-	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Chat.chats.AddMessage(rc, msg) }); err != nil {
+	// A racing retry of this request may have sent its message: that one
+	// is the answer, and its run attaches the photos (NFR-IDEM-01).
+	added, err := restate.Run(ctx, func(rc restate.RunContext) (uuid.UUID, error) {
+		return s.Chat.chats.AddMessage(rc, msg, in.Key)
+	})
+	if err != nil {
 		return SendResult{}, fmt.Errorf("add message: %w", err)
+	}
+	if added != msg.ID() {
+		return SendResult{ConversationID: conv.ID, MessageID: added}, nil
 	}
 	if len(in.Photos) > 0 {
 		attached, attachErr := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {

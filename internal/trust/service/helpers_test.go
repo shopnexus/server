@@ -125,7 +125,7 @@ func (e env) reveal(t *testing.T, order uuid.UUID) {
 // conversation has buyer open a conversation on a listing of seller's.
 func (e env) conversation(t *testing.T, buyer, seller uuid.UUID) uuid.UUID {
 	t.Helper()
-	v, err := e.chats.Open(context.Background(), buyer, uuid.NewV7().String(), chatsvc.OpenInput{
+	v, err := e.chats.Open(context.Background(), buyer, uuid.NewV7(), chatsvc.OpenInput{
 		ListingID: catalogtest.Listing(t, e.db, seller), Text: "Còn không bạn?",
 	})
 	if err != nil {

@@ -123,7 +123,7 @@ func TestSearchThreads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.AddMessage(ctx, m); err != nil {
+	if _, err = s.AddMessage(ctx, m, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	send(t, s, deleted, gone, "Alo")

@@ -190,12 +190,15 @@ func written(ctx context.Context, tx pgx.Tx, m domain.Message, accounts []uuid.U
 	return nil
 }
 
-func (s pgChats) AddMessage(ctx context.Context, m domain.Message) error {
+func (s pgChats) AddMessage(ctx context.Context, m domain.Message, key uuid.UUID) (uuid.UUID, error) {
 	st := m.State()
 	a := pgx.StrictNamedArgs{
 		"id": st.ID, "conversation": st.ConversationID, "sender": st.SenderID, "body": st.Body,
 		"photos": photosOf(st), "listing": st.ListingID, "reply_to": st.ReplyTo, "status": st.Status, "at": st.CreatedAt,
-		"deal": nil, "move_kind": nil, "move_by": nil, "move_amount": nil,
+		"deal": nil, "move_kind": nil, "move_by": nil, "move_amount": nil, "request_key": nil,
+	}
+	if key != uuid.Nil() {
+		a["request_key"] = key
 	}
 	if d := st.Deal; d != nil {
 		a["deal"], a["move_kind"], a["move_by"] = d.DealID, d.Kind, d.By
@@ -205,21 +208,30 @@ func (s pgChats) AddMessage(ctx context.Context, m domain.Message) error {
 	}
 	var (
 		added    bool
+		id       uuid.UUID
 		accounts []uuid.UUID
 	)
 	b := &pgx.Batch{}
+	// The ID or the sender's key held already is the row a retry made.
 	b.Queue(`INSERT INTO messages (id, conversation_id, sender_id, body, photos, listing_id, reply_to,
-                      status, failure, created_at, deal_id, move_kind, move_by, move_amount)
+                      status, failure, created_at, deal_id, move_kind, move_by, move_amount, request_key)
 VALUES (@id, @conversation, @sender, @body, @photos, @listing, @reply_to, @status, NULL, @at, @deal, @move_kind,
-        @move_by, @move_amount)
-ON CONFLICT (id) DO NOTHING`, a).Exec(func(t pgconn.CommandTag) error {
+        @move_by, @move_amount, @request_key)
+ON CONFLICT DO NOTHING`, a).Exec(func(t pgconn.CommandTag) error {
 		added = t.RowsAffected() > 0
+		return nil
+	})
+	b.Queue(`SELECT id FROM messages WHERE id = @id OR (sender_id = @sender AND request_key = @key)`,
+		pgx.StrictNamedArgs{"id": st.ID, "sender": st.SenderID, "key": a["request_key"]}).QueryRow(func(row pgx.Row) error {
+		if err := row.Scan(&id); err != nil {
+			return fmt.Errorf("read the message: %w", err)
+		}
 		return nil
 	})
 	queueMembers(b, m, &accounts)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		if err := tx.SendBatch(ctx, b).Close(); err != nil {
-			return fmt.Errorf("insert message: %w", err)
+			return err //nolint:wrapcheck // Each statement wraps its own error.
 		}
 		if !added {
 			return nil
@@ -227,9 +239,25 @@ ON CONFLICT (id) DO NOTHING`, a).Exec(func(t pgconn.CommandTag) error {
 		return written(ctx, tx, m, accounts)
 	})
 	if err != nil {
-		return fmt.Errorf("add message: %w", err)
+		return uuid.Nil(), fmt.Errorf("add message: %w", err)
 	}
-	return nil
+	return id, nil
+}
+
+func (s pgChats) MessageByKey(ctx context.Context, sender, key uuid.UUID) (domain.Message, error) {
+	rows, err := s.db.Query(ctx, `SELECT `+messageColumns+` FROM messages m WHERE m.sender_id = @sender AND m.request_key = @key`,
+		pgx.StrictNamedArgs{"sender": sender, "key": key})
+	if err != nil {
+		return domain.Message{}, fmt.Errorf("select message: %w", err)
+	}
+	m, err := pgx.CollectOneRow(rows, scanMessage)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Message{}, ErrNotFound
+	}
+	if err != nil {
+		return domain.Message{}, fmt.Errorf("select message: %w", err)
+	}
+	return m, nil
 }
 
 // photosOf is the message's photos as stored, an empty list for none.

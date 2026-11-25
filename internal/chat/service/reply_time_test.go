@@ -33,7 +33,7 @@ func TestReplyTime(t *testing.T) {
 		m := domain.RestoreMessage(domain.MessageState{
 			ID: uuid.NewV7(), ConversationID: conv, SenderID: from, Body: "Còn ạ", Status: domain.StatusSent, CreatedAt: now.Add(-ago),
 		})
-		if err := chats.AddMessage(ctx, m); err != nil {
+		if _, err := chats.AddMessage(ctx, m, uuid.Nil()); err != nil {
 			t.Fatal(err)
 		}
 	}

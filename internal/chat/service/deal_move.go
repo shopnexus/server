@@ -48,7 +48,7 @@ func (c *Chat) PostMove(ctx context.Context, in MoveInput) error {
 	}
 	m := domain.NewDealMessage(in.ID, conv.ID, in.SenderID,
 		domain.DealMove{DealID: in.DealID, Kind: in.Kind, By: in.By, Amount: in.Amount}, in.At)
-	if err = c.chats.AddMessage(ctx, m); err != nil {
+	if _, err = c.chats.AddMessage(ctx, m, uuid.Nil()); err != nil {
 		return fmt.Errorf("add the deal message: %w", err)
 	}
 	return nil

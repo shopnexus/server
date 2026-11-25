@@ -129,8 +129,10 @@ func TestInsertKeepsTheRateAndTheKey(t *testing.T) {
 	if err != nil || existed || first.Status != domain.StatusOpen || first.LastFrom != domain.FromPerson || len(first.Events) != 1 {
 		t.Fatalf("first: %+v %v %v", first, existed, err)
 	}
+	// A racing retry of the key gets the first ticket as the first answer
+	// was: new.
 	again, existed, err := s.Insert(ctx, ticket(t, db, person, domain.KindOther, nil, ""), key, "", since)
-	if err != nil || !existed || again.ID != first.ID {
+	if err != nil || existed || again.ID != first.ID {
 		t.Fatalf("the same key: %v %v %v", again.ID, existed, err)
 	}
 	// A retried step inserts the same ticket again: it is the step's own, so

@@ -209,7 +209,7 @@ func TestReplyGoesOutAsShopNexusAndNamesTheMember(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	m, err := e.support.Reply(ctx, tk.ID, uuid.NewV7().String(), service.ReplyInput{Body: "Chào bạn", ReplyTo: tk.FirstMessageID}, e.member(t, "Lan"))
+	m, err := e.support.Reply(ctx, tk.ID, uuid.NewV7(), service.ReplyInput{Body: "Chào bạn", ReplyTo: tk.FirstMessageID}, e.member(t, "Lan"))
 	if err != nil || m.Message.SenderID != accountdomain.ShopNexusID || m.Member != "Lan" || m.Message.ReplyTo == nil {
 		t.Fatalf("%+v %v", m, err)
 	}
@@ -325,7 +325,7 @@ func TestAPersonsMessageReopens(t *testing.T) {
 	if _, err = e.support.Resolve(ctx, tk.ID, e.member(t, "Lan")); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = e.chat.Send(ctx, person, tk.ConversationID, uuid.NewV7().String(), chatsvc.SendInput{Text: "Còn nữa"}); err != nil {
+	if _, err = e.chat.Send(ctx, person, tk.ConversationID, uuid.NewV7(), chatsvc.SendInput{Text: "Còn nữa"}); err != nil {
 		t.Fatal(err)
 	}
 	// The worker calls Messaged on message.sent; worker_test covers that call.
@@ -369,7 +369,7 @@ func TestAccountDeletedKeepsDelayedFirstDeliveryResolved(t *testing.T) {
 		t.Fatal(err)
 	}
 	clock.Add(time.Minute)
-	msg, err := e.chat.Send(t.Context(), owner, tk.ConversationID, uuid.NewV7().String(), chatsvc.SendInput{Text: "Còn nữa"})
+	msg, err := e.chat.Send(t.Context(), owner, tk.ConversationID, uuid.NewV7(), chatsvc.SendInput{Text: "Còn nữa"})
 	if err != nil {
 		t.Fatal(err)
 	}

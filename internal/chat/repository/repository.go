@@ -35,9 +35,14 @@ type Chats interface {
 	// AddMessage inserts m and notifies the members m is visible to. A sent
 	// m becomes the conversation's last message unless a newer one is, and
 	// then takes the conversation out of both members' archives; it writes
-	// message.sent unless it is a deal message. Adding the same ID again
-	// does nothing.
-	AddMessage(ctx context.Context, m domain.Message) error
+	// message.sent unless it is a deal message. It claims the sender's
+	// request key, uuid.Nil() for none, and returns the ID of the message
+	// that holds it: adding the same ID or key again inserts nothing and
+	// returns the first message's ID.
+	AddMessage(ctx context.Context, m domain.Message, key uuid.UUID) (uuid.UUID, error)
+	// MessageByKey returns the sender's message sent with key, or
+	// ErrNotFound.
+	MessageByKey(ctx context.Context, sender, key uuid.UUID) (domain.Message, error)
 	// DeleteMessage removes a message the send flow could not finish.
 	DeleteMessage(ctx context.Context, id uuid.UUID) error
 	// GetMessage returns ErrNotFound for an unknown id.

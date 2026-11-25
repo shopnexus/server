@@ -51,10 +51,10 @@ type Reply struct {
 type Tickets interface {
 	// Insert stores t, open and waiting for an answer, with its opened
 	// event, unless the account opened domain.DailyLimit tickets after since
-	// (domain.ErrTooMany). A key the account used already, or for
-	// not_received an order with a ticket, returns that ticket and true
-	// instead; t's own row, from a retried call, returns it and false. The
-	// account is locked for the transaction.
+	// (domain.ErrTooMany). A key the account used already returns that
+	// ticket and false, the request's own; for not_received, an order with
+	// a ticket returns that ticket and true. The account is locked for the
+	// transaction.
 	Insert(ctx context.Context, t Ticket, key uuid.UUID, carrierKey string, since time.Time) (Ticket, bool, error)
 	// OpenedSince counts the tickets account opened after since, without
 	// the lock: the check before Insert, which counts again under it.
@@ -66,6 +66,9 @@ type Tickets interface {
 	// ByConversation reads the ticket of a support chat; domain.ErrNotFound
 	// for a chat with none.
 	ByConversation(ctx context.Context, conversation uuid.UUID) (Ticket, error)
+	// ByKey reads the ticket account opened with key; domain.ErrNotFound
+	// for none.
+	ByKey(ctx context.Context, account, key uuid.UUID) (Ticket, error)
 	// ByOrder reads account's not_received ticket of order.
 	ByOrder(ctx context.Context, account, order uuid.UUID) (Ticket, error)
 	// OfAccount reads account's tickets, open first, each newest activity

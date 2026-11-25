@@ -111,7 +111,7 @@ func (e checkEnv) say(t *testing.T, sender uuid.UUID, text string) chatdomain.Me
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = e.chats.AddMessage(context.Background(), m); err != nil {
+	if _, err = e.chats.AddMessage(context.Background(), m, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return m
@@ -274,7 +274,7 @@ func TestScamCheckReadsALateMessage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = e.chats.AddMessage(context.Background(), late); err != nil {
+	if _, err = e.chats.AddMessage(context.Background(), late, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	e.say(t, e.c.AccountA, "nhé bạn")

@@ -95,7 +95,7 @@ func (h *Handler) ReplyTicket(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	out, err := h.support.Reply(r.Context(), in.ID, in.Key.String(), supportsvc.ReplyInput{Body: in.Body, ReplyTo: in.ReplyTo},
+	out, err := h.support.Reply(r.Context(), in.ID, in.Key, supportsvc.ReplyInput{Body: in.Body, ReplyTo: in.ReplyTo},
 		audit.ByMember(caller))
 	if err != nil {
 		httpx.WriteError(w, r, h.log, err)

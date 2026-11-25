@@ -120,14 +120,15 @@ func (s pgTickets) Insert(ctx context.Context, t Ticket, key uuid.UUID, carrierK
 	)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		var (
-			prior []Ticket
-			n     int
+			ofKey, ofOrder []Ticket
+			n              int
 		)
 		b := &pgx.Batch{}
 		b.Queue(`SELECT pg_advisory_xact_lock(hashtext('tickets:' || @account::text))`, pgx.StrictNamedArgs{"account": t.AccountID})
-		queueRead(b, `WHERE t.account_id = @account AND (t.request_key = @key
-    OR (t.kind = 'not_received' AND t.order_id = @order))`,
-			pgx.StrictNamedArgs{"account": t.AccountID, "key": key, "order": t.OrderID}, &prior)
+		queueRead(b, `WHERE t.account_id = @account AND t.request_key = @key`,
+			pgx.StrictNamedArgs{"account": t.AccountID, "key": key}, &ofKey)
+		queueRead(b, `WHERE t.account_id = @account AND t.kind = 'not_received' AND t.order_id = @order`,
+			pgx.StrictNamedArgs{"account": t.AccountID, "order": t.OrderID}, &ofOrder)
 		b.Queue(`SELECT count(*) FROM tickets WHERE account_id = @account AND opened_at > @since`,
 			pgx.StrictNamedArgs{"account": t.AccountID, "since": since}).QueryRow(func(row pgx.Row) error {
 			if err := row.Scan(&n); err != nil {
@@ -138,9 +139,14 @@ func (s pgTickets) Insert(ctx context.Context, t Ticket, key uuid.UUID, carrierK
 		if err := tx.SendBatch(ctx, b).Close(); err != nil {
 			return fmt.Errorf("read prior tickets: %w", err)
 		}
-		if len(prior) > 0 {
-			// The flow's own row, from a retried step, is new to the flow.
-			out, existed = prior[0], prior[0].ID != t.ID
+		// The key's ticket is this request's, from a retried step or a
+		// racing retry; the order's is another request's.
+		if len(ofKey) > 0 {
+			out = ofKey[0]
+			return nil
+		}
+		if len(ofOrder) > 0 {
+			out, existed = ofOrder[0], true
 			return nil
 		}
 		if n >= domain.DailyLimit {
@@ -220,6 +226,11 @@ func (s pgTickets) Get(ctx context.Context, id uuid.UUID) (Ticket, error) {
 
 func (s pgTickets) ByConversation(ctx context.Context, conversation uuid.UUID) (Ticket, error) {
 	return one(ctx, s.db, `WHERE t.conversation_id = @conversation`, pgx.StrictNamedArgs{"conversation": conversation})
+}
+
+func (s pgTickets) ByKey(ctx context.Context, account, key uuid.UUID) (Ticket, error) {
+	return one(ctx, s.db, `WHERE t.account_id = @account AND t.request_key = @key`,
+		pgx.StrictNamedArgs{"account": account, "key": key})
 }
 
 func (s pgTickets) ByOrder(ctx context.Context, account, order uuid.UUID) (Ticket, error) {

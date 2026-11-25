@@ -37,7 +37,7 @@ func send(t *testing.T, s repository.Chats, c domain.Conversation, sender uuid.U
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.AddMessage(context.Background(), m); err != nil {
+	if _, err = s.AddMessage(context.Background(), m, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	return m
@@ -94,7 +94,7 @@ func TestMessagesAndInbox(t *testing.T) {
 	ctx := context.Background()
 	c, a, b := pair(t, db, s)
 	first := send(t, s, c, a, "Còn không?")
-	if err := s.AddMessage(ctx, first); err != nil {
+	if _, err := s.AddMessage(ctx, first, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	photo := send(t, s, c, b, "", uuid.NewV7())
@@ -333,7 +333,7 @@ func TestWindow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.AddMessage(ctx, photo); err != nil {
+	if _, err = s.AddMessage(ctx, photo, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	third := send(t, s, c, a, "Cọc trước được không?")
@@ -432,7 +432,7 @@ func TestAQuoteIsStoredAndRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.AddMessage(ctx, reply); err != nil {
+	if _, err = s.AddMessage(ctx, reply, uuid.Nil()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := s.GetMessage(ctx, reply.ID())

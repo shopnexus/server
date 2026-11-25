@@ -33,7 +33,7 @@ func TestWindowOfAConversation(t *testing.T) {
 		if mErr != nil {
 			t.Fatal(mErr)
 		}
-		if mErr = chats.AddMessage(ctx, m); mErr != nil {
+		if _, mErr = chats.AddMessage(ctx, m, uuid.Nil()); mErr != nil {
 			t.Fatal(mErr)
 		}
 		ids = append(ids, m.ID())

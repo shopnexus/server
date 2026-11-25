@@ -64,7 +64,7 @@ func (e env) upload(t *testing.T, owner uuid.UUID, body []byte) uuid.UUID {
 	return mediatest.Upload(t, e.media, owner, "image/jpeg", body)
 }
 
-func key() string { return uuid.NewV7().String() }
+func key() uuid.UUID { return uuid.NewV7() }
 
 // open has buyer open a conversation from listing with text.
 func (e env) open(t *testing.T, buyer, listing uuid.UUID, text string) service.ConversationView {

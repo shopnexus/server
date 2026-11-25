@@ -13,6 +13,7 @@ import (
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/page"
+	"github.com/shopnexus/server/internal/platform/restatex"
 	"github.com/shopnexus/server/internal/support/domain"
 	"github.com/shopnexus/server/internal/support/repository"
 )
@@ -161,12 +162,12 @@ func (s *Support) Messages(ctx context.Context, id uuid.UUID, p page.Request) (p
 	return out, nil
 }
 
-func (s *Support) Reply(ctx context.Context, id uuid.UUID, key string, in ReplyInput, by audit.Actor) (ConsoleMessage, error) {
+func (s *Support) Reply(ctx context.Context, id, key uuid.UUID, in ReplyInput, by audit.Actor) (ConsoleMessage, error) {
 	t, err := s.tickets.Get(ctx, id)
 	if err != nil {
 		return ConsoleMessage{}, fmt.Errorf("read the ticket: %w", err)
 	}
-	m, err := s.chats.Send(ctx, accountdomain.ShopNexusID, t.ConversationID, "reply/"+key, chatsvc.SendInput{Text: in.Body, ReplyTo: in.ReplyTo})
+	m, err := s.chats.Send(ctx, accountdomain.ShopNexusID, t.ConversationID, key, chatsvc.SendInput{Text: in.Body, ReplyTo: in.ReplyTo})
 	if err != nil {
 		return ConsoleMessage{}, fmt.Errorf("send the reply: %w", err)
 	}
@@ -190,7 +191,7 @@ func (s *Support) Resolve(ctx context.Context, id uuid.UUID, by audit.Actor) (Co
 		// sent again when the member resolves again. The key names this
 		// resolving: the retry sends it once, and a ticket reopened and
 		// resolved again sends it again.
-		key := "resolve/" + t.ID.String() + "/" + strconv.Itoa(len(t.Events)+1)
+		key := restatex.DerivedID("resolve", t.ID.String(), strconv.Itoa(len(t.Events)+1))
 		m, sendErr := s.chats.Send(ctx, accountdomain.ShopNexusID, t.ConversationID, key,
 			chatsvc.SendInput{Text: "Đã ghi nhận hãng " + t.CarrierName + "."})
 		switch {

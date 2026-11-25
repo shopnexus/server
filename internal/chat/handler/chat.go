@@ -10,10 +10,10 @@ import (
 )
 
 type openRequest struct {
-	IdempotencyKey string      `header:"Idempotency-Key" json:"-"`
-	ListingID      uuid.UUID   `json:"listing_id"`
-	Text           string      `json:"text"`
-	Photos         []uuid.UUID `json:"photos"`
+	Key       uuid.UUID   `header:"Idempotency-Key" json:"-"`
+	ListingID uuid.UUID   `json:"listing_id"`
+	Text      string      `json:"text"`
+	Photos    []uuid.UUID `json:"photos"`
 }
 
 type conversationRequest struct {
@@ -21,12 +21,12 @@ type conversationRequest struct {
 }
 
 type sendRequest struct {
-	ID             uuid.UUID   `json:"-"                 path:"id"`
-	IdempotencyKey string      `header:"Idempotency-Key" json:"-"`
-	Text           string      `json:"text"`
-	Photos         []uuid.UUID `json:"photos"`
-	ListingID      *uuid.UUID  `json:"listing_id"`
-	ReplyTo        *uuid.UUID  `json:"reply_to"`
+	ID        uuid.UUID   `json:"-"                 path:"id"`
+	Key       uuid.UUID   `header:"Idempotency-Key" json:"-"`
+	Text      string      `json:"text"`
+	Photos    []uuid.UUID `json:"photos"`
+	ListingID *uuid.UUID  `json:"listing_id"`
+	ReplyTo   *uuid.UUID  `json:"reply_to"`
 }
 
 type readRequest struct {
@@ -51,7 +51,7 @@ func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Open(r.Context(), p.AccountID, in.IdempotencyKey, service.OpenInput{
+	v, err := h.svc.Open(r.Context(), p.AccountID, in.Key, service.OpenInput{
 		ListingID: in.ListingID, Text: in.Text, Photos: in.Photos,
 	})
 	if err != nil {
@@ -91,7 +91,7 @@ func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.log, err)
 		return
 	}
-	v, err := h.svc.Send(r.Context(), p.AccountID, in.ID, in.IdempotencyKey, service.SendInput{
+	v, err := h.svc.Send(r.Context(), p.AccountID, in.ID, in.Key, service.SendInput{
 		Text: in.Text, Photos: in.Photos, ListingID: in.ListingID, ReplyTo: in.ReplyTo,
 	})
 	if err != nil {
