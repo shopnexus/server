@@ -32,9 +32,12 @@ VALUES (@id, @email, @name, 'moderator', 'active', 'x', false, 1, 0, @at, @at, @
 	return id
 }
 
-func insert(t *testing.T, db *pgxpool.Pool, e audit.Entry) {
+// insert writes entries with one statement, sent on the pool.
+func insert(t *testing.T, db *pgxpool.Pool, entries ...audit.Entry) {
 	t.Helper()
-	if err := pgx.BeginFunc(context.Background(), db, func(tx pgx.Tx) error { return audit.Insert(context.Background(), tx, e) }); err != nil {
+	b := &pgx.Batch{}
+	audit.Queue(b, entries...)
+	if err := db.SendBatch(context.Background(), b).Close(); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -48,8 +51,7 @@ func TestListFiltersAndPages(t *testing.T) {
 	acc := uuid.NewV7()
 	ip := netip.MustParseAddr("203.0.113.9")
 
-	insert(t, db, audit.Entry{Actor: audit.ByCLI("root"), Action: audit.MemberCreate, Target: audit.Member(mod), At: at})
-	insert(t, db, audit.Entry{
+	insert(t, db, audit.Entry{Actor: audit.ByCLI("root"), Action: audit.MemberCreate, Target: audit.Member(mod), At: at}, audit.Entry{
 		Actor:  audit.Actor{Kind: audit.ActorMember, MemberID: mod, IP: ip},
 		Action: audit.AccountSuspend, Target: audit.Account(acc), Details: map[string]any{"reason": "spam"}, At: at.Add(time.Second),
 	})

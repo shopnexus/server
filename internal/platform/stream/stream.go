@@ -1,7 +1,7 @@
 // Package stream tells open apps what changed for their account. A
-// repository calls Notify in the transaction of the change: Notify appends
-// the change to each account's update log, where it takes the next seq, and
-// rings the bell. The hub hands rings to the WebSocket connections of their
+// repository calls Queue with the batch of the change: it appends the change
+// to each account's update log, where it takes the next seq, and rings the
+// bell. The hub hands rings to the WebSocket connections of their
 // accounts, and a connection that may have missed one reads the log. An
 // update carries IDs only; the app reloads what it shows.
 package stream
@@ -9,7 +9,6 @@ package stream
 import (
 	"context"
 	"fmt"
-	"slices"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
@@ -54,41 +53,46 @@ type Update struct {
 	Seq int64 `json:"seq"`
 }
 
-// appendUpdate takes the account's next seq and writes its update. The
-// counter row stays locked until the transaction ends.
-const appendUpdate = `
+// appendUpdates takes the next seq of each account, in UUID order so two
+// transactions cannot deadlock, writes its update and rings the bell. The
+// counter rows stay locked until the transaction ends.
+const appendUpdates = `
 WITH next AS (
-    INSERT INTO account_update_seqs (account_id, seq) VALUES (@account, 1)
-    ON CONFLICT (account_id) DO UPDATE SET seq = account_update_seqs.seq + 1
-    RETURNING seq)
-INSERT INTO account_updates (account_id, seq, kind, conversation_id, message_id, deal_id, notification_id, listing_read_id)
-SELECT @account, seq, @kind, @conversation, @message, @deal, @notification, @listing_read FROM next
-RETURNING seq`
+    INSERT INTO account_update_seqs AS s (account_id, seq)
+    SELECT DISTINCT a, 1 FROM unnest(@accounts::uuid[]) a ORDER BY a
+    ON CONFLICT (account_id) DO UPDATE SET seq = s.seq + 1
+    RETURNING account_id, seq),
+logged AS (
+    INSERT INTO account_updates (account_id, seq, kind, conversation_id, message_id, deal_id, notification_id, listing_read_id)
+    SELECT account_id, seq, @kind::text, @conversation::uuid, @message::uuid, @deal::uuid, @notification::uuid, @listing_read::uuid
+    FROM next
+    RETURNING account_id, seq)
+SELECT pg_notify(@channel, json_build_object(
+    'targets', json_agg(json_build_object('account', account_id, 'seq', seq)), 'hint', @hint::json)::text)
+FROM logged`
 
-// Notify appends h to the log of each of accounts and rings the bell, in
-// tx: Postgres rings on commit and drops it all on rollback. It takes the
-// accounts' counters in UUID order, so two transactions that notify the
-// same accounts cannot deadlock.
-func Notify(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h Hint) error {
-	_, err := appendHint(ctx, tx, accounts, h)
-	return err
+// Queue adds to b one statement that appends h to the log of each of
+// accounts and rings the bell: Postgres rings on commit and drops it all
+// on rollback. No accounts queues nothing.
+func Queue(b *pgx.Batch, accounts []uuid.UUID, h Hint) {
+	if len(accounts) == 0 {
+		return
+	}
+	b.Queue(appendUpdates, pgx.StrictNamedArgs{
+		"accounts": accounts, "kind": h.Kind, "conversation": h.ConversationID, "message": h.MessageID,
+		"deal": h.DealID, "notification": h.NotificationID, "listing_read": h.ListingReadID,
+		"channel": channel, "hint": h,
+	}).Fn = func(br pgx.BatchResults) error {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("append updates: %w", err)
+		}
+		return nil
+	}
 }
 
-// appendHint is Notify, returning each account's new seq.
-func appendHint(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h Hint) ([]Target, error) {
-	ids := slices.Clone(accounts)
-	slices.SortFunc(ids, uuid.UUID.Compare)
-	ids = slices.Compact(ids)
-	targets := make([]Target, 0, len(ids))
-	for _, a := range ids {
-		var seq int64
-		if err := tx.QueryRow(ctx, appendUpdate, pgx.StrictNamedArgs{
-			"account": a, "kind": h.Kind, "conversation": h.ConversationID, "message": h.MessageID,
-			"deal": h.DealID, "notification": h.NotificationID, "listing_read": h.ListingReadID,
-		}).Scan(&seq); err != nil {
-			return nil, fmt.Errorf("append update: %w", err)
-		}
-		targets = append(targets, Target{Account: a, Seq: seq})
-	}
-	return targets, PGBell{}.Ring(ctx, tx, targets, h)
+// Notify runs Queue's statement in tx, the transaction of the change.
+func Notify(ctx context.Context, tx pgx.Tx, accounts []uuid.UUID, h Hint) error {
+	b := &pgx.Batch{}
+	Queue(b, accounts, h)
+	return tx.SendBatch(ctx, b).Close() //nolint:wrapcheck // Queue's statement wraps its own error.
 }

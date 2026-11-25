@@ -93,22 +93,31 @@ func TestInsertTwiceKeepsOne(t *testing.T) {
 	}
 }
 
-// One call writes every event it gets.
-func TestInsertWritesEveryEvent(t *testing.T) {
+// One statement writes every event it gets and a repeated ID once; a batch
+// on the pool needs no transaction.
+func TestQueueWritesEveryEvent(t *testing.T) {
 	t.Parallel()
 	db := pgtest.New(t)
 	ctx := context.Background()
 	subject := uuid.NewV7()
-	err := pgx.BeginFunc(ctx, db, func(tx pgx.Tx) error {
-		return events.Insert(ctx, tx,
-			events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: subject, OccurredAt: at},
-			events.Event{ID: uuid.NewV7(), Kind: events.AccountUpdated, SubjectID: subject, OccurredAt: at})
-	})
-	if err != nil {
+	first := events.Event{ID: uuid.NewV7(), Kind: events.AccountSuspended, SubjectID: subject, OccurredAt: at}
+	b := &pgx.Batch{}
+	events.Queue(b, first,
+		events.Event{
+			ID: uuid.NewV7(), Kind: events.AccountUpdated, SubjectID: subject, OccurredAt: at,
+			Payload: map[string]any{"price": 5},
+		},
+		first)
+	if b.Len() != 1 {
+		t.Fatalf("%d statements", b.Len())
+	}
+	if err := db.SendBatch(ctx, b).Close(); err != nil {
 		t.Fatal(err)
 	}
 	var n int
-	if err = db.QueryRow(ctx, `SELECT count(*) FROM events WHERE subject_id = @id`, pgx.StrictNamedArgs{"id": subject}).Scan(&n); err != nil || n != 2 {
-		t.Fatalf("%d %v", n, err)
+	var price float64
+	if err := db.QueryRow(ctx, `SELECT count(*), sum((payload->>'price')::numeric) FROM events WHERE subject_id = @id`,
+		pgx.StrictNamedArgs{"id": subject}).Scan(&n, &price); err != nil || n != 2 || price != 5 {
+		t.Fatalf("%d %v %v", n, price, err)
 	}
 }

@@ -99,19 +99,16 @@ ORDER BY seq LIMIT @limit`,
 	return Page{Updates: updates, Seq: current, HasMore: more}, nil
 }
 
-// Append logs h for account in a transaction of its own, as Notify does in
-// the transaction of a change, and returns the update with its seq.
+// Append logs h for account on its own, as Queue does in the batch of a
+// change, and returns the update with its seq. A batch runs as one
+// transaction, so the read sees the append.
 func (l PGLog) Append(ctx context.Context, account uuid.UUID, h Hint) (Update, error) {
-	var u Update
-	err := pgx.BeginFunc(ctx, l.DB, func(tx pgx.Tx) error {
-		targets, err := appendHint(ctx, tx, []uuid.UUID{account}, h)
-		if err != nil {
-			return err
-		}
-		u = Update{Hint: h, Seq: targets[0].Seq}
-		return nil
-	})
-	if err != nil {
+	u := Update{Hint: h}
+	b := &pgx.Batch{}
+	Queue(b, []uuid.UUID{account}, h)
+	b.Queue(`SELECT seq FROM account_update_seqs WHERE account_id = @account`, pgx.StrictNamedArgs{"account": account}).
+		QueryRow(func(r pgx.Row) error { return r.Scan(&u.Seq) })
+	if err := l.DB.SendBatch(ctx, b).Close(); err != nil {
 		return Update{}, fmt.Errorf("append the update: %w", err)
 	}
 	return u, nil

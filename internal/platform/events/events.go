@@ -1,6 +1,6 @@
-// Package events is server's outbox. A repository writes an Event with
-// Insert in the transaction of the change it announces, and Bus hands it to
-// the Restate handlers subscribed to its kind.
+// Package events is server's outbox. A repository queues an Event with
+// Queue in the batch of the change it announces, and Bus hands it to the
+// Restate handlers subscribed to its kind.
 package events
 
 import (
@@ -65,33 +65,50 @@ type Event struct {
 	OccurredAt time.Time      `json:"occurred_at"`
 }
 
-const insertEvent = `
-INSERT INTO events (id, kind, subject_id, payload, occurred_at)
-VALUES (@id, @kind, @subject_id, @payload, @occurred_at)
-ON CONFLICT (id) DO NOTHING`
+// insertEvents writes a batch of events and notifies Bus once; Postgres
+// delivers the notification on commit and drops it on rollback.
+const insertEvents = `
+WITH inserted AS (
+    INSERT INTO events (id, kind, subject_id, payload, occurred_at)
+    SELECT id, kind, subject_id, payload, occurred_at
+    FROM unnest(@ids::uuid[], @kinds::text[], @subjects::uuid[], @payloads::jsonb[], @occurred_at::timestamptz[])
+        AS e(id, kind, subject_id, payload, occurred_at)
+    ON CONFLICT (id) DO NOTHING)
+SELECT pg_notify('events', '')`
 
-// Insert writes evs in tx, the transaction of the change, and notifies Bus
-// once; Postgres delivers the notification on commit and drops it on
-// rollback. Writing an event with the same ID again does nothing, so a
-// durable step that retries its save, with the event IDs it took from the
-// journal, stays at one event each. No events writes nothing.
-func Insert(ctx context.Context, tx pgx.Tx, evs ...Event) error {
+// Queue adds to b one statement that writes evs, so they commit with the
+// change b carries. Writing an event with the same ID again does nothing,
+// so a durable step that retries its save, with the event IDs it took from
+// the journal, stays at one event each. No events queues nothing.
+func Queue(b *pgx.Batch, evs ...Event) {
 	if len(evs) == 0 {
+		return
+	}
+	ids := make([]uuid.UUID, len(evs))
+	kinds := make([]string, len(evs))
+	subjects := make([]uuid.UUID, len(evs))
+	payloads := make([]map[string]any, len(evs))
+	occurred := make([]time.Time, len(evs))
+	for i, e := range evs {
+		ids[i], kinds[i], subjects[i], payloads[i], occurred[i] = e.ID, string(e.Kind), e.SubjectID, e.Payload, e.OccurredAt
+		if payloads[i] == nil {
+			payloads[i] = map[string]any{}
+		}
+	}
+	b.Queue(insertEvents, pgx.StrictNamedArgs{
+		"ids": ids, "kinds": kinds, "subjects": subjects, "payloads": payloads, "occurred_at": occurred,
+	}).Fn = func(br pgx.BatchResults) error {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("insert events: %w", err)
+		}
 		return nil
 	}
-	for _, e := range evs {
-		payload := e.Payload
-		if payload == nil {
-			payload = map[string]any{}
-		}
-		if _, err := tx.Exec(ctx, insertEvent, pgx.StrictNamedArgs{
-			"id": e.ID, "kind": e.Kind, "subject_id": e.SubjectID, "payload": payload, "occurred_at": e.OccurredAt,
-		}); err != nil {
-			return fmt.Errorf("insert event: %w", err)
-		}
-	}
-	if _, err := tx.Exec(ctx, `SELECT pg_notify('events', '')`); err != nil {
-		return fmt.Errorf("notify events: %w", err)
-	}
-	return nil
+}
+
+// Insert writes evs in tx, the transaction of the change, with Queue's
+// statement.
+func Insert(ctx context.Context, tx pgx.Tx, evs ...Event) error {
+	b := &pgx.Batch{}
+	Queue(b, evs...)
+	return tx.SendBatch(ctx, b).Close() //nolint:wrapcheck // Queue's statement wraps its own error.
 }
