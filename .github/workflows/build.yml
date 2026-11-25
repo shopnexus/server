@@ -9,6 +9,7 @@ name: Build image
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
@@ -19,7 +20,34 @@ env:
   IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
+  # Lint, vet and known vulnerabilities; build waits for it. The tests need
+  # the test stack and still run with make test.
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      # The newest 1.27 patch, so govulncheck sees the standard library's fixes.
+      - uses: actions/setup-go@v7
+        with: { go-version: "1.27", check-latest: true }
+      - uses: golangci/golangci-lint-action@v9
+        with: { version: v2.15.0 }
+      - run: go vet ./...
+      - run: go run golang.org/x/vuln/cmd/govulncheck@v1.10.0 ./...
+      # Applied migrations never change, so only the ones this push adds.
+      - name: sqlfluff on new migrations
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          [[ -n $BASE && ! $BASE =~ ^0+$ ]] || exit 0
+          mapfile -t files < <(git diff --name-only --diff-filter=A "$BASE" HEAD -- 'migrations/*.sql')
+          [[ ${#files[@]} -gt 0 ]] || exit 0
+          pipx run sqlfluff==4.5.0 lint "${files[@]}"
+
   build:
+    needs: check
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
