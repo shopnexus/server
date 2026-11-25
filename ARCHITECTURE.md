@@ -567,7 +567,7 @@ returns what app and other modules need: a module with Restate services
 returns `module.Mounted[service.Service]`, its `Service` and those services;
 trust returns its `Service`; console returns `console.Mounted`, its
 `Service` and its moderator guard; agent returns `*agent.Mounted`, whose
-`Run` app starts (see Console agent); erasure and screen return nothing.
+Restate services app serves and whose `Run` app starts (see Console agent); erasure and screen return nothing.
 `app.mountModules` calls each `Mount` in dependency order and imports no
 package inside a module. `account.Guards` builds `Protect`, which requires
 a signed-in caller, and `Identify`, which lets a signed-out request through,
@@ -605,10 +605,10 @@ separate work.
 | Aggregate | Tables | Notes |
 |---|---|---|
 | `Account` | `accounts` | adds `write_id` |
-| `Credentials` | `credentials` (root: `account_id` PK, `write_id`, later `password_hash`), `identities` (children) | `Save` changes the root's `write_id` and rewrites the account's identities in one transaction; the planned `passwords` table folds into the root |
+| `Credentials` | `credentials` (root: `account_id` PK, `write_id`), `identities` (children) | `Save` changes the root's `write_id` and rewrites the account's identities in one transaction; migration 0095 dropped the unused `password_hash`, so a password, if one comes, is a new column or table |
 | `Session` | `sessions` | adds `write_id` and `auth_time` |
-| `Upload` | `uploads` | module media; status, content type, size, the processed keys |
-| `Listing` | `listings` | module catalog; photos and specs are `jsonb` columns, read and written with the row |
+| `Upload` | `uploads` | module media; status, content type, size, the processed keys; CHECKs (migration 0096): a ready upload has its photo key, a waiting one no holder |
+| `Listing` | `listings` | module catalog; photos and specs are `jsonb` columns, read and written with the row; CHECKs (migration 0096): reserved ⇔ `reserved_for`, deleted ⇔ `deleted_at`, sold ⇒ `sold_at` and `sold_at` only when sold or deleted, 1 to 10 photos, at most 20 specs |
 | `ListingDraft` | `listing_drafts` | module catalog; `photos uuid[]`, `body text` the app owns; no `write_id`: the last write wins |
 | `Address` | `addresses` | module account; one row per address, `write_id`; `recipient_name` keeps the keyword `name` out of the columns |
 | feedback | `feedback` | module feedback; one row per feedback, `request_key` unique per account, `root_id` names its group's root; no aggregate, no `write_id`: a group's writes take one advisory lock |
@@ -616,11 +616,11 @@ separate work.
 | listing views | `listing_view_marks`, `listing_view_days` | module discovery; a person's last day of opening each listing, and the views per listing and UTC day; no aggregate, no `write_id` |
 | notification settings | `notification_settings` | module notification; one row per account that saved settings; no aggregate, no `write_id`: the last `PUT` wins |
 | quick replies | `quick_replies` | module chat; one row per account that saved its list, `items text[]` in order; no aggregate, no `write_id`: the last `PUT` wins |
-| reply samples | `reply_samples` | module chat; one row per answer that ended a wait, kept 30 days; no aggregate, no `write_id` |
+| reply samples | `reply_samples` | module chat; one row per answer that ended a wait, kept 30 days (each sent message trims the expired rows); no aggregate, no `write_id` |
 | helpful marks | `review_helpful` | module trust; one row per person and review; no aggregate, no `write_id` |
 | agent reads | `console_agent_reads` | module agent; one row per read of personal data by an MCP tool, kept 90 days; no aggregate, no `write_id` |
-| agent runs | `agent_conversations`, `agent_turns`, `agent_turn_inputs`, `agent_tool_calls`, `agent_turn_events`, `agent_documents`, `agent_document_versions`, `agent_skills` | module agent; the console agent's conversations and what their runs wrote; no aggregate: a turn's status changes under its row lock or a `WHERE status` check, and an input is added under the turn's row lock; `agent_skills` adds `write_id` (migration 0094) |
-| AI agents | `ai_agents`, `ai_agent_versions` | module agent; `ai_agents` adds `write_id`, and a save adds the version of new instructions (see AI settings) |
+| agent runs | `agent_conversations`, `agent_turns`, `agent_turn_inputs`, `agent_tool_calls`, `agent_turn_events`, `agent_documents`, `agent_document_versions`, `agent_skills` | module agent; the console agent's conversations and what their runs wrote; no aggregate: a turn's status changes under its row lock or a `WHERE status` check, and an input is added under the turn's row lock; `agent_skills` adds `write_id` (migration 0094); a conversation has no status (migration 0098 dropped it: nothing closed one) |
+| AI agents | `ai_agents`, `ai_agent_versions` | module agent; `ai_agents` adds `write_id`; its instructions are its latest version's row, which a save of new instructions inserts (see AI settings) |
 | model tags | `ai_tags`, `ai_model_tags` | module agent; no aggregate, no `write_id`: setting a model's tags replaces them under an advisory lock per model |
 | budget settings | `ai_budget_settings`, `ai_member_budgets` | module agent; one row with `write_id` (migration 0094), and the members' own budgets it replaces |
 
@@ -642,6 +642,15 @@ file's sha256 changed. A gap in the numbers is
 fine, and so is a lower version that lands after a higher one, as when
 two branches number apart and merge in either order; only a version two
 files share is refused.
+
+A domain rule that one row can show is a CHECK too, so a raw write or a
+bug in a store cannot break it. A CHECK added to a table with rows goes in
+`NOT VALID`: new and updated rows are checked, and an old row never fails
+the deploy; a later migration may `VALIDATE` it. Migration 0097 adds them
+for orders (a positive price; `cancelled_by` and `cancel_reason` exactly
+when cancelled; `closed_at` exactly when completed, cancelled or failed;
+`shipped_at` exactly with `shipment_mode`) and deals (a positive open
+amount, an open price only while negotiating). Each held on the dev data.
 
 IDs are chosen by the caller before the insert: `restatex.NewID(ctx, at)`
 inside a Restate service, `uuid.NewV7()` in a direct use case. Only
@@ -1207,8 +1216,9 @@ Grafana takes a moderator; the others take an admin.
   hashes and the console session's ID, with `ON DELETE CASCADE`. A sign-out
   revokes the console session and deletes nothing, so every dashboard check
   joins the console session and its member with the same rules as
-  `Authenticate` (`sessionLives` in `session_pg.go`). A new ticket deletes
-  its session's expired tickets.
+  `Authenticate` (`sessionLives` in `session_pg.go`). A dashboard session
+  keeps no end of its own (migration 0095 dropped it): it lives as long as
+  its console session. A new ticket deletes its session's expired tickets.
 - `DASHBOARD_HOSTS` is required and may be empty, which refuses every
   dashboard. `config.DashboardApps` lists the apps it may name.
 - Each app's floor is a row of `console_dashboards` (migration 0057, seeded
@@ -1249,7 +1259,9 @@ missing key surfaced only then. A missing key is `ErrNotFound`.
 
 Module `media` owns uploads; catalog, chat and account (avatars) use
 them. An `Upload` moves waiting → attached → ready or failed, or
-waiting → expired; a video moves waiting → attached → consumed. A waiting
+waiting → expired; a video moves waiting → attached → consumed; a photo
+attached, ready or failed moves to released when its holder no longer
+shows it (decided 2026-11-26, migration 0096). A waiting
 upload expires at `uploads.expires_at`: a day after it was created, later
 once a listing draft extended it.
 
@@ -1309,6 +1321,18 @@ once a listing draft extended it.
   `mediasvc.ProcessAll(ctx, prefix, ids)`: one `MediaProcess` call per
   upload, keyed by the upload ID, all sent before it waits for the
   results. Catalog's `ListingPublish` and chat's `MessagePublish` use it.
+- `mediasvc.Release(ctx, prefix, holder, ids)` sends `MediaRelease.Run`
+  one way from another module's flow (decided 2026-11-26): the holder no
+  longer shows those uploads. Each the holder holds as a photo, attached,
+  ready or failed, is saved released and its original `uploads/<id>`,
+  which keeps EXIF and GPS, deleted at once; a lost save reads them
+  again. `Purge`, sent per upload `PurgeAfter` (24 hours) later, deletes
+  `media/<id>.jpg` and its thumbnail, so pages cached before still load.
+  A released upload never attaches again, and `MediaProcess` fails it as
+  not attached, also when the release deleted the original under a run.
+  Media reads no catalog table: catalog names the uploads. Only listings
+  release so far; a review's, a message's and a replaced avatar's objects
+  stay.
 
 Search reads photos through three more use cases (decided 2026-11-09):
 
@@ -1450,9 +1474,18 @@ agree during a deploy.
   an attach that refuses deletes the row again (`Listings.Discard`). The
   last step sends `ListingPublish`, journaled like the rest.
 - `ListingEdit` loads the seller's listing, edits it, attaches the uploads
-  the edit adds and saves it with `listing.updated`. A save that loses a
-  race is `try_again`; the uploads stay with the listing, so the next try
-  attaches them again.
+  the edit adds and saves it with `listing.updated`, then has media
+  release the uploads it dropped (`mediasvc.Release`, decided 2026-11-26).
+  A save that loses a race is `try_again`; the uploads stay with the
+  listing, so the next try attaches them again, and `ListingEdit.Tidy`,
+  sent 24 hours later, releases those the listing still does not show.
+  Accepted race: a second edit that adds back a photo the first just
+  dropped, between that save and its release, gets the photo rejected.
+- `listing.deleted` reaches `worker.ListingWatch.Deleted`, whoever
+  deleted the listing (the seller, or erasure's `SellerLeft`), which
+  releases every photo but a processed cover (`Listing.DeletedUploads`):
+  orders, deals, chats and support still show the cover's thumbnail, and
+  nothing shows the others of a deleted listing.
 - Unmarking a sale counts toward the cap: `Listings.Save` takes the seller's
   lock and refuses a listing coming back on sale with `listing_cap_reached`.
 - `ListingPublish.Run(listing_id)` starts after every write that leaves the
@@ -1583,7 +1616,9 @@ agree during a deploy.
   seller's public listings (active or reserved), the listings under the
   cap and the sold ones; "Đã bán" counts
   every sold listing, sold through an order or marked by hand (decided
-  2026-10-27).
+  2026-10-27), and one the seller deleted after the sale: it counts
+  `sold_at`, which a deletion keeps and only `unmark-sold` clears
+  (decided 2026-11-26), so deleting sold listings erases no sales.
 - `GET /v1/sitemap`, `/v1/sitemap/listings` and `/v1/sitemap/sellers` are
   public and feed the website's sitemap (decided 2026-11-20). The first
   splits the public listings, and the sellers who have one, into parts of
@@ -1755,7 +1790,10 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   a `post_office`), picked up at one of the carrier's pickup points or at
   one of the seller's addresses, which the order copies. A carrier the
   seller has not linked is 409 `carrier_not_linked` (see Shipping). The
-  fee is the carrier's, null while it has none. The shipment's status is
+  fee is the carrier's newest, null while it has told none: the create's
+  answer when it carries one (a retried GHTK create does not), then the
+  newest fee of the timeline that each report and poll sends with its
+  status (decided 2026-11-26). The shipment's status is
   the carrier's: `pending_pickup`, `in_transit`, `delivered`, `failed`; a
   new shipment waits for pickup.
 - Manual shipments, made by the seller on a carrier's own app and typed in
@@ -1866,7 +1904,10 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   status last (decided 2026-11-25). A newer step of the same status only
   moves the time, with no move and no `deal.moved`. `lost`, which
   shipping sends for a parcel cancelled or lost, is a report only: it
-  fails an order picked up and moves no other.
+  fails an order picked up and moves no other. A report's fee
+  (`ShipmentSignal.Fee`) replaces the order's before the status, with no
+  move, unless the report's step is older than the stored one; the same
+  fee again changes nothing, and a closed order keeps its fee.
 - Deal makes, tracks and cancels shipments through `service.Shipping`,
   module shipping's `Create`, `Track` and `Cancel` with the seller's ID
   (and `SavedPickup` for a saved pickup), and maps its
@@ -2030,8 +2071,9 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   order screen returns the timeline as `tracking`, newest first; the buyer
   gets the steps only.
 - Every report of a known code sends its orders the status of the
-  timeline's newest step and its time, whether that report kept it or an
-  earlier one did (decided 2026-11-25): a resend that keeps nothing new
+  timeline's newest step and its time, and the newest fee event's amount,
+  whether that report kept it or an earlier one did (decided 2026-11-25,
+  the fee 2026-11-26): a resend that keeps nothing new
   still moves an order whose first move failed, and a late step, which is
   not the newest, sends the newest again and changes nothing. Only GHN's `create` and
   `switch_status` tell a step: its fee, weight and COD events carry the
@@ -2045,8 +2087,9 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
 - The poll is a delayed send to deal's `OrderTimers.Poll`, which the
   shipment starts. It reads the order's current code through shipping's
   `Track`, which keeps the carrier's history (GHN's `log`, GHTK's current
-  status) in the timeline, and moves the order through `ShipmentUpdates`
-  when the status differs, then sends itself again until the order
+  status) in the timeline, and its fee as a fee event (dropped while it
+  equals the newest), and moves the order through `ShipmentUpdates`
+  when the status or the fee differs, then sends itself again until the order
   closes. A status that maps to no step moves nothing, and a parcel
   cancelled or lost moves only an order picked up, which it fails. The pickup timeout reads the
   carrier the same way first, and a parcel picked up since the last poll
@@ -2567,8 +2610,10 @@ page that shows two views calls both at once.
   `day` up to 24), absent below 5 answers in 30 days or past a day. A view
   reads it from a table, not from the messages: chat's repository writes a
   row of `reply_samples` (migration 0067) in the transaction that makes a
-  message sent, when the message ends a wait, and drops the sender's rows
-  older than 30 days. A wait starts at the other member's first message
+  message sent, when the message ends a wait, and drops up to 100 rows
+  older than 30 days, anyone's, through `reply_samples_answered` with
+  `SKIP LOCKED` (migration 0095), so a silent seller's rows go too. A
+  message adds at most one row, so no separate sweep is needed. A wait starts at the other member's first message
   after the seller's previous one, when that came at least an hour later
   (`domain.ReplyGap`), or at the conversation's first message; within the
   hour it is the same talk and starts none. The conversation counts when
@@ -3154,10 +3199,10 @@ Spam and scam detection is moderation and goes to trust; the two share
   event, sends a comment every 15 s, and closes 30 s after the read's
   2-minute deadline at the latest.
 - Migration 0039 copied the rows of `video_reads` and `link_reads` and
-  their updates into `listing_reads` and `listing_read`; those tables and
-  `account_updates.video_read_id` and `link_read_id` stay, since the
-  release before writes them while the migration runs, until a later
-  release drops them.
+  their updates into `listing_reads` and `listing_read`; migration 0096
+  drops those tables and `account_updates.video_read_id` and
+  `link_read_id`, and `listing_reads.estimate`, since no read prices its
+  draft.
 
 The video read:
 
@@ -3336,12 +3381,18 @@ prices any draft for the app's "Giá" step, with or without a read:
   runs.
 - `draftSample` in `estimate.go` is the one path from a draft to a price
   sample: the embedding text from catalog, the photos' normalized mean
-  vector, catalog's `PriceSample`. The reads' `marketEstimate` calls it
-  inside a Restate step and the guide calls it directly, so a read's range
-  and the guide's agree for the same draft. A model that fails leaves its
-  list out, as before.
+  vector, catalog's `PriceSample`; the guide calls it directly. A model
+  that fails leaves its list out, as before.
 - Catalog's sample carries each listing's ID, its whole days from
-  publication to sale (at least 1, 0 on sale) and its point.
+  publication to sale (at least 1, 0 on sale) and its point. A sale counts
+  by `sold_at`, so a listing deleted after its sale still prices
+  (decided 2026-11-26). The candidates of one category and condition come
+  from index `listings_price_sample` (migration 0096): on the dev database
+  the largest pair (5,176 listings) went from a parallel seq scan of
+  `listings` to a bitmap scan, 33 ms to 14 ms for the whole sample, and a
+  small pair to 0.2 ms. The sale side names `status IN (sold, deleted)`
+  besides `sold_at`; `sold_at` alone misled the planner into a seq scan
+  of every text vector (500 ms).
 - `domain.Suggest` gives "Giá thị trường" at the range's median, with the
   median days of every sale in the sample, and "Bán nhanh" at the median
   price and days of the sales that took at most that median, left out
@@ -3505,7 +3556,8 @@ support ticket of kind `other`.
   heart and `same-as`. Each write is a row in the audit log with
   `target_kind = feedback` (`feedback.status`, `feedback.reply`,
   `feedback.heart`, `feedback.unheart`, `feedback.same_as`); migration 0082
-  added the target kind. The console has no feedback page as of 2026-11-24.
+  added the target kind. The audit entry names who replied; migration 0095
+  dropped the unread `replied_by`. The console has no feedback page as of 2026-11-24.
 - A group is flat: `root_id` names the root, NULL on the root itself.
   Joining a root moves the feedback joined to it as well, and the moved
   feedback take the group's status, note and version. Every row keeps the
@@ -3610,9 +3662,11 @@ zero-width and control characters and HTML tags are taken out is 400
 once trimmed, or 400 `invalid_request`. The turn keeps them in
 `agent_turns.attachments` (migration 0065), each record once, and the turn
 view returns them.
-The turn opens `running` under the conversation's row lock; a closed
-conversation is 409 `agent_conversation_closed`, one with an unfinished
-turn 409 `agent_turn_in_progress`.
+The turn opens `running` under the conversation's row lock; a conversation
+with an unfinished turn is 409 `agent_turn_in_progress`. The conversation
+takes the question's time as its last activity, and its first 80
+characters as title when it has none, only once the run started, so a
+run that does not start leaves it as it was.
 
 `POST …/conversations` (without a subject), `POST …/turns`, `POST
 …/steer` and `POST …/skills` take an optional `Idempotency-Key` (K1, see
@@ -3637,7 +3691,9 @@ unfinished turn per conversation by a partial unique index; `state` is the
 agent's checkpoint, read only for `pending_ask` and `sources`),
 `agent_turn_inputs` (pause, stop, steer and answers, by an identity
 `seq`), `agent_tool_calls`, `agent_turn_events`, `agent_documents`,
-`agent_document_versions` and `agent_skills`. Columns that would be SQL
+`agent_document_versions` and `agent_skills`. Migration 0098 indexes the
+documents by conversation and both document tables by turn, which a
+run's start and a turn's delete look up. Columns that would be SQL
 keywords are `input_text`, `provider_name`, `tool_input`, `tool_output`,
 `result_content`, `tool_timing`, `event_type`, `occurred_at`,
 `version_no`, `skill_name` and `skill_variables`.
@@ -3811,9 +3867,14 @@ reason for a hold, so neither page has them. An unknown order is 404
 Every tool that returns personal data (what a person wrote, messages)
 records the read in `console_agent_reads` before it answers (NFR-PRIV-02):
 the member, the tool, the subject's kind (`ticket` or `account`) and the
-ids it read, at the service's clock. A read is kept 90 days. The sweep
-runs at start and every hour in the MCP server's `Run`, as the events
-cleanup does in the bus, and deletes 10,000 rows at a time. Listing the
+ids it read, at the service's clock. A read is kept 90 days, and so is
+what the tools returned: the same sweep blanks `agent_tool_calls.tool_output`
+and `result_content` of calls older than that, keeping the call with its
+tool, input, status and timing (a partial index on the calls not blanked
+yet, migration 0098). A new run's history replays such a call as "Result
+no longer kept". The sweep runs at start and every hour in the MCP
+server's `Run`, as the events cleanup does in the bus, and deletes or
+blanks 10,000 rows at a time. Listing the
 reads for admins comes with the console's audit pages.
 
 ### AI settings
@@ -3935,8 +3996,8 @@ version 8 UUID, and `details` carries the name. LiteLLM down is 503
 |---|---|
 | `ai_tags` | the eight tags: types Chat and Embedding; capabilities Vision, Tool use, Long context, Reasoning, Structured output and Multilingual |
 | `ai_model_tags` | `(model_id, tag_name)`, seeded for `claude-sonnet-5-5`, `claude-haiku-5-5` and `baai/bge-m3` |
-| `ai_agents` | each agent: kind (`app`, `console`), `display_name`, `model_alias`, icon, purpose, required tags, model, instructions and their version, tools, limits, monthly budget, LiteLLM key aliases, enabled, who changed it and `write_id` |
-| `ai_agent_versions` | each version of an agent's instructions, who wrote it and when |
+| `ai_agents` | each agent: kind (`app`, `console`), `display_name`, `model_alias`, icon, purpose, required tags, model, the version of its instructions, tools, limits, monthly budget, LiteLLM key aliases, enabled, who changed it and `write_id` |
+| `ai_agent_versions` | each version of an agent's instructions, who wrote it and when; the agent's latest is its instructions |
 | `ai_budget_settings` | one row: the month's cap, `alert_pct`, `on_cap`, the daily budget of a moderator and of an admin, and `write_id` |
 | `ai_member_budgets` | a member's own daily budget |
 
@@ -3945,9 +4006,13 @@ console, every MCP tool), Scam check (`scam-check`), Listing photo reader
 (`listing-read`), Search (`search`) and Search embeddings (`embed-text`),
 the four app agents with their keys of `infra/stack/litellm/keys.txt`. An
 app agent takes a model, limits and a budget; any other change is 422
-`ai_agent_app_fixed`. Only a console agent has instructions and tools,
-which a CHECK holds. New instructions raise `instructions_version` and add
-a row to `ai_agent_versions`.
+`ai_agent_app_fixed`. Only a console agent has tools, which a CHECK holds,
+and instructions, which the service holds. The text lives only in
+`ai_agent_versions` (migration 0098 moved it there): a read joins the
+version `instructions_version` names, which a deferred foreign key from
+`ai_agents` keeps there. New instructions raise `instructions_version` and
+insert that version in the save's transaction; a version that exists
+fails the save rather than keeping its older text.
 
 ### Erasure
 
@@ -3981,15 +4046,20 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   search watches and the record of which listings the account opened
   (the view counts stay); notification deletes the notices, push tokens and
   settings; assist deletes the reads and the waiting transcripts; chat
-  deletes the quick replies; trust deletes the account's own scam warnings
+  deletes the quick replies and the reply samples; feedback deletes the
+  account's feedback; agent blanks the tool outputs and result contents
+  of the turns in the conversation about the account (the turns, their
+  answers and the read record stay); trust deletes the account's own scam warnings
   and helpful marks and withdraws its reports no case resolved, blanking
   their notes (a resolved report stays with its case).
-  Media does nothing: a waiting upload, a video read's frames and a link
+  Media has no handler of its own: a waiting upload, a video read's frames and a link
   read's copies among them, expires
   within a day anyway, and a draft's photo within 30 days of the draft's
   last write, in the private `uploads/` that no URL reaches once the
-  drafts are gone; a read's video is consumed when the read ends, and
-  the avatar object stays in the store, as a removed avatar does.
+  drafts are gone; a read's video is consumed when the read ends; the
+  listings catalog deletes release their photos but the cover on
+  `listing.deleted` (see Catalog); and the avatar object stays in the
+  store, as a removed avatar does.
 - Deal's `DealAccountWatch.Deleted` also sends `Scrub` with a delay of 365
   days (`domain.KeepRecipientsFor`), which blanks the recipient name, phone
   and street of every order the account bought; the commune stays. Every
@@ -4066,7 +4136,9 @@ calls it except screen, for the unread counts of Home and
   two events of one key. A redelivered event writes nothing (the row
   records its `event_id`). A recipient's
   notices last bumped more than 90 days ago are deleted when they get a
-  new one (`notifications_list` serves it). The worker mints a new
+  new one (`notifications_list` serves it), and with them up to 100 of
+  anyone's through `notifications_bumped` with `SKIP LOCKED` (migration
+  0095), so a silent account's notices leave too. The worker mints a new
   notice's ID from the wall clock in a step of its own before the step that
   writes it, so notices with one bump time list in write order.
 - A notice's push has the Android tag and FCM collapse key
