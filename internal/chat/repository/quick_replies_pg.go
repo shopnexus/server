@@ -33,20 +33,13 @@ func (s pgQuickReplies) Get(ctx context.Context, account uuid.UUID) (items []str
 // row of the caller does, so a PUT racing the account's deletion lands
 // before it, and the worker's Delete removes it, or sees the tombstone.
 func (s pgQuickReplies) Put(ctx context.Context, account uuid.UUID, items []string) error {
+	b := &pgx.Batch{}
+	postgres.QueueLockLiving(b, account, accountdomain.ErrSessionRevoked)
+	b.Queue(`INSERT INTO quick_replies (account_id, items) VALUES (@account, @items)
+ON CONFLICT (account_id) DO UPDATE SET items = excluded.items`, pgx.StrictNamedArgs{"account": account, "items": items})
+	// QueueLockLiving's callback aborts, so the batch needs a transaction.
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		living, err := postgres.LockLiving(ctx, tx, account)
-		if err != nil {
-			return err
-		}
-		if !living {
-			return accountdomain.ErrSessionRevoked
-		}
-		if _, err = tx.Exec(ctx, `INSERT INTO quick_replies (account_id, items) VALUES (@account, @items)
-ON CONFLICT (account_id) DO UPDATE SET items = excluded.items`,
-			pgx.StrictNamedArgs{"account": account, "items": items}); err != nil {
-			return fmt.Errorf("upsert quick replies: %w", err)
-		}
-		return nil
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("put quick replies: %w", err)

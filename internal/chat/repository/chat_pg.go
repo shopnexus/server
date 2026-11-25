@@ -69,52 +69,51 @@ func scanMessage(row pgx.CollectableRow) (domain.Message, error) {
 	return m.message()
 }
 
+// conversationRow selects the conversation that @id names.
+const conversationRow = `SELECT id, account_a, account_b, kind, created_at FROM conversations WHERE id = @id`
+
+// scanConversation scans a conversationRow into c.
+func scanConversation(row pgx.Row, c *domain.Conversation) error {
+	if err := row.Scan(&c.ID, &c.AccountA, &c.AccountB, &c.Kind, &c.CreatedAt); err != nil {
+		return fmt.Errorf("select conversation: %w", err)
+	}
+	return nil
+}
+
+// OpenPair sends one batch: the members' insert and the select find the
+// pair's row by its accounts, ours or the one a concurrent open committed.
 func (s pgChats) OpenPair(ctx context.Context, c domain.Conversation) (domain.Conversation, error) {
 	var out domain.Conversation
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO conversations (id, account_a, account_b, kind, created_at)
+	pair := pgx.StrictNamedArgs{"a": c.AccountA, "b": c.AccountB}
+	b := &pgx.Batch{}
+	b.Queue(`INSERT INTO conversations (id, account_a, account_b, kind, created_at)
 VALUES (@id, @a, @b, 'pair', @at) ON CONFLICT (account_a, account_b) WHERE kind = 'pair' DO NOTHING`,
-			pgx.StrictNamedArgs{"id": c.ID, "a": c.AccountA, "b": c.AccountB, "at": c.CreatedAt}); err != nil {
-			return fmt.Errorf("insert conversation: %w", err)
-		}
-		if err := tx.QueryRow(ctx, `SELECT id, account_a, account_b, kind, created_at FROM conversations
-WHERE account_a = @a AND account_b = @b AND kind = 'pair'`, pgx.StrictNamedArgs{"a": c.AccountA, "b": c.AccountB}).
-			Scan(&out.ID, &out.AccountA, &out.AccountB, &out.Kind, &out.CreatedAt); err != nil {
-			return fmt.Errorf("select conversation: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO conversation_members (conversation_id, account_id)
-VALUES (@id, @a), (@id, @b) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"id": out.ID, "a": out.AccountA, "b": out.AccountB}); err != nil {
-			return fmt.Errorf("insert members: %w", err)
-		}
-		return nil
+		pgx.StrictNamedArgs{"id": c.ID, "a": c.AccountA, "b": c.AccountB, "at": c.CreatedAt})
+	b.Queue(`INSERT INTO conversation_members (conversation_id, account_id)
+SELECT c.id, m FROM conversations c CROSS JOIN unnest(ARRAY[c.account_a, c.account_b]) m
+WHERE c.account_a = @a AND c.account_b = @b AND c.kind = 'pair'
+ON CONFLICT DO NOTHING`, pair)
+	b.Queue(`SELECT id, account_a, account_b, kind, created_at FROM conversations
+WHERE account_a = @a AND account_b = @b AND kind = 'pair'`, pair).QueryRow(func(row pgx.Row) error {
+		return scanConversation(row, &out)
 	})
-	if err != nil {
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return domain.Conversation{}, fmt.Errorf("open conversation: %w", err)
 	}
 	return out, nil
 }
 
-// errKept ends a DropPair whose conversation something refers to.
-var errKept = errors.New("chat: conversation in use")
-
 func (s pgChats) DropPair(ctx context.Context, id uuid.UUID) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `DELETE FROM conversation_members WHERE conversation_id = @id`,
-			pgx.StrictNamedArgs{"id": id}); err != nil {
-			return fmt.Errorf("delete members: %w", err)
-		}
-		// The foreign keys of messages, deals, reports and tickets keep a
-		// conversation in use, and the rollback restores its members.
-		_, err := tx.Exec(ctx, `DELETE FROM conversations WHERE id = @id AND kind = 'pair'`, pgx.StrictNamedArgs{"id": id})
-		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23503" {
-			return errKept
-		}
-		if err != nil {
-			return fmt.Errorf("delete conversation: %w", err)
-		}
+	// The foreign keys of messages, deals, reports and tickets keep a
+	// conversation in use, and the batch's rollback restores its members.
+	b := &pgx.Batch{}
+	b.Queue(`DELETE FROM conversation_members WHERE conversation_id = @id`, pgx.StrictNamedArgs{"id": id})
+	b.Queue(`DELETE FROM conversations WHERE id = @id AND kind = 'pair'`, pgx.StrictNamedArgs{"id": id})
+	err := s.db.SendBatch(ctx, b).Close()
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23503" {
 		return nil
-	})
-	if err != nil && !errors.Is(err, errKept) {
+	}
+	if err != nil {
 		return fmt.Errorf("drop conversation: %w", err)
 	}
 	return nil
@@ -122,15 +121,11 @@ func (s pgChats) DropPair(ctx context.Context, id uuid.UUID) error {
 
 func (s pgChats) Get(ctx context.Context, id uuid.UUID) (domain.Conversation, error) {
 	var c domain.Conversation
-	err := s.db.QueryRow(ctx, `SELECT id, account_a, account_b, kind, created_at FROM conversations WHERE id = @id`,
-		pgx.StrictNamedArgs{"id": id}).Scan(&c.ID, &c.AccountA, &c.AccountB, &c.Kind, &c.CreatedAt)
+	err := scanConversation(s.db.QueryRow(ctx, conversationRow, pgx.StrictNamedArgs{"id": id}), &c)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Conversation{}, ErrNotFound
 	}
-	if err != nil {
-		return domain.Conversation{}, fmt.Errorf("select conversation: %w", err)
-	}
-	return c, nil
+	return c, err
 }
 
 func (s pgChats) FindPair(ctx context.Context, one, other uuid.UUID) (domain.Conversation, error) {
@@ -148,53 +143,51 @@ WHERE account_a = LEAST(@one::uuid, @other::uuid) AND account_b = GREATEST(@one:
 }
 
 // moveLast makes a sent message the conversation's last one when it is the
-// newest.
+// newest, and then brings the conversation back from both members'
+// archives.
 const moveLast = `
-UPDATE conversations
-SET last_message_id = @id, last_message_at = @at
-WHERE id = @conversation AND (last_message_id IS NULL OR last_message_id < @id)`
+WITH moved AS (
+    UPDATE conversations
+    SET last_message_id = @id, last_message_at = @at
+    WHERE id = @conversation AND (last_message_id IS NULL OR last_message_id < @id)
+    RETURNING id)
+UPDATE conversation_members SET archived_at = NULL WHERE conversation_id IN (SELECT id FROM moved)`
 
-// written moves the last message for a sent message and, when the message
-// became the last one, brings the conversation back from both members'
-// archives; it notifies the members the message is visible to either way,
-// since the thread changed.
-func written(ctx context.Context, tx pgx.Tx, m domain.Message) error {
-	var accounts []uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT array_agg(account_id) FROM conversation_members WHERE conversation_id = @id`,
-		pgx.StrictNamedArgs{"id": m.ConversationID()}).Scan(&accounts); err != nil {
-		return fmt.Errorf("read members: %w", err)
-	}
+// queueMembers queues into b the read of m's conversation's members into
+// accounts, beside the statement that writes m.
+func queueMembers(b *pgx.Batch, m domain.Message, accounts *[]uuid.UUID) {
+	b.Queue(`SELECT array_agg(account_id) FROM conversation_members WHERE conversation_id = @id`,
+		pgx.StrictNamedArgs{"id": m.ConversationID()}).QueryRow(func(row pgx.Row) error {
+		if err := row.Scan(accounts); err != nil {
+			return fmt.Errorf("read members: %w", err)
+		}
+		return nil
+	})
+}
+
+// written sends, in tx, what follows a written message: a sent one moves
+// the last message and gets its event and reply sample; the members it is
+// visible to, all of accounts or only its sender, hear the thread changed.
+func written(ctx context.Context, tx pgx.Tx, m domain.Message, accounts []uuid.UUID) error {
+	b := &pgx.Batch{}
 	if m.Status() == domain.StatusSent {
-		tag, err := tx.Exec(ctx, moveLast, pgx.StrictNamedArgs{
-			"id": m.ID(), "at": m.CreatedAt(), "conversation": m.ConversationID(),
-		})
-		if err != nil {
-			return fmt.Errorf("move the last message: %w", err)
-		}
-		if tag.RowsAffected() > 0 {
-			if _, err = tx.Exec(ctx, `UPDATE conversation_members SET archived_at = NULL WHERE conversation_id = @id`,
-				pgx.StrictNamedArgs{"id": m.ConversationID()}); err != nil {
-				return fmt.Errorf("unarchive: %w", err)
-			}
-		}
+		b.Queue(moveLast, pgx.StrictNamedArgs{"id": m.ID(), "at": m.CreatedAt(), "conversation": m.ConversationID()})
 		// The message's ID is the event's, so writing it sent again inserts
 		// no second event. A deal message has none: deal.moved already
 		// told whoever hears of the move.
 		if m.Deal() == nil {
-			if err := events.Insert(ctx, tx, events.Event{
-				ID: m.ID(), Kind: events.MessageSent, SubjectID: m.ID(), OccurredAt: m.CreatedAt(),
-			}); err != nil {
-				return fmt.Errorf("insert message.sent: %w", err)
-			}
-			if err := sampled(ctx, tx, m); err != nil {
-				return err
-			}
+			events.Queue(b, events.Event{ID: m.ID(), Kind: events.MessageSent, SubjectID: m.ID(), OccurredAt: m.CreatedAt()})
+			queueSample(b, m)
 		}
 	} else {
 		accounts = []uuid.UUID{m.SenderID()}
 	}
 	conversation, id := m.ConversationID(), m.ID()
-	return stream.Notify(ctx, tx, accounts, stream.Hint{Kind: stream.KindMessage, ConversationID: &conversation, MessageID: &id})
+	stream.Queue(b, accounts, stream.Hint{Kind: stream.KindMessage, ConversationID: &conversation, MessageID: &id})
+	if err := tx.SendBatch(ctx, b).Close(); err != nil {
+		return fmt.Errorf("follow the message: %w", err)
+	}
+	return nil
 }
 
 func (s pgChats) AddMessage(ctx context.Context, m domain.Message) error {
@@ -210,19 +203,28 @@ func (s pgChats) AddMessage(ctx context.Context, m domain.Message) error {
 			a["move_amount"] = d.Amount
 		}
 	}
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, `INSERT INTO messages (id, conversation_id, sender_id, body, photos, listing_id, reply_to,
+	var (
+		added    bool
+		accounts []uuid.UUID
+	)
+	b := &pgx.Batch{}
+	b.Queue(`INSERT INTO messages (id, conversation_id, sender_id, body, photos, listing_id, reply_to,
                       status, failure, created_at, deal_id, move_kind, move_by, move_amount)
 VALUES (@id, @conversation, @sender, @body, @photos, @listing, @reply_to, @status, NULL, @at, @deal, @move_kind,
         @move_by, @move_amount)
-ON CONFLICT (id) DO NOTHING`, a)
-		if err != nil {
+ON CONFLICT (id) DO NOTHING`, a).Exec(func(t pgconn.CommandTag) error {
+		added = t.RowsAffected() > 0
+		return nil
+	})
+	queueMembers(b, m, &accounts)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
 			return fmt.Errorf("insert message: %w", err)
 		}
-		if tag.RowsAffected() == 0 {
+		if !added {
 			return nil
 		}
-		return written(ctx, tx, m)
+		return written(ctx, tx, m, accounts)
 	})
 	if err != nil {
 		return fmt.Errorf("add message: %w", err)
@@ -285,12 +287,16 @@ func (s pgChats) SaveMessage(ctx context.Context, m domain.Message) error {
 	if st.Failure != "" {
 		failure = st.Failure
 	}
+	var accounts []uuid.UUID
+	b := &pgx.Batch{}
+	b.Queue(`UPDATE messages SET photos = @photos, status = @status, failure = @failure WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": st.ID, "photos": photosOf(st), "status": st.Status, "failure": failure})
+	queueMembers(b, m, &accounts)
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `UPDATE messages SET photos = @photos, status = @status, failure = @failure WHERE id = @id`,
-			pgx.StrictNamedArgs{"id": st.ID, "photos": photosOf(st), "status": st.Status, "failure": failure}); err != nil {
+		if err := tx.SendBatch(ctx, b).Close(); err != nil {
 			return fmt.Errorf("update message: %w", err)
 		}
-		return written(ctx, tx, m)
+		return written(ctx, tx, m, accounts)
 	})
 	if err != nil {
 		return fmt.Errorf("save message: %w", err)
@@ -349,7 +355,12 @@ RETURNING old.last_read_message_id IS DISTINCT FROM new.last_read_message_id, ol
 		if len(to) == 0 {
 			return nil
 		}
-		return stream.Notify(ctx, tx, to, stream.Hint{Kind: stream.KindRead, ConversationID: &conversation})
+		b := &pgx.Batch{}
+		stream.Queue(b, to, stream.Hint{Kind: stream.KindRead, ConversationID: &conversation})
+		if err = tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("notify: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("mark read: %w", err)
@@ -368,7 +379,12 @@ WHERE conversation_id = @conversation AND account_id = @account AND NOT marked_u
 		if tag.RowsAffected() == 0 {
 			return nil
 		}
-		return stream.Notify(ctx, tx, []uuid.UUID{account}, stream.Hint{Kind: stream.KindRead, ConversationID: &conversation})
+		b := &pgx.Batch{}
+		stream.Queue(b, []uuid.UUID{account}, stream.Hint{Kind: stream.KindRead, ConversationID: &conversation})
+		if err = tx.SendBatch(ctx, b).Close(); err != nil {
+			return fmt.Errorf("notify: %w", err)
+		}
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("mark unread: %w", err)
@@ -487,22 +503,20 @@ CROSS JOIN LATERAL (SELECT cm.last_read_message_id, cm.marked_unread) marker (la
 WHERE cm.account_id = @viewer AND c.id = ANY(@ids)`
 
 func (s pgChats) OpenSupport(ctx context.Context, c domain.Conversation) (domain.Conversation, error) {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `INSERT INTO conversations (id, account_a, account_b, kind, created_at)
+	var out domain.Conversation
+	b := &pgx.Batch{}
+	b.Queue(`INSERT INTO conversations (id, account_a, account_b, kind, created_at)
 VALUES (@id, @a, @b, 'support', @at) ON CONFLICT (id) DO NOTHING`,
-			pgx.StrictNamedArgs{"id": c.ID, "a": c.AccountA, "b": c.AccountB, "at": c.CreatedAt}); err != nil {
-			return fmt.Errorf("insert conversation: %w", err)
-		}
-		if _, err := tx.Exec(ctx, `INSERT INTO conversation_members (conversation_id, account_id)
-VALUES (@id, @a), (@id, @b) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"id": c.ID, "a": c.AccountA, "b": c.AccountB}); err != nil {
-			return fmt.Errorf("insert members: %w", err)
-		}
-		return nil
+		pgx.StrictNamedArgs{"id": c.ID, "a": c.AccountA, "b": c.AccountB, "at": c.CreatedAt})
+	b.Queue(`INSERT INTO conversation_members (conversation_id, account_id)
+VALUES (@id, @a), (@id, @b) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"id": c.ID, "a": c.AccountA, "b": c.AccountB})
+	b.Queue(conversationRow, pgx.StrictNamedArgs{"id": c.ID}).QueryRow(func(row pgx.Row) error {
+		return scanConversation(row, &out)
 	})
-	if err != nil {
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return domain.Conversation{}, fmt.Errorf("open support conversation: %w", err)
 	}
-	return s.Get(ctx, c.ID)
+	return out, nil
 }
 
 func (s pgChats) SupportUnread(ctx context.Context, viewer uuid.UUID) (int, error) {
