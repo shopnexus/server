@@ -14,14 +14,15 @@ import (
 )
 
 // Attach gives owner's uploads to holder as photos, all or none.
-func (m *Media) Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID) error {
-	return m.attachAs(ctx, owner, holder, domain.ShapePhoto, ids)
+func (m *Media) Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID, writeID uuid.UUID) error {
+	return m.attachAs(ctx, owner, holder, domain.ShapePhoto, ids, writeID)
 }
 
 // attachAs gives owner's uploads to holder in shape, all or none. Each must
 // be owner's and either held by holder in shape already or waiting and put
-// to the store with the type and size it declared.
-func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape domain.Shape, ids []uuid.UUID) error {
+// to the store with the type and size it declared. The changed uploads
+// save under writeID, which the caller mints so a retry sends the same.
+func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape domain.Shape, ids []uuid.UUID, writeID uuid.UUID) error {
 	now := m.now()
 	ids = slices.Clone(ids)
 	slices.SortFunc(ids, uuid.UUID.Compare)
@@ -51,7 +52,7 @@ func (m *Media) attachAs(ctx context.Context, owner, holder uuid.UUID, shape dom
 	if len(ups) == 0 {
 		return nil
 	}
-	if err = m.uploads.SaveAll(ctx, ups, uuid.NewV7()); err != nil {
+	if err = m.uploads.SaveAll(ctx, ups, writeID); err != nil {
 		if errors.Is(err, repository.ErrConflict) {
 			return apperr.ErrTryAgain
 		}

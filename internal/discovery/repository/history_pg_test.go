@@ -3,6 +3,7 @@ package repository_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 	"uuid"
@@ -71,5 +72,32 @@ func TestHistory(t *testing.T) {
 	}
 	if list, _ = h.List(ctx, other); len(list) != 1 {
 		t.Fatalf("the other account's history: %d", len(list))
+	}
+}
+
+// Writers of one account take turns, so racing searches keep the cap.
+func TestHistoryCapUnderRace(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	h := repository.NewHistory(db)
+	account := accounttest.New(t, db)
+	var wg sync.WaitGroup
+	errs := make([]error, 3*domain.MaxHistory)
+	for i := range errs {
+		wg.Go(func() {
+			errs[i] = h.Remember(ctx, account, repository.HistoryEntry{
+				Query: fmt.Sprintf("tìm %d", i), SearchedAt: now.Add(time.Duration(i) * time.Minute),
+			})
+		})
+	}
+	wg.Wait()
+	for _, err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if list, err := h.List(ctx, account); err != nil || len(list) != domain.MaxHistory {
+		t.Fatalf("list: %d %v", len(list), err)
 	}
 }

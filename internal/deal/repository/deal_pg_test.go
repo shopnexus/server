@@ -379,7 +379,8 @@ func TestOneShippedOrderPerListing(t *testing.T) {
 		}
 		results = append(results, s.Save(ctx, &d, uuid.NewV7(), uuid.Nil()))
 	}
-	if results[0] != nil || results[1] == nil {
+	// orders_shipped_per_listing: the second ship lost a race, not a fault.
+	if results[0] != nil || !errors.Is(results[1], repository.ErrConflict) {
 		t.Fatalf("%v", results)
 	}
 }

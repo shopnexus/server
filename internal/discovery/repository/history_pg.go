@@ -33,6 +33,9 @@ DELETE FROM search_history WHERE account_id = @account AND id NOT IN (
 func (s pgHistory) Remember(ctx context.Context, account uuid.UUID, e HistoryEntry) error {
 	b := &pgx.Batch{}
 	postgres.QueueLockLiving(b, account, errGone)
+	// A share lock lets two writers pass, so they take turns here, else
+	// each trim misses the other's insert and the history outgrows its cap.
+	postgres.QueueLock(b, "search_history", account)
 	b.Queue(rememberSearch, pgx.StrictNamedArgs{
 		"id": uuid.NewV7(), "account": account, "key": domain.HistoryKey(e.Query), "query": e.Query,
 		"category": e.Category, "category_code": e.CategoryCode, "photo_url": e.PhotoURL, "at": e.SearchedAt,

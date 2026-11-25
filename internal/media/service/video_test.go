@@ -46,7 +46,7 @@ func TestSavePhoto(t *testing.T) {
 		t.Fatalf("an empty frame: %v", err)
 	}
 	listing := uuid.NewV7()
-	if err = e.media.Attach(ctx, owner, listing, []uuid.UUID{id}); err != nil {
+	if err = e.media.Attach(ctx, owner, listing, []uuid.UUID{id}, uuid.NewV7()); err != nil {
 		t.Fatalf("a listing takes the frame: %v", err)
 	}
 	if res := e.process(t, id); res.Status != domain.StatusReady || res.PhotoKey == "" {
@@ -116,22 +116,27 @@ func TestHoldOpenConsumeVideo(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, call := range map[string]func() error{
-		"another owner's": func() error { return e.media.HoldVideo(ctx, other, read, video) },
-		"a photo":         func() error { return e.media.HoldVideo(ctx, owner, read, photo) },
-		"never put":       func() error { return e.media.HoldVideo(ctx, owner, read, notPut.UploadID) },
-		"unknown":         func() error { return e.media.HoldVideo(ctx, owner, read, uuid.NewV7()) },
+		"another owner's": func() error { return e.media.HoldVideo(ctx, other, read, video, uuid.NewV7()) },
+		"a photo":         func() error { return e.media.HoldVideo(ctx, owner, read, photo, uuid.NewV7()) },
+		"never put":       func() error { return e.media.HoldVideo(ctx, owner, read, notPut.UploadID, uuid.NewV7()) },
+		"unknown":         func() error { return e.media.HoldVideo(ctx, owner, read, uuid.NewV7(), uuid.NewV7()) },
 	} {
 		if callErr := call(); !errors.Is(callErr, domain.ErrInvalidUpload) {
 			t.Errorf("%s: %v", name, callErr)
 		}
 	}
-	if err = e.media.HoldVideo(ctx, owner, read, video); err != nil {
+	held := uuid.NewV7()
+	if err = e.media.HoldVideo(ctx, owner, read, video, held); err != nil {
 		t.Fatal(err)
 	}
-	if err = e.media.HoldVideo(ctx, owner, read, video); err != nil {
+	if err = e.media.HoldVideo(ctx, owner, read, video, uuid.NewV7()); err != nil {
 		t.Fatalf("held again by the same read: %v", err)
 	}
-	if err = e.media.HoldVideo(ctx, owner, uuid.NewV7(), video); !errors.Is(err, domain.ErrInvalidUpload) {
+	// The hold saves under the caller's write ID; the repeat writes nothing.
+	if u, _ := repository.NewUploads(e.db).Get(ctx, video); u.WriteID() != held {
+		t.Fatalf("write ID %s, want %s", u.WriteID(), held)
+	}
+	if err = e.media.HoldVideo(ctx, owner, uuid.NewV7(), video, uuid.NewV7()); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("a second read of the video: %v", err)
 	}
 	e.expire(t, video)
@@ -153,17 +158,18 @@ func TestHoldOpenConsumeVideo(t *testing.T) {
 			t.Errorf("key of %s: %v", name, keyErr)
 		}
 	}
-	if err = e.media.Consume(ctx, video); err != nil {
+	consumed := uuid.NewV7()
+	if err = e.media.Consume(ctx, video, consumed); err != nil {
 		t.Fatal(err)
 	}
-	if err = e.media.Consume(ctx, video); err != nil {
+	if err = e.media.Consume(ctx, video, uuid.NewV7()); err != nil {
 		t.Fatalf("consumed twice: %v", err)
 	}
-	if err = e.media.Consume(ctx, uuid.NewV7()); err != nil {
+	if err = e.media.Consume(ctx, uuid.NewV7(), uuid.NewV7()); err != nil {
 		t.Fatalf("consume unknown: %v", err)
 	}
-	if u, _ := repository.NewUploads(e.db).Get(ctx, video); u.Status() != domain.StatusConsumed {
-		t.Fatalf("status %s", u.Status())
+	if u, _ := repository.NewUploads(e.db).Get(ctx, video); u.Status() != domain.StatusConsumed || u.WriteID() != consumed {
+		t.Fatalf("status %s, write ID %s", u.Status(), u.WriteID())
 	}
 	if _, _, err = e.store.Stat(ctx, domain.UploadKey(video)); !errors.Is(err, objectstore.ErrNotFound) {
 		t.Fatalf("object after consume: %v", err)
@@ -171,7 +177,7 @@ func TestHoldOpenConsumeVideo(t *testing.T) {
 	if _, err = e.media.VideoKey(ctx, video); !errors.Is(err, objectstore.ErrNotFound) {
 		t.Fatalf("key after consume: %v", err)
 	}
-	if err = e.media.HoldVideo(ctx, owner, read, video); !errors.Is(err, domain.ErrInvalidUpload) {
+	if err = e.media.HoldVideo(ctx, owner, read, video, uuid.NewV7()); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("held after consume: %v", err)
 	}
 }

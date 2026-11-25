@@ -35,5 +35,13 @@ func (s DealCancelOrder) Run(ctx restate.Context, in FlowInput) (FlowResult, err
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
 	refused, err := saveStep(ctx, s.Deals.deals, &d, in.Key, at)
-	return FlowResult{Refused: refused}, err
+	if err != nil {
+		return FlowResult{}, err
+	}
+	// A racing try of this cancel that saved first answers as it did.
+	moved, err := keyMovedStep(ctx, s.Deals.deals, refused, in.DealID, m.By, in.Key)
+	if err != nil || moved {
+		return FlowResult{}, err
+	}
+	return FlowResult{Refused: refused}, nil
 }

@@ -150,9 +150,10 @@ type Service interface {
 	// Release puts a listing held for the order back on sale; a listing held
 	// for another order, or not held, stays as it is.
 	Release(ctx context.Context, listingID, orderID uuid.UUID) error
-	// SellTo marks a listing held for the order sold; a listing already sold
+	// SellTo marks a listing held for the order sold under writeID, which
+	// the caller mints so a retry sends the same; a listing already sold
 	// for it stays as it is.
-	SellTo(ctx context.Context, listingID, orderID uuid.UUID) error
+	SellTo(ctx context.Context, listingID, orderID, writeID uuid.UUID) error
 	// Places reads the communes among codes with their provinces, keyed by
 	// code; an unknown code is left out.
 	Places(ctx context.Context, codes []string) (map[string]Location, error)

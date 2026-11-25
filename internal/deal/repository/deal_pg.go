@@ -280,6 +280,11 @@ func orderArgs(st domain.DealState, o domain.Order) pgx.StrictNamedArgs {
 	return a
 }
 
+// conflictConstraints are the unique constraints a racing save loses on.
+var conflictConstraints = map[string]bool{
+	"deal_moves_request_key": true, "orders_open_per_deal": true, "orders_shipped_per_listing": true,
+}
+
 func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID, key uuid.UUID, evs ...events.Event) error {
 	st := d.State()
 	a := dealArgs(st)
@@ -308,8 +313,7 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID, key uuid.UUI
 			// The count decides whether the order may be written, so the
 			// batch breaks here.
 			var n int
-			b.Queue(`SELECT pg_advisory_xact_lock(hashtext(@buyer::text))`, pgx.StrictNamedArgs{"buyer": st.BuyerID}).
-				Fn = postgres.ExecAs("lock buyer", nil)
+			postgres.QueueLock(b, "buyer_orders", st.BuyerID)
 			b.Queue(countOpenOrders, pgx.StrictNamedArgs{"buyer": st.BuyerID, "id": o.ID, "open": domain.OpenStatuses}).
 				QueryRow(func(row pgx.Row) error {
 					if err := row.Scan(&n); err != nil {
@@ -370,9 +374,9 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID, key uuid.UUI
 		stream.Queue(b, []uuid.UUID{st.BuyerID, st.SellerID}, stream.Hint{Kind: stream.KindDeal, DealID: &st.ID})
 		return tx.SendBatch(ctx, b).Close()
 	})
-	// Another move of the party's on the deal holds the key: a client that
-	// sent one key for two requests.
-	if e, ok := errors.AsType[*pgconn.PgError](err); ok && e.ConstraintName == "deal_moves_request_key" {
+	// A lost race: the key on another move of the party's, a second open
+	// order on the deal, or another shipped order on the listing.
+	if e, ok := errors.AsType[*pgconn.PgError](err); ok && e.Code == "23505" && conflictConstraints[e.ConstraintName] {
 		return ErrConflict
 	}
 	if err != nil && !errors.Is(err, errSaved) {

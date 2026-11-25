@@ -135,7 +135,7 @@ func TestPutDraftDropsGonePhotos(t *testing.T) {
 	ctx := context.Background()
 	me := e.account(t)
 	taken, stale, good := e.photo(t, me), e.photo(t, me), e.photo(t, me)
-	if err := e.media.Attach(ctx, me, uuid.NewV7(), []uuid.UUID{taken}); err != nil {
+	if err := e.media.Attach(ctx, me, uuid.NewV7(), []uuid.UUID{taken}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.db.Exec(ctx, `UPDATE uploads SET expires_at = now() - interval '1 hour' WHERE id = @id`,
@@ -163,7 +163,7 @@ func TestListDraftsLeavesTakenPhotosOut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = e.media.Attach(ctx, me, uuid.NewV7(), []uuid.UUID{taken}); err != nil {
+	if err = e.media.Attach(ctx, me, uuid.NewV7(), []uuid.UUID{taken}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	list, err := e.catalog.ListDrafts(ctx, me)
@@ -186,7 +186,7 @@ func TestGetDraft(t *testing.T) {
 	if _, _, err := e.catalog.PutDraft(ctx, me, id, content("Xe đạp", taken, left)); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.media.Attach(ctx, me, uuid.NewV7(), []uuid.UUID{taken}); err != nil {
+	if err := e.media.Attach(ctx, me, uuid.NewV7(), []uuid.UUID{taken}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	got, err := e.catalog.GetDraft(ctx, me, id)

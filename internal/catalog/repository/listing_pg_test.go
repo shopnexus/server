@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/catalog/repository"
 	"github.com/shopnexus/server/internal/platform/audit"
@@ -315,6 +316,65 @@ func TestReservedRoundTrip(t *testing.T) {
 	}
 	if got, err = s.Get(ctx, l.ID()); err != nil || got.ReservedFor() != (uuid.UUID{}) {
 		t.Fatalf("%+v %v", got.State(), err)
+	}
+}
+
+// A sale through an order keeps the order; a sale off the app keeps none.
+func TestSoldOrderRoundTrip(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewListings(db)
+	ctx := context.Background()
+	seller := accounttest.New(t, db)
+	l, hand := listing(t, seller), listing(t, seller)
+	for _, x := range []*domain.Listing{&l, &hand} {
+		if _, err := s.Insert(ctx, *x, uuid.Nil()); err != nil {
+			t.Fatal(err)
+		}
+		x.Published(map[uuid.UUID]domain.PhotoKeys{}, now)
+	}
+	order := uuid.NewV7()
+	if _, err := l.Reserve(order, now); err != nil || !l.SellTo(order, now) {
+		t.Fatalf("sell: %v", err)
+	}
+	if err := hand.MarkSold(now); err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range []*domain.Listing{&l, &hand} {
+		if err := s.Save(ctx, x, uuid.NewV7(), nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := s.Get(ctx, l.ID())
+	if err != nil || got.SoldOrder() == nil || *got.SoldOrder() != order {
+		t.Fatalf("order's sale: %+v %v", got.State(), err)
+	}
+	if !errors.Is(got.UnmarkSold(now), domain.ErrStateConflict) {
+		t.Fatal("unmarked an order's sale")
+	}
+	if got, err = s.Get(ctx, hand.ID()); err != nil || got.SoldOrder() != nil {
+		t.Fatalf("hand sale: %+v %v", got.State(), err)
+	}
+}
+
+// An erased seller's listing is refused, and no row lands.
+func TestInsertRefusesATombstone(t *testing.T) {
+	t.Parallel()
+	db := pgtest.New(t)
+	s := repository.NewListings(db)
+	ctx := context.Background()
+	gone := accounttest.New(t, db)
+	if _, err := db.Exec(ctx, `UPDATE accounts
+SET status = 'deleted', deleted_at = now(), display_name = NULL, bio = NULL, avatar_key = NULL WHERE id = @id`,
+		pgx.StrictNamedArgs{"id": gone}); err != nil {
+		t.Fatal(err)
+	}
+	l := listing(t, gone)
+	if _, err := s.Insert(ctx, l, uuid.Nil()); !errors.Is(err, accountdomain.ErrSessionRevoked) {
+		t.Fatalf("insert: %v", err)
+	}
+	if _, err := s.Get(ctx, l.ID()); !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("get: %v", err)
 	}
 }
 

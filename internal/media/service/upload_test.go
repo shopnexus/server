@@ -47,20 +47,20 @@ func TestAttachRefusals(t *testing.T) {
 		"never put":       {mine, notPut.UploadID},
 		"unknown":         {mine, uuid.NewV7()},
 	} {
-		if err := e.media.Attach(ctx, owner, holder, ids); !errors.Is(err, domain.ErrInvalidUpload) {
+		if err := e.media.Attach(ctx, owner, holder, ids, uuid.NewV7()); !errors.Is(err, domain.ErrInvalidUpload) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
 	if u, _ := repository.NewUploads(e.db).Get(ctx, mine); u.Status() != domain.StatusWaiting {
 		t.Fatalf("a refused attach attached %s", u.Status())
 	}
-	if err := e.media.Attach(ctx, owner, holder, []uuid.UUID{mine}); err != nil {
+	if err := e.media.Attach(ctx, owner, holder, []uuid.UUID{mine}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.media.Attach(ctx, owner, holder, []uuid.UUID{mine}); err != nil {
+	if err := e.media.Attach(ctx, owner, holder, []uuid.UUID{mine}, uuid.NewV7()); err != nil {
 		t.Fatalf("a retried attach: %v", err)
 	}
-	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{mine}); !errors.Is(err, domain.ErrInvalidUpload) {
+	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{mine}, uuid.NewV7()); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("attached to another holder: %v", err)
 	}
 }
@@ -86,7 +86,7 @@ func TestExpireLeavesAttachedUploads(t *testing.T) {
 	ctx := context.Background()
 	owner := accounttest.New(t, e.db)
 	id := e.upload(t, owner, []byte("jpeg bytes"))
-	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{id}); err != nil {
+	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{id}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	e.expire(t, id)
@@ -115,7 +115,7 @@ func TestVideoIsNoPhoto(t *testing.T) {
 		t.Fatalf("a photo over 15 MB: %v", err)
 	}
 	video := mediatest.Upload(t, e.media, owner, domain.ContentTypeQuickTime, []byte("not really a mov"))
-	if err = e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{video}); !errors.Is(err, domain.ErrInvalidUpload) {
+	if err = e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{video}, uuid.NewV7()); !errors.Is(err, domain.ErrInvalidUpload) {
 		t.Fatalf("a video as a listing photo: %v", err)
 	}
 	if _, err = e.media.Square(ctx, owner, owner, video); !errors.Is(err, domain.ErrInvalidUpload) {

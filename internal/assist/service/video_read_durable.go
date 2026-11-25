@@ -138,8 +138,9 @@ func (s VideoRead) Start(ctx restate.Context, in StartInput) (StartResult, error
 	if ins.ID != id {
 		return StartResult{ReadID: ins.ID}, nil
 	}
+	holdWrite := restatex.NewID(ctx, at)
 	held, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		holdErr := s.Media.HoldVideo(rc, in.Account, id, in.Video)
+		holdErr := s.Media.HoldVideo(rc, in.Account, id, in.Video, holdWrite)
 		if errors.Is(holdErr, apperr.ErrTryAgain) {
 			// Another start's hold saved first; the retry sees its holder
 			// and refuses with invalid_upload.
@@ -205,8 +206,9 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		r = out.Read
 		return out.Gone, nil
 	}
-	consume := func() error {
-		if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Media.Consume(rc, r.Media()) }); err != nil {
+	consume := func(at time.Time) error {
+		w := restatex.NewID(ctx, at)
+		if err := restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Media.Consume(rc, r.Media(), w) }); err != nil {
 			return fmt.Errorf("consume video: %w", err)
 		}
 		return nil
@@ -218,7 +220,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		if failErr := r.Fail(f, reason); failErr != nil {
 			return fmt.Errorf("fail read: %w", failErr)
 		}
-		if consumeErr := consume(); consumeErr != nil {
+		if consumeErr := consume(at); consumeErr != nil {
 			return consumeErr
 		}
 		_, saveErr := save(at)
@@ -290,7 +292,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 		return fmt.Errorf("set frames: %w", err)
 	}
 	if gone, saveErr := save(at); saveErr != nil || gone {
-		return errors.Join(saveErr, consume())
+		return errors.Join(saveErr, consume(at))
 	}
 
 	if at, err = restatex.Now(ctx, s.Now); err != nil {
@@ -384,7 +386,7 @@ func (s VideoRead) Run(ctx restate.Context, id uuid.UUID) error {
 	if err = r.Finish(nil); err != nil {
 		return fmt.Errorf("finish read: %w", err)
 	}
-	if err = consume(); err != nil {
+	if err = consume(at); err != nil {
 		return err
 	}
 	_, err = save(at)
@@ -415,8 +417,13 @@ func (s VideoRead) Expire(ctx restate.Context, in ExpireInput) error {
 	if loaded.Found {
 		video = loaded.Read.Media()
 	}
+	at, nowErr := restatex.Now(ctx, s.Now)
+	if nowErr != nil {
+		return nowErr
+	}
+	w := restatex.NewID(ctx, at)
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		return s.Media.Consume(rc, video)
+		return s.Media.Consume(rc, video, w)
 	}); err != nil {
 		return fmt.Errorf("consume video: %w", err)
 	}

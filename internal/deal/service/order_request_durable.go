@@ -96,8 +96,16 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
 	refused, err := saveStep(ctx, s.Deals.deals, &d, in.Key, at)
-	if err != nil || refused != nil {
-		return FlowResult{Refused: refused}, err
+	if err != nil {
+		return FlowResult{}, err
+	}
+	if refused != nil {
+		// A racing try of this request that saved first answers as it did.
+		moved, movedErr := keyMovedStep(ctx, s.Deals.deals, refused, in.DealID, m.By, in.Key)
+		if movedErr != nil || moved {
+			return FlowResult{}, movedErr
+		}
+		return FlowResult{Refused: refused}, nil
 	}
 	// UC-DEAL-06 A1: the seller's timeout.
 	restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "SellerTimeout").

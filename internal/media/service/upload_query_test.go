@@ -49,7 +49,7 @@ func TestQueryUpload(t *testing.T) {
 		t.Fatal(err)
 	}
 	attached := mediatest.Upload(t, m, me, "image/jpeg", mediatest.JPEG(t, 64, 48))
-	if err = m.Attach(ctx, me, uuid.NewV7(), []uuid.UUID{attached}); err != nil {
+	if err = m.Attach(ctx, me, uuid.NewV7(), []uuid.UUID{attached}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	later := service.New(service.Deps{

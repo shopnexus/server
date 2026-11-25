@@ -143,6 +143,9 @@ type Listing struct {
 	// heldAt is when a console member hid the listing; nil when no member
 	// holds it.
 	heldAt *time.Time
+	// soldOrder is the order SellTo sold the listing through; nil for a
+	// sale off the app.
+	soldOrder *uuid.UUID
 	// code ends the web address; the store sets it on insert, so a new
 	// listing has none until it is read back.
 	code string
@@ -327,6 +330,7 @@ func (l *Listing) CreatedAt() time.Time            { return l.createdAt }
 func (l *Listing) UpdatedAt() time.Time            { return l.updatedAt }
 func (l *Listing) PublishedAt() *time.Time         { return l.publishedAt }
 func (l *Listing) SoldAt() *time.Time              { return l.soldAt }
+func (l *Listing) SoldOrder() *uuid.UUID           { return l.soldOrder }
 func (l *Listing) HeldAt() *time.Time              { return l.heldAt }
 
 // Uploads returns the upload IDs of the listing's photos.
@@ -446,8 +450,11 @@ func (l *Listing) MarkSold(now time.Time) error {
 }
 
 // UnmarkSold undoes MarkSold; the listing is on sale again, or hidden while
-// a member holds it.
+// a member holds it. A listing sold through an order stays sold.
 func (l *Listing) UnmarkSold(now time.Time) error {
+	if l.soldOrder != nil {
+		return ErrStateConflict
+	}
 	if err := l.move(StatusSold, l.onSale(), now); err != nil {
 		return err
 	}
@@ -487,12 +494,13 @@ func (l *Listing) Release(order uuid.UUID, now time.Time) bool {
 	return true
 }
 
-// SellTo marks a listing held for order sold and reports whether it did.
+// SellTo marks a listing held for order sold, recording the order, and
+// reports whether it did.
 func (l *Listing) SellTo(order uuid.UUID, now time.Time) bool {
 	if l.status != StatusReserved || l.reservedFor != order {
 		return false
 	}
-	l.status, l.reservedFor, l.soldAt, l.updatedAt = StatusSold, uuid.UUID{}, &now, now
+	l.status, l.reservedFor, l.soldOrder, l.soldAt, l.updatedAt = StatusSold, uuid.UUID{}, &order, &now, now
 	return true
 }
 
@@ -520,6 +528,7 @@ type ListingState struct {
 	Status       Status               `json:"status"`
 	Rejection    map[uuid.UUID]string `json:"rejection,omitempty"`
 	ReservedFor  uuid.UUID            `json:"reserved_for"`
+	SoldOrder    *uuid.UUID           `json:"sold_order,omitempty"`
 	WriteID      uuid.UUID            `json:"write_id"`
 	CreatedAt    time.Time            `json:"created_at"`
 	UpdatedAt    time.Time            `json:"updated_at"`
@@ -541,7 +550,7 @@ func RestoreListing(st ListingState) Listing {
 		id: st.ID, sellerID: st.SellerID, title: st.Title, price: st.Price, description: st.Description,
 		categoryCode: st.CategoryCode, condition: st.Condition, allowOffers: st.AllowOffers, communeCode: st.CommuneCode,
 		photos: st.Photos, specs: st.Specs, status: st.Status, rejection: st.Rejection, reservedFor: st.ReservedFor,
-		writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
+		soldOrder: st.SoldOrder, writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
 		publishedAt: st.PublishedAt, soldAt: st.SoldAt, deletedAt: st.DeletedAt, heldAt: st.HeldAt, point: Point{Lat: st.Lat, Lng: st.Lng}, code: st.Code,
 		previousPrice: st.PreviousPrice, priceChangedAt: st.PriceChangedAt,
 	}
@@ -553,7 +562,7 @@ func (l *Listing) State() ListingState {
 		ID: l.id, SellerID: l.sellerID, Title: l.title, Price: l.price, Description: l.description,
 		CategoryCode: l.categoryCode, Condition: l.condition, AllowOffers: l.allowOffers, CommuneCode: l.communeCode,
 		Photos: l.photos, Specs: l.specs, Status: l.status, Rejection: l.rejection,
-		ReservedFor: l.reservedFor, WriteID: l.writeID, CreatedAt: l.createdAt, UpdatedAt: l.updatedAt,
+		ReservedFor: l.reservedFor, SoldOrder: l.soldOrder, WriteID: l.writeID, CreatedAt: l.createdAt, UpdatedAt: l.updatedAt,
 		PublishedAt: l.publishedAt, SoldAt: l.soldAt, DeletedAt: l.deletedAt, HeldAt: l.heldAt, Lat: l.point.Lat, Lng: l.point.Lng, Code: l.code,
 		PreviousPrice: l.previousPrice, PriceChangedAt: l.priceChangedAt,
 	}

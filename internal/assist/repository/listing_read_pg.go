@@ -114,8 +114,7 @@ func (s pgListingReads) Insert(ctx context.Context, r domain.ListingRead, key uu
 		// A share lock on the account's row: an insert that commits after
 		// Erase waits for it and sees the tombstone.
 		postgres.QueueLockLiving(b, st.AccountID, accountdomain.ErrSessionRevoked)
-		b.Queue(`SELECT pg_advisory_xact_lock(hashtext('listing_reads:' || @source || ':' || @account::text))`,
-			pgx.StrictNamedArgs{"source": string(st.Source), "account": st.AccountID})
+		postgres.QueueLock(b, "listing_reads", st.Source, st.AccountID)
 		b.Queue(`SELECT (SELECT id FROM listing_reads WHERE id = @id OR (account_id = @account AND request_key = @key) LIMIT 1),
        (SELECT count(*) FROM listing_reads WHERE account_id = @account AND source = @source AND created_at > @since)`,
 			pgx.StrictNamedArgs{

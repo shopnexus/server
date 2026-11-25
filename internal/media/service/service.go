@@ -22,8 +22,9 @@ type Service interface {
 	// CreateUpload starts an upload and returns where to PUT it.
 	CreateUpload(ctx context.Context, owner uuid.UUID, contentType string, size int64) (UploadTicket, error)
 	// Attach gives owner's uploads to holder, such as a listing: all of them
-	// or none. Uploads holder already holds pass, so a retry succeeds.
-	Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID) error
+	// or none, saved under writeID. Uploads holder already holds pass, so a
+	// retry succeeds.
+	Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID, writeID uuid.UUID) error
 	// Extend keeps owner's photos for their drafts, all or none: each is
 	// owner's photo, waiting before its expiry and in the store as
 	// declared, otherwise domain.ErrInvalidUpload. Each then expires 30
@@ -63,16 +64,18 @@ type Service interface {
 	SavePhoto(ctx context.Context, owner, id uuid.UUID, data []byte, contentType string, origin domain.Origin) error
 	// HoldVideo gives owner's video upload to holder, such as a read: owner's,
 	// waiting or already held by holder, before its expiry and in the store
-	// as declared. Anything else is domain.ErrInvalidUpload.
-	HoldVideo(ctx context.Context, owner, holder, id uuid.UUID) error
+	// as declared, saved under writeID. Anything else is
+	// domain.ErrInvalidUpload.
+	HoldVideo(ctx context.Context, owner, holder, id, writeID uuid.UUID) error
 	// VideoKey is the object store key of a held video, for module ai to
 	// read. An unknown, unheld or consumed video is objectstore.ErrNotFound.
 	VideoKey(ctx context.Context, id uuid.UUID) (string, error)
 	// PresignPhoto is a URL that reads such a photo for an hour.
 	PresignPhoto(ctx context.Context, id uuid.UUID) (string, error)
-	// Consume deletes a held video's object once its read is over. Anything
-	// else, or a second call, changes nothing.
-	Consume(ctx context.Context, id uuid.UUID) error
+	// Consume deletes a held video's object once its read is over and saves
+	// the upload under writeID. Anything else, or a second call, changes
+	// nothing.
+	Consume(ctx context.Context, id, writeID uuid.UUID) error
 }
 
 // Deps is what New builds Media from.

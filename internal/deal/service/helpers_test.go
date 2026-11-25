@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"log/slog"
+	"sync/atomic"
 	"testing"
 	"time"
 	"uuid"
@@ -152,6 +153,21 @@ type staleGet struct {
 }
 
 func (s staleGet) Get(context.Context, uuid.UUID) (domain.Deal, error) { return s.stale, nil }
+
+// keyRace is staleGet whose first Moved finds nothing: a try that loaded
+// the deal before a racing try of the same request saved.
+type keyRace struct {
+	staleGet
+
+	asked *atomic.Int32
+}
+
+func (s keyRace) Moved(ctx context.Context, deal uuid.UUID, by domain.Party, key uuid.UUID) (bool, error) {
+	if s.asked.Add(1) == 1 {
+		return false, nil
+	}
+	return s.Deals.Moved(ctx, deal, by, key)
+}
 
 // linkedAt is module shipping for the tests: every seller has linked every
 // carrier, and c answers for them all; a nil c is the fake of the carrier

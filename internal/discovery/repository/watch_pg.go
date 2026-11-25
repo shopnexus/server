@@ -57,7 +57,7 @@ func (s pgWatches) Put(ctx context.Context, w Watch) (Watch, bool, error) {
 		)
 		b := &pgx.Batch{}
 		postgres.QueueLockLiving(b, w.Account, accountdomain.ErrSessionRevoked)
-		b.Queue(`SELECT pg_advisory_xact_lock(hashtext('watches:' || @account::text))`, pgx.StrictNamedArgs{"account": w.Account})
+		postgres.QueueLock(b, "watches", w.Account)
 		b.Queue(`UPDATE search_watches SET `+watchFilters+`, new_count = 0
 WHERE account_id = @account AND query_key = @key
 RETURNING `+watchColumns, filters).Query(func(rows pgx.Rows) error {

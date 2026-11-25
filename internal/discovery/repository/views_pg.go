@@ -11,18 +11,12 @@ import (
 
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/discovery/domain"
+	"github.com/shopnexus/server/internal/platform/postgres"
 )
 
 type pgViews struct{ db *pgxpool.Pool }
 
 func NewViews(db *pgxpool.Pool) Views { return pgViews{db} }
-
-// viewsLock names a viewer's marks for an advisory lock, which stands in
-// for a lock on the accounts row: Record holds it shared and Clear
-// exclusively, so a record in flight when the account is deleted commits
-// before Clear deletes, and one that starts after waits for Clear and then
-// reads the deleted account.
-const viewsLock = `hashtext('views:' || @viewer::text)`
 
 // recordView keeps day as the viewer's last view of a public listing that
 // is not theirs, while the viewer's account is not deleted, and counts the
@@ -47,10 +41,13 @@ ON CONFLICT (listing_id, viewed_on) DO UPDATE SET view_count = listing_view_days
 // Record sends the lock and the record as one batch: one round trip, and
 // one implicit transaction that holds the lock until the record commits.
 // The record is a statement of its own, so it reads the account after the
-// lock is held.
+// lock is held. The "views" lock stands in for a lock on the accounts row:
+// Record holds it shared and Clear exclusively, so a record in flight when
+// the account is deleted commits before Clear deletes, and one that starts
+// after waits for Clear and then reads the deleted account.
 func (s pgViews) Record(ctx context.Context, listing, viewer uuid.UUID, day time.Time) error {
 	b := &pgx.Batch{}
-	b.Queue(`SELECT pg_advisory_xact_lock_shared(`+viewsLock+`)`, pgx.StrictNamedArgs{"viewer": viewer})
+	postgres.QueueLockShared(b, "views", viewer)
 	b.Queue(recordView, pgx.StrictNamedArgs{"listing": listing, "viewer": viewer, "day": day, "public": catalogdomain.Public})
 	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("record view: %w", err)
@@ -86,7 +83,7 @@ WHERE viewer_id = @viewer AND viewed_on >= @from::date ORDER BY viewed_on DESC, 
 
 func (s pgViews) Clear(ctx context.Context, viewer uuid.UUID) error {
 	b := &pgx.Batch{}
-	b.Queue(`SELECT pg_advisory_xact_lock(`+viewsLock+`)`, pgx.StrictNamedArgs{"viewer": viewer})
+	postgres.QueueLock(b, "views", viewer)
 	b.Queue(`DELETE FROM listing_view_marks WHERE viewer_id = @viewer`, pgx.StrictNamedArgs{"viewer": viewer})
 	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
 		return fmt.Errorf("clear views: %w", err)

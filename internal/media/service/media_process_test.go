@@ -64,7 +64,7 @@ func (e env) uploadAs(t *testing.T, contentType string, body []byte) uuid.UUID {
 	t.Helper()
 	owner := accounttest.New(t, e.db)
 	id := mediatest.Upload(t, e.media, owner, contentType, body)
-	if err := e.media.Attach(context.Background(), owner, uuid.NewV7(), []uuid.UUID{id}); err != nil {
+	if err := e.media.Attach(context.Background(), owner, uuid.NewV7(), []uuid.UUID{id}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	return id
@@ -233,7 +233,7 @@ func TestProcessMarksCopies(t *testing.T) {
 		t.Fatal(err)
 	}
 	put := e.upload(t, owner, mediatest.JPEG(t, 64, 48))
-	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{copied, put}); err != nil {
+	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{copied, put}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	if res := e.process(t, copied); res.Status != domain.StatusReady || !res.Copied {

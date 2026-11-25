@@ -82,7 +82,7 @@ func (s ListingEdit) Run(ctx restate.Context, in EditInput) (EditResult, error) 
 		return EditResult{Refused: apperr.From(err)}, nil
 	}
 	if added := slices.DeleteFunc(slices.Clone(in.Listing.Photos), func(u uuid.UUID) bool { return slices.Contains(before, u) }); len(added) > 0 {
-		refused, attachErr := attach(ctx, s.Media, in.Seller, in.ID, added)
+		refused, attachErr := attach(ctx, s.Media, in.Seller, in.ID, added, restatex.NewID(ctx, at))
 		if attachErr != nil || refused != nil {
 			return EditResult{Refused: refused}, attachErr
 		}

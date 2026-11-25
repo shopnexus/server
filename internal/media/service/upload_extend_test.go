@@ -144,7 +144,7 @@ func TestGoneUploads(t *testing.T) {
 	if err := e.media.Extend(ctx, owner, []uuid.UUID{extended}); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{attached}); err != nil {
+	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{attached}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	gone, err := e.media.Gone(ctx, owner, []uuid.UUID{waiting, extended, attached, expired, theirs, unknown})
@@ -164,7 +164,7 @@ func TestAttachAnExtendedPhoto(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.clock.Add(3 * domain.ExpireAfter)
-	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{id}); err != nil {
+	if err := e.media.Attach(ctx, owner, uuid.NewV7(), []uuid.UUID{id}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	if s := e.get(t, id).Status(); s != domain.StatusAttached {

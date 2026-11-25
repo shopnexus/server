@@ -110,6 +110,21 @@ func saveStep(ctx restate.Context, deals repository.Deals, d *domain.Deal, key u
 	return out.Refusal, nil
 }
 
+// keyMovedStep says, in one journaled step, whether a save refused with
+// domain.ErrChanged lost to a racing try of the same keyed request.
+func keyMovedStep(ctx restate.Context, deals repository.Deals, refused *apperr.Error, id uuid.UUID, by domain.Party, key uuid.UUID) (bool, error) {
+	if refused == nil || refused.Code != domain.ErrChanged.Code || key == uuid.Nil() {
+		return false, nil
+	}
+	moved, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
+		return deals.Moved(rc, id, by, key)
+	})
+	if err != nil {
+		return false, fmt.Errorf("find the key's move: %w", err)
+	}
+	return moved, nil
+}
+
 // reserveStep holds the listing for the order in one journaled step; a
 // listing that is not on sale is domain.ErrListingUnavailable, as data.
 func reserveStep(ctx restate.Context, catalog catalogsvc.Service, listing, order uuid.UUID) (*apperr.Error, error) {
@@ -140,10 +155,12 @@ func releaseStep(ctx restate.Context, catalog catalogsvc.Service, listing, order
 	return nil
 }
 
-// sellStep marks the listing held for the order sold in one journaled step.
-func sellStep(ctx restate.Context, catalog catalogsvc.Service, listing, order uuid.UUID) error {
+// sellStep marks the listing held for the order sold in one journaled step,
+// under a write ID minted before it.
+func sellStep(ctx restate.Context, catalog catalogsvc.Service, listing, order uuid.UUID, at time.Time) error {
+	writeID := restatex.NewID(ctx, at)
 	if err := restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		return catalog.SellTo(rc, listing, order)
+		return catalog.SellTo(rc, listing, order, writeID)
 	}); err != nil {
 		return fmt.Errorf("sell the listing: %w", err)
 	}

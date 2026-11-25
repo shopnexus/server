@@ -129,7 +129,7 @@ func (s OrderTimers) AutoComplete(ctx restate.Context, ref OrderRef) error {
 			return saveErr
 		}
 		if refused == nil {
-			return sellStep(ctx, s.Deals.catalog, m.Listing.ID, ref.OrderID)
+			return sellStep(ctx, s.Deals.catalog, m.Listing.ID, ref.OrderID, at)
 		}
 	}
 }

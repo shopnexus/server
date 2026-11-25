@@ -55,8 +55,8 @@ func (m *Media) SavePhoto(ctx context.Context, owner, id uuid.UUID, data []byte,
 }
 
 // HoldVideo is Attach for one video, in shape video.
-func (m *Media) HoldVideo(ctx context.Context, owner, holder, id uuid.UUID) error {
-	return m.attachAs(ctx, owner, holder, domain.ShapeVideo, []uuid.UUID{id})
+func (m *Media) HoldVideo(ctx context.Context, owner, holder, id, writeID uuid.UUID) error {
+	return m.attachAs(ctx, owner, holder, domain.ShapeVideo, []uuid.UUID{id}, writeID)
 }
 
 func (m *Media) VideoKey(ctx context.Context, id uuid.UUID) (string, error) {
@@ -84,7 +84,7 @@ func (m *Media) PresignPhoto(ctx context.Context, id uuid.UUID) (string, error) 
 // Consume deletes the object before it saves the row: a retry after a
 // failed save finds the row still held, deletes nothing that is there, and
 // saves.
-func (m *Media) Consume(ctx context.Context, id uuid.UUID) error {
+func (m *Media) Consume(ctx context.Context, id, writeID uuid.UUID) error {
 	u, err := m.uploads.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return nil
@@ -98,7 +98,7 @@ func (m *Media) Consume(ctx context.Context, id uuid.UUID) error {
 	if err = m.store.Delete(ctx, u.Key()); err != nil {
 		return fmt.Errorf("delete the video: %w", err)
 	}
-	if err = m.uploads.Save(ctx, &u, uuid.NewV7()); err != nil {
+	if err = m.uploads.Save(ctx, &u, writeID); err != nil {
 		if errors.Is(err, repository.ErrConflict) {
 			return apperr.ErrTryAgain
 		}

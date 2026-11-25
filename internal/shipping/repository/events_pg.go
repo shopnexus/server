@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/shopnexus/server/internal/platform/postgres"
 	"github.com/shopnexus/server/internal/provider/carrier"
 )
 
@@ -30,8 +31,7 @@ func (s pgEvents) Add(ctx context.Context, c, code string, ev carrier.Event) (bo
 	// The parcel's lock makes a webhook and a poll of one event take turns,
 	// so the second finds the first; the batch is one transaction.
 	b := &pgx.Batch{}
-	b.Queue(`SELECT pg_advisory_xact_lock(hashtext('shipment_events:' || @carrier || ':' || @code))`,
-		pgx.StrictNamedArgs{"carrier": c, "code": code})
+	postgres.QueueLock(b, "shipment_events", c, code)
 	var added bool
 	b.Queue(`INSERT INTO shipment_events (carrier, tracking_code, `+eventColumns+`, received_at)
 SELECT @carrier, @code, @at, @kind, @step, @status, @reason, @reason_code, @warehouse, @shipper_name, @shipper_phone,

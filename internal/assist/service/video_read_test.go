@@ -418,7 +418,7 @@ type flakyHold struct {
 	calls int
 }
 
-func (f *flakyHold) HoldVideo(ctx context.Context, owner, holder, id uuid.UUID) error {
+func (f *flakyHold) HoldVideo(ctx context.Context, owner, holder, id, writeID uuid.UUID) error {
 	f.mu.Lock()
 	f.calls++
 	first := f.calls == 1
@@ -426,7 +426,7 @@ func (f *flakyHold) HoldVideo(ctx context.Context, owner, holder, id uuid.UUID) 
 	if first {
 		return apperr.ErrTryAgain
 	}
-	return f.Service.HoldVideo(ctx, owner, holder, id)
+	return f.Service.HoldVideo(ctx, owner, holder, id, writeID)
 }
 
 // A hold that lost a race runs again: the start answers the read, never
@@ -449,7 +449,7 @@ func TestExpireConsumesTheVideoOfAGoneRead(t *testing.T) {
 	ctx := context.Background()
 	me, read := accounttest.WithPhone(t, e.db), uuid.NewV7()
 	video := e.video(t, me)
-	if err := e.media.HoldVideo(ctx, me, read, video); err != nil {
+	if err := e.media.HoldVideo(ctx, me, read, video, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ingress.Service[service.ExpireInput, restate.Void](e.ingress, e.prefix+"VideoRead", "Expire").

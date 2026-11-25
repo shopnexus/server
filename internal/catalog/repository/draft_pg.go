@@ -47,7 +47,7 @@ func (s pgDrafts) Put(ctx context.Context, account, id uuid.UUID, c domain.Draft
 			count  int
 		)
 		b := &pgx.Batch{}
-		b.Queue(`SELECT pg_advisory_xact_lock(hashtext('drafts:' || @account::text))`, pgx.StrictNamedArgs{"account": account})
+		postgres.QueueLock(b, "drafts", account)
 		// A write that commits after Erase waits for it here and then finds
 		// the tombstone.
 		postgres.QueueLockLiving(b, account, accountdomain.ErrSessionRevoked)

@@ -30,8 +30,8 @@ type attachThenFail struct {
 	restatetest.CommitThenFail
 }
 
-func (m *attachThenFail) Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID) error {
-	return m.After(m.Service.Attach(ctx, owner, holder, ids))
+func (m *attachThenFail) Attach(ctx context.Context, owner, holder uuid.UUID, ids []uuid.UUID, writeID uuid.UUID) error {
+	return m.After(m.Service.Attach(ctx, owner, holder, ids, writeID))
 }
 
 // A post whose attach committed and then failed goes on when Restate

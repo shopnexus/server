@@ -1,6 +1,7 @@
 package domain_test
 
 import (
+	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -126,8 +127,8 @@ func TestTransitions(t *testing.T) {
 		t.Fatalf("unhide: %v", err)
 	}
 	_ = l.Hide(now)
-	if err := l.MarkSold(now); err != nil || l.Status() != domain.StatusSold || !l.SoldAt().Equal(now) {
-		t.Fatalf("sell hidden: %v", err)
+	if err := l.MarkSold(now); err != nil || l.Status() != domain.StatusSold || !l.SoldAt().Equal(now) || l.SoldOrder() != nil {
+		t.Fatalf("sell hidden: %v %v", err, l.SoldOrder())
 	}
 	conflict("hide sold", l.Hide(now))
 	if err := l.Edit(draft(), known, now); !errors.Is(err, domain.ErrStateConflict) {
@@ -275,11 +276,27 @@ func TestReserveReleaseSell(t *testing.T) {
 	if _, err := l.Reserve(o, now); err != nil {
 		t.Fatal(err)
 	}
-	if !l.SellTo(o, now) || l.Status() != domain.StatusSold || l.SoldAt() == nil || l.ReservedFor() != (uuid.UUID{}) {
+	if !l.SellTo(o, now) || l.Status() != domain.StatusSold || l.SoldAt() == nil || l.ReservedFor() != (uuid.UUID{}) ||
+		l.SoldOrder() == nil || *l.SoldOrder() != o {
 		t.Fatalf("sell: %+v", l.State())
 	}
 	if l.SellTo(o, now) {
 		t.Fatal("sold twice")
+	}
+	// A sale through an order is not the seller's to undo.
+	if err := l.UnmarkSold(now); !errors.Is(err, domain.ErrStateConflict) || l.Status() != domain.StatusSold {
+		t.Fatalf("unmark an order's sale: %v %s", err, l.Status())
+	}
+	b, err := json.Marshal(l)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back domain.Listing
+	if err = json.Unmarshal(b, &back); err != nil || back.SoldOrder() == nil || *back.SoldOrder() != o {
+		t.Fatalf("journal round trip: %v %v", err, back.SoldOrder())
+	}
+	if err = l.Delete(now); err != nil || l.SoldOrder() == nil {
+		t.Fatalf("delete keeps the order: %v %v", err, l.SoldOrder())
 	}
 }
 

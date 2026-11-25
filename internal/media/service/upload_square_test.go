@@ -41,7 +41,7 @@ func TestSquareRefusals(t *testing.T) {
 	ctx := context.Background()
 	owner, other, holder := accounttest.New(t, e.db), accounttest.New(t, e.db), uuid.NewV7()
 	photo := e.upload(t, owner, mediatest.JPEG(t, 80, 60))
-	if err := e.media.Attach(ctx, owner, holder, []uuid.UUID{photo}); err != nil {
+	if err := e.media.Attach(ctx, owner, holder, []uuid.UUID{photo}, uuid.NewV7()); err != nil {
 		t.Fatal(err)
 	}
 	for name, c := range map[string]struct {

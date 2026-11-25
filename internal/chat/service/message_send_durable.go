@@ -190,8 +190,9 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 		return SendResult{ConversationID: conv.ID, MessageID: added}, nil
 	}
 	if len(in.Photos) > 0 {
+		attachWrite := restatex.NewID(ctx, at)
 		attached, attachErr := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-			return restatex.AsRefusal(s.Chat.media.Attach(rc, in.Sender, msg.ID(), in.Photos))
+			return restatex.AsRefusal(s.Chat.media.Attach(rc, in.Sender, msg.ID(), in.Photos, attachWrite))
 		})
 		if attachErr != nil {
 			return SendResult{}, fmt.Errorf("attach photos: %w", attachErr)

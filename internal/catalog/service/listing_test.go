@@ -418,12 +418,16 @@ func TestReserveFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	for range 2 {
-		if err := e.catalog.SellTo(ctx, l.ID, order); err != nil {
+		if err := e.catalog.SellTo(ctx, l.ID, order, uuid.NewV7()); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if v, _ := e.catalog.Get(ctx, &seller, l.ID, locale.Vietnamese); v.Status != domain.StatusSold || v.SoldAt == nil {
 		t.Fatalf("sell: %+v", v)
+	}
+	// The order's sale stays: the seller cannot put it back on sale.
+	if _, err := e.catalog.UnmarkSold(ctx, seller, l.ID, locale.Vietnamese); !errors.Is(err, domain.ErrStateConflict) {
+		t.Fatalf("unmark an order's sale: %v", err)
 	}
 	k := pgtest.EventKinds(t, e.db, l.ID)
 	if want := []string{"listing.published", "listing.reserved", "listing.released", "listing.reserved", "listing.sold"}; !slices.Equal(k, want) {

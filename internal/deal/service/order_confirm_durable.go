@@ -34,8 +34,16 @@ func (s DealConfirm) Run(ctx restate.Context, in FlowInput) (FlowResult, error) 
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
 	refused, err := saveStep(ctx, s.Deals.deals, &d, in.Key, at)
-	if err != nil || refused != nil {
-		return FlowResult{Refused: refused}, err
+	if err != nil {
+		return FlowResult{}, err
 	}
-	return FlowResult{}, sellStep(ctx, s.Deals.catalog, m.Listing.ID, in.OrderID)
+	if refused != nil {
+		// A racing try of this confirm that saved first sells the listing.
+		moved, movedErr := keyMovedStep(ctx, s.Deals.deals, refused, in.DealID, m.By, in.Key)
+		if movedErr != nil || moved {
+			return FlowResult{}, movedErr
+		}
+		return FlowResult{Refused: refused}, nil
+	}
+	return FlowResult{}, sellStep(ctx, s.Deals.catalog, m.Listing.ID, in.OrderID, at)
 }

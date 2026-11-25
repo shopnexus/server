@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	accountdomain "github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/catalog/domain"
 	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/events"
@@ -26,7 +27,7 @@ func NewListings(db *pgxpool.Pool) Listings { return pgListings{db} }
 
 const listingColumns = `id, seller_id, title, price, description, category_code, condition, allow_offers, commune_code,
        photos, specs, status, rejection, reserved_for, write_id, created_at, updated_at, published_at, sold_at,
-       deleted_at, lat, lng, held_at, previous_price, price_changed_at, code`
+       deleted_at, lat, lng, held_at, previous_price, price_changed_at, sold_order_id, code`
 
 func scanListing(row pgx.CollectableRow) (domain.Listing, error) {
 	var (
@@ -38,7 +39,7 @@ func scanListing(row pgx.CollectableRow) (domain.Listing, error) {
 	if err := row.Scan(&st.ID, &st.SellerID, &st.Title, &st.Price, &st.Description, &st.CategoryCode, &st.Condition,
 		&st.AllowOffers, &st.CommuneCode, &photos, &specs, &st.Status, &rejec, &reservedFor, &st.WriteID, &st.CreatedAt,
 		&st.UpdatedAt, &st.PublishedAt, &st.SoldAt, &st.DeletedAt, &st.Lat, &st.Lng, &st.HeldAt, &previousPrice, &st.PriceChangedAt,
-		&st.Code); err != nil {
+		&st.SoldOrder, &st.Code); err != nil {
 		return domain.Listing{}, fmt.Errorf("scan listing: %w", err)
 	}
 	if reservedFor != nil {
@@ -86,6 +87,7 @@ func args(st domain.ListingState) pgx.StrictNamedArgs {
 		"rejection": rejection, "reserved_for": reservedFor, "write_id": st.WriteID, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
 		"published_at": st.PublishedAt, "sold_at": st.SoldAt, "deleted_at": st.DeletedAt, "lat": st.Lat, "lng": st.Lng,
 		"held_at": st.HeldAt, "previous_price": previousPrice, "price_changed_at": st.PriceChangedAt,
+		"sold_order_id": st.SoldOrder,
 	}
 }
 
@@ -93,7 +95,7 @@ func args(st domain.ListingState) pgx.StrictNamedArgs {
 // listings on sale wait for each other, so a count they read stays true
 // until they commit.
 func lockSeller(b *pgx.Batch, seller uuid.UUID) {
-	b.Queue(`SELECT pg_advisory_xact_lock(hashtext(@seller::text))`, pgx.StrictNamedArgs{"seller": seller})
+	postgres.QueueLock(b, "listings", seller)
 }
 
 // insertListing adds the row unless the seller is at the cap or has the
@@ -103,7 +105,7 @@ const insertListing = `
 INSERT INTO listings (` + listingColumns + `, request_key)
 SELECT @id, @seller_id, @title, @price, @description, @category_code, @condition, @allow_offers, @commune_code,
        @photos, @specs, @status, @rejection, @reserved_for, @write_id, @created_at, @updated_at, @published_at, @sold_at,
-       @deleted_at, @lat, @lng, @held_at, @previous_price, @price_changed_at,
+       @deleted_at, @lat, @lng, @held_at, @previous_price, @price_changed_at, @sold_order_id,
        (SELECT c FROM generate_series(0, 15) a, listing_code(@id, a) c
         WHERE NOT EXISTS (SELECT 1 FROM listings WHERE code = c) ORDER BY a LIMIT 1),
        @request_key
@@ -123,8 +125,11 @@ func (s pgListings) Insert(ctx context.Context, l domain.Listing, key uuid.UUID)
 	}
 	var id uuid.UUID
 	b := &pgx.Batch{}
-	// The seller's lock holds until the batch's implicit transaction ends,
-	// so the cap and the key are read one insert at a time.
+	// A share lock on the seller's row: an insert that commits after Erase
+	// waits for it and sees the tombstone.
+	postgres.QueueLockLiving(b, st.SellerID, accountdomain.ErrSessionRevoked)
+	// The seller's lock holds until the transaction ends, so the cap and
+	// the key are read one insert at a time.
 	lockSeller(b, st.SellerID)
 	b.Queue(insertListing, a).Fn = postgres.ExecAs("insert listing", nil)
 	b.Queue(`SELECT id FROM listings WHERE `+listingOfKey, pgx.StrictNamedArgs{
@@ -139,7 +144,10 @@ func (s pgListings) Insert(ctx context.Context, l domain.Listing, key uuid.UUID)
 		}
 		return nil
 	})
-	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+	// QueueLockLiving's callback aborts, so the batch needs a transaction.
+	if err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
+	}); err != nil {
 		return uuid.Nil(), fmt.Errorf("insert listing: %w", err)
 	}
 	return id, nil
@@ -224,7 +232,7 @@ SET title = @title, price = @price, description = @description, category_code = 
     specs = @specs, status = @status, rejection = @rejection, reserved_for = @reserved_for,
     updated_at = @updated_at, lat = @lat, lng = @lng,
     published_at = @published_at, sold_at = @sold_at, deleted_at = @deleted_at, held_at = @held_at, write_id = @write_id,
-    previous_price = @previous_price, price_changed_at = @price_changed_at
+    previous_price = @previous_price, price_changed_at = @price_changed_at, sold_order_id = @sold_order_id
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
 // atCap is true when a listing going on sale would exceed the cap; one on

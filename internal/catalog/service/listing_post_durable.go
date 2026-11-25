@@ -38,10 +38,11 @@ type PostResult struct {
 func (r PostResult) Refusal() *apperr.Error { return r.Refused }
 
 // insertedListing is the insert step's outcome: the listing that holds the
-// request's key, or the cap reached.
+// request's key, the cap reached, or the seller's account erased.
 type insertedListing struct {
 	ID     uuid.UUID `json:"id"`
 	Capped bool      `json:"capped,omitempty"`
+	Gone   bool      `json:"gone,omitempty"`
 }
 
 // flowDeps is what ListingPost and ListingEdit are built from.
@@ -125,6 +126,9 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 		if errors.Is(stepErr, domain.ErrCapReached) {
 			return insertedListing{Capped: true}, nil
 		}
+		if errors.Is(stepErr, accountdomain.ErrSessionRevoked) {
+			return insertedListing{Gone: true}, nil
+		}
 		if stepErr != nil {
 			return insertedListing{}, fmt.Errorf("insert listing: %w", stepErr)
 		}
@@ -136,11 +140,14 @@ func (s ListingPost) Run(ctx restate.Context, in PostInput) (PostResult, error) 
 	if ins.Capped {
 		return PostResult{Refused: domain.ErrCapReached}, nil
 	}
+	if ins.Gone {
+		return PostResult{Refused: accountdomain.ErrSessionRevoked}, nil
+	}
 	if ins.ID != id {
 		return PostResult{ListingID: ins.ID}, nil
 	}
 	// E8: an upload that is not the seller's, or not waiting, undoes the row.
-	refused, err := attach(ctx, s.Media, in.Seller, id, in.Listing.Photos)
+	refused, err := attach(ctx, s.Media, in.Seller, id, in.Listing.Photos, restatex.NewID(ctx, at))
 	if err != nil {
 		return PostResult{}, err
 	}
@@ -182,12 +189,12 @@ func lookUpRefs(ctx restate.Context, categories repository.Categories, regions r
 	return refs, nil
 }
 
-// attach gives the uploads to the listing holder and returns media's
-// refusal, invalid_upload or try_again, as data. A retried attach passes,
-// since holder already holds them.
-func attach(ctx restate.Context, media mediasvc.Service, seller, holder uuid.UUID, ids []uuid.UUID) (*apperr.Error, error) {
+// attach gives the uploads to the listing holder under writeID and returns
+// media's refusal, invalid_upload or try_again, as data. A retried attach
+// passes, since holder already holds them.
+func attach(ctx restate.Context, media mediasvc.Service, seller, holder uuid.UUID, ids []uuid.UUID, writeID uuid.UUID) (*apperr.Error, error) {
 	out, err := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-		return restatex.AsRefusal(media.Attach(rc, seller, holder, ids))
+		return restatex.AsRefusal(media.Attach(rc, seller, holder, ids, writeID))
 	})
 	if err != nil {
 		return nil, fmt.Errorf("attach uploads: %w", err)

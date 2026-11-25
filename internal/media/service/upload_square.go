@@ -15,7 +15,7 @@ import (
 // and a run already under way share one processing. A photo processing
 // refuses is domain.ErrInvalidUpload.
 func (m *Media) Square(ctx context.Context, owner, holder, id uuid.UUID) (string, error) {
-	if err := m.attachAs(ctx, owner, holder, domain.ShapeSquare, []uuid.UUID{id}); err != nil {
+	if err := m.attachAs(ctx, owner, holder, domain.ShapeSquare, []uuid.UUID{id}, uuid.NewV7()); err != nil {
 		return "", err
 	}
 	res, err := m.process.Call(ctx, id, restate.WithIdempotencyKey(id.String()))

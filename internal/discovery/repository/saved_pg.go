@@ -30,7 +30,7 @@ func (s pgSaves) Save(ctx context.Context, id, account, listing uuid.UUID, price
 		)
 		b := &pgx.Batch{}
 		postgres.QueueLockLiving(b, account, accountdomain.ErrSessionRevoked)
-		b.Queue(`SELECT pg_advisory_xact_lock(hashtext(@account::text))`, pgx.StrictNamedArgs{"account": account})
+		postgres.QueueLock(b, "saved", account)
 		b.Queue(`SELECT EXISTS (SELECT 1 FROM saved_listings WHERE account_id = @account AND listing_id = @listing),
        (SELECT count(*) FROM saved_listings WHERE account_id = @account)`,
 			pgx.StrictNamedArgs{"account": account, "listing": listing}).QueryRow(func(row pgx.Row) error {
