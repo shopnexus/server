@@ -629,6 +629,16 @@ the same values again. A write by anyone else leaves M, so the stale write
 fails with `ErrConflict`. A counter cannot do this: another writer can raise
 it to the same value.
 
+Every write that sets `write_id` takes this one form (decided 2026-11-25):
+the caller mints N before the write, and SQL never makes it (no
+`uuidv7()`), so a retry sends the same N. That holds for set-based writes
+too, such as revoking sessions or moving an address's default, which
+give every row they change the caller's N. Zero rows is the module's
+`ErrConflict` and nothing else, so a check such as the listing cap runs
+before the update; a save that must skip its side effects on a retry
+reads `RETURNING old.write_id = @write_id`. After the save the aggregate
+carries N (`Saved(N)`).
+
 Accepted risk: when a step commits, the process dies before Restate journals
 the result, and another writer commits before the retry, the retry gets
 `ErrConflict` although its change landed. The service handles it like any
@@ -919,7 +929,7 @@ Two kinds of call skip the aggregate:
 - A bulk change that only moves a one-way flag may run as one set-based
   statement that also changes each row's `write_id`. `DeleteOtherSessions`
   is `UPDATE sessions SET revoked_at = @now, revoke_reason = 'sign_out',
-  write_id = uuidv7() WHERE account_id = @account_id AND id <> @keep AND
+  write_id = @write_id WHERE account_id = @account_id AND id <> @keep AND
   revoked_at IS NULL`. Loading and saving each session would cost one
   transaction per device and protect no rule. The push tokens of the
   sessions it ends stop at the next push (see Notifications).
