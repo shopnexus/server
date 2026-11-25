@@ -65,7 +65,7 @@ func TestLimitsPerAddress(t *testing.T) {
 	from := func(addr string) *httptest.ResponseRecorder {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/op", http.NoBody)
 		req.RemoteAddr = netip.AddrPortFrom(netip.MustParseAddr(addr), 5000).String()
-		return serve(h, req)
+		return record(h, req)
 	}
 
 	for i := range Code.Address.Burst {
@@ -119,7 +119,7 @@ func TestLimitCaller(t *testing.T) {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/op", http.NoBody)
 		req.RemoteAddr = addr + ":5000"
 		req.Header.Set("Caller", caller.String())
-		serve(h, req)
+		record(h, req)
 		return got
 	}
 
@@ -152,7 +152,7 @@ func TestLimitCountsWhatItWraps(t *testing.T) {
 	for range own.Address.Burst + 1 {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/op", http.NoBody)
 		req.RemoteAddr = "203.0.113.7:5000"
-		codes[serve(h, req).Code]++
+		codes[record(h, req).Code]++
 	}
 	if codes[202] != own.Address.Burst || codes[429] != 1 {
 		t.Fatalf("codes %v", codes)

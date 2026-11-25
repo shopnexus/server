@@ -49,7 +49,7 @@ func testMux() *http.ServeMux {
 	return mux
 }
 
-func serve(h http.Handler, req *http.Request) *httptest.ResponseRecorder {
+func record(h http.Handler, req *http.Request) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec
@@ -67,7 +67,7 @@ func attr(attrs []attribute.KeyValue, key string) (attribute.Value, bool) {
 //nolint:paralleltest // The test installs the global tracer provider.
 func TestTraceNamesSpanByRoutePattern(t *testing.T) {
 	rec := useRecorder(t)
-	serve(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
+	record(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
 
 	spans := rec.Ended()
 	if len(spans) != 1 {
@@ -94,7 +94,7 @@ func TestTraceRouteThroughCopyingMiddleware(t *testing.T) {
 	router := NewRouter()
 	router.HandleFunc("GET /items/{id}", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 	h := ResolveClientIP(nil)(router)
-	serve(Trace(discard())(h), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
+	record(Trace(discard())(h), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
 
 	if v, _ := attr(rec.Ended()[0].Attributes(), "http.route"); v.AsString() != "/items/{id}" {
 		t.Fatalf("http.route = %v", v)
@@ -113,7 +113,7 @@ func TestTraceDurationBucketsInSeconds(t *testing.T) {
 		otel.SetMeterProvider(prev)
 		mp.Shutdown(context.Background())
 	})
-	serve(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
+	record(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
 
 	var rm metricdata.ResourceMetrics
 	if err := reader.Collect(t.Context(), &rm); err != nil {
@@ -135,7 +135,7 @@ func TestTraceDurationBucketsInSeconds(t *testing.T) {
 //nolint:paralleltest // The test installs the global tracer provider.
 func TestTraceRecordsHandlerStatus(t *testing.T) {
 	rec := useRecorder(t)
-	serve(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/missing", http.NoBody))
+	record(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/missing", http.NoBody))
 
 	if v, _ := attr(rec.Ended()[0].Attributes(), "http.response.status_code"); v.AsInt64() != 404 {
 		t.Fatalf("status = %v", v)
@@ -147,7 +147,7 @@ func TestTraceContinuesIncomingTrace(t *testing.T) {
 	rec := useRecorder(t)
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody)
 	req.Header.Set("Traceparent", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
-	serve(Trace(discard())(testMux()), req)
+	record(Trace(discard())(testMux()), req)
 
 	s := rec.Ended()[0]
 	if got := s.SpanContext().TraceID().String(); got != "4bf92f3577b34da6a3ce929d0e0e4736" {
@@ -161,7 +161,7 @@ func TestTraceContinuesIncomingTrace(t *testing.T) {
 //nolint:paralleltest // The test installs the global tracer provider.
 func TestTraceUnknownPathHasNoPattern(t *testing.T) {
 	rec := useRecorder(t)
-	serve(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/nope", http.NoBody))
+	record(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/nope", http.NoBody))
 
 	s := rec.Ended()[0]
 	if s.Name() != "GET" {
@@ -175,7 +175,7 @@ func TestTraceUnknownPathHasNoPattern(t *testing.T) {
 //nolint:paralleltest // The test installs the global tracer provider.
 func TestTraceSetsTraceIDHeader(t *testing.T) {
 	rec := useRecorder(t)
-	resp := serve(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
+	resp := record(Trace(discard())(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
 
 	if got := resp.Header().Get("Trace-Id"); got != rec.Ended()[0].SpanContext().TraceID().String() {
 		t.Fatalf("Trace-Id %q", got)
@@ -187,7 +187,7 @@ func TestAccessLogLine(t *testing.T) {
 	rec := useRecorder(t)
 	var buf bytes.Buffer
 	log := telemetry.NewLogger(&buf, "json", slog.LevelInfo)
-	serve(Trace(log)(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
+	record(Trace(log)(testMux()), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/42", http.NoBody))
 
 	var m map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {

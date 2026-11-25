@@ -64,7 +64,7 @@ func post(t *testing.T, h http.Handler, body string) *httptest.ResponseRecorder 
 	t.Helper()
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/things", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	return serve(h, req)
+	return record(h, req)
 }
 
 func TestValidBodyReachesHandler(t *testing.T) {
@@ -191,7 +191,7 @@ func TestUnservedOperationPassesThrough(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := Trace(discard())(validate(r))
-	unknown := serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/elsewhere", http.NoBody))
+	unknown := record(h, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/elsewhere", http.NoBody))
 	for _, body := range []string{`{"name":"ab"}`, `{"name":"a"}`, `{`, ``} {
 		rec := post(t, h, body)
 		if rec.Code != unknown.Code || rec.Body.String() != unknown.Body.String() {
@@ -202,7 +202,7 @@ func TestUnservedOperationPassesThrough(t *testing.T) {
 
 func TestPathOutsideSpecPassesThrough(t *testing.T) {
 	t.Parallel()
-	rec := serve(thingsServer(t), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/elsewhere", http.NoBody))
+	rec := record(thingsServer(t), httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/elsewhere", http.NoBody))
 	body, _ := io.ReadAll(rec.Body)
 	if rec.Code != 404 {
 		t.Fatalf("%d %s", rec.Code, body)
@@ -264,16 +264,16 @@ func TestFormatsAreValidated(t *testing.T) {
 	validate, _ := ValidateRequests(doc, r.Routes(), slog.New(slog.DiscardHandler))
 	h := Trace(discard())(validate(r))
 
-	if rec := serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/not-a-uuid", http.NoBody)); rec.Code != 400 {
+	if rec := record(h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/not-a-uuid", http.NoBody)); rec.Code != 400 {
 		t.Errorf("bad uuid: %d", rec.Code)
 	}
-	if rec := serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/01928c3e-7b5a-7c1e-8a2b-3c4d5e6f7a8b", http.NoBody)); rec.Code != 200 {
+	if rec := record(h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/items/01928c3e-7b5a-7c1e-8a2b-3c4d5e6f7a8b", http.NoBody)); rec.Code != 200 {
 		t.Errorf("good uuid: %d", rec.Code)
 	}
 	for body, want := range map[string]int{`{"email":"not-an-email"}`: 400, `{"email":"linh@example.com"}`: 201} {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/contacts", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		if rec := serve(h, req); rec.Code != want {
+		if rec := record(h, req); rec.Code != want {
 			t.Errorf("%s: %d, want %d", body, rec.Code, want)
 		}
 	}

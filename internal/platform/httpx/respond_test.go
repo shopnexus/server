@@ -45,7 +45,7 @@ func failWith(t *testing.T, err error) (*httptest.ResponseRecorder, *bytes.Buffe
 	h := Trace(slog.New(slog.DiscardHandler))(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, r, log, err)
 	}))
-	return serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/x", http.NoBody)), &logs
+	return record(h, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/x", http.NoBody)), &logs
 }
 
 func TestWriteErrorMapsKinds(t *testing.T) {
@@ -116,7 +116,7 @@ func TestRecoverTurnsPanicInto500(t *testing.T) {
 	h := Trace(log)(Recover(log)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
 		panic("kaboom")
 	})))
-	rec := serve(h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody))
+	rec := record(h, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", http.NoBody))
 
 	if b := decodeError(t, rec); rec.Code != 500 || b.Error.Code != "internal" {
 		t.Fatalf("%d %+v", rec.Code, b)

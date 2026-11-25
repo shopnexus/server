@@ -36,7 +36,7 @@ func visitLogHandler(t *testing.T, req *http.Request, trusted []netip.Prefix, h 
 	var buf bytes.Buffer
 	log := telemetry.NewLogger(&buf, "json", slog.LevelInfo)
 	day := func() time.Time { return time.Date(2026, 11, 23, 9, 0, 0, 0, time.UTC) }
-	serve(Trace(log)(ResolveClientIP(trusted)(Visitors(nil, trusted, day)(h))), req)
+	record(Trace(log)(ResolveClientIP(trusted)(Visitors(nil, trusted, day)(h))), req)
 	var m map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &m); err != nil {
 		t.Fatalf("log %q: %v", buf.String(), err)
