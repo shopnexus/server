@@ -164,7 +164,7 @@ commit. A path no route serves counts as `read` or `write` too.
 | `write` | 10/s, burst 200 | 5/s, burst 100 | other methods by default |
 | `auth` | 1/s, burst 60 | 1 per 5 s, burst 10 | sign-in, reauthentication, console login |
 | `code` | 1 per 10 s, burst 10 | 1 per 30 s, burst 5 | the two that mail a code |
-| `costly` | 1/s, burst 30 | 1 per 2 s, burst 20 | link previews, listing reads, price guides, carrier quotes and pickups |
+| `costly` | 1/s, burst 30 | 1 per 2 s, burst 20 | link previews, listing reads, price guides, carrier quotes and pickups, Chợ Tốt linking, listings and imports |
 | `telemetry` | 2/s, burst 60 | none | `POST /v1/client-events` |
 | `exempt` | none | none | health checks, carrier webhooks, the dashboards' forwardAuth |
 
@@ -530,10 +530,10 @@ internal/account/
   account.go         Mount: builds the layers, returns service.Service
 ```
 
-Modules console, media, catalog, deal, chat, trust, discovery, support and
+Modules console, media, catalog, chotot, deal, chat, trust, discovery, support and
 feedback have the same four packages; module agent has them and `mcp`, its MCP
 server (see Console agent); a module that reacts to events adds `worker`,
-as catalog, chat, deal, discovery, notification, support and feedback do. Module `screen` has no
+as catalog, chat, chotot, deal, discovery, notification, support and feedback do. Module `screen` has no
 `repository` or `domain`: it only reads the other modules' services (see
 Screen). Module `erasure` has only `service` and `handler`: it calls
 account and deal to delete an account (see Erasure). Module `beacon` has
@@ -3414,6 +3414,94 @@ prices any draft for the app's "Giá" step, with or without a read:
   photo count, sample size, sales, estimate source, suggestion and
   watcher counts and the time taken, and no title, description or specs.
 
+### Chợ Tốt link
+
+Module `chotot` (decided 2026-11-26) links a seller's Chợ Tốt profile to
+their account and brings the profile's listings over as listings.
+ShopNexus only reads Chợ Tốt: the client in `internal/provider/chotot`
+(see Assist) also reads a profile, `/v1/public/profile/<oid>`, decoding
+only its ID, its account number, name, avatar and bio, and a profile's
+listings, `/v1/public/ad-listing?account_id=<n>`, at most 200, newest
+first. The gateway ignores `account_oid` as a filter, so the client asks
+by the profile's account number and drops any listing of another profile
+or not active.
+
+- Code: `POST /v1/me/chotot/codes` answers the account's live code, or a
+  new one: `SN-` and six characters without 0, O, 1, I or L
+  (`crypto/rand`), for 30 minutes, one per account (`chotot_codes`).
+- Link: `PUT /v1/me/chotot {profile_url}` checks, in order,
+  `invalid_profile_url` 422 (not `chotot.com/user/<32 hex>`),
+  `code_expired` 422 (no live code), `chotot_profile_not_found` 404,
+  `chotot_unavailable` 503, then `code_not_found` 422 when the bio does
+  not hold the code (case, white space, dashes and underscores aside), with
+  `details.profile` (name, avatar) so the app shows which profile it read.
+  It reads the profile's listings once: `seen_through` is the newest list
+  ID, so only newer listings are imported on their own, and `waiting`
+  counts the importable ones; without an answer both stay null and the
+  first check sets them. It sends the first `ChototSync.Run` an hour later
+  keyed by the new link's ID, then stores the link in one transaction:
+  the code must still be the account's (else `code_expired`) and is used
+  up, and any link of the account or of the profile is replaced. A profile
+  maps to one account, so proof of the code moves it; the other account's
+  imports stay and stop following. Linking the same profile again keeps
+  its settings.
+- `GET /v1/me/chotot` reads ShopNexus only: the link or null, with
+  `imported` (the profile's imports listed or waiting as a draft) and the
+  settings `auto_import`, `follow_updates` and `remind_hide`, each on at
+  linking and changed with `PATCH`. `DELETE` unlinks; the chain of checks
+  ends at its next run, which finds no link.
+- `GET /v1/me/chotot/ads` reads Chợ Tốt each call and answers each listing
+  with its state: `imported` (its import listed it, or waits as a draft),
+  `importing`, `unsupported` (real estate, categories 1000 to 1999, or an
+  import that found `no_item` or `no_photos`), `already_here` (a listing of
+  the caller's on sale has the same price and a title whose words hold the
+  other's, marks and case aside, at least two words), otherwise
+  `importable`, with the last skip's reason. `room` is what the cap of 20
+  leaves.
+- Import: `POST /v1/me/chotot/imports {list_ids}` (1 to 20) calls
+  `ChototImport.Start`, which starts each import in one step and answers
+  202 at once; the app polls the listings. A row per account and listing
+  (`chotot_imports`, UNIQUE) is the dedupe key: a listed import, a draft
+  under 30 days, an unsupported one and one importing for under an hour
+  answer as they are, so a retry needs no Idempotency-Key; a skipped,
+  stale or expired one starts again under a new ID. `Start` sends `Run`
+  keyed by that ID. `Run`'s steps: the link still names the import's
+  profile (else skipped `not_yours`); the seller's status, phone and cap
+  (skipped with the refusal's code); the fill, three attempts, reading the
+  listing (gone: `ad_gone`; another profile's: `not_yours`; real estate:
+  unsupported) and asking assist's `FillAd`, which fills the title,
+  description, category and specs as a link read does and the condition
+  from "Tình trạng", else `used` with `condition` under review; the
+  commune of the default address, else of the newest listing; the photo
+  copy, as a link read's, under IDs minted before the step; then catalog's
+  `ListingPost` through `PostFrom` with the import's ID as the key. A post
+  refused as `invalid_listing` keeps the import as a draft, with the
+  fields refused as `review` and `missing_spec_keys`, its photos extended
+  for 30 days; another refusal skips it. Only the run whose ID the row
+  holds saves it.
+- `POST /v1/me/chotot/ads/{list_id}/listing` posts a draft with the whole
+  listing the seller filled, through `ChototImport.PostDraft`, under the
+  import's ID as the key; the refusals are those of `POST /v1/listings`.
+- Checks: `ChototSync.Run` checks one link per invocation and sends the
+  next, an hour and up to 10 minutes of jitter later, doubling while Chợ
+  Tốt does not answer, up to 8 hours. One step reads the listings; with
+  `follow_updates` it reprices a copy whose price changed (catalog's
+  `Reprice`, which writes `listing.updated`) and hides one whose listing
+  is gone, only when Chợ Tốt answers not found or not active for it alone
+  (at most 20 asked a check), marking the import `ad_gone`; it records
+  `checked_at`, `waiting` and `seen_through`. With `auto_import`, the
+  listings newer than `seen_through`, as many as the cap leaves room for,
+  are started and awaited one by one, and the count listed is written as
+  `chotot_link.imported`.
+- `ChototListingWatch` hears `listing.sold` (with `remind_hide`, while the
+  link names the profile and Chợ Tốt does not say the listing is gone, it
+  writes `chotot_import.sold`, its ID derived from the sale's event),
+  `listing.updated` (the import's review empties, as the seller saw it),
+  `listing.deleted` (the import goes, so the listing is importable again)
+  and `account.deleted`.
+- Configuration: the link read's `CHOTOT_GATEWAY_URL`, `CHOTOT_CDN_URL`
+  and `ASSIST_CALL_TIMEOUT`; the cadence is `domain.SyncEvery`.
+
 ### Module ai
 
 Module ai (decided 2026-11-18, plan:
@@ -4194,6 +4282,13 @@ calls it except screen, for the unread counts of Home and
   ("{seller} vừa đăng tin mới: {title}", opening the listing) collapsing on
   `seller:<id>`, so a run of listings leaves one unread notice, and pushes
   it.
+- Chợ Tốt (decided 2026-11-26): `chotot_link.imported` writes
+  `chotot_imported` ("Đã lấy {count} tin mới từ Chợ Tốt", target kind
+  `chotot`, empty ID), collapsing on `chotot_imported`;
+  `chotot_import.sold` writes `chotot_sold_here` ("{title} đã bán trên
+  ShopNexus, nhớ ẩn tin trên Chợ Tốt", target kind `chotot_ad`, ID the
+  listing's address on Chợ Tốt). Both read chotot's `LinkFacts` and
+  `SaleFacts`, are never mailed and always push.
 - Search watches and price alerts (decided 2026-11-11):
   `search_watch.matched` writes `watch_matched` ("Có {count} tin mới cho"
   and the query in curly quotes, 99+ from 99), whose target kind is
