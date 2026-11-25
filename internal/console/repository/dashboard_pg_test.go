@@ -12,6 +12,7 @@ import (
 
 	"github.com/shopnexus/server/internal/console/domain"
 	"github.com/shopnexus/server/internal/console/repository"
+	"github.com/shopnexus/server/internal/platform/audit"
 	"github.com/shopnexus/server/internal/platform/config"
 	"github.com/shopnexus/server/internal/platform/token"
 )
@@ -206,5 +207,33 @@ func TestEveryDashboardAppIsStored(t *testing.T) {
 		if _, err := st.Redeem(context.Background(), ticketFor(t, st, s, app), cookieHash(), app, now); err != nil {
 			t.Errorf("%s: %v", app, err)
 		}
+	}
+}
+
+// SetFloors writes every floor and its entries, or none when an app is unknown.
+func TestSetFloorsAllOrNone(t *testing.T) {
+	t.Parallel()
+	m, _, db := consoleSession(t, domain.RoleAdmin)
+	st := repository.NewDashboards(db)
+	ctx := context.Background()
+	entry := func(app domain.App) audit.Entry {
+		return audit.Entry{Actor: audit.ByCLI("test"), Action: audit.DashboardFloor, Target: audit.Dashboard(string(app)), At: now}
+	}
+	floors := map[domain.App]domain.Role{domain.AppGrafana: domain.RoleAdmin, "nope": domain.RoleAdmin}
+	err := st.SetFloors(ctx, floors, m.ID(), now, []audit.Entry{entry(domain.AppGrafana), entry("nope")})
+	if !errors.Is(err, repository.ErrNotFound) {
+		t.Fatalf("an unknown app: %v", err)
+	}
+	if f, _ := st.Floor(ctx, domain.AppGrafana); f != domain.RoleModerator || actions(t, db, audit.Dashboard("grafana").ID) != 0 {
+		t.Fatalf("a refused change wrote: floor %s", f)
+	}
+	floors = map[domain.App]domain.Role{domain.AppGrafana: domain.RoleAdmin, domain.AppRestate: domain.RoleModerator}
+	if err = st.SetFloors(ctx, floors, m.ID(), now, []audit.Entry{entry(domain.AppGrafana), entry(domain.AppRestate)}); err != nil {
+		t.Fatal(err)
+	}
+	g, _ := st.Floor(ctx, domain.AppGrafana)
+	r, _ := st.Floor(ctx, domain.AppRestate)
+	if g != domain.RoleAdmin || r != domain.RoleModerator || actions(t, db, audit.Dashboard("restate").ID) != 1 {
+		t.Fatalf("floors %s %s", g, r)
 	}
 }

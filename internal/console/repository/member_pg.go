@@ -72,16 +72,20 @@ VALUES (@id, @email, @display_name, @console_role, @status, @password_hash, @mus
         @totp_secret, @totp_pending_secret, @totp_last_step, @created_at, @updated_at, @write_id)
 ON CONFLICT (id) DO NOTHING`
 
+// errSameID rolls back Create's audit entry when the member exists already.
+var errSameID = errors.New("same id")
+
 func (s pgMembers) Create(ctx context.Context, m domain.Member, entry audit.Entry) error {
 	st := m.State()
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, insertMember, pgx.StrictNamedArgs{
-			"id": st.ID, "email": st.Email, "display_name": st.DisplayName, "console_role": st.Role, "status": st.Status,
-			"password_hash": st.PasswordHash, "must_change_password": st.MustChangePassword,
-			"credentials_version": st.CredentialsVersion, "totp_secret": s.sealed(st.ID, st.TOTPSecret),
-			"totp_pending_secret": s.sealed(st.ID, st.TOTPPending), "totp_last_step": st.TOTPLastStep,
-			"created_at": st.CreatedAt, "updated_at": st.UpdatedAt, "write_id": st.WriteID,
-		})
+	b := &pgx.Batch{}
+	b.Queue(insertMember, pgx.StrictNamedArgs{
+		"id": st.ID, "email": st.Email, "display_name": st.DisplayName, "console_role": st.Role, "status": st.Status,
+		"password_hash": st.PasswordHash, "must_change_password": st.MustChangePassword,
+		"credentials_version": st.CredentialsVersion, "totp_secret": s.sealed(st.ID, st.TOTPSecret),
+		"totp_pending_secret": s.sealed(st.ID, st.TOTPPending), "totp_last_step": st.TOTPLastStep,
+		"created_at": st.CreatedAt, "updated_at": st.UpdatedAt, "write_id": st.WriteID,
+	}).Fn = func(br pgx.BatchResults) error {
+		tag, err := br.Exec()
 		if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.ConstraintName == "console_members_email" {
 			return domain.ErrEmailTaken
 		}
@@ -89,10 +93,17 @@ func (s pgMembers) Create(ctx context.Context, m domain.Member, entry audit.Entr
 			return fmt.Errorf("insert console member: %w", err)
 		}
 		if tag.RowsAffected() == 0 {
-			return nil // the same id again
+			return errSameID
 		}
-		return audit.Insert(ctx, tx, entry)
+		return nil
+	}
+	audit.Queue(b, entry)
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
 	})
+	if errors.Is(err, errSameID) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("create console member: %w", err)
 	}
@@ -145,23 +156,27 @@ WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`
 
 func (s pgMembers) Save(ctx context.Context, m *domain.Member, writeID uuid.UUID, entry *audit.Entry) error {
 	st := m.State()
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		tag, err := tx.Exec(ctx, saveMember, pgx.StrictNamedArgs{
-			"id": st.ID, "read_write_id": st.WriteID, "write_id": writeID, "display_name": st.DisplayName, "console_role": st.Role,
-			"status": st.Status, "password_hash": st.PasswordHash, "must_change_password": st.MustChangePassword,
-			"credentials_version": st.CredentialsVersion, "totp_secret": s.sealed(st.ID, st.TOTPSecret),
-			"totp_pending_secret": s.sealed(st.ID, st.TOTPPending), "totp_last_step": st.TOTPLastStep, "updated_at": st.UpdatedAt,
-		})
+	b := &pgx.Batch{}
+	b.Queue(saveMember, pgx.StrictNamedArgs{
+		"id": st.ID, "read_write_id": st.WriteID, "write_id": writeID, "display_name": st.DisplayName, "console_role": st.Role,
+		"status": st.Status, "password_hash": st.PasswordHash, "must_change_password": st.MustChangePassword,
+		"credentials_version": st.CredentialsVersion, "totp_secret": s.sealed(st.ID, st.TOTPSecret),
+		"totp_pending_secret": s.sealed(st.ID, st.TOTPPending), "totp_last_step": st.TOTPLastStep, "updated_at": st.UpdatedAt,
+	}).Fn = func(br pgx.BatchResults) error {
+		tag, err := br.Exec()
 		if err != nil {
 			return fmt.Errorf("update console member: %w", err)
 		}
 		if tag.RowsAffected() == 0 {
 			return ErrConflict
 		}
-		if entry == nil {
-			return nil
-		}
-		return audit.Insert(ctx, tx, *entry)
+		return nil
+	}
+	if entry != nil {
+		audit.Queue(b, *entry)
+	}
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("save console member: %w", err)

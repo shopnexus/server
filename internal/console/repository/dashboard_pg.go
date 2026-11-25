@@ -114,28 +114,29 @@ func (st pgDashboards) Floor(ctx context.Context, app domain.App) (domain.Role, 
 func (st pgDashboards) SetFloors(ctx context.Context, floors map[domain.App]domain.Role, by uuid.UUID, at time.Time,
 	entries []audit.Entry,
 ) error {
-	tx, err := st.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin dashboard floors: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
+	apps, roles := make([]string, 0, len(floors)), make([]string, 0, len(floors))
 	for app, floor := range floors {
-		tag, execErr := tx.Exec(ctx, `UPDATE console_dashboards SET floor_role = @floor, updated_by = @by, updated_at = @at
-WHERE app = @app`, pgx.StrictNamedArgs{"app": app, "floor": floor, "by": by, "at": at})
-		if execErr != nil {
-			return fmt.Errorf("update dashboard floor: %w", execErr)
+		apps, roles = append(apps, string(app)), append(roles, string(floor))
+	}
+	b := &pgx.Batch{}
+	b.Queue(`UPDATE console_dashboards d SET floor_role = f.floor, updated_by = @by, updated_at = @at
+FROM unnest(@apps::text[], @floors::text[]) AS f(app, floor) WHERE d.app = f.app`,
+		pgx.StrictNamedArgs{"apps": apps, "floors": roles, "by": by, "at": at}).Fn = func(br pgx.BatchResults) error {
+		tag, err := br.Exec()
+		if err != nil {
+			return fmt.Errorf("update dashboard floors: %w", err)
 		}
-		if tag.RowsAffected() == 0 {
+		if tag.RowsAffected() != int64(len(apps)) {
 			return ErrNotFound
 		}
+		return nil
 	}
-	for i := range entries {
-		if err = audit.Insert(ctx, tx, entries[i]); err != nil {
-			return fmt.Errorf("record dashboard floor: %w", err)
-		}
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit dashboard floors: %w", err)
+	audit.Queue(b, entries...)
+	err := pgx.BeginFunc(ctx, st.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
+	})
+	if err != nil {
+		return fmt.Errorf("set dashboard floors: %w", err)
 	}
 	return nil
 }
