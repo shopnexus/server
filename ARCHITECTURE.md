@@ -324,6 +324,45 @@ when the aggregate changed since it was read, and `write_id` (below) is the
 column that detects it. A use case that loses the race answers
 `apperr.ErrTryAgain` (409 `try_again`) in every module.
 
+### Batched writes
+
+One way to send SQL across the project (decided 2026-11-25):
+
+1. `events.Queue`, `stream.Queue` and `audit.Queue` each add exactly one
+   statement to a `*pgx.Batch`, so a repository sends its save, its events,
+   its stream updates and its audit entries in one `SendBatch`.
+2. A loop over items of the same shape is one statement over
+   `unnest(@arrays)`, never one statement per item.
+3. When no Go decision sits between the statements, the batch goes straight
+   to the pool: pgx sends it with one Sync, and Postgres runs it as one
+   implicit transaction that a failing statement rolls back whole.
+4. A batch breaks only where a statement's result decides what the next
+   write is. A check that only aborts, such as `RowsAffected() == 0` giving
+   `ErrConflict`, stays in the batch through
+   `b.Queue(...).Exec(func(pgconn.CommandTag) error {...})`. Such a batch
+   goes through `tx.SendBatch` inside `pgx.BeginFunc`: the callback runs on
+   the client after the server has run the whole batch, so only a rollback
+   of the transaction undoes it; on the pool the batch has already
+   committed.
+
+```go
+b := &pgx.Batch{}
+b.Queue(saveDeal, args).Exec(func(t pgconn.CommandTag) error {
+    if t.RowsAffected() == 0 { return ErrConflict }
+    return nil
+})
+events.Queue(b, evs...)
+stream.Queue(b, accounts, hint)
+return tx.SendBatch(ctx, b).Close()
+```
+
+Each platform `Queue` wraps its own statement's error ("insert events"),
+and queues nothing for an empty list. `events.Insert`, `stream.Notify` and
+`audit.Insert` run that one statement in a transaction for callers not yet
+moved to `Queue`; they go once no caller is left. Migrations stay one
+transaction each with plain `Exec`, since a migration file holds several
+statements, which the extended protocol of a batch refuses.
+
 ### Aggregates in account
 
 Module account holds who a person is and how they sign in. Module auth was
@@ -418,15 +457,15 @@ reacts. Every subscriber is a module of server, so there is no broker.
   map that only a business event fills. A subscriber reads the subject's
   current state through its module's `Service`, so order, delay and
   duplicates do not change the result.
-- A repository writes the events of a change with `events.Insert(ctx, tx,
-  evs...)` in the change's transaction, as it writes an audit entry:
+- A repository queues the events of a change with `events.Queue(b,
+  evs...)` in the change's batch, as it queues an audit entry:
   `Save(ctx, a, writeID, entry, evs...)`, where `entry` is a
   `*audit.Entry` or nil. A conflicting write leaves no event. An event with
   an ID that exists already is not written again, so a durable step that
   retries its save with the event IDs from its journal writes one event.
-  `Insert` also runs `pg_notify('events', '')` once per call, which
-  Postgres delivers on commit; one notification wakes the bus for every
-  event of the call.
+  The one statement inserts every event over `unnest` and runs
+  `pg_notify('events', '')`, which Postgres delivers on commit; one
+  notification wakes the bus for every event of the call.
 - A module that reacts to events has a `worker` package next to
   `handler`: a Restate service with one handler per event kind, of the
   signature `func(restate.Context, events.Event) error`, that calls the
@@ -976,7 +1015,7 @@ the decisions and the API.
   `cmd/console unlock` clears the sign-in lock on an admin's email, which
   anyone can set by sending five wrong passwords.
 - Every member's write on an account or on another member is a row in
-  `console_actions`, written by `audit.Insert` inside the repository
+  `console_actions`, written by `audit.Queue`'s statement in the repository
   transaction of the change (`Save` with an entry, `Create`, `Unlock`). Its
   action is an `audit.ActionKind` constant (`audit.AccountSuspend`,
   `audit.MemberDisable`, ...), the list the `Action` schema's enum names; a
@@ -1892,10 +1931,10 @@ WebSocket (decided 2026-11-10; it replaced the server-sent events of
 everything after each reconnect and deploy).
 
 - Each account has an update log, `account_updates`, with a `seq` that
-  runs 1, 2, 3 with no hole. A repository calls `stream.Notify(ctx, tx,
-  accounts, hint)` in the transaction of the change: for each account, in
-  UUID order so two transactions cannot deadlock, it bumps the counter in
-  `account_update_seqs` and inserts the update. The counter row stays
+  runs 1, 2, 3 with no hole. A repository calls `stream.Queue(b,
+  accounts, hint)` in the batch of the change: one statement bumps the
+  counter in `account_update_seqs` for each account, in UUID order so two
+  transactions cannot deadlock, and inserts the updates. The counter row stays
   locked until commit and rolls back with the transaction, so a rollback
   leaves no hole and seqs become visible in order: a reader of `seq >
   since` never skips one that is still committing. The deal repository
@@ -1906,11 +1945,13 @@ everything after each reconnect and deploy).
   `scam_warning`, `listing_read`); the app reloads what it shows. Assist's
   repository notifies the reader's account at each save of a read,
   and trust's repository the warned member at each save of a scam warning.
-- `Notify` then rings a `Bell`. `PGBell` runs `pg_notify('stream', …)` in
-  the same transaction, which Postgres delivers on commit to every
-  instance. The log is the truth and the ring only says something new is
-  there, so a Valkey or NATS bell can replace `PGBell` without touching the
-  log, the protocol or the hub.
+- The same statement rings: it runs `pg_notify('stream', …)` with the
+  targets and their seqs, which Postgres delivers on commit to every
+  instance. `Bell.Ring` rings at once, for typing and the hub's probe;
+  `PGBell` sends on the same channel. The log is the truth and the ring
+  only says something new is there, so a Valkey or NATS bell can replace
+  `PGBell` without touching the log, the protocol or the hub; it would
+  ring the updates after commit instead of in the statement.
 - `stream.Hub` listens through the bell on a connection of its own and
   queues each ring for the connections of its accounts, 16 at most. A full
   queue, or a `LISTEN` connection opened again after a loss, marks a
@@ -1969,8 +2010,8 @@ everything after each reconnect and deploy).
 - `platform/stream` reaches the modules through `stream.Access`, which
   `app` adapts from account and chat.
 - `POST /v1/dev/updates {kind, …ids}` (decided 2026-11-15) logs an update
-  for the caller through `PGLog.Append`, the same append as `Notify` in a
-  transaction of its own, and answers 201 with it, `seq` included. The
+  for the caller through `PGLog.Append`, the same statement as `Queue` in a
+  batch of its own, and answers 201 with it, `seq` included. The
   app's live test uses it to check that an update reaches the socket.
   `app` mounts it behind the auth middleware when `APP_ENV` is not `prod`.
   The spec's `DevUpdate` is a `oneOf` with one branch per kind, so a
@@ -4091,8 +4132,8 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-orders.md`.
   and calls no carrier. `httpx.Bind` supports optional pointer query fields
   so an explicit all-zero UUID remains distinct from an omitted address.
 - Stream kind `ticket` carries `conversation_id` to the ticket owner only.
-  Ticket insertion, initial-message attachment, resolve and reopen call
-  `stream.Notify` inside their transactions, including the asynchronous
+  Ticket insertion, initial-message attachment, resolve and reopen queue
+  `stream.Queue` inside their transactions, including the asynchronous
   reopen on a person's new message and account-deletion resolution.
   `ticket_message_receipts` (migration 0048) records each handled message
   ID in the transaction that applies its metadata and status change. A
