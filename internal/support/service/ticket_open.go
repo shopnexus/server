@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/apperr"
 	"github.com/shopnexus/server/internal/support/domain"
 )
 
@@ -25,6 +26,10 @@ func (s *Support) Open(ctx context.Context, account, key uuid.UUID, in OpenInput
 		}
 		existed = res.Existed
 		t, err = s.tickets.Get(ctx, res.TicketID)
+		// A racing retry answered a ticket its first run then withdrew.
+		if errors.Is(err, domain.ErrNotFound) {
+			return TicketView{}, false, apperr.ErrTryAgain
+		}
 	}
 	if err != nil {
 		return TicketView{}, false, fmt.Errorf("read the ticket: %w", err)

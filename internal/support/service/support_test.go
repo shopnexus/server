@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/restatedev/sdk-go/ingress"
 
 	"github.com/shopnexus/server/internal/account/accounttest"
 	accountdomain "github.com/shopnexus/server/internal/account/domain"
@@ -45,7 +47,9 @@ func (d deals) Order(_ context.Context, id uuid.UUID) (dealsvc.OrderFacts, bool,
 }
 
 type env struct {
-	db       *pgxpool.Pool
+	db *pgxpool.Pool
+	// flow runs TicketOpen directly, as a racing retry reaches it.
+	flow     ingress.Requester[service.OpenFlowInput, service.OpenResult]
 	accounts accountsvc.Service
 	chat     *chatsvc.Chat
 	support  *service.Support
@@ -72,8 +76,9 @@ func newEnvWithClocks(t *testing.T, openedAt, sentAt func() time.Time) env {
 	s := service.New(service.Deps{
 		Tickets: tickets, Accounts: accounts, Chats: chat, Deals: d, Listings: catalog, Ingress: in, Prefix: p, Now: openedAt,
 	})
-	restatetest.Start(t, append(append(media.Durable(), chat.Durable()...), s.Durable()...)...)
-	return env{db: db, accounts: accounts, chat: chat, support: s, deals: d}
+	client := restatetest.Start(t, append(append(media.Durable(), chat.Durable()...), s.Durable()...)...)
+	flow := ingress.Service[service.OpenFlowInput, service.OpenResult](client, p+"TicketOpen", "Run")
+	return env{db: db, flow: flow, accounts: accounts, chat: chat, support: s, deals: d}
 }
 
 // order sets an order of buyer's that deal reports with status.
@@ -310,6 +315,53 @@ func TestARefusedOpenLeavesNoChat(t *testing.T) {
 	if err := e.db.QueryRow(ctx, `SELECT count(*) FROM conversation_members m JOIN conversations c ON c.id = m.conversation_id
 WHERE m.account_id = @p AND c.kind = 'support'`, pgx.StrictNamedArgs{"p": person}).Scan(&chats); err != nil || chats != domain.DailyLimit {
 		t.Fatalf("%d chats %v", chats, err)
+	}
+}
+
+// supportChats counts person's support chats.
+func (e env) supportChats(t *testing.T, person uuid.UUID) int {
+	t.Helper()
+	var n int
+	if err := e.db.QueryRow(context.Background(), `SELECT count(*) FROM conversation_members m
+JOIN conversations c ON c.id = m.conversation_id WHERE m.account_id = @p AND c.kind = 'support'`,
+		pgx.StrictNamedArgs{"p": person}).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// A first message that chat refuses leaves no ticket and no chat, and the
+// key's retry gets the refusal again.
+func TestARefusedFirstMessageLeavesNoTicket(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t)
+	person, key := accounttest.New(t, e.db), uuid.NewV7()
+	in := service.OpenInput{Kind: "other", Photos: []uuid.UUID{uuid.NewV7()}}
+	for i := range 2 {
+		if _, _, err := e.support.Open(ctx, person, key, in); err == nil || !strings.Contains(err.Error(), "invalid_upload") {
+			t.Fatalf("open %d: %v", i, err)
+		}
+	}
+	mine, err := e.support.Mine(ctx, person)
+	if err != nil || len(mine) != 0 || e.supportChats(t, person) != 0 {
+		t.Fatalf("left %d tickets, %d chats, %v", len(mine), e.supportChats(t, person), err)
+	}
+}
+
+// A run that finds the key's ticket from another run drops the chat it opened.
+func TestARunThatLosesTheKeyDropsItsChat(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	e := newEnv(t)
+	person, key := accounttest.New(t, e.db), uuid.NewV7()
+	tk, _, err := e.support.Open(ctx, person, key, service.OpenInput{Kind: "other", Text: "Hỏi"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := e.flow.Request(ctx, service.OpenFlowInput{Account: person, Key: key, Input: service.OpenInput{Kind: "other", Text: "Hỏi"}})
+	if err != nil || res.Refused != nil || res.TicketID != tk.ID || e.supportChats(t, person) != 1 {
+		t.Fatalf("%+v %v, %d chats", res, err, e.supportChats(t, person))
 	}
 }
 

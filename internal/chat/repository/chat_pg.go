@@ -553,6 +553,22 @@ VALUES (@id, @a), (@id, @b) ON CONFLICT DO NOTHING`, pgx.StrictNamedArgs{"id": c
 	return out, nil
 }
 
+func (s pgChats) DropSupport(ctx context.Context, id uuid.UUID) error {
+	// As DropPair: a referring row keeps the chat, and the rollback its members.
+	b := &pgx.Batch{}
+	b.Queue(`DELETE FROM conversation_members m USING conversations c
+WHERE m.conversation_id = @id AND c.id = @id AND c.kind = 'support'`, pgx.StrictNamedArgs{"id": id})
+	b.Queue(`DELETE FROM conversations WHERE id = @id AND kind = 'support'`, pgx.StrictNamedArgs{"id": id})
+	err := s.db.SendBatch(ctx, b).Close()
+	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok && pgErr.Code == "23503" {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("drop support conversation: %w", err)
+	}
+	return nil
+}
+
 func (s pgChats) SupportUnread(ctx context.Context, viewer uuid.UUID) (int, error) {
 	var n int
 	if err := s.db.QueryRow(ctx, countSupportUnread, pgx.StrictNamedArgs{"viewer": viewer}).Scan(&n); err != nil {

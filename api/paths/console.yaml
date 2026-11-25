@@ -760,12 +760,6 @@ supportTicketResolve:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
-      "409":
-        description: "Already resolved (ticket_not_allowed)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
 supportTicketReopen:
   parameters:
     - $ref: "../parameters/common.yaml#/ConsoleCSRF"
@@ -788,12 +782,6 @@ supportTicketReopen:
         $ref: "../responses/common.yaml#/Unauthorized"
       "404":
         description: "No such ticket (ticket_not_found)."
-        content:
-          application/json:
-            schema:
-              $ref: "../schemas/error.yaml#/Error"
-      "409":
-        description: "Already open (ticket_not_allowed)."
         content:
           application/json:
             schema:

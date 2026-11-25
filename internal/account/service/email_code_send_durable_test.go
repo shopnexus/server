@@ -217,3 +217,31 @@ func TestEmailCodeSendInEnglish(t *testing.T) {
 		t.Fatalf("%+v %v, mails %+v", res, err, got)
 	}
 }
+
+// A retry of the key that reaches the flow, as one racing the first does,
+// answers the first challenge: no otp_too_soon, no second mail, and the
+// client's quota counts one send.
+func TestEmailCodeSendRetryOfTheKeyAnswersTheFirst(t *testing.T) {
+	t.Parallel()
+	e := startEmailCodeSend(t, &mailbox{})
+	in := service.EmailCodeInput{
+		Email: email(t, "linh@example.com"), Purpose: domain.PurposeSignIn,
+		IP: netip.MustParseAddr("203.0.113.7"), Key: uuid.NewV7(),
+	}
+	var got [2]service.EmailCodeResult
+	for i := range got {
+		res, err := e.run.Request(context.Background(), in, restate.WithIdempotencyKey(uuid.NewV7().String()))
+		if err != nil || res.Refused != nil {
+			t.Fatalf("send %d: %+v %v", i, res, err)
+		}
+		got[i] = res
+	}
+	if got[1].ChallengeID != got[0].ChallengeID || len(e.mail.all()) != 1 {
+		t.Fatalf("%+v, mails %+v", got, e.mail.all())
+	}
+	var n int
+	if err := e.db.QueryRow(context.Background(), `SELECT cardinality(sent_at) FROM otp_quotas WHERE subject = 'ip:203.0.113.7'`).
+		Scan(&n); err != nil || n != 1 {
+		t.Fatalf("client sends %d %v", n, err)
+	}
+}

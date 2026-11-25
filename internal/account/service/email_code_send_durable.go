@@ -86,11 +86,12 @@ func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeRes
 	}
 	// The client address goes first, so an address over its limit cannot
 	// spend the quota of the mailboxes it names. A quota that admitted the
-	// send stays spent even when a later step fails.
-	if refused, admitErr := admit(ctx, s.Quotas, addressKey(in.IP), at, addressRules); admitErr != nil || refused != nil {
+	// send stays spent even when a later step fails, and a retry of the key
+	// that finds its own save spends nothing (K2).
+	if refused, admitErr := admit(ctx, s.Quotas, addressKey(in.IP), in.Key, at, addressRules); admitErr != nil || refused != nil {
 		return EmailCodeResult{Refused: refused}, admitErr
 	}
-	if refused, admitErr := admit(ctx, s.Quotas, "dest:"+in.Email.Value(), at, destinationRules); admitErr != nil || refused != nil {
+	if refused, admitErr := admit(ctx, s.Quotas, "dest:"+in.Email.Value(), in.Key, at, destinationRules); admitErr != nil || refused != nil {
 		return EmailCodeResult{Refused: refused}, admitErr
 	}
 	// The code is derived from the challenge ID, so a retried send step
@@ -159,9 +160,15 @@ func (s EmailCodeSend) Run(ctx restate.Context, in EmailCodeInput) (EmailCodeRes
 
 // admit spends one send from the quota at key. It reads the quota in one
 // step, decides between steps and saves in another, so a retried save does
-// not count the send twice. It retries a lost race three times, so parallel
+// not count the send twice. With a request key the save's write ID derives
+// from it, so a racing retry of that key finds its own save and is admitted
+// again without spending. It retries a lost race three times, so parallel
 // sends behind one NAT do not get a spurious 429.
-func admit(ctx restate.Context, quotas repository.Quotas, key string, at time.Time, rules []domain.Rule) (*apperr.Error, error) {
+func admit(ctx restate.Context, quotas repository.Quotas, key string, request uuid.UUID, at time.Time, rules []domain.Rule) (*apperr.Error, error) {
+	own := uuid.Nil()
+	if request != uuid.Nil() {
+		own = restatex.DerivedID("otp-quota", key, request.String())
+	}
 	for range 3 {
 		q, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Quota, error) {
 			q, stepErr := quotas.Get(rc, key)
@@ -173,6 +180,9 @@ func admit(ctx restate.Context, quotas repository.Quotas, key string, at time.Ti
 		if err != nil {
 			return nil, fmt.Errorf("load quota: %w", err)
 		}
+		if own != uuid.Nil() && q.WriteID() == own {
+			return nil, nil //nolint:nilnil // This request's send is counted already.
+		}
 		rule, wait, ok := q.Admit(at, rules...)
 		if !ok {
 			refused := domain.ErrOTPLimit
@@ -181,7 +191,11 @@ func admit(ctx restate.Context, quotas repository.Quotas, key string, at time.Ti
 			}
 			return refused.WithRetryAfter(wait), nil
 		}
+		// NewID runs either way, so a replay draws the same IDs after it.
 		w := restatex.NewID(ctx, at)
+		if own != uuid.Nil() {
+			w = own
+		}
 		lost, err := restate.Run(ctx, func(rc restate.RunContext) (bool, error) {
 			q := q // Save sets the write ID on its copy; q outside stays as journaled
 			return restatex.Outcome(quotas.Save(rc, &q, w), repository.ErrConflict)

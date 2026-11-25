@@ -210,11 +210,16 @@ func TestResolveWritesTheAudit(t *testing.T) {
 	if err != nil || got.Status != domain.StatusResolved || got.ResolvedBy == nil || *got.ResolvedBy != lan {
 		t.Fatalf("%+v %v", got, err)
 	}
-	if _, err = s.Resolve(ctx, tk.ID, uuid.NewV7(), actor(lan), at); !errors.Is(err, domain.ErrNotAllowed) {
-		t.Fatalf("twice: %v", err)
+	// A retry answers the ticket as it is and writes nothing more.
+	if again, againErr := s.Resolve(ctx, tk.ID, uuid.NewV7(), actor(lan), at); againErr != nil || again.Status != domain.StatusResolved ||
+		len(again.Events) != len(got.Events) {
+		t.Fatalf("twice: %+v %v", again, againErr)
 	}
 	if _, err = s.Reopen(ctx, tk.ID, uuid.NewV7(), actor(lan), at); err != nil {
 		t.Fatal(err)
+	}
+	if again, againErr := s.Reopen(ctx, tk.ID, uuid.NewV7(), actor(lan), at); againErr != nil || again.Status != domain.StatusOpen {
+		t.Fatalf("reopen twice: %+v %v", again, againErr)
 	}
 	if _, err = s.Resolve(ctx, uuid.NewV7(), uuid.NewV7(), actor(lan), at); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("no ticket: %v", err)
@@ -223,6 +228,37 @@ func TestResolveWritesTheAudit(t *testing.T) {
 	if err = db.QueryRow(ctx, `SELECT count(*) FROM console_actions WHERE target_kind = 'ticket' AND target_id = @id
 AND action_kind IN ('ticket.resolve', 'ticket.reopen')`, pgx.StrictNamedArgs{"id": tk.ID}).Scan(&n); err != nil || n != 2 {
 		t.Fatalf("audit rows %d, %v", n, err)
+	}
+}
+
+// Withdraw deletes an empty ticket and keeps one with a first message.
+func TestWithdrawDeletesOnlyAnEmptyTicket(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	db := pgtest.New(t)
+	s := repository.NewTickets(db)
+	person := accounttest.New(t, db)
+	empty := open(t, s, ticket(t, db, person, domain.KindOther, nil, ""))
+	for range 2 {
+		if err := s.Withdraw(ctx, empty.ID, person, empty.ConversationID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.Get(ctx, empty.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("withdrawn: %v", err)
+	}
+	if n, err := s.OpenedSince(ctx, person, at.Add(-time.Hour)); err != nil || n != 0 {
+		t.Fatalf("counted %d %v", n, err)
+	}
+	kept := open(t, s, ticket(t, db, person, domain.KindOther, nil, ""))
+	if err := s.SetFirstMessage(ctx, kept.ID, message(t, db, kept.ConversationID, person)); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Withdraw(ctx, kept.ID, person, kept.ConversationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Get(ctx, kept.ID); err != nil {
+		t.Fatalf("a ticket with its first message went: %v", err)
 	}
 }
 

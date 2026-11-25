@@ -23,6 +23,10 @@ type Chats interface {
 	// OpenSupport inserts c, a support conversation, and its two members,
 	// unless a retried step inserted it already, and returns it.
 	OpenSupport(ctx context.Context, c domain.Conversation) (domain.Conversation, error)
+	// DropSupport deletes support conversation id and its members while no
+	// message, ticket or other row refers to it; one that has any stays,
+	// and so does an unknown id.
+	DropSupport(ctx context.Context, id uuid.UUID) error
 	// DropPair deletes pair conversation id and its members while no
 	// message, deal or other row refers to it; one that has any stays, and
 	// so does an unknown id.

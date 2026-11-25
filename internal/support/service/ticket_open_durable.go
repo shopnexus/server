@@ -52,12 +52,12 @@ type inserted struct {
 }
 
 // TicketOpen opens a ticket: one step reads whether the account may and
-// whether the order has its ticket; then the support chat opens, the
-// ticket goes in under the account's daily limit, chat's MessageSend sends
-// the person's first message, and the ticket records it as its card. The
-// facts step refuses a request past the limit; one that passes it in a race
-// and is refused at the insert leaves an empty support chat, which no list
-// shows.
+// whether the order has its ticket; then the support chat opens (the
+// ticket's row refers to it), the ticket goes in under the account's daily
+// limit, chat's MessageSend sends the person's first message, and the
+// ticket records it as its card. A ticket that does not go in drops its
+// chat again, and a refused first message withdraws the ticket and chat, so
+// the key answers the refusal.
 type TicketOpen struct{ Support *Support }
 
 func (o TicketOpen) ServiceName() string { return o.Support.prefix + ticketOpen }
@@ -151,18 +151,33 @@ func (o TicketOpen) Run(ctx restate.Context, in OpenFlowInput) (OpenResult, erro
 	if err != nil {
 		return OpenResult{}, fmt.Errorf("insert the ticket: %w", err)
 	}
-	// Another request's ticket of the order, or a racing retry's of this
-	// key, whose run sends the first message.
+	// Refused, or another request's ticket of the order, or a racing
+	// retry's of this key, whose run sends the first message: our chat goes.
 	if ins.Refused != nil || ins.Existed || ins.TicketID != ticketID {
-		return OpenResult(ins), nil //nolint:nilerr // As above.
+		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
+			return s.chats.DropSupport(rc, conversationID)
+		}); err != nil {
+			return OpenResult{}, fmt.Errorf("drop the support chat: %w", err)
+		}
+		return OpenResult(ins), nil
 	}
 	sent, err := restate.Service[chatsvc.SendResult](ctx, s.prefix+chatsvc.MessageSendName, "Run").
 		Request(chatsvc.SendFlowInput{Sender: in.Account, Key: in.Key, ConversationID: conversationID, Text: draft.Body, Photos: in.Input.Photos, OpensTicket: true})
 	if err != nil {
 		return OpenResult{}, fmt.Errorf("send the first message: %w", err)
 	}
+	// A refused first message (a photo not the person's, an account deleted
+	// meanwhile) leaves no ticket: the key's retry runs again and is refused.
 	if sent.Refused != nil {
-		return OpenResult{Refused: sent.Refused}, nil //nolint:nilerr // As above.
+		if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
+			if wErr := s.tickets.Withdraw(rc, ticketID, in.Account, conversationID); wErr != nil {
+				return fmt.Errorf("withdraw the ticket: %w", wErr)
+			}
+			return s.chats.DropSupport(rc, conversationID)
+		}); err != nil {
+			return OpenResult{}, fmt.Errorf("withdraw the empty ticket: %w", err)
+		}
+		return OpenResult{Refused: sent.Refused}, nil
 	}
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
 		return s.tickets.SetFirstMessage(rc, ticketID, sent.MessageID)

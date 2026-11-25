@@ -133,7 +133,8 @@ func TestSupportFromReportToReply(t *testing.T) {
 	}
 
 	expectStatus(t, consoleCall(t, mod, "POST", "/v1/console/support/tickets/"+tk.ID+"/resolve", nil), http.StatusOK)
-	check(t, "resolve twice", consoleCall(t, mod, "POST", "/v1/console/support/tickets/"+tk.ID+"/resolve", nil), 409, "ticket_not_allowed")
+	// A retried resolve answers the ticket as it is.
+	expectStatus(t, consoleCall(t, mod, "POST", "/v1/console/support/tickets/"+tk.ID+"/resolve", nil), http.StatusOK)
 	expectStatus(t, call(t, "POST", "/v1/conversations/"+tk.ConversationID+"/messages", map[string]any{"text": "Vẫn chưa nhận"},
 		bearer(buyer.AccessToken), newKey()), http.StatusCreated)
 	testenv.Eventually(t, 10*time.Second, func() error {
@@ -282,7 +283,7 @@ func TestSupportStatuses(t *testing.T) {
 	check(t, "unsuspend ShopNexus", consoleCall(t, mod, "POST", "/v1/console/accounts/"+shopNexusID+"/unsuspend", nil), 409, "account_is_system")
 	expectStatus(t, consoleCall(t, mod, "GET", "/v1/console/support/summary", nil), http.StatusOK)
 	expectStatus(t, consoleCall(t, mod, "GET", "/v1/console/support/tickets/"+tk.ID+"/messages", nil), http.StatusOK)
-	check(t, "reopen an open ticket", consoleCall(t, mod, "POST", "/v1/console/support/tickets/"+tk.ID+"/reopen", nil), 409, "ticket_not_allowed")
+	expectStatus(t, consoleCall(t, mod, "POST", "/v1/console/support/tickets/"+tk.ID+"/reopen", nil), http.StatusOK)
 	expectStatus(t, consoleCall(t, mod, "POST", "/v1/console/support/tickets/"+tk.ID+"/resolve", nil), http.StatusOK)
 	expectStatus(t, consoleCall(t, mod, "POST", "/v1/console/support/tickets/"+tk.ID+"/reopen", nil), http.StatusOK)
 	check(t, "an empty reply", consoleCall(t, mod, "POST", "/v1/console/support/tickets/"+tk.ID+"/replies", map[string]any{"body": " "}, newKey()),

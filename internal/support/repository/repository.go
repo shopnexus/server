@@ -56,6 +56,10 @@ type Tickets interface {
 	// a ticket returns that ticket and true. The account is locked for the
 	// transaction.
 	Insert(ctx context.Context, t Ticket, key uuid.UUID, carrierKey string, since time.Time) (Ticket, bool, error)
+	// Withdraw deletes ticket id of account, in conversation, with its
+	// events while it has no first message and no reply: the ticket of an
+	// open whose first message was refused. A ticket in use stays.
+	Withdraw(ctx context.Context, id, account, conversation uuid.UUID) error
 	// OpenedSince counts the tickets account opened after since, without
 	// the lock: the check before Insert, which counts again under it.
 	OpenedSince(ctx context.Context, account uuid.UUID, since time.Time) (int, error)
@@ -95,7 +99,7 @@ type Tickets interface {
 	Messaged(ctx context.Context, conversation, message uuid.UUID, from domain.From, at time.Time) (bool, error)
 	// Resolve and Reopen set the ticket's status with its event, whose ID is
 	// event, and, when actor is a member, the audit row. A ticket in that
-	// status already is domain.ErrNotAllowed.
+	// status already is returned as it is, so a retry answers success.
 	Resolve(ctx context.Context, id, event uuid.UUID, actor *audit.Actor, at time.Time) (Ticket, error)
 	Reopen(ctx context.Context, id, event uuid.UUID, actor *audit.Actor, at time.Time) (Ticket, error)
 	// RecordReply records who wrote message, a ShopNexus message of the

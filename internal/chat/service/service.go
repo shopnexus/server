@@ -75,6 +75,10 @@ type Service interface {
 	// or returns it when a retried step made it already. Module support
 	// only.
 	OpenSupport(ctx context.Context, account, id uuid.UUID) (ConversationView, error)
+	// DropSupport deletes support chat id and its members while no message
+	// or ticket refers to it; one in use stays. Module support drops the
+	// chat of a ticket it could not open.
+	DropSupport(ctx context.Context, id uuid.UUID) error
 	// Threads reads the last message and account's unread count of each of
 	// account's conversations among ids; one with no message is absent.
 	Threads(ctx context.Context, account uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]Thread, error)

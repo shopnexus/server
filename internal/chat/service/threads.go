@@ -26,6 +26,13 @@ func (c *Chat) OpenSupport(ctx context.Context, account, id uuid.UUID) (Conversa
 	return c.Get(ctx, account, id)
 }
 
+func (c *Chat) DropSupport(ctx context.Context, id uuid.UUID) error {
+	if err := c.chats.DropSupport(ctx, id); err != nil {
+		return fmt.Errorf("drop the support chat: %w", err)
+	}
+	return nil
+}
+
 func (c *Chat) Threads(ctx context.Context, account uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]Thread, error) {
 	rows, err := c.chats.Threads(ctx, account, ids)
 	if err != nil {

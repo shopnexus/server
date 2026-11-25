@@ -221,6 +221,27 @@ RETURNING t.id, t.account_id, t.conversation_id, t.status, t.resolved_at, m.crea
 	return nil
 }
 
+// withdrawTicket deletes ticket @id while it is empty; its receipts cascade.
+const withdrawTicket = `
+WITH t AS (
+    SELECT id FROM tickets
+    WHERE id = @id AND account_id = @account AND first_message_id IS NULL
+      AND NOT EXISTS (SELECT 1 FROM ticket_replies r WHERE r.ticket_id = @id)
+    FOR UPDATE),
+events AS (DELETE FROM ticket_events WHERE ticket_id IN (SELECT id FROM t))
+DELETE FROM tickets WHERE id IN (SELECT id FROM t)`
+
+func (s pgTickets) Withdraw(ctx context.Context, id, account, conversation uuid.UUID) error {
+	b := &pgx.Batch{}
+	b.Queue(withdrawTicket, pgx.StrictNamedArgs{"id": id, "account": account}).Fn = postgres.ExecAs("withdraw the ticket", nil)
+	// The app drops the ticket it may have listed.
+	stream.Queue(b, []uuid.UUID{account}, stream.Hint{Kind: stream.KindTicket, ConversationID: &conversation})
+	if err := s.db.SendBatch(ctx, b).Close(); err != nil {
+		return fmt.Errorf("withdraw ticket: %w", err)
+	}
+	return nil
+}
+
 func (s pgTickets) OpenedSince(ctx context.Context, account uuid.UUID, since time.Time) (int, error) {
 	var n int
 	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM tickets WHERE account_id = @account AND opened_at > @since`,
@@ -386,7 +407,8 @@ func queueMessage(b *pgx.Batch, t Ticket, message uuid.UUID, from domain.From, a
 }
 
 // move sets a ticket's status to to, with its event (ID event), audit row
-// and update, once the ticket's lock has shown the status differs.
+// and update, once the ticket's lock has shown the status differs. A
+// ticket in to already is read back unchanged (K2: a retried move).
 func (s pgTickets) move(ctx context.Context, id, event uuid.UUID, to domain.Status, actor *audit.Actor, at time.Time) (Ticket, error) {
 	var (
 		member *uuid.UUID
@@ -409,7 +431,12 @@ func (s pgTickets) move(ctx context.Context, id, event uuid.UUID, to domain.Stat
 			return fmt.Errorf("lock ticket: %w", err)
 		}
 		if status == to {
-			return domain.ErrNotAllowed
+			same, readErr := read(ctx, tx, `WHERE t.id = @id`, pgx.StrictNamedArgs{"id": id})
+			if readErr != nil {
+				return readErr
+			}
+			out = same[0]
+			return nil
 		}
 		kind, action := "resolved", audit.TicketResolve
 		resolvedAt, resolvedBy := &at, member

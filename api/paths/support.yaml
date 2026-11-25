@@ -59,13 +59,13 @@ tickets:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "409":
-        description: "The order is not shipped, or was completed by the buyer or more than 7 days ago (ticket_not_allowed)."
+        description: "The order is not shipped, or was completed by the buyer or more than 7 days ago (ticket_not_allowed); a retry that raced a refused first try (try_again)."
         content:
           application/json:
             schema:
               $ref: "../schemas/error.yaml#/Error"
       "422":
-        description: "A field the kind needs is missing or out of range (invalid_ticket, with fields)."
+        description: "A field the kind needs is missing or out of range (invalid_ticket, with fields), or a photo is not the caller's waiting upload (invalid_upload)."
         content:
           application/json:
             schema:
