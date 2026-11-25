@@ -102,20 +102,16 @@ WHERE c.id = @conversation AND c.kind = 'pair' AND w.asked_at IS NOT NULL
                   WHERE n.conversation_id = c.id AND n.sender_id <> @sender AND l.seller_id = @sender))
 ON CONFLICT (message_id) DO NOTHING`
 
-// sampled writes m's reply sample, if it is one, and drops its sender's
-// samples older than domain.ReplyTimePeriod, so the table holds the period.
-func sampled(ctx context.Context, tx pgx.Tx, m domain.Message) error {
-	if _, err := tx.Exec(ctx, replySample, pgx.StrictNamedArgs{
+// queueSample queues into b m's reply sample, if it is one, and the drop of
+// its sender's samples older than domain.ReplyTimePeriod, so the table holds
+// the period.
+func queueSample(b *pgx.Batch, m domain.Message) {
+	b.Queue(replySample, pgx.StrictNamedArgs{
 		"id": m.ID(), "sender": m.SenderID(), "conversation": m.ConversationID(), "at": m.CreatedAt(),
 		"gap": domain.ReplyGap.Seconds(),
-	}); err != nil {
-		return fmt.Errorf("insert the reply sample: %w", err)
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM reply_samples WHERE account_id = @sender AND answered_at < @before`,
-		pgx.StrictNamedArgs{"sender": m.SenderID(), "before": m.CreatedAt().Add(-domain.ReplyTimePeriod)}); err != nil {
-		return fmt.Errorf("drop old reply samples: %w", err)
-	}
-	return nil
+	})
+	b.Queue(`DELETE FROM reply_samples WHERE account_id = @sender AND answered_at < @before`,
+		pgx.StrictNamedArgs{"sender": m.SenderID(), "before": m.CreatedAt().Add(-domain.ReplyTimePeriod)})
 }
 
 func (s pgChats) ReplyWait(ctx context.Context, account uuid.UUID, since time.Time) (samples int, median time.Duration, err error) {
