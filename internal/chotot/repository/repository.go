@@ -64,6 +64,8 @@ type Imports interface {
 	ByListing(ctx context.Context, listing uuid.UUID) (domain.Import, bool, error)
 	// List returns the account's imports, newest listing first.
 	List(ctx context.Context, account uuid.UUID) ([]domain.Import, error)
+	// Listed returns which of listings an import of account posted.
+	Listed(ctx context.Context, account uuid.UUID, listings []uuid.UUID) (map[uuid.UUID]bool, error)
 	// Followed records the price seen on Chợ Tốt of a listed import, and
 	// whether its listing left Chợ Tốt.
 	Followed(ctx context.Context, id uuid.UUID, adPrice int64, adGone bool) error

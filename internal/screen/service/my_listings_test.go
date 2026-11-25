@@ -21,6 +21,9 @@ import (
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatrepo "github.com/shopnexus/server/internal/chat/repository"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	chototdomain "github.com/shopnexus/server/internal/chotot/domain"
+	chototrepo "github.com/shopnexus/server/internal/chotot/repository"
+	chototsvc "github.com/shopnexus/server/internal/chotot/service"
 	dealdomain "github.com/shopnexus/server/internal/deal/domain"
 	dealrepo "github.com/shopnexus/server/internal/deal/repository"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
@@ -100,8 +103,20 @@ func (c *countedChats) ListingAskers(ctx context.Context, seller uuid.UUID, ids 
 	return c.Service.ListingAskers(ctx, seller, ids)
 }
 
+// countedChotot counts the import reads through it.
+type countedChotot struct {
+	chototsvc.Service
+
+	batches atomic.Int32
+}
+
+func (c *countedChotot) FromChotot(ctx context.Context, account uuid.UUID, listings []uuid.UUID) (map[uuid.UUID]bool, error) {
+	c.batches.Add(1)
+	return c.Service.FromChotot(ctx, account, listings)
+}
+
 // sellCalls is how many times Tin của bạn called each service.
-type sellCalls struct{ pages, onSale, stats, deals, chats int32 }
+type sellCalls struct{ pages, onSale, stats, deals, chats, chotot int32 }
 
 type sellEnv struct {
 	db        *pgxpool.Pool
@@ -111,6 +126,7 @@ type sellEnv struct {
 	deals     *dealsvc.Deals
 	chats     *chatsvc.Chat
 	discovery *discoverysvc.Discovery
+	imports   chototrepo.Imports
 	// now is the clock of discovery and the screen, which a test moves to
 	// leave the week behind; deals and messages take the real time.
 	now *atomic.Pointer[time.Time]
@@ -120,6 +136,7 @@ type sellEnv struct {
 		discovery *countedDiscovery
 		deals     *activityDeals
 		chats     *countedChats
+		chotot    *countedChotot
 	}
 	screen *service.Screen
 }
@@ -158,9 +175,11 @@ func newSellEnv(t *testing.T) *sellEnv {
 	e.counted.discovery = &countedDiscovery{Service: e.discovery}
 	e.counted.deals = &activityDeals{Service: e.deals}
 	e.counted.chats = &countedChats{Service: e.chats}
+	e.imports = chototrepo.NewImports(db)
+	e.counted.chotot = &countedChotot{Service: chototsvc.New(chototsvc.Deps{Imports: e.imports})}
 	e.screen = service.New(service.Deps{
 		Accounts: e.accounts, Catalog: e.counted.catalog, Deals: e.counted.deals, Chats: e.counted.chats,
-		Discovery: e.counted.discovery, Trust: trust, Now: clock, Log: slog.New(slog.DiscardHandler),
+		Discovery: e.counted.discovery, Trust: trust, Chotot: e.counted.chotot, Now: clock, Log: slog.New(slog.DiscardHandler),
 	})
 	return e
 }
@@ -169,7 +188,7 @@ func newSellEnv(t *testing.T) *sellEnv {
 func (e *sellEnv) take() sellCalls {
 	return sellCalls{
 		pages: e.counted.catalog.pages.Swap(0), onSale: e.counted.catalog.onSale.Swap(0), stats: e.counted.discovery.stats.Swap(0),
-		deals: e.counted.deals.batches.Swap(0), chats: e.counted.chats.batches.Swap(0),
+		deals: e.counted.deals.batches.Swap(0), chats: e.counted.chats.batches.Swap(0), chotot: e.counted.chotot.batches.Swap(0),
 	}
 }
 
@@ -182,7 +201,7 @@ func (e *sellEnv) read(t *testing.T, seller uuid.UUID, pane catalogsvc.Pane, p p
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := e.take(), (sellCalls{pages: 1, onSale: onSale, stats: 1, deals: 1, chats: 1}); got != want {
+	if got, want := e.take(), (sellCalls{pages: 1, onSale: onSale, stats: 1, deals: 1, chats: 1, chotot: 1}); got != want {
 		t.Fatalf("%s page made %+v calls, want %+v", pane, got, want)
 	}
 	return v
@@ -193,6 +212,21 @@ func (e *sellEnv) open(t *testing.T, viewer *uuid.UUID, id uuid.UUID) {
 	t.Helper()
 	if _, err := e.screen.Listing(context.Background(), viewer, service.ListingRead{Ref: id.String()}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// imported records listing as brought over by seller's import of Chợ Tốt
+// listing listID.
+func (e *sellEnv) imported(t *testing.T, seller, listing uuid.UUID, listID int64) {
+	t.Helper()
+	ctx, now := context.Background(), time.Now()
+	imp := chototdomain.NewImport(uuid.NewV7(), seller, listID, "6f1c8a2e9b0d4c3fa1e27d5b8c9f0a14", now)
+	if _, err := e.imports.Start(ctx, []chototdomain.Import{imp}, now); err != nil {
+		t.Fatal(err)
+	}
+	imp.Listed(listing, nil, 1_500_000, now)
+	if ok, err := e.imports.Save(ctx, imp, chototdomain.Importing); err != nil || !ok {
+		t.Fatalf("save the import: %v %v", ok, err)
 	}
 }
 
@@ -291,6 +325,8 @@ func TestMyListingsCountsEachListing(t *testing.T) {
 	if err := e.discovery.Save(ctx, cara, busy); err != nil {
 		t.Fatal(err)
 	}
+	// busy came from Chợ Tốt.
+	e.imported(t, seller, busy, 119482736)
 
 	v := e.read(t, seller, catalogsvc.PaneOnSale, page.Request{}, 0)
 	ids := make([]uuid.UUID, 0, len(v.Items))
@@ -310,7 +346,7 @@ func TestMyListingsCountsEachListing(t *testing.T) {
 		}
 	}
 	got := v.Items[0]
-	if got.Views != 2 || got.Views7d != 2 || got.Askers != 2 || got.Saves != 1 {
+	if got.Views != 2 || got.Views7d != 2 || got.Askers != 2 || got.Saves != 1 || !got.FromChotot {
 		t.Fatalf("busy: %+v", got)
 	}
 	if o := got.Order; o == nil || *o != (dealsvc.ListingOrderView{DealID: order.ID, OrderID: order.Order.ID, Status: dealdomain.OrderPending}) {
@@ -320,7 +356,7 @@ func TestMyListingsCountsEachListing(t *testing.T) {
 		t.Fatalf("reserved: %+v", v.Items[3])
 	}
 	for _, it := range []service.MyListingsItem{v.Items[1], v.Items[2], v.Items[4]} {
-		if it.Views != 0 || it.Askers != 0 || it.Saves != 0 || it.Order != nil {
+		if it.Views != 0 || it.Askers != 0 || it.Saves != 0 || it.Order != nil || it.FromChotot {
 			t.Fatalf("a quiet listing: %+v", it)
 		}
 	}

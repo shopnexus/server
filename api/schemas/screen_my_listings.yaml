@@ -33,7 +33,7 @@ ListingWeek:
 MyListingsItem:
   type: object
   additionalProperties: false
-  required: [listing, views, views_7d, askers, saves]
+  required: [listing, views, views_7d, askers, saves, from_chotot]
   properties:
     listing:
       $ref: "catalog.yaml#/Listing"
@@ -52,6 +52,9 @@ MyListingsItem:
       description: The saves that stand now.
     order:
       $ref: "#/ListingOrder"
+    from_chotot:
+      type: boolean
+      description: The listing was brought over from the seller's Chợ Tốt profile.
 ListingOrder:
   type: object
   additionalProperties: false

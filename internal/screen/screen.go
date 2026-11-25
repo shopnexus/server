@@ -7,6 +7,7 @@ import (
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	chototsvc "github.com/shopnexus/server/internal/chotot/service"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
 	notificationsvc "github.com/shopnexus/server/internal/notification/service"
@@ -21,11 +22,11 @@ import (
 // Mount registers the screen endpoints.
 func Mount(d module.Deps, accounts accountsvc.Service, catalog catalogsvc.Service,
 	deals dealsvc.Service, trust trustsvc.Service, discovery discoverysvc.Service, chats chatsvc.Service,
-	notifications notificationsvc.Service, support supportsvc.Service, shipping shippingsvc.Service,
+	notifications notificationsvc.Service, support supportsvc.Service, shipping shippingsvc.Service, chotot chototsvc.Service,
 ) {
 	svc := service.New(service.Deps{
 		Accounts: accounts, Catalog: catalog, Deals: deals, Trust: trust, Discovery: discovery, Chats: chats,
-		Notifications: notifications, Support: support, Shipping: shipping, Now: d.Now, Log: d.Log,
+		Notifications: notifications, Support: support, Shipping: shipping, Chotot: chotot, Now: d.Now, Log: d.Log,
 	})
 	handler.New(svc, d.Log).Register(d.Router, d.Protect, d.Identify)
 }

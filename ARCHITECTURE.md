@@ -4542,19 +4542,27 @@ Decided 2026-11-16, app plan `2026-11-16-app-wire-sell.md`.
 - `GET /v1/screens/my-listings?pane=on_sale|sold&cursor=&limit=` is Tin
   của bạn. It replaced `GET /v1/me/listings` and its `ListingList`
   schema, whose only caller was the app; `cmd/devseed` reads the view
-  now. Each item is `{listing, views, views_7d, askers, saves, order}`:
+  now. Each item is `{listing, views, views_7d, askers, saves, order,
+  from_chotot}`:
   `listing` is the canonical `Listing` as its seller reads it, and the
   sold pane's items carry `sold_at` and no buyer. `week` holds the views,
   askers and saves of the last seven days over the seller's listings on
   sale, whichever pane and page the call reads, and every response has
   it.
-- A page costs four or five calls, whatever it holds. Catalog's
+- A page costs five or six calls, whatever it holds. Catalog's
   `ListMine` reads the page. The first page of the on-sale pane with no
   page after it holds every listing on sale; any other page also reads
   their IDs through catalog's `OnSale` (at most `MaxOnSale`). Then, for
   those IDs and the page's together, merged through a set: discovery's
   `ListingStats`, deal's `ListingActivity` and chat's `ListingAskers`, at
-  the same time.
+  the same time, and for the page's IDs alone chotot's `FromChotot`.
+- `from_chotot` (decided 2026-11-26) marks a listing a Chợ Tốt import
+  posted, for the app's badge: a row of `chotot_imports` names it, which
+  holds exactly while the import is `listed`. A boolean, not the list
+  ID: the card only shows the mark, and `GET /v1/me/chotot/ads` already
+  pairs each Chợ Tốt listing with its state. Catalog does not know of
+  imports; screen reads them through chotot's service, over index
+  `chotot_imports_listing`, so no migration was needed.
 - The week is the seven UTC days that end today, the days views are
   stored by (discovery's `domain.ViewWeek`). The screen reads the clock
   once (`Deps.Now`), takes the week's start, a UTC midnight, and passes

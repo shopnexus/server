@@ -236,6 +236,15 @@ func TestChototImport(t *testing.T) {
 	if a := chototAds(t, seller.AccessToken)[iphone]; a.State != "imported" || a.ListingID == nil || *a.ListingID != *listed.ListingID {
 		t.Fatalf("ad %+v", a)
 	}
+	// Tin của bạn marks the copy, and not a listing posted here.
+	here := activeListing(t, seller.AccessToken, nil).ID
+	marks := map[string]bool{}
+	for _, it := range myListings(t, seller.AccessToken, "pane=on_sale").Items {
+		marks[it.Listing.ID] = it.FromChotot
+	}
+	if !marks[*listed.ListingID] || marks[here] || len(marks) != 2 {
+		t.Fatalf("marks %v", marks)
+	}
 	s := expect[struct {
 		Link *chototLink `json:"link"`
 	}](t, call(t, "GET", "/v1/me/chotot", nil, token), http.StatusOK)

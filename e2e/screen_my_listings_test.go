@@ -22,6 +22,7 @@ type myListingsItem struct {
 		OrderID string `json:"order_id"`
 		Status  string `json:"status"`
 	} `json:"order"`
+	FromChotot bool `json:"from_chotot"`
 }
 
 // myListingsScreen is the MyListingsScreen schema.

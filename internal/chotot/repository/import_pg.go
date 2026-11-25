@@ -151,6 +151,26 @@ func (s pgImports) List(ctx context.Context, account uuid.UUID) ([]domain.Import
 ORDER BY list_id DESC`, pgx.StrictNamedArgs{"account": account}))
 }
 
+func (s pgImports) Listed(ctx context.Context, account uuid.UUID, listings []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := make(map[uuid.UUID]bool, len(listings))
+	if len(listings) == 0 {
+		return out, nil
+	}
+	rows, err := s.db.Query(ctx, `SELECT listing_id FROM chotot_imports
+WHERE account_id = @account AND listing_id = ANY(@listings)`, pgx.StrictNamedArgs{"account": account, "listings": listings})
+	if err != nil {
+		return nil, fmt.Errorf("read imported listings: %w", err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return nil, fmt.Errorf("read imported listings: %w", err)
+	}
+	for _, id := range ids {
+		out[id] = true
+	}
+	return out, nil
+}
+
 func (s pgImports) Followed(ctx context.Context, id uuid.UUID, adPrice int64, adGone bool) error {
 	if _, err := s.db.Exec(ctx, `UPDATE chotot_imports SET ad_price = @price, ad_gone = @gone WHERE id = @id`,
 		pgx.StrictNamedArgs{"id": id, "price": adPrice, "gone": adGone}); err != nil {

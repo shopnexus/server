@@ -47,6 +47,9 @@ type Service interface {
 	Import(ctx context.Context, account uuid.UUID, listIDs []int64) (ImportListView, error)
 	// PostDraft posts the listing an import left as a draft, as in.
 	PostDraft(ctx context.Context, account uuid.UUID, listID int64, in catalogdomain.ListingInput) (ImportView, error)
+	// FromChotot says which of the account's listings an import brought
+	// over from Chợ Tốt.
+	FromChotot(ctx context.Context, account uuid.UUID, listings []uuid.UUID) (map[uuid.UUID]bool, error)
 	// ListingSold announces chotot_import.sold, as event, when the listing
 	// is an import's copy whose seller wants the reminder and whose listing
 	// is still on Chợ Tốt.

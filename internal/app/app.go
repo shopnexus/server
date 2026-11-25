@@ -496,7 +496,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 		accounts, catalogm.Service, dealm.Service, trustm.Service, chatm.Service, discoverym.Service, supportm.Service, feedbackm.Service,
 		chototm.Service)
 	screen.Mount(d, accounts, catalogm.Service, dealm.Service, trustm.Service, discoverym.Service, chatm.Service, notificationm.Service,
-		supportm.Service, shippingm.Service)
+		supportm.Service, shippingm.Service, chototm.Service)
 	agentm, agentErr := agent.Mount(d, agent.Settings{
 		Config: cfg.Agent, TextMin: cfg.Embed.TextMinSimilarity, PhotoMin: cfg.Embed.PhotoMinSimilarity,
 	}, consolem.Moderator, consolem.Admin, consolem.Service, supportm.Service, accounts, catalogm.Service, dealm.Service, shippingm.Service, trustm.Service)

@@ -43,12 +43,15 @@ type MyListingsItem struct {
 	Askers  int                       `json:"askers"`
 	Saves   int                       `json:"saves"`
 	Order   *dealsvc.ListingOrderView `json:"order,omitempty"`
+	// FromChotot is a listing an import brought over from Chợ Tốt.
+	FromChotot bool `json:"from_chotot"`
 }
 
 // MyListings reads a page of one of the seller's panes and, unless the page
 // holds them all, the IDs of the seller's listings on sale; then, for all
 // those listings at once, their views and saves, their deals, and the
-// messages about them. That is four or five calls, whatever the page holds.
+// messages about them, and which of the page came from Chợ Tốt. That is
+// five or six calls, whatever the page holds.
 // The week sums the listings on sale, whichever pane the page is.
 func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogsvc.Pane, p page.Request, t locale.Tag) (MyListingsScreen, error) {
 	// Views are stored by UTC day, so the week is the seven UTC days that
@@ -82,6 +85,7 @@ func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogs
 		stats    map[uuid.UUID]discoverysvc.ListingStats
 		activity map[uuid.UUID]dealsvc.ListingActivity
 		wrote    map[uuid.UUID][]chatsvc.ListingAsker
+		imported map[uuid.UUID]bool
 	)
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
@@ -102,6 +106,13 @@ func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogs
 		var chatErr error
 		if wrote, chatErr = s.d.Chats.ListingAskers(gctx, seller, ids); chatErr != nil {
 			return fmt.Errorf("read who wrote: %w", chatErr)
+		}
+		return nil
+	})
+	g.Go(func() error {
+		var chototErr error
+		if imported, chototErr = s.d.Chotot.FromChotot(gctx, seller, shown); chototErr != nil {
+			return fmt.Errorf("read the Chợ Tốt imports: %w", chototErr)
 		}
 		return nil
 	})
@@ -144,7 +155,7 @@ func (s *Screen) MyListings(ctx context.Context, seller uuid.UUID, pane catalogs
 		st := stats[l.ID]
 		out.Items = append(out.Items, MyListingsItem{
 			Listing: l, Views: st.Views, Views7d: st.ViewsSince, Askers: len(askers[l.ID]), Saves: st.Saves,
-			Order: activity[l.ID].Order,
+			Order: activity[l.ID].Order, FromChotot: imported[l.ID],
 		})
 	}
 	return out, nil

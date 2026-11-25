@@ -203,6 +203,13 @@ func TestImports(t *testing.T) {
 	if l, _ := imports.List(ctx, me); len(l) != 2 || l[0].ListID != 12 {
 		t.Fatalf("list: %+v", l)
 	}
+	other := catalogtest.Listing(t, db, me)
+	if got, listedErr := imports.Listed(ctx, me, []uuid.UUID{listing, other}); listedErr != nil || len(got) != 1 || !got[listing] {
+		t.Fatalf("listed: %v %v", got, listedErr)
+	}
+	if got, _ := imports.Listed(ctx, accounttest.New(t, db), []uuid.UUID{listing}); len(got) != 0 {
+		t.Fatalf("another account's listed: %v", got)
+	}
 	if err = imports.ClearReview(ctx, listing); err != nil {
 		t.Fatal(err)
 	}

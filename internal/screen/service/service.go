@@ -12,6 +12,7 @@ import (
 	catalogdomain "github.com/shopnexus/server/internal/catalog/domain"
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	chatsvc "github.com/shopnexus/server/internal/chat/service"
+	chototsvc "github.com/shopnexus/server/internal/chotot/service"
 	dealdomain "github.com/shopnexus/server/internal/deal/domain"
 	dealsvc "github.com/shopnexus/server/internal/deal/service"
 	discoverysvc "github.com/shopnexus/server/internal/discovery/service"
@@ -87,8 +88,10 @@ type Deps struct {
 	Notifications notificationsvc.Service
 	// Support gives a support chat its ticket.
 	Support supportsvc.Service
-	Now     func() time.Time
-	Log     *slog.Logger
+	// Chotot marks the listings of Tin của bạn brought over from Chợ Tốt.
+	Chotot chototsvc.Service
+	Now    func() time.Time
+	Log    *slog.Logger
 }
 
 // Screen implements Service in this process.
