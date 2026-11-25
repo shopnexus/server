@@ -204,9 +204,12 @@ SET status = @status, open_by = @open_by, open_amount = @open_amount, open_at = 
 WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
 RETURNING old.write_id = @write_id`
 
-const insertMove = `
+// insertMoves writes a save's moves in one statement.
+const insertMoves = `
 INSERT INTO deal_moves (id, deal_id, kind, by_party, amount, moved_at, order_id)
-VALUES (@id, @deal_id, @kind, @by_party, @amount, @moved_at, @order_id)
+SELECT id, @deal_id, kind, by_party, amount, moved_at, order_id
+FROM unnest(@ids::uuid[], @kinds::text[], @by_parties::text[], @amounts::bigint[], @moved_at::timestamptz[], @order_ids::uuid[])
+    AS m(id, kind, by_party, amount, moved_at, order_id)
 ON CONFLICT (id) DO NOTHING`
 
 const countOpenOrders = `
@@ -267,6 +270,16 @@ func orderArgs(st domain.DealState, o domain.Order) pgx.StrictNamedArgs {
 	return a
 }
 
+// execAs runs a queued statement and wraps its error with what it does.
+func execAs(what string) func(pgx.BatchResults) error {
+	return func(br pgx.BatchResults) error {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("%s: %w", what, err)
+		}
+		return nil
+	}
+}
+
 func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, evs ...events.Event) error {
 	st := d.State()
 	a := dealArgs(st)
@@ -275,46 +288,63 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 		delete(a, k)
 	}
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		var saved bool
-		err := tx.QueryRow(ctx, saveDeal, a).Scan(&saved)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrConflict
+		b := &pgx.Batch{}
+		b.Queue(saveDeal, a).QueryRow(func(row pgx.Row) error {
+			var saved bool
+			err := row.Scan(&saved)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrConflict
+			}
+			if err != nil {
+				return fmt.Errorf("update deal: %w", err)
+			}
+			if saved {
+				return errSaved
+			}
+			return nil
+		})
+		o := st.Order
+		if o != nil && o.Status == domain.OrderPending {
+			// The count decides whether the order may be written, so the
+			// batch breaks here.
+			var n int
+			b.Queue(`SELECT pg_advisory_xact_lock(hashtext(@buyer::text))`, pgx.StrictNamedArgs{"buyer": st.BuyerID}).
+				Fn = execAs("lock buyer")
+			b.Queue(countOpenOrders, pgx.StrictNamedArgs{"buyer": st.BuyerID, "id": o.ID, "open": domain.OpenStatuses}).
+				QueryRow(func(row pgx.Row) error {
+					if err := row.Scan(&n); err != nil {
+						return fmt.Errorf("count open orders: %w", err)
+					}
+					return nil
+				})
+			if err := tx.SendBatch(ctx, b).Close(); err != nil {
+				return err //nolint:wrapcheck // Each statement wraps its own error.
+			}
+			if n >= domain.MaxOpenOrders {
+				return domain.ErrCodLimit
+			}
+			b = &pgx.Batch{}
 		}
-		if err != nil {
-			return fmt.Errorf("update deal: %w", err)
+		if o != nil {
+			b.Queue(upsertOrder, orderArgs(st, *o)).Fn = execAs("write order")
 		}
-		if saved {
-			return errSaved
-		}
-		if o := st.Order; o != nil {
-			if o.Status == domain.OrderPending {
-				if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext(@buyer::text))`,
-					pgx.StrictNamedArgs{"buyer": st.BuyerID}); err != nil {
-					return fmt.Errorf("lock buyer: %w", err)
+		if moves := d.Pending(); len(moves) > 0 {
+			ids := make([]uuid.UUID, len(moves))
+			kinds := make([]string, len(moves))
+			parties := make([]string, len(moves))
+			amounts := make([]*int64, len(moves))
+			at := make([]time.Time, len(moves))
+			orders := make([]*uuid.UUID, len(moves))
+			for i, m := range moves {
+				ids[i], kinds[i], parties[i], at[i], orders[i] = m.ID, string(m.Kind), string(m.By), m.At, m.OrderID
+				if m.Amount != 0 {
+					amounts[i] = &m.Amount
 				}
-				var n int
-				if err = tx.QueryRow(ctx, countOpenOrders, pgx.StrictNamedArgs{"buyer": st.BuyerID, "id": o.ID, "open": domain.OpenStatuses}).Scan(&n); err != nil {
-					return fmt.Errorf("count open orders: %w", err)
-				}
-				if n >= domain.MaxOpenOrders {
-					return domain.ErrCodLimit
-				}
 			}
-			if _, err = tx.Exec(ctx, upsertOrder, orderArgs(st, *o)); err != nil {
-				return fmt.Errorf("write order: %w", err)
-			}
-		}
-		for _, m := range d.Pending() {
-			var amount *int64
-			if m.Amount != 0 {
-				amount = &m.Amount
-			}
-			if _, err = tx.Exec(ctx, insertMove, pgx.StrictNamedArgs{
-				"id": m.ID, "deal_id": st.ID, "kind": m.Kind, "by_party": m.By, "amount": amount, "moved_at": m.At,
-				"order_id": m.OrderID,
-			}); err != nil {
-				return fmt.Errorf("insert move: %w", err)
-			}
+			b.Queue(insertMoves, pgx.StrictNamedArgs{
+				"deal_id": st.ID, "ids": ids, "kinds": kinds, "by_parties": parties, "amounts": amounts,
+				"moved_at": at, "order_ids": orders,
+			}).Fn = execAs("insert moves")
 		}
 		// The moves' IDs ride on deal.moved, so a subscriber reads exactly
 		// the moves of this save. The copy leaves the caller's events alone.
@@ -328,10 +358,9 @@ func (s pgDeals) Save(ctx context.Context, d *domain.Deal, writeID uuid.UUID, ev
 				out[i].Payload = map[string]any{"moves": ids}
 			}
 		}
-		if err = events.Insert(ctx, tx, out...); err != nil {
-			return err
-		}
-		return stream.Notify(ctx, tx, []uuid.UUID{st.BuyerID, st.SellerID}, stream.Hint{Kind: stream.KindDeal, DealID: &st.ID})
+		events.Queue(b, out...)
+		stream.Queue(b, []uuid.UUID{st.BuyerID, st.SellerID}, stream.Hint{Kind: stream.KindDeal, DealID: &st.ID})
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil && !errors.Is(err, errSaved) {
 		return fmt.Errorf("save deal: %w", err)

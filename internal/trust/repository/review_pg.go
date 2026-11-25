@@ -78,22 +78,24 @@ func (s pgReviews) OfOrders(ctx context.Context, orders []uuid.UUID) ([]domain.R
 func (s pgReviews) Insert(ctx context.Context, r domain.Review) error {
 	st := r.State()
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		b := &pgx.Batch{}
 		// One order's two reviews are written one at a time, so the second
 		// always sees the first.
-		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended(@order::text, 0))`,
-			pgx.StrictNamedArgs{"order": st.OrderID}); err != nil {
-			return fmt.Errorf("lock the order's reviews: %w", err)
-		}
-		var other bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM reviews WHERE order_id = @order AND role <> @role)`,
-			pgx.StrictNamedArgs{"order": st.OrderID, "role": st.Role}).Scan(&other); err != nil {
-			return fmt.Errorf("read the other side's review: %w", err)
-		}
-		if other && st.VisibleAt.After(st.CreatedAt) {
-			// The other side reviewed after the caller read; a retry shows both.
-			return ErrConflict
-		}
-		tag, err := tx.Exec(ctx, `INSERT INTO reviews (id, order_id, role, reviewer_id, subject_id, listing_id, stars, body,
+		b.Queue(`SELECT pg_advisory_xact_lock(hashtextextended(@order::text, 0))`,
+			pgx.StrictNamedArgs{"order": st.OrderID}).Fn = execAs("lock the order's reviews")
+		b.Queue(`SELECT EXISTS (SELECT 1 FROM reviews WHERE order_id = @order AND role <> @role)`,
+			pgx.StrictNamedArgs{"order": st.OrderID, "role": st.Role}).QueryRow(func(row pgx.Row) error {
+			var other bool
+			if err := row.Scan(&other); err != nil {
+				return fmt.Errorf("read the other side's review: %w", err)
+			}
+			if other && st.VisibleAt.After(st.CreatedAt) {
+				// The other side reviewed after the caller read; a retry shows both.
+				return ErrConflict
+			}
+			return nil
+		})
+		b.Queue(`INSERT INTO reviews (id, order_id, role, reviewer_id, subject_id, listing_id, stars, body,
        tags, photos, visible_at, deleted_at, write_id, created_at, updated_at)
 VALUES (@id, @order, @role, @reviewer, @subject, @listing, @stars, @body, @tags, @photos, @visible_at, @deleted_at, @write_id,
         @created_at, @updated_at)
@@ -103,18 +105,20 @@ ON CONFLICT (order_id, role) DO NOTHING`, pgx.StrictNamedArgs{
 			"visible_at": st.VisibleAt,
 			"deleted_at": st.DeletedAt,
 			"write_id":   st.WriteID, "created_at": st.CreatedAt, "updated_at": st.UpdatedAt,
-		})
-		if err != nil {
-			return fmt.Errorf("insert review: %w", err)
+		}).Fn = func(br pgx.BatchResults) error {
+			tag, err := br.Exec()
+			if err != nil {
+				return fmt.Errorf("insert review: %w", err)
+			}
+			if tag.RowsAffected() == 0 {
+				return ErrConflict
+			}
+			return nil
 		}
-		if tag.RowsAffected() == 0 {
-			return ErrConflict
-		}
-		if _, err = tx.Exec(ctx, `UPDATE reviews SET visible_at = @at WHERE order_id = @order AND role <> @role AND visible_at > @at`,
-			pgx.StrictNamedArgs{"order": st.OrderID, "role": st.Role, "at": st.CreatedAt}); err != nil {
-			return fmt.Errorf("reveal the other side's review: %w", err)
-		}
-		return events.Insert(ctx, tx, events.Event{ID: st.ID, Kind: events.ReviewPosted, SubjectID: st.ID, OccurredAt: st.CreatedAt})
+		b.Queue(`UPDATE reviews SET visible_at = @at WHERE order_id = @order AND role <> @role AND visible_at > @at`,
+			pgx.StrictNamedArgs{"order": st.OrderID, "role": st.Role, "at": st.CreatedAt}).Fn = execAs("reveal the other side's review")
+		events.Queue(b, events.Event{ID: st.ID, Kind: events.ReviewPosted, SubjectID: st.ID, OccurredAt: st.CreatedAt})
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if errors.Is(err, ErrConflict) {
 		return ErrConflict
@@ -132,25 +136,30 @@ func (s pgReviews) Save(ctx context.Context, r *domain.Review, writeID uuid.UUID
 		reply = &st.Reply
 	}
 	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		var hadReply bool
-		err := tx.QueryRow(ctx, `UPDATE reviews
+		b := &pgx.Batch{}
+		b.Queue(`UPDATE reviews
 SET stars = @stars, body = @body, tags = @tags, photos = @photos, deleted_at = @deleted_at, updated_at = @updated_at, reply = @reply,
     replied_at = @replied_at, write_id = @write_id
-WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)
-RETURNING old.replied_at IS NOT NULL`, pgx.StrictNamedArgs{
+WHERE id = @id AND (write_id = @read_write_id OR write_id = @write_id)`, pgx.StrictNamedArgs{
 			"id": st.ID, "stars": st.Stars, "body": st.Text, "tags": tagsOf(st), "photos": photosOf(st), "deleted_at": st.DeletedAt, "updated_at": st.UpdatedAt,
 			"reply": reply, "replied_at": st.RepliedAt, "write_id": writeID, "read_write_id": st.WriteID,
-		}).Scan(&hadReply)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrConflict
-		}
-		if err != nil {
-			return fmt.Errorf("save review: %w", err)
-		}
-		if st.RepliedAt == nil || hadReply {
+		}).Fn = func(br pgx.BatchResults) error {
+			tag, err := br.Exec()
+			if err != nil {
+				return fmt.Errorf("save review: %w", err)
+			}
+			if tag.RowsAffected() == 0 {
+				return ErrConflict
+			}
 			return nil
 		}
-		return events.Insert(ctx, tx, events.Event{ID: writeID, Kind: events.ReviewReplied, SubjectID: st.ID, OccurredAt: *st.RepliedAt})
+		// A replied review never changes again, so a save with a reply is
+		// the reply itself or its retry, which the write ID as event ID keeps
+		// at one event.
+		if st.RepliedAt != nil {
+			events.Queue(b, events.Event{ID: writeID, Kind: events.ReviewReplied, SubjectID: st.ID, OccurredAt: *st.RepliedAt})
+		}
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if errors.Is(err, ErrConflict) {
 		return ErrConflict
