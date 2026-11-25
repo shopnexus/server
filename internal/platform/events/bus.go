@@ -230,7 +230,10 @@ func (b *Bus) dispatch(ctx context.Context) (int, error) {
 		sends.SetLimit(sendsAtOnce)
 		for _, e := range pending {
 			if len(subs[e.Kind]) == 0 {
+				// A send started above may append at the same time.
+				mu.Lock()
 				sent = append(sent, e.ID)
+				mu.Unlock()
 				continue
 			}
 			sends.Go(func() error {
