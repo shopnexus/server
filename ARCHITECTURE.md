@@ -619,9 +619,10 @@ separate work.
 | reply samples | `reply_samples` | module chat; one row per answer that ended a wait, kept 30 days; no aggregate, no `write_id` |
 | helpful marks | `review_helpful` | module trust; one row per person and review; no aggregate, no `write_id` |
 | agent reads | `console_agent_reads` | module agent; one row per read of personal data by an MCP tool, kept 90 days; no aggregate, no `write_id` |
-| agent runs | `agent_conversations`, `agent_turns`, `agent_turn_inputs`, `agent_tool_calls`, `agent_turn_events`, `agent_documents`, `agent_document_versions`, `agent_skills` | module agent; the console agent's conversations and what their runs wrote; no aggregate, no `write_id`: a turn's status changes under its row lock or a `WHERE status` check |
+| agent runs | `agent_conversations`, `agent_turns`, `agent_turn_inputs`, `agent_tool_calls`, `agent_turn_events`, `agent_documents`, `agent_document_versions`, `agent_skills` | module agent; the console agent's conversations and what their runs wrote; no aggregate: a turn's status changes under its row lock or a `WHERE status` check, and an input is added under the turn's row lock; `agent_skills` adds `write_id` (migration 0094) |
 | AI agents | `ai_agents`, `ai_agent_versions` | module agent; `ai_agents` adds `write_id`, and a save adds the version of new instructions (see AI settings) |
-| model tags | `ai_tags`, `ai_model_tags` | module agent; no aggregate, no `write_id`: setting a model's tags replaces them |
+| model tags | `ai_tags`, `ai_model_tags` | module agent; no aggregate, no `write_id`: setting a model's tags replaces them under an advisory lock per model |
+| budget settings | `ai_budget_settings`, `ai_member_budgets` | module agent; one row with `write_id` (migration 0094), and the members' own budgets it replaces |
 
 No column is named after an SQL keyword (sqlfluff RF04, run with
 `sqlfluff lint migrations/`): `events.occurred_at` and `payload`,
@@ -747,7 +748,10 @@ account's key never finds the row. Sign-in claims the session
 sign-up's key, so its retry answers `is_new: true` again; a code mail
 claims the challenge
 `(destination, request_key)`. `PUT /v1/listings/{id}` takes no key: a
-retry writes the same content again. Endpoints without the header keep
+retry writes the same content again. The console agent's creates take
+the header as optional (decided 2026-11-25, see Console agent): a
+conversation without a subject, a question, a steer and a skill each
+claim `(member, request_key)`. Endpoints without the header keep
 minted IDs and their natural uniques.
 
 ### Sign-in
@@ -858,6 +862,12 @@ Email codes:
   five an hour), creates the challenge and mails the code in a step. The
   code is derived from the challenge ID with `OTP_KEY`, so a retried send
   step mails the same code and no code is stored.
+- A quota's save takes a write ID derived from the request key (K2), so a
+  retry of the key that misses `ByKey` while the first request runs finds
+  its own save, spends nothing and goes on to the challenge, whose
+  `(destination, request_key)` answers the first one; it gets no
+  `otp_too_soon` and mails nothing more. When another request saved the
+  client's quota in between, the retry counts once more there.
 - A code lasts 5 minutes and takes 5 guesses: `invalid_code` with
   `attempts_left`, then `code_locked`; `code_expired` once it expires or a
   newer code to the same address replaces it.
@@ -1706,8 +1716,9 @@ listing. Spec: `~/shopnexus/docs/superpowers/specs/2026-10-26-server-deal-design
   conversation; when the deal's insert then fails, `Open` calls chat's
   `DropPair`, which deletes the conversation and its members unless a
   foreign key (a message, a deal, a report, a ticket) holds it, as
-  `MessageSend` deletes a message that media refused. A crash between the
-  two leaves an empty conversation, which the inbox does not list and the
+  `MessageSend` deletes a message that media refused. `DropSupport` does
+  the same for a support chat whose ticket did not go in (see Support). A
+  crash between the two leaves an empty conversation, which the inbox does not list and the
   next deal or message of the pair reuses.
 - Every move a person makes (offer, counter, accept, decline, withdraw,
   cancel) and every order step, whoever made it, writes a deal message into
@@ -1756,8 +1767,11 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   migration rewrote them.
 - Who closes an order: the buyer with `confirm`, at any time while it is
   shipped, or the system 3 days after the carrier reports it delivered.
-  The carrier's `failed` fails it at once and releases the listing. After
-  the shipment the seller has no move on the order.
+  The carrier's `failed` fails it at once and releases the listing, and so
+  does a parcel the carrier cancelled or lost after the pickup (decided
+  2026-11-25; before the pickup it moves nothing and the pickup timeout
+  cancels the order). After the shipment the seller has no move on the
+  order.
 - `POST /v1/orders/{order_id}/shipment` takes `ShipmentDraft`, `{carrier,
   service, weight_grams, pickup, pickup_from}`; every rule past the schema
   is the domain's 422 `invalid_shipment` with fields.
@@ -1814,15 +1828,22 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   listing is hidden, sold off the app or deleted (`listing_closed`).
 - The timers are delayed Restate sends to `OrderTimers`:
   `SellerTimeout` 3 days after the COD request, `PickupTimeout` 3 days
-  after the shipment, `AutoComplete` 3 days after a delivered report, and
-  `Poll` every `Waits.Poll` (`CARRIER_POLL_EVERY`, 2 h) while the order is
-  shipped. Each
+  after the shipment, `AutoComplete` 3 days after a delivered report,
+  `TransitTimeout` `Waits.Transit` (`domain.TransitWait`, 30 days) after a
+  report moves the parcel into `in_transit`, and `Poll` every `Waits.Poll`
+  (`CARRIER_POLL_EVERY`, 2 h) while the order is shipped. Each
   names its order, reads the deal when it fires, does nothing when that
   order moved on, and never compares clocks; a save that loses a race
   reads again. A pickup timeout releases the listing, then calls a linked
   shipment off at its carrier; a carrier that already has the parcel, or
   no longer knows it, leaves the order cancelled all the same (decided
-  2026-11-13, the order of the two reversed from part 1). The waits are `domain.OrderWaits`; tests pass
+  2026-11-13, the order of the two reversed from part 1). The transit
+  timeout reads the carrier through `Track` like the pickup timeout: a
+  parcel the carrier no longer knows, or reports cancelled or lost, fails
+  the order and releases the listing; a status that moves it moves the
+  order, and the timeout sends itself again; a refusal of shipping's, such
+  as a carrier to link again, waits again too (decided 2026-11-25). Orders
+  already in transit before it shipped have no such timer. The waits are `domain.OrderWaits`; tests pass
   short ones, and `service.New` refuses a zero wait. `DealRequestCod`
   sends its timer once its save committed.
 - An order shows when its waiting timer fires as `due_at` (decided
@@ -1832,12 +1853,20 @@ plan `~/shopnexus/docs/superpowers/plans/2026-11-12-server-order-flow.md`).
   `picked_up_at` (0070), the first carrier status past `pending_pickup`
   but `failed`, cleared by a report of `pending_pickup` again. 0070 took it from the order's first
   system `shipment_updated` step, or `shipped_at`.
-- `ShipmentUpdates.Run(carrier, tracking code, status)` is the one entry
-  point of a carrier's report: the dev endpoint, the carriers' webhooks
-  and the poll call it. It moves every shipped order whose shipment is at
-  that carrier with the code (two items in one parcel, which only old
-  manual shipments have), changes nothing on a closed order, and answers
-  `shipment_not_found` 404 when no order has it.
+- `ShipmentUpdates.Run(carrier, tracking code, status, at)` is the one
+  entry point of a carrier's report: the dev endpoint, the carriers'
+  webhooks and the poll call it. It moves every shipped order whose
+  shipment is at that carrier with the code (two items in one parcel,
+  which only old manual shipments have), changes nothing on a closed
+  order, and answers `shipment_not_found` 404 when no order has it.
+  `at` is when the carrier's step happened (zero for now, kept to
+  microseconds); the order stores it as `orders.shipment_status_at`
+  (migration 0093), and a report no newer than the stored one changes
+  nothing, so a late webhook or a replayed poll never lands an older
+  status last (decided 2026-11-25). A newer step of the same status only
+  moves the time, with no move and no `deal.moved`. `lost`, which
+  shipping sends for a parcel cancelled or lost, is a report only: it
+  fails an order picked up and moves no other.
 - Deal makes, tracks and cancels shipments through `service.Shipping`,
   module shipping's `Create`, `Track` and `Cancel` with the seller's ID
   (and `SavedPickup` for a saved pickup), and maps its
@@ -1919,7 +1948,24 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   under another environment's key does not open: the call fails without
   the token in its error, and linking again replaces it.
 - Unlinking is refused with 409 `shipments_open` while a shipped order of
-  the seller's is at that carrier. Deleting an account drops its carrier
+  the seller's is at that carrier, and so is linking another shop there
+  (decided 2026-11-25): the new shop's token would not know the open
+  parcels, so the poll and the timeouts would read them as gone while the
+  COD parcel at the old shop moves on. The same shop links again freely.
+  `Accounts.Put` and `Delete` take `QueueLock(b, "carrier_account",
+  owner, carrier)` and run deal's `OpenShipmentsAt` as their guard under
+  it. The order stores the shop its shipment was made at
+  (`orders.shop_code`, migration 0093; `Created.ShopCode`, which
+  shipping's `Create` fills), and deal's `Save` of the move that ships it
+  takes the same lock and checks that `carrier_accounts` still has that
+  shop, reading shipping's table as `QueueLockLiving` reads accounts. So
+  an unlink or relink that lands while `DealShip` makes the shipment
+  either sees the shipped order or makes the save refuse with
+  `carrier_not_linked`, and `DealShip` then gives the listing back and
+  logs the shipment, which the seller's account there no longer reaches,
+  instead of calling it off. An order with no shop code (made before 0093,
+  or by a test's stand-in for shipping) is not checked. Deleting an
+  account drops its carrier
   accounts (the account watch on `account.deleted`), and deal's scrub
   drops the seller's address copied as a pickup on their sales.
 - A carrier's refusal of a request (a phone number, a weight, a pickup it
@@ -1963,8 +2009,10 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   carrier (`ready_to_pick` … `delivered`, `returning`, `returned`,
   `cancelled`, `lost`), and a step to one of the order's four statuses.
   A failed delivery stays `in_transit`, since the carrier tries again;
-  only `returning` and `returned` fail the order. `cancelled` and `lost`
-  move none. GHTK's shipper notices map to no step. Each client keeps its
+  `returning` and `returned` fail the order. `cancelled` and `lost` map
+  to no status; `Step.Reported` sends them to deal as `lost`, which fails
+  an order picked up and leaves one waiting for pickup to its timeout.
+  GHTK's shipper notices map to no step. Each client keeps its
   carrier's map and its webhook reader (`carrier.Reporter`); a new carrier
   is one more client file.
 - Shipping keeps what the carriers report in `shipment_events` (0085),
@@ -1973,12 +2021,19 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   and COD payout. An event that repeats one kept (same kind, step, status
   and amount within ten minutes, or the newest of its kind) is dropped
   under the parcel's advisory lock, so a webhook and the poll that read the
-  same status keep one row (see Dedupe). A report
-  for a code no order has, or one at another carrier, keeps nothing. The
+  same status keep one row (see Dedupe). A webhook's events are kept for
+  any code the secret vouches for, also one no order has yet (decided
+  2026-11-25): an early `ready_to_pick` can race `DealShip`'s save of the
+  code, and GHTK's poll returns only the current status, so the step would
+  be lost for good. Only the order's move waits for `ShipmentKnown`; the
+  next report or poll moves it. A code no order ever takes keeps its rows. The
   order screen returns the timeline as `tracking`, newest first; the buyer
   gets the steps only.
-- A new step that is the parcel's newest moves its orders to that step's
-  status; a late one only joins the timeline. Only GHN's `create` and
+- Every report of a known code sends its orders the status of the
+  timeline's newest step and its time, whether that report kept it or an
+  earlier one did (decided 2026-11-25): a resend that keeps nothing new
+  still moves an order whose first move failed, and a late step, which is
+  not the newest, sends the newest again and changes nothing. Only GHN's `create` and
   `switch_status` tell a step: its fee, weight and COD events carry the
   Status of their own moment, which may be stale when they arrive.
 - The webhooks are `POST /v1/carriers/{ghtk|ghn}/webhook/{secret}`, for
@@ -1992,8 +2047,8 @@ Decided 2026-11-13; spec `2026-11-13-carrier-integration-design.md`.
   `Track`, which keeps the carrier's history (GHN's `log`, GHTK's current
   status) in the timeline, and moves the order through `ShipmentUpdates`
   when the status differs, then sends itself again until the order
-  closes. A status that maps to no step, or a step that moves none,
-  moves nothing. The pickup timeout reads the
+  closes. A status that maps to no step moves nothing, and a parcel
+  cancelled or lost moves only an order picked up, which it fails. The pickup timeout reads the
   carrier the same way first, and a parcel picked up since the last poll
   moves the order instead of cancelling it.
 - The webhook operation declares no request body, so the request
@@ -2569,7 +2624,7 @@ Module `trust` holds reviews (spec:
   submission (`created_at`); after that it is `review_locked`. A delete
   keeps the row with `deleted_at` and no text, so posting again cannot
   restart the 7 days (decided 2026-10-27). A suspended account cannot
-  write one.
+  write, delete or unmark one: each answers `status.Refusal()`.
 - Blind until both or 7 days: `visible_at` is written at insert, the
   order's `closed_at` plus `domain.BlindWindow`, or now when the other
   side's review exists, and `Insert` pulls the other side's `visible_at`
@@ -2585,6 +2640,15 @@ Module `trust` holds reviews (spec:
   has a review in the role, or a hidden review when the other side's
   exists, and `Save` a stale row, all `try_again`. `Save` writes
   `review.replied` with the first reply.
+- Review retries follow K2 (decided 2026-11-25). A put that finds the
+  caller's review already holding its stars, trimmed text, tags and photo
+  uploads (nil ones match) answers it as it is, before `CanChange` and
+  again after a lost race, so a retry or a double tap whose first try
+  landed the review visible gets the review, not `review_locked`; any
+  other edit keeps its refusal. The subject's same reply answers the
+  review without a second `review.replied`. A delete that finds the
+  caller's own review deleted answers 204; with no review of the caller's
+  role it stays `review_not_found`.
 - `trust` reads the order through `dealsvc.Service.Order`, which answers
   false for an unknown order like the other facts reads; an unknown order
   or one the caller is no party to is trust's `order_not_found`.
@@ -2606,7 +2670,10 @@ Module `trust` holds reviews (spec:
 - `PUT /v1/reviews/{id}/helpful` marks a visible review helpful and
   `DELETE` takes the mark back; its reviewer and subject get `own_review`,
   a hidden or deleted review `review_not_found`. One row per mark in
-  `review_helpful`. `Review.helpful` is `{count, marked}`, where `marked`
+  `review_helpful`. A delete's `Save` drops the review's marks in its
+  transaction, and `MarkHelpful` inserts only from the review row under
+  `FOR SHARE` while `deleted_at` is null, so a racing mark lands before the
+  delete or not at all. `Review.helpful` is `{count, marked}`, where `marked`
   is sent only to a reader who may mark it; the review lists read under
   `Identify` for it. A page counts its marks in one grouped query.
 - `Service.Rating` is a person's average and count over their visible
@@ -2678,7 +2745,12 @@ Reports are trust's too (decided 2026-11-10, spec:
   under an advisory lock on the account and writes `report.dismiss`,
   `report.resolve` or `report.reopen` (target the account,
   `details.resolution_id`) in its transaction. The ShopNexus account is
-  `account_is_system`. Console mounts after trust and catalog, whose
+  `account_is_system`. A dismiss or resolve without an open case whose
+  standing latest resolution has the same outcome writes nothing and
+  answers that case (K2), so a retry after a lost response is no 409; the
+  other outcome stays `report_case_not_open`. Not covered: a retry after a
+  new report opened the next case resolves that one too, since the request
+  does not name the last report the member saw (a console change). Console mounts after trust and catalog, whose
   services its handler calls, as it calls support's.
 
 Scam warnings are trust's too (decided 2026-11-11, spec:
@@ -3369,9 +3441,17 @@ back on 2026-11-24 as a module of its own (see Feedback).
   `first_message_id`, which the app draws as the ticket's card; Hỗ trợ's
   list carries that message as `first_message`, from chat's `Threads`. The first
   step also counts the day's tickets, so a request past the limit opens no
-  chat; one that passes it in a race is refused at the insert and leaves an
-  empty support chat, which no list shows. A retried insert step finds its
-  own row and goes on to send the first message.
+  chat. The chat opens before the insert, since `tickets.conversation_id`
+  refers to it; an insert that is refused in a race or finds the key's or
+  the order's ticket drops that chat with chat's `DropSupport`. A retried
+  insert step finds its own row and goes on to send the first message.
+- A first message `MessageSend` refuses (a photo upload that is not the
+  person's or not waiting, an account deleted between the steps) withdraws
+  the ticket: one step deletes it while it has no first message and no
+  reply, with its events, and drops its chat. The ticket leaves the queue,
+  the list and the daily count, and the key's retry runs again and gets the
+  refusal. A racing retry that answered the withdrawn ticket gets
+  `try_again`.
 - The ticket is `open` or `resolved`. Support's worker follows
   `message.sent`: the person's message reopens a resolved ticket (event
   `reopened`) and sets `last_from = person`, which the console shows as
@@ -3386,7 +3466,9 @@ back on 2026-11-24 as a module of its own (see Feedback).
   without it. A member opening a ticket in the console reads its chat for
   ShopNexus, so the person sees "Đã xem". Reply, resolve and
   reopen write `ticket.reply`, `ticket.resolve` and `ticket.reopen` to the
-  audit log with `target_kind = ticket`.
+  audit log with `target_kind = ticket`. A resolve of a resolved ticket or
+  a reopen of an open one answers the ticket as it is and writes nothing
+  (K2), so a retry after a lost response gets 200.
 - The console's routes are console's (`/v1/console/support/*`), calling
   `supportsvc.Service`. Support mounts after chat and deal,
   and before console and screen; screen's chat screen adds the ticket of a
@@ -3510,7 +3592,7 @@ and is refused while a turn is unfinished (409 `agent_turn_in_progress`).
 | `POST …/turns/{id}/input {answers}` | 202 `{turn_id}`; `answers` maps a question's id to an option's id or a list of them |
 | `GET /v1/console/agent/tool-calls/{id}` | the call's input, output, attempts and timing |
 | `GET /v1/console/agent/documents/{id}` | the document with every version, newest first |
-| `GET`, `POST /v1/console/agent/skills`, `GET`, `PATCH`, `DELETE …/skills/{id}` | the skills every member shares; a change by a moderator to another member's skill is 403 |
+| `GET`, `POST /v1/console/agent/skills`, `GET`, `PATCH`, `DELETE …/skills/{id}` | the skills every member shares; a change by a moderator to another member's skill is 403; a `PATCH` is a `write_id` save, 409 `try_again` when the skill changed and 404 once it is deleted |
 | `GET /v1/console/agents` | the console agents turned on, from `ai_agents`, the Console assistant marked `default` |
 
 A question names a console agent by `agent_id`, the Console assistant
@@ -3530,7 +3612,18 @@ once trimmed, or 400 `invalid_request`. The turn keeps them in
 view returns them.
 The turn opens `running` under the conversation's row lock; a closed
 conversation is 409 `agent_conversation_closed`, one with an unfinished
-turn 409 `agent_turn_in_progress`. The run goes out with
+turn 409 `agent_turn_in_progress`.
+
+`POST …/conversations` (without a subject), `POST …/turns`, `POST
+…/steer` and `POST …/skills` take an optional `Idempotency-Key` (K1, see
+Dedupe; migration 0094). The use case looks the member's key up first
+and answers its row: the conversation, `{conversation_id, turn_id}`, the
+steer with the `resumed` it answered (`agent_turn_inputs.resumed`), or the
+skill, and starts no run. Otherwise the insert claims the key under
+`UNIQUE (member, request_key)` (`created_by` for a skill, a partial index
+where the key is set) before the run starts, so a racing retry finds the
+first row. A run that does not start deletes its turn or puts back its
+steer, which frees the key. The run goes out with
 `agent_config {id, name, alias, instructions, instructions_version, tools,
 limits}`, so the server stays the only source of a console agent's
 configuration. `limits` are `deadline_s` (10 to 300, 60 by default),
@@ -3577,7 +3670,9 @@ keywords are `input_text`, `provider_name`, `tool_input`, `tool_output`,
   closing event in the same transaction. A stream that ends without `end`
   closes the turn `failed` with `agent_stuck`.
 - Pause and stop need a `running` turn and go in `agent_turn_inputs`, as
-  does a steer to a running turn. The agent polls
+  does a steer to a running turn. An input is added under the turn's row
+  lock, so inputs commit in `seq` order and a poll after a seq misses
+  none. The agent polls
   `GET /agent/turns/{id}/control?after=<seq>` on the MCP listener with
   `AGENT_MCP_TOKEN` and gets `{items: [{seq, kind, steer_id?, text?}],
   running}`; a turn that is gone or ended answers `running: false`.
@@ -3733,6 +3828,15 @@ deployments, router settings and budgets (`store_model_in_db`); the
 server's database holds the tags and the agents. Every change is a row in
 `console_actions`: a change to `ai_*` rows writes it in the same
 transaction, and a change made in LiteLLM writes it after LiteLLM took it.
+An agent or the budget settings are saved first, with their `write_id`
+(409 `try_again` when the row changed), and LiteLLM is written from the
+saved row after (decided 2026-11-25): a refused save (a taken name, an
+unknown member) leaves LiteLLM as it was. The row is the truth: when
+LiteLLM fails after the save the answer is 503, and the same request
+again writes LiteLLM from the row, a create finding its own agent (every
+field the same) rather than `ai_agent_taken`. After writing LiteLLM the
+server reads the row again and applies the newer one when another save
+landed meanwhile, at most three times, so LiteLLM ends on the newest.
 A provider and a model have no UUID of their own, so their `target_id` is
 `audit.NamedID`, the first 16 bytes of SHA-256 over kind and name as a
 version 8 UUID, and `details` carries the name. LiteLLM down is 503
@@ -3763,6 +3867,9 @@ version 8 UUID, and `details` carries the name. LiteLLM down is 503
 - Picking a model for an agent rewrites the alias's deployments: it adds
   one per provider of the model, then deletes the old ones, so the alias
   always has a deployment and the code that calls it needs no deploy. A
+  change that names the model again rewrites the alias only when it has
+  none or one the server wrote serves another model; an alias LiteLLM's
+  config wrote is left until the model changes. A
   model no provider serves is 404 `ai_model_not_found`, and one without a
   tag the agent requires is 422 `ai_model_lacks_tags`. A provider's new
   weight or order, and a model added to its list, rewrite the aliases on
@@ -3830,7 +3937,7 @@ version 8 UUID, and `details` carries the name. LiteLLM down is 503
 | `ai_model_tags` | `(model_id, tag_name)`, seeded for `claude-sonnet-5-5`, `claude-haiku-5-5` and `baai/bge-m3` |
 | `ai_agents` | each agent: kind (`app`, `console`), `display_name`, `model_alias`, icon, purpose, required tags, model, instructions and their version, tools, limits, monthly budget, LiteLLM key aliases, enabled, who changed it and `write_id` |
 | `ai_agent_versions` | each version of an agent's instructions, who wrote it and when |
-| `ai_budget_settings` | one row: the month's cap, `alert_pct`, `on_cap`, and the daily budget of a moderator and of an admin |
+| `ai_budget_settings` | one row: the month's cap, `alert_pct`, `on_cap`, the daily budget of a moderator and of an admin, and `write_id` |
 | `ai_member_budgets` | a member's own daily budget |
 
 Migration 0056 seeds the agents: Console assistant (`console-agent`,
@@ -3874,7 +3981,9 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   search watches and the record of which listings the account opened
   (the view counts stay); notification deletes the notices, push tokens and
   settings; assist deletes the reads and the waiting transcripts; chat
-  deletes the quick replies.
+  deletes the quick replies; trust deletes the account's own scam warnings
+  and helpful marks and withdraws its reports no case resolved, blanking
+  their notes (a resolved report stays with its case).
   Media does nothing: a waiting upload, a video read's frames and a link
   read's copies among them, expires
   within a day anyway, and a draft's photo within 30 days of the draft's
@@ -3899,7 +4008,7 @@ A person deletes their account with `DELETE /v1/accounts/me` (decided
   COD request to a deleted seller needs no check, since the seller's
   listings are deleted.
 - Writes that keep rows of the caller (an address, a block, a save, a
-  search history entry) take a share lock on the caller's `accounts` row in
+  search history entry, a report, a helpful mark) take a share lock on the caller's `accounts` row in
   their transaction and refuse a tombstone (`session_revoked`; a history
   entry is skipped). A write that passed its checks before `Erase` and
   commits after it waits for `Erase` and then sees the tombstone, so no new
