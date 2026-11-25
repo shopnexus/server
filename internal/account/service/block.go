@@ -23,21 +23,21 @@ func (s *Account) Block(ctx context.Context, blocker, blocked uuid.UUID) error {
 	if other.StoredStatus() == domain.StatusDeleted {
 		return domain.ErrAccountDeleted
 	}
-	if err = s.accounts.Block(ctx, uuid.NewV7(), blocker, blocked, s.now()); err != nil {
+	if err = s.d.Accounts.Block(ctx, uuid.NewV7(), blocker, blocked, s.d.Now()); err != nil {
 		return fmt.Errorf("block: %w", err)
 	}
 	return nil
 }
 
 func (s *Account) Unblock(ctx context.Context, blocker, blocked uuid.UUID) error {
-	if err := s.accounts.Unblock(ctx, blocker, blocked); err != nil {
+	if err := s.d.Accounts.Unblock(ctx, blocker, blocked); err != nil {
 		return fmt.Errorf("unblock: %w", err)
 	}
 	return nil
 }
 
 func (s *Account) Blocked(ctx context.Context, a, b uuid.UUID) (bool, error) {
-	blocked, err := s.accounts.Blocked(ctx, a, b)
+	blocked, err := s.d.Accounts.Blocked(ctx, a, b)
 	if err != nil {
 		return false, fmt.Errorf("check block: %w", err)
 	}
@@ -45,7 +45,7 @@ func (s *Account) Blocked(ctx context.Context, a, b uuid.UUID) (bool, error) {
 }
 
 func (s *Account) BlockedWith(ctx context.Context, account uuid.UUID) ([]uuid.UUID, error) {
-	ids, err := s.accounts.BlockedWith(ctx, account)
+	ids, err := s.d.Accounts.BlockedWith(ctx, account)
 	if err != nil {
 		return nil, fmt.Errorf("read blocks: %w", err)
 	}
@@ -55,7 +55,7 @@ func (s *Account) BlockedWith(ctx context.Context, account uuid.UUID) ([]uuid.UU
 // Blocks lists the accounts blocker blocks with their display names, read
 // in one query.
 func (s *Account) Blocks(ctx context.Context, blocker uuid.UUID, p page.Request) (page.Page[BlockView], error) {
-	rows, err := s.accounts.ListBlocks(ctx, blocker, p)
+	rows, err := s.d.Accounts.ListBlocks(ctx, blocker, p)
 	if err != nil {
 		return page.Page[BlockView]{}, fmt.Errorf("list blocks: %w", err)
 	}

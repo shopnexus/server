@@ -11,7 +11,7 @@ import (
 
 // GetMe reads the signed-in member, with the ops dashboards' floors.
 func (s *Console) GetMe(ctx context.Context, caller authn.ConsoleMember) (Me, error) {
-	m, err := s.members.Get(ctx, caller.MemberID)
+	m, err := s.d.Members.Get(ctx, caller.MemberID)
 	if err != nil {
 		return Me{}, fmt.Errorf("get console member: %w", err)
 	}
@@ -25,7 +25,7 @@ func (s *Console) GetMe(ctx context.Context, caller authn.ConsoleMember) (Me, er
 // ChangePassword replaces the caller's password. The credentials version
 // moves, which ends every session of the member, the caller's included.
 func (s *Console) ChangePassword(ctx context.Context, caller authn.ConsoleMember, current, next string) error {
-	m, err := s.members.Get(ctx, caller.MemberID)
+	m, err := s.d.Members.Get(ctx, caller.MemberID)
 	if err != nil {
 		return fmt.Errorf("get console member: %w", err)
 	}
@@ -38,8 +38,8 @@ func (s *Console) ChangePassword(ctx context.Context, caller authn.ConsoleMember
 	if err = m.CheckNewPassword(next); err != nil {
 		return fmt.Errorf("new password: %w", err)
 	}
-	m.SetPassword(s.keys.Hasher.Hash(next), s.now())
-	if err = s.members.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
+	m.SetPassword(s.d.Keys.Hasher.Hash(next), s.d.Now())
+	if err = s.d.Members.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
 		return saveFailed(err)
 	}
 	return nil
@@ -47,7 +47,7 @@ func (s *Console) ChangePassword(ctx context.Context, caller authn.ConsoleMember
 
 // Logout signs the caller's session out.
 func (s *Console) Logout(ctx context.Context, caller authn.ConsoleMember) error {
-	if err := s.sessions.Revoke(ctx, caller.SessionID, s.now()); err != nil {
+	if err := s.d.Sessions.Revoke(ctx, caller.SessionID, s.d.Now()); err != nil {
 		return fmt.Errorf("sign out: %w", err)
 	}
 	return nil

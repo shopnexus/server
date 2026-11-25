@@ -42,24 +42,27 @@ const (
 
 // Account is one person. Fields are unexported so every change goes through
 // a method that keeps the rules.
-type Account struct {
-	id             uuid.UUID
-	displayName    string
-	bio            string
-	avatarKey      string // the object key of the avatar; empty without one
-	status         Status
-	suspendedUntil *time.Time
-	suspendReason  string
-	writeID        uuid.UUID
-	createdAt      time.Time
-	updatedAt      time.Time
-	// lastActiveAt is when the person last had the app open; nil before the
+type Account struct{ s AccountState }
+
+// AccountState is every stored field of an account. Stores only.
+type AccountState struct {
+	ID             uuid.UUID
+	DisplayName    string
+	Bio            string
+	AvatarKey      string // the object key of the avatar; empty without one
+	Status         Status
+	SuspendedUntil *time.Time
+	SuspendReason  string
+	WriteID        uuid.UUID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	// LastActiveAt is when the person last had the app open; nil before the
 	// first time. Only the WebSocket writes it, outside the aggregate's saves.
-	lastActiveAt *time.Time
-	// deletedAt is when the person deleted the account; nil while it lives.
-	deletedAt *time.Time
-	// awayUntil ends away mode; nil when not set. A past time is not away.
-	awayUntil *time.Time
+	LastActiveAt *time.Time
+	// DeletedAt is when the person deleted the account; nil while it lives.
+	DeletedAt *time.Time
+	// AwayUntil ends away mode; nil when not set. A past time is not away.
+	AwayUntil *time.Time
 }
 
 // New builds an active account with the caller's id. The display name may
@@ -70,49 +73,41 @@ func New(id uuid.UUID, displayName string, now time.Time) (Account, error) {
 	if utf8.RuneCountInString(name) > maxNameRunes {
 		return Account{}, ErrInvalidAccount.WithField("display_name", apperr.TooLong, "at most 50 characters")
 	}
-	return Account{id: id, displayName: name, status: StatusActive, writeID: id, createdAt: now, updatedAt: now}, nil
+	return Account{s: AccountState{ID: id, DisplayName: name, Status: StatusActive, WriteID: id, CreatedAt: now, UpdatedAt: now}}, nil
 }
 
 // RestoreAccount rebuilds a stored account. Stores only.
-func RestoreAccount(id uuid.UUID, displayName, bio, avatarKey string, status Status, suspendedUntil *time.Time,
-	suspendReason string, writeID uuid.UUID, createdAt, updatedAt time.Time, lastActiveAt, deletedAt, awayUntil *time.Time,
-) Account {
-	return Account{
-		id: id, displayName: displayName, bio: bio, avatarKey: avatarKey, status: status,
-		suspendedUntil: suspendedUntil, suspendReason: suspendReason, writeID: writeID, createdAt: createdAt, updatedAt: updatedAt,
-		lastActiveAt: lastActiveAt, deletedAt: deletedAt, awayUntil: awayUntil,
-	}
-}
+func RestoreAccount(st AccountState) Account { return Account{s: st} }
 
-func (a *Account) ID() uuid.UUID              { return a.id }
-func (a *Account) DisplayName() string        { return a.displayName }
-func (a *Account) Bio() string                { return a.bio }
-func (a *Account) AvatarKey() string          { return a.avatarKey }
-func (a *Account) SuspendReason() string      { return a.suspendReason }
-func (a *Account) SuspendedUntil() *time.Time { return a.suspendedUntil }
-func (a *Account) CreatedAt() time.Time       { return a.createdAt }
-func (a *Account) UpdatedAt() time.Time       { return a.updatedAt }
-func (a *Account) LastActiveAt() *time.Time   { return a.lastActiveAt }
-func (a *Account) WriteID() uuid.UUID         { return a.writeID }
-func (a *Account) DeletedAt() *time.Time      { return a.deletedAt }
+func (a *Account) ID() uuid.UUID              { return a.s.ID }
+func (a *Account) DisplayName() string        { return a.s.DisplayName }
+func (a *Account) Bio() string                { return a.s.Bio }
+func (a *Account) AvatarKey() string          { return a.s.AvatarKey }
+func (a *Account) SuspendReason() string      { return a.s.SuspendReason }
+func (a *Account) SuspendedUntil() *time.Time { return a.s.SuspendedUntil }
+func (a *Account) CreatedAt() time.Time       { return a.s.CreatedAt }
+func (a *Account) UpdatedAt() time.Time       { return a.s.UpdatedAt }
+func (a *Account) LastActiveAt() *time.Time   { return a.s.LastActiveAt }
+func (a *Account) WriteID() uuid.UUID         { return a.s.WriteID }
+func (a *Account) DeletedAt() *time.Time      { return a.s.DeletedAt }
 
 // StoredAwayUntil is away mode's end as stored, past or not. Stores only.
-func (a *Account) StoredAwayUntil() *time.Time { return a.awayUntil }
+func (a *Account) StoredAwayUntil() *time.Time { return a.s.AwayUntil }
 
 // StoredStatus is the status as stored, which Status may read as active once
 // a suspension has lapsed. Stores only.
-func (a *Account) StoredStatus() Status { return a.status }
+func (a *Account) StoredStatus() Status { return a.s.Status }
 
 // Saved records that a store wrote the account under writeID. Stores only.
-func (a *Account) Saved(writeID uuid.UUID) { a.writeID = writeID }
+func (a *Account) Saved(writeID uuid.UUID) { a.s.WriteID = writeID }
 
 // Status reports the status in force at now. A suspension whose end has
 // passed reads as active even though the stored row still says suspended.
 func (a *Account) Status(now time.Time) Status {
-	if a.status == StatusSuspended && a.suspendedUntil != nil && !now.Before(*a.suspendedUntil) {
+	if a.s.Status == StatusSuspended && a.s.SuspendedUntil != nil && !now.Before(*a.s.SuspendedUntil) {
 		return StatusActive
 	}
-	return a.status
+	return a.s.Status
 }
 
 // Suspended reports whether a suspension is in force at now.
@@ -151,7 +146,7 @@ func (a *Account) CanWrite(now time.Time) error {
 // breaks its rule is named in ErrInvalidAccount and nothing changes.
 func (a *Account) Edit(displayName, bio *string, now time.Time) error {
 	e := ErrInvalidAccount
-	name, about := a.displayName, a.bio
+	name, about := a.s.DisplayName, a.s.Bio
 	if displayName != nil {
 		name = strings.TrimSpace(*displayName)
 		if n := utf8.RuneCountInString(name); n < 1 || n > maxNameRunes {
@@ -167,13 +162,13 @@ func (a *Account) Edit(displayName, bio *string, now time.Time) error {
 	if len(e.Fields) > 0 {
 		return e
 	}
-	a.displayName, a.bio, a.updatedAt = name, about, now
+	a.s.DisplayName, a.s.Bio, a.s.UpdatedAt = name, about, now
 	return nil
 }
 
 // SetAvatar sets the object key of the avatar; an empty key removes it.
 func (a *Account) SetAvatar(key string, now time.Time) {
-	a.avatarKey, a.updatedAt = key, now
+	a.s.AvatarKey, a.s.UpdatedAt = key, now
 }
 
 // SetAway turns away mode on until until, which must lie after now and at
@@ -185,19 +180,19 @@ func (a *Account) SetAway(until, now time.Time) error {
 	if until.Sub(now) > MaxAway {
 		return ErrInvalidAccount.WithField("away_until", apperr.OutOfRange, "at most 30 days ahead")
 	}
-	a.awayUntil, a.updatedAt = &until, now
+	a.s.AwayUntil, a.s.UpdatedAt = &until, now
 	return nil
 }
 
 // ClearAway turns away mode off.
-func (a *Account) ClearAway(now time.Time) { a.awayUntil, a.updatedAt = nil, now }
+func (a *Account) ClearAway(now time.Time) { a.s.AwayUntil, a.s.UpdatedAt = nil, now }
 
 // AwayUntil is when away mode ends, or nil when it is not in force at now.
 func (a *Account) AwayUntil(now time.Time) *time.Time {
-	if a.awayUntil == nil || !now.Before(*a.awayUntil) {
+	if a.s.AwayUntil == nil || !now.Before(*a.s.AwayUntil) {
 		return nil
 	}
-	return a.awayUntil
+	return a.s.AwayUntil
 }
 
 // Away reports whether away mode is in force at now.
@@ -206,7 +201,7 @@ func (a *Account) Away(now time.Time) bool { return a.AwayUntil(now) != nil }
 // Suspend stops the account from writing, until the given time or, with a
 // nil until, until Unsuspend.
 func (a *Account) Suspend(reason string, until *time.Time, now time.Time) error {
-	if a.status == StatusDeleted {
+	if a.s.Status == StatusDeleted {
 		return ErrAccountNotFound
 	}
 	reason = strings.TrimSpace(reason)
@@ -216,26 +211,26 @@ func (a *Account) Suspend(reason string, until *time.Time, now time.Time) error 
 	if until != nil && !until.After(now) {
 		return ErrSuspendUntil
 	}
-	a.status = StatusSuspended
-	a.suspendReason = reason
-	a.suspendedUntil = until
-	a.updatedAt = now
+	a.s.Status = StatusSuspended
+	a.s.SuspendReason = reason
+	a.s.SuspendedUntil = until
+	a.s.UpdatedAt = now
 	return nil
 }
 
 // Unsuspend lifts a suspension in force. A deleted account answers
 // ErrAccountNotFound, as Suspend does; one not suspended reports false.
 func (a *Account) Unsuspend(now time.Time) (bool, error) {
-	if a.status == StatusDeleted {
+	if a.s.Status == StatusDeleted {
 		return false, ErrAccountNotFound
 	}
 	if !a.Suspended(now) {
 		return false, nil
 	}
-	a.status = StatusActive
-	a.suspendReason = ""
-	a.suspendedUntil = nil
-	a.updatedAt = now
+	a.s.Status = StatusActive
+	a.s.SuspendReason = ""
+	a.s.SuspendedUntil = nil
+	a.s.UpdatedAt = now
 	return true, nil
 }
 
@@ -243,14 +238,14 @@ func (a *Account) Unsuspend(now time.Time) (bool, error) {
 // more. A suspension in force refuses it, so deleting cannot shed one.
 // Deleting a deleted account changes nothing and reports false.
 func (a *Account) Delete(now time.Time) (bool, error) {
-	if a.status == StatusDeleted {
+	if a.s.Status == StatusDeleted {
 		return false, nil
 	}
 	if a.Suspended(now) {
 		return false, ErrSuspended
 	}
-	a.status, a.deletedAt, a.updatedAt = StatusDeleted, &now, now
-	a.displayName, a.bio, a.avatarKey, a.awayUntil = "", "", "", nil
-	a.suspendReason, a.suspendedUntil = "", nil
+	a.s.Status, a.s.DeletedAt, a.s.UpdatedAt = StatusDeleted, &now, now
+	a.s.DisplayName, a.s.Bio, a.s.AvatarKey, a.s.AwayUntil = "", "", "", nil
+	a.s.SuspendReason, a.s.SuspendedUntil = "", nil
 	return true, nil
 }

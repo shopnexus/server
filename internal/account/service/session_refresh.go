@@ -16,11 +16,11 @@ import (
 // session is revoked. A suspended account's session is revoked too, and
 // its token answers account_suspended while the suspension lasts.
 func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, error) {
-	now := s.now()
+	now := s.d.Now()
 	hash := domain.HashRefresh(token)
-	sess, err := s.sessions.FindByRefresh(ctx, hash)
+	sess, err := s.d.Sessions.FindByRefresh(ctx, hash)
 	if errors.Is(err, repository.ErrNotFound) {
-		prev, prevErr := s.sessions.FindByPrevRefresh(ctx, hash)
+		prev, prevErr := s.d.Sessions.FindByPrevRefresh(ctx, hash)
 		if errors.Is(prevErr, repository.ErrNotFound) {
 			return domain.Tokens{}, domain.ErrInvalidRefreshToken
 		}
@@ -66,13 +66,13 @@ func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, err
 		return domain.Tokens{}, r
 	}
 	next := sess.Rotate(now)
-	if err = s.sessions.Save(ctx, &sess, uuid.NewV7()); err != nil {
+	if err = s.d.Sessions.Save(ctx, &sess, uuid.NewV7()); err != nil {
 		if !errors.Is(err, repository.ErrConflict) {
 			return domain.Tokens{}, fmt.Errorf("save session: %w", err)
 		}
 		// The write that won is a concurrent refresh with the same token, or a
 		// sign-out. Only the first means two parties hold the token.
-		cur, getErr := s.sessions.Get(ctx, sess.ID())
+		cur, getErr := s.d.Sessions.Get(ctx, sess.ID())
 		if getErr != nil {
 			return domain.Tokens{}, fmt.Errorf("get session: %w", getErr)
 		}
@@ -81,7 +81,7 @@ func (s *Account) Refresh(ctx context.Context, token string) (domain.Tokens, err
 		}
 		return domain.Tokens{}, s.reused(ctx, sess.ID(), now, "concurrent refresh")
 	}
-	tokens, err := s.signer.Tokens(sess, next, now)
+	tokens, err := s.d.Signer.Tokens(sess, next, now)
 	if err != nil {
 		return domain.Tokens{}, fmt.Errorf("issue tokens: %w", err)
 	}
@@ -94,7 +94,7 @@ func (s *Account) reused(ctx context.Context, id uuid.UUID, now time.Time, why s
 	if err := s.revoke(ctx, id, domain.RevokedReuse, now); err != nil {
 		return err
 	}
-	s.log.WarnContext(ctx, "security: refresh token reuse, session revoked", "why", why, "session_id", id)
+	s.d.Log.WarnContext(ctx, "security: refresh token reuse, session revoked", "why", why, "session_id", id)
 	refreshReuse.Add(ctx, 1)
 	return domain.ErrSessionRevoked
 }
@@ -106,14 +106,14 @@ func (s *Account) revoke(ctx context.Context, id uuid.UUID, reason domain.Revoke
 	var err error
 	for range 2 {
 		var sess domain.Session
-		if sess, err = s.sessions.Get(ctx, id); err != nil {
+		if sess, err = s.d.Sessions.Get(ctx, id); err != nil {
 			return fmt.Errorf("get session: %w", err)
 		}
 		if sess.RevokedAt() != nil {
 			return nil
 		}
 		sess.Revoke(reason, now)
-		err = s.sessions.Save(ctx, &sess, uuid.NewV7())
+		err = s.d.Sessions.Save(ctx, &sess, uuid.NewV7())
 		if err == nil {
 			return nil
 		}

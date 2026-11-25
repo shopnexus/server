@@ -55,7 +55,7 @@ var deliveryNotes = map[domain.AddressKind]string{
 
 // place is a recipient or a pickup by names, as the carriers take them.
 func (s *Deals) place(ctx context.Context, name, phone, street, commune string) (carrier.Place, error) {
-	ps, err := s.catalog.Places(ctx, []string{commune})
+	ps, err := s.d.Catalog.Places(ctx, []string{commune})
 	if err != nil {
 		return carrier.Place{}, fmt.Errorf("read commune %s: %w", commune, err)
 	}
@@ -72,7 +72,7 @@ func (s *Deals) pickupFrom(ctx context.Context, seller uuid.UUID, point string, 
 	case point != "":
 		return &domain.ShipmentPickup{PointID: point}, nil
 	case address != uuid.Nil():
-		a, err := s.accounts.Address(ctx, seller, address)
+		a, err := s.d.Accounts.Address(ctx, seller, address)
 		if err != nil {
 			return nil, fmt.Errorf("read the pickup address: %w", err)
 		}
@@ -82,7 +82,7 @@ func (s *Deals) pickupFrom(ctx context.Context, seller uuid.UUID, point string, 
 }
 
 func (s *Deals) OpenShipmentsAt(ctx context.Context, seller uuid.UUID, c string) (bool, error) {
-	open, err := s.deals.OpenShipmentsAt(ctx, seller, c)
+	open, err := s.d.Deals.OpenShipmentsAt(ctx, seller, c)
 	if err != nil {
 		return false, fmt.Errorf("open shipments: %w", err)
 	}
@@ -91,26 +91,29 @@ func (s *Deals) OpenShipmentsAt(ctx context.Context, seller uuid.UUID, c string)
 
 // QuoteFacts reads the caller's order as its seller; another's order, or
 // one the caller bought, is domain.ErrOrderNotFound.
-func (s *Deals) QuoteFacts(ctx context.Context, caller, order, address uuid.UUID) (to carrier.Place, from *carrier.Place, price int64, err error) {
-	r, err := s.deals.Order(ctx, order)
+func (s *Deals) QuoteFacts(ctx context.Context, caller, order, address uuid.UUID) (shippingsvc.QuoteFacts, error) {
+	r, err := s.d.Deals.Order(ctx, order)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && r.SellerID != caller) {
-		return carrier.Place{}, nil, 0, domain.ErrOrderNotFound
+		return shippingsvc.QuoteFacts{}, domain.ErrOrderNotFound
 	}
 	if err != nil {
-		return carrier.Place{}, nil, 0, fmt.Errorf("get order: %w", err)
+		return shippingsvc.QuoteFacts{}, fmt.Errorf("get order: %w", err)
 	}
 	rc := r.Order.Recipient
-	to, err = s.place(ctx, rc.Name, rc.Phone, rc.Street, rc.CommuneCode)
+	to, err := s.place(ctx, rc.Name, rc.Phone, rc.Street, rc.CommuneCode)
 	if err != nil {
-		return carrier.Place{}, nil, 0, err
+		return shippingsvc.QuoteFacts{}, err
 	}
 	picked, err := s.pickupFrom(ctx, caller, "", address)
-	if err != nil || picked == nil {
-		return to, nil, r.Order.Price, err
+	if err != nil {
+		return shippingsvc.QuoteFacts{}, err
+	}
+	if picked == nil {
+		return shippingsvc.QuoteFacts{Recipient: to, Price: r.Order.Price}, nil
 	}
 	p, err := s.place(ctx, picked.Name, picked.Phone, picked.Street, picked.CommuneCode)
 	if err != nil {
-		return carrier.Place{}, nil, 0, err
+		return shippingsvc.QuoteFacts{}, err
 	}
-	return to, &p, r.Order.Price, nil
+	return shippingsvc.QuoteFacts{Recipient: to, Pickup: &p, Price: r.Order.Price}, nil
 }

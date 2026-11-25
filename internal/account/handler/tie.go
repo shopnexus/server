@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
 )
@@ -34,20 +35,9 @@ func tie[T interface {
 }](h *Handler, set func(ctx context.Context, caller, other uuid.UUID) error,
 ) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		p, ok := httpx.Caller(w, r, h.log)
-		if !ok {
-			return
-		}
-		var in T
-		if err := httpx.Bind(r, &in); err != nil {
-			httpx.WriteError(w, r, h.log, err)
-			return
-		}
-		if err := set(r.Context(), p.AccountID, in.account()); err != nil {
-			httpx.WriteError(w, r, h.log, err)
-			return
-		}
-		w.WriteHeader(http.StatusNoContent)
+		httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in T) (httpx.None, error) {
+			return httpx.None{}, set(r.Context(), p.AccountID, in.account())
+		})
 	}
 }
 
@@ -55,20 +45,8 @@ func tie[T interface {
 // GET /v1/blocks and GET /v1/follows.
 func ties[V any](h *Handler, list func(ctx context.Context, caller uuid.UUID, p page.Request) (page.Page[V], error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		p, ok := httpx.Caller(w, r, h.log)
-		if !ok {
-			return
-		}
-		var in page.Request
-		if err := httpx.Bind(r, &in); err != nil {
-			httpx.WriteError(w, r, h.log, err)
-			return
-		}
-		out, err := list(r.Context(), p.AccountID, in)
-		if err != nil {
-			httpx.WriteError(w, r, h.log, err)
-			return
-		}
-		httpx.Respond(w, http.StatusOK, out)
+		httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in page.Request) (page.Page[V], error) {
+			return list(r.Context(), p.AccountID, in)
+		})
 	}
 }

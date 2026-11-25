@@ -31,21 +31,9 @@ type authorizeDashboardRequest struct {
 
 // CreateDashboardTicket serves POST /v1/console/dashboard-tickets.
 func (h *Handler) CreateDashboardTicket(w http.ResponseWriter, r *http.Request) {
-	caller, ok := httpx.ConsoleCaller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in dashboardTicketRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.CreateDashboardTicket(r.Context(), caller, in.App)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(caller authn.ConsoleMember, in dashboardTicketRequest) (service.DashboardTicket, error) {
+		return h.svc.CreateDashboardTicket(r.Context(), caller, in.App)
+	})
 }
 
 // OpenDashboard serves GET /_dashboard/callback on a dashboard's host. The
@@ -114,15 +102,10 @@ type dashboardFloors struct {
 
 // ListDashboardFloors serves GET /v1/console/settings/dashboards.
 func (h *Handler) ListDashboardFloors(w http.ResponseWriter, r *http.Request) {
-	if _, ok := httpx.ConsoleCaller(w, r, h.log); !ok {
-		return
-	}
-	out, err := h.svc.DashboardFloors(r.Context())
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, dashboardFloors{out})
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(_ authn.ConsoleMember, _ httpx.None) (dashboardFloors, error) {
+		out, err := h.svc.DashboardFloors(r.Context())
+		return dashboardFloors{out}, err
+	})
 }
 
 type setFloorsRequest struct {
@@ -134,23 +117,12 @@ type setFloorsRequest struct {
 
 // SetDashboardFloors serves PATCH /v1/console/settings/dashboards.
 func (h *Handler) SetDashboardFloors(w http.ResponseWriter, r *http.Request) {
-	caller, ok := httpx.ConsoleCaller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in setFloorsRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	floors := make(map[domain.App]domain.Role, len(in.Items))
-	for _, it := range in.Items {
-		floors[it.App] = it.Floor
-	}
-	out, err := h.svc.SetDashboardFloors(r.Context(), caller, floors)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, dashboardFloors{out})
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(caller authn.ConsoleMember, in setFloorsRequest) (dashboardFloors, error) {
+		floors := make(map[domain.App]domain.Role, len(in.Items))
+		for _, it := range in.Items {
+			floors[it.App] = it.Floor
+		}
+		out, err := h.svc.SetDashboardFloors(r.Context(), caller, floors)
+		return dashboardFloors{out}, err
+	})
 }

@@ -18,7 +18,7 @@ type ListingAsker struct {
 // listings among ids, in one query: each listing's askers, earliest first.
 // A listing nobody wrote about has no entry.
 func (c *Chat) ListingAskers(ctx context.Context, seller uuid.UUID, ids []uuid.UUID) (map[uuid.UUID][]ListingAsker, error) {
-	rows, err := c.chats.ListingSenders(ctx, seller, ids)
+	rows, err := c.d.Chats.ListingSenders(ctx, seller, ids)
 	if err != nil {
 		return nil, fmt.Errorf("read listing senders: %w", err)
 	}

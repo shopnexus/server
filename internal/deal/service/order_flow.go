@@ -62,7 +62,7 @@ func loadStep(ctx restate.Context, s *Deals, caller, id, key uuid.UUID) (loaded,
 			return loaded{}, stepErr
 		}
 		if key != uuid.Nil() {
-			moved, movedErr := s.deals.Moved(rc, id, by, key)
+			moved, movedErr := s.d.Deals.Moved(rc, id, by, key)
 			if movedErr != nil {
 				return loaded{}, fmt.Errorf("find the key's move: %w", movedErr)
 			}
@@ -200,7 +200,7 @@ func callOffStep(ctx restate.Context, shipping Shipping, log *slog.Logger, selle
 // neither side of are both domain.ErrOrderNotFound, so an order's existence
 // does not leak.
 func (s *Deals) orderDeal(ctx context.Context, caller, order uuid.UUID) (uuid.UUID, error) {
-	r, err := s.deals.Order(ctx, order)
+	r, err := s.d.Deals.Order(ctx, order)
 	if errors.Is(err, repository.ErrNotFound) {
 		return uuid.Nil(), domain.ErrOrderNotFound
 	}
@@ -217,7 +217,7 @@ func (s *Deals) orderDeal(ctx context.Context, caller, order uuid.UUID) (uuid.UU
 // in one journaled step.
 func systemLoadStep(ctx restate.Context, s *Deals, id uuid.UUID) (loaded, error) {
 	out, err := restate.Run(ctx, func(rc restate.RunContext) (loaded, error) {
-		d, stepErr := s.deals.Get(rc, id)
+		d, stepErr := s.d.Deals.Get(rc, id)
 		if stepErr != nil {
 			return loaded{}, fmt.Errorf("get deal: %w", stepErr)
 		}

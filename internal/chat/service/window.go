@@ -10,14 +10,14 @@ import (
 )
 
 func (c *Chat) Window(ctx context.Context, conversation, upTo uuid.UUID, n int) (Window, bool, error) {
-	conv, err := c.chats.Get(ctx, conversation)
+	conv, err := c.d.Chats.Get(ctx, conversation)
 	if errors.Is(err, repository.ErrNotFound) {
 		return Window{}, false, nil
 	}
 	if err != nil {
 		return Window{}, false, fmt.Errorf("get conversation: %w", err)
 	}
-	ms, err := c.chats.Window(ctx, conversation, upTo, n)
+	ms, err := c.d.Chats.Window(ctx, conversation, upTo, n)
 	if err != nil {
 		return Window{}, false, fmt.Errorf("read window: %w", err)
 	}

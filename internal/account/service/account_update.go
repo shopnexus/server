@@ -17,7 +17,7 @@ import (
 // a write, so a suspended account gets ErrSuspended even while its access
 // token is still valid.
 func (s *Account) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (AccountView, error) {
-	now := s.now()
+	now := s.d.Now()
 	a, err := s.load(ctx, id)
 	if err != nil {
 		return AccountView{}, err
@@ -41,14 +41,14 @@ func (s *Account) Update(ctx context.Context, id uuid.UUID, in UpdateInput) (Acc
 	case in.RemoveAvatar:
 		a.SetAvatar("", now)
 	case in.Avatar != nil:
-		key, squareErr := s.media.Square(ctx, id, id, *in.Avatar)
+		key, squareErr := s.d.Media.Square(ctx, id, id, *in.Avatar)
 		if squareErr != nil {
 			return AccountView{}, fmt.Errorf("make the avatar: %w", squareErr)
 		}
 		a.SetAvatar(key, now)
 	default: // the avatar stays as it is
 	}
-	err = s.accounts.Save(ctx, &a, uuid.NewV7(), nil, events.Event{
+	err = s.d.Accounts.Save(ctx, &a, uuid.NewV7(), nil, events.Event{
 		ID: uuid.NewV7(), Kind: events.AccountUpdated, SubjectID: id, OccurredAt: now,
 	})
 	if err != nil {

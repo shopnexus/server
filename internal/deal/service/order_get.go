@@ -11,14 +11,14 @@ import (
 )
 
 func (s *Deals) OrderFor(ctx context.Context, viewer, id uuid.UUID) (OrderView, uuid.UUID, error) {
-	r, err := s.deals.Order(ctx, id)
+	r, err := s.d.Deals.Order(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && viewer != r.BuyerID && viewer != r.SellerID) {
 		return OrderView{}, uuid.Nil(), domain.ErrOrderNotFound
 	}
 	if err != nil {
 		return OrderView{}, uuid.Nil(), fmt.Errorf("read order: %w", err)
 	}
-	places, err := s.catalog.Places(ctx, []string{r.Order.Recipient.CommuneCode})
+	places, err := s.d.Catalog.Places(ctx, []string{r.Order.Recipient.CommuneCode})
 	if err != nil {
 		return OrderView{}, uuid.Nil(), fmt.Errorf("read recipient commune: %w", err)
 	}
@@ -26,5 +26,5 @@ func (s *Deals) OrderFor(ctx context.Context, viewer, id uuid.UUID) (OrderView, 
 	if viewer == r.BuyerID {
 		by = domain.Buyer
 	}
-	return orderView(r.Order, by, places[r.Order.Recipient.CommuneCode], s.waits), r.DealID, nil
+	return orderView(r.Order, by, places[r.Order.Recipient.CommuneCode], s.d.Waits), r.DealID, nil
 }

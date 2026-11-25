@@ -38,11 +38,11 @@ type resolvedPickup struct {
 // pickup timeout and the first poll of the shipment.
 type DealShip struct{ Deals *Deals }
 
-func (s DealShip) ServiceName() string { return s.Deals.prefix + dealShip }
+func (s DealShip) ServiceName() string { return s.Deals.d.Prefix + dealShip }
 
 // Run is UC-DEAL-04, steps 2 to 5 · ADR-0001 · ADR-0002.
 func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
-	at, err := restatex.Now(ctx, s.Deals.now)
+	at, err := restatex.Now(ctx, s.Deals.d.Now)
 	if err != nil {
 		return FlowResult{}, err
 	}
@@ -58,7 +58,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	draft := *in.Draft
 	if in.SavedPickup {
 		resolved, pickupErr := restate.Run(ctx, func(rc restate.RunContext) (resolvedPickup, error) {
-			p, stepErr := s.Deals.shipping.SavedPickup(rc, in.Caller)
+			p, stepErr := s.Deals.d.Shipping.SavedPickup(rc, in.Caller)
 			if restatex.IsRefusal(stepErr) {
 				return resolvedPickup{Refused: apperr.From(stepErr)}, nil
 			}
@@ -76,7 +76,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		draft.From = &resolved.Pickup
 	}
 	// 2. Hold the listing for the order; E5 when it is not on sale.
-	refused, err := reserveStep(ctx, s.Deals.catalog, m.Listing.ID, in.OrderID)
+	refused, err := reserveStep(ctx, s.Deals.d.Catalog, m.Listing.ID, in.OrderID)
 	if err != nil || refused != nil {
 		return FlowResult{Refused: refused}, err
 	}
@@ -98,7 +98,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 			}
 			from.Place = &place
 		}
-		c, stepErr := s.Deals.shipping.Create(rc, in.Caller, carrier.Carrier(draft.Carrier), carrier.CreateInput{
+		c, stepErr := s.Deals.d.Shipping.Create(rc, in.Caller, carrier.Carrier(draft.Carrier), carrier.CreateInput{
 			OrderCode: o.Code, Recipient: to, Pickup: from, Item: m.Listing.Title, COD: o.Price,
 			WeightGrams: draft.WeightGrams, Service: string(draft.Service), Option: string(draft.Pickup),
 			Note: deliveryNotes[r.Kind],
@@ -116,7 +116,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	}
 	// E4: a refused shipment is not made, and the listing goes back.
 	if made.Refused != nil {
-		if err = releaseStep(ctx, s.Deals.catalog, m.Listing.ID, in.OrderID); err != nil {
+		if err = releaseStep(ctx, s.Deals.d.Catalog, m.Listing.ID, in.OrderID); err != nil {
 			return FlowResult{}, err
 		}
 		return FlowResult{Refused: made.Refused}, nil
@@ -129,7 +129,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		return FlowResult{}, fmt.Errorf("ship the order: %w", err)
 	}
 	// 4. The order is shipped.
-	refused, err = saveStep(ctx, s.Deals.deals, &d, in.Key, at)
+	refused, err = saveStep(ctx, s.Deals.d.Deals, &d, in.Key, at)
 	if err != nil {
 		return FlowResult{}, err
 	}
@@ -143,17 +143,17 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 		}
 		// 5. Wait for the pickup and follow the shipment.
 		ref := OrderRef{DealID: in.DealID, OrderID: in.OrderID}
-		restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "PickupTimeout").
-			Send(ref, restate.WithDelay(s.Deals.waits.Pickup))
-		restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "Poll").
-			Send(ref, restate.WithDelay(s.Deals.pollEvery))
+		restate.ServiceSend(ctx, s.Deals.d.Prefix+orderTimers, "PickupTimeout").
+			Send(ref, restate.WithDelay(s.Deals.d.Waits.Pickup))
+		restate.ServiceSend(ctx, s.Deals.d.Prefix+orderTimers, "Poll").
+			Send(ref, restate.WithDelay(s.Deals.d.PollEvery))
 		return FlowResult{}, nil
 	}
 	// E7 · NFR-CONC-01: the save lost a race. Another try that shipped this
 	// order keeps the listing; anything else, a cancel above all, gives it
 	// back.
 	cur, err := restate.Run(ctx, func(rc restate.RunContext) (domain.Order, error) {
-		got, stepErr := s.Deals.deals.Get(rc, in.DealID)
+		got, stepErr := s.Deals.d.Deals.Get(rc, in.DealID)
 		if stepErr != nil {
 			return domain.Order{}, fmt.Errorf("read the deal: %w", stepErr)
 		}
@@ -170,10 +170,10 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	switch {
 	case refused.Code == domain.ErrCarrierNotLinked.Code:
 		// The seller's account there no longer reaches the parcel.
-		s.Deals.log.WarnContext(ctx, "shipment made at a shop the seller no longer links; not called off",
+		s.Deals.d.Log.WarnContext(ctx, "shipment made at a shop the seller no longer links; not called off",
 			"seller", in.Caller, "carrier", mine.Carrier, "shop", mine.ShopCode, "tracking_code", mine.TrackingCode)
 	case !shipped || cur.Shipment == nil || cur.Shipment.TrackingCode != mine.TrackingCode:
-		if err = callOffStep(ctx, s.Deals.shipping, s.Deals.log, in.Caller, *mine); err != nil {
+		if err = callOffStep(ctx, s.Deals.d.Shipping, s.Deals.d.Log, in.Caller, *mine); err != nil {
 			return FlowResult{}, err
 		}
 	default: // the order shipped with this parcel
@@ -181,7 +181,7 @@ func (s DealShip) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
 	if shipped {
 		return FlowResult{}, nil
 	}
-	if err = releaseStep(ctx, s.Deals.catalog, m.Listing.ID, in.OrderID); err != nil {
+	if err = releaseStep(ctx, s.Deals.d.Catalog, m.Listing.ID, in.OrderID); err != nil {
 		return FlowResult{}, err
 	}
 	return FlowResult{Refused: refused}, nil

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/console/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -13,15 +14,7 @@ type accountRequest struct {
 
 // GetAccount serves GET /v1/console/accounts/{id}.
 func (h *Handler) GetAccount(w http.ResponseWriter, r *http.Request) {
-	var in accountRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	d, err := h.svc.GetAccount(r.Context(), in.ID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, d)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in accountRequest) (service.AccountDetail, error) {
+		return h.svc.GetAccount(r.Context(), in.ID)
+	})
 }

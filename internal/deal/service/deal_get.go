@@ -25,7 +25,7 @@ func (s *Deals) Get(ctx context.Context, viewer, id uuid.UUID) (DealView, error)
 }
 
 func (s *Deals) BuyerSummary(ctx context.Context, buyer, listingID uuid.UUID) (DealSummary, bool, error) {
-	d, err := s.deals.Find(ctx, listingID, buyer)
+	d, err := s.d.Deals.Find(ctx, listingID, buyer)
 	if errors.Is(err, repository.ErrNotFound) {
 		return DealSummary{}, false, nil
 	}
@@ -41,7 +41,7 @@ func (s *Deals) BuyerSummary(ctx context.Context, buyer, listingID uuid.UUID) (D
 
 // ListMine reads one page of the viewer's deals.
 func (s *Deals) ListMine(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[DealView], error) {
-	rows, err := s.deals.ListByParty(ctx, viewer, as, p)
+	rows, err := s.d.Deals.ListByParty(ctx, viewer, as, p)
 	if err != nil {
 		return page.Page[DealView]{}, fmt.Errorf("list deals: %w", err)
 	}
@@ -57,7 +57,7 @@ func (s *Deals) ListMine(ctx context.Context, viewer uuid.UUID, as domain.Party,
 // listings. The page and its cursor come from the stored rows, so an offer
 // its listing voided drops out without moving the cursor.
 func (s *Deals) OpenOffers(ctx context.Context, seller uuid.UUID, p page.Request) (page.Page[DealView], error) {
-	rows, err := s.deals.OpenOffers(ctx, seller, p)
+	rows, err := s.d.Deals.OpenOffers(ctx, seller, p)
 	if err != nil {
 		return page.Page[DealView]{}, fmt.Errorf("list open offers: %w", err)
 	}
@@ -77,7 +77,7 @@ func (s *Deals) OpenOffers(ctx context.Context, seller uuid.UUID, p page.Request
 
 // OpenOfferCount counts the buyers' open offers on seller's listings.
 func (s *Deals) OpenOfferCount(ctx context.Context, seller uuid.UUID) (int, error) {
-	n, err := s.deals.CountOpenOffers(ctx, seller)
+	n, err := s.d.Deals.CountOpenOffers(ctx, seller)
 	if err != nil {
 		return 0, fmt.Errorf("count open offers: %w", err)
 	}
@@ -85,7 +85,7 @@ func (s *Deals) OpenOfferCount(ctx context.Context, seller uuid.UUID) (int, erro
 }
 
 func (s *Deals) Between(ctx context.Context, viewer, other uuid.UUID) ([]DealView, error) {
-	rows, err := s.deals.Between(ctx, viewer, other)
+	rows, err := s.d.Deals.Between(ctx, viewer, other)
 	if err != nil {
 		return nil, fmt.Errorf("list deals: %w", err)
 	}
@@ -103,15 +103,15 @@ func (s *Deals) views(ctx context.Context, viewer uuid.UUID, deals []domain.Deal
 			codes = append(codes, o.Recipient.CommuneCode)
 		}
 	}
-	listings, err := s.catalog.Summaries(ctx, listingIDs)
+	listings, err := s.d.Catalog.Summaries(ctx, listingIDs)
 	if err != nil {
 		return nil, fmt.Errorf("read listings: %w", err)
 	}
-	moves, err := s.deals.Moves(ctx, dealIDs)
+	moves, err := s.d.Deals.Moves(ctx, dealIDs)
 	if err != nil {
 		return nil, fmt.Errorf("read moves: %w", err)
 	}
-	places, err := s.catalog.Places(ctx, codes)
+	places, err := s.d.Catalog.Places(ctx, codes)
 	if err != nil {
 		return nil, fmt.Errorf("read the recipients' communes: %w", err)
 	}
@@ -121,7 +121,7 @@ func (s *Deals) views(ctx context.Context, viewer uuid.UUID, deals []domain.Deal
 		if o := deals[i].Order(); o != nil {
 			place = places[o.Recipient.CommuneCode]
 		}
-		items = append(items, view(viewer, deals[i], listings[deals[i].ListingID()], moves[deals[i].ID()], place, s.waits))
+		items = append(items, view(viewer, deals[i], listings[deals[i].ListingID()], moves[deals[i].ID()], place, s.d.Waits))
 	}
 	return items, nil
 }
@@ -130,7 +130,7 @@ func (s *Deals) views(ctx context.Context, viewer uuid.UUID, deals []domain.Deal
 // places. The look-ahead row only sets the cursor; its listing and commune
 // are not read.
 func (s *Deals) ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Party, p page.Request) (page.Page[OrderItem], error) {
-	rows, err := s.deals.ListOrders(ctx, viewer, as, p)
+	rows, err := s.d.Deals.ListOrders(ctx, viewer, as, p)
 	if err != nil {
 		return page.Page[OrderItem]{}, fmt.Errorf("list orders: %w", err)
 	}
@@ -139,11 +139,11 @@ func (s *Deals) ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Part
 	for i := range kept.Items {
 		ids, codes = append(ids, kept.Items[i].ListingID), append(codes, kept.Items[i].Order.Recipient.CommuneCode)
 	}
-	listings, err := s.catalog.Summaries(ctx, ids)
+	listings, err := s.d.Catalog.Summaries(ctx, ids)
 	if err != nil {
 		return page.Page[OrderItem]{}, fmt.Errorf("read listings: %w", err)
 	}
-	places, err := s.catalog.Places(ctx, codes)
+	places, err := s.d.Catalog.Places(ctx, codes)
 	if err != nil {
 		return page.Page[OrderItem]{}, fmt.Errorf("read the recipients' communes: %w", err)
 	}
@@ -155,7 +155,7 @@ func (s *Deals) ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Part
 			other = r.BuyerID
 		}
 		items = append(items, OrderItem{
-			OrderView: orderView(r.Order, as, places[r.Order.Recipient.CommuneCode], s.waits), DealID: r.DealID,
+			OrderView: orderView(r.Order, as, places[r.Order.Recipient.CommuneCode], s.d.Waits), DealID: r.DealID,
 			Listing: listingRef(listings[r.ListingID]), CounterpartID: other,
 		})
 	}
@@ -163,7 +163,7 @@ func (s *Deals) ListOrders(ctx context.Context, viewer uuid.UUID, as domain.Part
 }
 
 func (s *Deals) Order(ctx context.Context, id uuid.UUID) (OrderFacts, bool, error) {
-	r, err := s.deals.Order(ctx, id)
+	r, err := s.d.Deals.Order(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return OrderFacts{}, false, nil
 	}

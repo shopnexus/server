@@ -26,7 +26,7 @@ func (s *Deals) ShipmentUpdated(ctx context.Context, c, trackingCode, status str
 }
 
 func (s *Deals) ShipmentKnown(ctx context.Context, c, trackingCode string) (bool, error) {
-	has, err := s.deals.HasShipment(ctx, c, trackingCode)
+	has, err := s.d.Deals.HasShipment(ctx, c, trackingCode)
 	if err != nil {
 		return false, fmt.Errorf("find the shipment: %w", err)
 	}

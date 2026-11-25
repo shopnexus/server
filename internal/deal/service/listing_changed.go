@@ -26,7 +26,7 @@ func (s *Deals) ListingChanged(ctx context.Context, listingID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	deals, err := s.deals.OfListing(ctx, listingID)
+	deals, err := s.d.Deals.OfListing(ctx, listingID)
 	if err != nil {
 		return fmt.Errorf("list deals: %w", err)
 	}
@@ -37,12 +37,12 @@ func (s *Deals) ListingChanged(ctx context.Context, listingID uuid.UUID) error {
 	}) {
 		rules.Status = domain.ListingPaused
 	}
-	now := s.now()
+	now := s.d.Now()
 	for i := range deals {
 		if !deals[i].ListingChanged(rules, now) {
 			continue
 		}
-		if err = s.deals.Save(ctx, &deals[i], uuid.NewV7(), uuid.Nil(), moved(deals[i].ID(), now)); err != nil {
+		if err = s.d.Deals.Save(ctx, &deals[i], uuid.NewV7(), uuid.Nil(), moved(deals[i].ID(), now)); err != nil {
 			return fmt.Errorf("save deal: %w", err)
 		}
 	}

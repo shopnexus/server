@@ -141,25 +141,15 @@ type Deps struct {
 
 // Chat implements Service in this process.
 type Chat struct {
-	chats    repository.Chats
-	replies  repository.QuickReplies
-	accounts accountsvc.Service
-	catalog  catalogsvc.Service
-	media    mediasvc.Service
-	prefix   string
-	now      func() time.Time
-	send     restatex.Caller[SendFlowInput, SendResult]
-	// linkHosts and orders are Deps' LinkHosts and Orders.
-	linkHosts []string
-	orders    OrderRefs
+	d    Deps
+	send restatex.Caller[SendFlowInput, SendResult]
 }
 
 var _ Service = (*Chat)(nil)
 
 func New(d Deps) *Chat {
 	return &Chat{
-		chats: d.Chats, replies: d.QuickReplies, accounts: d.Accounts, catalog: d.Catalog, media: d.Media,
-		prefix: d.Prefix, now: d.Now, linkHosts: d.LinkHosts, orders: d.Orders,
+		d:    d,
 		send: restatex.Caller[SendFlowInput, SendResult]{Ingress: d.Ingress, Service: d.Prefix + messageSend, Handler: "Run"},
 	}
 }
@@ -172,7 +162,7 @@ func (c *Chat) Durable() []restate.ServiceDefinition {
 // member loads a conversation of account's; anyone else gets
 // domain.ErrNotFound, so a conversation's existence does not leak.
 func (c *Chat) member(ctx context.Context, account, id uuid.UUID) (domain.Conversation, error) {
-	conv, err := c.chats.Get(ctx, id)
+	conv, err := c.d.Chats.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && !conv.Has(account)) {
 		return domain.Conversation{}, domain.ErrNotFound
 	}

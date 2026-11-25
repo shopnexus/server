@@ -95,7 +95,7 @@ func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (mov
 	}
 	// E1 · BR-MOD-02
 	if binds {
-		status, readErr := s.accounts.Status(ctx, caller)
+		status, readErr := s.d.Accounts.Status(ctx, caller)
 		if readErr != nil {
 			return moving{}, fmt.Errorf("read account status: %w", readErr)
 		}
@@ -104,7 +104,7 @@ func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (mov
 		}
 	}
 	if binds && by == domain.Buyer {
-		away, readErr := s.accounts.Away(ctx, d.SellerID())
+		away, readErr := s.d.Accounts.Away(ctx, d.SellerID())
 		if readErr != nil {
 			return moving{}, fmt.Errorf("read the seller's away mode: %w", readErr)
 		}
@@ -116,7 +116,7 @@ func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (mov
 	if err != nil {
 		return moving{}, err
 	}
-	return moving{deal: d, by: by, listing: l, rules: facts(l), now: s.now()}, nil
+	return moving{deal: d, by: by, listing: l, rules: facts(l), now: s.d.Now()}, nil
 }
 
 // save writes the moved deal with deal.moved and returns it as the caller
@@ -124,7 +124,7 @@ func (s *Deals) load(ctx context.Context, caller, id uuid.UUID, binds bool) (mov
 // needs a read back. A deal the other side moved meanwhile is
 // domain.ErrChanged (UC-DEAL-02 E8, NFR-CONC-01).
 func (s *Deals) save(ctx context.Context, caller uuid.UUID, m moving) (DealView, error) {
-	err := s.deals.Save(ctx, &m.deal, uuid.NewV7(), uuid.Nil(), moved(m.deal.ID(), m.now))
+	err := s.d.Deals.Save(ctx, &m.deal, uuid.NewV7(), uuid.Nil(), moved(m.deal.ID(), m.now))
 	if errors.Is(err, repository.ErrConflict) {
 		return DealView{}, domain.ErrChanged
 	}

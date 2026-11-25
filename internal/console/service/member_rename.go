@@ -13,7 +13,7 @@ func (s *Console) RenameMember(ctx context.Context, id uuid.UUID, displayName st
 	if err != nil {
 		return MemberView{}, err
 	}
-	from, now := m.DisplayName(), s.now()
+	from, now := m.DisplayName(), s.d.Now()
 	if err = m.Rename(displayName, now); err != nil {
 		return MemberView{}, err
 	}

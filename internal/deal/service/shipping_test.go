@@ -332,14 +332,15 @@ func TestOpenShipmentsAtAndQuoteFacts(t *testing.T) {
 	}
 	v := e.pending(t, buyer, catalogtest.Listing(t, e.db, seller))
 	from := e.address(t, seller)
-	to, pickup, price, err := e.deals.QuoteFacts(ctx, seller, v.Order.ID, from)
-	if err != nil || to.Name != "Hân" || to.Commune == "" || to.Province == "" || price != 1_500_000 || pickup == nil || pickup.Street != "12 Lý Thường Kiệt" {
-		t.Fatalf("%+v %+v %d %v", to, pickup, price, err)
+	q, err := e.deals.QuoteFacts(ctx, seller, v.Order.ID, from)
+	to, pickup := q.Recipient, q.Pickup
+	if err != nil || to.Name != "Hân" || to.Commune == "" || to.Province == "" || q.Price != 1_500_000 || pickup == nil || pickup.Street != "12 Lý Thường Kiệt" {
+		t.Fatalf("%+v %v", q, err)
 	}
-	if _, pickup, _, err = e.deals.QuoteFacts(ctx, seller, v.Order.ID, uuid.Nil()); err != nil || pickup != nil {
-		t.Fatalf("no address: %+v %v", pickup, err)
+	if q, err = e.deals.QuoteFacts(ctx, seller, v.Order.ID, uuid.Nil()); err != nil || q.Pickup != nil {
+		t.Fatalf("no address: %+v %v", q.Pickup, err)
 	}
-	if _, _, _, err = e.deals.QuoteFacts(ctx, buyer, v.Order.ID, uuid.Nil()); !errors.Is(err, domain.ErrOrderNotFound) {
+	if _, err = e.deals.QuoteFacts(ctx, buyer, v.Order.ID, uuid.Nil()); !errors.Is(err, domain.ErrOrderNotFound) {
 		t.Fatalf("the buyer's quote: %v", err)
 	}
 }

@@ -114,9 +114,9 @@ func judgeGuess(ctx restate.Context, challenges repository.Challenges, g CodeGue
 // and a client takes a 401 on a bearer call for an expired or revoked
 // bearer.
 func (s *Account) verifyToken(ctx context.Context, p Proof, refused apperr.Kind) (contact.Address, error) {
-	verifier, token, name := s.phones, p.PhoneToken, "phone"
+	verifier, token, name := s.d.Phones, p.PhoneToken, "phone"
 	if p.GoogleToken != "" {
-		verifier, token, name = s.google, p.GoogleToken, "google"
+		verifier, token, name = s.d.Google, p.GoogleToken, "google"
 	}
 	a, err := verifier.Verify(ctx, token)
 	if e, ok := errors.AsType[*apperr.Error](err); ok && e.Kind == apperr.KindUnauthenticated {
@@ -131,12 +131,12 @@ func (s *Account) verifyToken(ctx context.Context, p Proof, refused apperr.Kind)
 // guessFor hashes code against its challenge outside Restate. An unknown
 // challenge is code_expired.
 func (s *Account) guessFor(ctx context.Context, code EmailCode) (CodeGuess, error) {
-	c, err := s.challenges.Get(ctx, code.ChallengeID)
+	c, err := s.d.Challenges.Get(ctx, code.ChallengeID)
 	if errors.Is(err, repository.ErrNotFound) {
 		return CodeGuess{}, domain.ErrCodeExpired
 	}
 	if err != nil {
 		return CodeGuess{}, fmt.Errorf("get challenge: %w", err)
 	}
-	return CodeGuess{ChallengeID: c.ID(), CodeHash: s.codes.Hash(c.Destination(), code.Code)}, nil
+	return CodeGuess{ChallengeID: c.ID(), CodeHash: s.d.Codes.Hash(c.Destination(), code.Code)}, nil
 }

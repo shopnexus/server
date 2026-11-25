@@ -15,9 +15,9 @@ func (s *Console) ResetMemberPassword(ctx context.Context, id uuid.UUID, by audi
 	if err != nil {
 		return "", err
 	}
-	now := s.now()
+	now := s.d.Now()
 	temp := domain.TemporaryPassword()
-	m.ResetPassword(s.keys.Hasher.Hash(temp), now)
+	m.ResetPassword(s.d.Keys.Hasher.Hash(temp), now)
 	if _, err = s.saveManaged(ctx, &m, by, audit.MemberResetPassword, now, nil); err != nil {
 		return "", err
 	}
@@ -31,7 +31,7 @@ func (s *Console) ResetMemberTOTP(ctx context.Context, id uuid.UUID, by audit.Ac
 	if err != nil {
 		return MemberView{}, err
 	}
-	now := s.now()
+	now := s.d.Now()
 	m.ResetTOTP(now)
 	return s.saveManaged(ctx, &m, by, audit.MemberResetTOTP, now, nil)
 }

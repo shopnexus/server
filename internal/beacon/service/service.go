@@ -79,9 +79,7 @@ type Deps struct {
 
 // Beacon implements Service in this process.
 type Beacon struct {
-	route       func(method, path string) string
-	now         func() time.Time
-	log         *slog.Logger
+	d           Deps
 	errors      metric.Int64Counter
 	vitals      metric.Float64Histogram
 	shifts      metric.Float64Histogram
@@ -95,9 +93,7 @@ var _ Service = (*Beacon)(nil)
 func New(d Deps) *Beacon {
 	m := otel.Meter("github.com/shopnexus/server/internal/beacon")
 	return &Beacon{
-		route: d.Route,
-		now:   d.Now,
-		log:   d.Log,
+		d: d,
 		errors: telemetry.Must(m.Int64Counter("client.errors",
 			metric.WithDescription("Script errors clients reported, by app."))),
 		vitals: telemetry.Must(m.Float64Histogram("client.web_vital.duration", metric.WithUnit("s"),
@@ -121,7 +117,7 @@ func (b *Beacon) Record(ctx context.Context, batch Batch) {
 		switch e.Type {
 		case "error":
 			b.errors.Add(ctx, 1, metric.WithAttributes(app))
-			b.log.InfoContext(ctx, "client error", "app", batch.App, "page", e.Page, "error", e.Message, "stack", e.Stack)
+			b.d.Log.InfoContext(ctx, "client error", "app", batch.App, "page", e.Page, "error", e.Message, "stack", e.Stack)
 		case "vital":
 			attrs := metric.WithAttributes(app, attribute.String("name", e.Name))
 			if e.Name == "CLS" {
@@ -130,7 +126,7 @@ func (b *Beacon) Record(ctx context.Context, batch Batch) {
 				b.vitals.Record(ctx, e.Value/1000, attrs)
 			}
 		case "request":
-			route := b.route(e.Method, e.Path)
+			route := b.d.Route(e.Method, e.Path)
 			if route == "" {
 				route = "other"
 			}
@@ -144,23 +140,23 @@ func (b *Beacon) Record(ctx context.Context, batch Batch) {
 			b.requests.Record(ctx, e.DurationMs/1000, metric.WithAttributes(append(attrs, app)...))
 			traceID, traceErr := trace.TraceIDFromHex(e.TraceID)
 			spanID, spanErr := trace.SpanIDFromHex(e.SpanID)
-			if age := b.now().Sub(e.StartedAt); traceErr == nil && spanErr == nil && age < spanMaxAge && age > -spanMaxSkew {
+			if age := b.d.Now().Sub(e.StartedAt); traceErr == nil && spanErr == nil && age < spanMaxAge && age > -spanMaxSkew {
 				end := e.StartedAt.Add(time.Duration(e.DurationMs * float64(time.Millisecond)))
 				telemetry.RecordClientSpan(ctx, batch.App, e.Method+" "+route, traceID, spanID, e.StartedAt, end, attrs...)
 			}
 			if e.Status == 0 || e.Status >= 500 || e.DurationMs >= slowRequestMs {
-				b.log.InfoContext(ctx, "client request", "app", batch.App, "method", e.Method, "route", route,
+				b.d.Log.InfoContext(ctx, "client request", "app", batch.App, "method", e.Method, "route", route,
 					"status", e.Status, "duration_ms", e.DurationMs, "network", e.Network, "server_trace_id", e.TraceID)
 			}
 		case "search_impression":
 			for j := range e.ListingIDs {
 				b.impressions.Add(ctx, 1, metric.WithAttributes(app, attribute.String("position", positionBucket(e.Offset+j))))
 			}
-			b.log.InfoContext(ctx, "search impression", "app", batch.App, "search_id", e.SearchID,
+			b.d.Log.InfoContext(ctx, "search impression", "app", batch.App, "search_id", e.SearchID,
 				"offset", e.Offset, "listing_ids", e.ListingIDs)
 		case "search_click":
 			b.clicks.Add(ctx, 1, metric.WithAttributes(app, attribute.String("position", positionBucket(e.Position))))
-			b.log.InfoContext(ctx, "search click", "app", batch.App, "search_id", e.SearchID,
+			b.d.Log.InfoContext(ctx, "search click", "app", batch.App, "search_id", e.SearchID,
 				"listing_id", e.ListingID, "position", e.Position)
 		default:
 		}

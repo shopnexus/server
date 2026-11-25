@@ -7,6 +7,7 @@ import (
 
 	accountsvc "github.com/shopnexus/server/internal/account/service"
 	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -18,40 +19,16 @@ type suspendRequest struct {
 
 // SuspendAccount serves POST /v1/console/accounts/{id}/suspend.
 func (h *Handler) SuspendAccount(w http.ResponseWriter, r *http.Request) {
-	caller, ok := httpx.ConsoleCaller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in suspendRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	rec, err := h.svc.SuspendAccount(r.Context(), accountsvc.SuspendInput{
-		ID: in.ID, Reason: in.Reason, Until: in.Until, By: audit.ByMember(caller),
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(caller authn.ConsoleMember, in suspendRequest) (accountsvc.ConsoleAccount, error) {
+		return h.svc.SuspendAccount(r.Context(), accountsvc.SuspendInput{
+			ID: in.ID, Reason: in.Reason, Until: in.Until, By: audit.ByMember(caller),
+		})
 	})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, rec)
 }
 
 // UnsuspendAccount serves POST /v1/console/accounts/{id}/unsuspend.
 func (h *Handler) UnsuspendAccount(w http.ResponseWriter, r *http.Request) {
-	caller, ok := httpx.ConsoleCaller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in accountRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	rec, err := h.svc.UnsuspendAccount(r.Context(), in.ID, audit.ByMember(caller))
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, rec)
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(caller authn.ConsoleMember, in accountRequest) (accountsvc.ConsoleAccount, error) {
+		return h.svc.UnsuspendAccount(r.Context(), in.ID, audit.ByMember(caller))
+	})
 }

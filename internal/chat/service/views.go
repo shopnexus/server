@@ -173,7 +173,7 @@ func (c *Chat) quoted(ctx context.Context, views []MessageView, msgs []domain.Me
 	if len(ids) == 0 {
 		return nil
 	}
-	quoted, err := c.chats.GetMessages(ctx, ids)
+	quoted, err := c.d.Chats.GetMessages(ctx, ids)
 	if err != nil {
 		return fmt.Errorf("read the quoted messages: %w", err)
 	}
@@ -201,7 +201,7 @@ func (c *Chat) messageView(m domain.Message) MessageView {
 	for _, p := range m.Photos() {
 		v := PhotoView{UploadID: p.UploadID}
 		if p.PhotoKey != "" {
-			v.URL, v.ThumbURL = c.media.URL(p.PhotoKey), c.media.URL(p.ThumbKey)
+			v.URL, v.ThumbURL = c.d.Media.URL(p.PhotoKey), c.d.Media.URL(p.ThumbKey)
 		}
 		photos = append(photos, v)
 	}

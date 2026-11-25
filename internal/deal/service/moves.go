@@ -27,7 +27,7 @@ type MoveFacts struct {
 }
 
 func (s *Deals) Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (MoveFacts, bool, error) {
-	d, err := s.deals.Get(ctx, dealID)
+	d, err := s.d.Deals.Get(ctx, dealID)
 	if errors.Is(err, repository.ErrNotFound) {
 		return MoveFacts{}, false, nil
 	}
@@ -35,15 +35,15 @@ func (s *Deals) Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (M
 		return MoveFacts{}, false, fmt.Errorf("read deal: %w", err)
 	}
 	st := d.State()
-	moves, err := s.deals.MovesOf(ctx, dealID, ids)
+	moves, err := s.d.Deals.MovesOf(ctx, dealID, ids)
 	if err != nil {
 		return MoveFacts{}, false, fmt.Errorf("read moves: %w", err)
 	}
-	people, err := s.accounts.GetMany(ctx, []uuid.UUID{st.BuyerID, st.SellerID})
+	people, err := s.d.Accounts.GetMany(ctx, []uuid.UUID{st.BuyerID, st.SellerID})
 	if err != nil {
 		return MoveFacts{}, false, fmt.Errorf("read people: %w", err)
 	}
-	listing, _, err := s.catalog.Summary(ctx, st.ListingID)
+	listing, _, err := s.d.Catalog.Summary(ctx, st.ListingID)
 	if err != nil {
 		return MoveFacts{}, false, fmt.Errorf("read listing: %w", err)
 	}
@@ -58,7 +58,7 @@ func (s *Deals) Moves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) (M
 		if _, read := orders[*m.OrderID]; read {
 			continue
 		}
-		r, orderErr := s.deals.Order(ctx, *m.OrderID)
+		r, orderErr := s.d.Deals.Order(ctx, *m.OrderID)
 		if orderErr != nil {
 			return MoveFacts{}, false, fmt.Errorf("read order %s: %w", *m.OrderID, orderErr)
 		}

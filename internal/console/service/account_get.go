@@ -15,15 +15,15 @@ const historyLength = 20
 // GetAccount reads an account with its identities and the latest console
 // actions on it.
 func (s *Console) GetAccount(ctx context.Context, id uuid.UUID) (AccountDetail, error) {
-	r, err := s.accounts.ConsoleAccount(ctx, id)
+	r, err := s.d.Accounts.ConsoleAccount(ctx, id)
 	if err != nil {
 		return AccountDetail{}, fmt.Errorf("get account: %w", err)
 	}
-	ids, err := s.accounts.Identities(ctx, id)
+	ids, err := s.d.Accounts.Identities(ctx, id)
 	if err != nil {
 		return AccountDetail{}, fmt.Errorf("list identities: %w", err)
 	}
-	acts, err := s.actions.List(ctx, audit.Filter{TargetID: id}, page.Request{Limit: historyLength})
+	acts, err := s.d.Actions.List(ctx, audit.Filter{TargetID: id}, page.Request{Limit: historyLength})
 	if err != nil {
 		return AccountDetail{}, fmt.Errorf("list console actions: %w", err)
 	}

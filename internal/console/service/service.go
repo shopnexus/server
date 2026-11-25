@@ -94,28 +94,10 @@ type Deps struct {
 }
 
 // Console implements Service in this process.
-type Console struct {
-	members  repository.Members
-	locks    repository.Locks
-	sessions repository.Sessions
-	actions  audit.Store
-	keys     Keys
-	accounts accountsvc.Service
-	now      func() time.Time
-
-	dashboards     repository.Dashboards
-	dashboardHosts map[string]string
-	consoleOrigin  string
-	skipTOTP       bool
-}
+type Console struct{ d Deps }
 
 var _ Service = (*Console)(nil)
 
 func New(d Deps) *Console {
-	return &Console{
-		members: d.Members, locks: d.Locks, sessions: d.Sessions, actions: d.Actions, keys: d.Keys,
-		accounts: d.Accounts, now: d.Now,
-		dashboards: d.Dashboards, dashboardHosts: d.DashboardHosts, consoleOrigin: d.ConsoleOrigin,
-		skipTOTP: d.SkipTOTP,
-	}
+	return &Console{d: d}
 }

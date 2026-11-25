@@ -13,21 +13,21 @@ import (
 // sign-in lock when one is in force and its last sign-in. The locks and the
 // sign-ins of a page come in one query each.
 func (s *Console) ListMembers(ctx context.Context, p page.Request) (page.Page[MemberView], error) {
-	rows, err := s.members.List(ctx, p)
+	rows, err := s.d.Members.List(ctx, p)
 	if err != nil {
 		return page.Page[MemberView]{}, fmt.Errorf("list console members: %w", err)
 	}
 	keys := make([][]byte, len(rows))
 	ids := make([]uuid.UUID, len(rows))
 	for i := range rows {
-		keys[i] = domain.LockKey(s.keys.Locks, rows[i].Email())
+		keys[i] = domain.LockKey(s.d.Keys.Locks, rows[i].Email())
 		ids[i] = rows[i].ID()
 	}
-	until, err := s.locks.LockedUntil(ctx, keys, s.now())
+	until, err := s.d.Locks.LockedUntil(ctx, keys, s.d.Now())
 	if err != nil {
 		return page.Page[MemberView]{}, fmt.Errorf("list console login locks: %w", err)
 	}
-	last, err := s.sessions.LastSignIns(ctx, ids)
+	last, err := s.d.Sessions.LastSignIns(ctx, ids)
 	if err != nil {
 		return page.Page[MemberView]{}, fmt.Errorf("list console last sign-ins: %w", err)
 	}

@@ -66,7 +66,6 @@ import (
 	"github.com/shopnexus/server/internal/provider/push"
 	"github.com/shopnexus/server/internal/screen"
 	"github.com/shopnexus/server/internal/shipping"
-	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 	"github.com/shopnexus/server/internal/support"
 	"github.com/shopnexus/server/internal/trust"
 	"github.com/shopnexus/server/migrations"
@@ -431,26 +430,10 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 			Every: catalogsvc.IndexNowEvery,
 		},
 	}, accounts, mediam.Service)
-	// shipping reaches deal through these functions, filled once deal is
-	// mounted, since deal makes its shipments through shipping.
-	var deals dealsvc.Service
-	carriers.Deals = shippingsvc.Deals{
-		ShipmentUpdated: func(ctx context.Context, c, code, status string, at time.Time, fee *int64) error {
-			return deals.ShipmentUpdated(ctx, c, code, status, at, fee)
-		},
-		OpenShipmentsAt: func(ctx context.Context, seller uuid.UUID, c string) (bool, error) {
-			return deals.OpenShipmentsAt(ctx, seller, c)
-		},
-		QuoteFacts: func(ctx context.Context, caller, order, address uuid.UUID) (shippingsvc.QuoteFacts, error) {
-			to, from, price, err := deals.QuoteFacts(ctx, caller, order, address)
-			if err != nil {
-				return shippingsvc.QuoteFacts{}, fmt.Errorf("read the order to price: %w", err)
-			}
-			return shippingsvc.QuoteFacts{Recipient: to, Pickup: from, Price: price}, nil
-		},
-		ShipmentKnown: func(ctx context.Context, c, code string) (bool, error) { return deals.ShipmentKnown(ctx, c, code) },
-		NotFound:      dealdomain.ErrShipmentNotFound,
-	}
+	// shipping and chat reach deal through deals, set once deal is mounted,
+	// since deal makes its shipments through shipping.
+	deals := &lateDeals{}
+	carriers.Deals, carriers.DealNotFound = deals, dealdomain.ErrShipmentNotFound
 	shippingm := shipping.Mount(d, carriers, accounts)
 	// A deal opens the pair's conversation and writes its moves there, so
 	// chat mounts first.
@@ -460,7 +443,7 @@ func mountModules(router *httpx.Router, pool *pgxpool.Pool, in *ingress.Client, 
 	}}, accounts, catalogm.Service, mediam.Service)
 	dealm := deal.Mount(d, deal.Settings{Shipping: shippingm.Service, PollEvery: cfg.Carrier.PollEvery},
 		accounts, catalogm.Service, chatm.Service)
-	deals = dealm.Service
+	deals.Service = dealm.Service
 	erasure.Mount(d, accounts, dealm.Service)
 	beacon.Mount(d)
 	supportm := support.Mount(d, accounts, chatm.Service, dealm.Service, catalogm.Service)
@@ -605,6 +588,10 @@ func (a *App) Close(ctx context.Context) error {
 	}
 	return err
 }
+
+// lateDeals is deal's service for the modules that mount before deal and
+// call it only once requests come.
+type lateDeals struct{ dealsvc.Service }
 
 // orderRefs reads orders for chat's link cards.
 func orderRefs(ctx context.Context, deals dealsvc.Service, ids []uuid.UUID) (map[uuid.UUID]chatsvc.OrderRef, error) {

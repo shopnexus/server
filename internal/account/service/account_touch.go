@@ -7,7 +7,7 @@ import (
 )
 
 func (s *Account) Touch(ctx context.Context, ids []uuid.UUID) error {
-	if err := s.accounts.TouchActive(ctx, ids, s.now()); err != nil {
+	if err := s.d.Accounts.TouchActive(ctx, ids, s.d.Now()); err != nil {
 		return fmt.Errorf("touch: %w", err)
 	}
 	return nil

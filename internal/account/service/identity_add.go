@@ -45,7 +45,7 @@ func (s *Account) mayAddIdentity(ctx context.Context, p authn.Principal) error {
 	if err != nil {
 		return err
 	}
-	now := s.now()
+	now := s.d.Now()
 	if err = a.CanWrite(now); err != nil {
 		return err
 	}

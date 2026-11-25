@@ -27,12 +27,8 @@ type Deps struct {
 }
 
 // Erasure implements Service in this process.
-type Erasure struct {
-	accounts accountsvc.Service
-	deals    dealsvc.Service
-	now      func() time.Time
-}
+type Erasure struct{ d Deps }
 
 var _ Service = (*Erasure)(nil)
 
-func New(d Deps) *Erasure { return &Erasure{accounts: d.Accounts, deals: d.Deals, now: d.Now} }
+func New(d Deps) *Erasure { return &Erasure{d: d} }

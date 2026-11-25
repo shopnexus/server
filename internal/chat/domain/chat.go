@@ -54,19 +54,7 @@ type DealMove struct {
 // Message is one message of a conversation. ListingID names the listing it
 // is about, if any; replyTo the earlier message it quotes. A deal message
 // carries deal, the move the server wrote it for, and nothing else.
-type Message struct {
-	id             uuid.UUID
-	conversationID uuid.UUID
-	senderID       uuid.UUID
-	body           string
-	photos         []Photo
-	listingID      *uuid.UUID
-	replyTo        *uuid.UUID
-	deal           *DealMove
-	status         MessageStatus
-	failure        string
-	createdAt      time.Time
-}
+type Message struct{ s MessageState }
 
 // NewMessage checks a message as its sender wrote it: text 0 to 1,000
 // characters after trimming and 0 to 4 photos, at least one of the two,
@@ -93,15 +81,15 @@ func NewMessage(id, conversation, sender uuid.UUID, body string, photos []uuid.U
 	if len(e.Fields) > 0 {
 		return Message{}, e
 	}
-	m := Message{
-		id: id, conversationID: conversation, senderID: sender, body: body, listingID: listing, replyTo: replyTo,
-		status: StatusSent, createdAt: now,
-	}
+	m := Message{s: MessageState{
+		ID: id, ConversationID: conversation, SenderID: sender, Body: body, ListingID: listing, ReplyTo: replyTo,
+		Status: StatusSent, CreatedAt: now,
+	}}
 	for _, p := range photos {
-		m.photos = append(m.photos, Photo{UploadID: p})
+		m.s.Photos = append(m.s.Photos, Photo{UploadID: p})
 	}
 	if len(photos) > 0 {
-		m.status = StatusProcessing
+		m.s.Status = StatusProcessing
 	}
 	return m, nil
 }
@@ -110,55 +98,55 @@ func NewMessage(id, conversation, sender uuid.UUID, body string, photos []uuid.U
 // time: id is the move's, so the same move writes one message. sender is
 // the side that moved, or ShopNexus for a move by the system.
 func NewDealMessage(id, conversation, sender uuid.UUID, move DealMove, at time.Time) Message {
-	return Message{
-		id: id, conversationID: conversation, senderID: sender, deal: &move, status: StatusSent, createdAt: at,
-	}
+	return Message{s: MessageState{
+		ID: id, ConversationID: conversation, SenderID: sender, Deal: &move, Status: StatusSent, CreatedAt: at,
+	}}
 }
 
 // Published records the processed photos; the message is sent.
 func (m *Message) Published(keys map[uuid.UUID]Photo) {
-	photos := make([]Photo, len(m.photos))
-	for i, p := range m.photos {
+	photos := make([]Photo, len(m.s.Photos))
+	for i, p := range m.s.Photos {
 		photos[i] = keys[p.UploadID]
 		photos[i].UploadID = p.UploadID
 	}
-	m.photos, m.status = photos, StatusSent
+	m.s.Photos, m.s.Status = photos, StatusSent
 }
 
 // Failed records why media refused a photo.
-func (m *Message) Failed(reason string) { m.status, m.failure = StatusFailed, reason }
+func (m *Message) Failed(reason string) { m.s.Status, m.s.Failure = StatusFailed, reason }
 
 // VisibleTo reports whether account may read the message: its sender
 // always, the other member once it is sent.
 func (m *Message) VisibleTo(account uuid.UUID) bool {
-	return m.status == StatusSent || account == m.senderID
+	return m.s.Status == StatusSent || account == m.s.SenderID
 }
 
-func (m *Message) ID() uuid.UUID             { return m.id }
-func (m *Message) ConversationID() uuid.UUID { return m.conversationID }
-func (m *Message) SenderID() uuid.UUID       { return m.senderID }
-func (m *Message) Body() string              { return m.body }
-func (m *Message) Photos() []Photo           { return append([]Photo{}, m.photos...) }
-func (m *Message) ListingID() *uuid.UUID     { return m.listingID }
-func (m *Message) ReplyTo() *uuid.UUID       { return m.replyTo }
+func (m *Message) ID() uuid.UUID             { return m.s.ID }
+func (m *Message) ConversationID() uuid.UUID { return m.s.ConversationID }
+func (m *Message) SenderID() uuid.UUID       { return m.s.SenderID }
+func (m *Message) Body() string              { return m.s.Body }
+func (m *Message) Photos() []Photo           { return append([]Photo{}, m.s.Photos...) }
+func (m *Message) ListingID() *uuid.UUID     { return m.s.ListingID }
+func (m *Message) ReplyTo() *uuid.UUID       { return m.s.ReplyTo }
 
 // Deal returns a copy of the move a deal message carries, nil on any other
 // message.
 func (m *Message) Deal() *DealMove {
-	if m.deal == nil {
+	if m.s.Deal == nil {
 		return nil
 	}
-	return new(*m.deal)
+	return new(*m.s.Deal)
 }
 
-func (m *Message) Status() MessageStatus { return m.status }
-func (m *Message) Failure() string       { return m.failure }
-func (m *Message) CreatedAt() time.Time  { return m.createdAt }
+func (m *Message) Status() MessageStatus { return m.s.Status }
+func (m *Message) Failure() string       { return m.s.Failure }
+func (m *Message) CreatedAt() time.Time  { return m.s.CreatedAt }
 
 // UploadIDs returns the message's uploads in order.
 func (m *Message) UploadIDs() []uuid.UUID {
-	out := make([]uuid.UUID, len(m.photos))
-	for i, p := range m.photos {
+	out := make([]uuid.UUID, len(m.s.Photos))
+	for i, p := range m.s.Photos {
 		out[i] = p.UploadID
 	}
 	return out
@@ -181,21 +169,14 @@ type MessageState struct {
 }
 
 // RestoreMessage rebuilds a stored message. Stores only.
-func RestoreMessage(st MessageState) Message {
-	return Message{
-		id: st.ID, conversationID: st.ConversationID, senderID: st.SenderID, body: st.Body, photos: st.Photos,
-		listingID: st.ListingID, replyTo: st.ReplyTo, deal: st.Deal, status: st.Status, failure: st.Failure,
-		createdAt: st.CreatedAt,
-	}
-}
+func RestoreMessage(st MessageState) Message { return Message{s: st} }
 
-// State returns every stored field. Stores only.
+// State returns every stored field, with copies of the photos and the deal
+// move. Stores only.
 func (m *Message) State() MessageState {
-	return MessageState{
-		ID: m.id, ConversationID: m.conversationID, SenderID: m.senderID, Body: m.body, Photos: m.Photos(),
-		ListingID: m.listingID, ReplyTo: m.replyTo, Deal: m.Deal(), Status: m.status, Failure: m.failure,
-		CreatedAt: m.createdAt,
-	}
+	st := m.s
+	st.Photos, st.Deal = m.Photos(), m.Deal()
+	return st
 }
 
 // ConversationKind is a pair's one chat, or one support ticket's chat with

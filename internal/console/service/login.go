@@ -27,7 +27,7 @@ const maxUserAgent = 500
 // wrong password or code keeps the charge; any other answer takes it back,
 // and a finished sign-in clears the count.
 func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
-	now := s.now()
+	now := s.d.Now()
 	m, key, err := s.checkPassword(ctx, in.Email, in.Password, now)
 	if err != nil {
 		return SignedIn{}, err
@@ -39,17 +39,17 @@ func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
 		if policyErr := m.CheckNewPassword(in.NewPassword); policyErr != nil {
 			return SignedIn{}, s.refund(ctx, key, now, policyErr)
 		}
-		m.SetPassword(s.keys.Hasher.Hash(in.NewPassword), now)
-		if err = s.members.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
+		m.SetPassword(s.d.Keys.Hasher.Hash(in.NewPassword), now)
+		if err = s.d.Members.Save(ctx, &m, uuid.NewV7(), nil); err != nil {
 			return SignedIn{}, saveFailed(err)
 		}
 	}
-	if !s.skipTOTP {
+	if !s.d.SkipTOTP {
 		if err = s.acceptCode(ctx, &m, key, in.Code, now); err != nil {
 			return SignedIn{}, err
 		}
 	}
-	if err = s.locks.Clear(ctx, key, now); err != nil {
+	if err = s.d.Locks.Clear(ctx, key, now); err != nil {
 		return SignedIn{}, fmt.Errorf("clear login lock: %w", err)
 	}
 	if r := []rune(in.UserAgent); len(r) > maxUserAgent {
@@ -60,7 +60,7 @@ func (s *Console) Login(ctx context.Context, in LoginInput) (SignedIn, error) {
 		ID: uuid.NewV7(), MemberID: m.ID(), TokenHash: hash, CredentialsVersion: m.CredentialsVersion(),
 		IP: in.IP, UserAgent: in.UserAgent, CreatedAt: now, ExpiresAt: now.Add(domain.SessionTTL),
 	}
-	if err = s.sessions.Create(ctx, sess); err != nil {
+	if err = s.d.Sessions.Create(ctx, sess); err != nil {
 		return SignedIn{}, fmt.Errorf("create console session: %w", err)
 	}
 	return SignedIn{Me: meOf(m), Token: tok}, nil
@@ -76,12 +76,12 @@ func (s *Console) acceptCode(ctx context.Context, m *domain.Member, key []byte, 
 		return s.refund(ctx, key, now, domain.ErrTOTPRequired)
 	}
 	if m.AcceptCode(code, now) != nil {
-		if err := s.locks.Fail(ctx, key, now); err != nil {
+		if err := s.d.Locks.Fail(ctx, key, now); err != nil {
 			return fmt.Errorf("record failed sign-in: %w", err)
 		}
 		return domain.ErrInvalidTOTPCode
 	}
-	if err := s.members.Save(ctx, m, uuid.NewV7(), nil); err != nil {
+	if err := s.d.Members.Save(ctx, m, uuid.NewV7(), nil); err != nil {
 		return saveFailed(err)
 	}
 	return nil
@@ -94,20 +94,20 @@ func (s *Console) acceptCode(ctx context.Context, m *domain.Member, key []byte, 
 // charge is still counted, and the caller refunds or keeps it.
 func (s *Console) checkPassword(ctx context.Context, email, password string, now time.Time) (domain.Member, []byte, error) {
 	email = contact.NormalizeEmail(email)
-	key := domain.LockKey(s.keys.Locks, email)
-	if err := s.locks.Charge(ctx, key, now); err != nil {
+	key := domain.LockKey(s.d.Keys.Locks, email)
+	if err := s.d.Locks.Charge(ctx, key, now); err != nil {
 		return domain.Member{}, nil, fmt.Errorf("charge login lock: %w", err)
 	}
-	m, err := s.members.FindByEmail(ctx, email)
+	m, err := s.d.Members.FindByEmail(ctx, email)
 	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		return domain.Member{}, nil, fmt.Errorf("find console member: %w", err)
 	}
-	hash := s.keys.dummy
+	hash := s.d.Keys.dummy
 	if err == nil {
 		hash = m.PasswordHash()
 	}
 	if !domain.VerifyPassword(hash, password) || err != nil || m.Status() != domain.StatusActive {
-		if failErr := s.locks.Fail(ctx, key, now); failErr != nil {
+		if failErr := s.d.Locks.Fail(ctx, key, now); failErr != nil {
 			return domain.Member{}, nil, fmt.Errorf("record failed sign-in: %w", failErr)
 		}
 		return domain.Member{}, nil, domain.ErrInvalidCredentials
@@ -118,7 +118,7 @@ func (s *Console) checkPassword(ctx context.Context, email, password string, now
 // refund takes back the charge of an attempt whose password was right and
 // returns refusal.
 func (s *Console) refund(ctx context.Context, key []byte, now time.Time, refusal error) error {
-	if err := s.locks.Refund(ctx, key, now); err != nil {
+	if err := s.d.Locks.Refund(ctx, key, now); err != nil {
 		return fmt.Errorf("refund login lock: %w", err)
 	}
 	return refusal

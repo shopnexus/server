@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/shopnexus/server/internal/erasure/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -23,13 +24,7 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 
 // DeleteAccount serves DELETE /v1/accounts/me.
 func (h *Handler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	if err := h.svc.DeleteAccount(r.Context(), p); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, _ httpx.None) (httpx.None, error) {
+		return httpx.None{}, h.svc.DeleteAccount(r.Context(), p)
+	})
 }

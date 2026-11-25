@@ -23,7 +23,7 @@ func (s *Account) FindByContact(ctx context.Context, q string) (uuid.UUID, bool,
 			return uuid.UUID{}, false, nil //nolint:nilerr // A q that is no address matches no account.
 		}
 	}
-	ref, err := s.credentials.FindIdentity(ctx, domain.Kind(addr.Kind()), addr.Value())
+	ref, err := s.d.Credentials.FindIdentity(ctx, domain.Kind(addr.Kind()), addr.Value())
 	if errors.Is(err, repository.ErrNotFound) {
 		return uuid.UUID{}, false, nil
 	}
@@ -36,7 +36,7 @@ func (s *Account) FindByContact(ctx context.Context, q string) (uuid.UUID, bool,
 // Identities lists an account's sign-in methods; an account without
 // credentials has none.
 func (s *Account) Identities(ctx context.Context, accountID uuid.UUID) ([]Identity, error) {
-	cr, err := s.credentials.Get(ctx, accountID)
+	cr, err := s.d.Credentials.Get(ctx, accountID)
 	if errors.Is(err, repository.ErrNotFound) {
 		return []Identity{}, nil
 	}
@@ -57,7 +57,7 @@ func identitiesOf(c domain.Credentials) []Identity {
 }
 
 func (s *Account) Locale(ctx context.Context, id uuid.UUID) (locale.Tag, error) {
-	tag, err := s.accounts.Locale(ctx, id)
+	tag, err := s.d.Accounts.Locale(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf("read locale: %w", err)
 	}
@@ -65,7 +65,7 @@ func (s *Account) Locale(ctx context.Context, id uuid.UUID) (locale.Tag, error) 
 }
 
 func (s *Account) Mailbox(ctx context.Context, id uuid.UUID) (Mailbox, error) {
-	addr, tag, err := s.accounts.Mailbox(ctx, id)
+	addr, tag, err := s.d.Accounts.Mailbox(ctx, id)
 	if err != nil {
 		return Mailbox{}, fmt.Errorf("read mailbox: %w", err)
 	}
@@ -76,7 +76,7 @@ func (s *Account) Mailbox(ctx context.Context, id uuid.UUID) (Mailbox, error) {
 // posting, opening a deal and opening a chat need. An account without
 // credentials has none.
 func (s *Account) HasPhone(ctx context.Context, id uuid.UUID) (bool, error) {
-	cr, err := s.credentials.Get(ctx, id)
+	cr, err := s.d.Credentials.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return false, nil
 	}

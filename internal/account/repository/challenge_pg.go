@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"time"
 	"uuid"
 
 	"github.com/jackc/pgx/v5"
@@ -61,27 +60,21 @@ FROM otp_challenges WHERE destination = @destination AND request_key = @request_
 
 func scanChallenge(row pgx.Row) (domain.Challenge, error) {
 	var (
-		cid, writeID         uuid.UUID
-		purpose              domain.Purpose
-		kind                 contact.Kind
-		dest                 string
-		accountID            *uuid.UUID
-		codeHash             []byte
-		attempts             int
-		ip                   netip.Prefix
-		expiresAt, createdAt time.Time
-		consumedAt           *time.Time
+		st   domain.ChallengeState
+		kind contact.Kind
+		dest string
+		ip   netip.Prefix
 	)
-	err := row.Scan(&cid, &purpose, &kind, &dest, &accountID, &codeHash,
-		&attempts, &ip, &expiresAt, &createdAt, &consumedAt, &writeID)
+	err := row.Scan(&st.ID, &st.Purpose, &kind, &dest, &st.AccountID, &st.CodeHash,
+		&st.Attempts, &ip, &st.ExpiresAt, &st.CreatedAt, &st.ConsumedAt, &st.WriteID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Challenge{}, ErrNotFound
 	}
 	if err != nil {
 		return domain.Challenge{}, fmt.Errorf("select challenge: %w", err)
 	}
-	return domain.RestoreChallenge(cid, purpose, contact.Restore(kind, dest), accountID, codeHash, attempts, ip.Addr(),
-		expiresAt, createdAt, consumedAt, writeID), nil
+	st.Dest, st.IP = contact.Restore(kind, dest), ip.Addr()
+	return domain.RestoreChallenge(st), nil
 }
 
 const saveChallenge = `

@@ -5,6 +5,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/chat/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
 )
@@ -42,133 +43,53 @@ type messagesRequest struct {
 
 // Open serves POST /v1/conversations.
 func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in openRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.Open(r.Context(), p.AccountID, in.Key, service.OpenInput{
-		ListingID: in.ListingID, Text: in.Text, Photos: in.Photos,
+	httpx.ServeCaller(w, r, h.log, http.StatusCreated, func(p authn.Principal, in openRequest) (service.ConversationView, error) {
+		return h.svc.Open(r.Context(), p.AccountID, in.Key, service.OpenInput{
+			ListingID: in.ListingID, Text: in.Text, Photos: in.Photos,
+		})
 	})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusCreated, v)
 }
 
 // Messages serves GET /v1/conversations/{id}/messages.
 func (h *Handler) Messages(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in messagesRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.Messages(r.Context(), p.AccountID, in.ID, in.Request)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in messagesRequest) (page.Page[service.MessageView], error) {
+		return h.svc.Messages(r.Context(), p.AccountID, in.ID, in.Request)
+	})
 }
 
 // Send serves POST /v1/conversations/{id}/messages.
 func (h *Handler) Send(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in sendRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.Send(r.Context(), p.AccountID, in.ID, in.Key, service.SendInput{
-		Text: in.Text, Photos: in.Photos, ListingID: in.ListingID, ReplyTo: in.ReplyTo,
+	httpx.ServeCaller(w, r, h.log, http.StatusCreated, func(p authn.Principal, in sendRequest) (service.MessageView, error) {
+		return h.svc.Send(r.Context(), p.AccountID, in.ID, in.Key, service.SendInput{
+			Text: in.Text, Photos: in.Photos, ListingID: in.ListingID, ReplyTo: in.ReplyTo,
+		})
 	})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusCreated, v)
 }
 
 // Read serves POST /v1/conversations/{id}/read.
 func (h *Handler) Read(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in readRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.Read(r.Context(), p.AccountID, in.ID, in.MessageID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in readRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.Read(r.Context(), p.AccountID, in.ID, in.MessageID)
+	})
 }
 
 // MarkUnread serves POST /v1/conversations/{id}/unread.
 func (h *Handler) MarkUnread(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in conversationRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.MarkUnread(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in conversationRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.MarkUnread(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 // Archive serves POST /v1/conversations/{id}/archive.
 func (h *Handler) Archive(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in conversationRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.Archive(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in conversationRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.Archive(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 // Unarchive serves POST /v1/conversations/{id}/unarchive.
 func (h *Handler) Unarchive(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in conversationRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.Unarchive(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in conversationRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.Unarchive(r.Context(), p.AccountID, in.ID)
+	})
 }

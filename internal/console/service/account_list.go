@@ -19,7 +19,7 @@ import (
 func (s *Console) ListAccounts(ctx context.Context, in AccountQuery, p page.Request) (AccountList, error) {
 	var out AccountList
 	if in.Suspended {
-		n, err := s.accounts.SuspendedCount(ctx)
+		n, err := s.d.Accounts.SuspendedCount(ctx)
 		if err != nil {
 			return AccountList{}, fmt.Errorf("count suspended accounts: %w", err)
 		}
@@ -27,14 +27,14 @@ func (s *Console) ListAccounts(ctx context.Context, in AccountQuery, p page.Requ
 	}
 	switch {
 	case in.Q == "" && in.Suspended:
-		list, err := s.accounts.SuspendedAccounts(ctx, p)
+		list, err := s.d.Accounts.SuspendedAccounts(ctx, p)
 		if err != nil {
 			return AccountList{}, fmt.Errorf("list suspended accounts: %w", err)
 		}
 		out.Page = list
 		return out, nil
 	case in.Q == "":
-		list, err := s.accounts.ConsoleAccounts(ctx, p)
+		list, err := s.d.Accounts.ConsoleAccounts(ctx, p)
 		if err != nil {
 			return AccountList{}, fmt.Errorf("list accounts: %w", err)
 		}
@@ -44,7 +44,7 @@ func (s *Console) ListAccounts(ctx context.Context, in AccountQuery, p page.Requ
 	out.Items = []accountsvc.ConsoleAccount{}
 	id, parseErr := uuid.Parse(in.Q)
 	if parseErr != nil {
-		found, ok, err := s.accounts.FindByContact(ctx, in.Q)
+		found, ok, err := s.d.Accounts.FindByContact(ctx, in.Q)
 		if err != nil {
 			return AccountList{}, fmt.Errorf("find account: %w", err)
 		}
@@ -53,7 +53,7 @@ func (s *Console) ListAccounts(ctx context.Context, in AccountQuery, p page.Requ
 		}
 		id = found
 	}
-	r, err := s.accounts.ConsoleAccount(ctx, id)
+	r, err := s.d.Accounts.ConsoleAccount(ctx, id)
 	if errors.Is(err, accountdomain.ErrAccountNotFound) {
 		return out, nil
 	}

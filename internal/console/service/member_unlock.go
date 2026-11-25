@@ -15,8 +15,8 @@ func (s *Console) UnlockMember(ctx context.Context, id uuid.UUID, by audit.Actor
 	if err != nil {
 		return MemberView{}, err
 	}
-	now := s.now()
-	err = s.locks.Unlock(ctx, domain.LockKey(s.keys.Locks, m.Email()), now, audit.Entry{Actor: by, Action: audit.MemberUnlock, Target: audit.Member(id), At: now})
+	now := s.d.Now()
+	err = s.d.Locks.Unlock(ctx, domain.LockKey(s.d.Keys.Locks, m.Email()), now, audit.Entry{Actor: by, Action: audit.MemberUnlock, Target: audit.Member(id), At: now})
 	if err != nil {
 		return MemberView{}, fmt.Errorf("unlock console member: %w", err)
 	}

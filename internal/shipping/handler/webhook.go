@@ -60,18 +60,14 @@ type devReport struct {
 // adds only for the fake carrier: a step of the parcel's, as its carrier
 // would report it now.
 func (h *Handler) DevReport(w http.ResponseWriter, r *http.Request) {
-	var in devReport
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	ev := carrier.Event{
-		Kind: carrier.KindStep, Step: in.Step, CarrierStatus: string(in.Step), Reason: in.Reason,
-		Warehouse: in.Warehouse, ShipperName: in.ShipperName, ShipperPhone: in.ShipperPhone, ProofURL: in.ProofURL,
-	}
-	if err := h.svc.DevReported(r.Context(), in.Code, ev); err != nil {
-		httpx.WriteError(w, r, h.log, fmt.Errorf("dev report: %w", err))
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.Serve(w, r, h.log, http.StatusNoContent, func(in devReport) (httpx.None, error) {
+		ev := carrier.Event{
+			Kind: carrier.KindStep, Step: in.Step, CarrierStatus: string(in.Step), Reason: in.Reason,
+			Warehouse: in.Warehouse, ShipperName: in.ShipperName, ShipperPhone: in.ShipperPhone, ProofURL: in.ProofURL,
+		}
+		if err := h.svc.DevReported(r.Context(), in.Code, ev); err != nil {
+			return httpx.None{}, fmt.Errorf("dev report: %w", err)
+		}
+		return httpx.None{}, nil
+	})
 }

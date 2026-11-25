@@ -7,6 +7,7 @@ import (
 
 	catalogsvc "github.com/shopnexus/server/internal/catalog/service"
 	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -28,19 +29,7 @@ func (h *Handler) UnhideListing(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) moderateListing(w http.ResponseWriter, r *http.Request,
 	change func(context.Context, uuid.UUID, audit.Actor) (catalogsvc.ReportedListing, error),
 ) {
-	caller, ok := httpx.ConsoleCaller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in listingRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := change(r.Context(), in.ID, audit.ByMember(caller))
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(caller authn.ConsoleMember, in listingRequest) (catalogsvc.ReportedListing, error) {
+		return change(r.Context(), in.ID, audit.ByMember(caller))
+	})
 }

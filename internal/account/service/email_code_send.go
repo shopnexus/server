@@ -26,7 +26,7 @@ func (s *Account) SendEmailCode(ctx context.Context, in SendEmailCodeInput) (Ema
 		}
 		purpose, accountID = domain.PurposeAddIdentity, &in.Caller.AccountID
 	}
-	c, err := s.challenges.ByKey(ctx, addr, in.Key)
+	c, err := s.d.Challenges.ByKey(ctx, addr, in.Key)
 	if err == nil {
 		return EmailCodeView{ChallengeID: c.ID(), ExpiresAt: c.ExpiresAt(), ResendAt: c.CreatedAt().Add(resend.Window)}, nil
 	}

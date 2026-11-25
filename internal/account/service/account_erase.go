@@ -20,7 +20,7 @@ func (s *Account) Erase(ctx context.Context, id uuid.UUID) error {
 		return domain.ErrSystemAccount
 	}
 	for range 2 {
-		now := s.now()
+		now := s.d.Now()
 		a, err := s.load(ctx, id)
 		if err != nil {
 			return err
@@ -29,7 +29,7 @@ func (s *Account) Erase(ctx context.Context, id uuid.UUID) error {
 		if err != nil || !changed {
 			return err
 		}
-		err = s.accounts.Erase(ctx, &a, uuid.NewV7(), events.Event{
+		err = s.d.Accounts.Erase(ctx, &a, uuid.NewV7(), events.Event{
 			ID: uuid.NewV7(), Kind: events.AccountDeleted, SubjectID: id, OccurredAt: now,
 		})
 		if errors.Is(err, repository.ErrConflict) {

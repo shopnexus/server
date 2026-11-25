@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"github.com/shopnexus/server/internal/console/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -13,16 +14,11 @@ type enrollmentRequest struct {
 
 // EnrollTOTP serves POST /v1/console/login/totp-enrollment.
 func (h *Handler) EnrollTOTP(w http.ResponseWriter, r *http.Request) {
-	var in enrollmentRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	enr, err := h.svc.EnrollTOTP(r.Context(), in.Email, in.Password)
-	if err != nil {
-		h.logRefusal(r, in.Email, err)
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, enr)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in enrollmentRequest) (service.Enrollment, error) {
+		enr, err := h.svc.EnrollTOTP(r.Context(), in.Email, in.Password)
+		if err != nil {
+			h.logRefusal(r, in.Email, err)
+		}
+		return enr, err
+	})
 }

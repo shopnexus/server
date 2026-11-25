@@ -32,8 +32,8 @@ func (s *Account) SignIn(ctx context.Context, in SignInInput) (SignedIn, error) 
 	// The language is a preference: a sign-in that names none keeps it, and
 	// one that cannot record it still signs in.
 	if in.Locale != "" {
-		if err = s.accounts.SetLocale(ctx, res.AccountID, string(in.Locale)); err != nil {
-			s.log.WarnContext(ctx, "record the locale", "err", err)
+		if err = s.d.Accounts.SetLocale(ctx, res.AccountID, string(in.Locale)); err != nil {
+			s.d.Log.WarnContext(ctx, "record the locale", "err", err)
 		}
 	}
 	tokens, err := s.issueSession(ctx, uuid.NewV7(), res.AccountID, in.Key, in.DeviceName)

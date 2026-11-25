@@ -16,7 +16,7 @@ import (
 // stops the next request. A session that does not live is
 // authn.ErrUnauthenticated.
 func (s *Console) Authenticate(ctx context.Context, tok string) (domain.Grant, error) {
-	g, err := s.sessions.Live(ctx, token.Hash(tok), s.now())
+	g, err := s.d.Sessions.Live(ctx, token.Hash(tok), s.d.Now())
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.Grant{}, authn.ErrUnauthenticated
 	}

@@ -45,17 +45,12 @@ const accountColumns = `id, coalesce(display_name, ''), coalesce(bio, ''), coale
 
 // scanAccount reads accountColumns.
 func scanAccount(row pgx.CollectableRow) (domain.Account, error) {
-	var (
-		id, writeID                             uuid.UUID
-		name, bio, avatarKey, reason            string
-		status                                  domain.Status
-		until, lastActive, deletedAt, awayUntil *time.Time
-		createdAt, updatedAt                    time.Time
-	)
-	if err := row.Scan(&id, &name, &bio, &avatarKey, &status, &until, &reason, &writeID, &createdAt, &updatedAt, &lastActive, &deletedAt, &awayUntil); err != nil {
+	var st domain.AccountState
+	if err := row.Scan(&st.ID, &st.DisplayName, &st.Bio, &st.AvatarKey, &st.Status, &st.SuspendedUntil, &st.SuspendReason,
+		&st.WriteID, &st.CreatedAt, &st.UpdatedAt, &st.LastActiveAt, &st.DeletedAt, &st.AwayUntil); err != nil {
 		return domain.Account{}, fmt.Errorf("scan account: %w", err)
 	}
-	return domain.RestoreAccount(id, name, bio, avatarKey, status, until, reason, writeID, createdAt, updatedAt, lastActive, deletedAt, awayUntil), nil
+	return domain.RestoreAccount(st), nil
 }
 
 func (s pgAccounts) Get(ctx context.Context, id uuid.UUID) (domain.Account, error) {

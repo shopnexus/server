@@ -61,10 +61,7 @@ type Recorded struct {
 }
 
 // Token is a session's push token.
-type Token struct {
-	Session uuid.UUID `json:"session"`
-	Token   string    `json:"token"`
-}
+type Token = repository.Token
 
 // Item is a notice as the list shows it.
 type Item struct {
@@ -91,14 +88,10 @@ type Deps struct {
 }
 
 // Notification implements Service in this process.
-type Notification struct {
-	notices  repository.Notices
-	settings repository.Settings
-	now      func() time.Time
-}
+type Notification struct{ d Deps }
 
 var _ Service = (*Notification)(nil)
 
 func New(d Deps) *Notification {
-	return &Notification{notices: d.Notices, settings: d.Settings, now: d.Now}
+	return &Notification{d: d}
 }

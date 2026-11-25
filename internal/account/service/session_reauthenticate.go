@@ -18,7 +18,7 @@ import (
 // reply would still hold the old one, and a refresh token presented after
 // its rotation signs the session out.
 func (s *Account) Reauthenticate(ctx context.Context, in ReauthenticateInput) (domain.AccessToken, error) {
-	now := s.now()
+	now := s.d.Now()
 	a, err := s.load(ctx, in.Caller.AccountID)
 	if err != nil {
 		return domain.AccessToken{}, err
@@ -26,7 +26,7 @@ func (s *Account) Reauthenticate(ctx context.Context, in ReauthenticateInput) (d
 	if err = a.CanWrite(now); err != nil {
 		return domain.AccessToken{}, err
 	}
-	sess, err := s.sessions.Get(ctx, in.Caller.SessionID)
+	sess, err := s.d.Sessions.Get(ctx, in.Caller.SessionID)
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.AccessToken{}, domain.ErrSessionRevoked
 	}
@@ -59,7 +59,7 @@ func (s *Account) Reauthenticate(ctx context.Context, in ReauthenticateInput) (d
 	// auth_time only moves forward, so a retry of the request is harmless.
 	// The session must still be usable at res.At, the time the proof was
 	// checked, which is later than now.
-	renewed, err := s.sessions.Reauthenticate(ctx, sess.ID(), res.At)
+	renewed, err := s.d.Sessions.Reauthenticate(ctx, sess.ID(), res.At)
 	if errors.Is(err, repository.ErrNotFound) {
 		// It expired or went idle by res.At, or was signed out since the
 		// check above.
@@ -71,7 +71,7 @@ func (s *Account) Reauthenticate(ctx context.Context, in ReauthenticateInput) (d
 	if err != nil {
 		return domain.AccessToken{}, fmt.Errorf("renew the sign-in time: %w", err)
 	}
-	access, exp, err := s.signer.Sign(renewed, now)
+	access, exp, err := s.d.Signer.Sign(renewed, now)
 	if err != nil {
 		return domain.AccessToken{}, fmt.Errorf("issue access token: %w", err)
 	}

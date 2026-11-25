@@ -68,8 +68,8 @@ type Row struct {
 	BumpedAt time.Time
 }
 
-// Token is a session's push token.
+// Token is a session's push token. The worker journals it.
 type Token struct {
-	Session uuid.UUID
-	Token   string
+	Session uuid.UUID `json:"session"`
+	Token   string    `json:"token"`
 }

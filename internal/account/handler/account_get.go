@@ -3,19 +3,14 @@ package handler
 import (
 	"net/http"
 
+	"github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
 // GetMe serves GET /v1/accounts/me.
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	v, err := h.svc.Me(r.Context(), p.AccountID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, _ httpx.None) (service.MeView, error) {
+		return h.svc.Me(r.Context(), p.AccountID)
+	})
 }

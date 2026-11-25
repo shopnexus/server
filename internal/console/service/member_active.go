@@ -14,7 +14,7 @@ import (
 // ActiveMember reads the member on every call, as Authenticate reads the
 // session, so a disable stops the agent's next read for that member.
 func (s *Console) ActiveMember(ctx context.Context, id uuid.UUID) (Me, error) {
-	m, err := s.members.Get(ctx, id)
+	m, err := s.d.Members.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return Me{}, authn.ErrUnauthenticated
 	}

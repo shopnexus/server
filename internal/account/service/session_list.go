@@ -11,7 +11,7 @@ import (
 
 // ListSessions lists the caller's devices, newest first.
 func (s *Account) ListSessions(ctx context.Context, p authn.Principal, req page.Request) (page.Page[SessionItem], error) {
-	rows, err := s.sessions.ListActive(ctx, p.AccountID, s.now(), req)
+	rows, err := s.d.Sessions.ListActive(ctx, p.AccountID, s.d.Now(), req)
 	if err != nil {
 		return page.Page[SessionItem]{}, fmt.Errorf("list sessions: %w", err)
 	}

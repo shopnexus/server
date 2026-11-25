@@ -21,7 +21,7 @@ const messagePublish = "MessagePublish"
 // sends the message, or fails it with the reason.
 type MessagePublish struct{ Chat *Chat }
 
-func (s MessagePublish) ServiceName() string { return s.Chat.prefix + messagePublish }
+func (s MessagePublish) ServiceName() string { return s.Chat.d.Prefix + messagePublish }
 
 // loadedMessage is what the load step found.
 type loadedMessage struct {
@@ -34,7 +34,7 @@ type loadedMessage struct {
 // it is.
 func (s MessagePublish) Run(ctx restate.Context, id uuid.UUID) error {
 	ld, err := restate.Run(ctx, func(rc restate.RunContext) (loadedMessage, error) {
-		m, stepErr := s.Chat.chats.GetMessage(rc, id)
+		m, stepErr := s.Chat.d.Chats.GetMessage(rc, id)
 		if errors.Is(stepErr, repository.ErrNotFound) {
 			return loadedMessage{}, nil
 		}
@@ -51,7 +51,7 @@ func (s MessagePublish) Run(ctx restate.Context, id uuid.UUID) error {
 	}
 	m := domain.RestoreMessage(ld.Message)
 	uploads := m.UploadIDs()
-	results, procErr := mediasvc.ProcessAll(ctx, s.Chat.prefix, uploads)
+	results, procErr := mediasvc.ProcessAll(ctx, s.Chat.d.Prefix, uploads)
 	if procErr != nil {
 		return fmt.Errorf("process uploads: %w", procErr)
 	}
@@ -71,7 +71,7 @@ func (s MessagePublish) Run(ctx restate.Context, id uuid.UUID) error {
 	}
 	// A message published already, by a retry, or gone meanwhile stays as it is.
 	if err = restate.RunVoid(ctx, func(rc restate.RunContext) error {
-		return restatex.Ignore(s.Chat.chats.SaveMessage(rc, m), repository.ErrNotFound)
+		return restatex.Ignore(s.Chat.d.Chats.SaveMessage(rc, m), repository.ErrNotFound)
 	}); err != nil {
 		return fmt.Errorf("save message: %w", err)
 	}

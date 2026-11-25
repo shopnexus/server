@@ -83,7 +83,7 @@ func (c *Chat) refs(ctx context.Context, viewer uuid.UUID, views []MessageView) 
 	var slugs []string
 	found, categories := false, false
 	for i := range views {
-		links[i] = domain.Links(views[i].Text, c.linkHosts)
+		links[i] = domain.Links(views[i].Text, c.d.LinkHosts)
 		found = found || len(links[i]) > 0
 		for _, l := range links[i] {
 			switch l.Kind {
@@ -108,9 +108,9 @@ func (c *Chat) refs(ctx context.Context, viewer uuid.UUID, views []MessageView) 
 		return nil
 	}
 	var ord map[uuid.UUID]OrderRef
-	if len(orders) > 0 && c.orders != nil {
+	if len(orders) > 0 && c.d.Orders != nil {
 		var err error
-		if ord, err = c.orders(ctx, orders); err != nil {
+		if ord, err = c.d.Orders(ctx, orders); err != nil {
 			return fmt.Errorf("read the linked orders: %w", err)
 		}
 		for id, o := range ord {
@@ -121,7 +121,7 @@ func (c *Chat) refs(ctx context.Context, viewer uuid.UUID, views []MessageView) 
 			listings = append(listings, o.ListingID)
 		}
 	}
-	bySlug, err := c.catalog.IDsBySlug(ctx, slugs)
+	bySlug, err := c.d.Catalog.IDsBySlug(ctx, slugs)
 	if err != nil {
 		return fmt.Errorf("find the linked listings: %w", err)
 	}
@@ -133,17 +133,17 @@ func (c *Chat) refs(ctx context.Context, viewer uuid.UUID, views []MessageView) 
 			}
 		}
 	}
-	sums, err := c.catalog.Summaries(ctx, listings)
+	sums, err := c.d.Catalog.Summaries(ctx, listings)
 	if err != nil {
 		return fmt.Errorf("read the linked listings: %w", err)
 	}
-	accounts, err := c.accounts.GetMany(ctx, people)
+	accounts, err := c.d.Accounts.GetMany(ctx, people)
 	if err != nil {
 		return fmt.Errorf("read the linked people: %w", err)
 	}
 	names := map[string]string{}
 	if categories {
-		all, err := c.catalog.Categories(ctx, locale.Vietnamese)
+		all, err := c.d.Catalog.Categories(ctx, locale.Vietnamese)
 		if err != nil {
 			return fmt.Errorf("read the categories: %w", err)
 		}

@@ -31,7 +31,27 @@ import (
 
 // Service is module account's contract.
 type Service interface {
-	Sessions
+	// SignIn checks a proof, finds or creates the account and starts a
+	// session.
+	SignIn(ctx context.Context, in SignInInput) (SignedIn, error)
+	// Refresh rotates a refresh token.
+	Refresh(ctx context.Context, refreshToken string) (domain.Tokens, error)
+	// Reauthenticate checks a proof of the caller's own account without
+	// creating one, renews the sign-in time of the caller's session and
+	// returns an access token that carries the new time.
+	Reauthenticate(ctx context.Context, in ReauthenticateInput) (domain.AccessToken, error)
+	// DeleteCurrentSession revokes the caller's session.
+	DeleteCurrentSession(ctx context.Context, p authn.Principal) error
+	// DeleteOtherSessions signs out every session of the caller's account
+	// but the caller's own.
+	DeleteOtherSessions(ctx context.Context, p authn.Principal) error
+	// DeleteSession signs one of the caller's devices out.
+	DeleteSession(ctx context.Context, p authn.Principal, id uuid.UUID) error
+	// ListSessions lists the caller's devices, newest first.
+	ListSessions(ctx context.Context, p authn.Principal, req page.Request) (page.Page[SessionItem], error)
+	// ActiveSessions returns which of ids are neither revoked nor expired;
+	// notification pushes only to their tokens.
+	ActiveSessions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error)
 
 	// Get reads an account.
 	Get(ctx context.Context, id uuid.UUID) (AccountView, error)
@@ -149,32 +169,6 @@ type Service interface {
 	DeleteAddress(ctx context.Context, owner, id uuid.UUID) error
 }
 
-// Sessions is the part of Service that signs people in and keeps their
-// sessions.
-type Sessions interface {
-	// SignIn checks a proof, finds or creates the account and starts a
-	// session.
-	SignIn(ctx context.Context, in SignInInput) (SignedIn, error)
-	// Refresh rotates a refresh token.
-	Refresh(ctx context.Context, refreshToken string) (domain.Tokens, error)
-	// Reauthenticate checks a proof of the caller's own account without
-	// creating one, renews the sign-in time of the caller's session and
-	// returns an access token that carries the new time.
-	Reauthenticate(ctx context.Context, in ReauthenticateInput) (domain.AccessToken, error)
-	// DeleteCurrentSession revokes the caller's session.
-	DeleteCurrentSession(ctx context.Context, p authn.Principal) error
-	// DeleteOtherSessions signs out every session of the caller's account
-	// but the caller's own.
-	DeleteOtherSessions(ctx context.Context, p authn.Principal) error
-	// DeleteSession signs one of the caller's devices out.
-	DeleteSession(ctx context.Context, p authn.Principal, id uuid.UUID) error
-	// ListSessions lists the caller's devices, newest first.
-	ListSessions(ctx context.Context, p authn.Principal, req page.Request) (page.Page[SessionItem], error)
-	// ActiveSessions returns which of ids are neither revoked nor expired;
-	// notification pushes only to their tokens.
-	ActiveSessions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]bool, error)
-}
-
 // TokenVerifier checks a sign-in token and returns the address it proves:
 // provider/firebase for phone tokens and provider/google for Google ID
 // tokens in the app. A token that fails a check is an *apperr.Error of
@@ -207,22 +201,7 @@ type Deps struct {
 
 // Account implements Service in this process.
 type Account struct {
-	accounts    repository.Accounts
-	follows     repository.Follows
-	addresses   repository.Addresses
-	credentials repository.Credentials
-	sessions    repository.Sessions
-	signer      domain.Signer
-	phones      TokenVerifier
-	google      TokenVerifier
-	challenges  repository.Challenges
-	quotas      repository.Quotas
-	codes       domain.Codes
-	mail        mailview.Mailer
-	media       mediasvc.Service
-	prefix      string
-	now         func() time.Time
-	log         *slog.Logger
+	d Deps
 
 	signIn         restatex.Caller[ProvenSignIn, SignInResult]
 	emailCodeSend  restatex.Caller[EmailCodeInput, EmailCodeResult]
@@ -238,9 +217,7 @@ const runHandler = "Run"
 // New builds Account from d.
 func New(d Deps) *Account {
 	return &Account{
-		accounts: d.Accounts, follows: d.Follows, addresses: d.Addresses, credentials: d.Credentials, sessions: d.Sessions, signer: d.Signer, phones: d.Phones,
-		google: d.Google, challenges: d.Challenges, quotas: d.Quotas, codes: d.Codes, mail: d.Mail,
-		media: d.Media, prefix: d.Prefix, now: d.Now, log: d.Log,
+		d:      d,
 		signIn: restatex.Caller[ProvenSignIn, SignInResult]{Ingress: d.Ingress, Service: d.Prefix + signInService, Handler: runHandler},
 		emailCodeSend: restatex.Caller[EmailCodeInput, EmailCodeResult]{
 			Ingress: d.Ingress, Service: d.Prefix + emailCodeSendService, Handler: runHandler,
@@ -257,11 +234,11 @@ func New(d Deps) *Account {
 // Durable returns the Restate services Account calls, for Mount to bind.
 func (s *Account) Durable() []restate.ServiceDefinition {
 	return []restate.ServiceDefinition{
-		restate.Reflect(SignIn{Prefix: s.prefix, Accounts: s.accounts, Credentials: s.credentials, Challenges: s.challenges, Now: s.now}),
+		restate.Reflect(SignIn{Prefix: s.d.Prefix, Accounts: s.d.Accounts, Credentials: s.d.Credentials, Challenges: s.d.Challenges, Now: s.d.Now}),
 		restate.Reflect(EmailCodeSend{
-			Prefix: s.prefix, Quotas: s.quotas, Challenges: s.challenges, Codes: s.codes, Mail: s.mail, Now: s.now, Log: s.log,
+			Prefix: s.d.Prefix, Quotas: s.d.Quotas, Challenges: s.d.Challenges, Codes: s.d.Codes, Mail: s.d.Mail, Now: s.d.Now, Log: s.d.Log,
 		}),
-		restate.Reflect(AddIdentity{Prefix: s.prefix, Challenges: s.challenges, Credentials: s.credentials, Now: s.now}),
-		restate.Reflect(Reauthenticate{Prefix: s.prefix, Credentials: s.credentials, Challenges: s.challenges, Now: s.now}),
+		restate.Reflect(AddIdentity{Prefix: s.d.Prefix, Challenges: s.d.Challenges, Credentials: s.d.Credentials, Now: s.d.Now}),
+		restate.Reflect(Reauthenticate{Prefix: s.d.Prefix, Credentials: s.d.Credentials, Challenges: s.d.Challenges, Now: s.d.Now}),
 	}
 }

@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Deals) BuyerOrders(ctx context.Context, buyer uuid.UUID) (domain.BuyerOrders, error) {
-	n, err := s.deals.BuyerOrders(ctx, buyer, s.now().Add(-domain.BuyerPeriod))
+	n, err := s.d.Deals.BuyerOrders(ctx, buyer, s.d.Now().Add(-domain.BuyerPeriod))
 	if err != nil {
 		return domain.BuyerOrders{}, fmt.Errorf("count orders: %w", err)
 	}
@@ -18,7 +18,7 @@ func (s *Deals) BuyerOrders(ctx context.Context, buyer uuid.UUID) (domain.BuyerO
 }
 
 func (s *Deals) AwaitingShipment(ctx context.Context, seller uuid.UUID) (int, error) {
-	n, err := s.deals.AwaitingShipment(ctx, seller)
+	n, err := s.d.Deals.AwaitingShipment(ctx, seller)
 	if err != nil {
 		return 0, fmt.Errorf("count pending sales: %w", err)
 	}
@@ -26,7 +26,7 @@ func (s *Deals) AwaitingShipment(ctx context.Context, seller uuid.UUID) (int, er
 }
 
 func (s *Deals) CountOrders(ctx context.Context, since time.Time) (map[domain.OrderStatus]int, error) {
-	n, err := s.deals.CountOrders(ctx, since)
+	n, err := s.d.Deals.CountOrders(ctx, since)
 	if err != nil {
 		return nil, fmt.Errorf("count orders: %w", err)
 	}

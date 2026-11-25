@@ -9,6 +9,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/apperr"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/provider/carrier"
 	"github.com/shopnexus/server/internal/shipping/domain"
@@ -90,121 +91,61 @@ type quote struct {
 
 // List serves GET /v1/carrier-accounts.
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	list, err := h.svc.Accounts(r.Context(), p.AccountID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, list)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, _ httpx.None) (service.AccountList, error) {
+		return h.svc.Accounts(r.Context(), p.AccountID)
+	})
 }
 
 // Link serves PUT /v1/carrier-accounts/{carrier}. GHTK takes an email and
 // a password, GHN a token and a ShopId or a phone and its code; the other
 // carrier's body is invalid_carrier.
 func (h *Handler) Link(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in linkRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	ghtkBody := in.Email != "" || in.Password != ""
-	ghnBody := in.Token != "" || in.ShopID != "" || in.Phone != "" || in.OTP != ""
-	if (in.Carrier == string(carrier.GHTK) && (!ghtkBody || ghnBody)) || (in.Carrier == string(carrier.GHN) && ghtkBody) {
-		httpx.WriteError(w, r, h.log, domain.ErrInvalidCarrier.WithField("body", apperr.NotAllowed, "carrier"))
-		return
-	}
-	v, err := h.svc.Link(r.Context(), p.AccountID, in.Carrier,
-		carrier.Credentials{Email: in.Email, Password: in.Password, Token: in.Token, ShopID: in.ShopID, Phone: in.Phone, OTP: in.OTP})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in linkRequest) (service.AccountView, error) {
+		ghtkBody := in.Email != "" || in.Password != ""
+		ghnBody := in.Token != "" || in.ShopID != "" || in.Phone != "" || in.OTP != ""
+		if (in.Carrier == string(carrier.GHTK) && (!ghtkBody || ghnBody)) || (in.Carrier == string(carrier.GHN) && ghtkBody) {
+			return service.AccountView{}, domain.ErrInvalidCarrier.WithField("body", apperr.NotAllowed, "carrier")
+		}
+		return h.svc.Link(r.Context(), p.AccountID, in.Carrier,
+			carrier.Credentials{Email: in.Email, Password: in.Password, Token: in.Token, ShopID: in.ShopID, Phone: in.Phone, OTP: in.OTP})
+	})
 }
 
 // SendOTP serves POST /v1/carrier-accounts/{carrier}/otp.
 func (h *Handler) SendOTP(w http.ResponseWriter, r *http.Request) {
-	if _, ok := httpx.Caller(w, r, h.log); !ok {
-		return
-	}
-	var in otpRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.SendOTP(r.Context(), in.Carrier, in.Phone); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(_ authn.Principal, in otpRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.SendOTP(r.Context(), in.Carrier, in.Phone)
+	})
 }
 
 // Unlink serves DELETE /v1/carrier-accounts/{carrier}.
 func (h *Handler) Unlink(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in carrierPath
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.Unlink(r.Context(), p.AccountID, in.Carrier); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in carrierPath) (httpx.None, error) {
+		return httpx.None{}, h.svc.Unlink(r.Context(), p.AccountID, in.Carrier)
+	})
 }
 
 // Pickups serves GET /v1/carrier-accounts/{carrier}/pickups.
 func (h *Handler) Pickups(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in carrierPath
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	pts, err := h.svc.Pickups(r.Context(), p.AccountID, in.Carrier)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out := pickupList{Items: make([]pickupPoint, 0, len(pts))}
-	for _, pt := range pts {
-		out.Items = append(out.Items, pickupPoint{ID: pt.ID, Name: pt.Name, Phone: pt.Phone, Address: pt.Address})
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in carrierPath) (pickupList, error) {
+		pts, err := h.svc.Pickups(r.Context(), p.AccountID, in.Carrier)
+		if err != nil {
+			return pickupList{}, err
+		}
+		out := pickupList{Items: make([]pickupPoint, 0, len(pts))}
+		for _, pt := range pts {
+			out.Items = append(out.Items, pickupPoint{ID: pt.ID, Name: pt.Name, Phone: pt.Phone, Address: pt.Address})
+		}
+		return out, nil
+	})
 }
 
 // Quote serves GET /v1/shipments/quote.
 func (h *Handler) Quote(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in quoteRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	fee, err := h.svc.Quote(r.Context(), p.AccountID, in.Carrier, service.QuoteRequest{
-		SavedPickup: in.SavedPickup, OrderID: in.OrderID, Service: in.Service, WeightGrams: in.WeightGrams, PickupPointID: in.PickupPointID, AddressID: in.AddressID,
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in quoteRequest) (quote, error) {
+		fee, err := h.svc.Quote(r.Context(), p.AccountID, in.Carrier, service.QuoteRequest{
+			SavedPickup: in.SavedPickup, OrderID: in.OrderID, Service: in.Service, WeightGrams: in.WeightGrams, PickupPointID: in.PickupPointID, AddressID: in.AddressID,
+		})
+		return quote{Fee: fee}, err
 	})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, quote{Fee: fee})
 }

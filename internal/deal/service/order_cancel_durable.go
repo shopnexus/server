@@ -15,11 +15,11 @@ const dealCancelOrder = "DealCancelOrder"
 // negotiates again.
 type DealCancelOrder struct{ Deals *Deals }
 
-func (s DealCancelOrder) ServiceName() string { return s.Deals.prefix + dealCancelOrder }
+func (s DealCancelOrder) ServiceName() string { return s.Deals.d.Prefix + dealCancelOrder }
 
 // Run is UC-DEAL-06.
 func (s DealCancelOrder) Run(ctx restate.Context, in FlowInput) (FlowResult, error) {
-	at, err := restatex.Now(ctx, s.Deals.now)
+	at, err := restatex.Now(ctx, s.Deals.d.Now)
 	if err != nil {
 		return FlowResult{}, err
 	}
@@ -34,12 +34,12 @@ func (s DealCancelOrder) Run(ctx restate.Context, in FlowInput) (FlowResult, err
 	if err = d.CancelPendingOrder(m.By, in.OrderID, at); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
-	refused, err := saveStep(ctx, s.Deals.deals, &d, in.Key, at)
+	refused, err := saveStep(ctx, s.Deals.d.Deals, &d, in.Key, at)
 	if err != nil {
 		return FlowResult{}, err
 	}
 	// A racing try of this cancel that saved first answers as it did.
-	moved, err := keyMovedStep(ctx, s.Deals.deals, refused, in.DealID, m.By, in.Key)
+	moved, err := keyMovedStep(ctx, s.Deals.d.Deals, refused, in.DealID, m.By, in.Key)
 	if err != nil || moved {
 		return FlowResult{}, err
 	}

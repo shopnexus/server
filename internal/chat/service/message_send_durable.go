@@ -69,10 +69,10 @@ type facts struct {
 // that refuses deletes the message again.
 type MessageSend struct{ Chat *Chat }
 
-func (s MessageSend) ServiceName() string { return s.Chat.prefix + messageSend }
+func (s MessageSend) ServiceName() string { return s.Chat.d.Prefix + messageSend }
 
 func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, error) {
-	at, err := restatex.Now(ctx, s.Chat.now)
+	at, err := restatex.Now(ctx, s.Chat.d.Now)
 	if err != nil {
 		return SendResult{}, err
 	}
@@ -80,16 +80,16 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	f, err := restate.Run(ctx, func(rc restate.RunContext) (facts, error) {
 		var out facts
 		var stepErr error
-		if out.Status, stepErr = s.Chat.accounts.Status(rc, in.Sender); stepErr != nil {
+		if out.Status, stepErr = s.Chat.d.Accounts.Status(rc, in.Sender); stepErr != nil {
 			return facts{}, fmt.Errorf("read account status: %w", stepErr)
 		}
 		if in.Opening {
-			if out.HasPhone, stepErr = s.Chat.accounts.HasPhone(rc, in.Sender); stepErr != nil {
+			if out.HasPhone, stepErr = s.Chat.d.Accounts.HasPhone(rc, in.Sender); stepErr != nil {
 				return facts{}, fmt.Errorf("read the sender's phone: %w", stepErr)
 			}
 		}
 		if in.ListingID != nil {
-			l, ok, readErr := s.Chat.catalog.Summary(rc, *in.ListingID)
+			l, ok, readErr := s.Chat.d.Catalog.Summary(rc, *in.ListingID)
 			if readErr != nil {
 				return facts{}, fmt.Errorf("read listing: %w", readErr)
 			}
@@ -103,7 +103,7 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 				other = out.Listing.SellerID
 			}
 		} else {
-			conv, getErr := s.Chat.chats.Get(rc, in.ConversationID)
+			conv, getErr := s.Chat.d.Chats.Get(rc, in.ConversationID)
 			if getErr != nil && !errors.Is(getErr, repository.ErrNotFound) {
 				return facts{}, fmt.Errorf("get conversation: %w", getErr)
 			}
@@ -112,7 +112,7 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 			}
 		}
 		if in.ReplyTo != nil {
-			q, getErr := s.Chat.chats.GetMessage(rc, *in.ReplyTo)
+			q, getErr := s.Chat.d.Chats.GetMessage(rc, *in.ReplyTo)
 			if getErr != nil && !errors.Is(getErr, repository.ErrNotFound) {
 				return facts{}, fmt.Errorf("read the quoted message: %w", getErr)
 			}
@@ -120,10 +120,10 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 				q.Deal() == nil
 		}
 		if other != (uuid.UUID{}) {
-			if out.Blocked, stepErr = s.Chat.accounts.Blocked(rc, in.Sender, other); stepErr != nil {
+			if out.Blocked, stepErr = s.Chat.d.Accounts.Blocked(rc, in.Sender, other); stepErr != nil {
 				return facts{}, fmt.Errorf("check block: %w", stepErr)
 			}
-			otherStatus, statusErr := s.Chat.accounts.Status(rc, other)
+			otherStatus, statusErr := s.Chat.d.Accounts.Status(rc, other)
 			if statusErr != nil {
 				return facts{}, fmt.Errorf("read the other's status: %w", statusErr)
 			}
@@ -166,7 +166,7 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	conv := f.Conversation
 	if in.Opening {
 		opened, openErr := restate.Run(ctx, func(rc restate.RunContext) (domain.Conversation, error) {
-			return s.Chat.chats.OpenPair(rc, domain.NewConversation(newConversation, in.Sender, f.Listing.SellerID, at))
+			return s.Chat.d.Chats.OpenPair(rc, domain.NewConversation(newConversation, in.Sender, f.Listing.SellerID, at))
 		})
 		if openErr != nil {
 			return SendResult{}, fmt.Errorf("open conversation: %w", openErr)
@@ -181,7 +181,7 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	// A racing retry of this request may have sent its message: that one
 	// is the answer, and its run attaches the photos (NFR-IDEM-01).
 	added, err := restate.Run(ctx, func(rc restate.RunContext) (uuid.UUID, error) {
-		return s.Chat.chats.AddMessage(rc, msg, in.Key)
+		return s.Chat.d.Chats.AddMessage(rc, msg, in.Key)
 	})
 	if err != nil {
 		return SendResult{}, fmt.Errorf("add message: %w", err)
@@ -192,18 +192,18 @@ func (s MessageSend) Run(ctx restate.Context, in SendFlowInput) (SendResult, err
 	if len(in.Photos) > 0 {
 		attachWrite := restatex.NewID(ctx, at)
 		attached, attachErr := restate.Run(ctx, func(rc restate.RunContext) (restatex.Refused, error) {
-			return restatex.AsRefusal(s.Chat.media.Attach(rc, in.Sender, msg.ID(), in.Photos, attachWrite))
+			return restatex.AsRefusal(s.Chat.d.Media.Attach(rc, in.Sender, msg.ID(), in.Photos, attachWrite))
 		})
 		if attachErr != nil {
 			return SendResult{}, fmt.Errorf("attach photos: %w", attachErr)
 		}
 		if attached.Refusal != nil {
-			if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Chat.chats.DeleteMessage(rc, msg.ID()) }); err != nil {
+			if err = restate.RunVoid(ctx, func(rc restate.RunContext) error { return s.Chat.d.Chats.DeleteMessage(rc, msg.ID()) }); err != nil {
 				return SendResult{}, fmt.Errorf("delete message: %w", err)
 			}
 			return SendResult{Refused: attached.Refusal}, nil
 		}
-		restate.ServiceSend(ctx, s.Chat.prefix+messagePublish, "Run").
+		restate.ServiceSend(ctx, s.Chat.d.Prefix+messagePublish, "Run").
 			Send(msg.ID(), restate.WithIdempotencyKey(msg.ID().String()))
 	}
 	return SendResult{ConversationID: conv.ID, MessageID: msg.ID()}, nil

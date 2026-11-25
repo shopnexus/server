@@ -29,7 +29,7 @@ func (s pgQuotas) Get(ctx context.Context, key string) (domain.Quota, error) {
 	if err != nil {
 		return domain.Quota{}, fmt.Errorf("select quota: %w", err)
 	}
-	return domain.RestoreQuota(key, sentAt, writeID), nil
+	return domain.RestoreQuota(domain.QuotaState{Key: key, SentAt: sentAt, WriteID: writeID}), nil
 }
 
 // saveQuota inserts a new quota or updates one whose write_id matches. A quota

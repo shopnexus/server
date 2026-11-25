@@ -36,11 +36,11 @@ type buyerFacts struct {
 // one of the buyer's addresses, then schedules the seller's timeout.
 type DealRequestCod struct{ Deals *Deals }
 
-func (s DealRequestCod) ServiceName() string { return s.Deals.prefix + dealRequestCod }
+func (s DealRequestCod) ServiceName() string { return s.Deals.d.Prefix + dealRequestCod }
 
 // Run is UC-DEAL-03.
 func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error) {
-	at, err := restatex.Now(ctx, s.Deals.now)
+	at, err := restatex.Now(ctx, s.Deals.d.Now)
 	if err != nil {
 		return FlowResult{}, err
 	}
@@ -52,7 +52,7 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 	// E1 · BR-MOD-02, and E2: someone else's address is
 	// accountdomain.ErrAddressNotFound.
 	b, err := restate.Run(ctx, func(rc restate.RunContext) (buyerFacts, error) {
-		status, stepErr := s.Deals.accounts.Status(rc, in.Caller)
+		status, stepErr := s.Deals.d.Accounts.Status(rc, in.Caller)
 		if stepErr != nil {
 			return buyerFacts{}, fmt.Errorf("read account status: %w", stepErr)
 		}
@@ -61,7 +61,7 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 		}
 		// A new order waits on the seller, who must not be away.
 		if m.By == domain.Buyer {
-			away, awayErr := s.Deals.accounts.Away(rc, m.Deal.SellerID)
+			away, awayErr := s.Deals.d.Accounts.Away(rc, m.Deal.SellerID)
 			if awayErr != nil {
 				return buyerFacts{}, fmt.Errorf("read the seller's away mode: %w", awayErr)
 			}
@@ -69,7 +69,7 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 				return buyerFacts{Refused: domain.ErrSellerAway}, nil
 			}
 		}
-		a, stepErr := s.Deals.accounts.Address(rc, in.Caller, in.AddressID)
+		a, stepErr := s.Deals.d.Accounts.Address(rc, in.Caller, in.AddressID)
 		if stepErr != nil {
 			refused, faultErr := restatex.AsRefusal(stepErr)
 			if faultErr != nil {
@@ -95,20 +95,20 @@ func (s DealRequestCod) Run(ctx restate.Context, in CodInput) (FlowResult, error
 	if err = d.RequestCod(m.By, order, in.Price, b.Recipient, facts(m.Listing), at); err != nil {
 		return FlowResult{Refused: apperr.From(err)}, nil
 	}
-	refused, err := saveStep(ctx, s.Deals.deals, &d, in.Key, at)
+	refused, err := saveStep(ctx, s.Deals.d.Deals, &d, in.Key, at)
 	if err != nil {
 		return FlowResult{}, err
 	}
 	if refused != nil {
 		// A racing try of this request that saved first answers as it did.
-		moved, movedErr := keyMovedStep(ctx, s.Deals.deals, refused, in.DealID, m.By, in.Key)
+		moved, movedErr := keyMovedStep(ctx, s.Deals.d.Deals, refused, in.DealID, m.By, in.Key)
 		if movedErr != nil || moved {
 			return FlowResult{}, movedErr
 		}
 		return FlowResult{Refused: refused}, nil
 	}
 	// UC-DEAL-06 A1: the seller's timeout.
-	restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "SellerTimeout").
-		Send(OrderRef{DealID: in.DealID, OrderID: order}, restate.WithDelay(s.Deals.waits.Seller))
+	restate.ServiceSend(ctx, s.Deals.d.Prefix+orderTimers, "SellerTimeout").
+		Send(OrderRef{DealID: in.DealID, OrderID: order}, restate.WithDelay(s.Deals.d.Waits.Seller))
 	return FlowResult{}, nil
 }

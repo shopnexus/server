@@ -5,6 +5,8 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/deal/domain"
+	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
 )
@@ -59,133 +61,49 @@ func (h *Handler) Open(w http.ResponseWriter, r *http.Request) {
 
 // ListMine serves GET /v1/me/deals.
 func (h *Handler) ListMine(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in listMineRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.ListMine(r.Context(), p.AccountID, in.Role.Party(), in.Request)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in listMineRequest) (page.Page[service.DealView], error) {
+		return h.svc.ListMine(r.Context(), p.AccountID, in.Role.Party(), in.Request)
+	})
 }
 
 // Get serves GET /v1/deals/{id}.
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in dealRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.Get(r.Context(), p.AccountID, in.ID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in dealRequest) (service.DealView, error) {
+		return h.svc.Get(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 // Offer serves POST /v1/deals/{id}/offer.
 func (h *Handler) Offer(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in offerRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.Offer(r.Context(), p.AccountID, in.ID, in.Amount)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in offerRequest) (service.DealView, error) {
+		return h.svc.Offer(r.Context(), p.AccountID, in.ID, in.Amount)
+	})
 }
 
 // Accept serves POST /v1/deals/{id}/accept.
 func (h *Handler) Accept(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in acceptRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.Accept(r.Context(), p.AccountID, in.ID, in.Price)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in acceptRequest) (service.DealView, error) {
+		return h.svc.Accept(r.Context(), p.AccountID, in.ID, in.Price)
+	})
 }
 
 // Decline serves POST /v1/deals/{id}/decline.
 func (h *Handler) Decline(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in dealRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.Decline(r.Context(), p.AccountID, in.ID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in dealRequest) (service.DealView, error) {
+		return h.svc.Decline(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 // Withdraw serves POST /v1/deals/{id}/withdraw.
 func (h *Handler) Withdraw(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in dealRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.Withdraw(r.Context(), p.AccountID, in.ID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in dealRequest) (service.DealView, error) {
+		return h.svc.Withdraw(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 // Cancel serves POST /v1/deals/{id}/cancel.
 func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in dealRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.Cancel(r.Context(), p.AccountID, in.ID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in dealRequest) (service.DealView, error) {
+		return h.svc.Cancel(r.Context(), p.AccountID, in.ID)
+	})
 }

@@ -7,6 +7,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -33,22 +34,10 @@ func (n *nullable[T]) UnmarshalJSON(b []byte) error {
 
 // Update serves PATCH /v1/accounts/me.
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in updateRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.Update(r.Context(), p.AccountID, service.UpdateInput{
-		DisplayName: in.DisplayName, Bio: in.Bio, Avatar: in.AvatarUploadID.Value, RemoveAvatar: in.AvatarUploadID.Null,
-		AwayUntil: in.AwayUntil.Value, ClearAway: in.AwayUntil.Null,
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in updateRequest) (service.AccountView, error) {
+		return h.svc.Update(r.Context(), p.AccountID, service.UpdateInput{
+			DisplayName: in.DisplayName, Bio: in.Bio, Avatar: in.AvatarUploadID.Value, RemoveAvatar: in.AvatarUploadID.Null,
+			AwayUntil: in.AwayUntil.Value, ClearAway: in.AwayUntil.Null,
+		})
 	})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
 }

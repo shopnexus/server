@@ -5,6 +5,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/platform/audit"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
 	supportdomain "github.com/shopnexus/server/internal/support/domain"
@@ -20,21 +21,13 @@ type queueRequest struct {
 
 // ListTickets serves GET /v1/console/support/tickets.
 func (h *Handler) ListTickets(w http.ResponseWriter, r *http.Request) {
-	var in queueRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	var kind *supportdomain.Kind
-	if in.Kind != "" {
-		kind = new(supportdomain.Kind(in.Kind))
-	}
-	out, err := h.support.Queue(r.Context(), supportdomain.Status(in.Status), kind, page.Request{Cursor: in.Cursor, Limit: in.Limit})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in queueRequest) (page.Page[supportsvc.ConsoleTicket], error) {
+		var kind *supportdomain.Kind
+		if in.Kind != "" {
+			kind = new(supportdomain.Kind(in.Kind))
+		}
+		return h.support.Queue(r.Context(), supportdomain.Status(in.Status), kind, page.Request{Cursor: in.Cursor, Limit: in.Limit})
+	})
 }
 
 type ticketRequest struct {
@@ -43,17 +36,9 @@ type ticketRequest struct {
 
 // GetTicket serves GET /v1/console/support/tickets/{id}.
 func (h *Handler) GetTicket(w http.ResponseWriter, r *http.Request) {
-	var in ticketRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.support.Detail(r.Context(), in.ID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in ticketRequest) (supportsvc.ConsoleTicketDetail, error) {
+		return h.support.Detail(r.Context(), in.ID)
+	})
 }
 
 type ticketMessagesRequest struct {
@@ -64,17 +49,9 @@ type ticketMessagesRequest struct {
 
 // ListTicketMessages serves GET /v1/console/support/tickets/{id}/messages.
 func (h *Handler) ListTicketMessages(w http.ResponseWriter, r *http.Request) {
-	var in ticketMessagesRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.support.Messages(r.Context(), in.ID, page.Request{Cursor: in.Cursor, Limit: in.Limit})
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in ticketMessagesRequest) (page.Page[supportsvc.ConsoleMessage], error) {
+		return h.support.Messages(r.Context(), in.ID, page.Request{Cursor: in.Cursor, Limit: in.Limit})
+	})
 }
 
 type replyRequest struct {
@@ -86,68 +63,30 @@ type replyRequest struct {
 
 // ReplyTicket serves POST /v1/console/support/tickets/{id}/replies.
 func (h *Handler) ReplyTicket(w http.ResponseWriter, r *http.Request) {
-	caller, ok := httpx.ConsoleCaller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in replyRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.support.Reply(r.Context(), in.ID, in.Key, supportsvc.ReplyInput{Body: in.Body, ReplyTo: in.ReplyTo},
-		audit.ByMember(caller))
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusCreated, out)
+	httpx.ServeConsole(w, r, h.log, http.StatusCreated, func(caller authn.ConsoleMember, in replyRequest) (supportsvc.ConsoleMessage, error) {
+		return h.support.Reply(r.Context(), in.ID, in.Key, supportsvc.ReplyInput{Body: in.Body, ReplyTo: in.ReplyTo},
+			audit.ByMember(caller))
+	})
 }
 
 // ResolveTicket serves POST /v1/console/support/tickets/{id}/resolve.
 func (h *Handler) ResolveTicket(w http.ResponseWriter, r *http.Request) {
-	caller, ok := httpx.ConsoleCaller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in ticketRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.support.Resolve(r.Context(), in.ID, audit.ByMember(caller))
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(caller authn.ConsoleMember, in ticketRequest) (supportsvc.ConsoleTicket, error) {
+		return h.support.Resolve(r.Context(), in.ID, audit.ByMember(caller))
+	})
 }
 
 // ReopenTicket serves POST /v1/console/support/tickets/{id}/reopen.
 func (h *Handler) ReopenTicket(w http.ResponseWriter, r *http.Request) {
-	caller, ok := httpx.ConsoleCaller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in ticketRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.support.Reopen(r.Context(), in.ID, audit.ByMember(caller))
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(caller authn.ConsoleMember, in ticketRequest) (supportsvc.ConsoleTicket, error) {
+		return h.support.Reopen(r.Context(), in.ID, audit.ByMember(caller))
+	})
 }
 
 // SupportSummary serves GET /v1/console/support/summary.
 func (h *Handler) SupportSummary(w http.ResponseWriter, r *http.Request) {
-	n, err := h.support.OpenCount(r.Context())
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, map[string]int{"open": n})
+	httpx.Serve(w, r, h.log, http.StatusOK, func(_ httpx.None) (map[string]int, error) {
+		n, err := h.support.OpenCount(r.Context())
+		return map[string]int{"open": n}, err
+	})
 }

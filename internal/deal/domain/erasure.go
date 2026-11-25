@@ -19,10 +19,10 @@ func (d *Deal) PartyLeft(now time.Time) bool {
 		return true
 	}
 	switch {
-	case d.status == StatusAgreed:
+	case d.s.Status == StatusAgreed:
 		d.reopen()
-	case d.open != nil:
-		d.open = nil
+	case d.s.Open != nil:
+		d.s.Open = nil
 	default:
 		return false
 	}

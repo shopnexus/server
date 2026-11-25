@@ -22,24 +22,16 @@ const sessionColumns = `id, account_id, refresh_hash, prev_refresh_hash, coalesc
        auth_time, created_at, last_used_at, expires_at, revoked_at, coalesce(revoke_reason, ''), write_id`
 
 func scanSession(row pgx.Row) (domain.Session, error) {
-	var (
-		id, accountID, writeID                     uuid.UUID
-		refreshHash, prevRefreshHash               []byte
-		deviceName                                 string
-		authTime, createdAt, lastUsedAt, expiresAt time.Time
-		revokedAt                                  *time.Time
-		revokeReason                               string
-	)
-	err := row.Scan(&id, &accountID, &refreshHash, &prevRefreshHash, &deviceName,
-		&authTime, &createdAt, &lastUsedAt, &expiresAt, &revokedAt, &revokeReason, &writeID)
+	var st domain.SessionState
+	err := row.Scan(&st.ID, &st.AccountID, &st.RefreshHash, &st.PrevRefreshHash, &st.DeviceName,
+		&st.AuthTime, &st.CreatedAt, &st.LastUsedAt, &st.ExpiresAt, &st.RevokedAt, &st.RevokeReason, &st.WriteID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Session{}, ErrNotFound
 	}
 	if err != nil {
 		return domain.Session{}, fmt.Errorf("select session: %w", err)
 	}
-	return domain.RestoreSession(id, accountID, refreshHash, prevRefreshHash, deviceName,
-		authTime, createdAt, lastUsedAt, expiresAt, revokedAt, domain.RevokeReason(revokeReason), writeID), nil
+	return domain.RestoreSession(st), nil
 }
 
 const createSession = `

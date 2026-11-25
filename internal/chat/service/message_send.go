@@ -14,10 +14,10 @@ import (
 // already answers that message's conversation (NFR-IDEM-01), otherwise it
 // runs MessageSend. Then it reads the conversation.
 func (c *Chat) Open(ctx context.Context, buyer, key uuid.UUID, in OpenInput) (ConversationView, error) {
-	if _, err := domain.NewMessage(uuid.UUID{}, uuid.UUID{}, buyer, in.Text, in.Photos, &in.ListingID, nil, false, c.now()); err != nil {
+	if _, err := domain.NewMessage(uuid.UUID{}, uuid.UUID{}, buyer, in.Text, in.Photos, &in.ListingID, nil, false, c.d.Now()); err != nil {
 		return ConversationView{}, err
 	}
-	m, err := c.chats.MessageByKey(ctx, buyer, key)
+	m, err := c.d.Chats.MessageByKey(ctx, buyer, key)
 	if err == nil {
 		return c.Get(ctx, buyer, m.ConversationID())
 	}
@@ -38,10 +38,10 @@ func (c *Chat) Open(ctx context.Context, buyer, key uuid.UUID, in OpenInput) (Co
 // it reads the message back.
 func (c *Chat) Send(ctx context.Context, sender, conversation, key uuid.UUID, in SendInput) (MessageView, error) {
 	if _, err := domain.NewMessage(uuid.UUID{}, conversation, sender, in.Text, in.Photos, in.ListingID, in.ReplyTo,
-		in.OpensTicket, c.now()); err != nil {
+		in.OpensTicket, c.d.Now()); err != nil {
 		return MessageView{}, err
 	}
-	m, err := c.chats.MessageByKey(ctx, sender, key)
+	m, err := c.d.Chats.MessageByKey(ctx, sender, key)
 	if errors.Is(err, repository.ErrNotFound) {
 		res, callErr := c.send.Call(ctx, SendFlowInput{
 			Sender: sender, Key: key, ConversationID: conversation, ListingID: in.ListingID, Text: in.Text, Photos: in.Photos,
@@ -50,7 +50,7 @@ func (c *Chat) Send(ctx context.Context, sender, conversation, key uuid.UUID, in
 		if callErr != nil {
 			return MessageView{}, callErr
 		}
-		m, err = c.chats.GetMessage(ctx, res.MessageID)
+		m, err = c.d.Chats.GetMessage(ctx, res.MessageID)
 	}
 	if err != nil {
 		return MessageView{}, fmt.Errorf("read the message: %w", err)

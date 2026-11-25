@@ -19,7 +19,7 @@ import (
 // once within domain.DashboardTicketTTL. The member's role must reach the
 // app's floor, and DASHBOARD_HOSTS must give the app a host.
 func (s *Console) CreateDashboardTicket(ctx context.Context, caller authn.ConsoleMember, app domain.App) (DashboardTicket, error) {
-	host, configured := s.dashboardHosts[string(app)]
+	host, configured := s.d.DashboardHosts[string(app)]
 	if !configured {
 		return DashboardTicket{}, domain.ErrDashboardNotConfigured
 	}
@@ -30,9 +30,9 @@ func (s *Console) CreateDashboardTicket(ctx context.Context, caller authn.Consol
 	if !domain.Role(caller.Role).AtLeast(floor) {
 		return DashboardTicket{}, domain.ErrConsoleForbidden
 	}
-	now := s.now()
+	now := s.d.Now()
 	tok, hash := token.NewOpaque("dt_")
-	err = s.dashboards.CreateTicket(ctx, domain.DashboardTicket{
+	err = s.d.Dashboards.CreateTicket(ctx, domain.DashboardTicket{
 		TokenHash: hash, SessionID: caller.SessionID, App: app,
 		CreatedAt: now, ExpiresAt: now.Add(domain.DashboardTicketTTL),
 	})
@@ -52,9 +52,9 @@ func (s *Console) OpenDashboard(ctx context.Context, host, ticket string) (Dashb
 	if !ok {
 		return DashboardOpened{}, domain.ErrDashboardHostUnknown
 	}
-	now := s.now()
+	now := s.d.Now()
 	tok, hash := token.NewOpaque("ds_")
-	expiresAt, err := s.dashboards.Redeem(ctx, token.Hash(ticket), hash, app, now)
+	expiresAt, err := s.d.Dashboards.Redeem(ctx, token.Hash(ticket), hash, app, now)
 	if errors.Is(err, repository.ErrNotFound) {
 		return DashboardOpened{}, domain.ErrInvalidDashboardTicket
 	}
@@ -74,13 +74,13 @@ func (s *Console) AuthorizeDashboard(ctx context.Context, in DashboardCheck) (Da
 	if !ok {
 		return DashboardAccess{}, domain.ErrDashboardHostUnknown
 	}
-	g, err := s.dashboards.Live(ctx, token.Hash(in.Token), app, s.now())
+	g, err := s.d.Dashboards.Live(ctx, token.Hash(in.Token), app, s.d.Now())
 	if errors.Is(err, repository.ErrNotFound) {
 		rd := in.URI
 		if rd == "" {
 			rd = "/"
 		}
-		open := s.consoleOrigin + "/dashboards/open?" + url.Values{"app": {string(app)}, "rd": {rd}}.Encode()
+		open := s.d.ConsoleOrigin + "/dashboards/open?" + url.Values{"app": {string(app)}, "rd": {rd}}.Encode()
 		return DashboardAccess{OpenURL: open}, nil
 	}
 	if err != nil {
@@ -103,7 +103,7 @@ func (s *Console) dashboardAt(host string) (domain.App, bool) {
 		host = h
 	}
 	host = strings.ToLower(host)
-	for app, h := range s.dashboardHosts {
+	for app, h := range s.d.DashboardHosts {
 		if h == host {
 			return domain.App(app), true
 		}
@@ -117,7 +117,7 @@ func (s *Console) floorOf(ctx context.Context, app domain.App) (domain.Role, err
 	if _, known := app.Floor(); !known {
 		return "", domain.ErrDashboardNotConfigured
 	}
-	floor, err := s.dashboards.Floor(ctx, app)
+	floor, err := s.d.Dashboards.Floor(ctx, app)
 	if errors.Is(err, repository.ErrNotFound) {
 		return "", domain.ErrDashboardNotConfigured
 	}
@@ -129,7 +129,7 @@ func (s *Console) floorOf(ctx context.Context, app domain.App) (domain.Role, err
 
 // DashboardFloors lists the ops dashboards and their floors.
 func (s *Console) DashboardFloors(ctx context.Context) ([]domain.DashboardFloor, error) {
-	out, err := s.dashboards.Floors(ctx)
+	out, err := s.d.Dashboards.Floors(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list dashboard floors: %w", err)
 	}
@@ -142,7 +142,7 @@ func (s *Console) DashboardFloors(ctx context.Context) ([]domain.DashboardFloor,
 // refused on its next request.
 func (s *Console) SetDashboardFloors(ctx context.Context, caller authn.ConsoleMember, floors map[domain.App]domain.Role,
 ) ([]domain.DashboardFloor, error) {
-	now := s.now()
+	now := s.d.Now()
 	entries := make([]audit.Entry, 0, len(floors))
 	for app, floor := range floors {
 		if _, known := app.Floor(); !known {
@@ -156,7 +156,7 @@ func (s *Console) SetDashboardFloors(ctx context.Context, caller authn.ConsoleMe
 			Details: map[string]any{"app": string(app), "floor": string(floor)}, At: now,
 		})
 	}
-	err := s.dashboards.SetFloors(ctx, floors, caller.MemberID, now, entries)
+	err := s.d.Dashboards.SetFloors(ctx, floors, caller.MemberID, now, entries)
 	if errors.Is(err, repository.ErrNotFound) {
 		return nil, domain.ErrDashboardNotConfigured
 	}

@@ -5,6 +5,7 @@ import (
 	"uuid"
 
 	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -17,21 +18,9 @@ type codRequest struct {
 
 // RequestCod serves POST /v1/deals/{id}/cod.
 func (h *Handler) RequestCod(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in codRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.RequestCod(r.Context(), p.AccountID, in.ID, in.Price, in.AddressID, in.Key)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in codRequest) (service.DealView, error) {
+		return h.svc.RequestCod(r.Context(), p.AccountID, in.ID, in.Price, in.AddressID, in.Key)
+	})
 }
 
 // shipmentRequest is ShipmentDraft.
@@ -56,42 +45,18 @@ type confirmRequest struct {
 
 // CreateShipment serves POST /v1/orders/{order_id}/shipment.
 func (h *Handler) CreateShipment(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in shipmentRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	ship := service.ShipmentInput{Carrier: in.Carrier, Service: in.Service, WeightGrams: in.WeightGrams, Pickup: in.Pickup}
-	if f := in.PickupFrom; f != nil {
-		ship.PickupPointID, ship.PickupAddressID, ship.SavedPickup = f.CarrierPickupID, f.AddressID, f.SavedPickup
-	}
-	v, err := h.svc.CreateShipment(r.Context(), p.AccountID, in.OrderID, in.Key, ship)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in shipmentRequest) (service.DealView, error) {
+		ship := service.ShipmentInput{Carrier: in.Carrier, Service: in.Service, WeightGrams: in.WeightGrams, Pickup: in.Pickup}
+		if f := in.PickupFrom; f != nil {
+			ship.PickupPointID, ship.PickupAddressID, ship.SavedPickup = f.CarrierPickupID, f.AddressID, f.SavedPickup
+		}
+		return h.svc.CreateShipment(r.Context(), p.AccountID, in.OrderID, in.Key, ship)
+	})
 }
 
 // ConfirmReceipt serves POST /v1/orders/{order_id}/confirm.
 func (h *Handler) ConfirmReceipt(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in confirmRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.ConfirmReceipt(r.Context(), p.AccountID, in.OrderID, in.Key)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in confirmRequest) (service.DealView, error) {
+		return h.svc.ConfirmReceipt(r.Context(), p.AccountID, in.OrderID, in.Key)
+	})
 }

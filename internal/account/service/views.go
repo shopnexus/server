@@ -34,7 +34,7 @@ func (s *Account) view(a domain.Account, now time.Time) AccountView {
 		AwayUntil: a.AwayUntil(now), LastActiveAt: a.LastActiveAt(),
 	}
 	if a.AvatarKey() != "" {
-		v.AvatarURL = s.media.URL(a.AvatarKey())
+		v.AvatarURL = s.d.Media.URL(a.AvatarKey())
 	}
 	return v
 }
@@ -112,15 +112,15 @@ type Follower struct {
 // reauthenticate. The spec's oneOf holds it to exactly one of a phone
 // token, a Google ID token and an email code.
 type Proof struct {
-	PhoneToken  string
-	GoogleToken string
-	EmailCode   *EmailCode
+	PhoneToken  string     `json:"phone_token"`
+	GoogleToken string     `json:"google_token"`
+	EmailCode   *EmailCode `json:"email_code"`
 }
 
 // EmailCode is the code a person typed and the challenge it was mailed with.
 type EmailCode struct {
-	ChallengeID uuid.UUID
-	Code        string
+	ChallengeID uuid.UUID `json:"challenge_id"`
+	Code        string    `json:"code"`
 }
 
 // SignInInput is a proof. A repeated Key with a proof of the same

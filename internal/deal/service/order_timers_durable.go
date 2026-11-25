@@ -30,32 +30,17 @@ type OrderRef struct {
 // race reads the deal again.
 type OrderTimers struct{ Deals *Deals }
 
-func (s OrderTimers) ServiceName() string { return s.Deals.prefix + orderTimers }
+func (s OrderTimers) ServiceName() string { return s.Deals.d.Prefix + orderTimers }
 
 // SellerTimeout is UC-DEAL-06 A1: it cancels a pending order whose seller
 // made no shipment within Waits.Seller. A pending order holds no listing.
 func (s OrderTimers) SellerTimeout(ctx restate.Context, ref OrderRef) error {
-	at, err := restatex.Now(ctx, s.Deals.now)
+	at, err := restatex.Now(ctx, s.Deals.d.Now)
 	if err != nil {
 		return err
 	}
-	for {
-		m, loadErr := systemLoadStep(ctx, s.Deals, ref.DealID)
-		if loadErr != nil {
-			return loadErr
-		}
-		d := domain.RestoreDeal(m.Deal)
-		if errors.Is(d.SellerTimeout(ref.OrderID, at), domain.ErrMoveNotAllowed) {
-			return nil // the order moved on
-		}
-		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)
-		if saveErr != nil {
-			return saveErr
-		}
-		if refused == nil {
-			return nil
-		}
-	}
+	_, _, _, err = s.timeout(ctx, ref, at, (*domain.Deal).SellerTimeout)
+	return err
 }
 
 // PickupTimeout is UC-DEAL-06 A2: it cancels a shipped order whose parcel
@@ -65,7 +50,7 @@ func (s OrderTimers) SellerTimeout(ctx restate.Context, ref OrderRef) error {
 // instead. A carrier that has the parcel by the call off, or no longer
 // knows it, leaves the order cancelled all the same.
 func (s OrderTimers) PickupTimeout(ctx restate.Context, ref OrderRef) error {
-	at, err := restatex.Now(ctx, s.Deals.now)
+	at, err := restatex.Now(ctx, s.Deals.d.Now)
 	if err != nil {
 		return err
 	}
@@ -80,59 +65,32 @@ func (s OrderTimers) PickupTimeout(ctx restate.Context, ref OrderRef) error {
 			return readErr
 		}
 	}
-	for {
-		m, loadErr := systemLoadStep(ctx, s.Deals, ref.DealID)
-		if loadErr != nil {
-			return loadErr
-		}
-		d := domain.RestoreDeal(m.Deal)
-		if errors.Is(d.PickupTimeout(ref.OrderID, at), domain.ErrMoveNotAllowed) {
-			return nil // the order moved on
-		}
-		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)
-		if saveErr != nil {
-			return saveErr
-		}
-		if refused != nil {
-			continue
-		}
-		if err = releaseStep(ctx, s.Deals.catalog, m.Listing.ID, ref.OrderID); err != nil {
-			return err
-		}
-		if sh := d.Order().Shipment; sh.Mode == domain.ModeLinked {
-			if err = callOffStep(ctx, s.Deals.shipping, s.Deals.log, m.Deal.SellerID, *sh); err != nil {
-				return err
-			}
-		}
-		return nil
+	m, d, moved, err := s.timeout(ctx, ref, at, (*domain.Deal).PickupTimeout)
+	if err != nil || !moved {
+		return err
 	}
+	if err = releaseStep(ctx, s.Deals.d.Catalog, m.Listing.ID, ref.OrderID); err != nil {
+		return err
+	}
+	if sh := d.Order().Shipment; sh.Mode == domain.ModeLinked {
+		return callOffStep(ctx, s.Deals.d.Shipping, s.Deals.d.Log, m.Deal.SellerID, *sh)
+	}
+	return nil
 }
 
 // AutoComplete is UC-DEAL-05 A4: it completes a shipped order
 // Waits.Complete after its carrier reported the parcel delivered, unless
 // the buyer confirmed first, and marks the listing sold.
 func (s OrderTimers) AutoComplete(ctx restate.Context, ref OrderRef) error {
-	at, err := restatex.Now(ctx, s.Deals.now)
+	at, err := restatex.Now(ctx, s.Deals.d.Now)
 	if err != nil {
 		return err
 	}
-	for {
-		m, loadErr := systemLoadStep(ctx, s.Deals, ref.DealID)
-		if loadErr != nil {
-			return loadErr
-		}
-		d := domain.RestoreDeal(m.Deal)
-		if errors.Is(d.AutoComplete(ref.OrderID, at), domain.ErrMoveNotAllowed) {
-			return nil // the order moved on
-		}
-		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)
-		if saveErr != nil {
-			return saveErr
-		}
-		if refused == nil {
-			return sellStep(ctx, s.Deals.catalog, m.Listing.ID, ref.OrderID, at)
-		}
+	m, _, moved, err := s.timeout(ctx, ref, at, (*domain.Deal).AutoComplete)
+	if err != nil || !moved {
+		return err
 	}
+	return sellStep(ctx, s.Deals.d.Catalog, m.Listing.ID, ref.OrderID, at)
 }
 
 // Poll is UC-DEAL-05, step 1, when no report comes: it reads a shipped
@@ -154,7 +112,7 @@ func (s OrderTimers) Poll(ctx restate.Context, ref OrderRef) error {
 	if _, err = s.readMoved(ctx, m.Deal.SellerID, *o.Shipment); err != nil {
 		return err
 	}
-	restate.ServiceSend(ctx, s.ServiceName(), "Poll").Send(ref, restate.WithDelay(s.Deals.pollEvery))
+	restate.ServiceSend(ctx, s.ServiceName(), "Poll").Send(ref, restate.WithDelay(s.Deals.d.PollEvery))
 	return nil
 }
 
@@ -164,7 +122,7 @@ func (s OrderTimers) Poll(ctx restate.Context, ref OrderRef) error {
 // moves the order as a report would, and the timeout waits again. A read
 // that tells nothing, such as a carrier to link again, waits again too.
 func (s OrderTimers) TransitTimeout(ctx restate.Context, ref OrderRef) error {
-	at, err := restatex.Now(ctx, s.Deals.now)
+	at, err := restatex.Now(ctx, s.Deals.d.Now)
 	if err != nil {
 		return err
 	}
@@ -188,24 +146,33 @@ func (s OrderTimers) TransitTimeout(ctx restate.Context, ref OrderRef) error {
 				return err
 			}
 		}
-		restate.ServiceSend(ctx, s.ServiceName(), "TransitTimeout").Send(ref, restate.WithDelay(s.Deals.waits.Transit))
+		restate.ServiceSend(ctx, s.ServiceName(), "TransitTimeout").Send(ref, restate.WithDelay(s.Deals.d.Waits.Transit))
 		return nil
 	}
+	m, _, moved, err := s.timeout(ctx, ref, at, (*domain.Deal).TransitTimeout)
+	if err != nil || !moved {
+		return err
+	}
+	return releaseStep(ctx, s.Deals.d.Catalog, m.Listing.ID, ref.OrderID)
+}
+
+// timeout reads the deal, moves ref's order with move and saves it, reading
+// it again while a save loses a race. moved is false when the order moved
+// on already.
+func (s OrderTimers) timeout(ctx restate.Context, ref OrderRef, at time.Time,
+	move func(d *domain.Deal, order uuid.UUID, now time.Time) error,
+) (m loaded, d domain.Deal, moved bool, err error) {
 	for {
-		m, err = systemLoadStep(ctx, s.Deals, ref.DealID)
-		if err != nil {
-			return err
+		if m, err = systemLoadStep(ctx, s.Deals, ref.DealID); err != nil {
+			return m, d, false, err
 		}
-		d := domain.RestoreDeal(m.Deal)
-		if errors.Is(d.TransitTimeout(ref.OrderID, at), domain.ErrMoveNotAllowed) {
-			return nil // the order moved on
+		d = domain.RestoreDeal(m.Deal)
+		if errors.Is(move(&d, ref.OrderID, at), domain.ErrMoveNotAllowed) {
+			return m, d, false, nil
 		}
-		refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)
-		if saveErr != nil {
-			return saveErr
-		}
-		if refused == nil {
-			return releaseStep(ctx, s.Deals.catalog, m.Listing.ID, ref.OrderID)
+		refused, saveErr := saveStep(ctx, s.Deals.d.Deals, &d, uuid.Nil(), at)
+		if saveErr != nil || refused == nil {
+			return m, d, saveErr == nil, saveErr
 		}
 	}
 }
@@ -231,7 +198,7 @@ func (r carrierRead) newFee(sh domain.Shipment) bool {
 // again, tells nothing.
 func (s OrderTimers) read(ctx restate.Context, seller uuid.UUID, sh domain.Shipment) (carrierRead, error) {
 	r, err := restate.Run(ctx, func(rc restate.RunContext) (carrierRead, error) {
-		p, readErr := s.Deals.shipping.Track(rc, seller, carrier.Carrier(sh.Carrier), sh.TrackingCode)
+		p, readErr := s.Deals.d.Shipping.Track(rc, seller, carrier.Carrier(sh.Carrier), sh.TrackingCode)
 		if errors.Is(readErr, carrier.ErrNotFound) {
 			return carrierRead{Gone: true}, nil
 		}
@@ -255,7 +222,7 @@ func (s OrderTimers) read(ctx restate.Context, seller uuid.UUID, sh domain.Shipm
 
 // move sends ShipmentUpdates what the carrier read tells of sh.
 func (s OrderTimers) move(ctx restate.Context, sh domain.Shipment, r carrierRead) error {
-	if _, err := restate.Service[ShipmentResult](ctx, s.Deals.prefix+shipmentUpdates, flowHandler).
+	if _, err := restate.Service[ShipmentResult](ctx, s.Deals.d.Prefix+shipmentUpdates, flowHandler).
 		Request(ShipmentSignal{Carrier: sh.Carrier, TrackingCode: sh.TrackingCode, Status: r.Status, At: r.At, Fee: r.Fee}); err != nil {
 		return fmt.Errorf("move the order: %w", err)
 	}

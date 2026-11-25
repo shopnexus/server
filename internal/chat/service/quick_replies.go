@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Chat) QuickReplies(ctx context.Context, account uuid.UUID, t locale.Tag) (QuickReplies, error) {
-	items, saved, err := s.replies.Get(ctx, account)
+	items, saved, err := s.d.QuickReplies.Get(ctx, account)
 	if err != nil {
 		return QuickReplies{}, fmt.Errorf("read quick replies: %w", err)
 	}
@@ -22,17 +22,17 @@ func (s *Chat) QuickReplies(ctx context.Context, account uuid.UUID, t locale.Tag
 
 func (s *Chat) PutQuickReplies(ctx context.Context, account uuid.UUID, items []string) (QuickReplies, error) {
 	items = domain.TrimQuickReplies(items)
-	if err := s.replies.Put(ctx, account, items); err != nil {
+	if err := s.d.QuickReplies.Put(ctx, account, items); err != nil {
 		return QuickReplies{}, fmt.Errorf("save quick replies: %w", err)
 	}
 	return QuickReplies{Items: items}, nil
 }
 
 func (s *Chat) DeleteAccount(ctx context.Context, account uuid.UUID) error {
-	if err := s.replies.Delete(ctx, account); err != nil {
+	if err := s.d.QuickReplies.Delete(ctx, account); err != nil {
 		return fmt.Errorf("delete quick replies: %w", err)
 	}
-	if err := s.chats.DeleteReplySamples(ctx, account); err != nil {
+	if err := s.d.Chats.DeleteReplySamples(ctx, account); err != nil {
 		return fmt.Errorf("delete reply samples: %w", err)
 	}
 	return nil

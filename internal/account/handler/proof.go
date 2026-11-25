@@ -1,8 +1,6 @@
 package handler
 
 import (
-	"uuid"
-
 	"github.com/shopnexus/server/internal/account/service"
 )
 
@@ -10,22 +8,7 @@ import (
 // reauthentication body: SignInRequest or ProofRequest in the spec. The
 // spec validator has checked that exactly one is set.
 type proofBody struct {
-	PhoneToken  string         `json:"phone_token"`
-	GoogleToken string         `json:"google_token"`
-	EmailCode   *emailCodeBody `json:"email_code"`
-}
-
-type emailCodeBody struct {
-	ChallengeID uuid.UUID `json:"challenge_id"`
-	Code        string    `json:"code"`
-}
-
-func (b proofBody) proof() service.Proof {
-	p := service.Proof{PhoneToken: b.PhoneToken, GoogleToken: b.GoogleToken}
-	if b.EmailCode != nil {
-		p.EmailCode = &service.EmailCode{ChallengeID: b.EmailCode.ChallengeID, Code: b.EmailCode.Code}
-	}
-	return p
+	service.Proof
 }
 
 // method names the proof for login_total.

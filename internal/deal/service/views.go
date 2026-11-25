@@ -167,19 +167,19 @@ func view(viewer uuid.UUID, d domain.Deal, l catalogsvc.Summary, moves []domain.
 
 // read builds d's view for viewer, reading its moves and its order's place.
 func (s *Deals) read(ctx context.Context, viewer uuid.UUID, d domain.Deal, l catalogsvc.Summary) (DealView, error) {
-	moves, err := s.deals.Moves(ctx, []uuid.UUID{d.ID()})
+	moves, err := s.d.Deals.Moves(ctx, []uuid.UUID{d.ID()})
 	if err != nil {
 		return DealView{}, fmt.Errorf("read moves: %w", err)
 	}
 	var place catalogsvc.Location
 	if o := d.Order(); o != nil {
-		places, placeErr := s.catalog.Places(ctx, []string{o.Recipient.CommuneCode})
+		places, placeErr := s.d.Catalog.Places(ctx, []string{o.Recipient.CommuneCode})
 		if placeErr != nil {
 			return DealView{}, fmt.Errorf("read the recipient's commune: %w", placeErr)
 		}
 		place = places[o.Recipient.CommuneCode]
 	}
-	return view(viewer, d, l, moves[d.ID()], place, s.waits), nil
+	return view(viewer, d, l, moves[d.ID()], place, s.d.Waits), nil
 }
 
 // OrderFacts is what another module reads of an order: module support

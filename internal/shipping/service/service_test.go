@@ -24,42 +24,47 @@ var errNoOrder = errors.New("deal: no order has the code")
 
 // deals plays module deal: open shipments are the set given, every
 // reported code is recorded with its status, step time and fee, and a code in
-// unknown has no order yet. fails moves fail that many times first.
+// unknown has no order yet. fails moves fail that many times first, and
+// with noOrder the caller has no order to price.
 type deals struct {
 	open     map[string]bool
 	unknown  map[string]bool
 	fails    int
 	reported []string
+	noOrder  bool
 }
 
 var errMoveFailed = errors.New("deal: the move failed")
 
-func (d *deals) funcs() service.Deals {
-	return service.Deals{
-		ShipmentUpdated: func(_ context.Context, _, code, status string, at time.Time, fee *int64) error {
-			if code == "UNKNOWN" {
-				return errNoOrder
-			}
-			if d.fails > 0 {
-				d.fails--
-				return errMoveFailed
-			}
-			r := code + " " + status + " " + at.UTC().Format("15:04")
-			if fee != nil {
-				r += fmt.Sprintf(" %d", *fee)
-			}
-			d.reported = append(d.reported, r)
-			return nil
-		},
-		OpenShipmentsAt: func(_ context.Context, _ uuid.UUID, c string) (bool, error) { return d.open[c], nil },
-		QuoteFacts: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (service.QuoteFacts, error) {
-			return service.QuoteFacts{Recipient: carrier.Place{Name: "Hân", Commune: "Phường Bến Nghé", Province: "TP. Hồ Chí Minh"}, Price: 1_500_000}, nil
-		},
-		ShipmentKnown: func(_ context.Context, c, code string) (bool, error) {
-			return c == "ghtk" && code != "UNKNOWN" && !d.unknown[code], nil
-		},
-		NotFound: errNoOrder,
+func (d *deals) ShipmentUpdated(_ context.Context, _, code, status string, at time.Time, fee *int64) error {
+	if code == "UNKNOWN" {
+		return errNoOrder
 	}
+	if d.fails > 0 {
+		d.fails--
+		return errMoveFailed
+	}
+	r := code + " " + status + " " + at.UTC().Format("15:04")
+	if fee != nil {
+		r += fmt.Sprintf(" %d", *fee)
+	}
+	d.reported = append(d.reported, r)
+	return nil
+}
+
+func (d *deals) OpenShipmentsAt(_ context.Context, _ uuid.UUID, c string) (bool, error) {
+	return d.open[c], nil
+}
+
+func (d *deals) QuoteFacts(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (service.QuoteFacts, error) {
+	if d.noOrder {
+		return service.QuoteFacts{}, errNoOrder
+	}
+	return service.QuoteFacts{Recipient: carrier.Place{Name: "Hân", Commune: "Phường Bến Nghé", Province: "TP. Hồ Chí Minh"}, Price: 1_500_000}, nil
+}
+
+func (d *deals) ShipmentKnown(_ context.Context, c, code string) (bool, error) {
+	return c == "ghtk" && code != "UNKNOWN" && !d.unknown[code], nil
 }
 
 type env struct {
@@ -88,7 +93,7 @@ func newEnv(t *testing.T, clients map[carrier.Carrier]carrier.Client) env {
 	db := pgtest.New(t)
 	e := env{rows: repository.NewAccounts(db), deals: &deals{open: map[string]bool{}, unknown: map[string]bool{}}, key: newKey(t), owner: accounttest.New(t, db)}
 	e.svc = service.New(service.Deps{
-		Accounts: e.rows, Events: repository.NewEvents(db), Clients: clients, Tokens: e.key, Deals: e.deals.funcs(), Now: time.Now,
+		Accounts: e.rows, Events: repository.NewEvents(db), Clients: clients, Tokens: e.key, Deals: e.deals, DealNotFound: errNoOrder, Now: time.Now,
 	})
 	return e
 }
@@ -321,11 +326,7 @@ func TestQuoteChecksTheShipmentThenAsksTheCarrier(t *testing.T) {
 	}
 	// Someone else's order is not found before the carrier is asked about.
 	theirs := newEnv(t, fakes())
-	theirs.svc = service.New(service.Deps{Accounts: theirs.rows, Clients: fakes(), Tokens: theirs.key, Now: time.Now, Deals: service.Deals{
-		QuoteFacts: func(context.Context, uuid.UUID, uuid.UUID, uuid.UUID) (service.QuoteFacts, error) {
-			return service.QuoteFacts{}, errNoOrder
-		},
-	}})
+	theirs.svc = service.New(service.Deps{Accounts: theirs.rows, Clients: fakes(), Tokens: theirs.key, Now: time.Now, Deals: &deals{noOrder: true}})
 	if _, err := theirs.svc.Quote(ctx, theirs.owner, "ghtk", req); !errors.Is(err, errNoOrder) {
 		t.Fatalf("someone else's order: %v", err)
 	}

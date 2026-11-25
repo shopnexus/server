@@ -3,21 +3,14 @@ package handler
 import (
 	"net/http"
 
+	"github.com/shopnexus/server/internal/console/service"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
 )
 
 // ListMembers serves GET /v1/console/members.
 func (h *Handler) ListMembers(w http.ResponseWriter, r *http.Request) {
-	var in page.Request
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.ListMembers(r.Context(), in)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.Serve(w, r, h.log, http.StatusOK, func(in page.Request) (page.Page[service.MemberView], error) {
+		return h.svc.ListMembers(r.Context(), in)
+	})
 }

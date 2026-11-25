@@ -6,6 +6,7 @@ import (
 
 	"github.com/shopnexus/server/internal/account/domain"
 	"github.com/shopnexus/server/internal/account/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -16,6 +17,10 @@ type addressRequest struct {
 	CommuneCode string             `json:"commune_code"`
 	Kind        domain.AddressKind `json:"kind"`
 	IsDefault   bool               `json:"is_default"`
+}
+
+func (a addressRequest) draft() domain.AddressDraft {
+	return domain.AddressDraft{Name: a.Name, Phone: a.Phone, Street: a.Street, CommuneCode: a.CommuneCode, Kind: a.Kind}
 }
 
 type addressCreateRequest struct {
@@ -40,92 +45,36 @@ type addressList struct {
 
 // Addresses serves GET /v1/addresses.
 func (h *Handler) Addresses(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	out, err := h.svc.Addresses(r.Context(), p.AccountID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, addressList{Items: out})
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, _ httpx.None) (addressList, error) {
+		out, err := h.svc.Addresses(r.Context(), p.AccountID)
+		return addressList{Items: out}, err
+	})
 }
 
 // CreateAddress serves POST /v1/addresses.
 func (h *Handler) CreateAddress(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in addressCreateRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.CreateAddress(r.Context(), p.AccountID, in.Key, domain.AddressDraft{
-		Name: in.Name, Phone: in.Phone, Street: in.Street, CommuneCode: in.CommuneCode, Kind: in.Kind,
-	}, in.IsDefault)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusCreated, out)
+	httpx.ServeCaller(w, r, h.log, http.StatusCreated, func(p authn.Principal, in addressCreateRequest) (service.AddressView, error) {
+		return h.svc.CreateAddress(r.Context(), p.AccountID, in.Key, in.draft(), in.IsDefault)
+	})
 }
 
 // UpdateAddress serves PUT /v1/addresses/{id}.
 func (h *Handler) UpdateAddress(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in addressUpdateRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.UpdateAddress(r.Context(), p.AccountID, in.ID, domain.AddressDraft{
-		Name: in.Name, Phone: in.Phone, Street: in.Street, CommuneCode: in.CommuneCode, Kind: in.Kind,
-	}, in.IsDefault)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in addressUpdateRequest) (service.AddressView, error) {
+		return h.svc.UpdateAddress(r.Context(), p.AccountID, in.ID, in.draft(), in.IsDefault)
+	})
 }
 
 // SetDefaultAddress serves POST /v1/addresses/{id}/default.
 func (h *Handler) SetDefaultAddress(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in addressIDRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.SetDefaultAddress(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in addressIDRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.SetDefaultAddress(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 // DeleteAddress serves DELETE /v1/addresses/{id}.
 func (h *Handler) DeleteAddress(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in addressIDRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.DeleteAddress(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in addressIDRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.DeleteAddress(r.Context(), p.AccountID, in.ID)
+	})
 }

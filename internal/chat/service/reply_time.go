@@ -9,7 +9,7 @@ import (
 )
 
 func (c *Chat) ReplyTime(ctx context.Context, account uuid.UUID) (domain.ReplyTime, error) {
-	samples, median, err := c.chats.ReplyWait(ctx, account, c.now().Add(-domain.ReplyTimePeriod))
+	samples, median, err := c.d.Chats.ReplyWait(ctx, account, c.d.Now().Add(-domain.ReplyTimePeriod))
 	if err != nil {
 		return "", fmt.Errorf("read the reply wait: %w", err)
 	}

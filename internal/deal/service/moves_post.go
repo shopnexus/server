@@ -16,14 +16,14 @@ import (
 // buyer's or a seller's move is sent by that side's account, the system's
 // by ShopNexus; a move of another party is logged and skipped.
 func (s *Deals) PostMoves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID) error {
-	d, err := s.deals.Get(ctx, dealID)
+	d, err := s.d.Deals.Get(ctx, dealID)
 	if errors.Is(err, repository.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
 		return fmt.Errorf("read deal: %w", err)
 	}
-	moves, err := s.deals.MovesOf(ctx, dealID, ids)
+	moves, err := s.d.Deals.MovesOf(ctx, dealID, ids)
 	if err != nil {
 		return fmt.Errorf("read moves: %w", err)
 	}
@@ -36,10 +36,10 @@ func (s *Deals) PostMoves(ctx context.Context, dealID uuid.UUID, ids []uuid.UUID
 		}
 		sender, ok := senders[m.By]
 		if !ok {
-			s.log.ErrorContext(ctx, "a move of no party goes to no chat", "deal", dealID, "move", m.ID, "by", m.By)
+			s.d.Log.ErrorContext(ctx, "a move of no party goes to no chat", "deal", dealID, "move", m.ID, "by", m.By)
 			continue
 		}
-		if err = s.chats.PostMove(ctx, chatsvc.MoveInput{
+		if err = s.d.Chats.PostMove(ctx, chatsvc.MoveInput{
 			ID: m.ID, ConversationID: d.ConversationID(), DealID: dealID, SenderID: sender,
 			Kind: string(m.Kind), By: string(m.By), Amount: m.Amount, At: m.At,
 		}); err != nil {

@@ -21,7 +21,7 @@ func (s *Account) Suspend(ctx context.Context, in SuspendInput) (ConsoleAccount,
 	if in.ID == domain.ShopNexusID {
 		return ConsoleAccount{}, domain.ErrSystemAccount
 	}
-	now := s.now()
+	now := s.d.Now()
 	a, err := s.load(ctx, in.ID)
 	if err != nil {
 		return ConsoleAccount{}, err
@@ -36,7 +36,7 @@ func (s *Account) Suspend(ctx context.Context, in SuspendInput) (ConsoleAccount,
 		details["until"] = *r.SuspendedUntil
 		ev.Payload = map[string]any{"until": r.SuspendedUntil.Format(time.RFC3339)}
 	}
-	err = s.accounts.Save(ctx, &a, uuid.NewV7(), &audit.Entry{
+	err = s.d.Accounts.Save(ctx, &a, uuid.NewV7(), &audit.Entry{
 		Actor: in.By, Action: audit.AccountSuspend, Target: audit.Account(in.ID), Details: details, At: now,
 	}, ev)
 	if errors.Is(err, repository.ErrConflict) {
@@ -54,7 +54,7 @@ func (s *Account) Unsuspend(ctx context.Context, id uuid.UUID, by audit.Actor) (
 	if id == domain.ShopNexusID {
 		return ConsoleAccount{}, domain.ErrSystemAccount
 	}
-	now := s.now()
+	now := s.d.Now()
 	a, err := s.load(ctx, id)
 	if err != nil {
 		return ConsoleAccount{}, err
@@ -66,7 +66,7 @@ func (s *Account) Unsuspend(ctx context.Context, id uuid.UUID, by audit.Actor) (
 	if !changed {
 		return consoleAccountOf(a, now), nil
 	}
-	err = s.accounts.Save(ctx, &a, uuid.NewV7(), &audit.Entry{
+	err = s.d.Accounts.Save(ctx, &a, uuid.NewV7(), &audit.Entry{
 		Actor: by, Action: audit.AccountUnsuspend, Target: audit.Account(id), At: now,
 	}, events.Event{ID: uuid.NewV7(), Kind: events.AccountUnsuspended, SubjectID: id, OccurredAt: now})
 	if errors.Is(err, repository.ErrConflict) {

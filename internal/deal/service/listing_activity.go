@@ -39,7 +39,7 @@ type ListingOrderView struct {
 // order requested first, whose seller timeout ends first. A listing without
 // a deal has no entry.
 func (s *Deals) ListingActivity(ctx context.Context, seller uuid.UUID, ids []uuid.UUID) (map[uuid.UUID]ListingActivity, error) {
-	rows, err := s.deals.OnListings(ctx, seller, ids)
+	rows, err := s.d.Deals.OnListings(ctx, seller, ids)
 	if err != nil {
 		return nil, fmt.Errorf("read deals on listings: %w", err)
 	}

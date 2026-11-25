@@ -17,14 +17,14 @@ import (
 // so the retry also gets working tokens. SignIn calls it after the SignIn
 // service.
 func (s *Account) issueSession(ctx context.Context, id, accountID, key uuid.UUID, deviceName string) (domain.Tokens, error) {
-	now := s.now()
+	now := s.d.Now()
 	sess, refresh := domain.NewSession(id, accountID, deviceName, now, now)
-	stored, err := s.sessions.Create(ctx, sess, key)
+	stored, err := s.d.Sessions.Create(ctx, sess, key)
 	if err != nil {
 		return domain.Tokens{}, fmt.Errorf("create session: %w", err)
 	}
 	if stored != sess.ID() {
-		if sess, err = s.sessions.Get(ctx, stored); err != nil {
+		if sess, err = s.d.Sessions.Get(ctx, stored); err != nil {
 			return domain.Tokens{}, fmt.Errorf("get session: %w", err)
 		}
 		// A retry must not bring back a session that was signed out since.
@@ -32,14 +32,14 @@ func (s *Account) issueSession(ctx context.Context, id, accountID, key uuid.UUID
 			return domain.Tokens{}, fmt.Errorf("retried session: %w", err)
 		}
 		refresh = sess.Rotate(now)
-		if err = s.sessions.Save(ctx, &sess, uuid.NewV7()); err != nil {
+		if err = s.d.Sessions.Save(ctx, &sess, uuid.NewV7()); err != nil {
 			if errors.Is(err, repository.ErrConflict) {
 				return domain.Tokens{}, apperr.ErrTryAgain
 			}
 			return domain.Tokens{}, fmt.Errorf("save session: %w", err)
 		}
 	}
-	tokens, err := s.signer.Tokens(sess, refresh, now)
+	tokens, err := s.d.Signer.Tokens(sess, refresh, now)
 	if err != nil {
 		return domain.Tokens{}, fmt.Errorf("issue tokens: %w", err)
 	}

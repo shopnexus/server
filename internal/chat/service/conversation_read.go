@@ -18,14 +18,14 @@ func (c *Chat) Read(ctx context.Context, account, conversation, message uuid.UUI
 	if err != nil {
 		return err
 	}
-	msg, err := c.chats.GetMessage(ctx, message)
+	msg, err := c.d.Chats.GetMessage(ctx, message)
 	if errors.Is(err, repository.ErrNotFound) || (err == nil && (msg.ConversationID() != conversation || !msg.VisibleTo(account))) {
 		return domain.ErrNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("get message: %w", err)
 	}
-	if err = c.chats.MarkRead(ctx, conversation, account, message, conv.Other(account)); err != nil {
+	if err = c.d.Chats.MarkRead(ctx, conversation, account, message, conv.Other(account)); err != nil {
 		return fmt.Errorf("mark read: %w", err)
 	}
 	return nil
@@ -39,7 +39,7 @@ func (c *Chat) MarkUnread(ctx context.Context, account, conversation uuid.UUID) 
 	if conv.Kind == domain.KindSupport {
 		return domain.ErrSupportConversation
 	}
-	if err = c.chats.MarkUnread(ctx, conversation, account); err != nil {
+	if err = c.d.Chats.MarkUnread(ctx, conversation, account); err != nil {
 		return fmt.Errorf("mark unread: %w", err)
 	}
 	return nil
@@ -53,7 +53,7 @@ func (c *Chat) Archive(ctx context.Context, account, conversation uuid.UUID) err
 	if conv.Kind == domain.KindSupport {
 		return domain.ErrSupportConversation
 	}
-	if err = c.chats.SetArchived(ctx, conversation, account, new(c.now())); err != nil {
+	if err = c.d.Chats.SetArchived(ctx, conversation, account, new(c.d.Now())); err != nil {
 		return fmt.Errorf("archive: %w", err)
 	}
 	return nil
@@ -67,7 +67,7 @@ func (c *Chat) Unarchive(ctx context.Context, account, conversation uuid.UUID) e
 	if conv.Kind == domain.KindSupport {
 		return domain.ErrSupportConversation
 	}
-	if err = c.chats.SetArchived(ctx, conversation, account, nil); err != nil {
+	if err = c.d.Chats.SetArchived(ctx, conversation, account, nil); err != nil {
 		return fmt.Errorf("unarchive: %w", err)
 	}
 	return nil

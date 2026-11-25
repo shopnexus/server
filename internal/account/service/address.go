@@ -38,7 +38,7 @@ func addressView(a domain.Address, p repository.Place) AddressView {
 
 // commune reads the place of code; found is false for an unknown code.
 func (s *Account) commune(ctx context.Context, code string) (place repository.Place, found bool, err error) {
-	place, err = s.addresses.Commune(ctx, code)
+	place, err = s.d.Addresses.Commune(ctx, code)
 	if errors.Is(err, repository.ErrNotFound) {
 		return repository.Place{}, false, nil
 	}
@@ -50,7 +50,7 @@ func (s *Account) commune(ctx context.Context, code string) (place repository.Pl
 
 // owned loads one of owner's addresses.
 func (s *Account) owned(ctx context.Context, owner, id uuid.UUID) (domain.Address, error) {
-	a, err := s.addresses.Get(ctx, owner, id)
+	a, err := s.d.Addresses.Get(ctx, owner, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.Address{}, domain.ErrAddressNotFound
 	}
@@ -61,7 +61,7 @@ func (s *Account) owned(ctx context.Context, owner, id uuid.UUID) (domain.Addres
 }
 
 func (s *Account) Addresses(ctx context.Context, owner uuid.UUID) ([]AddressView, error) {
-	list, err := s.addresses.List(ctx, owner)
+	list, err := s.d.Addresses.List(ctx, owner)
 	if err != nil {
 		return nil, fmt.Errorf("list addresses: %w", err)
 	}
@@ -90,11 +90,11 @@ func (s *Account) CreateAddress(ctx context.Context, owner, key uuid.UUID, d dom
 		return AddressView{}, err
 	}
 	id := uuid.NewV7()
-	a, err := domain.NewAddress(id, owner, d, found, s.now())
+	a, err := domain.NewAddress(id, owner, d, found, s.d.Now())
 	if err != nil {
 		return AddressView{}, err
 	}
-	if err = s.addresses.Insert(ctx, key, &a, makeDefault); err != nil {
+	if err = s.d.Addresses.Insert(ctx, key, &a, makeDefault); err != nil {
 		return AddressView{}, fmt.Errorf("insert address: %w", err)
 	}
 	if a.ID() != id {
@@ -122,7 +122,7 @@ func (s *Account) UpdateAddress(ctx context.Context, owner, id uuid.UUID, d doma
 	if err = a.Edit(d, found); err != nil {
 		return AddressView{}, err
 	}
-	err = s.addresses.Save(ctx, &a, uuid.NewV7(), makeDefault)
+	err = s.d.Addresses.Save(ctx, &a, uuid.NewV7(), makeDefault)
 	if errors.Is(err, repository.ErrConflict) {
 		return AddressView{}, apperr.ErrTryAgain
 	}
@@ -133,7 +133,7 @@ func (s *Account) UpdateAddress(ctx context.Context, owner, id uuid.UUID, d doma
 }
 
 func (s *Account) SetDefaultAddress(ctx context.Context, owner, id uuid.UUID) error {
-	err := s.addresses.SetDefault(ctx, owner, id, uuid.NewV7())
+	err := s.d.Addresses.SetDefault(ctx, owner, id, uuid.NewV7())
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrAddressNotFound
 	}
@@ -144,7 +144,7 @@ func (s *Account) SetDefaultAddress(ctx context.Context, owner, id uuid.UUID) er
 }
 
 func (s *Account) DeleteAddress(ctx context.Context, owner, id uuid.UUID) error {
-	err := s.addresses.Delete(ctx, owner, id, uuid.NewV7())
+	err := s.d.Addresses.Delete(ctx, owner, id, uuid.NewV7())
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrAddressNotFound
 	}

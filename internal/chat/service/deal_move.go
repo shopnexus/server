@@ -16,7 +16,7 @@ import (
 // it took the ID minted here.
 func (c *Chat) OpenPair(ctx context.Context, one, other uuid.UUID) (uuid.UUID, bool, error) {
 	id := uuid.NewV7()
-	conv, err := c.chats.OpenPair(ctx, domain.NewConversation(id, one, other, c.now()))
+	conv, err := c.d.Chats.OpenPair(ctx, domain.NewConversation(id, one, other, c.d.Now()))
 	if err != nil {
 		return uuid.UUID{}, false, fmt.Errorf("open conversation: %w", err)
 	}
@@ -24,7 +24,7 @@ func (c *Chat) OpenPair(ctx context.Context, one, other uuid.UUID) (uuid.UUID, b
 }
 
 func (c *Chat) DropPair(ctx context.Context, id uuid.UUID) error {
-	if err := c.chats.DropPair(ctx, id); err != nil {
+	if err := c.d.Chats.DropPair(ctx, id); err != nil {
 		return fmt.Errorf("drop conversation: %w", err)
 	}
 	return nil
@@ -36,7 +36,7 @@ func (c *Chat) DropPair(ctx context.Context, id uuid.UUID) error {
 // block changes nothing: the deal goes on across it. A move that does not
 // belong in the conversation is domain.ErrMisplacedMove.
 func (c *Chat) PostMove(ctx context.Context, in MoveInput) error {
-	conv, err := c.chats.Get(ctx, in.ConversationID)
+	conv, err := c.d.Chats.Get(ctx, in.ConversationID)
 	if errors.Is(err, repository.ErrNotFound) {
 		return fmt.Errorf("conversation %s: %w", in.ConversationID, domain.ErrMisplacedMove)
 	}
@@ -48,7 +48,7 @@ func (c *Chat) PostMove(ctx context.Context, in MoveInput) error {
 	}
 	m := domain.NewDealMessage(in.ID, conv.ID, in.SenderID,
 		domain.DealMove{DealID: in.DealID, Kind: in.Kind, By: in.By, Amount: in.Amount}, in.At)
-	if _, err = c.chats.AddMessage(ctx, m, uuid.Nil()); err != nil {
+	if _, err = c.d.Chats.AddMessage(ctx, m, uuid.Nil()); err != nil {
 		return fmt.Errorf("add the deal message: %w", err)
 	}
 	return nil

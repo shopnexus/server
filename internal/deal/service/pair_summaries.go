@@ -9,7 +9,7 @@ import (
 // PairSummaries reads the pairs' candidate deals in one query and their
 // listings in another.
 func (s *Deals) PairSummaries(ctx context.Context, viewer uuid.UUID, others []uuid.UUID) (map[uuid.UUID]PairSummary, error) {
-	deals, err := s.deals.OfPairs(ctx, viewer, others)
+	deals, err := s.d.Deals.OfPairs(ctx, viewer, others)
 	if err != nil {
 		return nil, fmt.Errorf("list deals: %w", err)
 	}
@@ -17,7 +17,7 @@ func (s *Deals) PairSummaries(ctx context.Context, viewer uuid.UUID, others []uu
 	for i := range deals {
 		ids = append(ids, deals[i].ListingID())
 	}
-	listings, err := s.catalog.Summaries(ctx, ids)
+	listings, err := s.d.Catalog.Summaries(ctx, ids)
 	if err != nil {
 		return nil, fmt.Errorf("read listings: %w", err)
 	}

@@ -64,9 +64,9 @@ func (s Signer) Tokens(x Session, refresh string, now time.Time) (Tokens, error)
 func (s Signer) Sign(x Session, now time.Time) (string, time.Time, error) {
 	exp := now.Add(AccessTTL)
 	t := jwt.NewWithClaims(jwt.SigningMethodEdDSA, accessClaims{
-		Issuer: s.issuer, Audience: jwt.ClaimStrings{s.audience}, Subject: x.accountID.String(),
+		Issuer: s.issuer, Audience: jwt.ClaimStrings{s.audience}, Subject: x.st.AccountID.String(),
 		IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(exp),
-		SessionID: x.id.String(), AuthTime: x.authTime.Unix(),
+		SessionID: x.st.ID.String(), AuthTime: x.st.AuthTime.Unix(),
 	})
 	t.Header["kid"] = s.kid
 	signed, err := t.SignedString(s.key)

@@ -3,6 +3,8 @@ package handler
 import (
 	"net/http"
 
+	"github.com/shopnexus/server/internal/console/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -13,16 +15,9 @@ type changePasswordRequest struct {
 
 // GetMe serves GET /v1/console/me.
 func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
-	caller, ok := httpx.ConsoleCaller(w, r, h.log)
-	if !ok {
-		return
-	}
-	me, err := h.svc.GetMe(r.Context(), caller)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, me)
+	httpx.ServeConsole(w, r, h.log, http.StatusOK, func(caller authn.ConsoleMember, _ httpx.None) (service.Me, error) {
+		return h.svc.GetMe(r.Context(), caller)
+	})
 }
 
 // ChangePassword serves PUT /v1/console/me/password and clears the cookie of

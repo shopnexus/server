@@ -28,6 +28,8 @@ type Settings struct {
 	// carrier without one has no webhook.
 	WebhookSecrets map[carrier.Carrier]string
 	Deals          service.Deals
+	// DealNotFound is deal's error for a code no order has.
+	DealNotFound error
 }
 
 // Mount registers the routes, the dev endpoint only while a carrier is the
@@ -39,7 +41,7 @@ func Mount(d module.Deps, s Settings, customers accountsvc.Service) module.Mount
 		_, isFake := cl.(carrier.Fake)
 		fake = fake || isFake
 	}
-	svc := service.New(service.Deps{Settings: repository.NewSettings(d.Pool), Customers: customers, Accounts: repository.NewAccounts(d.Pool), Events: repository.NewEvents(d.Pool), Clients: s.Clients, Tokens: s.Tokens, Deals: s.Deals, Now: d.Now})
+	svc := service.New(service.Deps{Settings: repository.NewSettings(d.Pool), Customers: customers, Accounts: repository.NewAccounts(d.Pool), Events: repository.NewEvents(d.Pool), Clients: s.Clients, Tokens: s.Tokens, Deals: s.Deals, DealNotFound: s.DealNotFound, Now: d.Now})
 	handler.New(svc, s.WebhookSecrets, d.Log).Register(d.Router, d.Protect, fake)
 	watch := worker.AccountWatch{Prefix: d.ServicePrefix, Shipping: svc}
 	d.Events.Subscribe(events.AccountDeleted, watch.ServiceName(), "Deleted")

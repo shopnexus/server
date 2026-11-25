@@ -19,7 +19,7 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 		return DealView{}, false, err
 	}
 	// A1. The buyer's deal on the listing opens again as it is.
-	d, err := s.deals.Find(ctx, listingID, buyer)
+	d, err := s.d.Deals.Find(ctx, listingID, buyer)
 	if err == nil {
 		v, readErr := s.read(ctx, buyer, d, l)
 		return v, false, readErr
@@ -28,7 +28,7 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 		return DealView{}, false, fmt.Errorf("find deal: %w", err)
 	}
 	// E1 · BR-MOD-02
-	status, err := s.accounts.Status(ctx, buyer)
+	status, err := s.d.Accounts.Status(ctx, buyer)
 	if err != nil {
 		return DealView{}, false, fmt.Errorf("read account status: %w", err)
 	}
@@ -36,7 +36,7 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 		return DealView{}, false, r
 	}
 	// E2 · BR-ACC-03
-	hasPhone, err := s.accounts.HasPhone(ctx, buyer)
+	hasPhone, err := s.d.Accounts.HasPhone(ctx, buyer)
 	if err != nil {
 		return DealView{}, false, fmt.Errorf("read the buyer's phone: %w", err)
 	}
@@ -48,7 +48,7 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 		return DealView{}, false, domain.ErrOwnListing
 	}
 	// E4 · BR-ACC-01
-	blocked, err := s.accounts.Blocked(ctx, buyer, l.SellerID)
+	blocked, err := s.d.Accounts.Blocked(ctx, buyer, l.SellerID)
 	if err != nil {
 		return DealView{}, false, fmt.Errorf("check block: %w", err)
 	}
@@ -60,18 +60,18 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 		return DealView{}, false, domain.ErrListingUnavailable
 	}
 	// 1. Open the pair's conversation, or reuse it.
-	conversation, opened, err := s.chats.OpenPair(ctx, buyer, l.SellerID)
+	conversation, opened, err := s.d.Chats.OpenPair(ctx, buyer, l.SellerID)
 	if err != nil {
 		return DealView{}, false, fmt.Errorf("open the conversation: %w", err)
 	}
-	d = domain.Open(uuid.NewV7(), conversation, listingID, buyer, l.SellerID, s.now())
-	created, err := s.deals.Insert(ctx, d)
+	d = domain.Open(uuid.NewV7(), conversation, listingID, buyer, l.SellerID, s.d.Now())
+	created, err := s.d.Deals.Insert(ctx, d)
 	if err != nil {
 		// A conversation opened for this deal is dropped again, unless
 		// something else uses it by then.
 		err = fmt.Errorf("insert deal: %w", err)
 		if opened {
-			if dropErr := s.chats.DropPair(ctx, conversation); dropErr != nil {
+			if dropErr := s.d.Chats.DropPair(ctx, conversation); dropErr != nil {
 				err = errors.Join(err, fmt.Errorf("drop the conversation: %w", dropErr))
 			}
 		}
@@ -80,7 +80,7 @@ func (s *Deals) Open(ctx context.Context, buyer, listingID uuid.UUID) (DealView,
 	// NFR-CONC-01: two opens at once start one deal; the one that lost the
 	// insert reads the other's.
 	if !created {
-		if d, err = s.deals.Find(ctx, listingID, buyer); err != nil {
+		if d, err = s.d.Deals.Find(ctx, listingID, buyer); err != nil {
 			return DealView{}, false, fmt.Errorf("find deal: %w", err)
 		}
 	}

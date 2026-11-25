@@ -25,42 +25,11 @@ const (
 )
 
 // Challenge is one code sent to one destination.
-type Challenge struct {
-	id         uuid.UUID
-	purpose    Purpose
-	dest       contact.Address
-	accountID  *uuid.UUID
-	codeHash   []byte
-	attempts   int
-	ip         netip.Addr
-	expiresAt  time.Time
-	createdAt  time.Time
-	consumedAt *time.Time
-	writeID    uuid.UUID
-}
+type Challenge struct{ s ChallengeState }
 
-// NewChallenge starts a challenge that expires CodeTTL after now. An
-// add_identity challenge names the account that asked for it, a sign_in one
-// nil. Its first write ID is its id.
-func NewChallenge(id uuid.UUID, purpose Purpose, dest contact.Address, accountID *uuid.UUID, ip netip.Addr, codeHash []byte, now time.Time) Challenge {
-	return Challenge{
-		id: id, purpose: purpose, dest: dest, accountID: accountID, codeHash: codeHash, ip: ip,
-		expiresAt: now.Add(CodeTTL), createdAt: now, writeID: id,
-	}
-}
-
-// RestoreChallenge rebuilds a stored challenge. Stores only.
-func RestoreChallenge(id uuid.UUID, purpose Purpose, dest contact.Address, accountID *uuid.UUID, codeHash []byte, attempts int,
-	ip netip.Addr, expiresAt, createdAt time.Time, consumedAt *time.Time, writeID uuid.UUID,
-) Challenge {
-	return Challenge{
-		id: id, purpose: purpose, dest: dest, accountID: accountID, codeHash: codeHash, attempts: attempts,
-		ip: ip, expiresAt: expiresAt, createdAt: createdAt, consumedAt: consumedAt, writeID: writeID,
-	}
-}
-
-// challengeJSON is how a Restate step journals a challenge it loaded.
-type challengeJSON struct {
+// ChallengeState is every stored field of a challenge, and how a Restate
+// step journals one it loaded. Stores only.
+type ChallengeState struct {
 	ID         uuid.UUID       `json:"id"`
 	Purpose    Purpose         `json:"purpose"`
 	Dest       contact.Address `json:"dest"`
@@ -74,45 +43,52 @@ type challengeJSON struct {
 	WriteID    uuid.UUID       `json:"write_id"`
 }
 
-func (c Challenge) MarshalJSON() ([]byte, error) {
-	return json.Marshal(challengeJSON{
-		c.id, c.purpose, c.dest, c.accountID, c.codeHash, c.attempts, c.ip,
-		c.expiresAt, c.createdAt, c.consumedAt, c.writeID,
-	})
+// NewChallenge starts a challenge that expires CodeTTL after now. An
+// add_identity challenge names the account that asked for it, a sign_in one
+// nil. Its first write ID is its id.
+func NewChallenge(id uuid.UUID, purpose Purpose, dest contact.Address, accountID *uuid.UUID, ip netip.Addr, codeHash []byte, now time.Time) Challenge {
+	return Challenge{s: ChallengeState{
+		ID: id, Purpose: purpose, Dest: dest, AccountID: accountID, CodeHash: codeHash, IP: ip,
+		ExpiresAt: now.Add(CodeTTL), CreatedAt: now, WriteID: id,
+	}}
 }
 
+// RestoreChallenge rebuilds a stored challenge. Stores only.
+func RestoreChallenge(st ChallengeState) Challenge { return Challenge{s: st} }
+
+func (c Challenge) MarshalJSON() ([]byte, error) { return json.Marshal(c.s) }
+
 func (c *Challenge) UnmarshalJSON(b []byte) error {
-	var j challengeJSON
-	if err := json.Unmarshal(b, &j); err != nil {
+	var st ChallengeState
+	if err := json.Unmarshal(b, &st); err != nil {
 		return err
 	}
-	*c = RestoreChallenge(j.ID, j.Purpose, j.Dest, j.AccountID, j.CodeHash, j.Attempts, j.IP, j.ExpiresAt, j.CreatedAt,
-		j.ConsumedAt, j.WriteID)
+	*c = Challenge{s: st}
 	return nil
 }
 
-func (c *Challenge) ID() uuid.UUID                { return c.id }
-func (c *Challenge) Purpose() Purpose             { return c.purpose }
-func (c *Challenge) Destination() contact.Address { return c.dest }
-func (c *Challenge) AccountID() *uuid.UUID        { return c.accountID }
-func (c *Challenge) CodeHash() []byte             { return c.codeHash }
-func (c *Challenge) Attempts() int                { return c.attempts }
-func (c *Challenge) IP() netip.Addr               { return c.ip }
-func (c *Challenge) ExpiresAt() time.Time         { return c.expiresAt }
-func (c *Challenge) CreatedAt() time.Time         { return c.createdAt }
-func (c *Challenge) ConsumedAt() *time.Time       { return c.consumedAt }
-func (c *Challenge) WriteID() uuid.UUID           { return c.writeID }
+func (c *Challenge) ID() uuid.UUID                { return c.s.ID }
+func (c *Challenge) Purpose() Purpose             { return c.s.Purpose }
+func (c *Challenge) Destination() contact.Address { return c.s.Dest }
+func (c *Challenge) AccountID() *uuid.UUID        { return c.s.AccountID }
+func (c *Challenge) CodeHash() []byte             { return c.s.CodeHash }
+func (c *Challenge) Attempts() int                { return c.s.Attempts }
+func (c *Challenge) IP() netip.Addr               { return c.s.IP }
+func (c *Challenge) ExpiresAt() time.Time         { return c.s.ExpiresAt }
+func (c *Challenge) CreatedAt() time.Time         { return c.s.CreatedAt }
+func (c *Challenge) ConsumedAt() *time.Time       { return c.s.ConsumedAt }
+func (c *Challenge) WriteID() uuid.UUID           { return c.s.WriteID }
 
 // Saved records that a store wrote c under writeID. Stores only.
-func (c *Challenge) Saved(writeID uuid.UUID) { c.writeID = writeID }
+func (c *Challenge) Saved(writeID uuid.UUID) { c.s.WriteID = writeID }
 
 // Open returns nil while c accepts a guess at now: not used, not expired and
 // not locked.
 func (c *Challenge) Open(now time.Time) error {
 	switch {
-	case c.consumedAt != nil, !now.Before(c.expiresAt):
+	case c.s.ConsumedAt != nil, !now.Before(c.s.ExpiresAt):
 		return ErrCodeExpired
-	case c.attempts >= MaxAttempts:
+	case c.s.Attempts >= MaxAttempts:
 		return ErrCodeLocked
 	}
 	return nil
@@ -125,10 +101,10 @@ func (c *Challenge) Verify(codeHash []byte, now time.Time) error {
 	if err := c.Open(now); err != nil {
 		return err
 	}
-	if hmac.Equal(codeHash, c.codeHash) {
-		c.consumedAt = &now
+	if hmac.Equal(codeHash, c.s.CodeHash) {
+		c.s.ConsumedAt = &now
 	} else {
-		c.attempts++
+		c.s.Attempts++
 	}
 	return c.verdict()
 }
@@ -136,7 +112,7 @@ func (c *Challenge) Verify(codeHash []byte, now time.Time) error {
 // Repeat repeats what the last counted guess decided, for a retry of the
 // request that made it: nil only when that guess consumed c with codeHash.
 func (c *Challenge) Repeat(codeHash []byte) error {
-	if c.consumedAt != nil && !hmac.Equal(codeHash, c.codeHash) {
+	if c.s.ConsumedAt != nil && !hmac.Equal(codeHash, c.s.CodeHash) {
 		return ErrCodeExpired
 	}
 	return c.verdict()
@@ -145,10 +121,10 @@ func (c *Challenge) Repeat(codeHash []byte) error {
 // verdict is what the last counted guess decided: nil when it consumed c.
 func (c *Challenge) verdict() error {
 	switch {
-	case c.consumedAt != nil:
+	case c.s.ConsumedAt != nil:
 		return nil
-	case c.attempts >= MaxAttempts:
+	case c.s.Attempts >= MaxAttempts:
 		return ErrCodeLocked
 	}
-	return ErrInvalidCode.WithAttemptsLeft(MaxAttempts - c.attempts)
+	return ErrInvalidCode.WithAttemptsLeft(MaxAttempts - c.s.Attempts)
 }

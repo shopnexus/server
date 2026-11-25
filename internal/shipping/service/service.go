@@ -71,23 +71,21 @@ type QuoteFacts struct {
 }
 
 // Deals is what shipping asks of module deal, which it does not import:
-// the app wiring closes these over deal's service.
-type Deals struct {
+// app passes deal's service.
+type Deals interface {
 	// ShipmentUpdated moves the orders whose shipment is at carrier c with
 	// code to status, of a step that happened at, and to fee when not nil;
-	// NotFound when none is.
-	ShipmentUpdated func(ctx context.Context, c, code, status string, at time.Time, fee *int64) error
+	// Deps.DealNotFound when none is.
+	ShipmentUpdated(ctx context.Context, c, code, status string, at time.Time, fee *int64) error
 	// OpenShipmentsAt tells whether a shipped order of the seller's is at
 	// carrier c.
-	OpenShipmentsAt func(ctx context.Context, seller uuid.UUID, c string) (bool, error)
+	OpenShipmentsAt(ctx context.Context, seller uuid.UUID, c string) (bool, error)
 	// QuoteFacts reads an order of the caller's, and the caller's address
 	// when it is not the zero ID.
-	QuoteFacts func(ctx context.Context, caller, order, address uuid.UUID) (QuoteFacts, error)
+	QuoteFacts(ctx context.Context, caller, order, address uuid.UUID) (QuoteFacts, error)
 	// ShipmentKnown tells whether an order, closed ones too, has a
 	// shipment at carrier c with code.
-	ShipmentKnown func(ctx context.Context, c, code string) (bool, error)
-	// NotFound is deal's error for a code no order has.
-	NotFound error
+	ShipmentKnown(ctx context.Context, c, code string) (bool, error)
 }
 
 type Deps struct {
@@ -101,7 +99,9 @@ type Deps struct {
 	// Tokens seals the carrier tokens.
 	Tokens *secret.Box
 	Deals  Deals
-	Now    func() time.Time
+	// DealNotFound is deal's error for a code no order has.
+	DealNotFound error
+	Now          func() time.Time
 }
 
 // Service is module shipping's contract.
@@ -359,7 +359,7 @@ func (s *Shipping) Quote(ctx context.Context, owner uuid.UUID, c string, in Quot
 	}
 	facts, err := s.d.Deals.QuoteFacts(ctx, owner, in.OrderID, in.AddressID)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("read the order to price: %w", err)
 	}
 	if in.SavedPickup {
 		p, pickupErr := s.SavedPickup(ctx, owner)
@@ -501,7 +501,7 @@ func (s *Shipping) DevReported(ctx context.Context, code string, ev carrier.Even
 			return s.move(ctx, string(c), code)
 		}
 	}
-	return fmt.Errorf("find %s: %w", code, s.d.Deals.NotFound)
+	return fmt.Errorf("find %s: %w", code, s.d.DealNotFound)
 }
 
 // move sends the parcel's orders the status of the timeline's newest
@@ -519,7 +519,7 @@ func (s *Shipping) move(ctx context.Context, c, code string) error {
 		return nil
 	}
 	err = s.d.Deals.ShipmentUpdated(ctx, c, code, string(st), t.StepAt, t.Fee)
-	if err != nil && !errors.Is(err, s.d.Deals.NotFound) {
+	if err != nil && !errors.Is(err, s.d.DealNotFound) {
 		return fmt.Errorf("%s reported %s %s: %w", c, code, st, err)
 	}
 	return nil

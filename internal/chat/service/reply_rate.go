@@ -15,8 +15,8 @@ type ReplyRate struct {
 }
 
 func (c *Chat) ReplyRate(ctx context.Context, account uuid.UUID) (*ReplyRate, error) {
-	now := c.now()
-	threads, err := c.chats.ReplyThreads(ctx, account, now.Add(-domain.ReplyPeriod))
+	now := c.d.Now()
+	threads, err := c.d.Chats.ReplyThreads(ctx, account, now.Add(-domain.ReplyPeriod))
 	if err != nil {
 		return nil, fmt.Errorf("read threads: %w", err)
 	}

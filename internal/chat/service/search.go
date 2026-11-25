@@ -23,7 +23,7 @@ func (c *Chat) Search(ctx context.Context, account uuid.UUID, q string, p page.R
 	if n := utf8.RuneCountInString(q); n == 0 || n > domain.MaxQuery {
 		return SearchResult{}, domain.ErrInvalidQuery
 	}
-	toks, err := c.chats.Tokens(ctx, q)
+	toks, err := c.d.Chats.Tokens(ctx, q)
 	if err != nil {
 		return SearchResult{}, fmt.Errorf("split query: %w", err)
 	}
@@ -33,11 +33,11 @@ func (c *Chat) Search(ctx context.Context, account uuid.UUID, q string, p page.R
 	t := repository.Terms{Whole: toks[:len(toks)-1], Prefix: toks[len(toks)-1]}
 	var threads []repository.InboxRow
 	if p.Cursor == (uuid.UUID{}) {
-		if threads, err = c.chats.SearchThreads(ctx, account, t, SearchThreads); err != nil {
+		if threads, err = c.d.Chats.SearchThreads(ctx, account, t, SearchThreads); err != nil {
 			return SearchResult{}, fmt.Errorf("search threads: %w", err)
 		}
 	}
-	hits, err := c.chats.SearchMessages(ctx, account, t, p)
+	hits, err := c.d.Chats.SearchMessages(ctx, account, t, p)
 	if err != nil {
 		return SearchResult{}, fmt.Errorf("search messages: %w", err)
 	}
@@ -48,7 +48,7 @@ func (c *Chat) Search(ctx context.Context, account uuid.UUID, q string, p page.R
 	for i := range hits {
 		ids = append(ids, hits[i].Other)
 	}
-	others, err := c.accounts.GetMany(ctx, ids)
+	others, err := c.d.Accounts.GetMany(ctx, ids)
 	if err != nil {
 		return SearchResult{}, fmt.Errorf("read the other members: %w", err)
 	}

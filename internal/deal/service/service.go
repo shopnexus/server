@@ -23,7 +23,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/events"
 	"github.com/shopnexus/server/internal/platform/page"
 	"github.com/shopnexus/server/internal/platform/restatex"
-	"github.com/shopnexus/server/internal/provider/carrier"
+	shippingsvc "github.com/shopnexus/server/internal/shipping/service"
 )
 
 // Service is module deal's contract.
@@ -115,7 +115,7 @@ type Service interface {
 	// QuoteFacts reads an order of the caller's as its seller, for module
 	// shipping to price: the recipient by names, the caller's address as
 	// the pickup unless address is the zero ID, and the price.
-	QuoteFacts(ctx context.Context, caller, order, address uuid.UUID) (to carrier.Place, from *carrier.Place, price int64, err error)
+	QuoteFacts(ctx context.Context, caller, order, address uuid.UUID) (shippingsvc.QuoteFacts, error)
 	// ShipmentUpdated sets the status of every shipped order whose
 	// shipment is at carrier c with trackingCode, as the carrier reports
 	// it of a step that happened at, zero for now, and its fee to fee
@@ -200,20 +200,9 @@ const flowHandler = "Run"
 
 // Deals implements Service in this process.
 type Deals struct {
-	deals    repository.Deals
-	accounts accountsvc.Service
-	catalog  catalogsvc.Service
-	chats    chatsvc.Service
-	shipping Shipping
-	waits    domain.Waits
-	// pollEvery is Deps.PollEvery.
-	pollEvery time.Duration
-	ingress   *ingress.Client
-	prefix    string
-	now       func() time.Time
-	log       *slog.Logger
-	ship      restatex.Caller[FlowInput, FlowResult]
-	confirm   restatex.Caller[FlowInput, FlowResult]
+	d       Deps
+	ship    restatex.Caller[FlowInput, FlowResult]
+	confirm restatex.Caller[FlowInput, FlowResult]
 	// requestCod and cancelOrder run DealRequestCod and DealCancelOrder.
 	requestCod  restatex.Caller[CodInput, FlowResult]
 	cancelOrder restatex.Caller[FlowInput, FlowResult]
@@ -229,8 +218,7 @@ func New(d Deps) *Deals {
 		panic("deal: Deps.Waits needs every wait, domain.OrderWaits, and Deps.PollEvery a period")
 	}
 	return &Deals{
-		deals: d.Deals, accounts: d.Accounts, catalog: d.Catalog, chats: d.Chats, shipping: d.Shipping, waits: d.Waits, pollEvery: d.PollEvery, ingress: d.Ingress,
-		prefix: d.Prefix, now: d.Now, log: d.Log,
+		d:           d,
 		ship:        restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealShip, Handler: flowHandler},
 		confirm:     restatex.Caller[FlowInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealConfirm, Handler: flowHandler},
 		requestCod:  restatex.Caller[CodInput, FlowResult]{Ingress: d.Ingress, Service: d.Prefix + dealRequestCod, Handler: flowHandler},
@@ -253,7 +241,7 @@ func (s *Deals) Durable() []restate.ServiceDefinition {
 // listing reads one listing through catalog, in any status; an unknown
 // one is catalogdomain.ErrNotFound.
 func (s *Deals) listing(ctx context.Context, id uuid.UUID) (catalogsvc.Summary, error) {
-	l, ok, err := s.catalog.Summary(ctx, id)
+	l, ok, err := s.d.Catalog.Summary(ctx, id)
 	if err != nil {
 		return catalogsvc.Summary{}, fmt.Errorf("read listing: %w", err)
 	}
@@ -266,7 +254,7 @@ func (s *Deals) listing(ctx context.Context, id uuid.UUID) (catalogsvc.Summary, 
 // own loads a deal and the caller's side of it. Anyone else gets
 // domain.ErrNotFound, so a deal's existence does not leak.
 func (s *Deals) own(ctx context.Context, caller, id uuid.UUID) (domain.Deal, domain.Party, error) {
-	d, err := s.deals.Get(ctx, id)
+	d, err := s.d.Deals.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.Deal{}, "", domain.ErrNotFound
 	}

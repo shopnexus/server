@@ -43,11 +43,11 @@ func (r ShipmentResult) Refusal() *apperr.Error { return r.Refused }
 // the completion and a pickup the transit timeout.
 type ShipmentUpdates struct{ Deals *Deals }
 
-func (s ShipmentUpdates) ServiceName() string { return s.Deals.prefix + shipmentUpdates }
+func (s ShipmentUpdates) ServiceName() string { return s.Deals.d.Prefix + shipmentUpdates }
 
 // Run is UC-DEAL-05, steps 1 and 4, for every order on the parcel.
 func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentResult, error) {
-	at, err := restatex.Now(ctx, s.Deals.now)
+	at, err := restatex.Now(ctx, s.Deals.d.Now)
 	if err != nil {
 		return ShipmentResult{}, err
 	}
@@ -58,7 +58,7 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 	// The store keeps microseconds, so a resend compares equal.
 	stepAt = stepAt.Truncate(time.Microsecond)
 	refs, err := restate.Run(ctx, func(rc restate.RunContext) ([]OrderRef, error) {
-		rows, stepErr := s.Deals.deals.OrdersWithCode(rc, string(in.Carrier), in.TrackingCode)
+		rows, stepErr := s.Deals.d.Deals.OrdersWithCode(rc, string(in.Carrier), in.TrackingCode)
 		if stepErr != nil {
 			return nil, fmt.Errorf("find the orders: %w", stepErr)
 		}
@@ -93,7 +93,7 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 			if moveErr != nil || (!changed && !feeChanged) {
 				break // a closed order, or nothing new
 			}
-			refused, saveErr := saveStep(ctx, s.Deals.deals, &d, uuid.Nil(), at)
+			refused, saveErr := saveStep(ctx, s.Deals.d.Deals, &d, uuid.Nil(), at)
 			if saveErr != nil {
 				return ShipmentResult{}, saveErr
 			}
@@ -105,16 +105,16 @@ func (s ShipmentUpdates) Run(ctx restate.Context, in ShipmentSignal) (ShipmentRe
 			after := d.Order().Shipment
 			switch {
 			case d.Order().Status == domain.OrderFailed:
-				if err = releaseStep(ctx, s.Deals.catalog, m.Listing.ID, ref.OrderID); err != nil {
+				if err = releaseStep(ctx, s.Deals.d.Catalog, m.Listing.ID, ref.OrderID); err != nil {
 					return ShipmentResult{}, err
 				}
 			case after.Status == before.Status: // a newer step of the same status
 			case after.Status == domain.ShipmentDelivered: // A4
-				restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "AutoComplete").
-					Send(ref, restate.WithDelay(s.Deals.waits.Complete))
+				restate.ServiceSend(ctx, s.Deals.d.Prefix+orderTimers, "AutoComplete").
+					Send(ref, restate.WithDelay(s.Deals.d.Waits.Complete))
 			case after.Status == domain.ShipmentInTransit:
-				restate.ServiceSend(ctx, s.Deals.prefix+orderTimers, "TransitTimeout").
-					Send(ref, restate.WithDelay(s.Deals.waits.Transit))
+				restate.ServiceSend(ctx, s.Deals.d.Prefix+orderTimers, "TransitTimeout").
+					Send(ref, restate.WithDelay(s.Deals.d.Waits.Transit))
 			default: // pending pickup, or lost before it: PickupTimeout waits
 			}
 			break

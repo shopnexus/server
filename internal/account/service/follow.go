@@ -30,21 +30,21 @@ func (s *Account) Follow(ctx context.Context, follower, followed uuid.UUID) erro
 	if other.StoredStatus() == domain.StatusDeleted {
 		return domain.ErrAccountDeleted
 	}
-	if err = s.follows.Follow(ctx, uuid.NewV7(), follower, followed, s.now()); err != nil {
+	if err = s.d.Follows.Follow(ctx, uuid.NewV7(), follower, followed, s.d.Now()); err != nil {
 		return fmt.Errorf("follow: %w", err)
 	}
 	return nil
 }
 
 func (s *Account) Unfollow(ctx context.Context, follower, followed uuid.UUID) error {
-	if err := s.follows.Unfollow(ctx, follower, followed); err != nil {
+	if err := s.d.Follows.Unfollow(ctx, follower, followed); err != nil {
 		return fmt.Errorf("unfollow: %w", err)
 	}
 	return nil
 }
 
 func (s *Account) Following(ctx context.Context, follower, followed uuid.UUID) (bool, error) {
-	following, err := s.follows.Following(ctx, follower, followed)
+	following, err := s.d.Follows.Following(ctx, follower, followed)
 	if err != nil {
 		return false, fmt.Errorf("check follow: %w", err)
 	}
@@ -52,7 +52,7 @@ func (s *Account) Following(ctx context.Context, follower, followed uuid.UUID) (
 }
 
 func (s *Account) FollowerCount(ctx context.Context, followed uuid.UUID) (int, error) {
-	n, err := s.follows.FollowerCount(ctx, followed)
+	n, err := s.d.Follows.FollowerCount(ctx, followed)
 	if err != nil {
 		return 0, fmt.Errorf("count followers: %w", err)
 	}
@@ -62,7 +62,7 @@ func (s *Account) FollowerCount(ctx context.Context, followed uuid.UUID) (int, e
 // Follows lists the accounts follower follows with their names and avatars,
 // read in one query.
 func (s *Account) Follows(ctx context.Context, follower uuid.UUID, p page.Request) (page.Page[FollowView], error) {
-	rows, err := s.follows.ListFollows(ctx, follower, p)
+	rows, err := s.d.Follows.ListFollows(ctx, follower, p)
 	if err != nil {
 		return page.Page[FollowView]{}, fmt.Errorf("list follows: %w", err)
 	}
@@ -83,7 +83,7 @@ func (s *Account) Follows(ctx context.Context, follower uuid.UUID, p page.Reques
 }
 
 func (s *Account) Followers(ctx context.Context, followed uuid.UUID, p page.Request) (page.Page[Follower], error) {
-	rows, err := s.follows.ListFollowers(ctx, followed, p)
+	rows, err := s.d.Follows.ListFollowers(ctx, followed, p)
 	if err != nil {
 		return page.Page[Follower]{}, fmt.Errorf("list followers: %w", err)
 	}

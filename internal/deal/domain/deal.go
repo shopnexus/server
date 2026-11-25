@@ -157,38 +157,25 @@ type Range struct {
 // at most one open price; agreeing reserves nothing. It lives in the
 // conversation of its buyer and seller.
 type Deal struct {
-	id             uuid.UUID
-	conversationID uuid.UUID
-	listingID      uuid.UUID
-	buyerID        uuid.UUID
-	sellerID       uuid.UUID
-	status         Status
-	open           *OpenPrice
-	listedPrice    int64
-	agreedPrice    int64
-	agreedAt       *time.Time
-	order          *Order
-	writeID        uuid.UUID
-	createdAt      time.Time
-	updatedAt      time.Time
-	pending        []Move
+	s       DealState
+	pending []Move
 }
 
 // Open starts the buyer's deal on a listing in the pair's conversation,
 // negotiating with nothing open. The first write ID is the id.
 func Open(id, conversation, listingID, buyer, seller uuid.UUID, now time.Time) Deal {
-	return Deal{
-		id: id, conversationID: conversation, listingID: listingID, buyerID: buyer, sellerID: seller,
-		status: StatusNegotiating, writeID: id, createdAt: now, updatedAt: now,
-	}
+	return Deal{s: DealState{
+		ID: id, ConversationID: conversation, ListingID: listingID, BuyerID: buyer, SellerID: seller,
+		Status: StatusNegotiating, WriteID: id, CreatedAt: now, UpdatedAt: now,
+	}}
 }
 
 // PartyOf returns account's side of the deal; false for anyone else.
 func (d *Deal) PartyOf(account uuid.UUID) (Party, bool) {
 	switch account {
-	case d.buyerID:
+	case d.s.BuyerID:
 		return Buyer, true
-	case d.sellerID:
+	case d.s.SellerID:
 		return Seller, true
 	}
 	return "", false
@@ -199,7 +186,7 @@ func (d *Deal) PartyOf(account uuid.UUID) (Party, bool) {
 // the buyer's offer. An open price the listing has voided counts as none.
 // False when by may not offer now or no amount fits.
 func (d *Deal) OfferRange(by Party, l Listing) (Range, bool) {
-	if d.status != StatusNegotiating || l.Status != ListingActive {
+	if d.s.Status != StatusNegotiating || l.Status != ListingActive {
 		return Range{}, false
 	}
 	open := d.live(l)
@@ -241,7 +228,7 @@ func (d *Deal) Offer(by Party, amount int64, l Listing, now time.Time) error {
 	if by == Seller {
 		kind = MoveCounter
 	}
-	d.open, d.listedPrice = &OpenPrice{By: by, Amount: amount, At: now}, l.Price
+	d.s.Open, d.s.ListedPrice = &OpenPrice{By: by, Amount: amount, At: now}, l.Price
 	d.record(kind, by, amount, now)
 	return nil
 }
@@ -252,12 +239,12 @@ func (d *Deal) Accept(by Party, price int64, l Listing, now time.Time) error {
 	if l.Status != ListingActive {
 		return ErrListingUnavailable
 	}
-	if d.status != StatusNegotiating {
+	if d.s.Status != StatusNegotiating {
 		return ErrMoveNotAllowed
 	}
 	open := d.live(l)
 	facing := open != nil && open.By != by
-	voided := open == nil && d.open != nil && d.open.By != by
+	voided := open == nil && d.s.Open != nil && d.s.Open.By != by
 	switch {
 	case facing && price == open.Amount:
 	case facing || voided:
@@ -265,33 +252,33 @@ func (d *Deal) Accept(by Party, price int64, l Listing, now time.Time) error {
 	default:
 		return ErrMoveNotAllowed
 	}
-	d.status, d.agreedPrice, d.agreedAt, d.open = StatusAgreed, price, &now, nil
+	d.s.Status, d.s.AgreedPrice, d.s.AgreedAt, d.s.Open = StatusAgreed, price, &now, nil
 	d.record(MoveAccept, by, price, now)
 	return nil
 }
 
 // Decline turns down the other side's open price.
 func (d *Deal) Decline(by Party, now time.Time) error {
-	if d.open == nil || d.open.By == by {
+	if d.s.Open == nil || d.s.Open.By == by {
 		return ErrMoveNotAllowed
 	}
-	d.open = nil
+	d.s.Open = nil
 	d.record(MoveDecline, by, 0, now)
 	return nil
 }
 
 // Withdraw takes back by's own open price.
 func (d *Deal) Withdraw(by Party, now time.Time) error {
-	if d.open == nil || d.open.By != by {
+	if d.s.Open == nil || d.s.Open.By != by {
 		return ErrMoveNotAllowed
 	}
-	d.open = nil
+	d.s.Open = nil
 	d.record(MoveWithdraw, by, 0, now)
 	return nil
 }
 
 func (d *Deal) CancelPendingOrder(by Party, order uuid.UUID, now time.Time) error {
-	if d.order == nil || d.order.ID != order || d.order.Status != OrderPending {
+	if d.s.Order == nil || d.s.Order.ID != order || d.s.Order.Status != OrderPending {
 		return ErrMoveNotAllowed
 	}
 	return d.Cancel(by, now)
@@ -300,7 +287,7 @@ func (d *Deal) CancelPendingOrder(by Party, order uuid.UUID, now time.Time) erro
 // Cancel drops the agreed price, and a pending order with it; the deal
 // negotiates again. A shipped order cannot be cancelled.
 func (d *Deal) Cancel(by Party, now time.Time) error {
-	if d.status != StatusAgreed {
+	if d.s.Status != StatusAgreed {
 		return ErrMoveNotAllowed
 	}
 	if o := d.openOrder(); o != nil {
@@ -324,22 +311,22 @@ func (d *Deal) Cancel(by Party, now time.Time) error {
 // or the seller's open counter, which the order agrees in the same move.
 // The order takes the ID order, which the caller picks.
 func (d *Deal) RequestCod(by Party, order uuid.UUID, price int64, r Recipient, l Listing, now time.Time) error {
-	if by != Buyer || d.status == StatusSold || d.openOrder() != nil {
+	if by != Buyer || d.s.Status == StatusSold || d.openOrder() != nil {
 		return ErrMoveNotAllowed
 	}
 	if l.Status != ListingActive {
 		return ErrListingUnavailable
 	}
-	if d.status == StatusNegotiating {
+	if d.s.Status == StatusNegotiating {
 		open := d.live(l)
 		if price != l.Price && (open == nil || open.By != Seller || price != open.Amount) {
 			return ErrPriceChanged
 		}
-		d.status, d.agreedPrice, d.agreedAt, d.open = StatusAgreed, price, &now, nil
-	} else if price != d.agreedPrice {
+		d.s.Status, d.s.AgreedPrice, d.s.AgreedAt, d.s.Open = StatusAgreed, price, &now, nil
+	} else if price != d.s.AgreedPrice {
 		return ErrPriceChanged
 	}
-	d.order = &Order{ID: order, Status: OrderPending, Price: price, Recipient: r, RequestedAt: now}
+	d.s.Order = &Order{ID: order, Status: OrderPending, Price: price, Recipient: r, RequestedAt: now}
 	d.record(MoveCodRequested, by, price, now)
 	return nil
 }
@@ -365,7 +352,7 @@ func (d *Deal) Ship(by Party, order uuid.UUID, s Shipment, l Listing, now time.T
 		return err
 	}
 	s.Status, s.PickedUpAt, s.DeliveredAt = ShipmentPendingPickup, nil, nil
-	o := d.order
+	o := d.s.Order
 	o.Status, o.Shipment, o.ShippedAt = OrderShipped, &s, &now
 	var fee int64
 	if s.Fee != nil {
@@ -462,7 +449,7 @@ func (d *Deal) FeeReported(order uuid.UUID, fee int64, at time.Time) bool {
 
 // failOrder fails the shipped order: the deal negotiates again.
 func (d *Deal) failOrder(now time.Time) {
-	d.order.Status, d.order.ClosedAt = OrderFailed, &now
+	d.s.Order.Status, d.s.Order.ClosedAt = OrderFailed, &now
 	d.reopen()
 	d.record(MoveFailed, System, 0, now)
 }
@@ -539,7 +526,7 @@ func (d *Deal) ListingChanged(l Listing, now time.Time) bool {
 		}
 		return true
 	}
-	if d.status == StatusAgreed {
+	if d.s.Status == StatusAgreed {
 		if l.Status != ListingGone {
 			return false
 		}
@@ -547,7 +534,7 @@ func (d *Deal) ListingChanged(l Listing, now time.Time) bool {
 		d.record(MoveListingClosed, System, 0, now)
 		return true
 	}
-	if d.open == nil {
+	if d.s.Open == nil {
 		return false
 	}
 	var (
@@ -557,20 +544,20 @@ func (d *Deal) ListingChanged(l Listing, now time.Time) bool {
 	switch {
 	case l.Closed():
 		kind = MoveListingClosed
-	case l.Price != d.listedPrice:
+	case l.Price != d.s.ListedPrice:
 		kind, amount = MovePriceChanged, l.Price
 	case !l.AllowOffers:
 		kind = MoveOffersClosed
 	default:
 		return false
 	}
-	d.open = nil
+	d.s.Open = nil
 	d.record(kind, System, amount, now)
 	return true
 }
 
 // Active reports a deal still negotiating or agreed.
-func (d *Deal) Active() bool { return d.status == StatusNegotiating || d.status == StatusAgreed }
+func (d *Deal) Active() bool { return d.s.Status == StatusNegotiating || d.s.Status == StatusAgreed }
 
 // TurnOf reports whether by has to act: the deal negotiates and the open
 // price l still stands behind is the other side's, or the deal is agreed
@@ -578,7 +565,7 @@ func (d *Deal) Active() bool { return d.status == StatusNegotiating || d.status 
 // a pending order, for the seller's shipment. Nobody's turn comes while an
 // order is shipped: the carrier moves it.
 func (d *Deal) TurnOf(by Party, l Listing) bool {
-	switch d.status {
+	switch d.s.Status {
 	case StatusNegotiating:
 		open := d.live(l)
 		return open != nil && open.By != by
@@ -596,37 +583,37 @@ func (d *Deal) TurnOf(by Party, l Listing) bool {
 
 // openOrder is the deal's order while pending or shipped, nil otherwise.
 func (d *Deal) openOrder() *Order {
-	if d.order != nil && d.order.Open() {
-		return d.order
+	if d.s.Order != nil && d.s.Order.Open() {
+		return d.s.Order
 	}
 	return nil
 }
 
 // cancelOrder ends the open order and drops the agreement.
 func (d *Deal) cancelOrder(by Party, reason CancelReason, now time.Time) {
-	d.order.Status, d.order.CancelledBy, d.order.CancelReason, d.order.ClosedAt = OrderCancelled, by, reason, &now
+	d.s.Order.Status, d.s.Order.CancelledBy, d.s.Order.CancelReason, d.s.Order.ClosedAt = OrderCancelled, by, reason, &now
 	d.reopen()
 	d.record(MoveOrderCancelled, by, 0, now)
 }
 
 // complete ends the shipped order completed; the deal is sold.
 func (d *Deal) complete(by Party, now time.Time) {
-	d.order.Status, d.order.ClosedAt, d.order.CompletedBy, d.status = OrderCompleted, &now, by, StatusSold
+	d.s.Order.Status, d.s.Order.ClosedAt, d.s.Order.CompletedBy, d.s.Status = OrderCompleted, &now, by, StatusSold
 	d.record(MoveCompleted, by, 0, now)
 }
 
 // reopen drops the agreement; the deal negotiates again.
-func (d *Deal) reopen() { d.status, d.agreedPrice, d.agreedAt = StatusNegotiating, 0, nil }
+func (d *Deal) reopen() { d.s.Status, d.s.AgreedPrice, d.s.AgreedAt = StatusNegotiating, 0, nil }
 
 // record adds a move to the ones the next save writes. A step of an order
 // names the deal's latest order, the one it moved.
 func (d *Deal) record(kind MoveKind, by Party, amount int64, now time.Time) {
 	m := Move{Kind: kind, By: by, Amount: amount, At: now}
 	if kind.OfOrder() {
-		m.OrderID = new(d.order.ID)
+		m.OrderID = new(d.s.Order.ID)
 	}
 	d.pending = append(d.pending, m)
-	d.updatedAt = now
+	d.s.UpdatedAt = now
 }
 
 // roundUp is the smallest multiple of Step at or above v.
@@ -635,29 +622,29 @@ func roundUp(v int64) int64 { return (v + Step - 1) / Step * Step }
 // below is the largest multiple of Step under v.
 func below(v int64) int64 { return (v - 1) / Step * Step }
 
-func (d *Deal) ID() uuid.UUID             { return d.id }
-func (d *Deal) ConversationID() uuid.UUID { return d.conversationID }
-func (d *Deal) ListingID() uuid.UUID      { return d.listingID }
-func (d *Deal) BuyerID() uuid.UUID        { return d.buyerID }
-func (d *Deal) SellerID() uuid.UUID       { return d.sellerID }
-func (d *Deal) Status() Status            { return d.status }
-func (d *Deal) AgreedPrice() int64        { return d.agreedPrice }
-func (d *Deal) AgreedAt() *time.Time      { return d.agreedAt }
+func (d *Deal) ID() uuid.UUID             { return d.s.ID }
+func (d *Deal) ConversationID() uuid.UUID { return d.s.ConversationID }
+func (d *Deal) ListingID() uuid.UUID      { return d.s.ListingID }
+func (d *Deal) BuyerID() uuid.UUID        { return d.s.BuyerID }
+func (d *Deal) SellerID() uuid.UUID       { return d.s.SellerID }
+func (d *Deal) Status() Status            { return d.s.Status }
+func (d *Deal) AgreedPrice() int64        { return d.s.AgreedPrice }
+func (d *Deal) AgreedAt() *time.Time      { return d.s.AgreedAt }
 
 // Order returns a copy of the deal's latest order, nil before the first.
 func (d *Deal) Order() *Order {
-	if d.order == nil {
+	if d.s.Order == nil {
 		return nil
 	}
-	return new(*d.order)
+	return new(*d.s.Order)
 }
 
 // OpenPrice returns a copy of the open price, nil when none is open.
 func (d *Deal) OpenPrice() *OpenPrice {
-	if d.open == nil {
+	if d.s.Open == nil {
 		return nil
 	}
-	return new(*d.open)
+	return new(*d.s.Open)
 }
 
 // Pending returns the moves made since the deal was loaded. Stores only.
@@ -683,26 +670,19 @@ type DealState struct {
 }
 
 // RestoreDeal rebuilds a stored deal. Stores only.
-func RestoreDeal(st DealState) Deal {
-	return Deal{
-		id: st.ID, conversationID: st.ConversationID, listingID: st.ListingID, buyerID: st.BuyerID, sellerID: st.SellerID, status: st.Status,
-		open: st.Open, listedPrice: st.ListedPrice, agreedPrice: st.AgreedPrice, agreedAt: st.AgreedAt,
-		order: st.Order, writeID: st.WriteID, createdAt: st.CreatedAt, updatedAt: st.UpdatedAt,
-	}
-}
+func RestoreDeal(st DealState) Deal { return Deal{s: st} }
 
-// State returns every stored field. Stores only.
+// State returns every stored field, with copies of the open price and the
+// order. Stores only.
 func (d *Deal) State() DealState {
-	return DealState{
-		ID: d.id, ConversationID: d.conversationID, ListingID: d.listingID, BuyerID: d.buyerID, SellerID: d.sellerID, Status: d.status,
-		Open: d.OpenPrice(), ListedPrice: d.listedPrice, AgreedPrice: d.agreedPrice, AgreedAt: d.agreedAt,
-		Order: d.Order(), WriteID: d.writeID, CreatedAt: d.createdAt, UpdatedAt: d.updatedAt,
-	}
+	st := d.s
+	st.Open, st.Order = d.OpenPrice(), d.Order()
+	return st
 }
 
 // Saved records that a store wrote d and its pending moves under
 // writeID. Stores only.
-func (d *Deal) Saved(writeID uuid.UUID) { d.writeID, d.pending = writeID, nil }
+func (d *Deal) Saved(writeID uuid.UUID) { d.s.WriteID, d.pending = writeID, nil }
 
 // OpenFor returns a copy of the open price l still stands behind, nil when
 // none is open or l has voided it.
@@ -717,8 +697,8 @@ func (d *Deal) OpenFor(l Listing) *OpenPrice {
 // turned off, or a listing hidden or gone voids it at once; ListingChanged
 // records that later.
 func (d *Deal) live(l Listing) *OpenPrice {
-	if d.open == nil || l.Price != d.listedPrice || !l.AllowOffers || l.Closed() {
+	if d.s.Open == nil || l.Price != d.s.ListedPrice || !l.AllowOffers || l.Closed() {
 		return nil
 	}
-	return d.open
+	return d.s.Open
 }

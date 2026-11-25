@@ -9,6 +9,7 @@ import (
 	"github.com/shopnexus/server/internal/platform/locale"
 
 	"github.com/shopnexus/server/internal/notification/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 	"github.com/shopnexus/server/internal/platform/page"
 )
@@ -34,21 +35,9 @@ func (h *Handler) Register(r *httpx.Router, protect func(http.Handler) http.Hand
 
 // List serves GET /v1/notifications.
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in page.Request
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	out, err := h.svc.List(r.Context(), p.AccountID, in, locale.Negotiate(w, r))
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, out)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in page.Request) (service.List, error) {
+		return h.svc.List(r.Context(), p.AccountID, in, locale.Negotiate(w, r))
+	})
 }
 
 type readRequest struct {
@@ -57,20 +46,9 @@ type readRequest struct {
 
 // Read serves POST /v1/notifications/{id}/read.
 func (h *Handler) Read(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in readRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.Read(r.Context(), p.AccountID, in.ID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in readRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.Read(r.Context(), p.AccountID, in.ID)
+	})
 }
 
 type readAllResponse struct {
@@ -79,16 +57,10 @@ type readAllResponse struct {
 
 // ReadAll serves POST /v1/notifications/read-all.
 func (h *Handler) ReadAll(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	ids, err := h.svc.ReadAll(r.Context(), p.AccountID)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, readAllResponse{IDs: ids})
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, _ httpx.None) (readAllResponse, error) {
+		ids, err := h.svc.ReadAll(r.Context(), p.AccountID)
+		return readAllResponse{IDs: ids}, err
+	})
 }
 
 type unreadRequest struct {
@@ -97,20 +69,9 @@ type unreadRequest struct {
 
 // MarkUnread serves POST /v1/notifications/unread.
 func (h *Handler) MarkUnread(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in unreadRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.MarkUnread(r.Context(), p.AccountID, in.IDs); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in unreadRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.MarkUnread(r.Context(), p.AccountID, in.IDs)
+	})
 }
 
 type tokenRequest struct {
@@ -119,31 +80,14 @@ type tokenRequest struct {
 
 // PutToken serves PUT /v1/me/push-token.
 func (h *Handler) PutToken(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in tokenRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	if err := h.svc.PutToken(r.Context(), p.SessionID, p.AccountID, in.Token); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, in tokenRequest) (httpx.None, error) {
+		return httpx.None{}, h.svc.PutToken(r.Context(), p.SessionID, p.AccountID, in.Token)
+	})
 }
 
 // DeleteToken serves DELETE /v1/me/push-token.
 func (h *Handler) DeleteToken(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	if err := h.svc.DeleteToken(r.Context(), p.SessionID); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+	httpx.ServeCaller(w, r, h.log, http.StatusNoContent, func(p authn.Principal, _ httpx.None) (httpx.None, error) {
+		return httpx.None{}, h.svc.DeleteToken(r.Context(), p.SessionID)
+	})
 }

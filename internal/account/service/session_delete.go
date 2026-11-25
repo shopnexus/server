@@ -14,17 +14,17 @@ import (
 // DeleteCurrentSession revokes the caller's session. Its access token keeps working until
 // it expires; the app discards it.
 func (s *Account) DeleteCurrentSession(ctx context.Context, p authn.Principal) error {
-	return s.revoke(ctx, p.SessionID, domain.RevokedSignOut, s.now())
+	return s.revoke(ctx, p.SessionID, domain.RevokedSignOut, s.d.Now())
 }
 
 // DeleteOtherSessions signs out every session of the caller's account but
 // the caller's own, after a recent sign-in.
 func (s *Account) DeleteOtherSessions(ctx context.Context, p authn.Principal) error {
-	now := s.now()
+	now := s.d.Now()
 	if now.Sub(p.AuthTime) > domain.RecentAuth {
 		return domain.ErrReauthRequired
 	}
-	if err := s.sessions.RevokeOthers(ctx, p.AccountID, p.SessionID, now, uuid.NewV7()); err != nil {
+	if err := s.d.Sessions.RevokeOthers(ctx, p.AccountID, p.SessionID, now, uuid.NewV7()); err != nil {
 		return fmt.Errorf("revoke the other sessions: %w", err)
 	}
 	return nil
@@ -32,7 +32,7 @@ func (s *Account) DeleteOtherSessions(ctx context.Context, p authn.Principal) er
 
 // DeleteSession signs one of the caller's devices out.
 func (s *Account) DeleteSession(ctx context.Context, p authn.Principal, id uuid.UUID) error {
-	sess, err := s.sessions.Get(ctx, id)
+	sess, err := s.d.Sessions.Get(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return domain.ErrSessionNotFound
 	}
@@ -42,5 +42,5 @@ func (s *Account) DeleteSession(ctx context.Context, p authn.Principal, id uuid.
 	if sess.AccountID() != p.AccountID {
 		return domain.ErrSessionNotFound
 	}
-	return s.revoke(ctx, id, domain.RevokedSignOut, s.now())
+	return s.revoke(ctx, id, domain.RevokedSignOut, s.d.Now())
 }

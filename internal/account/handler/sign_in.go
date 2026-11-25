@@ -33,7 +33,7 @@ func (h *Handler) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := h.svc.SignIn(r.Context(), service.SignInInput{
-		Key: in.Key, Proof: in.proof(), DeviceName: in.DeviceName,
+		Key: in.Key, Proof: in.Proof, DeviceName: in.DeviceName,
 		Locale: locale.FromRequest(r),
 	})
 	if err != nil {

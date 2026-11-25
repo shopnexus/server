@@ -21,18 +21,18 @@ type MessageFacts struct {
 }
 
 func (c *Chat) MessageFacts(ctx context.Context, id uuid.UUID) (MessageFacts, bool, error) {
-	m, err := c.chats.GetMessage(ctx, id)
+	m, err := c.d.Chats.GetMessage(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {
 		return MessageFacts{}, false, nil
 	}
 	if err != nil {
 		return MessageFacts{}, false, fmt.Errorf("read message: %w", err)
 	}
-	conv, err := c.chats.Get(ctx, m.ConversationID())
+	conv, err := c.d.Chats.Get(ctx, m.ConversationID())
 	if err != nil {
 		return MessageFacts{}, false, fmt.Errorf("read conversation: %w", err)
 	}
-	sender, err := c.accounts.Get(ctx, m.SenderID())
+	sender, err := c.d.Accounts.Get(ctx, m.SenderID())
 	if err != nil {
 		return MessageFacts{}, false, fmt.Errorf("read sender: %w", err)
 	}

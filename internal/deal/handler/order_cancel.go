@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"uuid"
 
+	"github.com/shopnexus/server/internal/deal/service"
+	"github.com/shopnexus/server/internal/platform/authn"
 	"github.com/shopnexus/server/internal/platform/httpx"
 )
 
@@ -14,19 +16,7 @@ type cancelOrderRequest struct {
 
 // CancelOrder serves POST /v1/orders/{order_id}/cancel.
 func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
-	p, ok := httpx.Caller(w, r, h.log)
-	if !ok {
-		return
-	}
-	var in cancelOrderRequest
-	if err := httpx.Bind(r, &in); err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	v, err := h.svc.CancelOrder(r.Context(), p.AccountID, in.OrderID, in.Key)
-	if err != nil {
-		httpx.WriteError(w, r, h.log, err)
-		return
-	}
-	httpx.Respond(w, http.StatusOK, v)
+	httpx.ServeCaller(w, r, h.log, http.StatusOK, func(p authn.Principal, in cancelOrderRequest) (service.DealView, error) {
+		return h.svc.CancelOrder(r.Context(), p.AccountID, in.OrderID, in.Key)
+	})
 }

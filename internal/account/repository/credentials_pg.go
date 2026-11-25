@@ -110,23 +110,19 @@ SELECT id, kind, identifier, last_used_at, created_at FROM identities WHERE acco
 	if err != nil {
 		return domain.Credentials{}, fmt.Errorf("select identities: %w", err)
 	}
-	identities, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Identity, error) {
-		var (
-			id        uuid.UUID
-			kind      domain.Kind
-			value     string
-			lastUsed  *time.Time
-			createdAt time.Time
-		)
-		if scanErr := row.Scan(&id, &kind, &value, &lastUsed, &createdAt); scanErr != nil {
-			return domain.Identity{}, fmt.Errorf("scan identity: %w", scanErr)
+	identities, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.IdentityState, error) {
+		var st domain.IdentityState
+		if scanErr := row.Scan(&st.ID, &st.Kind, &st.Value, &st.LastUsedAt, &st.CreatedAt); scanErr != nil {
+			return domain.IdentityState{}, fmt.Errorf("scan identity: %w", scanErr)
 		}
-		return domain.RestoreIdentity(id, kind, value, lastUsed, createdAt), nil
+		return st, nil
 	})
 	if err != nil {
 		return domain.Credentials{}, fmt.Errorf("read identities: %w", err)
 	}
-	return domain.RestoreCredentials(accountID, identities, writeID, updatedAt), nil
+	return domain.RestoreCredentials(domain.CredentialsState{
+		AccountID: accountID, Identities: identities, WriteID: writeID, UpdatedAt: updatedAt,
+	}), nil
 }
 
 func (s pgCredentials) FindIdentity(ctx context.Context, kind domain.Kind, value string) (domain.IdentityRef, error) {

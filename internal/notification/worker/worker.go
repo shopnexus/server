@@ -76,13 +76,10 @@ func (w Worker) ServiceName() string { return w.Prefix + "NotificationWorker" }
 // ones it committed, tells no one.
 func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 	ids := dealsvc.MovedIDs(e)
-	f, err := restate.Run(ctx, func(rc restate.RunContext) (domain.DealFacts, error) {
+	f, err := read(ctx, "moves", func(rc restate.RunContext) (domain.DealFacts, bool, error) {
 		facts, found, stepErr := w.Deals.Moves(rc, e.SubjectID, ids)
-		if stepErr != nil {
-			return domain.DealFacts{}, fmt.Errorf("read moves: %w", stepErr)
-		}
-		if !found {
-			return domain.DealFacts{}, nil
+		if stepErr != nil || !found {
+			return domain.DealFacts{}, found, stepErr //nolint:wrapcheck // read names the step in the error.
 		}
 		out := domain.DealFacts{
 			DealID: facts.DealID, BuyerID: facts.BuyerID, SellerID: facts.SellerID,
@@ -99,10 +96,10 @@ func (w Worker) DealMoved(ctx restate.Context, e events.Event) error {
 			}
 			out.Moves = append(out.Moves, mv)
 		}
-		return out, nil
+		return out, true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("read the deal's moves: %w", err)
+		return err
 	}
 	if f.DealID == (uuid.UUID{}) {
 		return nil
@@ -188,15 +185,11 @@ func (w Worker) ListingRejected(ctx restate.Context, e events.Event) error {
 // it read, zero for an unknown one; ListingPublished and ListingRejected
 // call it.
 func (w Worker) listing(ctx restate.Context, e events.Event, live bool) (catalogsvc.Summary, error) {
-	f, err := restate.Run(ctx, func(rc restate.RunContext) (catalogsvc.Summary, error) {
-		l, _, stepErr := w.Catalog.Summary(rc, e.SubjectID)
-		if stepErr != nil {
-			return catalogsvc.Summary{}, fmt.Errorf("read listing: %w", stepErr)
-		}
-		return l, nil // zero for an unknown listing
+	f, err := read(ctx, "listing", func(rc restate.RunContext) (catalogsvc.Summary, bool, error) {
+		return w.Catalog.Summary(rc, e.SubjectID)
 	})
 	if err != nil {
-		return catalogsvc.Summary{}, fmt.Errorf("read the listing: %w", err)
+		return catalogsvc.Summary{}, err
 	}
 	if f.ID == (uuid.UUID{}) {
 		return f, nil
@@ -207,15 +200,11 @@ func (w Worker) listing(ctx restate.Context, e events.Event, live bool) (catalog
 // TellFollower tells one follower of a listing that first went on sale,
 // unless it is no longer on sale when this runs.
 func (w Worker) TellFollower(ctx restate.Context, in FollowerNotice) error {
-	l, err := restate.Run(ctx, func(rc restate.RunContext) (catalogsvc.Summary, error) {
-		s, _, stepErr := w.Catalog.Summary(rc, in.ListingID)
-		if stepErr != nil {
-			return catalogsvc.Summary{}, fmt.Errorf("read listing: %w", stepErr)
-		}
-		return s, nil
+	l, err := read(ctx, "listing", func(rc restate.RunContext) (catalogsvc.Summary, bool, error) {
+		return w.Catalog.Summary(rc, in.ListingID)
 	})
 	if err != nil {
-		return fmt.Errorf("read the listing: %w", err)
+		return err
 	}
 	if l.Status != catalogdomain.StatusActive {
 		return nil
@@ -270,40 +259,19 @@ func (w Worker) ReviewReplied(ctx restate.Context, e events.Event) error {
 
 // reviewFacts reads a review's facts in one step; zero for a gone one.
 func (w Worker) reviewFacts(ctx restate.Context, id uuid.UUID) (trustsvc.ReviewFacts, error) {
-	f, err := restate.Run(ctx, func(rc restate.RunContext) (trustsvc.ReviewFacts, error) {
-		facts, found, stepErr := w.Trust.ReviewFacts(rc, id)
-		if stepErr != nil {
-			return trustsvc.ReviewFacts{}, fmt.Errorf("read review: %w", stepErr)
-		}
-		if !found {
-			return trustsvc.ReviewFacts{}, nil
-		}
-		return facts, nil
+	return read(ctx, "review", func(rc restate.RunContext) (trustsvc.ReviewFacts, bool, error) {
+		return w.Trust.ReviewFacts(rc, id)
 	})
-	if err != nil {
-		return trustsvc.ReviewFacts{}, fmt.Errorf("read the review: %w", err)
-	}
-	return f, nil
 }
 
 // SearchWatchMatched tells a watcher of the new listings a sweep found.
 func (w Worker) SearchWatchMatched(ctx restate.Context, e events.Event) error {
 	count, _ := e.Payload["count"].(float64) //nolint:revive // a payload without the count tells 0, which no sweep writes
-	f, err := restate.Run(ctx, func(rc restate.RunContext) (discoverysvc.WatchFacts, error) {
-		facts, found, stepErr := w.Discovery.WatchFacts(rc, e.SubjectID)
-		if stepErr != nil {
-			return discoverysvc.WatchFacts{}, fmt.Errorf("read watch: %w", stepErr)
-		}
-		if !found {
-			return discoverysvc.WatchFacts{}, nil
-		}
-		return facts, nil
+	f, err := read(ctx, "watch", func(rc restate.RunContext) (discoverysvc.WatchFacts, bool, error) {
+		return w.Discovery.WatchFacts(rc, e.SubjectID)
 	})
-	if err != nil {
-		return fmt.Errorf("read the watch: %w", err)
-	}
-	if f.ID == (uuid.UUID{}) {
-		return nil
+	if err != nil || f.ID == (uuid.UUID{}) {
+		return err
 	}
 	return w.tell(ctx, e.ID, []domain.Notice{domain.WatchMatched(f.Account, f.ID, f.Query, int(count), e.OccurredAt)})
 }
@@ -312,21 +280,11 @@ func (w Worker) SearchWatchMatched(ctx restate.Context, e events.Event) error {
 // The event reaches the handler as JSON, so a payload number is a float64.
 func (w Worker) SavedPriceDropped(ctx restate.Context, e events.Event) error {
 	price, _ := e.Payload["price"].(float64) //nolint:revive // every drop carries its price
-	f, err := restate.Run(ctx, func(rc restate.RunContext) (discoverysvc.PriceDropFacts, error) {
-		facts, found, stepErr := w.Discovery.PriceDropFacts(rc, e.SubjectID)
-		if stepErr != nil {
-			return discoverysvc.PriceDropFacts{}, fmt.Errorf("read save: %w", stepErr)
-		}
-		if !found {
-			return discoverysvc.PriceDropFacts{}, nil
-		}
-		return facts, nil
+	f, err := read(ctx, "save", func(rc restate.RunContext) (discoverysvc.PriceDropFacts, bool, error) {
+		return w.Discovery.PriceDropFacts(rc, e.SubjectID)
 	})
-	if err != nil {
-		return fmt.Errorf("read the save: %w", err)
-	}
-	if f.ID == (uuid.UUID{}) {
-		return nil
+	if err != nil || f.ID == (uuid.UUID{}) {
+		return err
 	}
 	return w.tell(ctx, e.ID, []domain.Notice{
 		domain.PriceDropped(f.Account, f.ListingID, f.Title, int64(price), f.SavedPrice, e.OccurredAt),
@@ -355,17 +313,9 @@ func (w Worker) FeedbackReplied(ctx restate.Context, e events.Event) error {
 
 // feedbackFacts reads a feedback's facts in one step; zero for a gone one.
 func (w Worker) feedbackFacts(ctx restate.Context, id uuid.UUID) (feedbacksvc.Facts, error) {
-	f, err := restate.Run(ctx, func(rc restate.RunContext) (feedbacksvc.Facts, error) {
-		facts, _, stepErr := w.Feedback.Facts(rc, id)
-		if stepErr != nil {
-			return feedbacksvc.Facts{}, fmt.Errorf("read feedback: %w", stepErr)
-		}
-		return facts, nil // zero for a gone feedback
+	return read(ctx, "feedback", func(rc restate.RunContext) (feedbacksvc.Facts, bool, error) {
+		return w.Feedback.Facts(rc, id)
 	})
-	if err != nil {
-		return feedbacksvc.Facts{}, fmt.Errorf("read the feedback: %w", err)
-	}
-	return f, nil
 }
 
 // AccountSuspended tells the account it is suspended.
@@ -394,21 +344,11 @@ func (w Worker) AccountUnsuspended(ctx restate.Context, e events.Event) error {
 // MessageSent pushes a chat message to its recipient; the inbox lists it,
 // so no notice is written.
 func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
-	f, err := restate.Run(ctx, func(rc restate.RunContext) (chatsvc.MessageFacts, error) {
-		facts, found, stepErr := w.Chats.MessageFacts(rc, e.SubjectID)
-		if stepErr != nil {
-			return chatsvc.MessageFacts{}, fmt.Errorf("read message: %w", stepErr)
-		}
-		if !found {
-			return chatsvc.MessageFacts{}, nil
-		}
-		return facts, nil
+	f, err := read(ctx, "message", func(rc restate.RunContext) (chatsvc.MessageFacts, bool, error) {
+		return w.Chats.MessageFacts(rc, e.SubjectID)
 	})
-	if err != nil {
-		return fmt.Errorf("read the message: %w", err)
-	}
-	if f.ID == (uuid.UUID{}) {
-		return nil
+	if err != nil || f.ID == (uuid.UUID{}) {
+		return err
 	}
 	write := func(tag locale.Tag) push.Message {
 		return push.Message{
@@ -420,21 +360,12 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 		// A ticket's chat pushes only to the ticket's owner and opens the
 		// ticket. ShopNexus is the title, so the body is the reply alone.
 		// A message to ShopNexus pushes nothing: the console's queue shows it.
-		ticket, stepErr := restate.Run(ctx, func(rc restate.RunContext) (uuid.UUID, error) {
+		ticket, stepErr := read(ctx, "ticket", func(rc restate.RunContext) (uuid.UUID, bool, error) {
 			v, found, readErr := w.Support.OfConversation(rc, f.RecipientID, f.ConversationID)
-			if readErr != nil {
-				return uuid.UUID{}, fmt.Errorf("read the ticket: %w", readErr)
-			}
-			if !found {
-				return uuid.UUID{}, nil
-			}
-			return v.ID, nil
+			return v.ID, found, readErr //nolint:wrapcheck // read names the step in the error.
 		})
-		if stepErr != nil {
-			return fmt.Errorf("read the chat's ticket: %w", stepErr)
-		}
-		if ticket == (uuid.UUID{}) {
-			return nil
+		if stepErr != nil || ticket == (uuid.UUID{}) {
+			return stepErr
 		}
 		write = func(tag locale.Tag) push.Message {
 			return push.Message{
@@ -444,6 +375,26 @@ func (w Worker) MessageSent(ctx restate.Context, e events.Event) error {
 		}
 	}
 	return w.deliver(ctx, f.RecipientID, domain.SwitchMessages, write)
+}
+
+// read runs get in one step and returns its facts, zero for a subject that
+// is gone (found false). what names the subject in a failure.
+func read[T any](ctx restate.Context, what string, get func(restate.RunContext) (T, bool, error)) (T, error) {
+	v, err := restate.Run(ctx, func(rc restate.RunContext) (T, error) {
+		facts, found, stepErr := get(rc)
+		var zero T
+		switch {
+		case stepErr != nil:
+			return zero, fmt.Errorf("read %s: %w", what, stepErr)
+		case !found:
+			return zero, nil
+		}
+		return facts, nil
+	})
+	if err != nil {
+		return v, fmt.Errorf("read the %s: %w", what, err)
+	}
+	return v, nil
 }
 
 // tell writes each notice, then pushes and mails it to its recipient. A
