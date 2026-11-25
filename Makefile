@@ -1,4 +1,4 @@
-.PHONY: env run test down depguard models search-eval loadtest loadtest-sessions
+.PHONY: env run test down models search-eval loadtest loadtest-sessions
 
 TEST_STACK := docker compose -f docker-compose.test.yml
 
@@ -34,12 +34,6 @@ test: env
 down:
 	docker compose down
 	$(TEST_STACK) down
-
-# Rewrites the depguard rules in .golangci.yml from the modules and layers
-# under internal/. Run it after adding a module or a layer package; a test
-# in cmd/depguardgen fails while the rules are stale.
-depguard:
-	go run ./cmd/depguardgen -root .
 
 # Downloads module ai's models into tmp/models, where .env.example's AI_*
 # point; a file already there with the right sha256 is kept.
