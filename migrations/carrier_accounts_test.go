@@ -13,8 +13,8 @@ import (
 	"github.com/shopnexus/server/internal/platform/postgres/pgtest"
 )
 
-const insertCarrierAccount = `INSERT INTO carrier_accounts (account_id, carrier, shop_code, token, nonce, linked_at)
-VALUES (@account, @carrier, 'S19159', '\x01', '\x02', now())`
+const insertCarrierAccount = `INSERT INTO carrier_accounts (account_id, carrier, shop_code, token, linked_at)
+VALUES (@account, @carrier, 'S19159', '\x0102', now())`
 
 func TestCarrierAccounts(t *testing.T) {
 	t.Parallel()
