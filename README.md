@@ -2,7 +2,7 @@
 
 The backend of ShopNexus, a C2C marketplace for used goods in Vietnam. It is one Go binary on Postgres, with Restate for flows that must survive a crash.
 
-![Home for a guest](https://raw.githubusercontent.com/shopnexus/website/main/.github/media/home-demo.gif)
+![Home for a guest](https://raw.githubusercontent.com/shopnexus/.github/main/profile/media/home-demo.gif)
 
 
 Two product rules shape the code:
