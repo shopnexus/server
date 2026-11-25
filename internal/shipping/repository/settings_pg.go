@@ -37,37 +37,35 @@ func (s pgSettings) Get(ctx context.Context, owner uuid.UUID) (domain.Settings, 
 }
 
 func (s pgSettings) Put(ctx context.Context, owner uuid.UUID, st domain.Settings) error {
-	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
-		living, err := postgres.LockLiving(ctx, tx, owner)
-		if err != nil {
-			return err
-		}
-		if !living {
-			return accountdomain.ErrSessionRevoked
-		}
-		if st.Pickup == nil {
-			_, err = tx.Exec(ctx, `DELETE FROM shipping_settings WHERE account_id = @owner`, pgx.StrictNamedArgs{"owner": owner})
-			if err != nil {
+	b := &pgx.Batch{}
+	postgres.QueueLockLiving(b, owner, accountdomain.ErrSessionRevoked)
+	if st.Pickup == nil {
+		b.Queue(`DELETE FROM shipping_settings WHERE account_id = @owner`, pgx.StrictNamedArgs{"owner": owner}).Fn = func(br pgx.BatchResults) error {
+			if _, err := br.Exec(); err != nil {
 				return fmt.Errorf("clear shipping settings: %w", err)
 			}
 			return nil
 		}
-		var id uuid.UUID
-		err = tx.QueryRow(ctx, `SELECT id FROM addresses WHERE id = @address AND account_id = @owner FOR KEY SHARE`,
-			pgx.StrictNamedArgs{"address": st.Pickup.AddressID, "owner": owner}).Scan(&id)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return accountdomain.ErrAddressNotFound
-		}
-		if err != nil {
-			return fmt.Errorf("lock pickup address: %w", err)
-		}
-		_, err = tx.Exec(ctx, `INSERT INTO shipping_settings (account_id, address_id, phone) VALUES (@owner, @address, @phone)
-ON CONFLICT (account_id) DO UPDATE SET address_id = excluded.address_id, phone = excluded.phone`,
-			pgx.StrictNamedArgs{"owner": owner, "address": id, "phone": st.Pickup.Phone})
-		if err != nil {
-			return fmt.Errorf("store shipping settings: %w", err)
-		}
-		return nil
+	} else {
+		// The address must be the owner's; its key share keeps it until commit.
+		b.Queue(`INSERT INTO shipping_settings (account_id, address_id, phone)
+SELECT @owner, id, @phone FROM addresses WHERE id = @address AND account_id = @owner FOR KEY SHARE
+ON CONFLICT (account_id) DO UPDATE SET address_id = excluded.address_id, phone = excluded.phone
+RETURNING account_id`, pgx.StrictNamedArgs{"owner": owner, "address": st.Pickup.AddressID, "phone": st.Pickup.Phone}).
+			QueryRow(func(row pgx.Row) error {
+				var id uuid.UUID
+				err := row.Scan(&id)
+				if errors.Is(err, pgx.ErrNoRows) {
+					return accountdomain.ErrAddressNotFound
+				}
+				if err != nil {
+					return fmt.Errorf("store shipping settings: %w", err)
+				}
+				return nil
+			})
+	}
+	err := pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
+		return tx.SendBatch(ctx, b).Close()
 	})
 	if err != nil {
 		return fmt.Errorf("put shipping settings: %w", err)
